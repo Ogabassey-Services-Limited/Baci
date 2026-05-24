@@ -29,6 +29,7 @@ import { submitNewOrder } from './submitNewOrder';
 import { useNewOrderLookupData } from './useNewOrderLookupData';
 import { useNewOrderUiState } from './useNewOrderUiState';
 import { useOrderBranchSelection } from './useOrderBranchSelection';
+import { useQuickAddProductMatches } from './useQuickAddProductMatches';
 
 export function useNewOrderController() {
   const { colors, shadows } = useTheme();
@@ -109,6 +110,7 @@ export function useNewOrderController() {
   const [deliveryInfo, setDeliveryInfo] = useState(createEmptyDeliveryInfo);
 
   const [customItem, setCustomItem] = useState(createEmptyCustomItemDraft);
+  const quickAddProductMatchState = useQuickAddProductMatches(customItem);
 
   // Initialize VAT status from merchant
   useEffect(() => {
@@ -227,6 +229,7 @@ export function useNewOrderController() {
     isLoadingSelectedParentProduct,
     isProductsLoading,
     isPickingVariant,
+    isLoadingQuickAddProductMatches: quickAddProductMatchState.isLoading,
     isSubmitting,
     isVatApplied,
     merchant,
@@ -238,6 +241,7 @@ export function useNewOrderController() {
     paymentStatus,
     productsError,
     productSearch,
+    quickAddProductMatches: quickAddProductMatchState.matches,
     refetchProducts,
     refetchSelectedParentProduct,
     sameAsCustomer,

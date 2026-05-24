@@ -37,6 +37,37 @@ const item = (
   quantity,
 });
 
+const itemWithCostFallbacks = (
+  created_at: string,
+  price: number,
+  quantity: number,
+  costs: {
+    orderItemCostPrice?: number | null;
+    productCostPrice?: number | null;
+    variantCostPrice?: number | null;
+  }
+): OrderItemWithJoins =>
+  ({
+    cost_price: costs.orderItemCostPrice ?? null,
+    orders: {
+      branch_id: 'branch-1',
+      created_at,
+      id: `order-${created_at}`,
+      merchant_id: 'merchant-1',
+      payment_status: 'paid',
+    },
+    price,
+    product_variants:
+      costs.variantCostPrice === undefined
+        ? null
+        : { cost_price: costs.variantCostPrice },
+    products:
+      costs.productCostPrice === undefined
+        ? null
+        : { cost_price: costs.productCostPrice },
+    quantity,
+  }) as unknown as OrderItemWithJoins;
+
 function aggregate(
   metric: MetricType,
   orders: AnalyticsOrder[] = [],
@@ -108,6 +139,34 @@ describe('aggregateAnalyticsDetail', () => {
       value: 0,
       secondaryValue: 56,
     });
+  });
+
+  it('prefers order item and variant cost overrides before product defaults', () => {
+    const orderItems = [
+      itemWithCostFallbacks('2026-01-10T00:00:00.000Z', 50, 2, {
+        orderItemCostPrice: 12,
+        productCostPrice: 30,
+        variantCostPrice: 20,
+      }),
+      itemWithCostFallbacks('2026-01-11T00:00:00.000Z', 50, 1, {
+        orderItemCostPrice: null,
+        productCostPrice: 30,
+        variantCostPrice: 20,
+      }),
+      itemWithCostFallbacks('2026-01-12T00:00:00.000Z', 50, 1, {
+        orderItemCostPrice: null,
+        productCostPrice: 30,
+        variantCostPrice: null,
+      }),
+    ];
+
+    const profits = aggregate('profits', [], orderItems);
+
+    expect(profits.data[0]).toMatchObject({
+      value: 126,
+      secondaryValue: 200,
+    });
+    expect(profits.total).toBe(126);
   });
 
   it('selects best and worst periods from finite bucket values only', () => {

@@ -19,6 +19,19 @@ interface AggregateAnalyticsDetailArgs {
   timezone: string;
 }
 
+function resolveOrderItemCostPrice(item: OrderItemWithJoins) {
+  const variant = getJoinedRecord(item.product_variants);
+  const product = getJoinedRecord(item.products);
+  const orderItemCostPrice =
+    item.cost_price == null ? null : Number(item.cost_price);
+  const variantCostPrice =
+    variant?.cost_price == null ? null : Number(variant.cost_price);
+  const productCostPrice =
+    product?.cost_price == null ? null : Number(product.cost_price);
+
+  return orderItemCostPrice ?? variantCostPrice ?? productCostPrice ?? 0;
+}
+
 export function aggregateAnalyticsDetail({
   granularity,
   metric,
@@ -60,15 +73,14 @@ export function aggregateAnalyticsDetail({
   if (metric === 'profits' || metric === 'revenue') {
     orderItems.forEach((item) => {
       const order = getJoinedRecord(item.orders);
-      const product = getJoinedRecord(item.products);
-      if (!order || !product) return;
+      if (!order) return;
 
       const date = new Date(order.created_at);
       const bucketIndex = getBucketIndex(date, granularity, timezone);
 
       if (bucketIndex >= 0 && bucketIndex < data.length) {
         const revenue = (item.price || 0) * (item.quantity || 1);
-        const cost = (product.cost_price || 0) * (item.quantity || 1);
+        const cost = resolveOrderItemCostPrice(item) * (item.quantity || 1);
         const profit = revenue - cost;
 
         if (metric === 'profits') {

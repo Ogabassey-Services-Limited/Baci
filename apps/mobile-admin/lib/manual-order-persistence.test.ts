@@ -31,6 +31,7 @@ function buildItems(orderId: string) {
       price: 280000,
       condition: 'premium_used',
       item_description: 'Battery health 89%',
+      product_match_status: 'linked' as const,
     },
   ];
 }
@@ -117,6 +118,50 @@ describe('createManualOrderWithItems', () => {
         quantity: 1,
         price: 280000,
         item_description: 'Battery health 89%',
+        product_match_status: 'linked',
+      },
+    ]);
+    expect(dependencies.deleteOrder).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries item insert without product_match_status when the schema cache is behind', async () => {
+    const warnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+    const dependencies = createDependencies({
+      insertOrderItemsResults: [
+        {
+          error: createPostgrestError(
+            "Could not find the 'product_match_status' column of 'order_items' in the schema cache"
+          ),
+        },
+        { error: null },
+      ],
+    });
+
+    const result = await createManualOrderWithItems(dependencies, {
+      order: orderPayload,
+      buildItems,
+    });
+
+    expect(result).toEqual({ id: 'order_1' });
+    expect(dependencies.insertOrderItems).toHaveBeenCalledTimes(2);
+    expect(dependencies.insertOrderItems).toHaveBeenNthCalledWith(
+      1,
+      buildItems('order_1')
+    );
+    expect(dependencies.insertOrderItems).toHaveBeenNthCalledWith(2, [
+      {
+        condition: 'premium_used',
+        item_description: 'Battery health 89%',
+        name: 'iPhone 12 128GB',
+        order_id: 'order_1',
+        price: 280000,
+        product_id: 'product_1',
+        quantity: 1,
+        variant_id: 'variant_1',
+        variant_name: 'iPhone 12 128GB · Used',
       },
     ]);
     expect(dependencies.deleteOrder).not.toHaveBeenCalled();

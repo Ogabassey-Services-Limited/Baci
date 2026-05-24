@@ -21,6 +21,7 @@ export {
 };
 
 export const AGENTIC_CHECKOUT_API_VERSION = '2026-04-30';
+export const AGENTIC_CHECKOUT_AGENT_ID = 'openai:baci-mcp';
 export const AGENTIC_CHECKOUT_USER_AGENT = 'OpenAI-Agent Baci-MCP/1.0';
 const AGENTIC_CHECKOUT_PATH = '/api/agentic/checkout_sessions';
 
@@ -67,6 +68,7 @@ export type CreateAgenticCheckoutSessionResult =
   AgenticCheckoutSessionRequestResult;
 
 export type AgenticCheckoutClientConfig = {
+  agentId?: string;
   apiBaseUrl: string;
   apiKey?: string;
   fetchImpl?: typeof fetch;
@@ -235,7 +237,9 @@ async function sendAgenticCheckoutRequest({
     requestId = config.requestIdFactory?.() ?? `mcp_checkout_${randomUUID()}`;
     const timestamp = (config.now?.() ?? new Date()).toISOString();
     const requestBody = body === undefined ? '' : JSON.stringify(body);
+    const agentId = config.agentId?.trim() ?? '';
     const signature = signAgenticRequest({
+      agentId,
       apiVersion: AGENTIC_CHECKOUT_API_VERSION,
       body: requestBody,
       idempotencyKey: idempotencyKey ?? '',
@@ -254,6 +258,9 @@ async function sendAgenticCheckoutRequest({
       timestamp,
       'user-agent': AGENTIC_CHECKOUT_USER_AGENT,
     };
+    if (agentId) {
+      headers['agent-id'] = agentId;
+    }
     if (body !== undefined) {
       headers['content-type'] = 'application/json';
     }
@@ -304,6 +311,7 @@ async function sendAgenticCheckoutRequest({
 }
 
 export function signAgenticRequest({
+  agentId,
   apiVersion,
   body,
   idempotencyKey,
@@ -313,6 +321,7 @@ export function signAgenticRequest({
   signingKey,
   timestamp,
 }: {
+  agentId?: string;
   apiVersion: string;
   body: string;
   idempotencyKey: string;
@@ -322,18 +331,22 @@ export function signAgenticRequest({
   signingKey: string;
   timestamp: string;
 }) {
+  const payload: Record<string, string> = {
+    api_version: apiVersion,
+    body,
+    idempotency_key: idempotencyKey,
+    method: method.toUpperCase(),
+    pathname,
+    request_id: requestId,
+    timestamp,
+  };
+  const trimmedAgentId = agentId?.trim() ?? '';
+  if (trimmedAgentId) {
+    payload.agent_id = trimmedAgentId;
+  }
+
   return createHmac('sha256', signingKey)
-    .update(
-      JSON.stringify({
-        api_version: apiVersion,
-        body,
-        idempotency_key: idempotencyKey,
-        method: method.toUpperCase(),
-        pathname,
-        request_id: requestId,
-        timestamp,
-      })
-    )
+    .update(JSON.stringify(payload))
     .digest('hex');
 }
 

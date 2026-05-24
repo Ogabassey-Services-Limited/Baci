@@ -167,6 +167,10 @@ export default function AdminLayout() {
         />
         <Stack.Screen name="tax" options={{ title: 'Tax Settings' }} />
         <Stack.Screen
+          name="transaction-reconciliation"
+          options={{ title: 'Match Transaction Items' }}
+        />
+        <Stack.Screen
           name="analytics-config"
           options={{ title: 'Analytics & Tracking' }}
         />

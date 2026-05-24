@@ -62,6 +62,7 @@ vi.mock('@/components/transactions/transactions.styles', () => ({
 
 const editableItem = {
   costPrice: 1200,
+  costSource: 'product' as const,
   imeiValues: ['353232106161443'],
   id: 'item-1',
   name: 'Samsung Galaxy S26',
@@ -73,10 +74,12 @@ const editableItem = {
   serialValues: ['SN-ABC-1'],
   sku: 'SG-S26',
   supplierName: 'Slot Wholesale',
+  variantId: null,
 };
 
-const nonEditableItem = {
+const customItem = {
   costPrice: null,
+  costSource: null,
   imeiValues: [],
   id: 'item-2',
   name: 'Manual adjustment',
@@ -88,6 +91,7 @@ const nonEditableItem = {
   serialValues: [],
   sku: null,
   supplierName: '',
+  variantId: null,
 };
 
 describe('TransactionOrderCard', () => {
@@ -116,16 +120,16 @@ describe('TransactionOrderCard', () => {
 
     expect(screen.getByText('Bassey')).toBeInTheDocument();
     expect(screen.getByText('ORD-1')).toBeInTheDocument();
-    expect(screen.queryByText('Supplier Slot Wholesale')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('Supplier Slot Wholesale')
+    ).not.toBeInTheDocument();
     expect(screen.getByText('chevron-down')).toBeInTheDocument();
 
     const viewDetailsButton = screen.getByRole('button', {
       name: /view order details for bassey/i,
     });
     expect(viewDetailsButton).toHaveAttribute('aria-expanded', 'false');
-    fireEvent.click(
-      viewDetailsButton
-    );
+    fireEvent.click(viewDetailsButton);
 
     expect(screen.getByText('Supplier Slot Wholesale')).toBeInTheDocument();
     expect(screen.getByText('08030000000')).toBeInTheDocument();
@@ -136,11 +140,11 @@ describe('TransactionOrderCard', () => {
       name: /close order details for bassey/i,
     });
     expect(closeDetailsButton).toHaveAttribute('aria-expanded', 'true');
-    fireEvent.click(
-      closeDetailsButton
-    );
+    fireEvent.click(closeDetailsButton);
 
-    expect(screen.queryByText('Supplier Slot Wholesale')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('Supplier Slot Wholesale')
+    ).not.toBeInTheDocument();
     expect(screen.getByText('chevron-down')).toBeInTheDocument();
   });
 
@@ -187,28 +191,29 @@ describe('TransactionOrderCard', () => {
     expect(onOpenEditor).toHaveBeenCalledWith(order, editableItem);
   });
 
-  it('renders non-product rows as disabled and without the edit icon', () => {
+  it('opens the editor for unlinked custom rows so transaction cost can be fixed', () => {
     const onOpenEditor = vi.fn();
+    const order = {
+      createdAt: '2026-04-11T09:00:00.000Z',
+      customerEmail: null,
+      customerName: 'Bassey',
+      customerPhone: null,
+      estimatedProfit: 0,
+      id: 'order-1',
+      items: [customItem],
+      missingCostCount: 1,
+      orderNumber: 'ORD-1',
+      paymentMethod: 'card',
+      searchText: 'ord-1 bassey manual adjustment',
+      total: 500,
+    };
 
     render(
       <TransactionOrderCard
         colors={LIGHT_COLORS}
         formatCurrency={(amount) => `NGN ${amount}`}
         onOpenEditor={onOpenEditor}
-        order={{
-          createdAt: '2026-04-11T09:00:00.000Z',
-          customerEmail: null,
-          customerName: 'Bassey',
-          customerPhone: null,
-          estimatedProfit: 0,
-          id: 'order-1',
-          items: [nonEditableItem],
-          missingCostCount: 1,
-          orderNumber: 'ORD-1',
-          paymentMethod: 'card',
-          searchText: 'ord-1 bassey manual adjustment',
-          total: 500,
-        }}
+        order={order}
       />
     );
 
@@ -220,9 +225,8 @@ describe('TransactionOrderCard', () => {
       name: /Manual adjustment, 1 units, revenue NGN 500/i,
     });
 
-    expect(row).toBeDisabled();
-    expect(screen.queryByText('create-outline')).not.toBeInTheDocument();
+    expect(row).not.toBeDisabled();
     fireEvent.click(row);
-    expect(onOpenEditor).not.toHaveBeenCalled();
+    expect(onOpenEditor).toHaveBeenCalledWith(order, customItem);
   });
 });

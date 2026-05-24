@@ -21,6 +21,7 @@ export interface AnalyticsOrderRow {
 }
 
 export interface AnalyticsOrderItemRow {
+  cost_price?: number | null;
   name: string | null;
   orders:
     | {
@@ -32,6 +33,14 @@ export interface AnalyticsOrderItemRow {
     | null;
   price: number | null;
   product_id: string | null;
+  product_variants?:
+    | {
+        cost_price: number | null;
+      }
+    | Array<{
+        cost_price: number | null;
+      }>
+    | null;
   products:
     | {
         brand: string | null;
@@ -57,6 +66,19 @@ export interface BlogPostRow {
 
 export function asNumber(value: number | null | undefined) {
   return Number(value ?? 0);
+}
+
+function getJoinedAnalyticsRecord<T>(value: T | T[] | null | undefined) {
+  return Array.isArray(value) ? (value[0] ?? null) : (value ?? null);
+}
+
+export function resolveOrderItemAnalyticsCost(item: AnalyticsOrderItemRow) {
+  const variant = getJoinedAnalyticsRecord(item.product_variants);
+  const product = getJoinedAnalyticsRecord(item.products);
+
+  return asNumber(
+    item.cost_price ?? variant?.cost_price ?? product?.cost_price
+  );
 }
 
 export function getPercentChange(current: number, previous: number) {
@@ -135,11 +157,9 @@ export function buildTopEntities(orderItems: AnalyticsOrderItemRow[]) {
     const quantity = asNumber(item.quantity ?? 1);
     const price = asNumber(item.price);
     const revenue = quantity * price;
-    const joinedProduct = Array.isArray(item.products)
-      ? item.products[0]
-      : item.products;
+    const joinedProduct = getJoinedAnalyticsRecord(item.products);
     const brand = joinedProduct?.brand?.trim() || 'Unknown';
-    const cost = asNumber(joinedProduct?.cost_price);
+    const cost = resolveOrderItemAnalyticsCost(item);
 
     totalProfit += (price - cost) * quantity;
     totalUnitsSold += quantity;

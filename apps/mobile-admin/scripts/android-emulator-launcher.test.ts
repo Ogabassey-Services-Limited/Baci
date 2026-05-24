@@ -189,6 +189,7 @@ describe('Android emulator launcher', () => {
     expect(launcher).toContain('BACI_ANDROID_EMULATOR_MEMORY_MB:-4096');
     expect(launcher).toContain('BACI_ANDROID_EMULATOR_CORES:-2');
     expect(launcher).toContain('BACI_ANDROID_COLD_BOOT:-0');
+    expect(launcher).toContain('BACI_ANDROID_DNS_SERVERS:-8.8.8.8,1.1.1.1');
     expect(launcher).toContain('BACI_ANDROID_SETTLE_TIMEOUT_SECONDS:-600');
     expect(launcher).toContain('BACI_ANDROID_SETTLE_LOAD_MAX:-8.0');
     expect(launcher).toContain('BACI_ANDROID_SETTLE_STABILITY_PROBES:-2');
@@ -214,7 +215,12 @@ describe('Android emulator launcher', () => {
     expect(launcher).toContain('${SDK_ROOT}/platform-tools');
     expect(launcher).toContain('${SDK_ROOT}/emulator');
     expect(launcher).toContain('${SDK_ROOT}/cmdline-tools/latest/bin');
+    expect(launcher).toContain('AVD_DIR="${ANDROID_AVD_HOME:-$HOME/.android/avd}/${AVD_NAME}.avd"');
+    expect(launcher).toContain('remove_stale_avd_locks');
+    expect(launcher).toContain("Removed stale AVD lock");
+    expect(launcher).toContain("find \"$AVD_DIR\" -maxdepth 1 -type f -name '*.lock' -print0");
     expect(launcher).toContain("'-port'");
+    expect(launcher).toContain("'-dns-server'");
     expect(launcher).toContain('run_with_timeout');
     expect(launcher).toContain('BACI_ANDROID_ADB_STABILITY_PROBES:-3');
     expect(launcher).toContain('confirm_adb_shell_stable');

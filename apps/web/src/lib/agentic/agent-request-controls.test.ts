@@ -69,7 +69,22 @@ describe('agent request controls', () => {
     });
   });
 
-  it('rejects blank user-agent when denylist controls are configured', () => {
+  it('rejects requests that match the denylist by signed agent id', () => {
+    const result = verifyAgenticRequestAccess({
+      controls: { allowlist: [], denylist: ['openai:baci-mcp'] },
+      headers: new Headers({
+        'agent-id': 'OpenAI:Baci-MCP',
+        'user-agent': 'OpenAI-Agent/2026.05',
+      }),
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: AGENTIC_AGENT_BLOCKED_ERROR,
+    });
+  });
+
+  it('rejects blank agent identity when denylist controls are configured', () => {
     const result = verifyAgenticRequestAccess({
       controls: { allowlist: [], denylist: ['blocked-agent'] },
       headers: new Headers(),
@@ -106,12 +121,36 @@ describe('agent request controls', () => {
     expect(result).toEqual({ ok: true });
   });
 
-  it('rejects blank user-agent when allowlist controls are configured', () => {
+  it('allows requests that match allowlist entries by signed agent id', () => {
+    const result = verifyAgenticRequestAccess({
+      controls: { allowlist: ['openai:baci-mcp'], denylist: [] },
+      headers: new Headers({
+        'agent-id': 'OpenAI:Baci-MCP',
+        'user-agent': 'Generic-Agent/1.0',
+      }),
+    });
+
+    expect(result).toEqual({ ok: true });
+  });
+
+  it('rejects blank agent identity when allowlist controls are configured', () => {
     const result = verifyAgenticRequestAccess({
       controls: { allowlist: ['openai'], denylist: [] },
       headers: new Headers({
         'user-agent': '  ',
       }),
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: AGENTIC_AGENT_NOT_ALLOWLISTED_ERROR,
+    });
+  });
+
+  it('rejects missing agent identity when allowlist controls are configured', () => {
+    const result = verifyAgenticRequestAccess({
+      controls: { allowlist: ['openai'], denylist: [] },
+      headers: new Headers(),
     });
 
     expect(result).toEqual({

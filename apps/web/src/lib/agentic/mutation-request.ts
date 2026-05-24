@@ -6,6 +6,8 @@ import {
 } from '@/lib/agentic/request-integrity';
 
 const BAD_INTEGRITY_REQUEST_ERRORS: ReadonlySet<string> = new Set([
+  AGENTIC_REQUEST_INTEGRITY_ERRORS.AGENT_ID_TOO_LONG,
+  AGENTIC_REQUEST_INTEGRITY_ERRORS.INVALID_AGENT_ID_FORMAT,
   AGENTIC_REQUEST_INTEGRITY_ERRORS.INVALID_REQUEST_ID_FORMAT,
   AGENTIC_REQUEST_INTEGRITY_ERRORS.INVALID_TIMESTAMP,
   AGENTIC_REQUEST_INTEGRITY_ERRORS.REQUEST_ID_TOO_LONG,
@@ -16,6 +18,7 @@ const BAD_INTEGRITY_REQUEST_ERRORS: ReadonlySet<string> = new Set([
 export type AgenticMutationRequest =
   | {
       apiVersion: string;
+      agentId: string | null;
       body: unknown;
       idempotencyKey: string;
       method: string;
@@ -81,6 +84,7 @@ export async function readAgenticSignedRequest({
   try {
     return {
       apiVersion: integrity.apiVersion,
+      agentId: integrity.agentId ?? null,
       body: rawBody.length > 0 ? JSON.parse(rawBody) : {},
       idempotencyKey,
       method: request.method,

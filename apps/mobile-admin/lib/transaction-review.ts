@@ -3,16 +3,10 @@ import type {
   TransactionReviewOrder,
   TransactionReviewOrderRow,
   TransactionReviewProductRow,
+  TransactionReviewVariantRow,
 } from './transaction-review-types';
 
 export const TRANSACTION_REVIEW_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-
-export type {
-  TransactionReviewItem,
-  TransactionReviewOrder,
-  TransactionReviewOrderRow,
-  TransactionReviewProductRow,
-} from './transaction-review-types';
 
 export {
   filterOrdersForTransactionTab,
@@ -20,10 +14,17 @@ export {
   formatCostPriceInputText,
   formatPickerDateInput,
   getSupplierOptionsFromOrders,
-  parseDateInputForPicker,
   parseCostPriceInput,
+  parseDateInputForPicker,
   toSentenceCaseSupplierName,
 } from './transaction-review-inputs';
+export type {
+  TransactionReviewItem,
+  TransactionReviewOrder,
+  TransactionReviewOrderRow,
+  TransactionReviewProductRow,
+  TransactionReviewVariantRow,
+} from './transaction-review-types';
 
 const SUPPLIER_METADATA_KEYS = [
   'supplier_name',
@@ -41,8 +42,31 @@ function getJoinedProduct(
   return Array.isArray(value) ? (value[0] ?? null) : value;
 }
 
+function getJoinedVariant(
+  value:
+    | TransactionReviewVariantRow
+    | TransactionReviewVariantRow[]
+    | null
+    | undefined
+) {
+  return Array.isArray(value) ? (value[0] ?? null) : (value ?? null);
+}
+
 function getTrimmedString(value: unknown) {
   return typeof value === 'string' ? value.trim() : '';
+}
+
+function toFiniteNumberOrNull(value: unknown) {
+  if (value == null) {
+    return null;
+  }
+
+  if (typeof value === 'string' && value.trim() === '') {
+    return null;
+  }
+
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) ? numericValue : null;
 }
 
 function collectStrings(value: unknown, keyMatcher?: (key: string) => boolean) {
@@ -176,17 +200,33 @@ export function mapTransactionOrderRows(rows: TransactionReviewOrderRow[]) {
   return rows.map<TransactionReviewOrder>((order) => {
     const transactionDate = order.transaction_date ?? order.created_at;
     const orderDetailTokens = collectStrings(order.fulfillment_details);
-    const items = (order.order_items ?? []).map<TransactionReviewItem>(
-      (item) => {
-        const product = getJoinedProduct(item.products);
-        const quantity = Number(item.quantity ?? 1);
-        const revenue = Number(item.price ?? 0) * quantity;
+	    const items = (order.order_items ?? []).map<TransactionReviewItem>(
+	      (item) => {
+	        const product = getJoinedProduct(item.products);
+	        const variant = getJoinedVariant(item.product_variants);
+	        const quantity = toFiniteNumberOrNull(item.quantity) ?? 1;
+	        const unitPrice = toFiniteNumberOrNull(item.price) ?? 0;
+	        const revenue = unitPrice * quantity;
+	        const orderItemCostPrice = toFiniteNumberOrNull(item.cost_price);
+	        const variantCostPrice = toFiniteNumberOrNull(variant?.cost_price);
+	        const productCostPrice = toFiniteNumberOrNull(product?.cost_price);
         const costPrice =
-          product?.cost_price == null ? null : Number(product.cost_price);
-        const supplierName = getSupplierNameFromMetadata(product?.metadata);
+          orderItemCostPrice ?? variantCostPrice ?? productCostPrice;
+        const costSource =
+          orderItemCostPrice != null
+            ? 'order_item'
+            : variantCostPrice != null
+              ? 'variant'
+              : productCostPrice != null
+                ? 'product'
+                : null;
+        const itemSupplierName = getTrimmedString(item.supplier_name);
+        const supplierName =
+          itemSupplierName || getSupplierNameFromMetadata(product?.metadata);
         const searchableDetailValues = [
           item.fulfillment_data,
           order.fulfillment_details,
+          variant?.attributes,
           product?.fulfillment_details,
           product?.metadata,
         ];
@@ -201,10 +241,12 @@ export function mapTransactionOrderRows(rows: TransactionReviewOrderRow[]) {
 
         return {
           costPrice,
+          costSource,
           id: item.id,
           imeiValues,
           name: item.name ?? 'Product',
           productId: item.product_id,
+          productMatchStatus: item.product_match_status ?? null,
           profit: costPrice == null ? null : revenue - costPrice * quantity,
           quantity,
           revenue,
@@ -214,6 +256,10 @@ export function mapTransactionOrderRows(rows: TransactionReviewOrderRow[]) {
             item.price,
             item.quantity,
             item.product_id,
+            item.variant_id,
+            variant?.sku,
+            variant?.condition,
+            collectStrings(variant?.attributes),
             product?.sku,
             supplierName,
             collectStrings(item.fulfillment_data),
@@ -221,8 +267,9 @@ export function mapTransactionOrderRows(rows: TransactionReviewOrderRow[]) {
             collectStrings(product?.metadata),
           ]),
           serialValues,
-          sku: product?.sku ?? null,
+          sku: variant?.sku ?? product?.sku ?? null,
           supplierName,
+          variantId: item.variant_id ?? null,
         };
       }
     );
@@ -248,14 +295,14 @@ export function mapTransactionOrderRows(rows: TransactionReviewOrderRow[]) {
       estimatedProfit: items.reduce((sum, item) => sum + (item.profit ?? 0), 0),
       id: order.id,
       items,
-      missingCostCount: items.filter((item) => item.costPrice == null).length,
-      orderNumber: order.order_number ?? order.id.slice(0, 8),
-      paymentMethod: order.payment_method ?? 'unknown',
-      searchText: orderSearchText,
-      total: Number(order.total ?? 0),
-    };
-  });
-}
+	      missingCostCount: items.filter((item) => item.costPrice == null).length,
+	      orderNumber: order.order_number ?? order.id.slice(0, 8),
+	      paymentMethod: order.payment_method ?? 'unknown',
+	      searchText: orderSearchText,
+	      total: toFiniteNumberOrNull(order.total) ?? 0,
+	    };
+	  });
+	}
 
 export function filterTransactionOrders(
   orders: TransactionReviewOrder[],

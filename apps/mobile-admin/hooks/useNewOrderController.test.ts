@@ -85,6 +85,10 @@ vi.mock('./submitNewOrder', () => ({
   submitNewOrder: vi.fn(),
 }));
 
+vi.mock('./useQuickAddProductMatches', () => ({
+  useQuickAddProductMatches: () => ({ isLoading: false, matches: [] }),
+}));
+
 vi.mock('./createNewOrderCustomerActions', () => ({
   createNewOrderCustomerActions: () => ({
     handleCloseCustomerModal: vi.fn(),
