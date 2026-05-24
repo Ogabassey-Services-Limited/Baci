@@ -18,7 +18,7 @@ const healthyInput = {
 const expectedNextStepsByCode = {
   AGENTIC_ACTIONS_HEALTHY: 'No action required right now.',
   AGENTIC_AGENT_ALLOWLIST_UNSET:
-    'Open Trust settings and configure trusted agent user-agents before broadly advertising checkout.',
+    'Open Trust settings and configure trusted agent IDs or user-agents before broadly advertising checkout.',
   AGENTIC_REQUEST_CONTROLS_UNAVAILABLE:
     'Open Trust settings and confirm agent request controls are available before advertising checkout.',
   AGENTIC_CHECKOUT_COMPLETE_ERRORS:

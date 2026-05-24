@@ -160,7 +160,7 @@ export function buildAgenticHealthActions({
       count: 1,
       message: 'No agent allowlist is configured in Trust settings.',
       next_step:
-        'Open Trust settings and configure trusted agent user-agents before broadly advertising checkout.',
+        'Open Trust settings and configure trusted agent IDs or user-agents before broadly advertising checkout.',
       severity: 'monitor',
     });
   }
