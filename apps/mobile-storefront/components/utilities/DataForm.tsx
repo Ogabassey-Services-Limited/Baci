@@ -18,13 +18,13 @@ import {
   inferProviderFromDataBillerName,
   scrollToDataPayment,
 } from './data-form.helpers';
-import { findDataPlanByCode } from './data-plan-selection';
 import {
   DATA_FOOTER_ERROR_BUFFER,
   DATA_FOOTER_HEIGHT,
   dataFormStyles,
 } from './data-form.styles';
 import type { DataFormProps } from './data-form.types';
+import { findDataPlanByCode } from './data-plan-selection';
 import { getUtilityFooterOffset } from './get-utility-footer-offset';
 import { RecentUtilityRecipients } from './RecentUtilityRecipients';
 import { UtilityPaymentOptions } from './UtilityPaymentOptions';
@@ -97,9 +97,7 @@ export function DataForm({
     selectedPlan
   );
   const isFixedDataPlanAmount = Boolean(
-    selectedDataPlan &&
-      selectedDataPlan.isAmountFixed &&
-      selectedDataPlan.amount > 0
+    selectedDataPlan?.isAmountFixed && selectedDataPlan.amount > 0
   );
 
   useEffect(() => {
@@ -119,6 +117,7 @@ export function DataForm({
     initialProvider,
     setIsDataPickerExpanded,
     setSelectedDataBiller,
+    setPlanAmount,
     setSelectedPlan,
     setSelectedProvider,
   });
@@ -154,9 +153,7 @@ export function DataForm({
     billItem: NonNullable<typeof selectedDataPlan>
   ) => {
     setSelectedPlan(billItem.itemCode);
-    if (billItem.amount > 0) {
-      setPlanAmount(billItem.amount);
-    }
+    setPlanAmount(billItem.amount > 0 ? billItem.amount : 0);
   };
 
   const handlePurchase = createDataFormPurchaseHandler({

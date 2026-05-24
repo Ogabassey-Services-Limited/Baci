@@ -9,6 +9,7 @@ interface UseDataBillerInitializationInput {
   initialProvider: string | undefined;
   setIsDataPickerExpanded: Dispatch<SetStateAction<boolean>>;
   setSelectedDataBiller: Dispatch<SetStateAction<Biller | null>>;
+  setPlanAmount: Dispatch<SetStateAction<number>>;
   setSelectedPlan: Dispatch<SetStateAction<string | null>>;
   setSelectedProvider: Dispatch<SetStateAction<string | null>>;
 }
@@ -23,6 +24,7 @@ export function useDataBillerInitialization({
   initialProvider,
   setIsDataPickerExpanded,
   setSelectedDataBiller,
+  setPlanAmount,
   setSelectedPlan,
   setSelectedProvider,
 }: UseDataBillerInitializationInput) {
@@ -33,9 +35,13 @@ export function useDataBillerInitialization({
       return;
     }
 
-    const matchedNestedPlan = dataPlans.find((plan) =>
-      Boolean(findDataPlanByCode(plan.billItems, initialPlan))
-    );
+    const matchedNestedPlan =
+      dataPlans.find((plan) =>
+        Boolean(findDataPlanByCode(plan.billItems, initialPlan))
+      ) ?? null;
+    const matchedNestedBillItem = matchedNestedPlan
+      ? findDataPlanByCode(matchedNestedPlan.billItems, initialPlan)
+      : null;
     const matchedPlan =
       matchedNestedPlan ??
       dataPlans.find((plan) => plan.billerId === initialPlan) ??
@@ -46,7 +52,17 @@ export function useDataBillerInitialization({
 
     selectedDataBillerRef.current = matchedPlan;
     setSelectedDataBiller(matchedPlan);
-    setSelectedPlan(matchedNestedPlan ? initialPlan : matchedPlan.billerId);
+    setSelectedPlan(
+      matchedNestedBillItem
+        ? matchedNestedBillItem.itemCode
+        : matchedPlan.billerId
+    );
+    if (
+      matchedNestedBillItem?.isAmountFixed &&
+      matchedNestedBillItem.amount > 0
+    ) {
+      setPlanAmount(matchedNestedBillItem.amount);
+    }
     setSelectedProvider(
       inferProviderFromDataBillerName(matchedPlan.billerName) ??
         initialProvider ??
@@ -59,6 +75,7 @@ export function useDataBillerInitialization({
     initialProvider,
     setIsDataPickerExpanded,
     setSelectedDataBiller,
+    setPlanAmount,
     setSelectedPlan,
     setSelectedProvider,
   ]);

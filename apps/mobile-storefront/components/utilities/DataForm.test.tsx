@@ -377,6 +377,104 @@ describe('DataForm', () => {
     });
   });
 
+  it('syncs repeat-prefilled nested fixed data package amounts from current biller data', async () => {
+    mockUseVTUBillers.mockReturnValue({
+      data: [
+        {
+          billerId: '2082751a-89c7-4862-86c5-5498194b32f3',
+          billerName: 'MTN',
+          billerType: 'Internet Data',
+          categoryId: 'data',
+          categoryName: 'Internet Data',
+          billItems: [
+            {
+              amount: 3500,
+              isAmountFixed: true,
+              itemCode: 'MTN-35GB-MONTHLY',
+              itemCurrencySymbol: 'NGN',
+              itemFee: 0,
+              itemName: 'MTN 3.5GB Monthly',
+            },
+          ],
+        },
+      ],
+      error: null,
+      isError: false,
+      isLoading: false,
+    });
+    render(
+      <DataForm
+        initialAmount="1000"
+        initialPhoneNumber="08031234567"
+        initialPlan="MTN-35GB-MONTHLY"
+        onSuccess={jest.fn()}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Amount').props.value).toBe('3,500');
+    });
+
+    fireEvent.press(screen.getByText('Continue to Payment'));
+
+    await waitFor(() => {
+      expect(mockInitializeVtuCheckout).toHaveBeenCalledWith(
+        expect.objectContaining({
+          amount: 3500,
+          dataPlanCode: 'MTN-35GB-MONTHLY',
+          gateway: 'paystack',
+          networkProvider: 'mtn',
+          phoneNumber: '08031234567',
+          type: 'data',
+        })
+      );
+    });
+  });
+
+  it('resets stale fixed amounts when switching to a variable-price data package', () => {
+    mockUseVTUBillers.mockReturnValue({
+      data: [
+        {
+          billerId: '2082751a-89c7-4862-86c5-5498194b32f3',
+          billerName: 'MTN',
+          billerType: 'Internet Data',
+          categoryId: 'data',
+          categoryName: 'Internet Data',
+          billItems: [
+            {
+              amount: 3500,
+              isAmountFixed: true,
+              itemCode: 'MTN-35GB-MONTHLY',
+              itemCurrencySymbol: 'NGN',
+              itemFee: 0,
+              itemName: 'MTN 3.5GB Monthly',
+            },
+            {
+              amount: 0,
+              isAmountFixed: false,
+              itemCode: 'MTN-FLEX',
+              itemCurrencySymbol: 'NGN',
+              itemFee: 0,
+              itemName: 'MTN Flex',
+            },
+          ],
+        },
+      ],
+      error: null,
+      isError: false,
+      isLoading: false,
+    });
+    render(<DataForm onSuccess={jest.fn()} />);
+
+    fireEvent.press(screen.getByText('MTN'));
+    fireEvent.press(screen.getByLabelText('MTN 3.5GB Monthly - ₦3,500'));
+    expect(screen.getByLabelText('Amount').props.value).toBe('3,500');
+
+    fireEvent.press(screen.getByLabelText('MTN Flex'));
+
+    expect(screen.getByLabelText('Amount').props.value).toBe('0');
+  });
+
   it('calls onSuccess after a saved-card data purchase succeeds', async () => {
     const onSuccessMock = jest.fn();
     mockUseUtilityPayment.mockReturnValue({

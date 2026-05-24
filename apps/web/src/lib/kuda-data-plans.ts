@@ -116,16 +116,40 @@ async function loadDataProviders() {
 function mapResolvedCandidate(
   candidate: DataPlanCandidate,
   originalDataPlanCode: string,
-  resolvedFrom: ResolvedKudaDataPlan['resolvedFrom']
+  resolvedFrom: ResolvedKudaDataPlan['resolvedFrom'],
+  amountOverride?: number
 ): ResolvedKudaDataPlan {
   return {
-    amount: candidate.item.amount,
+    amount: amountOverride ?? candidate.item.amount,
     itemCode: candidate.item.itemCode,
     itemName: candidate.item.itemName,
     originalDataPlanCode,
     providerName: candidate.provider.billerName,
     resolvedFrom,
   };
+}
+
+function mapUnverifiedDataPlan({
+  amount,
+  originalDataPlanCode,
+  providerName,
+}: {
+  amount: number;
+  originalDataPlanCode: string;
+  providerName: string;
+}): ResolvedKudaDataPlan {
+  return {
+    amount,
+    itemCode: originalDataPlanCode,
+    itemName: originalDataPlanCode,
+    originalDataPlanCode,
+    providerName,
+    resolvedFrom: 'exact_item_code',
+  };
+}
+
+function hasLeafBillItems(provider: Biller) {
+  return collectLeafBillItems(provider.billItems).length > 0;
 }
 
 export async function resolveKudaDataPlanForPurchase({
@@ -142,18 +166,32 @@ export async function resolveKudaDataPlanForPurchase({
     throw new Error('Data plan code is required for data purchases');
   }
 
-  const providers = await loadDataProviders();
-  const candidates = collectDataPlanCandidates(providers);
-
-  if (candidates.length === 0) {
-    return {
+  let providers: Biller[];
+  try {
+    providers = await loadDataProviders();
+  } catch {
+    return mapUnverifiedDataPlan({
       amount,
-      itemCode: originalDataPlanCode,
-      itemName: originalDataPlanCode,
       originalDataPlanCode,
       providerName: networkProvider,
-      resolvedFrom: 'exact_item_code',
-    };
+    });
+  }
+
+  const selectedProviderByCode =
+    providers.find((provider) =>
+      providerMatchesCode(provider, originalDataPlanCode)
+    ) ?? null;
+  const candidates = collectDataPlanCandidates(providers);
+
+  if (
+    candidates.length === 0 ||
+    (selectedProviderByCode && !hasLeafBillItems(selectedProviderByCode))
+  ) {
+    return mapUnverifiedDataPlan({
+      amount,
+      originalDataPlanCode,
+      providerName: selectedProviderByCode?.billerName ?? networkProvider,
+    });
   }
 
   const normalizedCode = normalizeComparable(originalDataPlanCode);
@@ -161,10 +199,21 @@ export async function resolveKudaDataPlanForPurchase({
     ({ item }) => normalizeComparable(item.itemCode) === normalizedCode
   );
   if (exactMatch) {
+    if (
+      exactMatch.item.isAmountFixed &&
+      exactMatch.item.amount > 0 &&
+      !amountMatches(exactMatch.item.amount, amount)
+    ) {
+      throw new Error(
+        `Data bundle amount changed for ${exactMatch.item.itemName}. Please refresh data bundles and select a package.`
+      );
+    }
+
     return mapResolvedCandidate(
       exactMatch,
       originalDataPlanCode,
-      'exact_item_code'
+      'exact_item_code',
+      exactMatch.item.isAmountFixed ? undefined : amount
     );
   }
 
