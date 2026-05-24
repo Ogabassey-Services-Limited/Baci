@@ -49,7 +49,8 @@ describe('loadAdminAgenticActionHealthRecords', () => {
         api_version: '2026-04-28',
         created_at: '2026-05-22T08:03:00.000Z',
         expires_at: '2026-05-22T08:18:00.000Z',
-        route: 'checkout_sessions.complete',
+        route: 'orders.read',
+        status_code: 503,
       },
     ];
     const idempotencyQuery = createQueryMock({ data: idempotencyRows });
@@ -80,7 +81,7 @@ describe('loadAdminAgenticActionHealthRecords', () => {
       'session_id, status, metadata, updated_at'
     );
     expect(requestQuery.select).toHaveBeenCalledWith(
-      'agent_id, api_version, route, created_at, expires_at'
+      'agent_id, api_version, route, status_code, created_at, expires_at'
     );
     expect(idempotencyQuery.eq).toHaveBeenCalledWith(
       'merchant_id',
