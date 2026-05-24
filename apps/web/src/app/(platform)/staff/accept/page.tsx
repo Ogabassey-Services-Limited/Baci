@@ -43,7 +43,7 @@ export async function StaffAcceptPageContent({
   // Validate invitation token atomically using preview RPC under RLS
   const { data: previewRows, error: previewError } = await supabase.rpc(
     'get_staff_invite_preview',
-    { p_token: token }
+    { p_token: result.data.token }
   );
 
   const invitation =
