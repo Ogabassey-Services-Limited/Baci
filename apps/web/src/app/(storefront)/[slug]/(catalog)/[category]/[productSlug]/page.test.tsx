@@ -54,6 +54,7 @@ const mockNotFound = vi.fn(() => {
 });
 const mockGetRequestScopedMerchant = vi.fn();
 const mockGetCachedLegacyProductRedirectTarget = vi.fn();
+const mockGetCachedProduct = vi.fn();
 const mockGetCachedProductWithDetails = vi.fn();
 const mockGetCachedCategoryPageData = vi.fn();
 const mockBuildProductSemanticModel = vi.fn();
@@ -128,6 +129,7 @@ vi.mock('@/lib/cached-data', () => ({
     mockGetRequestScopedMerchant(...args),
   getCachedLegacyProductRedirectTarget: (...args: unknown[]) =>
     mockGetCachedLegacyProductRedirectTarget(...args),
+  getCachedProduct: (...args: unknown[]) => mockGetCachedProduct(...args),
   getCachedProductWithDetails: (...args: unknown[]) =>
     mockGetCachedProductWithDetails(...args),
   getCachedCategoryPageData: (...args: unknown[]) =>
@@ -461,6 +463,54 @@ const categorizedDetailedProduct = {
   fulfillmentFields: [],
 };
 
+type LegacyProductFixture = Omit<typeof categorizedDetailedProduct, 'price'> & {
+  price: number | string;
+  specifications?: unknown;
+  product_key_specs?: unknown;
+};
+
+function toLegacyCachedProduct(
+  product: LegacyProductFixture = categorizedDetailedProduct
+) {
+  return {
+    id: product.id,
+    name: product.name,
+    description: product.description,
+    status: product.status,
+    slug: product.slug,
+    canonical_url: null,
+    base_price:
+      typeof product.price === 'string'
+        ? Number.parseFloat(product.price)
+        : product.price,
+    sale_price: null,
+    min_variant_price: null,
+    max_variant_price: null,
+    track_quantity: product.manage_stock,
+    quantity: product.stock_quantity ?? product.stock,
+    images: product.images,
+    product_variants: product.product_variants,
+    offers: product.product_offers,
+    product_categories: [
+      {
+        categories: product.categories,
+      },
+    ],
+    specifications: product.specifications ?? null,
+    product_key_specs: product.product_key_specs ?? null,
+  };
+}
+
+function mockDefaultCachedProductLookup() {
+  mockGetCachedProduct.mockImplementation((_merchantId, productSlug) =>
+    Promise.resolve(
+      productSlug === categorizedDetailedProduct.slug
+        ? toLegacyCachedProduct()
+        : null
+    )
+  );
+}
+
 describe('[category]/[productSlug] page metadata', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -475,6 +525,8 @@ describe('[category]/[productSlug] page metadata', () => {
     mockNormalizeStorefrontProductVariants.mockReset();
     mockNormalizeStorefrontProductVariants.mockReturnValue([]);
     mockGetRequestScopedMerchant.mockResolvedValue(baseMerchant);
+    mockGetCachedProduct.mockReset();
+    mockDefaultCachedProductLookup();
     mockGetCachedProductWithDetails.mockResolvedValue(null);
     mockGetCachedLegacyProductRedirectTarget.mockResolvedValue(null);
     mockGetPublishedClusterPosts.mockReset();
@@ -771,6 +823,8 @@ describe('[category]/[productSlug] page render', () => {
       ...baseMerchant,
       template_id: OGABASSEY_TEMPLATE_ID,
     });
+    mockGetCachedProduct.mockReset();
+    mockDefaultCachedProductLookup();
     mockGetCachedProductWithDetails.mockResolvedValue(
       categorizedDetailedProduct
     );
@@ -811,16 +865,40 @@ describe('[category]/[productSlug] page render', () => {
 
     const { container } = render(ui);
 
+    const heading = screen.getByRole('heading', {
+      level: 1,
+      name: 'HP Laptop 14-ep0063nia',
+    });
+    const marker = screen.getByRole('status', {
+      name: /dynamic metadata marker/i,
+    });
+    expect(heading).toBeInTheDocument();
+    expect(marker).toBeInTheDocument();
     expect(
-      screen.getByRole('heading', {
-        level: 1,
-        name: 'HP Laptop 14-ep0063nia',
-      })
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('status', { name: /dynamic metadata marker/i })
-    ).toBeInTheDocument();
+      heading.compareDocumentPosition(marker) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
     expect(container.querySelectorAll('h1')).toHaveLength(1);
+  });
+
+  it('throws notFound before rendering a cached skeleton when the category product is missing', async () => {
+    mockGetCachedProductWithDetails.mockResolvedValueOnce(null);
+    mockGetCachedLegacyProductRedirectTarget.mockResolvedValueOnce(null);
+
+    await expect(
+      CategoryProductPage({
+        params: Promise.resolve({
+          slug: 'teststore',
+          category: 'laptops',
+          productSlug: 'missing-product',
+        }),
+        searchParams: Promise.resolve({}),
+      })
+    ).rejects.toThrow('NEXT_NOT_FOUND');
+
+    expect(mockGetCachedLegacyProductRedirectTarget).toHaveBeenCalledWith(
+      baseMerchant.id,
+      'missing-product'
+    );
   });
 
   it('uses the same NGN fallback currency for metadata and product JSON-LD', async () => {

@@ -287,6 +287,14 @@ describe('blog page metadata', () => {
       screen.getByRole('status', { name: /dynamic metadata marker/i })
     ).toBeInTheDocument();
     expect(screen.queryByText('Ogabassey blog')).not.toBeInTheDocument();
+
+    const loading = screen.getByRole('status', { name: /loading blog posts/i });
+    const marker = screen.getByRole('status', {
+      name: /dynamic metadata marker/i,
+    });
+    expect(
+      loading.compareDocumentPosition(marker) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
   });
 
   it('renders guide collections above the blog listing', async () => {
