@@ -1,4 +1,4 @@
-import { type NextRequest, NextResponse } from 'next/server';
+import { after, type NextRequest, NextResponse } from 'next/server';
 import { verifyAgenticRequestAccess } from '@/lib/agentic/agent-request-controls';
 import { verifyAgenticApiKey } from '@/lib/agentic/auth';
 import { resolveAgenticMerchantContext } from '@/lib/agentic/merchant-context';
@@ -145,14 +145,16 @@ export async function GET(
     response: Response | Promise<Response>
   ): Promise<Response> => {
     const resolvedResponse = await response;
-    await recordAgenticOrderReadOutcome({
-      agentId: signedRead.agentId ?? null,
-      apiVersion: signedRead.apiVersion,
-      merchantId: merchant.id,
-      requestId: signedRead.requestId,
-      statusCode: resolvedResponse.status,
-      supabase,
-    });
+    after(() =>
+      recordAgenticOrderReadOutcome({
+        agentId: signedRead.agentId ?? null,
+        apiVersion: signedRead.apiVersion,
+        merchantId: merchant.id,
+        requestId: signedRead.requestId,
+        statusCode: resolvedResponse.status,
+        supabase,
+      })
+    );
     return resolvedResponse;
   };
 
