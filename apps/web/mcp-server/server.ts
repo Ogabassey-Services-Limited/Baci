@@ -35,11 +35,11 @@ import {
   completeAgenticCheckoutSession,
   completeAgenticCheckoutSessionInputSchema,
   createAgenticCheckoutSession,
-  createAgenticCheckoutSessionInputSchema,
+  createAgenticCheckoutSessionMcpInputSchema,
   getAgenticCheckoutSession,
   getAgenticCheckoutSessionInputSchema,
   updateAgenticCheckoutSession,
-  updateAgenticCheckoutSessionInputSchema,
+  updateAgenticCheckoutSessionMcpInputSchema,
 } from './agentic-checkout-client';
 
 // =============================================================================
@@ -1442,7 +1442,7 @@ function createOgabasseyServer() {
         },
         description:
           'Create a real Baci agentic checkout session through the signed and idempotent /api/agentic/checkout_sessions flow. Use this after the customer chooses products and quantities to get authoritative totals, fulfillment options, and the checkout session id. This does not complete payment or create an order. To safely retry requests on failure, generate a unique idempotency_key before the first request and reuse it for subsequent retries.',
-        inputSchema: createAgenticCheckoutSessionInputSchema,
+        inputSchema: createAgenticCheckoutSessionMcpInputSchema,
         _meta: {
           'openai/toolInvocation/invoking': 'Creating checkout session...',
           'openai/toolInvocation/invoked': 'Checkout session created',
@@ -1554,7 +1554,7 @@ function createOgabasseyServer() {
         },
         description:
           'Update a Baci agentic checkout session through the signed and idempotent /api/agentic/checkout_sessions/{session_id} flow. Use this to change items, add or replace shipping details, or select a fulfillment option before payment confirmation. To safely retry, generate a unique idempotency_key before the first request and reuse it for retries.',
-        inputSchema: updateAgenticCheckoutSessionInputSchema,
+        inputSchema: updateAgenticCheckoutSessionMcpInputSchema,
         _meta: {
           'openai/toolInvocation/invoking': 'Updating checkout session...',
           'openai/toolInvocation/invoked': 'Checkout session updated',
