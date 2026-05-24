@@ -57,11 +57,6 @@
       "justification": "Existing oversized order-success route baseline; shrink or remove this entry as the route is modularized."
     },
     {
-      "path": "app/compare/index.tsx",
-      "lineCount": 479,
-      "justification": "Existing oversized compare route baseline; shrink or remove this entry as the route is modularized."
-    },
-    {
       "path": "app/saved/index.tsx",
       "lineCount": 458,
       "justification": "Existing oversized saved-items route baseline; shrink or remove this entry as the route is modularized."
