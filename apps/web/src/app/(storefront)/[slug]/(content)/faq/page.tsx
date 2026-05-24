@@ -73,13 +73,13 @@ export async function generateMetadata({
 export default function FAQPage({ params }: PageProps) {
   return (
     <>
-      <StorefrontDynamicMetadataMarker />
       <Suspense fallback={null}>
         <FAQJsonLd params={params} />
       </Suspense>
       <Suspense fallback={<ContentRouteLoading />}>
         <FAQContent params={params} />
       </Suspense>
+      <StorefrontDynamicMetadataMarker />
     </>
   );
 }
