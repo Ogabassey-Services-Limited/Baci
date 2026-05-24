@@ -156,7 +156,9 @@ export const Navbar: React.FC = () => {
                 type="button"
                 className="md:hidden p-2 -ml-2 text-white"
                 onClick={() => setIsMenuOpen(true)}
-                aria-label="Open mobile menu"
+                aria-label="Mobile menu"
+                aria-expanded={isMenuOpen}
+                aria-controls={isMenuOpen ? "mobile-menu" : undefined}
               >
                 <Menu size={24} />
               </button>
@@ -195,6 +197,8 @@ export const Navbar: React.FC = () => {
                   className="p-2.5 rounded-full hover:bg-white/10 text-white transition-colors relative"
                   onClick={() => setShowNotifications(!showNotifications)}
                   aria-label="Toggle notifications"
+                  aria-expanded={showNotifications}
+                  aria-controls={showNotifications ? "notifications-dropdown" : undefined}
                 >
                   <Bell size={22} />
                   {/* TODO: notification badge when implemented
@@ -206,7 +210,7 @@ export const Navbar: React.FC = () => {
 
                 {/* Notification Dropdown */}
                 {showNotifications && (
-                  <div className="absolute top-full right-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div id="notifications-dropdown" className="absolute top-full right-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
                     <div className="p-4 border-b border-gray-50 flex justify-between items-center bg-white sticky top-0 z-10">
                       <h3 className="font-bold text-gray-900">Notifications</h3>
                       {/* TODO: mark all read when implemented
@@ -287,7 +291,7 @@ export const Navbar: React.FC = () => {
         initialQuery={query}
       />
 
-      <MobileMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
+      <MobileMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} id="mobile-menu" />
     </>
   );
 };
