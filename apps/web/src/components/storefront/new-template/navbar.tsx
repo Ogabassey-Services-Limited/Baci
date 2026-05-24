@@ -156,7 +156,7 @@ export const Navbar: React.FC = () => {
                 type="button"
                 className="md:hidden p-2 -ml-2 text-white"
                 onClick={() => setIsMenuOpen(true)}
-                aria-label="Open mobile menu"
+                aria-label="Mobile menu"
                 aria-expanded={isMenuOpen}
                 aria-controls={isMenuOpen ? "mobile-menu" : undefined}
               >
