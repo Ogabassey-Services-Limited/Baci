@@ -122,9 +122,7 @@ function SavedItemCard({
             )}
           </View>
 
-          <Text
-            style={[styles.savedDateText, { color: colors.textSecondary }]}
-          >
+          <Text style={[styles.savedDateText, { color: colors.textSecondary }]}>
             Saved {formatSavedDate(item.savedAt)}
           </Text>
         </View>
@@ -164,7 +162,10 @@ function SavedItemCard({
             color={colors.primaryForeground}
           />
           <Text
-            style={[styles.actionButtonText, { color: colors.primaryForeground }]}
+            style={[
+              styles.actionButtonText,
+              { color: colors.primaryForeground },
+            ]}
           >
             Add to Cart
           </Text>
