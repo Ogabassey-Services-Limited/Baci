@@ -23,7 +23,7 @@
     },
     {
       "path": "app/auth/login.tsx",
-      "lineCount": 856,
+      "lineCount": 631,
       "justification": "Existing oversized auth route baseline; shrink or remove this entry as the route is modularized."
     },
     {

@@ -4,6 +4,9 @@ import type { AppearanceMode } from '@/stores/settings-store';
 
 type IoniconsName = ComponentProps<typeof Ionicons>['name'];
 
+export const PRIVACY_POLICY_URL = 'https://ogabassey.com/privacy';
+export const TERMS_OF_SERVICE_URL = 'https://ogabassey.com/terms';
+
 export const APPEARANCE_OPTIONS = [
   { value: 'system', label: 'System', icon: 'phone-portrait-outline' },
   { value: 'light', label: 'Light', icon: 'sunny-outline' },
@@ -19,13 +22,13 @@ export const ABOUT_LINKS = [
     label: 'Privacy Policy',
     icon: 'shield-checkmark-outline',
     accessibilityLabel: 'Open privacy policy',
-    url: 'https://ogabassey.com/privacy',
+    url: PRIVACY_POLICY_URL,
   },
   {
     label: 'Terms of Service',
     icon: 'document-text-outline',
     accessibilityLabel: 'Open terms of service',
-    url: 'https://ogabassey.com/terms',
+    url: TERMS_OF_SERVICE_URL,
   },
 ] as const satisfies ReadonlyArray<{
   accessibilityLabel: string;
