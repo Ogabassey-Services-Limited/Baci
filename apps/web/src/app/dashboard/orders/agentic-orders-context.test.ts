@@ -29,7 +29,7 @@ describe('getAgenticOrdersContext', () => {
       summary:
         'No trusted agent allowlist is configured for agentic checkout requests.',
       nextStep:
-        'Open Trust settings and configure trusted user-agents before broader exposure.',
+        'Open Trust settings and configure trusted agent IDs or user-agents before broader exposure.',
       trustControlsHref: '/dashboard/settings/trust#agent-checkout-controls',
     });
   });

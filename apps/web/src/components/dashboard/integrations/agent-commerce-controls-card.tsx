@@ -159,17 +159,21 @@ export function AgentCommerceControlsCard({
 
         <div className="grid gap-4 rounded-lg border p-4 md:grid-cols-2">
           <div className="space-y-2">
-            <Label htmlFor="agent-allowlist">Trusted agent user-agents</Label>
+            <Label htmlFor="agent-allowlist">
+              Trusted agent IDs or user-agents
+            </Label>
             <Textarea
               id="agent-allowlist"
-              placeholder="openai-agent"
+              placeholder="openai:baci-mcp"
               value={allowlistInput}
               onChange={(event) => setAllowlistInput(event.target.value)}
               disabled={isSaving}
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="agent-denylist">Blocked agent user-agents</Label>
+            <Label htmlFor="agent-denylist">
+              Blocked agent IDs or user-agents
+            </Label>
             <Textarea
               id="agent-denylist"
               placeholder="badbot"
