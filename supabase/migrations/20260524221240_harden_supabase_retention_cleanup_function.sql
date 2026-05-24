@@ -10,20 +10,20 @@ RETURNS TABLE (
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public, cron, net
+SET search_path = ''
 AS $$
 BEGIN
   DELETE FROM public.analytics_events
   WHERE event_type IN ('page_view', 'search')
-    AND COALESCE(event_timestamp, created_at) < clock_timestamp() - p_analytics_low_value_retention;
+    AND pg_catalog.coalesce(event_timestamp, created_at) < pg_catalog.clock_timestamp() - p_analytics_low_value_retention;
   GET DIAGNOSTICS analytics_events_deleted = ROW_COUNT;
 
   DELETE FROM cron.job_run_details
-  WHERE COALESCE(end_time, start_time) < clock_timestamp() - p_cron_retention;
+  WHERE pg_catalog.coalesce(end_time, start_time) < pg_catalog.clock_timestamp() - p_cron_retention;
   GET DIAGNOSTICS cron_job_run_details_deleted = ROW_COUNT;
 
   DELETE FROM net._http_response
-  WHERE created < clock_timestamp() - p_pg_net_retention;
+  WHERE created < pg_catalog.clock_timestamp() - p_pg_net_retention;
   GET DIAGNOSTICS pg_net_responses_deleted = ROW_COUNT;
 
   RETURN NEXT;
