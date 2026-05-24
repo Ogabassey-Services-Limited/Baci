@@ -4,6 +4,7 @@ import { buildAgenticHealthActions } from './action-health-actions';
 const healthyInput = {
   activeInProgressCount: 0,
   allowlistCount: 1,
+  cancelTerminalErrorCount: 0,
   completeTerminalErrorCount: 0,
   isAgenticCheckoutEnabled: true,
   orderFinalizingCount: 0,
@@ -19,6 +20,8 @@ const expectedNextStepsByCode = {
   AGENTIC_ACTIONS_HEALTHY: 'No action required right now.',
   AGENTIC_AGENT_ALLOWLIST_UNSET:
     'Open Trust settings and configure trusted agent IDs or user-agents before broadly advertising checkout.',
+  AGENTIC_CHECKOUT_CANCEL_ERRORS:
+    'Review cancellation failures before agents or buyers assume the session is closed.',
   AGENTIC_REQUEST_CONTROLS_UNAVAILABLE:
     'Open Trust settings and confirm agent request controls are available before advertising checkout.',
   AGENTIC_CHECKOUT_COMPLETE_ERRORS:
@@ -45,6 +48,8 @@ const expectedNextStepUrlsByCode = {
   AGENTIC_ACTIONS_HEALTHY: undefined,
   AGENTIC_AGENT_ALLOWLIST_UNSET:
     '/dashboard/settings/trust#agent-checkout-controls',
+  AGENTIC_CHECKOUT_CANCEL_ERRORS:
+    '/dashboard/orders?source=agentic&agentic_issue=AGENTIC_CHECKOUT_CANCEL_ERRORS',
   AGENTIC_REQUEST_CONTROLS_UNAVAILABLE:
     '/dashboard/settings/trust#agent-checkout-controls',
   AGENTIC_CHECKOUT_COMPLETE_ERRORS:
@@ -74,6 +79,7 @@ describe('buildAgenticHealthActions', () => {
         ...healthyInput,
         activeInProgressCount: 5,
         allowlistCount: 0,
+        cancelTerminalErrorCount: 2,
         completeTerminalErrorCount: 1,
         orderFinalizingCount: 3,
         paymentClaimingCount: 6,
@@ -82,7 +88,7 @@ describe('buildAgenticHealthActions', () => {
         requestControlFetchError: true,
         staleInProgressCount: 1,
         stalePaymentPendingCount: 8,
-        terminalErrorCount: 2,
+        terminalErrorCount: 4,
       }).map(({ code, count, next_step_url, severity }) => ({
         code,
         count,
@@ -95,6 +101,13 @@ describe('buildAgenticHealthActions', () => {
         count: 1,
         next_step_url:
           '/dashboard/orders?source=agentic&agentic_issue=AGENTIC_CHECKOUT_COMPLETE_ERRORS',
+        severity: 'attention',
+      },
+      {
+        code: 'AGENTIC_CHECKOUT_CANCEL_ERRORS',
+        count: 2,
+        next_step_url:
+          '/dashboard/orders?source=agentic&agentic_issue=AGENTIC_CHECKOUT_CANCEL_ERRORS',
         severity: 'attention',
       },
       {
@@ -223,6 +236,37 @@ describe('buildAgenticHealthActions', () => {
     ]);
   });
 
+  it('surfaces cancellation failures separately from generic idempotency errors', () => {
+    expect(
+      buildAgenticHealthActions({
+        ...healthyInput,
+        cancelTerminalErrorCount: 2,
+        terminalErrorCount: 3,
+      })
+    ).toEqual([
+      {
+        code: 'AGENTIC_CHECKOUT_CANCEL_ERRORS',
+        count: 2,
+        message: 'Agentic checkout cancellations are failing.',
+        next_step:
+          'Review cancellation failures before agents or buyers assume the session is closed.',
+        next_step_url:
+          '/dashboard/orders?source=agentic&agentic_issue=AGENTIC_CHECKOUT_CANCEL_ERRORS',
+        severity: 'attention',
+      },
+      {
+        code: 'AGENTIC_IDEMPOTENCY_ERRORS',
+        count: 1,
+        message: 'Recent agentic retries ended with server errors.',
+        next_step:
+          'Review failed agentic orders and retry only after the server error is resolved.',
+        next_step_url:
+          '/dashboard/orders?source=agentic&agentic_issue=AGENTIC_IDEMPOTENCY_ERRORS',
+        severity: 'attention',
+      },
+    ]);
+  });
+
   it('does not warn about an empty allowlist when checkout is disabled', () => {
     expect(
       buildAgenticHealthActions({
@@ -277,6 +321,7 @@ describe('buildAgenticHealthActions', () => {
       ...healthyInput,
       activeInProgressCount: 5,
       allowlistCount: 0,
+      cancelTerminalErrorCount: 2,
       completeTerminalErrorCount: 1,
       orderFinalizingCount: 3,
       paymentClaimingCount: 6,
@@ -285,7 +330,7 @@ describe('buildAgenticHealthActions', () => {
       requestControlFetchError: true,
       staleInProgressCount: 1,
       stalePaymentPendingCount: 8,
-      terminalErrorCount: 2,
+      terminalErrorCount: 4,
     });
     const healthyActions = buildAgenticHealthActions(healthyInput);
     const nextStepsByCode = Object.fromEntries(
