@@ -8,6 +8,7 @@ const healthyInput = {
   completeTerminalErrorCount: 0,
   isAgenticCheckoutEnabled: true,
   orderFinalizingCount: 0,
+  orderReadTerminalErrorCount: 0,
   paymentClaimingCount: 0,
   paymentPendingCount: 0,
   paymentSetupFailedCount: 0,
@@ -32,6 +33,8 @@ const expectedNextStepsByCode = {
     'Open agentic orders and confirm whether the buyer should retry the request.',
   AGENTIC_ORDER_FINALIZING:
     'Check whether an order was created before allowing another completion retry.',
+  AGENTIC_ORDER_READ_ERRORS:
+    'Review failed order status reads before agents continue tracking affected orders.',
   AGENTIC_PAYMENT_CLAIMING:
     'Monitor payment-account creation and investigate if this count does not fall.',
   AGENTIC_PAYMENT_PENDING:
@@ -60,6 +63,8 @@ const expectedNextStepUrlsByCode = {
     '/dashboard/orders?source=agentic&agentic_issue=AGENTIC_IDEMPOTENCY_STALE_IN_PROGRESS',
   AGENTIC_ORDER_FINALIZING:
     '/dashboard/orders?source=agentic&agentic_issue=AGENTIC_ORDER_FINALIZING',
+  AGENTIC_ORDER_READ_ERRORS:
+    '/dashboard/orders?source=agentic&agentic_issue=AGENTIC_ORDER_READ_ERRORS',
   AGENTIC_PAYMENT_CLAIMING:
     '/dashboard/orders?source=agentic&agentic_issue=AGENTIC_PAYMENT_CLAIMING',
   AGENTIC_PAYMENT_PENDING:
@@ -82,6 +87,7 @@ describe('buildAgenticHealthActions', () => {
         cancelTerminalErrorCount: 2,
         completeTerminalErrorCount: 1,
         orderFinalizingCount: 3,
+        orderReadTerminalErrorCount: 2,
         paymentClaimingCount: 6,
         paymentPendingCount: 7,
         paymentSetupFailedCount: 4,
@@ -129,6 +135,13 @@ describe('buildAgenticHealthActions', () => {
         count: 3,
         next_step_url:
           '/dashboard/orders?source=agentic&agentic_issue=AGENTIC_ORDER_FINALIZING',
+        severity: 'attention',
+      },
+      {
+        code: 'AGENTIC_ORDER_READ_ERRORS',
+        count: 2,
+        next_step_url:
+          '/dashboard/orders?source=agentic&agentic_issue=AGENTIC_ORDER_READ_ERRORS',
         severity: 'attention',
       },
       {
@@ -267,6 +280,26 @@ describe('buildAgenticHealthActions', () => {
     ]);
   });
 
+  it('surfaces failed agentic order reads as a recovery action', () => {
+    expect(
+      buildAgenticHealthActions({
+        ...healthyInput,
+        orderReadTerminalErrorCount: 2,
+      })
+    ).toEqual([
+      {
+        code: 'AGENTIC_ORDER_READ_ERRORS',
+        count: 2,
+        message: 'Agents cannot read recent order status updates.',
+        next_step:
+          'Review failed order status reads before agents continue tracking affected orders.',
+        next_step_url:
+          '/dashboard/orders?source=agentic&agentic_issue=AGENTIC_ORDER_READ_ERRORS',
+        severity: 'attention',
+      },
+    ]);
+  });
+
   it('does not warn about an empty allowlist when checkout is disabled', () => {
     expect(
       buildAgenticHealthActions({
@@ -324,6 +357,7 @@ describe('buildAgenticHealthActions', () => {
       cancelTerminalErrorCount: 2,
       completeTerminalErrorCount: 1,
       orderFinalizingCount: 3,
+      orderReadTerminalErrorCount: 2,
       paymentClaimingCount: 6,
       paymentPendingCount: 7,
       paymentSetupFailedCount: 4,

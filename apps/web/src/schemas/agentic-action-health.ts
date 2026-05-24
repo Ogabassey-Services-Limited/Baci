@@ -76,6 +76,7 @@ export const agenticActionRequestRecordSchema = z.object({
   created_at: z.string().datetime({ offset: true }),
   expires_at: z.string().datetime({ offset: true }),
   route: z.string().trim().min(1).nullable(),
+  status_code: z.number().int().min(100).max(599).nullable().optional(),
 });
 
 export const agenticActionRequestsSchema = z
