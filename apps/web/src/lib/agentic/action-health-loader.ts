@@ -18,6 +18,7 @@ const STALE_PAYMENT_PENDING_MS = 24 * 60 * 60 * 1000;
 const COMPLETE_ROUTE_SUFFIX = '.complete';
 
 interface LoadAgenticActionHealthOptions {
+  onRequestControlError?: (error: unknown) => void;
   recordsSource?: 'admin_direct' | 'dashboard_rpc';
 }
 
@@ -117,8 +118,11 @@ export async function loadAgenticActionHealth(
     getActionHealthRequestControlSummary(supabase, merchantId),
     loadActionHealthRecords(supabase, merchantId, options),
   ]);
+  if (requestControlSummary.error) {
+    options.onRequestControlError?.(requestControlSummary.error);
+  }
 
-  const { idempotencyRows, sessionRows } =
+  const { idempotencyRows, requestRows, sessionRows } =
     parseAgenticActionHealthRpcPayload(healthPayload);
   const nowMs = Date.now();
   const relevantIdempotencyRows = idempotencyRows.filter((row) =>
@@ -186,15 +190,25 @@ export async function loadAgenticActionHealth(
   const checkoutActivityRecords = sessionRows
     .flatMap((row) => {
       const paymentState = getAgenticPaymentState(row.metadata);
-      if (!paymentState || !Number.isFinite(Date.parse(row.updated_at))) {
+      const status =
+        typeof row.status === 'string' && row.status.trim().length > 0
+          ? row.status.trim()
+          : null;
+      const sessionId = row.session_id.trim();
+      if (
+        !paymentState ||
+        !status ||
+        !sessionId ||
+        !Number.isFinite(Date.parse(row.updated_at))
+      ) {
         return [];
       }
 
       return [
         {
           payment_state: paymentState,
-          session_id: row.session_id,
-          status: row.status,
+          session_id: sessionId,
+          status,
           updated_at: row.updated_at,
         },
       ];
@@ -215,6 +229,7 @@ export async function loadAgenticActionHealth(
       paymentClaimingCount,
       paymentPendingCount: paymentPendingCount - stalePaymentPendingCount,
       paymentSetupFailedCount,
+      requestControlFetchError: requestControlSummary.error !== null,
       staleInProgressCount,
       stalePaymentPendingCount,
       terminalErrorCount,
@@ -246,6 +261,22 @@ export async function loadAgenticActionHealth(
       })),
       stale_in_progress_count: staleInProgressCount,
       terminal_error_count: terminalErrorCount,
+    },
+    request_controls: {
+      allowlist_count: requestControlSummary.allowlistCount,
+      denylist_count: requestControlSummary.denylistCount,
+      fetch_error: requestControlSummary.error !== null,
+      is_agentic_checkout_enabled:
+        requestControlSummary.isAgenticCheckoutEnabled,
+    },
+    requests: {
+      recent_count: requestRows.length,
+      records: requestRows.map((row) => ({
+        api_version: row.api_version,
+        created_at: row.created_at,
+        expires_at: row.expires_at,
+        route: row.route,
+      })),
     },
   });
 

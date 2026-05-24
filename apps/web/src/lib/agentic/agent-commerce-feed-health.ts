@@ -1,9 +1,8 @@
 import { getCachedGoogleMerchantFeedData } from '@/app/api/feed/google-merchant/feed-data';
 import { getCachedOpenAIFeedData } from '@/app/api/feed/openai/feed-data';
+import { AGENT_COMMERCE_FEED_FRESHNESS } from '@/lib/agent-commerce-feed-freshness';
 import { logger } from '@/lib/logger';
 import type { AgenticAction } from '@/schemas/agentic-action-health';
-
-const FEED_FRESHNESS_MONITOR_DAYS = 30;
 
 export type AgentCommerceFeedHealthStatus = 'attention' | 'monitor' | 'ok';
 
@@ -66,23 +65,6 @@ function getLatestUpdatedAt(
   return latest?.toISOString() ?? null;
 }
 
-function countStaleProducts({
-  now,
-  products,
-}: {
-  now: Date;
-  products: Array<{ updated_at?: string | null }>;
-}) {
-  const cutoff =
-    now.getTime() - FEED_FRESHNESS_MONITOR_DAYS * 24 * 60 * 60 * 1000;
-
-  return products.filter((product) => {
-    if (!product.updated_at) return true;
-    const updatedAt = Date.parse(product.updated_at);
-    return !Number.isFinite(updatedAt) || updatedAt < cutoff;
-  }).length;
-}
-
 function countCatalogDrift({
   googleProductIds,
   openAiProductIds,
@@ -143,10 +125,19 @@ export async function checkAgentCommerceFeedHealth({
       googleProductIds,
       openAiProductIds,
     });
-    const staleProductCount = countStaleProducts({
+    const staleProductCount = AGENT_COMMERCE_FEED_FRESHNESS.countStaleProducts({
       now,
       products: openAiFeedData.products,
     });
+    const productsMissingTimestamps =
+      AGENT_COMMERCE_FEED_FRESHNESS.countProductsMissingTimestamps(
+        openAiFeedData.products
+      );
+    const hasAcceptableFreshnessCoverage =
+      AGENT_COMMERCE_FEED_FRESHNESS.hasCurrentProductCoverage({
+        staleProducts: staleProductCount,
+        totalProducts: openAiFeedData.products.length,
+      });
     const issues: AgentCommerceFeedHealthIssue[] = [];
 
     if (catalogDriftCount > 0) {
@@ -171,12 +162,28 @@ export async function checkAgentCommerceFeedHealth({
       });
     }
 
-    if (staleProductCount > 0) {
+    if (productsMissingTimestamps > 0 && !hasAcceptableFreshnessCoverage) {
       issues.push({
         code: 'feed_stale',
         count: staleProductCount,
         message:
-          'One or more agent-visible products have stale or missing feed timestamps.',
+          'Agent-visible product timestamps include missing or invalid values, and freshness coverage is below the monitoring threshold.',
+        severity: 'monitor',
+      });
+    } else if (productsMissingTimestamps > 0) {
+      issues.push({
+        code: 'feed_stale',
+        count: productsMissingTimestamps,
+        message:
+          'One or more agent-visible products have missing or invalid feed timestamps.',
+        severity: 'monitor',
+      });
+    } else if (staleProductCount > 0 && !hasAcceptableFreshnessCoverage) {
+      issues.push({
+        code: 'feed_stale',
+        count: staleProductCount,
+        message:
+          'Agent-visible product freshness coverage is below the monitoring threshold.',
         severity: 'monitor',
       });
     }

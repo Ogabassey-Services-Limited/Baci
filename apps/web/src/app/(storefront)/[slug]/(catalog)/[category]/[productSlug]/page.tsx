@@ -499,32 +499,6 @@ const getProduct = async (
   };
 };
 
-async function preloadOgabasseyPdpProductImageFromFastLookup(
-  storeSlug: string,
-  productSlug: string
-): Promise<void> {
-  try {
-    const merchant = await getRequestScopedMerchant(storeSlug);
-    if (!merchant || merchant.template_id !== OGABASSEY_TEMPLATE_ID) {
-      return;
-    }
-
-    const primaryProductImage = await getCachedStorefrontProductLcpImage(
-      merchant.id,
-      productSlug
-    );
-    if (primaryProductImage) {
-      preloadOgabasseyPdpProductImage({ src: primaryProductImage });
-    }
-  } catch (error) {
-    console.warn(
-      'Unable to preload OgaBassey PDP product image early:',
-      sanitizeLookupLogValue(productSlug),
-      error
-    );
-  }
-}
-
 export async function generateMetadata({
   params,
   searchParams,
@@ -632,19 +606,17 @@ export async function generateMetadata({
   };
 }
 
-export default async function CategoryProductPage({
-  params,
+interface CategoryProductPageContentProps {
+  slug: string;
+  searchParams: PageProps['searchParams'];
+  productResultPromise: Promise<CategoryProductResult>;
+}
+
+async function CategoryProductPageContent({
+  slug,
   searchParams,
-}: PageProps) {
-  const { slug, category, productSlug } = await params;
-  if (!isValidMerchantIdentifier(slug)) {
-    notFound();
-  }
-  // The fast lookup is only an optimization hint. Start it early, but never
-  // gate the primary PDP data path on the hint resolving.
-  void preloadOgabasseyPdpProductImageFromFastLookup(slug, productSlug);
-  const productResultPromise = getProduct(slug, category, productSlug);
-  const resolvedSearchParams = await searchParams;
+  productResultPromise,
+}: CategoryProductPageContentProps) {
   const result = await productResultPromise;
 
   if (!result) {
@@ -664,11 +636,9 @@ export default async function CategoryProductPage({
     permanentRedirect(getRedirectTargetPath(slug, product));
   }
 
+  const resolvedSearchParams = await searchParams;
   redirectInvalidVariantSelectionParams(slug, product, resolvedSearchParams);
   const primaryProductImage = product.imageLarge || product.image;
-  if (merchant?.template_id === OGABASSEY_TEMPLATE_ID) {
-    preloadOgabasseyPdpProductImage({ src: primaryProductImage });
-  }
   const productResourceHints =
     merchant?.template_id === OGABASSEY_TEMPLATE_ID ? (
       <OgabasseyPdpProductResourceHints src={primaryProductImage} />
@@ -755,9 +725,6 @@ export default async function CategoryProductPage({
 
   return (
     <>
-      <Suspense fallback={null}>
-        <StorefrontDynamicMetadataMarker />
-      </Suspense>
       {productResourceHints}
       {/* nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml - JSON-LD is sanitized and not executed */}
       <script
@@ -790,6 +757,70 @@ export default async function CategoryProductPage({
         </dl>
       </article>
       {productPage}
+    </>
+  );
+}
+
+interface OgabasseyPdpProductImagePreloadWrapperProps {
+  slug: string;
+  productSlug: string;
+}
+
+async function OgabasseyPdpProductImagePreloadWrapper({
+  slug,
+  productSlug,
+}: OgabasseyPdpProductImagePreloadWrapperProps) {
+  try {
+    const merchant = await getRequestScopedMerchant(slug);
+    if (merchant && merchant.template_id === OGABASSEY_TEMPLATE_ID) {
+      const primaryProductImage = await getCachedStorefrontProductLcpImage(
+        merchant.id,
+        productSlug
+      );
+      if (primaryProductImage) {
+        preloadOgabasseyPdpProductImage({ src: primaryProductImage });
+      }
+    }
+  } catch (error) {
+    console.warn(
+      'Unable to preload OgaBassey PDP product image early:',
+      sanitizeLookupLogValue(productSlug),
+      error
+    );
+  }
+  return null;
+}
+
+export default async function CategoryProductPage({
+  params,
+  searchParams,
+}: PageProps) {
+  const { slug, category, productSlug } = await params;
+  if (!isValidMerchantIdentifier(slug)) {
+    notFound();
+  }
+
+  // Start the product fetch first to run in parallel with the preloading lookups
+  const productResultPromise = getProduct(slug, category, productSlug);
+
+  return (
+    <>
+      <Suspense fallback={null}>
+        <StorefrontDynamicMetadataMarker />
+      </Suspense>
+      <Suspense fallback={null}>
+        <OgabasseyPdpProductImagePreloadWrapper
+          slug={slug}
+          productSlug={productSlug}
+        />
+      </Suspense>
+      <Suspense fallback={null}>
+        <CategoryProductPageContent
+          slug={slug}
+          searchParams={searchParams}
+          productResultPromise={productResultPromise}
+        />
+      </Suspense>
     </>
   );
 }

@@ -4,6 +4,7 @@ import { Bot, Radar, ShieldCheck } from 'lucide-react';
 import { AgenticActionCenterCard } from '@/components/dashboard/agentic-action-center-card';
 import { AgenticCrawlerVisibilityCard } from '@/components/dashboard/agentic-crawler-visibility-card';
 import { AgenticTrustCenterCard } from '@/components/dashboard/agentic-trust-center-card';
+import { AgentCommerceControlsCard } from '@/components/dashboard/integrations/agent-commerce-controls-card';
 import {
   Card,
   CardDescription,
@@ -14,9 +15,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { CrawlerLogSummary } from '@/lib/agentic/crawler-observability';
 import type { AgentCommerceTrustReadinessSummary } from '@/lib/storefront-trust/build-agent-commerce-trust-readiness';
 import type { AgenticActionHealthPayload } from '@/schemas/agentic-action-health';
-import type { AgenticCenterState } from './data';
+import type { AgenticCenterState, AgenticControlsState } from './data';
 
 interface AgenticDashboardClientPageProps {
+  agentControls: AgenticControlsState | null;
   actionCenterState: AgenticCenterState;
   actionHealth: AgenticActionHealthPayload | null;
   crawlerCenterState: AgenticCenterState;
@@ -27,6 +29,7 @@ interface AgenticDashboardClientPageProps {
 }
 
 export default function AgenticDashboardClientPage({
+  agentControls,
   actionCenterState,
   actionHealth,
   crawlerCenterState,
@@ -73,18 +76,26 @@ export default function AgenticDashboardClientPage({
           </CardHeader>
         </Card>
       ) : !isPublished ? (
-        <Card className="border-border/70">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Bot className="h-5 w-5 text-primary" />
-              Agentic centers are paused
-            </CardTitle>
-            <CardDescription>
-              Publish your storefront before agent checkout and trust readiness
-              checks appear here.
-            </CardDescription>
-          </CardHeader>
-        </Card>
+        <div className="space-y-4">
+          <Card className="border-border/70">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Bot className="h-5 w-5 text-primary" />
+                Agentic centers are paused
+              </CardTitle>
+              <CardDescription>
+                Publish your storefront before agent checkout and trust
+                readiness checks appear here.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+          {agentControls ? (
+            <AgentCommerceControlsCard
+              initialCustomSettings={agentControls.customSettings}
+              initialEnabled={agentControls.enabled}
+            />
+          ) : null}
+        </div>
       ) : (
         <Tabs defaultValue={defaultTab} className="space-y-4">
           <TabsList aria-label="Agentic commerce center tabs">
@@ -114,6 +125,12 @@ export default function AgenticDashboardClientPage({
                 payload={actionHealth}
                 state={actionCenterState}
               />
+              {agentControls ? (
+                <AgentCommerceControlsCard
+                  initialCustomSettings={agentControls.customSettings}
+                  initialEnabled={agentControls.enabled}
+                />
+              ) : null}
             </TabsContent>
           )}
 

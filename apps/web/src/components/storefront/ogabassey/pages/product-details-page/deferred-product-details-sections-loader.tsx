@@ -1,79 +1,67 @@
 'use client';
 
-import type { ComponentType } from 'react';
-import { useEffect, useState } from 'react';
+import dynamic from 'next/dynamic';
+import { useState } from 'react';
 import { useViewportActivation } from '@/components/storefront/use-viewport-activation';
+import { DeferredDetailsSkeleton } from './deferred-details-skeleton';
 import type { DeferredProductDetailsSectionsProps } from './deferred-product-details-sections';
 
-interface DeferredProductDetailsSectionsModule {
-  DeferredProductDetailsSections: ComponentType<
-    DeferredProductDetailsSectionsProps
-  >;
-}
+export type DeferredProductDetailsSectionsLoaderProps = Omit<
+  DeferredProductDetailsSectionsProps,
+  'onLoaded'
+>;
 
-interface DeferredProductDetailsSectionsLoaderProps
-  extends DeferredProductDetailsSectionsProps {
-  loadDeferredSections?: () => Promise<DeferredProductDetailsSectionsModule>;
-}
+const DeferredProductDetailsSections = dynamic(
+  () =>
+    import('./deferred-product-details-sections').then(
+      (mod) => mod.DeferredProductDetailsSections
+    ),
+  {
+    loading: () => (
+      <DeferredDetailsSkeleton
+        role=""
+        aria-live="off"
+        aria-busy={false}
+        aria-label=""
+      />
+    ),
+    ssr: false,
+  }
+);
 
-const loadDefaultDeferredSections = () =>
-  import('./deferred-product-details-sections');
-
-function DeferredDetailsLoadingPlaceholder() {
-  return (
-    <div
-      aria-hidden="true"
-      className="mt-12 min-h-[1200px] [content-visibility:auto] [contain-intrinsic-size:1400px_2200px]"
-      data-testid="deferred-product-details-placeholder"
-    />
-  );
-}
-
-export function DeferredProductDetailsSectionsLoader({
-  loadDeferredSections = loadDefaultDeferredSections,
-  ...sectionProps
-}: DeferredProductDetailsSectionsLoaderProps) {
-  const [Sections, setSections] =
-    useState<ComponentType<DeferredProductDetailsSectionsProps> | null>(null);
+export function DeferredProductDetailsSectionsLoader(
+  props: DeferredProductDetailsSectionsLoaderProps
+) {
   const { ref, isActive } = useViewportActivation<HTMLDivElement>({
     rootMargin: '200px 0px',
     timeoutMs: 0,
   });
 
-  useEffect(() => {
-    if (!isActive || Sections) {
-      return;
-    }
-
-    let cancelled = false;
-
-    void loadDeferredSections()
-      .then((module) => {
-        if (!cancelled) {
-          setSections(() => module.DeferredProductDetailsSections);
-        }
-      })
-      .catch((error: unknown) => {
-        if (!cancelled) {
-          console.error(
-            '[DeferredProductDetailsSectionsLoader] Failed to load product details sections',
-            error
-          );
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isActive, loadDeferredSections, Sections]);
+  const [isLoaded, setIsLoaded] = useState(false);
 
   return (
-    <div ref={ref}>
-      {Sections ? (
-        <Sections {...sectionProps} />
+    <div
+      ref={ref}
+      role="status"
+      aria-live="polite"
+      aria-busy={!isLoaded}
+      aria-label={isLoaded ? 'Product details loaded' : 'Loading product details...'}
+      className="w-full"
+    >
+      {isActive ? (
+        <DeferredProductDetailsSections
+          {...props}
+          onLoaded={() => setIsLoaded(true)}
+        />
       ) : (
-        <DeferredDetailsLoadingPlaceholder />
+        <DeferredDetailsSkeleton
+          role=""
+          aria-live="off"
+          aria-busy={false}
+          aria-label=""
+        />
       )}
     </div>
   );
 }
+

@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockAuthenticateApiRequest = vi.fn();
 const mockGetMerchantForApiRequest = vi.fn();
@@ -110,6 +110,7 @@ function buildRpcData({
       expires_at: '2026-05-12T10:15:00.000Z',
       idempotency_key: 'must-not-leak',
       request_id: 'must-not-leak',
+      route: 'checkout_sessions.create',
     },
   ],
 }: {
@@ -125,6 +126,8 @@ function buildRpcData({
 }
 describe('GET /api/merchant/agentic/action-health', () => {
   beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-12T10:30:00.000Z'));
     vi.clearAllMocks();
     mockHasPermission.mockReturnValue(true);
     mockGetMerchantForApiRequest.mockResolvedValue(merchantContext);
@@ -134,6 +137,11 @@ describe('GET /api/merchant/agentic/action-health', () => {
       user: { id: 'user-1' },
     });
   });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('returns merchant-scoped agentic action health without raw retry secrets', async () => {
     const supabase = createSupabaseMock();
     mockAuthenticateApiRequest.mockResolvedValue({
@@ -197,7 +205,17 @@ describe('GET /api/merchant/agentic/action-health', () => {
         fetch_error: false,
         is_agentic_checkout_enabled: true,
       },
-      requests: { recent_count: 1 },
+      requests: {
+        recent_count: 1,
+        records: [
+          {
+            api_version: '2026-04-30',
+            created_at: '2026-05-12T10:00:00.000Z',
+            expires_at: '2026-05-12T10:15:00.000Z',
+            route: 'checkout_sessions.create',
+          },
+        ],
+      },
     });
     expect(JSON.stringify(payload)).not.toContain('must-not-leak');
     expect(supabase.rpc).toHaveBeenCalledWith(
@@ -315,7 +333,7 @@ describe('GET /api/merchant/agentic/action-health', () => {
     });
   });
 
-  it('logs a warning and skips allowlist monitor actions when control lookup fails', async () => {
+  it('logs a warning and surfaces an action when control lookup fails', async () => {
     mockAuthenticateApiRequest.mockResolvedValue({
       error: null,
       supabase: createSupabaseMock({
@@ -337,11 +355,13 @@ describe('GET /api/merchant/agentic/action-health', () => {
     expect(response.status).toBe(200);
     expect(payload.actions).toEqual([
       {
-        code: 'AGENTIC_ACTIONS_HEALTHY',
-        count: 0,
-        message: 'No recent agentic action issues need attention.',
-        next_step: 'No action required right now.',
-        severity: 'ok',
+        code: 'AGENTIC_REQUEST_CONTROLS_UNAVAILABLE',
+        count: 1,
+        message: 'Agent request controls could not be loaded.',
+        next_step:
+          'Open Trust settings and confirm agent request controls are available before advertising checkout.',
+        next_step_url: '/dashboard/settings/trust#agent-checkout-controls',
+        severity: 'attention',
       },
     ]);
     expect(payload.request_controls).toEqual({
@@ -465,6 +485,57 @@ describe('GET /api/merchant/agentic/action-health', () => {
         }),
       ])
     );
+  });
+
+  it('ages out old terminal idempotency errors while preserving stale in-progress reservations', async () => {
+    vi.setSystemTime(new Date('2026-05-18T10:00:00.000Z'));
+    mockAuthenticateApiRequest.mockResolvedValue({
+      error: null,
+      supabase: createSupabaseMock({
+        rpcData: buildRpcData({
+          checkoutSessions: [],
+          idempotencyRecords: [
+            {
+              created_at: '2026-05-09T07:20:00.000Z',
+              expires_at: '2026-05-09T07:40:00.000Z',
+              route: 'checkout_sessions.complete',
+              status_code: 500,
+              updated_at: '2026-05-09T07:28:45.000Z',
+            },
+            {
+              created_at: '2026-05-09T07:30:00.000Z',
+              expires_at: '2026-05-09T07:50:00.000Z',
+              route: 'checkout_sessions.complete',
+              status_code: null,
+              updated_at: '2026-05-09T07:31:00.000Z',
+            },
+          ],
+          requestRecords: [],
+        }),
+      }),
+      user: { id: 'user-1' },
+    });
+
+    const { GET } = await import('./route');
+    const response = await GET(makeRequest());
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(
+      payload.actions.map((action: { code: string }) => action.code)
+    ).toEqual(['AGENTIC_IDEMPOTENCY_STALE_IN_PROGRESS']);
+    expect(payload.idempotency).toMatchObject({
+      recent_count: 1,
+      stale_in_progress_count: 1,
+      terminal_error_count: 0,
+    });
+    expect(payload.idempotency.records).toEqual([
+      expect.objectContaining({
+        route: 'checkout_sessions.complete',
+        state: 'in_progress',
+        status_code: null,
+      }),
+    ]);
   });
 
   it('surfaces payment setup failures and active payment claims', async () => {

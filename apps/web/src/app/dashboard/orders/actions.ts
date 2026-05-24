@@ -12,6 +12,11 @@ import { ORDER_WITH_ITEMS_QUERY } from '@/lib/order-queries';
 import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/zeptomail';
+import {
+  AGENTIC_ORDER_SOURCE,
+  AGENTIC_ORDER_SOURCE_FILTER,
+  type AgenticOrderSourceFilter,
+} from './agentic-order-source';
 import { loadOrderItemImageMap } from './order-item-images';
 import type { PaymentStatus, ShippingStatus } from './order-statuses';
 
@@ -68,6 +73,7 @@ interface OrderFilters {
   paymentStatus?: PaymentStatus | 'All';
   shippingStatus?: ShippingStatus | 'All';
   search?: string;
+  source?: AgenticOrderSourceFilter;
 }
 
 interface OrderItem {
@@ -177,6 +183,7 @@ export async function getOrders(
   const shippingStatusFilter = filters.shippingStatus;
   const hasPaymentFilter = isActiveFilter(paymentStatusFilter);
   const hasShippingFilter = isActiveFilter(shippingStatusFilter);
+  const hasAgenticSourceFilter = filters.source === AGENTIC_ORDER_SOURCE_FILTER;
   const searchTerm = filters.search?.trim();
   const sanitizedSearch = searchTerm
     ? sanitizeLikePattern(sanitizeSearchQuery(searchTerm))
@@ -198,6 +205,10 @@ export async function getOrders(
 
   if (hasShippingFilter) {
     query = query.eq('shipping_status', shippingStatusFilter.toLowerCase());
+  }
+
+  if (hasAgenticSourceFilter) {
+    query = query.eq('source', AGENTIC_ORDER_SOURCE);
   }
 
   // Search by customer name or order number
@@ -224,7 +235,7 @@ export async function getOrders(
   // Jumia orders don't have standard payment/shipping statuses in the same way,
   // but we map them.
   let jumiaOrders: JumiaOrder[] = [];
-  if (!hasPaymentFilter && !hasShippingFilter) {
+  if (!hasPaymentFilter && !hasShippingFilter && !hasAgenticSourceFilter) {
     let jumiaQuery = supabase
       .from('jumia_orders')
       .select(

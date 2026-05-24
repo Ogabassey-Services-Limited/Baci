@@ -10,6 +10,7 @@ interface BuildAgenticHealthActionsInput {
   paymentClaimingCount: number;
   paymentPendingCount: number;
   paymentSetupFailedCount: number;
+  requestControlFetchError?: boolean;
   stalePaymentPendingCount: number;
   staleInProgressCount: number;
   terminalErrorCount: number;
@@ -24,6 +25,7 @@ export function buildAgenticHealthActions({
   paymentClaimingCount,
   paymentPendingCount,
   paymentSetupFailedCount,
+  requestControlFetchError = false,
   stalePaymentPendingCount,
   staleInProgressCount,
   terminalErrorCount,
@@ -104,6 +106,17 @@ export function buildAgenticHealthActions({
         'Agentic checkouts have been waiting for payment confirmation too long.',
       next_step:
         'Confirm payment manually or cancel stale sessions before agents keep polling.',
+      severity: 'attention',
+    });
+  }
+
+  if (requestControlFetchError) {
+    pushAction({
+      code: 'AGENTIC_REQUEST_CONTROLS_UNAVAILABLE',
+      count: 1,
+      message: 'Agent request controls could not be loaded.',
+      next_step:
+        'Open Trust settings and confirm agent request controls are available before advertising checkout.',
       severity: 'attention',
     });
   }

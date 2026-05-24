@@ -122,6 +122,34 @@ describe('checkAgentCommerceFeedHealth', () => {
     ]);
   });
 
+  it('keeps old valid timestamps ok when freshness coverage remains healthy', async () => {
+    const productIds = Array.from(
+      { length: 100 },
+      (_, index) => `product-${index + 1}`
+    );
+    // Two stale products keeps the catalog at the 98% freshness threshold.
+    vi.mocked(getCachedOpenAIFeedData).mockResolvedValueOnce({
+      products: openAiFeed(productIds).products.map((product, index) => ({
+        ...product,
+        updated_at:
+          index < 2 ? '2026-04-01T10:00:00.000Z' : '2026-05-22T10:00:00.000Z',
+      })),
+    });
+    vi.mocked(getCachedGoogleMerchantFeedData).mockResolvedValueOnce(
+      googleFeed(productIds)
+    );
+
+    const result = await runCheck();
+
+    expect(result).toMatchObject({
+      issue_count: 0,
+      latest_product_updated_at: '2026-05-22T10:00:00.000Z',
+      stale_product_count: 2,
+      status: 'ok',
+    });
+    expect(result.issues).toEqual([]);
+  });
+
   it('treats missing or invalid feed timestamps as stale', async () => {
     vi.mocked(getCachedOpenAIFeedData).mockResolvedValueOnce({
       products: [
@@ -160,6 +188,40 @@ describe('checkAgentCommerceFeedHealth', () => {
         count: 2,
         severity: 'monitor',
       }),
+    ]);
+  });
+
+  it('reports the broader stale count when missing timestamps also breach freshness coverage', async () => {
+    const productIds = Array.from(
+      { length: 100 },
+      (_, index) => `product-${index + 1}`
+    );
+    vi.mocked(getCachedOpenAIFeedData).mockResolvedValueOnce({
+      products: openAiFeed(productIds).products.map((product, index) => ({
+        ...product,
+        updated_at: index === 0 ? undefined : '2026-04-01T10:00:00.000Z',
+      })),
+    });
+    vi.mocked(getCachedGoogleMerchantFeedData).mockResolvedValueOnce(
+      googleFeed(productIds)
+    );
+
+    const result = await runCheck();
+
+    expect(result).toMatchObject({
+      issue_count: 1,
+      latest_product_updated_at: '2026-04-01T10:00:00.000Z',
+      stale_product_count: 100,
+      status: 'monitor',
+    });
+    expect(result.issues).toEqual([
+      {
+        code: 'feed_stale',
+        count: 100,
+        message:
+          'Agent-visible product timestamps include missing or invalid values, and freshness coverage is below the monitoring threshold.',
+        severity: 'monitor',
+      },
     ]);
   });
 

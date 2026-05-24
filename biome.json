@@ -18,6 +18,7 @@
       "!**/src/app/page.backup.tsx",
       "!**/src/app/page.tsx.bak",
       "!**/src/app/globals.css",
+      "!**/src/app/(storefront)/storefront-globals.css",
       "!**/src/components/storefront/new-template",
       "!**/src/components/storefront/ogabassey",
       "!**/src/components/storefront/ogabassey-v2",

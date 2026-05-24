@@ -150,6 +150,7 @@ export async function handleAgenticCheckoutSessionCreate(
       idempotencyKey: mutation.idempotencyKey,
       merchantId: merchant.id,
       requestId: mutation.requestId,
+      route: CREATE_IDEMPOTENCY_ROUTE,
       supabase,
     });
     if (!replayReservation.ok) {
@@ -190,6 +191,16 @@ export async function handleAgenticCheckoutSessionCreate(
         merchantId: merchant.id,
       });
       return await respond({ error: 'Checkout calculation failed' }, 500);
+    }
+
+    if (sessionCalc.lineItems.length === 0) {
+      return await respond(
+        {
+          error: 'No valid checkout items',
+          messages: sessionCalc.messages,
+        },
+        400
+      );
     }
 
     // 3. Create Session in DB

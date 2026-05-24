@@ -297,4 +297,43 @@ describe('loadAgenticActionHealth', () => {
       'AGENTIC_IDEMPOTENCY_STALE_IN_PROGRESS',
     ]);
   });
+
+  it('passes request-control lookup errors to a private callback without hiding health data', async () => {
+    const requestControlError = new Error('settings lookup failed');
+    const onRequestControlError = vi.fn();
+    getActionHealthRequestControlSummary.mockResolvedValue({
+      allowlistCount: 0,
+      denylistCount: 0,
+      error: requestControlError,
+      isAgenticCheckoutEnabled: false,
+    });
+    const supabase = {
+      rpc: vi.fn().mockResolvedValue({
+        data: {
+          checkout_sessions: [],
+          idempotency_records: [],
+          request_records: [],
+        },
+        error: null,
+      }),
+    } as unknown as SupabaseClient;
+
+    const result = await loadAgenticActionHealth(supabase, 'merchant-1', {
+      onRequestControlError,
+    });
+
+    expect(onRequestControlError).toHaveBeenCalledWith(requestControlError);
+    expect(result.request_controls).toEqual({
+      allowlist_count: 0,
+      denylist_count: 0,
+      fetch_error: true,
+      is_agentic_checkout_enabled: false,
+    });
+    expect(result.actions).toEqual([
+      expect.objectContaining({
+        code: 'AGENTIC_REQUEST_CONTROLS_UNAVAILABLE',
+        severity: 'attention',
+      }),
+    ]);
+  });
 });

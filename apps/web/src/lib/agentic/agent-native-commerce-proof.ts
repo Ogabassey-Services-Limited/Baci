@@ -56,6 +56,17 @@ function getOverallStatus(stages: ProofStage[]): ProofStatus {
   return 'pass';
 }
 
+function getTrustedStageMessage(status: AgentCommerceTrustSeverity): string {
+  switch (status) {
+    case 'pass':
+      return 'Trust checks pass across catalog parity, policy coverage, images, freshness, and crawler-visible endpoints.';
+    case 'warn':
+      return 'Trust checks are mostly ready, with warnings that should be reviewed before broad promotion.';
+    case 'fail':
+      return 'One or more trust checks need merchant attention before agents should confidently recommend this store.';
+  }
+}
+
 export function buildAgentNativeCommerceProof({
   baseUrl,
   manifest,
@@ -88,10 +99,7 @@ export function buildAgentNativeCommerceProof({
       id: 'trusted',
       evidence_url: manifest.links.trust,
       label: 'Trusted',
-      message:
-        trustReadiness.status === 'pass'
-          ? 'Trust checks pass across catalog parity, policy coverage, images, freshness, and crawler-visible endpoints.'
-          : 'One or more trust checks need merchant attention before agents should confidently recommend this store.',
+      message: getTrustedStageMessage(trustReadiness.status),
       status: trustReadiness.status,
       visibility: 'public',
     },
