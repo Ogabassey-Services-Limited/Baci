@@ -29,6 +29,8 @@ export function useDiscounts() {
       return data as DiscountCode[];
     },
     enabled: !!merchant?.id,
+    // ⚡ Bolt Performance Optimization: Added staleTime to prevent repeated Supabase queries when switching screens
+    staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
   const createMutation = useMutation({
