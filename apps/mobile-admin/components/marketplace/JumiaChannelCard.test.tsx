@@ -108,6 +108,16 @@ async function invokeAlertButton(buttonText: string) {
 }
 
 describe('JumiaChannelCard', () => {
+  it('renders correctly with dynamic theme tokens', () => {
+    mocks.useQuery.mockReturnValue({
+      data: { integrations: [] },
+      isError: false,
+      isFetching: false,
+      isLoading: false,
+    });
+    render(<JumiaChannelCard colors={colors} shadows={{ sm: {} }} />);
+    expect(screen.getByText('Jumia')).toBeInTheDocument();
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.apiClient.mockResolvedValue({ success: true });
