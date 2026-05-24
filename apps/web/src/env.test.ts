@@ -199,6 +199,7 @@ describe('env validation', () => {
 
   it('trims agentic runtime secrets and filters blank rotations', async () => {
     vi.stubEnv('OPENAI_AGENTIC_API_KEY', '  agent-api-key  ');
+    vi.stubEnv('OPENAI_AGENTIC_API_KEY_PREVIOUS', '   ');
     vi.stubEnv('OPENAI_AGENTIC_CONFIRMATION_KEY', '  confirmation-key  ');
     vi.stubEnv('OPENAI_AGENTIC_CONFIRMATION_KEY_PREVIOUS', '   ');
     vi.stubEnv('OPENAI_AGENTIC_SIGNING_KEY', '  signing-key  ');
@@ -210,6 +211,7 @@ describe('env validation', () => {
     );
     const {
       getAgenticApiKey,
+      getAgenticApiKeys,
       getAgenticConfirmationKeys,
       getAgenticSigningKeys,
       getPaystackSecretKey,
@@ -217,6 +219,7 @@ describe('env validation', () => {
     } = await loadEnvModule();
 
     expect(getAgenticApiKey()).toBe('agent-api-key');
+    expect(getAgenticApiKeys()).toEqual(['agent-api-key']);
     expect(getAgenticConfirmationKeys()).toEqual(['confirmation-key']);
     expect(getAgenticSigningKeys()).toEqual(['signing-key']);
     expect(getPaystackSecretKey()).toBe('paystack-secret');
@@ -225,6 +228,7 @@ describe('env validation', () => {
 
   it('treats empty agentic runtime secrets as unset', async () => {
     vi.stubEnv('OPENAI_AGENTIC_API_KEY', '');
+    vi.stubEnv('OPENAI_AGENTIC_API_KEY_PREVIOUS', '');
     vi.stubEnv('OPENAI_AGENTIC_CONFIRMATION_KEY', '');
     vi.stubEnv('OPENAI_AGENTIC_CONFIRMATION_KEY_PREVIOUS', '');
     vi.stubEnv('OPENAI_AGENTIC_SIGNING_KEY', '');
@@ -232,18 +236,31 @@ describe('env validation', () => {
     vi.stubEnv('PAYSTACK_SECRET_KEY', '');
     const {
       getAgenticApiKey,
+      getAgenticApiKeys,
       getAgenticConfirmationKeys,
       getAgenticSigningKeys,
       getPaystackSecretKey,
     } = await loadEnvModule();
 
     expect(getAgenticApiKey()).toBeUndefined();
+    expect(getAgenticApiKeys()).toEqual([]);
     expect(getAgenticConfirmationKeys()).toEqual([]);
     expect(getAgenticSigningKeys()).toEqual([]);
     expect(getPaystackSecretKey()).toBeUndefined();
   });
 
+  it('does not expose a previous agentic API key without a current key', async () => {
+    vi.stubEnv('OPENAI_AGENTIC_API_KEY', '');
+    vi.stubEnv('OPENAI_AGENTIC_API_KEY_PREVIOUS', ' previous-api ');
+    const { getAgenticApiKey, getAgenticApiKeys } = await loadEnvModule();
+
+    expect(getAgenticApiKey()).toBeUndefined();
+    expect(getAgenticApiKeys()).toEqual([]);
+  });
+
   it('includes current and previous agentic rotation keys after trimming', async () => {
+    vi.stubEnv('OPENAI_AGENTIC_API_KEY', ' current-api ');
+    vi.stubEnv('OPENAI_AGENTIC_API_KEY_PREVIOUS', ' previous-api ');
     vi.stubEnv('OPENAI_AGENTIC_CONFIRMATION_KEY', ' current-confirmation ');
     vi.stubEnv(
       'OPENAI_AGENTIC_CONFIRMATION_KEY_PREVIOUS',
@@ -251,9 +268,13 @@ describe('env validation', () => {
     );
     vi.stubEnv('OPENAI_AGENTIC_SIGNING_KEY', ' current-signing ');
     vi.stubEnv('OPENAI_AGENTIC_SIGNING_KEY_PREVIOUS', ' previous-signing ');
-    const { getAgenticConfirmationKeys, getAgenticSigningKeys } =
-      await loadEnvModule();
+    const {
+      getAgenticApiKeys,
+      getAgenticConfirmationKeys,
+      getAgenticSigningKeys,
+    } = await loadEnvModule();
 
+    expect(getAgenticApiKeys()).toEqual(['current-api', 'previous-api']);
     expect(getAgenticConfirmationKeys()).toEqual([
       'current-confirmation',
       'previous-confirmation',
