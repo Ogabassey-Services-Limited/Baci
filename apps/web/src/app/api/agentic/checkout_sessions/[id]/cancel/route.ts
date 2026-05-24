@@ -135,6 +135,7 @@ export async function POST(
       idempotencyKey: mutation.idempotencyKey,
       merchantId: merchant.id,
       requestId: mutation.requestId,
+      route: CANCEL_IDEMPOTENCY_ROUTE,
       supabase,
     });
     if (!replayReservation.ok) {

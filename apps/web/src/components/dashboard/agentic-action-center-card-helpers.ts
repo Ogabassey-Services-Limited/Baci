@@ -56,6 +56,16 @@ function formatPatternCount(count: number, singular: string): string {
   return `${count} ${pluralize(singular, count)}`;
 }
 
+function formatUnderscoreStateLabel(value: string): string {
+  const label = value
+    .split('_')
+    .filter((token) => token.length > 0)
+    .map((token) => token[0]?.toUpperCase() + token.slice(1))
+    .join(' ');
+
+  return label || 'Unknown';
+}
+
 function buildAgenticDashboardBriefing(
   actions: AgenticAction[]
 ): AgenticDashboardBriefing {
@@ -116,6 +126,7 @@ export const agenticActionCenterCardHelpers = {
   buildAgenticDashboardBriefing,
   formatGeneratedAt,
   formatPatternCount,
+  formatUnderscoreStateLabel,
   getActionHref,
   sumActionCounts,
 };
