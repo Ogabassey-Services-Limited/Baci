@@ -18,3 +18,6 @@
 ## 2025-05-19 - Exact getItemLayout only for fixed-axis FlatLists
 **Learning:** React Native's `getItemLayout` is safe only when each item has an exact, deterministic size on the scroll axis. Rough estimates for text-heavy vertical rows, country lists, addresses, or history cards can corrupt offsets when content wraps or font scaling changes.
 **Action:** Provide `getItemLayout` only when the rendered item enforces the exact scroll-axis dimension, such as a horizontal pager whose item width is the viewport width. Leave variable-height lists to React Native's measurement path.
+## 2025-05-24 - Prevent redundant queries by adding staleTime
+**Learning:** In the mobile admin app, several React Query hooks (`useStaffAccounts`, `useStoreReadiness`, `useQuickAddProductMatches`) lacked `staleTime` configurations, causing them to refetch data immediately upon remounting or window focus, leading to unnecessary Supabase database load.
+**Action:** Always configure `staleTime` (e.g., `1000 * 60 * 5` for 5 minutes) on data-fetching queries to prevent over-fetching when the user navigates between screens.
