@@ -1,6 +1,7 @@
 import { type Dispatch, type SetStateAction, useEffect, useRef } from 'react';
-import type { Biller } from '@/hooks/use-vtu-billers';
+import type { Biller, BillItem } from '@/hooks/use-vtu-billers';
 import { inferProviderFromDataBillerName } from './data-form.helpers';
+import { findDataPlanByCode } from './data-plan-selection';
 
 interface UseDataBillerInitializationInput {
   dataPlans: Biller[] | undefined;
@@ -8,6 +9,7 @@ interface UseDataBillerInitializationInput {
   initialProvider: string | undefined;
   setIsDataPickerExpanded: Dispatch<SetStateAction<boolean>>;
   setSelectedDataBiller: Dispatch<SetStateAction<Biller | null>>;
+  setPlanAmount: Dispatch<SetStateAction<number>>;
   setSelectedPlan: Dispatch<SetStateAction<string | null>>;
   setSelectedProvider: Dispatch<SetStateAction<string | null>>;
 }
@@ -22,6 +24,7 @@ export function useDataBillerInitialization({
   initialProvider,
   setIsDataPickerExpanded,
   setSelectedDataBiller,
+  setPlanAmount,
   setSelectedPlan,
   setSelectedProvider,
 }: UseDataBillerInitializationInput) {
@@ -32,15 +35,37 @@ export function useDataBillerInitialization({
       return;
     }
 
+    let matchedNestedBillItem: BillItem | null = null;
+    let matchedNestedPlan: Biller | null = null;
+    for (const plan of dataPlans) {
+      const billItem = findDataPlanByCode(plan.billItems, initialPlan);
+      if (billItem) {
+        matchedNestedBillItem = billItem;
+        matchedNestedPlan = plan;
+        break;
+      }
+    }
     const matchedPlan =
-      dataPlans.find((plan) => plan.billerId === initialPlan) ?? null;
+      matchedNestedPlan ??
+      dataPlans.find((plan) => plan.billerId === initialPlan) ??
+      null;
     if (!matchedPlan) {
       return;
     }
 
     selectedDataBillerRef.current = matchedPlan;
     setSelectedDataBiller(matchedPlan);
-    setSelectedPlan(matchedPlan.billerId);
+    setSelectedPlan(
+      matchedNestedBillItem
+        ? matchedNestedBillItem.itemCode
+        : matchedPlan.billerId
+    );
+    if (
+      matchedNestedBillItem?.isAmountFixed &&
+      matchedNestedBillItem.amount > 0
+    ) {
+      setPlanAmount(matchedNestedBillItem.amount);
+    }
     setSelectedProvider(
       inferProviderFromDataBillerName(matchedPlan.billerName) ??
         initialProvider ??
@@ -53,6 +78,7 @@ export function useDataBillerInitialization({
     initialProvider,
     setIsDataPickerExpanded,
     setSelectedDataBiller,
+    setPlanAmount,
     setSelectedPlan,
     setSelectedProvider,
   ]);
