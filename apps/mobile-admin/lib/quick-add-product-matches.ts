@@ -1,6 +1,19 @@
 import type { SelectableOrderProduct } from '@/components/orders/new-order.types';
 import { normalizeComparableProductName } from '@/lib/product-matching';
 
+const PRICE_DISTANCE_FLOOR = 5000;
+const PRICE_DISTANCE_RATIO = 0.15;
+const EXACT_NAME_SCORE = 100;
+const VARIANT_PRICE_BASE_SCORE = 90;
+const VARIANT_PRICE_DISTANCE_DIVISOR = 1000;
+const VARIANT_PRICE_MIN_TOKEN_OVERLAP = 2;
+const TOKEN_MATCH_BASE_SCORE = 70;
+const TOKEN_MATCH_MAX_REQUIRED = 3;
+const MAX_QUICK_ADD_MATCH_RESULTS = 5;
+const MATCH_REASON_EXACT_NAME = 'exact-name';
+const MATCH_REASON_VARIANT_AND_PRICE = 'variant-and-price';
+const MATCH_REASON_TOKEN_MATCH = 'token-match';
+
 interface CustomItemDraftForMatch {
   name: string;
   price: string;
@@ -78,33 +91,46 @@ export function findQuickAddProductMatches(args: {
         quickAddPrice == null
           ? Number.POSITIVE_INFINITY
           : Math.abs(product.price - quickAddPrice);
-      const isPriceClose =
-        quickAddPrice != null &&
-        priceDistance <= Math.max(5000, quickAddPrice * 0.15);
+	      const isPriceClose =
+	        quickAddPrice != null &&
+	        priceDistance <=
+	          Math.max(PRICE_DISTANCE_FLOOR, quickAddPrice * PRICE_DISTANCE_RATIO);
 
-      if (normalizedProduct === normalizedQuery) {
-        return { ...product, matchReason: 'exact-name', score: 100 };
-      }
+	      if (normalizedProduct === normalizedQuery) {
+	        return {
+	          ...product,
+	          matchReason: MATCH_REASON_EXACT_NAME,
+	          score: EXACT_NAME_SCORE,
+	        };
+	      }
 
-      if (product.parent_product_id && tokenOverlap >= 2 && isPriceClose) {
-        return {
-          ...product,
-          matchReason: 'variant-and-price',
-          score: 90 - priceDistance / 1000,
-        };
-      }
+	      if (
+	        product.parent_product_id &&
+	        tokenOverlap >= VARIANT_PRICE_MIN_TOKEN_OVERLAP &&
+	        isPriceClose
+	      ) {
+	        return {
+	          ...product,
+	          matchReason: MATCH_REASON_VARIANT_AND_PRICE,
+	          score:
+	            VARIANT_PRICE_BASE_SCORE -
+	            priceDistance / VARIANT_PRICE_DISTANCE_DIVISOR,
+	        };
+	      }
 
-      if (tokenOverlap >= Math.min(3, queryTokens.length)) {
-        return {
-          ...product,
-          matchReason: 'token-match',
-          score: 70 + tokenOverlap,
-        };
-      }
+	      if (
+	        tokenOverlap >= Math.min(TOKEN_MATCH_MAX_REQUIRED, queryTokens.length)
+	      ) {
+	        return {
+	          ...product,
+	          matchReason: MATCH_REASON_TOKEN_MATCH,
+	          score: TOKEN_MATCH_BASE_SCORE + tokenOverlap,
+	        };
+	      }
 
       return null;
-    })
-    .filter((match): match is QuickAddProductMatch => match !== null)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 5);
-}
+	    })
+	    .filter((match): match is QuickAddProductMatch => match !== null)
+	    .sort((a, b) => b.score - a.score)
+	    .slice(0, MAX_QUICK_ADD_MATCH_RESULTS);
+	}

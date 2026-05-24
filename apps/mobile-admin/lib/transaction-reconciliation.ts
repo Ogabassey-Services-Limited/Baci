@@ -24,6 +24,19 @@ export interface RankedReconciliationCandidate {
   variantId: string | null;
 }
 
+const PRICE_DISTANCE_FLOOR = 5000;
+const PRICE_DISTANCE_RATIO = 0.15;
+const ACTIVE_STATUS_SCORE_BOOST = 10;
+const CLOSE_PRICE_SCORE_BONUS = 30;
+const RANK_SCORE_PER_TOKEN_OVERLAP = 20;
+const MIN_TOKEN_OVERLAP_TO_CONSIDER = 2;
+const HIGH_CONFIDENCE_MIN_TOKEN_OVERLAP = 4;
+const MEDIUM_CONFIDENCE_MIN_TOKEN_OVERLAP = 3;
+const MAX_RECONCILIATION_MATCHES = 5;
+const CONFIDENCE_HIGH: RankedReconciliationCandidate['confidence'] = 'high';
+const CONFIDENCE_MEDIUM: RankedReconciliationCandidate['confidence'] = 'medium';
+const CONFIDENCE_LOW: RankedReconciliationCandidate['confidence'] = 'low';
+
 function tokens(value: string) {
   return normalizeComparableProductName(value)
     .split(' ')
@@ -56,22 +69,27 @@ export function rankReconciliationCandidates(args: {
       const overlap = itemTokens.filter((token) =>
         productTokens.has(token)
       ).length;
-      const priceDistance = Math.abs(args.item.price - product.price);
-      const closePrice =
-        priceDistance <= Math.max(5000, args.item.price * 0.15);
-      const statusBoost = product.status === 'active' ? 10 : 0;
+	      const priceDistance = Math.abs(args.item.price - product.price);
+	      const closePrice =
+	        priceDistance <=
+	        Math.max(PRICE_DISTANCE_FLOOR, args.item.price * PRICE_DISTANCE_RATIO);
+	      const statusBoost =
+	        product.status === 'active' ? ACTIVE_STATUS_SCORE_BOOST : 0;
 
-      if (overlap < 2) {
-        return null;
-      }
+	      if (overlap < MIN_TOKEN_OVERLAP_TO_CONSIDER) {
+	        return null;
+	      }
 
-      const score = overlap * 20 + statusBoost + (closePrice ? 30 : 0);
-      const confidence =
-        overlap >= 4 && closePrice
-          ? 'high'
-          : overlap >= 3 && closePrice
-            ? 'medium'
-            : 'low';
+	      const score =
+	        overlap * RANK_SCORE_PER_TOKEN_OVERLAP +
+	        statusBoost +
+	        (closePrice ? CLOSE_PRICE_SCORE_BONUS : 0);
+	      const confidence =
+	        overlap >= HIGH_CONFIDENCE_MIN_TOKEN_OVERLAP && closePrice
+	          ? CONFIDENCE_HIGH
+	          : overlap >= MEDIUM_CONFIDENCE_MIN_TOKEN_OVERLAP && closePrice
+	            ? CONFIDENCE_MEDIUM
+	            : CONFIDENCE_LOW;
 
       return {
         confidence,
@@ -85,7 +103,7 @@ export function rankReconciliationCandidates(args: {
     .filter(
       (candidate): candidate is RankedReconciliationCandidate =>
         candidate !== null
-    )
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 5);
-}
+	    )
+	    .sort((a, b) => b.score - a.score)
+	    .slice(0, MAX_RECONCILIATION_MATCHES);
+	}

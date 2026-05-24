@@ -137,14 +137,36 @@ describe('useQuickAddProductMatches', () => {
     expect(mocks.useDebounce).toHaveBeenCalledWith('iPhone 11 Pro 6', 300);
   });
 
-  it('does not query until the quick-add name has at least two characters', () => {
-    const { result } = renderHook(
-      () => useQuickAddProductMatches({ name: 'i', price: '180000' }),
-      { wrapper: createWrapper() }
+	  it('does not query until the quick-add name has at least two characters', () => {
+	    const { result } = renderHook(
+	      () => useQuickAddProductMatches({ name: 'i', price: '180000' }),
+	      { wrapper: createWrapper() }
     );
 
-    expect(result.current.matches).toEqual([]);
-    expect(mocks.fetchAdminProductSearchRows).not.toHaveBeenCalled();
-    expect(mocks.fetchAdminProductVariants).not.toHaveBeenCalled();
-  });
-});
+	    expect(result.current.matches).toEqual([]);
+	    expect(mocks.fetchAdminProductSearchRows).not.toHaveBeenCalled();
+	    expect(mocks.fetchAdminProductVariants).not.toHaveBeenCalled();
+	  });
+
+	  it('returns empty matches when product search fails', async () => {
+	    mocks.fetchAdminProductSearchRows.mockRejectedValueOnce(
+	      new Error('search failed')
+	    );
+
+	    const { result } = renderHook(
+	      () =>
+	        useQuickAddProductMatches({
+	          name: 'iPhone 11 Pro',
+	          price: '180000',
+	        }),
+	      { wrapper: createWrapper() }
+	    );
+
+	    await waitFor(() => {
+	      expect(result.current.isLoading).toBe(false);
+	    });
+
+	    expect(result.current.matches).toEqual([]);
+	    expect(mocks.fetchAdminProductVariants).not.toHaveBeenCalled();
+	  });
+	});

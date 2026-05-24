@@ -154,11 +154,14 @@ export default function TransactionReconciliationScreen() {
               </Text>
               <Pressable
                 accessibilityLabel="Retry unmatched item reconciliation"
-                accessibilityRole="button"
-                onPress={() => {
-                  void unlinkedItemsQuery.refetch();
-                }}
-                style={({ pressed }) => [
+	                accessibilityRole="button"
+	                onPress={() => {
+	                  void Promise.allSettled([
+	                    unlinkedItemsQuery.refetch(),
+	                    productCandidatesQuery.refetch(),
+	                  ]);
+	                }}
+	                style={({ pressed }) => [
                   styles.primaryButton,
                   {
                     backgroundColor: colors.primary,

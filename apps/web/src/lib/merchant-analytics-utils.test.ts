@@ -61,4 +61,32 @@ describe('merchant analytics utils', () => {
     expect(result.totalProfit).toBe(126);
     expect(result.totalUnitsSold).toBe(4);
   });
+
+  it('returns empty summaries for an empty item list', () => {
+    const result = buildTopEntities([]);
+
+    expect(result).toMatchObject({
+      brandBreakdown: [],
+      topBrand: null,
+      topProducts: [],
+      totalProfit: 0,
+      totalUnitsSold: 0,
+    });
+  });
+
+  it('keeps missing cost fields finite in top entity summaries', () => {
+    const result = buildTopEntities([
+      item({
+        costPrice: null,
+        price: 50,
+        productCostPrice: null,
+        quantity: 2,
+        variantCostPrice: null,
+      }),
+    ]);
+
+    expect(result.totalProfit).toBe(100);
+    expect(Number.isFinite(result.totalProfit)).toBe(true);
+    expect(result.totalUnitsSold).toBe(2);
+  });
 });

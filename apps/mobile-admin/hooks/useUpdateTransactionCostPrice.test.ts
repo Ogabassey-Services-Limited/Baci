@@ -29,7 +29,7 @@ vi.mock('@/lib/supabase', () => ({
   },
 }));
 
-vi.mock('./useMerchant', () => ({
+vi.mock('@/hooks/useMerchant', () => ({
   useMerchant: () => ({ merchant: { id: 'merchant-1' } }),
 }));
 

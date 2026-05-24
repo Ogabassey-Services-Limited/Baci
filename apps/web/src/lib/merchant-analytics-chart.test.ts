@@ -83,4 +83,20 @@ describe('merchant analytics chart', () => {
       revenue: 200,
     });
   });
+
+  it('returns a zero-profit bucket when orders have no item rows', () => {
+    const [point] = buildChartData(
+      [order],
+      [],
+      new Date('2026-05-10T00:00:00.000Z'),
+      new Date('2026-05-10T23:59:59.999Z')
+    );
+
+    expect(point).toMatchObject({
+      day: 'May 10',
+      orders: 1,
+      profit: 0,
+      revenue: 200,
+    });
+  });
 });

@@ -56,6 +56,19 @@ function getTrimmedString(value: unknown) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+function toFiniteNumberOrNull(value: unknown) {
+  if (value == null) {
+    return null;
+  }
+
+  if (typeof value === 'string' && value.trim() === '') {
+    return null;
+  }
+
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) ? numericValue : null;
+}
+
 function collectStrings(value: unknown, keyMatcher?: (key: string) => boolean) {
   const strings: string[] = [];
 
@@ -187,18 +200,16 @@ export function mapTransactionOrderRows(rows: TransactionReviewOrderRow[]) {
   return rows.map<TransactionReviewOrder>((order) => {
     const transactionDate = order.transaction_date ?? order.created_at;
     const orderDetailTokens = collectStrings(order.fulfillment_details);
-    const items = (order.order_items ?? []).map<TransactionReviewItem>(
-      (item) => {
-        const product = getJoinedProduct(item.products);
-        const variant = getJoinedVariant(item.product_variants);
-        const quantity = Number(item.quantity ?? 1);
-        const revenue = Number(item.price ?? 0) * quantity;
-        const orderItemCostPrice =
-          item.cost_price == null ? null : Number(item.cost_price);
-        const variantCostPrice =
-          variant?.cost_price == null ? null : Number(variant.cost_price);
-        const productCostPrice =
-          product?.cost_price == null ? null : Number(product.cost_price);
+	    const items = (order.order_items ?? []).map<TransactionReviewItem>(
+	      (item) => {
+	        const product = getJoinedProduct(item.products);
+	        const variant = getJoinedVariant(item.product_variants);
+	        const quantity = toFiniteNumberOrNull(item.quantity) ?? 1;
+	        const unitPrice = toFiniteNumberOrNull(item.price) ?? 0;
+	        const revenue = unitPrice * quantity;
+	        const orderItemCostPrice = toFiniteNumberOrNull(item.cost_price);
+	        const variantCostPrice = toFiniteNumberOrNull(variant?.cost_price);
+	        const productCostPrice = toFiniteNumberOrNull(product?.cost_price);
         const costPrice =
           orderItemCostPrice ?? variantCostPrice ?? productCostPrice;
         const costSource =
@@ -284,14 +295,14 @@ export function mapTransactionOrderRows(rows: TransactionReviewOrderRow[]) {
       estimatedProfit: items.reduce((sum, item) => sum + (item.profit ?? 0), 0),
       id: order.id,
       items,
-      missingCostCount: items.filter((item) => item.costPrice == null).length,
-      orderNumber: order.order_number ?? order.id.slice(0, 8),
-      paymentMethod: order.payment_method ?? 'unknown',
-      searchText: orderSearchText,
-      total: Number(order.total ?? 0),
-    };
-  });
-}
+	      missingCostCount: items.filter((item) => item.costPrice == null).length,
+	      orderNumber: order.order_number ?? order.id.slice(0, 8),
+	      paymentMethod: order.payment_method ?? 'unknown',
+	      searchText: orderSearchText,
+	      total: toFiniteNumberOrNull(order.total) ?? 0,
+	    };
+	  });
+	}
 
 export function filterTransactionOrders(
   orders: TransactionReviewOrder[],

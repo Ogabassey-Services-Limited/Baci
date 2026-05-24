@@ -82,10 +82,10 @@ export function TransactionReconciliationItemCard({
         </View>
       </View>
 
-      <Text style={[styles.itemName, { color: colors.text }]}>{item.name}</Text>
-      <Text style={[styles.itemMeta, { color: colors.textSecondary }]}>
-        {item.quantity} item
-      </Text>
+	      <Text style={[styles.itemName, { color: colors.text }]}>{item.name}</Text>
+	      <Text style={[styles.itemMeta, { color: colors.textSecondary }]}>
+	        {item.quantity} item{item.quantity === 1 ? '' : 's'}
+	      </Text>
 
       {matches.length > 0 ? (
         <View style={styles.matches}>

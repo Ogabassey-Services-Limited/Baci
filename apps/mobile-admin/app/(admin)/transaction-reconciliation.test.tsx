@@ -24,22 +24,26 @@ vi.mock('react-native', async () => {
   return {
     ActivityIndicator: () =>
       React.createElement('div', { role: 'progressbar' }),
-    Pressable: ({
-      accessibilityLabel,
-      accessibilityRole,
-      children,
-      disabled,
-      onPress,
+	    Pressable: ({
+	      accessibilityLabel,
+	      accessibilityRole,
+	      children,
+	      disabled,
+	      onPress,
     }: NativeProps) =>
       React.createElement(
         'button',
-        {
-          'aria-label': accessibilityLabel,
-          disabled,
-          onClick: () => onPress?.(),
-          role: accessibilityRole,
-          type: 'button',
-        },
+	        {
+	          'aria-label': accessibilityLabel,
+	          disabled,
+	          onClick: () => {
+	            if (!disabled) {
+	              onPress?.();
+	            }
+	          },
+	          role: accessibilityRole,
+	          type: 'button',
+	        },
         children
       ),
     ScrollView: ({ children }: NativeProps) =>
@@ -158,11 +162,12 @@ function mockReadyState() {
       isPending: false,
       mutateAsync: mocks.linkMutateAsync,
     },
-    productCandidatesQuery: {
-      data: candidates,
-      error: null,
-      isLoading: false,
-    },
+	    productCandidatesQuery: {
+	      data: candidates,
+	      error: null,
+	      isLoading: false,
+	      refetch: vi.fn(),
+	    },
     unlinkedItemsQuery: {
       data: unlinkedItems,
       error: null,
@@ -229,11 +234,12 @@ describe('TransactionReconciliationScreen', () => {
         isPending: false,
         mutateAsync: mocks.linkMutateAsync,
       },
-      productCandidatesQuery: {
-        data: [],
-        error: null,
-        isLoading: false,
-      },
+	      productCandidatesQuery: {
+	        data: [],
+	        error: null,
+	        isLoading: false,
+	        refetch: vi.fn(),
+	      },
       unlinkedItemsQuery: {
         data: [],
         error: null,
@@ -244,6 +250,70 @@ describe('TransactionReconciliationScreen', () => {
 
     render(<TransactionReconciliationScreen />);
 
-    expect(screen.getByText('No unmatched transaction items.')).toBeInTheDocument();
-  });
-});
+	    expect(screen.getByText('No unmatched transaction items.')).toBeInTheDocument();
+	  });
+
+	  it('retries both reconciliation queries when loading fails', () => {
+	    const refetchProducts = vi.fn();
+	    const refetchUnlinkedItems = vi.fn();
+	    mocks.useUnlinkedOrderItemReconciliation.mockReturnValueOnce({
+	      keepCustomMutation: {
+	        isPending: false,
+	        mutateAsync: mocks.keepCustomMutateAsync,
+	      },
+	      linkItemMutation: {
+	        isPending: false,
+	        mutateAsync: mocks.linkMutateAsync,
+	      },
+	      productCandidatesQuery: {
+	        data: [],
+	        error: new Error('Product candidates failed'),
+	        isLoading: false,
+	        refetch: refetchProducts,
+	      },
+	      unlinkedItemsQuery: {
+	        data: [],
+	        error: null,
+	        isLoading: false,
+	        refetch: refetchUnlinkedItems,
+	      },
+	    });
+
+	    render(<TransactionReconciliationScreen />);
+
+	    expect(screen.getByText('Unable to load unmatched items.')).toBeInTheDocument();
+
+	    fireEvent.click(
+	      screen.getByRole('button', {
+	        name: 'Retry unmatched item reconciliation',
+	      })
+	    );
+
+	    expect(refetchUnlinkedItems).toHaveBeenCalledTimes(1);
+	    expect(refetchProducts).toHaveBeenCalledTimes(1);
+	  });
+
+	  it('surfaces link errors to the merchant', async () => {
+	    mocks.linkMutateAsync.mockRejectedValueOnce(new Error('link failed'));
+
+	    render(<TransactionReconciliationScreen />);
+
+	    fireEvent.click(
+	      screen.getByRole('button', { name: 'Link iPhone 11 Pro 64GB Premium Used' })
+	    );
+
+	    expect(await screen.findByText('link failed')).toBeInTheDocument();
+	  });
+
+	  it('surfaces keep-custom errors to the merchant', async () => {
+	    mocks.keepCustomMutateAsync.mockRejectedValueOnce(
+	      new Error('custom failed')
+	    );
+
+	    render(<TransactionReconciliationScreen />);
+
+	    fireEvent.click(screen.getByRole('button', { name: 'Keep item custom' }));
+
+	    expect(await screen.findByText('custom failed')).toBeInTheDocument();
+	  });
+	});
