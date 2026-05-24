@@ -1,6 +1,7 @@
 import { type Dispatch, type SetStateAction, useEffect, useRef } from 'react';
 import type { Biller } from '@/hooks/use-vtu-billers';
 import { inferProviderFromDataBillerName } from './data-form.helpers';
+import { findDataPlanByCode } from './data-plan-selection';
 
 interface UseDataBillerInitializationInput {
   dataPlans: Biller[] | undefined;
@@ -32,15 +33,20 @@ export function useDataBillerInitialization({
       return;
     }
 
+    const matchedNestedPlan = dataPlans.find((plan) =>
+      Boolean(findDataPlanByCode(plan.billItems, initialPlan))
+    );
     const matchedPlan =
-      dataPlans.find((plan) => plan.billerId === initialPlan) ?? null;
+      matchedNestedPlan ??
+      dataPlans.find((plan) => plan.billerId === initialPlan) ??
+      null;
     if (!matchedPlan) {
       return;
     }
 
     selectedDataBillerRef.current = matchedPlan;
     setSelectedDataBiller(matchedPlan);
-    setSelectedPlan(matchedPlan.billerId);
+    setSelectedPlan(matchedNestedPlan ? initialPlan : matchedPlan.billerId);
     setSelectedProvider(
       inferProviderFromDataBillerName(matchedPlan.billerName) ??
         initialProvider ??

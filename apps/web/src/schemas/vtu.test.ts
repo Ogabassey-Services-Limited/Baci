@@ -110,6 +110,22 @@ describe('purchaseSchema', () => {
       const result = purchaseSchema.safeParse(invalidData);
       expect(result.success).toBe(false);
     });
+
+    it('rejects data without a selected Kuda data plan code', () => {
+      const invalidData = {
+        merchantSlug: 'test-merchant',
+        amount: 500,
+        type: 'data' as const,
+        phoneNumber: '08012345678',
+        networkProvider: 'GLO',
+      };
+
+      const result = purchaseSchema.safeParse(invalidData);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.issues[0].path).toContain('dataPlanCode');
+      }
+    });
   });
 
   describe('electricity purchases', () => {
