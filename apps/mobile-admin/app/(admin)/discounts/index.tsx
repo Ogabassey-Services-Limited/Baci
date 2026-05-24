@@ -1,9 +1,4 @@
-/**
- * Discounts Screen
- * Manage coupons and promotions
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { FlashList } from '@shopify/flash-list';
 import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';

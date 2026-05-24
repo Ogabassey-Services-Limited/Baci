@@ -86,7 +86,7 @@ vi.mock('react-native-safe-area-context', () => ({
 
 // Render Ionicons as a host element exposing color via a data attribute so the
 // TikTok PlatformCard's iconColor prop can be inspected after render.
-vi.mock('@expo/vector-icons', async () => {
+vi.mock('@react-native-vector-icons/ionicons/static', async () => {
   const React = await import('react');
   return {
     Ionicons: ({ name, color }: { name: string; color: string }) =>
@@ -94,6 +94,13 @@ vi.mock('@expo/vector-icons', async () => {
         'data-testid': `icon-${name}`,
         'data-color': color,
       }),
+
+    default: ({ name, color }: { name: string; color: string }) =>
+      React.createElement('i', {
+        'data-testid': `icon-${name}`,
+        'data-color': color,
+      }),
+    __esModule: true,
   };
 });
 

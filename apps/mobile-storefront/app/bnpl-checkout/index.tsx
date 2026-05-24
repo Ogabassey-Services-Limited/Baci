@@ -1,10 +1,4 @@
-/**
- * BNPL Checkout Screen
- * Handles Buy Now Pay Later checkout via WebView
- * Supports CredPal, Credit Direct, and Klump payment gateways
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -629,13 +623,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   webViewLoading: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
   },
   loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.5)',

@@ -91,12 +91,16 @@ vi.mock('expo-linear-gradient', async () => {
 
 vi.mock('react-native-edge-to-edge', () => ({ SystemBars: () => null }));
 
-vi.mock('@expo/vector-icons', async () => {
+vi.mock('@react-native-vector-icons/ionicons/static', async () => {
   const React = await import('react');
   return {
     useColorScheme: vi.fn(() => 'light'),
     Ionicons: ({ name }: { name: string }) =>
       React.createElement('span', null, name),
+
+    default: ({ name }: { name: string }) =>
+      React.createElement('span', null, name),
+    __esModule: true,
   };
 });
 

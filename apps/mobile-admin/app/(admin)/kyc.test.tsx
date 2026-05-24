@@ -24,8 +24,11 @@ vi.mock('expo-router', () => ({
   },
 }));
 
-vi.mock('@expo/vector-icons', () => ({
+vi.mock('@react-native-vector-icons/ionicons/static', () => ({
   Ionicons: () => null,
+
+  default: () => null,
+  __esModule: true,
 }));
 
 vi.mock('react-native-edge-to-edge', () => ({

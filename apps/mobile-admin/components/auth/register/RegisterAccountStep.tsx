@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { Pressable, Text, TextInput, View } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
 import type { PasswordValidationResult } from '@/lib/password-utils';

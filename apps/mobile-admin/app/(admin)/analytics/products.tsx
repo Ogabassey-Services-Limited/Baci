@@ -1,9 +1,4 @@
-/**
- * Analytics Products Screen
- * List of top selling products with revenue and units sold
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { FlashList } from '@shopify/flash-list';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import {

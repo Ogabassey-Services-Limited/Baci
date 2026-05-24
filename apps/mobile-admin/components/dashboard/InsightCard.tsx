@@ -1,9 +1,4 @@
-/**
- * InsightCard Component
- * AI-powered insight or tip card with gradient background
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons, { type IoniconsIconName } from "@react-native-vector-icons/ionicons/static";
 import { LinearGradient } from 'expo-linear-gradient';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
@@ -12,7 +7,7 @@ import { useTheme } from '@/hooks/useTheme';
 interface InsightCardProps {
   title: string;
   message: string;
-  icon?: keyof typeof Ionicons.glyphMap;
+  icon?: IoniconsIconName;
   onPress?: () => void;
   onDismiss?: () => void;
 }

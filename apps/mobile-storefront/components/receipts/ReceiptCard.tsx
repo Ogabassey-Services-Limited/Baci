@@ -1,8 +1,4 @@
-/**
- * ReceiptCard — a single receipt list item card
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import type React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { BRAND } from '@/constants/Colors';

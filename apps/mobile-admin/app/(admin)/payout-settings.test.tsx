@@ -34,7 +34,10 @@ vi.mock('expo-router', async () => {
       Screen: ({
         options,
       }: {
-        options?: { headerLeft?: () => React.ReactNode; headerRight?: () => React.ReactNode };
+        options?: {
+          headerLeft?: () => React.ReactNode;
+          headerRight?: () => React.ReactNode;
+        };
       }) =>
         React.createElement(
           'div',
@@ -123,12 +126,17 @@ vi.mock('@/components/ui/AppKeyboardContainer', () => ({
   },
 }));
 
-vi.mock('@expo/vector-icons', () => ({
+vi.mock('@react-native-vector-icons/ionicons/static', () => ({
   Ionicons: () => <span>icon</span>,
+
+  default: () => <span>icon</span>,
+  __esModule: true,
 }));
 
 vi.mock('react-native-safe-area-context', () => ({
-  SafeAreaView: ({ children }: { children?: ReactNode }) => <section>{children}</section>,
+  SafeAreaView: ({ children }: { children?: ReactNode }) => (
+    <section>{children}</section>
+  ),
 }));
 
 vi.mock('react-native', () => ({
@@ -158,7 +166,11 @@ vi.mock('react-native', () => ({
     children?: ReactNode;
     onPress?: () => void;
   }) => (
-    <button aria-label={accessibilityLabel} onClick={() => onPress?.()} type="button">
+    <button
+      aria-label={accessibilityLabel}
+      onClick={() => onPress?.()}
+      type="button"
+    >
       {children}
     </button>
   ),

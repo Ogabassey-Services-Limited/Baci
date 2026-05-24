@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { Stack } from 'expo-router';
 import { Pressable, ScrollView, View } from 'react-native';
 import { OrderItemDetailModal } from '@/components/orders/OrderItemDetailModal';

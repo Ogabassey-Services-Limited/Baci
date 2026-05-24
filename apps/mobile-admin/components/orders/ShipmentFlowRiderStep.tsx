@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import { CountryPickerModal } from '@/components/ui/CountryPickerModal';

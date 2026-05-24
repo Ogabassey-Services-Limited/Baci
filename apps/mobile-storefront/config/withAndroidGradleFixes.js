@@ -1,5 +1,5 @@
 /**
- * Expo config plugin: Android Gradle fixes for AGP 9.x + RN 0.84
+ * Expo config plugin: Android Gradle fixes for AGP 9.x + RN 0.85
  *
  * Applies after `expo prebuild --clean` so native dirs are always correct:
  * 1. Removes kotlin-gradle-plugin classpath (built into AGP 9.x)
@@ -13,6 +13,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const {
   addAsyncStorageRepo,
+  ensureGradleProperty,
   ensureGradleWrapperVersion,
   ensureReleaseSigning,
   fixProguardOptimize,
@@ -76,6 +77,21 @@ function withAndroidGradleFixes(config) {
         content = ensureReleaseSigning(content);
 
         fs.writeFileSync(appBuildGradle, content);
+      }
+
+      const gradleProperties = path.join(
+        cfg.modRequest.platformProjectRoot,
+        'gradle.properties'
+      );
+
+      if (fs.existsSync(gradleProperties)) {
+        let content = fs.readFileSync(gradleProperties, 'utf-8');
+        content = ensureGradleProperty(
+          content,
+          'android.builtInKotlin',
+          'false'
+        );
+        fs.writeFileSync(gradleProperties, content);
       }
 
       // Fix Gradle wrapper version

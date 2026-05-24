@@ -70,12 +70,15 @@ function ensureReleaseSigning(content) {
 }
 
 function ensureGradleWrapperVersion(content) {
-  let updated = assertReplaceOrThrow(
-    content,
-    /distributionUrl=https\\:\/\/services\.gradle\.org\/distributions\/gradle-[^\n]+/,
-    `distributionUrl=https\\://services.gradle.org/distributions/${GRADLE_DISTRIBUTION}`,
-    'Gradle distributionUrl rewrite'
-  );
+  const targetDistributionUrl = `distributionUrl=https\\://services.gradle.org/distributions/${GRADLE_DISTRIBUTION}`;
+  let updated = content.includes(targetDistributionUrl)
+    ? content
+    : assertReplaceOrThrow(
+        content,
+        /distributionUrl=https\\:\/\/services\.gradle\.org\/distributions\/gradle-[^\n]+/,
+        targetDistributionUrl,
+        'Gradle distributionUrl rewrite'
+      );
 
   if (updated.includes('distributionSha256Sum=')) {
     updated = assertReplaceOrThrow(
@@ -94,6 +97,16 @@ function ensureGradleWrapperVersion(content) {
   }
 
   return updated;
+}
+
+function ensureGradleProperty(content, key, value) {
+  const propertyPattern = new RegExp(`^${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}=.*$`, 'm');
+  if (propertyPattern.test(content)) {
+    return content.replace(propertyPattern, `${key}=${value}`);
+  }
+
+  const separator = content.endsWith('\n') ? '' : '\n';
+  return `${content}${separator}${key}=${value}\n`;
 }
 
 function removeKotlinGradlePlugin(content, description) {
@@ -140,6 +153,7 @@ module.exports = {
   addAsyncStorageRepo,
   assertReplaceOrThrow,
   ensureGradleWrapperVersion,
+  ensureGradleProperty,
   ensureReleaseSigning,
   fixProguardOptimize,
   removeKotlinAndroidPlugin,

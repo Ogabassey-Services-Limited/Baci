@@ -255,7 +255,7 @@ export function createOrderDetailsReceiptActions({
         destinationFile.delete();
       }
 
-      sourceFile.move(destinationFile);
+      await sourceFile.move(destinationFile, { overwrite: true });
       await SharingModule.shareAsync(destinationFile.uri, {
         UTI: '.pdf',
         mimeType: 'application/pdf',

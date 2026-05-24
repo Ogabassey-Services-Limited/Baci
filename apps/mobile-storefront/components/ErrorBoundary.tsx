@@ -1,12 +1,4 @@
-/**
- * Global Error Boundary Component
- * Provides graceful error handling with retry functionality
- * Handles network errors, Supabase failures, and unexpected crashes
- *
- * 2026 Best Practice: Error boundaries with theming and comprehensive logging
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import {
   Appearance,

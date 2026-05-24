@@ -1,9 +1,4 @@
-/**
- * StatCard Component
- * Displays a key metric with label and optional trend indicator
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons, { type IoniconsIconName } from "@react-native-vector-icons/ionicons/static";
 import { StyleSheet, Text, View } from 'react-native';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
@@ -11,7 +6,7 @@ import { useTheme } from '@/hooks/useTheme';
 interface StatCardProps {
   label: string;
   value: string | number;
-  icon?: keyof typeof Ionicons.glyphMap;
+  icon?: IoniconsIconName;
   iconColor?: string;
   trend?: {
     direction: 'up' | 'down' | 'neutral';

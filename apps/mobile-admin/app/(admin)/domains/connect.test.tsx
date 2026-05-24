@@ -58,13 +58,17 @@ vi.mock('@/components/ui/AppFormScreen', () => ({
     children?: ReactNode;
     keyboardOffsetPreset?: 'default' | 'compactHeader';
   }) => {
-    mocks.formScreenProps.keyboardOffsetPreset = keyboardOffsetPreset ?? 'default';
+    mocks.formScreenProps.keyboardOffsetPreset =
+      keyboardOffsetPreset ?? 'default';
     return <section aria-label="connect-domain-form">{children}</section>;
   },
 }));
 
-vi.mock('@expo/vector-icons', () => ({
+vi.mock('@react-native-vector-icons/ionicons/static', () => ({
   Ionicons: () => <span>icon</span>,
+
+  default: () => <span>icon</span>,
+  __esModule: true,
 }));
 
 vi.mock('react-native', () => ({
@@ -80,7 +84,11 @@ vi.mock('react-native', () => ({
     children?: ReactNode;
     onPress?: () => void;
   }) => (
-    <button aria-label={accessibilityLabel} onClick={() => onPress?.()} type="button">
+    <button
+      aria-label={accessibilityLabel}
+      onClick={() => onPress?.()}
+      type="button"
+    >
       {children}
     </button>
   ),

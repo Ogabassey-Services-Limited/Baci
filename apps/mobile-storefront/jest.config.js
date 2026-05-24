@@ -9,7 +9,7 @@ const config = {
   preset: 'jest-expo',
   testPathIgnorePatterns: ['/node_modules/', '\\.test-utils\\.(t|j)sx?$'],
   transformIgnorePatterns: [
-    'node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@shopify/flash-list|@supabase/.*|zustand|nativewind)',
+    'node_modules/(?!((jest-)?react-native|@react-native(-community)?|@react-native-vector-icons/.*)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@shopify/flash-list|@supabase/.*|zustand|nativewind)',
   ],
   // setupFiles runs before the jest-expo preset setup (before test code scope)
   setupFiles: ['<rootDir>/__mocks__/expo-winter-setup.js'],
@@ -27,6 +27,16 @@ const config = {
     'expo/src/winter/ImportMetaRegistry':
       '<rootDir>/__mocks__/expo-import-meta-registry.js',
     '@ungap/structured-clone': '<rootDir>/__mocks__/structured-clone.js',
+    '^nativewind/jsx-dev-runtime$':
+      '<rootDir>/__mocks__/react-native-css-interop.js',
+    '^nativewind/jsx-runtime$':
+      '<rootDir>/__mocks__/react-native-css-interop.js',
+    '^react-native-css-interop/jsx-dev-runtime$':
+      '<rootDir>/__mocks__/react-native-css-interop.js',
+    '^react-native-css-interop/jsx-runtime$':
+      '<rootDir>/__mocks__/react-native-css-interop.js',
+    '^react-native-css-interop(?:/.*)?$':
+      '<rootDir>/__mocks__/react-native-css-interop.js',
   },
 };
 

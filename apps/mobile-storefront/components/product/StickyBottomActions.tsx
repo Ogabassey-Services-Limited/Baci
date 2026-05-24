@@ -1,10 +1,4 @@
-/**
- * StickyBottomActions - The fixed bottom bar on the product detail screen.
- * Shows a quantity controller + "View Cart" when the item is in the cart,
- * or a single "Add to Cart" button when it is not.
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { router } from 'expo-router';
 import {
   type GestureResponderEvent,

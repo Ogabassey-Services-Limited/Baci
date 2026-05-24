@@ -158,8 +158,10 @@ vi.mock('react-native', () => ({
   View: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
 }));
 
-vi.mock('@expo/vector-icons', () => ({
+vi.mock('@react-native-vector-icons/ionicons/static', () => ({
   Ionicons: () => <span>icon</span>,
+  default: () => <span>icon</span>,
+  __esModule: true,
 }));
 
 export const paymentSettings = {

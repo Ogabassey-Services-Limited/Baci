@@ -4,8 +4,11 @@ import { describe, expect, it, vi } from 'vitest';
 import { LIGHT_COLORS, SHADOWS } from '@/constants/theme';
 import { StaffListSection } from './StaffListSection';
 
-vi.mock('@expo/vector-icons', () => ({
+vi.mock('@react-native-vector-icons/ionicons/static', () => ({
   Ionicons: ({ name }: { name: string }) => <span>{name}</span>,
+
+  default: ({ name }: { name: string }) => <span>{name}</span>,
+  __esModule: true,
 }));
 
 vi.mock('@shopify/flash-list', () => ({

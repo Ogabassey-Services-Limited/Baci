@@ -1,9 +1,4 @@
-/**
- * Marketplaces Screen
- * Manage external marketplace connections like Jumia, Konga, etc.
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { Stack, useRouter } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';

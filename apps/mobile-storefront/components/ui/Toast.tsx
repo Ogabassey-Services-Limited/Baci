@@ -1,15 +1,4 @@
-/**
- * Toast Component - 2026 Best Practice Implementation
- *
- * Features:
- * - Consistent styling across the app
- * - Auto-dismiss with configurable duration
- * - Proper cleanup to prevent memory leaks
- * - WCAG AA accessible with proper announcements
- * - Supports success, error, warning, and info variants
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons, { type IoniconsIconName } from "@react-native-vector-icons/ionicons/static";
 import { useEffect, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
@@ -37,7 +26,7 @@ interface ToastProps {
   position?: 'top' | 'bottom';
 }
 
-const VARIANT_ICONS: Record<ToastVariant, keyof typeof Ionicons.glyphMap> = {
+const VARIANT_ICONS: Record<ToastVariant, IoniconsIconName> = {
   success: 'checkmark-circle',
   error: 'alert-circle',
   warning: 'warning',

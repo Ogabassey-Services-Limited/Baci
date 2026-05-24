@@ -1,10 +1,4 @@
-/**
- * Admin Tab Layout
- * 5-tab navigation: Home, Orders, Products, Customers, Menu
- * Supports light and dark mode
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { Tabs } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

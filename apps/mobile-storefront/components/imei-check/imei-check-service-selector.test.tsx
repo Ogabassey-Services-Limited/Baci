@@ -4,8 +4,11 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import Colors from '@/constants/Colors';
 import { ImeiCheckServiceSelector } from './imei-check-service-selector';
 
-jest.mock('@expo/vector-icons', () => ({
+jest.mock('@react-native-vector-icons/ionicons/static', () => ({
   Ionicons: () => null,
+
+  default: () => null,
+  __esModule: true,
 }));
 
 const baseProps = {

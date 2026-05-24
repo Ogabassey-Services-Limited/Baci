@@ -78,8 +78,6 @@ config.resolver = {
     'react-native-screens': screensPackageRoot,
     'react-native-safe-area-context': safeAreaContextPackageRoot,
   },
-  // Critical for PNPM monorepos to resolve symlinked packages
-  unstable_enableSymlinks: true,
   // 2026: Enable package exports as very new versions of native modules often require it
   unstable_enablePackageExports: true,
   // Block test files and Node.js-only modules from being bundled by Metro.

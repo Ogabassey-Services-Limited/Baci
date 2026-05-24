@@ -6,16 +6,16 @@ const mobileAdminRoot = path.resolve(__dirname, '..');
 const appsRoot = path.resolve(mobileAdminRoot, '..');
 
 describe('mobile admin Android Gradle build config', () => {
-  it('tracks a debug Firebase config in the native app search path', () => {
-    const debugGoogleServicesPath = path.join(
+  it('tracks the Firebase config outside generated native directories', () => {
+    const googleServicesPath = path.join(
       appsRoot,
-      'mobile-admin/android/app/src/debug/google-services.json'
+      'mobile-admin/google-services.json'
     );
 
-    expect(existsSync(debugGoogleServicesPath)).toBe(true);
+    expect(existsSync(googleServicesPath)).toBe(true);
 
     const googleServices = JSON.parse(
-      readFileSync(debugGoogleServicesPath, 'utf8')
+      readFileSync(googleServicesPath, 'utf8')
     );
     expect(
       googleServices.client[0].client_info.android_client_info.package_name
@@ -34,20 +34,20 @@ describe('mobile admin Android Gradle build config', () => {
   });
 
   it('declares the React Native Android SDK floor before third-party modules evaluate', () => {
-    const androidBuildGradle = readFileSync(
-      path.join(appsRoot, 'mobile-admin/android/build.gradle'),
+    const gradleProperties = readFileSync(
+      path.join(appsRoot, 'mobile-admin/android/gradle.properties'),
       'utf8'
     );
-    const sdkFloorIndex = androidBuildGradle.indexOf('minSdkVersion = 24');
-    const expoRootPluginIndex = androidBuildGradle.indexOf(
-      'apply plugin: "expo-root-project"'
+    const appBuildGradle = readFileSync(
+      path.join(appsRoot, 'mobile-admin/android/app/build.gradle'),
+      'utf8'
     );
 
-    expect(sdkFloorIndex).toBeGreaterThanOrEqual(0);
-    expect(expoRootPluginIndex).toBeGreaterThanOrEqual(0);
-    expect(sdkFloorIndex).toBeLessThan(expoRootPluginIndex);
-    expect(androidBuildGradle).toContain('compileSdkVersion = 36');
-    expect(androidBuildGradle).toContain('targetSdkVersion = 36');
+    expect(gradleProperties).toContain('android.compileSdkVersion=36');
+    expect(gradleProperties).toContain('android.targetSdkVersion=36');
+    expect(gradleProperties).toContain('android.buildToolsVersion=36.0.0');
+    expect(appBuildGradle).toContain('minSdkVersion rootProject.ext.minSdkVersion');
+    expect(appBuildGradle).toContain('targetSdkVersion rootProject.ext.targetSdkVersion');
   });
 
   it('forces new-architecture autolinking to wait for library codegen artifacts', () => {
@@ -57,13 +57,13 @@ describe('mobile admin Android Gradle build config', () => {
     );
 
     expect(appBuildGradle).toContain(
-      'def autolinkingTaskProvider = tasks.named("generateAutolinkingNewArchitectureFiles")'
+      'def autolinkingTask = tasks.named("generateAutolinkingNewArchitectureFiles").get()'
     );
     expect(appBuildGradle).toContain(
       'task.name == "generateCodegenArtifactsFromSchema" || task.name == "generateCodegenSchemaFromJavaScript"'
     );
     expect(appBuildGradle).toContain(
-      'autolinkingTaskProvider.configure { dependsOn(codegenTask) }'
+      'autolinkingTask.dependsOn(codegenTask)'
     );
   });
 });

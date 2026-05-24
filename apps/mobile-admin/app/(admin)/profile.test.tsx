@@ -108,24 +108,33 @@ vi.mock('react-native-edge-to-edge', () => ({
 }));
 
 vi.mock('react-native-safe-area-context', () => ({
-  SafeAreaView: ({ children }: { children?: ReactNode }) => <section>{children}</section>,
+  SafeAreaView: ({ children }: { children?: ReactNode }) => (
+    <section>{children}</section>
+  ),
 }));
 
 vi.mock('react-native', () => ({
   ActivityIndicator: () => <span>loading</span>,
   Alert: { alert: vi.fn() },
-  Pressable: ({ children }: { children?: ReactNode }) => <button type="button">{children}</button>,
+  Pressable: ({ children }: { children?: ReactNode }) => (
+    <button type="button">{children}</button>
+  ),
   ScrollView: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
   StyleSheet: {
     create: (styles: Record<string, unknown>) => styles,
   },
   Text: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
-  TextInput: ({ value }: { value?: string }) => <input value={value ?? ''} readOnly />,
+  TextInput: ({ value }: { value?: string }) => (
+    <input value={value ?? ''} readOnly />
+  ),
   View: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
 }));
 
-vi.mock('@expo/vector-icons', () => ({
+vi.mock('@react-native-vector-icons/ionicons/static', () => ({
   Ionicons: () => <span>icon</span>,
+
+  default: () => <span>icon</span>,
+  __esModule: true,
 }));
 
 describe('ProfileScreen', () => {

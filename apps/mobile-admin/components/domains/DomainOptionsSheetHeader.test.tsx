@@ -24,19 +24,21 @@ vi.mock('@/hooks/useTheme', () => ({
   }),
 }));
 
-vi.mock('@expo/vector-icons', () => ({
-  Ionicons: ({
-    color,
-    name,
-  }: {
-    color?: string;
-    name?: string;
-  }) => {
+vi.mock('@react-native-vector-icons/ionicons/static', () => ({
+  Ionicons: ({ color, name }: { color?: string; name?: string }) => {
     if (name === 'globe-outline') {
       mocks.iconColor = color ?? '';
     }
     return <span>icon</span>;
   },
+
+  default: ({ color, name }: { color?: string; name?: string }) => {
+    if (name === 'globe-outline') {
+      mocks.iconColor = color ?? '';
+    }
+    return <span>icon</span>;
+  },
+  __esModule: true,
 }));
 
 vi.mock('react-native', () => ({

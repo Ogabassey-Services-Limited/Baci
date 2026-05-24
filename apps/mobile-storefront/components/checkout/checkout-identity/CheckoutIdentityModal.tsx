@@ -1,20 +1,4 @@
-/**
- * CheckoutIdentityModal - Ogabassey Design
- * Bottom sheet modal for checkout identity selection
- *
- * 2026 Best Practices:
- * - Modular architecture with extracted components
- * - Full accessibility support (WCAG 2.2 AA)
- * - Reduced motion support
- * - Native bottom sheet animation (Reanimated 3)
- * - Haptic feedback on interactions
- * - User-friendly error messages
- * - Keyboard handling
- *
- * @module checkout-identity
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {

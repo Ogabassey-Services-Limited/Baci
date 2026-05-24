@@ -10,13 +10,21 @@ const mocks = vi.hoisted(() => ({
   staffAccountCard: vi.fn(),
 }));
 
-vi.mock('@expo/vector-icons', () => ({
+vi.mock('@react-native-vector-icons/ionicons/static', () => ({
   Ionicons: ({ name }: { name: string }) => (
     <span
       aria-label={name === 'person-add-outline' ? 'add person' : name}
       role="img"
     />
   ),
+
+  default: ({ name }: { name: string }) => (
+    <span
+      aria-label={name === 'person-add-outline' ? 'add person' : name}
+      role="img"
+    />
+  ),
+  __esModule: true,
 }));
 
 vi.mock('react-native', () => ({

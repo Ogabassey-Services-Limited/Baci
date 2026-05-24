@@ -3,7 +3,7 @@ import {
   ORDER_SOURCE_CONFIG,
   type OrderSource,
 } from '@baci/shared';
-import type { Ionicons } from '@expo/vector-icons';
+import type { IoniconsIconName } from '@react-native-vector-icons/ionicons/static';
 import type { CountryCode } from 'react-native-country-picker-modal';
 
 export const MODAL_FLATLIST_PROPS = {
@@ -94,7 +94,7 @@ export function formatVatPercentage(vatRate: number): string {
 
 export const CHANNELS: {
   color: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: IoniconsIconName;
   id: OrderSource;
   label: string;
 }[] = [

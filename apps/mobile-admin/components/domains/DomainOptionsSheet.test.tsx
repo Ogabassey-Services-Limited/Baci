@@ -33,16 +33,17 @@ vi.mock('@/hooks/useTheme', () => ({
   }),
 }));
 
-vi.mock('@expo/vector-icons', () => ({
+vi.mock('@react-native-vector-icons/ionicons/static', () => ({
   Ionicons: () => <span>icon</span>,
+
+  default: () => <span>icon</span>,
+  __esModule: true,
 }));
 
 vi.mock('react-native-reanimated', () => {
-  const MockAnimatedView = ({
-    children,
-  }: {
-    children?: ReactNode;
-  }) => <div>{children}</div>;
+  const MockAnimatedView = ({ children }: { children?: ReactNode }) => (
+    <div>{children}</div>
+  );
 
   return {
     default: {

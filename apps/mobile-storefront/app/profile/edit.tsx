@@ -1,14 +1,4 @@
-/**
- * Profile Edit Screen
- *
- * 2026 Best Practices:
- * - react-hook-form for form management
- * - Zod validation for type safety
- * - Optimistic updates with rollback on error
- * - Proper loading and error states
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Redirect, router, Stack } from 'expo-router';
 import type React from 'react';

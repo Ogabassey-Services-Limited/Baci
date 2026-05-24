@@ -1,5 +1,5 @@
 import { BRAND_COLORS } from '@baci/shared';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import type { ThemeColors } from '@/constants/theme';
 import { orderDetailsOverviewStyles as styles } from './order-details-overview.styles';

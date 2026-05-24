@@ -7,8 +7,11 @@ const platformState = vi.hoisted(() => ({
   OS: 'web' as 'android' | 'ios' | 'web',
 }));
 
-vi.mock('@expo/vector-icons', () => ({
+vi.mock('@react-native-vector-icons/ionicons/static', () => ({
   Ionicons: () => null,
+
+  default: () => null,
+  __esModule: true,
 }));
 
 vi.mock('@/components/ui/AppDatePickerField', () => ({

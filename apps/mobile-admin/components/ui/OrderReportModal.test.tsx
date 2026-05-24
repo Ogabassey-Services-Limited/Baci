@@ -9,8 +9,11 @@ const mocks = vi.hoisted(() => ({
   exportOrderReportPDF: vi.fn(),
 }));
 
-vi.mock('@expo/vector-icons', () => ({
+vi.mock('@react-native-vector-icons/ionicons/static', () => ({
   Ionicons: ({ name }: { name: string }) => <span>{name}</span>,
+
+  default: ({ name }: { name: string }) => <span>{name}</span>,
+  __esModule: true,
 }));
 
 vi.mock('@/hooks/useTheme', () => ({
@@ -177,31 +180,23 @@ describe('OrderReportModal', () => {
     ).not.toBeInTheDocument();
   });
 
-  it(
-    'opens the preset menu and routes preset and custom date actions',
-    async () => {
-      render(<OrderReportModal {...baseProps} />);
+  it('opens the preset menu and routes preset and custom date actions', async () => {
+    render(<OrderReportModal {...baseProps} />);
 
-      fireEvent.click(
-        screen.getByRole('button', { name: 'Change date range' })
-      );
-      fireEvent.click(
-        screen.getByRole('button', { name: 'Select Last 30 Days' })
-      );
-      fireEvent.click(
-        screen.getByRole('button', { name: 'Change date range' })
-      );
-      fireEvent.click(
-        screen.getByRole('button', { name: 'Select custom date range' })
-      );
+    fireEvent.click(screen.getByRole('button', { name: 'Change date range' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Select Last 30 Days' })
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Change date range' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Select custom date range' })
+    );
 
-      await waitFor(() => {
-        expect(baseProps.onPresetSelect).toHaveBeenCalledWith('Last 30 Days');
-        expect(baseProps.onDateSelect).toHaveBeenCalledTimes(1);
-      });
-    },
-    15_000
-  );
+    await waitFor(() => {
+      expect(baseProps.onPresetSelect).toHaveBeenCalledWith('Last 30 Days');
+      expect(baseProps.onDateSelect).toHaveBeenCalledTimes(1);
+    });
+  }, 15_000);
 
   it('exports CSV through the provided handler and closes on success', async () => {
     render(<OrderReportModal {...baseProps} />);

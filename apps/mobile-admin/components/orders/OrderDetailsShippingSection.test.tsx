@@ -37,8 +37,11 @@ vi.mock('react-native', async () => {
   };
 });
 
-vi.mock('@expo/vector-icons', () => ({
+vi.mock('@react-native-vector-icons/ionicons/static', () => ({
   Ionicons: () => null,
+
+  default: () => null,
+  __esModule: true,
 }));
 
 describe('OrderDetailsShippingSection', () => {

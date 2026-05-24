@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 // router removed as it was unused.
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';

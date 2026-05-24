@@ -1,10 +1,10 @@
-import type { Ionicons } from '@expo/vector-icons';
+import type { IoniconsIconName } from '@react-native-vector-icons/ionicons/static';
 import type { ImeiResult } from '@/lib/validation';
 import type { ImeiCheckerColors } from './imei-check.types';
 
 export interface ImeiResultStatusCard {
   cleanAware?: boolean;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: IoniconsIconName;
   label: string;
   tint?: string;
   value: string;

@@ -1,9 +1,4 @@
-/**
- * Reviews List Component
- * Displays product reviews with rating distribution
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import {
   ActivityIndicator,
   Pressable,

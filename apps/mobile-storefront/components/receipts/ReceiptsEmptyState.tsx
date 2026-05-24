@@ -1,8 +1,4 @@
-/**
- * ReceiptsEmptyState — empty and no-results states for receipts screen
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { router } from 'expo-router';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { BRAND } from '@/constants/Colors';

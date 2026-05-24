@@ -56,9 +56,7 @@ jest.mock('react-native-keyboard-controller', () => ({
 
 // Mock AsyncStorage
 jest.mock('@react-native-async-storage/async-storage', () =>
-  require(
-    `${__dirname}/../../node_modules/@react-native-async-storage/async-storage/lib/module/jest/AsyncStorageMock.js`
-  )
+  require('@react-native-async-storage/async-storage/jest/async-storage-mock')
 );
 
 // Mock expo-haptics
@@ -84,7 +82,21 @@ jest.mock('expo-router', () => ({
   Link: 'Link',
 }));
 
-// Mock @expo/vector-icons
-jest.mock('@expo/vector-icons', () => ({
+// Mock vector icons
+jest.mock('@react-native-vector-icons/ionicons/static', () => ({
   Ionicons: 'Ionicons',
+  __esModule: true,
+  default: 'Ionicons',
+}));
+
+jest.mock('@react-native-vector-icons/fontawesome/static', () => ({
+  FontAwesome: 'FontAwesome',
+  __esModule: true,
+  default: 'FontAwesome',
+}));
+
+jest.mock('@react-native-vector-icons/feather/static', () => ({
+  Feather: 'Feather',
+  __esModule: true,
+  default: 'Feather',
 }));

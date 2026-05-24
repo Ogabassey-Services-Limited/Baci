@@ -1,9 +1,4 @@
-/**
- * Cart Screen - Matching Web Design
- * Beautiful card-based cart with condition tags, negotiations, and sticky checkout
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';

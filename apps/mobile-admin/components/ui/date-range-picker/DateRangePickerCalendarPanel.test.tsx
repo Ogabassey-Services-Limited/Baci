@@ -5,8 +5,11 @@ import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { DateRangePickerCalendarPanel } from '@/components/ui/date-range-picker/DateRangePickerCalendarPanel';
 
-vi.mock('@expo/vector-icons', () => ({
+vi.mock('@react-native-vector-icons/ionicons/static', () => ({
   Ionicons: ({ name }: { name: string }) => <span>{name}</span>,
+
+  default: ({ name }: { name: string }) => <span>{name}</span>,
+  __esModule: true,
 }));
 
 vi.mock('@/hooks/useTheme', () => ({

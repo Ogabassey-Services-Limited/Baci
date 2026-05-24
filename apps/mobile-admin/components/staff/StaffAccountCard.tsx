@@ -1,9 +1,4 @@
-/**
- * StaffAccountCard
- * Renders a single staff payment account card with copy-to-clipboard
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import type { StaffAccount, StaffColors } from './types';

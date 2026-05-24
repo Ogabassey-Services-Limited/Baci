@@ -70,9 +70,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   userInterfaceStyle: 'automatic',
   scheme: 'ogabassey',
   assetBundlePatterns: ['**/*'],
-  splash: {
-    backgroundColor: '#000000',
-  },
   ios: {
     supportsTablet: true,
     bundleIdentifier: 'com.ogabassey.app',
@@ -129,7 +126,23 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   plugins: [
     'expo-router',
+    [
+      'expo-splash-screen',
+      {
+        image: './assets/images/splash-icon.png',
+        resizeMode: 'contain',
+        backgroundColor: '#000000',
+      },
+    ],
+    'expo-font',
+    'expo-image',
     'expo-secure-store',
+    'expo-sharing',
+    'expo-tracking-transparency',
+    'expo-web-browser',
+    '@react-native-vector-icons/ionicons',
+    '@react-native-vector-icons/fontawesome',
+    '@react-native-vector-icons/feather',
     [
       'expo-notifications',
       {
@@ -148,7 +161,13 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     [
       'expo-build-properties',
       {
+        android: {
+          compileSdkVersion: 36,
+          targetSdkVersion: 36,
+          buildToolsVersion: '36.0.0',
+        },
         ios: {
+          deploymentTarget: '16.4',
           useFrameworks: 'static',
         },
       },

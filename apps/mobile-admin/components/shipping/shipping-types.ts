@@ -1,4 +1,4 @@
-import type { Ionicons } from '@expo/vector-icons';
+import type { IoniconsIconName } from '@react-native-vector-icons/ionicons/static';
 import { z } from 'zod';
 
 const providerIds = ['gigl', 'topship', 'shiip'] as const;
@@ -27,7 +27,7 @@ export const AVAILABLE_PROVIDERS = [
   id: z.infer<typeof shippingProviderIdSchema>;
   name: string;
   description: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: IoniconsIconName;
 }[];
 
 export const shippingSettingsSchema = z.object({

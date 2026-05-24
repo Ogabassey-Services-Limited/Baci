@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons, { type IoniconsIconName } from "@react-native-vector-icons/ionicons/static";
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -28,7 +28,7 @@ interface OnboardingSlide {
   id: string;
   title: string;
   description: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: IoniconsIconName;
   color: string;
   subtitle: string;
 }
@@ -186,7 +186,7 @@ export default function OnboardingScreen() {
       {/* Premium Dark Background Gradient */}
       <LinearGradient
         colors={['#0D0D1A', '#1A1A2E', '#0F172A']}
-        style={StyleSheet.absoluteFillObject}
+        style={StyleSheet.absoluteFill}
         start={{ x: 0.5, y: 0 }}
         end={{ x: 0.5, y: 1 }}
       />

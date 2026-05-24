@@ -12,18 +12,17 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('@/components/ui/AppDatePickerField', () => ({
-  AppDatePickerField: ({
-    onConfirm,
-  }: {
-    onConfirm: (date: Date) => void;
-  }) => {
+  AppDatePickerField: ({ onConfirm }: { onConfirm: (date: Date) => void }) => {
     mocks.appDatePickerProps.onConfirm = onConfirm;
     return <div aria-label="dob-picker-field">picker</div>;
   },
 }));
 
-vi.mock('@expo/vector-icons', () => ({
+vi.mock('@react-native-vector-icons/ionicons/static', () => ({
   Ionicons: () => <span>icon</span>,
+
+  default: () => <span>icon</span>,
+  __esModule: true,
 }));
 
 vi.mock('react-native', () => ({
@@ -36,7 +35,11 @@ vi.mock('react-native', () => ({
     children?: ReactNode;
     onPress?: () => void;
   }) => (
-    <button aria-label={accessibilityLabel} onClick={() => onPress?.()} type="button">
+    <button
+      aria-label={accessibilityLabel}
+      onClick={() => onPress?.()}
+      type="button"
+    >
       {children}
     </button>
   ),
@@ -57,9 +60,7 @@ describe('DateOfBirthPicker', () => {
   } as ReturnType<typeof useTheme>['colors'];
 
   it('shows placeholder text before a date is selected', () => {
-    render(
-      <DateOfBirthPicker colors={colors} onChange={vi.fn()} value="" />
-    );
+    render(<DateOfBirthPicker colors={colors} onChange={vi.fn()} value="" />);
 
     expect(screen.getByText('Select date of birth')).toBeInTheDocument();
   });
@@ -67,9 +68,7 @@ describe('DateOfBirthPicker', () => {
   it('normalizes confirmed dates to YYYY-MM-DD', () => {
     const onChange = vi.fn();
 
-    render(
-      <DateOfBirthPicker colors={colors} onChange={onChange} value="" />
-    );
+    render(<DateOfBirthPicker colors={colors} onChange={onChange} value="" />);
 
     fireEvent.click(screen.getByLabelText('Select date of birth'));
     mocks.appDatePickerProps.onConfirm(new Date('2000-01-15T00:00:00.000Z'));

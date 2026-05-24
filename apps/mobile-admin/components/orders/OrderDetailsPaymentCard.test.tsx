@@ -5,8 +5,11 @@ import { describe, expect, it, vi } from 'vitest';
 import type { ThemeColors } from '@/constants/theme';
 import { OrderDetailsPaymentCard } from './OrderDetailsPaymentCard';
 
-vi.mock('@expo/vector-icons', () => ({
+vi.mock('@react-native-vector-icons/ionicons/static', () => ({
   Ionicons: () => null,
+
+  default: () => null,
+  __esModule: true,
 }));
 
 vi.mock('react-native', async () => {

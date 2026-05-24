@@ -189,9 +189,9 @@ remove_stale_avd_locks() {
   fi
 
   while IFS= read -r -d '' lock_file; do
-    rm -f "$lock_file"
+    rm -rf "$lock_file"
     echo "Removed stale AVD lock: $lock_file"
-  done < <(find "$AVD_DIR" -maxdepth 1 -type f -name '*.lock' -print0)
+  done < <(find "$AVD_DIR" -maxdepth 1 -name '*.lock' -print0)
 }
 
 confirm_adb_shell_stable() {

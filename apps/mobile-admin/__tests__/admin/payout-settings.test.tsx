@@ -188,7 +188,11 @@ vi.mock('react-native', async () => {
       React.createElement('div', null, children),
   };
 });
-vi.mock('@expo/vector-icons', () => ({ Ionicons: () => null }));
+vi.mock('@react-native-vector-icons/ionicons/static', () => ({
+  Ionicons: () => null,
+  default: () => null,
+  __esModule: true,
+}));
 vi.mock('@/constants/theme', () => ({
   RADIUS: { lg: 8, md: 4, sm: 2 },
   SPACING: { xs: 4, sm: 8, md: 12, lg: 16, xl: 24 },

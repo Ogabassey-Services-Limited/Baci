@@ -1,9 +1,4 @@
-/**
- * Home Dashboard Screen
- * Main dashboard with stats, quick actions, and revenue overview
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { useQueryClient } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';

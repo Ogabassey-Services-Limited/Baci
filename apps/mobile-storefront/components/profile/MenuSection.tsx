@@ -1,9 +1,4 @@
-/**
- * Profile Menu Section Component
- * Titled group of navigable menu items with icons, sublabels, badges
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import * as Haptics from 'expo-haptics';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';

@@ -1,11 +1,3 @@
-/**
- * Root Layout for Ogabassey Store
- * Handles navigation, theme, and auth initialization
- * Design aligned with Baci web app
- */
-
-import { Ionicons } from '@expo/vector-icons';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useFonts } from 'expo-font';
 import '../global.css';
 import {
@@ -53,8 +45,6 @@ export default function RootLayout() {
     Inter_600SemiBold,
     Inter_700Bold,
     Inter_900Black,
-    ...FontAwesome.font,
-    ...Ionicons.font,
   });
 
   const initialize = useAuthStore((state) => state.initialize);

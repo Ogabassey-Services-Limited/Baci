@@ -1,9 +1,4 @@
-/**
- * Notifications Screen
- * Displays user notifications (order updates, promotions, etc.)
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { FlashList } from '@shopify/flash-list';
 import { Redirect, router, Stack } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';

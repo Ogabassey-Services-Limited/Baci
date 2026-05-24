@@ -1,11 +1,11 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons, { type IoniconsIconName } from "@react-native-vector-icons/ionicons/static";
 import { Text, View } from 'react-native';
 import type { ThemeColors } from '@/constants/theme';
 import { styles } from './ShipmentFlowSheet.styles';
 
 interface ShipmentInfoCardProps {
   colors: ThemeColors;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: IoniconsIconName;
   subtitle: string;
   title: string;
 }

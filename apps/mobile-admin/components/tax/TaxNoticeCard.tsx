@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { Text, View } from 'react-native';
 import { styles } from './styles';
 import type { TaxColors } from './types';

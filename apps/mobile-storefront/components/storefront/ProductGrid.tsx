@@ -1,6 +1,6 @@
 import { prioritizeSmartphoneProducts } from '@baci/shared';
 import { dedupeById } from '@baci/shared/lib';
-import { useIsFocused } from '@react-navigation/native';
+import { useIsFocused } from "expo-router/react-navigation";
 import { useEffect, useRef } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { ProductGridSkeleton } from '@/components/ui/Skeleton';

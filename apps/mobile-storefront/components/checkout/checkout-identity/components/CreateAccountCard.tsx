@@ -1,14 +1,4 @@
-/**
- * CreateAccountCard Component
- * Card for account creation option
- *
- * 2026 Best Practices:
- * - Full accessibility support
- * - Pressable with proper feedback
- * - Semantic structure
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { styles, colors } from '../styles';

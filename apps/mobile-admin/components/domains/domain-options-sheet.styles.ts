@@ -3,11 +3,11 @@ import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 
 export const domainOptionsSheetStyles = StyleSheet.create({
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 1,
   },
   backdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   sheetContainer: {
     flex: 1,

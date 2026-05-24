@@ -1,14 +1,4 @@
-/**
- * Network Context Provider for Mobile Admin
- *
- * 2026 Best Practices:
- * - Provides network state to entire app via context
- * - Displays offline banner when connection is lost
- * - Auto-refreshes data when connection is restored
- * - Integrates with TanStack Query for mutation queueing
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { useQueryClient } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { createContext, useContext, useEffect } from 'react';

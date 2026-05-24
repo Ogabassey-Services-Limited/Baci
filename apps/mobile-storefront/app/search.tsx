@@ -1,10 +1,4 @@
-/**
- * Search Screen
- * Product search with filters and results
- * 2026 Best Practice: Offline-aware with graceful degradation
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons, { type IoniconsIconName } from "@react-native-vector-icons/ionicons/static";
 import { FlashList } from '@shopify/flash-list';
 import { router, Stack } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -40,7 +34,7 @@ const DEFAULT_SEARCHES = [
   'Apple Watch',
 ];
 
-const CATEGORY_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
+const CATEGORY_ICONS: Record<string, IoniconsIconName> = {
   phones: 'phone-portrait-outline',
   gaming: 'game-controller-outline',
   accessories: 'headset-outline',

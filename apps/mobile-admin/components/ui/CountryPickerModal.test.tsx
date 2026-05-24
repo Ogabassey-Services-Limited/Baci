@@ -81,8 +81,11 @@ vi.mock('@/hooks/useTheme', () => ({
   }),
 }));
 
-vi.mock('@expo/vector-icons', () => ({
+vi.mock('@react-native-vector-icons/ionicons/static', () => ({
   Ionicons: ({ name }: { name: string }) => <span>{name}</span>,
+
+  default: ({ name }: { name: string }) => <span>{name}</span>,
+  __esModule: true,
 }));
 
 vi.mock('react-native', () => ({
@@ -132,45 +135,39 @@ describe('CountryPickerModal', () => {
     pressablePropCalls.length = 0;
   });
 
-  it(
-    'renders through the shared page-sheet shell and routes close/select actions',
-    async () => {
-      const onClose = vi.fn();
-      const onSelect = vi.fn();
+  it('renders through the shared page-sheet shell and routes close/select actions', async () => {
+    const onClose = vi.fn();
+    const onSelect = vi.fn();
 
-      render(
-        <CountryPickerModal
-          onClose={onClose}
-          onSelect={onSelect}
-          selectedCountry="NG"
-          visible={true}
-        />
-      );
+    render(
+      <CountryPickerModal
+        onClose={onClose}
+        onSelect={onSelect}
+        selectedCountry="NG"
+        visible={true}
+      />
+    );
 
-      expect(screen.getByLabelText('country-page-sheet')).toBeInTheDocument();
-      expect(screen.getByText('Select Country')).toBeInTheDocument();
-      expect(
-        screen.getByRole('button', { name: 'Nigeria' })
-      ).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Ghana' })).toBeInTheDocument();
+    expect(screen.getByLabelText('country-page-sheet')).toBeInTheDocument();
+    expect(screen.getByText('Select Country')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Nigeria' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Ghana' })).toBeInTheDocument();
 
-      fireEvent.click(
-        screen.getByRole('button', { name: 'Close country picker' })
-      );
-      fireEvent.click(screen.getByRole('button', { name: 'Ghana' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Close country picker' })
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Ghana' }));
 
-      await waitFor(() => {
-        expect(onClose).toHaveBeenCalledTimes(1);
-        expect(onSelect).toHaveBeenCalledWith({
-          code: 'GH',
-          currency: 'GHS',
-          currencySymbol: '₵',
-          name: 'Ghana',
-        });
+    await waitFor(() => {
+      expect(onClose).toHaveBeenCalledTimes(1);
+      expect(onSelect).toHaveBeenCalledWith({
+        code: 'GH',
+        currency: 'GHS',
+        currencySymbol: '₵',
+        name: 'Ghana',
       });
-    },
-    15_000
-  );
+    });
+  }, 15_000);
 
   it('filters the country list from the search input and clears it again', () => {
     render(

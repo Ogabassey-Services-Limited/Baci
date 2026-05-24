@@ -23,8 +23,11 @@ vi.mock('@/components/ui/AppSheetModal', () => ({
     ) : null,
 }));
 
-vi.mock('@expo/vector-icons', () => ({
+vi.mock('@react-native-vector-icons/ionicons/static', () => ({
   Ionicons: ({ name }: { color?: string; name: string; size?: number }) => name,
+
+  default: ({ name }: { color?: string; name: string; size?: number }) => name,
+  __esModule: true,
 }));
 
 vi.mock('react-native-safe-area-context', () => ({

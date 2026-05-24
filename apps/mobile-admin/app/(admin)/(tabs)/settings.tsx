@@ -1,8 +1,4 @@
-/**
- * Settings Screen - Store Configuration
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons, { type IoniconsIconName } from "@react-native-vector-icons/ionicons/static";
 import { useRouter } from 'expo-router';
 import {
   Alert,
@@ -48,7 +44,7 @@ export default function SettingsScreen() {
     toggle,
     onPress,
   }: {
-    icon: keyof typeof Ionicons.glyphMap;
+    icon: IoniconsIconName;
     title: string;
     subtitle?: string;
     showArrow?: boolean;

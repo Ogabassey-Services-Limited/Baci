@@ -1,9 +1,4 @@
-/**
- * Barcode Scanner Screen
- * Quick inventory lookup and updates
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { Camera, CameraView } from 'expo-camera';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';

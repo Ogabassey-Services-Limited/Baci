@@ -1,9 +1,4 @@
-/**
- * BranchCard
- * Renders a single branch location card
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import type { Branch, StaffColors } from './types';

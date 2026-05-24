@@ -1,5 +1,5 @@
 import type { PaymentStatus } from '@baci/shared';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons, { type IoniconsIconName } from "@react-native-vector-icons/ionicons/static";
 import { Pressable, Text, TextInput, View } from 'react-native';
 import { TYPOGRAPHY } from '@/constants/theme';
 import type { useNewOrderController } from '@/hooks/useNewOrderController';
@@ -136,7 +136,7 @@ export function NewOrderFooterBar({ controller }: NewOrderFooterBarProps) {
                       ? colors.textOnPrimary
                       : colors.text
                   }
-                  name={method.icon as keyof typeof Ionicons.glyphMap}
+                  name={method.icon as IoniconsIconName}
                   size={18}
                 />
                 <Text

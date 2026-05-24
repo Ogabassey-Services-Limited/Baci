@@ -6,32 +6,19 @@ buildscript {
     mavenCentral()
   }
   dependencies {
-    classpath 'com.google.gms:google-services:4.4.4'
-    classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:2.3.20'
-    classpath('com.android.tools.build:gradle:9.1.0')
+        classpath 'com.google.gms:google-services:4.4.4'
+    classpath('com.android.tools.build:gradle')
     classpath('com.facebook.react:react-native-gradle-plugin')
-  }
 }
-
-ext {
-  compileSdkVersion = 36
-  minSdkVersion = 24
-  targetSdkVersion = 36
 }
 
 allprojects {
   repositories {
-    maven { url "${rootDir}/../../../node_modules/@react-native-async-storage/async-storage/android/local_repo" }
+    maven { url "$rootDir/../../../node_modules/@react-native-async-storage/async-storage/android/local_repo" }
     google()
     mavenCentral()
     maven { url 'https://www.jitpack.io' }
   }
-}
-
-apply from: "../../android-sdk-defaults.gradle"
-
-subprojects { subproject ->
-  rootProject.ext.configureAndroidSdkDefaults(subproject)
 }
 
 apply plugin: "expo-root-project"

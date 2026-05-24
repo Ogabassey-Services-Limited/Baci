@@ -67,8 +67,8 @@ vi.mock('react-native-edge-to-edge', () => ({
   SystemBars: () => null,
 }));
 
-vi.mock('@expo/vector-icons', () => ({
-  Ionicons: () => null,
+vi.mock('@react-native-vector-icons/ionicons/static', () => ({
+  default: () => null,
 }));
 
 vi.mock('expo-router', async () => {

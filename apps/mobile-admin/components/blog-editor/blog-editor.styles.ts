@@ -66,7 +66,7 @@ export const blogEditorStyles = StyleSheet.create({
     width: 1,
   },
   loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 50,

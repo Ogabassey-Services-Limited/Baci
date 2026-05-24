@@ -13,21 +13,29 @@ const log = createLogger('Storage');
 
 /**
  * Batch storage helpers
- * Uses v3 getMany/removeMany when available, falls back to individual calls.
+ * Uses v3 getMany/removeMany when available, falls back to batch v2 calls.
  */
+type AsyncStorageBatchExtensions = typeof AsyncStorage & {
+  getMany?: (keys: string[]) => Promise<Record<string, string | null>>;
+  removeMany?: (keys: string[]) => Promise<void>;
+};
+
+const batchStorage = AsyncStorage as AsyncStorageBatchExtensions;
+
 export async function getStorageEntries(
   keys: readonly string[]
 ): Promise<[string, string | null][]> {
   if (keys.length === 0) return [];
 
-  if (typeof AsyncStorage.getMany === 'function') {
-    const record = await AsyncStorage.getMany([...keys]);
+  if (typeof batchStorage.getMany === 'function') {
+    const record = await batchStorage.getMany([...keys]);
     return Object.entries(record);
   }
 
-  // Fallback: individual getItem calls
-  // @ts-expect-error multiGet is missing from typings but exists and avoids bridge traffic
-  return AsyncStorage.multiGet([...keys]);
+  return (await AsyncStorage.multiGet([...keys])).map(([key, value]) => [
+    key,
+    value,
+  ]);
 }
 
 export async function removeStorageItems(
@@ -35,13 +43,11 @@ export async function removeStorageItems(
 ): Promise<void> {
   if (keys.length === 0) return;
 
-  if (typeof AsyncStorage.removeMany === 'function') {
-    await AsyncStorage.removeMany([...keys]);
+  if (typeof batchStorage.removeMany === 'function') {
+    await batchStorage.removeMany([...keys]);
     return;
   }
 
-  // Fallback: individual removeItem calls
-  // @ts-expect-error multiRemove is missing from typings but exists and avoids bridge traffic
   await AsyncStorage.multiRemove([...keys]);
 }
 

@@ -1,9 +1,4 @@
-/**
- * Help & Support / FAQ Screen
- * Common questions and support contact options
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons, { type IoniconsIconName } from "@react-native-vector-icons/ionicons/static";
 import * as Linking from 'expo-linking';
 import { Stack } from 'expo-router';
 import { useState } from 'react';
@@ -68,7 +63,7 @@ interface SupportOption {
   id: string;
   title: string;
   subtitle: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: IoniconsIconName;
   action: () => void;
 }
 

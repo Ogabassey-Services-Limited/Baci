@@ -295,7 +295,7 @@ export function Hero({
 const getStyles = (colors: ThemeColors, isDark: boolean) =>
   StyleSheet.create({
     slide: { position: 'relative', overflow: 'hidden' },
-    imageWrapper: { ...StyleSheet.absoluteFillObject, overflow: 'hidden' },
+    imageWrapper: { ...StyleSheet.absoluteFill, overflow: 'hidden' },
     imageContainer: {
       height: '100%',
     },

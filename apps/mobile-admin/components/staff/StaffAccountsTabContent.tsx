@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { Text, View } from 'react-native';
 import { StaffAccountCard } from '@/components/staff/StaffAccountCard';
 import styles from '@/components/staff/staff-accounts.styles';

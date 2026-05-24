@@ -1,15 +1,4 @@
-/**
- * AddressAutocomplete Component - 2026 Best Practice Implementation
- * Uses the web API routes for Google Places autocomplete
- *
- * Features:
- * - Debounced address search
- * - Dropdown with suggestions
- * - Auto-fills city and state on selection
- * - Nigeria country bias
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import Constants from 'expo-constants';
 import * as Crypto from 'expo-crypto';
 import { useEffect, useRef, useState } from 'react';

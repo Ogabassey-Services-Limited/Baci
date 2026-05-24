@@ -4,7 +4,7 @@
  */
 
 import { requiresProductSelection } from '@baci/shared/lib';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { Image } from 'expo-image';
 import { router, Stack } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';

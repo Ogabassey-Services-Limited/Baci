@@ -59,10 +59,15 @@ vi.mock('react-native-safe-area-context', () => ({
   ),
 }));
 
-vi.mock('@expo/vector-icons', () => ({
+vi.mock('@react-native-vector-icons/ionicons/static', () => ({
   Ionicons: ({ name, size }: { name: string; size: number }) => (
     <span data-testid={`icon-${name}`} data-size={size} />
   ),
+
+  default: ({ name, size }: { name: string; size: number }) => (
+    <span data-testid={`icon-${name}`} data-size={size} />
+  ),
+  __esModule: true,
 }));
 
 const mockMerchant = { id: 'merchant-123' };

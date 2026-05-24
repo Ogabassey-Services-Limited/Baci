@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { LinearGradient } from 'expo-linear-gradient';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -193,7 +193,7 @@ export default function VerifyScreen() {
       <SystemBars style={isDark ? 'light' : 'dark'} />
       <LinearGradient
         colors={[colors.background, colors.backgroundLight]}
-        style={StyleSheet.absoluteFillObject}
+        style={StyleSheet.absoluteFill}
       />
       <SafeAreaView style={styles.content}>
         <View style={styles.header}>

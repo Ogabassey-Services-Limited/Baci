@@ -1,9 +1,4 @@
-/**
- * WelcomeHeader Component
- * Dashboard header with merchant name, avatar, and live status
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SvgUri } from 'react-native-svg';
 import { BaciLogo } from '@/components/BaciLogo';

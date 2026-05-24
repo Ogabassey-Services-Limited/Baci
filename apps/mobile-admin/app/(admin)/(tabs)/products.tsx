@@ -1,9 +1,4 @@
-/**
- * Products Screen - Product/Inventory Management
- * View and manage product catalog with real-time data
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { FlashList, type ListRenderItemInfo } from '@shopify/flash-list';
 import { router } from 'expo-router';
 import { useRef, useState } from 'react';
@@ -924,7 +919,7 @@ export default function ProductsScreen() {
           }}
         >
           <Pressable
-            style={StyleSheet.absoluteFillObject}
+            style={StyleSheet.absoluteFill}
             onPress={() => setIsCategoryModalVisible(false)}
           />
           <KeyboardAwareModalContainer align="center">

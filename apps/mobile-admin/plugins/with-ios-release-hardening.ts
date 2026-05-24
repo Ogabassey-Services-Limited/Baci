@@ -18,7 +18,7 @@ import {
 interface HardeningOptions {
   /** Apple Development Team ID (default: from EXPO_APPLE_TEAM_ID env var) */
   teamId?: string;
-  /** Minimum iOS version (default: '16.0') */
+  /** Minimum iOS version (default: '16.4') */
   minimumOSVersion?: string;
   /** Production-facing local network usage description */
   localNetworkUsageDescription?: string;
@@ -30,7 +30,7 @@ const withIosReleaseHardening: ConfigPlugin<HardeningOptions | undefined> = (
 ) => {
   const {
     teamId = process.env.EXPO_APPLE_TEAM_ID,
-    minimumOSVersion = '16.0',
+    minimumOSVersion = '16.4',
     localNetworkUsageDescription = 'This app uses the local network to communicate with nearby devices for sharing and printing.',
   } = options ?? {};
 

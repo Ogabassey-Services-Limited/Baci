@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { Pressable, Text, View } from 'react-native';
 import type { useNewOrderController } from '@/hooks/useNewOrderController';
 import { formatVatPercentage } from './new-order.shared';

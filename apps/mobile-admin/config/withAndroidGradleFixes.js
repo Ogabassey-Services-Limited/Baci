@@ -1,5 +1,5 @@
 /**
- * Expo config plugin: Android Gradle fixes for AGP 9.x + RN 0.84
+ * Expo config plugin: Android Gradle fixes for AGP 9.x + RN 0.85
  *
  * Applies after `expo prebuild --clean` so native dirs are always correct:
  * 1. Removes kotlin-gradle-plugin classpath (built into AGP 9.x)
@@ -14,6 +14,7 @@ const path = require('node:path');
 const {
   addAsyncStorageRepo,
   assertReplaceOrThrow,
+  ensureGradleProperty,
   ensureGradleWrapperVersion,
   ensureReleaseSigning,
   fixProguardOptimize,
@@ -62,6 +63,66 @@ function ensureWorkletsPickFirst(content) {
 `,
     'worklets pickFirsts injection'
   );
+}
+
+function ensureDebugFirebaseAutoInitDisabled(content) {
+  let updated = content;
+  const metadata = [
+    '<meta-data android:name="firebase_messaging_auto_init_enabled" android:value="false" tools:replace="android:value" />',
+    '<meta-data android:name="firebase_analytics_collection_enabled" android:value="false" tools:replace="android:value" />',
+  ];
+
+  if (metadata.every((line) => updated.includes(line))) {
+    return updated;
+  }
+
+  const selfClosingApplication = updated.match(/<application\b[^>]*\/>/m);
+  if (selfClosingApplication) {
+    const openingApplication = selfClosingApplication[0].replace(
+      /\s*\/>$/,
+      '>'
+    );
+    updated = updated.replace(
+      selfClosingApplication[0],
+      `${openingApplication}
+    </application>`
+    );
+  }
+
+  for (const line of metadata) {
+    if (updated.includes(line)) {
+      continue;
+    }
+
+    updated = assertReplaceOrThrow(
+      updated,
+      /\n\s*<\/application>/m,
+      `\n        ${line}
+    </application>`,
+      'debug Firebase auto-init metadata injection'
+    );
+  }
+
+  return updated;
+}
+
+function ensureDebugManifestsFirebaseAutoInitDisabled(platformProjectRoot) {
+  for (const relativeManifest of [
+    'app/src/debug/AndroidManifest.xml',
+    'app/src/debugOptimized/AndroidManifest.xml',
+  ]) {
+    const manifestPath = path.join(platformProjectRoot, relativeManifest);
+
+    if (!fs.existsSync(manifestPath)) {
+      continue;
+    }
+
+    const content = fs.readFileSync(manifestPath, 'utf-8');
+    fs.writeFileSync(
+      manifestPath,
+      ensureDebugFirebaseAutoInitDisabled(content)
+    );
+  }
 }
 
 function withAndroidGradleFixes(config) {
@@ -122,6 +183,22 @@ function withAndroidGradleFixes(config) {
       }
 
       // Fix Gradle wrapper version
+      const gradleProperties = path.join(
+        cfg.modRequest.platformProjectRoot,
+        'gradle.properties'
+      );
+
+      if (fs.existsSync(gradleProperties)) {
+        let content = fs.readFileSync(gradleProperties, 'utf-8');
+        content = ensureGradleProperty(
+          content,
+          'android.builtInKotlin',
+          'false'
+        );
+        fs.writeFileSync(gradleProperties, content);
+      }
+
+      // Fix Gradle wrapper version
       const wrapperProps = path.join(
         cfg.modRequest.platformProjectRoot,
         'gradle',
@@ -134,6 +211,10 @@ function withAndroidGradleFixes(config) {
         content = ensureGradleWrapperVersion(content);
         fs.writeFileSync(wrapperProps, content);
       }
+
+      ensureDebugManifestsFirebaseAutoInitDisabled(
+        cfg.modRequest.platformProjectRoot
+      );
 
       return cfg;
     },

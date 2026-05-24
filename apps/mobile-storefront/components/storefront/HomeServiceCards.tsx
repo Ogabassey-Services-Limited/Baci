@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons, { type IoniconsIconName } from "@react-native-vector-icons/ionicons/static";
 import { type Href, useRouter } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import {
@@ -24,7 +24,7 @@ type ServiceShortcut = {
   title: string;
   subtitle: string;
   href: Href;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: IoniconsIconName;
   accent: string;
 };
 

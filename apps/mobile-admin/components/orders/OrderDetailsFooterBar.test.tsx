@@ -9,7 +9,7 @@ vi.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ bottom: 0 }),
 }));
 
-vi.mock('@expo/vector-icons', () => ({
+vi.mock('@react-native-vector-icons/ionicons/static', () => ({
   Ionicons: ({
     accessibilityElementsHidden,
     importantForAccessibility,
@@ -25,6 +25,23 @@ vi.mock('@expo/vector-icons', () => ({
       data-testid={name}
     />
   ),
+
+  default: ({
+    accessibilityElementsHidden,
+    importantForAccessibility,
+    name,
+  }: {
+    accessibilityElementsHidden?: boolean;
+    importantForAccessibility?: string;
+    name: string;
+  }) => (
+    <svg
+      aria-hidden={accessibilityElementsHidden ? 'true' : 'false'}
+      data-important={importantForAccessibility}
+      data-testid={name}
+    />
+  ),
+  __esModule: true,
 }));
 
 vi.mock('react-native', async () => {

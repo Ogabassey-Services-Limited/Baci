@@ -12,7 +12,7 @@ import {
   SHIPPING_STATUS_CONFIG,
   type ShippingStatus,
 } from '@baci/shared';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons, { type IoniconsIconName } from "@react-native-vector-icons/ionicons/static";
 import { useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { router } from 'expo-router';
@@ -99,7 +99,7 @@ interface OrderItemProps {
     label: string;
   };
   getSourceConfig: (source: string | null) => {
-    icon: keyof typeof Ionicons.glyphMap;
+    icon: IoniconsIconName;
     color: string;
     label: string;
   };
@@ -369,7 +369,7 @@ export default function OrdersScreen() {
   ): {
     status: ShippingStatus;
     label: string;
-    icon: keyof typeof Ionicons.glyphMap;
+    icon: IoniconsIconName;
     color: string;
   }[] => {
     const targetStatus = (
@@ -379,7 +379,7 @@ export default function OrdersScreen() {
     return actions.map((action) => ({
       status: action.nextStatus,
       label: action.label,
-      icon: action.icon as keyof typeof Ionicons.glyphMap,
+      icon: action.icon as IoniconsIconName,
       color: getColorFromKey(
         SHIPPING_STATUS_CONFIG[action.nextStatus]?.colorKey ?? 'textMuted'
       ),

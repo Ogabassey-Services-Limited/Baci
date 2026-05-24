@@ -1,9 +1,4 @@
-/**
- * Payment Methods Screen
- * Displays actual payment settings from database
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import {

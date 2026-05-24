@@ -10,8 +10,11 @@ const mocks = vi.hoisted(() => ({
   branchCard: vi.fn(),
 }));
 
-vi.mock('@expo/vector-icons', () => ({
+vi.mock('@react-native-vector-icons/ionicons/static', () => ({
   Ionicons: ({ name }: { name: string }) => <span data-icon={name} />,
+
+  default: ({ name }: { name: string }) => <span data-icon={name} />,
+  __esModule: true,
 }));
 
 vi.mock('react-native', () => ({

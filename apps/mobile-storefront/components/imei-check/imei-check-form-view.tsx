@@ -3,7 +3,7 @@ import type {
   ImeiServiceTierDefinition,
   ImeiServiceTierKey,
 } from '@baci/shared/imei';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { router, Stack } from 'expo-router';
 import {
   ActivityIndicator,

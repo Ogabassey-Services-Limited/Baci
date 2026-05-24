@@ -1,9 +1,4 @@
-/**
- * SubscriptionStatusCard
- * Displays the merchant's subscription status (Pro or Free)
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { LinearGradient } from 'expo-linear-gradient';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { CustomerInfo } from 'react-native-purchases';

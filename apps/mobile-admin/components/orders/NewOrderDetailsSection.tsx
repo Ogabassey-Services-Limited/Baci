@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { format } from 'date-fns';
 import { useEffect } from 'react';
 import { Pressable, Switch, Text, TextInput, View } from 'react-native';

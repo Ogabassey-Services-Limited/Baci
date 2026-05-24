@@ -5,7 +5,7 @@ import {
   type PaymentMethodSettingCategory,
   type PaymentMethodSettingDefinition,
 } from '@baci/shared';
-import type { Ionicons } from '@expo/vector-icons';
+import type { IoniconsIconName } from '@react-native-vector-icons/ionicons/static';
 import type { PaymentSettings } from '@/schemas/payment-settings';
 
 export type PaymentMethodCategory = PaymentMethodSettingCategory;
@@ -15,14 +15,14 @@ export type PaymentMethodField = PaymentMethodEnabledField;
 export interface PaymentMethod {
   id: string;
   name: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: IoniconsIconName;
   description: string;
   dbField: PaymentMethodField;
   category: PaymentMethodCategory;
 }
 
 const PAYMENT_METHOD_ICON_BY_ID: Partial<
-  Record<string, keyof typeof Ionicons.glyphMap>
+  Record<string, IoniconsIconName>
 > = {
   credit_direct: 'time-outline',
   credpal: 'calendar-outline',

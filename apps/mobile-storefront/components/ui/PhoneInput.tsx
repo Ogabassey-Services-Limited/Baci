@@ -1,16 +1,4 @@
-/**
- * PhoneInput Component - 2026 Best Practice Implementation
- * Matches web app phone-input.tsx design with country flag selector
- *
- * Features:
- * - Country flag display (Nigeria default)
- * - Country code prefix (+234)
- * - Auto-strips leading zeros
- * - Country selector modal
- * - WCAG AA compliant
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { useState } from 'react';
 import {
   FlatList,

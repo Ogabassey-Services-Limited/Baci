@@ -1,14 +1,4 @@
-/**
- * TabSelector Component
- * Tab navigation for checkout options
- *
- * 2026 Best Practices:
- * - Full accessibility with tab role and state
- * - Haptic feedback on selection
- * - Keyboard navigation support
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons, { type IoniconsIconName } from "@react-native-vector-icons/ionicons/static";
 import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { BRAND, palette } from '@/constants/Colors';
@@ -20,7 +10,7 @@ export type TabType = 'new' | 'signin';
 interface Tab {
   id: TabType;
   label: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: IoniconsIconName;
   accessibilityLabel: string;
 }
 

@@ -1,13 +1,4 @@
-/**
- * SocialSignInButtons Component
- *
- * 2026 Best Practices:
- * - Platform-aware rendering (Apple only on iOS)
- * - Full accessibility support
- * - Includes divider
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import React from 'react';
 import { Platform, Text, TouchableOpacity, View } from 'react-native';
 import { GoogleLogo } from '../../../icons/GoogleLogo';

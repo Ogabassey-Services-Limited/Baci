@@ -39,12 +39,12 @@ export const paymentGatewayStyles = StyleSheet.create({
     flex: 1,
   },
   webViewLoading: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     ...CENTERED_CONTENT,
     backgroundColor: SEMANTIC_COLORS.white,
   },
   loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     ...CENTERED_CONTENT,
     backgroundColor: SEMANTIC_COLORS.overlay,
     zIndex: 100,

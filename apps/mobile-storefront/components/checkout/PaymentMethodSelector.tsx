@@ -1,10 +1,4 @@
-/**
- * Payment Method Selector Component
- * Comprehensive payment options matching web storefront
- * Supports: Card (Paystack), Bank Transfer, Pay on Delivery, BNPL
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons, { type IoniconsIconName } from "@react-native-vector-icons/ionicons/static";
 import { Image } from 'expo-image';
 import { useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -35,7 +29,7 @@ export interface PaymentMethod {
   id: PaymentMethodType;
   label: string;
   description: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: IoniconsIconName;
   tab: PaymentTab;
   logoUrl?: string | number;
   disabled?: boolean;

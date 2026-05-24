@@ -1,10 +1,4 @@
-/**
- * Variant Selector Component
- * Advanced variant selection with color swatches and storage options
- * Supports color images, price modifiers, and stock tracking
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';

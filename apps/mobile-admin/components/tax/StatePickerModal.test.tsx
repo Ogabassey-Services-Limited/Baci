@@ -51,8 +51,11 @@ vi.mock('@/components/ui/AppPageSheet', () => ({
     ) : null,
 }));
 
-vi.mock('@expo/vector-icons', () => ({
+vi.mock('@react-native-vector-icons/ionicons/static', () => ({
   Ionicons: ({ name }: { name: string }) => <span>{name}</span>,
+
+  default: ({ name }: { name: string }) => <span>{name}</span>,
+  __esModule: true,
 }));
 
 vi.mock('react-native', () => ({

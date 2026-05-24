@@ -6,20 +6,18 @@ buildscript {
     mavenCentral()
   }
   dependencies {
-        classpath 'com.google.gms:google-services:4.4.1'
+        classpath 'com.google.gms:google-services:4.4.4'
     classpath('com.android.tools.build:gradle')
     classpath('com.facebook.react:react-native-gradle-plugin')
-    // kotlin-gradle-plugin removed: AGP 9.x includes built-in Kotlin support
-  }
+}
 }
 
 allprojects {
   repositories {
+    maven { url "$rootDir/../../../node_modules/@react-native-async-storage/async-storage/android/local_repo" }
     google()
     mavenCentral()
     maven { url 'https://www.jitpack.io' }
-    // async-storage ships a local AAR for its shared_storage module
-    maven { url "$rootDir/../../../node_modules/@react-native-async-storage/async-storage/android/local_repo" }
   }
 }
 

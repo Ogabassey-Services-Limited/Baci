@@ -12,7 +12,7 @@ jest.mock('expo-router', () => ({
   },
 }));
 
-jest.mock('@expo/vector-icons', () => {
+jest.mock('@react-native-vector-icons/ionicons/static', () => {
   const React = jest.requireActual<typeof import('react')>('react');
   const { View } =
     jest.requireActual<typeof import('react-native')>('react-native');
@@ -24,6 +24,15 @@ jest.mock('@expo/vector-icons', () => {
             ? props.accessibilityLabel
             : undefined,
       }),
+
+    default: (props: Record<string, unknown>) =>
+      React.createElement(View, {
+        accessibilityLabel:
+          typeof props.accessibilityLabel === 'string'
+            ? props.accessibilityLabel
+            : undefined,
+      }),
+    __esModule: true,
   };
 });
 

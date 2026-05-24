@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { Switch, Text, View } from 'react-native';
 import type { ThemeColors, ThemeShadows } from '@/constants/theme';
 import { styles } from './shipping-styles';

@@ -1,0 +1,159 @@
+# Expo SDK 56 Phase Review Gates
+
+This file records the inline phase review gates for the Expo SDK 56 mobile upgrade. Do not proceed past a gate until its section is filled with the live metadata summary, docs reviewed, mismatch assessment, and any fixes made.
+
+## Gate 0 Result: Baseline And SDK Target
+
+- Checked at: 2026-05-22T00:43:40Z
+- Docs checked:
+  - https://docs.expo.dev/versions/v56.0.0/
+  - https://docs.expo.dev/workflow/upgrading-expo-sdk-walkthrough/
+  - https://docs.expo.dev/router/migrate/sdk-55-to-56/
+  - https://docs.expo.dev/versions/latest/sdk/filesystem/
+- Live metadata:
+  - expo npm/latest/next: 56.0.3 / 56.0.3 / 56.0.3
+  - Expo versions endpoint SDK 56: expo ~56.0.3, React Native 0.85.3, React 19.2.3, TypeScript ~6.0.3, @types/react ~19.2.14
+  - expo-router latest: 56.2.5
+  - expo-file-system latest: 56.0.7
+  - RNVI codemod: 13.2.1
+  - RNVI static exports: ionicons true, fontawesome true, feather true
+- Baseline evidence:
+  - `pnpm install --frozen-lockfile`: passed
+  - `pnpm --filter baci-mobile-admin typecheck`: passed
+  - `pnpm --filter @baci/mobile-storefront typecheck`: passed
+  - `pnpm --filter baci-mobile-admin check:platform-drift`: passed
+  - `pnpm --filter @baci/mobile-storefront check:platform-drift`: passed
+  - Node: v24.11.1
+  - Xcode: 26.5
+  - Java: OpenJDK 17.0.19
+- Baseline mismatch found: none.
+- Plan/code changes made before proceeding: none in Gate 0; proceeding to dependency and iOS policy phase.
+
+## Gate 1 Result: Dependencies, Overrides, iOS Policy, And Metro
+
+- Checked at: 2026-05-22T03:02:15Z
+- Docs checked:
+  - https://docs.expo.dev/versions/v56.0.0/
+  - https://docs.expo.dev/workflow/upgrading-expo-sdk-walkthrough/
+  - https://docs.expo.dev/router/migrate/sdk-55-to-56/
+  - https://docs.expo.dev/guides/monorepos/
+- Live metadata:
+  - Expo SDK 56 target remains expo ~56.0.3, React Native 0.85.3, React 19.2.3, TypeScript ~6.0.3.
+  - expo-router 56.2.5 declares peers `@expo/metro-runtime@^56.0.11`, `@expo/log-box@^56.0.12`, and `react-native-screens@^4.25.1`.
+  - `@expo/log-box` declares `@expo/dom-webview@^56.0.5`.
+  - Current Expo monorepo guidance says SDK 52+ automatically configures Metro monorepos with `expo/metro-config`; old manual `resolver.unstable_enableSymlinks` configuration is stale.
+- Dependency evidence:
+  - `pnpm install`: passed.
+  - `pnpm --dir apps/mobile-admin exec expo install --check`: passed.
+  - `pnpm --dir apps/mobile-storefront exec expo install --check`: passed.
+  - Installed versions in both apps: `react-native-worklets` 0.8.3, `react-native-reanimated` 4.3.1, `react-native-screens` 4.25.1, `react-native-safe-area-context` 5.7.0, `react-native-svg` 15.15.4, `@expo/metro-runtime` 56.0.11, `@expo/dom-webview` 56.0.5, `@react-native/metro-config` 0.85.3.
+  - Root overrides now pin `react-native-worklets` 0.8.3, `react-native-reanimated` 4.3.1, `react-native-screens` 4.25.1, `react-native-svg` 15.15.4, and `@types/react` 19.2.14; none are below the SDK 56-compatible versions selected by Expo.
+  - Stale SDK 55 / React Native 0.84 patch entries were removed from `pnpm.patchedDependencies` to unblock install. The old patch files are retained as references for Task 7 native-build patch rebase/removal classification.
+- iOS policy evidence:
+  - Dynamic config output includes `expo-build-properties` with Android compile/target/build tools 36 and iOS deployment target 16.4 for both apps.
+  - Admin iOS hardening app option and plugin defaults are 16.4.
+  - `pnpm --filter baci-mobile-admin test __tests__/config/sdk56-compliance.test.ts`: passed.
+  - `pnpm --filter @baci/mobile-storefront exec jest __tests__/config/sdk56-compliance.test.ts --runInBand --forceExit`: passed.
+- expo-doctor after Gate 1 fixes:
+  - `mobile-admin`: 19/21 checks passed.
+  - `mobile-storefront`: 19/21 checks passed.
+  - Remaining failures are expected next-phase work: direct `@react-navigation/native` dependency/import migration and non-CNG native config warning until prebuild/native regeneration syncs config fields.
+- Plan/code changes made before proceeding:
+  - Added explicit SDK 56 dynamic-config plugins that Expo CLI could not auto-write.
+  - Added direct SDK 56 peers for `@expo/metro-runtime`, `@expo/dom-webview`, and `@react-native/metro-config`.
+  - Removed stale `resolver.unstable_enableSymlinks` from both Metro configs while keeping Baci-specific SVG, blocklist, package alias, and workspace behavior for later bundle verification.
+
+## Gate 2 Result: Icons, Router, FileSystem, And Source Type Drift
+
+- Checked at: 2026-05-22T03:21:26Z
+- Docs checked:
+  - https://docs.expo.dev/router/migrate/sdk-55-to-56/
+  - https://docs.expo.dev/versions/latest/sdk/filesystem/
+  - https://docs.expo.dev/versions/v56.0.0/sdk/splash-screen/
+- Live metadata:
+  - expo latest: 56.0.3
+  - expo-router latest: 56.2.5
+  - expo-file-system latest: 56.0.7
+  - RNVI codemod latest: 13.2.1
+  - Expo versions endpoint SDK 56: expo ~56.0.3, React 19.2.3, TypeScript ~6.0.3, @types/react ~19.2.14.
+- Source migration evidence:
+  - RNVI codemod ran for both apps with `--static`.
+  - No `@expo/vector-icons`, `Ionicons.font`, `FontAwesome.font`, `Ionicons.glyphMap`, or `Feather.glyphMap` references remain in mobile source/tests outside native folders.
+  - RNVI static package config plugins are registered in both app configs.
+  - Expo Router codemod ran for both apps; direct `@react-navigation/native` dependencies were removed.
+  - No app/test import remains from `@react-navigation/native` or `@react-navigation/native-stack`; the retained Jest transform allowlist is only for Expo Router transitive packages.
+  - `CompactStackHeader` and its test were deleted because SDK 56 has no `native-stack` re-export and the component was not used by runtime code.
+  - `createOrderDetailsReceiptActions` now awaits `File.move(destination, { overwrite: true })`; focused FileSystem tests passed for admin and storefront receipt utilities.
+  - `pnpm --filter baci-mobile-admin typecheck`: passed.
+  - `pnpm --filter @baci/mobile-storefront typecheck`: passed.
+  - `pnpm --dir apps/mobile-admin exec expo install --check`: passed.
+  - `pnpm --dir apps/mobile-storefront exec expo install --check`: passed.
+- expo-doctor after Gate 2 fixes:
+  - `mobile-admin`: 20/21 checks passed.
+  - `mobile-storefront`: 20/21 checks passed.
+  - The only remaining doctor failure is the expected non-CNG warning because source-controlled native folders are present before Task 7 regenerates them from the SDK 56 config.
+- Mismatches fixed before proceeding:
+  - Top-level `splash` config was removed and moved into the `expo-splash-screen` config plugin because SDK 56 docs mark plugin configuration as the supported path.
+  - React Native 0.85 TypeScript no longer exposes `StyleSheet.absoluteFillObject`; source usages now use `StyleSheet.absoluteFill`.
+  - AsyncStorage 2.2 typings do not include the future `getMany`/`removeMany` API, so storefront storage keeps optional future support through a narrowed extension type and falls back to typed `multiGet`/`multiRemove`.
+
+## Gate 3 Result: Native Regeneration, Build Verification, And Final Review Loop
+
+- Checked at: 2026-05-24T14:12:54Z
+- Docs checked:
+  - https://docs.expo.dev/router/migrate/sdk-55-to-56/
+  - https://docs.expo.dev/versions/latest/sdk/build-properties/
+  - https://docs.expo.dev/versions/latest/sdk/splash-screen/
+  - https://docs.expo.dev/workflow/upgrading-expo-sdk-walkthrough/
+  - https://docs.expo.dev/versions/v56.0.0/
+  - https://exp.host/--/api/v2/versions
+- Live metadata:
+  - Expo versions endpoint SDK 56: expo `~56.0.4`, React Native `0.85.3`, React `19.2.3`, TypeScript `~6.0.3`, `@types/react` `~19.2.14`.
+  - npm/latest: `expo` 56.0.4, `react-native` 0.85.3, `expo-router` 56.2.6, `expo-file-system` 56.0.7.
+  - `@react-native-vector-icons/ionicons` latest: 13.1.1; the static export remains available and the 13.2.1 codemod remains the migration tool used for this branch.
+- Final implementation evidence:
+  - Branch was created in the isolated worktree `/Users/mac/Baci-expo-sdk-56` from `origin/main`, then rebased onto the latest `origin/main` after upstream moved.
+  - `pnpm install --frozen-lockfile`: passed.
+  - `pnpm --dir apps/mobile-admin exec expo install --check`: passed.
+  - `pnpm --dir apps/mobile-storefront exec expo install --check`: passed.
+  - `pnpm --filter baci-mobile-admin check:platform-drift`: passed.
+  - `pnpm --filter baci-mobile-admin check:platform-drift` after admin `pod install`: passed.
+  - `pnpm --filter @baci/mobile-storefront check:platform-drift`: passed.
+  - `pnpm --filter baci-mobile-admin test __tests__/config/sdk56-compliance.test.ts`: passed.
+  - `pnpm --filter baci-mobile-admin test config/android-google-services-file.test.ts scripts/android-gradle-build-config.test.ts`: passed.
+  - `pnpm turbo lint`: passed.
+  - `pnpm turbo typecheck`: passed.
+  - `pnpm --filter @baci/web test src/app/\(storefront\)/\[slug\]/\(catalog\)/\[category\]/\[productSlug\]/page.test.tsx src/app/\(storefront\)/ogabassey/ogabassey-pdp-product-resource-hints.test.ts src/components/storefront/ogabassey/config/product-media.test.ts`: passed after rebasing onto `5e36984452`, with 3 test files and 35 tests passing.
+  - `pnpm turbo test`: passed after rebasing onto `5e36984452`. The web shard executed and reported 1241 passed and 1 skipped test file, with 10201 passed and 1 todo test. Shared, admin, and storefront replayed green cache for unchanged inputs. The full Turbo run completed 4/4 tasks successfully in 2m 51s.
+  - `pnpm dlx expo-doctor@latest apps/mobile-admin`: 20/21 checks passed on 2026-05-24. The only failure is the expected non-CNG warning for source-controlled native folders plus `app.config.ts` native config fields.
+  - `pnpm dlx expo-doctor@latest apps/mobile-storefront`: 20/21 checks passed on 2026-05-24. The only failure is the same expected non-CNG warning.
+  - `ANDROID_HOME=/Users/mac/Library/Android/sdk ANDROID_SDK_ROOT=/Users/mac/Library/Android/sdk ./gradlew --no-daemon :app:assembleDebug -PreactNativeArchitectures=arm64-v8a --console=plain` in `apps/mobile-admin/android`: passed after the final rebase on 2026-05-24 with `BUILD SUCCESSFUL in 1m 56s`.
+  - `ANDROID_HOME=/Users/mac/Library/Android/sdk ANDROID_SDK_ROOT=/Users/mac/Library/Android/sdk ./gradlew --no-daemon :app:assembleDebug -PreactNativeArchitectures=arm64-v8a --console=plain` in `apps/mobile-storefront/android`: passed after the final rebase on 2026-05-24 with `BUILD SUCCESSFUL in 2m 46s`.
+  - `coderabbit review --prompt-only -t uncommitted`: attempted, but CodeRabbit rejected the full 606-file diff because it exceeds the 150-file limit.
+  - `coderabbit review --agent -t uncommitted --dir .github/scripts`: attempted as a scoped retry, but CodeRabbit rejected it due to the organization usage rate limit.
+  - `GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=http.version GIT_CONFIG_VALUE_0=HTTP/1.1 pod install` in `apps/mobile-admin/ios`: passed and regenerated `Podfile.lock` for Expo 56 / React Native 0.85.
+- Android emulator QA evidence:
+  - `mobile-admin` was tested through the repo-supported Test Android Apps path: `pnpm --filter baci-mobile-admin android:emulator`, `pnpm --filter baci-mobile-admin android:install`, `pnpm --filter baci-mobile-admin android:metro`, and `pnpm --filter baci-mobile-admin android:launch`. The app rendered the signed-out admin UI with no Baci process crash; evidence files are `/tmp/baci-mobile-admin-ui-route.xml`, `/tmp/baci-mobile-admin-ui-route-summary.txt`, and `/tmp/baci-mobile-admin-sdk56-route.png`.
+  - `mobile-storefront` was installed and launched on an Android 16 emulator against Metro on port 8082. It rendered the Ogabassey home UI with header/search, service cards, featured products, filters, chat entry, and bottom nav. The smoke used a placeholder Supabase anon key, so data/auth calls degraded with an auth toast, but the app did not crash; evidence files are `/tmp/baci-mobile-storefront-sdk56-final-clean.png`, `/tmp/baci-mobile-storefront-sdk56-final-clean-no-toast.png`, and `/tmp/baci-mobile-storefront-crash-final-clean.log`.
+- Final static review evidence:
+  - No app-source `@expo/vector-icons`, `Ionicons.font`, `FontAwesome.font`, or `glyphMap` references remain outside native folders, tests, and mocks.
+  - No app-source direct `@react-navigation/*` imports remain outside native folders, tests, and mocks.
+  - No stale `minimumOSVersion: '15.1'`, `deploymentTarget: '15.1'`, `IPHONEOS_DEPLOYMENT_TARGET = 15.1`, `Baci/Baci.Debug.entitlements`, `Baci/Baci.Release.entitlements`, `resolver.unstable_enableSymlinks`, or `StyleSheet.absoluteFillObject` references remain in app source/native config.
+  - Both Android apps contain the generated `splashscreen_logo.png` density assets.
+  - Current iOS projects are `BaciTheEcommerceBuilder.xcodeproj` and `Ogabassey.xcodeproj`; stale old project folders were removed by prebuild.
+- Review-loop issues found and fixed before marking the gate clean:
+  - Admin prebuild initially failed because `googleServicesFile` pointed inside the generated Android tree. The tracked debug JSON was moved to the app root and `config/android-google-services-file.js` now points at `./google-services.json`.
+  - The moved admin `google-services.json` was still hidden by the app-level `.gitignore`. `.gitignore` now explicitly tracks only the root source file and keeps generated native-folder copies ignored, so clean checkout prebuild has the required Firebase client config.
+  - The Gradle-wrapper config plugin was not idempotent after prebuild. The shared Gradle fix script now no-ops when the wrapper is already at the target version.
+  - Storefront Android native build initially failed because the SDK 56 splash plugin had no image configured, leaving Android without `drawable/splashscreen_logo`. The storefront splash plugin now includes `image`, `resizeMode`, and `backgroundColor`, with a regression assertion.
+  - The admin runtime iOS hardening plugin still wrote stale `Baci/Baci.*.entitlements` paths after the project rename. It now uses `withEntitlementsPlist` and the regenerated project references only `BaciTheEcommerceBuilder/BaciTheEcommerceBuilder.entitlements`.
+  - Admin native regeneration initially left `ios/Podfile.lock` deleted. Running `pod install` restored the lockfile and verified iOS pods now resolve against Expo 56 / React Native 0.85.
+  - The first parallel Android build rerun polluted shared generated `node_modules/*/android/build` native outputs across the two apps. Sequential builds after clearing generated Android build folders passed; future native verification for both apps should keep these builds sequential in this shared pnpm workspace.
+  - The post-rebase checkout flow introduced fresh `@expo/vector-icons` imports. Those were migrated to RNVI static package imports before the final static scan and test gate.
+  - The post-rebase storefront payment gateway route needed an Expo Router `Href` narrowing helper for `router.replace(returnTo || '/wallet')`; the final typecheck now passes.
+  - Admin Supabase auth storage tried to initialize MMKV on an Expo Router server-render path. The client now disables persisted auth storage for server render, with a regression test in `apps/mobile-admin/lib/supabase.test.ts`.
+  - Admin Android emulator startup could leave stale AVD lock directories. The launcher cleanup now removes stale lock directories as well as files, with focused test coverage in `apps/mobile-admin/scripts/android-emulator-launcher.test.ts`.
+  - The full test gate exposed a web blog pagination timing flake. The dashboard blog client-page test now waits semantically for the async UI state before asserting.
+- Final mismatch assessment:
+  - No blocking SDK 56 mismatch remains in dependencies, app config, icon imports, Expo Router imports, FileSystem usage, iOS 16.4 policy, native project generation, or Android debug builds.
+  - The only remaining Expo Doctor diagnostic is expected for this repository model because native folders are committed while config plugins are still used and synchronized via prebuild.

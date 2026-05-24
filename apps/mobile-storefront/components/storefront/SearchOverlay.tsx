@@ -1,19 +1,4 @@
-/**
- * SearchOverlay Component
- *
- * Implements an inline search experience with:
- * - History & Suggestion dropdowns
- * - Live results
- * - AI integration points (Camera/Voice)
- * - Smooth layout animations
- *
- * 2026 Best Practices:
- * - KeyboardAVoidingView specific to platform
- * - Reanimated for layout transitions
- * - Accessibility roles and labels
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';

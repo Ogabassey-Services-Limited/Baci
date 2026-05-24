@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { useMutation } from '@tanstack/react-query';
 import type React from 'react';
 import { useEffect, useState } from 'react';
@@ -148,7 +148,6 @@ export default function NinVerificationCard({
           />
         </View>
       </Pressable>
-
       {expanded && (
         <View style={styles.body}>
           {verified && (

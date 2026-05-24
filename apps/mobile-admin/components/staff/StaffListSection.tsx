@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons, { type IoniconsIconName } from "@react-native-vector-icons/ionicons/static";
 import { FlashList } from '@shopify/flash-list';
 import {
   ActivityIndicator,
@@ -219,7 +219,7 @@ export function StaffListSection({
                 >
                   <Ionicons
                     color={statusBadge.text}
-                    name={statusBadge.icon as keyof typeof Ionicons.glyphMap}
+                    name={statusBadge.icon as IoniconsIconName}
                     size={10}
                   />
                   <Text style={[styles.badgeText, { color: statusBadge.text }]}>

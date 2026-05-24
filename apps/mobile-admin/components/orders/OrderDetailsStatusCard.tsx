@@ -1,5 +1,5 @@
 import { SHIPPING_STATUS_CONFIG, type ShippingStatus } from '@baci/shared';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons, { type IoniconsIconName } from "@react-native-vector-icons/ionicons/static";
 import { Fragment } from 'react';
 import { Text, View } from 'react-native';
 import type { ThemeColors } from '@/constants/theme';
@@ -59,7 +59,7 @@ export function OrderDetailsStatusCard({
           <View style={styles.sourceRow}>
             <Ionicons
               color={sourceInfo.color}
-              name={sourceInfo.name as keyof typeof Ionicons.glyphMap}
+              name={sourceInfo.name as IoniconsIconName}
               size={14}
             />
             <Text style={[styles.sourceText, { color: colors.textSecondary }]}>
@@ -83,7 +83,7 @@ export function OrderDetailsStatusCard({
         >
           <Ionicons
             color={shippingColor}
-            name={shippingConfig.icon as keyof typeof Ionicons.glyphMap}
+            name={shippingConfig.icon as IoniconsIconName}
             size={14}
           />
           <Text style={[styles.statusTextBig, { color: shippingColor }]}>
@@ -121,7 +121,7 @@ export function OrderDetailsStatusCard({
                 >
                   <Ionicons
                     color={isActive ? colors.textOnPrimary : colors.textMuted}
-                    name={stepConfig.icon as keyof typeof Ionicons.glyphMap}
+                    name={stepConfig.icon as IoniconsIconName}
                     size={12}
                   />
                 </View>

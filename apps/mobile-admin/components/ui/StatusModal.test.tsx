@@ -11,8 +11,11 @@ const dialogState = vi.hoisted(() => ({
   visible: false,
 }));
 
-vi.mock('@expo/vector-icons', () => ({
+vi.mock('@react-native-vector-icons/ionicons/static', () => ({
   Ionicons: ({ name }: { name: string }) => <span>{name}</span>,
+
+  default: ({ name }: { name: string }) => <span>{name}</span>,
+  __esModule: true,
 }));
 
 vi.mock('@/components/ui/AppDialogModal', () => ({

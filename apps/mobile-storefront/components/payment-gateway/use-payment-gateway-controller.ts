@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { router, useLocalSearchParams } from 'expo-router';
+import { type Href, router, useLocalSearchParams } from 'expo-router';
 import { type ComponentProps, useEffect, useRef, useState } from 'react';
 import { Alert } from 'react-native';
 import type { WebView, WebViewNavigation } from 'react-native-webview';
@@ -40,6 +40,10 @@ const WALLET_QUERY_KEY = ['wallet'] as const;
 
 function isWalletTopUpGateway(value: unknown): value is WalletTopUpGateway {
   return value === 'paystack' || value === 'korapay';
+}
+
+function getWalletReturnHref(returnTo?: string): Href {
+  return (returnTo || '/wallet') as Href;
 }
 
 function getCloseConfirmationMessage(paymentKind?: string) {
@@ -251,7 +255,7 @@ export function usePaymentGatewayController() {
         }
         setPaymentStatus('success');
         scheduleDelayedNavigation(() => {
-          router.replace(returnTo || '/wallet');
+          router.replace(getWalletReturnHref(returnTo));
         });
       } catch (error) {
         if (!isMountedRef.current) {

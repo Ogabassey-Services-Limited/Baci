@@ -1,9 +1,4 @@
-/**
- * Help Center Screen
- * Access help documentation and FAQs
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons, { type IoniconsIconName } from "@react-native-vector-icons/ionicons/static";
 import { Stack, useRouter } from 'expo-router';
 import {
   Linking,
@@ -20,7 +15,7 @@ import { useTheme } from '@/hooks/useTheme';
 
 interface HelpTopic {
   id: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: IoniconsIconName;
   title: string;
   description: string;
 }

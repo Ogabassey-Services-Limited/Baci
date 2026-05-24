@@ -18,13 +18,24 @@ jest.mock('react-native-reanimated', () => ({
   },
 }));
 
-jest.mock('@expo/vector-icons', () => {
+jest.mock('@react-native-vector-icons/ionicons/static', () => {
   const React = jest.requireActual('react');
   const { Text } = jest.requireActual('react-native');
 
   return {
     Ionicons: ({ name, ...props }: { name: string }) =>
       React.createElement(Text, { testID: `icon-${name}`, ...props }, name),
+
+    default: ({ name, ...props }: { name: string }) =>
+      React.createElement(
+        Text,
+        {
+          testID: `icon-${name}`,
+          ...props,
+        },
+        name
+      ),
+    __esModule: true,
   };
 });
 
@@ -125,7 +136,9 @@ describe('GridProductCard', () => {
     });
 
     fireEvent.press(
-      screen.getByLabelText(`${baseProduct.name}, ${formatPrice(baseProduct.price)}`)
+      screen.getByLabelText(
+        `${baseProduct.name}, ${formatPrice(baseProduct.price)}`
+      )
     );
     fireEvent.press(
       screen.getByLabelText(`Remove ${baseProduct.name} from saved items`)

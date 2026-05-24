@@ -86,7 +86,7 @@ const mockTabs = jest.fn(({ children, screenOptions }: MockTabsProps) => (
   </MockView>
 ));
 
-jest.mock('@expo/vector-icons', () => {
+jest.mock('@react-native-vector-icons/ionicons/static', () => {
   const { Text: MockIconText } =
     jest.requireActual<typeof import('react-native')>('react-native');
 
@@ -104,6 +104,29 @@ jest.mock('@expo/vector-icons', () => {
         {name}
       </MockIconText>
     ),
+
+    default: ({
+      color,
+      name,
+      style,
+    }: {
+      color: string;
+      name: string;
+      style?: StyleProp<TextStyle>;
+    }) => (
+      <MockIconText
+        testID={`tab-icon-${name}`}
+        style={[
+          style,
+          {
+            color,
+          },
+        ]}
+      >
+        {name}
+      </MockIconText>
+    ),
+    __esModule: true,
   };
 });
 
@@ -134,9 +157,8 @@ jest.mock('@/stores/cart-store', () => ({
 }));
 
 jest.mock('@/stores/saved-store', () => ({
-  useSavedStore: (
-    selector: (state: { items: unknown[] }) => unknown
-  ) => selector({ items: [{ id: 'saved-1' }] }),
+  useSavedStore: (selector: (state: { items: unknown[] }) => unknown) =>
+    selector({ items: [{ id: 'saved-1' }] }),
 }));
 
 jest.mock('@/stores/auth-store', () => ({
@@ -187,7 +209,9 @@ describe('TabLayout', () => {
   it('explicitly keeps the cart tab header hidden', () => {
     render(<TabLayout />);
 
-    expect(screen.getByLabelText('cart screen header hidden')).toBeOnTheScreen();
+    expect(
+      screen.getByLabelText('cart screen header hidden')
+    ).toBeOnTheScreen();
   });
 
   it('uses theme colors for the tab chrome while preserving badge contrast', () => {

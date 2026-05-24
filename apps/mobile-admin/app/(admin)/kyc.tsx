@@ -1,10 +1,4 @@
-/**
- * KYC Verification Screen
- * Real identity verification for merchants via NIN, BVN, and CAC APIs.
- * Owner-only: staff users see a read-only message.
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { useQuery } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';

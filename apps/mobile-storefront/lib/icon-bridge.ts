@@ -1,9 +1,4 @@
-/**
- * Icon Bridge - Elite 2025 Edition
- * Maps Baci Web icons (Lucide/Iconoir) to Mobile equivalents (Ionicons)
- */
-
-import type { Ionicons } from '@expo/vector-icons';
+import Ionicons, { type IoniconsIconName } from "@react-native-vector-icons/ionicons/static";
 
 export type WebIconName =
   | 'Shirt'
@@ -16,7 +11,7 @@ export type WebIconName =
   | 'Pill'
   | 'Sparkles';
 
-const ICON_MAP: Record<string, keyof typeof Ionicons.glyphMap> = {
+const ICON_MAP: Record<string, IoniconsIconName> = {
   fashion: 'shirt-outline',
   electronics: 'laptop-outline',
   'home-goods': 'home-outline',
@@ -39,7 +34,7 @@ const ICON_MAP: Record<string, keyof typeof Ionicons.glyphMap> = {
  */
 export function getCategoryIcon(
   identifier: string
-): keyof typeof Ionicons.glyphMap {
+): IoniconsIconName {
   const normalized = identifier.toLowerCase();
   return ICON_MAP[normalized] || ICON_MAP.general;
 }

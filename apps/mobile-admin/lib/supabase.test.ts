@@ -44,6 +44,7 @@ describe('supabase client config', () => {
 
   afterEach(() => {
     vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
   });
 
   it('falls back to expo extra config when EXPO_PUBLIC env vars are empty', async () => {
@@ -76,6 +77,28 @@ describe('supabase client config', () => {
       'env-anon-key',
       expect.any(Object)
     );
+  });
+
+  it('disables persisted auth storage during server rendering', async () => {
+    vi.stubEnv('EXPO_PUBLIC_SUPABASE_URL', 'https://env-project.supabase.co');
+    vi.stubEnv('EXPO_PUBLIC_SUPABASE_ANON_KEY', 'env-anon-key');
+    vi.stubGlobal('window', undefined);
+
+    await import('./supabase');
+
+    expect(testState.createClient).toHaveBeenCalledWith(
+      'https://env-project.supabase.co',
+      'env-anon-key',
+      expect.objectContaining({
+        auth: {
+          autoRefreshToken: false,
+          detectSessionInUrl: false,
+          persistSession: false,
+        },
+      })
+    );
+
+    vi.unstubAllGlobals();
   });
 
   it('logs a critical error and skips createClient when credentials are missing', async () => {

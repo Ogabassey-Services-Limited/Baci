@@ -42,8 +42,11 @@ vi.mock('expo-router', async () => {
   };
 });
 
-vi.mock('@expo/vector-icons', () => ({
+vi.mock('@react-native-vector-icons/ionicons/static', () => ({
   Ionicons: () => <span>icon</span>,
+
+  default: () => <span>icon</span>,
+  __esModule: true,
 }));
 
 vi.mock('react-native-safe-area-context', () => ({

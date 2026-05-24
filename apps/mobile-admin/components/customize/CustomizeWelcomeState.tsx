@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons, { type IoniconsIconName } from "@react-native-vector-icons/ionicons/static";
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { ThemeColors } from '@/constants/theme';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
@@ -76,7 +76,7 @@ export function CustomizeWelcomeState({
             ]}
           >
             <Ionicons
-              name={suggestion.icon as keyof typeof Ionicons.glyphMap}
+              name={suggestion.icon as IoniconsIconName}
               size={16}
               color={colors.primary}
             />

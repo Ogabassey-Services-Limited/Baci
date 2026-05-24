@@ -49,7 +49,10 @@ vi.mock('expo-file-system', () => ({
       this.exists = false;
     }
 
-    move(destination: { uri?: string } | string) {
+    async move(
+      destination: { uri?: string } | string,
+      _options?: { overwrite?: boolean }
+    ) {
       this.uri =
         typeof destination === 'string'
           ? destination

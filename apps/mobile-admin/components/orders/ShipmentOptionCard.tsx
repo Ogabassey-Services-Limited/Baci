@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons, { type IoniconsIconName } from "@react-native-vector-icons/ionicons/static";
 import { Pressable, Text, View } from 'react-native';
 import type { ThemeColors } from '@/constants/theme';
 import { styles } from './ShipmentFlowSheet.styles';
@@ -7,7 +7,7 @@ interface ShipmentOptionCardProps {
   colors: ThemeColors;
   description: string;
   disabled?: boolean;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: IoniconsIconName;
   onPress: () => void;
   selected: boolean;
   title: string;

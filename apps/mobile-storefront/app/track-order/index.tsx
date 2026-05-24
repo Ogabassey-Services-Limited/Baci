@@ -9,7 +9,7 @@ import {
   getCustomerOrderStatusMeta,
   type CustomerOrderStatusKey,
 } from '@/lib/customer-order-status';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons, { type IoniconsIconName } from "@react-native-vector-icons/ionicons/static";
 import Constants from 'expo-constants';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -101,7 +101,7 @@ interface TrackOrderData {
   };
 }
 
-const TIMELINE_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
+const TIMELINE_ICONS: Record<string, IoniconsIconName> = {
   order: 'receipt-outline',
   payment: 'card-outline',
   processing: 'cog-outline',
@@ -281,7 +281,6 @@ export default function TrackOrderScreen() {
           gestureEnabled: true,
         }}
       />
-
       <SafeAreaView
         style={[styles.container, { backgroundColor: colors.background }]}
       >

@@ -1,5 +1,5 @@
 import { NIGERIAN_STATES } from '@baci/shared';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { FlatList, Pressable, Text, View } from 'react-native';
 import { AppPageSheet } from '@/components/ui/AppPageSheet';
 import { getVirtualizedListProps } from '@/components/ui/virtualized-list-props';

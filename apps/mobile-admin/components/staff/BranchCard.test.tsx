@@ -3,11 +3,17 @@ import { describe, expect, it, vi } from 'vitest';
 import { LIGHT_COLORS, SHADOWS } from '@/constants/theme';
 import { BranchCard } from './BranchCard';
 
-vi.mock('@expo/vector-icons', async () => {
+vi.mock('@react-native-vector-icons/ionicons/static', async () => {
   const React = await import('react');
   return {
     Ionicons: ({ name }: { name: string }) =>
       React.createElement('span', { 'data-icon': name }),
+
+    default: ({ name }: { name: string }) =>
+      React.createElement('span', {
+        'data-icon': name,
+      }),
+    __esModule: true,
   };
 });
 

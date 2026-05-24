@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { Pressable, Text, View } from 'react-native';
 import type { ThemeColors } from '@/constants/theme';
 import { getTranslucentColor } from '@/lib/colors/sanitize-css-color';
@@ -47,7 +47,6 @@ export function OrderDetailsPaymentCard({
       <Text style={[styles.cardTitle, { color: colors.text }]}>
         Payment Summary
       </Text>
-
       {paymentStatus !== 'paid' ? (
         <>
           <View style={styles.paymentActionsRow}>
@@ -101,7 +100,6 @@ export function OrderDetailsPaymentCard({
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
         </>
       ) : null}
-
       <View style={styles.summaryRow}>
         <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
           Subtotal
@@ -130,9 +128,7 @@ export function OrderDetailsPaymentCard({
           </Text>
         </View>
       ) : null}
-
       <View style={[styles.divider, { backgroundColor: colors.border }]} />
-
       <View style={styles.summaryRow}>
         <Text style={[styles.totalLabel, { color: colors.text }]}>
           Total Order
@@ -141,7 +137,6 @@ export function OrderDetailsPaymentCard({
           {formatPrice(total)}
         </Text>
       </View>
-
       <View style={styles.summaryRow}>
         <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
           Payment Method
@@ -155,7 +150,6 @@ export function OrderDetailsPaymentCard({
           {paymentMethod?.replace(/_/g, ' ') || 'N/A'}
         </Text>
       </View>
-
       <View style={styles.summaryRow}>
         <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
           Payment Status
@@ -177,7 +171,6 @@ export function OrderDetailsPaymentCard({
           </Text>
         </View>
       </View>
-
       <View style={styles.summaryRow}>
         <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
           Amount Paid
@@ -194,7 +187,6 @@ export function OrderDetailsPaymentCard({
           {formatPrice(amountPaid)}
         </Text>
       </View>
-
       {balance > 0 ? (
         <View style={styles.summaryRow}>
           <Text

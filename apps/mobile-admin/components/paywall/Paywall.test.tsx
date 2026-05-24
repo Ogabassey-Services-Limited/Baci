@@ -94,8 +94,11 @@ vi.mock('expo-linear-gradient', () => ({
   },
 }));
 
-vi.mock('@expo/vector-icons', () => ({
+vi.mock('@react-native-vector-icons/ionicons/static', () => ({
   Ionicons: () => <span>icon</span>,
+
+  default: () => <span>icon</span>,
+  __esModule: true,
 }));
 
 vi.mock('react-native', () => ({
@@ -117,9 +120,8 @@ vi.mock('react-native', () => ({
   }) => {
     const resolvedStyle =
       typeof style === 'function' ? style({ pressed: false }) : style;
-    const entries = (Array.isArray(resolvedStyle)
-      ? resolvedStyle
-      : [resolvedStyle]
+    const entries = (
+      Array.isArray(resolvedStyle) ? resolvedStyle : [resolvedStyle]
     ).filter(
       (entry): entry is Record<string, unknown> =>
         Boolean(entry) && typeof entry === 'object'

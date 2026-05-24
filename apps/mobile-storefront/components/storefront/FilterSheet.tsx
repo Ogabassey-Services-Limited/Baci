@@ -1,9 +1,4 @@
-/**
- * Filter Sheet Component
- * Bottom sheet with price range filter matching web platform
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { useEffect, useState } from 'react';
 import {
   Modal,

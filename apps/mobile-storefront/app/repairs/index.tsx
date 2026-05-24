@@ -1,10 +1,4 @@
-/**
- * Repairs Screen — Redesigned
- * Premium repair services page inspired by the Swap & Trade-in design.
- * Uses brand-colored hero, clean step list, full-width service cards.
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import * as Haptics from 'expo-haptics';
 import { router, Stack } from 'expo-router';
 import { Linking, Pressable, ScrollView, Text, View } from 'react-native';

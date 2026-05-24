@@ -5,8 +5,11 @@ import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import DateRangePicker from '@/components/ui/DateRangePicker';
 
-vi.mock('@expo/vector-icons', () => ({
+vi.mock('@react-native-vector-icons/ionicons/static', () => ({
   Ionicons: ({ name }: { name: string }) => <span>{name}</span>,
+
+  default: ({ name }: { name: string }) => <span>{name}</span>,
+  __esModule: true,
 }));
 
 vi.mock('@/hooks/useTheme', () => ({
@@ -128,49 +131,45 @@ describe('DateRangePicker', () => {
     });
   });
 
-  it(
-    'initializes custom mode from an existing range and applies a newly selected range',
-    async () => {
-      const onClose = vi.fn();
-      const onSelect = vi.fn();
+  it('initializes custom mode from an existing range and applies a newly selected range', async () => {
+    const onClose = vi.fn();
+    const onSelect = vi.fn();
 
-      render(
-        <DateRangePicker
-          currentFilter={{
-            end: new Date('2026-05-12T00:00:00.000Z'),
-            start: new Date('2026-05-10T00:00:00.000Z'),
-          }}
-          onClose={onClose}
-          onSelect={onSelect}
-          visible={true}
-        />
-      );
+    render(
+      <DateRangePicker
+        currentFilter={{
+          end: new Date('2026-05-12T00:00:00.000Z'),
+          start: new Date('2026-05-10T00:00:00.000Z'),
+        }}
+        onClose={onClose}
+        onSelect={onSelect}
+        visible={true}
+      />
+    );
 
-      expect(screen.getByText('May 10 - May 12')).toBeInTheDocument();
+    expect(screen.getByText('May 10 - May 12')).toBeInTheDocument();
 
-      fireEvent.click(
-        screen.getByRole('button', {
-          name: 'Thursday, May 14th, 2026',
-        })
-      );
-      fireEvent.click(
-        screen.getByRole('button', {
-          name: 'Tuesday, May 12th, 2026',
-        })
-      );
-      fireEvent.click(screen.getByRole('button', { name: 'Apply Range' }));
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Thursday, May 14th, 2026',
+      })
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Tuesday, May 12th, 2026',
+      })
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Apply Range' }));
 
-      await waitFor(() => {
-        const firstCall = onSelect.mock.calls[0]?.[0];
-        expect(firstCall).toMatchObject({
-          end: expect.any(Date),
-          start: expect.any(Date),
-        });
-        expect(format(firstCall.start, 'MMM d')).toBe('May 12');
-        expect(format(firstCall.end, 'MMM d')).toBe('May 14');
-        expect(onClose).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      const firstCall = onSelect.mock.calls[0]?.[0];
+      expect(firstCall).toMatchObject({
+        end: expect.any(Date),
+        start: expect.any(Date),
       });
-    },
-    15_000
-  );
+      expect(format(firstCall.start, 'MMM d')).toBe('May 12');
+      expect(format(firstCall.end, 'MMM d')).toBe('May 14');
+      expect(onClose).toHaveBeenCalledTimes(1);
+    });
+  }, 15_000);
 });

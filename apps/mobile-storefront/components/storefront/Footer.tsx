@@ -1,9 +1,5 @@
-/**
- * Footer Component - Matches web ogabassey footer design
- * Dark theme with subtle styling
- */
-
-import { Feather, Ionicons } from '@expo/vector-icons';
+import Feather from "@react-native-vector-icons/feather/static";
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { type Href, router } from 'expo-router';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
@@ -121,7 +117,6 @@ export function Footer() {
           ))}
         </View>
       </View>
-
       {/* Links Grid */}
       <View style={styles.gridContainer}>
         {/* Menu Column */}
@@ -156,7 +151,6 @@ export function Footer() {
           ))}
         </View>
       </View>
-
       {/* Contact Section */}
       <View style={styles.contactSection}>
         <Text style={styles.columnTitle}>CONTACT</Text>
@@ -187,7 +181,6 @@ export function Footer() {
           </Pressable>
         </View>
       </View>
-
       {/* Secured By Section */}
       <View style={styles.securedSection}>
         <Text style={styles.securedByText}>Secured by:</Text>
@@ -212,7 +205,6 @@ export function Footer() {
           </View>
         </View>
       </View>
-
       {/* Bottom Bar */}
       <View style={styles.bottomBar}>
         <Text style={styles.copyright}>

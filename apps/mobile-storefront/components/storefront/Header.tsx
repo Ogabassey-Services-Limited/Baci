@@ -1,9 +1,4 @@
-/**
- * Header Component - Multi-Tenant Template System
- * Supports 'elite', 'standard', and 'minimal' styles
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import Constants from 'expo-constants';
 
 import { type Href, router } from 'expo-router';
@@ -94,7 +89,7 @@ export function Header({
         {isSanta && (
           <View
             style={[
-              StyleSheet.absoluteFillObject,
+              StyleSheet.absoluteFill,
               { backgroundColor: 'rgba(255,0,0,0.1)' },
             ]}
           />

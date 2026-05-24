@@ -45,8 +45,11 @@ vi.mock('react-native-reanimated', async () => {
   };
 });
 
-vi.mock('@expo/vector-icons', () => ({
+vi.mock('@react-native-vector-icons/ionicons/static', () => ({
   Ionicons: () => null,
+
+  default: () => null,
+  __esModule: true,
 }));
 
 import { PersonalDetailsForm } from '@/components/customer-edit/PersonalDetailsForm';

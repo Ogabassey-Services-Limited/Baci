@@ -1,11 +1,11 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons, { type IoniconsIconName } from "@react-native-vector-icons/ionicons/static";
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import { AppDialogModal } from '@/components/ui/AppDialogModal';
 import { useTheme } from '@/hooks/useTheme';
 
 interface SuccessModalProps {
-  actionIcon?: keyof typeof Ionicons.glyphMap;
+  actionIcon?: IoniconsIconName;
   actionLabel?: string;
   actionVariant?: 'default' | 'whatsapp';
   closeLabel?: string;

@@ -1,9 +1,4 @@
-/**
- * Tab Layout - Matching Web MobileFooter Design
- * Dark theme with pattern overlay, 5 navigation items
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { Tabs, router } from 'expo-router';
 import type React from 'react';
 import { StyleSheet, Text, View } from 'react-native';

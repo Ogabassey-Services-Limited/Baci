@@ -1020,8 +1020,12 @@ describe('BlogClientPage', () => {
         expect(screen.getByText('First Blog Post')).toBeInTheDocument();
       });
 
-      const previousButton = screen.getByRole('button', { name: /previous/i });
-      expect(previousButton).toBeDisabled();
+      await waitFor(() => {
+        const previousButton = screen.getByRole('button', {
+          name: /previous/i,
+        });
+        expect(previousButton).toBeDisabled();
+      });
     });
 
     it('Next button is disabled when hasMore is false', async () => {
@@ -1046,8 +1050,10 @@ describe('BlogClientPage', () => {
         expect(screen.getByText('First Blog Post')).toBeInTheDocument();
       });
 
-      const nextButton = screen.getByRole('button', { name: /next/i });
-      expect(nextButton).toBeDisabled();
+      await waitFor(() => {
+        const nextButton = screen.getByRole('button', { name: /next/i });
+        expect(nextButton).toBeDisabled();
+      });
     });
 
     it('clicking Next button increments page and fetches', async () => {

@@ -1,9 +1,4 @@
-/**
- * ProductImageGallery - Parallax main image with thumbnail strip and zoom modal wiring.
- * Used in the product detail screen header area.
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { StyleProp, ViewStyle } from 'react-native';
@@ -136,7 +131,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   parallaxWrapper: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   mainImage: {
     width: '100%',

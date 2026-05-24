@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons, { type IoniconsIconName } from "@react-native-vector-icons/ionicons/static";
 import { useRouter } from 'expo-router';
 import React from 'react';
 import {
@@ -22,7 +22,7 @@ import { useTheme } from '@/hooks/useTheme';
 
 interface MenuItem {
   id: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: IoniconsIconName;
   label: string;
   description?: string;
   onPress: () => void;

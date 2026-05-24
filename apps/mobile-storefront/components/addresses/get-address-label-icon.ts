@@ -1,4 +1,4 @@
-import type { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import type { ComponentProps } from 'react';
 
 type IoniconsName = ComponentProps<typeof Ionicons>['name'];

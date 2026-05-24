@@ -1,9 +1,4 @@
-/**
- * Social Links Component
- * Horizontal scrollable row of branded social media icon buttons
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { SPACING } from '@/constants/Colors';

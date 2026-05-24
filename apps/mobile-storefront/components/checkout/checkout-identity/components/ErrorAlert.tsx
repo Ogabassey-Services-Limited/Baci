@@ -1,13 +1,4 @@
-/**
- * ErrorAlert Component
- *
- * 2026 Best Practices:
- * - Full accessibility support with live regions
- * - Screen reader announcements
- * - Clean, reusable error display
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import React from 'react';
 import { Text, View } from 'react-native';
 import { BRAND } from '@/constants/Colors';

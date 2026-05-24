@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import {
   ActivityIndicator,
   Pressable,
@@ -82,7 +82,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     backgroundColor: 'rgba(0,0,0,0.3)',
     gap: 8,

@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { Pressable, Text, View } from 'react-native';
 import { expenseFormStyles } from '@/components/expenses/expense-form.styles';
 import { useTheme } from '@/hooks/useTheme';

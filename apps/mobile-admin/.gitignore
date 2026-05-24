@@ -35,10 +35,10 @@ yarn-error.*
 .env.local
 .env.*.local
 
-# Firebase config (Android still comes from secrets; the iOS plist is intentional client
-# config that ships in the app bundle and is tracked so Xcode Cloud can archive reliably)
+# Firebase client config that ships in the app bundle. Keep the source Android
+# JSON outside generated native folders so prebuild can recreate android/.
 google-services.json
-!android/app/src/debug/google-services.json
+!/google-services.json
 
 # TypeScript
 *.tsbuildinfo

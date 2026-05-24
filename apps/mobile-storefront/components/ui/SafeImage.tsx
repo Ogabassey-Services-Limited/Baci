@@ -1,16 +1,4 @@
-/**
- * SafeImage Component
- *
- * A wrapper around expo-image that handles iOS CoreGraphics errors
- * for unsupported image formats (24-bpp PNG, certain color spaces).
- *
- * iOS Bug Reference: rdar://143602439
- *
- * When an image fails to load, this component gracefully falls back
- * to a placeholder or cached image instead of crashing the app.
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { Image, type ImageProps } from 'expo-image';
 import { useRef, useState } from 'react';
 import { type StyleProp, StyleSheet, View, type ViewStyle } from 'react-native';

@@ -1,7 +1,15 @@
 import '@testing-library/jest-dom/vitest';
 import { render } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 import { SPACING } from '@/constants/theme';
 import OnboardingScreen from './onboarding';
 
@@ -24,11 +32,9 @@ vi.mock('@/context/OnboardingContext', () => ({
 }));
 
 vi.mock('expo-linear-gradient', () => ({
-  LinearGradient: ({
-    children,
-  }: {
-    children?: ReactNode;
-  }) => <div>{children}</div>,
+  LinearGradient: ({ children }: { children?: ReactNode }) => (
+    <div>{children}</div>
+  ),
 }));
 
 vi.mock('react-native-edge-to-edge', () => ({
@@ -36,12 +42,17 @@ vi.mock('react-native-edge-to-edge', () => ({
 }));
 
 vi.mock('react-native-safe-area-context', () => ({
-  SafeAreaView: ({ children }: { children?: ReactNode }) => <section>{children}</section>,
+  SafeAreaView: ({ children }: { children?: ReactNode }) => (
+    <section>{children}</section>
+  ),
   useSafeAreaInsets: () => mocks.insets,
 }));
 
-vi.mock('@expo/vector-icons', () => ({
+vi.mock('@react-native-vector-icons/ionicons/static', () => ({
   Ionicons: () => <span>icon</span>,
+
+  default: () => <span>icon</span>,
+  __esModule: true,
 }));
 
 vi.mock('react-native', () => {
@@ -74,7 +85,9 @@ vi.mock('react-native', () => {
         ))}
       </div>
     ),
-    Pressable: ({ children }: { children?: ReactNode }) => <button type="button">{children}</button>,
+    Pressable: ({ children }: { children?: ReactNode }) => (
+      <button type="button">{children}</button>
+    ),
     StyleSheet: {
       absoluteFillObject: {},
       create: (styles: Record<string, unknown>) => styles,

@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { format, isSameDay, isSameMonth } from 'date-fns';
 import { Pressable, Text, View } from 'react-native';
 import { DATE_RANGE_PICKER_WEEKDAYS } from '@/components/ui/date-range-picker/dateRangePickerConstants';

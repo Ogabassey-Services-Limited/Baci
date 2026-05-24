@@ -1,9 +1,4 @@
-/**
- * Guest Banner Component
- * Premium sign-in CTA with gradient backdrop and benefit bullets
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';

@@ -29,13 +29,21 @@ vi.mock('@/hooks/useTheme', () => ({
   }),
 }));
 
-vi.mock('@expo/vector-icons', () => ({
+vi.mock('@react-native-vector-icons/ionicons/static', () => ({
   Ionicons: ({ name }: { name?: string }) => {
     if (name === 'chevron-forward') {
       mocks.chevronCount += 1;
     }
     return <span>icon</span>;
   },
+
+  default: ({ name }: { name?: string }) => {
+    if (name === 'chevron-forward') {
+      mocks.chevronCount += 1;
+    }
+    return <span>icon</span>;
+  },
+  __esModule: true,
 }));
 
 const baseDomain: Domain = {
@@ -54,10 +62,15 @@ describe('DomainOptionsSheetActions', () => {
 
   it('shows visit, verify, and delete actions for a pending custom non-primary domain', () => {
     render(
-      <DomainOptionsSheetActions domain={baseDomain} onAction={() => undefined} />
+      <DomainOptionsSheetActions
+        domain={baseDomain}
+        onAction={() => undefined}
+      />
     );
 
-    expect(screen.getByRole('button', { name: 'Visit Site' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Visit Site' })
+    ).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: 'Verify DNS Connection' })
     ).toBeInTheDocument();
@@ -77,7 +90,9 @@ describe('DomainOptionsSheetActions', () => {
       />
     );
 
-    expect(screen.getByRole('button', { name: 'Visit Site' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Visit Site' })
+    ).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: 'Set as Primary Domain' })
     ).toBeInTheDocument();
@@ -97,7 +112,9 @@ describe('DomainOptionsSheetActions', () => {
       />
     );
 
-    expect(screen.getByRole('button', { name: 'Visit Site' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Visit Site' })
+    ).toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'Set as Primary Domain' })
     ).not.toBeInTheDocument();
@@ -122,7 +139,9 @@ describe('DomainOptionsSheetActions', () => {
       />
     );
 
-    expect(screen.getByRole('button', { name: 'Visit Site' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Visit Site' })
+    ).toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'Verify DNS Connection' })
     ).not.toBeInTheDocument();
@@ -136,10 +155,14 @@ describe('DomainOptionsSheetActions', () => {
 
   it('invokes onAction with the expected action values for visible buttons', () => {
     const onAction = vi.fn();
-    render(<DomainOptionsSheetActions domain={baseDomain} onAction={onAction} />);
+    render(
+      <DomainOptionsSheetActions domain={baseDomain} onAction={onAction} />
+    );
 
     fireEvent.click(screen.getByRole('button', { name: 'Visit Site' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Verify DNS Connection' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Verify DNS Connection' })
+    );
     fireEvent.click(screen.getByRole('button', { name: 'Delete Domain' }));
 
     expect(onAction).toHaveBeenNthCalledWith(1, 'visit');
@@ -156,7 +179,9 @@ describe('DomainOptionsSheetActions', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Set as Primary Domain' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Set as Primary Domain' })
+    );
     expect(onAction).toHaveBeenCalledWith('set_primary');
   });
 

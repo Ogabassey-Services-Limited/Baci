@@ -1,9 +1,4 @@
-/**
- * Login Screen - Mobile Admin
- * Clean, minimal design with Google and Apple sign-in support
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, type TextInput, View } from 'react-native';

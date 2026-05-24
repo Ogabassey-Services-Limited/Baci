@@ -10,7 +10,7 @@ export const modalSharedStyles = {
     padding: SPACING.lg,
   },
   modalBackdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   modalKeyboardContent: {
     flexGrow: 1,

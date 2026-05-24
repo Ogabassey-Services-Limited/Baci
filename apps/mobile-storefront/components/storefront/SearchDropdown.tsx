@@ -1,15 +1,4 @@
-/**
- * SearchDropdown — anchored dropdown panel beneath the Header search bar.
- *
- * Unlike a full-screen overlay, this panel:
- * - Slides down from directly under the header
- * - Shows recent searches as chips, category quick-links, and live results
- * - Keeps the page content partially visible underneath (light scrim)
- * - Dismisses on backdrop tap, Cancel press, or product navigation
- *
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {

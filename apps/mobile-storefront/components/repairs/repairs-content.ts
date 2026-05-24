@@ -1,16 +1,16 @@
-import { Ionicons } from '@expo/vector-icons';
+import type { IoniconsIconName } from '@react-native-vector-icons/ionicons/static';
 
 export interface RepairService {
   title: string;
   price: string;
   desc: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: IoniconsIconName;
 }
 
 export interface RepairWorkflowStep {
   title: string;
   desc: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: IoniconsIconName;
 }
 
 export const REPAIR_SERVICES: RepairService[] = [

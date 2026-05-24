@@ -1,19 +1,4 @@
-/**
- * ChatWidget - React Native AI Chat Component
- * 2026 Best Practice Implementation
- *
- * Features:
- * - Draggable floating action button (pan gesture)
- * - Snaps to edges when released
- * - Full-screen modal chat interface
- * - Streaming AI responses
- * - Santa/Standard mode theming
- * - Haptic feedback
- * - Keyboard-aware input
- * - WCAG AA accessibility compliant
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import * as Haptics from 'expo-haptics';
 import { usePathname } from 'expo-router';
 import { Animated, Platform, Pressable, Text, View } from 'react-native';

@@ -30,11 +30,17 @@ const mocks = vi.hoisted(() => ({
   branchesLoading: false,
 }));
 
-vi.mock('@expo/vector-icons', async () => {
+vi.mock('@react-native-vector-icons/ionicons/static', async () => {
   const React = await import('react');
   return {
     Ionicons: ({ name }: { name: string }) =>
       React.createElement('span', { 'data-icon': name }),
+
+    default: ({ name }: { name: string }) =>
+      React.createElement('span', {
+        'data-icon': name,
+      }),
+    __esModule: true,
   };
 });
 

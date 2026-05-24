@@ -5,6 +5,8 @@ import Colors, { BRAND, SPACING } from '@/constants/Colors';
 import { UtilityTypeTabs } from './UtilityTypeTabs';
 
 let mockColorScheme: 'light' | 'dark' = 'light';
+type UtilityColorScheme = 'light' | 'dark';
+type UtilityThemeColors = (typeof Colors)[UtilityColorScheme];
 
 jest.mock('@/components/useColorScheme', () => ({
   useColorScheme: () => mockColorScheme,
@@ -65,10 +67,14 @@ describe('UtilityTypeTabs', () => {
     expect(screen.getAllByRole('tab')).toHaveLength(5);
   });
 
-  it.each([
+  const themeCases: Array<
+    [colorScheme: UtilityColorScheme, expectedColors: UtilityThemeColors]
+  > = [
     ['light', Colors.light],
     ['dark', Colors.dark],
-  ] as const)('marks the selected type and applies %s theme styling', (colorScheme, expectedColors) => {
+  ];
+
+  it.each(themeCases)('marks the selected type and applies %s theme styling', (colorScheme, expectedColors) => {
     mockColorScheme = colorScheme;
 
     render(<UtilityTypeTabs selectedType="data" onSelect={jest.fn()} />);

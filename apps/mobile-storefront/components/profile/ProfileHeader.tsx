@@ -1,9 +1,4 @@
-/**
- * Profile Header Component
- * Premium hero section with gradient backdrop, avatar, loyalty tier badge, and rewards card
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { LinearGradient } from 'expo-linear-gradient';
 import type { Href } from 'expo-router';
 import { router } from 'expo-router';

@@ -61,8 +61,6 @@ config.resolver = {
     'react-native-screens': screensPackageRoot,
     'react-native-safe-area-context': safeAreaContextPackageRoot,
   },
-  // Critical for PNPM monorepos to resolve symlinked packages
-  unstable_enableSymlinks: true,
   // 2026: Enable package exports so shared-package subpath imports resolve the
   // same way in Metro as they do in the rest of the monorepo.
   unstable_enablePackageExports: true,

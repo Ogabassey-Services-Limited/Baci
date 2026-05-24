@@ -163,7 +163,9 @@ vi.mock('react-native-edge-to-edge', () => ({
 
 vi.mock('react-native', () => ({
   ActivityIndicator: () => <span>loading</span>,
-  Pressable: ({ children }: { children?: ReactNode }) => <button type="button">{children}</button>,
+  Pressable: ({ children }: { children?: ReactNode }) => (
+    <button type="button">{children}</button>
+  ),
   StyleSheet: {
     create: (styles: Record<string, unknown>) => styles,
   },
@@ -171,8 +173,11 @@ vi.mock('react-native', () => ({
   View: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
 }));
 
-vi.mock('@expo/vector-icons', () => ({
+vi.mock('@react-native-vector-icons/ionicons/static', () => ({
   Ionicons: () => <span>icon</span>,
+
+  default: () => <span>icon</span>,
+  __esModule: true,
 }));
 
 describe('StoreSettingsScreen', () => {

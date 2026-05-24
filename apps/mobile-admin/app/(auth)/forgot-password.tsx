@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -74,7 +74,7 @@ export default function ForgotPasswordScreen() {
             ? [colors.background, colors.backgroundLight]
             : [colors.cardHover, colors.backgroundLight]
         }
-        style={StyleSheet.absoluteFillObject}
+        style={StyleSheet.absoluteFill}
       />
       <SafeAreaView style={styles.content}>
         <Pressable onPress={() => router.back()} style={styles.backButton}>

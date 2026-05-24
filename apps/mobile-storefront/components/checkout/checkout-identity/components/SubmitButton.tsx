@@ -1,13 +1,4 @@
-/**
- * SubmitButton Component
- *
- * 2026 Best Practices:
- * - Loading state with ActivityIndicator
- * - Full accessibility support
- * - Disabled state handling
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import React from 'react';
 import { ActivityIndicator, Text, TouchableOpacity } from 'react-native';
 import { useHaptics } from '@/hooks/use-haptics';

@@ -1,10 +1,4 @@
-/**
- * Add/Edit Address Screen
- * Form for creating or updating delivery addresses
- * Addresses are stored as JSONB array in customers.saved_addresses
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {

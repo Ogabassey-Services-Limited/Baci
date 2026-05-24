@@ -1,9 +1,4 @@
-/**
- * LogoPicker – Store logo display + image picker + upload
- * Extracted from StoreSettingsScreen for modularity.
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import * as ImagePicker from 'expo-image-picker';
 import { useState } from 'react';
 import {

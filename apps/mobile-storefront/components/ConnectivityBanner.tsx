@@ -1,14 +1,4 @@
-/**
- * Connectivity Banner Component
- *
- * 2025 Best Practice: "Connectivity Guard"
- * - Monitors network state with NetInfo
- * - Shows amber banner when offline: "Offline Mode: Showing cached data."
- * - Shows green banner when reconnected: "Back Online!" (auto-dismisses)
- * - Smooth slide animations for non-intrusive UX
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import NetInfo, { type NetInfoState } from '@react-native-community/netinfo';
 import { useEffect, useRef, useState } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';

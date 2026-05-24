@@ -1,9 +1,4 @@
-/**
- * InvalidRouteScreen - Display when route params fail validation
- * Provides user-friendly error message with navigation back option
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';

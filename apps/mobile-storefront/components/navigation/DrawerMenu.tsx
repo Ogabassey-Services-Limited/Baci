@@ -1,11 +1,4 @@
-/**
- * DrawerMenu Component
- * Slide-in navigation sidebar matching web MobileMenu design
- *
- * Design: Clean, minimal aesthetic matching web storefront
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons, { type IoniconsIconName } from "@react-native-vector-icons/ionicons/static";
 import Constants from 'expo-constants';
 import { router, usePathname } from 'expo-router';
 import { useEffect } from 'react';
@@ -44,7 +37,7 @@ const ANIMATION_DURATION = 300;
 
 interface MenuItem {
   label: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: IoniconsIconName;
   path: string;
   authRequired?: boolean;
 }
@@ -347,7 +340,7 @@ export function DrawerMenu() {
 
 const styles = StyleSheet.create({
   backdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0, 0, 0, 0.6)',
     zIndex: 998,
   },

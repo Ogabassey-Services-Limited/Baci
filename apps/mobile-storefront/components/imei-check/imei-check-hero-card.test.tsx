@@ -3,8 +3,11 @@ import { render, screen } from '@testing-library/react-native';
 import Colors from '@/constants/Colors';
 import HeroCard from './imei-check-hero-card';
 
-jest.mock('@expo/vector-icons', () => ({
+jest.mock('@react-native-vector-icons/ionicons/static', () => ({
   Ionicons: () => null,
+
+  default: () => null,
+  __esModule: true,
 }));
 
 describe('HeroCard', () => {

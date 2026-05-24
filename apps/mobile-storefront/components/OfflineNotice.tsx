@@ -1,14 +1,4 @@
-/**
- * Offline Notice Component
- *
- * 2026 Best Practices for Offline UX:
- * - Clear messaging about offline status
- * - Retry functionality with visual feedback
- * - Graceful degradation with cached data indication
- * - Accessible design with proper ARIA labels
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import React from 'react';
 import {
   ActivityIndicator,

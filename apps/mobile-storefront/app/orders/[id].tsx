@@ -1,9 +1,4 @@
-/**
- * Order Details Screen
- * Shows full order information, items, and tracking
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';

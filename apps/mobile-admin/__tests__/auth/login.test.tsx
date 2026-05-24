@@ -105,12 +105,16 @@ vi.mock('react-native-svg', async () => {
   };
 });
 
-vi.mock('@expo/vector-icons', async () => {
+vi.mock('@react-native-vector-icons/ionicons/static', async () => {
   const React = await import('react');
 
   return {
     Ionicons: ({ name }: { name: string }) =>
       React.createElement('span', null, name),
+
+    default: ({ name }: { name: string }) =>
+      React.createElement('span', null, name),
+    __esModule: true,
   };
 });
 

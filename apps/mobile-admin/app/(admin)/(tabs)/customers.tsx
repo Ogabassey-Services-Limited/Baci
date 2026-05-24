@@ -4,7 +4,7 @@
  */
 
 import { getCustomerDisplayName } from '@baci/shared';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons/static";
 import type { ListRenderItemInfo } from '@shopify/flash-list';
 import { FlashList } from '@shopify/flash-list';
 import * as Linking from 'expo-linking';
@@ -503,11 +503,9 @@ export default function CustomersScreen() {
       edges={['top']}
     >
       <SystemBars style={isDark ? 'light' : 'dark'} />
-
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.text }]}>Customers</Text>
       </View>
-
       {/* Collapsible Search Bar */}
       <Animated.View
         style={[
@@ -564,7 +562,6 @@ export default function CustomersScreen() {
           ) : null}
         </View>
       </Animated.View>
-
       {/* Tabs */}
       <View style={styles.tabContainer}>
         <Pressable
@@ -618,7 +615,6 @@ export default function CustomersScreen() {
           </Text>
         </Pressable>
       </View>
-
       {activeTab === 'all' ? (
         <>
           {/* Stats Summary - Only for All Customers */}
@@ -722,7 +718,7 @@ export default function CustomersScreen() {
         </>
       ) : (
         /* Failed Transactions List */
-        <FlashList
+        (<FlashList
           data={filteredFailedOrders}
           renderItem={renderFailedOrder}
           keyExtractor={failedOrderKeyExtractor}
@@ -756,7 +752,7 @@ export default function CustomersScreen() {
               </View>
             ) : null
           }
-        />
+        />)
       )}
     </SafeAreaView>
   );

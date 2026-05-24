@@ -1,5 +1,5 @@
 import type { ImeiServiceTierDefinition } from '@baci/shared/imei';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons, { type IoniconsIconName } from "@react-native-vector-icons/ionicons/static";
 import { Image } from 'expo-image';
 import { router, Stack } from 'expo-router';
 import { Pressable, ScrollView, Text, View } from 'react-native';
@@ -180,7 +180,7 @@ function StatusCard({
 }: {
   cleanAware?: boolean;
   colors: ImeiCheckerColors;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: IoniconsIconName;
   label: string;
   tint?: string;
   value: string;
