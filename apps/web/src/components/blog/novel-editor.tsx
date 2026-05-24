@@ -1,5 +1,6 @@
 'use client';
 
+import type { EditorView } from '@tiptap/pm/view';
 import {
   EditorBubble,
   EditorCommand,
@@ -14,6 +15,7 @@ import {
   handleImagePaste,
   type JSONContent,
 } from 'novel';
+
 import { useState } from 'react';
 import { useDebouncedCallback } from 'use-debounce';
 import { uploadFn } from '@/components/blog/novel-features/image-upload';
@@ -77,8 +79,7 @@ export default function NovelEditor({
   }, 500);
 
   // Use passed upload handler or fallback to default
-  // biome-ignore lint/suspicious/noExplicitAny: Tiptap types
-  const handleUpload = (file: File, view: any, pos: number) => {
+  const handleUpload = (file: File, view: EditorView, pos: number) => {
     if (onImageUpload) {
       return onImageUpload(file);
     }
@@ -99,11 +100,9 @@ export default function NovelEditor({
               keydown: (_view, event) => handleCommandNavigation(event),
             },
             handlePaste: (view, event) =>
-              // biome-ignore lint/suspicious/noExplicitAny: novel types mismatch
-              handleImagePaste(view, event, handleUpload as any),
+              handleImagePaste(view, event, handleUpload),
             handleDrop: (view, event, _slice, moved) =>
-              // biome-ignore lint/suspicious/noExplicitAny: novel types mismatch
-              handleImageDrop(view, event, moved, handleUpload as any),
+              handleImageDrop(view, event, moved, handleUpload),
             transformPastedHTML: (html) => {
               // Sanitize pasted HTML to prevent XSS
               const clean = sanitizeHtml(html);
