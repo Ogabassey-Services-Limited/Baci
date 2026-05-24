@@ -164,6 +164,16 @@ describe('buildAgentNativeCommerceProof', () => {
     ]);
   });
 
+  it('defaults optional identity headers to an empty array when auth is absent', () => {
+    const proof = buildAgentNativeCommerceProof({
+      baseUrl,
+      manifest: manifest({ auth: null }),
+      trustReadiness: trustReadiness(),
+    });
+
+    expect(proof.proof.action.optional_identity_headers).toEqual([]);
+  });
+
   it('warns when checkout cannot yet create a signed purchase flow', () => {
     const proof = buildAgentNativeCommerceProof({
       baseUrl,
