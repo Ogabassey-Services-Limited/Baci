@@ -12,6 +12,7 @@ const secret = Array.from({ length: 32 }, (_, index) =>
 const now = new Date('2026-04-30T12:00:00.000Z');
 
 function sign({
+  agentId = '',
   apiVersion = AGENTIC_API_VERSION,
   body,
   idempotencyKey = '',
@@ -20,6 +21,7 @@ function sign({
   requestId = 'req_123',
   timestamp,
 }: {
+  agentId?: string;
   apiVersion?: string;
   body: string;
   idempotencyKey?: string;
@@ -28,22 +30,26 @@ function sign({
   requestId?: string;
   timestamp: string;
 }) {
+  const payload: Record<string, string> = {
+    api_version: apiVersion,
+    body,
+    idempotency_key: idempotencyKey,
+    method: method.toUpperCase(),
+    pathname,
+    request_id: requestId,
+    timestamp,
+  };
+  if (agentId) {
+    payload.agent_id = agentId;
+  }
+
   return createHmac('sha256', secret)
-    .update(
-      JSON.stringify({
-        api_version: apiVersion,
-        body,
-        idempotency_key: idempotencyKey,
-        method: method.toUpperCase(),
-        pathname,
-        request_id: requestId,
-        timestamp,
-      })
-    )
+    .update(JSON.stringify(payload))
     .digest('hex');
 }
 
 function signedHeaders({
+  agentId = '',
   body,
   requestId = 'req_123',
   timestamp = '2026-04-30T12:00:00.000Z',
@@ -52,6 +58,7 @@ function signedHeaders({
   method = 'POST',
   pathname = '',
   signature = sign({
+    agentId,
     apiVersion,
     body,
     idempotencyKey,
@@ -61,6 +68,7 @@ function signedHeaders({
     timestamp,
   }),
 }: {
+  agentId?: string;
   apiVersion?: string;
   body: string;
   idempotencyKey?: string;
@@ -79,6 +87,9 @@ function signedHeaders({
   if (idempotencyKey) {
     headers.set('idempotency-key', idempotencyKey);
   }
+  if (agentId) {
+    headers.set('agent-id', agentId);
+  }
 
   return headers;
 }
@@ -95,10 +106,89 @@ describe('verifyAgenticRequestIntegrity', () => {
         secrets: [secret],
       })
     ).toEqual({
+      agentId: null,
       apiVersion: AGENTIC_API_VERSION,
       ok: true,
       requestId: 'req_123',
     });
+  });
+
+  it('accepts and returns an optional signed agent id', () => {
+    const body = '{"items":[]}';
+
+    expect(
+      verifyAgenticRequestIntegrity({
+        body,
+        headers: signedHeaders({ agentId: 'openai:chatgpt', body }),
+        now,
+        secrets: [secret],
+      })
+    ).toEqual({
+      agentId: 'openai:chatgpt',
+      apiVersion: AGENTIC_API_VERSION,
+      ok: true,
+      requestId: 'req_123',
+    });
+  });
+
+  it('rejects signatures replayed after removing the signed agent id', () => {
+    const body = '{"items":[]}';
+    const headers = signedHeaders({ agentId: 'openai:chatgpt', body });
+    headers.delete('agent-id');
+
+    expect(
+      verifyAgenticRequestIntegrity({
+        body,
+        headers,
+        now,
+        secrets: [secret],
+      })
+    ).toEqual({ error: 'Invalid signature', ok: false });
+  });
+
+  it('rejects malformed signed agent ids', () => {
+    const body = '{"items":[]}';
+
+    expect(
+      verifyAgenticRequestIntegrity({
+        body,
+        headers: signedHeaders({ agentId: 'bad agent', body }),
+        now,
+        secrets: [secret],
+      })
+    ).toEqual({ error: 'Invalid agent id format', ok: false });
+  });
+
+  it('accepts signed agent ids at the maximum length', () => {
+    const agentId = 'a'.repeat(128);
+    const body = '{"items":[]}';
+
+    expect(
+      verifyAgenticRequestIntegrity({
+        body,
+        headers: signedHeaders({ agentId, body }),
+        now,
+        secrets: [secret],
+      })
+    ).toEqual({
+      agentId,
+      apiVersion: AGENTIC_API_VERSION,
+      ok: true,
+      requestId: 'req_123',
+    });
+  });
+
+  it('rejects signed agent ids above the maximum length', () => {
+    const body = '{"items":[]}';
+
+    expect(
+      verifyAgenticRequestIntegrity({
+        body,
+        headers: signedHeaders({ agentId: 'a'.repeat(129), body }),
+        now,
+        secrets: [secret],
+      })
+    ).toEqual({ error: 'Agent id too long', ok: false });
   });
 
   it('accepts the upstream stable ACP api version', () => {
@@ -115,6 +205,7 @@ describe('verifyAgenticRequestIntegrity', () => {
         secrets: [secret],
       })
     ).toEqual({
+      agentId: null,
       apiVersion: ACP_STABLE_AGENTIC_API_VERSION,
       ok: true,
       requestId: 'req_123',

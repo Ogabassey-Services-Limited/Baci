@@ -16,8 +16,9 @@ function buildManifest(
         algorithm: 'hmac-sha256',
         required_headers: ['api-version'],
         mutation_required_headers: ['api-version', 'idempotency-key'],
+        optional_identity_headers: ['agent-id'],
         signed_payload:
-          'json(api_version, body, idempotency_key, method, pathname, request_id, timestamp)',
+          'json(api_version, body, idempotency_key, method, pathname, request_id, timestamp, optional agent_id)',
       },
       supported_api_versions: ['2026-04-30', '2026-04-17', '2026-01-01'],
     },

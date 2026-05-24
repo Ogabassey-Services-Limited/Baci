@@ -26,8 +26,9 @@ const checkoutAuth: NonNullable<AgentCommerceManifest['auth']> = {
       'signature',
       'timestamp',
     ],
+    optional_identity_headers: ['agent-id'],
     signed_payload:
-      'json(api_version, body, idempotency_key, method, pathname, request_id, timestamp)',
+      'json(api_version, body, idempotency_key, method, pathname, request_id, timestamp, optional agent_id)',
   },
   supported_api_versions: ['2026-04-30', '2026-04-01'],
   type: 'bearer_hmac',

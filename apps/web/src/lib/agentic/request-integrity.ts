@@ -11,6 +11,8 @@ export const SUPPORTED_AGENTIC_API_VERSIONS = [
   PREVIOUS_AGENTIC_API_VERSION,
 ] as const;
 export const AGENTIC_REQUEST_INTEGRITY_ERRORS = {
+  AGENT_ID_TOO_LONG: 'Agent id too long',
+  INVALID_AGENT_ID_FORMAT: 'Invalid agent id format',
   INVALID_REQUEST_ID_FORMAT: 'Invalid request ID format',
   INVALID_SIGNATURE: 'Invalid signature',
   INVALID_TIMESTAMP: 'Invalid timestamp',
@@ -27,11 +29,18 @@ export const AGENTIC_REQUEST_INTEGRITY_ERRORS = {
 type AgenticApiVersion = (typeof SUPPORTED_AGENTIC_API_VERSIONS)[number];
 
 const MAX_TIMESTAMP_SKEW_MS = 2 * 60 * 1000;
+const MAX_AGENT_ID_LENGTH = 128;
 const MAX_REQUEST_ID_LENGTH = 255;
+const AGENT_ID_PATTERN = /^[A-Za-z0-9._:-]+$/;
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9_-]+$/;
 
 export type RequestIntegrityResult =
-  | { apiVersion: AgenticApiVersion; ok: true; requestId: string }
+  | {
+      agentId: string | null;
+      apiVersion: AgenticApiVersion;
+      ok: true;
+      requestId: string;
+    }
   | { error: string; ok: false };
 
 export function verifyAgenticRequestIntegrity({
@@ -50,6 +59,7 @@ export function verifyAgenticRequestIntegrity({
   secrets: string[];
 }): RequestIntegrityResult {
   const requestId = headers.get('request-id')?.trim();
+  const agentId = headers.get('agent-id')?.trim() ?? '';
   const apiVersion = headers.get('api-version')?.trim();
   const idempotencyKey = headers.get('idempotency-key')?.trim() ?? '';
   const signature = headers.get('signature')?.trim();
@@ -76,6 +86,18 @@ export function verifyAgenticRequestIntegrity({
   if (!REQUEST_ID_PATTERN.test(requestId)) {
     return {
       error: AGENTIC_REQUEST_INTEGRITY_ERRORS.INVALID_REQUEST_ID_FORMAT,
+      ok: false,
+    };
+  }
+  if (agentId.length > MAX_AGENT_ID_LENGTH) {
+    return {
+      error: AGENTIC_REQUEST_INTEGRITY_ERRORS.AGENT_ID_TOO_LONG,
+      ok: false,
+    };
+  }
+  if (agentId && !AGENT_ID_PATTERN.test(agentId)) {
+    return {
+      error: AGENTIC_REQUEST_INTEGRITY_ERRORS.INVALID_AGENT_ID_FORMAT,
       ok: false,
     };
   }
@@ -121,6 +143,7 @@ export function verifyAgenticRequestIntegrity({
   }
 
   const payload = canonicalRequestSignaturePayload({
+    agentId,
     apiVersion,
     body,
     idempotencyKey,
@@ -144,6 +167,7 @@ export function verifyAgenticRequestIntegrity({
   }
 
   return {
+    agentId: agentId || null,
     apiVersion: apiVersion as AgenticApiVersion,
     ok: true,
     requestId,
@@ -151,6 +175,7 @@ export function verifyAgenticRequestIntegrity({
 }
 
 function canonicalRequestSignaturePayload({
+  agentId,
   apiVersion,
   body,
   idempotencyKey,
@@ -159,6 +184,7 @@ function canonicalRequestSignaturePayload({
   requestId,
   timestamp,
 }: {
+  agentId: string;
   apiVersion: string;
   body: string;
   idempotencyKey: string;
@@ -167,7 +193,7 @@ function canonicalRequestSignaturePayload({
   requestId: string;
   timestamp: string;
 }) {
-  return JSON.stringify({
+  const payload: Record<string, string> = {
     api_version: apiVersion,
     body,
     idempotency_key: idempotencyKey,
@@ -175,7 +201,12 @@ function canonicalRequestSignaturePayload({
     pathname,
     request_id: requestId,
     timestamp,
-  });
+  };
+  if (agentId) {
+    payload.agent_id = agentId;
+  }
+
+  return JSON.stringify(payload);
 }
 
 export function getAgenticSigningSecrets(): string[] {

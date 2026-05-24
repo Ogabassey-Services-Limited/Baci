@@ -7,6 +7,7 @@ export interface IdempotencyRow {
 }
 
 export interface RequestRow {
+  agent_id: string | null;
   api_version: string | null;
   created_at: string;
   expires_at: string;
@@ -64,6 +65,7 @@ export function parseAgenticActionHealthRpcPayload(value: unknown) {
       updated_at: getString(row, 'updated_at'),
     })),
     requestRows: toRecordArray(payload.request_records).map((row) => ({
+      agent_id: getNullableString(row, 'agent_id'),
       api_version: getNullableString(row, 'api_version'),
       created_at: getString(row, 'created_at'),
       expires_at: getString(row, 'expires_at'),

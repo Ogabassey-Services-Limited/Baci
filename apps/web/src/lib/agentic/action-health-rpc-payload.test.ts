@@ -26,6 +26,7 @@ describe('action health RPC payload helpers', () => {
       ],
       request_records: [
         {
+          agent_id: 'openai:chatgpt',
           api_version: '2026-04-30',
           created_at: '2026-05-12T10:00:00.000Z',
           expires_at: '2026-05-12T10:15:00.000Z',
@@ -45,6 +46,7 @@ describe('action health RPC payload helpers', () => {
     ]);
     expect(result.requestRows).toEqual([
       {
+        agent_id: 'openai:chatgpt',
         api_version: '2026-04-30',
         created_at: '2026-05-12T10:00:00.000Z',
         expires_at: '2026-05-12T10:15:00.000Z',

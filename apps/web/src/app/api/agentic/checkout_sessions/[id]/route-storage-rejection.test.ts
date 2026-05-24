@@ -69,6 +69,7 @@ function mockMissingSessionSupabase() {
 
 function mockMutation(body: unknown, pathname: string) {
   vi.mocked(readAgenticMutationRequest).mockResolvedValue({
+    agentId: null,
     apiVersion: '2026-04-30',
     body,
     idempotencyKey: 'idem-1',
