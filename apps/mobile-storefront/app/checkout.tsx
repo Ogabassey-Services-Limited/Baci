@@ -10,7 +10,6 @@ import Constants from 'expo-constants';
 import { router, Stack } from 'expo-router';
 import React, { useEffect, useEffectEvent, useRef } from 'react';
 import {
-  Controller,
   type FieldErrors,
   type Resolver,
   useForm,
@@ -47,6 +46,7 @@ import {
   CheckoutStepper,
 } from '@/components/checkout/CheckoutStepper';
 import { CheckoutContactCard } from '@/components/checkout/CheckoutContactCard';
+import { CheckoutDeliveryCard } from '@/components/checkout/CheckoutDeliveryCard';
 import { CheckoutFormField } from '@/components/checkout/CheckoutFormField';
 import { CryptoSelectionModal } from '@/components/checkout/CryptoSelectionModal';
 import { DeliveryMethodCard } from '@/components/checkout/DeliveryMethodCard';
@@ -77,12 +77,11 @@ import {
 } from '@/components/checkout/checkout-step-helpers';
 import { humanizeCheckoutFieldName } from '@/components/checkout/checkout-form-field.helpers';
 import { ShippingQuotesCard } from '@/components/checkout/ShippingQuotesCard';
-import { SavedAddressOptions } from '@/components/checkout/SavedAddressOptions';
 import type {
   DeliveryMethod,
   ShippingQuote,
 } from '@/components/checkout/types';
-import { AddressAutocomplete } from '@/components/ui/AddressAutocomplete';
+import type { PlaceDetails } from '@/components/ui/AddressAutocomplete';
 import AppKeyboardContainer from '@/components/ui/AppKeyboardContainer';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, {
@@ -542,51 +541,44 @@ export default function CheckoutScreen() {
     setSaveAsDefaultAddress(savedAddresses.length <= 1);
   };
 
-  const renderSavedAddressOptions = () => {
-    return (
-      <SavedAddressOptions
-        colors={colors}
-        defaultSavedAddress={defaultSavedAddress}
-        isAddingNewAddress={isAddingNewAddress}
-        isDark={isDark}
-        isLoadingSavedAddresses={isLoadingSavedAddresses}
-        onOpenNewAddressEditor={openNewAddressEditor}
-        onUseSavedAddress={applySavedAddressToForm}
-        savedAddresses={savedAddresses}
-        selectedSavedAddress={selectedSavedAddress}
-        selectedSavedAddressId={selectedSavedAddressId}
-      />
-    );
+  const handleDeliveryAddressTextChange = (
+    text: string,
+    updateAddress: (value: string) => void
+  ) => {
+    updateAddress(text);
+    // If the user edits after committing via autocomplete, invalidate the
+    // resolved context key so the next state/city change fetches fresh rates.
+    if (committedAddress) {
+      setResolvedShippingQuoteContextKey('');
+    }
+    setCommittedAddress('');
   };
 
-  const renderDefaultAddressCheckbox = (label: string) => (
-    <View style={styles.saveDetailsSection}>
-      <Pressable
-        style={styles.checkboxRow}
-        onPress={() => setSaveAsDefaultAddress((value) => !value)}
-        accessibilityRole="checkbox"
-        accessibilityState={{ checked: saveAsDefaultAddress }}
-        accessibilityLabel={label}
-      >
-        <View
-          style={[
-            styles.checkbox,
-            saveAsDefaultAddress && styles.checkboxChecked,
-            {
-              borderColor: saveAsDefaultAddress ? BRAND.primary : colors.border,
-            },
-          ]}
-        >
-          {saveAsDefaultAddress && (
-            <Ionicons name="checkmark" size={14} color="#FFFFFF" />
-          )}
-        </View>
-        <Text style={[styles.checkboxLabel, { color: colors.text }]}>
-          {label}
-        </Text>
-      </Pressable>
-    </View>
-  );
+  const handleDeliveryAddressSelect = (
+    place: PlaceDetails,
+    updateAddress: (value: string) => void
+  ) => {
+    const selectedAddress = place.formattedAddress || '';
+    updateAddress(selectedAddress);
+    setCommittedAddress(selectedAddress);
+    const normalizedState = place.state
+      ? normalizeStateName(place.state, shippingStates)
+      : '';
+
+    if (place.city) {
+      const normalizedCity = place.city.trim().toLowerCase();
+      if (normalizedState && normalizedCity === normalizedState.toLowerCase()) {
+        googleSuggestedCityRef.current = '';
+      } else {
+        googleSuggestedCityRef.current = place.city;
+      }
+    }
+
+    setValue('city', '', { shouldValidate: false });
+    if (normalizedState) {
+      setValue('state', normalizedState, { shouldValidate: true });
+    }
+  };
 
   const getAvailableMethodsForTab = (tab: PaymentTab) =>
     availablePaymentMethods.filter(
@@ -1908,355 +1900,37 @@ export default function CheckoutScreen() {
       />
 
       {deliveryMethod !== 'pickup_station' && (
-        <View
-          style={[
-            styles.card,
-            {
-              backgroundColor: colors.card,
-              borderColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
-              zIndex: 10,
-              position: 'relative',
-            },
-          ]}
-        >
-          <View style={styles.cardHeaderActionRow}>
-            <View style={[styles.cardHeader, styles.cardHeaderInline]}>
-              <Ionicons
-                name="location-outline"
-                size={16}
-                color={BRAND.primary}
-              />
-              <Text style={[styles.cardTitle, { color: colors.text }]}>
-                Delivery
-              </Text>
-            </View>
-            {(hasSavedAddresses || Boolean(currentDeliverySummary)) && (
-              <Pressable
-                style={styles.inlineEditButton}
-                onPress={() => setIsDeliveryCollapsed((value) => !value)}
-                hitSlop={10}
-                accessibilityRole="button"
-                accessibilityLabel={
-                  isDeliveryCollapsed
-                    ? 'Edit delivery address'
-                    : 'Collapse delivery address'
-                }
-              >
-                <View style={styles.inlineActionContent}>
-                  <Ionicons
-                    name={
-                      isDeliveryCollapsed
-                        ? 'create-outline'
-                        : 'checkmark-outline'
-                    }
-                    size={16}
-                    color={BRAND.primary}
-                  />
-                  <Text style={styles.inlineActionText}>
-                    {isDeliveryCollapsed ? 'Edit' : 'Done'}
-                  </Text>
-                </View>
-              </Pressable>
-            )}
-          </View>
-          {isDeliveryCollapsed ? (
-            <View
-              style={[
-                styles.summaryPanel,
-                {
-                  backgroundColor: isDark
-                    ? 'rgba(255, 255, 255, 0.04)'
-                    : palette.gray[50],
-                  borderColor: colors.border,
-                },
-              ]}
-            >
-              <View style={styles.summaryMetaRow}>
-                <Ionicons
-                  name="navigate-circle-outline"
-                  size={16}
-                  color={BRAND.primary}
-                />
-                <Text
-                  style={[
-                    styles.summaryMetaLabel,
-                    { color: colors.textSecondary },
-                  ]}
-                >
-                  {selectedSavedAddress?.is_default
-                    ? 'Default address'
-                    : 'Delivery destination'}
-                </Text>
-              </View>
-              <View style={styles.summaryTitleRow}>
-                <Text style={[styles.summaryTitle, { color: colors.text }]}>
-                  {selectedSavedAddress?.label || 'Delivery address'}
-                </Text>
-                {selectedSavedAddress?.is_default && (
-                  <View
-                    style={[
-                      styles.savedAddressDefaultBadge,
-                      { backgroundColor: `${BRAND.primary}14` },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.savedAddressDefaultBadgeText,
-                        { color: BRAND.primary },
-                      ]}
-                    >
-                      Default
-                    </Text>
-                  </View>
-                )}
-              </View>
-              <Text
-                style={[styles.summaryLine, { color: colors.textSecondary }]}
-              >
-                {currentDeliverySummary || 'No delivery address selected yet'}
-              </Text>
-            </View>
-          ) : (
-            <View
-              style={[styles.cardBody, { overflow: 'visible', zIndex: 50 }]}
-            >
-              {renderSavedAddressOptions()}
-              {hasSavedAddresses && !isAddingNewAddress ? (
-                isAuthenticated &&
-                renderDefaultAddressCheckbox(
-                  selectedSavedAddress?.is_default
-                    ? 'Keep as default address'
-                    : 'Make selected address my default'
-                )
-              ) : (
-                <>
-                  {hasSavedAddresses && (
-                    <View
-                      style={[
-                        styles.newAddressIntro,
-                        {
-                          backgroundColor: isDark
-                            ? 'rgba(255, 255, 255, 0.04)'
-                            : palette.gray[50],
-                          borderColor: colors.border,
-                        },
-                      ]}
-                    >
-                      <Ionicons
-                        name="sparkles-outline"
-                        size={18}
-                        color={BRAND.primary}
-                      />
-                      <View style={styles.newAddressIntroBody}>
-                        <Text
-                          style={[
-                            styles.newAddressIntroTitle,
-                            { color: colors.text },
-                          ]}
-                        >
-                          New delivery address
-                        </Text>
-                        <Text
-                          style={[
-                            styles.newAddressIntroText,
-                            { color: colors.textSecondary },
-                          ]}
-                        >
-                          Use this if this order should go somewhere else.
-                        </Text>
-                      </View>
-                    </View>
-                  )}
-                  <Controller
-                    control={control}
-                    name="address"
-                    render={({ field: { value, onChange } }) => (
-                      <AddressAutocomplete
-                        value={value}
-                        onChangeText={(text) => {
-                          onChange(text);
-                          // If the user edits after committing via autocomplete, invalidate
-                          // the resolved context key so the next state/city change forces a
-                          // fresh fetch against the new typed address.
-                          if (committedAddress) {
-                            setResolvedShippingQuoteContextKey('');
-                          }
-                          setCommittedAddress('');
-                        }}
-                        scrollRef={addressScrollRef}
-                        scrollOffsetRef={addressScrollOffsetRef}
-                        onSelect={(place) => {
-                          const selectedAddress = place.formattedAddress || '';
-                          onChange(selectedAddress);
-                          setCommittedAddress(selectedAddress);
-                          const normalizedState = place.state
-                            ? normalizeStateName(place.state, shippingStates)
-                            : '';
-                          if (place.city) {
-                            const normalizedCity = place.city
-                              .trim()
-                              .toLowerCase();
-                            if (
-                              normalizedState &&
-                              normalizedCity === normalizedState.toLowerCase()
-                            ) {
-                              googleSuggestedCityRef.current = '';
-                            } else {
-                              googleSuggestedCityRef.current = place.city;
-                            }
-                          }
-                          setValue('city', '', { shouldValidate: false });
-                          if (normalizedState) {
-                            setValue('state', normalizedState, {
-                              shouldValidate: true,
-                            });
-                          }
-                        }}
-                        label="Street Address"
-                        placeholder="Start typing your address..."
-                      />
-                    )}
-                  />
-
-                  <View style={styles.row}>
-                    <View style={styles.halfInput}>
-                      <Text
-                        style={[styles.label, { color: colors.textSecondary }]}
-                      >
-                        City
-                      </Text>
-                      <Controller
-                        control={control}
-                        name="city"
-                        render={({ field: { value } }) => (
-                          <>
-                            <Pressable
-                              onPress={() => setShowCityPicker(true)}
-                              style={[
-                                styles.input,
-                                styles.selectInput,
-                                {
-                                  backgroundColor: isDark
-                                    ? 'rgba(255, 255, 255, 0.05)'
-                                    : '#F9FAFB',
-                                  borderColor: errors.city
-                                    ? '#EF4444'
-                                    : 'transparent',
-                                },
-                              ]}
-                              accessibilityRole="button"
-                              accessibilityLabel="Select city"
-                            >
-                              <Text
-                                style={[
-                                  styles.selectInputText,
-                                  {
-                                    color: value
-                                      ? colors.text
-                                      : colors.textSecondary,
-                                  },
-                                ]}
-                              >
-                                {value || 'Select city'}
-                              </Text>
-                              {isLoadingCities ? (
-                                <ActivityIndicator
-                                  size="small"
-                                  color={colors.textSecondary}
-                                />
-                              ) : (
-                                <Ionicons
-                                  name="chevron-down"
-                                  size={18}
-                                  color={colors.textSecondary}
-                                />
-                              )}
-                            </Pressable>
-                            {errors.city && (
-                              <Text
-                                style={styles.fieldError}
-                                accessibilityLiveRegion="polite"
-                              >
-                                {errors.city?.message}
-                              </Text>
-                            )}
-                          </>
-                        )}
-                      />
-                    </View>
-                    <View style={styles.halfInput}>
-                      <Text
-                        style={[styles.label, { color: colors.textSecondary }]}
-                      >
-                        State
-                      </Text>
-                      <Controller
-                        control={control}
-                        name="state"
-                        render={({ field: { value } }) => (
-                          <>
-                            <Pressable
-                              onPress={() => setShowStatePicker(true)}
-                              style={[
-                                styles.input,
-                                styles.selectInput,
-                                {
-                                  backgroundColor: isDark
-                                    ? 'rgba(255, 255, 255, 0.05)'
-                                    : '#F9FAFB',
-                                  borderColor: errors.state
-                                    ? '#EF4444'
-                                    : 'transparent',
-                                },
-                              ]}
-                              accessibilityRole="button"
-                              accessibilityLabel="Select state"
-                            >
-                              <Text
-                                style={[
-                                  styles.selectInputText,
-                                  {
-                                    color: value
-                                      ? colors.text
-                                      : colors.textSecondary,
-                                  },
-                                ]}
-                              >
-                                {value || 'Select state'}
-                              </Text>
-                              {isLoadingLocations ? (
-                                <ActivityIndicator
-                                  size="small"
-                                  color={colors.textSecondary}
-                                />
-                              ) : (
-                                <Ionicons
-                                  name="chevron-down"
-                                  size={18}
-                                  color={colors.textSecondary}
-                                />
-                              )}
-                            </Pressable>
-                            {errors.state && (
-                              <Text
-                                style={styles.fieldError}
-                                accessibilityLiveRegion="polite"
-                              >
-                                {errors.state?.message}
-                              </Text>
-                            )}
-                          </>
-                        )}
-                      />
-                    </View>
-                  </View>
-                  {isAuthenticated &&
-                    renderDefaultAddressCheckbox('Set as default address')}
-                </>
-              )}
-            </View>
-          )}
-        </View>
+        <CheckoutDeliveryCard
+          colors={colors}
+          control={control}
+          currentDeliverySummary={currentDeliverySummary}
+          defaultSavedAddress={defaultSavedAddress}
+          errors={errors}
+          hasSavedAddresses={hasSavedAddresses}
+          isAddingNewAddress={isAddingNewAddress}
+          isAuthenticated={isAuthenticated}
+          isCollapsed={isDeliveryCollapsed}
+          isDark={isDark}
+          isLoadingCities={isLoadingCities}
+          isLoadingLocations={isLoadingLocations}
+          isLoadingSavedAddresses={isLoadingSavedAddresses}
+          onAddressSelected={handleDeliveryAddressSelect}
+          onAddressTextChanged={handleDeliveryAddressTextChange}
+          onOpenCityPicker={() => setShowCityPicker(true)}
+          onOpenNewAddressEditor={openNewAddressEditor}
+          onOpenStatePicker={() => setShowStatePicker(true)}
+          onToggleCollapsed={() => setIsDeliveryCollapsed((value) => !value)}
+          onToggleSaveAsDefaultAddress={() =>
+            setSaveAsDefaultAddress((value) => !value)
+          }
+          onUseSavedAddress={applySavedAddressToForm}
+          saveAsDefaultAddress={saveAsDefaultAddress}
+          savedAddresses={savedAddresses}
+          scrollOffsetRef={addressScrollOffsetRef}
+          scrollRef={addressScrollRef}
+          selectedSavedAddress={selectedSavedAddress}
+          selectedSavedAddressId={selectedSavedAddressId}
+        />
       )}
 
       {deliveryMethod === 'pickup_station' && (
@@ -3204,268 +2878,8 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginTop: 6,
   },
-  card: {
-    borderRadius: RADIUS.xl,
-    paddingHorizontal: SPACING.md,
-    paddingTop: 14,
-    paddingBottom: SPACING.md,
-    marginBottom: SPACING.sm,
-    borderWidth: 1,
-    borderColor: 'transparent',
-    ...SHADOWS.sm,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: SPACING.md,
-  },
-  cardHeaderInline: {
-    marginBottom: 0,
-  },
-  cardHeaderActionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: SPACING.md,
-  },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    letterSpacing: -0.3,
-  },
-  inlineEditButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  inlineActionContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  inlineActionText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: BRAND.primary,
-  },
-  cardBody: {
-    gap: SPACING.sm,
-  },
-  contactCardBody: {
-    gap: 10,
-  },
-  summarySection: {
-    gap: 8,
-  },
-  summaryPanel: {
-    borderWidth: 1,
-    borderRadius: 18,
-    padding: 14,
-    gap: 8,
-  },
-  summaryMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  summaryMetaLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    letterSpacing: 0.1,
-  },
-  summaryTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    flexWrap: 'wrap',
-  },
-  summaryTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  summaryLine: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  row: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  halfInput: {
-    flex: 1,
-  },
-  inputGroup: {
-    marginBottom: 12,
-  },
-  compactInputGroup: {
-    marginBottom: 8,
-  },
-  label: {
-    fontSize: 13,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  input: {
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 15,
-    borderColor: 'transparent',
-  },
-  multilineInput: {
-    minHeight: 80,
-    textAlignVertical: 'top',
-  },
-  selectInput: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  selectInputText: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: '500',
-    marginRight: 8,
-  },
   helperText: {
     fontSize: 12,
-  },
-  savedAddressDefaultBadge: {
-    borderRadius: RADIUS.full,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  savedAddressDefaultBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  deliveryMethodList: {
-    gap: 10,
-  },
-  deliveryMethodCard: {
-    borderWidth: 1,
-    borderRadius: 18,
-    padding: 14,
-    gap: 12,
-  },
-  deliveryMethodTopRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-  },
-  deliveryMethodLabelWrap: {
-    flex: 1,
-    gap: 4,
-  },
-  deliveryMethodTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  deliveryMethodSubtitle: {
-    fontSize: 12,
-    lineHeight: 18,
-  },
-  deliveryMethodMeta: {
-    alignItems: 'flex-end',
-    gap: 8,
-  },
-  deliveryMethodPrice: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  deliveryMethodExpanded: {
-    gap: 10,
-  },
-  deliveryStaticInfo: {
-    borderWidth: 1,
-    borderRadius: 14,
-    padding: 12,
-  },
-  deliveryStaticTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    marginBottom: 2,
-  },
-  deliveryStaticText: {
-    fontSize: 13,
-    lineHeight: 20,
-  },
-  newAddressIntro: {
-    borderWidth: 1,
-    borderRadius: 16,
-    padding: 12,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-  },
-  newAddressIntroBody: {
-    flex: 1,
-    gap: 2,
-  },
-  newAddressIntroTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  newAddressIntroText: {
-    fontSize: 12,
-    lineHeight: 18,
-  },
-  quoteRow: {
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  quoteInfo: {
-    flex: 1,
-    marginRight: 12,
-  },
-  quoteHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 4,
-  },
-  quoteTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  quoteMeta: {
-    fontSize: 12,
-  },
-  quoteRight: {
-    alignItems: 'flex-end',
-    gap: 4,
-  },
-  quotePrice: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  quoteBadge: {
-    backgroundColor: '#DBEAFE',
-    borderRadius: RADIUS.full,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  quoteBadgeDark: {
-    backgroundColor: '#111827',
-    borderRadius: RADIUS.full,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  quoteBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 9,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-  },
-  quoteLoadingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
   },
   reviewCard: {
     padding: SPACING.lg,
@@ -3601,14 +3015,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  fieldError: {
-    color: '#DC2626',
-    fontSize: 13,
-    fontWeight: '500',
-    marginTop: 6,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
   pickerOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.4)',
@@ -3662,88 +3068,6 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
   },
-  retryCard: {
-    borderWidth: 2,
-    borderColor: '#FCD34D',
-    borderStyle: 'dashed',
-    backgroundColor: '#FFFBEB',
-    borderRadius: 16,
-    padding: 16,
-    alignItems: 'center',
-    gap: 10,
-  },
-  retryIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#FEF3C7',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  retryTextWrap: {
-    alignItems: 'center',
-  },
-  retryTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  retrySubtitle: {
-    fontSize: 12,
-    color: '#B45309',
-    marginTop: 4,
-    textAlign: 'center',
-  },
-  retryBadge: {
-    backgroundColor: '#FEF3C7',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 999,
-  },
-  retryBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#B45309',
-  },
-  saveDetailsSection: {
-    gap: SPACING.sm,
-  },
-  checkboxRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-    paddingVertical: SPACING.xs,
-    minHeight: 44,
-  },
-  checkbox: {
-    width: 22,
-    height: 22,
-    borderRadius: 6,
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkboxChecked: {
-    backgroundColor: BRAND.primary,
-  },
-  checkboxLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    flex: 1,
-  },
-  accountInfoBanner: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: SPACING.sm,
-    padding: SPACING.md,
-    borderRadius: RADIUS.md,
-  },
-  accountInfoText: {
-    flex: 1,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-
   // Crypto payment modal styles
   cryptoHeader: {
     flexDirection: 'row',
