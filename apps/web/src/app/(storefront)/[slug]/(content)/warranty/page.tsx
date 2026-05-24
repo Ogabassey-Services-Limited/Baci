@@ -99,12 +99,10 @@ export async function generateMetadata({
 export default function WarrantyPage({ params }: PageProps) {
   return (
     <>
-      <Suspense fallback={null}>
-        <StorefrontDynamicMetadataMarker />
-      </Suspense>
       <Suspense fallback={<ContentRouteLoading />}>
         <WarrantyPageContent params={params} />
       </Suspense>
+      <StorefrontDynamicMetadataMarker />
     </>
   );
 }

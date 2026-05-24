@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import { draftMode } from 'next/headers';
 import { notFound } from 'next/navigation';
-import { Suspense } from 'react';
 import { StorefrontDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker';
 import { buildStoreUrl } from '@/lib/store-url';
 import {
@@ -94,10 +93,8 @@ export async function generateMetadata({
 export default function BlogPostPage({ params }: PageProps) {
   return (
     <>
-      <Suspense fallback={null}>
-        <StorefrontDynamicMetadataMarker />
-      </Suspense>
       <BlogPostPageContent params={params} />
+      <StorefrontDynamicMetadataMarker />
     </>
   );
 }
