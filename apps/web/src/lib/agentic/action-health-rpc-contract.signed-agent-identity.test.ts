@@ -38,7 +38,7 @@ describe('agentic action health signed-agent identity RPC contract', () => {
     expect(sql).toMatch(/IF\s+p_merchant_id\s+IS\s+NULL\s+THEN/i);
     expect(sql).toMatch(/ERRCODE\s*=\s*'22004'/i);
     expect(sql).toMatch(
-      /SELECT\s+agent_id,\s*api_version,\s*route,\s*created_at,\s*expires_at/i
+      /SELECT\s+agent_id,\s*api_version,\s*route,\s*status_code,\s*created_at,\s*expires_at/i
     );
     expect(sql).not.toMatch(
       /\b(request_id|idempotency_key|request_hash|response_body)\b/i

@@ -95,7 +95,16 @@ describe('loadAgenticActionHealth', () => {
             updated_at: '2026-05-16T09:20:00.000Z',
           },
         ],
-        request_records: [],
+        request_records: [
+          {
+            agent_id: 'openai:chatgpt',
+            api_version: '2026-04-30',
+            created_at: '2026-05-16T09:30:00.000Z',
+            expires_at: '2026-05-16T10:15:00.000Z',
+            route: 'orders.read',
+            status_code: 503,
+          },
+        ],
       },
       error: null,
     });
@@ -109,6 +118,7 @@ describe('loadAgenticActionHealth', () => {
     expect(actionCodes).toContain('AGENTIC_CHECKOUT_CANCEL_ERRORS');
     expect(actionCodes).toContain('AGENTIC_IDEMPOTENCY_STALE_IN_PROGRESS');
     expect(actionCodes).toContain('AGENTIC_ORDER_FINALIZING');
+    expect(actionCodes).toContain('AGENTIC_ORDER_READ_ERRORS');
     expect(actionCodes).toContain('AGENTIC_PAYMENT_PENDING_STALE');
     expect(actionCodes).toContain('AGENTIC_PAYMENT_CLAIMING');
     expect(actionCodes).toContain('AGENTIC_AGENT_ALLOWLIST_UNSET');
@@ -186,8 +196,19 @@ describe('loadAgenticActionHealth', () => {
           count: 1,
           severity: 'attention',
         }),
+        expect.objectContaining({
+          code: 'AGENTIC_ORDER_READ_ERRORS',
+          count: 1,
+          severity: 'attention',
+        }),
       ])
     );
+    expect(result.requests?.records).toEqual([
+      expect.objectContaining({
+        route: 'orders.read',
+        status_code: 503,
+      }),
+    ]);
   });
 
   it('throws when rpc returns an error', async () => {
@@ -322,6 +343,48 @@ describe('loadAgenticActionHealth', () => {
     ]);
     expect(result.actions.map((action) => action.code)).toEqual([
       'AGENTIC_IDEMPOTENCY_STALE_IN_PROGRESS',
+    ]);
+  });
+
+  it('does not alert on expired or non-server-error order reads', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-18T10:00:00.000Z'));
+    getActionHealthRequestControlSummary.mockResolvedValue({
+      allowlistCount: 1,
+      denylistCount: 0,
+      error: null,
+      isAgenticCheckoutEnabled: true,
+    });
+    const supabase = {
+      rpc: vi.fn().mockResolvedValue({
+        data: {
+          checkout_sessions: [],
+          idempotency_records: [],
+          request_records: [
+            {
+              api_version: '2026-04-30',
+              created_at: '2026-05-18T09:00:00.000Z',
+              expires_at: '2026-05-18T09:15:00.000Z',
+              route: 'orders.read',
+              status_code: 503,
+            },
+            {
+              api_version: '2026-04-30',
+              created_at: '2026-05-18T09:55:00.000Z',
+              expires_at: '2026-05-18T10:10:00.000Z',
+              route: 'orders.read',
+              status_code: 404,
+            },
+          ],
+        },
+        error: null,
+      }),
+    } as unknown as SupabaseClient;
+
+    const result = await loadAgenticActionHealth(supabase, 'merchant-1');
+
+    expect(result.actions).toEqual([
+      expect.objectContaining({ code: 'AGENTIC_ACTIONS_HEALTHY' }),
     ]);
   });
 
