@@ -11,6 +11,8 @@ import {
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 
+vi.mock('server-only', () => ({}));
+
 const {
   mockNormalizeStorefrontProductVariants,
   mockOgabasseyPdpProductResourceHints,
