@@ -12,6 +12,9 @@ describe('getAgenticActionNextStepUrl', () => {
     expect(getAgenticActionNextStepUrl('AGENTIC_ORDER_FINALIZING')).toBe(
       `${AGENTIC_ORDERS_REVIEW_HREF}&agentic_issue=AGENTIC_ORDER_FINALIZING`
     );
+    expect(getAgenticActionNextStepUrl('AGENTIC_CHECKOUT_CANCEL_ERRORS')).toBe(
+      `${AGENTIC_ORDERS_REVIEW_HREF}&agentic_issue=AGENTIC_CHECKOUT_CANCEL_ERRORS`
+    );
     expect(getAgenticActionNextStepUrl('AGENTIC_PAYMENT_SETUP_FAILED')).toBe(
       `${AGENTIC_ORDERS_REVIEW_HREF}&agentic_issue=AGENTIC_PAYMENT_SETUP_FAILED`
     );
