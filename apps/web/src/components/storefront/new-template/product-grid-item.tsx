@@ -39,6 +39,9 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
   const [activeColorIndex, setActiveColorIndex] = useState(0);
   const [isImageLoaded, setIsImageLoaded] = useState(false);
   const iconSize = 18;
+  const visibleColors = product.colors?.slice(0, 4) ?? [];
+  const selectedSwatchIndex =
+    activeColorIndex < visibleColors.length ? activeColorIndex : 0;
 
   // Determine current image
   const currentImage = product.images?.[activeColorIndex] || product.image;
@@ -70,6 +73,34 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
     e.preventDefault();
     e.stopPropagation();
     setActiveColorIndex(index);
+  };
+
+  const handleColorKeyDown = (
+    e: React.KeyboardEvent<HTMLButtonElement>,
+    index: number
+  ) => {
+    if (visibleColors.length === 0) return;
+
+    const keyToIndex: Partial<Record<string, number>> = {
+      ArrowDown: (index + 1) % visibleColors.length,
+      ArrowRight: (index + 1) % visibleColors.length,
+      ArrowUp: index === 0 ? visibleColors.length - 1 : index - 1,
+      ArrowLeft: index === 0 ? visibleColors.length - 1 : index - 1,
+      Home: 0,
+      End: visibleColors.length - 1,
+    };
+    const nextIndex = keyToIndex[e.key];
+
+    if (nextIndex === undefined) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+    setActiveColorIndex(nextIndex);
+
+    const radioButtons = e.currentTarget
+      .closest('[role="radiogroup"]')
+      ?.querySelectorAll<HTMLButtonElement>('[role="radio"]');
+    radioButtons?.[nextIndex]?.focus();
   };
 
   return (
@@ -139,8 +170,12 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
 
         {/* Colors Swatches - Bottom Middle - INTERACTIVE */}
         {product.colors && product.colors.length > 0 && (
-          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center -space-x-1.5 z-20 pointer-events-auto">
-            {product.colors.slice(0, 4).map((color, idx) => {
+          <div
+            className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center -space-x-1.5 z-20 pointer-events-auto"
+            role="radiogroup"
+            aria-label={`${product.name} colors`}
+          >
+            {visibleColors.map((color, idx) => {
               const colorValue =
                 typeof color === 'string' ? color : color.value;
               const colorName = typeof color === 'string' ? color : color.name;
@@ -153,6 +188,7 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
                   type="button"
                   key={idx}
                   onClick={(e) => handleColorSelect(e, idx)}
+                  onKeyDown={(e) => handleColorKeyDown(e, idx)}
                   className={`rounded-full border border-white shadow-sm transition-all duration-300 ease-out ${
                     isSelected
                       ? 'w-4 h-4 ring-2 ring-gray-300 ring-offset-1 z-30 scale-110'
@@ -160,8 +196,10 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
                   }`}
                   style={{ backgroundColor: hexColor }}
                   title={colorName}
+                  role="radio"
                   aria-label={colorName}
-                  aria-pressed={isSelected}
+                  aria-checked={isSelected}
+                  tabIndex={idx === selectedSwatchIndex ? 0 : -1}
                 />
               );
             })}
