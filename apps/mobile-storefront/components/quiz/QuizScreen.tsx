@@ -18,6 +18,7 @@ import {
   submitQuizAnswer,
 } from '@/services/quiz';
 import { useQuizStore } from '@/stores/quiz-store';
+import { useShallow } from 'zustand/react/shallow';
 import { createQuizStyles } from './QuizScreen.styles';
 import {
   formatPointCount,
@@ -56,7 +57,22 @@ export function QuizScreen({
     selectAnswer,
     setError,
     submitSelectedAnswer,
-  } = useQuizStore();
+  } = useQuizStore(
+    useShallow((state) => ({
+      status: state.status,
+      events: state.events,
+      attempt: state.attempt,
+      attemptIntegrityTier: state.attemptIntegrityTier,
+      selectedOptionId: state.selectedOptionId,
+      result: state.result,
+      error: state.error,
+      loadEvents: state.loadEvents,
+      startEvent: state.startEvent,
+      selectAnswer: state.selectAnswer,
+      setError: state.setError,
+      submitSelectedAnswer: state.submitSelectedAnswer,
+    }))
+  );
 
   useEffect(() => {
     let mounted = true;
