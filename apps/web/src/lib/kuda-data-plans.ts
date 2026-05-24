@@ -14,6 +14,7 @@ interface DataPlanCandidate {
 
 export interface ResolvedKudaDataPlan {
   amount: number;
+  isAmountFixed: boolean;
   itemCode: string;
   itemName: string;
   originalDataPlanCode: string;
@@ -121,6 +122,7 @@ function mapResolvedCandidate(
 ): ResolvedKudaDataPlan {
   return {
     amount: amountOverride ?? candidate.item.amount,
+    isAmountFixed: candidate.item.isAmountFixed,
     itemCode: candidate.item.itemCode,
     itemName: candidate.item.itemName,
     originalDataPlanCode,
@@ -140,6 +142,7 @@ function mapUnverifiedDataPlan({
 }): ResolvedKudaDataPlan {
   return {
     amount,
+    isAmountFixed: false,
     itemCode: originalDataPlanCode,
     itemName: originalDataPlanCode,
     originalDataPlanCode,

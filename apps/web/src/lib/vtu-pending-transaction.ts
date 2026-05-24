@@ -249,13 +249,14 @@ export async function preparePendingVtuTransaction({
       networkProvider: normalizedNetworkProvider,
     });
   }
+  const purchaseAmount = resolvedDataPlan?.amount ?? input.amount;
 
   const commissionProvider = isTelco
     ? normalizedNetworkProvider
     : (input.billerName ?? 'DEFAULT');
 
   const commissions = await calculateCommerce('calculate_vtu', {
-    amount: input.amount,
+    amount: purchaseAmount,
     provider: commissionProvider,
     category: COMMISSION_CATEGORY_MAP[purchaseType],
     merchantSplit: merchantSplitPercentage,
@@ -287,7 +288,7 @@ export async function preparePendingVtuTransaction({
       phone_number: isTelco
         ? formattedPhone
         : (normalizedCustomerPhone ?? input.customerIdentifier ?? ''),
-      amount: input.amount,
+      amount: purchaseAmount,
       request_reference: requestReference,
       status: 'pending',
       source,
@@ -307,6 +308,7 @@ export async function preparePendingVtuTransaction({
         ...(resolvedDataPlan
           ? {
               dataPlanAmount: resolvedDataPlan.amount,
+              dataPlanIsAmountFixed: resolvedDataPlan.isAmountFixed,
               dataPlanName: resolvedDataPlan.itemName,
               dataPlanProvider: resolvedDataPlan.providerName,
               dataPlanResolvedFrom: resolvedDataPlan.resolvedFrom,
@@ -341,7 +343,7 @@ export async function preparePendingVtuTransaction({
           ? {
               paymentSplit: {
                 wallet: input.walletAmount,
-                card: input.amount - input.walletAmount,
+                card: purchaseAmount - input.walletAmount,
               },
             }
           : {}),

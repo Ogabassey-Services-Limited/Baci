@@ -373,13 +373,71 @@ describe('preparePendingVtuTransaction', () => {
 
     expect(insert).toHaveBeenCalledWith(
       expect.objectContaining({
+        amount: 3500,
         metadata: expect.objectContaining({
+          dataPlanAmount: 3500,
           dataPlanCode: 'MTN-35GB-MONTHLY',
+          dataPlanIsAmountFixed: true,
           dataPlanName: 'MTN 3.5GB Monthly',
           originalDataPlanCode: '2082751a-89c7-4862-86c5-5498194b32f3',
         }),
       })
     );
+    expect(mockCalculateCommerce).toHaveBeenCalledWith(
+      'calculate_vtu',
+      expect.objectContaining({ amount: 3500 })
+    );
+  });
+
+  it('rejects stale client amounts for exact fixed-price data package codes', async () => {
+    mockGetDataProviders.mockResolvedValueOnce([
+      {
+        billerId: '2082751a-89c7-4862-86c5-5498194b32f3',
+        billerName: 'MTN',
+        billerType: 'Internet Data',
+        categoryId: 'data',
+        categoryName: 'Internet Data',
+        billItems: [
+          {
+            amount: 3500,
+            isAmountFixed: true,
+            itemCode: 'MTN-35GB-MONTHLY',
+            itemCurrencySymbol: 'NGN',
+            itemFee: 0,
+            itemName: 'MTN 3.5GB Monthly',
+          },
+        ],
+      },
+    ]);
+    const { insert, supabase } = createMockSupabase();
+
+    await expect(
+      preparePendingVtuTransaction({
+        supabase,
+        user: {
+          id: 'user-1',
+          email: 'customer@example.com',
+        } as unknown as Parameters<
+          typeof preparePendingVtuTransaction
+        >[0]['user'],
+        input: {
+          merchantSlug: 'ogabassey',
+          type: 'data',
+          amount: 100,
+          phoneNumber: '08142236698',
+          networkProvider: 'mtn',
+          dataPlanCode: 'MTN-35GB-MONTHLY',
+          source: 'checkout',
+        },
+        source: 'checkout',
+        requireCustomer: true,
+      })
+    ).rejects.toThrow(
+      'Data bundle amount changed for MTN 3.5GB Monthly. Please refresh data bundles and select a package.'
+    );
+
+    expect(mockCalculateCommerce).not.toHaveBeenCalled();
+    expect(insert).not.toHaveBeenCalled();
   });
 
   describe('paymentSplit metadata (Phase B.4)', () => {
