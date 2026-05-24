@@ -134,6 +134,7 @@ describe('buildAgentNativeCommerceProof', () => {
       proof: {
         status: 'pass',
         action: {
+          optional_identity_headers: ['agent-id'],
           payment_methods: ['paystack_bank_transfer'],
           signed_requests: true,
         },
