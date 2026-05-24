@@ -6,15 +6,23 @@ import { OgabasseyPdpProductLcpSkeleton } from './ogabassey-pdp-product-lcp-skel
 vi.mock('server-only', () => ({}));
 
 const mockGetImageProps = vi.hoisted(() =>
-  vi.fn((props: { src: string; sizes?: string; alt?: string }) => ({
-    props: {
-      sizes: props.sizes,
-      src: props.src,
-      srcSet: `${props.src} 640w`,
-      alt: props.alt,
-      style: { position: 'absolute', height: '100%', width: '100%' },
-    },
-  }))
+  vi.fn(
+    (props: {
+      src: string;
+      sizes?: string;
+      alt?: string;
+      priority?: boolean;
+    }) => ({
+      props: {
+        sizes: props.sizes,
+        src: props.src,
+        srcSet: `${props.src} 640w`,
+        alt: props.alt,
+        style: { position: 'absolute', height: '100%', width: '100%' },
+        loading: props.priority ? undefined : 'lazy',
+      },
+    })
+  )
 );
 
 vi.mock('next/image', () => ({
@@ -86,5 +94,7 @@ describe('OgabasseyPdpProductLcpSkeleton', () => {
     expect(img.style.width).toBe('100%');
     expect(img.getAttribute('fetchpriority')).toBe('high');
     expect(img.getAttribute('decoding')).toBe('sync');
+    // Ensure loading="lazy" is not spread onto our early LCP image
+    expect(img.getAttribute('loading')).toBeNull();
   });
 });

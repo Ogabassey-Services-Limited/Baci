@@ -43,6 +43,7 @@ export function OgabasseyPdpProductLcpSkeleton({
     alt: 'Loading product',
     fill: true,
     loader: imageLoader,
+    priority: true,
     quality: OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY,
     sizes: OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
     src: primaryProductImage,
