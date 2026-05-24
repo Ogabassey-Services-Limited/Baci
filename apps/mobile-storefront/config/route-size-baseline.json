@@ -8,7 +8,7 @@
     },
     {
       "path": "app/product/[slug].tsx",
-      "lineCount": 1309,
+      "lineCount": 1231,
       "justification": "Existing PDP route decomposition baseline; shrink or remove this entry as product detail logic is modularized."
     },
     {

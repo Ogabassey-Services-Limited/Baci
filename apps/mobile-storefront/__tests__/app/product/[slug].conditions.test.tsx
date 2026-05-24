@@ -51,6 +51,24 @@ describe('ProductDetailScreen condition offer stock gating', () => {
     expect(mockProductDetailsBody).not.toHaveBeenCalled();
   });
 
+  it('renders clean Error messages in the not-found state', () => {
+    mockUseLocalSearchParams.mockReturnValue({
+      slug: 'iphone-13-pro',
+    });
+    mockUseProduct.mockReturnValue({
+      product: null,
+      isLoading: false,
+      error: new Error('Product lookup failed'),
+      refetch: jest.fn(),
+    });
+
+    render(<ProductDetailScreen />);
+
+    expect(screen.getByText('Product lookup failed')).toBeTruthy();
+    expect(screen.queryByText('Error: Product lookup failed')).toBeNull();
+    expect(mockProductDetailsBody).not.toHaveBeenCalled();
+  });
+
   it('blocks purchase when the selected legacy condition offer is out of stock', async () => {
     mockUseLocalSearchParams.mockReturnValue({
       slug: 'iphone-13-pro',
