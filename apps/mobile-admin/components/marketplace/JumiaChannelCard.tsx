@@ -215,7 +215,7 @@ export function JumiaChannelCard({ colors, shadows }: JumiaChannelCardProps) {
     <View style={[styles.card, { backgroundColor: colors.card }, shadows.sm]}>
       <View style={styles.channelHeader}>
         <View style={[styles.iconContainer, { backgroundColor: colors.orange }]}>
-          <Text style={styles.iconText}>J</Text>
+          <Text style={[styles.iconText, { color: colors.textOnPrimary }]}>J</Text>
         </View>
         <View style={styles.channelInfo}>
           <Text style={[styles.channelTitle, { color: colors.text }]}>
