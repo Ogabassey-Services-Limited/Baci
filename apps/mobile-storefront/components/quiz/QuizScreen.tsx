@@ -61,9 +61,7 @@ export function QuizScreen({
     useShallow((state) => ({
       status: state.status,
       events: state.events,
-      currentEvent: state.currentEvent,
-      currentQuestionIndex: state.currentQuestionIndex,
-      attempt: state.attempt,
+            attempt: state.attempt,
       attemptIntegrityTier: state.attemptIntegrityTier,
       selectedOptionId: state.selectedOptionId,
       result: state.result,
