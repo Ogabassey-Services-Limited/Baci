@@ -228,11 +228,31 @@ async function processCommittingJob(
     );
   }
 
+  await cleanupCommittedImportPreviewRows(supabase, job.id);
+
   return {
     id: job.id,
     status: 'committed',
     processed: Array.isArray(data) ? data.length : 0,
   };
+}
+
+async function cleanupCommittedImportPreviewRows(
+  supabase: SupabaseClient,
+  jobId: string
+) {
+  const { error } = await supabase
+    .from('import_job_rows')
+    .delete()
+    .eq('import_job_id', jobId);
+
+  if (error) {
+    logger.error({
+      message: 'Failed to clean committed import preview rows',
+      jobId,
+      error,
+    });
+  }
 }
 
 async function processNotifyingJob(
