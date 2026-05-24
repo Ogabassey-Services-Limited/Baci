@@ -43,10 +43,30 @@ vi.mock('react-native', async () => {
     StyleSheet: {
       create: <T,>(styles: T) => styles,
     },
-    Text: ({ children }: { children?: React.ReactNode }) =>
-      React.createElement('span', null, children),
-    View: ({ children }: { children?: React.ReactNode }) =>
-      React.createElement('div', null, children),
+    Text: ({
+      children,
+      style,
+    }: {
+      children?: React.ReactNode;
+      style?: unknown;
+    }) =>
+      React.createElement(
+        'span',
+        { 'data-style': JSON.stringify(style) },
+        children
+      ),
+    View: ({
+      children,
+      style,
+    }: {
+      children?: React.ReactNode;
+      style?: unknown;
+    }) =>
+      React.createElement(
+        'div',
+        { 'data-style': JSON.stringify(style) },
+        children
+      ),
   };
 });
 
@@ -86,10 +106,12 @@ const colors = {
   error: '#dc2626',
   errorLight: '#fee2e2',
   primary: '#2563eb',
+  orange: '#ea580c',
   success: '#16a34a',
   successLight: '#dcfce7',
   text: '#111',
   textMuted: '#777',
+  textOnPrimary: '#fff',
   textSecondary: '#555',
   warning: '#ca8a04',
 };
@@ -102,12 +124,29 @@ async function invokeAlertButton(buttonText: string) {
   const button = buttons?.find((item) => item.text === buttonText);
 
   expect(button).toBeDefined();
-  await act(async () => {
+  await act(() => {
     button?.onPress?.();
   });
 }
 
 describe('JumiaChannelCard', () => {
+  it('applies dynamic theme tokens to its icon', () => {
+    mocks.useQuery.mockReturnValue({
+      data: { integrations: [] },
+      isError: false,
+      isFetching: false,
+      isLoading: false,
+    });
+    render(<JumiaChannelCard colors={colors} shadows={{ sm: {} }} />);
+    expect(screen.getByText('J')).toHaveAttribute(
+      'data-style',
+      expect.stringContaining(colors.textOnPrimary)
+    );
+    expect(screen.getByText('J').parentElement).toHaveAttribute(
+      'data-style',
+      expect.stringContaining(colors.orange)
+    );
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.apiClient.mockResolvedValue({ success: true });

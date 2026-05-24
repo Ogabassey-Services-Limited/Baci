@@ -37,6 +37,7 @@ export function useQuickAddProductMatches(customItem: CustomItemDraft) {
 
       return page.rows;
     },
+    staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
   const products = productsQuery.data ?? [];
@@ -52,6 +53,7 @@ export function useQuickAddProductMatches(customItem: CustomItemDraft) {
             id: string;
           },
         }),
+      staleTime: 1000 * 60 * 5, // 5 minutes
     })),
   });
 
