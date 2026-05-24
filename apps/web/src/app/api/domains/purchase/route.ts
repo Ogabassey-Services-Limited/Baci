@@ -202,7 +202,8 @@ export async function POST(request: NextRequest) {
           status: 'success',
           updated_at: new Date().toISOString(),
         })
-        .eq('id', transactionRecord.id);
+        .eq('id', transactionRecord.id)
+        .eq('merchant_id', merchantId);
 
       if (updateError) {
         console.error('Failed to update transaction status:', updateError);
@@ -264,7 +265,8 @@ export async function POST(request: NextRequest) {
       const { error: paymentMetadataError } = await supabase
         .from('transactions')
         .update({ metadata: updatedMetadata })
-        .eq('id', payment.id);
+        .eq('id', payment.id)
+        .eq('merchant_id', merchantId);
 
       if (paymentMetadataError) {
         console.error(
