@@ -31,12 +31,13 @@ function readLatestActionHealthRpcMigration() {
 }
 
 describe('agentic action health request provenance RPC contract', () => {
-  it('surfaces request route without exposing replay or idempotency secrets', () => {
+  it('surfaces request route and outcome without exposing replay or idempotency secrets', () => {
     const sql = readLatestActionHealthRpcMigration();
 
     expect(sql).toMatch(/'route',\s*records\.route/i);
+    expect(sql).toMatch(/'status_code',\s*records\.status_code/i);
     expect(sql).toMatch(
-      /SELECT\s+(?:agent_id,\s*)?api_version,\s*route,\s*created_at,\s*expires_at/i
+      /SELECT\s+(?:agent_id,\s*)?api_version,\s*route,\s*status_code,\s*created_at,\s*expires_at/i
     );
     expect(sql).not.toMatch(
       /\b(request_id|idempotency_key|request_hash|response_body)\b/i
