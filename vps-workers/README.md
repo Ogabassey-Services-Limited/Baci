@@ -94,6 +94,10 @@ BACI_REMEDIATION_VERIFY_COMMAND="pnpm turbo lint && pnpm turbo typecheck"
 BACI_REMEDIATION_NOTIFY_EMAILS=owner@example.com
 VERCEL_LOG_DRAIN_SECRET=...
 VERCEL_LOG_DRAIN_RECEIVER_PORT=8787
+IMPORT_JOB_RETENTION_DAYS=30
+ANALYTICS_LOW_VALUE_RETENTION="30 days"
+SUPABASE_CRON_LOG_RETENTION="14 days"
+SUPABASE_PG_NET_RETENTION="1 day"
 ```
 
 Do not commit this file or any `.env*` file to version control. Keep those
@@ -123,6 +127,10 @@ Variable purposes:
 - `BACI_REMEDIATION_NOTIFY_EMAILS`: Comma-separated report recipients. Requires `ZEPTOMAIL_TOKEN`; `ZEPTOMAIL_FROM_DOMAIN` defaults to `usebaci.com`.
 - `VERCEL_LOG_DRAIN_SECRET`: Shared secret used to verify Vercel Drain HMAC signatures before appending log events.
 - `VERCEL_LOG_DRAIN_RECEIVER_PORT`: Local receiver port proxied by nginx. Default is `8787`.
+- `IMPORT_JOB_RETENTION_DAYS`: Days to keep terminal import job previews and migration CSVs before cleanup. Default is `30`.
+- `ANALYTICS_LOW_VALUE_RETENTION`: Retention interval for raw `page_view` and `search` analytics events. Default is `30 days`.
+- `SUPABASE_CRON_LOG_RETENTION`: Retention interval for `cron.job_run_details`. Default is `14 days`.
+- `SUPABASE_PG_NET_RETENTION`: Retention interval for `net._http_response`. Default is `1 day`.
 
 ### Runtime Checks and Rotation
 

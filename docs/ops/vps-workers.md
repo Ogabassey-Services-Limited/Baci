@@ -55,6 +55,7 @@ Some cron work intentionally remains in the web app because it needs web-only ru
 
 - `/api/cron/cleanup-orders`, scheduled daily at 01:00.
 - `/api/ai-jobs/worker`, scheduled daily at 02:00.
+- `supabase-retention-cleanup`, scheduled daily at 03:20.
 - `/api/cron/process-settlements`, scheduled daily at 05:00.
 - `/api/cron/reconcile-vtu-processing`, scheduled every 5 minutes.
 - `/api/cron/wallet-payouts`, scheduled daily at 06:00.
@@ -87,6 +88,13 @@ reachable from the VPS at `OLLAMA_STOREFRONT_BASE_URL`. Keep
 metadata shows bounded duration, retry count, and validation errors.
 
 If a web cron wrapper fails, inspect the matching log first: `/home/bassey/baci-workers/logs/ai-jobs-worker.log`, `/home/bassey/baci-workers/logs/reconcile-vtu-processing.log`, `/home/bassey/baci-workers/logs/wallet-payouts.log`, `/home/bassey/baci-workers/logs/publish-scheduled-posts.log`, or `/home/bassey/baci-workers/logs/inventory-push-alerts.log`. A 401 almost always means the VPS `CRON_SECRET` does not match the web deployment.
+
+If Supabase storage or database usage starts rising unexpectedly, inspect
+`/home/bassey/baci-workers/logs/cleanup-import-uploads.log` and
+`/home/bassey/baci-workers/logs/supabase-retention-cleanup.log`. The import
+cleanup removes stale terminal import preview rows and migration CSVs after
+`IMPORT_JOB_RETENTION_DAYS` days, while the retention worker bounds low-value
+analytics events, `cron.job_run_details`, and `net._http_response`.
 
 If a repo-backed TypeScript runner reports that `tsx` is missing, the separate Baci checkout used to run the web script was likely installed with production-only dependencies. Run `pnpm install --frozen-lockfile` in that checkout, then rerun the affected `/home/bassey/baci-workers/bin/*.sh` script.
 
