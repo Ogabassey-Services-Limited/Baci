@@ -24,6 +24,10 @@ vi.mock('@/lib/agentic/agent-commerce-feed-health', async () => {
   };
 });
 
+vi.mock('@/lib/agentic/agent-commerce-support-chat-health', () => ({
+  checkAgentCommerceSupportChatHealth: vi.fn(),
+}));
+
 vi.mock('@/lib/logger', () => ({
   logger: {
     error: vi.fn(),
@@ -39,6 +43,7 @@ vi.mock('@/lib/supabase/admin', () => ({
 import { loadAgenticActionHealth } from '@/lib/agentic/action-health-loader';
 import { checkAgentCommerceFeedHealth } from '@/lib/agentic/agent-commerce-feed-health';
 import { checkAgentCommerceManifestHealth } from '@/lib/agentic/agent-commerce-manifest-health';
+import { checkAgentCommerceSupportChatHealth } from '@/lib/agentic/agent-commerce-support-chat-health';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { GET } from './route';
 
@@ -133,6 +138,13 @@ describe('GET /api/cron/agentic-commerce-health manifest monitoring', () => {
       shared_product_count: 2,
       stale_product_count: 0,
       status: 'ok',
+    });
+    vi.mocked(checkAgentCommerceSupportChatHealth).mockResolvedValue({
+      issue_count: 0,
+      issues: [],
+      response_time_ms: 120,
+      status: 'ok',
+      url: 'https://usebaci.com/api/chat',
     });
     vi.mocked(loadAgenticActionHealth).mockResolvedValue({
       actions: [

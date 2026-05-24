@@ -24,6 +24,10 @@ vi.mock('@/lib/agentic/agent-commerce-feed-health', async () => {
   };
 });
 
+vi.mock('@/lib/agentic/agent-commerce-support-chat-health', () => ({
+  checkAgentCommerceSupportChatHealth: vi.fn(),
+}));
+
 vi.mock('@/lib/logger', () => ({
   logger: {
     error: vi.fn(),
@@ -40,6 +44,7 @@ import { getCronSecret } from '@/env';
 import { loadAgenticActionHealth } from '@/lib/agentic/action-health-loader';
 import { checkAgentCommerceFeedHealth } from '@/lib/agentic/agent-commerce-feed-health';
 import { checkAgentCommerceManifestHealth } from '@/lib/agentic/agent-commerce-manifest-health';
+import { checkAgentCommerceSupportChatHealth } from '@/lib/agentic/agent-commerce-support-chat-health';
 import { logger } from '@/lib/logger';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { GET, maxDuration } from './route';
@@ -196,6 +201,13 @@ describe('GET /api/cron/agentic-commerce-health', () => {
       stale_product_count: 0,
       status: 'ok',
     });
+    vi.mocked(checkAgentCommerceSupportChatHealth).mockResolvedValue({
+      issue_count: 0,
+      issues: [],
+      response_time_ms: 120,
+      status: 'ok',
+      url: 'https://usebaci.com/api/chat',
+    });
     vi.mocked(loadAgenticActionHealth).mockResolvedValue({
       actions: [healthyAction],
       generated_at: '2026-05-22T03:00:00.000Z',
@@ -277,6 +289,12 @@ describe('GET /api/cron/agentic-commerce-health', () => {
         },
       ],
       status: 'ok',
+      support_chat: {
+        issue_count: 0,
+        response_time_ms: 120,
+        status: 'ok',
+        url: 'https://usebaci.com/api/chat',
+      },
     });
     expect(body.merchants[0].action_health.requests).not.toHaveProperty(
       'records'
@@ -300,12 +318,45 @@ describe('GET /api/cron/agentic-commerce-health', () => {
       merchantId: 'merchant-1',
       slug: 'ogabassey',
     });
+    expect(checkAgentCommerceSupportChatHealth).toHaveBeenCalledOnce();
     expect(supabase.__mocks.crawlerQuery.select).toHaveBeenCalledWith(
       'agent_family, bot_name, cache_outcome, crawled_at, host, response_time_ms, status_code, url_path, user_agent'
     );
     expect(supabase.__mocks.crawlerQuery.eq).toHaveBeenCalledWith(
       'merchant_id',
       'merchant-1'
+    );
+  });
+
+  it('reports support chat provider failure without failing commerce status', async () => {
+    vi.mocked(checkAgentCommerceSupportChatHealth).mockResolvedValue({
+      issue_count: 1,
+      issues: [
+        {
+          code: 'support_chat_static_fallback',
+          message:
+            'Support chat returned its static provider-failure fallback.',
+        },
+      ],
+      response_time_ms: 125,
+      status: 'attention',
+      url: 'https://usebaci.com/api/chat',
+    });
+
+    const response = await GET(createCronRequest());
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      status: 'ok',
+      support_chat: {
+        issue_count: 1,
+        status: 'attention',
+      },
+    });
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Support chat health monitor needs attention',
+      })
     );
   });
 
