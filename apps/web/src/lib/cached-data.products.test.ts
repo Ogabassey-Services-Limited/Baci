@@ -71,6 +71,9 @@ describe('cached-data product query projections', () => {
     error: { message: 'RPC failed', code: 'P0001' },
   };
   const standaloneCurrencyColumnPattern = /(?:^|[\s,])currency\s*(?:,|\n|$)/;
+  const standaloneQuantityColumnPattern = /(?:^|[\s,])quantity\s*(?:,|\n|$)/;
+  const standaloneTrackQuantityColumnPattern =
+    /(?:^|[\s,])track_quantity\s*(?:,|\n|$)/;
 
   it('getCachedProduct uses explicit column select without product_variants', async () => {
     harness.mockSingle.mockResolvedValueOnce(singleProductResult);
@@ -82,6 +85,10 @@ describe('cached-data product query projections', () => {
     const selectArg = String(harness.mockSelect.mock.calls.at(-1)?.[0]);
     expect(selectArg).not.toMatch(/\*\s*,/);
     expect(selectArg).not.toMatch(standaloneCurrencyColumnPattern);
+    expect(selectArg).not.toMatch(standaloneQuantityColumnPattern);
+    expect(selectArg).not.toMatch(standaloneTrackQuantityColumnPattern);
+    expect(selectArg).toContain('quantity:stock_quantity');
+    expect(selectArg).toContain('track_quantity:manage_stock');
     expect(selectArg).not.toContain('is_featured');
     expect(selectArg).toContain('canonical_url');
   });
@@ -151,6 +158,10 @@ describe('cached-data product query projections', () => {
     );
     const selectArg = String(harness.mockSelect.mock.calls.at(-1)?.[0]);
     expect(selectArg).not.toMatch(standaloneCurrencyColumnPattern);
+    expect(selectArg).not.toMatch(standaloneQuantityColumnPattern);
+    expect(selectArg).not.toMatch(standaloneTrackQuantityColumnPattern);
+    expect(selectArg).toContain('quantity:stock_quantity');
+    expect(selectArg).toContain('track_quantity:manage_stock');
     expect(selectArg).not.toContain('is_featured');
   });
 
