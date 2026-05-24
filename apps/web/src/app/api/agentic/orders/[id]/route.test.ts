@@ -1,20 +1,30 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { after, NextRequest, NextResponse } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { readAgenticQueryRequest } from '@/lib/agentic/mutation-request';
 import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 const {
+  mockAfter,
   mockReadAgenticQueryRequest,
   mockResolveAgenticMerchantContext,
   mockVerifyAgenticApiKey,
 } = vi.hoisted(() => ({
+  mockAfter: vi.fn(),
   mockReadAgenticQueryRequest: vi.fn(),
   mockResolveAgenticMerchantContext: vi.fn(),
   mockVerifyAgenticApiKey: vi.fn(() => true),
 }));
 
 vi.mock('server-only', () => ({}));
+vi.mock('next/server', async () => {
+  const actual =
+    await vi.importActual<typeof import('next/server')>('next/server');
+  return {
+    ...actual,
+    after: mockAfter,
+  };
+});
 vi.mock('@/lib/agentic/auth', () => ({
   verifyAgenticApiKey: mockVerifyAgenticApiKey,
 }));
@@ -35,6 +45,7 @@ vi.mock('@/lib/supabase/admin', () => ({ createAdminClient: vi.fn() }));
 
 const orderId = '11111111-1111-4111-8111-111111111111';
 const checkoutSessionId = 'agentic_session_1';
+const afterCallbacks: Array<() => void | Promise<void>> = [];
 
 const orderRow = {
   created_at: '2026-04-28T12:00:00.000Z',
@@ -79,16 +90,26 @@ function routeParams(id = orderId) {
   return { params: Promise.resolve({ id }) };
 }
 
+async function flushAfterCallbacks() {
+  for (const callback of afterCallbacks.splice(0)) {
+    await callback();
+  }
+}
+
 function mockOrderRead({
   checkoutSession = { session_id: checkoutSessionId },
   checkoutSessionError = null,
   data,
   error = null,
+  requestRecordError = null,
+  requestRecordPurgeError = null,
 }: {
   checkoutSession?: Record<string, unknown> | null;
   checkoutSessionError?: unknown;
   data: Record<string, unknown> | null;
   error?: unknown;
+  requestRecordError?: unknown;
+  requestRecordPurgeError?: unknown;
 }) {
   const orderChain = {
     eq: vi.fn(),
@@ -107,11 +128,25 @@ function mockOrderRead({
   const checkoutSessionSelect = vi.fn(
     (_projection: string) => checkoutSessionChain
   );
+  const requestRecordDeleteChain = {
+    eq: vi.fn(),
+    lt: vi.fn().mockResolvedValue({ error: requestRecordPurgeError }),
+  };
+  requestRecordDeleteChain.eq.mockReturnValue(requestRecordDeleteChain);
+  const requestRecordInsert = vi
+    .fn()
+    .mockResolvedValue({ error: requestRecordError });
   const scopedSupabase = {
     from: vi.fn((table: string) => {
       if (table === 'orders') return { select };
       if (table === 'checkout_sessions') {
         return { select: checkoutSessionSelect };
+      }
+      if (table === 'agentic_request_records') {
+        return {
+          delete: vi.fn(() => requestRecordDeleteChain),
+          insert: requestRecordInsert,
+        };
       }
       throw new Error(`Unexpected scoped table ${table}`);
     }),
@@ -123,6 +158,8 @@ function mockOrderRead({
     checkoutSessionChain,
     checkoutSessionSelect,
     orderChain,
+    requestRecordDeleteChain,
+    requestRecordInsert,
     scopedSupabase,
     select,
   };
@@ -131,6 +168,10 @@ function mockOrderRead({
 describe('GET /api/agentic/orders/[id]', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    afterCallbacks.length = 0;
+    mockAfter.mockImplementation((callback: () => void | Promise<void>) => {
+      afterCallbacks.push(callback);
+    });
     mockVerifyAgenticApiKey.mockReturnValue(true);
     mockResolveAgenticMerchantContext.mockResolvedValue({
       custom_domain: 'ogabassey.com',
@@ -138,6 +179,7 @@ describe('GET /api/agentic/orders/[id]', () => {
       slug: 'ogabassey',
     });
     mockReadAgenticQueryRequest.mockResolvedValue({
+      agentId: 'openai:chatgpt',
       apiVersion: '2026-04-30',
       body: {},
       idempotencyKey: '',
@@ -153,7 +195,13 @@ describe('GET /api/agentic/orders/[id]', () => {
   });
 
   it('returns public post-purchase order state for an agentic order', async () => {
-    const { orderChain, scopedSupabase, select } = mockOrderRead({
+    const {
+      orderChain,
+      requestRecordDeleteChain,
+      requestRecordInsert,
+      scopedSupabase,
+      select,
+    } = mockOrderRead({
       data: orderRow,
     });
 
@@ -205,6 +253,25 @@ describe('GET /api/agentic/orders/[id]', () => {
     );
     const projection = vi.mocked(select).mock.calls[0]?.[0] ?? '';
     expect(projection).not.toMatch(/(^|,\s*)status(\s*,|$)/);
+    expect(after).toHaveBeenCalledOnce();
+    expect(requestRecordInsert).not.toHaveBeenCalled();
+
+    await flushAfterCallbacks();
+
+    expect(requestRecordDeleteChain.eq).toHaveBeenCalledWith(
+      'merchant_id',
+      'merchant-1'
+    );
+    expect(requestRecordInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        agent_id: 'openai:chatgpt',
+        api_version: '2026-04-30',
+        merchant_id: 'merchant-1',
+        request_id: 'req_123',
+        route: 'orders.read',
+        status_code: 200,
+      })
+    );
   });
 
   it('returns 401 when API key verification fails', async () => {
@@ -378,7 +445,7 @@ describe('GET /api/agentic/orders/[id]', () => {
   });
 
   it('returns 500 when the scoped order query fails', async () => {
-    mockOrderRead({
+    const { requestRecordInsert } = mockOrderRead({
       data: null,
       error: { message: 'db unavailable' },
     });
@@ -400,6 +467,32 @@ describe('GET /api/agentic/orders/[id]', () => {
         status: 'error',
       },
     });
+    await flushAfterCallbacks();
+
+    expect(requestRecordInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        route: 'orders.read',
+        status_code: 500,
+      })
+    );
+  });
+
+  it('does not replace a successful order read when outcome recording fails', async () => {
+    mockOrderRead({
+      data: orderRow,
+      requestRecordError: { message: 'audit unavailable' },
+      requestRecordPurgeError: { message: 'purge unavailable' },
+    });
+
+    const { GET } = await import('./route');
+    const response = await GET(request(), routeParams());
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      id: orderId,
+      order_number: 'BACI-2026-0001',
+    });
+    await expect(flushAfterCallbacks()).resolves.toBeUndefined();
   });
 
   it('returns a schema-safe checkout id fallback when checkout linkage is absent', async () => {
