@@ -1,3 +1,4 @@
+import { flattenKudaDataPlanBillItems } from '@baci/shared/lib';
 import {
   type Biller,
   type BillItem,
@@ -54,20 +55,9 @@ function formatNaira(amount: number) {
   }).format(amount);
 }
 
-function collectLeafBillItems(items: BillItem[] | undefined): BillItem[] {
-  if (!items?.length) {
-    return [];
-  }
-
-  return items.flatMap((item) => {
-    const nested = collectLeafBillItems(item.billItems);
-    return nested.length > 0 ? nested : [item];
-  });
-}
-
 function collectDataPlanCandidates(providers: Biller[]): DataPlanCandidate[] {
   return providers.flatMap((provider) =>
-    collectLeafBillItems(provider.billItems).map((item) => ({
+    flattenKudaDataPlanBillItems<BillItem>(provider.billItems).map((item) => ({
       item,
       provider,
     }))
@@ -152,7 +142,7 @@ function mapUnverifiedDataPlan({
 }
 
 function hasLeafBillItems(provider: Biller) {
-  return collectLeafBillItems(provider.billItems).length > 0;
+  return flattenKudaDataPlanBillItems<BillItem>(provider.billItems).length > 0;
 }
 
 export async function resolveKudaDataPlanForPurchase({

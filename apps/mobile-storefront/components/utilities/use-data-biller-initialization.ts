@@ -1,5 +1,5 @@
 import { type Dispatch, type SetStateAction, useEffect, useRef } from 'react';
-import type { Biller } from '@/hooks/use-vtu-billers';
+import type { Biller, BillItem } from '@/hooks/use-vtu-billers';
 import { inferProviderFromDataBillerName } from './data-form.helpers';
 import { findDataPlanByCode } from './data-plan-selection';
 
@@ -35,13 +35,16 @@ export function useDataBillerInitialization({
       return;
     }
 
-    const matchedNestedPlan =
-      dataPlans.find((plan) =>
-        Boolean(findDataPlanByCode(plan.billItems, initialPlan))
-      ) ?? null;
-    const matchedNestedBillItem = matchedNestedPlan
-      ? findDataPlanByCode(matchedNestedPlan.billItems, initialPlan)
-      : null;
+    let matchedNestedBillItem: BillItem | null = null;
+    let matchedNestedPlan: Biller | null = null;
+    for (const plan of dataPlans) {
+      const billItem = findDataPlanByCode(plan.billItems, initialPlan);
+      if (billItem) {
+        matchedNestedBillItem = billItem;
+        matchedNestedPlan = plan;
+        break;
+      }
+    }
     const matchedPlan =
       matchedNestedPlan ??
       dataPlans.find((plan) => plan.billerId === initialPlan) ??
