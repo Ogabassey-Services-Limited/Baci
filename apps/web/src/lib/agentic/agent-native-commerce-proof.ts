@@ -151,6 +151,8 @@ export function buildAgentNativeCommerceProof({
       stages,
       action: {
         capabilities: manifest.capabilities,
+        optional_identity_headers:
+          manifest.auth?.request_signing?.optional_identity_headers ?? [],
         payment_methods: manifest.payment_methods,
         signed_requests: hasSignedAuth,
       },

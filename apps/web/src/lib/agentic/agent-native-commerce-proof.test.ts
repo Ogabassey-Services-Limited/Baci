@@ -134,6 +134,7 @@ describe('buildAgentNativeCommerceProof', () => {
       proof: {
         status: 'pass',
         action: {
+          optional_identity_headers: ['agent-id'],
           payment_methods: ['paystack_bank_transfer'],
           signed_requests: true,
         },
@@ -161,6 +162,30 @@ describe('buildAgentNativeCommerceProof', () => {
       'recoverable',
       'manageable',
     ]);
+  });
+
+  it('defaults optional identity headers to an empty array when auth is absent', () => {
+    const proof = buildAgentNativeCommerceProof({
+      baseUrl,
+      manifest: manifest({ auth: null }),
+      trustReadiness: trustReadiness(),
+    });
+
+    expect(proof.proof.action.optional_identity_headers).toEqual([]);
+  });
+
+  it('defaults optional identity headers to an empty array when request signing is absent', () => {
+    const authWithoutRequestSigning = {
+      ...manifest().auth,
+      request_signing: undefined,
+    } as unknown as AgentCommerceManifest['auth'];
+    const proof = buildAgentNativeCommerceProof({
+      baseUrl,
+      manifest: manifest({ auth: authWithoutRequestSigning }),
+      trustReadiness: trustReadiness(),
+    });
+
+    expect(proof.proof.action.optional_identity_headers).toEqual([]);
   });
 
   it('warns when checkout cannot yet create a signed purchase flow', () => {
