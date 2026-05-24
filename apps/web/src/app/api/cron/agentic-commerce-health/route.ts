@@ -2,6 +2,10 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { type NextRequest, NextResponse } from 'next/server';
 import { getCronSecret } from '@/env';
 import { loadAgenticActionHealth } from '@/lib/agentic/action-health-loader';
+import {
+  type AgenticActionHealthSummary,
+  summarizeAgenticActionHealth,
+} from '@/lib/agentic/action-health-summary';
 import type { AgentCommerceFeedHealthResult } from '@/lib/agentic/agent-commerce-feed-health';
 import {
   buildAgentCommerceFeedHealthActions,
@@ -9,10 +13,14 @@ import {
   getAgentCommerceFeedStatusReason,
 } from '@/lib/agentic/agent-commerce-feed-health';
 import {
+  type AgentCommerceCrawlerHealthResult,
   type AgenticCommerceHealthActionSummary,
   type AgenticCommerceHealthStatus,
+  buildAgentCommerceCrawlerHealthActions,
   buildAgentCommerceManifestHealthActions,
+  checkAgentCommerceCrawlerHealth,
   fetchPrimaryAgenticMerchantDomains,
+  getAgentCommerceCrawlerStatusReason,
   getAgentCommerceManifestStatusReason,
   getAgenticCommerceHealthStatus,
   summarizeAgenticCommerceHealthActions,
@@ -42,7 +50,9 @@ interface MonitoredMerchantRow {
 
 interface AgenticCommerceHealthMerchantResult {
   actions: AgenticCommerceHealthActionSummary[];
+  action_health?: AgenticActionHealthSummary;
   business_name?: string;
+  crawler?: AgentCommerceCrawlerHealthResult;
   feeds?: AgentCommerceFeedHealthResult;
   manifest?: AgentCommerceManifestHealthResult;
   merchant_id?: string;
@@ -159,7 +169,7 @@ async function buildMerchantHealthResult({
   }
 
   try {
-    const [health, manifest, feeds] = await Promise.all([
+    const [health, manifest, feeds, crawler] = await Promise.all([
       loadAgenticActionHealth(supabase, merchant.id, {
         recordsSource: 'admin_direct',
       }),
@@ -171,28 +181,36 @@ async function buildMerchantHealthResult({
         merchantId: merchant.id,
         slug,
       }),
+      checkAgentCommerceCrawlerHealth(supabase, merchant.id),
     ]);
     const manifestActions = buildAgentCommerceManifestHealthActions(manifest);
     const feedActions = buildAgentCommerceFeedHealthActions(feeds);
+    const crawlerActions = buildAgentCommerceCrawlerHealthActions(crawler);
     const mergedActions = [
       ...health.actions,
       ...manifestActions,
       ...feedActions,
+      ...crawlerActions,
     ];
     const status = getAgenticCommerceHealthStatus(mergedActions);
     return {
       actions: summarizeAgenticCommerceHealthActions(mergedActions),
+      action_health: summarizeAgenticActionHealth(health),
       business_name: merchant.business_name ?? undefined,
+      crawler,
       feeds,
       manifest,
       merchant_id: merchant.id,
       slug,
       status,
-      status_reason: getAgentCommerceFeedStatusReason(
-        feeds,
-        getAgentCommerceManifestStatusReason(
-          manifest,
-          `agentic_action_health_${status}`
+      status_reason: getAgentCommerceCrawlerStatusReason(
+        crawler,
+        getAgentCommerceFeedStatusReason(
+          feeds,
+          getAgentCommerceManifestStatusReason(
+            manifest,
+            `agentic_action_health_${status}`
+          )
         )
       ),
     };
