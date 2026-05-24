@@ -2,7 +2,6 @@ import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { StaffAcceptFallback } from '@/app/(platform)/staff/accept/staff-accept-fallback';
 import { createClient } from '@/lib/supabase/server';
-import { staffAcceptSchema } from '@/schemas/staff-accept';
 import ErrorPage from './ErrorPage';
 import InvitePage from './InvitePage';
 
@@ -27,12 +26,12 @@ export async function StaffAcceptPageContent({
   const coercedToken = Array.isArray(rawToken) ? rawToken[0] : rawToken;
   const token = coercedToken?.trim() || undefined;
 
-  const result = staffAcceptSchema.safeParse({ token });
-  if (!result.success) {
+  // No token provided
+  if (!token) {
     return (
       <ErrorPage
         title="Invalid Link"
-        message={result.error.issues[0].message}
+        message="No invitation token was provided. Please check your email for the correct link."
       />
     );
   }
@@ -43,7 +42,7 @@ export async function StaffAcceptPageContent({
   // Validate invitation token atomically using preview RPC under RLS
   const { data: previewRows, error: previewError } = await supabase.rpc(
     'get_staff_invite_preview',
-    { p_token: result.data.token }
+    { p_token: token }
   );
 
   const invitation =
@@ -94,7 +93,7 @@ export async function StaffAcceptPageContent({
         merchantName={merchantName}
         role={invitation.role}
         inviteEmail={invitation.email}
-        token={result.data.token}
+        token={token}
       />
     );
   }
@@ -107,14 +106,14 @@ export async function StaffAcceptPageContent({
         message={`This invitation was sent to ${invitation.email}. Please sign in with that email address.`}
         showLoginLink
         currentEmail={user.email}
-        loginRedirect={`/staff/accept?token=${result.data.token}`}
+        loginRedirect={`/staff/accept?token=${token}`}
       />
     );
   }
 
   // Auto-accept the invitation atomically inside the database under RLS using the secure RPC
   const { error: acceptError } = await supabase.rpc('accept_staff_invite', {
-    p_token: result.data.token,
+    p_token: token,
     p_email: user.email,
   });
 

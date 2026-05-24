@@ -198,11 +198,3 @@ knip-results.json
 /CLAUDE.md
 /CLAUDE.md.bak
 # END Ruler Generated Files
-
-# Additional Custom Ignores for Vercel CLI
-.worktrees/
-samsung_jumia_v2/
-samsung_deploy_stage/
-vps-workers/
-orphaned_images_sample/
-

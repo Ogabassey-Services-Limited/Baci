@@ -1,15 +1,9 @@
 import { render, screen } from '@testing-library/react';
-import type { ComponentProps, ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import InvitePage from './InvitePage';
 
-interface MockLinkProps extends ComponentProps<'a'> {
-  children: ReactNode;
-  href: string;
-}
-
 vi.mock('next/link', () => ({
-  default: ({ children, href, ...props }: MockLinkProps) => (
+  default: ({ children, href, ...props }: any) => (
     <a href={href} {...props}>
       {children}
     </a>

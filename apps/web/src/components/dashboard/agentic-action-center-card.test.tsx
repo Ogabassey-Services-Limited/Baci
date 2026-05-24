@@ -68,8 +68,7 @@ describe('AgenticActionCenterCard', () => {
     expect(
       screen.getByText('Review affected checkout activity before agents retry.')
     ).toBeInTheDocument();
-    expect(screen.getByText('Checkout session health')).toBeInTheDocument();
-    expect(screen.getByText('1 recent session')).toBeInTheDocument();
+    expect(screen.getByText('Recent activity')).toBeInTheDocument();
     expect(screen.getByText('session-2')).toBeInTheDocument();
     expect(screen.getByText('moved to Order Finalizing.')).toBeInTheDocument();
     expect(screen.getByText('2 open')).toBeInTheDocument();
@@ -318,13 +317,11 @@ describe('AgenticActionCenterCard', () => {
                 api_version: '2026-04-30',
                 created_at: '2026-05-12T22:40:00.000Z',
                 expires_at: '2026-05-12T22:50:00.000Z',
-                route: 'checkout_sessions.create',
               },
               {
                 api_version: null,
                 created_at: '2026-05-12T22:41:00.000Z',
                 expires_at: '2026-05-12T22:51:00.000Z',
-                route: null,
               },
             ],
           },
@@ -340,7 +337,6 @@ describe('AgenticActionCenterCard', () => {
     expect(screen.getByText('Recent signed requests')).toBeInTheDocument();
     expect(screen.getByText('2 recent requests')).toBeInTheDocument();
     expect(screen.getByText('API 2026-04-30')).toBeInTheDocument();
-    expect(screen.getByText('checkout sessions create')).toBeInTheDocument();
     expect(screen.getByText('API unknown')).toBeInTheDocument();
   });
 

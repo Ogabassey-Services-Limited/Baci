@@ -48,7 +48,6 @@ describe('reserveAgenticRequestId', () => {
       idempotencyKey: 'idem-1',
       merchantId: 'merchant-1',
       requestId: 'req_123',
-      route: 'checkout_sessions.create',
       supabase: mock.supabase as never,
       now: new Date('2026-04-30T12:00:00.000Z'),
     });
@@ -67,7 +66,6 @@ describe('reserveAgenticRequestId', () => {
         idempotency_key: 'idem-1',
         merchant_id: 'merchant-1',
         request_id: 'req_123',
-        route: 'checkout_sessions.create',
       })
     );
   });
@@ -81,7 +79,6 @@ describe('reserveAgenticRequestId', () => {
       apiVersion: '2026-04-30',
       merchantId: 'merchant-1',
       requestId: 'req_123',
-      route: 'checkout_sessions.create',
       supabase: mock.supabase as never,
     });
 
@@ -100,7 +97,6 @@ describe('reserveAgenticRequestId', () => {
       apiVersion: '2026-04-30',
       merchantId: 'merchant-1',
       requestId: 'req_123',
-      route: 'checkout_sessions.create',
       supabase: mock.supabase as never,
     });
 

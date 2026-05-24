@@ -275,7 +275,6 @@ export async function loadAgenticActionHealth(
         api_version: row.api_version,
         created_at: row.created_at,
         expires_at: row.expires_at,
-        route: row.route,
       })),
     },
   });

@@ -22,7 +22,6 @@ export async function reserveAgenticRequestId({
   merchantId,
   now = new Date(),
   requestId,
-  route,
   supabase,
 }: {
   apiVersion: string;
@@ -30,7 +29,6 @@ export async function reserveAgenticRequestId({
   merchantId: string;
   now?: Date;
   requestId: string;
-  route: string;
   supabase: SupabaseClient;
 }): Promise<RequestReplayResult> {
   const { error: purgeError } = await supabase
@@ -58,7 +56,6 @@ export async function reserveAgenticRequestId({
       idempotency_key: idempotencyKey ?? null,
       merchant_id: merchantId,
       request_id: requestId,
-      route,
     })
     .select('id')
     .maybeSingle();

@@ -21,31 +21,6 @@ describe('verifyAgenticApiKey', () => {
     );
   });
 
-  it('accepts the previous Bearer token during API key rotation', () => {
-    vi.stubEnv('OPENAI_AGENTIC_API_KEY_PREVIOUS', 'previous-secret-key');
-
-    expect(verifyAgenticApiKey(makeRequest('Bearer previous-secret-key'))).toBe(
-      true
-    );
-  });
-
-  it('ignores blank previous API key values', () => {
-    vi.stubEnv('OPENAI_AGENTIC_API_KEY_PREVIOUS', '   ');
-
-    expect(verifyAgenticApiKey(makeRequest('Bearer previous-secret-key'))).toBe(
-      false
-    );
-  });
-
-  it('rejects the previous Bearer token when the current token is unset', () => {
-    vi.stubEnv('OPENAI_AGENTIC_API_KEY', '');
-    vi.stubEnv('OPENAI_AGENTIC_API_KEY_PREVIOUS', 'previous-secret-key');
-
-    expect(verifyAgenticApiKey(makeRequest('Bearer previous-secret-key'))).toBe(
-      false
-    );
-  });
-
   it('trims the configured API key before comparing tokens', () => {
     vi.stubEnv('OPENAI_AGENTIC_API_KEY', '  test-secret-key  ');
 

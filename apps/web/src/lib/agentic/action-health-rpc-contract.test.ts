@@ -8,26 +8,20 @@ const migrationsDirectory = resolve(
   currentDirectory,
   '../../../../../supabase/migrations'
 );
-const migrationFilePattern = /^\d{14}_.+\.sql$/;
-const actionHealthRpcDefinitionPattern =
-  /CREATE\s+OR\s+REPLACE\s+FUNCTION\s+public\.get_agentic_action_health_records\s*\(/i;
+const actionHealthRpcPattern =
+  /^\d{14}_agentic_action_health_dashboard_rpc\.sql$/;
 
 function readActionHealthRpcMigration() {
   const migration = readdirSync(migrationsDirectory)
-    .filter((file) => migrationFilePattern.test(file))
-    .map((file) => ({
-      file,
-      sql: readFileSync(resolve(migrationsDirectory, file), 'utf8'),
-    }))
-    .filter(({ sql }) => actionHealthRpcDefinitionPattern.test(sql))
-    .sort((a, b) => a.file.localeCompare(b.file))
+    .filter((file) => actionHealthRpcPattern.test(file))
+    .sort()
     .at(-1);
 
   if (!migration) {
     throw new Error('No agentic action health RPC migration found');
   }
 
-  return migration.sql;
+  return readFileSync(resolve(migrationsDirectory, migration), 'utf8');
 }
 
 describe('agentic action health RPC migration', () => {

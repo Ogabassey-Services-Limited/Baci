@@ -8,7 +8,6 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useShallow } from 'zustand/react/shallow';
 import coinsImage from '@/assets/quiz/png/Coins.png';
 import { useTheme } from '@/hooks/useTheme';
 import { createLogger } from '@/lib/logger';
@@ -19,6 +18,7 @@ import {
   submitQuizAnswer,
 } from '@/services/quiz';
 import { useQuizStore } from '@/stores/quiz-store';
+import { useShallow } from 'zustand/react/shallow';
 import { createQuizStyles } from './QuizScreen.styles';
 import {
   formatPointCount,
@@ -61,6 +61,8 @@ export function QuizScreen({
     useShallow((state) => ({
       status: state.status,
       events: state.events,
+      currentEvent: state.currentEvent,
+      currentQuestionIndex: state.currentQuestionIndex,
       attempt: state.attempt,
       attemptIntegrityTier: state.attemptIntegrityTier,
       selectedOptionId: state.selectedOptionId,
@@ -208,22 +210,15 @@ export function QuizScreen({
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={`${getEventStartButtonText(event.status, status === 'starting', EXAM_PASS_POINTS_COST)} ${event.title}`}
-                accessibilityState={{
-                  disabled: status === 'starting' || event.status !== 'open',
-                }}
+                accessibilityState={{ disabled: status === 'starting' || event.status !== 'open' }}
                 disabled={status === 'starting' || event.status !== 'open'}
                 onPress={() => {
-                  if (status !== 'starting' && event.status === 'open')
-                    void handleStart(event.id);
+                  if (status !== 'starting' && event.status === 'open') void handleStart(event.id);
                 }}
                 style={styles.primaryButton}
               >
                 <Text style={styles.primaryButtonText}>
-                  {getEventStartButtonText(
-                    event.status,
-                    status === 'starting',
-                    EXAM_PASS_POINTS_COST
-                  )}
+                  {getEventStartButtonText(event.status, status === 'starting', EXAM_PASS_POINTS_COST)}
                 </Text>
               </Pressable>
             </View>

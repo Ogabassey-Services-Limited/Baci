@@ -164,7 +164,6 @@ export async function handleAgenticCheckoutSessionUpdate(
       idempotencyKey: mutation.idempotencyKey,
       merchantId: merchant.id,
       requestId: mutation.requestId,
-      route: UPDATE_IDEMPOTENCY_ROUTE,
       supabase,
     });
     if (!replayReservation.ok) {

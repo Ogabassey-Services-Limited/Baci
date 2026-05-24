@@ -15,11 +15,6 @@ function formatRequestTimestamp(value: string): string {
   return agenticActionCenterCardHelpers.formatGeneratedAt(value) ?? value;
 }
 
-function formatRequestRoute(route: string | null): string {
-  const normalized = route?.trim().replace(/[._-]+/g, ' ');
-  return normalized || 'route unknown';
-}
-
 export function AgenticRecentSignedRequestsCard({
   recentRequestCount,
   recentRequestRecords,
@@ -28,7 +23,7 @@ export function AgenticRecentSignedRequestsCard({
   const recentRequestRows = recentRequestRecords.map((record) => {
     const baseKey = `${record.created_at}-${record.expires_at}-${
       record.api_version ?? 'unknown'
-    }-${record.route ?? 'unknown'}`;
+    }`;
     const previousCount = recentRequestKeyCounts.get(baseKey) ?? 0;
     recentRequestKeyCounts.set(baseKey, previousCount + 1);
 
@@ -58,8 +53,7 @@ export function AgenticRecentSignedRequestsCard({
               <span className="font-medium text-foreground">
                 {formatRequestApiVersion(record.api_version)}
               </span>{' '}
-              <span>{formatRequestRoute(record.route)}</span> signed at{' '}
-              {formatRequestTimestamp(record.created_at)}.
+              signed at {formatRequestTimestamp(record.created_at)}.
             </li>
           ))}
         </ul>

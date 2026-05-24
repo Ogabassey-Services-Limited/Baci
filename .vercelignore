@@ -25,18 +25,3 @@ full_migration_backup.zip
 **/website designs
 **/*.eps
 
-# Additional custom ignores for Baci monorepo
-**/.worktrees
-**/.worktrees/**
-vps-workers
-vps-workers/**
-orphaned_images_sample
-orphaned_images_sample/**
-samsung_jumia_v2
-samsung_jumia_v2/**
-samsung_deploy_stage
-samsung_deploy_stage/**
-samsung_downloaded_images
-samsung_downloaded_images/**
-scratch
-scratch/**
