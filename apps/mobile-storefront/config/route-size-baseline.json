@@ -18,7 +18,7 @@
     },
     {
       "path": "app/track-order/index.tsx",
-      "lineCount": 1042,
+      "lineCount": 903,
       "justification": "Existing oversized tracking route baseline; shrink or remove this entry as the route is modularized."
     },
     {
