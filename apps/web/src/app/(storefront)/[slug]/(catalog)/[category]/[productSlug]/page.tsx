@@ -771,7 +771,11 @@ function OgabasseyPdpProductImagePreloadWrapper({
   merchant,
   primaryProductImage,
 }: OgabasseyPdpProductImagePreloadWrapperProps) {
-  if (merchant && merchant.template_id === OGABASSEY_TEMPLATE_ID && primaryProductImage) {
+  if (
+    merchant &&
+    merchant.template_id === OGABASSEY_TEMPLATE_ID &&
+    primaryProductImage
+  ) {
     try {
       preloadOgabasseyPdpProductImage({ src: primaryProductImage });
     } catch (error) {
