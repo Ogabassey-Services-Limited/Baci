@@ -3,7 +3,7 @@
 import { ChevronDown, ChevronRight, ChevronUp, Loader2, ShoppingBag } from 'lucide-react';
 import Image from 'next/image';
 import type React from 'react';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import type { CartItem } from '@/hooks/cart';
 
 // --- Types ---
@@ -46,12 +46,16 @@ export const MobileOrderSummary: React.FC<MobileOrderSummaryProps> = ({
     remainingAmount,
 }) => {
     const [isExpanded, setIsExpanded] = useState(false);
+    const orderSummaryId = useId();
 
     return (
         <div className="lg:hidden bg-gray-50 border-b border-gray-200">
             <div className="max-w-[1400px] mx-auto px-4">
                 {/* Toggle Header */}
                 <button
+                    type="button"
+                    aria-expanded={isExpanded}
+                    aria-controls={orderSummaryId}
                     onClick={() => setIsExpanded(!isExpanded)}
                     className="w-full py-4 flex items-center justify-between text-sm"
                 >
@@ -67,7 +71,9 @@ export const MobileOrderSummary: React.FC<MobileOrderSummaryProps> = ({
 
                 {/* Collapsible Content */}
                 <div
-                    className={`overflow-hidden transition-all duration-300 ease-in-out ${isExpanded ? 'max-h-[80vh] opacity-100 pb-6' : 'max-h-0 opacity-0'
+                    id={orderSummaryId}
+                    aria-hidden={!isExpanded}
+                    className={`overflow-hidden transition-all duration-300 ease-in-out ${isExpanded ? 'visible max-h-[80vh] opacity-100 pb-6' : 'invisible max-h-0 opacity-0'
                         }`}
                 >
                     {/* Items List */}

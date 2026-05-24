@@ -50,9 +50,9 @@ export default function SalesChannelsScreen() {
           >
             <View style={styles.channelHeader}>
               <View
-                style={[styles.iconContainer, { backgroundColor: '#3366FF' }]}
+                style={[styles.iconContainer, { backgroundColor: colors.primary }]}
               >
-                <Text style={styles.iconText}>K</Text>
+                <Text style={[styles.iconText, { color: colors.textOnPrimary }]}>K</Text>
               </View>
               <View style={styles.channelInfo}>
                 <Text style={[styles.channelTitle, { color: colors.text }]}>
@@ -75,9 +75,9 @@ export default function SalesChannelsScreen() {
           >
             <View style={styles.channelHeader}>
               <View
-                style={[styles.iconContainer, { backgroundColor: '#000000' }]}
+                style={[styles.iconContainer, { backgroundColor: colors.text }]}
               >
-                <Ionicons name="logo-amazon" size={20} color="#FFF" />
+                <Ionicons name="logo-amazon" size={20} color={colors.background} />
               </View>
               <View style={styles.channelInfo}>
                 <Text style={[styles.channelTitle, { color: colors.text }]}>
@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
     marginRight: SPACING.md,
   },
   iconText: {
-    color: '#FFF',
+
     fontSize: 20,
     fontWeight: 'bold',
   },

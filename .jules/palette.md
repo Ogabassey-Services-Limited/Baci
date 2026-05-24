@@ -26,3 +26,27 @@
 ## 2026-05-21 - Add aria-expanded to toggle buttons
 **Learning:** Toggle buttons (like 'Show more/less') modifying the visual state of content require `aria-expanded` to accurately inform screen readers of their current state.
 **Action:** Always bind `aria-expanded={state}` to any button functioning as an accordion or toggle switch.
+
+## 2026-05-23 - Add aria-pressed to toggle buttons
+**Learning:** Toggle buttons (like favorite hearts, color swatches) that modify a boolean state without expanding/collapsing content require `aria-pressed` to accurately inform screen readers of their toggled state.
+**Action:** Always bind `aria-pressed={state}` to any button functioning as a two-state toggle switch that does not expand content.
+
+## 2026-05-23 - Add aria-controls to aria-expanded toggles
+**Learning:** Elements using `aria-expanded` should ideally be paired with `aria-controls` pointing to the ID of the expanded/collapsed container for complete screen reader support.
+**Action:** Always add `aria-controls="id-of-container"` to toggle buttons and ensure the corresponding dropdown containers have matching `id` attributes.
+
+## 2026-05-23 - Suboptimal ARIA label on color swatches
+**Learning:** Using `aria-label={"Select color " + colorName}` alongside `aria-pressed` is redundant because `aria-pressed` already conveys the stateful nature of the button.
+**Action:** Use cleaner labels like `aria-label={colorName}` when using `aria-pressed`.
+
+## 2026-05-23 - Conditionally apply aria-controls for unmounted elements
+**Learning:** If the target of an `aria-controls` attribute is conditionally unmounted (e.g., `return null` when closed instead of hidden via CSS), having a static `aria-controls="id"` on the toggle button will point to a non-existent DOM element, causing an accessibility violation.
+**Action:** When the controlled element is conditionally unmounted, conditionally apply the attribute: `aria-controls={isOpen ? "id-of-container" : undefined}`.
+
+## 2026-05-22 - Storefront disclosure toggles need explicit state
+**Learning:** In the web storefront, custom toggle buttons (like those for filters or expanding order summaries) often miss the `aria-expanded` attribute, causing assistive technologies to remain unaware of the collapsible content's state.
+**Action:** Always ensure that custom disclosure widgets or toggle buttons explicitly implement `aria-expanded={booleanState}` to accurately reflect their expanded or collapsed status to screen readers.
+
+## 2025-05-24 - Interactive Accessibility for Toggle Buttons
+**Learning:** When using generic components like `Pressable` as toggle buttons (e.g. for compare, favoriting) they require explicitly defined `accessibilityRole="button"`, `accessibilityLabel` that explains the action based on current state, `accessibilityState={{ checked: booleanState }}` to announce its toggled state, and `accessibilityHint` for context. Missing these leaves screen readers with just a silent clickable area.
+**Action:** Always provide the full suite of ARIA/accessibility props (role, label, state, hint) alongside interactive visual feedback (opacity) to any `Pressable` modifying selection state.

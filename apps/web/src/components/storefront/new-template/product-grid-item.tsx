@@ -39,6 +39,9 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
   const [activeColorIndex, setActiveColorIndex] = useState(0);
   const [isImageLoaded, setIsImageLoaded] = useState(false);
   const iconSize = 18;
+  const visibleColors = product.colors?.slice(0, 4) ?? [];
+  const selectedSwatchIndex =
+    activeColorIndex < visibleColors.length ? activeColorIndex : 0;
 
   // Determine current image
   const currentImage = product.images?.[activeColorIndex] || product.image;
@@ -72,6 +75,34 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
     setActiveColorIndex(index);
   };
 
+  const handleColorKeyDown = (
+    e: React.KeyboardEvent<HTMLButtonElement>,
+    index: number
+  ) => {
+    if (visibleColors.length === 0) return;
+
+    const keyToIndex: Partial<Record<string, number>> = {
+      ArrowDown: (index + 1) % visibleColors.length,
+      ArrowRight: (index + 1) % visibleColors.length,
+      ArrowUp: index === 0 ? visibleColors.length - 1 : index - 1,
+      ArrowLeft: index === 0 ? visibleColors.length - 1 : index - 1,
+      Home: 0,
+      End: visibleColors.length - 1,
+    };
+    const nextIndex = keyToIndex[e.key];
+
+    if (nextIndex === undefined) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+    setActiveColorIndex(nextIndex);
+
+    const radioButtons = e.currentTarget
+      .closest('[role="radiogroup"]')
+      ?.querySelectorAll<HTMLButtonElement>('[role="radio"]');
+    radioButtons?.[nextIndex]?.focus();
+  };
+
   return (
     <div className="bg-white border border-gray-100 rounded-2xl p-3 md:p-4 shadow-sm md:hover:shadow-xl active:shadow-md active:scale-[0.99] transition-all duration-300 group flex flex-col h-full relative">
       <Link
@@ -86,6 +117,7 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
         {product.colors && product.colors.length > 1 && (
           <>
             <button
+              type="button"
               onClick={handlePrevColor}
               className="absolute -left-2 md:left-2 top-1/2 -translate-y-1/2 z-30 p-2 md:p-1.5 bg-transparent md:bg-white/40 md:backdrop-blur-md border-0 md:border md:border-white/50 rounded-full shadow-none md:shadow-sm text-gray-500 md:text-gray-700 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all duration-200 md:hover:bg-white/60 hover:text-gray-900 pointer-events-auto active:scale-95 touch-manipulation"
               aria-label="Previous color"
@@ -93,6 +125,7 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
               <ChevronLeft size={24} className="md:w-[18px] md:h-[18px]" />
             </button>
             <button
+              type="button"
               onClick={handleNextColor}
               className="absolute -right-2 md:right-2 top-1/2 -translate-y-1/2 z-30 p-2 md:p-1.5 bg-transparent md:bg-white/40 md:backdrop-blur-md border-0 md:border md:border-white/50 rounded-full shadow-none md:shadow-sm text-gray-500 md:text-gray-700 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all duration-200 md:hover:bg-white/60 hover:text-gray-900 pointer-events-auto active:scale-95 touch-manipulation"
               aria-label="Next color"
@@ -137,8 +170,12 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
 
         {/* Colors Swatches - Bottom Middle - INTERACTIVE */}
         {product.colors && product.colors.length > 0 && (
-          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center -space-x-1.5 z-20 pointer-events-auto">
-            {product.colors.slice(0, 4).map((color, idx) => {
+          <div
+            className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center -space-x-1.5 z-20 pointer-events-auto"
+            role="radiogroup"
+            aria-label={`${product.name} colors`}
+          >
+            {visibleColors.map((color, idx) => {
               const colorValue =
                 typeof color === 'string' ? color : color.value;
               const colorName = typeof color === 'string' ? color : color.name;
@@ -148,8 +185,10 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
               const isSelected = idx === activeColorIndex;
               return (
                 <button
+                  type="button"
                   key={idx}
                   onClick={(e) => handleColorSelect(e, idx)}
+                  onKeyDown={(e) => handleColorKeyDown(e, idx)}
                   className={`rounded-full border border-white shadow-sm transition-all duration-300 ease-out ${
                     isSelected
                       ? 'w-4 h-4 ring-2 ring-gray-300 ring-offset-1 z-30 scale-110'
@@ -157,7 +196,10 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
                   }`}
                   style={{ backgroundColor: hexColor }}
                   title={colorName}
-                  aria-label={`Select color ${colorName}`}
+                  role="radio"
+                  aria-label={colorName}
+                  aria-checked={isSelected}
+                  tabIndex={idx === selectedSwatchIndex ? 0 : -1}
                 />
               );
             })}
@@ -171,13 +213,15 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
 
         {/* Wishlist Button - Top Right */}
         <button
+          type="button"
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
             onToggleWishlist(e);
           }}
           className="absolute top-2 right-2 z-20 p-2 rounded-full bg-white/50 md:hover:bg-white active:bg-white backdrop-blur-xs shadow-sm transition-all duration-200 pointer-events-auto group/heart active:scale-90"
-          aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
+          aria-label="Toggle wishlist"
+          aria-pressed={isWishlisted}
         >
           <Heart
             size={18}
@@ -191,6 +235,7 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
 
         {/* Floating Cart Button - Inside Bottom Right */}
         <button
+          type="button"
           onClick={(e) => onAddToCart(e, product)}
           className={`absolute bottom-3 right-3 z-20 h-10 w-10 flex items-center justify-center rounded-full shadow-md border border-gray-100 transition-all duration-200 pointer-events-auto active:scale-90 ${
             isAdded
