@@ -10,7 +10,7 @@ describe('OgaBassey PDP product media config', () => {
     expect(OGABASSEY_PDP_PRIMARY_IMAGE_SIZES).toBe(
       '(max-width: 767px) calc(100vw - 32px), (max-width: 1023px) calc(100vw - 48px), (max-width: 1439px) 40vw, 560px',
     );
-    expect(OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY).toBe(70);
+    expect(OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY).toBe(35);
     expect(OGABASSEY_PDP_PRIMARY_IMAGE_PRELOAD_FALLBACK_WIDTH).toBe(640);
   });
 });

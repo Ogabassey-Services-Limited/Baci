@@ -48,7 +48,6 @@ import {
   getValidatedProductUrl,
 } from '@/lib/seo-utils';
 import { buildRequestScopedStoreUrl, buildStoreUrl } from '@/lib/store-url';
-import { getCachedStorefrontProductLcpImage } from '@/lib/storefront-product-lcp-image';
 import { buildProductPriceSeoCopy } from '@/lib/storefront-product-price-seo';
 import { getStorefrontProductSocialMetadata } from '@/lib/storefront-product-social-metadata';
 import { normalizeStorefrontProductVariants } from '@/lib/storefront-product-variants';
@@ -713,11 +712,6 @@ async function CategoryProductPageContent({
 
   const resolvedSearchParams = await searchParams;
   redirectInvalidVariantSelectionParams(slug, product, resolvedSearchParams);
-  const primaryProductImage = product.imageLarge || product.image;
-  const productResourceHints =
-    merchant?.template_id === OGABASSEY_TEMPLATE_ID ? (
-      <OgabasseyPdpProductResourceHints src={primaryProductImage} />
-    ) : null;
 
   const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
   const resolvedCategorySlug =
@@ -800,7 +794,6 @@ async function CategoryProductPageContent({
 
   return (
     <>
-      {productResourceHints}
       {/* nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml - JSON-LD is sanitized and not executed */}
       <script
         type="application/ld+json"
@@ -834,32 +827,6 @@ async function CategoryProductPageContent({
       {productPage}
     </>
   );
-}
-
-interface OgabasseyPdpProductImagePreloadWrapperProps {
-  merchant: CachedMerchant | null;
-  primaryProductImage: string | null;
-}
-
-function OgabasseyPdpProductImagePreloadWrapper({
-  merchant,
-  primaryProductImage,
-}: OgabasseyPdpProductImagePreloadWrapperProps) {
-  if (
-    merchant &&
-    merchant.template_id === OGABASSEY_TEMPLATE_ID &&
-    primaryProductImage
-  ) {
-    try {
-      preloadOgabasseyPdpProductImage({ src: primaryProductImage });
-    } catch (error) {
-      console.warn(
-        'Unable to preload OgaBassey PDP product image early:',
-        error
-      );
-    }
-  }
-  return null;
 }
 
 export default async function CategoryProductPage({
@@ -899,13 +866,13 @@ export default async function CategoryProductPage({
   const resolvedSearchParams = await searchParams;
   redirectInvalidVariantSelectionParams(slug, product, resolvedSearchParams);
 
-  let primaryProductImage: string | null = null;
+  const primaryProductImage =
+    merchant.template_id === OGABASSEY_TEMPLATE_ID
+      ? product.imageLarge || product.image
+      : null;
   try {
-    if (merchant && merchant.template_id === OGABASSEY_TEMPLATE_ID) {
-      primaryProductImage = await getCachedStorefrontProductLcpImage(
-        merchant.id,
-        product.slug || productSlug
-      );
+    if (primaryProductImage) {
+      preloadOgabasseyPdpProductImage({ src: primaryProductImage });
     }
   } catch (error) {
     console.warn(
@@ -915,14 +882,14 @@ export default async function CategoryProductPage({
     );
   }
 
+  const earlyProductResourceHints =
+    merchant?.template_id === OGABASSEY_TEMPLATE_ID && primaryProductImage ? (
+      <OgabasseyPdpProductResourceHints src={primaryProductImage} />
+    ) : null;
+
   return (
     <>
-      <Suspense fallback={null}>
-        <OgabasseyPdpProductImagePreloadWrapper
-          merchant={merchant}
-          primaryProductImage={primaryProductImage}
-        />
-      </Suspense>
+      {earlyProductResourceHints}
       <Suspense
         fallback={
           <OgabasseyPdpProductLcpSkeleton
