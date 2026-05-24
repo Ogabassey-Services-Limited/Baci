@@ -160,6 +160,7 @@ export async function handleAgenticCheckoutSessionUpdate(
       );
     }
     const replayReservation = await reserveAgenticRequestId({
+      agentId: mutation.agentId,
       apiVersion: mutation.apiVersion,
       idempotencyKey: mutation.idempotencyKey,
       merchantId: merchant.id,

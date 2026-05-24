@@ -20,6 +20,11 @@ function formatRequestRoute(route: string | null): string {
   return normalized || 'route unknown';
 }
 
+function formatAgentId(agentId: string | null | undefined): string | null {
+  const trimmed = agentId?.trim();
+  return trimmed || null;
+}
+
 export function AgenticRecentSignedRequestsCard({
   recentRequestCount,
   recentRequestRecords,
@@ -28,11 +33,12 @@ export function AgenticRecentSignedRequestsCard({
   const recentRequestRows = recentRequestRecords.map((record) => {
     const baseKey = `${record.created_at}-${record.expires_at}-${
       record.api_version ?? 'unknown'
-    }-${record.route ?? 'unknown'}`;
+    }-${record.agent_id ?? 'unknown'}-${record.route ?? 'unknown'}`;
     const previousCount = recentRequestKeyCounts.get(baseKey) ?? 0;
     recentRequestKeyCounts.set(baseKey, previousCount + 1);
 
     return {
+      agentId: formatAgentId(record.agent_id),
       key: previousCount === 0 ? baseKey : `${baseKey}-${previousCount + 1}`,
       record,
     };
@@ -53,11 +59,12 @@ export function AgenticRecentSignedRequestsCard({
       </div>
       {recentRequestRows.length > 0 && (
         <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
-          {recentRequestRows.map(({ key, record }) => (
+          {recentRequestRows.map(({ agentId, key, record }) => (
             <li key={key}>
               <span className="font-medium text-foreground">
                 {formatRequestApiVersion(record.api_version)}
               </span>{' '}
+              {agentId && <span>{agentId} </span>}
               <span>{formatRequestRoute(record.route)}</span> signed at{' '}
               {formatRequestTimestamp(record.created_at)}.
             </li>

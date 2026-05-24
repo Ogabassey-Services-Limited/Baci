@@ -40,6 +40,7 @@ const AGENTIC_MUTATION_REQUIRED_HEADERS = [
   ...AGENTIC_REQUIRED_HEADERS,
   'idempotency-key',
 ] as const;
+const AGENTIC_OPTIONAL_IDENTITY_HEADERS = ['agent-id'] as const;
 
 type MerchantPaymentConfig = Pick<
   CachedMerchant,
@@ -187,8 +188,9 @@ function buildAgenticCheckoutAuth() {
       algorithm: 'hmac-sha256',
       required_headers: [...AGENTIC_REQUIRED_HEADERS],
       mutation_required_headers: [...AGENTIC_MUTATION_REQUIRED_HEADERS],
+      optional_identity_headers: [...AGENTIC_OPTIONAL_IDENTITY_HEADERS],
       signed_payload:
-        'json(api_version, body, idempotency_key, method, pathname, request_id, timestamp)',
+        'json(api_version, body, idempotency_key, method, pathname, request_id, timestamp, optional agent_id)',
     },
     supported_api_versions: [...SUPPORTED_AGENTIC_API_VERSIONS] as string[],
   };

@@ -8,7 +8,9 @@ import { verifyAgenticRequestIntegrity } from '@/lib/agentic/request-integrity';
 
 vi.mock('@/lib/agentic/request-integrity', () => ({
   AGENTIC_REQUEST_INTEGRITY_ERRORS: {
+    AGENT_ID_TOO_LONG: 'Agent id too long',
     INVALID_REQUEST_ID_FORMAT: 'Invalid request ID format',
+    INVALID_AGENT_ID_FORMAT: 'Invalid agent id format',
     INVALID_TIMESTAMP: 'Invalid timestamp',
     MISSING_SIGNING_SECRET: 'Missing signing secret',
     REQUEST_ID_TOO_LONG: 'Request ID too long',
@@ -47,6 +49,7 @@ describe('readAgenticMutationRequest', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(verifyAgenticRequestIntegrity).mockReturnValue({
+      agentId: null,
       apiVersion: '2026-04-30',
       ok: true,
       requestId: 'req_123',
@@ -60,6 +63,7 @@ describe('readAgenticMutationRequest', () => {
 
     expect(result).toMatchObject({
       apiVersion: '2026-04-30',
+      agentId: null,
       body: { items: [] },
       idempotencyKey: 'idem-1',
       method: 'POST',
@@ -67,6 +71,24 @@ describe('readAgenticMutationRequest', () => {
       pathname: '/api/agentic/checkout_sessions',
       rawBody: '{"items":[]}',
       requestId: 'req_123',
+    });
+  });
+
+  it('propagates signed agent identity from request integrity', async () => {
+    vi.mocked(verifyAgenticRequestIntegrity).mockReturnValueOnce({
+      agentId: 'openai:chatgpt',
+      apiVersion: '2026-04-30',
+      ok: true,
+      requestId: 'req_123',
+    });
+
+    const result = await readAgenticMutationRequest({
+      request: request('{"items":[]}'),
+    });
+
+    expect(result).toMatchObject({
+      agentId: 'openai:chatgpt',
+      ok: true,
     });
   });
 
