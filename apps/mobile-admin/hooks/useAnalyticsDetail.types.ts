@@ -35,6 +35,10 @@ export interface JoinedProduct {
   cost_price: number | null;
 }
 
+export interface JoinedVariant {
+  cost_price: number | null;
+}
+
 export interface JoinedOrder {
   id: string;
   merchant_id: string;
@@ -44,8 +48,10 @@ export interface JoinedOrder {
 }
 
 export interface OrderItemWithJoins {
+  cost_price?: number | null;
   quantity: number | null;
   price: number | null;
+  product_variants?: JoinedVariant | JoinedVariant[] | null;
   products: JoinedProduct | JoinedProduct[] | null;
   orders: JoinedOrder | JoinedOrder[] | null;
 }

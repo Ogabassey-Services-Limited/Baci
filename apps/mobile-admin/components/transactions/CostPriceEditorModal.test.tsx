@@ -39,6 +39,25 @@ vi.mock('react-native', async () => {
         },
         children
       ),
+    Switch: ({
+      accessibilityLabel,
+      disabled,
+      onValueChange,
+      value,
+    }: {
+      accessibilityLabel?: string;
+      disabled?: boolean;
+      onValueChange?: (value: boolean) => void;
+      value?: boolean;
+    }) =>
+      React.createElement('input', {
+        'aria-label': accessibilityLabel,
+        checked: Boolean(value),
+        disabled,
+        onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
+          onValueChange?.(event.target.checked),
+        type: 'checkbox',
+      }),
     StyleSheet: {
       create: <T,>(styles: T) => styles,
     },
@@ -81,10 +100,7 @@ vi.mock('@react-native-community/datetimepicker', async () => {
         {
           'aria-label': 'Mock transaction date picker',
           onClick: () =>
-            onChange(
-              { type: 'set' },
-              new Date('2026-05-14T00:00:00.000Z')
-            ),
+            onChange({ type: 'set' }, new Date('2026-05-14T00:00:00.000Z')),
           type: 'button',
         },
         'Mock date picker'
@@ -122,6 +138,7 @@ vi.mock('@/components/transactions/transactions.styles', () => ({
 
 const selectedItem = {
   costPrice: 1000,
+  costSource: 'product' as const,
   id: 'item-1',
   imeiValues: [],
   name: 'Samsung Galaxy S26',
@@ -133,6 +150,7 @@ const selectedItem = {
   serialValues: [],
   sku: null,
   supplierName: '',
+  variantId: null,
 };
 
 describe('CostPriceEditorModal', () => {
@@ -154,6 +172,7 @@ describe('CostPriceEditorModal', () => {
         onChangeCostPrice={onChangeCostPrice}
         onChangeDate={onChangeDate}
         onChangeSupplier={onChangeSupplier}
+        onChangeUpdateProductDefault={vi.fn()}
         onClose={vi.fn()}
         onSave={vi.fn()}
         pending={false}
@@ -161,6 +180,7 @@ describe('CostPriceEditorModal', () => {
         selectedItem={selectedItem}
         supplierOptions={['Slot wholesale']}
         supplierInput="Slot Wholesale"
+        updateProductDefault={false}
         visible
       />
     );
@@ -192,6 +212,7 @@ describe('CostPriceEditorModal', () => {
         onChangeCostPrice={vi.fn()}
         onChangeDate={onChangeDate}
         onChangeSupplier={vi.fn()}
+        onChangeUpdateProductDefault={vi.fn()}
         onClose={vi.fn()}
         onSave={vi.fn()}
         pending={false}
@@ -199,6 +220,7 @@ describe('CostPriceEditorModal', () => {
         selectedItem={selectedItem}
         supplierOptions={[]}
         supplierInput=""
+        updateProductDefault={false}
         visible
       />
     );
@@ -207,6 +229,92 @@ describe('CostPriceEditorModal', () => {
     fireEvent.click(screen.getByLabelText('Mock transaction date picker'));
 
     expect(onChangeDate).toHaveBeenCalledWith('2026-05-14');
+  });
+
+  it('shows the catalog default switch only for linked rows', () => {
+    const { rerender } = render(
+      <CostPriceEditorModal
+        colors={LIGHT_COLORS}
+        costPriceInput="₦1,000"
+        currencySymbol="₦"
+        dateInput="2026-05-12"
+        onChangeCostPrice={vi.fn()}
+        onChangeDate={vi.fn()}
+        onChangeSupplier={vi.fn()}
+        onChangeUpdateProductDefault={vi.fn()}
+        onClose={vi.fn()}
+        onSave={vi.fn()}
+        pending={false}
+        saveError={null}
+        selectedItem={selectedItem}
+        supplierOptions={[]}
+        supplierInput=""
+        updateProductDefault={false}
+        visible
+      />
+    );
+
+    expect(
+      screen.getByLabelText('Update catalog or variant default cost')
+    ).toBeInTheDocument();
+
+    rerender(
+      <CostPriceEditorModal
+        colors={LIGHT_COLORS}
+        costPriceInput="₦1,000"
+        currencySymbol="₦"
+        dateInput="2026-05-12"
+        onChangeCostPrice={vi.fn()}
+        onChangeDate={vi.fn()}
+        onChangeSupplier={vi.fn()}
+        onChangeUpdateProductDefault={vi.fn()}
+        onClose={vi.fn()}
+        onSave={vi.fn()}
+        pending={false}
+        saveError={null}
+        selectedItem={{ ...selectedItem, productId: null }}
+        supplierOptions={[]}
+        supplierInput=""
+        updateProductDefault={false}
+        visible
+      />
+    );
+
+    expect(
+      screen.queryByLabelText('Update catalog or variant default cost')
+    ).not.toBeInTheDocument();
+  });
+
+  it('toggles the catalog default switch', () => {
+    const onChangeUpdateProductDefault = vi.fn();
+
+    render(
+      <CostPriceEditorModal
+        colors={LIGHT_COLORS}
+        costPriceInput="₦1,000"
+        currencySymbol="₦"
+        dateInput="2026-05-12"
+        onChangeCostPrice={vi.fn()}
+        onChangeDate={vi.fn()}
+        onChangeSupplier={vi.fn()}
+        onChangeUpdateProductDefault={onChangeUpdateProductDefault}
+        onClose={vi.fn()}
+        onSave={vi.fn()}
+        pending={false}
+        saveError={null}
+        selectedItem={selectedItem}
+        supplierOptions={[]}
+        supplierInput=""
+        updateProductDefault={false}
+        visible
+      />
+    );
+
+    fireEvent.click(
+      screen.getByLabelText('Update catalog or variant default cost')
+    );
+
+    expect(onChangeUpdateProductDefault).toHaveBeenCalledWith(true);
   });
 
   it('dismisses the transaction date picker after Android date selection', async () => {
@@ -222,6 +330,7 @@ describe('CostPriceEditorModal', () => {
         onChangeCostPrice={vi.fn()}
         onChangeDate={onChangeDate}
         onChangeSupplier={vi.fn()}
+        onChangeUpdateProductDefault={vi.fn()}
         onClose={vi.fn()}
         onSave={vi.fn()}
         pending={false}
@@ -229,6 +338,7 @@ describe('CostPriceEditorModal', () => {
         selectedItem={selectedItem}
         supplierOptions={[]}
         supplierInput=""
+        updateProductDefault={false}
         visible
       />
     );
@@ -253,6 +363,7 @@ describe('CostPriceEditorModal', () => {
       onChangeCostPrice: vi.fn(),
       onChangeDate: vi.fn(),
       onChangeSupplier: vi.fn(),
+      onChangeUpdateProductDefault: vi.fn(),
       onClose: vi.fn(),
       onSave: vi.fn(),
       pending: false,
@@ -260,13 +371,16 @@ describe('CostPriceEditorModal', () => {
       selectedItem,
       supplierOptions: [],
       supplierInput: '',
+      updateProductDefault: false,
       visible: true,
     };
 
     const { rerender } = render(<CostPriceEditorModal {...props} />);
 
     fireEvent.click(screen.getByLabelText('Open transaction date picker'));
-    expect(screen.getByLabelText('Mock transaction date picker')).toBeInTheDocument();
+    expect(
+      screen.getByLabelText('Mock transaction date picker')
+    ).toBeInTheDocument();
 
     rerender(<CostPriceEditorModal {...props} visible={false} />);
     rerender(<CostPriceEditorModal {...props} visible />);
@@ -288,6 +402,7 @@ describe('CostPriceEditorModal', () => {
         onChangeCostPrice={vi.fn()}
         onChangeDate={vi.fn()}
         onChangeSupplier={onChangeSupplier}
+        onChangeUpdateProductDefault={vi.fn()}
         onClose={vi.fn()}
         onSave={vi.fn()}
         pending={false}
@@ -295,6 +410,7 @@ describe('CostPriceEditorModal', () => {
         selectedItem={selectedItem}
         supplierOptions={['Slot wholesale', 'Main supplier']}
         supplierInput="sl"
+        updateProductDefault={false}
         visible
       />
     );
@@ -319,6 +435,7 @@ describe('CostPriceEditorModal', () => {
         onChangeCostPrice={vi.fn()}
         onChangeDate={vi.fn()}
         onChangeSupplier={onChangeSupplier}
+        onChangeUpdateProductDefault={vi.fn()}
         onClose={vi.fn()}
         onSave={vi.fn()}
         pending
@@ -326,6 +443,7 @@ describe('CostPriceEditorModal', () => {
         selectedItem={selectedItem}
         supplierOptions={['Slot wholesale']}
         supplierInput="sl"
+        updateProductDefault={false}
         visible
       />
     );
@@ -352,6 +470,7 @@ describe('CostPriceEditorModal', () => {
         onChangeCostPrice={vi.fn()}
         onChangeDate={vi.fn()}
         onChangeSupplier={vi.fn()}
+        onChangeUpdateProductDefault={vi.fn()}
         onClose={onClose}
         onSave={onSave}
         pending={false}
@@ -359,6 +478,7 @@ describe('CostPriceEditorModal', () => {
         selectedItem={selectedItem}
         supplierOptions={[]}
         supplierInput="Slot Wholesale"
+        updateProductDefault={false}
         visible
       />
     );
@@ -382,6 +502,7 @@ describe('CostPriceEditorModal', () => {
         onChangeCostPrice={vi.fn()}
         onChangeDate={vi.fn()}
         onChangeSupplier={vi.fn()}
+        onChangeUpdateProductDefault={vi.fn()}
         onClose={onClose}
         onSave={vi.fn()}
         pending={false}
@@ -389,6 +510,7 @@ describe('CostPriceEditorModal', () => {
         selectedItem={selectedItem}
         supplierOptions={[]}
         supplierInput="Slot Wholesale"
+        updateProductDefault={false}
         visible
       />
     );
@@ -408,6 +530,7 @@ describe('CostPriceEditorModal', () => {
         onChangeCostPrice={vi.fn()}
         onChangeDate={vi.fn()}
         onChangeSupplier={vi.fn()}
+        onChangeUpdateProductDefault={vi.fn()}
         onClose={vi.fn()}
         onSave={vi.fn()}
         pending={false}
@@ -415,6 +538,7 @@ describe('CostPriceEditorModal', () => {
         selectedItem={selectedItem}
         supplierOptions={[]}
         supplierInput="Slot Wholesale"
+        updateProductDefault={false}
         visible
       />
     );
@@ -432,6 +556,7 @@ describe('CostPriceEditorModal', () => {
         onChangeCostPrice={vi.fn()}
         onChangeDate={vi.fn()}
         onChangeSupplier={vi.fn()}
+        onChangeUpdateProductDefault={vi.fn()}
         onClose={vi.fn()}
         onSave={vi.fn()}
         pending
@@ -439,6 +564,7 @@ describe('CostPriceEditorModal', () => {
         selectedItem={selectedItem}
         supplierOptions={[]}
         supplierInput="Slot Wholesale"
+        updateProductDefault={false}
         visible
       />
     );
@@ -462,6 +588,7 @@ describe('CostPriceEditorModal', () => {
         onChangeCostPrice={vi.fn()}
         onChangeDate={vi.fn()}
         onChangeSupplier={vi.fn()}
+        onChangeUpdateProductDefault={vi.fn()}
         onClose={vi.fn()}
         onSave={vi.fn()}
         pending={false}
@@ -469,6 +596,7 @@ describe('CostPriceEditorModal', () => {
         selectedItem={selectedItem}
         supplierOptions={[]}
         supplierInput="Slot Wholesale"
+        updateProductDefault={false}
         visible={false}
       />
     );

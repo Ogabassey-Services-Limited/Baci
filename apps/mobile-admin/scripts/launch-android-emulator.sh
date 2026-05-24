@@ -7,6 +7,7 @@ ANDROID_SYSTEM_IMAGE_PACKAGE="${BACI_ANDROID_SYSTEM_IMAGE_PACKAGE:-system-images
 ANDROID_DEVICE_PROFILE="${BACI_ANDROID_DEVICE_PROFILE:-pixel_9_pro_xl}"
 GPU_MODE="${BACI_ANDROID_GPU_MODE:-auto}"
 SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-$HOME/Library/Android/sdk}}"
+AVD_DIR="${ANDROID_AVD_HOME:-$HOME/.android/avd}/${AVD_NAME}.avd"
 ADB="${SDK_ROOT}/platform-tools/adb"
 EMULATOR="${SDK_ROOT}/emulator/emulator"
 LOG_FILE="${BACI_ANDROID_EMULATOR_LOG:-/tmp/baci-mobile-admin-emulator.log}"
@@ -18,6 +19,7 @@ ADB_STABILITY_PROBES="${BACI_ANDROID_ADB_STABILITY_PROBES:-3}"
 EMULATOR_MEMORY_MB="${BACI_ANDROID_EMULATOR_MEMORY_MB:-4096}"
 EMULATOR_CORES="${BACI_ANDROID_EMULATOR_CORES:-2}"
 COLD_BOOT="${BACI_ANDROID_COLD_BOOT:-0}"
+DNS_SERVERS="${BACI_ANDROID_DNS_SERVERS:-8.8.8.8,1.1.1.1}"
 SETTLE_TIMEOUT_SECONDS="${BACI_ANDROID_SETTLE_TIMEOUT_SECONDS:-600}"
 SETTLE_LOAD_MAX="${BACI_ANDROID_SETTLE_LOAD_MAX:-8.0}"
 SETTLE_STABILITY_PROBES="${BACI_ANDROID_SETTLE_STABILITY_PROBES:-2}"
@@ -171,6 +173,27 @@ wait_for_adb_shell() {
   return 1
 }
 
+remove_stale_avd_locks() {
+  local lock_file
+
+  if [[ ! -d "$AVD_DIR" ]]; then
+    return 0
+  fi
+
+  if "$ADB" devices | grep -q "^${ADB_SERIAL}[[:space:]]"; then
+    return 0
+  fi
+
+  if command -v pgrep >/dev/null 2>&1 && pgrep -f "[e]mulator.*@${AVD_NAME}|[q]emu-system.*${AVD_NAME}" >/dev/null 2>&1; then
+    return 0
+  fi
+
+  while IFS= read -r -d '' lock_file; do
+    rm -f "$lock_file"
+    echo "Removed stale AVD lock: $lock_file"
+  done < <(find "$AVD_DIR" -maxdepth 1 -type f -name '*.lock' -print0)
+}
+
 confirm_adb_shell_stable() {
   local probe
   local probe_output
@@ -258,6 +281,7 @@ echo "GPU: $GPU_MODE"
 echo "Cores: $EMULATOR_CORES"
 echo "Memory: ${EMULATOR_MEMORY_MB}MB"
 echo "Cold boot: $COLD_BOOT"
+echo "DNS servers: ${DNS_SERVERS:-host default}"
 echo "Emulator: $emulator_version_output"
 echo "Log: $LOG_FILE"
 
@@ -268,14 +292,15 @@ if "$ADB" devices | grep -q "^${ADB_SERIAL}[[:space:]]"; then
   "$ADB" -s "$ADB_SERIAL" emu kill >/dev/null 2>&1 || true
   sleep 3
 fi
+remove_stale_avd_locks
 
 rm -f "$LOG_FILE"
 emulator_pid="$(
-  python3 - "$EMULATOR" "$AVD_NAME" "$GPU_MODE" "$EMULATOR_PORT" "$LOG_FILE" "$EMULATOR_MEMORY_MB" "$EMULATOR_CORES" "$COLD_BOOT" <<'PY'
+  python3 - "$EMULATOR" "$AVD_NAME" "$GPU_MODE" "$EMULATOR_PORT" "$LOG_FILE" "$EMULATOR_MEMORY_MB" "$EMULATOR_CORES" "$COLD_BOOT" "$DNS_SERVERS" <<'PY'
 import subprocess
 import sys
 
-emulator, avd_name, gpu_mode, emulator_port, log_file, memory_mb, cores, cold_boot = sys.argv[1:]
+emulator, avd_name, gpu_mode, emulator_port, log_file, memory_mb, cores, cold_boot, dns_servers = sys.argv[1:]
 log = open(log_file, 'ab', buffering=0)
 emulator_args = [
     emulator,
@@ -295,6 +320,8 @@ emulator_args = [
     '-cores',
     cores,
 ]
+if dns_servers:
+    emulator_args.extend(['-dns-server', dns_servers])
 if cold_boot == '1':
     emulator_args.append('-no-snapshot-load')
 process = subprocess.Popen(
