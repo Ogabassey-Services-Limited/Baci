@@ -6,6 +6,10 @@ describe('next.config OgaBassey resource headers', () => {
     expect(nextConfig.skipTrailingSlashRedirect).toBe(true);
   });
 
+  it('allows tuned OgaBassey image quality values', () => {
+    expect(nextConfig.images?.qualities).toEqual([35, 50, 60, 70, 75]);
+  });
+
   it('does not emit OgaBassey hero image preload Link headers from next.config', async () => {
     expect(typeof nextConfig.headers).toBe('function');
     const headers = await nextConfig.headers();

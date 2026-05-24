@@ -88,11 +88,11 @@ describe('OgabasseyPdpStaticResourceHints', () => {
       imageLoader({ src: FLASH_SALE_PROMO_IMAGE, width: 640 })
     );
     expect(bannerPreload?.getAttribute('imagesrcset')).toContain('quality=75');
-    expect(bannerPreload?.getAttribute('imagesrcset')).toContain('format=webp');
+    expect(bannerPreload?.getAttribute('imagesrcset')).toContain('format=avif');
     expect(bannerPreload?.getAttribute('imagesizes')).toBe(
       '(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 1400px'
     );
-    expect(bannerPreload?.getAttribute('type')).toBe('image/webp');
+    expect(bannerPreload?.getAttribute('type')).toBe('image/avif');
 
     // Only the banner is preloaded by this hint because the PDP wrapper uses
     // `hidden md:block`, so no mobile-media preload should exist.

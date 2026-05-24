@@ -895,6 +895,7 @@ export default async function CategoryProductPage({
           <OgabasseyPdpProductLcpSkeleton
             merchant={merchant}
             primaryProductImage={primaryProductImage}
+            productName={product.name}
           />
         }
       >

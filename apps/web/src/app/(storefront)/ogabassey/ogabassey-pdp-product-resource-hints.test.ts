@@ -89,7 +89,7 @@ describe('OgabasseyPdpProductResourceHints', () => {
     expect(html).toContain(
       imageLoader({ src: productImage, width: 640, quality: 35 })
     );
-    expect(html).toContain('type="image/webp"');
+    expect(html).toContain('type="image/avif"');
   });
 
   it('uses the fallback URL extension when the image is not CDN transformed', () => {
@@ -116,7 +116,7 @@ describe('OgabasseyPdpProductResourceHints', () => {
         fetchPriority: 'high',
         imageSizes: OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
         imageSrcSet: expect.stringContaining('lenovo-legion.avif 640w'),
-        type: 'image/webp',
+        type: 'image/avif',
       }
     );
   });

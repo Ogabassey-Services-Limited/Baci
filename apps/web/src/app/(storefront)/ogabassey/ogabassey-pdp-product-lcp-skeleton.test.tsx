@@ -75,6 +75,7 @@ describe('OgabasseyPdpProductLcpSkeleton', () => {
       <OgabasseyPdpProductLcpSkeleton
         merchant={mockMerchant as unknown as CachedMerchant}
         primaryProductImage="https://cdn.ogabassey.com/lenovo.avif"
+        productName="Lenovo Legion Pro 9"
       />
     );
 
@@ -85,16 +86,24 @@ describe('OgabasseyPdpProductLcpSkeleton', () => {
     expect(skeleton.className).not.toContain('animate-pulse');
 
     const img = screen.getByRole('img', {
-      name: /loading product/i,
+      name: /lenovo legion pro 9/i,
     }) as HTMLImageElement;
     expect(img).toBeDefined();
     expect(img.src).toBe('https://cdn.ogabassey.com/lenovo.avif');
     expect(img.style.position).toBe('absolute');
+    expect(img.style.inset).toBe('0');
     expect(img.style.height).toBe('100%');
     expect(img.style.width).toBe('100%');
+    expect(img.style.objectFit).toBe('cover');
     expect(img.getAttribute('fetchpriority')).toBe('high');
     expect(img.getAttribute('decoding')).toBe('sync');
     // Ensure loading="lazy" is not spread onto our early LCP image
     expect(img.getAttribute('loading')).toBeNull();
+
+    const imageFrame = img.parentElement as HTMLElement;
+    expect(imageFrame.style.position).toBe('relative');
+    expect(imageFrame.style.aspectRatio).toBe('1 / 1');
+    expect(imageFrame.style.width).toBe('100%');
+    expect(imageFrame.style.overflow).toBe('hidden');
   });
 });
