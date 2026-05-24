@@ -6,7 +6,7 @@ function createQueryMock({
   data,
   error = null,
 }: {
-  data: unknown[];
+  data: unknown[] | null;
   error?: unknown;
 }) {
   const query = {
@@ -43,12 +43,23 @@ describe('loadAdminAgenticActionHealthRecords', () => {
         updated_at: '2026-05-22T08:02:00.000Z',
       },
     ];
+    const requestRows = [
+      {
+        agent_id: 'openai:chatgpt',
+        api_version: '2026-04-28',
+        created_at: '2026-05-22T08:03:00.000Z',
+        expires_at: '2026-05-22T08:18:00.000Z',
+        route: 'checkout_sessions.complete',
+      },
+    ];
     const idempotencyQuery = createQueryMock({ data: idempotencyRows });
     const checkoutQuery = createQueryMock({ data: checkoutRows });
+    const requestQuery = createQueryMock({ data: requestRows });
     const supabase = {
       from: vi.fn((table: string) => {
         if (table === 'agentic_idempotency_records') return idempotencyQuery;
         if (table === 'checkout_sessions') return checkoutQuery;
+        if (table === 'agentic_request_records') return requestQuery;
         throw new Error(`Unexpected table: ${table}`);
       }),
     } as unknown as SupabaseClient;
@@ -61,17 +72,22 @@ describe('loadAdminAgenticActionHealthRecords', () => {
 
     expect(supabase.from).toHaveBeenCalledWith('agentic_idempotency_records');
     expect(supabase.from).toHaveBeenCalledWith('checkout_sessions');
+    expect(supabase.from).toHaveBeenCalledWith('agentic_request_records');
     expect(idempotencyQuery.select).toHaveBeenCalledWith(
       'route, status_code, created_at, updated_at, expires_at'
     );
     expect(checkoutQuery.select).toHaveBeenCalledWith(
       'session_id, status, metadata, updated_at'
     );
+    expect(requestQuery.select).toHaveBeenCalledWith(
+      'agent_id, api_version, route, created_at, expires_at'
+    );
     expect(idempotencyQuery.eq).toHaveBeenCalledWith(
       'merchant_id',
       'merchant-1'
     );
     expect(checkoutQuery.eq).toHaveBeenCalledWith('merchant_id', 'merchant-1');
+    expect(requestQuery.eq).toHaveBeenCalledWith('merchant_id', 'merchant-1');
     expect(checkoutQuery.not).toHaveBeenCalledWith(
       'metadata->agentic',
       'is',
@@ -83,12 +99,16 @@ describe('loadAdminAgenticActionHealthRecords', () => {
     expect(checkoutQuery.order).toHaveBeenCalledWith('updated_at', {
       ascending: false,
     });
+    expect(requestQuery.order).toHaveBeenCalledWith('created_at', {
+      ascending: false,
+    });
     expect(idempotencyQuery.limit).toHaveBeenCalledWith(25);
     expect(checkoutQuery.limit).toHaveBeenCalledWith(25);
+    expect(requestQuery.limit).toHaveBeenCalledWith(25);
     expect(result).toEqual({
       checkout_sessions: checkoutRows,
       idempotency_records: idempotencyRows,
-      request_records: [],
+      request_records: requestRows,
     });
   });
 
@@ -98,12 +118,14 @@ describe('loadAdminAgenticActionHealthRecords', () => {
       error: new Error('record load failed'),
     });
     const checkoutQuery = createQueryMock({ data: [] });
+    const requestQuery = createQueryMock({ data: [] });
     const supabase = {
-      from: vi.fn((table: string) =>
-        table === 'agentic_idempotency_records'
-          ? idempotencyQuery
-          : checkoutQuery
-      ),
+      from: vi.fn((table: string) => {
+        if (table === 'agentic_idempotency_records') return idempotencyQuery;
+        if (table === 'checkout_sessions') return checkoutQuery;
+        if (table === 'agentic_request_records') return requestQuery;
+        throw new Error(`Unexpected table: ${table}`);
+      }),
     } as unknown as SupabaseClient;
 
     await expect(
@@ -117,16 +139,62 @@ describe('loadAdminAgenticActionHealthRecords', () => {
       data: [],
       error: new Error('checkout load failed'),
     });
+    const requestQuery = createQueryMock({ data: [] });
     const supabase = {
-      from: vi.fn((table: string) =>
-        table === 'agentic_idempotency_records'
-          ? idempotencyQuery
-          : checkoutQuery
-      ),
+      from: vi.fn((table: string) => {
+        if (table === 'agentic_idempotency_records') return idempotencyQuery;
+        if (table === 'checkout_sessions') return checkoutQuery;
+        if (table === 'agentic_request_records') return requestQuery;
+        throw new Error(`Unexpected table: ${table}`);
+      }),
     } as unknown as SupabaseClient;
 
     await expect(
       loadAdminAgenticActionHealthRecords(supabase, 'merchant-1', 25)
     ).rejects.toThrow('checkout load failed');
+  });
+
+  it('throws when request record loading fails', async () => {
+    const idempotencyQuery = createQueryMock({ data: [] });
+    const checkoutQuery = createQueryMock({ data: [] });
+    const requestQuery = createQueryMock({
+      data: [],
+      error: new Error('request load failed'),
+    });
+    const supabase = {
+      from: vi.fn((table: string) => {
+        if (table === 'agentic_idempotency_records') return idempotencyQuery;
+        if (table === 'checkout_sessions') return checkoutQuery;
+        if (table === 'agentic_request_records') return requestQuery;
+        throw new Error(`Unexpected table: ${table}`);
+      }),
+    } as unknown as SupabaseClient;
+
+    await expect(
+      loadAdminAgenticActionHealthRecords(supabase, 'merchant-1', 25)
+    ).rejects.toThrow('request load failed');
+  });
+
+  it('returns empty request records when direct request data is null', async () => {
+    const idempotencyQuery = createQueryMock({ data: [] });
+    const checkoutQuery = createQueryMock({ data: [] });
+    const requestQuery = createQueryMock({ data: null });
+    const supabase = {
+      from: vi.fn((table: string) => {
+        if (table === 'agentic_idempotency_records') return idempotencyQuery;
+        if (table === 'checkout_sessions') return checkoutQuery;
+        if (table === 'agentic_request_records') return requestQuery;
+        throw new Error(`Unexpected table: ${table}`);
+      }),
+    } as unknown as SupabaseClient;
+
+    const result = await loadAdminAgenticActionHealthRecords(
+      supabase,
+      'merchant-1',
+      25
+    );
+
+    expect(requestQuery.limit).toHaveBeenCalledWith(25);
+    expect(result.request_records).toEqual([]);
   });
 });
