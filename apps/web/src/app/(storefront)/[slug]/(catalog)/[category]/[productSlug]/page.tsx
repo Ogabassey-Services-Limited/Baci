@@ -763,31 +763,23 @@ async function CategoryProductPageContent({
 }
 
 interface OgabasseyPdpProductImagePreloadWrapperProps {
-  slug: string;
-  productSlug: string;
+  merchant: CachedMerchant | null;
+  primaryProductImage: string | null;
 }
 
-async function OgabasseyPdpProductImagePreloadWrapper({
-  slug,
-  productSlug,
+function OgabasseyPdpProductImagePreloadWrapper({
+  merchant,
+  primaryProductImage,
 }: OgabasseyPdpProductImagePreloadWrapperProps) {
-  try {
-    const merchant = await getRequestScopedMerchant(slug);
-    if (merchant && merchant.template_id === OGABASSEY_TEMPLATE_ID) {
-      const primaryProductImage = await getCachedStorefrontProductLcpImage(
-        merchant.id,
-        productSlug
+  if (merchant && merchant.template_id === OGABASSEY_TEMPLATE_ID && primaryProductImage) {
+    try {
+      preloadOgabasseyPdpProductImage({ src: primaryProductImage });
+    } catch (error) {
+      console.warn(
+        'Unable to preload OgaBassey PDP product image early:',
+        error
       );
-      if (primaryProductImage) {
-        preloadOgabasseyPdpProductImage({ src: primaryProductImage });
-      }
     }
-  } catch (error) {
-    console.warn(
-      'Unable to preload OgaBassey PDP product image early:',
-      sanitizeLookupLogValue(productSlug),
-      error
-    );
   }
   return null;
 }
@@ -805,12 +797,21 @@ export default async function CategoryProductPage({
   const productResultPromise = getProduct(slug, category, productSlug);
 
   // Fetch the merchant and primary LCP image for the skeleton synchronously
-  const merchant = await getRequestScopedMerchant(slug);
+  let merchant: CachedMerchant | null = null;
   let primaryProductImage: string | null = null;
-  if (merchant && merchant.template_id === OGABASSEY_TEMPLATE_ID) {
-    primaryProductImage = await getCachedStorefrontProductLcpImage(
-      merchant.id,
-      productSlug
+  try {
+    merchant = await getRequestScopedMerchant(slug);
+    if (merchant && merchant.template_id === OGABASSEY_TEMPLATE_ID) {
+      primaryProductImage = await getCachedStorefrontProductLcpImage(
+        merchant.id,
+        productSlug
+      );
+    }
+  } catch (error) {
+    console.warn(
+      'Unable to preload OgaBassey PDP product image early:',
+      sanitizeLookupLogValue(productSlug),
+      error
     );
   }
 
@@ -821,8 +822,8 @@ export default async function CategoryProductPage({
       </Suspense>
       <Suspense fallback={null}>
         <OgabasseyPdpProductImagePreloadWrapper
-          slug={slug}
-          productSlug={productSlug}
+          merchant={merchant}
+          primaryProductImage={primaryProductImage}
         />
       </Suspense>
       <Suspense
