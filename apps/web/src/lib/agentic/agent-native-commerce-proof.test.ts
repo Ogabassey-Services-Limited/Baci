@@ -174,6 +174,20 @@ describe('buildAgentNativeCommerceProof', () => {
     expect(proof.proof.action.optional_identity_headers).toEqual([]);
   });
 
+  it('defaults optional identity headers to an empty array when request signing is absent', () => {
+    const authWithoutRequestSigning = {
+      ...manifest().auth,
+      request_signing: undefined,
+    } as unknown as AgentCommerceManifest['auth'];
+    const proof = buildAgentNativeCommerceProof({
+      baseUrl,
+      manifest: manifest({ auth: authWithoutRequestSigning }),
+      trustReadiness: trustReadiness(),
+    });
+
+    expect(proof.proof.action.optional_identity_headers).toEqual([]);
+  });
+
   it('warns when checkout cannot yet create a signed purchase flow', () => {
     const proof = buildAgentNativeCommerceProof({
       baseUrl,
