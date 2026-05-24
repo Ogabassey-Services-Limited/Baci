@@ -1,4 +1,5 @@
 import { getAppUrl } from '@/env';
+import { logger } from '@/lib/logger';
 
 const SUPPORT_CHAT_FETCH_TIMEOUT_MS = 10_000;
 const SUPPORT_CHAT_SLOW_RESPONSE_MS = 8_000;
@@ -61,6 +62,7 @@ export async function checkAgentCommerceSupportChatHealth(
       signal: AbortSignal.timeout(SUPPORT_CHAT_FETCH_TIMEOUT_MS),
     });
     const responseTimeMs = Math.max(0, now() - startedAt);
+    await response.body?.cancel();
 
     if (!response.ok) {
       return createSupportChatIssueResult({
@@ -103,7 +105,12 @@ export async function checkAgentCommerceSupportChatHealth(
       status: 'ok',
       url,
     };
-  } catch (_error) {
+  } catch (error) {
+    logger.error({
+      error,
+      message: 'Support chat health request failed',
+      url,
+    });
     return createSupportChatIssueResult({
       issue: {
         code: 'support_chat_unavailable',

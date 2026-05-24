@@ -1,19 +1,31 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/env', () => ({
   getAppUrl: vi.fn(() => 'https://usebaci.com'),
 }));
 
+vi.mock('@/lib/logger', () => ({
+  logger: {
+    error: vi.fn(),
+  },
+}));
+
+import { logger } from '@/lib/logger';
 import { checkAgentCommerceSupportChatHealth } from './agent-commerce-support-chat-health';
 
 function createClock(start: number, end: number) {
   return vi.fn().mockReturnValueOnce(start).mockReturnValueOnce(end);
 }
 
+beforeEach(() => {
+  vi.clearAllMocks();
+});
+
 describe('checkAgentCommerceSupportChatHealth', () => {
   it('posts a public chat smoke request and reports successful latency', async () => {
+    const cancel = vi.fn();
     const fetcher = vi.fn<typeof fetch>().mockResolvedValue(
-      new Response('Here are gaming phones.', {
+      new Response(new ReadableStream({ cancel }), {
         headers: { 'content-type': 'text/plain; charset=utf-8' },
         status: 200,
       })
@@ -43,6 +55,7 @@ describe('checkAgentCommerceSupportChatHealth', () => {
       method: 'POST',
       signal: expect.any(AbortSignal),
     });
+    expect(cancel).toHaveBeenCalledOnce();
   });
 
   it('returns attention when chat serves its static provider fallback', async () => {
@@ -110,9 +123,8 @@ describe('checkAgentCommerceSupportChatHealth', () => {
   });
 
   it('returns attention when the public chat request cannot be completed', async () => {
-    const fetcher = vi
-      .fn<typeof fetch>()
-      .mockRejectedValue(new Error('network unavailable'));
+    const error = new Error('network unavailable');
+    const fetcher = vi.fn<typeof fetch>().mockRejectedValue(error);
 
     await expect(
       checkAgentCommerceSupportChatHealth(fetcher, createClock(100, 120))
@@ -126,6 +138,11 @@ describe('checkAgentCommerceSupportChatHealth', () => {
       ],
       response_time_ms: 20,
       status: 'attention',
+    });
+    expect(logger.error).toHaveBeenCalledWith({
+      error,
+      message: 'Support chat health request failed',
+      url: 'https://usebaci.com/api/chat',
     });
   });
 });
