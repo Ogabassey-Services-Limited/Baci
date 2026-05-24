@@ -10,6 +10,7 @@
     "cleanup-push-tokens": "node jobs/cleanup-push-tokens.mjs",
     "cleanup-import-uploads": "node jobs/cleanup-import-uploads.mjs",
     "supabase-retention-cleanup": "node jobs/supabase-retention-cleanup.mjs",
+    "cleanup-agentic-request-records": "node jobs/cleanup-agentic-request-records.mjs",
     "push-receipts": "node jobs/push-receipts.mjs",
     "agentic-commerce-health": "node jobs/run-web-cron.mjs /api/cron/agentic-commerce-health",
     "inventory-push-alerts": "node jobs/run-web-cron.mjs /api/inventory/push-alerts",

@@ -160,6 +160,11 @@ $CRON_SECRET`; `/api/cron/process-settlements` uses `POST` and the others use
 - `/api/cron/wallet-payouts`
 - `/api/inventory/push-alerts`
 
+`jobs/cleanup-agentic-request-records.mjs` is a direct database maintenance
+worker scheduled hourly at minute 10. It uses `SUPABASE_SERVICE_ROLE_KEY` only
+on the VPS to remove request records more than one hour past `expires_at`, so
+agent route latency does not depend on retention cleanup.
+
 `CRON_SECRET` must never be committed to source. Inject it through environment
 variables or the project's secret manager, keep it aligned between the VPS
 worker and web deployment, and rotate it through the normal secret-management

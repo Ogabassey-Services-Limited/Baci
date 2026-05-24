@@ -65,6 +65,11 @@ Some cron work intentionally remains in the web app because it needs web-only ru
 - `storefront_layout_generation` storefront worker, scheduled every 2 minutes:
   `*/2 * * * * flock -n /var/lock/ai-storefront.lock /home/bassey/baci-workers/bin/process-ai-storefront-jobs.sh >> /home/bassey/baci-workers/logs/ai-storefront-jobs.log 2>&1`
 
+The VPS also runs `jobs/cleanup-agentic-request-records.mjs` directly against
+Supabase at minute 10 of every hour. It deletes `agentic_request_records` only
+after `expires_at` is at least one hour old, preserving the request replay and
+order-read health observation window while bounding telemetry retention.
+
 `/api/ai-jobs/worker` must remain limited to short web-safe jobs such as price
 list processing. It must not claim `storefront_layout_generation`; those jobs
 run through `/home/bassey/baci-workers/bin/process-ai-storefront-jobs.sh` every
@@ -87,7 +92,7 @@ reachable from the VPS at `OLLAMA_STOREFRONT_BASE_URL`. Keep
 `AI_STOREFRONT_GENERATION_ENABLED=false` until a manual run succeeds and queue
 metadata shows bounded duration, retry count, and validation errors.
 
-If a web cron wrapper fails, inspect the matching log first: `/home/bassey/baci-workers/logs/ai-jobs-worker.log`, `/home/bassey/baci-workers/logs/reconcile-vtu-processing.log`, `/home/bassey/baci-workers/logs/wallet-payouts.log`, `/home/bassey/baci-workers/logs/publish-scheduled-posts.log`, or `/home/bassey/baci-workers/logs/inventory-push-alerts.log`. A 401 almost always means the VPS `CRON_SECRET` does not match the web deployment.
+If a web cron wrapper fails, inspect the matching log first: `/home/bassey/baci-workers/logs/ai-jobs-worker.log`, `/home/bassey/baci-workers/logs/reconcile-vtu-processing.log`, `/home/bassey/baci-workers/logs/wallet-payouts.log`, `/home/bassey/baci-workers/logs/publish-scheduled-posts.log`, or `/home/bassey/baci-workers/logs/inventory-push-alerts.log`. A 401 almost always means the VPS `CRON_SECRET` does not match the web deployment. For request-retention cleanup failures, inspect `/home/bassey/baci-workers/logs/cleanup-agentic-request-records.log` and confirm the server-only Supabase worker credentials are current.
 
 If Supabase storage or database usage starts rising unexpectedly, inspect
 `/home/bassey/baci-workers/logs/cleanup-import-uploads.log` and
