@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
 import { jest } from '@jest/globals';
+import { fireEvent, render, screen } from '@testing-library/react-native';
 import { useForm } from 'react-hook-form';
 import type { ShippingAddressInput } from '@/lib/validation';
 import { CheckoutDeliveryLocationPicker } from './CheckoutDeliveryLocationPicker';
@@ -67,7 +67,10 @@ describe('CheckoutDeliveryLocationPicker', () => {
   it('renders loading state while location options are loading', () => {
     render(<LocationPickerHarness isLoading />);
 
-    expect(screen.getByTestId('checkout-delivery-city-loading')).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Select city, loading' })
+    ).toBeTruthy();
+    expect(screen.getByLabelText('Loading cities')).toBeTruthy();
   });
 
   it('renders validation errors', () => {

@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
 import { jest } from '@jest/globals';
+import { fireEvent, render, screen } from '@testing-library/react-native';
 import { type FieldErrors, useForm } from 'react-hook-form';
 import { TextInput as MockTextInput } from 'react-native';
 import type { SavedAddress } from '@/lib/checkout-saved-address';
@@ -236,8 +236,8 @@ describe('CheckoutDeliveryCard', () => {
     );
 
     expect(screen.getByLabelText('Loading saved addresses')).toBeTruthy();
-    expect(screen.getByTestId('checkout-delivery-city-loading')).toBeTruthy();
-    expect(screen.getByTestId('checkout-delivery-state-loading')).toBeTruthy();
+    expect(screen.getByLabelText('Loading cities')).toBeTruthy();
+    expect(screen.getByLabelText('Loading states')).toBeTruthy();
   });
 
   it('displays validation errors for city and state selectors', () => {

@@ -29,6 +29,12 @@ export function CheckoutDeliveryLocationPicker({
   placeholder,
   valueName,
 }: CheckoutDeliveryLocationPickerProps) {
+  const loadingLabel =
+    valueName === 'city' ? 'Loading cities' : 'Loading states';
+  const pickerLabel = isLoading
+    ? `Select ${valueName}, loading`
+    : `Select ${valueName}`;
+
   return (
     <View style={styles.halfInput}>
       <Text style={[styles.label, { color: colors.textSecondary }]}>
@@ -40,8 +46,10 @@ export function CheckoutDeliveryLocationPicker({
         render={({ field: { value } }) => (
           <>
             <Pressable
-              accessibilityLabel={`Select ${valueName}`}
+              accessibilityHint={isLoading ? 'Loading options' : undefined}
+              accessibilityLabel={pickerLabel}
               accessibilityRole="button"
+              accessibilityState={{ busy: isLoading }}
               onPress={onPress}
               style={[
                 styles.input,
@@ -68,6 +76,8 @@ export function CheckoutDeliveryLocationPicker({
                 <ActivityIndicator
                   size="small"
                   color={colors.textSecondary}
+                  accessibilityLabel={loadingLabel}
+                  accessibilityRole="progressbar"
                   testID={`checkout-delivery-${valueName}-loading`}
                 />
               ) : (
