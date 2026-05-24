@@ -29,6 +29,12 @@ describe('Supabase retention cleanup migration', () => {
     expect(normalizedInitialMigrationSql).toContain(
       'SECURITY DEFINER SET search_path = public, cron, net'
     );
+    expect(initialMigrationSql).toContain(
+      'COALESCE(event_timestamp, created_at)'
+    );
+    expect(initialMigrationSql).toContain('clock_timestamp()');
+    expect(initialMigrationSql).not.toContain('pg_catalog.coalesce');
+    expect(initialMigrationSql).not.toContain('pg_catalog.clock_timestamp');
     expect(normalizedHardeningMigrationSql).toContain(
       "SECURITY DEFINER SET search_path = ''"
     );
