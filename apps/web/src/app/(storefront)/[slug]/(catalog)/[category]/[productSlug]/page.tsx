@@ -27,6 +27,7 @@ import {
   type CachedLegacyProductRedirectTarget,
   type CachedMerchant,
   getCachedLegacyProductRedirectTarget,
+  getCachedProduct,
   getCachedProductWithDetails,
   getRequestScopedMerchant,
   sanitizeLookupLogValue,
@@ -57,6 +58,7 @@ import {
 } from '@/lib/storefront-seo-defaults';
 import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
 import { isValidMerchantIdentifier } from '@/lib/validation';
+import { mapLegacyCachedProductToProduct } from '../../products/[productSlug]/legacy-product-mapper';
 import { OgabasseyPdpSemanticSections } from './ogabassey-pdp-semantic-sections';
 
 /**
@@ -351,6 +353,35 @@ type CategoryProductResult =
     }
   | null;
 
+type NonNullCategoryProductResult = Exclude<CategoryProductResult, null>;
+
+interface CategoryProductRouteControl {
+  result: NonNullCategoryProductResult;
+  productResultPromise: Promise<CategoryProductResult>;
+}
+
+function hasCategoryMismatch(
+  productCategorySlug: string | null | undefined,
+  urlCategorySlug: string
+) {
+  const normalizedProductCategorySlug =
+    normalizeStorefrontCategorySlug(productCategorySlug);
+  const normalizedUrlCategorySlug =
+    normalizeStorefrontCategorySlug(urlCategorySlug);
+
+  return Boolean(
+    normalizedProductCategorySlug &&
+      normalizedProductCategorySlug !== normalizedUrlCategorySlug
+  );
+}
+
+function getMappedProductCategorySlug(product: Product) {
+  return (
+    product.category_slug ||
+    (product.category ? generateSlug(product.category) : null)
+  );
+}
+
 const getProduct = async (
   storeSlug: string,
   categorySlug: string,
@@ -483,13 +514,9 @@ const getProduct = async (
 
   // Compare normalized slugs so alias remaps (e.g. samsung -> smartphones) don't
   // trigger a redirect loop between the canonical URL and the raw DB slug.
-  const normalizedProductCategorySlug =
-    normalizeStorefrontCategorySlug(productCategorySlug);
-  const normalizedUrlCategorySlug =
-    normalizeStorefrontCategorySlug(categorySlug);
-  const categoryMismatch = Boolean(
-    normalizedProductCategorySlug &&
-      normalizedProductCategorySlug !== normalizedUrlCategorySlug
+  const categoryMismatch = hasCategoryMismatch(
+    productCategorySlug,
+    categorySlug
   );
 
   return {
@@ -499,6 +526,53 @@ const getProduct = async (
     needsValuesRedirect,
   };
 };
+
+async function getProductRouteControl(
+  storeSlug: string,
+  categorySlug: string,
+  productSlug: string
+): Promise<CategoryProductRouteControl | null> {
+  const merchant = await getRequestScopedMerchant(storeSlug);
+
+  if (!merchant) {
+    console.warn('Merchant not found for storefront product route:', storeSlug);
+    return null;
+  }
+
+  const productResultPromise = getProduct(storeSlug, categorySlug, productSlug);
+  let cachedProduct = await getCachedProduct(merchant.id, productSlug);
+  let needsValuesRedirect = false;
+
+  if (!cachedProduct && productSlug !== productSlug.toLowerCase()) {
+    cachedProduct = await getCachedProduct(
+      merchant.id,
+      productSlug.toLowerCase()
+    );
+    needsValuesRedirect = Boolean(cachedProduct);
+  }
+
+  if (!cachedProduct) {
+    const result = await productResultPromise;
+    return result
+      ? { result, productResultPromise: Promise.resolve(result) }
+      : null;
+  }
+
+  const product = mapLegacyCachedProductToProduct(cachedProduct, merchant.id);
+
+  return {
+    result: {
+      product,
+      merchant,
+      categoryMismatch: hasCategoryMismatch(
+        getMappedProductCategorySlug(product),
+        categorySlug
+      ),
+      needsValuesRedirect,
+    },
+    productResultPromise,
+  };
+}
 
 export async function generateMetadata({
   params,
@@ -797,18 +871,40 @@ export default async function CategoryProductPage({
     notFound();
   }
 
-  // Start the product fetch first to run in parallel with the preloading lookups
-  const productResultPromise = getProduct(slug, category, productSlug);
+  const routeControl = await getProductRouteControl(
+    slug,
+    category,
+    productSlug
+  );
 
-  // Fetch the merchant and primary LCP image for the skeleton synchronously
-  let merchant: CachedMerchant | null = null;
+  if (!routeControl) {
+    notFound();
+  }
+
+  const { result: productResult, productResultPromise } = routeControl;
+
+  if (!('product' in productResult)) {
+    permanentRedirect(
+      getRedirectTargetPath(slug, productResult.legacyRedirectTarget)
+    );
+  }
+
+  const { product, merchant, categoryMismatch, needsValuesRedirect } =
+    productResult;
+
+  if (categoryMismatch || needsValuesRedirect) {
+    permanentRedirect(getRedirectTargetPath(slug, product));
+  }
+
+  const resolvedSearchParams = await searchParams;
+  redirectInvalidVariantSelectionParams(slug, product, resolvedSearchParams);
+
   let primaryProductImage: string | null = null;
   try {
-    merchant = await getRequestScopedMerchant(slug);
     if (merchant && merchant.template_id === OGABASSEY_TEMPLATE_ID) {
       primaryProductImage = await getCachedStorefrontProductLcpImage(
         merchant.id,
-        productSlug
+        product.slug || productSlug
       );
     }
   } catch (error) {
@@ -821,9 +917,6 @@ export default async function CategoryProductPage({
 
   return (
     <>
-      <Suspense fallback={null}>
-        <StorefrontDynamicMetadataMarker />
-      </Suspense>
       <Suspense fallback={null}>
         <OgabasseyPdpProductImagePreloadWrapper
           merchant={merchant}
@@ -840,10 +933,11 @@ export default async function CategoryProductPage({
       >
         <CategoryProductPageContent
           slug={slug}
-          searchParams={searchParams}
+          searchParams={Promise.resolve(resolvedSearchParams)}
           productResultPromise={productResultPromise}
         />
       </Suspense>
+      <StorefrontDynamicMetadataMarker />
     </>
   );
 }

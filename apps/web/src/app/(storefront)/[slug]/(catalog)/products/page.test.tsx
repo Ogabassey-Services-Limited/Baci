@@ -343,6 +343,16 @@ describe('products index page', () => {
     expect(
       screen.getByRole('status', { name: /dynamic metadata marker/i })
     ).toBeInTheDocument();
+
+    const loading = screen.getByRole('status', {
+      name: 'Loading product listing',
+    });
+    const marker = screen.getByRole('status', {
+      name: /dynamic metadata marker/i,
+    });
+    expect(
+      loading.compareDocumentPosition(marker) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
   });
 
   it('marks runtime metadata as intentional dynamic content', () => {
@@ -356,6 +366,13 @@ describe('products index page', () => {
     expect(
       screen.getByRole('status', { name: /dynamic metadata marker/i })
     ).toBeInTheDocument();
+    expect(
+      screen
+        .getByText('Products page content')
+        .compareDocumentPosition(
+          screen.getByRole('status', { name: /dynamic metadata marker/i })
+        ) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
   });
 
   it('uses a self-referencing canonical on paginated product index pages', async () => {
