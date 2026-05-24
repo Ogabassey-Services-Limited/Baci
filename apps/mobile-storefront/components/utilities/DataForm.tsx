@@ -1,15 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { ScrollView, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/components/useColorScheme';
-import Colors, { BRAND, SPACING } from '@/constants/Colors';
+import Colors, { SPACING } from '@/constants/Colors';
 import { useKeyboard } from '@/hooks/use-keyboard';
 import { useUtilityPayment } from '@/hooks/use-utility-payment';
 import type { Biller } from '@/hooks/use-vtu-billers';
@@ -18,6 +11,9 @@ import { detectNetwork } from '@/lib/network-utils';
 import { useAuthStore } from '@/stores/auth-store';
 import { BillerList } from './BillerList';
 import { createDataFormPurchaseHandler } from './create-data-form-purchase-handler';
+import { DataAmountInput } from './DataAmountInput';
+import { DataFormFooter } from './DataFormFooter';
+import { DataPlanSelectionSection } from './DataPlanSelectionSection';
 import {
   inferProviderFromDataBillerName,
   scrollToDataPayment,
@@ -28,11 +24,11 @@ import {
   dataFormStyles,
 } from './data-form.styles';
 import type { DataFormProps } from './data-form.types';
+import { findDataPlanByCode } from './data-plan-selection';
 import { getUtilityFooterOffset } from './get-utility-footer-offset';
 import { RecentUtilityRecipients } from './RecentUtilityRecipients';
 import { UtilityPaymentOptions } from './UtilityPaymentOptions';
 import { useDataBillerInitialization } from './use-data-biller-initialization';
-import { formatUtilityAmountInput } from './utility-amount-format';
 
 export function DataForm({
   initialAmount,
@@ -82,7 +78,6 @@ export function DataForm({
   const shouldScrollToPaymentRef = useRef(isRepeatPaymentReady);
   const wasRepeatPaymentReadyRef = useRef(isRepeatPaymentReady);
   const paymentYRef = useRef<number | null>(null);
-  const formattedPlanAmount = formatUtilityAmountInput(planAmount);
   const footerSpacerHeight =
     DATA_FOOTER_HEIGHT +
     Math.max(insets.bottom, SPACING.md) +
@@ -97,6 +92,13 @@ export function DataForm({
       ? plansError.message
       : 'Could not load data bundles. Please try again.'
     : undefined;
+  const selectedDataPlan = findDataPlanByCode(
+    selectedDataBiller?.billItems,
+    selectedPlan
+  );
+  const isFixedDataPlanAmount = Boolean(
+    selectedDataPlan?.isAmountFixed && selectedDataPlan.amount > 0
+  );
 
   useEffect(() => {
     if (!wasRepeatPaymentReadyRef.current && isRepeatPaymentReady) {
@@ -115,6 +117,7 @@ export function DataForm({
     initialProvider,
     setIsDataPickerExpanded,
     setSelectedDataBiller,
+    setPlanAmount,
     setSelectedPlan,
     setSelectedProvider,
   });
@@ -132,14 +135,25 @@ export function DataForm({
   };
 
   const handleDataBillerSelect = (biller: Biller) => {
+    const hasDataPackages = (biller.billItems?.length ?? 0) > 0;
     setSelectedDataBiller(biller);
-    setSelectedPlan(biller.billerId);
+    setSelectedPlan(hasDataPackages ? null : biller.billerId);
     setSelectedProvider(
       inferProviderFromDataBillerName(biller.billerName) ??
         detectNetwork(phoneNumber) ??
         selectedProvider
     );
+    if (hasDataPackages) {
+      setPlanAmount(0);
+    }
     setIsDataPickerExpanded(false);
+  };
+
+  const handleDataPlanSelect = (
+    billItem: NonNullable<typeof selectedDataPlan>
+  ) => {
+    setSelectedPlan(billItem.itemCode);
+    setPlanAmount(billItem.amount > 0 ? billItem.amount : 0);
   };
 
   const handlePurchase = createDataFormPurchaseHandler({
@@ -218,31 +232,21 @@ export function DataForm({
           errorMessage={plansErrorMessage}
         />
 
-        {/* Manual amount fallback */}
-        <View style={[dataFormStyles.inputGroup, { marginTop: 16 }]}>
-          <Text style={[dataFormStyles.label, { color: colors.textSecondary }]}>
-            Amount (₦)
-          </Text>
-          <TextInput
-            style={[
-              dataFormStyles.input,
-              {
-                backgroundColor: colors.muted,
-                color: colors.text,
-                borderColor: colors.border,
-              },
-            ]}
-            placeholder="Enter amount"
-            placeholderTextColor={colors.placeholder}
-            keyboardType="number-pad"
-            accessibilityLabel="Amount"
-            value={formattedPlanAmount}
-            onChangeText={(text) => {
-              const digits = text.replace(/\D/g, '');
-              setPlanAmount(digits ? Number(digits) : 0);
-            }}
+        {selectedDataBiller?.billItems?.length ? (
+          <DataPlanSelectionSection
+            billItems={selectedDataBiller.billItems}
+            colors={colors}
+            selectedPlan={selectedPlan}
+            onSelectPlan={handleDataPlanSelect}
           />
-        </View>
+        ) : null}
+
+        <DataAmountInput
+          amount={planAmount}
+          colors={colors}
+          isFixedAmount={isFixedDataPlanAmount}
+          onChangeAmount={setPlanAmount}
+        />
 
         <View
           onLayout={(event) => {
@@ -271,41 +275,16 @@ export function DataForm({
         </View>
       </ScrollView>
 
-      <View
-        style={[
-          dataFormStyles.footer,
-          {
-            borderTopColor: colors.border,
-            backgroundColor: colors.muted,
-            bottom: footerBottomOffset,
-            paddingBottom: isKeyboardVisible
-              ? SPACING.sm
-              : Math.max(insets.bottom, SPACING.md),
-          },
-        ]}
-      >
-        <Pressable
-          style={[
-            dataFormStyles.payButton,
-            {
-              backgroundColor: BRAND.primary,
-              opacity: isSubmitting ? 0.7 : 1,
-            },
-          ]}
-          onPress={handlePurchase}
-          disabled={isSubmitting}
-        >
-          {isSubmitting ? (
-            <ActivityIndicator color="#FFF" />
-          ) : (
-            <Text style={dataFormStyles.payButtonText}>
-              {payment.selectedSavedCardId
-                ? `Pay ₦${planAmount ? planAmount.toLocaleString() : '0'}`
-                : 'Continue to Payment'}
-            </Text>
-          )}
-        </Pressable>
-      </View>
+      <DataFormFooter
+        bottomInset={insets.bottom}
+        bottomOffset={footerBottomOffset}
+        colors={colors}
+        isKeyboardVisible={isKeyboardVisible}
+        isSubmitting={isSubmitting}
+        planAmount={planAmount}
+        selectedSavedCardId={payment.selectedSavedCardId}
+        onPress={handlePurchase}
+      />
     </>
   );
 }
