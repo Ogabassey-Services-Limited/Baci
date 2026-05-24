@@ -12,7 +12,7 @@ import {
   X,
 } from 'lucide-react';
 import type React from 'react';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 
 interface ProductFiltersProps {
   categories: string[];
@@ -45,6 +45,7 @@ export const ProductFilters: React.FC<ProductFiltersProps> = ({
   onViewModeChange,
 }) => {
   const [isFilterExpanded, setIsFilterExpanded] = useState(false);
+  const priceFilterInputsId = useId();
   const isFilterActive = minPrice > 0 || maxPrice < 3000000;
 
   return (
@@ -78,7 +79,7 @@ export const ProductFilters: React.FC<ProductFiltersProps> = ({
               <button
                 type="button"
                 aria-expanded={isFilterExpanded}
-                aria-controls="price-filter-inputs"
+                aria-controls={priceFilterInputsId}
                 onClick={() => setIsFilterExpanded(!isFilterExpanded)}
                 className={`h-10 px-3 rounded-xl border transition-all duration-200 flex items-center gap-2 shadow-sm ${
                   isFilterExpanded || isFilterActive
@@ -98,10 +99,12 @@ export const ProductFilters: React.FC<ProductFiltersProps> = ({
 
               {/* Expandable Inputs */}
               <div
-                id="price-filter-inputs" className={`flex items-center gap-2 overflow-hidden transition-all duration-300 ease-in-out ${
+                id={priceFilterInputsId}
+                aria-hidden={!isFilterExpanded}
+                className={`flex items-center gap-2 overflow-hidden transition-all duration-300 ease-in-out ${
                   isFilterExpanded
-                    ? 'w-auto opacity-100 translate-x-0'
-                    : 'w-0 opacity-0 -translate-x-2 pointer-events-none'
+                    ? 'visible w-auto opacity-100 translate-x-0'
+                    : 'invisible w-0 opacity-0 -translate-x-2 pointer-events-none'
                 }`}
               >
                 <div className="relative w-24 sm:w-28">
@@ -136,6 +139,7 @@ export const ProductFilters: React.FC<ProductFiltersProps> = ({
 
                 {isFilterActive && (
                   <button
+                    type="button"
                     onClick={() => onPriceChange(0, 3000000)}
                     className="h-10 w-10 flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-100"
                     title="Reset Price"
