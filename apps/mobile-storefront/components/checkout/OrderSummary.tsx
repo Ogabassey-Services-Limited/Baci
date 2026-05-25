@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons";
 import * as Haptics from 'expo-haptics';
 import { useState } from 'react';
 import {
