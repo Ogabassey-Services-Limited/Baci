@@ -156,7 +156,7 @@ describe('storefront blog post page', () => {
     ).toBeInTheDocument();
   });
 
-  it('adds a metadata marker beside request-time blog content', () => {
+  it('adds a metadata marker before request-time blog content', () => {
     render(
       <BlogPostPage
         params={Promise.resolve({
@@ -174,7 +174,7 @@ describe('storefront blog post page', () => {
     expect(content).toBeInTheDocument();
     expect(marker).toBeInTheDocument();
     expect(
-      content.compareDocumentPosition(marker) & Node.DOCUMENT_POSITION_FOLLOWING
+      marker.compareDocumentPosition(content) & Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy();
   });
 

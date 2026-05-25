@@ -856,7 +856,7 @@ describe('[category]/[productSlug] page render', () => {
     });
   });
 
-  it('renders the dynamic metadata marker after the streamed product boundary', async () => {
+  it('renders the dynamic metadata marker before the streamed product boundary', async () => {
     const ui = await resolveRsc(
       await CategoryProductPage({
         params: Promise.resolve({
@@ -881,7 +881,7 @@ describe('[category]/[productSlug] page render', () => {
     expect(heading).toBeInTheDocument();
     expect(marker).toBeInTheDocument();
     expect(
-      heading.compareDocumentPosition(marker) & Node.DOCUMENT_POSITION_FOLLOWING
+      marker.compareDocumentPosition(heading) & Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy();
     expect(container.querySelectorAll('h1')).toHaveLength(1);
   });

@@ -21,10 +21,10 @@ export default function BlogCatchAllPage({
 }) {
   return (
     <>
+      <StorefrontDynamicMetadataMarker />
       <Suspense fallback={null}>
         <BlogCatchAllResolver params={params} />
       </Suspense>
-      <StorefrontDynamicMetadataMarker />
     </>
   );
 }
