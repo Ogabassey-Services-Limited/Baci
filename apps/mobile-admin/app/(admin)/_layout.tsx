@@ -111,6 +111,10 @@ export default function AdminLayout() {
         <Stack.Screen name="analytics/index" options={{ title: 'Analytics' }} />
         <Stack.Screen name="blog/index" options={{ title: 'Blog' }} />
         <Stack.Screen
+          name="blog/preview"
+          options={{ title: 'Blog Preview', presentation: 'card' }}
+        />
+        <Stack.Screen
           name="customer/[id]"
           options={{ title: 'Customer Details' }}
         />
