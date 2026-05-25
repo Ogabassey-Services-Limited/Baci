@@ -13,7 +13,7 @@
     },
     {
       "path": "app/orders/[id].tsx",
-      "lineCount": 973,
+      "lineCount": 748,
       "justification": "Existing Phase 6 orders detail decomposition baseline; shrink or remove this entry as the route is modularized."
     },
     {
