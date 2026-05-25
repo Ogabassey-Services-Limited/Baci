@@ -1,4 +1,4 @@
-import type { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons";
 import type { ComponentProps } from 'react';
 import type { AppearanceMode } from '@/stores/settings-store';
 

@@ -1,4 +1,6 @@
-import { Feather } from '@expo/vector-icons';
+import Feather, {
+  type FeatherIconName,
+} from '@react-native-vector-icons/feather';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { BRAND, palette } from '@/constants/Colors';
@@ -25,7 +27,7 @@ interface FilterBarProps {
 
 type FilterType = 'price' | 'brand' | 'condition' | 'rating';
 
-const CATEGORY_ICONS: Record<string, keyof typeof Feather.glyphMap> = {
+const CATEGORY_ICONS: Record<string, FeatherIconName> = {
   All: 'grid',
   Phones: 'smartphone',
   Smartphones: 'smartphone',
@@ -164,7 +166,7 @@ export function FilterBar({
                     ]}
                   >
                     <Feather
-                      name={item.icon as keyof typeof Feather.glyphMap}
+                      name={item.icon as FeatherIconName}
                       size={16}
                       color={
                         activeFilterType === item.id
