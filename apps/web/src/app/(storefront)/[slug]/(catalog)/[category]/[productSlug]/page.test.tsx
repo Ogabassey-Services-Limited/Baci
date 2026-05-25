@@ -860,14 +860,10 @@ describe('[category]/[productSlug] page render', () => {
       level: 1,
       name: 'HP Laptop 14-ep0063nia',
     });
-    const marker = screen.getByRole('status', {
-      name: /dynamic metadata marker/i,
-    });
     expect(heading).toBeInTheDocument();
-    expect(marker).toBeInTheDocument();
     expect(
-      heading.compareDocumentPosition(marker) & Node.DOCUMENT_POSITION_FOLLOWING
-    ).toBeTruthy();
+      screen.queryByRole('status', { name: /dynamic metadata marker/i })
+    ).not.toBeInTheDocument();
     expect(container.querySelectorAll('h1')).toHaveLength(1);
   });
 
@@ -905,24 +901,35 @@ describe('[category]/[productSlug] page render', () => {
   });
 
   it('throws notFound before rendering a cached skeleton when the category product is missing', async () => {
+    const consoleWarnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
     mockGetCachedProductWithDetails.mockResolvedValueOnce(null);
     mockGetCachedLegacyProductRedirectTarget.mockResolvedValueOnce(null);
 
-    await expect(
-      CategoryProductPage({
-        params: Promise.resolve({
-          slug: 'teststore',
-          category: 'laptops',
-          productSlug: 'missing-product',
-        }),
-        searchParams: Promise.resolve({}),
-      })
-    ).rejects.toThrow('NEXT_NOT_FOUND');
+    try {
+      await expect(
+        CategoryProductPage({
+          params: Promise.resolve({
+            slug: 'teststore',
+            category: 'laptops',
+            productSlug: 'missing-product',
+          }),
+          searchParams: Promise.resolve({}),
+        })
+      ).rejects.toThrow('NEXT_NOT_FOUND');
 
-    expect(mockGetCachedLegacyProductRedirectTarget).toHaveBeenCalledWith(
-      baseMerchant.id,
-      'missing-product'
-    );
+      expect(mockGetCachedLegacyProductRedirectTarget).toHaveBeenCalledWith(
+        baseMerchant.id,
+        'missing-product'
+      );
+      expect(consoleWarnSpy).not.toHaveBeenCalledWith(
+        'Product not found for storefront product route:',
+        'missing-product'
+      );
+    } finally {
+      consoleWarnSpy.mockRestore();
+    }
   });
 
   it('uses the same NGN fallback currency for metadata and product JSON-LD', async () => {
