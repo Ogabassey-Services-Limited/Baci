@@ -49,6 +49,19 @@ export const publicProductGoogleFeedItemSchema = z.object({
   title: z.string().min(1),
 });
 
+export const publicProductGoogleFeedEnvelopeSchema = z.object({
+  rss: z.object({
+    channel: z.object({
+      item: z
+        .union([
+          publicProductGoogleFeedItemSchema,
+          z.array(publicProductGoogleFeedItemSchema),
+        ])
+        .optional(),
+    }),
+  }),
+});
+
 const publicProductPdpPresentationShape = {
   image: z.union([z.string(), z.array(z.string()).min(1)]),
   name: z.string().min(1),

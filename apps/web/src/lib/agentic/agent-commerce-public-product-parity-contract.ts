@@ -1,12 +1,11 @@
 import { XMLParser } from 'fast-xml-parser';
-import { z } from 'zod';
 import {
   type PublicProductApiSample,
   type PublicProductComparableSurface,
   publicProductApiResponseSchema,
   publicProductComparableSurfaceSchema,
   publicProductCurrentFeedItemSchema,
-  publicProductGoogleFeedItemSchema,
+  publicProductGoogleFeedEnvelopeSchema,
   publicProductPdpSchema,
 } from '@/schemas/agent-commerce-public-product-parity';
 
@@ -86,20 +85,9 @@ export function parseGoogleMerchantProductSample(
       parseTagValue: false,
       removeNSPrefix: true,
     });
-    const parsed = z
-      .object({
-        rss: z.object({
-          channel: z.object({
-            item: z
-              .union([
-                publicProductGoogleFeedItemSchema,
-                z.array(publicProductGoogleFeedItemSchema),
-              ])
-              .optional(),
-          }),
-        }),
-      })
-      .safeParse(parser.parse(xml));
+    const parsed = publicProductGoogleFeedEnvelopeSchema.safeParse(
+      parser.parse(xml)
+    );
     if (!parsed.success || !parsed.data.rss.channel.item) return null;
 
     const items = Array.isArray(parsed.data.rss.channel.item)
