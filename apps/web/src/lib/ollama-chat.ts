@@ -194,10 +194,15 @@ export async function createOllamaChatResponse({
         model: cleanModelName(model),
         messages,
         stream: true,
+        // Customer chat consumes final answer text only; do not spend the
+        // bounded generation budget on a hidden reasoning stream.
+        think: false,
         keep_alive: '10m',
         options: {
           num_ctx: 2048,
-          num_predict: 500,
+          // Customer chat should answer concisely; bound generation so a
+          // verbose completion does not occupy the single VPS model worker.
+          num_predict: 128,
           temperature: 0.4,
         },
       }),
