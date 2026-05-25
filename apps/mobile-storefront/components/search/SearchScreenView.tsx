@@ -1,6 +1,14 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons, {
+  type IoniconsIconName,
+} from '@react-native-vector-icons/ionicons';
 import { FlashList } from '@shopify/flash-list';
-import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FilterBar } from '@/components/storefront/FilterBar';
 import { ProductCard } from '@/components/storefront/ProductCard';
@@ -8,7 +16,7 @@ import type Colors from '@/constants/Colors';
 import type { Category, Product } from '@/types/product';
 import styles from './search-screen.styles';
 
-const CATEGORY_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
+const CATEGORY_ICONS: Record<string, IoniconsIconName> = {
   phones: 'phone-portrait-outline',
   gaming: 'game-controller-outline',
   accessories: 'headset-outline',
