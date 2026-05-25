@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -24,6 +24,11 @@ const regressionSql = readFileSync(
   resolve(migrationsDirectory, 'tests/quiz_phase1a_foundation.sql'),
   'utf8'
 );
+const allQuizMigrationSql = readdirSync(migrationsDirectory)
+  .filter((file) => /^20\d{12}_.*quiz.*\.sql$/.test(file))
+  .sort()
+  .map((file) => readFileSync(resolve(migrationsDirectory, file), 'utf8'))
+  .join('\n\n');
 
 describe('quiz migration contracts', () => {
   // Fragile by design: these regex assertions pin RLS, restricted GRANT columns,
@@ -111,6 +116,82 @@ describe('quiz migration contracts', () => {
       /WITH\s+selected_variant_per_slot\s+AS[\s\S]*pg_catalog\.md5\([^)]*variant\.id::text\s*\|\|\s*p_event_id::text\s*\|\|\s*v_customer_id::text\)/is
     );
     expect(rpcSql).toMatch(/v_answered_questions\s*>=\s*v_total_questions/i);
+  });
+
+  it('scores submitted answers from server-side variant answer hashes', () => {
+    expect(allQuizMigrationSql).toMatch(
+      /CREATE\s+OR\s+REPLACE\s+FUNCTION\s+public\.quiz_normalize_answer_key/i
+    );
+    expect(allQuizMigrationSql).toMatch(
+      /CREATE\s+OR\s+REPLACE\s+FUNCTION\s+public\.quiz_answer_key_matches/i
+    );
+    expect(allQuizMigrationSql).toMatch(
+      /answer_key_hash\s+~\s*'\^\[0-9a-f\]\{64\}\$'/i
+    );
+    expect(allQuizMigrationSql).toMatch(
+      /JOIN\s+public\.quiz_question_variants\s+qv\s+ON\s+qv\.id\s*=\s*q\.variant_id/i
+    );
+    expect(allQuizMigrationSql).toMatch(
+      /v_score_delta\s*:=\s*CASE\s+WHEN\s+public\.quiz_answer_key_matches\(/is
+    );
+    expect(allQuizMigrationSql).toMatch(
+      /INSERT\s+INTO\s+public\.quiz_attempt_answers[\s\S]*score_delta[\s\S]*v_score_delta/is
+    );
+  });
+
+  it('prevents duplicate answer replay from overwriting scored answers', () => {
+    const scoringRecordAnswerSql = allQuizMigrationSql
+      .match(
+        /CREATE OR REPLACE FUNCTION public\.record_quiz_answer[\s\S]*?\$\$;/gi
+      )
+      ?.at(-1);
+
+    expect(scoringRecordAnswerSql).toBeDefined();
+    expect(scoringRecordAnswerSql).toMatch(
+      /ON\s+CONFLICT\s*\(\s*attempt_question_id\s*\)\s+DO\s+NOTHING/i
+    );
+    expect(scoringRecordAnswerSql).not.toMatch(
+      /ON\s+CONFLICT\s*\(\s*attempt_question_id\s*\)\s+DO\s+UPDATE/i
+    );
+    expect(scoringRecordAnswerSql).toMatch(
+      /GET\s+DIAGNOSTICS\s+v_inserted_rows\s*=\s*ROW_COUNT/i
+    );
+    expect(scoringRecordAnswerSql).toMatch(/quiz_answer_already_recorded/i);
+    expect(scoringRecordAnswerSql).toMatch(/ERRCODE\s*=\s*'QZ026'/i);
+    expect(scoringRecordAnswerSql).toMatch(
+      /IF\s+EXISTS\s*\([\s\S]*quiz_attempt_answers[\s\S]*attempt_question_id\s*=\s*v_attempt_question_id[\s\S]*ERRCODE\s*=\s*'QZ026'/i
+    );
+  });
+
+  it('enforces server-issued answer timing before scoring', () => {
+    expect(allQuizMigrationSql).toMatch(
+      /ALTER\s+TABLE\s+public\.quiz_attempt_questions[\s\S]*ADD\s+COLUMN\s+IF\s+NOT\s+EXISTS\s+issued_at\s+timestamptz/i
+    );
+    expect(allQuizMigrationSql).toMatch(
+      /ALTER\s+TABLE\s+public\.quiz_attempt_questions[\s\S]*ADD\s+COLUMN\s+IF\s+NOT\s+EXISTS\s+time_limit_ms\s+integer/i
+    );
+    expect(allQuizMigrationSql).toMatch(
+      /ALTER\s+TABLE\s+public\.quiz_attempt_answers[\s\S]*ADD\s+COLUMN\s+IF\s+NOT\s+EXISTS\s+answered_in_ms\s+integer/i
+    );
+
+    const scoringRecordAnswerSql = allQuizMigrationSql
+      .match(
+        /CREATE OR REPLACE FUNCTION public\.record_quiz_answer[\s\S]*?\$\$;/gi
+      )
+      ?.at(-1);
+
+    expect(scoringRecordAnswerSql).toBeDefined();
+    expect(scoringRecordAnswerSql).toMatch(/v_answered_in_ms/i);
+    expect(scoringRecordAnswerSql).toMatch(/quiz_question_not_issued/i);
+    expect(scoringRecordAnswerSql).toMatch(/answer_too_fast/i);
+    expect(scoringRecordAnswerSql).toMatch(/v_answered_in_ms\s*<\s*400/i);
+    expect(scoringRecordAnswerSql).toMatch(/answer_too_late/i);
+    expect(scoringRecordAnswerSql).toMatch(
+      /v_answered_in_ms\s*>\s*COALESCE\(\s*v_time_limit_ms,\s*30000\s*\)\s*\+\s*1000/i
+    );
+    expect(scoringRecordAnswerSql).toMatch(
+      /INSERT\s+INTO\s+public\.quiz_attempt_answers[\s\S]*answered_in_ms[\s\S]*v_answered_in_ms/is
+    );
   });
 
   it('keeps catalog-backed migration regression checks for variant exposure', () => {
