@@ -128,7 +128,7 @@ describe('storefront blog post page', () => {
     ]);
   });
 
-  it('renders a local shell and metadata marker while request-time blog content is pending', () => {
+  it('renders only the local shell while request-time blog content is pending', () => {
     mockBlogPostPageContent.mockImplementation(() => {
       throw new Promise(() => {
         // Keep the blog post page content suspended behind its local shell.
@@ -152,11 +152,11 @@ describe('storefront blog post page', () => {
       screen.queryByText('Blog post page content')
     ).not.toBeInTheDocument();
     expect(
-      screen.getByRole('status', { name: /dynamic metadata marker/i })
-    ).toBeInTheDocument();
+      screen.queryByRole('status', { name: /dynamic metadata marker/i })
+    ).not.toBeInTheDocument();
   });
 
-  it('renders the dynamic metadata marker beside request-time blog content', () => {
+  it('does not add a metadata marker beside request-time blog content', () => {
     render(
       <BlogPostPage
         params={Promise.resolve({
@@ -168,8 +168,8 @@ describe('storefront blog post page', () => {
 
     expect(screen.getByText('Blog post page content')).toBeInTheDocument();
     expect(
-      screen.getByRole('status', { name: /dynamic metadata marker/i })
-    ).toBeInTheDocument();
+      screen.queryByRole('status', { name: /dynamic metadata marker/i })
+    ).not.toBeInTheDocument();
   });
 
   it('resolves public metadata without consulting draft request state', async () => {
