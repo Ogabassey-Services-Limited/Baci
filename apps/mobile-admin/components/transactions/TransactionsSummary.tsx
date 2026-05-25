@@ -73,14 +73,14 @@ export function TransactionsSummary({
 
       <View
         accessible
-        accessibilityLabel={`Estimated profit: ${estimatedProfitLabel}. Update product cost prices so analytics profit stays grounded in actual margins.`}
+        accessibilityLabel={`Estimated profit this month: ${estimatedProfitLabel}. Update product cost prices so analytics profit stays grounded in actual margins.`}
         style={[
           styles.heroCard,
           { backgroundColor: colors.card, borderColor: colors.border },
         ]}
       >
         <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
-          Estimated profit
+          Estimated profit this month
         </Text>
         <Text style={[styles.heroValue, { color: colors.text }]}>
           {estimatedProfitLabel}
