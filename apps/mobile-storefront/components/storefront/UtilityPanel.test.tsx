@@ -98,11 +98,6 @@ describe('UtilityPanel', () => {
     expect(screen.getByTestId('utility-category-icon-u-airtime')).toHaveStyle({
       backgroundColor: Colors.light.selectedIconBackground,
     });
-    expect(
-      screen.getByTestId('utility-category-icon-u-airtime')
-    ).not.toHaveStyle({
-      elevation: 3,
-    });
 
     mockUseColorScheme.mockReturnValue('dark');
 

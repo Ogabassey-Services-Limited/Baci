@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 // router removed as it was unused.
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
@@ -6,15 +6,15 @@ import {
   ActivityIndicator,
   Animated,
   Easing,
-  StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
-import Colors, { BRAND, SPACING } from '@/constants/Colors';
+import Colors, { BRAND } from '@/constants/Colors';
 import { type Category, useCategories } from '@/hooks';
 import { usePrefetchBillers } from '@/hooks/use-vtu-billers';
+import { utilityPanelStyles as styles } from './UtilityPanel.styles';
+import { UtilityPanelCategoryItem } from './UtilityPanelCategoryItem';
 
 interface UtilityPanelProps {
   variant?: 'card' | 'circle' | 'pill';
@@ -27,95 +27,6 @@ interface UtilityPanelProps {
 // Module-level constants (stable references, no re-creation per render)
 const UTILITY_WORDS = ['Airtime!', 'Data!', 'Tv!', 'Power!', 'Gaming!'];
 const CATEGORY_IDS = ['u-airtime', 'u-data', 'u-tv', 'u-power', 'u-gaming'];
-
-interface CategoryItemProps {
-  id: string;
-  name: string;
-  slug?: string;
-  iconName: React.ComponentProps<typeof Ionicons>['name'];
-  variant: 'card' | 'circle' | 'pill';
-  isActive: boolean;
-  onPress: () => void;
-}
-
-// React Compiler handles memoization (ADR-004)
-function CategoryItem({
-  id,
-  name,
-  iconName,
-  variant,
-  isActive,
-  onPress,
-}: CategoryItemProps) {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
-  const iconScale = useRef(new Animated.Value(isActive ? 1.05 : 1)).current;
-  const labelOpacity = useRef(new Animated.Value(isActive ? 1 : 0.8)).current;
-
-  useEffect(() => {
-    Animated.parallel([
-      Animated.spring(iconScale, {
-        toValue: isActive ? 1.05 : 1,
-        damping: 16,
-        stiffness: 180,
-        mass: 1,
-        useNativeDriver: true,
-      }),
-      Animated.timing(labelOpacity, {
-        toValue: isActive ? 1 : 0.8,
-        duration: 220,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [isActive, iconScale, labelOpacity]);
-
-  if (variant === 'circle') {
-    return (
-      <TouchableOpacity
-        onPress={onPress}
-        style={[styles.circleItem]}
-        activeOpacity={0.85}
-        accessibilityRole="button"
-        accessibilityState={{ selected: isActive }}
-        accessibilityLabel={name}
-        accessibilityHint={`Tap to select ${name} services`}
-      >
-        <Animated.View
-          testID={`utility-category-icon-${id}`}
-          style={[
-            styles.circleIcon,
-            { backgroundColor: colors.muted },
-            isActive && [
-              styles.circleIconActive,
-              { backgroundColor: colors.selectedIconBackground },
-            ],
-            { transform: [{ scale: iconScale }] },
-          ]}
-        >
-          <Ionicons
-            name={iconName}
-            size={20} // Web parity: w-12 container -> ~20px icon
-            color={isActive ? BRAND.primary : colors.icon}
-          />
-        </Animated.View>
-        <Animated.Text
-          style={[
-            styles.circleLabel,
-            { color: colors.textSecondary },
-            isActive && [styles.circleLabelActive, { color: colors.text }],
-            { opacity: labelOpacity },
-          ]}
-        >
-          {name}
-        </Animated.Text>
-      </TouchableOpacity>
-    );
-  }
-
-  // Fallback for non-circle variants (keep basic logic)
-  return null;
-}
 
 export function UtilityPanel({
   variant = 'circle',
@@ -286,11 +197,10 @@ export function UtilityPanel({
       </View>
       <View style={styles.categoriesContent}>
         {categories.map((category, index) => (
-          <CategoryItem
+          <UtilityPanelCategoryItem
             key={category.id}
             id={category.id}
             name={category.name}
-            slug={category.slug}
             iconName={
               category.icon as React.ComponentProps<typeof Ionicons>['name']
             }
@@ -308,71 +218,3 @@ export function UtilityPanel({
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    marginHorizontal: SPACING.md,
-    marginTop: -8,
-    marginBottom: 0,
-    transform: [{ translateY: 8 }],
-    borderRadius: 24, // Web: rounded-3xl
-    paddingVertical: SPACING.sm,
-    borderWidth: 1,
-  },
-  minimalContainer: { paddingVertical: SPACING.sm },
-  promoBanner: {
-    marginHorizontal: SPACING.md,
-    marginBottom: SPACING.md,
-    paddingVertical: 10, // Web: py-3 (approx 10-12px)
-    borderRadius: 16, // Web: rounded-2xl
-  },
-  promoText: { fontSize: 11, textAlign: 'center' },
-  promoHighlight: { color: BRAND.primary, fontWeight: '700' },
-  categoriesContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 8, // Web: px-1 (approx 4-8px)
-    width: '100%',
-  },
-  circleItem: { alignItems: 'center', flex: 1 },
-  circleIcon: {
-    width: 48, // Web: w-12
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  circleIconActive: {
-    borderColor: BRAND.primary,
-    borderWidth: 1,
-  },
-  circleLabel: {
-    fontSize: 11,
-    fontWeight: '500',
-    textAlign: 'center',
-    marginTop: 2,
-  },
-  circleLabelActive: {
-    fontWeight: '700',
-  },
-  errorTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  errorMessage: {
-    fontSize: 12,
-    textAlign: 'center',
-    marginTop: 6,
-  },
-  // Keep pill styles just in case valid/used elsewhere, though variant is mostly circle here
-  pillItem: {},
-  pillLabel: {},
-  categoryItem: {},
-  categoryActive: {},
-  iconContainer: {},
-  iconContainerActive: {},
-  categoryLabel: {},
-  categoryLabelActive: {},
-});
