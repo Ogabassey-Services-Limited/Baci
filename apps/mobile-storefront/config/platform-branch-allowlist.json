@@ -113,6 +113,10 @@
       "justification": "Reviewed platform-specific dropdown shadow/elevation styling."
     },
     {
+      "path": "components/storefront/Hero.styles.ts",
+      "justification": "Reviewed web box-shadow selection for the elite hero card while preserving native shadow styling."
+    },
+    {
       "path": "components/ui/Button.tsx",
       "justification": "Reviewed iOS haptic branch for shared button interactions."
     },
