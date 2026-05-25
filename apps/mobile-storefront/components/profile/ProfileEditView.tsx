@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@react-native-vector-icons/ionicons';
 import type { ComponentProps, ReactNode } from 'react';
 import { type Control, Controller, type FieldErrors } from 'react-hook-form';
 import {

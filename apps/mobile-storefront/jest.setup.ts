@@ -2,6 +2,9 @@ import '@testing-library/jest-native/extend-expect';
 import React, { type ReactNode } from 'react';
 import { ScrollView, View } from 'react-native';
 
+// Resolve Expo's lazy fetch polyfill before test teardown can invalidate native mocks.
+void globalThis.fetch;
+
 function mockKeyboardProvider({
   children,
   ...props
@@ -56,9 +59,7 @@ jest.mock('react-native-keyboard-controller', () => ({
 
 // Mock AsyncStorage
 jest.mock('@react-native-async-storage/async-storage', () =>
-  require(
-    `${__dirname}/../../node_modules/@react-native-async-storage/async-storage/lib/module/jest/AsyncStorageMock.js`
-  )
+  require('@react-native-async-storage/async-storage/jest/async-storage-mock')
 );
 
 // Mock expo-haptics
@@ -84,7 +85,21 @@ jest.mock('expo-router', () => ({
   Link: 'Link',
 }));
 
-// Mock @expo/vector-icons
-jest.mock('@expo/vector-icons', () => ({
+// Mock vector icons
+jest.mock('@react-native-vector-icons/ionicons', () => ({
   Ionicons: 'Ionicons',
+  __esModule: true,
+  default: 'Ionicons',
+}));
+
+jest.mock('@react-native-vector-icons/fontawesome', () => ({
+  FontAwesome: 'FontAwesome',
+  __esModule: true,
+  default: 'FontAwesome',
+}));
+
+jest.mock('@react-native-vector-icons/feather', () => ({
+  Feather: 'Feather',
+  __esModule: true,
+  default: 'Feather',
 }));
