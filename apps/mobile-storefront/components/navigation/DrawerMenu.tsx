@@ -16,7 +16,6 @@ import {
   InteractionManager,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -33,39 +32,17 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useShallow } from 'zustand/react/shallow';
 import { Logo } from '@/components/ui/Logo';
 import { useColorScheme } from '@/components/useColorScheme';
-import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
+import Colors, { SPACING } from '@/constants/Colors';
 import { getOptionalGestureHandlerRuntime } from '@/lib/optional-gesture-handler';
 import { useAuthStore } from '@/stores/auth-store';
 import { useDrawerStore } from '@/stores/drawer-store';
+import { getDrawerMenuShadowStyles } from './DrawerMenu.shadows';
+import styles from './DrawerMenu.styles';
+import { DrawerMenuItems } from './DrawerMenuItems';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const DRAWER_WIDTH = Math.min(SCREEN_WIDTH * 0.85, 320);
 const ANIMATION_DURATION = 300;
-
-interface MenuItem {
-  label: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  path: string;
-  authRequired?: boolean;
-}
-
-const menuItems: MenuItem[] = [
-  {
-    label: 'My Account',
-    icon: 'person-outline',
-    path: '/account',
-    authRequired: true,
-  },
-  { label: 'Orders', icon: 'bag-outline', path: '/orders' },
-  { label: 'Receipts', icon: 'document-text-outline', path: '/receipts' },
-  { label: 'Saved Items', icon: 'heart-outline', path: '/saved' },
-  { label: 'IMEI Checker', icon: 'scan-outline', path: '/imei-check' },
-  { label: 'Wallet', icon: 'wallet-outline', path: '/wallet' },
-  { label: 'Address Book', icon: 'location-outline', path: '/addresses' },
-  { label: 'Repairs', icon: 'construct-outline', path: '/repairs' },
-  { label: 'Swap / Trade-in', icon: 'swap-horizontal-outline', path: '/swap' },
-  { label: 'Help & Support', icon: 'help-circle-outline', path: '/faq' },
-];
 
 export function DrawerMenu() {
   const { Gesture, GestureDetector } = getOptionalGestureHandlerRuntime();
@@ -80,6 +57,9 @@ export function DrawerMenu() {
   const isAuthenticated = !!user;
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const drawerShadowStyles = getDrawerMenuShadowStyles(
+    Platform.OS === 'web' ? 'web' : 'native'
+  );
 
   const appVersion = Constants.expoConfig?.version ?? '1.0.0';
   const currentYear = new Date().getFullYear();
@@ -150,7 +130,7 @@ export function DrawerMenu() {
     transform: [{ translateX: translateX.get() }],
   }));
 
-  // H4 fix: Use isOpen prop directly for pointerEvents since useDerivedValue
+  // H4 fix: Use isOpen directly for style.pointerEvents since useDerivedValue
   // reads .value at render time (JS thread snapshot), not reactively during animation.
 
   const backdropAnimatedStyle = useAnimatedStyle(() => ({
@@ -199,15 +179,15 @@ export function DrawerMenu() {
     router.push('/auth/login');
   };
 
-  const isActive = (path: string) =>
-    pathname === path || pathname?.startsWith(`${path}/`);
-
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-      {/* Backdrop — pointerEvents driven by isOpen prop for reliable tappability */}
+    <View style={[StyleSheet.absoluteFill, styles.passThroughContainer]}>
+      {/* Backdrop interaction is driven by isOpen for reliable tappability. */}
       <Animated.View
-        style={[styles.backdrop, backdropAnimatedStyle]}
-        pointerEvents={isOpen ? 'auto' : 'none'}
+        style={[
+          styles.backdrop,
+          backdropAnimatedStyle,
+          { pointerEvents: isOpen ? 'auto' : 'none' },
+        ]}
       >
         <Pressable style={StyleSheet.absoluteFill} onPress={closeDrawer} />
       </Animated.View>
@@ -215,15 +195,16 @@ export function DrawerMenu() {
       {/* Drawer — L1 fix: Use theme-aware colors instead of hardcoded white */}
       <GestureDetector gesture={panGesture ?? undefined}>
         <Animated.View
-          pointerEvents={isOpen ? 'auto' : 'none'}
           style={[
             styles.drawer,
+            drawerShadowStyles.drawer,
             {
               paddingTop: insets.top,
               width: DRAWER_WIDTH,
               backgroundColor: colors.card,
             },
             drawerAnimatedStyle,
+            { pointerEvents: isOpen ? 'auto' : 'none' },
           ]}
         >
           {/* Header */}
@@ -244,52 +225,16 @@ export function DrawerMenu() {
             </Pressable>
           </View>
 
-          {/* Menu Content */}
-          <ScrollView
-            style={styles.menuList}
-            contentContainerStyle={styles.menuListContent}
-            showsVerticalScrollIndicator={false}
-          >
-            {/* Section Header */}
-            <Text
-              style={[styles.sectionHeader, { color: colors.textSecondary }]}
-            >
-              ACCOUNT
-            </Text>
-
-            {/* Menu Items — hide auth-required items for guests */}
-            {menuItems
-              .filter((item) => !item.authRequired || isAuthenticated)
-              .map((item) => {
-                const active = isActive(item.path);
-                return (
-                  <Pressable
-                    key={item.path}
-                    style={[styles.menuItem, active && styles.menuItemActive]}
-                    onPress={() => handleNavigate(item.path)}
-                    accessibilityLabel={item.label}
-                    accessibilityRole="menuitem"
-                  >
-                    <View style={styles.menuItemContent}>
-                      <Ionicons
-                        name={item.icon}
-                        size={18}
-                        color={active ? BRAND.primary : colors.icon}
-                      />
-                      <Text
-                        style={[
-                          styles.menuItemLabel,
-                          { color: colors.text },
-                          active && styles.menuItemLabelActive,
-                        ]}
-                      >
-                        {item.label}
-                      </Text>
-                    </View>
-                  </Pressable>
-                );
-              })}
-          </ScrollView>
+          <DrawerMenuItems
+            colors={{
+              icon: colors.icon,
+              text: colors.text,
+              textSecondary: colors.textSecondary,
+            }}
+            isAuthenticated={isAuthenticated}
+            pathname={pathname}
+            onNavigate={handleNavigate}
+          />
 
           {/* Footer */}
           <View
@@ -306,6 +251,7 @@ export function DrawerMenu() {
               <Pressable
                 style={[
                   styles.authButton,
+                  drawerShadowStyles.authButton,
                   { backgroundColor: colors.foreground },
                 ]}
                 onPress={handleSignOut}
@@ -322,6 +268,7 @@ export function DrawerMenu() {
               <Pressable
                 style={[
                   styles.authButton,
+                  drawerShadowStyles.authButton,
                   { backgroundColor: colors.foreground },
                 ]}
                 onPress={handleSignIn}
@@ -344,98 +291,3 @@ export function DrawerMenu() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  backdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    zIndex: 998,
-  },
-  drawer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    bottom: 0,
-    zIndex: 999,
-    shadowColor: '#000',
-    shadowOffset: { width: 4, height: 0 },
-    shadowOpacity: 0.15,
-    shadowRadius: 20,
-    elevation: 24,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-  },
-  closeButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  menuList: {
-    flex: 1,
-  },
-  menuListContent: {
-    paddingTop: 14,
-    paddingHorizontal: 12,
-  },
-  sectionHeader: {
-    fontSize: 11,
-    fontFamily: 'Inter_700Bold',
-    letterSpacing: 1.5,
-    marginBottom: 12,
-  },
-  menuItem: {
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-    borderRadius: RADIUS.lg,
-    marginBottom: 2,
-  },
-  menuItemActive: {
-    backgroundColor: `${BRAND.primary}10`,
-  },
-  menuItemContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  menuItemLabel: {
-    fontSize: 14,
-    fontFamily: 'Inter_500Medium',
-  },
-  menuItemLabelActive: {
-    fontFamily: 'Inter_700Bold',
-    color: BRAND.primary,
-  },
-  footer: {
-    paddingHorizontal: 12,
-    paddingVertical: 16,
-    borderTopWidth: 1,
-  },
-  authButton: {
-    paddingVertical: 14,
-    borderRadius: RADIUS.lg,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  authButtonText: {
-    fontSize: 14,
-    fontFamily: 'Inter_700Bold',
-  },
-  versionText: {
-    fontSize: 10,
-    fontFamily: 'Inter_400Regular',
-    textAlign: 'center',
-    marginTop: 12,
-  },
-});
