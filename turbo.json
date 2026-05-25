@@ -41,8 +41,14 @@
       "cache": false,
       "persistent": true
     },
-    "lint": {},
-    "typecheck": {},
-    "test": {}
+    "lint": {
+      "inputs": ["src/**/*", "package.json", "tsconfig*.json", "biome.json"]
+    },
+    "typecheck": {
+      "inputs": ["src/**/*", "package.json", "tsconfig*.json"]
+    },
+    "test": {
+      "inputs": ["src/**/*", "package.json", "tsconfig*.json", "vitest.config.*", "jest.config.*"]
+    }
   }
 }
