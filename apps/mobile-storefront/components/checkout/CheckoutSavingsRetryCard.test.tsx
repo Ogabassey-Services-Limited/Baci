@@ -29,9 +29,9 @@ describe('CheckoutSavingsRetryCard', () => {
   });
 
   it.each([
-    ['light', Colors.light, false],
-    ['dark', Colors.dark, true],
-  ] as const)('renders retry chrome in %s mode', (_label, colors, isDark) => {
+    { colors: Colors.light, isDark: false, label: 'light' },
+    { colors: Colors.dark, isDark: true, label: 'dark' },
+  ])('renders retry chrome in $label mode', ({ colors, isDark }) => {
     render(
       <CheckoutSavingsRetryCard
         colors={colors}

@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { Pressable, Text, View } from 'react-native';
 import type Colors from '@/constants/Colors';
 import { styles } from './wallet.styles';
@@ -29,11 +29,7 @@ export function WalletActionsRow({
           onPress={onStartSavings}
           style={styles.primaryActionButton}
         >
-          <Ionicons
-            name="sparkles-outline"
-            size={16}
-            color={colors.white}
-          />
+          <Ionicons name="sparkles-outline" size={16} color={colors.white} />
           <Text style={styles.primaryActionButtonText}>Start Savings</Text>
         </Pressable>
         <Pressable
@@ -57,11 +53,7 @@ export function WalletActionsRow({
           style={styles.quickSaveButton}
           onPress={onQuickSave}
         >
-          <Ionicons
-            name="add-circle-outline"
-            size={16}
-            color={colors.white}
-          />
+          <Ionicons name="add-circle-outline" size={16} color={colors.white} />
           <Text style={styles.quickSaveButtonText}>Quick Save</Text>
         </Pressable>
       ) : null}

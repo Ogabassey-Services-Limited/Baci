@@ -2,7 +2,7 @@ import {
   getRedeemablePointBalance,
   VTU_MIN_REDEEMABLE_POINTS,
 } from '@baci/shared/lib';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@react-native-vector-icons/ionicons';
 import type { StyleProp, ViewStyle } from 'react-native';
 import {
   ActivityIndicator,

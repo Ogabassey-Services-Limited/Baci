@@ -32,7 +32,9 @@ describe('useNextStepScroll', () => {
         return frameId;
       });
     jest.spyOn(global, 'cancelAnimationFrame').mockImplementation((frameId) => {
-      frameCallbacks.delete(frameId);
+      if (typeof frameId === 'number') {
+        frameCallbacks.delete(frameId);
+      }
     });
     jest
       .spyOn(InteractionManager, 'runAfterInteractions')

@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import { BRAND, palette } from '@/constants/Colors';
 import { StartSavingsProductFields } from './StartSavingsProductFields';

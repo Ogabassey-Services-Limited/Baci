@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { BRAND } from '@/constants/Colors';
@@ -60,7 +60,9 @@ export function WalletHeroSection({
         </Pressable>
       </View>
       <Text style={styles.balanceLabel}>Total Balance · NGN</Text>
-      <Text style={styles.balanceAmount}>{formatNgnCurrency(totalBalance)}</Text>
+      <Text style={styles.balanceAmount}>
+        {formatNgnCurrency(totalBalance)}
+      </Text>
 
       {fundingAccount ? (
         <>
@@ -93,7 +95,9 @@ export function WalletHeroSection({
           accessibilityHint="Creates your wallet bank transfer account"
           style={[
             styles.createAccountButton,
-            isCreatingFundingAccount ? styles.createAccountButtonDisabled : null,
+            isCreatingFundingAccount
+              ? styles.createAccountButtonDisabled
+              : null,
           ]}
           onPress={onCreateFundingAccount}
           disabled={isCreatingFundingAccount}

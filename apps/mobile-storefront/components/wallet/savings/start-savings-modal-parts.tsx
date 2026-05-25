@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { Pressable, Text, View } from 'react-native';
 import { BRAND, withAlpha } from '@/constants/Colors';
 import type { CustomerPaymentMethod } from '@/lib/customer-savings';

@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { router } from 'expo-router';
 import {
   type Dispatch,
@@ -18,8 +18,8 @@ import {
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
 import { listSavedVtuCards, type SavedVtuCard } from '@/lib/vtu-checkout';
-import { createManageCardsStyles } from './ManageCardsScreen.styles';
 import { formatCardMeta } from './card-formatting.helpers';
+import { createManageCardsStyles } from './ManageCardsScreen.styles';
 
 type LoadCardsInput = {
   refresh?: boolean;
