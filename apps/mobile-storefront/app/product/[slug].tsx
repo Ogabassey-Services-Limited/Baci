@@ -11,7 +11,6 @@ import Ionicons from "@react-native-vector-icons/ionicons";
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Dimensions,
   type GestureResponderEvent,
@@ -32,15 +31,15 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useShallow } from 'zustand/react/shallow';
-import { OfflineEmptyState } from '@/components/OfflineNotice';
 import { FlyToCartParticle } from '@/components/product/FlyToCartParticle';
 import { useProductDetailSelection } from '@/components/product/hooks/use-product-detail-selection';
 import { NegotiationModal } from '@/components/product/NegotiationModal';
+import { ProductDetailRouteState } from '@/components/product/ProductDetailRouteState';
 import { ProductDetailsBody } from '@/components/product/ProductDetailsBody';
 import { ProductImageGallery } from '@/components/product/ProductImageGallery';
 import { StickyBottomActions } from '@/components/product/StickyBottomActions';
 import { useColorScheme } from '@/components/useColorScheme';
-import Colors, { BRAND, RADIUS } from '@/constants/Colors';
+import Colors, { RADIUS } from '@/constants/Colors';
 import { PLACEHOLDER_IMAGE_URL } from '@/constants/Images';
 import {
   MIN_STICKY_BOTTOM_PADDING,
@@ -656,98 +655,49 @@ export default function ProductDetailScreen() {
     setSelectedImageIndex(0);
   }, [images.length, selectedImageIndex, setSelectedImageIndex]);
 
+  const handleProductRouteBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+
+    router.replace('/');
+  };
+
   // 2026 Critical Fix: Handle invalid slug parameter
   if (!isValidSlug) {
     return (
-      <View
-        style={[styles.errorContainer, { backgroundColor: colors.background }]}
-      >
-        <Ionicons
-          name="alert-circle-outline"
-          size={64}
-          color={colors.textSecondary}
-        />
-        <Text style={[styles.errorTitle, { color: colors.text }]}>
-          Invalid Product Link
-        </Text>
-        <Text style={[styles.errorSubtitle, { color: colors.textSecondary }]}>
-          This product link is not valid. Please try searching for the product.
-        </Text>
-        <Pressable
-          style={[styles.retryButton, { backgroundColor: BRAND.primary }]}
-          onPress={() =>
-            router.canGoBack() ? router.back() : router.replace('/')
-          }
-          accessibilityLabel="Go back to previous screen"
-          accessibilityRole="button"
-        >
-          <Text style={styles.retryButtonText}>Go Back</Text>
-        </Pressable>
-      </View>
+      <ProductDetailRouteState
+        colors={colors}
+        onGoBack={handleProductRouteBack}
+        state="invalid"
+      />
     );
   }
 
   if (isLoading) {
-    return (
-      <View
-        style={[
-          styles.loadingContainer,
-          { backgroundColor: colors.background },
-        ]}
-      >
-        <ActivityIndicator size="large" color={BRAND.primary} />
-        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-          Loading product...
-        </Text>
-      </View>
-    );
+    return <ProductDetailRouteState colors={colors} state="loading" />;
   }
 
   if (error || !product) {
     // 2026 Best Practice: Show offline-specific error when not connected
     if (!isOnline) {
       return (
-        <View
-          style={[
-            styles.errorContainer,
-            { backgroundColor: colors.background },
-          ]}
-        >
-          <OfflineEmptyState
-            title="Product Unavailable Offline"
-            description="Connect to the internet to view this product. It will auto-retry when your connection is restored."
-            onRetry={() => refetch()}
-          />
-        </View>
+        <ProductDetailRouteState
+          colors={colors}
+          onRetry={() => refetch()}
+          state="offline"
+        />
       );
     }
 
     return (
-      <View
-        style={[styles.errorContainer, { backgroundColor: colors.background }]}
-      >
-        <Ionicons
-          name="alert-circle-outline"
-          size={64}
-          color={colors.textSecondary}
-        />
-        <Text style={[styles.errorTitle, { color: colors.text }]}>
-          Product not found
-        </Text>
-        <Text style={[styles.errorSubtitle, { color: colors.textSecondary }]}>
-          {error || 'This product may no longer be available'}
-        </Text>
-        <Pressable
-          style={[styles.retryButton, { backgroundColor: BRAND.primary }]}
-          onPress={() =>
-            router.canGoBack() ? router.back() : router.replace('/')
-          }
-          accessibilityLabel="Go back to previous screen"
-          accessibilityRole="button"
-        >
-          <Text style={styles.retryButtonText}>Go Back</Text>
-        </Pressable>
-      </View>
+      <ProductDetailRouteState
+        colors={colors}
+        error={error}
+        onGoBack={handleProductRouteBack}
+        state="error"
+      />
     );
   }
 
@@ -1212,42 +1162,6 @@ export default function ProductDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 14,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 40,
-  },
-  errorTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  errorSubtitle: {
-    fontSize: 14,
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  retryButton: {
-    marginTop: 24,
-    paddingHorizontal: 32,
-    paddingVertical: 12,
-    borderRadius: 24,
-  },
-  retryButtonText: {
-    color: '#FFF',
-    fontWeight: '600',
   },
   header: {
     position: 'absolute',

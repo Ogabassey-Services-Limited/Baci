@@ -30,6 +30,17 @@ describe('chat route helpers', () => {
     ]);
   });
 
+  it('does not send tool-only instructions to the tool-free VPS backend', () => {
+    const [systemMessage] = buildChatMessages(
+      [{ role: 'user', content: 'Can I pay now?' }],
+      'gemma4:e4b'
+    );
+
+    expect(systemMessage.content).toContain('cannot access live inventory');
+    expect(systemMessage.content).not.toContain('createVirtualAccount');
+    expect(systemMessage.content).not.toContain('checkPaymentStatus');
+  });
+
   it('buffers non-empty upstream text responses', async () => {
     const response = await bufferTextResponse(
       new Response('Gemma response', {

@@ -14,6 +14,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { OrderDetailsActionsCard } from '@/components/orders/OrderDetailsActionsCard';
 import { OrderDetailsClosedStateCard } from '@/components/orders/OrderDetailsClosedStateCard';
 import { OrderDetailsHeaderCard } from '@/components/orders/OrderDetailsHeaderCard';
 import { OrderDetailsShippingAddressCard } from '@/components/orders/OrderDetailsShippingAddressCard';
@@ -773,201 +774,19 @@ export default function OrderDetailsScreen() {
             summaryBreakdown={summaryBreakdown}
           />
 
-          {(isReceiptReady ||
-            canShowRiderContact ||
-            canLeaveReview ||
-            canReturnOrder) && (
-            <View style={[styles.card, { backgroundColor: colors.card }]}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                Actions
-              </Text>
-              <View style={styles.actionStack}>
-                {isReceiptReady && (
-                  <TouchableOpacity
-                    style={[
-                      styles.actionButton,
-                      { borderColor: colors.border },
-                    ]}
-                    onPress={handleOpenReceipt}
-                    activeOpacity={0.9}
-                  >
-                    <View
-                      style={[
-                        styles.actionIconWrap,
-                        {
-                          backgroundColor: isDark
-                            ? 'rgba(5, 150, 105, 0.16)'
-                            : 'rgba(5, 150, 105, 0.10)',
-                        },
-                      ]}
-                    >
-                      <Ionicons
-                        name="receipt-outline"
-                        size={18}
-                        color="#059669"
-                      />
-                    </View>
-                    <View style={styles.actionCopy}>
-                      <Text
-                        style={[styles.actionTitle, { color: colors.text }]}
-                      >
-                        View Receipt
-                      </Text>
-                      <Text
-                        style={[
-                          styles.actionDescription,
-                          { color: colors.textSecondary },
-                        ]}
-                      >
-                        Preview and share your order receipt.
-                      </Text>
-                    </View>
-                    <Ionicons
-                      name="chevron-forward"
-                      size={18}
-                      color={colors.textSecondary}
-                    />
-                  </TouchableOpacity>
-                )}
-
-                {canShowRiderContact && (
-                  <TouchableOpacity
-                    style={[
-                      styles.actionButton,
-                      { borderColor: colors.border },
-                    ]}
-                    onPress={handleCallRider}
-                    activeOpacity={0.9}
-                  >
-                    <View
-                      style={[
-                        styles.actionIconWrap,
-                        {
-                          backgroundColor: isDark
-                            ? 'rgba(37, 99, 235, 0.18)'
-                            : 'rgba(37, 99, 235, 0.10)',
-                        },
-                      ]}
-                    >
-                      <Ionicons name="call-outline" size={18} color="#2563EB" />
-                    </View>
-                    <View style={styles.actionCopy}>
-                      <Text
-                        style={[styles.actionTitle, { color: colors.text }]}
-                      >
-                        Rider {merchantInfo?.rider_phone_number}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.actionDescription,
-                          { color: colors.textSecondary },
-                        ]}
-                      >
-                        Call the rider directly for a live delivery update.
-                      </Text>
-                    </View>
-                    <Ionicons
-                      name="chevron-forward"
-                      size={18}
-                      color={colors.textSecondary}
-                    />
-                  </TouchableOpacity>
-                )}
-
-                {canLeaveReview && (
-                  <TouchableOpacity
-                    style={[
-                      styles.actionButton,
-                      { borderColor: colors.border },
-                    ]}
-                    onPress={handleLeaveGoogleReview}
-                    activeOpacity={0.9}
-                  >
-                    <View
-                      style={[
-                        styles.actionIconWrap,
-                        {
-                          backgroundColor: isDark
-                            ? 'rgba(245, 158, 11, 0.18)'
-                            : 'rgba(245, 158, 11, 0.10)',
-                        },
-                      ]}
-                    >
-                      <Ionicons name="star-outline" size={18} color="#D97706" />
-                    </View>
-                    <View style={styles.actionCopy}>
-                      <Text
-                        style={[styles.actionTitle, { color: colors.text }]}
-                      >
-                        Leave a Google Review
-                      </Text>
-                      <Text
-                        style={[
-                          styles.actionDescription,
-                          { color: colors.textSecondary },
-                        ]}
-                      >
-                        Share your delivery experience publicly.
-                      </Text>
-                    </View>
-                    <Ionicons
-                      name="open-outline"
-                      size={18}
-                      color={colors.textSecondary}
-                    />
-                  </TouchableOpacity>
-                )}
-
-                {canReturnOrder && (
-                  <TouchableOpacity
-                    style={[
-                      styles.actionButton,
-                      { borderColor: colors.border },
-                    ]}
-                    onPress={handleReturnOrder}
-                    activeOpacity={0.9}
-                  >
-                    <View
-                      style={[
-                        styles.actionIconWrap,
-                        {
-                          backgroundColor: isDark
-                            ? 'rgba(107, 114, 128, 0.18)'
-                            : 'rgba(107, 114, 128, 0.10)',
-                        },
-                      ]}
-                    >
-                      <Ionicons
-                        name="return-down-back-outline"
-                        size={18}
-                        color="#6B7280"
-                      />
-                    </View>
-                    <View style={styles.actionCopy}>
-                      <Text
-                        style={[styles.actionTitle, { color: colors.text }]}
-                      >
-                        Return Order
-                      </Text>
-                      <Text
-                        style={[
-                          styles.actionDescription,
-                          { color: colors.textSecondary },
-                        ]}
-                      >
-                        Start a return with support while the in-app flow lands.
-                      </Text>
-                    </View>
-                    <Ionicons
-                      name="chevron-forward"
-                      size={18}
-                      color={colors.textSecondary}
-                    />
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
-          )}
+          <OrderDetailsActionsCard
+            canLeaveReview={canLeaveReview}
+            canReturnOrder={canReturnOrder}
+            canShowRiderContact={canShowRiderContact}
+            colors={colors}
+            isDark={isDark}
+            isReceiptReady={isReceiptReady}
+            onCallRider={handleCallRider}
+            onLeaveGoogleReview={handleLeaveGoogleReview}
+            onOpenReceipt={handleOpenReceipt}
+            onReturnOrder={handleReturnOrder}
+            riderPhoneNumber={merchantInfo?.rider_phone_number}
+          />
 
           {/* Support Button */}
           <TouchableOpacity
@@ -1097,36 +916,6 @@ const styles = StyleSheet.create({
   itemPrice: {
     fontSize: 15,
     fontWeight: '600',
-  },
-  actionStack: {
-    gap: 12,
-  },
-  actionButton: {
-    borderWidth: 1,
-    borderRadius: 16,
-    padding: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  actionIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  actionCopy: {
-    flex: 1,
-  },
-  actionTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  actionDescription: {
-    fontSize: 12,
-    lineHeight: 18,
-    marginTop: 2,
   },
   supportButton: {
     flexDirection: 'row',
