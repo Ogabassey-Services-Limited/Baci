@@ -66,6 +66,22 @@ function collectImageSources(node: unknown): string[] {
   return [...ownSource, ...collectImageSources(element.props.children)];
 }
 
+function hasExactChildren(node: unknown, children: string): boolean {
+  if (node === null || node === undefined || typeof node !== 'object') {
+    return false;
+  }
+  if (Array.isArray(node)) {
+    return node.some((child) => hasExactChildren(child, children));
+  }
+  if (!('props' in node)) return false;
+
+  const element = node as { props: { children?: unknown } };
+  return (
+    element.props.children === children ||
+    hasExactChildren(element.props.children, children)
+  );
+}
+
 describe('merchant blog OG image markup', () => {
   it('renders the primary card with brand, post, logo, and featured image', () => {
     const element = renderPrimaryCard(createData());
@@ -73,6 +89,7 @@ describe('merchant blog OG image markup', () => {
     expect(collectText(element)).toContain('Best iPhone Deals');
     expect(collectText(element)).toContain('Smartphones');
     expect(collectText(element)).toContain('Ogabassey');
+    expect(hasExactChildren(element, 'By Baci Editorial')).toBe(true);
     expect(collectImageSources(element)).toContain(
       'data:image/jpeg;base64,ZmVhdHVyZWQ='
     );
