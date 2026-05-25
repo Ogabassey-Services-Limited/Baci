@@ -101,13 +101,8 @@ function buildOgabasseyCdnTransformUrl({
 
   const transformWidth = clampDimension(width);
   const transformQuality = clampQuality(quality);
-  const transformFormat = getOgabasseyTransformFormat(url.pathname);
 
-  return `${url.origin}/image/width=${transformWidth},quality=${transformQuality},format=${transformFormat}${url.pathname}${url.search}${url.hash}`;
-}
-
-function getOgabasseyTransformFormat(pathname: string): 'avif' | 'webp' {
-  return pathname.toLowerCase().endsWith('.avif') ? 'avif' : 'webp';
+  return `${url.origin}/image/width=${transformWidth},quality=${transformQuality},format=auto${url.pathname}${url.search}${url.hash}`;
 }
 
 function clampDimension(width: number): number {
