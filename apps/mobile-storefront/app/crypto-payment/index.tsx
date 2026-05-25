@@ -1,9 +1,4 @@
-/**
- * Crypto Payment Screen
- * Shows wallet address and payment details for Juicyway crypto payments
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons";
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, Pressable } from 'react-native';

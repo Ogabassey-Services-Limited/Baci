@@ -3,9 +3,20 @@ import { useColorScheme as useRNColorScheme } from 'react-native';
 import { useSettingsStore } from '@/stores/settings-store';
 import { useColorScheme } from './useColorScheme';
 
-jest.mock('react-native', () => ({
-  useColorScheme: jest.fn(),
-}));
+jest.mock('react-native', () => {
+  return {
+    Platform: {
+      OS: 'ios',
+      select: (options: Record<string, unknown>) =>
+        options.ios ?? options.default,
+    },
+    TurboModuleRegistry: {
+      get: jest.fn(() => null),
+      getEnforcing: jest.fn(() => ({})),
+    },
+    useColorScheme: jest.fn(),
+  };
+});
 
 const mockRNColorScheme = useRNColorScheme as jest.Mock;
 
