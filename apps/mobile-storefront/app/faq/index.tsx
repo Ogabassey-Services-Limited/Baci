@@ -2,23 +2,20 @@ import * as Linking from 'expo-linking';
 import { Stack } from 'expo-router';
 import { useState } from 'react';
 import { Alert } from 'react-native';
-import { useColorScheme } from '@/components/useColorScheme';
 import {
   type FAQItem,
   FAQView,
   type StoreInfo,
   type SupportOption,
 } from '@/components/faq/FAQView';
+import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, withAlpha } from '@/constants/Colors';
 import { SUPPORT_PHONE, SUPPORT_WHATSAPP_PHONE } from '@/constants/Support';
 
 const WHATSAPP_GREEN = '#25D366';
 const storeInfo: StoreInfo = {
   address: 'Computer Village, Ikeja, Lagos',
-  hours: [
-    'Monday - Saturday: 9:00 AM - 7:00 PM',
-    'Sunday: 12:00 PM - 5:00 PM',
-  ],
+  hours: ['Monday - Saturday: 9:00 AM - 7:00 PM', 'Sunday: 12:00 PM - 5:00 PM'],
 };
 const faqItems: FAQItem[] = [
   {

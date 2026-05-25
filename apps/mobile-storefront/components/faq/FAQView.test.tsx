@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 import Colors from '@/constants/Colors';
@@ -106,7 +107,9 @@ describe('FAQView', () => {
 
     rerender(<FAQView {...props} expandedId="2" />);
 
-    expect(screen.queryByText(/track your order by going to "Orders"/)).toBeNull();
+    expect(
+      screen.queryByText(/track your order by going to "Orders"/)
+    ).toBeNull();
     expect(screen.getByText(/card payments and bank transfers/)).toBeTruthy();
   });
 
