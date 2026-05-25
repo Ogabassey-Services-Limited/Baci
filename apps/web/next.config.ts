@@ -162,6 +162,7 @@ const nextConfig: NextConfig = {
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
     // Optimize image formats - AVIF is 20% smaller than WebP
     formats: ['image/avif', 'image/webp'],
+    qualities: [35, 50, 60, 70, 75, 80, 85, 90, 100],
     // Cache optimized images (Next.js 16 default is 4 hours / 14400s)
     minimumCacheTTL: 60 * 60 * 24 * 365,
   },
@@ -301,6 +302,20 @@ const nextConfig: NextConfig = {
       {
         source:
           '/blog/2025/06/10/wwdc-2025-5-game%e2%80%91changing-apple-announcements/:path*',
+        destination: '/blog/wwdc-2025-5-game-changing-apple-announcements',
+        permanent: true,
+      },
+      // This imported slug used non-breaking hyphens after WWDC and 2025.
+      // Redirect both URL-encoded forms before remote cache key handling.
+      {
+        source:
+          '/blog/wwdc%e2%80%912025%e2%80%915-game-changing-apple-announcements/:path*',
+        destination: '/blog/wwdc-2025-5-game-changing-apple-announcements',
+        permanent: true,
+      },
+      {
+        source:
+          '/blog/wwdc%25e2%2580%25912025%25e2%2580%25915-game-changing-apple-announcements/:path*',
         destination: '/blog/wwdc-2025-5-game-changing-apple-announcements',
         permanent: true,
       },
