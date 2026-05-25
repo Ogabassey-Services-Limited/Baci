@@ -186,6 +186,18 @@ describe('UtilityModal checkout routing', () => {
     fireEvent.click(screen.getByText('Mock Submit'));
     await waitFor(() => expect(harness.checkoutFetch).toHaveBeenCalledTimes(2));
 
+    expect(harness.checkoutFetch.mock.calls[0]?.[0]).toBe(
+      '/api/vtu/checkout/wallet-only'
+    );
+    expect(harness.checkoutFetch.mock.calls[1]?.[0]).toBe(
+      '/api/vtu/checkout/wallet-only'
+    );
+    expect(harness.checkoutFetch.mock.calls[0]?.[1]?.headers).toMatchObject({
+      'Idempotency-Key': expect.any(String),
+    });
+    expect(harness.checkoutFetch.mock.calls[1]?.[1]?.headers).toMatchObject({
+      'Idempotency-Key': expect.any(String),
+    });
     expect(harness.checkoutFetch.mock.calls[0]?.[1]?.headers).toEqual(
       harness.checkoutFetch.mock.calls[1]?.[1]?.headers
     );
