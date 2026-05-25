@@ -98,9 +98,12 @@ export default function DomainsDashboard() {
     staleTime: 1000 * 60 * 5,
   });
 
+  const queryClient = useQueryClient();
+
   const onRefresh = () => {
     if (!merchantId) return;
     void refetch();
+    queryClient.invalidateQueries({ queryKey: ['merchant-domains', merchantId] });
   };
 
   useEffect(() => {

@@ -90,7 +90,7 @@ export default function NotificationsScreen() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notification-preferences'] });
+      queryClient.invalidateQueries({ queryKey: ['notification-preferences', merchant?.id] });
     },
     onError: (error: unknown) => {
       Alert.alert(
