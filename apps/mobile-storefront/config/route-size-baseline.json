@@ -95,11 +95,6 @@
       "path": "app/receipts/index.tsx",
       "lineCount": 339,
       "justification": "Existing oversized receipts route baseline; shrink or remove this entry as the route is modularized."
-    },
-    {
-      "path": "app/settings/index.tsx",
-      "lineCount": 303,
-      "justification": "Existing oversized settings route baseline; shrink or remove this entry as the route is modularized."
     }
   ]
 }
