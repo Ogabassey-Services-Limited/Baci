@@ -1,11 +1,12 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Ionicons from '@react-native-vector-icons/ionicons';
+import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import {
   getCustomerOrderStatusMeta,
   getCustomerOrderStatusPalette,
 } from '@/lib/customer-order-status';
 import { formatNgnCurrency } from '@/lib/format-ngn-currency';
 import { getOrderDisplayTotal } from '@/lib/order-summary';
+import { getOrdersListItemShadowStyle } from './OrdersListItem.shadows';
 
 interface OrdersListItemColors {
   card: string;
@@ -48,6 +49,10 @@ export function OrdersListItem({
 }: OrdersListItemProps) {
   const statusMeta = getCustomerOrderStatusMeta(item.shipping_status);
   const statusPalette = getCustomerOrderStatusPalette(item.shipping_status);
+  const orderCardShadowStyle = getOrdersListItemShadowStyle(
+    Platform.OS === 'web' ? 'web' : 'native',
+    statusPalette.accent
+  );
   const primaryItem = item.items[0];
   const secondaryItems = Math.max(item.items.length - 1, 0);
   const displayTotal = getOrderDisplayTotal({
@@ -63,10 +68,10 @@ export function OrdersListItem({
     <TouchableOpacity
       style={[
         styles.orderCard,
+        orderCardShadowStyle,
         {
           backgroundColor: colors.card,
           borderColor: statusPalette.border,
-          shadowColor: statusPalette.accent,
         },
       ]}
       onPress={() => onPress(item.id)}
@@ -155,10 +160,6 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     overflow: 'hidden',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.08,
-    shadowRadius: 18,
-    elevation: 3,
   },
   orderAccent: {
     position: 'absolute',
