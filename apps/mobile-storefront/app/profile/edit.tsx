@@ -10,7 +10,7 @@ import { useToast } from '@/components/ui/Toast';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
 import { useRequireAuth } from '@/hooks/use-auth-guard';
-import { ProfileSchema, type ProfileFormData } from '@/schemas/profile-edit';
+import { type ProfileFormData, ProfileSchema } from '@/schemas/profile-edit';
 import { useAuthStore } from '@/stores/auth-store';
 
 const profileResolver = zodResolver(

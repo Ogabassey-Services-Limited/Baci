@@ -197,9 +197,7 @@ export function ProfileEditView({
           {isSubmitting ? (
             <ActivityIndicator color={BRAND.onPrimary} />
           ) : (
-            <Text
-              style={[styles.saveButtonText, { color: BRAND.onPrimary }]}
-            >
+            <Text style={[styles.saveButtonText, { color: BRAND.onPrimary }]}>
               Save Changes
             </Text>
           )}
