@@ -59,6 +59,7 @@ const supabaseMock = vi.hoisted(() => {
       );
     chain.maybeSingle = () =>
       Promise.resolve(tableResults.get(table) ?? { data: null, error: null });
+    // biome-ignore lint/suspicious/noThenProperty: Mocking a promise chain
     chain.then = (resolve) =>
       Promise.resolve(getTableResult(table)).then(resolve);
 
@@ -259,6 +260,7 @@ describe('fetchOrderById', () => {
       expect.objectContaining({
         enabled: true,
         queryKey: ['order', 'order-1', 'merchant-1', 'all'],
+        staleTime: 60000,
       })
     );
 
