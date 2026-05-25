@@ -967,7 +967,6 @@ export default async function CategoryProductPage({
   return (
     <>
       {earlyProductResourceHints}
-      <StorefrontDynamicMetadataMarker />
       <Suspense
         fallback={
           <OgabasseyPdpProductLcpSkeleton
@@ -983,6 +982,7 @@ export default async function CategoryProductPage({
           productResultPromise={productResultPromise}
         />
       </Suspense>
+      <StorefrontDynamicMetadataMarker />
     </>
   );
 }
