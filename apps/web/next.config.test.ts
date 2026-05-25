@@ -6,11 +6,15 @@ describe('next.config OgaBassey resource headers', () => {
     expect(nextConfig.skipTrailingSlashRedirect).toBe(true);
   });
 
-  it('disables streamed metadata for normal storefront browser requests', () => {
+  it('limits blocking metadata rendering to known crawlers', () => {
     expect(nextConfig.htmlLimitedBots).toBeDefined();
     expect(nextConfig.htmlLimitedBots?.test('Mozilla/5.0 Chrome/136.0')).toBe(
-      true
+      false
     );
+    expect(
+      nextConfig.htmlLimitedBots?.test('baci-deploy-blog-smoke-check')
+    ).toBe(false);
+    expect(nextConfig.htmlLimitedBots?.test('Googlebot/2.1')).toBe(true);
   });
 
   it('redirects the imported encoded blog slug to its ASCII canonical URL', async () => {
