@@ -10,6 +10,7 @@
  * - Color alone should not convey meaning (use icons/text too)
  */
 
+import { Platform } from 'react-native';
 import Colors from './themes';
 import { palette, withAlpha } from './palette';
 
@@ -38,7 +39,7 @@ export const RADIUS = {
   full: 9999,
 } as const;
 
-export const SHADOWS = {
+const nativeShadows = {
   none: {},
   sm: {
     shadowColor: '#000',
@@ -76,6 +77,33 @@ export const SHADOWS = {
     elevation: 8,
   },
 } as const;
+
+const webShadows = {
+  none: {},
+  sm: {
+    boxShadow: '0px 1px 2px rgba(0, 0, 0, 0.05)',
+  },
+  md: {
+    boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.08)',
+  },
+  medium: {
+    boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.08)',
+  },
+  lg: {
+    boxShadow: '0px 4px 8px rgba(0, 0, 0, 0.1)',
+  },
+  xl: {
+    boxShadow: '0px 8px 16px rgba(0, 0, 0, 0.12)',
+  },
+} as const;
+
+type ShadowTokens = typeof nativeShadows | typeof webShadows;
+
+export const SHADOWS =
+  Platform.select<ShadowTokens>({
+    web: webShadows,
+    default: nativeShadows,
+  }) ?? nativeShadows;
 
 // ============================================
 // MOTION PHYSICS (2025 Elite Standard)

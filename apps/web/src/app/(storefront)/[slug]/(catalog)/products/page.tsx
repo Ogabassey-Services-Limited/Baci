@@ -10,10 +10,7 @@ import {
   getIndexableRobotsMetadata,
 } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
-import {
-  parseStorefrontPageParam,
-  STOREFRONT_PRODUCTS_PER_PAGE,
-} from '@/lib/storefront-pagination';
+import { STOREFRONT_PRODUCTS_PER_PAGE } from '@/lib/storefront-pagination';
 import {
   getStorefrontOpenGraphImages,
   getStorefrontTwitterImages,
@@ -28,15 +25,8 @@ interface PageProps {
 
 export async function generateMetadata({
   params,
-  searchParams,
 }: PageProps): Promise<Metadata> {
   const { slug } = await params;
-  const resolvedSearchParams = await searchParams;
-  const currentPage = parseStorefrontPageParam(resolvedSearchParams.page);
-
-  if (!currentPage) {
-    notFound();
-  }
 
   if (!isValidMerchantIdentifier(slug)) {
     notFound();
@@ -51,24 +41,13 @@ export async function generateMetadata({
   }
 
   const productIndex = await getCachedStorefrontProductIndex(merchant.id, {
-    page: currentPage,
+    page: 1,
     limit: STOREFRONT_PRODUCTS_PER_PAGE,
   });
-  const totalPages = Math.max(1, productIndex.totalPages || 1);
-
-  if (!productIndex.hasError && currentPage > totalPages) {
-    notFound();
-  }
 
   const baseUrl = buildStoreUrl(merchant);
-  const productsUrl =
-    currentPage > 1
-      ? `${baseUrl}/products?page=${currentPage}`
-      : `${baseUrl}/products`;
-  const title =
-    currentPage > 1
-      ? `Products - Page ${currentPage} | ${merchant.business_name}`
-      : `Products | ${merchant.business_name}`;
+  const productsUrl = `${baseUrl}/products`;
+  const title = `Products | ${merchant.business_name}`;
   const description = generateMetaDescription(
     merchant.site_description || '',
     160,

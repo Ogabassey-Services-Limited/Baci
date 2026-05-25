@@ -1,5 +1,8 @@
 import { describe, expect, it } from "@jest/globals";
+import type { Href } from "expo-router";
 import { sanitizeWalletReturnTo } from "./sanitize-wallet-return-to";
+
+function acceptNavigationHref(_href: Href) {}
 
 describe("sanitizeWalletReturnTo", () => {
   it.each(["/", "/imei-check", "/wallet/history"])(
@@ -8,6 +11,15 @@ describe("sanitizeWalletReturnTo", () => {
       expect(sanitizeWalletReturnTo(value)).toBe(value);
     },
   );
+
+  it("returns a destination accepted by Expo Router typed routes", () => {
+    const returnTo = sanitizeWalletReturnTo("/imei-check");
+
+    expect(returnTo).toBe("/imei-check");
+    if (returnTo) {
+      acceptNavigationHref(returnTo);
+    }
+  });
 
   it.each([
     "",
