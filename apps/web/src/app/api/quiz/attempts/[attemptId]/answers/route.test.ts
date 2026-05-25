@@ -316,4 +316,37 @@ describe('submit quiz answer route', () => {
     );
     expect(logger.error).not.toHaveBeenCalled();
   });
+
+  it('maps answer timing guard failures to client responses', async () => {
+    const { rpc } = mockAuthenticatedSupabase({
+      rpcResult: {
+        data: null,
+        error: { code: 'QZ029', message: 'answer_too_late' },
+      },
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(
+      jsonRequest({
+        answer: 'A',
+        integrityTier: 'strong',
+        questionId: QUESTION_ID,
+      }),
+      { params: Promise.resolve({ attemptId: ATTEMPT_ID }) }
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      code: 'QUIZ_ANSWER_TOO_LATE',
+      error: 'Quiz answer was submitted after the question window',
+    });
+    expect(rpc).toHaveBeenCalledWith(
+      'submit_quiz_answer',
+      expect.objectContaining({
+        p_attempt_id: ATTEMPT_ID,
+        p_question_id: QUESTION_ID,
+      })
+    );
+    expect(logger.error).not.toHaveBeenCalled();
+  });
 });
