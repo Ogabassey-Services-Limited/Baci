@@ -70,6 +70,7 @@ export function DrawerMenuItems({
               onPress={() => onNavigate(item.path)}
               accessibilityLabel={item.label}
               accessibilityRole="menuitem"
+              accessibilityState={{ selected: active }}
             >
               <View style={styles.menuItemContent}>
                 <Ionicons

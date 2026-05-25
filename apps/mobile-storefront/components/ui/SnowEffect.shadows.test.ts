@@ -1,10 +1,10 @@
-import { palette } from '@/constants/Colors';
+import { palette, withAlpha } from '@/constants/Colors';
 import { getSnowflakeShadowStyle } from './SnowEffect.shadows';
 
 describe('getSnowflakeShadowStyle', () => {
   it('uses CSS box-shadow on web', () => {
     expect(getSnowflakeShadowStyle('web')).toEqual({
-      boxShadow: '0px 0px 2px rgba(255, 255, 255, 0.5)',
+      boxShadow: `0px 0px 2px ${withAlpha(palette.white, 0.5)}`,
     });
   });
 

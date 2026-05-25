@@ -196,11 +196,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 12,
     ...getConnectivityBannerShadowStyle(
-      Platform.OS === 'web'
-        ? 'web'
-        : Platform.OS === 'ios'
-          ? 'ios'
-          : 'android'
+      Platform.OS === 'web' ? 'web' : 'native'
     ),
   },
   content: {

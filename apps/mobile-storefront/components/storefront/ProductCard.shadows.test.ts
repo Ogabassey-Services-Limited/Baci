@@ -1,15 +1,19 @@
+import { withAlpha } from '@/constants/Colors';
 import { getProductCardShadowStyles } from './ProductCard.shadows';
 
 describe('getProductCardShadowStyles', () => {
   it('returns CSS box shadows on web', () => {
+    const gridShadowColor = '#000000';
+    const floatingCartShadowColor = '#111827';
+
     expect(
-      getProductCardShadowStyles('web', '#000000', '#111827')
+      getProductCardShadowStyles('web', gridShadowColor, floatingCartShadowColor)
     ).toEqual({
       gridContainer: {
-        boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.05)',
+        boxShadow: `0px 2px 4px ${withAlpha(gridShadowColor, 0.05)}`,
       },
       floatingCartBtn: {
-        boxShadow: '0px 2px 4px rgba(17, 24, 39, 0.1)',
+        boxShadow: `0px 2px 4px ${withAlpha(floatingCartShadowColor, 0.1)}`,
       },
     });
   });

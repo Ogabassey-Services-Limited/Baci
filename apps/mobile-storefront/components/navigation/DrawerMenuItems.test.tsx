@@ -47,4 +47,38 @@ describe('DrawerMenuItems', () => {
 
     expect(screen.getByLabelText('My Account')).toBeTruthy();
   });
+
+  it('marks exact and nested routes as selected', () => {
+    const { rerender } = render(
+      <DrawerMenuItems
+        colors={colors}
+        isAuthenticated={true}
+        pathname="/orders"
+        onNavigate={jest.fn()}
+      />
+    );
+
+    expect(screen.getByLabelText('Orders').props.accessibilityState).toEqual({
+      selected: true,
+    });
+    expect(
+      screen.getByLabelText('My Account').props.accessibilityState
+    ).toEqual({ selected: false });
+
+    rerender(
+      <DrawerMenuItems
+        colors={colors}
+        isAuthenticated={true}
+        pathname="/account/security"
+        onNavigate={jest.fn()}
+      />
+    );
+
+    expect(
+      screen.getByLabelText('My Account').props.accessibilityState
+    ).toEqual({ selected: true });
+    expect(screen.getByLabelText('Orders').props.accessibilityState).toEqual({
+      selected: false,
+    });
+  });
 });

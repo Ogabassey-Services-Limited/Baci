@@ -54,10 +54,15 @@ export function FilterSheet({
   }, [maxPrice]);
 
   const handleApply = () => {
-    const min = tempMinPrice === '' ? 0 : Number(tempMinPrice);
-    const max =
-      tempMaxPrice === '' ? MAX_PRICE_CEILING : Number(tempMaxPrice);
-    onApplyFilter(min, max);
+    const parsePrice = (value: string, fallback: number) => {
+      if (value === '') return fallback;
+      const parsed = Number(value);
+      if (!Number.isFinite(parsed)) return fallback;
+      return Math.min(MAX_PRICE_CEILING, Math.max(0, Math.floor(parsed)));
+    };
+    const min = parsePrice(tempMinPrice, 0);
+    const max = parsePrice(tempMaxPrice, MAX_PRICE_CEILING);
+    onApplyFilter(Math.min(min, max), Math.max(min, max));
     onClose();
   };
 

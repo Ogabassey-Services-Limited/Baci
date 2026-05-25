@@ -78,6 +78,13 @@ describe('GridProductCard', () => {
     });
   });
 
+  afterEach(() => {
+    Object.defineProperty(Platform, 'OS', {
+      configurable: true,
+      value: originalPlatformOS,
+    });
+  });
+
   it('renders placeholder content when no local image is available', () => {
     renderCard({ showLocalPlaceholder: true });
 

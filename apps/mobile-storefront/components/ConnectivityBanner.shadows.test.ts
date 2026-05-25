@@ -8,17 +8,12 @@ describe('getConnectivityBannerShadowStyle', () => {
     });
   });
 
-  it('preserves iOS banner shadow styling', () => {
-    expect(getConnectivityBannerShadowStyle('ios')).toEqual({
+  it('preserves native banner shadow styling', () => {
+    expect(getConnectivityBannerShadowStyle('native')).toEqual({
       shadowColor: palette.black,
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.1,
       shadowRadius: 4,
-    });
-  });
-
-  it('preserves Android banner elevation styling', () => {
-    expect(getConnectivityBannerShadowStyle('android')).toEqual({
       elevation: 4,
     });
   });

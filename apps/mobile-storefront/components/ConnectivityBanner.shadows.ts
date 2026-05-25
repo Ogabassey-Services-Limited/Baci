@@ -1,6 +1,6 @@
 import { palette, withAlpha } from '@/constants/Colors';
 
-type ConnectivityBannerShadowPlatform = 'web' | 'ios' | 'android';
+type ConnectivityBannerShadowPlatform = 'web' | 'native';
 
 export function getConnectivityBannerShadowStyle(
   platform: ConnectivityBannerShadowPlatform
@@ -11,14 +11,11 @@ export function getConnectivityBannerShadowStyle(
     } as const;
   }
 
-  if (platform === 'ios') {
-    return {
-      shadowColor: palette.black,
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-    } as const;
-  }
-
-  return { elevation: 4 } as const;
+  return {
+    shadowColor: palette.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 4,
+  } as const;
 }
