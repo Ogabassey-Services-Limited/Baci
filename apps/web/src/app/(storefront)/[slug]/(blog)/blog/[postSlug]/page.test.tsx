@@ -156,7 +156,7 @@ describe('storefront blog post page', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('marks runtime metadata as intentional dynamic content', () => {
+  it('does not add a synthetic metadata marker beside request-time blog content', () => {
     render(
       <BlogPostPage
         params={Promise.resolve({
@@ -166,16 +166,10 @@ describe('storefront blog post page', () => {
       />
     );
 
+    expect(screen.getByText('Blog post page content')).toBeInTheDocument();
     expect(
-      screen.getByRole('status', { name: /dynamic metadata marker/i })
-    ).toBeInTheDocument();
-    expect(
-      screen
-        .getByText('Blog post page content')
-        .compareDocumentPosition(
-          screen.getByRole('status', { name: /dynamic metadata marker/i })
-        ) & Node.DOCUMENT_POSITION_FOLLOWING
-    ).toBeTruthy();
+      screen.queryByRole('status', { name: /dynamic metadata marker/i })
+    ).not.toBeInTheDocument();
   });
 
   it('falls back to a live blog query for metadata when the cached lookup misses', async () => {
