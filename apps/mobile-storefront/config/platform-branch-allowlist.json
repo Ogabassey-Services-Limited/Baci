@@ -109,7 +109,7 @@
       "justification": "Reviewed iOS safe-area top padding behavior for receipt preview."
     },
     {
-      "path": "components/storefront/FilterBar.tsx",
+      "path": "components/storefront/FilterBar.styles.ts",
       "justification": "Reviewed web box-shadow selection that preserves existing native filter controls shadows."
     },
     {
