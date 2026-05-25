@@ -3,6 +3,7 @@ import {
   comparePublicProductParitySurfaces,
   type PublicProductApiSample,
   parseCurrentAgentProductSample,
+  parseCurrentAgentProductSampleStream,
   parseGoogleMerchantProductSample,
   parsePdpProductSample,
   selectPublicProductApiSample,
@@ -168,6 +169,28 @@ describe('public product parity surface parsers', () => {
         pdp,
       })
     ).toEqual([]);
+  });
+
+  it('parses the current feed sample incrementally across stream chunks', async () => {
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(encoder.encode('{"id":"unrelated"}\n'));
+        controller.enqueue(encoder.encode(CURRENT_FEED_LINE.slice(0, 34)));
+        controller.enqueue(encoder.encode(CURRENT_FEED_LINE.slice(34)));
+        controller.close();
+      },
+    });
+
+    await expect(
+      parseCurrentAgentProductSampleStream(stream, 'product-1')
+    ).resolves.toEqual({
+      availability: 'in_stock',
+      image: API_SAMPLE.image,
+      name: API_SAMPLE.name,
+      price: API_SAMPLE.price,
+      url: 'https://ogabassey.com/phones/test-phone',
+    });
   });
 
   it('accepts canonical availability variants when offer URLs are omitted', () => {

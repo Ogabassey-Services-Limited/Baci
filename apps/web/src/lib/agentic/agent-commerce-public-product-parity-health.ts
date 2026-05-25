@@ -3,7 +3,7 @@ import type { AgenticAction } from '@/schemas/agentic-action-health';
 import {
   comparePublicProductParitySurfaces,
   type PublicProductParityField,
-  parseCurrentAgentProductSample,
+  parseCurrentAgentProductSampleStream,
   parseGoogleMerchantProductSample,
   parsePdpProductSample,
   selectPublicProductApiSample,
@@ -149,16 +149,14 @@ export async function checkAgentCommercePublicProductParity(
       surfaces,
     });
   }
-  const [current, google] = await Promise.all([
-    currentResponse
-      .text()
-      .then((body) => parseCurrentAgentProductSample(body, productId))
-      .catch(() => null),
-    googleResponse
-      .text()
-      .then((body) => parseGoogleMerchantProductSample(body, productId))
-      .catch(() => null),
-  ]);
+  const current = await parseCurrentAgentProductSampleStream(
+    currentResponse.body,
+    productId
+  ).catch(() => null);
+  const google = await googleResponse
+    .text()
+    .then((body) => parseGoogleMerchantProductSample(body, productId))
+    .catch(() => null);
   if (!current || !google) {
     return createResult({
       issue: contractIssue(

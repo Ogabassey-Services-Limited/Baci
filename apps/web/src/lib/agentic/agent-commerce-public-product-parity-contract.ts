@@ -44,30 +44,82 @@ export function parseCurrentAgentProductSample(
   body: string,
   productId: string
 ): PublicProductComparableSurface | null {
-  for (const line of body.split('\n')) {
-    if (!line.trim()) continue;
-
-    try {
-      const parsed = publicProductCurrentFeedItemSchema.safeParse(
-        JSON.parse(line)
-      );
-      if (!parsed.success || parsed.data.id !== productId) continue;
-      const item = parsed.data;
-      const variant = item.variants[0];
-
-      return publicProductComparableSurfaceSchema.parse({
-        availability: variant.availability.status,
-        image: item.media[0]?.url ?? '',
-        name: item.title,
-        price: variant.price.amount,
-        url: item.url,
-      });
-    } catch (_error) {
-      // Keep scanning JSONL lines when a non-sample line is malformed.
-    }
+  let offset = 0;
+  while (offset <= body.length) {
+    const newline = body.indexOf('\n', offset);
+    const line =
+      newline === -1 ? body.slice(offset) : body.slice(offset, newline);
+    const sample = parseCurrentAgentProductLine(line, productId);
+    if (sample) return sample;
+    if (newline === -1) break;
+    offset = newline + 1;
   }
 
   return null;
+}
+
+function parseCurrentAgentProductLine(
+  line: string,
+  productId: string
+): PublicProductComparableSurface | null {
+  if (!line.trim()) return null;
+
+  try {
+    const parsed = publicProductCurrentFeedItemSchema.safeParse(
+      JSON.parse(line)
+    );
+    if (!parsed.success || parsed.data.id !== productId) return null;
+    const item = parsed.data;
+    const variant = item.variants[0];
+
+    return publicProductComparableSurfaceSchema.parse({
+      availability: variant.availability.status,
+      image: item.media[0]?.url ?? '',
+      name: item.title,
+      price: variant.price.amount,
+      url: item.url,
+    });
+  } catch (_error) {
+    return null;
+  }
+}
+
+export async function parseCurrentAgentProductSampleStream(
+  stream: ReadableStream<Uint8Array> | null,
+  productId: string
+): Promise<PublicProductComparableSurface | null> {
+  if (!stream) return null;
+
+  const decoder = new TextDecoder();
+  const reader = stream.getReader();
+  let pending = '';
+
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      pending += decoder.decode(value, { stream: !done });
+      let newline = pending.indexOf('\n');
+
+      while (newline !== -1) {
+        const sample = parseCurrentAgentProductLine(
+          pending.slice(0, newline),
+          productId
+        );
+        if (sample) {
+          await reader.cancel().catch(() => undefined);
+          return sample;
+        }
+        pending = pending.slice(newline + 1);
+        newline = pending.indexOf('\n');
+      }
+
+      if (done) {
+        return parseCurrentAgentProductLine(pending, productId);
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
 }
 
 function parsePrice(value: string | number) {

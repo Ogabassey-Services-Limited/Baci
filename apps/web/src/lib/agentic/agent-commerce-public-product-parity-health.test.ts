@@ -138,6 +138,22 @@ describe('checkAgentCommercePublicProductParity', () => {
     );
   });
 
+  it('streams the JSONL sample rather than materializing the current feed text', async () => {
+    const currentResponse = new Response(currentFeedBody());
+    const currentText = vi.spyOn(currentResponse, 'text');
+    const fetcher = healthyFetcher();
+    fetcher.mockImplementation((url) =>
+      Promise.resolve(
+        url === CURRENT_FEED_URL ? currentResponse : healthyResponse(url)
+      )
+    );
+
+    const result = await runCheck(fetcher);
+
+    expect(result.status).toBe('ok');
+    expect(currentText).not.toHaveBeenCalled();
+  });
+
   it('returns attention when a PDP JSON-LD value drifts from public catalog surfaces', async () => {
     const fetcher = healthyFetcher();
     fetcher.mockImplementation((url) =>
