@@ -1,11 +1,9 @@
-import { XMLParser } from 'fast-xml-parser';
 import {
   type PublicProductApiSample,
   type PublicProductComparableSurface,
   publicProductApiResponseSchema,
   publicProductComparableSurfaceSchema,
   publicProductCurrentFeedItemSchema,
-  publicProductGoogleFeedItemSchema,
   publicProductPdpSchema,
 } from '@/schemas/agent-commerce-public-product-parity';
 
@@ -127,57 +125,10 @@ function parsePrice(value: string | number) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function getObjectField(value: unknown, key: string): unknown {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    return undefined;
-  }
-
-  return (value as Record<string, unknown>)[key];
-}
-
-function selectGoogleMerchantProductItem(
-  payload: unknown,
-  productId: string
-): unknown {
-  const rss = getObjectField(payload, 'rss');
-  const channel = getObjectField(rss, 'channel');
-  const item = getObjectField(channel, 'item');
-  const items = Array.isArray(item) ? item : item ? [item] : [];
-
-  return items.find(
-    (candidate) => getObjectField(candidate, 'id') === productId
-  );
-}
-
-export function parseGoogleMerchantProductSample(
-  xml: string,
-  productId: string
-): PublicProductComparableSurface | null {
-  try {
-    const parser = new XMLParser({
-      ignoreAttributes: true,
-      parseTagValue: false,
-      removeNSPrefix: true,
-    });
-    const parsed = publicProductGoogleFeedItemSchema.safeParse(
-      selectGoogleMerchantProductItem(parser.parse(xml), productId)
-    );
-    if (!parsed.success) return null;
-    const item = parsed.data;
-    const price = parsePrice(item.sale_price ?? item.price);
-    if (price === null) return null;
-
-    return publicProductComparableSurfaceSchema.parse({
-      availability: item.availability,
-      image: item.image_link,
-      name: item.title,
-      price,
-      url: item.link,
-    });
-  } catch (_error) {
-    return null;
-  }
-}
+export {
+  parseGoogleMerchantProductSample,
+  parseGoogleMerchantProductSampleStream,
+} from '@/lib/agentic/agent-commerce-public-product-parity-google-feed';
 
 function getSchemaAvailability(value: string) {
   const normalized = value.trim().replace(/\/+$/, '').toLowerCase();

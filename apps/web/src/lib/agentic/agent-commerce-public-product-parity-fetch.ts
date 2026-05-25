@@ -1,9 +1,11 @@
 export const PARITY_FETCH_TIMEOUT_MS = 5_000;
+export const PARITY_FEED_FETCH_TIMEOUT_MS = 30_000;
 export const MAX_PARITY_REDIRECTS = 3;
 
 interface PublicProductParityFetchOptions {
   accept: string;
   expectedOrigin: string;
+  timeoutMs?: number;
 }
 
 export async function fetchPublicProductParityResponse(
@@ -25,7 +27,9 @@ export async function fetchPublicProductParityResponse(
         cache: 'no-store',
         headers: { accept: options.accept },
         redirect: 'manual',
-        signal: AbortSignal.timeout(PARITY_FETCH_TIMEOUT_MS),
+        signal: AbortSignal.timeout(
+          options.timeoutMs ?? PARITY_FETCH_TIMEOUT_MS
+        ),
       });
       if (
         response.url &&

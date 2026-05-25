@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   fetchPublicProductParityResponse,
   MAX_PARITY_REDIRECTS,
+  PARITY_FEED_FETCH_TIMEOUT_MS,
   PARITY_FETCH_TIMEOUT_MS,
 } from './agent-commerce-public-product-parity-fetch';
 
@@ -10,6 +11,23 @@ const PRODUCT_URL = `${STORE_ORIGIN}/phones/test-phone`;
 const options = { accept: 'text/html', expectedOrigin: STORE_ORIGIN };
 
 describe('fetchPublicProductParityResponse', () => {
+  it('allows callers to extend the timeout for feed downloads', async () => {
+    const timeout = vi.spyOn(AbortSignal, 'timeout');
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response('feed'));
+
+    try {
+      await fetchPublicProductParityResponse(fetcher, PRODUCT_URL, {
+        ...options,
+        timeoutMs: PARITY_FEED_FETCH_TIMEOUT_MS,
+      });
+      expect(timeout).toHaveBeenCalledWith(PARITY_FEED_FETCH_TIMEOUT_MS);
+    } finally {
+      timeout.mockRestore();
+    }
+  });
+
   it('follows a relative same-origin redirect in manual mode', async () => {
     const redirectedUrl = `${STORE_ORIGIN}/phones/canonical-phone`;
     const fetcher = vi

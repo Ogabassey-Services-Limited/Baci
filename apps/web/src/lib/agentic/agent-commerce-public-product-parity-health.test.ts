@@ -149,12 +149,11 @@ describe('checkAgentCommercePublicProductParity', () => {
     );
 
     const result = await runCheck(fetcher);
-
     expect(result.status).toBe('ok');
     expect(currentText).not.toHaveBeenCalled();
   });
 
-  it('starts consuming both public feed bodies without waiting for JSONL completion', async () => {
+  it('streams the XML sample without materializing the Google feed text', async () => {
     let releaseCurrent: () => void = () => undefined;
     const canCompleteCurrent = new Promise<void>((resolve) => {
       releaseCurrent = resolve;
@@ -169,12 +168,15 @@ describe('checkAgentCommercePublicProductParity', () => {
       })
     );
     const googleResponse = new Response(googleFeedBody());
-    const googleText = vi
-      .spyOn(googleResponse, 'text')
-      .mockImplementation(() => {
-        releaseCurrent();
-        return Promise.resolve(googleFeedBody());
-      });
+    const googleText = vi.spyOn(googleResponse, 'text');
+    const googleBody = googleResponse.body;
+    if (!googleBody) throw new Error('Expected a Google XML response body.');
+    const readGoogleBody = googleBody.getReader.bind(googleBody);
+    const googleReader = vi.spyOn(googleBody, 'getReader');
+    googleReader.mockImplementation(() => {
+      releaseCurrent();
+      return readGoogleBody();
+    });
     const fetcher = healthyFetcher();
     fetcher.mockImplementation((url) =>
       Promise.resolve(
@@ -186,8 +188,9 @@ describe('checkAgentCommercePublicProductParity', () => {
       )
     );
     const resultPromise = runCheck(fetcher);
-    await vi.waitFor(() => expect(googleText).toHaveBeenCalledOnce());
+    await vi.waitFor(() => expect(googleReader).toHaveBeenCalledOnce());
     await expect(resultPromise).resolves.toMatchObject({ status: 'ok' });
+    expect(googleText).not.toHaveBeenCalled();
   });
 
   it('returns attention when a PDP JSON-LD value drifts from public catalog surfaces', async () => {
@@ -199,7 +202,6 @@ describe('checkAgentCommercePublicProductParity', () => {
     );
 
     const result = await runCheck(fetcher);
-
     expect(result).toMatchObject({
       issue_count: 1,
       sample_product_id: 'product-1',
@@ -226,7 +228,6 @@ describe('checkAgentCommercePublicProductParity', () => {
     );
 
     const result = await runCheck(fetcher);
-
     expect(result).toMatchObject({
       issue_count: 0,
       sample_product_id: 'product-1',
@@ -240,7 +241,6 @@ describe('checkAgentCommercePublicProductParity', () => {
       .mockResolvedValueOnce(Response.json(apiBody({ has_variants: true })));
 
     const result = await runCheck(fetcher);
-
     expect(result).toMatchObject({
       issue_count: 1,
       sample_product_id: null,

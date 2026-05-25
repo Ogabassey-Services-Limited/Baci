@@ -4,11 +4,14 @@ import {
   comparePublicProductParitySurfaces,
   type PublicProductParityField,
   parseCurrentAgentProductSampleStream,
-  parseGoogleMerchantProductSample,
+  parseGoogleMerchantProductSampleStream,
   parsePdpProductSample,
   selectPublicProductApiSample,
 } from './agent-commerce-public-product-parity-contract';
-import { fetchPublicProductParityResponse } from './agent-commerce-public-product-parity-fetch';
+import {
+  fetchPublicProductParityResponse,
+  PARITY_FEED_FETCH_TIMEOUT_MS,
+} from './agent-commerce-public-product-parity-fetch';
 
 type AgentCommercePublicProductParityStatus = 'attention' | 'monitor' | 'ok';
 export type AgentCommercePublicProductParityIssueCode =
@@ -94,8 +97,12 @@ export async function checkAgentCommercePublicProductParity(
 ): Promise<AgentCommercePublicProductParityResult> {
   const { baseUrl, surfaces } = buildParitySurfaces(merchant);
   const expectedOrigin = new URL(baseUrl).origin;
-  const fetchSurface = (url: string, accept: string) =>
-    fetchPublicProductParityResponse(fetcher, url, { accept, expectedOrigin });
+  const fetchSurface = (url: string, accept: string, timeoutMs?: number) =>
+    fetchPublicProductParityResponse(fetcher, url, {
+      accept,
+      expectedOrigin,
+      timeoutMs,
+    });
   const apiResponse = await fetchSurface(
     surfaces.product_api,
     'application/json'
@@ -139,8 +146,16 @@ export async function checkAgentCommercePublicProductParity(
   }
   const productId = selection.product.id;
   const [currentResponse, googleResponse] = await Promise.all([
-    fetchSurface(surfaces.agent_products, 'application/jsonl'),
-    fetchSurface(surfaces.google_merchant_xml, 'application/xml'),
+    fetchSurface(
+      surfaces.agent_products,
+      'application/jsonl',
+      PARITY_FEED_FETCH_TIMEOUT_MS
+    ),
+    fetchSurface(
+      surfaces.google_merchant_xml,
+      'application/xml',
+      PARITY_FEED_FETCH_TIMEOUT_MS
+    ),
   ]);
   if (!currentResponse || !googleResponse) {
     return createResult({
@@ -153,10 +168,10 @@ export async function checkAgentCommercePublicProductParity(
     parseCurrentAgentProductSampleStream(currentResponse.body, productId).catch(
       () => null
     ),
-    googleResponse
-      .text()
-      .then((body) => parseGoogleMerchantProductSample(body, productId))
-      .catch(() => null),
+    parseGoogleMerchantProductSampleStream(
+      googleResponse.body,
+      productId
+    ).catch(() => null),
   ]);
   if (!current || !google) {
     return createResult({
