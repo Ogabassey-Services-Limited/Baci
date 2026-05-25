@@ -7,10 +7,6 @@ const styles = StyleSheet.create({
     padding: 8,
     marginBottom: 16,
     borderWidth: 1,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
   },
   imageWrapper: {
     width: "100%",
@@ -47,6 +43,7 @@ const styles = StyleSheet.create({
     minHeight: 44,
     justifyContent: "center",
     alignItems: "center",
+    pointerEvents: "box-only",
   },
   wishlistBlur: {
     width: 40,
@@ -65,11 +62,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     zIndex: 20,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
     borderWidth: 1,
+    pointerEvents: "box-only",
   },
   gridContent: { paddingHorizontal: 4 },
   gridName: {
