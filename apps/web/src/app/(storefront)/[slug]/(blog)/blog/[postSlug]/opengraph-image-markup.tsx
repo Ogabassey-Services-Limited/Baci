@@ -219,7 +219,7 @@ export function renderPrimaryCard(data: MerchantBlogOgImageData) {
           </div>
           {post?.author_name ? (
             <div style={{ color: 'rgba(255,255,255,0.72)', fontSize: 22 }}>
-              By {post.author_name}
+              {`By ${post.author_name}`}
             </div>
           ) : null}
         </div>

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
+import { StorefrontDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker';
 import { getCachedBlogPost } from '@/lib/cached-data';
 import { buildStoreUrl } from '@/lib/store-url';
 import { BlogPostPageFallback } from './BlogPostPageFallback';
@@ -105,8 +106,11 @@ export async function generateMetadata({
 
 export default function BlogPostPage({ params }: PageProps) {
   return (
-    <Suspense fallback={<BlogPostPageFallback />}>
-      <BlogPostPageContent params={params} />
-    </Suspense>
+    <>
+      <Suspense fallback={<BlogPostPageFallback />}>
+        <BlogPostPageContent params={params} />
+      </Suspense>
+      <StorefrontDynamicMetadataMarker />
+    </>
   );
 }
