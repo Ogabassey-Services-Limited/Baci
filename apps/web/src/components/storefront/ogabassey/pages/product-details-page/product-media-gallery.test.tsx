@@ -12,6 +12,7 @@ vi.mock('next/image', () => ({
         )
       )}
       alt={String(props.alt ?? '')}
+      data-priority={props.priority ? 'true' : undefined}
     />
   ),
 }));
@@ -75,8 +76,8 @@ describe('ProductMediaGallery', () => {
       '(max-width: 767px) calc(100vw - 32px), (max-width: 1023px) calc(100vw - 48px), (max-width: 1439px) 40vw, 560px',
     );
     expect(screen.getByAltText('Test Product')).toHaveAttribute(
-      'loading',
-      'eager',
+      'data-priority',
+      'true',
     );
     expect(screen.getByAltText('Test Product')).toHaveAttribute(
       'decoding',

@@ -26,7 +26,7 @@ export function Logo({
           sizes={`${width}px`}
           className="object-contain"
           priority={priority}
-          loading={priority ? 'eager' : 'lazy'}
+          loading={priority ? undefined : 'lazy'}
         />
       </div>
     );
@@ -41,7 +41,7 @@ export function Logo({
         sizes={`${width}px`}
         className="object-contain dark:hidden"
         priority={priority}
-        loading={priority ? 'eager' : 'lazy'}
+        loading={priority ? undefined : 'lazy'}
       />
       <Image
         src="/baci-logo-dark.svg"
@@ -50,7 +50,7 @@ export function Logo({
         sizes={`${width}px`}
         className="object-contain hidden dark:block"
         priority={priority}
-        loading={priority ? 'eager' : 'lazy'}
+        loading={priority ? undefined : 'lazy'}
       />
     </div>
   );
