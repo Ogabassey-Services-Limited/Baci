@@ -82,11 +82,6 @@
       "justification": "Existing oversized profile-edit route baseline; shrink or remove this entry as the route is modularized."
     },
     {
-      "path": "app/wallet/index.tsx",
-      "lineCount": 354,
-      "justification": "Existing oversized wallet route baseline; shrink or remove this entry as the route is modularized."
-    },
-    {
       "path": "app/receipts/index.tsx",
       "lineCount": 339,
       "justification": "Existing oversized receipts route baseline; shrink or remove this entry as the route is modularized."

@@ -1,14 +1,13 @@
 import { VTU_MIN_REDEEMABLE_POINTS } from '@baci/shared/lib';
-import { Redirect, router, Stack, useLocalSearchParams } from 'expo-router';
+import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Text, View } from 'react-native';
+import { Alert } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
-import { StorefrontScreenShell } from '@/components/storefront/StorefrontScreenShell';
 import { useColorScheme } from '@/components/useColorScheme';
-import { WalletContent } from '@/components/wallet/WalletContent';
-import { styles } from '@/components/wallet/wallet.styles';
+import { WalletScreenView } from '@/components/wallet/WalletScreenView';
+import { useWalletBalanceContractWarning } from '@/components/wallet/use-wallet-balance-contract-warning';
 import { WALLET_TAB_SCROLL_PADDING_BOTTOM } from '@/components/wallet/wallet-tab.constants';
-import Colors, { BRAND, SPACING } from '@/constants/Colors';
+import Colors, { SPACING } from '@/constants/Colors';
 import { useRequireAuth } from '@/hooks/use-auth-guard';
 import { useStorefrontInsets } from '@/hooks/use-storefront-insets';
 import {
@@ -19,94 +18,19 @@ import {
 import { CONFIG } from '@/lib/config';
 import { formatNgnCurrency } from '@/lib/format-ngn-currency';
 import { createLogger } from '@/lib/logger';
+import { normalizeWalletFundAmountParam } from '@/lib/normalize-wallet-fund-amount-param';
 import { pickMerchantId } from '@/lib/pick-merchant-id';
 import { sanitizeWalletReturnTo } from '@/lib/sanitize-wallet-return-to';
 import { initializeWalletTopUp } from '@/lib/wallet-top-up';
-import {
-  WALLET_TOP_UP_MAX_AMOUNT,
-  WALLET_TOP_UP_MIN_AMOUNT,
-} from '@/lib/wallet-top-up-constants';
+import { WALLET_TOP_UP_MAX_AMOUNT, WALLET_TOP_UP_MIN_AMOUNT } from '@/lib/wallet-top-up-constants';
 import { trackError, trackEvent } from '@/services/analytics';
 import { scheduleLocalNotification } from '@/services/push-notifications';
 import { useAuthStore } from '@/stores/auth-store';
 
 const log = createLogger('Wallet');
-const warnedWalletBalanceWarnings = new Set<string>();
-
-type WalletBalanceField =
-  | 'earnings_balance'
-  | 'savings_balance'
-  | 'total_balance';
-type WalletBalanceWarningKey = WalletBalanceField | 'total_balance_mismatch';
 
 interface WalletScreenProps {
   presentation?: 'stack' | 'tab';
-}
-
-function logWalletBalanceContractWarning({
-  computedTotalBalance,
-  earningsBalance,
-  merchantId,
-  ownerId,
-  savingsBalance,
-  totalBalance,
-  walletData,
-}: {
-  computedTotalBalance: number;
-  earningsBalance: number;
-  merchantId: string;
-  ownerId: string;
-  savingsBalance: number;
-  totalBalance: number;
-  walletData: {
-    earnings_balance?: number;
-    savings_balance?: number;
-    total_balance?: number;
-  };
-}) {
-  const fallbackValues: Record<WalletBalanceField, number> = {
-    earnings_balance: earningsBalance,
-    savings_balance: savingsBalance,
-    total_balance: totalBalance,
-  };
-  const missingFields = (
-    ['earnings_balance', 'savings_balance', 'total_balance'] as const
-  ).filter((field) => walletData[field] == null);
-  const hasTotalMismatch =
-    walletData.total_balance != null &&
-    walletData.total_balance !== computedTotalBalance;
-  const warningScope = `${merchantId || 'unknown-merchant'}:${ownerId || 'unknown-owner'}`;
-  const getDedupeKey = (warningKey: WalletBalanceWarningKey) =>
-    `${warningScope}:${warningKey}`;
-  const newMissingFields = missingFields.filter(
-    (field) => !warnedWalletBalanceWarnings.has(getDedupeKey(field))
-  );
-  const shouldWarnTotalMismatch =
-    hasTotalMismatch &&
-    !warnedWalletBalanceWarnings.has(getDedupeKey('total_balance_mismatch'));
-
-  if (newMissingFields.length === 0 && !shouldWarnTotalMismatch) {
-    return;
-  }
-
-  for (const field of newMissingFields) {
-    warnedWalletBalanceWarnings.add(getDedupeKey(field));
-  }
-  if (shouldWarnTotalMismatch) {
-    warnedWalletBalanceWarnings.add(getDedupeKey('total_balance_mismatch'));
-  }
-
-  log.warn('Wallet API balance contract warning; using safe display values.', {
-    computedTotalBalance,
-    fallbackValues: Object.fromEntries(
-      newMissingFields.map((field) => [field, fallbackValues[field]])
-    ),
-    mismatchedFields: shouldWarnTotalMismatch ? ['total_balance'] : [],
-    missingFields: newMissingFields,
-    merchantId,
-    ownerId,
-    serverTotalBalance: walletData.total_balance,
-  });
 }
 
 export default function WalletScreen({
@@ -121,7 +45,7 @@ export default function WalletScreen({
     returnTo?: string;
   }>();
   const routeAction = Array.isArray(action) ? action[0] : action;
-  const routeRequiredAmount = normalizeFundAmountParam(requiredAmount);
+  const routeRequiredAmount = normalizeWalletFundAmountParam(requiredAmount);
   const walletReturnTo = sanitizeWalletReturnTo(returnTo);
 
   const { isLoading: authLoading, redirectTo } = useRequireAuth();
@@ -137,25 +61,18 @@ export default function WalletScreen({
   const createFundingAccountMutation = useCreateWalletFundingAccount();
 
   const [redeemPoints, setRedeemPoints] = useState('');
-  const [showRedeemPanel, setShowRedeemPanel] = useState(
-    routeAction === 'redeem'
-  );
+  const [showRedeemPanel, setShowRedeemPanel] = useState(routeAction === 'redeem');
   const [fundAmount, setFundAmount] = useState(routeRequiredAmount);
   const [showFundPanel, setShowFundPanel] = useState(routeAction === 'fund');
   const [isFundPending, setIsFundPending] = useState(false);
   const activeMerchantId = pickMerchantId(merchantId, CONFIG.MERCHANT_ID);
   const activeMerchantSlug = CONFIG.MERCHANT_SLUG?.trim() || undefined;
   const hasMerchantContext = Boolean(activeMerchantId || activeMerchantSlug);
-  const warningWalletData = data?.wallet;
-  const warningOwnerId = customer?.id ?? user?.id ?? '';
-  const warningEarningsBalance = warningWalletData
-    ? (warningWalletData.earnings_balance ?? warningWalletData.balance ?? 0)
-    : 0;
-  const warningSavingsBalance = warningWalletData?.savings_balance ?? 0;
-  const warningComputedTotalBalance =
-    warningEarningsBalance + warningSavingsBalance;
-  const warningTotalBalance =
-    warningWalletData?.total_balance ?? warningComputedTotalBalance;
+  useWalletBalanceContractWarning({
+    merchantId: activeMerchantId,
+    ownerId: customer?.id ?? user?.id ?? '',
+    walletData: data?.wallet,
+  });
 
   useEffect(() => {
     if (routeAction === 'fund') {
@@ -170,30 +87,6 @@ export default function WalletScreen({
       setShowRedeemPanel(true);
     }
   }, [routeAction, routeRequiredAmount]);
-
-  useEffect(() => {
-    if (!warningWalletData || !warningOwnerId || !activeMerchantId) {
-      return;
-    }
-
-    logWalletBalanceContractWarning({
-      computedTotalBalance: warningComputedTotalBalance,
-      earningsBalance: warningEarningsBalance,
-      merchantId: activeMerchantId,
-      ownerId: warningOwnerId,
-      savingsBalance: warningSavingsBalance,
-      totalBalance: warningTotalBalance,
-      walletData: warningWalletData,
-    });
-  }, [
-    activeMerchantId,
-    warningComputedTotalBalance,
-    warningEarningsBalance,
-    warningOwnerId,
-    warningSavingsBalance,
-    warningTotalBalance,
-    warningWalletData,
-  ]);
 
   const handleFundAmountChange = (value: string) => {
     setFundAmount(value.replace(/\D/g, ''));
@@ -244,7 +137,6 @@ export default function WalletScreen({
       );
       return;
     }
-
     setIsFundPending(true);
     try {
       const customerName =
@@ -259,7 +151,6 @@ export default function WalletScreen({
         merchantId: activeMerchantId,
         merchantSlug: activeMerchantSlug,
       });
-
       trackEvent('wallet_top_up_started', {
         amount,
         customer_id: customer?.id,
@@ -267,7 +158,6 @@ export default function WalletScreen({
         merchant_id: activeMerchantId,
         merchant_slug: activeMerchantSlug,
       });
-
       resetFundPanel();
       router.push({
         pathname: '/payment-gateway',
@@ -374,61 +264,31 @@ export default function WalletScreen({
       presentation === 'tab' ? WALLET_TAB_SCROLL_PADDING_BOTTOM : SPACING.xl,
   });
 
-  const renderLoadingState = (message?: string) => (
-    <>
-      {presentation === 'stack' ? (
-        <Stack.Screen options={{ title: 'Wallet' }} />
-      ) : null}
-      <StorefrontScreenShell
-        style={[styles.container, { backgroundColor: colors.background }]}
-        edges={presentation === 'tab' ? ['top'] : ['bottom']}
-      >
-        {presentation === 'tab' ? (
-          <View style={styles.tabHeader}>
-            <Text style={[styles.tabHeaderTitle, { color: colors.text }]}>
-              Wallet & Loyalty
-            </Text>
-          </View>
-        ) : null}
-        <View style={[styles.container, styles.centered]}>
-          <ActivityIndicator
-            testID="wallet-activity-indicator"
-            accessibilityLabel="Preparing wallet"
-            size="large"
-            color={BRAND.primary}
-          />
-          {message ? (
-            <Text style={[styles.emptyTitle, { color: colors.textSecondary }]}>
-              {message}
-            </Text>
-          ) : null}
-        </View>
-      </StorefrontScreenShell>
-    </>
-  );
-
   if (authLoading) {
-    return renderLoadingState();
+    return <WalletScreenView colors={colors} presentation={presentation} />;
   }
 
   if (redirectTo) {
     return <Redirect href={redirectTo} />;
   }
 
+  let loadingMessage: string | undefined;
   if (!user || !hasMerchantContext) {
-    return renderLoadingState('Preparing your wallet...');
+    loadingMessage = 'Preparing your wallet...';
+  } else if (!isLoading && isError && !data) {
+    loadingMessage = 'Unable to load wallet.';
+  } else if (!isLoading && !data) {
+    loadingMessage = 'Preparing your wallet...';
   }
 
-  if (isLoading) {
-    return renderLoadingState();
-  }
-
-  if (isError && !data) {
-    return renderLoadingState('Unable to load wallet.');
-  }
-
-  if (!data) {
-    return renderLoadingState('Preparing your wallet...');
+  if (!user || !hasMerchantContext || isLoading || !data) {
+    return (
+      <WalletScreenView
+        colors={colors}
+        loadingMessage={loadingMessage}
+        presentation={presentation}
+      />
+    );
   }
 
   const walletData = data.wallet;
@@ -449,67 +309,43 @@ export default function WalletScreen({
   const showQuickSave = savingsBalance > 0;
 
   return (
-    <>
-      {presentation === 'stack' ? (
-        <Stack.Screen options={{ title: 'Wallet' }} />
-      ) : null}
-      <StorefrontScreenShell
-        style={[styles.container, { backgroundColor: colors.background }]}
-        edges={presentation === 'tab' ? ['top'] : ['bottom']}
-      >
-        {presentation === 'tab' ? (
-          <View style={styles.tabHeader}>
-            <Text style={[styles.tabHeaderTitle, { color: colors.text }]}>
-              Wallet & Loyalty
-            </Text>
-          </View>
-        ) : null}
-        <WalletContent
-          colors={colors}
-          contentContainerStyle={scrollContentStyle}
-          earningsBalance={earningsBalance}
-          fundAmount={fundAmount}
-          fundingAccount={fundingAccount}
-          isCreatingFundingAccount={createFundingAccountMutation.isPending}
-          isFundPending={isFundPending}
-          isRedeemPending={redeemMutation.isPending}
-          isRefetching={isRefetching}
-          loyaltyPoints={walletData.loyalty_points}
-          onChangeFundAmount={handleFundAmountChange}
-          onCreateFundingAccount={handleCreateFundingAccount}
-          onChangeRedeemPoints={setRedeemPoints}
-          onConfirmFund={handleFundWallet}
-          onConfirmRedeem={handleRedeemPoints}
-          onManageCards={() => router.push('/wallet/manage-cards')}
-          onOpenFundPanel={() => setShowFundPanel(true)}
-          onOpenRedeemPanel={() => setShowRedeemPanel(true)}
-          onQuickSave={() => router.push('/wallet/savings/start')}
-          onRefresh={refetch}
-          onResetFund={resetFundPanel}
-          onResetRedeem={() => {
-            setShowRedeemPanel(false);
-            setRedeemPoints('');
-          }}
-          onStartSavings={() => router.push('/wallet/savings/start')}
-          redeemPoints={redeemPoints}
-          savingsBalance={savingsBalance}
-          showQuickSave={showQuickSave}
-          showFundPanel={showFundPanel}
-          showRedeemPanel={showRedeemPanel}
-          totalBalance={totalBalance}
-          transactions={transactions}
-        />
-      </StorefrontScreenShell>
-    </>
+    <WalletScreenView
+      colors={colors}
+      presentation={presentation}
+      walletContentProps={{
+        contentContainerStyle: scrollContentStyle,
+        earningsBalance,
+        fundAmount,
+        fundingAccount,
+        isCreatingFundingAccount: createFundingAccountMutation.isPending,
+        isFundPending,
+        isRedeemPending: redeemMutation.isPending,
+        isRefetching,
+        loyaltyPoints: walletData.loyalty_points,
+        onChangeFundAmount: handleFundAmountChange,
+        onCreateFundingAccount: handleCreateFundingAccount,
+        onChangeRedeemPoints: setRedeemPoints,
+        onConfirmFund: handleFundWallet,
+        onConfirmRedeem: handleRedeemPoints,
+        onManageCards: () => router.push('/wallet/manage-cards'),
+        onOpenFundPanel: () => setShowFundPanel(true),
+        onOpenRedeemPanel: () => setShowRedeemPanel(true),
+        onQuickSave: () => router.push('/wallet/savings/start'),
+        onRefresh: refetch,
+        onResetFund: resetFundPanel,
+        onResetRedeem: () => {
+          setShowRedeemPanel(false);
+          setRedeemPoints('');
+        },
+        onStartSavings: () => router.push('/wallet/savings/start'),
+        redeemPoints,
+        savingsBalance,
+        showQuickSave,
+        showFundPanel,
+        showRedeemPanel,
+        totalBalance,
+        transactions,
+      }}
+    />
   );
-}
-
-function normalizeFundAmountParam(value: string | string[] | undefined) {
-  const rawValue = Array.isArray(value) ? value[0] : value;
-  const amount = Number(rawValue);
-  if (!Number.isFinite(amount) || amount <= 0) {
-    return '';
-  }
-  // Wallet top-ups use whole naira amounts, so fractional required amounts round up.
-  return String(Math.ceil(amount));
 }
