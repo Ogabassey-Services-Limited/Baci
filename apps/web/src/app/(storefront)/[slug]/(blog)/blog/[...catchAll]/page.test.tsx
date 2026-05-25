@@ -20,6 +20,7 @@ const mockSelect = vi.fn();
 const mockFrom = vi.fn();
 const mockCreateClient = vi.fn();
 const mockCookies = vi.fn();
+const mockConnection = vi.fn(async () => undefined);
 
 vi.mock('next/headers', () => ({
   cookies: () => mockCookies(),
@@ -29,6 +30,10 @@ vi.mock('next/navigation', () => ({
   notFound: () => mockNotFound(),
   permanentRedirect: (url: string) => mockPermanentRedirect(url),
   redirect: (url: string) => mockRedirect(url),
+}));
+
+vi.mock('next/server', () => ({
+  connection: () => mockConnection(),
 }));
 
 vi.mock('@/lib/cached-data', () => ({
@@ -89,7 +94,7 @@ describe('storefront blog catch-all route', () => {
     mockMaybeSingle.mockResolvedValue({ data: null });
   });
 
-  it('redirects dated blog permalinks to the canonical blog post URL', async () => {
+  it('waits for a request before redirecting dated blog permalinks', async () => {
     mockGetCachedBlogPost.mockResolvedValue({
       merchant: {
         slug: 'ogabassey',
@@ -121,6 +126,7 @@ describe('storefront blog catch-all route', () => {
       'is-the-redmi-a5-the-best-budget-phone-of-2025',
       false
     );
+    expect(mockConnection).toHaveBeenCalledOnce();
     expect(mockGetCachedMerchantByDomain).not.toHaveBeenCalled();
   });
 
