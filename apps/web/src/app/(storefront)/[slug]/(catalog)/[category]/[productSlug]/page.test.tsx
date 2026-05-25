@@ -14,6 +14,7 @@ import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 vi.mock('server-only', () => ({}));
 
 const {
+  mockConnection,
   mockNormalizeStorefrontProductVariants,
   mockOgabasseyPdpProductResourceHints,
   mockOgabasseyPdpSemanticSections,
@@ -22,6 +23,7 @@ const {
   mockPreloadOgabasseyPdpProductImage,
   mockProductDetailClient,
 } = vi.hoisted(() => ({
+  mockConnection: vi.fn<() => Promise<void>>(async () => undefined),
   mockNormalizeStorefrontProductVariants: vi.fn<
     (...args: unknown[]) => Record<string, unknown>[]
   >(() => []),
@@ -67,6 +69,10 @@ vi.mock('next/navigation', () => ({
 
 vi.mock('next/headers', () => ({
   headers: () => mockHeaders(),
+}));
+
+vi.mock('next/server', () => ({
+  connection: () => mockConnection(),
 }));
 
 vi.mock('next/link', () => ({
@@ -137,12 +143,6 @@ vi.mock('@/lib/cached-data', () => ({
     String(value ?? '')
       .replace(/[\r\n\t]/g, '')
       .substring(0, 100),
-}));
-
-vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
-  StorefrontDynamicMetadataMarker: () => (
-    <div aria-label="dynamic metadata marker" role="status" />
-  ),
 }));
 
 vi.mock('@/lib/storefront-product/build-product-semantic-model', () => ({
@@ -856,7 +856,7 @@ describe('[category]/[productSlug] page render', () => {
     });
   });
 
-  it('renders the dynamic metadata marker after the streamed product boundary', async () => {
+  it('opts streamed product pages into request-time rendering before the product shell', async () => {
     const ui = await resolveRsc(
       await CategoryProductPage({
         params: Promise.resolve({
@@ -870,19 +870,13 @@ describe('[category]/[productSlug] page render', () => {
 
     const { container } = render(ui);
 
-    const heading = screen.getByRole('heading', {
-      level: 1,
-      name: 'HP Laptop 14-ep0063nia',
-    });
-    const marker = screen.getByRole('status', {
-      name: /dynamic metadata marker/i,
-    });
-
-    expect(heading).toBeInTheDocument();
-    expect(marker).toBeInTheDocument();
+    expect(mockConnection).toHaveBeenCalledTimes(1);
     expect(
-      heading.compareDocumentPosition(marker) & Node.DOCUMENT_POSITION_FOLLOWING
-    ).toBeTruthy();
+      screen.getByRole('heading', {
+        level: 1,
+        name: 'HP Laptop 14-ep0063nia',
+      })
+    ).toBeInTheDocument();
     expect(container.querySelectorAll('h1')).toHaveLength(1);
   });
 

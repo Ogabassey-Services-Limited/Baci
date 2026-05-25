@@ -1,10 +1,4 @@
-import {
-  Children,
-  isValidElement,
-  type ReactElement,
-  type ReactNode,
-  Suspense,
-} from 'react';
+import { isValidElement, type ReactElement, Suspense } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockNotFound = vi.fn(() => {
@@ -27,6 +21,7 @@ const mockSelect = vi.fn();
 const mockFrom = vi.fn();
 const mockCreateClient = vi.fn();
 const mockCookies = vi.fn();
+const mockConnection = vi.fn<() => Promise<void>>(async () => undefined);
 
 vi.mock('next/headers', () => ({
   cookies: () => mockCookies(),
@@ -36,6 +31,10 @@ vi.mock('next/navigation', () => ({
   notFound: () => mockNotFound(),
   permanentRedirect: (url: string) => mockPermanentRedirect(url),
   redirect: (url: string) => mockRedirect(url),
+}));
+
+vi.mock('next/server', () => ({
+  connection: () => mockConnection(),
 }));
 
 vi.mock('@/lib/cached-data', () => ({
@@ -70,7 +69,6 @@ vi.mock(
   })
 );
 
-import { StorefrontDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker';
 import { resolveBlogCatchAllRoute } from './blog-catch-all-resolution';
 import BlogCatchAllPage from './page';
 
@@ -98,24 +96,17 @@ describe('storefront blog catch-all route', () => {
     mockMaybeSingle.mockResolvedValue({ data: null });
   });
 
-  it('renders the dynamic metadata marker after the request-time resolver boundary', () => {
-    const element = BlogCatchAllPage({
+  it('opts the legacy blog resolver into request-time rendering', async () => {
+    const element = await BlogCatchAllPage({
       params: Promise.resolve({
         slug: 'ogabassey.com',
         catchAll: ['category', 'legacy-post'],
       }),
     });
 
+    expect(mockConnection).toHaveBeenCalledTimes(1);
     expect(isValidElement(element)).toBe(true);
-    const children = Children.toArray(
-      (element as ReactElement<{ children: ReactNode }>).props.children
-    );
-
-    expect(children).toHaveLength(2);
-    expect((children[0] as ReactElement).type).toBe(Suspense);
-    expect((children[1] as ReactElement).type).toBe(
-      StorefrontDynamicMetadataMarker
-    );
+    expect((element as ReactElement).type).toBe(Suspense);
   });
 
   it('redirects dated blog permalinks', async () => {

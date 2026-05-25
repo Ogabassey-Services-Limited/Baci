@@ -2,8 +2,8 @@ import { resolveVariantSelectionParamResolution } from '@baci/shared/lib';
 import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import { notFound, permanentRedirect } from 'next/navigation';
+import { connection } from 'next/server';
 import { type ReactNode, Suspense } from 'react';
-import { StorefrontDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker';
 import { OgabasseyPdpProductLcpSkeleton } from '@/app/(storefront)/ogabassey/ogabassey-pdp-product-lcp-skeleton';
 import {
   OgabasseyPdpProductResourceHints,
@@ -898,6 +898,8 @@ export default async function CategoryProductPage({
   params,
   searchParams,
 }: PageProps) {
+  await connection();
+
   const { slug, category, productSlug } = await params;
   if (!isValidMerchantIdentifier(slug)) {
     notFound();
@@ -982,7 +984,6 @@ export default async function CategoryProductPage({
           productResultPromise={productResultPromise}
         />
       </Suspense>
-      <StorefrontDynamicMetadataMarker />
     </>
   );
 }

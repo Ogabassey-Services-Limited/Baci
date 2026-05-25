@@ -2,17 +2,19 @@ import { render, screen } from '@testing-library/react';
 import { Suspense } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockBlogPostPageContent, mockBuildStoreUrl } = vi.hoisted(() => ({
-  mockBlogPostPageContent: vi.fn((_props: unknown) => (
-    <div>Blog post page content</div>
-  )),
-  mockBuildStoreUrl: vi.fn(
-    (merchant: { slug: string; custom_domain?: string | null }) =>
-      merchant.custom_domain
-        ? `https://${merchant.custom_domain}`
-        : `https://${merchant.slug}.usebaci.com`
-  ),
-}));
+const { mockBlogPostPageContent, mockBuildStoreUrl, mockConnection } =
+  vi.hoisted(() => ({
+    mockConnection: vi.fn<() => Promise<void>>(async () => undefined),
+    mockBlogPostPageContent: vi.fn((_props: unknown) => (
+      <div>Blog post page content</div>
+    )),
+    mockBuildStoreUrl: vi.fn(
+      (merchant: { slug: string; custom_domain?: string | null }) =>
+        merchant.custom_domain
+          ? `https://${merchant.custom_domain}`
+          : `https://${merchant.slug}.usebaci.com`
+    ),
+  }));
 
 const mockDraftMode = vi.fn();
 const mockHeaders = vi.fn();
@@ -30,14 +32,12 @@ vi.mock('next/navigation', () => ({
   notFound: () => mockNotFound(),
 }));
 
-vi.mock('@/lib/cached-data', () => ({
-  getCachedBlogPost: (...args: unknown[]) => mockGetCachedBlogPost(...args),
+vi.mock('next/server', () => ({
+  connection: () => mockConnection(),
 }));
 
-vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
-  StorefrontDynamicMetadataMarker: () => (
-    <div aria-label="dynamic metadata marker" role="status" />
-  ),
+vi.mock('@/lib/cached-data', () => ({
+  getCachedBlogPost: (...args: unknown[]) => mockGetCachedBlogPost(...args),
 }));
 
 vi.mock('@/lib/store-url', () => ({
@@ -128,7 +128,7 @@ describe('storefront blog post page', () => {
     ]);
   });
 
-  it('renders only the local shell while request-time blog content is pending', () => {
+  it('renders only the local shell while request-time blog content is pending', async () => {
     mockBlogPostPageContent.mockImplementation(() => {
       throw new Promise(() => {
         // Keep the blog post page content suspended behind its local shell.
@@ -137,45 +137,37 @@ describe('storefront blog post page', () => {
 
     render(
       <Suspense fallback={<div>Route loader fallback</div>}>
-        <BlogPostPage
-          params={Promise.resolve({
-            slug: 'ogabassey.com',
-            postSlug: 'apple-studio-display-review',
-          })}
-        />
+        {
+          await BlogPostPage({
+            params: Promise.resolve({
+              slug: 'ogabassey.com',
+              postSlug: 'apple-studio-display-review',
+            }),
+          })
+        }
       </Suspense>
     );
 
+    expect(mockConnection).toHaveBeenCalledTimes(1);
     expect(screen.getByText('Blog post page fallback')).toBeInTheDocument();
     expect(screen.queryByText('Route loader fallback')).not.toBeInTheDocument();
     expect(
       screen.queryByText('Blog post page content')
     ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole('status', { name: /dynamic metadata marker/i })
-    ).toBeInTheDocument();
   });
 
-  it('adds a metadata marker after request-time blog content', () => {
+  it('opts the blog post route into request-time rendering before content streams', async () => {
     render(
-      <BlogPostPage
-        params={Promise.resolve({
+      await BlogPostPage({
+        params: Promise.resolve({
           slug: 'ogabassey.com',
           postSlug: 'apple-studio-display-review',
-        })}
-      />
+        }),
+      })
     );
 
-    const content = screen.getByText('Blog post page content');
-    const marker = screen.getByRole('status', {
-      name: /dynamic metadata marker/i,
-    });
-
-    expect(content).toBeInTheDocument();
-    expect(marker).toBeInTheDocument();
-    expect(
-      content.compareDocumentPosition(marker) & Node.DOCUMENT_POSITION_FOLLOWING
-    ).toBeTruthy();
+    expect(mockConnection).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('Blog post page content')).toBeInTheDocument();
   });
 
   it('resolves public metadata without consulting draft request state', async () => {
