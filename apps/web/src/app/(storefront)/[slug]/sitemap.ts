@@ -7,8 +7,8 @@ import {
   hasPublishableWarrantyPolicy,
 } from '@/lib/storefront-trust/build-merchant-trust-profile';
 import {
-  getStaticSitemapEntries,
   getNamedSitemapEntries,
+  getStaticSitemapEntries,
   resolveStorefrontSitemapContext,
 } from './sitemap-data';
 

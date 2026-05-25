@@ -12,21 +12,23 @@ vi.mock('next/headers', () => ({
 }));
 
 vi.mock('./sitemap-data', () => ({
-  getStaticSitemapEntries: (...args: unknown[]) => mockGetStaticSitemapEntries(...args),
-  getNamedSitemapEntries: (...args: unknown[]) => mockGetNamedSitemapEntries(...args),
+  getStaticSitemapEntries: (...args: unknown[]) =>
+    mockGetStaticSitemapEntries(...args),
+  getNamedSitemapEntries: (...args: unknown[]) =>
+    mockGetNamedSitemapEntries(...args),
   resolveStorefrontSitemapContext: (...args: unknown[]) =>
     mockResolveStorefrontSitemapContext(...args),
 }));
 
-vi.mock(
-  '@/lib/storefront-trust/build-merchant-trust-profile',
-  () => ({
-    buildMerchantTrustProfile: (...args: unknown[]) => mockBuildMerchantTrustProfile(...args),
-    hasPublishableReturnsPolicy: (profile: any) => Boolean(profile.returnPolicy),
-    hasPublishableShippingPolicy: (profile: any) => Boolean(profile.shippingPolicy),
-    hasPublishableWarrantyPolicy: (profile: any) => Boolean(profile.warrantyPolicy),
-  })
-);
+vi.mock('@/lib/storefront-trust/build-merchant-trust-profile', () => ({
+  buildMerchantTrustProfile: (...args: unknown[]) =>
+    mockBuildMerchantTrustProfile(...args),
+  hasPublishableReturnsPolicy: (profile: any) => Boolean(profile.returnPolicy),
+  hasPublishableShippingPolicy: (profile: any) =>
+    Boolean(profile.shippingPolicy),
+  hasPublishableWarrantyPolicy: (profile: any) =>
+    Boolean(profile.warrantyPolicy),
+}));
 
 describe('storefront sitemap root', () => {
   beforeEach(() => {
@@ -60,7 +62,11 @@ describe('storefront sitemap root', () => {
         storeUrl: 'https://ogabassey.com',
       });
       mockGetStaticSitemapEntries.mockReturnValue([
-        { url: 'https://ogabassey.com', changeFrequency: 'daily', priority: 1.0 },
+        {
+          url: 'https://ogabassey.com',
+          changeFrequency: 'daily',
+          priority: 1.0,
+        },
       ]);
       mockBuildMerchantTrustProfile.mockReturnValue({
         returnPolicy: { localRoute: '/returns' },
@@ -72,7 +78,11 @@ describe('storefront sitemap root', () => {
       const result = await sitemap({ id: Promise.resolve('static') });
 
       expect(result).toEqual([
-        { url: 'https://ogabassey.com', changeFrequency: 'daily', priority: 1.0 },
+        {
+          url: 'https://ogabassey.com',
+          changeFrequency: 'daily',
+          priority: 1.0,
+        },
         expect.objectContaining({
           url: 'https://ogabassey.com/returns',
           changeFrequency: 'monthly',
@@ -97,7 +107,11 @@ describe('storefront sitemap root', () => {
         storeUrl: 'https://ogabassey.com',
       });
       mockGetNamedSitemapEntries.mockResolvedValue([
-        { url: 'https://ogabassey.com/smartphones', changeFrequency: 'daily', priority: 0.7 },
+        {
+          url: 'https://ogabassey.com/smartphones',
+          changeFrequency: 'daily',
+          priority: 0.7,
+        },
       ]);
 
       const { default: sitemap } = await import('./sitemap');
@@ -108,7 +122,11 @@ describe('storefront sitemap root', () => {
         'products'
       );
       expect(productsResult).toEqual([
-        { url: 'https://ogabassey.com/smartphones', changeFrequency: 'daily', priority: 0.7 },
+        {
+          url: 'https://ogabassey.com/smartphones',
+          changeFrequency: 'daily',
+          priority: 0.7,
+        },
       ]);
     });
 
