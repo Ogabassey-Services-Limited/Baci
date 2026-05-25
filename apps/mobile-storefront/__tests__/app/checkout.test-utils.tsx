@@ -6,11 +6,48 @@ import { createCheckoutFetchMock } from './checkout.fetch.test-utils';
 
 const mockRouterBack = jest.fn();
 const mockRouterPush = jest.fn();
+export const mockRouterReplace = jest.fn();
 const mockUseColorScheme = jest.fn(() => 'light');
 export const mockAlert = jest.fn();
+export const mockCreateOrder = jest.fn();
+export const mockListSavingsGoals = jest.fn();
 export const mockTrackCheckoutStarted = jest.fn();
 export const mockTrackCheckoutStep = jest.fn();
 export const mockTrackError = jest.fn();
+
+type MockCheckoutCustomer = {
+  email: string;
+  first_name: string;
+  id: string;
+  last_name: string;
+  phone: string;
+};
+
+type MockCheckoutUser = {
+  id: string;
+};
+
+type MockAuthStatus = {
+  customer: MockCheckoutCustomer | null;
+  isAuthenticated: boolean;
+  isGuest: boolean;
+  isInitialized: boolean;
+  isLoading: boolean;
+  user: MockCheckoutUser | null;
+};
+
+const defaultMockAuthStatus: MockAuthStatus = {
+  customer: null,
+  isAuthenticated: false,
+  isGuest: true,
+  isInitialized: true,
+  isLoading: false,
+  user: null,
+};
+
+export const mockUseAuthStatus = jest.fn<MockAuthStatus, []>(
+  () => defaultMockAuthStatus
+);
 
 const mockCartState = {
   clearCart: jest.fn(),
@@ -29,15 +66,21 @@ const mockCartState = {
   ],
   subtotal: () => 470000,
 };
+const mockUseCartStore = Object.assign(
+  (selector: (state: typeof mockCartState) => unknown) =>
+    selector(mockCartState),
+  {
+    getState: () => mockCartState,
+    persist: {
+      getOptions: () => ({
+        name: 'cart-storage',
+        partialize: (state: unknown) => state,
+        version: 0,
+      }),
+    },
+  }
+);
 
-const mockUseAuthStatus = jest.fn(() => ({
-  customer: null,
-  isAuthenticated: false,
-  isGuest: true,
-  isInitialized: true,
-  isLoading: false,
-  user: null,
-}));
 let originalFetch: typeof global.fetch = global.fetch;
 
 jest.mock('expo-router', () => ({
@@ -47,6 +90,7 @@ jest.mock('expo-router', () => ({
   router: {
     back: (...args: unknown[]) => mockRouterBack(...args),
     push: (...args: unknown[]) => mockRouterPush(...args),
+    replace: (...args: unknown[]) => mockRouterReplace(...args),
   },
 }));
 
@@ -83,7 +127,9 @@ jest.mock('@/components/useColorScheme', () => ({
 jest.mock('react-native-safe-area-context', () => {
   const { View } = require('react-native');
   return {
-    SafeAreaView: ({ children }: { children: React.ReactNode }) => <View>{children}</View>,
+    SafeAreaView: ({ children }: { children: React.ReactNode }) => (
+      <View>{children}</View>
+    ),
     useSafeAreaInsets: () => ({ bottom: 0, left: 0, right: 0, top: 0 }),
   };
 });
@@ -95,8 +141,7 @@ jest.mock('@/hooks/use-auth-guard', () => ({
 jest.mock('@/stores/cart-store', () => ({
   formatPrice: (value: number) =>
     `₦${new Intl.NumberFormat('en-NG').format(value)}`,
-  useCartStore: (selector: (state: typeof mockCartState) => unknown) =>
-    selector(mockCartState),
+  useCartStore: mockUseCartStore,
 }));
 
 jest.mock('@/hooks/use-wallet', () => ({
@@ -134,7 +179,10 @@ jest.mock('@/lib/supabase', () => ({
       return {
         taxAmount,
         total:
-          params.subtotal + params.shippingFee + params.assuranceFee + taxAmount,
+          params.subtotal +
+          params.shippingFee +
+          params.assuranceFee +
+          taxAmount,
       };
     }
   ),
@@ -163,7 +211,8 @@ jest.mock('@/lib/supabase', () => ({
 }));
 
 jest.mock('@/services/analytics', () => ({
-  trackCheckoutStarted: (...args: unknown[]) => mockTrackCheckoutStarted(...args),
+  trackCheckoutStarted: (...args: unknown[]) =>
+    mockTrackCheckoutStarted(...args),
   trackCheckoutStep: (...args: unknown[]) => mockTrackCheckoutStep(...args),
   trackError: (...args: unknown[]) => mockTrackError(...args),
   trackOrderCompleted: jest.fn(),
@@ -173,16 +222,43 @@ jest.mock('@/services/orders', () => ({
   OrderError: class extends Error {
     code = 'TEST_ERROR';
   },
-  createOrder: jest.fn(),
+  createOrder: (...args: unknown[]) => mockCreateOrder(...args),
+}));
+
+jest.mock('@/lib/customer-savings', () => ({
+  listSavingsGoals: (...args: unknown[]) => mockListSavingsGoals(...args),
 }));
 
 jest.mock('@/services/push-notifications', () => ({
   scheduleLocalNotification: jest.fn(),
 }));
 
+const CheckoutScreen = require('@/app/checkout').default as React.ComponentType;
+
 export function setupCheckoutTest() {
   jest.clearAllMocks();
   jest.spyOn(Alert, 'alert').mockImplementation(mockAlert);
+  mockUseAuthStatus.mockReturnValue(defaultMockAuthStatus);
+  mockCreateOrder.mockResolvedValue({
+    amountDueToGateway: 1000,
+    order: {
+      id: 'order-1',
+      order_number: 'ORD-001',
+      payment_status: 'unpaid',
+      shipping_status: 'pending',
+      total: 470000,
+      tracking_token: null,
+    },
+    savings: null,
+    wallet: null,
+  });
+  mockListSavingsGoals.mockResolvedValue({
+    goals: [],
+    summary: {
+      activeGoalCount: 0,
+      savingsBalance: 0,
+    },
+  });
   originalFetch = global.fetch;
   global.fetch = createCheckoutFetchMock() as jest.Mock;
 }
@@ -193,6 +269,5 @@ export function teardownCheckoutTest() {
 }
 
 export function renderCheckoutScreen() {
-  const CheckoutScreen = require('@/app/checkout').default as React.ComponentType;
   return render(<CheckoutScreen />);
 }

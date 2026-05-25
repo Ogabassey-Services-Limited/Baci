@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 const APP_ROOT = path.resolve(__dirname, '../../app');
@@ -51,6 +51,8 @@ const EXPLICIT_STATIC_ROUTES = new Set([
   'profile/edit.tsx',
   'search.tsx',
   'utilities/history.tsx',
+  'wallet/manage-cards.tsx',
+  'wallet/savings/start.tsx',
 ]);
 
 // Decreasing baseline: every route listed here currently does not render
@@ -198,11 +200,15 @@ describe('app route shell safety', () => {
 
     const staleExemptions = [...SHELL_EXEMPT_ROUTES]
       .filter((routePath) => routePathSet.has(routePath))
-      .filter((routePath) =>
-        routeModulesByPath
-          .get(routePath)!
-          .every(routeUsesStorefrontScreenShell)
-      );
+      .filter((routePath) => {
+        const routeModules = routeModulesByPath.get(routePath);
+        if (!routeModules) {
+          throw new Error(
+            `Route module index missing entry for shell exemption: ${routePath}`
+          );
+        }
+        return routeModules.every(routeUsesStorefrontScreenShell);
+      });
 
     const orphanedExemptions = [...SHELL_EXEMPT_ROUTES].filter(
       (routePath) => !routePathSet.has(routePath)
@@ -220,7 +226,9 @@ describe('app route shell safety', () => {
           ...(unexpectedRoutesWithoutShell.length > 0
             ? [
                 'Routes missing StorefrontScreenShell that are not in the exemption baseline:',
-                ...unexpectedRoutesWithoutShell.map((routePath) => `- ${routePath}`),
+                ...unexpectedRoutesWithoutShell.map(
+                  (routePath) => `- ${routePath}`
+                ),
                 '',
                 'Either migrate the route to StorefrontScreenShell, or add a justified temporary exemption.',
                 '',

@@ -14,6 +14,10 @@ import {
 } from '@/lib/agentic/paystack-dva-webhook';
 import { upsertPaystackAuthorization } from '@/lib/customer-saved-payment-methods';
 import {
+  createVerifiedPaystackWebhookSignature,
+  handlePaystackSavingsWebhookTransaction,
+} from '@/lib/customer-savings-paystack-webhook';
+import {
   creditWalletTopUp,
   WALLET_TOP_UP_TRANSACTION_TYPE,
 } from '@/lib/customer-wallet-top-up';
@@ -32,6 +36,7 @@ import {
   type StepExecutor,
 } from '@/lib/payments/apply-paid-order-side-effects';
 import { confirmPaystackDvaByOrderAccount } from '@/lib/payments/confirm-paystack-dva-by-order-account';
+import { confirmPaystackWalletDvaTopUp } from '@/lib/payments/confirm-paystack-wallet-dva-top-up';
 import { extractVerifiedGatewayFeeNgn } from '@/lib/payments/verified-gateway-fee';
 import {
   calculatePlatformFee,
@@ -541,6 +546,26 @@ export async function POST(request: NextRequest) {
         if (orderAccountResult.kind === 'match') {
           resolvedAgenticTransaction =
             orderAccountResult.transaction as AgenticPaystackDvaTransaction;
+        }
+      }
+
+      if (!resolvedAgenticTransaction) {
+        const walletDvaTopUp = await confirmPaystackWalletDvaTopUp({
+          supabase,
+          accountNumber: receiverAccountNumber,
+          gatewayReference: reference,
+          verifiedAmount,
+          paystackResponse: gatewayResponse,
+        });
+
+        if (walletDvaTopUp.kind === 'review') {
+          return NextResponse.json(walletDvaTopUp.body, {
+            status: walletDvaTopUp.status,
+          });
+        }
+
+        if (walletDvaTopUp.kind === 'match') {
+          resolvedAgenticTransaction = walletDvaTopUp.transaction;
         }
       }
     }
@@ -1153,6 +1178,27 @@ export async function POST(request: NextRequest) {
         return walletTopUpResponse;
       }
 
+      if (gateway === 'paystack') {
+        const savingsResponse = await handlePaystackSavingsWebhookTransaction({
+          gatewayResponse,
+          paystackSignature:
+            createVerifiedPaystackWebhookSignature(isValidSignature),
+          reference,
+          supabase,
+          transaction: {
+            amount: transaction.amount,
+            id: transaction.id,
+            merchant_id: transaction.merchant_id,
+            metadata,
+          },
+        });
+        if (savingsResponse) {
+          return NextResponse.json(savingsResponse.body, {
+            status: savingsResponse.status,
+          });
+        }
+      }
+
       if (
         metadata?.transaction_type === 'vtu_purchase' &&
         typeof metadata.vtu_transaction_id === 'string'
@@ -1202,6 +1248,27 @@ export async function POST(request: NextRequest) {
 
     if (walletTopUpResponse) {
       return walletTopUpResponse;
+    }
+
+    if (gateway === 'paystack') {
+      const savingsResponse = await handlePaystackSavingsWebhookTransaction({
+        gatewayResponse,
+        paystackSignature:
+          createVerifiedPaystackWebhookSignature(isValidSignature),
+        reference,
+        supabase,
+        transaction: {
+          amount: transaction.amount,
+          id: transaction.id,
+          merchant_id: transaction.merchant_id,
+          metadata,
+        },
+      });
+      if (savingsResponse) {
+        return NextResponse.json(savingsResponse.body, {
+          status: savingsResponse.status,
+        });
+      }
     }
 
     if (

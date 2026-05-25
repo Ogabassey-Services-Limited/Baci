@@ -1,0 +1,248 @@
+import { z } from 'zod';
+import { REDEEMABLE_SAVINGS_STATUSES } from '@/lib/checkout-savings';
+import { supabase } from '@/lib/supabase';
+import { CustomerRowSchema, TransactionRowSchema } from '@/lib/validation';
+import { trackEvent } from '@/services/analytics';
+import type { Transaction, WalletQueryData } from './wallet-query';
+
+const WalletFundingAccountSchema = z.object({
+  account_name: z.string().min(1),
+  account_number: z.string().regex(/^\d{10,20}$/),
+  bank_name: z.string().min(1),
+  provider: z.literal('paystack'),
+});
+
+const WalletTransactionDataSchema = TransactionRowSchema.omit({
+  amount: true,
+  id: true,
+}).extend({
+  amount: z.union([z.number(), z.string()]),
+  id: z.string(),
+});
+
+function coerceDatabaseNumber(value: unknown): number | null {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null;
+  }
+
+  if (typeof value === 'string') {
+    const trimmedValue = value.trim();
+    if (!trimmedValue) {
+      return null;
+    }
+
+    const numericValue = Number(trimmedValue);
+    return Number.isFinite(numericValue) ? numericValue : null;
+  }
+
+  return null;
+}
+
+function normalizeWalletTransaction(row: unknown): Transaction | null {
+  const validation = WalletTransactionDataSchema.safeParse(row);
+  if (!validation.success) {
+    return null;
+  }
+
+  const amount = coerceDatabaseNumber(validation.data.amount);
+  if (amount === null) {
+    return null;
+  }
+
+  return {
+    ...validation.data,
+    amount,
+    description: validation.data.description ?? '',
+  };
+}
+
+function getEmptyWalletData(loyaltyPoints: unknown = 0): WalletQueryData {
+  const safeLoyaltyPoints = coerceDatabaseNumber(loyaltyPoints) ?? 0;
+  return {
+    wallet: {
+      balance: 0,
+      earnings_balance: 0,
+      funding_account: null,
+      loyalty_points: safeLoyaltyPoints,
+      requires_funding_account_consent: true,
+      savings_balance: 0,
+      total_balance: 0,
+    },
+    transactions: [],
+  };
+}
+
+export async function fetchWalletData(
+  customerId: string | null,
+  merchantId: string,
+  userId: string | null
+): Promise<WalletQueryData> {
+  if (!customerId && !userId) {
+    return getEmptyWalletData();
+  }
+
+  let customerQuery = supabase
+    .from('customers')
+    .select('id, loyalty_points')
+    .eq('merchant_id', merchantId);
+
+  if (customerId) {
+    customerQuery = customerQuery.eq('id', customerId);
+  } else if (userId) {
+    customerQuery = customerQuery.eq('user_id', userId);
+  }
+
+  const customerResult = await customerQuery.limit(2);
+
+  if (customerResult.error) {
+    throw customerResult.error;
+  }
+
+  const customerRows = Array.isArray(customerResult.data)
+    ? customerResult.data
+    : [];
+
+  if (customerRows.length === 0) {
+    return getEmptyWalletData();
+  }
+
+  if (customerRows.length > 1) {
+    console.warn('Expected one customer wallet owner, received multiple rows', {
+      customerId,
+      merchantId,
+      userId,
+    });
+    trackEvent('multiple_customer_wallet_owner', {
+      customerId,
+      merchantId,
+      numberOfRows: customerRows.length,
+      severity: 'data_integrity',
+      userId,
+    });
+    return getEmptyWalletData();
+  }
+
+  const customerRow = customerRows[0];
+  const resolvedCustomerId =
+    customerId ?? (typeof customerRow.id === 'string' ? customerRow.id : '');
+
+  if (!resolvedCustomerId) {
+    const customerValidation = CustomerRowSchema.pick({
+      loyalty_points: true,
+    }).safeParse(customerRow);
+    const safeLoyaltyPoints =
+      customerValidation.success &&
+      customerValidation.data.loyalty_points != null
+        ? (coerceDatabaseNumber(customerValidation.data.loyalty_points) ?? 0)
+        : (coerceDatabaseNumber(customerRow.loyalty_points) ?? 0);
+
+    return {
+      wallet: {
+        balance: 0,
+        earnings_balance: 0,
+        funding_account: null,
+        loyalty_points: safeLoyaltyPoints,
+        requires_funding_account_consent: true,
+        savings_balance: 0,
+        total_balance: 0,
+      },
+      transactions: [],
+    };
+  }
+
+  const walletResult = await supabase
+    .from('customer_wallets')
+    .select('id, available_balance')
+    .eq('merchant_id', merchantId)
+    .eq('customer_id', resolvedCustomerId)
+    .maybeSingle();
+
+  if (walletResult.error) {
+    throw walletResult.error;
+  }
+
+  const [fundingAccountResult, savingsGoalsResult] = await Promise.all([
+    supabase
+      .from('customer_wallet_payment_accounts')
+      .select('account_name, account_number, bank_name, provider')
+      .eq('merchant_id', merchantId)
+      .eq('customer_id', resolvedCustomerId)
+      .eq('provider', 'paystack')
+      .eq('status', 'active')
+      .maybeSingle(),
+    supabase
+      .from('customer_savings_goals')
+      .select('current_amount')
+      .eq('merchant_id', merchantId)
+      .eq('customer_id', resolvedCustomerId)
+      .in('status', [...REDEEMABLE_SAVINGS_STATUSES]),
+  ]);
+
+  if (fundingAccountResult.error) {
+    throw fundingAccountResult.error;
+  }
+  if (savingsGoalsResult.error) {
+    throw savingsGoalsResult.error;
+  }
+
+  const safeSavingsBalance = (savingsGoalsResult.data ?? []).reduce(
+    (total, row) => total + (coerceDatabaseNumber(row.current_amount) ?? 0),
+    0
+  );
+
+  const fundingAccountValidation =
+    WalletFundingAccountSchema.nullable().safeParse(fundingAccountResult.data);
+  const fundingAccountData = fundingAccountValidation.success
+    ? fundingAccountValidation.data
+    : null;
+
+  let transactionRows: Transaction[] = [];
+  if (walletResult.data?.id) {
+    const txResult = await supabase
+      .from('customer_wallet_transactions')
+      .select('id, type, amount, description, created_at')
+      .eq('wallet_id', walletResult.data.id)
+      .eq('merchant_id', merchantId)
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    if (txResult.error) {
+      throw txResult.error;
+    }
+
+    if (txResult.data) {
+      transactionRows = txResult.data.reduce<Transaction[]>((rows, row) => {
+        const transaction = normalizeWalletTransaction(row);
+        if (transaction) {
+          rows.push(transaction);
+        }
+        return rows;
+      }, []);
+    }
+  }
+
+  const customerValidation = CustomerRowSchema.pick({
+    loyalty_points: true,
+  }).safeParse(customerRow);
+
+  const safeBalance =
+    coerceDatabaseNumber(walletResult.data?.available_balance) ?? 0;
+
+  const safeLoyaltyPoints =
+    customerValidation.success && customerValidation.data.loyalty_points != null
+      ? (coerceDatabaseNumber(customerValidation.data.loyalty_points) ?? 0)
+      : (coerceDatabaseNumber(customerRow.loyalty_points) ?? 0);
+
+  return {
+    wallet: {
+      balance: safeBalance,
+      earnings_balance: safeBalance,
+      funding_account: fundingAccountData,
+      loyalty_points: safeLoyaltyPoints,
+      requires_funding_account_consent: fundingAccountData === null,
+      savings_balance: safeSavingsBalance,
+      total_balance: safeBalance + safeSavingsBalance,
+    },
+    transactions: transactionRows,
+  };
+}

@@ -41,6 +41,9 @@ const API_URL = resolveApiBaseUrl(
 const MERCHANT_ID =
   Constants.expoConfig?.extra?.merchantId ||
   '6b5cb8a4-5575-456c-b936-8cdfae30db74';
+// Mobile savings credit is expressed in naira; backend order validation still
+// recomputes the allowed redemption amount against the selected savings goal.
+const MAX_SAVINGS_CREDIT_AMOUNT = 10_000_000;
 
 // Order item schema for validation
 const OrderItemSchema = z.object({
@@ -99,6 +102,13 @@ const CreateOrderRequestSchema = z.object({
   // wallet_amount: undefined }` is dropped, not forwarded.
   use_wallet_credit: z.boolean().optional(),
   wallet_amount: z.number().nonnegative().optional(),
+  use_savings_credit: z.boolean().optional(),
+  savings_goal_id: z.string().trim().uuid().optional(),
+  savings_amount: z
+    .number()
+    .positive()
+    .max(MAX_SAVINGS_CREDIT_AMOUNT, 'Savings amount exceeds maximum')
+    .optional(),
 });
 
 // Order response schema
@@ -119,6 +129,14 @@ const OrderResponseSchema = z.object({
       transactionId: z.string().nullable(),
     })
     .nullable(),
+  savings: z
+    .object({
+      amountUsed: z.number(),
+      goalId: z.string(),
+      redemptionId: z.string().nullable(),
+    })
+    .nullable()
+    .optional(),
   amountDueToGateway: z.number(),
 });
 
@@ -203,9 +221,9 @@ export async function createOrder(
   // 4. Prepare order payload matching web API expectations
   const orderPayload = {
     merchant_id: MERCHANT_ID,
-    customer_email: request.customer_email,
-    customer_name: request.customer_name,
-    customer_phone: request.customer_phone,
+    customer_email: validatedRequest.customer_email,
+    customer_name: validatedRequest.customer_name,
+    customer_phone: validatedRequest.customer_phone,
     items: validatedRequest.items.map((item) => ({
       id: item.id,
       condition: item.condition,
@@ -222,23 +240,25 @@ export async function createOrder(
       voucher_award_id: item.voucher_award_id,
       voucher_token: item.voucher_token,
     })),
-    subtotal: request.subtotal,
-    shipping_fee: request.shipping_fee,
-    tax_amount: request.tax_amount ?? 0,
-    discount_amount: request.discount_amount ?? 0,
-    payment_method: request.payment_method,
-    selected_quote_id: request.selected_quote_id ?? null,
-    shipping_provider: request.shipping_provider ?? null,
+    subtotal: validatedRequest.subtotal,
+    shipping_fee: validatedRequest.shipping_fee,
+    tax_amount: validatedRequest.tax_amount ?? 0,
+    discount_amount: validatedRequest.discount_amount ?? 0,
+    payment_method: validatedRequest.payment_method,
+    selected_quote_id: validatedRequest.selected_quote_id ?? null,
+    shipping_provider: validatedRequest.shipping_provider ?? null,
     payment_status:
-      request.payment_method === 'pay_on_delivery' ? 'pending' : 'unpaid',
+      validatedRequest.payment_method === 'pay_on_delivery'
+        ? 'pending'
+        : 'unpaid',
     shipping_status: 'pending',
     shipping_address: {
-      firstName: request.shipping_address.firstName,
-      lastName: request.shipping_address.lastName,
-      address: request.shipping_address.address,
-      city: request.shipping_address.city,
-      state: request.shipping_address.state,
-      notes: request.shipping_address.notes || '',
+      firstName: validatedRequest.shipping_address.firstName,
+      lastName: validatedRequest.shipping_address.lastName,
+      address: validatedRequest.shipping_address.address,
+      city: validatedRequest.shipping_address.city,
+      state: validatedRequest.shipping_address.state,
+      notes: validatedRequest.shipping_address.notes || '',
     },
     source: 'mobile_app',
     // Include user_id if authenticated for customer profile linking
@@ -248,11 +268,21 @@ export async function createOrder(
     // `{ use_wallet_credit: true, wallet_amount: undefined }` (or 0 /
     // negative) gets dropped here so the server never sees a partial
     // wallet intent.
-    ...(request.use_wallet_credit === true &&
-      typeof request.wallet_amount === 'number' &&
-      request.wallet_amount > 0 && {
-        use_wallet_credit: request.use_wallet_credit,
-        wallet_amount: request.wallet_amount,
+    ...(validatedRequest.use_wallet_credit === true &&
+      typeof validatedRequest.wallet_amount === 'number' &&
+      validatedRequest.wallet_amount > 0 && {
+        use_wallet_credit: validatedRequest.use_wallet_credit,
+        wallet_amount: validatedRequest.wallet_amount,
+      }),
+    // Savings credit follows the same fully formed intent rule: explicit opt-in,
+    // a concrete savings goal, and a positive amount must travel together.
+    ...(validatedRequest.use_savings_credit === true &&
+      typeof validatedRequest.savings_goal_id === 'string' &&
+      typeof validatedRequest.savings_amount === 'number' &&
+      validatedRequest.savings_amount > 0 && {
+        savings_amount: validatedRequest.savings_amount,
+        savings_goal_id: validatedRequest.savings_goal_id,
+        use_savings_credit: validatedRequest.use_savings_credit,
       }),
   };
 

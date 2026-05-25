@@ -19,22 +19,37 @@ type MockStorefrontScreenShellProps = {
 
 type MockWalletContentProps = {
   contentContainerStyle?: unknown;
+  earningsBalance?: number;
   fundAmount: string;
+  fundingAccount?: {
+    accountName: string;
+    accountNumber: string;
+    bankName: string;
+    provider: 'paystack';
+  } | null;
+  isCreatingFundingAccount?: boolean;
   isFundPending: boolean;
   isRefetching?: boolean;
   loyaltyPoints?: number;
   onChangeFundAmount: (value: string) => void;
+  onCreateFundingAccount?: () => void;
   onChangeRedeemPoints: (value: string) => void;
   onConfirmFund: () => void;
   onConfirmRedeem: () => void;
+  onManageCards?: () => void;
   onOpenFundPanel: () => void;
   onOpenRedeemPanel: () => void;
+  onQuickSave?: () => void;
   onRefresh: () => void;
   onResetFund: () => void;
   onResetRedeem: () => void;
+  onStartSavings?: () => void;
   redeemPoints: string;
+  savingsBalance?: number;
+  showQuickSave?: boolean;
   showFundPanel: boolean;
   showRedeemPanel: boolean;
+  totalBalance?: number;
   transactions?: unknown[];
   walletBalance?: number;
 };
@@ -62,10 +77,12 @@ const mockMutateAsync =
   >();
 const mockTrackError = jest.fn();
 const mockTrackEvent = jest.fn();
+const mockLogWarn = jest.fn();
 const mockScheduleLocalNotification = jest.fn();
 const mockUseRequireAuth = jest.fn();
 const mockUseWallet = jest.fn();
 const mockUseRedeemPoints = jest.fn();
+const mockUseCreateWalletFundingAccount = jest.fn();
 const mockUseStorefrontInsets = jest.fn();
 let mockMerchantId = 'configured-merchant';
 let mockMerchantSlug = 'ogabassey';
@@ -78,6 +95,7 @@ const mockInitializeWalletTopUp =
       success: true;
     }>
   >();
+const mockCreateFundingAccountMutateAsync = jest.fn();
 type MockAuthState = {
   customer: {
     email?: string;
@@ -127,6 +145,7 @@ jest.mock('@/hooks/use-storefront-insets', () => ({
 }));
 
 jest.mock('@/hooks/use-wallet', () => ({
+  useCreateWalletFundingAccount: () => mockUseCreateWalletFundingAccount(),
   useRedeemPoints: () => mockUseRedeemPoints(),
   useWallet: () => mockUseWallet(),
 }));
@@ -169,6 +188,7 @@ jest.mock('@/stores/auth-store', () => ({
 jest.mock('@/lib/logger', () => ({
   createLogger: () => ({
     error: jest.fn(),
+    warn: (...args: unknown[]) => mockLogWarn(...args),
   }),
 }));
 
@@ -187,7 +207,9 @@ describe('WalletScreen', () => {
     ));
     mockWalletContent.mockImplementation((props) => (
       <View testID="wallet-content">
-        <Text>{`wallet-balance:${props.walletBalance ?? 0}`}</Text>
+        <Text>{`earnings-balance:${props.earningsBalance ?? 0}`}</Text>
+        <Text>{`savings-balance:${props.savingsBalance ?? 0}`}</Text>
+        <Text>{`total-balance:${props.totalBalance ?? 0}`}</Text>
         <Text>{`show-fund-panel:${String(props.showFundPanel)}`}</Text>
         <Text>{`fund-amount:${props.fundAmount}`}</Text>
         <Text>{`fund-pending:${String(props.isFundPending)}`}</Text>
@@ -196,9 +218,16 @@ describe('WalletScreen', () => {
         <Text>{`redeem-points:${props.redeemPoints}`}</Text>
         <Text>{`transactions:${props.transactions?.length ?? 0}`}</Text>
         <Text>{`refreshing:${String(props.isRefetching)}`}</Text>
+        <Text>{`show-quick-save:${String(props.showQuickSave ?? false)}`}</Text>
         <Text>{`content-style:${JSON.stringify(props.contentContainerStyle)}`}</Text>
         <Text accessibilityRole="button" onPress={props.onOpenFundPanel}>
           Open Fund Panel
+        </Text>
+        <Text accessibilityRole="button" onPress={props.onStartSavings}>
+          Open Start Savings
+        </Text>
+        <Text accessibilityRole="button" onPress={props.onManageCards}>
+          Open Manage Cards
         </Text>
         <Text
           accessibilityRole="button"
@@ -271,7 +300,12 @@ describe('WalletScreen', () => {
       data: {
         wallet: {
           balance: 125000,
+          earnings_balance: 125000,
+          funding_account: null,
           loyalty_points: 2000,
+          requires_funding_account_consent: true,
+          savings_balance: 0,
+          total_balance: 125000,
         },
         transactions: [
           {
@@ -291,6 +325,10 @@ describe('WalletScreen', () => {
     mockUseRedeemPoints.mockReturnValue({
       isPending: false,
       mutateAsync: mockMutateAsync,
+    });
+    mockUseCreateWalletFundingAccount.mockReturnValue({
+      isPending: false,
+      mutateAsync: mockCreateFundingAccountMutateAsync,
     });
     mockUseAuthStore.mockReturnValue({
       customer: {
@@ -322,9 +360,126 @@ describe('WalletScreen', () => {
       includeBottomInset: false,
       paddingBottom: SPACING.xl,
     });
-    expect(walletContentProps?.walletBalance).toBe(125000);
+    expect(walletContentProps?.earningsBalance).toBe(125000);
+    expect(walletContentProps?.totalBalance).toBe(125000);
     expect(walletContentProps?.loyaltyPoints).toBe(2000);
     expect(walletContentProps?.transactions).toHaveLength(1);
+  });
+
+  it('logs when wallet balance API fields fall back locally', () => {
+    mockUseWallet.mockReturnValue({
+      data: {
+        wallet: {
+          balance: 125000,
+          funding_account: null,
+          loyalty_points: 2000,
+          requires_funding_account_consent: true,
+        },
+        transactions: [],
+      },
+      isError: false,
+      isLoading: false,
+      isRefetching: false,
+      refetch: mockRefetch,
+    });
+
+    render(<WalletScreen />);
+
+    expect(screen.getByText('earnings-balance:125000')).toBeOnTheScreen();
+    expect(screen.getByText('savings-balance:0')).toBeOnTheScreen();
+    expect(screen.getByText('total-balance:125000')).toBeOnTheScreen();
+    expect(mockLogWarn).toHaveBeenCalledWith(
+      expect.stringContaining('Wallet API balance contract warning'),
+      expect.objectContaining({
+        computedTotalBalance: 125000,
+        missingFields: ['earnings_balance', 'savings_balance', 'total_balance'],
+      })
+    );
+  });
+
+  it('scopes wallet balance warning dedupe by customer context', () => {
+    mockUseWallet.mockReturnValue({
+      data: {
+        wallet: {
+          balance: 125000,
+          funding_account: null,
+          loyalty_points: 2000,
+          requires_funding_account_consent: true,
+        },
+        transactions: [],
+      },
+      isError: false,
+      isLoading: false,
+      isRefetching: false,
+      refetch: mockRefetch,
+    });
+    mockUseAuthStore.mockReturnValue({
+      customer: {
+        email: 'first@example.com',
+        id: 'customer-warning-1',
+      },
+      merchantId: 'merchant-1',
+      user: { email: 'first@example.com', id: 'user-warning-1' },
+    });
+
+    const first = render(<WalletScreen />);
+
+    expect(mockLogWarn).toHaveBeenCalledTimes(1);
+    mockLogWarn.mockClear();
+    first.unmount();
+
+    mockUseAuthStore.mockReturnValue({
+      customer: {
+        email: 'second@example.com',
+        id: 'customer-warning-2',
+      },
+      merchantId: 'merchant-1',
+      user: { email: 'second@example.com', id: 'user-warning-2' },
+    });
+
+    render(<WalletScreen />);
+
+    expect(mockLogWarn).toHaveBeenCalledWith(
+      expect.stringContaining('Wallet API balance contract warning'),
+      expect.objectContaining({
+        ownerId: 'customer-warning-2',
+      })
+    );
+  });
+
+  it('logs when wallet total balance disagrees with computed balances', () => {
+    mockUseWallet.mockReturnValue({
+      data: {
+        wallet: {
+          balance: 125000,
+          earnings_balance: 125000,
+          funding_account: null,
+          loyalty_points: 2000,
+          requires_funding_account_consent: true,
+          savings_balance: 50000,
+          total_balance: 999999,
+        },
+        transactions: [],
+      },
+      isError: false,
+      isLoading: false,
+      isRefetching: false,
+      refetch: mockRefetch,
+    });
+
+    render(<WalletScreen />);
+
+    expect(screen.getByText('earnings-balance:125000')).toBeOnTheScreen();
+    expect(screen.getByText('savings-balance:50000')).toBeOnTheScreen();
+    expect(screen.getByText('total-balance:999999')).toBeOnTheScreen();
+    expect(mockLogWarn).toHaveBeenCalledWith(
+      expect.stringContaining('Wallet API balance contract warning'),
+      expect.objectContaining({
+        computedTotalBalance: 175000,
+        mismatchedFields: ['total_balance'],
+        serverTotalBalance: 999999,
+      })
+    );
   });
 
   it('renders as the wallet tab core screen without the pushed stack header', () => {
@@ -383,7 +538,8 @@ describe('WalletScreen', () => {
 
     render(<WalletScreen />);
 
-    expect(screen.getByText('wallet-balance:125000')).toBeOnTheScreen();
+    expect(screen.getByText('earnings-balance:125000')).toBeOnTheScreen();
+    expect(screen.getByText('total-balance:125000')).toBeOnTheScreen();
     expect(screen.queryByText('Preparing your wallet...')).toBeNull();
   });
 
@@ -396,7 +552,8 @@ describe('WalletScreen', () => {
 
     render(<WalletScreen />);
 
-    expect(screen.getByText('wallet-balance:125000')).toBeOnTheScreen();
+    expect(screen.getByText('earnings-balance:125000')).toBeOnTheScreen();
+    expect(screen.getByText('total-balance:125000')).toBeOnTheScreen();
     expect(screen.queryByText('Preparing your wallet...')).toBeNull();
   });
 
@@ -436,6 +593,16 @@ describe('WalletScreen', () => {
         gateway: 'paystack',
       })
     );
+  });
+
+  it('routes to start savings and manage cards screens', () => {
+    render(<WalletScreen />);
+
+    fireEvent.press(screen.getByRole('button', { name: 'Open Start Savings' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Open Manage Cards' }));
+
+    expect(mockRouterPush).toHaveBeenNthCalledWith(1, '/wallet/savings/start');
+    expect(mockRouterPush).toHaveBeenNthCalledWith(2, '/wallet/manage-cards');
   });
 
   it('routes wallet top-ups with slug fallback when merchant id is blank', async () => {
@@ -684,7 +851,9 @@ describe('WalletScreen', () => {
     const alertSpy = jest
       .spyOn(Alert, 'alert')
       .mockImplementation(() => undefined);
-    mockMutateAsync.mockRejectedValueOnce(new Error('Insufficient loyalty points'));
+    mockMutateAsync.mockRejectedValueOnce(
+      new Error('Insufficient loyalty points')
+    );
 
     render(<WalletScreen />);
 
@@ -695,7 +864,10 @@ describe('WalletScreen', () => {
     await waitFor(() => {
       expect(mockMutateAsync).toHaveBeenCalledWith(2100);
     });
-    expect(alertSpy).toHaveBeenCalledWith('Error', 'Insufficient loyalty points');
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Error',
+      'Insufficient loyalty points'
+    );
   });
 
   it('tracks and announces successful point redemptions', async () => {

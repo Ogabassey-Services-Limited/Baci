@@ -12,6 +12,122 @@ import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
+interface CustomerWalletOwner {
+  id: string;
+  loyalty_points: number | string | null;
+}
+
+interface WalletFundingAccountRow {
+  account_name: string;
+  account_number: string;
+  bank_name: string;
+  provider: string;
+}
+
+function toNumber(value: unknown) {
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) ? numberValue : 0;
+}
+
+function formatFundingAccount(row: WalletFundingAccountRow | null) {
+  if (!row || row.provider !== 'paystack') {
+    return null;
+  }
+
+  return {
+    accountName: row.account_name,
+    accountNumber: row.account_number,
+    bankName: row.bank_name,
+    provider: 'paystack',
+  };
+}
+
+function emptyWalletResponse({
+  fundingAccount = null,
+  loyaltyPoints = 0,
+  savingsBalance = 0,
+}: {
+  fundingAccount?: ReturnType<typeof formatFundingAccount>;
+  loyaltyPoints?: number;
+  savingsBalance?: number;
+} = {}) {
+  return {
+    balance: 0,
+    earningsBalance: 0,
+    fundingAccount,
+    hasWallet: false,
+    loyaltyPoints,
+    requiresFundingAccountConsent: !fundingAccount,
+    savingsBalance,
+    totalEarned: 0,
+    totalRedeemed: 0,
+    transactions: [],
+  };
+}
+
+function logOptionalWalletHelperFailure(
+  label: string,
+  result: PromiseSettledResult<unknown>
+) {
+  if (result.status === 'rejected') {
+    console.error(
+      `Customer wallet optional ${label} fetch failed:`,
+      result.reason
+    );
+  }
+}
+
+async function getSavingsBalance({
+  customerId,
+  merchantId,
+  supabase,
+}: {
+  customerId: string;
+  merchantId: string;
+  supabase: ReturnType<typeof createClient>;
+}) {
+  const { data, error } = await supabase
+    .from('customer_savings_goals')
+    .select('current_amount')
+    .eq('customer_id', customerId)
+    .eq('merchant_id', merchantId)
+    .in('status', ['active', 'paused', 'completed']);
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []).reduce(
+    (total, row) => total + toNumber(row.current_amount),
+    0
+  );
+}
+
+async function getFundingAccount({
+  customerId,
+  merchantId,
+  supabase,
+}: {
+  customerId: string;
+  merchantId: string;
+  supabase: ReturnType<typeof createClient>;
+}) {
+  const { data, error } = await supabase
+    .from('customer_wallet_payment_accounts')
+    .select('account_name, account_number, bank_name, provider')
+    .eq('customer_id', customerId)
+    .eq('merchant_id', merchantId)
+    .eq('provider', 'paystack')
+    .eq('status', 'active')
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return formatFundingAccount(data as WalletFundingAccountRow | null);
+}
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -56,12 +172,12 @@ export async function GET(request: Request) {
 
     // Get customer record for this user + merchant
     // Try by user_id first, then fallback to email (guest customers may not have user_id linked)
-    let customer = null;
+    let customer: CustomerWalletOwner | null = null;
 
     // First try by user_id (for customers who registered/logged in)
     const { data: customerByUserId } = await supabase
       .from('customers')
-      .select('id')
+      .select('id, loyalty_points')
       .eq('merchant_id', merchant.id)
       .eq('user_id', user.id)
       .single();
@@ -72,7 +188,7 @@ export async function GET(request: Request) {
       // Fallback: try by email (for customers created as guests who later logged in)
       const { data: customerByEmail } = await supabase
         .from('customers')
-        .select('id')
+        .select('id, loyalty_points')
         .eq('merchant_id', merchant.id)
         .eq('email', user.email)
         .single();
@@ -90,14 +206,33 @@ export async function GET(request: Request) {
 
     if (!customer) {
       // Customer doesn't exist yet - return zero balance
-      return NextResponse.json({
-        balance: 0,
-        totalEarned: 0,
-        totalRedeemed: 0,
-        transactions: [],
-        hasWallet: false,
-      });
+      return NextResponse.json(emptyWalletResponse());
     }
+
+    const loyaltyPoints = toNumber(customer.loyalty_points);
+    const [savingsBalanceResult, fundingAccountResult] =
+      await Promise.allSettled([
+        getSavingsBalance({
+          customerId: customer.id,
+          merchantId: merchant.id,
+          supabase,
+        }),
+        getFundingAccount({
+          customerId: customer.id,
+          merchantId: merchant.id,
+          supabase,
+        }),
+      ]);
+    const savingsBalance =
+      savingsBalanceResult.status === 'fulfilled'
+        ? savingsBalanceResult.value
+        : 0;
+    const fundingAccount =
+      fundingAccountResult.status === 'fulfilled'
+        ? fundingAccountResult.value
+        : null;
+    logOptionalWalletHelperFailure('savings balance', savingsBalanceResult);
+    logOptionalWalletHelperFailure('funding account', fundingAccountResult);
 
     // Get customer wallet
     const { data: wallet, error: walletError } = await supabase
@@ -109,13 +244,13 @@ export async function GET(request: Request) {
 
     if (walletError || !wallet) {
       // No wallet yet - return zero balance
-      return NextResponse.json({
-        balance: 0,
-        totalEarned: 0,
-        totalRedeemed: 0,
-        transactions: [],
-        hasWallet: false,
-      });
+      return NextResponse.json(
+        emptyWalletResponse({
+          fundingAccount,
+          loyaltyPoints,
+          savingsBalance,
+        })
+      );
     }
 
     // Get recent transactions (last 10)
@@ -127,9 +262,14 @@ export async function GET(request: Request) {
       .limit(10);
 
     return NextResponse.json({
-      balance: Number(wallet.available_balance) || 0,
-      totalEarned: Number(wallet.total_earned) || 0,
-      totalRedeemed: Number(wallet.total_redeemed) || 0,
+      balance: toNumber(wallet.available_balance),
+      earningsBalance: toNumber(wallet.available_balance),
+      fundingAccount,
+      loyaltyPoints,
+      requiresFundingAccountConsent: !fundingAccount,
+      savingsBalance,
+      totalEarned: toNumber(wallet.total_earned),
+      totalRedeemed: toNumber(wallet.total_redeemed),
       transactions: transactions || [],
       hasWallet: true,
     });

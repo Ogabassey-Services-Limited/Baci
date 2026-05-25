@@ -20,17 +20,24 @@ export interface WalletSelection {
   amount: number;
 }
 
+export interface SavingsSelection {
+  use: boolean;
+  goalId: string | null;
+  amount: number;
+}
+
+export type StoreCreditPaymentMethod = 'wallet' | 'savings' | 'store_credit';
+
 // Accepts the full /api/orders response or any superset of it. The check
 // only depends on `order.payment_status`, `amountDueToGateway` and
-// `wallet.amountUsed`; any extra fields are ignored. The wallet and
+// store-credit usage fields; any extra fields are ignored. The wallet and
 // order fields are permissive at the type level (null | undefined |
 // object) because we cannot trust the server to always include them —
 // older responses or partial payloads must not crash the client.
 interface MinimalOrderResponseShape {
   amountDueToGateway: number;
-  wallet?:
-    | { amountUsed: number; [extra: string]: unknown }
-    | null;
+  savings?: { amountUsed: number; [extra: string]: unknown } | null;
+  wallet?: { amountUsed: number; [extra: string]: unknown } | null;
   order?: { payment_status?: string; [extra: string]: unknown } | null;
 }
 
@@ -53,6 +60,32 @@ export function isWalletFullyPaidOrder(
   );
 }
 
+export function getFullyPaidStoreCreditPaymentMethod(
+  orderResponse: MinimalOrderResponseShape
+): StoreCreditPaymentMethod | undefined {
+  if (
+    orderResponse.order?.payment_status !== 'paid' ||
+    orderResponse.amountDueToGateway !== 0
+  ) {
+    return undefined;
+  }
+
+  const walletAmountUsed = orderResponse.wallet?.amountUsed ?? 0;
+  const savingsAmountUsed = orderResponse.savings?.amountUsed ?? 0;
+
+  if (walletAmountUsed > 0 && savingsAmountUsed > 0) {
+    return 'store_credit';
+  }
+  if (savingsAmountUsed > 0) {
+    return 'savings';
+  }
+  if (walletAmountUsed > 0) {
+    return 'wallet';
+  }
+
+  return undefined;
+}
+
 export function buildWalletOrderFields(
   selection: WalletSelection | undefined
 ): { use_wallet_credit: true; wallet_amount: number } | Record<string, never> {
@@ -62,5 +95,31 @@ export function buildWalletOrderFields(
   return {
     use_wallet_credit: true,
     wallet_amount: selection.amount,
+  };
+}
+
+export function buildSavingsOrderFields(
+  selection: SavingsSelection | undefined
+):
+  | {
+      use_savings_credit: true;
+      savings_goal_id: string;
+      savings_amount: number;
+    }
+  | Record<string, never> {
+  const goalId = selection?.goalId;
+  const trimmedGoalId = typeof goalId === 'string' ? goalId.trim() : '';
+  if (
+    !selection ||
+    selection.use !== true ||
+    trimmedGoalId.length === 0 ||
+    !(selection.amount > 0)
+  ) {
+    return {};
+  }
+  return {
+    use_savings_credit: true,
+    savings_goal_id: trimmedGoalId,
+    savings_amount: selection.amount,
   };
 }
