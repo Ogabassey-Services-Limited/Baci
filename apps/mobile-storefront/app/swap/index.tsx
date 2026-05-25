@@ -14,7 +14,7 @@ import {
   Pressable,
   ScrollView,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { StorefrontScreenShell } from '@/components/storefront/StorefrontScreenShell';
 import { SwapOverviewContent } from '@/components/swap/SwapOverviewContent';
 import {
   SwapTradeInModal,
@@ -214,7 +214,7 @@ export default function SwapScreen() {
   };
 
   return (
-    <SafeAreaView
+    <StorefrontScreenShell
       style={[styles.container, { backgroundColor: colors.background }]}
       edges={['bottom', 'left', 'right']}
     >
@@ -256,6 +256,6 @@ export default function SwapScreen() {
         onReset={resetModal}
         onStartAnalysis={startAnalysis}
       />
-    </SafeAreaView>
+    </StorefrontScreenShell>
   );
 }
