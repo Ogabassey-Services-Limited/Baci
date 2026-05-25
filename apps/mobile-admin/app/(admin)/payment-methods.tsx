@@ -63,6 +63,7 @@ export default function PaymentMethodsScreen() {
       return fetchPaymentSettings(merchant.id, paymentSettingsSelectColumns);
     },
     enabled: !!merchant?.id,
+    staleTime: 1000 * 60 * 5,
   });
 
   // Toggle mutation with Optimistic Updates (2026 Best Practice)

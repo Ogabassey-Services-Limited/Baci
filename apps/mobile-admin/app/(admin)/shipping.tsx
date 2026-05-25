@@ -81,6 +81,7 @@ export default function ShippingScreen() {
       } satisfies ShippingSettingsQueryData;
     },
     enabled: !!merchant?.id,
+    staleTime: 1000 * 60 * 5,
   });
   const settings = shippingData?.settings;
   const currency = shippingData?.currency ?? merchant?.payout_currency ?? 'NGN';

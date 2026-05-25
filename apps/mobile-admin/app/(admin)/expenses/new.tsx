@@ -116,7 +116,7 @@ export default function AddExpenseScreen() {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['expenses'] });
+      queryClient.invalidateQueries({ queryKey: ['expenses', merchant?.id] });
       Alert.alert('Success', 'Expense saved', [
         { text: 'OK', onPress: () => router.back() },
       ]);

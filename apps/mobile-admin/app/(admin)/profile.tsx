@@ -53,6 +53,7 @@ export default function ProfileScreen() {
       return data as UserProfile;
     },
     enabled: !!user?.id,
+    staleTime: 1000 * 60 * 5,
   });
 
   useEffect(() => {
@@ -75,7 +76,7 @@ export default function ProfileScreen() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['user-profile'] });
+      queryClient.invalidateQueries({ queryKey: ['user-profile', user?.id] });
       Alert.alert('Success', 'Profile updated successfully');
     },
     onError: (error: unknown) => {

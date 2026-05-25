@@ -1,7 +1,7 @@
 import Ionicons from "@react-native-vector-icons/ionicons";
 import type React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { BRAND } from '@/constants/Colors';
+import { BRAND, SHADOWS } from '@/constants/Colors';
 import type { ReceiptListItem } from '@/types/receipt';
 
 const PAYMENT_STATUS_CONFIG: Record<
@@ -56,7 +56,7 @@ export function ReceiptCard({
 
   return (
     <TouchableOpacity
-      style={[styles.card, { backgroundColor: colors.card }]}
+      style={[styles.card, SHADOWS.sm, { backgroundColor: colors.card }]}
       onPress={() => onPress(item)}
       onPressIn={() => onPrefetch?.(item.id)}
       activeOpacity={0.7}
@@ -125,11 +125,6 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: 12,
     padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
   },
   cardHeader: {
     flexDirection: 'row',

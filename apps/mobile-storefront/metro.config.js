@@ -40,6 +40,7 @@ const gestureHandlerPackageRoot = resolvePackageRoot('react-native-gesture-handl
 const reanimatedPackageRoot = resolvePackageRoot('react-native-reanimated');
 const screensPackageRoot = resolvePackageRoot('react-native-screens');
 const safeAreaContextPackageRoot = resolvePackageRoot('react-native-safe-area-context');
+const zustandMiddlewarePath = require.resolve('zustand/middleware');
 
 config.watchFolders = [workspaceRoot];
 config.resolver = {
@@ -64,6 +65,17 @@ config.resolver = {
   // 2026: Enable package exports so shared-package subpath imports resolve the
   // same way in Metro as they do in the rest of the monorepo.
   unstable_enablePackageExports: true,
+  resolveRequest: (context, moduleName, platform) => {
+    // Expo web serves a classic script, while Zustand's ESM middleware contains import.meta.
+    if (platform === 'web' && moduleName === 'zustand/middleware') {
+      return {
+        filePath: zustandMiddlewarePath,
+        type: 'sourceFile',
+      };
+    }
+
+    return context.resolveRequest(context, moduleName, platform);
+  },
   // Block test files and Node.js-only modules from being bundled by Metro.
   // This prevents Hermes runtime errors when build tool dependencies pull in
   // modules that use import.meta syntax (which is Node.js-only).

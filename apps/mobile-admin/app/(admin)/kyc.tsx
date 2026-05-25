@@ -94,6 +94,7 @@ export default function KYCScreen() {
       return data;
     },
     enabled: isOwner && !!merchant?.id,
+    staleTime: 1000 * 60 * 5,
   });
   const { refreshAfterVerification } = useKycVerificationRefresh({
     merchantId: merchant?.id,

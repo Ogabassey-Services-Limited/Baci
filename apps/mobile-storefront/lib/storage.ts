@@ -7,6 +7,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 import { createLogger } from './logger';
 
 const log = createLogger('Storage');
@@ -96,10 +97,18 @@ export const DEFAULT_SYNC_STORAGE_KEYS = [
   'search_history',
 ] as const;
 
+function isServerWebRender(): boolean {
+  return Platform.OS === 'web' && typeof window === 'undefined';
+}
+
 export const syncStorage = {
   getItem: (name: string): string | null => {
     // BUG-4-007 FIX: Warn if accessed before initialization to help debug race conditions
-    if (!isStorageInitialized && !initializationPromise) {
+    if (
+      !isStorageInitialized &&
+      !initializationPromise &&
+      !isServerWebRender()
+    ) {
       log.warn(
         `Storage accessed ("${name}") before initialization complete. ` +
           'Ensure initializeStorage() is called and awaited in _layout.tsx before Zustand stores are accessed.'
@@ -190,4 +199,7 @@ export function initializeStorage(keys: readonly string[]): Promise<void> {
   return initializationPromise;
 }
 
-void initializeStorage(DEFAULT_SYNC_STORAGE_KEYS);
+// Expo evaluates web routes on the server, where AsyncStorage accesses window.localStorage.
+if (!isServerWebRender()) {
+  void initializeStorage(DEFAULT_SYNC_STORAGE_KEYS);
+}

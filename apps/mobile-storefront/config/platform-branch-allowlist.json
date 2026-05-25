@@ -109,6 +109,10 @@
       "justification": "Reviewed iOS safe-area top padding behavior for receipt preview."
     },
     {
+      "path": "components/storefront/FilterBar.styles.ts",
+      "justification": "Reviewed web box-shadow selection that preserves existing native filter controls shadows."
+    },
+    {
       "path": "components/storefront/SearchDropdown.tsx",
       "justification": "Reviewed platform-specific dropdown shadow/elevation styling."
     },
@@ -123,6 +127,10 @@
     {
       "path": "components/ui/PhoneInput.tsx",
       "justification": "Reviewed Android-only list virtualization setting."
+    },
+    {
+      "path": "constants/Colors.ts",
+      "justification": "Reviewed platform-specific shadow tokens: web uses CSS box-shadow strings while native platforms preserve React Native shadow properties."
     },
     {
       "path": "hooks/use-cart.ts",
@@ -147,6 +155,10 @@
     {
       "path": "lib/notifications.ts",
       "justification": "Reviewed web and Android notification channel handling."
+    },
+    {
+      "path": "lib/storage.ts",
+      "justification": "Reviewed web SSR guard that avoids browser-backed AsyncStorage access while retaining native startup hydration."
     },
     {
       "path": "lib/supabase.ts",
