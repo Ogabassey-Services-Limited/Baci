@@ -1,5 +1,8 @@
 import { z } from 'zod';
-import { sanitizeWalletReturnTo } from '@/lib/sanitize-wallet-return-to';
+import {
+  sanitizeWalletReturnTo,
+  type WalletReturnHref,
+} from '@/lib/sanitize-wallet-return-to';
 
 const trimmedRequiredString = (message: string) =>
   z.string().trim().min(1, message);
@@ -12,7 +15,7 @@ const optionalTrackingToken = z.string().trim().optional();
 
 const sanitizedReturnTo = z.preprocess((value) => {
   return sanitizeWalletReturnTo(value);
-}, z.string().optional());
+}, z.string().transform((value) => value as WalletReturnHref).optional());
 
 const optionalPositiveAmount = z.preprocess(
   (value) =>
