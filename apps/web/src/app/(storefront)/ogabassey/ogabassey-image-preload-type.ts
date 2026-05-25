@@ -8,8 +8,12 @@ const IMAGE_PRELOAD_TYPES = {
 
 export function getOgabasseyImagePreloadType(src: string) {
   const transformedFormat = src.match(
-    /(?:^|[?&/,])format=(avif|jpe?g|png|webp)(?:[&/,]|$)/i
+    /(?:^|[?&/,])format=(auto|avif|jpe?g|png|webp)(?:[&/,]|$)/i
   )?.[1];
+  if (transformedFormat?.toLowerCase() === 'auto') {
+    return undefined;
+  }
+
   const extension =
     transformedFormat ?? src.match(/\.(avif|jpe?g|png|webp)(?:[?#].*)?$/i)?.[1];
 
