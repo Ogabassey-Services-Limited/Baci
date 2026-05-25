@@ -7,14 +7,6 @@ const withBundleAnalyzer = bundleAnalyzer({
   openAnalyzer: false,
 });
 
-/**
- * Force blocking metadata rendering (no streaming) for crawlers that commonly
- * parse only static head tags in HTML. This keeps Ahrefs/Semrush audits aligned
- * with what social/search bots see.
- */
-const HTML_LIMITED_BOTS_UA_RE =
-  /Googlebot|Googlebot-Image|Googlebot-News|Googlebot-Video|[\w-]+-Google|Google-[\w-]+|Chrome-Lighthouse|Slurp|DuckDuckBot|baiduspider|yandex|sogou|bitlybot|tumblr|vkShare|quora link preview|redditbot|ia_archiver|Bingbot|BingPreview|applebot|facebookexternalhit|facebookcatalog|Twitterbot|LinkedInBot|Slackbot|Discordbot|WhatsApp|SkypeUriPreview|Yeti|googleweblight|AhrefsBot|AhrefsSiteAudit|SemrushBot|MJ12bot|DotBot|rogerbot|PetalBot|Bytespider/i;
-
 const nextConfig: NextConfig = {
   // Keep heavy server-only packages external to reduce function bundle size and peak memory.
   // These are only used in specific API routes and should not be bundled into every function.
@@ -170,6 +162,7 @@ const nextConfig: NextConfig = {
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
     // Optimize image formats - AVIF is 20% smaller than WebP
     formats: ['image/avif', 'image/webp'],
+    qualities: [35, 50, 60, 70, 75, 80, 85, 90, 100],
     // Cache optimized images (Next.js 16 default is 4 hours / 14400s)
     minimumCacheTTL: 60 * 60 * 24 * 365,
   },
@@ -216,10 +209,6 @@ const nextConfig: NextConfig = {
 
   // Enable typed routes for compile-time validation of Link hrefs
   typedRoutes: true,
-
-  // Disable metadata streaming for HTML-limited crawlers so SEO audits read
-  // full OG/Twitter/title tags directly from the initial HTML head.
-  htmlLimitedBots: HTML_LIMITED_BOTS_UA_RE,
 
   // Turbopack resolve alias (Next.js 16 default bundler)
   // Maps @tiptap/extension-text-style to compat shim that re-exports
@@ -300,6 +289,34 @@ const nextConfig: NextConfig = {
           '/blog/why-the-samsung-galaxy-s21-ultra-is-still-a-top-pick-in-2024',
         destination:
           '/blog/samsung-galaxy-s21-ultra-in-2025-powerful-enough-or-just-hanging-on',
+        permanent: true,
+      },
+      // Imported slug contained an encoded non-breaking hyphen. Keep old
+      // links valid while routing cacheable requests through its ASCII slug.
+      {
+        source:
+          '/blog/wwdc-2025-5-game%e2%80%91changing-apple-announcements/:path*',
+        destination: '/blog/wwdc-2025-5-game-changing-apple-announcements',
+        permanent: true,
+      },
+      {
+        source:
+          '/blog/2025/06/10/wwdc-2025-5-game%e2%80%91changing-apple-announcements/:path*',
+        destination: '/blog/wwdc-2025-5-game-changing-apple-announcements',
+        permanent: true,
+      },
+      // This imported slug used non-breaking hyphens after WWDC and 2025.
+      // Redirect both URL-encoded forms before remote cache key handling.
+      {
+        source:
+          '/blog/wwdc%e2%80%912025%e2%80%915-game-changing-apple-announcements/:path*',
+        destination: '/blog/wwdc-2025-5-game-changing-apple-announcements',
+        permanent: true,
+      },
+      {
+        source:
+          '/blog/wwdc%25e2%2580%25912025%25e2%2580%25915-game-changing-apple-announcements/:path*',
+        destination: '/blog/wwdc-2025-5-game-changing-apple-announcements',
         permanent: true,
       },
       // Note: legacy WordPress category permalink redirects (/blog/:legacyCategory/:postSlug)

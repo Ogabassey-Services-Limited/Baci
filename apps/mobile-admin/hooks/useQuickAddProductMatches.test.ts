@@ -137,36 +137,63 @@ describe('useQuickAddProductMatches', () => {
     expect(mocks.useDebounce).toHaveBeenCalledWith('iPhone 11 Pro 6', 300);
   });
 
-	  it('does not query until the quick-add name has at least two characters', () => {
-	    const { result } = renderHook(
-	      () => useQuickAddProductMatches({ name: 'i', price: '180000' }),
-	      { wrapper: createWrapper() }
+  it('reuses fresh quick-add results when the hook remounts', async () => {
+    const Wrapper = createWrapper();
+    const props = {
+      name: 'iPhone 11 Pro 64gb Premium Used',
+      price: '180000',
+    };
+    const firstRender = renderHook(() => useQuickAddProductMatches(props), {
+      wrapper: Wrapper,
+    });
+
+    await waitFor(() => {
+      expect(firstRender.result.current.matches[0]?.id).toBe('variant-1');
+    });
+    firstRender.unmount();
+
+    const secondRender = renderHook(() => useQuickAddProductMatches(props), {
+      wrapper: Wrapper,
+    });
+
+    await waitFor(() => {
+      expect(secondRender.result.current.matches[0]?.id).toBe('variant-1');
+    });
+
+    expect(mocks.fetchAdminProductSearchRows).toHaveBeenCalledTimes(1);
+    expect(mocks.fetchAdminProductVariants).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not query until the quick-add name has at least two characters', () => {
+    const { result } = renderHook(
+      () => useQuickAddProductMatches({ name: 'i', price: '180000' }),
+      { wrapper: createWrapper() }
     );
 
-	    expect(result.current.matches).toEqual([]);
-	    expect(mocks.fetchAdminProductSearchRows).not.toHaveBeenCalled();
-	    expect(mocks.fetchAdminProductVariants).not.toHaveBeenCalled();
-	  });
+    expect(result.current.matches).toEqual([]);
+    expect(mocks.fetchAdminProductSearchRows).not.toHaveBeenCalled();
+    expect(mocks.fetchAdminProductVariants).not.toHaveBeenCalled();
+  });
 
-	  it('returns empty matches when product search fails', async () => {
-	    mocks.fetchAdminProductSearchRows.mockRejectedValueOnce(
-	      new Error('search failed')
-	    );
+  it('returns empty matches when product search fails', async () => {
+    mocks.fetchAdminProductSearchRows.mockRejectedValueOnce(
+      new Error('search failed')
+    );
 
-	    const { result } = renderHook(
-	      () =>
-	        useQuickAddProductMatches({
-	          name: 'iPhone 11 Pro',
-	          price: '180000',
-	        }),
-	      { wrapper: createWrapper() }
-	    );
+    const { result } = renderHook(
+      () =>
+        useQuickAddProductMatches({
+          name: 'iPhone 11 Pro',
+          price: '180000',
+        }),
+      { wrapper: createWrapper() }
+    );
 
-	    await waitFor(() => {
-	      expect(result.current.isLoading).toBe(false);
-	    });
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
 
-	    expect(result.current.matches).toEqual([]);
-	    expect(mocks.fetchAdminProductVariants).not.toHaveBeenCalled();
-	  });
-	});
+    expect(result.current.matches).toEqual([]);
+    expect(mocks.fetchAdminProductVariants).not.toHaveBeenCalled();
+  });
+});
