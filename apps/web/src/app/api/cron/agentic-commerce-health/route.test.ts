@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/env', () => ({
   getCronSecret: vi.fn(() => 'cron-secret'),
+  getRootDomain: vi.fn(() => 'usebaci.com'),
 }));
 
 vi.mock('@/lib/agentic/action-health-loader', () => ({
@@ -24,6 +25,21 @@ vi.mock('@/lib/agentic/agent-commerce-feed-health', async () => {
   };
 });
 
+vi.mock('@/lib/agentic/agent-commerce-support-chat-health', () => ({
+  checkAgentCommerceSupportChatHealth: vi.fn(),
+}));
+
+vi.mock('@/lib/agentic/agent-commerce-trust-health', async () => {
+  const actual = await vi.importActual<
+    typeof import('@/lib/agentic/agent-commerce-trust-health')
+  >('@/lib/agentic/agent-commerce-trust-health');
+
+  return {
+    ...actual,
+    checkAgentCommerceTrustHealth: vi.fn(),
+  };
+});
+
 vi.mock('@/lib/logger', () => ({
   logger: {
     error: vi.fn(),
@@ -40,6 +56,8 @@ import { getCronSecret } from '@/env';
 import { loadAgenticActionHealth } from '@/lib/agentic/action-health-loader';
 import { checkAgentCommerceFeedHealth } from '@/lib/agentic/agent-commerce-feed-health';
 import { checkAgentCommerceManifestHealth } from '@/lib/agentic/agent-commerce-manifest-health';
+import { checkAgentCommerceSupportChatHealth } from '@/lib/agentic/agent-commerce-support-chat-health';
+import { checkAgentCommerceTrustHealth } from '@/lib/agentic/agent-commerce-trust-health';
 import { logger } from '@/lib/logger';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { GET, maxDuration } from './route';
@@ -196,6 +214,19 @@ describe('GET /api/cron/agentic-commerce-health', () => {
       stale_product_count: 0,
       status: 'ok',
     });
+    vi.mocked(checkAgentCommerceSupportChatHealth).mockResolvedValue({
+      issue_count: 0,
+      issues: [],
+      response_time_ms: 120,
+      status: 'ok',
+      url: 'https://usebaci.com/api/chat',
+    });
+    vi.mocked(checkAgentCommerceTrustHealth).mockResolvedValue({
+      issue_count: 0,
+      issues: [],
+      status: 'ok',
+      url: 'https://ogabassey.com/agent-trust.json',
+    });
     vi.mocked(loadAgenticActionHealth).mockResolvedValue({
       actions: [healthyAction],
       generated_at: '2026-05-22T03:00:00.000Z',
@@ -274,9 +305,20 @@ describe('GET /api/cron/agentic-commerce-health', () => {
           slug: 'ogabassey',
           status: 'ok',
           status_reason: 'agentic_action_health_ok',
+          trust: {
+            issue_count: 0,
+            status: 'ok',
+            url: 'https://ogabassey.com/agent-trust.json',
+          },
         },
       ],
       status: 'ok',
+      support_chat: {
+        issue_count: 0,
+        response_time_ms: 120,
+        status: 'ok',
+        url: 'https://usebaci.com/api/chat',
+      },
     });
     expect(body.merchants[0].action_health.requests).not.toHaveProperty(
       'records'
@@ -300,12 +342,49 @@ describe('GET /api/cron/agentic-commerce-health', () => {
       merchantId: 'merchant-1',
       slug: 'ogabassey',
     });
+    expect(checkAgentCommerceTrustHealth).toHaveBeenCalledWith({
+      custom_domain: 'ogabassey.com',
+      slug: 'ogabassey',
+    });
+    expect(checkAgentCommerceSupportChatHealth).toHaveBeenCalledOnce();
     expect(supabase.__mocks.crawlerQuery.select).toHaveBeenCalledWith(
       'agent_family, bot_name, cache_outcome, crawled_at, host, response_time_ms, status_code, url_path, user_agent'
     );
     expect(supabase.__mocks.crawlerQuery.eq).toHaveBeenCalledWith(
       'merchant_id',
       'merchant-1'
+    );
+  });
+
+  it('reports support chat provider failure without failing commerce status', async () => {
+    vi.mocked(checkAgentCommerceSupportChatHealth).mockResolvedValue({
+      issue_count: 1,
+      issues: [
+        {
+          code: 'support_chat_static_fallback',
+          message:
+            'Support chat returned its static provider-failure fallback.',
+        },
+      ],
+      response_time_ms: 125,
+      status: 'attention',
+      url: 'https://usebaci.com/api/chat',
+    });
+
+    const response = await GET(createCronRequest());
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      status: 'ok',
+      support_chat: {
+        issue_count: 1,
+        status: 'attention',
+      },
+    });
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Support chat health monitor needs attention',
+      })
     );
   });
 
@@ -572,6 +651,118 @@ describe('GET /api/cron/agentic-commerce-health', () => {
         },
       ],
       status: 'monitor',
+    });
+  });
+
+  it('fails the cron response when public trust readiness has failed checks', async () => {
+    vi.mocked(checkAgentCommerceTrustHealth).mockResolvedValue({
+      issue_count: 1,
+      issues: [
+        {
+          check_id: 'price-parity',
+          code: 'trust_check_failed',
+          count: 2,
+          message: 'Prices differ across public catalog surfaces.',
+          severity: 'attention',
+        },
+      ],
+      status: 'attention',
+      url: 'https://ogabassey.com/agent-trust.json',
+    });
+
+    const response = await GET(createCronRequest());
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toMatchObject({
+      merchants: [
+        {
+          actions: [
+            {
+              code: 'AGENT_COMMERCE_TRUST_FAILED',
+              count: 2,
+              severity: 'attention',
+            },
+          ],
+          status: 'attention',
+          status_reason: 'agent_commerce_trust_failed',
+          trust: {
+            issue_count: 1,
+            status: 'attention',
+          },
+        },
+      ],
+      status: 'attention',
+    });
+  });
+
+  it('keeps public trust readiness warnings as monitor-only actions', async () => {
+    vi.mocked(checkAgentCommerceTrustHealth).mockResolvedValue({
+      issue_count: 1,
+      issues: [
+        {
+          check_id: 'feed-freshness',
+          code: 'trust_check_warning',
+          count: 1,
+          message: 'One public catalog product is stale.',
+          severity: 'monitor',
+        },
+      ],
+      status: 'monitor',
+      url: 'https://ogabassey.com/agent-trust.json',
+    });
+
+    const response = await GET(createCronRequest());
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      merchants: [
+        {
+          actions: [
+            {
+              code: 'AGENT_COMMERCE_TRUST_WARNING',
+              count: 1,
+              severity: 'monitor',
+            },
+          ],
+          status: 'monitor',
+          status_reason: 'agent_commerce_trust_warning',
+        },
+      ],
+      status: 'monitor',
+    });
+  });
+
+  it('keeps attention status reasons ahead of trust readiness warnings', async () => {
+    vi.mocked(loadAgenticActionHealth).mockResolvedValue({
+      actions: [attentionAction],
+      generated_at: '2026-05-22T03:00:00.000Z',
+    });
+    vi.mocked(checkAgentCommerceTrustHealth).mockResolvedValue({
+      issue_count: 1,
+      issues: [
+        {
+          check_id: 'feed-freshness',
+          code: 'trust_check_warning',
+          count: 1,
+          message: 'One public catalog product is stale.',
+          severity: 'monitor',
+        },
+      ],
+      status: 'monitor',
+      url: 'https://ogabassey.com/agent-trust.json',
+    });
+
+    const response = await GET(createCronRequest());
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toMatchObject({
+      merchants: [
+        {
+          status: 'attention',
+          status_reason: 'agentic_action_health_attention',
+        },
+      ],
+      status: 'attention',
     });
   });
 
