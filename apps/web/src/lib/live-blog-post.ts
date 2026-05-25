@@ -6,6 +6,10 @@ import {
   filterPublicBlogPosts,
   isPublicBlogPost,
 } from '@/lib/public-blog-content-quality';
+import {
+  normalizeRelatedBlogProducts,
+  RELATED_BLOG_PRODUCTS_SELECT,
+} from '@/lib/related-blog-products';
 import { STOREFRONT_BLOG_POST_SELECT } from '@/lib/storefront-blog-post-select';
 import { createPublicClient } from '@/lib/supabase/anon';
 
@@ -103,10 +107,10 @@ export async function getLiveBlogPost(
     normalizedCategorySlug
       ? await supabase
           .from('products')
-          .select('id, name, slug, category_slug')
+          .select(RELATED_BLOG_PRODUCTS_SELECT)
           .eq('merchant_id', merchant.id)
           .eq('status', 'active')
-          .eq('category_slug', normalizedCategorySlug)
+          .eq('categories.slug', normalizedCategorySlug)
           .order('updated_at', { ascending: false })
           .limit(6)
       : { data: [], error: null };
@@ -133,6 +137,8 @@ export async function getLiveBlogPost(
           0,
           RELATED_BLOG_POSTS_LIMIT
         ),
-    relatedProducts: relatedProductsError ? [] : (relatedProducts ?? []),
+    relatedProducts: relatedProductsError
+      ? []
+      : normalizeRelatedBlogProducts(relatedProducts),
   };
 }

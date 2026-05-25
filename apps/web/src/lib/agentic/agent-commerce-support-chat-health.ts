@@ -1,7 +1,9 @@
 import { getAppUrl } from '@/env';
 import { logger } from '@/lib/logger';
 
-const SUPPORT_CHAT_FETCH_TIMEOUT_MS = 10_000;
+// Keep the probe longer than the buffered chat completion budget so it can
+// classify a slow/static response instead of aborting during valid inference.
+const SUPPORT_CHAT_FETCH_TIMEOUT_MS = 75_000;
 const SUPPORT_CHAT_SLOW_RESPONSE_MS = 8_000;
 const SUPPORT_CHAT_SMOKE_PROMPT = 'Best gaming phones';
 

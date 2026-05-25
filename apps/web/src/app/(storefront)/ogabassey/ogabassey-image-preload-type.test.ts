@@ -19,4 +19,12 @@ describe('getOgabasseyImagePreloadType', () => {
   it('returns undefined when the URL has no recognized image format', () => {
     expect(getOgabasseyImagePreloadType('/image/product')).toBeUndefined();
   });
+
+  it('omits a fixed type when the CDN negotiates the response format', () => {
+    expect(
+      getOgabasseyImagePreloadType(
+        '/image/width=640,quality=70,format=auto/product.avif'
+      )
+    ).toBeUndefined();
+  });
 });

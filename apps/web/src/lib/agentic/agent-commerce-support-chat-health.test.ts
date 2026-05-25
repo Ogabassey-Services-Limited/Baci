@@ -23,6 +23,7 @@ beforeEach(() => {
 
 describe('checkAgentCommerceSupportChatHealth', () => {
   it('posts a public chat smoke request and reports successful latency', async () => {
+    const timeoutSpy = vi.spyOn(AbortSignal, 'timeout');
     const cancel = vi.fn();
     const fetcher = vi.fn<typeof fetch>().mockResolvedValue(
       new Response(new ReadableStream({ cancel }), {
@@ -31,31 +32,36 @@ describe('checkAgentCommerceSupportChatHealth', () => {
       })
     );
 
-    const result = await checkAgentCommerceSupportChatHealth(
-      fetcher,
-      createClock(100, 145)
-    );
+    try {
+      const result = await checkAgentCommerceSupportChatHealth(
+        fetcher,
+        createClock(100, 145)
+      );
 
-    expect(result).toEqual({
-      issue_count: 0,
-      issues: [],
-      response_time_ms: 45,
-      status: 'ok',
-      url: 'https://usebaci.com/api/chat',
-    });
-    expect(fetcher).toHaveBeenCalledWith('https://usebaci.com/api/chat', {
-      body: JSON.stringify({
-        messages: [{ content: 'Best gaming phones', role: 'user' }],
-      }),
-      cache: 'no-store',
-      headers: {
-        accept: 'text/plain',
-        'content-type': 'application/json',
-      },
-      method: 'POST',
-      signal: expect.any(AbortSignal),
-    });
-    expect(cancel).toHaveBeenCalledOnce();
+      expect(result).toEqual({
+        issue_count: 0,
+        issues: [],
+        response_time_ms: 45,
+        status: 'ok',
+        url: 'https://usebaci.com/api/chat',
+      });
+      expect(fetcher).toHaveBeenCalledWith('https://usebaci.com/api/chat', {
+        body: JSON.stringify({
+          messages: [{ content: 'Best gaming phones', role: 'user' }],
+        }),
+        cache: 'no-store',
+        headers: {
+          accept: 'text/plain',
+          'content-type': 'application/json',
+        },
+        method: 'POST',
+        signal: expect.any(AbortSignal),
+      });
+      expect(timeoutSpy).toHaveBeenCalledWith(75_000);
+      expect(cancel).toHaveBeenCalledOnce();
+    } finally {
+      timeoutSpy.mockRestore();
+    }
   });
 
   it('returns attention when chat serves its static provider fallback', async () => {

@@ -34,8 +34,18 @@ vi.mock('react-native', async () => {
       ),
     Text: ({ children }: { children?: React.ReactNode }) =>
       React.createElement('span', null, children),
-    View: ({ children }: { children?: React.ReactNode }) =>
-      React.createElement('div', null, children),
+    View: ({
+      accessibilityLabel,
+      children,
+    }: {
+      accessibilityLabel?: string;
+      children?: React.ReactNode;
+    }) =>
+      React.createElement(
+        'div',
+        { 'aria-label': accessibilityLabel },
+        children
+      ),
   };
 });
 
@@ -71,6 +81,10 @@ describe('TransactionsSummary', () => {
 
     expect(paidTab).toHaveAttribute('aria-pressed', 'true');
     expect(missingCostsTab).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByText('Estimated profit this month')).toBeInTheDocument();
+    expect(
+      screen.getByLabelText(/Estimated profit this month: NGN 1500/i)
+    ).toBeInTheDocument();
 
     fireEvent.click(missingCostsTab);
 
