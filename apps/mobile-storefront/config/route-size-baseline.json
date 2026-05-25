@@ -3,7 +3,7 @@
   "routes": [
     {
       "path": "app/checkout.tsx",
-      "lineCount": 3221,
+      "lineCount": 3216,
       "justification": "Existing Phase 6 checkout route decomposition baseline; shrink or remove this entry as the route is modularized."
     },
     {
@@ -13,32 +13,32 @@
     },
     {
       "path": "app/orders/[id].tsx",
-      "lineCount": 978,
+      "lineCount": 973,
       "justification": "Existing Phase 6 orders detail decomposition baseline; shrink or remove this entry as the route is modularized."
     },
     {
       "path": "app/track-order/index.tsx",
-      "lineCount": 1042,
+      "lineCount": 1041,
       "justification": "Existing oversized tracking route baseline; shrink or remove this entry as the route is modularized."
     },
     {
       "path": "app/auth/login.tsx",
-      "lineCount": 856,
+      "lineCount": 851,
       "justification": "Existing oversized auth route baseline; shrink or remove this entry as the route is modularized."
     },
     {
       "path": "app/bnpl-checkout/index.tsx",
-      "lineCount": 754,
+      "lineCount": 748,
       "justification": "Existing oversized BNPL route baseline; shrink or remove this entry as the route is modularized."
     },
     {
       "path": "app/addresses/[id].tsx",
-      "lineCount": 685,
+      "lineCount": 679,
       "justification": "Existing oversized address-edit route baseline; shrink or remove this entry as the route is modularized."
     },
     {
       "path": "app/search.tsx",
-      "lineCount": 565,
+      "lineCount": 559,
       "justification": "Existing oversized search route baseline; shrink or remove this entry as the route is modularized."
     },
     {
@@ -58,22 +58,22 @@
     },
     {
       "path": "app/crypto-payment/index.tsx",
-      "lineCount": 430,
+      "lineCount": 425,
       "justification": "Existing oversized crypto-payment route baseline; shrink or remove this entry as the route is modularized."
     },
     {
       "path": "app/bank-transfer/index.tsx",
-      "lineCount": 391,
+      "lineCount": 386,
       "justification": "Existing oversized bank-transfer route baseline; shrink or remove this entry as the route is modularized."
     },
     {
       "path": "app/faq/index.tsx",
-      "lineCount": 360,
+      "lineCount": 355,
       "justification": "Existing oversized FAQ route baseline; shrink or remove this entry as the route is modularized."
     },
     {
       "path": "app/profile/edit.tsx",
-      "lineCount": 357,
+      "lineCount": 347,
       "justification": "Existing oversized profile-edit route baseline; shrink or remove this entry as the route is modularized."
     },
     {
@@ -83,7 +83,7 @@
     },
     {
       "path": "app/receipts/index.tsx",
-      "lineCount": 339,
+      "lineCount": 333,
       "justification": "Existing oversized receipts route baseline; shrink or remove this entry as the route is modularized."
     }
   ]

@@ -2,10 +2,8 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import type { ComponentProps } from 'react';
 import { FilterBarActiveControls } from './FilterBarActiveControls';
 
-jest.mock('@expo/vector-icons', () => ({
-  Feather: () => null,
-  Ionicons: () => null,
-}));
+jest.mock('@react-native-vector-icons/feather', () => () => null);
+jest.mock('@react-native-vector-icons/ionicons', () => () => null);
 
 describe('FilterBarActiveControls', () => {
   const maxPriceCeiling = 3_000_000;

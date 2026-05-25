@@ -1,14 +1,4 @@
 pluginManagement {
-  resolutionStrategy {
-    eachPlugin {
-      if (requested.id.id in ["com.android.application", "com.android.library", "com.android.test"]) {
-        useModule("com.android.tools.build:gradle:9.1.0")
-      }
-      if (requested.id.id?.startsWith("org.jetbrains.kotlin")) {
-        useVersion("2.3.20")
-      }
-    }
-  }
   def reactNativeGradlePlugin = new File(
     providers.exec {
       workingDir(rootDir)
@@ -41,7 +31,7 @@ extensions.configure(com.facebook.react.ReactSettingsExtension) { ex ->
 }
 expoAutolinking.useExpoModules()
 
-rootProject.name = 'OgabasseyEasybuyGadgets'
+rootProject.name = 'Ogabassey'
 
 expoAutolinking.useExpoVersionCatalog()
 

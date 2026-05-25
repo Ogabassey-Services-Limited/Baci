@@ -45,6 +45,10 @@ const reactNativeGooglePlacesMockPath = path.resolve(
   __dirname,
   'test/mocks/react-native-google-places-autocomplete.tsx'
 );
+const reactNativeVectorIconMockPath = path.resolve(
+  __dirname,
+  'test/mocks/react-native-vector-icon.tsx'
+);
 
 export default defineConfig({
   define: {
@@ -80,6 +84,10 @@ export default defineConfig({
         find: /^react-native-google-places-autocomplete$/,
         replacement: reactNativeGooglePlacesMockPath,
       },
+      {
+        find: /^@react-native-vector-icons\/(ionicons|fontawesome|feather)\/static$/,
+        replacement: reactNativeVectorIconMockPath,
+      },
     ],
     dedupe: ['react', 'react-dom', 'react-native-web'],
   },
@@ -108,11 +116,7 @@ export default defineConfig({
           /^react-dom$/,
           /^react-native-web$/,
         ],
-        external: [
-          /expo-linear-gradient/,
-          /@expo\/vector-icons/,
-          /react-native\//,
-        ],
+        external: [/expo-linear-gradient/, /react-native\//],
       },
     },
   },
