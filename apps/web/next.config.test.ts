@@ -6,6 +6,12 @@ describe('next.config OgaBassey resource headers', () => {
     expect(nextConfig.skipTrailingSlashRedirect).toBe(true);
   });
 
+  it('allows tuned OgaBassey image quality values', () => {
+    expect(nextConfig.images?.qualities).toEqual([
+      35, 50, 60, 70, 75, 80, 85, 90, 100,
+    ]);
+  });
+
   it('does not override Next metadata rendering for normal storefront browsers', () => {
     expect(nextConfig.htmlLimitedBots).toBeUndefined();
   });
