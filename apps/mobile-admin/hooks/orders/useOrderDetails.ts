@@ -203,5 +203,6 @@ export function useOrder(orderId: string) {
       return fetchOrderById(orderId, merchant.id, scope);
     },
     queryKey: ['order', orderId, merchant?.id, branchScopeKey],
+    staleTime: 1000 * 60, // 1 minute
   });
 }
