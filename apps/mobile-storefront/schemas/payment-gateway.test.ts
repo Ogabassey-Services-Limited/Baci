@@ -1,6 +1,9 @@
 import { describe, expect, it } from '@jest/globals';
+import type { Href } from 'expo-router';
 import type { ZodIssue } from 'zod';
 import { PaymentGatewayParamsSchema } from '@/schemas/payment-gateway';
+
+function acceptNavigationHref(_href: Href) {}
 
 function extractIssuePaths(issues: ZodIssue[]) {
   return issues.map((issue) => issue.path.join('.'));
@@ -203,6 +206,9 @@ describe('PaymentGatewayParamsSchema', () => {
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.returnTo).toBe('/imei-check');
+      if (result.data.returnTo) {
+        acceptNavigationHref(result.data.returnTo);
+      }
     }
   });
 
