@@ -45,6 +45,10 @@
       "justification": "Reviewed iOS haptic branch for chat entry interaction."
     },
     {
+      "path": "components/chat/TypingIndicator.tsx",
+      "justification": "Reviewed CSS box-shadow on web while preserving native typing-indicator dot shadow styling."
+    },
+    {
       "path": "components/chat/use-chat.ts",
       "justification": "Reviewed iOS haptic branch for chat message interactions."
     },
