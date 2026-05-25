@@ -164,7 +164,7 @@ export const ProductDetailScreen = productDetailScreenModule.default;
 export type RenderedNode = {
   // react-test-renderer represents text content as raw strings interleaved
   // with element nodes — model that here so callers don't have to cast.
-  children?: Array<RenderedNode | string>;
+  children?: Array<RenderedNode | string> | null;
   props?: {
     contentContainerStyle?: unknown;
     style?: unknown;
