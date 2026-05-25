@@ -73,6 +73,7 @@ export default function NotificationsScreen() {
       return data as NotificationPreferences;
     },
     enabled: !!merchant?.id,
+    staleTime: 1000 * 60 * 5,
   });
 
   const updatePreferencesMutation = useMutation({
@@ -89,7 +90,7 @@ export default function NotificationsScreen() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notification-preferences'] });
+      queryClient.invalidateQueries({ queryKey: ['notification-preferences', merchant?.id] });
     },
     onError: (error: unknown) => {
       Alert.alert(
