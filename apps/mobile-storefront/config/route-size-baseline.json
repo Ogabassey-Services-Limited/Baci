@@ -77,11 +77,6 @@
       "justification": "Existing oversized bank-transfer route baseline; shrink or remove this entry as the route is modularized."
     },
     {
-      "path": "app/faq/index.tsx",
-      "lineCount": 360,
-      "justification": "Existing oversized FAQ route baseline; shrink or remove this entry as the route is modularized."
-    },
-    {
       "path": "app/profile/edit.tsx",
       "lineCount": 357,
       "justification": "Existing oversized profile-edit route baseline; shrink or remove this entry as the route is modularized."
