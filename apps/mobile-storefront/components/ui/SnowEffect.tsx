@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
 import Animated, {
   cancelAnimation,
   Easing,
@@ -10,10 +10,15 @@ import Animated, {
   withRepeat,
   withTiming,
 } from 'react-native-reanimated';
+import { palette } from '@/constants/Colors';
 import { SEASONAL } from '@/lib/seasonal';
 import { useThemeStore } from '@/stores/theme-store';
+import { getSnowflakeShadowStyle } from './SnowEffect.shadows';
 
 const NUM_SNOWFLAKES = 40; // Optimized for performance
+const snowflakeShadowStyle = getSnowflakeShadowStyle(
+  Platform.OS === 'web' ? 'web' : 'native'
+);
 
 /**
  * Individual Snowflake with Parallax properties
@@ -85,6 +90,7 @@ function Snowflake({
     <Animated.View
       style={[
         styles.snowflake,
+        snowflakeShadowStyle,
         {
           left: xPosition,
           width: size,
@@ -112,12 +118,12 @@ export function SnowEffect() {
   if (!tokens.isSanta || reducedMotion) return null;
 
   return (
-    <View style={styles.container} pointerEvents="none">
+    <View style={styles.container}>
       {Array.from({ length: NUM_SNOWFLAKES }).map((_, i) => (
         <Snowflake
           key={i}
           index={i}
-          color={tokens.snowColor ?? '#FFFFFF'}
+          color={tokens.snowColor ?? palette.white}
           screenWidth={screenWidth}
           screenHeight={screenHeight}
         />
@@ -131,13 +137,10 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     zIndex: 9999,
     elevation: 9999,
+    pointerEvents: 'none',
   },
   snowflake: {
     position: 'absolute',
     top: 0,
-    shadowColor: '#FFF',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 2,
   },
 });
