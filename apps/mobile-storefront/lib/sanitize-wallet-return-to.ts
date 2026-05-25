@@ -1,6 +1,11 @@
-const ENCODED_PATH_SEPARATOR_PATTERN = /%(?:2f|5c)/i;
+import type { Href } from 'expo-router';
 
-export function sanitizeWalletReturnTo(value: unknown) {
+const ENCODED_PATH_SEPARATOR_PATTERN = /%(?:2f|5c)/i;
+export type WalletReturnHref = Extract<Href, string>;
+
+export function sanitizeWalletReturnTo(
+  value: unknown
+): WalletReturnHref | undefined {
   if (typeof value !== 'string') {
     return undefined;
   }
@@ -32,5 +37,6 @@ export function sanitizeWalletReturnTo(value: unknown) {
     return undefined;
   }
 
-  return value;
+  // Dynamic internal destinations are safe to navigate after this validation.
+  return value as WalletReturnHref;
 }
