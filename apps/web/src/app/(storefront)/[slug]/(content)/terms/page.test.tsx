@@ -1,4 +1,5 @@
 import { headers } from 'next/headers';
+import { type ReactElement, Suspense } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 
@@ -22,7 +23,7 @@ vi.mock('../pages/terms/terms-page-client', () => ({
   TermsPageClient: vi.fn(() => null),
 }));
 
-const { generateMetadata } = await import('./page');
+const { default: TermsPage, generateMetadata } = await import('./page');
 
 describe('terms metadata', () => {
   it('returns fallback title when merchant is missing', async () => {
@@ -52,5 +53,15 @@ describe('terms metadata', () => {
 
     expect(metadata.alternates?.canonical).toBe('https://ogabassey.com/terms');
     expect(metadata.openGraph?.url).toBe('https://ogabassey.com/terms');
+  });
+});
+
+describe('terms page rendering', () => {
+  it('renders only its real request-time content boundary', () => {
+    const element = TermsPage({
+      params: Promise.resolve({ slug: 'ogabassey.com' }),
+    }) as ReactElement;
+
+    expect(element.type).toBe(Suspense);
   });
 });

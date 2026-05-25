@@ -82,6 +82,16 @@ function createUpdateQuery() {
   return updateQuery;
 }
 
+function createDeleteQuery() {
+  const deleteQuery = {
+    delete: vi.fn(),
+    eq: vi.fn(),
+  };
+  deleteQuery.delete.mockReturnValue(deleteQuery);
+  deleteQuery.eq.mockResolvedValue({ error: null });
+  return deleteQuery;
+}
+
 describe('runClaimedImportJob commit flows', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -104,7 +114,8 @@ describe('runClaimedImportJob commit flows', () => {
             items: [],
           })
         )
-        .mockReturnValueOnce(createUpdateQuery()),
+        .mockReturnValueOnce(createUpdateQuery())
+        .mockReturnValueOnce(createDeleteQuery()),
     } as unknown as SupabaseClient;
 
     const result = await runClaimedImportJob(supabase, createJob('committing'));
@@ -138,7 +149,8 @@ describe('runClaimedImportJob commit flows', () => {
             price: 1000,
           })
         )
-        .mockReturnValueOnce(createUpdateQuery()),
+        .mockReturnValueOnce(createUpdateQuery())
+        .mockReturnValueOnce(createDeleteQuery()),
     } as unknown as SupabaseClient;
 
     const result = await runClaimedImportJob(supabase, {
