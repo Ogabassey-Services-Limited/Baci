@@ -18,8 +18,19 @@ const hardeningMigrationSql = readFileSync(
   ),
   'utf8'
 );
+const coalesceRepairMigrationSql = readFileSync(
+  resolve(
+    testDir,
+    '../../../../supabase/migrations/20260525044634_fix_supabase_retention_coalesce_special_form.sql'
+  ),
+  'utf8'
+);
 const normalizedInitialMigrationSql = initialMigrationSql.replace(/\s+/g, ' ');
 const normalizedHardeningMigrationSql = hardeningMigrationSql.replace(
+  /\s+/g,
+  ' '
+);
+const normalizedCoalesceRepairMigrationSql = coalesceRepairMigrationSql.replace(
   /\s+/g,
   ' '
 );
@@ -48,6 +59,28 @@ describe('Supabase retention cleanup migration', () => {
       'REVOKE ALL ON FUNCTION public.cleanup_database_retention(interval, interval, interval) FROM PUBLIC, anon, authenticated'
     );
     expect(normalizedHardeningMigrationSql).toContain(
+      'GRANT EXECUTE ON FUNCTION public.cleanup_database_retention(interval, interval, interval) TO service_role'
+    );
+  });
+
+  it('repairs the hardened RPC without treating COALESCE as a catalog function', () => {
+    expect(normalizedCoalesceRepairMigrationSql).toContain(
+      "SECURITY DEFINER SET search_path = ''"
+    );
+    expect(coalesceRepairMigrationSql).toContain(
+      'COALESCE(events.event_timestamp, events.created_at)'
+    );
+    expect(coalesceRepairMigrationSql).toContain(
+      'COALESCE(runs.end_time, runs.start_time)'
+    );
+    expect(coalesceRepairMigrationSql).not.toContain('pg_catalog.coalesce');
+    expect(coalesceRepairMigrationSql).toContain(
+      'pg_catalog.clock_timestamp()'
+    );
+    expect(normalizedCoalesceRepairMigrationSql).toContain(
+      'REVOKE ALL ON FUNCTION public.cleanup_database_retention(interval, interval, interval) FROM PUBLIC, anon, authenticated'
+    );
+    expect(normalizedCoalesceRepairMigrationSql).toContain(
       'GRANT EXECUTE ON FUNCTION public.cleanup_database_retention(interval, interval, interval) TO service_role'
     );
   });
