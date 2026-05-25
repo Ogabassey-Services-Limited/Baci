@@ -8,13 +8,13 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { router, Stack } from 'expo-router';
 import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   buildRepairWhatsappUrl,
   REPAIR_SERVICES,
   REPAIR_WORKFLOW_STEPS,
 } from '@/components/repairs/repairs-content';
 import { repairsScreenStyles as styles } from '@/components/repairs/repairs-screen.styles';
+import { StorefrontScreenShell } from '@/components/storefront/StorefrontScreenShell';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
 import { SUPPORT_WHATSAPP_PHONE } from '@/constants/Support';
@@ -35,7 +35,7 @@ export default function RepairsScreen() {
   };
 
   return (
-    <SafeAreaView
+    <StorefrontScreenShell
       style={[styles.container, { backgroundColor: colors.background }]}
       edges={['bottom', 'left', 'right']}
     >
@@ -205,6 +205,6 @@ export default function RepairsScreen() {
           </Pressable>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </StorefrontScreenShell>
   );
 }

@@ -78,7 +78,6 @@ const SHELL_EXEMPT_ROUTES = new Set([
   'profile/delete-account.tsx',
   'profile/edit.tsx',
   'receipts/index.tsx',
-  'repairs/index.tsx',
   'saved/index.tsx',
   'search.tsx',
   'swap/index.tsx',
