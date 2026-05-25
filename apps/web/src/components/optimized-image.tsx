@@ -83,7 +83,7 @@ export function OptimizedImage({
 
   // If marked as LCP image, override to high priority and eager loading
   const finalPriority = isLCP ? true : priority;
-  const finalLoading = isLCP ? 'eager' : loading;
+  const finalLoading = finalPriority ? undefined : (isLCP ? 'eager' : loading);
   const finalFetchPriority = isLCP ? 'high' : fetchPriority;
 
   // Generate blur placeholder
