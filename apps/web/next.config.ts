@@ -162,7 +162,7 @@ const nextConfig: NextConfig = {
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
     // Optimize image formats - AVIF is 20% smaller than WebP
     formats: ['image/avif', 'image/webp'],
-    qualities: [35, 50, 60, 70, 75],
+    qualities: [35, 50, 60, 70, 75, 80, 85, 90, 100],
     // Cache optimized images (Next.js 16 default is 4 hours / 14400s)
     minimumCacheTTL: 60 * 60 * 24 * 365,
   },

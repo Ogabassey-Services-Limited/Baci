@@ -13,6 +13,17 @@ describe('imageLoader', () => {
     );
   });
 
+  it('applies format=webp fallback for non-AVIF OgaBassey CDN image URLs (e.g., .jpg, .png, .webp)', () => {
+    const urlJpg = 'https://cdn.ogabassey.com/core-assets/products/image.jpg';
+    expect(imageLoader({ src: urlJpg, width: 800 })).toContain('format=webp');
+
+    const urlPng = 'https://cdn.ogabassey.com/core-assets/products/image.png';
+    expect(imageLoader({ src: urlPng, width: 800 })).toContain('format=webp');
+
+    const urlWebp = 'https://cdn.ogabassey.com/core-assets/products/image.webp';
+    expect(imageLoader({ src: urlWebp, width: 800 })).toContain('format=webp');
+  });
+
   it('passes custom quality to the OgaBassey CDN transformer', () => {
     const url = 'https://cdn.ogabassey.com/core-assets/products/iphone.avif';
     expect(imageLoader({ src: url, width: 1200, quality: 90 })).toBe(
