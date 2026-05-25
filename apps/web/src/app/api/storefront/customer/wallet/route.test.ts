@@ -197,14 +197,14 @@ describe('GET /api/storefront/customer/wallet', () => {
       savingsBalance: 0,
     });
     expect(consoleErrorSpy).toHaveBeenCalledWith(
-      'Customer wallet optional helper fetch failed',
+      'Customer wallet optional fetch failed',
       {
         error: { message: 'savings timeout' },
         label: 'savings balance',
       }
     );
     expect(consoleErrorSpy).toHaveBeenCalledWith(
-      'Customer wallet optional helper fetch failed',
+      'Customer wallet optional fetch failed',
       {
         error: { message: 'funding account timeout' },
         label: 'funding account',
