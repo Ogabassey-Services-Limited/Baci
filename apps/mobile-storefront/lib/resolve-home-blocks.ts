@@ -28,7 +28,9 @@ function isBlockArray(content: unknown): content is Block[] {
         'props' in item &&
         typeof item.props === 'object' &&
         item.props !== null &&
-        !Array.isArray(item.props)
+        !Array.isArray(item.props) &&
+        'id' in item.props &&
+        typeof item.props.id === 'string'
     )
   );
 }

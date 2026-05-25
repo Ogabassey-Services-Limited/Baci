@@ -202,27 +202,22 @@ export function HomeScreenView({
           testID="home-header-spacer"
           style={{ height: resolvedHeaderHeight }}
         />
-        {blocks.map((block, index) => (
-          <View
-            key={block.props?.id || `block-${index}`}
-            style={styles.blockWrapper}
-          >
-            <BlockRenderer
-              blocks={[block]}
-              productGridLoadMoreSignal={
-                block.type === 'ProductGrid' &&
-                index === primaryProductGridIndex
-                  ? productGridLoadMoreSignal
-                  : 0
-              }
-              selectedCategoryId={selectedCategoryId}
-              onCategorySelect={onCategorySelect}
-            />
-            {block.type === 'CategoryRail' ? (
+        <BlockRenderer
+          blocks={blocks}
+          blockWrapperStyle={styles.blockWrapper}
+          getProductGridLoadMoreSignal={(block, index) =>
+            block.type === 'ProductGrid' && index === primaryProductGridIndex
+              ? productGridLoadMoreSignal
+              : 0
+          }
+          selectedCategoryId={selectedCategoryId}
+          onCategorySelect={onCategorySelect}
+          renderAfterBlock={(block) =>
+            block.type === 'CategoryRail' ? (
               <HomeServiceCards placement="belowUtility" />
-            ) : null}
-          </View>
-        ))}
+            ) : null
+          }
+        />
       </Animated.ScrollView>
       <PermissionModal
         visible={showPermissionModal}

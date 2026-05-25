@@ -98,7 +98,7 @@ describe('HomeScreen pagination', () => {
     });
 
     await act(async () => {
-      await scrollView.props.refreshControl.props.onRefresh();
+      fireEvent(scrollView, 'refresh');
     });
 
     fireEvent.scroll(scrollView, {
@@ -267,7 +267,7 @@ describe('HomeScreen pagination', () => {
     });
   });
 
-  it('treats the first ProductGrid without an id as the primary grid', () => {
+  it('uses default blocks when persisted product grid content is missing an id', () => {
     mockUsePageConfig.mockReturnValue({
       data: {
         content: [
@@ -292,18 +292,12 @@ describe('HomeScreen pagination', () => {
     });
 
     const productGridCalls = getProductGridCalls();
-    const unnamedGridCalls = productGridCalls.filter(
-      ([props]) => props.blocks[0]?.props?.id == null
-    );
-    const secondaryGridCalls = productGridCalls.filter(
-      ([props]) => props.blocks[0]?.props?.id === 'products-2'
+    const defaultGridCalls = productGridCalls.filter(
+      ([props]) => props.blocks[0]?.props?.id === 'default-products'
     );
 
-    expect(unnamedGridCalls.at(-1)?.[0]).toMatchObject({
+    expect(defaultGridCalls.at(-1)?.[0]).toMatchObject({
       productGridLoadMoreSignal: 1,
-    });
-    expect(secondaryGridCalls.at(-1)?.[0]).toMatchObject({
-      productGridLoadMoreSignal: 0,
     });
   });
 });

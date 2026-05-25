@@ -71,6 +71,20 @@ describe('resolveHomeBlocks', () => {
     ]);
   });
 
+  it('falls back to defaults when a persisted block is missing props.id', () => {
+    const blocks = resolveHomeBlocks(
+      [{ type: 'ProductGrid', props: {} }],
+      false,
+      false
+    );
+
+    expect(blocks.map((block) => block.props.id)).toEqual([
+      'default-hero',
+      'default-categories',
+      'default-products',
+    ]);
+  });
+
   it('withholds fallback blocks during the initial loading request', () => {
     expect(resolveHomeBlocks(undefined, false, true)).toEqual([]);
   });

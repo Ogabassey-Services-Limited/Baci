@@ -1,5 +1,6 @@
 import { describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import type React from 'react';
 import { Animated } from 'react-native';
 import type { Block } from '@/types/blocks';
 import { HomeScreenView } from './HomeScreenView';
@@ -37,13 +38,26 @@ jest.mock('@/components/OfflineNotice', () => {
 });
 
 jest.mock('@/components/storefront/BlockRenderer', () => {
-  const { Text } = jest.requireActual(
+  const { Text, View } = jest.requireActual(
     'react-native'
   ) as typeof import('react-native');
 
   return {
-    BlockRenderer: ({ blocks }: { blocks: Block[] }) => (
-      <Text>{`Block ${blocks[0]?.type}`}</Text>
+    BlockRenderer: ({
+      blocks,
+      renderAfterBlock,
+    }: {
+      blocks: Block[];
+      renderAfterBlock?: (block: Block, index: number) => React.ReactNode;
+    }) => (
+      <>
+        {blocks.map((block, index) => (
+          <View key={block.props.id}>
+            <Text>{`Block ${block.type}`}</Text>
+            {renderAfterBlock?.(block, index)}
+          </View>
+        ))}
+      </>
     ),
   };
 });
@@ -197,7 +211,7 @@ describe('HomeScreenView', () => {
     fireEvent.press(screen.getByText('Header'));
     expect(onSearch).toHaveBeenCalledTimes(1);
 
-    screen.getByTestId('home-scroll-view').props.refreshControl.props.onRefresh();
+    fireEvent(screen.getByTestId('home-scroll-view'), 'refresh');
     expect(onRefresh).toHaveBeenCalledTimes(1);
   });
 
