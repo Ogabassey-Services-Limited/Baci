@@ -101,6 +101,10 @@
       "justification": "Reviewed web guard for native image picker and haptics loading."
     },
     {
+      "path": "components/product/VariantSelector.tsx",
+      "justification": "Reviewed CSS box-shadow on web while preserving native variant-swatch shadow styling."
+    },
+    {
       "path": "components/negotiation/useNegotiationModalController.ts",
       "justification": "Reviewed web/native guards around haptics and media picker interaction flow."
     },
