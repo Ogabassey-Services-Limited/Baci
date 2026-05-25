@@ -137,6 +137,29 @@ describe('public product parity surface parsers', () => {
     ).toEqual(['availability', 'price']);
   });
 
+  it('skips an unsupported Product JSON-LD block when a later block is comparable', () => {
+    const current = parseCurrentAgentProductSample(
+      CURRENT_FEED_LINE,
+      'product-1'
+    );
+    const google = parseGoogleMerchantProductSample(GOOGLE_XML, 'product-1');
+    const pdp = parsePdpProductSample(
+      `${PDP_HTML.replace('InStock', 'BadAvailability')}${PDP_HTML}`
+    );
+    if (!current || !google || !pdp) {
+      throw new Error('Expected a later comparable Product block to parse.');
+    }
+
+    expect(
+      comparePublicProductParitySurfaces({
+        api: API_SAMPLE,
+        current,
+        google,
+        pdp,
+      })
+    ).toEqual([]);
+  });
+
   it('returns null when a required surface does not expose the sample', () => {
     expect(
       parseCurrentAgentProductSample(CURRENT_FEED_LINE, 'missing-product')

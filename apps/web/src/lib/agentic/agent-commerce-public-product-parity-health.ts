@@ -8,8 +8,8 @@ import {
   parsePdpProductSample,
   selectPublicProductApiSample,
 } from './agent-commerce-public-product-parity-contract';
+import { fetchPublicProductParityResponse } from './agent-commerce-public-product-parity-fetch';
 
-const PARITY_FETCH_TIMEOUT_MS = 5_000;
 type AgentCommercePublicProductParityStatus = 'attention' | 'monitor' | 'ok';
 export type AgentCommercePublicProductParityIssueCode =
   | 'parity_contract_drift'
@@ -88,29 +88,15 @@ function contractIssue(message: string): AgentCommercePublicProductParityIssue {
     severity: 'attention',
   };
 }
-async function fetchPublicResponse(
-  fetcher: typeof fetch,
-  url: string,
-  accept: string
-) {
-  try {
-    const response = await fetcher(url, {
-      cache: 'no-store',
-      headers: { accept },
-      signal: AbortSignal.timeout(PARITY_FETCH_TIMEOUT_MS),
-    });
-    return response.ok ? response : null;
-  } catch (_error) {
-    return null;
-  }
-}
 export async function checkAgentCommercePublicProductParity(
   merchant: ParityMerchant,
   fetcher: typeof fetch = fetch
 ): Promise<AgentCommercePublicProductParityResult> {
   const { baseUrl, surfaces } = buildParitySurfaces(merchant);
-  const apiResponse = await fetchPublicResponse(
-    fetcher,
+  const expectedOrigin = new URL(baseUrl).origin;
+  const fetchSurface = (url: string, accept: string) =>
+    fetchPublicProductParityResponse(fetcher, url, { accept, expectedOrigin });
+  const apiResponse = await fetchSurface(
     surfaces.product_api,
     'application/json'
   );
@@ -153,12 +139,8 @@ export async function checkAgentCommercePublicProductParity(
   }
   const productId = selection.product.id;
   const [currentResponse, googleResponse] = await Promise.all([
-    fetchPublicResponse(fetcher, surfaces.agent_products, 'application/jsonl'),
-    fetchPublicResponse(
-      fetcher,
-      surfaces.google_merchant_xml,
-      'application/xml'
-    ),
+    fetchSurface(surfaces.agent_products, 'application/jsonl'),
+    fetchSurface(surfaces.google_merchant_xml, 'application/xml'),
   ]);
   if (!currentResponse || !googleResponse) {
     return createResult({
@@ -187,7 +169,7 @@ export async function checkAgentCommercePublicProductParity(
     });
   }
   try {
-    if (new URL(current.url).origin !== new URL(baseUrl).origin) {
+    if (new URL(current.url).origin !== expectedOrigin) {
       throw new Error('Product URL origin does not match storefront origin.');
     }
   } catch (_error) {
@@ -200,11 +182,7 @@ export async function checkAgentCommercePublicProductParity(
     });
   }
   const productSurfaces = { ...surfaces, product_page: current.url };
-  const pageResponse = await fetchPublicResponse(
-    fetcher,
-    current.url,
-    'text/html'
-  );
+  const pageResponse = await fetchSurface(current.url, 'text/html');
   if (!pageResponse) {
     return createResult({
       issue: unavailableIssue(
