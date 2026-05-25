@@ -18,6 +18,9 @@ const { mockCategoryPageContent } = vi.hoisted(() => ({
     <div>Category page content</div>
   )),
 }));
+const { mockConnection } = vi.hoisted(() => ({
+  mockConnection: vi.fn(),
+}));
 
 function defaultCategoryPageImplementation({
   currentPage,
@@ -96,6 +99,10 @@ vi.mock('@/lib/cached-data', () => ({
   getCachedMerchant: vi.fn(),
   getCachedMerchantByDomain: vi.fn(),
   getMerchantByIdentifier: vi.fn(),
+}));
+
+vi.mock('next/server', () => ({
+  connection: () => mockConnection(),
 }));
 
 vi.mock('@/lib/normalize-product', () => ({
@@ -533,6 +540,7 @@ describe('category page route', () => {
     mockCategoryPageContent.mockImplementation(() => (
       <div>Category page content</div>
     ));
+    mockConnection.mockClear();
 
     vi.mocked(getCachedMerchant).mockResolvedValue(
       merchant as unknown as Awaited<ReturnType<typeof getCachedMerchant>>
@@ -576,25 +584,26 @@ describe('category page route', () => {
     ]);
   });
 
-  it('renders the catalog skeleton while category content is suspended', () => {
+  it('renders the catalog skeleton while category content is suspended', async () => {
     mockCategoryPageContent.mockImplementation(() => {
       throw new Promise(() => {
         // Keep the category page content suspended behind the page fallback.
       });
     });
 
+    const ui = await CategoryPageRoute({
+      params: Promise.resolve({
+        slug: 'test-store',
+        category: 'smartphones',
+      }),
+      searchParams: Promise.resolve({}),
+    });
+
     render(
-      <Suspense fallback={<div>Route loader fallback</div>}>
-        <CategoryPageRoute
-          params={Promise.resolve({
-            slug: 'test-store',
-            category: 'smartphones',
-          })}
-          searchParams={Promise.resolve({})}
-        />
-      </Suspense>
+      <Suspense fallback={<div>Route loader fallback</div>}>{ui}</Suspense>
     );
 
+    expect(mockConnection).toHaveBeenCalledTimes(1);
     expect(
       screen.getByRole('status', { name: 'Loading product listing' })
     ).toBeInTheDocument();
@@ -605,17 +614,18 @@ describe('category page route', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('renders category content without a trailing metadata marker boundary', () => {
-    render(
-      <CategoryPageRoute
-        params={Promise.resolve({
-          slug: 'test-store',
-          category: 'smartphones',
-        })}
-        searchParams={Promise.resolve({})}
-      />
-    );
+  it('renders category content without a trailing metadata marker boundary', async () => {
+    const ui = await CategoryPageRoute({
+      params: Promise.resolve({
+        slug: 'test-store',
+        category: 'smartphones',
+      }),
+      searchParams: Promise.resolve({}),
+    });
 
+    render(ui);
+
+    expect(mockConnection).toHaveBeenCalledTimes(1);
     expect(
       screen.queryByRole('status', { name: /dynamic metadata marker/i })
     ).not.toBeInTheDocument();
