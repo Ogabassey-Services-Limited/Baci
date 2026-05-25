@@ -9,6 +9,10 @@
       "justification": "Reviewed Android-only list virtualization setting."
     },
     {
+      "path": "app/(tabs)/_layout.tsx",
+      "justification": "Reviewed CSS box-shadow disabling on web while preserving the native no-shadow tab-bar override."
+    },
+    {
       "path": "app/checkout.tsx",
       "justification": "Reviewed Android hardware-back handling, list virtualization, and monospace font selection."
     },
