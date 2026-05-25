@@ -12,7 +12,6 @@ import {
   Text,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import AppKeyboardContainer from '@/components/ui/AppKeyboardContainer';
 import { BRAND } from '@/constants/Colors';
 import { isValidIMEI } from '@/lib/validation/commerce-schemas';
@@ -79,10 +78,7 @@ export function ImeiCheckFormView({
       : null;
 
   return (
-    <SafeAreaView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      edges={['bottom', 'left', 'right']}
-    >
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Stack.Screen
         options={{
           title: 'IMEI Checker',
@@ -200,6 +196,6 @@ export function ImeiCheckFormView({
           </Pressable>
         </View>
       </AppKeyboardContainer>
-    </SafeAreaView>
+    </View>
   );
 }
