@@ -10,6 +10,12 @@ type MetroResolver = (
   platform: string | null
 ) => MetroResolution;
 
+jest.mock('expo/metro-config', () => ({
+  getDefaultConfig: () => ({
+    resolver: {},
+  }),
+}));
+
 const metroConfig = jest.requireActual<{
   resolver: { resolveRequest?: MetroResolver };
 }>('./metro.config.js');
