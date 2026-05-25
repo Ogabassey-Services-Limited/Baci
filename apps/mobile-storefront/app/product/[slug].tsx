@@ -32,11 +32,9 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useShallow } from 'zustand/react/shallow';
 import { FlyToCartParticle } from '@/components/product/FlyToCartParticle';
-import {
-  getFallbackVariantSelections,
-  getFirstImageIndexForColor,
-  getSelectionSyncSignature,
-} from '@/components/product/hooks/product-selection-initialization';
+import { getFallbackVariantSelections } from '@/components/product/hooks/get-fallback-variant-selections';
+import { getFirstImageIndexForColor } from '@/components/product/hooks/get-first-image-index-for-color';
+import { getSelectionSyncSignature } from '@/components/product/hooks/get-selection-sync-signature';
 import { useProductDetailSelection } from '@/components/product/hooks/use-product-detail-selection';
 import { NegotiationModal } from '@/components/product/NegotiationModal';
 import { ProductDetailRouteState } from '@/components/product/ProductDetailRouteState';

@@ -2,11 +2,7 @@ import { isInternalSelectionAxis } from '@/lib/product-internal-selection-axes';
 import { mergeVariantAttributes } from '@/lib/product-normalization';
 import type { Product } from '@/types/product';
 
-function getFirstColorOption(product: Product | null) {
-  if (!product) {
-    return null;
-  }
-
+function getFirstColorOption(product: Product) {
   const imageDrivenColor = Object.keys(product.color_images ?? {}).find(
     Boolean
   );
@@ -29,26 +25,6 @@ function getFirstColorOption(product: Product | null) {
   }
 
   return firstColor?.name ?? null;
-}
-
-export function getFirstImageIndexForColor(args: {
-  color: string | null | undefined;
-  colorImages?: Record<string, string[]>;
-  images: string[];
-}) {
-  const color = args.color?.trim();
-  if (!color) {
-    return 0;
-  }
-
-  const preferredImages = args.colorImages?.[color] ?? [];
-  const preferredImage = preferredImages.find(Boolean);
-  if (!preferredImage) {
-    return 0;
-  }
-
-  const index = args.images.indexOf(preferredImage);
-  return index >= 0 ? index : 0;
 }
 
 export function getFallbackVariantSelections(product: Product | null) {
@@ -81,24 +57,4 @@ export function getFallbackVariantSelections(product: Product | null) {
     color: getFirstColorOption(product),
     storage: mergedVariantAttributes?.storage?.[0] ?? null,
   };
-}
-
-export function getSelectionSyncSignature(product: Product | null) {
-  if (!product) {
-    return '';
-  }
-
-  return JSON.stringify({
-    colorImages: product.color_images ?? null,
-    images: product.images ?? null,
-    colors: product.colors ?? null,
-    id: product.id,
-    variantAttributes: product.variant_attributes ?? null,
-    variants:
-      product.variants?.map((variant) => ({
-        attributes: variant.attributes ?? null,
-        id: variant.id,
-        stock_quantity: variant.stock_quantity ?? null,
-      })) ?? [],
-  });
 }
