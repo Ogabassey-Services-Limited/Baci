@@ -883,6 +883,11 @@ export async function getCachedProduct(
           images,
           status
         ),
+        categories:category_id (
+          id,
+          name,
+          slug
+        ),
         product_categories (
           category_id,
           categories (
@@ -901,7 +906,7 @@ export async function getCachedProduct(
     query = query.eq('slug', productSlug.toLowerCase());
   }
 
-  const { data, error } = await query.single();
+  const { data, error } = await query.maybeSingle();
 
   if (error) {
     console.error('Error fetching product:', error);
