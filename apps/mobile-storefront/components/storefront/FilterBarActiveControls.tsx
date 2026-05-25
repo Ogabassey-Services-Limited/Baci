@@ -34,6 +34,14 @@ function normalizePriceInput(value: string, fallback: number) {
   return Math.min(MAX_PRICE_CEILING, Math.max(0, parsedValue));
 }
 
+function formatMinPriceInput(value: number) {
+  return value > 0 ? value.toString() : '';
+}
+
+function formatMaxPriceInput(value: number) {
+  return value < MAX_PRICE_CEILING ? value.toString() : '';
+}
+
 function getBrandOptions(brands: string[]) {
   const seenBrands = new Set(['All']);
   const dedupedBrands = brands.filter((brand) => {
@@ -61,23 +69,24 @@ export function FilterBarActiveControls({
   minRating,
   onSelectRating,
 }: FilterBarActiveControlsProps) {
-  const [tempMinPrice, setTempMinPrice] = useState(
-    minPrice > 0 ? minPrice.toString() : ''
-  );
-  const [tempMaxPrice, setTempMaxPrice] = useState(
-    maxPrice < MAX_PRICE_CEILING ? maxPrice.toString() : ''
-  );
+  const [tempMinPrice, setTempMinPrice] = useState(formatMinPriceInput(minPrice));
+  const [tempMaxPrice, setTempMaxPrice] = useState(formatMaxPriceInput(maxPrice));
 
   useEffect(() => {
-    setTempMinPrice(minPrice > 0 ? minPrice.toString() : '');
-    setTempMaxPrice(maxPrice < MAX_PRICE_CEILING ? maxPrice.toString() : '');
+    setTempMinPrice(formatMinPriceInput(minPrice));
+    setTempMaxPrice(formatMaxPriceInput(maxPrice));
   }, [minPrice, maxPrice]);
 
   const handlePriceBlur = () => {
-    onPriceChange(
-      normalizePriceInput(tempMinPrice, 0),
-      normalizePriceInput(tempMaxPrice, MAX_PRICE_CEILING)
+    const nextMinPrice = normalizePriceInput(tempMinPrice, 0);
+    const nextMaxPrice = normalizePriceInput(
+      tempMaxPrice,
+      MAX_PRICE_CEILING
     );
+
+    setTempMinPrice(formatMinPriceInput(nextMinPrice));
+    setTempMaxPrice(formatMaxPriceInput(nextMaxPrice));
+    onPriceChange(nextMinPrice, nextMaxPrice);
   };
   const brandOptions = getBrandOptions(brands);
 

@@ -65,26 +65,31 @@ describe('FilterBarActiveControls', () => {
   it('normalizes invalid and empty price bounds on blur', () => {
     const onPriceChange = jest.fn();
     renderControls({ activeFilterType: 'price', onPriceChange });
+    const minInput = screen.getByRole('spinbutton', { name: 'Min' });
+    const maxInput = screen.getByRole('spinbutton', { name: 'Max' });
 
-    fireEvent.changeText(screen.getByRole('spinbutton', { name: 'Min' }), 'abc');
-    fireEvent.changeText(screen.getByRole('spinbutton', { name: 'Max' }), '');
-    fireEvent(screen.getByRole('spinbutton', { name: 'Max' }), 'blur');
+    fireEvent.changeText(minInput, 'abc');
+    fireEvent.changeText(maxInput, '');
+    fireEvent(maxInput, 'blur');
 
     expect(onPriceChange).toHaveBeenCalledWith(0, maxPriceCeiling);
+    expect(minInput).toHaveProp('value', '');
+    expect(maxInput).toHaveProp('value', '');
   });
 
   it('clamps negative and over-ceiling price bounds on blur', () => {
     const onPriceChange = jest.fn();
     renderControls({ activeFilterType: 'price', onPriceChange });
+    const minInput = screen.getByRole('spinbutton', { name: 'Min' });
+    const maxInput = screen.getByRole('spinbutton', { name: 'Max' });
 
-    fireEvent.changeText(screen.getByRole('spinbutton', { name: 'Min' }), '-50');
-    fireEvent.changeText(
-      screen.getByRole('spinbutton', { name: 'Max' }),
-      '3000001'
-    );
-    fireEvent(screen.getByRole('spinbutton', { name: 'Max' }), 'blur');
+    fireEvent.changeText(minInput, '-50');
+    fireEvent.changeText(maxInput, '3000001');
+    fireEvent(maxInput, 'blur');
 
     expect(onPriceChange).toHaveBeenCalledWith(0, maxPriceCeiling);
+    expect(minInput).toHaveProp('value', '');
+    expect(maxInput).toHaveProp('value', '');
   });
 
   it('commits price boundary values on blur', () => {

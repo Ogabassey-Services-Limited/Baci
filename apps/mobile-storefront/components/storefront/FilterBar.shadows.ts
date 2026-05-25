@@ -1,5 +1,4 @@
-import { BRAND, withAlpha } from '@/constants/Colors';
-import { palette } from '@/constants/palette';
+import { BRAND, palette, withAlpha } from '@/constants/Colors';
 
 type FilterBarShadowPlatform = 'web' | 'native';
 

@@ -1,6 +1,5 @@
 import { describe, expect, it } from '@jest/globals';
-import { BRAND, withAlpha } from '@/constants/Colors';
-import { palette } from '@/constants/palette';
+import { BRAND, palette, withAlpha } from '@/constants/Colors';
 import { getFilterBarShadowStyles } from './FilterBar.shadows';
 
 describe('getFilterBarShadowStyles', () => {
