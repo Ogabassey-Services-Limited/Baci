@@ -1,10 +1,3 @@
-/**
- * Baci Mobile Admin - Root Layout
- * 2026 Best Practice: Route Groups Architecture + Network State Monitoring
- */
-
-import { Ionicons } from '@expo/vector-icons';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
 import {
   Inter_400Regular,
   Inter_500Medium,
@@ -16,7 +9,7 @@ import {
   DarkTheme,
   DefaultTheme,
   ThemeProvider,
-} from '@react-navigation/native';
+} from "expo-router/react-navigation";
 import { useFonts } from 'expo-font';
 import { Slot } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
@@ -80,8 +73,6 @@ export default function RootLayout() {
     Inter_600SemiBold,
     Inter_700Bold,
     Inter_800ExtraBold,
-    ...FontAwesome.font,
-    ...Ionicons.font,
   });
 
   useEffect(() => {

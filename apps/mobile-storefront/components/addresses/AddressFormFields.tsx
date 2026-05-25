@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import Colors from '@/constants/Colors';
 import { TextContentTypes } from '@/hooks/use-keyboard';
