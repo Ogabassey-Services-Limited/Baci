@@ -6,7 +6,7 @@ const styles = StyleSheet.create({
     pointerEvents: 'box-none',
   },
   backdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: withAlpha(palette.black, 0.6),
     zIndex: 998,
   },

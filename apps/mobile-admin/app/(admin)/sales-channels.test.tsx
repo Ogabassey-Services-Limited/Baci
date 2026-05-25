@@ -63,8 +63,8 @@ vi.mock('@/components/marketplace/JumiaChannelCard', () => ({
   JumiaChannelCard: () => null,
 }));
 
-vi.mock('@expo/vector-icons', () => ({
-  Ionicons: ({ color, name }: { color?: string; name: string }) =>
+vi.mock('@react-native-vector-icons/ionicons', () => ({
+  default: ({ color, name }: { color?: string; name: string }) =>
     React.createElement('span', {
       'data-color': color,
       'data-testid': `icon-${name}`,
