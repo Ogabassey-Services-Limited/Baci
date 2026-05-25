@@ -95,6 +95,29 @@ describe('ProductMediaGallery', () => {
     ).toBeInTheDocument();
   });
 
+  it('does not render redundant thumbnail controls for a single-image product', async () => {
+    render(
+      <ProductMediaGallery
+        onSelectImage={vi.fn()}
+        productData={buildProductData({
+          images: ['https://example.com/img-1.jpg'],
+        })}
+        selectedCondition="new"
+        selectedImage={0}
+      />,
+    );
+
+    expect(screen.getByAltText('Test Product')).toBeInTheDocument();
+
+    await act(async () => {
+      vi.advanceTimersByTime(1200);
+    });
+
+    expect(
+      screen.queryByRole('button', { name: 'View image 1' }),
+    ).not.toBeInTheDocument();
+  });
+
   it('activates thumbnail controls on pointer interaction and forwards image selection', async () => {
     const onSelectImage = vi.fn();
 

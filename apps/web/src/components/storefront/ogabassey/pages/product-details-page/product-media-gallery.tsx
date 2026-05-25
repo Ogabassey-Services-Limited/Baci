@@ -45,6 +45,7 @@ export function ProductMediaGallery({
       ))}
     </div>
   );
+  const hasMultipleImages = productData.images.length > 1;
 
   return (
     <div className="space-y-6 lg:col-span-5">
@@ -67,36 +68,38 @@ export function ProductMediaGallery({
         </div>
       </div>
 
-      <DeferredShellFeature fallback={thumbnailFallback} timeoutMs={1200}>
-        <div
-          className="hide-scrollbar flex gap-4 overflow-x-auto pb-2"
-          aria-label="Product media thumbnails"
-        >
-          {productData.images.map((image, index) => (
-            <button
-              key={`${image}-${index}`}
-              type="button"
-              onClick={() => onSelectImage(index)}
-              aria-label={`View image ${index + 1}`}
-              className={`relative flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gray-50 p-0 transition-all active:scale-95 ${
-                selectedImage === index
-                  ? 'border-2 border-store-primary ring-2 ring-store-primary/20'
-                  : 'border-2 border-transparent md:hover:border-gray-200'
-              }`}
-            >
-              <Image
-                src={image}
-                alt={`View ${index + 1}`}
-                fill
-                className="object-cover"
-                sizes="96px"
-                loading="lazy"
-                quality={50}
-              />
-            </button>
-          ))}
-        </div>
-      </DeferredShellFeature>
+      {hasMultipleImages ? (
+        <DeferredShellFeature fallback={thumbnailFallback} timeoutMs={1200}>
+          <div
+            className="hide-scrollbar flex gap-4 overflow-x-auto pb-2"
+            aria-label="Product media thumbnails"
+          >
+            {productData.images.map((image, index) => (
+              <button
+                key={`${image}-${index}`}
+                type="button"
+                onClick={() => onSelectImage(index)}
+                aria-label={`View image ${index + 1}`}
+                className={`relative flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gray-50 p-0 transition-all active:scale-95 ${
+                  selectedImage === index
+                    ? 'border-2 border-store-primary ring-2 ring-store-primary/20'
+                    : 'border-2 border-transparent md:hover:border-gray-200'
+                }`}
+              >
+                <Image
+                  src={image}
+                  alt={`View ${index + 1}`}
+                  fill
+                  className="object-cover"
+                  sizes="96px"
+                  loading="lazy"
+                  quality={50}
+                />
+              </button>
+            ))}
+          </div>
+        </DeferredShellFeature>
+      ) : null}
     </div>
   );
 }
