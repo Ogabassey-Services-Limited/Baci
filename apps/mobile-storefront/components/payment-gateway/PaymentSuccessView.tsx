@@ -1,7 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Stack } from 'expo-router';
 import { ActivityIndicator, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   PAYMENT_KINDS,
   type PaymentKind,
@@ -31,9 +30,7 @@ export function PaymentSuccessView({
   paymentKind,
 }: PaymentSuccessViewProps) {
   return (
-    <SafeAreaView
-      style={[styles.container, { backgroundColor: colors.background }]}
-    >
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Stack.Screen options={{ headerShown: false }} />
       <View
         accessibilityLiveRegion="polite"
@@ -66,6 +63,6 @@ export function PaymentSuccessView({
           style={styles.activityIndicator}
         />
       </View>
-    </SafeAreaView>
+    </View>
   );
 }

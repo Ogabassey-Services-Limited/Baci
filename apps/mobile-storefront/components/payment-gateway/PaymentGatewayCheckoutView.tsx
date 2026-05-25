@@ -8,7 +8,6 @@ import {
   Text,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import { paymentGatewayStyles as styles } from '@/components/payment-gateway/payment-gateway.styles';
 import type Colors from '@/constants/Colors';
@@ -61,10 +60,7 @@ export function PaymentGatewayCheckoutView({
   webViewRef,
 }: PaymentGatewayCheckoutViewProps) {
   return (
-    <SafeAreaView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      edges={['bottom']}
-    >
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Stack.Screen
         options={{
           headerLeft: () => (
@@ -175,6 +171,6 @@ export function PaymentGatewayCheckoutView({
       ) : null}
 
       <ToastComponent />
-    </SafeAreaView>
+    </View>
   );
 }
