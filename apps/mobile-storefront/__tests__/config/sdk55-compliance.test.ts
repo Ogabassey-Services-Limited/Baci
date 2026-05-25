@@ -3,12 +3,17 @@ import path from 'node:path';
 import appConfig from '../../app.config';
 
 const ROOT = path.resolve(__dirname, '../..');
+const EXCLUDED_SOURCE_DIRECTORIES = new Set(['__tests__', 'test-utils']);
 
 function findTypeScriptSourceFiles(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
     const entryPath = path.join(directory, entry.name);
 
     if (entry.isDirectory()) {
+      if (EXCLUDED_SOURCE_DIRECTORIES.has(entry.name)) {
+        return [];
+      }
+
       return findTypeScriptSourceFiles(entryPath);
     }
 
