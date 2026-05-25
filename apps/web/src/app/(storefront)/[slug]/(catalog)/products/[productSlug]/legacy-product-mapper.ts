@@ -88,6 +88,18 @@ export interface LegacyCachedProduct {
   images?: RawProductImage[] | null;
   product_variants?: StorefrontProductVariants;
   has_condition_offers?: boolean | null;
+  categories?:
+    | {
+        id: string;
+        name: string;
+        slug: string;
+      }
+    | Array<{
+        id: string;
+        name: string;
+        slug: string;
+      }>
+    | null;
   offers?:
     | {
         id: string;
@@ -120,10 +132,15 @@ export function mapLegacyCachedProductToProduct(
   cachedProduct: LegacyCachedProduct,
   merchantId: string
 ): Product {
-  const rawPrimaryCategory = cachedProduct.product_categories?.[0]?.categories;
-  const primaryCategory = Array.isArray(rawPrimaryCategory)
-    ? rawPrimaryCategory[0]
-    : rawPrimaryCategory;
+  const rawCanonicalCategory = cachedProduct.categories;
+  const canonicalCategory = Array.isArray(rawCanonicalCategory)
+    ? rawCanonicalCategory[0]
+    : rawCanonicalCategory;
+  const rawFallbackCategory = cachedProduct.product_categories?.[0]?.categories;
+  const fallbackCategory = Array.isArray(rawFallbackCategory)
+    ? rawFallbackCategory[0]
+    : rawFallbackCategory;
+  const primaryCategory = canonicalCategory ?? fallbackCategory;
   const normalizedImages = normalizeProductImages(
     cachedProduct.name,
     cachedProduct.images
