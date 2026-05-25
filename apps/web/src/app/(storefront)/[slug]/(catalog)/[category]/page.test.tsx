@@ -601,21 +601,11 @@ describe('category page route', () => {
     expect(screen.queryByText('Route loader fallback')).not.toBeInTheDocument();
     expect(screen.queryByText('Category page content')).not.toBeInTheDocument();
     expect(
-      screen.getByRole('status', { name: /dynamic metadata marker/i })
-    ).toBeInTheDocument();
-
-    const loading = screen.getByRole('status', {
-      name: 'Loading product listing',
-    });
-    const marker = screen.getByRole('status', {
-      name: /dynamic metadata marker/i,
-    });
-    expect(
-      loading.compareDocumentPosition(marker) & Node.DOCUMENT_POSITION_FOLLOWING
-    ).toBeTruthy();
+      screen.queryByRole('status', { name: /dynamic metadata marker/i })
+    ).not.toBeInTheDocument();
   });
 
-  it('marks runtime metadata as intentional dynamic content', () => {
+  it('renders category content without a trailing metadata marker boundary', () => {
     render(
       <CategoryPageRoute
         params={Promise.resolve({
@@ -627,15 +617,9 @@ describe('category page route', () => {
     );
 
     expect(
-      screen.getByRole('status', { name: /dynamic metadata marker/i })
-    ).toBeInTheDocument();
-    expect(
-      screen
-        .getByText('Category page content')
-        .compareDocumentPosition(
-          screen.getByRole('status', { name: /dynamic metadata marker/i })
-        ) & Node.DOCUMENT_POSITION_FOLLOWING
-    ).toBeTruthy();
+      screen.queryByRole('status', { name: /dynamic metadata marker/i })
+    ).not.toBeInTheDocument();
+    expect(screen.getByText('Category page content')).toBeInTheDocument();
   });
 
   it('renders curated smartphone hub content when merchant-authored SEO is absent', async () => {
