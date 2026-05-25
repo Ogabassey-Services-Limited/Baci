@@ -115,11 +115,13 @@ export default function RootLayout({
 
         {/*
           DNS prefetch hints for third-party origins
-          Using dns-prefetch instead of preconnect to avoid "unused preconnect" warnings
-          dns-prefetch is less aggressive but still helps with connection setup
+          The OgaBassey CDN is also preconnected here because streamed
+          storefront route hints arrive after the root document head closes.
           Note: Supabase URL is handled via env vars, no hardcoding needed
         */}
         <link rel="dns-prefetch" href="https://res.cloudinary.com" />
+        <link rel="dns-prefetch" href="https://cdn.ogabassey.com" />
+        <link rel="preconnect" href="https://cdn.ogabassey.com" />
       </head>
       <body className={inter.variable} suppressHydrationWarning>
         {/* Skip link for accessibility - allows keyboard users to bypass navigation */}
