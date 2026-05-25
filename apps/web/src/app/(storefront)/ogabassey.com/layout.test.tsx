@@ -46,6 +46,7 @@ import OgabasseyDomainLayout, {
   generateMetadata,
   generateViewport,
 } from '@/app/(storefront)/ogabassey.com/layout';
+import { OGABASSEY_CDN_ORIGIN } from '@/components/storefront/ogabassey/config/storefront-origins';
 
 describe('OgabasseyDomainLayout', () => {
   beforeEach(() => {
@@ -74,8 +75,8 @@ describe('OgabasseyDomainLayout', () => {
     ).toBeInTheDocument();
     unmount();
     await expect(props?.params).resolves.toEqual({ slug: 'ogabassey.com' });
-    expect(mockPrefetchDNS).not.toHaveBeenCalled();
-    expect(mockPreconnect).not.toHaveBeenCalled();
+    expect(mockPrefetchDNS).toHaveBeenCalledWith(OGABASSEY_CDN_ORIGIN);
+    expect(mockPreconnect).toHaveBeenCalledWith(OGABASSEY_CDN_ORIGIN);
     expect(mockPreload).not.toHaveBeenCalled();
   });
 

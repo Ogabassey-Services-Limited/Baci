@@ -1,5 +1,4 @@
 import { render, screen } from '@testing-library/react';
-import { renderToStaticMarkup } from 'react-dom/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { mockRootDynamicBody } = vi.hoisted(() => ({
@@ -66,25 +65,22 @@ describe('RootLayout', () => {
     expect(screen.getByRole('main')).toHaveTextContent('Main content');
   });
 
-  it('emits storefront CDN connection hints in the initial document head', () => {
-    const document = new DOMParser().parseFromString(
-      renderToStaticMarkup(
-        <RootLayout>
-          <main>Main content</main>
-        </RootLayout>
-      ),
-      'text/html'
+  it('keeps tenant-specific CDN hints out of the global document head', () => {
+    const { container } = render(
+      <RootLayout>
+        <main>Main content</main>
+      </RootLayout>
     );
 
     expect(
-      document.head.querySelector(
+      container.querySelector(
         'link[rel="dns-prefetch"][href="https://cdn.ogabassey.com"]'
       )
-    ).not.toBeNull();
+    ).toBeNull();
     expect(
-      document.head.querySelector(
+      container.querySelector(
         'link[rel="preconnect"][href="https://cdn.ogabassey.com"]'
       )
-    ).not.toBeNull();
+    ).toBeNull();
   });
 });

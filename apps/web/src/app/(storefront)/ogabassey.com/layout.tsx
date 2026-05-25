@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
+import * as ReactDOM from 'react-dom';
 import StorefrontLayout, {
   generateMetadata as generateStorefrontLayoutMetadata,
   generateViewport,
@@ -9,6 +10,7 @@ import {
   HERO_MOBILE_LCP_FALLBACK_SRC,
   HERO_MOBILE_LCP_SRC,
 } from '@/components/storefront/ogabassey/components/hero-data';
+import { OGABASSEY_CDN_ORIGIN } from '@/components/storefront/ogabassey/config/storefront-origins';
 import { OGABASSEY_URL } from '@/config/ogabassey';
 
 const OGABASSEY_DOMAIN_IDENTIFIER = new URL(OGABASSEY_URL).hostname;
@@ -36,6 +38,9 @@ export default function OgabasseyDomainLayout({
 }: {
   children: ReactNode;
 }) {
+  ReactDOM.prefetchDNS(OGABASSEY_CDN_ORIGIN);
+  ReactDOM.preconnect(OGABASSEY_CDN_ORIGIN);
+
   return (
     <StorefrontLayout
       loadingFallback={
