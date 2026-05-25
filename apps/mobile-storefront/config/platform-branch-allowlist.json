@@ -33,6 +33,10 @@
       "justification": "Reviewed platform-specific notice shadow/elevation styling."
     },
     {
+      "path": "components/addresses/styles.ts",
+      "justification": "Reviewed CSS box-shadow on web while preserving native address surface shadow styling."
+    },
+    {
       "path": "components/cart/checkout.styles.ts",
       "justification": "Reviewed platform-specific checkout bottom spacing."
     },
@@ -85,6 +89,10 @@
       "justification": "Reviewed Android back-button behavior for drawer dismissal."
     },
     {
+      "path": "components/orders/OrdersListItem.tsx",
+      "justification": "Reviewed status-colored CSS box-shadow on web while preserving native order-card shadow styling."
+    },
+    {
       "path": "components/negotiation/useNegotiationModalController.ts",
       "justification": "Reviewed web guard for native evidence modules and iOS-only haptic feedback."
     },
@@ -101,6 +109,10 @@
       "justification": "Reviewed web guard for native image picker and haptics loading."
     },
     {
+      "path": "components/product/VariantSelector.tsx",
+      "justification": "Reviewed CSS box-shadow on web while preserving native variant-swatch shadow styling."
+    },
+    {
       "path": "components/negotiation/useNegotiationModalController.ts",
       "justification": "Reviewed web/native guards around haptics and media picker interaction flow."
     },
@@ -109,8 +121,16 @@
       "justification": "Reviewed iOS safe-area top padding behavior for receipt preview."
     },
     {
+      "path": "components/storefront/FilterBar.styles.ts",
+      "justification": "Reviewed web box-shadow selection that preserves existing native filter controls shadows."
+    },
+    {
       "path": "components/storefront/SearchDropdown.tsx",
       "justification": "Reviewed platform-specific dropdown shadow/elevation styling."
+    },
+    {
+      "path": "components/storefront/UtilityPanelCategoryItem.tsx",
+      "justification": "Reviewed web box-shadow selection for the active utility icon while preserving native shadow styling."
     },
     {
       "path": "components/ui/Button.tsx",
