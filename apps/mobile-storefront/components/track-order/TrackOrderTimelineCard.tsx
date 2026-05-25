@@ -1,4 +1,6 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons, {
+  type IoniconsIconName,
+} from '@react-native-vector-icons/ionicons';
 import { StyleSheet, Text, View } from 'react-native';
 import { BRAND, RADIUS, SPACING } from '@/constants/Colors';
 
@@ -31,10 +33,7 @@ interface TrackOrderTimelineCardProps {
   timeline: TrackOrderTimelineEvent[];
 }
 
-const TIMELINE_ICONS: Record<
-  TrackOrderTimelineIcon,
-  keyof typeof Ionicons.glyphMap
-> = {
+const TIMELINE_ICONS: Record<TrackOrderTimelineIcon, IoniconsIconName> = {
   order: 'receipt-outline',
   payment: 'card-outline',
   processing: 'cog-outline',

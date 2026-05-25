@@ -9,7 +9,7 @@ import {
   getCustomerOrderStatusMeta,
   type CustomerOrderStatusKey,
 } from '@/lib/customer-order-status';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { TrackOrderTimelineCard } from '@/components/track-order/TrackOrderTimelineCard';
 import Constants from 'expo-constants';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
@@ -255,7 +255,6 @@ export default function TrackOrderScreen() {
           gestureEnabled: true,
         }}
       />
-
       <SafeAreaView
         style={[styles.container, { backgroundColor: colors.background }]}
       >

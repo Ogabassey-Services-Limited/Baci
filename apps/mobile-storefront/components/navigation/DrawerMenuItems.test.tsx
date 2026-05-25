@@ -1,12 +1,13 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { DrawerMenuItems } from './DrawerMenuItems';
 
-jest.mock('@expo/vector-icons', () => {
+jest.mock('@react-native-vector-icons/ionicons', () => {
   const React = jest.requireActual('react');
   const { Text } = jest.requireActual('react-native');
 
   return {
-    Ionicons: ({ name }: { name: string }) =>
+    __esModule: true,
+    default: ({ name }: { name: string }) =>
       React.createElement(Text, null, name),
   };
 });
