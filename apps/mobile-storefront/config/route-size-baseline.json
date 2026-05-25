@@ -67,11 +67,6 @@
       "justification": "Existing oversized crypto-payment route baseline; shrink or remove this entry as the route is modularized."
     },
     {
-      "path": "app/bank-transfer/index.tsx",
-      "lineCount": 386,
-      "justification": "Existing oversized bank-transfer route baseline; shrink or remove this entry as the route is modularized."
-    },
-    {
       "path": "app/faq/index.tsx",
       "lineCount": 355,
       "justification": "Existing oversized FAQ route baseline; shrink or remove this entry as the route is modularized."
