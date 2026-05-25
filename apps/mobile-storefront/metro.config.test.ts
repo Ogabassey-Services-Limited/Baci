@@ -12,7 +12,7 @@ type MetroResolver = (
 
 const metroConfig = jest.requireActual<{
   resolver: { resolveRequest?: MetroResolver };
-}>('../../metro.config.js');
+}>('./metro.config.js');
 
 function getResolver(): MetroResolver {
   const resolveRequest = metroConfig.resolver.resolveRequest;
