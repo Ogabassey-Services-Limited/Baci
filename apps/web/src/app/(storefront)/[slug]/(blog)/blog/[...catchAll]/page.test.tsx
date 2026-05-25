@@ -1,3 +1,10 @@
+import {
+  Children,
+  isValidElement,
+  type ReactElement,
+  type ReactNode,
+  Suspense,
+} from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockNotFound = vi.fn(() => {
@@ -20,7 +27,6 @@ const mockSelect = vi.fn();
 const mockFrom = vi.fn();
 const mockCreateClient = vi.fn();
 const mockCookies = vi.fn();
-const mockConnection = vi.fn(async () => undefined);
 
 vi.mock('next/headers', () => ({
   cookies: () => mockCookies(),
@@ -30,10 +36,6 @@ vi.mock('next/navigation', () => ({
   notFound: () => mockNotFound(),
   permanentRedirect: (url: string) => mockPermanentRedirect(url),
   redirect: (url: string) => mockRedirect(url),
-}));
-
-vi.mock('next/server', () => ({
-  connection: () => mockConnection(),
 }));
 
 vi.mock('@/lib/cached-data', () => ({
@@ -68,6 +70,8 @@ vi.mock(
   })
 );
 
+import { StorefrontDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker';
+import { resolveBlogCatchAllRoute } from './blog-catch-all-resolution';
 import BlogCatchAllPage from './page';
 
 describe('storefront blog catch-all route', () => {
@@ -94,7 +98,27 @@ describe('storefront blog catch-all route', () => {
     mockMaybeSingle.mockResolvedValue({ data: null });
   });
 
-  it('waits for a request before redirecting dated blog permalinks', async () => {
+  it('renders the dynamic metadata marker before the request-time resolver', () => {
+    const element = BlogCatchAllPage({
+      params: Promise.resolve({
+        slug: 'ogabassey.com',
+        catchAll: ['category', 'legacy-post'],
+      }),
+    });
+
+    expect(isValidElement(element)).toBe(true);
+    const children = Children.toArray(
+      (element as ReactElement<{ children: ReactNode }>).props.children
+    );
+
+    expect(children).toHaveLength(2);
+    expect((children[0] as ReactElement).type).toBe(
+      StorefrontDynamicMetadataMarker
+    );
+    expect((children[1] as ReactElement).type).toBe(Suspense);
+  });
+
+  it('redirects dated blog permalinks', async () => {
     mockGetCachedBlogPost.mockResolvedValue({
       merchant: {
         slug: 'ogabassey',
@@ -106,7 +130,7 @@ describe('storefront blog catch-all route', () => {
     });
 
     await expect(
-      BlogCatchAllPage({
+      resolveBlogCatchAllRoute({
         params: Promise.resolve({
           slug: 'ogabassey.com',
           catchAll: [
@@ -126,7 +150,6 @@ describe('storefront blog catch-all route', () => {
       'is-the-redmi-a5-the-best-budget-phone-of-2025',
       false
     );
-    expect(mockConnection).toHaveBeenCalledOnce();
     expect(mockGetCachedMerchantByDomain).not.toHaveBeenCalled();
   });
 
@@ -134,7 +157,7 @@ describe('storefront blog catch-all route', () => {
     mockGetCachedBlogPost.mockResolvedValue(null);
 
     await expect(
-      BlogCatchAllPage({
+      resolveBlogCatchAllRoute({
         params: Promise.resolve({
           slug: 'ogabassey.com',
           catchAll: ['2025', '04', '10', 'missing-post'],
@@ -143,6 +166,20 @@ describe('storefront blog catch-all route', () => {
     ).rejects.toThrow('NEXT_NOT_FOUND');
 
     expect(mockPermanentRedirect).not.toHaveBeenCalled();
+  });
+
+  it('rejects WordPress dump probes before merchant or database lookup', async () => {
+    await expect(
+      resolveBlogCatchAllRoute({
+        params: Promise.resolve({
+          slug: 'ogabassey.com',
+          catchAll: ['wp-content', 'uploads', 'database.sql'],
+        }),
+      })
+    ).rejects.toThrow('NEXT_NOT_FOUND');
+
+    expect(mockGetCachedMerchantByDomain).not.toHaveBeenCalled();
+    expect(mockCreateClient).not.toHaveBeenCalled();
   });
 
   it('keeps redirecting category-prefixed legacy blog URLs to canonical public URL', async () => {
@@ -156,7 +193,7 @@ describe('storefront blog catch-all route', () => {
     });
 
     await expect(
-      BlogCatchAllPage({
+      resolveBlogCatchAllRoute({
         params: Promise.resolve({
           slug: 'ogabassey.com',
           catchAll: ['laptops', 'snapdragon-x2-series-on-windows'],
@@ -183,7 +220,7 @@ describe('storefront blog catch-all route', () => {
     });
 
     await expect(
-      BlogCatchAllPage({
+      resolveBlogCatchAllRoute({
         params: Promise.resolve({
           slug: 'ogabassey.com',
           catchAll: ['laptops', 'snapdragon_x2_series_on_windows'],
@@ -212,7 +249,7 @@ describe('storefront blog catch-all route', () => {
     });
 
     await expect(
-      BlogCatchAllPage({
+      resolveBlogCatchAllRoute({
         params: Promise.resolve({
           slug: 'ogabassey.com',
           catchAll: ['laptops', 'nonexistent-post-slug'],

@@ -152,11 +152,11 @@ describe('storefront blog post page', () => {
       screen.queryByText('Blog post page content')
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole('status', { name: /dynamic metadata marker/i })
-    ).not.toBeInTheDocument();
+      screen.getByRole('status', { name: /dynamic metadata marker/i })
+    ).toBeInTheDocument();
   });
 
-  it('does not add a metadata marker beside request-time blog content', () => {
+  it('adds a metadata marker beside request-time blog content', () => {
     render(
       <BlogPostPage
         params={Promise.resolve({
@@ -168,8 +168,8 @@ describe('storefront blog post page', () => {
 
     expect(screen.getByText('Blog post page content')).toBeInTheDocument();
     expect(
-      screen.queryByRole('status', { name: /dynamic metadata marker/i })
-    ).not.toBeInTheDocument();
+      screen.getByRole('status', { name: /dynamic metadata marker/i })
+    ).toBeInTheDocument();
   });
 
   it('resolves public metadata without consulting draft request state', async () => {
