@@ -1,11 +1,4 @@
-/**
- * DrawerMenu Component
- * Slide-in navigation sidebar matching web MobileMenu design
- *
- * Design: Clean, minimal aesthetic matching web storefront
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons";
 import Constants from 'expo-constants';
 import { router, usePathname } from 'expo-router';
 import { useEffect } from 'react';

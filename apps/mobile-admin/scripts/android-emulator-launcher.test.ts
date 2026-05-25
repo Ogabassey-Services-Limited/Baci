@@ -218,7 +218,8 @@ describe('Android emulator launcher', () => {
     expect(launcher).toContain('AVD_DIR="${ANDROID_AVD_HOME:-$HOME/.android/avd}/${AVD_NAME}.avd"');
     expect(launcher).toContain('remove_stale_avd_locks');
     expect(launcher).toContain("Removed stale AVD lock");
-    expect(launcher).toContain("find \"$AVD_DIR\" -maxdepth 1 -type f -name '*.lock' -print0");
+    expect(launcher).toContain("rm -rf \"$lock_file\"");
+    expect(launcher).toContain("find \"$AVD_DIR\" -maxdepth 1 -name '*.lock' -print0");
     expect(launcher).toContain("'-port'");
     expect(launcher).toContain("'-dns-server'");
     expect(launcher).toContain('run_with_timeout');
