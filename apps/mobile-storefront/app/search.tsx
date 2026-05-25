@@ -1,31 +1,17 @@
-import Ionicons, { type IoniconsIconName } from "@react-native-vector-icons/ionicons";
-import { FlashList } from '@shopify/flash-list';
 import { router, Stack } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  Keyboard,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-// OfflineNotice removed as it was unused.
-import { ProductCard } from '@/components/storefront/ProductCard';
+import { Keyboard } from 'react-native';
+import SearchScreenView from '@/components/search/SearchScreenView';
 import { useColorScheme } from '@/components/useColorScheme';
-import Colors, { BRAND } from '@/constants/Colors';
+import Colors from '@/constants/Colors';
 import { useCategories, useProductBrands, useProducts } from '@/hooks';
 import { useNetworkState } from '@/hooks/use-network-state';
 import { resolveSelectedCategoryId } from '@/lib/product-filter-options';
 import { syncStorage as storage } from '@/lib/storage';
 import type { Product } from '@/types/product';
 
-// 2026 Best Practice: Persist search history in storage
 const SEARCH_HISTORY_KEY = 'search_history';
 const MAX_SEARCH_HISTORY = 10;
-
 const DEFAULT_SEARCHES = [
   'iPhone 15 Pro',
   'Samsung Galaxy S24',
@@ -33,18 +19,6 @@ const DEFAULT_SEARCHES = [
   'MacBook Air',
   'Apple Watch',
 ];
-
-const CATEGORY_ICONS: Record<string, IoniconsIconName> = {
-  phones: 'phone-portrait-outline',
-  gaming: 'game-controller-outline',
-  accessories: 'headset-outline',
-  laptops: 'laptop-outline',
-  audio: 'musical-notes-outline',
-  tablets: 'tablet-portrait-outline',
-  smartwatches: 'watch-outline',
-};
-
-import { FilterBar } from '@/components/storefront/FilterBar';
 
 function dedupeRecentSearches(searches: string[]) {
   const seen = new Set<string>();
@@ -61,18 +35,12 @@ function dedupeRecentSearches(searches: string[]) {
 }
 
 export default function SearchScreen() {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
-
-  // 2026 Best Practice: Network state monitoring for offline UX
+  const colors = Colors[useColorScheme() ?? 'light'];
   const { isOnline } = useNetworkState();
-
   const [query, setQuery] = useState('');
   const activeQuery = query.trim();
   const [debouncedQuery, setDebouncedQuery] = useState(activeQuery);
   const hasSearchQuery = debouncedQuery.length >= 2;
-
-  // Filter State
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [minPrice, setMinPrice] = useState(0);
   const [maxPrice, setMaxPrice] = useState(0);
@@ -80,15 +48,8 @@ export default function SearchScreen() {
   const [selectedCondition, setSelectedCondition] = useState('All');
   const [minRating, setMinRating] = useState(0);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-
-  // 2026 Best Practice: Persist search history
   const [recentSearches, setRecentSearches] =
     useState<string[]>(DEFAULT_SEARCHES);
-
-  // Track the in-flight debounce timer so manual commits (search submit) can
-  // cancel it before writing the final value. Without this, a pending
-  // setTimeout from a prior keystroke could fire AFTER commitSearchQuery and
-  // overwrite debouncedQuery with a stale mid-typing value.
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -106,77 +67,60 @@ export default function SearchScreen() {
   }, [activeQuery]);
 
   useEffect(() => {
-    const loadSearchHistory = () => {
+    try {
+      const saved = storage.getItem(SEARCH_HISTORY_KEY);
+      if (!saved) return;
+
+      let parsed: unknown;
       try {
-        const saved = storage.getItem(SEARCH_HISTORY_KEY);
-        if (saved) {
-          // 2026 Critical Fix: Validate JSON.parse result with proper type guard
-          let parsed: unknown;
-          try {
-            parsed = JSON.parse(saved);
-          } catch {
-            // Invalid JSON, use defaults
-            return;
-          }
-          // BUG-2-003 FIX: Allow empty arrays, remove length check
-          // Type guard: ensure parsed is string array
-          if (
-            Array.isArray(parsed) &&
-            parsed.every((item): item is string => typeof item === 'string')
-          ) {
-            setRecentSearches(dedupeRecentSearches(parsed));
-          }
-        }
+        parsed = JSON.parse(saved);
       } catch {
-        // Use defaults on error
+        return;
       }
-    };
-    loadSearchHistory();
+
+      if (
+        Array.isArray(parsed) &&
+        parsed.every((item): item is string => typeof item === 'string')
+      ) {
+        setRecentSearches(dedupeRecentSearches(parsed));
+      }
+    } catch {
+      // Retain defaults when device storage is unavailable.
+    }
   }, []);
+
+  const saveToHistory = (searchTerm: string) => {
+    if (!searchTerm.trim() || searchTerm.length < 2) return;
+
+    setRecentSearches((previousSearches) => {
+      const filtered = previousSearches.filter(
+        (search) => search.toLowerCase() !== searchTerm.toLowerCase()
+      );
+      const updated = [searchTerm, ...filtered].slice(0, MAX_SEARCH_HISTORY);
+
+      try {
+        storage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(updated));
+      } catch {
+        // Search remains usable if persistence fails.
+      }
+
+      return updated;
+    });
+  };
 
   const commitSearchQuery = (value: string) => {
     const trimmedValue = value.trim();
-
-    // Cancel any pending debounce so it can't overwrite the committed value
-    // with a stale mid-typing snapshot.
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
       debounceTimerRef.current = null;
     }
 
-    // Keep the visible input text aligned with the value that was actually
-    // searched — otherwise "  samsung  " stays padded in the TextInput
-    // while results are correctly showing the trimmed search.
     setQuery(trimmedValue);
     setDebouncedQuery(trimmedValue);
-
     if (trimmedValue.length >= 2) {
       saveToHistory(trimmedValue);
     }
-
     Keyboard.dismiss();
-  };
-
-  // Save search to history
-  const saveToHistory = (searchTerm: string) => {
-    if (!searchTerm.trim() || searchTerm.length < 2) return;
-
-    setRecentSearches((prev) => {
-      // Remove duplicates and add to front
-      const filtered = prev.filter(
-        (s) => s.toLowerCase() !== searchTerm.toLowerCase()
-      );
-      const updated = [searchTerm, ...filtered].slice(0, MAX_SEARCH_HISTORY);
-
-      // Persist to storage
-      try {
-        storage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(updated));
-      } catch {
-        // Ignore storage errors
-      }
-
-      return updated;
-    });
   };
 
   const { data: categories = [] } = useCategories();
@@ -184,7 +128,6 @@ export default function SearchScreen() {
     selectedCategory,
     categories
   );
-
   const { products, isLoading } = useProducts({
     search: hasSearchQuery ? debouncedQuery : undefined,
     limit: 20,
@@ -203,34 +146,13 @@ export default function SearchScreen() {
     maxPrice: maxPrice > 0 ? maxPrice : undefined,
     minRating: minRating > 0 ? minRating : undefined,
   });
-
-  // Derived data for filters (mocking for now)
-  // Derive brand names for filter
-  const categoryNames = ['All', ...categories.map((c) => c.name)];
+  const categoryNames = ['All', ...categories.map((category) => category.name)];
 
   useEffect(() => {
     if (selectedBrand !== 'All' && !brandNames.includes(selectedBrand)) {
       setSelectedBrand('All');
     }
   }, [brandNames, selectedBrand]);
-
-  const handleRecentSearch = (search: string) => {
-    setQuery(search);
-    saveToHistory(search);
-    Keyboard.dismiss();
-  };
-
-  const handleCategoryPress = (slug: string) => {
-    // 2026 Critical Fix: Use proper Href type for type-safe navigation
-    router.push({ pathname: '/category/[slug]', params: { slug } });
-  };
-
-  const handleProductPress = (product: Product) => {
-    if (hasSearchQuery) {
-      saveToHistory(debouncedQuery);
-    }
-    router.push(`/product/${product.slug}`);
-  };
 
   const handleCategorySelect = (category: string) => {
     setSelectedCategory(category);
@@ -241,319 +163,57 @@ export default function SearchScreen() {
     setMinRating(0);
   };
 
-  const renderSearchResults = () => {
-    // 2026 Best Practice: Show offline message when searching without internet
-    if (!isOnline && hasSearchQuery) {
-      return (
-        <View style={styles.emptyContainer}>
-          <Ionicons
-            name="cloud-offline-outline"
-            size={64}
-            color={colors.textSecondary}
-          />
-          <Text style={[styles.emptyTitle, { color: colors.text }]}>
-            You're offline
-          </Text>
-          <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-            Connect to the internet to search products
-          </Text>
-        </View>
-      );
+  const handleProductPress = (product: Product) => {
+    if (hasSearchQuery) {
+      saveToHistory(debouncedQuery);
     }
-
-    if (isLoading) {
-      return (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={BRAND.primary} />
-          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-            Searching...
-          </Text>
-        </View>
-      );
-    }
-
-    if (products.length === 0 && hasSearchQuery) {
-      return (
-        <View style={styles.emptyContainer}>
-          <Ionicons
-            name="search-outline"
-            size={64}
-            color={colors.textSecondary}
-          />
-          <Text style={[styles.emptyTitle, { color: colors.text }]}>
-            No results found
-          </Text>
-          <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-            Try searching for something else
-          </Text>
-        </View>
-      );
-    }
-
-    return (
-      <FlashList
-        data={products}
-        renderItem={({ item, index }) => (
-          <View
-            style={[
-              styles.productWrapper,
-              index % 2 === 0 ? styles.productLeft : styles.productRight,
-            ]}
-          >
-            <ProductCard
-              product={item}
-              onPress={() => handleProductPress(item)}
-            />
-          </View>
-        )}
-        keyExtractor={(item) => item.id}
-        numColumns={2}
-        contentContainerStyle={styles.resultsContainer}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
-      />
-    );
+    router.push(`/product/${product.slug}`);
   };
-
-  const renderSuggestions = () => (
-    <View style={styles.suggestionsContainer}>
-      <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>
-          Recent Searches
-        </Text>
-        <View style={styles.recentList}>
-          {recentSearches.map((search) => (
-            <Pressable
-              key={`${search}-${search.toLowerCase()}`}
-              style={[styles.recentItem, { borderBottomColor: colors.border }]}
-              onPress={() => handleRecentSearch(search)}
-              accessibilityRole="button"
-              accessibilityLabel={`Recent search: ${search}`}
-            >
-              <Ionicons name="time-outline" size={16} color={colors.icon} />
-              <Text style={[styles.recentText, { color: colors.text }]}>
-                {search}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-      </View>
-
-      <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>
-          Popular Categories
-        </Text>
-        <View style={styles.categoriesGrid}>
-          {categories.slice(0, 4).map((category) => (
-            <Pressable
-              key={category.slug}
-              style={[
-                styles.categoryCard,
-                { backgroundColor: colors.card, borderColor: colors.border },
-              ]}
-              onPress={() => handleCategoryPress(category.slug)}
-              accessibilityRole="button"
-              accessibilityLabel={`Category: ${category.name}`}
-            >
-              <Ionicons
-                name={CATEGORY_ICONS[category.slug] || 'cube-outline'}
-                size={24}
-                color={BRAND.primary}
-              />
-              <Text style={[styles.categoryName, { color: colors.text }]}>
-                {category.name}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-      </View>
-    </View>
-  );
 
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-      <SafeAreaView
-        style={[styles.container, { backgroundColor: colors.background }]}
-        edges={['top']}
-      >
-        {/* BUG-2-008 FIX: Implement proper search header with TextInput */}
-        <View style={styles.header}>
-          <Pressable onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color={colors.text} />
-          </Pressable>
-          <View
-            style={[
-              styles.searchInputContainer,
-              { backgroundColor: colors.muted, borderColor: colors.border },
-            ]}
-          >
-            <Ionicons name="search-outline" size={18} color={colors.icon} />
-            <TextInput
-              style={[styles.searchInput, { color: colors.text }]}
-              placeholder="Search products..."
-              placeholderTextColor={colors.placeholder}
-              value={query}
-              onChangeText={setQuery}
-              onSubmitEditing={() => {
-                commitSearchQuery(query);
-              }}
-              returnKeyType="search"
-              autoCapitalize="none"
-              autoCorrect={false}
-              autoFocus // search screen should focus input on open
-            />
-            {query.length > 0 && (
-              <Pressable
-                onPress={() => {
-                  setQuery('');
-                }}
-              >
-                <Ionicons name="close-circle" size={18} color={colors.icon} />
-              </Pressable>
-            )}
-          </View>
-        </View>
-
-        {/* Filter Bar - Show only when searching */}
-        {hasSearchQuery && (
-          <FilterBar
-            categories={categoryNames}
-            selectedCategory={selectedCategory}
-            onSelectCategory={handleCategorySelect}
-            minPrice={minPrice}
-            maxPrice={maxPrice}
-            onPriceChange={(min, max) => {
-              setMinPrice(min);
-              setMaxPrice(max);
-            }}
-            brands={brandNames}
-            selectedBrand={selectedBrand}
-            onSelectBrand={setSelectedBrand}
-            selectedCondition={selectedCondition}
-            onSelectCondition={setSelectedCondition}
-            minRating={minRating}
-            onSelectRating={setMinRating}
-            viewMode={viewMode}
-            onViewModeChange={setViewMode}
-          />
-        )}
-
-        {/* Content */}
-        {hasSearchQuery ? renderSearchResults() : renderSuggestions()}
-      </SafeAreaView>
+      <SearchScreenView
+        brandNames={brandNames}
+        categories={categories}
+        categoryNames={categoryNames}
+        colors={colors}
+        hasSearchQuery={hasSearchQuery}
+        isLoading={isLoading}
+        isOnline={isOnline}
+        maxPrice={maxPrice}
+        minPrice={minPrice}
+        minRating={minRating}
+        onBack={() => router.back()}
+        onCategoryPress={(slug) =>
+          router.push({ pathname: '/category/[slug]', params: { slug } })
+        }
+        onCategorySelect={handleCategorySelect}
+        onClearQuery={() => setQuery('')}
+        onPriceChange={(minimum, maximum) => {
+          setMinPrice(minimum);
+          setMaxPrice(maximum);
+        }}
+        onProductPress={handleProductPress}
+        onQueryChange={setQuery}
+        onRecentSearch={(search) => {
+          setQuery(search);
+          saveToHistory(search);
+          Keyboard.dismiss();
+        }}
+        onSelectBrand={setSelectedBrand}
+        onSelectCondition={setSelectedCondition}
+        onSelectRating={setMinRating}
+        onSubmitQuery={() => commitSearchQuery(query)}
+        onViewModeChange={setViewMode}
+        products={products}
+        query={query}
+        recentSearches={recentSearches}
+        selectedBrand={selectedBrand}
+        selectedCategory={selectedCategory}
+        selectedCondition={selectedCondition}
+        viewMode={viewMode}
+      />
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 12,
-  },
-  backButton: {
-    padding: 4,
-  },
-  searchInputContainer: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-    gap: 8,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 15,
-    padding: 0,
-  },
-  suggestionsContainer: {
-    flex: 1,
-    paddingHorizontal: 16,
-  },
-  section: {
-    marginTop: 24,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 16,
-  },
-  recentList: {
-    gap: 8,
-  },
-  recentItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-  },
-  recentText: {
-    fontSize: 15,
-  },
-  categoriesGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  categoryCard: {
-    width: '47%',
-    alignItems: 'center',
-    paddingVertical: 20,
-    borderRadius: 12,
-    borderWidth: 1,
-    gap: 8,
-  },
-  categoryName: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 12,
-  },
-  loadingText: {
-    fontSize: 14,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 32,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginTop: 16,
-  },
-  emptySubtitle: {
-    fontSize: 14,
-    marginTop: 8,
-  },
-  resultsContainer: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 24,
-  },
-  productWrapper: {
-    flex: 1,
-  },
-  productLeft: {
-    paddingRight: 8,
-  },
-  productRight: {
-    paddingLeft: 8,
-  },
-});
