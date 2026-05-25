@@ -3,7 +3,6 @@
  * Displays customer's payment records with receipt/invoice preview
  * Follows the orders/index.tsx pattern: auth guard, offline support, search
  */
-
 import { useQueryClient } from '@tanstack/react-query';
 import { Redirect } from 'expo-router';
 import { useState } from 'react';
