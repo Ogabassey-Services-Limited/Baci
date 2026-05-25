@@ -30,9 +30,9 @@ function getFirstColorOption(product: Product) {
 export function getFallbackVariantSelections(product: Product | null) {
   if (!product) {
     return {
-      attributes: {} as Record<string, string>,
-      color: null as string | null,
-      storage: null as string | null,
+      attributes: {},
+      color: null,
+      storage: null,
     };
   }
 
