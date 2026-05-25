@@ -90,9 +90,9 @@ jobs:
     # silent-pending-cancel: a single group with 3 contenders silently drops
     # the pending one. Two groups can still race deploy↔android, but that
     # surfaces as a visible OOM/retry instead of a missed Play Store release.
-    # The build step also evicts resident Ollama models while it runs because
-    # live support-chat traffic can otherwise keep most of this host's RAM
-    # allocated throughout the build.
+    # The build step holds the scheduled Ollama workload lock, and also evicts
+    # resident models while it runs because live support-chat traffic can
+    # otherwise keep most of this host's RAM allocated throughout the build.
     concurrency:
       group: vps-deploy-build
       cancel-in-progress: false
@@ -134,7 +134,9 @@ jobs:
       - name: Test Ollama build memory guard
         run: node --test .github/scripts/run-with-ollama-memory-guard.test.mjs
       - name: Build for Vercel with Ollama memory guard
-        run: node .github/scripts/run-with-ollama-memory-guard.mjs -- pnpm dlx --allow-build=esbuild vercel@52.0.0 build --yes --prod
+        run: |
+          mkdir -p /home/bassey/baci-workers/locks
+          flock -w 120 /home/bassey/baci-workers/locks/ollama-workload.lock node .github/scripts/run-with-ollama-memory-guard.mjs -- pnpm dlx --allow-build=esbuild vercel@52.0.0 build --yes --prod
       # IMPORTANT: --archive=tgz is required to prevent Vercel upload rate limiting.
       # Do NOT remove it — without it, each deploy uploads thousands of individual files.
       - name: Deploy to Vercel (with retry)
