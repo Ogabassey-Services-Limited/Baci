@@ -133,6 +133,10 @@
       "justification": "Reviewed CSS box-shadow selection on web while preserving native product-card shadows."
     },
     {
+      "path": "components/storefront/UtilityPanelCategoryItem.tsx",
+      "justification": "Reviewed web box-shadow selection for the active utility icon while preserving native shadow styling."
+    },
+    {
       "path": "components/ui/Button.tsx",
       "justification": "Reviewed iOS haptic branch for shared button interactions."
     },
