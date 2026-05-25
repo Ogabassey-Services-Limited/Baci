@@ -37,6 +37,10 @@
       "justification": "Reviewed platform-specific notice shadow/elevation styling."
     },
     {
+      "path": "components/addresses/styles.ts",
+      "justification": "Reviewed CSS box-shadow on web while preserving native address surface shadow styling."
+    },
+    {
       "path": "components/cart/checkout.styles.ts",
       "justification": "Reviewed platform-specific checkout bottom spacing."
     },
