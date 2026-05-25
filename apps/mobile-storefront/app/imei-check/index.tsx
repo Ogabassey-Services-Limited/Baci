@@ -16,6 +16,7 @@ import {
   hasAdditionalPublicImeiServiceTierKeys,
   resolveImeiCheckFailure,
 } from '@/components/imei-check/resolve-imei-check-failure';
+import { StorefrontScreenShell } from '@/components/storefront/StorefrontScreenShell';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import { useWallet } from '@/hooks/use-wallet';
@@ -248,42 +249,45 @@ export default function ImeiCheckerScreen() {
     setImei('');
   };
 
-  if (result) {
-    return (
-      <ImeiCheckResultView
-        colors={colors}
-        currentTier={currentTier}
-        result={result}
-        onReset={handleReset}
-      />
-    );
-  }
-
   return (
-    <ImeiCheckFormView
-      colors={colors}
-      currentTier={currentTier}
-      displayedTierKeys={displayedTierKeys}
-      error={error}
-      imei={imei}
-      isLoading={isLoading}
-      isWalletError={Boolean(walletQuery.isError)}
-      isWalletLoading={Boolean(walletQuery.isLoading)}
-      selectedBrand={selectedBrand}
-      selectedTier={selectedTier}
-      walletBalance={walletBalance}
-      canToggleServices={canToggleServices}
-      showAllServices={expandedViewEnabled}
-      onBrandSelect={handleBrandSelect}
-      onChangeImei={handleImeiChange}
-      onCheck={handleCheck}
-      onClearImei={() => {
-        clearIdempotencyKey();
-        setImei('');
-      }}
-      onTierSelect={handleTierSelect}
-      onTopUpWallet={handleTopUpWallet}
-      onToggleServices={handleToggleServices}
-    />
+    <StorefrontScreenShell
+      edges={['bottom', 'left', 'right']}
+      style={{ backgroundColor: colors.background }}
+    >
+      {result ? (
+        <ImeiCheckResultView
+          colors={colors}
+          currentTier={currentTier}
+          result={result}
+          onReset={handleReset}
+        />
+      ) : (
+        <ImeiCheckFormView
+          colors={colors}
+          currentTier={currentTier}
+          displayedTierKeys={displayedTierKeys}
+          error={error}
+          imei={imei}
+          isLoading={isLoading}
+          isWalletError={Boolean(walletQuery.isError)}
+          isWalletLoading={Boolean(walletQuery.isLoading)}
+          selectedBrand={selectedBrand}
+          selectedTier={selectedTier}
+          walletBalance={walletBalance}
+          canToggleServices={canToggleServices}
+          showAllServices={expandedViewEnabled}
+          onBrandSelect={handleBrandSelect}
+          onChangeImei={handleImeiChange}
+          onCheck={handleCheck}
+          onClearImei={() => {
+            clearIdempotencyKey();
+            setImei('');
+          }}
+          onTierSelect={handleTierSelect}
+          onTopUpWallet={handleTopUpWallet}
+          onToggleServices={handleToggleServices}
+        />
+      )}
+    </StorefrontScreenShell>
   );
 }
