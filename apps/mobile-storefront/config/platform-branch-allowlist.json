@@ -125,6 +125,10 @@
       "justification": "Reviewed Android-only list virtualization setting."
     },
     {
+      "path": "constants/Colors.ts",
+      "justification": "Reviewed platform-specific shadow tokens: web uses CSS box-shadow strings while native platforms preserve React Native shadow properties."
+    },
+    {
       "path": "hooks/use-cart.ts",
       "justification": "Reviewed Android-specific cart notification behavior."
     },
@@ -147,6 +151,10 @@
     {
       "path": "lib/notifications.ts",
       "justification": "Reviewed web and Android notification channel handling."
+    },
+    {
+      "path": "lib/storage.ts",
+      "justification": "Reviewed web SSR guard that avoids browser-backed AsyncStorage access while retaining native startup hydration."
     },
     {
       "path": "lib/supabase.ts",
