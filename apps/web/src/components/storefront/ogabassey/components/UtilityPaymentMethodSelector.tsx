@@ -1,9 +1,9 @@
 'use client';
 
 import { CreditCard, Wallet } from 'lucide-react';
+import { type KeyboardEvent, useRef } from 'react';
 import { cn } from '@/lib/utils';
-
-type UtilityPaymentMethod = 'wallet' | 'card';
+import type { UtilityPaymentMethod } from './utility-types';
 
 interface UtilityPaymentMethodSelectorProps {
   canUseWallet: boolean;
@@ -24,21 +24,50 @@ export function UtilityPaymentMethodSelector({
   walletBalance,
   walletLoading,
 }: UtilityPaymentMethodSelectorProps) {
+  const walletRef = useRef<HTMLButtonElement>(null);
+  const cardRef = useRef<HTMLButtonElement>(null);
+
+  const selectMethod = (method: UtilityPaymentMethod) => {
+    if (isLoading || (method === 'wallet' && !canUseWallet)) {
+      return;
+    }
+    if (method === 'wallet') {
+      onSelectWallet();
+      walletRef.current?.focus();
+      return;
+    }
+    onSelectCard();
+    cardRef.current?.focus();
+  };
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (!['ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowUp'].includes(event.key)) {
+      return;
+    }
+    event.preventDefault();
+    selectMethod(
+      selectedPaymentMethod === 'wallet' || !canUseWallet ? 'card' : 'wallet'
+    );
+  };
+
   return (
     <div className="space-y-2">
       <p className="text-sm font-semibold text-gray-900">Payment Method</p>
       <div
         aria-label="Payment method"
         className="space-y-2"
+        onKeyDown={handleKeyDown}
         role="radiogroup"
       >
         {(walletLoading || canUseWallet) && (
           <button
+            ref={walletRef}
             type="button"
             role="radio"
             aria-checked={selectedPaymentMethod === 'wallet'}
             disabled={!canUseWallet || isLoading}
             onClick={onSelectWallet}
+            tabIndex={selectedPaymentMethod === 'wallet' ? 0 : -1}
             className={cn(
               'w-full rounded-xl border-2 p-3 text-left transition-all',
               'flex items-center gap-3',
@@ -65,11 +94,13 @@ export function UtilityPaymentMethodSelector({
         )}
 
         <button
+          ref={cardRef}
           type="button"
           role="radio"
           aria-checked={selectedPaymentMethod === 'card'}
           disabled={isLoading}
           onClick={onSelectCard}
+          tabIndex={selectedPaymentMethod === 'card' ? 0 : -1}
           className={cn(
             'w-full rounded-xl border-2 p-3 text-left transition-all',
             'flex items-center gap-3',

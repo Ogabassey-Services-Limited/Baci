@@ -46,14 +46,17 @@ describe('UtilityModal checkout routing', () => {
       type: 'airtime',
       walletAmount: 100,
     });
-    expect(setWalletBalance).toHaveBeenCalledWith(400);
+    expect(setWalletBalance).toHaveBeenCalledWith(expect.any(Function));
+    const applyBalanceUpdate = setWalletBalance.mock.calls[0]?.[0];
+    expect(typeof applyBalanceUpdate).toBe('function');
+    expect((applyBalanceUpdate as (balance: number) => number)(500)).toBe(400);
   });
 
   it('sends partial wallet coverage to Paystack for the residual', async () => {
     harness.amount.current = 1000;
     harness.checkoutFetch.mockResolvedValue(
       harness.createJsonResponse({
-        checkout_url: 'https://checkout.example/pay',
+        checkout_url: 'https://checkout.paystack.com/pay',
         reference: 'VTU-GATEWAY',
       })
     );
@@ -72,7 +75,9 @@ describe('UtilityModal checkout routing', () => {
       merchantSlug: 'ogabassey',
       walletAmount: 500,
     });
-    expect(harness.redirect).toHaveBeenCalledWith('https://checkout.example/pay');
+    expect(harness.redirect).toHaveBeenCalledWith(
+      'https://checkout.paystack.com/pay'
+    );
   });
 
   it('does not apply wallet credit when the customer chooses card', async () => {
@@ -84,7 +89,7 @@ describe('UtilityModal checkout routing', () => {
       walletLoading: false,
     });
     harness.checkoutFetch.mockResolvedValue(
-      harness.createJsonResponse({ checkout_url: 'https://checkout.example/pay' })
+      harness.createJsonResponse({ checkout_url: 'https://checkout.paystack.com/pay' })
     );
 
     submitAirtimePurchase();
@@ -169,5 +174,36 @@ describe('UtilityModal checkout routing', () => {
       });
     });
     expect(screen.queryByText('Success!')).not.toBeInTheDocument();
+  });
+
+  it('reuses a wallet idempotency key when retrying the same failed purchase', async () => {
+    harness.checkoutFetch.mockResolvedValue(
+      harness.createJsonResponse({ error: 'Retry later' }, { ok: false, status: 500 })
+    );
+
+    submitAirtimePurchase();
+    await waitFor(() => expect(harness.checkoutFetch).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByText('Mock Submit'));
+    await waitFor(() => expect(harness.checkoutFetch).toHaveBeenCalledTimes(2));
+
+    expect(harness.checkoutFetch.mock.calls[0]?.[1]?.headers).toEqual(
+      harness.checkoutFetch.mock.calls[1]?.[1]?.headers
+    );
+  });
+
+  it('creates a fresh wallet idempotency key when the purchase payload changes', async () => {
+    harness.checkoutFetch.mockResolvedValue(
+      harness.createJsonResponse({ error: 'Retry later' }, { ok: false, status: 500 })
+    );
+
+    submitAirtimePurchase();
+    await waitFor(() => expect(harness.checkoutFetch).toHaveBeenCalledTimes(1));
+    harness.amount.current = 200;
+    fireEvent.click(screen.getByText('Mock Submit'));
+    await waitFor(() => expect(harness.checkoutFetch).toHaveBeenCalledTimes(2));
+
+    expect(harness.checkoutFetch.mock.calls[0]?.[1]?.headers).not.toEqual(
+      harness.checkoutFetch.mock.calls[1]?.[1]?.headers
+    );
   });
 });

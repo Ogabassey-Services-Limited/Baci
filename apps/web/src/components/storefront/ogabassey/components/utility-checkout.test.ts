@@ -39,4 +39,10 @@ describe('utility checkout helpers', () => {
       redirectToPaymentCheckout('javascript:alert("redirect")')
     ).toThrow('Payment checkout URL was invalid');
   });
+
+  it('rejects HTTPS payment redirects outside Paystack', () => {
+    expect(() =>
+      redirectToPaymentCheckout('https://checkout.example/pay')
+    ).toThrow('Payment checkout URL was invalid');
+  });
 });

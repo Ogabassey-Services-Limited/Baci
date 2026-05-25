@@ -110,4 +110,29 @@ describe('UtilityPaymentMethodSelector', () => {
     ).toBeDisabled();
     expect(screen.getByRole('radio', { name: /pay with card/i })).toBeDisabled();
   });
+
+  it('moves focus and selects wallet with arrow keys', async () => {
+    const user = userEvent.setup();
+    const onSelectWallet = vi.fn();
+
+    render(
+      <UtilityPaymentMethodSelector
+        canUseWallet={true}
+        isLoading={false}
+        onSelectCard={vi.fn()}
+        onSelectWallet={onSelectWallet}
+        selectedPaymentMethod="card"
+        walletBalance={500}
+        walletLoading={false}
+      />
+    );
+
+    screen.getByRole('radio', { name: /pay with card/i }).focus();
+    await user.keyboard('{ArrowUp}');
+
+    expect(onSelectWallet).toHaveBeenCalledOnce();
+    expect(
+      screen.getByRole('radio', { name: /pay with wallet/i })
+    ).toHaveFocus();
+  });
 });

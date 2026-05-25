@@ -33,4 +33,22 @@ describe('UtilityTabs', () => {
 
     expect(onSelect).toHaveBeenCalledWith('data');
   });
+
+  it('moves selection and focus with arrow keys', async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+
+    render(
+      <UtilityTabs
+        activeTab="airtime"
+        onSelect={onSelect}
+      />
+    );
+
+    screen.getByRole('tab', { name: 'Airtime' }).focus();
+    await user.keyboard('{ArrowRight}');
+
+    expect(onSelect).toHaveBeenCalledWith('data');
+    expect(screen.getByRole('tab', { name: 'Data' })).toHaveFocus();
+  });
 });

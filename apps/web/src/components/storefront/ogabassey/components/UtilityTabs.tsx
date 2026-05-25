@@ -1,6 +1,7 @@
 'use client';
 
 import { Smartphone, Tv, Wallet, Wifi, Zap } from 'lucide-react';
+import { type KeyboardEvent, useRef } from 'react';
 import { cn } from '@/lib/utils';
 
 const TABS = [
@@ -19,20 +20,49 @@ interface UtilityTabsProps {
 }
 
 export function UtilityTabs({ activeTab, onSelect }: UtilityTabsProps) {
+  const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
+
+  const handleKeyDown = (
+    event: KeyboardEvent<HTMLButtonElement>,
+    currentIndex: number
+  ) => {
+    let nextIndex: number | null = null;
+    if (event.key === 'ArrowRight') {
+      nextIndex = (currentIndex + 1) % TABS.length;
+    } else if (event.key === 'ArrowLeft') {
+      nextIndex = (currentIndex - 1 + TABS.length) % TABS.length;
+    } else if (event.key === 'Home') {
+      nextIndex = 0;
+    } else if (event.key === 'End') {
+      nextIndex = TABS.length - 1;
+    }
+    if (nextIndex === null) {
+      return;
+    }
+
+    event.preventDefault();
+    onSelect(TABS[nextIndex].id);
+    tabRefs.current[nextIndex]?.focus();
+  };
+
   return (
     <div
       aria-label="Utility type"
       className="flex border-b border-gray-100 overflow-x-auto no-scrollbar"
       role="tablist"
     >
-      {TABS.map((tab) => (
+      {TABS.map((tab, index) => (
         <button
           key={tab.id}
+          ref={(element) => {
+            tabRefs.current[index] = element;
+          }}
           aria-selected={activeTab === tab.id}
           role="tab"
           tabIndex={activeTab === tab.id ? 0 : -1}
           type="button"
           onClick={() => onSelect(tab.id)}
+          onKeyDown={(event) => handleKeyDown(event, index)}
           className={cn(
             'flex-1 flex flex-col items-center gap-1 py-3 px-4 min-w-[80px] transition-colors border-b-2',
             activeTab === tab.id

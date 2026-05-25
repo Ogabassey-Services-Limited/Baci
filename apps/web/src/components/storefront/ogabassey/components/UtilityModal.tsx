@@ -5,7 +5,7 @@ import { useCustomerAuth } from '@/contexts/customer-auth-context';
 import { toast } from '@/hooks/use-toast';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { fetchWithCsrf } from '@/lib/api-client';
-import { useWallet } from '../pages/checkout/hooks/use-wallet';
+import { useWallet } from '@/components/storefront/ogabassey/pages/checkout/hooks/use-wallet';
 import {
   createWalletIdempotencyKey,
   getCheckoutErrorMessage,
@@ -18,14 +18,13 @@ import { BillPaymentForm } from './utility/BillPaymentForm';
 import { UtilityPaymentMethodSelector } from './UtilityPaymentMethodSelector';
 import { UtilitySuccessView } from './UtilitySuccessView';
 import { UtilityTabs, type UtilityTabId } from './UtilityTabs';
+import type { UtilityPaymentMethod } from './utility-types';
 
 interface UtilityModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialTab?: 'airtime' | 'data' | 'tv' | 'power' | 'betting';
 }
-
-type UtilityPaymentMethod = 'wallet' | 'card';
 
 export const UtilityModal = ({
   isOpen,
@@ -37,7 +36,10 @@ export const UtilityModal = ({
   const [step, setStep] = useState<'details' | 'success'>('details');
   const [transactionRef, setTransactionRef] = useState('');
   const [successAmount, setSuccessAmount] = useState(0);
-  const walletIdempotencyKeyRef = useRef<string | null>(null);
+  const walletIdempotencyAttemptRef = useRef<{
+    key: string;
+    payloadSignature: string;
+  } | null>(null);
 
   const merchantContext = useMerchantSafe();
   const merchant = merchantContext?.merchant;
@@ -68,9 +70,14 @@ export const UtilityModal = ({
     }
   }, [isOpen, initialTab]);
 
-  const getWalletIdempotencyKey = () => {
-    walletIdempotencyKeyRef.current ??= createWalletIdempotencyKey();
-    return walletIdempotencyKeyRef.current;
+  const getWalletIdempotencyKey = (payloadSignature: string) => {
+    if (walletIdempotencyAttemptRef.current?.payloadSignature !== payloadSignature) {
+      walletIdempotencyAttemptRef.current = {
+        key: createWalletIdempotencyKey(),
+        payloadSignature,
+      };
+    }
+    return walletIdempotencyAttemptRef.current.key;
   };
 
   const handlePurchase = async (payload: UtilityCheckoutPayload) => {
@@ -111,6 +118,10 @@ export const UtilityModal = ({
           : 0;
       const isWalletOnly =
         requestedWalletAmount > 0 && requestedWalletAmount >= payload.amount;
+      const walletPayload = {
+        ...checkoutPayload,
+        walletAmount: payload.amount,
+      };
       const response = await fetchWithCsrf(
         isWalletOnly
           ? '/api/vtu/checkout/wallet-only'
@@ -118,12 +129,16 @@ export const UtilityModal = ({
         {
           method: 'POST',
           headers: isWalletOnly
-            ? { 'Idempotency-Key': getWalletIdempotencyKey() }
+            ? {
+                'Idempotency-Key': getWalletIdempotencyKey(
+                  JSON.stringify(walletPayload)
+                ),
+              }
             : undefined,
           body: JSON.stringify({
-            ...checkoutPayload,
+            ...(isWalletOnly ? walletPayload : checkoutPayload),
             ...(isWalletOnly
-              ? { walletAmount: payload.amount }
+              ? {}
               : {
                   gateway: 'paystack',
                   ...(requestedWalletAmount > 0
@@ -160,8 +175,8 @@ export const UtilityModal = ({
         return;
       }
 
-      walletIdempotencyKeyRef.current = null;
-      setWalletBalance(Math.max(walletBalance - payload.amount, 0));
+      walletIdempotencyAttemptRef.current = null;
+      setWalletBalance((balance) => Math.max(balance - payload.amount, 0));
       setTransactionRef(data.reference ?? '');
       setSuccessAmount(data.amount ?? payload.amount);
       setStep('success');
