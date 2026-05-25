@@ -871,6 +871,39 @@ describe('[category]/[productSlug] page render', () => {
     expect(container.querySelectorAll('h1')).toHaveLength(1);
   });
 
+  it('prefers the direct canonical category over additional product collections', async () => {
+    mockGetCachedProduct.mockResolvedValueOnce({
+      ...toLegacyCachedProduct(),
+      categories: categorizedDetailedProduct.categories,
+      product_categories: [
+        {
+          categories: { id: 'collection-hp', name: 'HP', slug: 'hp' },
+        },
+      ],
+    });
+
+    const ui = await resolveRsc(
+      await CategoryProductPage({
+        params: Promise.resolve({
+          slug: 'teststore',
+          category: 'laptops',
+          productSlug: 'hp-laptop-14-ep0063nia',
+        }),
+        searchParams: Promise.resolve({}),
+      })
+    );
+
+    render(ui);
+
+    expect(
+      screen.getByRole('heading', {
+        level: 1,
+        name: 'HP Laptop 14-ep0063nia',
+      })
+    ).toBeInTheDocument();
+    expect(mockPermanentRedirect).not.toHaveBeenCalled();
+  });
+
   it('throws notFound before rendering a cached skeleton when the category product is missing', async () => {
     mockGetCachedProductWithDetails.mockResolvedValueOnce(null);
     mockGetCachedLegacyProductRedirectTarget.mockResolvedValueOnce(null);
