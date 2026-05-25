@@ -98,6 +98,25 @@ describe('ai storefront support section normalizers', () => {
     );
   });
 
+  it('falls back for invalid trust badge layout, style, and malformed badges', () => {
+    const trustBadges = normalizeTrustBadges(
+      { layout: 'diagonal', style: 'unknown', badges: [123, null] },
+      0
+    );
+
+    if (trustBadges.type !== 'TrustBadges') {
+      throw new Error('Expected TrustBadges component');
+    }
+    expect(trustBadges.props).toEqual(
+      expect.objectContaining({
+        id: 'trust-badges-1',
+        layout: 'horizontal',
+        style: 'cards',
+      })
+    );
+    expect(trustBadges.props.badges.length).toBeGreaterThan(0);
+  });
+
   it('normalizes newsletter aliases and CTA button text', () => {
     const newsletter = normalizeNewsletter(
       {
@@ -116,6 +135,22 @@ describe('ai storefront support section normalizers', () => {
         description: 'Get launches and offers first',
         placeholder: 'Email address',
         buttonText: 'Join now',
+      })
+    );
+  });
+
+  it('falls back for invalid newsletter text and CTA aliases', () => {
+    const newsletter = normalizeNewsletter(
+      { title: 123, input_field: false, cta_button: { label: 99 } },
+      4
+    );
+
+    expect(newsletter.props).toEqual(
+      expect.objectContaining({
+        id: 'newsletter-5',
+        title: 'Get updates',
+        placeholder: 'Enter your email',
+        buttonText: 'Subscribe',
       })
     );
   });

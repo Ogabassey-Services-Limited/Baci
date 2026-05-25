@@ -20,6 +20,7 @@ interface RunnerSupabaseMockOptions {
   failLostLease?: boolean;
   initialAttempts?: number;
   initialError?: string | null;
+  initialStatus?: 'pending' | 'processing';
 }
 
 function createRunnerSupabaseMock(options: RunnerSupabaseMockOptions = {}) {
@@ -45,7 +46,7 @@ function createRunnerSupabaseMock(options: RunnerSupabaseMockOptions = {}) {
     created_at: '2026-04-28T10:00:00.000Z',
     error: options.initialError ?? null,
     metadata: {},
-    status: 'pending',
+    status: options.initialStatus ?? 'pending',
   };
 
   const supabase = {
@@ -185,6 +186,25 @@ describe('processAiStorefrontJobs', () => {
 
     expect(supabase.updateEqCalls).toContainEqual(['id', 'job-1']);
     expect(supabase.updateEqCalls).toContainEqual(['status', 'pending']);
+    expect(supabase.updateOrCalls).toEqual([]);
+  });
+
+  it('claims processing jobs only when their lease is expired', async () => {
+    const supabase = createRunnerSupabaseMock({
+      initialStatus: 'processing',
+    });
+
+    await processAiStorefrontJobs({
+      supabase,
+      now: new Date('2026-04-28T10:10:00.000Z'),
+      workerId: 'worker-1',
+    });
+
+    expect(supabase.updateEqCalls).toContainEqual(['id', 'job-1']);
+    expect(supabase.updateEqCalls).toContainEqual(['status', 'processing']);
+    expect(supabase.updateLteCalls).toEqual([
+      ['lease_expires_at', expect.any(String)],
+    ]);
     expect(supabase.updateOrCalls).toEqual([]);
   });
 

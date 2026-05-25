@@ -98,7 +98,8 @@ export function integerInRange(
 export function safeHref(value: unknown): string | undefined {
   const href = text(value, 200);
   if (!href) return undefined;
-  return href.startsWith('/') || href.startsWith('https://') ? href : undefined;
+  if (href.startsWith('/')) return href.startsWith('//') ? undefined : href;
+  return href.startsWith('https://') ? href : undefined;
 }
 
 export function hexColor(value: unknown): string | undefined {

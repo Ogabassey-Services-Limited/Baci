@@ -10,6 +10,23 @@ import {
 } from './ai-storefront-normalize-defaults';
 
 describe('ai storefront normalize defaults', () => {
+  it('handles empty business names without producing empty hero or footer text', () => {
+    const hero = defaultHero('');
+    const footer = defaultFooter('');
+
+    expect(hero.props.title.length).toBeGreaterThan(0);
+    expect(hero.props.ctaLink).toBe('/products');
+    expect(footer.props.copyrightText?.length ?? 0).toBeGreaterThan(0);
+    expect(footer.props.quickLinks?.length).toBeGreaterThan(0);
+  });
+
+  it('truncates very long business names in hero title boundaries', () => {
+    const hero = defaultHero('Bassey Phones '.repeat(30));
+
+    expect(hero.props.title.length).toBeLessThanOrEqual(120);
+    expect(hero.props.title).not.toMatch(/[,.!?;:-]$/);
+  });
+
   it('returns non-empty default navigation links', () => {
     expect(defaultLinks()).toEqual(
       expect.arrayContaining([

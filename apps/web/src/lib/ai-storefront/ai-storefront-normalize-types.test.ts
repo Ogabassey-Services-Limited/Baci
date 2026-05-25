@@ -49,6 +49,7 @@ describe('ai storefront normalize type helpers', () => {
     expect(safeHref('https://example.com/path')).toBe(
       'https://example.com/path'
     );
+    expect(safeHref('//evil.com')).toBeUndefined();
     expect(safeHref('http://example.com')).toBeUndefined();
     expect(safeHref('javascript:alert(1)')).toBeUndefined();
   });
