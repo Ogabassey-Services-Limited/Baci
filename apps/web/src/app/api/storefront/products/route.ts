@@ -184,7 +184,7 @@ export async function GET(request: NextRequest) {
     );
 
     if (!parsed.success) {
-      console.error(
+      console.warn(
         'API Validation Failed:',
         JSON.stringify(parsed.error.flatten(), null, 2)
       );
