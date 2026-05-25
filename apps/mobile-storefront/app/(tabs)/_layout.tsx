@@ -1,9 +1,10 @@
 import Ionicons from "@react-native-vector-icons/ionicons";
 import { Tabs, router } from 'expo-router';
 import type React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ErrorFallback } from '@/components/ErrorBoundary';
+import { getTabBarShadowStyle } from '@/components/navigation/TabBar.shadows';
 import { TAB_BAR_BASE_HEIGHT } from '@/constants/layout';
 import { useCartStore } from '@/stores/cart-store';
 import { useSavedStore } from '@/stores/saved-store';
@@ -112,8 +113,9 @@ export default function TabLayout() {
           height: TAB_BAR_BASE_HEIGHT + insets.bottom,
           paddingBottom: Math.max(insets.bottom - 4, 8),
           paddingTop: 6,
-          elevation: 0,
-          shadowOpacity: 0,
+          ...getTabBarShadowStyle(
+            Platform.OS === 'web' ? 'web' : 'native'
+          ),
         },
         tabBarItemStyle: {
           height: TAB_BAR_BASE_HEIGHT,
