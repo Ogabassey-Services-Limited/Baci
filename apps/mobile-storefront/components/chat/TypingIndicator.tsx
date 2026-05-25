@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
-import { Animated, Easing, StyleSheet, View } from 'react-native';
+import { Animated, Easing, Platform, StyleSheet, View } from 'react-native';
 import { BRAND, RADIUS, SPACING } from '@/constants/Colors';
+import { getTypingIndicatorDotShadowStyle } from './TypingIndicator.shadows';
 
 const DOT_COUNT = 3;
 const DOT_SIZE = 8;
@@ -11,6 +12,9 @@ export function TypingIndicator() {
   const animatedValues = useRef(
     Array.from({ length: DOT_COUNT }, () => new Animated.Value(0.35))
   ).current;
+  const dotShadowStyle = getTypingIndicatorDotShadowStyle(
+    Platform.OS === 'web' ? 'web' : 'native'
+  );
 
   useEffect(() => {
     const loop = Animated.loop(
@@ -55,6 +59,7 @@ export function TypingIndicator() {
           testID="typing-indicator-dot"
           style={[
             styles.dot,
+            dotShadowStyle,
             {
               opacity: value,
               transform: [
@@ -85,11 +90,6 @@ const styles = StyleSheet.create({
     height: DOT_SIZE,
     borderRadius: DOT_SIZE / 2,
     backgroundColor: BRAND.primary,
-    elevation: 3,
-    shadowColor: BRAND.primary,
-    shadowOpacity: 0.12,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 1 },
     marginVertical: SPACING.xs / 2,
   },
   bubble: {
