@@ -6,11 +6,14 @@ describe('next.config OgaBassey resource headers', () => {
     expect(nextConfig.skipTrailingSlashRedirect).toBe(true);
   });
 
-  it('disables streamed metadata for normal storefront browser requests', () => {
-    expect(nextConfig.htmlLimitedBots).toBeDefined();
-    expect(nextConfig.htmlLimitedBots?.test('Mozilla/5.0 Chrome/136.0')).toBe(
-      true
-    );
+  it('allows tuned OgaBassey image quality values', () => {
+    expect(nextConfig.images?.qualities).toEqual([
+      35, 50, 60, 70, 75, 80, 85, 90, 100,
+    ]);
+  });
+
+  it('does not override Next metadata rendering for normal storefront browsers', () => {
+    expect(nextConfig.htmlLimitedBots).toBeUndefined();
   });
 
   it('redirects the imported encoded blog slug to its ASCII canonical URL', async () => {
@@ -28,6 +31,18 @@ describe('next.config OgaBassey resource headers', () => {
         expect.objectContaining({
           source:
             '/blog/2025/06/10/wwdc-2025-5-game%e2%80%91changing-apple-announcements/:path*',
+          destination: '/blog/wwdc-2025-5-game-changing-apple-announcements',
+          permanent: true,
+        }),
+        expect.objectContaining({
+          source:
+            '/blog/wwdc%e2%80%912025%e2%80%915-game-changing-apple-announcements/:path*',
+          destination: '/blog/wwdc-2025-5-game-changing-apple-announcements',
+          permanent: true,
+        }),
+        expect.objectContaining({
+          source:
+            '/blog/wwdc%25e2%2580%25912025%25e2%2580%25915-game-changing-apple-announcements/:path*',
           destination: '/blog/wwdc-2025-5-game-changing-apple-announcements',
           permanent: true,
         }),

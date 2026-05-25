@@ -197,8 +197,7 @@ export async function createOllamaChatResponse({
         // Customer chat consumes final answer text only; do not spend the
         // bounded generation budget on a hidden reasoning stream.
         think: false,
-        // Keep the model resident across the 15-minute production health probe.
-        keep_alive: '20m',
+        keep_alive: '10m',
         options: {
           num_ctx: 2048,
           // Customer chat should answer concisely; bound generation so a
