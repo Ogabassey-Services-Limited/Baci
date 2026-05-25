@@ -1,5 +1,6 @@
-import { StyleSheet } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 import { palette, RADIUS, SPACING } from '@/constants/Colors';
+import { getAddressShadowStyles } from './styles.shadows';
 
 const ADDRESS_BADGE_VERTICAL_PADDING = 2;
 const ADDRESS_MENU_BUTTON_PADDING = 4;
@@ -9,6 +10,9 @@ const ADDRESS_ACTION_BUTTON_RADIUS = 6;
 const ADDRESS_FAB_OFFSET = 24;
 const ADDRESS_FAB_SIZE = 56;
 const ADDRESS_RETRY_MARGIN_TOP = 8;
+const addressShadowStyles = getAddressShadowStyles(
+  Platform.OS === 'web' ? 'web' : 'native'
+);
 
 export const styles = StyleSheet.create({
   container: {
@@ -24,11 +28,7 @@ export const styles = StyleSheet.create({
   addressCard: {
     borderRadius: RADIUS.lg,
     padding: SPACING.lg,
-    shadowColor: palette.black,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    ...addressShadowStyles.addressCard,
   },
   addressHeader: {
     flexDirection: 'row',
@@ -130,11 +130,7 @@ export const styles = StyleSheet.create({
     borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: palette.black,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
+    ...addressShadowStyles.floatingButton,
   },
   errorText: {
     fontSize: 16,
