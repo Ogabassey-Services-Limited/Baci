@@ -2,6 +2,7 @@ import { Feather, Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import {
   Pressable,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -9,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import { BRAND, RADIUS } from '@/constants/Colors';
+import { getFilterBarShadowStyles } from './FilterBar.shadows';
 
 interface FilterBarProps {
   categories: string[];
@@ -401,6 +403,10 @@ export function FilterBar({
   );
 }
 
+const shadowStyles = getFilterBarShadowStyles(
+  Platform.OS === 'web' ? 'web' : 'native'
+);
+
 const styles = StyleSheet.create({
   container: {
     backgroundColor: '#FFF',
@@ -434,11 +440,7 @@ const styles = StyleSheet.create({
   catPillActive: {
     backgroundColor: BRAND.primary,
     borderColor: BRAND.primary,
-    shadowColor: BRAND.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
+    ...shadowStyles.catPillActive,
   },
   catText: {
     fontSize: 13,
@@ -494,11 +496,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF',
     borderRadius: 16,
     padding: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
-    elevation: 25,
+    ...shadowStyles.popover,
     borderWidth: 1,
     borderColor: '#F3F4F6',
     zIndex: 4000,
@@ -590,11 +588,7 @@ const styles = StyleSheet.create({
   brandChipActive: {
     backgroundColor: '#EF4444',
     borderColor: '#EF4444',
-    shadowColor: '#EF4444',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    ...shadowStyles.brandChipActive,
   },
   brandChipInactive: {
     backgroundColor: '#FFF',
@@ -628,11 +622,7 @@ const styles = StyleSheet.create({
   },
   segmentItemActive: {
     backgroundColor: '#FFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    ...shadowStyles.segmentItemActive,
   },
   segmentText: {
     fontSize: 10,
@@ -693,11 +683,7 @@ const styles = StyleSheet.create({
   },
   viewBtnActive: {
     backgroundColor: '#FFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    ...shadowStyles.viewBtnActive,
   },
   backdrop: {
     position: 'absolute',
