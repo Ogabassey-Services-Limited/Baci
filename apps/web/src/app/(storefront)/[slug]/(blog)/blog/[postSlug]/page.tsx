@@ -107,10 +107,10 @@ export async function generateMetadata({
 export default function BlogPostPage({ params }: PageProps) {
   return (
     <>
-      <StorefrontDynamicMetadataMarker />
       <Suspense fallback={<BlogPostPageFallback />}>
         <BlogPostPageContent params={params} />
       </Suspense>
+      <StorefrontDynamicMetadataMarker />
     </>
   );
 }

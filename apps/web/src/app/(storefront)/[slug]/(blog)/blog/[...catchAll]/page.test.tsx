@@ -98,7 +98,7 @@ describe('storefront blog catch-all route', () => {
     mockMaybeSingle.mockResolvedValue({ data: null });
   });
 
-  it('renders the dynamic metadata marker before the request-time resolver', () => {
+  it('renders the dynamic metadata marker after the request-time resolver boundary', () => {
     const element = BlogCatchAllPage({
       params: Promise.resolve({
         slug: 'ogabassey.com',
@@ -112,10 +112,10 @@ describe('storefront blog catch-all route', () => {
     );
 
     expect(children).toHaveLength(2);
-    expect((children[0] as ReactElement).type).toBe(
+    expect((children[0] as ReactElement).type).toBe(Suspense);
+    expect((children[1] as ReactElement).type).toBe(
       StorefrontDynamicMetadataMarker
     );
-    expect((children[1] as ReactElement).type).toBe(Suspense);
   });
 
   it('redirects dated blog permalinks', async () => {

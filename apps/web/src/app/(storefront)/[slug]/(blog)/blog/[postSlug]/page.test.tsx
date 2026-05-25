@@ -166,10 +166,16 @@ describe('storefront blog post page', () => {
       />
     );
 
-    expect(screen.getByText('Blog post page content')).toBeInTheDocument();
+    const content = screen.getByText('Blog post page content');
+    const marker = screen.getByRole('status', {
+      name: /dynamic metadata marker/i,
+    });
+
+    expect(content).toBeInTheDocument();
+    expect(marker).toBeInTheDocument();
     expect(
-      screen.getByRole('status', { name: /dynamic metadata marker/i })
-    ).toBeInTheDocument();
+      content.compareDocumentPosition(marker) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
   });
 
   it('resolves public metadata without consulting draft request state', async () => {
