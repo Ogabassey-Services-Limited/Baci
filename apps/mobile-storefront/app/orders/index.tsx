@@ -8,13 +8,13 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { OfflineEmptyState, OfflineNotice } from '@/components/OfflineNotice';
 import { OrdersListEmptyState } from '@/components/orders/OrdersListEmptyState';
 import { OrdersListHeader } from '@/components/orders/OrdersListHeader';
 import { OrdersListItem } from '@/components/orders/OrdersListItem';
 import { ordersScreenStyles as styles } from '@/components/orders/orders-screen.styles';
 import { useOrdersListController } from '@/components/orders/use-orders-list-controller';
+import { StorefrontScreenShell } from '@/components/storefront/StorefrontScreenShell';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
 import { useRequireAuth } from '@/hooks/use-auth-guard';
@@ -76,7 +76,10 @@ export default function OrdersScreen() {
 
   if (!user) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <StorefrontScreenShell
+        edges={['top', 'left', 'right']}
+        style={[styles.container, { backgroundColor: colors.background }]}
+      >
         <View style={styles.emptyState}>
           <Ionicons
             name="person-outline"
@@ -96,13 +99,14 @@ export default function OrdersScreen() {
             <Text style={styles.shopButtonText}>Sign In</Text>
           </TouchableOpacity>
         </View>
-      </View>
+      </StorefrontScreenShell>
     );
   }
 
   if (isLoading) {
     return (
-      <View
+      <StorefrontScreenShell
+        edges={['top', 'left', 'right']}
         style={[
           styles.container,
           styles.centered,
@@ -110,7 +114,7 @@ export default function OrdersScreen() {
         ]}
       >
         <ActivityIndicator size="large" color={BRAND.primary} />
-      </View>
+      </StorefrontScreenShell>
     );
   }
 
@@ -119,7 +123,8 @@ export default function OrdersScreen() {
     // Show offline-specific empty state when offline
     if (!isOnline) {
       return (
-        <View
+        <StorefrontScreenShell
+          edges={['top', 'left', 'right']}
           style={[
             styles.container,
             styles.centered,
@@ -132,13 +137,14 @@ export default function OrdersScreen() {
             onRetry={fetchOrders}
             isRetrying={isRefreshing}
           />
-        </View>
+        </StorefrontScreenShell>
       );
     }
 
     // Show generic error state when online
     return (
-      <View
+      <StorefrontScreenShell
+        edges={['top', 'left', 'right']}
         style={[
           styles.container,
           styles.centered,
@@ -156,7 +162,7 @@ export default function OrdersScreen() {
             Tap to retry
           </Text>
         </TouchableOpacity>
-      </View>
+      </StorefrontScreenShell>
     );
   }
 
@@ -168,7 +174,7 @@ export default function OrdersScreen() {
           gestureEnabled: true,
         }}
       />
-      <SafeAreaView
+      <StorefrontScreenShell
         style={[styles.container, { backgroundColor: colors.background }]}
         edges={['top', 'left', 'right']}
       >
@@ -249,7 +255,7 @@ export default function OrdersScreen() {
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
         />
-      </SafeAreaView>
+      </StorefrontScreenShell>
     </>
   );
 }
