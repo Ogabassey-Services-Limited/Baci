@@ -334,7 +334,7 @@ describe('POST /api/chat', () => {
     expect(createOllamaChatResponse).toHaveBeenCalledOnce();
     expect(createOllamaChatResponse).toHaveBeenCalledWith(
       expect.objectContaining({
-        timeoutMs: 8_000,
+        timeoutMs: 60_000,
       })
     );
     expect(generateText).toHaveBeenCalledOnce();

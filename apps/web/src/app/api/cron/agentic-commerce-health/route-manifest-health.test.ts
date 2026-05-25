@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/env', () => ({
   getCronSecret: vi.fn(() => 'cron-secret'),
+  getRootDomain: vi.fn(() => 'usebaci.com'),
 }));
 
 vi.mock('@/lib/agentic/action-health-loader', () => ({
@@ -28,6 +29,17 @@ vi.mock('@/lib/agentic/agent-commerce-support-chat-health', () => ({
   checkAgentCommerceSupportChatHealth: vi.fn(),
 }));
 
+vi.mock('@/lib/agentic/agent-commerce-trust-health', async () => {
+  const actual = await vi.importActual<
+    typeof import('@/lib/agentic/agent-commerce-trust-health')
+  >('@/lib/agentic/agent-commerce-trust-health');
+
+  return {
+    ...actual,
+    checkAgentCommerceTrustHealth: vi.fn(),
+  };
+});
+
 vi.mock('@/lib/logger', () => ({
   logger: {
     error: vi.fn(),
@@ -44,6 +56,7 @@ import { loadAgenticActionHealth } from '@/lib/agentic/action-health-loader';
 import { checkAgentCommerceFeedHealth } from '@/lib/agentic/agent-commerce-feed-health';
 import { checkAgentCommerceManifestHealth } from '@/lib/agentic/agent-commerce-manifest-health';
 import { checkAgentCommerceSupportChatHealth } from '@/lib/agentic/agent-commerce-support-chat-health';
+import { checkAgentCommerceTrustHealth } from '@/lib/agentic/agent-commerce-trust-health';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { GET } from './route';
 
@@ -145,6 +158,12 @@ describe('GET /api/cron/agentic-commerce-health manifest monitoring', () => {
       response_time_ms: 120,
       status: 'ok',
       url: 'https://usebaci.com/api/chat',
+    });
+    vi.mocked(checkAgentCommerceTrustHealth).mockResolvedValue({
+      issue_count: 0,
+      issues: [],
+      status: 'ok',
+      url: 'https://ogabassey.com/agent-trust.json',
     });
     vi.mocked(loadAgenticActionHealth).mockResolvedValue({
       actions: [

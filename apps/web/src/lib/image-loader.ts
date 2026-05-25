@@ -102,7 +102,7 @@ function buildOgabasseyCdnTransformUrl({
   const transformWidth = clampDimension(width);
   const transformQuality = clampQuality(quality);
 
-  return `${url.origin}/image/width=${transformWidth},quality=${transformQuality},format=webp${url.pathname}${url.search}${url.hash}`;
+  return `${url.origin}/image/width=${transformWidth},quality=${transformQuality},format=auto${url.pathname}${url.search}${url.hash}`;
 }
 
 function clampDimension(width: number): number {
