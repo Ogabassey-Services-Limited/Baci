@@ -71,7 +71,6 @@ export function HomeServiceCardBorderRunner({
   return (
     <>
       <Animated.View
-        pointerEvents="none"
         style={[
           styles.runner,
           styles.top,
@@ -93,7 +92,6 @@ export function HomeServiceCardBorderRunner({
         testID="home-service-card-border-top"
       />
       <Animated.View
-        pointerEvents="none"
         style={[
           styles.runner,
           styles.right,
@@ -115,7 +113,6 @@ export function HomeServiceCardBorderRunner({
         testID="home-service-card-border-right"
       />
       <Animated.View
-        pointerEvents="none"
         style={[
           styles.runner,
           styles.bottom,
@@ -137,7 +134,6 @@ export function HomeServiceCardBorderRunner({
         testID="home-service-card-border-bottom"
       />
       <Animated.View
-        pointerEvents="none"
         style={[
           styles.runner,
           styles.left,
@@ -167,6 +163,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     borderRadius: RUNNER_THICKNESS,
     zIndex: 0,
+    pointerEvents: 'none',
   },
   top: {
     top: 0,
