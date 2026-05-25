@@ -12,6 +12,18 @@ const DYNAMIC_ROUTE_MODULE_PATTERN =
 const LAYOUT_ROUTE_MODULE_PATTERN = /^_layout\.(ts|tsx|js|jsx)$/;
 const INDEX_ROUTE_MODULE_PATTERN = /^index\.(ts|tsx|js|jsx)$/;
 const SHELL_JSX_PATTERN = /<StorefrontScreenShell(?=[\s/>])/;
+const SHELL_DELEGATE_MODULES = new Map<
+  string,
+  { modulePath: string; routeJsxPattern: RegExp }
+>([
+  [
+    'wallet/index.tsx',
+    {
+      modulePath: '../components/wallet/WalletScreenView.tsx',
+      routeJsxPattern: /<WalletScreenView(?=[\s/>])/,
+    },
+  ],
+]);
 
 type RouteModule = {
   actualPath: string;
@@ -158,10 +170,28 @@ function isShellCheckRoute(routePath: string) {
   return !API_ROUTE_MODULE_PATTERN.test(fileName);
 }
 
-function routeUsesStorefrontScreenShell(routeModule: RouteModule) {
-  const absolutePath = path.join(APP_ROOT, routeModule.actualPath);
+function moduleUsesStorefrontScreenShell(absolutePath: string) {
   const source = readFileSync(absolutePath, 'utf8');
   return SHELL_JSX_PATTERN.test(source);
+}
+
+function routeUsesStorefrontScreenShell(routeModule: RouteModule) {
+  const absolutePath = path.join(APP_ROOT, routeModule.actualPath);
+  const routeSource = readFileSync(absolutePath, 'utf8');
+  if (SHELL_JSX_PATTERN.test(routeSource)) {
+    return true;
+  }
+
+  const shellDelegate = SHELL_DELEGATE_MODULES.get(
+    routeModule.normalizedPath
+  );
+  if (!shellDelegate || !shellDelegate.routeJsxPattern.test(routeSource)) {
+    return false;
+  }
+
+  return moduleUsesStorefrontScreenShell(
+    path.resolve(APP_ROOT, shellDelegate.modulePath)
+  );
 }
 
 describe('app route shell safety', () => {
