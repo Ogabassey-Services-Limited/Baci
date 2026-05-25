@@ -44,6 +44,21 @@ const mmkvStorage = {
   },
 };
 
+const isServerRuntime = typeof window === 'undefined';
+
+const authOptions = isServerRuntime
+  ? {
+      autoRefreshToken: false,
+      persistSession: false,
+      detectSessionInUrl: false,
+    }
+  : {
+      storage: mmkvStorage,
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: false,
+    };
+
 function createMissingCredentialsClient() {
   return new Proxy(
     {},
@@ -60,11 +75,6 @@ function createMissingCredentialsClient() {
 export const supabase =
   supabaseUrl && supabaseAnonKey
     ? createClient(supabaseUrl, supabaseAnonKey, {
-        auth: {
-          storage: mmkvStorage,
-          autoRefreshToken: true,
-          persistSession: true,
-          detectSessionInUrl: false,
-        },
+        auth: authOptions,
       })
     : createMissingCredentialsClient();
