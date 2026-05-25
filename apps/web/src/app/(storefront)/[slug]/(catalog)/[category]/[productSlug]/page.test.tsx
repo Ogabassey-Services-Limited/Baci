@@ -762,7 +762,7 @@ describe('[category]/[productSlug] page metadata', () => {
     expect(metadata.description).not.toContain('in Nigeria');
   });
 
-  it('redirects attribute-only variant params to the bare family URL', async () => {
+  it('leaves variant query redirects to page rendering, not metadata generation', async () => {
     mockGetCachedProductWithDetails.mockResolvedValue(
       categorizedDetailedProduct
     );
@@ -781,23 +781,22 @@ describe('[category]/[productSlug] page metadata', () => {
       },
     ]);
 
-    await expect(
-      generateMetadata({
-        params: Promise.resolve({
-          slug: 'teststore',
-          category: 'laptops',
-          productSlug: 'hp-laptop-14-ep0063nia',
-        }),
-        searchParams: Promise.resolve({
-          storage: '128GB',
-          utm_source: 'google',
-        }),
-      })
-    ).rejects.toThrow('NEXT_REDIRECT');
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: 'teststore',
+        category: 'laptops',
+        productSlug: 'hp-laptop-14-ep0063nia',
+      }),
+      searchParams: Promise.resolve({
+        storage: '128GB',
+        utm_source: 'google',
+      }),
+    });
 
-    expect(mockPermanentRedirect).toHaveBeenCalledWith(
-      '/laptops/hp-laptop-14-ep0063nia'
+    expect(metadata.alternates?.canonical).toBe(
+      'https://teststore.usebaci.com/laptops/hp-laptop-14-ep0063nia'
     );
+    expect(mockPermanentRedirect).not.toHaveBeenCalled();
   });
 });
 
