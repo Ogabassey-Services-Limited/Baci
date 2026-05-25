@@ -51,6 +51,7 @@ const mockNotFound = vi.fn(() => {
 const mockGetRequestScopedMerchant = vi.fn();
 const mockGetCachedLegacyProductRedirectTarget = vi.fn();
 const mockGetCachedProduct = vi.fn();
+const mockGetCachedProductLcpHint = vi.fn();
 const mockGetCachedProductWithDetails = vi.fn();
 const mockGetCachedCategoryPageData = vi.fn();
 const mockBuildProductSemanticModel = vi.fn();
@@ -126,6 +127,8 @@ vi.mock('@/lib/cached-data', () => ({
   getCachedLegacyProductRedirectTarget: (...args: unknown[]) =>
     mockGetCachedLegacyProductRedirectTarget(...args),
   getCachedProduct: (...args: unknown[]) => mockGetCachedProduct(...args),
+  getCachedProductLcpHint: (...args: unknown[]) =>
+    mockGetCachedProductLcpHint(...args),
   getCachedProductWithDetails: (...args: unknown[]) =>
     mockGetCachedProductWithDetails(...args),
   getCachedCategoryPageData: (...args: unknown[]) =>
@@ -504,6 +507,16 @@ function mockDefaultCachedProductLookup() {
   );
 }
 
+function mockDefaultCachedProductLcpHintLookup() {
+  mockGetCachedProductLcpHint.mockImplementation((_merchantId, productSlug) =>
+    Promise.resolve(
+      productSlug === categorizedDetailedProduct.slug
+        ? toLegacyCachedProduct()
+        : null
+    )
+  );
+}
+
 describe('[category]/[productSlug] page metadata', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -762,7 +775,7 @@ describe('[category]/[productSlug] page metadata', () => {
     expect(metadata.description).not.toContain('in Nigeria');
   });
 
-  it('redirects attribute-only variant params to the bare family URL', async () => {
+  it('leaves variant query redirects to page rendering, not metadata generation', async () => {
     mockGetCachedProductWithDetails.mockResolvedValue(
       categorizedDetailedProduct
     );
@@ -781,23 +794,22 @@ describe('[category]/[productSlug] page metadata', () => {
       },
     ]);
 
-    await expect(
-      generateMetadata({
-        params: Promise.resolve({
-          slug: 'teststore',
-          category: 'laptops',
-          productSlug: 'hp-laptop-14-ep0063nia',
-        }),
-        searchParams: Promise.resolve({
-          storage: '128GB',
-          utm_source: 'google',
-        }),
-      })
-    ).rejects.toThrow('NEXT_REDIRECT');
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: 'teststore',
+        category: 'laptops',
+        productSlug: 'hp-laptop-14-ep0063nia',
+      }),
+      searchParams: Promise.resolve({
+        storage: '128GB',
+        utm_source: 'google',
+      }),
+    });
 
-    expect(mockPermanentRedirect).toHaveBeenCalledWith(
-      '/laptops/hp-laptop-14-ep0063nia'
+    expect(metadata.alternates?.canonical).toBe(
+      'https://teststore.usebaci.com/laptops/hp-laptop-14-ep0063nia'
     );
+    expect(mockPermanentRedirect).not.toHaveBeenCalled();
   });
 });
 
@@ -818,6 +830,8 @@ describe('[category]/[productSlug] page render', () => {
     });
     mockGetCachedProduct.mockReset();
     mockDefaultCachedProductLookup();
+    mockGetCachedProductLcpHint.mockReset();
+    mockDefaultCachedProductLcpHintLookup();
     mockGetCachedProductWithDetails.mockResolvedValue(
       categorizedDetailedProduct
     );
@@ -842,7 +856,7 @@ describe('[category]/[productSlug] page render', () => {
     });
   });
 
-  it('renders only the visible product heading for the page', async () => {
+  it('renders the visible product heading without a trailing metadata marker boundary', async () => {
     const ui = await resolveRsc(
       await CategoryProductPage({
         params: Promise.resolve({
@@ -868,7 +882,7 @@ describe('[category]/[productSlug] page render', () => {
   });
 
   it('prefers the direct canonical category over additional product collections', async () => {
-    mockGetCachedProduct.mockResolvedValueOnce({
+    mockGetCachedProductLcpHint.mockResolvedValueOnce({
       ...toLegacyCachedProduct(),
       categories: categorizedDetailedProduct.categories,
       product_categories: [
@@ -1002,7 +1016,7 @@ describe('[category]/[productSlug] page render', () => {
   it('mounts the OgaBassey PDP preload hints for the OgaBassey template branch', async () => {
     const productImage =
       'https://cdn.ogabassey.com/core-assets/products/hp-laptop.avif';
-    mockGetCachedProduct.mockResolvedValueOnce(
+    mockGetCachedProductLcpHint.mockResolvedValueOnce(
       toLegacyCachedProduct({
         ...categorizedDetailedProduct,
         images: [productImage],
@@ -1041,7 +1055,7 @@ describe('[category]/[productSlug] page render', () => {
       | undefined;
     const earlyProductImage =
       'https://cdn.ogabassey.com/core-assets/products/early-lenovo-legion.avif';
-    mockGetCachedProduct.mockResolvedValueOnce(
+    mockGetCachedProductLcpHint.mockResolvedValueOnce(
       toLegacyCachedProduct({
         ...categorizedDetailedProduct,
         images: [earlyProductImage],
@@ -1066,6 +1080,10 @@ describe('[category]/[productSlug] page render', () => {
     // This will execute the early lookup component synchronously/asynchronously, while the main content suspends.
     const resolvedPage = await resolveRsc(pagePromise, { skipContent: true });
 
+    expect(mockGetCachedProductLcpHint).toHaveBeenCalledWith(
+      baseMerchant.id,
+      'hp-laptop-14-ep0063nia'
+    );
     expect(mockPreloadOgabasseyPdpProductImage).toHaveBeenCalledWith({
       src: earlyProductImage,
     });
@@ -1081,10 +1099,92 @@ describe('[category]/[productSlug] page render', () => {
     expect(mockOgabasseyProductDetailsPage).toHaveBeenCalled();
   });
 
+  it('preloads the OgaBassey PDP product image without awaiting tracking-only query routes', async () => {
+    let resolveProductDetails:
+      | ((value: typeof categorizedDetailedProduct) => void)
+      | undefined;
+    const earlyProductImage =
+      'https://cdn.ogabassey.com/core-assets/products/campaign-laptop.avif';
+    mockGetCachedProductLcpHint.mockResolvedValueOnce(
+      toLegacyCachedProduct({
+        ...categorizedDetailedProduct,
+        images: [earlyProductImage],
+      })
+    );
+    mockGetCachedProductWithDetails.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveProductDetails = resolve;
+      })
+    );
+
+    const resolvedPage = await resolveRsc(
+      CategoryProductPage({
+        params: Promise.resolve({
+          slug: 'teststore',
+          category: 'laptops',
+          productSlug: 'hp-laptop-14-ep0063nia',
+        }),
+        searchParams: Promise.resolve({
+          utm_source: 'google',
+          gclid: 'campaign-click',
+        }),
+      }),
+      { skipContent: true }
+    );
+
+    expect(mockPreloadOgabasseyPdpProductImage).toHaveBeenCalledWith({
+      src: earlyProductImage,
+    });
+    expect(mockOgabasseyProductDetailsPage).not.toHaveBeenCalled();
+
+    resolveProductDetails?.(categorizedDetailedProduct);
+    render(await resolveRsc(resolvedPage));
+  });
+
+  it('redirects invalid variant query routes before streaming early product hints', async () => {
+    const productImage =
+      'https://cdn.ogabassey.com/core-assets/products/variant-laptop.avif';
+    const variants = [
+      {
+        id: 'variant-used-128',
+        attributes: { storage: '128GB' },
+        condition: 'used',
+        stock_quantity: 3,
+      },
+    ];
+    mockGetCachedProductLcpHint.mockResolvedValueOnce(
+      toLegacyCachedProduct({
+        ...categorizedDetailedProduct,
+        images: [productImage],
+      })
+    );
+    mockGetCachedProductWithDetails.mockResolvedValueOnce({
+      ...categorizedDetailedProduct,
+      images: [productImage],
+      product_variants: variants,
+    });
+    mockNormalizeStorefrontProductVariants.mockReturnValueOnce(variants);
+
+    await expect(
+      CategoryProductPage({
+        params: Promise.resolve({
+          slug: 'teststore',
+          category: 'laptops',
+          productSlug: 'hp-laptop-14-ep0063nia',
+        }),
+        searchParams: Promise.resolve({ storage: '128GB' }),
+      })
+    ).rejects.toThrow('NEXT_REDIRECT');
+
+    expect(mockPermanentRedirect).toHaveBeenCalledTimes(1);
+    expect(mockPreloadOgabasseyPdpProductImage).not.toHaveBeenCalled();
+    expect(mockOgabasseyPdpProductResourceHints).not.toHaveBeenCalled();
+  });
+
   it('skips early product preload when the cached product has no image and still renders details', async () => {
     const fallbackProductImage =
       'https://cdn.ogabassey.com/core-assets/products/fallback-laptop.avif';
-    mockGetCachedProduct.mockResolvedValueOnce(
+    mockGetCachedProductLcpHint.mockResolvedValueOnce(
       toLegacyCachedProduct({
         ...categorizedDetailedProduct,
         images: [],
@@ -1126,7 +1226,7 @@ describe('[category]/[productSlug] page render', () => {
     );
     const productImage =
       'https://cdn.ogabassey.com/core-assets/products/lenovo-legion.avif';
-    mockGetCachedProduct.mockResolvedValueOnce(
+    mockGetCachedProductLcpHint.mockResolvedValueOnce(
       toLegacyCachedProduct({
         ...categorizedDetailedProduct,
         images: [productImage],

@@ -32,6 +32,7 @@ const runtimeRouteManifest = [
   '(content)/privacy-policy/page.tsx',
   '(content)/terms/page.tsx',
   '(content)/terms-of-service/page.tsx',
+  '(content)/terms-and-conditions/page.tsx',
   '(content)/returns/page.tsx',
   '(content)/shipping/page.tsx',
   '(content)/warranty/page.tsx',

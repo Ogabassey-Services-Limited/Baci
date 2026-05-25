@@ -56,6 +56,7 @@ export default function ExpensesScreen() {
       return ExpenseSchema.array().parse(data ?? []);
     },
     enabled: !!merchant?.id,
+    staleTime: 1000 * 60 * 5,
   });
 
   const monthlyTotal = (() => {

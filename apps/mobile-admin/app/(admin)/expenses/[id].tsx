@@ -57,6 +57,7 @@ export default function ExpenseDetailScreen() {
       return data ? ExpenseDetailSchema.parse(data) : null;
     },
     enabled: !!id && !!merchant?.id,
+    staleTime: 1000 * 60 * 5,
   });
 
   const activeBranchName = expense?.branch_id
