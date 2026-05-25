@@ -9,7 +9,7 @@ const warningStyles = {
     padding: 16,
   },
   warningBackdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   warningModal: {

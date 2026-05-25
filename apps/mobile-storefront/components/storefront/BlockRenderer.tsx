@@ -1,6 +1,5 @@
 import type React from 'react';
 import { type StyleProp, View, type ViewStyle } from 'react-native';
-import { HeroSkeleton } from '@/components/ui/Skeleton';
 import { useCategories } from '@/hooks';
 import { CONFIG } from '@/lib/config';
 import { getTemplateConfig } from '@/lib/templates';
@@ -76,7 +75,7 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
               }));
 
               if (slides.length === 0) {
-                return <HeroSkeleton />;
+                return null;
               }
 
               return (

@@ -27,7 +27,7 @@ const renderMockQueryProvider = ({
 );
 const mockQueryProvider = jest.fn(renderMockQueryProvider);
 
-jest.mock('@react-navigation/native', () => ({
+jest.mock('expo-router/react-navigation', () => ({
   DarkTheme: { colors: {} },
   DefaultTheme: { colors: {} },
   ThemeProvider: ({ children }: { children?: React.ReactNode }) => children,
@@ -85,10 +85,6 @@ jest.mock('@/components/ErrorBoundary', () => ({
 
 jest.mock('@/components/modals/NegotiationModal', () => ({
   NegotiationModal: () => <MockText>negotiation-modal</MockText>,
-}));
-
-jest.mock('@/components/navigation/CompactStackHeader', () => ({
-  CompactStackHeader: () => null,
 }));
 
 jest.mock('@/components/navigation/DrawerMenu', () => ({
