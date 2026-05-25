@@ -9,7 +9,7 @@ export const negotiationModalViewStyles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.65)',
   },
   backdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   modalContainer: {
     width: '90%',
