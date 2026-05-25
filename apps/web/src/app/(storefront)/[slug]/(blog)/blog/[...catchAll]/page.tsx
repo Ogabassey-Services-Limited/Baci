@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { notFound, permanentRedirect, redirect } from 'next/navigation';
+import { connection } from 'next/server';
 import { buildCanonicalBlogPostUrl } from '@/app/(storefront)/[slug]/(blog)/blog/[postSlug]/blog-post-content';
 import {
   getCachedBlogPost,
@@ -27,6 +28,8 @@ export default async function BlogCatchAllPage({
 }: {
   params: Promise<{ slug: string; catchAll: string[] }>;
 }) {
+  // This route only resolves redirects or 404s; it has no stable shell to resume.
+  await connection();
   const { slug, catchAll } = await params;
 
   const isDatedBlogPermalink =

@@ -47,6 +47,10 @@
 **Learning:** In the web storefront, custom toggle buttons (like those for filters or expanding order summaries) often miss the `aria-expanded` attribute, causing assistive technologies to remain unaware of the collapsible content's state.
 **Action:** Always ensure that custom disclosure widgets or toggle buttons explicitly implement `aria-expanded={booleanState}` to accurately reflect their expanded or collapsed status to screen readers.
 
+## 2026-05-24 - Accessibility for Custom Toggle Switches
+**Learning:** Custom UI switches (like the "Wallet Credit" toggle) built with standard `<button>` tags require specific ARIA attributes to function correctly for screen readers. Simply changing styling based on state is insufficient.
+**Action:** Always assign `role="switch"` and `aria-checked={booleanState}` to binary toggle switches. Additionally, ensure the switch has an explicit `aria-label` or `aria-labelledby` so its purpose is clear to assistive technologies.
+
 ## 2025-05-24 - Interactive Accessibility for Toggle Buttons
 **Learning:** When using generic components like `Pressable` as toggle buttons (e.g. for compare, favoriting) they require explicitly defined `accessibilityRole="button"`, `accessibilityLabel` that explains the action based on current state, `accessibilityState={{ checked: booleanState }}` to announce its toggled state, and `accessibilityHint` for context. Missing these leaves screen readers with just a silent clickable area.
 **Action:** Always provide the full suite of ARIA/accessibility props (role, label, state, hint) alongside interactive visual feedback (opacity) to any `Pressable` modifying selection state.

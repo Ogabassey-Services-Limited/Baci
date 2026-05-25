@@ -262,8 +262,12 @@ describe('getCachedBlogPost', () => {
     );
 
     expect(relatedProductsBuilder.eq).toHaveBeenCalledWith(
-      'category_slug',
+      'categories.slug',
       'product-news'
+    );
+    expect(relatedProductsBuilder.eq).not.toHaveBeenCalledWith(
+      'category_slug',
+      expect.anything()
     );
   });
 

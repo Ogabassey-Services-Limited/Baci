@@ -12,6 +12,10 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { config } from 'dotenv';
+import {
+  cleanupStaleImportJobs,
+  resolveImportRetentionDays,
+} from '../lib/import-cleanup-retention.mjs';
 
 config({ path: new URL('../.env', import.meta.url).pathname });
 
@@ -106,4 +110,12 @@ while (true) {
   if (batch.length < PAGE_SIZE) break;
 }
 
-console.log(`[cleanup-import-uploads] Done — cleaned=${cleaned}`);
+const staleImportResult = await cleanupStaleImportJobs({
+  logger: console,
+  retentionDays: resolveImportRetentionDays(process.env),
+  supabase,
+});
+
+console.log(
+  `[cleanup-import-uploads] Done — cleaned=${cleaned} staleImports=${staleImportResult.scannedJobs} expired=${staleImportResult.expiredPreviewJobs} rows=${staleImportResult.deletedImportRows} files=${staleImportResult.removedStorageObjects} pending=${staleImportResult.deletedPendingUploads}`
+);
