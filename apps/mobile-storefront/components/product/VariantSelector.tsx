@@ -4,7 +4,7 @@
  * Supports color images, price modifiers, and stock tracking
  */
 
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { Platform, Pressable, Text, View } from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, palette, withAlpha } from '@/constants/Colors';
