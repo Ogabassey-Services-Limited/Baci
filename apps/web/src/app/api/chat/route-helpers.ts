@@ -1,6 +1,11 @@
 import { AGENTIC_SYSTEM_PROMPT } from '@/config/agentic-chat-system-prompt';
 
-export const CUSTOMER_CHAT_TIMEOUT_MS = 8_000;
+/**
+ * VPS responses are buffered before delivery so a malformed stream can fall
+ * back cleanly. Allow a complete bounded generation within the route's 120s
+ * execution limit; an 8s budget rejected healthy production completions.
+ */
+export const CUSTOMER_CHAT_TIMEOUT_MS = 60_000;
 
 export const CUSTOMER_CHAT_FALLBACK_TEXT =
   "I'm sorry, our AI assistant is temporarily busy. Please use the store search, checkout, or WhatsApp support and we'll help you from there.";
