@@ -4,10 +4,9 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import type React from 'react';
-import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { BRAND } from '@/constants/Colors';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { BRAND, SHADOWS } from '@/constants/Colors';
 import type { ReceiptListItem } from '@/types/receipt';
-import { getReceiptCardShadowStyle } from './ReceiptCard.shadows';
 
 const PAYMENT_STATUS_CONFIG: Record<
   string,
@@ -58,13 +57,10 @@ export function ReceiptCard({
 }: ReceiptCardProps) {
   const config = getPaymentConfig(item.payment_status);
   const firstItem = item.items[0];
-  const cardShadowStyle = getReceiptCardShadowStyle(
-    Platform.OS === 'web' ? 'web' : 'native'
-  );
 
   return (
     <TouchableOpacity
-      style={[styles.card, cardShadowStyle, { backgroundColor: colors.card }]}
+      style={[styles.card, SHADOWS.sm, { backgroundColor: colors.card }]}
       onPress={() => onPress(item)}
       onPressIn={() => onPrefetch?.(item.id)}
       activeOpacity={0.7}
