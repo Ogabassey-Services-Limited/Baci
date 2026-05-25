@@ -8,12 +8,11 @@ const withBundleAnalyzer = bundleAnalyzer({
 });
 
 /**
- * Force blocking metadata rendering (no streaming) for crawlers that commonly
- * parse only static head tags in HTML. This keeps Ahrefs/Semrush audits aligned
- * with what social/search bots see.
+ * Disable streamed metadata for all requests. Dynamic storefront metadata
+ * boundaries have caused React resume mismatches against cached page shells.
+ * Next.js documents a match-all user-agent pattern for this opt-out.
  */
-const HTML_LIMITED_BOTS_UA_RE =
-  /Googlebot|Googlebot-Image|Googlebot-News|Googlebot-Video|[\w-]+-Google|Google-[\w-]+|Chrome-Lighthouse|Slurp|DuckDuckBot|baiduspider|yandex|sogou|bitlybot|tumblr|vkShare|quora link preview|redditbot|ia_archiver|Bingbot|BingPreview|applebot|facebookexternalhit|facebookcatalog|Twitterbot|LinkedInBot|Slackbot|Discordbot|WhatsApp|SkypeUriPreview|Yeti|googleweblight|AhrefsBot|AhrefsSiteAudit|SemrushBot|MJ12bot|DotBot|rogerbot|PetalBot|Bytespider/i;
+const HTML_LIMITED_BOTS_UA_RE = /.*/;
 
 const nextConfig: NextConfig = {
   // Keep heavy server-only packages external to reduce function bundle size and peak memory.
@@ -217,8 +216,7 @@ const nextConfig: NextConfig = {
   // Enable typed routes for compile-time validation of Link hrefs
   typedRoutes: true,
 
-  // Disable metadata streaming for HTML-limited crawlers so SEO audits read
-  // full OG/Twitter/title tags directly from the initial HTML head.
+  // Keep generated metadata in <head> and out of React's streamed body tree.
   htmlLimitedBots: HTML_LIMITED_BOTS_UA_RE,
 
   // Turbopack resolve alias (Next.js 16 default bundler)
@@ -300,6 +298,20 @@ const nextConfig: NextConfig = {
           '/blog/why-the-samsung-galaxy-s21-ultra-is-still-a-top-pick-in-2024',
         destination:
           '/blog/samsung-galaxy-s21-ultra-in-2025-powerful-enough-or-just-hanging-on',
+        permanent: true,
+      },
+      // Imported slug contained an encoded non-breaking hyphen. Keep old
+      // links valid while routing cacheable requests through its ASCII slug.
+      {
+        source:
+          '/blog/wwdc-2025-5-game%e2%80%91changing-apple-announcements/:path*',
+        destination: '/blog/wwdc-2025-5-game-changing-apple-announcements',
+        permanent: true,
+      },
+      {
+        source:
+          '/blog/2025/06/10/wwdc-2025-5-game%e2%80%91changing-apple-announcements/:path*',
+        destination: '/blog/wwdc-2025-5-game-changing-apple-announcements',
         permanent: true,
       },
       // Note: legacy WordPress category permalink redirects (/blog/:legacyCategory/:postSlug)
