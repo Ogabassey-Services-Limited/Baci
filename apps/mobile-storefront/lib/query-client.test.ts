@@ -6,9 +6,7 @@
 import { jest } from '@jest/globals';
 
 jest.mock('@react-native-async-storage/async-storage', () =>
-  require(
-    `${__dirname}/../../../node_modules/@react-native-async-storage/async-storage/lib/module/jest/AsyncStorageMock.js`
-  )
+  require('@react-native-async-storage/async-storage/jest/async-storage-mock')
 );
 
 import { QUERY_CACHE_KEYS, queryClient, queryPersister } from './query-client';

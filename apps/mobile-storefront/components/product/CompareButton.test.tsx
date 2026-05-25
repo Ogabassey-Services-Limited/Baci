@@ -12,8 +12,9 @@ jest.mock('@/stores/comparison-store', () => ({
   useComparisonStore: jest.fn(),
 }));
 
-jest.mock('@expo/vector-icons', () => ({
-  Ionicons: 'Ionicons',
+jest.mock('@react-native-vector-icons/ionicons', () => ({
+  __esModule: true,
+  default: 'Ionicons',
 }));
 
 type MockComparisonState = {

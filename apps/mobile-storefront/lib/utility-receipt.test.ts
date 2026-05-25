@@ -11,11 +11,48 @@ const mockIsAvailableAsync = jest.fn<() => Promise<boolean>>();
 const mockShareAsync = jest.fn<(...args: unknown[]) => Promise<void>>();
 const mockDeleteAsync = jest.fn<(...args: unknown[]) => Promise<void>>();
 
-jest.mock('react-native', () => ({
-  Share: {
-    share: (...args: unknown[]) => mockShare(...args),
-  },
-}));
+jest.mock('react-native', () => {
+  return {
+    AccessibilityInfo: {
+      addEventListener: jest.fn(() => ({ remove: jest.fn() })),
+      isReduceMotionEnabled: jest.fn(() => Promise.resolve(false)),
+    },
+    Appearance: {
+      addChangeListener: jest.fn(() => ({ remove: jest.fn() })),
+      getColorScheme: jest.fn(() => 'light'),
+      setColorScheme: jest.fn(),
+    },
+    AppState: {
+      addEventListener: jest.fn(() => ({ remove: jest.fn() })),
+      currentState: 'active',
+    },
+    Dimensions: {
+      addEventListener: jest.fn(() => ({ remove: jest.fn() })),
+      get: jest.fn(() => ({
+        fontScale: 1,
+        height: 812,
+        scale: 2,
+        width: 375,
+      })),
+    },
+    NativeModules: {},
+    Platform: {
+      OS: 'ios',
+      select: <T,>(specifics: {
+        default?: T;
+        ios?: T;
+        native?: T;
+      }): T | undefined => specifics.ios ?? specifics.native ?? specifics.default,
+    },
+    Share: {
+      share: (...args: unknown[]) => mockShare(...args),
+    },
+    TurboModuleRegistry: {
+      get: jest.fn(() => null),
+      getEnforcing: jest.fn(() => null),
+    },
+  };
+});
 
 jest.mock('expo-print', () => ({
   printToFileAsync: (...args: unknown[]) => mockPrintToFileAsync(...args),
