@@ -6,11 +6,8 @@ describe('next.config OgaBassey resource headers', () => {
     expect(nextConfig.skipTrailingSlashRedirect).toBe(true);
   });
 
-  it('disables streamed metadata for normal storefront browser requests', () => {
-    expect(nextConfig.htmlLimitedBots).toBeDefined();
-    expect(nextConfig.htmlLimitedBots?.test('Mozilla/5.0 Chrome/136.0')).toBe(
-      true
-    );
+  it('does not override Next metadata rendering for normal storefront browsers', () => {
+    expect(nextConfig.htmlLimitedBots).toBeUndefined();
   });
 
   it('redirects the imported encoded blog slug to its ASCII canonical URL', async () => {
