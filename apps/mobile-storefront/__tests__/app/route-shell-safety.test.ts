@@ -78,7 +78,6 @@ const SHELL_EXEMPT_ROUTES = new Set([
   'repairs/index.tsx',
   'saved/index.tsx',
   'search.tsx',
-  'swap/index.tsx',
   'track-order/index.tsx',
   'utilities/[type].tsx',
 ]);
