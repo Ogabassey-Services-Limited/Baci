@@ -184,6 +184,14 @@ jobs:
             sed -i '' 's/"Apple Distribution"/"Apple Development"/g' "$PBXPROJ" || true
           fi
 
+      - name: Cache CocoaPods
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        with:
+          path: apps/mobile-admin/ios/Pods
+          key: ${{ runner.os }}-pods-${{ hashFiles('apps/mobile-admin/ios/Podfile.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pods-
+
       - name: Install CocoaPods
         working-directory: ${{ env.WORKING_DIR }}/ios
         env:

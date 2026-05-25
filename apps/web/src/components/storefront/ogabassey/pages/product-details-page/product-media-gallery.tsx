@@ -56,7 +56,7 @@ export function ProductMediaGallery({
           fill
           className="object-cover"
           sizes={OGABASSEY_PDP_PRIMARY_IMAGE_SIZES}
-          loading="eager"
+          priority
           fetchPriority="high"
           decoding="sync"
           quality={OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY}

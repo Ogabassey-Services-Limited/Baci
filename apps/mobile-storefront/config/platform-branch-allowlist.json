@@ -9,6 +9,10 @@
       "justification": "Reviewed Android-only list virtualization setting."
     },
     {
+      "path": "app/(tabs)/_layout.tsx",
+      "justification": "Reviewed CSS box-shadow disabling on web while preserving the native no-shadow tab-bar override."
+    },
+    {
       "path": "app/checkout.tsx",
       "justification": "Reviewed Android hardware-back handling, list virtualization, and monospace font selection."
     },
@@ -129,6 +133,10 @@
       "justification": "Reviewed platform-specific dropdown shadow/elevation styling."
     },
     {
+      "path": "components/storefront/product-card/GridProductCard.tsx",
+      "justification": "Reviewed CSS box-shadow selection on web while preserving native product-card shadows."
+    },
+    {
       "path": "components/storefront/UtilityPanelCategoryItem.tsx",
       "justification": "Reviewed web box-shadow selection for the active utility icon while preserving native shadow styling."
     },
@@ -147,6 +155,10 @@
     {
       "path": "constants/Colors.ts",
       "justification": "Reviewed platform-specific shadow tokens: web uses CSS box-shadow strings while native platforms preserve React Native shadow properties."
+    },
+    {
+      "path": "components/ui/SnowEffect.tsx",
+      "justification": "Reviewed CSS box-shadow selection on web while preserving native snowflake styling."
     },
     {
       "path": "hooks/use-cart.ts",
