@@ -78,11 +78,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   userInterfaceStyle: 'automatic',
   scheme: 'baciadmin',
   assetBundlePatterns: ['**/*'],
-  splash: {
-    image: './assets/images/splash-icon.png',
-    resizeMode: 'contain',
-    backgroundColor: '#f0bf58',
-  },
   ios: {
     supportsTablet: true,
     bundleIdentifier: 'com.ogabassey.baci',
@@ -142,6 +137,14 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   plugins: [
     'expo-router',
+    [
+      'expo-splash-screen',
+      {
+        image: './assets/images/splash-icon.png',
+        resizeMode: 'contain',
+        backgroundColor: '#f0bf58',
+      },
+    ],
     'expo-secure-store',
     [
       'expo-notifications',
@@ -165,16 +168,30 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
           'com.googleusercontent.apps.319018494610-qao63i6hrhsqupk7cbtd80ovfamrm4lm',
       },
     ],
-    'expo-build-properties',
+    [
+      'expo-build-properties',
+      {
+        android: {
+          compileSdkVersion: 36,
+          targetSdkVersion: 36,
+          buildToolsVersion: '36.0.0',
+        },
+        ios: {
+          deploymentTarget: '16.4',
+        },
+      },
+    ],
     'expo-web-browser',
     'expo-font',
     'expo-sharing',
+    '@react-native-vector-icons/ionicons',
+    '@react-native-vector-icons/fontawesome',
     'react-native-edge-to-edge',
     './config/withAndroidGradleFixes.js',
     [
       './plugins/with-ios-release-hardening',
       {
-        minimumOSVersion: '15.1',
+        minimumOSVersion: '16.4',
         teamId: process.env.EXPO_APPLE_TEAM_ID,
       },
     ],

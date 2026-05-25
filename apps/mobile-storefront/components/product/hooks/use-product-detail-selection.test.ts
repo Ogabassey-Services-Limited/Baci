@@ -184,10 +184,18 @@ describe('useProductDetailSelection', () => {
     });
   });
 
-  it.each([
+  const fallbackConditionCases: Array<
+    [
+      label: 'null route condition' | 'unavailable route condition',
+      routeCondition: 'refurbished' | null,
+      expectedCondition: 'used',
+    ]
+  > = [
     ['null route condition', null, 'used'],
     ['unavailable route condition', 'refurbished', 'used'],
-  ] as const)('falls back to a valid condition for %s', async (_label, routeCondition, expectedCondition) => {
+  ];
+
+  it.each(fallbackConditionCases)('falls back to a valid condition for %s', async (_label, routeCondition, expectedCondition) => {
     const { result } = renderHook(() =>
       useProductDetailSelection(
         createHookArgs({

@@ -1,9 +1,4 @@
-/**
- * Categories Screen
- * Browse products by category
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons";
 import { Image } from 'expo-image';
 import type { Href } from 'expo-router';
 import { router } from 'expo-router';
