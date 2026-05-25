@@ -93,6 +93,10 @@
       "justification": "Reviewed Android back-button behavior for drawer dismissal."
     },
     {
+      "path": "components/orders/OrdersListItem.tsx",
+      "justification": "Reviewed status-colored CSS box-shadow on web while preserving native order-card shadow styling."
+    },
+    {
       "path": "components/negotiation/useNegotiationModalController.ts",
       "justification": "Reviewed web guard for native evidence modules and iOS-only haptic feedback."
     },
