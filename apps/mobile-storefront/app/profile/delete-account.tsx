@@ -101,14 +101,22 @@ export default function DeleteAccountScreen() {
 
   if (isAuthLoading) {
     return (
-      <StorefrontScreenShell
-        style={[
-          styles.loadingContainer,
-          { backgroundColor: colors.background },
-        ]}
-      >
-        <ActivityIndicator size="large" color={BRAND.primary} />
-      </StorefrontScreenShell>
+      <>
+        <Stack.Screen options={{ title: 'Delete Account' }} />
+        <StorefrontScreenShell
+          style={[
+            styles.loadingContainer,
+            { backgroundColor: colors.background },
+          ]}
+        >
+          <ActivityIndicator
+            accessibilityLabel="Loading delete account"
+            accessibilityRole="progressbar"
+            size="large"
+            color={BRAND.primary}
+          />
+        </StorefrontScreenShell>
+      </>
     );
   }
 
