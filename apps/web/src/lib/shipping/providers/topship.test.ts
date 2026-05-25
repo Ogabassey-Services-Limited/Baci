@@ -17,6 +17,33 @@ describe('TopshipProvider', () => {
     vi.unstubAllGlobals();
   });
 
+  it('logs recoverable state lookup failures as warnings while returning fallback input', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response(null, { status: 502 }))
+    );
+    const errorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    const warnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+
+    const { TopshipProvider } = await import('./topship');
+    const provider = new TopshipProvider();
+
+    await expect(provider.getStates('NG')).resolves.toEqual([]);
+    expect(errorSpy).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[Shipping]',
+      expect.objectContaining({
+        message: 'Failed to fetch Topship states',
+        provider: 'TOPSHIP',
+        status: 502,
+      })
+    );
+  });
+
   it('retries save-shipment with the expected pickup charge and pays with detail.shipmentId', async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
