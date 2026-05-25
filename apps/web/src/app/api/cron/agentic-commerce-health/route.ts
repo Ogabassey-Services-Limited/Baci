@@ -29,6 +29,13 @@ import {
   type AgentCommerceManifestHealthResult,
   checkAgentCommerceManifestHealth,
 } from '@/lib/agentic/agent-commerce-manifest-health';
+import { checkAgentCommerceSupportChatHealth } from '@/lib/agentic/agent-commerce-support-chat-health';
+import {
+  type AgentCommerceTrustHealthResult,
+  buildAgentCommerceTrustHealthActions,
+  checkAgentCommerceTrustHealth,
+  getAgentCommerceTrustStatusReason,
+} from '@/lib/agentic/agent-commerce-trust-health';
 import { hasValidCronSecret } from '@/lib/cron-secret-auth';
 import { logger } from '@/lib/logger';
 import { sanitizeForLog } from '@/lib/sanitize-core';
@@ -59,6 +66,7 @@ interface AgenticCommerceHealthMerchantResult {
   slug: string;
   status: AgenticCommerceHealthStatus;
   status_reason: string;
+  trust?: AgentCommerceTrustHealthResult;
 }
 
 function normalizeMerchantSlug(value: string) {
@@ -169,7 +177,7 @@ async function buildMerchantHealthResult({
   }
 
   try {
-    const [health, manifest, feeds, crawler] = await Promise.all([
+    const [health, manifest, feeds, crawler, trust] = await Promise.all([
       loadAgenticActionHealth(supabase, merchant.id, {
         recordsSource: 'admin_direct',
       }),
@@ -182,15 +190,21 @@ async function buildMerchantHealthResult({
         slug,
       }),
       checkAgentCommerceCrawlerHealth(supabase, merchant.id),
+      checkAgentCommerceTrustHealth({
+        custom_domain: merchant.custom_domain,
+        slug,
+      }),
     ]);
     const manifestActions = buildAgentCommerceManifestHealthActions(manifest);
     const feedActions = buildAgentCommerceFeedHealthActions(feeds);
     const crawlerActions = buildAgentCommerceCrawlerHealthActions(crawler);
+    const trustActions = buildAgentCommerceTrustHealthActions(trust);
     const mergedActions = [
       ...health.actions,
       ...manifestActions,
       ...feedActions,
       ...crawlerActions,
+      ...trustActions,
     ];
     const status = getAgenticCommerceHealthStatus(mergedActions);
     return {
@@ -203,16 +217,20 @@ async function buildMerchantHealthResult({
       merchant_id: merchant.id,
       slug,
       status,
-      status_reason: getAgentCommerceCrawlerStatusReason(
-        crawler,
-        getAgentCommerceFeedStatusReason(
-          feeds,
-          getAgentCommerceManifestStatusReason(
-            manifest,
-            `agentic_action_health_${status}`
+      status_reason: getAgentCommerceTrustStatusReason(
+        trust,
+        getAgentCommerceCrawlerStatusReason(
+          crawler,
+          getAgentCommerceFeedStatusReason(
+            feeds,
+            getAgentCommerceManifestStatusReason(
+              manifest,
+              `agentic_action_health_${status}`
+            )
           )
         )
       ),
+      trust,
     };
   } catch (_error) {
     return {
@@ -258,29 +276,40 @@ export async function GET(request: NextRequest) {
       supabase,
       Array.from(merchantsBySlug.values(), (merchant) => merchant.id)
     );
-    const merchants = await Promise.all(
-      monitorRequest.slugs.map((slug) => {
-        const merchant = merchantsBySlug.get(slug);
-        return buildMerchantHealthResult({
-          merchant: merchant
-            ? {
-                ...merchant,
-                custom_domain:
-                  primaryDomainsByMerchantId.get(merchant.id) ?? null,
-              }
-            : undefined,
-          slug,
-          supabase,
-        });
-      })
-    );
+    const [merchants, supportChat] = await Promise.all([
+      Promise.all(
+        monitorRequest.slugs.map((slug) => {
+          const merchant = merchantsBySlug.get(slug);
+          return buildMerchantHealthResult({
+            merchant: merchant
+              ? {
+                  ...merchant,
+                  custom_domain:
+                    primaryDomainsByMerchantId.get(merchant.id) ?? null,
+                }
+              : undefined,
+            slug,
+            supabase,
+          });
+        })
+      ),
+      checkAgentCommerceSupportChatHealth(),
+    ]);
     const status = getOverallStatus(merchants);
     const summary = {
       checked_at: new Date().toISOString(),
       merchant_count: merchants.length,
       merchants,
       status,
+      support_chat: supportChat,
     };
+
+    if (supportChat.status === 'attention') {
+      logger.warn({
+        message: 'Support chat health monitor needs attention',
+        support_chat: supportChat,
+      });
+    }
 
     if (status === 'attention') {
       logger.warn({

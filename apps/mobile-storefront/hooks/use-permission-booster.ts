@@ -1,5 +1,4 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Notifications from 'expo-notifications';
 import { requestTrackingPermissionsAsync } from 'expo-tracking-transparency';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
@@ -20,6 +19,19 @@ interface PermissionState {
 }
 
 const COOL_DOWN_PERIOD_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+let notificationsModulePromise:
+  | Promise<typeof import('expo-notifications')>
+  | null = null;
+
+function loadNotifications() {
+  notificationsModulePromise ??= import('expo-notifications').catch(
+    (error: unknown) => {
+      notificationsModulePromise = null;
+      throw error;
+    }
+  );
+  return notificationsModulePromise;
+}
 
 export const usePermissionStore = create<PermissionState>()(
   persist(
@@ -97,7 +109,8 @@ export const usePermissionBooster = () => {
     // 1. Check current system status
     let status;
     if (type === 'notifications') {
-      const settings = await Notifications.getPermissionsAsync();
+      const notifications = await loadNotifications();
+      const settings = await notifications.getPermissionsAsync();
       status = settings.status;
     } else {
       await requestTrackingPermissionsAsync(); // This actually requests, we might want just get status first if possible?
@@ -126,7 +139,8 @@ export const usePermissionBooster = () => {
     store.markRequested(type);
 
     if (type === 'notifications') {
-      const { status } = await Notifications.requestPermissionsAsync();
+      const notifications = await loadNotifications();
+      const { status } = await notifications.requestPermissionsAsync();
       return status === 'granted';
     } else {
       const { status } = await requestTrackingPermissionsAsync();

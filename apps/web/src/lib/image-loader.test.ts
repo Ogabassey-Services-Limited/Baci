@@ -9,35 +9,46 @@ describe('imageLoader', () => {
   it('rewrites OgaBassey CDN image URLs to the CDN transformer', () => {
     const url = 'https://cdn.ogabassey.com/core-assets/products/iphone.avif';
     expect(imageLoader({ src: url, width: 800 })).toBe(
-      'https://cdn.ogabassey.com/image/width=800,quality=75,format=webp/core-assets/products/iphone.avif'
+      'https://cdn.ogabassey.com/image/width=800,quality=75,format=auto/core-assets/products/iphone.avif'
     );
+  });
+
+  it('negotiates CDN output formats for OgaBassey image URLs', () => {
+    const urlJpg = 'https://cdn.ogabassey.com/core-assets/products/image.jpg';
+    expect(imageLoader({ src: urlJpg, width: 800 })).toContain('format=auto');
+
+    const urlPng = 'https://cdn.ogabassey.com/core-assets/products/image.png';
+    expect(imageLoader({ src: urlPng, width: 800 })).toContain('format=auto');
+
+    const urlWebp = 'https://cdn.ogabassey.com/core-assets/products/image.webp';
+    expect(imageLoader({ src: urlWebp, width: 800 })).toContain('format=auto');
   });
 
   it('passes custom quality to the OgaBassey CDN transformer', () => {
     const url = 'https://cdn.ogabassey.com/core-assets/products/iphone.avif';
     expect(imageLoader({ src: url, width: 1200, quality: 90 })).toBe(
-      'https://cdn.ogabassey.com/image/width=1200,quality=90,format=webp/core-assets/products/iphone.avif'
+      'https://cdn.ogabassey.com/image/width=1200,quality=90,format=auto/core-assets/products/iphone.avif'
     );
   });
 
   it('clamps OgaBassey CDN transformer dimensions and quality', () => {
     const url = 'https://cdn.ogabassey.com/core-assets/products/iphone.avif';
     expect(imageLoader({ src: url, width: 9000, quality: 0 })).toBe(
-      'https://cdn.ogabassey.com/image/width=3840,quality=1,format=webp/core-assets/products/iphone.avif'
+      'https://cdn.ogabassey.com/image/width=3840,quality=1,format=auto/core-assets/products/iphone.avif'
     );
   });
 
   it('preserves hash fragments on transformed OgaBassey CDN URLs', () => {
     const url = 'https://cdn.ogabassey.com/core-assets/products/iphone.avif#1';
     expect(imageLoader({ src: url, width: 800 })).toBe(
-      'https://cdn.ogabassey.com/image/width=800,quality=75,format=webp/core-assets/products/iphone.avif#1'
+      'https://cdn.ogabassey.com/image/width=800,quality=75,format=auto/core-assets/products/iphone.avif#1'
     );
   });
 
   it('clamps high OgaBassey CDN transformer quality values', () => {
     const url = 'https://cdn.ogabassey.com/core-assets/products/iphone.avif';
     expect(imageLoader({ src: url, width: 9000, quality: 999 })).toBe(
-      'https://cdn.ogabassey.com/image/width=3840,quality=100,format=webp/core-assets/products/iphone.avif'
+      'https://cdn.ogabassey.com/image/width=3840,quality=100,format=auto/core-assets/products/iphone.avif'
     );
   });
 
@@ -71,7 +82,7 @@ describe('imageLoader', () => {
   it('adds loader params to OgaBassey CDN URLs with query strings', () => {
     const url = 'https://cdn.ogabassey.com/img.avif?v=1';
     expect(imageLoader({ src: url, width: 1200, quality: 90 })).toBe(
-      'https://cdn.ogabassey.com/image/width=1200,quality=90,format=webp/img.avif?v=1'
+      'https://cdn.ogabassey.com/image/width=1200,quality=90,format=auto/img.avif?v=1'
     );
   });
 
@@ -106,7 +117,7 @@ describe('imageLoader', () => {
         width: 640,
       })
     ).toBe(
-      'https://cdn.ogabassey.com/image/width=640,quality=75,format=webp/images/phone.jpg'
+      'https://cdn.ogabassey.com/image/width=640,quality=75,format=auto/images/phone.jpg'
     );
   });
 
