@@ -49,17 +49,35 @@ export const publicProductGoogleFeedItemSchema = z.object({
   title: z.string().min(1),
 });
 
-export const publicProductPdpSchema = z.object({
-  '@type': z.literal('Product'),
+const publicProductPdpPresentationShape = {
   image: z.union([z.string(), z.array(z.string()).min(1)]),
   name: z.string().min(1),
-  offers: z.object({
-    availability: z.string(),
-    price: z.union([z.number(), z.string()]),
-    url: z.string().url(),
-  }),
+  url: z.string().url(),
+};
+
+const publicProductPdpOfferSchema = z.object({
+  availability: z.string(),
+  price: z.union([z.number(), z.string()]),
   url: z.string().url(),
 });
+
+export const publicProductPdpSchema = z.discriminatedUnion('@type', [
+  z.object({
+    '@type': z.literal('Product'),
+    ...publicProductPdpPresentationShape,
+    offers: publicProductPdpOfferSchema,
+  }),
+  z.object({
+    '@type': z.literal('ProductGroup'),
+    ...publicProductPdpPresentationShape,
+    hasVariant: z.tuple([
+      z.object({
+        '@type': z.literal('Product'),
+        offers: publicProductPdpOfferSchema,
+      }),
+    ]),
+  }),
+]);
 
 export type PublicProductApiSample = z.infer<
   typeof publicProductApiProductSchema

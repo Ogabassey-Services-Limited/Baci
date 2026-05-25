@@ -62,6 +62,29 @@ const PDP_HTML = `<html><head><script type="application/ld+json">${JSON.stringif
   }
 )}</script></head></html>`;
 
+const PDP_PRODUCT_GROUP_HTML = `<html><head><script type="application/ld+json">${JSON.stringify(
+  {
+    '@context': 'https://schema.org',
+    '@type': 'ProductGroup',
+    hasVariant: [
+      {
+        '@type': 'Product',
+        offers: {
+          '@type': 'Offer',
+          availability: 'https://schema.org/InStock',
+          price: 1000,
+          priceCurrency: 'NGN',
+          url: 'https://ogabassey.com/phones/test-phone?variantId=variant-1',
+        },
+      },
+    ],
+    image: ['https://cdn.example.com/phone.jpg'],
+    name: 'Test Phone',
+    productGroupID: 'test-phone',
+    url: 'https://ogabassey.com/phones/test-phone',
+  }
+)}</script></head></html>`;
+
 describe('selectPublicProductApiSample', () => {
   it('selects the first simple product and skips matrix-style products', () => {
     const result = selectPublicProductApiSample({
@@ -148,6 +171,27 @@ describe('public product parity surface parsers', () => {
     );
     if (!current || !google || !pdp) {
       throw new Error('Expected a later comparable Product block to parse.');
+    }
+
+    expect(
+      comparePublicProductParitySurfaces({
+        api: API_SAMPLE,
+        current,
+        google,
+        pdp,
+      })
+    ).toEqual([]);
+  });
+
+  it('parses a single-variant ProductGroup PDP using its canonical group fields and offer', () => {
+    const current = parseCurrentAgentProductSample(
+      CURRENT_FEED_LINE,
+      'product-1'
+    );
+    const google = parseGoogleMerchantProductSample(GOOGLE_XML, 'product-1');
+    const pdp = parsePdpProductSample(PDP_PRODUCT_GROUP_HTML);
+    if (!current || !google || !pdp) {
+      throw new Error('Expected single-variant ProductGroup JSON-LD to parse.');
     }
 
     expect(

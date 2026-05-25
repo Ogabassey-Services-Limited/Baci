@@ -118,4 +118,39 @@ describe('public product parity schemas', () => {
       }).success
     ).toBe(false);
   });
+
+  it('accepts a comparable single-variant ProductGroup but rejects ambiguous groups', () => {
+    const variant = {
+      '@type': 'Product',
+      offers: {
+        availability: 'https://schema.org/InStock',
+        price: 1000,
+        url: `${surface.url}?variantId=variant-1`,
+      },
+    };
+    const group = {
+      '@type': 'ProductGroup',
+      hasVariant: [variant],
+      image: ['/media/phone.jpg'],
+      name: surface.name,
+      url: surface.url,
+    };
+
+    expect(publicProductPdpSchema.safeParse(group).success).toBe(true);
+    expect(
+      publicProductPdpSchema.safeParse({
+        ...group,
+        hasVariant: [
+          variant,
+          {
+            ...variant,
+            offers: {
+              ...variant.offers,
+              url: `${surface.url}?variantId=variant-2`,
+            },
+          },
+        ],
+      }).success
+    ).toBe(false);
+  });
 });

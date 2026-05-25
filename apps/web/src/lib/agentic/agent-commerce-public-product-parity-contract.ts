@@ -138,10 +138,12 @@ export function parsePdpProductSample(
     try {
       const parsed = publicProductPdpSchema.safeParse(JSON.parse(match[1]));
       if (!parsed.success) continue;
-      const availability = getSchemaAvailability(
-        parsed.data.offers.availability
-      );
-      const price = parsePrice(parsed.data.offers.price);
+      const offer =
+        parsed.data['@type'] === 'Product'
+          ? parsed.data.offers
+          : parsed.data.hasVariant[0].offers;
+      const availability = getSchemaAvailability(offer.availability);
+      const price = parsePrice(offer.price);
       if (!availability || price === null) continue;
 
       return publicProductComparableSurfaceSchema.parse({
