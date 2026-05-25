@@ -434,6 +434,15 @@ const nextConfig: NextConfig = {
   headers() {
     return [
       {
+        source: '/ogabassey.com/:path*',
+        headers: [
+          {
+            key: 'Link',
+            value: '<https://cdn.ogabassey.com>; rel=preconnect',
+          },
+        ],
+      },
+      {
         source: '/(.*)',
         headers: [
           {
