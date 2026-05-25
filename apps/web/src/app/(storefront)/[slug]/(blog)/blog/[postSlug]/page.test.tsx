@@ -20,7 +20,6 @@ const mockNotFound = vi.fn(() => {
   throw new Error('NEXT_NOT_FOUND');
 });
 const mockGetCachedBlogPost = vi.fn();
-const mockGetLiveBlogPost = vi.fn();
 
 vi.mock('next/headers', () => ({
   draftMode: () => mockDraftMode(),
@@ -39,10 +38,6 @@ vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
   StorefrontDynamicMetadataMarker: () => (
     <div aria-label="dynamic metadata marker" role="status" />
   ),
-}));
-
-vi.mock('@/lib/live-blog-post', () => ({
-  getLiveBlogPost: (...args: unknown[]) => mockGetLiveBlogPost(...args),
 }));
 
 vi.mock('@/lib/store-url', () => ({
@@ -67,6 +62,10 @@ vi.mock('./blog-post-content', () => ({
 
 vi.mock('./blog-post-page-content', () => ({
   default: (props: unknown) => mockBlogPostPageContent(props),
+}));
+
+vi.mock('./BlogPostPageFallback', () => ({
+  BlogPostPageFallback: () => <div>Blog post page fallback</div>,
 }));
 
 import BlogPostPage, { generateMetadata } from './page';
@@ -129,10 +128,10 @@ describe('storefront blog post page', () => {
     ]);
   });
 
-  it('defers blog post first paint to the route loader while route params are pending', () => {
+  it('renders a local shell and metadata marker while request-time blog content is pending', () => {
     mockBlogPostPageContent.mockImplementation(() => {
       throw new Promise(() => {
-        // Keep the blog post page content suspended behind the route loader.
+        // Keep the blog post page content suspended behind its local shell.
       });
     });
 
@@ -147,16 +146,17 @@ describe('storefront blog post page', () => {
       </Suspense>
     );
 
-    expect(screen.getByText('Route loader fallback')).toBeInTheDocument();
+    expect(screen.getByText('Blog post page fallback')).toBeInTheDocument();
+    expect(screen.queryByText('Route loader fallback')).not.toBeInTheDocument();
     expect(
       screen.queryByText('Blog post page content')
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole('status', { name: /dynamic metadata marker/i })
-    ).not.toBeInTheDocument();
+      screen.getByRole('status', { name: /dynamic metadata marker/i })
+    ).toBeInTheDocument();
   });
 
-  it('marks runtime metadata as intentional dynamic content', () => {
+  it('renders the dynamic metadata marker beside request-time blog content', () => {
     render(
       <BlogPostPage
         params={Promise.resolve({
@@ -166,22 +166,15 @@ describe('storefront blog post page', () => {
       />
     );
 
+    expect(screen.getByText('Blog post page content')).toBeInTheDocument();
     expect(
       screen.getByRole('status', { name: /dynamic metadata marker/i })
     ).toBeInTheDocument();
-    expect(
-      screen
-        .getByText('Blog post page content')
-        .compareDocumentPosition(
-          screen.getByRole('status', { name: /dynamic metadata marker/i })
-        ) & Node.DOCUMENT_POSITION_FOLLOWING
-    ).toBeTruthy();
   });
 
-  it('falls back to a live blog query for metadata when the cached lookup misses', async () => {
-    mockDraftMode.mockResolvedValue({ isEnabled: false });
-    mockGetCachedBlogPost.mockResolvedValue(null);
-    mockGetLiveBlogPost.mockResolvedValue(liveBlogPost);
+  it('resolves public metadata without consulting draft request state', async () => {
+    mockDraftMode.mockResolvedValue({ isEnabled: true });
+    mockGetCachedBlogPost.mockResolvedValue(liveBlogPost);
 
     const metadata = await generateMetadata({
       params: Promise.resolve({
@@ -190,7 +183,8 @@ describe('storefront blog post page', () => {
       }),
     });
 
-    expect(mockGetLiveBlogPost).toHaveBeenCalledWith(
+    expect(mockDraftMode).not.toHaveBeenCalled();
+    expect(mockGetCachedBlogPost).toHaveBeenCalledWith(
       'ogabassey.com',
       'apple-studio-display-review',
       false
@@ -204,7 +198,6 @@ describe('storefront blog post page', () => {
   it('uses the cached blog query when metadata is already available', async () => {
     mockDraftMode.mockResolvedValue({ isEnabled: false });
     mockGetCachedBlogPost.mockResolvedValue(liveBlogPost);
-    mockGetLiveBlogPost.mockResolvedValue(null);
 
     const metadata = await generateMetadata({
       params: Promise.resolve({
@@ -218,18 +211,15 @@ describe('storefront blog post page', () => {
       'apple-studio-display-review',
       false
     );
-    expect(mockGetLiveBlogPost).not.toHaveBeenCalled();
     expect(metadata.title).toBe('The Great 5K Stall | Ogabassey');
   });
 
-  it('falls back to the live query when the cached lookup throws', async () => {
+  it('returns noindex fallback metadata when the public cache lookup throws', async () => {
     const consoleErrorSpy = vi
       .spyOn(console, 'error')
       .mockImplementation(() => undefined);
 
-    mockDraftMode.mockResolvedValue({ isEnabled: false });
     mockGetCachedBlogPost.mockRejectedValue(new Error('Cache lookup failed'));
-    mockGetLiveBlogPost.mockResolvedValue(liveBlogPost);
 
     const metadata = await generateMetadata({
       params: Promise.resolve({
@@ -238,14 +228,9 @@ describe('storefront blog post page', () => {
       }),
     });
 
-    expect(mockGetLiveBlogPost).toHaveBeenCalledWith(
-      'ogabassey.com',
-      'apple-studio-display-review',
-      false
-    );
-    expect(metadata.title).toBe('The Great 5K Stall | Ogabassey');
+    expect(metadata.robots).toMatchObject({ index: false, follow: false });
     expect(consoleErrorSpy).toHaveBeenCalledWith(
-      'Error fetching cached blog post, falling back to live query',
+      'Error fetching cached public blog metadata',
       expect.objectContaining({
         slug: 'ogabassey.com',
         postSlug: 'apple-studio-display-review',
@@ -255,21 +240,20 @@ describe('storefront blog post page', () => {
     consoleErrorSpy.mockRestore();
   });
 
-  it('calls notFound when both cached and live lookups miss', async () => {
-    mockDraftMode.mockResolvedValue({ isEnabled: false });
+  it('returns noindex fallback metadata when only draft content may exist', async () => {
+    mockDraftMode.mockResolvedValue({ isEnabled: true });
     mockGetCachedBlogPost.mockResolvedValue(null);
-    mockGetLiveBlogPost.mockResolvedValue(null);
 
-    await expect(
-      generateMetadata({
-        params: Promise.resolve({
-          slug: 'ogabassey.com',
-          postSlug: 'missing-post',
-        }),
-      })
-    ).rejects.toThrow('NEXT_NOT_FOUND');
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: 'ogabassey.com',
+        postSlug: 'draft-only-post',
+      }),
+    });
 
-    expect(mockNotFound).toHaveBeenCalledTimes(1);
+    expect(mockDraftMode).not.toHaveBeenCalled();
+    expect(mockNotFound).not.toHaveBeenCalled();
+    expect(metadata.robots).toMatchObject({ index: false, follow: false });
   });
 
   it('uses canonical URL from buildCanonicalBlogPostUrl for custom domains', async () => {

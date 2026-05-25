@@ -762,7 +762,7 @@ describe('[category]/[productSlug] page metadata', () => {
     expect(metadata.description).not.toContain('in Nigeria');
   });
 
-  it('redirects attribute-only variant params to the bare family URL', async () => {
+  it('leaves variant query redirects to page rendering, not metadata generation', async () => {
     mockGetCachedProductWithDetails.mockResolvedValue(
       categorizedDetailedProduct
     );
@@ -781,23 +781,22 @@ describe('[category]/[productSlug] page metadata', () => {
       },
     ]);
 
-    await expect(
-      generateMetadata({
-        params: Promise.resolve({
-          slug: 'teststore',
-          category: 'laptops',
-          productSlug: 'hp-laptop-14-ep0063nia',
-        }),
-        searchParams: Promise.resolve({
-          storage: '128GB',
-          utm_source: 'google',
-        }),
-      })
-    ).rejects.toThrow('NEXT_REDIRECT');
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: 'teststore',
+        category: 'laptops',
+        productSlug: 'hp-laptop-14-ep0063nia',
+      }),
+      searchParams: Promise.resolve({
+        storage: '128GB',
+        utm_source: 'google',
+      }),
+    });
 
-    expect(mockPermanentRedirect).toHaveBeenCalledWith(
-      '/laptops/hp-laptop-14-ep0063nia'
+    expect(metadata.alternates?.canonical).toBe(
+      'https://teststore.usebaci.com/laptops/hp-laptop-14-ep0063nia'
     );
+    expect(mockPermanentRedirect).not.toHaveBeenCalled();
   });
 });
 
@@ -842,7 +841,7 @@ describe('[category]/[productSlug] page render', () => {
     });
   });
 
-  it('renders only the visible product heading for the page', async () => {
+  it('renders the visible product heading with the dynamic metadata marker', async () => {
     const ui = await resolveRsc(
       await CategoryProductPage({
         params: Promise.resolve({
@@ -860,36 +859,76 @@ describe('[category]/[productSlug] page render', () => {
       level: 1,
       name: 'HP Laptop 14-ep0063nia',
     });
-    const marker = screen.getByRole('status', {
-      name: /dynamic metadata marker/i,
-    });
     expect(heading).toBeInTheDocument();
-    expect(marker).toBeInTheDocument();
     expect(
-      heading.compareDocumentPosition(marker) & Node.DOCUMENT_POSITION_FOLLOWING
-    ).toBeTruthy();
+      screen.getByRole('status', { name: /dynamic metadata marker/i })
+    ).toBeInTheDocument();
     expect(container.querySelectorAll('h1')).toHaveLength(1);
   });
 
-  it('throws notFound before rendering a cached skeleton when the category product is missing', async () => {
-    mockGetCachedProductWithDetails.mockResolvedValueOnce(null);
-    mockGetCachedLegacyProductRedirectTarget.mockResolvedValueOnce(null);
+  it('prefers the direct canonical category over additional product collections', async () => {
+    mockGetCachedProduct.mockResolvedValueOnce({
+      ...toLegacyCachedProduct(),
+      categories: categorizedDetailedProduct.categories,
+      product_categories: [
+        {
+          categories: { id: 'collection-hp', name: 'HP', slug: 'hp' },
+        },
+      ],
+    });
 
-    await expect(
-      CategoryProductPage({
+    const ui = await resolveRsc(
+      await CategoryProductPage({
         params: Promise.resolve({
           slug: 'teststore',
           category: 'laptops',
-          productSlug: 'missing-product',
+          productSlug: 'hp-laptop-14-ep0063nia',
         }),
         searchParams: Promise.resolve({}),
       })
-    ).rejects.toThrow('NEXT_NOT_FOUND');
-
-    expect(mockGetCachedLegacyProductRedirectTarget).toHaveBeenCalledWith(
-      baseMerchant.id,
-      'missing-product'
     );
+
+    render(ui);
+
+    expect(
+      screen.getByRole('heading', {
+        level: 1,
+        name: 'HP Laptop 14-ep0063nia',
+      })
+    ).toBeInTheDocument();
+    expect(mockPermanentRedirect).not.toHaveBeenCalled();
+  });
+
+  it('throws notFound before rendering a cached skeleton when the category product is missing', async () => {
+    const consoleWarnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+    mockGetCachedProductWithDetails.mockResolvedValueOnce(null);
+    mockGetCachedLegacyProductRedirectTarget.mockResolvedValueOnce(null);
+
+    try {
+      await expect(
+        CategoryProductPage({
+          params: Promise.resolve({
+            slug: 'teststore',
+            category: 'laptops',
+            productSlug: 'missing-product',
+          }),
+          searchParams: Promise.resolve({}),
+        })
+      ).rejects.toThrow('NEXT_NOT_FOUND');
+
+      expect(mockGetCachedLegacyProductRedirectTarget).toHaveBeenCalledWith(
+        baseMerchant.id,
+        'missing-product'
+      );
+      expect(consoleWarnSpy).not.toHaveBeenCalledWith(
+        'Product not found for storefront product route:',
+        'missing-product'
+      );
+    } finally {
+      consoleWarnSpy.mockRestore();
+    }
   });
 
   it('uses the same NGN fallback currency for metadata and product JSON-LD', async () => {

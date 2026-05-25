@@ -899,7 +899,7 @@ describe('category page route', () => {
     );
   });
 
-  it('preserves the paginated metadata contract with hub-derived titles', async () => {
+  it('keeps metadata on the canonical category listing regardless of pagination', async () => {
     const firstPageMetadata = await generateMetadata({
       params: Promise.resolve({ slug: 'test-store', category: 'smartphones' }),
       searchParams: Promise.resolve({ page: '1' }),
@@ -913,22 +913,22 @@ describe('category page route', () => {
       'https://test-store.usebaci.com/smartphones'
     );
     expect(secondPageMetadata.alternates?.canonical).toBe(
-      'https://test-store.usebaci.com/smartphones?page=2'
+      'https://test-store.usebaci.com/smartphones'
     );
     expect(typeof secondPageMetadata.title).toBe('string');
     expect(secondPageMetadata.title).toContain('Smartphones');
-    expect(secondPageMetadata.title).toContain('Page 2');
+    expect(secondPageMetadata.title).not.toContain('Page 2');
     expect(secondPageMetadata.title).toContain('Ogabassey');
     expect((secondPageMetadata.title as string).length).toBeLessThanOrEqual(70);
     expect(secondPageMetadata.title).not.toContain('| Ogabassey | Ogabassey');
     expect(secondPageMetadata.openGraph?.images).toEqual([
       {
-        url: 'https://cdn.example.com/product-21.png',
+        url: 'https://cdn.example.com/product-1.png',
         alt: 'Smartphones',
       },
     ]);
     expect(secondPageMetadata.twitter?.images).toEqual([
-      'https://cdn.example.com/product-21.png',
+      'https://cdn.example.com/product-1.png',
     ]);
   });
 

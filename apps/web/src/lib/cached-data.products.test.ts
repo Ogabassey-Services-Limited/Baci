@@ -76,7 +76,7 @@ describe('cached-data product query projections', () => {
     /(?:^|[\s,])track_quantity\s*(?:,|\n|$)/;
 
   it('getCachedProduct uses explicit column select without product_variants', async () => {
-    harness.mockSingle.mockResolvedValueOnce(singleProductResult);
+    harness.mockMaybeSingle.mockResolvedValueOnce(singleProductResult);
 
     await getCachedProduct('merchant-123', 'iphone-16');
 
@@ -89,6 +89,7 @@ describe('cached-data product query projections', () => {
     expect(selectArg).not.toMatch(standaloneTrackQuantityColumnPattern);
     expect(selectArg).toContain('quantity:stock_quantity');
     expect(selectArg).toContain('track_quantity:manage_stock');
+    expect(selectArg).toContain('categories:category_id');
     expect(selectArg).not.toContain('is_featured');
     expect(selectArg).toContain('canonical_url');
   });
@@ -229,15 +230,30 @@ describe('cached-data product query projections', () => {
   });
 
   it('getCachedProduct returns null on query error', async () => {
-    harness.mockSingle.mockResolvedValueOnce(productQueryError);
+    harness.mockMaybeSingle.mockResolvedValueOnce(productQueryError);
 
     await expect(
       getCachedProduct('merchant-123', 'missing-product')
     ).resolves.toBeNull();
   });
 
+  it('getCachedProduct treats an expected missing lookup as null without logging an error', async () => {
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    harness.mockMaybeSingle.mockResolvedValueOnce({ data: null, error: null });
+
+    await expect(
+      getCachedProduct('merchant-123', 'legacy-product-slug')
+    ).resolves.toBeNull();
+
+    expect(harness.mockMaybeSingle).toHaveBeenCalledOnce();
+    expect(harness.mockSingle).not.toHaveBeenCalled();
+    expect(consoleErrorSpy).not.toHaveBeenCalled();
+  });
+
   it('getCachedProduct attaches storefront variants from the public RPC', async () => {
-    harness.mockSingle.mockResolvedValueOnce(singleProductResult);
+    harness.mockMaybeSingle.mockResolvedValueOnce(singleProductResult);
     harness.mockRpc.mockResolvedValueOnce({
       data: [
         {
@@ -267,7 +283,7 @@ describe('cached-data product query projections', () => {
   });
 
   it('getCachedProduct maps price fields to legacy base/sale fields', async () => {
-    harness.mockSingle.mockResolvedValueOnce({
+    harness.mockMaybeSingle.mockResolvedValueOnce({
       data: {
         id: 'product-123',
         slug: 'iphone-16',
@@ -293,7 +309,7 @@ describe('cached-data product query projections', () => {
   });
 
   it('getCachedProduct falls back to empty variants when the public RPC fails', async () => {
-    harness.mockSingle.mockResolvedValueOnce(singleProductResult);
+    harness.mockMaybeSingle.mockResolvedValueOnce(singleProductResult);
     harness.mockRpc.mockResolvedValueOnce(rpcFailure);
 
     const result = await getCachedProduct('merchant-123', 'iphone-16');

@@ -421,10 +421,6 @@ const getProduct = async (
       };
     }
 
-    console.warn(
-      'Product not found for storefront product route:',
-      sanitizeLookupLogValue(productSlug)
-    );
     return null;
   }
 
@@ -575,13 +571,11 @@ async function getProductRouteControl(
 
 export async function generateMetadata({
   params,
-  searchParams,
 }: PageProps): Promise<Metadata> {
   const { slug, category, productSlug } = await params;
   if (!isValidMerchantIdentifier(slug)) {
     notFound();
   }
-  const resolvedSearchParams = await searchParams;
   const result = await getProduct(slug, category, productSlug);
 
   if (!result) {
@@ -604,7 +598,6 @@ export async function generateMetadata({
   }
 
   const baseUrl = buildStoreUrl(merchant);
-  redirectInvalidVariantSelectionParams(slug, product, resolvedSearchParams);
 
   const canonicalUrl = getValidatedProductUrl(product, baseUrl, merchant.slug);
   const productCategoryName =

@@ -56,9 +56,10 @@ describe('createOllamaChatResponse', () => {
         }),
       })
     );
-    expect(JSON.parse(String(mockFetch.mock.calls[0][1]?.body)).model).toBe(
-      'gemma4:e4b'
-    );
+    const requestBody = JSON.parse(String(mockFetch.mock.calls[0][1]?.body));
+    expect(requestBody.model).toBe('gemma4:e4b');
+    expect(requestBody.think).toBe(false);
+    expect(requestBody.options.num_predict).toBe(128);
   });
 
   it('encodes raw Basic Auth credentials before sending them to Ollama', async () => {
