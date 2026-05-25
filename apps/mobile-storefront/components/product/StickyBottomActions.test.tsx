@@ -53,7 +53,11 @@ describe('StickyBottomActions', () => {
 
     const addToCartButton = screen.getByRole('button', { name: 'Add to Cart' });
     const flattenedStyle = StyleSheet.flatten(addToCartButton.props.style);
-    const containerStyle = StyleSheet.flatten(toJSON()?.props.style);
+    const renderedTree = toJSON();
+    const renderedRoot = Array.isArray(renderedTree)
+      ? renderedTree[0]
+      : renderedTree;
+    const containerStyle = StyleSheet.flatten(renderedRoot?.props.style);
 
     expect(typeof addToCartButton.props.style).not.toBe('function');
     expect(flattenedStyle).toMatchObject({
@@ -135,7 +139,11 @@ describe('StickyBottomActions', () => {
       />
     );
 
-    const containerStyle = StyleSheet.flatten(toJSON()?.props.style);
+    const renderedTree = toJSON();
+    const renderedRoot = Array.isArray(renderedTree)
+      ? renderedTree[0]
+      : renderedTree;
+    const containerStyle = StyleSheet.flatten(renderedRoot?.props.style);
 
     expect(containerStyle?.bottom).toBe(34);
     expect(containerStyle?.paddingBottom).toBe(16);
