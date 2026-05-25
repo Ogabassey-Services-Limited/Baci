@@ -841,7 +841,7 @@ describe('[category]/[productSlug] page render', () => {
     });
   });
 
-  it('renders the visible product heading with the dynamic metadata marker', async () => {
+  it('renders the visible product heading without a trailing metadata marker boundary', async () => {
     const ui = await resolveRsc(
       await CategoryProductPage({
         params: Promise.resolve({
@@ -861,8 +861,8 @@ describe('[category]/[productSlug] page render', () => {
     });
     expect(heading).toBeInTheDocument();
     expect(
-      screen.getByRole('status', { name: /dynamic metadata marker/i })
-    ).toBeInTheDocument();
+      screen.queryByRole('status', { name: /dynamic metadata marker/i })
+    ).not.toBeInTheDocument();
     expect(container.querySelectorAll('h1')).toHaveLength(1);
   });
 
