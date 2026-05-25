@@ -93,6 +93,7 @@ export function RecordPaymentSheet({
         <TextInput
           accessibilityLabel="Payment amount"
           keyboardType="numeric"
+          returnKeyType="done"
           onBlur={() => setIsAmountFocused(false)}
           onChangeText={(text) => {
             const digits = text.replace(/[^0-9.]/g, '');
@@ -127,11 +128,12 @@ export function RecordPaymentSheet({
               accessibilityRole="button"
               accessibilityState={{ selected: isSelected }}
               onPress={() => onMethodChange(method)}
-              style={[
+              style={({ pressed }) => [
                 styles.methodButton,
                 {
                   backgroundColor: isSelected ? colors.primary : colors.card,
                   borderColor: isSelected ? colors.primary : colors.border,
+                  opacity: pressed ? 0.7 : 1,
                 },
               ]}
             >
@@ -155,6 +157,7 @@ export function RecordPaymentSheet({
         accessibilityLabel="Payment notes"
         maxLength={500}
         onChangeText={onNotesChange}
+        returnKeyType="done"
         placeholder="E.g., Received by John"
         placeholderTextColor={colors.textSecondary}
         style={[
@@ -169,11 +172,11 @@ export function RecordPaymentSheet({
         accessibilityRole="button"
         disabled={isConfirmDisabled || isSubmitting}
         onPress={onConfirm}
-        style={[
+        style={({ pressed }) => [
           styles.confirmButton,
           {
             backgroundColor: colors.success,
-            opacity: isConfirmDisabled || isSubmitting ? 0.5 : 1,
+            opacity: isConfirmDisabled || isSubmitting ? 0.5 : pressed ? 0.7 : 1,
           },
         ]}
       >
