@@ -434,7 +434,8 @@ const nextConfig: NextConfig = {
   headers() {
     return [
       {
-        source: '/ogabassey.com/:path*',
+        source: '/(.*)',
+        has: [{ type: 'host', value: 'ogabassey.com' }],
         headers: [
           {
             key: 'Link',

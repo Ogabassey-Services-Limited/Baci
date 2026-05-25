@@ -28,8 +28,7 @@ export function generateSitemaps() {
 export default async function sitemap(props: {
   id: Promise<string> | string;
 }): Promise<MetadataRoute.Sitemap> {
-  const rawId = await props.id;
-  const sitemapId = typeof rawId === 'string' ? rawId : await rawId;
+  const sitemapId = await props.id;
 
   // Next.js 16 with generateSitemaps() only passes { id } — not params.
   // Read the merchant slug from proxy headers or fall back to the host header.

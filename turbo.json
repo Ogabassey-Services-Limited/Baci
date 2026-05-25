@@ -42,13 +42,19 @@
       "persistent": true
     },
     "lint": {
-      "inputs": ["src/**/*", "package.json", "tsconfig*.json", "biome.json"]
+      "inputs": ["$TURBO_DEFAULT$", "next.config*.ts", "biome.json"]
     },
     "typecheck": {
-      "inputs": ["src/**/*", "package.json", "tsconfig*.json"]
+      "inputs": ["$TURBO_DEFAULT$", "next.config*.ts", "tsconfig*.json"]
     },
     "test": {
-      "inputs": ["src/**/*", "package.json", "tsconfig*.json", "vitest.config.*", "jest.config.*"]
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "next.config*.ts",
+        "tsconfig*.json",
+        "vitest.config.*",
+        "jest.config.*"
+      ]
     }
   }
 }

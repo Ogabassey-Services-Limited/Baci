@@ -67,6 +67,7 @@ describe('robots()', () => {
       'https://ogabassey.usebaci.com/sitemap/static.xml',
       'https://ogabassey.usebaci.com/sitemap/products.xml',
       'https://ogabassey.usebaci.com/sitemap/categories.xml',
+      'https://ogabassey.usebaci.com/sitemap/commercial-support.xml',
       'https://ogabassey.usebaci.com/blog/sitemap.xml',
     ]);
   });
@@ -133,6 +134,7 @@ describe('robots()', () => {
       'https://ogabassey.usebaci.com/sitemap/static.xml',
       'https://ogabassey.usebaci.com/sitemap/products.xml',
       'https://ogabassey.usebaci.com/sitemap/categories.xml',
+      'https://ogabassey.usebaci.com/sitemap/commercial-support.xml',
       'https://ogabassey.usebaci.com/blog/sitemap.xml',
     ]);
   });
@@ -155,6 +157,7 @@ describe('robots()', () => {
       'https://shop.ogabassey.com/sitemap/static.xml',
       'https://shop.ogabassey.com/sitemap/products.xml',
       'https://shop.ogabassey.com/sitemap/categories.xml',
+      'https://shop.ogabassey.com/sitemap/commercial-support.xml',
       'https://shop.ogabassey.com/blog/sitemap.xml',
     ]);
   });
@@ -260,6 +263,7 @@ describe('robots()', () => {
       'https://ogabassey.usebaci.com/sitemap/static.xml',
       'https://ogabassey.usebaci.com/sitemap/products.xml',
       'https://ogabassey.usebaci.com/sitemap/categories.xml',
+      'https://ogabassey.usebaci.com/sitemap/commercial-support.xml',
     ]);
   });
 });
