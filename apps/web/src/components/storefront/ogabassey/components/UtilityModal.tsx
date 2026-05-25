@@ -1,12 +1,23 @@
 'use client';
 
-import { Check, Smartphone, Tv, Wallet, Wifi, Zap } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { useMerchantSafe } from '@/hooks/use-merchant-client';
-import { cn } from '@/lib/utils';
+import { useEffect, useRef, useState } from 'react';
+import { useCustomerAuth } from '@/contexts/customer-auth-context';
 import { toast } from '@/hooks/use-toast';
+import { useMerchantSafe } from '@/hooks/use-merchant-client';
+import { fetchWithCsrf } from '@/lib/api-client';
+import { useWallet } from '../pages/checkout/hooks/use-wallet';
+import {
+  createWalletIdempotencyKey,
+  getCheckoutErrorMessage,
+  isUtilityCheckoutResponse,
+  redirectToPaymentCheckout,
+  type UtilityCheckoutPayload,
+} from './utility-checkout';
 import { AirtimeDataForm } from './utility/AirtimeDataForm';
 import { BillPaymentForm } from './utility/BillPaymentForm';
+import { UtilityPaymentMethodSelector } from './UtilityPaymentMethodSelector';
+import { UtilitySuccessView } from './UtilitySuccessView';
+import { UtilityTabs, type UtilityTabId } from './UtilityTabs';
 
 interface UtilityModalProps {
   isOpen: boolean;
@@ -14,29 +25,41 @@ interface UtilityModalProps {
   initialTab?: 'airtime' | 'data' | 'tv' | 'power' | 'betting';
 }
 
-const TABS = [
-  { id: 'airtime', icon: Smartphone, label: 'Airtime' },
-  { id: 'data', icon: Wifi, label: 'Data' },
-  { id: 'tv', icon: Tv, label: 'TV' },
-  { id: 'power', icon: Zap, label: 'Power' },
-  { id: 'betting', icon: Wallet, label: 'Betting' },
-] as const;
-
-type TabId = (typeof TABS)[number]['id'];
+type UtilityPaymentMethod = 'wallet' | 'card';
 
 export const UtilityModal = ({
   isOpen,
   onClose,
   initialTab = 'airtime',
 }: UtilityModalProps) => {
-  const [activeTab, setActiveTab] = useState<TabId>(initialTab);
+  const [activeTab, setActiveTab] = useState<UtilityTabId>(initialTab);
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<'details' | 'success'>('details');
   const [transactionRef, setTransactionRef] = useState('');
   const [successAmount, setSuccessAmount] = useState(0);
+  const walletIdempotencyKeyRef = useRef<string | null>(null);
 
   const merchantContext = useMerchantSafe();
   const merchant = merchantContext?.merchant;
+  const {
+    customer,
+    isAuthenticated,
+    isLoading: isAuthLoading,
+    user,
+  } = useCustomerAuth();
+  const {
+    payWithWallet,
+    setPayWithWallet,
+    setWalletBalance,
+    walletBalance,
+    walletLoading,
+  } = useWallet({
+    merchantSlug: merchant?.slug,
+    userId: user?.id,
+  });
+  const canUseWallet = isAuthenticated && walletBalance > 0;
+  const selectedPaymentMethod: UtilityPaymentMethod =
+    canUseWallet && payWithWallet ? 'wallet' : 'card';
 
   useEffect(() => {
     if (isOpen) {
@@ -45,28 +68,112 @@ export const UtilityModal = ({
     }
   }, [isOpen, initialTab]);
 
-  const handlePurchase = async (payload: Record<string, unknown>) => {
+  const getWalletIdempotencyKey = () => {
+    walletIdempotencyKeyRef.current ??= createWalletIdempotencyKey();
+    return walletIdempotencyKeyRef.current;
+  };
+
+  const handlePurchase = async (payload: UtilityCheckoutPayload) => {
+    if (isAuthLoading) {
+      toast({
+        title: 'Checking account',
+        description: 'Please wait while we confirm your session.',
+      });
+      return;
+    }
+
+    if (!isAuthenticated || !user) {
+      toast({
+        title: 'Sign in required',
+        description: 'Please sign in to use utility checkout.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setLoading(true);
     try {
-      const response = await fetch('/api/vtu/purchase', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          merchantSlug: merchant?.slug || 'ogabassey',
-          source: 'storefront_modal',
-          ...payload,
-        }),
-      });
+      const merchantSlug = merchant?.slug || 'ogabassey';
+      const customerName =
+        [customer?.first_name, customer?.last_name]
+          .filter(Boolean)
+          .join(' ')
+          .trim() || customer?.email || user.email || 'Customer';
+      const checkoutPayload = {
+        merchantSlug,
+        customerName,
+        ...(customer?.phone ? { customerPhone: customer.phone } : {}),
+        ...payload,
+      };
+      const requestedWalletAmount =
+        selectedPaymentMethod === 'wallet'
+          ? Math.min(walletBalance, payload.amount)
+          : 0;
+      const isWalletOnly =
+        requestedWalletAmount > 0 && requestedWalletAmount >= payload.amount;
+      const response = await fetchWithCsrf(
+        isWalletOnly
+          ? '/api/vtu/checkout/wallet-only'
+          : '/api/vtu/checkout/initialize',
+        {
+          method: 'POST',
+          headers: isWalletOnly
+            ? { 'Idempotency-Key': getWalletIdempotencyKey() }
+            : undefined,
+          body: JSON.stringify({
+            ...checkoutPayload,
+            ...(isWalletOnly
+              ? { walletAmount: payload.amount }
+              : {
+                  gateway: 'paystack',
+                  ...(requestedWalletAmount > 0
+                    ? { walletAmount: requestedWalletAmount }
+                    : {}),
+                }),
+          }),
+        }
+      );
 
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Transaction failed');
+      const rawResponse = await response.text();
+      let parsedData: unknown;
+      try {
+        parsedData = JSON.parse(rawResponse);
+      } catch {
+        throw new Error(
+          response.ok
+            ? 'Payment checkout returned an invalid response'
+            : `Payment checkout failed (${response.status})`
+        );
+      }
+      if (!response.ok) throw new Error(getCheckoutErrorMessage(parsedData));
+      if (!isUtilityCheckoutResponse(parsedData)) {
+        throw new Error('Payment checkout returned an invalid response');
+      }
+      const data = parsedData;
 
-      setTransactionRef(data.reference);
-      setSuccessAmount(data.amount);
+      if (!isWalletOnly) {
+        const checkoutUrl = data.checkout_url || data.authorization_url;
+        if (!checkoutUrl) {
+          throw new Error('Payment checkout URL was not returned');
+        }
+        redirectToPaymentCheckout(checkoutUrl);
+        return;
+      }
+
+      walletIdempotencyKeyRef.current = null;
+      setWalletBalance(Math.max(walletBalance - payload.amount, 0));
+      setTransactionRef(data.reference ?? '');
+      setSuccessAmount(data.amount ?? payload.amount);
       setStep('success');
       toast({
-        title: 'Purchase Successful',
-        description: `Your ${activeTab} purchase was successful!`,
+        title:
+          data.status === 'processing'
+            ? 'Purchase Processing'
+            : 'Purchase Successful',
+        description:
+          data.status === 'processing'
+            ? `Your ${activeTab} purchase is processing.`
+            : `Your ${activeTab} purchase was successful!`,
       });
     } catch (error) {
       toast({
@@ -116,7 +223,6 @@ export const UtilityModal = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-200">
       <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
-        {/* Header */}
         <div className="bg-gray-50 px-6 py-4 flex items-center justify-between border-b border-gray-100">
           <h3 className="font-bold text-lg text-gray-900">Utility Payment</h3>
           <button
@@ -141,66 +247,33 @@ export const UtilityModal = ({
           </button>
         </div>
 
-        {/* Tabs */}
-        <div className="flex border-b border-gray-100 overflow-x-auto no-scrollbar">
-          {TABS.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => {
-                setActiveTab(tab.id);
-                setStep('details');
-              }}
-              className={cn(
-                'flex-1 flex flex-col items-center gap-1 py-3 px-4 min-w-[80px] transition-colors border-b-2',
-                activeTab === tab.id
-                  ? 'border-red-600 text-red-600 bg-red-50/50'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-              )}
-            >
-              <tab.icon size={18} />
-              <span className="text-xs font-medium">{tab.label}</span>
-            </button>
-          ))}
-        </div>
+        <UtilityTabs
+          activeTab={activeTab}
+          onSelect={(tab) => {
+            setActiveTab(tab);
+            setStep('details');
+          }}
+        />
 
-        {/* Content */}
         <div className="p-6">
           {step === 'success' ? (
-            <div className="text-center py-8">
-              <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Check size={32} />
-              </div>
-              <h4 className="text-xl font-bold text-gray-900 mb-2">
-                Success!
-              </h4>
-              <p className="text-gray-500 mb-6">
-                Your transaction has been processed successfully.
-              </p>
-              <div className="bg-gray-50 rounded-lg p-4 mb-6 text-sm">
-                <div className="flex justify-between mb-2">
-                  <span className="text-gray-500">Service</span>
-                  <span className="font-medium capitalize">{activeTab}</span>
-                </div>
-                <div className="flex justify-between mb-2">
-                  <span className="text-gray-500">Amount</span>
-                  <span className="font-medium">
-                    ₦{successAmount.toLocaleString()}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Ref</span>
-                  <span className="font-mono text-xs">{transactionRef}</span>
-                </div>
-              </div>
-              <button
-                onClick={onClose}
-                className="w-full bg-red-600 text-white font-bold py-3 rounded-xl hover:bg-red-700 transition-colors"
-              >
-                Done
-              </button>
-            </div>
+            <UtilitySuccessView
+              activeTab={activeTab}
+              amount={successAmount}
+              onClose={onClose}
+              reference={transactionRef}
+            />
           ) : (
             <>
+              <UtilityPaymentMethodSelector
+                canUseWallet={canUseWallet}
+                isLoading={loading}
+                onSelectCard={() => setPayWithWallet(false)}
+                onSelectWallet={() => setPayWithWallet(true)}
+                selectedPaymentMethod={selectedPaymentMethod}
+                walletBalance={walletBalance}
+                walletLoading={walletLoading}
+              />
               {(activeTab === 'airtime' || activeTab === 'data') && (
                 <AirtimeDataForm
                   type={activeTab}

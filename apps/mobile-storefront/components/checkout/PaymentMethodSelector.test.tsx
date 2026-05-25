@@ -254,6 +254,56 @@ describe('PaymentMethodSelector', () => {
       expect(screen.queryByLabelText(/wallet/i)).toBeNull();
     });
 
+    it('renders a disabled wallet status row while the VTU wallet balance is loading', () => {
+      render(
+        <PaymentMethodSelector
+          selectedMethod={'paystack' as PaymentMethodType}
+          onSelectMethod={() => {}}
+          selectedTab="full"
+          onSelectTab={() => {}}
+          orderTotal={1000}
+          walletMode="vtu"
+          walletBalance={0}
+          walletOrderTotal={1000}
+          walletIsLoading
+        />
+      );
+
+      const walletRow = screen.getByLabelText(
+        'Wallet. Checking wallet balance'
+      );
+
+      expect(walletRow.props.accessibilityState).toMatchObject({
+        disabled: true,
+      });
+      expect(screen.getByText('Checking wallet balance')).toBeTruthy();
+    });
+
+    it('renders a disabled wallet status row when the VTU wallet balance cannot be loaded', () => {
+      render(
+        <PaymentMethodSelector
+          selectedMethod={'paystack' as PaymentMethodType}
+          onSelectMethod={() => {}}
+          selectedTab="full"
+          onSelectTab={() => {}}
+          orderTotal={1000}
+          walletMode="vtu"
+          walletBalance={0}
+          walletOrderTotal={1000}
+          walletError={new Error('wallet unavailable')}
+        />
+      );
+
+      const walletRow = screen.getByLabelText(
+        'Wallet unavailable. Use card while wallet refreshes'
+      );
+
+      expect(walletRow.props.accessibilityState).toMatchObject({
+        disabled: true,
+      });
+      expect(screen.getByText('Wallet unavailable')).toBeTruthy();
+    });
+
     it('renders the wallet row in partial-deductible mode when balance < orderTotal', () => {
       render(
         <PaymentMethodSelector

@@ -11,6 +11,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import creditDirectLogoSource from '@/assets/images/creditdirect.jpg';
 import credpalLogoSource from '@/assets/images/credpal.png';
 import { useColorScheme } from '@/components/useColorScheme';
+import { WalletStatusRow } from '@/components/checkout/WalletStatusRow';
 import Colors, { BRAND, palette, RADIUS, SPACING } from '@/constants/Colors';
 import type { WalletSelection } from '@/lib/wallet-payment-helpers';
 import { formatPrice } from '@/stores/cart-store';
@@ -142,6 +143,8 @@ interface PaymentMethodSelectorProps {
   enabledMethods?: PaymentMethodType[];
   walletMode?: WalletMode;
   walletBalance?: number;
+  walletError?: Error | null;
+  walletIsLoading?: boolean;
   walletOrderTotal?: number;
   walletSelection?: WalletSelection;
   onWalletToggle?: (selection: WalletSelection) => void;
@@ -162,6 +165,8 @@ export function PaymentMethodSelector({
   enabledMethods,
   walletMode = 'off',
   walletBalance = 0,
+  walletError = null,
+  walletIsLoading = false,
   walletOrderTotal,
   walletSelection,
   onWalletToggle,
@@ -278,12 +283,20 @@ export function PaymentMethodSelector({
   // exposes paystack/korapay to the selector, both of which satisfy
   // isWalletCompatibleMethod. The same render gate works for both
   // 'orders' and 'vtu' callers.
-  const walletShouldRender =
+  const walletAttemptAllowed =
     (walletMode === 'orders' || walletMode === 'vtu') &&
-    walletBalance > 0 &&
     walletEffectiveTotal > 0 &&
     selectedTab === 'full' &&
     isWalletCompatibleMethod;
+  const walletShouldRender =
+    walletAttemptAllowed &&
+    walletBalance > 0 &&
+    !walletIsLoading &&
+    walletError === null;
+  const walletStatusShouldRender =
+    walletAttemptAllowed &&
+    !walletShouldRender &&
+    (walletIsLoading || walletError !== null);
   const walletCoversFully =
     walletShouldRender && walletBalance >= walletEffectiveTotal;
   const walletPortion = walletShouldRender
@@ -313,6 +326,13 @@ export function PaymentMethodSelector({
 
   return (
     <View style={styles.container}>
+      {walletStatusShouldRender && (
+        <WalletStatusRow
+          colors={colors}
+          isLoading={walletIsLoading}
+        />
+      )}
+
       {walletShouldRender && (
         <Pressable
           onPress={handleWalletToggle}

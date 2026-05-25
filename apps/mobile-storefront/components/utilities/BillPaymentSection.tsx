@@ -67,6 +67,8 @@ export function BillPaymentSection({
         selectedSavedCardId={payment.selectedSavedCardId}
         supportedGateways={payment.supportedGateways}
         walletBalance={payment.walletBalance}
+        walletError={payment.walletError}
+        walletIsLoading={payment.walletIsLoading}
         walletSelection={payment.walletSelection}
         onWalletToggle={payment.setWalletSelection}
       />

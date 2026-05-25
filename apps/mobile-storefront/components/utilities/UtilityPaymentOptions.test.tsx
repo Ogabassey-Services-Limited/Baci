@@ -35,6 +35,8 @@ jest.mock('@/components/checkout/PaymentMethodSelector', () => ({
     methodDescriptionOverrides?: Record<string, string>;
     methodLabelOverrides?: Record<string, string>;
     onSelectMethod: (method: 'paystack' | 'korapay' | 'bank_transfer') => void;
+    walletError?: Error | null;
+    walletIsLoading?: boolean;
   }) => {
     lastSelectorProps.current = props as unknown as Record<string, unknown>;
     const { Pressable, Text, View } =
@@ -252,6 +254,8 @@ describe('UtilityPaymentOptions', () => {
         selectedSavedCardId={null}
         supportedGateways={['paystack', 'korapay']}
         walletBalance={500}
+        walletError={new Error('wallet unavailable')}
+        walletIsLoading={true}
         walletSelection={{ use: true, amount: 500 }}
         onWalletToggle={onWalletToggle}
       />
@@ -260,10 +264,12 @@ describe('UtilityPaymentOptions', () => {
     expect(lastSelectorProps.current).toMatchObject({
       walletMode: 'vtu',
       walletBalance: 500,
+      walletIsLoading: true,
       walletOrderTotal: 1000,
       walletSelection: { use: true, amount: 500 },
       onWalletToggle,
     });
+    expect(lastSelectorProps.current?.walletError).toBeInstanceOf(Error);
   });
 
   it("defaults to walletMode='off' when onWalletToggle is not provided", () => {

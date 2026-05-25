@@ -38,7 +38,6 @@ export function useAirtimeFormController({
   const insets = useSafeAreaInsets();
   const { dismissKeyboard, isKeyboardVisible, keyboardHeight } = useKeyboard();
   const customer = useAuthStore((state) => state.customer);
-  const payment = useUtilityPayment();
   const scrollViewRef = useRef<ScrollView>(null);
   const prevIsRepeatPaymentReadyRef = useRef(isRepeatPaymentReady);
   const isSubmittingRef = useRef(false);
@@ -53,6 +52,7 @@ export function useAirtimeFormController({
   const [shouldScrollToPayment, setShouldScrollToPayment] =
     useState(isRepeatPaymentReady);
   const numericAmount = Number(amount.replace(/\D/g, ''));
+  const payment = useUtilityPayment(numericAmount);
   const selectedProviderConfig =
     NETWORK_PROVIDERS.find((provider) => provider.id === selectedProvider) ??
     null;
