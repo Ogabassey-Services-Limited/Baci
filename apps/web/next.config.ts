@@ -7,13 +7,6 @@ const withBundleAnalyzer = bundleAnalyzer({
   openAnalyzer: false,
 });
 
-/**
- * Disable streamed metadata for all requests. Dynamic storefront metadata
- * boundaries have caused React resume mismatches against cached page shells.
- * Next.js documents a match-all user-agent pattern for this opt-out.
- */
-const HTML_LIMITED_BOTS_UA_RE = /.*/;
-
 const nextConfig: NextConfig = {
   // Keep heavy server-only packages external to reduce function bundle size and peak memory.
   // These are only used in specific API routes and should not be bundled into every function.
@@ -216,9 +209,6 @@ const nextConfig: NextConfig = {
 
   // Enable typed routes for compile-time validation of Link hrefs
   typedRoutes: true,
-
-  // Keep generated metadata in <head> and out of React's streamed body tree.
-  htmlLimitedBots: HTML_LIMITED_BOTS_UA_RE,
 
   // Turbopack resolve alias (Next.js 16 default bundler)
   // Maps @tiptap/extension-text-style to compat shim that re-exports
