@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import type { ComponentProps } from 'react';
-import { StyleSheet } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 import Colors, { BRAND, withAlpha } from '@/constants/Colors';
 import type { Product } from '@/types/product';
 import { formatPrice } from '@/types/product';
@@ -69,6 +69,22 @@ function renderCard(
 }
 
 describe('GridProductCard', () => {
+  const originalPlatformOS = Platform.OS;
+
+  beforeEach(() => {
+    Object.defineProperty(Platform, 'OS', {
+      configurable: true,
+      value: originalPlatformOS,
+    });
+  });
+
+  afterEach(() => {
+    Object.defineProperty(Platform, 'OS', {
+      configurable: true,
+      value: originalPlatformOS,
+    });
+  });
+
   it('renders placeholder content when no local image is available', () => {
     renderCard({ showLocalPlaceholder: true });
 
@@ -151,5 +167,27 @@ describe('GridProductCard', () => {
         screen.getByLabelText(`Add ${baseProduct.name} to cart`).props.style
       )
     ).toMatchObject({ shadowColor: Colors.light.black });
+  });
+
+  it('uses CSS box shadows instead of native shadow props on web', () => {
+    Object.defineProperty(Platform, 'OS', {
+      configurable: true,
+      value: 'web',
+    });
+
+    renderCard();
+
+    const cardStyle = StyleSheet.flatten(
+      screen.getByLabelText(`${baseProduct.name}, ${formatPrice(baseProduct.price)}`).props
+        .style
+    );
+    const cartStyle = StyleSheet.flatten(
+      screen.getByLabelText(`Add ${baseProduct.name} to cart`).props.style
+    );
+
+    expect(cardStyle.boxShadow).toBe('0px 2px 4px rgba(0, 0, 0, 0.05)');
+    expect(cardStyle.shadowColor).toBeUndefined();
+    expect(cartStyle.boxShadow).toBe('0px 2px 4px rgba(0, 0, 0, 0.1)');
+    expect(cartStyle.shadowColor).toBeUndefined();
   });
 });
