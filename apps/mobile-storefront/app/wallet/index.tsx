@@ -1,20 +1,19 @@
-import { Redirect, router, Stack, useLocalSearchParams } from 'expo-router';
+import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Text, View } from 'react-native';
+import { Alert } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
 import { VTU_MIN_REDEEMABLE_POINTS } from '@baci/shared/lib';
-import { StorefrontScreenShell } from '@/components/storefront/StorefrontScreenShell';
 import { useColorScheme } from '@/components/useColorScheme';
-import { WalletContent } from '@/components/wallet/WalletContent';
-import { styles } from '@/components/wallet/wallet.styles';
+import { WalletScreenView } from '@/components/wallet/WalletScreenView';
 import { WALLET_TAB_SCROLL_PADDING_BOTTOM } from '@/components/wallet/wallet-tab.constants';
-import Colors, { BRAND, SPACING } from '@/constants/Colors';
+import Colors, { SPACING } from '@/constants/Colors';
 import { useRequireAuth } from '@/hooks/use-auth-guard';
 import { useStorefrontInsets } from '@/hooks/use-storefront-insets';
 import { useRedeemPoints, useWallet } from '@/hooks/use-wallet';
 import { CONFIG } from '@/lib/config';
 import { formatNgnCurrency } from '@/lib/format-ngn-currency';
 import { createLogger } from '@/lib/logger';
+import { normalizeWalletFundAmountParam } from '@/lib/normalize-wallet-fund-amount-param';
 import { pickMerchantId } from '@/lib/pick-merchant-id';
 import { sanitizeWalletReturnTo } from '@/lib/sanitize-wallet-return-to';
 import { initializeWalletTopUp } from '@/lib/wallet-top-up';
@@ -44,7 +43,7 @@ export default function WalletScreen({
     returnTo?: string;
   }>();
   const routeAction = Array.isArray(action) ? action[0] : action;
-  const routeRequiredAmount = normalizeFundAmountParam(requiredAmount);
+  const routeRequiredAmount = normalizeWalletFundAmountParam(requiredAmount);
   const walletReturnTo = sanitizeWalletReturnTo(returnTo);
 
   const { isLoading: authLoading, redirectTo } = useRequireAuth();
@@ -236,119 +235,65 @@ export default function WalletScreen({
       presentation === 'tab' ? WALLET_TAB_SCROLL_PADDING_BOTTOM : SPACING.xl,
   });
 
-  const renderLoadingState = (message?: string) => (
-    <>
-      {presentation === 'stack' ? (
-        <Stack.Screen options={{ title: 'Wallet' }} />
-      ) : null}
-      <StorefrontScreenShell
-        style={[styles.container, { backgroundColor: colors.background }]}
-        edges={presentation === 'tab' ? ['top'] : ['bottom']}
-      >
-        {presentation === 'tab' ? (
-          <View style={styles.tabHeader}>
-            <Text style={[styles.tabHeaderTitle, { color: colors.text }]}>
-              Wallet & Loyalty
-            </Text>
-          </View>
-        ) : null}
-        <View style={[styles.container, styles.centered]}>
-          <ActivityIndicator
-            testID="wallet-activity-indicator"
-            accessibilityLabel="Preparing wallet"
-            size="large"
-            color={BRAND.primary}
-          />
-          {message ? (
-            <Text style={[styles.emptyTitle, { color: colors.textSecondary }]}>
-              {message}
-            </Text>
-          ) : null}
-        </View>
-      </StorefrontScreenShell>
-    </>
-  );
-
   if (authLoading) {
-    return renderLoadingState();
+    return <WalletScreenView colors={colors} presentation={presentation} />;
   }
 
   if (redirectTo) {
     return <Redirect href={redirectTo} />;
   }
 
+  let loadingMessage: string | undefined;
   if (!user || !hasMerchantContext) {
-    return renderLoadingState('Preparing your wallet...');
+    loadingMessage = 'Preparing your wallet...';
+  } else if (!isLoading && isError && !data) {
+    loadingMessage = 'Unable to load wallet.';
+  } else if (!isLoading && !data) {
+    loadingMessage = 'Preparing your wallet...';
   }
 
-  if (isLoading) {
-    return renderLoadingState();
-  }
-
-  if (isError && !data) {
-    return renderLoadingState('Unable to load wallet.');
-  }
-
-  if (!data) {
-    return renderLoadingState('Preparing your wallet...');
+  if (!user || !hasMerchantContext || isLoading || !data) {
+    return (
+      <WalletScreenView
+        colors={colors}
+        loadingMessage={loadingMessage}
+        presentation={presentation}
+      />
+    );
   }
 
   const walletData = data.wallet;
   const transactions = data.transactions;
 
   return (
-    <>
-      {presentation === 'stack' ? (
-        <Stack.Screen options={{ title: 'Wallet & Loyalty' }} />
-      ) : null}
-      <StorefrontScreenShell
-        style={[styles.container, { backgroundColor: colors.background }]}
-        edges={presentation === 'tab' ? ['top'] : ['bottom']}
-      >
-        {presentation === 'tab' ? (
-          <View style={styles.tabHeader}>
-            <Text style={[styles.tabHeaderTitle, { color: colors.text }]}>
-              Wallet & Loyalty
-            </Text>
-          </View>
-        ) : null}
-        <WalletContent
-          colors={colors}
-          contentContainerStyle={scrollContentStyle}
-          fundAmount={fundAmount}
-          isFundPending={isFundPending}
-          isRedeemPending={redeemMutation.isPending}
-          isRefetching={isRefetching}
-          loyaltyPoints={walletData.loyalty_points}
-          onChangeFundAmount={handleFundAmountChange}
-          onChangeRedeemPoints={setRedeemPoints}
-          onConfirmFund={handleFundWallet}
-          onConfirmRedeem={handleRedeemPoints}
-          onOpenFundPanel={() => setShowFundPanel(true)}
-          onOpenRedeemPanel={() => setShowRedeemPanel(true)}
-          onRefresh={refetch}
-          onResetFund={resetFundPanel}
-          onResetRedeem={() => {
-            setShowRedeemPanel(false);
-            setRedeemPoints('');
-          }}
-          redeemPoints={redeemPoints}
-          showFundPanel={showFundPanel}
-          showRedeemPanel={showRedeemPanel}
-          transactions={transactions}
-          walletBalance={walletData.balance}
-        />
-      </StorefrontScreenShell>
-    </>
+    <WalletScreenView
+      colors={colors}
+      presentation={presentation}
+      walletContentProps={{
+        contentContainerStyle: scrollContentStyle,
+        fundAmount,
+        isFundPending,
+        isRedeemPending: redeemMutation.isPending,
+        isRefetching,
+        loyaltyPoints: walletData.loyalty_points,
+        onChangeFundAmount: handleFundAmountChange,
+        onChangeRedeemPoints: setRedeemPoints,
+        onConfirmFund: handleFundWallet,
+        onConfirmRedeem: handleRedeemPoints,
+        onOpenFundPanel: () => setShowFundPanel(true),
+        onOpenRedeemPanel: () => setShowRedeemPanel(true),
+        onRefresh: refetch,
+        onResetFund: resetFundPanel,
+        onResetRedeem: () => {
+          setShowRedeemPanel(false);
+          setRedeemPoints('');
+        },
+        redeemPoints,
+        showFundPanel,
+        showRedeemPanel,
+        transactions,
+        walletBalance: walletData.balance,
+      }}
+    />
   );
-}
-
-function normalizeFundAmountParam(value: string | string[] | undefined) {
-  const rawValue = Array.isArray(value) ? value[0] : value;
-  const amount = Number(rawValue);
-  if (!Number.isFinite(amount) || amount <= 0) {
-    return '';
-  }
-  // Wallet top-ups use whole naira amounts, so fractional required amounts round up.
-  return String(Math.ceil(amount));
 }
