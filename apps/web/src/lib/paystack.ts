@@ -197,6 +197,26 @@ export interface ChargeAuthorizationData {
   reference?: string;
 }
 
+export interface WalletDedicatedAccount {
+  providerAccountId: string | null;
+  providerCustomerCode: string;
+  providerSubaccountCode: string;
+  accountNumber: string;
+  accountName: string;
+  bankName: string;
+  bankSlug: string | null;
+  currency: 'NGN';
+}
+
+export interface WalletDedicatedAccountInput {
+  customerCode: string;
+  subaccount: string;
+  preferredBank?: string;
+  phone?: string;
+  firstName?: string;
+  lastName?: string;
+}
+
 // =============================================================================
 // Result Type
 // =============================================================================
@@ -636,7 +656,34 @@ export interface DedicatedAccountResponse {
     first_name: string | null;
     last_name: string | null;
   };
+  split_config?: {
+    subaccount?: string | null;
+  } | null;
 }
+
+const WalletDedicatedAccountResponseSchema = z.object({
+  id: z.union([z.number(), z.string()]).nullable().optional(),
+  bank: z.object({
+    name: z.string().min(1),
+    slug: z.string().min(1).nullable().optional(),
+  }),
+  account_name: z.string().min(1),
+  account_number: z.string().regex(/^\d{10}$/),
+  currency: z.literal('NGN'),
+  customer: z
+    .object({
+      customer_code: z.string().min(1).optional(),
+    })
+    .passthrough()
+    .optional(),
+  split_config: z
+    .object({
+      subaccount: z.string().min(1).nullable().optional(),
+    })
+    .passthrough()
+    .nullable()
+    .optional(),
+});
 
 /**
  * Customer response from Paystack
@@ -738,6 +785,101 @@ export async function createDedicatedAccount(
   return result;
 }
 
+function resolveWalletDvaPreferredBank(preferredBank?: string): string {
+  if (
+    process.env.PAYSTACK_WALLET_DVA_USE_TEST_BANK === 'true' ||
+    process.env.PAYSTACK_DVA_USE_TEST_BANK === 'true'
+  ) {
+    return 'test-bank';
+  }
+
+  return (
+    preferredBank ||
+    process.env.PAYSTACK_WALLET_DVA_PREFERRED_BANK ||
+    process.env.PAYSTACK_DVA_PREFERRED_BANK ||
+    'wema-bank'
+  );
+}
+
+export async function createDedicatedAccountForWallet(
+  input: WalletDedicatedAccountInput
+): Promise<PaystackResult<WalletDedicatedAccount>> {
+  if (!input.customerCode?.startsWith('CUS_')) {
+    return {
+      success: false,
+      error: 'Invalid customer code format. Expected CUS_xxx',
+      code: 'VALIDATION_ERROR',
+    };
+  }
+
+  if (!/^ACCT_[A-Za-z0-9]+$/.test(input.subaccount || '')) {
+    return {
+      success: false,
+      error: 'Invalid Paystack subaccount code format',
+      code: 'VALIDATION_ERROR',
+    };
+  }
+
+  const result = await paystackRequest<unknown>('/dedicated_account', {
+    method: 'POST',
+    body: JSON.stringify({
+      customer: input.customerCode,
+      preferred_bank: resolveWalletDvaPreferredBank(input.preferredBank),
+      subaccount: input.subaccount,
+      ...(input.phone && { phone: input.phone }),
+      ...(input.firstName && { first_name: input.firstName }),
+      ...(input.lastName && { last_name: input.lastName }),
+    }),
+  });
+
+  if (!result.success) {
+    return result;
+  }
+
+  const parsed = WalletDedicatedAccountResponseSchema.safeParse(result.data);
+  if (!parsed.success) {
+    logger.warn({
+      message: 'Wallet DVA response validation failed',
+      issues: parsed.error.issues,
+    });
+    return {
+      success: false,
+      error: 'Invalid wallet DVA response',
+      code: 'VALIDATION_ERROR',
+    };
+  }
+
+  const walletAccount = parsed.data;
+  const providerSubaccountCode =
+    walletAccount.split_config?.subaccount ?? input.subaccount;
+
+  if (!providerSubaccountCode) {
+    return {
+      success: false,
+      error: 'Wallet DVA response did not include a Paystack subaccount',
+      code: 'VALIDATION_ERROR',
+    };
+  }
+
+  return {
+    success: true,
+    data: {
+      providerAccountId:
+        walletAccount.id === undefined || walletAccount.id === null
+          ? null
+          : String(walletAccount.id),
+      providerCustomerCode:
+        walletAccount.customer?.customer_code ?? input.customerCode,
+      providerSubaccountCode,
+      accountNumber: walletAccount.account_number,
+      accountName: walletAccount.account_name,
+      bankName: walletAccount.bank.name,
+      bankSlug: walletAccount.bank.slug ?? null,
+      currency: walletAccount.currency,
+    },
+  };
+}
+
 /**
  * Fetch existing DVAs for a customer
  */
@@ -757,6 +899,48 @@ export async function getDedicatedAccounts(
   );
 
   return result;
+}
+
+const PAYSTACK_DVA_ACCOUNT_PATTERN = /^\d{10}$/;
+
+export function extractPaystackReceiverAccountNumber(
+  payload: unknown
+): string | null {
+  if (!payload || typeof payload !== 'object' || !('data' in payload)) {
+    return null;
+  }
+
+  const data = (payload as { data?: unknown }).data;
+  if (!data || typeof data !== 'object') {
+    return null;
+  }
+
+  const dataRecord = data as Record<string, unknown>;
+  const authorization = dataRecord.authorization;
+  const authorizationRecord =
+    authorization && typeof authorization === 'object'
+      ? (authorization as Record<string, unknown>)
+      : {};
+  const dedicatedAccount = dataRecord.dedicated_account;
+  const dedicatedAccountRecord =
+    dedicatedAccount && typeof dedicatedAccount === 'object'
+      ? (dedicatedAccount as Record<string, unknown>)
+      : {};
+
+  const candidates = [
+    dataRecord.receiver_account_number,
+    dataRecord.receiver_bank_account_number,
+    dedicatedAccountRecord.account_number,
+    authorizationRecord.receiver_bank_account_number,
+    authorizationRecord.receiver_account_number,
+  ];
+
+  const accountNumber = candidates.find(
+    (value): value is string =>
+      typeof value === 'string' && PAYSTACK_DVA_ACCOUNT_PATTERN.test(value)
+  );
+
+  return accountNumber ?? null;
 }
 
 /**

@@ -1,4 +1,7 @@
-import type { WalletSelection } from '@/components/checkout/PaymentMethodSelector';
+import type {
+  SavingsSelection,
+  WalletSelection,
+} from '@/lib/wallet-payment-helpers';
 
 export interface KlumpPaymentSettings {
   klump_enabled?: boolean | null;
@@ -33,10 +36,15 @@ export function formatKlumpAmount(amount: number) {
 export function getKlumpDisabledReason(
   settings: KlumpPaymentSettings | undefined | null,
   orderTotal: number,
-  walletSelection?: WalletSelection
+  walletSelection?: WalletSelection,
+  savingsSelection?: SavingsSelection
 ): string | undefined {
   if (walletSelection?.use === true && (walletSelection.amount ?? 0) > 0) {
     return 'Wallet credit cannot be combined with Klump';
+  }
+
+  if (savingsSelection?.use === true && (savingsSelection.amount ?? 0) > 0) {
+    return 'Savings plan cannot be combined with Klump';
   }
 
   if (!settings?.klump_enabled) {

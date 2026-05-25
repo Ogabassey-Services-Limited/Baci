@@ -1,21 +1,20 @@
 import { StyleSheet } from 'react-native';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/Colors';
+import { WALLET_COLORS } from './wallet.colors';
+import { walletHeroStyles } from './wallet-hero.styles';
 
 const ACTION_FONT_SIZE = 15;
-const BALANCE_DIVIDER_COLOR = 'rgba(255,255,255,0.2)';
-const BALANCE_TEXT_COLOR = 'rgba(255,255,255,0.8)';
 const COMPACT_PADDING_X = 10;
 const COMPACT_PADDING_Y = 6;
-const DISABLED_BALANCE_OPACITY = 0.6;
 const FIELD_PADDING_Y = 14;
 const ICON_SIZE = 40;
 const PANEL_GAP = 12;
 const PANEL_PADDING = 20;
 const SMALL_BUTTON_PADDING_Y = 10;
 const TIGHT_MARGIN = 2;
-const WHITE = '#FFFFFF';
 
 export const styles = StyleSheet.create({
+  ...walletHeroStyles,
   container: {
     flex: 1,
   },
@@ -47,43 +46,6 @@ export const styles = StyleSheet.create({
     borderRadius: RADIUS['3xl'],
     padding: SPACING.lg,
   },
-  balanceLabel: {
-    color: BALANCE_TEXT_COLOR,
-    fontSize: TYPOGRAPHY.size.base,
-    fontWeight: TYPOGRAPHY.weight.medium,
-  },
-  balanceAmount: {
-    color: WHITE,
-    fontSize: TYPOGRAPHY.size['4xl'],
-    fontWeight: TYPOGRAPHY.weight.black,
-    marginTop: SPACING.sm,
-  },
-  balanceActions: {
-    flexDirection: 'row',
-    marginTop: SPACING.lg,
-    paddingTop: SPACING.md,
-    borderTopWidth: 1,
-    borderTopColor: BALANCE_DIVIDER_COLOR,
-  },
-  balanceAction: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: SPACING.sm,
-  },
-  balanceActionText: {
-    color: WHITE,
-    fontSize: TYPOGRAPHY.size.base,
-    fontWeight: TYPOGRAPHY.weight.semibold,
-  },
-  disabledBalanceAction: {
-    opacity: DISABLED_BALANCE_OPACITY,
-  },
-  divider: {
-    width: 1,
-    backgroundColor: BALANCE_DIVIDER_COLOR,
-  },
   loyaltyCard: {
     marginHorizontal: SPACING.md,
     borderRadius: RADIUS['2xl'],
@@ -113,7 +75,7 @@ export const styles = StyleSheet.create({
     borderRadius: RADIUS.full,
   },
   tierText: {
-    color: WHITE,
+    color: WALLET_COLORS.white,
     fontSize: TYPOGRAPHY.size.sm,
     fontWeight: TYPOGRAPHY.weight.bold,
   },
@@ -138,7 +100,7 @@ export const styles = StyleSheet.create({
     borderRadius: RADIUS.lg,
   },
   redeemBtnText: {
-    color: WHITE,
+    color: WALLET_COLORS.white,
     fontSize: TYPOGRAPHY.size.base,
     fontWeight: TYPOGRAPHY.weight.semibold,
   },
@@ -188,7 +150,7 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
   },
   confirmBtnText: {
-    color: WHITE,
+    color: WALLET_COLORS.white,
     fontSize: ACTION_FONT_SIZE,
     fontWeight: TYPOGRAPHY.weight.semibold,
   },

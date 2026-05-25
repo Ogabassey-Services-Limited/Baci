@@ -476,7 +476,11 @@ export function isSavedVtuCardChargeProcessing(
   return 'status' in result && result.status === 'processing';
 }
 
-export async function listSavedVtuCards() {
+export async function listSavedVtuCards({
+  signal,
+}: {
+  signal?: AbortSignal;
+} = {}) {
   const accessToken = await getAccessToken();
   const response = await fetchWithTimeout(
     `${API_URL}/api/vtu/checkout/saved-cards?merchantSlug=${encodeURIComponent(CONFIG.MERCHANT_SLUG)}`,
@@ -484,6 +488,7 @@ export async function listSavedVtuCards() {
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
+      signal,
       timeout: DEFAULT_TIMEOUT,
     }
   );

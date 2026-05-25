@@ -40,6 +40,8 @@ const EXPLICIT_STATIC_ROUTES = new Set([
   'profile/edit.tsx',
   'search.tsx',
   'utilities/history.tsx',
+  'wallet/manage-cards.tsx',
+  'wallet/savings/start.tsx',
 ]);
 
 function collectModuleFiles(currentPath: string): string[] {
@@ -61,14 +63,8 @@ function collectModuleFiles(currentPath: string): string[] {
 
 function isRouteFile(relativePath: string): boolean {
   const fileName = path.basename(relativePath);
-  const routeFileName = fileName.replace(
-    ROUTE_PLATFORM_SEGMENT_PATTERN,
-    '.$2'
-  );
-  const routePath = relativePath.replace(
-    ROUTE_PLATFORM_SEGMENT_PATTERN,
-    '.$2'
-  );
+  const routeFileName = fileName.replace(ROUTE_PLATFORM_SEGMENT_PATTERN, '.$2');
+  const routePath = relativePath.replace(ROUTE_PLATFORM_SEGMENT_PATTERN, '.$2');
 
   if (EXPO_ROUTER_SPECIAL_FILES.has(routeFileName)) {
     return true;

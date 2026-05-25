@@ -117,8 +117,11 @@ interface RpcOverrides {
     data: unknown;
     error: unknown;
   };
+  create_storefront_order_with_savings?: { data: unknown; error: unknown };
   redeem_wallet_for_order?: { data: unknown; error: unknown };
+  redeem_savings_for_order?: { data: unknown; error: unknown };
   finalize_wallet_order_payment?: { data: unknown; error: unknown };
+  finalize_store_credit_order_payment?: { data: unknown; error: unknown };
 }
 
 function buildMockSupabase(overrides: RpcOverrides = {}) {
@@ -195,11 +198,55 @@ function buildMockSupabase(overrides: RpcOverrides = {}) {
         error: null,
       },
       redeem_wallet_for_order: { data: null, error: null },
+      redeem_savings_for_order: { data: null, error: null },
+      create_storefront_order_with_savings: { data: null, error: null },
       finalize_wallet_order_payment: { data: null, error: null },
+      finalize_store_credit_order_payment: { data: null, error: null },
       // B3.5 round 7 (CodeRabbit High): the helper's variant lookup
       // now routes through this SECURITY DEFINER RPC.
       get_order_variant_overrides: { data: [], error: null },
     };
+
+  if (!overrides.create_storefront_order_with_savings) {
+    const savingsOutcome =
+      overrides.redeem_savings_for_order ??
+      defaultRpcOutcomes.redeem_savings_for_order;
+    if (savingsOutcome.error) {
+      defaultRpcOutcomes.create_storefront_order_with_savings = {
+        data: null,
+        error: savingsOutcome.error,
+      };
+    } else {
+      const savingsRow = Array.isArray(savingsOutcome.data)
+        ? savingsOutcome.data[0]
+        : savingsOutcome.data;
+      const createOrderOutcome =
+        overrides.create_storefront_order ??
+        defaultRpcOutcomes.create_storefront_order;
+      const orderRow = Array.isArray(createOrderOutcome.data)
+        ? createOrderOutcome.data[0]
+        : createOrderOutcome.data;
+      defaultRpcOutcomes.create_storefront_order_with_savings =
+        savingsRow?.success
+          ? {
+              data: [
+                {
+                  ...(orderRow as Record<string, unknown>),
+                  savings_goal_id: savingsRow.goal_id,
+                  savings_goal_status: savingsRow.goal_status,
+                  savings_redeemed_amount: savingsRow.redeemed_amount,
+                  savings_redemption_id: savingsRow.redemption_id,
+                  savings_redemption_success: true,
+                },
+              ],
+              error: null,
+            }
+          : {
+              data: [{ ...(orderRow as Record<string, unknown>) }],
+              error: null,
+            };
+    }
+  }
 
   return {
     auth: { getUser: vi.fn() },
@@ -209,6 +256,34 @@ function buildMockSupabase(overrides: RpcOverrides = {}) {
         defaultRpcOutcomes[name] ?? { data: null, error: null };
       return Promise.resolve(outcome);
     }),
+  };
+}
+
+function createOrderWithSavingsRow({
+  redeemedAmount,
+  goalId = '123e4567-e89b-12d3-a456-426614174555',
+  goalStatus = 'paused',
+  redemptionId = '77777777-aaaa-bbbb-cccc-dddddddddddd',
+  total = 1000,
+}: {
+  goalId?: string;
+  goalStatus?: string;
+  redeemedAmount: number;
+  redemptionId?: string;
+  total?: number;
+}) {
+  return {
+    id: 'order-id',
+    order_number: 'ORD-123',
+    total,
+    subtotal: total,
+    shipping_fee: 0,
+    customer_id: CUSTOMER_ID,
+    savings_goal_id: goalId,
+    savings_goal_status: goalStatus,
+    savings_redeemed_amount: redeemedAmount,
+    savings_redemption_id: redemptionId,
+    savings_redemption_success: true,
   };
 }
 
@@ -680,6 +755,283 @@ describe('POST /api/orders — wallet response shape', () => {
       transactionId: '99999999-aaaa-bbbb-cccc-dddddddddddd',
     });
     expect(body.amountDueToGateway).toBe(700);
+  });
+
+  it('applies savings before wallet and returns the combined residual', async () => {
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () =>
+        buildMockSupabase({
+          redeem_savings_for_order: {
+            data: [
+              {
+                goal_id: '123e4567-e89b-12d3-a456-426614174555',
+                goal_status: 'paused',
+                redeemed_amount: 500,
+                redemption_id: '77777777-aaaa-bbbb-cccc-dddddddddddd',
+                remaining_goal_amount: 1500,
+                success: true,
+              },
+            ],
+            error: null,
+          },
+          redeem_wallet_for_order: {
+            data: [
+              {
+                success: true,
+                redeemed_amount: 300,
+                new_balance: 200,
+                transaction_id: '99999999-aaaa-bbbb-cccc-dddddddddddd',
+              },
+            ],
+            error: null,
+          },
+        }) as unknown as never
+    );
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/orders', {
+        method: 'POST',
+        headers: {
+          'Idempotency-Key': 'checkout-retry-key-1',
+        },
+        body: JSON.stringify({
+          ...baseOrderPayload,
+          savings_amount: 500,
+          savings_goal_id: '123e4567-e89b-12d3-a456-426614174555',
+          use_savings_credit: true,
+          use_wallet_credit: true,
+          wallet_amount: 300,
+        }),
+      })
+    );
+    const body = await readJson(response);
+
+    expect(response.status).toBe(201);
+    expect(body.savings).toEqual({
+      amountUsed: 500,
+      goalId: '123e4567-e89b-12d3-a456-426614174555',
+      redemptionId: '77777777-aaaa-bbbb-cccc-dddddddddddd',
+    });
+    expect(body.wallet).toEqual({
+      amountUsed: 300,
+      newBalance: 200,
+      transactionId: '99999999-aaaa-bbbb-cccc-dddddddddddd',
+    });
+    expect(body.amountDueToGateway).toBe(200);
+  });
+
+  it('creates savings checkout orders through the atomic savings order RPC', async () => {
+    const rpcSpy = vi.fn();
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation((() => {
+      const sb = buildMockSupabase({
+        create_storefront_order_with_savings: {
+          data: [createOrderWithSavingsRow({ redeemedAmount: 500 })],
+          error: null,
+        },
+      });
+      const originalRpc = sb.rpc;
+      sb.rpc = vi.fn((name: string, params?: unknown) => {
+        rpcSpy(name, params);
+        return originalRpc(name);
+      });
+      return sb;
+    }) as unknown as never);
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/orders', {
+        method: 'POST',
+        headers: {
+          'Idempotency-Key': 'checkout-retry-key-1',
+        },
+        body: JSON.stringify({
+          ...baseOrderPayload,
+          savings_amount: 500,
+          savings_goal_id: '123e4567-e89b-12d3-a456-426614174555',
+          use_savings_credit: true,
+        }),
+      })
+    );
+
+    expect(response.status).toBe(201);
+    expect(rpcSpy).toHaveBeenCalledWith(
+      'create_storefront_order_with_savings',
+      expect.objectContaining({
+        p_savings_amount: 500,
+        p_savings_goal_id: '123e4567-e89b-12d3-a456-426614174555',
+        p_savings_idempotency_key: 'order:checkout-retry-key-1:savings',
+      })
+    );
+    expect(rpcSpy).not.toHaveBeenCalledWith(
+      'redeem_savings_for_order',
+      expect.anything()
+    );
+  });
+
+  it('fails explicit savings checkout when savings redemption is rejected', async () => {
+    const supabaseMod = await import('@/lib/supabase/server');
+    const finalizeSpy = vi.fn((_params?: unknown) =>
+      Promise.resolve({ data: null, error: null })
+    );
+    vi.mocked(supabaseMod.createClient).mockImplementation((() => {
+      const sb = buildMockSupabase({
+        redeem_savings_for_order: {
+          data: null,
+          error: {
+            code: 'P0001',
+            message: 'savings_goal_does_not_match_order',
+          },
+        },
+      });
+      const originalRpc = sb.rpc;
+      sb.rpc = vi.fn((name: string) => {
+        if (name === 'finalize_store_credit_order_payment') {
+          return finalizeSpy();
+        }
+        return originalRpc(name);
+      });
+      return sb;
+    }) as unknown as never);
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/orders', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...baseOrderPayload,
+          savings_amount: 500,
+          savings_goal_id: '123e4567-e89b-12d3-a456-426614174555',
+          use_savings_credit: true,
+        }),
+      })
+    );
+    const body = await readJson(response);
+
+    expect(response.status).toBe(409);
+    expect(body).toEqual({
+      code: 'P0001',
+      error: 'savings_goal_does_not_match_order',
+    });
+    expect(finalizeSpy).not.toHaveBeenCalled();
+  });
+
+  it('full savings coverage returns amountDueToGateway=0 and finalizes as savings', async () => {
+    const finalizeSpy = vi.fn((_params?: unknown) =>
+      Promise.resolve({ data: null, error: null })
+    );
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation((() => {
+      const sb = buildMockSupabase({
+        redeem_savings_for_order: {
+          data: [
+            {
+              goal_id: '123e4567-e89b-12d3-a456-426614174555',
+              goal_status: 'spent',
+              redeemed_amount: 1000,
+              redemption_id: '77777777-aaaa-bbbb-cccc-dddddddddddd',
+              remaining_goal_amount: 0,
+              success: true,
+            },
+          ],
+          error: null,
+        },
+      });
+      const originalRpc = sb.rpc;
+      sb.rpc = vi.fn((name: string, params?: unknown) => {
+        if (name === 'finalize_store_credit_order_payment') {
+          return finalizeSpy(params);
+        }
+        return originalRpc(name);
+      });
+      return sb;
+    }) as unknown as never);
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/orders', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...baseOrderPayload,
+          savings_amount: 1000,
+          savings_goal_id: '123e4567-e89b-12d3-a456-426614174555',
+          use_savings_credit: true,
+        }),
+      })
+    );
+    const body = await readJson(response);
+
+    expect(response.status).toBe(201);
+    expect(body.amountDueToGateway).toBe(0);
+    expect(body.order.payment_status).toBe('paid');
+    expect(body.order.payment_method).toBe('savings');
+    expect(body.savings.amountUsed).toBe(1000);
+    expect(finalizeSpy).toHaveBeenCalledWith({
+      p_amount: 1000,
+      p_order_id: 'order-id',
+      p_payment_method: 'savings',
+    });
+  });
+
+  it('does not return a zero gateway residual when full savings finalization fails', async () => {
+    const finalizeSpy = vi.fn((_params?: unknown) =>
+      Promise.resolve({
+        data: null,
+        error: {
+          code: 'P0001',
+          message: 'store_credit_finalize_failed',
+        },
+      })
+    );
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation((() => {
+      const sb = buildMockSupabase({
+        redeem_savings_for_order: {
+          data: [
+            {
+              goal_id: '123e4567-e89b-12d3-a456-426614174555',
+              goal_status: 'spent',
+              redeemed_amount: 1000,
+              redemption_id: '77777777-aaaa-bbbb-cccc-dddddddddddd',
+              remaining_goal_amount: 0,
+              success: true,
+            },
+          ],
+          error: null,
+        },
+      });
+      const originalRpc = sb.rpc;
+      sb.rpc = vi.fn((name: string, params?: unknown) => {
+        if (name === 'finalize_store_credit_order_payment') {
+          return finalizeSpy(params);
+        }
+        return originalRpc(name);
+      });
+      return sb;
+    }) as unknown as never);
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/orders', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...baseOrderPayload,
+          savings_amount: 1000,
+          savings_goal_id: '123e4567-e89b-12d3-a456-426614174555',
+          use_savings_credit: true,
+        }),
+      })
+    );
+    const body = await readJson(response);
+
+    expect(response.status).toBe(409);
+    expect(body).toEqual({
+      code: 'STORE_CREDIT_FINALIZE_FAILED',
+      error: 'store_credit_finalize_failed',
+      orderId: 'order-id',
+    });
+    expect(finalizeSpy).toHaveBeenCalledWith({
+      p_amount: 1000,
+      p_order_id: 'order-id',
+      p_payment_method: 'savings',
+    });
   });
 
   it('full-coverage wallet redemption returns amountDueToGateway=0 and finalizes payment', async () => {
