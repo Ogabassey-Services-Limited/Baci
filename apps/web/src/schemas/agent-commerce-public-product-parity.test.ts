@@ -109,6 +109,12 @@ describe('public product parity schemas', () => {
 
     expect(publicProductPdpSchema.safeParse(pdp).success).toBe(true);
     expect(
+      publicProductPdpSchema.safeParse({
+        ...pdp,
+        offers: { availability: 'https://schema.org/InStock', price: 1000 },
+      }).success
+    ).toBe(true);
+    expect(
       publicProductPdpSchema.safeParse({ ...pdp, image: [] }).success
     ).toBe(false);
     expect(

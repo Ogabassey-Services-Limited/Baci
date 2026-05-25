@@ -15,6 +15,29 @@ const GOOGLE_FEED_URL = `${BASE_URL}/feeds/google-merchant.xml`;
 const PDP_URL = `${BASE_URL}/phones/test-phone`;
 
 describe('public product parity actions', () => {
+  it('returns no actions and preserves the existing reason when parity is ok', () => {
+    const result: AgentCommercePublicProductParityResult = {
+      issue_count: 0,
+      issues: [],
+      sample_product_id: 'product-1',
+      status: 'ok',
+      surfaces: {
+        agent_products: CURRENT_FEED_URL,
+        google_merchant_xml: GOOGLE_FEED_URL,
+        product_api: API_URL,
+        product_page: PDP_URL,
+      },
+    };
+
+    expect(buildAgentCommercePublicProductParityActions(result)).toEqual([]);
+    expect(
+      getAgentCommercePublicProductParityStatusReason(
+        result,
+        'agentic_action_health_ok'
+      )
+    ).toBe('agentic_action_health_ok');
+  });
+
   it('maps mismatch attention into a parity action and reason', () => {
     const result: AgentCommercePublicProductParityResult = {
       issue_count: 1,

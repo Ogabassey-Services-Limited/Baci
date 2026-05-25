@@ -58,7 +58,7 @@ const publicProductPdpPresentationShape = {
 const publicProductPdpOfferSchema = z.object({
   availability: z.string(),
   price: z.union([z.number(), z.string()]),
-  url: z.string().url(),
+  url: z.string().url().optional(),
 });
 
 export const publicProductPdpSchema = z.discriminatedUnion('@type', [

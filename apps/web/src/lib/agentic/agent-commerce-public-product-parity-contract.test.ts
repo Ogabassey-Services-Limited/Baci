@@ -85,7 +85,26 @@ const PDP_PRODUCT_GROUP_HTML = `<html><head><script type="application/ld+json">$
   }
 )}</script></head></html>`;
 
+const PDP_WITH_OPTIONAL_OFFER_FIELDS_HTML = `<html><head><script type="application/ld+json">${JSON.stringify(
+  {
+    '@type': 'Product',
+    image: ['https://cdn.example.com/phone.jpg'],
+    name: 'Test Phone',
+    offers: {
+      availability: ' HTTP://schema.org/INSTOCK/ ',
+      price: 1000,
+    },
+    url: 'https://ogabassey.com/phones/test-phone',
+  }
+)}</script></head></html>`;
+
 describe('selectPublicProductApiSample', () => {
+  it('reports empty when no public products are available', () => {
+    expect(selectPublicProductApiSample({ products: [] })).toEqual({
+      kind: 'empty',
+    });
+  });
+
   it('selects the first simple product and skips matrix-style products', () => {
     const result = selectPublicProductApiSample({
       products: [
@@ -113,6 +132,20 @@ describe('selectPublicProductApiSample', () => {
 });
 
 describe('public product parity surface parsers', () => {
+  it('returns null for malformed feed and PDP payloads', () => {
+    expect(
+      parseCurrentAgentProductSample('{not-json}', 'product-1')
+    ).toBeNull();
+    expect(
+      parseGoogleMerchantProductSample('<rss><channel><item>', 'product-1')
+    ).toBeNull();
+    expect(
+      parsePdpProductSample(
+        '<script type="application/ld+json">{not-json}</script>'
+      )
+    ).toBeNull();
+  });
+
   it('parses matching current feed, Google XML, and PDP JSON-LD samples', () => {
     const current = parseCurrentAgentProductSample(
       CURRENT_FEED_LINE,
@@ -135,6 +168,18 @@ describe('public product parity surface parsers', () => {
         pdp,
       })
     ).toEqual([]);
+  });
+
+  it('accepts canonical availability variants when offer URLs are omitted', () => {
+    const pdp = parsePdpProductSample(PDP_WITH_OPTIONAL_OFFER_FIELDS_HTML);
+
+    expect(pdp).toEqual({
+      availability: 'in_stock',
+      image: API_SAMPLE.image,
+      name: API_SAMPLE.name,
+      price: API_SAMPLE.price,
+      url: 'https://ogabassey.com/phones/test-phone',
+    });
   });
 
   it('returns every drifted public field for the sampled product', () => {

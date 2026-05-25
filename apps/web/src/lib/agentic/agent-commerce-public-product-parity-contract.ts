@@ -123,8 +123,21 @@ export function parseGoogleMerchantProductSample(
 }
 
 function getSchemaAvailability(value: string) {
-  if (value === 'https://schema.org/InStock') return 'in_stock' as const;
-  if (value === 'https://schema.org/OutOfStock') return 'out_of_stock' as const;
+  const normalized = value.trim().replace(/\/+$/, '').toLowerCase();
+  if (
+    normalized === 'instock' ||
+    normalized === 'https://schema.org/instock' ||
+    normalized === 'http://schema.org/instock'
+  ) {
+    return 'in_stock' as const;
+  }
+  if (
+    normalized === 'outofstock' ||
+    normalized === 'https://schema.org/outofstock' ||
+    normalized === 'http://schema.org/outofstock'
+  ) {
+    return 'out_of_stock' as const;
+  }
   return null;
 }
 
