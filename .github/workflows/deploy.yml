@@ -42,6 +42,8 @@ jobs:
               - '.github/workflows/deploy.yml'
               - '.github/scripts/deploy-with-retry.sh'
               - '.github/scripts/pnpm-install-with-retry.sh'
+              - '.github/scripts/run-with-ollama-memory-guard.mjs'
+              - '.github/scripts/run-with-ollama-memory-guard.test.mjs'
             migrations:
               - 'supabase/migrations/**'
               - '.github/workflows/deploy.yml'
@@ -88,6 +90,9 @@ jobs:
     # silent-pending-cancel: a single group with 3 contenders silently drops
     # the pending one. Two groups can still race deploy↔android, but that
     # surfaces as a visible OOM/retry instead of a missed Play Store release.
+    # The build step also evicts resident Ollama models while it runs because
+    # live support-chat traffic can otherwise keep most of this host's RAM
+    # allocated throughout the build.
     concurrency:
       group: vps-deploy-build
       cancel-in-progress: false
@@ -126,7 +131,10 @@ jobs:
       # the pin requires re-checking that the new CLI's bundled esbuild
       # version is still on the allow list.
       - run: pnpm dlx --allow-build=esbuild vercel@52.0.0 pull --yes --environment=production
-      - run: pnpm dlx --allow-build=esbuild vercel@52.0.0 build --yes --prod
+      - name: Test Ollama build memory guard
+        run: node --test .github/scripts/run-with-ollama-memory-guard.test.mjs
+      - name: Build for Vercel with Ollama memory guard
+        run: node .github/scripts/run-with-ollama-memory-guard.mjs -- pnpm dlx --allow-build=esbuild vercel@52.0.0 build --yes --prod
       # IMPORTANT: --archive=tgz is required to prevent Vercel upload rate limiting.
       # Do NOT remove it — without it, each deploy uploads thousands of individual files.
       - name: Deploy to Vercel (with retry)
