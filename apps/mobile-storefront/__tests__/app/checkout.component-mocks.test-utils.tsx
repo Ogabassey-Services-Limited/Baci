@@ -56,9 +56,47 @@ jest.mock('@/components/checkout/DeliveryNotesCard', () => ({
 }));
 
 jest.mock('@/components/checkout/PaymentMethodSelector', () => ({
-  PaymentMethodSelector: () => {
-    const { Text } = require('react-native');
-    return <Text>Payment methods selector</Text>;
+  PaymentMethodSelector: (props: {
+    onSavingsToggle?: (selection: {
+      amount: number;
+      goalId: string | null;
+      use: boolean;
+    }) => void;
+    savingsBalance?: number;
+    savingsGoalId?: string | null;
+  }) => {
+    const { Pressable, Text, View } = require('react-native');
+    return (
+      <View>
+        <Text>Payment methods selector</Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Mock use checkout savings"
+          onPress={() =>
+            props.onSavingsToggle?.({
+              amount: props.savingsBalance ?? 0,
+              goalId: props.savingsGoalId ?? null,
+              use: true,
+            })
+          }
+        >
+          <Text>Use savings</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Mock remove checkout savings"
+          onPress={() =>
+            props.onSavingsToggle?.({
+              amount: props.savingsBalance ?? 0,
+              goalId: props.savingsGoalId ?? null,
+              use: false,
+            })
+          }
+        >
+          <Text>Remove savings</Text>
+        </Pressable>
+      </View>
+    );
   },
 }));
 

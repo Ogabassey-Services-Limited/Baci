@@ -1,8 +1,13 @@
 import {
+  buildSavingsOrderFields,
   buildWalletOrderFields,
+  getFullyPaidStoreCreditPaymentMethod,
   isWalletFullyPaidOrder,
+  type SavingsSelection,
   type WalletSelection,
 } from './wallet-payment-helpers';
+
+const paidOrder = { payment_status: 'paid' as const };
 
 describe('isWalletFullyPaidOrder', () => {
   // Pin the rule that drives the full-wallet bypass branch in checkout.tsx:
@@ -11,7 +16,6 @@ describe('isWalletFullyPaidOrder', () => {
   // skip the /api/payments/initialize hop and go straight to the success
   // screen. Any other shape must NOT be misinterpreted as wallet-paid.
 
-  const paidOrder = { payment_status: 'paid' as const };
   const unpaidOrder = { payment_status: 'unpaid' as const };
 
   it('returns true when order is server-stamped paid AND wallet covers fully', () => {
@@ -117,9 +121,7 @@ describe('buildWalletOrderFields', () => {
 
   it('returns an empty object when no wallet selection is active', () => {
     expect(buildWalletOrderFields(undefined)).toEqual({});
-    expect(
-      buildWalletOrderFields({ use: false, amount: 0 })
-    ).toEqual({});
+    expect(buildWalletOrderFields({ use: false, amount: 0 })).toEqual({});
   });
 
   it('returns an empty object when the wallet amount is non-positive', () => {
@@ -137,5 +139,133 @@ describe('buildWalletOrderFields', () => {
       use_wallet_credit: true,
       wallet_amount: 800,
     });
+  });
+});
+
+describe('buildSavingsOrderFields', () => {
+  it('returns an empty object when no savings selection is active', () => {
+    expect(buildSavingsOrderFields(undefined)).toEqual({});
+    expect(
+      buildSavingsOrderFields({ use: false, goalId: null, amount: 0 })
+    ).toEqual({});
+  });
+
+  it('returns an empty object when the savings selection is incomplete', () => {
+    const cases: SavingsSelection[] = [
+      { use: true, goalId: null, amount: 800 },
+      { use: true, goalId: '', amount: 800 },
+      { use: true, goalId: 'goal-1', amount: 0 },
+      { use: true, goalId: 'goal-1', amount: -100 },
+    ];
+
+    for (const selection of cases) {
+      expect(buildSavingsOrderFields(selection)).toEqual({});
+    }
+  });
+
+  it('returns the savings credit fields when the selection is fully formed', () => {
+    expect(
+      buildSavingsOrderFields({
+        use: true,
+        goalId: ' 123e4567-e89b-12d3-a456-426614174555 ',
+        amount: 5000,
+      })
+    ).toEqual({
+      use_savings_credit: true,
+      savings_goal_id: '123e4567-e89b-12d3-a456-426614174555',
+      savings_amount: 5000,
+    });
+  });
+});
+
+describe('getFullyPaidStoreCreditPaymentMethod', () => {
+  it('returns savings when savings alone fully settles a paid order', () => {
+    expect(
+      getFullyPaidStoreCreditPaymentMethod({
+        amountDueToGateway: 0,
+        order: paidOrder,
+        savings: {
+          amountUsed: 470000,
+          goalId: 'goal-1',
+          redemptionId: 'redemption-1',
+        },
+        wallet: null,
+      })
+    ).toBe('savings');
+  });
+
+  it('returns store_credit when wallet and savings together settle a paid order', () => {
+    expect(
+      getFullyPaidStoreCreditPaymentMethod({
+        amountDueToGateway: 0,
+        order: paidOrder,
+        savings: {
+          amountUsed: 200000,
+          goalId: 'goal-1',
+          redemptionId: 'redemption-1',
+        },
+        wallet: {
+          amountUsed: 270000,
+          newBalance: 0,
+          transactionId: 'wallet-tx-1',
+        },
+      })
+    ).toBe('store_credit');
+  });
+
+  it('returns wallet when wallet alone fully settles a paid order', () => {
+    expect(
+      getFullyPaidStoreCreditPaymentMethod({
+        amountDueToGateway: 0,
+        order: paidOrder,
+        savings: null,
+        wallet: {
+          amountUsed: 270000,
+          newBalance: 0,
+          transactionId: 'wallet-tx-1',
+        },
+      })
+    ).toBe('wallet');
+  });
+
+  it('returns undefined when savings was used but a gateway residual remains', () => {
+    expect(
+      getFullyPaidStoreCreditPaymentMethod({
+        amountDueToGateway: 1000,
+        order: paidOrder,
+        savings: {
+          amountUsed: 469000,
+          goalId: 'goal-1',
+          redemptionId: 'redemption-1',
+        },
+        wallet: null,
+      })
+    ).toBeUndefined();
+  });
+
+  it('returns undefined when savings was applied but the order is unpaid', () => {
+    expect(
+      getFullyPaidStoreCreditPaymentMethod({
+        amountDueToGateway: 0,
+        order: { payment_status: 'unpaid' },
+        savings: {
+          amountUsed: 469000,
+          goalId: 'goal-1',
+          redemptionId: 'redemption-1',
+        },
+        wallet: null,
+      })
+    ).toBeUndefined();
+  });
+
+  it('returns undefined when no store credit was used', () => {
+    expect(
+      getFullyPaidStoreCreditPaymentMethod({
+        amountDueToGateway: 0,
+        order: paidOrder,
+        savings: null,
+        wallet: null,
+      })
+    ).toBeUndefined();
   });
 });

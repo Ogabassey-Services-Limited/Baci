@@ -544,6 +544,70 @@ describe('createOrder — variant_attributes', () => {
     expect(body.wallet_amount).toBe(500);
   });
 
+  it('forwards complete savings credit fields', async () => {
+    const { createOrder } = require('./orders');
+
+    await createOrder({
+      customer_email: 'test@example.com',
+      customer_name: 'Test User',
+      customer_phone: '+2348012345678',
+      items: [
+        {
+          id: 'prod-1',
+          name: 'MacBook Air M1',
+          quantity: 1,
+          price: 720000,
+        },
+      ],
+      payment_method: 'paystack',
+      savings_amount: 500,
+      savings_goal_id: ' 123e4567-e89b-12d3-a456-426614174555 ',
+      shipping_address: {
+        firstName: 'Test',
+        lastName: 'User',
+        address: '123 St',
+        city: 'Lagos',
+        state: 'Lagos',
+      },
+      shipping_fee: 2000,
+      subtotal: 720000,
+      use_savings_credit: true,
+    });
+
+    const body = getLastFetchBody();
+    expect(body.use_savings_credit).toBe(true);
+    expect(body.savings_goal_id).toBe('123e4567-e89b-12d3-a456-426614174555');
+    expect(body.savings_amount).toBe(500);
+  });
+
+  it('strips savings fields when the savings selection is incomplete', async () => {
+    const { createOrder } = require('./orders');
+
+    await createOrder({
+      customer_email: 'test@example.com',
+      customer_name: 'Test User',
+      customer_phone: '+2348012345678',
+      items: [{ id: 'prod-1', name: 'Product', quantity: 1, price: 5000 }],
+      payment_method: 'paystack',
+      savings_amount: 500,
+      shipping_address: {
+        firstName: 'Test',
+        lastName: 'User',
+        address: '123 St',
+        city: 'Lagos',
+        state: 'Lagos',
+      },
+      shipping_fee: 500,
+      subtotal: 5000,
+      use_savings_credit: true,
+    });
+
+    const body = getLastFetchBody();
+    expect(body).not.toHaveProperty('use_savings_credit');
+    expect(body).not.toHaveProperty('savings_goal_id');
+    expect(body).not.toHaveProperty('savings_amount');
+  });
+
   it('omits wallet fields entirely when neither is provided (back-compat)', async () => {
     // Pin the back-compat contract: orders that do not opt into wallet must
     // not emit `use_wallet_credit: false / wallet_amount: undefined`. The
@@ -644,6 +708,58 @@ describe('createOrder — variant_attributes', () => {
           city: 'Lagos',
           state: 'Lagos',
         },
+      })
+    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+  });
+
+  it('rejects negative savings_amount at the schema boundary', async () => {
+    const { createOrder } = require('./orders');
+
+    await expect(
+      createOrder({
+        customer_email: 'test@example.com',
+        customer_name: 'Test User',
+        customer_phone: '+2348012345678',
+        items: [{ id: 'prod-1', name: 'Product', quantity: 1, price: 5000 }],
+        payment_method: 'paystack',
+        savings_amount: -100,
+        savings_goal_id: '123e4567-e89b-12d3-a456-426614174555',
+        shipping_address: {
+          firstName: 'Test',
+          lastName: 'User',
+          address: '123 St',
+          city: 'Lagos',
+          state: 'Lagos',
+        },
+        shipping_fee: 500,
+        subtotal: 5000,
+        use_savings_credit: true,
+      })
+    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+  });
+
+  it('rejects savings_amount above the mobile safety cap', async () => {
+    const { createOrder } = require('./orders');
+
+    await expect(
+      createOrder({
+        customer_email: 'test@example.com',
+        customer_name: 'Test User',
+        customer_phone: '+2348012345678',
+        items: [{ id: 'prod-1', name: 'Product', quantity: 1, price: 5000 }],
+        payment_method: 'paystack',
+        savings_amount: 10_000_001,
+        savings_goal_id: '123e4567-e89b-12d3-a456-426614174555',
+        shipping_address: {
+          firstName: 'Test',
+          lastName: 'User',
+          address: '123 St',
+          city: 'Lagos',
+          state: 'Lagos',
+        },
+        shipping_fee: 500,
+        subtotal: 5000,
+        use_savings_credit: true,
       })
     ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
   });

@@ -206,6 +206,58 @@ describe('PaymentGatewayParamsSchema', () => {
     }
   });
 
+  it('preserves valid returnTo paths for savings card authorization', () => {
+    const result = PaymentGatewayParamsSchema.safeParse({
+      authorizationUrl: 'https://checkout.paystack.com/test',
+      gateway: 'paystack',
+      paymentKind: 'savings_auth',
+      reference: 'SAV-AUTH-123',
+      returnTo: '/wallet/savings/start',
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.paymentKind).toBe('savings_auth');
+      expect(result.data.returnTo).toBe('/wallet/savings/start');
+    }
+  });
+
+  it('does not require amount, merchant, or order identifiers for savings auth', () => {
+    const result = PaymentGatewayParamsSchema.safeParse({
+      authorizationUrl: 'https://checkout.paystack.com/test',
+      gateway: 'paystack',
+      paymentKind: 'savings_auth',
+      reference: 'SAV-AUTH-123',
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.amount).toBeUndefined();
+      expect(result.data.merchantId).toBeUndefined();
+      expect(result.data.orderId).toBeUndefined();
+    }
+  });
+
+  it.each([
+    'https://evil.example',
+    '//evil.example',
+    '/\\evil',
+    '/safe/../evil',
+  ])('normalizes invalid savings auth returnTo %s', (returnTo) => {
+    const result = PaymentGatewayParamsSchema.safeParse({
+      authorizationUrl: 'https://checkout.paystack.com/test',
+      gateway: 'paystack',
+      paymentKind: 'savings_auth',
+      reference: 'SAV-AUTH-123',
+      returnTo,
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.returnTo).toBeUndefined();
+    }
+  });
+
   it.each([
     'https://evil.example',
     '//evil.example',

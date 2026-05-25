@@ -13,7 +13,7 @@ type MockUserResult = {
 };
 
 type MockSessionResult = {
-  data: { session: { access_token: string } | null };
+  data: { session: { access_token: string; expires_at?: number } | null };
   error: Error | null;
 };
 

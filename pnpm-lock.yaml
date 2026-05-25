@@ -454,6 +454,9 @@ importers:
       '@react-native-async-storage/async-storage':
         specifier: ^3.0.2
         version: 3.0.2(patch_hash=0ce97b4a9d49223d2f15085862f4aefe84a915b5b9af2560155d8b6dc7440873)(react-native@0.84.1(patch_hash=d32f84218083cff44af1ce3fde07b64c2fa85aaf75a7afa0d23821cdef7119dd)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
+      '@react-native-community/datetimepicker':
+        specifier: 9.1.0
+        version: 9.1.0(patch_hash=d6eebfc80eac2c44c597c97dcf20c6dfa6c2311b8904802b6a846db637e19196)(expo@55.0.9)(react-native@0.84.1(patch_hash=d32f84218083cff44af1ce3fde07b64c2fa85aaf75a7afa0d23821cdef7119dd)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
       '@react-native-community/netinfo':
         specifier: 12.0.1
         version: 12.0.1(react-native@0.84.1(patch_hash=d32f84218083cff44af1ce3fde07b64c2fa85aaf75a7afa0d23821cdef7119dd)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)

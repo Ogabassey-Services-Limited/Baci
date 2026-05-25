@@ -1,9 +1,8 @@
-import { Ionicons } from '@expo/vector-icons';
 import {
   getRedeemablePointBalance,
   VTU_MIN_REDEEMABLE_POINTS,
 } from '@baci/shared/lib';
-import type { ComponentProps } from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import type { StyleProp, ViewStyle } from 'react-native';
 import {
   ActivityIndicator,
@@ -17,38 +16,49 @@ import {
 import Animated, { FadeIn } from 'react-native-reanimated';
 import type Colors from '@/constants/Colors';
 import { BRAND, palette } from '@/constants/Colors';
-import { formatNgnCurrency } from '@/lib/format-ngn-currency';
+import { WalletActionsRow } from './WalletActionsRow';
+import { WalletHeroSection } from './WalletHeroSection';
 import {
   type WalletTransaction,
   WalletTransactionHistory,
 } from './WalletTransactionHistory';
+import { WALLET_COLORS } from './wallet.colors';
 import { styles } from './wallet.styles';
+import type { WalletDisplayFundingAccount } from './wallet.types';
 
 type WalletColors = (typeof Colors)['light'];
-type WalletIconName = ComponentProps<typeof Ionicons>['name'];
 
 export interface WalletContentProps {
   colors: WalletColors;
   contentContainerStyle: StyleProp<ViewStyle>;
+  earningsBalance: number;
   fundAmount: string;
+  fundingAccount: WalletDisplayFundingAccount | null;
+  isCreatingFundingAccount: boolean;
   isFundPending: boolean;
   isRedeemPending: boolean;
   isRefetching: boolean;
   loyaltyPoints: number;
+  onCreateFundingAccount: () => void;
   onChangeFundAmount: (value: string) => void;
   onChangeRedeemPoints: (value: string) => void;
   onConfirmFund: () => void;
   onConfirmRedeem: () => void;
+  onManageCards: () => void;
   onOpenFundPanel: () => void;
   onOpenRedeemPanel: () => void;
+  onQuickSave: () => void;
   onRefresh: () => void;
   onResetFund: () => void;
   onResetRedeem: () => void;
+  onStartSavings: () => void;
   redeemPoints: string;
+  savingsBalance: number;
+  showQuickSave: boolean;
   showFundPanel: boolean;
   showRedeemPanel: boolean;
+  totalBalance: number;
   transactions: WalletTransaction[];
-  walletBalance: number;
 }
 
 function getTierColor(tier: string) {
@@ -67,54 +77,35 @@ function getTierColor(tier: string) {
 export function WalletContent({
   colors,
   contentContainerStyle,
+  earningsBalance,
   fundAmount,
+  fundingAccount,
+  isCreatingFundingAccount,
   isFundPending,
   isRedeemPending,
   isRefetching,
   loyaltyPoints,
+  onCreateFundingAccount,
   onChangeFundAmount,
   onChangeRedeemPoints,
   onConfirmFund,
   onConfirmRedeem,
+  onManageCards,
   onOpenFundPanel,
   onOpenRedeemPanel,
+  onQuickSave,
   onRefresh,
   onResetFund,
   onResetRedeem,
+  onStartSavings,
   redeemPoints,
+  savingsBalance,
+  showQuickSave,
   showFundPanel,
   showRedeemPanel,
+  totalBalance,
   transactions,
-  walletBalance,
 }: WalletContentProps) {
-  const balanceActions: ReadonlyArray<{
-    accessibilityLabel: string;
-    accessibilityHint: string;
-    disabled: boolean;
-    icon: WalletIconName;
-    key: string;
-    label: string;
-    onPress: () => void;
-  }> = [
-    {
-      accessibilityLabel: 'Add funds to wallet',
-      accessibilityHint: 'Opens the wallet top-up panel',
-      disabled: false,
-      icon: 'add-circle-outline',
-      key: 'add-funds',
-      label: 'Add Funds',
-      onPress: onOpenFundPanel,
-    },
-    {
-      accessibilityLabel: 'Withdraw from wallet',
-      accessibilityHint: 'Withdrawals are not available yet',
-      disabled: true,
-      icon: 'arrow-up-circle-outline',
-      key: 'withdraw',
-      label: 'Withdraw',
-      onPress: () => undefined,
-    },
-  ];
   const redeemablePoints = getRedeemablePointBalance(loyaltyPoints);
 
   return (
@@ -132,37 +123,24 @@ export function WalletContent({
         />
       }
     >
-      <Animated.View
-        entering={FadeIn.duration(400)}
-        style={[styles.balanceCard, { backgroundColor: BRAND.primary }]}
-      >
-        <Text style={styles.balanceLabel}>Wallet Balance</Text>
-        <Text style={styles.balanceAmount}>
-          {formatNgnCurrency(walletBalance)}
-        </Text>
-        <View style={styles.balanceActions}>
-          {balanceActions.map((action, index) => (
-            <View key={action.key} style={styles.balanceAction}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={action.accessibilityLabel}
-                accessibilityHint={action.accessibilityHint}
-                accessibilityState={{ disabled: action.disabled }}
-                disabled={action.disabled}
-                onPress={action.onPress}
-                style={[
-                  styles.balanceAction,
-                  action.disabled ? styles.disabledBalanceAction : null,
-                ]}
-              >
-                <Ionicons name={action.icon} size={20} color="#FFFFFF" />
-                <Text style={styles.balanceActionText}>{action.label}</Text>
-              </Pressable>
-              {index === 0 ? <View style={styles.divider} /> : null}
-            </View>
-          ))}
-        </View>
-      </Animated.View>
+      <WalletHeroSection
+        earningsBalance={earningsBalance}
+        fundingAccount={fundingAccount}
+        isCreatingFundingAccount={isCreatingFundingAccount}
+        loyaltyPoints={loyaltyPoints}
+        onCreateFundingAccount={onCreateFundingAccount}
+        onOpenFundPanel={onOpenFundPanel}
+        savingsBalance={savingsBalance}
+        totalBalance={totalBalance}
+      />
+
+      <WalletActionsRow
+        colors={colors}
+        onManageCards={onManageCards}
+        onQuickSave={onQuickSave}
+        onStartSavings={onStartSavings}
+        showQuickSave={showQuickSave}
+      />
 
       {showFundPanel ? (
         <Animated.View
@@ -226,7 +204,7 @@ export function WalletContent({
               disabled={isFundPending}
             >
               {isFundPending ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
+                <ActivityIndicator size="small" color={WALLET_COLORS.white} />
               ) : (
                 <Text style={styles.confirmBtnText}>Continue</Text>
               )}
@@ -234,7 +212,6 @@ export function WalletContent({
           </View>
         </Animated.View>
       ) : null}
-
       <Animated.View
         entering={FadeIn.duration(400).delay(100)}
         style={[
@@ -247,7 +224,7 @@ export function WalletContent({
             <Text
               style={[styles.loyaltyLabel, { color: colors.textSecondary }]}
             >
-              Loyalty Points
+              Loyalty Rewards
             </Text>
             <Text style={[styles.loyaltyPoints, { color: colors.text }]}>
               {loyaltyPoints.toLocaleString()} pts
@@ -266,7 +243,7 @@ export function WalletContent({
               importantForAccessibility="no"
               name="star"
               size={14}
-              color="#FFFFFF"
+              color={WALLET_COLORS.white}
             />
             <Text style={styles.tierText}>Bronze</Text>
           </View>
@@ -303,7 +280,7 @@ export function WalletContent({
               importantForAccessibility="no"
               name="gift-outline"
               size={18}
-              color="#FFFFFF"
+              color={WALLET_COLORS.white}
             />
             <Text style={styles.redeemBtnText}>Redeem Points</Text>
           </Pressable>
@@ -372,7 +349,7 @@ export function WalletContent({
               disabled={isRedeemPending}
             >
               {isRedeemPending ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
+                <ActivityIndicator size="small" color={WALLET_COLORS.white} />
               ) : (
                 <Text style={styles.confirmBtnText}>Redeem</Text>
               )}

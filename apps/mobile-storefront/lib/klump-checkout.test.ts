@@ -1,4 +1,7 @@
-import type { WalletSelection } from '@/components/checkout/PaymentMethodSelector';
+import type {
+  SavingsSelection,
+  WalletSelection,
+} from '@/lib/wallet-payment-helpers';
 import {
   buildKlumpBnplRouteParams,
   buildKlumpInitializePayload,
@@ -22,6 +25,18 @@ describe('klump checkout helpers', () => {
     expect(getKlumpDisabledReason(settings, 120000, walletSelection)).toBe(
       'Wallet credit cannot be combined with Klump'
     );
+  });
+
+  it('disables Klump when savings plan credit is active', () => {
+    const savingsSelection: SavingsSelection = {
+      amount: 5000,
+      goalId: 'goal-1',
+      use: true,
+    };
+
+    expect(
+      getKlumpDisabledReason(settings, 120000, undefined, savingsSelection)
+    ).toBe('Savings plan cannot be combined with Klump');
   });
 
   it('uses merchant configured amount boundaries for disabled reasons', () => {

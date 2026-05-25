@@ -3,6 +3,11 @@ import { render, screen } from '@testing-library/react-native';
 import { StyleSheet, Text } from 'react-native';
 
 const mockUseSafeAreaInsets = jest.fn();
+const mockUseColorScheme = jest.fn();
+
+jest.mock('@/components/useColorScheme', () => ({
+  useColorScheme: () => mockUseColorScheme(),
+}));
 
 jest.mock('react-native-safe-area-context', () => ({
   SafeAreaView: ({
@@ -31,6 +36,7 @@ import { StorefrontScreenShell } from './StorefrontScreenShell';
 
 describe('StorefrontScreenShell', () => {
   beforeEach(() => {
+    mockUseColorScheme.mockReturnValue('light');
     mockUseSafeAreaInsets.mockReturnValue({
       top: 24,
       bottom: 34,
@@ -75,6 +81,38 @@ describe('StorefrontScreenShell', () => {
     expect(StyleSheet.flatten(shell.props.style)).toMatchObject({
       flex: 1,
       backgroundColor: '#111111',
+    });
+  });
+
+  it('can apply the current theme background before custom styles', () => {
+    render(
+      <StorefrontScreenShell themeBackground testID="theme-shell">
+        <Text>Content</Text>
+      </StorefrontScreenShell>
+    );
+
+    const shell = screen.getByTestId('theme-shell');
+
+    expect(StyleSheet.flatten(shell.props.style)).toMatchObject({
+      backgroundColor: '#FFFFFF',
+      flex: 1,
+    });
+  });
+
+  it('can apply the dark theme background', () => {
+    mockUseColorScheme.mockReturnValue('dark');
+
+    render(
+      <StorefrontScreenShell themeBackground testID="dark-theme-shell">
+        <Text>Content</Text>
+      </StorefrontScreenShell>
+    );
+
+    const shell = screen.getByTestId('dark-theme-shell');
+
+    expect(StyleSheet.flatten(shell.props.style)).toMatchObject({
+      backgroundColor: '#0A0A0A',
+      flex: 1,
     });
   });
 

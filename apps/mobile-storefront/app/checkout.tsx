@@ -41,27 +41,16 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
+import { CheckoutContactCard } from '@/components/checkout/CheckoutContactCard';
+import { CheckoutDeliveryCard } from '@/components/checkout/CheckoutDeliveryCard';
+import { CheckoutFormField } from '@/components/checkout/CheckoutFormField';
 import {
   type CheckoutStep,
   CheckoutStepper,
 } from '@/components/checkout/CheckoutStepper';
-import { CheckoutContactCard } from '@/components/checkout/CheckoutContactCard';
-import { CheckoutDeliveryCard } from '@/components/checkout/CheckoutDeliveryCard';
-import { CheckoutFormField } from '@/components/checkout/CheckoutFormField';
+import { CheckoutSavingsRetryCard } from '@/components/checkout/CheckoutSavingsRetryCard';
 import { CryptoSelectionModal } from '@/components/checkout/CryptoSelectionModal';
-import { DeliveryMethodCard } from '@/components/checkout/DeliveryMethodCard';
-import { DeliveryNotesCard } from '@/components/checkout/DeliveryNotesCard';
-import {
-  PaymentMethodSelector,
-  type PaymentMethodType,
-  type PaymentTab,
-} from '@/components/checkout/PaymentMethodSelector';
-import {
-  PICKUP_STATION_ADDRESS_LINES,
-  PICKUP_STATION_CITY,
-  PICKUP_STATION_STATE,
-  PickupStationCard,
-} from '@/components/checkout/PickupStationCard';
+import { humanizeCheckoutFieldName } from '@/components/checkout/checkout-form-field.helpers';
 import {
   fetchShippingQuotes,
   normalizeStateName,
@@ -75,7 +64,19 @@ import {
   getPaymentTabForMethod,
   getShippingProviderForMethod,
 } from '@/components/checkout/checkout-step-helpers';
-import { humanizeCheckoutFieldName } from '@/components/checkout/checkout-form-field.helpers';
+import { DeliveryMethodCard } from '@/components/checkout/DeliveryMethodCard';
+import { DeliveryNotesCard } from '@/components/checkout/DeliveryNotesCard';
+import {
+  PaymentMethodSelector,
+  type PaymentMethodType,
+  type PaymentTab,
+} from '@/components/checkout/PaymentMethodSelector';
+import {
+  PICKUP_STATION_ADDRESS_LINES,
+  PICKUP_STATION_CITY,
+  PICKUP_STATION_STATE,
+  PickupStationCard,
+} from '@/components/checkout/PickupStationCard';
 import { ShippingQuotesCard } from '@/components/checkout/ShippingQuotesCard';
 import type {
   DeliveryMethod,
@@ -92,6 +93,8 @@ import Colors, {
   SPACING,
 } from '@/constants/Colors';
 import { useAuthStatus } from '@/hooks/use-auth-guard';
+import { useCheckoutSavings } from '@/hooks/use-checkout-savings';
+import { useWallet } from '@/hooks/use-wallet';
 import {
   getEnabledPaymentMethods,
   getMerchantTaxRate,
@@ -105,32 +108,31 @@ import {
   toCheckoutAddressValues,
   upsertSavedAddress,
 } from '@/lib/checkout-saved-address';
+import { setClipboardString } from '@/lib/clipboard';
 import {
   buildKlumpBnplRouteParams,
   buildKlumpInitializePayload,
   getKlumpDisabledReason,
 } from '@/lib/klump-checkout';
-import { setClipboardString } from '@/lib/clipboard';
-import {
-  buildShippingQuoteContextKey,
-} from '@/lib/shipping-quotes';
+import { buildShippingQuoteContextKey } from '@/lib/shipping-quotes';
+import { isStoreCreditCompatiblePayment } from '@/lib/store-credit-compatible-payment';
 import { calculateCommerce, supabase } from '@/lib/supabase';
 import {
   type ShippingAddressInput,
   ShippingAddressSchema,
 } from '@/lib/validation';
 import {
+  buildSavingsOrderFields,
+  buildWalletOrderFields,
+  getFullyPaidStoreCreditPaymentMethod,
+  type WalletSelection,
+} from '@/lib/wallet-payment-helpers';
+import {
   trackCheckoutStarted,
   trackCheckoutStep,
   trackError,
   trackOrderCompleted,
 } from '@/services/analytics';
-import { useWallet } from '@/hooks/use-wallet';
-import {
-  buildWalletOrderFields,
-  isWalletFullyPaidOrder,
-  type WalletSelection,
-} from '@/lib/wallet-payment-helpers';
 import { createOrder, OrderError, type OrderResponse } from '@/services/orders';
 import { scheduleLocalNotification } from '@/services/push-notifications';
 import { formatPrice, useCartStore } from '@/stores/cart-store';
@@ -217,6 +219,22 @@ export default function CheckoutScreen() {
   const [walletSelection, setWalletSelection] = React.useState<
     WalletSelection | undefined
   >(undefined);
+  const {
+    checkoutSavingsBalance,
+    checkoutSavingsError,
+    checkoutSavingsGoal,
+    getLiveSavingsSelection,
+    isLoadingCheckoutSavings,
+    reloadCheckoutSavings,
+    savingsSelection,
+    setSavingsSelection,
+  } = useCheckoutSavings({
+    customerId: customer?.id,
+    isAuthenticated,
+    items,
+    merchantId: MERCHANT_ID,
+    merchantSlug: MERCHANT_SLUG,
+  });
   const walletQuery = useWallet();
   const walletBalance = walletQuery.data?.wallet?.balance ?? 0;
   const [deliveryMethod, setDeliveryMethod] =
@@ -951,10 +969,34 @@ export default function CheckoutScreen() {
   const taxAmount = orderTotals?.taxAmount ?? 0;
   const total =
     orderTotals?.total ?? subtotal + deliveryFee + assuranceFee + taxAmount;
+  const isStoreCreditCompatibleForKlumpGate = isStoreCreditCompatiblePayment({
+    paymentTab,
+    selectedPayment,
+  });
+  const liveSavingsSelectionForKlumpGate = getLiveSavingsSelection({
+    isStoreCreditCompatible: isStoreCreditCompatibleForKlumpGate,
+    items,
+    orderTotal: total,
+  });
+  const walletResidualForKlumpGate = Math.max(
+    total - (liveSavingsSelectionForKlumpGate?.amount ?? 0),
+    0
+  );
+  const liveWalletSelectionForKlumpGate: WalletSelection | undefined =
+    walletSelection?.use === true && isStoreCreditCompatibleForKlumpGate
+      ? {
+          use: true,
+          amount: Math.max(
+            0,
+            Math.min(walletBalance, walletResidualForKlumpGate)
+          ),
+        }
+      : undefined;
   const klumpDisabledReason = getKlumpDisabledReason(
     paymentSettings,
     total,
-    walletSelection
+    liveWalletSelectionForKlumpGate,
+    liveSavingsSelectionForKlumpGate
   );
   // Show subtotal + delivery + assurance (no VAT) in steps 1 & 2; full total (with VAT) in Review
   const displayTotal =
@@ -1267,14 +1309,11 @@ export default function CheckoutScreen() {
       snapshotDeliveryFee +
       snapshotAssuranceFee +
       snapshotTaxAmount;
-    // Recompute the wallet amount at submit time against the snapshotted
-    // total + the live walletBalance, ignoring the captured
-    // walletSelection.amount. Between toggle and submit the total can
-    // shift (shipping quote update, tax recompute) and the wallet
-    // balance can move (concurrent refunds / cashback). Clamping to
-    // min(walletBalance, snapshotTotal) keeps the submitted amount
-    // consistent with what the server will actually see and prevents a
-    // stale wallet_amount from over- or under-debiting.
+    // Recompute savings and wallet amounts at submit time against the
+    // snapshotted cart total, ignoring captured selection amounts. Between
+    // toggle and submit, totals can shift (shipping quote update, tax
+    // recompute) and balances can move (concurrent refunds / cashback).
+    // Savings is applied first, then wallet can cover only the residual.
     //
     // Also enforce the same payment-method gate the picker uses
     // (PaymentMethodSelector.tsx → walletShouldRender). If the user
@@ -1285,18 +1324,27 @@ export default function CheckoutScreen() {
     // the API doesn't receive a stale wallet redemption that would either
     // be silently ignored (BNPL/pay_later branch) or break the Juicyway
     // amount-drift guard in handleCryptoConfirm.
-    const isWalletCompatibleSubmit =
-      paymentTab === 'full' &&
-      (selectedPayment === 'paystack' ||
-        selectedPayment === 'korapay' ||
-        selectedPayment === 'bank_transfer');
+    const isStoreCreditCompatibleSubmit = isStoreCreditCompatiblePayment({
+      paymentTab,
+      selectedPayment,
+    });
+    const liveSavingsSelection = getLiveSavingsSelection({
+      isStoreCreditCompatible: isStoreCreditCompatibleSubmit,
+      items: itemsSnapshot,
+      orderTotal: snapshotTotal,
+    });
+    const liveSavingsAmount = liveSavingsSelection?.amount ?? 0;
+    const walletResidualAfterSavings = Math.max(
+      snapshotTotal - liveSavingsAmount,
+      0
+    );
     const liveWalletSelection: WalletSelection | undefined =
-      walletSelection?.use === true && isWalletCompatibleSubmit
+      walletSelection?.use === true && isStoreCreditCompatibleSubmit
         ? {
             use: true,
             amount: Math.max(
               0,
-              Math.min(walletBalance, snapshotTotal)
+              Math.min(walletBalance, walletResidualAfterSavings)
             ),
           }
         : undefined;
@@ -1337,7 +1385,8 @@ export default function CheckoutScreen() {
             ? getKlumpDisabledReason(
                 paymentSettings,
                 snapshotTotal,
-                walletSelection
+                liveWalletSelection,
+                liveSavingsSelection
               )
             : undefined;
         if (klumpSubmitDisabledReason) {
@@ -1501,6 +1550,7 @@ export default function CheckoutScreen() {
         payment_method: paymentMethodForOrder,
         shipping_address: orderShippingAddress,
         source: 'mobile_app',
+        ...buildSavingsOrderFields(liveSavingsSelection),
         ...buildWalletOrderFields(liveWalletSelection),
       });
 
@@ -1579,9 +1629,10 @@ export default function CheckoutScreen() {
       // attribute the completion to 'wallet' in analytics rather than
       // the still-set selectedPayment value. Otherwise wallet-funded
       // orders skew payment dashboards as paystack/korapay/bank_transfer.
-      const completedPaymentMethod = isWalletFullyPaidOrder(orderResponse)
-        ? 'wallet'
-        : selectedPayment;
+      const fullyPaidStoreCreditPaymentMethod =
+        getFullyPaidStoreCreditPaymentMethod(orderResponse);
+      const completedPaymentMethod =
+        fullyPaidStoreCreditPaymentMethod ?? selectedPayment;
       trackOrderCompleted({
         orderId: order.id,
         orderNumber,
@@ -1617,12 +1668,10 @@ export default function CheckoutScreen() {
         return;
       }
 
-      // Wallet-only short-circuit: when the server has already finalized
-      // the order from wallet credit, skip the gateway-initialize hop and
-      // navigate to the success screen directly. The /api/orders route
-      // calls finalize_wallet_order_payment when amountDueToGateway hits
-      // 0, so the order is already paid by the time we get here.
-      if (isWalletFullyPaidOrder(orderResponse)) {
+      // Store-credit short-circuit: when the server has already finalized
+      // the order from wallet and/or savings credit, skip the gateway
+      // initialize hop and navigate to success directly.
+      if (fullyPaidStoreCreditPaymentMethod) {
         clearCart();
         const persistOpts = useCartStore.persist.getOptions();
         const partialize = persistOpts.partialize ?? ((s: unknown) => s);
@@ -1640,10 +1689,9 @@ export default function CheckoutScreen() {
           params: {
             orderId: order.id,
             orderNumber,
-            paymentMethod: 'wallet',
-            walletAmountUsed: String(
-              orderResponse.wallet?.amountUsed ?? 0
-            ),
+            paymentMethod: fullyPaidStoreCreditPaymentMethod,
+            savingsAmountUsed: String(orderResponse.savings?.amountUsed ?? 0),
+            walletAmountUsed: String(orderResponse.wallet?.amountUsed ?? 0),
             ...(order.tracking_token && {
               trackingToken: order.tracking_token,
             }),
@@ -1984,6 +2032,15 @@ export default function CheckoutScreen() {
         </Text>
       </View>
 
+      {checkoutSavingsError ? (
+        <CheckoutSavingsRetryCard
+          colors={colors}
+          isDark={isDark}
+          message={checkoutSavingsError}
+          onRetry={reloadCheckoutSavings}
+        />
+      ) : null}
+
       <PaymentMethodSelector
         selectedMethod={selectedPayment}
         onSelectMethod={setSelectedPayment}
@@ -1996,6 +2053,11 @@ export default function CheckoutScreen() {
         walletOrderTotal={total}
         walletSelection={walletSelection}
         onWalletToggle={setWalletSelection}
+        savingsBalance={isLoadingCheckoutSavings ? 0 : checkoutSavingsBalance}
+        savingsGoalId={checkoutSavingsGoal?.id ?? null}
+        savingsGoalTitle={checkoutSavingsGoal?.title}
+        savingsSelection={savingsSelection}
+        onSavingsToggle={setSavingsSelection}
         methodDisabledReasons={
           klumpDisabledReason ? { klump: klumpDisabledReason } : undefined
         }
@@ -2446,9 +2508,7 @@ export default function CheckoutScreen() {
           setCitySearch('');
         }}
       >
-        <AppKeyboardContainer
-          style={styles.pickerOverlay}
-        >
+        <AppKeyboardContainer style={styles.pickerOverlay}>
           <View style={[styles.pickerSheet, { backgroundColor: colors.card }]}>
             <View style={styles.pickerHeader}>
               <Text style={[styles.pickerTitle, { color: colors.text }]}>
@@ -3067,6 +3127,44 @@ const styles = StyleSheet.create({
   citySearchInput: {
     flex: 1,
     fontSize: 14,
+  },
+  saveDetailsSection: {
+    gap: SPACING.sm,
+  },
+  checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    paddingVertical: SPACING.xs,
+    minHeight: 44,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxChecked: {
+    backgroundColor: BRAND.primary,
+  },
+  checkboxLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    flex: 1,
+  },
+  accountInfoBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: SPACING.sm,
+    padding: SPACING.md,
+    borderRadius: RADIUS.md,
+  },
+  accountInfoText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
   },
   // Crypto payment modal styles
   cryptoHeader: {

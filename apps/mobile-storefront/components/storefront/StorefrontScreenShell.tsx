@@ -1,11 +1,14 @@
 import type { PropsWithChildren } from 'react';
 import { type StyleProp, StyleSheet, type ViewStyle } from 'react-native';
 import { type Edge, SafeAreaView } from 'react-native-safe-area-context';
+import { useColorScheme } from '@/components/useColorScheme';
+import Colors from '@/constants/Colors';
 
 interface StorefrontScreenShellProps extends PropsWithChildren {
   edges?: readonly Edge[];
   style?: StyleProp<ViewStyle>;
   testID?: string;
+  themeBackground?: boolean;
 }
 
 // `edges` defaults to ['bottom'] only because react-native-screens NativeStack
@@ -22,12 +25,20 @@ export function StorefrontScreenShell({
   edges = ['bottom'],
   style,
   testID,
+  themeBackground = false,
 }: StorefrontScreenShellProps) {
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
+
   return (
     <SafeAreaView
       testID={testID}
       edges={edges}
-      style={[styles.container, style]}
+      style={[
+        styles.container,
+        themeBackground ? { backgroundColor: colors.background } : null,
+        style,
+      ]}
     >
       {children}
     </SafeAreaView>
