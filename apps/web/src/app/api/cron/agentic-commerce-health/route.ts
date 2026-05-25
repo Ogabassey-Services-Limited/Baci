@@ -29,6 +29,7 @@ import {
   type AgentCommerceManifestHealthResult,
   checkAgentCommerceManifestHealth,
 } from '@/lib/agentic/agent-commerce-manifest-health';
+import { checkAgentCommerceSupportChatHealth } from '@/lib/agentic/agent-commerce-support-chat-health';
 import { hasValidCronSecret } from '@/lib/cron-secret-auth';
 import { logger } from '@/lib/logger';
 import { sanitizeForLog } from '@/lib/sanitize-core';
@@ -258,29 +259,40 @@ export async function GET(request: NextRequest) {
       supabase,
       Array.from(merchantsBySlug.values(), (merchant) => merchant.id)
     );
-    const merchants = await Promise.all(
-      monitorRequest.slugs.map((slug) => {
-        const merchant = merchantsBySlug.get(slug);
-        return buildMerchantHealthResult({
-          merchant: merchant
-            ? {
-                ...merchant,
-                custom_domain:
-                  primaryDomainsByMerchantId.get(merchant.id) ?? null,
-              }
-            : undefined,
-          slug,
-          supabase,
-        });
-      })
-    );
+    const [merchants, supportChat] = await Promise.all([
+      Promise.all(
+        monitorRequest.slugs.map((slug) => {
+          const merchant = merchantsBySlug.get(slug);
+          return buildMerchantHealthResult({
+            merchant: merchant
+              ? {
+                  ...merchant,
+                  custom_domain:
+                    primaryDomainsByMerchantId.get(merchant.id) ?? null,
+                }
+              : undefined,
+            slug,
+            supabase,
+          });
+        })
+      ),
+      checkAgentCommerceSupportChatHealth(),
+    ]);
     const status = getOverallStatus(merchants);
     const summary = {
       checked_at: new Date().toISOString(),
       merchant_count: merchants.length,
       merchants,
       status,
+      support_chat: supportChat,
     };
+
+    if (supportChat.status === 'attention') {
+      logger.warn({
+        message: 'Support chat health monitor needs attention',
+        support_chat: supportChat,
+      });
+    }
 
     if (status === 'attention') {
       logger.warn({
