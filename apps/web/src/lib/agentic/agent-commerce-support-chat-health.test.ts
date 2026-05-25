@@ -1,0 +1,154 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('@/env', () => ({
+  getAppUrl: vi.fn(() => 'https://usebaci.com'),
+}));
+
+vi.mock('@/lib/logger', () => ({
+  logger: {
+    error: vi.fn(),
+  },
+}));
+
+import { logger } from '@/lib/logger';
+import { checkAgentCommerceSupportChatHealth } from './agent-commerce-support-chat-health';
+
+function createClock(start: number, end: number) {
+  return vi.fn().mockReturnValueOnce(start).mockReturnValueOnce(end);
+}
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
+
+describe('checkAgentCommerceSupportChatHealth', () => {
+  it('posts a public chat smoke request and reports successful latency', async () => {
+    const timeoutSpy = vi.spyOn(AbortSignal, 'timeout');
+    const cancel = vi.fn();
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(new ReadableStream({ cancel }), {
+        headers: { 'content-type': 'text/plain; charset=utf-8' },
+        status: 200,
+      })
+    );
+
+    try {
+      const result = await checkAgentCommerceSupportChatHealth(
+        fetcher,
+        createClock(100, 145)
+      );
+
+      expect(result).toEqual({
+        issue_count: 0,
+        issues: [],
+        response_time_ms: 45,
+        status: 'ok',
+        url: 'https://usebaci.com/api/chat',
+      });
+      expect(fetcher).toHaveBeenCalledWith('https://usebaci.com/api/chat', {
+        body: JSON.stringify({
+          messages: [{ content: 'Best gaming phones', role: 'user' }],
+        }),
+        cache: 'no-store',
+        headers: {
+          accept: 'text/plain',
+          'content-type': 'application/json',
+        },
+        method: 'POST',
+        signal: expect.any(AbortSignal),
+      });
+      expect(timeoutSpy).toHaveBeenCalledWith(75_000);
+      expect(cancel).toHaveBeenCalledOnce();
+    } finally {
+      timeoutSpy.mockRestore();
+    }
+  });
+
+  it('returns attention when chat serves its static provider fallback', async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response('temporarily busy', {
+        headers: { 'x-baci-chat-fallback': 'static' },
+        status: 200,
+      })
+    );
+
+    await expect(
+      checkAgentCommerceSupportChatHealth(fetcher, createClock(100, 120))
+    ).resolves.toMatchObject({
+      issue_count: 1,
+      issues: [
+        {
+          code: 'support_chat_static_fallback',
+          message:
+            'Support chat returned its static provider-failure fallback.',
+        },
+      ],
+      response_time_ms: 20,
+      status: 'attention',
+    });
+  });
+
+  it('returns attention when chat responds too slowly for customer support', async () => {
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response('slow response', { status: 200 }));
+
+    await expect(
+      checkAgentCommerceSupportChatHealth(fetcher, createClock(100, 8_101))
+    ).resolves.toMatchObject({
+      issue_count: 1,
+      issues: [
+        {
+          code: 'support_chat_slow',
+          message: 'Support chat response time exceeded 8000 ms.',
+        },
+      ],
+      response_time_ms: 8_001,
+      status: 'attention',
+    });
+  });
+
+  it('returns attention when the public chat endpoint rejects the request', async () => {
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response('failure', { status: 500 }));
+
+    await expect(
+      checkAgentCommerceSupportChatHealth(fetcher, createClock(100, 110))
+    ).resolves.toMatchObject({
+      issue_count: 1,
+      issues: [
+        {
+          code: 'support_chat_unavailable',
+          message: 'Support chat returned HTTP 500.',
+        },
+      ],
+      response_time_ms: 10,
+      status: 'attention',
+    });
+  });
+
+  it('returns attention when the public chat request cannot be completed', async () => {
+    const error = new Error('network unavailable');
+    const fetcher = vi.fn<typeof fetch>().mockRejectedValue(error);
+
+    await expect(
+      checkAgentCommerceSupportChatHealth(fetcher, createClock(100, 120))
+    ).resolves.toMatchObject({
+      issue_count: 1,
+      issues: [
+        {
+          code: 'support_chat_unavailable',
+          message: 'Support chat could not be fetched.',
+        },
+      ],
+      response_time_ms: 20,
+      status: 'attention',
+    });
+    expect(logger.error).toHaveBeenCalledWith({
+      error,
+      message: 'Support chat health request failed',
+      url: 'https://usebaci.com/api/chat',
+    });
+  });
+});

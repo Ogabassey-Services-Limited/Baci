@@ -36,18 +36,14 @@ function parseBlogListingPage(page?: string): number {
 
 export async function generateMetadata({
   params,
-  searchParams,
 }: PageProps): Promise<Metadata> {
   const { slug } = await params;
-  const { page } = await searchParams;
-  const currentPage = parseBlogListingPage(page);
-  const data = await getCachedBlogListing(slug, { page: currentPage });
+  const data = await getCachedBlogListing(slug, { page: 1 });
   if (!data) {
     return { title: 'Blog Not Found' };
   }
   const baseUrl = buildStoreUrl(data.merchant);
-  const canonicalUrl =
-    currentPage > 1 ? `${baseUrl}/blog?page=${currentPage}` : `${baseUrl}/blog`;
+  const canonicalUrl = `${baseUrl}/blog`;
   const socialImageCandidates = [
     data.posts[0]?.featured_image_url,
     data.merchant.logo_url,
@@ -60,16 +56,7 @@ export async function generateMetadata({
       fallback: `Read expert buying guides, product comparisons, and tech updates from ${data.merchant.business_name}. Find practical recommendations tailored for shoppers in Nigeria.`,
     }
   );
-  const prevUrl =
-    currentPage > 2
-      ? `${baseUrl}/blog?page=${currentPage - 1}`
-      : currentPage === 2
-        ? `${baseUrl}/blog`
-        : undefined;
-  const nextUrl =
-    currentPage < data.totalPages
-      ? `${baseUrl}/blog?page=${currentPage + 1}`
-      : undefined;
+  const nextUrl = data.totalPages > 1 ? `${baseUrl}/blog?page=2` : undefined;
 
   return {
     title: `Blog | ${data.merchant.business_name}`,
@@ -99,7 +86,6 @@ export async function generateMetadata({
       },
     },
     other: {
-      ...(prevUrl ? { 'link-prev': prevUrl } : {}),
       ...(nextUrl ? { 'link-next': nextUrl } : {}),
     },
     robots: {

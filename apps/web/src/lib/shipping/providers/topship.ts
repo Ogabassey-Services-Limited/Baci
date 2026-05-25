@@ -195,7 +195,7 @@ export class TopshipProvider extends BaseShippingProvider {
     );
 
     if (!response.ok) {
-      this.log('error', 'Failed to fetch Topship states', {
+      this.log('warn', 'Failed to fetch Topship states', {
         status: response.status,
       });
       return [];

@@ -19,6 +19,10 @@ import {
   filterPublicBlogPosts,
   isPublicBlogPost,
 } from '@/lib/public-blog-content-quality';
+import {
+  normalizeRelatedBlogProducts,
+  RELATED_BLOG_PRODUCTS_SELECT,
+} from '@/lib/related-blog-products';
 import { STOREFRONT_BLOG_POST_SELECT } from '@/lib/storefront-blog-post-select';
 import {
   isDomainIdentifier,
@@ -775,8 +779,8 @@ export async function getCachedProducts(
         compare_at_price,
         status,
         is_parent,
-        quantity,
-        track_quantity,
+        quantity:stock_quantity,
+        track_quantity:manage_stock,
         images,
         color_images,
         brand,
@@ -829,6 +833,115 @@ export async function getCachedProducts(
 }
 
 /**
+ * Product fields required before the full PDP stream can render.
+ * Keep this shape narrow so the LCP image hint is not delayed by rich product joins.
+ */
+export interface CachedProductLcpHint {
+  category?: string | null;
+  categories?:
+    | {
+        id: string;
+        name: string;
+        slug: string;
+      }
+    | Array<{
+        id: string;
+        name: string;
+        slug: string;
+      }>
+    | null;
+  id: string;
+  images?: Array<
+    | string
+    | {
+        alt?: string | null;
+        url: string;
+      }
+  > | null;
+  name: string;
+  product_categories?: Array<{
+    categories:
+      | {
+          id: string;
+          name: string;
+          slug: string;
+        }
+      | Array<{
+          id: string;
+          name: string;
+          slug: string;
+        }>
+      | null;
+  }> | null;
+  slug?: string | null;
+}
+
+/**
+ * Cached product route and image hint by slug.
+ * Avoids the full product projection and variant RPC on the LCP preload path.
+ */
+export async function getCachedProductLcpHint(
+  merchantId: string,
+  productSlug: string
+): Promise<CachedProductLcpHint | null> {
+  'use cache: remote';
+  cacheLife('products');
+  cacheTag(
+    'product',
+    'product-lcp-hint',
+    `product-${merchantId}-${productSlug}`
+  );
+
+  const supabase = getPublicSupabaseClient();
+  const isUuid =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      productSlug
+    );
+
+  let query = supabase
+    .from('products')
+    .select(`
+        id,
+        name,
+        slug,
+        category,
+        images,
+        categories:category_id (
+          id,
+          name,
+          slug
+        ),
+        product_categories (
+          category_id,
+          categories (
+            id,
+            name,
+            slug
+          )
+        )
+      `)
+    .eq('merchant_id', merchantId)
+    .eq('status', 'active');
+
+  if (isUuid) {
+    query = query.or(
+      `slug.eq.${productSlug.toLowerCase()},id.eq.${productSlug}`
+    );
+  } else {
+    query = query.eq('slug', productSlug.toLowerCase());
+  }
+
+  const { data, error } = await query.maybeSingle();
+
+  if (error) {
+    console.error('Error fetching product LCP hint:', error);
+    return null;
+  }
+
+  return data as CachedProductLcpHint | null;
+}
+
+/**
  * Cached single product by slug.
  * Uses 'products' cacheLife profile (stale 5min, revalidate 5min, expire 24hr)
  */
@@ -861,8 +974,8 @@ export async function getCachedProduct(
         min_variant_price,
         max_variant_price,
         status,
-        quantity,
-        track_quantity,
+        quantity:stock_quantity,
+        track_quantity:manage_stock,
         images,
         color_images,
         created_at,
@@ -883,6 +996,11 @@ export async function getCachedProduct(
           images,
           status
         ),
+        categories:category_id (
+          id,
+          name,
+          slug
+        ),
         product_categories (
           category_id,
           categories (
@@ -901,7 +1019,7 @@ export async function getCachedProduct(
     query = query.eq('slug', productSlug.toLowerCase());
   }
 
-  const { data, error } = await query.single();
+  const { data, error } = await query.maybeSingle();
 
   if (error) {
     console.error('Error fetching product:', error);
@@ -1807,10 +1925,10 @@ export async function getCachedBlogPost(
   const { data: relatedProducts } = normalizedCategorySlug
     ? await supabase
         .from('products')
-        .select('id, name, slug, category_slug')
+        .select(RELATED_BLOG_PRODUCTS_SELECT)
         .eq('merchant_id', merchant.id)
         .eq('status', 'active')
-        .eq('category_slug', normalizedCategorySlug)
+        .eq('categories.slug', normalizedCategorySlug)
         .order('updated_at', { ascending: false })
         .limit(6)
     : { data: [] };
@@ -1830,7 +1948,7 @@ export async function getCachedBlogPost(
           0,
           RELATED_BLOG_POSTS_LIMIT
         ),
-    relatedProducts: relatedProducts || [],
+    relatedProducts: normalizeRelatedBlogProducts(relatedProducts),
   };
 }
 

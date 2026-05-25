@@ -12,7 +12,7 @@ describe('deploy crontab', () => {
 
     assert.match(
       deployScript,
-      /\*\/15 \* \* \* \* flock -n \$REMOTE_DIR\/locks\/agentic-commerce-health\.lock/
+      /\*\/15 \* \* \* \* flock -n \$REMOTE_DIR\/locks\/ollama-workload\.lock flock -n \$REMOTE_DIR\/locks\/agentic-commerce-health\.lock/
     );
     assert.match(
       deployScript,
@@ -21,6 +21,32 @@ describe('deploy crontab', () => {
     assert.match(
       deployScript,
       />> \$REMOTE_DIR\/logs\/agentic-commerce-health\.log 2>&1/
+    );
+  });
+
+  it('serializes the AI storefront worker behind the shared workload lock', () => {
+    const deployScript = readFileSync(join(workerRoot, 'deploy.sh'), 'utf8');
+
+    assert.match(
+      deployScript,
+      /\*\/2 \*  \* \* \* flock -n \$REMOTE_DIR\/locks\/ollama-workload\.lock flock -n \$REMOTE_DIR\/locks\/ai-storefront-jobs\.lock/
+    );
+  });
+
+  it('schedules the Supabase retention cleanup worker', () => {
+    const deployScript = readFileSync(join(workerRoot, 'deploy.sh'), 'utf8');
+
+    assert.match(
+      deployScript,
+      /20 3\s+\* \* \* flock -n \$REMOTE_DIR\/locks\/supabase-retention-cleanup\.lock/
+    );
+    assert.match(
+      deployScript,
+      /\$NODE_BIN \$REMOTE_DIR\/jobs\/supabase-retention-cleanup\.mjs/
+    );
+    assert.match(
+      deployScript,
+      />> \$REMOTE_DIR\/logs\/supabase-retention-cleanup\.log 2>&1/
     );
   });
 
