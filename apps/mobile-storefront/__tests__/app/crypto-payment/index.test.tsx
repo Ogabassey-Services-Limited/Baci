@@ -24,11 +24,8 @@ jest.mock('expo-router', () => ({
     replace: (...args: unknown[]) => mockReplace(...args),
   },
   Stack: {
-    Screen: ({
-      options,
-    }: {
-      options?: { headerLeft?: () => ReactNode };
-    }) => options?.headerLeft?.() ?? null,
+    Screen: ({ options }: { options?: { headerLeft?: () => ReactNode } }) =>
+      options?.headerLeft?.() ?? null,
   },
   useLocalSearchParams: () => mockSearchParams,
 }));
@@ -99,7 +96,9 @@ describe('CryptoPaymentScreen', () => {
   });
 
   it('confirms leaving payment and navigates back without completing it', () => {
-    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    const alert = jest
+      .spyOn(Alert, 'alert')
+      .mockImplementation(() => undefined);
 
     render(<CryptoPaymentScreen />);
 

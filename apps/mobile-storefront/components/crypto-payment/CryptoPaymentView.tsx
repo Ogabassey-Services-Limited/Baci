@@ -72,9 +72,7 @@ export function CryptoPaymentView({
             style={[styles.actionButton, { backgroundColor: BRAND.primary }]}
             onPress={onBack}
           >
-            <Text
-              style={[styles.actionButtonText, { color: BRAND.onPrimary }]}
-            >
+            <Text style={[styles.actionButtonText, { color: BRAND.onPrimary }]}>
               Go Back
             </Text>
           </Pressable>
@@ -151,7 +149,9 @@ export function CryptoPaymentView({
             </Text>
             <Pressable
               accessibilityLabel={
-                wasAddressCopied ? 'Wallet address copied' : 'Copy wallet address'
+                wasAddressCopied
+                  ? 'Wallet address copied'
+                  : 'Copy wallet address'
               }
               accessibilityRole="button"
               style={[
