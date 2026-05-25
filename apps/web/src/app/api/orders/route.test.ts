@@ -1003,6 +1003,41 @@ describe('POST /api/orders — B3.5 VAT RPC error mapping', () => {
     expect(logger.error).not.toHaveBeenCalled();
   });
 
+  it('logs unknown RPC failures as errors and returns 500', async () => {
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () =>
+        buildMockSupabase({
+          create_storefront_order: {
+            data: null,
+            error: {
+              code: 'P9999',
+              message: 'database_connection_lost',
+            },
+          },
+        }) as unknown as never
+    );
+
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify(baseOrderPayload),
+    });
+    const response = await POST(request);
+    const body = await readJson(response);
+
+    expect(response.status).toBe(500);
+    expect(body.details).toBe('database_connection_lost');
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: expect.objectContaining({
+          message: 'database_connection_lost',
+        }),
+        message: 'Error creating order',
+      })
+    );
+    expect(logger.warn).not.toHaveBeenCalled();
+  });
+
   it('forwards p_gift_wrapping_fee to the RPC', async () => {
     // Defense-in-depth contract test: the body's gift_wrapping_fee
     // must reach the SECURITY DEFINER RPC unchanged so the VAT

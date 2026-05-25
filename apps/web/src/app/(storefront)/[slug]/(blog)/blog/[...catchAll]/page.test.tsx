@@ -208,6 +208,30 @@ describe('storefront blog catch-all route', () => {
     expect(mockNot).toHaveBeenCalledWith('published_at', 'is', null);
   });
 
+  it('throws exact lookup errors instead of reporting a missing post', async () => {
+    const lookupError = new Error('blog exact lookup failed');
+    mockGetCachedMerchantByDomain.mockResolvedValue({
+      id: 'merchant-1',
+      slug: 'ogabassey',
+    });
+    mockMaybeSingle.mockResolvedValueOnce({
+      data: null,
+      error: lookupError,
+    });
+
+    await expect(
+      resolveBlogCatchAllRoute({
+        params: Promise.resolve({
+          slug: 'ogabassey.com',
+          catchAll: ['laptops', 'snapdragon-x2-series-on-windows'],
+        }),
+      })
+    ).rejects.toThrow(lookupError);
+
+    expect(mockNotFound).not.toHaveBeenCalled();
+    expect(mockLimit).not.toHaveBeenCalled();
+  });
+
   it('redirects fuzzy slug matches with a temporary (307) redirect to allow re-mapping', async () => {
     mockGetCachedMerchantByDomain.mockResolvedValue({
       id: 'merchant-1',
@@ -234,6 +258,31 @@ describe('storefront blog catch-all route', () => {
     expect(mockPermanentRedirect).not.toHaveBeenCalled();
     expect(mockRedirect).toHaveBeenCalledTimes(1);
     expect(mockNot).toHaveBeenCalledWith('published_at', 'is', null);
+  });
+
+  it('throws fuzzy lookup errors instead of reporting a missing post', async () => {
+    const lookupError = new Error('blog fuzzy lookup failed');
+    mockGetCachedMerchantByDomain.mockResolvedValue({
+      id: 'merchant-1',
+      slug: 'ogabassey',
+    });
+    mockMaybeSingle.mockResolvedValueOnce({ data: null });
+    mockLimit.mockResolvedValueOnce({
+      data: null,
+      error: lookupError,
+    });
+
+    await expect(
+      resolveBlogCatchAllRoute({
+        params: Promise.resolve({
+          slug: 'ogabassey.com',
+          catchAll: ['laptops', 'snapdragon_x2_series_on_windows'],
+        }),
+      })
+    ).rejects.toThrow(lookupError);
+
+    expect(mockNotFound).not.toHaveBeenCalled();
+    expect(mockRedirect).not.toHaveBeenCalled();
   });
 
   it('falls through to notFound when neither exact nor fuzzy lookup resolves', async () => {

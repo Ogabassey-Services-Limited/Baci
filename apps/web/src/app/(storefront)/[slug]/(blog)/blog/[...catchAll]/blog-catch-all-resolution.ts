@@ -82,7 +82,7 @@ export async function resolveBlogCatchAllRoute({
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
 
-  const { data: post } = await supabase
+  const { data: post, error: postError } = await supabase
     .from('blog_posts')
     .select('slug')
     .eq('merchant_id', merchantId)
@@ -90,6 +90,10 @@ export async function resolveBlogCatchAllRoute({
     .eq('status', 'published')
     .not('published_at', 'is', null)
     .maybeSingle();
+
+  if (postError) {
+    throw postError;
+  }
 
   if (post) {
     // Redirect to canonical URL (without category prefix)
@@ -104,13 +108,17 @@ export async function resolveBlogCatchAllRoute({
   // (in case of slight URL variations)
   const normalizedSlug = cleanPostSlug.replace(/[-_]/g, '').toLowerCase();
 
-  const { data: fuzzyPost } = await supabase
+  const { data: fuzzyPost, error: fuzzyPostError } = await supabase
     .from('blog_posts')
     .select('slug')
     .eq('merchant_id', merchantId)
     .eq('status', 'published')
     .not('published_at', 'is', null)
     .limit(100);
+
+  if (fuzzyPostError) {
+    throw fuzzyPostError;
+  }
 
   const matchingPost = fuzzyPost?.find(
     (p) => p.slug.replace(/[-_]/g, '').toLowerCase() === normalizedSlug
