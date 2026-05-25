@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { formatNgnCurrency } from '@/lib/format-ngn-currency';
 

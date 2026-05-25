@@ -243,7 +243,11 @@ describe('ProductDetailScreen routing and selection sync', () => {
 
     const renderedTree = view.toJSON();
     expect(renderedTree).not.toBeNull();
-    const containerStyle = StyleSheet.flatten(renderedTree?.props.style);
+    expect(Array.isArray(renderedTree)).toBe(false);
+    const renderedRoot = Array.isArray(renderedTree)
+      ? renderedTree[0]
+      : renderedTree;
+    const containerStyle = StyleSheet.flatten(renderedRoot?.props.style);
 
     expect(containerStyle?.marginTop).toBeUndefined();
     expect(containerStyle?.marginBottom).toBeUndefined();
