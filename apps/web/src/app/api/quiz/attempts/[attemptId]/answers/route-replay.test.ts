@@ -36,9 +36,14 @@ function jsonRequest(body: unknown) {
 
 function mockReplaySupabase({
   attemptResult = { data: null, error: null },
+  rpcError = {
+    code: 'QZ004',
+    message: 'quiz attempt question is not answerable',
+  },
   user = { id: USER_ID },
 }: {
   attemptResult?: { data: unknown; error: unknown };
+  rpcError?: { code: string; message: string };
   user?: { id: string } | null;
 } = {}) {
   const attemptBuilder = {
@@ -52,10 +57,7 @@ function mockReplaySupabase({
   });
   const rpc = vi.fn().mockResolvedValue({
     data: null,
-    error: {
-      code: 'QZ004',
-      message: 'quiz attempt question is not answerable',
-    },
+    error: rpcError,
   });
   const supabase = {
     auth: {
@@ -166,6 +168,49 @@ describe('submit quiz answer replay recovery', () => {
       'customers.user_id',
       USER_ID
     );
+    expect(logger.error).not.toHaveBeenCalled();
+  });
+
+  it('recovers completed results when a duplicate answer insert is replayed', async () => {
+    mockReplaySupabase({
+      rpcError: {
+        code: 'QZ026',
+        message: 'quiz_answer_already_recorded',
+      },
+      attemptResult: {
+        data: {
+          status: 'submitted',
+          quiz_attempt_questions: [
+            {
+              quiz_attempt_answers: [{ score_delta: 1 }],
+            },
+            {
+              quiz_attempt_answers: [{ score_delta: 1 }],
+            },
+          ],
+        },
+        error: null,
+      },
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(
+      jsonRequest({
+        answer: 'A',
+        integrityTier: 'strong',
+        questionId: QUESTION_ID,
+      }),
+      { params: Promise.resolve({ attemptId: ATTEMPT_ID }) }
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      attemptId: ATTEMPT_ID,
+      correctAnswers: 2,
+      prizeEligible: false,
+      status: 'completed',
+      totalQuestions: 2,
+    });
     expect(logger.error).not.toHaveBeenCalled();
   });
 
