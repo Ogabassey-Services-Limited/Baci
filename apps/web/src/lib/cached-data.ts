@@ -833,6 +833,115 @@ export async function getCachedProducts(
 }
 
 /**
+ * Product fields required before the full PDP stream can render.
+ * Keep this shape narrow so the LCP image hint is not delayed by rich product joins.
+ */
+export interface CachedProductLcpHint {
+  category?: string | null;
+  categories?:
+    | {
+        id: string;
+        name: string;
+        slug: string;
+      }
+    | Array<{
+        id: string;
+        name: string;
+        slug: string;
+      }>
+    | null;
+  id: string;
+  images?: Array<
+    | string
+    | {
+        alt?: string | null;
+        url: string;
+      }
+  > | null;
+  name: string;
+  product_categories?: Array<{
+    categories:
+      | {
+          id: string;
+          name: string;
+          slug: string;
+        }
+      | Array<{
+          id: string;
+          name: string;
+          slug: string;
+        }>
+      | null;
+  }> | null;
+  slug?: string | null;
+}
+
+/**
+ * Cached product route and image hint by slug.
+ * Avoids the full product projection and variant RPC on the LCP preload path.
+ */
+export async function getCachedProductLcpHint(
+  merchantId: string,
+  productSlug: string
+): Promise<CachedProductLcpHint | null> {
+  'use cache: remote';
+  cacheLife('products');
+  cacheTag(
+    'product',
+    'product-lcp-hint',
+    `product-${merchantId}-${productSlug}`
+  );
+
+  const supabase = getPublicSupabaseClient();
+  const isUuid =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      productSlug
+    );
+
+  let query = supabase
+    .from('products')
+    .select(`
+        id,
+        name,
+        slug,
+        category,
+        images,
+        categories:category_id (
+          id,
+          name,
+          slug
+        ),
+        product_categories (
+          category_id,
+          categories (
+            id,
+            name,
+            slug
+          )
+        )
+      `)
+    .eq('merchant_id', merchantId)
+    .eq('status', 'active');
+
+  if (isUuid) {
+    query = query.or(
+      `slug.eq.${productSlug.toLowerCase()},id.eq.${productSlug}`
+    );
+  } else {
+    query = query.eq('slug', productSlug.toLowerCase());
+  }
+
+  const { data, error } = await query.maybeSingle();
+
+  if (error) {
+    console.error('Error fetching product LCP hint:', error);
+    return null;
+  }
+
+  return data as CachedProductLcpHint | null;
+}
+
+/**
  * Cached single product by slug.
  * Uses 'products' cacheLife profile (stale 5min, revalidate 5min, expire 24hr)
  */
