@@ -813,7 +813,6 @@ export async function POST(request: NextRequest) {
     const order = Array.isArray(orderRows) ? orderRows[0] : orderRows;
 
     if (orderError || !order) {
-      logger.error({ message: 'Error creating order', error: orderError });
       const code =
         typeof orderError?.code === 'string' ? orderError.code : null;
       const message =
@@ -880,6 +879,14 @@ export async function POST(request: NextRequest) {
       const isClientError =
         (code ? clientErrorCodes.includes(code) : false) ||
         clientErrorCodes.includes(message);
+      if (isClientError) {
+        logger.warn({
+          message: 'Storefront order rejected by client-side validation',
+          error: orderError,
+        });
+      } else {
+        logger.error({ message: 'Error creating order', error: orderError });
+      }
       return NextResponse.json(
         { error: 'Failed to create order', details: message },
         { status: isClientError ? 400 : 500 }

@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { authenticateApiRequest } from '@/lib/api-auth';
+import { logger } from '@/lib/logger';
 import { createQuizVoucherToken } from '@/lib/quiz-voucher-token';
 import { POST } from './route';
 
@@ -1319,6 +1320,74 @@ describe('POST /api/orders — B3.5 VAT RPC error mapping', () => {
     });
     const response = await POST(request);
     expect(response.status).toBe(400);
+  });
+
+  it('logs known client order rejections as warnings instead of Vercel errors', async () => {
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () =>
+        buildMockSupabase({
+          create_storefront_order: {
+            data: null,
+            error: { code: 'P0001', message: 'shipping_quote_required' },
+          },
+        }) as unknown as never
+    );
+
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...baseOrderPayload,
+        shipping_provider: 'gigl',
+      }),
+    });
+    const response = await POST(request);
+    const body = await readJson(response);
+
+    expect(response.status).toBe(400);
+    expect(body.details).toBe('shipping_quote_required');
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: expect.objectContaining({ message: 'shipping_quote_required' }),
+        message: 'Storefront order rejected by client-side validation',
+      })
+    );
+    expect(logger.error).not.toHaveBeenCalled();
+  });
+
+  it('logs unknown RPC failures as errors and returns 500', async () => {
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () =>
+        buildMockSupabase({
+          create_storefront_order: {
+            data: null,
+            error: {
+              code: 'P9999',
+              message: 'database_connection_lost',
+            },
+          },
+        }) as unknown as never
+    );
+
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify(baseOrderPayload),
+    });
+    const response = await POST(request);
+    const body = await readJson(response);
+
+    expect(response.status).toBe(500);
+    expect(body.details).toBe('database_connection_lost');
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: expect.objectContaining({
+          message: 'database_connection_lost',
+        }),
+        message: 'Error creating order',
+      })
+    );
+    expect(logger.warn).not.toHaveBeenCalled();
   });
 
   it('forwards p_gift_wrapping_fee to the RPC', async () => {
