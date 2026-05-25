@@ -171,6 +171,19 @@ describe('public product parity surface parsers', () => {
     ).toEqual([]);
   });
 
+  it('validates only the selected Google feed item', () => {
+    const xmlWithMalformedUnrelatedItem = GOOGLE_XML.replace(
+      '<channel>',
+      '<channel><item><g:id>unrelated</g:id></item>'
+    );
+    expect(
+      parseGoogleMerchantProductSample(
+        xmlWithMalformedUnrelatedItem,
+        'product-1'
+      )
+    ).not.toBeNull();
+  });
+
   it('parses the current feed sample incrementally across stream chunks', async () => {
     const encoder = new TextEncoder();
     const stream = new ReadableStream<Uint8Array>({

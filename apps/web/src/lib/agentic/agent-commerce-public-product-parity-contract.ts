@@ -5,7 +5,7 @@ import {
   publicProductApiResponseSchema,
   publicProductComparableSurfaceSchema,
   publicProductCurrentFeedItemSchema,
-  publicProductGoogleFeedEnvelopeSchema,
+  publicProductGoogleFeedItemSchema,
   publicProductPdpSchema,
 } from '@/schemas/agent-commerce-public-product-parity';
 
@@ -127,6 +127,28 @@ function parsePrice(value: string | number) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function getObjectField(value: unknown, key: string): unknown {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return undefined;
+  }
+
+  return (value as Record<string, unknown>)[key];
+}
+
+function selectGoogleMerchantProductItem(
+  payload: unknown,
+  productId: string
+): unknown {
+  const rss = getObjectField(payload, 'rss');
+  const channel = getObjectField(rss, 'channel');
+  const item = getObjectField(channel, 'item');
+  const items = Array.isArray(item) ? item : item ? [item] : [];
+
+  return items.find(
+    (candidate) => getObjectField(candidate, 'id') === productId
+  );
+}
+
 export function parseGoogleMerchantProductSample(
   xml: string,
   productId: string
@@ -137,16 +159,11 @@ export function parseGoogleMerchantProductSample(
       parseTagValue: false,
       removeNSPrefix: true,
     });
-    const parsed = publicProductGoogleFeedEnvelopeSchema.safeParse(
-      parser.parse(xml)
+    const parsed = publicProductGoogleFeedItemSchema.safeParse(
+      selectGoogleMerchantProductItem(parser.parse(xml), productId)
     );
-    if (!parsed.success || !parsed.data.rss.channel.item) return null;
-
-    const items = Array.isArray(parsed.data.rss.channel.item)
-      ? parsed.data.rss.channel.item
-      : [parsed.data.rss.channel.item];
-    const item = items.find((candidate) => candidate.id === productId);
-    if (!item) return null;
+    if (!parsed.success) return null;
+    const item = parsed.data;
     const price = parsePrice(item.sale_price ?? item.price);
     if (price === null) return null;
 

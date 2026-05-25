@@ -154,6 +154,42 @@ describe('checkAgentCommercePublicProductParity', () => {
     expect(currentText).not.toHaveBeenCalled();
   });
 
+  it('starts consuming both public feed bodies without waiting for JSONL completion', async () => {
+    let releaseCurrent: () => void = () => undefined;
+    const canCompleteCurrent = new Promise<void>((resolve) => {
+      releaseCurrent = resolve;
+    });
+    const currentResponse = new Response(
+      new ReadableStream<Uint8Array>({
+        async start(controller) {
+          await canCompleteCurrent;
+          controller.enqueue(new TextEncoder().encode(currentFeedBody()));
+          controller.close();
+        },
+      })
+    );
+    const googleResponse = new Response(googleFeedBody());
+    const googleText = vi
+      .spyOn(googleResponse, 'text')
+      .mockImplementation(() => {
+        releaseCurrent();
+        return Promise.resolve(googleFeedBody());
+      });
+    const fetcher = healthyFetcher();
+    fetcher.mockImplementation((url) =>
+      Promise.resolve(
+        url === CURRENT_FEED_URL
+          ? currentResponse
+          : url === GOOGLE_FEED_URL
+            ? googleResponse
+            : healthyResponse(url)
+      )
+    );
+    const resultPromise = runCheck(fetcher);
+    await vi.waitFor(() => expect(googleText).toHaveBeenCalledOnce());
+    await expect(resultPromise).resolves.toMatchObject({ status: 'ok' });
+  });
+
   it('returns attention when a PDP JSON-LD value drifts from public catalog surfaces', async () => {
     const fetcher = healthyFetcher();
     fetcher.mockImplementation((url) =>

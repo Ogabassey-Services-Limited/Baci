@@ -149,14 +149,15 @@ export async function checkAgentCommercePublicProductParity(
       surfaces,
     });
   }
-  const current = await parseCurrentAgentProductSampleStream(
-    currentResponse.body,
-    productId
-  ).catch(() => null);
-  const google = await googleResponse
-    .text()
-    .then((body) => parseGoogleMerchantProductSample(body, productId))
-    .catch(() => null);
+  const [current, google] = await Promise.all([
+    parseCurrentAgentProductSampleStream(currentResponse.body, productId).catch(
+      () => null
+    ),
+    googleResponse
+      .text()
+      .then((body) => parseGoogleMerchantProductSample(body, productId))
+      .catch(() => null),
+  ]);
   if (!current || !google) {
     return createResult({
       issue: contractIssue(
