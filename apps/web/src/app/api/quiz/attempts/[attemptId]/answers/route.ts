@@ -29,7 +29,8 @@ function getRpcErrorCode(error: unknown): string | null {
 }
 
 function isReplayStateError(error: unknown) {
-  return getRpcErrorCode(error) === 'QZ004';
+  const code = getRpcErrorCode(error);
+  return code === 'QZ004' || code === 'QZ026';
 }
 
 function getQuestionRows(row: unknown): unknown[] {

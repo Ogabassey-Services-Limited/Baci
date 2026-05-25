@@ -221,6 +221,21 @@ const QUIZ_RPC_CLIENT_ERRORS: Record<
     error: 'No approved cash award is available to claim',
     status: 409,
   },
+  QZ027: {
+    code: 'QUIZ_QUESTION_NOT_ISSUED',
+    error: 'Quiz question is not ready for answers',
+    status: 409,
+  },
+  QZ028: {
+    code: 'QUIZ_ANSWER_TOO_FAST',
+    error: 'Quiz answer was submitted too quickly',
+    status: 409,
+  },
+  QZ029: {
+    code: 'QUIZ_ANSWER_TOO_LATE',
+    error: 'Quiz answer was submitted after the question window',
+    status: 409,
+  },
 };
 
 export function quizRpcClientErrorResponse(error: unknown) {
