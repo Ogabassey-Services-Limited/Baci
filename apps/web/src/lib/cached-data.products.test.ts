@@ -3,6 +3,7 @@ import {
   getCachedCategoryPageData,
   getCachedLegacyProductRedirectTarget,
   getCachedProduct,
+  getCachedProductLcpHint,
   getCachedProducts,
   getCachedProductWithDetails,
 } from '@/lib/cached-data';
@@ -92,6 +93,35 @@ describe('cached-data product query projections', () => {
     expect(selectArg).toContain('categories:category_id');
     expect(selectArg).not.toContain('is_featured');
     expect(selectArg).toContain('canonical_url');
+  });
+
+  it('getCachedProductLcpHint reads only route and image fields without hydrating variants', async () => {
+    harness.mockMaybeSingle.mockResolvedValueOnce(singleProductResult);
+
+    await getCachedProductLcpHint('merchant-123', 'iphone-16');
+
+    expect(harness.mockEq).toHaveBeenCalledWith('merchant_id', 'merchant-123');
+    expect(harness.mockEq).toHaveBeenCalledWith('slug', 'iphone-16');
+    const selectArg = String(harness.mockSelect.mock.calls.at(-1)?.[0]);
+    expect(selectArg).toContain('id');
+    expect(selectArg).toContain('name');
+    expect(selectArg).toContain('slug');
+    expect(selectArg).toContain('images');
+    expect(selectArg).toContain('categories:category_id');
+    expect(selectArg).toContain('product_categories');
+    expect(selectArg).not.toContain('description');
+    expect(selectArg).not.toContain('product_key_specs');
+    expect(selectArg).not.toContain('product_offers');
+    expect(selectArg).not.toContain('price');
+    expect(harness.mockRpc).not.toHaveBeenCalled();
+  });
+
+  it('getCachedProductLcpHint returns null on query error', async () => {
+    harness.mockMaybeSingle.mockResolvedValueOnce(productQueryError);
+
+    await expect(
+      getCachedProductLcpHint('merchant-123', 'missing-product')
+    ).resolves.toBeNull();
   });
 
   it('getCachedProductWithDetails uses explicit column select without product_variants', async () => {

@@ -51,6 +51,7 @@ const mockNotFound = vi.fn(() => {
 const mockGetRequestScopedMerchant = vi.fn();
 const mockGetCachedLegacyProductRedirectTarget = vi.fn();
 const mockGetCachedProduct = vi.fn();
+const mockGetCachedProductLcpHint = vi.fn();
 const mockGetCachedProductWithDetails = vi.fn();
 const mockGetCachedCategoryPageData = vi.fn();
 const mockBuildProductSemanticModel = vi.fn();
@@ -126,6 +127,10 @@ vi.mock('@/lib/cached-data', () => ({
   getCachedLegacyProductRedirectTarget: (...args: unknown[]) =>
     mockGetCachedLegacyProductRedirectTarget(...args),
   getCachedProduct: (...args: unknown[]) => mockGetCachedProduct(...args),
+  getCachedProductLcpHint: (...args: unknown[]) => {
+    mockGetCachedProductLcpHint(...args);
+    return mockGetCachedProduct(...args);
+  },
   getCachedProductWithDetails: (...args: unknown[]) =>
     mockGetCachedProductWithDetails(...args),
   getCachedCategoryPageData: (...args: unknown[]) =>
@@ -817,6 +822,7 @@ describe('[category]/[productSlug] page render', () => {
     });
     mockGetCachedProduct.mockReset();
     mockDefaultCachedProductLookup();
+    mockGetCachedProductLcpHint.mockReset();
     mockGetCachedProductWithDetails.mockResolvedValue(
       categorizedDetailedProduct
     );
@@ -1065,6 +1071,10 @@ describe('[category]/[productSlug] page render', () => {
     // This will execute the early lookup component synchronously/asynchronously, while the main content suspends.
     const resolvedPage = await resolveRsc(pagePromise, { skipContent: true });
 
+    expect(mockGetCachedProductLcpHint).toHaveBeenCalledWith(
+      baseMerchant.id,
+      'hp-laptop-14-ep0063nia'
+    );
     expect(mockPreloadOgabasseyPdpProductImage).toHaveBeenCalledWith({
       src: earlyProductImage,
     });
@@ -1078,6 +1088,46 @@ describe('[category]/[productSlug] page render', () => {
 
     expect(mockPreloadOgabasseyPdpProductImage).toHaveBeenCalledTimes(1);
     expect(mockOgabasseyProductDetailsPage).toHaveBeenCalled();
+  });
+
+  it('redirects invalid variant query routes before streaming early product hints', async () => {
+    const productImage =
+      'https://cdn.ogabassey.com/core-assets/products/variant-laptop.avif';
+    const variants = [
+      {
+        id: 'variant-used-128',
+        attributes: { storage: '128GB' },
+        condition: 'used',
+        stock_quantity: 3,
+      },
+    ];
+    mockGetCachedProduct.mockResolvedValueOnce(
+      toLegacyCachedProduct({
+        ...categorizedDetailedProduct,
+        images: [productImage],
+      })
+    );
+    mockGetCachedProductWithDetails.mockResolvedValueOnce({
+      ...categorizedDetailedProduct,
+      images: [productImage],
+      product_variants: variants,
+    });
+    mockNormalizeStorefrontProductVariants.mockReturnValueOnce(variants);
+
+    await expect(
+      CategoryProductPage({
+        params: Promise.resolve({
+          slug: 'teststore',
+          category: 'laptops',
+          productSlug: 'hp-laptop-14-ep0063nia',
+        }),
+        searchParams: Promise.resolve({ storage: '128GB' }),
+      })
+    ).rejects.toThrow('NEXT_REDIRECT');
+
+    expect(mockPermanentRedirect).toHaveBeenCalledTimes(1);
+    expect(mockPreloadOgabasseyPdpProductImage).not.toHaveBeenCalled();
+    expect(mockOgabasseyPdpProductResourceHints).not.toHaveBeenCalled();
   });
 
   it('skips early product preload when the cached product has no image and still renders details', async () => {

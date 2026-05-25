@@ -25,8 +25,9 @@ import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 import {
   type CachedLegacyProductRedirectTarget,
   type CachedMerchant,
+  type CachedProductLcpHint,
   getCachedLegacyProductRedirectTarget,
-  getCachedProduct,
+  getCachedProductLcpHint,
   getCachedProductWithDetails,
   getRequestScopedMerchant,
   sanitizeLookupLogValue,
@@ -56,7 +57,6 @@ import {
 } from '@/lib/storefront-seo-defaults';
 import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
 import { isValidMerchantIdentifier } from '@/lib/validation';
-import { mapLegacyCachedProductToProduct } from '../../products/[productSlug]/legacy-product-mapper';
 import { OgabasseyPdpSemanticSections } from './ogabassey-pdp-semantic-sections';
 
 /**
@@ -351,10 +351,31 @@ type CategoryProductResult =
     }
   | null;
 
-type NonNullCategoryProductResult = Exclude<CategoryProductResult, null>;
+interface LcpRouteProduct {
+  categories?: { name?: string; slug?: string } | null;
+  category?: string | null;
+  category_slug?: string;
+  id: string;
+  image?: string;
+  imageLarge?: string;
+  name: string;
+  slug?: string;
+}
+
+type CategoryProductRouteControlResult =
+  | {
+      product: LcpRouteProduct;
+      categoryMismatch: boolean;
+      merchant: CachedMerchant;
+      needsValuesRedirect: boolean;
+    }
+  | {
+      merchant: CachedMerchant;
+      legacyRedirectTarget: CachedLegacyProductRedirectTarget;
+    };
 
 interface CategoryProductRouteControl {
-  result: NonNullCategoryProductResult;
+  result: CategoryProductRouteControlResult;
   productResultPromise: Promise<CategoryProductResult>;
 }
 
@@ -373,11 +394,39 @@ function hasCategoryMismatch(
   );
 }
 
-function getMappedProductCategorySlug(product: Product) {
+function getMappedProductCategorySlug(product: LcpRouteProduct) {
   return (
     product.category_slug ||
     (product.category ? generateSlug(product.category) : null)
   );
+}
+
+function mapCachedProductLcpHintToRouteProduct(
+  cachedProduct: CachedProductLcpHint
+): LcpRouteProduct {
+  const rawCanonicalCategory = cachedProduct.categories;
+  const canonicalCategory = Array.isArray(rawCanonicalCategory)
+    ? rawCanonicalCategory[0]
+    : rawCanonicalCategory;
+  const rawFallbackCategory = cachedProduct.product_categories?.[0]?.categories;
+  const fallbackCategory = Array.isArray(rawFallbackCategory)
+    ? rawFallbackCategory[0]
+    : rawFallbackCategory;
+  const primaryCategory = canonicalCategory ?? fallbackCategory;
+  const firstImage = cachedProduct.images?.[0];
+  const primaryImage =
+    typeof firstImage === 'string' ? firstImage : (firstImage?.url ?? '');
+
+  return {
+    categories: primaryCategory,
+    category: primaryCategory?.name ?? cachedProduct.category,
+    category_slug: primaryCategory?.slug,
+    id: cachedProduct.id,
+    image: primaryImage,
+    imageLarge: primaryImage,
+    name: cachedProduct.name,
+    slug: cachedProduct.slug ?? cachedProduct.id,
+  };
 }
 
 const getProduct = async (
@@ -534,11 +583,11 @@ async function getProductRouteControl(
   }
 
   const productResultPromise = getProduct(storeSlug, categorySlug, productSlug);
-  let cachedProduct = await getCachedProduct(merchant.id, productSlug);
+  let cachedProduct = await getCachedProductLcpHint(merchant.id, productSlug);
   let needsValuesRedirect = false;
 
   if (!cachedProduct && productSlug !== productSlug.toLowerCase()) {
-    cachedProduct = await getCachedProduct(
+    cachedProduct = await getCachedProductLcpHint(
       merchant.id,
       productSlug.toLowerCase()
     );
@@ -552,7 +601,7 @@ async function getProductRouteControl(
       : null;
   }
 
-  const product = mapLegacyCachedProductToProduct(cachedProduct, merchant.id);
+  const product = mapCachedProductLcpHintToRouteProduct(cachedProduct);
 
   return {
     result: {
@@ -856,11 +905,24 @@ export default async function CategoryProductPage({
   }
 
   const resolvedSearchParams = await searchParams;
-  redirectInvalidVariantSelectionParams(slug, product, resolvedSearchParams);
+  // Query-bearing PDP URLs may encode variant selection. Preserve the
+  // pre-stream redirect contract for those routes without gating the bare
+  // canonical LCP path on full variant hydration.
+  if (Object.keys(resolvedSearchParams).length > 0) {
+    const detailedProductResult = await productResultPromise;
+
+    if (detailedProductResult && 'product' in detailedProductResult) {
+      redirectInvalidVariantSelectionParams(
+        slug,
+        detailedProductResult.product,
+        resolvedSearchParams
+      );
+    }
+  }
 
   const primaryProductImage =
     merchant.template_id === OGABASSEY_TEMPLATE_ID
-      ? product.imageLarge || product.image
+      ? product.imageLarge || product.image || null
       : null;
   try {
     if (primaryProductImage) {
