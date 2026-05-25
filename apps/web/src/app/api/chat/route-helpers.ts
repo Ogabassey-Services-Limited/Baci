@@ -1,5 +1,3 @@
-import { AGENTIC_SYSTEM_PROMPT } from '@/config/agentic-chat-system-prompt';
-
 /**
  * VPS responses are buffered before delivery so a malformed stream can fall
  * back cleanly. Allow a complete bounded generation within the route's 120s
@@ -10,6 +8,12 @@ export const CUSTOMER_CHAT_TIMEOUT_MS = 60_000;
 export const CUSTOMER_CHAT_FALLBACK_TEXT =
   "I'm sorry, our AI assistant is temporarily busy. Please use the store search, checkout, or WhatsApp support and we'll help you from there.";
 
+const VPS_CHAT_SYSTEM_PROMPT =
+  "You are Ogabassey's shopping assistant. Keep replies brief, helpful, and honest. " +
+  'You cannot access live inventory, current prices, checkout actions, orders, or payment status in this mode. ' +
+  'Never claim that you searched stock, added an item, generated a bank account, or confirmed payment. ' +
+  'For current availability, pricing, checkout, or payments, direct the customer to the storefront or WhatsApp support.';
+
 export function buildChatMessages(
   messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>,
   model: string
@@ -17,9 +21,9 @@ export function buildChatMessages(
   return [
     {
       role: 'system' as const,
-      content: `${AGENTIC_SYSTEM_PROMPT}
+      content: `${VPS_CHAT_SYSTEM_PROMPT}
 
-You are currently powered by VPS-hosted ${model}. Tool/function calling is not available in this mode, so do not pretend that you checked live inventory, generated a bank account, or verified payment unless that information is explicitly present in the conversation. For exact availability, prices, checkout, or payment confirmation, guide the customer to the store checkout or support.`,
+You are currently powered by VPS-hosted ${model}.`,
     },
     ...messages
       .filter((msg) => msg.role !== 'system')

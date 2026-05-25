@@ -1,13 +1,13 @@
 import type { Metadata } from 'next';
-import { draftMode } from 'next/headers';
-import { notFound } from 'next/navigation';
+import { Suspense } from 'react';
+import { getCachedBlogPost } from '@/lib/cached-data';
 import { buildStoreUrl } from '@/lib/store-url';
+import { BlogPostPageFallback } from './BlogPostPageFallback';
 import {
   buildCanonicalBlogPostUrl,
   getBlogPostTextPreview,
 } from './blog-post-content';
 import BlogPostPageContent from './blog-post-page-content';
-import { getResolvedBlogPost } from './get-resolved-blog-post';
 
 interface PageProps {
   params: Promise<{ slug: string; postSlug: string }>;
@@ -23,11 +23,25 @@ export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
   const { slug, postSlug } = await params;
-  const isDraftMode = (await draftMode()).isEnabled;
-  const data = await getResolvedBlogPost(slug, postSlug, isDraftMode);
+  let data: Awaited<ReturnType<typeof getCachedBlogPost>>;
+  try {
+    // Public metadata must remain cacheable; draft previews are rendered by
+    // the request-time content subtree and deliberately receive noindex data.
+    data = await getCachedBlogPost(slug, postSlug, false);
+  } catch (error) {
+    console.error('Error fetching cached public blog metadata', {
+      slug,
+      postSlug,
+      error,
+    });
+    data = null;
+  }
 
   if (!data) {
-    notFound();
+    return {
+      title: 'Blog Post',
+      robots: { index: false, follow: false },
+    };
   }
 
   const { merchant, post } = data;
@@ -90,5 +104,9 @@ export async function generateMetadata({
 }
 
 export default function BlogPostPage({ params }: PageProps) {
-  return <BlogPostPageContent params={params} />;
+  return (
+    <Suspense fallback={<BlogPostPageFallback />}>
+      <BlogPostPageContent params={params} />
+    </Suspense>
+  );
 }
