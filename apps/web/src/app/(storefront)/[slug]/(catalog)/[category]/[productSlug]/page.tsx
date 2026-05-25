@@ -338,6 +338,29 @@ function redirectInvalidVariantSelectionParams(
   }
 }
 
+const NON_SELECTION_TRACKING_PARAMS = new Set([
+  'dclid',
+  'fbclid',
+  'gbraid',
+  'gclid',
+  'msclkid',
+  'ttclid',
+  'wbraid',
+]);
+
+function mayContainVariantSelectionParams(
+  searchParams: Awaited<PageProps['searchParams']>
+) {
+  return Object.keys(searchParams).some((key) => {
+    const normalizedKey = key.trim().toLowerCase();
+
+    return !(
+      normalizedKey.startsWith('utm_') ||
+      NON_SELECTION_TRACKING_PARAMS.has(normalizedKey)
+    );
+  });
+}
+
 type CategoryProductResult =
   | {
       product: Product;
@@ -905,10 +928,9 @@ export default async function CategoryProductPage({
   }
 
   const resolvedSearchParams = await searchParams;
-  // Query-bearing PDP URLs may encode variant selection. Preserve the
-  // pre-stream redirect contract for those routes without gating the bare
-  // canonical LCP path on full variant hydration.
-  if (Object.keys(resolvedSearchParams).length > 0) {
+  // Unknown query keys can be dynamic variant axes, while campaign-only URLs
+  // cannot affect selection and should still receive the early image hint.
+  if (mayContainVariantSelectionParams(resolvedSearchParams)) {
     const detailedProductResult = await productResultPromise;
 
     if (detailedProductResult && 'product' in detailedProductResult) {

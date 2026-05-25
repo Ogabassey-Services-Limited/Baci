@@ -116,6 +116,17 @@ describe('cached-data product query projections', () => {
     expect(harness.mockRpc).not.toHaveBeenCalled();
   });
 
+  it('getCachedProductLcpHint supports UUID-shaped product slugs as well as IDs', async () => {
+    const uuidPath = 'ABCDEF12-3456-4789-ABCD-ABCDEF123456';
+    harness.mockMaybeSingle.mockResolvedValueOnce(singleProductResult);
+
+    await getCachedProductLcpHint('merchant-123', uuidPath);
+
+    expect(harness.mockOr).toHaveBeenCalledWith(
+      `slug.eq.${uuidPath.toLowerCase()},id.eq.${uuidPath}`
+    );
+  });
+
   it('getCachedProductLcpHint returns null on query error', async () => {
     harness.mockMaybeSingle.mockResolvedValueOnce(productQueryError);
 

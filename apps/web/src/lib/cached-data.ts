@@ -924,7 +924,9 @@ export async function getCachedProductLcpHint(
     .eq('status', 'active');
 
   if (isUuid) {
-    query = query.eq('id', productSlug);
+    query = query.or(
+      `slug.eq.${productSlug.toLowerCase()},id.eq.${productSlug}`
+    );
   } else {
     query = query.eq('slug', productSlug.toLowerCase());
   }
