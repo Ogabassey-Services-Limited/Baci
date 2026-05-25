@@ -115,10 +115,7 @@ export function BankTransferView({
     >
       <View style={styles.content}>
         <View
-          style={[
-            styles.amountCard,
-            { backgroundColor: BRAND.primaryAlpha06 },
-          ]}
+          style={[styles.amountCard, { backgroundColor: BRAND.primaryAlpha06 }]}
         >
           <Text style={[styles.amountLabel, { color: colors.textSecondary }]}>
             Transfer exactly
