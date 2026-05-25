@@ -155,6 +155,9 @@ describe('GET /api/storefront/customer/wallet', () => {
   });
 
   it('keeps the core wallet response available when optional wallet helpers fail', async () => {
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
     mockFrom.mockImplementation((table: string) => {
       if (table === 'merchants') return singleQuery({ id: 'merchant-1' });
       if (table === 'customers') {
@@ -193,6 +196,21 @@ describe('GET /api/storefront/customer/wallet', () => {
       requiresFundingAccountConsent: true,
       savingsBalance: 0,
     });
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Customer wallet optional helper fetch failed',
+      {
+        error: { message: 'savings timeout' },
+        label: 'savings balance',
+      }
+    );
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Customer wallet optional helper fetch failed',
+      {
+        error: { message: 'funding account timeout' },
+        label: 'funding account',
+      }
+    );
+    consoleErrorSpy.mockRestore();
   });
 
   it('returns wallet, savings, loyalty, transactions, and funding account summary', async () => {

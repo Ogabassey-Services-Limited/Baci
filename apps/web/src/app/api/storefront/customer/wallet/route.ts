@@ -70,10 +70,10 @@ function logOptionalWalletHelperFailure(
   result: PromiseSettledResult<unknown>
 ) {
   if (result.status === 'rejected') {
-    console.error(
-      `Customer wallet optional ${label} fetch failed:`,
-      result.reason
-    );
+    console.error('Customer wallet optional helper fetch failed', {
+      error: result.reason,
+      label,
+    });
   }
 }
 
