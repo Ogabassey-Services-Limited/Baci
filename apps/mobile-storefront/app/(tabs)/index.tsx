@@ -374,7 +374,7 @@ export default function HomeScreen() {
         >
           <Image
             source={{ uri: PATTERN_URI }}
-            style={[StyleSheet.absoluteFillObject, { opacity: 0.05 }]}
+            style={[StyleSheet.absoluteFill, { opacity: 0.05 }]}
             contentFit="cover"
           />
         </View>
