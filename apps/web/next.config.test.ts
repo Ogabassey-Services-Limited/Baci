@@ -6,6 +6,50 @@ describe('next.config OgaBassey resource headers', () => {
     expect(nextConfig.skipTrailingSlashRedirect).toBe(true);
   });
 
+  it('allows tuned OgaBassey image quality values', () => {
+    expect(nextConfig.images?.qualities).toEqual([
+      35, 50, 60, 70, 75, 80, 85, 90, 100,
+    ]);
+  });
+
+  it('does not override Next metadata rendering for normal storefront browsers', () => {
+    expect(nextConfig.htmlLimitedBots).toBeUndefined();
+  });
+
+  it('redirects the imported encoded blog slug to its ASCII canonical URL', async () => {
+    expect(typeof nextConfig.redirects).toBe('function');
+    const redirects = await nextConfig.redirects?.();
+
+    expect(redirects).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          source:
+            '/blog/wwdc-2025-5-game%e2%80%91changing-apple-announcements/:path*',
+          destination: '/blog/wwdc-2025-5-game-changing-apple-announcements',
+          permanent: true,
+        }),
+        expect.objectContaining({
+          source:
+            '/blog/2025/06/10/wwdc-2025-5-game%e2%80%91changing-apple-announcements/:path*',
+          destination: '/blog/wwdc-2025-5-game-changing-apple-announcements',
+          permanent: true,
+        }),
+        expect.objectContaining({
+          source:
+            '/blog/wwdc%e2%80%912025%e2%80%915-game-changing-apple-announcements/:path*',
+          destination: '/blog/wwdc-2025-5-game-changing-apple-announcements',
+          permanent: true,
+        }),
+        expect.objectContaining({
+          source:
+            '/blog/wwdc%25e2%2580%25912025%25e2%2580%25915-game-changing-apple-announcements/:path*',
+          destination: '/blog/wwdc-2025-5-game-changing-apple-announcements',
+          permanent: true,
+        }),
+      ])
+    );
+  });
+
   it('does not emit OgaBassey hero image preload Link headers from next.config', async () => {
     expect(typeof nextConfig.headers).toBe('function');
     const headers = await nextConfig.headers();

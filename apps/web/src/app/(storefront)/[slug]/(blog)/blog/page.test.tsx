@@ -209,7 +209,7 @@ describe('blog page metadata', () => {
     ]);
   });
 
-  it('uses the merchant custom domain for paginated metadata URLs', async () => {
+  it('keeps metadata on the canonical blog listing regardless of pagination', async () => {
     vi.mocked(getCachedBlogListing).mockResolvedValueOnce(
       buildListingResult({
         merchant: {
@@ -225,10 +225,11 @@ describe('blog page metadata', () => {
       searchParams: Promise.resolve({ page: '2' }),
     });
 
-    expect(metadata.alternates?.canonical).toBe(
-      'https://example.com/blog?page=2'
-    );
-    expect(metadata.openGraph?.url).toBe('https://example.com/blog?page=2');
+    expect(metadata.alternates?.canonical).toBe('https://example.com/blog');
+    expect(metadata.openGraph?.url).toBe('https://example.com/blog');
+    expect(getCachedBlogListing).toHaveBeenCalledWith('example.com', {
+      page: 1,
+    });
   });
 
   it('returns fallback metadata when the merchant is missing', async () => {
