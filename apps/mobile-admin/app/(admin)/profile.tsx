@@ -53,6 +53,7 @@ export default function ProfileScreen() {
       return data as UserProfile;
     },
     enabled: !!user?.id,
+    staleTime: 1000 * 60 * 5,
   });
 
   useEffect(() => {

@@ -73,6 +73,7 @@ export default function NotificationsScreen() {
       return data as NotificationPreferences;
     },
     enabled: !!merchant?.id,
+    staleTime: 1000 * 60 * 5,
   });
 
   const updatePreferencesMutation = useMutation({
