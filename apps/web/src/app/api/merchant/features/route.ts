@@ -88,7 +88,6 @@ export interface MerchantFeatureSettings {
   // Notifications
   email_notifications_enabled: boolean;
   sms_notifications_enabled: boolean;
-  offline_conversions_enabled: boolean;
 
   // Blog settings
   blog_enabled: boolean;
@@ -189,7 +188,6 @@ const MERCHANT_FEATURE_SELECT_FIELDS: readonly (keyof MerchantFeatureSettings)[]
     'vtu_customer_cashback_enabled',
     'vtu_customer_cashback_rate',
     'custom_settings',
-    'offline_conversions_enabled',
     'created_at',
     'updated_at',
   ];
@@ -266,7 +264,6 @@ const DEFAULT_SETTINGS: Partial<MerchantFeatureSettings> = {
   custom_robots_txt: null,
   email_notifications_enabled: true,
   sms_notifications_enabled: false,
-  offline_conversions_enabled: false,
   // Blog defaults
   blog_enabled: false,
   auto_blog_enabled: false,
