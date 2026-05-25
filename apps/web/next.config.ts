@@ -300,6 +300,20 @@ const nextConfig: NextConfig = {
           '/blog/samsung-galaxy-s21-ultra-in-2025-powerful-enough-or-just-hanging-on',
         permanent: true,
       },
+      // Imported slug contained an encoded non-breaking hyphen. Keep old
+      // links valid while routing cacheable requests through its ASCII slug.
+      {
+        source:
+          '/blog/wwdc-2025-5-game%e2%80%91changing-apple-announcements/:path*',
+        destination: '/blog/wwdc-2025-5-game-changing-apple-announcements',
+        permanent: true,
+      },
+      {
+        source:
+          '/blog/2025/06/10/wwdc-2025-5-game%e2%80%91changing-apple-announcements/:path*',
+        destination: '/blog/wwdc-2025-5-game-changing-apple-announcements',
+        permanent: true,
+      },
       // Note: legacy WordPress category permalink redirects (/blog/:legacyCategory/:postSlug)
       // and thumbnail_id query-string stripping are owned by apps/web/src/proxy.ts
       // (single source of truth, also handles /blog/wp-admin 410s). Do not re-add here to
