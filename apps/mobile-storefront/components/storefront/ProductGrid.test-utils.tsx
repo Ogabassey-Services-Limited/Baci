@@ -66,7 +66,7 @@ export const mockUseProductsFactory =
 export const mockUseProductBrandsFactory =
   jest.fn<(options: unknown) => UseProductBrandsResult>();
 
-jest.mock('@react-navigation/native', () => ({
+jest.mock('expo-router/react-navigation', () => ({
   useIsFocused: () => mockUseIsFocusedHook(),
 }));
 

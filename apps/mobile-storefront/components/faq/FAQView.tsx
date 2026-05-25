@@ -1,4 +1,6 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons, {
+  type IoniconsIconName,
+} from '@react-native-vector-icons/ionicons';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type Colors from '@/constants/Colors';
@@ -14,7 +16,7 @@ export interface SupportOption {
   id: string;
   title: string;
   subtitle: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: IoniconsIconName;
   iconBackgroundColor: string;
   iconColor: string;
   action: () => void;

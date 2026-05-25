@@ -1,4 +1,5 @@
-import { Feather, Ionicons } from '@expo/vector-icons';
+import Feather from '@react-native-vector-icons/feather';
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { palette } from '@/constants/Colors';
