@@ -375,14 +375,14 @@ describe('products index page', () => {
     ).toBeTruthy();
   });
 
-  it('uses a self-referencing canonical on paginated product index pages', async () => {
+  it('keeps metadata on the canonical product index regardless of pagination', async () => {
     const metadata = await generateMetadata({
       params: Promise.resolve({ slug: 'test-store' }),
       searchParams: Promise.resolve({ page: '2' }),
     });
 
     expect(metadata.alternates?.canonical).toBe(
-      'https://test-store.usebaci.com/products?page=2'
+      'https://test-store.usebaci.com/products'
     );
     expect(metadata.robots).toMatchObject({
       index: true,
@@ -391,7 +391,7 @@ describe('products index page', () => {
       'max-snippet': -1,
       'max-video-preview': -1,
     });
-    expect(metadata.title).toBe('Products - Page 2 | Ogabassey');
+    expect(metadata.title).toBe('Products | Ogabassey');
     expect(metadata.openGraph?.images).toEqual([
       {
         url: 'https://cdn.example.com/iphone-16.png',
@@ -401,6 +401,10 @@ describe('products index page', () => {
     expect(metadata.twitter?.images).toEqual([
       'https://cdn.example.com/iphone-16.png',
     ]);
+    expect(getCachedStorefrontProductIndex).toHaveBeenCalledWith('merchant-1', {
+      page: 1,
+      limit: 20,
+    });
   });
 
   it('omits ?page=1 from the first-page canonical URL', async () => {

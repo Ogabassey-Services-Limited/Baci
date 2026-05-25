@@ -230,8 +230,12 @@ describe('getLiveBlogPost', () => {
     await getLiveBlogPost('test-store', 'my-post');
 
     expect(mockQueryBuilder.eq).toHaveBeenCalledWith(
-      'category_slug',
+      'categories.slug',
       'product-news'
+    );
+    expect(mockQueryBuilder.eq).not.toHaveBeenCalledWith(
+      'category_slug',
+      expect.anything()
     );
   });
 
@@ -423,9 +427,9 @@ describe('getLiveBlogPost', () => {
     expect(mockQueryBuilder.eq).toHaveBeenCalledWith('slug', 'my-post');
   });
 
-  it('does not filter related products by category_slug when post category is empty/whitespace', async () => {
+  it('does not filter related products by category relation when post category is empty/whitespace', async () => {
     // Negative case: the slugifier returns null for whitespace-only categories,
-    // so the related-products query should skip the .eq('category_slug', …)
+    // so the related-products query should skip the category relation filter
     // filter rather than query with an empty or normalized-null value.
     vi.mocked(getMerchantSafe).mockResolvedValue(mockMerchant as never);
     vi.mocked(getCachedFeatureSettings).mockResolvedValue({
@@ -454,9 +458,9 @@ describe('getLiveBlogPost', () => {
 
     expect(result).not.toBeNull();
     // Related-products branch should be skipped entirely — no `.eq` call on
-    // category_slug should appear (since we never enter the products query).
+    // category relation filter should not appear (the products query is skipped).
     expect(mockQueryBuilder.eq).not.toHaveBeenCalledWith(
-      'category_slug',
+      'categories.slug',
       expect.anything()
     );
     expect(result?.relatedProducts).toEqual([]);
