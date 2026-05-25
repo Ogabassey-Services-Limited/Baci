@@ -72,7 +72,6 @@ const SHELL_EXEMPT_ROUTES = new Set([
   'imei-check/index.tsx',
   'order-success.tsx',
   'orders/[id].tsx',
-  'orders/index.tsx',
   'payment-gateway/index.tsx',
   'product/[slug].tsx',
   'profile/delete-account.tsx',
