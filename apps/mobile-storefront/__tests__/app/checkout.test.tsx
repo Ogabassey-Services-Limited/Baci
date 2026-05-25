@@ -55,6 +55,40 @@ describe('CheckoutScreen', () => {
     });
   });
 
+  it('renders the extracted review summary after progressing through checkout', async () => {
+    renderCheckoutScreen();
+
+    fireEvent.changeText(screen.getByPlaceholderText('E.g. John'), 'Ada');
+    fireEvent.changeText(screen.getByPlaceholderText('E.g. Doe'), 'Lovelace');
+    fireEvent.changeText(
+      screen.getByPlaceholderText('e.g. 08012345678'),
+      '08031234567'
+    );
+    fireEvent.changeText(
+      screen.getByPlaceholderText('john@example.com'),
+      'ada@example.com'
+    );
+
+    fireEvent.press(screen.getByLabelText('Select pickup station'));
+    fireEvent.press(screen.getByLabelText('Continue to payment'));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('checkout-step')).toHaveTextContent(
+        'step:payment'
+      );
+    });
+
+    fireEvent.press(screen.getByLabelText('Continue to review'));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('checkout-step')).toHaveTextContent(
+        'step:review'
+      );
+      expect(screen.getByText('Review Order')).toBeOnTheScreen();
+      expect(screen.getByText('Card Payment (Paystack)')).toBeOnTheScreen();
+    });
+  });
+
   it('shows a validation alert when continuing with missing contact details', async () => {
     renderCheckoutScreen();
 

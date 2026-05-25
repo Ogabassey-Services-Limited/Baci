@@ -48,6 +48,7 @@ import {
 import { CheckoutContactCard } from '@/components/checkout/CheckoutContactCard';
 import { CheckoutDeliveryCard } from '@/components/checkout/CheckoutDeliveryCard';
 import { CheckoutFormField } from '@/components/checkout/CheckoutFormField';
+import { CheckoutReviewStep } from '@/components/checkout/CheckoutReviewStep';
 import { CryptoSelectionModal } from '@/components/checkout/CryptoSelectionModal';
 import { DeliveryMethodCard } from '@/components/checkout/DeliveryMethodCard';
 import { DeliveryNotesCard } from '@/components/checkout/DeliveryNotesCard';
@@ -70,7 +71,6 @@ import {
 import {
   AIRPORT_DELIVERY_FEE,
   getDeliveryMethodFee,
-  getDeliveryMethodLabel,
   getDeliveryMethodSummary,
   getPaymentTabForMethod,
   getShippingProviderForMethod,
@@ -157,19 +157,6 @@ const MERCHANT_ID =
   '6b5cb8a4-5575-456c-b936-8cdfae30db74';
 
 const MERCHANT_SLUG = Constants.expoConfig?.extra?.merchantSlug || 'ogabassey';
-
-const PAYMENT_METHOD_LABELS: Record<PaymentMethodType, string> = {
-  paystack: 'Card Payment (Paystack)',
-  korapay: 'Card Payment (Korapay)',
-  bank_transfer: 'Bank Transfer',
-  pay_on_delivery: 'Pay on Delivery',
-  credpal: 'CredPal (Buy Now Pay Later)',
-  credit_direct: 'Credit Direct (Installments)',
-  klump: 'Klump (Buy Now Pay Later)',
-  juicyway: 'Crypto (Juicyway)',
-  invoice: 'Generate Invoice',
-  payforme: 'Pay for Me',
-};
 
 export default function CheckoutScreen() {
   const ctaArrowTranslateX = useSharedValue(0);
@@ -2003,218 +1990,26 @@ export default function CheckoutScreen() {
     </ScrollView>
   );
 
-  const renderReview = () => {
-    const address = getValues();
-
-    return (
-      <ScrollView
-        style={styles.formContainer}
-        contentContainerStyle={[
-          styles.formContent,
-          { paddingBottom: formContentPaddingBottom },
-        ]}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
-      >
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            Review Order
-          </Text>
-          <Text
-            style={[styles.sectionSubtitle, { color: colors.textSecondary }]}
-          >
-            Confirm your details before placing the order.
-          </Text>
-        </View>
-
-        <View
-          style={[
-            styles.reviewCard,
-            {
-              backgroundColor: colors.card,
-              borderColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
-              ...SHADOWS.sm,
-            },
-          ]}
-        >
-          <View style={styles.reviewHeader}>
-            <Text style={[styles.reviewTitle, { color: colors.text }]}>
-              Delivery Method
-            </Text>
-            <Pressable onPress={() => setStep('address')}>
-              <Text style={[styles.editLink, { color: BRAND.primary }]}>
-                Edit
-              </Text>
-            </Pressable>
-          </View>
-          <Text style={[styles.reviewTextStrong, { color: colors.text }]}>
-            {getDeliveryMethodLabel(deliveryMethod)}
-          </Text>
-          {selectedQuote && deliveryMethod === 'door' && (
-            <Text style={[styles.reviewText, { color: colors.textSecondary }]}>
-              {selectedQuote.displayName}
-              {selectedQuote.deliveryRange || selectedQuote.estimatedDays
-                ? ` • ${selectedQuote.deliveryRange ?? `${selectedQuote.estimatedDays} days`}`
-                : null}
-            </Text>
-          )}
-          {deliveryMethod === 'airport' && (
-            <Text style={[styles.reviewText, { color: colors.textSecondary }]}>
-              Est. 24–48 working hours
-            </Text>
-          )}
-        </View>
-
-        <View
-          style={[
-            styles.reviewCard,
-            {
-              backgroundColor: colors.card,
-              borderColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
-              ...SHADOWS.sm,
-            },
-          ]}
-        >
-          <View style={styles.reviewHeader}>
-            <Text style={[styles.reviewTitle, { color: colors.text }]}>
-              Delivery Address
-            </Text>
-          </View>
-          <Text style={[styles.reviewText, { color: colors.text }]}>
-            {address.firstName} {address.lastName}
-          </Text>
-          <Text style={[styles.reviewText, { color: colors.textSecondary }]}>
-            {address.phone}
-          </Text>
-          <Text style={[styles.reviewText, { color: colors.textSecondary }]}>
-            {deliveryMethod === 'pickup_station'
-              ? PICKUP_STATION_ADDRESS_LINES.join('\n')
-              : deliveryMethod === 'airport'
-                ? `${address.city}, ${address.state}`
-                : address.address}
-          </Text>
-        </View>
-
-        <View
-          style={[
-            styles.reviewCard,
-            {
-              backgroundColor: colors.card,
-              borderColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
-              ...SHADOWS.sm,
-            },
-          ]}
-        >
-          <View style={styles.reviewHeader}>
-            <Text style={[styles.reviewTitle, { color: colors.text }]}>
-              Payment Method
-            </Text>
-            <Pressable onPress={() => setStep('payment')}>
-              <Text style={[styles.editLink, { color: BRAND.primary }]}>
-                Edit
-              </Text>
-            </Pressable>
-          </View>
-          <Text style={[styles.reviewText, { color: colors.textSecondary }]}>
-            {PAYMENT_METHOD_LABELS[selectedPayment]}
-          </Text>
-        </View>
-
-        <View
-          style={[
-            styles.reviewCard,
-            {
-              backgroundColor: colors.card,
-              borderColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
-              ...SHADOWS.sm,
-            },
-          ]}
-        >
-          <Text style={[styles.reviewTitle, { color: colors.text }]}>
-            Order Items ({items.length})
-          </Text>
-          {items.map((item) => (
-            <View key={item.id} style={styles.orderItem}>
-              <Text style={[styles.orderItemName, { color: colors.text }]}>
-                {item.name}
-              </Text>
-              <Text
-                style={[styles.orderItemQty, { color: colors.textSecondary }]}
-              >
-                x{item.quantity}
-              </Text>
-              <Text style={[styles.orderItemPrice, { color: colors.text }]}>
-                {formatPrice(
-                  (item.negotiatedPrice ?? item.price) * item.quantity
-                )}
-              </Text>
-            </View>
-          ))}
-        </View>
-
-        <View
-          style={[
-            styles.totalCard,
-            {
-              backgroundColor: colors.card,
-              borderColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
-              ...SHADOWS.sm,
-            },
-          ]}
-        >
-          <View style={styles.totalRow}>
-            <Text style={[styles.totalLabel, { color: colors.textSecondary }]}>
-              Subtotal
-            </Text>
-            <Text style={[styles.totalValue, { color: colors.text }]}>
-              {formatPrice(subtotal)}
-            </Text>
-          </View>
-          <View style={styles.totalRow}>
-            <Text style={[styles.totalLabel, { color: colors.textSecondary }]}>
-              Delivery
-            </Text>
-            <Text style={[styles.totalValue, { color: colors.text }]}>
-              {formatPrice(deliveryFee)}
-            </Text>
-          </View>
-          {assuranceFee > 0 && (
-            <View style={styles.totalRow}>
-              <Text
-                style={[styles.totalLabel, { color: colors.textSecondary }]}
-              >
-                Device Assurance
-              </Text>
-              <Text style={[styles.totalValue, { color: colors.text }]}>
-                {formatPrice(assuranceFee)}
-              </Text>
-            </View>
-          )}
-          {orderTotals && getMerchantTaxRate(paymentSettings) > 0 && (
-            <View style={styles.totalRow}>
-              <Text
-                style={[styles.totalLabel, { color: colors.textSecondary }]}
-              >
-                VAT ({(getMerchantTaxRate(paymentSettings) * 100).toFixed(1)}%)
-              </Text>
-              <Text style={[styles.totalValue, { color: colors.text }]}>
-                {formatPrice(orderTotals.taxAmount)}
-              </Text>
-            </View>
-          )}
-          <View style={[styles.totalRow, styles.grandTotalRow]}>
-            <Text style={[styles.grandTotalLabel, { color: colors.text }]}>
-              Total
-            </Text>
-            <Text style={[styles.grandTotalValue, { color: BRAND.primary }]}>
-              {formatPrice(total)}
-            </Text>
-          </View>
-        </View>
-      </ScrollView>
-    );
-  };
+  const renderReview = () => (
+    <CheckoutReviewStep
+      address={getValues()}
+      assuranceFee={assuranceFee}
+      colors={colors}
+      deliveryFee={deliveryFee}
+      deliveryMethod={deliveryMethod}
+      formContentPaddingBottom={formContentPaddingBottom}
+      isDark={isDark}
+      items={items}
+      onEditAddress={() => setStep('address')}
+      onEditPayment={() => setStep('payment')}
+      selectedPayment={selectedPayment}
+      selectedQuote={selectedQuote}
+      subtotal={subtotal}
+      taxAmount={orderTotals?.taxAmount ?? null}
+      taxRate={getMerchantTaxRate(paymentSettings)}
+      total={total}
+    />
+  );
 
   return (
     <>
@@ -2880,87 +2675,6 @@ const styles = StyleSheet.create({
   },
   helperText: {
     fontSize: 12,
-  },
-  reviewCard: {
-    padding: SPACING.lg,
-    borderRadius: RADIUS.xl,
-    borderWidth: 1,
-    borderColor: 'transparent',
-    marginBottom: SPACING.md,
-  },
-  reviewHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  reviewTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  reviewTextStrong: {
-    fontSize: 14,
-    fontWeight: '700',
-    marginBottom: 2,
-  },
-  editLink: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  reviewText: {
-    fontSize: 14,
-    lineHeight: 22,
-  },
-  orderItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  orderItemName: {
-    flex: 1,
-    fontSize: 14,
-  },
-  orderItemQty: {
-    fontSize: 13,
-    marginHorizontal: 12,
-  },
-  orderItemPrice: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  totalCard: {
-    padding: SPACING.lg,
-    borderRadius: RADIUS.xl,
-    borderWidth: 1,
-    borderColor: 'transparent',
-    marginBottom: 100,
-  },
-  totalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  totalLabel: {
-    fontSize: 14,
-  },
-  totalValue: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  grandTotalRow: {
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-    marginTop: 8,
-    paddingTop: 16,
-  },
-  grandTotalLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  grandTotalValue: {
-    fontSize: 20,
-    fontWeight: '800',
   },
   bottomAction: {
     position: 'absolute',
