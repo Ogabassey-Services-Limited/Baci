@@ -6,6 +6,13 @@ describe('next.config OgaBassey resource headers', () => {
     expect(nextConfig.skipTrailingSlashRedirect).toBe(true);
   });
 
+  it('disables streamed metadata for normal storefront browser requests', () => {
+    expect(nextConfig.htmlLimitedBots).toBeDefined();
+    expect(nextConfig.htmlLimitedBots?.test('Mozilla/5.0 Chrome/136.0')).toBe(
+      true
+    );
+  });
+
   it('does not emit OgaBassey hero image preload Link headers from next.config', async () => {
     expect(typeof nextConfig.headers).toBe('function');
     const headers = await nextConfig.headers();
