@@ -42,11 +42,6 @@
       "justification": "Existing oversized cart tab route baseline; shrink or remove this entry as the route is modularized."
     },
     {
-      "path": "app/search.tsx",
-      "lineCount": 559,
-      "justification": "Existing oversized search route baseline; shrink or remove this entry as the route is modularized."
-    },
-    {
       "path": "app/(tabs)/index.tsx",
       "lineCount": 515,
       "justification": "Existing oversized home tab route baseline; shrink or remove this entry as the route is modularized."
