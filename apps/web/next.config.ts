@@ -304,6 +304,20 @@ const nextConfig: NextConfig = {
         destination: '/blog/wwdc-2025-5-game-changing-apple-announcements',
         permanent: true,
       },
+      // This imported slug used non-breaking hyphens after WWDC and 2025.
+      // Redirect both URL-encoded forms before remote cache key handling.
+      {
+        source:
+          '/blog/wwdc%e2%80%912025%e2%80%915-game-changing-apple-announcements/:path*',
+        destination: '/blog/wwdc-2025-5-game-changing-apple-announcements',
+        permanent: true,
+      },
+      {
+        source:
+          '/blog/wwdc%25e2%2580%25912025%25e2%2580%25915-game-changing-apple-announcements/:path*',
+        destination: '/blog/wwdc-2025-5-game-changing-apple-announcements',
+        permanent: true,
+      },
       // Note: legacy WordPress category permalink redirects (/blog/:legacyCategory/:postSlug)
       // and thumbnail_id query-string stripping are owned by apps/web/src/proxy.ts
       // (single source of truth, also handles /blog/wp-admin 410s). Do not re-add here to

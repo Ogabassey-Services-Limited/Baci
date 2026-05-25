@@ -28,6 +28,18 @@ describe('next.config OgaBassey resource headers', () => {
           destination: '/blog/wwdc-2025-5-game-changing-apple-announcements',
           permanent: true,
         }),
+        expect.objectContaining({
+          source:
+            '/blog/wwdc%e2%80%912025%e2%80%915-game-changing-apple-announcements/:path*',
+          destination: '/blog/wwdc-2025-5-game-changing-apple-announcements',
+          permanent: true,
+        }),
+        expect.objectContaining({
+          source:
+            '/blog/wwdc%25e2%2580%25912025%25e2%2580%25915-game-changing-apple-announcements/:path*',
+          destination: '/blog/wwdc-2025-5-game-changing-apple-announcements',
+          permanent: true,
+        }),
       ])
     );
   });
