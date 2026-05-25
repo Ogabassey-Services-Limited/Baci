@@ -54,3 +54,7 @@
 ## 2025-05-24 - Interactive Accessibility for Toggle Buttons
 **Learning:** When using generic components like `Pressable` as toggle buttons (e.g. for compare, favoriting) they require explicitly defined `accessibilityRole="button"`, `accessibilityLabel` that explains the action based on current state, `accessibilityState={{ checked: booleanState }}` to announce its toggled state, and `accessibilityHint` for context. Missing these leaves screen readers with just a silent clickable area.
 **Action:** Always provide the full suite of ARIA/accessibility props (role, label, state, hint) alongside interactive visual feedback (opacity) to any `Pressable` modifying selection state.
+
+## 2025-05-25 - Interactive Press Feedback and Keyboard Refinements
+**Learning:** In Expo/React Native apps within the Baci monorepo, many `Pressable` components acting as buttons or interactive cards are missing visual feedback when pressed, which makes the app feel unresponsive. Additionally, form inputs like Amount and Notes may lack `returnKeyType` configurations that improve keyboard UX.
+**Action:** When creating or modifying interactive `Pressable` elements, consistently apply the `({ pressed }) => [...]` function pattern to the style prop to provide dynamic visual feedback such as opacity changes. Add `returnKeyType="done"` to form `TextInput`s where appropriate.
