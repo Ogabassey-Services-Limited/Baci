@@ -58,10 +58,10 @@ vi.mock('expo-router', () => ({
   }),
 }));
 
-vi.mock('@expo/vector-icons', async () => {
+vi.mock('@react-native-vector-icons/ionicons', async () => {
   const React = await import('react');
   return {
-    Ionicons: ({ name }: { name: string }) =>
+    default: ({ name }: { name: string }) =>
       React.createElement('span', null, name),
   };
 });
