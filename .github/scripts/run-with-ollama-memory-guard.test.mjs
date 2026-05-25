@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
+import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import {
@@ -165,4 +166,13 @@ test('does not overlap periodic release checks', async () => {
   resolvePeriodicRelease();
   child.emit('exit', 0, null);
   await resultPromise;
+});
+
+test('holds the shared Ollama workload lock while the Vercel build is running', async () => {
+  const workflow = await readFile(new URL('../workflows/deploy.yml', import.meta.url), 'utf8');
+
+  assert.match(
+    workflow,
+    /flock -w 120 \/home\/bassey\/baci-workers\/locks\/ollama-workload\.lock node \.github\/scripts\/run-with-ollama-memory-guard\.mjs -- pnpm dlx --allow-build=esbuild vercel@52\.0\.0 build --yes --prod/
+  );
 });
