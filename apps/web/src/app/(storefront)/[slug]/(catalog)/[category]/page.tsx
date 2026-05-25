@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 import { StorefrontDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker';
 import { CatalogListingLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
@@ -15,10 +14,7 @@ import {
   getIndexableRobotsMetadata,
 } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
-import {
-  parseStorefrontPageParam,
-  STOREFRONT_PRODUCTS_PER_PAGE,
-} from '@/lib/storefront-pagination';
+import { STOREFRONT_PRODUCTS_PER_PAGE } from '@/lib/storefront-pagination';
 import {
   getStorefrontOpenGraphImages,
   getStorefrontTwitterImages,
@@ -46,15 +42,8 @@ interface PageProps {
 
 export async function generateMetadata({
   params,
-  searchParams,
 }: PageProps): Promise<Metadata> {
   const { slug, category } = await params;
-  const resolvedSearchParams = await searchParams;
-  const currentPage = parseStorefrontPageParam(resolvedSearchParams.page);
-
-  if (!currentPage) {
-    notFound();
-  }
 
   // 1. Get Merchant
   const merchant = isDomainIdentifier(slug)
@@ -73,19 +62,10 @@ export async function generateMetadata({
   const normalizedProducts = normalizeCategoryPageProducts(
     data.products as unknown as RawDbProduct[]
   );
-  const totalPages = Math.max(
-    1,
-    Math.ceil(normalizedProducts.length / STOREFRONT_PRODUCTS_PER_PAGE)
-  );
-  const pageStartIndex = (currentPage - 1) * STOREFRONT_PRODUCTS_PER_PAGE;
   const paginatedProducts = normalizedProducts.slice(
-    pageStartIndex,
-    pageStartIndex + STOREFRONT_PRODUCTS_PER_PAGE
+    0,
+    STOREFRONT_PRODUCTS_PER_PAGE
   );
-
-  if (currentPage > totalPages) {
-    notFound();
-  }
 
   const baseUrl = buildStoreUrl(merchant);
   const categoryUrl = `${baseUrl}/${category}`;
@@ -97,18 +77,14 @@ export async function generateMetadata({
     storeUrl: baseUrl,
     products: normalizedProducts,
   });
-  const paginatedCategoryUrl =
-    currentPage > 1 ? `${categoryUrl}?page=${currentPage}` : categoryUrl;
+  const paginatedCategoryUrl = categoryUrl;
 
   const titleFragment = hubContent.intro.heading;
-  const title = generateMetaTitle(
-    currentPage > 1 ? `${titleFragment} - Page ${currentPage}` : titleFragment,
-    {
-      maxLength: 70,
-      suffix: merchant.business_name,
-      fallback: categoryName,
-    }
-  );
+  const title = generateMetaTitle(titleFragment, {
+    maxLength: 70,
+    suffix: merchant.business_name,
+    fallback: categoryName,
+  });
   const description = generateMetaDescription(
     hubContent.intro.description,
     160,
