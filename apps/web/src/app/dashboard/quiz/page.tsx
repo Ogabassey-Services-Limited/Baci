@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 
 export default async function QuizDashboardPage() {
   try {
-    await ensurePermission('marketing', 'view');
+    await ensurePermission('marketing', 'edit');
   } catch {
     redirect('/dashboard');
   }

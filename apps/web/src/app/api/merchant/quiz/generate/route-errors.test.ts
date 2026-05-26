@@ -16,6 +16,8 @@ const MockUnavailableError = vi.hoisted(
 );
 
 const mockEventSingle = vi.fn();
+const mockQuizEventDeleteIdEq = vi.fn();
+const mockQuizEventDeleteMerchantEq = vi.fn();
 const mockSlotSelect = vi.fn();
 const mockVariantInsert = vi.fn();
 
@@ -23,7 +25,7 @@ const mockFrom = vi.fn((table: string) => {
   if (table === 'quiz_events') {
     return {
       delete: vi.fn(() => ({
-        eq: vi.fn().mockResolvedValue({ error: null }),
+        eq: mockQuizEventDeleteIdEq,
       })),
       insert: vi.fn(() => ({
         select: vi.fn(() => ({ single: mockEventSingle })),
@@ -131,6 +133,10 @@ describe('POST /api/merchant/quiz/generate errors', () => {
       },
       error: null,
     });
+    mockQuizEventDeleteMerchantEq.mockResolvedValue({ error: null });
+    mockQuizEventDeleteIdEq.mockReturnValue({
+      eq: mockQuizEventDeleteMerchantEq,
+    });
     mockSlotSelect.mockResolvedValue({
       data: [{ category: 'iPhone buying advice', id: 'slot-1', slot_index: 1 }],
       error: null,
@@ -214,6 +220,11 @@ describe('POST /api/merchant/quiz/generate errors', () => {
     expect(await slotFailure.json()).toEqual({
       error: 'Failed to create quiz topics',
     });
+    expect(mockQuizEventDeleteIdEq).toHaveBeenCalledWith('id', 'event-1');
+    expect(mockQuizEventDeleteMerchantEq).toHaveBeenCalledWith(
+      'merchant_id',
+      'merchant-1'
+    );
 
     mockVariantInsert.mockResolvedValueOnce({
       error: { message: 'variant insert failed' },

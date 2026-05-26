@@ -26,7 +26,8 @@ function slugifyTitle(title: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
-  return slug || `quiz-${Date.now()}`;
+  const baseSlug = slug || 'quiz';
+  return `${baseSlug}-${crypto.randomBytes(4).toString('hex')}`;
 }
 
 function hashAnswerKey(answer: string, salt: string): string {
@@ -71,9 +72,14 @@ async function deleteQuizDraftEvent(
   supabase: NonNullable<
     Awaited<ReturnType<typeof authenticateApiRequest>>['supabase']
   >,
-  eventId: string
+  eventId: string,
+  merchantId: string
 ) {
-  await supabase.from('quiz_events').delete().eq('id', eventId);
+  await supabase
+    .from('quiz_events')
+    .delete()
+    .eq('id', eventId)
+    .eq('merchant_id', merchantId);
 }
 
 export async function POST(request: NextRequest) {
@@ -171,7 +177,7 @@ export async function POST(request: NextRequest) {
     .select('id, slot_index, category');
 
   if (slotsError || !slots) {
-    await deleteQuizDraftEvent(auth.supabase, event.id);
+    await deleteQuizDraftEvent(auth.supabase, event.id, access.merchantId);
     return NextResponse.json(
       { error: 'Failed to create quiz topics' },
       { status: 500 }
@@ -182,7 +188,7 @@ export async function POST(request: NextRequest) {
   try {
     variantRows = createVariantRows(questions, slots as SlotRow[]);
   } catch {
-    await deleteQuizDraftEvent(auth.supabase, event.id);
+    await deleteQuizDraftEvent(auth.supabase, event.id, access.merchantId);
     return NextResponse.json(
       { error: 'Failed to create quiz questions' },
       { status: 500 }
@@ -194,7 +200,7 @@ export async function POST(request: NextRequest) {
     .insert(variantRows);
 
   if (variantsError) {
-    await deleteQuizDraftEvent(auth.supabase, event.id);
+    await deleteQuizDraftEvent(auth.supabase, event.id, access.merchantId);
     return NextResponse.json(
       { error: 'Failed to create quiz questions' },
       { status: 500 }

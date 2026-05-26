@@ -164,7 +164,7 @@ describe('POST /api/merchant/quiz/generate', () => {
         prize_name: '₦10,000 voucher',
         time_limit_seconds: 30,
       },
-      slug: 'daily-phone-quiz',
+      slug: expect.stringMatching(/^daily-phone-quiz-[0-9a-f]{8}$/),
       status: 'draft',
       title: 'Daily Phone Quiz',
     });
