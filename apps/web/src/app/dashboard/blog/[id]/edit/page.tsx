@@ -860,16 +860,16 @@ export default function EditBlogPostPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="flex items-start gap-3 sm:gap-4">
-          <Button variant="ghost" size="icon" className="mt-1 shrink-0" asChild>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" asChild>
             <Link href={asRoute('/dashboard/blog')}>
               <ArrowLeft className="w-4 h-4" />
             </Link>
           </Button>
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-2xl font-bold leading-tight">Edit Post</h1>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-bold">Edit Post</h1>
               <Badge variant={statusBadgeVariant[formData.status]}>
                 {formData.status.charAt(0).toUpperCase() +
                   formData.status.slice(1)}
@@ -883,18 +883,8 @@ export default function EditBlogPostPage() {
             </p>
           </div>
         </div>
-        {/* biome-ignore lint/a11y/useSemanticElements: This groups non-form action buttons; Jules blocks fieldset semantics here. */}
-        <div
-          role="group"
-          aria-label="Post actions"
-          className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-end lg:max-w-[70%]"
-        >
-          <Button
-            variant="outline"
-            onClick={handlePreview}
-            disabled={isSaving}
-            className="w-full justify-center sm:w-auto"
-          >
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={handlePreview} disabled={isSaving}>
             {isSaving ? (
               <BagLoader size={16} />
             ) : (
@@ -905,11 +895,7 @@ export default function EditBlogPostPage() {
           {formData.status === 'published' &&
             merchant?.slug &&
             isSafeSlug(merchant.slug) && (
-              <Button
-                variant="outline"
-                className="w-full justify-center sm:w-auto"
-                asChild
-              >
+              <Button variant="outline" asChild>
                 <a
                   href={
                     merchant.custom_domain
@@ -928,7 +914,6 @@ export default function EditBlogPostPage() {
             variant="outline"
             onClick={() => savePost()}
             disabled={isSaving}
-            className="w-full justify-center sm:w-auto"
           >
             {isSaving ? (
               <BagLoader size={16} />
@@ -945,17 +930,11 @@ export default function EditBlogPostPage() {
               onOpenChange={setIsSchedulePopoverOpen}
             >
               <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  disabled={isSaving}
-                  className="w-full min-w-0 justify-center sm:w-auto"
-                >
+                <Button variant="outline" disabled={isSaving}>
                   <CalendarIcon className="w-4 h-4 mr-2" />
-                  <span className="truncate">
-                    {formData.status === 'scheduled' && scheduledDate
-                      ? `Scheduled: ${format(scheduledDate, 'MMM d, HH:mm')}`
-                      : 'Schedule'}
-                  </span>
+                  {formData.status === 'scheduled' && scheduledDate
+                    ? `Scheduled: ${format(scheduledDate, 'MMM d, HH:mm')}`
+                    : 'Schedule'}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="end">
@@ -1019,11 +998,7 @@ export default function EditBlogPostPage() {
           )}
 
           {formData.status === 'draft' && (
-            <Button
-              onClick={() => savePost('published')}
-              disabled={isSaving}
-              className="w-full justify-center sm:w-auto"
-            >
+            <Button onClick={() => savePost('published')} disabled={isSaving}>
               {isSaving ? (
                 <BagLoader size={16} />
               ) : (
@@ -1037,7 +1012,6 @@ export default function EditBlogPostPage() {
               variant="secondary"
               onClick={() => savePost('draft')}
               disabled={isSaving}
-              className="w-full justify-center sm:w-auto"
             >
               Unpublish
             </Button>
@@ -1047,7 +1021,6 @@ export default function EditBlogPostPage() {
               variant="ghost"
               onClick={() => savePost('archived')}
               disabled={isSaving}
-              className="w-full justify-center sm:w-auto"
             >
               <Archive className="w-4 h-4 mr-2" />
               Archive

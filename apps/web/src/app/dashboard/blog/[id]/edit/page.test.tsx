@@ -236,17 +236,6 @@ describe('EditBlogPostPage Discover image upload metadata', () => {
     );
   });
 
-  it('wraps edit-page actions below the title on mobile', async () => {
-    render(<EditBlogPostPage />);
-
-    await screen.findByRole('heading', { name: /edit post/i });
-
-    const actionGroup = screen.getByRole('group', { name: 'Post actions' });
-    expect(actionGroup).toHaveClass('grid');
-    expect(actionGroup).toHaveClass('grid-cols-2');
-    expect(actionGroup).toHaveClass('sm:flex');
-  });
-
   it('uploads editor images with purpose=inline', async () => {
     const user = userEvent.setup();
     mockFetchWithCsrf.mockResolvedValueOnce(

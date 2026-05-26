@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import {
   ActivityIndicator,
   Pressable,
@@ -6,10 +6,10 @@ import {
   Text,
   View,
 } from 'react-native';
-import type { ShippingQuote } from '@/components/checkout/types';
 import { ShippingQuotesRetryCard } from '@/components/checkout/ShippingQuotesRetryCard';
+import type { ShippingQuote } from '@/components/checkout/types';
 import type Colors from '@/constants/Colors';
-import { BRAND, palette, RADIUS, SHADOWS, SPACING } from '@/constants/Colors';
+import { RADIUS, SHADOWS, SPACING } from '@/constants/Colors';
 import { formatPrice } from '@/stores/cart-store';
 
 type ColorsScheme = (typeof Colors)['light'];
@@ -44,7 +44,7 @@ export function ShippingQuotesCard({
       ]}
     >
       <View style={styles.cardHeader}>
-        <Ionicons name="car-outline" size={16} color={BRAND.primary} />
+        <Ionicons name="car-outline" size={16} color={colors.primary} />
         <Text style={[styles.cardTitle, { color: colors.text }]}>
           Select Delivery Option
         </Text>
@@ -53,7 +53,7 @@ export function ShippingQuotesCard({
       <View style={styles.cardBody}>
         {isLoadingQuotes ? (
           <View style={styles.loadingRow}>
-            <ActivityIndicator size="small" color={BRAND.primary} />
+            <ActivityIndicator size="small" color={colors.primary} />
             <Text style={[styles.helperText, { color: colors.textSecondary }]}>
               Fetching delivery options…
             </Text>
@@ -73,8 +73,7 @@ export function ShippingQuotesCard({
                 (quote.estimatedDays
                   ? `${quote.estimatedDays} days`
                   : 'ETA unavailable');
-              const carrier =
-                quote.carrierName || quote.provider || 'Delivery';
+              const carrier = quote.carrierName || quote.provider || 'Delivery';
 
               return (
                 <Pressable
@@ -83,11 +82,9 @@ export function ShippingQuotesCard({
                   style={[
                     styles.quoteRow,
                     {
-                      borderColor: isSelected ? BRAND.primary : colors.border,
+                      borderColor: isSelected ? colors.primary : colors.border,
                       backgroundColor: isSelected
-                        ? isDark
-                          ? 'rgba(217, 59, 48, 0.16)'
-                          : palette.red[50]
+                        ? colors.primaryLowOpacity
                         : colors.card,
                     },
                   ]}
@@ -101,24 +98,41 @@ export function ShippingQuotesCard({
                         style={[
                           styles.quoteTitle,
                           {
-                            color: isSelected
-                              ? isDark
-                                ? '#FDECEA'
-                                : BRAND.primary
-                              : colors.text,
+                            color: isSelected ? colors.primary : colors.text,
                           },
                         ]}
                       >
                         {quote.displayName}
                       </Text>
                       {carrier.toLowerCase().includes('gig') && (
-                        <View style={styles.badgeDark}>
-                          <Text style={styles.badgeText}>GIGL</Text>
+                        <View
+                          style={[
+                            styles.badge,
+                            { backgroundColor: colors.foreground },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.badgeText,
+                              { color: colors.background },
+                            ]}
+                          >
+                            GIGL
+                          </Text>
                         </View>
                       )}
                       {carrier.toLowerCase().includes('topship') && (
-                        <View style={styles.badge}>
-                          <Text style={styles.badgeTextLight}>Topship</Text>
+                        <View
+                          style={[
+                            styles.badge,
+                            { backgroundColor: colors.muted },
+                          ]}
+                        >
+                          <Text
+                            style={[styles.badgeText, { color: colors.text }]}
+                          >
+                            Topship
+                          </Text>
                         </View>
                       )}
                     </View>
@@ -127,9 +141,7 @@ export function ShippingQuotesCard({
                         styles.quoteMeta,
                         {
                           color: isSelected
-                            ? isDark
-                              ? palette.gray[200]
-                              : '#B42318'
+                            ? colors.primary
                             : colors.textSecondary,
                         },
                       ]}
@@ -142,11 +154,7 @@ export function ShippingQuotesCard({
                       style={[
                         styles.quotePrice,
                         {
-                          color: isSelected
-                            ? isDark
-                              ? '#FFF5F4'
-                              : BRAND.primary
-                            : colors.text,
+                          color: isSelected ? colors.primary : colors.text,
                         },
                       ]}
                     >
@@ -155,7 +163,7 @@ export function ShippingQuotesCard({
                     <Ionicons
                       name={isSelected ? 'checkmark-circle' : 'ellipse-outline'}
                       size={20}
-                      color={isSelected ? BRAND.primary : colors.textSecondary}
+                      color={isSelected ? colors.primary : colors.textSecondary}
                     />
                   </View>
                 </Pressable>
@@ -238,25 +246,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   badge: {
-    backgroundColor: '#DBEAFE',
     borderRadius: RADIUS.full,
     paddingHorizontal: 6,
     paddingVertical: 2,
   },
-  badgeDark: {
-    backgroundColor: '#111827',
-    borderRadius: RADIUS.full,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
+
   badgeText: {
-    color: '#FFFFFF',
-    fontSize: 9,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-  },
-  badgeTextLight: {
-    color: '#0F172A',
     fontSize: 9,
     fontWeight: '700',
     textTransform: 'uppercase',
