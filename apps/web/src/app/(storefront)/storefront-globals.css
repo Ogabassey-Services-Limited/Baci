@@ -1,6 +1,50 @@
-@import 'tailwindcss';
+@import 'tailwindcss' source(none);
 
 @config '../../../tailwind.storefront.config.ts';
+
+@source './';
+@source '../../components/storefront';
+/* Keep this list selective so storefront CSS does not absorb dashboard/admin UI utilities. */
+@source '../../components/ui/accordion.tsx';
+@source '../../components/ui/alert.tsx';
+@source '../../components/ui/animated-icons.tsx';
+@source '../../components/ui/badge.tsx';
+@source '../../components/ui/button.tsx';
+@source '../../components/ui/card.tsx';
+@source '../../components/ui/carousel.tsx';
+@source '../../components/ui/checkbox.tsx';
+@source '../../components/ui/dialog.tsx';
+@source '../../components/ui/dropdown-menu.tsx';
+@source '../../components/ui/form.tsx';
+@source '../../components/ui/input.tsx';
+@source '../../components/ui/label.tsx';
+@source '../../components/ui/password-input.tsx';
+@source '../../components/ui/phone-input.tsx';
+@source '../../components/ui/progress.tsx';
+@source '../../components/ui/radio-group.tsx';
+@source '../../components/ui/safe-html.tsx';
+@source '../../components/ui/select.tsx';
+@source '../../components/ui/separator.tsx';
+@source '../../components/ui/sheet.tsx';
+@source '../../components/ui/skeleton.tsx';
+@source '../../components/ui/skeletons.tsx';
+@source '../../components/ui/tabs.tsx';
+@source '../../components/ui/textarea.tsx';
+@source '../../components/ui/tooltip.tsx';
+@source '../../components/themed';
+@source '../../components/analytics/analytics-provider.tsx';
+@source '../../components/analytics/deferred-google-store-widget.tsx';
+@source '../../components/analytics/google-customer-reviews.tsx';
+@source '../../components/blog/renderer/BlogContentRenderer.tsx';
+@source '../../components/blog/table-of-contents.tsx';
+@source '../../components/address-autocomplete.tsx';
+@source '../../components/app-body.tsx';
+@source '../../components/builder/icon-registry.tsx';
+@source '../../components/cart.tsx';
+@source '../../components/checkout-theme-provider.tsx';
+@source '../../components/logo.tsx';
+@source '../../components/optimized-image.tsx';
+@source '../../templates';
 
 /*
   Storefront theme tokens.

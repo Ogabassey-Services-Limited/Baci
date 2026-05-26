@@ -73,7 +73,7 @@ describe('ProductMediaGallery', () => {
     expect(screen.getByAltText('Test Product')).toBeInTheDocument();
     expect(screen.getByAltText('Test Product')).toHaveAttribute(
       'sizes',
-      '(max-width: 767px) calc(100vw - 32px), (max-width: 1023px) calc(100vw - 48px), (max-width: 1439px) 40vw, 560px',
+      '(max-width: 767px) 250px, (max-width: 1023px) calc(100vw - 48px), (max-width: 1439px) 40vw, 560px',
     );
     expect(screen.getByAltText('Test Product')).toHaveAttribute(
       'data-priority',
