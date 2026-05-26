@@ -320,8 +320,17 @@ function redirectInvalidVariantSelectionParams(
   product: Product,
   searchParams: Awaited<PageProps['searchParams']>
 ) {
+  if (shouldRedirectVariantSelectionParams(product, searchParams)) {
+    permanentRedirect(getRedirectTargetPath(storeSlug, product));
+  }
+}
+
+function shouldRedirectVariantSelectionParams(
+  product: Product,
+  searchParams: Awaited<PageProps['searchParams']>
+) {
   if (!product.variants || product.variants.length === 0) {
-    return;
+    return false;
   }
 
   const selectionResolution = resolveVariantSelectionParamResolution(
@@ -329,14 +338,12 @@ function redirectInvalidVariantSelectionParams(
     searchParams
   );
 
-  if (
+  return (
     selectionResolution.type === 'attribute_only' ||
     selectionResolution.type === 'ambiguous' ||
     selectionResolution.type === 'invalid_variant_id' ||
     selectionResolution.type === 'zero_match'
-  ) {
-    permanentRedirect(getRedirectTargetPath(storeSlug, product));
-  }
+  );
 }
 
 const NON_SELECTION_TRACKING_PARAMS = new Set([
@@ -969,6 +976,7 @@ export default async function CategoryProductPage({
 
   return (
     <>
+      <StorefrontDynamicMetadataMarker />
       {earlyProductResourceHints}
       <Suspense
         fallback={
@@ -985,7 +993,6 @@ export default async function CategoryProductPage({
           productResultPromise={productResultPromise}
         />
       </Suspense>
-      <StorefrontDynamicMetadataMarker />
     </>
   );
 }
