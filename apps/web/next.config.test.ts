@@ -16,6 +16,26 @@ describe('next.config OgaBassey resource headers', () => {
     expect(nextConfig.htmlLimitedBots).toBeUndefined();
   });
 
+  it('preconnects the OgaBassey CDN on the production custom domain', async () => {
+    expect(typeof nextConfig.headers).toBe('function');
+    const headers = await nextConfig.headers();
+
+    expect(headers).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          source: '/(.*)',
+          has: [{ type: 'host', value: 'ogabassey.com' }],
+          headers: expect.arrayContaining([
+            {
+              key: 'Link',
+              value: '<https://cdn.ogabassey.com>; rel=preconnect',
+            },
+          ]),
+        }),
+      ])
+    );
+  });
+
   it('redirects the imported encoded blog slug to its ASCII canonical URL', async () => {
     expect(typeof nextConfig.redirects).toBe('function');
     const redirects = await nextConfig.redirects?.();
