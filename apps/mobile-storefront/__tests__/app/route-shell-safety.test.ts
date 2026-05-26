@@ -78,7 +78,6 @@ const SHELL_EXEMPT_ROUTES = new Set([
   'saved/index.tsx',
   'search.tsx',
   'track-order/index.tsx',
-  'utilities/[type].tsx',
 ]);
 
 function collectModuleFiles(currentPath: string): string[] {
