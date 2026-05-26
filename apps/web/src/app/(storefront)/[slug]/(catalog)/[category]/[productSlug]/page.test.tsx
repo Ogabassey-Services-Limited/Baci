@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { render, screen, waitFor } from '@testing-library/react';
 import {
+  Children,
   cloneElement,
   isValidElement,
   type ReactElement,
@@ -76,9 +77,10 @@ vi.mock('next/link', () => ({
 }));
 
 vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
-  StorefrontDynamicMetadataMarker: () => (
-    <div aria-label="dynamic metadata marker" role="status" />
-  ),
+  StorefrontDynamicMetadataMarker:
+    function MockStorefrontDynamicMetadataMarker() {
+      return <div aria-label="dynamic metadata marker" role="status" />;
+    },
 }));
 
 vi.mock('@/components/storefront/ogabassey/pages/product-details-page', () => ({
@@ -861,34 +863,42 @@ describe('[category]/[productSlug] page render', () => {
     });
   });
 
-  it('keeps the request-time marker outside the streamed product shell', async () => {
-    const ui = await resolveRsc(
-      await CategoryProductPage({
-        params: Promise.resolve({
-          slug: 'teststore',
-          category: 'laptops',
-          productSlug: 'hp-laptop-14-ep0063nia',
-        }),
-        searchParams: Promise.resolve({}),
-      })
+  it('keeps the request-time marker after the streamed product shell', async () => {
+    const pageUi = await CategoryProductPage({
+      params: Promise.resolve({
+        slug: 'teststore',
+        category: 'laptops',
+        productSlug: 'hp-laptop-14-ep0063nia',
+      }),
+      searchParams: Promise.resolve({}),
+    });
+
+    expect(isValidElement(pageUi)).toBe(true);
+    const pageChildren = Children.toArray(
+      (pageUi as ReactElement<{ children: ReactNode }>).props.children
+    );
+    const streamedShellIndex = pageChildren.findIndex(
+      (child) => isValidElement(child) && child.type === Suspense
+    );
+    const dynamicMarkerIndex = pageChildren.findIndex(
+      (child) =>
+        isValidElement(child) &&
+        typeof child.type === 'function' &&
+        child.type.name === 'MockStorefrontDynamicMetadataMarker'
     );
 
+    expect(streamedShellIndex).toBeGreaterThanOrEqual(0);
+    expect(dynamicMarkerIndex).toBeGreaterThan(streamedShellIndex);
+
+    const ui = await resolveRsc(pageUi);
     const { container } = render(ui);
 
     expect(
-      screen.getByRole('status', { name: /dynamic metadata marker/i })
+      screen.getByRole('heading', {
+        level: 1,
+        name: 'HP Laptop 14-ep0063nia',
+      })
     ).toBeInTheDocument();
-    const marker = screen.getByRole('status', {
-      name: /dynamic metadata marker/i,
-    });
-    const heading = screen.getByRole('heading', {
-      level: 1,
-      name: 'HP Laptop 14-ep0063nia',
-    });
-
-    expect(marker.compareDocumentPosition(heading)).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING
-    );
     expect(container.querySelectorAll('h1')).toHaveLength(1);
   });
 
