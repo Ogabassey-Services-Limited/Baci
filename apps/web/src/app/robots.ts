@@ -72,8 +72,19 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
   const sitemap = isPlatformDomain
     ? `${storeUrl}/sitemap.xml`
     : blogEnabled
-      ? [`${storeUrl}/sitemap.xml`, `${storeUrl}/blog/sitemap.xml`]
-      : `${storeUrl}/sitemap.xml`;
+      ? [
+          `${storeUrl}/sitemap/static.xml`,
+          `${storeUrl}/sitemap/products.xml`,
+          `${storeUrl}/sitemap/categories.xml`,
+          `${storeUrl}/sitemap/commercial-support.xml`,
+          `${storeUrl}/blog/sitemap.xml`,
+        ]
+      : [
+          `${storeUrl}/sitemap/static.xml`,
+          `${storeUrl}/sitemap/products.xml`,
+          `${storeUrl}/sitemap/categories.xml`,
+          `${storeUrl}/sitemap/commercial-support.xml`,
+        ];
 
   return {
     rules: [
