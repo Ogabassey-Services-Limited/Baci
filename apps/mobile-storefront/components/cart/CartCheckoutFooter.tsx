@@ -113,10 +113,7 @@ export default function CartCheckoutFooter({
           </Pressable>
         )}
         <Pressable
-          style={({ pressed }) => [
-            styles.checkoutButtonContainer,
-            pressed && { opacity: 0.8 }
-          ]}
+          style={styles.checkoutButtonContainer}
           onPress={onCheckout}
           accessibilityRole="button"
           accessibilityLabel={`Proceed to checkout, total ${formatPrice(grandTotal)}`}
