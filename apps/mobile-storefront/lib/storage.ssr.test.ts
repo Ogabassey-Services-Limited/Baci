@@ -1,6 +1,17 @@
 /** @jest-environment node */
 
-const mockGetMany = jest.fn().mockResolvedValue({});
+import {
+  afterAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  jest,
+} from '@jest/globals';
+
+const mockGetMany = jest
+  .fn<() => Promise<Record<string, string | null>>>()
+  .mockResolvedValue({});
 const mockPlatform = { OS: 'web' };
 const mockWarn = jest.fn();
 
@@ -31,7 +42,7 @@ function loadStorageModule(): typeof import('./storage') {
   let storageModule: typeof import('./storage') | undefined;
 
   jest.isolateModules(() => {
-    storageModule = jest.requireActual('./storage');
+    storageModule = jest.requireActual<typeof import('./storage')>('./storage');
   });
 
   if (!storageModule) {

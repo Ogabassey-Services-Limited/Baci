@@ -1,6 +1,7 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { Pressable, Text, View } from 'react-native';
 import type Colors from '@/constants/Colors';
+import { WALLET_COLORS } from './wallet.colors';
 import { styles } from './wallet.styles';
 
 type WalletColors = (typeof Colors)['light'];
@@ -38,9 +39,16 @@ export function WalletActionsRow({
           onPress={onManageCards}
           style={styles.secondaryActionButton}
         >
-          <Ionicons name="card-outline" size={16} color={colors.text} />
+          <Ionicons
+            name="card-outline"
+            size={16}
+            color={WALLET_COLORS.darkText}
+          />
           <Text
-            style={[styles.secondaryActionButtonText, { color: colors.text }]}
+            style={[
+              styles.secondaryActionButtonText,
+              { color: WALLET_COLORS.darkText },
+            ]}
           >
             Manage Cards
           </Text>

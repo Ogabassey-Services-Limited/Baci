@@ -1,8 +1,4 @@
-import {
-  getRedeemablePointBalance,
-  VTU_MIN_REDEEMABLE_POINTS,
-} from '@baci/shared/lib';
-import Ionicons from '@react-native-vector-icons/ionicons';
+import { VTU_MIN_REDEEMABLE_POINTS } from '@baci/shared/lib';
 import type { StyleProp, ViewStyle } from 'react-native';
 import {
   ActivityIndicator,
@@ -15,9 +11,10 @@ import {
 } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import type Colors from '@/constants/Colors';
-import { BRAND, palette } from '@/constants/Colors';
+import { BRAND } from '@/constants/Colors';
 import { WalletActionsRow } from './WalletActionsRow';
 import { WalletHeroSection } from './WalletHeroSection';
+import { WalletLoyaltyRewardsCard } from './WalletLoyaltyRewardsCard';
 import {
   type WalletTransaction,
   WalletTransactionHistory,
@@ -39,6 +36,7 @@ export interface WalletContentProps {
   isRedeemPending: boolean;
   isRefetching: boolean;
   loyaltyPoints: number;
+  loyaltyTier?: string | null;
   onCreateFundingAccount: () => void;
   onChangeFundAmount: (value: string) => void;
   onChangeRedeemPoints: (value: string) => void;
@@ -61,19 +59,6 @@ export interface WalletContentProps {
   transactions: WalletTransaction[];
 }
 
-function getTierColor(tier: string) {
-  switch (tier.toLowerCase()) {
-    case 'gold':
-      return palette.amber[500];
-    case 'silver':
-      return palette.gray[400];
-    case 'platinum':
-      return '#6366F1';
-    default:
-      return '#CD7F32';
-  }
-}
-
 export function WalletContent({
   colors,
   contentContainerStyle,
@@ -85,6 +70,7 @@ export function WalletContent({
   isRedeemPending,
   isRefetching,
   loyaltyPoints,
+  loyaltyTier,
   onCreateFundingAccount,
   onChangeFundAmount,
   onChangeRedeemPoints,
@@ -106,8 +92,6 @@ export function WalletContent({
   totalBalance,
   transactions,
 }: WalletContentProps) {
-  const redeemablePoints = getRedeemablePointBalance(loyaltyPoints);
-
   return (
     <ScrollView
       testID="wallet-scroll"
@@ -212,80 +196,12 @@ export function WalletContent({
           </View>
         </Animated.View>
       ) : null}
-      <Animated.View
-        entering={FadeIn.duration(400).delay(100)}
-        style={[
-          styles.loyaltyCard,
-          { backgroundColor: colors.card, borderColor: colors.border },
-        ]}
-      >
-        <View style={styles.loyaltyHeader}>
-          <View>
-            <Text
-              style={[styles.loyaltyLabel, { color: colors.textSecondary }]}
-            >
-              Loyalty Rewards
-            </Text>
-            <Text style={[styles.loyaltyPoints, { color: colors.text }]}>
-              {loyaltyPoints.toLocaleString()} pts
-            </Text>
-          </View>
-          <View
-            style={[
-              styles.tierBadge,
-              {
-                backgroundColor: getTierColor('Bronze'),
-              },
-            ]}
-          >
-            <Ionicons
-              accessible={false}
-              importantForAccessibility="no"
-              name="star"
-              size={14}
-              color={WALLET_COLORS.white}
-            />
-            <Text style={styles.tierText}>Bronze</Text>
-          </View>
-        </View>
-
-        <View style={[styles.redeemSection, { borderTopColor: colors.border }]}>
-          <Text style={[styles.redeemInfo, { color: colors.textSecondary }]}>
-            {`${redeemablePoints.toLocaleString()} points redeemable now - ${VTU_MIN_REDEEMABLE_POINTS} points = ₦${VTU_MIN_REDEEMABLE_POINTS}`}
-          </Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Redeem loyalty points"
-            accessibilityHint="Opens the loyalty redemption panel"
-            accessibilityState={{
-              disabled: loyaltyPoints < VTU_MIN_REDEEMABLE_POINTS,
-            }}
-            style={({ pressed }) => [
-              styles.redeemBtn,
-              {
-                backgroundColor: BRAND.primary,
-                opacity:
-                  loyaltyPoints < VTU_MIN_REDEEMABLE_POINTS
-                    ? 0.45
-                    : pressed
-                      ? 0.8
-                      : 1,
-              },
-            ]}
-            onPress={onOpenRedeemPanel}
-            disabled={loyaltyPoints < VTU_MIN_REDEEMABLE_POINTS}
-          >
-            <Ionicons
-              accessible={false}
-              importantForAccessibility="no"
-              name="gift-outline"
-              size={18}
-              color={WALLET_COLORS.white}
-            />
-            <Text style={styles.redeemBtnText}>Redeem Points</Text>
-          </Pressable>
-        </View>
-      </Animated.View>
+      <WalletLoyaltyRewardsCard
+        colors={colors}
+        loyaltyPoints={loyaltyPoints}
+        onOpenRedeemPanel={onOpenRedeemPanel}
+        tier={loyaltyTier}
+      />
 
       {showRedeemPanel ? (
         <Animated.View

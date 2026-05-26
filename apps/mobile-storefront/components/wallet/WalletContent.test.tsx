@@ -92,7 +92,8 @@ describe('WalletContent', () => {
     expect(screen.getByText('₦160,000')).toBeOnTheScreen();
     expect(screen.getAllByText('Earnings').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Savings').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('2,000 pts').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('2,000 pts')).toHaveLength(1);
+    expect(screen.getByText('Redeem Rewards')).toBeOnTheScreen();
     expect(
       screen.getByRole('button', { name: 'Start savings' })
     ).toBeOnTheScreen();
