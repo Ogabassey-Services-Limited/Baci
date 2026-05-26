@@ -76,8 +76,10 @@ describe('FilterSheet', () => {
       />
     );
 
-    expect(screen.getByLabelText('Min Price')).toBeOnTheScreen();
-    expect(screen.getByLabelText('Min Price')).not.toHaveFocus();
+    const minPriceInput = screen.getByLabelText('Min Price');
+
+    expect(minPriceInput).toBeOnTheScreen();
+    expect(minPriceInput.props.autoFocus).toBeFalsy();
   });
 
   it('normalizes invalid and reversed price inputs before applying', () => {
