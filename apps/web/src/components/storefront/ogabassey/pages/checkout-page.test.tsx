@@ -403,22 +403,26 @@ describe('CheckoutPage', () => {
         } as Response;
       });
 
-    render(<CheckoutPage />);
+    try {
+      render(<CheckoutPage />);
 
-    fireEvent.click(screen.getByRole('button', { name: /pay in installments/i }));
+      fireEvent.click(
+        screen.getByRole('button', { name: /pay in installments/i }),
+      );
 
-    await waitFor(() => {
-      expect(
-        fetchMock.mock.calls.some(([url]) =>
-          String(url).startsWith('/api/storefront/customer/wallet')
-        )
-      ).toBe(true);
-    });
-    await waitFor(() => {
-      expect(screen.queryByText('Klump')).not.toBeInTheDocument();
-    });
-
-    fetchMock.mockRestore();
+      await waitFor(() => {
+        expect(
+          fetchMock.mock.calls.some(([url]) =>
+            String(url).startsWith('/api/storefront/customer/wallet'),
+          ),
+        ).toBe(true);
+      });
+      await waitFor(() => {
+        expect(screen.queryByText('Klump')).not.toBeInTheDocument();
+      });
+    } finally {
+      fetchMock.mockRestore();
+    }
   });
 
   it('includes merchant_slug and tracking token when resuming an order', async () => {

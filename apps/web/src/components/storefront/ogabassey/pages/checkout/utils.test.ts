@@ -139,10 +139,40 @@ describe('isGatewayAmountDifferentFromOrderTotal', () => {
     expect(isGatewayAmountDifferentFromOrderTotal(50_000, 50_000)).toBe(false);
   });
 
-  it('ignores sub-kobo rounding noise', () => {
+  it('ignores sub-kobo rounding noise under the payment API threshold', () => {
     expect(isGatewayAmountDifferentFromOrderTotal(49_999.995, 50_000)).toBe(
       false,
     );
+  });
+
+  it('returns true at the payment API rejection threshold', () => {
+    expect(isGatewayAmountDifferentFromOrderTotal(49_999.99, 50_000)).toBe(
+      true,
+    );
+  });
+
+  it('returns true for non-finite amounts', () => {
+    expect(isGatewayAmountDifferentFromOrderTotal(Number.NaN, 50_000)).toBe(
+      true,
+    );
+    expect(
+      isGatewayAmountDifferentFromOrderTotal(
+        Number.POSITIVE_INFINITY,
+        50_000,
+      ),
+    ).toBe(true);
+    expect(
+      isGatewayAmountDifferentFromOrderTotal(
+        Number.NEGATIVE_INFINITY,
+        50_000,
+      ),
+    ).toBe(true);
+    expect(
+      isGatewayAmountDifferentFromOrderTotal(
+        50_000,
+        Number.POSITIVE_INFINITY,
+      ),
+    ).toBe(true);
   });
 });
 

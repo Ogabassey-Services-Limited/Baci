@@ -153,8 +153,8 @@ export function isGatewayAmountDifferentFromOrderTotal(
   orderAmount: number,
 ): boolean {
   if (!Number.isFinite(payableAmount) || !Number.isFinite(orderAmount)) {
-    return false;
+    return true;
   }
 
-  return Math.abs(orderAmount - payableAmount) > 0.01;
+  return Math.abs(orderAmount - payableAmount) >= 0.01;
 }

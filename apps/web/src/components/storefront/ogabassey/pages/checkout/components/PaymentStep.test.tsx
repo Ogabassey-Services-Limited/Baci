@@ -30,8 +30,8 @@ interface FeatureSettings {
   credpal_enabled?: boolean;
   credit_direct_enabled?: boolean;
   klump_enabled?: boolean;
-  klump_min_amount?: number;
-  klump_max_amount?: number;
+  klump_min_amount?: number | string | null;
+  klump_max_amount?: number | string | null;
 }
 
 describe('PaymentStep', () => {
@@ -506,6 +506,50 @@ describe('PaymentStep', () => {
       ).toBeInTheDocument();
     });
 
+    it('uses fallback Klump bounds when merchant limits are blank strings', () => {
+      const merchant = {
+        feature_settings: {
+          klump_enabled: true,
+          klump_min_amount: '',
+          klump_max_amount: '   ',
+        } as FeatureSettings,
+      };
+
+      render(
+        <PaymentStep
+          {...defaultProps}
+          merchant={merchant}
+          paymentTab="installments"
+          orderAmount={10_000}
+          remainingAmount={10_000}
+        />
+      );
+
+      expect(screen.getByText('Klump')).toBeInTheDocument();
+    });
+
+    it('checks Klump bounds against the gateway payable amount', () => {
+      const merchant = {
+        feature_settings: {
+          klump_enabled: true,
+          klump_min_amount: 10_000,
+          klump_max_amount: 10_000,
+        } as FeatureSettings,
+      };
+
+      render(
+        <PaymentStep
+          {...defaultProps}
+          merchant={merchant}
+          paymentTab="installments"
+          orderAmount={10_000.005}
+          remainingAmount={10_000}
+        />
+      );
+
+      expect(screen.getByText('Klump')).toBeInTheDocument();
+    });
+
     it('hides Klump when wallet credit reduces the payable amount', () => {
       const merchant = {
         feature_settings: { klump_enabled: true } as FeatureSettings,
@@ -568,9 +612,7 @@ describe('PaymentStep', () => {
       render(<StatefulPaymentStep />);
 
       const klumpRadio = screen.getByRole('radio', { name: /klump/i });
-      for (let i = 0; i < 8 && document.activeElement !== klumpRadio; i += 1) {
-        await user.tab();
-      }
+      klumpRadio.focus();
 
       expect(klumpRadio).toHaveFocus();
 

@@ -43,7 +43,11 @@ function toAmountLimit(
   }
 
   if (typeof value === 'string') {
-    const parsed = Number(value);
+    const trimmed = value.trim();
+    if (trimmed.length === 0) {
+      return fallback;
+    }
+    const parsed = Number(trimmed);
     if (Number.isFinite(parsed)) {
       return parsed;
     }
@@ -101,7 +105,7 @@ function isKlumpEligible({
     DEFAULT_KLUMP_MAX_AMOUNT,
   );
 
-  return orderAmount >= minAmount && orderAmount <= maxAmount;
+  return payableAmount >= minAmount && payableAmount <= maxAmount;
 }
 
 function isPaymentMethodAvailable({
