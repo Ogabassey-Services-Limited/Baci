@@ -75,7 +75,7 @@
       "esbuild": "^0.25.0",
       "sharp": "^0.34.5",
       "prismjs": "^1.30.0",
-      "qs": "^6.14.2",
+      "qs": "6.15.2",
       "markdown-it": "^14.1.1",
       "@modelcontextprotocol/sdk": "^1.25.2",
       "react-native-worklets": "0.8.3",
