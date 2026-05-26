@@ -1,4 +1,10 @@
-import { Children, isValidElement, type ReactElement, Suspense } from 'react';
+import {
+  Children,
+  isValidElement,
+  type ReactElement,
+  type ReactNode,
+  Suspense,
+} from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockNotFound = vi.fn(() => {
@@ -106,7 +112,7 @@ describe('storefront blog catch-all route', () => {
       }),
     });
     const children = Children.toArray(
-      (element as ReactElement<{ children?: unknown }>).props.children
+      (element as ReactElement<{ children?: ReactNode }>).props.children
     ) as ReactElement[];
 
     expect(isValidElement(element)).toBe(true);
