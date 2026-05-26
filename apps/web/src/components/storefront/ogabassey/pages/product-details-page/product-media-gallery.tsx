@@ -3,6 +3,7 @@ import { DeferredShellFeature } from '@/components/storefront/ogabassey/componen
 import {
   OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY,
   OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
+  ogabasseyPdpPrimaryImageLoader,
 } from '@/components/storefront/ogabassey/config/product-media';
 import type {
   ConditionType,
@@ -60,6 +61,7 @@ export function ProductMediaGallery({
           fetchPriority="high"
           decoding="sync"
           quality={OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY}
+          loader={ogabasseyPdpPrimaryImageLoader}
         />
         <div
           className={`absolute left-4 top-4 rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider ${badgeClass}`}
