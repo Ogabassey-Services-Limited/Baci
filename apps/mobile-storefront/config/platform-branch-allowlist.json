@@ -201,6 +201,10 @@
       "justification": "Reviewed web storage fallback for Supabase client."
     },
     {
+      "path": "lib/tracking-transparency.ts",
+      "justification": "Reviewed iOS-only ATT dynamic import guard so web and Android do not evaluate the native tracking module."
+    },
+    {
       "path": "services/ad-tracking.ts",
       "justification": "Reviewed web guard and iOS attribution API handling."
     },

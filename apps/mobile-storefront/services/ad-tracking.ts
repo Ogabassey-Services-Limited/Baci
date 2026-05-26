@@ -45,11 +45,11 @@ const _analytics = () => ({
 
 import Constants from 'expo-constants';
 import * as Crypto from 'expo-crypto';
-import {
-  getTrackingPermissionsAsync,
-  requestTrackingPermissionsAsync,
-} from 'expo-tracking-transparency';
 import { Platform } from 'react-native';
+import {
+  getTrackingPermissionStatus,
+  requestTrackingPermissionStatus,
+} from '@/lib/tracking-transparency';
 
 // 2026 Best Practice: Dynamic imports for native modules to prevent evaluation-time crashes
 // Minimal interfaces for dynamically loaded SDK methods we actually use
@@ -206,7 +206,7 @@ export async function initAdTracking(): Promise<void> {
   try {
     // 1. Check ATT permission on iOS
     if (Platform.OS === 'ios') {
-      const { status } = await getTrackingPermissionsAsync();
+      const { status } = await getTrackingPermissionStatus();
       isTrackingAllowed = status === 'granted';
       if (FBSettings) {
         FBSettings.setAdvertiserTrackingEnabled(isTrackingAllowed);
@@ -255,7 +255,7 @@ export async function requestTrackingPermission(): Promise<string> {
   if (Platform.OS !== 'ios') return 'granted';
 
   try {
-    const { status } = await requestTrackingPermissionsAsync();
+    const { status } = await requestTrackingPermissionStatus();
     isTrackingAllowed = status === 'granted';
     if (FBSettings) {
       FBSettings.setAdvertiserTrackingEnabled(isTrackingAllowed);
