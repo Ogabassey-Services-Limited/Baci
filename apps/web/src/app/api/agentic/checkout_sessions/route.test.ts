@@ -18,6 +18,9 @@ import { logger } from '@/lib/logger';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 const mockGetIdempotencyKey = vi.fn(() => 'idem-1');
+const mockConvertUcpCartToCheckout = vi.hoisted(() =>
+  vi.fn(async () => new Response(JSON.stringify({ id: 'agentic_session_1' })))
+);
 type MockAgenticMerchantContext = {
   agent_user_agent_allowlist?: string[];
   agent_user_agent_denylist?: string[];
@@ -120,6 +123,10 @@ vi.mock('@/lib/agentic/request-replay', () => ({
 
 vi.mock('@/lib/agentic/scoped-supabase', () => ({
   createAgenticScopedSupabaseClient: vi.fn(),
+}));
+
+vi.mock('@/lib/agentic/ucp-cart-checkout-conversion', () => ({
+  convertUcpCartToCheckout: mockConvertUcpCartToCheckout,
 }));
 
 vi.mock('@/lib/supabase/admin', () => ({
@@ -444,6 +451,40 @@ describe('POST /api/agentic/checkout_sessions', () => {
         currency: 'NGN',
       })
     );
+  });
+
+  it('delegates UCP cart references to the cart conversion flow', async () => {
+    const mockSupabase = { from: vi.fn() };
+    vi.mocked(createAdminClient).mockReturnValue(mockSupabase as never);
+    vi.mocked(createAgenticScopedSupabaseClient).mockReturnValue(
+      mockSupabase as never
+    );
+
+    const request = new NextRequest(
+      'http://localhost/api/agentic/checkout_sessions',
+      {
+        body: JSON.stringify({ cart_id: 'cart_123' }),
+        headers: {
+          'Content-Type': 'application/json',
+          'Idempotency-Key': 'idem-1',
+        },
+        method: 'POST',
+      }
+    );
+
+    const { POST } = await import('./route');
+    const response = await POST(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.id).toBe('agentic_session_1');
+    expect(mockConvertUcpCartToCheckout).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cartId: 'cart_123',
+        requestUrl: 'http://localhost/api/agentic/checkout_sessions',
+      })
+    );
+    expect(calculateCheckoutSession).not.toHaveBeenCalled();
   });
 
   it('creates a checkout session from native ACP item-shaped line_items and fulfillment_details', async () => {

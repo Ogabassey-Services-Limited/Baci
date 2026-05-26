@@ -1,0 +1,233 @@
+import { type NextRequest, NextResponse } from 'next/server';
+import { verifyAgenticApiKey } from '@/lib/agentic/auth';
+import { calculateCheckoutSession } from '@/lib/agentic/checkout';
+import { reserveAgenticIdempotencyKey } from '@/lib/agentic/idempotency';
+import { getAgenticIdempotencyErrorStatus } from '@/lib/agentic/idempotency-response';
+import { buildStoredAgenticIdempotencyResponse } from '@/lib/agentic/idempotency-response-storage';
+import {
+  readAgenticMutationRequest,
+  readAgenticQueryRequest,
+} from '@/lib/agentic/mutation-request';
+import { reserveAgenticRequestId } from '@/lib/agentic/request-replay';
+import { getAgenticReplayErrorStatus } from '@/lib/agentic/request-replay-response';
+import { buildUcpCartResponse } from '@/lib/agentic/ucp-cart-response';
+import {
+  buildUcpCartContinueUrl,
+  buildUcpCartStateResponse,
+  loadUcpCartSession,
+  resolveUcpCartContext,
+} from '@/lib/agentic/ucp-cart-route-support';
+import {
+  buildUcpCartUpdate,
+  coerceJsonRecord,
+  coerceNullableJsonRecord,
+  coerceUcpCartItems,
+} from '@/lib/agentic/ucp-cart-storage';
+import { adaptUcpShippingAddressToAgentic } from '@/lib/agentic/ucp-request-adapters';
+import { logger } from '@/lib/logger';
+import { sanitizeForLog } from '@/lib/sanitize-core';
+import { ucpCartUpdateRequestSchema } from '@/schemas/ucp-cart-request';
+import { ucpCartRouteParamsSchema } from '@/schemas/ucp-cart-route-params';
+
+const UPDATE_CART_ROUTE = 'carts.update';
+type RouteProps = { params: Promise<{ id: string }> };
+
+export async function GET(request: NextRequest, props: RouteProps) {
+  if (!verifyAgenticApiKey(request)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const parsedParams = ucpCartRouteParamsSchema.safeParse(await props.params);
+  if (!parsedParams.success) {
+    return NextResponse.json(
+      { error: 'Invalid route params', details: parsedParams.error.flatten() },
+      { status: 400 }
+    );
+  }
+
+  const query = await readAgenticQueryRequest({ request });
+  if (!query.ok) return query.response;
+
+  const context = await resolveUcpCartContext(request);
+  if (!context.ok) return context.response;
+
+  const cartResult = await loadUcpCartSession({
+    cartId: parsedParams.data.id,
+    merchantId: context.merchant.id,
+    supabase: context.supabase,
+  });
+  if (cartResult.error) {
+    logger.error({
+      error: sanitizeForLog(cartResult.error),
+      message: 'Failed to read UCP cart',
+      route: 'carts.get',
+    });
+    return NextResponse.json({ error: 'Database error' }, { status: 500 });
+  }
+  if (!cartResult.cart) {
+    return NextResponse.json({ error: 'Cart not found' }, { status: 404 });
+  }
+
+  return buildUcpCartStateResponse({
+    cart: cartResult.cart,
+    merchant: context.merchant,
+    request,
+    supabase: context.supabase,
+  });
+}
+
+export async function POST(request: NextRequest, props: RouteProps) {
+  if (!verifyAgenticApiKey(request)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const parsedParams = ucpCartRouteParamsSchema.safeParse(await props.params);
+  if (!parsedParams.success) {
+    return NextResponse.json(
+      { error: 'Invalid route params', details: parsedParams.error.flatten() },
+      { status: 400 }
+    );
+  }
+
+  const mutation = await readAgenticMutationRequest({ request });
+  if (!mutation.ok) return mutation.response;
+
+  const parsed = ucpCartUpdateRequestSchema.safeParse(mutation.body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Invalid request body', details: parsed.error.flatten() },
+      { status: 400 }
+    );
+  }
+
+  const context = await resolveUcpCartContext(request);
+  if (!context.ok) return context.response;
+
+  const idempotency = await reserveAgenticIdempotencyKey({
+    apiVersion: mutation.apiVersion,
+    body: mutation.rawBody,
+    key: mutation.idempotencyKey,
+    merchantId: context.merchant.id,
+    method: mutation.method,
+    pathname: mutation.pathname,
+    route: UPDATE_CART_ROUTE,
+    supabase: context.supabase,
+  });
+  if (!idempotency.ok) {
+    return NextResponse.json(
+      { error: idempotency.error },
+      { status: getAgenticIdempotencyErrorStatus(idempotency.error) }
+    );
+  }
+  if (idempotency.state === 'replay') {
+    return NextResponse.json(idempotency.response, {
+      headers: {
+        'idempotency-key': mutation.idempotencyKey,
+        'request-id': mutation.requestId,
+      },
+      status: idempotency.status,
+    });
+  }
+
+  const respond = (response: unknown, status: number) =>
+    buildStoredAgenticIdempotencyResponse({
+      idempotencyKey: mutation.idempotencyKey,
+      merchantId: context.merchant.id,
+      requestId: mutation.requestId,
+      response,
+      route: UPDATE_CART_ROUTE,
+      status,
+      storageFailureResponse: { error: 'Idempotency response storage failed' },
+      supabase: context.supabase,
+    });
+
+  const replayReservation = await reserveAgenticRequestId({
+    agentId: mutation.agentId,
+    apiVersion: mutation.apiVersion,
+    idempotencyKey: mutation.idempotencyKey,
+    merchantId: context.merchant.id,
+    requestId: mutation.requestId,
+    route: UPDATE_CART_ROUTE,
+    supabase: context.supabase,
+  });
+  if (!replayReservation.ok) {
+    return respond(
+      { error: replayReservation.error },
+      getAgenticReplayErrorStatus(replayReservation.error)
+    );
+  }
+
+  const cartResult = await loadUcpCartSession({
+    cartId: parsedParams.data.id,
+    merchantId: context.merchant.id,
+    supabase: context.supabase,
+  });
+  if (cartResult.error) return respond({ error: 'Database error' }, 500);
+  if (!cartResult.cart) return respond({ error: 'Cart not found' }, 404);
+  if (cartResult.cart.status !== 'active') {
+    return respond(
+      { error: 'Cart cannot be updated', status: cartResult.cart.status },
+      409
+    );
+  }
+
+  const existingItems = coerceUcpCartItems(cartResult.cart.cart_items);
+  const items =
+    parsed.data.line_items?.map((lineItem) => ({
+      id: lineItem.item.id,
+      quantity: lineItem.quantity,
+    })) ?? existingItems;
+  const currency = parsed.data.currency ?? cartResult.cart.currency;
+  const shippingAddress =
+    parsed.data.shipping_address !== undefined
+      ? adaptUcpShippingAddressToAgentic(parsed.data.shipping_address)
+      : coerceNullableJsonRecord(cartResult.cart.shipping_address);
+  const calculation = await calculateCheckoutSession(
+    context.supabase,
+    items,
+    null,
+    currency,
+    context.merchant.id
+  );
+  if (calculation.lineItems.length === 0) {
+    return respond(
+      { error: 'No valid cart items', messages: calculation.messages },
+      400
+    );
+  }
+
+  const updatePayload = buildUcpCartUpdate({
+    buyer: parsed.data.buyer,
+    existingBuyer: coerceJsonRecord(cartResult.cart.buyer),
+    items,
+    shippingAddress,
+  });
+  const { data: updatedCart, error: updateError } = await context.supabase
+    .from('agentic_cart_sessions')
+    .update({ ...updatePayload, currency: currency.toUpperCase() })
+    .eq('cart_id', parsedParams.data.id)
+    .eq('merchant_id', context.merchant.id)
+    .eq('status', 'active')
+    .select('cart_id')
+    .maybeSingle();
+  if (updateError) return respond({ error: 'Database error' }, 500);
+  if (!updatedCart) {
+    return respond({ error: 'Cart cannot be updated' }, 409);
+  }
+
+  return respond(
+    buildUcpCartResponse({
+      cartId: parsedParams.data.id,
+      continueUrl: buildUcpCartContinueUrl({
+        cartId: parsedParams.data.id,
+        merchant: context.merchant,
+        request,
+      }),
+      currency,
+      lineItems: calculation.lineItems,
+      status: 'active',
+      totals: calculation.totals,
+    }),
+    200
+  );
+}

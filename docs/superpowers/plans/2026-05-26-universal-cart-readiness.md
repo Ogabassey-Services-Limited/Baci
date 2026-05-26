@@ -373,7 +373,7 @@ pnpm --filter web exec vitest run \
 
 Expected: pass.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add apps/web/src/schemas/ucp-cart-request.ts \
@@ -597,7 +597,7 @@ pnpm --filter web exec vitest run src/lib/agentic/ucp-cart-storage.test.ts
 
 Expected: pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add supabase/migrations/20260526193000_add_ucp_cart_sessions.sql \
@@ -731,7 +731,7 @@ pnpm --filter web exec vitest run src/lib/agentic/ucp-cart-response.test.ts
 
 Expected: pass.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add apps/web/src/lib/agentic/ucp-cart-response.ts \
@@ -749,7 +749,7 @@ git commit -m "feat: add ucp cart response builder"
 - Create: `apps/web/src/app/api/agentic/carts/[id]/cancel/route.ts`
 - Create: `apps/web/src/app/api/agentic/carts/[id]/cancel/route.test.ts`
 
-- [ ] **Step 1: Write failing create route tests**
+- [x] **Step 1: Write failing create route tests**
 
 ```ts
 import { NextRequest } from 'next/server';
@@ -788,7 +788,7 @@ describe('POST /api/agentic/carts', () => {
 });
 ```
 
-- [ ] **Step 2: Implement create route around existing controls**
+- [x] **Step 2: Implement create route around existing controls**
 
 ```ts
 import { randomUUID } from 'node:crypto';
@@ -943,7 +943,7 @@ export async function POST(request: NextRequest) {
 }
 ```
 
-- [ ] **Step 3: Write and implement read/update/cancel tests**
+- [x] **Step 3: Write and implement read/update/cancel tests**
 
 Use this pattern for the read route test file:
 
@@ -1064,7 +1064,7 @@ it('rejects updates after a cart is converted', async () => {
 });
 ```
 
-- [ ] **Step 4: Run cart route tests**
+- [x] **Step 4: Run cart route tests**
 
 Run:
 
@@ -1077,7 +1077,7 @@ pnpm --filter web exec vitest run \
 
 Expected: pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/web/src/app/api/agentic/carts
@@ -1098,7 +1098,7 @@ git commit -m "feat: add signed ucp cart routes"
 - Modify: `apps/web/src/lib/agentic/ucp-request-adapters.ts`
 - Modify: `apps/web/src/lib/agentic/ucp-request-adapters.test.ts`
 
-- [ ] **Step 1: Write failing cart-to-checkout route tests**
+- [x] **Step 1: Write failing cart-to-checkout route tests**
 
 ```ts
 describe('POST /api/agentic/carts/[id]/checkout', () => {
@@ -1204,7 +1204,7 @@ describe('POST /api/agentic/carts/[id]/checkout', () => {
 });
 ```
 
-- [ ] **Step 2: Implement the conversion contract**
+- [x] **Step 2: Implement the conversion contract**
 
 Create `apps/web/src/lib/agentic/ucp-cart-checkout-conversion.ts`. It must not call `handleAgenticCheckoutSessionCreate`, because that handler returns the public `session_id` but not the internal `checkout_sessions.id` needed for the cart link. Instead, extract the shared primitives from `apps/web/src/app/api/agentic/checkout_sessions/route.ts`:
 
@@ -1273,7 +1273,7 @@ export async function POST(request: NextRequest, props: RouteProps) {
 }
 ```
 
-- [ ] **Step 3: Extend checkout create to accept UCP cart references**
+- [x] **Step 3: Extend checkout create to accept UCP cart references**
 
 Update `apps/web/src/schemas/agentic-checkout.ts` so `checkoutSessionSchema` accepts either direct `items` or a UCP `cart_id`:
 
@@ -1336,7 +1336,7 @@ export function adaptUcpCheckoutCreateRequestBody(body: unknown): unknown {
 }
 ```
 
-- [ ] **Step 4: Run route and adapter tests**
+- [x] **Step 4: Run route and adapter tests**
 
 Run:
 
@@ -1351,7 +1351,7 @@ pnpm --filter web exec vitest run \
 
 Expected: pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/web/src/lib/agentic/ucp-cart-checkout-conversion.ts \

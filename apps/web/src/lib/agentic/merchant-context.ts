@@ -15,6 +15,7 @@ export interface AgenticMerchantContext {
   agent_user_agent_denylist: string[];
   agentic_checkout_enabled: boolean;
   business_name: string | null;
+  custom_domain?: string;
   id: string;
   pay_on_delivery_enabled: boolean;
   paystack_subaccount_code: string | null;
@@ -60,7 +61,7 @@ export async function resolveAgenticMerchantContext(
 
   const { data, error } = await supabase
     .from('merchants')
-    .select('id, slug, business_name, paystack_subaccount_code')
+    .select('id, slug, business_name, custom_domain, paystack_subaccount_code')
     .eq('slug', merchantSlug)
     .maybeSingle();
 
@@ -96,6 +97,10 @@ export async function resolveAgenticMerchantContext(
       : featureSettings?.agentic_checkout_enabled !== false,
     business_name:
       typeof data.business_name === 'string' ? data.business_name : null,
+    custom_domain:
+      typeof data.custom_domain === 'string' && data.custom_domain.trim()
+        ? data.custom_domain
+        : undefined,
     id: data.id,
     pay_on_delivery_enabled:
       !featureSettingsError &&

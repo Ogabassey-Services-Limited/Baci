@@ -3,6 +3,7 @@ import {
   adaptUcpCheckoutCompleteRequestBody,
   adaptUcpCheckoutCreateRequestBody,
   adaptUcpCheckoutUpdateRequestBody,
+  adaptUcpShippingAddressToAgentic,
 } from '@/lib/agentic/ucp-request-adapters';
 
 describe('adaptUcpCheckoutCreateRequestBody', () => {
@@ -40,6 +41,39 @@ describe('adaptUcpCheckoutCreateRequestBody', () => {
     const body = { items: [{ id: 'product-1', quantity: 1 }] };
 
     expect(adaptUcpCheckoutCreateRequestBody(body)).toBe(body);
+  });
+
+  it('preserves UCP cart checkout references', () => {
+    expect(
+      adaptUcpCheckoutCreateRequestBody({
+        cart_id: 'cart_123',
+        currency: 'ngn',
+      })
+    ).toEqual({
+      cart_id: 'cart_123',
+      currency: 'ngn',
+    });
+  });
+});
+
+describe('adaptUcpShippingAddressToAgentic', () => {
+  it('normalizes UCP postal addresses for cart storage', () => {
+    expect(
+      adaptUcpShippingAddressToAgentic({
+        address_country: 'NG',
+        address_locality: 'Lagos',
+        address_region: 'Lagos',
+        phone_number: '+2348012345678',
+        street_address: '12 Broad Street',
+      })
+    ).toEqual({
+      address: '12 Broad Street',
+      city: 'Lagos',
+      country: 'NG',
+      country_code: 'NG',
+      phone: '+2348012345678',
+      state: 'Lagos',
+    });
   });
 });
 

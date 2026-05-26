@@ -104,3 +104,36 @@ export function buildUcpCartStatusUpdate(status: UcpCartInternalStatus) {
 export function mapUcpCartStatus(status: UcpCartInternalStatus) {
   return status;
 }
+
+export function coerceUcpCartItems(value: unknown): CheckoutItem[] {
+  if (!Array.isArray(value)) return [];
+
+  return value.flatMap((item) => {
+    if (!isRecord(item)) return [];
+    const id = item.id;
+    const quantity = item.quantity;
+    if (
+      typeof id !== 'string' ||
+      id.trim().length === 0 ||
+      typeof quantity !== 'number' ||
+      !Number.isInteger(quantity) ||
+      quantity <= 0
+    ) {
+      return [];
+    }
+
+    return [{ id: id.trim(), quantity }];
+  });
+}
+
+export function coerceJsonRecord(value: unknown): JsonRecord {
+  return isRecord(value) ? value : {};
+}
+
+export function coerceNullableJsonRecord(value: unknown): JsonRecord | null {
+  return value === null ? null : coerceJsonRecord(value);
+}
+
+function isRecord(value: unknown): value is JsonRecord {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}

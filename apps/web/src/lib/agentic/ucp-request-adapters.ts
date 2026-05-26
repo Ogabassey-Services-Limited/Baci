@@ -12,8 +12,20 @@ import {
 
 type JsonRecord = Record<string, unknown>;
 
+export function adaptUcpShippingAddressToAgentic(
+  value: Record<string, unknown> | null | undefined
+): JsonRecord | null {
+  return toAgenticShippingAddress(value);
+}
+
 export function adaptUcpCheckoutCreateRequestBody(body: unknown): unknown {
   if (hasLegacyItems(body)) return body;
+  if (isRecord(body) && typeof body.cart_id === 'string') {
+    return {
+      cart_id: body.cart_id,
+      currency: typeof body.currency === 'string' ? body.currency : undefined,
+    };
+  }
 
   const parsed = ucpCheckoutCreateRequestSchema.safeParse(body);
   if (!parsed.success) return body;
