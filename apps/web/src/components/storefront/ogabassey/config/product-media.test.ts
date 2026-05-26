@@ -8,7 +8,7 @@ import {
 describe('OgaBassey PDP product media config', () => {
   it('keeps PDP image sizing aligned to the storefront gallery layout', () => {
     expect(OGABASSEY_PDP_PRIMARY_IMAGE_SIZES).toBe(
-      '(max-width: 767px) 250px, (max-width: 1023px) calc(100vw - 48px), (max-width: 1439px) 40vw, 560px',
+      '(max-width: 767px) calc(100vw - 32px), (max-width: 1023px) calc(100vw - 48px), (max-width: 1439px) 40vw, 560px',
     );
     expect(OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY).toBe(35);
     expect(OGABASSEY_PDP_PRIMARY_IMAGE_PRELOAD_FALLBACK_WIDTH).toBe(640);
