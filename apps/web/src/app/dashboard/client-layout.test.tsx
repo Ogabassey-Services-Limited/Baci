@@ -1,4 +1,5 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import type React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import type { MerchantContextType, MerchantData } from '@/hooks/merchant/types';
@@ -13,9 +14,21 @@ vi.mock('next/link', () => ({
   default: ({
     children,
     href,
+    onClick,
     ...props
-  }: { children: React.ReactNode; href: string } & Record<string, unknown>) => (
-    <a href={href} {...props}>
+  }: {
+    children: React.ReactNode;
+    href: string;
+    onClick?: React.MouseEventHandler<HTMLAnchorElement>;
+  } & Record<string, unknown>) => (
+    <a
+      href={href}
+      onClick={(event) => {
+        event.preventDefault();
+        onClick?.(event);
+      }}
+      {...props}
+    >
       {children}
     </a>
   ),
@@ -47,6 +60,67 @@ vi.mock('@/hooks/use-merchant-client', () => ({
 vi.mock('@/hooks/use-toast', () => ({
   useToast: vi.fn(),
 }));
+
+vi.mock('@/components/ui/sheet', async () => {
+  const ReactModule = await import('react');
+  const SheetContext = ReactModule.createContext<{
+    onOpenChange?: (open: boolean) => void;
+    open?: boolean;
+  }>({});
+
+  return {
+    Sheet: ({
+      children,
+      onOpenChange,
+      open,
+    }: {
+      children: React.ReactNode;
+      onOpenChange?: (open: boolean) => void;
+      open?: boolean;
+    }) => (
+      <SheetContext.Provider value={{ onOpenChange, open }}>
+        <div data-state={open ? 'open' : 'closed'}>{children}</div>
+      </SheetContext.Provider>
+    ),
+    SheetContent: ({ children }: { children: React.ReactNode }) => {
+      const { open } = ReactModule.useContext(SheetContext);
+      if (!open) return null;
+
+      return (
+        <div aria-label="Navigation Menu" role="dialog">
+          {children}
+        </div>
+      );
+    },
+    SheetTitle: ({ children }: { children: React.ReactNode }) => (
+      <h2>{children}</h2>
+    ),
+    SheetTrigger: ({
+      asChild,
+      children,
+    }: {
+      asChild?: boolean;
+      children: React.ReactElement<{ onClick?: React.MouseEventHandler }>;
+    }) => {
+      const { onOpenChange } = ReactModule.useContext(SheetContext);
+
+      if (asChild && ReactModule.isValidElement(children)) {
+        return ReactModule.cloneElement(children, {
+          onClick: (event: React.MouseEvent) => {
+            children.props.onClick?.(event);
+            onOpenChange?.(true);
+          },
+        });
+      }
+
+      return (
+        <button type="button" onClick={() => onOpenChange?.(true)}>
+          {children}
+        </button>
+      );
+    },
+  };
+});
 
 vi.mock('@/lib/supabase/client', () => ({
   createClient: vi.fn().mockReturnValue({
@@ -218,6 +292,30 @@ describe('DashboardClientLayout', () => {
 
     expect(
       screen.queryByRole('link', { name: 'Santa Campaign' })
+    ).not.toBeInTheDocument();
+  });
+
+  it('closes the mobile navigation sheet after clicking Blog', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <DashboardClientLayout>
+        <div>Test Content</div>
+      </DashboardClientLayout>
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Menu' }));
+
+    const navigationMenu = screen.getByRole('dialog', {
+      name: 'Navigation Menu',
+    });
+
+    await user.click(
+      within(navigationMenu).getByRole('link', { name: 'Blog' })
+    );
+
+    expect(
+      screen.queryByRole('dialog', { name: 'Navigation Menu' })
     ).not.toBeInTheDocument();
   });
 });
