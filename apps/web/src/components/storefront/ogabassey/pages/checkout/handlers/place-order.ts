@@ -4,7 +4,10 @@ import { openCredPalCheckout } from '@/lib/credpal';
 import { openCreditDirectCheckout } from '@/lib/credit-direct-client';
 import { createClient } from '@/lib/supabase/client';
 import { normalizeOrderPaymentMethod } from '../pending-checkout-order';
-import { isGatewayAmountDifferentFromOrderTotal } from '../utils';
+import {
+  KLUMP_WALLET_CREDIT_UNAVAILABLE_TOAST,
+  isKlumpUnavailableForGatewayAmount,
+} from '../utils';
 import type {
   SavedAddress,
   ShippingQuote,
@@ -317,15 +320,13 @@ export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
   const clientPayableAmount = payWithWallet ? total - walletAmountUsed : total;
 
   if (
-    paymentMethod === 'klump' &&
-    isGatewayAmountDifferentFromOrderTotal(clientPayableAmount, total)
+    isKlumpUnavailableForGatewayAmount({
+      paymentMethod,
+      payableAmount: clientPayableAmount,
+      orderAmount: total,
+    })
   ) {
-    toast({
-      title: 'Klump unavailable with wallet credit',
-      description:
-        'Klump requires the full order total. Remove wallet credit or choose another payment method.',
-      variant: 'destructive',
-    });
+    toast(KLUMP_WALLET_CREDIT_UNAVAILABLE_TOAST);
     setIsProcessing(false);
     isOrderInFlightRef.current = false;
     return;
@@ -421,15 +422,13 @@ export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
       : '';
 
     if (
-      paymentMethod === 'klump' &&
-      isGatewayAmountDifferentFromOrderTotal(paymentAmount, total)
+      isKlumpUnavailableForGatewayAmount({
+        paymentMethod,
+        payableAmount: paymentAmount,
+        orderAmount: total,
+      })
     ) {
-      toast({
-        title: 'Klump unavailable with wallet credit',
-        description:
-          'Klump requires the full order total. Remove wallet credit or choose another payment method.',
-        variant: 'destructive',
-      });
+      toast(KLUMP_WALLET_CREDIT_UNAVAILABLE_TOAST);
       setIsProcessing(false);
       isOrderInFlightRef.current = false;
       return;

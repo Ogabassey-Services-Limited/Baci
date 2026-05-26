@@ -45,7 +45,7 @@ export function isKlumpEligible({
   payableAmount,
 }: {
   featureSettings?: FeatureSettings | null;
-  currency: string;
+  currency?: string | null;
   orderAmount: number;
   payableAmount: number;
 }): boolean {
@@ -53,7 +53,8 @@ export function isKlumpEligible({
     return false;
   }
 
-  if (currency.trim().toUpperCase() !== 'NGN') {
+  const normalizedCurrency = typeof currency === 'string' ? currency : '';
+  if (normalizedCurrency.trim().toUpperCase() !== 'NGN') {
     return false;
   }
 
@@ -88,7 +89,7 @@ export function isPaymentMethodAvailable({
   korapayCheckoutAvailable: boolean;
   bankTransferCheckoutAvailable: boolean;
   featureSettings?: FeatureSettings | null;
-  currency: string;
+  currency?: string | null;
   orderAmount: number;
   payableAmount: number;
 }): boolean {
@@ -130,7 +131,7 @@ export function hasAnyInstallmentOption({
   payableAmount,
 }: {
   featureSettings?: FeatureSettings | null;
-  currency: string;
+  currency?: string | null;
   orderAmount: number;
   payableAmount: number;
 }): boolean {

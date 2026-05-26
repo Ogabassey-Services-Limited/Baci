@@ -57,8 +57,9 @@ import {
 } from './checkout/pending-checkout-order';
 import { PaymentStep } from './checkout/components/PaymentStep';
 import {
+  KLUMP_WALLET_CREDIT_UNAVAILABLE_TOAST,
   inferAddressLocationFromInput,
-  isGatewayAmountDifferentFromOrderTotal,
+  isKlumpUnavailableForGatewayAmount,
 } from './checkout/utils';
 
 /**
@@ -1245,15 +1246,13 @@ export const CheckoutPage: React.FC = () => {
     }
 
     if (
-      paymentMethod === 'klump' &&
-      isGatewayAmountDifferentFromOrderTotal(remainingAmount, total)
+      isKlumpUnavailableForGatewayAmount({
+        paymentMethod,
+        payableAmount: remainingAmount,
+        orderAmount: total,
+      })
     ) {
-      toast({
-        title: 'Klump unavailable with wallet credit',
-        description:
-          'Klump requires the full order total. Remove wallet credit or choose another payment method.',
-        variant: 'destructive',
-      });
+      toast(KLUMP_WALLET_CREDIT_UNAVAILABLE_TOAST);
       setIsProcessing(false);
       isOrderInFlightRef.current = false;
       return;
@@ -1554,15 +1553,13 @@ export const CheckoutPage: React.FC = () => {
       const paymentAmount = amountDueToGateway ?? total;
 
       if (
-        paymentMethod === 'klump' &&
-        isGatewayAmountDifferentFromOrderTotal(paymentAmount, total)
+        isKlumpUnavailableForGatewayAmount({
+          paymentMethod,
+          payableAmount: paymentAmount,
+          orderAmount: total,
+        })
       ) {
-        toast({
-          title: 'Klump unavailable with wallet credit',
-          description:
-            'Klump requires the full order total. Remove wallet credit or choose another payment method.',
-          variant: 'destructive',
-        });
+        toast(KLUMP_WALLET_CREDIT_UNAVAILABLE_TOAST);
         setIsProcessing(false);
         isOrderInFlightRef.current = false;
         return;
