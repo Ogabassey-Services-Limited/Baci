@@ -1934,7 +1934,7 @@ git commit -m "feat: gate google pay and ap2 ucp advertising"
 - Create: `apps/web/src/lib/agentic/baci-platform-ucp-profile.ts`
 - Create: `apps/web/src/lib/agentic/baci-platform-ucp-profile.test.ts`
 
-- [ ] **Step 1: Write failing root-domain test**
+- [x] **Step 1: Write failing root-domain test**
 
 ```ts
 it('returns a Baci platform profile on the root domain', async () => {
@@ -1952,7 +1952,7 @@ it('returns a Baci platform profile on the root domain', async () => {
 });
 ```
 
-- [ ] **Step 2: Implement platform profile builder**
+- [x] **Step 2: Implement platform profile builder**
 
 ```ts
 export function buildBaciPlatformUcpProfile(baseUrl: string) {
@@ -1984,7 +1984,7 @@ export function buildBaciPlatformUcpProfile(baseUrl: string) {
 }
 ```
 
-- [ ] **Step 3: Route root domain to platform profile**
+- [x] **Step 3: Route root domain to platform profile**
 
 In `apps/web/src/app/.well-known/ucp/route.ts`, before storefront merchant resolution:
 
@@ -2000,7 +2000,7 @@ if (requestUrl.hostname === ROOT_DOMAIN) {
 }
 ```
 
-- [ ] **Step 4: Run profile tests**
+- [x] **Step 4: Run profile tests**
 
 Run:
 
@@ -2012,7 +2012,7 @@ pnpm --filter web exec vitest run \
 
 Expected: pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/web/src/lib/agentic/baci-platform-ucp-profile.ts \

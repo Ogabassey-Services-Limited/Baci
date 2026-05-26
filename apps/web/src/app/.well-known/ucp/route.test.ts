@@ -216,7 +216,7 @@ describe('GET /.well-known/ucp', () => {
     );
   });
 
-  it('returns 404 on the platform host', async () => {
+  it('returns a Baci platform profile on the root domain', async () => {
     const { GET } = await import('./route');
     const response = await GET(
       new Request('https://usebaci.com/.well-known/ucp', {
@@ -225,10 +225,14 @@ describe('GET /.well-known/ucp', () => {
     );
     const body = await response.json();
 
-    expect(response.status).toBe(404);
-    expect(body.error).toBe(
-      'UCP profile is only available on storefront hosts'
-    );
+    expect(response.status).toBe(200);
+    expect(body.platform).toMatchObject({
+      name: 'Baci',
+      type: 'merchant_platform',
+    });
+    expect(body.links).toMatchObject({
+      merchant_onboarding: 'https://usebaci.com/onboarding',
+    });
     expect(mockGetMerchantByIdentifier).not.toHaveBeenCalled();
   });
 
