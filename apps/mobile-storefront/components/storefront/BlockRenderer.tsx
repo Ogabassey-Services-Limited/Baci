@@ -1,5 +1,5 @@
 import type React from 'react';
-import { View } from 'react-native';
+import { type StyleProp, View, type ViewStyle } from 'react-native';
 import { useCategories } from '@/hooks';
 import { CONFIG } from '@/lib/config';
 import { getTemplateConfig } from '@/lib/templates';
@@ -23,14 +23,20 @@ interface BlockRendererProps {
   blocks: Block[];
   selectedCategoryId: string | null;
   onCategorySelect: (id: string | null) => void;
+  blockWrapperStyle?: StyleProp<ViewStyle>;
+  getProductGridLoadMoreSignal?: (block: Block, index: number) => number;
   productGridLoadMoreSignal?: number;
+  renderAfterBlock?: (block: Block, index: number) => React.ReactNode;
 }
 
 export const BlockRenderer: React.FC<BlockRendererProps> = ({
   blocks,
   selectedCategoryId,
   onCategorySelect,
+  blockWrapperStyle,
+  getProductGridLoadMoreSignal,
   productGridLoadMoreSignal = 0,
+  renderAfterBlock,
 }) => {
   const template = getTemplateConfig(CONFIG.BUSINESS_TYPE, CONFIG.TEMPLATE_ID);
   const { data: categories = [] } = useCategories();
@@ -51,60 +57,73 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
 
   return (
     <View>
-      {(blocks || []).map((block) => {
-        switch (block.type) {
-          case 'HeroCarousel': {
-            const heroBlock = block as HeroCarouselBlock;
-            const configuredSlides = Array.isArray(heroBlock.props.slides)
-              ? heroBlock.props.slides
-              : [];
+      {(blocks || []).map((block, index) => {
+        const renderedBlock = (() => {
+          switch (block.type) {
+            case 'HeroCarousel': {
+              const heroBlock = block as HeroCarouselBlock;
+              const configuredSlides = Array.isArray(heroBlock.props.slides)
+                ? heroBlock.props.slides
+                : [];
 
-            const slides: HeroSlide[] = configuredSlides.map((slide) => ({
-              title: slide.title,
-              subtitle: slide.subtitle,
-              image: slide.image,
-              ctaText: slide.ctaText,
-              ctaLink: slide.ctaLink as HeroSlide['ctaLink'],
-            }));
+              const slides: HeroSlide[] = configuredSlides.map((slide) => ({
+                title: slide.title,
+                subtitle: slide.subtitle,
+                image: slide.image,
+                ctaText: slide.ctaText,
+                ctaLink: slide.ctaLink as HeroSlide['ctaLink'],
+              }));
 
-            if (slides.length === 0) {
-              return null;
+              if (slides.length === 0) {
+                return null;
+              }
+
+              return (
+                <Hero
+                  slides={slides}
+                  autoplayDelay={heroBlock.props.autoplayDelay}
+                />
+              );
             }
-
-            return (
-              <Hero
-                key={block.props.id}
-                slides={slides}
-                autoplayDelay={heroBlock.props.autoplayDelay}
-              />
-            );
+            case 'CategoryRail':
+              return (
+                <UtilityPanel
+                  variant={template.categoryStyle}
+                  selectedCategoryId={selectedCategoryId}
+                  onCategorySelect={onCategorySelect}
+                  selectedCategoryName={selectedCategoryName}
+                  slug={
+                    (block as Block & { props: { slug?: string } }).props.slug
+                  }
+                />
+              );
+            case 'ProductGrid':
+              return (
+                <ProductGrid
+                  block={block as ProductGridBlock}
+                  loadMoreSignal={
+                    getProductGridLoadMoreSignal?.(block, index) ??
+                    productGridLoadMoreSignal
+                  }
+                  selectedCategoryId={selectedCategoryId}
+                  variant={template.cardVariant}
+                />
+              );
+            default:
+              return null;
           }
-          case 'CategoryRail':
-            return (
-              <UtilityPanel
-                key={block.props.id}
-                variant={template.categoryStyle}
-                selectedCategoryId={selectedCategoryId}
-                onCategorySelect={onCategorySelect}
-                selectedCategoryName={selectedCategoryName}
-                slug={
-                  (block as Block & { props: { slug?: string } }).props.slug
-                }
-              />
-            );
-          case 'ProductGrid':
-            return (
-              <ProductGrid
-                key={block.props.id}
-                block={block as ProductGridBlock}
-                loadMoreSignal={productGridLoadMoreSignal}
-                selectedCategoryId={selectedCategoryId}
-                variant={template.cardVariant}
-              />
-            );
-          default:
-            return null;
+        })();
+
+        if (!renderedBlock) {
+          return null;
         }
+
+        return (
+          <View key={block.props.id} style={blockWrapperStyle}>
+            {renderedBlock}
+            {renderAfterBlock?.(block, index)}
+          </View>
+        );
       })}
     </View>
   );
