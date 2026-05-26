@@ -6,6 +6,8 @@ import {
   calculateDeliveryCost,
   getDeliveryDateRange,
   inferAddressLocationFromInput,
+  isGatewayAmountDifferentFromOrderTotal,
+  isKlumpUnavailableForGatewayAmount,
 } from './utils';
 import type { ShippingQuote } from './types';
 
@@ -122,6 +124,75 @@ describe('calculateDeliveryCost', () => {
   it('returns 20000 for airport pickup', () => {
     const cost = calculateDeliveryCost('airport', '', mockQuotes, 'pickup');
     expect(cost).toBe(20000);
+  });
+});
+
+describe('isGatewayAmountDifferentFromOrderTotal', () => {
+  it('returns true when wallet credit reduces the payable gateway amount', () => {
+    expect(isGatewayAmountDifferentFromOrderTotal(45_000, 50_000)).toBe(true);
+  });
+
+  it('returns true when the payable amount exceeds the order amount', () => {
+    expect(isGatewayAmountDifferentFromOrderTotal(55_000, 50_000)).toBe(true);
+  });
+
+  it('returns false when the payable amount still matches the order amount', () => {
+    expect(isGatewayAmountDifferentFromOrderTotal(50_000, 50_000)).toBe(false);
+  });
+
+  it('ignores sub-kobo rounding noise under the payment API threshold', () => {
+    expect(isGatewayAmountDifferentFromOrderTotal(49_999.995, 50_000)).toBe(
+      false,
+    );
+  });
+
+  it('returns true at the payment API rejection threshold', () => {
+    expect(isGatewayAmountDifferentFromOrderTotal(49_999.99, 50_000)).toBe(
+      true,
+    );
+  });
+
+  it('returns true for non-finite amounts', () => {
+    expect(isGatewayAmountDifferentFromOrderTotal(Number.NaN, 50_000)).toBe(
+      true,
+    );
+    expect(
+      isGatewayAmountDifferentFromOrderTotal(
+        Number.POSITIVE_INFINITY,
+        50_000,
+      ),
+    ).toBe(true);
+    expect(
+      isGatewayAmountDifferentFromOrderTotal(
+        Number.NEGATIVE_INFINITY,
+        50_000,
+      ),
+    ).toBe(true);
+    expect(
+      isGatewayAmountDifferentFromOrderTotal(
+        50_000,
+        Number.POSITIVE_INFINITY,
+      ),
+    ).toBe(true);
+  });
+});
+
+describe('isKlumpUnavailableForGatewayAmount', () => {
+  it('returns true only for Klump gateway amount mismatches', () => {
+    expect(
+      isKlumpUnavailableForGatewayAmount({
+        paymentMethod: 'klump',
+        payableAmount: 45_000,
+        orderAmount: 50_000,
+      }),
+    ).toBe(true);
+    expect(
+      isKlumpUnavailableForGatewayAmount({
+        paymentMethod: 'paystack',
+        payableAmount: 45_000,
+        orderAmount: 50_000,
+      }),
+    ).toBe(false);
   });
 });
 

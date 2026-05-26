@@ -10,6 +10,7 @@ describe('pending-checkout-order', () => {
   it('maps payment methods to persisted order values', () => {
     expect(normalizeOrderPaymentMethod('paystack')).toBe('card');
     expect(normalizeOrderPaymentMethod('korapay')).toBe('card');
+    expect(normalizeOrderPaymentMethod('klump')).toBe('card');
     expect(normalizeOrderPaymentMethod('bank_transfer')).toBe('bank_transfer');
     expect(normalizeOrderPaymentMethod('payforme')).toBe('payforme');
     expect(normalizeOrderPaymentMethod('pod')).toBe('pod');
