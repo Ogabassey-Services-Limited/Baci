@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, jest } from '@jest/globals';
 import type { Href } from 'expo-router';
+import type React from 'react';
 import { Text, View } from 'react-native';
 import type { MobileTemplateConfig } from '@/lib/templates';
 
@@ -26,26 +27,55 @@ export const mockGetTemplateConfig = jest.fn(
 export const mockRouterPush = jest.fn<(href: Href) => void>();
 const MockText = Text;
 const MockView = View;
+type MockBlock = { props?: { id?: string }; type: string };
+
+type MockBlockRendererProps = {
+  blocks: MockBlock[];
+  getProductGridLoadMoreSignal?: (block: MockBlock, index: number) => number;
+  productGridLoadMoreSignal?: number;
+  renderAfterBlock?: (block: MockBlock, index: number) => React.ReactNode;
+};
+
+type MockProductGridCall = [
+  MockBlockRendererProps & {
+    blocks: [MockBlock];
+    productGridLoadMoreSignal: number;
+  },
+];
+
 const mockHeader = jest.fn(
   ({ isScrolled }: { isScrolled?: boolean }) => (
     <MockText testID="mock-header">Header {String(isScrolled)}</MockText>
   )
 );
 
-export const mockBlockRenderer = jest.fn(
-  ({
-    blocks,
-    productGridLoadMoreSignal,
-  }: {
-    blocks: Array<{ props?: { id?: string }; type: string }>;
-    productGridLoadMoreSignal?: number;
-  }) => (
-    <MockView testID="block-renderer">
-      <MockText>{blocks[0]?.type}</MockText>
-      <MockText>{String(productGridLoadMoreSignal ?? 0)}</MockText>
-    </MockView>
-  )
-);
+function getBlockLoadMoreSignal(
+  props: MockBlockRendererProps,
+  block: MockBlock,
+  index: number
+) {
+  if (block.type !== 'ProductGrid') return 0;
+  return (
+    props.getProductGridLoadMoreSignal?.(block, index) ??
+    props.productGridLoadMoreSignal ??
+    0
+  );
+}
+
+export const mockBlockRenderer = jest.fn((props: MockBlockRendererProps) => (
+  <>
+    {props.blocks.map((block, index) => (
+      <MockView
+        key={block.props?.id ?? `${block.type}-${index}`}
+        testID="block-renderer"
+      >
+        <MockText>{block.type}</MockText>
+        <MockText>{String(getBlockLoadMoreSignal(props, block, index))}</MockText>
+        {props.renderAfterBlock?.(block, index)}
+      </MockView>
+    ))}
+  </>
+));
 
 jest.mock('expo-image', () => ({
   Image: MockView,
@@ -81,10 +111,7 @@ jest.mock('@/components/OfflineNotice', () => ({
 }));
 
 jest.mock('@/components/storefront/BlockRenderer', () => ({
-  BlockRenderer: (props: {
-    blocks: Array<{ props?: { id?: string }; type: string }>;
-    productGridLoadMoreSignal?: number;
-  }) => mockBlockRenderer(props),
+  BlockRenderer: (props: MockBlockRendererProps) => mockBlockRenderer(props),
 }));
 
 jest.mock('@/components/storefront/Header', () => ({
@@ -156,8 +183,23 @@ jest.mock('@/lib/templates', () => ({
 }));
 
 export function getProductGridCalls() {
-  return mockBlockRenderer.mock.calls.filter(
-    ([props]) => props.blocks[0]?.type === 'ProductGrid'
+  return mockBlockRenderer.mock.calls.flatMap(([props]) =>
+    props.blocks.flatMap((block, index): MockProductGridCall[] => {
+      if (block.type !== 'ProductGrid') return [];
+      return [
+        [
+          {
+            ...props,
+            blocks: [block],
+            productGridLoadMoreSignal: getBlockLoadMoreSignal(
+              props,
+              block,
+              index
+            ),
+          },
+        ],
+      ];
+    })
   );
 }
 

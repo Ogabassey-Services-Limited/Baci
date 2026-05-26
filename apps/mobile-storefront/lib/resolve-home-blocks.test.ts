@@ -1,0 +1,91 @@
+import { describe, expect, it } from '@jest/globals';
+import { resolveHomeBlocks } from './resolve-home-blocks';
+
+describe('resolveHomeBlocks', () => {
+  it('returns default storefront blocks when saved content is invalid', () => {
+    const blocks = resolveHomeBlocks({ invalid: true }, false, false);
+
+    expect(blocks.map((block) => block.type)).toEqual([
+      'HeroCarousel',
+      'CategoryRail',
+      'ProductGrid',
+    ]);
+  });
+
+  it('inserts utility categories after an elite hero when absent', () => {
+    const blocks = resolveHomeBlocks(
+      [
+        { type: 'HeroCarousel', props: { id: 'hero' } },
+        { type: 'ProductGrid', props: { id: 'products' } },
+      ],
+      true,
+      false
+    );
+
+    expect(blocks.map((block) => block.props.id)).toEqual([
+      'hero',
+      'forced-categories',
+      'products',
+    ]);
+  });
+
+  it('keeps an existing elite category rail without injecting a duplicate', () => {
+    const blocks = resolveHomeBlocks(
+      [
+        { type: 'HeroCarousel', props: { id: 'hero' } },
+        { type: 'CategoryRail', props: { id: 'categories' } },
+        { type: 'ProductGrid', props: { id: 'products' } },
+      ],
+      true,
+      false
+    );
+
+    expect(
+      blocks
+        .filter((block) => block.type === 'CategoryRail')
+        .map((block) => block.props.id)
+    ).toEqual(['categories']);
+  });
+
+  it('places forced elite categories first when no hero is configured', () => {
+    const blocks = resolveHomeBlocks(
+      [{ type: 'ProductGrid', props: { id: 'products' } }],
+      true,
+      false
+    );
+
+    expect(blocks[0]?.props.id).toBe('forced-categories');
+  });
+
+  it('falls back to defaults for malformed persisted block properties', () => {
+    const blocks = resolveHomeBlocks(
+      [{ type: 'ProductGrid', props: null }],
+      false,
+      false
+    );
+
+    expect(blocks.map((block) => block.type)).toEqual([
+      'HeroCarousel',
+      'CategoryRail',
+      'ProductGrid',
+    ]);
+  });
+
+  it('falls back to defaults when a persisted block is missing props.id', () => {
+    const blocks = resolveHomeBlocks(
+      [{ type: 'ProductGrid', props: {} }],
+      false,
+      false
+    );
+
+    expect(blocks.map((block) => block.props.id)).toEqual([
+      'default-hero',
+      'default-categories',
+      'default-products',
+    ]);
+  });
+
+  it('withholds fallback blocks during the initial loading request', () => {
+    expect(resolveHomeBlocks(undefined, false, true)).toEqual([]);
+  });
+});
