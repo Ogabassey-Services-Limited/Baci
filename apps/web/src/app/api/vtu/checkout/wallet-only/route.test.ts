@@ -294,6 +294,39 @@ describe('POST /api/vtu/checkout/wallet-only', () => {
     expect(fromCalls.some((c) => c[0] === 'transactions')).toBe(false);
   });
 
+  it('returns stale data bundle errors as client-refresh 400s without error logging', async () => {
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    mockPrepare.mockRejectedValueOnce(
+      new Error(
+        'Data bundle not found for MTN at ₦3,500. Please refresh data bundles and select a package.'
+      )
+    );
+
+    const { status, body } = await callRoute(
+      makeRequest({
+        body: {
+          ...VALID_BODY,
+          amount: 3500,
+          walletAmount: 3500,
+          type: 'data',
+          dataPlanCode: 'MTN-35GB-MONTHLY',
+        },
+        idempotencyKey: VALID_KEY,
+      })
+    );
+
+    expect(status).toBe(400);
+    expect(body).toMatchObject({
+      error:
+        'Data bundle not found for MTN at ₦3,500. Please refresh data bundles and select a package.',
+    });
+    expect(mockFulfill).not.toHaveBeenCalled();
+    expect(consoleErrorSpy).not.toHaveBeenCalled();
+    consoleErrorSpy.mockRestore();
+  });
+
   it('idempotent replay: same Idempotency-Key returns the cached fulfillment, no new prepare', async () => {
     const state: IdempotencyRowState = {
       row: {
