@@ -1,6 +1,7 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, StyleSheet } from 'react-native';
+import { StorefrontScreenShell } from '@/components/storefront/StorefrontScreenShell';
 import { BRAND } from '@/constants/Colors';
 import { useTheme } from '@/hooks/useTheme';
 import { createLogger } from '@/lib/logger';
@@ -52,9 +53,11 @@ export default function AuthCallback() {
   }, [returnTo]);
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <StorefrontScreenShell
+      style={[styles.container, { backgroundColor: colors.background }]}
+    >
       <ActivityIndicator size="large" color={BRAND.primary} />
-    </View>
+    </StorefrontScreenShell>
   );
 }
 
