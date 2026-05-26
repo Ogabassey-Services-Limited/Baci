@@ -9,6 +9,7 @@ import {
   Star,
   Truck,
 } from 'lucide-react';
+import type { Route } from 'next';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -49,7 +50,7 @@ export function CustomerOrderDetailsContent({
   basePath,
   merchantSlug,
 }: CustomerOrderDetailsContentProps) {
-  const getHref = (path: string) => `${basePath}${path}`;
+  const getHref = (path: string): string => `${basePath}${path}`;
   const currency = order.currency || 'NGN';
   const documentLabel =
     order.current_document_kind === 'receipt'
@@ -57,9 +58,11 @@ export function CustomerOrderDetailsContent({
       : 'Download Invoice';
   const documentHref = `/api/storefront/account/orders/${order.id}/${order.current_document_kind}?merchantSlug=${encodeURIComponent(merchantSlug)}`;
   const firstItem = order.items[0];
-  const buyAgainHref = firstItem?.product_id
-    ? asRoute(getHref(`/products/${firstItem.product_id}`))
-    : null;
+  let buyAgainHref: Route | null = null;
+  if (firstItem?.product_id) {
+    const productPath: string = `/products/${firstItem.product_id}`;
+    buyAgainHref = asRoute(getHref(productPath));
+  }
   const shouldShowRiderContact =
     canShowStorefrontRiderContact(order.shipping_status) &&
     Boolean(order.rider_phone_number);

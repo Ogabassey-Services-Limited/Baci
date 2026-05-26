@@ -16,6 +16,10 @@ const rpcSql = readFileSync(
   resolve(migrationsDirectory, '20260516084622_quiz_phase1a_rpcs.sql'),
   'utf8'
 );
+const merchantAuthoringSql = readFileSync(
+  resolve(migrationsDirectory, '20260526150000_quiz_merchant_authoring.sql'),
+  'utf8'
+);
 
 describe('quiz migration RLS contracts', () => {
   it('scopes leaderboard refresh log reads to the authenticated customer merchant', () => {
@@ -36,5 +40,29 @@ describe('quiz migration RLS contracts', () => {
     expect(eventFinalizerSql).toMatch(/status\s*=\s*'completed'/i);
     expect(eventFinalizerSql).toMatch(/ends_at\s+<=\s+pg_catalog\.now\(\)/i);
     expect(eventFinalizerSql).toMatch(/award_finalized_at\s+IS\s+NULL/i);
+  });
+
+  it('allows authenticated merchant owners and staff to author quiz events without exposing answers', () => {
+    expect(merchantAuthoringSql).toMatch(
+      /GRANT\s+INSERT,\s+UPDATE\s+ON\s+public\.quiz_events\s+TO\s+authenticated/i
+    );
+    expect(merchantAuthoringSql).toMatch(
+      /CREATE\s+POLICY\s+quiz_events_merchant_author_write[\s\S]*public\.has_merchant_access\(merchant_id\)/i
+    );
+    expect(merchantAuthoringSql).toMatch(
+      /CREATE\s+POLICY\s+quiz_events_merchant_author_read[\s\S]*FOR\s+SELECT[\s\S]*public\.has_merchant_access\(merchant_id\)/i
+    );
+    expect(merchantAuthoringSql).toMatch(
+      /CREATE\s+POLICY\s+quiz_slots_merchant_author_write[\s\S]*public\.has_merchant_access\([\s\S]*quiz_events\.merchant_id/i
+    );
+    expect(merchantAuthoringSql).toMatch(
+      /CREATE\s+POLICY\s+quiz_slots_merchant_author_read[\s\S]*FOR\s+SELECT[\s\S]*public\.has_merchant_access\([\s\S]*quiz_events\.merchant_id/i
+    );
+    expect(merchantAuthoringSql).toMatch(
+      /CREATE\s+POLICY\s+quiz_variants_merchant_author_write[\s\S]*public\.has_merchant_access\([\s\S]*quiz_events\.merchant_id/i
+    );
+    expect(merchantAuthoringSql).not.toMatch(
+      /GRANT\s+SELECT\s*\([^)]*answer_key_hash/i
+    );
   });
 });
