@@ -1,6 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
-import { TextInput as NativeTextInput } from 'react-native';
 import { FilterSheet } from './FilterSheet';
 
 jest.mock('@react-native-vector-icons/ionicons', () => {
@@ -78,7 +77,7 @@ describe('FilterSheet', () => {
     );
 
     expect(screen.getByLabelText('Min Price')).toBeOnTheScreen();
-    expect(NativeTextInput.State.currentlyFocusedInput()).toBeNull();
+    expect(screen.getByLabelText('Min Price')).not.toHaveFocus();
   });
 
   it('normalizes invalid and reversed price inputs before applying', () => {
