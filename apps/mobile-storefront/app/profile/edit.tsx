@@ -13,9 +13,7 @@ import { useRequireAuth } from '@/hooks/use-auth-guard';
 import { type ProfileFormData, ProfileSchema } from '@/schemas/profile-edit';
 import { useAuthStore } from '@/stores/auth-store';
 
-const profileResolver = zodResolver(
-  ProfileSchema as unknown as Parameters<typeof zodResolver>[0]
-) as unknown as Resolver<ProfileFormData>;
+const profileResolver: Resolver<ProfileFormData> = zodResolver(ProfileSchema);
 
 export default function ProfileEditScreen() {
   const colorScheme = useColorScheme();
@@ -53,7 +51,7 @@ export default function ProfileEditScreen() {
 
       if (result.success) {
         toast.success('Profile updated successfully');
-        setTimeout(() => router.back(), 500);
+        router.back();
       } else {
         toast.error(result.error || 'Failed to update profile');
       }

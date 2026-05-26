@@ -83,4 +83,16 @@ describe('ProfileEditView', () => {
       screen.getByRole('button', { name: 'Save Changes' })
     ).toHaveAccessibilityState({ disabled: true });
   });
+
+  it('disables the save action while the form is pristine', () => {
+    render(<ProfileEditViewHarness isDirty={false} isSubmitting={false} />);
+
+    const saveAction = screen.getByRole('button', { name: 'Save Changes' });
+
+    expect(saveAction).toHaveAccessibilityState({ disabled: true });
+
+    fireEvent.press(saveAction);
+
+    expect(mockSave).not.toHaveBeenCalled();
+  });
 });
