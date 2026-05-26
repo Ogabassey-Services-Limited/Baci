@@ -19,6 +19,13 @@ describe('OgaBassey PDP product media config', () => {
     expect(
       ogabasseyPdpPrimaryImageLoader({
         src: 'https://cdn.ogabassey.com/products/phone.jpg',
+        width: 640,
+        quality: 35,
+      }),
+    ).toContain('/image/width=640,quality=35,format=auto/products/phone.jpg');
+    expect(
+      ogabasseyPdpPrimaryImageLoader({
+        src: 'https://cdn.ogabassey.com/products/phone.jpg',
         width: 1080,
         quality: 35,
       }),
