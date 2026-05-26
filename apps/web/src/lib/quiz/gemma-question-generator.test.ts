@@ -1,0 +1,319 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  generateQuizQuestionsWithGemma,
+  QuizQuestionGenerationUnavailableError,
+} from '@/lib/quiz/gemma-question-generator';
+
+const mockGetLlmServerUrl = vi.fn();
+const mockGetLlmServerBearer = vi.fn();
+const mockGetLlmChatModel = vi.fn();
+
+vi.mock('@/env', () => ({
+  getLlmChatModel: () => mockGetLlmChatModel(),
+  getLlmServerBearer: () => mockGetLlmServerBearer(),
+  getLlmServerUrl: () => mockGetLlmServerUrl(),
+}));
+
+const VALID_BEARER = 'quiz-bearer-token';
+
+describe('generateQuizQuestionsWithGemma', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetLlmServerUrl.mockReturnValue('https://llm.example.com/v1');
+    mockGetLlmServerBearer.mockReturnValue(VALID_BEARER);
+    mockGetLlmChatModel.mockReturnValue('gemma4:e4b');
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('asks the VPS Gemma chat-completions endpoint for strict quiz JSON', async () => {
+    const mockFetch = vi.fn().mockResolvedValue(
+      Response.json({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                questions: [
+                  {
+                    correctOptionId: 'b',
+                    difficulty: 'standard',
+                    explanation: 'USB-C arrived on the iPhone 15 family.',
+                    options: [
+                      { id: 'a', label: 'iPhone 13' },
+                      { id: 'b', label: 'iPhone 15' },
+                      { id: 'c', label: 'iPhone 12' },
+                    ],
+                    prompt: 'Which iPhone model introduced USB-C?',
+                    topic: 'iPhone buying advice',
+                  },
+                ],
+              }),
+            },
+          },
+        ],
+      })
+    );
+    vi.stubGlobal('fetch', mockFetch);
+
+    const questions = await generateQuizQuestionsWithGemma({
+      difficulty: 'standard',
+      merchantName: 'Ogabassey',
+      questionCountPerTopic: 1,
+      topics: ['iPhone buying advice'],
+    });
+
+    expect(questions).toEqual([
+      {
+        correctOptionId: 'b',
+        difficulty: 'standard',
+        explanation: 'USB-C arrived on the iPhone 15 family.',
+        options: [
+          { id: 'a', label: 'iPhone 13' },
+          { id: 'b', label: 'iPhone 15' },
+          { id: 'c', label: 'iPhone 12' },
+        ],
+        prompt: 'Which iPhone model introduced USB-C?',
+        topic: 'iPhone buying advice',
+      },
+    ]);
+    expect(mockFetch).toHaveBeenCalledWith(
+      'https://llm.example.com/v1/chat/completions',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          Authorization: `Bearer ${VALID_BEARER}`,
+          'Content-Type': 'application/json',
+        }),
+      })
+    );
+
+    const body = JSON.parse(String(mockFetch.mock.calls[0][1]?.body));
+    expect(body).toMatchObject({
+      max_tokens: 2400,
+      model: 'gemma4:e4b',
+      response_format: { type: 'json_object' },
+      stream: false,
+      temperature: 0.35,
+    });
+    expect(body.messages[0].role).toBe('system');
+    expect(body.messages[0].content).toContain('quiz question writer');
+    expect(body.messages[0].content).toContain('Options must be objects');
+    expect(body.messages[1].content).toContain('Ogabassey');
+    expect(body.messages[1].content).toContain('iPhone buying advice');
+    expect(body.messages[1].content).toContain('requiredJsonShape');
+    expect(JSON.parse(body.messages[1].content)).not.toHaveProperty(
+      'productContext'
+    );
+  });
+
+  it('normalizes Ollama Gemma option strings and numeric answer ordinals', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        Response.json({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  questions: [
+                    {
+                      correctOptionId: 2,
+                      difficulty: 'standard',
+                      explanation:
+                        'Battery and ports are the functional checks.',
+                      options: [
+                        'Checking cosmetic condition',
+                        'Testing battery health and ports',
+                        'Checking the original box',
+                        'Comparing online listings',
+                      ],
+                      prompt:
+                        'When buying a used iPhone, what is the most important functional check?',
+                      topic: 'iPhone buying advice',
+                    },
+                  ],
+                }),
+              },
+            },
+          ],
+        })
+      )
+    );
+
+    await expect(
+      generateQuizQuestionsWithGemma({
+        difficulty: 'standard',
+        merchantName: 'Ogabassey',
+        questionCountPerTopic: 1,
+        topics: ['iPhone buying advice'],
+      })
+    ).resolves.toEqual([
+      {
+        correctOptionId: 'b',
+        difficulty: 'standard',
+        explanation: 'Battery and ports are the functional checks.',
+        options: [
+          { id: 'a', label: 'Checking cosmetic condition' },
+          { id: 'b', label: 'Testing battery health and ports' },
+          { id: 'c', label: 'Checking the original box' },
+          { id: 'd', label: 'Comparing online listings' },
+        ],
+        prompt:
+          'When buying a used iPhone, what is the most important functional check?',
+        topic: 'iPhone buying advice',
+      },
+    ]);
+  });
+
+  it('scales the completion token budget for larger quiz batches', async () => {
+    const mockFetch = vi.fn().mockResolvedValue(
+      Response.json({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                questions: [
+                  {
+                    correctOptionId: 'a',
+                    difficulty: 'hard',
+                    explanation: 'OLED panels provide stronger contrast.',
+                    options: [
+                      { id: 'a', label: 'OLED display' },
+                      { id: 'b', label: 'Plastic shell' },
+                    ],
+                    prompt: 'Which display technology improves contrast?',
+                    topic: 'Phone displays',
+                  },
+                ],
+              }),
+            },
+          },
+        ],
+      })
+    );
+    vi.stubGlobal('fetch', mockFetch);
+
+    await generateQuizQuestionsWithGemma({
+      difficulty: 'hard',
+      merchantName: 'Ogabassey',
+      questionCountPerTopic: 5,
+      topics: [
+        'Phone displays',
+        'Battery health',
+        'Camera lenses',
+        'Charging ports',
+        'Warranty checks',
+        'Storage tiers',
+        'Processor models',
+        'Network bands',
+        'Operating systems',
+        'Accessory bundles',
+      ],
+    });
+
+    const body = JSON.parse(String(mockFetch.mock.calls[0][1]?.body));
+    expect(body.max_tokens).toBe(8192);
+  });
+
+  it('fails closed before fetch when the Gemma VPS endpoint is not configured', async () => {
+    const mockFetch = vi.fn();
+    vi.stubGlobal('fetch', mockFetch);
+    mockGetLlmServerUrl.mockReturnValue(undefined);
+
+    await expect(
+      generateQuizQuestionsWithGemma({
+        difficulty: 'standard',
+        merchantName: 'Ogabassey',
+        questionCountPerTopic: 1,
+        topics: ['Android buying advice'],
+      })
+    ).rejects.toBeInstanceOf(QuizQuestionGenerationUnavailableError);
+
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('fails closed before fetch when the Gemma bearer token is missing or invalid', async () => {
+    const mockFetch = vi.fn();
+    vi.stubGlobal('fetch', mockFetch);
+    mockGetLlmServerBearer.mockReturnValue('Bearer');
+
+    await expect(
+      generateQuizQuestionsWithGemma({
+        difficulty: 'standard',
+        merchantName: 'Ogabassey',
+        questionCountPerTopic: 1,
+        topics: ['Android buying advice'],
+      })
+    ).rejects.toBeInstanceOf(QuizQuestionGenerationUnavailableError);
+
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('surfaces non-ok Gemma responses with the upstream status', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(Response.json({}, { status: 500 }))
+    );
+
+    await expect(
+      generateQuizQuestionsWithGemma({
+        difficulty: 'standard',
+        merchantName: 'Ogabassey',
+        questionCountPerTopic: 1,
+        topics: ['Android buying advice'],
+      })
+    ).rejects.toThrow('Gemma quiz generation failed with 500');
+  });
+
+  it('rejects empty or invalid Gemma quiz JSON', async () => {
+    const input = {
+      difficulty: 'standard' as const,
+      merchantName: 'Ogabassey',
+      questionCountPerTopic: 1,
+      topics: ['Android buying advice'],
+    };
+
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValue(
+          Response.json({ choices: [{ message: { content: '' } }] })
+        )
+    );
+    await expect(generateQuizQuestionsWithGemma(input)).rejects.toThrow(
+      'Gemma returned an empty quiz generation response'
+    );
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        Response.json({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  questions: [
+                    {
+                      correctOptionId: 'z',
+                      difficulty: 'standard',
+                      explanation: 'Invalid answer key.',
+                      options: [{ id: 'a', label: 'iPhone 15' }],
+                      prompt: 'Which model supports USB-C?',
+                      topic: 'iPhone buying advice',
+                    },
+                  ],
+                }),
+              },
+            },
+          ],
+        })
+      )
+    );
+    await expect(generateQuizQuestionsWithGemma(input)).rejects.toThrow(
+      'Gemma returned invalid quiz question JSON'
+    );
+  });
+});

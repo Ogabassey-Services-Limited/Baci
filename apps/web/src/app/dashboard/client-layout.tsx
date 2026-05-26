@@ -23,6 +23,7 @@ import {
   Settings,
   ShoppingCart,
   Store,
+  Trophy,
   UploadCloud,
   User,
   UserCog,
@@ -167,10 +168,14 @@ const StoreLink = ({
       return false;
     }
   })();
+  let safeHref: Route = asRoute('/');
+  if (isSafeUrl) {
+    safeHref = asRoute(storeUrl);
+  }
 
   return (
     <Link
-      href={isSafeUrl ? asRoute(storeUrl) : asRoute('/')}
+      href={safeHref}
       className={cn(baseClassName, 'transition-all hover:text-primary')}
     >
       {isCollapsed && !isMobile ? (
@@ -359,6 +364,11 @@ export default function DashboardClientLayout({
       label: 'Loyalty',
     },
     {
+      href: '/dashboard/quiz' as Route,
+      icon: Trophy,
+      label: 'Quiz',
+    },
+    {
       href: '/dashboard/santa' as Route,
       icon: MessageCircle,
       label: 'Santa Campaign',
@@ -449,6 +459,7 @@ export default function DashboardClientLayout({
       Customers: 'customers',
       Staff: 'staff',
       Loyalty: 'marketing', // Loyalty is part of marketing permissions
+      Quiz: 'marketing',
       'Santa Campaign': 'marketing',
       Wallet: 'wallet', // Assuming wallet exists, check role_permissions
       SEO: 'marketing',
