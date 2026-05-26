@@ -66,4 +66,19 @@ describe('legacy terms-of-service redirect', () => {
     expect(permanentRedirect).toHaveBeenCalledWith('/terms?utm_source=email');
     expect(mockConnection).toHaveBeenCalledOnce();
   });
+
+  it('surfaces connection failures to the route boundary', async () => {
+    mockConnection.mockRejectedValueOnce(new Error('Connection failed'));
+    vi.mocked(headers).mockResolvedValue(new Headers());
+
+    await expect(
+      LegacyTermsOfServicePage({
+        params: Promise.resolve({ slug: 'ogabassey' }),
+        searchParams: Promise.resolve({}),
+      })
+    ).rejects.toThrow('Connection failed');
+
+    expect(permanentRedirect).not.toHaveBeenCalled();
+    expect(mockConnection).toHaveBeenCalledOnce();
+  });
 });
