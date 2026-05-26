@@ -33,9 +33,13 @@ export interface CreditDirectCheckoutConfig {
   signature: string;
   transaction: CreditDirectTransaction;
   isLive: boolean;
-  onSuccess: () => void;
-  onClose: () => void;
-  onPopup: (response: { checkoutTransactionId: string }) => void;
+  onSuccess?: (response?: CreditDirectCheckoutSuccessPayload) => void;
+  onClose?: () => void;
+  onPopup?: (response?: CreditDirectCheckoutSuccessPayload) => void;
+}
+
+export interface CreditDirectCheckoutSuccessPayload {
+  checkoutTransactionId?: string;
 }
 
 export interface CreditDirectWebhookPayload {
@@ -201,9 +205,9 @@ export function buildCheckoutConfig(params: {
   signature: string;
   transaction: CreditDirectTransaction;
   isLive: boolean;
-  onSuccess?: () => void;
+  onSuccess?: (response?: CreditDirectCheckoutSuccessPayload) => void;
   onClose?: () => void;
-  onPopup?: (response: { checkoutTransactionId: string }) => void;
+  onPopup?: (response?: CreditDirectCheckoutSuccessPayload) => void;
 }): CreditDirectCheckoutConfig {
   return {
     publicKey: params.publicKey,

@@ -253,10 +253,15 @@ export function BnplLauncher() {
                 setStatus('processing');
 
                 if (gateway === 'credit_direct') {
+                    const normalizedAmount = Number(order.total);
+                    if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) {
+                        throw new Error('Invalid order total for Credit Direct checkout.');
+                    }
+
                     await openCreditDirectCheckout({
-                        merchantSlug: merchant?.slug || 'ogabassey',
+                        merchantSlug: slug,
                         orderId: order.id,
-                        amount: order.total,
+                        amount: normalizedAmount,
                         customerEmail: order.customer_email,
                         customerPhone: order.customer_phone || '',
                         customerName: order.customer_name,
@@ -284,6 +289,23 @@ export function BnplLauncher() {
                                 successQuery.set('trackingToken', order.tracking_token);
                             }
                             router.push(`/order-success?${successQuery.toString()}`);
+                        },
+                        onPopup: async (transactionId) => {
+                            try {
+                                await apiPost('/api/orders/update-payment-ref', {
+                                    gateway: 'credit_direct',
+                                    orderId: order.id,
+                                    paymentRef: transactionId,
+                                    ...(order.tracking_token && {
+                                        tracking_token: order.tracking_token,
+                                    }),
+                                });
+                            } catch (error) {
+                                console.error(
+                                    'Failed to persist Credit Direct popup reference:',
+                                    error instanceof Error ? error.message : error
+                                );
+                            }
                         },
                         onClose: () => {
                             setStatus('error');

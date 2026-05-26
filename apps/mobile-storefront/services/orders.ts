@@ -159,6 +159,35 @@ export class OrderError extends Error {
   }
 }
 
+const ORDER_VALIDATION_ERROR_MESSAGES: Record<string, string> = {
+  insufficient_stock:
+    'This item is no longer available in the selected quantity. Please update your cart and try again.',
+  insufficient_variant_stock:
+    'This item is no longer available in the selected option. Please update your cart and try again.',
+  invalid_items: 'One or more cart items are no longer available.',
+  order_total_mismatch:
+    'Your cart total changed. Please review your order and try again.',
+  shipping_quote_required:
+    'Delivery pricing changed. Please return to delivery and select a shipping option again.',
+  tax_amount_mismatch:
+    'Your order total changed. Please review your order and try again.',
+};
+
+function readResponseString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim().length > 0
+    ? value.trim()
+    : undefined;
+}
+
+function getValidationErrorMessage(error: string, details: unknown): string {
+  const detailCode = readResponseString(details);
+  if (detailCode && ORDER_VALIDATION_ERROR_MESSAGES[detailCode]) {
+    return ORDER_VALIDATION_ERROR_MESSAGES[detailCode];
+  }
+
+  return ORDER_VALIDATION_ERROR_MESSAGES[error] ?? error;
+}
+
 /**
  * Check network connectivity before making API calls
  * 2026 Best Practice: Always verify network before mutations
@@ -316,9 +345,14 @@ export async function createOrder(
 
     // 6. Handle HTTP errors (4xx errors are not retried, handle them here)
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
+      const errorData = (await response.json().catch(() => ({}))) as {
+        code?: unknown;
+        details?: unknown;
+        error?: unknown;
+      };
       const errorMessage =
-        errorData.error || `Order creation failed (${response.status})`;
+        readResponseString(errorData.error) ||
+        `Order creation failed (${response.status})`;
 
       trackError('order_creation_failed', errorMessage, {
         status: response.status,
@@ -326,10 +360,11 @@ export async function createOrder(
       });
 
       if (response.status === 400) {
+        const details = errorData.details ?? errorData.code;
         throw new OrderError(
-          errorMessage,
+          getValidationErrorMessage(errorMessage, details),
           'VALIDATION_ERROR',
-          errorData.details
+          details
         );
       } else if (response.status === 401) {
         throw new OrderError(
