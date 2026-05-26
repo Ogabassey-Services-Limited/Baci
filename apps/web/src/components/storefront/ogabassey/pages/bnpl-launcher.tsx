@@ -254,9 +254,9 @@ export function BnplLauncher() {
 
                 if (gateway === 'credit_direct') {
                     await openCreditDirectCheckout({
-                        merchantSlug: merchant?.slug || 'ogabassey',
+                        merchantSlug: slug,
                         orderId: order.id,
-                        amount: order.total,
+                        amount: Number(order.total),
                         customerEmail: order.customer_email,
                         customerPhone: order.customer_phone || '',
                         customerName: order.customer_name,
@@ -284,6 +284,23 @@ export function BnplLauncher() {
                                 successQuery.set('trackingToken', order.tracking_token);
                             }
                             router.push(`/order-success?${successQuery.toString()}`);
+                        },
+                        onPopup: async (transactionId) => {
+                            try {
+                                await apiPost('/api/orders/update-payment-ref', {
+                                    gateway: 'credit_direct',
+                                    orderId: order.id,
+                                    paymentRef: transactionId,
+                                    ...(order.tracking_token && {
+                                        tracking_token: order.tracking_token,
+                                    }),
+                                });
+                            } catch (error) {
+                                console.error(
+                                    'Failed to persist Credit Direct popup reference:',
+                                    error instanceof Error ? error.message : error
+                                );
+                            }
                         },
                         onClose: () => {
                             setStatus('error');

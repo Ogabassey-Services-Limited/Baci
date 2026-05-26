@@ -154,6 +154,83 @@ describe('BnplLauncher', () => {
     });
   });
 
+  it('normalizes string order totals before signing Credit Direct checkout', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          id: 'order-1',
+          tracking_token: 'track-order-token',
+          total: '349613.00',
+          customer_email: 'customer@example.com',
+          customer_phone: '08012345678',
+          customer_name: 'John Doe',
+          items: [
+            {
+              product_id: 'product-1',
+              name: 'Capsule',
+              price: 349613,
+              quantity: 1,
+            },
+          ],
+        }),
+      })
+    );
+    mockOpenCreditDirectCheckout.mockResolvedValue(undefined);
+
+    render(<BnplLauncher />);
+
+    await waitFor(() => {
+      expect(mockOpenCreditDirectCheckout).toHaveBeenCalledWith(
+        expect.objectContaining({ amount: 349613 })
+      );
+    });
+  });
+
+  it('stores Credit Direct popup transaction ids with the public tracking token', async () => {
+    mockOpenCreditDirectCheckout.mockImplementation(({ onPopup }) => {
+      onPopup('cd-popup-transaction-1');
+      return Promise.resolve();
+    });
+
+    render(<BnplLauncher />);
+
+    await waitFor(() => {
+      expect(mockApiPost).toHaveBeenCalledWith(
+        '/api/orders/update-payment-ref',
+        {
+          gateway: 'credit_direct',
+          orderId: 'order-1',
+          paymentRef: 'cd-popup-transaction-1',
+          tracking_token: 'track-order-token',
+        }
+      );
+    });
+  });
+
+  it('logs and continues when Credit Direct popup reference persistence fails', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mockApiPost.mockRejectedValueOnce(new Error('Update failed'));
+    mockOpenCreditDirectCheckout.mockImplementation(({ onPopup }) => {
+      onPopup('cd-popup-transaction-1');
+      return Promise.resolve();
+    });
+
+    try {
+      render(<BnplLauncher />);
+
+      await waitFor(() => {
+        expect(errorSpy).toHaveBeenCalledWith(
+          'Failed to persist Credit Direct popup reference:',
+          'Update failed'
+        );
+      });
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
   it('preserves trackingToken when redirecting after CredPal success', async () => {
     mockSearchParams.mockReturnValue(
       new URLSearchParams({
