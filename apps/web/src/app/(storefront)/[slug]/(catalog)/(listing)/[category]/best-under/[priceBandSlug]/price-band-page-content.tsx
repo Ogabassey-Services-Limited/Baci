@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { ProductIndexCard } from '@/app/(storefront)/[slug]/(catalog)/products/product-index-card';
+import { ProductIndexCard } from '@/app/(storefront)/[slug]/(catalog)/(listing)/products/product-index-card';
 import type { NormalizedProduct } from '@/lib/normalize-product';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import { buildPriceBandPageSchemas } from '@/lib/storefront-compare/compare-schema';

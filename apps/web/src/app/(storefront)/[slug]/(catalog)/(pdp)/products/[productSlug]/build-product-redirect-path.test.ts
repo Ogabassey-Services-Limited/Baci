@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { buildProductRedirectPath } from '@/app/(storefront)/[slug]/(catalog)/products/[productSlug]/build-product-redirect-path';
+import { buildProductRedirectPath } from '@/app/(storefront)/[slug]/(catalog)/(pdp)/products/[productSlug]/build-product-redirect-path';
 
 describe('buildProductRedirectPath', () => {
   beforeEach(() => {

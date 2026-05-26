@@ -302,7 +302,7 @@ vi.mock('./default-product-detail-client', () => ({
 }));
 
 vi.mock(
-  '@/app/(storefront)/[slug]/(catalog)/products/[productSlug]/product-detail-client',
+  '@/app/(storefront)/[slug]/(catalog)/(pdp)/products/[productSlug]/product-detail-client',
   () => ({
     default: (props: unknown) => {
       mockProductDetailClient(props);
@@ -1371,13 +1371,13 @@ describe('[category]/[productSlug] page render', () => {
     const routeSource = readFileSync(
       join(
         process.cwd(),
-        'src/app/(storefront)/[slug]/(catalog)/[category]/[productSlug]/page.tsx'
+        'src/app/(storefront)/[slug]/(catalog)/(pdp)/[category]/[productSlug]/page.tsx'
       ),
       { encoding: 'utf8' }
     );
 
     expect(routeSource).not.toContain(
-      "import ProductDetailClient from '@/app/(storefront)/[slug]/(catalog)/products/[productSlug]/product-detail-client'"
+      "import ProductDetailClient from '@/app/(storefront)/[slug]/(catalog)/(pdp)/products/[productSlug]/product-detail-client'"
     );
   });
 
