@@ -52,7 +52,6 @@ export function useProductPickerVariants(parentProduct: SelectedParentProduct) {
       });
     },
     enabled: Boolean(parentProduct?.id && merchantId),
-    staleTime: 1000 * 60 * 5, // 5 minutes
   });
 }
 

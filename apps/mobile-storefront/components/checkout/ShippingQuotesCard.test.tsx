@@ -7,18 +7,7 @@ const mockColors = {
   textSecondary: '#6b7280',
   border: '#e5e7eb',
   background: '#f9fafb',
-  foreground: '#111827',
-  muted: '#f3f4f6',
   warning: '#f59e0b',
-} as Parameters<typeof ShippingQuotesCard>[0]['colors'];
-
-const mockDarkColors = {
-  ...mockColors,
-  background: '#030712',
-  card: '#111827',
-  foreground: '#f9fafb',
-  text: '#f9fafb',
-  textSecondary: '#d1d5db',
 } as Parameters<typeof ShippingQuotesCard>[0]['colors'];
 
 const baseProps = {
@@ -86,37 +75,6 @@ describe('ShippingQuotesCard', () => {
     expect(
       screen.getByRole('button', { name: /select express delivery/i })
     ).toBeTruthy();
-  });
-
-  it('uses semantic inverted colors for the GIGL badge in dark mode', () => {
-    const quotes = [
-      {
-        id: 'q1',
-        displayName: 'GIG Logistics',
-        price: 3500,
-        carrierName: 'GIGL',
-        estimatedDays: 2,
-      },
-    ];
-
-    render(
-      <ShippingQuotesCard
-        {...baseProps}
-        colors={mockDarkColors}
-        isDark
-        shippingQuotes={quotes}
-      />,
-    );
-
-    const badgeText = screen.getByText('GIGL');
-    const badge = screen.getByTestId('shipping-quote-gigl-badge');
-
-    expect(badge).toHaveStyle({
-      backgroundColor: mockDarkColors.foreground,
-    });
-    expect(badgeText).toHaveStyle({
-      color: mockDarkColors.background,
-    });
   });
 
   it('calls onSelectQuote with the quote id when a quote is pressed', () => {

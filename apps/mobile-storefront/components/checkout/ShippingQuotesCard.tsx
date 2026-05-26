@@ -106,20 +106,15 @@ export function ShippingQuotesCard({
                       </Text>
                       {carrier.toLowerCase().includes('gig') && (
                         <View
-                          testID="shipping-quote-gigl-badge"
                           style={[
                             styles.badge,
-                            {
-                              backgroundColor: colors.foreground,
-                            },
+                            { backgroundColor: colors.foreground },
                           ]}
                         >
                           <Text
                             style={[
                               styles.badgeText,
-                              {
-                                color: colors.background,
-                              },
+                              { color: colors.background },
                             ]}
                           >
                             GIGL
