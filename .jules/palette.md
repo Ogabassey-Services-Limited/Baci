@@ -58,3 +58,6 @@
 ## 2025-05-25 - Interactive Press Feedback and Keyboard Refinements
 **Learning:** In Expo/React Native apps within the Baci monorepo, many `Pressable` components acting as buttons or interactive cards are missing visual feedback when pressed, which makes the app feel unresponsive. Additionally, form inputs like Amount and Notes may lack `returnKeyType` configurations that improve keyboard UX.
 **Action:** When creating or modifying interactive `Pressable` elements, consistently apply the `({ pressed }) => [...]` function pattern to the style prop to provide dynamic visual feedback such as opacity changes. Add `returnKeyType="done"` to form `TextInput`s where appropriate.
+## 2026-05-26 - Missing Interactive Press Feedback on Cart Items
+**Learning:** Several interactive elements within complex components like `CartItemCard` (e.g., product image containers, quantity adjustment buttons, remove buttons) used `Pressable` but failed to utilize the dynamic `style={({ pressed }) => [...]}` pattern, resulting in a lack of visual feedback during user interaction.
+**Action:** When creating or modifying `Pressable` components, particularly in highly interactive areas like the cart, ensure visual feedback is provided by adopting the dynamic style pattern and applying an opacity or background change when `pressed` is true.

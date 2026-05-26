@@ -1,9 +1,10 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { router } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
 import { SafeImage } from '@/components/ui/SafeImage';
 import { DEFAULT_ASSURANCE_RATE } from '@/constants/assurance';
-import Colors, { BRAND } from '@/constants/Colors';
+import type Colors from '@/constants/Colors';
+import { BRAND } from '@/constants/Colors';
 import { PLACEHOLDER_IMAGE_URL } from '@/constants/Images';
 import { resolveColorSwatchValue } from '@/lib/cart-display';
 import type { CartItem } from '@/stores/cart-store';
@@ -49,7 +50,9 @@ export default function CartItemCard({
     ? Math.round(itemTotal * (item.assuranceRate ?? DEFAULT_ASSURANCE_RATE))
     : 0;
   const colorText =
-    item.color ?? item.variant_attributes?.color ?? item.variant_attributes?.colour;
+    item.color ??
+    item.variant_attributes?.color ??
+    item.variant_attributes?.colour;
   const colorSwatchValue = colorText
     ? resolveColorSwatchValue(colorText)
     : undefined;
@@ -63,12 +66,13 @@ export default function CartItemCard({
     >
       <View style={styles.cardTop}>
         <Pressable
-          style={[
+          style={({ pressed }) => [
             styles.imageContainer,
             {
               backgroundColor: surfaceInset,
               borderColor: colors.border,
             },
+            pressed && { opacity: 0.7 },
           ]}
           onPress={() => router.push(`/product/${item.slug}`)}
           accessibilityRole="button"
@@ -84,7 +88,10 @@ export default function CartItemCard({
         </Pressable>
 
         <View style={styles.productInfo}>
-          <Text style={[styles.productName, { color: colors.text }]} numberOfLines={2}>
+          <Text
+            style={[styles.productName, { color: colors.text }]}
+            numberOfLines={2}
+          >
             {item.name}
           </Text>
 
@@ -139,7 +146,9 @@ export default function CartItemCard({
                     },
                   ]}
                 />
-                <Text style={[styles.colorTagText, { color: colors.textSecondary }]}>
+                <Text
+                  style={[styles.colorTagText, { color: colors.textSecondary }]}
+                >
                   {colorText}
                 </Text>
               </View>
@@ -154,7 +163,12 @@ export default function CartItemCard({
                   },
                 ]}
               >
-                <Text style={[styles.storageTagText, { color: colors.textSecondary }]}>
+                <Text
+                  style={[
+                    styles.storageTagText,
+                    { color: colors.textSecondary },
+                  ]}
+                >
                   {item.storage}
                 </Text>
               </View>
@@ -163,7 +177,10 @@ export default function CartItemCard({
         </View>
 
         <Pressable
-          style={styles.removeButton}
+          style={({ pressed }) => [
+            styles.removeButton,
+            pressed && { opacity: 0.7 },
+          ]}
           onPress={() => handleRemoveItem(item)}
           hitSlop={12}
           accessibilityRole="button"
@@ -186,7 +203,10 @@ export default function CartItemCard({
           ]}
         >
           <Pressable
-            style={styles.quantityButton}
+            style={({ pressed }) => [
+              styles.quantityButton,
+              pressed && { opacity: 0.7 },
+            ]}
             onPress={() => handleQuantityChange(item, -1)}
             disabled={item.quantity <= 1}
             accessibilityRole="button"
@@ -206,7 +226,10 @@ export default function CartItemCard({
             onChange={(newQuantity) => updateQuantity(item.id, newQuantity)}
           />
           <Pressable
-            style={styles.quantityButton}
+            style={({ pressed }) => [
+              styles.quantityButton,
+              pressed && { opacity: 0.7 },
+            ]}
             onPress={() => handleQuantityChange(item, 1)}
             accessibilityRole="button"
             accessibilityLabel={`Increase quantity for ${item.name}`}
@@ -218,7 +241,9 @@ export default function CartItemCard({
         <View style={styles.priceContainer}>
           {item.negotiatedPrice ? (
             <>
-              <Text style={[styles.originalPrice, { color: colors.textSecondary }]}>
+              <Text
+                style={[styles.originalPrice, { color: colors.textSecondary }]}
+              >
                 {formatPrice(item.price * item.quantity)}
               </Text>
               <Text style={[styles.negotiatedPrice, { color: colors.success }]}>
@@ -233,7 +258,9 @@ export default function CartItemCard({
         </View>
       </View>
 
-      <View style={[styles.solidSeparator, { backgroundColor: colors.border }]} />
+      <View
+        style={[styles.solidSeparator, { backgroundColor: colors.border }]}
+      />
 
       <View style={styles.bottomRow}>
         <AssuranceToggle
