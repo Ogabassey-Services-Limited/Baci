@@ -64,4 +64,23 @@ describe('RootLayout', () => {
     expect(screen.getByTestId('root-toaster')).toBeInTheDocument();
     expect(screen.getByRole('main')).toHaveTextContent('Main content');
   });
+
+  it('keeps tenant-specific CDN hints out of the global document head', () => {
+    const { container } = render(
+      <RootLayout>
+        <main>Main content</main>
+      </RootLayout>
+    );
+
+    expect(
+      container.querySelector(
+        'link[rel="dns-prefetch"][href="https://cdn.ogabassey.com"]'
+      )
+    ).toBeNull();
+    expect(
+      container.querySelector(
+        'link[rel="preconnect"][href="https://cdn.ogabassey.com"]'
+      )
+    ).toBeNull();
+  });
 });
