@@ -2027,8 +2027,14 @@ git commit -m "feat: expose baci platform ucp profile"
 **Files:**
 - Modify: `apps/web/mcp-server/server.ts`
 - Modify: `apps/web/mcp-server/README.md`
+- Create: `apps/web/mcp-server/agentic-ucp-client.ts`
+- Create: `apps/web/mcp-server/agentic-ucp-client.test.ts`
+- Create: `apps/web/mcp-server/agentic-ucp-request.ts`
+- Create: `apps/web/mcp-server/agentic-ucp-request.test.ts`
+- Create: `apps/web/mcp-server/agentic-ucp-tools.ts`
+- Create: `apps/web/mcp-server/agentic-ucp-tools.test.ts`
 
-- [ ] **Step 1: Add MCP tool registration tests or smoke script**
+- [x] **Step 1: Add MCP tool registration tests or smoke script**
 
 If the MCP server has no existing unit harness, add a smoke command to `apps/web/mcp-server/README.md` that checks the tool list through the configured MCP client:
 
@@ -2042,7 +2048,7 @@ Expected response:
 {"status":"healthy","database":"connected"}
 ```
 
-- [ ] **Step 2: Register tools**
+- [x] **Step 2: Register tools**
 
 Add MCP tools with names and route mapping:
 
@@ -2060,7 +2066,7 @@ Add MCP tools with names and route mapping:
 
 Each tool must call the corresponding REST route with the same signed request helper used by the existing signed checkout tools.
 
-- [ ] **Step 3: Update README tool table**
+- [x] **Step 3: Update README tool table**
 
 Add rows:
 
@@ -2074,7 +2080,7 @@ Add rows:
 | `cancel_ucp_cart` | Cancel an active UCP cart |
 ```
 
-- [ ] **Step 4: Run MCP smoke**
+- [x] **Step 4: Run MCP smoke**
 
 Run:
 
