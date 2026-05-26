@@ -2090,7 +2090,7 @@ curl -fsS https://mcp.ogabassey.com/health
 
 Expected: HTTP 200 with `database: connected`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/web/mcp-server/server.ts apps/web/mcp-server/README.md
@@ -2105,8 +2105,12 @@ git commit -m "feat: add mcp parity for ucp cart"
 - Modify: `apps/web/src/app/api/cron/agentic-commerce-health/route.ts`
 - Modify: `apps/web/src/app/dashboard/agentic/data.ts`
 - Modify: `apps/web/src/app/dashboard/agentic/client-page.tsx`
+- Create: `apps/web/src/lib/agentic/universal-cart-readiness.ts`
+- Create: `apps/web/src/lib/agentic/universal-cart-readiness.test.ts`
+- Create: `apps/web/src/components/dashboard/universal-cart-readiness-card.tsx`
+- Create: `apps/web/src/components/dashboard/universal-cart-readiness-card.test.tsx`
 
-- [ ] **Step 1: Write failing health monitor tests**
+- [x] **Step 1: Write failing health monitor tests**
 
 ```ts
 it('marks Universal Cart ready only when cart and catalog capabilities exist', async () => {
@@ -2132,7 +2136,7 @@ it('marks Universal Cart ready only when cart and catalog capabilities exist', a
 });
 ```
 
-- [ ] **Step 2: Add readiness dimensions**
+- [x] **Step 2: Add readiness dimensions**
 
 Track these checks:
 
@@ -2150,7 +2154,7 @@ const UNIVERSAL_CART_CHECKS = [
 ] as const;
 ```
 
-- [ ] **Step 3: Add dashboard data**
+- [x] **Step 3: Add dashboard data**
 
 Expose:
 
@@ -2166,7 +2170,7 @@ type UniversalCartReadiness = {
 };
 ```
 
-- [ ] **Step 4: Add dashboard tab or section**
+- [x] **Step 4: Add dashboard tab or section**
 
 Add a compact "Universal Cart" section inside the existing agentic dashboard, next to trust/crawler/action health. It must show:
 
@@ -2179,7 +2183,7 @@ Payment: configured/not advertised
 Last checked: timestamp
 ```
 
-- [ ] **Step 5: Run monitoring tests**
+- [x] **Step 5: Run monitoring tests**
 
 Run:
 
@@ -2193,7 +2197,7 @@ pnpm --filter web exec vitest run \
 
 Expected: pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/web/src/lib/agentic/agent-commerce-health-monitor.ts \

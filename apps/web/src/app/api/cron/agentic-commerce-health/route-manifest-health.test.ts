@@ -14,6 +14,17 @@ vi.mock('@/lib/agentic/agent-commerce-manifest-health', () => ({
   checkAgentCommerceManifestHealth: vi.fn(),
 }));
 
+vi.mock('@/lib/agentic/agent-commerce-health-monitor', async () => {
+  const actual = await vi.importActual<
+    typeof import('@/lib/agentic/agent-commerce-health-monitor')
+  >('@/lib/agentic/agent-commerce-health-monitor');
+
+  return {
+    ...actual,
+    checkAgentCommerceUniversalCartReadiness: vi.fn(),
+  };
+});
+
 vi.mock(
   '@/lib/agentic/agent-commerce-public-product-parity-health',
   async () => {
@@ -68,6 +79,7 @@ vi.mock('@/lib/supabase/admin', () => ({
 
 import { loadAgenticActionHealth } from '@/lib/agentic/action-health-loader';
 import { checkAgentCommerceFeedHealth } from '@/lib/agentic/agent-commerce-feed-health';
+import { checkAgentCommerceUniversalCartReadiness } from '@/lib/agentic/agent-commerce-health-monitor';
 import { checkAgentCommerceManifestHealth } from '@/lib/agentic/agent-commerce-manifest-health';
 import { checkAgentCommercePublicProductParity } from '@/lib/agentic/agent-commerce-public-product-parity-health';
 import { checkAgentCommerceSupportChatHealth } from '@/lib/agentic/agent-commerce-support-chat-health';
@@ -192,6 +204,12 @@ describe('GET /api/cron/agentic-commerce-health manifest monitoring', () => {
           'https://ogabassey.com/api/storefront/ogabassey/products?limit=10',
         product_page: 'https://ogabassey.com/phones/test-phone',
       },
+    });
+    vi.mocked(checkAgentCommerceUniversalCartReadiness).mockResolvedValue({
+      checks: [],
+      lastCheckedAt: '2026-05-26T12:00:00.000Z',
+      status: 'pass',
+      url: 'https://ogabassey.com/.well-known/ucp',
     });
     vi.mocked(loadAgenticActionHealth).mockResolvedValue({
       actions: [

@@ -1,10 +1,11 @@
 'use client';
 
-import { Bot, Radar, ShieldCheck } from 'lucide-react';
+import { Bot, Radar, ShieldCheck, ShoppingCart } from 'lucide-react';
 import { AgenticActionCenterCard } from '@/components/dashboard/agentic-action-center-card';
 import { AgenticCrawlerVisibilityCard } from '@/components/dashboard/agentic-crawler-visibility-card';
 import { AgenticTrustCenterCard } from '@/components/dashboard/agentic-trust-center-card';
 import { AgentCommerceControlsCard } from '@/components/dashboard/integrations/agent-commerce-controls-card';
+import { UniversalCartReadinessCard } from '@/components/dashboard/universal-cart-readiness-card';
 import {
   Card,
   CardDescription,
@@ -12,6 +13,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import type { UniversalCartReadinessResult } from '@/lib/agentic/agent-commerce-health-monitor';
 import type { CrawlerLogSummary } from '@/lib/agentic/crawler-observability';
 import type { AgentCommerceTrustReadinessSummary } from '@/lib/storefront-trust/build-agent-commerce-trust-readiness';
 import type { AgenticActionHealthPayload } from '@/schemas/agentic-action-health';
@@ -26,6 +28,7 @@ interface AgenticDashboardClientPageProps {
   isPublished: boolean;
   trustCenterState: AgenticCenterState;
   trustReadiness: AgentCommerceTrustReadinessSummary | null;
+  universalCartReadiness: UniversalCartReadinessResult | null;
 }
 
 export default function AgenticDashboardClientPage({
@@ -37,6 +40,7 @@ export default function AgenticDashboardClientPage({
   isPublished,
   trustCenterState,
   trustReadiness,
+  universalCartReadiness,
 }: AgenticDashboardClientPageProps) {
   const isActionUnauthorized = actionCenterState === 'unauthorized';
   const isCrawlerUnauthorized = crawlerCenterState === 'unauthorized';
@@ -46,11 +50,14 @@ export default function AgenticDashboardClientPage({
   const showActionCenter = !isActionUnauthorized;
   const showCrawlerCenter = !isCrawlerUnauthorized;
   const showTrustCenter = !isTrustUnauthorized;
+  const showUniversalCart = Boolean(universalCartReadiness);
   const defaultTab = showActionCenter
     ? 'actions'
     : showTrustCenter
       ? 'trust'
-      : 'crawler';
+      : showUniversalCart
+        ? 'universal-cart'
+        : 'crawler';
 
   return (
     <div className="space-y-6 p-3 pb-24 md:p-6 md:pb-8">
@@ -111,6 +118,12 @@ export default function AgenticDashboardClientPage({
                 Trust center
               </TabsTrigger>
             )}
+            {showUniversalCart && (
+              <TabsTrigger value="universal-cart">
+                <ShoppingCart className="mr-2 h-4 w-4" />
+                Universal Cart
+              </TabsTrigger>
+            )}
             {showCrawlerCenter && (
               <TabsTrigger value="crawler">
                 <Radar className="mr-2 h-4 w-4" />
@@ -140,6 +153,12 @@ export default function AgenticDashboardClientPage({
                 readiness={trustReadiness}
                 state={trustCenterState}
               />
+            </TabsContent>
+          )}
+
+          {showUniversalCart && (
+            <TabsContent value="universal-cart" className="space-y-4">
+              <UniversalCartReadinessCard readiness={universalCartReadiness} />
             </TabsContent>
           )}
 
