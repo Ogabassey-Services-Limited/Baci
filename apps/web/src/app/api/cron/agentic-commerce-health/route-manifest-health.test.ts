@@ -14,6 +14,20 @@ vi.mock('@/lib/agentic/agent-commerce-manifest-health', () => ({
   checkAgentCommerceManifestHealth: vi.fn(),
 }));
 
+vi.mock(
+  '@/lib/agentic/agent-commerce-public-product-parity-health',
+  async () => {
+    const actual = await vi.importActual<
+      typeof import('@/lib/agentic/agent-commerce-public-product-parity-health')
+    >('@/lib/agentic/agent-commerce-public-product-parity-health');
+
+    return {
+      ...actual,
+      checkAgentCommercePublicProductParity: vi.fn(),
+    };
+  }
+);
+
 vi.mock('@/lib/agentic/agent-commerce-feed-health', async () => {
   const actual = await vi.importActual<
     typeof import('@/lib/agentic/agent-commerce-feed-health')
@@ -55,6 +69,7 @@ vi.mock('@/lib/supabase/admin', () => ({
 import { loadAgenticActionHealth } from '@/lib/agentic/action-health-loader';
 import { checkAgentCommerceFeedHealth } from '@/lib/agentic/agent-commerce-feed-health';
 import { checkAgentCommerceManifestHealth } from '@/lib/agentic/agent-commerce-manifest-health';
+import { checkAgentCommercePublicProductParity } from '@/lib/agentic/agent-commerce-public-product-parity-health';
 import { checkAgentCommerceSupportChatHealth } from '@/lib/agentic/agent-commerce-support-chat-health';
 import { checkAgentCommerceTrustHealth } from '@/lib/agentic/agent-commerce-trust-health';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -164,6 +179,19 @@ describe('GET /api/cron/agentic-commerce-health manifest monitoring', () => {
       issues: [],
       status: 'ok',
       url: 'https://ogabassey.com/agent-trust.json',
+    });
+    vi.mocked(checkAgentCommercePublicProductParity).mockResolvedValue({
+      issue_count: 0,
+      issues: [],
+      sample_product_id: 'product-1',
+      status: 'ok',
+      surfaces: {
+        agent_products: 'https://ogabassey.com/feeds/agent-products.jsonl',
+        google_merchant_xml: 'https://ogabassey.com/feeds/google-merchant.xml',
+        product_api:
+          'https://ogabassey.com/api/storefront/ogabassey/products?limit=10',
+        product_page: 'https://ogabassey.com/phones/test-phone',
+      },
     });
     vi.mocked(loadAgenticActionHealth).mockResolvedValue({
       actions: [
