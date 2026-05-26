@@ -74,7 +74,6 @@ const SHELL_EXEMPT_ROUTES = new Set([
   '(tabs)/index.tsx',
   '(tabs)/wallet.tsx',
   'addresses/[id].tsx',
-  'auth/callback.tsx',
   'auth/login.tsx',
   'bank-transfer/index.tsx',
   'bnpl-checkout/index.tsx',
