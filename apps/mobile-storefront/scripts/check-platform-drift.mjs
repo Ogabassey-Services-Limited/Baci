@@ -61,6 +61,10 @@ function normalizePath(value) {
   return value.replaceAll('\\', '/');
 }
 
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function createPatternKey(file, patternId) {
   return `${file}::${patternId}`;
 }
@@ -171,9 +175,9 @@ function readProjectFile(projectRoot, relativePath, sourceCache) {
 }
 
 function getPlatformIdentifiers(source) {
-  const identifiers = new Set(['Platform']);
+  const identifiers = new Set();
   for (const match of source.matchAll(PLATFORM_IMPORT_PATTERN)) {
-    if (match[1]) identifiers.add(match[1]);
+    identifiers.add(match[1] ?? 'Platform');
   }
   let changed = true;
   while (changed) {
@@ -195,8 +199,9 @@ function getPlatformIdentifiers(source) {
 
 function hasPlatformBranchViaDestructure(source) {
   for (const identifier of getPlatformIdentifiers(source)) {
+    const escapedIdentifier = escapeRegExp(identifier);
     const destructurePattern = new RegExp(
-      String.raw`\b(?:const|let|var)\s*\{[^}]*\b(?:OS|select)(?:\s*:\s*${IDENTIFIER_PATTERN})?\b[^}]*\}\s*=\s*${identifier}\b`
+      String.raw`\b(?:const|let|var)\s*\{[^}]*\b(?:OS|select)(?:\s*:\s*${IDENTIFIER_PATTERN})?\b[^}]*\}\s*=\s*${escapedIdentifier}\b`
     );
     if (destructurePattern.test(source)) return true;
   }
@@ -206,8 +211,9 @@ function hasPlatformBranchViaDestructure(source) {
 function hasPlatformBranchViaAliasMemberAccess(source) {
   for (const identifier of getPlatformIdentifiers(source)) {
     if (identifier === 'Platform') continue;
+    const escapedIdentifier = escapeRegExp(identifier);
     const aliasMemberPattern = new RegExp(
-      String.raw`\b${identifier}\s*\.\s*(?:OS|select)\b`
+      String.raw`(?<![\w$])${escapedIdentifier}\s*\.\s*(?:OS|select)\b`
     );
     if (aliasMemberPattern.test(source)) return true;
   }
