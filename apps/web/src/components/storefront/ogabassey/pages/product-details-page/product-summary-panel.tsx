@@ -24,6 +24,7 @@ interface ProductSummaryPanelProps {
   productData: NormalizedProductDetails;
   selectedCondition: ConditionType;
   setSelectedCondition: (condition: ConditionType) => void;
+  summaryOnly?: boolean;
 }
 
 function formatConditionLabel(condition?: string | null) {
@@ -51,6 +52,7 @@ export function ProductSummaryPanel({
   productData,
   selectedCondition,
   setSelectedCondition,
+  summaryOnly = false,
 }: ProductSummaryPanelProps) {
   const baseCondition = asConditionType(productData.condition) ?? 'new';
   const conditionOptions =
@@ -59,10 +61,12 @@ export function ProductSummaryPanel({
   return (
     <>
       <div className="mb-2 flex items-start justify-between">
-        <h2 className="text-sm font-bold uppercase tracking-wider text-store-primary">
-          {productData.brand}
-        </h2>
-        <div className="flex gap-3">
+        {summaryOnly ? null : (
+          <h2 className="text-sm font-bold uppercase tracking-wider text-store-primary">
+            {productData.brand}
+          </h2>
+        )}
+        <div className={summaryOnly ? 'ml-auto flex gap-3' : 'flex gap-3'}>
           <button
             type="button"
             onClick={onShare}
@@ -86,53 +90,73 @@ export function ProductSummaryPanel({
         </div>
       </div>
 
-      <h1 className="mb-4 text-3xl font-extrabold text-store-background-text md:text-3xl">
-        {productData.name}
-      </h1>
+      {summaryOnly ? null : (
+        <>
+          <h1 className="mb-4 text-3xl font-extrabold text-store-background-text md:text-3xl">
+            {productData.name}
+          </h1>
 
-      <div className="mb-6 flex items-center gap-4">
-        <div
-          className="flex items-center gap-0.5 text-store-rating"
-          role="img"
-          aria-label={`Rated ${productData.rating} out of 5 stars`}
-        >
-          {[...Array(5)].map((_, index) => {
-            const filled = Math.floor(productData.rating);
-            const fraction = productData.rating - filled;
-            const isFull = index < filled;
-            const isPartial = index === filled && fraction > 0;
-            const isEmpty = !isFull && !isPartial;
+          <div className="mb-6 flex items-center gap-4">
+            <div
+              className="flex items-center gap-0.5 text-store-rating"
+              role="img"
+              aria-label={`Rated ${productData.rating} out of 5 stars`}
+            >
+              {[...Array(5)].map((_, index) => {
+                const filled = Math.floor(productData.rating);
+                const fraction = productData.rating - filled;
+                const isFull = index < filled;
+                const isPartial = index === filled && fraction > 0;
+                const isEmpty = !isFull && !isPartial;
 
-            if (isPartial) {
-              return (
-                <span key={index} className="relative inline-flex" style={{ width: 18, height: 18 }} aria-hidden="true">
-                  <span className="absolute inset-0 overflow-hidden" style={{ width: `${fraction * 100}%` }}>
-                    <Star size={18} fill="currentColor" className="shrink-0" />
-                  </span>
-                  <Star size={18} fill="none" className="text-store-background-text/18" />
-                </span>
-              );
-            }
+                if (isPartial) {
+                  return (
+                    <span
+                      key={index}
+                      className="relative inline-flex"
+                      style={{ width: 18, height: 18 }}
+                      aria-hidden="true"
+                    >
+                      <span
+                        className="absolute inset-0 overflow-hidden"
+                        style={{ width: `${fraction * 100}%` }}
+                      >
+                        <Star
+                          size={18}
+                          fill="currentColor"
+                          className="shrink-0"
+                        />
+                      </span>
+                      <Star
+                        size={18}
+                        fill="none"
+                        className="text-store-background-text/18"
+                      />
+                    </span>
+                  );
+                }
 
-            return (
-              <Star
-                key={index}
-                size={18}
-                fill={isFull ? 'currentColor' : 'none'}
-                className={isEmpty ? 'text-store-background-text/18' : ''}
-                aria-hidden="true"
-              />
-            );
-          })}
-        </div>
-        <span className="text-sm font-medium text-store-background-text/60">
-          {productData.reviewCount} Reviews
-        </span>
-      </div>
+                return (
+                  <Star
+                    key={index}
+                    size={18}
+                    fill={isFull ? 'currentColor' : 'none'}
+                    className={isEmpty ? 'text-store-background-text/18' : ''}
+                    aria-hidden="true"
+                  />
+                );
+              })}
+            </div>
+            <span className="text-sm font-medium text-store-background-text/60">
+              {productData.reviewCount} Reviews
+            </span>
+          </div>
 
-      <div className="mb-6 text-3xl font-bold text-store-primary">
-        {currentOfferPrice}
-      </div>
+          <div className="mb-6 text-3xl font-bold text-store-primary">
+            {currentOfferPrice}
+          </div>
+        </>
+      )}
 
       {conditionOptions.length > 1 && (
         <div className="mb-6">

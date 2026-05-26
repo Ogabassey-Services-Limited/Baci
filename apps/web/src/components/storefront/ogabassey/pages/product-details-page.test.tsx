@@ -185,13 +185,20 @@ vi.mock('../components/FlyToCartAnimation', () => ({
   FlyToCartAnimation: () => null,
 }));
 vi.mock('./product-details-page/product-breadcrumbs', () => ({
-  ProductBreadcrumbs: () => null,
+  ProductBreadcrumbs: () => <nav aria-label="Breadcrumb" />,
+}));
+vi.mock('./product-details-page/product-interaction-panel', () => ({
+  ProductInteractionPanel: () => (
+    <div data-testid="commerce-controls">
+      <button type="button">Add to Cart</button>
+    </div>
+  ),
 }));
 vi.mock('./product-details-page/product-media-gallery', () => ({
-  ProductMediaGallery: () => null,
+  ProductMediaGallery: () => <section aria-label="Product media gallery" />,
 }));
 vi.mock('./product-details-page/product-mobile-action-bar', () => ({
-  ProductMobileActionBar: () => null,
+  ProductMobileActionBar: () => <div data-testid="mobile-action-bar" />,
 }));
 vi.mock('./product-details-page/product-purchase-panel', () => ({
   ProductPurchasePanel: ({
@@ -349,6 +356,83 @@ describe('ProductDetailsPage', () => {
     });
     expect(banner).toBeInTheDocument();
     expect(await screen.findByRole('tab', { name: 'Description' })).toBeInTheDocument();
+  });
+
+  it('commerce mode renders controls without full product shell sections', () => {
+    render(
+      <ProductDetailsPage
+        mode="commerce"
+        product={{
+          id: 'p-commerce',
+          name: 'Commerce Mode Product',
+          price: '₦12,000',
+          image: 'https://example.com/commerce.jpg',
+          description: 'Commerce only',
+          condition: 'new' as const,
+          colors: [],
+          storage: [],
+          images: ['https://example.com/commerce.jpg'],
+        }}
+        semanticSections={<a href="/smartphones">Shop more Smartphones</a>}
+      />
+    );
+
+    expect(screen.getByTestId('commerce-controls')).toBeInTheDocument();
+    expect(screen.getByTestId('mobile-action-bar')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: 'Commerce Mode Product' })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('region', { name: /product banner carousel/i })
+    ).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Breadcrumb')).not.toBeInTheDocument();
+    expect(
+      screen.queryByLabelText('Product media gallery')
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('region', { name: 'Deferred product details sections' })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: 'Shop more Smartphones' })
+    ).not.toBeInTheDocument();
+  });
+
+  it('belowFold mode renders semantic and deferred sections without commerce controls', async () => {
+    render(
+      <ProductDetailsPage
+        mode="belowFold"
+        product={{
+          id: 'p-below-fold',
+          name: 'Below Fold Product',
+          price: '₦15,000',
+          image: 'https://example.com/below-fold.jpg',
+          description: 'Below fold only',
+          condition: 'new' as const,
+          colors: [],
+          storage: [],
+          images: ['https://example.com/below-fold.jpg'],
+        }}
+        semanticSections={<a href="/laptops">Shop more Laptops</a>}
+      />
+    );
+
+    expect(
+      screen.getByRole('link', { name: 'Shop more Laptops' })
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByRole('region', {
+        name: 'Deferred product details sections',
+      })
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId('commerce-controls')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('mobile-action-bar')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: 'Below Fold Product' })
+    ).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Breadcrumb')).not.toBeInTheDocument();
+    expect(
+      screen.queryByLabelText('Product media gallery')
+    ).not.toBeInTheDocument();
   });
 
   it('keeps negotiation modal behind a dynamic client boundary', () => {

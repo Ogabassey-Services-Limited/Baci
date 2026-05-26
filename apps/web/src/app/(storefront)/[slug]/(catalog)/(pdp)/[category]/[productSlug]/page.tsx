@@ -11,6 +11,12 @@ import {
 } from '@/app/(storefront)/ogabassey/ogabassey-pdp-product-resource-hints';
 import { OgabasseyPdpStaticResourceHints } from '@/app/(storefront)/ogabassey/ogabassey-pdp-static-resource-hints';
 import { ProductDetailsPage as OgabasseyProductPage } from '@/components/storefront/ogabassey/pages/product-details-page';
+import {
+  OgabasseyPdpBelowFoldIsland,
+  OgabasseyPdpCommerceIsland,
+} from '@/components/storefront/ogabassey/pdp/client-islands';
+import { buildOgabasseyPdpCriticalProduct } from '@/components/storefront/ogabassey/pdp/critical-product';
+import { OgabasseyPdpCriticalShell } from '@/components/storefront/ogabassey/pdp/critical-shell';
 import { buildOgabasseyProductSpecData } from '@/components/storefront/ogabassey/product-spec-data';
 import {
   normalizeProductCondition,
@@ -247,22 +253,40 @@ function buildTrustBulletsFromProfile(
   return bullets;
 }
 
+type TemplateProductRenderMode = 'full' | 'commerce' | 'belowFold';
+
 /**
  * Template-aware product page component
  * Renders the correct template's product page based on merchant's template_id
  */
 async function renderTemplateProductPage({
   product,
+  renderMode = 'full',
   templateId,
   semanticSections,
 }: {
   product: Product;
+  renderMode?: TemplateProductRenderMode;
   templateId?: string;
   semanticSections: ReactNode;
 }) {
   // Ogabassey template
   if (templateId === OGABASSEY_TEMPLATE_ID) {
     const ogabasseyProduct = toOgabasseyProduct(product);
+
+    if (renderMode === 'commerce') {
+      return <OgabasseyPdpCommerceIsland product={ogabasseyProduct} />;
+    }
+
+    if (renderMode === 'belowFold') {
+      return (
+        <OgabasseyPdpBelowFoldIsland
+          product={ogabasseyProduct}
+          semanticSections={semanticSections}
+        />
+      );
+    }
+
     return (
       <>
         <OgabasseyPdpStaticResourceHints />
@@ -768,16 +792,17 @@ export async function generateMetadata({
 }
 
 interface CategoryProductPageContentProps {
+  renderMode?: 'full' | 'belowFold';
   slug: string;
   searchParams: PageProps['searchParams'];
   productResultPromise: Promise<CategoryProductResult>;
 }
 
-async function CategoryProductPageContent({
+async function getRenderableCategoryProductResult({
   slug,
   searchParams,
   productResultPromise,
-}: CategoryProductPageContentProps) {
+}: Omit<CategoryProductPageContentProps, 'renderMode'>) {
   const result = await productResultPromise;
 
   if (!result) {
@@ -799,6 +824,40 @@ async function CategoryProductPageContent({
 
   const resolvedSearchParams = await searchParams;
   redirectInvalidVariantSelectionParams(slug, product, resolvedSearchParams);
+
+  return { merchant, product };
+}
+
+async function CategoryProductPageCommerceControls({
+  slug,
+  searchParams,
+  productResultPromise,
+}: Omit<CategoryProductPageContentProps, 'renderMode'>) {
+  const { merchant, product } = await getRenderableCategoryProductResult({
+    slug,
+    searchParams,
+    productResultPromise,
+  });
+
+  return renderTemplateProductPage({
+    product,
+    renderMode: 'commerce',
+    semanticSections: null,
+    templateId: merchant?.template_id,
+  });
+}
+
+async function CategoryProductPageContent({
+  renderMode = 'full',
+  slug,
+  searchParams,
+  productResultPromise,
+}: CategoryProductPageContentProps) {
+  const { merchant, product } = await getRenderableCategoryProductResult({
+    slug,
+    searchParams,
+    productResultPromise,
+  });
 
   const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
   const resolvedCategorySlug =
@@ -875,6 +934,7 @@ async function CategoryProductPageContent({
   const breadcrumbSchema = generateBreadcrumbSchema(breadcrumbItems);
   const productPage = await renderTemplateProductPage({
     product,
+    renderMode,
     semanticSections,
     templateId: merchant?.template_id,
   });
@@ -969,6 +1029,11 @@ export default async function CategoryProductPage({
     merchant.template_id === OGABASSEY_TEMPLATE_ID
       ? product.imageLarge || product.image || null
       : null;
+  const criticalProduct =
+    merchant.template_id === OGABASSEY_TEMPLATE_ID
+      ? buildOgabasseyPdpCriticalProduct(product)
+      : null;
+
   try {
     if (primaryProductImage) {
       preloadOgabasseyPdpProductImage({ src: primaryProductImage });
@@ -989,21 +1054,48 @@ export default async function CategoryProductPage({
   return (
     <>
       {earlyProductResourceHints}
-      <Suspense
-        fallback={
-          <OgabasseyPdpProductLcpSkeleton
-            merchant={merchant}
-            primaryProductImage={primaryProductImage}
-            productName={product.name}
+      {criticalProduct ? (
+        <>
+          <OgabasseyPdpStaticResourceHints />
+          <OgabasseyPdpCriticalShell
+            basePath={process.env.NODE_ENV === 'development' ? `/${slug}` : ''}
+            product={criticalProduct}
+          >
+            <Suspense fallback={null}>
+              <CategoryProductPageCommerceControls
+                slug={slug}
+                searchParams={Promise.resolve(resolvedSearchParams)}
+                productResultPromise={productResultPromise}
+              />
+            </Suspense>
+          </OgabasseyPdpCriticalShell>
+          <Suspense fallback={null}>
+            <CategoryProductPageContent
+              renderMode="belowFold"
+              slug={slug}
+              searchParams={Promise.resolve(resolvedSearchParams)}
+              productResultPromise={productResultPromise}
+            />
+          </Suspense>
+        </>
+      ) : (
+        <Suspense
+          fallback={
+            <OgabasseyPdpProductLcpSkeleton
+              merchant={merchant}
+              primaryProductImage={primaryProductImage}
+              productName={product.name}
+            />
+          }
+        >
+          <CategoryProductPageContent
+            renderMode="full"
+            slug={slug}
+            searchParams={Promise.resolve(resolvedSearchParams)}
+            productResultPromise={productResultPromise}
           />
-        }
-      >
-        <CategoryProductPageContent
-          slug={slug}
-          searchParams={Promise.resolve(resolvedSearchParams)}
-          productResultPromise={productResultPromise}
-        />
-      </Suspense>
+        </Suspense>
+      )}
       <StorefrontDynamicMetadataMarker />
     </>
   );
