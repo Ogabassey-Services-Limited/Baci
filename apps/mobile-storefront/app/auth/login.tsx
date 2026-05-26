@@ -12,7 +12,11 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { GoogleLogo } from '@/components/icons/GoogleLogo';
+import {
+  LoginEmailStep,
+  type LoginAuthMethod,
+} from '@/components/auth/LoginEmailStep';
+import { loginStepStyles } from '@/components/auth/LoginStep.styles';
 import AppKeyboardAwareScrollView from '@/components/ui/AppKeyboardAwareScrollView';
 import { Logo } from '@/components/ui/Logo';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -26,7 +30,6 @@ import { useShallow } from 'zustand/react/shallow';
 const log = createLogger('Login');
 
 type AuthStep = 'email' | 'otp' | 'password';
-type AuthMethod = 'otp' | 'password';
 
 export default function LoginScreen() {
   const colorScheme = useColorScheme();
@@ -72,7 +75,7 @@ export default function LoginScreen() {
   );
 
   const [step, setStep] = useState<AuthStep>('email');
-  const [authMethod, setAuthMethod] = useState<AuthMethod>('otp');
+  const [authMethod, setAuthMethod] = useState<LoginAuthMethod>('otp');
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isAppleLoading, setIsAppleLoading] = useState(false);
   const [email, setEmail] = useState('');
@@ -271,172 +274,23 @@ export default function LoginScreen() {
     }
   };
 
-  const renderEmailStep = () => (
-    <>
-      <Text style={[styles.title, { color: colors.text }]}>Welcome Back</Text>
-      <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-        Enter your email to receive a verification code
-      </Text>
-
-      <View style={styles.inputGroup}>
-        <Text style={[styles.label, { color: colors.textSecondary }]}>
-          Email Address
-        </Text>
-        <View
-          style={[
-            styles.inputContainer,
-            {
-              backgroundColor: colors.muted,
-              borderColor: emailError ? colors.error : colors.border,
-            },
-          ]}
-        >
-          <Ionicons
-            name="mail-outline"
-            size={20}
-            color={emailError ? colors.error : colors.textSecondary}
-          />
-          <TextInput
-            style={[styles.input, { color: colors.text }]}
-            placeholder="john@example.com"
-            placeholderTextColor={colors.placeholder}
-            value={email}
-            onChangeText={(text) => {
-              setEmail(text);
-              if (emailError) setEmailError(null);
-            }}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoCorrect={false}
-            editable={!isLoading}
-            // 2026 Best Practice: textContentType for iOS autofill
-            textContentType={TextContentTypes.emailAddress}
-            autoComplete="email"
-            returnKeyType="go"
-            onSubmitEditing={handleContinue}
-            blurOnSubmit={false}
-          />
-        </View>
-        {emailError && <Text style={[styles.errorText, { color: colors.error }]}>{emailError}</Text>}
-      </View>
-
-      <Pressable
-        style={[
-          styles.primaryButton,
-          { backgroundColor: colors.primary },
-          isLoading && styles.buttonDisabled,
-        ]}
-        onPress={handleContinue}
-        disabled={isLoading}
-      >
-        {isLoading ? (
-          <ActivityIndicator color={colors.primaryForeground} />
-        ) : (
-          <Text style={[styles.primaryButtonText, { color: colors.primaryForeground }]}>
-            {authMethod === 'otp'
-              ? 'Continue with Code'
-              : 'Continue with Password'}
-          </Text>
-        )}
-      </Pressable>
-
-      <Pressable
-        onPress={() => setAuthMethod(authMethod === 'otp' ? 'password' : 'otp')}
-        style={styles.methodToggle}
-      >
-        <Text style={[styles.methodToggleText, { color: colors.primary }]}>
-          {authMethod === 'otp'
-            ? 'Use password instead'
-            : 'Use verification code instead'}
-        </Text>
-      </Pressable>
-
-      <View style={styles.divider}>
-        <View
-          style={[styles.dividerLine, { backgroundColor: colors.border }]}
-        />
-        <Text style={[styles.dividerText, { color: colors.textSecondary }]}>
-          or
-        </Text>
-        <View
-          style={[styles.dividerLine, { backgroundColor: colors.border }]}
-        />
-      </View>
-
-      <View style={styles.socialContainer}>
-        <Pressable
-          style={[
-            styles.socialButton,
-            { borderColor: colors.border, flex: 1 },
-            (isLoading || isGoogleLoading) && styles.buttonDisabled,
-          ]}
-          onPress={handleGoogleSignIn}
-          disabled={isLoading || isGoogleLoading}
-        >
-          {isGoogleLoading ? (
-            <ActivityIndicator size="small" color={colors.text} />
-          ) : (
-            <>
-              <GoogleLogo size={20} />
-              <Text style={[styles.socialButtonText, { color: colors.text }]}>
-                Google
-              </Text>
-            </>
-          )}
-        </Pressable>
-
-        <Pressable
-          style={[
-            styles.socialButton,
-            { borderColor: colors.border, flex: 1 },
-            (isLoading || isAppleLoading) && styles.buttonDisabled,
-          ]}
-          onPress={handleAppleSignIn}
-          disabled={isLoading || isAppleLoading}
-        >
-          {isAppleLoading ? (
-            <ActivityIndicator size="small" color={colors.text} />
-          ) : (
-            <>
-              <Ionicons name="logo-apple" size={22} color={colors.text} />
-              <Text style={[styles.socialButtonText, { color: colors.text }]}>
-                Apple
-              </Text>
-            </>
-          )}
-        </Pressable>
-      </View>
-
-      <Text style={[styles.termsText, { color: colors.textSecondary }]}>
-        By continuing, you agree to our{' '}
-        <Text style={[styles.link, { color: colors.primary }]}>
-          Terms of Service
-        </Text>{' '}
-        and{' '}
-        <Text style={[styles.link, { color: colors.primary }]}>
-          Privacy Policy
-        </Text>
-      </Text>
-    </>
-  );
-
   const renderOtpStep = () => (
     <>
-      <Text style={[styles.title, { color: colors.text }]}>
+      <Text style={[loginStepStyles.title, { color: colors.text }]}>
         Verify Your Email
       </Text>
-      <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+      <Text style={[loginStepStyles.subtitle, { color: colors.textSecondary }]}>
         We've sent a 6-digit verification code to{'\n'}
         <Text style={{ fontWeight: '600', color: colors.text }}>{email}</Text>
       </Text>
 
-      <View style={styles.inputGroup}>
-        <Text style={[styles.label, { color: colors.textSecondary }]}>
+      <View style={loginStepStyles.inputGroup}>
+        <Text style={[loginStepStyles.label, { color: colors.textSecondary }]}>
           Verification Code
         </Text>
         <View
           style={[
-            styles.inputContainer,
+            loginStepStyles.inputContainer,
             {
               backgroundColor: colors.muted,
               borderColor: otpError ? colors.error : colors.border,
@@ -450,7 +304,11 @@ export default function LoginScreen() {
           />
           <TextInput
             ref={otpInputRef}
-            style={[styles.input, styles.otpInput, { color: colors.text }]}
+            style={[
+              loginStepStyles.input,
+              loginStepStyles.otpInput,
+              { color: colors.text },
+            ]}
             placeholder="000000"
             placeholderTextColor={colors.placeholder}
             value={otp}
@@ -492,14 +350,18 @@ export default function LoginScreen() {
             returnKeyType="done"
           />
         </View>
-        {otpError && <Text style={[styles.errorText, { color: colors.error }]}>{otpError}</Text>}
+        {otpError && (
+          <Text style={[loginStepStyles.errorText, { color: colors.error }]}>
+            {otpError}
+          </Text>
+        )}
       </View>
 
       <Pressable
         style={[
-          styles.primaryButton,
+          loginStepStyles.primaryButton,
           { backgroundColor: colors.primary },
-          isLoading && styles.buttonDisabled,
+          isLoading && loginStepStyles.buttonDisabled,
         ]}
         onPress={async () => {
           // M5 fix: Prevent concurrent verification requests
@@ -531,16 +393,23 @@ export default function LoginScreen() {
         {isLoading ? (
           <ActivityIndicator color={colors.primaryForeground} />
         ) : (
-          <Text style={[styles.primaryButtonText, { color: colors.primaryForeground }]}>Verify</Text>
+          <Text
+            style={[
+              loginStepStyles.primaryButtonText,
+              { color: colors.primaryForeground },
+            ]}
+          >
+            Verify
+          </Text>
         )}
       </Pressable>
 
-      <View style={styles.resendContainer}>
-        <Text style={[styles.resendText, { color: colors.textSecondary }]}>
+      <View style={loginStepStyles.resendContainer}>
+        <Text style={[loginStepStyles.resendText, { color: colors.textSecondary }]}>
           Didn't receive the code?
         </Text>
         <Pressable onPress={handleResendOtp} disabled={isLoading}>
-          <Text style={[styles.resendLink, { color: colors.primary }]}>
+          <Text style={[loginStepStyles.resendLink, { color: colors.primary }]}>
             Resend
           </Text>
         </Pressable>
@@ -550,18 +419,20 @@ export default function LoginScreen() {
 
   const renderPasswordStep = () => (
     <>
-      <Text style={[styles.title, { color: colors.text }]}>Enter Password</Text>
-      <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+      <Text style={[loginStepStyles.title, { color: colors.text }]}>
+        Enter Password
+      </Text>
+      <Text style={[loginStepStyles.subtitle, { color: colors.textSecondary }]}>
         Sign in with your password for {email}
       </Text>
 
-      <View style={styles.inputGroup}>
-        <Text style={[styles.label, { color: colors.textSecondary }]}>
+      <View style={loginStepStyles.inputGroup}>
+        <Text style={[loginStepStyles.label, { color: colors.textSecondary }]}>
           Password
         </Text>
         <View
           style={[
-            styles.inputContainer,
+            loginStepStyles.inputContainer,
             {
               backgroundColor: colors.muted,
               borderColor: passwordError ? colors.error : colors.border,
@@ -574,7 +445,7 @@ export default function LoginScreen() {
             color={passwordError ? colors.error : colors.textSecondary}
           />
           <TextInput
-            style={[styles.input, { color: colors.text }]}
+            style={[loginStepStyles.input, { color: colors.text }]}
             placeholder="••••••••"
             placeholderTextColor={colors.placeholder}
             value={password}
@@ -596,8 +467,8 @@ export default function LoginScreen() {
             accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
             accessibilityRole="button"
             style={({ pressed }) => [
-              styles.passwordToggle,
-              pressed && styles.pressablePressed,
+              loginStepStyles.passwordToggle,
+              pressed && loginStepStyles.pressablePressed,
             ]}
           >
             <Ionicons
@@ -607,14 +478,18 @@ export default function LoginScreen() {
             />
           </Pressable>
         </View>
-        {passwordError && <Text style={[styles.errorText, { color: colors.error }]}>{passwordError}</Text>}
+        {passwordError && (
+          <Text style={[loginStepStyles.errorText, { color: colors.error }]}>
+            {passwordError}
+          </Text>
+        )}
       </View>
 
       <Pressable
         style={[
-          styles.primaryButton,
+          loginStepStyles.primaryButton,
           { backgroundColor: colors.primary },
-          isLoading && styles.buttonDisabled,
+          isLoading && loginStepStyles.buttonDisabled,
         ]}
         onPress={handlePasswordSignIn}
         disabled={isLoading}
@@ -622,7 +497,14 @@ export default function LoginScreen() {
         {isLoading ? (
           <ActivityIndicator color={colors.primaryForeground} />
         ) : (
-          <Text style={[styles.primaryButtonText, { color: colors.primaryForeground }]}>Sign In</Text>
+          <Text
+            style={[
+              loginStepStyles.primaryButtonText,
+              { color: colors.primaryForeground },
+            ]}
+          >
+            Sign In
+          </Text>
         )}
       </Pressable>
 
@@ -651,9 +533,9 @@ export default function LoginScreen() {
             );
           }
         }}
-        style={styles.methodToggle}
+        style={loginStepStyles.methodToggle}
       >
-        <Text style={[styles.methodToggleText, { color: colors.primary }]}>
+        <Text style={[loginStepStyles.methodToggleText, { color: colors.primary }]}>
           Sign in with verification code instead
         </Text>
       </Pressable>
@@ -692,7 +574,27 @@ export default function LoginScreen() {
           </View>
 
           {step === 'email'
-            ? renderEmailStep()
+            ? (
+                <LoginEmailStep
+                  authMethod={authMethod}
+                  colors={colors}
+                  email={email}
+                  emailError={emailError}
+                  isAppleLoading={isAppleLoading}
+                  isGoogleLoading={isGoogleLoading}
+                  isLoading={isLoading}
+                  onAppleSignIn={handleAppleSignIn}
+                  onContinue={handleContinue}
+                  onEmailChange={(text) => {
+                    setEmail(text);
+                    if (emailError) setEmailError(null);
+                  }}
+                  onGoogleSignIn={handleGoogleSignIn}
+                  onToggleAuthMethod={() =>
+                    setAuthMethod(authMethod === 'otp' ? 'password' : 'otp')
+                  }
+                />
+              )
             : step === 'otp'
               ? renderOtpStep()
               : renderPasswordStep()}
@@ -720,132 +622,5 @@ const styles = StyleSheet.create({
   logoContainer: {
     alignItems: 'center',
     marginBottom: 40,
-  },
-  logoText: {
-    fontSize: 32,
-    fontWeight: '800',
-    letterSpacing: -0.5,
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: '700',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 15,
-    lineHeight: 22,
-    marginBottom: 32,
-  },
-  inputGroup: {
-    marginBottom: 24,
-  },
-  label: {
-    fontSize: 13,
-    fontWeight: '500',
-    marginBottom: 8,
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    gap: 12,
-  },
-  input: {
-    flex: 1,
-    fontSize: 16,
-    paddingVertical: 16,
-  },
-  otpInput: {
-    letterSpacing: 8,
-    fontSize: 20,
-    fontWeight: '600',
-  },
-  primaryButton: {
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  primaryButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  buttonDisabled: {
-    opacity: 0.7,
-  },
-  divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-  },
-  dividerText: {
-    paddingHorizontal: 16,
-    fontSize: 13,
-  },
-  socialButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    paddingVertical: 16,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    marginBottom: 24,
-  },
-  socialButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  socialContainer: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 24,
-  },
-  methodToggle: {
-    alignItems: 'center',
-    marginBottom: 32,
-    paddingVertical: 8,
-  },
-  methodToggleText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  termsText: {
-    fontSize: 13,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  link: {
-    fontWeight: '500',
-  },
-  resendContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-  },
-  resendText: {
-    fontSize: 14,
-  },
-  resendLink: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  passwordToggle: {
-    padding: 4,
-  },
-  pressablePressed: {
-    opacity: 0.7,
-  },
-  errorText: {
-    fontSize: 13,
-    marginTop: 6,
-    marginLeft: 4,
   },
 });
