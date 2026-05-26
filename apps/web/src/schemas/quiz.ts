@@ -3,6 +3,7 @@ import { z } from 'zod';
 const quizUuidSchema = z.string().uuid();
 const quizIsoDatetimeSchema = z.string().datetime({ offset: true });
 const quizIntegrityTierSchema = z.enum(['basic', 'device', 'strong']);
+const quizNonEmptyIdSchema = z.string().min(1);
 
 export const quizEventsQuerySchema = z
   .object({
@@ -90,6 +91,76 @@ export const quizEventQuestionCountRowSchema = z.object({
   question_count: z.coerce.number().int().nonnegative(),
 });
 
+export const quizOptionResponseSchema = z.object({
+  id: quizNonEmptyIdSchema,
+  label: z.string().min(1),
+});
+
+export const quizQuestionResponseSchema = z.object({
+  id: quizNonEmptyIdSchema,
+  index: z.number().int().positive(),
+  options: z.array(quizOptionResponseSchema).min(1),
+  prompt: z.string().min(1),
+  timeLimitSeconds: z.number().int().positive(),
+  total: z.number().int().positive(),
+});
+
+export const quizEventResponseSchema = z.object({
+  endsAt: quizIsoDatetimeSchema.nullable(),
+  id: quizNonEmptyIdSchema,
+  prizeName: z.string().min(1),
+  questionCount: z.number().int().positive(),
+  startsAt: quizIsoDatetimeSchema.nullable(),
+  status: z.enum(['open', 'scheduled', 'closed']),
+  title: z.string().min(1),
+});
+
+export const quizEventsResponseSchema = z.object({
+  events: z.array(quizEventResponseSchema),
+  pagination: z
+    .object({
+      hasMore: z.boolean(),
+      limit: z.number().int().positive(),
+      nextOffset: z.number().int().nonnegative().nullable(),
+      offset: z.number().int().nonnegative(),
+    })
+    .optional(),
+});
+
+export const quizAttemptResponseSchema = z.object({
+  attemptId: quizNonEmptyIdSchema,
+  eventId: quizNonEmptyIdSchema,
+  examPassPointsSpent: z.number().int().positive(),
+  question: quizQuestionResponseSchema,
+  remainingLoyaltyPoints: z.number().int().nonnegative(),
+});
+
+export const quizResultResponseSchema = z
+  .object({
+    attemptId: quizNonEmptyIdSchema,
+    correctAnswers: z.number().int().nonnegative(),
+    prizeEligible: z.boolean(),
+    question: quizQuestionResponseSchema.optional(),
+    status: z.enum(['completed', 'in_progress']),
+    totalQuestions: z.number().int().positive(),
+  })
+  .superRefine((value, context) => {
+    if (value.status === 'in_progress' && !value.question) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'In-progress quiz responses must include the next question',
+        path: ['question'],
+      });
+    }
+    if (value.correctAnswers > value.totalQuestions) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'correctAnswers cannot exceed totalQuestions',
+        path: ['correctAnswers'],
+      });
+    }
+  });
+
 export type QuizEventRow = z.infer<typeof quizEventRowSchema>;
 export type QuizEventsQuery = z.infer<typeof quizEventsQuerySchema>;
 export type StartQuizAttemptInput = z.infer<typeof startQuizAttemptSchema>;
@@ -100,3 +171,6 @@ export type ClaimQuizGrandPrizeInput = z.infer<
   typeof claimQuizGrandPrizeSchema
 >;
 export type ClaimQuizCashAwardInput = z.infer<typeof claimQuizCashAwardSchema>;
+export type QuizEventResponse = z.infer<typeof quizEventResponseSchema>;
+export type QuizAttemptResponse = z.infer<typeof quizAttemptResponseSchema>;
+export type QuizResultResponse = z.infer<typeof quizResultResponseSchema>;

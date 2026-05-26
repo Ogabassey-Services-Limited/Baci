@@ -36,12 +36,13 @@ describe('HomeServiceCards', () => {
     jest.restoreAllMocks();
   });
 
-  it('renders the three home service shortcuts', () => {
+  it('renders the home service shortcuts', () => {
     render(<HomeServiceCards />);
 
     expect(screen.getByText('IMEI Checker')).toBeTruthy();
     expect(screen.getByText('Repair Lab')).toBeTruthy();
     expect(screen.getByText('Swap/Trade')).toBeTruthy();
+    expect(screen.getByText('Prize Quiz')).toBeTruthy();
   });
 
   it('starts one shared moving outline animation', () => {
@@ -84,5 +85,8 @@ describe('HomeServiceCards', () => {
 
     fireEvent.press(screen.getByLabelText('Swap/Trade. Swap for credit'));
     expect(mockPush).toHaveBeenLastCalledWith('/swap');
+
+    fireEvent.press(screen.getByLabelText('Prize Quiz. Play for rewards'));
+    expect(mockPush).toHaveBeenLastCalledWith('/quiz');
   });
 });

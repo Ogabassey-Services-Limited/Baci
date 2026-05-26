@@ -192,6 +192,12 @@ describe('quiz migration contracts', () => {
     expect(scoringRecordAnswerSql).toMatch(
       /INSERT\s+INTO\s+public\.quiz_attempt_answers[\s\S]*answered_in_ms[\s\S]*v_answered_in_ms/is
     );
+    expect(scoringRecordAnswerSql).toMatch(
+      /pg_catalog\.extract\(\s*'epoch'\s*,\s*pg_catalog\.now\(\)\s*-\s*v_issued_at\s*\)\s*\*\s*1000/i
+    );
+    expect(scoringRecordAnswerSql).not.toMatch(
+      /pg_catalog\.extract\(\s*epoch\s+FROM/i
+    );
   });
 
   it('keeps catalog-backed migration regression checks for variant exposure', () => {
