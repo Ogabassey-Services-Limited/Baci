@@ -32,6 +32,9 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useShallow } from 'zustand/react/shallow';
 import { FlyToCartParticle } from '@/components/product/FlyToCartParticle';
+import { getFallbackVariantSelections } from '@/components/product/hooks/get-fallback-variant-selections';
+import { getFirstImageIndexForColor } from '@/components/product/hooks/get-first-image-index-for-color';
+import { getSelectionSyncSignature } from '@/components/product/hooks/get-selection-sync-signature';
 import { useProductDetailSelection } from '@/components/product/hooks/use-product-detail-selection';
 import { NegotiationModal } from '@/components/product/NegotiationModal';
 import { ProductDetailRouteState } from '@/components/product/ProductDetailRouteState';
@@ -54,11 +57,7 @@ import { resolveCartItemImageUrl } from '@/lib/cart-display';
 import { createLogger } from '@/lib/logger';
 import { findMatchingConditionOffer } from '@/lib/product-condition-offers';
 import { resolveVariantSelectionFromImage } from '@/lib/product-image-selection';
-import {
-  isInternalSelectionAxis,
-  stripInternalSelectionAxes,
-} from '@/lib/product-internal-selection-axes';
-import { mergeVariantAttributes } from '@/lib/product-normalization';
+import { stripInternalSelectionAxes } from '@/lib/product-internal-selection-axes';
 import { normalizeRouteCondition } from '@/lib/product-route/normalize-route-condition';
 import { resolveProductVariantMetadata } from '@/lib/product-variant-metadata';
 import { useCartStore } from '@/stores/cart-store';
@@ -66,112 +65,10 @@ import { useSavedStore } from '@/stores/saved-store';
 import {
   formatProductConditionDisplay,
   getDiscountPercentage,
-  type Product,
   type ProductCondition,
 } from '@/types/product';
 
 const log = createLogger('ProductDetail');
-
-function getFirstColorOption(product: Product | null) {
-  if (!product) {
-    return null;
-  }
-
-  const imageDrivenColor = Object.keys(product.color_images ?? {}).find(
-    Boolean
-  );
-  if (imageDrivenColor) {
-    return imageDrivenColor;
-  }
-
-  const variantColor = product.variants
-    ?.map((variant) =>
-      (variant.attributes?.color ?? variant.attributes?.colour)?.trim()
-    )
-    .find((value): value is string => Boolean(value));
-  if (variantColor) {
-    return variantColor;
-  }
-
-  const firstColor = product.colors?.[0];
-  if (typeof firstColor === 'string') {
-    return firstColor;
-  }
-
-  return firstColor?.name ?? null;
-}
-
-function getFirstImageIndexForColor(args: {
-  color: string | null | undefined;
-  colorImages?: Record<string, string[]>;
-  images: string[];
-}) {
-  const color = args.color?.trim();
-  if (!color) {
-    return 0;
-  }
-
-  const preferredImages = args.colorImages?.[color] ?? [];
-  const preferredImage = preferredImages.find(Boolean);
-  if (!preferredImage) {
-    return 0;
-  }
-
-  const index = args.images.indexOf(preferredImage);
-  return index >= 0 ? index : 0;
-}
-
-function getFallbackVariantSelections(product: Product | null) {
-  if (!product) {
-    return {
-      attributes: {} as Record<string, string>,
-      color: null as string | null,
-      storage: null as string | null,
-    };
-  }
-
-  const mergedVariantAttributes = mergeVariantAttributes(
-    product.variant_attributes,
-    product.variants
-  );
-  const fallbackAttributes = Object.fromEntries(
-    Object.entries(mergedVariantAttributes ?? {})
-      .filter(
-        ([axis, values]) =>
-          !isInternalSelectionAxis(axis) && Array.isArray(values)
-      )
-      .map(([axis, values]) => [axis, values[0]])
-      .filter(
-        (entry): entry is [string, string] => typeof entry[1] === 'string'
-      )
-  );
-
-  return {
-    attributes: fallbackAttributes,
-    color: getFirstColorOption(product),
-    storage: mergedVariantAttributes?.storage?.[0] ?? null,
-  };
-}
-
-function getSelectionSyncSignature(product: Product | null) {
-  if (!product) {
-    return '';
-  }
-
-  return JSON.stringify({
-    colorImages: product.color_images ?? null,
-    images: product.images ?? null,
-    colors: product.colors ?? null,
-    id: product.id,
-    variantAttributes: product.variant_attributes ?? null,
-    variants:
-      product.variants?.map((variant) => ({
-        attributes: variant.attributes ?? null,
-        id: variant.id,
-        stock_quantity: variant.stock_quantity ?? null,
-      })) ?? [],
-  });
-}
 
 function getFirstRouteParamValue(
   value: string | string[] | null | undefined
