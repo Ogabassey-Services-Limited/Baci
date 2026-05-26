@@ -1,13 +1,10 @@
+import { z } from 'zod';
 import {
   getOllamaStorefrontBaseUrl,
   getOllamaStorefrontBasicAuth,
   getOllamaStorefrontModel,
   getOllamaStorefrontTimeoutMs,
 } from '@/env';
-import {
-  type AiStorefrontLayout,
-  aiStorefrontLayoutSchema,
-} from '@/schemas/ai-storefront-layout';
 
 export interface StorefrontLayoutPromptInput {
   businessName: string;
@@ -18,6 +15,28 @@ export interface StorefrontLayoutPromptInput {
 
 const PROMPT_INPUT_MAX_LENGTH = 200;
 const ERROR_BODY_MAX_LENGTH = 500;
+
+export const rawOllamaStorefrontLayoutSchema = z
+  .object({
+    theme: z.unknown().optional(),
+    sections: z
+      .array(
+        z
+          .object({
+            type: z.string().trim().min(1),
+            props: z.record(z.string(), z.unknown()).default({}),
+          })
+          .passthrough()
+      )
+      .min(1)
+      .max(12),
+    designRationale: z.unknown().optional(),
+  })
+  .passthrough();
+
+export type RawOllamaStorefrontLayout = z.infer<
+  typeof rawOllamaStorefrontLayoutSchema
+>;
 
 const OLLAMA_LAYOUT_FORMAT = {
   type: 'object',
@@ -113,7 +132,7 @@ async function readErrorBody(response: Response): Promise<string> {
 
 export async function generateStorefrontLayoutWithOllama(
   input: StorefrontLayoutPromptInput
-): Promise<AiStorefrontLayout> {
+): Promise<RawOllamaStorefrontLayout> {
   const baseUrl = getOllamaStorefrontBaseUrl();
   if (!baseUrl) throw new Error('OLLAMA_STOREFRONT_BASE_URL is not configured');
 
@@ -166,7 +185,7 @@ export async function generateStorefrontLayoutWithOllama(
       raw = payload.response;
     }
 
-    return aiStorefrontLayoutSchema.parse(raw);
+    return rawOllamaStorefrontLayoutSchema.parse(raw);
   } catch (error) {
     if (
       typeof error === 'object' &&

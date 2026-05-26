@@ -122,6 +122,12 @@ vi.mock('@/hooks/use-merchant-client', () => ({
   }),
 }));
 
+vi.mock('@/hooks/use-cart', () => ({
+  CartProvider: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="cart-provider">{children}</div>
+  ),
+}));
+
 vi.mock('@/hooks/use-toast', () => ({
   useToast: () => ({
     toast: mockToast,
@@ -228,6 +234,38 @@ describe('BuilderClient', () => {
     ).not.toBeInTheDocument();
     expect(saveButton).not.toBeDisabled();
     expect(screen.getByRole('button', { name: /publish/i })).not.toBeDisabled();
+  });
+
+  it('wraps the builder preview in CartProvider', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        config: {
+          content: [{ type: 'Header', props: { id: 'header' } }],
+          root: { title: 'Home' },
+          zones: {},
+        },
+        seo: null,
+        storeSettings: null,
+        setupSettings: null,
+        publishedConfig: null,
+        isPublished: false,
+        isDefault: false,
+        lastUpdated: '2026-03-20T18:00:00.000Z',
+        degraded: false,
+        degradedReason: null,
+        canEdit: true,
+        previewMode: null,
+        aiDraftJobId: null,
+        canApplyAiDraft: true,
+      }),
+    } as Response);
+
+    render(<BuilderClient />);
+
+    const preview = await screen.findByTestId('puck-preview');
+
+    expect(screen.getByTestId('cart-provider')).toContainElement(preview);
   });
 
   it('includes the AI draft job id from the URL when bootstrapping', async () => {
