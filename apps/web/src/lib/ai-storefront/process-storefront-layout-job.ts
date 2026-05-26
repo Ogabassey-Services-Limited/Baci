@@ -1,5 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { normalizeAiStorefrontLayout } from '@/lib/ai-storefront/normalize-ai-storefront-layout';
+import {
+  getAiStorefrontDesignRationale,
+  normalizeAiStorefrontLayout,
+} from '@/lib/ai-storefront/normalize-ai-storefront-layout';
 import { generateStorefrontLayoutWithOllama } from '@/lib/ai-storefront/ollama-storefront-client';
 import type { StorefrontLayoutJobInput } from '@/schemas/ai-jobs';
 import {
@@ -70,7 +73,7 @@ export async function processStorefrontLayoutJob({
 
   return {
     generatedConfig: parsedGenerated.data,
-    designRationale: layout.designRationale ?? null,
+    designRationale: getAiStorefrontDesignRationale(layout),
     pageSlug: input.pageSlug,
     generatedAgainstUpdatedAt: pageConfig.updated_at,
     applied: false,

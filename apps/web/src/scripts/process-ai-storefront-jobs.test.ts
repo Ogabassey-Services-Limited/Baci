@@ -18,12 +18,18 @@ interface RunnerSupabaseMockOptions {
   completeLostLease?: boolean;
   failError?: Error;
   failLostLease?: boolean;
+  initialAttempts?: number;
+  initialError?: string | null;
+  initialStatus?: 'pending' | 'processing';
 }
 
 function createRunnerSupabaseMock(options: RunnerSupabaseMockOptions = {}) {
   const updates: unknown[] = [];
   const limits: number[] = [];
   const selectedEqCalls: unknown[][] = [];
+  const updateEqCalls: unknown[][] = [];
+  const updateLteCalls: unknown[][] = [];
+  const updateOrCalls: unknown[][] = [];
   let updateCount = 0;
   const job = {
     id: 'job-1',
@@ -35,17 +41,21 @@ function createRunnerSupabaseMock(options: RunnerSupabaseMockOptions = {}) {
       brandColors: null,
       createdPageConfigUpdatedAt: null,
     },
-    attempts: 0,
+    attempts: options.initialAttempts ?? 0,
     max_attempts: 3,
     created_at: '2026-04-28T10:00:00.000Z',
+    error: options.initialError ?? null,
     metadata: {},
-    status: 'pending',
+    status: options.initialStatus ?? 'pending',
   };
 
   const supabase = {
     limits,
     updates,
     selectedEqCalls,
+    updateEqCalls,
+    updateLteCalls,
+    updateOrCalls,
     from: vi.fn((table: string) => {
       if (table !== 'ai_jobs') throw new Error(`Unexpected table ${table}`);
 
@@ -73,7 +83,8 @@ function createRunnerSupabaseMock(options: RunnerSupabaseMockOptions = {}) {
           const isFailureUpdate =
             typeof payload === 'object' &&
             payload !== null &&
-            'error' in payload;
+            'error' in payload &&
+            (!('status' in payload) || payload.status !== 'completed');
           const updateError = isClaimUpdate
             ? options.claimError
             : isFailureUpdate
@@ -92,8 +103,18 @@ function createRunnerSupabaseMock(options: RunnerSupabaseMockOptions = {}) {
               ? { ...job, attempts: (payload as { attempts: number }).attempts }
               : job;
           return {
-            eq: vi.fn().mockReturnThis(),
-            or: vi.fn().mockReturnThis(),
+            eq: vi.fn(function eq(this: unknown, ...args: unknown[]) {
+              updateEqCalls.push(args);
+              return this;
+            }),
+            lte: vi.fn(function lte(this: unknown, ...args: unknown[]) {
+              updateLteCalls.push(args);
+              return this;
+            }),
+            or: vi.fn(function or(this: unknown, ...args: unknown[]) {
+              updateOrCalls.push(args);
+              return this;
+            }),
             select: vi.fn().mockReturnThis(),
             maybeSingle: vi.fn().mockResolvedValue({
               data: updateError || lostLease ? null : returnedJob,
@@ -150,6 +171,60 @@ describe('processAiStorefrontJobs', () => {
         status: 'completed',
         locked_by: null,
         lease_expires_at: null,
+      })
+    );
+  });
+
+  it('claims pending jobs without a PostgREST OR filter on the update query', async () => {
+    const supabase = createRunnerSupabaseMock();
+
+    await processAiStorefrontJobs({
+      supabase,
+      now: new Date('2026-04-28T10:10:00.000Z'),
+      workerId: 'worker-1',
+    });
+
+    expect(supabase.updateEqCalls).toContainEqual(['id', 'job-1']);
+    expect(supabase.updateEqCalls).toContainEqual(['status', 'pending']);
+    expect(supabase.updateOrCalls).toEqual([]);
+  });
+
+  it('claims processing jobs only when their lease is expired', async () => {
+    const supabase = createRunnerSupabaseMock({
+      initialStatus: 'processing',
+    });
+
+    await processAiStorefrontJobs({
+      supabase,
+      now: new Date('2026-04-28T10:10:00.000Z'),
+      workerId: 'worker-1',
+    });
+
+    expect(supabase.updateEqCalls).toContainEqual(['id', 'job-1']);
+    expect(supabase.updateEqCalls).toContainEqual(['status', 'processing']);
+    expect(supabase.updateLteCalls).toEqual([
+      ['lease_expires_at', expect.any(String)],
+    ]);
+    expect(supabase.updateOrCalls).toEqual([]);
+  });
+
+  it('clears stale retry fields when a previously failed job completes', async () => {
+    const supabase = createRunnerSupabaseMock({
+      initialAttempts: 1,
+      initialError: 'Previous model validation failed',
+    });
+
+    await processAiStorefrontJobs({
+      supabase,
+      now: new Date('2026-04-28T10:10:00.000Z'),
+      workerId: 'worker-1',
+    });
+
+    expect(supabase.updates[1]).toEqual(
+      expect.objectContaining({
+        status: 'completed',
+        error: null,
+        next_run_at: expect.any(String),
       })
     );
   });

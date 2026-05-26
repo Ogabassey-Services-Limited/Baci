@@ -12,6 +12,7 @@ function stubBaseEnv() {
   vi.stubEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', 'anon-key');
   delete process.env.SUPABASE_JWT_SECRET;
   delete process.env.SUPABASE_AGENTIC_JWT_PRIVATE_JWK;
+  delete process.env.BACI_WORKER_PROFILE;
 }
 
 function loadEnvModule() {
@@ -79,6 +80,16 @@ describe('env validation', () => {
     await expect(loadEnvModule()).resolves.toBeDefined();
   });
 
+  it('allows the AI storefront worker profile without agentic signing material', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('GITHUB_ACTIONS', 'false');
+    vi.stubEnv('BACI_WORKER_PROFILE', 'ai-storefront-jobs');
+    delete process.env.SUPABASE_JWT_SECRET;
+    delete process.env.SUPABASE_AGENTIC_JWT_PRIVATE_JWK;
+
+    await expect(loadEnvModule()).resolves.toBeDefined();
+  });
+
   it('rejects spoofed GitHub Actions builds without GitHub run context', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     vi.stubEnv('NODE_ENV', 'production');
@@ -127,6 +138,60 @@ describe('env validation', () => {
     delete process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     await expect(loadEnvModule()).rejects.toThrow('SUPABASE_SERVICE_ROLE_KEY');
+  });
+
+  it('loads AI storefront Ollama env through the central schema', async () => {
+    vi.stubEnv('OLLAMA_STOREFRONT_BASE_URL', 'http://127.0.0.1:11434');
+    vi.stubEnv('OLLAMA_STOREFRONT_MODEL', '  gemma4:\ne2b  ');
+    vi.stubEnv('OLLAMA_STOREFRONT_TIMEOUT_MS', '300000');
+
+    const {
+      getOllamaStorefrontBaseUrl,
+      getOllamaStorefrontModel,
+      getOllamaStorefrontTimeoutMs,
+    } = await loadEnvModule();
+
+    expect(getOllamaStorefrontBaseUrl()).toBe('http://127.0.0.1:11434');
+    expect(getOllamaStorefrontModel()).toBe('gemma4:e2b');
+    expect(getOllamaStorefrontTimeoutMs()).toBe(300_000);
+  });
+
+  it('returns undefined when no AI storefront Ollama URL is configured', async () => {
+    const { getOllamaStorefrontBaseUrl } = await loadEnvModule();
+
+    expect(getOllamaStorefrontBaseUrl()).toBeUndefined();
+  });
+
+  it('rejects invalid AI storefront Ollama URLs in production', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('BACI_WORKER_PROFILE', 'ai-storefront-jobs');
+    vi.stubEnv('OLLAMA_STOREFRONT_BASE_URL', 'http://example.com:11434');
+
+    await expect(loadEnvModule()).rejects.toThrow('OLLAMA_STOREFRONT_BASE_URL');
+  });
+
+  it('rejects blank AI storefront model names at runtime', async () => {
+    vi.stubEnv('OLLAMA_STOREFRONT_MODEL', '   ');
+    const { getOllamaStorefrontModel } = await loadEnvModule();
+
+    expect(() => getOllamaStorefrontModel()).toThrow(
+      'OLLAMA_STOREFRONT_MODEL must resolve to a non-empty model name'
+    );
+  });
+
+  it.each([
+    'abc',
+    '-1',
+  ])('rejects invalid AI storefront timeouts in production: %s', async (value) => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('BACI_WORKER_PROFILE', 'ai-storefront-jobs');
+    vi.stubEnv('OLLAMA_STOREFRONT_TIMEOUT_MS', value);
+
+    await expect(loadEnvModule()).rejects.toThrow(
+      'OLLAMA_STOREFRONT_TIMEOUT_MS'
+    );
   });
 
   it('loads server env when required production secrets are present', async () => {
