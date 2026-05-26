@@ -1376,7 +1376,7 @@ git commit -m "feat: convert ucp carts to checkout sessions"
 - Create: `apps/web/src/app/api/agentic/catalog/lookup/route.ts`
 - Create: `apps/web/src/app/api/agentic/catalog/lookup/route.test.ts`
 
-- [ ] **Step 1: Write failing adapter tests**
+- [x] **Step 1: Write failing adapter tests**
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -1417,7 +1417,7 @@ describe('ucp catalog adapters', () => {
 });
 ```
 
-- [ ] **Step 2: Implement adapter**
+- [x] **Step 2: Implement adapter**
 
 ```ts
 type StorefrontProductForUcp = {
@@ -1468,7 +1468,7 @@ export function mapStorefrontProductToUcpCatalogProduct(
 }
 ```
 
-- [ ] **Step 3: Write route tests**
+- [x] **Step 3: Write route tests**
 
 Use this pattern for catalog search and lookup route tests:
 
@@ -1589,7 +1589,7 @@ it('does not use select star in Supabase queries', async () => {
 });
 ```
 
-- [ ] **Step 4: Implement search, lookup, and product routes**
+- [x] **Step 4: Implement search, lookup, and product routes**
 
 All catalog routes must:
 
@@ -1611,7 +1611,11 @@ const PRODUCT_SELECT =
   'id, name, description, price, image_url, slug, stock_quantity, manage_stock, status, merchant_id';
 ```
 
-- [ ] **Step 5: Run catalog tests**
+Implementation note: the live `products` table stores primary media in `images`
+JSON, not an `image_url` column, so the route uses explicit `images` and
+`stock` columns instead of the sample `image_url` projection.
+
+- [x] **Step 5: Run catalog tests**
 
 Run:
 
@@ -1625,7 +1629,7 @@ pnpm --filter web exec vitest run \
 
 Expected: pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/web/src/lib/agentic/ucp-catalog-adapters.ts \

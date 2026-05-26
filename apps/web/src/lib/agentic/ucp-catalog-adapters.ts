@@ -1,0 +1,187 @@
+import {
+  coerceStorefrontManageStock,
+  getStorefrontAgentAvailability,
+} from '@/lib/storefront-agent-availability';
+import { buildAgentProductUrl } from '@/lib/storefront-agent-urls';
+import { UCP_PROFILE_VERSION } from './ucp-discovery-profile';
+
+export const UCP_CATALOG_SEARCH_CAPABILITY = 'dev.ucp.shopping.catalog.search';
+export const UCP_CATALOG_LOOKUP_CAPABILITY = 'dev.ucp.shopping.catalog.lookup';
+
+type StorefrontProductForUcp = {
+  currency: string;
+  description?: string | null;
+  id: string;
+  image_url?: string | null;
+  in_stock: boolean;
+  name: string;
+  price: number;
+  product_url: string;
+};
+
+export type UcpCatalogProductRow = {
+  category?: string | null;
+  description?: string | null;
+  id: string;
+  images?: unknown;
+  manage_stock?: boolean | null;
+  merchant_id: string;
+  name: string;
+  price?: number | string | null;
+  slug?: string | null;
+  status?: string | null;
+  stock?: number | string | null;
+  stock_quantity?: number | string | null;
+};
+
+export type UcpCatalogProduct = ReturnType<
+  typeof mapStorefrontProductToUcpCatalogProduct
+>;
+
+export function mapStorefrontProductToUcpCatalogProduct(
+  product: StorefrontProductForUcp
+) {
+  const price = {
+    amount: product.price,
+    currency: product.currency.toUpperCase(),
+  };
+  const media = product.image_url
+    ? [{ alt_text: product.name, type: 'image', url: product.image_url }]
+    : [];
+
+  return {
+    id: product.id,
+    title: product.name,
+    description: { plain: product.description ?? '' },
+    url: product.product_url,
+    media,
+    price_range: {
+      min: price,
+      max: price,
+    },
+    variants: [
+      {
+        id: product.id,
+        inputs: [{ id: product.id, match: 'featured' }],
+        title: product.name,
+        description: { plain: product.description ?? '' },
+        url: product.product_url,
+        media,
+        price,
+        availability: { available: product.in_stock },
+      },
+    ],
+  };
+}
+
+export function mapUcpCatalogProductRow({
+  baseUrl,
+  currency,
+  row,
+}: {
+  baseUrl: string;
+  currency: string;
+  row: UcpCatalogProductRow;
+}) {
+  const manageStock = coerceStorefrontManageStock(row.manage_stock);
+  const availability = getStorefrontAgentAvailability({
+    manage_stock: manageStock,
+    stock: row.stock,
+    stock_quantity: row.stock_quantity,
+  });
+
+  return mapStorefrontProductToUcpCatalogProduct({
+    currency,
+    description: row.description,
+    id: row.id,
+    image_url: extractPrimaryImageUrl(row.images),
+    in_stock: availability.is_purchasable,
+    name: row.name,
+    price: toIntegerAmount(row.price),
+    product_url: buildAgentProductUrl({
+      baseUrl,
+      product: {
+        category: row.category ?? null,
+        id: row.id,
+        name: row.name,
+        slug: row.slug ?? undefined,
+      },
+    }),
+  });
+}
+
+export function filterActiveUcpCatalogProductRows<
+  T extends { status?: string | null },
+>(rows: T[]): T[] {
+  return rows.filter((row) => row.status === 'active');
+}
+
+export function buildUcpCatalogProductsResponse({
+  capability,
+  products,
+}: {
+  capability: string;
+  products: UcpCatalogProduct[];
+}) {
+  return {
+    products,
+    messages: [],
+    ucp: buildUcpCatalogEnvelope(capability),
+  };
+}
+
+export function buildUcpCatalogProductResponse(product: UcpCatalogProduct) {
+  return {
+    product,
+    messages: [],
+    ucp: buildUcpCatalogEnvelope(UCP_CATALOG_LOOKUP_CAPABILITY),
+  };
+}
+
+function buildUcpCatalogEnvelope(capability: string) {
+  return {
+    version: UCP_PROFILE_VERSION,
+    status: 'success',
+    capabilities: {
+      [capability]: [{ version: UCP_PROFILE_VERSION }],
+    },
+  };
+}
+
+function extractPrimaryImageUrl(images: unknown): string | null {
+  if (!Array.isArray(images)) {
+    return null;
+  }
+
+  for (const image of images) {
+    if (typeof image === 'string' && image.trim()) {
+      return image;
+    }
+    if (
+      image &&
+      typeof image === 'object' &&
+      'url' in image &&
+      typeof image.url === 'string' &&
+      image.url.trim()
+    ) {
+      return image.url;
+    }
+  }
+
+  return null;
+}
+
+function toIntegerAmount(value: number | string | null | undefined): number {
+  const numericValue =
+    typeof value === 'number'
+      ? value
+      : typeof value === 'string'
+        ? Number.parseFloat(value)
+        : 0;
+
+  if (!Number.isFinite(numericValue)) {
+    return 0;
+  }
+
+  return Math.max(0, Math.round(numericValue));
+}
