@@ -383,14 +383,20 @@ type CategoryProductResult =
   | null;
 
 interface LcpRouteProduct {
+  brand?: string | null;
   categories?: { name?: string; slug?: string } | null;
   category?: string | null;
   category_slug?: string;
+  condition?: string | null;
   id: string;
   image?: string;
   imageLarge?: string;
+  manage_stock?: boolean | null;
   name: string;
+  price?: number | string | null;
+  schema_markup?: unknown;
   slug?: string;
+  stock_quantity?: number | null;
 }
 
 type CategoryProductRouteControlResult =
@@ -449,14 +455,20 @@ function mapCachedProductLcpHintToRouteProduct(
     typeof firstImage === 'string' ? firstImage : (firstImage?.url ?? '');
 
   return {
+    brand: cachedProduct.brand,
     categories: primaryCategory,
     category: primaryCategory?.name ?? cachedProduct.category,
     category_slug: primaryCategory?.slug,
+    condition: cachedProduct.condition,
     id: cachedProduct.id,
     image: primaryImage,
     imageLarge: primaryImage,
+    manage_stock: cachedProduct.manage_stock,
     name: cachedProduct.name,
+    price: cachedProduct.price,
+    schema_markup: cachedProduct.schema_markup,
     slug: cachedProduct.slug ?? cachedProduct.id,
+    stock_quantity: cachedProduct.stock_quantity,
   };
 }
 

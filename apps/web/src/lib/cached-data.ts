@@ -837,6 +837,7 @@ export async function getCachedProducts(
  * Keep this shape narrow so the LCP image hint is not delayed by rich product joins.
  */
 export interface CachedProductLcpHint {
+  brand?: string | null;
   category?: string | null;
   categories?:
     | {
@@ -850,6 +851,7 @@ export interface CachedProductLcpHint {
         slug: string;
       }>
     | null;
+  condition?: string | null;
   id: string;
   images?: Array<
     | string
@@ -858,7 +860,9 @@ export interface CachedProductLcpHint {
         url: string;
       }
   > | null;
+  manage_stock?: boolean | null;
   name: string;
+  price?: number | string | null;
   product_categories?: Array<{
     categories:
       | {
@@ -873,7 +877,9 @@ export interface CachedProductLcpHint {
         }>
       | null;
   }> | null;
+  schema_markup?: unknown;
   slug?: string | null;
+  stock_quantity?: number | null;
 }
 
 /**
@@ -902,9 +908,15 @@ export async function getCachedProductLcpHint(
     .from('products')
     .select(`
         id,
+        brand,
         name,
         slug,
+        price,
+        condition,
+        manage_stock,
+        stock_quantity,
         category,
+        schema_markup,
         images,
         categories:category_id (
           id,
