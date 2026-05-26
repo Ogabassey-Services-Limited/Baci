@@ -45,7 +45,6 @@ export function DataForm({
   const insets = useSafeAreaInsets();
   const { dismissKeyboard, isKeyboardVisible, keyboardHeight } = useKeyboard();
   const customer = useAuthStore((state) => state.customer);
-  const payment = useUtilityPayment();
   const {
     data: dataPlans,
     error: plansError,
@@ -78,6 +77,7 @@ export function DataForm({
   const shouldScrollToPaymentRef = useRef(isRepeatPaymentReady);
   const wasRepeatPaymentReadyRef = useRef(isRepeatPaymentReady);
   const paymentYRef = useRef<number | null>(null);
+  const payment = useUtilityPayment(planAmount);
   const footerSpacerHeight =
     DATA_FOOTER_HEIGHT +
     Math.max(insets.bottom, SPACING.md) +
@@ -269,6 +269,8 @@ export function DataForm({
             selectedSavedCardId={payment.selectedSavedCardId}
             supportedGateways={payment.supportedGateways}
             walletBalance={payment.walletBalance}
+            walletError={payment.walletError}
+            walletIsLoading={payment.walletIsLoading}
             walletSelection={payment.walletSelection}
             onWalletToggle={payment.setWalletSelection}
           />

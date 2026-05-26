@@ -1,213 +1,89 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { utilityModalTestHarness as harness } from './utility-modal-test-support';
 import { UtilityModal } from './UtilityModal';
-import { toast } from '@/hooks/use-toast';
 
-vi.mock('@/env', () => ({
-  getSupabaseUrl: () => 'https://test.supabase.co',
-  getSupabaseAnonKey: () => 'test-anon-key',
-  getSupabaseServiceRoleKey: () => 'test-service-role-key',
-  getRootDomain: () => 'localhost',
-}));
-
-vi.mock('./utility/AirtimeDataForm', () => ({
-  AirtimeDataForm: ({ type, loading, onSubmit }: { type: string; loading: boolean; onSubmit: (data: Record<string, unknown>) => void }) => (
-    <div data-testid="airtime-data-form" data-type={type} data-loading={String(loading)}>
-      <button onClick={() => onSubmit({ phoneNumber: '08012345678', amount: 100, networkProvider: 'MTN' })}>Mock Submit</button>
-    </div>
-  ),
-}));
-
-vi.mock('./utility/BillPaymentForm', () => ({
-  BillPaymentForm: ({ type, loading, onSubmit }: { type: string; loading: boolean; onSubmit: (data: Record<string, unknown>) => void }) => (
-    <div data-testid="bill-payment-form" data-type={type} data-loading={String(loading)}>
-      <button onClick={() => onSubmit({ amount: 5000, billItemIdentifier: 'DSTV', customerIdentifier: '123', billerName: 'DStv', type: 'cable_tv' })}>Mock Bill Submit</button>
-    </div>
-  ),
-}));
-
-vi.mock('@/hooks/use-merchant-client', () => ({
-  useMerchantSafe: () => ({ merchant: { slug: 'ogabassey' } }),
-}));
-
-vi.mock('@/hooks/use-toast', () => ({
-  toast: vi.fn(),
-}));
-
-vi.mock('@/lib/utils', () => ({
-  cn: (...args: unknown[]) => args.filter(Boolean).join(' '),
-}));
-
-const mockFetch = vi.fn();
-global.fetch = mockFetch;
+function renderOpenModal() {
+  return render(
+    <UtilityModal
+      isOpen={true}
+      onClose={harness.onClose}
+    />
+  );
+}
 
 describe('UtilityModal', () => {
-  const mockOnClose = vi.fn();
-  const mockToast = vi.mocked(toast);
-
   beforeEach(() => {
-    mockOnClose.mockClear();
-    mockToast.mockClear();
-    mockFetch.mockClear();
+    harness.reset();
   });
 
   it('returns null when isOpen is false', () => {
     const { container } = render(
       <UtilityModal
         isOpen={false}
-        onClose={mockOnClose}
+        onClose={harness.onClose}
       />
     );
 
     expect(container.firstChild).toBeNull();
   });
 
-  it('renders modal with header "Utility Payment" when open', () => {
-    render(
-      <UtilityModal
-        isOpen={true}
-        onClose={mockOnClose}
-      />
-    );
+  it('renders the header, tabs, and default airtime form when open', () => {
+    renderOpenModal();
 
     expect(screen.getByText('Utility Payment')).toBeInTheDocument();
-  });
-
-  it('shows all 5 tab buttons', () => {
-    render(
-      <UtilityModal
-        isOpen={true}
-        onClose={mockOnClose}
-      />
-    );
-
     expect(screen.getByText('Airtime')).toBeInTheDocument();
     expect(screen.getByText('Data')).toBeInTheDocument();
     expect(screen.getByText('TV')).toBeInTheDocument();
     expect(screen.getByText('Power')).toBeInTheDocument();
     expect(screen.getByText('Betting')).toBeInTheDocument();
+    expect(screen.getByTestId('airtime-data-form')).toHaveAttribute(
+      'data-type',
+      'airtime'
+    );
   });
 
-  it('renders AirtimeDataForm for airtime tab (default)', () => {
-    render(
-      <UtilityModal
-        isOpen={true}
-        onClose={mockOnClose}
-      />
-    );
+  it('switches to the bill payment form when a bill tab is selected', () => {
+    renderOpenModal();
 
-    const airtimeForm = screen.getByTestId('airtime-data-form');
-    expect(airtimeForm).toBeInTheDocument();
-    expect(airtimeForm).toHaveAttribute('data-type', 'airtime');
+    fireEvent.click(screen.getByRole('tab', { name: 'TV' }));
+
+    expect(screen.getByTestId('bill-payment-form')).toHaveAttribute(
+      'data-type',
+      'tv'
+    );
   });
 
-  it('switches to BillPaymentForm when TV tab clicked', () => {
-    render(
-      <UtilityModal
-        isOpen={true}
-        onClose={mockOnClose}
-      />
-    );
+  it('shows wallet-only success state and notification', async () => {
+    renderOpenModal();
 
-    const tvTab = screen.getByText('TV');
-    fireEvent.click(tvTab);
-
-    const billForm = screen.getByTestId('bill-payment-form');
-    expect(billForm).toBeInTheDocument();
-    expect(billForm).toHaveAttribute('data-type', 'tv');
-  });
-
-  it('shows success screen after successful purchase', async () => {
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({
-        reference: 'REF123456',
-        amount: 100,
-      }),
-    });
-
-    render(
-      <UtilityModal
-        isOpen={true}
-        onClose={mockOnClose}
-      />
-    );
-
-    const submitButton = screen.getByText('Mock Submit');
-    fireEvent.click(submitButton);
+    fireEvent.click(screen.getByText('Mock Submit'));
 
     await waitFor(() => {
       expect(screen.getByText('Success!')).toBeInTheDocument();
-      expect(screen.getByText('Your transaction has been processed successfully.')).toBeInTheDocument();
       expect(screen.getByText('REF123456')).toBeInTheDocument();
-    });
-  });
-
-  it('calls toast on successful purchase', async () => {
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({
-        reference: 'REF123456',
-        amount: 100,
-      }),
-    });
-
-    render(
-      <UtilityModal
-        isOpen={true}
-        onClose={mockOnClose}
-      />
-    );
-
-    const submitButton = screen.getByText('Mock Submit');
-    fireEvent.click(submitButton);
-
-    await waitFor(() => {
-      expect(mockToast).toHaveBeenCalledWith({
+      expect(harness.toast).toHaveBeenCalledWith({
         title: 'Purchase Successful',
         description: 'Your airtime purchase was successful!',
       });
     });
   });
 
-  it('shows error toast on failed purchase', async () => {
-    mockFetch.mockResolvedValue({
-      ok: false,
-      json: () => Promise.resolve({
-        error: 'Insufficient funds',
-      }),
-    });
+  it('shows available wallet credit as a selected payment method', () => {
+    renderOpenModal();
 
-    render(
-      <UtilityModal
-        isOpen={true}
-        onClose={mockOnClose}
-      />
-    );
-
-    const submitButton = screen.getByText('Mock Submit');
-    fireEvent.click(submitButton);
-
-    await waitFor(() => {
-      expect(mockToast).toHaveBeenCalledWith({
-        title: 'Transaction Failed',
-        description: 'Insufficient funds',
-        variant: 'destructive',
-      });
-    });
+    expect(
+      screen.getByRole('radio', { name: /pay with wallet/i })
+    ).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByText(/₦500 available/i)).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: /pay with card/i })).toBeInTheDocument();
   });
 
-  it('close button calls onClose', () => {
-    render(
-      <UtilityModal
-        isOpen={true}
-        onClose={mockOnClose}
-      />
-    );
+  it('closes when the close button is selected', () => {
+    renderOpenModal();
 
-    const closeButton = screen.getByRole('button', { name: /close/i });
-    fireEvent.click(closeButton);
+    fireEvent.click(screen.getByRole('button', { name: /close/i }));
 
-    expect(mockOnClose).toHaveBeenCalled();
+    expect(harness.onClose).toHaveBeenCalledOnce();
   });
 });

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { type Dispatch, type SetStateAction, useEffect, useState } from 'react';
 
 interface UseWalletOptions {
   userId: string | undefined;
@@ -12,7 +12,7 @@ interface UseWalletReturn {
   walletLoading: boolean;
   payWithWallet: boolean;
   setPayWithWallet: (v: boolean) => void;
-  setWalletBalance: (v: number) => void;
+  setWalletBalance: Dispatch<SetStateAction<number>>;
 }
 
 export function useWallet({ userId, merchantSlug }: UseWalletOptions): UseWalletReturn {

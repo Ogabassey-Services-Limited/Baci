@@ -11,11 +11,10 @@ import Colors, { BRAND, SPACING } from '@/constants/Colors';
 import type { SavedVtuCard } from '@/lib/vtu-checkout';
 import type { WalletSelection } from '@/lib/wallet-payment-helpers';
 import type { UtilityPaymentGateway } from '@/hooks/use-utility-payment';
+import { UtilityPaystackTrustBadge } from './UtilityPaystackTrustBadge';
 
 const CARD_CASHBACK_BADGE = '2x cashback';
 const CARD_CASHBACK_DESCRIPTION = '2x cashback on your first card payment';
-const PAYSTACK_BLUE_DARK_MODE = '#5CD6FF';
-const PAYSTACK_BLUE = '#011B33';
 
 interface UtilityPaymentOptionsProps {
   amount: number;
@@ -34,6 +33,8 @@ interface UtilityPaymentOptionsProps {
    * existing screens render unchanged until they opt in.
    */
   walletBalance?: number;
+  walletError?: Error | null;
+  walletIsLoading?: boolean;
   walletSelection?: WalletSelection;
   onWalletToggle?: (selection: WalletSelection) => void;
 }
@@ -48,6 +49,8 @@ export function UtilityPaymentOptions({
   selectedSavedCardId,
   supportedGateways,
   walletBalance,
+  walletError,
+  walletIsLoading,
   walletSelection,
   onWalletToggle,
 }: UtilityPaymentOptionsProps) {
@@ -74,34 +77,10 @@ export function UtilityPaymentOptions({
         Payment Method
       </Text>
       {hasPaystackOption ? (
-        <View
-          style={[
-            styles.paystackTrust,
-            {
-              backgroundColor: colors.card,
-              borderColor: colors.border,
-            },
-          ]}
-        >
-          <Text
-            style={[styles.paystackTrustText, { color: colors.textSecondary }]}
-          >
-            Secured by
-          </Text>
-          <Text
-            style={[
-              styles.paystackWordmark,
-              {
-                color:
-                  (colorScheme ?? 'light') === 'dark'
-                    ? PAYSTACK_BLUE_DARK_MODE
-                    : PAYSTACK_BLUE,
-              },
-            ]}
-          >
-            Paystack
-          </Text>
-        </View>
+        <UtilityPaystackTrustBadge
+          colors={colors}
+          isDark={(colorScheme ?? 'light') === 'dark'}
+        />
       ) : null}
 
       {isLoadingCards ? (
@@ -206,6 +185,8 @@ export function UtilityPaymentOptions({
         }}
         walletMode={onWalletToggle ? 'vtu' : 'off'}
         walletBalance={walletBalance}
+        walletError={walletError}
+        walletIsLoading={walletIsLoading}
         walletOrderTotal={amount}
         walletSelection={walletSelection}
         onWalletToggle={onWalletToggle}
@@ -235,25 +216,6 @@ const styles = StyleSheet.create({
   },
   loader: {
     marginBottom: SPACING.md,
-  },
-  paystackTrust: {
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    borderRadius: 999,
-    borderWidth: 1,
-    flexDirection: 'row',
-    gap: 6,
-    marginBottom: SPACING.md,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  paystackTrustText: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  paystackWordmark: {
-    fontSize: 13,
-    fontWeight: '800',
   },
   savedCard: {
     alignItems: 'center',
