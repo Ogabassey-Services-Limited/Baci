@@ -1645,7 +1645,7 @@ git commit -m "feat: add ucp catalog search and lookup"
 - Modify: `apps/web/src/lib/agentic/ucp-discovery-profile.test.ts`
 - Modify: `apps/web/src/app/.well-known/ucp/route.test.ts`
 
-- [ ] **Step 1: Write failing discovery profile tests**
+- [x] **Step 1: Write failing discovery profile tests**
 
 ```ts
 it('advertises UCP cart operations when checkout is enabled', () => {
@@ -1683,7 +1683,7 @@ it('advertises UCP catalog search and lookup operations', () => {
 });
 ```
 
-- [ ] **Step 2: Add UCP operation constants**
+- [x] **Step 2: Add UCP operation constants**
 
 ```ts
 const UCP_CART_CAPABILITY = 'dev.ucp.shopping.cart';
@@ -1693,7 +1693,7 @@ const UCP_CART_SPEC_URL = `${UCP_SPEC_BASE_URL}/cart`;
 const UCP_CATALOG_SPEC_URL = `${UCP_SPEC_BASE_URL}/catalog`;
 ```
 
-- [ ] **Step 3: Add cart and catalog builders**
+- [x] **Step 3: Add cart and catalog builders**
 
 ```ts
 function buildUcpCartCapability(agenticApiBaseUrl: string) {
@@ -1758,7 +1758,7 @@ function buildUcpCatalogLookupCapability(agenticApiBaseUrl: string) {
 
 Normalize slashes with the existing `buildUrl` helper before committing; tests must assert final URLs have exactly one slash between `/api/agentic/` and the route.
 
-- [ ] **Step 4: Run discovery tests**
+- [x] **Step 4: Run discovery tests**
 
 Run:
 
@@ -1770,7 +1770,7 @@ pnpm --filter web exec vitest run \
 
 Expected: pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/web/src/lib/agentic/ucp-discovery-profile.ts \

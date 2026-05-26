@@ -127,6 +127,28 @@ describe('GET /.well-known/ucp', () => {
         schema: 'https://ucp.dev/2026-04-08/schemas/shopping/checkout.json',
       }),
     ]);
+    expect(body.ucp.capabilities['dev.ucp.shopping.cart']).toEqual([
+      expect.objectContaining({
+        spec: 'https://ucp.dev/2026-04-08/specification/cart',
+      }),
+    ]);
+    expect(
+      body.ucp.capabilities['dev.ucp.shopping.cart'][0].config.rest.operations
+    ).toMatchObject({
+      cancel_cart: 'https://ogabassey.com/api/agentic/carts/{id}/cancel',
+      convert_cart_to_checkout:
+        'https://ogabassey.com/api/agentic/carts/{id}/checkout',
+      create_cart: 'https://ogabassey.com/api/agentic/carts',
+      get_cart: 'https://ogabassey.com/api/agentic/carts/{id}',
+      update_cart: 'https://ogabassey.com/api/agentic/carts/{id}',
+    });
+    expect(
+      body.ucp.capabilities['dev.ucp.shopping.catalog.lookup'][0].config.rest
+        .operations
+    ).toMatchObject({
+      get_product: 'https://ogabassey.com/api/agentic/catalog/product',
+      lookup_catalog: 'https://ogabassey.com/api/agentic/catalog/lookup',
+    });
     expect(
       body.ucp.capabilities['dev.ucp.shopping.checkout'][0].config
     ).toMatchObject({
