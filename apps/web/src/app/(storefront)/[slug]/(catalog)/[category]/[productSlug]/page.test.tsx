@@ -391,8 +391,10 @@ async function resolveRsc(
       return resolveRsc(props.children, options);
     }
 
-    if (options.skipContent && isDeferredCategoryProductContent(type, props)) {
-      return element;
+    if (isDeferredCategoryProductContent(type, props)) {
+      if (options.skipContent) {
+        return element;
+      }
     }
 
     if (isServerComponent(type)) {
@@ -876,12 +878,17 @@ describe('[category]/[productSlug] page render', () => {
     expect(
       screen.getByRole('status', { name: /dynamic metadata marker/i })
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole('heading', {
-        level: 1,
-        name: 'HP Laptop 14-ep0063nia',
-      })
-    ).toBeInTheDocument();
+    const marker = screen.getByRole('status', {
+      name: /dynamic metadata marker/i,
+    });
+    const heading = screen.getByRole('heading', {
+      level: 1,
+      name: 'HP Laptop 14-ep0063nia',
+    });
+
+    expect(marker.compareDocumentPosition(heading)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING
+    );
     expect(container.querySelectorAll('h1')).toHaveLength(1);
   });
 
@@ -918,7 +925,7 @@ describe('[category]/[productSlug] page render', () => {
     expect(mockPermanentRedirect).not.toHaveBeenCalled();
   });
 
-  it('throws notFound before rendering a cached skeleton when the category product is missing', async () => {
+  it('throws notFound before streaming when the product is missing', async () => {
     const consoleWarnSpy = vi
       .spyOn(console, 'warn')
       .mockImplementation(() => undefined);
@@ -941,6 +948,7 @@ describe('[category]/[productSlug] page render', () => {
         baseMerchant.id,
         'missing-product'
       );
+      expect(mockNotFound).toHaveBeenCalledTimes(1);
       expect(consoleWarnSpy).not.toHaveBeenCalledWith(
         'Product not found for storefront product route:',
         'missing-product'
@@ -1183,6 +1191,58 @@ describe('[category]/[productSlug] page render', () => {
     expect(mockPermanentRedirect).toHaveBeenCalledTimes(1);
     expect(mockPreloadOgabasseyPdpProductImage).not.toHaveBeenCalled();
     expect(mockOgabasseyPdpProductResourceHints).not.toHaveBeenCalled();
+  });
+
+  it('allows valid variantId query routes to stream product hints without redirecting', async () => {
+    const productImage =
+      'https://cdn.ogabassey.com/core-assets/products/variant-laptop.avif';
+    const variants = [
+      {
+        id: 'variant-used-128',
+        attributes: { storage: '128GB' },
+        condition: 'used',
+        stock_quantity: 3,
+      },
+    ];
+    mockGetCachedProductLcpHint.mockResolvedValueOnce(
+      toLegacyCachedProduct({
+        ...categorizedDetailedProduct,
+        images: [productImage],
+      })
+    );
+    mockGetCachedProductWithDetails.mockResolvedValueOnce({
+      ...categorizedDetailedProduct,
+      images: [productImage],
+      product_variants: variants,
+    });
+    mockNormalizeStorefrontProductVariants.mockReturnValueOnce(variants);
+
+    const ui = await resolveRsc(
+      await CategoryProductPage({
+        params: Promise.resolve({
+          slug: 'teststore',
+          category: 'laptops',
+          productSlug: 'hp-laptop-14-ep0063nia',
+        }),
+        searchParams: Promise.resolve({ variantId: 'variant-used-128' }),
+      })
+    );
+
+    render(ui);
+
+    expect(mockPermanentRedirect).not.toHaveBeenCalled();
+    expect(mockPreloadOgabasseyPdpProductImage).toHaveBeenCalledWith({
+      src: productImage,
+    });
+    expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
+      src: productImage,
+    });
+    expect(
+      screen.getByRole('heading', {
+        level: 1,
+        name: 'HP Laptop 14-ep0063nia',
+      })
+    ).toBeInTheDocument();
   });
 
   it('skips early product preload when the cached product has no image and still renders details', async () => {
