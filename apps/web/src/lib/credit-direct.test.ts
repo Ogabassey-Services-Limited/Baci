@@ -1,6 +1,12 @@
 import crypto from 'node:crypto';
-import { describe, expect, it } from 'vitest';
-import { verifyWebhookSignature } from '@/lib/credit-direct';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  getPrivateKey,
+  getPublicKey,
+  getWebhookSecret,
+  isLiveMode,
+  verifyWebhookSignature,
+} from '@/lib/credit-direct';
 
 describe('verifyWebhookSignature', () => {
   const payload = JSON.stringify({ event: 'payment.completed', id: 'evt_123' });
@@ -40,5 +46,58 @@ describe('verifyWebhookSignature', () => {
     const longSignature = '0'.repeat(128);
 
     expect(verifyWebhookSignature(payload, longSignature, secret)).toBe(false);
+  });
+});
+
+describe('Credit Direct environment helpers', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('removes escaped trailing newlines from dashboard keys', () => {
+    vi.stubEnv('CREDIT_DIRECT_PRIVATE_KEY', 'private-key-value\\n   ');
+    vi.stubEnv('CREDIT_DIRECT_PUBLIC_KEY', 'public-key-value\\n   ');
+    vi.stubEnv('CREDIT_DIRECT_WEBHOOK_SECRET', 'webhook-secret\\n   ');
+
+    expect(getPrivateKey()).toBe('private-key-value');
+    expect(getPublicKey()).toBe('public-key-value');
+    expect(getWebhookSecret()).toBe('webhook-secret');
+  });
+
+  it('normalizes actual newlines, carriage returns, and whitespace', () => {
+    vi.stubEnv('CREDIT_DIRECT_PRIVATE_KEY', '\r\n private-key-value \n');
+    vi.stubEnv('CREDIT_DIRECT_PUBLIC_KEY', ' public-key-value\r\n');
+    vi.stubEnv('CREDIT_DIRECT_WEBHOOK_SECRET', '\\rwebhook-secret\\n');
+
+    expect(getPrivateKey()).toBe('private-key-value');
+    expect(getPublicKey()).toBe('public-key-value');
+    expect(getWebhookSecret()).toBe('webhook-secret');
+  });
+
+  it.each([
+    ['CREDIT_DIRECT_PRIVATE_KEY', getPrivateKey],
+    ['CREDIT_DIRECT_PUBLIC_KEY', getPublicKey],
+    ['CREDIT_DIRECT_WEBHOOK_SECRET', getWebhookSecret],
+  ])('throws when %s is blank after normalization', (envKey, readValue) => {
+    vi.stubEnv(envKey, '\\n \r');
+
+    expect(readValue).toThrow();
+  });
+
+  it.each([
+    [undefined, true],
+    ['false\\n', false],
+    [' FALSE ', false],
+    ['true', true],
+    ['1', true],
+    ['', true],
+  ])('parses live mode from %s as %s', (envValue, expected) => {
+    if (envValue === undefined) {
+      vi.stubEnv('CREDIT_DIRECT_IS_LIVE', undefined);
+    } else {
+      vi.stubEnv('CREDIT_DIRECT_IS_LIVE', envValue);
+    }
+
+    expect(isLiveMode()).toBe(expected);
   });
 });
