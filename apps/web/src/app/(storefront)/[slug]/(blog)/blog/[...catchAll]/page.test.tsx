@@ -1,4 +1,4 @@
-import { isValidElement, type ReactElement, Suspense } from 'react';
+import { Children, isValidElement, type ReactElement, Suspense } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockNotFound = vi.fn(() => {
@@ -105,8 +105,9 @@ describe('storefront blog catch-all route', () => {
         catchAll: ['category', 'legacy-post'],
       }),
     });
-    const children = (element as ReactElement<{ children?: ReactElement[] }>)
-      .props.children;
+    const children = Children.toArray(
+      (element as ReactElement<{ children?: unknown }>).props.children
+    ) as ReactElement[];
 
     expect(isValidElement(element)).toBe(true);
     expect(children?.[0].type).toBe(Suspense);

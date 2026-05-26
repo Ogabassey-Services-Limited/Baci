@@ -651,7 +651,10 @@ export async function generateMetadata({
   const result = await getProduct(slug, category, productSlug);
 
   if (!result) {
-    notFound();
+    return {
+      title: 'Product Not Found',
+      robots: { index: false, follow: false },
+    };
   }
 
   // Don't redirect from generateMetadata — Next.js can't change HTTP status
