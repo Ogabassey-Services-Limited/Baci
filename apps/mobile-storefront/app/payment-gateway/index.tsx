@@ -9,6 +9,7 @@ import { PaymentGatewayCheckoutView } from '@/components/payment-gateway/Payment
 import { PaymentProcessingView } from '@/components/payment-gateway/PaymentProcessingView';
 import { PaymentSuccessView } from '@/components/payment-gateway/PaymentSuccessView';
 import { usePaymentGatewayController } from '@/components/payment-gateway/use-payment-gateway-controller';
+import { StorefrontScreenShell } from '@/components/storefront/StorefrontScreenShell';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 
@@ -17,63 +18,73 @@ export default function PaymentGatewayScreen() {
   const colors = Colors[colorScheme ?? 'light'];
   const controller = usePaymentGatewayController();
 
-  if (!controller.validatedParams.isValid) {
-    return (
-      <InvalidCheckoutView
-        colors={colors}
-        error={controller.validatedParams.error}
-        onBack={controller.handleBack}
-      />
-    );
-  }
+  const renderPaymentContent = () => {
+    if (!controller.validatedParams.isValid) {
+      return (
+        <InvalidCheckoutView
+          colors={colors}
+          error={controller.validatedParams.error}
+          onBack={controller.handleBack}
+        />
+      );
+    }
 
-  if (controller.status === 'processing') {
-    return (
-      <PaymentProcessingView
-        colors={colors}
-        paymentKind={controller.paymentKind}
-        utilityType={controller.utilityType}
-      />
-    );
-  }
+    if (controller.status === 'processing') {
+      return (
+        <PaymentProcessingView
+          colors={colors}
+          paymentKind={controller.paymentKind}
+          utilityType={controller.utilityType}
+        />
+      );
+    }
 
-  if (controller.status === 'success') {
-    return (
-      <PaymentSuccessView
-        colors={colors}
-        paymentKind={controller.paymentKind}
-      />
-    );
-  }
+    if (controller.status === 'success') {
+      return (
+        <PaymentSuccessView
+          colors={colors}
+          paymentKind={controller.paymentKind}
+        />
+      );
+    }
 
-  if (controller.status === 'error') {
+    if (controller.status === 'error') {
+      return (
+        <PaymentErrorView
+          colors={colors}
+          errorMessage={controller.errorMessage}
+          gatewayName={controller.gatewayName}
+          onBack={controller.handleBack}
+          onRetry={controller.handleRetry}
+        />
+      );
+    }
+
     return (
-      <PaymentErrorView
+      <PaymentGatewayCheckoutView
+        amount={controller.amount}
+        authorizationUrl={controller.authorizationUrl}
         colors={colors}
-        errorMessage={controller.errorMessage}
         gatewayName={controller.gatewayName}
-        onBack={controller.handleBack}
-        onRetry={controller.handleRetry}
+        onClose={controller.handleClose}
+        onError={controller.handleWebViewError}
+        onLoadEnd={controller.handleLoadEnd}
+        onLoadStart={controller.handleLoadStart}
+        onMessage={controller.handleWebViewMessage}
+        onNavigationStateChange={controller.handleNavigationChange}
+        onShouldStartLoadWithRequest={
+          controller.handleShouldStartLoadWithRequest
+        }
+        status={controller.status}
+        ToastComponent={controller.toast.Toast}
+        webViewRef={controller.webViewRef}
       />
     );
-  }
+  };
 
   return (
-    <PaymentGatewayCheckoutView
-      amount={controller.amount}
-      authorizationUrl={controller.authorizationUrl}
-      colors={colors}
-      gatewayName={controller.gatewayName}
-      onClose={controller.handleClose}
-      onError={controller.handleWebViewError}
-      onLoadEnd={controller.handleLoadEnd}
-      onLoadStart={controller.handleLoadStart}
-      onMessage={controller.handleWebViewMessage}
-      onNavigationStateChange={controller.handleNavigationChange}
-      onShouldStartLoadWithRequest={controller.handleShouldStartLoadWithRequest}
-      status={controller.status}
-      ToastComponent={controller.toast.Toast}
-      webViewRef={controller.webViewRef}
-    />
+    <StorefrontScreenShell style={{ backgroundColor: colors.background }}>
+      {renderPaymentContent()}
+    </StorefrontScreenShell>
   );
 }
