@@ -1,0 +1,28 @@
+<!-- jules-pr-review mode:fast sha:8568fba1f344a44a9f056376d3437fd4ca7ed95d -->
+## Jules PR review
+
+Mode: `fast`
+
+The workflow did not produce a review body. Check the workflow logs for the failure point.
+
+<!-- jules-pr-review mode:fast sha:25393e186be2a82dc824ce486a6854072e7e0857 -->
+## Jules PR review
+
+Mode: `fast`
+
+The workflow did not produce a review body. Check the workflow logs for the failure point.
+
+<!-- jules-pr-review mode:fast sha:5c2e53af5918e491302f10186a3969c34ea503e0 -->
+## Jules PR review
+
+Mode: `fast`
+
+The workflow did not produce a review body. Check the workflow logs for the failure point.
+
+<!-- jules-pr-review mode:fast sha:43284805d2f6d27000e77e2d1b277367f2f6de27 -->
+## Jules PR review
+
+Mode: `fast`
+
+The workflow did not produce a review body. Check the workflow logs for the failure point.
+
