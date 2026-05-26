@@ -88,6 +88,24 @@ export const getStyles = (colors: ThemeColors) =>
       borderWidth: 1,
       borderColor: colors.border,
     },
+    countryOptions: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: SPACING.sm,
+    },
+    countryOption: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: RADIUS.full,
+      paddingHorizontal: SPACING.md,
+      paddingVertical: SPACING.sm,
+      backgroundColor: colors.card,
+    },
+    countryOptionText: {
+      color: colors.text,
+      fontSize: TYPOGRAPHY.size.sm,
+      fontFamily: TYPOGRAPHY.fontFamily.medium,
+    },
     passwordContainer: {
       flexDirection: 'row',
       alignItems: 'center',

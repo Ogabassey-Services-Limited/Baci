@@ -16,6 +16,7 @@ import { BusinessTypeSelector } from '@/components/auth/BusinessTypeSelector';
 import { RegisterLegalText } from '@/components/auth/register/RegisterLegalText';
 import { AppFormScreen } from '@/components/ui/AppFormScreen';
 import SafeImage from '@/components/ui/SafeImage';
+import { COUNTRIES } from '@/constants/countries';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useRegistration } from '@/hooks/useRegistration';
 import { useTheme } from '@/hooks/useTheme';
@@ -405,6 +406,48 @@ export default function CompleteProfileScreen() {
             </View>
           )}
 
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: colors.textSecondary }]}>
+              Country/Region
+            </Text>
+            <View style={styles.countryOptions}>
+              {COUNTRIES.map((country) => {
+                const isSelected = formData.country === country.code;
+                return (
+                  <Pressable
+                    accessibilityLabel={`Country ${country.name}`}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: isSelected }}
+                    key={country.code}
+                    onPress={() => updateForm('country', country.code)}
+                    style={[
+                      styles.countryOption,
+                      {
+                        backgroundColor: isSelected
+                          ? colors.primary
+                          : colors.card,
+                        borderColor: isSelected ? colors.primary : colors.border,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.countryOptionText,
+                        {
+                          color: isSelected
+                            ? colors.textOnPrimary
+                            : colors.text,
+                        },
+                      ]}
+                    >
+                      {country.name}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+
           <Pressable
             style={[
               styles.button,
@@ -511,6 +554,21 @@ const styles = StyleSheet.create({
     padding: SPACING.md,
     fontSize: TYPOGRAPHY.size.md,
     borderWidth: 1,
+  },
+  countryOptions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.sm,
+  },
+  countryOption: {
+    borderWidth: 1,
+    borderRadius: RADIUS.full,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+  },
+  countryOptionText: {
+    fontSize: TYPOGRAPHY.size.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
   },
   button: {
     flexDirection: 'row',
