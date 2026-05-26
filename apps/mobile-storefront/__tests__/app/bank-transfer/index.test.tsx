@@ -82,6 +82,7 @@ describe('BankTransferScreen', () => {
         orderId: 'order-123',
         orderNumber: 'ORD-123',
         paymentMethod: 'bank_transfer',
+        reference: 'dva-ref-123',
         trackingToken: 'track-token-123',
       },
     });
@@ -111,6 +112,7 @@ describe('BankTransferScreen', () => {
         orderId: 'order-123',
         orderNumber: 'ORD-123',
         paymentMethod: 'bank_transfer',
+        reference: 'dva-ref-123',
       },
     });
   });

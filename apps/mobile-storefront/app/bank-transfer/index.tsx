@@ -49,6 +49,7 @@ export default function BankTransferScreen() {
   const {
     orderId,
     orderNumber,
+    reference,
     amount,
     bankName,
     accountNumber,
@@ -76,6 +77,7 @@ export default function BankTransferScreen() {
         orderId,
         orderNumber: orderNumber || '',
         paymentMethod: 'bank_transfer',
+        reference,
         ...(trackingToken && { trackingToken }),
       },
     });
