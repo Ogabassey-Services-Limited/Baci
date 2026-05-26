@@ -883,9 +883,11 @@ export default function EditBlogPostPage() {
             </p>
           </div>
         </div>
-        <fieldset
+        {/* biome-ignore lint/a11y/useSemanticElements: This groups non-form action buttons; Jules blocks fieldset semantics here. */}
+        <div
+          role="group"
           aria-label="Post actions"
-          className="m-0 grid grid-cols-2 gap-2 border-0 p-0 sm:flex sm:flex-wrap sm:items-center sm:justify-end lg:max-w-[70%]"
+          className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-end lg:max-w-[70%]"
         >
           <Button
             variant="outline"
@@ -1051,7 +1053,7 @@ export default function EditBlogPostPage() {
               Archive
             </Button>
           )}
-        </fieldset>
+        </div>
       </div>
 
       {/* Editor Tabs */}
