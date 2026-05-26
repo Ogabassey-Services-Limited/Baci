@@ -50,6 +50,7 @@ import {
   getTrackingPermissionStatus,
   requestTrackingPermissionStatus,
 } from '@/lib/tracking-transparency';
+import { toTikTokEventData, type TikTokEventData } from './tiktok-event-data';
 
 // 2026 Best Practice: Dynamic imports for native modules to prevent evaluation-time crashes
 // Minimal interfaces for dynamically loaded SDK methods we actually use
@@ -79,8 +80,20 @@ interface AEMReporterIOSLike {
   ) => void;
 }
 interface TikTokBusinessLike {
-  init: (config: Record<string, unknown>) => Promise<void>;
-  trackEvent: (name: string, params?: Record<string, unknown>) => void;
+  initialize?: () => boolean;
+  isInitialized?: () => boolean;
+  identify?: (
+    externalID: string,
+    externalUserName?: string,
+    phoneNumber?: string,
+    email?: string
+  ) => void;
+  logout?: () => void;
+  trackEvent: (
+    name: string,
+    eventId?: string,
+    eventData?: TikTokEventData[]
+  ) => void;
 }
 
 let FBSettings: FBSettingsLike | null = null;
@@ -93,7 +106,7 @@ const loadNativeModules = async () => {
   try {
     const [fb, tt] = await Promise.all([
       import('react-native-fbsdk-next'),
-      import('react-native-tiktok-business'),
+      import('@baci/tiktok-business'),
     ]);
 
     if (fb) {
@@ -129,9 +142,12 @@ import {
 
 const FB_APP_ID = Constants.expoConfig?.extra?.facebookAppId || '';
 const FB_CLIENT_TOKEN = Constants.expoConfig?.extra?.facebookClientToken || '';
-const TIKTOK_APP_ID = Constants.expoConfig?.extra?.tiktokAppId || '';
-const TIKTOK_ACCESS_TOKEN =
-  Constants.expoConfig?.extra?.tiktokAccessToken || '';
+const TIKTOK_BUSINESS_CONFIG = Constants.expoConfig?.extra?.tiktokBusiness as
+  | { isConfigured?: boolean; iosTikTokAppId?: string | null }
+  | undefined;
+const IS_TIKTOK_BUSINESS_CONFIGURED = Boolean(
+  TIKTOK_BUSINESS_CONFIG?.isConfigured
+);
 const API_URL =
   Constants.expoConfig?.extra?.apiUrl || 'https://ogabassey.com/api';
 
@@ -221,19 +237,13 @@ export async function initAdTracking(): Promise<void> {
       log.info('Facebook SDK initialized (backup)');
     }
 
-    // 4. Initialize TikTok SDK (backup tracking)
-    if (TIKTOK_APP_ID && TIKTOK_ACCESS_TOKEN && TikTokBusiness) {
-      try {
-        await TikTokBusiness.init({
-          appId: TIKTOK_APP_ID,
-          tiktokAppId: TIKTOK_APP_ID,
-          accessToken: TIKTOK_ACCESS_TOKEN,
-          debug: __DEV__,
-        });
-        isTikTokInitialized = true;
+    // 3. TikTok SDK initializes natively from app.config plugin values.
+    if (IS_TIKTOK_BUSINESS_CONFIGURED && TikTokBusiness) {
+      isTikTokInitialized = Boolean(
+        TikTokBusiness.initialize?.() || TikTokBusiness.isInitialized?.()
+      );
+      if (isTikTokInitialized) {
         log.info('TikTok SDK initialized (backup)');
-      } catch (ttError) {
-        log.warn('TikTok SDK init error:', ttError);
       }
     }
 
@@ -321,6 +331,15 @@ export async function identifyUser(
       phone: properties.phone,
     });
   }
+
+  if (isTrackingAllowed && isTikTokInitialized && TikTokBusiness?.identify) {
+    TikTokBusiness.identify(
+      userId,
+      undefined,
+      properties?.phone,
+      properties?.email
+    );
+  }
 }
 
 /**
@@ -333,6 +352,9 @@ export async function resetUserIdentity(): Promise<void> {
   // await analytics().resetAnalyticsData();
   if (AppEventsLogger) {
     AppEventsLogger.clearUserID();
+  }
+  if (TikTokBusiness?.logout) {
+    TikTokBusiness.logout();
   }
 }
 
@@ -441,12 +463,9 @@ function sendClientBackup(
     AEMReporterIOS.logAEMEvent(fbEvent, value, currency, params);
   }
 
-  // TikTok (backup) - Cast to any due to SDK type mismatch
+  // TikTok (backup)
   if (isTikTokInitialized && ttEvent && TikTokBusiness) {
-    TikTokBusiness.trackEvent(ttEvent, {
-      ...params,
-      event_id: eventId, // TikTok uses event_id for dedup
-    });
+    TikTokBusiness.trackEvent(ttEvent, eventId, toTikTokEventData(params));
   }
 }
 
@@ -755,21 +774,24 @@ export async function trackPurchase(order: {
     });
   }
 
-  // TikTok - Cast to any due to SDK type mismatch
+  // TikTok
   if (isTikTokInitialized && TikTokBusiness) {
-    TikTokBusiness.trackEvent('CompletePayment', {
-      content_type: 'product',
-      contents: order.items.map((item) => ({
-        content_id: item.id,
-        content_name: item.name,
-        quantity: item.quantity,
-        price: item.price,
-      })),
-      quantity: totalItems,
-      value: order.total,
-      currency,
-      event_id: eventId,
-    });
+    TikTokBusiness.trackEvent(
+      'CompletePayment',
+      eventId,
+      toTikTokEventData({
+        content_type: 'product',
+        contents: order.items.map((item) => ({
+          content_id: item.id,
+          content_name: item.name,
+          quantity: item.quantity,
+          price: item.price,
+        })),
+        quantity: totalItems,
+        value: order.total,
+        currency,
+      })
+    );
   }
 
   log.info(`Purchase tracked: ${order.orderId} - ${order.total} ${currency}`);
@@ -825,10 +847,13 @@ export async function trackSearch(
   }
 
   if (isTikTokInitialized && TikTokBusiness) {
-    TikTokBusiness.trackEvent('Search', {
-      query,
-      event_id: eventId,
-    });
+    TikTokBusiness.trackEvent(
+      'Search',
+      eventId,
+      toTikTokEventData({
+        query,
+      })
+    );
   }
 }
 
@@ -892,10 +917,13 @@ export async function trackSignup(
   }
 
   if (isTikTokInitialized && TikTokBusiness) {
-    TikTokBusiness.trackEvent('CompleteRegistration', {
-      registration_method: method,
-      event_id: eventId,
-    });
+    TikTokBusiness.trackEvent(
+      'CompleteRegistration',
+      eventId,
+      toTikTokEventData({
+        registration_method: method,
+      })
+    );
   }
 }
 
@@ -935,6 +963,6 @@ export async function trackCustomEvent(
   }
 
   if (isTikTokInitialized && TikTokBusiness) {
-    TikTokBusiness.trackEvent(eventName, { ...params, event_id: eventId });
+    TikTokBusiness.trackEvent(eventName, eventId, toTikTokEventData(params));
   }
 }

@@ -16,6 +16,7 @@ import { usePushNotifications } from '@/hooks/use-push-notifications';
 import { offlineQueue } from '@/lib/offline-queue';
 import { DEFAULT_SYNC_STORAGE_KEYS, initializeStorage } from '@/lib/storage';
 import { initAnalytics } from '@/services/analytics';
+import { initAdTracking } from '@/services/ad-tracking';
 import { type CreateOrderRequest, createOrder } from '@/services/orders';
 import { useAuthStore } from '@/stores/auth-store';
 
@@ -86,6 +87,7 @@ export default function RootLayout() {
         await initialize();
       }
       await initAnalytics();
+      await initAdTracking();
       await offlineQueue.initialize();
       offlineQueue.registerHandler('create_order', async (orderData) => {
         return await createOrder(orderData as CreateOrderRequest);

@@ -1,0 +1,3 @@
+module.exports = {
+  DEFAULT_ADMIN_TIKTOK_IOS_APP_STORE_ID: '6757810806',
+};
