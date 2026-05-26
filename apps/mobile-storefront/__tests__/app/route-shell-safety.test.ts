@@ -85,7 +85,6 @@ const SHELL_EXEMPT_ROUTES = new Set([
   'orders/[id].tsx',
   'product/[slug].tsx',
   'profile/edit.tsx',
-  'repairs/index.tsx',
   'saved/index.tsx',
   'search.tsx',
   'track-order/index.tsx',
