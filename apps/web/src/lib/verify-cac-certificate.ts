@@ -12,7 +12,8 @@ export interface CACVerificationResult {
 const CAC_EXTRACTION_PROMPT =
   'Extract from this CAC document: 1) document type (Certificate of Incorporation or Certificate of Registration), 2) the RC or BN number, 3) the registered business name. Reply in JSON: {"documentType": "...", "rcNumber": "...", "businessName": "..."}';
 
-const OLLAMA_TIMEOUT_MS = 30_000;
+const OLLAMA_TIMEOUT_MS = 5_000;
+const GEMINI_TIMEOUT_MS = 7_000;
 const PDF_MIME_TYPE = 'application/pdf';
 
 function parseModelResponse(text: string): CACVerificationResult {
@@ -104,6 +105,8 @@ async function extractViaGemini(
 ): Promise<CACVerificationResult> {
   const { text } = await generateText({
     model: activeTextModel,
+    maxRetries: 0,
+    timeout: GEMINI_TIMEOUT_MS,
     messages: [
       {
         role: 'user',
