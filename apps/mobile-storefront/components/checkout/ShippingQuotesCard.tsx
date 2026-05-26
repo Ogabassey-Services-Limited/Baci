@@ -109,9 +109,7 @@ export function ShippingQuotesCard({
                           style={[
                             styles.badge,
                             {
-                              backgroundColor: isDark
-                                ? colors.background
-                                : colors.foreground,
+                              backgroundColor: colors.foreground,
                             },
                           ]}
                         >
@@ -119,9 +117,7 @@ export function ShippingQuotesCard({
                             style={[
                               styles.badgeText,
                               {
-                                color: isDark
-                                  ? colors.foreground
-                                  : colors.background,
+                                color: colors.background,
                               },
                             ]}
                           >
