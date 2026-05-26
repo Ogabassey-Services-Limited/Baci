@@ -57,7 +57,6 @@ const EXPLICIT_STATIC_ROUTES = new Set([
 // StorefrontScreenShell. As routes migrate, this list must shrink.
 const SHELL_EXEMPT_ROUTES = new Set([
   '(tabs)/cart.tsx',
-  '(tabs)/categories.tsx',
   '(tabs)/index.tsx',
   '(tabs)/wallet.tsx',
   'addresses/[id].tsx',
