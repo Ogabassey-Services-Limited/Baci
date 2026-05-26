@@ -1,0 +1,126 @@
+<!-- jules-pr-review mode:fast sha:aeaf37983077250395c582e829ecc10be729abce -->
+## Jules PR review
+
+Mode: `fast`
+Session: `16197511951078062739`
+State: `COMPLETED`
+Workflow: https://github.com/ogabasseyy/Baci/actions/runs/26261275684
+
+## Verdict
+This PR successfully removes redundant Suspense boundaries around the metadata marker. However, the implementation introduces a Core Web Vitals violation on the FAQ page and inconsistently applies the Suspense pattern, meaning the catalog pages will still block the metadata marker from committing early.
+
+## Findings
+- **High severity**: Wrapping `FAQContent` in `<Suspense fallback={null}>` violates the Baci Core Web Vitals requirement. Since `FAQContent` contains primary visible storefront content, a `null` fallback causes the page to render blank initially, followed by an abrupt Cumulative Layout Shift (CLS) when the content resolves.
+  - `apps/web/src/app/(storefront)/[slug]/(content)/faq/page.tsx`
+- **Medium severity**: The PR goal of keeping visible content behind a Suspense boundary (so the metadata marker can commit early) was applied to `FAQContent` but omitted for `CategoryPageContent` and `ProductsPageContent`. If these components await data or unwrapped `params`, they will suspend the entire page, blocking `StorefrontDynamicMetadataMarker` from streaming to the client.
+  - `apps/web/src/app/(storefront)/[slug]/(catalog)/[category]/page.tsx`
+  - `apps/web/src/app/(storefront)/[slug]/(catalog)/products/page.tsx`
+
+## Suggested next steps
+- Replace `<Suspense fallback={null}>` around `FAQContent` with a proper skeleton UI component (e.g., `<FAQContentSkeleton />`) to reserve space and prevent layout shifts.
+- Apply the same pattern to the catalog routes by wrapping `CategoryPageContent` and `ProductsPageContent` in explicit `<Suspense>` boundaries using their respective skeleton fallbacks.
+- Add regression tests to `[category]/page.test.tsx` and `products/page.test.tsx` mirroring the one added for the FAQ page, verifying that the metadata marker streams outside of the suspended catalog content.
+
+<!-- jules-pr-review mode:fast sha:09ed31127f43c7e49143c9a7094a1799320f34cc -->
+## Jules PR review
+
+Mode: `fast`
+Session: `17780965338699411697`
+State: `COMPLETED`
+Workflow: https://github.com/ogabasseyy/Baci/actions/runs/26265161344
+
+## Verdict
+This PR is well-structured and properly implements Next.js App Router streaming semantics. By removing the redundant Suspense wrapper around the dynamic metadata marker and pushing the Suspense boundaries down to the content level, the layout shell and metadata can stream to the client immediately. This prevents the route from being fully blocked by pending content queries, improving Time to First Byte (TTFB) and preserving storefront Core Web Vitals. The associated tests have been properly updated to verify the new granular loading states. 
+
+## Findings
+- I found no meaningful issues. The implementation correctly isolates server-side data fetching behind localized Suspense fallbacks (`<CatalogListingLoading />` and `<ContentRouteLoading />`) while maintaining a `null` fallback for the invisible `FAQJsonLd`. Tests accurately assert against the new layout-preserving skeleton states and semantic ARIA roles.
+
+## Suggested next steps
+- Proceed with merging this pull request. The changes directly improve Next.js streaming performance, align with the repository's App Router guidelines, and satisfy the required test coverage.
+
+<!-- jules-pr-review mode:fast sha:e43d5e21f9d20e81a63903125b19baf456cd8281 -->
+## Jules PR review
+
+Mode: `fast`
+Session: `13329767871386288959`
+State: `COMPLETED`
+Workflow: https://github.com/ogabasseyy/Baci/actions/runs/26265844629
+
+## Verdict
+The PR successfully optimizes the storefront rendering architecture by pushing `Suspense` boundaries down to specific content components. This allows the `StorefrontDynamicMetadataMarker` to commit immediately while the page contents stream in independently. The test modifications thoroughly cover the streaming behavior and properly align with React 19 / Next.js 16 App Router patterns.
+
+## Findings
+There are no meaningful code issues. The implementation is highly effective and safe.
+
+- **Low:** The PR description states an intent to "keep FAQ visible content behind a null Suspense boundary," but the implementation in `apps/web/src/app/(storefront)/[slug]/(content)/faq/page.tsx` actually uses a layout-preserving skeleton (`<Suspense fallback={<ContentRouteLoading />}>`). The updated tests verify this skeleton behavior, which provides a better UX.
+
+## Suggested next steps
+- Merge the pull request.
+
+<!-- jules-pr-review mode:fast sha:0c73aec36895e2f09fa97b8d750e3b62eed3657f -->
+## Jules PR review
+
+Mode: `fast`
+Session: `3415485994270748544`
+State: `COMPLETED`
+Workflow: https://github.com/ogabasseyy/Baci/actions/runs/26266246155
+
+## Verdict
+Approved. The changes correctly refine Suspense boundaries for improved Server Component streaming, align with Next.js 16 and React 19 best practices, and include robust test coverage.
+
+## Findings
+- No meaningful issues found. The implementation successfully replaces route-blocking Suspense boundaries with localized fallbacks (`CatalogListingLoading` and `ContentRouteLoading`), which protects the page shell from being blocked by content loading or dynamic metadata markers. This directly adheres to the Baci core philosophy of preserving storefront Core Web Vitals (faster TTFB and LCP).
+- Low severity: The PR description mentions keeping FAQ visible content behind a "null Suspense boundary", but the actual implementation thoughtfully uses `<Suspense fallback={<ContentRouteLoading />}>`. This is objectively a better user experience (showing a layout-preserving skeleton rather than nothing) and matches the newly added test assertions, so no code change is required.
+
+## Suggested next steps
+- Proceed with merging this pull request as all quality gates, architecture rules, and testing standards appear to have been successfully met.
+
+<!-- jules-pr-review mode:fast sha:f6f74caaf70afb746df16e72e6c4b551124bf599 -->
+## Jules PR review
+
+Mode: `fast`
+
+The workflow did not produce a review body. Check the workflow logs for the failure point.
+
+<!-- jules-pr-review mode:fast sha:dace89e39022661c720a64d9c78cea3dcf716201 -->
+## Jules PR review
+
+Mode: `fast`
+
+The workflow did not produce a review body. Check the workflow logs for the failure point.
+
+<!-- jules-pr-review mode:fast sha:8003878793c55e27bc17da22220310412f4f8e06 -->
+## Jules PR review
+
+Mode: `fast`
+
+The workflow did not produce a review body. Check the workflow logs for the failure point.
+
+<!-- jules-pr-review mode:fast sha:767fdabfe1d399a6295afcc9305e9fb9474f76c5 -->
+## Jules PR review
+
+Mode: `fast`
+
+The workflow did not produce a review body. Check the workflow logs for the failure point.
+
+<!-- jules-pr-review mode:fast sha:b88cf83d38ed0f1c959f6c49d64f935b7734e9ae -->
+## Jules PR review
+
+Mode: `fast`
+
+The workflow did not produce a review body. Check the workflow logs for the failure point.
+
+<!-- jules-pr-review mode:fast sha:df2040beda7f60f4f73c666ebac085ee764b6f04 -->
+## Jules PR review
+
+Mode: `fast`
+
+The workflow did not produce a review body. Check the workflow logs for the failure point.
+
+<!-- jules-pr-review mode:fast sha:f59ade69a89e38eea4d3f34cbfca99e455b13a09 -->
+## Jules PR review
+
+Mode: `fast`
+
+The workflow did not produce a review body. Check the workflow logs for the failure point.
+

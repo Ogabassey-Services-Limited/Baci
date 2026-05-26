@@ -1,0 +1,14 @@
+<!-- jules-pr-review mode:fast sha:8c2904b042b7a8ec84a7cd0726caf3f27bffd5d9 -->
+## Jules PR review
+
+Mode: `fast`
+
+The workflow did not produce a review body. Check the workflow logs for the failure point.
+
+<!-- jules-pr-review mode:fast sha:8617067604b8619a35ff95894d465084ae877943 -->
+## Jules PR review
+
+Mode: `fast`
+
+The workflow did not produce a review body. Check the workflow logs for the failure point.
+

@@ -1,0 +1,146 @@
+<!-- jules-pr-review mode:fast sha:51caf685bb372d2c6fed35ebc878ad8f944ce3b0 -->
+## Jules PR review
+
+Mode: `fast`
+Session: `10970397022147922663`
+State: `COMPLETED`
+Workflow: https://github.com/ogabasseyy/Baci/actions/runs/26256034675
+
+## Verdict
+This PR is well-structured, correctly handles the separation of Gemini quota errors from standard provider failures, and includes comprehensive tests for both success and timeout/error paths. The transition from broadly checking `controller.signal.aborted` to strictly validating `error.name === 'AbortError'` correctly prevents late-arriving provider errors (like `RESOURCE_EXHAUSTED`) from being swallowed and misclassified as timeouts.
+
+## Findings
+- I found no meaningful issues in the provided context. The refactor accurately maps the expected error codes (429 for rate limits, 503 for timeouts/unavailable), safely accounts for `DOMException` cross-environment compatibility in the Edge runtime, and adheres strictly to the repo's modularity and testing standards. 
+
+## Suggested next steps
+- Proceed with merging this pull request.
+
+<!-- jules-pr-review mode:fast sha:cfe74ea44c2081f4ea44e8ff1d9de4c75fdc80a7 -->
+## Jules PR review
+
+Mode: `fast`
+Session: `14628876859613859026`
+State: `COMPLETED`
+Workflow: https://github.com/ogabasseyy/Baci/actions/runs/26261089760
+
+## Verdict
+Pass
+
+## Findings
+I have reviewed the provided diffs and found no meaningful issues. The PR cleanly implements the plan to properly classify Gemini quota and resource-exhausted provider failures as controlled rate limits (HTTP 429) instead of generic service failures.
+
+- The separation of provider errors (mapped to 429 or 503) from internal route errors (now returning HTTP 500) prevents masking non-provider bugs.
+- The `isAbortError` utility reliably identifies `AbortError` and `DOMException` instances, cleanly translating standard timeouts to `BuilderGeminiTimeoutError`.
+- The `runBuilderGeminiWithTimeout` safely clears timeouts in its `finally` block, avoiding resource leaks.
+- Test coverage for the new utility functions correctly asserts the timeout behavior, error mapping, and boundary conditions. 
+
+## Suggested next steps
+- Merge the pull request.
+
+<!-- jules-pr-review mode:fast sha:2ca03a09dfd1c85025c71bc6d7dd4ac776bca054 -->
+## Jules PR review
+
+Mode: `fast`
+Session: `10646352031910603187`
+State: `COMPLETED`
+Workflow: https://github.com/ogabasseyy/Baci/actions/runs/26264822808
+
+## Verdict
+This PR accurately implements the desired error classification for Gemini quota exhaustion and timeout handling. The error boundaries are now clearly defined, safely separating provider failures from generic route errors. The code is well-structured, typed strictly, and successfully resolves a race condition where delayed provider failures were incorrectly mapped as timeouts.
+
+## Findings
+I found no meaningful issues in the provided code. 
+
+- The implementation follows the repository's rules, including proper modularization by extracting logic into `route-provider-errors.ts`.
+- Mandatory colocated Vitest tests are included and appropriately enforce both success and error paths using AAA patterns and fake timers.
+- The use of `error.name === 'AbortError'` correctly prevents late non-abort failures from being swallowed as timeouts.
+
+## Suggested next steps
+- Merge the pull request. No further changes are required.
+
+<!-- jules-pr-review mode:fast sha:6cc45a6fce38bc7f1173839614e6d97104bbfe2b -->
+## Jules PR review
+
+Mode: `fast`
+Session: `1345669776484105731`
+State: `COMPLETED`
+Workflow: https://github.com/ogabasseyy/Baci/actions/runs/26265844394
+
+## Verdict
+This PR is well-implemented and successfully addresses the goals outlined in the description. The extraction of provider error logic into a dedicated file improves maintainability, and the tests added correctly cover both the timeout mechanisms (using fake timers) and the newly introduced rate limit mappings. 
+
+## Findings
+- **Error Classification (Low Severity):** Extracting the quota checks (`isBuilderGeminiQuotaError`) properly handles `429` responses for `generate_content_free_tier_requests` and `RESOURCE_EXHAUSTED` string matches, addressing the exact production signal seen in Vercel. 
+- **Timeout Management (Low Severity / Bug Fix):** Updating `runBuilderGeminiWithTimeout` to explicitly check for `AbortError` correctly prevents late-arriving provider errors from being improperly masked as timeout errors. The use of `isAbortError` ensures robust cross-environment compatibility (checking both `Error` and `DOMException`).
+- **Test Coverage (Low Severity):** The included tests in `route-provider-errors.test.ts` thoroughly test fake timers and the integration test `route.error-codes.test.ts` successfully asserts the newly expected HTTP status codes (`429` and `503`).
+- **Code Standards:** The code respects the strict TypeScript environment by correctly type-guarding `unknown` errors and avoids `any`.
+
+## Suggested next steps
+- Proceed with merging this pull request.
+
+<!-- jules-pr-review mode:fast sha:c609ca90aeebbeab0c353a1aef3eb1949b3f171e -->
+## Jules PR review
+
+Mode: `fast`
+Session: `17232797303075163371`
+State: `COMPLETED`
+Workflow: https://github.com/ogabasseyy/Baci/actions/runs/26266560692
+
+## Verdict
+The PR successfully implements the required behavior, correctly mapping Gemini quota/resource exhaustion errors to HTTP 429 while preserving HTTP 503 for genuine timeouts and unknown failures. The code correctly handles timeouts and race conditions for delayed non-abort errors.
+
+## Findings
+- No meaningful issues found.
+
+## Suggested next steps
+- Proceed with merging the pull request.
+
+<!-- jules-pr-review mode:fast sha:872f0e53f0b1783371389340442ec4b7e3363042 -->
+## Jules PR review
+
+Mode: `fast`
+
+The workflow did not produce a review body. Check the workflow logs for the failure point.
+
+<!-- jules-pr-review mode:fast sha:f00c89e797aba6577c77f7df68423d585f5155bb -->
+## Jules PR review
+
+Mode: `fast`
+
+The workflow did not produce a review body. Check the workflow logs for the failure point.
+
+<!-- jules-pr-review mode:fast sha:453e2d1b54d82c696cb025f985ff24c1a0b2d633 -->
+## Jules PR review
+
+Mode: `fast`
+
+The workflow did not produce a review body. Check the workflow logs for the failure point.
+
+<!-- jules-pr-review mode:fast sha:8bc9ccfadec0817b8012ac6a84c7ee0f4178c567 -->
+## Jules PR review
+
+Mode: `fast`
+
+The workflow did not produce a review body. Check the workflow logs for the failure point.
+
+<!-- jules-pr-review mode:fast sha:841f3a2457c972fe0905dab58dfa125998f745b5 -->
+## Jules PR review
+
+Mode: `fast`
+
+The workflow did not produce a review body. Check the workflow logs for the failure point.
+
+<!-- jules-pr-review mode:fast sha:21d700bfa7599680c39f5d8255ddb0e41f399f9a -->
+## Jules PR review
+
+Mode: `fast`
+
+The workflow did not produce a review body. Check the workflow logs for the failure point.
+
+<!-- jules-pr-review mode:fast sha:3a085cdb5294b9683fd86e5ed692866b4d04b4f8 -->
+## Jules PR review
+
+Mode: `fast`
+
+The workflow did not produce a review body. Check the workflow logs for the failure point.
+
