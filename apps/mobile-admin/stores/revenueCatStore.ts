@@ -106,7 +106,13 @@ interface RevenueCatState {
 
   // Actions
   initialize: () => Promise<void>;
-  purchasePackage: (pack: PurchasesPackage) => Promise<boolean>;
+  purchasePackage: (
+    pack: PurchasesPackage
+  ) => Promise<
+    | { isPro: boolean; status: 'success' }
+    | { status: 'cancelled' }
+    | { error: string; status: 'error' }
+  >;
   restorePurchases: () => Promise<boolean>;
   cleanup: () => void;
 }
@@ -237,8 +243,9 @@ export const useRevenueCatStore = create<RevenueCatState>((set, get) => ({
     try {
       set({ isLoading: true, error: null });
       if (!Purchases) {
-        set({ error: 'Purchases not initialized', isLoading: false });
-        return false;
+        const error = 'Purchases not initialized';
+        set({ error, isLoading: false });
+        return { error, status: 'error' };
       }
       if (__DEV__) {
         console.log(
@@ -256,18 +263,20 @@ export const useRevenueCatStore = create<RevenueCatState>((set, get) => ({
         isLoading: false,
       });
 
-      return isPro;
+      return { isPro, status: 'success' };
     } catch (e: unknown) {
       // 2026 Dev Practice: Use debug for simulated/cancelled errors to avoid Red Screen in Expo Go
       console.debug('[RevenueCat] Purchase interaction:', e);
 
       const error = e as { userCancelled?: boolean; message?: string };
       if (!error.userCancelled) {
-        set({ error: error.message || 'Purchase failed', isLoading: false });
+        const message = error.message || 'Purchase failed';
+        set({ error: message, isLoading: false });
+        return { error: message, status: 'error' };
       } else {
         set({ isLoading: false });
+        return { status: 'cancelled' };
       }
-      return false;
     }
   },
 

@@ -206,9 +206,18 @@ jobs:
       - name: Verify Quiz Assets
         if: needs.changes.outputs.web == 'true'
         run: pnpm --filter @baci/web verify:quiz-assets
+      - name: Run Storefront Guardrail Unit Tests
+        if: needs.changes.outputs.mobile_storefront == 'true'
+        run: pnpm --dir apps/mobile-storefront exec jest scripts/check-platform-drift.test.ts scripts/check-module-size.test.ts --runInBand
       - name: Verify Storefront Route Size
         if: needs.changes.outputs.mobile_storefront == 'true'
         run: pnpm --filter @baci/mobile-storefront check:route-size
+      - name: Verify Storefront Platform Drift
+        if: needs.changes.outputs.mobile_storefront == 'true'
+        run: pnpm --filter @baci/mobile-storefront check:platform-drift
+      - name: Verify Storefront Module Size
+        if: needs.changes.outputs.mobile_storefront == 'true'
+        run: pnpm --filter @baci/mobile-storefront check:module-size
       - name: Run Knip Dead Code Check
         if: needs.changes.outputs.web == 'true'
         run: pnpm knip
@@ -274,7 +283,11 @@ jobs:
       - if: needs.changes.outputs.mobile_admin == 'true'
         run: pnpm --dir apps/mobile-admin exec vitest run scripts/check-platform-drift.test.ts
       - if: needs.changes.outputs.mobile_admin == 'true'
+        run: pnpm --dir apps/mobile-admin exec vitest run scripts/check-module-size.test.ts
+      - if: needs.changes.outputs.mobile_admin == 'true'
         run: pnpm --dir apps/mobile-admin check:platform-drift
+      - if: needs.changes.outputs.mobile_admin == 'true'
+        run: pnpm --dir apps/mobile-admin check:module-size
       - if: needs.changes.outputs.mobile_admin != 'true'
         run: echo "No mobile-admin changes — skipping mobile guardrail checks"
 
