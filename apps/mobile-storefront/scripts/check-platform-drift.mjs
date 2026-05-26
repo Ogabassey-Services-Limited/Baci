@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import typescript from 'typescript';
 
 const SCAN_DIRECTORIES = ['app', 'components', 'hooks', 'lib', 'services', 'stores', 'utils'];
 const EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx']);
@@ -11,7 +12,7 @@ const PLATFORM_IMPORT_PATTERN = new RegExp(
   'g'
 );
 const PLATFORM_ALIAS_ASSIGNMENT_PATTERN = new RegExp(
-  String.raw`\b(?:const|let|var)\s+(${IDENTIFIER_PATTERN})\s*=\s*(${IDENTIFIER_PATTERN})\b(?!\s*\.)`,
+  String.raw`\b(?:const|let|var)\s+(${IDENTIFIER_PATTERN})(?:\s*:\s*[^=;]+?)?\s*=\s*(${IDENTIFIER_PATTERN})\b(?!\s*\.)`,
   'g'
 );
 const IGNORED_SUFFIXES = ['.test.ts', '.test.tsx', '.test.js', '.test.jsx'];
@@ -67,6 +68,49 @@ function escapeRegExp(value) {
 
 function createPatternKey(file, patternId) {
   return `${file}::${patternId}`;
+}
+
+const COMMENT_AND_TRIVIA_TOKEN_KINDS = new Set([
+  typescript.SyntaxKind.EndOfLineTrivia,
+  typescript.SyntaxKind.ConflictMarkerTrivia,
+  typescript.SyntaxKind.WhitespaceTrivia,
+  typescript.SyntaxKind.NewLineTrivia,
+  typescript.SyntaxKind.SingleLineCommentTrivia,
+  typescript.SyntaxKind.MultiLineCommentTrivia,
+  typescript.SyntaxKind.ShebangTrivia,
+  typescript.SyntaxKind.JsxText,
+  typescript.SyntaxKind.JsxTextAllWhiteSpaces,
+]);
+
+const BRANCH_MATCH_MASKED_TOKEN_KINDS = new Set([
+  ...COMMENT_AND_TRIVIA_TOKEN_KINDS,
+  typescript.SyntaxKind.StringLiteral,
+  typescript.SyntaxKind.RegularExpressionLiteral,
+  typescript.SyntaxKind.NoSubstitutionTemplateLiteral,
+  typescript.SyntaxKind.TemplateHead,
+  typescript.SyntaxKind.TemplateMiddle,
+  typescript.SyntaxKind.TemplateTail,
+]);
+
+function maskSourceTokens(source, maskedKinds) {
+  const scanner = typescript.createScanner(
+    typescript.ScriptTarget.Latest,
+    false,
+    typescript.LanguageVariant.JSX,
+    source
+  );
+  let output = '';
+  let token = scanner.scan();
+  while (token !== typescript.SyntaxKind.EndOfFileToken) {
+    const tokenText = scanner.getTokenText();
+    if (maskedKinds.has(token)) {
+      output += tokenText.replaceAll(/[^\r\n]/g, ' ');
+    } else {
+      output += tokenText;
+    }
+    token = scanner.scan();
+  }
+  return output;
 }
 
 function normalizePathEntry(entry, context) {
@@ -175,14 +219,22 @@ function readProjectFile(projectRoot, relativePath, sourceCache) {
 }
 
 function getPlatformIdentifiers(source) {
+  const sourceWithoutComments = maskSourceTokens(
+    source,
+    COMMENT_AND_TRIVIA_TOKEN_KINDS
+  );
+  const executableSource = maskSourceTokens(
+    source,
+    BRANCH_MATCH_MASKED_TOKEN_KINDS
+  );
   const identifiers = new Set();
-  for (const match of source.matchAll(PLATFORM_IMPORT_PATTERN)) {
+  for (const match of sourceWithoutComments.matchAll(PLATFORM_IMPORT_PATTERN)) {
     identifiers.add(match[1] ?? 'Platform');
   }
   let changed = true;
   while (changed) {
     changed = false;
-    for (const match of source.matchAll(PLATFORM_ALIAS_ASSIGNMENT_PATTERN)) {
+    for (const match of executableSource.matchAll(PLATFORM_ALIAS_ASSIGNMENT_PATTERN)) {
       const assignedIdentifier = match[1];
       const sourceIdentifier = match[2];
       if (
@@ -198,24 +250,32 @@ function getPlatformIdentifiers(source) {
 }
 
 function hasPlatformBranchViaDestructure(source) {
+  const executableSource = maskSourceTokens(
+    source,
+    BRANCH_MATCH_MASKED_TOKEN_KINDS
+  );
   for (const identifier of getPlatformIdentifiers(source)) {
     const escapedIdentifier = escapeRegExp(identifier);
     const destructurePattern = new RegExp(
-      String.raw`\b(?:const|let|var)\s*\{[^}]*\b(?:OS|select)(?:\s*:\s*${IDENTIFIER_PATTERN})?\b[^}]*\}\s*=\s*${escapedIdentifier}\b`
+      String.raw`\b(?:const|let|var)\s*\{[^}]*\b(?:OS|select)(?:\s*:\s*${IDENTIFIER_PATTERN})?\b[^}]*\}(?:\s*:\s*[^=;]+?)?\s*=\s*${escapedIdentifier}\b`
     );
-    if (destructurePattern.test(source)) return true;
+    if (destructurePattern.test(executableSource)) return true;
   }
   return false;
 }
 
 function hasPlatformBranchViaAliasMemberAccess(source) {
+  const executableSource = maskSourceTokens(
+    source,
+    BRANCH_MATCH_MASKED_TOKEN_KINDS
+  );
   for (const identifier of getPlatformIdentifiers(source)) {
     if (identifier === 'Platform') continue;
     const escapedIdentifier = escapeRegExp(identifier);
     const aliasMemberPattern = new RegExp(
       String.raw`(?<![\w$])${escapedIdentifier}\s*\.\s*(?:OS|select)\b`
     );
-    if (aliasMemberPattern.test(source)) return true;
+    if (aliasMemberPattern.test(executableSource)) return true;
   }
   return false;
 }
@@ -227,8 +287,12 @@ export function findPlatformBranchFiles(
 ) {
   return scannedSourceFiles.filter((relativePath) => {
     const source = readProjectFile(projectRoot, relativePath, sourceCache);
+    const executableSource = maskSourceTokens(
+      source,
+      BRANCH_MATCH_MASKED_TOKEN_KINDS
+    );
     return (
-      PLATFORM_PATTERN.test(source) ||
+      PLATFORM_PATTERN.test(executableSource) ||
       hasPlatformBranchViaAliasMemberAccess(source) ||
       hasPlatformBranchViaDestructure(source)
     );

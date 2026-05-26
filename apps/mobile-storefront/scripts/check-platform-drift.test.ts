@@ -147,6 +147,58 @@ describe('check-platform-drift', () => {
     expect(result.stderr).toContain('components/AliasAssigned.tsx');
   });
 
+  it('fails when Platform flows through typed aliases before member access', () => {
+    const root = createFixture({
+      'components/TypedAliasAssigned.tsx':
+        'import { Platform } from "react-native"; const P: typeof Platform = Platform; const isIOS = P.OS === "ios";',
+      'config/platform-branch-allowlist.json': JSON.stringify({ platformBranches: [] }),
+    });
+
+    const result = runDriftCheck(root);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('components/TypedAliasAssigned.tsx');
+  });
+
+  it('ignores alias member branch text inside comments', () => {
+    const root = createFixture({
+      'components/AliasCommentOnly.tsx':
+        'import { Platform as P } from "react-native";\n// TODO remove P.OS check before cleanup\nconst message = "stable";',
+      'config/platform-branch-allowlist.json': JSON.stringify({ platformBranches: [] }),
+    });
+
+    const result = runDriftCheck(root);
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('[platform-drift] OK');
+  });
+
+  it('ignores alias member branch text inside string literals', () => {
+    const root = createFixture({
+      'components/AliasStringOnly.tsx':
+        'import { Platform as P } from "react-native"; const message = "P.OS is only docs text";',
+      'config/platform-branch-allowlist.json': JSON.stringify({ platformBranches: [] }),
+    });
+
+    const result = runDriftCheck(root);
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('[platform-drift] OK');
+  });
+
+  it('ignores destructured branch text inside comments', () => {
+    const root = createFixture({
+      'components/DestructureCommentOnly.tsx':
+        'import { Platform } from "react-native";\n// const { OS } = Platform;\nconst message = "no runtime platform branch";',
+      'config/platform-branch-allowlist.json': JSON.stringify({ platformBranches: [] }),
+    });
+
+    const result = runDriftCheck(root);
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('[platform-drift] OK');
+  });
+
   it('fails on duplicate platform allowlist entries', () => {
     const root = createFixture({
       'app/index.tsx': 'const isIOS = Platform.OS === "ios";',
