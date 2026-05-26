@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView, type WebViewNavigation } from 'react-native-webview';
 import { z } from 'zod';
+import { BNPLCheckoutStatusView } from '@/components/bnpl-checkout/BNPLCheckoutStatusView';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
 import { resolveApiBaseUrl } from '@/lib/api-url';
@@ -222,27 +223,12 @@ export default function BNPLCheckoutScreen() {
   // 2026 Critical Fix: Show error state for invalid params
   if (!validatedParams.isValid) {
     return (
-      <SafeAreaView
-        style={[styles.container, { backgroundColor: colors.background }]}
-      >
-        <Stack.Screen options={{ headerShown: false }} />
-        <View style={styles.errorContainer}>
-          <Ionicons name="alert-circle" size={64} color={BRAND.primary} />
-          <Text style={[styles.errorTitle, { color: colors.text }]}>
-            Invalid Checkout
-          </Text>
-          <Text style={[styles.errorMessage, { color: colors.textSecondary }]}>
-            {validatedParams.error}
-          </Text>
-          <Pressable
-            accessibilityRole="button"
-            style={[styles.retryButton, { backgroundColor: BRAND.primary }]}
-            onPress={() => router.back()}
-          >
-            <Text style={styles.retryText}>Go Back</Text>
-          </Pressable>
-        </View>
-      </SafeAreaView>
+      <BNPLCheckoutStatusView
+        colors={colors}
+        message={validatedParams.error}
+        onBack={() => router.back()}
+        variant="invalid"
+      />
     );
   }
 
@@ -429,75 +415,24 @@ export default function BNPLCheckoutScreen() {
 
   if (status === 'success') {
     return (
-      <SafeAreaView
-        style={[styles.container, { backgroundColor: colors.background }]}
-      >
-        <View style={styles.statusContainer}>
-          <View style={[styles.statusIcon, { backgroundColor: '#DEF7EC' }]}>
-            <Ionicons name="checkmark-circle" size={48} color="#059669" />
-          </View>
-          <Text style={[styles.statusTitle, { color: colors.text }]}>
-            Payment Successful!
-          </Text>
-          <Text style={[styles.statusMessage, { color: colors.textSecondary }]}>
-            Your {gatewayName} payment has been approved. Redirecting to order
-            confirmation...
-          </Text>
-          <ActivityIndicator
-            size="small"
-            color={BRAND.primary}
-            style={styles.statusLoader}
-          />
-        </View>
-      </SafeAreaView>
+      <BNPLCheckoutStatusView
+        colors={colors}
+        gatewayName={gatewayName}
+        variant="success"
+      />
     );
   }
 
   if (status === 'error') {
     return (
-      <SafeAreaView
-        style={[styles.container, { backgroundColor: colors.background }]}
-      >
-        <Stack.Screen
-          options={{
-            title: gatewayName,
-            headerLeft: () => (
-              <Pressable onPress={() => router.back()}>
-                <Ionicons name="close" size={24} color={colors.text} />
-              </Pressable>
-            ),
-          }}
-        />
-        <View style={styles.statusContainer}>
-          <View style={[styles.statusIcon, { backgroundColor: '#FEE2E2' }]}>
-            <Ionicons name="alert-circle" size={48} color="#DC2626" />
-          </View>
-          <Text style={[styles.statusTitle, { color: colors.text }]}>
-            Payment Failed
-          </Text>
-          <Text style={[styles.statusMessage, { color: colors.textSecondary }]}>
-            {errorMessage}
-          </Text>
-          <View style={styles.errorActions}>
-            <Pressable
-              accessibilityRole="button"
-              style={[styles.retryButton, { backgroundColor: BRAND.primary }]}
-              onPress={handleRetry}
-            >
-              <Text style={styles.retryButtonText}>Try Again</Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              style={[styles.cancelButton, { borderColor: colors.border }]}
-              onPress={() => router.back()}
-            >
-              <Text style={[styles.cancelButtonText, { color: colors.text }]}>
-                Go Back
-              </Text>
-            </Pressable>
-          </View>
-        </View>
-      </SafeAreaView>
+      <BNPLCheckoutStatusView
+        colors={colors}
+        gatewayName={gatewayName}
+        message={errorMessage}
+        onBack={() => router.back()}
+        onRetry={handleRetry}
+        variant="error"
+      />
     );
   }
 
@@ -667,82 +602,5 @@ const styles = StyleSheet.create({
   amountValue: {
     fontSize: 18,
     fontWeight: '700',
-  },
-  statusContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: SPACING.xl,
-  },
-  statusIcon: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: SPACING.lg,
-  },
-  statusTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginBottom: SPACING.sm,
-    textAlign: 'center',
-  },
-  statusMessage: {
-    fontSize: 14,
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  statusLoader: {
-    marginTop: SPACING.lg,
-  },
-  errorActions: {
-    marginTop: SPACING.xl,
-    gap: SPACING.sm,
-    width: '100%',
-  },
-  retryButton: {
-    paddingVertical: SPACING.md,
-    borderRadius: RADIUS.md,
-    alignItems: 'center',
-  },
-  retryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  cancelButton: {
-    paddingVertical: SPACING.md,
-    borderRadius: RADIUS.md,
-    alignItems: 'center',
-    borderWidth: 1,
-  },
-  cancelButtonText: {
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  // 2026 Critical Fix: Styles for invalid params error state
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: SPACING.xl,
-  },
-  errorTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginTop: SPACING.lg,
-    textAlign: 'center',
-  },
-  errorMessage: {
-    fontSize: 14,
-    marginTop: SPACING.sm,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  retryText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
   },
 });
