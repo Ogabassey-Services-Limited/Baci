@@ -1241,6 +1241,17 @@ export const CheckoutPage: React.FC = () => {
       return;
     }
 
+    if (paymentMethod === 'klump' && walletAmountUsed > 0) {
+      toast({
+        title: 'Klump unavailable with wallet credit',
+        description:
+          'Klump cannot be combined with wallet credit. Turn off wallet credit or choose another payment method.',
+        variant: 'destructive',
+      });
+      isOrderInFlightRef.current = false;
+      return;
+    }
+
     setIsProcessing(true);
 
     const selectedAddress = addresses.find((a) => a.id === selectedAddressId);
@@ -3102,6 +3113,8 @@ export const CheckoutPage: React.FC = () => {
               merchant={merchant}
               user={user}
               remainingAmount={remainingAmount}
+              orderCurrency="NGN"
+              walletAmountUsed={walletAmountUsed}
             />
 
           </div>

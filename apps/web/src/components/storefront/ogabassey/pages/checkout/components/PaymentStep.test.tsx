@@ -1,4 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { PaymentStep } from './PaymentStep';
 import type { PaymentMethod, PaymentTab } from '../types';
@@ -28,6 +29,8 @@ interface FeatureSettings {
   credpal_enabled?: boolean;
   credit_direct_enabled?: boolean;
   klump_enabled?: boolean;
+  klump_min_amount?: number;
+  klump_max_amount?: number;
 }
 
 describe('PaymentStep', () => {
@@ -476,7 +479,74 @@ describe('PaymentStep', () => {
       expect(screen.getByText('Split payment at checkout')).toBeInTheDocument();
     });
 
-    it('applies visible keyboard focus styling to the Klump radio card', () => {
+    it('selects Klump from the keyboard', async () => {
+      const user = userEvent.setup();
+      const merchant = {
+        feature_settings: { klump_enabled: true } as FeatureSettings,
+      };
+      const setPaymentMethod = vi.fn();
+
+      render(
+        <PaymentStep
+          {...defaultProps}
+          merchant={merchant}
+          paymentTab="installments"
+          setPaymentMethod={setPaymentMethod}
+        />
+      );
+
+      const klumpRadio = screen.getByRole('radio', { name: /klump/i });
+      klumpRadio.focus();
+
+      await user.keyboard('[Space]');
+
+      expect(klumpRadio).toHaveFocus();
+      expect(setPaymentMethod).toHaveBeenCalledWith('klump');
+    });
+
+    it('hides Klump below the configured minimum amount', () => {
+      const merchant = {
+        feature_settings: {
+          klump_enabled: true,
+          klump_min_amount: 10000,
+          klump_max_amount: 500000,
+        } as FeatureSettings,
+      };
+
+      render(
+        <PaymentStep
+          {...defaultProps}
+          merchant={merchant}
+          paymentTab="installments"
+          remainingAmount={9999}
+        />
+      );
+
+      expect(screen.queryByText('Klump')).not.toBeInTheDocument();
+    });
+
+    it('hides Klump above the configured maximum amount', () => {
+      const merchant = {
+        feature_settings: {
+          klump_enabled: true,
+          klump_min_amount: 10000,
+          klump_max_amount: 500000,
+        } as FeatureSettings,
+      };
+
+      render(
+        <PaymentStep
+          {...defaultProps}
+          merchant={merchant}
+          paymentTab="installments"
+          remainingAmount={500001}
+        />
+      );
+
+      expect(screen.queryByText('Klump')).not.toBeInTheDocument();
+    });
+
+    it('hides Klump for non-NGN orders', () => {
       const merchant = {
         feature_settings: { klump_enabled: true } as FeatureSettings,
       };
@@ -486,17 +556,28 @@ describe('PaymentStep', () => {
           {...defaultProps}
           merchant={merchant}
           paymentTab="installments"
+          orderCurrency="USD"
         />
       );
 
-      const klumpLabel = screen
-        .getByRole('radio', { name: /klump/i })
-        .closest('label');
+      expect(screen.queryByText('Klump')).not.toBeInTheDocument();
+    });
 
-      expect(klumpLabel?.className).toContain('has-[:focus-visible]:ring-2');
-      expect(klumpLabel?.className).toContain(
-        'has-[:focus-visible]:ring-store-primary'
+    it('hides Klump when wallet credit is applied', () => {
+      const merchant = {
+        feature_settings: { klump_enabled: true } as FeatureSettings,
+      };
+
+      render(
+        <PaymentStep
+          {...defaultProps}
+          merchant={merchant}
+          paymentTab="installments"
+          walletAmountUsed={1000}
+        />
       );
+
+      expect(screen.queryByText('Klump')).not.toBeInTheDocument();
     });
 
     it('shows empty state when no installment options are enabled', () => {

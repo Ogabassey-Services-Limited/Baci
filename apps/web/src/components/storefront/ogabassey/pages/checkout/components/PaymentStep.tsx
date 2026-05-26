@@ -43,6 +43,42 @@ interface FeatureSettings {
   credpal_enabled?: boolean;
   credit_direct_enabled?: boolean;
   klump_enabled?: boolean;
+  klump_min_amount?: number;
+  klump_max_amount?: number;
+}
+
+const DEFAULT_KLUMP_MIN_AMOUNT = 10_000;
+const DEFAULT_KLUMP_MAX_AMOUNT = 500_000;
+
+function isKlumpCheckoutAvailable({
+  featureSettings,
+  orderCurrency,
+  remainingAmount,
+  walletCreditApplied,
+}: {
+  featureSettings?: FeatureSettings | null;
+  orderCurrency: string;
+  remainingAmount: number;
+  walletCreditApplied: boolean;
+}): boolean {
+  if (featureSettings?.klump_enabled !== true || walletCreditApplied) {
+    return false;
+  }
+
+  if (orderCurrency.toUpperCase() !== 'NGN') {
+    return false;
+  }
+
+  const minAmount =
+    typeof featureSettings.klump_min_amount === 'number'
+      ? featureSettings.klump_min_amount
+      : DEFAULT_KLUMP_MIN_AMOUNT;
+  const maxAmount =
+    typeof featureSettings.klump_max_amount === 'number'
+      ? featureSettings.klump_max_amount
+      : DEFAULT_KLUMP_MAX_AMOUNT;
+
+  return remainingAmount >= minAmount && remainingAmount <= maxAmount;
 }
 
 function isPaymentMethodAvailable({
@@ -51,12 +87,18 @@ function isPaymentMethodAvailable({
   korapayCheckoutAvailable,
   bankTransferCheckoutAvailable,
   featureSettings,
+  orderCurrency,
+  remainingAmount,
+  walletCreditApplied,
 }: {
   paymentMethod: PaymentMethod;
   paystackCheckoutAvailable: boolean;
   korapayCheckoutAvailable: boolean;
   bankTransferCheckoutAvailable: boolean;
   featureSettings?: FeatureSettings | null;
+  orderCurrency: string;
+  remainingAmount: number;
+  walletCreditApplied: boolean;
 }): boolean {
   switch (paymentMethod) {
     case 'paystack':
@@ -74,7 +116,12 @@ function isPaymentMethodAvailable({
     case 'credit_direct':
       return featureSettings?.credit_direct_enabled === true;
     case 'klump':
-      return featureSettings?.klump_enabled === true;
+      return isKlumpCheckoutAvailable({
+        featureSettings,
+        orderCurrency,
+        remainingAmount,
+        walletCreditApplied,
+      });
     case 'invoice':
     case 'payforme':
       return true;
@@ -85,12 +132,13 @@ function isPaymentMethodAvailable({
 }
 
 function hasAnyInstallmentOption(
-  featureSettings?: FeatureSettings | null
+  featureSettings: FeatureSettings | null | undefined,
+  klumpCheckoutAvailable: boolean
 ): boolean {
   return Boolean(
     featureSettings?.credpal_enabled ||
       featureSettings?.credit_direct_enabled ||
-      featureSettings?.klump_enabled
+      klumpCheckoutAvailable
   );
 }
 
@@ -120,6 +168,8 @@ interface PaymentStepProps {
     | undefined;
   user: { id: string } | null | undefined;
   remainingAmount: number;
+  orderCurrency?: string;
+  walletAmountUsed?: number;
 }
 
 export function PaymentStep({
@@ -142,17 +192,28 @@ export function PaymentStep({
   merchant,
   user,
   remainingAmount,
+  orderCurrency = 'NGN',
+  walletAmountUsed = 0,
 }: PaymentStepProps) {
   const paystackCheckoutAvailable = isPaystackCheckoutAvailable(merchant);
   const korapayCheckoutAvailable = isKorapayCheckoutAvailable(merchant);
   const bankTransferCheckoutAvailable =
     isBankTransferCheckoutAvailable(merchant);
+  const klumpCheckoutAvailable = isKlumpCheckoutAvailable({
+    featureSettings: merchant?.feature_settings,
+    orderCurrency,
+    remainingAmount,
+    walletCreditApplied: walletAmountUsed > 0,
+  });
   const hasAvailableSelectedPaymentMethod = isPaymentMethodAvailable({
     paymentMethod,
     paystackCheckoutAvailable,
     korapayCheckoutAvailable,
     bankTransferCheckoutAvailable,
     featureSettings: merchant?.feature_settings,
+    orderCurrency,
+    remainingAmount,
+    walletCreditApplied: walletAmountUsed > 0,
   });
 
   useEffect(() => {
@@ -424,7 +485,7 @@ export function PaymentStep({
                   )}
 
                   {/* Klump */}
-                  {merchant?.feature_settings?.klump_enabled === true && (
+                  {klumpCheckoutAvailable && (
                     <label
                       className={paymentOptionClassName(paymentMethod === 'klump')}
                     >
@@ -514,7 +575,10 @@ export function PaymentStep({
                 )}
 
                 {/* Show empty state if neither is enabled */}
-                {!hasAnyInstallmentOption(merchant?.feature_settings) && (
+                {!hasAnyInstallmentOption(
+                  merchant?.feature_settings,
+                  klumpCheckoutAvailable
+                ) && (
                   <div className="text-center py-6 bg-gray-50 rounded-xl border border-dashed border-gray-300">
                     <p className="text-sm text-gray-500">No installment options are currently available.</p>
                   </div>
