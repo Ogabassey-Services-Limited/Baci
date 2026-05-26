@@ -976,7 +976,6 @@ export default async function CategoryProductPage({
 
   return (
     <>
-      <StorefrontDynamicMetadataMarker />
       {earlyProductResourceHints}
       <Suspense
         fallback={
@@ -993,6 +992,7 @@ export default async function CategoryProductPage({
           productResultPromise={productResultPromise}
         />
       </Suspense>
+      <StorefrontDynamicMetadataMarker />
     </>
   );
 }

@@ -861,7 +861,7 @@ describe('[category]/[productSlug] page render', () => {
     });
   });
 
-  it('keeps the request-time marker outside the streamed product shell', async () => {
+  it('keeps the request-time marker after the streamed product shell', async () => {
     const ui = await resolveRsc(
       await CategoryProductPage({
         params: Promise.resolve({
@@ -887,7 +887,7 @@ describe('[category]/[productSlug] page render', () => {
     });
 
     expect(marker.compareDocumentPosition(heading)).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING
+      Node.DOCUMENT_POSITION_PRECEDING
     );
     expect(container.querySelectorAll('h1')).toHaveLength(1);
   });
