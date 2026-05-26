@@ -140,7 +140,7 @@ pnpm turbo test       # Run tests (Vitest for web/mobile-admin, Jest for mobile-
 
 ## Deployment
 
-- Hosted on **Vercel**; production deploys must use the VPS prebuilt flow on `bassey@82.29.190.219`
+- Hosted on **Vercel**; production deploys must use the VPS prebuilt flow on `bassey@82.29.190.219` and finish with `vercel deploy --prebuilt --prod`
 - Cron jobs in `vercel.json`
 - Database on Supabase (always-on PostgreSQL)
 
