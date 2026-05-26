@@ -90,7 +90,9 @@ describe('CryptoPaymentScreen', () => {
     render(<CryptoPaymentScreen />);
 
     expect(screen.getByText('Invalid Payment')).toBeTruthy();
-    expect(screen.getByText('Required')).toBeTruthy();
+    expect(
+      screen.getByText('Invalid input: expected string, received undefined')
+    ).toBeTruthy();
   });
 
   it('confirms leaving payment and navigates back without completing it', () => {
