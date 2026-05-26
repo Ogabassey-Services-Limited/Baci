@@ -1,5 +1,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import type { Route } from 'next';
 import type { ReactNode } from 'react';
 import {
   OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY,
@@ -23,9 +24,9 @@ function formatPrice(price: number) {
   }).format(price);
 }
 
-function buildPath(basePath: string, path: string) {
+function buildPath(basePath: string, path: string): Route {
   const prefix = basePath === '/' ? '' : basePath.replace(/\/$/, '');
-  return `${prefix}${path}` || '/';
+  return (`${prefix}${path}` || '/') as Route;
 }
 
 export function OgabasseyPdpCriticalShell({
