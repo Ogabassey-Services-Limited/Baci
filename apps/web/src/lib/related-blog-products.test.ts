@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  normalizeRelatedBlogProductLinks,
   normalizeRelatedBlogProducts,
+  RELATED_BLOG_PRODUCT_LINKS_SELECT,
   RELATED_BLOG_PRODUCTS_SELECT,
 } from '@/lib/related-blog-products';
 
@@ -8,6 +10,9 @@ describe('related blog products', () => {
   it('selects the canonical product category relation instead of a missing legacy column', () => {
     expect(RELATED_BLOG_PRODUCTS_SELECT).toContain(
       'categories:category_id!inner(slug)'
+    );
+    expect(RELATED_BLOG_PRODUCT_LINKS_SELECT).toContain(
+      'products!blog_post_products_product_id_fkey'
     );
     expect(RELATED_BLOG_PRODUCTS_SELECT).not.toMatch(/\bcategory_slug\b/);
   });
@@ -74,6 +79,38 @@ describe('related blog products', () => {
         name: 'Multi relation',
         slug: 'multi-relation',
         category_slug: 'laptops',
+      },
+    ]);
+  });
+
+  it('projects explicit blog product links and ignores inactive linked products', () => {
+    expect(
+      normalizeRelatedBlogProductLinks([
+        {
+          product: {
+            id: 'product-1',
+            name: 'iPad 10th Gen',
+            slug: 'ipad-10th-gen-2022',
+            status: 'active',
+            categories: { slug: 'tablets' },
+          },
+        },
+        {
+          product: {
+            id: 'product-2',
+            name: 'Inactive iPad',
+            slug: 'inactive-ipad',
+            status: 'draft',
+            categories: { slug: 'tablets' },
+          },
+        },
+      ])
+    ).toEqual([
+      {
+        id: 'product-1',
+        name: 'iPad 10th Gen',
+        slug: 'ipad-10th-gen-2022',
+        category_slug: 'tablets',
       },
     ]);
   });

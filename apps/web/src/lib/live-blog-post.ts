@@ -7,7 +7,9 @@ import {
   isPublicBlogPost,
 } from '@/lib/public-blog-content-quality';
 import {
+  normalizeRelatedBlogProductLinks,
   normalizeRelatedBlogProducts,
+  RELATED_BLOG_PRODUCT_LINKS_SELECT,
   RELATED_BLOG_PRODUCTS_SELECT,
 } from '@/lib/related-blog-products';
 import { STOREFRONT_BLOG_POST_SELECT } from '@/lib/storefront-blog-post-select';
@@ -100,26 +102,50 @@ export async function getLiveBlogPost(
     console.error('Error fetching related live blog posts:', relatedPostsError);
   }
 
+  const { data: linkedProducts, error: linkedProductsError } = await supabase
+    .from('blog_post_products')
+    .select(RELATED_BLOG_PRODUCT_LINKS_SELECT)
+    .eq('merchant_id', merchant.id)
+    .eq('blog_post_id', post.id)
+    .order('created_at', { ascending: true })
+    .limit(8);
+
+  if (linkedProductsError) {
+    console.error(
+      'Error fetching linked live blog products:',
+      linkedProductsError
+    );
+  }
+
+  let normalizedRelatedProducts = linkedProductsError
+    ? []
+    : normalizeRelatedBlogProductLinks(linkedProducts);
+
   const normalizedCategorySlug = normalizeStorefrontCategoryValue(
     post.category
   );
-  const { data: relatedProducts, error: relatedProductsError } =
-    normalizedCategorySlug
-      ? await supabase
-          .from('products')
-          .select(RELATED_BLOG_PRODUCTS_SELECT)
-          .eq('merchant_id', merchant.id)
-          .eq('status', 'active')
-          .eq('categories.slug', normalizedCategorySlug)
-          .order('updated_at', { ascending: false })
-          .limit(6)
-      : { data: [], error: null };
 
-  if (relatedProductsError) {
-    console.error(
-      'Error fetching related live blog products:',
-      relatedProductsError
-    );
+  if (normalizedRelatedProducts.length === 0 && normalizedCategorySlug) {
+    const { data: relatedProducts, error: relatedProductsError } =
+      await supabase
+        .from('products')
+        .select(RELATED_BLOG_PRODUCTS_SELECT)
+        .eq('merchant_id', merchant.id)
+        .eq('status', 'active')
+        .eq('categories.slug', normalizedCategorySlug)
+        .order('updated_at', { ascending: false })
+        .limit(6);
+
+    if (relatedProductsError) {
+      console.error(
+        'Error fetching related live blog products:',
+        relatedProductsError
+      );
+    }
+
+    normalizedRelatedProducts = relatedProductsError
+      ? []
+      : normalizeRelatedBlogProducts(relatedProducts);
   }
 
   return {
@@ -137,8 +163,6 @@ export async function getLiveBlogPost(
           0,
           RELATED_BLOG_POSTS_LIMIT
         ),
-    relatedProducts: relatedProductsError
-      ? []
-      : normalizeRelatedBlogProducts(relatedProducts),
+    relatedProducts: normalizedRelatedProducts,
   };
 }

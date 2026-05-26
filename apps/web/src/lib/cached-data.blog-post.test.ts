@@ -96,10 +96,12 @@ function buildBlogPostRow(overrides: Record<string, unknown> = {}) {
 interface BlogPostFetchMocks {
   merchantRow: Record<string, unknown>;
   publishedPost: Record<string, unknown>;
+  linkedProductsResult?: { data: unknown; error: unknown };
   relatedPostsResult?: { data: unknown; error: unknown };
 }
 
 function setupBlogPostFetch({
+  linkedProductsResult,
   merchantRow,
   publishedPost,
   relatedPostsResult,
@@ -121,6 +123,9 @@ function setupBlogPostFetch({
   });
   const relatedPostsBuilder = createQueryBuilder({
     queryResult: relatedPostsResult,
+  });
+  const linkedProductsBuilder = createQueryBuilder({
+    queryResult: linkedProductsResult,
   });
   const relatedProductsBuilder = createQueryBuilder({});
 
@@ -154,6 +159,12 @@ function setupBlogPostFetch({
       };
     }
 
+    if (table === 'blog_post_products') {
+      return {
+        select: vi.fn(() => linkedProductsBuilder),
+      };
+    }
+
     if (table === 'products') {
       return {
         select: vi.fn(() => relatedProductsBuilder),
@@ -177,7 +188,12 @@ function setupBlogPostFetch({
     }
   );
 
-  return { postLookupBuilder, relatedPostsBuilder, relatedProductsBuilder };
+  return {
+    linkedProductsBuilder,
+    postLookupBuilder,
+    relatedPostsBuilder,
+    relatedProductsBuilder,
+  };
 }
 
 describe('getCachedBlogPost', () => {
@@ -269,6 +285,50 @@ describe('getCachedBlogPost', () => {
       'category_slug',
       expect.anything()
     );
+  });
+
+  it('uses explicit blog product links before category fallback products', async () => {
+    const { linkedProductsBuilder, relatedProductsBuilder } =
+      setupBlogPostFetch({
+        merchantRow: buildMerchantRow(),
+        publishedPost: buildBlogPostRow({ category: 'Accessories' }),
+        linkedProductsResult: {
+          data: [
+            {
+              product: {
+                id: 'ipad-10',
+                name: 'iPad 10th Gen',
+                slug: 'ipad-10th-gen-2022',
+                status: 'active',
+                categories: { slug: 'tablets' },
+              },
+            },
+          ],
+          error: null,
+        },
+      });
+
+    const result = await getCachedBlogPost(
+      'ogabassey.com',
+      'factory-unlocked-iphones-explained'
+    );
+
+    expect(linkedProductsBuilder.eq).toHaveBeenCalledWith(
+      'blog_post_id',
+      'post-1'
+    );
+    expect(relatedProductsBuilder.eq).not.toHaveBeenCalledWith(
+      'categories.slug',
+      expect.anything()
+    );
+    expect(result?.relatedProducts).toEqual([
+      {
+        id: 'ipad-10',
+        name: 'iPad 10th Gen',
+        slug: 'ipad-10th-gen-2022',
+        category_slug: 'tablets',
+      },
+    ]);
   });
 
   it('returns null for public test posts instead of exposing direct article URLs', async () => {
