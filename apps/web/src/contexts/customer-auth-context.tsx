@@ -79,6 +79,33 @@ interface CustomerAuthProviderProps {
   merchantSlug: string;
 }
 
+interface CustomerSession {
+  customer: Customer;
+  user: CustomerUser;
+}
+
+async function fetchCustomerSession(
+  merchantSlug: string
+): Promise<CustomerSession | null> {
+  const response = await fetch(
+    `/api/storefront/auth/session?merchantSlug=${encodeURIComponent(merchantSlug)}`
+  );
+  const data = (await response.json()) as {
+    authenticated?: boolean;
+    customer?: Customer;
+    user?: CustomerUser;
+  };
+
+  if (!data.authenticated || !data.user || !data.customer) {
+    return null;
+  }
+
+  return {
+    customer: data.customer,
+    user: data.user,
+  };
+}
+
 export function CustomerAuthProvider({
   children,
   merchantSlug,
@@ -93,14 +120,11 @@ export function CustomerAuthProvider({
   // Check session on mount
   const checkSession = async () => {
     try {
-      const response = await fetch(
-        `/api/storefront/auth/session?merchantSlug=${encodeURIComponent(merchantSlug)}`
-      );
-      const data = await response.json();
+      const session = await fetchCustomerSession(merchantSlug);
 
-      if (data.authenticated) {
-        setUser(data.user);
-        setCustomer(data.customer);
+      if (session) {
+        setUser(session.user);
+        setCustomer(session.customer);
       } else {
         setUser(null);
         setCustomer(null);
@@ -115,9 +139,36 @@ export function CustomerAuthProvider({
   };
 
   useEffect(() => {
-    checkSession();
-    // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler auto-memoizes checkSession
-  }, [checkSession]);
+    let cancelled = false;
+
+    async function hydrateSession() {
+      try {
+        const session = await fetchCustomerSession(merchantSlug);
+        if (cancelled) return;
+
+        if (session) {
+          setUser(session.user);
+          setCustomer(session.customer);
+        } else {
+          setUser(null);
+          setCustomer(null);
+        }
+      } catch (error) {
+        if (cancelled) return;
+        console.error('Session check error:', error);
+        setUser(null);
+        setCustomer(null);
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    }
+
+    void hydrateSession();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [merchantSlug]);
 
   // Send OTP code
   const sendOtp = async (
