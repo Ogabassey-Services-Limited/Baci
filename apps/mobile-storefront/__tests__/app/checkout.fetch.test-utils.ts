@@ -8,9 +8,10 @@ export function createCheckoutFetchMock() {
           : input.url;
 
     if (requestUrl.includes('/api/shipping/locations?state=')) {
-      const state = new URL(requestUrl, 'https://example.test').searchParams.get(
-        'state'
-      );
+      const state = new URL(
+        requestUrl,
+        'https://example.test'
+      ).searchParams.get('state');
       const locationsByState = {
         Abuja: [
           { city: 'Abuja', state: 'Abuja' },
@@ -42,6 +43,17 @@ export function createCheckoutFetchMock() {
     if (requestUrl.includes('/api/shipping/quotes')) {
       return {
         json: async () => ({ quotes: { all: [] } }),
+        ok: true,
+      } as Response;
+    }
+
+    if (requestUrl.includes('/api/payments/initialize')) {
+      return {
+        json: async () => ({
+          authorization_url: 'https://checkout.paystack.com/order-1',
+          reference: 'ref-order-1',
+          success: true,
+        }),
         ok: true,
       } as Response;
     }

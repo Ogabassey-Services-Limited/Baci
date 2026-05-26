@@ -7,10 +7,14 @@ import credpalLogoSource from '@/assets/images/credpal.png';
 import { useColorScheme } from '@/components/useColorScheme';
 import { WalletStatusRow } from '@/components/checkout/WalletStatusRow';
 import Colors, { BRAND, palette, RADIUS, SPACING } from '@/constants/Colors';
-import type { WalletSelection } from '@/lib/wallet-payment-helpers';
+import type {
+  SavingsSelection,
+  WalletSelection,
+} from '@/lib/wallet-payment-helpers';
+import { isStoreCreditCompatiblePayment } from '@/lib/store-credit-compatible-payment';
 import { formatPrice } from '@/stores/cart-store';
 
-export type { WalletSelection };
+export type { SavingsSelection, WalletSelection };
 
 export type PaymentMethodType =
   | 'paystack'
@@ -41,6 +45,7 @@ export interface PaymentMethod {
 const BNPL_MIN_AMOUNT = 10000; // ₦10,000
 const BNPL_MAX_AMOUNT = 5000000; // ₦5,000,000
 const INFO_PANEL_BACKGROUND_OPACITY = '10';
+const DEFAULT_SAVINGS_FALLBACK_TITLE = 'device savings';
 
 const PAYMENT_METHODS: PaymentMethod[] = [
   // Full Payment Methods
@@ -142,6 +147,12 @@ interface PaymentMethodSelectorProps {
   walletOrderTotal?: number;
   walletSelection?: WalletSelection;
   onWalletToggle?: (selection: WalletSelection) => void;
+  savingsBalance?: number;
+  savingsFallbackTitle?: string;
+  savingsGoalId?: string | null;
+  savingsGoalTitle?: string;
+  savingsSelection?: SavingsSelection;
+  onSavingsToggle?: (selection: SavingsSelection) => void;
   suppressedSelectedMethods?: PaymentMethodType[];
   methodBadgeOverrides?: Partial<Record<PaymentMethodType, string>>;
   methodDescriptionOverrides?: Partial<Record<PaymentMethodType, string>>;
@@ -164,6 +175,12 @@ export function PaymentMethodSelector({
   walletOrderTotal,
   walletSelection,
   onWalletToggle,
+  savingsBalance = 0,
+  savingsFallbackTitle = DEFAULT_SAVINGS_FALLBACK_TITLE,
+  savingsGoalId,
+  savingsGoalTitle,
+  savingsSelection,
+  onSavingsToggle,
   suppressedSelectedMethods = [],
   methodBadgeOverrides = {},
   methodDescriptionOverrides = {},
@@ -215,6 +232,18 @@ export function PaymentMethodSelector({
         };
       }
 
+      const savingsDisablesKlump =
+        method.id === 'klump' &&
+        savingsSelection?.use === true &&
+        (savingsSelection.amount ?? 0) > 0;
+      if (savingsDisablesKlump) {
+        return {
+          ...method,
+          disabled: true,
+          disabledReason: 'Device savings cannot be combined with Klump',
+        };
+      }
+
       const disabledReason = methodDisabledReasons[method.id];
       if (disabledReason) {
         return {
@@ -250,6 +279,55 @@ export function PaymentMethodSelector({
     }
   }, [selectedTab, hasBNPLMethods, hasPayLaterMethods, onSelectTab]);
 
+  const supportsPartialPayment = isStoreCreditCompatiblePayment({
+    paymentTab: selectedTab,
+    selectedPayment: selectedMethod,
+  });
+
+  // === Device savings row ===
+  // Shows only for checkout methods that can settle any residual in real
+  // time. Savings is applied before wallet, so the wallet row below reads
+  // the residual after savings when both toggles are active.
+  const savingsShouldRender =
+    Boolean(savingsGoalId) &&
+    savingsBalance > 0 &&
+    orderTotal > 0 &&
+    selectedTab === 'full' &&
+    supportsPartialPayment;
+  const savingsCoversFully =
+    savingsShouldRender && savingsBalance >= orderTotal;
+  const savingsPortion = savingsShouldRender
+    ? Math.min(savingsBalance, orderTotal)
+    : 0;
+  const savingsResidualToGateway = savingsShouldRender
+    ? Math.max(orderTotal - savingsBalance, 0)
+    : 0;
+  const savingsIsActive =
+    savingsSelection?.use === true &&
+    Boolean(savingsGoalId) &&
+    savingsSelection.goalId === savingsGoalId;
+  const activeSavingsAmount = savingsIsActive ? savingsPortion : 0;
+  const savingsGoalDisplayName = savingsGoalTitle ?? savingsFallbackTitle;
+
+  const handleSavingsToggle = () => {
+    if (!onSavingsToggle) {
+      return;
+    }
+    if (savingsIsActive) {
+      onSavingsToggle({ use: false, goalId: null, amount: 0 });
+    } else {
+      onSavingsToggle({
+        use: true,
+        goalId: savingsGoalId ?? null,
+        amount: savingsPortion,
+      });
+    }
+  };
+
+  const savingsAccessibilityLabel = savingsCoversFully
+    ? `Pay with device savings, ${formatPrice(savingsBalance)} available`
+    : `Use device savings, ${formatPrice(savingsPortion)} of ${formatPrice(orderTotal)}`;
+
   // === Wallet payment row (gated rollout) ===
   // Only renders when the caller explicitly opts in via walletMode='orders'
   // and the customer actually has a positive balance to spend. The VTU
@@ -268,20 +346,19 @@ export function PaymentMethodSelector({
   //     (cart-vs-residual amount drift guard in handleCryptoConfirm
   //     would falsely abort the crypto flow).
   // Allowed methods today: paystack, korapay, bank_transfer.
-  const walletEffectiveTotal = walletOrderTotal ?? orderTotal;
-  const isWalletCompatibleMethod =
-    selectedMethod === 'paystack' ||
-    selectedMethod === 'korapay' ||
-    selectedMethod === 'bank_transfer';
+  const walletEffectiveTotal = Math.max(
+    (walletOrderTotal ?? orderTotal) - activeSavingsAmount,
+    0
+  );
   // VTU's UtilityPaymentOptions hardcodes selectedTab='full' and only
   // exposes paystack/korapay to the selector, both of which satisfy
-  // isWalletCompatibleMethod. The same render gate works for both
+  // supportsPartialPayment. The same render gate works for both
   // 'orders' and 'vtu' callers.
   const walletAttemptAllowed =
     (walletMode === 'orders' || walletMode === 'vtu') &&
     walletEffectiveTotal > 0 &&
     selectedTab === 'full' &&
-    isWalletCompatibleMethod;
+    supportsPartialPayment;
   const walletShouldRender =
     walletAttemptAllowed &&
     walletBalance > 0 &&
@@ -320,6 +397,79 @@ export function PaymentMethodSelector({
 
   return (
     <View style={styles.container}>
+      {savingsShouldRender && (
+        <Pressable
+          onPress={handleSavingsToggle}
+          style={[
+            styles.methodCard,
+            {
+              backgroundColor: colors.card,
+              borderColor: savingsIsActive ? BRAND.primary : colors.border,
+            },
+          ]}
+          accessibilityRole={savingsCoversFully ? 'radio' : 'checkbox'}
+          accessibilityState={{ checked: savingsIsActive }}
+          accessibilityLabel={savingsAccessibilityLabel}
+        >
+          <View
+            style={[
+              styles.methodIconContainer,
+              {
+                backgroundColor: savingsIsActive
+                  ? `${BRAND.primary}20`
+                  : `${colors.textSecondary}10`,
+              },
+            ]}
+          >
+            <Ionicons
+              name="shield-checkmark-outline"
+              size={24}
+              color={savingsIsActive ? BRAND.primary : colors.textSecondary}
+            />
+          </View>
+
+          <View style={styles.methodInfo}>
+            <Text
+              style={[
+                styles.methodLabel,
+                { color: savingsIsActive ? BRAND.primary : colors.text },
+              ]}
+            >
+              {savingsCoversFully
+                ? 'Pay with device savings'
+                : 'Use device savings'}
+            </Text>
+            <Text style={[styles.methodDesc, { color: colors.textSecondary }]}>
+              {savingsCoversFully
+                ? `${formatPrice(savingsBalance)} saved · covers full order`
+                : `${formatPrice(savingsPortion)} from ${savingsGoalDisplayName} · ${formatPrice(savingsResidualToGateway)} remaining`}
+            </Text>
+          </View>
+
+          <View
+            style={[
+              styles.radioOuter,
+              {
+                borderColor: savingsIsActive ? BRAND.primary : colors.border,
+                borderRadius: savingsCoversFully ? 11 : 4,
+              },
+            ]}
+          >
+            {savingsIsActive && (
+              <View
+                style={[
+                  styles.radioInner,
+                  {
+                    backgroundColor: BRAND.primary,
+                    borderRadius: savingsCoversFully ? 6 : 2,
+                  },
+                ]}
+              />
+            )}
+          </View>
+        </Pressable>
+      )}
+
       {walletStatusShouldRender && (
         <WalletStatusRow
           colors={colors}
@@ -590,6 +740,8 @@ export function PaymentMethodSelector({
           // competing "selected" indicators. The underlying selectedMethod
           // is preserved so it can still be sent to the server for
           // receipt/accounting purposes.
+          const savingsSuppressesGateway =
+            savingsCoversFully && savingsIsActive;
           const walletSuppressesGateway = walletCoversFully && walletIsActive;
           const selectionSuppressed = suppressedSelectedMethods.includes(
             method.id
@@ -597,8 +749,12 @@ export function PaymentMethodSelector({
           const isSelected =
             selectedMethod === method.id &&
             !walletSuppressesGateway &&
+            !savingsSuppressesGateway &&
             !selectionSuppressed;
-          const isDisabled = method.disabled || walletSuppressesGateway;
+          const isDisabled =
+            method.disabled ||
+            walletSuppressesGateway ||
+            savingsSuppressesGateway;
           const methodBadge = methodBadgeOverrides[method.id];
           const methodDescription =
             methodDescriptionOverrides[method.id] ?? method.description;

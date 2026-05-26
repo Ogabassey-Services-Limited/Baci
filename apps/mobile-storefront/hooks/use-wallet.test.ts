@@ -18,15 +18,31 @@ const mockCalculateCommerce =
   jest.fn<(type: string, payload: unknown) => Promise<unknown>>();
 const mockRpc = jest.fn<(name: string, params?: unknown) => Promise<unknown>>();
 const mockFrom = jest.fn<(table: string) => unknown>();
+const mockTrackEvent = jest.fn();
+type RealtimeHandler = () => void;
+const mockRealtimeHandlers: Record<string, RealtimeHandler[]> = {};
 
 jest.mock('@/lib/supabase', () => ({
   calculateCommerce: (type: string, payload: unknown) =>
     mockCalculateCommerce(type, payload),
   supabase: {
-    channel: jest.fn(() => ({
-      on: jest.fn().mockReturnThis(),
-      subscribe: jest.fn(),
-    })),
+    channel: jest.fn(() => {
+      const channel = {
+        on: jest.fn((...args: unknown[]) => {
+          const config = args[1] as { table?: string };
+          const callback = args[2] as RealtimeHandler;
+          if (config.table) {
+            mockRealtimeHandlers[config.table] = [
+              ...(mockRealtimeHandlers[config.table] ?? []),
+              callback,
+            ];
+          }
+          return channel;
+        }),
+        subscribe: jest.fn(),
+      };
+      return channel;
+    }),
     from: (table: string) => mockFrom(table),
     removeChannel: jest.fn(),
     rpc: (name: string, params?: unknown) => mockRpc(name, params),
@@ -38,6 +54,10 @@ jest.mock('@/lib/config', () => ({
     MERCHANT_ID: 'configured-merchant',
     MERCHANT_SLUG: 'ogabassey',
   },
+}));
+
+jest.mock('@/services/analytics', () => ({
+  trackEvent: (...args: unknown[]) => mockTrackEvent(...args),
 }));
 
 jest.mock('expo-crypto', () => ({
@@ -127,6 +147,9 @@ function setupHook() {
 
 beforeEach(async () => {
   jest.clearAllMocks();
+  for (const table of Object.keys(mockRealtimeHandlers)) {
+    delete mockRealtimeHandlers[table];
+  }
   jest.mocked(Crypto.randomUUID).mockReset();
   jest.mocked(Crypto.randomUUID).mockReturnValue('test-redemption-id');
   await AsyncStorage.clear();
@@ -155,6 +178,8 @@ function setupWalletTableMocks({
   customerResult = createQueryResult([
     { id: 'customer-1', loyalty_points: 1200 },
   ]),
+  fundingAccountResult = createQueryResult(null),
+  savingsGoalsResult = createQueryResult([]),
   transactionsResult = createQueryResult([
     {
       amount: 500,
@@ -170,6 +195,8 @@ function setupWalletTableMocks({
   }),
 }: {
   customerResult?: ReturnType<typeof createQueryResult>;
+  fundingAccountResult?: ReturnType<typeof createQueryResult>;
+  savingsGoalsResult?: ReturnType<typeof createQueryResult>;
   transactionsResult?: ReturnType<typeof createQueryResult>;
   walletResult?: ReturnType<typeof createQueryResult>;
 } = {}) {
@@ -188,8 +215,15 @@ function setupWalletTableMocks({
   const txLimit = jest
     .fn<() => Promise<ReturnType<typeof createQueryResult>>>()
     .mockResolvedValue(transactionsResult);
+  const accountMaybeSingle = jest
+    .fn<() => Promise<ReturnType<typeof createQueryResult>>>()
+    .mockResolvedValue(fundingAccountResult);
+  const savingsIn = jest
+    .fn<() => Promise<ReturnType<typeof createQueryResult>>>()
+    .mockResolvedValue(savingsGoalsResult);
   const tableCalls: string[] = [];
   const customerFilters: [string, unknown][] = [];
+  const transactionFilters: [string, unknown][] = [];
 
   mockFrom.mockImplementation((table: string) => {
     tableCalls.push(table);
@@ -227,11 +261,46 @@ function setupWalletTableMocks({
     }
 
     if (table === 'customer_wallet_transactions') {
+      const txEqChain = {
+        eq: jest.fn((column: string, value: unknown) => {
+          transactionFilters.push([column, value]);
+          return txEqChain;
+        }),
+        order: jest.fn().mockReturnValue({ limit: txLimit }),
+      };
+
       return {
         select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            order: jest.fn().mockReturnValue({ limit: txLimit }),
+          eq: jest.fn((column: string, value: unknown) => {
+            transactionFilters.push([column, value]);
+            return txEqChain;
           }),
+        }),
+      };
+    }
+
+    if (table === 'customer_wallet_payment_accounts') {
+      const accountEqChain = {
+        eq: jest.fn(() => accountEqChain),
+        maybeSingle: accountMaybeSingle,
+      };
+
+      return {
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn(() => accountEqChain),
+        }),
+      };
+    }
+
+    if (table === 'customer_savings_goals') {
+      const savingsEqChain = {
+        eq: jest.fn(() => savingsEqChain),
+        in: savingsIn,
+      };
+
+      return {
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn(() => savingsEqChain),
         }),
       };
     }
@@ -239,12 +308,12 @@ function setupWalletTableMocks({
     throw new Error(`Unexpected table: ${table}`);
   });
 
-  return { customerFilters, tableCalls };
+  return { customerFilters, tableCalls, transactionFilters };
 }
 
 describe('useWallet', () => {
   it('reads customer wallet transactions instead of merchant wallet transactions', async () => {
-    const { tableCalls } = setupWalletTableMocks();
+    const { tableCalls, transactionFilters } = setupWalletTableMocks();
     const queryClient = createTestClient();
 
     const { result, unmount } = renderHook(() => useWallet(), {
@@ -255,6 +324,10 @@ describe('useWallet', () => {
 
     expect(tableCalls).toContain('customer_wallet_transactions');
     expect(tableCalls).not.toContain('wallet_transactions');
+    expect(transactionFilters).toEqual([
+      ['wallet_id', 'wallet-1'],
+      ['merchant_id', 'merchant-1'],
+    ]);
     expect(result.current.data?.transactions).toEqual([
       expect.objectContaining({
         amount: 500,
@@ -299,6 +372,80 @@ describe('useWallet', () => {
         type: 'cashback',
       }),
     ]);
+
+    unmount();
+    queryClient.clear();
+  });
+
+  it('adds savings balance and funding account data to the wallet payload', async () => {
+    setupWalletTableMocks({
+      fundingAccountResult: createQueryResult({
+        account_name: 'Ogabassey/Jane Doe',
+        account_number: '1234567890',
+        bank_name: 'Titan Paystack',
+        provider: 'paystack',
+      }),
+      savingsGoalsResult: createQueryResult([
+        { current_amount: '20000' },
+        { current_amount: '15000.5' },
+      ]),
+      walletResult: createQueryResult({
+        available_balance: '5000',
+        id: 'wallet-1',
+      }),
+    });
+    const queryClient = createTestClient();
+
+    const { result, unmount } = renderHook(() => useWallet(), {
+      wrapper: createWrapper(queryClient),
+    });
+
+    await waitFor(() => expect(result.current.data).toBeDefined());
+
+    expect(result.current.data?.wallet).toMatchObject({
+      balance: 5000,
+      earnings_balance: 5000,
+      funding_account: {
+        account_name: 'Ogabassey/Jane Doe',
+        account_number: '1234567890',
+        bank_name: 'Titan Paystack',
+        provider: 'paystack',
+      },
+      loyalty_points: 1200,
+      requires_funding_account_consent: false,
+      savings_balance: 35000.5,
+      total_balance: 40000.5,
+    });
+
+    unmount();
+    queryClient.clear();
+  });
+
+  it('drops malformed wallet funding account rows from the wallet payload', async () => {
+    setupWalletTableMocks({
+      fundingAccountResult: createQueryResult({
+        account_name: 'Ogabassey/Jane Doe',
+        account_number: 'not-an-account',
+        bank_name: 'Titan Paystack',
+        provider: 'paystack',
+      }),
+      walletResult: createQueryResult({
+        available_balance: '5000',
+        id: 'wallet-1',
+      }),
+    });
+    const queryClient = createTestClient();
+
+    const { result, unmount } = renderHook(() => useWallet(), {
+      wrapper: createWrapper(queryClient),
+    });
+
+    await waitFor(() => expect(result.current.data).toBeDefined());
+
+    expect(result.current.data?.wallet.funding_account).toBeNull();
+    expect(result.current.data?.wallet.requires_funding_account_consent).toBe(
+      true
+    );
 
     unmount();
     queryClient.clear();
@@ -362,7 +509,7 @@ describe('useWallet', () => {
 
     await waitFor(() => expect(result.current.data).toBeDefined());
 
-    expect(result.current.data?.wallet).toEqual({
+    expect(result.current.data?.wallet).toMatchObject({
       balance: 3.25,
       loyalty_points: 1200,
     });
@@ -384,11 +531,34 @@ describe('useWallet', () => {
 
     await waitFor(() => expect(result.current.data).toBeDefined());
 
-    expect(result.current.data).toEqual({
+    expect(result.current.data).toMatchObject({
       wallet: { balance: 0, loyalty_points: 0 },
       transactions: [],
     });
     expect(tableCalls).not.toContain('customer_wallets');
+
+    unmount();
+    queryClient.clear();
+  });
+
+  it('keeps the wallet query idle without querying when no owner identifier is available', () => {
+    act(() => {
+      useAuthStore.setState({
+        customer: null,
+        merchantId: 'merchant-1',
+        user: null,
+      });
+    });
+    const { tableCalls } = setupWalletTableMocks();
+    const queryClient = createTestClient();
+
+    const { result, unmount } = renderHook(() => useWallet(), {
+      wrapper: createWrapper(queryClient),
+    });
+
+    expect(result.current.fetchStatus).toBe('idle');
+    expect(result.current.data).toBeUndefined();
+    expect(tableCalls).toEqual([]);
 
     unmount();
     queryClient.clear();
@@ -412,7 +582,7 @@ describe('useWallet', () => {
 
     await waitFor(() => expect(result.current.data).toBeDefined());
 
-    expect(result.current.data).toEqual({
+    expect(result.current.data).toMatchObject({
       wallet: { balance: 0, loyalty_points: 0 },
       transactions: [],
     });
@@ -421,6 +591,16 @@ describe('useWallet', () => {
       {
         customerId: 'customer-1',
         merchantId: 'merchant-1',
+        userId: 'user-1',
+      }
+    );
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'multiple_customer_wallet_owner',
+      {
+        customerId: 'customer-1',
+        merchantId: 'merchant-1',
+        numberOfRows: 2,
+        severity: 'data_integrity',
         userId: 'user-1',
       }
     );
@@ -498,9 +678,14 @@ describe('useWallet', () => {
 
     await waitFor(() => expect(result.current.data).toBeDefined());
 
-    expect(result.current.data?.wallet).toEqual({
+    expect(result.current.data?.wallet).toMatchObject({
       balance: 0,
+      earnings_balance: 0,
       loyalty_points: 1200,
+      savings_balance: 0,
+      total_balance: 0,
+      funding_account: null,
+      requires_funding_account_consent: true,
     });
     expect(result.current.data?.transactions).toEqual([]);
     expect(tableCalls).not.toContain('customer_wallet_transactions');
@@ -543,6 +728,37 @@ describe('useWallet', () => {
 
     expect(result.current.error).toEqual({
       message: 'transactions query failed',
+    });
+
+    unmount();
+    queryClient.clear();
+  });
+
+  it('debounces savings realtime invalidations across goals and contributions', async () => {
+    setupWalletTableMocks();
+    const queryClient = createTestClient();
+    const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries');
+
+    const { result, unmount } = renderHook(() => useWallet(), {
+      wrapper: createWrapper(queryClient),
+    });
+
+    await waitFor(() => expect(result.current.data).toBeDefined());
+    invalidateSpy.mockClear();
+
+    act(() => {
+      mockRealtimeHandlers.customer_savings_goals?.[0]?.();
+      mockRealtimeHandlers.customer_savings_contributions?.[0]?.();
+      mockRealtimeHandlers.customer_savings_contributions?.[0]?.();
+    });
+
+    expect(invalidateSpy).not.toHaveBeenCalled();
+    await waitFor(() => expect(invalidateSpy).toHaveBeenCalledTimes(1));
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: walletKeys.data({
+        merchantId: 'merchant-1',
+        ownerId: 'customer-1',
+      }),
     });
 
     unmount();
@@ -793,8 +1009,7 @@ describe('useRedeemPoints', () => {
     expect(mockCalculateCommerce).not.toHaveBeenCalled();
     expect(mockRpc).not.toHaveBeenCalled();
     expect(
-      queryClient.getQueryData<WalletQueryData>(queryKey)?.wallet
-        .loyalty_points
+      queryClient.getQueryData<WalletQueryData>(queryKey)?.wallet.loyalty_points
     ).toBe(50);
     unmount();
     queryClient.clear();

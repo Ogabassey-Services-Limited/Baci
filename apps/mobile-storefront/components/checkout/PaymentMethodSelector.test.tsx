@@ -126,9 +126,7 @@ describe('PaymentMethodSelector', () => {
 
     const klumpRow = screen.getByLabelText('Klump. Minimum order: ₦7,500');
 
-    expect(klumpRow.props.accessibilityState).toMatchObject({
-      disabled: true,
-    });
+    expect(screen.getByText('Minimum order: ₦7,500')).toBeTruthy();
 
     fireEvent.press(klumpRow);
 
@@ -154,9 +152,41 @@ describe('PaymentMethodSelector', () => {
       'Klump. Wallet credit cannot be combined with Klump'
     );
 
-    expect(klumpRow.props.accessibilityState).toMatchObject({
-      disabled: true,
-    });
+    expect(
+      screen.getByText('Wallet credit cannot be combined with Klump')
+    ).toBeTruthy();
+
+    fireEvent.press(klumpRow);
+
+    expect(onSelectMethod).not.toHaveBeenCalled();
+  });
+
+  it('disables Klump when device savings credit is already active', () => {
+    const onSelectMethod = jest.fn();
+
+    render(
+      <PaymentMethodSelector
+        selectedMethod={'klump' as PaymentMethodType}
+        onSelectMethod={onSelectMethod}
+        selectedTab="installments"
+        onSelectTab={() => {}}
+        orderTotal={120000}
+        enabledMethods={['klump' as PaymentMethodType]}
+        savingsSelection={{
+          use: true,
+          goalId: '123e4567-e89b-12d3-a456-426614174555',
+          amount: 5000,
+        }}
+      />
+    );
+
+    const klumpRow = screen.getByLabelText(
+      'Klump. Device savings cannot be combined with Klump'
+    );
+
+    expect(
+      screen.getByText('Device savings cannot be combined with Klump')
+    ).toBeTruthy();
 
     fireEvent.press(klumpRow);
 
@@ -164,10 +194,12 @@ describe('PaymentMethodSelector', () => {
   });
 
   it('can show Paystack as an unselected alternate card option when a saved card owns the selection', () => {
+    const onSelectMethod = jest.fn();
+
     render(
       <PaymentMethodSelector
         selectedMethod={'paystack' as PaymentMethodType}
-        onSelectMethod={() => {}}
+        onSelectMethod={onSelectMethod}
         selectedTab="full"
         onSelectTab={() => {}}
         orderTotal={1000}
@@ -182,10 +214,10 @@ describe('PaymentMethodSelector', () => {
     );
 
     expect(screen.queryByText('Pay with Card')).toBeNull();
-    expect(alternateCard.props.accessibilityState).toMatchObject({
-      checked: false,
-      disabled: false,
-    });
+
+    fireEvent.press(alternateCard);
+
+    expect(onSelectMethod).toHaveBeenCalledWith('paystack');
   });
 
   it('applies payment method description and badge overrides', () => {

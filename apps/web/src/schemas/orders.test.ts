@@ -24,6 +24,92 @@ describe('orderCreateSchema', () => {
     expect(result.success).toBe(true);
   });
 
+  it('accepts a complete savings credit payload', () => {
+    const result = orderCreateSchema.safeParse({
+      ...validOrder,
+      savings_amount: 500,
+      savings_goal_id: '123e4567-e89b-12d3-a456-426614174555',
+      use_savings_credit: true,
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.use_savings_credit).toBe(true);
+      expect(result.data.savings_goal_id).toBe(
+        '123e4567-e89b-12d3-a456-426614174555'
+      );
+      expect(result.data.savings_amount).toBe(500);
+    }
+  });
+
+  it('rejects incomplete savings credit payloads', () => {
+    const result = orderCreateSchema.safeParse({
+      ...validOrder,
+      savings_amount: 500,
+      use_savings_credit: true,
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects active savings credit without a savings amount', () => {
+    const result = orderCreateSchema.safeParse({
+      ...validOrder,
+      savings_goal_id: '123e4567-e89b-12d3-a456-426614174555',
+      use_savings_credit: true,
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('defaults savings credit off when fields are omitted', () => {
+    const result = orderCreateSchema.safeParse(validOrder);
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.use_savings_credit).toBe(false);
+      expect(result.data.savings_goal_id).toBeUndefined();
+      expect(result.data.savings_amount).toBeUndefined();
+    }
+  });
+
+  it.each([
+    ['zero', 0],
+    ['negative', -1],
+  ])('rejects %s savings amounts when savings credit is active', (_, amount) => {
+    const result = orderCreateSchema.safeParse({
+      ...validOrder,
+      savings_amount: amount,
+      savings_goal_id: '123e4567-e89b-12d3-a456-426614174555',
+      use_savings_credit: true,
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects an invalid savings goal id when savings credit is active', () => {
+    const result = orderCreateSchema.safeParse({
+      ...validOrder,
+      savings_amount: 500,
+      savings_goal_id: 'not-a-uuid',
+      use_savings_credit: true,
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('does not require savings fields when savings credit is explicitly false', () => {
+    const result = orderCreateSchema.safeParse({
+      ...validOrder,
+      use_savings_credit: false,
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.use_savings_credit).toBe(false);
+    }
+  });
+
   it('sanitizes XSS from customer_name', () => {
     const result = orderCreateSchema.safeParse({
       ...validOrder,

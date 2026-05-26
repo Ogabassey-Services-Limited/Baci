@@ -1,0 +1,210 @@
+import { describe, expect, it } from '@jest/globals';
+import {
+  CustomerPaymentMethodSchema,
+  CustomerPaymentMethodsResponseSchema,
+  ListSavingsGoalsResponseSchema,
+  SavingsAuthorizationConfirmationResponseSchema,
+  SavingsAuthorizationResponseSchema,
+  SavingsContributionResponseSchema,
+  SavingsGoalActionResponseSchema,
+  SavingsGoalSchema,
+  SavingsGoalSummarySchema,
+} from '@/schemas/customer-savings';
+
+const validGoal = {
+  breakFeePercent: 0,
+  contributionAmount: 20000,
+  contributionFrequency: 'daily',
+  currentAmount: 120000,
+  id: 'goal-1',
+  maturityDate: '2026-06-30',
+  productId: 'product-1',
+  sourceMode: 'manual',
+  startDate: '2026-05-21',
+  status: 'active',
+  targetAmount: 800000,
+  title: 'iPhone savings',
+  variantId: null,
+};
+
+describe('customer savings schemas', () => {
+  it('parses a full valid savings goal', () => {
+    expect(SavingsGoalSchema.parse(validGoal)).toEqual(validGoal);
+  });
+
+  it('rejects invalid savings goal enum and numeric values', () => {
+    expect(() =>
+      SavingsGoalSchema.parse({
+        ...validGoal,
+        contributionFrequency: 'yearly',
+      })
+    ).toThrow();
+    expect(() =>
+      SavingsGoalSchema.parse({
+        ...validGoal,
+        currentAmount: '120000',
+      })
+    ).toThrow();
+  });
+
+  it('rejects invalid savings goal amount boundaries', () => {
+    for (const field of ['contributionAmount', 'targetAmount'] as const) {
+      for (const value of [0, -1, 1.5]) {
+        expect(() =>
+          SavingsGoalSchema.parse({
+            ...validGoal,
+            [field]: value,
+          })
+        ).toThrow();
+      }
+    }
+
+    for (const value of [-1, 1.5]) {
+      expect(() =>
+        SavingsGoalSchema.parse({
+          ...validGoal,
+          currentAmount: value,
+        })
+      ).toThrow();
+    }
+
+    expect(
+      SavingsGoalSchema.parse({
+        ...validGoal,
+        currentAmount: 0,
+      }).currentAmount
+    ).toBe(0);
+  });
+
+  it('rejects missing required savings goal fields', () => {
+    for (const field of ['id', 'productId', 'status', 'title'] as const) {
+      expect(() =>
+        SavingsGoalSchema.parse({
+          ...validGoal,
+          [field]: undefined,
+        })
+      ).toThrow();
+    }
+  });
+
+  it('rejects invalid savings goal date formats', () => {
+    for (const field of ['maturityDate', 'startDate'] as const) {
+      for (const value of ['2026/06/30', '2026-13-30', 'not-a-date']) {
+        expect(() =>
+          SavingsGoalSchema.parse({
+            ...validGoal,
+            [field]: value,
+          })
+        ).toThrow();
+      }
+    }
+  });
+
+  it('validates all savings API response schemas', () => {
+    expect(
+      SavingsGoalSummarySchema.parse({
+        contributionAmount: 20000,
+        contributionFrequency: 'weekly',
+        currentAmount: 40000,
+        goalId: 'goal-1',
+        goalStatus: 'active',
+        success: true,
+        walletBalance: 160000,
+      })
+    ).toMatchObject({ goalStatus: 'active' });
+
+    expect(
+      ListSavingsGoalsResponseSchema.parse({
+        goals: [validGoal],
+        summary: { activeGoalCount: 1, savingsBalance: 120000 },
+      }).goals
+    ).toHaveLength(1);
+
+    expect(
+      SavingsContributionResponseSchema.parse({
+        contributionId: 'contribution-1',
+        goalCurrentAmount: 140000,
+        goalStatus: 'active',
+        success: true,
+        walletBalance: 60000,
+        walletTransactionId: null,
+      })
+    ).toMatchObject({ success: true });
+
+    expect(
+      SavingsGoalActionResponseSchema.parse({
+        goalStatus: 'paused',
+        success: true,
+      })
+    ).toEqual({ goalStatus: 'paused', success: true });
+
+    expect(
+      SavingsAuthorizationResponseSchema.parse({
+        authorization_url: 'https://checkout.paystack.com/auth',
+        checkout_url: 'https://checkout.paystack.com/auth',
+        gateway: 'paystack',
+        reference: 'SAV-AUTH-1',
+        success: true,
+      })
+    ).toMatchObject({ gateway: 'paystack' });
+    expect(
+      SavingsAuthorizationConfirmationResponseSchema.parse({
+        reference: 'SAV-AUTH-1',
+        savedPaymentMethodId: 'card-1',
+        status: 'successful',
+        success: true,
+      })
+    ).toMatchObject({ savedPaymentMethodId: 'card-1' });
+    expect(
+      SavingsAuthorizationConfirmationResponseSchema.parse({
+        reference: 'SAV-AUTH-1',
+        status: 'processing',
+      })
+    ).toMatchObject({ status: 'processing' });
+
+    const paymentMethod = {
+      bank: 'Access Bank',
+      brand: 'visa',
+      exp_month: '08',
+      exp_year: '2030',
+      id: 'card-1',
+      is_default: true,
+      label: 'Access Bank ending 1234',
+      last4: '1234',
+      provider: 'paystack',
+    };
+    expect(CustomerPaymentMethodSchema.parse(paymentMethod)).toEqual(
+      paymentMethod
+    );
+    expect(
+      CustomerPaymentMethodsResponseSchema.parse({ methods: [paymentMethod] })
+        .methods
+    ).toHaveLength(1);
+  });
+
+  it('rejects invalid response statuses', () => {
+    expect(() =>
+      SavingsGoalActionResponseSchema.parse({
+        goalStatus: 'archived',
+        success: true,
+      })
+    ).toThrow();
+    expect(() =>
+      SavingsContributionResponseSchema.parse({
+        contributionId: 'contribution-1',
+        goalCurrentAmount: 140000,
+        goalStatus: 'archived',
+        success: true,
+        walletBalance: 60000,
+        walletTransactionId: null,
+      })
+    ).toThrow();
+    expect(() =>
+      SavingsAuthorizationConfirmationResponseSchema.parse({
+        reference: 'SAV-AUTH-1',
+        status: 'successful',
+        success: true,
+      })
+    ).toThrow();
+  });
+});
