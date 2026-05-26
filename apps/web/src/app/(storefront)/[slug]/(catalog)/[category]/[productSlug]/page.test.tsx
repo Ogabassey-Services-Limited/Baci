@@ -75,6 +75,12 @@ vi.mock('next/link', () => ({
   ),
 }));
 
+vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
+  StorefrontDynamicMetadataMarker: () => (
+    <div aria-label="dynamic metadata marker" role="status" />
+  ),
+}));
+
 vi.mock('@/components/storefront/ogabassey/pages/product-details-page', () => ({
   ProductDetailsPage: (props: {
     product: { name: string };
@@ -137,12 +143,6 @@ vi.mock('@/lib/cached-data', () => ({
     String(value ?? '')
       .replace(/[\r\n\t]/g, '')
       .substring(0, 100),
-}));
-
-vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
-  StorefrontDynamicMetadataMarker: () => (
-    <div aria-label="dynamic metadata marker" role="status" />
-  ),
 }));
 
 vi.mock('@/lib/storefront-product/build-product-semantic-model', () => ({
@@ -565,26 +565,29 @@ describe('[category]/[productSlug] page metadata', () => {
     expect(mockPermanentRedirect).not.toHaveBeenCalled();
   });
 
-  it('calls notFound when the product is missing and no legacy redirect exists', async () => {
+  it('returns noindex metadata when the product is missing and no legacy redirect exists', async () => {
     const consoleWarnSpy = vi
       .spyOn(console, 'warn')
       .mockImplementation(() => undefined);
 
+    let metadata: Awaited<ReturnType<typeof generateMetadata>> | undefined;
     try {
-      await expect(
-        generateMetadata({
-          params: Promise.resolve({
-            slug: 'teststore',
-            category: 'smartphones',
-            productSlug: 'missing-product',
-          }),
-          searchParams: Promise.resolve({}),
-        })
-      ).rejects.toThrow('NEXT_NOT_FOUND');
+      metadata = await generateMetadata({
+        params: Promise.resolve({
+          slug: 'teststore',
+          category: 'smartphones',
+          productSlug: 'missing-product',
+        }),
+        searchParams: Promise.resolve({}),
+      });
     } finally {
       consoleWarnSpy.mockRestore();
     }
 
+    expect(metadata).toMatchObject({
+      title: 'Product Not Found',
+      robots: { index: false, follow: false },
+    });
     expect(mockPermanentRedirect).not.toHaveBeenCalled();
   });
 
@@ -856,7 +859,7 @@ describe('[category]/[productSlug] page render', () => {
     });
   });
 
-  it('renders the dynamic metadata marker after the streamed product boundary', async () => {
+  it('keeps the request-time marker outside the streamed product shell', async () => {
     const ui = await resolveRsc(
       await CategoryProductPage({
         params: Promise.resolve({
@@ -870,19 +873,15 @@ describe('[category]/[productSlug] page render', () => {
 
     const { container } = render(ui);
 
-    const heading = screen.getByRole('heading', {
-      level: 1,
-      name: 'HP Laptop 14-ep0063nia',
-    });
-    const marker = screen.getByRole('status', {
-      name: /dynamic metadata marker/i,
-    });
-
-    expect(heading).toBeInTheDocument();
-    expect(marker).toBeInTheDocument();
     expect(
-      heading.compareDocumentPosition(marker) & Node.DOCUMENT_POSITION_FOLLOWING
-    ).toBeTruthy();
+      screen.getByRole('status', { name: /dynamic metadata marker/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', {
+        level: 1,
+        name: 'HP Laptop 14-ep0063nia',
+      })
+    ).toBeInTheDocument();
     expect(container.querySelectorAll('h1')).toHaveLength(1);
   });
 

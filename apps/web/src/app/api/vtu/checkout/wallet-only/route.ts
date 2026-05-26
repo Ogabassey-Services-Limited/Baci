@@ -18,6 +18,25 @@ function createErrorResponse(error: string, status = 400) {
   return NextResponse.json({ error }, { status });
 }
 
+function isUserFacingCheckoutError(message: string) {
+  const userFacingErrors = new Set([
+    'Customer account not found for this storefront',
+    'Merchant not found',
+    'VTU is not enabled for this merchant',
+    'Invalid phone number',
+    'Invalid customer phone number',
+    'Failed to initiate purchase',
+  ]);
+
+  return (
+    userFacingErrors.has(message) ||
+    /purchases are not enabled$/.test(message) ||
+    /^Data bundle (?:amount changed|not found)/.test(message) ||
+    /^Invalid network provider/.test(message) ||
+    /^Multiple data bundles match/.test(message)
+  );
+}
+
 interface ExistingIdempotencyRow {
   key: string;
   vtu_transaction_id: string;
@@ -291,25 +310,14 @@ export async function POST(request: NextRequest) {
     // and other helpers wrap PostgREST errors that can leak Supabase URL /
     // schema fragments. Whitelist the user-facing errors thrown by
     // `preparePendingVtuTransaction`; everything else is a generic 500.
+    const message = error instanceof Error ? error.message : '';
+    if (isUserFacingCheckoutError(message)) {
+      return createErrorResponse(message, 400);
+    }
+
     console.error('Wallet-only checkout failed:', {
       error: error instanceof Error ? error.message : String(error),
     });
-    const message = error instanceof Error ? error.message : '';
-    const userFacingErrors = new Set([
-      'Customer account not found for this storefront',
-      'Merchant not found',
-      'VTU is not enabled for this merchant',
-      'Invalid phone number',
-      'Invalid customer phone number',
-      'Failed to initiate purchase',
-    ]);
-    if (
-      userFacingErrors.has(message) ||
-      /purchases are not enabled$/.test(message) ||
-      /^Invalid network provider/.test(message)
-    ) {
-      return createErrorResponse(message, 400);
-    }
     return createErrorResponse('Wallet-only checkout failed.', 500);
   }
 }
