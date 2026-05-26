@@ -1,7 +1,0 @@
-<!-- jules-pr-review mode:fast sha:fe8181946bab2ad88554656c0d1f979f649e5b5f -->
-## Jules PR review
-
-Mode: `fast`
-
-The workflow did not produce a review body. Check the workflow logs for the failure point.
-
