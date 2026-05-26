@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
+import { isBaciPaystackSettlementCountry } from '@/lib/checkout/payment-gateway-availability';
 import { checkCsrfProtection } from '@/lib/csrf';
 import {
   getMerchantForApiRequest,
@@ -14,6 +15,7 @@ import {
   getPaystackFailureMessage,
   getPaystackFailureStatus,
 } from '@/lib/paystack-route-errors';
+import { resolvePaystackAccountSchema } from '@/schemas/paystack-resolve';
 import { paystackSubaccountSchema } from '@/schemas/paystack-subaccount';
 
 // Platform commission percentage for subaccount default split
@@ -73,8 +75,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { account_number, bank_code, business_name, auto_payout_enabled } =
-      parseResult.data;
+    const {
+      account_number,
+      bank_code,
+      bank_name,
+      business_name,
+      auto_payout_enabled,
+    } = parseResult.data;
     const shouldPersistAutoPayoutEnabled =
       hasRequestField(body, 'autoPayoutEnabled') ||
       hasRequestField(body, 'auto_payout_enabled');
@@ -121,7 +128,7 @@ export async function POST(request: NextRequest) {
     // Fetch additional merchant fields needed for subaccount operations
     const { data: merchantDetails } = await auth.supabase
       .from('merchants')
-      .select('paystack_subaccount_code, business_name, email, phone')
+      .select('paystack_subaccount_code, business_name, country, email, phone')
       .eq('id', merchantId)
       .single();
 
@@ -144,8 +151,59 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (!isBaciPaystackSettlementCountry(merchantDetails.country)) {
+      const offlineBankName = bank_name || bank_code;
+      if (!offlineBankName) {
+        return NextResponse.json(
+          { error: 'Bank name is required' },
+          { status: 400 }
+        );
+      }
+
+      const { error: updateError } = await auth.supabase
+        .from('merchants')
+        .update({
+          paystack_subaccount_code: null,
+          bank_account_number: account_number,
+          bank_account_name: effectiveBusinessName,
+          bank_code: null,
+          bank_name: offlineBankName,
+        })
+        .eq('id', merchantId);
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      return NextResponse.json({
+        success: true,
+        accountName: effectiveBusinessName,
+        subaccountCode: null,
+      });
+    }
+
+    const paystackAccount = resolvePaystackAccountSchema.safeParse({
+      account_number,
+      bank_code,
+    });
+    if (!paystackAccount.success) {
+      return NextResponse.json(
+        {
+          error: 'Invalid input',
+          details: paystackAccount.error.flatten(),
+        },
+        { status: 400 }
+      );
+    }
+
+    const verifiedAccountNumber = paystackAccount.data.account_number;
+    const verifiedBankCode = paystackAccount.data.bank_code;
+
     // 2. Verify Account Number
-    const accountResult = await resolveAccountNumber(account_number, bank_code);
+    const accountResult = await resolveAccountNumber(
+      verifiedAccountNumber,
+      verifiedBankCode
+    );
     if (!accountResult.success) {
       if (accountResult.code === 'CONFIG_ERROR') {
         console.error(
@@ -169,8 +227,8 @@ export async function POST(request: NextRequest) {
       // Update existing subaccount
       const updateResult = await updateSubaccount(subaccountCode, {
         business_name: effectiveBusinessName,
-        settlement_bank: bank_code,
-        account_number: account_number,
+        settlement_bank: verifiedBankCode,
+        account_number: verifiedAccountNumber,
         percentage_charge: PLATFORM_COMMISSION_PERCENTAGE,
       });
       if (!updateResult.success) {
@@ -194,8 +252,8 @@ export async function POST(request: NextRequest) {
       // Create new subaccount
       const subaccountResult = await createSubaccount({
         business_name: effectiveBusinessName,
-        settlement_bank: bank_code,
-        account_number: account_number,
+        settlement_bank: verifiedBankCode,
+        account_number: verifiedAccountNumber,
         percentage_charge: PLATFORM_COMMISSION_PERCENTAGE,
         primary_contact_email: merchantDetails.email || auth.user.email,
         primary_contact_name: accountDetails.account_name, // Use bank account name as contact
@@ -226,9 +284,9 @@ export async function POST(request: NextRequest) {
       .from('merchants')
       .update({
         paystack_subaccount_code: subaccountCode,
-        bank_account_number: account_number,
+        bank_account_number: verifiedAccountNumber,
         bank_account_name: accountDetails.account_name,
-        bank_code: bank_code,
+        bank_code: verifiedBankCode,
         bank_name: 'Unknown Bank', // resolve endpoint doesn't return bank name
       })
       .eq('id', merchantId);

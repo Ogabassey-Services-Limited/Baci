@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { merchantBankSchema } from '@/schemas/merchant-bank';
+import {
+  internationalMerchantBankSchema,
+  merchantBankSchema,
+} from '@/schemas/merchant-bank';
 
 describe('merchantBankSchema', () => {
   it('parses valid bank form data', () => {
@@ -60,5 +63,19 @@ describe('merchantBankSchema', () => {
     });
 
     expect(result.businessName).toBe('Baci Store');
+  });
+
+  it('parses international offline bank details', () => {
+    const result = internationalMerchantBankSchema.parse({
+      accountNumber: '1234567890123456',
+      bankName: 'HDFC Bank',
+      businessName: 'Yodha Shopping',
+    });
+
+    expect(result).toEqual({
+      accountNumber: '1234567890123456',
+      bankName: 'HDFC Bank',
+      businessName: 'Yodha Shopping',
+    });
   });
 });

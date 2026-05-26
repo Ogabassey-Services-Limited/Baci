@@ -9,5 +9,24 @@ export const merchantBankSchema = z.object({
   autoPayoutEnabled: z.boolean().optional(),
 });
 
-export type MerchantBankFormInput = z.input<typeof merchantBankSchema>;
-export type MerchantBankFormValues = z.infer<typeof merchantBankSchema>;
+export const internationalMerchantBankSchema = z.object({
+  accountNumber: z
+    .string()
+    .trim()
+    .regex(
+      /^[A-Za-z0-9][A-Za-z0-9 -]{5,33}$/,
+      'Account number must be 6 to 34 letters or digits'
+    ),
+  bankName: z.string().trim().min(2, 'Bank name is required'),
+  businessName: z.string().trim().min(2, 'Business name is required'),
+});
+
+export interface MerchantBankFormInput {
+  accountNumber: string;
+  bankCode?: string;
+  bankName?: string;
+  businessName: string;
+  autoPayoutEnabled?: boolean;
+}
+
+export type MerchantBankFormValues = MerchantBankFormInput;

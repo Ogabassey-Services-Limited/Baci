@@ -186,6 +186,7 @@ describe('CompleteProfileScreen', () => {
     expect(mocks.mutate.mock.calls[0][0]).toMatchObject({
       businessName: 'Akin Gadgets',
       businessType: 'electronics',
+      country: 'NG',
       email: 'merchant@example.com',
       firstName: 'Akin',
       lastName: 'John',

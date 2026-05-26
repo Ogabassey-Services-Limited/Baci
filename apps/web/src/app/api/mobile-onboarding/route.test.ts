@@ -87,6 +87,7 @@ const validBody = {
   lastName: 'Doe',
   businessName: 'Test Store',
   businessType: 'fashion',
+  country: 'NG',
   brandColors: JSON.stringify({
     primary: '#000',
     background: '#fff',

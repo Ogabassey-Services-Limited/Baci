@@ -108,6 +108,7 @@ const validFields = {
   confirmPassword: 'StrongP@ss123!',
   businessName: 'TestStore',
   businessType: 'fashion',
+  country: 'NG',
   logoUrl: 'https://example.com/logo.png',
   brandColors: JSON.stringify({
     primary: '#000000',

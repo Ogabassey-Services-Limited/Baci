@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -34,6 +34,7 @@ export default function CompleteProfileScreen() {
     phone: '',
     businessName: '',
     businessType: '',
+    country: 'NG',
     otherBusinessType: '',
     slug: '',
     email: '',
@@ -158,6 +159,7 @@ export default function CompleteProfileScreen() {
         email: formData.email,
         businessName: formData.businessName,
         businessType: formData.businessType,
+        country: formData.country,
         otherBusinessType: formData.otherBusinessType,
         slug: formData.slug || undefined,
         logoUrl: formData.logoUrl || undefined,

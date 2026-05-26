@@ -1,19 +1,33 @@
 import { describe, expect, it } from 'vitest';
 import {
+  hasLaunchablePaymentMethod,
   isBankTransferCheckoutAvailable,
   isKorapayCheckoutAvailable,
+  isPayOnDeliveryCheckoutAvailable,
   isPaystackCheckoutAvailable,
 } from '@/lib/checkout/payment-gateway-availability';
 
 describe('payment-gateway-availability', () => {
   it('returns true when paystack is enabled and a subaccount exists', () => {
     const merchant = {
+      country: 'NG',
       paystack_subaccount_code: 'ACCT_123',
       feature_settings: {},
     };
 
     expect(isPaystackCheckoutAvailable(merchant)).toBe(true);
     expect(isBankTransferCheckoutAvailable(merchant)).toBe(true);
+  });
+
+  it('returns false for Paystack when the merchant country is explicitly unsupported', () => {
+    const merchant = {
+      country: 'IN',
+      paystack_subaccount_code: 'ACCT_123',
+      feature_settings: { paystack_enabled: true },
+    };
+
+    expect(isPaystackCheckoutAvailable(merchant)).toBe(false);
+    expect(isBankTransferCheckoutAvailable(merchant)).toBe(false);
   });
 
   it('returns false when paystack is explicitly disabled', () => {
@@ -97,5 +111,28 @@ describe('payment-gateway-availability', () => {
         feature_settings: { korapay_enabled: false },
       })
     ).toBe(false);
+  });
+
+  it('returns true for Pay on Delivery when explicitly enabled', () => {
+    expect(
+      isPayOnDeliveryCheckoutAvailable({
+        feature_settings: { pay_on_delivery_enabled: true },
+      })
+    ).toBe(true);
+  });
+
+  it('treats India Pay on Delivery as a launchable payment method without Paystack bank details', () => {
+    expect(
+      hasLaunchablePaymentMethod({
+        country: 'IN',
+        bank_account_number: null,
+        bank_code: null,
+        paystack_subaccount_code: null,
+        feature_settings: {
+          pay_on_delivery_enabled: true,
+          paystack_enabled: false,
+        },
+      })
+    ).toBe(true);
   });
 });

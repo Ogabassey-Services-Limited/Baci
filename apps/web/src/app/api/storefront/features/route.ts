@@ -156,7 +156,7 @@ export async function GET(request: NextRequest) {
 
     const merchantLookupQuery = supabase
       .from('merchants')
-      .select('id, paystack_subaccount_code');
+      .select('id, country, paystack_subaccount_code');
     const merchantLookup = slug
       ? await merchantLookupQuery.eq('slug', slug).single()
       : await merchantLookupQuery.eq('id', merchantId).single();
@@ -210,6 +210,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         ...DEFAULT_FEATURES,
         paystackEnabled: isPaystackCheckoutAvailable({
+          country: merchant.country,
           paystack_subaccount_code: merchant.paystack_subaccount_code,
           feature_settings: {
             paystack_enabled: DEFAULT_FEATURES.paystackEnabled,
@@ -228,6 +229,7 @@ export async function GET(request: NextRequest) {
       guestCheckoutEnabled: settings.guest_checkout_enabled ?? true,
       // Payment gateways
       paystackEnabled: isPaystackCheckoutAvailable({
+        country: merchant.country,
         paystack_subaccount_code: merchant.paystack_subaccount_code,
         feature_settings: {
           paystack_enabled: settings.paystack_enabled ?? true,

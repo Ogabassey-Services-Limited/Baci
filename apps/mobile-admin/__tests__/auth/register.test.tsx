@@ -231,6 +231,7 @@ describe('RegisterScreen', () => {
       lastName: 'User',
       businessName: 'Test Store',
       businessType: 'fashion',
+      country: 'NG',
     });
   });
 

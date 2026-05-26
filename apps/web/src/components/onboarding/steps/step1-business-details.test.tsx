@@ -55,10 +55,12 @@ vi.mock('@/components/ui/form', async () => {
 vi.mock('@/components/ui/select', () => ({
   Select: ({
     children,
+    name,
     onValueChange,
     value,
   }: {
     children: React.ReactNode;
+    name?: string;
     onValueChange: (val: string) => void;
     value: string;
   }) => (
@@ -66,7 +68,7 @@ vi.mock('@/components/ui/select', () => ({
       <select
         value={value || ''}
         onChange={(e) => onValueChange(e.target.value)}
-        data-testid="business-type-select"
+        data-testid={name ? `${name}-select` : 'select'}
       >
         <option value="">Select type</option>
         {children}
@@ -174,6 +176,7 @@ function TestWrapper({ children }: { children: React.ReactNode }) {
     defaultValues: {
       businessType: '',
       businessName: '',
+      country: '',
       otherBusinessType: '',
     },
   });
@@ -286,7 +289,20 @@ describe('Step1_BusinessDetails', () => {
     expect(
       screen.getByText(/what's the nature of your business/i)
     ).toBeInTheDocument();
-    expect(screen.getByTestId('business-type-select')).toBeInTheDocument();
+    expect(screen.getByTestId('businessType-select')).toBeInTheDocument();
+  });
+
+  it('renders country selection field', () => {
+    render(
+      <TestWrapper>
+        <Step1_BusinessDetails onKeyDown={mockOnKeyDown} />
+      </TestWrapper>
+    );
+
+    expect(
+      screen.getByText(/where is your business registered/i)
+    ).toBeInTheDocument();
+    expect(screen.getByTestId('country-select')).toBeInTheDocument();
   });
 
   it('renders business name input field', () => {
@@ -306,6 +322,7 @@ describe('Step1_BusinessDetails', () => {
         defaultValues: {
           businessType: '',
           businessName: '',
+          country: '',
           otherBusinessType: '',
         },
       });
@@ -320,7 +337,7 @@ describe('Step1_BusinessDetails', () => {
 
     render(<DebugWrapper />);
 
-    const select = screen.getByTestId('business-type-select');
+    const select = screen.getByTestId('businessType-select');
     fireEvent.change(select, { target: { value: 'other' } });
 
     await waitFor(() => {
@@ -350,8 +367,37 @@ describe('Step1_BusinessDetails', () => {
     expect(mockGetAllBusinessTypes).toHaveBeenCalled();
 
     // Check that options are rendered
-    const select = screen.getByTestId('business-type-select');
+    const select = screen.getByTestId('businessType-select');
     expect(select).toBeInTheDocument();
+  });
+
+  it('updates country when India is selected', async () => {
+    const TestForm = () => {
+      const methods = useForm<OnboardingFormValues>({
+        defaultValues: {
+          businessType: '',
+          businessName: '',
+          country: '',
+        },
+      });
+
+      return (
+        <FormProvider {...methods}>
+          <Step1_BusinessDetails onKeyDown={mockOnKeyDown} />
+          <div data-testid="country-value">{methods.watch('country')}</div>
+        </FormProvider>
+      );
+    };
+
+    render(<TestForm />);
+
+    fireEvent.change(screen.getByTestId('country-select'), {
+      target: { value: 'IN' },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('country-value')).toHaveTextContent('IN');
+    });
   });
 
   it('renders "Generate Business Name" button', () => {
@@ -436,7 +482,7 @@ describe('Step1_BusinessDetails', () => {
 
     // The emojis are rendered in the SelectItem components
     // We can verify the component renders without errors
-    expect(screen.getByTestId('business-type-select')).toBeInTheDocument();
+    expect(screen.getByTestId('businessType-select')).toBeInTheDocument();
   });
 
   it('has proper autocomplete attributes on business name input', () => {
@@ -457,7 +503,7 @@ describe('Step1_BusinessDetails', () => {
       </TestWrapper>
     );
 
-    const select = screen.getByTestId('business-type-select');
+    const select = screen.getByTestId('businessType-select');
     fireEvent.change(select, { target: { value: 'other' } });
 
     await waitFor(() => {
