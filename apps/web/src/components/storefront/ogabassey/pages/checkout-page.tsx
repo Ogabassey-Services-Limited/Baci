@@ -56,7 +56,10 @@ import {
   type PendingCheckoutOrderSnapshot,
 } from './checkout/pending-checkout-order';
 import { PaymentStep } from './checkout/components/PaymentStep';
-import { inferAddressLocationFromInput } from './checkout/utils';
+import {
+  inferAddressLocationFromInput,
+  isGatewayAmountDifferentFromOrderTotal,
+} from './checkout/utils';
 
 /**
  * Discriminated union for checkout item rendering. The `kind` tag is set at
@@ -1241,13 +1244,17 @@ export const CheckoutPage: React.FC = () => {
       return;
     }
 
-    if (paymentMethod === 'klump' && walletAmountUsed > 0) {
+    if (
+      paymentMethod === 'klump' &&
+      isGatewayAmountDifferentFromOrderTotal(remainingAmount, total)
+    ) {
       toast({
         title: 'Klump unavailable with wallet credit',
         description:
-          'Klump cannot be combined with wallet credit. Turn off wallet credit or choose another payment method.',
+          'Klump requires the full order total. Remove wallet credit or choose another payment method.',
         variant: 'destructive',
       });
+      setIsProcessing(false);
       isOrderInFlightRef.current = false;
       return;
     }
@@ -1545,6 +1552,21 @@ export const CheckoutPage: React.FC = () => {
       });
 
       const paymentAmount = amountDueToGateway ?? total;
+
+      if (
+        paymentMethod === 'klump' &&
+        isGatewayAmountDifferentFromOrderTotal(paymentAmount, total)
+      ) {
+        toast({
+          title: 'Klump unavailable with wallet credit',
+          description:
+            'Klump requires the full order total. Remove wallet credit or choose another payment method.',
+          variant: 'destructive',
+        });
+        setIsProcessing(false);
+        isOrderInFlightRef.current = false;
+        return;
+      }
 
       // Update local wallet balance if redemption occurred
       if (walletResult?.amountUsed) {
@@ -3113,8 +3135,8 @@ export const CheckoutPage: React.FC = () => {
               merchant={merchant}
               user={user}
               remainingAmount={remainingAmount}
-              orderCurrency="NGN"
-              walletAmountUsed={walletAmountUsed}
+              orderAmount={total}
+              currency="NGN"
             />
 
           </div>

@@ -147,3 +147,14 @@ export function calculateDeliveryCost(
   // Airport
   return airportType === 'delivery' ? 25000 : 20000;
 }
+
+export function isGatewayAmountDifferentFromOrderTotal(
+  payableAmount: number,
+  orderAmount: number,
+): boolean {
+  if (!Number.isFinite(payableAmount) || !Number.isFinite(orderAmount)) {
+    return false;
+  }
+
+  return Math.abs(orderAmount - payableAmount) > 0.01;
+}

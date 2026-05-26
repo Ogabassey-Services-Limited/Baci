@@ -454,6 +454,50 @@ describe('handlePlaceOrder', () => {
   });
 
   describe('Klump', () => {
+    it('blocks Klump before order creation when wallet credit reduces the payable amount', async () => {
+      const { toast } = await import('@/hooks/use-toast');
+      const opts = buildOpts({
+        paymentMethod: 'klump',
+        payWithWallet: true,
+        walletAmountUsed: 5_000,
+      });
+
+      await handlePlaceOrder(opts);
+
+      expect(mockFetch).not.toHaveBeenCalled();
+      expect(toast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Klump unavailable with wallet credit',
+        }),
+      );
+      expect(opts.setIsProcessing).toHaveBeenCalledWith(false);
+      expect(opts.isOrderInFlightRef.current).toBe(false);
+    });
+
+    it('does not initialize Klump if the order response has a reduced gateway amount', async () => {
+      const { toast } = await import('@/hooks/use-toast');
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          order: { id: 'order-klump', tracking_token: 'track-klump' },
+          wallet: { amountUsed: 5_000, newBalance: 0 },
+          amountDueToGateway: 7_000,
+        }),
+      });
+
+      const opts = buildOpts({ paymentMethod: 'klump' });
+      await handlePlaceOrder(opts);
+
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect(toast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Klump unavailable with wallet credit',
+        }),
+      );
+      expect(opts.setIsProcessing).toHaveBeenCalledWith(false);
+      expect(opts.isOrderInFlightRef.current).toBe(false);
+    });
+
     it('initializes Klump payment after creating the order', async () => {
       mockFetch
         .mockResolvedValueOnce({

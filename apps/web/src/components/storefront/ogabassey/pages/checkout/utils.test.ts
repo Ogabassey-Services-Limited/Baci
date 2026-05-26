@@ -6,6 +6,7 @@ import {
   calculateDeliveryCost,
   getDeliveryDateRange,
   inferAddressLocationFromInput,
+  isGatewayAmountDifferentFromOrderTotal,
 } from './utils';
 import type { ShippingQuote } from './types';
 
@@ -122,6 +123,26 @@ describe('calculateDeliveryCost', () => {
   it('returns 20000 for airport pickup', () => {
     const cost = calculateDeliveryCost('airport', '', mockQuotes, 'pickup');
     expect(cost).toBe(20000);
+  });
+});
+
+describe('isGatewayAmountDifferentFromOrderTotal', () => {
+  it('returns true when wallet credit reduces the payable gateway amount', () => {
+    expect(isGatewayAmountDifferentFromOrderTotal(45_000, 50_000)).toBe(true);
+  });
+
+  it('returns true when the payable amount exceeds the order amount', () => {
+    expect(isGatewayAmountDifferentFromOrderTotal(55_000, 50_000)).toBe(true);
+  });
+
+  it('returns false when the payable amount still matches the order amount', () => {
+    expect(isGatewayAmountDifferentFromOrderTotal(50_000, 50_000)).toBe(false);
+  });
+
+  it('ignores sub-kobo rounding noise', () => {
+    expect(isGatewayAmountDifferentFromOrderTotal(49_999.995, 50_000)).toBe(
+      false,
+    );
   });
 });
 
