@@ -168,10 +168,14 @@ const StoreLink = ({
       return false;
     }
   })();
+  let safeHref: Route = asRoute('/');
+  if (isSafeUrl) {
+    safeHref = asRoute(storeUrl);
+  }
 
   return (
     <Link
-      href={isSafeUrl ? asRoute(storeUrl) : asRoute('/')}
+      href={safeHref}
       className={cn(baseClassName, 'transition-all hover:text-primary')}
     >
       {isCollapsed && !isMobile ? (
