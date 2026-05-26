@@ -214,12 +214,13 @@ export async function openCreditDirectCheckout(
         onClose();
       },
       onPopup: (response) => {
+        const popupTransactionId = response?.checkoutTransactionId?.trim();
         console.log(
           'Credit Direct popup opened:',
-          response?.checkoutTransactionId || 'No ID returned'
+          popupTransactionId || 'No ID returned'
         );
-        if (response?.checkoutTransactionId) {
-          onPopup?.(response.checkoutTransactionId);
+        if (popupTransactionId) {
+          onPopup?.(popupTransactionId);
         }
       },
     });

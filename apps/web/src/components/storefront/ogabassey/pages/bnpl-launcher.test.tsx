@@ -1,4 +1,4 @@
-import { render, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { BnplLauncher } from './bnpl-launcher';
 import { CHECKOUT_PENDING_ORDER_STORAGE_KEY } from './checkout/pending-checkout-order';
@@ -186,6 +186,38 @@ describe('BnplLauncher', () => {
         expect.objectContaining({ amount: 349613 })
       );
     });
+  });
+
+  it('rejects invalid Credit Direct order totals before opening checkout', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          id: 'order-1',
+          tracking_token: 'track-order-token',
+          total: 'not-a-number',
+          customer_email: 'customer@example.com',
+          customer_phone: '08012345678',
+          customer_name: 'John Doe',
+          items: [
+            {
+              product_id: 'product-1',
+              name: 'Capsule',
+              price: 1000,
+              quantity: 1,
+            },
+          ],
+        }),
+      })
+    );
+
+    render(<BnplLauncher />);
+
+    expect(
+      await screen.findByText('Invalid order total for Credit Direct checkout.')
+    ).toBeInTheDocument();
+    expect(mockOpenCreditDirectCheckout).not.toHaveBeenCalled();
   });
 
   it('stores Credit Direct popup transaction ids with the public tracking token', async () => {

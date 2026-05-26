@@ -60,7 +60,7 @@ describe('openCreditDirectCheckout', () => {
     const appendSpy = vi
       .spyOn(document.head, 'appendChild')
       .mockImplementation((node) => {
-        setTimeout(() => node.dispatchEvent(new Event('error')), 0);
+        node.dispatchEvent(new Event('error'));
         return node;
       });
 
@@ -129,7 +129,7 @@ describe('openCreditDirectCheckout', () => {
     }) {
       return {
         open: () =>
-          config.onPopup({ checkoutTransactionId: 'cd-popup-transaction-1' }),
+          config.onPopup({ checkoutTransactionId: ' cd-popup-transaction-1 ' }),
         setup: vi.fn(),
       };
     } as never;
@@ -141,9 +141,11 @@ describe('openCreditDirectCheckout', () => {
   });
 
   it('ignores popup events without a transaction id', async () => {
-    window.Connect = function MockConnect(config: { onPopup: () => void }) {
+    window.Connect = function MockConnect(config: {
+      onPopup: (payload?: { checkoutTransactionId?: string }) => void;
+    }) {
       return {
-        open: () => config.onPopup(),
+        open: () => config.onPopup({ checkoutTransactionId: '   ' }),
         setup: vi.fn(),
       };
     } as never;

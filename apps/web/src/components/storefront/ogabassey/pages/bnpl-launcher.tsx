@@ -253,10 +253,15 @@ export function BnplLauncher() {
                 setStatus('processing');
 
                 if (gateway === 'credit_direct') {
+                    const normalizedAmount = Number(order.total);
+                    if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) {
+                        throw new Error('Invalid order total for Credit Direct checkout.');
+                    }
+
                     await openCreditDirectCheckout({
                         merchantSlug: slug,
                         orderId: order.id,
-                        amount: Number(order.total),
+                        amount: normalizedAmount,
                         customerEmail: order.customer_email,
                         customerPhone: order.customer_phone || '',
                         customerName: order.customer_name,
