@@ -73,6 +73,10 @@ Proceeding with the implementation because the target URL responds normally outs
 | 2026-05-26 | DebugBear API live baseline before mobile image-size candidate | OgaBassey PDP | mobile, southafrica | 69 | 100 | 96 | 92 | 3772 ms | 2440 ms | 614 ms | 0.000 | DebugBear paid Quick Test `51` used the same mobile profile from South Africa. Breakdown: 754 ms TTFB, 1225 ms resource-load delay, 1479 ms resource-load duration, 315 ms render delay. The LCP image request still selected `width=1080,quality=35`; it started at 1977 ms and transferred 23.8 KB. This run confirms both late stream discovery and oversized high-DPR candidate selection remain relevant on poorer network paths. |
 | 2026-05-26 | Critical-rendering architecture branch candidate (`codex/ogabassey-pdp-critical-rendering`) | OgaBassey PDP | mobile | - | - | - | - | pending deploy | - | - | - | Measurement harness and route/CSS ownership split added before deploy. This row records candidate state only; the next measurable row must use DebugBear or PSI after this branch reaches production. |
 
+### OgaBassey PDP Entity Consistency Invariant
+
+The root LCP fix keeps the OgaBassey PDP as one product document. The server critical shell, hydrated purchase controls, Product JSON-LD, canonical URL, OpenGraph product metadata, and hidden crawlable summary must all describe the same product row. A faster page with divergent product signals is not an acceptable SEO outcome.
+
 ## 2026-05-19 PDP mobile follow-up evidence
 
 Source captures:

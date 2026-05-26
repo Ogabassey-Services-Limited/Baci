@@ -1066,6 +1066,41 @@ describe('[category]/[productSlug] page render', () => {
     ).toBeInTheDocument();
   });
 
+  it('keeps visible OgaBassey product identity aligned with Product JSON-LD input', async () => {
+    render(
+      await resolveRsc(
+        await CategoryProductPage({
+          params: Promise.resolve({
+            slug: 'teststore',
+            category: 'laptops',
+            productSlug: 'hp-laptop-14-ep0063nia',
+          }),
+          searchParams: Promise.resolve({}),
+        })
+      )
+    );
+
+    expect(
+      screen.getByRole('heading', {
+        level: 1,
+        name: 'HP Laptop 14-ep0063nia',
+      })
+    ).toBeInTheDocument();
+    expect(mockGenerateProductSchema).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'HP Laptop 14-ep0063nia',
+        price: 645_600,
+        category: 'Laptops',
+      }),
+      'TestStore',
+      'NGN',
+      'NG',
+      null,
+      expect.any(Object),
+      expect.any(Object)
+    );
+  });
+
   it('throws notFound before streaming when the product is missing', async () => {
     const consoleWarnSpy = vi
       .spyOn(console, 'warn')
