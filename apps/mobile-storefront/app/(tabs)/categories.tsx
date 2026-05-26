@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { OfflineEmptyState, OfflineNotice } from '@/components/OfflineNotice';
+import { StorefrontScreenShell } from '@/components/storefront/StorefrontScreenShell';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
 import { useNetworkState } from '@/hooks/use-network-state';
@@ -37,16 +38,22 @@ export default function CategoriesScreen() {
 
   if (isLoading) {
     return (
-      <View style={[styles.centered, { backgroundColor: colors.background }]}>
+      <StorefrontScreenShell
+        edges={['top']}
+        style={[styles.centered, { backgroundColor: colors.background }]}
+      >
         <ActivityIndicator size="large" color={BRAND.primary} />
-      </View>
+      </StorefrontScreenShell>
     );
   }
 
   // Error state with retry button
   if (isError) {
     return (
-      <View style={[styles.centered, { backgroundColor: colors.background }]}>
+      <StorefrontScreenShell
+        edges={['top']}
+        style={[styles.centered, { backgroundColor: colors.background }]}
+      >
         {!isOnline ? (
           <OfflineEmptyState
             title="Can't load categories"
@@ -88,7 +95,7 @@ export default function CategoriesScreen() {
             </Pressable>
           </View>
         )}
-      </View>
+      </StorefrontScreenShell>
     );
   }
 
@@ -152,7 +159,10 @@ export default function CategoriesScreen() {
   );
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <StorefrontScreenShell
+      edges={['top']}
+      style={[styles.container, { backgroundColor: colors.background }]}
+    >
       {/* Show offline banner when offline but have cached data */}
       {!isOnline && categories.length > 0 && (
         <OfflineNotice
@@ -176,7 +186,7 @@ export default function CategoriesScreen() {
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         showsVerticalScrollIndicator={false}
       />
-    </View>
+    </StorefrontScreenShell>
   );
 }
 
