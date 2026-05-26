@@ -51,6 +51,10 @@ interface SignResponse {
   error?: string;
 }
 
+interface CreditDirectSdkPayload {
+  checkoutTransactionId?: string;
+}
+
 // Global type for Credit Direct SDK
 declare global {
   interface Window {
@@ -59,9 +63,9 @@ declare global {
       signature: string;
       transaction: CreditDirectTransaction;
       isLive: boolean;
-      onSuccess: () => void;
+      onSuccess: (response?: CreditDirectSdkPayload) => void;
       onClose: () => void;
-      onPopup: (response: { checkoutTransactionId: string }) => void;
+      onPopup: (response?: CreditDirectSdkPayload) => void;
     }) => {
       setup: () => void;
       open: () => void;
@@ -185,26 +189,38 @@ export async function openCreditDirectCheckout(
       isLive: signData.isLive,
     });
 
+    let checkoutCompleted = false;
+    const resolveTransactionId = (response?: CreditDirectSdkPayload) => {
+      const transactionId = response?.checkoutTransactionId?.trim();
+      return transactionId || signData.sessionId;
+    };
+
     const checkout = new window.Connect({
       publicKey: signData.publicKey,
       signature: signData.signature,
       transaction,
       isLive: signData.isLive,
-      onSuccess: () => {
+      onSuccess: (response) => {
         console.log('Credit Direct checkout success');
-        onSuccess(signData.sessionId);
+        checkoutCompleted = true;
+        onSuccess(resolveTransactionId(response));
       },
       onClose: () => {
+        if (checkoutCompleted) {
+          console.log('Credit Direct checkout closed after completion');
+          return;
+        }
         console.log('Credit Direct checkout closed');
         onClose();
       },
       onPopup: (response) => {
+        const popupTransactionId = response?.checkoutTransactionId?.trim();
         console.log(
           'Credit Direct popup opened:',
-          response?.checkoutTransactionId || 'No ID returned'
+          popupTransactionId || 'No ID returned'
         );
-        if (response?.checkoutTransactionId) {
-          onPopup?.(response.checkoutTransactionId);
+        if (popupTransactionId) {
+          onPopup?.(popupTransactionId);
         }
       },
     });

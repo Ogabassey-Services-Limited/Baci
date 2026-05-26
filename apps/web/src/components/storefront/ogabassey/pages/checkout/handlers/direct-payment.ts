@@ -106,6 +106,9 @@ export async function executeDirectPayment({
               orderId: resumedOrder.id,
               paymentRef: transactionId,
               gateway: 'credit_direct',
+              ...(resumedOrder.tracking_token && {
+                tracking_token: resumedOrder.tracking_token,
+              }),
             }),
           });
           clearCheckoutSession();

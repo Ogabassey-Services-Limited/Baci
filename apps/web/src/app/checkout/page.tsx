@@ -1327,7 +1327,11 @@ function CheckoutPageContent() {
               });
               setFormIsLoading(false);
             },
-            onPopup: async (response: { checkoutTransactionId: string }) => {
+            onPopup: async (response) => {
+              if (!response?.checkoutTransactionId) {
+                return;
+              }
+
               // Save transaction ID to order for webhook reconciliation
               await fetch('/api/orders/update-payment-ref', {
                 method: 'POST',

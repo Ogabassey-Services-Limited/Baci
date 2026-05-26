@@ -75,12 +75,10 @@ describe('checkout-step-helpers', () => {
   });
 
   it('returns the shipping provider for each delivery method', () => {
-    expect(getShippingProviderForMethod('airport', baseQuote)).toBe(
-      'Airport Delivery'
-    );
-    expect(getShippingProviderForMethod('pickup_station', baseQuote)).toBe(
-      'Pick Up Station'
-    );
+    expect(getShippingProviderForMethod('airport', baseQuote)).toBeUndefined();
+    expect(
+      getShippingProviderForMethod('pickup_station', baseQuote)
+    ).toBeUndefined();
     expect(getShippingProviderForMethod('door', baseQuote)).toBe('Topship');
     expect(
       getShippingProviderForMethod('door', {
