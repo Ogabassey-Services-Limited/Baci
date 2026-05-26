@@ -137,6 +137,10 @@
       "justification": "Reviewed platform-specific dropdown shadow/elevation styling."
     },
     {
+      "path": "components/storefront/Hero.styles.ts",
+      "justification": "Reviewed web box-shadow selection for the elite hero card while preserving native shadow styling."
+    },
+    {
       "path": "components/storefront/product-card/GridProductCard.tsx",
       "justification": "Reviewed CSS box-shadow selection on web while preserving native product-card shadows."
     },
