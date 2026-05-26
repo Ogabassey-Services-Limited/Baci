@@ -38,6 +38,13 @@ function getSuccessTone(paymentMethod?: string) {
         "We've saved this order for later payment. Once it is settled, we'll confirm it and begin processing.",
     };
   }
+  if (paymentMethod === 'bank_transfer') {
+    return {
+      eyebrow: 'Transfer pending',
+      subtitle:
+        "We've saved your order. We'll confirm payment automatically once the transfer is received.",
+    };
+  }
   return {
     eyebrow: 'Order confirmed',
     subtitle:
