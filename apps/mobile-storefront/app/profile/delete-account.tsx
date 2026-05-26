@@ -10,7 +10,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { StorefrontScreenShell } from '@/components/storefront/StorefrontScreenShell';
 import { useToast } from '@/components/ui/Toast';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
@@ -101,21 +101,31 @@ export default function DeleteAccountScreen() {
 
   if (isAuthLoading) {
     return (
-      <View
-        style={[
-          styles.loadingContainer,
-          { backgroundColor: colors.background },
-        ]}
-      >
-        <ActivityIndicator size="large" color={BRAND.primary} />
-      </View>
+      <>
+        <Stack.Screen options={{ title: 'Delete Account' }} />
+        <StorefrontScreenShell
+          style={[
+            styles.loadingContainer,
+            { backgroundColor: colors.background },
+          ]}
+        >
+          <ActivityIndicator
+            accessibilityLabel="Loading delete account"
+            accessibilityRole="progressbar"
+            size="large"
+            color={BRAND.primary}
+          />
+        </StorefrontScreenShell>
+      </>
     );
   }
 
   return (
     <>
       <Stack.Screen options={{ title: 'Delete Account' }} />
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <StorefrontScreenShell
+        style={[styles.container, { backgroundColor: colors.background }]}
+      >
         <ScrollView
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
@@ -218,8 +228,7 @@ export default function DeleteAccountScreen() {
           </Pressable>
         </ScrollView>
 
-        <SafeAreaView
-          edges={['bottom']}
+        <View
           style={[
             styles.footer,
             {
@@ -270,9 +279,9 @@ export default function DeleteAccountScreen() {
               </Text>
             )}
           </Pressable>
-        </SafeAreaView>
+        </View>
         <toast.Toast />
-      </View>
+      </StorefrontScreenShell>
     </>
   );
 }
