@@ -24,6 +24,13 @@ const quizGenerationRpcSql = readFileSync(
   resolve(migrationsDirectory, '20260526212008_quiz_generation_rpc.sql'),
   'utf8'
 );
+const quizComplianceColumnGrantSql = readFileSync(
+  resolve(
+    migrationsDirectory,
+    '20260526230709_grant_quiz_event_compliance_columns.sql'
+  ),
+  'utf8'
+);
 
 describe('quiz migration RLS contracts', () => {
   it('scopes leaderboard refresh log reads to the authenticated customer merchant', () => {
@@ -100,5 +107,12 @@ describe('quiz migration RLS contracts', () => {
     expect(quizGenerationRpcSql).toMatch(
       /GRANT\s+EXECUTE\s+ON\s+FUNCTION\s+public\.create_merchant_quiz_draft\([\s\S]*TO\s+authenticated/i
     );
+  });
+
+  it('grants authenticated quiz clients only the event compliance columns needed by the event list route', () => {
+    expect(quizComplianceColumnGrantSql).toMatch(
+      /GRANT\s+SELECT\s*\(\s*nlrc_permit_ref\s*,\s*compliance_verified\s*\)\s+ON\s+public\.quiz_events\s+TO\s+authenticated/i
+    );
+    expect(quizComplianceColumnGrantSql).not.toMatch(/answer_key_hash/i);
   });
 });
