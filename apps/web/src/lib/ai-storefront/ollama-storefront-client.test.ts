@@ -145,6 +145,56 @@ describe('generateStorefrontLayoutWithOllama', () => {
     ).rejects.toThrow();
   });
 
+  it('returns model-shaped section props so the normalizer can coerce them', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          response: JSON.stringify({
+            sections: [
+              {
+                type: 'Header',
+                props: {
+                  navigation: [{ label: 'Shop', url: '/products' }],
+                  cta_button: { text: 'Shop now', url: '/products' },
+                },
+              },
+              {
+                type: 'Hero',
+                props: {
+                  title: 'Premium phones',
+                  cta_button: { text: 'Browse', url: '/products' },
+                },
+              },
+              { type: 'ProductGrid', props: { products: [] } },
+              {
+                type: 'TrustBadges',
+                props: { badges: ['Secure checkout', 'Fast delivery'] },
+              },
+              { type: 'Footer', props: { business_name: 'Bassey Phones' } },
+            ],
+          }),
+        }),
+        { status: 200 }
+      )
+    );
+
+    const result = await generateStorefrontLayoutWithOllama({
+      businessName: 'Bassey Phones',
+      businessType: 'electronics',
+      brandColors: null,
+      productCount: 0,
+    });
+
+    expect(result.sections[0]).toEqual(
+      expect.objectContaining({
+        type: 'Header',
+        props: expect.objectContaining({
+          cta_button: { text: 'Shop now', url: '/products' },
+        }),
+      })
+    );
+  });
+
   it('throws a clear timeout error when the request is aborted', async () => {
     vi.useFakeTimers();
     vi.spyOn(globalThis, 'fetch').mockImplementationOnce((_, init) => {

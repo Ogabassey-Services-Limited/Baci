@@ -101,7 +101,7 @@ export async function processAiStorefrontJobs({
     const claimStartedAt = Date.now();
     const claimTime = new Date().toISOString();
     const leaseExpiresAt = new Date(Date.now() + WORKER_LEASE_MS).toISOString();
-    const { data: claimedJob, error: claimError } = await supabase
+    const claimUpdate = supabase
       .from('ai_jobs')
       .update({
         status: 'processing',
@@ -111,10 +111,14 @@ export async function processAiStorefrontJobs({
         lease_expires_at: leaseExpiresAt,
         attempts: (job.attempts ?? 0) + 1,
       })
-      .eq('id', job.id)
-      .or(
-        `status.eq.pending,and(status.eq.processing,lease_expires_at.lte.${claimTime})`
-      )
+      .eq('id', job.id);
+
+    const guardedClaimUpdate =
+      job.status === 'processing'
+        ? claimUpdate.eq('status', 'processing').lte('lease_expires_at', claimTime)
+        : claimUpdate.eq('status', 'pending');
+
+    const { data: claimedJob, error: claimError } = await guardedClaimUpdate
       .select(
         'id, merchant_id, status, input, attempts, max_attempts, created_at, metadata'
       )
@@ -145,6 +149,8 @@ export async function processAiStorefrontJobs({
         .update({
           status: 'completed',
           output,
+          error: null,
+          next_run_at: completedAt,
           completed_at: completedAt,
           locked_at: null,
           locked_by: null,
