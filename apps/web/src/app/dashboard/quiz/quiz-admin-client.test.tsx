@@ -78,6 +78,9 @@ describe('QuizAdminClient', () => {
 
   it('shows a validation error when the generation response is invalid', async () => {
     mockApiPost.mockResolvedValue({ event: null, questions: [] });
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
     const user = userEvent.setup();
 
     render(<QuizAdminClient />);
@@ -85,8 +88,27 @@ describe('QuizAdminClient', () => {
     await user.click(screen.getByRole('button', { name: /generate draft/i }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Invalid quiz generation response'
+      'Invalid quiz generation response:'
     );
+    expect(consoleError).toHaveBeenCalledWith(
+      'Invalid quiz generation response',
+      expect.any(Error)
+    );
+    consoleError.mockRestore();
+  });
+
+  it('prevents submission when no topics are provided', async () => {
+    const user = userEvent.setup();
+
+    render(<QuizAdminClient />);
+
+    const topics = screen.getByLabelText(/topics/i);
+    await user.clear(topics);
+
+    expect(
+      screen.getByRole('button', { name: /generate draft/i })
+    ).toBeDisabled();
+    expect(mockApiPost).not.toHaveBeenCalled();
   });
 
   it('disables the generate button while a draft is being generated', async () => {

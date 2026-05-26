@@ -78,11 +78,7 @@ BEGIN
     SELECT 1
     FROM jsonb_array_elements(p_slots) AS slot(slot_data)
     WHERE length(btrim(COALESCE(slot.slot_data ->> 'id', ''))) = 0
-      OR CASE
-        WHEN COALESCE(slot.slot_data ->> 'slot_index', '') ~ '^[0-9]+$'
-          THEN (slot.slot_data ->> 'slot_index')::integer <= 0
-        ELSE true
-      END
+      OR COALESCE(slot.slot_data ->> 'slot_index', '') !~ '^[1-9][0-9]*$'
   ) THEN
     RAISE EXCEPTION 'quiz slots require valid id and slot_index values'
       USING ERRCODE = '22023';

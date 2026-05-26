@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockEnsurePermission = vi.fn();
+const mockIsMerchantPermissionRedirectError = vi.fn((error: unknown) => {
+  return (
+    error instanceof Error && error.message.startsWith('Permission denied:')
+  );
+});
 const mockRedirect = vi.fn((target: string) => {
   throw new Error(`NEXT_REDIRECT:${target}`);
 });
@@ -11,6 +16,8 @@ vi.mock('next/navigation', () => ({
 
 vi.mock('@/lib/merchant-server', () => ({
   ensurePermission: (...args: unknown[]) => mockEnsurePermission(...args),
+  isMerchantPermissionRedirectError: (error: unknown) =>
+    mockIsMerchantPermissionRedirectError(error),
 }));
 
 vi.mock('./quiz-admin-client', () => ({
@@ -22,6 +29,14 @@ const { default: QuizDashboardPage } = await import('./page');
 describe('QuizDashboardPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockIsMerchantPermissionRedirectError.mockImplementation(
+      (error: unknown) => {
+        return (
+          error instanceof Error &&
+          error.message.startsWith('Permission denied:')
+        );
+      }
+    );
     mockEnsurePermission.mockResolvedValue({ merchant: { id: 'merchant-1' } });
   });
 
@@ -40,6 +55,7 @@ describe('QuizDashboardPage', () => {
     await expect(QuizDashboardPage()).rejects.toThrow(
       'NEXT_REDIRECT:/dashboard'
     );
+    expect(mockIsMerchantPermissionRedirectError).toHaveBeenCalledOnce();
     expect(mockRedirect).toHaveBeenCalledWith('/dashboard');
   });
 
@@ -49,6 +65,7 @@ describe('QuizDashboardPage', () => {
     );
 
     await expect(QuizDashboardPage()).rejects.toThrow('Database unavailable');
+    expect(mockIsMerchantPermissionRedirectError).toHaveBeenCalledOnce();
     expect(mockRedirect).not.toHaveBeenCalled();
   });
 });

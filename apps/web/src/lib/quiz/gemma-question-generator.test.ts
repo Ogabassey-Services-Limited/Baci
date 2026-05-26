@@ -103,6 +103,9 @@ describe('generateQuizQuestionsWithGemma', () => {
     expect(body.messages[1].content).toContain('Ogabassey');
     expect(body.messages[1].content).toContain('iPhone buying advice');
     expect(body.messages[1].content).toContain('requiredJsonShape');
+    expect(JSON.parse(body.messages[1].content)).not.toHaveProperty(
+      'productContext'
+    );
   });
 
   it('normalizes Ollama Gemma option strings and numeric answer ordinals', async () => {
@@ -162,6 +165,56 @@ describe('generateQuizQuestionsWithGemma', () => {
         topic: 'iPhone buying advice',
       },
     ]);
+  });
+
+  it('scales the completion token budget for larger quiz batches', async () => {
+    const mockFetch = vi.fn().mockResolvedValue(
+      Response.json({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                questions: [
+                  {
+                    correctOptionId: 'a',
+                    difficulty: 'hard',
+                    explanation: 'OLED panels provide stronger contrast.',
+                    options: [
+                      { id: 'a', label: 'OLED display' },
+                      { id: 'b', label: 'Plastic shell' },
+                    ],
+                    prompt: 'Which display technology improves contrast?',
+                    topic: 'Phone displays',
+                  },
+                ],
+              }),
+            },
+          },
+        ],
+      })
+    );
+    vi.stubGlobal('fetch', mockFetch);
+
+    await generateQuizQuestionsWithGemma({
+      difficulty: 'hard',
+      merchantName: 'Ogabassey',
+      questionCountPerTopic: 5,
+      topics: [
+        'Phone displays',
+        'Battery health',
+        'Camera lenses',
+        'Charging ports',
+        'Warranty checks',
+        'Storage tiers',
+        'Processor models',
+        'Network bands',
+        'Operating systems',
+        'Accessory bundles',
+      ],
+    });
+
+    const body = JSON.parse(String(mockFetch.mock.calls[0][1]?.body));
+    expect(body.max_tokens).toBe(8192);
   });
 
   it('fails closed before fetch when the Gemma VPS endpoint is not configured', async () => {

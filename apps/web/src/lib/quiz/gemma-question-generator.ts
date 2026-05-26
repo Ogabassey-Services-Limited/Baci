@@ -24,7 +24,9 @@ type ChatCompletionJsonResponse = {
   }>;
 };
 
-const MAX_TOKENS = 2400;
+const MIN_COMPLETION_TOKENS = 2400;
+const MAX_COMPLETION_TOKENS = 8192;
+const COMPLETION_TOKENS_PER_QUESTION = 220;
 const TEMPERATURE = 0.35;
 const GEMMA_TIMEOUT_MS = 30_000;
 const DEFAULT_OPTION_IDS = ['a', 'b', 'c', 'd', 'e', 'f'];
@@ -179,40 +181,51 @@ function parseGeneratedContent(content: unknown): GeneratedQuizQuestion[] {
 }
 
 function buildUserPrompt(input: GenerateQuizQuestionsOptions): string {
-  return JSON.stringify(
-    {
-      difficulty: input.difficulty,
-      instructions: [
-        'Generate multiple-choice questions for a merchant prize quiz.',
-        'Use only concise factual questions that can be answered from common product knowledge.',
-        'Each option must be an object with id and label fields; never return options as plain strings.',
-        'Use option ids "a", "b", "c", and "d"; correctOptionId must be the matching id string, never a number.',
-        'Return JSON only. No markdown.',
+  const promptPayload = {
+    difficulty: input.difficulty,
+    instructions: [
+      'Generate multiple-choice questions for a merchant prize quiz.',
+      'Use only concise factual questions that can be answered from common product knowledge.',
+      'Each option must be an object with id and label fields; never return options as plain strings.',
+      'Use option ids "a", "b", "c", and "d"; correctOptionId must be the matching id string, never a number.',
+      'Return JSON only. No markdown.',
+    ],
+    requiredJsonShape: {
+      questions: [
+        {
+          correctOptionId: 'a',
+          difficulty: input.difficulty,
+          explanation: 'Short explanation for the correct answer.',
+          options: [
+            { id: 'a', label: 'First answer' },
+            { id: 'b', label: 'Second answer' },
+            { id: 'c', label: 'Third answer' },
+            { id: 'd', label: 'Fourth answer' },
+          ],
+          prompt: 'Question text?',
+          topic: input.topics[0],
+        },
       ],
-      requiredJsonShape: {
-        questions: [
-          {
-            correctOptionId: 'a',
-            difficulty: input.difficulty,
-            explanation: 'Short explanation for the correct answer.',
-            options: [
-              { id: 'a', label: 'First answer' },
-              { id: 'b', label: 'Second answer' },
-              { id: 'c', label: 'Third answer' },
-              { id: 'd', label: 'Fourth answer' },
-            ],
-            prompt: 'Question text?',
-            topic: input.topics[0],
-          },
-        ],
-      },
-      merchantName: input.merchantName,
-      productContext: input.productContext ?? null,
-      questionCountPerTopic: input.questionCountPerTopic,
-      topics: input.topics,
     },
-    null,
-    2
+    merchantName: input.merchantName,
+    ...(input.productContext != null
+      ? { productContext: input.productContext }
+      : {}),
+    questionCountPerTopic: input.questionCountPerTopic,
+    topics: input.topics,
+  };
+
+  return JSON.stringify(promptPayload, null, 2);
+}
+
+function getCompletionTokenBudget(input: GenerateQuizQuestionsOptions): number {
+  const totalQuestions = input.topics.length * input.questionCountPerTopic;
+  return Math.min(
+    MAX_COMPLETION_TOKENS,
+    Math.max(
+      MIN_COMPLETION_TOKENS,
+      totalQuestions * COMPLETION_TOKENS_PER_QUESTION
+    )
   );
 }
 
@@ -242,7 +255,7 @@ export async function generateQuizQuestionsWithGemma(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        max_tokens: MAX_TOKENS,
+        max_tokens: getCompletionTokenBudget(input),
         messages: [
           {
             role: 'system',

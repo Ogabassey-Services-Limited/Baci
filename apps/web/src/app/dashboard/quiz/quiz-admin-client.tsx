@@ -62,6 +62,15 @@ function createQuestionRenderItems(
   });
 }
 
+function formatValidationSummary(
+  issues: { message: string; path: PropertyKey[] }[]
+): string {
+  return issues
+    .slice(0, 3)
+    .map((issue) => `${issue.path.join('.') || 'response'}: ${issue.message}`)
+    .join('; ');
+}
+
 export function QuizAdminClient() {
   const [title, setTitle] = useState('Daily Phone Quiz');
   const [topics, setTopics] = useState(defaultTopics.join('\n'));
@@ -79,6 +88,11 @@ export function QuizAdminClient() {
   const resultQuestions = result
     ? createQuestionRenderItems(result.questions)
     : [];
+  const canGenerate =
+    !isGenerating &&
+    topicsFromTextarea(topics).length > 0 &&
+    title.trim().length > 0 &&
+    prizeName.trim().length > 0;
 
   const handleGenerate = async () => {
     setError(null);
@@ -98,6 +112,11 @@ export function QuizAdminClient() {
       setTimeLimitSeconds(String(normalizedTimeLimitSeconds));
       setQuestionCountPerTopic(String(normalizedQuestionCountPerTopic));
 
+      const normalizedTopics = topicsFromTextarea(topics);
+      if (normalizedTopics.length === 0) {
+        throw new Error('Add at least one quiz topic before generating.');
+      }
+
       const parsed = merchantQuizGenerationResponseSchema.safeParse(
         await apiPost('/api/merchant/quiz/generate', {
           difficulty,
@@ -105,11 +124,15 @@ export function QuizAdminClient() {
           questionCountPerTopic: normalizedQuestionCountPerTopic,
           timeLimitSeconds: normalizedTimeLimitSeconds,
           title,
-          topics: topicsFromTextarea(topics),
+          topics: normalizedTopics,
         })
       );
       if (!parsed.success) {
-        throw new Error('Invalid quiz generation response');
+        const validationSummary = formatValidationSummary(parsed.error.issues);
+        console.error('Invalid quiz generation response', parsed.error);
+        throw new Error(
+          `Invalid quiz generation response: ${validationSummary}`
+        );
       }
       setResult(parsed.data);
     } catch (error) {
@@ -145,6 +168,7 @@ export function QuizAdminClient() {
             Quiz title
             <input
               className="h-11 rounded-md border bg-background px-3 text-sm"
+              required
               value={title}
               onChange={(event) => setTitle(event.target.value)}
             />
@@ -153,6 +177,7 @@ export function QuizAdminClient() {
             Prize name
             <input
               className="h-11 rounded-md border bg-background px-3 text-sm"
+              required
               value={prizeName}
               onChange={(event) => setPrizeName(event.target.value)}
             />
@@ -161,6 +186,7 @@ export function QuizAdminClient() {
             Difficulty
             <select
               className="h-11 rounded-md border bg-background px-3 text-sm"
+              required
               value={difficulty}
               onChange={(event) => {
                 const nextDifficulty = event.target.value;
@@ -180,6 +206,8 @@ export function QuizAdminClient() {
               className="h-11 rounded-md border bg-background px-3 text-sm"
               min={5}
               max={60}
+              required
+              step="1"
               type="number"
               value={timeLimitSeconds}
               onChange={(event) => setTimeLimitSeconds(event.target.value)}
@@ -194,6 +222,8 @@ export function QuizAdminClient() {
               className="h-11 rounded-md border bg-background px-3 text-sm"
               min={1}
               max={5}
+              required
+              step="1"
               type="number"
               value={questionCountPerTopic}
               onChange={(event) => setQuestionCountPerTopic(event.target.value)}
@@ -208,6 +238,7 @@ export function QuizAdminClient() {
             Topics
             <textarea
               className="min-h-28 rounded-md border bg-background px-3 py-2 text-sm"
+              required
               value={topics}
               onChange={(event) => setTopics(event.target.value)}
             />
@@ -216,7 +247,7 @@ export function QuizAdminClient() {
         <button
           type="submit"
           className="mt-5 inline-flex h-11 items-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-60"
-          disabled={isGenerating}
+          disabled={!canGenerate}
         >
           {isGenerating ? (
             <Loader2 className="h-4 w-4 motion-safe:animate-spin" />
