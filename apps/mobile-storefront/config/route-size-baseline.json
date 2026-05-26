@@ -42,11 +42,6 @@
       "justification": "Existing oversized home tab route baseline; shrink or remove this entry as the route is modularized."
     },
     {
-      "path": "app/compare/index.tsx",
-      "lineCount": 479,
-      "justification": "Existing oversized compare route baseline; shrink or remove this entry as the route is modularized."
-    },
-    {
       "path": "app/wallet/index.tsx",
       "lineCount": 354,
       "justification": "Existing oversized wallet route baseline; shrink or remove this entry as the route is modularized."
