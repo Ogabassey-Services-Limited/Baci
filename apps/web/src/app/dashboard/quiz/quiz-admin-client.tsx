@@ -36,6 +36,32 @@ function isQuizDifficulty(
   return value === 'easy' || value === 'standard' || value === 'hard';
 }
 
+function createQuestionRenderItems(
+  questions: MerchantQuizGenerationResponse['questions']
+) {
+  const occurrences = new Map<string, number>();
+  let position = 0;
+
+  return questions.map((question) => {
+    position += 1;
+    const baseKey = [
+      question.topic,
+      question.prompt,
+      question.options
+        .map((option) => `${option.id}:${option.label}`)
+        .join('|'),
+    ].join('::');
+    const occurrence = occurrences.get(baseKey) ?? 0;
+    occurrences.set(baseKey, occurrence + 1);
+
+    return {
+      key: `${baseKey}::${occurrence}`,
+      position,
+      question,
+    };
+  });
+}
+
 export function QuizAdminClient() {
   const [title, setTitle] = useState('Daily Phone Quiz');
   const [topics, setTopics] = useState(defaultTopics.join('\n'));
@@ -50,6 +76,9 @@ export function QuizAdminClient() {
   );
   const [error, setError] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const resultQuestions = result
+    ? createQuestionRenderItems(result.questions)
+    : [];
 
   const handleGenerate = async () => {
     setError(null);
@@ -217,13 +246,10 @@ export function QuizAdminClient() {
             </p>
           </div>
           <div className="mt-5 grid gap-3">
-            {result.questions.map((question, index) => (
-              <article
-                key={`${question.topic}-${question.prompt}`}
-                className="rounded-lg border p-4"
-              >
+            {resultQuestions.map(({ key, position, question }) => (
+              <article key={key} className="rounded-lg border p-4">
                 <p className="text-xs font-semibold uppercase text-muted-foreground">
-                  {question.topic} · Question {index + 1}
+                  {question.topic} · Question {position}
                 </p>
                 <h3 className="mt-2 font-semibold">{question.prompt}</h3>
                 <ul className="mt-3 grid gap-2 text-sm text-muted-foreground">

@@ -20,6 +20,10 @@ const merchantAuthoringSql = readFileSync(
   resolve(migrationsDirectory, '20260526150000_quiz_merchant_authoring.sql'),
   'utf8'
 );
+const quizGenerationRpcSql = readFileSync(
+  resolve(migrationsDirectory, '20260526212008_quiz_generation_rpc.sql'),
+  'utf8'
+);
 
 describe('quiz migration RLS contracts', () => {
   it('scopes leaderboard refresh log reads to the authenticated customer merchant', () => {
@@ -66,6 +70,35 @@ describe('quiz migration RLS contracts', () => {
     );
     expect(merchantAuthoringSql).not.toMatch(
       /GRANT\s+SELECT\s*\([^)]*answer_key_hash/i
+    );
+  });
+
+  it('persists generated quiz drafts through one permission-scoped RPC', () => {
+    expect(quizGenerationRpcSql).toMatch(
+      /CREATE\s+OR\s+REPLACE\s+FUNCTION\s+public\.create_merchant_quiz_draft\([\s\S]*p_slots\s+jsonb[\s\S]*p_variants\s+jsonb/i
+    );
+    expect(quizGenerationRpcSql).toMatch(/SECURITY\s+DEFINER/i);
+    expect(quizGenerationRpcSql).toMatch(/SET\s+search_path\s*=\s*''/i);
+    expect(quizGenerationRpcSql).toMatch(
+      /public\.check_staff_permission\([\s\S]*'marketing'[\s\S]*'edit'/i
+    );
+    expect(quizGenerationRpcSql).toMatch(
+      /INSERT\s+INTO\s+public\.quiz_events[\s\S]*INSERT\s+INTO\s+public\.quiz_question_slots[\s\S]*INSERT\s+INTO\s+public\.quiz_question_variants/i
+    );
+    expect(quizGenerationRpcSql).toMatch(
+      /GRANT\s+DELETE\s+ON\s+public\.quiz_question_slots\s+TO\s+authenticated/i
+    );
+    expect(quizGenerationRpcSql).toMatch(
+      /GRANT\s+DELETE\s+ON\s+public\.quiz_question_variants\s+TO\s+authenticated/i
+    );
+    expect(quizGenerationRpcSql).toMatch(
+      /REVOKE\s+ALL\s+ON\s+FUNCTION\s+public\.create_merchant_quiz_draft\([\s\S]*FROM\s+PUBLIC/i
+    );
+    expect(quizGenerationRpcSql).toMatch(
+      /REVOKE\s+ALL\s+ON\s+FUNCTION\s+public\.create_merchant_quiz_draft\([\s\S]*FROM\s+anon/i
+    );
+    expect(quizGenerationRpcSql).toMatch(
+      /GRANT\s+EXECUTE\s+ON\s+FUNCTION\s+public\.create_merchant_quiz_draft\([\s\S]*TO\s+authenticated/i
     );
   });
 });

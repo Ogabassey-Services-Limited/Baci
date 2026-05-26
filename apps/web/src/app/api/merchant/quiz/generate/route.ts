@@ -16,9 +16,23 @@ import {
 } from '@/schemas/quiz';
 
 type SlotRow = {
+  active: true;
   category: string | null;
+  difficulty: GeneratedQuizQuestion['difficulty'];
   id: string;
   slot_index: number;
+};
+
+type QuizDraftEvent = {
+  id: string;
+  slug: string;
+  status: string;
+  title: string;
+};
+
+type MerchantNameRow = {
+  business_name: string | null;
+  slug: string | null;
 };
 
 function slugifyTitle(title: string): string {
@@ -42,6 +56,16 @@ function sanitizeGeneratedQuestions(questions: GeneratedQuizQuestion[]) {
     ({ correctOptionId: _answer, explanation: _explanation, ...question }) =>
       question
   );
+}
+
+function createSlotRows(questions: GeneratedQuizQuestion[]): SlotRow[] {
+  return questions.map((question, index) => ({
+    active: true,
+    category: question.topic,
+    difficulty: question.difficulty,
+    id: crypto.randomUUID(),
+    slot_index: index + 1,
+  }));
 }
 
 function createVariantRows(
@@ -68,18 +92,41 @@ function createVariantRows(
   });
 }
 
-async function deleteQuizDraftEvent(
+function isQuizDraftEvent(value: unknown): value is QuizDraftEvent {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const event = value as Record<string, unknown>;
+  return (
+    typeof event.id === 'string' &&
+    typeof event.slug === 'string' &&
+    typeof event.status === 'string' &&
+    typeof event.title === 'string'
+  );
+}
+
+async function resolveMerchantDisplayName(
   supabase: NonNullable<
     Awaited<ReturnType<typeof authenticateApiRequest>>['supabase']
   >,
-  eventId: string,
   merchantId: string
-) {
-  await supabase
-    .from('quiz_events')
-    .delete()
-    .eq('id', eventId)
-    .eq('merchant_id', merchantId);
+): Promise<string> {
+  const { data, error } = await supabase
+    .from('merchants')
+    .select('business_name, slug')
+    .eq('id', merchantId)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Merchant display name lookup failed:', error.message);
+    return merchantId;
+  }
+
+  const merchant = data as MerchantNameRow | null;
+  return (
+    merchant?.business_name?.trim() || merchant?.slug?.trim() || merchantId
+  );
 }
 
 export async function POST(request: NextRequest) {
@@ -122,9 +169,13 @@ export async function POST(request: NextRequest) {
 
   let questions: GeneratedQuizQuestion[];
   try {
+    const merchantName = await resolveMerchantDisplayName(
+      auth.supabase,
+      access.merchantId
+    );
     questions = await generateQuizQuestionsWithGemma({
       difficulty: parsed.data.difficulty,
-      merchantName: access.merchantId,
+      merchantName,
       questionCountPerTopic: parsed.data.questionCountPerTopic,
       topics: parsed.data.topics,
     });
@@ -141,68 +192,25 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const slots = createSlotRows(questions);
+  const variantRows = createVariantRows(questions, slots);
   const { data: event, error: eventError } = await auth.supabase
-    .from('quiz_events')
-    .insert({
-      merchant_id: access.merchantId,
-      settings: {
+    .rpc('create_merchant_quiz_draft', {
+      p_merchant_id: access.merchantId,
+      p_settings: {
         prize_name: parsed.data.prizeName,
         time_limit_seconds: parsed.data.timeLimitSeconds,
       },
-      slug: slugifyTitle(parsed.data.title),
-      status: 'draft',
-      title: parsed.data.title,
+      p_slug: slugifyTitle(parsed.data.title),
+      p_slots: slots,
+      p_title: parsed.data.title,
+      p_variants: variantRows,
     })
-    .select('id, slug, status, title')
     .single();
 
-  if (eventError || !event) {
+  if (eventError || !isQuizDraftEvent(event)) {
     return NextResponse.json(
-      { error: 'Failed to create quiz event' },
-      { status: 500 }
-    );
-  }
-
-  const { data: slots, error: slotsError } = await auth.supabase
-    .from('quiz_question_slots')
-    .insert(
-      questions.map((question, index) => ({
-        active: true,
-        category: question.topic,
-        difficulty: question.difficulty,
-        event_id: event.id,
-        slot_index: index + 1,
-      }))
-    )
-    .select('id, slot_index, category');
-
-  if (slotsError || !slots) {
-    await deleteQuizDraftEvent(auth.supabase, event.id, access.merchantId);
-    return NextResponse.json(
-      { error: 'Failed to create quiz topics' },
-      { status: 500 }
-    );
-  }
-
-  let variantRows: ReturnType<typeof createVariantRows>;
-  try {
-    variantRows = createVariantRows(questions, slots as SlotRow[]);
-  } catch {
-    await deleteQuizDraftEvent(auth.supabase, event.id, access.merchantId);
-    return NextResponse.json(
-      { error: 'Failed to create quiz questions' },
-      { status: 500 }
-    );
-  }
-
-  const { error: variantsError } = await auth.supabase
-    .from('quiz_question_variants')
-    .insert(variantRows);
-
-  if (variantsError) {
-    await deleteQuizDraftEvent(auth.supabase, event.id, access.merchantId);
-    return NextResponse.json(
-      { error: 'Failed to create quiz questions' },
+      { error: 'Failed to create quiz draft' },
       { status: 500 }
     );
   }

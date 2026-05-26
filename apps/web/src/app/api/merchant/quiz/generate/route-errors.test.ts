@@ -15,38 +15,22 @@ const MockUnavailableError = vi.hoisted(
     }
 );
 
-const mockEventSingle = vi.fn();
-const mockQuizEventDeleteIdEq = vi.fn();
-const mockQuizEventDeleteMerchantEq = vi.fn();
-const mockSlotSelect = vi.fn();
-const mockVariantInsert = vi.fn();
-
+const mockMerchantMaybeSingle = vi.fn();
+const mockQuizDraftSingle = vi.fn();
 const mockFrom = vi.fn((table: string) => {
-  if (table === 'quiz_events') {
+  if (table === 'merchants') {
     return {
-      delete: vi.fn(() => ({
-        eq: mockQuizEventDeleteIdEq,
+      select: vi.fn(() => ({
+        eq: vi.fn(() => ({
+          maybeSingle: mockMerchantMaybeSingle,
+        })),
       })),
-      insert: vi.fn(() => ({
-        select: vi.fn(() => ({ single: mockEventSingle })),
-      })),
-    };
-  }
-
-  if (table === 'quiz_question_slots') {
-    return {
-      insert: vi.fn(() => ({ select: vi.fn(() => mockSlotSelect()) })),
-    };
-  }
-
-  if (table === 'quiz_question_variants') {
-    return {
-      insert: vi.fn(() => mockVariantInsert()),
     };
   }
 
   return {};
 });
+const mockRpc = vi.fn(() => ({ single: mockQuizDraftSingle }));
 
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: (...args: unknown[]) =>
@@ -99,7 +83,7 @@ describe('POST /api/merchant/quiz/generate errors', () => {
     vi.clearAllMocks();
     mockAuthenticateApiRequest.mockResolvedValue({
       error: null,
-      supabase: { from: mockFrom },
+      supabase: { from: mockFrom, rpc: mockRpc },
       user: { id: 'user-1' },
     });
     mockCheckCsrfProtection.mockResolvedValue({ response: null, valid: true });
@@ -111,6 +95,13 @@ describe('POST /api/merchant/quiz/generate errors', () => {
       role: 'owner',
     });
     mockHasPermission.mockReturnValue(true);
+    mockMerchantMaybeSingle.mockResolvedValue({
+      data: {
+        business_name: 'OgaBassey Gadgets',
+        slug: 'ogabassey',
+      },
+      error: null,
+    });
     mockGenerateQuizQuestionsWithGemma.mockResolvedValue([
       {
         correctOptionId: 'b',
@@ -124,7 +115,7 @@ describe('POST /api/merchant/quiz/generate errors', () => {
         topic: 'iPhone buying advice',
       },
     ]);
-    mockEventSingle.mockResolvedValue({
+    mockQuizDraftSingle.mockResolvedValue({
       data: {
         id: 'event-1',
         slug: 'daily-phone-quiz',
@@ -133,15 +124,6 @@ describe('POST /api/merchant/quiz/generate errors', () => {
       },
       error: null,
     });
-    mockQuizEventDeleteMerchantEq.mockResolvedValue({ error: null });
-    mockQuizEventDeleteIdEq.mockReturnValue({
-      eq: mockQuizEventDeleteMerchantEq,
-    });
-    mockSlotSelect.mockResolvedValue({
-      data: [{ category: 'iPhone buying advice', id: 'slot-1', slot_index: 1 }],
-      error: null,
-    });
-    mockVariantInsert.mockResolvedValue({ error: null });
   });
 
   it('rejects unauthenticated requests', async () => {
@@ -200,39 +182,29 @@ describe('POST /api/merchant/quiz/generate errors', () => {
     });
   });
 
-  it('returns 500 when quiz event, slot, or variant persistence fails', async () => {
-    mockEventSingle.mockResolvedValueOnce({
+  it('returns 500 when the atomic quiz draft RPC fails', async () => {
+    mockQuizDraftSingle.mockResolvedValueOnce({
       data: null,
-      error: { message: 'event insert failed' },
+      error: { message: 'quiz draft insert failed' },
     });
-    const eventFailure = await POST(createRequest(validPayload()));
-    expect(eventFailure.status).toBe(500);
-    expect(await eventFailure.json()).toEqual({
-      error: 'Failed to create quiz event',
+    const rpcFailure = await POST(createRequest(validPayload()));
+    expect(rpcFailure.status).toBe(500);
+    expect(await rpcFailure.json()).toEqual({
+      error: 'Failed to create quiz draft',
     });
-
-    mockSlotSelect.mockResolvedValueOnce({
-      data: null,
-      error: { message: 'slot insert failed' },
-    });
-    const slotFailure = await POST(createRequest(validPayload()));
-    expect(slotFailure.status).toBe(500);
-    expect(await slotFailure.json()).toEqual({
-      error: 'Failed to create quiz topics',
-    });
-    expect(mockQuizEventDeleteIdEq).toHaveBeenCalledWith('id', 'event-1');
-    expect(mockQuizEventDeleteMerchantEq).toHaveBeenCalledWith(
-      'merchant_id',
-      'merchant-1'
+    expect(mockRpc).toHaveBeenCalledWith(
+      'create_merchant_quiz_draft',
+      expect.objectContaining({ p_merchant_id: 'merchant-1' })
     );
 
-    mockVariantInsert.mockResolvedValueOnce({
-      error: { message: 'variant insert failed' },
+    mockQuizDraftSingle.mockResolvedValueOnce({
+      data: { id: 'event-1' },
+      error: null,
     });
-    const variantFailure = await POST(createRequest(validPayload()));
-    expect(variantFailure.status).toBe(500);
-    expect(await variantFailure.json()).toEqual({
-      error: 'Failed to create quiz questions',
+    const malformedRpcResponse = await POST(createRequest(validPayload()));
+    expect(malformedRpcResponse.status).toBe(500);
+    expect(await malformedRpcResponse.json()).toEqual({
+      error: 'Failed to create quiz draft',
     });
   });
 });

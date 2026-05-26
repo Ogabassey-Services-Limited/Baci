@@ -20,6 +20,7 @@ function AuthProbe() {
 describe('CustomerAuthProvider', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
   it('checks the storefront customer session once on initial auth hydration', async () => {
@@ -52,5 +53,86 @@ describe('CustomerAuthProvider', () => {
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/storefront/auth/session?merchantSlug=ogabassey'
     );
+  });
+
+  it('renders a guest session when the customer is not authenticated', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      Response.json({
+        authenticated: false,
+      })
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(
+      <CustomerAuthProvider merchantSlug="ogabassey">
+        <AuthProbe />
+      </CustomerAuthProvider>
+    );
+
+    expect(await screen.findByText('guest')).toBeInTheDocument();
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+  });
+
+  it('renders a guest session when hydration fails', async () => {
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValue(new Error('session endpoint failed'));
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(
+      <CustomerAuthProvider merchantSlug="ogabassey">
+        <AuthProbe />
+      </CustomerAuthProvider>
+    );
+
+    expect(await screen.findByText('guest')).toBeInTheDocument();
+    expect(consoleError).toHaveBeenCalledWith(
+      'Session check error:',
+      expect.any(Error)
+    );
+  });
+
+  it('does not update state after the provider unmounts during hydration', async () => {
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    let resolveSession: (response: Response) => void = () => undefined;
+    const fetchMock = vi.fn(
+      () =>
+        new Promise<Response>((resolve) => {
+          resolveSession = resolve;
+        })
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { unmount } = render(
+      <CustomerAuthProvider merchantSlug="ogabassey">
+        <AuthProbe />
+      </CustomerAuthProvider>
+    );
+
+    unmount();
+    resolveSession(
+      Response.json({
+        authenticated: true,
+        customer: {
+          email: 'quiz@example.com',
+          first_name: 'Quiz',
+          id: 'customer-1',
+          last_name: 'Tester',
+        },
+        user: {
+          email: 'quiz@example.com',
+          id: 'user-1',
+          role: 'customer',
+        },
+      })
+    );
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(consoleError).not.toHaveBeenCalled();
   });
 });

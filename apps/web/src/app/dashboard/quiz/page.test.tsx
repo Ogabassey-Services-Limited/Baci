@@ -33,11 +33,22 @@ describe('QuizDashboardPage', () => {
   });
 
   it('redirects when the merchant cannot edit marketing content', async () => {
-    mockEnsurePermission.mockRejectedValueOnce(new Error('Forbidden'));
+    mockEnsurePermission.mockRejectedValueOnce(
+      new Error('Permission denied: edit access to marketing is required')
+    );
 
     await expect(QuizDashboardPage()).rejects.toThrow(
       'NEXT_REDIRECT:/dashboard'
     );
     expect(mockRedirect).toHaveBeenCalledWith('/dashboard');
+  });
+
+  it('does not mask operational permission-loading failures', async () => {
+    mockEnsurePermission.mockRejectedValueOnce(
+      new Error('Database unavailable')
+    );
+
+    await expect(QuizDashboardPage()).rejects.toThrow('Database unavailable');
+    expect(mockRedirect).not.toHaveBeenCalled();
   });
 });
