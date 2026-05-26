@@ -1,7 +1,7 @@
 import {
+  AGENTIC_PAYMENT_METHOD_GOOGLE_PAY,
   AGENTIC_PAYMENT_METHOD_PAY_ON_DELIVERY,
   AGENTIC_PAYMENT_METHOD_PAYSTACK_BANK_TRANSFER,
-  type AgenticPaymentMethod,
 } from '@/config/agentic-payment-methods';
 import { STOREFRONT_AGENT_ROUTES } from '@/config/storefront-agent-routes';
 import type { AgentCommerceManifest } from '@/lib/agentic/agent-commerce-manifest';
@@ -40,8 +40,7 @@ export function buildUcpDiscoveryProfile(manifest: AgentCommerceManifest) {
       }),
       payment_handlers: buildUcpPaymentHandlers(
         agentCommerceManifestUrl,
-        manifest.payment_methods,
-        manifest.schema_version
+        manifest
       ),
     },
     signing_keys: [],
@@ -70,10 +69,13 @@ export function buildUcpDiscoveryProfile(manifest: AgentCommerceManifest) {
 
 function buildUcpPaymentHandlers(
   agentCommerceManifestUrl: string,
-  paymentMethods: AgenticPaymentMethod[],
-  manifestVersion: string
+  manifest: Pick<
+    AgentCommerceManifest,
+    'payment_handler_configs' | 'payment_methods' | 'schema_version'
+  >
 ) {
   const handlers: Record<string, unknown[]> = {};
+  const paymentMethods = manifest.payment_methods;
 
   if (paymentMethods.includes(AGENTIC_PAYMENT_METHOD_PAYSTACK_BANK_TRANSFER)) {
     handlers['com.paystack.bank_transfer'] = [
@@ -90,11 +92,30 @@ function buildUcpPaymentHandlers(
     handlers['com.usebaci.pay_on_delivery'] = [
       {
         id: AGENTIC_PAYMENT_METHOD_PAY_ON_DELIVERY,
-        version: manifestVersion,
+        version: manifest.schema_version,
         spec: agentCommerceManifestUrl,
         available_instruments: [{ type: 'pay_on_delivery' }],
       },
     ];
+  }
+
+  if (paymentMethods.includes(AGENTIC_PAYMENT_METHOD_GOOGLE_PAY)) {
+    const googlePayConfig = manifest.payment_handler_configs?.google_pay;
+    if (googlePayConfig?.gateway === 'paystack') {
+      handlers['com.google.pay'] = [
+        {
+          id: AGENTIC_PAYMENT_METHOD_GOOGLE_PAY,
+          version: UCP_PROFILE_VERSION,
+          spec: 'https://developers.google.com/pay/api/web/overview',
+          available_instruments: [{ type: 'google_pay', currency: 'NGN' }],
+          config: {
+            gateway: googlePayConfig.gateway,
+            gateway_merchant_id: googlePayConfig.gatewayMerchantId,
+            merchant_id: googlePayConfig.merchantId,
+          },
+        },
+      ];
+    }
   }
 
   return handlers;

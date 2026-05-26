@@ -96,6 +96,57 @@ describe('agent commerce manifest builder', () => {
     expect(manifest.payment_methods).toEqual(['pay_on_delivery']);
   });
 
+  it('does not include Google Pay when processor config is absent', async () => {
+    vi.stubEnv('BACI_GOOGLE_PAY_ENABLED', '');
+
+    const { buildAgentCommerceManifest } = await import(
+      '@/lib/agentic/agent-commerce-manifest'
+    );
+
+    const manifest = buildAgentCommerceManifest(
+      {
+        business_name: 'Ogabassey',
+        feature_settings: { pay_on_delivery_enabled: false },
+        paystack_subaccount_code: 'ACCT_TESTMOCK1234567',
+        slug: 'ogabassey',
+      },
+      'https://ogabassey.com'
+    );
+
+    expect(manifest.payment_methods).toEqual(['paystack_bank_transfer']);
+  });
+
+  it('includes Google Pay only when Paystack gateway config is explicit', async () => {
+    vi.stubEnv('BACI_GOOGLE_PAY_ENABLED', 'true');
+    vi.stubEnv('BACI_GOOGLE_PAY_GATEWAY', 'paystack');
+    vi.stubEnv('BACI_GOOGLE_PAY_GATEWAY_MERCHANT_ID', 'paystack-merchant-id');
+    vi.stubEnv('BACI_GOOGLE_PAY_MERCHANT_ID', 'google-merchant-id');
+
+    const { buildAgentCommerceManifest } = await import(
+      '@/lib/agentic/agent-commerce-manifest'
+    );
+
+    const manifest = buildAgentCommerceManifest(
+      {
+        business_name: 'Ogabassey',
+        feature_settings: { pay_on_delivery_enabled: false },
+        paystack_subaccount_code: 'ACCT_TESTMOCK1234567',
+        slug: 'ogabassey',
+      },
+      'https://ogabassey.com'
+    );
+
+    expect(manifest.payment_methods).toEqual([
+      'paystack_bank_transfer',
+      'google_pay',
+    ]);
+    expect(manifest.payment_handler_configs?.google_pay).toEqual({
+      gateway: 'paystack',
+      gatewayMerchantId: 'paystack-merchant-id',
+      merchantId: 'google-merchant-id',
+    });
+  });
+
   it('keeps catalog-only discovery when the merchant slug is not configured', async () => {
     const { buildAgentCommerceManifest } = await import(
       '@/lib/agentic/agent-commerce-manifest'

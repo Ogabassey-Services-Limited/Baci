@@ -1791,7 +1791,7 @@ git commit -m "feat: advertise ucp cart and catalog capabilities"
 - Modify: `apps/web/src/lib/agentic/ucp-request-adapters.ts`
 - Modify: `apps/web/src/lib/agentic/ucp-request-adapters.test.ts`
 
-- [ ] **Step 1: Write failing payment handler tests**
+- [x] **Step 1: Write failing payment handler tests**
 
 ```ts
 it('does not advertise Google Pay when processor config is absent', () => {
@@ -1823,7 +1823,7 @@ it('advertises Google Pay only when explicitly configured', () => {
 });
 ```
 
-- [ ] **Step 2: Add payment constants**
+- [x] **Step 2: Add payment constants**
 
 ```ts
 export const AGENTIC_PAYMENT_METHOD_GOOGLE_PAY = 'google_pay' as const;
@@ -1832,7 +1832,7 @@ export const AGENTIC_PAYMENT_PROVIDER_GOOGLE_PAY = 'google_pay' as const;
 
 Extend `AgenticPaymentMethod` and `AgenticPaymentProvider` unions with the new constants.
 
-- [ ] **Step 3: Add server env getters**
+- [x] **Step 3: Add server env getters**
 
 Add validated optional env vars in `apps/web/src/env.ts`:
 
@@ -1867,7 +1867,7 @@ export const getGooglePayAgenticConfig = () => {
 };
 ```
 
-- [ ] **Step 4: Add UCP Google Pay handler only when configured**
+- [x] **Step 4: Add UCP Google Pay handler only when configured**
 
 ```ts
 handlers['com.google.pay'] = [
@@ -1885,7 +1885,7 @@ handlers['com.google.pay'] = [
 ];
 ```
 
-- [ ] **Step 5: Add AP2 non-advertising guard**
+- [x] **Step 5: Add AP2 non-advertising guard**
 
 Add a test that proves AP2 is absent until real mandate verification is implemented:
 
@@ -1899,7 +1899,7 @@ it('does not advertise AP2 mandate support without an AP2 verifier', () => {
 });
 ```
 
-- [ ] **Step 6: Run payment handler tests**
+- [x] **Step 6: Run payment handler tests**
 
 Run:
 
@@ -1912,7 +1912,7 @@ pnpm --filter web exec vitest run \
 
 Expected: pass.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add apps/web/src/config/agentic-payment-methods.ts \

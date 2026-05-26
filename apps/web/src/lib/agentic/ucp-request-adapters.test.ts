@@ -220,6 +220,34 @@ describe('adaptUcpCheckoutCompleteRequestBody', () => {
     });
   });
 
+  it('maps configured Google Pay instruments onto the Paystack token path', () => {
+    const adapted = adaptUcpCheckoutCompleteRequestBody({
+      payment: {
+        instruments: [
+          {
+            billing_address: {
+              email: 'buyer@example.com',
+              first_name: 'Buyer',
+              last_name: 'Googlepay',
+              phone_number: '08012345678',
+            },
+            credential: { token: 'google-pay-token', type: 'payment_token' },
+            handler_id: 'google_pay',
+            id: 'instrument_google_pay',
+            type: 'google_pay',
+          },
+        ],
+      },
+    });
+
+    expect(adapted).toMatchObject({
+      payment_data: {
+        provider: 'paystack',
+        token: 'google-pay-token',
+      },
+    });
+  });
+
   it('does not use the instrument id as a Paystack token fallback', () => {
     const body = {
       payment: {
