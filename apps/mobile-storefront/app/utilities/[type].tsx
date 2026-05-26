@@ -1,8 +1,8 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { type Href, Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StorefrontScreenShell } from '@/components/storefront/StorefrontScreenShell';
 import AppKeyboardContainer from '@/components/ui/AppKeyboardContainer';
 import { useColorScheme } from '@/components/useColorScheme';
 import { AirtimeForm } from '@/components/utilities/AirtimeForm';
@@ -123,30 +123,43 @@ export default function UtilityPurchaseScreen() {
 
   if (!routeType || !currentType) {
     return (
-      <InvalidUtilityServiceView
-        colors={colors}
-        onBack={handleGoBack}
-        topInset={insets.top}
-      />
+      <StorefrontScreenShell
+        edges={[]}
+        style={[styles.container, { backgroundColor: colors.background }]}
+      >
+        <InvalidUtilityServiceView
+          colors={colors}
+          onBack={handleGoBack}
+          topInset={insets.top}
+        />
+      </StorefrontScreenShell>
     );
   }
 
   if (resolvedSuccessData) {
     return (
-      <UtilityPurchaseSuccessView
-        bottomPadding={Math.max(insets.bottom - 12, 0)}
-        colors={colors}
-        data={resolvedSuccessData}
-        headerOffset={headerOffset}
-        isAuthenticated={isAuthenticated}
-        onCreateAccount={() => router.push('/auth/login')}
-        type={currentType}
-      />
+      <StorefrontScreenShell
+        edges={[]}
+        style={[styles.container, { backgroundColor: colors.background }]}
+      >
+        <UtilityPurchaseSuccessView
+          bottomPadding={Math.max(insets.bottom - 12, 0)}
+          colors={colors}
+          data={resolvedSuccessData}
+          headerOffset={headerOffset}
+          isAuthenticated={isAuthenticated}
+          onCreateAccount={() => router.push('/auth/login')}
+          type={currentType}
+        />
+      </StorefrontScreenShell>
     );
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <StorefrontScreenShell
+      edges={[]}
+      style={[styles.container, { backgroundColor: colors.background }]}
+    >
       <Stack.Screen options={{ headerShown: false }} />
       <UtilityHeader
         title={title}
@@ -213,6 +226,6 @@ export default function UtilityPurchaseScreen() {
           />
         ) : null}
       </AppKeyboardContainer>
-    </View>
+    </StorefrontScreenShell>
   );
 }
