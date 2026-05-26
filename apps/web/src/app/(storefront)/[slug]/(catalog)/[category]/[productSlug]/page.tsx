@@ -898,8 +898,6 @@ export default async function CategoryProductPage({
   params,
   searchParams,
 }: PageProps) {
-  await connection();
-
   const { slug, category, productSlug } = await params;
   if (!isValidMerchantIdentifier(slug)) {
     notFound();
@@ -944,6 +942,8 @@ export default async function CategoryProductPage({
       );
     }
   }
+
+  await connection();
 
   const primaryProductImage =
     merchant.template_id === OGABASSEY_TEMPLATE_ID
