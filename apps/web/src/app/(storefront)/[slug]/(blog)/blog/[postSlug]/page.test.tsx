@@ -2,19 +2,17 @@ import { render, screen } from '@testing-library/react';
 import { Suspense } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockBlogPostPageContent, mockBuildStoreUrl, mockConnection } =
-  vi.hoisted(() => ({
-    mockConnection: vi.fn<() => Promise<void>>(async () => undefined),
-    mockBlogPostPageContent: vi.fn((_props: unknown) => (
-      <div>Blog post page content</div>
-    )),
-    mockBuildStoreUrl: vi.fn(
-      (merchant: { slug: string; custom_domain?: string | null }) =>
-        merchant.custom_domain
-          ? `https://${merchant.custom_domain}`
-          : `https://${merchant.slug}.usebaci.com`
-    ),
-  }));
+const { mockBlogPostPageContent, mockBuildStoreUrl } = vi.hoisted(() => ({
+  mockBlogPostPageContent: vi.fn((_props: unknown) => (
+    <div>Blog post page content</div>
+  )),
+  mockBuildStoreUrl: vi.fn(
+    (merchant: { slug: string; custom_domain?: string | null }) =>
+      merchant.custom_domain
+        ? `https://${merchant.custom_domain}`
+        : `https://${merchant.slug}.usebaci.com`
+  ),
+}));
 
 const mockDraftMode = vi.fn();
 const mockHeaders = vi.fn();
@@ -32,12 +30,14 @@ vi.mock('next/navigation', () => ({
   notFound: () => mockNotFound(),
 }));
 
-vi.mock('next/server', () => ({
-  connection: () => mockConnection(),
-}));
-
 vi.mock('@/lib/cached-data', () => ({
   getCachedBlogPost: (...args: unknown[]) => mockGetCachedBlogPost(...args),
+}));
+
+vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
+  StorefrontDynamicMetadataMarker: () => (
+    <div aria-label="dynamic metadata marker" role="status" />
+  ),
 }));
 
 vi.mock('@/lib/store-url', () => ({
@@ -148,15 +148,17 @@ describe('storefront blog post page', () => {
       </Suspense>
     );
 
-    expect(mockConnection).toHaveBeenCalledTimes(1);
     expect(screen.getByText('Blog post page fallback')).toBeInTheDocument();
+    expect(
+      screen.getByRole('status', { name: /dynamic metadata marker/i })
+    ).toBeInTheDocument();
     expect(screen.queryByText('Route loader fallback')).not.toBeInTheDocument();
     expect(
       screen.queryByText('Blog post page content')
     ).not.toBeInTheDocument();
   });
 
-  it('opts the blog post route into request-time rendering before content streams', async () => {
+  it('keeps the request-time marker outside the streamed blog post content', async () => {
     render(
       await BlogPostPage({
         params: Promise.resolve({
@@ -166,7 +168,9 @@ describe('storefront blog post page', () => {
       })
     );
 
-    expect(mockConnection).toHaveBeenCalledTimes(1);
+    expect(
+      screen.getByRole('status', { name: /dynamic metadata marker/i })
+    ).toBeInTheDocument();
     expect(screen.getByText('Blog post page content')).toBeInTheDocument();
   });
 

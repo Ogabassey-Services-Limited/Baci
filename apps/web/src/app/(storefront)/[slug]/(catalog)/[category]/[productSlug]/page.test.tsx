@@ -14,7 +14,6 @@ import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 vi.mock('server-only', () => ({}));
 
 const {
-  mockConnection,
   mockNormalizeStorefrontProductVariants,
   mockOgabasseyPdpProductResourceHints,
   mockOgabasseyPdpSemanticSections,
@@ -23,7 +22,6 @@ const {
   mockPreloadOgabasseyPdpProductImage,
   mockProductDetailClient,
 } = vi.hoisted(() => ({
-  mockConnection: vi.fn<() => Promise<void>>(async () => undefined),
   mockNormalizeStorefrontProductVariants: vi.fn<
     (...args: unknown[]) => Record<string, unknown>[]
   >(() => []),
@@ -71,13 +69,15 @@ vi.mock('next/headers', () => ({
   headers: () => mockHeaders(),
 }));
 
-vi.mock('next/server', () => ({
-  connection: () => mockConnection(),
-}));
-
 vi.mock('next/link', () => ({
   default: ({ children, href }: { children: ReactNode; href: string }) => (
     <a href={href}>{children}</a>
+  ),
+}));
+
+vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
+  StorefrontDynamicMetadataMarker: () => (
+    <div aria-label="dynamic metadata marker" role="status" />
   ),
 }));
 
@@ -856,7 +856,7 @@ describe('[category]/[productSlug] page render', () => {
     });
   });
 
-  it('opts streamed product pages into request-time rendering before the product shell', async () => {
+  it('keeps the request-time marker outside the streamed product shell', async () => {
     const ui = await resolveRsc(
       await CategoryProductPage({
         params: Promise.resolve({
@@ -870,7 +870,9 @@ describe('[category]/[productSlug] page render', () => {
 
     const { container } = render(ui);
 
-    expect(mockConnection).toHaveBeenCalledTimes(1);
+    expect(
+      screen.getByRole('status', { name: /dynamic metadata marker/i })
+    ).toBeInTheDocument();
     expect(
       screen.getByRole('heading', {
         level: 1,

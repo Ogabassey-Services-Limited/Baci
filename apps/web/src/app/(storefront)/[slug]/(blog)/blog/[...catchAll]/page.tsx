@@ -1,5 +1,5 @@
-import { connection } from 'next/server';
 import { Suspense } from 'react';
+import { StorefrontDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker';
 import { resolveBlogCatchAllRoute } from './blog-catch-all-resolution';
 
 /**
@@ -14,17 +14,18 @@ import { resolveBlogCatchAllRoute } from './blog-catch-all-resolution';
  *
  * Also filters out WordPress admin URLs (/blog/wp-admin/...) with 404.
  */
-export default async function BlogCatchAllPage({
+export default function BlogCatchAllPage({
   params,
 }: {
   params: Promise<{ slug: string; catchAll: string[] }>;
 }) {
-  await connection();
-
   return (
-    <Suspense fallback={null}>
-      <BlogCatchAllResolver params={params} />
-    </Suspense>
+    <>
+      <Suspense fallback={null}>
+        <BlogCatchAllResolver params={params} />
+      </Suspense>
+      <StorefrontDynamicMetadataMarker />
+    </>
   );
 }
 

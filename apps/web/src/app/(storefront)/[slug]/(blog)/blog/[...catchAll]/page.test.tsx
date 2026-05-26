@@ -21,7 +21,9 @@ const mockSelect = vi.fn();
 const mockFrom = vi.fn();
 const mockCreateClient = vi.fn();
 const mockCookies = vi.fn();
-const mockConnection = vi.fn<() => Promise<void>>(async () => undefined);
+const mockStorefrontDynamicMetadataMarker = vi.fn(() => (
+  <div aria-label="dynamic metadata marker" role="status" />
+));
 
 vi.mock('next/headers', () => ({
   cookies: () => mockCookies(),
@@ -33,15 +35,15 @@ vi.mock('next/navigation', () => ({
   redirect: (url: string) => mockRedirect(url),
 }));
 
-vi.mock('next/server', () => ({
-  connection: () => mockConnection(),
-}));
-
 vi.mock('@/lib/cached-data', () => ({
   getCachedBlogPost: (...args: unknown[]) => mockGetCachedBlogPost(...args),
   getCachedMerchant: (...args: unknown[]) => mockGetCachedMerchant(...args),
   getCachedMerchantByDomain: (...args: unknown[]) =>
     mockGetCachedMerchantByDomain(...args),
+}));
+
+vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
+  StorefrontDynamicMetadataMarker: () => mockStorefrontDynamicMetadataMarker(),
 }));
 
 vi.mock('@/lib/routes', () => ({
@@ -96,17 +98,19 @@ describe('storefront blog catch-all route', () => {
     mockMaybeSingle.mockResolvedValue({ data: null });
   });
 
-  it('opts the legacy blog resolver into request-time rendering', async () => {
-    const element = await BlogCatchAllPage({
+  it('keeps the request-time marker outside the legacy blog resolver', () => {
+    const element = BlogCatchAllPage({
       params: Promise.resolve({
         slug: 'ogabassey.com',
         catchAll: ['category', 'legacy-post'],
       }),
     });
+    const children = (element as ReactElement<{ children?: ReactElement[] }>)
+      .props.children;
 
-    expect(mockConnection).toHaveBeenCalledTimes(1);
     expect(isValidElement(element)).toBe(true);
-    expect((element as ReactElement).type).toBe(Suspense);
+    expect(children?.[0].type).toBe(Suspense);
+    expect(children?.[1].type).toBeDefined();
   });
 
   it('redirects dated blog permalinks', async () => {
