@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react';
 import {
-  act,
   fireEvent,
   render,
   screen,
@@ -101,8 +100,6 @@ describe('ProfileEditScreen', () => {
   });
 
   it('updates the profile and navigates back after the success toast', async () => {
-    jest.useFakeTimers();
-
     render(<ProfileEditScreen />);
 
     fireEvent.changeText(screen.getByLabelText('First Name'), 'Grace');
@@ -118,11 +115,9 @@ describe('ProfileEditScreen', () => {
     expect(mockToastSuccess).toHaveBeenCalledWith(
       'Profile updated successfully'
     );
-
-    act(() => {
-      jest.advanceTimersByTime(500);
+    await waitFor(() => {
+      expect(mockBack).toHaveBeenCalledTimes(1);
     });
-    expect(mockBack).toHaveBeenCalledTimes(1);
   });
 
   it('shows the profile update error returned by the store', async () => {
