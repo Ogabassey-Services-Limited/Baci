@@ -2213,7 +2213,7 @@ git commit -m "feat: monitor universal cart readiness"
 **Files:**
 - Create: `docs/superpowers/plans/2026-05-26-universal-cart-readiness-evidence.md`
 
-- [ ] **Step 1: Create evidence document**
+- [x] **Step 1: Create evidence document**
 
 ```md
 # Universal Cart Readiness Evidence
@@ -2247,7 +2247,7 @@ Storefront: https://ogabassey.com
 - Dashboard Universal Cart status:
 ```
 
-- [ ] **Step 2: Run public discovery commands**
+- [x] **Step 2: Run public discovery commands**
 
 Run:
 
@@ -2269,6 +2269,8 @@ MCP health is healthy
 
 - [ ] **Step 3: Run signed cart-to-order smoke**
 
+Blocked in this worktree run: the branch is not deployed to production yet, production does not expose the new cart/catalog routes, and the local shell has no loaded agentic signing, confirmation, Supabase, or Paystack credentials.
+
 Use the same signed request helper used by the existing agentic checkout smoke. The flow must record request ids and idempotency keys for:
 
 ```txt
@@ -2282,6 +2284,8 @@ GET  /api/agentic/orders/{id}
 
 - [ ] **Step 4: Reconcile Paystack and Baci order state**
 
+Blocked until the signed cart-to-order smoke can create a real payment/order reference.
+
 Confirm:
 
 ```txt
@@ -2292,7 +2296,7 @@ orders.source or metadata identifies agentic checkout
 Paystack transaction reference matches checkout_sessions.payment_reference
 ```
 
-- [ ] **Step 5: Run final gates**
+- [x] **Step 5: Run final gates**
 
 Run:
 
@@ -2312,7 +2316,9 @@ Tests pass
 CodeRabbit has no critical or high findings
 ```
 
-- [ ] **Step 6: Commit evidence**
+Gate result: `pnpm turbo lint`, `pnpm turbo typecheck`, and `pnpm turbo test` passed. CodeRabbit returned no reviewable files for the evidence-only uncommitted diff; the only stored local findings were the previously fixed trivial Task 11 findings.
+
+- [x] **Step 6: Commit evidence**
 
 ```bash
 git add docs/superpowers/plans/2026-05-26-universal-cart-readiness-evidence.md
