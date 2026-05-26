@@ -47,11 +47,6 @@
       "justification": "Existing oversized compare route baseline; shrink or remove this entry as the route is modularized."
     },
     {
-      "path": "app/crypto-payment/index.tsx",
-      "lineCount": 425,
-      "justification": "Existing oversized crypto-payment route baseline; shrink or remove this entry as the route is modularized."
-    },
-    {
       "path": "app/profile/edit.tsx",
       "lineCount": 347,
       "justification": "Existing oversized profile-edit route baseline; shrink or remove this entry as the route is modularized."
