@@ -3,7 +3,9 @@ import { z } from 'zod';
 const quizUuidSchema = z.string().uuid();
 const quizIsoDatetimeSchema = z.string().datetime({ offset: true });
 const quizIntegrityTierSchema = z.enum(['basic', 'device', 'strong']);
+const quizDifficultySchema = z.enum(['easy', 'standard', 'hard']);
 const quizNonEmptyIdSchema = z.string().min(1);
+const quizTopicSchema = z.string().trim().min(3).max(80);
 
 export const quizEventsQuerySchema = z
   .object({
@@ -47,6 +49,59 @@ export const claimQuizGrandPrizeSchema = z.object({
 
 export const claimQuizCashAwardSchema = z.object({
   awardId: quizUuidSchema,
+});
+
+export const merchantQuizGenerationRequestSchema = z.object({
+  difficulty: quizDifficultySchema.default('standard'),
+  prizeName: z.string().trim().min(1).max(120).default('Quiz prize'),
+  questionCountPerTopic: z.coerce.number().int().min(1).max(5).default(1),
+  timeLimitSeconds: z.coerce.number().int().min(5).max(60).default(30),
+  title: z.string().trim().min(3).max(120),
+  topics: z.array(quizTopicSchema).min(1).max(10),
+});
+
+export const generatedQuizOptionSchema = z.object({
+  id: z.string().trim().min(1).max(20),
+  label: z.string().trim().min(1).max(160),
+});
+
+const generatedQuizQuestionBaseSchema = z.object({
+  correctOptionId: z.string().trim().min(1).max(20),
+  difficulty: quizDifficultySchema,
+  explanation: z.string().trim().min(1).max(500),
+  options: z.array(generatedQuizOptionSchema).min(2).max(6),
+  prompt: z.string().trim().min(8).max(300),
+  topic: quizTopicSchema,
+});
+
+export const generatedQuizQuestionSchema =
+  generatedQuizQuestionBaseSchema.superRefine((value, context) => {
+    if (!value.options.some((option) => option.id === value.correctOptionId)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'correctOptionId must match one of the option ids',
+        path: ['correctOptionId'],
+      });
+    }
+  });
+
+export const generatedQuizQuestionsSchema = z.object({
+  questions: z.array(generatedQuizQuestionSchema).min(1).max(50),
+});
+
+export const merchantQuizGenerationResponseSchema = z.object({
+  event: z.object({
+    id: quizNonEmptyIdSchema,
+    slug: z.string().min(1),
+    status: z.string().min(1),
+    title: z.string().min(1),
+  }),
+  questions: z.array(
+    generatedQuizQuestionBaseSchema.omit({
+      correctOptionId: true,
+      explanation: true,
+    })
+  ),
 });
 
 export const quizEventSettingsSchema = z
@@ -171,6 +226,13 @@ export type ClaimQuizGrandPrizeInput = z.infer<
   typeof claimQuizGrandPrizeSchema
 >;
 export type ClaimQuizCashAwardInput = z.infer<typeof claimQuizCashAwardSchema>;
+export type MerchantQuizGenerationInput = z.infer<
+  typeof merchantQuizGenerationRequestSchema
+>;
+export type GeneratedQuizQuestion = z.infer<typeof generatedQuizQuestionSchema>;
+export type MerchantQuizGenerationResponse = z.infer<
+  typeof merchantQuizGenerationResponseSchema
+>;
 export type QuizEventResponse = z.infer<typeof quizEventResponseSchema>;
 export type QuizAttemptResponse = z.infer<typeof quizAttemptResponseSchema>;
 export type QuizResultResponse = z.infer<typeof quizResultResponseSchema>;

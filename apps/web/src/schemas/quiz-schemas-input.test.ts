@@ -3,6 +3,7 @@ import {
   claimQuizCashAwardSchema,
   claimQuizGrandPrizeSchema,
   finalizeQuizAwardsSchema,
+  merchantQuizGenerationRequestSchema,
   startQuizAttemptSchema,
   submitQuizAnswerSchema,
 } from '@/schemas/quiz';
@@ -152,5 +153,100 @@ describe('quiz route input schemas', () => {
     expect(() =>
       claimQuizCashAwardSchema.parse({ awardId: 'not-a-uuid' })
     ).toThrow();
+  });
+
+  it('validates merchant quiz generation payloads', () => {
+    const basePayload = {
+      prizeName: 'Store credit',
+      questionCountPerTopic: 1,
+      timeLimitSeconds: 30,
+      title: 'Daily Phone Quiz',
+      topics: ['iPhone buying advice'],
+    };
+    const parsePayload = (overrides: Record<string, unknown>) =>
+      merchantQuizGenerationRequestSchema.parse({
+        ...basePayload,
+        ...overrides,
+      });
+
+    expect(
+      merchantQuizGenerationRequestSchema.parse({
+        difficulty: 'hard',
+        prizeName: 'Store credit',
+        questionCountPerTopic: '2',
+        timeLimitSeconds: '45',
+        title: 'Daily Phone Quiz',
+        topics: [' iPhone buying advice ', 'Android trade-in'],
+      })
+    ).toEqual({
+      difficulty: 'hard',
+      prizeName: 'Store credit',
+      questionCountPerTopic: 2,
+      timeLimitSeconds: 45,
+      title: 'Daily Phone Quiz',
+      topics: ['iPhone buying advice', 'Android trade-in'],
+    });
+
+    expect(() =>
+      merchantQuizGenerationRequestSchema.parse({
+        title: 'No',
+        topics: ['iPhone buying advice'],
+      })
+    ).toThrow();
+    expect(() =>
+      merchantQuizGenerationRequestSchema.parse({
+        title: 'Daily Phone Quiz',
+        topics: [],
+      })
+    ).toThrow();
+    expect(() =>
+      merchantQuizGenerationRequestSchema.parse({
+        difficulty: 'expert',
+        title: 'Daily Phone Quiz',
+        topics: ['iPhone buying advice'],
+      })
+    ).toThrow();
+
+    expect(parsePayload({ title: 'T'.repeat(120) }).title).toBe(
+      'T'.repeat(120)
+    );
+    expect(() => parsePayload({ title: 'T'.repeat(121) })).toThrow();
+
+    expect(parsePayload({ topics: [' abc '] }).topics).toEqual(['abc']);
+    expect(parsePayload({ topics: ['a'.repeat(80)] }).topics).toEqual([
+      'a'.repeat(80),
+    ]);
+    expect(() => parsePayload({ topics: ['ab'] })).toThrow();
+    expect(() => parsePayload({ topics: ['a'.repeat(81)] })).toThrow();
+    expect(
+      parsePayload({
+        topics: Array.from({ length: 10 }, (_, index) => `topic ${index}`),
+      }).topics
+    ).toHaveLength(10);
+    expect(() =>
+      parsePayload({
+        topics: Array.from({ length: 11 }, (_, index) => `topic ${index}`),
+      })
+    ).toThrow();
+
+    expect(
+      parsePayload({ questionCountPerTopic: 1 }).questionCountPerTopic
+    ).toBe(1);
+    expect(
+      parsePayload({ questionCountPerTopic: 5 }).questionCountPerTopic
+    ).toBe(5);
+    expect(() => parsePayload({ questionCountPerTopic: 0 })).toThrow();
+    expect(() => parsePayload({ questionCountPerTopic: 6 })).toThrow();
+
+    expect(parsePayload({ timeLimitSeconds: 5 }).timeLimitSeconds).toBe(5);
+    expect(parsePayload({ timeLimitSeconds: 60 }).timeLimitSeconds).toBe(60);
+    expect(() => parsePayload({ timeLimitSeconds: 4 })).toThrow();
+    expect(() => parsePayload({ timeLimitSeconds: 61 })).toThrow();
+
+    expect(parsePayload({ prizeName: 'P'.repeat(120) }).prizeName).toBe(
+      'P'.repeat(120)
+    );
+    expect(() => parsePayload({ prizeName: '   ' })).toThrow();
+    expect(() => parsePayload({ prizeName: 'P'.repeat(121) })).toThrow();
   });
 });

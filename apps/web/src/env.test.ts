@@ -581,16 +581,16 @@ describe('env LLM server validation', () => {
     expect(getLlmServerBearer()).toBeUndefined();
   });
 
-  it('returns the chat model alias gemma-4-e4b by default', async () => {
+  it('returns the VPS Gemma Ollama model id by default', async () => {
     delete process.env.LLM_CHAT_MODEL;
     const { getLlmChatModel } = await loadEnvModule();
-    expect(getLlmChatModel()).toBe('gemma-4-e4b');
+    expect(getLlmChatModel()).toBe('gemma4:e4b');
   });
 
   it('honors a configured LLM_CHAT_MODEL after sanitization', async () => {
-    vi.stubEnv('LLM_CHAT_MODEL', '  gemma-4-e4b\\n\n\r ');
+    vi.stubEnv('LLM_CHAT_MODEL', '  gemma4:e4b\\n\n\r ');
     const { getLlmChatModel } = await loadEnvModule();
-    expect(getLlmChatModel()).toBe('gemma-4-e4b');
+    expect(getLlmChatModel()).toBe('gemma4:e4b');
   });
 
   it('rejects blank LLM_CHAT_MODEL after sanitization', async () => {
