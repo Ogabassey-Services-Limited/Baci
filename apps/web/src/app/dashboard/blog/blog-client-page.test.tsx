@@ -20,12 +20,15 @@ vi.mock('next/image', () => ({
     src,
     alt,
     fill,
+    className,
   }: {
     src: string;
     alt: string;
     fill?: boolean;
+    className?: string;
   }) => (
     <div
+      className={className}
       data-testid="mock-image"
       data-src={src}
       data-alt={alt}
@@ -338,6 +341,24 @@ describe('BlogClientPage', () => {
       expect(
         screen.queryByText('2 published posts need')
       ).not.toBeInTheDocument();
+    });
+
+    it('shows featured image thumbnails on mobile-sized blog cards', () => {
+      render(
+        <BlogClientPage
+          merchant={mockMerchant}
+          initialPosts={mockPosts}
+          initialCounts={mockCounts}
+        />
+      );
+
+      const thumbnail = screen.getByTestId('mock-image');
+      expect(thumbnail).toHaveAttribute(
+        'data-src',
+        'https://example.com/image1.jpg'
+      );
+      expect(thumbnail.parentElement).toHaveClass('w-16');
+      expect(thumbnail.parentElement).not.toHaveClass('hidden');
     });
   });
 
