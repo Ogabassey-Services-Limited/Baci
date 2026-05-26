@@ -576,23 +576,23 @@ describe('category page route', () => {
     ]);
   });
 
-  it('renders the catalog skeleton while category content is suspended', () => {
+  it('renders the catalog skeleton while category content is suspended', async () => {
     mockCategoryPageContent.mockImplementation(() => {
       throw new Promise(() => {
         // Keep the category page content suspended behind the page fallback.
       });
     });
 
+    const ui = await CategoryPageRoute({
+      params: Promise.resolve({
+        slug: 'test-store',
+        category: 'smartphones',
+      }),
+      searchParams: Promise.resolve({}),
+    });
+
     render(
-      <Suspense fallback={<div>Route loader fallback</div>}>
-        <CategoryPageRoute
-          params={Promise.resolve({
-            slug: 'test-store',
-            category: 'smartphones',
-          })}
-          searchParams={Promise.resolve({})}
-        />
-      </Suspense>
+      <Suspense fallback={<div>Route loader fallback</div>}>{ui}</Suspense>
     );
 
     expect(
@@ -601,24 +601,24 @@ describe('category page route', () => {
     expect(screen.queryByText('Route loader fallback')).not.toBeInTheDocument();
     expect(screen.queryByText('Category page content')).not.toBeInTheDocument();
     expect(
-      screen.queryByRole('status', { name: /dynamic metadata marker/i })
-    ).not.toBeInTheDocument();
+      screen.getByRole('status', { name: /dynamic metadata marker/i })
+    ).toBeInTheDocument();
   });
 
-  it('renders category content without a trailing metadata marker boundary', () => {
-    render(
-      <CategoryPageRoute
-        params={Promise.resolve({
-          slug: 'test-store',
-          category: 'smartphones',
-        })}
-        searchParams={Promise.resolve({})}
-      />
-    );
+  it('renders category content with a trailing request-time marker boundary', async () => {
+    const ui = await CategoryPageRoute({
+      params: Promise.resolve({
+        slug: 'test-store',
+        category: 'smartphones',
+      }),
+      searchParams: Promise.resolve({}),
+    });
+
+    render(ui);
 
     expect(
-      screen.queryByRole('status', { name: /dynamic metadata marker/i })
-    ).not.toBeInTheDocument();
+      screen.getByRole('status', { name: /dynamic metadata marker/i })
+    ).toBeInTheDocument();
     expect(screen.getByText('Category page content')).toBeInTheDocument();
   });
 

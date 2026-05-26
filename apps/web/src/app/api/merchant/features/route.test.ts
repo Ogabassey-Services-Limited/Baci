@@ -171,6 +171,7 @@ describe('GET /api/merchant/features', () => {
     expect(selectColumns).toContain('vtu_betting_enabled');
     expect(selectColumns).toContain('vtu_customer_cashback_enabled');
     expect(selectColumns).toContain('vtu_customer_cashback_rate');
+    expect(selectColumns).not.toContain('offline_conversions_enabled');
   });
 
   it('creates default settings with VTU customer cashback disabled by default', async () => {
@@ -189,6 +190,7 @@ describe('GET /api/merchant/features', () => {
       vtu_customer_cashback_enabled: false,
       vtu_customer_cashback_rate: 50,
     });
+    expect(insertPayload).not.toHaveProperty('offline_conversions_enabled');
   });
 
   it('returns 401 when not authenticated', async () => {
@@ -396,6 +398,7 @@ describe('PUT /api/merchant/features', () => {
       klump_min_amount: 10000,
       klump_max_amount: 500000,
     });
+    expect(upsertPayload).not.toHaveProperty('offline_conversions_enabled');
     expect(mockRevalidateFeatures).toHaveBeenCalledWith(MERCHANT_ID);
     expect(mockRevalidateMerchant).toHaveBeenCalledWith(MERCHANT_ID);
   });

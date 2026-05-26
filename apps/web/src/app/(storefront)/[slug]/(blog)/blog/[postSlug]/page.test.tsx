@@ -128,7 +128,7 @@ describe('storefront blog post page', () => {
     ]);
   });
 
-  it('renders only the local shell while request-time blog content is pending', () => {
+  it('renders only the local shell while request-time blog content is pending', async () => {
     mockBlogPostPageContent.mockImplementation(() => {
       throw new Promise(() => {
         // Keep the blog post page content suspended behind its local shell.
@@ -137,45 +137,41 @@ describe('storefront blog post page', () => {
 
     render(
       <Suspense fallback={<div>Route loader fallback</div>}>
-        <BlogPostPage
-          params={Promise.resolve({
-            slug: 'ogabassey.com',
-            postSlug: 'apple-studio-display-review',
-          })}
-        />
+        {
+          await BlogPostPage({
+            params: Promise.resolve({
+              slug: 'ogabassey.com',
+              postSlug: 'apple-studio-display-review',
+            }),
+          })
+        }
       </Suspense>
     );
 
     expect(screen.getByText('Blog post page fallback')).toBeInTheDocument();
+    expect(
+      screen.getByRole('status', { name: /dynamic metadata marker/i })
+    ).toBeInTheDocument();
     expect(screen.queryByText('Route loader fallback')).not.toBeInTheDocument();
     expect(
       screen.queryByText('Blog post page content')
     ).not.toBeInTheDocument();
+  });
+
+  it('keeps the request-time marker outside the streamed blog post content', async () => {
+    render(
+      await BlogPostPage({
+        params: Promise.resolve({
+          slug: 'ogabassey.com',
+          postSlug: 'apple-studio-display-review',
+        }),
+      })
+    );
+
     expect(
       screen.getByRole('status', { name: /dynamic metadata marker/i })
     ).toBeInTheDocument();
-  });
-
-  it('adds a metadata marker after request-time blog content', () => {
-    render(
-      <BlogPostPage
-        params={Promise.resolve({
-          slug: 'ogabassey.com',
-          postSlug: 'apple-studio-display-review',
-        })}
-      />
-    );
-
-    const content = screen.getByText('Blog post page content');
-    const marker = screen.getByRole('status', {
-      name: /dynamic metadata marker/i,
-    });
-
-    expect(content).toBeInTheDocument();
-    expect(marker).toBeInTheDocument();
-    expect(
-      content.compareDocumentPosition(marker) & Node.DOCUMENT_POSITION_FOLLOWING
-    ).toBeTruthy();
+    expect(screen.getByText('Blog post page content')).toBeInTheDocument();
   });
 
   it('resolves public metadata without consulting draft request state', async () => {

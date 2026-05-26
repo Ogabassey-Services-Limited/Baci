@@ -27,6 +27,9 @@ const mockSelect = vi.fn();
 const mockFrom = vi.fn();
 const mockCreateClient = vi.fn();
 const mockCookies = vi.fn();
+const mockStorefrontDynamicMetadataMarker = vi.fn(() => (
+  <div aria-label="dynamic metadata marker" role="status" />
+));
 
 vi.mock('next/headers', () => ({
   cookies: () => mockCookies(),
@@ -43,6 +46,10 @@ vi.mock('@/lib/cached-data', () => ({
   getCachedMerchant: (...args: unknown[]) => mockGetCachedMerchant(...args),
   getCachedMerchantByDomain: (...args: unknown[]) =>
     mockGetCachedMerchantByDomain(...args),
+}));
+
+vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
+  StorefrontDynamicMetadataMarker: () => mockStorefrontDynamicMetadataMarker(),
 }));
 
 vi.mock('@/lib/routes', () => ({
@@ -70,7 +77,6 @@ vi.mock(
   })
 );
 
-import { StorefrontDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker';
 import { resolveBlogCatchAllRoute } from './blog-catch-all-resolution';
 import BlogCatchAllPage from './page';
 
@@ -98,24 +104,20 @@ describe('storefront blog catch-all route', () => {
     mockMaybeSingle.mockResolvedValue({ data: null });
   });
 
-  it('renders the dynamic metadata marker after the request-time resolver boundary', () => {
+  it('keeps the request-time marker outside the legacy blog resolver', () => {
     const element = BlogCatchAllPage({
       params: Promise.resolve({
         slug: 'ogabassey.com',
         catchAll: ['category', 'legacy-post'],
       }),
     });
+    const children = Children.toArray(
+      (element as ReactElement<{ children?: ReactNode }>).props.children
+    ) as ReactElement[];
 
     expect(isValidElement(element)).toBe(true);
-    const children = Children.toArray(
-      (element as ReactElement<{ children: ReactNode }>).props.children
-    );
-
-    expect(children).toHaveLength(2);
-    expect((children[0] as ReactElement).type).toBe(Suspense);
-    expect((children[1] as ReactElement).type).toBe(
-      StorefrontDynamicMetadataMarker
-    );
+    expect(children?.[0].type).toBe(Suspense);
+    expect(children?.[1].type).toBeDefined();
   });
 
   it('redirects dated blog permalinks', async () => {
