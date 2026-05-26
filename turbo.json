@@ -41,8 +41,20 @@
       "cache": false,
       "persistent": true
     },
-    "lint": {},
-    "typecheck": {},
-    "test": {}
+    "lint": {
+      "inputs": ["$TURBO_DEFAULT$", "next.config*.ts", "biome.json"]
+    },
+    "typecheck": {
+      "inputs": ["$TURBO_DEFAULT$", "next.config*.ts", "tsconfig*.json"]
+    },
+    "test": {
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "next.config*.ts",
+        "tsconfig*.json",
+        "vitest.config.*",
+        "jest.config.*"
+      ]
+    }
   }
 }
