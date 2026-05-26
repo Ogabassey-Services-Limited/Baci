@@ -922,9 +922,12 @@ describe('[category]/[productSlug] page render', () => {
       name: 'dynamic metadata marker',
     });
 
-    expect(criticalShell).not.toBeNull();
+    if (!criticalShell) {
+      throw new Error('Expected the OgaBassey PDP critical shell to render');
+    }
+
     expect(
-      criticalShell?.compareDocumentPosition(dynamicMarker) &
+      criticalShell.compareDocumentPosition(dynamicMarker) &
         Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy();
     expect(
