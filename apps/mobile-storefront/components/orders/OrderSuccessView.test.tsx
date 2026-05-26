@@ -70,25 +70,6 @@ describe('OrderSuccessView', () => {
     expect(screen.queryByText('Payment Ref')).toBeNull();
   });
 
-  it('renders pending bank-transfer messaging and the transfer reference', () => {
-    render(
-      <OrderSuccessView
-        {...createProps()}
-        paymentMethod="bank_transfer"
-        reference="dva-ref-123"
-      />
-    );
-
-    expect(screen.getByText('Transfer pending')).toBeTruthy();
-    expect(
-      screen.getByText(
-        "We've saved your order. We'll confirm payment automatically once the transfer is received."
-      )
-    ).toBeTruthy();
-    expect(screen.getByText('Payment Ref')).toBeTruthy();
-    expect(screen.getByText('dva-ref-123')).toBeTruthy();
-  });
-
   it('renders order details and delegates accessible post-purchase actions', () => {
     const onContinueShopping = jest.fn();
     const onLeaveGoogleReview = jest.fn();

@@ -551,15 +551,15 @@ export function BlogClientPage({
           {posts.map((post) => (
             <Card key={post.id} className="hover:shadow-md transition-shadow">
               <CardContent className="pt-6">
-                <div className="flex items-start gap-3 sm:gap-4">
+                <div className="flex items-start gap-4">
                   {/* Thumbnail */}
                   {post.featured_image_url && (
-                    <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-muted sm:h-24 sm:w-24">
+                    <div className="hidden sm:block w-24 h-24 rounded-lg overflow-hidden bg-muted shrink-0 relative">
                       <Image
                         src={post.featured_image_url}
                         alt=""
                         fill
-                        sizes="(max-width: 640px) 64px, 96px"
+                        sizes="96px"
                         className="object-cover"
                       />
                     </div>
@@ -567,7 +567,7 @@ export function BlogClientPage({
 
                   {/* Content */}
                   <div className="flex-1 min-w-0">
-                    <div className="mb-2 flex flex-wrap items-center gap-2">
+                    <div className="flex items-center gap-2 mb-2 flex-wrap">
                       {getStatusBadge(post.status)}
                       {post.status === 'published' &&
                         discoverReadinessByPostId.get(post.id) !== 'ready' && (
@@ -584,113 +584,115 @@ export function BlogClientPage({
                       {post.category && (
                         <Badge variant="outline">{post.category}</Badge>
                       )}
-                    </div>
 
-                    <h3 className="mb-1 truncate font-semibold text-base sm:text-lg">
-                      <Link
-                        href={asRoute(`/dashboard/blog/${post.id}/edit`)}
-                        className="transition-colors hover:text-accent"
-                      >
-                        {post.title}
-                      </Link>
-                    </h3>
-
-                    {post.excerpt && (
-                      <p className="mb-2 line-clamp-2 text-sm text-muted-foreground">
-                        {post.excerpt}
-                      </p>
-                    )}
-
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
-                        {post.published_at
-                          ? format(new Date(post.published_at), 'MMM d, yyyy')
-                          : `Updated ${formatDistanceToNow(new Date(post.updated_at))} ago`}
-                      </span>
-                      <span>by {post.author_name}</span>
-                      {post.reading_time_minutes && (
-                        <span>{post.reading_time_minutes} min read</span>
-                      )}
-                      <span>{post.view_count.toLocaleString()} views</span>
-                    </div>
-                  </div>
-
-                  {/* Actions */}
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-9 w-9 shrink-0"
-                      >
-                        <MoreHorizontal className="w-4 h-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => handlePreview(post)}>
-                        <Eye className="w-4 h-4 mr-2" />
-                        Preview
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <Link href={asRoute(`/dashboard/blog/${post.id}/edit`)}>
-                          <Edit className="w-4 h-4 mr-2" />
-                          Edit
+                      <h3 className="font-semibold text-lg mb-1 truncate">
+                        <Link
+                          href={asRoute(`/dashboard/blog/${post.id}/edit`)}
+                          className="hover:text-accent transition-colors"
+                        >
+                          {post.title}
                         </Link>
-                      </DropdownMenuItem>
-                      {post.status === 'published' &&
-                        merchant?.slug &&
-                        isSafeSlug(merchant.slug) && (
-                          <DropdownMenuItem asChild>
-                            <a
-                              href={
-                                merchant.custom_domain
-                                  ? `https://${merchant.custom_domain}/blog/${post.slug}`
-                                  : `/${merchant.slug}/blog/${post.slug}`
-                              }
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            >
-                              <ExternalLink className="w-4 h-4 mr-2" />
-                              View Live
-                            </a>
+                      </h3>
+
+                      {post.excerpt && (
+                        <p className="text-sm text-muted-foreground mb-2 line-clamp-2">
+                          {post.excerpt}
+                        </p>
+                      )}
+
+                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <Calendar className="w-3 h-3" />
+                          {post.published_at
+                            ? format(new Date(post.published_at), 'MMM d, yyyy')
+                            : `Updated ${formatDistanceToNow(new Date(post.updated_at))} ago`}
+                        </span>
+                        <span>by {post.author_name}</span>
+                        {post.reading_time_minutes && (
+                          <span>{post.reading_time_minutes} min read</span>
+                        )}
+                        <span>{post.view_count.toLocaleString()} views</span>
+                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                          <MoreHorizontal className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => handlePreview(post)}>
+                          <Eye className="w-4 h-4 mr-2" />
+                          Preview
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link
+                            href={asRoute(`/dashboard/blog/${post.id}/edit`)}
+                          >
+                            <Edit className="w-4 h-4 mr-2" />
+                            Edit
+                          </Link>
+                        </DropdownMenuItem>
+                        {post.status === 'published' &&
+                          merchant?.slug &&
+                          isSafeSlug(merchant.slug) && (
+                            <DropdownMenuItem asChild>
+                              <a
+                                href={
+                                  merchant.custom_domain
+                                    ? `https://${merchant.custom_domain}/blog/${post.slug}`
+                                    : `/${merchant.slug}/blog/${post.slug}`
+                                }
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                <ExternalLink className="w-4 h-4 mr-2" />
+                                View Live
+                              </a>
+                            </DropdownMenuItem>
+                          )}
+                        <DropdownMenuSeparator />
+                        {post.status === 'draft' && (
+                          <DropdownMenuItem
+                            onClick={() =>
+                              updatePostStatus(post.id, 'published')
+                            }
+                          >
+                            <CheckCircle className="w-4 h-4 mr-2" />
+                            Publish
                           </DropdownMenuItem>
                         )}
-                      <DropdownMenuSeparator />
-                      {post.status === 'draft' && (
+                        {post.status === 'published' && (
+                          <DropdownMenuItem
+                            onClick={() => updatePostStatus(post.id, 'draft')}
+                          >
+                            <Clock className="w-4 h-4 mr-2" />
+                            Unpublish
+                          </DropdownMenuItem>
+                        )}
+                        {post.status !== 'archived' && (
+                          <DropdownMenuItem
+                            onClick={() =>
+                              updatePostStatus(post.id, 'archived')
+                            }
+                          >
+                            <Archive className="w-4 h-4 mr-2" />
+                            Archive
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuSeparator />
                         <DropdownMenuItem
-                          onClick={() => updatePostStatus(post.id, 'published')}
+                          onClick={() => setDeletePostId(post.id)}
+                          className="text-destructive focus:text-destructive"
                         >
-                          <CheckCircle className="w-4 h-4 mr-2" />
-                          Publish
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Delete
                         </DropdownMenuItem>
-                      )}
-                      {post.status === 'published' && (
-                        <DropdownMenuItem
-                          onClick={() => updatePostStatus(post.id, 'draft')}
-                        >
-                          <Clock className="w-4 h-4 mr-2" />
-                          Unpublish
-                        </DropdownMenuItem>
-                      )}
-                      {post.status !== 'archived' && (
-                        <DropdownMenuItem
-                          onClick={() => updatePostStatus(post.id, 'archived')}
-                        >
-                          <Archive className="w-4 h-4 mr-2" />
-                          Archive
-                        </DropdownMenuItem>
-                      )}
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        onClick={() => setDeletePostId(post.id)}
-                        className="text-destructive focus:text-destructive"
-                      >
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </div>
               </CardContent>
             </Card>
