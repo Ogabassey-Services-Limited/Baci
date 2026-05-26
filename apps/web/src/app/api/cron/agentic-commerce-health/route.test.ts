@@ -14,6 +14,20 @@ vi.mock('@/lib/agentic/agent-commerce-manifest-health', () => ({
   checkAgentCommerceManifestHealth: vi.fn(),
 }));
 
+vi.mock(
+  '@/lib/agentic/agent-commerce-public-product-parity-health',
+  async () => {
+    const actual = await vi.importActual<
+      typeof import('@/lib/agentic/agent-commerce-public-product-parity-health')
+    >('@/lib/agentic/agent-commerce-public-product-parity-health');
+
+    return {
+      ...actual,
+      checkAgentCommercePublicProductParity: vi.fn(),
+    };
+  }
+);
+
 vi.mock('@/lib/agentic/agent-commerce-feed-health', async () => {
   const actual = await vi.importActual<
     typeof import('@/lib/agentic/agent-commerce-feed-health')
@@ -56,6 +70,7 @@ import { getCronSecret } from '@/env';
 import { loadAgenticActionHealth } from '@/lib/agentic/action-health-loader';
 import { checkAgentCommerceFeedHealth } from '@/lib/agentic/agent-commerce-feed-health';
 import { checkAgentCommerceManifestHealth } from '@/lib/agentic/agent-commerce-manifest-health';
+import { checkAgentCommercePublicProductParity } from '@/lib/agentic/agent-commerce-public-product-parity-health';
 import { checkAgentCommerceSupportChatHealth } from '@/lib/agentic/agent-commerce-support-chat-health';
 import { checkAgentCommerceTrustHealth } from '@/lib/agentic/agent-commerce-trust-health';
 import { logger } from '@/lib/logger';
@@ -227,6 +242,19 @@ describe('GET /api/cron/agentic-commerce-health', () => {
       status: 'ok',
       url: 'https://ogabassey.com/agent-trust.json',
     });
+    vi.mocked(checkAgentCommercePublicProductParity).mockResolvedValue({
+      issue_count: 0,
+      issues: [],
+      sample_product_id: 'product-1',
+      status: 'ok',
+      surfaces: {
+        agent_products: 'https://ogabassey.com/feeds/agent-products.jsonl',
+        google_merchant_xml: 'https://ogabassey.com/feeds/google-merchant.xml',
+        product_api:
+          'https://ogabassey.com/api/storefront/ogabassey/products?limit=10',
+        product_page: 'https://ogabassey.com/phones/test-phone',
+      },
+    });
     vi.mocked(loadAgenticActionHealth).mockResolvedValue({
       actions: [healthyAction],
       generated_at: '2026-05-22T03:00:00.000Z',
@@ -302,6 +330,11 @@ describe('GET /api/cron/agentic-commerce-health', () => {
             status: 'ok',
           },
           merchant_id: 'merchant-1',
+          parity: {
+            issue_count: 0,
+            sample_product_id: 'product-1',
+            status: 'ok',
+          },
           slug: 'ogabassey',
           status: 'ok',
           status_reason: 'agentic_action_health_ok',
@@ -343,6 +376,10 @@ describe('GET /api/cron/agentic-commerce-health', () => {
       slug: 'ogabassey',
     });
     expect(checkAgentCommerceTrustHealth).toHaveBeenCalledWith({
+      custom_domain: 'ogabassey.com',
+      slug: 'ogabassey',
+    });
+    expect(checkAgentCommercePublicProductParity).toHaveBeenCalledWith({
       custom_domain: 'ogabassey.com',
       slug: 'ogabassey',
     });
@@ -729,6 +766,55 @@ describe('GET /api/cron/agentic-commerce-health', () => {
         },
       ],
       status: 'monitor',
+    });
+  });
+
+  it('fails the cron response when public product parity has drifted', async () => {
+    vi.mocked(checkAgentCommercePublicProductParity).mockResolvedValue({
+      issue_count: 1,
+      issues: [
+        {
+          code: 'parity_surface_mismatch',
+          count: 1,
+          fields: ['price'],
+          message:
+            'Public product fields do not match across catalog surfaces.',
+          severity: 'attention',
+        },
+      ],
+      sample_product_id: 'product-1',
+      status: 'attention',
+      surfaces: {
+        agent_products: 'https://ogabassey.com/feeds/agent-products.jsonl',
+        google_merchant_xml: 'https://ogabassey.com/feeds/google-merchant.xml',
+        product_api:
+          'https://ogabassey.com/api/storefront/ogabassey/products?limit=10',
+        product_page: 'https://ogabassey.com/phones/test-phone',
+      },
+    });
+
+    const response = await GET(createCronRequest());
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toMatchObject({
+      merchants: [
+        {
+          actions: [
+            {
+              code: 'AGENT_COMMERCE_PUBLIC_PRODUCT_PARITY_FAILED',
+              count: 1,
+              severity: 'attention',
+            },
+          ],
+          parity: {
+            issue_count: 1,
+            status: 'attention',
+          },
+          status: 'attention',
+          status_reason: 'agent_commerce_public_product_parity_failed',
+        },
+      ],
+      status: 'attention',
     });
   });
 

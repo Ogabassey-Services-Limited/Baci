@@ -29,6 +29,12 @@ import {
   type AgentCommerceManifestHealthResult,
   checkAgentCommerceManifestHealth,
 } from '@/lib/agentic/agent-commerce-manifest-health';
+import {
+  type AgentCommercePublicProductParityResult,
+  buildAgentCommercePublicProductParityActions,
+  checkAgentCommercePublicProductParity,
+  getAgentCommercePublicProductParityStatusReason,
+} from '@/lib/agentic/agent-commerce-public-product-parity-health';
 import { checkAgentCommerceSupportChatHealth } from '@/lib/agentic/agent-commerce-support-chat-health';
 import {
   type AgentCommerceTrustHealthResult,
@@ -63,6 +69,7 @@ interface AgenticCommerceHealthMerchantResult {
   feeds?: AgentCommerceFeedHealthResult;
   manifest?: AgentCommerceManifestHealthResult;
   merchant_id?: string;
+  parity?: AgentCommercePublicProductParityResult;
   slug: string;
   status: AgenticCommerceHealthStatus;
   status_reason: string;
@@ -177,34 +184,42 @@ async function buildMerchantHealthResult({
   }
 
   try {
-    const [health, manifest, feeds, crawler, trust] = await Promise.all([
-      loadAgenticActionHealth(supabase, merchant.id, {
-        recordsSource: 'admin_direct',
-      }),
-      checkAgentCommerceManifestHealth({
-        custom_domain: merchant.custom_domain,
-        slug,
-      }),
-      checkAgentCommerceFeedHealth({
-        merchantId: merchant.id,
-        slug,
-      }),
-      checkAgentCommerceCrawlerHealth(supabase, merchant.id),
-      checkAgentCommerceTrustHealth({
-        custom_domain: merchant.custom_domain,
-        slug,
-      }),
-    ]);
+    const [health, manifest, feeds, crawler, trust, parity] = await Promise.all(
+      [
+        loadAgenticActionHealth(supabase, merchant.id, {
+          recordsSource: 'admin_direct',
+        }),
+        checkAgentCommerceManifestHealth({
+          custom_domain: merchant.custom_domain,
+          slug,
+        }),
+        checkAgentCommerceFeedHealth({
+          merchantId: merchant.id,
+          slug,
+        }),
+        checkAgentCommerceCrawlerHealth(supabase, merchant.id),
+        checkAgentCommerceTrustHealth({
+          custom_domain: merchant.custom_domain,
+          slug,
+        }),
+        checkAgentCommercePublicProductParity({
+          custom_domain: merchant.custom_domain,
+          slug,
+        }),
+      ]
+    );
     const manifestActions = buildAgentCommerceManifestHealthActions(manifest);
     const feedActions = buildAgentCommerceFeedHealthActions(feeds);
     const crawlerActions = buildAgentCommerceCrawlerHealthActions(crawler);
     const trustActions = buildAgentCommerceTrustHealthActions(trust);
+    const parityActions = buildAgentCommercePublicProductParityActions(parity);
     const mergedActions = [
       ...health.actions,
       ...manifestActions,
       ...feedActions,
       ...crawlerActions,
       ...trustActions,
+      ...parityActions,
     ];
     const status = getAgenticCommerceHealthStatus(mergedActions);
     return {
@@ -215,17 +230,21 @@ async function buildMerchantHealthResult({
       feeds,
       manifest,
       merchant_id: merchant.id,
+      parity,
       slug,
       status,
-      status_reason: getAgentCommerceTrustStatusReason(
-        trust,
-        getAgentCommerceCrawlerStatusReason(
-          crawler,
-          getAgentCommerceFeedStatusReason(
-            feeds,
-            getAgentCommerceManifestStatusReason(
-              manifest,
-              `agentic_action_health_${status}`
+      status_reason: getAgentCommercePublicProductParityStatusReason(
+        parity,
+        getAgentCommerceTrustStatusReason(
+          trust,
+          getAgentCommerceCrawlerStatusReason(
+            crawler,
+            getAgentCommerceFeedStatusReason(
+              feeds,
+              getAgentCommerceManifestStatusReason(
+                manifest,
+                `agentic_action_health_${status}`
+              )
             )
           )
         )
