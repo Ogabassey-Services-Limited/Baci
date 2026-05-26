@@ -5,14 +5,11 @@ import typescript from 'typescript';
 
 const SCAN_DIRECTORIES = ['app', 'components', 'hooks', 'lib', 'services', 'stores', 'utils'];
 const EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx']);
-const PLATFORM_PATTERN = /Platform\.(?:OS|select)/;
+const PLATFORM_BRANCH_MEMBER_NAMES = new Set(['OS', 'select']);
+const DIRECT_PLATFORM_BRANCH_PATTERN = /(?<![\w$])Platform\s*\.\s*(?:OS|select)\b/;
 const IDENTIFIER_PATTERN = String.raw`[A-Za-z_$][\w$]*`;
 const PLATFORM_IMPORT_PATTERN = new RegExp(
   String.raw`import\s+(?:${IDENTIFIER_PATTERN}\s*,\s*)?\{[^}]*\bPlatform(?:\s+as\s+(${IDENTIFIER_PATTERN}))?\b[^}]*\}\s*from\s*['"]react-native['"]`,
-  'g'
-);
-const PLATFORM_ALIAS_ASSIGNMENT_PATTERN = new RegExp(
-  String.raw`\b(?:const|let|var)\s+(${IDENTIFIER_PATTERN})(?:\s*:\s*[^=;]+?)?\s*=\s*(${IDENTIFIER_PATTERN})\b(?!\s*\.)`,
   'g'
 );
 const IGNORED_SUFFIXES = ['.test.ts', '.test.tsx', '.test.js', '.test.jsx'];
@@ -60,10 +57,6 @@ function isIgnored(relativePath) {
 
 function normalizePath(value) {
   return value.replaceAll('\\', '/');
-}
-
-function escapeRegExp(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function createPatternKey(file, patternId) {
@@ -218,7 +211,90 @@ function readProjectFile(projectRoot, relativePath, sourceCache) {
   return source;
 }
 
-function getPlatformIdentifiers(source) {
+function createScope(kind) {
+  return {
+    bindings: new Map(),
+    kind,
+  };
+}
+
+function getNearestDeclarationScope(scopes, declarationKind) {
+  if (declarationKind === 'var') {
+    for (let index = scopes.length - 1; index >= 0; index -= 1) {
+      if (scopes[index].kind !== 'block') return scopes[index];
+    }
+  }
+  return scopes[scopes.length - 1];
+}
+
+function resolveBinding(scopes, identifier) {
+  for (let index = scopes.length - 1; index >= 0; index -= 1) {
+    const value = scopes[index].bindings.get(identifier);
+    if (value !== undefined) return value;
+  }
+  return false;
+}
+
+function declareBinding(scopes, identifier, isPlatformBinding, declarationKind = 'lexical') {
+  const targetScope = getNearestDeclarationScope(scopes, declarationKind);
+  targetScope.bindings.set(identifier, isPlatformBinding);
+}
+
+function getDeclarationKind(node) {
+  const declarationList = node.parent;
+  if (!typescript.isVariableDeclarationList(declarationList)) return 'lexical';
+  if (declarationList.flags & typescript.NodeFlags.Const) return 'const';
+  if (declarationList.flags & typescript.NodeFlags.Let) return 'let';
+  return 'var';
+}
+
+function declarePatternBindings(scopes, pattern, declarationKind = 'lexical') {
+  if (typescript.isIdentifier(pattern)) {
+    declareBinding(scopes, pattern.text, false, declarationKind);
+    return;
+  }
+  if (typescript.isObjectBindingPattern(pattern)) {
+    for (const element of pattern.elements) {
+      declarePatternBindings(scopes, element.name, declarationKind);
+    }
+    return;
+  }
+  if (typescript.isArrayBindingPattern(pattern)) {
+    for (const element of pattern.elements) {
+      if (typescript.isBindingElement(element)) {
+        declarePatternBindings(scopes, element.name, declarationKind);
+      }
+    }
+  }
+}
+
+function containsPlatformBranchBinding(pattern) {
+  if (!typescript.isObjectBindingPattern(pattern)) return false;
+  for (const element of pattern.elements) {
+    const propertyNode = element.propertyName ?? element.name;
+    if (
+      (typescript.isIdentifier(propertyNode) || typescript.isStringLiteralLike(propertyNode)) &&
+      PLATFORM_BRANCH_MEMBER_NAMES.has(propertyNode.text)
+    ) {
+      return true;
+    }
+    if (containsPlatformBranchBinding(element.name)) return true;
+  }
+  return false;
+}
+
+function forEachChildUntil(node, callback) {
+  let found = false;
+  typescript.forEachChild(node, (child) => {
+    if (found) return;
+    if (callback(child)) {
+      found = true;
+    }
+  });
+  return found;
+}
+
+function hasPlatformBranch(source) {
   const sourceWithoutComments = maskSourceTokens(
     source,
     COMMENT_AND_TRIVIA_TOKEN_KINDS
@@ -227,57 +303,133 @@ function getPlatformIdentifiers(source) {
     source,
     BRANCH_MATCH_MASKED_TOKEN_KINDS
   );
-  const identifiers = new Set();
-  for (const match of sourceWithoutComments.matchAll(PLATFORM_IMPORT_PATTERN)) {
-    identifiers.add(match[1] ?? 'Platform');
-  }
-  let changed = true;
-  while (changed) {
-    changed = false;
-    for (const match of executableSource.matchAll(PLATFORM_ALIAS_ASSIGNMENT_PATTERN)) {
-      const assignedIdentifier = match[1];
-      const sourceIdentifier = match[2];
+  const hasDirectPlatformBranch = DIRECT_PLATFORM_BRANCH_PATTERN.test(executableSource);
+  const hasPlatformImport = PLATFORM_IMPORT_PATTERN.test(sourceWithoutComments);
+  PLATFORM_IMPORT_PATTERN.lastIndex = 0;
+  if (!hasPlatformImport) return hasDirectPlatformBranch;
+
+  const sourceFile = typescript.createSourceFile(
+    'platform-drift.tsx',
+    source,
+    typescript.ScriptTarget.Latest,
+    true,
+    typescript.ScriptKind.TSX
+  );
+  const scopes = [createScope('module')];
+
+  function visit(node) {
+    if (
+      typescript.isPropertyAccessExpression(node) &&
+      typescript.isIdentifier(node.expression) &&
+      PLATFORM_BRANCH_MEMBER_NAMES.has(node.name.text) &&
+      resolveBinding(scopes, node.expression.text)
+    ) {
+      return true;
+    }
+
+    if (
+      typescript.isImportDeclaration(node) &&
+      typescript.isStringLiteral(node.moduleSpecifier) &&
+      node.moduleSpecifier.text === 'react-native'
+    ) {
+      const importClause = node.importClause;
+      if (!importClause || importClause.isTypeOnly) return false;
+      const namedBindings = importClause.namedBindings;
+      if (!namedBindings || !typescript.isNamedImports(namedBindings)) return false;
+      for (const importSpecifier of namedBindings.elements) {
+        if (importSpecifier.isTypeOnly) continue;
+        const importedName = importSpecifier.propertyName
+          ? importSpecifier.propertyName.text
+          : importSpecifier.name.text;
+        if (importedName !== 'Platform') continue;
+        declareBinding(scopes, importSpecifier.name.text, true, 'const');
+      }
+      return false;
+    }
+
+    if (typescript.isVariableDeclaration(node)) {
+      const declarationKind = getDeclarationKind(node);
+      if (node.initializer && visit(node.initializer)) return true;
+
       if (
-        identifiers.has(sourceIdentifier) &&
-        !identifiers.has(assignedIdentifier)
+        node.initializer &&
+        typescript.isIdentifier(node.initializer) &&
+        typescript.isIdentifier(node.name)
       ) {
-        identifiers.add(assignedIdentifier);
-        changed = true;
+        declareBinding(
+          scopes,
+          node.name.text,
+          resolveBinding(scopes, node.initializer.text),
+          declarationKind
+        );
+        return false;
+      }
+
+      if (
+        node.initializer &&
+        typescript.isIdentifier(node.initializer) &&
+        containsPlatformBranchBinding(node.name) &&
+        resolveBinding(scopes, node.initializer.text)
+      ) {
+        return true;
+      }
+
+      declarePatternBindings(scopes, node.name, declarationKind);
+      return false;
+    }
+
+    if (typescript.isFunctionDeclaration(node)) {
+      if (node.name) {
+        declareBinding(scopes, node.name.text, false, 'lexical');
       }
     }
-  }
-  return identifiers;
-}
 
-function hasPlatformBranchViaDestructure(source) {
-  const executableSource = maskSourceTokens(
-    source,
-    BRANCH_MATCH_MASKED_TOKEN_KINDS
-  );
-  for (const identifier of getPlatformIdentifiers(source)) {
-    const escapedIdentifier = escapeRegExp(identifier);
-    const destructurePattern = new RegExp(
-      String.raw`\b(?:const|let|var)\s*\{[^}]*\b(?:OS|select)(?:\s*:\s*${IDENTIFIER_PATTERN})?\b[^}]*\}(?:\s*:\s*[^=;]+?)?\s*=\s*${escapedIdentifier}\b`
-    );
-    if (destructurePattern.test(executableSource)) return true;
-  }
-  return false;
-}
+    if (typescript.isClassDeclaration(node) && node.name) {
+      declareBinding(scopes, node.name.text, false, 'lexical');
+    }
 
-function hasPlatformBranchViaAliasMemberAccess(source) {
-  const executableSource = maskSourceTokens(
-    source,
-    BRANCH_MATCH_MASKED_TOKEN_KINDS
-  );
-  for (const identifier of getPlatformIdentifiers(source)) {
-    if (identifier === 'Platform') continue;
-    const escapedIdentifier = escapeRegExp(identifier);
-    const aliasMemberPattern = new RegExp(
-      String.raw`(?<![\w$])${escapedIdentifier}\s*\.\s*(?:OS|select)\b`
-    );
-    if (aliasMemberPattern.test(executableSource)) return true;
+    if (
+      typescript.isFunctionDeclaration(node) ||
+      typescript.isFunctionExpression(node) ||
+      typescript.isArrowFunction(node) ||
+      typescript.isMethodDeclaration(node) ||
+      typescript.isGetAccessorDeclaration(node) ||
+      typescript.isSetAccessorDeclaration(node) ||
+      typescript.isConstructorDeclaration(node)
+    ) {
+      scopes.push(createScope('function'));
+      if (typescript.isFunctionExpression(node) && node.name) {
+        declareBinding(scopes, node.name.text, false, 'lexical');
+      }
+      for (const parameter of node.parameters) {
+        declarePatternBindings(scopes, parameter.name, 'lexical');
+      }
+      const foundInFunction = node.body ? visit(node.body) : false;
+      scopes.pop();
+      return foundInFunction;
+    }
+
+    if (typescript.isCatchClause(node)) {
+      scopes.push(createScope('block'));
+      if (node.variableDeclaration) {
+        declarePatternBindings(scopes, node.variableDeclaration.name, 'lexical');
+      }
+      const foundInCatch = visit(node.block);
+      scopes.pop();
+      return foundInCatch;
+    }
+
+    if (typescript.isBlock(node) || typescript.isCaseClause(node) || typescript.isDefaultClause(node)) {
+      scopes.push(createScope('block'));
+      const foundInBlock = forEachChildUntil(node, visit);
+      scopes.pop();
+      return foundInBlock;
+    }
+
+    return forEachChildUntil(node, visit);
   }
-  return false;
+
+  return visit(sourceFile);
 }
 
 export function findPlatformBranchFiles(
@@ -287,15 +439,7 @@ export function findPlatformBranchFiles(
 ) {
   return scannedSourceFiles.filter((relativePath) => {
     const source = readProjectFile(projectRoot, relativePath, sourceCache);
-    const executableSource = maskSourceTokens(
-      source,
-      BRANCH_MATCH_MASKED_TOKEN_KINDS
-    );
-    return (
-      PLATFORM_PATTERN.test(executableSource) ||
-      hasPlatformBranchViaAliasMemberAccess(source) ||
-      hasPlatformBranchViaDestructure(source)
-    );
+    return hasPlatformBranch(source);
   });
 }
 

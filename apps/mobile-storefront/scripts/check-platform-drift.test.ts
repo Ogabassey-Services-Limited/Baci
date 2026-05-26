@@ -199,6 +199,45 @@ describe('check-platform-drift', () => {
     expect(result.stdout).toContain('[platform-drift] OK');
   });
 
+  it('ignores shadowed local Platform alias assignments', () => {
+    const root = createFixture({
+      'components/ShadowedAliasAssignment.tsx':
+        'import { Platform } from "react-native";\nfunction getTheme() { const Platform = { OS: "theme" }; const P = Platform; return P.OS; }',
+      'config/platform-branch-allowlist.json': JSON.stringify({ platformBranches: [] }),
+    });
+
+    const result = runDriftCheck(root);
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('[platform-drift] OK');
+  });
+
+  it('ignores shadowed local Platform destructures', () => {
+    const root = createFixture({
+      'components/ShadowedDestructure.tsx':
+        'import { Platform } from "react-native";\nfunction getTheme() { const Platform = { OS: "theme" }; const { OS } = Platform; return OS; }',
+      'config/platform-branch-allowlist.json': JSON.stringify({ platformBranches: [] }),
+    });
+
+    const result = runDriftCheck(root);
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('[platform-drift] OK');
+  });
+
+  it('ignores shadowed local Platform aliases imported from react-native', () => {
+    const root = createFixture({
+      'components/ShadowedImportAlias.tsx':
+        'import { Platform as P } from "react-native";\nfunction getTheme() { const P = { OS: "theme" }; return P.OS; }',
+      'config/platform-branch-allowlist.json': JSON.stringify({ platformBranches: [] }),
+    });
+
+    const result = runDriftCheck(root);
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('[platform-drift] OK');
+  });
+
   it('fails on duplicate platform allowlist entries', () => {
     const root = createFixture({
       'app/index.tsx': 'const isIOS = Platform.OS === "ios";',
