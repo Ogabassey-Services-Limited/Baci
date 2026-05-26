@@ -4,6 +4,10 @@ import { router } from 'expo-router';
 import { Alert } from 'react-native';
 import type { WebViewNavigation } from 'react-native-webview';
 import {
+  SavingsAuthorizationStillProcessingError,
+  waitForSavingsAuthorizationConfirmation,
+} from '@/lib/customer-savings';
+import {
   VtuPaymentStillProcessingError,
   waitForVtuConfirmation,
 } from '@/lib/vtu-checkout';
@@ -41,6 +45,16 @@ jest.mock('@/components/ui/Toast', () => ({
 
 jest.mock('@/lib/clipboard', () => ({
   setClipboardString: jest.fn(() => Promise.resolve(true)),
+}));
+
+jest.mock('@/lib/customer-savings', () => ({
+  SavingsAuthorizationStillProcessingError: class SavingsAuthorizationStillProcessingError extends Error {
+    constructor() {
+      super('Savings card authorization is still processing. Check again shortly.');
+      this.name = 'SavingsAuthorizationStillProcessingError';
+    }
+  },
+  waitForSavingsAuthorizationConfirmation: jest.fn(),
 }));
 
 jest.mock('@/lib/vtu-checkout', () => {
@@ -83,6 +97,9 @@ const mockWaitForVtuConfirmation = jest.mocked(waitForVtuConfirmation);
 const mockWaitForWalletTopUpConfirmation = jest.mocked(
   waitForWalletTopUpConfirmation
 );
+const mockWaitForSavingsAuthorizationConfirmation = jest.mocked(
+  waitForSavingsAuthorizationConfirmation
+);
 
 const orderParams = {
   amount: '1000',
@@ -111,6 +128,14 @@ const walletParams = {
   merchantId: 'merchant-1',
   paymentKind: 'wallet',
   reference: 'WAL-123',
+};
+
+const savingsAuthorizationParams = {
+  authorizationUrl: 'https://checkout.paystack.com/savings-auth',
+  gateway: 'paystack',
+  paymentKind: 'savings_auth',
+  reference: 'SAV-AUTH-123',
+  returnTo: '/wallet/savings/start',
 };
 
 function navigation(url: string) {
@@ -145,6 +170,12 @@ describe('usePaymentGatewayController', () => {
       wallet: {
         balance: 7500,
       },
+    });
+    mockWaitForSavingsAuthorizationConfirmation.mockResolvedValue({
+      reference: 'SAV-AUTH-123',
+      savedPaymentMethodId: 'card-1',
+      status: 'successful',
+      success: true,
     });
   });
 
@@ -431,6 +462,126 @@ describe('usePaymentGatewayController', () => {
     });
 
     expect(router.replace).toHaveBeenCalledWith('/imei-check');
+  });
+
+  it('confirms savings card authorization before returning to Start Savings', async () => {
+    jest.useFakeTimers();
+    mockSearchParams = { ...savingsAuthorizationParams };
+    const { result } = renderHook(() => usePaymentGatewayController());
+
+    act(() => {
+      result.current.handleNavigationChange(
+        navigation(
+          'https://usebaci.com/checkout/success?reference=SAV-AUTH-123'
+        )
+      );
+    });
+
+    await waitFor(() => expect(result.current.status).toBe('success'));
+    expect(mockClearCart).not.toHaveBeenCalled();
+    expect(mockWaitForWalletTopUpConfirmation).not.toHaveBeenCalled();
+    expect(mockWaitForSavingsAuthorizationConfirmation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        merchantId: undefined,
+        merchantSlug: undefined,
+        reference: 'SAV-AUTH-123',
+        signal: expect.anything(),
+      })
+    );
+    expect(mockInvalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['wallet'],
+    });
+
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+
+    expect(router.replace).toHaveBeenCalledWith('/wallet/savings/start');
+  });
+
+  it('keeps savings card authorization retryable while confirmation is still processing', async () => {
+    mockSearchParams = { ...savingsAuthorizationParams };
+    mockWaitForSavingsAuthorizationConfirmation.mockRejectedValueOnce(
+      new SavingsAuthorizationStillProcessingError()
+    );
+    const { result } = renderHook(() => usePaymentGatewayController());
+
+    act(() => {
+      result.current.handleNavigationChange(
+        navigation(
+          'https://usebaci.com/checkout/success?reference=SAV-AUTH-123'
+        )
+      );
+    });
+
+    await waitFor(() => expect(result.current.status).toBe('error'));
+
+    expect(result.current.errorMessage).toBe(
+      'Savings card authorization is still processing. Check again shortly.'
+    );
+    expect(router.replace).not.toHaveBeenCalledWith('/wallet/savings/start');
+  });
+
+  it('cancels pending savings authorization confirmation without surfacing an error on retry', async () => {
+    mockSearchParams = { ...savingsAuthorizationParams };
+    let confirmationSignal: AbortSignal | undefined;
+    mockWaitForSavingsAuthorizationConfirmation.mockImplementationOnce(
+      async ({ signal }) =>
+        await new Promise<never>((_resolve, reject) => {
+          confirmationSignal = signal;
+          signal?.addEventListener(
+            'abort',
+            () => {
+              const error = new Error(
+                'Savings authorization confirmation cancelled.'
+              );
+              error.name = 'AbortError';
+              reject(error);
+            },
+            { once: true }
+          );
+        })
+    );
+    const { result } = renderHook(() => usePaymentGatewayController());
+
+    act(() => {
+      result.current.handleNavigationChange(
+        navigation(
+          'https://usebaci.com/checkout/success?reference=SAV-AUTH-123'
+        )
+      );
+    });
+    await waitFor(() => expect(confirmationSignal).toBeDefined());
+
+    act(() => {
+      result.current.handleRetry();
+    });
+
+    await waitFor(() => expect(confirmationSignal?.aborted).toBe(true));
+    await waitFor(() => expect(result.current.status).toBe('loading'));
+    expect(result.current.errorMessage).toBeNull();
+  });
+
+  it('returns to Start Savings after savings card authorization is cancelled', () => {
+    jest.useFakeTimers();
+    mockSearchParams = { ...savingsAuthorizationParams };
+    const { result } = renderHook(() => usePaymentGatewayController());
+
+    act(() => {
+      result.current.handleNavigationChange(
+        navigation('https://usebaci.com/checkout/cancel?reason=cancel')
+      );
+    });
+
+    expect(result.current.status).toBe('error');
+    expect(mockClearCart).not.toHaveBeenCalled();
+    expect(mockWaitForWalletTopUpConfirmation).not.toHaveBeenCalled();
+
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+
+    expect(router.replace).toHaveBeenCalledWith('/wallet/savings/start');
   });
 
   it('keeps wallet top-ups retryable when confirmation is still processing', async () => {

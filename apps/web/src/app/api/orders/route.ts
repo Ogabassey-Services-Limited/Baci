@@ -41,6 +41,49 @@ function isPayOnDelivery(paymentMethod: string): boolean {
   return paymentMethod === 'pod' || paymentMethod === 'pay_on_delivery';
 }
 
+function getRequestIdempotencyKey(request: NextRequest) {
+  const headerValue = request.headers.get('idempotency-key')?.trim();
+  return headerValue ? headerValue : null;
+}
+
+function getSavingsRedemptionIdempotencyKey({
+  customerEmail,
+  items,
+  merchantId,
+  requestIdempotencyKey,
+  savingsAmount,
+  savingsGoalId,
+}: {
+  customerEmail: string;
+  items: Array<{
+    product_id: string;
+    quantity: number;
+    variant_id?: string | null;
+  }>;
+  merchantId: string;
+  requestIdempotencyKey: string | null;
+  savingsAmount: number;
+  savingsGoalId: string;
+}) {
+  if (requestIdempotencyKey) {
+    return `order:${requestIdempotencyKey}:savings`;
+  }
+
+  const itemFingerprint = items
+    .map(
+      (item) => `${item.product_id}:${item.variant_id ?? ''}:${item.quantity}`
+    )
+    .join('|');
+  return [
+    'order_savings',
+    merchantId,
+    customerEmail.toLowerCase(),
+    savingsGoalId,
+    savingsAmount,
+    itemFingerprint,
+  ].join(':');
+}
+
 /** Server-authoritative assurance rate — never trust the client value. */
 const SERVER_ASSURANCE_RATE = 0.05;
 const LEGACY_NEGOTIATION_SLUGS = new Set(['ogabassey', 'demo-premium']);
@@ -272,6 +315,9 @@ export async function POST(request: NextRequest) {
       // Wallet redemption
       use_wallet_credit,
       wallet_amount,
+      use_savings_credit,
+      savings_amount,
+      savings_goal_id,
       // User ID
       user_id,
     } = body;
@@ -667,60 +713,101 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const orderCreateRpcName = hasVoucherItem
-      ? 'create_storefront_order_with_quiz_voucher'
-      : 'create_storefront_order';
+    const requestedSavingsRedemption =
+      use_savings_credit &&
+      savings_goal_id &&
+      typeof savings_amount === 'number' &&
+      savings_amount > 0;
+    const savingsRedemptionIdempotencyKey = requestedSavingsRedemption
+      ? getSavingsRedemptionIdempotencyKey({
+          customerEmail: customer_email,
+          items: orderItemsPayload.map((item) => ({
+            product_id: item.product_id ?? '',
+            quantity: item.quantity,
+            variant_id: item.variant_id ?? null,
+          })),
+          merchantId: merchant_id,
+          requestIdempotencyKey: getRequestIdempotencyKey(request),
+          savingsAmount: savings_amount,
+          savingsGoalId: savings_goal_id,
+        })
+      : null;
+
+    if (requestedSavingsRedemption && hasVoucherItem) {
+      return NextResponse.json(
+        {
+          code: 'SAVINGS_VOUCHER_COMBINATION_UNSUPPORTED',
+          error: 'Savings cannot be combined with quiz voucher orders',
+        },
+        { status: 400 }
+      );
+    }
+
+    const orderRpcArgs = {
+      p_merchant_id: merchant_id,
+      p_customer_email: customer_email,
+      p_customer_name: customer_name,
+      p_customer_phone: customer_phone || null,
+      p_items: orderItemsPayload,
+      p_shipping_fee: shippingFeeValue,
+      p_discount_amount: serverDerivedDiscountAmount,
+      p_tax_amount: serverComputedTaxAmount,
+      p_payment_method: payment_method,
+      p_payment_status: effectivePaymentStatus,
+      p_shipping_status: shipping_status,
+      p_shipping_address: shipping_address || null,
+      p_source: source,
+      p_notes: notes || null,
+      p_ad_tracking: adTrackingPayload,
+      p_selected_quote_id: body.selected_quote_id || null,
+      p_shipping_provider: resolvedShippingProvider,
+      p_tracking_number: resolvedTrackingNumber || null,
+      p_user_id: resolvedUserId,
+      // Server-computed tax — replaces the client-supplied value
+      // so legacy callers without `tax_amount` succeed and
+      // storefront callers can't fake a wrong-but-matching value
+      // (Codex P1 round 6).
+      // B3.5 (Δ-42, Δ-47): tax_basis + gift_wrapping_fee. The RPC
+      // enforces VAT itself for VAT-registered merchants and also
+      // runs a client/server total parity check (Codex P1) against
+      // p_expected_total BEFORE any side effects, so a mismatch
+      // rolls back atomically — no orphan order, no stock leak.
+      //
+      // Codex P1 round 6 (PR #1622): `tax_basis` is SERVER-controlled
+      // policy, NOT caller input. The RPC itself overrides
+      // `v_tax_basis := 'exclusive'` after enum validation
+      // (`create_storefront_order` is GRANT'd to anon via PostgREST,
+      // so the trust boundary has to live IN the function — see
+      // the `Codex P1 round 6 ii` comment in
+      // `20260512200000_storefront_order_vat_enforcement.sql`).
+      // This API-level hardcode is defense-in-depth — any caller
+      // routing through /api/orders also gets the right value
+      // without relying on PostgREST RLS / RPC behavior.
+      p_tax_basis: 'exclusive',
+      p_gift_wrapping_fee: giftWrappingFeeValue,
+      p_expected_total:
+        typeof body.expected_total === 'number' ? body.expected_total : null,
+      ...(quizVoucherRouteProof
+        ? { p_route_proof: quizVoucherRouteProof }
+        : {}),
+    };
+
+    const orderCreateRpcName = requestedSavingsRedemption
+      ? 'create_storefront_order_with_savings'
+      : hasVoucherItem
+        ? 'create_storefront_order_with_quiz_voucher'
+        : 'create_storefront_order';
 
     const { data: orderRows, error: orderError } = await supabase.rpc(
       orderCreateRpcName,
-      {
-        p_merchant_id: merchant_id,
-        p_customer_email: customer_email,
-        p_customer_name: customer_name,
-        p_customer_phone: customer_phone || null,
-        p_items: orderItemsPayload,
-        p_shipping_fee: shippingFeeValue,
-        p_discount_amount: serverDerivedDiscountAmount,
-        p_tax_amount: serverComputedTaxAmount,
-        p_payment_method: payment_method,
-        p_payment_status: effectivePaymentStatus,
-        p_shipping_status: shipping_status,
-        p_shipping_address: shipping_address || null,
-        p_source: source,
-        p_notes: notes || null,
-        p_ad_tracking: adTrackingPayload,
-        p_selected_quote_id: body.selected_quote_id || null,
-        p_shipping_provider: resolvedShippingProvider,
-        p_tracking_number: resolvedTrackingNumber || null,
-        p_user_id: resolvedUserId,
-        // Server-computed tax — replaces the client-supplied value
-        // so legacy callers without `tax_amount` succeed and
-        // storefront callers can't fake a wrong-but-matching value
-        // (Codex P1 round 6).
-        // B3.5 (Δ-42, Δ-47): tax_basis + gift_wrapping_fee. The RPC
-        // enforces VAT itself for VAT-registered merchants and also
-        // runs a client/server total parity check (Codex P1) against
-        // p_expected_total BEFORE any side effects, so a mismatch
-        // rolls back atomically — no orphan order, no stock leak.
-        //
-        // Codex P1 round 6 (PR #1622): `tax_basis` is SERVER-controlled
-        // policy, NOT caller input. The RPC itself overrides
-        // `v_tax_basis := 'exclusive'` after enum validation
-        // (`create_storefront_order` is GRANT'd to anon via PostgREST,
-        // so the trust boundary has to live IN the function — see
-        // the `Codex P1 round 6 ii` comment in
-        // `20260512200000_storefront_order_vat_enforcement.sql`).
-        // This API-level hardcode is defense-in-depth — any caller
-        // routing through /api/orders also gets the right value
-        // without relying on PostgREST RLS / RPC behavior.
-        p_tax_basis: 'exclusive',
-        p_gift_wrapping_fee: giftWrappingFeeValue,
-        p_expected_total:
-          typeof body.expected_total === 'number' ? body.expected_total : null,
-        ...(quizVoucherRouteProof
-          ? { p_route_proof: quizVoucherRouteProof }
-          : {}),
-      }
+      requestedSavingsRedemption
+        ? {
+            ...orderRpcArgs,
+            p_savings_amount: savings_amount,
+            p_savings_goal_id: savings_goal_id,
+            p_savings_idempotency_key: savingsRedemptionIdempotencyKey,
+          }
+        : orderRpcArgs
     );
 
     const order = Array.isArray(orderRows) ? orderRows[0] : orderRows;
@@ -732,6 +819,22 @@ export async function POST(request: NextRequest) {
         typeof orderError?.message === 'string'
           ? orderError.message
           : code || 'Failed to create order';
+      if (
+        requestedSavingsRedemption &&
+        (message.includes('savings_') || code === '22023' || code === '42501')
+      ) {
+        return NextResponse.json(
+          { code: code ?? 'SAVINGS_REDEMPTION_FAILED', error: message },
+          {
+            status:
+              code === '22023' ||
+              code === '42501' ||
+              message.includes('not_authorized')
+                ? 400
+                : 409,
+          }
+        );
+      }
       const clientErrorCodes = [
         'invalid_items',
         'invalid_quantity',
@@ -804,8 +907,55 @@ export async function POST(request: NextRequest) {
       newBalance: number;
       transactionId: string | null;
     } | null = null;
+    let savingsRedemptionResult: {
+      success: boolean;
+      amountRedeemed: number;
+      goalId: string;
+      redemptionId: string | null;
+    } | null = null;
 
-    if (use_wallet_credit && wallet_amount > 0 && customer_id) {
+    if (requestedSavingsRedemption) {
+      const savingsOrder = order as Record<string, unknown>;
+      if (savingsOrder.savings_redemption_success === true) {
+        savingsRedemptionResult = {
+          success: true,
+          amountRedeemed: Number(savingsOrder.savings_redeemed_amount),
+          goalId: String(savingsOrder.savings_goal_id ?? savings_goal_id),
+          redemptionId:
+            typeof savingsOrder.savings_redemption_id === 'string'
+              ? savingsOrder.savings_redemption_id
+              : null,
+        };
+      } else {
+        logger.error({
+          message: 'Savings redemption failed after order RPC',
+          orderId: order.id,
+          orderNumber: order.order_number,
+          customerId: customer_id,
+          merchantId: merchant_id,
+          savingsGoalId: savings_goal_id,
+          requestedSavingsAmount: savings_amount,
+          savingsRedemptionSuccess: savingsOrder.savings_redemption_success,
+        });
+        return NextResponse.json(
+          {
+            code: 'SAVINGS_REDEMPTION_FAILED',
+            error: 'Savings redemption failed',
+          },
+          { status: 409 }
+        );
+      }
+    }
+
+    const savingsAmountUsed = savingsRedemptionResult?.amountRedeemed || 0;
+    const remainingAfterSavings = Math.max(orderTotal - savingsAmountUsed, 0);
+
+    if (
+      use_wallet_credit &&
+      wallet_amount > 0 &&
+      customer_id &&
+      remainingAfterSavings > 0
+    ) {
       try {
         // Call atomic wallet redemption function (handles idempotency via order_id)
         const { data: redemptionData, error: redemptionError } =
@@ -813,7 +963,7 @@ export async function POST(request: NextRequest) {
             p_customer_id: customer_id,
             p_merchant_id: merchant_id,
             p_order_id: order.id,
-            p_amount: Math.min(wallet_amount, orderTotal), // Can't redeem more than order total
+            p_amount: Math.min(wallet_amount, remainingAfterSavings), // Can't redeem more than residual total
             p_order_reference: order.order_number || order.id,
           });
 
@@ -863,11 +1013,17 @@ export async function POST(request: NextRequest) {
 
     // Calculate amount due to payment gateway (total - wallet credit used)
     const walletAmountUsed = walletRedemptionResult?.amountRedeemed || 0;
-    const amountDueToGateway = orderTotal - walletAmountUsed;
+    const amountDueToGateway =
+      orderTotal - savingsAmountUsed - walletAmountUsed;
     let walletFinalized = false;
+    let storeCreditFinalized = false;
 
     // If wallet fully covers the order, mark as paid immediately (2025 best practice)
-    if (walletAmountUsed > 0 && amountDueToGateway <= 0) {
+    if (
+      savingsAmountUsed === 0 &&
+      walletAmountUsed > 0 &&
+      amountDueToGateway <= 0
+    ) {
       const { error: walletFinalizeError } = await supabase.rpc(
         'finalize_wallet_order_payment',
         {
@@ -892,6 +1048,46 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    if (savingsAmountUsed > 0 && amountDueToGateway <= 0) {
+      const paymentMethod = walletAmountUsed > 0 ? 'store_credit' : 'savings';
+      const { error: storeCreditFinalizeError } = await supabase.rpc(
+        'finalize_store_credit_order_payment',
+        {
+          p_amount: savingsAmountUsed + walletAmountUsed,
+          p_order_id: order.id,
+          p_payment_method: paymentMethod,
+        }
+      );
+
+      if (storeCreditFinalizeError) {
+        const message =
+          typeof storeCreditFinalizeError.message === 'string'
+            ? storeCreditFinalizeError.message
+            : 'Savings/store-credit payment finalization failed';
+        logger.error({
+          message: 'Failed to finalize savings/store-credit payment',
+          error: storeCreditFinalizeError,
+          orderId: order.id,
+        });
+        return NextResponse.json(
+          {
+            code: 'STORE_CREDIT_FINALIZE_FAILED',
+            error: message,
+            orderId: order.id,
+          },
+          { status: 409 }
+        );
+      }
+
+      storeCreditFinalized = true;
+      logger.info({
+        message: 'Order fully paid with savings/store credit',
+        orderId: order.id,
+        savingsAmountUsed,
+        walletAmountUsed,
+      });
+    }
+
     // NOTE: Order confirmation email is NOT sent here at order creation.
     // It is sent ONLY after payment is confirmed via webhook handlers:
     // - /api/payments/webhook/route.ts (for Paystack/Korapay)
@@ -903,7 +1099,7 @@ export async function POST(request: NextRequest) {
     // - Wallet-paid orders: payment already confirmed via wallet redemption
     //
     // after() runs after the response is sent — email/push never block the response.
-    const isWalletFullyPaid = walletFinalized;
+    const isWalletFullyPaid = walletFinalized || storeCreditFinalized;
     if (payOnDelivery || payment_method === 'invoice' || isWalletFullyPaid) {
       if (merchant.business_name && merchant.slug) {
         const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
@@ -1071,7 +1267,15 @@ export async function POST(request: NextRequest) {
     }
 
     const responseOrder = isWalletFullyPaid
-      ? { ...order, payment_status: 'paid', payment_method: 'wallet' }
+      ? {
+          ...order,
+          payment_status: 'paid',
+          payment_method: storeCreditFinalized
+            ? walletAmountUsed > 0
+              ? 'store_credit'
+              : 'savings'
+            : 'wallet',
+        }
       : order;
 
     // Return order with wallet info for checkout UI
@@ -1086,8 +1290,15 @@ export async function POST(request: NextRequest) {
               transactionId: walletRedemptionResult.transactionId,
             }
           : null,
+        savings: savingsRedemptionResult
+          ? {
+              amountUsed: savingsRedemptionResult.amountRedeemed,
+              goalId: savingsRedemptionResult.goalId,
+              redemptionId: savingsRedemptionResult.redemptionId,
+            }
+          : null,
         // Amount still due to payment gateway (for payment initialization)
-        amountDueToGateway,
+        amountDueToGateway: Math.max(amountDueToGateway, 0),
       },
       { status: 201 }
     );

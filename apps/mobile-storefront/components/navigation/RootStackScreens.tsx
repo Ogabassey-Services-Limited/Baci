@@ -160,6 +160,22 @@ export function renderRootStackScreens({
       }}
     />,
     <Stack.Screen
+      key="wallet/manage-cards"
+      name="wallet/manage-cards"
+      options={{
+        title: 'Manage Cards',
+        animation: 'slide_from_right',
+      }}
+    />,
+    <Stack.Screen
+      key="wallet/savings/start"
+      name="wallet/savings/start"
+      options={{
+        title: 'Start Savings',
+        animation: 'slide_from_right',
+      }}
+    />,
+    <Stack.Screen
       key="utilities"
       name="utilities"
       options={{

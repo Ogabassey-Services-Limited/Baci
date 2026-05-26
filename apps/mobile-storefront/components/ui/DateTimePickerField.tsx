@@ -1,0 +1,140 @@
+import DateTimePicker, {
+  type DateTimePickerEvent,
+} from '@react-native-community/datetimepicker';
+import { useState } from 'react';
+import type { StyleProp, TextStyle, ViewStyle } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
+
+type DateTimePickerFieldMode = 'date' | 'time';
+
+// The savings flow design defaults preferred debit time to 06:20 AM.
+const DEFAULT_TIME_HOUR = 6;
+const DEFAULT_TIME_MINUTE = 20;
+
+type DateTimePickerFieldProps = {
+  accessibilityLabel: string;
+  fieldStyle?: StyleProp<ViewStyle>;
+  fallbackDisplay: string;
+  label: string;
+  labelStyle?: StyleProp<TextStyle>;
+  mode: DateTimePickerFieldMode;
+  onChangeText: (value: string) => void;
+  textStyle?: StyleProp<TextStyle>;
+  value: string;
+  wrapperStyle?: StyleProp<ViewStyle>;
+};
+
+function parseDateValue(value: string) {
+  const [year, month, day] = value.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  if (
+    Number.isNaN(date.getTime()) ||
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) {
+    return undefined;
+  }
+  return date;
+}
+
+/**
+ * Parse an `HH:MM` time string for the native picker. Non-numeric or
+ * out-of-range components fall back to DEFAULT_TIME_HOUR and
+ * DEFAULT_TIME_MINUTE, and the returned Date always has seconds and
+ * milliseconds zeroed.
+ */
+function parseTimeValue(value: string) {
+  const [rawHours, rawMinutes] = value.split(':');
+  const parsedHours = Number(rawHours);
+  const parsedMinutes = Number(rawMinutes);
+  const hours =
+    Number.isFinite(parsedHours) && parsedHours >= 0 && parsedHours <= 23
+      ? parsedHours
+      : DEFAULT_TIME_HOUR;
+  const minutes =
+    Number.isFinite(parsedMinutes) && parsedMinutes >= 0 && parsedMinutes <= 59
+      ? parsedMinutes
+      : DEFAULT_TIME_MINUTE;
+  const date = new Date();
+  date.setHours(hours, minutes, 0, 0);
+  return date;
+}
+
+function formatDateValue(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function formatTimeValue(date: Date) {
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${hours}:${minutes}`;
+}
+
+function parsePickerValue(value: string, mode: DateTimePickerFieldMode) {
+  return mode === 'date' ? parseDateValue(value) : parseTimeValue(value);
+}
+
+function formatPickerValue(date: Date, mode: DateTimePickerFieldMode) {
+  return mode === 'date' ? formatDateValue(date) : formatTimeValue(date);
+}
+
+export function DateTimePickerField({
+  accessibilityLabel,
+  fallbackDisplay,
+  fieldStyle,
+  label,
+  labelStyle,
+  mode,
+  onChangeText,
+  textStyle,
+  value,
+  wrapperStyle,
+}: DateTimePickerFieldProps) {
+  const [isPickerVisible, setIsPickerVisible] = useState(false);
+  const pickerValue =
+    parsePickerValue(value, mode) ??
+    // The native picker requires a Date object; use today only at the UI
+    // boundary when an empty or malformed date is actively opened.
+    new Date();
+
+  const handlePickerChange = (
+    event: DateTimePickerEvent,
+    selectedDate?: Date
+  ) => {
+    if (event.type === 'dismissed') {
+      setIsPickerVisible(false);
+      return;
+    }
+
+    if (selectedDate) {
+      onChangeText(formatPickerValue(selectedDate, mode));
+    }
+    setIsPickerVisible(false);
+  };
+
+  return (
+    <View style={wrapperStyle}>
+      <Text style={labelStyle}>{label}</Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel}
+        onPress={() => setIsPickerVisible(true)}
+        style={fieldStyle}
+      >
+        <Text style={textStyle}>{value || fallbackDisplay}</Text>
+      </Pressable>
+      {isPickerVisible ? (
+        <DateTimePicker
+          accessibilityLabel={accessibilityLabel}
+          mode={mode}
+          value={pickerValue}
+          onChange={handlePickerChange}
+        />
+      ) : null}
+    </View>
+  );
+}

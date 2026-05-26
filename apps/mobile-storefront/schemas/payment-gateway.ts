@@ -38,7 +38,9 @@ const paymentGatewayParamsObject = z.object({
   ),
   reference: trimmedRequiredString('Reference is required'),
   amount: optionalPositiveAmount,
-  paymentKind: z.enum(['order', 'vtu', 'wallet']).default('order'),
+  paymentKind: z
+    .enum(['order', 'vtu', 'wallet', 'savings_auth'])
+    .default('order'),
   returnTo: sanitizedReturnTo,
   merchantId: trimmedOptionalString('Merchant id cannot be empty'),
   merchantSlug: trimmedOptionalString('Merchant slug cannot be empty'),
@@ -88,6 +90,11 @@ export const PaymentGatewayParamsSchema = paymentGatewayParamsObject
       return;
     }
 
+    if (data.paymentKind === 'savings_auth') {
+      // Savings card authorization requires only gateway fields, not order or amount context.
+      return;
+    }
+
     if (data.orderId === '') {
       ctx.addIssue({
         code: 'custom',
@@ -113,7 +120,9 @@ export const PaymentGatewayParamsSchema = paymentGatewayParamsObject
     }
   })
   .transform((data) =>
-    data.paymentKind === 'wallet' ? data : { ...data, returnTo: undefined }
+    data.paymentKind === 'wallet' || data.paymentKind === 'savings_auth'
+      ? data
+      : { ...data, returnTo: undefined }
   );
 
 export type PaymentGatewayParams = z.infer<typeof PaymentGatewayParamsSchema>;

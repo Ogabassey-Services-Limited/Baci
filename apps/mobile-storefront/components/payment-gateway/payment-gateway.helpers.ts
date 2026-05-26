@@ -14,6 +14,7 @@ export const isPaymentGateway = (value: unknown): value is PaymentGateway =>
 
 export const PAYMENT_KINDS = {
   ORDER: 'order',
+  SAVINGS_AUTH: 'savings_auth',
   VTU: 'vtu',
   WALLET: 'wallet',
 } as const;
