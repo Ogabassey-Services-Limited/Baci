@@ -143,6 +143,10 @@ export function CustomerAuthProvider({
 
     async function hydrateSession() {
       try {
+        setIsLoading(true);
+        setUser(null);
+        setCustomer(null);
+
         const session = await fetchCustomerSession(merchantSlug);
         if (cancelled) return;
 

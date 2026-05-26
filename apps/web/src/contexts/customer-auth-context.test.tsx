@@ -10,10 +10,16 @@ vi.mock('@/hooks/use-cart', () => ({
 }));
 
 function AuthProbe() {
-  const { isAuthenticated, isLoading } = useCustomerAuth();
+  const { customer, isAuthenticated, isLoading } = useCustomerAuth();
 
   return (
-    <p>{isLoading ? 'loading' : isAuthenticated ? 'authenticated' : 'guest'}</p>
+    <p>
+      {isLoading
+        ? 'loading'
+        : isAuthenticated
+          ? `authenticated:${customer?.email}`
+          : 'guest'}
+    </p>
   );
 }
 
@@ -48,7 +54,9 @@ describe('CustomerAuthProvider', () => {
       </CustomerAuthProvider>
     );
 
-    expect(await screen.findByText('authenticated')).toBeInTheDocument();
+    expect(
+      await screen.findByText('authenticated:quiz@example.com')
+    ).toBeInTheDocument();
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/storefront/auth/session?merchantSlug=ogabassey'
@@ -71,6 +79,77 @@ describe('CustomerAuthProvider', () => {
 
     expect(await screen.findByText('guest')).toBeInTheDocument();
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+  });
+
+  it('clears stale customer state while hydrating a new merchant slug', async () => {
+    let resolveSecondSession: (response: Response) => void = () => undefined;
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        Response.json({
+          authenticated: true,
+          customer: {
+            email: 'first@example.com',
+            first_name: 'First',
+            id: 'customer-1',
+            last_name: 'Customer',
+          },
+          user: {
+            email: 'first@example.com',
+            id: 'user-1',
+            role: 'customer',
+          },
+        })
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise<Response>((resolve) => {
+            resolveSecondSession = resolve;
+          })
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { rerender } = render(
+      <CustomerAuthProvider merchantSlug="first-store">
+        <AuthProbe />
+      </CustomerAuthProvider>
+    );
+
+    expect(
+      await screen.findByText('authenticated:first@example.com')
+    ).toBeInTheDocument();
+
+    rerender(
+      <CustomerAuthProvider merchantSlug="second-store">
+        <AuthProbe />
+      </CustomerAuthProvider>
+    );
+
+    expect(await screen.findByText('loading')).toBeInTheDocument();
+    expect(
+      screen.queryByText('authenticated:first@example.com')
+    ).not.toBeInTheDocument();
+
+    resolveSecondSession(
+      Response.json({
+        authenticated: true,
+        customer: {
+          email: 'second@example.com',
+          first_name: 'Second',
+          id: 'customer-2',
+          last_name: 'Customer',
+        },
+        user: {
+          email: 'second@example.com',
+          id: 'user-2',
+          role: 'customer',
+        },
+      })
+    );
+
+    expect(
+      await screen.findByText('authenticated:second@example.com')
+    ).toBeInTheDocument();
   });
 
   it('renders a guest session when hydration fails', async () => {
