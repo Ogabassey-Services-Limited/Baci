@@ -19,6 +19,9 @@ const mockVariantInsert = vi.fn();
 const mockFrom = vi.fn((table: string) => {
   if (table === 'quiz_events') {
     return {
+      delete: vi.fn(() => ({
+        eq: vi.fn().mockResolvedValue({ error: null }),
+      })),
       insert: vi.fn((payload: unknown) => {
         eventInsertPayload = payload;
         return {

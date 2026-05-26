@@ -29,10 +29,10 @@ function slugifyTitle(title: string): string {
   return slug || `quiz-${Date.now()}`;
 }
 
-function hashAnswerKey(answer: string): string {
+function hashAnswerKey(answer: string, salt: string): string {
   return crypto
     .createHash('sha256')
-    .update(answer.trim().toLowerCase())
+    .update(`${salt}:${answer.trim().toLowerCase()}`)
     .digest('hex');
 }
 
@@ -57,7 +57,7 @@ function createVariantRows(
 
     return {
       active: true,
-      answer_key_hash: hashAnswerKey(question.correctOptionId),
+      answer_key_hash: hashAnswerKey(question.correctOptionId, slot.id),
       explanation: question.explanation,
       options: question.options,
       prompt: question.prompt,
@@ -65,6 +65,15 @@ function createVariantRows(
       variant_key: `gemma-${index + 1}`,
     };
   });
+}
+
+async function deleteQuizDraftEvent(
+  supabase: NonNullable<
+    Awaited<ReturnType<typeof authenticateApiRequest>>['supabase']
+  >,
+  eventId: string
+) {
+  await supabase.from('quiz_events').delete().eq('id', eventId);
 }
 
 export async function POST(request: NextRequest) {
@@ -100,7 +109,7 @@ export async function POST(request: NextRequest) {
   const parsed = merchantQuizGenerationRequestSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: 'Invalid input', details: parsed.error.flatten() },
+      { error: 'Invalid input', code: 'INVALID_INPUT' },
       { status: 400 }
     );
   }
@@ -162,6 +171,7 @@ export async function POST(request: NextRequest) {
     .select('id, slot_index, category');
 
   if (slotsError || !slots) {
+    await deleteQuizDraftEvent(auth.supabase, event.id);
     return NextResponse.json(
       { error: 'Failed to create quiz topics' },
       { status: 500 }
@@ -172,6 +182,7 @@ export async function POST(request: NextRequest) {
   try {
     variantRows = createVariantRows(questions, slots as SlotRow[]);
   } catch {
+    await deleteQuizDraftEvent(auth.supabase, event.id);
     return NextResponse.json(
       { error: 'Failed to create quiz questions' },
       { status: 500 }
@@ -183,6 +194,7 @@ export async function POST(request: NextRequest) {
     .insert(variantRows);
 
   if (variantsError) {
+    await deleteQuizDraftEvent(auth.supabase, event.id);
     return NextResponse.json(
       { error: 'Failed to create quiz questions' },
       { status: 500 }

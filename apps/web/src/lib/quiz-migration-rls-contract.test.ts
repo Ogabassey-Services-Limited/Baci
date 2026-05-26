@@ -44,7 +44,7 @@ describe('quiz migration RLS contracts', () => {
 
   it('allows authenticated merchant owners and staff to author quiz events without exposing answers', () => {
     expect(merchantAuthoringSql).toMatch(
-      /GRANT\s+INSERT,\s+UPDATE\s+ON\s+public\.quiz_events\s+TO\s+authenticated/i
+      /GRANT\s+INSERT,\s+UPDATE,\s+DELETE\s+ON\s+public\.quiz_events\s+TO\s+authenticated/i
     );
     expect(merchantAuthoringSql).toMatch(
       /CREATE\s+POLICY\s+quiz_events_merchant_author_write[\s\S]*public\.has_merchant_access\(merchant_id\)/i
@@ -60,6 +60,9 @@ describe('quiz migration RLS contracts', () => {
     );
     expect(merchantAuthoringSql).toMatch(
       /CREATE\s+POLICY\s+quiz_variants_merchant_author_write[\s\S]*public\.has_merchant_access\([\s\S]*quiz_events\.merchant_id/i
+    );
+    expect(merchantAuthoringSql).toMatch(
+      /CREATE\s+POLICY\s+quiz_variants_merchant_author_read[\s\S]*FOR\s+SELECT[\s\S]*public\.has_merchant_access\([\s\S]*quiz_events\.merchant_id/i
     );
     expect(merchantAuthoringSql).not.toMatch(
       /GRANT\s+SELECT\s*\([^)]*answer_key_hash/i

@@ -22,12 +22,26 @@ function clampNumber(value: number, minimum: number, maximum: number): number {
   return Math.min(maximum, Math.max(minimum, value));
 }
 
+function clampNumberInput(
+  value: string,
+  minimum: number,
+  maximum: number
+): string {
+  return String(clampNumber(Number(value), minimum, maximum));
+}
+
+function isQuizDifficulty(
+  value: string
+): value is 'easy' | 'standard' | 'hard' {
+  return value === 'easy' || value === 'standard' || value === 'hard';
+}
+
 export function QuizAdminClient() {
   const [title, setTitle] = useState('Daily Phone Quiz');
   const [topics, setTopics] = useState(defaultTopics.join('\n'));
   const [prizeName, setPrizeName] = useState('Quiz prize');
-  const [timeLimitSeconds, setTimeLimitSeconds] = useState(30);
-  const [questionCountPerTopic, setQuestionCountPerTopic] = useState(1);
+  const [timeLimitSeconds, setTimeLimitSeconds] = useState('30');
+  const [questionCountPerTopic, setQuestionCountPerTopic] = useState('1');
   const [difficulty, setDifficulty] = useState<'easy' | 'standard' | 'hard'>(
     'standard'
   );
@@ -39,14 +53,28 @@ export function QuizAdminClient() {
 
   const handleGenerate = async () => {
     setError(null);
+    setResult(null);
     setIsGenerating(true);
     try {
+      const normalizedTimeLimitSeconds = clampNumber(
+        Number(timeLimitSeconds),
+        5,
+        60
+      );
+      const normalizedQuestionCountPerTopic = clampNumber(
+        Number(questionCountPerTopic),
+        1,
+        5
+      );
+      setTimeLimitSeconds(String(normalizedTimeLimitSeconds));
+      setQuestionCountPerTopic(String(normalizedQuestionCountPerTopic));
+
       const parsed = merchantQuizGenerationResponseSchema.safeParse(
         await apiPost('/api/merchant/quiz/generate', {
           difficulty,
           prizeName,
-          questionCountPerTopic,
-          timeLimitSeconds,
+          questionCountPerTopic: normalizedQuestionCountPerTopic,
+          timeLimitSeconds: normalizedTimeLimitSeconds,
           title,
           topics: topicsFromTextarea(topics),
         })
@@ -56,6 +84,7 @@ export function QuizAdminClient() {
       }
       setResult(parsed.data);
     } catch (error) {
+      setResult(null);
       setError(
         error instanceof Error ? error.message : 'Failed to generate quiz draft'
       );
@@ -104,11 +133,12 @@ export function QuizAdminClient() {
             <select
               className="h-11 rounded-md border bg-background px-3 text-sm"
               value={difficulty}
-              onChange={(event) =>
-                setDifficulty(
-                  event.target.value as 'easy' | 'standard' | 'hard'
-                )
-              }
+              onChange={(event) => {
+                const nextDifficulty = event.target.value;
+                if (isQuizDifficulty(nextDifficulty)) {
+                  setDifficulty(nextDifficulty);
+                }
+              }}
             >
               <option value="easy">Easy</option>
               <option value="standard">Standard</option>
@@ -123,10 +153,9 @@ export function QuizAdminClient() {
               max={60}
               type="number"
               value={timeLimitSeconds}
-              onChange={(event) =>
-                setTimeLimitSeconds(
-                  clampNumber(Number(event.target.value), 5, 60)
-                )
+              onChange={(event) => setTimeLimitSeconds(event.target.value)}
+              onBlur={() =>
+                setTimeLimitSeconds(clampNumberInput(timeLimitSeconds, 5, 60))
               }
             />
           </label>
@@ -138,9 +167,10 @@ export function QuizAdminClient() {
               max={5}
               type="number"
               value={questionCountPerTopic}
-              onChange={(event) =>
+              onChange={(event) => setQuestionCountPerTopic(event.target.value)}
+              onBlur={() =>
                 setQuestionCountPerTopic(
-                  clampNumber(Number(event.target.value), 1, 5)
+                  clampNumberInput(questionCountPerTopic, 1, 5)
                 )
               }
             />

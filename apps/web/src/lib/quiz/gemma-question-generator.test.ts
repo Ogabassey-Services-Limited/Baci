@@ -21,7 +21,7 @@ describe('generateQuizQuestionsWithGemma', () => {
     vi.clearAllMocks();
     mockGetLlmServerUrl.mockReturnValue('https://llm.example.com/v1');
     mockGetLlmServerBearer.mockReturnValue(VALID_BEARER);
-    mockGetLlmChatModel.mockReturnValue('gemma-4-e4b');
+    mockGetLlmChatModel.mockReturnValue('gemma4:e4b');
   });
 
   afterEach(() => {
@@ -92,15 +92,76 @@ describe('generateQuizQuestionsWithGemma', () => {
     const body = JSON.parse(String(mockFetch.mock.calls[0][1]?.body));
     expect(body).toMatchObject({
       max_tokens: 2400,
-      model: 'gemma-4-e4b',
+      model: 'gemma4:e4b',
       response_format: { type: 'json_object' },
       stream: false,
       temperature: 0.35,
     });
     expect(body.messages[0].role).toBe('system');
     expect(body.messages[0].content).toContain('quiz question writer');
+    expect(body.messages[0].content).toContain('Options must be objects');
     expect(body.messages[1].content).toContain('Ogabassey');
     expect(body.messages[1].content).toContain('iPhone buying advice');
+    expect(body.messages[1].content).toContain('requiredJsonShape');
+  });
+
+  it('normalizes Ollama Gemma option strings and numeric answer ordinals', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        Response.json({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  questions: [
+                    {
+                      correctOptionId: 2,
+                      difficulty: 'standard',
+                      explanation:
+                        'Battery and ports are the functional checks.',
+                      options: [
+                        'Checking cosmetic condition',
+                        'Testing battery health and ports',
+                        'Checking the original box',
+                        'Comparing online listings',
+                      ],
+                      prompt:
+                        'When buying a used iPhone, what is the most important functional check?',
+                      topic: 'iPhone buying advice',
+                    },
+                  ],
+                }),
+              },
+            },
+          ],
+        })
+      )
+    );
+
+    await expect(
+      generateQuizQuestionsWithGemma({
+        difficulty: 'standard',
+        merchantName: 'Ogabassey',
+        questionCountPerTopic: 1,
+        topics: ['iPhone buying advice'],
+      })
+    ).resolves.toEqual([
+      {
+        correctOptionId: 'b',
+        difficulty: 'standard',
+        explanation: 'Battery and ports are the functional checks.',
+        options: [
+          { id: 'a', label: 'Checking cosmetic condition' },
+          { id: 'b', label: 'Testing battery health and ports' },
+          { id: 'c', label: 'Checking the original box' },
+          { id: 'd', label: 'Comparing online listings' },
+        ],
+        prompt:
+          'When buying a used iPhone, what is the most important functional check?',
+        topic: 'iPhone buying advice',
+      },
+    ]);
   });
 
   it('fails closed before fetch when the Gemma VPS endpoint is not configured', async () => {
