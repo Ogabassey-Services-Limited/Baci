@@ -21,3 +21,14 @@ export interface Address {
   /** Marks the default address when present and true. */
   is_default?: boolean;
 }
+
+export interface AddressFormData {
+  label: string;
+  full_name: string;
+  phone: string;
+  address: string;
+  city: string;
+  state: string;
+  postal_code: string;
+  is_default: boolean;
+}
