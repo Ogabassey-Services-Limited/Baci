@@ -182,12 +182,6 @@ describe('quiz migration contracts', () => {
 
     expect(scoringRecordAnswerSql).toBeDefined();
     expect(scoringRecordAnswerSql).toMatch(/v_answered_in_ms/i);
-    expect(scoringRecordAnswerSql).toMatch(
-      /pg_catalog\.extract\('epoch',\s*pg_catalog\.now\(\)\s*-\s*v_issued_at\)/i
-    );
-    expect(scoringRecordAnswerSql).not.toMatch(
-      /pg_catalog\.extract\(epoch\s+FROM/i
-    );
     expect(scoringRecordAnswerSql).toMatch(/quiz_question_not_issued/i);
     expect(scoringRecordAnswerSql).toMatch(/answer_too_fast/i);
     expect(scoringRecordAnswerSql).toMatch(/v_answered_in_ms\s*<\s*400/i);

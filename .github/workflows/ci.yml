@@ -145,10 +145,6 @@ jobs:
       - uses: ./.github/actions/pnpm-install-cached
         with:
           store-dir: ${{ runner.temp }}/pnpm-store
-      - name: Generate Expo Router types
-        run: |
-          pnpm --filter @baci/mobile-storefront exec expo customize tsconfig.json
-          pnpm --filter baci-mobile-admin exec expo customize tsconfig.json
       - name: Run Typecheck
         run: pnpm turbo typecheck
 
