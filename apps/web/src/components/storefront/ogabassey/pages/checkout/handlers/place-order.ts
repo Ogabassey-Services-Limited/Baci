@@ -455,7 +455,11 @@ export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
       return;
     }
 
-    if (paymentMethod === 'paystack' || paymentMethod === 'korapay') {
+    if (
+      paymentMethod === 'paystack' ||
+      paymentMethod === 'korapay' ||
+      paymentMethod === 'klump'
+    ) {
       const result = await initializeCardPayment(
         merchant.id,
         order.id,
@@ -645,7 +649,7 @@ export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
   }
 }
 
-/** Initialize payment via Paystack or Korapay. */
+/** Initialize payment through the server-side payment initialization route. */
 async function initializeCardPayment(
   merchantId: string,
   orderId: string,

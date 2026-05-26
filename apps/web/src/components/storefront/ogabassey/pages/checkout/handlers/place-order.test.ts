@@ -453,6 +453,84 @@ describe('handlePlaceOrder', () => {
     });
   });
 
+  describe('Klump', () => {
+    it('initializes Klump payment after creating the order', async () => {
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            order: { id: 'order-klump', tracking_token: 'track-klump' },
+            wallet: null,
+            amountDueToGateway: 12000,
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            success: true,
+            authorization_url: window.location.href,
+          }),
+        });
+
+      const opts = buildOpts({ paymentMethod: 'klump' });
+      await handlePlaceOrder(opts);
+
+      const orderBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(orderBody).toEqual(
+        expect.objectContaining({
+          payment_method: 'card',
+        }),
+      );
+      expect(mockFetch).toHaveBeenCalledWith(
+        '/api/payments/initialize',
+        expect.objectContaining({ method: 'POST' }),
+      );
+      const initBody = JSON.parse(mockFetch.mock.calls[1][1].body);
+      expect(initBody).toEqual(
+        expect.objectContaining({
+          gateway: 'klump',
+          merchant_id: 'merchant-1',
+          order_id: 'order-klump',
+          amount: 12000,
+        }),
+      );
+    });
+
+    it('resets checkout state when Klump initialization fails', async () => {
+      const { toast } = await import('@/hooks/use-toast');
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            order: { id: 'order-klump', tracking_token: 'track-klump' },
+            wallet: null,
+            amountDueToGateway: 12000,
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: false,
+          json: async () => ({ error: 'Klump is not enabled for this merchant' }),
+        });
+
+      const opts = buildOpts({ paymentMethod: 'klump' });
+      await handlePlaceOrder(opts);
+
+      expect(toast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Checkout Failed',
+          description: 'Klump is not enabled for this merchant',
+        }),
+      );
+      expect(opts.setIsProcessing).toHaveBeenCalledWith(false);
+      expect(opts.isOrderInFlightRef.current).toBe(false);
+      expect(opts.setCurrentStep).toHaveBeenCalledWith('payment');
+      expect(opts.setCompletedSteps).toHaveBeenCalledWith({
+        contact: true,
+        delivery: true,
+      });
+    });
+  });
+
   describe('PayForMe', () => {
     it('redirects with payer name for payforme payment', async () => {
       mockFetch.mockResolvedValue({

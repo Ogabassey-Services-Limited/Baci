@@ -19,6 +19,17 @@ import type { PaymentMethod, PaymentTab } from '../types';
 
 type StepName = 'contact' | 'delivery' | 'payment';
 
+const PAYMENT_OPTION_BASE_CLASS =
+  'relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-store-primary has-[:focus-visible]:ring-offset-2 has-[:focus-visible]:ring-offset-white';
+
+function paymentOptionClassName(isSelected: boolean): string {
+  return `${PAYMENT_OPTION_BASE_CLASS} ${
+    isSelected
+      ? 'border-store-primary bg-store-primary/5'
+      : 'border-gray-200 bg-gray-50 hover:border-gray-300'
+  }`;
+}
+
 interface CompletedSteps {
   contact: boolean;
   delivery: boolean;
@@ -31,6 +42,7 @@ interface FeatureSettings {
   pay_on_delivery_enabled?: boolean;
   credpal_enabled?: boolean;
   credit_direct_enabled?: boolean;
+  klump_enabled?: boolean;
 }
 
 function isPaymentMethodAvailable({
@@ -61,6 +73,8 @@ function isPaymentMethodAvailable({
       return featureSettings?.credpal_enabled === true;
     case 'credit_direct':
       return featureSettings?.credit_direct_enabled === true;
+    case 'klump':
+      return featureSettings?.klump_enabled === true;
     case 'invoice':
     case 'payforme':
       return true;
@@ -68,6 +82,16 @@ function isPaymentMethodAvailable({
     default:
       return false;
   }
+}
+
+function hasAnyInstallmentOption(
+  featureSettings?: FeatureSettings | null
+): boolean {
+  return Boolean(
+    featureSettings?.credpal_enabled ||
+      featureSettings?.credit_direct_enabled ||
+      featureSettings?.klump_enabled
+  );
 }
 
 interface PaymentStepProps {
@@ -193,10 +217,9 @@ export function PaymentStep({
                   {/* Paystack */}
                   {paystackCheckoutAvailable && (
                     <label
-                      className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === 'paystack'
-                        ? 'border-store-primary bg-store-primary/5'
-                        : 'border-gray-200 bg-gray-50 hover:border-gray-300'
-                        }`}
+                      className={paymentOptionClassName(
+                        paymentMethod === 'paystack'
+                      )}
                     >
                       <input
                         type="radio"
@@ -223,10 +246,9 @@ export function PaymentStep({
                   {/* Bank Transfer (DVA) - Premium Option */}
                   {bankTransferCheckoutAvailable && (
                     <label
-                      className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === 'bank_transfer'
-                        ? 'border-store-primary bg-store-primary/5'
-                        : 'border-gray-200 bg-gray-50 hover:border-gray-300'
-                        }`}
+                      className={paymentOptionClassName(
+                        paymentMethod === 'bank_transfer'
+                      )}
                     >
                       <input
                         type="radio"
@@ -253,10 +275,9 @@ export function PaymentStep({
                   {/* Korapay */}
                   {korapayCheckoutAvailable && (
                     <label
-                      className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === 'korapay'
-                        ? 'border-store-primary bg-store-primary/5'
-                        : 'border-gray-200 bg-gray-50 hover:border-gray-300'
-                        }`}
+                      className={paymentOptionClassName(
+                        paymentMethod === 'korapay'
+                      )}
                     >
                       <input
                         type="radio"
@@ -282,10 +303,9 @@ export function PaymentStep({
                   {/* Juicyway */}
                   {merchant?.feature_settings?.juicyway_enabled === true && (
                     <label
-                      className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === 'juicyway'
-                        ? 'border-store-primary bg-store-primary/5'
-                        : 'border-gray-200 bg-gray-50 hover:border-gray-300'
-                        }`}
+                      className={paymentOptionClassName(
+                        paymentMethod === 'juicyway'
+                      )}
                     >
                       <input
                         type="radio"
@@ -312,10 +332,7 @@ export function PaymentStep({
                   {/* Pay on Delivery */}
                   {merchant?.feature_settings?.pay_on_delivery_enabled === true && (
                     <label
-                      className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === 'pod'
-                        ? 'border-store-primary bg-store-primary/5'
-                        : 'border-gray-200 bg-gray-50 hover:border-gray-300'
-                        }`}
+                      className={paymentOptionClassName(paymentMethod === 'pod')}
                     >
                       <input
                         type="radio"
@@ -351,10 +368,9 @@ export function PaymentStep({
                   {/* CredPal */}
                   {merchant?.feature_settings?.credpal_enabled === true && (
                     <label
-                      className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === 'credpal'
-                        ? 'border-store-primary bg-store-primary/5'
-                        : 'border-gray-200 bg-gray-50 hover:border-gray-300'
-                        }`}
+                      className={paymentOptionClassName(
+                        paymentMethod === 'credpal'
+                      )}
                     >
                       <input
                         type="radio"
@@ -381,10 +397,9 @@ export function PaymentStep({
                   {/* Credit Direct */}
                   {merchant?.feature_settings?.credit_direct_enabled === true && (
                     <label
-                      className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === 'credit_direct'
-                        ? 'border-store-primary bg-store-primary/5'
-                        : 'border-gray-200 bg-gray-50 hover:border-gray-300'
-                        }`}
+                      className={paymentOptionClassName(
+                        paymentMethod === 'credit_direct'
+                      )}
                     >
                       <input
                         type="radio"
@@ -405,6 +420,35 @@ export function PaymentStep({
                         <span className="text-xs text-gray-500 block mt-0.5">Pay in 3-6 monthly installments</span>
                       </div>
                       <CreditDirectLogo className="w-6 h-6" />
+                    </label>
+                  )}
+
+                  {/* Klump */}
+                  {merchant?.feature_settings?.klump_enabled === true && (
+                    <label
+                      className={paymentOptionClassName(paymentMethod === 'klump')}
+                    >
+                      <input
+                        type="radio"
+                        name="payment"
+                        value="klump"
+                        checked={paymentMethod === 'klump'}
+                        onChange={() => setPaymentMethod('klump')}
+                        className="sr-only"
+                      />
+                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'klump' ? 'border-store-primary' : 'border-gray-400'}`}>
+                        {paymentMethod === 'klump' && <div className="w-2.5 h-2.5 rounded-full bg-store-primary" />}
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-sm text-gray-900">Klump</span>
+                          <span className="text-[10px] bg-store-primary/10 text-store-primary px-1.5 py-0.5 rounded-full font-medium">Buy now, pay later</span>
+                        </div>
+                        <span className="text-xs text-gray-500 block mt-0.5">Split payment at checkout</span>
+                      </div>
+                      <div className="w-8 h-8 bg-store-primary/5 rounded-lg flex items-center justify-center text-xs font-black text-store-primary">
+                        K
+                      </div>
                     </label>
                   )}
                 </div>
@@ -449,8 +493,28 @@ export function PaymentStep({
                   </div>
                 )}
 
+                {/* Klump Info */}
+                {paymentMethod === 'klump' && (
+                  <div className="p-4 bg-store-primary/5 rounded-xl border border-store-primary/20 animate-in slide-in-from-top-2">
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 bg-store-primary/10 rounded-lg flex items-center justify-center shrink-0">
+                        <CreditCard size={16} className="text-store-primary" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-sm text-gray-900">How Klump works</h4>
+                        <ul className="mt-2 space-y-1 text-xs text-gray-600">
+                          <li>- Choose Klump at checkout</li>
+                          <li>- Complete approval securely</li>
+                          <li>- Split payment over time</li>
+                          <li>- Get your items immediately</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Show empty state if neither is enabled */}
-                {(!merchant?.feature_settings?.credpal_enabled && !merchant?.feature_settings?.credit_direct_enabled) && (
+                {!hasAnyInstallmentOption(merchant?.feature_settings) && (
                   <div className="text-center py-6 bg-gray-50 rounded-xl border border-dashed border-gray-300">
                     <p className="text-sm text-gray-500">No installment options are currently available.</p>
                   </div>

@@ -27,6 +27,7 @@ interface FeatureSettings {
   pay_on_delivery_enabled?: boolean;
   credpal_enabled?: boolean;
   credit_direct_enabled?: boolean;
+  klump_enabled?: boolean;
 }
 
 describe('PaymentStep', () => {
@@ -458,12 +459,53 @@ describe('PaymentStep', () => {
       expect(screen.getByTestId('credit-direct-logo')).toBeInTheDocument();
     });
 
+    it('shows Klump when enabled in feature settings', () => {
+      const merchant = {
+        feature_settings: { klump_enabled: true } as FeatureSettings,
+      };
+
+      render(
+        <PaymentStep
+          {...defaultProps}
+          merchant={merchant}
+          paymentTab="installments"
+        />
+      );
+
+      expect(screen.getByText('Klump')).toBeInTheDocument();
+      expect(screen.getByText('Split payment at checkout')).toBeInTheDocument();
+    });
+
+    it('applies visible keyboard focus styling to the Klump radio card', () => {
+      const merchant = {
+        feature_settings: { klump_enabled: true } as FeatureSettings,
+      };
+
+      render(
+        <PaymentStep
+          {...defaultProps}
+          merchant={merchant}
+          paymentTab="installments"
+        />
+      );
+
+      const klumpLabel = screen
+        .getByRole('radio', { name: /klump/i })
+        .closest('label');
+
+      expect(klumpLabel?.className).toContain('has-[:focus-visible]:ring-2');
+      expect(klumpLabel?.className).toContain(
+        'has-[:focus-visible]:ring-store-primary'
+      );
+    });
+
     it('shows empty state when no installment options are enabled', () => {
       // Arrange
       const merchant = {
         feature_settings: {
           credpal_enabled: false,
           credit_direct_enabled: false,
+          klump_enabled: false,
         } as FeatureSettings,
       };
 
@@ -522,6 +564,24 @@ describe('PaymentStep', () => {
       expect(screen.getByText(/instant approval decision/i)).toBeInTheDocument();
     });
 
+    it('shows Klump info when Klump is selected', () => {
+      const merchant = {
+        feature_settings: { klump_enabled: true } as FeatureSettings,
+      };
+
+      render(
+        <PaymentStep
+          {...defaultProps}
+          merchant={merchant}
+          paymentTab="installments"
+          paymentMethod="klump"
+        />
+      );
+
+      expect(screen.getByText('How Klump works')).toBeInTheDocument();
+      expect(screen.getByText(/complete approval securely/i)).toBeInTheDocument();
+    });
+
     it('calls setPaymentMethod when CredPal is selected', () => {
       // Arrange
       const setPaymentMethod = vi.fn();
@@ -545,6 +605,27 @@ describe('PaymentStep', () => {
       expect(setPaymentMethod).toHaveBeenCalledWith('credpal');
     });
 
+    it('calls setPaymentMethod when Klump is selected', () => {
+      const setPaymentMethod = vi.fn();
+      const merchant = {
+        feature_settings: { klump_enabled: true } as FeatureSettings,
+      };
+
+      render(
+        <PaymentStep
+          {...defaultProps}
+          merchant={merchant}
+          paymentTab="installments"
+          setPaymentMethod={setPaymentMethod}
+        />
+      );
+
+      const klumpLabel = screen.getByText('Klump').closest('label');
+      if (klumpLabel) fireEvent.click(klumpLabel);
+
+      expect(setPaymentMethod).toHaveBeenCalledWith('klump');
+    });
+
     it.each([
       [
         'credpal',
@@ -557,6 +638,14 @@ describe('PaymentStep', () => {
         {
           feature_settings: {
             credit_direct_enabled: false,
+          } as FeatureSettings,
+        },
+      ],
+      [
+        'klump',
+        {
+          feature_settings: {
+            klump_enabled: false,
           } as FeatureSettings,
         },
       ],
