@@ -61,3 +61,6 @@
 ## 2026-05-26 - Missing Interactive Press Feedback on Cart Items
 **Learning:** Several interactive elements within complex components like `CartItemCard` (e.g., product image containers, quantity adjustment buttons, remove buttons) used `Pressable` but failed to utilize the dynamic `style={({ pressed }) => [...]}` pattern, resulting in a lack of visual feedback during user interaction.
 **Action:** When creating or modifying `Pressable` components, particularly in highly interactive areas like the cart, ensure visual feedback is provided by adopting the dynamic style pattern and applying an opacity or background change when `pressed` is true.
+## 2026-05-26 - Do not leave temp files behind
+**Learning:** Do not leave artifact files like `patch.js` or `dummy.png` staged in git history.
+**Action:** Remove these files securely using `git rm` before attempting a submit.
