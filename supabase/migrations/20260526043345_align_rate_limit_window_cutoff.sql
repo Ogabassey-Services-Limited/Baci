@@ -34,7 +34,7 @@ BEGIN
 
   rate_limit_key :=
     COALESCE(rate_limit_identifier, '') || ':' || COALESCE(endpoint_param, '');
-  window_start_time := v_now - make_interval(mins => window_minutes);
+  window_start_time := current_window - make_interval(mins => window_minutes);
 
   PERFORM pg_advisory_xact_lock(hashtextextended(rate_limit_key, 0));
 
@@ -42,7 +42,7 @@ BEGIN
   FROM public.rate_limit_log
   WHERE identifier = rate_limit_identifier
     AND endpoint = endpoint_param
-    AND window_start > window_start_time;
+    AND window_start >= window_start_time;
 
   IF current_count >= max_requests THEN
     RETURN FALSE;
@@ -70,4 +70,4 @@ GRANT EXECUTE ON FUNCTION public.check_rate_limit(TEXT, TEXT, INTEGER, INTEGER) 
 GRANT EXECUTE ON FUNCTION public.check_rate_limit(TEXT, TEXT, INTEGER, INTEGER) TO service_role;
 
 COMMENT ON FUNCTION public.check_rate_limit(TEXT, TEXT, INTEGER, INTEGER)
-  IS 'Rate limit checker with configurable windows. Returns FALSE if limit exceeded.';
+  IS 'Rate limit checker with second-aligned configurable windows. Returns FALSE if limit exceeded.';
