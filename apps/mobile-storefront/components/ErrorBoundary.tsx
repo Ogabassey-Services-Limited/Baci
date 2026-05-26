@@ -217,8 +217,8 @@ export class GlobalErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.hasError) {
       const content = this.getErrorContent();
-      const isDark = this.state.colorScheme === 'dark';
-      const colors = Colors[isDark ? 'dark' : 'light'];
+      const colors =
+        Colors[this.state.colorScheme === 'dark' ? 'dark' : 'light'];
 
       return (
         <View
@@ -326,8 +326,7 @@ export function ErrorFallback({
   retry: () => void;
 }) {
   const colorScheme = Appearance.getColorScheme();
-  const isDark = colorScheme === 'dark';
-  const colors = Colors[isDark ? 'dark' : 'light'];
+  const colors = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
 
   // Log error for debugging
   logError(error, undefined, 'expo-router-fallback');
