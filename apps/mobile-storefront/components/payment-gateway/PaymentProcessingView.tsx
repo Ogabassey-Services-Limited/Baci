@@ -1,6 +1,5 @@
 import { Stack } from 'expo-router';
 import { ActivityIndicator, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { paymentGatewayStyles as styles } from '@/components/payment-gateway/payment-gateway.styles';
 import type Colors from '@/constants/Colors';
 
@@ -32,9 +31,7 @@ export function PaymentProcessingView({
       : "We're confirming your payment and receipt. This usually takes a few seconds.";
 
   return (
-    <SafeAreaView
-      style={[styles.container, { backgroundColor: colors.background }]}
-    >
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.centeredContainer}>
         <ActivityIndicator
@@ -51,6 +48,6 @@ export function PaymentProcessingView({
           {message}
         </Text>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
