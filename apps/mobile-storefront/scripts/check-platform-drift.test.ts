@@ -69,6 +69,76 @@ describe('check-platform-drift', () => {
     expect(result.stderr).toContain('components/NewBranch.tsx');
   });
 
+  it('fails when Platform is destructured and branched without direct Platform.OS syntax', () => {
+    const root = createFixture({
+      'components/Branch.tsx':
+        'import { Platform } from "react-native"; const { OS } = Platform; const isIOS = OS === "ios";',
+      'config/platform-branch-allowlist.json': JSON.stringify({ platformBranches: [] }),
+    });
+
+    const result = runDriftCheck(root);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('components/Branch.tsx');
+  });
+
+  it('fails when Platform is imported under a short alias and used as alias.OS', () => {
+    const root = createFixture({
+      'components/AliasDirect.tsx':
+        'import { Platform as P } from "react-native"; const isIOS = P.OS === "ios";',
+      'config/platform-branch-allowlist.json': JSON.stringify({ platformBranches: [] }),
+    });
+
+    const result = runDriftCheck(root);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('components/AliasDirect.tsx');
+  });
+
+  it('fails when Platform flows through assigned aliases before member access', () => {
+    const root = createFixture({
+      'components/AliasAssigned.tsx':
+        'import { Platform } from "react-native"; const P = Platform; const NativePlatform = P; const isIOS = NativePlatform.OS === "ios";',
+      'config/platform-branch-allowlist.json': JSON.stringify({ platformBranches: [] }),
+    });
+
+    const result = runDriftCheck(root);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('components/AliasAssigned.tsx');
+  });
+
+  it('fails on duplicate platform allowlist entries', () => {
+    const root = createFixture({
+      'app/index.tsx': 'const isIOS = Platform.OS === "ios";',
+      'config/platform-branch-allowlist.json': JSON.stringify({
+        platformBranches: ['app/index.tsx', 'app/index.tsx'],
+      }),
+    });
+
+    const result = runDriftCheck(root);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('Duplicate');
+  });
+
+  it('fails on duplicate object allowlist entries with the same path', () => {
+    const root = createFixture({
+      'app/index.tsx': 'const isIOS = Platform.OS === "ios";',
+      'config/platform-branch-allowlist.json': JSON.stringify({
+        platformBranches: [
+          { path: 'app/index.tsx', justification: 'first' },
+          { path: 'app/index.tsx', justification: 'duplicate path' },
+        ],
+      }),
+    });
+
+    const result = runDriftCheck(root);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('Duplicate');
+  });
+
   it('flags the forbidden iOS-only keyboard avoidance pattern', () => {
     const root = createFixture({
       'app/login.tsx':

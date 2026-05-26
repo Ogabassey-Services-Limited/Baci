@@ -5,6 +5,15 @@ import { fileURLToPath } from 'node:url';
 const SCAN_DIRECTORIES = ['app', 'components', 'hooks', 'lib', 'services', 'stores', 'utils'];
 const EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx']);
 const PLATFORM_PATTERN = /Platform\.(?:OS|select)/;
+const IDENTIFIER_PATTERN = String.raw`[A-Za-z_$][\w$]*`;
+const PLATFORM_IMPORT_PATTERN = new RegExp(
+  String.raw`import\s+(?:${IDENTIFIER_PATTERN}\s*,\s*)?\{[^}]*\bPlatform(?:\s+as\s+(${IDENTIFIER_PATTERN}))?\b[^}]*\}\s*from\s*['"]react-native['"]`,
+  'g'
+);
+const PLATFORM_ALIAS_ASSIGNMENT_PATTERN = new RegExp(
+  String.raw`\b(?:const|let|var)\s+(${IDENTIFIER_PATTERN})\s*=\s*(${IDENTIFIER_PATTERN})\b(?!\s*\.)`,
+  'g'
+);
 const IGNORED_SUFFIXES = ['.test.ts', '.test.tsx', '.test.js', '.test.jsx'];
 const FORBIDDEN_PATTERNS = [
   {
@@ -84,11 +93,29 @@ function normalizeKnownForbiddenEntry(entry) {
   throw new Error('knownForbiddenPatterns entries must be objects with string "path" and "patternId".');
 }
 
+function validateUniquePlatformBranches(platformBranches) {
+  const seen = new Set();
+  for (const entry of platformBranches) {
+    const normalizedPath =
+      typeof entry === 'string'
+        ? normalizePath(entry)
+        : normalizePathEntry(entry, 'platformBranches');
+    if (seen.has(normalizedPath)) {
+      throw new Error(`Duplicate platformBranches entry: ${normalizedPath}`);
+    }
+    seen.add(normalizedPath);
+  }
+}
+
 function parseAllowlist(rawAllowlist) {
   if (Array.isArray(rawAllowlist)) {
+    const platformBranches = rawAllowlist.map((entry) =>
+      normalizePathEntry(entry, 'allowlist')
+    );
+    validateUniquePlatformBranches(platformBranches);
     return {
       knownForbiddenPatterns: [],
-      platformBranches: rawAllowlist.map((entry) => normalizePathEntry(entry, 'allowlist')),
+      platformBranches,
     };
   }
 
@@ -99,6 +126,7 @@ function parseAllowlist(rawAllowlist) {
   const platformBranches = Array.isArray(rawAllowlist.platformBranches)
     ? rawAllowlist.platformBranches.map((entry) => normalizePathEntry(entry, 'platformBranches'))
     : [];
+  validateUniquePlatformBranches(platformBranches);
   const knownForbiddenPatterns = Array.isArray(rawAllowlist.knownForbiddenPatterns)
     ? rawAllowlist.knownForbiddenPatterns.map(normalizeKnownForbiddenEntry)
     : [];
@@ -142,6 +170,50 @@ function readProjectFile(projectRoot, relativePath, sourceCache) {
   return source;
 }
 
+function getPlatformIdentifiers(source) {
+  const identifiers = new Set(['Platform']);
+  for (const match of source.matchAll(PLATFORM_IMPORT_PATTERN)) {
+    if (match[1]) identifiers.add(match[1]);
+  }
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const match of source.matchAll(PLATFORM_ALIAS_ASSIGNMENT_PATTERN)) {
+      const assignedIdentifier = match[1];
+      const sourceIdentifier = match[2];
+      if (
+        identifiers.has(sourceIdentifier) &&
+        !identifiers.has(assignedIdentifier)
+      ) {
+        identifiers.add(assignedIdentifier);
+        changed = true;
+      }
+    }
+  }
+  return identifiers;
+}
+
+function hasPlatformBranchViaDestructure(source) {
+  for (const identifier of getPlatformIdentifiers(source)) {
+    const destructurePattern = new RegExp(
+      String.raw`\b(?:const|let|var)\s*\{[^}]*\b(?:OS|select)(?:\s*:\s*${IDENTIFIER_PATTERN})?\b[^}]*\}\s*=\s*${identifier}\b`
+    );
+    if (destructurePattern.test(source)) return true;
+  }
+  return false;
+}
+
+function hasPlatformBranchViaAliasMemberAccess(source) {
+  for (const identifier of getPlatformIdentifiers(source)) {
+    if (identifier === 'Platform') continue;
+    const aliasMemberPattern = new RegExp(
+      String.raw`\b${identifier}\s*\.\s*(?:OS|select)\b`
+    );
+    if (aliasMemberPattern.test(source)) return true;
+  }
+  return false;
+}
+
 export function findPlatformBranchFiles(
   projectRoot,
   sourceCache = new Map(),
@@ -149,7 +221,11 @@ export function findPlatformBranchFiles(
 ) {
   return scannedSourceFiles.filter((relativePath) => {
     const source = readProjectFile(projectRoot, relativePath, sourceCache);
-    return PLATFORM_PATTERN.test(source);
+    return (
+      PLATFORM_PATTERN.test(source) ||
+      hasPlatformBranchViaAliasMemberAccess(source) ||
+      hasPlatformBranchViaDestructure(source)
+    );
   });
 }
 
