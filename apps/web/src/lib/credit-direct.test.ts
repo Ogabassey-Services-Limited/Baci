@@ -55,11 +55,13 @@ describe('Credit Direct environment helpers', () => {
   });
 
   it('removes escaped trailing newlines from dashboard keys', () => {
-    vi.stubEnv('CREDIT_DIRECT_PRIVATE_KEY', 'private-key-value\\n');
-    vi.stubEnv('CREDIT_DIRECT_PUBLIC_KEY', 'public-key-value\\n');
+    vi.stubEnv('CREDIT_DIRECT_PRIVATE_KEY', 'private-key-value\\n   ');
+    vi.stubEnv('CREDIT_DIRECT_PUBLIC_KEY', 'public-key-value\\n   ');
+    vi.stubEnv('CREDIT_DIRECT_WEBHOOK_SECRET', 'webhook-secret\\n   ');
 
     expect(getPrivateKey()).toBe('private-key-value');
     expect(getPublicKey()).toBe('public-key-value');
+    expect(getWebhookSecret()).toBe('webhook-secret');
   });
 
   it('normalizes actual newlines, carriage returns, and whitespace', () => {

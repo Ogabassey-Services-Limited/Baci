@@ -265,6 +265,7 @@ export function isAmountEligible(
 
 function normalizeCreditDirectEnvValue(value: string | undefined): string {
   return (value ?? '')
+    .trim()
     .replace(/^(?:[\r\n]|\\r|\\n)+|(?:[\r\n]|\\r|\\n)+$/g, '')
     .trim();
 }
