@@ -18,6 +18,14 @@ const mockStorefrontScreenShell = jest.fn(
   )
 );
 
+function expectTabShell() {
+  expect(mockStorefrontScreenShell).toHaveBeenCalledWith(
+    expect.objectContaining({
+      edges: ['top'],
+    })
+  );
+}
+
 jest.mock('expo-router', () => ({
   router: {
     push: (...args: unknown[]) => mockPush(...args),
@@ -86,9 +94,7 @@ describe('CategoriesScreen', () => {
     render(<CategoriesScreen />);
 
     expect(screen.getByText('Phones')).toBeOnTheScreen();
-    expect(mockStorefrontScreenShell.mock.calls[0]?.[0].edges).toEqual([
-      'top',
-    ]);
+    expectTabShell();
   });
 
   it('uses the tab shell while categories are loading', () => {
@@ -102,9 +108,24 @@ describe('CategoriesScreen', () => {
 
     render(<CategoriesScreen />);
 
-    expect(mockStorefrontScreenShell.mock.calls[0]?.[0].edges).toEqual([
-      'top',
-    ]);
+    expectTabShell();
+  });
+
+  it('uses the tab shell for the online error state', () => {
+    mockUseNetworkState.mockReturnValue({ isOnline: true });
+    mockUseCategories.mockReturnValue({
+      data: [],
+      isLoading: false,
+      isError: true,
+      refetch: mockRefetch,
+      isRefetching: false,
+    });
+
+    render(<CategoriesScreen />);
+
+    expect(screen.getByText('Something went wrong')).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeOnTheScreen();
+    expectTabShell();
   });
 
   it('uses the tab shell for the offline error state', () => {
@@ -120,8 +141,6 @@ describe('CategoriesScreen', () => {
     render(<CategoriesScreen />);
 
     expect(screen.getByText("Can't load categories")).toBeOnTheScreen();
-    expect(mockStorefrontScreenShell.mock.calls[0]?.[0].edges).toEqual([
-      'top',
-    ]);
+    expectTabShell();
   });
 });
