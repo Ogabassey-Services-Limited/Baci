@@ -106,6 +106,7 @@ export function ShippingQuotesCard({
                       </Text>
                       {carrier.toLowerCase().includes('gig') && (
                         <View
+                          testID="shipping-quote-gigl-badge"
                           style={[
                             styles.badge,
                             {

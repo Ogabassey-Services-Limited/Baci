@@ -1,5 +1,4 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import { StyleSheet } from 'react-native';
 import { ShippingQuotesCard } from './ShippingQuotesCard';
 
 const mockColors = {
@@ -110,9 +109,9 @@ describe('ShippingQuotesCard', () => {
     );
 
     const badgeText = screen.getByText('GIGL');
-    const badgeStyle = StyleSheet.flatten(badgeText.parent?.props.style);
+    const badge = screen.getByTestId('shipping-quote-gigl-badge');
 
-    expect(badgeStyle).toMatchObject({
+    expect(badge).toHaveStyle({
       backgroundColor: mockDarkColors.foreground,
     });
     expect(badgeText).toHaveStyle({
