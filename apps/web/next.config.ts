@@ -435,6 +435,16 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/(.*)',
+        has: [{ type: 'host', value: 'ogabassey.com' }],
+        headers: [
+          {
+            key: 'Link',
+            value: '<https://cdn.ogabassey.com>; rel=preconnect',
+          },
+        ],
+      },
+      {
+        source: '/(.*)',
         headers: [
           {
             key: 'X-Content-Type-Options',

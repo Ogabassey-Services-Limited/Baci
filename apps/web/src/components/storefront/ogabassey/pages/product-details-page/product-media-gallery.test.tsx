@@ -12,6 +12,7 @@ vi.mock('next/image', () => ({
         )
       )}
       alt={String(props.alt ?? '')}
+      data-priority={props.priority ? 'true' : undefined}
     />
   ),
 }));
@@ -75,8 +76,8 @@ describe('ProductMediaGallery', () => {
       '(max-width: 767px) calc(100vw - 32px), (max-width: 1023px) calc(100vw - 48px), (max-width: 1439px) 40vw, 560px',
     );
     expect(screen.getByAltText('Test Product')).toHaveAttribute(
-      'loading',
-      'eager',
+      'data-priority',
+      'true',
     );
     expect(screen.getByAltText('Test Product')).toHaveAttribute(
       'decoding',
@@ -93,6 +94,29 @@ describe('ProductMediaGallery', () => {
     expect(
       screen.getByRole('button', { name: 'View image 2' }),
     ).toBeInTheDocument();
+  });
+
+  it('does not render redundant thumbnail controls for a single-image product', async () => {
+    render(
+      <ProductMediaGallery
+        onSelectImage={vi.fn()}
+        productData={buildProductData({
+          images: ['https://example.com/img-1.jpg'],
+        })}
+        selectedCondition="new"
+        selectedImage={0}
+      />,
+    );
+
+    expect(screen.getByAltText('Test Product')).toBeInTheDocument();
+
+    await act(async () => {
+      vi.advanceTimersByTime(1200);
+    });
+
+    expect(
+      screen.queryByRole('button', { name: 'View image 1' }),
+    ).not.toBeInTheDocument();
   });
 
   it('activates thumbnail controls on pointer interaction and forwards image selection', async () => {

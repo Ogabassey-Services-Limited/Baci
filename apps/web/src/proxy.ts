@@ -1398,6 +1398,9 @@ export async function proxy(request: NextRequest) {
           cloneRequestHeadersWithoutMerchantContext(request);
         sitemapHeaders.set('x-custom-domain', domain);
         sitemapHeaders.set('x-merchant-domain', domain);
+        if (domainMerchantSlug) {
+          sitemapHeaders.set('x-merchant-slug', domainMerchantSlug);
+        }
 
         const response = NextResponse.rewrite(sitemapUrl, {
           request: {
