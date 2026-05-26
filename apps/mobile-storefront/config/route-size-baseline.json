@@ -57,11 +57,6 @@
       "justification": "Existing oversized crypto-payment route baseline; shrink or remove this entry as the route is modularized."
     },
     {
-      "path": "app/faq/index.tsx",
-      "lineCount": 355,
-      "justification": "Existing oversized FAQ route baseline; shrink or remove this entry as the route is modularized."
-    },
-    {
       "path": "app/wallet/index.tsx",
       "lineCount": 354,
       "justification": "Existing oversized wallet route baseline; shrink or remove this entry as the route is modularized."
