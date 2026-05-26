@@ -11,6 +11,7 @@ const mockDeleteAccount = jest.fn();
 const mockRouterReplace = jest.fn();
 const mockToastSuccess = jest.fn();
 const mockToastError = jest.fn();
+const mockStackScreen = jest.fn();
 
 const mockUseRequireAuth = jest.fn(() => ({
   isLoading: false,
@@ -48,7 +49,10 @@ jest.mock('@/components/ui/Toast', () => ({
 jest.mock('expo-router', () => ({
   Redirect: ({ href }: { href: string }) => `Redirect:${href}`,
   Stack: {
-    Screen: () => null,
+    Screen: (props: { options: { title: string } }) => {
+      mockStackScreen(props);
+      return null;
+    },
   },
   useRouter: () => ({
     replace: mockRouterReplace,
@@ -81,6 +85,27 @@ describe('DeleteAccountScreen', () => {
     expect(
       screen.getByText('What we retain for compliance')
     ).toBeOnTheScreen();
+  });
+
+  it('keeps the delete-account title while authentication is loading', () => {
+    mockUseRequireAuth.mockReturnValue({
+      isLoading: true,
+      redirectTo: null,
+      user: {
+        app_metadata: { provider: 'email', providers: ['email'] },
+        identities: [],
+      },
+    });
+
+    render(<DeleteAccountScreen />);
+
+    expect(mockStackScreen).toHaveBeenCalledWith({
+      options: { title: 'Delete Account' },
+    });
+    expect(screen.getByLabelText('Loading delete account')).toHaveProp(
+      'accessibilityRole',
+      'progressbar'
+    );
   });
 
   it('requires confirmation before enabling delete button', () => {
