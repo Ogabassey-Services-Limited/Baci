@@ -2,7 +2,8 @@ import Ionicons from "@react-native-vector-icons/ionicons";
 import React from 'react';
 import { ActivityIndicator, Text, TouchableOpacity } from 'react-native';
 import { useHaptics } from '@/hooks/use-haptics';
-import { colors, styles } from '../styles';
+import { colors } from '../colors';
+import { styles } from '../styles';
 import type { SubmitButtonProps } from '../types';
 
 /**

@@ -1,7 +1,8 @@
 import Ionicons from "@react-native-vector-icons/ionicons";
 import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
-import { styles, colors } from '../styles';
+import { colors } from '../colors';
+import { styles } from '../styles';
 
 interface CreateAccountCardProps {
   onPress: () => void;

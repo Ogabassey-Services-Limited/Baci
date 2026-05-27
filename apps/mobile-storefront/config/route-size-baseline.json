@@ -1,15 +1,4 @@
 {
   "maxLines": 300,
-  "routes": [
-    {
-      "path": "app/track-order/index.tsx",
-      "lineCount": 902,
-      "justification": "Existing oversized tracking route baseline; shrink or remove this entry as the route is modularized."
-    },
-    {
-      "path": "app/bnpl-checkout/index.tsx",
-      "lineCount": 584,
-      "justification": "Existing oversized BNPL route baseline; shrink or remove this entry as the route is modularized."
-    }
-  ]
+  "routes": []
 }

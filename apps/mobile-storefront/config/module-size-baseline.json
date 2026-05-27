@@ -19,6 +19,11 @@
       "justification": "Product route shell extracted to component; decompose this screen into focused submodules and remove this entry."
     },
     {
+      "path": "components/track-order/TrackOrderScreen.tsx",
+      "lineCount": 902,
+      "justification": "Track-order route shell extracted to component; split this screen into focused submodules and remove this entry."
+    },
+    {
       "path": "services/ad-tracking.ts",
       "lineCount": 938,
       "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
@@ -42,6 +47,11 @@
       "path": "components/auth/LoginScreen.tsx",
       "lineCount": 626,
       "justification": "Login route shell extracted to component; decompose this screen into focused submodules and remove this entry."
+    },
+    {
+      "path": "components/bnpl-checkout/BNPLCheckoutScreen.tsx",
+      "lineCount": 600,
+      "justification": "BNPL checkout route shell extracted to component; split this screen into focused submodules and remove this entry."
     },
     {
       "path": "services/orders.ts",
@@ -169,16 +179,6 @@
       "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
     },
     {
-      "path": "components/storefront/Footer.tsx",
-      "lineCount": 328,
-      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
-    },
-    {
-      "path": "components/checkout/checkout-identity/styles.ts",
-      "lineCount": 325,
-      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
-    },
-    {
       "path": "components/quiz/QuizScreen.tsx",
       "lineCount": 316,
       "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
@@ -191,11 +191,6 @@
     {
       "path": "components/chat/ChatModal.tsx",
       "lineCount": 312,
-      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
-    },
-    {
-      "path": "lib/utility-repeat.ts",
-      "lineCount": 311,
       "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
     }
   ]

@@ -48,7 +48,7 @@ Tests      13 passed (13)
 ### `pnpm --filter @baci/mobile-storefront check:route-size`
 
 ```text
-[route-size] OK: 7 oversized route baselines within the decreasing 300-line budget.
+[route-size] OK: 0 oversized route baselines within the decreasing 300-line budget.
 ```
 
 ### `pnpm --filter @baci/mobile-storefront check:module-size`
@@ -59,6 +59,6 @@ Tests      13 passed (13)
 
 ## Current Gap Snapshot
 
-- Route-size baseline debt: `7` files
+- Route-size baseline debt: `0` files
 - Module-size baseline debt: `37` files
-- Required next action: execute modularization slices A-E until both baseline arrays are empty
+- Required next action: continue Slice E decomposition until the module baseline list is empty
