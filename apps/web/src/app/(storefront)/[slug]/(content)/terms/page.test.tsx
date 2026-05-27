@@ -77,4 +77,15 @@ describe('terms page rendering', () => {
     expect(element.type).toBe(Suspense);
     expect(mockConnection).toHaveBeenCalledOnce();
   });
+
+  it('surfaces connection failures to the route boundary', async () => {
+    mockConnection.mockRejectedValueOnce(new Error('Connection failed'));
+
+    await expect(
+      TermsPage({
+        params: Promise.resolve({ slug: 'ogabassey.com' }),
+      })
+    ).rejects.toThrow('Connection failed');
+    expect(mockConnection).toHaveBeenCalledOnce();
+  });
 });
