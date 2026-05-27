@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "pnpm turbo build --filter=@baci/web",
+  "buildCommand": "pnpm turbo build:webpack --filter=@baci/web",
   "outputDirectory": "apps/web/.next",
   "installCommand": "pnpm install --frozen-lockfile --prefer-offline",
   "framework": "nextjs",

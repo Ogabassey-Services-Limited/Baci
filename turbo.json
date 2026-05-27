@@ -37,6 +37,42 @@
         "SUPABASE_JWT_SECRET"
       ]
     },
+    "build:webpack": {
+      "dependsOn": ["^build"],
+      "outputs": [".next/**"],
+      "env": [
+        "NEXT_PUBLIC_SUPABASE_URL",
+        "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+        "NEXT_PUBLIC_APP_URL",
+        "NEXT_PUBLIC_ROOT_DOMAIN",
+        "SUPABASE_SERVICE_ROLE_KEY",
+        "UPSTASH_REDIS_REST_URL",
+        "UPSTASH_REDIS_REST_TOKEN",
+        "JUMIA_CLIENT_ID",
+        "JUMIA_CLIENT_SECRET",
+        "JUMIA_ENVIRONMENT",
+        "EXPO_ACCESS_TOKEN",
+        "INTERNAL_API_SECRET",
+        "CRON_SECRET",
+        "QUIZ_PHASE",
+        "QUIZ_PRODUCTION_APPROVED",
+        "QUIZ_APP_INTEGRITY_TIER_OVERRIDES_JSON",
+        "IMPORT_JOB_WORKER_SECRET",
+        "IMPORT_JOB_WORKER_BATCH_SIZE",
+        "IMPORT_JOB_DIRECT_UPLOAD_ENABLED",
+        "MONNIFY_API_KEY",
+        "MONNIFY_SECRET_KEY",
+        "MONNIFY_BASE_URL",
+        "CAC_API_URL",
+        "OLLAMA_BASE_URL",
+        "OLLAMA_CAC_MODEL",
+        "OLLAMA_BASIC_AUTH",
+        "LLM_SERVER_URL",
+        "LLM_SERVER_BEARER",
+        "LLM_CHAT_MODEL",
+        "SUPABASE_JWT_SECRET"
+      ]
+    },
     "dev": {
       "cache": false,
       "persistent": true
