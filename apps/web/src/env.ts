@@ -58,6 +58,23 @@ const optionalTrimmedStringSchema = z.preprocess((value) => {
   return trimmed || undefined;
 }, z.string().optional());
 
+const ENV_VALUE_LINE_BREAK_PATTERN = /\\n|\r?\n|\r/g;
+
+const aiChatProviderSchema = z.preprocess(
+  (value) => {
+    if (value === undefined) return value;
+    if (typeof value !== 'string') return value;
+
+    const trimmed = value
+      .replace(ENV_VALUE_LINE_BREAK_PATTERN, '')
+      .trim()
+      .toLowerCase();
+    return trimmed || undefined;
+  },
+  z.enum(['auto', 'gemini', 'llm', 'ollama']).default('auto')
+);
+export type AiChatProvider = z.infer<typeof aiChatProviderSchema>;
+
 const DEFAULT_CAC_API_URL =
   'https://authapp.cac.gov.ng/name_similarity_app/api/public_search/search';
 const DEFAULT_CAC_TIN_API_BASE_URL =
@@ -169,6 +186,7 @@ const serverSchema = z
     GOOGLE_MAPS_API_KEY: optionalTrimmedStringSchema,
     GOOGLE_PLACES_API_KEY: optionalTrimmedStringSchema,
     AI_CHAT_MODEL: z.string().default('gemma4:e4b'),
+    AI_CHAT_PROVIDER: aiChatProviderSchema,
 
     // BNPL
     CREDIT_DIRECT_PRIVATE_KEY: z.string().optional(),
@@ -337,13 +355,11 @@ const formatErrors = (
     })
     .filter(Boolean);
 
-const MODEL_NAME_LINE_BREAK_PATTERN = /\\n|\r?\n|\r/g;
-
 const validateSanitizedModel = (
   value: string | undefined,
   name: string
 ): string => {
-  const model = value?.replace(MODEL_NAME_LINE_BREAK_PATTERN, '').trim() ?? '';
+  const model = value?.replace(ENV_VALUE_LINE_BREAK_PATTERN, '').trim() ?? '';
 
   if (!model) {
     throw new Error(`${name} must resolve to a non-empty model name`);
@@ -408,6 +424,7 @@ const getEnv = () => {
         GOOGLE_MAPS_API_KEY: process.env.GOOGLE_MAPS_API_KEY,
         GOOGLE_PLACES_API_KEY: process.env.GOOGLE_PLACES_API_KEY,
         AI_CHAT_MODEL: process.env.AI_CHAT_MODEL,
+        AI_CHAT_PROVIDER: process.env.AI_CHAT_PROVIDER,
         CREDIT_DIRECT_PRIVATE_KEY: process.env.CREDIT_DIRECT_PRIVATE_KEY,
         NODE_ENV: process.env.NODE_ENV,
         JUICYWAY_BASE_URL: process.env.JUICYWAY_BASE_URL,
@@ -721,6 +738,24 @@ export const getAiChatModel = () => {
   if (typeof window !== 'undefined')
     throw new Error('AI_CHAT_MODEL cannot be accessed on the client');
   return validateSanitizedModel(env.AI_CHAT_MODEL, 'AI_CHAT_MODEL');
+};
+export const getAiChatProvider = (): AiChatProvider => {
+  if (typeof window !== 'undefined')
+    throw new Error('AI_CHAT_PROVIDER cannot be accessed on the client');
+
+  const runtimeProvider = process.env.AI_CHAT_PROVIDER;
+  if (runtimeProvider !== undefined) {
+    const parsedProvider = aiChatProviderSchema.safeParse(runtimeProvider);
+    if (!parsedProvider.success) {
+      throw new Error(
+        'AI_CHAT_PROVIDER must be one of auto, gemini, llm, ollama'
+      );
+    }
+
+    return parsedProvider.data;
+  }
+
+  return env.AI_CHAT_PROVIDER;
 };
 export const getCreditDirectPublicKey = () => env?.CREDIT_DIRECT_PUBLIC_KEY;
 export const getCreditDirectPrivateKey = () => env?.CREDIT_DIRECT_PRIVATE_KEY;
