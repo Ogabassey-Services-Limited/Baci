@@ -2,29 +2,14 @@
   "maxLines": 300,
   "routes": [
     {
-      "path": "app/orders/[id].tsx",
-      "lineCount": 748,
-      "justification": "Existing Phase 6 orders detail decomposition baseline; shrink or remove this entry as the route is modularized."
-    },
-    {
       "path": "app/track-order/index.tsx",
       "lineCount": 902,
       "justification": "Existing oversized tracking route baseline; shrink or remove this entry as the route is modularized."
     },
     {
-      "path": "app/auth/login.tsx",
-      "lineCount": 626,
-      "justification": "Existing oversized auth route baseline; shrink or remove this entry as the route is modularized."
-    },
-    {
       "path": "app/bnpl-checkout/index.tsx",
       "lineCount": 584,
       "justification": "Existing oversized BNPL route baseline; shrink or remove this entry as the route is modularized."
-    },
-    {
-      "path": "app/wallet/index.tsx",
-      "lineCount": 351,
-      "justification": "Existing oversized wallet route baseline; shrink or remove this entry as the route is modularized."
     }
   ]
 }

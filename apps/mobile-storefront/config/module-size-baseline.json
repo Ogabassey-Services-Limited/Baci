@@ -34,6 +34,16 @@
       "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
     },
     {
+      "path": "components/orders/OrderDetailsScreen.tsx",
+      "lineCount": 748,
+      "justification": "Orders route shell extracted to component; decompose this screen into focused submodules and remove this entry."
+    },
+    {
+      "path": "components/auth/LoginScreen.tsx",
+      "lineCount": 626,
+      "justification": "Login route shell extracted to component; decompose this screen into focused submodules and remove this entry."
+    },
+    {
       "path": "services/orders.ts",
       "lineCount": 607,
       "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
@@ -132,6 +142,11 @@
       "path": "components/storefront/ProductGrid.tsx",
       "lineCount": 360,
       "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
+    },
+    {
+      "path": "components/wallet/WalletScreen.tsx",
+      "lineCount": 351,
+      "justification": "Wallet route shell extracted to component; decompose this screen into focused submodules and remove this entry."
     },
     {
       "path": "components/utilities/use-airtime-form-controller.ts",
