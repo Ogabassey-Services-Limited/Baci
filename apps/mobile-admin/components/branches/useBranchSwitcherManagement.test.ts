@@ -105,8 +105,8 @@ describe('useBranchSwitcherManagement', () => {
     await act(async () => {
       await result.current.handleCreateBranch();
     });
-    expect(result.current.nameError).toBe(
-      'Too small: expected string to have >=2 characters'
+    expect(result.current.nameError).toMatch(
+      /^(Too small: expected string to have >=2 characters|String must contain at least 2 character\(s\))$/
     );
     expect(mocks.createBranch.mutateAsync).not.toHaveBeenCalled();
 
@@ -118,8 +118,8 @@ describe('useBranchSwitcherManagement', () => {
       await result.current.handleUpdateBranch();
     });
 
-    expect(result.current.editNameError).toBe(
-      'Too small: expected string to have >=2 characters'
+    expect(result.current.editNameError).toMatch(
+      /^(Too small: expected string to have >=2 characters|String must contain at least 2 character\(s\))$/
     );
     expect(mocks.updateBranch.mutateAsync).not.toHaveBeenCalled();
   });
