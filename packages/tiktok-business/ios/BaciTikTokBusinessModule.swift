@@ -48,8 +48,8 @@ private enum BaciTikTokBusinessInitializer {
       return false
     }
 
-    guard let config = TikTokConfig.config(
-      withAccessToken: settings.appSecret,
+    guard let config = TikTokConfig(
+      accessToken: settings.appSecret,
       appId: settings.appId,
       tiktokAppId: settings.tiktokAppId
     ) else {
