@@ -54,11 +54,11 @@ Tests      13 passed (13)
 ### `pnpm --filter @baci/mobile-storefront check:module-size`
 
 ```text
-[module-size] OK: 29 oversized module baselines within the decreasing 300-line budget.
+[module-size] OK: 28 oversized module baselines within the decreasing 300-line budget.
 ```
 
 ## Current Gap Snapshot
 
 - Route-size baseline debt: `0` files
-- Module-size baseline debt: `29` files
+- Module-size baseline debt: `28` files
 - Required next action: continue Slice E decomposition until the module baseline list is empty
