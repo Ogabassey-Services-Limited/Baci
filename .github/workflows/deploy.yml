@@ -101,7 +101,7 @@ jobs:
       group: vps-deploy-build
       cancel-in-progress: false
     runs-on: baci-deploy
-    timeout-minutes: 75
+    timeout-minutes: 150
     env:
       BLOG_SMOKE_BASE_URL: ${{ vars.BLOG_SMOKE_BASE_URL || 'https://ogabassey.com' }}
       BLOG_SMOKE_TAG: blog-posts
