@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
   const parsed = ucpCartCreateRequestSchema.safeParse(mutation.body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: 'Invalid request body', details: parsed.error.flatten() },
+      { error: 'Invalid request body' },
       { status: 400 }
     );
   }
@@ -150,23 +150,24 @@ export async function POST(request: NextRequest) {
   }
 
   if (calculation.lineItems.length === 0) {
-    return respond(
-      { error: 'No valid cart items', messages: calculation.messages },
-      400
-    );
+    return respond({ error: 'No valid cart items' }, 400);
   }
 
   const cartId = `cart_${randomUUID().replaceAll('-', '')}`;
   const shippingAddress = adaptUcpShippingAddressToAgentic(
     parsed.data.shipping_address
   );
+  const normalizedItems = calculation.lineItems.map((lineItem) => ({
+    id: lineItem.item.id,
+    quantity: lineItem.item.quantity,
+  }));
   const { error } = await supabase.from('agentic_cart_sessions').insert(
     buildUcpCartInsert({
       agentId: mutation.agentId,
       buyer: parsed.data.buyer ?? {},
       cartId,
       currency,
-      items,
+      items: normalizedItems,
       merchantId: merchant.id,
       metadata: { source: 'ucp' },
       shippingAddress,

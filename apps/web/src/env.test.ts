@@ -119,6 +119,21 @@ describe('env validation', () => {
     await expect(loadEnvModule()).resolves.toBeDefined();
   });
 
+  it('accepts common truthy values for Google Pay enablement', async () => {
+    vi.stubEnv('BACI_GOOGLE_PAY_ENABLED', 'yes');
+    vi.stubEnv('BACI_GOOGLE_PAY_GATEWAY', 'paystack');
+    vi.stubEnv('BACI_GOOGLE_PAY_GATEWAY_MERCHANT_ID', 'merchant-gateway');
+    vi.stubEnv('BACI_GOOGLE_PAY_MERCHANT_ID', 'merchant-google-pay');
+
+    const { getGooglePayAgenticConfig } = await loadEnvModule();
+
+    expect(getGooglePayAgenticConfig()).toEqual({
+      gateway: 'paystack',
+      gatewayMerchantId: 'merchant-gateway',
+      merchantId: 'merchant-google-pay',
+    });
+  });
+
   it('rejects production boot when the agentic JWT signing key is malformed', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     vi.stubEnv('NODE_ENV', 'production');

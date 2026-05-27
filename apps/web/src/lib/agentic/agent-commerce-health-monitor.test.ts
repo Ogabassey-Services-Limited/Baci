@@ -122,6 +122,21 @@ describe('checkAgentCommerceUniversalCartReadiness', () => {
 
     expect(result.status).toBe('pass');
   });
+
+  it('marks Universal Cart readiness failed when the profile cannot be fetched', async () => {
+    const result = await checkAgentCommerceUniversalCartReadiness(
+      { custom_domain: 'ogabassey.com', slug: 'ogabassey' },
+      () => {
+        throw new Error('network down');
+      }
+    );
+
+    expect(result.status).toBe('fail');
+    expect(result.checks[0]).toMatchObject({
+      id: 'ucp_profile_reachable',
+      status: 'fail',
+    });
+  });
 });
 
 describe('fetchPrimaryAgenticMerchantDomains', () => {

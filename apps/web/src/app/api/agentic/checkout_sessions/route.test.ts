@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type {
   GPTFulfillmentOption,
@@ -485,6 +485,36 @@ describe('POST /api/agentic/checkout_sessions', () => {
       })
     );
     expect(calculateCheckoutSession).not.toHaveBeenCalled();
+  });
+
+  it('returns conversion errors for UCP cart references', async () => {
+    vi.mocked(mockConvertUcpCartToCheckout).mockResolvedValueOnce(
+      NextResponse.json({ error: 'Cart not found' }, { status: 404 })
+    );
+    const mockSupabase = { from: vi.fn() };
+    vi.mocked(createAdminClient).mockReturnValue(mockSupabase as never);
+    vi.mocked(createAgenticScopedSupabaseClient).mockReturnValue(
+      mockSupabase as never
+    );
+
+    const request = new NextRequest(
+      'http://localhost/api/agentic/checkout_sessions',
+      {
+        body: JSON.stringify({ cart_id: 'cart_missing' }),
+        headers: {
+          'Content-Type': 'application/json',
+          'Idempotency-Key': 'idem-1',
+        },
+        method: 'POST',
+      }
+    );
+
+    const { POST } = await import('./route');
+    const response = await POST(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(404);
+    expect(body).toEqual({ error: 'Cart not found' });
   });
 
   it('creates a checkout session from native ACP item-shaped line_items and fulfillment_details', async () => {

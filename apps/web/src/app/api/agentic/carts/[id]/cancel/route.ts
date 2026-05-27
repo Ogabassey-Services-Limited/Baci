@@ -30,7 +30,7 @@ export async function POST(request: NextRequest, props: RouteProps) {
   const parsedParams = ucpCartRouteParamsSchema.safeParse(await props.params);
   if (!parsedParams.success) {
     return NextResponse.json(
-      { error: 'Invalid route params', details: parsedParams.error.flatten() },
+      { error: 'Invalid route params' },
       { status: 400 }
     );
   }

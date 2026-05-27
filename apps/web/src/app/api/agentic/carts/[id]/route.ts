@@ -40,7 +40,7 @@ export async function GET(request: NextRequest, props: RouteProps) {
   const parsedParams = ucpCartRouteParamsSchema.safeParse(await props.params);
   if (!parsedParams.success) {
     return NextResponse.json(
-      { error: 'Invalid route params', details: parsedParams.error.flatten() },
+      { error: 'Invalid route params' },
       { status: 400 }
     );
   }
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest, props: RouteProps) {
   const parsedParams = ucpCartRouteParamsSchema.safeParse(await props.params);
   if (!parsedParams.success) {
     return NextResponse.json(
-      { error: 'Invalid route params', details: parsedParams.error.flatten() },
+      { error: 'Invalid route params' },
       { status: 400 }
     );
   }
@@ -95,7 +95,7 @@ export async function POST(request: NextRequest, props: RouteProps) {
   const parsed = ucpCartUpdateRequestSchema.safeParse(mutation.body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: 'Invalid request body', details: parsed.error.flatten() },
+      { error: 'Invalid request body' },
       { status: 400 }
     );
   }
@@ -165,10 +165,7 @@ export async function POST(request: NextRequest, props: RouteProps) {
   if (cartResult.error) return respond({ error: 'Database error' }, 500);
   if (!cartResult.cart) return respond({ error: 'Cart not found' }, 404);
   if (cartResult.cart.status !== 'active') {
-    return respond(
-      { error: 'Cart cannot be updated', status: cartResult.cart.status },
-      409
-    );
+    return respond({ error: 'Cart cannot be updated' }, 409);
   }
 
   const existingItems = coerceUcpCartItems(cartResult.cart.cart_items);
@@ -190,10 +187,7 @@ export async function POST(request: NextRequest, props: RouteProps) {
     context.merchant.id
   );
   if (calculation.lineItems.length === 0) {
-    return respond(
-      { error: 'No valid cart items', messages: calculation.messages },
-      400
-    );
+    return respond({ error: 'No valid cart items' }, 400);
   }
 
   const updatePayload = buildUcpCartUpdate({

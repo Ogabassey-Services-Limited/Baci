@@ -113,6 +113,14 @@ export function updateUcpCart(
   input: z.input<z.ZodObject<typeof updateUcpCartInputSchema>>,
   config: AgenticCheckoutClientConfig
 ) {
+  if (
+    input.items === undefined &&
+    input.buyer === undefined &&
+    input.currency === undefined &&
+    input.shipping_address === undefined
+  ) {
+    throw new Error('Update UCP cart requires at least one mutable field');
+  }
   const idempotencyKey =
     input.idempotency_key ?? `mcp_ucp_cart_update_${randomUUID()}`;
   return sendAgenticUcpRequest({

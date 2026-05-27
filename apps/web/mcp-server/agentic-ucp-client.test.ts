@@ -151,6 +151,15 @@ describe('agentic UCP client', () => {
     });
   });
 
+  it('rejects UCP cart updates without mutable fields', async () => {
+    const fetchImpl = vi.fn();
+
+    expect(() =>
+      updateUcpCart({ cart_id: 'cart_1' }, { ...baseConfig, fetchImpl })
+    ).toThrow(/requires at least one mutable field/i);
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
   it('reads and converts encoded UCP cart ids through their route paths', async () => {
     const fetchImpl = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ id: 'cart_1' }), { status: 200 })

@@ -128,7 +128,7 @@ function mockMutation(body: unknown) {
   });
 }
 
-function mockCalculation(quantity = 1) {
+function mockCalculation(quantity = 1, productId = 'product-1') {
   const total = 500000 * quantity;
   vi.mocked(calculateCheckoutSession).mockResolvedValue({
     fulfillmentOptions: [],
@@ -136,10 +136,10 @@ function mockCalculation(quantity = 1) {
       {
         base_amount: total,
         discount: 0,
-        id: 'line_product-1',
+        id: `line_${productId}`,
         item: {
-          id: 'product-1',
-          product_id: 'product-1',
+          id: productId,
+          product_id: productId,
           quantity,
           title: 'Phone',
         },
@@ -235,8 +235,8 @@ describe('/api/agentic/carts/[id]', () => {
     mockMutation({
       line_items: [{ item: { id: 'product-2' }, quantity: 2 }],
     });
-    mockCalculation(2);
-    const { updateChain } = createSupabaseMock({
+    mockCalculation(2, 'product-2');
+    createSupabaseMock({
       cartResult: {
         data: {
           buyer: { email: 'buyer@example.com' },
@@ -264,14 +264,11 @@ describe('/api/agentic/carts/[id]', () => {
       }),
       { params: Promise.resolve({ id: 'cart_123' }) }
     );
+    const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(updateChain.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        buyer: { email: 'buyer@example.com' },
-        cart_items: [{ id: 'product-2', quantity: 2 }],
-      })
-    );
+    expect(body.line_items[0].item.id).toBe('product-2');
+    expect(body.line_items[0].quantity).toBe(2);
   });
 
   it('rejects updates after a cart is converted', async () => {

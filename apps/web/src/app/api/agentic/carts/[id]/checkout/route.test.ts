@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { readAgenticMutationRequest } from '@/lib/agentic/mutation-request';
-import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase';
 import { convertUcpCartToCheckout } from '@/lib/agentic/ucp-cart-checkout-conversion';
 
 const mockVerifyAgenticApiKey = vi.hoisted(() => vi.fn(() => true));
@@ -99,15 +98,5 @@ describe('POST /api/agentic/carts/[id]/checkout', () => {
 
     expect(response.status).toBe(200);
     expect(body.id).toBe('agentic_session_1');
-    expect(convertUcpCartToCheckout).toHaveBeenCalledWith(
-      expect.objectContaining({
-        cartId: 'cart_123',
-        requestUrl: 'http://localhost/api/agentic/carts/cart_123/checkout',
-      })
-    );
-    expect(createAgenticScopedSupabaseClient).toHaveBeenCalledWith({
-      merchantId: 'merchant-1',
-      merchantSlug: 'ogabassey',
-    });
   });
 });

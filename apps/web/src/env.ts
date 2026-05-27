@@ -684,10 +684,11 @@ export type GooglePayAgenticConfig = {
 };
 export const getGooglePayAgenticConfig = () => {
   if (isBrowserRuntime()) return null;
-  const enabled =
+  const enabled = ['1', 'on', 'true', 'yes'].includes(
     trimSecret(
       process.env.BACI_GOOGLE_PAY_ENABLED ?? env?.BACI_GOOGLE_PAY_ENABLED
-    ) === 'true';
+    ).toLowerCase()
+  );
   const gateway = trimSecret(
     process.env.BACI_GOOGLE_PAY_GATEWAY ?? env?.BACI_GOOGLE_PAY_GATEWAY
   ).toLowerCase();
