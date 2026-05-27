@@ -1,6 +1,18 @@
 import { z } from 'zod';
-import { getLlmChatModel, getLlmServerBearer, getLlmServerUrl } from '@/env';
+import {
+  getAiChatModel,
+  getLlmChatModel,
+  getLlmServerBearer,
+  getLlmServerUrl,
+  getOllamaBaseUrl,
+  getOllamaBasicAuth,
+} from '@/env';
 import { buildLlmBearerAuthHeader } from '@/lib/llm-auth';
+import { buildOllamaBasicAuthHeader } from '@/lib/ollama-auth';
+import {
+  type GemmaQuestionCompletionMessage,
+  requestGemmaQuestionCompletion,
+} from '@/lib/quiz/gemma-question-completion';
 import {
   type GeneratedQuizQuestion,
   generatedQuizOptionSchema,
@@ -16,19 +28,11 @@ type GenerateQuizQuestionsOptions = Pick<
   productContext?: string;
 };
 
-type ChatCompletionJsonResponse = {
-  choices?: Array<{
-    message?: {
-      content?: unknown;
-    };
-  }>;
-};
-
 const MIN_COMPLETION_TOKENS = 2400;
 const MAX_COMPLETION_TOKENS = 8192;
 const COMPLETION_TOKENS_PER_QUESTION = 220;
 const TEMPERATURE = 0.35;
-const GEMMA_TIMEOUT_MS = 30_000;
+const GEMMA_TIMEOUT_MS = 90_000;
 const DEFAULT_OPTION_IDS = ['a', 'b', 'c', 'd', 'e', 'f'];
 
 export class QuizQuestionGenerationUnavailableError extends Error {
@@ -36,13 +40,6 @@ export class QuizQuestionGenerationUnavailableError extends Error {
     super('Gemma quiz question generation is not configured');
     this.name = 'QuizQuestionGenerationUnavailableError';
   }
-}
-
-function buildChatCompletionsUrl(baseUrl: string): string {
-  const url = new URL(baseUrl);
-  const trimmedPath = url.pathname.replace(/\/+$/, '').replace(/\/v1$/i, '');
-  url.pathname = `${trimmedPath}/v1/chat/completions`;
-  return url.toString();
 }
 
 function stripJsonFence(content: string): string {
@@ -229,51 +226,56 @@ function getCompletionTokenBudget(input: GenerateQuizQuestionsOptions): number {
   );
 }
 
+function getGemmaQuestionTransportConfig() {
+  const llmServerUrl = getLlmServerUrl();
+  if (llmServerUrl) {
+    const llmServerBearer = getLlmServerBearer();
+    if (!llmServerBearer || !buildLlmBearerAuthHeader(llmServerBearer)) {
+      throw new QuizQuestionGenerationUnavailableError();
+    }
+    return { llmServerUrl, llmServerBearer, model: getLlmChatModel() };
+  }
+
+  const ollamaBaseUrl = getOllamaBaseUrl();
+  if (!ollamaBaseUrl) {
+    throw new QuizQuestionGenerationUnavailableError();
+  }
+
+  const ollamaBasicAuth = getOllamaBasicAuth();
+  if (ollamaBasicAuth && !buildOllamaBasicAuthHeader(ollamaBasicAuth)) {
+    throw new QuizQuestionGenerationUnavailableError();
+  }
+
+  return { model: getAiChatModel(), ollamaBaseUrl, ollamaBasicAuth };
+}
+
 export async function generateQuizQuestionsWithGemma(
   input: GenerateQuizQuestionsOptions
 ): Promise<GeneratedQuizQuestion[]> {
-  const baseUrl = getLlmServerUrl();
-  const bearer = getLlmServerBearer();
-  if (!baseUrl || !bearer) {
-    throw new QuizQuestionGenerationUnavailableError();
-  }
-
-  const authorization = buildLlmBearerAuthHeader(bearer);
-  if (!authorization) {
-    throw new QuizQuestionGenerationUnavailableError();
-  }
-
+  const transportConfig = getGemmaQuestionTransportConfig();
   const abortController = new AbortController();
   const timeoutId = setTimeout(() => abortController.abort(), GEMMA_TIMEOUT_MS);
-  let response: Response;
+  const messages: GemmaQuestionCompletionMessage[] = [
+    {
+      role: 'system',
+      content:
+        'You are a quiz question writer for Baci merchants. Return strict JSON with a questions array. Each question needs topic, difficulty, prompt, options, correctOptionId, and explanation. Options must be objects shaped like {"id":"a","label":"Answer"} and correctOptionId must be an option id string.',
+    },
+    {
+      role: 'user',
+      content: buildUserPrompt(input),
+    },
+  ];
 
   try {
-    response = await fetch(buildChatCompletionsUrl(baseUrl), {
-      method: 'POST',
-      headers: {
-        Authorization: authorization,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        max_tokens: getCompletionTokenBudget(input),
-        messages: [
-          {
-            role: 'system',
-            content:
-              'You are a quiz question writer for Baci merchants. Return strict JSON with a questions array. Each question needs topic, difficulty, prompt, options, correctOptionId, and explanation. Options must be objects shaped like {"id":"a","label":"Answer"} and correctOptionId must be an option id string.',
-          },
-          {
-            role: 'user',
-            content: buildUserPrompt(input),
-          },
-        ],
-        model: getLlmChatModel(),
-        response_format: { type: 'json_object' },
-        stream: false,
-        temperature: TEMPERATURE,
-      }),
+    const content = await requestGemmaQuestionCompletion({
+      ...transportConfig,
       signal: abortController.signal,
+      maxTokens: getCompletionTokenBudget(input),
+      messages,
+      temperature: TEMPERATURE,
     });
+    return parseGeneratedContent(content);
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') {
       throw new Error('Gemma quiz generation timed out');
@@ -282,12 +284,4 @@ export async function generateQuizQuestionsWithGemma(
   } finally {
     clearTimeout(timeoutId);
   }
-
-  if (!response.ok) {
-    throw new Error(`Gemma quiz generation failed with ${response.status}`);
-  }
-
-  const payload = (await response.json()) as ChatCompletionJsonResponse;
-  const content = payload.choices?.[0]?.message?.content;
-  return parseGeneratedContent(content);
 }

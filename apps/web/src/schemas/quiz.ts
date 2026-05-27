@@ -4,6 +4,7 @@ const quizUuidSchema = z.string().uuid();
 const quizIsoDatetimeSchema = z.string().datetime({ offset: true });
 const quizIntegrityTierSchema = z.enum(['basic', 'device', 'strong']);
 const quizDifficultySchema = z.enum(['easy', 'standard', 'hard']);
+const merchantQuizPublicationModeSchema = z.enum(['draft', 'active']);
 const quizNonEmptyIdSchema = z.string().min(1);
 const quizTopicSchema = z.string().trim().min(3).max(80);
 
@@ -54,6 +55,7 @@ export const claimQuizCashAwardSchema = z.object({
 export const merchantQuizGenerationRequestSchema = z.object({
   difficulty: quizDifficultySchema.default('standard'),
   prizeName: z.string().trim().min(1).max(120).default('Quiz prize'),
+  publicationMode: merchantQuizPublicationModeSchema.default('draft'),
   questionCountPerTopic: z.coerce.number().int().min(1).max(5).default(1),
   timeLimitSeconds: z.coerce.number().int().min(5).max(60).default(30),
   title: z.string().trim().min(3).max(120),

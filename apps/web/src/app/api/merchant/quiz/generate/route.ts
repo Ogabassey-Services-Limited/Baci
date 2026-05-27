@@ -15,6 +15,8 @@ import {
   merchantQuizGenerationRequestSchema,
 } from '@/schemas/quiz';
 
+export const maxDuration = 120;
+
 type SlotRow = {
   active: true;
   category: string | null;
@@ -44,10 +46,10 @@ function slugifyTitle(title: string): string {
   return `${baseSlug}-${crypto.randomBytes(4).toString('hex')}`;
 }
 
-function hashAnswerKey(answer: string, salt: string): string {
+function hashAnswerKey(answer: string): string {
   return crypto
     .createHash('sha256')
-    .update(`${salt}:${answer.trim().toLowerCase()}`)
+    .update(answer.trim().toLowerCase())
     .digest('hex');
 }
 
@@ -82,7 +84,7 @@ function createVariantRows(
 
     return {
       active: true,
-      answer_key_hash: hashAnswerKey(question.correctOptionId, slot.id),
+      answer_key_hash: hashAnswerKey(question.correctOptionId),
       explanation: question.explanation,
       options: question.options,
       prompt: question.prompt,
@@ -104,6 +106,37 @@ function isQuizDraftEvent(value: unknown): value is QuizDraftEvent {
     typeof event.status === 'string' &&
     typeof event.title === 'string'
   );
+}
+
+async function openQuizEventIfRequested(
+  supabase: NonNullable<
+    Awaited<ReturnType<typeof authenticateApiRequest>>['supabase']
+  >,
+  event: QuizDraftEvent,
+  merchantId: string,
+  publicationMode: 'draft' | 'active'
+): Promise<{ event: QuizDraftEvent; error: boolean }> {
+  if (publicationMode !== 'active') {
+    return { event, error: false };
+  }
+
+  const { data, error } = await supabase
+    .from('quiz_events')
+    .update({
+      ends_at: null,
+      starts_at: new Date().toISOString(),
+      status: 'active',
+    })
+    .eq('id', event.id)
+    .eq('merchant_id', merchantId)
+    .select('id, slug, status, title')
+    .single();
+
+  if (error || !isQuizDraftEvent(data)) {
+    return { event, error: true };
+  }
+
+  return { event: data, error: false };
 }
 
 async function resolveMerchantDisplayName(
@@ -215,9 +248,22 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const openedEvent = await openQuizEventIfRequested(
+    auth.supabase,
+    event,
+    access.merchantId,
+    parsed.data.publicationMode
+  );
+  if (openedEvent.error) {
+    return NextResponse.json(
+      { error: 'Failed to open quiz event' },
+      { status: 500 }
+    );
+  }
+
   return NextResponse.json(
     {
-      event,
+      event: openedEvent.event,
       questions: sanitizeGeneratedQuestions(questions),
     },
     { status: 201 }
