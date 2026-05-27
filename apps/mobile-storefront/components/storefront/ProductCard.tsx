@@ -1,8 +1,3 @@
-/**
- * ProductCard Component - Multi-Tenant Template System
- * Supports 'grid', 'editorial', and 'list' layouts with Reanimated motion
- */
-
 import {
   requiresProductSelection,
   resolveDefaultVariantSelection,
@@ -39,6 +34,31 @@ export const BLURHASH_VARIANTS = {
   food: 'L9Ry;S~V.A-;~W9uM{IURiE2E3s:',
   beauty: 'LBP?syt7~pt7~WofM{fQ~ps:9ZWB',
 } as const;
+
+function trackWishlistAdd(product: Product): void {
+  void import('@/services/ad-tracking').then(({ trackAddToWishlist }) => {
+    void trackAddToWishlist({
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      category: product.category,
+      brand: product.brand,
+    });
+  });
+}
+
+function trackCartAdd(product: Product, price: number): void {
+  void import('@/services/ad-tracking').then(({ trackAddToCart }) => {
+    void trackAddToCart({
+      id: product.id,
+      name: product.name,
+      price,
+      quantity: 1,
+      category: product.category,
+      brand: product.brand,
+    });
+  });
+}
 
 interface ProductCardProps {
   product: Product;
@@ -123,7 +143,11 @@ export function ProductCard({
       })
     );
 
+    const shouldTrackWishlistAdd = !isSaved;
     toggleSaved(product);
+    if (shouldTrackWishlistAdd) {
+      trackWishlistAdd(product);
+    }
     onWishlistToggle?.(product);
   };
 
@@ -204,6 +228,7 @@ export function ProductCard({
       storage: defaultVariantSelection?.storage,
       variant_name: defaultVariantSelection?.variant.name,
     });
+    trackCartAdd(product, defaultVariantSelection?.price ?? product.price);
   };
 
   if (variant === 'editorial') {

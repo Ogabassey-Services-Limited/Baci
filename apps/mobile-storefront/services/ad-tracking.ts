@@ -50,7 +50,8 @@ import {
   getTrackingPermissionStatus,
   requestTrackingPermissionStatus,
 } from '@/lib/tracking-transparency';
-import { toTikTokEventData, type TikTokEventData } from './tiktok-event-data';
+import { buildTikTokCommerceEventParams } from './tiktok-commerce-event-data';
+import { type TikTokEventData, toTikTokEventData } from './tiktok-event-data';
 
 // 2026 Best Practice: Dynamic imports for native modules to prevent evaluation-time crashes
 // Minimal interfaces for dynamically loaded SDK methods we actually use
@@ -198,7 +199,12 @@ async function generateEventId(): Promise<string> {
  */
 function generateEventIdSync(): string {
   const timestamp = Date.now().toString(36);
-  const random = Crypto.randomUUID().replace(/-/g, '').substring(0, 10);
+  const cryptoUuid =
+    typeof Crypto.randomUUID === 'function' ? Crypto.randomUUID() : null;
+  const random =
+    typeof cryptoUuid === 'string' && cryptoUuid.length > 0
+      ? cryptoUuid.replace(/-/g, '').substring(0, 10)
+      : Math.random().toString(36).slice(2, 12).padEnd(10, '0');
   return `${timestamp}_${random}`;
 }
 
@@ -448,7 +454,8 @@ function sendClientBackup(
   ttEvent: string | null,
   value: number,
   currency: string,
-  params: Record<string, string | number>
+  params: Record<string, unknown>,
+  tikTokParams: Record<string, unknown> = params
 ): void {
   // Facebook (backup) - include event_id for deduplication
   if (AppEventsLogger) {
@@ -465,7 +472,11 @@ function sendClientBackup(
 
   // TikTok (backup)
   if (isTikTokInitialized && ttEvent && TikTokBusiness) {
-    TikTokBusiness.trackEvent(ttEvent, eventId, toTikTokEventData(params));
+    TikTokBusiness.trackEvent(
+      ttEvent,
+      eventId,
+      toTikTokEventData(tikTokParams)
+    );
   }
 }
 
@@ -482,9 +493,28 @@ export async function trackProductViewed(product: {
   price: number;
   currency?: string;
   category?: string;
+  brand?: string;
+  description?: string;
 }): Promise<void> {
   const eventId = generateEventIdSync();
   const currency = product.currency || 'NGN';
+  const tikTokParams = buildTikTokCommerceEventParams({
+    contentId: product.id,
+    contentName: product.name,
+    currency,
+    description: product.description,
+    value: product.price,
+    items: [
+      {
+        id: product.id,
+        name: product.name,
+        price: product.price,
+        quantity: 1,
+        category: product.category,
+        brand: product.brand,
+      },
+    ],
+  });
 
   // 1. PostHog (product analytics - not ad tracking)
   posthogProductViewed({
@@ -532,9 +562,8 @@ export async function trackProductViewed(product: {
       fb_content_id: product.id,
       fb_content_type: 'product',
       fb_currency: currency,
-      content_id: product.id,
-      content_name: product.name,
-    }
+    },
+    tikTokParams
   );
 }
 
@@ -549,12 +578,29 @@ export async function trackAddToCart(
     quantity: number;
     currency?: string;
     category?: string;
+    brand?: string;
   },
   cartTotal?: number
 ): Promise<void> {
   const eventId = generateEventIdSync();
   const currency = product.currency || 'NGN';
   const value = product.price * product.quantity;
+  const tikTokParams = buildTikTokCommerceEventParams({
+    contentId: product.id,
+    contentName: product.name,
+    currency,
+    value,
+    items: [
+      {
+        id: product.id,
+        name: product.name,
+        price: product.price,
+        quantity: product.quantity,
+        category: product.category,
+        brand: product.brand,
+      },
+    ],
+  });
 
   // 1. PostHog
   posthogAddToCart(
@@ -613,9 +659,8 @@ export async function trackAddToCart(
       fb_content_type: 'product',
       fb_currency: currency,
       fb_num_items: product.quantity,
-      content_id: product.id,
-      quantity: product.quantity,
-    }
+    },
+    tikTokParams
   );
 }
 
@@ -626,10 +671,23 @@ export async function trackCheckoutStarted(checkout: {
   itemCount: number;
   subtotal: number;
   currency?: string;
-  items?: Array<{ id: string; name: string; price: number; quantity: number }>;
+  items?: Array<{
+    id: string;
+    name: string;
+    price: number;
+    quantity: number;
+    category?: string;
+    brand?: string;
+  }>;
 }): Promise<void> {
   const eventId = generateEventIdSync();
   const currency = checkout.currency || 'NGN';
+  const tikTokParams = buildTikTokCommerceEventParams({
+    currency,
+    value: checkout.subtotal,
+    quantity: checkout.itemCount,
+    items: checkout.items,
+  });
 
   // Firebase (Removed)
   /*
@@ -663,14 +721,14 @@ export async function trackCheckoutStarted(checkout: {
     'START_CHECKOUT',
     eventId,
     'fb_mobile_initiated_checkout',
-    'InitiateCheckout',
+    'Checkout',
     checkout.subtotal,
     currency,
     {
       fb_currency: currency,
       fb_num_items: checkout.itemCount,
-      quantity: checkout.itemCount,
-    }
+    },
+    tikTokParams
   );
 }
 
@@ -692,6 +750,7 @@ export async function trackPurchase(order: {
     price: number;
     quantity: number;
     category?: string;
+    brand?: string;
   }>;
   paymentMethod?: string;
   couponCode?: string;
@@ -703,6 +762,15 @@ export async function trackPurchase(order: {
   const eventId = await generateEventId();
   const currency = order.currency || 'NGN';
   const totalItems = order.items.reduce((sum, i) => sum + i.quantity, 0);
+  const tikTokParams = buildTikTokCommerceEventParams({
+    currency,
+    value: order.total,
+    quantity: totalItems,
+    items: order.items,
+    extra: {
+      order_id: order.orderId,
+    },
+  });
 
   // 1. PostHog (product analytics)
   posthogOrderCompleted({
@@ -777,20 +845,9 @@ export async function trackPurchase(order: {
   // TikTok
   if (isTikTokInitialized && TikTokBusiness) {
     TikTokBusiness.trackEvent(
-      'CompletePayment',
+      'Purchase',
       eventId,
-      toTikTokEventData({
-        content_type: 'product',
-        contents: order.items.map((item) => ({
-          content_id: item.id,
-          content_name: item.name,
-          quantity: item.quantity,
-          price: item.price,
-        })),
-        quantity: totalItems,
-        value: order.total,
-        currency,
-      })
+      toTikTokEventData(tikTokParams)
     );
   }
 
@@ -801,7 +858,7 @@ export async function trackPurchase(order: {
  * Track payment info added
  */
 export async function trackPaymentInfoAdded(
-  _paymentMethod: string
+  paymentMethod: string
 ): Promise<void> {
   const eventId = generateEventIdSync();
 
@@ -817,6 +874,65 @@ export async function trackPaymentInfoAdded(
 
   if (Platform.OS === 'ios' && AEMReporterIOS) {
     AEMReporterIOS.logAEMEvent('fb_mobile_add_payment_info', 0, 'NGN', {});
+  }
+
+  if (isTikTokInitialized && TikTokBusiness) {
+    TikTokBusiness.trackEvent(
+      'AddPaymentInfo',
+      eventId,
+      toTikTokEventData({
+        payment_method: paymentMethod,
+        currency: 'NGN',
+      })
+    );
+  }
+}
+
+/**
+ * Track product added to wishlist
+ */
+export async function trackAddToWishlist(product: {
+  id: string;
+  name: string;
+  price?: number;
+  currency?: string;
+  category?: string;
+  brand?: string;
+}): Promise<void> {
+  const eventId = generateEventIdSync();
+  const currency = product.currency || 'NGN';
+  const tikTokParams = buildTikTokCommerceEventParams({
+    contentId: product.id,
+    contentName: product.name,
+    currency,
+    value: product.price,
+    items: [
+      {
+        id: product.id,
+        name: product.name,
+        price: product.price,
+        quantity: 1,
+        category: product.category,
+        brand: product.brand,
+      },
+    ],
+  });
+
+  posthogTrack('Wishlist Item Added', {
+    product_id: product.id,
+    product_name: product.name,
+    price: product.price,
+    currency,
+    category: product.category,
+    brand: product.brand,
+  });
+
+  if (isTikTokInitialized && TikTokBusiness) {
+    TikTokBusiness.trackEvent(
+      'AddToWishlist',
+      eventId,
+      toTikTokEventData(tikTokParams)
+    );
   }
 }
 
@@ -918,7 +1034,7 @@ export async function trackSignup(
 
   if (isTikTokInitialized && TikTokBusiness) {
     TikTokBusiness.trackEvent(
-      'CompleteRegistration',
+      'Registration',
       eventId,
       toTikTokEventData({
         registration_method: method,

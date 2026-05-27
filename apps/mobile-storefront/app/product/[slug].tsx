@@ -7,7 +7,7 @@
  */
 
 import { resolveVariantSelectionParamResolution } from '@baci/shared/lib';
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -60,6 +60,11 @@ import { resolveVariantSelectionFromImage } from '@/lib/product-image-selection'
 import { stripInternalSelectionAxes } from '@/lib/product-internal-selection-axes';
 import { normalizeRouteCondition } from '@/lib/product-route/normalize-route-condition';
 import { resolveProductVariantMetadata } from '@/lib/product-variant-metadata';
+import {
+  trackAddToCart,
+  trackAddToWishlist,
+  trackProductViewed,
+} from '@/services/ad-tracking';
 import { useCartStore } from '@/stores/cart-store';
 import { useSavedStore } from '@/stores/saved-store';
 import {
@@ -235,6 +240,7 @@ export default function ProductDetailScreen() {
 
   // Timer ref for toast cleanup - prevents memory leaks (2026 Best Practice)
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const trackedProductViewRef = useRef<string | null>(null);
 
   // Cleanup toast timer on unmount to prevent memory leaks
   useEffect(() => {
@@ -460,6 +466,22 @@ export default function ProductDetailScreen() {
       effectiveSelectedCondition,
       negotiatedPrice
     );
+
+  useEffect(() => {
+    if (!product || trackedProductViewRef.current === product.id) {
+      return;
+    }
+
+    trackedProductViewRef.current = product.id;
+    void trackProductViewed({
+      id: product.id,
+      name: product.name,
+      price: effectivePrice,
+      category: product.category,
+      brand: product.brand,
+      description: product.description,
+    });
+  }, [effectivePrice, product]);
 
   // calculatedPrice is the price without negotiation, used in the NegotiationModal
   const { price: calculatedPrice } = useEffectivePrice(
@@ -689,6 +711,14 @@ export default function ProductDetailScreen() {
       condition: conditionDisplay,
       variant_name: currentVariantDisplaySelection?.variant.name,
     });
+    void trackAddToCart({
+      id: product.id,
+      name: product.name,
+      price: effectivePrice,
+      quantity: 1,
+      category: product.category,
+      brand: product.brand,
+    });
 
     setShowAddedToast(true);
     // Clear any existing timer before setting a new one (2026 Best Practice)
@@ -797,7 +827,17 @@ export default function ProductDetailScreen() {
             <Pressable
               onPress={() => {
                 haptics.light();
+                const shouldTrackWishlistAdd = !isSaved(product.id);
                 toggleSaved(product);
+                if (shouldTrackWishlistAdd) {
+                  void trackAddToWishlist({
+                    id: product.id,
+                    name: product.name,
+                    price: effectivePrice,
+                    category: product.category,
+                    brand: product.brand,
+                  });
+                }
               }}
               hitSlop={12}
               accessibilityLabel={

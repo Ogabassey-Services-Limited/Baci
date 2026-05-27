@@ -1,14 +1,10 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
 import { zodResolver } from '@hookform/resolvers/zod';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Ionicons from '@react-native-vector-icons/ionicons';
 import Constants from 'expo-constants';
 import { router, Stack } from 'expo-router';
 import React, { useEffect, useEffectEvent, useRef } from 'react';
-import {
-  type FieldErrors,
-  type Resolver,
-  useForm,
-} from 'react-hook-form';
+import { type FieldErrors, type Resolver, useForm } from 'react-hook-form';
 import {
   ActivityIndicator,
   Alert,
@@ -39,12 +35,12 @@ import {
 import { CheckoutContactCard } from '@/components/checkout/CheckoutContactCard';
 import { CheckoutDeliveryCard } from '@/components/checkout/CheckoutDeliveryCard';
 import { CheckoutFormField } from '@/components/checkout/CheckoutFormField';
+import { CheckoutReviewStep } from '@/components/checkout/CheckoutReviewStep';
+import { CheckoutSavingsRetryCard } from '@/components/checkout/CheckoutSavingsRetryCard';
 import {
   type CheckoutStep,
   CheckoutStepper,
 } from '@/components/checkout/CheckoutStepper';
-import { CheckoutSavingsRetryCard } from '@/components/checkout/CheckoutSavingsRetryCard';
-import { CheckoutReviewStep } from '@/components/checkout/CheckoutReviewStep';
 import { CryptoSelectionModal } from '@/components/checkout/CryptoSelectionModal';
 import { humanizeCheckoutFieldName } from '@/components/checkout/checkout-form-field.helpers';
 import {
@@ -122,6 +118,11 @@ import {
   getFullyPaidStoreCreditPaymentMethod,
   type WalletSelection,
 } from '@/lib/wallet-payment-helpers';
+import {
+  trackCheckoutStarted as trackAdCheckoutStarted,
+  trackPaymentInfoAdded as trackAdPaymentInfoAdded,
+  trackPurchase as trackAdPurchase,
+} from '@/services/ad-tracking';
 import {
   trackCheckoutStarted,
   trackCheckoutStep,
@@ -491,10 +492,22 @@ export default function CheckoutScreen() {
 
   useEffect(() => {
     if (!hasTrackedStart.current && items.length > 0) {
+      const itemCount = items.reduce((acc, item) => acc + item.quantity, 0);
       trackCheckoutStarted({
-        itemCount: items.reduce((acc, item) => acc + item.quantity, 0),
+        itemCount,
         subtotal,
         currency: 'NGN',
+      });
+      void trackAdCheckoutStarted({
+        itemCount,
+        subtotal,
+        currency: 'NGN',
+        items: items.map((item) => ({
+          id: item.product_id,
+          name: item.name,
+          price: item.negotiatedPrice ?? item.price,
+          quantity: item.quantity,
+        })),
       });
       hasTrackedStart.current = true;
     }
@@ -1054,6 +1067,7 @@ export default function CheckoutScreen() {
       trackCheckoutStep('payment_method', {
         payment_method: selectedPayment,
       });
+      void trackAdPaymentInfoAdded(selectedPayment);
       setStep('review');
     }
   };
@@ -1625,6 +1639,25 @@ export default function CheckoutScreen() {
         currency: 'NGN',
         itemCount: itemsSnapshot.reduce((acc, item) => acc + item.quantity, 0),
         paymentMethod: completedPaymentMethod,
+      });
+      void trackAdPurchase({
+        orderId: order.id,
+        orderNumber,
+        total: order.total,
+        subtotal: snapshotSubtotal,
+        shipping: snapshotDeliveryFee,
+        tax: snapshotTaxAmount,
+        currency: 'NGN',
+        items: itemsSnapshot.map((item) => ({
+          id: item.product_id,
+          name: item.name,
+          price: item.negotiatedPrice ?? item.price,
+          quantity: item.quantity,
+        })),
+        paymentMethod: completedPaymentMethod,
+        email: customerEmail,
+        phone: customerPhone,
+        userId: user?.id,
       });
 
       // Route based on payment method

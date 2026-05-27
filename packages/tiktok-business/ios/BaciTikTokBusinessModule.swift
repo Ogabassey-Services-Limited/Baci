@@ -150,12 +150,11 @@ public class BaciTikTokBusinessModule: Module {
         return false
       }
 
-      let event = TikTokBaseEvent(eventName: eventName, eventId: eventId)
-      if let data = eventData {
-        for item in data {
-          event.addProperty(withKey: item.key, value: coerceEventValue(item.value))
-        }
-      }
+      let event = BaciTikTokEventFactory.makeEvent(
+        eventName: eventName,
+        eventId: eventId,
+        eventData: eventData
+      )
 
       TikTokBusiness.trackTTEvent(event)
       return true
@@ -173,16 +172,6 @@ public class BaciTikTokBusinessModule: Module {
         promise.resolve(status)
       }
     }
-  }
-
-  private func coerceEventValue(_ value: String) -> Any {
-    if let integer = Int(value), String(integer) == value {
-      return integer
-    }
-    if let double = Double(value), value.contains(".") {
-      return double
-    }
-    return value
   }
 }
 
