@@ -119,18 +119,16 @@ import {
   type WalletSelection,
 } from '@/lib/wallet-payment-helpers';
 import {
-  trackCheckoutStarted as trackAdCheckoutStarted,
-  trackPaymentInfoAdded as trackAdPaymentInfoAdded,
-  trackPurchase as trackAdPurchase,
-} from '@/services/ad-tracking';
-import {
-  trackCheckoutStarted,
   trackCheckoutStep,
   trackError,
-  trackOrderCompleted,
 } from '@/services/analytics';
 import { createOrder, OrderError, type OrderResponse } from '@/services/orders';
 import { scheduleLocalNotification } from '@/services/push-notifications';
+import {
+  trackCheckoutRoutePaymentInfo,
+  trackCheckoutRoutePurchaseCompleted,
+  trackCheckoutRouteStarted,
+} from '@/services/tiktok-checkout-route-tracking';
 import { formatPrice, useCartStore } from '@/stores/cart-store';
 
 const shippingAddressResolver = zodResolver(
@@ -492,23 +490,7 @@ export default function CheckoutScreen() {
 
   useEffect(() => {
     if (!hasTrackedStart.current && items.length > 0) {
-      const itemCount = items.reduce((acc, item) => acc + item.quantity, 0);
-      trackCheckoutStarted({
-        itemCount,
-        subtotal,
-        currency: 'NGN',
-      });
-      void trackAdCheckoutStarted({
-        itemCount,
-        subtotal,
-        currency: 'NGN',
-        items: items.map((item) => ({
-          id: item.product_id,
-          name: item.name,
-          price: item.negotiatedPrice ?? item.price,
-          quantity: item.quantity,
-        })),
-      });
+      void trackCheckoutRouteStarted({ items, subtotal });
       hasTrackedStart.current = true;
     }
   }, [items, subtotal]);
@@ -1067,7 +1049,7 @@ export default function CheckoutScreen() {
       trackCheckoutStep('payment_method', {
         payment_method: selectedPayment,
       });
-      void trackAdPaymentInfoAdded(selectedPayment);
+      void trackCheckoutRoutePaymentInfo(selectedPayment);
       setStep('review');
     }
   };
@@ -1629,34 +1611,17 @@ export default function CheckoutScreen() {
         getFullyPaidStoreCreditPaymentMethod(orderResponse);
       const completedPaymentMethod =
         fullyPaidStoreCreditPaymentMethod ?? selectedPayment;
-      trackOrderCompleted({
+      void trackCheckoutRoutePurchaseCompleted({
+        customerEmail,
+        customerPhone,
+        items: itemsSnapshot,
         orderId: order.id,
         orderNumber,
-        total: order.total,
-        subtotal: snapshotSubtotal,
-        shipping: snapshotDeliveryFee,
-        tax: snapshotTaxAmount,
-        currency: 'NGN',
-        itemCount: itemsSnapshot.reduce((acc, item) => acc + item.quantity, 0),
         paymentMethod: completedPaymentMethod,
-      });
-      void trackAdPurchase({
-        orderId: order.id,
-        orderNumber,
-        total: order.total,
-        subtotal: snapshotSubtotal,
         shipping: snapshotDeliveryFee,
+        subtotal: snapshotSubtotal,
         tax: snapshotTaxAmount,
-        currency: 'NGN',
-        items: itemsSnapshot.map((item) => ({
-          id: item.product_id,
-          name: item.name,
-          price: item.negotiatedPrice ?? item.price,
-          quantity: item.quantity,
-        })),
-        paymentMethod: completedPaymentMethod,
-        email: customerEmail,
-        phone: customerPhone,
+        total: order.total,
         userId: user?.id,
       });
 
