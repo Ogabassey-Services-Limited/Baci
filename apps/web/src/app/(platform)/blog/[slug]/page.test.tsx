@@ -52,7 +52,8 @@ vi.mock('./blog-post-view-tracker', () => ({
   ),
 }));
 
-import { BlogPostPageContent, generateMetadata } from './page';
+import { BlogPostPageContent } from './blog-post-page-content';
+import { generateMetadata } from './page';
 
 describe('platform blog post page', () => {
   beforeEach(() => {

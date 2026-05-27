@@ -151,11 +151,8 @@ function buildListingResult(
   };
 }
 
-const {
-  BlogPageContent,
-  default: BlogPage,
-  generateMetadata,
-} = await import('./page');
+const { default: BlogPage, generateMetadata } = await import('./page');
+const { BlogPageContent } = await import('./blog-page-content');
 
 describe('blog page metadata', () => {
   beforeEach(() => {

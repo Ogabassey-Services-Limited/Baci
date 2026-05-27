@@ -50,11 +50,8 @@ vi.mock('next/navigation', () => ({
   notFound: () => notFound(),
 }));
 
-const {
-  default: AboutPage,
-  AboutJsonLd,
-  generateMetadata,
-} = await import('./page');
+const { default: AboutPage, generateMetadata } = await import('./page');
+const { AboutJsonLd } = await import('./about-json-ld');
 const mockedGenerateAboutPageJsonLd = vi.mocked(
   (await import('@/types/about-page')).generateAboutPageJsonLd
 );

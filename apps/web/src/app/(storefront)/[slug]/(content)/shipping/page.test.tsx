@@ -111,7 +111,7 @@ describe('shipping page', () => {
 
   it('renders when the shipping summary exists', async () => {
     vi.mocked(getRequestScopedMerchant).mockResolvedValue(trustMerchant);
-    const { ShippingPageContent } = await import('./page');
+    const { ShippingPageContent } = await import('./shipping-page-content');
 
     render(
       await ShippingPageContent({
@@ -145,7 +145,7 @@ describe('shipping page', () => {
       socialLinks: {},
       derivedLinks: { contact: 'https://ogabassey.com/contact' },
     });
-    const { ShippingPageContent } = await import('./page');
+    const { ShippingPageContent } = await import('./shipping-page-content');
 
     render(
       await ShippingPageContent({
@@ -190,7 +190,7 @@ describe('shipping page', () => {
       socialLinks: {},
       derivedLinks: {},
     });
-    const { ShippingPageContent } = await import('./page');
+    const { ShippingPageContent } = await import('./shipping-page-content');
 
     render(
       await ShippingPageContent({
@@ -226,7 +226,7 @@ describe('shipping page', () => {
       socialLinks: {},
       derivedLinks: { contact: 'https://ogabassey.com/contact' },
     });
-    const { ShippingPageContent } = await import('./page');
+    const { ShippingPageContent } = await import('./shipping-page-content');
 
     render(
       await ShippingPageContent({

@@ -8,7 +8,7 @@ const mockPuckRenderState = vi.hoisted(() => ({
   errorMessage: null as string | null,
 }));
 
-vi.mock('@/lib/initial-template-generator', () => ({
+vi.mock('@/lib/initial-template-preview-theme', () => ({
   deriveThemeFromColors: vi.fn(() => ({
     colors: {
       primary: '#000000',
@@ -51,6 +51,9 @@ vi.mock('@/lib/initial-template-generator', () => ({
       },
     },
   })),
+}));
+
+vi.mock('@/lib/initial-template-preview-content', () => ({
   generateFeatures: vi.fn(),
   generateHeroSlides: vi.fn(),
 }));
@@ -112,7 +115,7 @@ vi.mock('@/hooks/use-cart', () => ({
 import {
   generateFeatures,
   generateHeroSlides,
-} from '@/lib/initial-template-generator';
+} from '@/lib/initial-template-preview-content';
 // --- Import after all mocks ---
 import { OnboardingPuckPreview } from './onboarding-puck-preview';
 
@@ -220,7 +223,9 @@ describe('OnboardingPuckPreview', () => {
       resolvePromise = resolve;
     });
 
-    mockGenerateHeroSlides.mockReturnValue(slowPromise as Promise<any>);
+    mockGenerateHeroSlides.mockReturnValue(
+      slowPromise as unknown as ReturnType<typeof generateHeroSlides>
+    );
 
     render(
       <OnboardingPuckPreview

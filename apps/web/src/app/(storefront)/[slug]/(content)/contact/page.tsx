@@ -1,21 +1,14 @@
 import type { Metadata } from 'next';
-import { headers } from 'next/headers';
-import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 import { StorefrontDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker';
 import { ContentRouteLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
-import { toTemplateMerchantData } from '@/lib/merchant-template-data';
-import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
   generateMetaDescription,
-  generateOrganizationSchema,
   getIndexableRobotsMetadata,
 } from '@/lib/seo-utils';
-import { buildRequestScopedStoreUrl, buildStoreUrl } from '@/lib/store-url';
-import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
-import { getTemplate } from '@/templates/registry';
-import { ContactPageClient } from '../pages/contact/contact-page-client';
+import { buildStoreUrl } from '@/lib/store-url';
+import { ContactPageContent } from './contact-page-content';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -61,100 +54,6 @@ export default function ContactPage({ params }: PageProps) {
         <ContactPageContent params={params} />
       </Suspense>
       <StorefrontDynamicMetadataMarker />
-    </>
-  );
-}
-
-/** Exported so route tests can exercise resolved content outside Suspense. */
-export async function ContactPageContent({ params }: PageProps) {
-  const { slug } = await params;
-  const merchant = await getMerchantByIdentifier(slug);
-
-  if (!merchant) {
-    notFound();
-  }
-
-  const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
-  const trustProfile = buildMerchantTrustProfile(merchant, baseUrl);
-
-  const hasContactInfo =
-    merchant.pages?.contact ||
-    merchant.email ||
-    merchant.phone ||
-    trustProfile.supportEmail ||
-    trustProfile.supportPhone;
-
-  if (!hasContactInfo) {
-    notFound();
-  }
-
-  const contactSchema = {
-    '@context': 'https://schema.org',
-    '@type': 'ContactPage',
-    name: `Contact ${merchant.business_name}`,
-    url: `${baseUrl}/contact`,
-    mainEntity: generateOrganizationSchema({
-      name: merchant.business_name,
-      url: baseUrl,
-      country: merchant.country,
-      logo: merchant.logo_url || undefined,
-      email: trustProfile.supportEmail || merchant.email || undefined,
-      telephone: trustProfile.supportPhone || merchant.phone || undefined,
-      socialMedia:
-        Object.keys(trustProfile.socialLinks).length > 0
-          ? trustProfile.socialLinks
-          : (merchant.social_media as Record<string, string> | undefined),
-      trustProfile,
-    }),
-  };
-
-  const jsonLdScript = (
-    <script
-      type="application/ld+json"
-      // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema is sanitized via safeJsonLdStringify
-      dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(contactSchema) }}
-    />
-  );
-
-  // Resolve template component server-side for SEO (H1 in SSR HTML)
-  const templateId = merchant.template_id;
-  if (templateId && templateId !== 'default' && templateId !== 'puck') {
-    const template = getTemplate(templateId);
-    if (template) {
-      try {
-        const components = await template.getComponents();
-        if (components.Contact) {
-          const ContactComponent = components.Contact;
-          return (
-            <>
-              {jsonLdScript}
-              <ContactComponent
-                merchant={toTemplateMerchantData(merchant)}
-                storeSlug={merchant.slug}
-                isPreview={false}
-              />
-            </>
-          );
-        }
-      } catch (error) {
-        console.error(
-          'Failed to load Contact component for template',
-          templateId,
-          ':',
-          error
-        );
-      }
-    }
-  }
-
-  // Fallback to default contact page
-  return (
-    <>
-      {jsonLdScript}
-      <ContactPageClient
-        merchant={merchant}
-        legacyContent={merchant.pages?.contact}
-      />
     </>
   );
 }

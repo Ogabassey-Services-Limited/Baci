@@ -4,20 +4,15 @@ import { Suspense } from 'react';
 import { StorefrontDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { toTemplateMerchantData } from '@/lib/merchant-template-data';
-import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
   generateMetaDescription,
   getIndexableRobotsMetadata,
 } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
-import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
 import { getTemplate } from '@/templates/registry';
-import {
-  generateAboutPageJsonLd,
-  hasAboutPageContent,
-  type MerchantAboutPage,
-} from '@/types/about-page';
+import type { MerchantAboutPage } from '@/types/about-page';
 import { AboutPageClient } from '../pages/about/about-page-client';
+import { AboutJsonLd } from './about-json-ld';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -72,38 +67,6 @@ export default function AboutPage({ params }: PageProps) {
       <AboutContent params={params} />
       <StorefrontDynamicMetadataMarker />
     </>
-  );
-}
-
-/** Streams JSON-LD structured data independently of page content. */
-export async function AboutJsonLd({ params }: PageProps) {
-  const { slug } = await params;
-  const merchant = await getMerchantByIdentifier(slug);
-
-  if (!merchant) return null;
-
-  const aboutPage = (merchant.about_page || {}) as MerchantAboutPage;
-  if (!hasAboutPageContent(aboutPage, merchant.pages?.about)) {
-    return null;
-  }
-
-  const baseUrl = buildStoreUrl(merchant);
-  const trustProfile = buildMerchantTrustProfile(merchant, baseUrl);
-  const jsonLd = generateAboutPageJsonLd(
-    merchant,
-    aboutPage,
-    baseUrl,
-    trustProfile
-  );
-
-  return (
-    <script
-      type="application/ld+json"
-      // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema is sanitized via safeJsonLdStringify
-      dangerouslySetInnerHTML={{
-        __html: safeJsonLdStringify(jsonLd as Record<string, unknown>),
-      }}
-    />
   );
 }
 

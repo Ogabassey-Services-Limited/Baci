@@ -62,7 +62,7 @@ describe('OrdersPage', () => {
   });
 
   it('keeps the default orders query unfiltered without source=agentic', async () => {
-    render(await OrdersPage());
+    render(await OrdersPage({}));
 
     expect(mocks.getOrders).toHaveBeenCalledWith('merchant-1');
     expect(mocks.getOrders).toHaveBeenCalledTimes(1);
@@ -75,7 +75,7 @@ describe('OrdersPage', () => {
     mocks.getOrders.mockRejectedValueOnce(new Error('fetch failed'));
 
     try {
-      render(await OrdersPage());
+      render(await OrdersPage({}));
 
       expect(screen.getByRole('status')).toHaveTextContent(
         'orders:0 error:Could not load orders.'

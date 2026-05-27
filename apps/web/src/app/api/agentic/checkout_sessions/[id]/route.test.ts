@@ -481,7 +481,9 @@ describe('POST /api/agentic/checkout_sessions/[id]', () => {
     });
     useCheckoutSupabaseMock(mock);
 
-    const { handleAgenticCheckoutSessionUpdate } = await import('./route');
+    const { handleAgenticCheckoutSessionUpdate } = await import(
+      './checkout-session-update-handler'
+    );
     const response = await handleAgenticCheckoutSessionUpdate(
       createRequest(
         {

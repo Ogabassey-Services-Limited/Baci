@@ -23,7 +23,8 @@ vi.mock('../pages/contact/contact-page-client', () => ({
   ContactPageClient: vi.fn(() => null),
 }));
 
-const { ContactPageContent, generateMetadata } = await import('./page');
+const { ContactPageContent } = await import('./contact-page-content');
+const { generateMetadata } = await import('./page');
 
 const merchantFixture = {
   business_name: 'Test Store',

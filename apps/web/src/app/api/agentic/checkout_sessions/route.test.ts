@@ -646,7 +646,9 @@ describe('POST /api/agentic/checkout_sessions', () => {
       }
     );
 
-    const { handleAgenticCheckoutSessionCreate } = await import('./route');
+    const { handleAgenticCheckoutSessionCreate } = await import(
+      './checkout-session-create-handler'
+    );
     const response = await handleAgenticCheckoutSessionCreate(request, {
       requestBodyAdapter: adaptUcpCheckoutCreateRequestBody,
     });

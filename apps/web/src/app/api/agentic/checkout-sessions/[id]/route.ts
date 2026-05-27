@@ -1,7 +1,5 @@
-import {
-  GET as getCheckoutSession,
-  handleAgenticCheckoutSessionUpdate,
-} from '@/app/api/agentic/checkout_sessions/[id]/route';
+import { handleAgenticCheckoutSessionUpdate } from '@/app/api/agentic/checkout_sessions/[id]/checkout-session-update-handler';
+import { GET as getCheckoutSession } from '@/app/api/agentic/checkout_sessions/[id]/route';
 import { adaptUcpCheckoutUpdateRequestBody } from '@/lib/agentic/ucp-request-adapters';
 import { adaptCheckoutResponseToUcp } from '@/lib/agentic/ucp-response-adapters';
 

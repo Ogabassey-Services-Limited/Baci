@@ -20,7 +20,8 @@ vi.mock('@/app/(auth)/login/login-client', () => ({
 }));
 
 import LoginLoadingFallback from '@/app/(auth)/login/login-loading-fallback';
-import LoginPage, { LoginPageContent, metadata } from '@/app/(auth)/login/page';
+import { LoginPageContent } from '@/app/(auth)/login/login-page-content';
+import LoginPage, { metadata } from '@/app/(auth)/login/page';
 
 describe('LoginPage', () => {
   beforeEach(() => {
