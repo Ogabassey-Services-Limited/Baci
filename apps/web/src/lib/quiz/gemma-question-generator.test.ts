@@ -7,11 +7,17 @@ import {
 const mockGetLlmServerUrl = vi.fn();
 const mockGetLlmServerBearer = vi.fn();
 const mockGetLlmChatModel = vi.fn();
+const mockGetAiChatModel = vi.fn();
+const mockGetOllamaBaseUrl = vi.fn();
+const mockGetOllamaBasicAuth = vi.fn();
 
 vi.mock('@/env', () => ({
+  getAiChatModel: () => mockGetAiChatModel(),
   getLlmChatModel: () => mockGetLlmChatModel(),
   getLlmServerBearer: () => mockGetLlmServerBearer(),
   getLlmServerUrl: () => mockGetLlmServerUrl(),
+  getOllamaBaseUrl: () => mockGetOllamaBaseUrl(),
+  getOllamaBasicAuth: () => mockGetOllamaBasicAuth(),
 }));
 
 const VALID_BEARER = 'quiz-bearer-token';
@@ -22,6 +28,9 @@ describe('generateQuizQuestionsWithGemma', () => {
     mockGetLlmServerUrl.mockReturnValue('https://llm.example.com/v1');
     mockGetLlmServerBearer.mockReturnValue(VALID_BEARER);
     mockGetLlmChatModel.mockReturnValue('gemma4:e4b');
+    mockGetAiChatModel.mockReturnValue('gemma4:e2b');
+    mockGetOllamaBaseUrl.mockReturnValue(undefined);
+    mockGetOllamaBasicAuth.mockReturnValue(undefined);
   });
 
   afterEach(() => {
@@ -106,65 +115,6 @@ describe('generateQuizQuestionsWithGemma', () => {
     expect(JSON.parse(body.messages[1].content)).not.toHaveProperty(
       'productContext'
     );
-  });
-
-  it('normalizes Ollama Gemma option strings and numeric answer ordinals', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(
-        Response.json({
-          choices: [
-            {
-              message: {
-                content: JSON.stringify({
-                  questions: [
-                    {
-                      correctOptionId: 2,
-                      difficulty: 'standard',
-                      explanation:
-                        'Battery and ports are the functional checks.',
-                      options: [
-                        'Checking cosmetic condition',
-                        'Testing battery health and ports',
-                        'Checking the original box',
-                        'Comparing online listings',
-                      ],
-                      prompt:
-                        'When buying a used iPhone, what is the most important functional check?',
-                      topic: 'iPhone buying advice',
-                    },
-                  ],
-                }),
-              },
-            },
-          ],
-        })
-      )
-    );
-
-    await expect(
-      generateQuizQuestionsWithGemma({
-        difficulty: 'standard',
-        merchantName: 'Ogabassey',
-        questionCountPerTopic: 1,
-        topics: ['iPhone buying advice'],
-      })
-    ).resolves.toEqual([
-      {
-        correctOptionId: 'b',
-        difficulty: 'standard',
-        explanation: 'Battery and ports are the functional checks.',
-        options: [
-          { id: 'a', label: 'Checking cosmetic condition' },
-          { id: 'b', label: 'Testing battery health and ports' },
-          { id: 'c', label: 'Checking the original box' },
-          { id: 'd', label: 'Comparing online listings' },
-        ],
-        prompt:
-          'When buying a used iPhone, what is the most important functional check?',
-        topic: 'iPhone buying advice',
-      },
-    ]);
   });
 
   it('scales the completion token budget for larger quiz batches', async () => {

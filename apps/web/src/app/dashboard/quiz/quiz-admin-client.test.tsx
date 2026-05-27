@@ -52,6 +52,7 @@ describe('QuizAdminClient', () => {
     expect(mockApiPost).toHaveBeenCalledWith('/api/merchant/quiz/generate', {
       difficulty: 'standard',
       prizeName: 'Quiz prize',
+      publicationMode: 'draft',
       questionCountPerTopic: 1,
       timeLimitSeconds: 30,
       title: 'Daily Phone Quiz',
@@ -61,6 +62,29 @@ describe('QuizAdminClient', () => {
       await screen.findByText('Which iPhone model introduced USB-C?')
     ).toBeInTheDocument();
     expect(screen.getByText('Draft saved')).toBeInTheDocument();
+  });
+
+  it('can ask the API to open the generated quiz immediately', async () => {
+    mockApiPost.mockResolvedValue({
+      ...validGenerationResponse(),
+      event: { ...validGenerationResponse().event, status: 'active' },
+    });
+    const user = userEvent.setup();
+
+    render(<QuizAdminClient />);
+
+    await user.selectOptions(screen.getByLabelText(/publish/i), 'active');
+    await user.click(
+      screen.getByRole('button', { name: /generate and open/i })
+    );
+
+    await waitFor(() => expect(mockApiPost).toHaveBeenCalledOnce());
+    expect(mockApiPost).toHaveBeenCalledWith(
+      '/api/merchant/quiz/generate',
+      expect.objectContaining({ publicationMode: 'active' })
+    );
+    expect(await screen.findByText('Quiz open')).toBeInTheDocument();
+    expect(screen.getByText('Status: active')).toBeInTheDocument();
   });
 
   it('shows API errors when Gemma generation fails', async () => {

@@ -181,6 +181,7 @@ describe('quiz route input schemas', () => {
     ).toEqual({
       difficulty: 'hard',
       prizeName: 'Store credit',
+      publicationMode: 'draft',
       questionCountPerTopic: 2,
       timeLimitSeconds: 45,
       title: 'Daily Phone Quiz',

@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -36,6 +37,13 @@ type QuizDraftRpcArgs = {
 let lastQuizDraftRpcArgs: QuizDraftRpcArgs | null = null;
 const mockMerchantMaybeSingle = vi.fn();
 const mockQuizDraftSingle = vi.fn();
+const mockQuizEventUpdateSingle = vi.fn();
+const mockQuizEventSelect = vi.fn(() => ({
+  single: mockQuizEventUpdateSingle,
+}));
+const mockQuizEventEqSecond = vi.fn(() => ({ select: mockQuizEventSelect }));
+const mockQuizEventEqFirst = vi.fn(() => ({ eq: mockQuizEventEqSecond }));
+const mockQuizEventUpdate = vi.fn(() => ({ eq: mockQuizEventEqFirst }));
 const mockFrom = vi.fn((table: string) => {
   if (table === 'merchants') {
     return {
@@ -44,6 +52,11 @@ const mockFrom = vi.fn((table: string) => {
           maybeSingle: mockMerchantMaybeSingle,
         })),
       })),
+    };
+  }
+  if (table === 'quiz_events') {
+    return {
+      update: mockQuizEventUpdate,
     };
   }
 
@@ -73,6 +86,13 @@ vi.mock('@/lib/quiz/gemma-question-generator', () => ({
 }));
 
 const { POST } = await import('./route');
+
+function hashAnswerKey(answer: string): string {
+  return crypto
+    .createHash('sha256')
+    .update(answer.trim().toLowerCase())
+    .digest('hex');
+}
 
 function createRequest(body: Record<string, unknown>): NextRequest {
   return new Request('http://localhost/api/merchant/quiz/generate', {
@@ -130,6 +150,15 @@ describe('POST /api/merchant/quiz/generate', () => {
       },
       error: null,
     });
+    mockQuizEventUpdateSingle.mockResolvedValue({
+      data: {
+        id: 'event-1',
+        slug: 'daily-phone-quiz',
+        status: 'active',
+        title: 'Daily Phone Quiz',
+      },
+      error: null,
+    });
   });
 
   it('generates Gemma questions and saves them as a merchant-owned draft quiz', async () => {
@@ -137,6 +166,7 @@ describe('POST /api/merchant/quiz/generate', () => {
       createRequest({
         difficulty: 'standard',
         prizeName: '₦10,000 voucher',
+        publicationMode: 'draft',
         questionCountPerTopic: 1,
         timeLimitSeconds: 30,
         title: 'Daily Phone Quiz',
@@ -172,7 +202,7 @@ describe('POST /api/merchant/quiz/generate', () => {
       p_variants: [
         expect.objectContaining({
           active: true,
-          answer_key_hash: expect.stringMatching(/^[0-9a-f]{64}$/),
+          answer_key_hash: hashAnswerKey('b'),
           options: [
             { id: 'a', label: 'iPhone 13' },
             { id: 'b', label: 'iPhone 15' },
@@ -203,6 +233,36 @@ describe('POST /api/merchant/quiz/generate', () => {
         },
       ],
     });
+    expect(mockQuizEventUpdate).not.toHaveBeenCalled();
+  });
+
+  it('opens the generated quiz when requested by the merchant', async () => {
+    const response = await POST(
+      createRequest({
+        difficulty: 'standard',
+        prizeName: '₦10,000 voucher',
+        publicationMode: 'active',
+        questionCountPerTopic: 1,
+        timeLimitSeconds: 30,
+        title: 'Daily Phone Quiz',
+        topics: ['iPhone buying advice'],
+      })
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(201);
+    expect(mockQuizEventUpdate).toHaveBeenCalledWith({
+      ends_at: null,
+      starts_at: expect.any(String),
+      status: 'active',
+    });
+    expect(mockQuizEventEqFirst).toHaveBeenCalledWith('id', 'event-1');
+    expect(mockQuizEventEqSecond).toHaveBeenCalledWith(
+      'merchant_id',
+      'merchant-1'
+    );
+    expect(mockQuizEventSelect).toHaveBeenCalledWith('id, slug, status, title');
+    expect(body.event.status).toBe('active');
   });
 
   it('requires marketing edit permission', async () => {
