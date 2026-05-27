@@ -7,6 +7,8 @@
   utilities such as `hidden md:block`, image sizing, and object-fit classes are
   always emitted without broadening the isolated PDP stylesheet.
 */
+/* stylelint-disable scss/at-rule-no-unknown -- Tailwind v4 source discovery directives. */
 @source "./";
 @source "../../components/storefront";
 @source "../../components/ui";
+/* stylelint-enable scss/at-rule-no-unknown */
