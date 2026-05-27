@@ -139,11 +139,6 @@
       "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
     },
     {
-      "path": "components/swap/swap-screen.styles.ts",
-      "lineCount": 388,
-      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
-    },
-    {
       "path": "components/ui/PermissionModal.tsx",
       "lineCount": 372,
       "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
