@@ -45,18 +45,20 @@ function getResolver(): MetroResolver {
 }
 
 describe('Metro web runtime resolution', () => {
-  it('watches root node_modules so pnpm hoisted dependencies resolve', () => {
+  it('watches required monorepo packages but not the giant root node_modules', () => {
     expect(metroConfig.watchFolders).toEqual(
       expect.arrayContaining([
         projectRoot,
-        path.resolve(workspaceRoot, 'node_modules'),
         path.resolve(workspaceRoot, 'packages/shared'),
         path.resolve(workspaceRoot, 'packages/tiktok-business'),
       ])
     );
+    expect(metroConfig.watchFolders).not.toContain(
+      path.resolve(workspaceRoot, 'node_modules')
+    );
   });
 
-  it('does not block pnpm virtual store packages', () => {
+  it('blocks pnpm virtual store packages to prevent crawlers overloading', () => {
     const pnpmPackagePath = path.join(
       workspaceRoot,
       'node_modules',
@@ -71,7 +73,7 @@ describe('Metro web runtime resolution', () => {
       metroConfig.resolver.blockList?.some((pattern) =>
         pattern.test(pnpmPackagePath)
       )
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it('resolves Zustand middleware to its classic-script-safe build on web', () => {
