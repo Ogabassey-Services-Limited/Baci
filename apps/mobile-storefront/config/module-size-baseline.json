@@ -65,7 +65,7 @@
     },
     {
       "path": "components/ErrorBoundary.tsx",
-      "lineCount": 516,
+      "lineCount": 515,
       "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
     },
     {
