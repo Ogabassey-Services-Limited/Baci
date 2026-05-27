@@ -108,6 +108,7 @@ export type PaymentMethod =
   | 'juicyway'
   | 'credpal'
   | 'credit_direct'
+  | 'klump'
   | 'invoice'
   | 'payforme'
   | 'pod'

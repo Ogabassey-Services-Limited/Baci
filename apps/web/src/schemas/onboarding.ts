@@ -1,4 +1,5 @@
 import z from 'zod';
+import { getCountryByCode } from '@/lib/countries';
 import { sanitizePhone, sanitizeText, sanitizeUrl } from '@/lib/sanitize-core';
 import {
   checkPasswordStrength,
@@ -16,6 +17,8 @@ const _preprocessEmail = (val: unknown) =>
   typeof val === 'string' ? val.toLowerCase().trim() : val;
 const _preprocessPhone = (val: unknown) =>
   typeof val === 'string' ? sanitizePhone(sanitizeText(val)) : val;
+const _preprocessCountry = (val: unknown) =>
+  typeof val === 'string' ? sanitizeText(val).trim().toUpperCase() : val;
 const INVALID_URL_SENTINEL = '__invalid_url__';
 const _preprocessUrl = (val: unknown) => {
   if (typeof val !== 'string') return val;
@@ -41,6 +44,18 @@ const step1BaseSchema = z.object({
   businessType: z.preprocess(
     _preprocessText,
     z.string().trim().min(1, { message: 'Please select a business type.' })
+  ),
+  country: z.preprocess(
+    _preprocessCountry,
+    z
+      .string()
+      .trim()
+      .regex(/^[A-Z]{2}$/, {
+        message: 'Please select the country where your business is registered.',
+      })
+      .refine((code) => Boolean(getCountryByCode(code)), {
+        message: 'Please select a supported country.',
+      })
   ),
   otherBusinessType: z.preprocess(
     _preprocessText,

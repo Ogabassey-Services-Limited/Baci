@@ -142,6 +142,7 @@ import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { toast } from '@/hooks/use-toast';
 import { openCreditDirectCheckout } from '@/lib/credit-direct-client';
 import { openCredPalCheckout } from '@/lib/credpal';
+import { useAuthSafe } from '@/contexts/auth-context';
 import {
   usePersistedForm,
   usePersistedState,
@@ -158,6 +159,9 @@ describe('CheckoutPage', () => {
     } as unknown as ReturnType<typeof useCart>);
     vi.mocked(useSearchParams).mockReturnValue(
       new URLSearchParams() as unknown as ReturnType<typeof useSearchParams>
+    );
+    vi.mocked(useAuthSafe).mockReturnValue(
+      null as unknown as ReturnType<typeof useAuthSafe>
     );
     vi.mocked(useMerchantSafe).mockReturnValue({
       merchant: {
@@ -208,6 +212,217 @@ describe('CheckoutPage', () => {
       screen.queryAllByLabelText(/email/i)[0] ??
       screen.queryByText(/contact/i);
     expect(match).toBeTruthy();
+  });
+
+  it('shows Klump in installment checkout when the merchant enables it', async () => {
+    vi.mocked(useCart).mockReturnValue({
+      cart: [
+        {
+          id: 'item-1',
+          name: 'Test Product',
+          price: 50000,
+          quantity: 1,
+          image: '',
+          slug: 'test-product',
+        },
+      ],
+      cartTotal: 50000,
+      clearCart: vi.fn(),
+      isHydrated: true,
+    } as unknown as ReturnType<typeof useCart>);
+    vi.mocked(useMerchantSafe).mockReturnValue({
+      merchant: {
+        id: 'merchant-1',
+        slug: 'test-store',
+        business_name: 'Test Store',
+        vat_registration_status: 'registered',
+        vat_rate: 7.5,
+        country: 'NG',
+        feature_settings: {
+          klump_enabled: true,
+        },
+      },
+      basePath: '/test-store',
+    } as unknown as ReturnType<typeof useMerchantSafe>);
+    vi.mocked(usePersistedForm).mockReturnValue({
+      values: {
+        firstName: 'Ada',
+        lastName: 'Buyer',
+        customerEmail: 'ada@example.com',
+        customerPhone: '+2348123456789',
+        newAddressStreet: '2 Olaide Tomori Street',
+        newAddressState: 'Lagos',
+        newAddressCity: 'Ikeja',
+        currentStep: 'payment',
+        completedSteps: { contact: true, delivery: true },
+      },
+      setValue: vi.fn(),
+      setValues: vi.fn(),
+      clear: vi.fn(),
+    } as unknown as ReturnType<typeof usePersistedForm>);
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({}),
+    } as Response);
+
+    render(<CheckoutPage />);
+
+    fireEvent.click(screen.getByRole('button', { name: /pay in installments/i }));
+
+    expect(await screen.findByText('Klump')).toBeInTheDocument();
+    fetchMock.mockRestore();
+  });
+
+  it('hides Klump in installment checkout when the merchant disables it', async () => {
+    vi.mocked(useCart).mockReturnValue({
+      cart: [
+        {
+          id: 'item-1',
+          name: 'Test Product',
+          price: 50000,
+          quantity: 1,
+          image: '',
+          slug: 'test-product',
+        },
+      ],
+      cartTotal: 50000,
+      clearCart: vi.fn(),
+      isHydrated: true,
+    } as unknown as ReturnType<typeof useCart>);
+    vi.mocked(useMerchantSafe).mockReturnValue({
+      merchant: {
+        id: 'merchant-1',
+        slug: 'test-store',
+        business_name: 'Test Store',
+        vat_registration_status: 'registered',
+        vat_rate: 7.5,
+        country: 'NG',
+        feature_settings: {
+          klump_enabled: false,
+        },
+      },
+      basePath: '/test-store',
+    } as unknown as ReturnType<typeof useMerchantSafe>);
+    vi.mocked(usePersistedForm).mockReturnValue({
+      values: {
+        firstName: 'Ada',
+        lastName: 'Buyer',
+        customerEmail: 'ada@example.com',
+        customerPhone: '+2348123456789',
+        newAddressStreet: '2 Olaide Tomori Street',
+        newAddressState: 'Lagos',
+        newAddressCity: 'Ikeja',
+        currentStep: 'payment',
+        completedSteps: { contact: true, delivery: true },
+      },
+      setValue: vi.fn(),
+      setValues: vi.fn(),
+      clear: vi.fn(),
+    } as unknown as ReturnType<typeof usePersistedForm>);
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({}),
+    } as Response);
+
+    render(<CheckoutPage />);
+
+    fireEvent.click(screen.getByRole('button', { name: /pay in installments/i }));
+
+    expect(screen.queryByText('Klump')).not.toBeInTheDocument();
+    fetchMock.mockRestore();
+  });
+
+  it('hides Klump when wallet credit is auto-applied', async () => {
+    vi.mocked(useAuthSafe).mockReturnValue({
+      user: {
+        id: 'customer-1',
+        email: 'ada@example.com',
+        user_metadata: {},
+      },
+    } as unknown as ReturnType<typeof useAuthSafe>);
+    vi.mocked(useCart).mockReturnValue({
+      cart: [
+        {
+          id: 'item-1',
+          name: 'Test Product',
+          price: 50000,
+          quantity: 1,
+          image: '',
+          slug: 'test-product',
+        },
+      ],
+      cartTotal: 50000,
+      clearCart: vi.fn(),
+      isHydrated: true,
+    } as unknown as ReturnType<typeof useCart>);
+    vi.mocked(useMerchantSafe).mockReturnValue({
+      merchant: {
+        id: 'merchant-1',
+        slug: 'test-store',
+        business_name: 'Test Store',
+        vat_registration_status: 'registered',
+        vat_rate: 7.5,
+        country: 'NG',
+        feature_settings: {
+          klump_enabled: true,
+        },
+      },
+      basePath: '/test-store',
+    } as unknown as ReturnType<typeof useMerchantSafe>);
+    vi.mocked(usePersistedForm).mockReturnValue({
+      values: {
+        firstName: 'Ada',
+        lastName: 'Buyer',
+        customerEmail: 'ada@example.com',
+        customerPhone: '+2348123456789',
+        newAddressStreet: '2 Olaide Tomori Street',
+        newAddressState: 'Lagos',
+        newAddressCity: 'Ikeja',
+        currentStep: 'payment',
+        completedSteps: { contact: true, delivery: true },
+      },
+      setValue: vi.fn(),
+      setValues: vi.fn(),
+      clear: vi.fn(),
+    } as unknown as ReturnType<typeof usePersistedForm>);
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(async (input) => {
+        const url = String(input);
+        if (url.startsWith('/api/storefront/customer/wallet')) {
+          return {
+            ok: true,
+            json: async () => ({ balance: 10000 }),
+          } as Response;
+        }
+
+        return {
+          ok: true,
+          json: async () => ({}),
+          text: async () => '',
+        } as Response;
+      });
+
+    try {
+      render(<CheckoutPage />);
+
+      fireEvent.click(
+        screen.getByRole('button', { name: /pay in installments/i }),
+      );
+
+      await waitFor(() => {
+        expect(
+          fetchMock.mock.calls.some(([url]) =>
+            String(url).startsWith('/api/storefront/customer/wallet'),
+          ),
+        ).toBe(true);
+      });
+      await waitFor(() => {
+        expect(screen.queryByText('Klump')).not.toBeInTheDocument();
+      });
+    } finally {
+      fetchMock.mockRestore();
+    }
   });
 
   it('includes merchant_slug and tracking token when resuming an order', async () => {

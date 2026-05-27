@@ -4,7 +4,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SPACING } from '@/constants/theme';
 import { useRevenueCat } from '@/hooks/useRevenueCat';
 import { useTheme } from '@/hooks/useTheme';
-import { useRevenueCatStore } from '@/stores/revenueCatStore';
 import type { PurchasesPackage } from 'react-native-purchases';
 import PaywallFeatureList from './PaywallFeatureList';
 import PaywallFooter from './PaywallFooter';
@@ -64,22 +63,27 @@ export default function Paywall({ onClose }: PaywallProps) {
     if (!selectedPackage) return;
 
     try {
-      const isNowPro = await purchasePackage(selectedPackage);
-      if (isNowPro) {
+      const purchaseResult = await purchasePackage(selectedPackage);
+      if (purchaseResult.status === 'cancelled') {
+        return;
+      }
+
+      if (purchaseResult.status === 'error') {
+        return;
+      }
+
+      if (purchaseResult.isPro) {
         Alert.alert('Success', 'You are now a Pro member!', [
           { text: 'OK', onPress: onClose },
         ]);
         return;
       }
 
-      const latestError = useRevenueCatStore.getState().error;
-      if (!latestError) {
-        Alert.alert(
-          'Purchase Complete',
-          'Your purchase was successful! If your features don\'t appear immediately, please try "Restore Purchases".',
-          [{ text: 'OK' }]
-        );
-      }
+      Alert.alert(
+        'Purchase Complete',
+        'Your purchase was successful! If your features don\'t appear immediately, please try "Restore Purchases".',
+        [{ text: 'OK' }]
+      );
     } catch (err) {
       console.debug('[Paywall] Purchase interaction notice:', err);
     }

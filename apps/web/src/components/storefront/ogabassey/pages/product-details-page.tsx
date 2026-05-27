@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic';
 import { useEffect, useState, type ReactNode } from 'react';
 import type { Product } from '../types';
 import { ProductBreadcrumbs } from './product-details-page/product-breadcrumbs';
+import { ProductInteractionPanel } from './product-details-page/product-interaction-panel';
 import { ProductMediaGallery } from './product-details-page/product-media-gallery';
 import { ProductMobileActionBar } from './product-details-page/product-mobile-action-bar';
 import { ProductPurchasePanel } from './product-details-page/product-purchase-panel';
@@ -41,11 +42,13 @@ const SelectionRequiredModal = dynamic(
 );
 
 interface ProductDetailsPageProps {
+  mode?: 'full' | 'commerce' | 'belowFold';
   product: Product;
   semanticSections?: ReactNode;
 }
 
 export function ProductDetailsPage({
+  mode = 'full',
   product,
   semanticSections = null,
 }: ProductDetailsPageProps) {
@@ -127,6 +130,24 @@ export function ProductDetailsPage({
     };
   }, []);
 
+  const isCommerceMode = mode === 'commerce';
+
+  if (mode === 'belowFold') {
+    return (
+      <div className="mx-auto max-w-[1400px] px-4 pb-32 md:px-6">
+        {semanticSections}
+        <DeferredProductDetailsSectionsLoader
+          activeTab={activeTab}
+          normalizedReviewRatingWidth={normalizedReviewRatingWidth}
+          onSelectTab={setActiveTab}
+          productData={productData}
+          relatedProductsProduct={relatedProductsProduct}
+          storeSlug={merchantSlug}
+        />
+      </div>
+    );
+  }
+
   const handleAttributeSelection = (axis: string, value: string) => {
     const hasVariants =
       Array.isArray(productData.variants) && productData.variants.length > 0;
@@ -160,85 +181,145 @@ export function ProductDetailsPage({
     setMissingFields((prev) => prev.filter((field) => field !== label));
   };
   return (
-    <div className="relative bg-store-background pb-32 pt-4">
+    <div
+      className={
+        isCommerceMode ? 'relative' : 'relative bg-store-background pb-32 pt-4'
+      }
+    >
+      {isCommerceMode ? null : (
+        <div
+          data-testid="product-banner-carousel"
+          role="region"
+          aria-label="Product banner carousel"
+          className="mx-auto mb-8 hidden min-h-[208px] max-w-[1400px] px-4 md:block md:px-6"
+        >
+          {isDesktop ? <BannerCarousel className="h-40 md:h-52" /> : null}
+        </div>
+      )}
+
       <div
-        data-testid="product-banner-carousel"
-        role="region"
-        aria-label="Product banner carousel"
-        className="mx-auto mb-8 hidden min-h-[208px] max-w-[1400px] px-4 md:block md:px-6"
+        className={
+          isCommerceMode ? 'w-full' : 'mx-auto max-w-[1400px] px-4 md:px-6'
+        }
       >
-        {isDesktop ? <BannerCarousel className="h-40 md:h-52" /> : null}
-      </div>
-
-      <div className="mx-auto max-w-[1400px] px-4 md:px-6">
-        <ProductBreadcrumbs
-          basePath={basePath}
-          homeHref={homeHref}
-          productData={productData}
-        />
-
-        <div className="grid grid-cols-1 gap-12 lg:grid-cols-12 lg:gap-8">
-          <ProductMediaGallery
-            onSelectImage={setSelectedImage}
+        {isCommerceMode ? null : (
+          <ProductBreadcrumbs
+            basePath={basePath}
+            homeHref={homeHref}
             productData={productData}
-            selectedCondition={selectedCondition}
-            selectedImage={selectedImage}
           />
+        )}
 
-          <ProductPurchasePanel
-            availableConditions={availableConditions}
-            canPurchase={canPurchase}
-            cartHref={cartHref}
-            currentOfferPrice={currentOffer.price}
-            deliveryEstimate={deliveryEstimate}
-            deliveryLocation={deliveryLocation}
-            effectiveAxes={effectiveAxes}
-            formatAxisLabel={formatAxisLabel}
-            getAxisOptions={getAxisOptions}
-            inputValue={inputValue}
-            isLiked={isLiked}
-            onAddToCart={validateAndAddToCart}
-            onChangeAttribute={handleAttributeSelection}
-            onChangeDeliveryLocation={setDeliveryLocation}
-            onDecrement={handleDecrement}
-            onIncrement={handleIncrement}
-            onInputBlur={handleQuantityBlur}
-            onInputChange={handleQuantityChange}
-            onInputKeyDown={handleKeyDown}
-            onSelectColor={handleColorSelection}
-            onSelectSecondaryColor={handleColorDoubleClick}
-            onSetCondition={setSelectedCondition}
-            onShare={handleShare}
-            onToggleSaved={handleToggleSaved}
-            productData={productData}
-            quantityInCart={quantityInCart}
-            secondaryColor={secondaryColor}
-            selectedAttributes={selectedAttributes}
-            selectedColor={selectedColor}
-            selectedCondition={selectedCondition}
-            showColorToast={showColorToast}
-          />
+        <div
+          className={
+            isCommerceMode
+              ? 'contents'
+              : 'grid grid-cols-1 gap-12 lg:grid-cols-12 lg:gap-8'
+          }
+        >
+          {isCommerceMode ? null : (
+            <ProductMediaGallery
+              onSelectImage={setSelectedImage}
+              productData={productData}
+              selectedCondition={selectedCondition}
+              selectedImage={selectedImage}
+            />
+          )}
 
-          <div className="hidden lg:col-span-3 lg:block lg:border-l lg:border-store-background-text/10 lg:pl-8">
-            <div className="sticky top-24">
-              <p className="mb-4 text-xs font-bold uppercase tracking-widest text-store-background-text/50">
-                Sponsored
-              </p>
-              <AdUnit placementKey="SIDEBAR_HALF_PAGE" className="mb-6" />
+          {isCommerceMode ? (
+            <ProductInteractionPanel
+              availableConditions={availableConditions}
+              canPurchase={canPurchase}
+              cartHref={cartHref}
+              currentOfferPrice={currentOffer.price}
+              deliveryEstimate={deliveryEstimate}
+              deliveryLocation={deliveryLocation}
+              effectiveAxes={effectiveAxes}
+              formatAxisLabel={formatAxisLabel}
+              getAxisOptions={getAxisOptions}
+              inputValue={inputValue}
+              isLiked={isLiked}
+              onAddToCart={validateAndAddToCart}
+              onChangeAttribute={handleAttributeSelection}
+              onChangeDeliveryLocation={setDeliveryLocation}
+              onDecrement={handleDecrement}
+              onIncrement={handleIncrement}
+              onInputBlur={handleQuantityBlur}
+              onInputChange={handleQuantityChange}
+              onInputKeyDown={handleKeyDown}
+              onSelectColor={handleColorSelection}
+              onSelectSecondaryColor={handleColorDoubleClick}
+              onSetCondition={setSelectedCondition}
+              onShare={handleShare}
+              onToggleSaved={handleToggleSaved}
+              productData={productData}
+              quantityInCart={quantityInCart}
+              secondaryColor={secondaryColor}
+              selectedAttributes={selectedAttributes}
+              selectedColor={selectedColor}
+              selectedCondition={selectedCondition}
+              showColorToast={showColorToast}
+            />
+          ) : (
+            <ProductPurchasePanel
+              availableConditions={availableConditions}
+              canPurchase={canPurchase}
+              cartHref={cartHref}
+              currentOfferPrice={currentOffer.price}
+              deliveryEstimate={deliveryEstimate}
+              deliveryLocation={deliveryLocation}
+              effectiveAxes={effectiveAxes}
+              formatAxisLabel={formatAxisLabel}
+              getAxisOptions={getAxisOptions}
+              inputValue={inputValue}
+              isLiked={isLiked}
+              onAddToCart={validateAndAddToCart}
+              onChangeAttribute={handleAttributeSelection}
+              onChangeDeliveryLocation={setDeliveryLocation}
+              onDecrement={handleDecrement}
+              onIncrement={handleIncrement}
+              onInputBlur={handleQuantityBlur}
+              onInputChange={handleQuantityChange}
+              onInputKeyDown={handleKeyDown}
+              onSelectColor={handleColorSelection}
+              onSelectSecondaryColor={handleColorDoubleClick}
+              onSetCondition={setSelectedCondition}
+              onShare={handleShare}
+              onToggleSaved={handleToggleSaved}
+              productData={productData}
+              quantityInCart={quantityInCart}
+              secondaryColor={secondaryColor}
+              selectedAttributes={selectedAttributes}
+              selectedColor={selectedColor}
+              selectedCondition={selectedCondition}
+              showColorToast={showColorToast}
+            />
+          )}
+
+          {isCommerceMode ? null : (
+            <div className="hidden lg:col-span-3 lg:block lg:border-l lg:border-store-background-text/10 lg:pl-8">
+              <div className="sticky top-24">
+                <p className="mb-4 text-xs font-bold uppercase tracking-widest text-store-background-text/50">
+                  Sponsored
+                </p>
+                <AdUnit placementKey="SIDEBAR_HALF_PAGE" className="mb-6" />
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
-        {semanticSections}
+        {isCommerceMode ? null : semanticSections}
 
-        <DeferredProductDetailsSectionsLoader
-          activeTab={activeTab}
-          normalizedReviewRatingWidth={normalizedReviewRatingWidth}
-          onSelectTab={setActiveTab}
-          productData={productData}
-          relatedProductsProduct={relatedProductsProduct}
-          storeSlug={merchantSlug}
-        />
+        {isCommerceMode ? null : (
+          <DeferredProductDetailsSectionsLoader
+            activeTab={activeTab}
+            normalizedReviewRatingWidth={normalizedReviewRatingWidth}
+            onSelectTab={setActiveTab}
+            productData={productData}
+            relatedProductsProduct={relatedProductsProduct}
+            storeSlug={merchantSlug}
+          />
+        )}
       </div>
 
       <ProductMobileActionBar

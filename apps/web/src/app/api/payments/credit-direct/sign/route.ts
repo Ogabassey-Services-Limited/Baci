@@ -100,7 +100,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const merchantPublicKey = settings?.credit_direct_public_key;
     const minAmount =
       settings?.credit_direct_min_amount ?? CREDIT_DIRECT_CONFIG.minAmount;
     const maxAmount =
@@ -166,10 +165,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate session ID
-    const sessionId = generateSessionId(15);
-
-    // Get private key (from environment or merchant settings)
+    // Get the matching key pair from environment. The private key is only
+    // available server-side, so falling back to a DB public key here can create
+    // a mismatched pair that Credit Direct rejects after the user leaves Baci.
     let privateKey: string;
     try {
       privateKey = getPrivateKey();
@@ -180,6 +178,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    let publicKey: string;
+    try {
+      publicKey = getPublicKey();
+    } catch {
+      return NextResponse.json(
+        { error: 'Credit Direct public key not configured' },
+        { status: 500 }
+      );
+    }
+
+    // Generate session ID
+    const sessionId = generateSessionId(15);
+
     // Sign the transaction
     const signature = signTransaction(
       sessionId,
@@ -187,21 +198,6 @@ export async function POST(request: NextRequest) {
       totalAmount,
       privateKey
     );
-
-    // Get public key (prefer environment — must match private key, fallback to DB)
-    let publicKey: string;
-    try {
-      publicKey = getPublicKey();
-    } catch {
-      if (merchantPublicKey) {
-        publicKey = merchantPublicKey;
-      } else {
-        return NextResponse.json(
-          { error: 'Credit Direct public key not configured' },
-          { status: 500 }
-        );
-      }
-    }
 
     // Store the session mapping for webhook reconciliation
     const { error: sessionError } = await supabase.rpc(

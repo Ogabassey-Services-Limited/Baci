@@ -4,6 +4,10 @@ import { openCredPalCheckout } from '@/lib/credpal';
 import { openCreditDirectCheckout } from '@/lib/credit-direct-client';
 import { createClient } from '@/lib/supabase/client';
 import { normalizeOrderPaymentMethod } from '../pending-checkout-order';
+import {
+  KLUMP_WALLET_CREDIT_UNAVAILABLE_TOAST,
+  isKlumpUnavailableForGatewayAmount,
+} from '../utils';
 import type {
   SavedAddress,
   ShippingQuote,
@@ -313,6 +317,20 @@ export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
     return;
   }
   const shippingProvider = shippingProviderResolution.provider;
+  const clientPayableAmount = payWithWallet ? total - walletAmountUsed : total;
+
+  if (
+    isKlumpUnavailableForGatewayAmount({
+      paymentMethod,
+      payableAmount: clientPayableAmount,
+      orderAmount: total,
+    })
+  ) {
+    toast(KLUMP_WALLET_CREDIT_UNAVAILABLE_TOAST);
+    setIsProcessing(false);
+    isOrderInFlightRef.current = false;
+    return;
+  }
 
   const orderItems = buildCheckoutOrderItems(cart);
 
@@ -403,6 +421,19 @@ export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
       ? `&trackingToken=${order.tracking_token}`
       : '';
 
+    if (
+      isKlumpUnavailableForGatewayAmount({
+        paymentMethod,
+        payableAmount: paymentAmount,
+        orderAmount: total,
+      })
+    ) {
+      toast(KLUMP_WALLET_CREDIT_UNAVAILABLE_TOAST);
+      setIsProcessing(false);
+      isOrderInFlightRef.current = false;
+      return;
+    }
+
     if (walletResult?.amountUsed) {
       setWalletBalance(walletResult.newBalance);
     }
@@ -455,7 +486,11 @@ export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
       return;
     }
 
-    if (paymentMethod === 'paystack' || paymentMethod === 'korapay') {
+    if (
+      paymentMethod === 'paystack' ||
+      paymentMethod === 'korapay' ||
+      paymentMethod === 'klump'
+    ) {
       const result = await initializeCardPayment(
         merchant.id,
         order.id,
@@ -645,7 +680,7 @@ export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
   }
 }
 
-/** Initialize payment via Paystack or Korapay. */
+/** Initialize payment through the server-side payment initialization route. */
 async function initializeCardPayment(
   merchantId: string,
   orderId: string,

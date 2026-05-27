@@ -2,6 +2,10 @@ import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { hasPermission } from '@/lib/api-auth';
 import {
+  getLaunchPaymentRequirement,
+  requiresNigerianKycForLaunch,
+} from '@/lib/checkout/payment-gateway-availability';
+import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
@@ -209,6 +213,7 @@ export async function GET() {
       { count: publishedProductCount },
       { data: latestStorefrontJob, error: latestStorefrontJobError },
       { data: homePageConfig, error: homePageConfigError },
+      { data: featureSettings, error: featureSettingsError },
     ] = await Promise.all([
       supabase
         .from('products')
@@ -229,6 +234,11 @@ export async function GET() {
         .select('id')
         .eq('merchant_id', validMerchant.id)
         .eq('page_slug', 'home')
+        .maybeSingle(),
+      supabase
+        .from('merchant_feature_settings')
+        .select('paystack_enabled, korapay_enabled, pay_on_delivery_enabled')
+        .eq('merchant_id', validMerchant.id)
         .maybeSingle(),
     ]);
 
@@ -260,18 +270,41 @@ export async function GET() {
       );
     }
 
+    if (featureSettingsError) {
+      console.error(
+        '[Readiness API] merchant_feature_settings read failed:',
+        featureSettingsError
+      );
+      return NextResponse.json(
+        {
+          error: 'Failed to load payment settings',
+          code: 'PAYMENT_SETTINGS_LOAD_FAILED',
+        },
+        { status: 500 }
+      );
+    }
+
     const storeBuild = buildStoreBuildStatus(
       !!homePageConfig,
       latestStorefrontJob,
       hasPermission(access, 'builder', 'edit')
     );
 
+    const paymentMerchant = {
+      ...validMerchant,
+      feature_settings: featureSettings ?? undefined,
+    };
+    const kycRequired = requiresNigerianKycForLaunch(paymentMerchant);
+    const paymentRequirement = getLaunchPaymentRequirement(paymentMerchant);
+
     // KYC readiness must match the publish gate, which checks *verified*
     // flags on merchant_verifications (not mere presence of
     // nin/bvn/cac_rc_number on the merchant row). Using the same source
     // prevents the checklist from advertising "Ready to Launch" while
     // POST /api/merchant/publish returns 400 on unverified identifiers.
-    const verification = await getVerificationFlags(validMerchant.id);
+    const verification = kycRequired
+      ? await getVerificationFlags(validMerchant.id)
+      : { nin_verified: false, bvn_verified: false, cac_verified: false };
     const hasVerifiedIdentity =
       verification.nin_verified ||
       verification.bvn_verified ||
@@ -283,21 +316,19 @@ export async function GET() {
       {
         id: 'verify_kyc',
         label: 'Verify your identity (KYC)',
-        description: 'NIN, BVN, or CAC required for payments',
-        completed: hasVerifiedIdentity,
+        description: kycRequired
+          ? 'NIN, BVN, or CAC required for payments'
+          : 'Required before enabling Nigerian online payouts',
+        completed: kycRequired ? hasVerifiedIdentity : true,
         href: '/dashboard/settings/kyc',
-        priority: 'required',
+        priority: kycRequired ? 'required' : 'recommended',
         category: 'payments',
       },
       {
-        id: 'bank_account',
-        label: 'Add bank account',
-        description: 'Required to receive payments via Paystack',
-        completed: !!(
-          validMerchant.bank_code &&
-          validMerchant.bank_account_number &&
-          validMerchant.paystack_subaccount_code
-        ),
+        id: paymentRequirement.id,
+        label: paymentRequirement.label,
+        description: paymentRequirement.description,
+        completed: paymentRequirement.completed,
         href: '/dashboard/settings/payments',
         priority: 'required',
         category: 'payments',

@@ -244,7 +244,7 @@ const serverSchema = z
           'LLM_SERVER_BEARER must be a valid bearer token (no control chars, ≤2048 chars, not "BearerXyz")',
       }
     ),
-    LLM_CHAT_MODEL: z.string().default('gemma-4-e4b'),
+    LLM_CHAT_MODEL: z.string().default('gemma4:e4b'),
 
     // Jumia Marketplace
     JUMIA_ENVIRONMENT: z.enum(['staging', 'production']).default('staging'),

@@ -47,3 +47,6 @@
 ## 2026-05-24 - Replace Hardcoded Third-Party Brand Colors
 **Learning:** Hardcoding static brand colors like `#000000` for Amazon or `#FF9900` for Jumia fails to adapt to system themes, causing unreadable text or invisible icons in dark mode.
 **Action:** Replace hardcoded third-party colors with adaptive semantic tokens (e.g., using `colors.text` for black containers with `colors.background` for the inner icon, or mapping to close semantic values like `colors.orange`) to ensure accessibility across both themes.
+## 2024-05-26 - ErrorBoundary and Shipping Quotes Theming
+**Learning:** Hardcoded hex values for debug containers and shipping quote selection states failed to adapt to the dark mode context accurately and didn't utilize available tokens.
+**Action:** Removed statically defined fallback hex values and utilized proper adaptive theme tokens (`colors.destructive`, `colors.primaryLowOpacity`, `colors.muted`) to ensure consistent design language alignment in both modes.

@@ -300,9 +300,34 @@ describe('executeDirectPayment', () => {
               orderId: 'order-123',
               paymentRef: 'cd-transaction-456',
               gateway: 'credit_direct',
+              tracking_token: 'track-token-123',
             }),
           },
         );
+      });
+
+      it('omits tracking token when the resumed order has none', async () => {
+        const orderWithoutToken: ResumedOrder = {
+          ...mockResumedOrder,
+          tracking_token: undefined,
+        };
+
+        await executeDirectPayment({
+          ...defaultOpts,
+          preferredGateway: 'credit_direct',
+          resumedOrder: orderWithoutToken,
+        });
+        const callArgs = mockOpenCreditDirectCheckout.mock.calls[0][0];
+        await callArgs.onSuccess('cd-transaction-456');
+
+        const fetchCall = (global.fetch as Mock).mock.calls[0];
+        const body = JSON.parse(fetchCall[1].body);
+        expect(body).toEqual({
+          orderId: 'order-123',
+          paymentRef: 'cd-transaction-456',
+          gateway: 'credit_direct',
+        });
+        expect(body).not.toHaveProperty('tracking_token');
       });
 
       it('clears checkout session after successful payment', async () => {

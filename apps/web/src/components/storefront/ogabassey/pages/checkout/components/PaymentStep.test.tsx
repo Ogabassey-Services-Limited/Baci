@@ -1,4 +1,6 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { useState } from 'react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { PaymentStep } from './PaymentStep';
 import type { PaymentMethod, PaymentTab } from '../types';
@@ -27,6 +29,9 @@ interface FeatureSettings {
   pay_on_delivery_enabled?: boolean;
   credpal_enabled?: boolean;
   credit_direct_enabled?: boolean;
+  klump_enabled?: boolean;
+  klump_min_amount?: number | string | null;
+  klump_max_amount?: number | string | null;
 }
 
 describe('PaymentStep', () => {
@@ -50,6 +55,7 @@ describe('PaymentStep', () => {
     merchant: { paystack_subaccount_code: 'ACCT_123' },
     user: null,
     remainingAmount: 10000,
+    orderAmount: 10000,
   };
 
   beforeEach(() => {
@@ -458,12 +464,170 @@ describe('PaymentStep', () => {
       expect(screen.getByTestId('credit-direct-logo')).toBeInTheDocument();
     });
 
+    it('shows Klump when enabled in feature settings', () => {
+      const merchant = {
+        feature_settings: { klump_enabled: true } as FeatureSettings,
+      };
+
+      render(
+        <PaymentStep
+          {...defaultProps}
+          merchant={merchant}
+          paymentTab="installments"
+        />
+      );
+
+      expect(screen.getByText('Klump')).toBeInTheDocument();
+      expect(screen.getByText('Split payment at checkout')).toBeInTheDocument();
+    });
+
+    it('hides Klump when the order amount is outside merchant bounds', () => {
+      const merchant = {
+        feature_settings: {
+          klump_enabled: true,
+          klump_min_amount: 20_000,
+          klump_max_amount: 500_000,
+        } as FeatureSettings,
+      };
+
+      render(
+        <PaymentStep
+          {...defaultProps}
+          merchant={merchant}
+          paymentTab="installments"
+          orderAmount={10_000}
+          remainingAmount={10_000}
+        />
+      );
+
+      expect(screen.queryByText('Klump')).not.toBeInTheDocument();
+      expect(
+        screen.getByText(/no installment options are currently available/i),
+      ).toBeInTheDocument();
+    });
+
+    it('uses fallback Klump bounds when merchant limits are blank strings', () => {
+      const merchant = {
+        feature_settings: {
+          klump_enabled: true,
+          klump_min_amount: '',
+          klump_max_amount: '   ',
+        } as FeatureSettings,
+      };
+
+      render(
+        <PaymentStep
+          {...defaultProps}
+          merchant={merchant}
+          paymentTab="installments"
+          orderAmount={10_000}
+          remainingAmount={10_000}
+        />
+      );
+
+      expect(screen.getByText('Klump')).toBeInTheDocument();
+    });
+
+    it('checks Klump bounds against the gateway payable amount', () => {
+      const merchant = {
+        feature_settings: {
+          klump_enabled: true,
+          klump_min_amount: 10_000,
+          klump_max_amount: 10_000,
+        } as FeatureSettings,
+      };
+
+      render(
+        <PaymentStep
+          {...defaultProps}
+          merchant={merchant}
+          paymentTab="installments"
+          orderAmount={10_000.005}
+          remainingAmount={10_000}
+        />
+      );
+
+      expect(screen.getByText('Klump')).toBeInTheDocument();
+    });
+
+    it('hides Klump when wallet credit reduces the payable amount', () => {
+      const merchant = {
+        feature_settings: { klump_enabled: true } as FeatureSettings,
+      };
+
+      render(
+        <PaymentStep
+          {...defaultProps}
+          merchant={merchant}
+          paymentTab="installments"
+          orderAmount={50_000}
+          remainingAmount={45_000}
+        />
+      );
+
+      expect(screen.queryByText('Klump')).not.toBeInTheDocument();
+      expect(
+        screen.getByText(/no installment options are currently available/i),
+      ).toBeInTheDocument();
+    });
+
+    it('hides Klump for non-NGN checkout currency', () => {
+      const merchant = {
+        feature_settings: { klump_enabled: true } as FeatureSettings,
+      };
+
+      render(
+        <PaymentStep
+          {...defaultProps}
+          merchant={merchant}
+          paymentTab="installments"
+          currency="USD"
+        />
+      );
+
+      expect(screen.queryByText('Klump')).not.toBeInTheDocument();
+    });
+
+    it('allows keyboard focus and selection for the Klump radio', async () => {
+      const user = userEvent.setup();
+      const merchant = {
+        feature_settings: { klump_enabled: true } as FeatureSettings,
+      };
+
+      function StatefulPaymentStep() {
+        const [paymentMethod, setPaymentMethod] =
+          useState<PaymentMethod>('');
+
+        return (
+          <PaymentStep
+            {...defaultProps}
+            merchant={merchant}
+            paymentTab="installments"
+            paymentMethod={paymentMethod}
+            setPaymentMethod={setPaymentMethod}
+          />
+        );
+      }
+
+      render(<StatefulPaymentStep />);
+
+      const klumpRadio = screen.getByRole('radio', { name: /klump/i });
+      klumpRadio.focus();
+
+      expect(klumpRadio).toHaveFocus();
+
+      await user.keyboard(' ');
+
+      await waitFor(() => expect(klumpRadio).toBeChecked());
+    });
+
     it('shows empty state when no installment options are enabled', () => {
       // Arrange
       const merchant = {
         feature_settings: {
           credpal_enabled: false,
           credit_direct_enabled: false,
+          klump_enabled: false,
         } as FeatureSettings,
       };
 
@@ -522,6 +686,24 @@ describe('PaymentStep', () => {
       expect(screen.getByText(/instant approval decision/i)).toBeInTheDocument();
     });
 
+    it('shows Klump info when Klump is selected', () => {
+      const merchant = {
+        feature_settings: { klump_enabled: true } as FeatureSettings,
+      };
+
+      render(
+        <PaymentStep
+          {...defaultProps}
+          merchant={merchant}
+          paymentTab="installments"
+          paymentMethod="klump"
+        />
+      );
+
+      expect(screen.getByText('How Klump works')).toBeInTheDocument();
+      expect(screen.getByText(/complete approval securely/i)).toBeInTheDocument();
+    });
+
     it('calls setPaymentMethod when CredPal is selected', () => {
       // Arrange
       const setPaymentMethod = vi.fn();
@@ -545,6 +727,27 @@ describe('PaymentStep', () => {
       expect(setPaymentMethod).toHaveBeenCalledWith('credpal');
     });
 
+    it('calls setPaymentMethod when Klump is selected', () => {
+      const setPaymentMethod = vi.fn();
+      const merchant = {
+        feature_settings: { klump_enabled: true } as FeatureSettings,
+      };
+
+      render(
+        <PaymentStep
+          {...defaultProps}
+          merchant={merchant}
+          paymentTab="installments"
+          setPaymentMethod={setPaymentMethod}
+        />
+      );
+
+      const klumpLabel = screen.getByText('Klump').closest('label');
+      if (klumpLabel) fireEvent.click(klumpLabel);
+
+      expect(setPaymentMethod).toHaveBeenCalledWith('klump');
+    });
+
     it.each([
       [
         'credpal',
@@ -557,6 +760,14 @@ describe('PaymentStep', () => {
         {
           feature_settings: {
             credit_direct_enabled: false,
+          } as FeatureSettings,
+        },
+      ],
+      [
+        'klump',
+        {
+          feature_settings: {
+            klump_enabled: false,
           } as FeatureSettings,
         },
       ],
@@ -578,6 +789,27 @@ describe('PaymentStep', () => {
         expect(setPaymentMethod).toHaveBeenCalledWith('');
       }
     );
+
+    it('clears a stale Klump selection when wallet credit makes it ineligible', () => {
+      const setPaymentMethod = vi.fn();
+      const merchant = {
+        feature_settings: { klump_enabled: true } as FeatureSettings,
+      };
+
+      render(
+        <PaymentStep
+          {...defaultProps}
+          merchant={merchant}
+          paymentTab="installments"
+          paymentMethod="klump"
+          setPaymentMethod={setPaymentMethod}
+          orderAmount={50_000}
+          remainingAmount={45_000}
+        />
+      );
+
+      expect(setPaymentMethod).toHaveBeenCalledWith('');
+    });
   });
 
   describe('Mobile Place Order Button', () => {

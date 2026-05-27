@@ -1,4 +1,7 @@
 PODS:
+  - BaciTikTokBusiness (0.1.0):
+    - ExpoModulesCore
+    - TikTokBusinessSDK (= 1.6.1)
   - EASClient (56.0.1):
     - ExpoModulesCore
   - EXApplication (56.0.3):
@@ -40,9 +43,9 @@ PODS:
     - expo-dev-menu
     - expo-dev-menu-interface
     - EXUpdatesInterface
-  - expo-dev-launcher (56.0.14):
+  - expo-dev-launcher (56.0.15):
     - EXManifests
-    - expo-dev-launcher/Main (= 56.0.14)
+    - expo-dev-launcher/Main (= 56.0.15)
     - expo-dev-menu
     - expo-dev-menu-interface
     - ExpoModulesCore
@@ -71,7 +74,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - expo-dev-launcher/Main (56.0.14):
+  - expo-dev-launcher/Main (56.0.15):
     - EXManifests
     - expo-dev-launcher/Unsafe
     - expo-dev-menu
@@ -102,7 +105,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - expo-dev-launcher/Unsafe (56.0.14):
+  - expo-dev-launcher/Unsafe (56.0.15):
     - EXManifests
     - expo-dev-menu
     - expo-dev-menu-interface
@@ -132,8 +135,8 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - expo-dev-menu (56.0.13):
-    - expo-dev-menu/Main (= 56.0.13)
+  - expo-dev-menu (56.0.14):
+    - expo-dev-menu/Main (= 56.0.14)
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -156,7 +159,7 @@ PODS:
     - ReactNativeDependencies
     - Yoga
   - expo-dev-menu-interface (56.0.1)
-  - expo-dev-menu/Main (56.0.13):
+  - expo-dev-menu/Main (56.0.14):
     - EXManifests
     - expo-dev-menu-interface
     - ExpoModulesCore
@@ -2456,6 +2459,28 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
+  - RNDateTimePicker (9.1.0):
+    - hermes-engine
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-Core-prebuilt
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - Yoga
   - RNFBApp (23.8.8):
     - Firebase/CoreOnly (= 12.10.0)
     - hermes-engine
@@ -2750,9 +2775,6 @@ PODS:
   - SDWebImageWebPCoder (0.14.6):
     - libwebp (~> 1.0)
     - SDWebImage/Core (~> 5.17)
-  - TiktokBusiness (0.2.0):
-    - ExpoModulesCore
-    - TikTokBusinessSDK
   - TikTokBusinessSDK (1.6.1)
   - Yoga (0.0.0)
   - ZXingObjC/Core (3.6.9)
@@ -2762,6 +2784,7 @@ PODS:
     - ZXingObjC/Core
 
 DEPENDENCIES:
+  - BaciTikTokBusiness (from `../../../packages/tiktok-business/ios`)
   - EASClient (from `../../../node_modules/expo-eas-client/ios`)
   - EXApplication (from `../../../node_modules/expo-application/ios`)
   - EXConstants (from `../../../node_modules/expo-constants/ios`)
@@ -2769,8 +2792,8 @@ DEPENDENCIES:
   - EXManifests (from `../../../node_modules/expo-manifests/ios`)
   - Expo (from `../../../node_modules/expo`)
   - expo-dev-client (from `../../../node_modules/expo-dev-client/ios`)
-  - expo-dev-launcher (from `../../../node_modules/expo-dev-client/node_modules/expo-dev-launcher`)
-  - expo-dev-menu (from `../../../node_modules/expo-dev-client/node_modules/expo-dev-menu`)
+  - expo-dev-launcher (from `../../../node_modules/expo-dev-launcher`)
+  - expo-dev-menu (from `../../../node_modules/expo-dev-menu`)
   - expo-dev-menu-interface (from `../../../node_modules/expo-dev-menu-interface/ios`)
   - ExpoAdapterFBSDKNext (from `../../../node_modules/react-native-fbsdk-next/ios`)
   - ExpoAppleAuthentication (from `../../../node_modules/expo-apple-authentication/ios`)
@@ -2899,13 +2922,13 @@ DEPENDENCIES:
   - ReactNativeDependencies (from `../../../node_modules/react-native/third-party-podspecs/ReactNativeDependencies.podspec`)
   - "RNCAsyncStorage (from `../../../node_modules/@react-native-async-storage/async-storage`)"
   - "RNCMaskedView (from `../../../node_modules/@react-native-masked-view/masked-view`)"
+  - "RNDateTimePicker (from `../../../node_modules/@react-native-community/datetimepicker`)"
   - "RNFBApp (from `../../../node_modules/@react-native-firebase/app`)"
   - RNGestureHandler (from `../../../node_modules/react-native-gesture-handler`)
   - RNReanimated (from `../../../node_modules/react-native-reanimated`)
   - RNScreens (from `../../../node_modules/react-native-screens`)
   - RNSVG (from `../../../node_modules/react-native-svg`)
   - RNWorklets (from `../../../node_modules/react-native-worklets`)
-  - TiktokBusiness (from `../../../node_modules/react-native-tiktok-business/ios`)
   - Yoga (from `../../../node_modules/react-native/ReactCommon/yoga`)
 
 SPEC REPOS:
@@ -2934,6 +2957,8 @@ SPEC REPOS:
     - ZXingObjC
 
 EXTERNAL SOURCES:
+  BaciTikTokBusiness:
+    :path: "../../../packages/tiktok-business/ios"
   EASClient:
     :path: "../../../node_modules/expo-eas-client/ios"
   EXApplication:
@@ -2949,9 +2974,9 @@ EXTERNAL SOURCES:
   expo-dev-client:
     :path: "../../../node_modules/expo-dev-client/ios"
   expo-dev-launcher:
-    :path: "../../../node_modules/expo-dev-client/node_modules/expo-dev-launcher"
+    :path: "../../../node_modules/expo-dev-launcher"
   expo-dev-menu:
-    :path: "../../../node_modules/expo-dev-client/node_modules/expo-dev-menu"
+    :path: "../../../node_modules/expo-dev-menu"
   expo-dev-menu-interface:
     :path: "../../../node_modules/expo-dev-menu-interface/ios"
   ExpoAdapterFBSDKNext:
@@ -3207,6 +3232,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/@react-native-async-storage/async-storage"
   RNCMaskedView:
     :path: "../../../node_modules/@react-native-masked-view/masked-view"
+  RNDateTimePicker:
+    :path: "../../../node_modules/@react-native-community/datetimepicker"
   RNFBApp:
     :path: "../../../node_modules/@react-native-firebase/app"
   RNGestureHandler:
@@ -3219,12 +3246,11 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-svg"
   RNWorklets:
     :path: "../../../node_modules/react-native-worklets"
-  TiktokBusiness:
-    :path: "../../../node_modules/react-native-tiktok-business/ios"
   Yoga:
     :path: "../../../node_modules/react-native/ReactCommon/yoga"
 
 SPEC CHECKSUMS:
+  BaciTikTokBusiness: c55795a480e81ae9208eff9b94fc9c1fd54a70dc
   EASClient: 2321f8d99fa86c710a6f68e017f3b54366baed9f
   EXApplication: e6040c92edc5522accd62852342e6b14742d42c0
   EXConstants: 7ad8cebfd251d7275fa2e3878ad0ad64552937e1
@@ -3232,8 +3258,8 @@ SPEC CHECKSUMS:
   EXManifests: 7e19be8df665a338493060a419847dae76ffcd43
   Expo: e838a45ea2ad65576bb8efbc2ae9f8ac82187f29
   expo-dev-client: 024bb5ba1a54c6d3ec632bb4ff63f18d69790b61
-  expo-dev-launcher: 34352f520e54652f12a365b39fd9c7f00336f5df
-  expo-dev-menu: 91882b25683901edc983f325d6b4a33b24098ee1
+  expo-dev-launcher: 62dcee877a6da07ee4b88e02fdac787ba00a28b0
+  expo-dev-menu: 2ed92f38cc66d580b6c35600e5528db89ea3c1d2
   expo-dev-menu-interface: 65402d4affb8b418aa6cec29b3abb0e313c8f443
   ExpoAdapterFBSDKNext: 49ecf2414e4787250b0ed1faae99d1295dee674e
   ExpoAppleAuthentication: 3dd8ddd3016396a8171f06af8cc5e3e008e8eaf4
@@ -3285,7 +3311,7 @@ SPEC CHECKSUMS:
   FirebaseCore: f4428e22415ea3b3eca652c2098413dabf2a23a9
   FirebaseCoreInternal: e7bbaeb00ab73011298f35ed223aa7371e212948
   GoogleUtilities: 00c88b9a86066ef77f0da2fab05f65d7768ed8e1
-  hermes-engine: 9e8a75b3c43e708243c41fe16763ccb6aea2bd41
+  hermes-engine: e0068a92fd29444ec86e7b47bb8ca9461d874712
   libavif: 5f8e715bea24debec477006f21ef9e95432e254d
   libdav1d: 23581a4d8ec811ff171ed5e2e05cd27bad64c39f
   libwebp: 02b23773aedb6ff1fd38cec7a77b81414c6842a8
@@ -3303,7 +3329,7 @@ SPEC CHECKSUMS:
   React: e2dc35338068bbd299c66f043ae0d7f25de8499e
   React-callinvoker: 28b25d21b124c26cebaea713ba7d801b9351dc48
   React-Core: 02ed7d2ffb70437bdf2aba074a13078a7b0b9ff0
-  React-Core-prebuilt: f58cacdc92f452227e13bb3c271cbf0aae4b0cb7
+  React-Core-prebuilt: d8dd1e570ef642c33c734211b0d574e48369c45a
   React-CoreModules: b3a5a42dadcde3b5d47b325bd912eb2ced89e146
   React-cxxreact: fe8f88dda044e5905e99a00f41b7a874c3908716
   React-debug: 9af1e96a6069c996e3d9f1e493603e74bc9f1593
@@ -3374,9 +3400,10 @@ SPEC CHECKSUMS:
   ReactAppDependencyProvider: 25c9c516839be2c5e3d3344f95dc7da5f7e63fc2
   ReactCodegen: 5b2b5c009cec17b5e848bde3bc067c339009390d
   ReactCommon: 7dfc3250793bf36cf221096ff59e1179e13eef7f
-  ReactNativeDependencies: 78d2058b7dc54bfe7feba19d535ac6b8a6d2d076
+  ReactNativeDependencies: dae9cf4f6d53f70721561e951ebf8629244ee2c2
   RNCAsyncStorage: d90e523830fa7705f8c61632479abde871bc792f
   RNCMaskedView: 8069b4d4e23b3d28b4fcac70bf266be43ffc3d2e
+  RNDateTimePicker: afe0288e6c7855994f7f2617b7b2c05799fea7f3
   RNFBApp: 79b63f3ffec455179e6cebb37d5750be022c6fb8
   RNGestureHandler: a97cc64efbfcb7a53969a38310a189a3d5246c65
   RNReanimated: 7a16183cabf799cf59e42ffeade5da8d689e3309
@@ -3387,7 +3414,6 @@ SPEC CHECKSUMS:
   SDWebImageAVIFCoder: afe194a084e851f70228e4be35ef651df0fc5c57
   SDWebImageSVGCoder: 15a300a97ec1c8ac958f009c02220ac0402e936c
   SDWebImageWebPCoder: e38c0a70396191361d60c092933e22c20d5b1380
-  TiktokBusiness: 88e1030a1627dcbfd48759eacf5f13e9c215fb8d
   TikTokBusinessSDK: 349bb1dea1f90d01f9b39418ebe7c8eb981c04af
   Yoga: e240fec777ff1f21ef42ccebbb44b6d262125855
   ZXingObjC: 8898711ab495761b2dbbdec76d90164a6d7e14c5

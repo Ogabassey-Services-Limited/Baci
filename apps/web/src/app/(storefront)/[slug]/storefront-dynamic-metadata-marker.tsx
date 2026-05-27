@@ -1,15 +1,6 @@
 import { connection } from 'next/server';
-import { Suspense } from 'react';
 
-async function StorefrontDynamicMetadataConnection() {
+export async function StorefrontDynamicMetadataMarker() {
   await connection();
   return null;
-}
-
-export function StorefrontDynamicMetadataMarker() {
-  return (
-    <Suspense fallback={null}>
-      <StorefrontDynamicMetadataConnection />
-    </Suspense>
-  );
 }

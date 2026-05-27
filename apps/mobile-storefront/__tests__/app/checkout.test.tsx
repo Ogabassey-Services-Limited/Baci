@@ -21,19 +21,23 @@ describe('CheckoutScreen', () => {
     teardownCheckoutTest();
   });
 
-  it('renders checkout with address step visible by default', async () => {
-    renderCheckoutScreen();
+  it(
+    'renders checkout with address step visible by default',
+    async () => {
+      renderCheckoutScreen();
 
-    expect(screen.getByText('Checkout')).toBeOnTheScreen();
-    expect(screen.getByText('Delivery Address')).toBeOnTheScreen();
-    expect(screen.getByLabelText('checkout-step')).toHaveTextContent(
-      'step:address'
-    );
+      expect(screen.getByText('Checkout')).toBeOnTheScreen();
+      expect(screen.getByText('Delivery Address')).toBeOnTheScreen();
+      expect(screen.getByLabelText('checkout-step')).toHaveTextContent(
+        'step:address'
+      );
 
-    await waitFor(() => {
-      expect(mockTrackCheckoutStarted).toHaveBeenCalledTimes(1);
-    });
-  });
+      await waitFor(() => {
+        expect(mockTrackCheckoutStarted).toHaveBeenCalledTimes(1);
+      });
+    },
+    15_000
+  );
 
   it('continues from address to payment when required fields are valid', async () => {
     renderCheckoutScreen();

@@ -241,7 +241,9 @@ describe('BranchSwitcher create and active branch filtering', () => {
 
     expect(mocks.createMutateAsync).not.toHaveBeenCalled();
     expect(
-      screen.getByText(/(too (small|short).*2|expected string to have >=2)/i)
+      screen.getByText(
+        /(too (small|short).*2|expected string to have >=2|string must contain at least 2)/i
+      )
     ).toBeInTheDocument();
   });
 });

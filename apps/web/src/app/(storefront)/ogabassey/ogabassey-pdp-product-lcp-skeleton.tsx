@@ -1,6 +1,6 @@
 import 'server-only';
 import { getImageProps } from 'next/image';
-import type { CSSProperties } from 'react';
+import type { ComponentProps, CSSProperties } from 'react';
 import {
   OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY,
   OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
@@ -14,6 +14,13 @@ interface LcpSkeletonProps {
   primaryProductImage: string | null;
   productName?: string | null;
 }
+
+type NativeImagePropsWithNextInternals = ComponentProps<'img'> & {
+  fill?: unknown;
+  loader?: unknown;
+  priority?: unknown;
+  quality?: unknown;
+};
 
 export function OgabasseyPdpProductLcpSkeleton({
   merchant,
@@ -52,6 +59,13 @@ export function OgabasseyPdpProductLcpSkeleton({
     sizes: OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
     src: primaryProductImage,
   });
+  const {
+    fill: _fill,
+    loader: _loader,
+    priority: _priority,
+    quality: _quality,
+    ...nativeImgProps
+  } = imgProps as NativeImagePropsWithNextInternals;
   const imageFrameStyle: CSSProperties = {
     alignItems: 'center',
     aspectRatio: '1 / 1',
@@ -65,7 +79,7 @@ export function OgabasseyPdpProductLcpSkeleton({
     width: '100%',
   };
   const imageStyle: CSSProperties = {
-    ...imgProps.style,
+    ...nativeImgProps.style,
     height: '100%',
     inset: 0,
     objectFit: 'cover',
@@ -99,7 +113,7 @@ export function OgabasseyPdpProductLcpSkeleton({
           >
             {/* biome-ignore lint/performance/noImgElement lint/a11y/useAltText: Native HTML img used synchronously inside server-rendered skeleton to ensure instant painting */}
             <img
-              {...imgProps}
+              {...nativeImgProps}
               className="object-cover w-full h-full absolute inset-0"
               style={imageStyle}
               fetchPriority="high"

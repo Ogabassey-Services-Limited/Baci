@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { paystackBankCodeSchema } from './paystack-bank-code';
 
 const payoutModeSchema = z.enum(['manual', 'instant', 'weekly']);
 
@@ -8,6 +7,8 @@ const paystackSubaccountSourceSchema = z.object({
   accountNumber: z.string().optional(),
   bank_code: z.string().optional(),
   bankCode: z.string().optional(),
+  bank_name: z.string().optional(),
+  bankName: z.string().optional(),
   business_name: z.string().optional(),
   businessName: z.string().optional(),
   payout_mode: payoutModeSchema.optional(),
@@ -17,30 +18,47 @@ const paystackSubaccountSourceSchema = z.object({
 });
 
 export const paystackSubaccountSchema = paystackSubaccountSourceSchema
-  .transform((data) => ({
-    account_number: data.account_number ?? data.accountNumber ?? '',
-    bank_code: data.bank_code ?? data.bankCode ?? '',
-    business_name: data.business_name ?? data.businessName,
-    payout_mode: data.payout_mode ?? data.payoutMode ?? 'manual',
-    auto_payout_enabled:
-      data.auto_payout_enabled ?? data.autoPayoutEnabled ?? false,
-  }))
-  .superRefine((data, ctx) => {
-    if (!/^\d{10}$/.test(data.account_number)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Account number must be 10 digits',
-        path: ['account_number'],
-      });
-    }
+  .transform((data) => {
+    const bankName = (data.bank_name ?? data.bankName ?? '').trim();
 
-    const bankCodeResult = paystackBankCodeSchema.safeParse(data.bank_code);
-    if (!bankCodeResult.success) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: bankCodeResult.error.issues[0]?.message || 'Invalid bank code',
-        path: ['bank_code'],
-      });
+    return {
+      account_number: (data.account_number ?? data.accountNumber ?? '').trim(),
+      bank_code: (data.bank_code ?? data.bankCode ?? '').trim(),
+      ...(bankName ? { bank_name: bankName } : {}),
+      business_name: (data.business_name ?? data.businessName)?.trim(),
+      payout_mode: data.payout_mode ?? data.payoutMode ?? 'manual',
+      auto_payout_enabled:
+        data.auto_payout_enabled ?? data.autoPayoutEnabled ?? false,
+    };
+  })
+  .superRefine((data, ctx) => {
+    const isOfflineBank = Boolean(data.bank_name);
+
+    if (isOfflineBank) {
+      if (!/^[A-Za-z0-9][A-Za-z0-9 -]{5,33}$/.test(data.account_number)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message:
+            'Account number must be 6 to 34 characters and may include letters, digits, spaces, and hyphens',
+          path: ['account_number'],
+        });
+      }
+    } else {
+      if (!/^\d{10}$/.test(data.account_number)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Account number must be exactly 10 digits',
+          path: ['account_number'],
+        });
+      }
+
+      if (!data.bank_code) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Bank code is required',
+          path: ['bank_code'],
+        });
+      }
     }
 
     if (

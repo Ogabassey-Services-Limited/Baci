@@ -81,10 +81,6 @@
       "justification": "Reviewed native-only haptic support guard."
     },
     {
-      "path": "components/imei-check/imei-check-theme.ts",
-      "justification": "Reviewed platform-specific monospace font selection for IMEI result UI."
-    },
-    {
       "path": "components/modals/NegotiationModal.tsx",
       "justification": "Reviewed web guard for native image picker loading."
     },
@@ -101,10 +97,6 @@
       "justification": "Reviewed status-colored CSS box-shadow on web while preserving native order-card shadow styling."
     },
     {
-      "path": "components/negotiation/useNegotiationModalController.ts",
-      "justification": "Reviewed web guard for native evidence modules and iOS-only haptic feedback."
-    },
-    {
       "path": "components/payment-gateway/PaymentGatewayCheckoutView.tsx",
       "justification": "Reviewed Android WebView scaling behavior."
     },
@@ -119,10 +111,6 @@
     {
       "path": "components/product/VariantSelector.tsx",
       "justification": "Reviewed CSS box-shadow on web while preserving native variant-swatch shadow styling."
-    },
-    {
-      "path": "components/negotiation/useNegotiationModalController.ts",
-      "justification": "Reviewed web/native guards around haptics and media picker interaction flow."
     },
     {
       "path": "components/receipts/ReceiptPreviewModal.tsx",
@@ -201,8 +189,16 @@
       "justification": "Reviewed web storage fallback for Supabase client."
     },
     {
+      "path": "lib/tracking-transparency.ts",
+      "justification": "Reviewed iOS-only ATT dynamic import guard so web and Android do not evaluate the native tracking module."
+    },
+    {
       "path": "services/ad-tracking.ts",
       "justification": "Reviewed web guard and iOS attribution API handling."
+    },
+    {
+      "path": "services/ad-tracking-native-modules.ts",
+      "justification": "Reviewed web guard for native Facebook and TikTok SDK dynamic imports."
     },
     {
       "path": "services/push-notifications.ts",

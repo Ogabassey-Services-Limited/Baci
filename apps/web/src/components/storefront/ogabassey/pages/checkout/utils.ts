@@ -147,3 +147,36 @@ export function calculateDeliveryCost(
   // Airport
   return airportType === 'delivery' ? 25000 : 20000;
 }
+
+export function isGatewayAmountDifferentFromOrderTotal(
+  payableAmount: number,
+  orderAmount: number,
+): boolean {
+  if (!Number.isFinite(payableAmount) || !Number.isFinite(orderAmount)) {
+    return true;
+  }
+
+  return Math.abs(orderAmount - payableAmount) >= 0.01;
+}
+
+export const KLUMP_WALLET_CREDIT_UNAVAILABLE_TOAST = {
+  title: 'Klump unavailable with wallet credit',
+  description:
+    'Klump requires the full order total. Remove wallet credit or choose another payment method.',
+  variant: 'destructive' as const,
+};
+
+export function isKlumpUnavailableForGatewayAmount({
+  paymentMethod,
+  payableAmount,
+  orderAmount,
+}: {
+  paymentMethod: string;
+  payableAmount: number;
+  orderAmount: number;
+}): boolean {
+  return (
+    paymentMethod === 'klump' &&
+    isGatewayAmountDifferentFromOrderTotal(payableAmount, orderAmount)
+  );
+}

@@ -18,5 +18,9 @@ export function buildStorefrontRedirect(
           : []
     )
   ).toString();
-  return queryString ? (`${basePath}?${queryString}` as Route) : basePath;
+  if (!queryString) {
+    return basePath;
+  }
+
+  return `${basePath}?${queryString}` as unknown as Route;
 }

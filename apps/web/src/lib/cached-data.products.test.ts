@@ -103,16 +103,24 @@ describe('cached-data product query projections', () => {
     expect(harness.mockEq).toHaveBeenCalledWith('merchant_id', 'merchant-123');
     expect(harness.mockEq).toHaveBeenCalledWith('slug', 'iphone-16');
     const selectArg = String(harness.mockSelect.mock.calls.at(-1)?.[0]);
+    expect(selectArg).toContain('brand');
+    expect(selectArg).toContain('condition');
     expect(selectArg).toContain('id');
     expect(selectArg).toContain('name');
     expect(selectArg).toContain('slug');
+    expect(selectArg).toContain('price');
     expect(selectArg).toContain('images');
+    expect(selectArg).toContain('manage_stock');
+    expect(selectArg).toContain('schema_markup');
+    expect(selectArg).toContain('stock_quantity');
     expect(selectArg).toContain('categories:category_id');
     expect(selectArg).toContain('product_categories');
     expect(selectArg).not.toContain('description');
+    expect(selectArg).not.toContain('specifications');
+    expect(selectArg).not.toContain('review_count');
+    expect(selectArg).not.toContain('product_variants');
     expect(selectArg).not.toContain('product_key_specs');
     expect(selectArg).not.toContain('product_offers');
-    expect(selectArg).not.toContain('price');
     expect(harness.mockRpc).not.toHaveBeenCalled();
   });
 
