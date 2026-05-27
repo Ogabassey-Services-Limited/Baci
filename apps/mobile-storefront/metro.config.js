@@ -21,7 +21,11 @@ const config = getDefaultConfig(projectRoot);
 const { resolver } = config;
 
 function resolvePackageRoot(packageName) {
-  const projectPackageRoot = path.resolve(projectRoot, 'node_modules', packageName);
+  const projectPackageRoot = path.resolve(
+    projectRoot,
+    'node_modules',
+    packageName
+  );
 
   try {
     require.resolve(path.join(projectPackageRoot, 'package.json'));
@@ -36,14 +40,19 @@ const reactDomPackageRoot = resolvePackageRoot('react-dom');
 const reactNativePackageRoot = resolvePackageRoot('react-native');
 const expoPackageRoot = resolvePackageRoot('expo');
 const expoRouterPackageRoot = resolvePackageRoot('expo-router');
-const gestureHandlerPackageRoot = resolvePackageRoot('react-native-gesture-handler');
+const gestureHandlerPackageRoot = resolvePackageRoot(
+  'react-native-gesture-handler'
+);
 const reanimatedPackageRoot = resolvePackageRoot('react-native-reanimated');
 const screensPackageRoot = resolvePackageRoot('react-native-screens');
-const safeAreaContextPackageRoot = resolvePackageRoot('react-native-safe-area-context');
+const safeAreaContextPackageRoot = resolvePackageRoot(
+  'react-native-safe-area-context'
+);
 const zustandMiddlewarePath = require.resolve('zustand/middleware');
 
 config.watchFolders = [
   projectRoot,
+  path.resolve(workspaceRoot, 'node_modules'),
   path.resolve(workspaceRoot, 'packages/shared'),
   path.resolve(workspaceRoot, 'packages/tiktok-business'),
 ];
@@ -89,7 +98,6 @@ config.resolver = {
     /[\\/]\.gemini[\\/]/,
     /[\\/]\.agent[\\/]/,
     /[\\/]apps[\\/]web[\\/]node_modules[\\/]/,
-    /[\\/]node_modules[\\/]\.pnpm[\\/]/,
 
     // Test files should not be bundled
     /\.test\.tsx?$/,
