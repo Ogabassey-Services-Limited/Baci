@@ -202,7 +202,7 @@ export const Footer: React.FC = () => {
               Download App
             </h3>
             <div className="flex gap-2 mb-6">
-              <button className="flex items-center gap-2 bg-black border border-gray-700 rounded-lg px-3 py-1.5 hover:bg-gray-900 transition-colors group">
+              <button type="button" className="flex items-center gap-2 bg-black border border-gray-700 rounded-lg px-3 py-1.5 hover:bg-gray-900 transition-colors group">
                 <Apple size={22} className="text-white fill-current" />
                 <div className="text-left leading-none">
                   <div className="text-[9px] text-gray-400 font-medium group-hover:text-gray-300">
@@ -213,7 +213,7 @@ export const Footer: React.FC = () => {
                   </div>
                 </div>
               </button>
-              <button className="flex items-center gap-2 bg-black border border-gray-700 rounded-lg px-3 py-1.5 hover:bg-gray-900 transition-colors group">
+              <button type="button" className="flex items-center gap-2 bg-black border border-gray-700 rounded-lg px-3 py-1.5 hover:bg-gray-900 transition-colors group">
                 <svg viewBox="0 0 24 24" className="w-5 h-5">
                   <path
                     fill="#4285F4"

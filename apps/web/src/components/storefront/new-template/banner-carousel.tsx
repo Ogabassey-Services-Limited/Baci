@@ -90,7 +90,7 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({
                   >
                     {slide.subtitle}
                   </p>
-                  <button className="mt-4 px-6 py-2 bg-white text-gray-900 text-xs md:text-sm font-bold rounded-full w-fit hover:bg-gray-100 transition-colors shadow-lg active:scale-95">
+                  <button type="button" className="mt-4 px-6 py-2 bg-white text-gray-900 text-xs md:text-sm font-bold rounded-full w-fit hover:bg-gray-100 transition-colors shadow-lg active:scale-95">
                     Shop Now
                   </button>
                 </div>
@@ -114,6 +114,9 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({
         {BANNER_SLIDES.map((slide, idx) => (
           <button
             key={idx}
+            type="button"
+            aria-label={`Go to slide ${idx + 1}`}
+            aria-current={idx === currentSlide}
             onClick={() => setCurrentSlide(idx)}
             className={`h-1.5 rounded-full transition-all duration-300 shadow-sm ${idx === currentSlide
                 ? 'w-6 bg-white'
