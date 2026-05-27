@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
+import { connection } from 'next/server';
 import { Suspense } from 'react';
 import { ContentRouteLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
@@ -51,7 +52,9 @@ export async function generateMetadata({
   };
 }
 
-export default function TermsPage({ params }: PageProps) {
+export default async function TermsPage({ params }: PageProps) {
+  await connection();
+
   return (
     <Suspense fallback={<ContentRouteLoading />}>
       <TermsPageContent params={params} />

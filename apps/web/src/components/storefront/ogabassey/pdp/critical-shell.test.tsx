@@ -4,15 +4,43 @@ import { describe, expect, it, vi } from 'vitest';
 import { OgabasseyPdpCriticalShell } from './critical-shell';
 
 vi.mock('next/image', () => ({
-  default: ({
+  getImageProps: ({
     alt,
+    className,
+    decoding,
     fetchPriority,
+    fill,
+    loader,
+    priority,
+    quality,
+    sizes,
     src,
   }: {
     alt: string;
+    className?: string;
+    decoding?: string;
     fetchPriority?: string;
+    fill?: boolean;
+    loader?: () => string;
+    priority?: boolean;
+    quality?: number;
+    sizes?: string;
     src: string;
-  }) => <img alt={alt} data-fetch-priority={fetchPriority} src={src} />,
+  }) => ({
+    props: {
+      alt,
+      className,
+      decoding,
+      fetchPriority,
+      fill,
+      loader,
+      priority,
+      quality,
+      sizes,
+      src,
+      srcSet: `${src} 640w`,
+    },
+  }),
 }));
 
 vi.mock('next/link', () => ({
@@ -50,7 +78,19 @@ describe('OgabasseyPdpCriticalShell', () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole('img', { name: 'Lenovo Legion Pro 9' })
-    ).toHaveAttribute('data-fetch-priority', 'high');
+    ).toHaveAttribute('fetchpriority', 'high');
+    expect(
+      screen.getByRole('img', { name: 'Lenovo Legion Pro 9' })
+    ).not.toHaveAttribute('loader');
+    expect(
+      screen.getByRole('img', { name: 'Lenovo Legion Pro 9' })
+    ).not.toHaveAttribute('priority');
+    expect(
+      screen.getByRole('img', { name: 'Lenovo Legion Pro 9' })
+    ).not.toHaveAttribute('quality');
+    expect(
+      screen.getByRole('img', { name: 'Lenovo Legion Pro 9' })
+    ).not.toHaveAttribute('fill');
     expect(screen.getByRole('link', { name: 'Laptops' })).toHaveAttribute(
       'href',
       '/laptops'
