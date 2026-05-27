@@ -63,7 +63,7 @@ enum BaciTikTokEventFactory {
       event.setContentId(contentId)
     }
     if let currency = trimmedValue(data["currency"]) {
-      event.setCurrency(currency)
+      event.setCurrency(TTCurrency(rawValue: currency))
     }
     if let contentDescription = trimmedValue(data["description"]) {
       event.setDescription(contentDescription)
