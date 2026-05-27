@@ -172,11 +172,6 @@
       "path": "components/utilities/BillItemSelectionSection.tsx",
       "lineCount": 335,
       "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
-    },
-    {
-      "path": "components/quiz/QuizScreen.tsx",
-      "lineCount": 316,
-      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
     }
   ]
 }
