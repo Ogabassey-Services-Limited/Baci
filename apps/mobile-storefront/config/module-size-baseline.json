@@ -184,11 +184,6 @@
       "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
     },
     {
-      "path": "components/utilities/create-bill-form-purchase-handler.ts",
-      "lineCount": 315,
-      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
-    },
-    {
       "path": "components/chat/ChatModal.tsx",
       "lineCount": 312,
       "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
