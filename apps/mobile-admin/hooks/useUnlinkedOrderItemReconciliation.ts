@@ -147,6 +147,8 @@ export function useUnlinkedOrderItemReconciliation() {
 
       return fetchUnlinkedOrderItems(merchant.id);
     },
+    // ⚡ Bolt Performance Optimization: Added staleTime to prevent repeated queries when unlinked order items screen is refocused
+    staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
   const unlinkedItems = (unlinkedItemsQuery.data ??
@@ -229,6 +231,8 @@ export function useUnlinkedOrderItemReconciliation() {
 
       return [...productCandidates, ...variantCandidates];
     },
+    // ⚡ Bolt Performance Optimization: Added staleTime to prevent repeated queries for product candidates
+    staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
   const linkItemMutation = useMutation({
