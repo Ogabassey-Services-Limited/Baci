@@ -12,7 +12,7 @@ vi.mock('next/navigation', () => ({
 }));
 
 vi.mock(
-  '@/app/(storefront)/[slug]/(catalog)/products/product-index-card',
+  '@/app/(storefront)/[slug]/(catalog)/(listing)/products/product-index-card',
   () => ({
     ProductIndexCard: ({
       product,

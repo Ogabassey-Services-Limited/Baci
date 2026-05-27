@@ -2,7 +2,6 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { render, screen, waitFor } from '@testing-library/react';
 import {
-  Children,
   cloneElement,
   isValidElement,
   type ReactElement,
@@ -70,6 +69,21 @@ vi.mock('next/headers', () => ({
   headers: () => mockHeaders(),
 }));
 
+vi.mock('next/image', () => ({
+  default: ({
+    alt,
+    fetchPriority,
+    src,
+  }: {
+    alt: string;
+    fetchPriority?: string;
+    src: string;
+  }) => (
+    // biome-ignore lint/performance/noImgElement: next/image test double exposes rendered attributes
+    <img alt={alt} data-fetch-priority={fetchPriority} src={src} />
+  ),
+}));
+
 vi.mock('next/link', () => ({
   default: ({ children, href }: { children: ReactNode; href: string }) => (
     <a href={href}>{children}</a>
@@ -85,15 +99,34 @@ vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
 
 vi.mock('@/components/storefront/ogabassey/pages/product-details-page', () => ({
   ProductDetailsPage: (props: {
-    product: { name: string };
+    mode?: 'full' | 'commerce' | 'belowFold';
+    product: { image?: string; name: string };
     semanticSections?: ReactNode;
   }) => {
     mockOgabasseyProductDetailsPage(props);
-    const { product, semanticSections = null } = props;
+    const { mode = 'full', product, semanticSections = null } = props;
+
+    if (mode === 'commerce') {
+      return (
+        <div data-testid="ogabassey-commerce-island">
+          <button type="button">Mock Add to Cart</button>
+        </div>
+      );
+    }
+
+    if (mode === 'belowFold') {
+      return (
+        <div data-testid="ogabassey-below-fold-island">{semanticSections}</div>
+      );
+    }
 
     return (
       <>
         <h1>{product.name}</h1>
+        {product.image ? (
+          // biome-ignore lint/performance/noImgElement: test mock for duplicate image detection
+          <img alt={product.name} src={product.image} />
+        ) : null}
         {semanticSections}
       </>
     );
@@ -302,7 +335,7 @@ vi.mock('./default-product-detail-client', () => ({
 }));
 
 vi.mock(
-  '@/app/(storefront)/[slug]/(catalog)/products/[productSlug]/product-detail-client',
+  '@/app/(storefront)/[slug]/(catalog)/(pdp)/products/[productSlug]/product-detail-client',
   () => ({
     default: (props: unknown) => {
       mockProductDetailClient(props);
@@ -479,6 +512,13 @@ function toLegacyCachedProduct(
     status: product.status,
     slug: product.slug,
     canonical_url: null,
+    brand: product.brand,
+    category: product.category,
+    condition: product.condition,
+    manage_stock: product.manage_stock,
+    price: product.price,
+    schema_markup: null,
+    stock_quantity: product.stock_quantity ?? product.stock,
     base_price:
       typeof product.price === 'string'
         ? Number.parseFloat(product.price)
@@ -864,35 +904,32 @@ describe('[category]/[productSlug] page render', () => {
   });
 
   it('keeps the request-time marker after the streamed product shell', async () => {
-    const pageUi = await CategoryProductPage({
-      params: Promise.resolve({
-        slug: 'teststore',
-        category: 'laptops',
-        productSlug: 'hp-laptop-14-ep0063nia',
-      }),
-      searchParams: Promise.resolve({}),
+    const ui = await resolveRsc(
+      await CategoryProductPage({
+        params: Promise.resolve({
+          slug: 'teststore',
+          category: 'laptops',
+          productSlug: 'hp-laptop-14-ep0063nia',
+        }),
+        searchParams: Promise.resolve({}),
+      })
+    );
+    const { container } = render(ui);
+    const criticalShell = container.querySelector(
+      '[data-ogabassey-pdp-critical-shell]'
+    );
+    const dynamicMarker = screen.getByRole('status', {
+      name: 'dynamic metadata marker',
     });
 
-    expect(isValidElement(pageUi)).toBe(true);
-    const pageChildren = Children.toArray(
-      (pageUi as ReactElement<{ children: ReactNode }>).props.children
-    );
-    const streamedShellIndex = pageChildren.findIndex(
-      (child) => isValidElement(child) && child.type === Suspense
-    );
-    const dynamicMarkerIndex = pageChildren.findIndex(
-      (child) =>
-        isValidElement(child) &&
-        typeof child.type === 'function' &&
-        child.type.name === 'MockStorefrontDynamicMetadataMarker'
-    );
+    if (!criticalShell) {
+      throw new Error('Expected the OgaBassey PDP critical shell to render');
+    }
 
-    expect(streamedShellIndex).toBeGreaterThanOrEqual(0);
-    expect(dynamicMarkerIndex).toBeGreaterThan(streamedShellIndex);
-
-    const ui = await resolveRsc(pageUi);
-    const { container } = render(ui);
-
+    expect(
+      criticalShell.compareDocumentPosition(dynamicMarker) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
     expect(
       screen.getByRole('heading', {
         level: 1,
@@ -933,6 +970,138 @@ describe('[category]/[productSlug] page render', () => {
       })
     ).toBeInTheDocument();
     expect(mockPermanentRedirect).not.toHaveBeenCalled();
+  });
+
+  it('renders one visible OgaBassey PDP h1 after the critical shell split', async () => {
+    const ui = await resolveRsc(
+      await CategoryProductPage({
+        params: Promise.resolve({
+          slug: 'teststore',
+          category: 'laptops',
+          productSlug: 'hp-laptop-14-ep0063nia',
+        }),
+        searchParams: Promise.resolve({}),
+      })
+    );
+
+    const { container } = render(ui);
+    expect(container.querySelectorAll('h1')).toHaveLength(1);
+    expect(
+      screen.getByRole('heading', {
+        level: 1,
+        name: 'HP Laptop 14-ep0063nia',
+      })
+    ).toBeInTheDocument();
+  });
+
+  it('splits OgaBassey client work into commerce and below-fold islands', async () => {
+    const { container } = render(
+      await resolveRsc(
+        await CategoryProductPage({
+          params: Promise.resolve({
+            slug: 'teststore',
+            category: 'laptops',
+            productSlug: 'hp-laptop-14-ep0063nia',
+          }),
+          searchParams: Promise.resolve({}),
+        })
+      )
+    );
+
+    expect(mockOgabasseyProductDetailsPage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mode: 'commerce',
+        product: expect.objectContaining({
+          name: 'HP Laptop 14-ep0063nia',
+        }),
+      })
+    );
+    expect(mockOgabasseyProductDetailsPage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mode: 'belowFold',
+        product: expect.objectContaining({
+          name: 'HP Laptop 14-ep0063nia',
+        }),
+        semanticSections: expect.anything(),
+      })
+    );
+    expect(screen.getByTestId('ogabassey-commerce-island')).toBeInTheDocument();
+    expect(
+      screen.getByTestId('ogabassey-below-fold-island')
+    ).toBeInTheDocument();
+    expect(
+      container.querySelectorAll('img[alt="HP Laptop 14-ep0063nia"]')
+    ).toHaveLength(1);
+  });
+
+  it('keeps JSON-LD and hidden summary outside the critical commerce slot', async () => {
+    const { container } = render(
+      await resolveRsc(
+        await CategoryProductPage({
+          params: Promise.resolve({
+            slug: 'teststore',
+            category: 'laptops',
+            productSlug: 'hp-laptop-14-ep0063nia',
+          }),
+          searchParams: Promise.resolve({}),
+        })
+      )
+    );
+
+    const commerceSlot = container.querySelector(
+      '[data-ogabassey-pdp-commerce-slot]'
+    );
+
+    expect(commerceSlot).not.toBeNull();
+    expect(
+      commerceSlot?.querySelector('script[type="application/ld+json"]')
+    ).toBeNull();
+    expect(
+      commerceSlot?.querySelector(
+        'article[aria-label="HP Laptop 14-ep0063nia summary"]'
+      )
+    ).toBeNull();
+    expect(
+      container.querySelector('script[type="application/ld+json"]')
+    ).not.toBeNull();
+    expect(
+      screen.getByLabelText('HP Laptop 14-ep0063nia summary')
+    ).toBeInTheDocument();
+  });
+
+  it('keeps visible OgaBassey product identity aligned with Product JSON-LD input', async () => {
+    render(
+      await resolveRsc(
+        await CategoryProductPage({
+          params: Promise.resolve({
+            slug: 'teststore',
+            category: 'laptops',
+            productSlug: 'hp-laptop-14-ep0063nia',
+          }),
+          searchParams: Promise.resolve({}),
+        })
+      )
+    );
+
+    expect(
+      screen.getByRole('heading', {
+        level: 1,
+        name: 'HP Laptop 14-ep0063nia',
+      })
+    ).toBeInTheDocument();
+    expect(mockGenerateProductSchema).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'HP Laptop 14-ep0063nia',
+        price: 645_600,
+        category: 'Laptops',
+      }),
+      'TestStore',
+      'NGN',
+      'NG',
+      null,
+      expect.any(Object),
+      expect.any(Object)
+    );
   });
 
   it('throws notFound before streaming when the product is missing', async () => {
@@ -1371,13 +1540,13 @@ describe('[category]/[productSlug] page render', () => {
     const routeSource = readFileSync(
       join(
         process.cwd(),
-        'src/app/(storefront)/[slug]/(catalog)/[category]/[productSlug]/page.tsx'
+        'src/app/(storefront)/[slug]/(catalog)/(pdp)/[category]/[productSlug]/page.tsx'
       ),
       { encoding: 'utf8' }
     );
 
     expect(routeSource).not.toContain(
-      "import ProductDetailClient from '@/app/(storefront)/[slug]/(catalog)/products/[productSlug]/product-detail-client'"
+      "import ProductDetailClient from '@/app/(storefront)/[slug]/(catalog)/(pdp)/products/[productSlug]/product-detail-client'"
     );
   });
 

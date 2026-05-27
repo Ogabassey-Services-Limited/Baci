@@ -6,7 +6,7 @@ import type { Product } from '@/lib/products';
 const ProductDetailClient = dynamic(
   () =>
     import(
-      '@/app/(storefront)/[slug]/(catalog)/products/[productSlug]/product-detail-client'
+      '@/app/(storefront)/[slug]/(catalog)/(pdp)/products/[productSlug]/product-detail-client'
     )
 );
 
