@@ -58,3 +58,6 @@
 ## 2025-05-25 - Interactive Press Feedback and Keyboard Refinements
 **Learning:** In Expo/React Native apps within the Baci monorepo, many `Pressable` components acting as buttons or interactive cards are missing visual feedback when pressed, which makes the app feel unresponsive. Additionally, form inputs like Amount and Notes may lack `returnKeyType` configurations that improve keyboard UX.
 **Action:** When creating or modifying interactive `Pressable` elements, consistently apply the `({ pressed }) => [...]` function pattern to the style prop to provide dynamic visual feedback such as opacity changes. Add `returnKeyType="done"` to form `TextInput`s where appropriate.
+## 2026-05-27 - Add type="button" to new-template components
+**Learning:** React components, especially newly built ones (like the ones in `new-template`), frequently miss the `type="button"` attribute on generic `<button>` elements, which can cause form submission bugs if the component is reused inside a `<form>`. Additionally, icon-only buttons like `<X />` and visual buttons like carousel dots must include screen reader context via `aria-label`.
+**Action:** Always verify that `<button>` tags specify `type="button"` and icon buttons/controls define appropriate ARIA properties, regardless of where they are used.
