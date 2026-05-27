@@ -162,16 +162,6 @@
       "path": "components/utilities/use-airtime-form-controller.ts",
       "lineCount": 343,
       "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
-    },
-    {
-      "path": "lib/sanitize-html.ts",
-      "lineCount": 338,
-      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
-    },
-    {
-      "path": "components/utilities/BillItemSelectionSection.tsx",
-      "lineCount": 335,
-      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
     }
   ]
 }
