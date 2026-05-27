@@ -20,6 +20,7 @@
     "android:metro": "expo start --dev-client --scheme baciadmin --host lan --port 8081",
     "android:launch": "bash ./scripts/launch-android-dev-client.sh",
     "check:platform-drift": "node ./scripts/check-platform-drift.mjs",
+    "check:module-size": "node ./scripts/check-module-size.mjs",
     "lint": "expo lint",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"

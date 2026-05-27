@@ -13,7 +13,6 @@ const mocks = vi.hoisted(() => ({
   insets: { bottom: 34, left: 0, right: 0, top: 44 },
   purchasePackage: vi.fn(),
   restorePurchases: vi.fn(),
-  storeError: null as string | null,
   offering: {
     availablePackages: [
       {
@@ -54,14 +53,6 @@ vi.mock('@/hooks/useRevenueCat', () => ({
     restorePurchases: mocks.restorePurchases,
   }),
 }));
-
-vi.mock('@/stores/revenueCatStore', () => {
-  const useRevenueCatStore = Object.assign(() => ({}), {
-    getState: () => ({ error: mocks.storeError }),
-  });
-
-  return { useRevenueCatStore };
-});
 
 vi.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => mocks.insets,
@@ -177,7 +168,6 @@ describe('Paywall', () => {
     mocks.capturedStickyPaddingBottom = 0;
     mocks.purchasePackage.mockReset();
     mocks.restorePurchases.mockReset();
-    mocks.storeError = null;
   });
 
   it('uses inset-driven top and footer spacing when safe-area insets are present', () => {
@@ -207,10 +197,10 @@ describe('Paywall', () => {
     expect(mocks.capturedStickyPaddingBottom).toBe(27);
   });
 
-  it('does not show fallback purchase success when store error is updated during purchase', async () => {
-    mocks.purchasePackage.mockImplementation(async () => {
-      mocks.storeError = 'Purchase failed';
-      return false;
+  it('does not show fallback purchase success when purchase returns an error result', async () => {
+    mocks.purchasePackage.mockResolvedValue({
+      error: 'Purchase failed',
+      status: 'error',
     });
 
     render(<Paywall />);
@@ -230,11 +220,24 @@ describe('Paywall', () => {
     );
   });
 
-  it('shows fallback purchase success when purchase is non-pro and no store error exists', async () => {
-    mocks.purchasePackage.mockImplementation(async () => {
-      mocks.storeError = null;
-      return false;
+  it('does not show success feedback when purchase is cancelled', async () => {
+    mocks.purchasePackage.mockResolvedValue({ status: 'cancelled' });
+
+    render(<Paywall />);
+
+    const purchaseButton = screen.getByRole('button', {
+      name: /Subscribe to Monthly for \$9\.99/i,
     });
+    fireEvent.click(purchaseButton);
+
+    await waitFor(() => {
+      expect(mocks.purchasePackage).toHaveBeenCalledTimes(1);
+    });
+    expect(mocks.alert).not.toHaveBeenCalled();
+  });
+
+  it('shows fallback purchase success when purchase succeeds without immediate pro access', async () => {
+    mocks.purchasePackage.mockResolvedValue({ isPro: false, status: 'success' });
 
     render(<Paywall />);
 
@@ -251,5 +254,24 @@ describe('Paywall', () => {
       expect.any(String),
       expect.any(Array)
     );
+  });
+
+  it('shows pro success and closes paywall when purchase succeeds with pro access', async () => {
+    const onClose = vi.fn();
+    mocks.purchasePackage.mockResolvedValue({ isPro: true, status: 'success' });
+
+    render(<Paywall onClose={onClose} />);
+
+    const purchaseButton = screen.getByRole('button', {
+      name: /Subscribe to Monthly for \$9\.99/i,
+    });
+    fireEvent.click(purchaseButton);
+
+    await waitFor(() => {
+      expect(mocks.purchasePackage).toHaveBeenCalledTimes(1);
+    });
+    expect(mocks.alert).toHaveBeenCalledWith('Success', 'You are now a Pro member!', [
+      { text: 'OK', onPress: onClose },
+    ]);
   });
 });
