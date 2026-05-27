@@ -513,6 +513,16 @@ describe('env AI storefront trigger validation', () => {
       /AI_STOREFRONT_TRIGGER_SECRET/
     );
   });
+
+  it('fails boot when a trigger secret is configured without a URL', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('SUPABASE_JWT_SECRET', 'jwt-secret');
+    delete process.env.AI_STOREFRONT_TRIGGER_URL;
+    vi.stubEnv('AI_STOREFRONT_TRIGGER_SECRET', 'trigger-secret');
+
+    await expect(loadEnvModule()).rejects.toThrow(/AI_STOREFRONT_TRIGGER_URL/);
+  });
 });
 
 describe('env LLM server validation', () => {

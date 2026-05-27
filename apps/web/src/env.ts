@@ -332,6 +332,17 @@ const serverSchema = z
         path: ['AI_STOREFRONT_TRIGGER_SECRET'],
       });
     }
+    if (
+      value.AI_STOREFRONT_TRIGGER_SECRET &&
+      !value.AI_STOREFRONT_TRIGGER_URL
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'AI_STOREFRONT_TRIGGER_URL is required when AI_STOREFRONT_TRIGGER_SECRET is set',
+        path: ['AI_STOREFRONT_TRIGGER_URL'],
+      });
+    }
   })
   .superRefine((value, ctx) => {
     if (value.LLM_SERVER_URL && !value.LLM_SERVER_BEARER) {

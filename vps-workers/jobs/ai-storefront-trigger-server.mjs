@@ -4,7 +4,7 @@
  */
 
 import { spawn } from 'node:child_process';
-import { timingSafeEqual } from 'node:crypto';
+import { createHash, timingSafeEqual } from 'node:crypto';
 import { createWriteStream, mkdirSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { dirname, join } from 'node:path';
@@ -23,10 +23,13 @@ function readPositiveInteger(value, fallback) {
 
 function constantTimeEqual(left, right) {
   if (typeof left !== 'string' || typeof right !== 'string') return false;
-  const leftBuffer = Buffer.from(left);
-  const rightBuffer = Buffer.from(right);
-  if (leftBuffer.length !== rightBuffer.length) return false;
+  const leftBuffer = createHash('sha256').update(left).digest();
+  const rightBuffer = createHash('sha256').update(right).digest();
   return timingSafeEqual(leftBuffer, rightBuffer);
+}
+
+function isPayloadTooLargeError(error) {
+  return error instanceof Error && error.message === 'payload_too_large';
 }
 
 function jsonResponse(body, status = 200) {
@@ -85,11 +88,17 @@ export function spawnAiStorefrontWorker({
   mkdirSync(locksDir, { recursive: true });
   mkdirSync(logsDir, { recursive: true });
 
-  const stdout = createWriteStreamFn(join(logsDir, 'ai-storefront-jobs.log'), {
-    flags: 'a',
-  });
-  const stderr = createWriteStreamFn(join(logsDir, 'ai-storefront-jobs.log'), {
-    flags: 'a',
+  const logStream = createWriteStreamFn(
+    join(logsDir, 'ai-storefront-jobs.log'),
+    {
+      flags: 'a',
+    }
+  );
+  logStream.on?.('error', (error) => {
+    logger.error?.({
+      message: 'AI storefront worker trigger log stream failed',
+      error,
+    });
   });
   const workerCommand = [
     `cd ${JSON.stringify(WORKER_ROOT)}`,
@@ -118,9 +127,18 @@ export function spawnAiStorefrontWorker({
         BACI_WORKER_PROFILE: 'ai-storefront-jobs',
         NODE_ENV: 'production',
       },
-      stdio: ['ignore', stdout, stderr],
+      stdio: ['ignore', logStream, logStream],
     }
   );
+  child.on?.('error', (error) => {
+    logger.error?.({
+      message: 'AI storefront worker trigger failed to start worker process',
+      error,
+      jobId: payload.jobId,
+      merchantId: payload.merchantId,
+      source: payload.source,
+    });
+  });
   child.unref();
   logger.info?.({
     message: 'AI storefront worker trigger started worker process',
@@ -162,6 +180,9 @@ export function createAiStorefrontTriggerHandler({
         message: 'AI storefront trigger payload rejected',
         error,
       });
+      if (isPayloadTooLargeError(error)) {
+        return jsonResponse({ error: 'payload_too_large' }, 413);
+      }
       return jsonResponse({ error: 'invalid_payload' }, 400);
     }
 
@@ -173,18 +194,25 @@ export function createAiStorefrontTriggerHandler({
 function readNodeRequestBody(request) {
   return new Promise((resolve, reject) => {
     const chunks = [];
+    let rejected = false;
     let size = 0;
     request.on('data', (chunk) => {
+      if (rejected) return;
       size += chunk.length;
       if (size > MAX_BODY_BYTES) {
+        rejected = true;
         reject(new Error('payload_too_large'));
-        request.destroy();
+        request.resume();
         return;
       }
       chunks.push(chunk);
     });
-    request.on('end', () => resolve(Buffer.concat(chunks)));
-    request.on('error', reject);
+    request.on('end', () => {
+      if (!rejected) resolve(Buffer.concat(chunks));
+    });
+    request.on('error', (error) => {
+      if (!rejected) reject(error);
+    });
   });
 }
 
@@ -231,6 +259,13 @@ export function startAiStorefrontTriggerServer({
       const webResponse = await handler(webRequest);
       await writeNodeResponse(response, webResponse);
     } catch (error) {
+      if (isPayloadTooLargeError(error)) {
+        await writeNodeResponse(
+          response,
+          jsonResponse({ error: 'payload_too_large' }, 413)
+        );
+        return;
+      }
       logger.error?.({
         message: 'AI storefront trigger request failed',
         error,
