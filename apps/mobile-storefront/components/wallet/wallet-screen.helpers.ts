@@ -1,0 +1,182 @@
+import { WALLET_TOP_UP_MAX_AMOUNT, WALLET_TOP_UP_MIN_AMOUNT } from '@/lib/wallet-top-up-constants';
+import type { WalletDisplayFundingAccount } from './wallet.types';
+
+interface CustomerLike {
+  email?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+}
+
+interface UserLike {
+  email?: string | null;
+}
+
+interface WalletFundingAccountLike {
+  account_name?: string | null;
+  account_number?: string | null;
+  bank_name?: string | null;
+  provider?: string | null;
+}
+
+interface WalletDataLike {
+  balance?: number | null;
+  earnings_balance?: number | null;
+  funding_account?: WalletFundingAccountLike | null;
+  savings_balance?: number | null;
+  total_balance?: number | null;
+}
+
+interface WalletTopUpResultLike {
+  authorization_url: string;
+  gateway: string;
+  reference: string;
+}
+
+function normalizeRequiredFundingAccountValue(
+  value: string | null | undefined
+): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const trimmedValue = value.trim();
+  return trimmedValue.length > 0 ? trimmedValue : null;
+}
+
+export function sanitizeWalletFundAmount(value: string): string {
+  return value.replace(/\D/g, '');
+}
+
+export function validateWalletTopUpAmount(amount: number): string | null {
+  if (
+    !Number.isFinite(amount) ||
+    amount < WALLET_TOP_UP_MIN_AMOUNT ||
+    amount > WALLET_TOP_UP_MAX_AMOUNT
+  ) {
+    return `Wallet top-up amount must be between ₦${WALLET_TOP_UP_MIN_AMOUNT} and ₦${WALLET_TOP_UP_MAX_AMOUNT.toLocaleString()}.`;
+  }
+
+  return null;
+}
+
+export function getWalletCustomerName(
+  customer: CustomerLike | null | undefined,
+  user: UserLike | null | undefined
+): string {
+  return (
+    [customer?.first_name, customer?.last_name].filter(Boolean).join(' ') ||
+    customer?.email ||
+    user?.email ||
+    'Customer'
+  );
+}
+
+export function buildWalletTopUpGatewayParams({
+  activeMerchantId,
+  activeMerchantSlug,
+  amount,
+  result,
+  walletReturnTo,
+}: {
+  activeMerchantId?: string;
+  activeMerchantSlug?: string;
+  amount: number;
+  result: WalletTopUpResultLike;
+  walletReturnTo?: string;
+}) {
+  return {
+    amount: String(amount),
+    authorizationUrl: result.authorization_url,
+    gateway: result.gateway,
+    ...(activeMerchantId ? { merchantId: activeMerchantId } : {}),
+    ...(activeMerchantSlug ? { merchantSlug: activeMerchantSlug } : {}),
+    paymentKind: 'wallet' as const,
+    reference: result.reference,
+    ...(walletReturnTo ? { returnTo: walletReturnTo } : {}),
+  };
+}
+
+export function parseWalletRedeemPointsInput(
+  rawPoints: string,
+  minimumRedeemablePoints: number
+): { points: number } | { message: string; title: string } {
+  const trimmedPoints = rawPoints.trim();
+  if (!/^\d+$/.test(trimmedPoints)) {
+    return { title: 'Invalid Input', message: 'Please enter a valid number of points' };
+  }
+
+  const points = Number(trimmedPoints);
+  if (!Number.isSafeInteger(points) || points <= 0) {
+    return { title: 'Invalid Input', message: 'Please enter a valid number of points' };
+  }
+
+  if (points < minimumRedeemablePoints) {
+    return {
+      title: 'Invalid Points',
+      message: `Minimum redemption is ${minimumRedeemablePoints} points`,
+    };
+  }
+
+  if (points % minimumRedeemablePoints !== 0) {
+    return {
+      title: 'Invalid Points',
+      message: `Redeem points in ${minimumRedeemablePoints}-point blocks`,
+    };
+  }
+
+  return { points };
+}
+
+export function getWalletLoadingMessage({
+  hasMerchantContext,
+  hasWalletData,
+  isError,
+  isLoading,
+  user,
+}: {
+  hasMerchantContext: boolean;
+  hasWalletData: boolean;
+  isError: boolean;
+  isLoading: boolean;
+  user: unknown;
+}): string | undefined {
+  if (!user || !hasMerchantContext) {
+    return 'Preparing your wallet...';
+  }
+  if (!isLoading && isError && !hasWalletData) {
+    return 'Unable to load wallet.';
+  }
+  if (!isLoading && !hasWalletData) {
+    return 'Preparing your wallet...';
+  }
+
+  return undefined;
+}
+
+export function deriveWalletDisplayData(walletData: WalletDataLike) {
+  const earningsBalance = walletData.earnings_balance ?? walletData.balance ?? 0;
+  const savingsBalance = walletData.savings_balance ?? 0;
+  const totalBalance = walletData.total_balance ?? earningsBalance + savingsBalance;
+  const rawFundingAccount = walletData.funding_account;
+  const accountName = normalizeRequiredFundingAccountValue(rawFundingAccount?.account_name);
+  const accountNumber = normalizeRequiredFundingAccountValue(rawFundingAccount?.account_number);
+  const bankName = normalizeRequiredFundingAccountValue(rawFundingAccount?.bank_name);
+  const provider = normalizeRequiredFundingAccountValue(rawFundingAccount?.provider);
+  const fundingAccount: WalletDisplayFundingAccount | null =
+    accountName && accountNumber && bankName && provider
+      ? {
+          accountName,
+          accountNumber,
+          bankName,
+          provider,
+        }
+      : null;
+
+  return {
+    earningsBalance,
+    fundingAccount,
+    savingsBalance,
+    showQuickSave: savingsBalance > 0,
+    totalBalance,
+  };
+}

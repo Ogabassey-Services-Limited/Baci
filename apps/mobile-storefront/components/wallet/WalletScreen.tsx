@@ -22,10 +22,18 @@ import { normalizeWalletFundAmountParam } from '@/lib/normalize-wallet-fund-amou
 import { pickMerchantId } from '@/lib/pick-merchant-id';
 import { sanitizeWalletReturnTo } from '@/lib/sanitize-wallet-return-to';
 import { initializeWalletTopUp } from '@/lib/wallet-top-up';
-import { WALLET_TOP_UP_MAX_AMOUNT, WALLET_TOP_UP_MIN_AMOUNT } from '@/lib/wallet-top-up-constants';
 import { trackError, trackEvent } from '@/services/analytics';
 import { scheduleLocalNotification } from '@/services/push-notifications';
 import { useAuthStore } from '@/stores/auth-store';
+import {
+  buildWalletTopUpGatewayParams,
+  deriveWalletDisplayData,
+  getWalletCustomerName,
+  getWalletLoadingMessage,
+  parseWalletRedeemPointsInput,
+  sanitizeWalletFundAmount,
+  validateWalletTopUpAmount,
+} from './wallet-screen.helpers';
 
 const log = createLogger('Wallet');
 
@@ -65,7 +73,7 @@ export function WalletScreen({
   const [fundAmount, setFundAmount] = useState(routeRequiredAmount);
   const [showFundPanel, setShowFundPanel] = useState(routeAction === 'fund');
   const [isFundPending, setIsFundPending] = useState(false);
-  const activeMerchantId = pickMerchantId(merchantId, CONFIG.MERCHANT_ID);
+  const activeMerchantId = pickMerchantId(merchantId, CONFIG.MERCHANT_ID) ?? undefined;
   const activeMerchantSlug = CONFIG.MERCHANT_SLUG?.trim() || undefined;
   const hasMerchantContext = Boolean(activeMerchantId || activeMerchantSlug);
   useWalletBalanceContractWarning({
@@ -89,7 +97,7 @@ export function WalletScreen({
   }, [routeAction, routeRequiredAmount]);
 
   const handleFundAmountChange = (value: string) => {
-    setFundAmount(value.replace(/\D/g, ''));
+    setFundAmount(sanitizeWalletFundAmount(value));
   };
 
   const handleCreateFundingAccount = async () => {
@@ -125,25 +133,15 @@ export function WalletScreen({
 
   const handleFundWallet = async () => {
     const amount = Number(fundAmount);
-
-    if (
-      !Number.isFinite(amount) ||
-      amount < WALLET_TOP_UP_MIN_AMOUNT ||
-      amount > WALLET_TOP_UP_MAX_AMOUNT
-    ) {
-      Alert.alert(
-        'Invalid Amount',
-        `Wallet top-up amount must be between ₦${WALLET_TOP_UP_MIN_AMOUNT} and ₦${WALLET_TOP_UP_MAX_AMOUNT.toLocaleString()}.`
-      );
+    const amountValidationError = validateWalletTopUpAmount(amount);
+    if (amountValidationError) {
+      Alert.alert('Invalid Amount', amountValidationError);
       return;
     }
+
     setIsFundPending(true);
     try {
-      const customerName =
-        [customer?.first_name, customer?.last_name].filter(Boolean).join(' ') ||
-        customer?.email ||
-        user?.email ||
-        'Customer';
+      const customerName = getWalletCustomerName(customer, user);
       const result = await initializeWalletTopUp({
         amount,
         customerName,
@@ -161,16 +159,13 @@ export function WalletScreen({
       resetFundPanel();
       router.push({
         pathname: '/payment-gateway',
-        params: {
-          amount: String(amount),
-          authorizationUrl: result.authorization_url,
-          gateway: result.gateway,
-          ...(activeMerchantId ? { merchantId: activeMerchantId } : {}),
-          ...(activeMerchantSlug ? { merchantSlug: activeMerchantSlug } : {}),
-          paymentKind: 'wallet',
-          reference: result.reference,
-          ...(walletReturnTo ? { returnTo: walletReturnTo } : {}),
-        },
+        params: buildWalletTopUpGatewayParams({
+          activeMerchantId,
+          activeMerchantSlug,
+          amount,
+          result,
+          walletReturnTo,
+        }),
       });
     } catch (error) {
       log.error('Wallet top-up initialization error:', error);
@@ -191,28 +186,15 @@ export function WalletScreen({
   };
 
   const handleRedeemPoints = async () => {
-    const trimmedRedeemPoints = redeemPoints.trim();
-    if (!/^\d+$/.test(trimmedRedeemPoints)) {
-      Alert.alert('Invalid Input', 'Please enter a valid number of points');
+    const parsedRedeemInput = parseWalletRedeemPointsInput(
+      redeemPoints,
+      VTU_MIN_REDEEMABLE_POINTS
+    );
+    if ('title' in parsedRedeemInput) {
+      Alert.alert(parsedRedeemInput.title, parsedRedeemInput.message);
       return;
     }
-
-    const points = Number(trimmedRedeemPoints);
-
-    if (!Number.isSafeInteger(points) || points <= 0) {
-      Alert.alert('Invalid Input', 'Please enter a valid number of points');
-      return;
-    }
-
-    if (points < VTU_MIN_REDEEMABLE_POINTS) {
-      Alert.alert('Invalid Points', 'Minimum redemption is 100 points');
-      return;
-    }
-
-    if (points % VTU_MIN_REDEEMABLE_POINTS !== 0) {
-      Alert.alert('Invalid Points', 'Redeem points in 100-point blocks');
-      return;
-    }
+    const points = parsedRedeemInput.points;
 
     try {
       const result = await redeemMutation.mutateAsync(points);
@@ -272,14 +254,13 @@ export function WalletScreen({
     return <Redirect href={redirectTo} />;
   }
 
-  let loadingMessage: string | undefined;
-  if (!user || !hasMerchantContext) {
-    loadingMessage = 'Preparing your wallet...';
-  } else if (!isLoading && isError && !data) {
-    loadingMessage = 'Unable to load wallet.';
-  } else if (!isLoading && !data) {
-    loadingMessage = 'Preparing your wallet...';
-  }
+  const loadingMessage = getWalletLoadingMessage({
+    hasMerchantContext,
+    hasWalletData: Boolean(data),
+    isError,
+    isLoading,
+    user,
+  });
 
   if (!user || !hasMerchantContext || isLoading || !data) {
     return (
@@ -291,22 +272,15 @@ export function WalletScreen({
     );
   }
 
-  const walletData = data.wallet;
-  const transactions = data.transactions;
-  const earningsBalance =
-    walletData.earnings_balance ?? walletData.balance ?? 0;
-  const savingsBalance = walletData.savings_balance ?? 0;
-  const computedTotalBalance = earningsBalance + savingsBalance;
-  const totalBalance = walletData.total_balance ?? computedTotalBalance;
-  const fundingAccount = walletData.funding_account
-    ? {
-        accountName: walletData.funding_account.account_name,
-        accountNumber: walletData.funding_account.account_number,
-        bankName: walletData.funding_account.bank_name,
-        provider: walletData.funding_account.provider,
-      }
-    : null;
-  const showQuickSave = savingsBalance > 0;
+  const { wallet: walletData, transactions } = data;
+  const {
+    earningsBalance,
+    fundingAccount,
+    savingsBalance,
+    showQuickSave,
+    totalBalance,
+  } = deriveWalletDisplayData(walletData);
+  const handleOpenSavings = () => router.push('/wallet/savings/start');
 
   return (
     <WalletScreenView
@@ -330,14 +304,14 @@ export function WalletScreen({
         onManageCards: () => router.push('/wallet/manage-cards'),
         onOpenFundPanel: () => setShowFundPanel(true),
         onOpenRedeemPanel: () => setShowRedeemPanel(true),
-        onQuickSave: () => router.push('/wallet/savings/start'),
+        onQuickSave: handleOpenSavings,
         onRefresh: refetch,
         onResetFund: resetFundPanel,
         onResetRedeem: () => {
           setShowRedeemPanel(false);
           setRedeemPoints('');
         },
-        onStartSavings: () => router.push('/wallet/savings/start'),
+        onStartSavings: handleOpenSavings,
         redeemPoints,
         savingsBalance,
         showQuickSave,
