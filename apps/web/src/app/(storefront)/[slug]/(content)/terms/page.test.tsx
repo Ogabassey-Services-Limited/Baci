@@ -1,10 +1,16 @@
 import { headers } from 'next/headers';
 import { type ReactElement, Suspense } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
+
+const mockConnection = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/cached-data', () => ({
   getMerchantByIdentifier: vi.fn(),
+}));
+
+vi.mock('next/server', () => ({
+  connection: () => mockConnection(),
 }));
 
 vi.mock('next/headers', () => ({
@@ -24,6 +30,10 @@ vi.mock('../pages/terms/terms-page-client', () => ({
 }));
 
 const { default: TermsPage, generateMetadata } = await import('./page');
+
+beforeEach(() => {
+  mockConnection.mockReset();
+});
 
 describe('terms metadata', () => {
   it('returns fallback title when merchant is missing', async () => {
@@ -57,11 +67,25 @@ describe('terms metadata', () => {
 });
 
 describe('terms page rendering', () => {
-  it('renders only its real request-time content boundary', () => {
-    const element = TermsPage({
+  it('renders only its real request-time content boundary', async () => {
+    mockConnection.mockResolvedValueOnce(undefined);
+
+    const element = (await TermsPage({
       params: Promise.resolve({ slug: 'ogabassey.com' }),
-    }) as ReactElement;
+    })) as ReactElement;
 
     expect(element.type).toBe(Suspense);
+    expect(mockConnection).toHaveBeenCalledOnce();
+  });
+
+  it('surfaces connection failures to the route boundary', async () => {
+    mockConnection.mockRejectedValueOnce(new Error('Connection failed'));
+
+    await expect(
+      TermsPage({
+        params: Promise.resolve({ slug: 'ogabassey.com' }),
+      })
+    ).rejects.toThrow('Connection failed');
+    expect(mockConnection).toHaveBeenCalledOnce();
   });
 });

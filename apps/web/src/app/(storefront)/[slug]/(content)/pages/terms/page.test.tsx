@@ -2,8 +2,14 @@ import { headers } from 'next/headers';
 import { permanentRedirect } from 'next/navigation';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+const mockConnection = vi.hoisted(() => vi.fn());
+
 vi.mock('next/headers', () => ({
   headers: vi.fn(),
+}));
+
+vi.mock('next/server', () => ({
+  connection: () => mockConnection(),
 }));
 
 vi.mock('next/navigation', () => ({
@@ -17,9 +23,11 @@ const { default: LegacyTermsPage } = await import(
 describe('legacy terms page redirect', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockConnection.mockReset();
   });
 
   it('redirects custom-domain traffic to the canonical /terms URL', async () => {
+    mockConnection.mockResolvedValueOnce(undefined);
     vi.mocked(headers).mockResolvedValue(
       new Headers([['x-custom-domain', 'ogabassey.com']])
     );
@@ -30,9 +38,11 @@ describe('legacy terms page redirect', () => {
     });
 
     expect(permanentRedirect).toHaveBeenCalledWith('/terms');
+    expect(mockConnection).toHaveBeenCalledOnce();
   });
 
   it('redirects non-custom-domain traffic to /:slug/terms', async () => {
+    mockConnection.mockResolvedValueOnce(undefined);
     vi.mocked(headers).mockResolvedValue(new Headers());
 
     await LegacyTermsPage({
@@ -41,9 +51,11 @@ describe('legacy terms page redirect', () => {
     });
 
     expect(permanentRedirect).toHaveBeenCalledWith('/ogabassey/terms');
+    expect(mockConnection).toHaveBeenCalledOnce();
   });
 
   it('forwards query params to the destination', async () => {
+    mockConnection.mockResolvedValueOnce(undefined);
     vi.mocked(headers).mockResolvedValue(
       new Headers([['x-custom-domain', 'ogabassey.com']])
     );
@@ -54,5 +66,21 @@ describe('legacy terms page redirect', () => {
     });
 
     expect(permanentRedirect).toHaveBeenCalledWith('/terms?utm_source=email');
+    expect(mockConnection).toHaveBeenCalledOnce();
+  });
+
+  it('surfaces connection failures to the route boundary', async () => {
+    mockConnection.mockRejectedValueOnce(new Error('Connection failed'));
+    vi.mocked(headers).mockResolvedValue(new Headers());
+
+    await expect(
+      LegacyTermsPage({
+        params: Promise.resolve({ slug: 'ogabassey' }),
+        searchParams: Promise.resolve({}),
+      })
+    ).rejects.toThrow('Connection failed');
+
+    expect(permanentRedirect).not.toHaveBeenCalled();
+    expect(mockConnection).toHaveBeenCalledOnce();
   });
 });
