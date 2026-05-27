@@ -2,6 +2,7 @@
 
 import type { User } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
+import { after } from 'next/server';
 import {
   getAppUrl,
   getConfiguredAppUrl,
@@ -10,6 +11,7 @@ import {
   isAiStorefrontGenerationEnabled,
   isProduction,
 } from '@/env';
+import { triggerAiStorefrontWorker } from '@/lib/ai-storefront/trigger-storefront-worker';
 import { getCountryByCode } from '@/lib/countries';
 import { sendWelcomeEmail } from '@/lib/email';
 import { logger } from '@/lib/logger';
@@ -397,6 +399,22 @@ export async function submitOnboarding(
             message: 'AI storefront generation job enqueue failed',
             merchantId: merchant.id,
             error: aiJobError,
+          });
+        }
+        if (!aiJobError || aiJobError.code === '23505') {
+          after(async () => {
+            try {
+              await triggerAiStorefrontWorker({
+                merchantId: merchant.id,
+                source: 'onboarding',
+              });
+            } catch (error) {
+              logger.error({
+                message: 'AI storefront worker trigger failed',
+                merchantId: merchant.id,
+                error,
+              });
+            }
           });
         }
       }

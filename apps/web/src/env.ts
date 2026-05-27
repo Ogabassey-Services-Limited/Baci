@@ -253,6 +253,15 @@ const serverSchema = z
       .positive()
       .default(90_000),
     AI_STOREFRONT_GENERATION_ENABLED: defaultFalseBooleanStringSchema,
+    AI_STOREFRONT_TRIGGER_URL: httpsOrLocalhostUrl(
+      'AI_STOREFRONT_TRIGGER_URL'
+    ).optional(),
+    AI_STOREFRONT_TRIGGER_SECRET: optionalTrimmedStringSchema,
+    AI_STOREFRONT_TRIGGER_TIMEOUT_MS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(5000),
 
     // LLM server (llama.cpp / OpenAI-compatible — Gemma 4 + MTP drafter on VPS)
     LLM_SERVER_URL: httpsOrLocalhostUrl('LLM_SERVER_URL').optional(),
@@ -308,6 +317,19 @@ const serverSchema = z
         message:
           'QUIZ_RPC_SERVER_SECRET is required when QUIZ_PHASE is production',
         path: ['QUIZ_RPC_SERVER_SECRET'],
+      });
+    }
+  })
+  .superRefine((value, ctx) => {
+    if (
+      value.AI_STOREFRONT_TRIGGER_URL &&
+      !value.AI_STOREFRONT_TRIGGER_SECRET
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'AI_STOREFRONT_TRIGGER_SECRET is required when AI_STOREFRONT_TRIGGER_URL is set',
+        path: ['AI_STOREFRONT_TRIGGER_SECRET'],
       });
     }
   })
@@ -468,6 +490,10 @@ const getEnv = () => {
         OLLAMA_STOREFRONT_TIMEOUT_MS: process.env.OLLAMA_STOREFRONT_TIMEOUT_MS,
         AI_STOREFRONT_GENERATION_ENABLED:
           process.env.AI_STOREFRONT_GENERATION_ENABLED,
+        AI_STOREFRONT_TRIGGER_URL: process.env.AI_STOREFRONT_TRIGGER_URL,
+        AI_STOREFRONT_TRIGGER_SECRET: process.env.AI_STOREFRONT_TRIGGER_SECRET,
+        AI_STOREFRONT_TRIGGER_TIMEOUT_MS:
+          process.env.AI_STOREFRONT_TRIGGER_TIMEOUT_MS,
         LLM_SERVER_URL: process.env.LLM_SERVER_URL,
         LLM_SERVER_BEARER: process.env.LLM_SERVER_BEARER,
         LLM_CHAT_MODEL: process.env.LLM_CHAT_MODEL,
@@ -965,6 +991,27 @@ export const isAiStorefrontGenerationEnabled = () => {
       'AI_STOREFRONT_GENERATION_ENABLED cannot be accessed on the client'
     );
   return env.AI_STOREFRONT_GENERATION_ENABLED;
+};
+export const getAiStorefrontWorkerTriggerUrl = () => {
+  if (isBrowserRuntime())
+    throw new Error(
+      'AI_STOREFRONT_TRIGGER_URL cannot be accessed on the client'
+    );
+  return env?.AI_STOREFRONT_TRIGGER_URL;
+};
+export const getAiStorefrontWorkerTriggerSecret = () => {
+  if (isBrowserRuntime())
+    throw new Error(
+      'AI_STOREFRONT_TRIGGER_SECRET cannot be accessed on the client'
+    );
+  return env?.AI_STOREFRONT_TRIGGER_SECRET;
+};
+export const getAiStorefrontWorkerTriggerTimeoutMs = () => {
+  if (isBrowserRuntime())
+    throw new Error(
+      'AI_STOREFRONT_TRIGGER_TIMEOUT_MS cannot be accessed on the client'
+    );
+  return env.AI_STOREFRONT_TRIGGER_TIMEOUT_MS;
 };
 export const getLlmServerUrl = () => {
   if (isBrowserRuntime())

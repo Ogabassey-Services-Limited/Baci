@@ -29,7 +29,11 @@ describe('deploy crontab', () => {
 
     assert.match(
       deployScript,
-      /\*\/2 \*  \* \* \* flock -n \$REMOTE_DIR\/locks\/ollama-workload\.lock flock -n \$REMOTE_DIR\/locks\/ai-storefront-jobs\.lock/
+      /\*\/10 \* \* \* \* flock -n \$REMOTE_DIR\/locks\/ollama-workload\.lock flock -n \$REMOTE_DIR\/locks\/ai-storefront-jobs\.lock/
+    );
+    assert.match(
+      deployScript,
+      /export NODE_ENV=production && export BACI_WORKER_PROFILE=ai-storefront-jobs/
     );
   });
 
