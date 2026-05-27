@@ -62,11 +62,8 @@ function withAndroidGradleFixes(config) {
       if (fs.existsSync(appBuildGradle)) {
         let content = fs.readFileSync(appBuildGradle, 'utf-8');
 
-        // Remove kotlin.android plugin
-        content = removeKotlinAndroidPlugin(
-          content,
-          `failed to remove Kotlin Android plugin from ${appBuildGradle}`
-        );
+        // Keep kotlin.android plugin for compilation of MainApplication/MainActivity
+        // (Removing it disables Kotlin compilation, causing ClassNotFoundException on MainApplication)
 
         // Fix proguard file name
         content = fixProguardOptimize(
