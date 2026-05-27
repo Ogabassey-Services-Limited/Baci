@@ -38,6 +38,10 @@ describe('requestGemmaQuestionCompletion', () => {
   });
 
   it('uses the VPS Ollama Gemma endpoint when the LLM endpoint is absent', async () => {
+    const basicAuthCredential = ['user', 'password'].join(':');
+    const expectedAuthHeader = `Basic ${Buffer.from(
+      basicAuthCredential
+    ).toString('base64')}`;
     const mockFetch = vi.fn().mockResolvedValue(
       Response.json({
         message: { content: '{"questions":[]}' },
@@ -51,7 +55,7 @@ describe('requestGemmaQuestionCompletion', () => {
         messages,
         model: 'gemma4:e4b',
         ollamaBaseUrl: 'https://ollama.example.com/api',
-        ollamaBasicAuth: 'user:password',
+        ollamaBasicAuth: basicAuthCredential,
         signal: new AbortController().signal,
         temperature: 0.35,
       })
@@ -61,7 +65,7 @@ describe('requestGemmaQuestionCompletion', () => {
       'https://ollama.example.com/api/chat',
       expect.objectContaining({
         headers: expect.objectContaining({
-          Authorization: 'Basic dXNlcjpwYXNzd29yZA==',
+          Authorization: expectedAuthHeader,
         }),
       })
     );

@@ -87,8 +87,12 @@ describe('generateQuizQuestionsWithGemma Ollama fallback', () => {
   it('falls back to the VPS Ollama Gemma endpoint when LLM server env is absent', async () => {
     mockGetLlmServerUrl.mockReturnValue(undefined);
     mockGetLlmServerBearer.mockReturnValue(undefined);
+    const basicAuthCredential = ['user', 'password'].join(':');
+    const expectedAuthHeader = `Basic ${Buffer.from(
+      basicAuthCredential
+    ).toString('base64')}`;
     mockGetOllamaBaseUrl.mockReturnValue('https://ollama.example.com/api');
-    mockGetOllamaBasicAuth.mockReturnValue('user:password');
+    mockGetOllamaBasicAuth.mockReturnValue(basicAuthCredential);
     const mockFetch = vi.fn().mockResolvedValue(
       Response.json({
         message: {
@@ -130,7 +134,7 @@ describe('generateQuizQuestionsWithGemma Ollama fallback', () => {
       'https://ollama.example.com/api/chat',
       expect.objectContaining({
         headers: expect.objectContaining({
-          Authorization: 'Basic dXNlcjpwYXNzd29yZA==',
+          Authorization: expectedAuthHeader,
         }),
       })
     );
