@@ -5,6 +5,10 @@ import {
   hasPermission,
 } from '@/lib/api-auth';
 import { revalidateMerchant } from '@/lib/cache-revalidation';
+import {
+  getLaunchPaymentRequirement,
+  requiresNigerianKycForLaunch,
+} from '@/lib/checkout/payment-gateway-availability';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { createAdminClient } from '@/lib/supabase/admin';
 
@@ -109,28 +113,53 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const { data: featureSettings, error: featureSettingsError } =
+      await supabase
+        .from('merchant_feature_settings')
+        .select('paystack_enabled, korapay_enabled, pay_on_delivery_enabled')
+        .eq('merchant_id', merchant.id)
+        .maybeSingle();
+
+    if (featureSettingsError) {
+      console.error(
+        '[Publish API] merchant_feature_settings read failed:',
+        featureSettingsError
+      );
+      return NextResponse.json(
+        { error: 'Failed to load payment settings' },
+        { status: 500 }
+      );
+    }
+
+    const paymentMerchant = {
+      ...merchant,
+      feature_settings: featureSettings ?? undefined,
+    };
+
     // Check for required setup items
     const missingItems: string[] = [];
 
     // Identity verification requires at least one of NIN/BVN/CAC to have been
     // *verified* against the upstream identity provider — not merely entered.
     // merchant_verifications is the source of truth for verified flags.
-    const verification = await getVerificationStatus(merchant.id);
-    const hasVerifiedIdentity =
-      verification.nin_verified ||
-      verification.bvn_verified ||
-      verification.cac_verified;
-    if (!hasVerifiedIdentity) {
-      missingItems.push('Identity verification (NIN, BVN, or CAC)');
+    if (requiresNigerianKycForLaunch(paymentMerchant)) {
+      const verification = await getVerificationStatus(merchant.id);
+      const hasVerifiedIdentity =
+        verification.nin_verified ||
+        verification.bvn_verified ||
+        verification.cac_verified;
+      if (!hasVerifiedIdentity) {
+        missingItems.push('Identity verification (NIN, BVN, or CAC)');
+      }
     }
 
-    // Bank account required for payments
-    if (
-      !merchant.bank_code ||
-      !merchant.bank_account_number ||
-      !merchant.paystack_subaccount_code
-    ) {
-      missingItems.push('Bank account details');
+    const paymentRequirement = getLaunchPaymentRequirement(paymentMerchant);
+    if (!paymentRequirement.completed) {
+      missingItems.push(
+        paymentRequirement.id === 'bank_account'
+          ? 'Bank account details'
+          : 'Payment method'
+      );
     }
 
     // Country required for currency/shipping

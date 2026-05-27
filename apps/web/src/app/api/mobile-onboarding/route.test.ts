@@ -87,6 +87,7 @@ const validBody = {
   lastName: 'Doe',
   businessName: 'Test Store',
   businessType: 'fashion',
+  country: 'NG',
   brandColors: JSON.stringify({
     primary: '#000',
     background: '#fff',
@@ -374,6 +375,8 @@ describe('POST /api/mobile-onboarding', () => {
     expect(body.success).toBe(true);
     expect(merchantQuery.update).toHaveBeenCalledWith(
       expect.objectContaining({
+        country: 'NG',
+        payout_currency: 'NGN',
         signup_source: 'ios',
       })
     );
@@ -626,11 +629,12 @@ describe('POST /api/mobile-onboarding', () => {
       error: null,
     });
 
+    const merchantInsert = vi.fn().mockReturnThis();
     mockFrom.mockImplementation((table: string) => {
       if (table === 'merchants') {
         return {
           select: vi.fn().mockReturnThis(),
-          insert: vi.fn().mockReturnThis(),
+          insert: merchantInsert,
           eq: vi.fn().mockReturnThis(),
           maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
           single: vi.fn().mockResolvedValue({
@@ -662,6 +666,12 @@ describe('POST /api/mobile-onboarding', () => {
     expect(body.user).toEqual({ id: 'user-1', email: 'test@example.com' });
     expect(body.merchant).toEqual({ id: 'merch-1', slug: 'test' });
     expect(body.message).toBe('Account created successfully');
+    expect(merchantInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        country: 'NG',
+        payout_currency: 'NGN',
+      })
+    );
   });
 
   it('defers template and hero image generation via after()', async () => {
