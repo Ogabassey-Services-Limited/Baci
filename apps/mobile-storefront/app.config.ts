@@ -95,6 +95,36 @@ const tiktokBusinessPlugin: TikTokBusinessPlugin | null =
       ]
     : null;
 
+const facebookAppId =
+  process.env.STOREFRONT_FACEBOOK_APP_ID?.trim() || undefined;
+const facebookClientToken =
+  process.env.STOREFRONT_FACEBOOK_CLIENT_TOKEN?.trim() || undefined;
+const isFacebookSdkPartiallyConfigured = Boolean(
+  facebookAppId || facebookClientToken
+);
+const isFacebookSdkConfigured = Boolean(facebookAppId && facebookClientToken);
+
+if (isFacebookSdkPartiallyConfigured && !isFacebookSdkConfigured) {
+  throw new Error(
+    '[app.config] STOREFRONT_FACEBOOK_APP_ID and STOREFRONT_FACEBOOK_CLIENT_TOKEN must be configured together.'
+  );
+}
+
+const facebookSdkPlugin: NonNullable<ExpoConfig['plugins']>[number] | null =
+  isFacebookSdkConfigured && facebookAppId && facebookClientToken
+    ? [
+        'react-native-fbsdk-next',
+        {
+          appID: facebookAppId,
+          clientToken: facebookClientToken,
+          displayName: 'Ogabassey',
+          scheme: `fb${facebookAppId}`,
+          advertiserIDCollectionEnabled: false,
+          autoLogAppEventsEnabled: false,
+        },
+      ]
+    : null;
+
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: 'Ogabassey',
@@ -216,6 +246,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     'expo-localization',
     'expo-apple-authentication',
     'react-native-edge-to-edge',
+    ...(facebookSdkPlugin ? [facebookSdkPlugin] : []),
   ],
   web: {
     bundler: 'metro',
@@ -238,6 +269,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       iosTikTokAppId: tiktokIosAppId,
       isConfigured: isTikTokBusinessConfigured,
     },
+    facebookAppId: facebookAppId ?? null,
+    facebookClientToken: facebookClientToken ?? null,
     eas: {
       projectId: 'c6c1897b-cac8-49b0-85f9-3d277aecc379',
     },
