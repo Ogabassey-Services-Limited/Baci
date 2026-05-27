@@ -134,11 +134,6 @@
       "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
     },
     {
-      "path": "components/product/ReviewsList.tsx",
-      "lineCount": 388,
-      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
-    },
-    {
       "path": "components/wallet/WalletScreen.tsx",
       "lineCount": 351,
       "justification": "Wallet route shell extracted to component; decompose this screen into focused submodules and remove this entry."
