@@ -18,6 +18,10 @@ ssh "$VPS" "cd $REMOTE_DIR && CI=true pnpm install --frozen-lockfile --prod"
 echo "==> Creating runtime directories on VPS"
 ssh "$VPS" "mkdir -p $REMOTE_DIR/logs $REMOTE_DIR/locks"
 
+echo "==> Resolving Node.js path on VPS"
+NODE_BIN=$(ssh "$VPS" "command -v node || echo /usr/bin/node")
+echo "    Using Node: $NODE_BIN"
+
 echo "==> Installing Vercel drain receiver user service"
 cat <<EOF | ssh "$VPS" "mkdir -p ~/.config/systemd/user && cat > ~/.config/systemd/user/baci-vercel-log-drain-receiver.service"
 [Unit]
@@ -27,7 +31,7 @@ After=network-online.target
 [Service]
 Type=simple
 WorkingDirectory=$REMOTE_DIR
-ExecStart=/usr/bin/node $REMOTE_DIR/jobs/vercel-log-drain-receiver.mjs
+ExecStart=$NODE_BIN $REMOTE_DIR/jobs/vercel-log-drain-receiver.mjs
 Restart=always
 RestartSec=5
 
@@ -45,7 +49,7 @@ After=network-online.target
 [Service]
 Type=simple
 WorkingDirectory=$REMOTE_DIR
-ExecStart=/usr/bin/node $REMOTE_DIR/jobs/ai-storefront-trigger-server.mjs
+ExecStart=$NODE_BIN $REMOTE_DIR/jobs/ai-storefront-trigger-server.mjs
 Restart=always
 RestartSec=5
 
@@ -53,10 +57,6 @@ RestartSec=5
 WantedBy=default.target
 EOF
 ssh "$VPS" "systemctl --user daemon-reload && systemctl --user enable --now baci-ai-storefront-trigger.service"
-
-echo "==> Resolving Node.js path on VPS"
-NODE_BIN=$(ssh "$VPS" "command -v node || echo /usr/bin/node")
-echo "    Using Node: $NODE_BIN"
 
 echo "==> Installing crontab entries on VPS (idempotent)"
 CRON_BLOCK_START="# >>> baci-workers >>>"

@@ -5,7 +5,7 @@
 
 import { spawn } from 'node:child_process';
 import { createHash, timingSafeEqual } from 'node:crypto';
-import { createWriteStream, mkdirSync } from 'node:fs';
+import { mkdirSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -77,7 +77,6 @@ function buildTriggerMetadataEnv(payload = {}) {
 }
 
 export function spawnAiStorefrontWorker({
-  createWriteStreamFn = createWriteStream,
   env = process.env,
   logger = console,
   payload = {},
@@ -88,30 +87,17 @@ export function spawnAiStorefrontWorker({
   mkdirSync(locksDir, { recursive: true });
   mkdirSync(logsDir, { recursive: true });
 
-  const logStream = createWriteStreamFn(
-    join(logsDir, 'ai-storefront-jobs.log'),
-    {
-      flags: 'a',
-    }
-  );
-  logStream.on?.('error', (error) => {
-    logger.error?.({
-      message: 'AI storefront worker trigger log stream failed',
-      error,
-    });
-  });
+  const logFile = join(logsDir, 'ai-storefront-jobs.log');
   const workerCommand = [
     `cd ${JSON.stringify(WORKER_ROOT)}`,
-    `${JSON.stringify(join(WORKER_ROOT, 'bin', 'process-ai-storefront-jobs.sh'))}`,
+    `${JSON.stringify(join(WORKER_ROOT, 'bin', 'process-ai-storefront-jobs.sh'))} >> ${JSON.stringify(logFile)} 2>&1`,
   ].join(' && ');
 
   const child = spawnFn(
     'flock',
     [
-      '-n',
       join(locksDir, 'ollama-workload.lock'),
       'flock',
-      '-n',
       join(locksDir, 'ai-storefront-jobs.lock'),
       'bash',
       '-lc',
@@ -127,7 +113,7 @@ export function spawnAiStorefrontWorker({
         BACI_WORKER_PROFILE: 'ai-storefront-jobs',
         NODE_ENV: 'production',
       },
-      stdio: ['ignore', logStream, logStream],
+      stdio: 'ignore',
     }
   );
   child.on?.('error', (error) => {

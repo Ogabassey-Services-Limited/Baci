@@ -156,7 +156,6 @@ describe('ai storefront trigger server', () => {
     let spawnCall;
 
     const result = spawnAiStorefrontWorker({
-      createWriteStreamFn: () => ({}),
       env: { EXISTING_ENV: 'present' },
       logger: noopLogger,
       payload: { jobId: 'job-1', merchantId: 'merchant-1', source: 'api' },
@@ -168,6 +167,8 @@ describe('ai storefront trigger server', () => {
 
     assert.equal(result.pid, 1234);
     assert.equal(spawnCall.command, 'flock');
+    assert.equal(spawnCall.options.stdio, 'ignore');
+    assert.equal(spawnCall.args.includes('-n'), false);
     assert.equal(spawnCall.options.env.EXISTING_ENV, 'present');
     assert.equal(
       spawnCall.options.env.BACI_WORKER_PROFILE,
@@ -186,26 +187,11 @@ describe('ai storefront trigger server', () => {
     );
   });
 
-  it('shares one append stream for worker logs and records stream errors', () => {
-    const loggerErrors = [];
-    const listeners = {};
-    const logStream = {
-      on: (event, handler) => {
-        listeners[event] = handler;
-      },
-    };
-    let createWriteStreamCalls = 0;
+  it('redirects worker output to the append log without parent-owned streams', () => {
     let spawnCall;
 
     spawnAiStorefrontWorker({
-      createWriteStreamFn: () => {
-        createWriteStreamCalls += 1;
-        return logStream;
-      },
-      logger: {
-        error: (entry) => loggerErrors.push(entry),
-        info: () => undefined,
-      },
+      logger: noopLogger,
       payload: { jobId: 'job-1', merchantId: 'merchant-1', source: 'api' },
       spawnFn: (command, args, options) => {
         spawnCall = { args, command, options };
@@ -213,19 +199,11 @@ describe('ai storefront trigger server', () => {
       },
     });
 
-    assert.equal(createWriteStreamCalls, 1);
-    assert.equal(spawnCall.options.stdio[1], logStream);
-    assert.equal(spawnCall.options.stdio[2], logStream);
-
-    const error = new Error('disk full');
-    listeners.error(error);
-
-    assert.deepEqual(loggerErrors, [
-      {
-        message: 'AI storefront worker trigger log stream failed',
-        error,
-      },
-    ]);
+    assert.equal(spawnCall.options.stdio, 'ignore');
+    assert.match(
+      spawnCall.args.at(-1),
+      /process-ai-storefront-jobs\.sh" >> ".+ai-storefront-jobs\.log" 2>&1/
+    );
   });
 
   it('records spawned worker process errors without throwing', () => {
@@ -234,7 +212,6 @@ describe('ai storefront trigger server', () => {
     const error = new Error('spawn ENOENT');
 
     spawnAiStorefrontWorker({
-      createWriteStreamFn: () => ({ on: () => undefined }),
       logger: {
         error: (entry) => loggerErrors.push(entry),
         info: () => undefined,
