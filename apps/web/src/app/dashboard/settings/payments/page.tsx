@@ -7,6 +7,7 @@ import {
   CreditCard,
   Globe,
   Loader2,
+  Truck,
   Wallet,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -30,6 +31,7 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { useMerchant } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
+import { fetchWithCsrf } from '@/lib/api-client';
 import { isBaciPaystackSettlementCountry } from '@/lib/checkout/payment-gateway-availability';
 import { cn } from '@/lib/utils';
 import { VirtualTerminalSettings } from './components/virtual-terminal-settings';
@@ -37,6 +39,7 @@ import { VirtualTerminalSettings } from './components/virtual-terminal-settings'
 interface PaymentGatewaySettings {
   paystack_enabled: boolean;
   korapay_enabled: boolean;
+  pay_on_delivery_enabled: boolean;
   preferred_local_gateway: 'paystack' | 'korapay';
   preferred_international_gateway: 'paystack' | 'korapay';
   // Credit Direct BNPL
@@ -46,6 +49,7 @@ interface PaymentGatewaySettings {
 const DEFAULT_SETTINGS: PaymentGatewaySettings = {
   paystack_enabled: true,
   korapay_enabled: true,
+  pay_on_delivery_enabled: false,
   preferred_local_gateway: 'paystack',
   preferred_international_gateway: 'korapay',
   // Credit Direct BNPL defaults
@@ -54,7 +58,7 @@ const DEFAULT_SETTINGS: PaymentGatewaySettings = {
 
 export default function PaymentSettingsPage() {
   const { toast } = useToast();
-  const { merchant, loading: merchantLoading } = useMerchant();
+  const { merchant, loading: merchantLoading, reloadMerchant } = useMerchant();
   const [settings, setSettings] =
     useState<PaymentGatewaySettings>(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
@@ -75,6 +79,7 @@ export default function PaymentSettingsPage() {
           setSettings({
             paystack_enabled: data.paystack_enabled ?? true,
             korapay_enabled: data.korapay_enabled ?? true,
+            pay_on_delivery_enabled: data.pay_on_delivery_enabled ?? false,
             preferred_local_gateway: data.preferred_local_gateway || 'paystack',
             preferred_international_gateway:
               data.preferred_international_gateway || 'korapay',
@@ -94,8 +99,9 @@ export default function PaymentSettingsPage() {
 
   const handleSave = async () => {
     setSaving(true);
+    let redirectingAfterSave = false;
     try {
-      const response = await fetch('/api/merchant/features', {
+      const response = await fetchWithCsrf('/api/merchant/features', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -120,6 +126,7 @@ export default function PaymentSettingsPage() {
         // Check for onboarding flow
         const params = new URLSearchParams(window.location.search);
         if (params.get('onboarding') === 'true') {
+          redirectingAfterSave = true;
           window.location.href = '/dashboard?setup_complete=payments';
           return;
         }
@@ -138,7 +145,7 @@ export default function PaymentSettingsPage() {
         description: 'Failed to save payment settings.',
       });
     } finally {
-      if (!window.location.search.includes('onboarding=true')) {
+      if (!redirectingAfterSave) {
         setSaving(false);
       }
     }
@@ -202,6 +209,7 @@ export default function PaymentSettingsPage() {
                   accountNumber: merchantData?.bank_account_number as string,
                   businessName: merchant?.business_name,
                 }}
+                onSuccess={reloadMerchant}
               />
             </div>
           ) : (
@@ -222,6 +230,7 @@ export default function PaymentSettingsPage() {
                 initialData={{
                   businessName: merchant?.business_name,
                 }}
+                onSuccess={reloadMerchant}
               />
             </div>
           )}
@@ -293,6 +302,58 @@ export default function PaymentSettingsPage() {
                 {isPaystackSupported
                   ? 'Add bank details above to enable Paystack'
                   : 'Paystack setup is disabled for this country'}
+              </p>
+            )}
+          </div>
+
+          {/* Pay on Delivery */}
+          <div
+            className={cn(
+              'p-4 rounded-lg border-2 transition-colors',
+              settings.pay_on_delivery_enabled
+                ? 'border-green-200 bg-green-50/50 dark:bg-green-900/10 dark:border-green-800'
+                : 'border-gray-200 dark:border-gray-800'
+            )}
+          >
+            <div className="flex items-start justify-between">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-lg bg-[#F59E0B] flex items-center justify-center text-white">
+                  <Truck className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-semibold">Pay on Delivery</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Let customers place orders online and pay when they receive
+                    their items.
+                  </p>
+                  <div className="flex gap-2 mt-2 flex-wrap">
+                    <span className="text-xs bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 px-2 py-0.5 rounded-full">
+                      Offline Payment
+                    </span>
+                    <span className="text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 px-2 py-0.5 rounded-full">
+                      No Gateway Required
+                    </span>
+                    <span className="text-xs bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300 px-2 py-0.5 rounded-full">
+                      Manual Confirmation
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <Switch
+                aria-label="Toggle Pay on Delivery"
+                checked={settings.pay_on_delivery_enabled}
+                onCheckedChange={(checked) =>
+                  setSettings({
+                    ...settings,
+                    pay_on_delivery_enabled: checked,
+                  })
+                }
+              />
+            </div>
+            {!isPaystackSupported && (
+              <p className="text-xs text-muted-foreground mt-2">
+                Recommended while Baci-managed online payment providers are not
+                configured for your country.
               </p>
             )}
           </div>
