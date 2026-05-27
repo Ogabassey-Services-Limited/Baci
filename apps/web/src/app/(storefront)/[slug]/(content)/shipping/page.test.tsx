@@ -111,7 +111,7 @@ describe('shipping page', () => {
 
   it('renders when the shipping summary exists', async () => {
     vi.mocked(getRequestScopedMerchant).mockResolvedValue(trustMerchant);
-    const { ShippingPageContent } = await import('./page');
+    const { ShippingPageContent } = await import('./shipping-page-content');
 
     render(
       await ShippingPageContent({
@@ -126,6 +126,18 @@ describe('shipping page', () => {
     expect(
       screen.getByRole('heading', { name: 'Shipping Policy' })
     ).toBeInTheDocument();
+  });
+
+  it('throws not found when the trust route context is unavailable', async () => {
+    vi.mocked(getRequestScopedMerchant).mockResolvedValue(null);
+    const { ShippingPageContent } = await import('./shipping-page-content');
+
+    await expect(
+      ShippingPageContent({
+        params: Promise.resolve({ slug: 'missing-store' }),
+      })
+    ).rejects.toThrow('NEXT_NOT_FOUND');
+    expect(mockNotFound).toHaveBeenCalledOnce();
   });
 
   it('renders when only shipping regions exist', async () => {
@@ -145,7 +157,7 @@ describe('shipping page', () => {
       socialLinks: {},
       derivedLinks: { contact: 'https://ogabassey.com/contact' },
     });
-    const { ShippingPageContent } = await import('./page');
+    const { ShippingPageContent } = await import('./shipping-page-content');
 
     render(
       await ShippingPageContent({
@@ -190,7 +202,7 @@ describe('shipping page', () => {
       socialLinks: {},
       derivedLinks: {},
     });
-    const { ShippingPageContent } = await import('./page');
+    const { ShippingPageContent } = await import('./shipping-page-content');
 
     render(
       await ShippingPageContent({
@@ -226,7 +238,7 @@ describe('shipping page', () => {
       socialLinks: {},
       derivedLinks: { contact: 'https://ogabassey.com/contact' },
     });
-    const { ShippingPageContent } = await import('./page');
+    const { ShippingPageContent } = await import('./shipping-page-content');
 
     render(
       await ShippingPageContent({

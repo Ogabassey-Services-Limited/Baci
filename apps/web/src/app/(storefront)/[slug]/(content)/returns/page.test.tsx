@@ -106,7 +106,7 @@ describe('returns page', () => {
 
   it('renders when the return summary exists', async () => {
     vi.mocked(getRequestScopedMerchant).mockResolvedValue(trustMerchant);
-    const { ReturnsPageContent } = await import('./page');
+    const { ReturnsPageContent } = await import('./returns-page-content');
 
     render(
       await ReturnsPageContent({
@@ -128,7 +128,7 @@ describe('returns page', () => {
       ...trustMerchant,
       pages: { contact: 'Contact' },
     } as unknown as Awaited<ReturnType<typeof getRequestScopedMerchant>>);
-    const { ReturnsPageContent } = await import('./page');
+    const { ReturnsPageContent } = await import('./returns-page-content');
 
     render(
       await ReturnsPageContent({
@@ -159,7 +159,7 @@ describe('returns page', () => {
       socialLinks: {},
       derivedLinks: { contact: 'https://ogabassey.com/contact' },
     });
-    const { ReturnsPageContent } = await import('./page');
+    const { ReturnsPageContent } = await import('./returns-page-content');
 
     render(
       await ReturnsPageContent({
@@ -204,7 +204,7 @@ describe('returns page', () => {
       socialLinks: {},
       derivedLinks: {},
     });
-    const { ReturnsPageContent } = await import('./page');
+    const { ReturnsPageContent } = await import('./returns-page-content');
 
     render(
       await ReturnsPageContent({
@@ -238,7 +238,7 @@ describe('returns page', () => {
       socialLinks: {},
       derivedLinks: { contact: 'https://ogabassey.com/contact' },
     });
-    const { ReturnsPageContent } = await import('./page');
+    const { ReturnsPageContent } = await import('./returns-page-content');
 
     render(
       await ReturnsPageContent({
@@ -274,7 +274,7 @@ describe('returns page', () => {
       socialLinks: {},
       derivedLinks: {},
     });
-    const { ReturnsPageContent } = await import('./page');
+    const { ReturnsPageContent } = await import('./returns-page-content');
 
     render(
       await ReturnsPageContent({

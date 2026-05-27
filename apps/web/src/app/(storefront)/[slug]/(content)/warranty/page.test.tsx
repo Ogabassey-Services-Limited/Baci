@@ -99,7 +99,7 @@ describe('warranty page', () => {
 
   it('renders when the warranty summary exists', async () => {
     vi.mocked(getRequestScopedMerchant).mockResolvedValue(trustMerchant);
-    const { WarrantyPageContent } = await import('./page');
+    const { WarrantyPageContent } = await import('./warranty-page-content');
 
     render(
       await WarrantyPageContent({
@@ -127,7 +127,7 @@ describe('warranty page', () => {
       socialLinks: {},
       derivedLinks: {},
     });
-    const { WarrantyPageContent } = await import('./page');
+    const { WarrantyPageContent } = await import('./warranty-page-content');
 
     await expect(
       WarrantyPageContent({

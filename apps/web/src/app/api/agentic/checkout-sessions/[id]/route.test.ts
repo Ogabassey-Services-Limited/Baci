@@ -10,8 +10,13 @@ const { mockGetCheckoutSession, mockHandleCheckoutSessionUpdate } = vi.hoisted(
 
 vi.mock('@/app/api/agentic/checkout_sessions/[id]/route', () => ({
   GET: mockGetCheckoutSession,
-  handleAgenticCheckoutSessionUpdate: mockHandleCheckoutSessionUpdate,
 }));
+vi.mock(
+  '@/app/api/agentic/checkout_sessions/[id]/checkout-session-update-handler',
+  () => ({
+    handleAgenticCheckoutSessionUpdate: mockHandleCheckoutSessionUpdate,
+  })
+);
 
 const routeProps = { params: Promise.resolve({ id: 'agentic_session_1' }) };
 

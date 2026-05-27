@@ -147,7 +147,9 @@ describe('POST /api/agentic/checkout_sessions/[id]/complete', () => {
       payment_data: { provider: 'pay_on_delivery' },
     }));
 
-    const { handleAgenticCheckoutSessionComplete } = await import('./route');
+    const { handleAgenticCheckoutSessionComplete } = await import(
+      './checkout-session-complete-handler'
+    );
     const response = await handleAgenticCheckoutSessionComplete(
       request,
       {
