@@ -122,6 +122,11 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       ITSAppUsesNonExemptEncryption: false,
       NSUserTrackingUsageDescription:
         'Your data will be used to provide personalized product recommendations and improve your shopping experience.',
+      SKAdNetworkItems: [
+        {
+          SKAdNetworkIdentifier: 'ce2y4j37ch.skadnetwork',
+        },
+      ],
     },
   },
   android: {
