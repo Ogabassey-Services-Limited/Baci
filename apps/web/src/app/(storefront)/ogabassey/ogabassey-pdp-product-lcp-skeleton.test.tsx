@@ -18,8 +18,12 @@ const mockGetImageProps = vi.hoisted(() =>
         src: props.src,
         srcSet: `${props.src} 640w`,
         alt: props.alt,
+        fill: true,
+        loader: () => 'should-not-render',
         style: { position: 'absolute', height: '100%', width: '100%' },
         loading: props.priority ? undefined : 'lazy',
+        priority: props.priority,
+        quality: 75,
       },
     })
   )
@@ -97,6 +101,10 @@ describe('OgabasseyPdpProductLcpSkeleton', () => {
     expect(img.style.objectFit).toBe('cover');
     expect(img.getAttribute('fetchpriority')).toBe('high');
     expect(img.getAttribute('decoding')).toBe('sync');
+    expect(img.getAttribute('fill')).toBeNull();
+    expect(img.getAttribute('loader')).toBeNull();
+    expect(img.getAttribute('priority')).toBeNull();
+    expect(img.getAttribute('quality')).toBeNull();
     // Ensure loading="lazy" is not spread onto our early LCP image
     expect(img.getAttribute('loading')).toBeNull();
 

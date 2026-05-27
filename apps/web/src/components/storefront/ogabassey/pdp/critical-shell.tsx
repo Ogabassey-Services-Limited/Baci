@@ -1,7 +1,7 @@
-import Image from 'next/image';
+import { getImageProps } from 'next/image';
 import Link from 'next/link';
 import type { Route } from 'next';
-import type { ReactNode } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 import {
   OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY,
   OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
@@ -16,6 +16,13 @@ interface OgabasseyPdpCriticalShellProps {
   product: OgabasseyPdpCriticalProduct;
 }
 
+type NativeImagePropsWithNextInternals = ComponentProps<'img'> & {
+  fill?: unknown;
+  loader?: unknown;
+  priority?: unknown;
+  quality?: unknown;
+};
+
 function formatPrice(price: number) {
   return new Intl.NumberFormat('en-NG', {
     currency: 'NGN',
@@ -29,11 +36,37 @@ function buildPath(basePath: string, path: string): Route {
   return (`${prefix}${path}` || '/') as Route;
 }
 
+function getNativeProductImageProps(product: OgabasseyPdpCriticalProduct) {
+  const { props } = getImageProps({
+    alt: product.name,
+    className: styles.image,
+    decoding: 'sync',
+    fetchPriority: 'high',
+    fill: true,
+    loader: imageLoader,
+    priority: true,
+    quality: OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY,
+    sizes: OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
+    src: product.image,
+  });
+  const {
+    fill: _fill,
+    loader: _loader,
+    priority: _priority,
+    quality: _quality,
+    ...nativeProps
+  } = props as NativeImagePropsWithNextInternals;
+
+  return nativeProps;
+}
+
 export function OgabasseyPdpCriticalShell({
   basePath,
   children,
   product,
 }: OgabasseyPdpCriticalShellProps) {
+  const productImageProps = getNativeProductImageProps(product);
+
   return (
     <section className={styles.shell} data-ogabassey-pdp-critical-shell>
       <div className={styles.inner}>
@@ -48,18 +81,8 @@ export function OgabasseyPdpCriticalShell({
         </nav>
         <div className={styles.grid}>
           <div className={styles.imageFrame}>
-            <Image
-              alt={product.name}
-              className={styles.image}
-              decoding="sync"
-              fetchPriority="high"
-              fill
-              loader={imageLoader}
-              priority
-              quality={OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY}
-              sizes={OGABASSEY_PDP_PRIMARY_IMAGE_SIZES}
-              src={product.image}
-            />
+            {/* biome-ignore lint/performance/noImgElement: Server-generated native img avoids passing a loader function through the RSC payload. */}
+            <img {...productImageProps} />
             <span className={styles.condition}>{product.condition}</span>
           </div>
           <div className={styles.summary}>

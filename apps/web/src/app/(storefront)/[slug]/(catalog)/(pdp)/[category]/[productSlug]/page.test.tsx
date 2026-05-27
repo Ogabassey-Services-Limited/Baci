@@ -84,6 +84,43 @@ vi.mock('next/image', () => ({
     // biome-ignore lint/performance/noImgElement: next/image test double exposes rendered attributes
     <img alt={alt} data-fetch-priority={fetchPriority} src={src} />
   ),
+  getImageProps: ({
+    alt,
+    className,
+    decoding,
+    fetchPriority,
+    fill,
+    loader,
+    priority,
+    quality,
+    sizes,
+    src,
+  }: {
+    alt: string;
+    className?: string;
+    decoding?: string;
+    fetchPriority?: string;
+    fill?: boolean;
+    loader?: () => string;
+    priority?: boolean;
+    quality?: number;
+    sizes?: string;
+    src: string;
+  }) => ({
+    props: {
+      alt,
+      className,
+      decoding,
+      fetchPriority,
+      fill,
+      loader,
+      priority,
+      quality,
+      sizes,
+      src,
+      srcSet: `${src} 640w`,
+    },
+  }),
 }));
 
 vi.mock('next/server', () => ({
