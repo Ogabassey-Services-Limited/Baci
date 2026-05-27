@@ -142,11 +142,6 @@
       "path": "components/wallet/WalletScreen.tsx",
       "lineCount": 351,
       "justification": "Wallet route shell extracted to component; decompose this screen into focused submodules and remove this entry."
-    },
-    {
-      "path": "components/utilities/use-airtime-form-controller.ts",
-      "lineCount": 343,
-      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
     }
   ]
 }
