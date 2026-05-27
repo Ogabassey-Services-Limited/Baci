@@ -298,7 +298,7 @@ describe('blog page metadata', () => {
     ).toBeTruthy();
   });
 
-  it('renders guide collections above the blog listing', async () => {
+  it('renders guide collections after the blog listing', async () => {
     mockBuildBlogClusterCollections.mockReturnValue(clusterCollections);
 
     render(
@@ -317,6 +317,21 @@ describe('blog page metadata', () => {
       'href',
       'https://ogabassey.com/blog/best-phones-in-nigeria'
     );
+    const blogListing = screen.getByText('Ogabassey blog');
+    const guideCollections = screen.getByRole('heading', {
+      name: /guide collections/i,
+    });
+    const discoveryLinks = screen.getByRole('heading', {
+      name: /continue exploring/i,
+    });
+    expect(
+      blogListing.compareDocumentPosition(guideCollections) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+    expect(
+      guideCollections.compareDocumentPosition(discoveryLinks) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
   });
 
   it('uses structured image variants and preserves listing pagination totals', async () => {

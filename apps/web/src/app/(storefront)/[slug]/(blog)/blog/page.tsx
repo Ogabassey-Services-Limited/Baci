@@ -195,12 +195,6 @@ export async function BlogPageContent({ params, searchParams }: PageProps) {
           }));
           return (
             <>
-              <BlogDiscoverySection
-                baseUrl={baseUrl}
-                categories={publicCategories}
-                posts={posts}
-              />
-              <InformationalClusterIndex collections={guideCollections} />
               <TemplateBlogRenderer
                 blogSchema={blogSchema}
                 breadcrumbSchema={breadcrumbSchema}
@@ -209,6 +203,12 @@ export async function BlogPageContent({ params, searchParams }: PageProps) {
                 blogPosts={blogPosts}
                 categories={templateCategories}
                 searchQuery={searchQuery}
+              />
+              <InformationalClusterIndex collections={guideCollections} />
+              <BlogDiscoverySection
+                baseUrl={baseUrl}
+                categories={publicCategories}
+                posts={posts}
               />
             </>
           );
@@ -226,12 +226,6 @@ export async function BlogPageContent({ params, searchParams }: PageProps) {
   }
   return (
     <>
-      <BlogDiscoverySection
-        baseUrl={baseUrl}
-        categories={publicCategories}
-        posts={posts}
-      />
-      <InformationalClusterIndex collections={guideCollections} />
       <DefaultBlogUi
         blogSchema={blogSchema}
         breadcrumbSchema={breadcrumbSchema}
@@ -243,6 +237,12 @@ export async function BlogPageContent({ params, searchParams }: PageProps) {
         searchQuery={searchQuery}
         slug={slug}
         totalPosts={totalPosts}
+      />
+      <InformationalClusterIndex collections={guideCollections} />
+      <BlogDiscoverySection
+        baseUrl={baseUrl}
+        categories={publicCategories}
+        posts={posts}
       />
     </>
   );
