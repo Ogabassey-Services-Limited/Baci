@@ -163,6 +163,10 @@ const serverSchema = z
     KORAPAY_SECRET_KEY: z.string().optional(),
     JUICYWAY_SECRET_KEY: z.string().optional(),
     PAYSTACK_SECRET_KEY: z.string().optional(),
+    BACI_GOOGLE_PAY_ENABLED: z.string().optional(),
+    BACI_GOOGLE_PAY_GATEWAY: z.string().optional(),
+    BACI_GOOGLE_PAY_GATEWAY_MERCHANT_ID: z.string().optional(),
+    BACI_GOOGLE_PAY_MERCHANT_ID: z.string().optional(),
     SICKW_API_KEY: optionalTrimmedStringSchema,
     IMEI_HASH_SALT: optionalTrimmedStringSchema,
     OPENAI_AGENTIC_API_KEY: z.string().optional(),
@@ -403,6 +407,11 @@ const getEnv = () => {
         KORAPAY_SECRET_KEY: process.env.KORAPAY_SECRET_KEY,
         JUICYWAY_SECRET_KEY: process.env.JUICYWAY_SECRET_KEY,
         PAYSTACK_SECRET_KEY: process.env.PAYSTACK_SECRET_KEY,
+        BACI_GOOGLE_PAY_ENABLED: process.env.BACI_GOOGLE_PAY_ENABLED,
+        BACI_GOOGLE_PAY_GATEWAY: process.env.BACI_GOOGLE_PAY_GATEWAY,
+        BACI_GOOGLE_PAY_GATEWAY_MERCHANT_ID:
+          process.env.BACI_GOOGLE_PAY_GATEWAY_MERCHANT_ID,
+        BACI_GOOGLE_PAY_MERCHANT_ID: process.env.BACI_GOOGLE_PAY_MERCHANT_ID,
         SICKW_API_KEY: process.env.SICKW_API_KEY,
         IMEI_HASH_SALT: process.env.IMEI_HASH_SALT,
         KUDA_BILL_DEBUG: process.env.KUDA_BILL_DEBUG,
@@ -667,6 +676,35 @@ export const getPaystackSecretKey = () => {
     process.env.PAYSTACK_SECRET_KEY ?? env?.PAYSTACK_SECRET_KEY
   );
   return secret || undefined;
+};
+export type GooglePayAgenticConfig = {
+  gateway: string;
+  gatewayMerchantId: string;
+  merchantId: string;
+};
+export const getGooglePayAgenticConfig = () => {
+  if (isBrowserRuntime()) return null;
+  const enabled = ['1', 'on', 'true', 'yes'].includes(
+    trimSecret(
+      process.env.BACI_GOOGLE_PAY_ENABLED ?? env?.BACI_GOOGLE_PAY_ENABLED
+    ).toLowerCase()
+  );
+  const gateway = trimSecret(
+    process.env.BACI_GOOGLE_PAY_GATEWAY ?? env?.BACI_GOOGLE_PAY_GATEWAY
+  ).toLowerCase();
+  const gatewayMerchantId = trimSecret(
+    process.env.BACI_GOOGLE_PAY_GATEWAY_MERCHANT_ID ??
+      env?.BACI_GOOGLE_PAY_GATEWAY_MERCHANT_ID
+  );
+  const merchantId = trimSecret(
+    process.env.BACI_GOOGLE_PAY_MERCHANT_ID ?? env?.BACI_GOOGLE_PAY_MERCHANT_ID
+  );
+
+  if (!enabled || !gateway || !gatewayMerchantId || !merchantId) {
+    return null;
+  }
+
+  return { gateway, gatewayMerchantId, merchantId };
 };
 export const getSickwApiKey = () => {
   if (isBrowserRuntime()) return undefined;

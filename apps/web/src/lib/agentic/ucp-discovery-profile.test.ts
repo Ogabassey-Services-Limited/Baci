@@ -65,6 +65,34 @@ const baseManifest: AgentCommerceManifest = {
   },
 };
 
+function buildSignedCheckoutManifest(): AgentCommerceManifest {
+  return {
+    ...baseManifest,
+    auth: checkoutAuth,
+    capabilities: [
+      'catalog.read',
+      'checkout.session.create',
+      'checkout.session.read',
+      'checkout.session.update',
+      'checkout.session.complete',
+      'checkout.session.cancel',
+      'order.read',
+    ],
+    links: {
+      ...baseManifest.links,
+      checkout_session:
+        'https://ogabassey.com/api/agentic/checkout_sessions/{session_id}',
+      checkout_session_cancel:
+        'https://ogabassey.com/api/agentic/checkout_sessions/{session_id}/cancel',
+      checkout_session_complete:
+        'https://ogabassey.com/api/agentic/checkout_sessions/{session_id}/complete',
+      checkout_sessions: 'https://ogabassey.com/api/agentic/checkout_sessions',
+      order: 'https://ogabassey.com/api/agentic/orders/{order_id}',
+    },
+    payment_methods: ['paystack_bank_transfer'],
+  };
+}
+
 describe('buildUcpDiscoveryProfile', () => {
   it('keeps catalog discovery without advertising native UCP services', () => {
     const profile = buildUcpDiscoveryProfile(baseManifest);
@@ -90,32 +118,7 @@ describe('buildUcpDiscoveryProfile', () => {
   });
 
   it('maps checkout and order primitives onto native UCP capability declarations', () => {
-    const manifest: AgentCommerceManifest = {
-      ...baseManifest,
-      auth: checkoutAuth,
-      capabilities: [
-        'catalog.read',
-        'checkout.session.create',
-        'checkout.session.read',
-        'checkout.session.update',
-        'checkout.session.complete',
-        'checkout.session.cancel',
-        'order.read',
-      ],
-      links: {
-        ...baseManifest.links,
-        checkout_session:
-          'https://ogabassey.com/api/agentic/checkout_sessions/{session_id}',
-        checkout_session_cancel:
-          'https://ogabassey.com/api/agentic/checkout_sessions/{session_id}/cancel',
-        checkout_session_complete:
-          'https://ogabassey.com/api/agentic/checkout_sessions/{session_id}/complete',
-        checkout_sessions:
-          'https://ogabassey.com/api/agentic/checkout_sessions',
-        order: 'https://ogabassey.com/api/agentic/orders/{order_id}',
-      },
-      payment_methods: ['paystack_bank_transfer'],
-    };
+    const manifest = buildSignedCheckoutManifest();
 
     const profile = buildUcpDiscoveryProfile(manifest);
 
@@ -196,6 +199,67 @@ describe('buildUcpDiscoveryProfile', () => {
     expect(profile.extensions.baci.links.order).toBe(
       'https://ogabassey.com/api/agentic/orders/{order_id}'
     );
+  });
+
+  it('advertises UCP cart operations when checkout is enabled', () => {
+    const profile = buildUcpDiscoveryProfile(buildSignedCheckoutManifest());
+
+    expect(profile.ucp.capabilities['dev.ucp.shopping.cart']).toEqual([
+      expect.objectContaining({
+        version: '2026-04-08',
+        spec: 'https://ucp.dev/2026-04-08/specification/cart',
+        config: expect.objectContaining({
+          auth: {
+            supported_api_versions: ['2026-04-30', '2026-04-01'],
+            type: 'bearer_hmac',
+          },
+          rest: {
+            endpoint: 'https://ogabassey.com/api/agentic',
+            operations: {
+              cancel_cart:
+                'https://ogabassey.com/api/agentic/carts/{id}/cancel',
+              convert_cart_to_checkout:
+                'https://ogabassey.com/api/agentic/carts/{id}/checkout',
+              create_cart: 'https://ogabassey.com/api/agentic/carts',
+              get_cart: 'https://ogabassey.com/api/agentic/carts/{id}',
+              update_cart: 'https://ogabassey.com/api/agentic/carts/{id}',
+            },
+          },
+        }),
+      }),
+    ]);
+  });
+
+  it('advertises UCP catalog search and lookup operations for signed agents', () => {
+    const profile = buildUcpDiscoveryProfile(buildSignedCheckoutManifest());
+
+    expect(profile.ucp.capabilities['dev.ucp.shopping.catalog.search']).toEqual(
+      [
+        expect.objectContaining({
+          config: {
+            auth: {
+              supported_api_versions: ['2026-04-30', '2026-04-01'],
+              type: 'bearer_hmac',
+            },
+            rest: {
+              endpoint: 'https://ogabassey.com/api/agentic',
+              operations: {
+                search_catalog:
+                  'https://ogabassey.com/api/agentic/catalog/search',
+              },
+            },
+          },
+        }),
+      ]
+    );
+    const lookupCapability = profile.ucp.capabilities[
+      'dev.ucp.shopping.catalog.lookup'
+    ]?.[0] as { config: { rest: { operations: Record<string, string> } } };
+
+    expect(lookupCapability.config.rest.operations).toMatchObject({
+      get_product: 'https://ogabassey.com/api/agentic/catalog/product',
+      lookup_catalog: 'https://ogabassey.com/api/agentic/catalog/lookup',
+    });
   });
 
   it('handles empty Baci capabilities and pay-on-delivery without checkout auth', () => {

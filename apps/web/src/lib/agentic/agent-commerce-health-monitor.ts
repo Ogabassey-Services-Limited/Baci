@@ -7,6 +7,16 @@ import {
   type CrawlerLogSummaryRow,
 } from './crawler-observability';
 
+export {
+  buildAgentCommerceUniversalCartHealthActions,
+  checkAgentCommerceUniversalCartReadiness,
+  getAgentCommerceUniversalCartStatusReason,
+  UNIVERSAL_CART_CHECKS,
+  type UniversalCartCheckId,
+  type UniversalCartReadinessResult,
+  type UniversalCartReadinessStatus,
+} from './universal-cart-readiness';
+
 const DOMAIN_SELECT_COLUMNS = 'merchant_id, domain';
 const CRAWLER_LOG_SELECT_COLUMNS =
   'agent_family, bot_name, cache_outcome, crawled_at, host, response_time_ms, status_code, url_path, user_agent';

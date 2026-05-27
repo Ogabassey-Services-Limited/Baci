@@ -15,6 +15,12 @@ vi.mock('@/components/dashboard/agentic-trust-center-card', () => ({
   AgenticTrustCenterCard: () => <section>Trust card content</section>,
 }));
 
+vi.mock('@/components/dashboard/universal-cart-readiness-card', () => ({
+  UniversalCartReadinessCard: () => (
+    <section>Universal Cart readiness content</section>
+  ),
+}));
+
 vi.mock(
   '@/components/dashboard/integrations/agent-commerce-controls-card',
   () => ({
@@ -87,6 +93,12 @@ const baseProps = {
       urlMismatches: 0,
     },
   },
+  universalCartReadiness: {
+    checks: [],
+    lastCheckedAt: '2026-05-26T12:00:00.000Z',
+    status: 'pass' as const,
+    url: 'https://ogabassey.com/.well-known/ucp',
+  },
 };
 
 describe('AgenticDashboardClientPage', () => {
@@ -99,6 +111,7 @@ describe('AgenticDashboardClientPage', () => {
     ).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /action center/i })).toBeVisible();
     expect(screen.getByRole('tab', { name: /trust center/i })).toBeVisible();
+    expect(screen.getByRole('tab', { name: /universal cart/i })).toBeVisible();
     expect(
       screen.getByRole('tab', { name: /crawler visibility/i })
     ).toBeVisible();
@@ -112,6 +125,12 @@ describe('AgenticDashboardClientPage', () => {
     await user.click(screen.getByRole('tab', { name: /trust center/i }));
 
     expect(screen.getByText('Trust card content')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('tab', { name: /universal cart/i }));
+
+    expect(
+      screen.getByText('Universal Cart readiness content')
+    ).toBeInTheDocument();
 
     await user.click(screen.getByRole('tab', { name: /crawler visibility/i }));
 
@@ -150,6 +169,7 @@ describe('AgenticDashboardClientPage', () => {
         isPublished={false}
         trustCenterState="unauthorized"
         trustReadiness={null}
+        universalCartReadiness={null}
       />
     );
 
@@ -195,6 +215,7 @@ describe('AgenticDashboardClientPage', () => {
         actionHealth={null}
         trustCenterState="unauthorized"
         trustReadiness={null}
+        universalCartReadiness={null}
       />
     );
 

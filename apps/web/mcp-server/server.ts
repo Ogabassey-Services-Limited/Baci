@@ -41,6 +41,7 @@ import {
   updateAgenticCheckoutSession,
   updateAgenticCheckoutSessionMcpInputSchema,
 } from './agentic-checkout-client';
+import { registerAgenticUcpTools } from './agentic-ucp-tools';
 
 // =============================================================================
 // CONFIGURATION
@@ -1430,6 +1431,8 @@ function createOgabasseyServer() {
 
   const agenticCheckoutClientConfig = getAgenticCheckoutClientConfig();
   if (agenticCheckoutClientConfig) {
+    registerAgenticUcpTools(server, agenticCheckoutClientConfig);
+
     server.registerTool(
       'create_agentic_checkout_session',
       {

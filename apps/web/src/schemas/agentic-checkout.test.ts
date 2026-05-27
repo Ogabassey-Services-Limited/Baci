@@ -22,6 +22,29 @@ describe('checkoutSessionSchema', () => {
     }
   });
 
+  it('accepts a UCP cart id checkout creation payload', () => {
+    const result = checkoutSessionSchema.safeParse({ cart_id: 'cart_123' });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data).toMatchObject({
+        cart_id: 'cart_123',
+        currency: 'NGN',
+      });
+    }
+  });
+
+  it('rejects a blank UCP cart id checkout creation payload', () => {
+    const result = checkoutSessionSchema.safeParse({ cart_id: '   ' });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(
+        result.error.issues.some((issue) => issue.path[0] === 'cart_id')
+      ).toBe(true);
+    }
+  });
+
   it('accepts ACP line_items as a checkout session payload alias', () => {
     const result = checkoutSessionSchema.safeParse({
       capabilities: {},
@@ -90,7 +113,9 @@ describe('checkoutSessionSchema', () => {
 
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data.items).toEqual([{ id: 'product-1', quantity: 2 }]);
+      expect(result.data).toMatchObject({
+        items: [{ id: 'product-1', quantity: 2 }],
+      });
     }
   });
 
@@ -110,12 +135,14 @@ describe('checkoutSessionSchema', () => {
 
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data.shipping_address).toMatchObject({
-        address: '12 Example Street',
-        city: 'Lagos',
-        country_code: 'NG',
-        postal_code: '100001',
-        state: 'LA',
+      expect(result.data).toMatchObject({
+        shipping_address: {
+          address: '12 Example Street',
+          city: 'Lagos',
+          country_code: 'NG',
+          postal_code: '100001',
+          state: 'LA',
+        },
       });
       expect(result.data).not.toHaveProperty('fulfillment_details');
     }
@@ -129,7 +156,9 @@ describe('checkoutSessionSchema', () => {
 
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data.items).toEqual([{ id: 'product-1', quantity: 1 }]);
+      expect(result.data).toMatchObject({
+        items: [{ id: 'product-1', quantity: 1 }],
+      });
     }
   });
 

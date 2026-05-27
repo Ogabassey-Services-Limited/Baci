@@ -1,16 +1,34 @@
 import { NextResponse } from 'next/server';
 import { getRootDomain } from '@/env';
 import { buildAgentCommerceManifest } from '@/lib/agentic/agent-commerce-manifest';
+import { buildBaciPlatformUcpProfile } from '@/lib/agentic/baci-platform-ucp-profile';
 import {
   buildUcpDiscoveryProfile,
   UCP_PROFILE_CACHE_CONTROL,
 } from '@/lib/agentic/ucp-discovery-profile';
-import { buildRequestBaseUrl } from '@/lib/storefront-host';
+import {
+  buildRequestBaseUrl,
+  getRequestHost,
+  stripPort,
+} from '@/lib/storefront-host';
 import { resolveStorefrontMerchantFromRequest } from '@/lib/storefront-merchant';
 
 const ROOT_DOMAIN = (getRootDomain() || 'usebaci.com').toLowerCase();
 
 export async function GET(request: Request) {
+  const hostname = stripPort(getRequestHost(request));
+  if (hostname === ROOT_DOMAIN || hostname === `www.${ROOT_DOMAIN}`) {
+    return NextResponse.json(
+      buildBaciPlatformUcpProfile(buildRequestBaseUrl(request)),
+      {
+        headers: {
+          'Cache-Control': UCP_PROFILE_CACHE_CONTROL,
+          'Vercel-CDN-Cache-Control': 'no-store',
+        },
+      }
+    );
+  }
+
   const merchantResolution = await resolveStorefrontMerchantFromRequest({
     request,
     rootDomain: ROOT_DOMAIN,

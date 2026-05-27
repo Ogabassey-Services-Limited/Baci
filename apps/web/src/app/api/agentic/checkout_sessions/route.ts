@@ -20,6 +20,7 @@ import { readAgenticMutationRequest } from '@/lib/agentic/mutation-request';
 import { reserveAgenticRequestId } from '@/lib/agentic/request-replay';
 import { getAgenticReplayErrorStatus } from '@/lib/agentic/request-replay-response';
 import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase';
+import { convertUcpCartToCheckout } from '@/lib/agentic/ucp-cart-checkout-conversion';
 import { logger } from '@/lib/logger';
 import { buildStoreUrl } from '@/lib/store-url';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -68,8 +69,6 @@ export async function handleAgenticCheckoutSessionCreate(
         { status: 400 }
       );
     }
-    const { items, shipping_address, currency } = parsed.data;
-
     // 2. Calculate Cart State
     const bootstrap = createAdminClient();
     const merchant = await resolveAgenticMerchantContext(bootstrap);
@@ -94,6 +93,18 @@ export async function handleAgenticCheckoutSessionCreate(
       merchantId: merchant.id,
       merchantSlug: merchant.slug,
     });
+
+    if ('cart_id' in parsed.data) {
+      return await convertUcpCartToCheckout({
+        cartId: parsed.data.cart_id,
+        merchant,
+        mutation,
+        requestUrl: request.url,
+        supabase,
+      });
+    }
+
+    const { items, shipping_address, currency } = parsed.data;
     const idempotency = await reserveAgenticIdempotencyKey({
       apiVersion: mutation.apiVersion,
       body: mutation.rawBody,

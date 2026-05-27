@@ -114,20 +114,27 @@ server {
 | `add_to_cart` | Add a selected product to the in-chat cart handoff |
 | `browse_categories` | Browse active store categories |
 | `cancel_agentic_checkout_session` | Cancel a mutable signed Baci agentic checkout session |
+| `cancel_ucp_cart` | Cancel an active UCP cart |
 | `check_order` | Look up order status by order number or phone |
 | `check_payment_status` | Check whether a bank-transfer payment has been received |
 | `complete_agentic_checkout_session` | Complete a signed Baci agentic checkout session with buyer authorization |
+| `convert_ucp_cart_to_checkout` | Create or reuse a checkout session from a UCP cart |
 | `create_agentic_checkout_session` | Create a signed Baci agentic checkout session with authoritative totals and fulfillment options |
+| `create_ucp_cart` | Create a persistent UCP cart session |
 | `generate_payment_account` | Generate a Paystack dedicated bank account for bank-transfer payment |
 | `get_agentic_checkout_session` | Read a signed Baci agentic checkout session state |
 | `get_brands` | Browse active store brands |
+| `get_ucp_cart` | Read a UCP cart session |
 | `get_product` | Get detailed product information |
 | `get_product_variants` | Get variants, conditions, prices, and availability for a product |
 | `get_recommendations` | AI-powered product recommendations |
 | `get_shipping_quote` | Estimate delivery options for a destination |
 | `get_store_info` | Shipping, returns, payment info |
+| `lookup_ucp_catalog_items` | Fetch exact product IDs through the UCP catalog lookup route |
+| `search_ucp_catalog` | Search Ogabassey products using the UCP catalog route |
 | `search_products` | Search products by name, price range |
 | `update_agentic_checkout_session` | Update items, shipping details, or fulfillment options on a signed Baci agentic checkout session |
+| `update_ucp_cart` | Replace UCP cart line items or fulfillment context |
 
 ## Example Prompts
 
@@ -165,6 +172,18 @@ Test the MCP server with the official inspector:
 
 ```bash
 npx @modelcontextprotocol/inspector@latest http://localhost:8787/mcp
+```
+
+Smoke-test the live MCP deployment:
+
+```bash
+curl -fsS https://mcp.ogabassey.com/health
+```
+
+Expected healthy response:
+
+```json
+{"status":"healthy","database":"connected"}
 ```
 
 ## Architecture

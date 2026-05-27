@@ -6,6 +6,10 @@ import { getCachedOpenAIFeedData } from '@/app/api/feed/openai/feed-data';
 import type { MerchantData, StaffAccess } from '@/hooks/merchant';
 import { loadAgenticActionHealth } from '@/lib/agentic/action-health-loader';
 import {
+  checkAgentCommerceUniversalCartReadiness,
+  type UniversalCartReadinessResult,
+} from '@/lib/agentic/agent-commerce-health-monitor';
+import {
   type CrawlerLogSummary,
   type CrawlerLogSummaryRow,
   createCrawlerLogSummaryAccumulator,
@@ -40,6 +44,7 @@ export interface AgenticCentersData {
   isPublished: boolean;
   trustCenterState: AgenticCenterState;
   trustReadiness: AgentCommerceTrustReadinessSummary | null;
+  universalCartReadiness: UniversalCartReadinessResult | null;
 }
 
 const CRAWLER_VISIBILITY_WINDOW_DAYS = 14;
@@ -257,6 +262,7 @@ export async function loadAgenticCentersData(): Promise<AgenticCentersData> {
       isPublished: Boolean(merchant?.is_published),
       trustCenterState: 'unauthorized',
       trustReadiness: null,
+      universalCartReadiness: null,
     };
   }
 
@@ -273,18 +279,27 @@ export async function loadAgenticCentersData(): Promise<AgenticCentersData> {
       isPublished,
       trustCenterState: canViewAgentic ? 'ready' : 'unauthorized',
       trustReadiness: null,
+      universalCartReadiness: null,
     };
   }
 
   const supabase = await createClient();
-  const [actionHealthResult, trustReadinessResult, crawlerResult] =
-    await Promise.allSettled([
-      canViewAgentic ? loadAgenticActionHealth(supabase, merchant.id) : null,
-      canViewAgentic ? loadAgenticTrustReadiness(merchant) : null,
-      canViewCrawler
-        ? loadAgenticCrawlerVisibility(supabase, merchant.id)
-        : null,
-    ]);
+  const [
+    actionHealthResult,
+    trustReadinessResult,
+    crawlerResult,
+    universalCartResult,
+  ] = await Promise.allSettled([
+    canViewAgentic ? loadAgenticActionHealth(supabase, merchant.id) : null,
+    canViewAgentic ? loadAgenticTrustReadiness(merchant) : null,
+    canViewCrawler ? loadAgenticCrawlerVisibility(supabase, merchant.id) : null,
+    canViewAgentic
+      ? checkAgentCommerceUniversalCartReadiness({
+          custom_domain: merchant.custom_domain,
+          slug: merchant.slug ?? merchant.id,
+        })
+      : null,
+  ]);
 
   if (
     canViewAgentic &&
@@ -301,6 +316,13 @@ export async function loadAgenticCentersData(): Promise<AgenticCentersData> {
     console.error(
       'Failed to fetch trust readiness:',
       sanitizeErrorMessage(trustReadinessResult.reason)
+    );
+  }
+
+  if (canViewAgentic && universalCartResult.status === 'rejected') {
+    console.error(
+      'Failed to fetch Universal Cart readiness:',
+      sanitizeErrorMessage(universalCartResult.reason)
     );
   }
 
@@ -326,6 +348,10 @@ export async function loadAgenticCentersData(): Promise<AgenticCentersData> {
   const crawlerSummary =
     crawlerResult.status === 'fulfilled' && canViewCrawler
       ? crawlerResult.value
+      : null;
+  const universalCartReadiness =
+    universalCartResult.status === 'fulfilled' && canViewAgentic
+      ? universalCartResult.value
       : null;
 
   return {
@@ -355,5 +381,6 @@ export async function loadAgenticCentersData(): Promise<AgenticCentersData> {
         ? 'ready'
         : 'error',
     trustReadiness,
+    universalCartReadiness,
   };
 }

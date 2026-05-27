@@ -268,19 +268,42 @@ export default function DashboardClientLayout({
 
   // Orders count fetch effect
   useEffect(() => {
+    let isMounted = true;
+
     // Only fetch if merchant exists and we're on dashboard
     // This is a lightweight call just for the badge count
     if (merchant?.id && ordersCount === 0) {
       // Use a simpler query just for count instead of full metrics
-      import('@/lib/supabase/client').then(({ createClient }) => {
-        const supabase = createClient();
-        supabase
-          .from('orders')
-          .select('id', { count: 'exact', head: true })
-          .eq('merchant_id', merchant.id)
-          .then(({ count }) => setOrdersCount(count || 0));
-      });
+      import('@/lib/supabase/client')
+        .then(({ createClient }) => {
+          const supabase = createClient();
+          return supabase
+            .from('orders')
+            .select('id', { count: 'exact', head: true })
+            .eq('merchant_id', merchant.id);
+        })
+        .then(({ count, error }) => {
+          if (error) {
+            if (isMounted) {
+              setOrdersCount(0);
+            }
+            return;
+          }
+
+          if (isMounted) {
+            setOrdersCount(count || 0);
+          }
+        })
+        .catch(() => {
+          if (isMounted) {
+            setOrdersCount(0);
+          }
+        });
     }
+
+    return () => {
+      isMounted = false;
+    };
   }, [merchant?.id, ordersCount]);
 
   const selectedCountry = merchant?.country

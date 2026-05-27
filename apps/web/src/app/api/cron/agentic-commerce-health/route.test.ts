@@ -14,6 +14,17 @@ vi.mock('@/lib/agentic/agent-commerce-manifest-health', () => ({
   checkAgentCommerceManifestHealth: vi.fn(),
 }));
 
+vi.mock('@/lib/agentic/agent-commerce-health-monitor', async () => {
+  const actual = await vi.importActual<
+    typeof import('@/lib/agentic/agent-commerce-health-monitor')
+  >('@/lib/agentic/agent-commerce-health-monitor');
+
+  return {
+    ...actual,
+    checkAgentCommerceUniversalCartReadiness: vi.fn(),
+  };
+});
+
 vi.mock(
   '@/lib/agentic/agent-commerce-public-product-parity-health',
   async () => {
@@ -69,6 +80,7 @@ vi.mock('@/lib/supabase/admin', () => ({
 import { getCronSecret } from '@/env';
 import { loadAgenticActionHealth } from '@/lib/agentic/action-health-loader';
 import { checkAgentCommerceFeedHealth } from '@/lib/agentic/agent-commerce-feed-health';
+import { checkAgentCommerceUniversalCartReadiness } from '@/lib/agentic/agent-commerce-health-monitor';
 import { checkAgentCommerceManifestHealth } from '@/lib/agentic/agent-commerce-manifest-health';
 import { checkAgentCommercePublicProductParity } from '@/lib/agentic/agent-commerce-public-product-parity-health';
 import { checkAgentCommerceSupportChatHealth } from '@/lib/agentic/agent-commerce-support-chat-health';
@@ -255,6 +267,12 @@ describe('GET /api/cron/agentic-commerce-health', () => {
         product_page: 'https://ogabassey.com/phones/test-phone',
       },
     });
+    vi.mocked(checkAgentCommerceUniversalCartReadiness).mockResolvedValue({
+      checks: [],
+      lastCheckedAt: '2026-05-26T12:00:00.000Z',
+      status: 'pass',
+      url: 'https://ogabassey.com/.well-known/ucp',
+    });
     vi.mocked(loadAgenticActionHealth).mockResolvedValue({
       actions: [healthyAction],
       generated_at: '2026-05-22T03:00:00.000Z',
@@ -343,6 +361,10 @@ describe('GET /api/cron/agentic-commerce-health', () => {
             status: 'ok',
             url: 'https://ogabassey.com/agent-trust.json',
           },
+          universal_cart: {
+            status: 'pass',
+            url: 'https://ogabassey.com/.well-known/ucp',
+          },
         },
       ],
       status: 'ok',
@@ -380,6 +402,10 @@ describe('GET /api/cron/agentic-commerce-health', () => {
       slug: 'ogabassey',
     });
     expect(checkAgentCommercePublicProductParity).toHaveBeenCalledWith({
+      custom_domain: 'ogabassey.com',
+      slug: 'ogabassey',
+    });
+    expect(checkAgentCommerceUniversalCartReadiness).toHaveBeenCalledWith({
       custom_domain: 'ogabassey.com',
       slug: 'ogabassey',
     });
@@ -423,6 +449,44 @@ describe('GET /api/cron/agentic-commerce-health', () => {
         message: 'Support chat health monitor needs attention',
       })
     );
+  });
+
+  it('fails the cron response when Universal Cart readiness fails', async () => {
+    vi.mocked(checkAgentCommerceUniversalCartReadiness).mockResolvedValue({
+      checks: [
+        {
+          id: 'ucp_cart_capability',
+          message: 'Cart capability is missing.',
+          status: 'fail',
+        },
+      ],
+      lastCheckedAt: '2026-05-26T12:00:00.000Z',
+      status: 'fail',
+      url: 'https://ogabassey.com/.well-known/ucp',
+    });
+
+    const response = await GET(createCronRequest());
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toMatchObject({
+      merchants: [
+        {
+          actions: [
+            {
+              code: 'AGENT_COMMERCE_UNIVERSAL_CART_NOT_READY',
+              count: 1,
+              severity: 'attention',
+            },
+          ],
+          status: 'attention',
+          status_reason: 'agent_commerce_universal_cart_not_ready',
+          universal_cart: {
+            status: 'fail',
+          },
+        },
+      ],
+      status: 'attention',
+    });
   });
 
   it('fails the cron response when attention actions are present by default', async () => {
