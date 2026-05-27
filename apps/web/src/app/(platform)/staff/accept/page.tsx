@@ -1,6 +1,6 @@
 import { Suspense } from 'react';
 import { StaffAcceptFallback } from '@/app/(platform)/staff/accept/staff-accept-fallback';
-import { StaffAcceptPageContent } from './staff-accept-page-content';
+import { StaffAcceptPageContent } from '@/app/(platform)/staff/accept/staff-accept-page-content';
 
 interface AcceptPageProps {
   searchParams: Promise<{ token?: string | string[] }>;

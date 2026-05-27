@@ -1,7 +1,11 @@
 import { render } from '@testing-library/react';
 import { headers } from 'next/headers';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
+
+const mockNotFound = vi.fn(() => {
+  throw new Error('NEXT_NOT_FOUND');
+});
 
 vi.mock('@/lib/cached-data', () => ({
   getMerchantByIdentifier: vi.fn(),
@@ -9,6 +13,10 @@ vi.mock('@/lib/cached-data', () => ({
 
 vi.mock('next/headers', () => ({
   headers: vi.fn(),
+}));
+
+vi.mock('next/navigation', () => ({
+  notFound: () => mockNotFound(),
 }));
 
 vi.mock('@/lib/sanitize-json-ld', () => ({
@@ -58,6 +66,13 @@ const merchantFixture = {
 };
 
 describe('contact metadata', () => {
+  beforeEach(() => {
+    vi.mocked(getMerchantByIdentifier).mockReset();
+    vi.mocked(headers).mockReset();
+    vi.mocked(headers).mockResolvedValue(new Headers());
+    mockNotFound.mockClear();
+  });
+
   it('returns fallback title when merchant is missing', async () => {
     vi.mocked(getMerchantByIdentifier).mockResolvedValue(null);
 
@@ -133,5 +148,37 @@ describe('contact metadata', () => {
       returnMethod: 'https://schema.org/ReturnByMail',
       returnFees: 'https://schema.org/FreeReturn',
     });
+  });
+
+  it('throws not found when the merchant is missing at render time', async () => {
+    vi.mocked(getMerchantByIdentifier).mockResolvedValue(null);
+
+    await expect(
+      ContactPageContent({
+        params: Promise.resolve({ slug: 'missing-store' }),
+      })
+    ).rejects.toThrow('NEXT_NOT_FOUND');
+    expect(mockNotFound).toHaveBeenCalledOnce();
+  });
+
+  it('throws not found when contact data is whitespace only', async () => {
+    vi.mocked(getMerchantByIdentifier).mockResolvedValue({
+      ...merchantFixture,
+      email: '   ',
+      phone: '   ',
+      support_email: '   ',
+      support_phone: '   ',
+      pages: {
+        contact: '   ',
+      },
+      trust_profile: {},
+    } as unknown as Awaited<ReturnType<typeof getMerchantByIdentifier>>);
+
+    await expect(
+      ContactPageContent({
+        params: Promise.resolve({ slug: 'test-store' }),
+      })
+    ).rejects.toThrow('NEXT_NOT_FOUND');
+    expect(mockNotFound).toHaveBeenCalledOnce();
   });
 });

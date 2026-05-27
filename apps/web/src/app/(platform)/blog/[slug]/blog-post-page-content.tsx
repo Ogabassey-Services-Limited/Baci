@@ -84,22 +84,12 @@ export async function BlogPostPageContent({ params }: PageProps) {
   return (
     <AppBody>
       <div className="flex min-h-screen flex-col bg-background font-sans">
-        <script
-          type="application/ld+json"
-          /*
-            biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD payload is safely escaped with safeJsonLdStringify
-          */
-          dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(blogSchema) }}
-        />
-        <script
-          type="application/ld+json"
-          /*
-            biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD payload is safely escaped with safeJsonLdStringify
-          */
-          dangerouslySetInnerHTML={{
-            __html: safeJsonLdStringify(breadcrumbSchema),
-          }}
-        />
+        <script type="application/ld+json">
+          {safeJsonLdStringify(blogSchema)}
+        </script>
+        <script type="application/ld+json">
+          {safeJsonLdStringify(breadcrumbSchema)}
+        </script>
 
         <PlatformHeader />
         <BlogPostViewTracker slug={post.slug} />

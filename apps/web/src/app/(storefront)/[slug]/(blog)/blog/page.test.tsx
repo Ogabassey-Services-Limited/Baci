@@ -8,6 +8,10 @@ const { mockDefaultBlogUi } = vi.hoisted(() => ({
   )),
 }));
 
+const mockNotFound = vi.fn(() => {
+  throw new Error('NEXT_NOT_FOUND');
+});
+
 const mockBuildBlogClusterCollections = vi.fn();
 
 interface MockDefaultBlogUiProps {
@@ -22,6 +26,10 @@ interface MockDefaultBlogUiProps {
 
 vi.mock('@/lib/cached-data', () => ({
   getCachedBlogListing: vi.fn(),
+}));
+
+vi.mock('next/navigation', () => ({
+  notFound: () => mockNotFound(),
 }));
 
 vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
@@ -158,6 +166,7 @@ describe('blog page metadata', () => {
   beforeEach(() => {
     vi.mocked(getCachedBlogListing).mockReset();
     vi.mocked(getCachedBlogListing).mockResolvedValue(buildListingResult());
+    mockNotFound.mockClear();
     mockBuildBlogClusterCollections.mockReset();
     mockBuildBlogClusterCollections.mockReturnValue([]);
     mockDefaultBlogUi.mockReset();
@@ -249,6 +258,18 @@ describe('blog page metadata', () => {
     });
 
     expect(metadata).toEqual({ title: 'Blog Not Found' });
+  });
+
+  it('throws not found when the listing data is missing at render time', async () => {
+    vi.mocked(getCachedBlogListing).mockResolvedValueOnce(null);
+
+    await expect(
+      BlogPageContent({
+        params: Promise.resolve({ slug: 'missing-store' }),
+        searchParams: Promise.resolve({}),
+      })
+    ).rejects.toThrow('NEXT_NOT_FOUND');
+    expect(mockNotFound).toHaveBeenCalledOnce();
   });
 
   it('clamps invalid page params back to the first page metadata', async () => {

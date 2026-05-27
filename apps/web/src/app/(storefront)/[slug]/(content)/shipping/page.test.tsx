@@ -128,6 +128,18 @@ describe('shipping page', () => {
     ).toBeInTheDocument();
   });
 
+  it('throws not found when the trust route context is unavailable', async () => {
+    vi.mocked(getRequestScopedMerchant).mockResolvedValue(null);
+    const { ShippingPageContent } = await import('./shipping-page-content');
+
+    await expect(
+      ShippingPageContent({
+        params: Promise.resolve({ slug: 'missing-store' }),
+      })
+    ).rejects.toThrow('NEXT_NOT_FOUND');
+    expect(mockNotFound).toHaveBeenCalledOnce();
+  });
+
   it('renders when only shipping regions exist', async () => {
     vi.mocked(getRequestScopedMerchant).mockResolvedValue({
       ...trustMerchant,

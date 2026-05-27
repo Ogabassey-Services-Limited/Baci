@@ -14,4 +14,28 @@ describe('initial template preview theme helper', () => {
     expect(theme.colors.button.primary.text).toBe('#FFFFFF');
     expect(theme.spacing.header.height).toBe('4rem');
   });
+
+  it('uses dark text for lowercase white brand colors', () => {
+    const theme = deriveThemeFromColors({
+      primary: '#ffffff',
+      background: '#ffffff',
+      accent: '#f97316',
+    });
+
+    expect(theme.colors.primary).toBe('#ffffff');
+    expect(theme.colors.button.primary.text).toBe('#000000');
+    expect(theme.spacing.header.height).toBe('4rem');
+  });
+
+  it('uses dark text for very light brand colors', () => {
+    const theme = deriveThemeFromColors({
+      primary: '#fbfbfb',
+      background: '#FFFFFF',
+      accent: '#f5f5f5',
+    });
+
+    expect(theme.colors.button.primary.text).toBe('#000000');
+    expect(theme.colors.button.accent.text).toBe('#000000');
+    expect(theme.spacing.header.height).toBe('4rem');
+  });
 });

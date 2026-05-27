@@ -54,11 +54,7 @@ export async function WarrantyPageContent({ params }: PageProps) {
 
   return (
     <>
-      <script
-        type="application/ld+json"
-        // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema is sanitized via safeJsonLdStringify
-        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(jsonLd) }}
-      />
+      <script type="application/ld+json">{safeJsonLdStringify(jsonLd)}</script>
       <TrustPolicyPageClient
         kind="warranty"
         merchantName={context.merchant.business_name}

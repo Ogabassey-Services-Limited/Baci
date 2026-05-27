@@ -33,12 +33,8 @@ export async function AboutJsonLd({ params }: PageProps) {
   );
 
   return (
-    <script
-      type="application/ld+json"
-      // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema is sanitized via safeJsonLdStringify
-      dangerouslySetInnerHTML={{
-        __html: safeJsonLdStringify(jsonLd as Record<string, unknown>),
-      }}
-    />
+    <script type="application/ld+json">
+      {safeJsonLdStringify(jsonLd as Record<string, unknown>)}
+    </script>
   );
 }

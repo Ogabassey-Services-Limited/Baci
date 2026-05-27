@@ -13,6 +13,10 @@ interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
+function hasNonEmptyText(value: string | null | undefined): boolean {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
 export async function ContactPageContent({ params }: PageProps) {
   const { slug } = await params;
   const merchant = await getMerchantByIdentifier(slug);
@@ -24,12 +28,13 @@ export async function ContactPageContent({ params }: PageProps) {
   const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
   const trustProfile = buildMerchantTrustProfile(merchant, baseUrl);
 
-  const hasContactInfo =
-    merchant.pages?.contact ||
-    merchant.email ||
-    merchant.phone ||
-    trustProfile.supportEmail ||
-    trustProfile.supportPhone;
+  const hasContactInfo = [
+    merchant.pages?.contact,
+    merchant.email,
+    merchant.phone,
+    trustProfile.supportEmail,
+    trustProfile.supportPhone,
+  ].some(hasNonEmptyText);
 
   if (!hasContactInfo) {
     notFound();
@@ -56,11 +61,9 @@ export async function ContactPageContent({ params }: PageProps) {
   };
 
   const jsonLdScript = (
-    <script
-      type="application/ld+json"
-      // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema is sanitized via safeJsonLdStringify
-      dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(contactSchema) }}
-    />
+    <script type="application/ld+json">
+      {safeJsonLdStringify(contactSchema)}
+    </script>
   );
 
   const templateId = merchant.template_id;

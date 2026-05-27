@@ -1,8 +1,8 @@
 import { redirect } from 'next/navigation';
+import ErrorPage from '@/app/(platform)/staff/accept/ErrorPage';
+import InvitePage from '@/app/(platform)/staff/accept/InvitePage';
 import { createClient } from '@/lib/supabase/server';
 import { staffAcceptSchema } from '@/schemas/staff-accept';
-import ErrorPage from './ErrorPage';
-import InvitePage from './InvitePage';
 
 interface AcceptPageProps {
   searchParams: Promise<{ token?: string | string[] }>;
@@ -51,6 +51,18 @@ export async function StaffAcceptPageContent({
   }
 
   const merchantName = invitation.merchant_business_name || 'Unknown Store';
+  const inviteEmail =
+    typeof invitation.email === 'string' ? invitation.email.trim() : '';
+
+  if (!inviteEmail) {
+    return (
+      <ErrorPage
+        title="Invalid Invitation"
+        message="This invitation is missing the recipient email address. Please ask the store owner to send a new invitation."
+      />
+    );
+  }
+
   const resp = await supabase.auth.getUser();
   const user = resp.data?.user || null;
 
@@ -76,17 +88,17 @@ export async function StaffAcceptPageContent({
       <InvitePage
         merchantName={merchantName}
         role={invitation.role}
-        inviteEmail={invitation.email}
+        inviteEmail={inviteEmail}
         token={result.data.token}
       />
     );
   }
 
-  if (user.email?.toLowerCase() !== invitation.email.toLowerCase()) {
+  if (user.email?.toLowerCase() !== inviteEmail.toLowerCase()) {
     return (
       <ErrorPage
         title="Wrong Account"
-        message={`This invitation was sent to ${invitation.email}. Please sign in with that email address.`}
+        message={`This invitation was sent to ${inviteEmail}. Please sign in with that email address.`}
         showLoginLink
         currentEmail={user.email}
         loginRedirect={`/staff/accept?token=${result.data.token}`}

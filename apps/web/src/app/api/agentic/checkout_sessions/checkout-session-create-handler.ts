@@ -22,6 +22,7 @@ import { getAgenticReplayErrorStatus } from '@/lib/agentic/request-replay-respon
 import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase';
 import { convertUcpCartToCheckout } from '@/lib/agentic/ucp-cart-checkout-conversion';
 import { logger } from '@/lib/logger';
+import { sanitizeForLog } from '@/lib/sanitize-core';
 import { buildStoreUrl } from '@/lib/store-url';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { checkoutSessionSchema } from '@/schemas/agentic-checkout';
@@ -273,7 +274,7 @@ export async function handleAgenticCheckoutSessionCreate(
     const body = { error: 'Internal Server Error' };
     logger.error({
       message: 'Agentic checkout session create error',
-      error: err,
+      error: sanitizeForLog(err),
       idempotencyKey: mutation.idempotencyKey,
       requestId: mutation.requestId,
     });

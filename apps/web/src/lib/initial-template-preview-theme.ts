@@ -6,15 +6,44 @@ type BrandColors = {
   accent: string;
 };
 
+function getHexColorLuminance(color: string): number | null {
+  const normalized = color.trim().toLowerCase();
+  const hex =
+    normalized.length === 4
+      ? `#${normalized[1]}${normalized[1]}${normalized[2]}${normalized[2]}${normalized[3]}${normalized[3]}`
+      : normalized;
+
+  if (!/^#[0-9a-f]{6}$/.test(hex)) {
+    return null;
+  }
+
+  const channelToLinear = (channel: number) => {
+    const srgb = channel / 255;
+    return srgb <= 0.03928 ? srgb / 12.92 : ((srgb + 0.055) / 1.055) ** 2.4;
+  };
+
+  const red = channelToLinear(Number.parseInt(hex.slice(1, 3), 16));
+  const green = channelToLinear(Number.parseInt(hex.slice(3, 5), 16));
+  const blue = channelToLinear(Number.parseInt(hex.slice(5, 7), 16));
+
+  return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+}
+
+function getContrastText(color: string): '#000000' | '#FFFFFF' {
+  const luminance = getHexColorLuminance(color);
+
+  if (luminance === null) {
+    return '#FFFFFF';
+  }
+
+  return luminance > 0.179 ? '#000000' : '#FFFFFF';
+}
+
 export function deriveThemeFromColors(
   brandColors: BrandColors
 ): ThemeConfiguration {
-  const contrast = (color: string) =>
-    color === '#FFFFFF' || color.toLowerCase() === '#fff'
-      ? '#000000'
-      : '#FFFFFF';
-  const primaryText = contrast(brandColors.primary);
-  const accentText = contrast(brandColors.accent);
+  const primaryText = getContrastText(brandColors.primary);
+  const accentText = getContrastText(brandColors.accent);
 
   return {
     colors: {
