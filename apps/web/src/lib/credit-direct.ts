@@ -263,11 +263,20 @@ export function isAmountEligible(
 // Environment Helpers
 // ============================================================================
 
+const CREDIT_DIRECT_EDGE_NEWLINE =
+  /^(?:(?:\\r\\n|\\n|\\r|\r\n|\n|\r)\s*)+|(?:\s*(?:\\r\\n|\\n|\\r|\r\n|\n|\r))+$/g;
+
+export function normalizeCreditDirectEnvValue(value: string): string {
+  return value.trim().replace(CREDIT_DIRECT_EDGE_NEWLINE, '');
+}
+
 /**
  * Get Credit Direct private key from environment
  */
 export function getPrivateKey(): string {
-  const key = process.env.CREDIT_DIRECT_PRIVATE_KEY;
+  const key = normalizeCreditDirectEnvValue(
+    process.env.CREDIT_DIRECT_PRIVATE_KEY ?? ''
+  );
   if (!key) {
     throw new Error(
       'CREDIT_DIRECT_PRIVATE_KEY environment variable is not set'
@@ -280,7 +289,9 @@ export function getPrivateKey(): string {
  * Get Credit Direct public key from environment
  */
 export function getPublicKey(): string {
-  const key = process.env.CREDIT_DIRECT_PUBLIC_KEY;
+  const key = normalizeCreditDirectEnvValue(
+    process.env.CREDIT_DIRECT_PUBLIC_KEY ?? ''
+  );
   if (!key) {
     throw new Error('CREDIT_DIRECT_PUBLIC_KEY environment variable is not set');
   }
@@ -291,7 +302,9 @@ export function getPublicKey(): string {
  * Get Credit Direct webhook secret from environment
  */
 export function getWebhookSecret(): string {
-  const secret = process.env.CREDIT_DIRECT_WEBHOOK_SECRET;
+  const secret = normalizeCreditDirectEnvValue(
+    process.env.CREDIT_DIRECT_WEBHOOK_SECRET ?? ''
+  );
   if (!secret) {
     throw new Error(
       'CREDIT_DIRECT_WEBHOOK_SECRET environment variable is not set'

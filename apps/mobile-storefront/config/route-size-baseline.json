@@ -28,7 +28,7 @@
     },
     {
       "path": "app/bnpl-checkout/index.tsx",
-      "lineCount": 606,
+      "lineCount": 584,
       "justification": "Existing oversized BNPL route baseline; shrink or remove this entry as the route is modularized."
     },
     {

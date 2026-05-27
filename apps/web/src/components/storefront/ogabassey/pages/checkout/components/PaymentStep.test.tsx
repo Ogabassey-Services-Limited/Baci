@@ -612,7 +612,16 @@ describe('PaymentStep', () => {
       render(<StatefulPaymentStep />);
 
       const klumpRadio = screen.getByRole('radio', { name: /klump/i });
-      klumpRadio.focus();
+      const focusableCount = document.body.querySelectorAll(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      ).length;
+      for (
+        let tabStop = 0;
+        tabStop <= focusableCount && document.activeElement !== klumpRadio;
+        tabStop++
+      ) {
+        await user.tab();
+      }
 
       expect(klumpRadio).toHaveFocus();
 
