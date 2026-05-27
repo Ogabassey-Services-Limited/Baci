@@ -42,7 +42,11 @@ const screensPackageRoot = resolvePackageRoot('react-native-screens');
 const safeAreaContextPackageRoot = resolvePackageRoot('react-native-safe-area-context');
 const zustandMiddlewarePath = require.resolve('zustand/middleware');
 
-config.watchFolders = [workspaceRoot];
+config.watchFolders = [
+  projectRoot,
+  path.resolve(workspaceRoot, 'packages/shared'),
+  path.resolve(workspaceRoot, 'packages/tiktok-business'),
+];
 config.resolver = {
   ...resolver,
   nodeModulesPaths: [
@@ -76,10 +80,17 @@ config.resolver = {
 
     return context.resolveRequest(context, moduleName, platform);
   },
-  // Block test files and Node.js-only modules from being bundled by Metro.
-  // This prevents Hermes runtime errors when build tool dependencies pull in
-  // modules that use import.meta syntax (which is Node.js-only).
   blockList: [
+    // Ignore massive directories to prevent "RangeError: Map maximum size exceeded"
+    /[\\/]\.git[\\/]/,
+    /[\\/]\.pnpm-store[\\/]/,
+    /[\\/]\.next[\\/]/,
+    /[\\/]\.Derived[\\/]/,
+    /[\\/]\.gemini[\\/]/,
+    /[\\/]\.agent[\\/]/,
+    /[\\/]apps[\\/]web[\\/]node_modules[\\/]/,
+    /[\\/]node_modules[\\/]\.pnpm[\\/]/,
+
     // Test files should not be bundled
     /\.test\.tsx?$/,
     /\.spec\.tsx?$/,

@@ -53,7 +53,11 @@ config.transformer = {
   babelTransformerPath: require.resolve('react-native-svg-transformer'),
 };
 
-config.watchFolders = [workspaceRoot];
+config.watchFolders = [
+  projectRoot,
+  path.resolve(workspaceRoot, 'packages/shared'),
+  path.resolve(workspaceRoot, 'packages/tiktok-business'),
+];
 
 // Prevent Metro from bundling test files and Node.js-only modules.
 // This resolves Hermes errors with vite/vitest pulling in import.meta syntax.
@@ -80,10 +84,17 @@ config.resolver = {
   },
   // 2026: Enable package exports as very new versions of native modules often require it
   unstable_enablePackageExports: true,
-  // Block test files and Node.js-only modules from being bundled by Metro.
-  // This prevents Hermes runtime errors when vite/vitest dependencies pull in
-  // modules that use import.meta syntax (which is Node.js-only).
   blockList: [
+    // Ignore massive directories to prevent "RangeError: Map maximum size exceeded"
+    /[\\/]\.git[\\/]/,
+    /[\\/]\.pnpm-store[\\/]/,
+    /[\\/]\.next[\\/]/,
+    /[\\/]\.Derived[\\/]/,
+    /[\\/]\.gemini[\\/]/,
+    /[\\/]\.agent[\\/]/,
+    /[\\/]apps[\\/]web[\\/]node_modules[\\/]/,
+    /[\\/]node_modules[\\/]\.pnpm[\\/]/,
+
     // Test files should not be bundled
     /\.test\.tsx?$/,
     /\.spec\.tsx?$/,

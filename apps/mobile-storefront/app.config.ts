@@ -95,6 +95,9 @@ const tiktokBusinessPlugin: TikTokBusinessPlugin | null =
       ]
     : null;
 
+const facebookAppId = process.env.STOREFRONT_FACEBOOK_APP_ID?.trim() || '1234567890';
+const facebookClientToken = process.env.STOREFRONT_FACEBOOK_CLIENT_TOKEN?.trim() || 'abcdef123456abcdef123456abcdef12';
+
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: 'Ogabassey',
@@ -216,6 +219,17 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     'expo-localization',
     'expo-apple-authentication',
     'react-native-edge-to-edge',
+    [
+      'react-native-fbsdk-next',
+      {
+        appID: facebookAppId,
+        clientToken: facebookClientToken,
+        displayName: 'Ogabassey',
+        scheme: `fb${facebookAppId}`,
+        advertiserIDCollectionEnabled: false,
+        autoLogAppEventsEnabled: false,
+      },
+    ],
   ],
   web: {
     bundler: 'metro',
@@ -238,6 +252,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       iosTikTokAppId: tiktokIosAppId,
       isConfigured: isTikTokBusinessConfigured,
     },
+    facebookAppId,
+    facebookClientToken,
     eas: {
       projectId: 'c6c1897b-cac8-49b0-85f9-3d277aecc379',
     },
