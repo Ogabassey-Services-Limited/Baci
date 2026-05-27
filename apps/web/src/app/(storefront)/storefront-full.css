@@ -1,1 +1,14 @@
 @import "./storefront-globals.css";
+
+/*
+  Tailwind v4's automatic source detection does not reliably see every
+  storefront route/component when this stylesheet is imported from leaf App
+  Router pages. Keep the full storefront stylesheet explicit so homepage-only
+  utilities such as `hidden md:block`, image sizing, and object-fit classes are
+  always emitted without broadening the isolated PDP stylesheet.
+*/
+/* stylelint-disable scss/at-rule-no-unknown -- Tailwind v4 source discovery directives. */
+@source "./";
+@source "../../components/storefront";
+@source "../../components/ui";
+/* stylelint-enable scss/at-rule-no-unknown */
