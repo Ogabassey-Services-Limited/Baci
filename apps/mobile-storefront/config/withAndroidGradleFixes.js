@@ -3,7 +3,7 @@
  *
  * Applies after `expo prebuild --clean` so native dirs are always correct:
  * 1. Removes kotlin-gradle-plugin classpath (built into AGP 9.x)
- * 2. Removes apply plugin "org.jetbrains.kotlin.android" (built into AGP 9.x)
+ * 2. Keeps apply plugin "org.jetbrains.kotlin.android" for Kotlin compilation
  * 3. Changes proguard-android.txt → proguard-android-optimize.txt (AGP 9.x requirement)
  * 4. Bumps Gradle wrapper to 9.3.1 (minimum for AGP 9.x)
  * 5. Adds async-storage local maven repo
@@ -17,7 +17,6 @@ const {
   ensureGradleWrapperVersion,
   ensureReleaseSigning,
   fixProguardOptimize,
-  removeKotlinAndroidPlugin,
   removeKotlinGradlePlugin,
 } = require('../../../.github/scripts/expoAndroidGradleFixes');
 

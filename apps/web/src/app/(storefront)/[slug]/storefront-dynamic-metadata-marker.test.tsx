@@ -16,7 +16,7 @@ describe('StorefrontDynamicMetadataMarker', () => {
     mockConnection.mockReset();
   });
 
-  it('keeps the request-time marker behind Suspense', () => {
+  it('keeps the request-time marker behind Suspense without a DOM host', () => {
     const element = StorefrontDynamicMetadataMarker() as ReactElement<{
       children?: ReactElement;
       fallback?: unknown;

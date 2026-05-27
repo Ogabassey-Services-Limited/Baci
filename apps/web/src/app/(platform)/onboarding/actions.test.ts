@@ -1,5 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+vi.mock('next/server', async () => {
+  const actual =
+    await vi.importActual<typeof import('next/server')>('next/server');
+
+  return {
+    ...actual,
+    after: (callback: () => void | Promise<void>) => {
+      void Promise.resolve()
+        .then(callback)
+        .catch(() => undefined);
+    },
+  };
+});
+
 // --- Mock setup ---
 
 const {
@@ -9,6 +23,7 @@ const {
   mockGetRootDomain,
   mockIsAiStorefrontGenerationEnabled,
   mockIsProduction,
+  mockTriggerAiStorefrontWorker,
 } = vi.hoisted(() => ({
   mockGetAppUrl: vi.fn(),
   mockGetConfiguredAppUrl: vi.fn(),
@@ -16,6 +31,7 @@ const {
   mockGetRootDomain: vi.fn(),
   mockIsAiStorefrontGenerationEnabled: vi.fn(),
   mockIsProduction: vi.fn(),
+  mockTriggerAiStorefrontWorker: vi.fn(),
 }));
 
 const mockGetUser = vi.fn();
@@ -86,6 +102,10 @@ vi.mock('@/lib/initial-template-generator', () => ({
   generateInitialTemplate: vi.fn().mockResolvedValue({}),
 }));
 
+vi.mock('@/lib/ai-storefront/trigger-storefront-worker', () => ({
+  triggerAiStorefrontWorker: mockTriggerAiStorefrontWorker,
+}));
+
 vi.mock('@/services/hero-image-generator', () => ({
   assignHeroImagesToMerchant: vi.fn().mockResolvedValue(undefined),
 }));
@@ -100,6 +120,13 @@ function makeFormData(fields: Record<string, string>): FormData {
     formData.set(key, value);
   }
   return formData;
+}
+
+async function flushAfterCallbacks() {
+  // The mocked after() callback runs in a microtask that schedules the async
+  // trigger body in another microtask, so both ticks are intentional.
+  await Promise.resolve();
+  await Promise.resolve();
 }
 
 const validFields = {
@@ -143,6 +170,10 @@ describe('submitOnboarding', () => {
     mockGetRootDomain.mockReturnValue('usebaci.com');
     mockIsAiStorefrontGenerationEnabled.mockReturnValue(false);
     mockIsProduction.mockReturnValue(false);
+    mockTriggerAiStorefrontWorker.mockResolvedValue({
+      triggered: true,
+      status: 202,
+    });
     mockAdminRpc.mockResolvedValue({ data: null, error: null });
     mockPageConfigSingle.mockResolvedValue({
       data: { updated_at: MOCK_PAGE_CONFIG_UPDATED_AT },
@@ -500,6 +531,64 @@ describe('submitOnboarding', () => {
         model: 'gemma4:e4b',
       })
     );
+  });
+
+  it('triggers the VPS storefront worker after onboarding enqueues a storefront job', async () => {
+    mockAdminMaybeSingle
+      .mockResolvedValueOnce({ data: null, error: null })
+      .mockResolvedValueOnce({ data: null, error: null });
+    setupChainedMock({ id: 'merchant-1', slug: 'teststore' });
+    mockIsAiStorefrontGenerationEnabled.mockReturnValue(true);
+
+    const result = await submitOnboarding(prevState, makeFormData(validFields));
+
+    expect(result.success).toBe(true);
+    await flushAfterCallbacks();
+    expect(mockTriggerAiStorefrontWorker).toHaveBeenCalledWith({
+      merchantId: 'merchant-1',
+      source: 'onboarding',
+    });
+  });
+
+  it('triggers the VPS storefront worker when the onboarding AI job already exists', async () => {
+    mockAdminMaybeSingle
+      .mockResolvedValueOnce({ data: null, error: null })
+      .mockResolvedValueOnce({ data: null, error: null });
+    setupChainedMock({ id: 'merchant-1', slug: 'teststore' });
+    mockIsAiStorefrontGenerationEnabled.mockReturnValue(true);
+    mockAiJobsInsert.mockResolvedValueOnce({
+      data: null,
+      error: { message: 'duplicate key', code: '23505' },
+    });
+
+    const result = await submitOnboarding(prevState, makeFormData(validFields));
+
+    expect(result.success).toBe(true);
+    await flushAfterCallbacks();
+    expect(mockTriggerAiStorefrontWorker).toHaveBeenCalledWith({
+      merchantId: 'merchant-1',
+      source: 'onboarding',
+    });
+  });
+
+  it('keeps onboarding successful when the storefront worker trigger fails', async () => {
+    mockAdminMaybeSingle
+      .mockResolvedValueOnce({ data: null, error: null })
+      .mockResolvedValueOnce({ data: null, error: null });
+    setupChainedMock({ id: 'merchant-1', slug: 'teststore' });
+    mockIsAiStorefrontGenerationEnabled.mockReturnValue(true);
+    mockTriggerAiStorefrontWorker.mockRejectedValueOnce(
+      new Error('trigger unavailable')
+    );
+
+    const result = await submitOnboarding(prevState, makeFormData(validFields));
+
+    expect(result.success).toBe(true);
+    await flushAfterCallbacks();
+    expect(mockTriggerAiStorefrontWorker).toHaveBeenCalledWith({
+      merchantId: 'merchant-1',
+      source: 'onboarding',
+    });
   });
 
   it('keeps onboarding successful when AI job enqueue fails', async () => {

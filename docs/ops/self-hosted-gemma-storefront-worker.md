@@ -12,8 +12,12 @@ creates an optional AI draft in the background.
   worker through `vps-workers/bin/run-web-script.sh`.
 - The worker imports `dotenv/config`, and `run-web-script.sh` points dotenv at
   `/home/bassey/baci-workers/.env` with `DOTENV_CONFIG_PATH`.
-- Batch size is capped at `1`; cron can run every 2 minutes with `flock` (file
-  lock) to prevent concurrent executions of the same cron job.
+- Batch size is capped at `1`; the signed trigger service starts the worker as
+  soon as web creates a job, and cron runs every 10 minutes only as a recovery
+  sweep.
+- `vps-workers/jobs/ai-storefront-trigger-server.mjs` listens on
+  `127.0.0.1:3917` by default, requires a bearer token, and starts the worker
+  under both `ollama-workload.lock` and `ai-storefront-jobs.lock`.
 - Ollama should be private to the VPS, ideally
   `OLLAMA_STOREFRONT_BASE_URL=http://localhost:11434`.
 - `/api/ai-jobs/worker` remains for short legacy jobs and must not process
@@ -28,10 +32,24 @@ OLLAMA_STOREFRONT_BASE_URL=http://localhost:11434
 OLLAMA_STOREFRONT_MODEL=gemma4:e4b
 OLLAMA_STOREFRONT_TIMEOUT_MS=90000
 AI_STOREFRONT_GENERATION_ENABLED=false
+AI_STOREFRONT_TRIGGER_SECRET=...
+AI_STOREFRONT_TRIGGER_HOST=127.0.0.1
+AI_STOREFRONT_TRIGGER_PORT=3917
 ```
 
 Set `AI_STOREFRONT_GENERATION_ENABLED=true` only after the worker is deployed,
 logs are visible, and manual processing succeeds.
+
+The web deployment also needs:
+
+```bash
+AI_STOREFRONT_TRIGGER_URL=https://<worker-host>/ai-storefront/trigger
+AI_STOREFRONT_TRIGGER_SECRET=...
+AI_STOREFRONT_TRIGGER_TIMEOUT_MS=5000
+```
+
+Expose the trigger URL through HTTPS and proxy only to the local listener. Do
+not expose the Ollama port.
 
 ## Manual Smoke Test
 
@@ -47,10 +65,21 @@ Or from `/home/bassey/baci-workers`:
 NODE_ENV=production ./bin/process-ai-storefront-jobs.sh
 ```
 
+Trigger service smoke test from the VPS:
+
+```bash
+curl -i \
+  -X POST \
+  -H "Authorization: Bearer $AI_STOREFRONT_TRIGGER_SECRET" \
+  -H "Content-Type: application/json" \
+  --data '{"source":"manual","merchantId":"smoke-test"}' \
+  http://127.0.0.1:3917/ai-storefront/trigger
+```
+
 Cron example:
 
 ```cron
-*/2 * * * * flock -n /var/lock/ai-storefront.lock bash -lc 'export NODE_ENV=production && /home/bassey/baci-workers/bin/process-ai-storefront-jobs.sh' >> /home/bassey/baci-workers/logs/ai-storefront-jobs.log 2>&1
+*/10 * * * * flock -n /home/bassey/baci-workers/locks/ollama-workload.lock flock -n /home/bassey/baci-workers/locks/ai-storefront-jobs.lock bash -lc 'export NODE_ENV=production && export BACI_WORKER_PROFILE=ai-storefront-jobs && cd /home/bassey/baci-workers && /home/bassey/baci-workers/bin/process-ai-storefront-jobs.sh' >> /home/bassey/baci-workers/logs/ai-storefront-jobs.log 2>&1
 ```
 
 Configure log rotation for `/home/bassey/baci-workers/logs/*.log` with
@@ -73,6 +102,11 @@ time, duration, model, and retry metadata.
   dashboard, and mobile Copilot pass.
 - Supabase migration is applied and the `apply_ai_storefront_draft` RPC exists.
 - Ollama responds locally from the VPS with the selected Gemma model.
-- Cron contains `process-ai-storefront-jobs.sh` every 2 minutes with `flock`.
+- `baci-ai-storefront-trigger.service` is running and accepts signed local
+  trigger requests.
+- Cron contains `process-ai-storefront-jobs.sh` every 10 minutes with the
+  shared Ollama and storefront worker locks.
+- Web production has `AI_STOREFRONT_TRIGGER_URL` and the matching
+  `AI_STOREFRONT_TRIGGER_SECRET`.
 - Queue depth and failed-job counts are monitored before enabling the onboarding
   enqueue flag.
