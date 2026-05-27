@@ -224,6 +224,8 @@ jobs:
           ASC_API_KEY_PATH: ${{ env.ASC_API_KEY_PATH }}
           MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          ADMIN_TIKTOK_APP_ID: ${{ secrets.ADMIN_TIKTOK_APP_ID }}
+          ADMIN_TIKTOK_APP_SECRET: ${{ secrets.ADMIN_TIKTOK_APP_SECRET }}
         run: bundle exec fastlane ios release
 
       - name: Upload IPA artifact
