@@ -2,11 +2,6 @@
   "maxLines": 300,
   "routes": [
     {
-      "path": "app/checkout.tsx",
-      "lineCount": 2828,
-      "justification": "Existing Phase 6 checkout route decomposition baseline; shrink or remove this entry as the route is modularized."
-    },
-    {
       "path": "app/product/[slug].tsx",
       "lineCount": 1118,
       "justification": "Existing PDP route decomposition baseline; shrink or remove this entry as product detail logic is modularized."

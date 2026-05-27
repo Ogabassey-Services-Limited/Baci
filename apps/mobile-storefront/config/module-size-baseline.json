@@ -9,9 +9,9 @@
   ],
   "modules": [
     {
-      "path": "components/checkout/PaymentMethodSelector.tsx",
-      "lineCount": 949,
-      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
+      "path": "components/checkout/CheckoutScreenView.tsx",
+      "lineCount": 3028,
+      "justification": "Checkout route shell extracted to component; decompose this screen into focused submodules and remove this entry."
     },
     {
       "path": "services/ad-tracking.ts",
@@ -186,11 +186,6 @@
     {
       "path": "lib/utility-repeat.ts",
       "lineCount": 311,
-      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
-    },
-    {
-      "path": "components/checkout/OrderSummary.tsx",
-      "lineCount": 303,
       "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
     }
   ]

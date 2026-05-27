@@ -13,7 +13,7 @@
       "justification": "Reviewed CSS box-shadow disabling on web while preserving the native no-shadow tab-bar override."
     },
     {
-      "path": "app/checkout.tsx",
+      "path": "components/checkout/CheckoutScreenView.tsx",
       "justification": "Reviewed Android hardware-back handling, list virtualization, and monospace font selection."
     },
     {
