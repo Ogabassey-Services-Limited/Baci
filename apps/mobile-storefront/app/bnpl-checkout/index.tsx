@@ -16,6 +16,12 @@ import { BNPLCheckoutStatusView } from '@/components/bnpl-checkout/BNPLCheckoutS
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
 import { resolveApiBaseUrl } from '@/lib/api-url';
+import {
+  buildKlumpAuthorizationUrl,
+  isAllowedBnplPopupUrl,
+  normalizeBNPLRouteParams,
+  type BNPLRouteParams,
+} from '@/lib/bnpl-url';
 import { useCartStore } from '@/stores/cart-store';
 
 // 2026 Critical Fix: Zod schema for route parameter validation
@@ -31,6 +37,7 @@ const BNPLParamsSchema = z.object({
   customerName: z.string().optional(),
   customerPhone: z.string().optional(),
   merchantSlug: z.string().optional(),
+  reference: z.string().optional(),
   trackingToken: z.string().optional(),
 });
 
@@ -40,15 +47,6 @@ const BNPL_LOAD_TIMEOUT_MESSAGE =
   'Payment page is taking longer than expected. Check your connection and try again.';
 const BNPL_UNTRUSTED_POPUP_MESSAGE =
   'Payment provider opened an untrusted checkout window.';
-const USEBACI_HOSTNAME = 'usebaci.com';
-const BNPL_PROVIDER_POPUP_ORIGINS = new Set([
-  'https://api.credpal.com',
-  'https://app.creditdirect.ng',
-  'https://cdl.test.lendastack.io',
-  'https://checkout.creditdirect.ng',
-  'https://checkout.credpal.com',
-  'https://corporate-loans.obs.sa-brazil-1.myhuaweicloud.com',
-]);
 type BNPLCheckoutStatus = 'loading' | 'ready' | 'success' | 'error';
 
 type WebViewOpenWindowEventLike = {
@@ -57,51 +55,12 @@ type WebViewOpenWindowEventLike = {
   };
 };
 
-function isBaciReturnOrigin(targetUrl: URL, baseUrl: string) {
-  try {
-    const base = new URL(baseUrl);
-
-    if (targetUrl.origin === base.origin) {
-      return true;
-    }
-
-    if (
-      base.hostname === USEBACI_HOSTNAME &&
-      targetUrl.protocol === base.protocol &&
-      (targetUrl.hostname === USEBACI_HOSTNAME ||
-        targetUrl.hostname.endsWith(`.${USEBACI_HOSTNAME}`))
-    ) {
-      return true;
-    }
-  } catch {
-    return false;
-  }
-
-  return false;
-}
-
-function isAllowedBnplPopupUrl(targetUrl: string, baseUrl: string) {
-  try {
-    const parsedTargetUrl = new URL(targetUrl);
-
-    if (!['https:', 'http:'].includes(parsedTargetUrl.protocol)) {
-      return false;
-    }
-
-    return (
-      BNPL_PROVIDER_POPUP_ORIGINS.has(parsedTargetUrl.origin) ||
-      isBaciReturnOrigin(parsedTargetUrl, baseUrl)
-    );
-  } catch {
-    return false;
-  }
-}
-
 export default function BNPLCheckoutScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   // 2026 Best Practice: Use Record type for route params to satisfy expo-router constraints
-  const params = useLocalSearchParams<Record<string, string>>();
+  const rawParams = useLocalSearchParams<BNPLRouteParams>();
+  const params = normalizeBNPLRouteParams(rawParams);
   const webViewRef = useRef<WebView>(null);
   const loadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clearCart = useCartStore((state) => state.clearCart);
@@ -144,6 +103,9 @@ export default function BNPLCheckoutScreen() {
     authorizationUrl,
     amount,
     customerEmail,
+    customerName,
+    customerPhone,
+    reference,
     trackingToken,
   } =
     validatedParams.data || {};
@@ -183,10 +145,6 @@ export default function BNPLCheckoutScreen() {
   const bnplUrl = (() => {
     if (!validatedParams.isValid || !orderId) return '';
 
-    if (gateway === 'klump' && authorizationUrl?.trim()) {
-      return authorizationUrl.trim();
-    }
-
     const slug =
       validatedParams.isValid && validatedParams.data
         ? validatedParams.data.merchantSlug || 'ogabassey'
@@ -194,6 +152,20 @@ export default function BNPLCheckoutScreen() {
     const baseUrl = API_BASE_URL.endsWith('/')
       ? API_BASE_URL.slice(0, -1)
       : API_BASE_URL;
+
+    if (gateway === 'klump') {
+      return buildKlumpAuthorizationUrl({
+        authorizationUrl,
+        baseUrl,
+        customerEmail,
+        customerName,
+        customerPhone,
+        orderId,
+        reference,
+        slug,
+        trackingToken,
+      });
+    }
 
     const query = new URLSearchParams({
       gateway: gateway || '',
@@ -203,6 +175,12 @@ export default function BNPLCheckoutScreen() {
 
     if (customerEmail?.trim()) {
       query.set('email', customerEmail.trim());
+    }
+    if (customerName?.trim()) {
+      query.set('customerName', customerName.trim());
+    }
+    if (customerPhone?.trim()) {
+      query.set('customerPhone', customerPhone.trim());
     }
     if (trackingToken?.trim()) {
       query.set('token', trackingToken.trim());

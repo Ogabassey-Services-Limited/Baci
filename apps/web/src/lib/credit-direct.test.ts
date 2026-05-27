@@ -1,6 +1,16 @@
 import crypto from 'node:crypto';
-import { describe, expect, it } from 'vitest';
-import { verifyWebhookSignature } from '@/lib/credit-direct';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  getPrivateKey,
+  getPublicKey,
+  getWebhookSecret,
+  normalizeCreditDirectEnvValue,
+  verifyWebhookSignature,
+} from '@/lib/credit-direct';
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 describe('verifyWebhookSignature', () => {
   const payload = JSON.stringify({ event: 'payment.completed', id: 'evt_123' });
@@ -40,5 +50,46 @@ describe('verifyWebhookSignature', () => {
     const longSignature = '0'.repeat(128);
 
     expect(verifyWebhookSignature(payload, longSignature, secret)).toBe(false);
+  });
+});
+
+describe('Credit Direct environment helpers', () => {
+  it('preserves clean values without edge newlines', () => {
+    expect(normalizeCreditDirectEnvValue('clean-private-key')).toBe(
+      'clean-private-key'
+    );
+    expect(normalizeCreditDirectEnvValue('another-clean-value-123')).toBe(
+      'another-clean-value-123'
+    );
+  });
+
+  it('normalizes escaped trailing newlines followed by whitespace', () => {
+    vi.stubEnv('CREDIT_DIRECT_PRIVATE_KEY', 'private-key\\n   ');
+    vi.stubEnv('CREDIT_DIRECT_PUBLIC_KEY', 'public-key\\n   ');
+    vi.stubEnv('CREDIT_DIRECT_WEBHOOK_SECRET', 'webhook-secret\\n   ');
+
+    expect(getPrivateKey()).toBe('private-key');
+    expect(getPublicKey()).toBe('public-key');
+    expect(getWebhookSecret()).toBe('webhook-secret');
+  });
+
+  it('normalizes escaped edge newlines with surrounding spaces', () => {
+    expect(normalizeCreditDirectEnvValue(' \\n private-key \\n ')).toBe(
+      'private-key'
+    );
+    expect(normalizeCreditDirectEnvValue(' \r\n public-key \r\n ')).toBe(
+      'public-key'
+    );
+  });
+
+  it('normalizes multiple escaped and real edge newlines', () => {
+    expect(normalizeCreditDirectEnvValue('key\\n\\n')).toBe('key');
+    expect(normalizeCreditDirectEnvValue('key\n\n')).toBe('key');
+    expect(normalizeCreditDirectEnvValue('key\\n\n')).toBe('key');
+  });
+
+  it('normalizes blank values to an empty string', () => {
+    expect(normalizeCreditDirectEnvValue('   ')).toBe('');
+    expect(normalizeCreditDirectEnvValue('')).toBe('');
   });
 });

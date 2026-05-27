@@ -138,6 +138,89 @@ function amountsMatch(a: number, b: number): boolean {
   return Math.abs(a - b) < 0.01;
 }
 
+function normalizeHostname(value: string) {
+  return value
+    .trim()
+    .replace(/^https?:\/\//, '')
+    .split('/')[0]
+    .split(':')[0]
+    .toLowerCase();
+}
+
+function isRootStorefrontHost(hostname: string, rootDomain: string) {
+  const normalizedHostname = normalizeHostname(hostname);
+  const normalizedRootDomain = normalizeHostname(rootDomain);
+
+  return (
+    normalizedHostname === normalizedRootDomain ||
+    normalizedHostname === `www.${normalizedRootDomain}`
+  );
+}
+
+function getPublicRequestUrlParts(request: NextRequest) {
+  const headerHost =
+    request.headers.get('host')?.split(',')[0]?.trim() || request.nextUrl.host;
+  const headerProtocol =
+    request.headers.get('x-forwarded-proto')?.split(',')[0]?.trim() ||
+    request.nextUrl.protocol.replace(/:$/, '');
+  const origin = headerHost
+    ? `${headerProtocol || 'https'}://${headerHost}`
+    : request.nextUrl.origin;
+
+  return {
+    hostname: normalizeHostname(headerHost || request.nextUrl.hostname),
+    origin,
+  };
+}
+
+function shouldPrefixBnplLauncherWithSlug(
+  request: NextRequest,
+  merchantSlug: string,
+  rootDomain: string
+) {
+  const { hostname, origin } = getPublicRequestUrlParts(request);
+  const referer = request.headers.get('referer');
+  if (referer) {
+    try {
+      const refererUrl = new URL(referer);
+      if (refererUrl.origin === origin) {
+        return (
+          refererUrl.pathname === `/${merchantSlug}` ||
+          refererUrl.pathname.startsWith(`/${merchantSlug}/`)
+        );
+      }
+    } catch {
+      // Fall through to host-based detection.
+    }
+  }
+
+  return (
+    hostname === 'localhost' ||
+    hostname === '127.0.0.1' ||
+    hostname.endsWith('.localhost') ||
+    hostname.endsWith('.vercel.app') ||
+    isRootStorefrontHost(hostname, rootDomain)
+  );
+}
+
+function buildBnplLauncherUrl(
+  request: NextRequest,
+  merchantSlug: string,
+  rootDomain: string,
+  query: URLSearchParams
+) {
+  const { origin } = getPublicRequestUrlParts(request);
+  const slugPrefix = shouldPrefixBnplLauncherWithSlug(
+    request,
+    merchantSlug,
+    rootDomain
+  )
+    ? `/${merchantSlug}`
+    : '';
+
+  return `${origin}${slugPrefix}/checkout/bnpl?${query.toString()}`;
+}
+
 function selectGateway(
   currency: string,
   settings: GatewaySettings,
@@ -1132,9 +1215,15 @@ export async function POST(request: NextRequest) {
           if (trackingToken) {
             bnplQuery.set('trackingToken', trackingToken);
           }
+          const launcherUrl = buildBnplLauncherUrl(
+            request,
+            merchant.slug,
+            rootDomain,
+            bnplQuery
+          );
           paymentResult = {
-            authorization_url: `${protocol}://${merchant.slug}.${rootDomain}/checkout/bnpl?${bnplQuery.toString()}`,
-            checkout_url: `${protocol}://${merchant.slug}.${rootDomain}/checkout/bnpl?${bnplQuery.toString()}`,
+            authorization_url: launcherUrl,
+            checkout_url: launcherUrl,
             reference, // Use the generated reference
             platformFee: 0, // Fees calculated client-side or by gateway
             merchantAmount: data.amount, // Full amount (fees handled separately)
@@ -1153,7 +1242,12 @@ export async function POST(request: NextRequest) {
           if (trackingToken) {
             bnplQuery.set('trackingToken', trackingToken);
           }
-          const launcherUrl = `${protocol}://${merchant.slug}.${rootDomain}/checkout/bnpl?${bnplQuery.toString()}`;
+          const launcherUrl = buildBnplLauncherUrl(
+            request,
+            merchant.slug,
+            rootDomain,
+            bnplQuery
+          );
           paymentResult = {
             authorization_url: launcherUrl,
             checkout_url: launcherUrl,

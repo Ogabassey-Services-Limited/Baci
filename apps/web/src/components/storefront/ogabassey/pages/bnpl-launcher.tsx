@@ -1,16 +1,26 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import Script from 'next/script';
 import { ShieldCheck, AlertCircle } from 'lucide-react';
 import { openCreditDirectCheckout } from '@/lib/credit-direct-client';
 import { openCredPalCheckout } from '@/lib/credpal';
 import { apiPost } from '@/lib/api-client';
-import { useMerchant } from '@/hooks/use-merchant-client';
+import { useMerchantSafe } from '@/hooks/use-merchant-client';
+import {
+    getKlumpConstructor,
+    getKlumpPublicKey,
+    loadKlumpSdk,
+} from '@/lib/klump-sdk';
+import {
+    buildKlumpItems,
+    getUnmaskedValue,
+    normalizeKlumpPhone,
+    toCurrencyAmount,
+    type BnplOrder,
+} from '@/lib/klump-utils';
 import { CHECKOUT_PENDING_ORDER_STORAGE_KEY } from './checkout/pending-checkout-order';
 
-const KLUMP_SCRIPT_URL = 'https://js.useklump.com/klump.js';
 const KLUMP_TRANSACTION_ID_KEYS = [
     'klump_transaction_id',
     'klumpTransactionId',
@@ -32,39 +42,6 @@ interface KlumpRecordResponse {
     error?: string;
 }
 
-declare global {
-    interface Window {
-        Klump?: new (config: {
-            publicKey: string;
-            data: {
-                amount: number;
-                currency: 'NGN';
-                email?: string;
-                first_name?: string;
-                last_name?: string;
-                phone?: string;
-                merchant_reference: string;
-                redirect_url: string;
-                shipping_fee?: number;
-                items: Array<{
-                    name: string;
-                    quantity: number;
-                    unit_price: number;
-                }>;
-                meta_data: {
-                    order_id: string;
-                    source: 'baci-web';
-                };
-            };
-            onSuccess?: (payload?: unknown) => void;
-            onError?: (error: unknown) => void;
-            onClose?: () => void;
-            onLoad?: () => void;
-            onOpen?: () => void;
-        }) => unknown;
-    }
-}
-
 function readSearchParam(
     searchParams: SearchParamReader,
     keys: readonly string[]
@@ -81,21 +58,6 @@ function readSearchParam(
 
 function getKlumpTransactionId(searchParams: SearchParamReader) {
     return readSearchParam(searchParams, KLUMP_TRANSACTION_ID_KEYS);
-}
-
-function getKlumpPublicKey() {
-    const key =
-        process.env.NEXT_PUBLIC_KLUMP_PUBLIC_KEY ||
-        process.env.NEXT_PUBLIC_KLUMP_KEY ||
-        process.env.KLUMP_PUBLIC_KEY;
-
-    if (!key) {
-        throw new Error(
-            'NEXT_PUBLIC_KLUMP_PUBLIC_KEY (or NEXT_PUBLIC_KLUMP_KEY) is not set'
-        );
-    }
-
-    return key;
 }
 
 function buildCurrentPathRedirectUrl(callbackQuery: URLSearchParams) {
@@ -119,6 +81,7 @@ function readPendingOrderSnapshot(orderId: string | null) {
             orderId?: string;
             trackingToken?: string;
             customerEmail?: string;
+            customerPhone?: string;
         };
 
         if (pendingOrder.orderId !== orderId) {
@@ -128,16 +91,21 @@ function readPendingOrderSnapshot(orderId: string | null) {
         return {
             trackingToken: pendingOrder.trackingToken || null,
             customerEmail: pendingOrder.customerEmail?.trim() || null,
+            customerPhone: pendingOrder.customerPhone?.trim() || null,
         };
     } catch {
         return null;
     }
 }
 
-export function BnplLauncher() {
+interface BnplLauncherProps {
+    merchantSlug?: string;
+}
+
+export function BnplLauncher({ merchantSlug = 'ogabassey' }: BnplLauncherProps) {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const { merchant, loading } = useMerchant();
+    const merchantContext = useMerchantSafe();
 
     const orderId = searchParams.get('orderId');
     const gateway = searchParams.get('gateway') as
@@ -158,6 +126,15 @@ export function BnplLauncher() {
         searchParams.get('email')?.trim() ||
         pendingOrderSnapshot?.customerEmail ||
         null;
+    const lookupPhone =
+        searchParams.get('customerPhone')?.trim() ||
+        searchParams.get('phone')?.trim() ||
+        pendingOrderSnapshot?.customerPhone ||
+        null;
+    const lookupCustomerName =
+        searchParams.get('customerName')?.trim() ||
+        searchParams.get('name')?.trim() ||
+        null;
     const merchantSlugParam =
         searchParams.get('merchant_slug') || searchParams.get('slug');
 
@@ -165,12 +142,22 @@ export function BnplLauncher() {
         'loading'
     );
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
-    const [klumpScriptReady, setKlumpScriptReady] = useState(false);
-    const [klumpScriptFailed, setKlumpScriptFailed] = useState(false);
+    const paymentLaunchKeyRef = useRef<string | null>(null);
+
+    const tryStartPaymentLaunch = (key: string) => {
+        if (paymentLaunchKeyRef.current === key) {
+            return false;
+        }
+
+        paymentLaunchKeyRef.current = key;
+        return true;
+    };
+
+    const clearPaymentLaunch = () => {
+        paymentLaunchKeyRef.current = null;
+    };
 
     useEffect(() => {
-        if (loading) return;
-
         const launchPayment = async () => {
             try {
                 if (!orderId || !gateway) {
@@ -191,6 +178,14 @@ export function BnplLauncher() {
                         throw new Error(
                             'Klump checkout returned without a transaction id.'
                         );
+                    }
+
+                    if (
+                        !tryStartPaymentLaunch(
+                            `klump-callback:${orderId}:${klumpReference}:${klumpTransactionId}:${trackingToken}`
+                        )
+                    ) {
+                        return;
                     }
 
                     const recordResponse = await apiPost<KlumpRecordResponse>(
@@ -218,7 +213,10 @@ export function BnplLauncher() {
                     return;
                 }
 
-                const slug = merchantSlugParam || merchant?.slug || 'ogabassey';
+                const slug =
+                    merchantSlugParam ||
+                    merchantContext?.merchant?.slug ||
+                    merchantSlug;
                 const query = new URLSearchParams({ merchant_slug: slug });
                 if (trackingToken) {
                     query.set('token', trackingToken);
@@ -245,10 +243,23 @@ export function BnplLauncher() {
                     );
                 }
 
-                const order = await res.json();
+                const order = (await res.json()) as BnplOrder;
                 if (!order.items || order.items.length === 0) {
                     throw new Error('Order has no items.');
                 }
+
+                const checkoutCustomerEmail = getUnmaskedValue(
+                    pendingOrderSnapshot?.customerEmail,
+                    lookupEmail,
+                    order.customer_email
+                );
+                const checkoutCustomerPhone = getUnmaskedValue(
+                    pendingOrderSnapshot?.customerPhone,
+                    lookupPhone,
+                    order.customer_phone
+                );
+                const checkoutCustomerName =
+                    lookupCustomerName || order.customer_name || '';
 
                 setStatus('processing');
 
@@ -258,13 +269,21 @@ export function BnplLauncher() {
                         throw new Error('Invalid order total for Credit Direct checkout.');
                     }
 
+                    if (
+                        !tryStartPaymentLaunch(
+                            `credit-direct:${order.id}:${order.tracking_token || trackingToken || ''}`
+                        )
+                    ) {
+                        return;
+                    }
+
                     await openCreditDirectCheckout({
                         merchantSlug: slug,
                         orderId: order.id,
                         amount: normalizedAmount,
-                        customerEmail: order.customer_email,
-                        customerPhone: order.customer_phone || '',
-                        customerName: order.customer_name,
+                        customerEmail: checkoutCustomerEmail || '',
+                        customerPhone: checkoutCustomerPhone || '',
+                        customerName: checkoutCustomerName,
                         items: order.items.map(
                             (item: {
                                 product_id?: string;
@@ -308,10 +327,18 @@ export function BnplLauncher() {
                             }
                         },
                         onClose: () => {
-                            setStatus('error');
-                            setErrorMessage('Payment cancelled. Please try again.');
+                            window.setTimeout(() => {
+                                if (document.getElementById('klump_checkout')) {
+                                    return;
+                                }
+
+                                clearPaymentLaunch();
+                                setStatus('error');
+                                setErrorMessage('Payment cancelled. Please try again.');
+                            }, 0);
                         },
                         onError: (error) => {
+                            clearPaymentLaunch();
                             console.error('Credit Direct Error:', error);
                             setStatus('error');
                             setErrorMessage(error);
@@ -322,13 +349,26 @@ export function BnplLauncher() {
 
                 if (gateway === 'credpal') {
                     const { getCredPalKey } = await import('@/lib/credpal');
+                    const credPalAmount = toCurrencyAmount(order.total);
+                    if (credPalAmount <= 0) {
+                        throw new Error('Invalid order total for CredPal checkout.');
+                    }
+
+                    if (
+                        !tryStartPaymentLaunch(
+                            `credpal:${order.id}:${order.tracking_token || trackingToken || ''}`
+                        )
+                    ) {
+                        return;
+                    }
+
                     await openCredPalCheckout({
                         key: getCredPalKey(),
-                        amount: order.total,
+                        amount: credPalAmount,
                         product: `Order #${order.id}`,
-                        customerEmail: order.customer_email,
-                        customerName: order.customer_name,
-                        customerPhone: order.customer_phone,
+                        customerEmail: checkoutCustomerEmail || '',
+                        customerName: checkoutCustomerName,
+                        customerPhone: checkoutCustomerPhone || '',
                         onSuccess: (data) => {
                             const successQuery = new URLSearchParams({
                                 orderId: order.id,
@@ -340,10 +380,12 @@ export function BnplLauncher() {
                             router.push(`/order-success?${successQuery.toString()}`);
                         },
                         onClose: () => {
+                            clearPaymentLaunch();
                             setStatus('error');
                             setErrorMessage('Payment cancelled.');
                         },
                         onError: (error) => {
+                            clearPaymentLaunch();
                             setStatus('error');
                             setErrorMessage(error.message);
                         },
@@ -358,14 +400,10 @@ export function BnplLauncher() {
                         );
                     }
 
-                    if (!window.Klump) {
-                        if (klumpScriptFailed) {
-                            throw new Error('Failed to load Klump script');
-                        }
-                        if (klumpScriptReady) {
-                            throw new Error('Klump SDK failed to load');
-                        }
-                        return;
+                    await loadKlumpSdk();
+                    const KlumpCheckout = getKlumpConstructor();
+                    if (!KlumpCheckout) {
+                        throw new Error('Klump SDK failed to load');
                     }
 
                     const publicKey = getKlumpPublicKey();
@@ -381,53 +419,55 @@ export function BnplLauncher() {
                         callbackQuery.set('email', lookupEmail);
                     }
 
-                    const [first_name, ...rest] = (order.customer_name || '')
+                    const [first_name, ...rest] = (checkoutCustomerName || '')
                         .trim()
                         .split(/\s+/);
                     const last_name = rest.join(' ');
+                    const phone = normalizeKlumpPhone(
+                        checkoutCustomerPhone
+                    );
 
-                    new window.Klump({
+                    if (
+                        !tryStartPaymentLaunch(
+                            `klump:${order.id}:${klumpReference}:${trackingToken}`
+                        )
+                    ) {
+                        return;
+                    }
+
+                    new KlumpCheckout({
                         publicKey,
                         data: {
                             amount: Number(order.total) || 0,
                             currency: 'NGN',
-                            ...(order.customer_email ? { email: order.customer_email } : {}),
+                            ...(checkoutCustomerEmail ? { email: checkoutCustomerEmail } : {}),
                             ...(first_name ? { first_name } : {}),
                             ...(last_name ? { last_name } : {}),
-                            ...(order.customer_phone
-                                ? { phone: order.customer_phone }
-                                : {}),
+                            ...(phone ? { phone } : {}),
                             merchant_reference: klumpReference,
                             redirect_url: buildCurrentPathRedirectUrl(callbackQuery),
-                            shipping_fee: Number(order.shipping_fee) || 0,
-                            items: order.items.map(
-                                (item: {
-                                    name?: string;
-                                    product_name?: string;
-                                    price: number;
-                                    quantity: number;
-                                }) => ({
-                                    name:
-                                        item.product_name ||
-                                        item.name ||
-                                        'Order item',
-                                    quantity: Math.max(
-                                        1,
-                                        Number(item.quantity) || 1
-                                    ),
-                                    unit_price: Number(item.price) || 0,
-                                })
-                            ),
+                            items: buildKlumpItems(order),
                             meta_data: {
                                 order_id: order.id,
                                 source: 'baci-web',
                             },
                         },
                         onClose: () => {
-                            setStatus('error');
-                            setErrorMessage('Payment cancelled. Please try again.');
+                            window.setTimeout(() => {
+                                if (document.getElementById('klump_checkout')) {
+                                    return;
+                                }
+
+                                clearPaymentLaunch();
+                                setStatus('error');
+                                setErrorMessage('Payment cancelled. Please try again.');
+                            }, 0);
                         },
+                        onLoad: () => undefined,
+                        onOpen: () => undefined,
+                        onSuccess: () => undefined,
                         onError: (error) => {
+                            clearPaymentLaunch();
                             setStatus('error');
                             setErrorMessage(
                                 error instanceof Error
@@ -453,15 +493,15 @@ export function BnplLauncher() {
     }, [
         orderId,
         gateway,
-        merchant?.slug,
+        merchantContext?.merchant?.slug,
+        merchantSlug,
         merchantSlugParam,
         lookupEmail,
-        loading,
+        lookupCustomerName,
+        lookupPhone,
         klumpCallback,
         klumpReference,
         klumpTransactionId,
-        klumpScriptFailed,
-        klumpScriptReady,
         router,
         trackingToken,
     ]);
@@ -472,12 +512,7 @@ export function BnplLauncher() {
         return (
             <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
                 {shouldLoadKlumpScript && (
-                    <Script
-                        src={KLUMP_SCRIPT_URL}
-                        strategy="afterInteractive"
-                        onReady={() => setKlumpScriptReady(true)}
-                        onError={() => setKlumpScriptFailed(true)}
-                    />
+                    <div id="klump__checkout" className="hidden" aria-hidden="true" />
                 )}
                 <div className="bg-white rounded-xl shadow-lg max-w-md w-full p-8 text-center">
                     <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -507,12 +542,7 @@ export function BnplLauncher() {
     return (
         <div className="min-h-screen bg-white flex flex-col items-center justify-center p-4">
             {shouldLoadKlumpScript && (
-                <Script
-                    src={KLUMP_SCRIPT_URL}
-                    strategy="afterInteractive"
-                    onReady={() => setKlumpScriptReady(true)}
-                    onError={() => setKlumpScriptFailed(true)}
-                />
+                <div id="klump__checkout" className="hidden" aria-hidden="true" />
             )}
             <div className="text-center">
                 <div className="relative w-20 h-20 mx-auto mb-6">

@@ -44,6 +44,7 @@ export interface PendingCheckoutOrderSnapshot {
   trackingToken?: string;
   merchantId: string;
   customerEmail: string;
+  customerPhone: string;
   checkoutFingerprint: string;
   amountDueToGateway: number;
   createdAt: string;

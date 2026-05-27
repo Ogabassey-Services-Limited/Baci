@@ -207,12 +207,18 @@ const validBody = {
   },
 };
 
-function makeRequest(body: Record<string, unknown>) {
-  return new NextRequest('http://localhost:3000/api/payments/initialize', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
+function makeRequest(
+  body: Record<string, unknown>,
+  init?: { headers?: Record<string, string>; url?: string }
+) {
+  return new NextRequest(
+    init?.url || 'http://localhost:3000/api/payments/initialize',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...init?.headers },
+      body: JSON.stringify(body),
+    }
+  );
 }
 
 function setupDefaults() {
@@ -525,18 +531,21 @@ describe('POST /api/payments/initialize', () => {
     it.each([
       'credit_direct',
       'credpal',
-    ] as const)('includes the tracking token in %s BNPL launcher URLs', async (gateway) => {
+    ] as const)('uses the request origin for %s BNPL launcher URLs', async (gateway) => {
       const res = await POST(makeRequest({ ...validBody, gateway }));
       const json = await res.json();
 
       expect(res.status).toBe(200);
       expect(json.success).toBe(true);
       expect(json.gateway).toBe(gateway);
+      expect(json.authorization_url).toMatch(
+        /^http:\/\/localhost:3000\/test-store\/checkout\/bnpl\?/
+      );
+      expect(json.checkout_url).toBe(json.authorization_url);
       expect(json.authorization_url).toContain(
         'orderId=a1b2c3d4-e5f6-7890-abcd-ef1234567890'
       );
       expect(json.authorization_url).toContain('trackingToken=track-token-123');
-      expect(json.checkout_url).toContain('trackingToken=track-token-123');
     });
 
     it('returns GATEWAY_DISABLED when Klump is not enabled for the merchant', async () => {
@@ -680,6 +689,10 @@ describe('POST /api/payments/initialize', () => {
       expect(json.success).toBe(true);
       expect(json.gateway).toBe('klump');
       expect(json.reference).toBe('BAC-ABCD12345678');
+      expect(json.authorization_url).toMatch(
+        /^http:\/\/localhost:3000\/test-store\/checkout\/bnpl\?/
+      );
+      expect(json.checkout_url).toBe(json.authorization_url);
       expect(json.authorization_url).toContain('gateway=klump');
       expect(json.authorization_url).toContain(
         'orderId=a1b2c3d4-e5f6-7890-abcd-ef1234567890'
@@ -697,6 +710,95 @@ describe('POST /api/payments/initialize', () => {
         p_platform_fee: 0,
         p_reference: 'BAC-ABCD12345678',
       });
+    });
+
+    it('keeps Klump launcher URLs slugless on custom domain checkouts', async () => {
+      rpcResult = {
+        data: [
+          {
+            merchant_id: MERCHANT_ID,
+            total: 50_000,
+            tracking_token: 'track-token-123',
+          },
+        ],
+        error: null,
+      };
+      featureSettingsResult = {
+        data: {
+          klump_enabled: true,
+          klump_min_amount: 10_000,
+          klump_max_amount: 500_000,
+          korapay_enabled: true,
+          paystack_enabled: true,
+          preferred_international_gateway: 'korapay',
+          preferred_local_gateway: 'paystack',
+        },
+        error: null,
+      };
+
+      const res = await POST(
+        makeRequest(
+          { ...validBody, amount: 50_000, gateway: 'klump' },
+          {
+            headers: { referer: 'https://shop.example.com/checkout' },
+            url: 'https://shop.example.com/api/payments/initialize',
+          }
+        )
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.authorization_url).toMatch(
+        /^https:\/\/shop.example.com\/checkout\/bnpl\?/
+      );
+      expect(json.authorization_url).not.toContain('/test-store/checkout/bnpl');
+    });
+
+    it('uses the public host header instead of the internal request URL for BNPL launcher URLs', async () => {
+      rpcResult = {
+        data: [
+          {
+            merchant_id: MERCHANT_ID,
+            total: 50_000,
+            tracking_token: 'track-token-123',
+          },
+        ],
+        error: null,
+      };
+      featureSettingsResult = {
+        data: {
+          klump_enabled: true,
+          klump_min_amount: 10_000,
+          klump_max_amount: 500_000,
+          korapay_enabled: true,
+          paystack_enabled: true,
+          preferred_international_gateway: 'korapay',
+          preferred_local_gateway: 'paystack',
+        },
+        error: null,
+      };
+
+      const res = await POST(
+        makeRequest(
+          { ...validBody, amount: 50_000, gateway: 'klump' },
+          {
+            headers: {
+              host: 'shop.example.com',
+              referer: 'https://shop.example.com/checkout',
+              'x-forwarded-proto': 'https',
+            },
+            url: 'https://internal.vercel.app/api/payments/initialize',
+          }
+        )
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.authorization_url).toMatch(
+        /^https:\/\/shop.example.com\/checkout\/bnpl\?/
+      );
+      expect(json.authorization_url).not.toContain('internal.vercel.app');
+      expect(json.authorization_url).not.toContain('/test-store/checkout/bnpl');
     });
   });
 

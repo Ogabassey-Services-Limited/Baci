@@ -5,10 +5,11 @@ import type React from 'react';
 import BNPLCheckoutScreen from '@/app/bnpl-checkout';
 
 const mockClearCart = jest.fn();
-let mockSearchParams: Record<string, string> = {
+let mockSearchParams: Record<string, string | string[]> = {
   amount: '250000',
   customerEmail: 'customer@example.com',
   customerName: 'Ada Customer',
+  customerPhone: '+2348012345678',
   gateway: 'credit_direct',
   merchantSlug: 'ogabassey',
   orderId: 'order-123',
@@ -171,6 +172,7 @@ describe('BNPLCheckoutScreen', () => {
       amount: '250000',
       customerEmail: 'customer@example.com',
       customerName: 'Ada Customer',
+      customerPhone: '+2348012345678',
       gateway: 'credit_direct',
       merchantSlug: 'ogabassey',
       orderId: 'order-123',
@@ -190,6 +192,8 @@ describe('BNPLCheckoutScreen', () => {
     expect(webView.props.children).toContain('gateway=credit_direct');
     expect(webView.props.children).toContain('merchant_slug=ogabassey');
     expect(webView.props.children).toContain('email=customer%40example.com');
+    expect(webView.props.children).toContain('customerName=Ada+Customer');
+    expect(webView.props.children).toContain('customerPhone=%2B2348012345678');
     expect(webView.props.children).toContain('token=track-token-123');
   });
 
@@ -197,20 +201,124 @@ describe('BNPLCheckoutScreen', () => {
     mockSearchParams = {
       amount: '120000',
       authorizationUrl:
-        'https://ogabassey.usebaci.com/checkout/bnpl?gateway=klump&orderId=order-123&reference=BAC-ABCD12345678&trackingToken=track-token-123',
+        'https://usebaci.com/ogabassey/checkout/bnpl?gateway=klump&orderId=order-123&reference=BAC-ABCD12345678&trackingToken=track-token-123',
       customerEmail: 'customer@example.com',
       customerName: 'Ada Customer',
       gateway: 'klump',
       merchantSlug: 'ogabassey',
       orderId: 'order-123',
+      reference: 'BAC-ABCD12345678',
       trackingToken: 'track-token-123',
     };
 
     render(<BNPLCheckoutScreen />);
 
-    expect(screen.getByText(/^webview:/).props.children).toBe(
-      `webview:${mockSearchParams.authorizationUrl}`
+    const webViewUrl = new URL(
+      screen.getByText(/^webview:/).props.children.replace('webview:', '')
     );
+    expect(webViewUrl.origin).toBe('https://usebaci.com');
+    expect(webViewUrl.pathname).toBe('/ogabassey/checkout/bnpl');
+    expect(webViewUrl.searchParams.get('gateway')).toBe('klump');
+    expect(webViewUrl.searchParams.get('orderId')).toBe('order-123');
+    expect(webViewUrl.searchParams.get('reference')).toBe('BAC-ABCD12345678');
+    expect(webViewUrl.searchParams.get('trackingToken')).toBe(
+      'track-token-123'
+    );
+    expect(webViewUrl.searchParams.get('merchant_slug')).toBe('ogabassey');
+  });
+
+  it('uses the first value when Android delivers duplicated Klump params', () => {
+    mockSearchParams = {
+      amount: '120000',
+      authorizationUrl: [
+        'https://ogabassey.usebaci.com/checkout/bnpl?gateway=klump&orderId=order-123&reference=BAC-ABCD12345678&trackingToken=track-token-123',
+        'https://unexpected.example/checkout',
+      ],
+      customerEmail: ['customer@example.com', 'duplicate@example.com'],
+      customerName: 'Ada Customer',
+      gateway: ['klump', 'credit_direct'],
+      merchantSlug: 'ogabassey',
+      orderId: 'order-123',
+      reference: 'BAC-ABCD12345678',
+      trackingToken: 'track-token-123',
+    };
+
+    render(<BNPLCheckoutScreen />);
+
+    const webViewUrl = new URL(
+      screen.getByText(/^webview:/).props.children.replace('webview:', '')
+    );
+    expect(webViewUrl.origin).toBe('https://usebaci.com');
+    expect(webViewUrl.pathname).toBe('/ogabassey/checkout/bnpl');
+    expect(webViewUrl.searchParams.get('gateway')).toBe('klump');
+    expect(webViewUrl.searchParams.get('orderId')).toBe('order-123');
+    expect(webViewUrl.searchParams.get('reference')).toBe('BAC-ABCD12345678');
+    expect(webViewUrl.searchParams.get('trackingToken')).toBe(
+      'track-token-123'
+    );
+  });
+
+  it('repairs Android-split Klump authorization URLs before loading the WebView', () => {
+    mockSearchParams = {
+      amount: '120000',
+      authorizationUrl:
+        'https://ogabassey.usebaci.com/checkout/bnpl?gateway=klump',
+      customerEmail: 'customer@example.com',
+      customerName: 'Ada Customer',
+      customerPhone: '+2348012345678',
+      gateway: 'klump',
+      merchantSlug: 'ogabassey',
+      orderId: 'order-123',
+      reference: 'BAC-ABCD12345678',
+      trackingToken: 'track-token-123',
+    };
+
+    render(<BNPLCheckoutScreen />);
+
+    const webViewUrl = new URL(
+      screen.getByText(/^webview:/).props.children.replace('webview:', '')
+    );
+    expect(webViewUrl.origin).toBe('https://usebaci.com');
+    expect(webViewUrl.pathname).toBe('/ogabassey/checkout/bnpl');
+    expect(webViewUrl.searchParams.get('gateway')).toBe('klump');
+    expect(webViewUrl.searchParams.get('orderId')).toBe('order-123');
+    expect(webViewUrl.searchParams.get('reference')).toBe('BAC-ABCD12345678');
+    expect(webViewUrl.searchParams.get('trackingToken')).toBe(
+      'track-token-123'
+    );
+    expect(webViewUrl.searchParams.get('email')).toBe('customer@example.com');
+    expect(webViewUrl.searchParams.get('customerPhone')).toBe('+2348012345678');
+  });
+
+  it('falls back to the trusted origin for untrusted Klump authorization URLs', () => {
+    mockSearchParams = {
+      amount: '120000',
+      authorizationUrl:
+        'https://evil.example/checkout/bnpl?gateway=klump&steal=true',
+      customerEmail: 'customer@example.com',
+      customerPhone: '+2348012345678',
+      gateway: 'klump',
+      merchantSlug: 'ogabassey',
+      orderId: 'order-123',
+      reference: 'BAC-ABCD12345678',
+      trackingToken: 'track-token-123',
+    };
+
+    render(<BNPLCheckoutScreen />);
+
+    const webViewUrl = new URL(
+      screen.getByText(/^webview:/).props.children.replace('webview:', '')
+    );
+    expect(webViewUrl.origin).toBe('https://usebaci.com');
+    expect(webViewUrl.pathname).toBe('/ogabassey/checkout/bnpl');
+    expect(webViewUrl.searchParams.get('gateway')).toBe('klump');
+    expect(webViewUrl.searchParams.get('orderId')).toBe('order-123');
+    expect(webViewUrl.searchParams.get('reference')).toBe('BAC-ABCD12345678');
+    expect(webViewUrl.searchParams.get('trackingToken')).toBe(
+      'track-token-123'
+    );
+    expect(webViewUrl.searchParams.get('email')).toBe('customer@example.com');
+    expect(webViewUrl.searchParams.has('steal')).toBe(false);
   });
 
   it('allows Credit Direct popup windows to render in the Android WebView', () => {

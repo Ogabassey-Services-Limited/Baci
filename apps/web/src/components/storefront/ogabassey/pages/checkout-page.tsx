@@ -1545,6 +1545,7 @@ export const CheckoutPage: React.FC = () => {
         trackingToken: order.tracking_token,
         merchantId: merchant.id,
         customerEmail,
+        customerPhone,
         checkoutFingerprint,
         amountDueToGateway,
         createdAt: new Date().toISOString(),
