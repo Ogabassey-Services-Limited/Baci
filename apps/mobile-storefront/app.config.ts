@@ -1,5 +1,14 @@
 import 'dotenv/config';
+import type { TikTokBusinessPlugin } from '@baci/tiktok-business';
 import type { ConfigContext, ExpoConfig } from 'expo/config';
+
+const {
+  DEFAULT_STOREFRONT_TIKTOK_IOS_APP_STORE_ID,
+  DEFAULT_STOREFRONT_TIKTOK_IOS_TIKTOK_APP_ID,
+} = require('./config/tiktok-constants') as {
+  DEFAULT_STOREFRONT_TIKTOK_IOS_APP_STORE_ID: string;
+  DEFAULT_STOREFRONT_TIKTOK_IOS_TIKTOK_APP_ID: string;
+};
 
 const rawAndroidVersionCode = process.env.ANDROID_VERSION_CODE;
 const parsedAndroidVersionCode =
@@ -58,6 +67,33 @@ if (rawIosAppVersion !== undefined && rawIosAppVersion.trim().length > 0) {
 }
 
 const runtimeVersion = _iosAppVersion ?? appVersion;
+const tiktokIosAppStoreId =
+  process.env.STOREFRONT_TIKTOK_APP_STORE_ID?.trim() ||
+  DEFAULT_STOREFRONT_TIKTOK_IOS_APP_STORE_ID;
+const tiktokIosAppId =
+  process.env.STOREFRONT_TIKTOK_APP_ID?.trim() ||
+  DEFAULT_STOREFRONT_TIKTOK_IOS_TIKTOK_APP_ID;
+const tiktokIosAppSecret =
+  process.env.STOREFRONT_TIKTOK_APP_SECRET?.trim() || undefined;
+const isTikTokBusinessConfigured = Boolean(
+  tiktokIosAppStoreId && tiktokIosAppId && tiktokIosAppSecret
+);
+const tiktokBusinessPlugin: TikTokBusinessPlugin | null =
+  isTikTokBusinessConfigured && tiktokIosAppSecret
+    ? [
+        '@baci/tiktok-business/plugin',
+        {
+          ios: {
+            appId: tiktokIosAppStoreId,
+            tiktokAppId: tiktokIosAppId,
+            appSecret: tiktokIosAppSecret,
+            debugMode: process.env.TIKTOK_SDK_DEBUG === '1',
+            disableSKAdNetworkSupport:
+              process.env.STOREFRONT_TIKTOK_DISABLE_SKAN === '1',
+          },
+        },
+      ]
+    : null;
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
@@ -172,6 +208,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         },
       },
     ],
+    ...(tiktokBusinessPlugin ? [tiktokBusinessPlugin] : []),
     './config/withFirebaseModularHeaders.js',
     './config/withObjCLinkerFlag.js',
     './config/withNoSplashImage.js',
@@ -196,6 +233,11 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
     supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
     apiUrl: process.env.EXPO_PUBLIC_API_URL,
+    tiktokBusiness: {
+      iosAppStoreId: tiktokIosAppStoreId,
+      iosTikTokAppId: tiktokIosAppId,
+      isConfigured: isTikTokBusinessConfigured,
+    },
     eas: {
       projectId: 'c6c1897b-cac8-49b0-85f9-3d277aecc379',
     },

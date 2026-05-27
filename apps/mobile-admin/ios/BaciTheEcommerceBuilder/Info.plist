@@ -75,6 +75,8 @@
 	<string>Allow $(PRODUCT_NAME) to access your microphone</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Allow the app to access photos for product images.</string>
+	<key>NSUserTrackingUsageDescription</key>
+	<string>Your data will be used to measure ad performance and improve Baci app promotion.</string>
 	<key>NSUserActivityTypes</key>
 	<array>
 		<string>$(PRODUCT_BUNDLE_IDENTIFIER).expo.index_route</string>

@@ -7,7 +7,7 @@
  */
 
 import { resolveVariantSelectionParamResolution } from '@baci/shared/lib';
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -60,6 +60,7 @@ import { resolveVariantSelectionFromImage } from '@/lib/product-image-selection'
 import { stripInternalSelectionAxes } from '@/lib/product-internal-selection-axes';
 import { normalizeRouteCondition } from '@/lib/product-route/normalize-route-condition';
 import { resolveProductVariantMetadata } from '@/lib/product-variant-metadata';
+import { trackProductRouteAddToCart, trackProductRouteWishlistAdd, useTrackProductRouteViewed } from '@/services/tiktok-product-route-tracking';
 import { useCartStore } from '@/stores/cart-store';
 import { useSavedStore } from '@/stores/saved-store';
 import {
@@ -233,10 +234,8 @@ export default function ProductDetailScreen() {
           ? (product.offers[0]?.condition ?? null)
           : null);
 
-  // Timer ref for toast cleanup - prevents memory leaks (2026 Best Practice)
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Cleanup toast timer on unmount to prevent memory leaks
   useEffect(() => {
     return () => {
       if (toastTimerRef.current) {
@@ -246,7 +245,6 @@ export default function ProductDetailScreen() {
     };
   }, []);
 
-  // 2026 Best Practice: Auto-dismiss saved items toast with cleanup
   const savedToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (savedToastState.show) {
@@ -266,7 +264,6 @@ export default function ProductDetailScreen() {
     };
   }, [savedToastState.show, dismissSavedToast]);
 
-  // Get condition display name for cart
   const getConditionDisplay = (): string | undefined => {
     if (currentVariantDisplaySelection?.condition) {
       return formatProductConditionDisplay(
@@ -279,7 +276,6 @@ export default function ProductDetailScreen() {
     return product?.condition;
   };
 
-  // Sync quantity with cart store
   const cartItem = (() => {
     if (!product) return undefined;
     return items.find(
@@ -294,10 +290,8 @@ export default function ProductDetailScreen() {
 
   const quantityInCart = cartItem ? cartItem.quantity : 0;
 
-  // Local state for editable quantity input to allow smooth typing
   const [localQty, setLocalQty] = useState(quantityInCart.toString());
 
-  // Sync local quantity when store changes
   useEffect(() => {
     setLocalQty(quantityInCart.toString());
   }, [quantityInCart]);
@@ -370,7 +364,6 @@ export default function ProductDetailScreen() {
     new Map()
   );
 
-  // H13 FIX: Clean up all particle timers on unmount
   useEffect(() => {
     const timers = particleTimersRef.current;
     return () => {
@@ -452,7 +445,6 @@ export default function ProductDetailScreen() {
     return { backgroundColor };
   });
 
-  // Effective price hooks — must run unconditionally before early returns
   const { price: effectivePrice, comparePrice: effectiveComparePrice } =
     useEffectivePrice(
       product ?? null,
@@ -461,7 +453,8 @@ export default function ProductDetailScreen() {
       negotiatedPrice
     );
 
-  // calculatedPrice is the price without negotiation, used in the NegotiationModal
+  useTrackProductRouteViewed(product, effectivePrice);
+
   const { price: calculatedPrice } = useEffectivePrice(
     product ?? null,
     currentVariantDisplaySelection,
@@ -689,6 +682,7 @@ export default function ProductDetailScreen() {
       condition: conditionDisplay,
       variant_name: currentVariantDisplaySelection?.variant.name,
     });
+    void trackProductRouteAddToCart(product, effectivePrice);
 
     setShowAddedToast(true);
     // Clear any existing timer before setting a new one (2026 Best Practice)
@@ -797,7 +791,11 @@ export default function ProductDetailScreen() {
             <Pressable
               onPress={() => {
                 haptics.light();
+                const shouldTrackWishlistAdd = !isSaved(product.id);
                 toggleSaved(product);
+                if (shouldTrackWishlistAdd) {
+                  void trackProductRouteWishlistAdd(product, effectivePrice);
+                }
               }}
               hitSlop={12}
               accessibilityLabel={

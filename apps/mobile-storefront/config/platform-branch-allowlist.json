@@ -197,6 +197,10 @@
       "justification": "Reviewed web guard and iOS attribution API handling."
     },
     {
+      "path": "services/ad-tracking-native-modules.ts",
+      "justification": "Reviewed web guard for native Facebook and TikTok SDK dynamic imports."
+    },
+    {
       "path": "services/push-notifications.ts",
       "justification": "Reviewed web guard and Android notification channel setup."
     }

@@ -1,14 +1,19 @@
 import 'dotenv/config';
+import type { TikTokBusinessPlugin } from '@baci/tiktok-business';
 import type { ConfigContext, ExpoConfig } from 'expo/config';
 
-const { resolveAndroidGoogleServicesFile } = require(
-  './config/android-google-services-file'
-) as {
-  resolveAndroidGoogleServicesFile: (options?: {
-    easBuildProfile?: string;
-    projectRoot?: string;
-  }) => string;
-};
+const { DEFAULT_ADMIN_TIKTOK_IOS_APP_STORE_ID } =
+  require('./config/tiktok-constants') as {
+    DEFAULT_ADMIN_TIKTOK_IOS_APP_STORE_ID: string;
+  };
+
+const { resolveAndroidGoogleServicesFile } =
+  require('./config/android-google-services-file') as {
+    resolveAndroidGoogleServicesFile: (options?: {
+      easBuildProfile?: string;
+      projectRoot?: string;
+    }) => string;
+  };
 
 const rawAndroidVersionCode = process.env.ANDROID_VERSION_CODE;
 const parsedAndroidVersionCode =
@@ -63,6 +68,32 @@ if (rawIosAppVersion !== undefined && rawIosAppVersion.trim().length > 0) {
   _iosAppVersion = trimmed;
 }
 
+const tiktokIosAppStoreId =
+  process.env.ADMIN_TIKTOK_APP_STORE_ID?.trim() ||
+  DEFAULT_ADMIN_TIKTOK_IOS_APP_STORE_ID;
+const tiktokIosAppId = process.env.ADMIN_TIKTOK_APP_ID?.trim() || undefined;
+const tiktokIosAppSecret =
+  process.env.ADMIN_TIKTOK_APP_SECRET?.trim() || undefined;
+const isTikTokBusinessConfigured = Boolean(
+  tiktokIosAppStoreId && tiktokIosAppId && tiktokIosAppSecret
+);
+const tiktokBusinessPlugin: TikTokBusinessPlugin | null =
+  isTikTokBusinessConfigured && tiktokIosAppId && tiktokIosAppSecret
+    ? [
+        '@baci/tiktok-business/plugin',
+        {
+          ios: {
+            appId: tiktokIosAppStoreId,
+            tiktokAppId: tiktokIosAppId,
+            appSecret: tiktokIosAppSecret,
+            debugMode: process.env.TIKTOK_SDK_DEBUG === '1',
+            disableSKAdNetworkSupport:
+              process.env.ADMIN_TIKTOK_DISABLE_SKAN === '1',
+          },
+        },
+      ]
+    : null;
+
 /**
  * Expo App Configuration
  * Using app.config.ts to properly inject environment variables
@@ -90,6 +121,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         'Allow the app to scan barcodes for inventory management and product lookup.',
       NSPhotoLibraryUsageDescription:
         'Allow the app to access photos for product images.',
+      NSUserTrackingUsageDescription:
+        'Your data will be used to measure ad performance and improve Baci app promotion.',
       ITSAppUsesNonExemptEncryption: false,
     },
     googleServicesFile: './GoogleService-Info.plist',
@@ -181,6 +214,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         },
       },
     ],
+    ...(tiktokBusinessPlugin ? [tiktokBusinessPlugin] : []),
     'expo-web-browser',
     'expo-font',
     'expo-sharing',
@@ -211,6 +245,11 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
     googleIosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
     googleWebClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+    tiktokBusiness: {
+      iosAppStoreId: tiktokIosAppStoreId,
+      iosTikTokAppId: tiktokIosAppId ?? '',
+      isConfigured: isTikTokBusinessConfigured,
+    },
     eas: {
       projectId: '4b258ae6-fc8a-4b3d-bcbe-dfb3402203c9',
     },

@@ -1,14 +1,10 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
 import { zodResolver } from '@hookform/resolvers/zod';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Ionicons from '@react-native-vector-icons/ionicons';
 import Constants from 'expo-constants';
 import { router, Stack } from 'expo-router';
 import React, { useEffect, useEffectEvent, useRef } from 'react';
-import {
-  type FieldErrors,
-  type Resolver,
-  useForm,
-} from 'react-hook-form';
+import { type FieldErrors, type Resolver, useForm } from 'react-hook-form';
 import {
   ActivityIndicator,
   Alert,
@@ -39,12 +35,12 @@ import {
 import { CheckoutContactCard } from '@/components/checkout/CheckoutContactCard';
 import { CheckoutDeliveryCard } from '@/components/checkout/CheckoutDeliveryCard';
 import { CheckoutFormField } from '@/components/checkout/CheckoutFormField';
+import { CheckoutReviewStep } from '@/components/checkout/CheckoutReviewStep';
+import { CheckoutSavingsRetryCard } from '@/components/checkout/CheckoutSavingsRetryCard';
 import {
   type CheckoutStep,
   CheckoutStepper,
 } from '@/components/checkout/CheckoutStepper';
-import { CheckoutSavingsRetryCard } from '@/components/checkout/CheckoutSavingsRetryCard';
-import { CheckoutReviewStep } from '@/components/checkout/CheckoutReviewStep';
 import { CryptoSelectionModal } from '@/components/checkout/CryptoSelectionModal';
 import { humanizeCheckoutFieldName } from '@/components/checkout/checkout-form-field.helpers';
 import {
@@ -123,13 +119,16 @@ import {
   type WalletSelection,
 } from '@/lib/wallet-payment-helpers';
 import {
-  trackCheckoutStarted,
   trackCheckoutStep,
   trackError,
-  trackOrderCompleted,
 } from '@/services/analytics';
 import { createOrder, OrderError, type OrderResponse } from '@/services/orders';
 import { scheduleLocalNotification } from '@/services/push-notifications';
+import {
+  trackCheckoutRoutePaymentInfo,
+  trackCheckoutRoutePurchaseCompleted,
+  trackCheckoutRouteStarted,
+} from '@/services/tiktok-checkout-route-tracking';
 import { formatPrice, useCartStore } from '@/stores/cart-store';
 
 const shippingAddressResolver = zodResolver(
@@ -491,11 +490,7 @@ export default function CheckoutScreen() {
 
   useEffect(() => {
     if (!hasTrackedStart.current && items.length > 0) {
-      trackCheckoutStarted({
-        itemCount: items.reduce((acc, item) => acc + item.quantity, 0),
-        subtotal,
-        currency: 'NGN',
-      });
+      void trackCheckoutRouteStarted({ items, subtotal });
       hasTrackedStart.current = true;
     }
   }, [items, subtotal]);
@@ -1054,6 +1049,7 @@ export default function CheckoutScreen() {
       trackCheckoutStep('payment_method', {
         payment_method: selectedPayment,
       });
+      void trackCheckoutRoutePaymentInfo(selectedPayment);
       setStep('review');
     }
   };
@@ -1615,16 +1611,18 @@ export default function CheckoutScreen() {
         getFullyPaidStoreCreditPaymentMethod(orderResponse);
       const completedPaymentMethod =
         fullyPaidStoreCreditPaymentMethod ?? selectedPayment;
-      trackOrderCompleted({
+      void trackCheckoutRoutePurchaseCompleted({
+        customerEmail,
+        customerPhone,
+        items: itemsSnapshot,
         orderId: order.id,
         orderNumber,
-        total: order.total,
-        subtotal: snapshotSubtotal,
-        shipping: snapshotDeliveryFee,
-        tax: snapshotTaxAmount,
-        currency: 'NGN',
-        itemCount: itemsSnapshot.reduce((acc, item) => acc + item.quantity, 0),
         paymentMethod: completedPaymentMethod,
+        shipping: snapshotDeliveryFee,
+        subtotal: snapshotSubtotal,
+        tax: snapshotTaxAmount,
+        total: order.total,
+        userId: user?.id,
       });
 
       // Route based on payment method
