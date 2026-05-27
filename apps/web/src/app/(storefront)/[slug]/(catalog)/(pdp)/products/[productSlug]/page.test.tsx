@@ -2,13 +2,17 @@ import { render, screen } from '@testing-library/react';
 import { type ReactNode, Suspense } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockNormalizeStorefrontProductVariants, mockProductDetailClient } =
-  vi.hoisted(() => ({
-    mockNormalizeStorefrontProductVariants: vi.fn<
-      (...args: unknown[]) => Record<string, unknown>[]
-    >(() => []),
-    mockProductDetailClient: vi.fn(() => null),
-  }));
+const {
+  mockConnection,
+  mockNormalizeStorefrontProductVariants,
+  mockProductDetailClient,
+} = vi.hoisted(() => ({
+  mockConnection: vi.fn(),
+  mockNormalizeStorefrontProductVariants: vi.fn<
+    (...args: unknown[]) => Record<string, unknown>[]
+  >(() => []),
+  mockProductDetailClient: vi.fn(() => null),
+}));
 
 const mockHeaders = vi.fn();
 const mockPermanentRedirect = vi.fn((_url: string) => {
@@ -32,6 +36,10 @@ const mockGetPublishedClusterPosts = vi.fn();
 
 vi.mock('next/headers', () => ({
   headers: () => mockHeaders(),
+}));
+
+vi.mock('next/server', () => ({
+  connection: () => mockConnection(),
 }));
 
 vi.mock('next/navigation', () => ({
@@ -298,6 +306,8 @@ describe('products/[productSlug] page', () => {
     mockProductDetailClient.mockReturnValue(null);
     mockHeaders.mockReset();
     mockHeaders.mockReturnValue(makeHeaders({}));
+    mockConnection.mockReset();
+    mockConnection.mockResolvedValue(undefined);
     mockGenerateProductSchema.mockImplementation(() => ({ offers: {} }));
     mockGetProductUrl.mockImplementation(defaultGetProductUrl);
     mockGetValidatedProductUrl.mockImplementation(
@@ -996,6 +1006,7 @@ describe('products/[productSlug] page', () => {
     expect(
       screen.getByRole('status', { name: /dynamic metadata marker/i })
     ).toBeInTheDocument();
+    expect(mockConnection).toHaveBeenCalledOnce();
     expect(
       screen.getByRole('link', {
         name: /Compare with Samsung Galaxy Z TriFold/i,
