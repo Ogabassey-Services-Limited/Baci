@@ -211,7 +211,13 @@ export async function convertUcpCartToCheckout({
     .select('cart_id')
     .maybeSingle();
   if (updateError || !updatedCart) {
+    const { error: cleanupError } = await supabase
+      .from('checkout_sessions')
+      .delete()
+      .eq('id', session.id)
+      .eq('merchant_id', merchant.id);
     logger.error({
+      cleanupError: sanitizeForLog(cleanupError),
       error: sanitizeForLog(updateError),
       merchantId: merchant.id,
       message: 'Failed to link UCP cart to checkout session',

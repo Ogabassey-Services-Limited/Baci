@@ -5,6 +5,11 @@ import {
 } from '@/lib/agentic/ucp-request-adapter-utils';
 
 describe('ucp request adapter utils', () => {
+  it('returns undefined for empty fulfillment address objects', () => {
+    expect(toAgenticFulfillmentAddress({})).toBeUndefined();
+    expect(toAgenticFulfillmentAddress(undefined)).toBeUndefined();
+  });
+
   it('normalizes UCP addresses into agentic fulfillment addresses', () => {
     expect(
       toAgenticFulfillmentAddress({
@@ -43,5 +48,14 @@ describe('ucp request adapter utils', () => {
       last_name: 'One',
       phone_number: '08012345678',
     });
+  });
+
+  it('returns null when buyer contact fields are incomplete', () => {
+    expect(
+      toAgenticBuyer({
+        billingAddress: { name: 'Billing User' },
+        body: {},
+      })
+    ).toBeNull();
   });
 });

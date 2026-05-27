@@ -34,6 +34,17 @@ describe('checkoutSessionSchema', () => {
     }
   });
 
+  it('rejects a blank UCP cart id checkout creation payload', () => {
+    const result = checkoutSessionSchema.safeParse({ cart_id: '   ' });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(
+        result.error.issues.some((issue) => issue.path[0] === 'cart_id')
+      ).toBe(true);
+    }
+  });
+
   it('accepts ACP line_items as a checkout session payload alias', () => {
     const result = checkoutSessionSchema.safeParse({
       capabilities: {},

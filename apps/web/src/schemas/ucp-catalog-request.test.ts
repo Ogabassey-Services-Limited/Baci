@@ -16,6 +16,10 @@ describe('ucp catalog request schemas', () => {
     expect(parsed.pagination?.limit).toBe(12);
   });
 
+  it('rejects search requests without query or filters', () => {
+    expect(() => ucpCatalogSearchRequestSchema.parse({})).toThrow();
+  });
+
   it('accepts a filter-only browse request', () => {
     const parsed = ucpCatalogSearchRequestSchema.parse({
       filters: { categories: ['phones'] },
@@ -41,6 +45,10 @@ describe('ucp catalog request schemas', () => {
     expect(parsed.ids).toEqual(['product-1', 'product-2']);
   });
 
+  it('rejects lookup requests with empty ids', () => {
+    expect(() => ucpCatalogLookupRequestSchema.parse({ ids: [] })).toThrow();
+  });
+
   it('accepts a single product detail request', () => {
     const parsed = ucpCatalogProductRequestSchema.parse({
       id: 'product-1',
@@ -50,5 +58,9 @@ describe('ucp catalog request schemas', () => {
 
     expect(parsed.id).toBe('product-1');
     expect(parsed.selected).toHaveLength(1);
+  });
+
+  it('rejects product detail requests with blank ids', () => {
+    expect(() => ucpCatalogProductRequestSchema.parse({ id: '   ' })).toThrow();
   });
 });

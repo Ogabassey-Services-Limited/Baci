@@ -69,7 +69,14 @@ function hasCapability(
 }
 
 function hasPaymentHandlers(handlers: Record<string, unknown> | null) {
-  return Boolean(handlers && Object.keys(handlers).length > 0);
+  if (!handlers) return false;
+  return Object.values(handlers).some((value) => {
+    if (Array.isArray(value)) return value.length > 0;
+    if (typeof value === 'object' && value !== null) {
+      return Object.keys(value).length > 0;
+    }
+    return Boolean(value);
+  });
 }
 
 function isGooglePayConfigured(handlers: Record<string, unknown> | null) {

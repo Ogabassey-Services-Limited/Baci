@@ -28,4 +28,8 @@ describe('buildBaciPlatformUcpProfile', () => {
       },
     });
   });
+
+  it('rejects invalid base URLs', () => {
+    expect(() => buildBaciPlatformUcpProfile('not-a-url')).toThrow();
+  });
 });

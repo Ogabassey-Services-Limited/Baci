@@ -53,4 +53,23 @@ describe('buildUcpCartResponse', () => {
       },
     });
   });
+
+  it('returns an empty line item list for carts without valid items', () => {
+    expect(
+      buildUcpCartResponse({
+        cartId: 'cart_empty',
+        continueUrl:
+          'https://ogabassey.com/ogabassey/cart?agentic_cart_id=cart_empty',
+        currency: 'ngn',
+        lineItems: [],
+        status: 'active',
+        totals: [{ amount: 0, display_text: 'Total', type: 'total' }],
+      })
+    ).toMatchObject({
+      currency: 'NGN',
+      id: 'cart_empty',
+      line_items: [],
+      totals: [{ amount: 0, display_text: 'Total', type: 'total' }],
+    });
+  });
 });

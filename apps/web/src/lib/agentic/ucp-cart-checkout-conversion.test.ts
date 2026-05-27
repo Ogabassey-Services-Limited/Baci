@@ -48,6 +48,7 @@ const mutation = {
 
 function createChain(result: { data: unknown; error: unknown }) {
   const chain = {
+    delete: vi.fn(() => chain),
     eq: vi.fn(() => chain),
     insert: vi.fn(() => chain),
     maybeSingle: vi.fn().mockResolvedValue(result),
@@ -74,6 +75,7 @@ function createSupabaseMock({
 }) {
   const cartSelectChain = createChain(cartResult);
   const cartUpdateChain = createChain(cartUpdateResult);
+  const checkoutDeleteChain = createChain({ data: null, error: null });
   const checkoutInsertChain = createChain(checkoutInsertResult);
   const checkoutSelectChain = createChain(checkoutSelectResult);
   const from = vi.fn((table: string) => {
@@ -85,6 +87,7 @@ function createSupabaseMock({
     }
     if (table === 'checkout_sessions') {
       return {
+        delete: checkoutDeleteChain.delete,
         insert: checkoutInsertChain.insert,
         select: checkoutSelectChain.select,
       };
@@ -92,7 +95,7 @@ function createSupabaseMock({
     throw new Error(`Unexpected table ${table}`);
   });
 
-  return { cartUpdateChain, checkoutInsertChain, from };
+  return { cartUpdateChain, checkoutDeleteChain, checkoutInsertChain, from };
 }
 
 function mockCalculation() {
@@ -192,5 +195,39 @@ describe('convertUcpCartToCheckout', () => {
     });
 
     expect(response.status).toBe(409);
+  });
+
+  it('deletes the checkout session when cart link update fails', async () => {
+    mockCalculation();
+    const { checkoutDeleteChain, from } = createSupabaseMock({
+      cartResult: {
+        data: {
+          cart_id: 'cart_123',
+          cart_items: [{ id: 'product-1', quantity: 1 }],
+          checkout_session_id: null,
+          currency: 'NGN',
+          shipping_address: null,
+          status: 'active',
+        },
+        error: null,
+      },
+      cartUpdateResult: { data: null, error: new Error('update failed') },
+    });
+
+    const response = await convertUcpCartToCheckout({
+      cartId: 'cart_123',
+      merchant,
+      mutation,
+      requestUrl: 'http://localhost/api/agentic/carts/cart_123/checkout',
+      supabase: { from } as never,
+    });
+
+    expect(response.status).toBe(500);
+    expect(checkoutDeleteChain.delete).toHaveBeenCalled();
+    expect(checkoutDeleteChain.eq).toHaveBeenCalledWith('id', 'checkout-row-1');
+    expect(checkoutDeleteChain.eq).toHaveBeenCalledWith(
+      'merchant_id',
+      'merchant-1'
+    );
   });
 });

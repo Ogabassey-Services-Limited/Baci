@@ -99,7 +99,7 @@ export async function resolveAgenticMerchantContext(
       typeof data.business_name === 'string' ? data.business_name : null,
     custom_domain:
       typeof data.custom_domain === 'string' && data.custom_domain.trim()
-        ? data.custom_domain
+        ? data.custom_domain.trim()
         : undefined,
     id: data.id,
     pay_on_delivery_enabled:
