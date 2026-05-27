@@ -16,7 +16,6 @@ import {
   useWallet,
 } from '@/hooks/use-wallet';
 import { CONFIG } from '@/lib/config';
-import { formatNgnCurrency } from '@/lib/format-ngn-currency';
 import { createLogger } from '@/lib/logger';
 import { normalizeWalletFundAmountParam } from '@/lib/normalize-wallet-fund-amount-param';
 import { pickMerchantId } from '@/lib/pick-merchant-id';
@@ -30,7 +29,8 @@ import {
   deriveWalletDisplayData,
   getWalletCustomerName,
   getWalletLoadingMessage,
-  parseWalletRedeemPointsInput,
+  resolveCreateFundingAccountOutcome,
+  resolveWalletRedeemPointsOutcome,
   sanitizeWalletFundAmount,
   validateWalletTopUpAmount,
 } from './wallet-screen.helpers';
@@ -41,9 +41,7 @@ interface WalletScreenProps {
   presentation?: 'stack' | 'tab';
 }
 
-export function WalletScreen({
-  presentation = 'stack',
-}: WalletScreenProps = {}) {
+export function WalletScreen({ presentation = 'stack' }: WalletScreenProps = {}) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { getScrollContentStyle } = useStorefrontInsets();
@@ -76,11 +74,7 @@ export function WalletScreen({
   const activeMerchantId = pickMerchantId(merchantId, CONFIG.MERCHANT_ID) ?? undefined;
   const activeMerchantSlug = CONFIG.MERCHANT_SLUG?.trim() || undefined;
   const hasMerchantContext = Boolean(activeMerchantId || activeMerchantSlug);
-  useWalletBalanceContractWarning({
-    merchantId: activeMerchantId,
-    ownerId: customer?.id ?? user?.id ?? '',
-    walletData: data?.wallet,
-  });
+  useWalletBalanceContractWarning({ merchantId: activeMerchantId, ownerId: customer?.id ?? user?.id ?? '', walletData: data?.wallet });
 
   useEffect(() => {
     if (routeAction === 'fund') {
@@ -96,40 +90,32 @@ export function WalletScreen({
     }
   }, [routeAction, routeRequiredAmount]);
 
-  const handleFundAmountChange = (value: string) => {
-    setFundAmount(sanitizeWalletFundAmount(value));
-  };
+  const handleFundAmountChange = (value: string) => setFundAmount(sanitizeWalletFundAmount(value));
 
   const handleCreateFundingAccount = async () => {
-    try {
-      const result = await createFundingAccountMutation.mutateAsync();
-      if (result.account) {
-        Alert.alert(
-          'Account Ready',
-          `${result.account.bankName} - ${result.account.accountNumber}`
-        );
-      }
-    } catch (error) {
+    const outcome = await resolveCreateFundingAccountOutcome(
+      createFundingAccountMutation.mutateAsync
+    );
+    if (outcome.status === 'error') {
       trackError(
         'wallet_funding_account_create_failed',
-        error instanceof Error ? error.message : 'Unknown error',
+        outcome.telemetryMessage,
         {
           customer_id: customer?.id,
           merchant_id: activeMerchantId,
           merchant_slug: activeMerchantSlug,
         }
       );
-      Alert.alert(
-        'Unable to create account number',
-        error instanceof Error ? error.message : 'Please try again in a moment.'
-      );
+      Alert.alert('Unable to create account number', outcome.alertMessage);
+      return;
+    }
+
+    if (outcome.accountSummary) {
+      Alert.alert('Account Ready', outcome.accountSummary);
     }
   };
 
-  const resetFundPanel = () => {
-    setShowFundPanel(false);
-    setFundAmount('');
-  };
+  const resetFundPanel = () => { setShowFundPanel(false); setFundAmount(''); };
 
   const handleFundWallet = async () => {
     const amount = Number(fundAmount);
@@ -186,58 +172,49 @@ export function WalletScreen({
   };
 
   const handleRedeemPoints = async () => {
-    const parsedRedeemInput = parseWalletRedeemPointsInput(
-      redeemPoints,
-      VTU_MIN_REDEEMABLE_POINTS
-    );
-    if ('title' in parsedRedeemInput) {
-      Alert.alert(parsedRedeemInput.title, parsedRedeemInput.message);
+    const outcome = await resolveWalletRedeemPointsOutcome({
+      minimumRedeemablePoints: VTU_MIN_REDEEMABLE_POINTS,
+      rawPoints: redeemPoints,
+      redeemPoints: redeemMutation.mutateAsync,
+    });
+    if (outcome.status === 'invalid') {
+      Alert.alert(outcome.title, outcome.message);
       return;
     }
-    const points = parsedRedeemInput.points;
 
-    try {
-      const result = await redeemMutation.mutateAsync(points);
-      const walletCreditMessage = formatNgnCurrency(result.walletCredit ?? 0);
-
-      trackEvent('loyalty_redeemed', {
-        points_redeemed: points,
-        wallet_credit: result.walletCredit,
-        remaining_points: result.remainingPoints,
-        conversion_rate: result.conversionRate,
-        customer_id: customer?.id,
-      });
-
-      await scheduleLocalNotification(
-        'Points Redeemed! 🎁',
-        `${points} points converted to ${walletCreditMessage} wallet credit.`,
-        { type: 'loyalty_redemption', points },
-        1
-      );
-
-      Alert.alert(
-        'Points Redeemed!',
-        `${points} points converted to ${walletCreditMessage} wallet credit.`,
-        [{ text: 'OK', onPress: () => setShowRedeemPanel(false) }]
-      );
-
-      setRedeemPoints('');
-    } catch (error) {
-      log.error('Redemption error:', error);
-
+    if (outcome.status === 'error') {
+      log.error('Redemption error:', outcome.alertMessage);
       trackError(
         'loyalty_redemption_failed',
-        error instanceof Error ? error.message : 'Unknown error',
-        { points_attempted: points, customer_id: customer?.id }
+        outcome.telemetryMessage,
+        { points_attempted: outcome.points, customer_id: customer?.id }
       );
-
-      Alert.alert(
-        'Error',
-        error instanceof Error
-          ? error.message
-          : 'Failed to redeem points. Please try again.'
-      );
+      Alert.alert('Error', outcome.alertMessage);
+      return;
     }
+
+    trackEvent('loyalty_redeemed', {
+      points_redeemed: outcome.points,
+      wallet_credit: outcome.result.walletCredit,
+      remaining_points: outcome.result.remainingPoints,
+      conversion_rate: outcome.result.conversionRate,
+      customer_id: customer?.id,
+    });
+
+    await scheduleLocalNotification(
+      'Points Redeemed! 🎁',
+      outcome.successMessage,
+      { type: 'loyalty_redemption', points: outcome.points },
+      1
+    );
+
+    Alert.alert(
+      'Points Redeemed!',
+      outcome.successMessage,
+      [{ text: 'OK', onPress: () => setShowRedeemPanel(false) }]
+    );
+
+    setRedeemPoints('');
   };
 
   const scrollContentStyle = getScrollContentStyle({
@@ -263,23 +240,12 @@ export function WalletScreen({
   });
 
   if (!user || !hasMerchantContext || isLoading || !data) {
-    return (
-      <WalletScreenView
-        colors={colors}
-        loadingMessage={loadingMessage}
-        presentation={presentation}
-      />
-    );
+    return <WalletScreenView colors={colors} loadingMessage={loadingMessage} presentation={presentation} />;
   }
 
   const { wallet: walletData, transactions } = data;
-  const {
-    earningsBalance,
-    fundingAccount,
-    savingsBalance,
-    showQuickSave,
-    totalBalance,
-  } = deriveWalletDisplayData(walletData);
+  const { earningsBalance, fundingAccount, savingsBalance, showQuickSave, totalBalance } =
+    deriveWalletDisplayData(walletData);
   const handleOpenSavings = () => router.push('/wallet/savings/start');
 
   return (

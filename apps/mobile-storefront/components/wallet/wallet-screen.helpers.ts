@@ -1,4 +1,5 @@
 import { WALLET_TOP_UP_MAX_AMOUNT, WALLET_TOP_UP_MIN_AMOUNT } from '@/lib/wallet-top-up-constants';
+import { formatNgnCurrency } from '@/lib/format-ngn-currency';
 import type { WalletDisplayFundingAccount } from './wallet.types';
 
 interface CustomerLike {
@@ -32,6 +33,49 @@ interface WalletTopUpResultLike {
   reference: string;
 }
 
+interface WalletFundingAccountLike {
+  accountNumber?: string | null;
+  bankName?: string | null;
+}
+
+interface WalletCreateFundingAccountResultLike {
+  account?: WalletFundingAccountLike | null;
+}
+
+interface WalletRedeemResultLike {
+  conversionRate?: number | null;
+  remainingPoints?: number | null;
+  walletCredit?: number | null;
+}
+
+export type WalletCreateFundingAccountOutcome =
+  | { accountSummary: string; status: 'success' }
+  | { accountSummary?: undefined; status: 'success' }
+  | {
+      alertMessage: string;
+      status: 'error';
+      telemetryMessage: string;
+    };
+
+export type WalletRedeemPointsOutcome =
+  | {
+      message: string;
+      status: 'invalid';
+      title: string;
+    }
+  | {
+      points: number;
+      result: WalletRedeemResultLike;
+      status: 'success';
+      successMessage: string;
+    }
+  | {
+      alertMessage: string;
+      points: number;
+      status: 'error';
+      telemetryMessage: string;
+    };
+
 function normalizeRequiredFundingAccountValue(
   value: string | null | undefined
 ): string | null {
@@ -41,6 +85,80 @@ function normalizeRequiredFundingAccountValue(
 
   const trimmedValue = value.trim();
   return trimmedValue.length > 0 ? trimmedValue : null;
+}
+
+export async function resolveCreateFundingAccountOutcome(
+  createFundingAccount: () => Promise<WalletCreateFundingAccountResultLike>
+): Promise<WalletCreateFundingAccountOutcome> {
+  try {
+    const result = await createFundingAccount();
+    const bankName = normalizeRequiredFundingAccountValue(result.account?.bankName);
+    const accountNumber = normalizeRequiredFundingAccountValue(
+      result.account?.accountNumber
+    );
+    if (bankName && accountNumber) {
+      return {
+        accountSummary: `${bankName} - ${accountNumber}`,
+        status: 'success',
+      };
+    }
+
+    return { status: 'success' };
+  } catch (error) {
+    return {
+      alertMessage:
+        error instanceof Error
+          ? error.message
+          : 'Please try again in a moment.',
+      status: 'error',
+      telemetryMessage: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
+
+export async function resolveWalletRedeemPointsOutcome({
+  minimumRedeemablePoints,
+  rawPoints,
+  redeemPoints,
+}: {
+  minimumRedeemablePoints: number;
+  rawPoints: string;
+  redeemPoints: (points: number) => Promise<WalletRedeemResultLike>;
+}): Promise<WalletRedeemPointsOutcome> {
+  const parsedRedeemInput = parseWalletRedeemPointsInput(
+    rawPoints,
+    minimumRedeemablePoints
+  );
+  if ('title' in parsedRedeemInput) {
+    return {
+      message: parsedRedeemInput.message,
+      status: 'invalid',
+      title: parsedRedeemInput.title,
+    };
+  }
+
+  const points = parsedRedeemInput.points;
+  try {
+    const result = await redeemPoints(points);
+    const walletCreditMessage = formatNgnCurrency(result.walletCredit ?? 0);
+
+    return {
+      points,
+      result,
+      status: 'success',
+      successMessage: `${points} points converted to ${walletCreditMessage} wallet credit.`,
+    };
+  } catch (error) {
+    return {
+      alertMessage:
+        error instanceof Error
+          ? error.message
+          : 'Failed to redeem points. Please try again.',
+      points,
+      status: 'error',
+      telemetryMessage: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
 }
 
 export function sanitizeWalletFundAmount(value: string): string {

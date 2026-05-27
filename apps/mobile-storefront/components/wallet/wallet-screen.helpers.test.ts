@@ -6,6 +6,8 @@ import {
   getWalletCustomerName,
   getWalletLoadingMessage,
   parseWalletRedeemPointsInput,
+  resolveCreateFundingAccountOutcome,
+  resolveWalletRedeemPointsOutcome,
   sanitizeWalletFundAmount,
   validateWalletTopUpAmount,
 } from './wallet-screen.helpers';
@@ -149,6 +151,89 @@ describe('wallet-screen.helpers', () => {
       savingsBalance: 60,
       showQuickSave: true,
       totalBalance: 100,
+    });
+  });
+
+  it('resolves funding-account creation outcomes', async () => {
+    await expect(
+      resolveCreateFundingAccountOutcome(async () => ({
+        account: {
+          accountNumber: '1234567890',
+          bankName: 'Kuda',
+        },
+      }))
+    ).resolves.toEqual({
+      accountSummary: 'Kuda - 1234567890',
+      status: 'success',
+    });
+
+    await expect(
+      resolveCreateFundingAccountOutcome(async () => ({
+        account: {
+          accountNumber: '   ',
+          bankName: 'Kuda',
+        },
+      }))
+    ).resolves.toEqual({ status: 'success' });
+
+    await expect(
+      resolveCreateFundingAccountOutcome(async () => {
+        throw new Error('Request failed');
+      })
+    ).resolves.toEqual({
+      alertMessage: 'Request failed',
+      status: 'error',
+      telemetryMessage: 'Request failed',
+    });
+  });
+
+  it('resolves redeem-point outcomes for invalid, success, and error paths', async () => {
+    await expect(
+      resolveWalletRedeemPointsOutcome({
+        minimumRedeemablePoints: VTU_MIN_REDEEMABLE_POINTS,
+        rawPoints: 'abc',
+        redeemPoints: async () => ({ walletCredit: 0 }),
+      })
+    ).resolves.toEqual({
+      message: 'Please enter a valid number of points',
+      status: 'invalid',
+      title: 'Invalid Input',
+    });
+
+    await expect(
+      resolveWalletRedeemPointsOutcome({
+        minimumRedeemablePoints: VTU_MIN_REDEEMABLE_POINTS,
+        rawPoints: '200',
+        redeemPoints: async () => ({
+          conversionRate: 2,
+          remainingPoints: 800,
+          walletCredit: 1500,
+        }),
+      })
+    ).resolves.toEqual({
+      points: 200,
+      result: {
+        conversionRate: 2,
+        remainingPoints: 800,
+        walletCredit: 1500,
+      },
+      status: 'success',
+      successMessage: '200 points converted to ₦1,500 wallet credit.',
+    });
+
+    await expect(
+      resolveWalletRedeemPointsOutcome({
+        minimumRedeemablePoints: VTU_MIN_REDEEMABLE_POINTS,
+        rawPoints: '200',
+        redeemPoints: async () => {
+          throw new Error('Redeem failed');
+        },
+      })
+    ).resolves.toEqual({
+      alertMessage: 'Redeem failed',
+      points: 200,
+      status: 'error',
+      telemetryMessage: 'Redeem failed',
     });
   });
 

@@ -127,11 +127,6 @@
       "path": "lib/supabase.ts",
       "lineCount": 402,
       "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
-    },
-    {
-      "path": "components/wallet/WalletScreen.tsx",
-      "lineCount": 325,
-      "justification": "Wallet route shell extracted to component; decompose this screen into focused submodules and remove this entry."
     }
   ]
 }
