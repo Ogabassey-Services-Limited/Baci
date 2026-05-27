@@ -448,6 +448,83 @@ describe('env model getters', () => {
   });
 });
 
+describe('env AI storefront trigger validation', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+    stubBaseEnv();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    vi.resetModules();
+  });
+
+  it('accepts an HTTPS trigger URL with a bearer secret', async () => {
+    vi.stubEnv(
+      'AI_STOREFRONT_TRIGGER_URL',
+      'https://workers.ogabassey.com/ai-storefront/trigger'
+    );
+    vi.stubEnv('AI_STOREFRONT_TRIGGER_SECRET', 'trigger-secret');
+    vi.stubEnv('AI_STOREFRONT_TRIGGER_TIMEOUT_MS', '7000');
+
+    const {
+      getAiStorefrontWorkerTriggerSecret,
+      getAiStorefrontWorkerTriggerTimeoutMs,
+      getAiStorefrontWorkerTriggerUrl,
+    } = await loadEnvModule();
+
+    expect(getAiStorefrontWorkerTriggerUrl()).toBe(
+      'https://workers.ogabassey.com/ai-storefront/trigger'
+    );
+    expect(getAiStorefrontWorkerTriggerSecret()).toBe('trigger-secret');
+    expect(getAiStorefrontWorkerTriggerTimeoutMs()).toBe(7000);
+  });
+
+  it('fails boot when a trigger URL is configured without a secret', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('SUPABASE_JWT_SECRET', 'jwt-secret');
+    vi.stubEnv(
+      'AI_STOREFRONT_TRIGGER_URL',
+      'https://workers.ogabassey.com/ai-storefront/trigger'
+    );
+    delete process.env.AI_STOREFRONT_TRIGGER_SECRET;
+
+    await expect(loadEnvModule()).rejects.toThrow(
+      /AI_STOREFRONT_TRIGGER_SECRET/
+    );
+  });
+
+  it('fails boot when a trigger URL is configured with a blank secret', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('SUPABASE_JWT_SECRET', 'jwt-secret');
+    vi.stubEnv(
+      'AI_STOREFRONT_TRIGGER_URL',
+      'https://workers.ogabassey.com/ai-storefront/trigger'
+    );
+    vi.stubEnv('AI_STOREFRONT_TRIGGER_SECRET', '   ');
+
+    await expect(loadEnvModule()).rejects.toThrow(
+      /AI_STOREFRONT_TRIGGER_SECRET/
+    );
+  });
+
+  it('fails boot when a trigger secret is configured without a URL', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('SUPABASE_JWT_SECRET', 'jwt-secret');
+    delete process.env.AI_STOREFRONT_TRIGGER_URL;
+    vi.stubEnv('AI_STOREFRONT_TRIGGER_SECRET', 'trigger-secret');
+
+    await expect(loadEnvModule()).rejects.toThrow(/AI_STOREFRONT_TRIGGER_URL/);
+  });
+});
+
 describe('env LLM server validation', () => {
   beforeEach(() => {
     vi.resetModules();

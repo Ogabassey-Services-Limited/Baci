@@ -7,6 +7,23 @@ import { fileURLToPath } from 'node:url';
 const workerRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 describe('deploy crontab', () => {
+  it('uses the resolved Node binary for systemd services', () => {
+    const deployScript = readFileSync(join(workerRoot, 'deploy.sh'), 'utf8');
+    const nodeResolutionIndex = deployScript.indexOf('NODE_BIN=$(ssh');
+    const triggerServiceIndex = deployScript.indexOf(
+      'Installing AI storefront trigger user service'
+    );
+
+    assert.notEqual(nodeResolutionIndex, -1);
+    assert.notEqual(triggerServiceIndex, -1);
+    assert.ok(nodeResolutionIndex < triggerServiceIndex);
+    assert.doesNotMatch(deployScript, /ExecStart=\/usr\/bin\/node/);
+    assert.match(
+      deployScript,
+      /ExecStart=\$NODE_BIN \$REMOTE_DIR\/jobs\/ai-storefront-trigger-server\.mjs/
+    );
+  });
+
   it('schedules the agentic commerce health cron through run-web-cron', () => {
     const deployScript = readFileSync(join(workerRoot, 'deploy.sh'), 'utf8');
 
@@ -29,7 +46,11 @@ describe('deploy crontab', () => {
 
     assert.match(
       deployScript,
-      /\*\/2 \*  \* \* \* flock -n \$REMOTE_DIR\/locks\/ollama-workload\.lock flock -n \$REMOTE_DIR\/locks\/ai-storefront-jobs\.lock/
+      /\*\/10 \* \* \* \* flock -n \$REMOTE_DIR\/locks\/ollama-workload\.lock flock -n \$REMOTE_DIR\/locks\/ai-storefront-jobs\.lock/
+    );
+    assert.match(
+      deployScript,
+      /export NODE_ENV=production && export BACI_WORKER_PROFILE=ai-storefront-jobs/
     );
   });
 

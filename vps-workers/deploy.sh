@@ -18,6 +18,10 @@ ssh "$VPS" "cd $REMOTE_DIR && CI=true pnpm install --frozen-lockfile --prod"
 echo "==> Creating runtime directories on VPS"
 ssh "$VPS" "mkdir -p $REMOTE_DIR/logs $REMOTE_DIR/locks"
 
+echo "==> Resolving Node.js path on VPS"
+NODE_BIN=$(ssh "$VPS" "command -v node || echo /usr/bin/node")
+echo "    Using Node: $NODE_BIN"
+
 echo "==> Installing Vercel drain receiver user service"
 cat <<EOF | ssh "$VPS" "mkdir -p ~/.config/systemd/user && cat > ~/.config/systemd/user/baci-vercel-log-drain-receiver.service"
 [Unit]
@@ -27,7 +31,7 @@ After=network-online.target
 [Service]
 Type=simple
 WorkingDirectory=$REMOTE_DIR
-ExecStart=/usr/bin/node $REMOTE_DIR/jobs/vercel-log-drain-receiver.mjs
+ExecStart=$NODE_BIN $REMOTE_DIR/jobs/vercel-log-drain-receiver.mjs
 Restart=always
 RestartSec=5
 
@@ -36,9 +40,23 @@ WantedBy=default.target
 EOF
 ssh "$VPS" "systemctl --user daemon-reload && systemctl --user enable --now baci-vercel-log-drain-receiver.service"
 
-echo "==> Resolving Node.js path on VPS"
-NODE_BIN=$(ssh "$VPS" "command -v node || echo /usr/bin/node")
-echo "    Using Node: $NODE_BIN"
+echo "==> Installing AI storefront trigger user service"
+cat <<EOF | ssh "$VPS" "mkdir -p ~/.config/systemd/user && cat > ~/.config/systemd/user/baci-ai-storefront-trigger.service"
+[Unit]
+Description=Baci AI storefront trigger server
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=$REMOTE_DIR
+ExecStart=$NODE_BIN $REMOTE_DIR/jobs/ai-storefront-trigger-server.mjs
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target
+EOF
+ssh "$VPS" "systemctl --user daemon-reload && systemctl --user enable --now baci-ai-storefront-trigger.service"
 
 echo "==> Installing crontab entries on VPS (idempotent)"
 CRON_BLOCK_START="# >>> baci-workers >>>"
@@ -58,7 +76,7 @@ $CRON_BLOCK_START
 0 */6  * * * flock -n $REMOTE_DIR/locks/inventory-push-alerts.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/run-web-cron.mjs /api/inventory/push-alerts' >> $REMOTE_DIR/logs/inventory-push-alerts.log 2>&1
 */5 *  * * * flock -n $REMOTE_DIR/locks/sync-jumia-orders.lock bash -lc 'export NODE_ENV=production && cd $REMOTE_DIR && $REMOTE_DIR/bin/sync-jumia-orders.sh' >> $REMOTE_DIR/logs/sync-jumia-orders.log 2>&1
 2-59/5 * * * * flock -n $REMOTE_DIR/locks/process-import-jobs.lock bash -lc 'export NODE_ENV=production && cd $REMOTE_DIR && $REMOTE_DIR/bin/process-import-jobs.sh' >> $REMOTE_DIR/logs/process-import-jobs.log 2>&1
-*/2 *  * * * flock -n $REMOTE_DIR/locks/ollama-workload.lock flock -n $REMOTE_DIR/locks/ai-storefront-jobs.lock bash -lc 'export NODE_ENV=production && cd $REMOTE_DIR && $REMOTE_DIR/bin/process-ai-storefront-jobs.sh' >> $REMOTE_DIR/logs/ai-storefront-jobs.log 2>&1
+*/10 * * * * flock -n $REMOTE_DIR/locks/ollama-workload.lock flock -n $REMOTE_DIR/locks/ai-storefront-jobs.lock bash -lc 'export NODE_ENV=production && export BACI_WORKER_PROFILE=ai-storefront-jobs && cd $REMOTE_DIR && $REMOTE_DIR/bin/process-ai-storefront-jobs.sh' >> $REMOTE_DIR/logs/ai-storefront-jobs.log 2>&1
 0 2    * * * flock -n $REMOTE_DIR/locks/ai-jobs-worker.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/run-web-cron.mjs /api/ai-jobs/worker' >> $REMOTE_DIR/logs/ai-jobs-worker.log 2>&1
 0 6    * * * flock -n $REMOTE_DIR/locks/wallet-payouts.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/run-web-cron.mjs /api/cron/wallet-payouts' >> $REMOTE_DIR/logs/wallet-payouts.log 2>&1
 30 8   1 * * flock -n $REMOTE_DIR/locks/vtu-cashback-summaries.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/run-web-cron.mjs /api/cron/vtu-cashback-summaries' >> $REMOTE_DIR/logs/vtu-cashback-summaries.log 2>&1
@@ -171,3 +189,6 @@ echo "         VERCEL_LOG_DRAIN_SECRET=..."
 echo "         VERCEL_LOG_DRAIN_RECEIVER_PORT=8787"
 echo "         OLLAMA_STOREFRONT_BASE_URL=http://localhost:11434"
 echo "         AI_STOREFRONT_GENERATION_ENABLED=false"
+echo "         AI_STOREFRONT_TRIGGER_SECRET=..."
+echo "         AI_STOREFRONT_TRIGGER_HOST=127.0.0.1"
+echo "         AI_STOREFRONT_TRIGGER_PORT=3917"

@@ -18,6 +18,7 @@
     "vtu-cashback-summaries": "node jobs/run-web-cron.mjs /api/cron/vtu-cashback-summaries",
     "sync-jumia-orders": "bash bin/sync-jumia-orders.sh",
     "run-web-cron": "node jobs/run-web-cron.mjs",
+    "ai-storefront-trigger-server": "node jobs/ai-storefront-trigger-server.mjs",
     "vercel-error-remediator": "node jobs/vercel-error-remediator.mjs",
     "vercel-log-drain-receiver": "node jobs/vercel-log-drain-receiver.mjs",
     "test": "node scripts/run-tests.mjs"

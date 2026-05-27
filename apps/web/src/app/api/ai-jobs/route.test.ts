@@ -1,11 +1,25 @@
-import type { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { POST } from './route';
+
+vi.mock('next/server', async () => {
+  const actual =
+    await vi.importActual<typeof import('next/server')>('next/server');
+
+  return {
+    ...actual,
+    after: (callback: () => void | Promise<void>) => {
+      void Promise.resolve()
+        .then(callback)
+        .catch(() => undefined);
+    },
+  };
+});
 
 const mocks = vi.hoisted(() => ({
   checkCsrfProtection: vi.fn(),
   createClient: vi.fn(),
   getMerchantForApiRequest: vi.fn(),
+  loggerError: vi.fn(),
+  triggerAiStorefrontWorker: vi.fn(),
 }));
 
 vi.mock('next/headers', () => ({
@@ -29,6 +43,19 @@ vi.mock('@/lib/get-merchant-for-api-request', async () => {
     getMerchantForApiRequest: mocks.getMerchantForApiRequest,
   };
 });
+
+vi.mock('@/lib/ai-storefront/trigger-storefront-worker', () => ({
+  triggerAiStorefrontWorker: mocks.triggerAiStorefrontWorker,
+}));
+
+vi.mock('@/lib/logger', () => ({
+  logger: {
+    error: mocks.loggerError,
+  },
+}));
+
+import type { NextRequest } from 'next/server';
+import { POST } from './route';
 
 function createSupabaseMock() {
   return {
@@ -58,6 +85,13 @@ function createPostRequest(body: unknown): NextRequest {
   }) as NextRequest;
 }
 
+async function flushAfterCallbacks() {
+  // The mocked after() callback runs in a microtask that schedules the async
+  // trigger body in another microtask, so both ticks are intentional.
+  await Promise.resolve();
+  await Promise.resolve();
+}
+
 describe('POST /api/ai-jobs', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -75,6 +109,10 @@ describe('POST /api/ai-jobs', () => {
       },
     });
     mocks.createClient.mockReturnValue(createSupabaseMock());
+    mocks.triggerAiStorefrontWorker.mockResolvedValue({
+      triggered: true,
+      status: 202,
+    });
   });
 
   it('rejects malformed storefront generation input before insert', async () => {
@@ -112,6 +150,76 @@ describe('POST /api/ai-jobs', () => {
         status: 'pending',
       },
     });
+  });
+
+  it('triggers the VPS storefront worker after creating a storefront job', async () => {
+    const response = await POST(
+      createPostRequest({
+        type: 'storefront_layout_generation',
+        input: {
+          pageSlug: 'home',
+          businessName: 'Bassey Phones',
+          businessType: 'electronics',
+          brandColors: null,
+          createdPageConfigUpdatedAt: null,
+        },
+      })
+    );
+
+    expect(response.status).toBe(201);
+    await flushAfterCallbacks();
+    expect(mocks.triggerAiStorefrontWorker).toHaveBeenCalledWith({
+      jobId: 'job-1',
+      merchantId: 'merchant-1',
+      source: 'api',
+    });
+  });
+
+  it('keeps job creation successful when the storefront trigger fails', async () => {
+    mocks.triggerAiStorefrontWorker.mockRejectedValueOnce(
+      new Error('trigger unavailable')
+    );
+
+    const response = await POST(
+      createPostRequest({
+        type: 'storefront_layout_generation',
+        input: {
+          pageSlug: 'home',
+          businessName: 'Bassey Phones',
+          businessType: 'electronics',
+          brandColors: null,
+          createdPageConfigUpdatedAt: null,
+        },
+      })
+    );
+
+    expect(response.status).toBe(201);
+    await flushAfterCallbacks();
+    expect(mocks.triggerAiStorefrontWorker).toHaveBeenCalledWith({
+      jobId: 'job-1',
+      merchantId: 'merchant-1',
+      source: 'api',
+    });
+    expect(mocks.loggerError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        jobId: 'job-1',
+        merchantId: 'merchant-1',
+        message: 'AI storefront worker trigger failed',
+      })
+    );
+  });
+
+  it('does not trigger the storefront worker for non-storefront AI jobs', async () => {
+    const response = await POST(
+      createPostRequest({
+        type: 'price_list_processing',
+        input: { uploadId: 'upload-1' },
+      })
+    );
+
+    expect(response.status).toBe(201);
+    await flushAfterCallbacks();
+    expect(mocks.triggerAiStorefrontWorker).not.toHaveBeenCalled();
   });
 
   it('requires builder edit permission for storefront generation jobs', async () => {
