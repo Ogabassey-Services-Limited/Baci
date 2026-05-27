@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@baci/shared": "workspace:*",
+    "@baci/tiktok-business": "workspace:*",
     "@expo-google-fonts/inter": "^0.4.2",
     "@expo/dom-webview": "^56.0.5",
     "@expo/metro-runtime": "^56.0.12",
@@ -83,7 +84,6 @@
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "4.25.2",
     "react-native-svg": "15.15.4",
-    "react-native-tiktok-business": "^0.2.0",
     "react-native-web": "~0.21.2",
     "react-native-webview": "13.16.1",
     "react-native-worklets": "0.8.3",

@@ -1,0 +1,68 @@
+import { vi } from 'vitest';
+
+const mockPlatform = vi.hoisted(() => ({ OS: 'ios' }));
+const mockNativeModule = vi.hoisted(() => ({
+  flush: vi.fn(),
+  identify: vi.fn(),
+  initialize: vi.fn(() => true),
+  isDebugMode: vi.fn(() => false),
+  isInitialized: vi.fn(() => true),
+  logout: vi.fn(),
+  requestTrackingAuthorization: vi.fn(async () => 3),
+  trackEvent: vi.fn(() => true),
+}));
+const mockRequireNativeModule = vi.hoisted(() => vi.fn(() => mockNativeModule));
+
+vi.mock('react-native', () => ({
+  Platform: mockPlatform,
+}));
+
+vi.mock('expo-modules-core', () => ({
+  requireNativeModule: mockRequireNativeModule,
+}));
+
+describe('@baci/tiktok-business', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    mockPlatform.OS = 'ios';
+    mockRequireNativeModule.mockClear();
+    Object.values(mockNativeModule).forEach((mock) => mock.mockClear());
+  });
+
+  it('initializes the native iOS module lazily', async () => {
+    const TikTokBusiness = await import('./index');
+
+    expect(TikTokBusiness.initialize()).toBe(true);
+    expect(mockRequireNativeModule).toHaveBeenCalledWith('BaciTikTokBusiness');
+    expect(mockNativeModule.initialize).toHaveBeenCalledTimes(1);
+  });
+
+  it('normalizes event data before passing events to native iOS', async () => {
+    const TikTokBusiness = await import('./index');
+
+    const tracked = TikTokBusiness.trackEvent('Purchase', 'event-1', [
+      { key: ' value ', value: 2500 },
+      { key: 'currency', value: 'NGN' },
+      { key: ' ', value: 'ignored' },
+    ]);
+
+    expect(tracked).toBe(true);
+    expect(mockNativeModule.trackEvent).toHaveBeenCalledWith(
+      'Purchase',
+      'event-1',
+      [
+        { key: 'value', value: '2500' },
+        { key: 'currency', value: 'NGN' },
+      ]
+    );
+  });
+
+  it('uses no-op behavior on non-iOS platforms', async () => {
+    mockPlatform.OS = 'android';
+    const TikTokBusiness = await import('./index');
+
+    expect(TikTokBusiness.initialize()).toBe(false);
+    expect(TikTokBusiness.trackEvent('LaunchApp')).toBe(false);
+    expect(mockRequireNativeModule).not.toHaveBeenCalled();
+  });
+});

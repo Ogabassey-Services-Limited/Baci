@@ -166,6 +166,7 @@ jobs:
           EXPO_PUBLIC_WEB_API_URL: https://usebaci.com
           EXPO_PUBLIC_API_URL: https://usebaci.com
           EXPO_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY }}
+          STOREFRONT_TIKTOK_APP_SECRET: ${{ secrets.STOREFRONT_TIKTOK_APP_SECRET }}
         run: pnpm exec expo prebuild --platform ios --clean
 
       - name: Fix prebuild signing style for archive
