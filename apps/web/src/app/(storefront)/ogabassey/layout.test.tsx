@@ -39,7 +39,8 @@ import OgabasseyLayout, {
 
 describe('OgabasseyLayout', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    mockGenerateStorefrontLayoutMetadata.mockClear();
+    mockStorefrontLayout.mockClear();
   });
 
   it('renders the storefront layout with the static OgaBassey identifier', async () => {

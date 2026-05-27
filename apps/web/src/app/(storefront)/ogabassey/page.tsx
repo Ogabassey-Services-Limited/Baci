@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import '@/app/(storefront)/storefront-full.css';
 import { Suspense } from 'react';
 import { OgabasseyStaticResourceHints } from '@/app/(storefront)/ogabassey/ogabassey-static-resource-hints';
 import { Hero } from '@/components/storefront/ogabassey/components/Hero';

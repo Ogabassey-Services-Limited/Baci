@@ -39,7 +39,8 @@ import OgabasseyDomainLayout, {
 
 describe('OgabasseyDomainLayout', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    mockGenerateStorefrontLayoutMetadata.mockClear();
+    mockStorefrontLayout.mockClear();
   });
 
   it('renders the storefront layout with the domain identifier', async () => {
