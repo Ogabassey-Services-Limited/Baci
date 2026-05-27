@@ -373,17 +373,6 @@ describe('POST /api/paystack/subaccount', () => {
   });
 
   it('returns 400 for India offline bank details without a bank name', async () => {
-    mockMerchantSingle.mockResolvedValueOnce({
-      data: {
-        paystack_subaccount_code: null,
-        business_name: 'Yodha Shopping',
-        country: 'IN',
-        email: 'yodhashopping@gmail.com',
-        phone: null,
-      },
-      error: null,
-    });
-
     const response = await POST(
       makeRequest({
         accountNumber: '1234567890123456',
@@ -393,7 +382,10 @@ describe('POST /api/paystack/subaccount', () => {
 
     expect(response.status).toBe(400);
     const body = await response.json();
-    expect(body.error).toBe('Bank name is required');
+    expect(body.error).toBe('Invalid input');
+    expect(body.details.fieldErrors.bank_code).toContain(
+      'Bank code is required'
+    );
     expect(mockResolveAccountNumber).not.toHaveBeenCalled();
     expect(mockCreateSubaccount).not.toHaveBeenCalled();
     expect(mockUpdateSubaccount).not.toHaveBeenCalled();

@@ -232,7 +232,9 @@ describe('submitOnboarding', () => {
       expect.objectContaining({
         signup_source: 'web',
         business_name: 'TestStore',
+        country: 'NG',
         email: 'merchant@example.com',
+        payout_currency: 'NGN',
       })
     );
   });
@@ -371,6 +373,12 @@ describe('submitOnboarding', () => {
     expect(result.success).toBe(true);
     // Update path should NOT have been called with signup_source
     expect(mockAdminInsert).not.toHaveBeenCalled();
+    expect(mockAdminUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        country: 'NG',
+        payout_currency: 'NGN',
+      })
+    );
   });
 
   it('does not rewrite an established slug when completing a pending merchant', async () => {

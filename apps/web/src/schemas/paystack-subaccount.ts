@@ -32,12 +32,33 @@ export const paystackSubaccountSchema = paystackSubaccountSourceSchema
     };
   })
   .superRefine((data, ctx) => {
-    if (!/^[A-Za-z0-9][A-Za-z0-9 -]{5,33}$/.test(data.account_number)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Account number must be 6 to 34 letters or digits',
-        path: ['account_number'],
-      });
+    const isOfflineBank = Boolean(data.bank_name);
+
+    if (isOfflineBank) {
+      if (!/^[A-Za-z0-9][A-Za-z0-9 -]{5,33}$/.test(data.account_number)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message:
+            'Account number must be 6 to 34 characters and may include letters, digits, spaces, and hyphens',
+          path: ['account_number'],
+        });
+      }
+    } else {
+      if (!/^\d{10}$/.test(data.account_number)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Account number must be exactly 10 digits',
+          path: ['account_number'],
+        });
+      }
+
+      if (!data.bank_code) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Bank code is required',
+          path: ['bank_code'],
+        });
+      }
     }
 
     if (

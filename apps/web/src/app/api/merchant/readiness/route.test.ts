@@ -81,6 +81,7 @@ function countChain(result: unknown) {
 }
 
 function createReadinessSupabaseMock(options?: {
+  featureSettingsError?: unknown;
   featureSettings?: unknown;
   homePageConfig?: unknown;
   latestJob?: unknown;
@@ -134,7 +135,8 @@ function createReadinessSupabaseMock(options?: {
               korapay_enabled: true,
               pay_on_delivery_enabled: false,
               paystack_enabled: true,
-            }
+            },
+            options?.featureSettingsError ?? null
           )
         );
       }
@@ -289,6 +291,24 @@ describe('GET /api/merchant/readiness', () => {
     expect(await response.json()).toEqual({
       error: 'Failed to load storefront build status',
       code: 'STOREFRONT_JOB_LOAD_FAILED',
+    });
+  });
+
+  it('returns 500 when payment settings cannot be loaded', async () => {
+    mocks.createClient.mockReturnValue(
+      createReadinessSupabaseMock({
+        featureSettings: null,
+        featureSettingsError: { message: 'query failed' },
+      })
+    );
+
+    const { GET } = await import('./route');
+    const response = await GET();
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({
+      error: 'Failed to load payment settings',
+      code: 'PAYMENT_SETTINGS_LOAD_FAILED',
     });
   });
 });
