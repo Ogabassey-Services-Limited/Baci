@@ -78,15 +78,9 @@ describe('terms page rendering', () => {
 
     expect(element.type).toBe(Fragment);
     expect(contentBoundary?.type).toBe(Suspense);
-    expect(markerElement.type).toBe('div');
-    const markerSuspense = (
-      markerElement.props as {
-        children?: ReactElement;
-      }
-    ).children;
-    expect(markerSuspense?.type).toBe(Suspense);
+    expect(markerElement.type).toBe(Suspense);
     const markerConnection = (
-      markerSuspense?.props as {
+      markerElement.props as {
         children?: ReactElement;
       }
     ).children?.type as () => Promise<null>;
@@ -103,13 +97,8 @@ describe('terms page rendering', () => {
     }) as ReactElement<{ children: ReactElement[] }>;
     const markerBoundary = element.props.children[1];
     const markerElement = (markerBoundary.type as () => ReactElement)();
-    const markerSuspense = (
-      markerElement.props as {
-        children?: ReactElement;
-      }
-    ).children;
     const markerConnection = (
-      markerSuspense?.props as {
+      markerElement.props as {
         children?: ReactElement;
       }
     ).children?.type as () => Promise<null>;
