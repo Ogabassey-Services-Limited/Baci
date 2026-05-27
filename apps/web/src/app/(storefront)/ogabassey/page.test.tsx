@@ -15,7 +15,13 @@ const mockOgabasseyHomePageContent = vi.hoisted(() =>
   ))
 );
 const mockOgabasseyStaticResourceHints = vi.hoisted(() => vi.fn(() => null));
+const mockFullStorefrontCssImport = vi.hoisted(() => vi.fn());
 vi.mock('server-only', () => ({}));
+
+vi.mock('@/app/(storefront)/storefront-full.css', () => {
+  mockFullStorefrontCssImport();
+  return {};
+});
 
 vi.mock('@/components/storefront/ogabassey/components/Hero', () => ({
   Hero: () => <section aria-label="OgaBassey hero">Hero shell</section>,
@@ -33,6 +39,10 @@ vi.mock('./ogabassey-home-page-content', () => ({
 import OgabasseyStaticHomePage, { metadata } from './page';
 
 describe('OgabasseyStaticHomePage', () => {
+  it('loads the full storefront stylesheet at the page leaf', () => {
+    expect(mockFullStorefrontCssImport).toHaveBeenCalledOnce();
+  });
+
   it('renders the OgaBassey-specific home route shell', () => {
     render(<OgabasseyStaticHomePage />);
 

@@ -2,33 +2,24 @@ import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const {
-  mockFullStorefrontCssImport,
-  mockGenerateStorefrontLayoutMetadata,
-  mockStorefrontLayout,
-} = vi.hoisted(() => ({
-  mockFullStorefrontCssImport: vi.fn(),
-  mockGenerateStorefrontLayoutMetadata: vi.fn(
-    (_props: { params: Promise<{ slug: string }> }) =>
-      Promise.resolve({ manifest: null })
-  ),
-  mockStorefrontLayout: vi.fn(
-    ({
-      children,
-      loadingFallback: _loadingFallback,
-      params: _params,
-    }: {
-      children: ReactNode;
-      loadingFallback?: ReactNode;
-      params: Promise<{ slug: string }>;
-    }) => <section aria-label="storefront layout">{children}</section>
-  ),
-}));
-
-vi.mock('@/app/(storefront)/storefront-full.css', () => {
-  mockFullStorefrontCssImport();
-  return {};
-});
+const { mockGenerateStorefrontLayoutMetadata, mockStorefrontLayout } =
+  vi.hoisted(() => ({
+    mockGenerateStorefrontLayoutMetadata: vi.fn(
+      (_props: { params: Promise<{ slug: string }> }) =>
+        Promise.resolve({ manifest: null })
+    ),
+    mockStorefrontLayout: vi.fn(
+      ({
+        children,
+        loadingFallback: _loadingFallback,
+        params: _params,
+      }: {
+        children: ReactNode;
+        loadingFallback?: ReactNode;
+        params: Promise<{ slug: string }>;
+      }) => <section aria-label="storefront layout">{children}</section>
+    ),
+  }));
 
 vi.mock('server-only', () => ({}));
 
@@ -50,10 +41,6 @@ describe('OgabasseyDomainLayout', () => {
   beforeEach(() => {
     mockGenerateStorefrontLayoutMetadata.mockClear();
     mockStorefrontLayout.mockClear();
-  });
-
-  it('loads the full storefront stylesheet for the OgaBassey custom domain homepage', () => {
-    expect(mockFullStorefrontCssImport).toHaveBeenCalledOnce();
   });
 
   it('renders the storefront layout with the domain identifier', async () => {

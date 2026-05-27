@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import '@/app/(storefront)/storefront-full.css';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
 import { generateMetaDescription } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
