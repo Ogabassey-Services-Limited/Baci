@@ -19,9 +19,9 @@ on:
         type: string
 
 concurrency:
-  # Keep Play Store release builds serialized across admin and storefront so
-  # version-code guards and production uploads do not race each other.
-  group: android-release-build
+  # Keep storefront release runs serialized. Do not share this group with the
+  # admin workflow: GitHub only preserves one pending run per group.
+  group: android-storefront-release-${{ github.ref }}
   cancel-in-progress: false
 
 permissions:
@@ -30,6 +30,7 @@ permissions:
 env:
   JAVA_VERSION: "21"
   NODE_VERSION: "24"
+  ANDROID_NODE_OPTIONS: "--no-strip-types --max-old-space-size=2048"
   PNPM_STORE_DIR: ${{ github.workspace }}/.pnpm-store
   WORKING_DIR: apps/mobile-storefront
   # Offset added to github.run_number to avoid collisions with
@@ -40,11 +41,6 @@ jobs:
   build-and-deploy:
     name: Build Storefront AAB & Upload to Play Store
     runs-on: ubuntu-24.04
-    # Admin and storefront releases share this group to keep heavyweight Android
-    # builds from competing for the same cache/save windows.
-    concurrency:
-      group: android-release-job
-      cancel-in-progress: false
     timeout-minutes: 90
 
     steps:
@@ -80,10 +76,6 @@ jobs:
         with:
           store-dir: ${{ env.PNPM_STORE_DIR }}
 
-      # Node 22+ type stripping breaks expo-modules-core.
-      - name: Disable Node type stripping
-        run: echo "NODE_OPTIONS=--no-strip-types" >> "$GITHUB_ENV"
-
       - name: Cache Gradle packages
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
         with:
@@ -96,6 +88,10 @@ jobs:
 
       - name: Install dependencies
         uses: ./.github/actions/pnpm-install-cached
+        env:
+          # Node 22+ type stripping breaks expo-modules-core; cap old-space for
+          # standard 7GB GitHub-hosted runners.
+          NODE_OPTIONS: ${{ env.ANDROID_NODE_OPTIONS }}
         with:
           store-dir: ${{ env.PNPM_STORE_DIR }}
           install-command: .github/scripts/pnpm-install-with-retry.sh --frozen-lockfile
@@ -150,6 +146,7 @@ jobs:
         working-directory: ${{ env.WORKING_DIR }}
         env:
           CI: "1"
+          NODE_OPTIONS: ${{ env.ANDROID_NODE_OPTIONS }}
           ANDROID_VERSION_CODE: ${{ env.VERSION_CODE }}
           EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
@@ -190,7 +187,8 @@ jobs:
       - name: Build Android App Bundle (storefront)
         working-directory: ${{ env.WORKING_DIR }}/android
         env:
-          GRADLE_OPTS: "-Xmx4g"
+          GRADLE_OPTS: "-Xmx2048m -Dkotlin.daemon.jvm.options=-Xmx1024m"
+          NODE_OPTIONS: ${{ env.ANDROID_NODE_OPTIONS }}
           ANDROID_KEYSTORE_FILE: ${{ env.ANDROID_STOREFRONT_KEYSTORE_FILE }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_STOREFRONT_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_STOREFRONT_KEY_ALIAS }}
@@ -201,7 +199,7 @@ jobs:
           EXPO_PUBLIC_API_URL: https://usebaci.com
           EXPO_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY }}
         run: |
-          GRADLE_ARGS="app:bundleRelease -x lint -x lintVitalAnalyzeRelease -x test --configure-on-demand --build-cache --parallel --no-daemon"
+          GRADLE_ARGS="app:bundleRelease -x lint -x lintVitalAnalyzeRelease -x test --configure-on-demand --build-cache --max-workers=2 --no-daemon"
           # shellcheck disable=SC2086
           ./gradlew $GRADLE_ARGS
 
