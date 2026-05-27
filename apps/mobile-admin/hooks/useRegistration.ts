@@ -11,7 +11,7 @@ interface RegisterPayload {
   lastName: string;
   businessName: string;
   businessType?: string;
-  country?: string;
+  country: string;
   otherBusinessType?: string;
   slug?: string;
   phone?: string;
@@ -27,7 +27,7 @@ interface CompleteProfilePayload {
   email: string;
   businessName: string;
   businessType: string;
-  country?: string;
+  country: string;
   otherBusinessType?: string;
   slug?: string;
   logoUrl?: string;

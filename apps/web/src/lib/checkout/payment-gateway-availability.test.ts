@@ -121,6 +121,15 @@ describe('payment-gateway-availability', () => {
     ).toBe(true);
   });
 
+  it('returns false for Pay on Delivery when disabled or missing', () => {
+    expect(
+      isPayOnDeliveryCheckoutAvailable({
+        feature_settings: { pay_on_delivery_enabled: false },
+      })
+    ).toBe(false);
+    expect(isPayOnDeliveryCheckoutAvailable({})).toBe(false);
+  });
+
   it('treats India Pay on Delivery as a launchable payment method without Paystack bank details', () => {
     expect(
       hasLaunchablePaymentMethod({
@@ -134,5 +143,20 @@ describe('payment-gateway-availability', () => {
         },
       })
     ).toBe(true);
+  });
+
+  it('does not treat India as launchable when Pay on Delivery is disabled and Paystack details are missing', () => {
+    expect(
+      hasLaunchablePaymentMethod({
+        country: 'IN',
+        bank_account_number: null,
+        bank_code: null,
+        paystack_subaccount_code: null,
+        feature_settings: {
+          pay_on_delivery_enabled: false,
+          paystack_enabled: false,
+        },
+      })
+    ).toBe(false);
   });
 });

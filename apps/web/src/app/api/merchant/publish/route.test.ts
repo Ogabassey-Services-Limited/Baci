@@ -220,10 +220,13 @@ function setupVerification(
   };
 }
 
-function setupFeatureSettings(data: Record<string, unknown> | null = {}) {
+function setupFeatureSettings(
+  data: Record<string, unknown> | null = {},
+  error: { message: string } | null = null
+) {
   mockFeatureSettingsData = {
     data:
-      data === null
+      data === null || error
         ? null
         : {
             pay_on_delivery_enabled: false,
@@ -231,7 +234,7 @@ function setupFeatureSettings(data: Record<string, unknown> | null = {}) {
             korapay_enabled: true,
             ...data,
           },
-    error: null,
+    error,
   };
 }
 
@@ -367,6 +370,25 @@ describe('POST /api/merchant/publish', () => {
       expect(res.status).toBe(200);
       expect(json.success).toBe(true);
       expect(mockRevalidateMerchant).toHaveBeenCalledWith(MERCHANT_ID);
+    });
+
+    it('returns 500 when payment settings cannot be loaded', async () => {
+      setupAuth(true, true);
+      setupMerchantData({
+        country: 'IN',
+        bank_code: null,
+        bank_account_number: null,
+        paystack_subaccount_code: null,
+      });
+      setupFeatureSettings(null, { message: 'database unavailable' });
+      setupProductCount(1, 1);
+
+      const res = await POST(makeRequest('POST'));
+      const json = await res.json();
+
+      expect(res.status).toBe(500);
+      expect(json.error).toBe('Failed to load payment settings');
+      expect(mockRevalidateMerchant).not.toHaveBeenCalled();
     });
   });
 

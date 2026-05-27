@@ -372,6 +372,68 @@ describe('POST /api/paystack/subaccount', () => {
     });
   });
 
+  it('returns 400 for India offline bank details without a bank name', async () => {
+    mockMerchantSingle.mockResolvedValueOnce({
+      data: {
+        paystack_subaccount_code: null,
+        business_name: 'Yodha Shopping',
+        country: 'IN',
+        email: 'yodhashopping@gmail.com',
+        phone: null,
+      },
+      error: null,
+    });
+
+    const response = await POST(
+      makeRequest({
+        accountNumber: '1234567890123456',
+        businessName: 'Yodha Shopping',
+      })
+    );
+
+    expect(response.status).toBe(400);
+    const body = await response.json();
+    expect(body.error).toBe('Bank name is required');
+    expect(mockResolveAccountNumber).not.toHaveBeenCalled();
+    expect(mockCreateSubaccount).not.toHaveBeenCalled();
+    expect(mockUpdateSubaccount).not.toHaveBeenCalled();
+    expect(mockMerchantUpdate).not.toHaveBeenCalled();
+  });
+
+  it('rejects auto-payout changes for India offline bank details', async () => {
+    mockMerchantSingle.mockResolvedValueOnce({
+      data: {
+        paystack_subaccount_code: null,
+        business_name: 'Yodha Shopping',
+        country: 'IN',
+        email: 'yodhashopping@gmail.com',
+        phone: null,
+      },
+      error: null,
+    });
+
+    const response = await POST(
+      makeRequest({
+        accountNumber: '1234567890123456',
+        bankName: 'HDFC Bank',
+        businessName: 'Yodha Shopping',
+        autoPayoutEnabled: true,
+      })
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error:
+        'Auto-payout settings are only supported for Nigerian Paystack settlements',
+    });
+    expect(mockResolveAccountNumber).not.toHaveBeenCalled();
+    expect(mockCreateSubaccount).not.toHaveBeenCalled();
+    expect(mockUpdateSubaccount).not.toHaveBeenCalled();
+    expect(mockMerchantUpdate).not.toHaveBeenCalled();
+    expect(mockRpc).not.toHaveBeenCalled();
+    expect(mockWalletUpdate).not.toHaveBeenCalled();
+  });
+
   it('updates an existing subaccount instead of creating a new one', async () => {
     mockMerchantSingle.mockResolvedValueOnce({
       data: {

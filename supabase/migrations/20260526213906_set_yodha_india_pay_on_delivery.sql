@@ -20,7 +20,7 @@ INSERT INTO public.merchant_feature_settings (
 SELECT
   id,
   FALSE,
-  FALSE,
+  TRUE,
   TRUE,
   'korapay',
   'korapay'
@@ -28,7 +28,7 @@ FROM target_merchants
 ON CONFLICT (merchant_id) DO UPDATE
 SET
   paystack_enabled = FALSE,
-  korapay_enabled = FALSE,
+  korapay_enabled = TRUE,
   pay_on_delivery_enabled = TRUE,
   preferred_local_gateway = 'korapay',
   preferred_international_gateway = 'korapay',

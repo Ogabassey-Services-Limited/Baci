@@ -152,6 +152,16 @@ export async function POST(request: NextRequest) {
     }
 
     if (!isBaciPaystackSettlementCountry(merchantDetails.country)) {
+      if (shouldPersistAutoPayoutEnabled) {
+        return NextResponse.json(
+          {
+            error:
+              'Auto-payout settings are only supported for Nigerian Paystack settlements',
+          },
+          { status: 400 }
+        );
+      }
+
       const offlineBankName = bank_name || bank_code;
       if (!offlineBankName) {
         return NextResponse.json(

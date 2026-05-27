@@ -78,4 +78,34 @@ describe('merchantBankSchema', () => {
       businessName: 'Yodha Shopping',
     });
   });
+
+  it('rejects invalid international account numbers', () => {
+    const result = internationalMerchantBankSchema.safeParse({
+      accountNumber: '123',
+      bankName: 'HDFC Bank',
+      businessName: 'Yodha Shopping',
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects blank international bank names', () => {
+    const result = internationalMerchantBankSchema.safeParse({
+      accountNumber: '1234567890123456',
+      bankName: '   ',
+      businessName: 'Yodha Shopping',
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects whitespace-only international business names', () => {
+    const result = internationalMerchantBankSchema.safeParse({
+      accountNumber: '1234567890123456',
+      bankName: 'HDFC Bank',
+      businessName: '   ',
+    });
+
+    expect(result.success).toBe(false);
+  });
 });

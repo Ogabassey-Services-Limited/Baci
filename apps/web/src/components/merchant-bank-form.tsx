@@ -2,7 +2,7 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { AlertCircle, Check, CheckCircle2, Loader2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { type Resolver, useForm } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
 import {
@@ -61,6 +61,7 @@ export function MerchantBankForm({
   const [verificationError, setVerificationError] = useState<string | null>(
     null
   );
+  const verifyRequestIdRef = useRef(0);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const hasHydratedAutoPayoutSetting =
     typeof initialData?.autoPayoutEnabled === 'boolean';
@@ -137,12 +138,16 @@ export function MerchantBankForm({
   // const selectedBankName = banks.find(b => b.code === selectedBankCode)?.name;
 
   // Verify account when both account number and bank are provided
-  const verifyAccount = async () => {
+  const verifyAccount = async (
+    requestId: number,
+    accountNumberToVerify: string,
+    bankCodeToVerify: string
+  ) => {
     if (!isPaystackSupported) {
       return;
     }
 
-    if (accountNumber.length !== 10 || !selectedBankCode) {
+    if (accountNumberToVerify.length !== 10 || !bankCodeToVerify) {
       return;
     }
 
@@ -156,9 +161,13 @@ export function MerchantBankForm({
         account_number: string;
         bank_id: number | null;
       }>('/api/paystack/resolve', {
-        accountNumber,
-        bankCode: selectedBankCode,
+        accountNumber: accountNumberToVerify,
+        bankCode: bankCodeToVerify,
       });
+
+      if (requestId !== verifyRequestIdRef.current) {
+        return;
+      }
 
       if (data.account_name) {
         setVerifiedName(data.account_name);
@@ -168,30 +177,41 @@ export function MerchantBankForm({
         }
       }
     } catch (error) {
+      if (requestId !== verifyRequestIdRef.current) {
+        return;
+      }
+
       setVerificationError(
         error instanceof Error
           ? error.message
           : 'Failed to verify account. Please try again.'
       );
     } finally {
-      setIsVerifying(false);
+      if (requestId === verifyRequestIdRef.current) {
+        setIsVerifying(false);
+      }
     }
   };
 
   // Trigger verification when both fields are filled
   // biome-ignore lint/correctness/useExhaustiveDependencies: verifyAccount defined inline, dependencies managed explicitly
   useEffect(() => {
+    const requestId = verifyRequestIdRef.current + 1;
+    verifyRequestIdRef.current = requestId;
+
     if (!isPaystackSupported) {
       setVerifiedName(null);
       setVerificationError(null);
+      setIsVerifying(false);
       return;
     }
 
     if (selectedBankCode && accountNumber.length === 10) {
-      verifyAccount();
+      verifyAccount(requestId, accountNumber, selectedBankCode);
     } else {
       setVerifiedName(null);
       setVerificationError(null);
+      setIsVerifying(false);
     }
   }, [isPaystackSupported, selectedBankCode, accountNumber]);
 

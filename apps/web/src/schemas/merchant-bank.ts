@@ -15,7 +15,7 @@ export const internationalMerchantBankSchema = z.object({
     .trim()
     .regex(
       /^[A-Za-z0-9][A-Za-z0-9 -]{5,33}$/,
-      'Account number must be 6 to 34 letters or digits'
+      'Account number must be 6 to 34 characters and may include letters, digits, spaces, and hyphens'
     ),
   bankName: z.string().trim().min(2, 'Bank name is required'),
   businessName: z.string().trim().min(2, 'Business name is required'),

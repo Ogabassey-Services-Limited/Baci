@@ -1,4 +1,5 @@
 import z from 'zod';
+import { getCountryByCode } from '@/lib/countries';
 import { sanitizePhone, sanitizeText, sanitizeUrl } from '@/lib/sanitize-core';
 import {
   checkPasswordStrength,
@@ -51,6 +52,9 @@ const step1BaseSchema = z.object({
       .trim()
       .regex(/^[A-Z]{2}$/, {
         message: 'Please select the country where your business is registered.',
+      })
+      .refine((code) => Boolean(getCountryByCode(code)), {
+        message: 'Please select a supported country.',
       })
   ),
   otherBusinessType: z.preprocess(
