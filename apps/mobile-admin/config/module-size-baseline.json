@@ -1,0 +1,98 @@
+{
+  "maxLines": 300,
+  "roots": [
+    "components",
+    "hooks",
+    "lib",
+    "services",
+    "stores",
+    "utils"
+  ],
+  "modules": [
+    {
+      "path": "hooks/useProducts.ts",
+      "lineCount": 811,
+      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
+    },
+    {
+      "path": "hooks/useDashboardStats.ts",
+      "lineCount": 647,
+      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
+    },
+    {
+      "path": "lib/api-client.ts",
+      "lineCount": 423,
+      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
+    },
+    {
+      "path": "hooks/useCustomers.ts",
+      "lineCount": 387,
+      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
+    },
+    {
+      "path": "components/transactions/CostPriceEditorModal.tsx",
+      "lineCount": 364,
+      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
+    },
+    {
+      "path": "components/discounts/DiscountItemSelector.tsx",
+      "lineCount": 357,
+      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
+    },
+    {
+      "path": "hooks/useBlogEditor.ts",
+      "lineCount": 343,
+      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
+    },
+    {
+      "path": "services/push-notifications.ts",
+      "lineCount": 339,
+      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
+    },
+    {
+      "path": "stores/revenueCatStore.ts",
+      "lineCount": 331,
+      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
+    },
+    {
+      "path": "components/kyc/BvnVerificationCard.tsx",
+      "lineCount": 327,
+      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
+    },
+    {
+      "path": "components/staff/StaffListSection.tsx",
+      "lineCount": 327,
+      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
+    },
+    {
+      "path": "hooks/usePushNotifications.ts",
+      "lineCount": 320,
+      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
+    },
+    {
+      "path": "lib/transaction-review.ts",
+      "lineCount": 320,
+      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
+    },
+    {
+      "path": "components/transactions/transactions.styles.ts",
+      "lineCount": 317,
+      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
+    },
+    {
+      "path": "components/kyc/CacVerificationCard.tsx",
+      "lineCount": 307,
+      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
+    },
+    {
+      "path": "lib/validators/product.ts",
+      "lineCount": 307,
+      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
+    },
+    {
+      "path": "hooks/useStaffScreenActions.ts",
+      "lineCount": 301,
+      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
+    }
+  ]
+}
