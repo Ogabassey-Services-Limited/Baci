@@ -331,6 +331,61 @@ describe('getCachedBlogPost', () => {
     ]);
   });
 
+  it('filters inactive explicit blog product links before limiting results', async () => {
+    const inactiveLinks = Array.from({ length: 8 }, (_value, index) => ({
+      product: {
+        id: `inactive-${index}`,
+        name: `Inactive ${index}`,
+        slug: `inactive-${index}`,
+        status: 'draft',
+        categories: { slug: 'accessories' },
+      },
+    }));
+    const { linkedProductsBuilder, relatedProductsBuilder } =
+      setupBlogPostFetch({
+        merchantRow: buildMerchantRow(),
+        publishedPost: buildBlogPostRow({ category: 'Accessories' }),
+        linkedProductsResult: {
+          data: [
+            ...inactiveLinks,
+            {
+              product: {
+                id: 'ipad-active',
+                name: 'iPad Active',
+                slug: 'ipad-active',
+                status: 'active',
+                categories: { slug: 'tablets' },
+              },
+            },
+          ],
+          error: null,
+        },
+      });
+
+    const result = await getCachedBlogPost(
+      'ogabassey.com',
+      'factory-unlocked-iphones-explained'
+    );
+
+    expect(linkedProductsBuilder.eq).toHaveBeenCalledWith(
+      'blog_post_id',
+      'post-1'
+    );
+    expect(linkedProductsBuilder.limit).not.toHaveBeenCalledWith(8);
+    expect(relatedProductsBuilder.eq).not.toHaveBeenCalledWith(
+      'categories.slug',
+      expect.anything()
+    );
+    expect(result?.relatedProducts).toEqual([
+      {
+        id: 'ipad-active',
+        name: 'iPad Active',
+        slug: 'ipad-active',
+        category_slug: 'tablets',
+      },
+    ]);
+  });
+
   it('returns null for public test posts instead of exposing direct article URLs', async () => {
     setupBlogPostFetch({
       merchantRow: buildMerchantRow(),

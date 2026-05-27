@@ -107,8 +107,7 @@ export async function getLiveBlogPost(
     .select(RELATED_BLOG_PRODUCT_LINKS_SELECT)
     .eq('merchant_id', merchant.id)
     .eq('blog_post_id', post.id)
-    .order('created_at', { ascending: true })
-    .limit(8);
+    .order('created_at', { ascending: true });
 
   if (linkedProductsError) {
     console.error(
@@ -119,7 +118,7 @@ export async function getLiveBlogPost(
 
   let normalizedRelatedProducts = linkedProductsError
     ? []
-    : normalizeRelatedBlogProductLinks(linkedProducts);
+    : normalizeRelatedBlogProductLinks(linkedProducts).slice(0, 8);
 
   const normalizedCategorySlug = normalizeStorefrontCategoryValue(
     post.category
