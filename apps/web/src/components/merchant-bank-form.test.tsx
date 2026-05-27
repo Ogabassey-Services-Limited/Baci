@@ -185,6 +185,43 @@ describe('MerchantBankForm', () => {
     });
   });
 
+  it('saves international offline bank details without Paystack account verification', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <MerchantBankForm
+        countryCode="IN"
+        initialData={{
+          accountNumber: '1234567890123456',
+          bankName: 'HDFC Bank',
+          businessName: 'Yodha Shopping',
+        }}
+      />
+    );
+
+    expect(screen.queryByText('Account Verified')).toBeNull();
+    expect(
+      screen.getByText(/saved as offline payment instructions/i)
+    ).toBeTruthy();
+
+    await user.click(
+      screen.getByRole('button', { name: /save bank details/i })
+    );
+
+    await waitFor(() => {
+      expect(apiPostMock).toHaveBeenCalledWith('/api/paystack/subaccount', {
+        accountNumber: '1234567890123456',
+        bankName: 'HDFC Bank',
+        businessName: 'Yodha Shopping',
+      });
+    });
+
+    expect(apiPostMock).not.toHaveBeenCalledWith(
+      '/api/paystack/resolve',
+      expect.any(Object)
+    );
+  });
+
   it('shows a save error and recovers on a subsequent submit', async () => {
     const user = userEvent.setup();
     const onSuccess = vi.fn();

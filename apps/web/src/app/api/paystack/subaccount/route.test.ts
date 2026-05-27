@@ -133,6 +133,7 @@ describe('POST /api/paystack/subaccount', () => {
       data: {
         paystack_subaccount_code: null,
         business_name: 'Baci Store',
+        country: 'NG',
         email: 'merchant@example.com',
         phone: '08012345678',
       },
@@ -333,11 +334,104 @@ describe('POST /api/paystack/subaccount', () => {
     });
   });
 
+  it('stores offline bank details for India without calling Paystack account resolution', async () => {
+    mockMerchantSingle.mockResolvedValueOnce({
+      data: {
+        paystack_subaccount_code: null,
+        business_name: 'Yodha Shopping',
+        country: 'IN',
+        email: 'yodhashopping@gmail.com',
+        phone: null,
+      },
+      error: null,
+    });
+
+    const response = await POST(
+      makeRequest({
+        accountNumber: '1234567890123456',
+        bankName: 'HDFC Bank',
+        businessName: 'Yodha Shopping',
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      success: true,
+      accountName: 'Yodha Shopping',
+      subaccountCode: null,
+    });
+    expect(mockResolveAccountNumber).not.toHaveBeenCalled();
+    expect(mockCreateSubaccount).not.toHaveBeenCalled();
+    expect(mockUpdateSubaccount).not.toHaveBeenCalled();
+    expect(mockMerchantUpdate).toHaveBeenCalledWith({
+      paystack_subaccount_code: null,
+      bank_account_number: '1234567890123456',
+      bank_account_name: 'Yodha Shopping',
+      bank_code: null,
+      bank_name: 'HDFC Bank',
+    });
+  });
+
+  it('returns 400 for India offline bank details without a bank name', async () => {
+    const response = await POST(
+      makeRequest({
+        accountNumber: '1234567890123456',
+        businessName: 'Yodha Shopping',
+      })
+    );
+
+    expect(response.status).toBe(400);
+    const body = await response.json();
+    expect(body.error).toBe('Invalid input');
+    expect(body.details.fieldErrors.bank_code).toContain(
+      'Bank code is required'
+    );
+    expect(mockResolveAccountNumber).not.toHaveBeenCalled();
+    expect(mockCreateSubaccount).not.toHaveBeenCalled();
+    expect(mockUpdateSubaccount).not.toHaveBeenCalled();
+    expect(mockMerchantUpdate).not.toHaveBeenCalled();
+  });
+
+  it('rejects auto-payout changes for India offline bank details', async () => {
+    mockMerchantSingle.mockResolvedValueOnce({
+      data: {
+        paystack_subaccount_code: null,
+        business_name: 'Yodha Shopping',
+        country: 'IN',
+        email: 'yodhashopping@gmail.com',
+        phone: null,
+      },
+      error: null,
+    });
+
+    const response = await POST(
+      makeRequest({
+        accountNumber: '1234567890123456',
+        bankName: 'HDFC Bank',
+        businessName: 'Yodha Shopping',
+        autoPayoutEnabled: true,
+      })
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error:
+        'Auto-payout settings are only supported for Nigerian Paystack settlements',
+    });
+    expect(mockResolveAccountNumber).not.toHaveBeenCalled();
+    expect(mockCreateSubaccount).not.toHaveBeenCalled();
+    expect(mockUpdateSubaccount).not.toHaveBeenCalled();
+    expect(mockMerchantUpdate).not.toHaveBeenCalled();
+    expect(mockRpc).not.toHaveBeenCalled();
+    expect(mockWalletUpdate).not.toHaveBeenCalled();
+  });
+
   it('updates an existing subaccount instead of creating a new one', async () => {
     mockMerchantSingle.mockResolvedValueOnce({
       data: {
         paystack_subaccount_code: 'ACCT_existing123',
         business_name: 'Baci Store',
+        country: 'NG',
         email: 'merchant@example.com',
         phone: '08012345678',
       },

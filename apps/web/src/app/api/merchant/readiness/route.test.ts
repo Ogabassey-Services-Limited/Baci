@@ -81,6 +81,8 @@ function countChain(result: unknown) {
 }
 
 function createReadinessSupabaseMock(options?: {
+  featureSettingsError?: unknown;
+  featureSettings?: unknown;
   homePageConfig?: unknown;
   latestJob?: unknown;
   latestJobError?: unknown;
@@ -124,6 +126,19 @@ function createReadinessSupabaseMock(options?: {
 
       if (table === 'page_configs') {
         return chain(queryResult(options?.homePageConfig ?? { id: 'page-1' }));
+      }
+
+      if (table === 'merchant_feature_settings') {
+        return chain(
+          queryResult(
+            options?.featureSettings ?? {
+              korapay_enabled: true,
+              pay_on_delivery_enabled: false,
+              paystack_enabled: true,
+            },
+            options?.featureSettingsError ?? null
+          )
+        );
       }
 
       throw new Error(`Unexpected table ${table}`);
@@ -224,6 +239,41 @@ describe('GET /api/merchant/readiness', () => {
     );
   });
 
+  it('marks India Pay on Delivery as the completed launch payment method without Paystack bank details', async () => {
+    mocks.createClient.mockReturnValue(
+      createReadinessSupabaseMock({
+        merchant: {
+          ...merchantRow(),
+          country: 'IN',
+          bank_account_number: null,
+          bank_code: null,
+          paystack_subaccount_code: null,
+        },
+        featureSettings: {
+          korapay_enabled: false,
+          pay_on_delivery_enabled: true,
+          paystack_enabled: false,
+        },
+      })
+    );
+
+    const { GET } = await import('./route');
+    const response = await GET();
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'payment_method',
+          completed: true,
+          label: 'Enable a payment method',
+        }),
+      ])
+    );
+    expect(body.isReady).toBe(true);
+  });
+
   it('returns 500 when storefront job status cannot be loaded', async () => {
     mocks.createClient.mockReturnValue(
       createReadinessSupabaseMock({
@@ -241,6 +291,24 @@ describe('GET /api/merchant/readiness', () => {
     expect(await response.json()).toEqual({
       error: 'Failed to load storefront build status',
       code: 'STOREFRONT_JOB_LOAD_FAILED',
+    });
+  });
+
+  it('returns 500 when payment settings cannot be loaded', async () => {
+    mocks.createClient.mockReturnValue(
+      createReadinessSupabaseMock({
+        featureSettings: null,
+        featureSettingsError: { message: 'query failed' },
+      })
+    );
+
+    const { GET } = await import('./route');
+    const response = await GET();
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({
+      error: 'Failed to load payment settings',
+      code: 'PAYMENT_SETTINGS_LOAD_FAILED',
     });
   });
 });

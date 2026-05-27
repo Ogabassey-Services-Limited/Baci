@@ -5,6 +5,7 @@ import {
 import { cookies } from 'next/headers';
 import { after, type NextRequest, NextResponse } from 'next/server';
 import { env, getSupabaseAnonKey, getSupabaseUrl } from '@/env';
+import { getCountryByCode } from '@/lib/countries';
 import { checkPasswordBreach } from '@/lib/password-breach';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
@@ -75,6 +76,7 @@ export async function POST(req: NextRequest) {
       businessName,
       businessType,
       otherBusinessType,
+      country,
       logoUrl,
       slug: providedSlug,
       brandColors: brandColorsString,
@@ -213,6 +215,7 @@ export async function POST(req: NextRequest) {
       businessType === 'other'
         ? otherBusinessType || businessType
         : businessType;
+    const payoutCurrency = getCountryByCode(country)?.currency ?? 'USD';
 
     // Use provided slug or generate from business name (first word only)
     const slug =
@@ -258,6 +261,8 @@ export async function POST(req: NextRequest) {
         email,
         business_name: businessName,
         business_type: finalBusinessType,
+        country,
+        payout_currency: payoutCurrency,
         logo_url: logoUrl,
         favicon_png_192_url: logoUrl,
         brand_colors: brandColors,
@@ -287,6 +292,8 @@ export async function POST(req: NextRequest) {
           email,
           business_name: businessName,
           business_type: finalBusinessType,
+          country,
+          payout_currency: payoutCurrency,
           logo_url: logoUrl,
           favicon_png_192_url: logoUrl,
           brand_colors: brandColors,

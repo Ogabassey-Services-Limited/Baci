@@ -30,6 +30,7 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { useMerchant } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
+import { isBaciPaystackSettlementCountry } from '@/lib/checkout/payment-gateway-availability';
 import { cn } from '@/lib/utils';
 import { VirtualTerminalSettings } from './components/virtual-terminal-settings';
 
@@ -58,6 +59,12 @@ export default function PaymentSettingsPage() {
     useState<PaymentGatewaySettings>(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const merchantData = merchant as unknown as Record<string, unknown> | null;
+  const countryCode =
+    typeof merchantData?.country === 'string' ? merchantData.country : null;
+  const isPaystackSupported = isBaciPaystackSettlementCountry(countryCode);
+  const hasPaystackSubaccount = !!merchantData?.paystack_subaccount_code;
+  const hasSavedBankDetails = !!merchantData?.bank_account_number;
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -91,7 +98,22 @@ export default function PaymentSettingsPage() {
       const response = await fetch('/api/merchant/features', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(settings),
+        body: JSON.stringify({
+          ...settings,
+          paystack_enabled: isPaystackSupported
+            ? settings.paystack_enabled
+            : false,
+          preferred_local_gateway:
+            !isPaystackSupported &&
+            settings.preferred_local_gateway === 'paystack'
+              ? 'korapay'
+              : settings.preferred_local_gateway,
+          preferred_international_gateway:
+            !isPaystackSupported &&
+            settings.preferred_international_gateway === 'paystack'
+              ? 'korapay'
+              : settings.preferred_international_gateway,
+        }),
       });
 
       if (response.ok) {
@@ -122,10 +144,6 @@ export default function PaymentSettingsPage() {
     }
   };
 
-  // Cast merchant to access additional fields not in base type
-  const merchantData = merchant as unknown as Record<string, unknown> | null;
-  const hasPaystackSubaccount = !!merchantData?.paystack_subaccount_code;
-
   if (loading || merchantLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -148,28 +166,39 @@ export default function PaymentSettingsPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Building2 className="h-5 w-5" />
-            Bank Settlement Details
+            {isPaystackSupported ? 'Bank Settlement Details' : 'Bank Details'}
           </CardTitle>
           <CardDescription>
-            Add your bank account to receive payments directly via Paystack
-            split payments (T+1 settlement).
+            {isPaystackSupported
+              ? 'Add your bank account to receive payments directly via Paystack split payments (T+1 settlement).'
+              : 'Save your bank account for offline payment instructions while online payouts are configured.'}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {hasPaystackSubaccount ? (
+          {hasPaystackSubaccount ||
+          (!isPaystackSupported && hasSavedBankDetails) ? (
             <div className="space-y-4">
               <div className="flex items-center gap-3 p-4 rounded-lg bg-green-50 border border-green-200 text-green-700">
                 <Check className="h-5 w-5" />
                 <div>
-                  <p className="font-medium">Bank Account Connected</p>
+                  <p className="font-medium">
+                    {isPaystackSupported
+                      ? 'Bank Account Connected'
+                      : 'Bank Details Saved'}
+                  </p>
                   <p className="text-sm">
-                    Paystack subaccount is configured for automatic settlements
+                    {isPaystackSupported
+                      ? 'Paystack subaccount is configured for automatic settlements'
+                      : 'These details are available for offline payment instructions'}
                   </p>
                 </div>
               </div>
               <MerchantBankForm
+                countryCode={countryCode}
                 initialData={{
                   bankCode: merchantData?.bank_code as string,
+                  bankName: merchantData?.bank_name as string,
+                  accountName: merchantData?.bank_account_name as string,
                   accountNumber: merchantData?.bank_account_number as string,
                   businessName: merchant?.business_name,
                 }}
@@ -182,12 +211,18 @@ export default function PaymentSettingsPage() {
                 <div>
                   <p className="font-medium">Bank Account Required</p>
                   <p className="text-sm">
-                    Add your bank details to enable Paystack payments with
-                    automatic settlement
+                    {isPaystackSupported
+                      ? 'Add your bank details to enable Paystack payments with automatic settlement'
+                      : 'Add your bank details for offline payment instructions'}
                   </p>
                 </div>
               </div>
-              <MerchantBankForm />
+              <MerchantBankForm
+                countryCode={countryCode}
+                initialData={{
+                  businessName: merchant?.business_name,
+                }}
+              />
             </div>
           )}
         </CardContent>
@@ -210,7 +245,7 @@ export default function PaymentSettingsPage() {
           <div
             className={cn(
               'p-4 rounded-lg border-2 transition-colors',
-              settings.paystack_enabled
+              isPaystackSupported && settings.paystack_enabled
                 ? 'border-green-200 bg-green-50/50 dark:bg-green-900/10 dark:border-green-800'
                 : 'border-gray-200 dark:border-gray-800'
             )}
@@ -240,16 +275,24 @@ export default function PaymentSettingsPage() {
                 </div>
               </div>
               <Switch
-                checked={settings.paystack_enabled}
+                checked={isPaystackSupported && settings.paystack_enabled}
                 onCheckedChange={(checked) =>
                   setSettings({ ...settings, paystack_enabled: checked })
                 }
-                disabled={!hasPaystackSubaccount}
+                disabled={!isPaystackSupported || !hasPaystackSubaccount}
               />
             </div>
+            {!isPaystackSupported && (
+              <p className="text-xs text-yellow-600 dark:text-yellow-500 mt-2">
+                Paystack is not available for this country yet. Use Pay on
+                Delivery or request another online payment provider.
+              </p>
+            )}
             {!hasPaystackSubaccount && (
               <p className="text-xs text-yellow-600 dark:text-yellow-500 mt-2">
-                Add bank details above to enable Paystack
+                {isPaystackSupported
+                  ? 'Add bank details above to enable Paystack'
+                  : 'Paystack setup is disabled for this country'}
               </p>
             )}
           </div>
@@ -396,9 +439,14 @@ export default function PaymentSettingsPage() {
                 <SelectContent>
                   <SelectItem
                     value="paystack"
-                    disabled={!hasPaystackSubaccount}
+                    disabled={!isPaystackSupported || !hasPaystackSubaccount}
                   >
-                    Paystack {!hasPaystackSubaccount && '(Add bank details)'}
+                    Paystack{' '}
+                    {!isPaystackSupported
+                      ? '(Unavailable)'
+                      : !hasPaystackSubaccount
+                        ? '(Add bank details)'
+                        : ''}
                   </SelectItem>
                   <SelectItem value="korapay">Korapay</SelectItem>
                 </SelectContent>
@@ -426,9 +474,14 @@ export default function PaymentSettingsPage() {
                   <SelectItem value="korapay">Korapay (Recommended)</SelectItem>
                   <SelectItem
                     value="paystack"
-                    disabled={!hasPaystackSubaccount}
+                    disabled={!isPaystackSupported || !hasPaystackSubaccount}
                   >
-                    Paystack {!hasPaystackSubaccount && '(Add bank details)'}
+                    Paystack{' '}
+                    {!isPaystackSupported
+                      ? '(Unavailable)'
+                      : !hasPaystackSubaccount
+                        ? '(Add bank details)'
+                        : ''}
                   </SelectItem>
                 </SelectContent>
               </Select>

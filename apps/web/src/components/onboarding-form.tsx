@@ -183,6 +183,7 @@ export default function OnboardingForm() {
       confirmPassword: '',
       businessName: '',
       businessType: '',
+      country: '',
       otherBusinessType: '',
       brandPreferences: '',
       logoUrl: '',
@@ -280,6 +281,7 @@ export default function OnboardingForm() {
       isValidStep = await form.trigger([
         'businessName',
         'businessType',
+        'country',
         'otherBusinessType',
       ]);
     } else if (step === 2) {
@@ -328,6 +330,7 @@ export default function OnboardingForm() {
       values: {
         businessName: values.businessName,
         businessType: values.businessType,
+        country: values.country,
         otherBusinessType: values.otherBusinessType,
         brandPreferences: values.brandPreferences,
         email: values.email,
@@ -351,6 +354,7 @@ export default function OnboardingForm() {
     formData.append('confirmPassword', values.confirmPassword || '');
     formData.append('businessName', values.businessName || '');
     formData.append('businessType', values.businessType || '');
+    formData.append('country', values.country || '');
     formData.append('otherBusinessType', values.otherBusinessType || '');
     formData.append('brandPreferences', values.brandPreferences || '');
     formData.append('logoUrl', logoUrl || '');

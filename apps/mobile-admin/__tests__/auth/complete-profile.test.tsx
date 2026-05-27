@@ -180,12 +180,14 @@ describe('CompleteProfileScreen', () => {
       target: { value: 'Akin Gadgets' },
     });
     fireEvent.click(screen.getByText('Electronics & Gadgets'));
+    fireEvent.click(screen.getByRole('button', { name: 'Country India' }));
     fireEvent.click(screen.getByRole('button', { name: 'Launch Store' }));
 
     expect(mocks.mutate).toHaveBeenCalledTimes(1);
     expect(mocks.mutate.mock.calls[0][0]).toMatchObject({
       businessName: 'Akin Gadgets',
       businessType: 'electronics',
+      country: 'IN',
       email: 'merchant@example.com',
       firstName: 'Akin',
       lastName: 'John',

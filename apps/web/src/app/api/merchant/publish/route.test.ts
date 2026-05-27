@@ -37,6 +37,7 @@ let mockPublishedProductCount: number;
 let mockTotalProductCount: number;
 let mockUpdateResult: { data: unknown; error: unknown };
 let mockVerificationData: { data: unknown; error: unknown };
+let mockFeatureSettingsData: { data: unknown; error: unknown };
 
 function createMockSupabase() {
   let productQueryCount = 0;
@@ -74,6 +75,16 @@ function createMockSupabase() {
               ...result,
             }),
             ...result,
+          }),
+        };
+      }
+
+      if (table === 'merchant_feature_settings') {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: () => Promise.resolve(mockFeatureSettingsData),
+            }),
           }),
         };
       }
@@ -209,6 +220,24 @@ function setupVerification(
   };
 }
 
+function setupFeatureSettings(
+  data: Record<string, unknown> | null = {},
+  error: { message: string } | null = null
+) {
+  mockFeatureSettingsData = {
+    data:
+      data === null || error
+        ? null
+        : {
+            pay_on_delivery_enabled: false,
+            paystack_enabled: true,
+            korapay_enabled: true,
+            ...data,
+          },
+    error,
+  };
+}
+
 // ---- Tests ----
 
 describe('POST /api/merchant/publish', () => {
@@ -218,6 +247,7 @@ describe('POST /api/merchant/publish', () => {
     mockPublishedProductCount = 0;
     mockTotalProductCount = 0;
     mockUpdateResult = { data: null, error: null };
+    setupFeatureSettings();
     // Default: merchant has a verified NIN so KYC does not block the tests
     // that aren't specifically exercising the verification gate.
     setupVerification({ nin_verified: true });
@@ -312,6 +342,53 @@ describe('POST /api/merchant/publish', () => {
 
       expect(res.status).toBe(400);
       expect(json.missingItems).toContain('Bank account details');
+    });
+
+    it('publishes an India merchant when Pay on Delivery is enabled and Paystack bank details are missing', async () => {
+      setupAuth(true, true);
+      setupMerchantData({
+        country: 'IN',
+        bank_code: null,
+        bank_account_number: null,
+        paystack_subaccount_code: null,
+      });
+      setupFeatureSettings({
+        pay_on_delivery_enabled: true,
+        paystack_enabled: false,
+      });
+      setupVerification({
+        nin_verified: false,
+        bvn_verified: false,
+        cac_verified: false,
+      });
+      setupProductCount(1, 1);
+      setupUpdateSuccess();
+
+      const res = await POST(makeRequest('POST'));
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.success).toBe(true);
+      expect(mockRevalidateMerchant).toHaveBeenCalledWith(MERCHANT_ID);
+    });
+
+    it('returns 500 when payment settings cannot be loaded', async () => {
+      setupAuth(true, true);
+      setupMerchantData({
+        country: 'IN',
+        bank_code: null,
+        bank_account_number: null,
+        paystack_subaccount_code: null,
+      });
+      setupFeatureSettings(null, { message: 'database unavailable' });
+      setupProductCount(1, 1);
+
+      const res = await POST(makeRequest('POST'));
+      const json = await res.json();
+
+      expect(res.status).toBe(500);
+      expect(json.error).toBe('Failed to load payment settings');
+      expect(mockRevalidateMerchant).not.toHaveBeenCalled();
     });
   });
 

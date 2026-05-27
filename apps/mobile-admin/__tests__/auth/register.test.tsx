@@ -188,6 +188,7 @@ function fillFormAndSubmit() {
     target: { value: 'Test Store' },
   });
   fireEvent.click(screen.getByText('Fashion & Apparel'));
+  fireEvent.click(screen.getByRole('button', { name: 'Country India' }));
 
   // Submit the form → triggers register.mutate(payload, { onSuccess, onError })
   fireEvent.click(screen.getByText('Launch Store'));
@@ -231,6 +232,7 @@ describe('RegisterScreen', () => {
       lastName: 'User',
       businessName: 'Test Store',
       businessType: 'fashion',
+      country: 'IN',
     });
   });
 

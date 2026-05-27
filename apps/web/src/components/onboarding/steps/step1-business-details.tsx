@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/select';
 import { TypingPlaceholderInput } from '@/components/ui/typing-placeholder-input';
 import { getAllBusinessTypes } from '@/config/business-types';
+import { COUNTRIES } from '@/lib/countries';
 import { cn } from '@/lib/utils';
 import type { OnboardingFormValues } from '@/schemas/onboarding';
 
@@ -153,6 +154,54 @@ export default function Step1_BusinessDetails({ onKeyDown }: Step1Props) {
           )}
         />
       )}
+      <FormField
+        control={control}
+        name="country"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel className="text-lg">
+              Where is your business registered?
+            </FormLabel>
+            <Select
+              onValueChange={(value) => {
+                setValue(field.name, value, {
+                  shouldDirty: true,
+                  shouldTouch: true,
+                  shouldValidate: true,
+                });
+              }}
+              value={field.value}
+              name="country"
+            >
+              <FormControl>
+                <SelectTrigger
+                  onKeyDown={onKeyDown}
+                  className={cn(
+                    premiumInputClass,
+                    '[&>span]:line-clamp-none [&>span]:flex [&>span]:w-full [&>span]:items-center [&>span]:gap-2',
+                    !field.value && 'text-muted-foreground'
+                  )}
+                >
+                  <SelectValue placeholder="Select country" />
+                </SelectTrigger>
+              </FormControl>
+              <SelectContent>
+                {COUNTRIES.map((country) => (
+                  <SelectItem key={country.code} value={country.code}>
+                    <div className="flex items-center gap-2 w-full min-w-0">
+                      <span className="text-lg shrink-0">{country.flag}</span>
+                      <span className="text-primary truncate">
+                        {country.name}
+                      </span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
       <FormField
         control={control}
         name="businessName"
