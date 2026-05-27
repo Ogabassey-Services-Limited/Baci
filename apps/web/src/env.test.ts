@@ -373,6 +373,29 @@ describe('env model getters', () => {
     expect(getAiChatModel()).toBe('gemma4:e4b');
   });
 
+  it('defaults the chat provider to auto', async () => {
+    delete process.env.AI_CHAT_PROVIDER;
+    const { getAiChatProvider } = await loadEnvModule();
+
+    expect(getAiChatProvider()).toBe('auto');
+  });
+
+  it('normalizes a configured chat provider', async () => {
+    vi.stubEnv('AI_CHAT_PROVIDER', '  Gemini\\n\n  ');
+    const { getAiChatProvider } = await loadEnvModule();
+
+    expect(getAiChatProvider()).toBe('gemini');
+  });
+
+  it('rejects invalid chat providers in production', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('SUPABASE_JWT_SECRET', 'jwt-secret');
+    vi.stubEnv('AI_CHAT_PROVIDER', 'openai');
+
+    await expect(loadEnvModule()).rejects.toThrow(/AI_CHAT_PROVIDER/);
+  });
+
   it('rejects blank chat model names after sanitization', async () => {
     vi.stubEnv('AI_CHAT_MODEL', ' \\n\n\r ');
     const { getAiChatModel } = await loadEnvModule();

@@ -57,6 +57,7 @@ import {
 import { AGENTIC_SYSTEM_PROMPT } from '@/config/agentic-chat-system-prompt';
 import {
   getAiChatModel,
+  getAiChatProvider,
   getLlmChatModel,
   getLlmServerBearer,
   getLlmServerUrl,
@@ -143,7 +144,13 @@ export async function POST(req: Request) {
       content: msg.role === 'user' ? sanitizeHtml(msg.content) : msg.content,
     }));
 
-    const llmServerUrl = getLlmServerUrl();
+    const chatProvider = getAiChatProvider();
+    const shouldTryLlm = chatProvider === 'auto' || chatProvider === 'llm';
+    const shouldTryOllama =
+      chatProvider === 'auto' || chatProvider === 'ollama';
+    const llmServerUrl = shouldTryLlm ? getLlmServerUrl() : undefined;
+    const triedLlmServer = Boolean(llmServerUrl);
+
     if (llmServerUrl) {
       // Resolve static config OUTSIDE the try so a misconfigured deployment
       // (blank LLM_CHAT_MODEL, env-validation bypass, etc.) surfaces as a 500
@@ -174,7 +181,9 @@ export async function POST(req: Request) {
           getSafeChatBackendErrorMessage(error)
         );
       }
-    } else {
+    }
+
+    if (!triedLlmServer && shouldTryOllama) {
       const ollamaBaseUrl = getOllamaBaseUrl();
       if (ollamaBaseUrl) {
         const chatModel = getAiChatModel();

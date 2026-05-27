@@ -14,7 +14,6 @@ import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 vi.mock('server-only', () => ({}));
 
 const {
-  mockConnection,
   mockNormalizeStorefrontProductVariants,
   mockOgabasseyPdpProductResourceHints,
   mockOgabasseyPdpSemanticSections,
@@ -23,7 +22,6 @@ const {
   mockPreloadOgabasseyPdpProductImage,
   mockProductDetailClient,
 } = vi.hoisted(() => ({
-  mockConnection: vi.fn(),
   mockNormalizeStorefrontProductVariants: vi.fn<
     (...args: unknown[]) => Record<string, unknown>[]
   >(() => []),
@@ -121,10 +119,6 @@ vi.mock('next/image', () => ({
       srcSet: `${src} 640w`,
     },
   }),
-}));
-
-vi.mock('next/server', () => ({
-  connection: () => mockConnection(),
 }));
 
 vi.mock('next/link', () => ({
@@ -912,8 +906,6 @@ describe('[category]/[productSlug] page render', () => {
     mockProductDetailClient.mockReturnValue(null);
     mockHeaders.mockReset();
     mockHeaders.mockResolvedValue(new Headers());
-    mockConnection.mockReset();
-    mockConnection.mockResolvedValue(undefined);
     mockNormalizeStorefrontProductVariants.mockReset();
     mockNormalizeStorefrontProductVariants.mockReturnValue([]);
     mockGetRequestScopedMerchant.mockResolvedValue({
@@ -970,7 +962,6 @@ describe('[category]/[productSlug] page render', () => {
     if (!criticalShell) {
       throw new Error('Expected the OgaBassey PDP critical shell to render');
     }
-    expect(mockConnection).toHaveBeenCalledOnce();
 
     expect(
       criticalShell.compareDocumentPosition(dynamicMarker) &

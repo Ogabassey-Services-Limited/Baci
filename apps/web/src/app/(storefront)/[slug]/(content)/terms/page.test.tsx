@@ -1,5 +1,5 @@
 import { headers } from 'next/headers';
-import { type ReactElement, Suspense } from 'react';
+import { Fragment, type ReactElement, Suspense } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 
@@ -67,25 +67,43 @@ describe('terms metadata', () => {
 });
 
 describe('terms page rendering', () => {
-  it('renders only its real request-time content boundary', async () => {
+  it('renders the content boundary and request-time metadata marker', async () => {
     mockConnection.mockResolvedValueOnce(undefined);
 
-    const element = (await TermsPage({
+    const element = TermsPage({
       params: Promise.resolve({ slug: 'ogabassey.com' }),
-    })) as ReactElement;
+    }) as ReactElement<{ children: ReactElement[] }>;
+    const [contentBoundary, markerBoundary] = element.props.children;
+    const markerElement = (markerBoundary.type as () => ReactElement)();
 
-    expect(element.type).toBe(Suspense);
+    expect(element.type).toBe(Fragment);
+    expect(contentBoundary?.type).toBe(Suspense);
+    expect(markerElement.type).toBe(Suspense);
+    const markerConnection = (
+      markerElement.props as {
+        children?: ReactElement;
+      }
+    ).children?.type as () => Promise<null>;
+
+    await expect(markerConnection()).resolves.toBeNull();
     expect(mockConnection).toHaveBeenCalledOnce();
   });
 
-  it('surfaces connection failures to the route boundary', async () => {
+  it('surfaces metadata marker connection failures to the route boundary', async () => {
     mockConnection.mockRejectedValueOnce(new Error('Connection failed'));
 
-    await expect(
-      TermsPage({
-        params: Promise.resolve({ slug: 'ogabassey.com' }),
-      })
-    ).rejects.toThrow('Connection failed');
+    const element = TermsPage({
+      params: Promise.resolve({ slug: 'ogabassey.com' }),
+    }) as ReactElement<{ children: ReactElement[] }>;
+    const markerBoundary = element.props.children[1];
+    const markerElement = (markerBoundary.type as () => ReactElement)();
+    const markerConnection = (
+      markerElement.props as {
+        children?: ReactElement;
+      }
+    ).children?.type as () => Promise<null>;
+
+    await expect(markerConnection()).rejects.toThrow('Connection failed');
     expect(mockConnection).toHaveBeenCalledOnce();
   });
 });
