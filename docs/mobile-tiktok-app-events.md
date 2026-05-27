@@ -5,7 +5,7 @@ The mobile iOS apps use the official `TikTokBusinessSDK` CocoaPod through the lo
 ## Storefront
 
 - App Store ID: `6472735367`
-- TikTok App ID: `7644050881196883975`
+- TikTok App ID: `7644522796883296263`
 - Required release secret: `STOREFRONT_TIKTOK_APP_SECRET`
 
 ## Admin
