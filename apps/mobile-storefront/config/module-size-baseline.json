@@ -14,6 +14,11 @@
       "justification": "Checkout route shell extracted to component; decompose this screen into focused submodules and remove this entry."
     },
     {
+      "path": "components/product/ProductDetailScreen.tsx",
+      "lineCount": 1120,
+      "justification": "Product route shell extracted to component; decompose this screen into focused submodules and remove this entry."
+    },
+    {
       "path": "services/ad-tracking.ts",
       "lineCount": 938,
       "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
@@ -44,11 +49,6 @@
       "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
     },
     {
-      "path": "components/storefront/SearchDropdown.tsx",
-      "lineCount": 565,
-      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
-    },
-    {
       "path": "components/payment-gateway/use-payment-gateway-controller.ts",
       "lineCount": 545,
       "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
@@ -56,11 +56,6 @@
     {
       "path": "lib/vtu-checkout.ts",
       "lineCount": 536,
-      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
-    },
-    {
-      "path": "components/storefront/Header.tsx",
-      "lineCount": 530,
       "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
     },
     {
