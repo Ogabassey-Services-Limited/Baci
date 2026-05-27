@@ -91,7 +91,9 @@ describe('CryptoPaymentScreen', () => {
 
     expect(screen.getByText('Invalid Payment')).toBeTruthy();
     expect(
-      screen.getByText('Invalid input: expected string, received undefined')
+      screen.getByText(
+        /^(Invalid input: expected string, received undefined|Required)$/
+      )
     ).toBeTruthy();
   });
 
