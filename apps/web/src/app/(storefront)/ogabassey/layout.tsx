@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import '@/app/(storefront)/storefront-full.css';
 import type { ReactNode } from 'react';
 import StorefrontLayout, {
   generateMetadata as generateStorefrontLayoutMetadata,

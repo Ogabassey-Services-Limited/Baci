@@ -2,24 +2,33 @@ import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockGenerateStorefrontLayoutMetadata, mockStorefrontLayout } =
-  vi.hoisted(() => ({
-    mockGenerateStorefrontLayoutMetadata: vi.fn(
-      (_props: { params: Promise<{ slug: string }> }) =>
-        Promise.resolve({ manifest: null })
-    ),
-    mockStorefrontLayout: vi.fn(
-      ({
-        children,
-        loadingFallback: _loadingFallback,
-        params: _params,
-      }: {
-        children: ReactNode;
-        loadingFallback?: ReactNode;
-        params: Promise<{ slug: string }>;
-      }) => <section aria-label="generic storefront layout">{children}</section>
-    ),
-  }));
+const {
+  mockFullStorefrontCssImport,
+  mockGenerateStorefrontLayoutMetadata,
+  mockStorefrontLayout,
+} = vi.hoisted(() => ({
+  mockFullStorefrontCssImport: vi.fn(),
+  mockGenerateStorefrontLayoutMetadata: vi.fn(
+    (_props: { params: Promise<{ slug: string }> }) =>
+      Promise.resolve({ manifest: null })
+  ),
+  mockStorefrontLayout: vi.fn(
+    ({
+      children,
+      loadingFallback: _loadingFallback,
+      params: _params,
+    }: {
+      children: ReactNode;
+      loadingFallback?: ReactNode;
+      params: Promise<{ slug: string }>;
+    }) => <section aria-label="generic storefront layout">{children}</section>
+  ),
+}));
+
+vi.mock('@/app/(storefront)/storefront-full.css', () => {
+  mockFullStorefrontCssImport();
+  return {};
+});
 
 vi.mock('server-only', () => ({}));
 
@@ -39,7 +48,12 @@ import OgabasseyLayout, {
 
 describe('OgabasseyLayout', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    mockGenerateStorefrontLayoutMetadata.mockClear();
+    mockStorefrontLayout.mockClear();
+  });
+
+  it('loads the full storefront stylesheet for the static OgaBassey homepage', () => {
+    expect(mockFullStorefrontCssImport).toHaveBeenCalledOnce();
   });
 
   it('renders the storefront layout with the static OgaBassey identifier', async () => {
