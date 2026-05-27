@@ -81,18 +81,16 @@ describe('onboardingSchema', () => {
     }
   });
 
-  it.each(['1N', 'ZZZ', 'ZZ'])(
-    'rejects invalid country code %s',
-    (country) => {
-      const result = onboardingSchema.safeParse(validPayload({ country }));
+  it.each(['1N', 'ZZZ', 'ZZ'])('rejects invalid country code %s', (country) => {
+    const result = onboardingSchema.safeParse(validPayload({ country }));
 
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.error.issues.some((issue) => issue.path[0] === 'country'))
-          .toBe(true);
-      }
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(
+        result.error.issues.some((issue) => issue.path[0] === 'country')
+      ).toBe(true);
     }
-  );
+  });
 
   it('rejects invalid email', () => {
     const result = onboardingSchema.safeParse(
