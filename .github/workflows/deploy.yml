@@ -44,8 +44,6 @@ jobs:
               - '.github/workflows/deploy.yml'
               - '.github/scripts/deploy-with-retry.sh'
               - '.github/scripts/pnpm-install-with-retry.sh'
-              - '.github/scripts/run-with-ollama-memory-guard.mjs'
-              - '.github/scripts/run-with-ollama-memory-guard.test.mjs'
             migrations:
               - 'supabase/migrations/**'
               - '.github/workflows/deploy.yml'
@@ -87,11 +85,11 @@ jobs:
     # land against an out-of-date schema.
     if: always() && github.ref == 'refs/heads/main' && needs.db-migrations.result == 'success' && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.web == 'true')
     # Run production prebuilt deploys on GitHub-hosted runners while the VPS
-    # provider is returning sustained CPU steal. This still uses
+    # provider is returning sustained CPU steal. This still uses a local
     # `vercel build --prod` followed by `vercel deploy --prebuilt --prod`, so
     # Vercel does not perform a remote cloud build.
     concurrency:
-      group: vps-deploy-build
+      group: production-prebuilt-deploy
       cancel-in-progress: false
     runs-on: ubuntu-24.04
     timeout-minutes: 150
@@ -132,16 +130,8 @@ jobs:
       # the pin requires re-checking that the new CLI's bundled esbuild
       # version is still on the allow list.
       - run: pnpm dlx --allow-build=esbuild vercel@52.0.0 pull --yes --environment=production
-      - name: Test Ollama build memory guard
-        run: node --test .github/scripts/run-with-ollama-memory-guard.test.mjs
-      - name: Build for Vercel with Ollama memory guard
-        run: |
-          lock_dir="/home/bassey/baci-workers/locks"
-          if ! mkdir -p "$lock_dir" 2>/dev/null; then
-            lock_dir="${RUNNER_TEMP:-/tmp}/baci-workers/locks"
-            mkdir -p "$lock_dir"
-          fi
-          flock -w 120 "$lock_dir/ollama-workload.lock" node .github/scripts/run-with-ollama-memory-guard.mjs -- pnpm dlx --allow-build=esbuild vercel@52.0.0 build --yes --prod
+      - name: Build for Vercel
+        run: pnpm dlx --allow-build=esbuild vercel@52.0.0 build --yes --prod
       # IMPORTANT: --archive=tgz is required to prevent Vercel upload rate limiting.
       # Do NOT remove it — without it, each deploy uploads thousands of individual files.
       - name: Deploy to Vercel (with retry)
