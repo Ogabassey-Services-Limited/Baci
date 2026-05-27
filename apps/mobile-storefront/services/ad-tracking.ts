@@ -1,27 +1,3 @@
-/**
- * Unified Ad Tracking Service - 2026 Best Practices
- *
- * SERVER-SIDE FIRST APPROACH
- * ==========================
- * All conversion events are sent to our server which then forwards to:
- * - Meta/Facebook Conversions API (CAPI)
- * - TikTok Events API
- * - Snapchat Conversions API
- * - Google Ads Enhanced Conversions
- *
- * Why server-side first?
- * 1. iOS 14.5+ ATT compliance - bypasses tracking restrictions
- * 2. No ad blockers - server-side can't be blocked
- * 3. Better data quality - single source of truth
- * 4. Event deduplication - use event_id to prevent duplicates
- * 5. PII hashing done on server - more secure
- *
- * Client-side SDKs (Facebook, TikTok) are used as BACKUP only
- * and include the same event_id for deduplication.
- *
- * @see https://developers.facebook.com/docs/marketing-api/conversions-api/deduplicate-pixel-and-server-events
- */
-
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('AdTracking');
@@ -51,51 +27,14 @@ import {
   requestTrackingPermissionStatus,
 } from '@/lib/tracking-transparency';
 import { buildTikTokCommerceEventParams } from './tiktok-commerce-event-data';
-import { type TikTokEventData, toTikTokEventData } from './tiktok-event-data';
-
-// 2026 Best Practice: Dynamic imports for native modules to prevent evaluation-time crashes
-// Minimal interfaces for dynamically loaded SDK methods we actually use
-interface FBSettingsLike {
-  initializeSDK: () => void;
-  setAdvertiserTrackingEnabled: (enabled: boolean) => void;
-}
-interface AppEventsLoggerLike {
-  logEvent: {
-    (name: string, params?: Record<string, unknown>): void;
-    (name: string, valueToSum: number, params?: Record<string, unknown>): void;
-  };
-  logPurchase: (
-    amount: number,
-    currency: string,
-    params?: Record<string, unknown>
-  ) => void;
-  setUserData: (data: Record<string, string | undefined>) => void;
-  clearUserID: () => void;
-}
-interface AEMReporterIOSLike {
-  logAEMEvent: (
-    name: string,
-    value: number,
-    currency: string,
-    params: Record<string, unknown>
-  ) => void;
-}
-interface TikTokBusinessLike {
-  initialize?: () => boolean;
-  isInitialized?: () => boolean;
-  identify?: (
-    externalID: string,
-    externalUserName?: string,
-    phoneNumber?: string,
-    email?: string
-  ) => void;
-  logout?: () => void;
-  trackEvent: (
-    name: string,
-    eventId?: string,
-    eventData?: TikTokEventData[]
-  ) => void;
-}
+import {
+  type AEMReporterIOSLike,
+  type AppEventsLoggerLike,
+  type FBSettingsLike,
+  loadAdTrackingNativeModules,
+  type TikTokBusinessLike,
+} from './ad-tracking-native-modules';
+import { toTikTokEventData } from './tiktok-event-data';
 
 let FBSettings: FBSettingsLike | null = null;
 let AppEventsLogger: AppEventsLoggerLike | null = null;
@@ -103,25 +42,11 @@ let AEMReporterIOS: AEMReporterIOSLike | null = null;
 let TikTokBusiness: TikTokBusinessLike | null = null;
 
 const loadNativeModules = async () => {
-  if (Platform.OS === 'web') return;
-  try {
-    const [fb, tt] = await Promise.all([
-      import('react-native-fbsdk-next'),
-      import('@baci/tiktok-business'),
-    ]);
-
-    if (fb) {
-      FBSettings = fb.Settings as unknown as FBSettingsLike;
-      AppEventsLogger = fb.AppEventsLogger as unknown as AppEventsLoggerLike;
-      AEMReporterIOS = fb.AEMReporterIOS as unknown as AEMReporterIOSLike;
-    }
-
-    if (tt) {
-      TikTokBusiness = (tt.default || tt) as unknown as TikTokBusinessLike;
-    }
-  } catch (e) {
-    console.debug('[AdTracking] Native modules ignored or failed to load:', e);
-  }
+  const modules = await loadAdTrackingNativeModules();
+  FBSettings = modules.FBSettings;
+  AppEventsLogger = modules.AppEventsLogger;
+  AEMReporterIOS = modules.AEMReporterIOS;
+  TikTokBusiness = modules.TikTokBusiness;
 };
 
 loadNativeModules();
@@ -165,7 +90,6 @@ let cachedUserData: {
   lastName?: string;
 } = {};
 
-// Store merchant ID for analytics attribution
 let cachedMerchantId: string | null = null;
 
 /**
@@ -525,22 +449,6 @@ export async function trackProductViewed(product: {
     category: product.category,
   });
 
-  // Firebase (Removed)
-  /*
-  await analytics().logViewItem({
-    items: [
-      {
-        item_id: product.id,
-        item_name: product.name,
-        price: product.price,
-        item_category: product.category,
-      },
-    ],
-    currency,
-    value: product.price,
-  });
-  */
-
   // 3. SERVER-SIDE (PRIMARY) - sends to Facebook, TikTok, Snapchat, Google
   sendServerConversion('VIEW_CONTENT', eventId, {
     value: product.price,
@@ -615,23 +523,6 @@ export async function trackAddToCart(
     cartTotal
   );
 
-  // Firebase (Removed)
-  /*
-  await analytics().logAddToCart({
-    items: [
-      {
-        item_id: product.id,
-        item_name: product.name,
-        price: product.price,
-        quantity: product.quantity,
-        item_category: product.category,
-      },
-    ],
-    currency,
-    value,
-  });
-  */
-
   // 3. SERVER-SIDE (PRIMARY)
   sendServerConversion('ADD_CART', eventId, {
     value,
@@ -688,21 +579,6 @@ export async function trackCheckoutStarted(checkout: {
     quantity: checkout.itemCount,
     items: checkout.items,
   });
-
-  // Firebase (Removed)
-  /*
-  await analytics().logBeginCheckout({
-    items:
-      checkout.items?.map((item) => ({
-        item_id: item.id,
-        item_name: item.name,
-        price: item.price,
-        quantity: item.quantity,
-      })) || [],
-    currency,
-    value: checkout.subtotal,
-  });
-  */
 
   // 2. SERVER-SIDE (PRIMARY)
   sendServerConversion('START_CHECKOUT', eventId, {
@@ -785,26 +661,6 @@ export async function trackPurchase(order: {
     paymentMethod: order.paymentMethod,
     couponCode: order.couponCode,
   });
-
-  // Firebase (Removed)
-  /*
-  await analytics().logPurchase({
-    transaction_id: order.orderId,
-    affiliation: 'Ogabassey Mobile App',
-    value: order.total,
-    currency,
-    tax: order.tax,
-    shipping: order.shipping,
-    coupon: order.couponCode,
-    items: order.items.map((item) => ({
-      item_id: item.id,
-      item_name: item.name,
-      price: item.price,
-      quantity: item.quantity,
-      item_category: item.category,
-    })),
-  });
-  */
 
   // 3. SERVER-SIDE (PRIMARY) - this is the authoritative source
   sendServerConversion('PURCHASE', eventId, {
