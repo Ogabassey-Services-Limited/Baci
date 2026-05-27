@@ -31,6 +31,10 @@ export interface MerchantData {
   slug?: string;
   custom_domain?: string;
   paystack_subaccount_code?: string | null;
+  bank_account_number?: string | null;
+  bank_account_name?: string | null;
+  bank_code?: string | null;
+  bank_name?: string | null;
   published_config?: Record<string, unknown> | null;
   // Favicon
   favicon_svg_url?: string;
