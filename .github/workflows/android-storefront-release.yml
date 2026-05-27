@@ -19,8 +19,8 @@ on:
         type: string
 
 concurrency:
-  # Keep storefront release runs serialized. Do not share this group with the
-  # admin workflow: GitHub only preserves one pending run per group.
+  # Serialize storefront release runs only. Cross-app serialization is avoided
+  # because GitHub preserves only one pending run per concurrency group.
   group: android-storefront-release-${{ github.ref }}
   cancel-in-progress: false
 
