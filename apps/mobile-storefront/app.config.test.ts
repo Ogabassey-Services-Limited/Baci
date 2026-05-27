@@ -18,9 +18,8 @@ function loadAppConfigWithFacebookEnv(env: {
     }
   }
 
-  return jest.requireActual<typeof import('../../app.config')>(
-    '../../app.config'
-  ).default;
+  return jest.requireActual<typeof import('./app.config')>('./app.config')
+    .default;
 }
 
 function renderConfig(appConfig: (context: ConfigContext) => ExpoConfig) {
