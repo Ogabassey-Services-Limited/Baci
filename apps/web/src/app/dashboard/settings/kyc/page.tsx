@@ -53,10 +53,14 @@ export default async function KycSettingsPage() {
                   <Shield className="h-6 w-6 text-muted-foreground" />
                 </div>
                 <div>
-                  <CardTitle>Nigerian KYC Not Required</CardTitle>
+                  <h1 className="text-2xl font-semibold leading-none tracking-tight">
+                    Verification Not Required
+                  </h1>
                   <CardDescription>
-                    BVN, NIN, and CAC verification are only required for
-                    Nigerian merchants using Baci-managed Paystack settlement.
+                    Additional identity verification is not required for stores
+                    registered in your country. We will only ask for
+                    provider-specific verification when it applies to your
+                    selected settlement method.
                   </CardDescription>
                 </div>
               </div>
