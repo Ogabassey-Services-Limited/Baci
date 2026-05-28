@@ -229,12 +229,16 @@ describe('GET /api/merchant/features', () => {
   });
 
   it('returns settings when found', async () => {
-    const { GET } = await import('./route');
+    const { GET, dynamic } = await import('./route');
 
     const res = await GET(makeRequest('GET'));
     const json = await res.json();
 
+    expect(dynamic).toBe('force-dynamic');
     expect(res.status).toBe(200);
+    expect(res.headers.get('Cache-Control')).toBe(
+      'private, no-store, no-cache, max-age=0, must-revalidate'
+    );
     expect(json.id).toBe('settings-1');
   });
 
@@ -295,6 +299,9 @@ describe('PATCH /api/merchant/features', () => {
     const res = await PATCH(makeRequest('PATCH', { loyalty_enabled: true }));
 
     expect(res.status).toBe(403);
+    expect(res.headers.get('Cache-Control')).toBe(
+      'private, no-store, no-cache, max-age=0, must-revalidate'
+    );
   });
 
   it('returns 403 when no settings.edit permission', async () => {
@@ -316,6 +323,9 @@ describe('PATCH /api/merchant/features', () => {
     );
 
     expect(res.status).toBe(200);
+    expect(res.headers.get('Cache-Control')).toBe(
+      'private, no-store, no-cache, max-age=0, must-revalidate'
+    );
     expect(mockRevalidateFeatures).toHaveBeenCalledWith(MERCHANT_ID);
     expect(mockRevalidateMerchant).toHaveBeenCalledWith(MERCHANT_ID);
   });
@@ -383,6 +393,9 @@ describe('PUT /api/merchant/features', () => {
     const res = await PUT(makeRequest('PUT', { reviews_enabled: true }));
 
     expect(res.status).toBe(403);
+    expect(res.headers.get('Cache-Control')).toBe(
+      'private, no-store, no-cache, max-age=0, must-revalidate'
+    );
   });
 
   it('replaces settings and invalidates feature and merchant caches', async () => {
