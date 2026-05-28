@@ -21,6 +21,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import type { CachedMerchant } from '@/lib/cached-data';
+import { isBaciPaystackSettlementCountry } from '@/lib/checkout/payment-gateway-availability';
 import { getMerchantForUser } from '@/lib/merchant-server';
 import { createClient } from '@/lib/supabase/server';
 
@@ -50,6 +51,9 @@ export default async function SettingsPage() {
   }
 
   const blogEnabled = featureSettings?.blog_enabled ?? false;
+  const showNigerianKycSettings = isBaciPaystackSettlementCountry(
+    merchant.country
+  );
 
   return (
     <div className="grid gap-6">
@@ -93,31 +97,32 @@ export default async function SettingsPage() {
           </CardContent>
         </Card>
 
-        {/* KYC / Business Verification Card */}
-        <Card className="glass">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BadgeCheck className="h-5 w-5" />
-              Business Verification (KYC)
-            </CardTitle>
-            <CardDescription>
-              Verify your identity with NIN, BVN, and CAC to enable full payment
-              features.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button
-              variant="outline"
-              className="w-full justify-between"
-              asChild
-            >
-              <Link href="/dashboard/settings/kyc">
-                <span>Manage Verification</span>
-                <ChevronRight className="h-4 w-4" />
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
+        {showNigerianKycSettings && (
+          <Card className="glass">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BadgeCheck className="h-5 w-5" />
+                Business Verification (KYC)
+              </CardTitle>
+              <CardDescription>
+                Verify your identity with NIN, BVN, and CAC to enable full
+                payment features.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button
+                variant="outline"
+                className="w-full justify-between"
+                asChild
+              >
+                <Link href="/dashboard/settings/kyc">
+                  <span>Manage Verification</span>
+                  <ChevronRight className="h-4 w-4" />
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Tax Settings Card */}
         <Card className="glass">
