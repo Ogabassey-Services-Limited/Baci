@@ -295,6 +295,8 @@ export async function generateMetadata(
   { params, searchParams }: PageProps,
   __parent: ResolvingMetadata
 ): Promise<Metadata> {
+  await connection();
+
   const { slug, productSlug } = await params;
   const resolvedSearchParams = await searchParams;
   const productResult = await getProductCached(slug, productSlug);

@@ -292,6 +292,21 @@ function makeHeaders(entries: Record<string, string> = {}) {
 }
 
 describe('products/[productSlug] page', () => {
+  it('marks product metadata as request-time rendered', async () => {
+    await generateMetadata(
+      {
+        params: Promise.resolve({
+          slug: 'teststore',
+          productSlug: 'iphone-17-pro-max',
+        }),
+        searchParams: Promise.resolve({}),
+      },
+      stubParent
+    );
+
+    expect(mockConnection).toHaveBeenCalledOnce();
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     vi.unstubAllEnvs();

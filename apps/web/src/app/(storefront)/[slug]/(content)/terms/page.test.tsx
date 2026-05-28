@@ -67,6 +67,16 @@ describe('terms metadata', () => {
 });
 
 describe('terms page rendering', () => {
+  it('marks terms metadata as request-time rendered', async () => {
+    vi.mocked(getMerchantByIdentifier).mockResolvedValue(null);
+
+    await generateMetadata({
+      params: Promise.resolve({ slug: 'unknown' }),
+    });
+
+    expect(mockConnection).toHaveBeenCalledOnce();
+  });
+
   it('marks the route as request-time rendered before returning content', async () => {
     mockConnection.mockResolvedValueOnce(undefined);
 
