@@ -7,6 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { isBaciPaystackSettlementCountry } from '@/lib/checkout/payment-gateway-availability';
 import { getMerchantForUser } from '@/lib/merchant-server';
 import { createClient } from '@/lib/supabase/server';
 import { KycVerification } from './kyc-verification';
@@ -33,6 +34,29 @@ export default async function KycSettingsPage() {
                   <CardDescription>
                     Only the store owner can verify identity. Contact your store
                     owner to complete KYC verification.
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+          </Card>
+        </div>
+      );
+    }
+
+    if (!isBaciPaystackSettlementCountry(merchant.country)) {
+      return (
+        <div className="container max-w-2xl py-8">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-muted">
+                  <Shield className="h-6 w-6 text-muted-foreground" />
+                </div>
+                <div>
+                  <CardTitle>Nigerian KYC Not Required</CardTitle>
+                  <CardDescription>
+                    BVN, NIN, and CAC verification are only required for
+                    Nigerian merchants using Baci-managed Paystack settlement.
                   </CardDescription>
                 </div>
               </div>

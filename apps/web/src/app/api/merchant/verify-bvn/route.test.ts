@@ -53,10 +53,11 @@ function makeRpcMock(error: unknown = null) {
 
 function makeSupabaseMock(
   rpcError: unknown = null,
-  merchantPhone: string | null = '08012345678'
+  merchantPhone: string | null = '08012345678',
+  country = 'NG'
 ) {
   const merchantMaybeSingle = vi.fn().mockResolvedValue({
-    data: merchantPhone ? { phone: merchantPhone } : null,
+    data: { country, phone: merchantPhone },
     error: null,
   });
 
@@ -169,6 +170,25 @@ describe('POST /api/merchant/verify-bvn', () => {
     expect(res.status).toBe(429);
   });
 
+  it('rejects India merchants before rate limiting or provider calls', async () => {
+    const supabaseMock = makeSupabaseMock(null, '08012345678', 'IN');
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      user: { id: 'user-1' },
+      error: null,
+      supabase: supabaseMock,
+    } as unknown as Awaited<ReturnType<typeof authenticateApiRequest>>);
+
+    const res = await POST(makeRequest(validBvnBody));
+
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toEqual({
+      error: 'BVN verification is only available for Nigerian merchants',
+    });
+    expect(checkRateLimit).not.toHaveBeenCalled();
+    expect(getMonnifyToken).not.toHaveBeenCalled();
+    expect(supabaseMock.rpc).not.toHaveBeenCalled();
+  });
+
   it('returns 400 when BVN validation fails (10 digits)', async () => {
     const res = await POST(makeRequest({ ...validBvnBody, bvn: '1234567890' }));
 
@@ -227,7 +247,7 @@ describe('POST /api/merchant/verify-bvn', () => {
     expect(supabaseMock.merchantMaybeSingle).toHaveBeenCalledTimes(1);
   });
 
-  it('does not query the merchant phone when mobileNo is provided', async () => {
+  it('uses the supplied mobileNo after loading merchant country', async () => {
     const supabaseMock = makeSupabaseMock();
     vi.mocked(authenticateApiRequest).mockResolvedValue({
       user: { id: 'user-1' },
@@ -242,7 +262,7 @@ describe('POST /api/merchant/verify-bvn', () => {
     const res = await POST(makeRequest(validBvnBody));
 
     expect(res.status).toBe(200);
-    expect(supabaseMock.merchantMaybeSingle).not.toHaveBeenCalled();
+    expect(supabaseMock.merchantMaybeSingle).toHaveBeenCalledTimes(1);
   });
 
   it('returns 400 with Monnify validation message when the upstream request is rejected', async () => {

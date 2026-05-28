@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { authenticateApiRequest, getUserAccess } from '@/lib/api-auth';
+import { isBaciPaystackSettlementCountry } from '@/lib/checkout/payment-gateway-availability';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { checkRateLimit } from '@/lib/rate-limiter';
 import {
@@ -82,6 +83,31 @@ export async function POST(request: NextRequest) {
 
   if (!access.isOwner) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  const { data: merchantRecord, error: merchantError } = await auth.supabase
+    .from('merchants')
+    .select('country')
+    .eq('id', access.merchantId)
+    .maybeSingle();
+
+  if (merchantError) {
+    console.error('verify-cac: failed to load merchant country', merchantError);
+    return NextResponse.json(
+      { error: 'Unable to load merchant verification details' },
+      { status: 500 }
+    );
+  }
+
+  if (!merchantRecord) {
+    return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+  }
+
+  if (!isBaciPaystackSettlementCountry(merchantRecord.country)) {
+    return NextResponse.json(
+      { error: 'CAC verification is only available for Nigerian merchants' },
+      { status: 400 }
+    );
   }
 
   const allowed = await checkRateLimit(

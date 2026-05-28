@@ -75,13 +75,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const {
-      account_number,
-      bank_code,
-      bank_name,
-      business_name,
-      auto_payout_enabled,
-    } = parseResult.data;
+    const { account_number, bank_code, business_name, auto_payout_enabled } =
+      parseResult.data;
     const shouldPersistAutoPayoutEnabled =
       hasRequestField(body, 'autoPayoutEnabled') ||
       hasRequestField(body, 'auto_payout_enabled');
@@ -152,44 +147,13 @@ export async function POST(request: NextRequest) {
     }
 
     if (!isBaciPaystackSettlementCountry(merchantDetails.country)) {
-      if (shouldPersistAutoPayoutEnabled) {
-        return NextResponse.json(
-          {
-            error:
-              'Auto-payout settings are only supported for Nigerian Paystack settlements',
-          },
-          { status: 400 }
-        );
-      }
-
-      const offlineBankName = bank_name || bank_code;
-      if (!offlineBankName) {
-        return NextResponse.json(
-          { error: 'Bank name is required' },
-          { status: 400 }
-        );
-      }
-
-      const { error: updateError } = await auth.supabase
-        .from('merchants')
-        .update({
-          paystack_subaccount_code: null,
-          bank_account_number: account_number,
-          bank_account_name: effectiveBusinessName,
-          bank_code: null,
-          bank_name: offlineBankName,
-        })
-        .eq('id', merchantId);
-
-      if (updateError) {
-        throw updateError;
-      }
-
-      return NextResponse.json({
-        success: true,
-        accountName: effectiveBusinessName,
-        subaccountCode: null,
-      });
+      return NextResponse.json(
+        {
+          error:
+            'Bank account setup is only available for Nigerian Paystack settlements',
+        },
+        { status: 400 }
+      );
     }
 
     const paystackAccount = resolvePaystackAccountSchema.safeParse({
