@@ -79,7 +79,7 @@ const DEFAULT_CAC_API_URL =
   'https://authapp.cac.gov.ng/name_similarity_app/api/public_search/search';
 const DEFAULT_CAC_TIN_API_BASE_URL =
   'https://icrp.cac.gov.ng/tin_service/api/v1/public/tin';
-const DEFAULT_TERMINAL_IDEMPOTENCY_RECORD_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+const DEFAULT_TERMINAL_IDEMPOTENCY_RECORD_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Strict 127.0.0.0/8 hostname matcher. Anchored regex on the URL `hostname`

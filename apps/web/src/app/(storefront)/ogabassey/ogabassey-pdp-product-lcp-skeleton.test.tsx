@@ -95,7 +95,7 @@ describe('OgabasseyPdpProductLcpSkeleton', () => {
     expect(img).toBeDefined();
     expect(img.src).toBe('https://cdn.ogabassey.com/lenovo.avif');
     expect(img.style.position).toBe('absolute');
-    expect(img.style.inset).toBe('0');
+    expect(['0', '0px']).toContain(img.style.inset);
     expect(img.style.height).toBe('100%');
     expect(img.style.width).toBe('100%');
     expect(img.style.objectFit).toBe('cover');

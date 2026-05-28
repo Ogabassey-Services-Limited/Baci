@@ -346,6 +346,65 @@ describe('loadAgenticActionHealth', () => {
     ]);
   });
 
+  it('keeps terminal idempotency alerts scoped to the current health window', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-28T12:00:00.000Z'));
+    getActionHealthRequestControlSummary.mockResolvedValue({
+      allowlistCount: 1,
+      denylistCount: 0,
+      error: null,
+      isAgenticCheckoutEnabled: true,
+    });
+    const supabase = {
+      rpc: vi.fn().mockResolvedValue({
+        data: {
+          checkout_sessions: [],
+          idempotency_records: [
+            {
+              created_at: '2026-05-22T19:15:54.000Z',
+              expires_at: '2026-05-23T19:15:54.000Z',
+              route: 'checkout_sessions.create',
+              status_code: 500,
+              updated_at: '2026-05-22T19:15:55.000Z',
+            },
+            {
+              created_at: '2026-05-28T11:15:54.000Z',
+              expires_at: '2026-05-29T11:15:54.000Z',
+              route: 'checkout_sessions.create',
+              status_code: 500,
+              updated_at: '2026-05-28T11:15:55.000Z',
+            },
+          ],
+          request_records: [],
+        },
+        error: null,
+      }),
+    } as unknown as SupabaseClient;
+
+    const result = await loadAgenticActionHealth(supabase, 'merchant-1');
+
+    expect(result.idempotency).toMatchObject({
+      recent_count: 1,
+      terminal_error_count: 1,
+    });
+    expect(result.idempotency?.records).toEqual([
+      expect.objectContaining({
+        route: 'checkout_sessions.create',
+        state: 'server_error',
+        updated_at: '2026-05-28T11:15:55.000Z',
+      }),
+    ]);
+    expect(result.actions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'AGENTIC_IDEMPOTENCY_ERRORS',
+          count: 1,
+          severity: 'attention',
+        }),
+      ])
+    );
+  });
+
   it('does not alert on expired or non-server-error order reads', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-05-18T10:00:00.000Z'));

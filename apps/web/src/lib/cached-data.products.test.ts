@@ -1,3 +1,4 @@
+import { cacheTag } from 'next/cache';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   getCachedCategoryPageData,
@@ -12,6 +13,7 @@ import {
   type CachedDataTestHarness,
   resetMockCreateClient,
 } from '@/lib/cached-data.test-utils';
+import { getProductScopedCacheTag } from '@/lib/product-cache-tags';
 
 vi.mock('@/env', () => ({
   getSupabaseUrl: vi.fn(() => 'https://test.supabase.co'),
@@ -154,6 +156,26 @@ describe('cached-data product query projections', () => {
     expect(selectArg).not.toMatch(/\*\s*,/);
     expect(selectArg).toContain('imageHint:image_hint');
     expect(selectArg).toContain('fulfillmentFields:fulfillment_fields');
+  });
+
+  it('uses ByteString-safe product cache tags for non-ASCII product slugs', async () => {
+    const productSlug = 'dell-alienware-x14-r2-–-14”';
+    harness.mockMaybeSingle.mockResolvedValueOnce(singleProductResult);
+
+    await getCachedProductWithDetails('merchant-123', productSlug);
+
+    const expectedTag = getProductScopedCacheTag(
+      'product',
+      'merchant-123',
+      productSlug
+    );
+    expect(cacheTag).toHaveBeenCalledWith(
+      'product',
+      'product-details',
+      expectedTag
+    );
+    expect(expectedTag).not.toContain('–');
+    expect(expectedTag).not.toContain('”');
   });
 
   it('getCachedProducts attaches storefront variants from the public RPC', async () => {
