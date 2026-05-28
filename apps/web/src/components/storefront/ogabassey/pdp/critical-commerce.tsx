@@ -24,8 +24,15 @@ interface OgabasseyPdpCriticalCommerceProps {
   };
 }
 
-function formatCondition(condition: string) {
-  return condition.charAt(0).toUpperCase() + condition.slice(1);
+function formatCondition(condition: string | null | undefined) {
+  const normalizedCondition = condition?.trim();
+  if (!normalizedCondition) {
+    return null;
+  }
+
+  return (
+    normalizedCondition.charAt(0).toUpperCase() + normalizedCondition.slice(1)
+  );
 }
 
 export function OgabasseyPdpCriticalCommerce({
@@ -33,14 +40,18 @@ export function OgabasseyPdpCriticalCommerce({
   cartProduct,
   product,
 }: OgabasseyPdpCriticalCommerceProps) {
+  const formattedCondition = formatCondition(product.condition);
+
   return (
     <aside className={styles.panel} aria-label="Purchase options">
       <div className={styles.facts}>
         <p className={styles.eyebrow}>Ready to buy</p>
-        <p className={styles.fact}>
-          <span>Condition</span>
-          <strong>{formatCondition(product.condition)}</strong>
-        </p>
+        {formattedCondition ? (
+          <p className={styles.fact}>
+            <span>Condition</span>
+            <strong>{formattedCondition}</strong>
+          </p>
+        ) : null}
         <p className={styles.fact}>
           <span>Delivery</span>
           <strong>Lagos and nationwide</strong>
