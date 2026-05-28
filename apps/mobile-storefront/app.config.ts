@@ -96,19 +96,17 @@ const tiktokBusinessPlugin: TikTokBusinessPlugin | null =
     : null;
 
 const facebookAppId =
-  process.env.STOREFRONT_FACEBOOK_APP_ID?.trim() || undefined;
+  process.env.STOREFRONT_FACEBOOK_APP_ID?.trim();
 const facebookClientToken =
-  process.env.STOREFRONT_FACEBOOK_CLIENT_TOKEN?.trim() || undefined;
-const isFacebookSdkPartiallyConfigured = Boolean(
-  facebookAppId || facebookClientToken
-);
-const isFacebookSdkConfigured = Boolean(facebookAppId && facebookClientToken);
+  process.env.STOREFRONT_FACEBOOK_CLIENT_TOKEN?.trim();
 
-if (isFacebookSdkPartiallyConfigured && !isFacebookSdkConfigured) {
+if (!facebookAppId || !facebookClientToken) {
   throw new Error(
-    '[app.config] STOREFRONT_FACEBOOK_APP_ID and STOREFRONT_FACEBOOK_CLIENT_TOKEN must be configured together.'
+    '[app.config] STOREFRONT_FACEBOOK_APP_ID and STOREFRONT_FACEBOOK_CLIENT_TOKEN are required in your environment to build and prevent silent fallback.'
   );
 }
+
+const isFacebookSdkConfigured = true;
 
 const facebookSdkPlugin: NonNullable<ExpoConfig['plugins']>[number] | null =
   isFacebookSdkConfigured && facebookAppId && facebookClientToken
@@ -151,7 +149,13 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         'Your data will be used to provide personalized product recommendations and improve your shopping experience.',
       SKAdNetworkItems: [
         {
-          SKAdNetworkIdentifier: 'ce2y4j37ch.skadnetwork',
+          SKAdNetworkIdentifier: '282ce24gcd.skadnetwork',
+        },
+        {
+          SKAdNetworkIdentifier: 'v9wttpbfk9.skadnetwork',
+        },
+        {
+          SKAdNetworkIdentifier: 'n38lu8286q.skadnetwork',
         },
       ],
     },
