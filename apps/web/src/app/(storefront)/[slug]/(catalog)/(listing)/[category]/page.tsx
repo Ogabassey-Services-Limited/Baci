@@ -60,7 +60,9 @@ export async function generateMetadata({
 
   const categoryName = resolveCategoryPageName(data, category);
   const normalizedProducts = normalizeCategoryPageProducts(
-    data.products as unknown as RawDbProduct[]
+    data.products as unknown as RawDbProduct[],
+    undefined,
+    merchant.country
   );
   const paginatedProducts = normalizedProducts.slice(
     0,

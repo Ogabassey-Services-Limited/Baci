@@ -7,6 +7,7 @@ import type { ProductSemanticCandidate } from '@/lib/storefront-product/product-
 
 interface OgabasseyPdpSemanticMerchant {
   business_name?: string | null;
+  country?: string | null;
   id: string;
 }
 
@@ -43,6 +44,7 @@ export async function OgabasseyPdpSemanticSections({
     merchantBusinessName: merchant?.business_name || 'Baci Store',
     categorySlug,
     categoryName,
+    countryCode: merchant.country,
     currentProduct: {
       slug: product.slug || String(product.id),
       name: product.name,

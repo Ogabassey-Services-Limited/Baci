@@ -87,4 +87,49 @@ describe('normalizeCategoryPageProducts', () => {
   it('returns an empty array when there are no products to normalize', () => {
     expect(normalizeCategoryPageProducts([], 'smartphones')).toEqual([]);
   });
+
+  it('formats normalized product prices with the storefront country currency', () => {
+    const [result] = normalizeCategoryPageProducts(
+      [
+        {
+          id: 'prod-4',
+          name: 'Kurta Set',
+          slug: 'kurta-set',
+          description: 'Festive wear',
+          price: 2500,
+          condition: 'new',
+          stock: 7,
+          images: ['https://cdn.example.com/kurta.png'],
+          categories: [{ name: 'Fashion', slug: 'fashion' }],
+        },
+      ],
+      'fashion',
+      'IN'
+    );
+
+    expect(result.price).toMatch(/₹|INR/);
+    expect(result.price).not.toContain('₦');
+  });
+
+  it('falls back to NGN when no storefront country is provided', () => {
+    const [result] = normalizeCategoryPageProducts(
+      [
+        {
+          id: 'prod-5',
+          name: 'Classic Tote',
+          slug: 'classic-tote',
+          description: 'Everyday bag',
+          price: 2500,
+          condition: 'new',
+          stock: 3,
+          images: ['https://cdn.example.com/tote.png'],
+          categories: [{ name: 'Fashion', slug: 'fashion' }],
+        },
+      ],
+      'fashion'
+    );
+
+    expect(result.price).toContain('₦');
+    expect(result.price).not.toMatch(/₹|INR/);
+  });
 });

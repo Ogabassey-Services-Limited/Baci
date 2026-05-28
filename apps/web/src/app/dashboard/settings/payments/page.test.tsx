@@ -167,6 +167,52 @@ describe('PaymentSettingsPage', () => {
     expect(screen.queryByText(/bank details saved/i)).not.toBeInTheDocument();
   });
 
+  it('does not show hardcoded Nigerian currency labels for India merchants', async () => {
+    render(<PaymentSettingsPage />);
+
+    expect(
+      await screen.findByRole('heading', { name: /payment settings/i })
+    ).toBeInTheDocument();
+
+    expect(screen.getByText('Local Payments (INR)')).toBeInTheDocument();
+    expect(screen.getByText(/Baci charges/i)).toHaveTextContent('₹2,050');
+    expect(
+      screen.queryByText(/Local Payments \(NGN\)/i)
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/N2,050/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/N100/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/Nigerian Naira \(NGN\)/i)
+    ).not.toBeInTheDocument();
+  });
+
+  it('keeps Paystack fee copy Nigerian for Nigerian merchants', async () => {
+    useMerchantMock.mockReturnValue({
+      merchant: {
+        id: 'merchant-1',
+        business_name: 'Baci Store',
+        country: 'NG',
+        bank_account_number: '1234567890',
+        bank_account_name: 'Baci Store',
+        bank_code: '044',
+        bank_name: 'Guaranty Trust Bank',
+        paystack_subaccount_code: 'ACCT_test123',
+      },
+      loading: false,
+      reloadMerchant: reloadMerchantMock,
+    });
+
+    render(<PaymentSettingsPage />);
+
+    expect(
+      await screen.findByRole('heading', { name: /payment settings/i })
+    ).toBeInTheDocument();
+
+    expect(screen.getByText('Local Payments (NGN)')).toBeInTheDocument();
+    expect(screen.getByText(/Paystack:/i)).toHaveTextContent('₦100');
+    expect(screen.getByText(/Baci charges/i)).toHaveTextContent('₦2,050');
+  });
+
   it('hydrates saved Nigerian bank details and reloads after bank save', async () => {
     const user = userEvent.setup();
     useMerchantMock.mockReturnValue({

@@ -1,3 +1,4 @@
+import { formatDisplayCurrency } from '@/lib/format-display-currency';
 import { escapeHtml, sanitizeUrl } from '@/lib/sanitize-core';
 
 interface OrderItem {
@@ -9,6 +10,13 @@ interface OrderItem {
 interface MerchantRegistrationInfo {
   merchantTin?: string;
   merchantRcNumber?: string;
+}
+
+function formatEmailMoney(amount: number, currency?: string): string {
+  return formatDisplayCurrency(amount, currency || 'NGN', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  });
 }
 
 function getSafeHttpUrl(value?: string): string | undefined {
@@ -40,6 +48,7 @@ interface OrderConfirmationData extends MerchantRegistrationInfo {
   };
   merchantName: string;
   merchantUrl: string;
+  currency?: string;
 }
 
 /**
@@ -62,7 +71,7 @@ export function generateOrderConfirmationEmail(
         ${item.quantity}
       </td>
       <td style="padding: 16px 0; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: 600; color: #1e293b; font-size: 14px;">
-        ₦${item.price.toLocaleString()}
+        ${formatEmailMoney(item.price, data.currency)}
       </td>
     </tr>
   `
@@ -147,15 +156,15 @@ export function generateOrderConfirmationEmail(
                 <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 20px;">
                   <tr>
                     <td align="right" style="padding-top: 8px; color: #64748b; font-size: 14px;">Subtotal</td>
-                    <td align="right" style="padding-top: 8px; width: 120px; font-weight: 600; color: #334155; font-size: 14px;">₦${data.subtotal.toLocaleString()}</td>
+                    <td align="right" style="padding-top: 8px; width: 120px; font-weight: 600; color: #334155; font-size: 14px;">${formatEmailMoney(data.subtotal, data.currency)}</td>
                   </tr>
                   <tr>
                     <td align="right" style="padding-top: 8px; color: #64748b; font-size: 14px;">Shipping</td>
-                    <td align="right" style="padding-top: 8px; width: 120px; font-weight: 600; color: #334155; font-size: 14px;">₦${data.shippingFee.toLocaleString()}</td>
+                    <td align="right" style="padding-top: 8px; width: 120px; font-weight: 600; color: #334155; font-size: 14px;">${formatEmailMoney(data.shippingFee, data.currency)}</td>
                   </tr>
                   <tr>
                     <td align="right" style="padding-top: 16px; color: #0f172a; font-size: 16px; font-weight: 700;">Total</td>
-                    <td align="right" style="padding-top: 16px; width: 120px; color: #ca8a04; font-size: 18px; font-weight: 800;">₦${data.total.toLocaleString()}</td>
+                    <td align="right" style="padding-top: 16px; width: 120px; color: #ca8a04; font-size: 18px; font-weight: 800;">${formatEmailMoney(data.total, data.currency)}</td>
                   </tr>
                 </table>
               </div>
@@ -234,7 +243,7 @@ export function generateOrderConfirmationText(
   const itemsText = data.items
     .map(
       (item) =>
-        `${item.name} x${item.quantity} - ₦${item.price.toLocaleString()}`
+        `${item.name} x${item.quantity} - ${formatEmailMoney(item.price, data.currency)}`
     )
     .join('\n');
 
@@ -250,9 +259,9 @@ Order Number: #${data.orderNumber}
 Items Ordered:
 ${itemsText}
 
-Subtotal: ₦${data.subtotal.toLocaleString()}
-Shipping: ₦${data.shippingFee.toLocaleString()}
-Total: ₦${data.total.toLocaleString()}
+Subtotal: ${formatEmailMoney(data.subtotal, data.currency)}
+Shipping: ${formatEmailMoney(data.shippingFee, data.currency)}
+Total: ${formatEmailMoney(data.total, data.currency)}
 
 Shipping Address:
 ${data.shippingAddress.address}
@@ -289,6 +298,7 @@ interface PaymentReminderData extends MerchantRegistrationInfo {
   paymentLink: string;
   merchantName: string;
   merchantUrl: string;
+  currency?: string;
   supportEmail?: string;
   virtualAccount?: {
     bankName: string;
@@ -312,7 +322,7 @@ export function generatePaymentReminderEmail(
         <span style="color: #6b7280; font-size: 13px;"> × ${item.quantity}</span>
       </td>
       <td style="padding: 12px 16px; border-bottom: 1px solid #f0f0f0; text-align: right; color: #1a1a2e; font-weight: 600;">
-        ₦${(item.price * item.quantity).toLocaleString()}
+        ${formatEmailMoney(item.price * item.quantity, data.currency)}
       </td>
     </tr>
   `
@@ -389,21 +399,21 @@ export function generatePaymentReminderEmail(
           <table style="width: 100%;">
             <tr>
               <td style="color: #6b7280; font-size: 14px; padding: 4px 0;">Order Total:</td>
-              <td style="color: #1a1a2e; font-size: 14px; text-align: right;">₦${data.totalAmount.toLocaleString()}</td>
+              <td style="color: #1a1a2e; font-size: 14px; text-align: right;">${formatEmailMoney(data.totalAmount, data.currency)}</td>
             </tr>
             ${
               data.amountPaid > 0
                 ? `
             <tr>
               <td style="color: #10b981; font-size: 14px; padding: 4px 0;">Amount Paid:</td>
-              <td style="color: #10b981; font-size: 14px; text-align: right;">-₦${data.amountPaid.toLocaleString()}</td>
+              <td style="color: #10b981; font-size: 14px; text-align: right;">-${formatEmailMoney(data.amountPaid, data.currency)}</td>
             </tr>
             `
                 : ''
             }
             <tr>
               <td style="color: #1a1a2e; font-size: 18px; font-weight: 700; padding: 12px 0 0 0;">Balance Due:</td>
-              <td style="color: #dc2626; font-size: 20px; font-weight: 800; text-align: right; padding: 12px 0 0 0;">₦${data.balanceDue.toLocaleString()}</td>
+              <td style="color: #dc2626; font-size: 20px; font-weight: 800; text-align: right; padding: 12px 0 0 0;">${formatEmailMoney(data.balanceDue, data.currency)}</td>
             </tr>
           </table>
         </div>
@@ -457,7 +467,7 @@ export function generatePaymentReminderText(data: PaymentReminderData): string {
   const itemsText = data.items
     .map(
       (item) =>
-        `• ${item.name} × ${item.quantity} — ₦${(item.price * item.quantity).toLocaleString()}`
+        `• ${item.name} × ${item.quantity} — ${formatEmailMoney(item.price * item.quantity, data.currency)}`
     )
     .join('\n');
 
@@ -475,8 +485,8 @@ We noticed your order is awaiting payment. Don't miss out on your items!
 Order Details:
 ${itemsText}
 
-Order Total: ₦${data.totalAmount.toLocaleString()}
-${data.amountPaid > 0 ? `Amount Paid: ₦${data.amountPaid.toLocaleString()}\n` : ''}Balance Due: ₦${data.balanceDue.toLocaleString()}
+Order Total: ${formatEmailMoney(data.totalAmount, data.currency)}
+${data.amountPaid > 0 ? `Amount Paid: ${formatEmailMoney(data.amountPaid, data.currency)}\n` : ''}Balance Due: ${formatEmailMoney(data.balanceDue, data.currency)}
 
 Complete your payment here: ${data.paymentLink}
 ${bankDetails}
@@ -500,6 +510,7 @@ interface PaymentReceiptData extends MerchantRegistrationInfo {
   balanceDue: number;
   merchantName: string;
   merchantUrl: string;
+  currency?: string;
   supportEmail?: string;
 }
 
@@ -516,7 +527,7 @@ export function generatePaymentReceiptEmail(data: PaymentReceiptData): string {
         <span style="color: #6b7280; font-size: 13px;"> × ${item.quantity}</span>
       </td>
       <td style="padding: 12px 16px; border-bottom: 1px solid #f0f0f0; text-align: right; color: #1a1a2e; font-weight: 600;">
-        ₦${(item.price * item.quantity).toLocaleString()}
+        ${formatEmailMoney(item.price * item.quantity, data.currency)}
       </td>
     </tr>
   `
@@ -551,7 +562,7 @@ export function generatePaymentReceiptEmail(data: PaymentReceiptData): string {
       </p>
       
       <p style="color: #6b7280; font-size: 15px; margin: 0 0 24px 0;">
-        We have successfully received a payment of <strong>₦${data.amountPaidNow.toLocaleString()}</strong> for your order <strong>#${data.orderNumber}</strong>.
+        We have successfully received a payment of <strong>${formatEmailMoney(data.amountPaidNow, data.currency)}</strong> for your order <strong>#${data.orderNumber}</strong>.
       </p>
 
       <!-- Payment Summary Card -->
@@ -564,15 +575,15 @@ export function generatePaymentReceiptEmail(data: PaymentReceiptData): string {
           <table style="width: 100%;">
             <tr>
               <td style="color: #6b7280; font-size: 14px; padding: 6px 0;">Order Total:</td>
-              <td style="color: #1a1a2e; font-size: 14px; text-align: right; font-weight: 600;">₦${data.totalAmount.toLocaleString()}</td>
+              <td style="color: #1a1a2e; font-size: 14px; text-align: right; font-weight: 600;">${formatEmailMoney(data.totalAmount, data.currency)}</td>
             </tr>
              <tr>
               <td style="color: #6b7280; font-size: 14px; padding: 6px 0;">Total Paid So Far:</td>
-              <td style="color: #10b981; font-size: 14px; text-align: right; font-weight: 600;">₦${data.totalPaidSoFar.toLocaleString()}</td>
+              <td style="color: #10b981; font-size: 14px; text-align: right; font-weight: 600;">${formatEmailMoney(data.totalPaidSoFar, data.currency)}</td>
             </tr>
             <tr>
               <td style="border-top: 1px solid #e5e7eb; padding-top: 12px; color: #1a1a2e; font-size: 16px; font-weight: 700;">Remaining Balance:</td>
-              <td style="border-top: 1px solid #e5e7eb; padding-top: 12px; color: #dc2626; font-size: 18px; font-weight: 800; text-align: right;">₦${data.balanceDue.toLocaleString()}</td>
+              <td style="border-top: 1px solid #e5e7eb; padding-top: 12px; color: #dc2626; font-size: 18px; font-weight: 800; text-align: right;">${formatEmailMoney(data.balanceDue, data.currency)}</td>
             </tr>
           </table>
         </div>
@@ -630,13 +641,13 @@ Payment Receipt - Order #${data.orderNumber}
     
 Hi ${data.customerName},
 
-We have received a payment of ₦${data.amountPaidNow.toLocaleString()} for your order.
+We have received a payment of ${formatEmailMoney(data.amountPaidNow, data.currency)} for your order.
 
 Order Status: ${data.balanceDue <= 0 ? 'Fully Paid' : 'Partially Paid'}
 
-Order Total: ₦${data.totalAmount.toLocaleString()}
-Total Paid So Far: ₦${data.totalPaidSoFar.toLocaleString()}
-Remaining Balance: ₦${data.balanceDue.toLocaleString()}
+Order Total: ${formatEmailMoney(data.totalAmount, data.currency)}
+Total Paid So Far: ${formatEmailMoney(data.totalPaidSoFar, data.currency)}
+Remaining Balance: ${formatEmailMoney(data.balanceDue, data.currency)}
 
 ${data.balanceDue > 0 ? 'Please complete the remaining payment to finalize your order.' : 'Your order is now fully paid.'}
 
@@ -1116,6 +1127,7 @@ interface OrderCancellationData extends MerchantRegistrationInfo {
   cancelledBy: 'merchant' | 'customer';
   merchantName: string;
   merchantUrl: string;
+  currency?: string;
   supportEmail?: string;
 }
 
@@ -1136,7 +1148,7 @@ export function generateOrderCancellationEmail(
         x${item.quantity}
       </td>
       <td style="padding: 10px 16px; border-bottom: 1px solid #f0f0f0; text-align: right; color: #94a3b8; font-size: 14px;">
-        ₦${item.price.toLocaleString()}
+        ${formatEmailMoney(item.price, data.currency)}
       </td>
     </tr>
   `
@@ -1152,11 +1164,11 @@ export function generateOrderCancellationEmail(
       <table style="width: 100%; font-size: 14px;">
         <tr>
           <td style="padding: 4px 0; color: #6b7280;">Amount Paid</td>
-          <td style="padding: 4px 0; text-align: right; color: #1e293b; font-weight: 600;">₦${data.amountPaid.toLocaleString()}</td>
+          <td style="padding: 4px 0; text-align: right; color: #1e293b; font-weight: 600;">${formatEmailMoney(data.amountPaid, data.currency)}</td>
         </tr>
         <tr>
           <td style="padding: 4px 0; color: #6b7280;">Refund Amount</td>
-          <td style="padding: 4px 0; text-align: right; color: #059669; font-weight: 700;">₦${data.refundAmount.toLocaleString()}</td>
+          <td style="padding: 4px 0; text-align: right; color: #059669; font-weight: 700;">${formatEmailMoney(data.refundAmount, data.currency)}</td>
         </tr>
       </table>
       <p style="margin: 12px 0 0 0; font-size: 13px; color: #047857;">
@@ -1228,7 +1240,7 @@ export function generateOrderCancellationEmail(
         <table style="width: 100%; margin-top: 16px;">
           <tr>
             <td style="padding: 8px 0; color: #64748b; font-size: 14px;">Order Total</td>
-            <td style="padding: 8px 0; text-align: right; color: #94a3b8; font-size: 14px; text-decoration: line-through;">₦${data.totalAmount.toLocaleString()}</td>
+            <td style="padding: 8px 0; text-align: right; color: #94a3b8; font-size: 14px; text-decoration: line-through;">${formatEmailMoney(data.totalAmount, data.currency)}</td>
           </tr>
         </table>
       </div>
@@ -1283,7 +1295,7 @@ export function generateOrderCancellationText(
   const itemsList = data.items
     .map(
       (item) =>
-        `- ${item.name} x${item.quantity} - ₦${item.price.toLocaleString()}`
+        `- ${item.name} x${item.quantity} - ${formatEmailMoney(item.price, data.currency)}`
     )
     .join('\n');
 
@@ -1301,8 +1313,8 @@ export function generateOrderCancellationText(
     data.refundAmount > 0
       ? `
 REFUND INFORMATION
-Amount Paid: ₦${data.amountPaid.toLocaleString()}
-Refund Amount: ₦${data.refundAmount.toLocaleString()}
+Amount Paid: ${formatEmailMoney(data.amountPaid, data.currency)}
+Refund Amount: ${formatEmailMoney(data.refundAmount, data.currency)}
 Your refund will be processed within 3-5 business days.
 `
       : '';
@@ -1323,7 +1335,7 @@ ${reasonLine}
 CANCELLED ITEMS
 ${itemsList}
 
-Order Total: ₦${data.totalAmount.toLocaleString()} (Cancelled)
+Order Total: ${formatEmailMoney(data.totalAmount, data.currency)} (Cancelled)
 
 ${refundSection}
 

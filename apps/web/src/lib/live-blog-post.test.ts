@@ -49,6 +49,7 @@ const mockMerchant = {
   slug: 'test-store',
   logo_url: 'https://example.com/logo.png',
   custom_domain: 'shop.example.com',
+  country: 'IN',
 };
 
 describe('getLiveBlogPost', () => {
@@ -156,6 +157,7 @@ describe('getLiveBlogPost', () => {
     expect(result).not.toBeNull();
     expect(result?.merchant.id).toBe('merchant-123');
     expect(result?.merchant.business_name).toBe('Test Store');
+    expect(result?.merchant.country).toBe('IN');
     expect(result?.post).toEqual(mockPost);
     expect(result?.relatedPosts).toEqual([
       { id: 'related-1', slug: 'related-post', title: 'Related Post' },

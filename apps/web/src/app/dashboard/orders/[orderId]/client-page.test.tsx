@@ -176,6 +176,17 @@ describe('OrderDetailsClientPage', () => {
     expect(matches.length).toBeGreaterThanOrEqual(2);
   });
 
+  it('renders order amounts using the order currency', () => {
+    render(
+      <OrderDetailsClientPage
+        initialOrder={makeOrder({ total: 15000, currency: 'INR' })}
+      />
+    );
+
+    expect(screen.getAllByText(/₹|INR/).length).toBeGreaterThanOrEqual(2);
+    expect(screen.queryByText(/₦/)).not.toBeInTheDocument();
+  });
+
   it('renders a back-to-orders link', () => {
     render(<OrderDetailsClientPage initialOrder={makeOrder()} />);
 

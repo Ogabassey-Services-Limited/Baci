@@ -33,6 +33,7 @@ import { useMerchant } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
 import { fetchWithCsrf } from '@/lib/api-client';
 import { isBaciPaystackSettlementCountry } from '@/lib/checkout/payment-gateway-availability';
+import { formatCurrencyCompact, getCurrencyCode } from '@/lib/currency';
 import { cn } from '@/lib/utils';
 import { VirtualTerminalSettings } from './components/virtual-terminal-settings';
 
@@ -68,6 +69,9 @@ export default function PaymentSettingsPage() {
     typeof merchantData?.country === 'string' ? merchantData.country : null;
   const isPaystackSupported = isBaciPaystackSettlementCountry(countryCode);
   const hasPaystackSubaccount = !!merchantData?.paystack_subaccount_code;
+  const merchantCurrencyCode = getCurrencyCode(countryCode);
+  const platformFeeCap = formatCurrencyCompact(2050, countryCode);
+  const paystackFixedFee = formatCurrencyCompact(100, 'NG');
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -284,9 +288,11 @@ export default function PaymentSettingsPage() {
                     <span className="text-xs bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300 px-2 py-0.5 rounded-full">
                       Auto-Split
                     </span>
-                    <span className="text-xs bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300 px-2 py-0.5 rounded-full">
-                      1.5% + N100
-                    </span>
+                    {isPaystackSupported && (
+                      <span className="text-xs bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300 px-2 py-0.5 rounded-full">
+                        1.5% + {paystackFixedFee}
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -393,7 +399,7 @@ export default function PaymentSettingsPage() {
                       Multi-Currency
                     </span>
                     <span className="text-xs bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300 px-2 py-0.5 rounded-full">
-                      NGN, KES, GHS, ZAR
+                      Multi-country
                     </span>
                   </div>
                 </div>
@@ -494,7 +500,7 @@ export default function PaymentSettingsPage() {
         <CardContent className="space-y-6">
           <div className="grid md:grid-cols-2 gap-6">
             <div className="space-y-2">
-              <Label>Local Payments (NGN)</Label>
+              <Label>Local Payments ({merchantCurrencyCode})</Label>
               <Select
                 value={settings.preferred_local_gateway}
                 onValueChange={(value: 'paystack' | 'korapay') =>
@@ -520,7 +526,7 @@ export default function PaymentSettingsPage() {
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                Used for Nigerian Naira (NGN) payments
+                Used for {merchantCurrencyCode} payments in your storefront
               </p>
             </div>
 
@@ -554,7 +560,7 @@ export default function PaymentSettingsPage() {
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                Used for KES, GHS, ZAR, and other currencies
+                Used for cross-border and provider-supported currencies
               </p>
             </div>
           </div>
@@ -563,9 +569,12 @@ export default function PaymentSettingsPage() {
           <div className="p-4 rounded-lg bg-muted/50 border">
             <h4 className="font-medium mb-2">Platform Fee</h4>
             <p className="text-sm text-muted-foreground">
-              Baci charges <strong>2% per transaction, capped at N2,050</strong>
-              . This is automatically deducted from each payment. Gateway fees
-              (Paystack: 1.5% + N100) are separate and borne by the platform.
+              Baci charges{' '}
+              <strong>2% per transaction, capped at {platformFeeCap}</strong>.
+              This is automatically deducted from each payment.{' '}
+              {isPaystackSupported
+                ? `Gateway fees (Paystack: 1.5% + ${paystackFixedFee}) are separate and borne by the platform.`
+                : 'Gateway fees depend on the provider configured for your country.'}
             </p>
           </div>
         </CardContent>

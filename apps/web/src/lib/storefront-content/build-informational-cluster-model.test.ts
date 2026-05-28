@@ -97,6 +97,20 @@ describe('buildInformationalClusterModel', () => {
     );
   });
 
+  it('formats featured product prices with the storefront country currency', async () => {
+    const model = await buildInformationalClusterModel({
+      merchantId: 'merchant-1',
+      merchantSlug: 'ogabassey',
+      storeUrl: 'https://ogabassey.com',
+      post: smartphoneGuidePost,
+      categoryDataOverride: smartphoneCategoryData,
+      countryCode: 'IN',
+    });
+
+    expect(model?.featuredProducts[0]?.description).toMatch(/₹|INR/);
+    expect(model?.featuredProducts[0]?.description).not.toContain('₦');
+  });
+
   it('returns null when the article category cannot be inferred', async () => {
     const model = await buildInformationalClusterModel({
       merchantId: 'merchant-1',

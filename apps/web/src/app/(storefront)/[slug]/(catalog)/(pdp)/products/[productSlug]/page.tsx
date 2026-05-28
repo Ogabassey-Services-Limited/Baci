@@ -508,6 +508,7 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
     merchantBusinessName: merchant.business_name || 'Baci Store',
     categorySlug,
     categoryName,
+    countryCode: merchant.country,
     currentProduct: {
       slug: product.slug || String(product.id),
       name: product.name,

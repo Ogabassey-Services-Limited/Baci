@@ -1,13 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import {
   generateOrderCancellationEmail,
+  generateOrderCancellationText,
   generateOrderConfirmationEmail,
   generateOrderConfirmationText,
   generateOrderDeliveredEmail,
   generateOrderShippedEmail,
   generateOrderShippedText,
   generatePaymentReceiptEmail,
+  generatePaymentReceiptText,
   generatePaymentReminderEmail,
+  generatePaymentReminderText,
 } from './email-templates';
 
 const baseOrderData = {
@@ -215,6 +218,113 @@ describe('Email Templates', () => {
       expect(text).toContain('John Doe');
       expect(text).toContain('Widget');
       expect(text).toContain('11,500');
+    });
+  });
+
+  describe('Currency Formatting', () => {
+    const paymentReminderPayload = {
+      orderNumber: 'ORD-002',
+      customerName: 'Jane Doe',
+      items: [{ name: 'Gadget', quantity: 1, price: 20000 }],
+      totalAmount: 20000,
+      amountPaid: 5000,
+      balanceDue: 15000,
+      paymentLink: 'https://pay.test/link',
+      merchantName: 'TestShop',
+      merchantUrl: 'https://testshop.usebaci.com',
+    };
+    const paymentReceiptPayload = {
+      orderNumber: 'ORD-003',
+      customerName: 'Jane Doe',
+      items: [{ name: 'Gadget', quantity: 1, price: 20000 }],
+      totalAmount: 20000,
+      amountPaidNow: 5000,
+      totalPaidSoFar: 5000,
+      balanceDue: 15000,
+      merchantName: 'TestShop',
+      merchantUrl: 'https://testshop.usebaci.com',
+    };
+    const cancellationPayload = {
+      orderNumber: 'ORD-004',
+      customerName: 'Jane Doe',
+      items: [{ name: 'Gadget', quantity: 1, price: 5000 }],
+      totalAmount: 5000,
+      amountPaid: 5000,
+      refundAmount: 5000,
+      cancelledBy: 'merchant' as const,
+      merchantName: 'TestShop',
+      merchantUrl: 'https://testshop.usebaci.com',
+    };
+
+    it('defaults to NGN when no currency is provided', () => {
+      const confirmationOutput = [
+        generateOrderConfirmationEmail(baseOrderData),
+        generateOrderConfirmationText(baseOrderData),
+      ].join('\n');
+      const lifecycleOutput = [
+        generatePaymentReminderEmail(paymentReminderPayload),
+        generatePaymentReminderText(paymentReminderPayload),
+        generatePaymentReceiptEmail(paymentReceiptPayload),
+        generatePaymentReceiptText(paymentReceiptPayload),
+        generateOrderCancellationEmail(cancellationPayload),
+        generateOrderCancellationText(cancellationPayload),
+      ].join('\n');
+      const output = `${confirmationOutput}\n${lifecycleOutput}`;
+
+      expect(confirmationOutput).toContain('₦11,500');
+      expect(lifecycleOutput).toContain('₦20,000');
+      expect(lifecycleOutput).toContain('₦15,000');
+      expect(lifecycleOutput).toContain('₦5,000');
+      expect(output).not.toMatch(/₹|INR/);
+    });
+
+    it('uses the provided currency for order confirmation emails and text', () => {
+      const payload = { ...baseOrderData, currency: 'INR' };
+      const html = generateOrderConfirmationEmail(payload);
+      const text = generateOrderConfirmationText(payload);
+      const output = `${html}\n${text}`;
+
+      expect(output).toContain('₹5,000');
+      expect(output).toContain('₹10,000');
+      expect(output).toContain('₹1,500');
+      expect(output).toContain('₹11,500');
+      expect(text).toContain('Total: ₹11,500');
+      expect(output).not.toContain('₦');
+    });
+
+    it('uses the provided currency across payment lifecycle emails', () => {
+      const output = [
+        generatePaymentReminderEmail({
+          ...paymentReminderPayload,
+          currency: 'INR',
+        }),
+        generatePaymentReminderText({
+          ...paymentReminderPayload,
+          currency: 'INR',
+        }),
+        generatePaymentReceiptEmail({
+          ...paymentReceiptPayload,
+          currency: 'INR',
+        }),
+        generatePaymentReceiptText({
+          ...paymentReceiptPayload,
+          currency: 'INR',
+        }),
+        generateOrderCancellationEmail({
+          ...cancellationPayload,
+          currency: 'INR',
+        }),
+        generateOrderCancellationText({
+          ...cancellationPayload,
+          currency: 'INR',
+        }),
+      ].join('\n');
+
+      expect(output).toContain('₹20,000');
+      expect(output).toContain('₹15,000');
+      expect(output).toContain('₹5,000');
+      expect(output).toContain('Refund Amount: ₹5,000');
+      expect(output).not.toContain('₦');
     });
   });
 });

@@ -84,7 +84,9 @@ vi.mock('@/lib/validation', () => ({
 }));
 
 vi.mock('./product-index-card', () => ({
-  ProductIndexCard: () => null,
+  ProductIndexCard: ({ formattedPrice }: { formattedPrice: string }) => (
+    <span>{formattedPrice}</span>
+  ),
 }));
 
 const { ProductsPageContent } = await import('./products-page-content');
@@ -200,5 +202,41 @@ describe('ProductsPageContent', () => {
     expect(mockGenerateCollectionPageSchema).toHaveBeenCalledWith(
       expect.objectContaining({ currency: 'NGN' })
     );
+  });
+
+  it('renders product cards with the merchant payout currency', async () => {
+    mockGetRequestScopedMerchant.mockResolvedValue({
+      id: 'merchant-1',
+      business_name: 'Demo Store',
+      slug: 'demo-store',
+      country: 'IN',
+      payout_currency: 'INR',
+      site_description: 'Browse products',
+    });
+    mockGetCachedStorefrontProductIndex.mockResolvedValue({
+      hasError: false,
+      totalCount: 1,
+      totalPages: 1,
+      products: [
+        {
+          id: 'product-1',
+          name: 'Kurta Set',
+          slug: 'kurta-set',
+          price: 2500,
+          images: [],
+          categories: [{ name: 'Fashion', slug: 'fashion' }],
+        },
+      ],
+    });
+
+    const result = await ProductsPageContent({
+      params: Promise.resolve({ slug: 'demo-store' }),
+      searchParams: Promise.resolve({ page: '1' }),
+    });
+
+    render(result as React.ReactElement);
+
+    expect(screen.getByText(/₹|INR/)).toBeInTheDocument();
+    expect(screen.queryByText(/₦/)).not.toBeInTheDocument();
   });
 });

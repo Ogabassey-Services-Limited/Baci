@@ -160,6 +160,33 @@ describe('buildProductSemanticModel', () => {
     ]);
   });
 
+  it('formats semantic card prices with the storefront country currency', () => {
+    const currentProduct = makeCandidate({
+      slug: 'kurta-set',
+      name: 'Kurta Set',
+      brand: 'Yodha',
+      price: 2500,
+    });
+    const model = buildProductSemanticModel(
+      makeInput({
+        currentProduct,
+        countryCode: 'IN',
+        inventory: [
+          currentProduct,
+          makeCandidate({
+            slug: 'lehenga-set',
+            name: 'Lehenga Set',
+            brand: 'Yodha',
+            price: 5000,
+          }),
+        ],
+      })
+    );
+
+    expect(model.sameBrand?.cards[0]?.description).toMatch(/₹|INR/);
+    expect(model.sameBrand?.cards[0]?.description).not.toContain('₦');
+  });
+
   it('ranks alternatives by condition bucket, stock, price distance, spec overlap, then slug', () => {
     const currentProduct = makeCandidate({
       slug: 'samsung-galaxy-s25',
