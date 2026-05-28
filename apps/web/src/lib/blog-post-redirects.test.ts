@@ -116,6 +116,22 @@ describe('getBlogPostRedirect', () => {
     ).resolves.toBeNull();
   });
 
+  it('returns null when no redirect row exists', async () => {
+    const redirectBuilder = createQueryBuilder({
+      data: null,
+      error: null,
+    });
+    const from = vi
+      .fn()
+      .mockReturnValueOnce({ select: vi.fn(() => redirectBuilder) });
+    mockCreatePublicClient.mockReturnValue({ from });
+
+    await expect(
+      getBlogPostRedirect('ogabassey.com', 'retired-post')
+    ).resolves.toBeNull();
+    expect(from).toHaveBeenCalledTimes(1);
+  });
+
   it('throws when the redirect lookup fails', async () => {
     const redirectError = new Error('redirect query failed');
     const redirectBuilder = createQueryBuilder({

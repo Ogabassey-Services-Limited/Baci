@@ -3,17 +3,10 @@ CREATE TABLE IF NOT EXISTS public.blog_post_redirects (
   merchant_id uuid NOT NULL REFERENCES public.merchants(id) ON DELETE CASCADE,
   source_slug text NOT NULL,
   target_post_id uuid NOT NULL REFERENCES public.blog_posts(id) ON DELETE CASCADE,
-  target_slug text NOT NULL,
-  reason text,
-  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT blog_post_redirects_source_slug_not_blank CHECK (btrim(source_slug) <> ''),
-  CONSTRAINT blog_post_redirects_target_slug_not_blank CHECK (btrim(target_slug) <> ''),
   CONSTRAINT blog_post_redirects_source_slug_normalized CHECK (source_slug = lower(btrim(source_slug))),
-  CONSTRAINT blog_post_redirects_target_slug_normalized CHECK (target_slug = lower(btrim(target_slug))),
-  CONSTRAINT blog_post_redirects_distinct_slugs CHECK (source_slug <> target_slug),
-  CONSTRAINT blog_post_redirects_metadata_object CHECK (jsonb_typeof(metadata) = 'object'),
   UNIQUE (merchant_id, source_slug)
 );
 
