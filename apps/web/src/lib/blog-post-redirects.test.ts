@@ -36,6 +36,27 @@ describe('getBlogPostRedirect', () => {
     });
   });
 
+  it('returns null for empty source slugs before querying', async () => {
+    await expect(getBlogPostRedirect('ogabassey.com', '')).resolves.toBeNull();
+    await expect(
+      getBlogPostRedirect('ogabassey.com', '  ')
+    ).resolves.toBeNull();
+
+    expect(mockGetMerchantSafe).not.toHaveBeenCalled();
+    expect(mockCreatePublicClient).not.toHaveBeenCalled();
+  });
+
+  it('returns null when the merchant cannot be resolved', async () => {
+    mockGetMerchantSafe.mockResolvedValueOnce(null);
+
+    await expect(
+      getBlogPostRedirect('Ogabassey.com', 'retired-post')
+    ).resolves.toBeNull();
+
+    expect(mockGetMerchantSafe).toHaveBeenCalledWith('ogabassey.com');
+    expect(mockCreatePublicClient).not.toHaveBeenCalled();
+  });
+
   it('returns a published target for a retired source slug', async () => {
     const redirectBuilder = createQueryBuilder({
       data: {

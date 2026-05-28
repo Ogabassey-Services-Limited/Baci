@@ -429,4 +429,25 @@ describe('BlogPostPageContent', () => {
     );
     expect(mockNotFound).not.toHaveBeenCalled();
   });
+
+  it('renders notFound for missing direct blog slugs without redirects', async () => {
+    mockGetCachedBlogPost.mockResolvedValue(null);
+    mockGetLiveBlogPost.mockResolvedValue(null);
+    mockGetBlogPostRedirect.mockResolvedValueOnce(null);
+
+    await expect(
+      BlogPostPageContent({
+        params: Promise.resolve({
+          slug: 'ogabassey.com',
+          postSlug: 'retired-post',
+        }),
+      })
+    ).rejects.toThrow('NEXT_NOT_FOUND');
+
+    expect(mockGetBlogPostRedirect).toHaveBeenCalledWith(
+      'ogabassey.com',
+      'retired-post'
+    );
+    expect(mockNotFound).toHaveBeenCalled();
+  });
 });

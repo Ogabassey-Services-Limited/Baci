@@ -51,6 +51,7 @@ BEGIN
     SELECT 1
     FROM pg_trigger
     WHERE tgname = 'trigger_blog_post_redirects_updated_at'
+      AND tgrelid = 'public.blog_post_redirects'::regclass
   ) THEN
     CREATE TRIGGER trigger_blog_post_redirects_updated_at
       BEFORE UPDATE ON public.blog_post_redirects
