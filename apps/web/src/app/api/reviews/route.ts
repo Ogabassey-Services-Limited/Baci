@@ -9,7 +9,29 @@ import {
 import { createClient } from '@/lib/supabase/server';
 import { reviewSubmissionSchema } from '@/schemas/reviews';
 
-const REVIEW_LIST_SELECT = `
+const PUBLIC_REVIEW_LIST_SELECT = `
+  id,
+  product_id,
+  merchant_id,
+  customer_name,
+  rating,
+  title,
+  body,
+  status,
+  verified_purchase,
+  helpful_count,
+  merchant_response,
+  merchant_response_at,
+  created_at,
+  updated_at,
+  products:product_id (
+    id,
+    name,
+    images
+  )
+`;
+
+const DASHBOARD_REVIEW_LIST_SELECT = `
   id,
   product_id,
   merchant_id,
@@ -56,7 +78,9 @@ export async function GET(request: NextRequest) {
     const supabase = createClient(cookieStore);
 
     // If fetching for merchant dashboard (all statuses), require auth
-    if (merchantId && status !== 'approved') {
+    const isDashboardRequest = Boolean(merchantId && status !== 'approved');
+
+    if (isDashboardRequest) {
       const {
         data: { user },
         error: authError,
@@ -80,9 +104,13 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    const reviewSelect: string = isDashboardRequest
+      ? DASHBOARD_REVIEW_LIST_SELECT
+      : PUBLIC_REVIEW_LIST_SELECT;
+
     let query = supabase
       .from('product_reviews')
-      .select(REVIEW_LIST_SELECT, { count: 'exact' });
+      .select(reviewSelect, { count: 'exact' });
 
     if (productId) {
       query = query.eq('product_id', productId);

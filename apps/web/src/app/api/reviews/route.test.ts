@@ -268,7 +268,8 @@ describe('GET /api/reviews response shape', () => {
 
     expect(res.status).toBe(200);
     expect(supabase._selectCalls).toHaveLength(1);
-    expect(supabase._selectCalls[0]?.columns).toContain('customer_email');
+    expect(supabase._selectCalls[0]?.columns).not.toContain('customer_email');
+    expect(supabase._selectCalls[0]?.columns).not.toContain('order_id');
     expect(supabase._selectCalls[0]?.columns).toContain('products:product_id');
     expect(supabase._selectCalls[0]?.columns).not.toMatch(
       /(^|[,\s])\*($|[,\s])/

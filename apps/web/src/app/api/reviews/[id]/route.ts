@@ -25,8 +25,6 @@ const REVIEW_DETAIL_SELECT = `
   id,
   product_id,
   merchant_id,
-  order_id,
-  customer_email,
   customer_name,
   rating,
   title,
@@ -80,6 +78,7 @@ export async function GET(
       .from('product_reviews')
       .select(REVIEW_DETAIL_SELECT)
       .eq('id', id)
+      .eq('merchant_id', merchantContext.merchantId)
       .single();
 
     if (error || !review) {

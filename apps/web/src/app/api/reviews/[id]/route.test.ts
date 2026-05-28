@@ -111,6 +111,7 @@ function buildGetSupabase() {
     },
     from: vi.fn(() => detailBuilder),
     _selectCalls: selectCalls,
+    _detailBuilder: detailBuilder,
   };
 }
 
@@ -241,8 +242,13 @@ describe('GET /api/reviews/[id] response shape', () => {
 
     expect(res.status).toBe(200);
     expect(supabase._selectCalls).toHaveLength(1);
-    expect(supabase._selectCalls[0]).toContain('customer_email');
+    expect(supabase._selectCalls[0]).not.toContain('customer_email');
+    expect(supabase._selectCalls[0]).not.toContain('order_id');
     expect(supabase._selectCalls[0]).toContain('products:product_id');
     expect(supabase._selectCalls[0]).not.toMatch(/(^|[,\s])\*($|[,\s])/);
+    expect(supabase._detailBuilder.eq).toHaveBeenCalledWith(
+      'merchant_id',
+      MERCHANT_ID
+    );
   });
 });
