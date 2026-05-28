@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mockGetMerchantSafe = vi.fn();
 const mockCreatePublicClient = vi.fn();
 
+vi.mock('next/cache', () => ({ cacheLife: vi.fn(), cacheTag: vi.fn() }));
+
 vi.mock('@/lib/cached-data', () => ({
   getMerchantSafe: (...args: unknown[]) => mockGetMerchantSafe(...args),
 }));
@@ -11,6 +13,8 @@ vi.mock('@/lib/supabase/anon', () => ({
   createPublicClient: (...args: unknown[]) => mockCreatePublicClient(...args),
 }));
 
+import { cacheLife, cacheTag } from 'next/cache';
+import { getBlogCacheTag } from '@/lib/blog-cache-tags';
 import { getBlogPostRedirect } from './blog-post-redirects';
 
 function createQueryBuilder(result: { data: unknown; error: unknown }) {
@@ -90,6 +94,11 @@ describe('getBlogPostRedirect', () => {
     expect(redirectBuilder.eq).toHaveBeenCalledWith(
       'source_slug',
       'retired-post'
+    );
+    expect(cacheLife).toHaveBeenCalledWith('merchant');
+    expect(cacheTag).toHaveBeenCalledWith(
+      'blog-posts',
+      getBlogCacheTag('ogabassey.com', 'retired-post')
     );
     expect(postBuilder.eq).toHaveBeenCalledWith('status', 'published');
     expect(postBuilder.not).toHaveBeenCalledWith('published_at', 'is', null);

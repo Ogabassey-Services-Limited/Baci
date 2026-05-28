@@ -1,3 +1,5 @@
+import { cacheLife, cacheTag } from 'next/cache';
+import { getBlogCacheTag } from '@/lib/blog-cache-tags';
 import { getMerchantSafe } from '@/lib/cached-data';
 import { createPublicClient } from '@/lib/supabase/anon';
 
@@ -30,10 +32,15 @@ export async function getBlogPostRedirect(
   identifier: string,
   sourceSlug: string
 ): Promise<BlogPostRedirectTarget | null> {
+  'use cache: remote';
+
   const normalizedSourceSlug = normalizeBlogSlug(sourceSlug);
   if (!normalizedSourceSlug) {
     return null;
   }
+
+  cacheLife('merchant');
+  cacheTag('blog-posts', getBlogCacheTag(identifier, normalizedSourceSlug));
 
   const merchant = await getMerchantSafe(identifier.toLowerCase());
   if (!merchant) {

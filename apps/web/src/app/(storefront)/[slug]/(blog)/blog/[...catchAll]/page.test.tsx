@@ -1,10 +1,3 @@
-import {
-  Children,
-  isValidElement,
-  type ReactElement,
-  type ReactNode,
-  Suspense,
-} from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockNotFound = vi.fn(() => {
@@ -28,9 +21,6 @@ const mockSelect = vi.fn();
 const mockFrom = vi.fn();
 const mockCreateClient = vi.fn();
 const mockCookies = vi.fn();
-const mockStorefrontDynamicMetadataMarker = vi.fn(() => (
-  <div aria-label="dynamic metadata marker" role="status" />
-));
 
 vi.mock('next/headers', () => ({
   cookies: () => mockCookies(),
@@ -51,10 +41,6 @@ vi.mock('@/lib/cached-data', () => ({
 
 vi.mock('@/lib/blog-post-redirects', () => ({
   getBlogPostRedirect: (...args: unknown[]) => mockGetBlogPostRedirect(...args),
-}));
-
-vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
-  StorefrontDynamicMetadataMarker: () => mockStorefrontDynamicMetadataMarker(),
 }));
 
 vi.mock('@/lib/routes', () => ({
@@ -110,20 +96,26 @@ describe('storefront blog catch-all route', () => {
     mockGetBlogPostRedirect.mockResolvedValue(null);
   });
 
-  it('keeps the request-time marker outside the legacy blog resolver', () => {
-    const element = BlogCatchAllPage({
-      params: Promise.resolve({
-        slug: 'ogabassey.com',
-        catchAll: ['category', 'legacy-post'],
-      }),
+  it('resolves redirects at the route boundary before any streamed shell', async () => {
+    mockGetCachedMerchantByDomain.mockResolvedValue({
+      id: 'merchant-1',
+      slug: 'ogabassey',
+      custom_domain: 'ogabassey.com',
     });
-    const children = Children.toArray(
-      (element as ReactElement<{ children?: ReactNode }>).props.children
-    ) as ReactElement[];
+    mockMaybeSingle.mockResolvedValueOnce({
+      data: { slug: 'snapdragon-x2-series-on-windows' },
+    });
 
-    expect(isValidElement(element)).toBe(true);
-    expect(children?.[0].type).toBe(Suspense);
-    expect(children?.[1].type).toBeDefined();
+    await expect(
+      BlogCatchAllPage({
+        params: Promise.resolve({
+          slug: 'ogabassey.com',
+          catchAll: ['laptops', 'snapdragon-x2-series-on-windows'],
+        }),
+      })
+    ).rejects.toThrow(
+      'NEXT_PERMANENT_REDIRECT:https://ogabassey.com/blog/snapdragon-x2-series-on-windows'
+    );
   });
 
   it('redirects dated blog permalinks', async () => {
