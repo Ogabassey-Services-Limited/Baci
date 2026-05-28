@@ -10,6 +10,7 @@ import {
 import { getBlogCacheTag } from '@/lib/blog-cache-tags';
 import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
 import { normalizeStorefrontCategoryValue } from '@/lib/normalize-storefront-category-value';
+import { getProductScopedCacheTag } from '@/lib/product-cache-tags';
 import { PRODUCT_KEY_SPECS_RELATION_SELECT } from '@/lib/product-key-specs-select';
 import {
   BLOCKED_PUBLIC_BLOG_CATEGORY_VALUES,
@@ -897,7 +898,7 @@ export async function getCachedProductLcpHint(
   cacheTag(
     'product',
     'product-lcp-hint',
-    `product-${merchantId}-${productSlug}`
+    getProductScopedCacheTag('product', merchantId, productSlug)
   );
 
   const supabase = getPublicSupabaseClient();
@@ -965,7 +966,10 @@ export async function getCachedProduct(
 ) {
   'use cache: remote';
   cacheLife('products');
-  cacheTag('product', `product-${merchantId}-${productSlug}`);
+  cacheTag(
+    'product',
+    getProductScopedCacheTag('product', merchantId, productSlug)
+  );
 
   const supabase = getPublicSupabaseClient();
 
@@ -1130,7 +1134,7 @@ export async function getCachedProductWithDetails(
   cacheTag(
     'product',
     'product-details',
-    `product-${merchantId}-${productSlug}`
+    getProductScopedCacheTag('product', merchantId, productSlug)
   );
 
   const supabase = getPublicSupabaseClient();
@@ -1257,7 +1261,7 @@ export async function getCachedLegacyProductRedirectTarget(
   cacheTag(
     'product',
     'product-legacy-redirect',
-    `product-legacy-redirect-${merchantId}-${productSlug}`
+    getProductScopedCacheTag('product-legacy-redirect', merchantId, productSlug)
   );
 
   const supabase = getServiceRoleSupabaseClient();

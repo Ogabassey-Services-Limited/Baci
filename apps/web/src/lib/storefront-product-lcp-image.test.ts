@@ -1,9 +1,11 @@
+import { cacheTag } from 'next/cache';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   buildCachedDataTestHarness,
   type CachedDataTestHarness,
   resetMockCreateClient,
 } from '@/lib/cached-data.test-utils';
+import { getProductScopedCacheTag } from '@/lib/product-cache-tags';
 import { getCachedStorefrontProductLcpImage } from '@/lib/storefront-product-lcp-image';
 
 vi.mock('@/env', () => ({
@@ -140,6 +142,35 @@ describe('getCachedStorefrontProductLcpImage', () => {
     expect(harness.mockOr).toHaveBeenCalledWith(
       `slug.eq.${productId},id.eq.${productId}`
     );
+  });
+
+  it('uses ByteString-safe cache tags for non-ASCII product route segments', async () => {
+    const productSlug = 'dell-alienware-x14-r2-–-14”';
+    harness.mockMaybeSingle.mockResolvedValueOnce({
+      data: {
+        id: 'product-123',
+        slug: productSlug,
+        images: [
+          'https://cdn.ogabassey.com/core-assets/products/alienware.avif',
+        ],
+      },
+      error: null,
+    });
+
+    await getCachedStorefrontProductLcpImage('merchant-123', productSlug);
+
+    const expectedTag = getProductScopedCacheTag(
+      'product-lcp-image',
+      'merchant-123',
+      productSlug
+    );
+    expect(cacheTag).toHaveBeenCalledWith(
+      'product',
+      'product-lcp-image',
+      expectedTag
+    );
+    expect(expectedTag).not.toContain('–');
+    expect(expectedTag).not.toContain('”');
   });
 
   it('returns null when no usable image is available', async () => {

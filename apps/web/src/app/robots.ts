@@ -6,9 +6,31 @@ import {
 } from '@/lib/cached-data';
 import { resolveRouteIdentifier } from '@/lib/storefront-route-identifier';
 
+function parseHostHeader(hostHeader: string) {
+  try {
+    const parsedHost = new URL(`http://${hostHeader}`);
+    return {
+      requestHostname: parsedHost.hostname.toLowerCase(),
+      requestPort: parsedHost.port ? `:${parsedHost.port}` : '',
+    };
+  } catch {
+    return {
+      requestHostname: 'localhost',
+      requestPort: ':3000',
+    };
+  }
+}
+
 export default async function robots(): Promise<MetadataRoute.Robots> {
   const headersList = await headers();
-  const host = headersList.get('host') || 'localhost:3000';
+  const requestHost = headersList.get('host') || 'localhost:3000';
+  const { requestHostname, requestPort } = parseHostHeader(requestHost);
+  const legacyBlogHostname = requestHostname.startsWith('blog.')
+    ? requestHostname.slice('blog.'.length)
+    : null;
+  const host = legacyBlogHostname
+    ? `${legacyBlogHostname}${requestPort}`
+    : `${requestHostname}${requestPort}`;
   const protocol =
     host.includes('localhost') || host.includes('127.0.0.1') ? 'http' : 'https';
   const storeUrl = `${protocol}://${host}`;
@@ -56,7 +78,8 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
   let blogEnabled = false;
   if (!isPlatformDomain) {
     try {
-      const routeIdentifier = resolveRouteIdentifier(headersList);
+      const routeIdentifier =
+        legacyBlogHostname ?? resolveRouteIdentifier(headersList);
       if (routeIdentifier) {
         const merchant = await getMerchantByIdentifier(routeIdentifier);
         if (merchant?.id) {
