@@ -54,10 +54,10 @@ export async function generateMetadata({
 export default function ShippingPage({ params }: PageProps) {
   return (
     <>
+      <StorefrontDynamicMetadataMarker />
       <Suspense fallback={<ContentRouteLoading />}>
         <ShippingPageContent params={params} />
       </Suspense>
-      <StorefrontDynamicMetadataMarker />
     </>
   );
 }

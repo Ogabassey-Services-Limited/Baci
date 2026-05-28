@@ -73,7 +73,7 @@ describe('terms page rendering', () => {
     const element = TermsPage({
       params: Promise.resolve({ slug: 'ogabassey.com' }),
     }) as ReactElement<{ children: ReactElement[] }>;
-    const [contentBoundary, markerBoundary] = element.props.children;
+    const [markerBoundary, contentBoundary] = element.props.children;
 
     expect(element.type).toBe(Fragment);
     expect(contentBoundary?.type).toBe(Suspense);
@@ -95,7 +95,7 @@ describe('terms page rendering', () => {
     const element = TermsPage({
       params: Promise.resolve({ slug: 'ogabassey.com' }),
     }) as ReactElement<{ children: ReactElement[] }>;
-    const markerBoundary = element.props.children[1];
+    const markerBoundary = element.props.children[0];
     const markerSuspense = (markerBoundary.type as () => ReactElement)();
     const markerConnection = (
       markerSuspense.props as {

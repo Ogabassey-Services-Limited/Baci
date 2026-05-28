@@ -541,6 +541,7 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
       : null;
   return (
     <>
+      <StorefrontDynamicMetadataMarker />
       <script
         type="application/ld+json"
         // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema sanitized with safeJsonLdStringify()
@@ -564,7 +565,6 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
       )}
       <ProductDetailClient product={product} faqs={productFaqs} />
       <ProductSemanticSections model={semanticSectionsModel} />
-      <StorefrontDynamicMetadataMarker />
     </>
   );
 }

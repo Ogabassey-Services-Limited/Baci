@@ -1091,6 +1091,7 @@ export default async function CategoryProductPage({
 
   return (
     <>
+      <StorefrontDynamicMetadataMarker />
       {earlyProductResourceHints}
       {criticalProduct ? (
         <>
@@ -1135,7 +1136,6 @@ export default async function CategoryProductPage({
           />
         </Suspense>
       )}
-      <StorefrontDynamicMetadataMarker />
     </>
   );
 }

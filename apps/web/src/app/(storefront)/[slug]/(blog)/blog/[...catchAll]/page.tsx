@@ -1,3 +1,4 @@
+import { connection } from 'next/server';
 import { resolveBlogCatchAllRoute } from './blog-catch-all-resolution';
 
 /**
@@ -17,6 +18,8 @@ export default async function BlogCatchAllPage({
 }: {
   params: Promise<{ slug: string; catchAll: string[] }>;
 }) {
+  // Redirect-only legacy route: keep it request-time so it does not emit a PPR shell.
+  await connection();
   await resolveBlogCatchAllRoute({ params });
   return null;
 }

@@ -351,7 +351,7 @@ describe('products index page', () => {
       name: /dynamic metadata marker/i,
     });
     expect(
-      loading.compareDocumentPosition(marker) & Node.DOCUMENT_POSITION_FOLLOWING
+      marker.compareDocumentPosition(loading) & Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy();
   });
 
@@ -368,10 +368,9 @@ describe('products index page', () => {
     ).toBeInTheDocument();
     expect(
       screen
-        .getByText('Products page content')
-        .compareDocumentPosition(
-          screen.getByRole('status', { name: /dynamic metadata marker/i })
-        ) & Node.DOCUMENT_POSITION_FOLLOWING
+        .getByRole('status', { name: /dynamic metadata marker/i })
+        .compareDocumentPosition(screen.getByText('Products page content')) &
+        Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy();
   });
 

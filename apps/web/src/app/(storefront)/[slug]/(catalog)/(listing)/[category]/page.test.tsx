@@ -605,7 +605,7 @@ describe('category page route', () => {
     ).toBeInTheDocument();
   });
 
-  it('renders category content with a trailing request-time marker boundary', async () => {
+  it('renders category content with a leading request-time marker boundary', async () => {
     const ui = await CategoryPageRoute({
       params: Promise.resolve({
         slug: 'test-store',
@@ -620,6 +620,12 @@ describe('category page route', () => {
       screen.getByRole('status', { name: /dynamic metadata marker/i })
     ).toBeInTheDocument();
     expect(screen.getByText('Category page content')).toBeInTheDocument();
+    expect(
+      screen
+        .getByRole('status', { name: /dynamic metadata marker/i })
+        .compareDocumentPosition(screen.getByText('Category page content')) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
   });
 
   it('renders curated smartphone hub content when merchant-authored SEO is absent', async () => {

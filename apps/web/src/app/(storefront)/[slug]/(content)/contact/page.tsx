@@ -50,10 +50,10 @@ export async function generateMetadata({
 export default function ContactPage({ params }: PageProps) {
   return (
     <>
+      <StorefrontDynamicMetadataMarker />
       <Suspense fallback={<ContentRouteLoading />}>
         <ContactPageContent params={params} />
       </Suspense>
-      <StorefrontDynamicMetadataMarker />
     </>
   );
 }

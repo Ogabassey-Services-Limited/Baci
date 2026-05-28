@@ -312,7 +312,7 @@ describe('blog page metadata', () => {
       name: /dynamic metadata marker/i,
     });
     expect(
-      loading.compareDocumentPosition(marker) & Node.DOCUMENT_POSITION_FOLLOWING
+      marker.compareDocumentPosition(loading) & Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy();
   });
 

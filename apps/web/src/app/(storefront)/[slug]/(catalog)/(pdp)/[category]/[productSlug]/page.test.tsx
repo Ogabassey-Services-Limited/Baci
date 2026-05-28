@@ -988,7 +988,7 @@ describe('[category]/[productSlug] page render', () => {
     });
   });
 
-  it('keeps the request-time marker after the streamed product shell', async () => {
+  it('keeps the request-time marker before the streamed product shell', async () => {
     const ui = await resolveRsc(
       await CategoryProductPage({
         params: Promise.resolve({
@@ -1012,7 +1012,7 @@ describe('[category]/[productSlug] page render', () => {
     }
 
     expect(
-      criticalShell.compareDocumentPosition(dynamicMarker) &
+      dynamicMarker.compareDocumentPosition(criticalShell) &
         Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy();
     expect(
