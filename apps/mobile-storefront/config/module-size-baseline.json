@@ -122,11 +122,6 @@
       "path": "components/utilities/use-bill-form-controller.ts",
       "lineCount": 403,
       "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
-    },
-    {
-      "path": "lib/supabase.ts",
-      "lineCount": 402,
-      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
     }
   ]
 }
