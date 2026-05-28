@@ -19,6 +19,7 @@ const mockRedirect = vi.fn((url: string) => {
 const mockGetCachedBlogPost = vi.fn();
 const mockGetCachedMerchant = vi.fn();
 const mockGetCachedMerchantByDomain = vi.fn();
+const mockGetBlogPostRedirect = vi.fn();
 const mockMaybeSingle = vi.fn();
 const mockLimit = vi.fn();
 const mockEq = vi.fn();
@@ -46,6 +47,10 @@ vi.mock('@/lib/cached-data', () => ({
   getCachedMerchant: (...args: unknown[]) => mockGetCachedMerchant(...args),
   getCachedMerchantByDomain: (...args: unknown[]) =>
     mockGetCachedMerchantByDomain(...args),
+}));
+
+vi.mock('@/lib/blog-post-redirects', () => ({
+  getBlogPostRedirect: (...args: unknown[]) => mockGetBlogPostRedirect(...args),
 }));
 
 vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
@@ -102,6 +107,7 @@ describe('storefront blog catch-all route', () => {
     }));
     mockLimit.mockResolvedValue({ data: [] });
     mockMaybeSingle.mockResolvedValue({ data: null });
+    mockGetBlogPostRedirect.mockResolvedValue(null);
   });
 
   it('keeps the request-time marker outside the legacy blog resolver', () => {
@@ -260,6 +266,40 @@ describe('storefront blog catch-all route', () => {
     expect(mockPermanentRedirect).not.toHaveBeenCalled();
     expect(mockRedirect).toHaveBeenCalledTimes(1);
     expect(mockNot).toHaveBeenCalledWith('published_at', 'is', null);
+  });
+
+  it('permanently redirects retired duplicate slugs to their canonical posts', async () => {
+    mockGetCachedMerchantByDomain.mockResolvedValue({
+      id: 'merchant-1',
+      slug: 'ogabassey',
+      custom_domain: 'ogabassey.com',
+    });
+    mockMaybeSingle.mockResolvedValueOnce({ data: null });
+    mockGetBlogPostRedirect.mockResolvedValueOnce({
+      merchant: {
+        id: 'merchant-1',
+        slug: 'ogabassey',
+        custom_domain: 'ogabassey.com',
+      },
+      targetSlug: 'canonical-post',
+    });
+
+    await expect(
+      resolveBlogCatchAllRoute({
+        params: Promise.resolve({
+          slug: 'ogabassey.com',
+          catchAll: ['old-category', 'retired-post'],
+        }),
+      })
+    ).rejects.toThrow(
+      'NEXT_PERMANENT_REDIRECT:https://ogabassey.com/blog/canonical-post'
+    );
+
+    expect(mockGetBlogPostRedirect).toHaveBeenCalledWith(
+      'ogabassey.com',
+      'retired-post'
+    );
+    expect(mockLimit).not.toHaveBeenCalled();
   });
 
   it('throws fuzzy lookup errors instead of reporting a missing post', async () => {
