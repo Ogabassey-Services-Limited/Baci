@@ -8,6 +8,10 @@ import {
 const MIN_DISCOVER_IMAGE_WIDTH = 1200;
 const MIN_DISCOVER_IMAGE_HEIGHT = 675;
 const MIN_EXCLUSIVE_DISCOVER_IMAGE_PIXELS = 300_000;
+const GENERATED_CODEX_BLOG_IMAGE_PREFIX = '/core-assets/blog/codex/';
+const TRANSFORMED_CDN_IMAGE_PREFIX = '/image/';
+const GENERATED_CODEX_BLOG_IMAGE_EXTENSION_PATTERN =
+  /\.(avif|jpe?g|png|webp)$/i;
 
 export type BlogDiscoverImageReadinessCode =
   | 'BLOG_FEATURED_IMAGE_NOT_DISCOVER_READY'
@@ -99,6 +103,63 @@ function isTrustedManagedBlogImageUrl(raw: string): boolean {
   }
 }
 
+function getTrustedCdnSourcePath(raw: string): string | null {
+  try {
+    const url = new URL(raw);
+    if (
+      url.protocol !== 'https:' ||
+      !TRUSTED_BLOG_IMAGE_ORIGINS.has(url.origin)
+    ) {
+      return null;
+    }
+
+    const path = decodeURIComponent(url.pathname);
+    if (!path.startsWith(TRANSFORMED_CDN_IMAGE_PREFIX)) {
+      return path;
+    }
+
+    const transformPath = path.slice(TRANSFORMED_CDN_IMAGE_PREFIX.length);
+    const sourcePathIndex = transformPath.indexOf('/');
+    if (sourcePathIndex <= 0) {
+      return null;
+    }
+
+    return `/${transformPath.slice(sourcePathIndex + 1)}`;
+  } catch {
+    return null;
+  }
+}
+
+function isTrustedGeneratedCodexBlogImageUrl(raw: string): boolean {
+  const sourcePath = getTrustedCdnSourcePath(raw);
+  return Boolean(
+    sourcePath?.startsWith(GENERATED_CODEX_BLOG_IMAGE_PREFIX) &&
+      !sourcePath.includes('..') &&
+      GENERATED_CODEX_BLOG_IMAGE_EXTENSION_PATTERN.test(sourcePath)
+  );
+}
+
+function isTrustedGeneratedCodexBlogVariantUrl(
+  raw: string,
+  variantKey: string
+): boolean {
+  const sourcePath = getTrustedCdnSourcePath(raw);
+  if (
+    !sourcePath?.startsWith(GENERATED_CODEX_BLOG_IMAGE_PREFIX) ||
+    sourcePath.includes('..') ||
+    !GENERATED_CODEX_BLOG_IMAGE_EXTENSION_PATTERN.test(sourcePath)
+  ) {
+    return false;
+  }
+
+  const filename = sourcePath.split('/').at(-1)?.toLowerCase() ?? '';
+  const variantSuffixPattern = new RegExp(
+    `(^|-)${variantKey.toLowerCase()}\\.(avif|jpe?g|png|webp)$`,
+    'i'
+  );
+  return variantSuffixPattern.test(filename);
+}
+
 export function validateBlogImageVariantIntegrity(
   image: Pick<BlogDiscoverImageFields, 'featured_image_variants'>,
   storageScope: string | BlogStorageScope
@@ -124,7 +185,10 @@ export function validateBlogImageVariantIntegrity(
     }
 
     const path = extractManagedBlogStoragePath(value, storageScope);
-    if (!isManagedVariantBlogPath(path)) {
+    if (
+      !isManagedVariantBlogPath(path) &&
+      !isTrustedGeneratedCodexBlogVariantUrl(value, key)
+    ) {
       return notReady('BLOG_FEATURED_IMAGE_VARIANT_NOT_MANAGED', {
         variantKey: key,
       });
@@ -152,17 +216,26 @@ export function validateBlogDiscoverImageReadiness(
     });
   }
 
-  if (!isTrustedManagedBlogImageUrl(image.featured_image_url)) {
+  const isTrustedGeneratedCodexBlogImage = isTrustedGeneratedCodexBlogImageUrl(
+    image.featured_image_url
+  );
+
+  if (
+    !isTrustedManagedBlogImageUrl(image.featured_image_url) &&
+    !isTrustedGeneratedCodexBlogImage
+  ) {
     return notReady('BLOG_FEATURED_IMAGE_NOT_MANAGED', {
       reason: 'unmanaged_featured_image',
     });
   }
 
-  const originalPath = extractManagedBlogStoragePath(
-    image.featured_image_url,
-    storageScope
-  );
-  if (!isManagedOriginalBlogPath(originalPath)) {
+  const originalPath = isTrustedGeneratedCodexBlogImage
+    ? null
+    : extractManagedBlogStoragePath(image.featured_image_url, storageScope);
+  if (
+    !isTrustedGeneratedCodexBlogImage &&
+    !isManagedOriginalBlogPath(originalPath)
+  ) {
     return notReady('BLOG_FEATURED_IMAGE_NOT_MANAGED', {
       reason: 'unmanaged_featured_image',
     });
@@ -197,7 +270,10 @@ export function validateBlogDiscoverImageReadiness(
     landscapeUrl,
     storageScope
   );
-  if (!isManagedVariantBlogPath(landscapePath)) {
+  if (
+    !isManagedVariantBlogPath(landscapePath) &&
+    !isTrustedGeneratedCodexBlogVariantUrl(landscapeUrl, 'landscape_16x9')
+  ) {
     return notReady('BLOG_FEATURED_IMAGE_VARIANT_NOT_MANAGED', {
       variantKey: 'landscape_16x9',
     });

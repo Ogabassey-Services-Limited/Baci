@@ -12,6 +12,9 @@ const managedOriginalUrl = `${DEFAULT_BLOG_MEDIA_CDN_ORIGIN}/storage/v1/object/p
 const managedLandscapeUrl = `${DEFAULT_BLOG_MEDIA_CDN_ORIGIN}/storage/v1/object/public/media/${merchantId}/blog/upload-1/landscape_16x9.webp`;
 const managedPlatformOriginalUrl = `${DEFAULT_BLOG_MEDIA_CDN_ORIGIN}/storage/v1/object/public/media/${PLATFORM_BLOG_MEDIA_PREFIX}/cover.png`;
 const managedPlatformLandscapeUrl = `${DEFAULT_BLOG_MEDIA_CDN_ORIGIN}/storage/v1/object/public/media/${PLATFORM_BLOG_MEDIA_PREFIX}/upload-1/landscape_16x9.webp`;
+const generatedCodexLandscapeUrl = `${DEFAULT_BLOG_MEDIA_CDN_ORIGIN}/image/format=auto/core-assets/blog/codex/20260528T192812Z-codex-repair_support/samsung-screen-repair-what-to-check-before-you-book-landscape_16x9.jpg`;
+const generatedCodexStandardUrl = `${DEFAULT_BLOG_MEDIA_CDN_ORIGIN}/image/format=auto/core-assets/blog/codex/20260528T192812Z-codex-repair_support/samsung-screen-repair-what-to-check-before-you-book-standard_4x3.jpg`;
+const generatedCodexSquareUrl = `${DEFAULT_BLOG_MEDIA_CDN_ORIGIN}/image/format=auto/core-assets/blog/codex/20260528T192812Z-codex-repair_support/samsung-screen-repair-what-to-check-before-you-book-square_1x1.jpg`;
 
 describe('validateBlogDiscoverImageReadiness', () => {
   it('returns ready for a managed image with valid dimensions and landscape variant', () => {
@@ -98,6 +101,24 @@ describe('validateBlogDiscoverImageReadiness', () => {
       )
     ).toEqual({ ready: true });
   });
+
+  it('accepts trusted generated Codex blog images that meet Discover dimensions', () => {
+    expect(
+      validateBlogDiscoverImageReadiness(
+        {
+          featured_image_url: generatedCodexLandscapeUrl,
+          featured_image_width: 1536,
+          featured_image_height: 864,
+          featured_image_variants: {
+            landscape_16x9: generatedCodexLandscapeUrl,
+            standard_4x3: generatedCodexStandardUrl,
+            square_1x1: generatedCodexSquareUrl,
+          },
+        },
+        merchantId
+      )
+    ).toEqual({ ready: true });
+  });
 });
 
 describe('validateBlogImageVariantIntegrity', () => {
@@ -107,6 +128,37 @@ describe('validateBlogImageVariantIntegrity', () => {
         {
           featured_image_variants: {
             landscape_16x9: `https://evil.example.com/media/${merchantId}/blog/upload-1/landscape_16x9.webp`,
+          },
+        },
+        merchantId
+      )
+    ).toMatchObject({
+      ready: false,
+      code: 'BLOG_FEATURED_IMAGE_VARIANT_NOT_MANAGED',
+    });
+  });
+
+  it('accepts trusted generated Codex blog image variants for draft saves', () => {
+    expect(
+      validateBlogImageVariantIntegrity(
+        {
+          featured_image_variants: {
+            landscape_16x9: generatedCodexLandscapeUrl,
+            standard_4x3: generatedCodexStandardUrl,
+            square_1x1: generatedCodexSquareUrl,
+          },
+        },
+        merchantId
+      )
+    ).toEqual({ ready: true });
+  });
+
+  it('rejects generated Codex variants that do not match their variant key', () => {
+    expect(
+      validateBlogImageVariantIntegrity(
+        {
+          featured_image_variants: {
+            landscape_16x9: generatedCodexSquareUrl,
           },
         },
         merchantId
