@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Product as CartProduct } from '@/lib/products';
 import { OgabasseyPdpCriticalCommerce } from './critical-commerce';
 import { OgabasseyPdpCriticalCommerceClient } from './critical-commerce.client';
@@ -31,6 +31,11 @@ vi.mock('next/link', () => ({
     </a>
   ),
 }));
+
+beforeEach(() => {
+  cartMocks.addToCart.mockClear();
+  cartMocks.setIsCartOpen.mockClear();
+});
 
 const criticalProduct = {
   brand: 'Dell',
@@ -79,17 +84,38 @@ describe('OgabasseyPdpCriticalCommerce', () => {
       screen.getByRole('button', { name: /add to cart/i })
     ).toBeInTheDocument();
   });
+
+  it('omits the condition fact when the product condition is missing', () => {
+    const productWithoutCondition = {
+      ...criticalProduct,
+      condition: undefined,
+    } as unknown as typeof criticalProduct;
+
+    render(
+      <OgabasseyPdpCriticalCommerce
+        cartHref="/cart"
+        cartProduct={{
+          ...cartProduct,
+          condition: undefined,
+        }}
+        product={productWithoutCondition}
+      />
+    );
+
+    expect(screen.queryByText('Condition')).not.toBeInTheDocument();
+    expect(screen.getByText('Lagos and nationwide')).toBeInTheDocument();
+  });
 });
 
 describe('OgabasseyPdpCriticalCommerceClient', () => {
   it('adds the selected quantity to the existing cart store', () => {
     render(
-        <OgabasseyPdpCriticalCommerceClient
-          cartHref="/cart"
-          cartProduct={cartProduct}
-          productName={cartProduct.name}
-          variantCount={1}
-        />
+      <OgabasseyPdpCriticalCommerceClient
+        cartHref="/cart"
+        cartProduct={cartProduct}
+        productName={cartProduct.name}
+        variantCount={1}
+      />
     );
 
     fireEvent.click(screen.getByRole('button', { name: /increase quantity/i }));
@@ -164,5 +190,59 @@ describe('OgabasseyPdpCriticalCommerceClient', () => {
 
     expect(screen.getByText('2')).toBeInTheDocument();
     expect(increaseButton).toBeDisabled();
+  });
+
+  it('blocks cart additions when managed stock is exhausted', () => {
+    render(
+      <OgabasseyPdpCriticalCommerceClient
+        cartHref="/cart"
+        cartProduct={{
+          ...cartProduct,
+          stock: 0,
+        }}
+        productName={cartProduct.name}
+        variantCount={1}
+      />
+    );
+
+    const increaseButton = screen.getByRole('button', {
+      name: /increase quantity/i,
+    });
+    const addButton = screen.getByRole('button', { name: /add to cart/i });
+
+    expect(screen.getByText('0')).toBeInTheDocument();
+    expect(increaseButton).toBeDisabled();
+    expect(addButton).toBeDisabled();
+
+    fireEvent.click(increaseButton);
+    fireEvent.click(addButton);
+
+    expect(cartMocks.addToCart).not.toHaveBeenCalled();
+    expect(cartMocks.setIsCartOpen).not.toHaveBeenCalled();
+  });
+
+  it('keeps stock-zero products unlimited when stock management is disabled', () => {
+    const unmanagedProduct = {
+      ...cartProduct,
+      manage_stock: false,
+      stock: 0,
+    };
+
+    render(
+      <OgabasseyPdpCriticalCommerceClient
+        cartHref="/cart"
+        cartProduct={unmanagedProduct}
+        productName={cartProduct.name}
+        variantCount={1}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /increase quantity/i }));
+    fireEvent.click(screen.getByRole('button', { name: /add to cart/i }));
+
+    expect(cartMocks.addToCart).toHaveBeenCalledWith(unmanagedProduct, 2, {
+      condition: 'used',
+    });
+    expect(cartMocks.setIsCartOpen).toHaveBeenCalledWith(true);
   });
 });
