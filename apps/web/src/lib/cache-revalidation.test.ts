@@ -11,6 +11,7 @@ vi.mock('next/cache', () => ({
 }));
 
 import { getBlogCacheTag } from '@/lib/blog-cache-tags';
+import { getProductScopedCacheTag } from '@/lib/product-cache-tags';
 // ---- Import functions AFTER mocks ----
 import {
   revalidateBlogPosts,
@@ -124,6 +125,22 @@ describe('cache-revalidation utilities', () => {
         `dashboard-${MERCHANT_ID}`,
         'merchant'
       );
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(11);
+    });
+
+    it('revalidates non-ASCII product slugs with ByteString-safe cache tags', () => {
+      const productSlug = 'dell-alienware-x14-r2-–-14”';
+
+      revalidateProducts(MERCHANT_ID, productSlug);
+
+      const expectedTag = getProductScopedCacheTag(
+        'product',
+        MERCHANT_ID,
+        productSlug
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(expectedTag, 'products');
+      expect(expectedTag).not.toContain('–');
+      expect(expectedTag).not.toContain('”');
       expect(mockRevalidateTag).toHaveBeenCalledTimes(11);
     });
 

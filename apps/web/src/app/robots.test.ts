@@ -27,6 +27,9 @@ vi.mock('@/lib/storefront-route-identifier', () => ({
   resolveRouteIdentifier: vi.fn(() => 'ogabassey'),
 }));
 
+import { getMerchantByIdentifier } from '@/lib/cached-data';
+import { resolveRouteIdentifier } from '@/lib/storefront-route-identifier';
+
 // ---- Tests ----
 
 describe('robots()', () => {
@@ -159,6 +162,42 @@ describe('robots()', () => {
       'https://shop.ogabassey.com/sitemap/categories.xml',
       'https://shop.ogabassey.com/sitemap/commercial-support.xml',
       'https://shop.ogabassey.com/blog/sitemap.xml',
+    ]);
+  });
+
+  it('canonicalizes legacy blog subdomain robots to the root storefront host', async () => {
+    const { default: robots } = await import('./robots');
+    process.env.NEXT_PUBLIC_ROOT_DOMAIN = 'usebaci.com';
+    mockHost = 'blog.ogabassey.com';
+
+    const result = await robots();
+
+    expect(resolveRouteIdentifier).not.toHaveBeenCalled();
+    expect(getMerchantByIdentifier).toHaveBeenCalledWith('ogabassey.com');
+    expect(result.sitemap).toEqual([
+      'https://ogabassey.com/sitemap/static.xml',
+      'https://ogabassey.com/sitemap/products.xml',
+      'https://ogabassey.com/sitemap/categories.xml',
+      'https://ogabassey.com/sitemap/commercial-support.xml',
+      'https://ogabassey.com/blog/sitemap.xml',
+    ]);
+  });
+
+  it('canonicalizes legacy blog hosts case-insensitively', async () => {
+    const { default: robots } = await import('./robots');
+    process.env.NEXT_PUBLIC_ROOT_DOMAIN = 'usebaci.com';
+    mockHost = 'Blog.OgaBassey.com';
+
+    const result = await robots();
+
+    expect(resolveRouteIdentifier).not.toHaveBeenCalled();
+    expect(getMerchantByIdentifier).toHaveBeenCalledWith('ogabassey.com');
+    expect(result.sitemap).toEqual([
+      'https://ogabassey.com/sitemap/static.xml',
+      'https://ogabassey.com/sitemap/products.xml',
+      'https://ogabassey.com/sitemap/categories.xml',
+      'https://ogabassey.com/sitemap/commercial-support.xml',
+      'https://ogabassey.com/blog/sitemap.xml',
     ]);
   });
 

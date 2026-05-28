@@ -4,7 +4,10 @@ import { logger } from '@/lib/logger';
 // Keep the probe longer than the buffered chat completion budget so it can
 // classify a slow/static response instead of aborting during valid inference.
 const SUPPORT_CHAT_FETCH_TIMEOUT_MS = 75_000;
-const SUPPORT_CHAT_SLOW_RESPONSE_MS = 8_000;
+// The customer chat route buffers a bounded AI completion. Treat responses over
+// 30s as attention-worthy, while avoiding false alarms for healthy 10-20s VPS
+// generations observed under the 60s route budget.
+const SUPPORT_CHAT_SLOW_RESPONSE_MS = 30_000;
 const SUPPORT_CHAT_SMOKE_PROMPT = 'Best gaming phones';
 
 type AgentCommerceSupportChatHealthStatus = 'attention' | 'ok';

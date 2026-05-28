@@ -8,7 +8,16 @@ import { resolveRouteIdentifier } from '@/lib/storefront-route-identifier';
 
 export default async function robots(): Promise<MetadataRoute.Robots> {
   const headersList = await headers();
-  const host = headersList.get('host') || 'localhost:3000';
+  const requestHost = headersList.get('host') || 'localhost:3000';
+  const [rawRequestHostname, ...portParts] = requestHost.split(':');
+  const requestHostname = rawRequestHostname.toLowerCase();
+  const requestPort = portParts.length > 0 ? `:${portParts.join(':')}` : '';
+  const legacyBlogHostname = requestHostname.startsWith('blog.')
+    ? requestHostname.slice('blog.'.length)
+    : null;
+  const host = legacyBlogHostname
+    ? `${legacyBlogHostname}${requestPort}`
+    : `${requestHostname}${requestPort}`;
   const protocol =
     host.includes('localhost') || host.includes('127.0.0.1') ? 'http' : 'https';
   const storeUrl = `${protocol}://${host}`;
@@ -56,7 +65,8 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
   let blogEnabled = false;
   if (!isPlatformDomain) {
     try {
-      const routeIdentifier = resolveRouteIdentifier(headersList);
+      const routeIdentifier =
+        legacyBlogHostname ?? resolveRouteIdentifier(headersList);
       if (routeIdentifier) {
         const merchant = await getMerchantByIdentifier(routeIdentifier);
         if (merchant?.id) {

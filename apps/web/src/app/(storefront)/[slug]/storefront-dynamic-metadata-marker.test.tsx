@@ -16,14 +16,26 @@ describe('StorefrontDynamicMetadataMarker', () => {
     mockConnection.mockReset();
   });
 
-  it('keeps the request-time marker behind Suspense without a DOM host', () => {
+  it('keeps a stable hidden host around the request-time marker', () => {
     const element = StorefrontDynamicMetadataMarker() as ReactElement<{
       children?: ReactElement;
+      'aria-hidden'?: string;
+      'data-storefront-dynamic-metadata-marker'?: string;
+      fallback?: unknown;
+      hidden?: boolean;
+    }>;
+
+    expect(element.type).toBe('div');
+    expect(element.props.hidden).toBe(true);
+    expect(element.props['aria-hidden']).toBe('true');
+    expect(element.props['data-storefront-dynamic-metadata-marker']).toBe('');
+
+    const suspense = element.props.children as ReactElement<{
       fallback?: unknown;
     }>;
 
-    expect(element.type).toBe(Suspense);
-    expect(element.props.fallback).toBeNull();
+    expect(suspense.type).toBe(Suspense);
+    expect(suspense.props.fallback).toBeNull();
   });
 
   it('marks metadata routes as request-time rendered', async () => {
@@ -31,9 +43,12 @@ describe('StorefrontDynamicMetadataMarker', () => {
     const element = StorefrontDynamicMetadataMarker() as ReactElement<{
       children?: ReactElement;
     }>;
+    const suspense = element.props.children as ReactElement<{
+      children?: ReactElement;
+    }>;
 
     await expect(
-      (element.props.children?.type as () => Promise<null>)()
+      (suspense.props.children?.type as () => Promise<null>)()
     ).resolves.toBeNull();
     expect(mockConnection).toHaveBeenCalledOnce();
   });
@@ -43,9 +58,12 @@ describe('StorefrontDynamicMetadataMarker', () => {
     const element = StorefrontDynamicMetadataMarker() as ReactElement<{
       children?: ReactElement;
     }>;
+    const suspense = element.props.children as ReactElement<{
+      children?: ReactElement;
+    }>;
 
     await expect(
-      (element.props.children?.type as () => Promise<null>)()
+      (suspense.props.children?.type as () => Promise<null>)()
     ).rejects.toThrow('connection failed');
 
     expect(mockConnection).toHaveBeenCalledOnce();
