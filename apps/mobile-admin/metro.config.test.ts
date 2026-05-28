@@ -23,20 +23,18 @@ function isBlocked(filePath: string) {
 }
 
 describe('Metro configuration', () => {
-  it('watches required monorepo packages but not the giant root node_modules', () => {
+  it('watches root node_modules so pnpm hoisted dependencies resolve', () => {
     expect(metroConfig.watchFolders).toEqual(
       expect.arrayContaining([
         projectRoot,
+        path.resolve(workspaceRoot, 'node_modules'),
         path.resolve(workspaceRoot, 'packages/shared'),
         path.resolve(workspaceRoot, 'packages/tiktok-business'),
       ])
     );
-    expect(metroConfig.watchFolders).not.toContain(
-      path.resolve(workspaceRoot, 'node_modules')
-    );
   });
 
-  it('blocks pnpm virtual store packages to prevent crawlers overloading', () => {
+  it('does not block pnpm virtual store packages', () => {
     const pnpmPackagePath = path.join(
       workspaceRoot,
       'node_modules',
@@ -47,7 +45,7 @@ describe('Metro configuration', () => {
       'index.js'
     );
 
-    expect(isBlocked(pnpmPackagePath)).toBe(true);
+    expect(isBlocked(pnpmPackagePath)).toBe(false);
   });
 
   it('blocks massive directories that should not be crawled', () => {

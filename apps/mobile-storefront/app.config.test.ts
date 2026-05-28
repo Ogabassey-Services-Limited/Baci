@@ -1,8 +1,6 @@
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import type { ConfigContext, ExpoConfig } from 'expo/config';
 
-jest.mock('dotenv/config', () => ({}));
-
 const originalEnv = process.env;
 
 function loadAppConfigWithFacebookEnv(env: {
@@ -20,7 +18,8 @@ function loadAppConfigWithFacebookEnv(env: {
     }
   }
 
-  return (require('./app.config') as { default: (context: ConfigContext) => ExpoConfig }).default;
+  return jest.requireActual<typeof import('./app.config')>('./app.config')
+    .default;
 }
 
 function renderConfig(appConfig: (context: ConfigContext) => ExpoConfig) {
@@ -45,11 +44,13 @@ describe('Facebook SDK Expo config', () => {
     jest.resetModules();
   });
 
-  it('fails fast when both Facebook SDK credentials are absent from the environment', () => {
-    expect(() => {
-      const appConfig = loadAppConfigWithFacebookEnv({});
-      renderConfig(appConfig);
-    }).toThrow(/STOREFRONT_FACEBOOK_APP_ID and STOREFRONT_FACEBOOK_CLIENT_TOKEN/);
+  it('does not inject dummy Facebook SDK credentials when env is absent', () => {
+    const appConfig = loadAppConfigWithFacebookEnv({});
+    const config = renderConfig(appConfig);
+
+    expect(findFacebookPlugin(config)).toBeUndefined();
+    expect(config.extra?.facebookAppId).toBeNull();
+    expect(config.extra?.facebookClientToken).toBeNull();
   });
 
   it('injects the Facebook SDK plugin when both credentials are configured', () => {
@@ -79,12 +80,29 @@ describe('Facebook SDK Expo config', () => {
       loadAppConfigWithFacebookEnv({
         STOREFRONT_FACEBOOK_APP_ID: '123456789',
       })
-    ).toThrow(/STOREFRONT_FACEBOOK_APP_ID and STOREFRONT_FACEBOOK_CLIENT_TOKEN/);
+    ).toThrow(/STOREFRONT_FACEBOOK_APP_ID/);
 
     expect(() =>
       loadAppConfigWithFacebookEnv({
         STOREFRONT_FACEBOOK_CLIENT_TOKEN: 'client-token',
       })
-    ).toThrow(/STOREFRONT_FACEBOOK_APP_ID and STOREFRONT_FACEBOOK_CLIENT_TOKEN/);
+    ).toThrow(/STOREFRONT_FACEBOOK_APP_ID/);
+  });
+
+  it('declares SKAdNetwork identifiers for TikTok and Facebook campaign attribution', () => {
+    const appConfig = loadAppConfigWithFacebookEnv({});
+    const config = renderConfig(appConfig);
+
+    expect(config.ios?.infoPlist?.SKAdNetworkItems).toEqual([
+      {
+        SKAdNetworkIdentifier: '282ce24gcd.skadnetwork',
+      },
+      {
+        SKAdNetworkIdentifier: 'v9wttpbfk9.skadnetwork',
+      },
+      {
+        SKAdNetworkIdentifier: 'n38lu8286q.skadnetwork',
+      },
+    ]);
   });
 });

@@ -96,17 +96,19 @@ const tiktokBusinessPlugin: TikTokBusinessPlugin | null =
     : null;
 
 const facebookAppId =
-  process.env.STOREFRONT_FACEBOOK_APP_ID?.trim();
+  process.env.STOREFRONT_FACEBOOK_APP_ID?.trim() || undefined;
 const facebookClientToken =
-  process.env.STOREFRONT_FACEBOOK_CLIENT_TOKEN?.trim();
+  process.env.STOREFRONT_FACEBOOK_CLIENT_TOKEN?.trim() || undefined;
+const isFacebookSdkPartiallyConfigured = Boolean(
+  facebookAppId || facebookClientToken
+);
+const isFacebookSdkConfigured = Boolean(facebookAppId && facebookClientToken);
 
-if (!facebookAppId || !facebookClientToken) {
+if (isFacebookSdkPartiallyConfigured && !isFacebookSdkConfigured) {
   throw new Error(
-    '[app.config] STOREFRONT_FACEBOOK_APP_ID and STOREFRONT_FACEBOOK_CLIENT_TOKEN are required in your environment to build and prevent silent fallback.'
+    '[app.config] STOREFRONT_FACEBOOK_APP_ID and STOREFRONT_FACEBOOK_CLIENT_TOKEN must be configured together.'
   );
 }
-
-const isFacebookSdkConfigured = true;
 
 const facebookSdkPlugin: NonNullable<ExpoConfig['plugins']>[number] | null =
   isFacebookSdkConfigured && facebookAppId && facebookClientToken

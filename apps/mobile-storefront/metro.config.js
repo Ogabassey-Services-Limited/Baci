@@ -52,6 +52,7 @@ const zustandMiddlewarePath = require.resolve('zustand/middleware');
 
 config.watchFolders = [
   projectRoot,
+  path.resolve(workspaceRoot, 'node_modules'),
   path.resolve(workspaceRoot, 'packages/shared'),
   path.resolve(workspaceRoot, 'packages/tiktok-business'),
 ];
@@ -97,7 +98,6 @@ config.resolver = {
     /[\\/]\.gemini[\\/]/,
     /[\\/]\.agent[\\/]/,
     /[\\/]apps[\\/]web[\\/]node_modules[\\/]/,
-    /[\\/]node_modules[\\/]\.pnpm[\\/]/,
 
     // Test files should not be bundled
     /\.test\.tsx?$/,
