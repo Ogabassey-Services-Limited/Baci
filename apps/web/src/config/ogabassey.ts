@@ -1,8 +1,3 @@
-import {
-  buildPublicFaviconUrl,
-  getFaviconStoragePaths,
-} from '@/lib/favicon-storage-paths';
-
 export const OGABASSEY_URL = 'https://ogabassey.com';
 export const OGABASSEY_TITLE = 'OgaBassey - Official Online Store';
 export const OGABASSEY_DESCRIPTION =
@@ -14,15 +9,8 @@ const SUPABASE_PUBLIC_URL =
   process.env.NEXT_PUBLIC_SUPABASE_URL ??
   'https://aivqthbxdshhltbwipbr.supabase.co';
 
-// OgaBassey merchants.id backing favicons/{id}/... storage paths.
 export const OGABASSEY_MERCHANT_ID = '6b5cb8a4-5575-456c-b936-8cdfae30db74';
-const OGABASSEY_FAVICON_PATHS = getFaviconStoragePaths(OGABASSEY_MERCHANT_ID);
+const OGABASSEY_FAVICON_BASE_PATH = `media/merchants/${OGABASSEY_MERCHANT_ID}/favicon`;
 
-export const OGABASSEY_FAVICON_URL = buildPublicFaviconUrl(
-  SUPABASE_PUBLIC_URL,
-  OGABASSEY_FAVICON_PATHS.png32Path
-);
-export const OGABASSEY_APPLE_TOUCH_ICON_URL = buildPublicFaviconUrl(
-  SUPABASE_PUBLIC_URL,
-  OGABASSEY_FAVICON_PATHS.appleTouchPath
-);
+export const OGABASSEY_FAVICON_URL = `${SUPABASE_PUBLIC_URL}/storage/v1/object/public/${OGABASSEY_FAVICON_BASE_PATH}/favicon-32.png`;
+export const OGABASSEY_APPLE_TOUCH_ICON_URL = `${SUPABASE_PUBLIC_URL}/storage/v1/object/public/${OGABASSEY_FAVICON_BASE_PATH}/apple-touch-icon.png`;
