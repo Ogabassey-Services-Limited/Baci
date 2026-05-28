@@ -11,6 +11,8 @@ import {
 import { checkCsrfProtection } from '@/lib/csrf';
 import { merchantFeatureSettingsSchema } from '@/schemas/merchant-features';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * Merchant Feature Settings API
  *
