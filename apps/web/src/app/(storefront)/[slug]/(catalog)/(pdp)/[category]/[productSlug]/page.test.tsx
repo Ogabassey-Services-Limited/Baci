@@ -22,6 +22,7 @@ const {
   mockOgabasseyPdpDeferredDetailIsland,
   mockOgabasseyProductDetailsPage,
   mockConnection,
+  mockStorefrontDynamicMetadataMarker,
   mockGetStorefrontShellSnapshotBase,
   mockPreloadOgabasseyPdpProductImage,
   mockProductDetailClient,
@@ -38,6 +39,7 @@ const {
   mockOgabasseyPdpDeferredDetailIsland: vi.fn<(props: unknown) => void>(),
   mockOgabasseyProductDetailsPage: vi.fn<(props: unknown) => void>(),
   mockConnection: vi.fn<() => Promise<void>>(() => Promise.resolve()),
+  mockStorefrontDynamicMetadataMarker: vi.fn(),
   mockGetStorefrontShellSnapshotBase:
     vi.fn<(...args: unknown[]) => Promise<unknown>>(),
   mockPreloadOgabasseyPdpProductImage:
@@ -80,6 +82,13 @@ vi.mock('next/headers', () => ({
 
 vi.mock('next/server', () => ({
   connection: () => mockConnection(),
+}));
+
+vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
+  StorefrontDynamicMetadataMarker: () => {
+    mockStorefrontDynamicMetadataMarker();
+    return <div aria-label="dynamic metadata marker" role="status" />;
+  },
 }));
 
 vi.mock('next/image', () => ({
@@ -990,6 +999,7 @@ describe('[category]/[productSlug] page render', () => {
     mockOgabasseyPdpCriticalCommerce.mockReset();
     mockOgabasseyPdpDeferredDetailIsland.mockReset();
     mockOgabasseyProductDetailsPage.mockReset();
+    mockStorefrontDynamicMetadataMarker.mockReset();
     mockBuildProductSemanticModel.mockReturnValue({
       trustBullets: [],
       supportLinks: [],
@@ -1021,6 +1031,10 @@ describe('[category]/[productSlug] page render', () => {
     }
 
     expect(mockConnection).toHaveBeenCalledTimes(1);
+    expect(mockStorefrontDynamicMetadataMarker).toHaveBeenCalledOnce();
+    expect(
+      screen.getByRole('status', { name: /dynamic metadata marker/i })
+    ).toBeInTheDocument();
     expect(
       screen.getByRole('heading', {
         level: 1,

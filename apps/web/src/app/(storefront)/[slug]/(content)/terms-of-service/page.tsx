@@ -9,8 +9,7 @@ interface PageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
-export async function generateMetadata(): Promise<Metadata> {
-  await connection();
+export function generateMetadata(): Metadata {
   return { robots: { index: false, follow: false } };
 }
 

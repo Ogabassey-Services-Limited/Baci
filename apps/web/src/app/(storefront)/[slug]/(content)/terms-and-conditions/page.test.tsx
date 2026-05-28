@@ -25,11 +25,11 @@ describe('legacy terms-and-conditions redirect', () => {
     mockConnection.mockReset();
   });
 
-  it('marks redirect metadata as request-time rendered', async () => {
+  it('keeps redirect metadata static because the route always redirects', async () => {
     const metadata = await generateMetadata();
 
     expect(metadata.robots).toMatchObject({ index: false, follow: false });
-    expect(mockConnection).toHaveBeenCalledOnce();
+    expect(mockConnection).not.toHaveBeenCalled();
   });
 
   it('redirects custom-domain traffic to the canonical /terms URL', async () => {

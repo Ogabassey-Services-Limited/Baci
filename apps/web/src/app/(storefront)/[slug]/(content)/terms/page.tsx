@@ -3,6 +3,7 @@ import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { connection } from 'next/server';
 import { Suspense } from 'react';
+import { StorefrontDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker';
 import { ContentRouteLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { toTemplateMerchantData } from '@/lib/merchant-template-data';
@@ -58,9 +59,12 @@ export default async function TermsPage({ params }: PageProps) {
   await connection();
 
   return (
-    <Suspense fallback={<ContentRouteLoading />}>
-      <TermsPageContent params={params} />
-    </Suspense>
+    <>
+      <StorefrontDynamicMetadataMarker />
+      <Suspense fallback={<ContentRouteLoading />}>
+        <TermsPageContent params={params} />
+      </Suspense>
+    </>
   );
 }
 

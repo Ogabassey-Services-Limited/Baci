@@ -6,12 +6,14 @@ const {
   mockConnection,
   mockNormalizeStorefrontProductVariants,
   mockProductDetailClient,
+  mockStorefrontDynamicMetadataMarker,
 } = vi.hoisted(() => ({
   mockConnection: vi.fn<() => Promise<void>>(() => Promise.resolve()),
   mockNormalizeStorefrontProductVariants: vi.fn<
     (...args: unknown[]) => Record<string, unknown>[]
   >(() => []),
   mockProductDetailClient: vi.fn(() => null),
+  mockStorefrontDynamicMetadataMarker: vi.fn(),
 }));
 
 const mockHeaders = vi.fn();
@@ -46,6 +48,13 @@ vi.mock('next/navigation', () => ({
 
 vi.mock('next/server', () => ({
   connection: () => mockConnection(),
+}));
+
+vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
+  StorefrontDynamicMetadataMarker: () => {
+    mockStorefrontDynamicMetadataMarker();
+    return <div aria-label="dynamic metadata marker" role="status" />;
+  },
 }));
 
 vi.mock('next/link', () => ({
@@ -340,6 +349,7 @@ describe('products/[productSlug] page', () => {
       sameBrand: null,
       samePrice: null,
     });
+    mockStorefrontDynamicMetadataMarker.mockReset();
   });
 
   it('redirects categorized legacy products during page render in development', async () => {
@@ -414,6 +424,25 @@ describe('products/[productSlug] page', () => {
 
     expect(screen.getByText('Route loader fallback')).toBeInTheDocument();
     expect(screen.queryByText('mystery-item')).not.toBeInTheDocument();
+  });
+
+  it('renders the dynamic metadata marker for runtime product metadata', async () => {
+    mockGetCachedProduct.mockResolvedValue(uncategorizedProduct);
+
+    render(
+      await ProductPage({
+        params: Promise.resolve({
+          slug: 'teststore',
+          productSlug: 'mystery-item',
+        }),
+        searchParams: Promise.resolve({}),
+      })
+    );
+
+    expect(mockStorefrontDynamicMetadataMarker).toHaveBeenCalledOnce();
+    expect(
+      screen.getByRole('status', { name: /dynamic metadata marker/i })
+    ).toBeInTheDocument();
   });
 
   describe('redirect routing mode', () => {

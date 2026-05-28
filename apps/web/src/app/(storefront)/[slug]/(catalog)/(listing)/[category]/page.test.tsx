@@ -14,11 +14,13 @@ const NORMALIZED_PLACEHOLDER_IMAGE =
   'https://placehold.co/400x400/f8fafc/94a3b8?text=No+Image';
 const mockGetPublishedClusterPosts = vi.fn();
 const mockConnection = vi.hoisted(() => vi.fn());
-const { mockCategoryPageContent } = vi.hoisted(() => ({
-  mockCategoryPageContent: vi.fn((_props: unknown) => (
-    <div>Category page content</div>
-  )),
-}));
+const { mockCategoryPageContent, mockStorefrontDynamicMetadataMarker } =
+  vi.hoisted(() => ({
+    mockCategoryPageContent: vi.fn((_props: unknown) => (
+      <div>Category page content</div>
+    )),
+    mockStorefrontDynamicMetadataMarker: vi.fn(),
+  }));
 
 function defaultCategoryPageImplementation({
   currentPage,
@@ -133,6 +135,13 @@ vi.mock('@/lib/normalize-product', () => ({
 
 vi.mock('next/server', () => ({
   connection: () => mockConnection(),
+}));
+
+vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
+  StorefrontDynamicMetadataMarker: () => {
+    mockStorefrontDynamicMetadataMarker();
+    return <div aria-label="dynamic metadata marker" role="status" />;
+  },
 }));
 
 vi.mock('@/lib/sanitize-json-ld', () => ({
@@ -538,6 +547,7 @@ describe('category page route', () => {
     mockGenerateFAQSchema.mockClear();
     mockGetPublishedClusterPosts.mockReset();
     mockConnection.mockReset();
+    mockStorefrontDynamicMetadataMarker.mockReset();
     mockCategoryPageContent.mockReset();
     mockCategoryPageContent.mockImplementation(() => (
       <div>Category page content</div>
@@ -623,6 +633,10 @@ describe('category page route', () => {
 
     render(ui);
 
+    expect(
+      screen.getByRole('status', { name: /dynamic metadata marker/i })
+    ).toBeInTheDocument();
+    expect(mockStorefrontDynamicMetadataMarker).toHaveBeenCalledOnce();
     expect(screen.getByText('Category page content')).toBeInTheDocument();
     expect(mockConnection).toHaveBeenCalledOnce();
   });
