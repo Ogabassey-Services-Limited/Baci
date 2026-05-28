@@ -34,7 +34,7 @@ describe('KycSettingsPage', () => {
     vi.mocked(cookies).mockResolvedValue({} as never);
   });
 
-  it('does not render Nigerian KYC forms for India merchants', async () => {
+  it('does not render identity verification forms for India merchants', async () => {
     vi.mocked(getMerchantForUser).mockResolvedValue({
       merchant: { id: 'merchant-1', country: 'IN' },
       staffAccess: { isOwner: true },
@@ -42,7 +42,11 @@ describe('KycSettingsPage', () => {
 
     render(await KycSettingsPage());
 
-    expect(screen.getByText(/nigerian kyc not required/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: /verification not required/i })
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/nigerian kyc/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/bvn|nin|cac/i)).not.toBeInTheDocument();
     expect(screen.queryByTestId('kyc-verification')).not.toBeInTheDocument();
     expect(cookies).not.toHaveBeenCalled();
     expect(createClient).not.toHaveBeenCalled();
