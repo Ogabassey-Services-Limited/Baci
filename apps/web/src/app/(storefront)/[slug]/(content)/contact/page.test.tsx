@@ -3,6 +3,7 @@ import { headers } from 'next/headers';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 
+const mockConnection = vi.hoisted(() => vi.fn());
 const mockNotFound = vi.fn(() => {
   throw new Error('NEXT_NOT_FOUND');
 });
@@ -17,6 +18,10 @@ vi.mock('next/headers', () => ({
 
 vi.mock('next/navigation', () => ({
   notFound: () => mockNotFound(),
+}));
+
+vi.mock('next/server', () => ({
+  connection: () => mockConnection(),
 }));
 
 vi.mock('@/lib/sanitize-json-ld', () => ({
@@ -70,6 +75,7 @@ describe('contact metadata', () => {
     vi.mocked(getMerchantByIdentifier).mockReset();
     vi.mocked(headers).mockReset();
     vi.mocked(headers).mockResolvedValue(new Headers());
+    mockConnection.mockReset();
     mockNotFound.mockClear();
   });
 
@@ -119,6 +125,7 @@ describe('contact metadata', () => {
     });
     render(ui);
 
+    expect(mockConnection).toHaveBeenCalledOnce();
     const schemaScript = document.querySelector(
       'script[type="application/ld+json"]'
     );

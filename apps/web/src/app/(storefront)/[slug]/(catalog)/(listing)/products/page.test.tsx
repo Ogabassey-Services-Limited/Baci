@@ -8,7 +8,8 @@ import {
 } from '@/lib/cached-data';
 import { getCachedStorefrontProductIndex } from '@/lib/cached-storefront-product-index';
 
-const { mockProductsPageContent } = vi.hoisted(() => ({
+const { mockConnection, mockProductsPageContent } = vi.hoisted(() => ({
+  mockConnection: vi.fn(),
   mockProductsPageContent: vi.fn((_props: unknown) => (
     <div>Products page content</div>
   )),
@@ -49,12 +50,6 @@ vi.mock('@/lib/cached-storefront-product-index', () => ({
   getCachedStorefrontProductIndex: vi.fn(),
 }));
 
-vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
-  StorefrontDynamicMetadataMarker: () => (
-    <div aria-label="dynamic metadata marker" role="status" />
-  ),
-}));
-
 vi.mock('@/lib/routes', () => ({
   asRoute: (path: string) => path,
 }));
@@ -66,6 +61,10 @@ vi.mock('@/lib/sanitize-json-ld', () => ({
 const mockHeaders = vi.fn();
 vi.mock('next/headers', () => ({
   headers: () => mockHeaders(),
+}));
+
+vi.mock('next/server', () => ({
+  connection: () => mockConnection(),
 }));
 
 vi.mock('@/lib/store-url', () => ({
@@ -160,6 +159,7 @@ describe('products index page', () => {
     mockProductsPageContent.mockImplementation(() => (
       <div>Products page content</div>
     ));
+    mockConnection.mockReset();
     notFound.mockClear();
 
     vi.mocked(getRequestScopedMerchant).mockResolvedValue(
@@ -193,6 +193,7 @@ describe('products index page', () => {
     expect(
       screen.getByRole('heading', { name: 'Products' })
     ).toBeInTheDocument();
+    expect(mockConnection).toHaveBeenCalledOnce();
     expect(screen.getByRole('link', { name: 'Smartphones' })).toHaveAttribute(
       'href',
       '/test-store/smartphones'
@@ -340,22 +341,9 @@ describe('products index page', () => {
     ).toBeInTheDocument();
     expect(screen.queryByText('Route loader fallback')).not.toBeInTheDocument();
     expect(screen.queryByText('Products page content')).not.toBeInTheDocument();
-    expect(
-      screen.getByRole('status', { name: /dynamic metadata marker/i })
-    ).toBeInTheDocument();
-
-    const loading = screen.getByRole('status', {
-      name: 'Loading product listing',
-    });
-    const marker = screen.getByRole('status', {
-      name: /dynamic metadata marker/i,
-    });
-    expect(
-      marker.compareDocumentPosition(loading) & Node.DOCUMENT_POSITION_FOLLOWING
-    ).toBeTruthy();
   });
 
-  it('marks runtime metadata as intentional dynamic content', () => {
+  it('renders products content through the route Suspense boundary', () => {
     render(
       <ProductsPage
         params={Promise.resolve({ slug: 'test-store' })}
@@ -363,15 +351,7 @@ describe('products index page', () => {
       />
     );
 
-    expect(
-      screen.getByRole('status', { name: /dynamic metadata marker/i })
-    ).toBeInTheDocument();
-    expect(
-      screen
-        .getByRole('status', { name: /dynamic metadata marker/i })
-        .compareDocumentPosition(screen.getByText('Products page content')) &
-        Node.DOCUMENT_POSITION_FOLLOWING
-    ).toBeTruthy();
+    expect(screen.getByText('Products page content')).toBeInTheDocument();
   });
 
   it('keeps metadata on the canonical product index regardless of pagination', async () => {

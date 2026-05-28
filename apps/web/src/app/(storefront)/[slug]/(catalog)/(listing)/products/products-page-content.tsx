@@ -1,6 +1,7 @@
 import { headers } from 'next/headers';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { connection } from 'next/server';
 import { StorefrontPagination } from '@/components/storefront/ogabassey/components/StorefrontPagination';
 import {
   getCachedCategories,
@@ -39,6 +40,8 @@ function getStorefrontPathPrefix(
 }
 
 export async function ProductsPageContent({ params, searchParams }: PageProps) {
+  await connection();
+
   const { slug } = await params;
   const resolvedSearchParams = await searchParams;
   const currentPage = parseStorefrontPageParam(resolvedSearchParams.page);

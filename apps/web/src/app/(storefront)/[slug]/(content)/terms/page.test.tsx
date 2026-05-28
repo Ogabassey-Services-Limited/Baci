@@ -1,5 +1,5 @@
 import { headers } from 'next/headers';
-import { Fragment, type ReactElement, Suspense } from 'react';
+import { type ReactElement, Suspense } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 
@@ -67,43 +67,43 @@ describe('terms metadata', () => {
 });
 
 describe('terms page rendering', () => {
-  it('renders the content boundary and request-time metadata marker', async () => {
+  it('renders the content boundary and opts its content into request-time rendering', async () => {
     mockConnection.mockResolvedValueOnce(undefined);
+    vi.mocked(headers).mockResolvedValue(new Headers());
+    vi.mocked(getMerchantByIdentifier).mockResolvedValue({
+      business_name: 'Test Store',
+      logo_url: null,
+      slug: 'test-store',
+      custom_domain: 'ogabassey.com',
+      pages: { terms: 'Terms copy' },
+      template_id: 'default',
+      updated_at: '2026-01-01T00:00:00.000Z',
+    } as unknown as Awaited<ReturnType<typeof getMerchantByIdentifier>>);
 
     const element = TermsPage({
       params: Promise.resolve({ slug: 'ogabassey.com' }),
-    }) as ReactElement<{ children: ReactElement[] }>;
-    const [markerBoundary, contentBoundary] = element.props.children;
+    }) as ReactElement<{ children: ReactElement }>;
+    const content = element.props.children;
 
-    expect(element.type).toBe(Fragment);
-    expect(contentBoundary?.type).toBe(Suspense);
-    const markerSuspense = (markerBoundary.type as () => ReactElement)();
-    expect(markerSuspense.type).toBe(Suspense);
-    const markerConnection = (
-      markerSuspense.props as {
-        children?: ReactElement;
-      }
-    ).children?.type as () => Promise<null>;
+    expect(element.type).toBe(Suspense);
+    await expect(
+      (content.type as (props: unknown) => Promise<unknown>)(content.props)
+    ).resolves.toBeTruthy();
 
-    await expect(markerConnection()).resolves.toBeNull();
     expect(mockConnection).toHaveBeenCalledOnce();
   });
 
-  it('surfaces metadata marker connection failures to the route boundary', async () => {
+  it('surfaces request-time connection failures to the route boundary', async () => {
     mockConnection.mockRejectedValueOnce(new Error('Connection failed'));
 
     const element = TermsPage({
       params: Promise.resolve({ slug: 'ogabassey.com' }),
-    }) as ReactElement<{ children: ReactElement[] }>;
-    const markerBoundary = element.props.children[0];
-    const markerSuspense = (markerBoundary.type as () => ReactElement)();
-    const markerConnection = (
-      markerSuspense.props as {
-        children?: ReactElement;
-      }
-    ).children?.type as () => Promise<null>;
+    }) as ReactElement<{ children: ReactElement }>;
+    const content = element.props.children;
 
-    await expect(markerConnection()).rejects.toThrow('Connection failed');
+    await expect(
+      (content.type as (props: unknown) => Promise<unknown>)(content.props)
+    ).rejects.toThrow('Connection failed');
     expect(mockConnection).toHaveBeenCalledOnce();
   });
 });

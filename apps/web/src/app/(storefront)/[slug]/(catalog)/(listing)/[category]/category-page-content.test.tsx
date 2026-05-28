@@ -13,6 +13,7 @@ const {
   mockGetMerchantByIdentifier,
   mockGetPublishedClusterPosts,
   mockHeaders,
+  mockConnection,
   mockNormalizeCategoryPageProducts,
   mockResolveCategoryPageName,
 } = vi.hoisted(() => ({
@@ -26,12 +27,17 @@ const {
   mockGetMerchantByIdentifier: vi.fn(),
   mockGetPublishedClusterPosts: vi.fn(),
   mockHeaders: vi.fn(),
+  mockConnection: vi.fn(),
   mockNormalizeCategoryPageProducts: vi.fn(),
   mockResolveCategoryPageName: vi.fn(),
 }));
 
 vi.mock('next/headers', () => ({
   headers: () => mockHeaders(),
+}));
+
+vi.mock('next/server', () => ({
+  connection: () => mockConnection(),
 }));
 
 vi.mock('next/navigation', () => ({
@@ -111,6 +117,7 @@ const { CategoryPageContent } = await import('./category-page-content');
 describe('CategoryPageContent', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockConnection.mockResolvedValue(undefined);
     mockHeaders.mockResolvedValue(new Headers());
     mockBuildStoreUrl.mockReturnValue('https://store.example.com');
     mockBuildRequestScopedStoreUrl.mockReturnValue('https://store.example.com');
@@ -157,6 +164,7 @@ describe('CategoryPageContent', () => {
       searchParams: Promise.resolve({ page: '1' }),
     });
 
+    expect(mockConnection).toHaveBeenCalledOnce();
     expect(mockGenerateCollectionPageSchema).toHaveBeenCalledWith(
       expect.objectContaining({ currency: 'KES' })
     );

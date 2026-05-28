@@ -9,6 +9,7 @@ const {
   mockGetCachedStorefrontProductIndex,
   mockGetRequestScopedMerchant,
   mockHeaders,
+  mockConnection,
 } = vi.hoisted(() => ({
   mockGenerateBreadcrumbSchema: vi.fn(() => ({})),
   mockGenerateCollectionPageSchema: vi.fn(() => ({})),
@@ -16,10 +17,15 @@ const {
   mockGetCachedStorefrontProductIndex: vi.fn(),
   mockGetRequestScopedMerchant: vi.fn(),
   mockHeaders: vi.fn(),
+  mockConnection: vi.fn(),
 }));
 
 vi.mock('next/headers', () => ({
   headers: () => mockHeaders(),
+}));
+
+vi.mock('next/server', () => ({
+  connection: () => mockConnection(),
 }));
 
 vi.mock('next/link', () => ({
@@ -92,6 +98,7 @@ const { ProductsPageContent } = await import('./products-page-content');
 describe('ProductsPageContent', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockConnection.mockResolvedValue(undefined);
     mockHeaders.mockResolvedValue(new Headers());
     mockGetCachedCategories.mockResolvedValue([]);
     mockGetCachedStorefrontProductIndex.mockResolvedValue({
@@ -117,6 +124,7 @@ describe('ProductsPageContent', () => {
       searchParams: Promise.resolve({ page: '1' }),
     });
 
+    expect(mockConnection).toHaveBeenCalledOnce();
     expect(mockGenerateCollectionPageSchema).toHaveBeenCalledWith(
       expect.objectContaining({ currency: 'GHS' })
     );

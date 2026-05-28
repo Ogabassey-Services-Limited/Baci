@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
 
+const mockConnection = vi.hoisted(() => vi.fn());
 const mockHeaders = vi.fn();
 const mockBuildMerchantTrustProfile = vi.fn();
 const mockBuildRequestScopedStoreUrl = vi.fn();
@@ -15,6 +16,10 @@ vi.mock('next/headers', () => ({
 
 vi.mock('next/navigation', () => ({
   notFound: () => mockNotFound(),
+}));
+
+vi.mock('next/server', () => ({
+  connection: () => mockConnection(),
 }));
 
 vi.mock('next/link', () => ({
@@ -72,6 +77,7 @@ const trustMerchant = {
 describe('warranty page', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockConnection.mockResolvedValue(undefined);
     mockHeaders.mockResolvedValue(new Headers());
     mockBuildRequestScopedStoreUrl.mockReturnValue('https://ogabassey.com');
     mockBuildMerchantTrustProfile.mockReturnValue({
@@ -107,6 +113,7 @@ describe('warranty page', () => {
       })
     );
 
+    expect(mockConnection).toHaveBeenCalledOnce();
     expect(mockBuildMerchantTrustProfile).toHaveBeenCalledWith(
       trustMerchant,
       'https://ogabassey.com'

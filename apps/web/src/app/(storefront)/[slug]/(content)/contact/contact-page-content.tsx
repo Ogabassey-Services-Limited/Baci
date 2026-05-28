@@ -1,5 +1,6 @@
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
+import { connection } from 'next/server';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { toTemplateMerchantData } from '@/lib/merchant-template-data';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
@@ -18,6 +19,8 @@ function hasNonEmptyText(value: string | null | undefined): boolean {
 }
 
 export async function ContactPageContent({ params }: PageProps) {
+  await connection();
+
   const { slug } = await params;
   const merchant = await getMerchantByIdentifier(slug);
 
