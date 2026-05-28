@@ -254,6 +254,20 @@ describe('Search API Security', () => {
       });
     });
 
+    it('rejects malformed autocomplete limits before querying Supabase', async () => {
+      const request = new NextRequest(
+        'http://localhost:3000/api/search/autocomplete?q=iphone&merchant_id=123e4567-e89b-12d3-a456-426614174000&limit=not-a-number'
+      );
+
+      const response = await autocompleteGET(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data.error).toBe('Invalid autocomplete parameters');
+      expect(mockSupabase.from).not.toHaveBeenCalled();
+      expect(sharedChainableMock.limit).not.toHaveBeenCalled();
+    });
+
     it('normalizes unsupported product image payloads to null image_small', async () => {
       mockProductsQueryData = [
         {

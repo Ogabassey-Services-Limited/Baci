@@ -1,10 +1,7 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
-import {
-  isValidUuid,
-  sanitizeLikePattern,
-  sanitizeSearchQuery,
-} from '@/lib/sanitize-core';
+import { z } from 'zod';
+import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
 
 const POSTGRES_QUERY_CANCELED_CODE = '57014';
@@ -15,6 +12,15 @@ const AUTOCOMPLETE_SEARCH_COLUMNS = [
   'category',
   'sku',
 ] as const;
+const AutocompleteQuerySchema = z.object({
+  q: z.string().trim().min(1),
+  merchant_id: z.string().uuid(),
+  limit: z.preprocess(
+    (value) =>
+      value === undefined || value === null || value === '' ? 10 : value,
+    z.coerce.number().int().min(1).max(100)
+  ),
+});
 
 type AutocompleteSearchColumn = (typeof AUTOCOMPLETE_SEARCH_COLUMNS)[number];
 type SupabaseClient = ReturnType<typeof createClient>;
@@ -69,28 +75,36 @@ async function fetchProductAutocompleteRows(
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
-  const rawQuery = searchParams.get('q');
-  const merchantId = searchParams.get('merchant_id');
-  const rawLimit = searchParams.get('limit');
-  const parsedLimit = rawLimit ? Number.parseInt(rawLimit, 10) : 10;
-  const limit = Number.isNaN(parsedLimit)
-    ? 10
-    : Math.min(100, Math.max(1, parsedLimit));
+  const rawParams = {
+    q: searchParams.get('q') ?? undefined,
+    merchant_id: searchParams.get('merchant_id') ?? undefined,
+    limit: searchParams.get('limit') ?? undefined,
+  };
 
-  if (!rawQuery || !merchantId) {
+  const parsedParams = AutocompleteQuerySchema.safeParse(rawParams);
+  if (!parsedParams.success) {
+    const fieldErrors = parsedParams.error.flatten().fieldErrors;
+    if (fieldErrors.q || (fieldErrors.merchant_id && !rawParams.merchant_id)) {
+      return NextResponse.json(
+        { error: 'Missing query or merchant_id parameter' },
+        { status: 400 }
+      );
+    }
+
+    if (fieldErrors.merchant_id) {
+      return NextResponse.json(
+        { error: 'Invalid merchant_id format' },
+        { status: 400 }
+      );
+    }
+
     return NextResponse.json(
-      { error: 'Missing query or merchant_id parameter' },
+      { error: 'Invalid autocomplete parameters' },
       { status: 400 }
     );
   }
 
-  // Validate merchantId
-  if (!isValidUuid(merchantId)) {
-    return NextResponse.json(
-      { error: 'Invalid merchant_id format' },
-      { status: 400 }
-    );
-  }
+  const { q: rawQuery, merchant_id: merchantId, limit } = parsedParams.data;
 
   // Sanitize search query
   const query = sanitizeSearchQuery(rawQuery);
