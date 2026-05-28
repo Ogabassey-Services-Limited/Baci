@@ -1,7 +1,10 @@
 import type { Metadata } from 'next';
+import { permanentRedirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { StorefrontDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker';
+import { getBlogPostRedirect } from '@/lib/blog-post-redirects';
 import { getCachedBlogPost } from '@/lib/cached-data';
+import { asRoute } from '@/lib/routes';
 import { buildStoreUrl } from '@/lib/store-url';
 import { BlogPostPageFallback } from './BlogPostPageFallback';
 import {
@@ -104,11 +107,37 @@ export async function generateMetadata({
   };
 }
 
-export default function BlogPostPage({ params }: PageProps) {
+export default async function BlogPostPage({ params }: PageProps) {
+  const resolvedParams = await params;
+  let redirectedPost: Awaited<ReturnType<typeof getBlogPostRedirect>> = null;
+  try {
+    redirectedPost = await getBlogPostRedirect(
+      resolvedParams.slug,
+      resolvedParams.postSlug
+    );
+  } catch (error) {
+    console.error('Blog redirect lookup failed at page boundary', {
+      slug: resolvedParams.slug,
+      postSlug: resolvedParams.postSlug,
+      error,
+    });
+  }
+
+  if (redirectedPost) {
+    permanentRedirect(
+      asRoute(
+        buildCanonicalBlogPostUrl(
+          redirectedPost.merchant,
+          redirectedPost.targetSlug
+        )
+      )
+    );
+  }
+
   return (
     <>
       <Suspense fallback={<BlogPostPageFallback />}>
-        <BlogPostPageContent params={params} />
+        <BlogPostPageContent params={Promise.resolve(resolvedParams)} />
       </Suspense>
       <StorefrontDynamicMetadataMarker />
     </>

@@ -2,7 +2,12 @@ import { render, screen } from '@testing-library/react';
 import { Suspense } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockBlogPostPageContent, mockBuildStoreUrl } = vi.hoisted(() => ({
+const {
+  mockBlogPostPageContent,
+  mockBuildStoreUrl,
+  mockGetBlogPostRedirect,
+  mockPermanentRedirect,
+} = vi.hoisted(() => ({
   mockBlogPostPageContent: vi.fn((_props: unknown) => (
     <div>Blog post page content</div>
   )),
@@ -12,6 +17,10 @@ const { mockBlogPostPageContent, mockBuildStoreUrl } = vi.hoisted(() => ({
         ? `https://${merchant.custom_domain}`
         : `https://${merchant.slug}.usebaci.com`
   ),
+  mockGetBlogPostRedirect: vi.fn(),
+  mockPermanentRedirect: vi.fn((url: string) => {
+    throw new Error(`NEXT_PERMANENT_REDIRECT:${url}`);
+  }),
 }));
 
 const mockDraftMode = vi.fn();
@@ -28,10 +37,15 @@ vi.mock('next/headers', () => ({
 
 vi.mock('next/navigation', () => ({
   notFound: () => mockNotFound(),
+  permanentRedirect: (url: string) => mockPermanentRedirect(url),
 }));
 
 vi.mock('@/lib/cached-data', () => ({
   getCachedBlogPost: (...args: unknown[]) => mockGetCachedBlogPost(...args),
+}));
+
+vi.mock('@/lib/blog-post-redirects', () => ({
+  getBlogPostRedirect: (...args: unknown[]) => mockGetBlogPostRedirect(...args),
 }));
 
 vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
@@ -43,6 +57,10 @@ vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
 vi.mock('@/lib/store-url', () => ({
   buildStoreUrl: (merchant: { slug: string; custom_domain?: string | null }) =>
     mockBuildStoreUrl(merchant),
+}));
+
+vi.mock('@/lib/routes', () => ({
+  asRoute: (value: string) => value,
 }));
 
 vi.mock('./blog-post-content', () => ({
@@ -117,6 +135,7 @@ describe('storefront blog post page', () => {
           ? `https://${merchant.custom_domain}`
           : `https://${merchant.slug}.usebaci.com`
     );
+    mockGetBlogPostRedirect.mockResolvedValue(null);
   });
 
   it('only exports the route surface from the page module', async () => {
@@ -172,6 +191,65 @@ describe('storefront blog post page', () => {
       screen.getByRole('status', { name: /dynamic metadata marker/i })
     ).toBeInTheDocument();
     expect(screen.getByText('Blog post page content')).toBeInTheDocument();
+  });
+
+  it('permanently redirects retired blog slugs before rendering the streamed shell', async () => {
+    mockGetBlogPostRedirect.mockResolvedValueOnce({
+      merchant: {
+        id: 'merchant-1',
+        business_name: 'Ogabassey',
+        slug: 'ogabassey',
+        custom_domain: 'ogabassey.com',
+      },
+      targetSlug: 'canonical-post',
+    });
+
+    await expect(
+      BlogPostPage({
+        params: Promise.resolve({
+          slug: 'ogabassey.com',
+          postSlug: 'retired-post',
+        }),
+      })
+    ).rejects.toThrow(
+      'NEXT_PERMANENT_REDIRECT:https://ogabassey.com/blog/canonical-post'
+    );
+
+    expect(mockGetBlogPostRedirect).toHaveBeenCalledWith(
+      'ogabassey.com',
+      'retired-post'
+    );
+    expect(mockBlogPostPageContent).not.toHaveBeenCalled();
+  });
+
+  it('keeps rendering canonical posts when redirect lookup fails', async () => {
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    const redirectLookupError = new Error('redirect store unavailable');
+    mockGetBlogPostRedirect.mockRejectedValueOnce(redirectLookupError);
+
+    render(
+      await BlogPostPage({
+        params: Promise.resolve({
+          slug: 'ogabassey.com',
+          postSlug: 'apple-studio-display-review',
+        }),
+      })
+    );
+
+    expect(mockPermanentRedirect).not.toHaveBeenCalled();
+    expect(screen.getByText('Blog post page content')).toBeInTheDocument();
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Blog redirect lookup failed at page boundary',
+      expect.objectContaining({
+        slug: 'ogabassey.com',
+        postSlug: 'apple-studio-display-review',
+        error: redirectLookupError,
+      })
+    );
+
+    consoleErrorSpy.mockRestore();
   });
 
   it('resolves public metadata without consulting draft request state', async () => {
