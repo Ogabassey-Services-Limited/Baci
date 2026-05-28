@@ -10,13 +10,18 @@ interface AuthUserRecord {
   [key: string]: unknown;
 }
 
-interface WebhookPayload {
-  type: 'INSERT' | 'UPDATE' | 'DELETE';
+type WebhookPayload = {
   table: string;
   schema: string;
-  record: AuthUserRecord;
-  old_record: AuthUserRecord;
-}
+} & (
+  | { type: 'INSERT'; record: AuthUserRecord; old_record: null }
+  | {
+      type: 'UPDATE';
+      record: AuthUserRecord;
+      old_record: AuthUserRecord | null;
+    }
+  | { type: 'DELETE'; record: null; old_record: AuthUserRecord }
+);
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -42,6 +47,10 @@ Deno.serve(async (req) => {
     }
 
     const { record, old_record } = payload;
+
+    if (!record || !old_record) {
+      return new Response('Ignored: Missing record data', { status: 200 });
+    }
 
     // Check if email_confirmed_at changed from null to something
     const wasConfirmed = old_record.email_confirmed_at !== null;
