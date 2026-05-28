@@ -4,6 +4,9 @@ import { sanitizeSearchQuery } from '@/lib/sanitize-core';
 import { GET as autocompleteGET } from './autocomplete/route';
 import { GET as searchGET } from './route';
 
+let mockProductsQueryData: unknown[] = [];
+let mockProductsQueryError: { code?: string; message: string } | null = null;
+
 // Mock env
 vi.mock('@/env', () => ({
   getSupabaseUrl: () => 'https://mock.supabase.co',
@@ -18,6 +21,7 @@ const sharedChainableMock: any = {
   eq: vi.fn().mockReturnThis(),
   in: vi.fn().mockReturnThis(),
   ilike: vi.fn().mockReturnThis(),
+  or: vi.fn().mockReturnThis(),
   single: vi.fn().mockResolvedValue({
     data: {
       id: 'merchant-id',
@@ -28,14 +32,18 @@ const sharedChainableMock: any = {
   }),
   maybeSingle: vi.fn().mockResolvedValue({ data: null }),
   insert: vi.fn().mockResolvedValue({ error: null }),
-  // biome-ignore lint/suspicious/noThenProperty: needed for thenable mock
-  then: (resolve: any) => Promise.resolve().then(resolve),
   update: vi.fn().mockReturnThis(),
   delete: vi.fn().mockReturnThis(),
   upsert: vi.fn().mockReturnThis(),
   order: vi.fn().mockReturnThis(),
   limit: vi.fn().mockReturnThis(),
   range: vi.fn().mockReturnThis(),
+  // biome-ignore lint/suspicious/noThenProperty: needed for thenable mock
+  then: (resolve: any, reject: any) =>
+    Promise.resolve({
+      data: mockProductsQueryData,
+      error: mockProductsQueryError,
+    }).then(resolve, reject),
 };
 
 const mockSupabase = {
@@ -70,6 +78,8 @@ vi.mock('next/headers', () => ({
 describe('Search API Security', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockProductsQueryData = [];
+    mockProductsQueryError = null;
   });
 
   describe('GET /api/search', () => {
@@ -125,7 +135,7 @@ describe('Search API Security', () => {
   });
 
   describe('GET /api/search/autocomplete', () => {
-    it('should sanitize search query before passing to rpc', async () => {
+    it('should sanitize search query before applying product autocomplete filters', async () => {
       const maliciousQuery = '<script>alert(1)</script>100%';
       const merchantId = '123e4567-e89b-12d3-a456-426614174000';
 
@@ -138,13 +148,16 @@ describe('Search API Security', () => {
       const response = await autocompleteGET(request);
       const data = await response.json();
 
-      // Verify the query was sanitized and passed to the rpc call
-      expect(mockSupabase.rpc).toHaveBeenCalledWith(
-        'product_autocomplete_v2',
-        expect.objectContaining({
-          search_prefix: expect.not.stringContaining('<script>'),
-          merchant_id_param: merchantId,
-        })
+      expect(response.status).toBe(200);
+      expect(sharedChainableMock.select).toHaveBeenCalledWith(
+        'id, name, category, price, images, slug'
+      );
+      expect(sharedChainableMock.eq).toHaveBeenCalledWith(
+        'merchant_id',
+        merchantId
+      );
+      expect(sharedChainableMock.or).toHaveBeenCalledWith(
+        expect.not.stringContaining('<script>')
       );
 
       // popular_searches query removed (search_analytics table is empty),
@@ -152,14 +165,49 @@ describe('Search API Security', () => {
       expect(data.popularSearches).toEqual([]);
     });
 
-    it('returns empty suggestions when autocomplete query times out', async () => {
-      mockSupabase.rpc.mockResolvedValueOnce({
-        data: null,
-        error: {
-          code: '57014',
-          message: 'canceling statement due to statement timeout',
+    it('returns bounded product suggestions from the products table', async () => {
+      mockProductsQueryData = [
+        {
+          id: 'product-id',
+          name: 'iPhone 15',
+          category: 'Smartphones',
+          price: 750000,
+          images: ['https://example.com/iphone.jpg'],
+          slug: 'iphone-15',
         },
+      ];
+
+      const request = new NextRequest(
+        'http://localhost:3000/api/search/autocomplete?q=iphone&merchant_id=123e4567-e89b-12d3-a456-426614174000&limit=5'
+      );
+
+      const response = await autocompleteGET(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(mockSupabase.from).toHaveBeenCalledWith('products');
+      expect(sharedChainableMock.limit).toHaveBeenCalledWith(5);
+      expect(data).toEqual({
+        suggestions: [
+          {
+            id: 'product-id',
+            name: 'iPhone 15',
+            category: 'Smartphones',
+            price: 750000,
+            image_small: 'https://example.com/iphone.jpg',
+            slug: 'iphone-15',
+            relevance: 1,
+          },
+        ],
+        popularSearches: [],
       });
+    });
+
+    it('returns empty suggestions when autocomplete query times out', async () => {
+      mockProductsQueryError = {
+        code: '57014',
+        message: 'canceling statement due to statement timeout',
+      };
 
       const request = new NextRequest(
         'http://localhost:3000/api/search/autocomplete?q=iphone&merchant_id=123e4567-e89b-12d3-a456-426614174000'
