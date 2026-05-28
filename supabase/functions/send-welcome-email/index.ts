@@ -3,12 +3,19 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const ZEPTOMAIL_TOKEN = Deno.env.get('ZEPTOMAIL_TOKEN') || '';
 // DB Webhook payload type
+interface AuthUserRecord {
+  id: string;
+  email: string;
+  email_confirmed_at: string | null;
+  [key: string]: unknown;
+}
+
 interface WebhookPayload {
   type: 'INSERT' | 'UPDATE' | 'DELETE';
   table: string;
   schema: string;
-  record: any;
-  old_record: any;
+  record: AuthUserRecord;
+  old_record: AuthUserRecord;
 }
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
