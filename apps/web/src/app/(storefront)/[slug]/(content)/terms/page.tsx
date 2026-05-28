@@ -22,6 +22,8 @@ interface PageProps {
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
+  await connection();
+
   const { slug } = await params;
   const merchant = await getMerchantByIdentifier(slug);
 
