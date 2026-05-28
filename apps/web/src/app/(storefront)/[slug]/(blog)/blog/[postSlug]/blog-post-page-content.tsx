@@ -2,10 +2,11 @@ import { AlertTriangle, ArrowLeft } from 'lucide-react';
 import { draftMode, headers } from 'next/headers';
 import Image from 'next/image';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { InformationalClusterPanel } from '@/components/storefront/ogabassey/seo/informational-cluster-panel';
 import { Button } from '@/components/ui/button';
+import { getBlogPostRedirect } from '@/lib/blog-post-redirects';
 import { getBlogStructuredDataImageUrls } from '@/lib/blog-structured-data-images';
 import { asRoute } from '@/lib/routes';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
@@ -67,6 +68,18 @@ async function renderBlogPostContent({
   const data = await getResolvedBlogPost(slug, postSlug, isDraftMode);
 
   if (!data) {
+    const redirectedPost = await getBlogPostRedirect(slug, postSlug);
+    if (redirectedPost) {
+      permanentRedirect(
+        asRoute(
+          buildCanonicalBlogPostUrl(
+            redirectedPost.merchant,
+            redirectedPost.targetSlug
+          )
+        )
+      );
+    }
+
     notFound();
   }
 
