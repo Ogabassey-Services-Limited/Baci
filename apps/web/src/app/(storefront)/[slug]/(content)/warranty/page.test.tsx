@@ -8,6 +8,7 @@ const mockBuildRequestScopedStoreUrl = vi.fn();
 const mockNotFound = vi.fn(() => {
   throw new Error('NEXT_NOT_FOUND');
 });
+const mockConnection = vi.hoisted(() => vi.fn());
 
 vi.mock('next/headers', () => ({
   headers: () => mockHeaders(),
@@ -15,6 +16,10 @@ vi.mock('next/headers', () => ({
 
 vi.mock('next/navigation', () => ({
   notFound: () => mockNotFound(),
+}));
+
+vi.mock('next/server', () => ({
+  connection: () => mockConnection(),
 }));
 
 vi.mock('next/link', () => ({
@@ -95,6 +100,17 @@ describe('warranty page', () => {
     expect(metadata.alternates?.canonical).toBe(
       'https://ogabassey.com/warranty'
     );
+  });
+
+  it('marks warranty metadata as request-time rendered', async () => {
+    vi.mocked(getRequestScopedMerchant).mockResolvedValue(trustMerchant);
+    const { generateMetadata } = await import('./page');
+
+    await generateMetadata({
+      params: Promise.resolve({ slug: 'ogabassey' }),
+    });
+
+    expect(mockConnection).toHaveBeenCalledOnce();
   });
 
   it('renders when the warranty summary exists', async () => {

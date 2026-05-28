@@ -13,6 +13,7 @@ const mockNotFound = vi.fn(() => {
 });
 
 const mockBuildBlogClusterCollections = vi.fn();
+const mockConnection = vi.hoisted(() => vi.fn());
 
 interface MockDefaultBlogUiProps {
   blogSchema: {
@@ -30,6 +31,10 @@ vi.mock('@/lib/cached-data', () => ({
 
 vi.mock('next/navigation', () => ({
   notFound: () => mockNotFound(),
+}));
+
+vi.mock('next/server', () => ({
+  connection: () => mockConnection(),
 }));
 
 vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
@@ -173,6 +178,16 @@ describe('blog page metadata', () => {
     mockDefaultBlogUi.mockImplementation((props: MockDefaultBlogUiProps) => (
       <div>{props.merchant.business_name} blog</div>
     ));
+    mockConnection.mockReset();
+  });
+
+  it('marks blog listing metadata as request-time rendered', async () => {
+    await generateMetadata({
+      params: Promise.resolve({ slug: 'test-store' }),
+      searchParams: Promise.resolve({}),
+    });
+
+    expect(mockConnection).toHaveBeenCalledOnce();
   });
 
   it('includes social images for the blog listing metadata', async () => {
