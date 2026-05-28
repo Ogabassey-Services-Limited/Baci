@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import { notFound, permanentRedirect, redirect } from 'next/navigation';
 import { buildCanonicalBlogPostUrl } from '@/app/(storefront)/[slug]/(blog)/blog/[postSlug]/blog-post-content';
+import { getBlogPostRedirect } from '@/lib/blog-post-redirects';
 import {
   getCachedBlogPost,
   getCachedMerchant,
@@ -101,6 +102,18 @@ export async function resolveBlogCatchAllRoute({
     // so custom-domain rewrites don't leak internal paths to crawlers.
     permanentRedirect(
       asRoute(buildCanonicalBlogPostUrl(cachedMerchant, post.slug))
+    );
+  }
+
+  const redirectedPost = await getBlogPostRedirect(slug, cleanPostSlug);
+  if (redirectedPost) {
+    permanentRedirect(
+      asRoute(
+        buildCanonicalBlogPostUrl(
+          redirectedPost.merchant,
+          redirectedPost.targetSlug
+        )
+      )
     );
   }
 
