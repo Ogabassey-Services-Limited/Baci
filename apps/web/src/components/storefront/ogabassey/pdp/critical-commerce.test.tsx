@@ -105,6 +105,25 @@ describe('OgabasseyPdpCriticalCommerce', () => {
     expect(screen.queryByText('Condition')).not.toBeInTheDocument();
     expect(screen.getByText('Lagos and nationwide')).toBeInTheDocument();
   });
+
+  it('formats underscored product conditions for display', () => {
+    render(
+      <OgabasseyPdpCriticalCommerce
+        cartHref="/cart"
+        cartProduct={{
+          ...cartProduct,
+          condition: 'open_box',
+        }}
+        product={{
+          ...criticalProduct,
+          condition: 'open_box',
+        }}
+      />
+    );
+
+    expect(screen.getByText('Open Box')).toBeInTheDocument();
+    expect(screen.queryByText('Open_box')).not.toBeInTheDocument();
+  });
 });
 
 describe('OgabasseyPdpCriticalCommerceClient', () => {

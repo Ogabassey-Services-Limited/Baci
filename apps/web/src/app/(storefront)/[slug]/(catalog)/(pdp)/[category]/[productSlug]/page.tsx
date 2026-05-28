@@ -62,7 +62,10 @@ import {
   DEFAULT_STOREFRONT_SEO_CATEGORY,
 } from '@/lib/storefront-seo-defaults';
 import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
-import { isValidMerchantIdentifier } from '@/lib/validation';
+import {
+  isDomainIdentifier,
+  isValidMerchantIdentifier,
+} from '@/lib/validation';
 import { OgabasseyPdpSemanticSections } from './ogabassey-pdp-semantic-sections';
 
 /**
@@ -314,6 +317,10 @@ interface PageProps {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
+function getCategoryProductBasePath(slug: string): '' | `/${string}` {
+  return isDomainIdentifier(slug) ? '' : `/${slug}`;
+}
+
 function getRedirectTargetPath(
   storeSlug: string,
   product: {
@@ -326,12 +333,7 @@ function getRedirectTargetPath(
   }
 ) {
   const productPath = getProductUrl(product);
-
-  if (process.env.NODE_ENV === 'development') {
-    return `/${storeSlug}${productPath}` as `/${string}`;
-  }
-
-  return productPath as `/${string}`;
+  return `${getCategoryProductBasePath(storeSlug)}${productPath}` as `/${string}`;
 }
 
 function redirectInvalidVariantSelectionParams(
@@ -834,7 +836,7 @@ async function CategoryProductPageCriticalCommerceControls({
     productResultPromise,
   });
   const criticalProduct = buildOgabasseyPdpCriticalProduct(product);
-  const basePath = process.env.NODE_ENV === 'development' ? `/${slug}` : '';
+  const basePath = getCategoryProductBasePath(slug);
   const cartHref = `${basePath}/cart` as Route;
 
   return (
@@ -1060,7 +1062,7 @@ export default async function CategoryProductPage({
         <>
           <OgabasseyPdpStaticResourceHints />
           <OgabasseyPdpCriticalShell
-            basePath={process.env.NODE_ENV === 'development' ? `/${slug}` : ''}
+            basePath={getCategoryProductBasePath(slug)}
             product={criticalProduct}
           >
             <Suspense fallback={null}>

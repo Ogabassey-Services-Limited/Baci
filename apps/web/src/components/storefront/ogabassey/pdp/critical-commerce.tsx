@@ -30,9 +30,12 @@ function formatCondition(condition: string | null | undefined) {
     return null;
   }
 
-  return (
-    normalizedCondition.charAt(0).toUpperCase() + normalizedCondition.slice(1)
-  );
+  return normalizedCondition
+    .replace(/[_-]+/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(' ');
 }
 
 export function OgabasseyPdpCriticalCommerce({

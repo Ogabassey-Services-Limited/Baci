@@ -1078,6 +1078,7 @@ describe('[category]/[productSlug] page render', () => {
 
     expect(mockOgabasseyPdpCriticalCommerce).toHaveBeenCalledWith(
       expect.objectContaining({
+        cartHref: '/teststore/cart',
         cartProduct: expect.objectContaining({
           name: 'HP Laptop 14-ep0063nia',
         }),
