@@ -195,11 +195,11 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Update transaction status to 'success' since payment is confirmed
+      // Paystack returns "success"; our transactions table stores "completed".
       const { error: updateError } = await supabase
         .from('transactions')
         .update({
-          status: 'success',
+          status: 'completed',
           updated_at: new Date().toISOString(),
         })
         .eq('id', transactionRecord.id)
@@ -210,11 +210,11 @@ export async function POST(request: NextRequest) {
       }
 
       // Update local reference with new status
-      payment = { ...transactionRecord, status: 'success' };
+      payment = { ...transactionRecord, status: 'completed' };
     }
 
     // Verify payment status is successful
-    if (!['success', 'completed'].includes(payment.status)) {
+    if (payment.status !== 'completed') {
       return NextResponse.json(
         { error: 'Payment not verified. Please complete payment first.' },
         { status: 402 }

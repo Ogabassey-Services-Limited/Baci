@@ -9,6 +9,15 @@ import { createClient } from '@/lib/supabase/server';
 
 const POSTGRES_QUERY_CANCELED_CODE = '57014';
 const AUTOCOMPLETE_PRODUCT_SELECT = 'id, name, category, price, images, slug';
+const AUTOCOMPLETE_SEARCH_COLUMNS = [
+  'name',
+  'brand',
+  'category',
+  'sku',
+] as const;
+
+type AutocompleteSearchColumn = (typeof AUTOCOMPLETE_SEARCH_COLUMNS)[number];
+type SupabaseClient = ReturnType<typeof createClient>;
 
 interface AutocompleteProductRow {
   id: string;
@@ -24,6 +33,38 @@ function getImageSmall(images: unknown): string | null {
 
   const [firstImage] = images;
   return typeof firstImage === 'string' ? firstImage : null;
+}
+
+async function fetchProductAutocompleteRows(
+  supabase: SupabaseClient,
+  merchantId: string,
+  likeQuery: string,
+  limit: number
+): Promise<AutocompleteProductRow[]> {
+  const rowsById = new Map<string, AutocompleteProductRow>();
+
+  for (const column of AUTOCOMPLETE_SEARCH_COLUMNS) {
+    if (rowsById.size >= limit) break;
+
+    const { data, error } = await supabase
+      .from('products')
+      .select(AUTOCOMPLETE_PRODUCT_SELECT)
+      .eq('merchant_id', merchantId)
+      .eq('status', 'active')
+      .ilike(column satisfies AutocompleteSearchColumn, `%${likeQuery}%`)
+      .order('name', { ascending: true })
+      .limit(limit);
+
+    if (error) throw error;
+
+    for (const row of Array.isArray(data) ? data : []) {
+      const product = row as AutocompleteProductRow;
+      if (!rowsById.has(product.id)) rowsById.set(product.id, product);
+      if (rowsById.size >= limit) break;
+    }
+  }
+
+  return [...rowsById.values()];
 }
 
 export async function GET(request: NextRequest) {
@@ -64,37 +105,22 @@ export async function GET(request: NextRequest) {
     const supabase = createClient(cookieStore);
     const likeQuery = sanitizeLikePattern(query);
 
-    const { data, error } = await supabase
-      .from('products')
-      .select(AUTOCOMPLETE_PRODUCT_SELECT)
-      .eq('merchant_id', merchantId)
-      .eq('status', 'active')
-      .or(
-        [
-          `name.ilike.%${likeQuery}%`,
-          `brand.ilike.%${likeQuery}%`,
-          `category.ilike.%${likeQuery}%`,
-          `sku.ilike.%${likeQuery}%`,
-        ].join(',')
-      )
-      .order('name', { ascending: true })
-      .limit(limit);
+    const autocompleteRows = await fetchProductAutocompleteRows(
+      supabase,
+      merchantId,
+      likeQuery,
+      limit
+    );
 
-    if (error) throw error;
-
-    const productSuggestions = (Array.isArray(data) ? data : []).map((row) => {
-      const product = row as AutocompleteProductRow;
-
-      return {
-        id: product.id,
-        name: product.name,
-        category: product.category,
-        price: product.price,
-        image_small: getImageSmall(product.images),
-        slug: product.slug,
-        relevance: 1,
-      };
-    });
+    const productSuggestions = autocompleteRows.map((product) => ({
+      id: product.id,
+      name: product.name,
+      category: product.category,
+      price: product.price,
+      image_small: getImageSmall(product.images),
+      slug: product.slug,
+      relevance: 1,
+    }));
 
     // Popular searches disabled — search_analytics table has no data and
     // the popular_searches view caused 16K+ sequential scans per day via

@@ -7,6 +7,36 @@ import { GET as searchGET } from './route';
 let mockProductsQueryData: unknown[] = [];
 let mockProductsQueryError: { code?: string; message: string } | null = null;
 
+type MockProductsQueryResult = {
+  data: unknown[];
+  error: { code?: string; message: string } | null;
+};
+
+type ProductsQueryResolve = (value: MockProductsQueryResult) => unknown;
+type ProductsQueryReject = (reason?: unknown) => unknown;
+type ChainableMockMethod = ReturnType<typeof vi.fn>;
+
+interface SharedChainableMock {
+  select: ChainableMockMethod;
+  eq: ChainableMockMethod;
+  in: ChainableMockMethod;
+  ilike: ChainableMockMethod;
+  or: ChainableMockMethod;
+  single: ChainableMockMethod;
+  maybeSingle: ChainableMockMethod;
+  insert: ChainableMockMethod;
+  update: ChainableMockMethod;
+  delete: ChainableMockMethod;
+  upsert: ChainableMockMethod;
+  order: ChainableMockMethod;
+  limit: ChainableMockMethod;
+  range: ChainableMockMethod;
+  then: (
+    resolve: ProductsQueryResolve,
+    reject?: ProductsQueryReject
+  ) => Promise<unknown>;
+}
+
 // Mock env
 vi.mock('@/env', () => ({
   getSupabaseUrl: () => 'https://mock.supabase.co',
@@ -16,7 +46,7 @@ vi.mock('@/env', () => ({
 }));
 
 // Shared mock for chainable methods
-const sharedChainableMock: any = {
+const sharedChainableMock: SharedChainableMock = {
   select: vi.fn().mockReturnThis(),
   eq: vi.fn().mockReturnThis(),
   in: vi.fn().mockReturnThis(),
@@ -39,7 +69,7 @@ const sharedChainableMock: any = {
   limit: vi.fn().mockReturnThis(),
   range: vi.fn().mockReturnThis(),
   // biome-ignore lint/suspicious/noThenProperty: needed for thenable mock
-  then: (resolve: any, reject: any) =>
+  then: (resolve, reject) =>
     Promise.resolve({
       data: mockProductsQueryData,
       error: mockProductsQueryError,
@@ -156,13 +186,34 @@ describe('Search API Security', () => {
         'merchant_id',
         merchantId
       );
-      expect(sharedChainableMock.or).toHaveBeenCalledWith(
+      expect(sharedChainableMock.or).not.toHaveBeenCalled();
+      expect(sharedChainableMock.ilike).toHaveBeenCalledWith(
+        'name',
         expect.not.stringContaining('<script>')
       );
 
       // popular_searches query removed (search_analytics table is empty),
       // so popularSearches should always be an empty array
       expect(data.popularSearches).toEqual([]);
+    });
+
+    it('handles comma and quote search text without raw PostgREST OR filters', async () => {
+      const request = new NextRequest(
+        `http://localhost:3000/api/search/autocomplete?q=${encodeURIComponent(
+          'shirt, "blue"'
+        )}&merchant_id=123e4567-e89b-12d3-a456-426614174000`
+      );
+
+      const response = await autocompleteGET(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.popularSearches).toEqual([]);
+      expect(sharedChainableMock.or).not.toHaveBeenCalled();
+      expect(sharedChainableMock.ilike).toHaveBeenCalledWith(
+        'name',
+        expect.not.stringMatching(/[",]/)
+      );
     });
 
     it('returns bounded product suggestions from the products table', async () => {
@@ -201,6 +252,75 @@ describe('Search API Security', () => {
         ],
         popularSearches: [],
       });
+    });
+
+    it('normalizes unsupported product image payloads to null image_small', async () => {
+      mockProductsQueryData = [
+        {
+          id: 'product-null-image',
+          name: 'Null Image Product',
+          category: 'Smartphones',
+          price: 100000,
+          images: null,
+          slug: 'null-image-product',
+        },
+        {
+          id: 'product-empty-image',
+          name: 'Empty Image Product',
+          category: 'Smartphones',
+          price: 110000,
+          images: [],
+          slug: 'empty-image-product',
+        },
+        {
+          id: 'product-object-image',
+          name: 'Object Image Product',
+          category: 'Smartphones',
+          price: 120000,
+          images: [{ url: 'https://example.com/object-image.jpg' }],
+          slug: 'object-image-product',
+        },
+      ];
+
+      const request = new NextRequest(
+        'http://localhost:3000/api/search/autocomplete?q=image&merchant_id=123e4567-e89b-12d3-a456-426614174000&limit=10'
+      );
+
+      const response = await autocompleteGET(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(mockSupabase.from).toHaveBeenCalledWith('products');
+      expect(sharedChainableMock.limit).toHaveBeenCalledWith(10);
+      expect(data.suggestions).toEqual([
+        {
+          id: 'product-null-image',
+          name: 'Null Image Product',
+          category: 'Smartphones',
+          price: 100000,
+          image_small: null,
+          slug: 'null-image-product',
+          relevance: 1,
+        },
+        {
+          id: 'product-empty-image',
+          name: 'Empty Image Product',
+          category: 'Smartphones',
+          price: 110000,
+          image_small: null,
+          slug: 'empty-image-product',
+          relevance: 1,
+        },
+        {
+          id: 'product-object-image',
+          name: 'Object Image Product',
+          category: 'Smartphones',
+          price: 120000,
+          image_small: null,
+          slug: 'object-image-product',
+          relevance: 1,
+        },
+      ]);
     });
 
     it('returns empty suggestions when autocomplete query times out', async () => {
