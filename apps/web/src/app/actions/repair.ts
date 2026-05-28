@@ -1,6 +1,5 @@
 'use server';
 
-import { randomUUID } from 'node:crypto';
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { topshipProvider } from '@/lib/shipping/providers/topship';
@@ -62,7 +61,7 @@ export async function createRepair(
   } = validationResult.data;
 
   try {
-    const repairId = randomUUID();
+    const repairId = globalThis.crypto.randomUUID();
 
     // 2. Insert into database
     const { error } = await supabase.from('repairs').insert({

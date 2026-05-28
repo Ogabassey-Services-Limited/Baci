@@ -254,6 +254,33 @@ describe('Search API Security', () => {
       });
     });
 
+    it('queries all autocomplete columns without first-match short-circuiting', async () => {
+      mockProductsQueryData = [
+        {
+          id: 'product-id',
+          name: 'iPhone 15',
+          category: 'Smartphones',
+          price: 750000,
+          images: ['https://example.com/iphone.jpg'],
+          slug: 'iphone-15',
+        },
+      ];
+
+      const request = new NextRequest(
+        'http://localhost:3000/api/search/autocomplete?q=iphone&merchant_id=123e4567-e89b-12d3-a456-426614174000&limit=1'
+      );
+
+      const response = await autocompleteGET(request);
+
+      expect(response.status).toBe(200);
+      for (const column of ['name', 'brand', 'category', 'sku']) {
+        expect(sharedChainableMock.ilike).toHaveBeenCalledWith(
+          column,
+          expect.any(String)
+        );
+      }
+    });
+
     it('rejects malformed autocomplete limits before querying Supabase', async () => {
       const request = new NextRequest(
         'http://localhost:3000/api/search/autocomplete?q=iphone&merchant_id=123e4567-e89b-12d3-a456-426614174000&limit=not-a-number'

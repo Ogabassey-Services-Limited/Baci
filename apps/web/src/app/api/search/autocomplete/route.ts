@@ -48,26 +48,31 @@ async function fetchProductAutocompleteRows(
   limit: number
 ): Promise<AutocompleteProductRow[]> {
   const rowsById = new Map<string, AutocompleteProductRow>();
+  const queryResults = await Promise.all(
+    AUTOCOMPLETE_SEARCH_COLUMNS.map(async (column) => {
+      const { data, error } = await supabase
+        .from('products')
+        .select(AUTOCOMPLETE_PRODUCT_SELECT)
+        .eq('merchant_id', merchantId)
+        .eq('status', 'active')
+        .ilike(column satisfies AutocompleteSearchColumn, `%${likeQuery}%`)
+        .order('name', { ascending: true })
+        .limit(limit);
 
-  for (const column of AUTOCOMPLETE_SEARCH_COLUMNS) {
-    if (rowsById.size >= limit) break;
+      if (error) throw error;
 
-    const { data, error } = await supabase
-      .from('products')
-      .select(AUTOCOMPLETE_PRODUCT_SELECT)
-      .eq('merchant_id', merchantId)
-      .eq('status', 'active')
-      .ilike(column satisfies AutocompleteSearchColumn, `%${likeQuery}%`)
-      .order('name', { ascending: true })
-      .limit(limit);
+      return Array.isArray(data) ? data : [];
+    })
+  );
 
-    if (error) throw error;
-
+  for (const data of queryResults) {
     for (const row of Array.isArray(data) ? data : []) {
       const product = row as AutocompleteProductRow;
       if (!rowsById.has(product.id)) rowsById.set(product.id, product);
       if (rowsById.size >= limit) break;
     }
+
+    if (rowsById.size >= limit) break;
   }
 
   return [...rowsById.values()];
