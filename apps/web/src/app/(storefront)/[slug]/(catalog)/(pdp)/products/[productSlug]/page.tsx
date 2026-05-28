@@ -2,7 +2,7 @@ import { resolveVariantSelectionParamResolution } from '@baci/shared/lib';
 import type { Metadata, ResolvingMetadata } from 'next';
 import { headers } from 'next/headers';
 import { notFound, permanentRedirect, redirect } from 'next/navigation';
-import { StorefrontDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker';
+import { connection } from 'next/server';
 import { ProductSemanticSections } from '@/components/storefront/ogabassey/seo/product-semantic-sections';
 import {
   getCachedCategoryPageData,
@@ -400,6 +400,7 @@ export async function generateMetadata(
 
 export default async function ProductPage({ params, searchParams }: PageProps) {
   const { slug, productSlug } = await params;
+  await connection();
   const resolvedSearchParams = await searchParams;
   const productResult = await getProductCached(slug, productSlug);
   if (!productResult) {
@@ -563,7 +564,6 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
       )}
       <ProductDetailClient product={product} faqs={productFaqs} />
       <ProductSemanticSections model={semanticSectionsModel} />
-      <StorefrontDynamicMetadataMarker />
     </>
   );
 }

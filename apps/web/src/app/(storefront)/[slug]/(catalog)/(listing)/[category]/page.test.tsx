@@ -13,10 +13,11 @@ import type { CategoryHubModel } from '@/lib/storefront-category/category-hub-ty
 const NORMALIZED_PLACEHOLDER_IMAGE =
   'https://placehold.co/400x400/f8fafc/94a3b8?text=No+Image';
 const mockGetPublishedClusterPosts = vi.fn();
-const { mockCategoryPageContent } = vi.hoisted(() => ({
+const { mockCategoryPageContent, mockConnection } = vi.hoisted(() => ({
   mockCategoryPageContent: vi.fn((_props: unknown) => (
     <div>Category page content</div>
   )),
+  mockConnection: vi.fn<() => Promise<void>>(() => Promise.resolve()),
 }));
 
 function defaultCategoryPageImplementation({
@@ -130,12 +131,6 @@ vi.mock('@/lib/normalize-product', () => ({
   }),
 }));
 
-vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
-  StorefrontDynamicMetadataMarker: () => (
-    <div aria-label="dynamic metadata marker" role="status" />
-  ),
-}));
-
 vi.mock('@/lib/sanitize-json-ld', () => ({
   safeJsonLdStringify: vi.fn((value: unknown) => JSON.stringify(value)),
 }));
@@ -143,6 +138,10 @@ vi.mock('@/lib/sanitize-json-ld', () => ({
 const mockHeaders = vi.fn();
 vi.mock('next/headers', () => ({
   headers: () => mockHeaders(),
+}));
+
+vi.mock('next/server', () => ({
+  connection: () => mockConnection(),
 }));
 
 vi.mock('@/lib/seo-utils', async (importOriginal) => {
@@ -530,6 +529,8 @@ describe('category page route', () => {
     mockGenerateFAQSchema.mockClear();
     mockGetPublishedClusterPosts.mockReset();
     mockCategoryPageContent.mockReset();
+    mockConnection.mockReset();
+    mockConnection.mockResolvedValue();
     mockCategoryPageContent.mockImplementation(() => (
       <div>Category page content</div>
     ));
@@ -600,12 +601,10 @@ describe('category page route', () => {
     ).toBeInTheDocument();
     expect(screen.queryByText('Route loader fallback')).not.toBeInTheDocument();
     expect(screen.queryByText('Category page content')).not.toBeInTheDocument();
-    expect(
-      screen.getByRole('status', { name: /dynamic metadata marker/i })
-    ).toBeInTheDocument();
+    expect(mockConnection).toHaveBeenCalledTimes(1);
   });
 
-  it('renders category content with a trailing request-time marker boundary', async () => {
+  it('opts category listings into request-time rendering', async () => {
     const ui = await CategoryPageRoute({
       params: Promise.resolve({
         slug: 'test-store',
@@ -616,9 +615,7 @@ describe('category page route', () => {
 
     render(ui);
 
-    expect(
-      screen.getByRole('status', { name: /dynamic metadata marker/i })
-    ).toBeInTheDocument();
+    expect(mockConnection).toHaveBeenCalledTimes(1);
     expect(screen.getByText('Category page content')).toBeInTheDocument();
   });
 

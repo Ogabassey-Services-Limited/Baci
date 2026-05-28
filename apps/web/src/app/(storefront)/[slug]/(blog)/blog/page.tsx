@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
+import { connection } from 'next/server';
 import { Suspense } from 'react';
 import { BlogListingFallback } from '@/app/(storefront)/[slug]/(blog)/blog/BlogListingFallback';
-import { StorefrontDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker';
 import { getCachedBlogListing } from '@/lib/cached-data';
 import { generateMetaDescription } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
@@ -75,13 +75,12 @@ export async function generateMetadata({
   };
 }
 
-export default function BlogPage(props: BlogPageProps) {
+export default async function BlogPage(props: BlogPageProps) {
+  await connection();
+
   return (
-    <>
-      <Suspense fallback={<BlogListingFallback />}>
-        <BlogPageContent {...props} />
-      </Suspense>
-      <StorefrontDynamicMetadataMarker />
-    </>
+    <Suspense fallback={<BlogListingFallback />}>
+      <BlogPageContent {...props} />
+    </Suspense>
   );
 }

@@ -8,7 +8,8 @@ import {
 } from '@/lib/cached-data';
 import { getCachedStorefrontProductIndex } from '@/lib/cached-storefront-product-index';
 
-const { mockProductsPageContent } = vi.hoisted(() => ({
+const { mockConnection, mockProductsPageContent } = vi.hoisted(() => ({
+  mockConnection: vi.fn<() => Promise<void>>(() => Promise.resolve()),
   mockProductsPageContent: vi.fn((_props: unknown) => (
     <div>Products page content</div>
   )),
@@ -49,12 +50,6 @@ vi.mock('@/lib/cached-storefront-product-index', () => ({
   getCachedStorefrontProductIndex: vi.fn(),
 }));
 
-vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
-  StorefrontDynamicMetadataMarker: () => (
-    <div aria-label="dynamic metadata marker" role="status" />
-  ),
-}));
-
 vi.mock('@/lib/routes', () => ({
   asRoute: (path: string) => path,
 }));
@@ -66,6 +61,10 @@ vi.mock('@/lib/sanitize-json-ld', () => ({
 const mockHeaders = vi.fn();
 vi.mock('next/headers', () => ({
   headers: () => mockHeaders(),
+}));
+
+vi.mock('next/server', () => ({
+  connection: () => mockConnection(),
 }));
 
 vi.mock('@/lib/store-url', () => ({
@@ -160,6 +159,8 @@ describe('products index page', () => {
     mockProductsPageContent.mockImplementation(() => (
       <div>Products page content</div>
     ));
+    mockConnection.mockReset();
+    mockConnection.mockResolvedValue();
     notFound.mockClear();
 
     vi.mocked(getRequestScopedMerchant).mockResolvedValue(
@@ -319,20 +320,20 @@ describe('products index page', () => {
     expect(notFound).not.toHaveBeenCalled();
   });
 
-  it('renders the catalog skeleton while products content is suspended', () => {
+  it('renders the catalog skeleton while products content is suspended', async () => {
     mockProductsPageContent.mockImplementation(() => {
       throw new Promise(() => {
         // Keep the page content suspended behind the page fallback.
       });
     });
 
+    const ui = await ProductsPage({
+      params: Promise.resolve({ slug: 'test-store' }),
+      searchParams: Promise.resolve({}),
+    });
+
     render(
-      <Suspense fallback={<div>Route loader fallback</div>}>
-        <ProductsPage
-          params={Promise.resolve({ slug: 'test-store' })}
-          searchParams={Promise.resolve({})}
-        />
-      </Suspense>
+      <Suspense fallback={<div>Route loader fallback</div>}>{ui}</Suspense>
     );
 
     expect(
@@ -340,39 +341,19 @@ describe('products index page', () => {
     ).toBeInTheDocument();
     expect(screen.queryByText('Route loader fallback')).not.toBeInTheDocument();
     expect(screen.queryByText('Products page content')).not.toBeInTheDocument();
-    expect(
-      screen.getByRole('status', { name: /dynamic metadata marker/i })
-    ).toBeInTheDocument();
-
-    const loading = screen.getByRole('status', {
-      name: 'Loading product listing',
-    });
-    const marker = screen.getByRole('status', {
-      name: /dynamic metadata marker/i,
-    });
-    expect(
-      loading.compareDocumentPosition(marker) & Node.DOCUMENT_POSITION_FOLLOWING
-    ).toBeTruthy();
+    expect(mockConnection).toHaveBeenCalledTimes(1);
   });
 
-  it('marks runtime metadata as intentional dynamic content', () => {
+  it('opts the product index into request-time rendering', async () => {
     render(
-      <ProductsPage
-        params={Promise.resolve({ slug: 'test-store' })}
-        searchParams={Promise.resolve({})}
-      />
+      await ProductsPage({
+        params: Promise.resolve({ slug: 'test-store' }),
+        searchParams: Promise.resolve({}),
+      })
     );
 
-    expect(
-      screen.getByRole('status', { name: /dynamic metadata marker/i })
-    ).toBeInTheDocument();
-    expect(
-      screen
-        .getByText('Products page content')
-        .compareDocumentPosition(
-          screen.getByRole('status', { name: /dynamic metadata marker/i })
-        ) & Node.DOCUMENT_POSITION_FOLLOWING
-    ).toBeTruthy();
+    expect(mockConnection).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('Products page content')).toBeInTheDocument();
   });
 
   it('keeps metadata on the canonical product index regardless of pagination', async () => {

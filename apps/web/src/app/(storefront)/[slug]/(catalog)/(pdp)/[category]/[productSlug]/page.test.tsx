@@ -21,6 +21,7 @@ const {
   mockOgabasseyProductDetailsPage,
   mockPreloadOgabasseyPdpProductImage,
   mockProductDetailClient,
+  mockConnection,
 } = vi.hoisted(() => ({
   mockNormalizeStorefrontProductVariants: vi.fn<
     (...args: unknown[]) => Record<string, unknown>[]
@@ -34,6 +35,7 @@ const {
   mockPreloadOgabasseyPdpProductImage:
     vi.fn<(props: { src: string | null | undefined }) => void>(),
   mockProductDetailClient: vi.fn<(props: unknown) => null>(() => null),
+  mockConnection: vi.fn<() => Promise<void>>(() => Promise.resolve()),
 }));
 
 const mockGetEffectiveStock = vi.fn<(item: unknown) => number>(() => 0);
@@ -67,6 +69,10 @@ vi.mock('next/navigation', () => ({
 
 vi.mock('next/headers', () => ({
   headers: () => mockHeaders(),
+}));
+
+vi.mock('next/server', () => ({
+  connection: () => mockConnection(),
 }));
 
 vi.mock('next/image', () => ({
@@ -125,13 +131,6 @@ vi.mock('next/link', () => ({
   default: ({ children, href }: { children: ReactNode; href: string }) => (
     <a href={href}>{children}</a>
   ),
-}));
-
-vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
-  StorefrontDynamicMetadataMarker:
-    function MockStorefrontDynamicMetadataMarker() {
-      return <div aria-label="dynamic metadata marker" role="status" />;
-    },
 }));
 
 vi.mock('@/components/storefront/ogabassey/pages/product-details-page', () => ({
@@ -609,6 +608,8 @@ describe('[category]/[productSlug] page metadata', () => {
     mockGenerateProductSchema.mockReset();
     mockHeaders.mockReset();
     mockHeaders.mockResolvedValue(new Headers());
+    mockConnection.mockReset();
+    mockConnection.mockResolvedValue();
     mockNormalizeStorefrontProductVariants.mockReset();
     mockNormalizeStorefrontProductVariants.mockReturnValue([]);
     mockGetRequestScopedMerchant.mockResolvedValue(baseMerchant);
@@ -906,6 +907,8 @@ describe('[category]/[productSlug] page render', () => {
     mockProductDetailClient.mockReturnValue(null);
     mockHeaders.mockReset();
     mockHeaders.mockResolvedValue(new Headers());
+    mockConnection.mockReset();
+    mockConnection.mockResolvedValue();
     mockNormalizeStorefrontProductVariants.mockReset();
     mockNormalizeStorefrontProductVariants.mockReturnValue([]);
     mockGetRequestScopedMerchant.mockResolvedValue({
@@ -940,7 +943,7 @@ describe('[category]/[productSlug] page render', () => {
     });
   });
 
-  it('keeps the request-time marker after the streamed product shell', async () => {
+  it('opts the product route into request-time rendering before streaming the shell', async () => {
     const ui = await resolveRsc(
       await CategoryProductPage({
         params: Promise.resolve({
@@ -955,18 +958,12 @@ describe('[category]/[productSlug] page render', () => {
     const criticalShell = container.querySelector(
       '[data-ogabassey-pdp-critical-shell]'
     );
-    const dynamicMarker = screen.getByRole('status', {
-      name: 'dynamic metadata marker',
-    });
 
     if (!criticalShell) {
       throw new Error('Expected the OgaBassey PDP critical shell to render');
     }
 
-    expect(
-      criticalShell.compareDocumentPosition(dynamicMarker) &
-        Node.DOCUMENT_POSITION_FOLLOWING
-    ).toBeTruthy();
+    expect(mockConnection).toHaveBeenCalledTimes(1);
     expect(
       screen.getByRole('heading', {
         level: 1,
