@@ -1,3 +1,4 @@
+import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockNotFound = vi.fn(() => {
@@ -21,14 +22,9 @@ const mockSelect = vi.fn();
 const mockFrom = vi.fn();
 const mockCreateClient = vi.fn();
 const mockCookies = vi.fn();
-const mockConnection = vi.fn();
 
 vi.mock('next/headers', () => ({
   cookies: () => mockCookies(),
-}));
-
-vi.mock('next/server', () => ({
-  connection: () => mockConnection(),
 }));
 
 vi.mock('next/navigation', () => ({
@@ -74,7 +70,7 @@ vi.mock(
 );
 
 import { resolveBlogCatchAllRoute } from './blog-catch-all-resolution';
-import BlogCatchAllPage from './page';
+import { GET, HEAD } from './route';
 
 describe('storefront blog catch-all route', () => {
   beforeEach(() => {
@@ -99,10 +95,9 @@ describe('storefront blog catch-all route', () => {
     mockLimit.mockResolvedValue({ data: [] });
     mockMaybeSingle.mockResolvedValue({ data: null });
     mockGetBlogPostRedirect.mockResolvedValue(null);
-    mockConnection.mockReset();
   });
 
-  it('resolves redirects at the route boundary before any streamed shell', async () => {
+  it('serves legacy redirects from a route handler without a React shell', async () => {
     mockGetCachedMerchantByDomain.mockResolvedValue({
       id: 'merchant-1',
       slug: 'ogabassey',
@@ -112,17 +107,76 @@ describe('storefront blog catch-all route', () => {
       data: { slug: 'snapdragon-x2-series-on-windows' },
     });
 
-    await expect(
-      BlogCatchAllPage({
+    const response = await GET(
+      new NextRequest(
+        'https://ogabassey.com/blog/laptops/snapdragon-x2-series-on-windows'
+      ),
+      {
         params: Promise.resolve({
           slug: 'ogabassey.com',
           catchAll: ['laptops', 'snapdragon-x2-series-on-windows'],
         }),
-      })
-    ).rejects.toThrow(
-      'NEXT_PERMANENT_REDIRECT:https://ogabassey.com/blog/snapdragon-x2-series-on-windows'
+      }
     );
-    expect(mockConnection).toHaveBeenCalledOnce();
+
+    expect(response.status).toBe(308);
+    expect(response.headers.get('location')).toBe(
+      'https://ogabassey.com/blog/snapdragon-x2-series-on-windows'
+    );
+    expect(response.headers.get('content-type')).toBeNull();
+  });
+
+  it('serves unresolved archive paths as direct noindex 404 responses', async () => {
+    mockGetCachedMerchantByDomain.mockResolvedValue({
+      id: 'merchant-1',
+      slug: 'ogabassey',
+      custom_domain: 'ogabassey.com',
+    });
+    mockMaybeSingle.mockResolvedValueOnce({ data: null });
+    mockLimit.mockResolvedValueOnce({
+      data: [{ slug: 'some-unrelated-post' }],
+    });
+
+    const response = await GET(
+      new NextRequest('https://ogabassey.com/blog/2025/01/15'),
+      {
+        params: Promise.resolve({
+          slug: 'ogabassey.com',
+          catchAll: ['2025', '01', '15'],
+        }),
+      }
+    );
+
+    expect(response.status).toBe(404);
+    expect(response.headers.get('x-robots-tag')).toBe('noindex');
+    expect(response.headers.get('cache-control')).toBe('no-store');
+    await expect(response.text()).resolves.toBe('Not Found');
+  });
+
+  it('preserves direct 404 status for HEAD requests', async () => {
+    mockGetCachedMerchantByDomain.mockResolvedValue({
+      id: 'merchant-1',
+      slug: 'ogabassey',
+      custom_domain: 'ogabassey.com',
+    });
+    mockMaybeSingle.mockResolvedValueOnce({ data: null });
+    mockLimit.mockResolvedValueOnce({ data: [] });
+
+    const response = await HEAD(
+      new NextRequest('https://ogabassey.com/blog/tag/iphone', {
+        method: 'HEAD',
+      }),
+      {
+        params: Promise.resolve({
+          slug: 'ogabassey.com',
+          catchAll: ['tag', 'iphone'],
+        }),
+      }
+    );
+
+    expect(response.status).toBe(404);
+    expect(response.headers.get('x-robots-tag')).toBe('noindex');
+    await expect(response.text()).resolves.toBe('');
   });
 
   it('redirects dated blog permalinks', async () => {
