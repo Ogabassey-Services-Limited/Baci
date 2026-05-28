@@ -20,9 +20,6 @@ CREATE TABLE IF NOT EXISTS public.blog_post_redirects (
 CREATE INDEX IF NOT EXISTS idx_blog_post_redirects_target_post
   ON public.blog_post_redirects (target_post_id);
 
-CREATE INDEX IF NOT EXISTS idx_blog_post_redirects_merchant_target_slug
-  ON public.blog_post_redirects (merchant_id, target_slug);
-
 ALTER TABLE public.blog_post_redirects ENABLE ROW LEVEL SECURITY;
 
 DO $$

@@ -3,7 +3,6 @@ import { createPublicClient } from '@/lib/supabase/anon';
 
 interface BlogPostRedirectRow {
   target_post_id: string | null;
-  target_slug: string | null;
 }
 
 interface BlogPostTargetRow {
@@ -48,7 +47,7 @@ export async function getBlogPostRedirect(
 
   const { data: redirectRow, error: redirectError } = await supabase
     .from('blog_post_redirects')
-    .select('target_post_id, target_slug')
+    .select('target_post_id')
     .eq('merchant_id', merchant.id)
     .eq('source_slug', normalizedSourceSlug)
     .maybeSingle<BlogPostRedirectRow>();
@@ -58,8 +57,7 @@ export async function getBlogPostRedirect(
   }
 
   const targetPostId = redirectRow?.target_post_id?.trim();
-  const targetSlug = normalizeBlogSlug(redirectRow?.target_slug);
-  if (!targetPostId || !targetSlug) {
+  if (!targetPostId) {
     return null;
   }
 
@@ -68,7 +66,6 @@ export async function getBlogPostRedirect(
     .select('slug')
     .eq('merchant_id', merchant.id)
     .eq('id', targetPostId)
-    .eq('slug', targetSlug)
     .eq('status', 'published')
     .not('published_at', 'is', null)
     .maybeSingle<BlogPostTargetRow>();

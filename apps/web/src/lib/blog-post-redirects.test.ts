@@ -40,7 +40,6 @@ describe('getBlogPostRedirect', () => {
     const redirectBuilder = createQueryBuilder({
       data: {
         target_post_id: 'post-1',
-        target_slug: 'canonical-post',
       },
       error: null,
     });
@@ -75,11 +74,33 @@ describe('getBlogPostRedirect', () => {
     expect(postBuilder.not).toHaveBeenCalledWith('published_at', 'is', null);
   });
 
+  it('resolves the current target slug without filtering by stale target slug', async () => {
+    const redirectBuilder = createQueryBuilder({
+      data: {
+        target_post_id: 'post-1',
+      },
+      error: null,
+    });
+    const postBuilder = createQueryBuilder({
+      data: { slug: 'renamed-canonical-post' },
+      error: null,
+    });
+    const from = vi
+      .fn()
+      .mockReturnValueOnce({ select: vi.fn(() => redirectBuilder) })
+      .mockReturnValueOnce({ select: vi.fn(() => postBuilder) });
+    mockCreatePublicClient.mockReturnValue({ from });
+
+    const result = await getBlogPostRedirect('ogabassey.com', 'retired-post');
+
+    expect(result?.targetSlug).toBe('renamed-canonical-post');
+    expect(postBuilder.eq).not.toHaveBeenCalledWith('slug', expect.any(String));
+  });
+
   it('returns null when the redirect target is not public', async () => {
     const redirectBuilder = createQueryBuilder({
       data: {
         target_post_id: 'post-1',
-        target_slug: 'draft-canonical',
       },
       error: null,
     });
@@ -93,5 +114,44 @@ describe('getBlogPostRedirect', () => {
     await expect(
       getBlogPostRedirect('ogabassey.com', 'retired-post')
     ).resolves.toBeNull();
+  });
+
+  it('throws when the redirect lookup fails', async () => {
+    const redirectError = new Error('redirect query failed');
+    const redirectBuilder = createQueryBuilder({
+      data: null,
+      error: redirectError,
+    });
+    const from = vi
+      .fn()
+      .mockReturnValueOnce({ select: vi.fn(() => redirectBuilder) });
+    mockCreatePublicClient.mockReturnValue({ from });
+
+    await expect(
+      getBlogPostRedirect('ogabassey.com', 'retired-post')
+    ).rejects.toThrow('redirect query failed');
+  });
+
+  it('throws when the target post lookup fails', async () => {
+    const targetPostError = new Error('target post query failed');
+    const redirectBuilder = createQueryBuilder({
+      data: {
+        target_post_id: 'post-1',
+      },
+      error: null,
+    });
+    const postBuilder = createQueryBuilder({
+      data: null,
+      error: targetPostError,
+    });
+    const from = vi
+      .fn()
+      .mockReturnValueOnce({ select: vi.fn(() => redirectBuilder) })
+      .mockReturnValueOnce({ select: vi.fn(() => postBuilder) });
+    mockCreatePublicClient.mockReturnValue({ from });
+
+    await expect(
+      getBlogPostRedirect('ogabassey.com', 'retired-post')
+    ).rejects.toThrow('target post query failed');
   });
 });
