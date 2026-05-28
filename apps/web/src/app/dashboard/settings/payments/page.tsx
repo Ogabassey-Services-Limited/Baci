@@ -72,9 +72,7 @@ export default function PaymentSettingsPage() {
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const response = await fetch('/api/merchant/features', {
-          cache: 'no-store',
-        });
+        const response = await fetch('/api/merchant/features');
         if (response.ok) {
           const data = await response.json();
           setSettings({
