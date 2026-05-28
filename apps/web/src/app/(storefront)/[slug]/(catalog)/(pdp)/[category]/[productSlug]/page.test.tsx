@@ -21,6 +21,7 @@ const {
   mockOgabasseyPdpCriticalCommerce,
   mockOgabasseyPdpDeferredDetailIsland,
   mockOgabasseyProductDetailsPage,
+  mockGetStorefrontShellSnapshotBase,
   mockPreloadOgabasseyPdpProductImage,
   mockProductDetailClient,
 } = vi.hoisted(() => ({
@@ -35,6 +36,8 @@ const {
   mockOgabasseyPdpCriticalCommerce: vi.fn<(props: unknown) => void>(),
   mockOgabasseyPdpDeferredDetailIsland: vi.fn<(props: unknown) => void>(),
   mockOgabasseyProductDetailsPage: vi.fn<(props: unknown) => void>(),
+  mockGetStorefrontShellSnapshotBase:
+    vi.fn<(...args: unknown[]) => Promise<unknown>>(),
   mockPreloadOgabasseyPdpProductImage:
     vi.fn<(props: { src: string | null | undefined }) => void>(),
   mockProductDetailClient: vi.fn<(props: unknown) => null>(() => null),
@@ -136,6 +139,11 @@ vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
     function MockStorefrontDynamicMetadataMarker() {
       return <div aria-label="dynamic metadata marker" role="status" />;
     },
+}));
+
+vi.mock('@/app/(storefront)/[slug]/storefront-shell-snapshot', () => ({
+  getStorefrontShellSnapshotBase: (...args: unknown[]) =>
+    mockGetStorefrontShellSnapshotBase(...args),
 }));
 
 vi.mock('@/components/storefront/ogabassey/pages/product-details-page', () => ({
@@ -937,6 +945,15 @@ describe('[category]/[productSlug] page render', () => {
     mockHeaders.mockResolvedValue(new Headers());
     mockNormalizeStorefrontProductVariants.mockReset();
     mockNormalizeStorefrontProductVariants.mockReturnValue([]);
+    mockGetStorefrontShellSnapshotBase.mockReset();
+    mockGetStorefrontShellSnapshotBase.mockResolvedValue({
+      merchant: {
+        ...baseMerchant,
+        template_id: OGABASSEY_TEMPLATE_ID,
+      },
+      routingMode: 'path',
+      basePath: '/teststore',
+    });
     mockGetRequestScopedMerchant.mockResolvedValue({
       ...baseMerchant,
       template_id: OGABASSEY_TEMPLATE_ID,
@@ -1105,6 +1122,77 @@ describe('[category]/[productSlug] page render', () => {
     expect(
       container.querySelectorAll('img[alt="HP Laptop 14-ep0063nia"]')
     ).toHaveLength(1);
+  });
+
+  it('keeps critical PDP links root-relative for domain-routed storefront requests', async () => {
+    mockGetStorefrontShellSnapshotBase.mockResolvedValueOnce({
+      merchant: {
+        ...baseMerchant,
+        template_id: OGABASSEY_TEMPLATE_ID,
+      },
+      routingMode: 'domain',
+      basePath: '',
+    });
+
+    render(
+      await resolveRsc(
+        await CategoryProductPage({
+          params: Promise.resolve({
+            slug: 'teststore',
+            category: 'laptops',
+            productSlug: 'hp-laptop-14-ep0063nia',
+          }),
+          searchParams: Promise.resolve({}),
+        })
+      )
+    );
+
+    expect(mockGetStorefrontShellSnapshotBase).toHaveBeenCalledWith(
+      'teststore'
+    );
+    expect(mockOgabasseyPdpCriticalCommerce).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cartHref: '/cart',
+      })
+    );
+    expect(screen.getByRole('link', { name: 'Home' })).toHaveAttribute(
+      'href',
+      '/'
+    );
+    expect(screen.getByRole('link', { name: 'Laptops' })).toHaveAttribute(
+      'href',
+      '/laptops'
+    );
+  });
+
+  it('falls back to the slug base path when the shell snapshot base path is malformed', async () => {
+    mockGetStorefrontShellSnapshotBase.mockResolvedValueOnce({
+      merchant: {
+        ...baseMerchant,
+        template_id: OGABASSEY_TEMPLATE_ID,
+      },
+      routingMode: 'path',
+      basePath: 'teststore',
+    });
+
+    render(
+      await resolveRsc(
+        await CategoryProductPage({
+          params: Promise.resolve({
+            slug: 'teststore',
+            category: 'laptops',
+            productSlug: 'hp-laptop-14-ep0063nia',
+          }),
+          searchParams: Promise.resolve({}),
+        })
+      )
+    );
+
+    expect(mockOgabasseyPdpCriticalCommerce).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cartHref: '/teststore/cart',
+      })
+    );
   });
 
   it('keeps JSON-LD and hidden summary outside the critical commerce slot', async () => {
