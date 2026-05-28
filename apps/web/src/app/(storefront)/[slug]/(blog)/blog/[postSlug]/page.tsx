@@ -109,10 +109,19 @@ export async function generateMetadata({
 
 export default async function BlogPostPage({ params }: PageProps) {
   const resolvedParams = await params;
-  const redirectedPost = await getBlogPostRedirect(
-    resolvedParams.slug,
-    resolvedParams.postSlug
-  );
+  let redirectedPost: Awaited<ReturnType<typeof getBlogPostRedirect>> = null;
+  try {
+    redirectedPost = await getBlogPostRedirect(
+      resolvedParams.slug,
+      resolvedParams.postSlug
+    );
+  } catch (error) {
+    console.error('Blog redirect lookup failed at page boundary', {
+      slug: resolvedParams.slug,
+      postSlug: resolvedParams.postSlug,
+      error,
+    });
+  }
 
   if (redirectedPost) {
     permanentRedirect(

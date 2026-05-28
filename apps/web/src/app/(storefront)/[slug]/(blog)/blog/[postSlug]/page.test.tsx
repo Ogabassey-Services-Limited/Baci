@@ -222,6 +222,36 @@ describe('storefront blog post page', () => {
     expect(mockBlogPostPageContent).not.toHaveBeenCalled();
   });
 
+  it('keeps rendering canonical posts when redirect lookup fails', async () => {
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    const redirectLookupError = new Error('redirect store unavailable');
+    mockGetBlogPostRedirect.mockRejectedValueOnce(redirectLookupError);
+
+    render(
+      await BlogPostPage({
+        params: Promise.resolve({
+          slug: 'ogabassey.com',
+          postSlug: 'apple-studio-display-review',
+        }),
+      })
+    );
+
+    expect(mockPermanentRedirect).not.toHaveBeenCalled();
+    expect(screen.getByText('Blog post page content')).toBeInTheDocument();
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Blog redirect lookup failed at page boundary',
+      expect.objectContaining({
+        slug: 'ogabassey.com',
+        postSlug: 'apple-studio-display-review',
+        error: redirectLookupError,
+      })
+    );
+
+    consoleErrorSpy.mockRestore();
+  });
+
   it('resolves public metadata without consulting draft request state', async () => {
     mockDraftMode.mockResolvedValue({ isEnabled: true });
     mockGetCachedBlogPost.mockResolvedValue(liveBlogPost);
