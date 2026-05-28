@@ -6,12 +6,25 @@ import {
 } from '@/lib/cached-data';
 import { resolveRouteIdentifier } from '@/lib/storefront-route-identifier';
 
+function parseHostHeader(hostHeader: string) {
+  try {
+    const parsedHost = new URL(`http://${hostHeader}`);
+    return {
+      requestHostname: parsedHost.hostname.toLowerCase(),
+      requestPort: parsedHost.port ? `:${parsedHost.port}` : '',
+    };
+  } catch {
+    return {
+      requestHostname: 'localhost',
+      requestPort: ':3000',
+    };
+  }
+}
+
 export default async function robots(): Promise<MetadataRoute.Robots> {
   const headersList = await headers();
   const requestHost = headersList.get('host') || 'localhost:3000';
-  const [rawRequestHostname, ...portParts] = requestHost.split(':');
-  const requestHostname = rawRequestHostname.toLowerCase();
-  const requestPort = portParts.length > 0 ? `:${portParts.join(':')}` : '';
+  const { requestHostname, requestPort } = parseHostHeader(requestHost);
   const legacyBlogHostname = requestHostname.startsWith('blog.')
     ? requestHostname.slice('blog.'.length)
     : null;

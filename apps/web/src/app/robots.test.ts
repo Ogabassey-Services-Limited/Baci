@@ -201,6 +201,24 @@ describe('robots()', () => {
     ]);
   });
 
+  it('preserves ports when canonicalizing legacy blog hosts', async () => {
+    const { default: robots } = await import('./robots');
+    process.env.NEXT_PUBLIC_ROOT_DOMAIN = 'usebaci.com';
+    mockHost = 'blog.ogabassey.com:8443';
+
+    const result = await robots();
+
+    expect(resolveRouteIdentifier).not.toHaveBeenCalled();
+    expect(getMerchantByIdentifier).toHaveBeenCalledWith('ogabassey.com');
+    expect(result.sitemap).toEqual([
+      'https://ogabassey.com:8443/sitemap/static.xml',
+      'https://ogabassey.com:8443/sitemap/products.xml',
+      'https://ogabassey.com:8443/sitemap/categories.xml',
+      'https://ogabassey.com:8443/sitemap/commercial-support.xml',
+      'https://ogabassey.com:8443/blog/sitemap.xml',
+    ]);
+  });
+
   it('does not block public machine feed URLs on storefront domains', async () => {
     const { default: robots } = await import('./robots');
     process.env.NEXT_PUBLIC_ROOT_DOMAIN = 'usebaci.com';
