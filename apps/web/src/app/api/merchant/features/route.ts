@@ -11,8 +11,6 @@ import {
 import { checkCsrfProtection } from '@/lib/csrf';
 import { merchantFeatureSettingsSchema } from '@/schemas/merchant-features';
 
-export const dynamic = 'force-dynamic';
-
 /**
  * Merchant Feature Settings API
  *
@@ -132,11 +130,14 @@ function jsonNoStore<T>(body: T, init?: ResponseInit) {
 }
 
 function withNoStore(response: NextResponse) {
-  response.headers.set(
-    'Cache-Control',
-    PRIVATE_NO_STORE_HEADERS['Cache-Control']
-  );
-  return response;
+  const headers = new Headers(response.headers);
+  headers.set('Cache-Control', PRIVATE_NO_STORE_HEADERS['Cache-Control']);
+
+  return new NextResponse(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
 }
 
 // Columns selected when reading merchant feature settings.
