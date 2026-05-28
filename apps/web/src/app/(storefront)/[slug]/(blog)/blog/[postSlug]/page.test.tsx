@@ -48,12 +48,6 @@ vi.mock('@/lib/blog-post-redirects', () => ({
   getBlogPostRedirect: (...args: unknown[]) => mockGetBlogPostRedirect(...args),
 }));
 
-vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
-  StorefrontDynamicMetadataMarker: () => (
-    <div aria-label="dynamic metadata marker" role="status" />
-  ),
-}));
-
 vi.mock('@/lib/store-url', () => ({
   buildStoreUrl: (merchant: { slug: string; custom_domain?: string | null }) =>
     mockBuildStoreUrl(merchant),
@@ -168,16 +162,13 @@ describe('storefront blog post page', () => {
     );
 
     expect(screen.getByText('Blog post page fallback')).toBeInTheDocument();
-    expect(
-      screen.getByRole('status', { name: /dynamic metadata marker/i })
-    ).toBeInTheDocument();
     expect(screen.queryByText('Route loader fallback')).not.toBeInTheDocument();
     expect(
       screen.queryByText('Blog post page content')
     ).not.toBeInTheDocument();
   });
 
-  it('keeps the request-time marker outside the streamed blog post content', async () => {
+  it('renders streamed blog post content through the page boundary', async () => {
     render(
       await BlogPostPage({
         params: Promise.resolve({
@@ -187,9 +178,6 @@ describe('storefront blog post page', () => {
       })
     );
 
-    expect(
-      screen.getByRole('status', { name: /dynamic metadata marker/i })
-    ).toBeInTheDocument();
     expect(screen.getByText('Blog post page content')).toBeInTheDocument();
   });
 

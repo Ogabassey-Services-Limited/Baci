@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { connection } from 'next/server';
 import { Suspense } from 'react';
-import { StorefrontDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { toTemplateMerchantData } from '@/lib/merchant-template-data';
 import {
@@ -11,6 +11,7 @@ import {
 import { buildStoreUrl } from '@/lib/store-url';
 import { getTemplate } from '@/templates/registry';
 import type { MerchantAboutPage } from '@/types/about-page';
+import { ContentRouteLoading } from '../../storefront-loading-ui';
 import { AboutPageClient } from '../pages/about/about-page-client';
 import { AboutJsonLd } from './about-json-ld';
 
@@ -64,13 +65,16 @@ export default function AboutPage({ params }: PageProps) {
       <Suspense fallback={null}>
         <AboutJsonLd params={params} />
       </Suspense>
-      <AboutContent params={params} />
-      <StorefrontDynamicMetadataMarker />
+      <Suspense fallback={<ContentRouteLoading />}>
+        <AboutContent params={params} />
+      </Suspense>
     </>
   );
 }
 
 async function AboutContent({ params }: PageProps) {
+  await connection();
+
   const { slug } = await params;
   const merchant = await getMerchantByIdentifier(slug);
 

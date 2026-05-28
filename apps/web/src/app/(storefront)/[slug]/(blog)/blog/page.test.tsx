@@ -2,7 +2,8 @@ import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getCachedBlogListing } from '@/lib/cached-data';
 
-const { mockDefaultBlogUi } = vi.hoisted(() => ({
+const { mockConnection, mockDefaultBlogUi } = vi.hoisted(() => ({
+  mockConnection: vi.fn(),
   mockDefaultBlogUi: vi.fn((props: MockDefaultBlogUiProps) => (
     <div>{props.merchant.business_name} blog</div>
   )),
@@ -32,14 +33,12 @@ vi.mock('next/navigation', () => ({
   notFound: () => mockNotFound(),
 }));
 
-vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
-  StorefrontDynamicMetadataMarker: () => (
-    <div aria-label="dynamic metadata marker" role="status" />
-  ),
-}));
-
 vi.mock('@/lib/routes', () => ({
   asRoute: (value: string) => value,
+}));
+
+vi.mock('next/server', () => ({
+  connection: () => mockConnection(),
 }));
 
 vi.mock('@/lib/sanitize-json-ld', () => ({
@@ -169,6 +168,7 @@ describe('blog page metadata', () => {
     mockNotFound.mockClear();
     mockBuildBlogClusterCollections.mockReset();
     mockBuildBlogClusterCollections.mockReturnValue([]);
+    mockConnection.mockReset();
     mockDefaultBlogUi.mockReset();
     mockDefaultBlogUi.mockImplementation((props: MockDefaultBlogUiProps) => (
       <div>{props.merchant.business_name} blog</div>
@@ -284,7 +284,7 @@ describe('blog page metadata', () => {
     expect(metadata.openGraph?.url).toBe('https://test-store.usebaci.com/blog');
   });
 
-  it('shows the blog listing fallback while runtime metadata and listing UI are pending', () => {
+  it('shows the blog listing fallback while listing UI is pending', () => {
     const pending = new Promise(() => {
       // Keep request-time metadata and listing UI suspended behind their boundaries.
     });
@@ -302,18 +302,7 @@ describe('blog page metadata', () => {
     expect(
       screen.getByRole('status', { name: /loading blog posts/i })
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole('status', { name: /dynamic metadata marker/i })
-    ).toBeInTheDocument();
     expect(screen.queryByText('Ogabassey blog')).not.toBeInTheDocument();
-
-    const loading = screen.getByRole('status', { name: /loading blog posts/i });
-    const marker = screen.getByRole('status', {
-      name: /dynamic metadata marker/i,
-    });
-    expect(
-      loading.compareDocumentPosition(marker) & Node.DOCUMENT_POSITION_FOLLOWING
-    ).toBeTruthy();
   });
 
   it('renders guide collections after the blog listing', async () => {
@@ -326,6 +315,7 @@ describe('blog page metadata', () => {
       })
     );
 
+    expect(mockConnection).toHaveBeenCalledOnce();
     expect(
       screen.getByRole('heading', { name: /guide collections/i })
     ).toBeInTheDocument();

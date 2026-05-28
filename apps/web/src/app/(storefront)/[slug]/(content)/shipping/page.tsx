@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
-import { StorefrontDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker';
 import { ContentRouteLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
 import {
   generateMetaDescription,
@@ -53,11 +52,8 @@ export async function generateMetadata({
 
 export default function ShippingPage({ params }: PageProps) {
   return (
-    <>
-      <Suspense fallback={<ContentRouteLoading />}>
-        <ShippingPageContent params={params} />
-      </Suspense>
-      <StorefrontDynamicMetadataMarker />
-    </>
+    <Suspense fallback={<ContentRouteLoading />}>
+      <ShippingPageContent params={params} />
+    </Suspense>
   );
 }

@@ -4,6 +4,7 @@ import { Suspense } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 
+const mockConnection = vi.hoisted(() => vi.fn());
 const mockBuildMerchantTrustProfile = vi.fn();
 
 vi.mock('@/lib/cached-data', () => ({
@@ -12,6 +13,10 @@ vi.mock('@/lib/cached-data', () => ({
 
 vi.mock('next/headers', () => ({
   headers: vi.fn(),
+}));
+
+vi.mock('next/server', () => ({
+  connection: () => mockConnection(),
 }));
 
 vi.mock('@/lib/sanitize-json-ld', () => ({
@@ -59,6 +64,7 @@ const mockedGenerateAboutPageJsonLd = vi.mocked(
 describe('AboutPage', () => {
   beforeEach(() => {
     vi.mocked(getMerchantByIdentifier).mockReset();
+    mockConnection.mockReset();
     notFound.mockClear();
     mockBuildMerchantTrustProfile.mockReset();
   });
@@ -80,7 +86,7 @@ describe('AboutPage', () => {
     expect(screen.queryByRole('heading', { level: 1 })).toBeNull();
   });
 
-  it('does not render a page-owned loading fallback while content is loading', () => {
+  it('renders the shared content fallback while content is loading', () => {
     // Deferred promise — never resolves, so Suspense stays in fallback
     vi.mocked(getMerchantByIdentifier).mockReturnValue(
       new Promise<null>(() => {
@@ -94,7 +100,9 @@ describe('AboutPage', () => {
       </Suspense>
     );
 
-    expect(screen.queryByText('Loading about page...')).toBeNull();
+    expect(
+      screen.getByRole('status', { name: 'Loading page content' })
+    ).toBeInTheDocument();
   });
 
   it('threads the assembled trust profile into the AboutPage JSON-LD builder', async () => {

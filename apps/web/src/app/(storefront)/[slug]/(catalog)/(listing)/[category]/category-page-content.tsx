@@ -1,5 +1,6 @@
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
+import { connection } from 'next/server';
 import { CategoryPage as OgabasseyCategoryPage } from '@/components/storefront/ogabassey/pages/category-page';
 import { V2ComparisonScope } from '@/components/storefront/ogabassey/providers/v2-comparison-scope';
 import {
@@ -73,6 +74,8 @@ function toCollectionSchemaProduct(
 }
 
 export async function CategoryPageContent({ params, searchParams }: PageProps) {
+  await connection();
+
   const { slug, category } = await params;
   const { page } = await searchParams;
   const currentPage = parseStorefrontPageParam(page);

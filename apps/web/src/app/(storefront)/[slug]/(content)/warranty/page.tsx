@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
-import { StorefrontDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker';
 import { ContentRouteLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
 import {
   generateMetaDescription,
@@ -63,11 +62,8 @@ export async function generateMetadata({
 
 export default function WarrantyPage({ params }: PageProps) {
   return (
-    <>
-      <Suspense fallback={<ContentRouteLoading />}>
-        <WarrantyPageContent params={params} />
-      </Suspense>
-      <StorefrontDynamicMetadataMarker />
-    </>
+    <Suspense fallback={<ContentRouteLoading />}>
+      <WarrantyPageContent params={params} />
+    </Suspense>
   );
 }

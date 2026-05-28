@@ -3,8 +3,8 @@ import { resolveVariantSelectionParamResolution } from '@baci/shared/lib';
 import type { Metadata, Route } from 'next';
 import { headers } from 'next/headers';
 import { notFound, permanentRedirect } from 'next/navigation';
+import { connection } from 'next/server';
 import { type ReactNode, Suspense } from 'react';
-import { StorefrontDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker';
 import { getStorefrontShellSnapshotBase } from '@/app/(storefront)/[slug]/storefront-shell-snapshot';
 import { OgabasseyPdpProductLcpSkeleton } from '@/app/(storefront)/ogabassey/ogabassey-pdp-product-lcp-skeleton';
 import {
@@ -887,6 +887,8 @@ async function CategoryProductPageContent({
   searchParams,
   productResultPromise,
 }: CategoryProductPageContentProps) {
+  await connection();
+
   const { merchant, product } = await getRenderableCategoryProductResult({
     slug,
     searchParams,
@@ -1135,7 +1137,6 @@ export default async function CategoryProductPage({
           />
         </Suspense>
       )}
-      <StorefrontDynamicMetadataMarker />
     </>
   );
 }

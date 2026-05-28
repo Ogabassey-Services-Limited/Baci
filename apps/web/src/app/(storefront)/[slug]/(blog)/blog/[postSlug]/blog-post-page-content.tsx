@@ -3,6 +3,7 @@ import { draftMode, headers } from 'next/headers';
 import Image from 'next/image';
 import Link from 'next/link';
 import { notFound, permanentRedirect } from 'next/navigation';
+import { connection } from 'next/server';
 import { Suspense } from 'react';
 import { InformationalClusterPanel } from '@/components/storefront/ogabassey/seo/informational-cluster-panel';
 import { Button } from '@/components/ui/button';
@@ -269,6 +270,8 @@ async function renderBlogPostContent({
 export default async function BlogPostPageContent({
   params,
 }: BlogPostPageContentProps) {
+  await connection();
+
   const { slug, postSlug } = await params;
   const headersList = await headers();
   const locale = getRequestLocale(headersList);

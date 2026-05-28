@@ -21,9 +21,14 @@ const mockSelect = vi.fn();
 const mockFrom = vi.fn();
 const mockCreateClient = vi.fn();
 const mockCookies = vi.fn();
+const mockConnection = vi.fn();
 
 vi.mock('next/headers', () => ({
   cookies: () => mockCookies(),
+}));
+
+vi.mock('next/server', () => ({
+  connection: () => mockConnection(),
 }));
 
 vi.mock('next/navigation', () => ({
@@ -94,6 +99,7 @@ describe('storefront blog catch-all route', () => {
     mockLimit.mockResolvedValue({ data: [] });
     mockMaybeSingle.mockResolvedValue({ data: null });
     mockGetBlogPostRedirect.mockResolvedValue(null);
+    mockConnection.mockReset();
   });
 
   it('resolves redirects at the route boundary before any streamed shell', async () => {
@@ -116,6 +122,7 @@ describe('storefront blog catch-all route', () => {
     ).rejects.toThrow(
       'NEXT_PERMANENT_REDIRECT:https://ogabassey.com/blog/snapdragon-x2-series-on-windows'
     );
+    expect(mockConnection).toHaveBeenCalledOnce();
   });
 
   it('redirects dated blog permalinks', async () => {

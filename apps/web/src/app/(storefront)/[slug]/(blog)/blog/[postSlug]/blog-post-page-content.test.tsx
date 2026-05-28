@@ -18,6 +18,7 @@ const {
   mockGenerateBlogPostSchema,
   mockBlogPostHeader,
   mockBlogPostBody,
+  mockConnection,
 } = vi.hoisted(() => ({
   mockBlogPostBodyFallback: vi.fn((_props: unknown) => null as ReactNode),
   mockDraftMode: vi.fn(),
@@ -36,6 +37,7 @@ const {
     <h1>{title}</h1>
   )),
   mockBlogPostBody: vi.fn((_props?: unknown) => null),
+  mockConnection: vi.fn(),
 }));
 
 vi.mock('lucide-react', () => ({
@@ -61,6 +63,10 @@ vi.mock('next/navigation', () => ({
   permanentRedirect: (url: string) => {
     throw new Error(`NEXT_PERMANENT_REDIRECT:${url}`);
   },
+}));
+
+vi.mock('next/server', () => ({
+  connection: () => mockConnection(),
 }));
 
 vi.mock(
@@ -214,6 +220,8 @@ describe('BlogPostPageContent', () => {
     mockBlogPostBody.mockReset();
     mockBlogPostBodyFallback.mockReset();
     mockGenerateBlogPostSchema.mockReset();
+    mockConnection.mockReset();
+    mockConnection.mockResolvedValue(undefined);
     mockBlogPostBody.mockImplementation(() => null);
     mockBlogPostBodyFallback.mockImplementation(() => null);
     mockGenerateBlogPostSchema.mockReturnValue({});
@@ -255,6 +263,7 @@ describe('BlogPostPageContent', () => {
     expect(
       screen.getByRole('link', { name: /shop more smartphones/i })
     ).toHaveAttribute('href', 'https://ogabassey.com/smartphones');
+    expect(mockConnection).toHaveBeenCalledOnce();
     expect(
       screen.getByRole('link', { name: 'Apple vs Samsung' })
     ).toHaveAttribute(
