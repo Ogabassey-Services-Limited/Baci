@@ -52,6 +52,8 @@ export function useProductPickerVariants(parentProduct: SelectedParentProduct) {
       });
     },
     enabled: Boolean(parentProduct?.id && merchantId),
+    // ⚡ Bolt Performance Optimization: Added staleTime to prevent repeated Supabase queries when remounting the component
+    staleTime: 1000 * 60 * 5, // 5 minutes
   });
 }
 
