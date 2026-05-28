@@ -49,9 +49,23 @@ function makeRpcMock(error: unknown = null) {
 
 function makeSupabaseMock(
   uploadError: unknown = null,
-  rpcError: unknown = null
+  rpcError: unknown = null,
+  country = 'NG'
 ) {
+  const merchantMaybeSingle = vi.fn().mockResolvedValue({
+    data: { country },
+    error: null,
+  });
+
   return {
+    from: vi.fn(() => ({
+      select: vi.fn(() => ({
+        eq: vi.fn(() => ({
+          maybeSingle: merchantMaybeSingle,
+        })),
+      })),
+    })),
+    merchantMaybeSingle,
     storage: {
       from: vi.fn(() => ({
         upload: vi.fn().mockResolvedValue({ error: uploadError }),
@@ -179,6 +193,30 @@ describe('POST /api/merchant/verify-cac', () => {
     const res = await POST(req);
 
     expect(res.status).toBe(429);
+  });
+
+  it('rejects India merchants before rate limiting or document upload', async () => {
+    const supabaseMock = makeSupabaseMock(null, null, 'IN');
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      user: { id: 'user-1' },
+      error: null,
+      supabase: supabaseMock,
+    } as unknown as Awaited<ReturnType<typeof authenticateApiRequest>>);
+
+    const req = makeFormDataRequest({
+      file: makeValidFile(),
+      rcNumber: 'RC123456',
+      approvedName: 'Baci Technologies',
+    });
+    const res = await POST(req);
+
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toEqual({
+      error: 'CAC verification is only available for Nigerian merchants',
+    });
+    expect(checkRateLimit).not.toHaveBeenCalled();
+    expect(supabaseMock.storage.from).not.toHaveBeenCalled();
+    expect(supabaseMock.rpc).not.toHaveBeenCalled();
   });
 
   it('returns 400 when file is missing', async () => {

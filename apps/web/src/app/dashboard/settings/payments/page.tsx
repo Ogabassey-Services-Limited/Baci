@@ -68,7 +68,6 @@ export default function PaymentSettingsPage() {
     typeof merchantData?.country === 'string' ? merchantData.country : null;
   const isPaystackSupported = isBaciPaystackSettlementCountry(countryCode);
   const hasPaystackSubaccount = !!merchantData?.paystack_subaccount_code;
-  const hasSavedBankDetails = !!merchantData?.bank_account_number;
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -164,78 +163,86 @@ export default function PaymentSettingsPage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Payment Settings</h1>
         <p className="text-muted-foreground">
-          Configure payment gateways and bank settlement details
+          Configure payment gateways, delivery payments, and settlement details
         </p>
       </div>
 
       {/* Bank Details Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Building2 className="h-5 w-5" />
-            {isPaystackSupported ? 'Bank Settlement Details' : 'Bank Details'}
-          </CardTitle>
-          <CardDescription>
-            {isPaystackSupported
-              ? 'Add your bank account to receive payments directly via Paystack split payments (T+1 settlement).'
-              : 'Save your bank account for offline payment instructions while online payouts are configured.'}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {hasPaystackSubaccount ||
-          (!isPaystackSupported && hasSavedBankDetails) ? (
-            <div className="space-y-4">
-              <div className="flex items-center gap-3 p-4 rounded-lg bg-green-50 border border-green-200 text-green-700">
-                <Check className="h-5 w-5" />
-                <div>
-                  <p className="font-medium">
-                    {isPaystackSupported
-                      ? 'Bank Account Connected'
-                      : 'Bank Details Saved'}
-                  </p>
-                  <p className="text-sm">
-                    {isPaystackSupported
-                      ? 'Paystack subaccount is configured for automatic settlements'
-                      : 'These details are available for offline payment instructions'}
-                  </p>
+      {isPaystackSupported ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Building2 className="h-5 w-5" />
+              Bank Settlement Details
+            </CardTitle>
+            <CardDescription>
+              Add your bank account to receive payments directly via Paystack
+              split payments (T+1 settlement).
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {hasPaystackSubaccount ? (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 p-4 rounded-lg bg-green-50 border border-green-200 text-green-700">
+                  <Check className="h-5 w-5" />
+                  <div>
+                    <p className="font-medium">Bank Account Connected</p>
+                    <p className="text-sm">
+                      Paystack subaccount is configured for automatic
+                      settlements
+                    </p>
+                  </div>
                 </div>
+                <MerchantBankForm
+                  countryCode={countryCode}
+                  initialData={{
+                    bankCode: merchantData?.bank_code as string,
+                    bankName: merchantData?.bank_name as string,
+                    accountName: merchantData?.bank_account_name as string,
+                    accountNumber: merchantData?.bank_account_number as string,
+                    businessName: merchant?.business_name,
+                  }}
+                  onSuccess={reloadMerchant}
+                />
               </div>
-              <MerchantBankForm
-                countryCode={countryCode}
-                initialData={{
-                  bankCode: merchantData?.bank_code as string,
-                  bankName: merchantData?.bank_name as string,
-                  accountName: merchantData?.bank_account_name as string,
-                  accountNumber: merchantData?.bank_account_number as string,
-                  businessName: merchant?.business_name,
-                }}
-                onSuccess={reloadMerchant}
-              />
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="flex items-center gap-3 p-4 rounded-lg bg-yellow-50 border border-yellow-200 text-yellow-700">
-                <AlertCircle className="h-5 w-5" />
-                <div>
-                  <p className="font-medium">Bank Account Required</p>
-                  <p className="text-sm">
-                    {isPaystackSupported
-                      ? 'Add your bank details to enable Paystack payments with automatic settlement'
-                      : 'Add your bank details for offline payment instructions'}
-                  </p>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 p-4 rounded-lg bg-yellow-50 border border-yellow-200 text-yellow-700">
+                  <AlertCircle className="h-5 w-5" />
+                  <div>
+                    <p className="font-medium">Bank Account Required</p>
+                    <p className="text-sm">
+                      Add your bank details to enable Paystack payments with
+                      automatic settlement
+                    </p>
+                  </div>
                 </div>
+                <MerchantBankForm
+                  countryCode={countryCode}
+                  initialData={{
+                    businessName: merchant?.business_name,
+                  }}
+                  onSuccess={reloadMerchant}
+                />
               </div>
-              <MerchantBankForm
-                countryCode={countryCode}
-                initialData={{
-                  businessName: merchant?.business_name,
-                }}
-                onSuccess={reloadMerchant}
-              />
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            )}
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Building2 className="h-5 w-5" />
+              Bank Settlement Unavailable
+            </CardTitle>
+            <CardDescription>
+              Baci-managed bank settlement is currently available only for
+              Nigerian Paystack merchants. Enable Pay on Delivery below for this
+              country, or request an online payment provider integration.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      )}
 
       {/* Payment Gateways Card */}
       <Card>
