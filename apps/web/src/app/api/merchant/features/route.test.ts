@@ -201,6 +201,9 @@ describe('GET /api/merchant/features', () => {
     const json = await res.json();
 
     expect(res.status).toBe(401);
+    expect(res.headers.get('Cache-Control')).toBe(
+      'private, no-store, no-cache, max-age=0, must-revalidate'
+    );
     expect(json.error).toBe('Unauthorized');
   });
 
@@ -399,6 +402,9 @@ describe('PUT /api/merchant/features', () => {
     );
 
     expect(res.status).toBe(200);
+    expect(res.headers.get('Cache-Control')).toBe(
+      'private, no-store, no-cache, max-age=0, must-revalidate'
+    );
     expect(upsertPayload).toMatchObject({
       klump_enabled: false,
       klump_min_amount: 10000,
