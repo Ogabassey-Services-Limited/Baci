@@ -74,19 +74,13 @@ describe('terms page rendering', () => {
       params: Promise.resolve({ slug: 'ogabassey.com' }),
     }) as ReactElement<{ children: ReactElement[] }>;
     const [contentBoundary, markerBoundary] = element.props.children;
-    const markerElement = (markerBoundary.type as () => ReactElement)();
 
     expect(element.type).toBe(Fragment);
     expect(contentBoundary?.type).toBe(Suspense);
-    expect(markerElement.type).toBe('div');
-    const markerSuspense = (
-      markerElement.props as {
-        children?: ReactElement;
-      }
-    ).children;
-    expect(markerSuspense?.type).toBe(Suspense);
+    const markerSuspense = (markerBoundary.type as () => ReactElement)();
+    expect(markerSuspense.type).toBe(Suspense);
     const markerConnection = (
-      markerSuspense?.props as {
+      markerSuspense.props as {
         children?: ReactElement;
       }
     ).children?.type as () => Promise<null>;
@@ -102,14 +96,9 @@ describe('terms page rendering', () => {
       params: Promise.resolve({ slug: 'ogabassey.com' }),
     }) as ReactElement<{ children: ReactElement[] }>;
     const markerBoundary = element.props.children[1];
-    const markerElement = (markerBoundary.type as () => ReactElement)();
-    const markerSuspense = (
-      markerElement.props as {
-        children?: ReactElement;
-      }
-    ).children;
+    const markerSuspense = (markerBoundary.type as () => ReactElement)();
     const markerConnection = (
-      markerSuspense?.props as {
+      markerSuspense.props as {
         children?: ReactElement;
       }
     ).children?.type as () => Promise<null>;
