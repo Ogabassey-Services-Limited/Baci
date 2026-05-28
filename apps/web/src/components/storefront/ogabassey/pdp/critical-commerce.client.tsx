@@ -20,17 +20,24 @@ export function OgabasseyPdpCriticalCommerceClient({
   productName,
   variantCount,
 }: OgabasseyPdpCriticalCommerceClientProps) {
-  const [quantity, setQuantity] = useState(1);
+  const maxQuantity = cartProduct.manage_stock
+    ? Math.max(
+        0,
+        typeof cartProduct.stock === 'number' ? cartProduct.stock : 0
+      )
+    : null;
+  const [quantity, setQuantity] = useState(maxQuantity === 0 ? 0 : 1);
   const { addToCart, setIsCartOpen } = useCart();
-  const maxQuantity =
-    cartProduct.manage_stock &&
-    typeof cartProduct.stock === 'number' &&
-    cartProduct.stock > 0
-      ? cartProduct.stock
-      : null;
   const isAtMaxQuantity = maxQuantity !== null && quantity >= maxQuantity;
+  const canAddToCart =
+    quantity >= 1 &&
+    (maxQuantity === null || (maxQuantity > 0 && quantity <= maxQuantity));
 
   function handleAddToCart() {
+    if (!canAddToCart) {
+      return;
+    }
+
     const options = cartProduct.condition
       ? { condition: cartProduct.condition }
       : undefined;
@@ -73,6 +80,7 @@ export function OgabasseyPdpCriticalCommerceClient({
       </div>
       <button
         className={styles.primaryAction}
+        disabled={!canAddToCart}
         onClick={handleAddToCart}
         type="button"
       >
