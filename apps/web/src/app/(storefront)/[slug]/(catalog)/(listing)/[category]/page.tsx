@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
+import { StorefrontDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker';
 import { CatalogListingLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
 import {
   getCachedCategoryPageData,
@@ -125,8 +126,11 @@ export async function generateMetadata({
 
 export default function CategoryPageRoute(props: PageProps) {
   return (
-    <Suspense fallback={<CatalogListingLoading />}>
-      <CategoryPageContent {...props} />
-    </Suspense>
+    <>
+      <Suspense fallback={<CatalogListingLoading />}>
+        <CategoryPageContent {...props} />
+      </Suspense>
+      <StorefrontDynamicMetadataMarker />
+    </>
   );
 }

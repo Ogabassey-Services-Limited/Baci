@@ -14,7 +14,6 @@ import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 vi.mock('server-only', () => ({}));
 
 const {
-  mockConnection,
   mockNormalizeStorefrontProductVariants,
   mockOgabasseyPdpProductResourceHints,
   mockOgabasseyPdpSemanticSections,
@@ -26,7 +25,6 @@ const {
   mockPreloadOgabasseyPdpProductImage,
   mockProductDetailClient,
 } = vi.hoisted(() => ({
-  mockConnection: vi.fn(),
   mockNormalizeStorefrontProductVariants: vi.fn<
     (...args: unknown[]) => Record<string, unknown>[]
   >(() => []),
@@ -76,10 +74,6 @@ vi.mock('next/navigation', () => ({
 
 vi.mock('next/headers', () => ({
   headers: () => mockHeaders(),
-}));
-
-vi.mock('next/server', () => ({
-  connection: () => mockConnection(),
 }));
 
 vi.mock('next/image', () => ({
@@ -138,6 +132,13 @@ vi.mock('next/link', () => ({
   default: ({ children, href }: { children: ReactNode; href: string }) => (
     <a href={href}>{children}</a>
   ),
+}));
+
+vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
+  StorefrontDynamicMetadataMarker:
+    function MockStorefrontDynamicMetadataMarker() {
+      return <div aria-label="dynamic metadata marker" role="status" />;
+    },
 }));
 
 vi.mock('@/app/(storefront)/[slug]/storefront-shell-snapshot', () => ({
@@ -635,7 +636,6 @@ function mockDefaultCachedProductLcpHintLookup() {
 describe('[category]/[productSlug] page metadata', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockConnection.mockResolvedValue(undefined);
     mockGetEffectiveStock.mockReset();
     mockGetEffectiveStock.mockReturnValue(0);
     mockOgabasseyPdpCriticalCommerce.mockReset();
@@ -937,7 +937,6 @@ describe('[category]/[productSlug] page metadata', () => {
 describe('[category]/[productSlug] page render', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockConnection.mockResolvedValue(undefined);
     mockGetEffectiveStock.mockReset();
     mockGetEffectiveStock.mockReturnValue(0);
     mockProductDetailClient.mockReset();
@@ -989,7 +988,7 @@ describe('[category]/[productSlug] page render', () => {
     });
   });
 
-  it('streams the product shell while below-fold content opts into request-time rendering', async () => {
+  it('keeps the request-time marker after the streamed product shell', async () => {
     const ui = await resolveRsc(
       await CategoryProductPage({
         params: Promise.resolve({
@@ -1004,12 +1003,18 @@ describe('[category]/[productSlug] page render', () => {
     const criticalShell = container.querySelector(
       '[data-ogabassey-pdp-critical-shell]'
     );
+    const dynamicMarker = screen.getByRole('status', {
+      name: 'dynamic metadata marker',
+    });
 
     if (!criticalShell) {
       throw new Error('Expected the OgaBassey PDP critical shell to render');
     }
 
-    expect(mockConnection).toHaveBeenCalledOnce();
+    expect(
+      criticalShell.compareDocumentPosition(dynamicMarker) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
     expect(
       screen.getByRole('heading', {
         level: 1,

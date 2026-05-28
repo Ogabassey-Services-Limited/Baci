@@ -1,23 +1,14 @@
 import { render, screen } from '@testing-library/react';
-import {
-  isValidElement,
-  type ReactElement,
-  type ReactNode,
-  Suspense,
-} from 'react';
+import { type ReactNode, Suspense } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const {
-  mockConnection,
-  mockNormalizeStorefrontProductVariants,
-  mockProductDetailClient,
-} = vi.hoisted(() => ({
-  mockConnection: vi.fn(),
-  mockNormalizeStorefrontProductVariants: vi.fn<
-    (...args: unknown[]) => Record<string, unknown>[]
-  >(() => []),
-  mockProductDetailClient: vi.fn(() => null),
-}));
+const { mockNormalizeStorefrontProductVariants, mockProductDetailClient } =
+  vi.hoisted(() => ({
+    mockNormalizeStorefrontProductVariants: vi.fn<
+      (...args: unknown[]) => Record<string, unknown>[]
+    >(() => []),
+    mockProductDetailClient: vi.fn(() => null),
+  }));
 
 const mockHeaders = vi.fn();
 const mockPermanentRedirect = vi.fn((_url: string) => {
@@ -41,10 +32,6 @@ const mockGetPublishedClusterPosts = vi.fn();
 
 vi.mock('next/headers', () => ({
   headers: () => mockHeaders(),
-}));
-
-vi.mock('next/server', () => ({
-  connection: () => mockConnection(),
 }));
 
 vi.mock('next/navigation', () => ({
@@ -77,6 +64,12 @@ vi.mock('@/lib/cached-data', () => ({
     String(value ?? '')
       .replace(/[\r\n\t]/g, '')
       .substring(0, 100),
+}));
+
+vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
+  StorefrontDynamicMetadataMarker: () => (
+    <div aria-label="dynamic metadata marker" role="status" />
+  ),
 }));
 
 vi.mock('@/lib/storefront-product/build-product-semantic-model', () => ({
@@ -301,8 +294,6 @@ describe('products/[productSlug] page', () => {
     vi.clearAllMocks();
     vi.unstubAllEnvs();
     vi.stubEnv('NODE_ENV', 'production');
-    mockConnection.mockReset();
-    mockConnection.mockResolvedValue(undefined);
     mockProductDetailClient.mockReset();
     mockProductDetailClient.mockReturnValue(null);
     mockHeaders.mockReset();
@@ -987,31 +978,14 @@ describe('products/[productSlug] page', () => {
       samePrice: null,
     });
 
-    const productPage = (await ProductPage({
-      params: Promise.resolve({
-        slug: 'teststore',
-        productSlug: 'iphone-17-pro-max',
-      }),
-      searchParams: Promise.resolve({}),
-    })) as ReactElement<{ children: ReactNode | ReactNode[] }>;
-    const productPageChildren = Array.isArray(productPage.props.children)
-      ? productPage.props.children
-      : [productPage.props.children];
-    const semanticBoundary = productPageChildren.find(
-      (child): child is ReactElement<{ children: ReactElement }> =>
-        isValidElement(child) && child.type === Suspense
-    );
-
-    if (!semanticBoundary || !isValidElement(semanticBoundary.props.children)) {
-      throw new Error('Expected PDP semantic sections to render in Suspense');
-    }
-
-    const semanticChild = semanticBoundary.props.children;
-
     render(
-      await (semanticChild.type as (props: unknown) => Promise<ReactNode>)(
-        semanticChild.props
-      )
+      await ProductPage({
+        params: Promise.resolve({
+          slug: 'teststore',
+          productSlug: 'iphone-17-pro-max',
+        }),
+        searchParams: Promise.resolve({}),
+      })
     );
 
     expect(
@@ -1019,7 +993,9 @@ describe('products/[productSlug] page', () => {
         name: /Shop more Products/i,
       })
     ).toHaveAttribute('href', 'https://teststore.usebaci.com/products');
-    expect(mockConnection).toHaveBeenCalledOnce();
+    expect(
+      screen.getByRole('status', { name: /dynamic metadata marker/i })
+    ).toBeInTheDocument();
     expect(
       screen.getByRole('link', {
         name: /Compare with Samsung Galaxy Z TriFold/i,

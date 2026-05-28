@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
-import { connection } from 'next/server';
 import { Suspense } from 'react';
+import { StorefrontDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker';
 import { ContentRouteLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { toTemplateMerchantData } from '@/lib/merchant-template-data';
@@ -54,15 +54,16 @@ export async function generateMetadata({
 
 export default function TermsPage({ params }: PageProps) {
   return (
-    <Suspense fallback={<ContentRouteLoading />}>
-      <TermsPageContent params={params} />
-    </Suspense>
+    <>
+      <Suspense fallback={<ContentRouteLoading />}>
+        <TermsPageContent params={params} />
+      </Suspense>
+      <StorefrontDynamicMetadataMarker />
+    </>
   );
 }
 
 async function TermsPageContent({ params }: PageProps) {
-  await connection();
-
   const { slug } = await params;
   const merchant = await getMerchantByIdentifier(slug);
 

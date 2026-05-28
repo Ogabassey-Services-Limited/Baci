@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
+import { StorefrontDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker';
 import { CatalogListingLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
 import { getCachedStorefrontProductIndex } from '@/lib/cached-storefront-product-index';
@@ -91,8 +92,11 @@ export async function generateMetadata({
 
 export default function ProductsPage(props: PageProps) {
   return (
-    <Suspense fallback={<CatalogListingLoading />}>
-      <ProductsPageContent {...props} />
-    </Suspense>
+    <>
+      <Suspense fallback={<CatalogListingLoading />}>
+        <ProductsPageContent {...props} />
+      </Suspense>
+      <StorefrontDynamicMetadataMarker />
+    </>
   );
 }
