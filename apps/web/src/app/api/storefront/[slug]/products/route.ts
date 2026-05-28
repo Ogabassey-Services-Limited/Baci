@@ -1,13 +1,17 @@
 import { createClient as createStaticClient } from '@supabase/supabase-js';
 import { unstable_cache } from 'next/cache';
 import { type NextRequest, NextResponse } from 'next/server';
+import type { RawStorefrontProductRow } from '@/app/api/storefront/products/storefront-products-route-data';
 import { STOREFRONT_CACHE } from '@/config/storefront-cache';
 import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
 import {
   coerceStorefrontManageStock,
   getStorefrontAgentAvailability,
 } from '@/lib/storefront-agent-availability';
-import { STOREFRONT_PRODUCTS_SELECT } from '@/lib/storefront-products-select';
+import {
+  STOREFRONT_PRODUCTS_COMPACT_SELECT,
+  STOREFRONT_PRODUCTS_SELECT,
+} from '@/lib/storefront-products-select';
 import { storefrontProductsQuerySchema } from '@/schemas/storefront-products-query';
 import { storefrontProductsRouteParamsSchema } from '@/schemas/storefront-products-route-params';
 
@@ -202,18 +206,31 @@ export async function GET(
     // 2. Fetch products for this merchant
     // We use a fresh client here to ensure we get latest data if cache is stale
     const supabase = createStaticClient(getSupabaseUrl(), getSupabaseAnonKey());
+    const selectColumns: string =
+      parsedQuery.data.compact === false
+        ? STOREFRONT_PRODUCTS_SELECT
+        : STOREFRONT_PRODUCTS_COMPACT_SELECT;
+
     let productQuery = supabase
       .from('products')
-      .select(STOREFRONT_PRODUCTS_SELECT)
+      .select(selectColumns)
       .eq('merchant_id', merchantId)
-      .eq('status', 'active')
-      .order('created_at', { ascending: false });
+      .eq('status', 'active');
+
+    if (parsedQuery.data.has_images) {
+      productQuery = productQuery.not('images->0', 'is', null);
+    }
+
+    productQuery = productQuery.order('created_at', { ascending: false });
 
     if (parsedQuery.data.limit !== undefined) {
       productQuery = productQuery.limit(parsedQuery.data.limit);
     }
 
-    const { data: products, error } = await productQuery;
+    const { data: products, error } = (await productQuery) as {
+      data: RawStorefrontProductRow[] | null;
+      error: unknown;
+    };
 
     if (error) {
       console.error(

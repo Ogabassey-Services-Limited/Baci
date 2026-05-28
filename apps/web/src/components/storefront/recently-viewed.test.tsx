@@ -171,7 +171,7 @@ describe('RecentlyViewedProducts', () => {
 
     await waitFor(() => {
       expect(apiGetMock).toHaveBeenCalledWith(
-        '/api/storefront/products?merchant_id=merchant-1&ids=p3,p1,p2'
+        '/api/storefront/products?merchant_id=merchant-1&ids=p3%2Cp1%2Cp2&compact=true'
       );
     });
 

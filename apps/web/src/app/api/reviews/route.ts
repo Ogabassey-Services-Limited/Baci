@@ -9,6 +9,30 @@ import {
 import { createClient } from '@/lib/supabase/server';
 import { reviewSubmissionSchema } from '@/schemas/reviews';
 
+const REVIEW_LIST_SELECT = `
+  id,
+  product_id,
+  merchant_id,
+  order_id,
+  customer_email,
+  customer_name,
+  rating,
+  title,
+  body,
+  status,
+  verified_purchase,
+  helpful_count,
+  merchant_response,
+  merchant_response_at,
+  created_at,
+  updated_at,
+  products:product_id (
+    id,
+    name,
+    images
+  )
+`;
+
 /**
  * Product Reviews API
  *
@@ -56,17 +80,9 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    let query = supabase.from('product_reviews').select(
-      `
-        *,
-        products:product_id (
-          id,
-          name,
-          images
-        )
-      `,
-      { count: 'exact' }
-    );
+    let query = supabase
+      .from('product_reviews')
+      .select(REVIEW_LIST_SELECT, { count: 'exact' });
 
     if (productId) {
       query = query.eq('product_id', productId);

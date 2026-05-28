@@ -4,9 +4,12 @@ import {
   coerceStorefrontManageStock,
   getStorefrontAgentAvailability,
 } from '@/lib/storefront-agent-availability';
-import { STOREFRONT_PRODUCTS_SELECT } from '@/lib/storefront-products-select';
+import {
+  STOREFRONT_PRODUCTS_COMPACT_SELECT,
+  STOREFRONT_PRODUCTS_SELECT,
+} from '@/lib/storefront-products-select';
 
-type RawStorefrontProductRow = Record<string, unknown>;
+export type RawStorefrontProductRow = Record<string, unknown>;
 type ImageInput = string | { url?: string; alt?: string; order?: number };
 
 function normalizeLegacyColorList(value: unknown) {
@@ -191,5 +194,6 @@ export const storefrontProductsRouteData = {
   escapeLikePattern,
   getConditionPrefilterClauses,
   mapProduct,
+  STOREFRONT_PRODUCTS_COMPACT_SELECT,
   STOREFRONT_PRODUCTS_SELECT,
 } as const;

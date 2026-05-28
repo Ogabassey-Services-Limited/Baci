@@ -200,7 +200,7 @@ describe('StorefrontProductGrid', () => {
     // This guards the stale-list regression found in Chrome after creating a
     // dashboard product and reopening the generated storefront.
     expect(apiGet).toHaveBeenCalledWith(
-      '/api/storefront/products?merchant_id=m1',
+      '/api/storefront/products?merchant_id=m1&compact=true&has_images=true',
       { cache: 'no-store' }
     );
   });
