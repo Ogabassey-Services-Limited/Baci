@@ -122,7 +122,11 @@ function buildSupabase({
   };
 }
 
-function buildReviewsGetSupabase() {
+function buildReviewsGetSupabase({
+  user = null,
+}: {
+  user?: { id: string } | null;
+} = {}) {
   const selectCalls: Array<{ columns: string; options: unknown }> = [];
   const reviewsBuilder = {
     select: vi.fn((columns: string, options: unknown) => {
@@ -141,7 +145,7 @@ function buildReviewsGetSupabase() {
   return {
     auth: {
       getUser: vi.fn().mockResolvedValue({
-        data: { user: null },
+        data: { user },
         error: null,
       }),
     },
@@ -151,6 +155,7 @@ function buildReviewsGetSupabase() {
       }
       return reviewsBuilder;
     }),
+    rpc: vi.fn().mockResolvedValue({ data: [] }),
     _selectCalls: selectCalls,
   };
 }
@@ -262,7 +267,7 @@ describe('GET /api/reviews response shape', () => {
 
     const res = await GET(
       new NextRequest(
-        `http://localhost/api/reviews?merchantId=${MERCHANT_ID}&status=approved`
+        `http://localhost/api/reviews?productId=${PRODUCT_ID}&status=approved`
       )
     );
 
@@ -275,5 +280,34 @@ describe('GET /api/reviews response shape', () => {
       /(^|[,\s])\*($|[,\s])/
     );
     expect(supabase._selectCalls[0]?.options).toEqual({ count: 'exact' });
+  });
+
+  it('keeps merchant-scoped approved review lists authenticated with dashboard fields', async () => {
+    const supabase = buildReviewsGetSupabase({ user: { id: 'user-1' } });
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockReturnValue(
+      supabase as unknown as never
+    );
+    const merchantContextMod = await import(
+      '@/lib/get-merchant-for-api-request'
+    );
+    vi.mocked(merchantContextMod.getMerchantForApiRequest).mockResolvedValue({
+      merchantId: MERCHANT_ID,
+      role: 'owner',
+      permissions: [],
+    } as never);
+    const apiAuthMod = await import('@/lib/api-auth');
+
+    const res = await GET(
+      new NextRequest(
+        `http://localhost/api/reviews?merchantId=${MERCHANT_ID}&status=approved`
+      )
+    );
+
+    expect(res.status).toBe(200);
+    expect(supabase.auth.getUser).toHaveBeenCalled();
+    expect(apiAuthMod.hasPermission).toHaveBeenCalled();
+    expect(supabase._selectCalls[0]?.columns).toContain('customer_email');
+    expect(supabase._selectCalls[0]?.columns).toContain('order_id');
   });
 });

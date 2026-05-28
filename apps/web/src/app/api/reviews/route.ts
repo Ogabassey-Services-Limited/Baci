@@ -77,8 +77,9 @@ export async function GET(request: NextRequest) {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
-    // If fetching for merchant dashboard (all statuses), require auth
-    const isDashboardRequest = Boolean(merchantId && status !== 'approved');
+    // Merchant-scoped review lists are dashboard data even when filtered to
+    // approved reviews; public storefront reads should use productId only.
+    const isDashboardRequest = Boolean(merchantId);
 
     if (isDashboardRequest) {
       const {

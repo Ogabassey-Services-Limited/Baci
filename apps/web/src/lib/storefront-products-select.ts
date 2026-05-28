@@ -40,7 +40,6 @@ export const STOREFRONT_PRODUCTS_SELECT = `
 export const STOREFRONT_PRODUCTS_COMPACT_SELECT = `
   id,
   name,
-  description,
   slug,
   images,
   image_hint,

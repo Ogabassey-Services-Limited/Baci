@@ -19,9 +19,7 @@ describe('STOREFRONT_PRODUCTS_SELECT', () => {
 
   it('keeps the compact storefront product select free of PDP-only payloads', () => {
     expect(STOREFRONT_PRODUCTS_COMPACT_SELECT.trim()).not.toBe('');
-    expect(STOREFRONT_PRODUCTS_COMPACT_SELECT).toEqual(
-      expect.stringContaining('description')
-    );
+    expect(STOREFRONT_PRODUCTS_COMPACT_SELECT).not.toMatch(/\bdescription\b/);
     expect(STOREFRONT_PRODUCTS_COMPACT_SELECT).toEqual(
       expect.stringContaining('has_variants')
     );

@@ -4,6 +4,7 @@ import {
   coerceStorefrontManageStock,
   getStorefrontAgentAvailability,
 } from '@/lib/storefront-agent-availability';
+import { buildStorefrontProductListingDescription } from '@/lib/storefront-product-listing-description';
 import { STOREFRONT_PRODUCTS_COMPACT_SELECT } from '@/lib/storefront-products-select';
 
 export const STOREFRONT_PRODUCTS_FULL_SELECT = `
@@ -79,7 +80,12 @@ export function mapStorefrontProduct(p: RawDbProduct) {
   return {
     id: normalized.id,
     name: normalized.name,
-    description: normalized.description,
+    description: buildStorefrontProductListingDescription({
+      brand: normalized.brand,
+      category: normalized.category,
+      description: normalized.description,
+      name: normalized.name,
+    }),
     price: normalized.price,
     compare_at_price: normalized.compare_at_price,
     image: normalized.image,

@@ -8,6 +8,7 @@ import {
   coerceStorefrontManageStock,
   getStorefrontAgentAvailability,
 } from '@/lib/storefront-agent-availability';
+import { buildStorefrontProductListingDescription } from '@/lib/storefront-product-listing-description';
 import {
   STOREFRONT_PRODUCTS_COMPACT_SELECT,
   STOREFRONT_PRODUCTS_SELECT,
@@ -82,6 +83,11 @@ function getJoinedCategoryName(product: Record<string, unknown>) {
 // Map database product to API response format function
 function mapProduct(p: Record<string, unknown>) {
   const primaryImage = extractPrimaryImage(p.images);
+  const category =
+    getJoinedCategoryName(p) ||
+    (typeof p.category === 'string' && p.category.trim()
+      ? p.category
+      : 'General');
   const manageStock = coerceStorefrontManageStock(
     p.manage_stock as boolean | null | undefined
   );
@@ -99,17 +105,18 @@ function mapProduct(p: Record<string, unknown>) {
   return {
     id: p.id,
     name: p.name,
-    description: p.description,
+    description: buildStorefrontProductListingDescription({
+      brand: typeof p.brand === 'string' ? p.brand : null,
+      category,
+      description: typeof p.description === 'string' ? p.description : null,
+      name: typeof p.name === 'string' ? p.name : null,
+    }),
     price: p.price,
     compare_at_price: p.compare_at_price,
     image: primaryImage,
     imageLarge: primaryImage,
     imageHint: p.image_hint,
-    category:
-      getJoinedCategoryName(p) ||
-      (typeof p.category === 'string' && p.category.trim()
-        ? p.category
-        : 'General'),
+    category,
     brand: p.brand,
     status: p.status || 'active',
     has_variants: p.has_variants,

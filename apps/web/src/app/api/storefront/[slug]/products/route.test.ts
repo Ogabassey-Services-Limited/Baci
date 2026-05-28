@@ -182,7 +182,7 @@ describe('GET /api/storefront/[slug]/products', () => {
     );
 
     expect(response.status).toBe(200);
-    expect(selectArg).toContain('description');
+    expect(selectArg).not.toContain('description');
     expect(selectArg).toContain('has_variants');
     expect(selectArg).not.toContain('specifications');
     expect(selectArg).not.toContain('variant_attributes');
