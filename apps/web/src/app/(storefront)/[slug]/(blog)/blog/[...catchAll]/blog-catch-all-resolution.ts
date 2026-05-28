@@ -1,5 +1,4 @@
 import { cookies } from 'next/headers';
-import { notFound, permanentRedirect, redirect } from 'next/navigation';
 import { buildCanonicalBlogPostUrl } from '@/app/(storefront)/[slug]/(blog)/blog/[postSlug]/blog-post-content';
 import { getBlogPostRedirect } from '@/lib/blog-post-redirects';
 import {
@@ -170,22 +169,4 @@ export async function resolveBlogCatchAllOutcome({
 
   // No matching post found
   return { type: 'notFound' };
-}
-
-export async function resolveBlogCatchAllRoute({
-  params,
-}: {
-  params: Promise<{ slug: string; catchAll: string[] }>;
-}) {
-  const outcome = await resolveBlogCatchAllOutcome({ params });
-
-  if (outcome.type === 'redirect') {
-    if (outcome.status === 308) {
-      permanentRedirect(outcome.url);
-    }
-
-    redirect(outcome.url);
-  }
-
-  notFound();
 }
