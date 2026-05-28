@@ -7,15 +7,16 @@ vi.mock('@/hooks/use-merchant-client', () => ({
   useMerchant: vi.fn(() => ({ merchant: mockMerchant })),
 }));
 
+const mockToast = vi.hoisted(() => vi.fn());
+
 vi.mock('@/hooks/use-toast', () => ({
-  useToast: vi.fn(() => ({ toast: vi.fn() })),
+  useToast: vi.fn(() => ({ toast: mockToast })),
 }));
 
 const mockFetchWithCsrf = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/api-client', () => ({
-  fetchWithCsrf: (...args: Parameters<typeof fetch>) =>
-    mockFetchWithCsrf(...args),
+  fetchWithCsrf: mockFetchWithCsrf,
 }));
 
 import { useIntegrationSettings } from './use-integration-settings';
@@ -107,6 +108,47 @@ describe('useIntegrationSettings', () => {
     });
     await waitFor(() => {
       expect(result.current.settings?.facebook_pixel_id).toBe('new-px');
+    });
+  });
+
+  it('shows the error toast and rethrows when saving settings fails', async () => {
+    vi.mocked(fetch).mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ facebook_pixel_id: 'old-px' }),
+    } as Response);
+    mockFetchWithCsrf.mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+    } as Response);
+    const keys: (keyof { facebook_pixel_id: string | null })[] = [
+      'facebook_pixel_id',
+    ];
+
+    const { result } = renderHook(() =>
+      useIntegrationSettings<{ facebook_pixel_id: string | null }>({
+        keys,
+        platformName: 'Facebook',
+      })
+    );
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    await expect(
+      act(async () => {
+        await result.current.saveSettings({ facebook_pixel_id: 'new-px' });
+      })
+    ).rejects.toThrow('Failed to save settings');
+    expect(mockFetchWithCsrf).toHaveBeenCalledWith('/api/merchant/features', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ facebook_pixel_id: 'new-px' }),
+    });
+    expect(mockToast).toHaveBeenCalledWith({
+      variant: 'destructive',
+      title: 'Save failed',
+      description: 'Could not save your settings. Please try again.',
     });
   });
 });
