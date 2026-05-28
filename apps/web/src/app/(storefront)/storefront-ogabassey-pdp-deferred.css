@@ -1,0 +1,20 @@
+@import "tailwindcss" source(none);
+
+@config "../../../tailwind.storefront.scoped.config.ts";
+
+@source "../../components/storefront/ogabassey/pages/product-details-page.tsx";
+@source "../../components/storefront/ogabassey/pages/product-details-page/**/*.tsx";
+@source "../../components/storefront/ogabassey/components/AdUnit.tsx";
+@source "../../components/storefront/ogabassey/components/BannerCarousel.tsx";
+@source "../../components/storefront/ogabassey/components/FlyToCartAnimation.tsx";
+@source "../../components/storefront/ogabassey/components/NegotiationModal.tsx";
+@source "../../components/storefront/ogabassey/components/ProductComparisonTable.tsx";
+@source "../../components/storefront/ogabassey/components/ProductVideo.tsx";
+@source "../../components/storefront/brand-products.tsx";
+@source "../../components/storefront/price-range-products.tsx";
+@source "../../components/ui/button.tsx";
+@source "../../components/ui/dialog.tsx";
+@source "../../components/ui/input.tsx";
+@source "../../components/ui/sheet.tsx";
+@source "../../components/ui/tabs.tsx";
+@source "../../components/ui/tooltip.tsx";

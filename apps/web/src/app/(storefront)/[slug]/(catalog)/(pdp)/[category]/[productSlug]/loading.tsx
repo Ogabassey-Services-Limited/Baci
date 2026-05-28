@@ -1,3 +1,4 @@
+import '@/app/(storefront)/storefront-ogabassey-pdp-critical.css';
 import { ProductDetailRouteLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
 
 export default function Loading() {
