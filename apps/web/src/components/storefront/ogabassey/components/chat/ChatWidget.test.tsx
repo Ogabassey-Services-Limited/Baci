@@ -147,9 +147,11 @@ describe('ChatWidget - toggle button', () => {
       setIsCartOpen: vi.fn(),
     } as unknown as ReturnType<typeof useCart>);
 
-    const { container } = render(<ChatWidget />);
-    const wrapper = container.firstChild as HTMLElement;
-    expect(wrapper.className).toContain('hidden');
+    render(<ChatWidget />);
+
+    expect(
+      screen.queryByRole('button', { name: 'Toggle chat' })
+    ).not.toBeInTheDocument();
   });
 });
 

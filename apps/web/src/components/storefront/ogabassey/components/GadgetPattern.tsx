@@ -1,4 +1,4 @@
-import React from 'react';
+import type React from 'react';
 
 /**
  * GadgetPattern
@@ -59,11 +59,14 @@ export const GadgetPattern: React.FC<{ className?: string; opacity?: number }> =
 
   return (
     <div
-      className={`absolute inset-0 pointer-events-none ${className}`}
+      className={className}
       style={{
         backgroundImage: `url("data:image/svg+xml,${requestSvg}")`,
         backgroundSize: '140px 140px',
+        inset: 0,
         opacity: opacity,
+        pointerEvents: 'none',
+        position: 'absolute',
       }}
     />
   );
