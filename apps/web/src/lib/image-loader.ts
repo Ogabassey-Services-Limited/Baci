@@ -28,14 +28,23 @@ export default function imageLoader({
   width,
   quality,
 }: ImageLoaderParams): string {
+  if (typeof src !== 'string') {
+    return '';
+  }
+
   if (!src || src.startsWith('data:') || src.startsWith('blob:')) {
     return src;
   }
 
   // External URLs — serve directly from their CDN
   if (src.startsWith('https://') || src.startsWith('http://')) {
-    if (isAlreadyTransformedOgabasseyCdnUrl(src)) {
-      return src;
+    const resizedTransformedCdnUrl = buildResizedOgabasseyTransformedCdnUrl({
+      quality,
+      src,
+      width,
+    });
+    if (resizedTransformedCdnUrl) {
+      return resizedTransformedCdnUrl;
     }
 
     const cdnTransformUrl = buildOgabasseyCdnTransformUrl({
@@ -67,16 +76,47 @@ function appendLoaderParams(src: string, width: number, quality?: number) {
   return `${base}${separator}w=${transformWidth}&q=${transformQuality}${hash}`;
 }
 
-function isAlreadyTransformedOgabasseyCdnUrl(src: string) {
+function buildResizedOgabasseyTransformedCdnUrl({
+  src,
+  width,
+  quality,
+}: ImageLoaderParams): string | null {
+  let url: URL;
   try {
-    const url = new URL(src);
-    return (
-      url.hostname === OGABASSEY_CDN_HOSTNAME &&
-      url.pathname.startsWith('/image/')
-    );
+    url = new URL(src);
   } catch {
-    return false;
+    return null;
   }
+
+  if (
+    url.hostname !== OGABASSEY_CDN_HOSTNAME ||
+    !url.pathname.startsWith('/image/')
+  ) {
+    return null;
+  }
+
+  const transformPath = url.pathname.slice('/image/'.length);
+  const sourcePathIndex = transformPath.indexOf('/');
+  if (sourcePathIndex <= 0) {
+    return null;
+  }
+
+  const operations = transformPath
+    .slice(0, sourcePathIndex)
+    .split(',')
+    .filter(Boolean);
+  if (operations.some((operation) => operation.startsWith('width='))) {
+    return src;
+  }
+
+  const nextOperations = [`width=${clampDimension(width)}`];
+  if (!operations.some((operation) => operation.startsWith('quality='))) {
+    nextOperations.push(`quality=${clampQuality(quality)}`);
+  }
+  nextOperations.push(...operations);
+
+  const sourcePath = transformPath.slice(sourcePathIndex + 1);
+  return `${url.origin}/image/${nextOperations.join(',')}/${sourcePath}${url.search}${url.hash}`;
 }
 
 function buildOgabasseyCdnTransformUrl({
