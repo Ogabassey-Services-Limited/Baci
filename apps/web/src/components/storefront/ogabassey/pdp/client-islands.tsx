@@ -1,22 +1,10 @@
-'use client';
-
 import type { ReactNode } from 'react';
-import { ProductDetailsPage } from '@/components/storefront/ogabassey/pages/product-details-page';
 import type { Product } from '@/components/storefront/ogabassey/types';
-
-interface OgabasseyPdpCommerceIslandProps {
-  product: Product;
-}
+import { OgabasseyPdpDeferredDetailIsland } from './deferred-detail-island';
 
 interface OgabasseyPdpBelowFoldIslandProps {
   product: Product;
   semanticSections?: ReactNode;
-}
-
-export function OgabasseyPdpCommerceIsland({
-  product,
-}: OgabasseyPdpCommerceIslandProps) {
-  return <ProductDetailsPage mode="commerce" product={product} />;
 }
 
 export function OgabasseyPdpBelowFoldIsland({
@@ -24,8 +12,7 @@ export function OgabasseyPdpBelowFoldIsland({
   semanticSections = null,
 }: OgabasseyPdpBelowFoldIslandProps) {
   return (
-    <ProductDetailsPage
-      mode="belowFold"
+    <OgabasseyPdpDeferredDetailIsland
       product={product}
       semanticSections={semanticSections}
     />

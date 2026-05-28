@@ -1,5 +1,6 @@
 'use client';
 
+import '@/app/(storefront)/storefront-ogabassey-pdp-deferred.css';
 import dynamic from 'next/dynamic';
 import { useEffect, useState, type ReactNode } from 'react';
 import type { Product } from '../types';
@@ -11,6 +12,7 @@ import { ProductPurchasePanel } from './product-details-page/product-purchase-pa
 import { getAvailableOptionsForAxis } from '../variant-attributes';
 import { useProductDetailsState } from './product-details-page/use-product-details-state';
 import { DeferredProductDetailsSectionsLoader } from './product-details-page/deferred-product-details-sections-loader';
+import deferredLayoutStyles from './product-details-page/deferred-product-details-layout.module.css';
 
 const AdUnit = dynamic(
   () => import('../components/AdUnit').then((mod) => mod.AdUnit),
@@ -134,7 +136,7 @@ export function ProductDetailsPage({
 
   if (mode === 'belowFold') {
     return (
-      <div className="mx-auto max-w-[1400px] px-4 pb-32 md:px-6">
+      <div className={deferredLayoutStyles.container}>
         {semanticSections}
         <DeferredProductDetailsSectionsLoader
           activeTab={activeTab}

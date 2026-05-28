@@ -1,20 +1,20 @@
+import '@/app/(storefront)/storefront-ogabassey-pdp-critical.css';
 import { resolveVariantSelectionParamResolution } from '@baci/shared/lib';
-import type { Metadata } from 'next';
+import type { Metadata, Route } from 'next';
 import { headers } from 'next/headers';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { type ReactNode, Suspense } from 'react';
 import { StorefrontDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker';
+import { getStorefrontShellSnapshotBase } from '@/app/(storefront)/[slug]/storefront-shell-snapshot';
 import { OgabasseyPdpProductLcpSkeleton } from '@/app/(storefront)/ogabassey/ogabassey-pdp-product-lcp-skeleton';
 import {
   OgabasseyPdpProductResourceHints,
   preloadOgabasseyPdpProductImage,
 } from '@/app/(storefront)/ogabassey/ogabassey-pdp-product-resource-hints';
 import { OgabasseyPdpStaticResourceHints } from '@/app/(storefront)/ogabassey/ogabassey-pdp-static-resource-hints';
-import { ProductDetailsPage as OgabasseyProductPage } from '@/components/storefront/ogabassey/pages/product-details-page';
-import {
-  OgabasseyPdpBelowFoldIsland,
-  OgabasseyPdpCommerceIsland,
-} from '@/components/storefront/ogabassey/pdp/client-islands';
+import { OgabasseyPdpBelowFoldIsland } from '@/components/storefront/ogabassey/pdp/client-islands';
+import { createCriticalCartProduct } from '@/components/storefront/ogabassey/pdp/critical-cart-product';
+import { OgabasseyPdpCriticalCommerce } from '@/components/storefront/ogabassey/pdp/critical-commerce';
 import { buildOgabasseyPdpCriticalProduct } from '@/components/storefront/ogabassey/pdp/critical-product';
 import { OgabasseyPdpCriticalShell } from '@/components/storefront/ogabassey/pdp/critical-shell';
 import { buildOgabasseyProductSpecData } from '@/components/storefront/ogabassey/product-spec-data';
@@ -63,7 +63,10 @@ import {
   DEFAULT_STOREFRONT_SEO_CATEGORY,
 } from '@/lib/storefront-seo-defaults';
 import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
-import { isValidMerchantIdentifier } from '@/lib/validation';
+import {
+  isDomainIdentifier,
+  isValidMerchantIdentifier,
+} from '@/lib/validation';
 import { OgabasseyPdpSemanticSections } from './ogabassey-pdp-semantic-sections';
 
 /**
@@ -253,7 +256,7 @@ function buildTrustBulletsFromProfile(
   return bullets;
 }
 
-type TemplateProductRenderMode = 'full' | 'commerce' | 'belowFold';
+type TemplateProductRenderMode = 'full' | 'belowFold';
 
 /**
  * Template-aware product page component
@@ -274,10 +277,6 @@ async function renderTemplateProductPage({
   if (templateId === OGABASSEY_TEMPLATE_ID) {
     const ogabasseyProduct = toOgabasseyProduct(product);
 
-    if (renderMode === 'commerce') {
-      return <OgabasseyPdpCommerceIsland product={ogabasseyProduct} />;
-    }
-
     if (renderMode === 'belowFold') {
       return (
         <OgabasseyPdpBelowFoldIsland
@@ -290,7 +289,7 @@ async function renderTemplateProductPage({
     return (
       <>
         <OgabasseyPdpStaticResourceHints />
-        <OgabasseyProductPage
+        <OgabasseyPdpBelowFoldIsland
           product={ogabasseyProduct}
           semanticSections={semanticSections}
         />
@@ -319,6 +318,10 @@ interface PageProps {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
+function getCategoryProductBasePath(slug: string): '' | `/${string}` {
+  return isDomainIdentifier(slug) ? '' : `/${slug}`;
+}
+
 function getRedirectTargetPath(
   storeSlug: string,
   product: {
@@ -331,12 +334,7 @@ function getRedirectTargetPath(
   }
 ) {
   const productPath = getProductUrl(product);
-
-  if (process.env.NODE_ENV === 'development') {
-    return `/${storeSlug}${productPath}` as `/${string}`;
-  }
-
-  return productPath as `/${string}`;
+  return `${getCategoryProductBasePath(storeSlug)}${productPath}` as `/${string}`;
 }
 
 function redirectInvalidVariantSelectionParams(
@@ -798,6 +796,11 @@ interface CategoryProductPageContentProps {
   productResultPromise: Promise<CategoryProductResult>;
 }
 
+type CategoryProductPageCriticalCommerceControlsProps =
+  CategoryProductPageContentProps & {
+    basePath: '' | `/${string}`;
+  };
+
 async function getRenderableCategoryProductResult({
   slug,
   searchParams,
@@ -828,23 +831,54 @@ async function getRenderableCategoryProductResult({
   return { merchant, product };
 }
 
-async function CategoryProductPageCommerceControls({
+async function CategoryProductPageCriticalCommerceControls({
+  basePath,
   slug,
   searchParams,
   productResultPromise,
-}: Omit<CategoryProductPageContentProps, 'renderMode'>) {
-  const { merchant, product } = await getRenderableCategoryProductResult({
+}: Omit<CategoryProductPageCriticalCommerceControlsProps, 'renderMode'>) {
+  const { product } = await getRenderableCategoryProductResult({
     slug,
     searchParams,
     productResultPromise,
   });
+  const criticalProduct = buildOgabasseyPdpCriticalProduct(product);
+  const cartHref = `${basePath}/cart` as Route;
 
-  return renderTemplateProductPage({
-    product,
-    renderMode: 'commerce',
-    semanticSections: null,
-    templateId: merchant?.template_id,
-  });
+  return (
+    <OgabasseyPdpCriticalCommerce
+      cartHref={cartHref}
+      cartProduct={createCriticalCartProduct(product)}
+      product={{
+        ...criticalProduct,
+        variantCount: product.variants?.length ?? 0,
+      }}
+    />
+  );
+}
+
+async function getRequestScopedCategoryProductBasePath(
+  slug: string
+): Promise<'' | `/${string}`> {
+  const shellSnapshotBase = await getStorefrontShellSnapshotBase(slug);
+
+  if (!shellSnapshotBase) {
+    return getCategoryProductBasePath(slug);
+  }
+
+  const { basePath } = shellSnapshotBase;
+
+  if (typeof basePath !== 'string') {
+    return getCategoryProductBasePath(slug);
+  }
+
+  if (basePath === '') {
+    return '';
+  }
+
+  return basePath.startsWith('/')
+    ? (basePath as `/${string}`)
+    : getCategoryProductBasePath(slug);
 }
 
 async function CategoryProductPageContent({
@@ -1033,6 +1067,9 @@ export default async function CategoryProductPage({
     merchant.template_id === OGABASSEY_TEMPLATE_ID
       ? buildOgabasseyPdpCriticalProduct(product)
       : null;
+  const criticalBasePathPromise = criticalProduct
+    ? getRequestScopedCategoryProductBasePath(slug)
+    : Promise.resolve<'' | `/${string}`>('');
 
   try {
     if (primaryProductImage) {
@@ -1050,6 +1087,7 @@ export default async function CategoryProductPage({
     merchant?.template_id === OGABASSEY_TEMPLATE_ID && primaryProductImage ? (
       <OgabasseyPdpProductResourceHints src={primaryProductImage} />
     ) : null;
+  const criticalBasePath = await criticalBasePathPromise;
 
   return (
     <>
@@ -1058,11 +1096,12 @@ export default async function CategoryProductPage({
         <>
           <OgabasseyPdpStaticResourceHints />
           <OgabasseyPdpCriticalShell
-            basePath={process.env.NODE_ENV === 'development' ? `/${slug}` : ''}
+            basePath={criticalBasePath}
             product={criticalProduct}
           >
             <Suspense fallback={null}>
-              <CategoryProductPageCommerceControls
+              <CategoryProductPageCriticalCommerceControls
+                basePath={criticalBasePath}
                 slug={slug}
                 searchParams={Promise.resolve(resolvedSearchParams)}
                 productResultPromise={productResultPromise}

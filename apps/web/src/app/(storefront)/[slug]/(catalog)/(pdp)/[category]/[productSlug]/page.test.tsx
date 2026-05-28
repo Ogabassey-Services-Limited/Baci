@@ -18,7 +18,10 @@ const {
   mockOgabasseyPdpProductResourceHints,
   mockOgabasseyPdpSemanticSections,
   mockOgabasseyPdpStaticResourceHints,
+  mockOgabasseyPdpCriticalCommerce,
+  mockOgabasseyPdpDeferredDetailIsland,
   mockOgabasseyProductDetailsPage,
+  mockGetStorefrontShellSnapshotBase,
   mockPreloadOgabasseyPdpProductImage,
   mockProductDetailClient,
 } = vi.hoisted(() => ({
@@ -30,7 +33,11 @@ const {
   >(() => null),
   mockOgabasseyPdpSemanticSections: vi.fn<(props: unknown) => void>(),
   mockOgabasseyPdpStaticResourceHints: vi.fn<() => void>(),
+  mockOgabasseyPdpCriticalCommerce: vi.fn<(props: unknown) => void>(),
+  mockOgabasseyPdpDeferredDetailIsland: vi.fn<(props: unknown) => void>(),
   mockOgabasseyProductDetailsPage: vi.fn<(props: unknown) => void>(),
+  mockGetStorefrontShellSnapshotBase:
+    vi.fn<(...args: unknown[]) => Promise<unknown>>(),
   mockPreloadOgabasseyPdpProductImage:
     vi.fn<(props: { src: string | null | undefined }) => void>(),
   mockProductDetailClient: vi.fn<(props: unknown) => null>(() => null),
@@ -134,6 +141,11 @@ vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
     },
 }));
 
+vi.mock('@/app/(storefront)/[slug]/storefront-shell-snapshot', () => ({
+  getStorefrontShellSnapshotBase: (...args: unknown[]) =>
+    mockGetStorefrontShellSnapshotBase(...args),
+}));
+
 vi.mock('@/components/storefront/ogabassey/pages/product-details-page', () => ({
   ProductDetailsPage: (props: {
     mode?: 'full' | 'commerce' | 'belowFold';
@@ -196,6 +208,29 @@ vi.mock('./ogabassey-pdp-semantic-sections', () => ({
   OgabasseyPdpSemanticSections: (props: unknown) => {
     mockOgabasseyPdpSemanticSections(props);
     return <section data-testid="ogabassey-pdp-semantic-sections" />;
+  },
+}));
+
+vi.mock('@/components/storefront/ogabassey/pdp/critical-commerce', () => ({
+  OgabasseyPdpCriticalCommerce: (props: unknown) => {
+    mockOgabasseyPdpCriticalCommerce(props);
+    return (
+      <aside aria-label="Purchase options">
+        <button type="button">Mock Add to Cart</button>
+      </aside>
+    );
+  },
+}));
+
+vi.mock('@/components/storefront/ogabassey/pdp/client-islands', () => ({
+  OgabasseyPdpBelowFoldIsland: (props: {
+    product: unknown;
+    semanticSections?: ReactNode;
+  }) => {
+    mockOgabasseyPdpDeferredDetailIsland(props);
+    return (
+      <section aria-label="Product details">{props.semanticSections}</section>
+    );
   },
 }));
 
@@ -603,6 +638,8 @@ describe('[category]/[productSlug] page metadata', () => {
     vi.clearAllMocks();
     mockGetEffectiveStock.mockReset();
     mockGetEffectiveStock.mockReturnValue(0);
+    mockOgabasseyPdpCriticalCommerce.mockReset();
+    mockOgabasseyPdpDeferredDetailIsland.mockReset();
     mockOgabasseyProductDetailsPage.mockReset();
     mockProductDetailClient.mockReset();
     mockProductDetailClient.mockReturnValue(null);
@@ -908,6 +945,15 @@ describe('[category]/[productSlug] page render', () => {
     mockHeaders.mockResolvedValue(new Headers());
     mockNormalizeStorefrontProductVariants.mockReset();
     mockNormalizeStorefrontProductVariants.mockReturnValue([]);
+    mockGetStorefrontShellSnapshotBase.mockReset();
+    mockGetStorefrontShellSnapshotBase.mockResolvedValue({
+      merchant: {
+        ...baseMerchant,
+        template_id: OGABASSEY_TEMPLATE_ID,
+      },
+      routingMode: 'path',
+      basePath: '/teststore',
+    });
     mockGetRequestScopedMerchant.mockResolvedValue({
       ...baseMerchant,
       template_id: OGABASSEY_TEMPLATE_ID,
@@ -929,6 +975,8 @@ describe('[category]/[productSlug] page render', () => {
     mockOgabasseyPdpProductResourceHints.mockReturnValue(null);
     mockOgabasseyPdpSemanticSections.mockReset();
     mockOgabasseyPdpStaticResourceHints.mockReset();
+    mockOgabasseyPdpCriticalCommerce.mockReset();
+    mockOgabasseyPdpDeferredDetailIsland.mockReset();
     mockOgabasseyProductDetailsPage.mockReset();
     mockBuildProductSemanticModel.mockReturnValue({
       trustBullets: [],
@@ -1031,7 +1079,7 @@ describe('[category]/[productSlug] page render', () => {
     ).toBeInTheDocument();
   });
 
-  it('splits OgaBassey client work into commerce and below-fold islands', async () => {
+  it('splits OgaBassey client work into critical commerce and deferred detail islands', async () => {
     const { container } = render(
       await resolveRsc(
         await CategoryProductPage({
@@ -1045,30 +1093,106 @@ describe('[category]/[productSlug] page render', () => {
       )
     );
 
-    expect(mockOgabasseyProductDetailsPage).toHaveBeenCalledWith(
+    expect(mockOgabasseyPdpCriticalCommerce).toHaveBeenCalledWith(
       expect.objectContaining({
-        mode: 'commerce',
+        cartHref: '/teststore/cart',
+        cartProduct: expect.objectContaining({
+          name: 'HP Laptop 14-ep0063nia',
+        }),
         product: expect.objectContaining({
           name: 'HP Laptop 14-ep0063nia',
         }),
       })
     );
-    expect(mockOgabasseyProductDetailsPage).toHaveBeenCalledWith(
+    expect(mockOgabasseyPdpDeferredDetailIsland).toHaveBeenCalledWith(
       expect.objectContaining({
-        mode: 'belowFold',
         product: expect.objectContaining({
           name: 'HP Laptop 14-ep0063nia',
         }),
         semanticSections: expect.anything(),
       })
     );
-    expect(screen.getByTestId('ogabassey-commerce-island')).toBeInTheDocument();
     expect(
-      screen.getByTestId('ogabassey-below-fold-island')
+      screen.getByRole('complementary', { name: /purchase options/i })
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole('region', { name: /product details/i })
+    ).toBeInTheDocument();
+    expect(mockOgabasseyProductDetailsPage).not.toHaveBeenCalled();
     expect(
       container.querySelectorAll('img[alt="HP Laptop 14-ep0063nia"]')
     ).toHaveLength(1);
+  });
+
+  it('keeps critical PDP links root-relative for domain-routed storefront requests', async () => {
+    mockGetStorefrontShellSnapshotBase.mockResolvedValueOnce({
+      merchant: {
+        ...baseMerchant,
+        template_id: OGABASSEY_TEMPLATE_ID,
+      },
+      routingMode: 'domain',
+      basePath: '',
+    });
+
+    render(
+      await resolveRsc(
+        await CategoryProductPage({
+          params: Promise.resolve({
+            slug: 'teststore',
+            category: 'laptops',
+            productSlug: 'hp-laptop-14-ep0063nia',
+          }),
+          searchParams: Promise.resolve({}),
+        })
+      )
+    );
+
+    expect(mockGetStorefrontShellSnapshotBase).toHaveBeenCalledWith(
+      'teststore'
+    );
+    expect(mockOgabasseyPdpCriticalCommerce).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cartHref: '/cart',
+      })
+    );
+    expect(screen.getByRole('link', { name: 'Home' })).toHaveAttribute(
+      'href',
+      '/'
+    );
+    expect(screen.getByRole('link', { name: 'Laptops' })).toHaveAttribute(
+      'href',
+      '/laptops'
+    );
+  });
+
+  it('falls back to the slug base path when the shell snapshot base path is malformed', async () => {
+    mockGetStorefrontShellSnapshotBase.mockResolvedValueOnce({
+      merchant: {
+        ...baseMerchant,
+        template_id: OGABASSEY_TEMPLATE_ID,
+      },
+      routingMode: 'path',
+      basePath: 'teststore',
+    });
+
+    render(
+      await resolveRsc(
+        await CategoryProductPage({
+          params: Promise.resolve({
+            slug: 'teststore',
+            category: 'laptops',
+            productSlug: 'hp-laptop-14-ep0063nia',
+          }),
+          searchParams: Promise.resolve({}),
+        })
+      )
+    );
+
+    expect(mockOgabasseyPdpCriticalCommerce).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cartHref: '/teststore/cart',
+      })
+    );
   });
 
   it('keeps JSON-LD and hidden summary outside the critical commerce slot', async () => {
@@ -1324,7 +1448,7 @@ describe('[category]/[productSlug] page render', () => {
     render(await resolveRsc(resolvedPage));
 
     expect(mockPreloadOgabasseyPdpProductImage).toHaveBeenCalledTimes(1);
-    expect(mockOgabasseyProductDetailsPage).toHaveBeenCalled();
+    expect(mockOgabasseyPdpDeferredDetailIsland).toHaveBeenCalled();
   });
 
   it('preloads the OgaBassey PDP product image without awaiting tracking-only query routes', async () => {
@@ -1490,7 +1614,7 @@ describe('[category]/[productSlug] page render', () => {
 
     expect(mockPreloadOgabasseyPdpProductImage).not.toHaveBeenCalled();
     expect(mockOgabasseyPdpProductResourceHints).not.toHaveBeenCalled();
-    expect(mockOgabasseyProductDetailsPage).toHaveBeenCalled();
+    expect(mockOgabasseyPdpDeferredDetailIsland).toHaveBeenCalled();
   });
 
   it('renders the OgaBassey product shell before supplemental PDP data resolves', async () => {
@@ -1538,7 +1662,7 @@ describe('[category]/[productSlug] page render', () => {
     expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
       src: productImage,
     });
-    expect(mockOgabasseyProductDetailsPage).toHaveBeenCalledWith(
+    expect(mockOgabasseyPdpDeferredDetailIsland).toHaveBeenCalledWith(
       expect.objectContaining({
         product: expect.objectContaining({
           image: productImage,
@@ -1637,7 +1761,7 @@ describe('[category]/[productSlug] page render', () => {
       )
     );
 
-    const ogabasseyProps = mockOgabasseyProductDetailsPage.mock.calls
+    const ogabasseyProps = mockOgabasseyPdpDeferredDetailIsland.mock.calls
       .at(-1)
       ?.at(0) as
       | {
@@ -1722,7 +1846,7 @@ describe('[category]/[productSlug] page render', () => {
       )
     );
 
-    const ogabasseyProps = mockOgabasseyProductDetailsPage.mock.calls
+    const ogabasseyProps = mockOgabasseyPdpDeferredDetailIsland.mock.calls
       .at(-1)
       ?.at(0) as
       | {
