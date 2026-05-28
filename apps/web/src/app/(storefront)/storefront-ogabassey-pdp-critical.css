@@ -1,0 +1,13 @@
+@import "tailwindcss" source(none);
+
+@config "../../../tailwind.storefront.scoped.config.ts";
+
+@source "./[slug]/(catalog)/(pdp)/[category]/[productSlug]/page.tsx";
+@source "./[slug]/(catalog)/(pdp)/[category]/[productSlug]/loading.tsx";
+@source "./[slug]/(catalog)/(pdp)/[category]/[productSlug]/ogabassey-pdp-semantic-sections.tsx";
+@source "../../components/storefront/ogabassey/seo/product-semantic-sections.tsx";
+@source "../../components/storefront/ogabassey/seo/category-hub-card-grid.tsx";
+@source "../../components/storefront/ogabassey/seo/commercial-support-links.tsx";
+@source "../../components/storefront/ogabassey/storefront-loading-ui.tsx";
+@source "../../components/ui/skeleton.tsx";
+@source "../../components/ui/skeletons.tsx";

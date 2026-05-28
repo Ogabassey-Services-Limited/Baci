@@ -1,5 +1,6 @@
+import '@/app/(storefront)/storefront-ogabassey-pdp-critical.css';
 import { resolveVariantSelectionParamResolution } from '@baci/shared/lib';
-import type { Metadata } from 'next';
+import type { Metadata, Route } from 'next';
 import { headers } from 'next/headers';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { type ReactNode, Suspense } from 'react';
@@ -10,11 +11,9 @@ import {
   preloadOgabasseyPdpProductImage,
 } from '@/app/(storefront)/ogabassey/ogabassey-pdp-product-resource-hints';
 import { OgabasseyPdpStaticResourceHints } from '@/app/(storefront)/ogabassey/ogabassey-pdp-static-resource-hints';
-import { ProductDetailsPage as OgabasseyProductPage } from '@/components/storefront/ogabassey/pages/product-details-page';
-import {
-  OgabasseyPdpBelowFoldIsland,
-  OgabasseyPdpCommerceIsland,
-} from '@/components/storefront/ogabassey/pdp/client-islands';
+import { OgabasseyPdpBelowFoldIsland } from '@/components/storefront/ogabassey/pdp/client-islands';
+import { createCriticalCartProduct } from '@/components/storefront/ogabassey/pdp/critical-cart-product';
+import { OgabasseyPdpCriticalCommerce } from '@/components/storefront/ogabassey/pdp/critical-commerce';
 import { buildOgabasseyPdpCriticalProduct } from '@/components/storefront/ogabassey/pdp/critical-product';
 import { OgabasseyPdpCriticalShell } from '@/components/storefront/ogabassey/pdp/critical-shell';
 import { buildOgabasseyProductSpecData } from '@/components/storefront/ogabassey/product-spec-data';
@@ -253,7 +252,7 @@ function buildTrustBulletsFromProfile(
   return bullets;
 }
 
-type TemplateProductRenderMode = 'full' | 'commerce' | 'belowFold';
+type TemplateProductRenderMode = 'full' | 'belowFold';
 
 /**
  * Template-aware product page component
@@ -274,10 +273,6 @@ async function renderTemplateProductPage({
   if (templateId === OGABASSEY_TEMPLATE_ID) {
     const ogabasseyProduct = toOgabasseyProduct(product);
 
-    if (renderMode === 'commerce') {
-      return <OgabasseyPdpCommerceIsland product={ogabasseyProduct} />;
-    }
-
     if (renderMode === 'belowFold') {
       return (
         <OgabasseyPdpBelowFoldIsland
@@ -290,7 +285,7 @@ async function renderTemplateProductPage({
     return (
       <>
         <OgabasseyPdpStaticResourceHints />
-        <OgabasseyProductPage
+        <OgabasseyPdpBelowFoldIsland
           product={ogabasseyProduct}
           semanticSections={semanticSections}
         />
@@ -828,23 +823,30 @@ async function getRenderableCategoryProductResult({
   return { merchant, product };
 }
 
-async function CategoryProductPageCommerceControls({
+async function CategoryProductPageCriticalCommerceControls({
   slug,
   searchParams,
   productResultPromise,
 }: Omit<CategoryProductPageContentProps, 'renderMode'>) {
-  const { merchant, product } = await getRenderableCategoryProductResult({
+  const { product } = await getRenderableCategoryProductResult({
     slug,
     searchParams,
     productResultPromise,
   });
+  const criticalProduct = buildOgabasseyPdpCriticalProduct(product);
+  const basePath = process.env.NODE_ENV === 'development' ? `/${slug}` : '';
+  const cartHref = `${basePath}/cart` as Route;
 
-  return renderTemplateProductPage({
-    product,
-    renderMode: 'commerce',
-    semanticSections: null,
-    templateId: merchant?.template_id,
-  });
+  return (
+    <OgabasseyPdpCriticalCommerce
+      cartHref={cartHref}
+      cartProduct={createCriticalCartProduct(product)}
+      product={{
+        ...criticalProduct,
+        variantCount: product.variants?.length ?? 0,
+      }}
+    />
+  );
 }
 
 async function CategoryProductPageContent({
@@ -1062,7 +1064,7 @@ export default async function CategoryProductPage({
             product={criticalProduct}
           >
             <Suspense fallback={null}>
-              <CategoryProductPageCommerceControls
+              <CategoryProductPageCriticalCommerceControls
                 slug={slug}
                 searchParams={Promise.resolve(resolvedSearchParams)}
                 productResultPromise={productResultPromise}

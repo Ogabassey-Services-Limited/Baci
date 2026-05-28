@@ -25,6 +25,7 @@ import {
   RELATED_BLOG_PRODUCT_LINKS_SELECT,
   RELATED_BLOG_PRODUCTS_SELECT,
 } from '@/lib/related-blog-products';
+import { normalizeOgabasseyBusinessType } from '@/lib/storefront/ogabassey-entity';
 import { STOREFRONT_BLOG_POST_SELECT } from '@/lib/storefront-blog-post-select';
 import {
   isDomainIdentifier,
@@ -289,6 +290,19 @@ export interface CachedMerchant {
   updated_at?: string;
 }
 
+function normalizeCachedMerchantEntity<
+  T extends {
+    business_type?: string | null;
+    custom_domain?: string | null;
+    slug?: string | null;
+  },
+>(merchant: T): Omit<T, 'business_type'> & { business_type: string } {
+  return {
+    ...merchant,
+    business_type: normalizeOgabasseyBusinessType(merchant),
+  };
+}
+
 /**
  * Cached merchant data by slug
  * Uses 'merchant' cacheLife profile (stale 5min, revalidate 60s, expire 1hr)
@@ -406,11 +420,13 @@ export async function getCachedMerchant(
 
     if (primaryDomain) {
       const result: CachedMerchant = {
-        ...data,
+        ...normalizeCachedMerchantEntity({
+          ...data,
+          custom_domain: primaryDomain.domain,
+        }),
         feature_settings: data.feature_settings as unknown as
           | MerchantFeatureSettings
           | undefined,
-        custom_domain: primaryDomain.domain,
       };
       return result;
     }
@@ -418,7 +434,7 @@ export async function getCachedMerchant(
 
   if (data) {
     const result: CachedMerchant = {
-      ...data,
+      ...normalizeCachedMerchantEntity(data),
       feature_settings: data.feature_settings as unknown as
         | MerchantFeatureSettings
         | undefined,
@@ -564,9 +580,11 @@ export async function getCachedMerchantByDomain(
 
   // Return with the custom_domain set
   const result: CachedMerchant = {
-    ...data,
+    ...normalizeCachedMerchantEntity({
+      ...data,
+      custom_domain: domainData.domain,
+    }),
     feature_settings: normalizedSettings,
-    custom_domain: domainData.domain,
   };
   return result;
 }
@@ -742,7 +760,7 @@ export async function getCachedMerchantById(
     return null;
   }
 
-  return data;
+  return normalizeCachedMerchantEntity(data);
 }
 
 /**

@@ -2,27 +2,19 @@ import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import type { Product } from '@/components/storefront/ogabassey/types';
-import {
-  OgabasseyPdpBelowFoldIsland,
-  OgabasseyPdpCommerceIsland,
-} from './client-islands';
+import { OgabasseyPdpBelowFoldIsland } from './client-islands';
 
-const { mockProductDetailsPage } = vi.hoisted(() => ({
-  mockProductDetailsPage: vi.fn(),
+const { mockDeferredDetailIsland } = vi.hoisted(() => ({
+  mockDeferredDetailIsland: vi.fn(),
 }));
 
-vi.mock('@/components/storefront/ogabassey/pages/product-details-page', () => ({
-  ProductDetailsPage: (props: {
-    mode?: string;
+vi.mock('./deferred-detail-island', () => ({
+  OgabasseyPdpDeferredDetailIsland: (props: {
     product: { name: string };
     semanticSections?: ReactNode;
   }) => {
-    mockProductDetailsPage(props);
-    if (props.mode === 'commerce') {
-      return <button type="button">Add to Cart</button>;
-    }
-
-    return <section>{props.semanticSections}</section>;
+    mockDeferredDetailIsland(props);
+    return <section aria-label="Product details">{props.semanticSections}</section>;
   },
 }));
 
@@ -36,22 +28,7 @@ const product = {
 } as unknown as Product;
 
 describe('OgaBassey PDP client islands', () => {
-  it('renders commerce controls without duplicating product heading or image', () => {
-    const { container } = render(
-      <OgabasseyPdpCommerceIsland product={product} />
-    );
-
-    expect(mockProductDetailsPage).toHaveBeenCalledWith(
-      expect.objectContaining({ mode: 'commerce', product })
-    );
-    expect(
-      screen.getByRole('button', { name: 'Add to Cart' })
-    ).toBeInTheDocument();
-    expect(container.querySelector('h1')).toBeNull();
-    expect(container.querySelector('img')).toBeNull();
-  });
-
-  it('renders below-fold document content in belowFold mode', () => {
+  it('renders below-fold semantic content through the deferred detail island', () => {
     render(
       <OgabasseyPdpBelowFoldIsland
         product={product}
@@ -59,9 +36,8 @@ describe('OgaBassey PDP client islands', () => {
       />
     );
 
-    expect(mockProductDetailsPage).toHaveBeenCalledWith(
+    expect(mockDeferredDetailIsland).toHaveBeenCalledWith(
       expect.objectContaining({
-        mode: 'belowFold',
         product,
         semanticSections: expect.anything(),
       })

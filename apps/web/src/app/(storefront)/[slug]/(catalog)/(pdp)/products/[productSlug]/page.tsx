@@ -1,3 +1,4 @@
+import '@/app/(storefront)/storefront-pdp.css';
 import { resolveVariantSelectionParamResolution } from '@baci/shared/lib';
 import type { Metadata, ResolvingMetadata } from 'next';
 import { headers } from 'next/headers';
