@@ -1,5 +1,4 @@
 import { notFound } from 'next/navigation';
-import { connection } from 'next/server';
 import { TrustPolicyPageClient } from '@/components/storefront/trust/trust-policy-page-client';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import { getContactHref, getTrustRouteContext } from '../trust-route-context';
@@ -9,8 +8,6 @@ interface PageProps {
 }
 
 export async function ReturnsPageContent({ params }: PageProps) {
-  await connection();
-
   const { slug } = await params;
   const context = await getTrustRouteContext(slug, { requestScopedUrl: true });
 

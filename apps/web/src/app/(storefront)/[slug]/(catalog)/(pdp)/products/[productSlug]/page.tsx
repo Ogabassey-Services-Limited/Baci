@@ -3,8 +3,7 @@ import { resolveVariantSelectionParamResolution } from '@baci/shared/lib';
 import type { Metadata, ResolvingMetadata } from 'next';
 import { headers } from 'next/headers';
 import { notFound, permanentRedirect, redirect } from 'next/navigation';
-import { connection } from 'next/server';
-import { Suspense } from 'react';
+import { StorefrontDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker';
 import { ProductSemanticSections } from '@/components/storefront/ogabassey/seo/product-semantic-sections';
 import {
   getCachedCategoryPageData,
@@ -34,7 +33,6 @@ import {
 import { buildRequestScopedStoreUrl, buildStoreUrl } from '@/lib/store-url';
 import { getPublishedClusterPosts } from '@/lib/storefront-content/get-published-cluster-posts';
 import { buildProductSemanticModel } from '@/lib/storefront-product/build-product-semantic-model';
-import type { ProductSemanticModel } from '@/lib/storefront-product/product-semantic-types';
 import { buildProductPriceSeoCopy } from '@/lib/storefront-product-price-seo';
 import { getStorefrontProductSocialMetadata } from '@/lib/storefront-product-social-metadata';
 import {
@@ -64,16 +62,6 @@ type ResolvedMerchant = NonNullable<
 interface ProductLookupResult {
   merchant: ResolvedMerchant;
   product: Product | null;
-}
-
-async function RuntimeProductSemanticSections({
-  model,
-}: {
-  model: ProductSemanticModel;
-}) {
-  await connection();
-
-  return <ProductSemanticSections model={model} />;
 }
 
 interface SemanticInventoryCandidateProduct {
@@ -575,9 +563,8 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
         />
       )}
       <ProductDetailClient product={product} faqs={productFaqs} />
-      <Suspense fallback={null}>
-        <RuntimeProductSemanticSections model={semanticSectionsModel} />
-      </Suspense>
+      <ProductSemanticSections model={semanticSectionsModel} />
+      <StorefrontDynamicMetadataMarker />
     </>
   );
 }

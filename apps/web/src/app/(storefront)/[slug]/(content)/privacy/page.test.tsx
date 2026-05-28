@@ -2,18 +2,12 @@ import { headers } from 'next/headers';
 import { describe, expect, it, vi } from 'vitest';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 
-const mockConnection = vi.hoisted(() => vi.fn());
-
 vi.mock('@/lib/cached-data', () => ({
   getMerchantByIdentifier: vi.fn(),
 }));
 
 vi.mock('next/headers', () => ({
   headers: vi.fn(),
-}));
-
-vi.mock('next/server', () => ({
-  connection: () => mockConnection(),
 }));
 
 vi.mock('@/lib/sanitize-json-ld', () => ({
