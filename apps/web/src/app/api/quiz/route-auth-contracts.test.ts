@@ -12,6 +12,12 @@ vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(),
 }));
 
+vi.mock('@/lib/logger', () => ({
+  logger: {
+    error: vi.fn(),
+  },
+}));
+
 const USER_ID = 'user-1';
 
 describe('quiz route mobile auth contract', () => {
@@ -58,5 +64,50 @@ describe('quiz route mobile auth contract', () => {
     expect(result.supabase).toBeNull();
     expect(authenticateApiRequest).toHaveBeenCalledWith(request);
     expect(createClient).not.toHaveBeenCalled();
+  });
+
+  it('returns 401 for cookie requests with no Supabase auth session', async () => {
+    const getUser = vi.fn().mockResolvedValue({
+      data: { user: null },
+      error: { message: 'Auth session missing!', status: 400 },
+    });
+    vi.mocked(createClient).mockResolvedValue({
+      auth: { getUser },
+    } as unknown as Awaited<ReturnType<typeof createClient>>);
+
+    const result = await requireQuizUser(
+      new NextRequest('http://localhost/api/quiz/events')
+    );
+    const body = await result.response?.json();
+
+    expect(result.response?.status).toBe(401);
+    expect(body).toEqual({ error: 'Unauthorized' });
+    expect(result.user).toBeNull();
+    expect(result.supabase).toBeNull();
+    expect(getUser).toHaveBeenCalled();
+  });
+
+  it('returns 503 when Supabase auth lookup fails for a service reason', async () => {
+    const getUser = vi.fn().mockResolvedValue({
+      data: { user: null },
+      error: { message: 'Supabase is unavailable', status: 503 },
+    });
+    vi.mocked(createClient).mockResolvedValue({
+      auth: { getUser },
+    } as unknown as Awaited<ReturnType<typeof createClient>>);
+
+    const result = await requireQuizUser(
+      new NextRequest('http://localhost/api/quiz/events')
+    );
+    const body = await result.response?.json();
+
+    expect(result.response?.status).toBe(503);
+    expect(body).toEqual({
+      code: 'auth_unavailable',
+      error: 'Authentication lookup failed',
+    });
+    expect(result.user).toBeNull();
+    expect(result.supabase).toBeNull();
+    expect(getUser).toHaveBeenCalled();
   });
 });

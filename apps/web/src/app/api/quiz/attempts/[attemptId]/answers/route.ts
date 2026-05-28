@@ -10,6 +10,10 @@ import {
 } from '@/app/api/quiz/_shared/route-helpers';
 import { logger } from '@/lib/logger';
 import {
+  createQuizVoucherToken,
+  QuizVoucherTokenConfigError,
+} from '@/lib/quiz-voucher-token';
+import {
   quizAttemptParamsSchema,
   submitQuizAnswerSchema,
 } from '@/schemas/quiz';
@@ -22,6 +26,13 @@ type SubmittedAttemptResult = {
   totalQuestions: number;
 };
 
+type RawPrizeClaim = {
+  awardId: string;
+  condition: 'new' | 'used' | 'open_box' | 'refurbished' | null;
+  productId: string;
+  variantId: string | null;
+};
+
 function getRpcErrorCode(error: unknown): string | null {
   if (!error || typeof error !== 'object' || !('code' in error)) return null;
   const code = (error as { code?: unknown }).code;
@@ -31,6 +42,74 @@ function getRpcErrorCode(error: unknown): string | null {
 function isReplayStateError(error: unknown) {
   const code = getRpcErrorCode(error);
   return code === 'QZ004' || code === 'QZ026';
+}
+
+function getRawPrizeClaim(data: unknown): RawPrizeClaim | null {
+  if (!data || typeof data !== 'object') return null;
+  const claim = (data as { prizeClaim?: unknown }).prizeClaim;
+  if (!claim || typeof claim !== 'object') return null;
+
+  const {
+    awardId,
+    condition = null,
+    productId,
+    variantId = null,
+  } = claim as Partial<RawPrizeClaim>;
+  if (typeof awardId !== 'string' || typeof productId !== 'string') {
+    return null;
+  }
+
+  return {
+    awardId,
+    condition:
+      condition === 'new' ||
+      condition === 'used' ||
+      condition === 'open_box' ||
+      condition === 'refurbished'
+        ? condition
+        : null,
+    productId,
+    variantId: typeof variantId === 'string' ? variantId : null,
+  };
+}
+
+function addSignedPrizeClaim(data: unknown, userId: string): unknown {
+  const prizeClaim = getRawPrizeClaim(data);
+  if (!prizeClaim || !data || typeof data !== 'object') return data;
+
+  const expiresAt = new Date(
+    Date.now() + 7 * 24 * 60 * 60 * 1000
+  ).toISOString();
+  const voucherToken = createQuizVoucherToken({
+    payload: {
+      awardId: prizeClaim.awardId,
+      condition: prizeClaim.condition,
+      expiresAt,
+      productId: prizeClaim.productId,
+      userId,
+      variantId: prizeClaim.variantId,
+    },
+  });
+  const searchParams = new URLSearchParams({
+    item_id: prizeClaim.productId,
+    quiz_award_id: prizeClaim.awardId,
+    quiz_voucher_token: voucherToken,
+  });
+  if (prizeClaim.variantId) {
+    searchParams.set('variant_id', prizeClaim.variantId);
+  }
+  if (prizeClaim.condition) {
+    searchParams.set('condition', prizeClaim.condition);
+  }
+
+  return {
+    ...(data as Record<string, unknown>),
+    prizeClaim: {
+      ...prizeClaim,
+      cartPath: `/ogabassey/cart?${searchParams.toString()}`,
+      voucherToken,
+    },
+  };
 }
 
 function getQuestionRows(row: unknown): unknown[] {
@@ -190,5 +269,18 @@ export async function POST(
     return rpcErrorResponse();
   }
 
-  return NextResponse.json(data);
+  try {
+    return NextResponse.json(addSignedPrizeClaim(data, auth.user.id));
+  } catch (error) {
+    if (error instanceof QuizVoucherTokenConfigError) {
+      return NextResponse.json(
+        {
+          code: 'QUIZ_VOUCHER_TOKEN_CONFIG_MISSING',
+          error: 'Quiz voucher signing is not configured',
+        },
+        { status: 500 }
+      );
+    }
+    throw error;
+  }
 }

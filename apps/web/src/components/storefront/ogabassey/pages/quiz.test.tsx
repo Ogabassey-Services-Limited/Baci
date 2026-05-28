@@ -34,12 +34,21 @@ vi.mock('next/link', () => ({
   ),
 }));
 
+const PRIZE_PRODUCT_ID = '55555555-5555-4555-8555-555555555555';
+const PRIZE_AWARD_ID = '44444444-4444-4444-8444-444444444444';
+
 const eventResponse = {
   events: [
     {
       endsAt: null,
       id: 'event-1',
-      prizeName: 'Store credit',
+      prizeName: 'iPhone 15 Pro Max',
+      prizeProduct: {
+        id: PRIZE_PRODUCT_ID,
+        imageUrl: 'https://cdn.example.com/iphone-15-pro-max.png',
+        name: 'iPhone 15 Pro Max',
+        variantId: null,
+      },
       questionCount: 1,
       startsAt: '2026-05-26T10:00:00.000Z',
       status: 'open',
@@ -144,5 +153,43 @@ describe('OgabasseyV2Quiz', () => {
       );
     });
     expect(await screen.findByText('1 of 1')).toBeInTheDocument();
+  });
+
+  it('links eligible prize winners to add the device gift to cart', async () => {
+    vi.mocked(apiGet).mockResolvedValue(eventResponse);
+    vi.mocked(apiPost)
+      .mockResolvedValueOnce(attemptResponse)
+      .mockResolvedValueOnce({
+        attemptId: 'attempt-1',
+        correctAnswers: 1,
+        prizeClaim: {
+          awardId: PRIZE_AWARD_ID,
+          cartPath:
+            `/ogabassey/cart?item_id=${PRIZE_PRODUCT_ID}&quiz_award_id=${PRIZE_AWARD_ID}&quiz_voucher_token=signed-token`,
+          condition: null,
+          productId: PRIZE_PRODUCT_ID,
+          variantId: null,
+          voucherToken: 'signed-token',
+        },
+        prizeEligible: true,
+        status: 'completed',
+        totalQuestions: 1,
+      });
+
+    render(<OgabasseyV2Quiz merchantSlug="ogabassey" />);
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Start exam for Daily Quiz' })
+    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Answer A' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Submit answer' }));
+
+    expect(await screen.findByText('Prize entry recorded.')).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: /add gift to cart/i })
+    ).toHaveAttribute(
+      'href',
+      `/ogabassey/cart?item_id=${PRIZE_PRODUCT_ID}&quiz_award_id=${PRIZE_AWARD_ID}&quiz_voucher_token=signed-token`
+    );
   });
 });
