@@ -66,6 +66,7 @@ export function NavbarSecondaryNav({
 }: NavbarSecondaryNavProps) {
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const categoryRef = useRef<HTMLDivElement>(null);
+  const dropdownId = 'ogabassey-navbar-secondary__dropdown';
 
   useEffect(() => {
     if (!showCategoryDropdown) {
@@ -101,6 +102,8 @@ export function NavbarSecondaryNav({
               onClick={() => setShowCategoryDropdown((current) => !current)}
               className="ogabassey-navbar-secondary__button"
               data-open={showCategoryDropdown ? 'true' : undefined}
+              aria-controls={dropdownId}
+              aria-expanded={showCategoryDropdown}
             >
               <LayoutGrid size={18} aria-hidden="true" />
               Shop by Category
@@ -113,7 +116,12 @@ export function NavbarSecondaryNav({
             </button>
 
             {showCategoryDropdown && (
-              <div className="ogabassey-navbar-secondary__dropdown">
+              <div
+                className="ogabassey-navbar-secondary__dropdown"
+                id={dropdownId}
+                role="region"
+                aria-label="Category navigation"
+              >
                 <div className="ogabassey-navbar-secondary__dropdown-caret" />
                 {categories.length > 0 ? (
                   categories.map((category) => {

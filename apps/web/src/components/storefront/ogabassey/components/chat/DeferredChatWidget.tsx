@@ -16,6 +16,13 @@ interface DeferredChatWidgetProps {
   loadChatWidget?: () => Promise<ChatWidgetModule>;
 }
 
+const CHAT_MOBILE_OFFSET_ATTRIBUTES = {
+  'data-mobile-offset-cart': '6.75rem',
+  'data-mobile-offset-default': '5.75rem',
+  'data-mobile-offset-product': '6.25rem',
+  'data-mobile-offset-screen': '1rem',
+} as const;
+
 function getMobileOffset(pathname: string | null) {
   const isProductPage =
     pathname?.match(/\/[^/]+\/[^/]+\/[^/]+/) &&
@@ -48,6 +55,12 @@ export function DeferredChatWidget({
   const isSanta = theme === 'santa';
   const footerOffset = getMobileOffset(pathname);
   const mobileOffset = isFooterVisible ? footerOffset : 'screen';
+  const anchorClasses = [
+    'ogabassey-chat-anchor',
+    isCartOpen && 'ogabassey-chat-anchor--hidden',
+  ]
+    .filter(Boolean)
+    .join(' ');
   const buttonClasses = [
     'ogabassey-chat-button',
     isSanta && 'ogabassey-chat-button--santa',
@@ -78,14 +91,11 @@ export function DeferredChatWidget({
     return <ChatRuntime openOnMount />;
   }
 
-  if (isCartOpen) {
-    return null;
-  }
-
   return (
     <div
-      className="ogabassey-chat-anchor"
+      className={anchorClasses}
       data-mobile-offset={mobileOffset}
+      {...CHAT_MOBILE_OFFSET_ATTRIBUTES}
     >
       <div className="relative group">
         <button

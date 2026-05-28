@@ -45,6 +45,19 @@ import { useV2Theme } from '../../providers/v2-theme-context';
 import { useCart } from '@/hooks/cart';
 import { ChatWidget } from './ChatWidget';
 
+function getChatAnchor(container: HTMLElement) {
+  const anchor = container.querySelector('.ogabassey-chat-anchor');
+  expect(anchor).not.toBeNull();
+  return anchor as HTMLElement;
+}
+
+function expectMobileOffsetContract(anchor: HTMLElement) {
+  expect(anchor).toHaveAttribute('data-mobile-offset-cart', '6.75rem');
+  expect(anchor).toHaveAttribute('data-mobile-offset-default', '5.75rem');
+  expect(anchor).toHaveAttribute('data-mobile-offset-product', '6.25rem');
+  expect(anchor).toHaveAttribute('data-mobile-offset-screen', '1rem');
+}
+
 describe('ChatWidget - toggle button', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -87,6 +100,14 @@ describe('ChatWidget - toggle button', () => {
   it('renders the AI badge on the toggle button', () => {
     render(<ChatWidget />);
     expect(screen.getByText('AI')).toBeDefined();
+  });
+
+  it('exposes the mobile offset contract on the widget anchor', () => {
+    const { container } = render(<ChatWidget />);
+    const anchor = getChatAnchor(container);
+
+    expect(anchor).toHaveAttribute('data-mobile-offset', 'default');
+    expectMobileOffsetContract(anchor);
   });
 
   it('does not render chat window when isOpen is false', () => {
@@ -140,18 +161,20 @@ describe('ChatWidget - toggle button', () => {
     expect(setIsOpen).toHaveBeenCalledWith(true);
   });
 
-  it('is hidden when cart is open', () => {
+  it('keeps the widget mounted but hidden when cart is open', () => {
     vi.mocked(useCart).mockReturnValue({
       isCartOpen: true,
       addToCart: vi.fn(),
       setIsCartOpen: vi.fn(),
     } as unknown as ReturnType<typeof useCart>);
 
-    render(<ChatWidget />);
+    const { container } = render(<ChatWidget />);
+    const anchor = getChatAnchor(container);
 
-    expect(
-      screen.queryByRole('button', { name: 'Toggle chat' })
-    ).not.toBeInTheDocument();
+    expect(anchor).toHaveClass('ogabassey-chat-anchor--hidden');
+    expect(anchor).toHaveAttribute('data-mobile-offset', 'default');
+    expectMobileOffsetContract(anchor);
+    expect(screen.getByRole('button', { name: 'Toggle chat' })).toBeInTheDocument();
   });
 });
 

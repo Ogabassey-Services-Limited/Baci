@@ -54,7 +54,6 @@
   }
 
   .sr-only {
-    clip: rect(0, 0, 0, 0);
     clip-path: inset(50%);
     border-width: 0;
     height: 1px;
@@ -88,6 +87,7 @@
       var(--ogabassey-surface-text) 64%,
       transparent
     );
+
     --ogabassey-border: var(
       --store-border,
       color-mix(in srgb, var(--ogabassey-surface-text) 12%, transparent)
@@ -1157,7 +1157,7 @@
 
   .ogabassey-mobile-footer__icon {
     border-radius: 0.75rem;
-    color: currentColor;
+    color: currentcolor;
     padding: 0.5rem;
     position: relative;
     transition:
@@ -1194,7 +1194,7 @@
   }
 
   .ogabassey-mobile-footer__label {
-    color: currentColor;
+    color: currentcolor;
     font-size: 0.625rem;
     font-weight: 650;
     line-height: 1;
@@ -1220,6 +1220,10 @@
     position: fixed;
     right: 1rem;
     z-index: 90;
+  }
+
+  .ogabassey-chat-anchor--hidden {
+    display: none;
   }
 
   .ogabassey-chat-anchor[data-mobile-offset="default"] {
