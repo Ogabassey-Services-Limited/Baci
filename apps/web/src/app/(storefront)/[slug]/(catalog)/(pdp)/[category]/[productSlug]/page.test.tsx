@@ -21,6 +21,7 @@ const {
   mockOgabasseyPdpCriticalCommerce,
   mockOgabasseyPdpDeferredDetailIsland,
   mockOgabasseyProductDetailsPage,
+  mockConnection,
   mockGetStorefrontShellSnapshotBase,
   mockPreloadOgabasseyPdpProductImage,
   mockProductDetailClient,
@@ -36,6 +37,7 @@ const {
   mockOgabasseyPdpCriticalCommerce: vi.fn<(props: unknown) => void>(),
   mockOgabasseyPdpDeferredDetailIsland: vi.fn<(props: unknown) => void>(),
   mockOgabasseyProductDetailsPage: vi.fn<(props: unknown) => void>(),
+  mockConnection: vi.fn<() => Promise<void>>(() => Promise.resolve()),
   mockGetStorefrontShellSnapshotBase:
     vi.fn<(...args: unknown[]) => Promise<unknown>>(),
   mockPreloadOgabasseyPdpProductImage:
@@ -74,6 +76,10 @@ vi.mock('next/navigation', () => ({
 
 vi.mock('next/headers', () => ({
   headers: () => mockHeaders(),
+}));
+
+vi.mock('next/server', () => ({
+  connection: () => mockConnection(),
 }));
 
 vi.mock('next/image', () => ({
@@ -132,13 +138,6 @@ vi.mock('next/link', () => ({
   default: ({ children, href }: { children: ReactNode; href: string }) => (
     <a href={href}>{children}</a>
   ),
-}));
-
-vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
-  StorefrontDynamicMetadataMarker:
-    function MockStorefrontDynamicMetadataMarker() {
-      return <div aria-label="dynamic metadata marker" role="status" />;
-    },
 }));
 
 vi.mock('@/app/(storefront)/[slug]/storefront-shell-snapshot', () => ({
@@ -988,7 +987,7 @@ describe('[category]/[productSlug] page render', () => {
     });
   });
 
-  it('keeps the request-time marker after the streamed product shell', async () => {
+  it('opts the request-time PDP out of resumable shell rendering', async () => {
     const ui = await resolveRsc(
       await CategoryProductPage({
         params: Promise.resolve({
@@ -1003,18 +1002,12 @@ describe('[category]/[productSlug] page render', () => {
     const criticalShell = container.querySelector(
       '[data-ogabassey-pdp-critical-shell]'
     );
-    const dynamicMarker = screen.getByRole('status', {
-      name: 'dynamic metadata marker',
-    });
 
     if (!criticalShell) {
       throw new Error('Expected the OgaBassey PDP critical shell to render');
     }
 
-    expect(
-      criticalShell.compareDocumentPosition(dynamicMarker) &
-        Node.DOCUMENT_POSITION_FOLLOWING
-    ).toBeTruthy();
+    expect(mockConnection).toHaveBeenCalledTimes(1);
     expect(
       screen.getByRole('heading', {
         level: 1,

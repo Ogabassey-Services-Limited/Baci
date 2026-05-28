@@ -2,13 +2,17 @@ import { render, screen } from '@testing-library/react';
 import { type ReactNode, Suspense } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockNormalizeStorefrontProductVariants, mockProductDetailClient } =
-  vi.hoisted(() => ({
-    mockNormalizeStorefrontProductVariants: vi.fn<
-      (...args: unknown[]) => Record<string, unknown>[]
-    >(() => []),
-    mockProductDetailClient: vi.fn(() => null),
-  }));
+const {
+  mockConnection,
+  mockNormalizeStorefrontProductVariants,
+  mockProductDetailClient,
+} = vi.hoisted(() => ({
+  mockConnection: vi.fn<() => Promise<void>>(() => Promise.resolve()),
+  mockNormalizeStorefrontProductVariants: vi.fn<
+    (...args: unknown[]) => Record<string, unknown>[]
+  >(() => []),
+  mockProductDetailClient: vi.fn(() => null),
+}));
 
 const mockHeaders = vi.fn();
 const mockPermanentRedirect = vi.fn((_url: string) => {
@@ -40,6 +44,10 @@ vi.mock('next/navigation', () => ({
   redirect: (url: string) => mockRedirect(url),
 }));
 
+vi.mock('next/server', () => ({
+  connection: () => mockConnection(),
+}));
+
 vi.mock('next/link', () => ({
   default: ({ children, href }: { children: ReactNode; href: string }) => (
     <a href={href}>{children}</a>
@@ -64,12 +72,6 @@ vi.mock('@/lib/cached-data', () => ({
     String(value ?? '')
       .replace(/[\r\n\t]/g, '')
       .substring(0, 100),
-}));
-
-vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
-  StorefrontDynamicMetadataMarker: () => (
-    <div aria-label="dynamic metadata marker" role="status" />
-  ),
 }));
 
 vi.mock('@/lib/storefront-product/build-product-semantic-model', () => ({
@@ -993,9 +995,7 @@ describe('products/[productSlug] page', () => {
         name: /Shop more Products/i,
       })
     ).toHaveAttribute('href', 'https://teststore.usebaci.com/products');
-    expect(
-      screen.getByRole('status', { name: /dynamic metadata marker/i })
-    ).toBeInTheDocument();
+    expect(mockConnection).toHaveBeenCalledTimes(1);
     expect(
       screen.getByRole('link', {
         name: /Compare with Samsung Galaxy Z TriFold/i,
