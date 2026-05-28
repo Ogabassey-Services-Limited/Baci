@@ -18,7 +18,7 @@ type WebhookPayload = {
   | {
       type: 'UPDATE';
       record: AuthUserRecord;
-      old_record: AuthUserRecord | null;
+      old_record: Partial<AuthUserRecord> | null;
     }
   | { type: 'DELETE'; record: null; old_record: AuthUserRecord }
 );
@@ -53,7 +53,7 @@ Deno.serve(async (req) => {
     }
 
     // Check if email_confirmed_at changed from null to something
-    const wasConfirmed = old_record.email_confirmed_at !== null;
+    const wasConfirmed = old_record ? old_record.email_confirmed_at !== null : true;
     const isConfirmed = record.email_confirmed_at !== null;
 
     if (wasConfirmed || !isConfirmed) {
