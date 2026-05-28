@@ -157,18 +157,28 @@ describe('PaymentSettingsPage', () => {
     });
   });
 
-  it('hydrates saved India offline bank details and reloads after bank save', async () => {
+  it('does not collect bank account details for India merchants', async () => {
+    render(<PaymentSettingsPage />);
+
+    expect(
+      await screen.findByText(/bank settlement unavailable/i)
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId('merchant-bank-form')).not.toBeInTheDocument();
+    expect(screen.queryByText(/bank details saved/i)).not.toBeInTheDocument();
+  });
+
+  it('hydrates saved Nigerian bank details and reloads after bank save', async () => {
     const user = userEvent.setup();
     useMerchantMock.mockReturnValue({
       merchant: {
         id: 'merchant-1',
-        business_name: 'Yodha Shopping',
-        country: 'IN',
-        bank_account_number: '123456789012',
-        bank_account_name: 'Yodha Shopping',
-        bank_code: null,
-        bank_name: 'State Bank of India',
-        paystack_subaccount_code: null,
+        business_name: 'Baci Store',
+        country: 'NG',
+        bank_account_number: '1234567890',
+        bank_account_name: 'Baci Store',
+        bank_code: '044',
+        bank_name: 'Guaranty Trust Bank',
+        paystack_subaccount_code: 'ACCT_test123',
       },
       loading: false,
       reloadMerchant: reloadMerchantMock,
@@ -176,12 +186,14 @@ describe('PaymentSettingsPage', () => {
 
     render(<PaymentSettingsPage />);
 
-    expect(await screen.findByText('Bank Details Saved')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Bank Account Connected')
+    ).toBeInTheDocument();
     expect(merchantBankFormProps[0]?.initialData).toEqual(
       expect.objectContaining({
-        accountNumber: '123456789012',
-        bankName: 'State Bank of India',
-        businessName: 'Yodha Shopping',
+        accountNumber: '1234567890',
+        bankName: 'Guaranty Trust Bank',
+        businessName: 'Baci Store',
       })
     );
 

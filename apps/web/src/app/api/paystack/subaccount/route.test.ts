@@ -334,7 +334,7 @@ describe('POST /api/paystack/subaccount', () => {
     });
   });
 
-  it('stores offline bank details for India without calling Paystack account resolution', async () => {
+  it('rejects bank account setup for India without calling Paystack account resolution', async () => {
     mockMerchantSingle.mockResolvedValueOnce({
       data: {
         paystack_subaccount_code: null,
@@ -354,25 +354,18 @@ describe('POST /api/paystack/subaccount', () => {
       })
     );
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(400);
     expect(await response.json()).toEqual({
-      success: true,
-      accountName: 'Yodha Shopping',
-      subaccountCode: null,
+      error:
+        'Bank account setup is only available for Nigerian Paystack settlements',
     });
     expect(mockResolveAccountNumber).not.toHaveBeenCalled();
     expect(mockCreateSubaccount).not.toHaveBeenCalled();
     expect(mockUpdateSubaccount).not.toHaveBeenCalled();
-    expect(mockMerchantUpdate).toHaveBeenCalledWith({
-      paystack_subaccount_code: null,
-      bank_account_number: '1234567890123456',
-      bank_account_name: 'Yodha Shopping',
-      bank_code: null,
-      bank_name: 'HDFC Bank',
-    });
+    expect(mockMerchantUpdate).not.toHaveBeenCalled();
   });
 
-  it('returns 400 for India offline bank details without a bank name', async () => {
+  it('returns 400 when bank_code is missing from request payload', async () => {
     const response = await POST(
       makeRequest({
         accountNumber: '1234567890123456',
@@ -392,7 +385,7 @@ describe('POST /api/paystack/subaccount', () => {
     expect(mockMerchantUpdate).not.toHaveBeenCalled();
   });
 
-  it('rejects auto-payout changes for India offline bank details', async () => {
+  it('rejects auto-payout changes for India bank details', async () => {
     mockMerchantSingle.mockResolvedValueOnce({
       data: {
         paystack_subaccount_code: null,
@@ -416,7 +409,7 @@ describe('POST /api/paystack/subaccount', () => {
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({
       error:
-        'Auto-payout settings are only supported for Nigerian Paystack settlements',
+        'Bank account setup is only available for Nigerian Paystack settlements',
     });
     expect(mockResolveAccountNumber).not.toHaveBeenCalled();
     expect(mockCreateSubaccount).not.toHaveBeenCalled();

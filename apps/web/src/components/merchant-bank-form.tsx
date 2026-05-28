@@ -21,7 +21,6 @@ import { isBaciPaystackSettlementCountry } from '@/lib/checkout/payment-gateway-
 import type { Bank } from '@/lib/paystack';
 import { cn } from '@/lib/utils';
 import {
-  internationalMerchantBankSchema,
   type MerchantBankFormInput,
   type MerchantBankFormValues,
   merchantBankSchema,
@@ -65,11 +64,11 @@ export function MerchantBankForm({
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const hasHydratedAutoPayoutSetting =
     typeof initialData?.autoPayoutEnabled === 'boolean';
-  const resolver = (
-    isPaystackSupported
-      ? zodResolver(merchantBankSchema)
-      : zodResolver(internationalMerchantBankSchema)
-  ) as Resolver<BankFormInput, unknown, BankFormValues>;
+  const resolver = zodResolver(merchantBankSchema) as Resolver<
+    BankFormInput,
+    unknown,
+    BankFormValues
+  >;
 
   const form = useForm<BankFormInput, unknown, BankFormValues>({
     resolver,
@@ -231,19 +230,13 @@ export function MerchantBankForm({
       const payload: {
         accountNumber: string;
         bankCode?: string;
-        bankName?: string;
         businessName: string;
         autoPayoutEnabled?: boolean;
       } = {
         accountNumber: data.accountNumber,
         businessName: data.businessName,
+        bankCode: data.bankCode,
       };
-
-      if (isPaystackSupported) {
-        payload.bankCode = data.bankCode;
-      } else {
-        payload.bankName = data.bankName;
-      }
 
       if (
         isPaystackSupported &&
@@ -262,9 +255,7 @@ export function MerchantBankForm({
       if (result.success) {
         toast({
           title: 'Bank Details Saved',
-          description: isPaystackSupported
-            ? `Verified: ${result.accountName}`
-            : 'Offline payment details saved.',
+          description: `Verified: ${result.accountName}`,
         });
         onSuccess?.();
       }
@@ -282,6 +273,27 @@ export function MerchantBankForm({
     }
   };
 
+  if (!isPaystackSupported) {
+    return (
+      <div className="flex items-start gap-3 p-4 rounded-lg border bg-muted/50 text-sm text-muted-foreground">
+        <AlertCircle
+          className="h-5 w-5 shrink-0 text-muted-foreground"
+          aria-hidden="true"
+        />
+        <div>
+          <p className="font-medium text-foreground">
+            Nigerian settlement only
+          </p>
+          <p>
+            Bank account setup is available for Nigerian Paystack settlements.
+            Use Pay on Delivery or request a supported online payment provider
+            for this country.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -294,18 +306,12 @@ export function MerchantBankForm({
               <FormLabel>Account Number</FormLabel>
               <FormControl>
                 <Input
-                  placeholder={
-                    isPaystackSupported
-                      ? 'Enter 10-digit account number'
-                      : 'Enter account number'
-                  }
-                  maxLength={isPaystackSupported ? 10 : 34}
-                  inputMode={isPaystackSupported ? 'numeric' : 'text'}
+                  placeholder="Enter 10-digit account number"
+                  maxLength={10}
+                  inputMode="numeric"
                   {...field}
                   onChange={(e) => {
-                    const value = isPaystackSupported
-                      ? e.target.value.replace(/\D/g, '')
-                      : e.target.value.replace(/[^A-Za-z0-9 -]/g, '');
+                    const value = e.target.value.replace(/\D/g, '');
                     field.onChange(value);
                   }}
                 />
@@ -316,201 +322,181 @@ export function MerchantBankForm({
         />
 
         {/* 2. Bank Selection - Google-style Autocomplete */}
-        {isPaystackSupported ? (
-          <FormField
-            control={form.control}
-            name="bankCode"
-            render={({ field }) => (
-              <FormItem className="flex flex-col relative z-20">
-                <FormLabel>Bank</FormLabel>
-                <FormControl>
-                  <div className="relative">
-                    <Input
-                      placeholder="Type to search your bank (e.g. GTB, Access)"
-                      value={
-                        // Be careful: if we have a selected bank code but user hasn't typed,
-                        // show the bank name. Otherwise show what they are typing.
-                        bankSearchTerm
+        <FormField
+          control={form.control}
+          name="bankCode"
+          render={({ field }) => (
+            <FormItem className="flex flex-col relative z-20">
+              <FormLabel>Bank</FormLabel>
+              <FormControl>
+                <div className="relative">
+                  <Input
+                    placeholder="Type to search your bank (e.g. GTB, Access)"
+                    value={
+                      // Be careful: if we have a selected bank code but user hasn't typed,
+                      // show the bank name. Otherwise show what they are typing.
+                      bankSearchTerm
+                    }
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setBankSearchTerm(value);
+                      setShowBankSuggestions(true);
+                      setHighlightedIndex(-1);
+
+                      // If they clear the input, clear the selection
+                      if (value === '') {
+                        form.setValue('bankCode', '');
+                        setVerifiedName(null);
                       }
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        setBankSearchTerm(value);
+                    }}
+                    onFocus={() => {
+                      if (bankSearchTerm || banks.length > 0) {
                         setShowBankSuggestions(true);
-                        setHighlightedIndex(-1);
-
-                        // If they clear the input, clear the selection
-                        if (value === '') {
-                          form.setValue('bankCode', '');
-                          setVerifiedName(null);
-                        }
-                      }}
-                      onFocus={() => {
-                        if (bankSearchTerm || banks.length > 0) {
-                          setShowBankSuggestions(true);
-                        }
-                      }}
-                      // Delay hiding suggestions to allow clicking them
-                      onBlur={() =>
-                        setTimeout(() => setShowBankSuggestions(false), 200)
                       }
-                      onKeyDown={(e) => {
-                        const filteredBanks = banks.filter(
-                          (bank) =>
-                            bank.name
-                              .toLowerCase()
-                              .includes(bankSearchTerm.toLowerCase()) ||
-                            bank.code.includes(bankSearchTerm)
-                        );
-
-                        if (e.key === 'ArrowDown') {
-                          e.preventDefault();
-                          setHighlightedIndex((prev) =>
-                            prev < filteredBanks.length - 1 ? prev + 1 : prev
-                          );
-                        } else if (e.key === 'ArrowUp') {
-                          e.preventDefault();
-                          setHighlightedIndex((prev) =>
-                            prev > 0 ? prev - 1 : 0
-                          );
-                        } else if (e.key === 'Enter' && highlightedIndex >= 0) {
-                          e.preventDefault();
-                          const selectedBank = filteredBanks[highlightedIndex];
-                          if (selectedBank) {
-                            form.setValue('bankCode', selectedBank.code);
-                            setBankSearchTerm(selectedBank.name);
-                            setShowBankSuggestions(false);
-                            setVerifiedName(null);
-                            setHighlightedIndex(-1);
-                          }
-                        } else if (e.key === 'Escape') {
-                          setShowBankSuggestions(false);
-                          setHighlightedIndex(-1);
-                        }
-                      }}
-                      disabled={isLoadingBanks}
-                      autoComplete="off"
-                      role="combobox"
-                      aria-expanded={showBankSuggestions}
-                      aria-controls="bank-listbox"
-                      aria-activedescendant={
-                        highlightedIndex >= 0
-                          ? `bank-option-${highlightedIndex}`
-                          : undefined
-                      }
-                      aria-autocomplete="list"
-                    />
-                    {isLoadingBanks && (
-                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                        <Loader2
-                          className="h-4 w-4 animate-spin text-muted-foreground"
-                          aria-hidden="true"
-                        />
-                      </div>
-                    )}
-                  </div>
-                </FormControl>
-
-                {/* Suggestions Dropdown */}
-                {showBankSuggestions && banks.length > 0 && (
-                  <div
-                    id="bank-listbox"
-                    role="listbox"
-                    className="absolute top-[75px] w-full max-h-[250px] overflow-y-auto rounded-md border bg-popover text-popover-foreground shadow-md z-50"
-                  >
-                    {banks
-                      .filter(
+                    }}
+                    // Delay hiding suggestions to allow clicking them
+                    onBlur={() =>
+                      setTimeout(() => setShowBankSuggestions(false), 200)
+                    }
+                    onKeyDown={(e) => {
+                      const filteredBanks = banks.filter(
                         (bank) =>
                           bank.name
                             .toLowerCase()
                             .includes(bankSearchTerm.toLowerCase()) ||
-                          // Also match prominent synonyms if we wanted, but name search is usually enough
                           bank.code.includes(bankSearchTerm)
-                      )
-                      .map((bank, index) => (
-                        <div
-                          key={bank.code}
-                          id={`bank-option-${index}`}
-                          role="option"
-                          tabIndex={0}
-                          aria-selected={field.value === bank.code}
-                          className={cn(
-                            'relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-hidden hover:bg-accent hover:text-accent-foreground',
-                            field.value === bank.code && 'bg-accent/50',
-                            highlightedIndex === index &&
-                              'bg-accent text-accent-foreground'
-                          )}
-                          onMouseDown={(e) => {
-                            // Prevent blur from hiding before click registers
-                            e.preventDefault();
-                          }}
-                          onMouseEnter={() => setHighlightedIndex(index)}
-                          onClick={() => {
-                            form.setValue('bankCode', bank.code);
-                            setBankSearchTerm(bank.name); // Set input to full name
-                            setShowBankSuggestions(false);
-                            setVerifiedName(null); // Re-verify with new bank
-                            setHighlightedIndex(-1);
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              form.setValue('bankCode', bank.code);
-                              setBankSearchTerm(bank.name);
-                              setShowBankSuggestions(false);
-                              setVerifiedName(null);
-                              setHighlightedIndex(-1);
-                            }
-                          }}
-                        >
-                          <Check
-                            className={cn(
-                              'mr-2 h-4 w-4',
-                              field.value === bank.code
-                                ? 'opacity-100'
-                                : 'opacity-0'
-                            )}
-                            aria-hidden="true"
-                          />
-                          {bank.name}
-                        </div>
-                      ))}
-                    {/* Empty state for search */}
-                    {banks.filter(
-                      (b) =>
-                        b.name
+                      );
+
+                      if (e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        setHighlightedIndex((prev) =>
+                          prev < filteredBanks.length - 1 ? prev + 1 : prev
+                        );
+                      } else if (e.key === 'ArrowUp') {
+                        e.preventDefault();
+                        setHighlightedIndex((prev) =>
+                          prev > 0 ? prev - 1 : 0
+                        );
+                      } else if (e.key === 'Enter' && highlightedIndex >= 0) {
+                        e.preventDefault();
+                        const selectedBank = filteredBanks[highlightedIndex];
+                        if (selectedBank) {
+                          form.setValue('bankCode', selectedBank.code);
+                          setBankSearchTerm(selectedBank.name);
+                          setShowBankSuggestions(false);
+                          setVerifiedName(null);
+                          setHighlightedIndex(-1);
+                        }
+                      } else if (e.key === 'Escape') {
+                        setShowBankSuggestions(false);
+                        setHighlightedIndex(-1);
+                      }
+                    }}
+                    disabled={isLoadingBanks}
+                    autoComplete="off"
+                    role="combobox"
+                    aria-expanded={showBankSuggestions}
+                    aria-controls="bank-listbox"
+                    aria-activedescendant={
+                      highlightedIndex >= 0
+                        ? `bank-option-${highlightedIndex}`
+                        : undefined
+                    }
+                    aria-autocomplete="list"
+                  />
+                  {isLoadingBanks && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <Loader2
+                        className="h-4 w-4 animate-spin text-muted-foreground"
+                        aria-hidden="true"
+                      />
+                    </div>
+                  )}
+                </div>
+              </FormControl>
+
+              {/* Suggestions Dropdown */}
+              {showBankSuggestions && banks.length > 0 && (
+                <div
+                  id="bank-listbox"
+                  role="listbox"
+                  className="absolute top-[75px] w-full max-h-[250px] overflow-y-auto rounded-md border bg-popover text-popover-foreground shadow-md z-50"
+                >
+                  {banks
+                    .filter(
+                      (bank) =>
+                        bank.name
                           .toLowerCase()
                           .includes(bankSearchTerm.toLowerCase()) ||
-                        b.code.includes(bankSearchTerm)
-                    ).length === 0 && (
-                      <div className="py-6 text-center text-sm text-muted-foreground">
-                        No bank found.
+                        // Also match prominent synonyms if we wanted, but name search is usually enough
+                        bank.code.includes(bankSearchTerm)
+                    )
+                    .map((bank, index) => (
+                      <div
+                        key={bank.code}
+                        id={`bank-option-${index}`}
+                        role="option"
+                        tabIndex={-1}
+                        aria-selected={field.value === bank.code}
+                        className={cn(
+                          'relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-hidden hover:bg-accent hover:text-accent-foreground',
+                          field.value === bank.code && 'bg-accent/50',
+                          highlightedIndex === index &&
+                            'bg-accent text-accent-foreground'
+                        )}
+                        onMouseDown={(e) => {
+                          // Prevent blur from hiding before click registers
+                          e.preventDefault();
+                        }}
+                        onMouseEnter={() => setHighlightedIndex(index)}
+                        onClick={() => {
+                          form.setValue('bankCode', bank.code);
+                          setBankSearchTerm(bank.name); // Set input to full name
+                          setShowBankSuggestions(false);
+                          setVerifiedName(null); // Re-verify with new bank
+                          setHighlightedIndex(-1);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            form.setValue('bankCode', bank.code);
+                            setBankSearchTerm(bank.name);
+                            setShowBankSuggestions(false);
+                            setVerifiedName(null);
+                            setHighlightedIndex(-1);
+                          }
+                        }}
+                      >
+                        <Check
+                          className={cn(
+                            'mr-2 h-4 w-4',
+                            field.value === bank.code
+                              ? 'opacity-100'
+                              : 'opacity-0'
+                          )}
+                          aria-hidden="true"
+                        />
+                        {bank.name}
                       </div>
-                    )}
-                  </div>
-                )}
-                <FormDescription>Type your bank name to filter</FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        ) : (
-          <FormField
-            control={form.control}
-            name="bankName"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Bank Name</FormLabel>
-                <FormControl>
-                  <Input placeholder="Enter bank name" {...field} />
-                </FormControl>
-                <FormDescription>
-                  These details are saved as offline payment instructions for
-                  your customers.
-                </FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        )}
+                    ))}
+                  {/* Empty state for search */}
+                  {banks.filter(
+                    (b) =>
+                      b.name
+                        .toLowerCase()
+                        .includes(bankSearchTerm.toLowerCase()) ||
+                      b.code.includes(bankSearchTerm)
+                  ).length === 0 && (
+                    <div className="py-6 text-center text-sm text-muted-foreground">
+                      No bank found.
+                    </div>
+                  )}
+                </div>
+              )}
+              <FormDescription>Type your bank name to filter</FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
         {/* Verification Status */}
         {isVerifying && (
@@ -544,7 +530,7 @@ export function MerchantBankForm({
         )}
 
         {/* 4. Payout Automation Settings */}
-        {isPaystackSupported && verifiedName && (
+        {verifiedName && (
           <div className="space-y-4 pt-4 border-t">
             <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
               Payout Settings
@@ -600,11 +586,7 @@ export function MerchantBankForm({
         <Button
           type="submit"
           className="w-full"
-          disabled={
-            isSubmitting ||
-            isVerifying ||
-            (isPaystackSupported && !verifiedName)
-          }
+          disabled={isSubmitting || isVerifying || !verifiedName}
         >
           {isSubmitting && (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />

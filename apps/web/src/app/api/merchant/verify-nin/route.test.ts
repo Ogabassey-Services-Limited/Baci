@@ -50,8 +50,23 @@ function makeRpcMock(error: unknown = null) {
   return vi.fn().mockResolvedValue({ error });
 }
 
-function makeSupabaseMock(rpcError: unknown = null) {
-  return { rpc: makeRpcMock(rpcError) };
+function makeSupabaseMock(rpcError: unknown = null, country = 'NG') {
+  const merchantMaybeSingle = vi.fn().mockResolvedValue({
+    data: { country },
+    error: null,
+  });
+
+  return {
+    from: vi.fn(() => ({
+      select: vi.fn(() => ({
+        eq: vi.fn(() => ({
+          maybeSingle: merchantMaybeSingle,
+        })),
+      })),
+    })),
+    merchantMaybeSingle,
+    rpc: makeRpcMock(rpcError),
+  };
 }
 
 function makeRequest(body: unknown): NextRequest {
@@ -135,6 +150,25 @@ describe('POST /api/merchant/verify-nin', () => {
     const res = await POST(makeRequest(validNinBody));
 
     expect(res.status).toBe(429);
+  });
+
+  it('rejects India merchants before rate limiting or provider calls', async () => {
+    const supabaseMock = makeSupabaseMock(null, 'IN');
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      user: { id: 'user-1' },
+      error: null,
+      supabase: supabaseMock,
+    } as unknown as Awaited<ReturnType<typeof authenticateApiRequest>>);
+
+    const res = await POST(makeRequest(validNinBody));
+
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toEqual({
+      error: 'NIN verification is only available for Nigerian merchants',
+    });
+    expect(checkRateLimit).not.toHaveBeenCalled();
+    expect(getMonnifyToken).not.toHaveBeenCalled();
+    expect(supabaseMock.rpc).not.toHaveBeenCalled();
   });
 
   it('returns 400 when NIN validation fails (10 digits)', async () => {

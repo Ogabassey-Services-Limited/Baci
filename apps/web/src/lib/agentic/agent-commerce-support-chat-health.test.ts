@@ -88,22 +88,37 @@ describe('checkAgentCommerceSupportChatHealth', () => {
     });
   });
 
+  it('keeps bounded VPS completions under 30 seconds healthy', async () => {
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response('healthy response', { status: 200 }));
+
+    await expect(
+      checkAgentCommerceSupportChatHealth(fetcher, createClock(100, 20_100))
+    ).resolves.toMatchObject({
+      issue_count: 0,
+      issues: [],
+      response_time_ms: 20_000,
+      status: 'ok',
+    });
+  });
+
   it('returns attention when chat responds too slowly for customer support', async () => {
     const fetcher = vi
       .fn<typeof fetch>()
       .mockResolvedValue(new Response('slow response', { status: 200 }));
 
     await expect(
-      checkAgentCommerceSupportChatHealth(fetcher, createClock(100, 8_101))
+      checkAgentCommerceSupportChatHealth(fetcher, createClock(100, 30_101))
     ).resolves.toMatchObject({
       issue_count: 1,
       issues: [
         {
           code: 'support_chat_slow',
-          message: 'Support chat response time exceeded 8000 ms.',
+          message: 'Support chat response time exceeded 30000 ms.',
         },
       ],
-      response_time_ms: 8_001,
+      response_time_ms: 30_001,
       status: 'attention',
     });
   });

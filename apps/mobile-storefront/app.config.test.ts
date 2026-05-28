@@ -88,4 +88,21 @@ describe('Facebook SDK Expo config', () => {
       })
     ).toThrow(/STOREFRONT_FACEBOOK_APP_ID/);
   });
+
+  it('declares SKAdNetwork identifiers for TikTok and Facebook campaign attribution', () => {
+    const appConfig = loadAppConfigWithFacebookEnv({});
+    const config = renderConfig(appConfig);
+
+    expect(config.ios?.infoPlist?.SKAdNetworkItems).toEqual([
+      {
+        SKAdNetworkIdentifier: '282ce24gcd.skadnetwork',
+      },
+      {
+        SKAdNetworkIdentifier: 'v9wttpbfk9.skadnetwork',
+      },
+      {
+        SKAdNetworkIdentifier: 'n38lu8286q.skadnetwork',
+      },
+    ]);
+  });
 });

@@ -3,6 +3,7 @@ import {
   getPublicSupabaseClient,
   sanitizeLookupLogValue,
 } from '@/lib/cached-data';
+import { getProductScopedCacheTag } from '@/lib/product-cache-tags';
 
 type StorefrontProductImageRecord = {
   images?: unknown;
@@ -26,7 +27,7 @@ export async function getCachedStorefrontProductLcpImage(
   cacheTag(
     'product',
     'product-lcp-image',
-    `product-lcp-image-${merchantId}-${productSlug}`
+    getProductScopedCacheTag('product-lcp-image', merchantId, productSlug)
   );
 
   const supabase = getPublicSupabaseClient();

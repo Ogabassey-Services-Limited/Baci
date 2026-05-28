@@ -8,8 +8,10 @@ async function StorefrontDynamicMetadataConnection() {
 
 export function StorefrontDynamicMetadataMarker() {
   return (
-    <Suspense fallback={null}>
-      <StorefrontDynamicMetadataConnection />
-    </Suspense>
+    <div aria-hidden="true" data-storefront-dynamic-metadata-marker="" hidden>
+      <Suspense fallback={null}>
+        <StorefrontDynamicMetadataConnection />
+      </Suspense>
+    </div>
   );
 }

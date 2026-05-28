@@ -216,12 +216,10 @@ describe('env validation', () => {
     await expect(loadEnvModule()).resolves.toBeDefined();
   });
 
-  it('defaults the terminal idempotency record window to seven days', async () => {
+  it('defaults the terminal idempotency record window to 24 hours', async () => {
     const { getTerminalIdempotencyRecordWindowMs } = await loadEnvModule();
 
-    expect(getTerminalIdempotencyRecordWindowMs()).toBe(
-      7 * 24 * 60 * 60 * 1000
-    );
+    expect(getTerminalIdempotencyRecordWindowMs()).toBe(24 * 60 * 60 * 1000);
   });
 
   it('uses MYCOVER_SECRET_KEY as the MyCover webhook signing secret fallback', async () => {
