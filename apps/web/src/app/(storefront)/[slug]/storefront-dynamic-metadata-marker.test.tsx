@@ -16,34 +16,19 @@ describe('StorefrontDynamicMetadataMarker', () => {
     mockConnection.mockReset();
   });
 
-  it('keeps a stable hidden host around the request-time marker', () => {
+  it('keeps the request-time marker inside a null Suspense boundary', () => {
     const element = StorefrontDynamicMetadataMarker() as ReactElement<{
       children?: ReactElement;
-      'aria-hidden'?: string;
-      'data-storefront-dynamic-metadata-marker'?: string;
-      fallback?: unknown;
-      hidden?: boolean;
-    }>;
-
-    expect(element.type).toBe('div');
-    expect(element.props.hidden).toBe(true);
-    expect(element.props['aria-hidden']).toBe('true');
-    expect(element.props['data-storefront-dynamic-metadata-marker']).toBe('');
-
-    const suspense = element.props.children as ReactElement<{
       fallback?: unknown;
     }>;
 
-    expect(suspense.type).toBe(Suspense);
-    expect(suspense.props.fallback).toBeNull();
+    expect(element.type).toBe(Suspense);
+    expect(element.props.fallback).toBeNull();
   });
 
   it('marks metadata routes as request-time rendered', async () => {
     mockConnection.mockResolvedValueOnce(undefined);
-    const element = StorefrontDynamicMetadataMarker() as ReactElement<{
-      children?: ReactElement;
-    }>;
-    const suspense = element.props.children as ReactElement<{
+    const suspense = StorefrontDynamicMetadataMarker() as ReactElement<{
       children?: ReactElement;
     }>;
 
@@ -55,10 +40,7 @@ describe('StorefrontDynamicMetadataMarker', () => {
 
   it('surfaces connection failures to the surrounding route boundary', async () => {
     mockConnection.mockRejectedValueOnce(new Error('connection failed'));
-    const element = StorefrontDynamicMetadataMarker() as ReactElement<{
-      children?: ReactElement;
-    }>;
-    const suspense = element.props.children as ReactElement<{
+    const suspense = StorefrontDynamicMetadataMarker() as ReactElement<{
       children?: ReactElement;
     }>;
 
