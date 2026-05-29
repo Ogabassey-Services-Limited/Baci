@@ -1,6 +1,7 @@
 import { DEFAULT_BLOG_MEDIA_CDN_ORIGIN } from '@/config/cdn';
 import {
   BLOG_FEATURED_VARIANT_KEYS,
+  type BlogFeaturedVariantKey,
   type BlogStorageScope,
   extractManagedBlogStoragePath,
 } from '@/lib/blog-managed-storage-paths';
@@ -12,6 +13,16 @@ const GENERATED_CODEX_BLOG_IMAGE_PREFIX = '/core-assets/blog/codex/';
 const TRANSFORMED_CDN_IMAGE_PREFIX = '/image/';
 const GENERATED_CODEX_BLOG_IMAGE_EXTENSION_PATTERN =
   /\.(avif|jpe?g|png|webp)$/i;
+const GENERATED_CODEX_BLOG_IMAGE_EXTENSIONS = [
+  '.avif',
+  '.jpg',
+  '.jpeg',
+  '.png',
+  '.webp',
+] as const;
+const BLOG_FEATURED_VARIANT_KEY_SET = new Set<string>(
+  BLOG_FEATURED_VARIANT_KEYS
+);
 
 export type BlogDiscoverImageReadinessCode =
   | 'BLOG_FEATURED_IMAGE_NOT_DISCOVER_READY'
@@ -84,6 +95,12 @@ function getVariantMap(
   return value;
 }
 
+function isBlogFeaturedVariantKey(
+  value: string
+): value is BlogFeaturedVariantKey {
+  return BLOG_FEATURED_VARIANT_KEY_SET.has(value);
+}
+
 function isManagedOriginalBlogPath(path: string | null): path is string {
   return Boolean(path && path.split('/').length === 3);
 }
@@ -141,7 +158,7 @@ function isTrustedGeneratedCodexBlogImageUrl(raw: string): boolean {
 
 function isTrustedGeneratedCodexBlogVariantUrl(
   raw: string,
-  variantKey: string
+  variantKey: BlogFeaturedVariantKey
 ): boolean {
   const sourcePath = getTrustedCdnSourcePath(raw);
   if (
@@ -153,11 +170,12 @@ function isTrustedGeneratedCodexBlogVariantUrl(
   }
 
   const filename = sourcePath.split('/').at(-1)?.toLowerCase() ?? '';
-  const variantSuffixPattern = new RegExp(
-    `(^|-)${variantKey.toLowerCase()}\\.(avif|jpe?g|png|webp)$`,
-    'i'
+  const variantFilename = variantKey.toLowerCase();
+  return GENERATED_CODEX_BLOG_IMAGE_EXTENSIONS.some(
+    (extension) =>
+      filename === `${variantFilename}${extension}` ||
+      filename.endsWith(`-${variantFilename}${extension}`)
   );
-  return variantSuffixPattern.test(filename);
 }
 
 export function validateBlogImageVariantIntegrity(
@@ -165,10 +183,9 @@ export function validateBlogImageVariantIntegrity(
   storageScope: string | BlogStorageScope
 ): BlogDiscoverImageReadinessResult {
   const variants = getVariantMap(image.featured_image_variants);
-  const allowedKeys = new Set<string>(BLOG_FEATURED_VARIANT_KEYS);
 
   for (const [key, value] of Object.entries(variants)) {
-    if (!allowedKeys.has(key)) {
+    if (!isBlogFeaturedVariantKey(key)) {
       return notReady('BLOG_FEATURED_IMAGE_VARIANTS_INVALID', {
         variantKey: key,
       });

@@ -168,6 +168,22 @@ describe('validateBlogImageVariantIntegrity', () => {
       code: 'BLOG_FEATURED_IMAGE_VARIANT_NOT_MANAGED',
     });
   });
+
+  it('rejects generated Codex variant keys with regex metacharacters', () => {
+    expect(
+      validateBlogImageVariantIntegrity(
+        {
+          featured_image_variants: {
+            '.*': generatedCodexLandscapeUrl,
+          },
+        },
+        merchantId
+      )
+    ).toMatchObject({
+      ready: false,
+      code: 'BLOG_FEATURED_IMAGE_VARIANTS_INVALID',
+    });
+  });
 });
 
 describe('classifyBlogDiscoverImageReadiness', () => {
