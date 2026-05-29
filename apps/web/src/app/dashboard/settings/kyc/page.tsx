@@ -1,6 +1,7 @@
 import { Lock, Shield } from 'lucide-react';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { connection } from 'next/server';
 import {
   Card,
   CardDescription,
@@ -13,6 +14,8 @@ import { createClient } from '@/lib/supabase/server';
 import { KycVerification } from './kyc-verification';
 
 export default async function KycSettingsPage() {
+  await connection();
+
   try {
     const { merchant, staffAccess } = await getMerchantForUser();
 

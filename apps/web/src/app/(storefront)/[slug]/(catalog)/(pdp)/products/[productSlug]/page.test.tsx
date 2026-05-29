@@ -2,13 +2,19 @@ import { render, screen } from '@testing-library/react';
 import { type ReactNode, Suspense } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockNormalizeStorefrontProductVariants, mockProductDetailClient } =
-  vi.hoisted(() => ({
-    mockNormalizeStorefrontProductVariants: vi.fn<
-      (...args: unknown[]) => Record<string, unknown>[]
-    >(() => []),
-    mockProductDetailClient: vi.fn(() => null),
-  }));
+const {
+  mockConnection,
+  mockNormalizeStorefrontProductVariants,
+  mockProductDetailClient,
+  mockStorefrontDynamicMetadataMarker,
+} = vi.hoisted(() => ({
+  mockConnection: vi.fn<() => Promise<void>>(() => Promise.resolve()),
+  mockNormalizeStorefrontProductVariants: vi.fn<
+    (...args: unknown[]) => Record<string, unknown>[]
+  >(() => []),
+  mockProductDetailClient: vi.fn(() => null),
+  mockStorefrontDynamicMetadataMarker: vi.fn(),
+}));
 
 const mockHeaders = vi.fn();
 const mockPermanentRedirect = vi.fn((_url: string) => {
@@ -40,6 +46,17 @@ vi.mock('next/navigation', () => ({
   redirect: (url: string) => mockRedirect(url),
 }));
 
+vi.mock('next/server', () => ({
+  connection: () => mockConnection(),
+}));
+
+vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
+  StorefrontDynamicMetadataMarker: () => {
+    mockStorefrontDynamicMetadataMarker();
+    return <div aria-label="dynamic metadata marker" role="status" />;
+  },
+}));
+
 vi.mock('next/link', () => ({
   default: ({ children, href }: { children: ReactNode; href: string }) => (
     <a href={href}>{children}</a>
@@ -64,12 +81,6 @@ vi.mock('@/lib/cached-data', () => ({
     String(value ?? '')
       .replace(/[\r\n\t]/g, '')
       .substring(0, 100),
-}));
-
-vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
-  StorefrontDynamicMetadataMarker: () => (
-    <div aria-label="dynamic metadata marker" role="status" />
-  ),
 }));
 
 vi.mock('@/lib/storefront-product/build-product-semantic-model', () => ({
@@ -323,6 +334,24 @@ describe('products/[productSlug] page', () => {
       sameBrand: null,
       samePrice: null,
     });
+    mockStorefrontDynamicMetadataMarker.mockReset();
+  });
+
+  it('marks product metadata as request-time rendered', async () => {
+    mockGetCachedProduct.mockResolvedValue(uncategorizedProduct);
+
+    await generateMetadata(
+      {
+        params: Promise.resolve({
+          slug: 'teststore',
+          productSlug: 'mystery-item',
+        }),
+        searchParams: Promise.resolve({}),
+      },
+      stubParent
+    );
+
+    expect(mockConnection).toHaveBeenCalledOnce();
   });
 
   it('redirects categorized legacy products during page render in development', async () => {
@@ -397,6 +426,26 @@ describe('products/[productSlug] page', () => {
 
     expect(screen.getByText('Route loader fallback')).toBeInTheDocument();
     expect(screen.queryByText('mystery-item')).not.toBeInTheDocument();
+  });
+
+  it('opts runtime product metadata into request-time page rendering', async () => {
+    mockGetCachedProduct.mockResolvedValue(uncategorizedProduct);
+
+    render(
+      await ProductPage({
+        params: Promise.resolve({
+          slug: 'teststore',
+          productSlug: 'mystery-item',
+        }),
+        searchParams: Promise.resolve({}),
+      })
+    );
+
+    expect(mockConnection).toHaveBeenCalledOnce();
+    expect(mockStorefrontDynamicMetadataMarker).not.toHaveBeenCalled();
+    expect(
+      screen.queryByRole('status', { name: /dynamic metadata marker/i })
+    ).not.toBeInTheDocument();
   });
 
   describe('redirect routing mode', () => {
@@ -631,42 +680,51 @@ describe('products/[productSlug] page', () => {
     );
   });
 
-  it('returns noindex metadata when product is missing — page render decides notFound vs redirect', async () => {
+  it('throws notFound from metadata when product and legacy redirect are missing', async () => {
     mockGetCachedProduct.mockResolvedValue(null);
     mockGetCachedProductWithDetails.mockResolvedValue(null);
-    mockHeaders.mockReturnValue(makeHeaders({}));
-
-    const metadata = await generateMetadata(
-      {
-        params: Promise.resolve({
-          slug: 'teststore',
-          productSlug: 'nonexistent',
-        }),
-        searchParams: Promise.resolve({}),
-      },
-      stubParent
-    );
-
-    expect(metadata.robots).toMatchObject({ index: false, follow: false });
-    expect(mockPermanentRedirect).not.toHaveBeenCalled();
-  });
-
-  it('calls notFound during page render when no legacy redirect target exists', async () => {
-    mockGetCachedProduct.mockResolvedValue(null);
-    mockGetCachedProductWithDetails.mockResolvedValue(null);
+    mockGetCachedLegacyProductRedirectTarget.mockResolvedValue(null);
     mockHeaders.mockReturnValue(makeHeaders({}));
 
     await expect(
-      ProductPage({
-        params: Promise.resolve({
-          slug: 'teststore',
-          productSlug: 'nonexistent',
-        }),
-        searchParams: Promise.resolve({}),
-      })
+      generateMetadata(
+        {
+          params: Promise.resolve({
+            slug: 'teststore',
+            productSlug: 'nonexistent',
+          }),
+          searchParams: Promise.resolve({}),
+        },
+        stubParent
+      )
     ).rejects.toThrow('NEXT_NOT_FOUND');
 
+    expect(mockNotFound).toHaveBeenCalledTimes(1);
     expect(mockPermanentRedirect).not.toHaveBeenCalled();
+  });
+
+  it('renders the dynamic metadata marker before notFound when no legacy redirect target exists', async () => {
+    mockGetCachedProduct.mockResolvedValue(null);
+    mockGetCachedProductWithDetails.mockResolvedValue(null);
+    mockGetCachedLegacyProductRedirectTarget.mockResolvedValue(null);
+    mockHeaders.mockReturnValue(makeHeaders({}));
+
+    const page = await ProductPage({
+      params: Promise.resolve({
+        slug: 'teststore',
+        productSlug: 'nonexistent',
+      }),
+      searchParams: Promise.resolve({}),
+    });
+
+    expect(() => render(page)).toThrow('NEXT_NOT_FOUND');
+
+    expect(mockPermanentRedirect).not.toHaveBeenCalled();
+    expect(mockStorefrontDynamicMetadataMarker).toHaveBeenCalled();
+    expect(mockNotFound).toHaveBeenCalled();
+    expect(
+      mockStorefrontDynamicMetadataMarker.mock.invocationCallOrder[0]
+    ).toBeLessThan(mockNotFound.mock.invocationCallOrder[0]);
   });
 
   it('falls back to detailed product lookup and returns noindex metadata when category mismatch is detected', async () => {
@@ -755,21 +813,27 @@ describe('products/[productSlug] page', () => {
   it('does not retry detailed lookup with a lowercased slug', async () => {
     mockGetCachedProduct.mockResolvedValue(null);
     mockGetCachedProductWithDetails.mockResolvedValue(null);
+    mockGetCachedLegacyProductRedirectTarget.mockResolvedValue(null);
 
-    const metadata = await generateMetadata(
-      {
-        params: Promise.resolve({
-          slug: 'teststore',
-          productSlug: 'IPHONE-15',
-        }),
-        searchParams: Promise.resolve({}),
-      },
-      stubParent
-    );
+    await expect(
+      generateMetadata(
+        {
+          params: Promise.resolve({
+            slug: 'teststore',
+            productSlug: 'IPHONE-15',
+          }),
+          searchParams: Promise.resolve({}),
+        },
+        stubParent
+      )
+    ).rejects.toThrow('NEXT_NOT_FOUND');
 
-    expect(metadata.robots).toMatchObject({ index: false, follow: false });
     expect(mockGetCachedProductWithDetails).toHaveBeenCalledTimes(1);
     expect(mockGetCachedProductWithDetails).toHaveBeenCalledWith(
+      'merchant-1',
+      'IPHONE-15'
+    );
+    expect(mockGetCachedLegacyProductRedirectTarget).toHaveBeenCalledWith(
       'merchant-1',
       'IPHONE-15'
     );
@@ -993,9 +1057,7 @@ describe('products/[productSlug] page', () => {
         name: /Shop more Products/i,
       })
     ).toHaveAttribute('href', 'https://teststore.usebaci.com/products');
-    expect(
-      screen.getByRole('status', { name: /dynamic metadata marker/i })
-    ).toBeInTheDocument();
+    expect(mockConnection).toHaveBeenCalledOnce();
     expect(
       screen.getByRole('link', {
         name: /Compare with Samsung Galaxy Z TriFold/i,

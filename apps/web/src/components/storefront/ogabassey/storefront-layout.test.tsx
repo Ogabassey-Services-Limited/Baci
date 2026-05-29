@@ -30,15 +30,17 @@ vi.mock('react-dom', () => ({
 vi.mock('@/components/analytics/deferred-google-store-widget', () => ({
   DeferredGoogleStoreWidget: ({
     enabled,
+    merchant,
     merchantCustomDomain,
   }: {
     enabled: boolean;
+    merchant?: { custom_domain?: string | null };
     merchantCustomDomain?: string | null;
   }) => (
     <div
       data-testid="google-store-widget"
       data-enabled={String(enabled)}
-      data-domain={merchantCustomDomain ?? ''}
+      data-domain={merchant?.custom_domain ?? merchantCustomDomain ?? ''}
     />
   ),
 }));

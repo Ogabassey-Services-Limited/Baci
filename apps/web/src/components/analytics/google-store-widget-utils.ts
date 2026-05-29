@@ -1,5 +1,9 @@
 import type { MerchantData } from '@/hooks/merchant/types';
 
+export const GOOGLE_MERCHANT_CENTER_ID_CUSTOM_SETTING = 'google_merchant_id';
+export const GOOGLE_STORE_WIDGET_ENABLED_CUSTOM_SETTING =
+  'google_store_widget_enabled';
+
 /**
  * Strips protocol, pathname, and leading `www.` from a hostname or URL string
  * so that domains can be compared in a canonical form.
@@ -11,6 +15,35 @@ export function normalizeHostname(value?: string) {
     .replace(/^https?:\/\//, '')
     .replace(/\/.*$/, '')
     .replace(/^www\./, '');
+}
+
+export function getRecordValue(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+
+  return value as Record<string, unknown>;
+}
+
+export function normalizeGoogleMerchantCenterId(value: unknown): string | null {
+  if (typeof value === 'number' && Number.isInteger(value) && value > 0) {
+    return String(value);
+  }
+
+  if (typeof value !== 'string') return null;
+
+  const trimmedValue = value.trim();
+
+  return /^\d+$/.test(trimmedValue) ? trimmedValue : null;
+}
+
+export function resolveGoogleMerchantCenterId(
+  merchant?: Pick<MerchantData, 'feature_settings'>
+): string | null {
+  const featureSettings = getRecordValue(merchant?.feature_settings);
+  const customSettings = getRecordValue(featureSettings?.custom_settings);
+
+  return normalizeGoogleMerchantCenterId(
+    customSettings?.[GOOGLE_MERCHANT_CENTER_ID_CUSTOM_SETTING]
+  );
 }
 
 /**
@@ -30,15 +63,10 @@ export function resolveGoogleStoreWidgetPreference(
     return directPreference;
   }
 
-  // MerchantData.feature_settings carries loose keys, so we cast to inspect
-  // nested custom_settings here and still rely on runtime typeof checks below.
-  const featureSettings = merchant?.feature_settings as
-    | Record<string, unknown>
-    | undefined;
-  const customSettings = featureSettings?.custom_settings as
-    | Record<string, unknown>
-    | undefined;
-  const customPreference = customSettings?.google_store_widget_enabled;
+  const featureSettings = getRecordValue(merchant?.feature_settings);
+  const customSettings = getRecordValue(featureSettings?.custom_settings);
+  const customPreference =
+    customSettings?.[GOOGLE_STORE_WIDGET_ENABLED_CUSTOM_SETTING];
 
   return typeof customPreference === 'boolean' ? customPreference : undefined;
 }

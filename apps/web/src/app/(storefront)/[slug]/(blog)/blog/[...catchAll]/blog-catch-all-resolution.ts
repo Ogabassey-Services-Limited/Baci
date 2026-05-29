@@ -1,5 +1,4 @@
 import { cookies } from 'next/headers';
-import { notFound, permanentRedirect, redirect } from 'next/navigation';
 import { buildCanonicalBlogPostUrl } from '@/app/(storefront)/[slug]/(blog)/blog/[postSlug]/blog-post-content';
 import { getBlogPostRedirect } from '@/lib/blog-post-redirects';
 import {
@@ -11,11 +10,23 @@ import { asRoute } from '@/lib/routes';
 import { createClient } from '@/lib/supabase/server';
 import { isDomainIdentifier } from '@/lib/validation';
 
-export async function resolveBlogCatchAllRoute({
+type BlogCatchAllRedirectStatus = 307 | 308;
+
+export type BlogCatchAllResolution =
+  | {
+      type: 'redirect';
+      status: BlogCatchAllRedirectStatus;
+      url: string;
+    }
+  | {
+      type: 'notFound';
+    };
+
+export async function resolveBlogCatchAllOutcome({
   params,
 }: {
   params: Promise<{ slug: string; catchAll: string[] }>;
-}) {
+}): Promise<BlogCatchAllResolution> {
   const { slug, catchAll } = await params;
 
   const isDatedBlogPermalink =
@@ -29,17 +40,19 @@ export async function resolveBlogCatchAllRoute({
     const data = await getCachedBlogPost(slug, postSlug, false);
 
     if (!data) {
-      notFound();
+      return { type: 'notFound' };
     }
 
-    permanentRedirect(
-      asRoute(buildCanonicalBlogPostUrl(data.merchant, data.post.slug))
-    );
+    return {
+      type: 'redirect',
+      status: 308,
+      url: asRoute(buildCanonicalBlogPostUrl(data.merchant, data.post.slug)),
+    };
   }
 
   // 308 redirect legacy /blog/sitemap.xml -> /sitemap.xml (blog entries merged into main sitemap)
   if (catchAll.length === 1 && catchAll[0] === 'sitemap.xml') {
-    permanentRedirect('/sitemap.xml');
+    return { type: 'redirect', status: 308, url: '/sitemap.xml' };
   }
 
   // Filter out WordPress/admin probes and known spam before any merchant lookup.
@@ -57,7 +70,7 @@ export async function resolveBlogCatchAllRoute({
       spamKeywords.some((keyword) => segment.toLowerCase().includes(keyword))
     )
   ) {
-    notFound();
+    return { type: 'notFound' };
   }
 
   // Get merchant
@@ -66,7 +79,7 @@ export async function resolveBlogCatchAllRoute({
     : await getCachedMerchant(slug.toLowerCase());
 
   if (!cachedMerchant) {
-    notFound();
+    return { type: 'notFound' };
   }
 
   // Extract merchant ID (TypeScript now knows it's not null)
@@ -98,23 +111,27 @@ export async function resolveBlogCatchAllRoute({
 
   if (post) {
     // Redirect to canonical URL (without category prefix)
-    // Use 301 permanent redirect for SEO; build from merchant canonical URL data
+    // Use a permanent redirect for SEO; build from merchant canonical URL data
     // so custom-domain rewrites don't leak internal paths to crawlers.
-    permanentRedirect(
-      asRoute(buildCanonicalBlogPostUrl(cachedMerchant, post.slug))
-    );
+    return {
+      type: 'redirect',
+      status: 308,
+      url: asRoute(buildCanonicalBlogPostUrl(cachedMerchant, post.slug)),
+    };
   }
 
   const redirectedPost = await getBlogPostRedirect(slug, cleanPostSlug);
   if (redirectedPost) {
-    permanentRedirect(
-      asRoute(
+    return {
+      type: 'redirect',
+      status: 308,
+      url: asRoute(
         buildCanonicalBlogPostUrl(
           redirectedPost.merchant,
           redirectedPost.targetSlug
         )
-      )
-    );
+      ),
+    };
   }
 
   // If post not found, try matching without hyphens/underscores
@@ -141,11 +158,15 @@ export async function resolveBlogCatchAllRoute({
     // Fuzzy matches are best-effort - use a 307 redirect so browsers don't
     // cache it permanently (content authors may later publish a post at the
     // requested slug, and a cached 308 would prevent that URL from resolving).
-    redirect(
-      asRoute(buildCanonicalBlogPostUrl(cachedMerchant, matchingPost.slug))
-    );
+    return {
+      type: 'redirect',
+      status: 307,
+      url: asRoute(
+        buildCanonicalBlogPostUrl(cachedMerchant, matchingPost.slug)
+      ),
+    };
   }
 
   // No matching post found
-  notFound();
+  return { type: 'notFound' };
 }
