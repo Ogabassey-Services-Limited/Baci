@@ -357,7 +357,8 @@ export const facebookCAPI = {
     value: number,
     currency: string,
     products: Array<{ id: string; quantity: number }>,
-    eventSourceUrl?: string
+    eventSourceUrl?: string,
+    eventId?: string
   ) => {
     return sendFacebookCAPIEvent(
       pixelId,
@@ -371,7 +372,8 @@ export const facebookCAPI = {
         contentIds: products.map((p) => p.id),
         numItems: products.reduce((sum, p) => sum + p.quantity, 0),
       },
-      eventSourceUrl
+      eventSourceUrl,
+      eventId
     );
   },
 
@@ -386,7 +388,8 @@ export const facebookCAPI = {
     productName: string,
     value: number,
     currency: string,
-    eventSourceUrl?: string
+    eventSourceUrl?: string,
+    eventId?: string
   ) => {
     return sendFacebookCAPIEvent(
       pixelId,
@@ -400,7 +403,8 @@ export const facebookCAPI = {
         contentType: 'product',
         contentIds: [productId],
       },
-      eventSourceUrl
+      eventSourceUrl,
+      eventId
     );
   },
 
@@ -416,7 +420,8 @@ export const facebookCAPI = {
     value: number,
     currency: string,
     category?: string,
-    eventSourceUrl?: string
+    eventSourceUrl?: string,
+    eventId?: string
   ) => {
     return sendFacebookCAPIEvent(
       pixelId,
@@ -431,7 +436,8 @@ export const facebookCAPI = {
         contentType: 'product',
         contentIds: [productId],
       },
-      eventSourceUrl
+      eventSourceUrl,
+      eventId
     );
   },
 };
