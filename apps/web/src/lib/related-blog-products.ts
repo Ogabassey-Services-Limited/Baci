@@ -48,7 +48,7 @@ export function normalizeRelatedBlogProductLinks(
       ? link.product[0]
       : link.product;
 
-    if (!product || product.status !== 'active') {
+    if (product?.status !== 'active') {
       return [];
     }
 
