@@ -25,12 +25,12 @@ export function StorefrontShellLayout({
   return (
     <OgabasseyLayoutProviders initialTheme={initialTheme}>
       <div
-        className="text-gray-900 bg-[#0F0F0F] min-h-screen flex flex-col relative overflow-hidden"
+        className="ogabassey-storefront-shell"
         style={getOgabasseyLayoutStyle(merchant)}
       >
         <GadgetPattern />
         {headerChrome}
-        <main id="main-content" className="flex-1">
+        <main id="main-content" className="ogabassey-storefront-main">
           {children}
         </main>
         {footerChrome}
