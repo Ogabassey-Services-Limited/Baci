@@ -3,13 +3,25 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const ZEPTOMAIL_TOKEN = Deno.env.get('ZEPTOMAIL_TOKEN') || '';
 // DB Webhook payload type
-interface WebhookPayload {
-  type: 'INSERT' | 'UPDATE' | 'DELETE';
+interface AuthUserRecord {
+  id: string;
+  email: string;
+  email_confirmed_at: string | null;
+  [key: string]: unknown;
+}
+
+type WebhookPayload = {
   table: string;
   schema: string;
-  record: any;
-  old_record: any;
-}
+} & (
+  | { type: 'INSERT'; record: AuthUserRecord; old_record: null }
+  | {
+      type: 'UPDATE';
+      record: AuthUserRecord;
+      old_record: Partial<AuthUserRecord> | null;
+    }
+  | { type: 'DELETE'; record: null; old_record: AuthUserRecord }
+);
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -36,8 +48,14 @@ Deno.serve(async (req) => {
 
     const { record, old_record } = payload;
 
+    if (!record || !old_record) {
+      return new Response('Ignored: Missing record data', { status: 200 });
+    }
+
     // Check if email_confirmed_at changed from null to something
-    const wasConfirmed = old_record.email_confirmed_at !== null;
+    const wasConfirmed = old_record.email_confirmed_at !== undefined
+      ? old_record.email_confirmed_at !== null
+      : true;
     const isConfirmed = record.email_confirmed_at !== null;
 
     if (wasConfirmed || !isConfirmed) {
