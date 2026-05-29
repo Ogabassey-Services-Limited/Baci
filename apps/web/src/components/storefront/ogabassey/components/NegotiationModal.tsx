@@ -18,13 +18,23 @@ interface NegotiationModalProps {
   merchantId: string;
 }
 
-type NegotiationStatus = 'input' | 'processing' | 'success' | 'failed' | 'upload' | 'submitted';
+type NegotiationStatus =
+  | 'input'
+  | 'processing'
+  | 'success'
+  | 'failed'
+  | 'final'
+  | 'upload'
+  | 'submitted';
 
 const SESSION_KEY = 'ogabassey_guest_session';
 const AUTO_ACCEPT_DISCOUNT_THRESHOLD = 0.03;
 const COUNTER_DISCOUNT_STEPS = [0.01, 0.02, 0.03] as const;
 const AI_REVIEW_MESSAGE =
   'Your offer was accepted by our AI and is subject to human review.';
+const FINAL_PRICE_MESSAGE =
+  "That's the final price for this product. We can't discount it further.";
+const FINAL_PRICE_BRAND_TOKENS = ['tecno', 'infinix', 'redmi', 'vivo', 'itel'];
 const MIN_SUBTOTAL_FOR_ROUNDED_COUNTER = 1000;
 
 function getOrCreateSessionId(): string {
@@ -61,6 +71,29 @@ function computeCounterOffer(
       : Math.floor(currentPrice * AUTO_ACCEPT_DISCOUNT_THRESHOLD);
 
   return currentPrice - Math.min(rawDiscountAmount, maxServerAcceptedDiscountAmount);
+}
+
+function normalizeProductName(productName: string): string {
+  return productName
+    .toLocaleLowerCase('en-US')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+function isSamsungASeriesProduct(normalizedProductName: string): boolean {
+  return /\b(?:samsung(?: galaxy)?|galaxy)\s+a ?(?:series|\d{1,3}[a-z]*)\b/.test(
+    normalizedProductName
+  );
+}
+
+function isFinalPriceProduct(productName: string): boolean {
+  const normalizedProductName = normalizeProductName(productName);
+
+  return (
+    FINAL_PRICE_BRAND_TOKENS.some((brand) =>
+      normalizedProductName.includes(brand)
+    ) || isSamsungASeriesProduct(normalizedProductName)
+  );
 }
 
 export const NegotiationModal: React.FC<NegotiationModalProps> = ({
@@ -268,6 +301,16 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
       const discountAmount = currentPrice - offerAmount;
       const maxAutoAcceptedDiscountAmount =
         currentPrice * AUTO_ACCEPT_DISCOUNT_THRESHOLD;
+
+      if (
+        discountAmount > Number.EPSILON &&
+        isFinalPriceProduct(productName)
+      ) {
+        setCounterOffer(null);
+        setMessage(FINAL_PRICE_MESSAGE);
+        setStatus('final');
+        return;
+      }
 
       // Auto-accept offers within the current threshold.
       if (discountAmount <= maxAutoAcceptedDiscountAmount + Number.EPSILON) {
@@ -534,6 +577,24 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
                   </button>
                 )}
               </div>
+            </div>
+          )}
+
+          {status === 'final' && (
+            <div className="flex flex-col items-center justify-center py-2 text-center animate-in fade-in slide-in-from-bottom-2">
+              <div className="w-12 h-12 bg-[var(--store-primary)]/10 rounded-full flex items-center justify-center mb-3">
+                <HandCoins size={28} className="text-[var(--store-primary)]" />
+              </div>
+              <h4 className="text-lg font-bold text-[hsl(var(--card-foreground))] mb-1">
+                Final Price
+              </h4>
+              <p className="text-sm text-[hsl(var(--muted-foreground))] mb-6">{message}</p>
+              <button
+                onClick={onClose}
+                className="bg-[hsl(var(--foreground))] text-[hsl(var(--background))] px-8 py-2 rounded-xl font-bold text-sm hover:opacity-90 transition-opacity"
+              >
+                Got it
+              </button>
             </div>
           )}
 
