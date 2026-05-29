@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { PATCH } from './route';
+import { GET, PATCH } from './route';
 
 vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: vi.fn().mockResolvedValue({ valid: true }),
@@ -83,6 +83,38 @@ function buildSupabase({
   };
 }
 
+function buildGetSupabase() {
+  const selectCalls: string[] = [];
+  const detailBuilder = {
+    select: vi.fn((columns: string) => {
+      selectCalls.push(columns);
+      return detailBuilder;
+    }),
+    eq: vi.fn().mockReturnThis(),
+    single: vi.fn().mockResolvedValue({
+      data: {
+        id: REVIEW_ID,
+        merchant_id: MERCHANT_ID,
+        customer_email: 'buyer@example.com',
+        rating: 5,
+      },
+      error: null,
+    }),
+  };
+
+  return {
+    auth: {
+      getUser: vi.fn().mockResolvedValue({
+        data: { user: { id: 'user-1' } },
+        error: null,
+      }),
+    },
+    from: vi.fn(() => detailBuilder),
+    _selectCalls: selectCalls,
+    _detailBuilder: detailBuilder,
+  };
+}
+
 function buildRequest(body: unknown) {
   return new NextRequest(`http://localhost/api/reviews/${REVIEW_ID}`, {
     method: 'PATCH',
@@ -92,6 +124,12 @@ function buildRequest(body: unknown) {
 
 function callPatch(req: NextRequest) {
   return PATCH(req, { params: Promise.resolve({ id: REVIEW_ID }) });
+}
+
+function callGet() {
+  return GET(new NextRequest(`http://localhost/api/reviews/${REVIEW_ID}`), {
+    params: Promise.resolve({ id: REVIEW_ID }),
+  });
 }
 
 async function readJson(response: Response) {
@@ -185,5 +223,32 @@ describe('PATCH /api/reviews/[id] response shape', () => {
 
     const res = await callPatch(await buildRequest({ status: 'approved' }));
     expect(res.status).toBe(404);
+  });
+});
+
+describe('GET /api/reviews/[id] response shape', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('uses an explicit review detail projection instead of selecting every column', async () => {
+    const supabase = buildGetSupabase();
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockReturnValue(
+      supabase as unknown as never
+    );
+
+    const res = await callGet();
+
+    expect(res.status).toBe(200);
+    expect(supabase._selectCalls).toHaveLength(1);
+    expect(supabase._selectCalls[0]).not.toContain('customer_email');
+    expect(supabase._selectCalls[0]).not.toContain('order_id');
+    expect(supabase._selectCalls[0]).toContain('products:product_id');
+    expect(supabase._selectCalls[0]).not.toMatch(/(^|[,\s])\*($|[,\s])/);
+    expect(supabase._detailBuilder.eq).toHaveBeenCalledWith(
+      'merchant_id',
+      MERCHANT_ID
+    );
   });
 });

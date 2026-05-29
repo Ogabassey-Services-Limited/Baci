@@ -36,3 +36,35 @@ export const STOREFRONT_PRODUCTS_SELECT = `
     )
   )
 `;
+
+export const STOREFRONT_PRODUCTS_COMPACT_SELECT = `
+  id,
+  name,
+  slug,
+  images,
+  image_hint,
+  category,
+  category_id,
+  brand,
+  price,
+  compare_at_price,
+  stock,
+  stock_quantity,
+  status,
+  condition,
+  has_variants,
+  sku,
+  manage_stock,
+  low_stock_threshold,
+  has_condition_offers,
+  available_conditions,
+  variant_model,
+  categories:category_id(id, name, slug),
+  product_categories (
+    categories (
+      id,
+      name,
+      slug
+    )
+  )
+`;
