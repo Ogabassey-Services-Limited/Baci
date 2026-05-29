@@ -142,6 +142,55 @@ describe('NegotiationModal', () => {
     expect(screen.getByText('₦9,900')).toBeInTheDocument();
   });
 
+  it('returns a final-price response for Tecno products', () => {
+    const onSuccess = vi.fn();
+    render(
+      <NegotiationModal
+        {...defaultProps}
+        productName="Tecno Spark 50"
+        onSuccess={onSuccess}
+      />
+    );
+
+    submitLowOffer('9000');
+
+    expect(onSuccess).not.toHaveBeenCalled();
+    expect(screen.getByText('Final Price')).toBeInTheDocument();
+    expect(screen.getByText(/that's the final price/i)).toBeInTheDocument();
+    expect(screen.queryByText('Counter Offer')).not.toBeInTheDocument();
+  });
+
+  it('returns a final-price response for Samsung Galaxy A series products', () => {
+    const onSuccess = vi.fn();
+    render(
+      <NegotiationModal
+        {...defaultProps}
+        productName="Samsung Galaxy A16 5G"
+        onSuccess={onSuccess}
+      />
+    );
+
+    submitLowOffer('9000');
+
+    expect(onSuccess).not.toHaveBeenCalled();
+    expect(screen.getByText('Final Price')).toBeInTheDocument();
+    expect(screen.getByText(/can't discount it further/i)).toBeInTheDocument();
+  });
+
+  it('keeps Samsung non-A-series products negotiable', () => {
+    render(
+      <NegotiationModal
+        {...defaultProps}
+        productName="Samsung Galaxy S25 Ultra"
+      />
+    );
+
+    submitLowOffer('9000');
+
+    expect(screen.getByText('Counter Offer')).toBeInTheDocument();
+    expect(screen.getByText('₦9,900')).toBeInTheDocument();
+  });
+
   it('cancels pending submit timers when unmounted', () => {
     const onSuccess = vi.fn();
     const { unmount } = render(
