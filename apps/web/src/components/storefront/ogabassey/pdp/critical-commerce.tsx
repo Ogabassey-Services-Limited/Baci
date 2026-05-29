@@ -46,16 +46,25 @@ export function OgabasseyPdpCriticalCommerce({
   const formattedCondition = formatCondition(product.condition);
 
   return (
-    <aside className={styles.panel} aria-label="Purchase options">
-      <div className={styles.facts}>
-        <p className={styles.eyebrow}>Ready to buy</p>
+    <aside
+      className={styles.panel}
+      data-ogabassey-pdp-commerce-panel
+      aria-label="Purchase options"
+    >
+      <div className={styles.facts} data-ogabassey-pdp-commerce-facts>
+        <p
+          className={styles.eyebrow}
+          data-ogabassey-pdp-commerce-eyebrow
+        >
+          Ready to buy
+        </p>
         {formattedCondition ? (
-          <p className={styles.fact}>
+          <p className={styles.fact} data-ogabassey-pdp-commerce-fact>
             <span>Condition</span>
             <strong>{formattedCondition}</strong>
           </p>
         ) : null}
-        <p className={styles.fact}>
+        <p className={styles.fact} data-ogabassey-pdp-commerce-fact>
           <span>Delivery</span>
           <strong>Lagos and nationwide</strong>
         </p>
