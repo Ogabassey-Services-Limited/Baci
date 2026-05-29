@@ -105,4 +105,12 @@ describe('Facebook SDK Expo config', () => {
       },
     ]);
   });
+
+  it('allows Android to adapt orientation and resizability on large screens', () => {
+    const appConfig = loadAppConfigWithFacebookEnv({});
+    const config = renderConfig(appConfig);
+
+    expect(config.orientation).toBe('default');
+    expect(config.plugins).toContain('./config/withAdaptiveAndroidManifest.js');
+  });
 });
