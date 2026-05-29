@@ -11,6 +11,21 @@ vi.mock('@/components/dashboard/integrations/feed-url-section', () => ({
 }));
 
 vi.mock(
+  '@/components/dashboard/integrations/google-merchant-customer-reviews-card',
+  () => ({
+    GoogleMerchantCustomerReviewsCard: ({
+      initialCustomSettings,
+    }: {
+      initialCustomSettings?: Record<string, unknown>;
+    }) => (
+      <div data-merchant-id={String(initialCustomSettings?.google_merchant_id)}>
+        customer-reviews-card
+      </div>
+    ),
+  })
+);
+
+vi.mock(
   '@/components/dashboard/integrations/google-merchant-readiness-card',
   () => ({
     GoogleMerchantReadinessCard: () => (
@@ -47,11 +62,16 @@ describe('Google Merchant dashboard page', () => {
       merchant: {
         slug: 'ogabassey',
         business_name: 'Ogabassey',
+        feature_settings: {
+          custom_settings: {
+            google_merchant_id: '112524323',
+          },
+        },
       },
     } as never);
   });
 
-  it('renders the readiness card beneath the feed URL section', () => {
+  it('renders Customer Reviews settings and the readiness card beneath the feed URL section', () => {
     const { container } = render(<GoogleMerchantPage />);
 
     const feedUrlSection = screen.getByTestId('feed-url-section');
@@ -63,6 +83,10 @@ describe('Google Merchant dashboard page', () => {
       feedUrlSection.compareDocumentPosition(readinessCard) &
         Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy();
+    expect(screen.getByText('customer-reviews-card')).toHaveAttribute(
+      'data-merchant-id',
+      '112524323'
+    );
     expect(container.textContent).toContain('Google Merchant Center');
   });
 });

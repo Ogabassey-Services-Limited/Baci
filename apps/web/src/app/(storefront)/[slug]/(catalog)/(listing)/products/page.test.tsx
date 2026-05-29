@@ -13,6 +13,7 @@ const { mockProductsPageContent } = vi.hoisted(() => ({
     <div>Products page content</div>
   )),
 }));
+const mockConnection = vi.hoisted(() => vi.fn());
 
 vi.mock('next/image', () => ({
   default: ({
@@ -109,6 +110,10 @@ vi.mock('next/navigation', () => ({
   notFound: () => notFound(),
 }));
 
+vi.mock('next/server', () => ({
+  connection: () => mockConnection(),
+}));
+
 const merchant = {
   id: 'merchant-1',
   business_name: 'Ogabassey',
@@ -180,6 +185,7 @@ describe('products index page', () => {
         parent_id: null,
       },
     ]);
+    mockConnection.mockReset();
   });
 
   it('renders product and category links for crawlable discovery', async () => {
@@ -405,6 +411,15 @@ describe('products index page', () => {
       page: 1,
       limit: 20,
     });
+  });
+
+  it('marks product index metadata as request-time rendered', async () => {
+    await generateMetadata({
+      params: Promise.resolve({ slug: 'test-store' }),
+      searchParams: Promise.resolve({ page: '1' }),
+    });
+
+    expect(mockConnection).toHaveBeenCalledOnce();
   });
 
   it('omits ?page=1 from the first-page canonical URL', async () => {

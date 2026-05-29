@@ -61,26 +61,25 @@ export async function createRepair(
   } = validationResult.data;
 
   try {
+    const repairId = globalThis.crypto.randomUUID();
+
     // 2. Insert into database
-    const { data: repair, error } = await supabase
-      .from('repairs')
-      .insert({
-        merchant_id: merchantId,
-        customer_name: customerName,
-        customer_email: customerEmail,
-        customer_phone: customerPhone,
-        device_type: deviceType,
-        device_model: deviceModel,
-        issue_description: issueDescription,
-        preferred_date: preferredDate
-          ? new Date(preferredDate).toISOString()
-          : null,
-        service_type: serviceType,
-        pickup_address: pickupAddress || null,
-        status: 'pending',
-      })
-      .select('id')
-      .single();
+    const { error } = await supabase.from('repairs').insert({
+      id: repairId,
+      merchant_id: merchantId,
+      customer_name: customerName,
+      customer_email: customerEmail,
+      customer_phone: customerPhone,
+      device_type: deviceType,
+      device_model: deviceModel,
+      issue_description: issueDescription,
+      preferred_date: preferredDate
+        ? new Date(preferredDate).toISOString()
+        : null,
+      service_type: serviceType,
+      pickup_address: pickupAddress || null,
+      status: 'pending',
+    });
 
     if (error) {
       console.error('Error creating repair:', error);
@@ -93,7 +92,7 @@ export async function createRepair(
     // 3. Revalidate paths (optional, if we show recent requests somewhere)
     revalidatePath('/dashboard/repairs');
 
-    return { success: true, id: repair.id };
+    return { success: true, id: repairId };
   } catch (error) {
     console.error('Unexpected error creating repair:', error);
     return { success: false, error: 'An unexpected error occurred.' };

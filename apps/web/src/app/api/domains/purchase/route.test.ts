@@ -180,6 +180,9 @@ describe('POST /api/domains/purchase transaction scoping', () => {
 
     expect(response.status).toBe(403);
     expect(mocks.transactionMutations).toHaveLength(1);
+    expect(mocks.transactionMutations[0].payload).toMatchObject({
+      status: 'completed',
+    });
     expect(mocks.transactionMutations[0].filters).toEqual([
       ['id', 'transaction-foreign'],
       ['merchant_id', 'merchant-1'],
@@ -193,7 +196,7 @@ describe('POST /api/domains/purchase transaction scoping', () => {
       id: 'transaction-owned',
       merchant_id: 'merchant-1',
       metadata: null,
-      status: 'success',
+      status: 'completed',
     });
 
     const response = await POST(createRequest());
