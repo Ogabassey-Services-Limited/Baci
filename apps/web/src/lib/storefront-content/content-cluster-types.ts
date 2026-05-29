@@ -83,6 +83,7 @@ export interface BuildInformationalClusterModelInput {
   storeUrl: string;
   post: PublishedClusterPost;
   categoryDataOverride?: InformationalClusterCategoryData | null;
+  countryCode?: string | null;
 }
 
 export interface BlogClusterCollection {

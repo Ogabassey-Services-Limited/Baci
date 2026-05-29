@@ -15,8 +15,10 @@ vi.mock(
   '@/app/(storefront)/[slug]/(catalog)/(listing)/products/product-index-card',
   () => ({
     ProductIndexCard: ({
+      formattedPrice,
       product,
     }: {
+      formattedPrice: string;
       product: {
         name: string;
         condition: string;
@@ -26,6 +28,7 @@ vi.mock(
       <div>
         <span>{product.name}</span>
         <span>{product.condition}</span>
+        <span>{formattedPrice}</span>
         <span>
           {product.has_condition_offers ? 'offers' : 'single-condition'}
         </span>
@@ -182,5 +185,32 @@ describe('PriceBandPageContent', () => {
     ).rejects.toThrow('NEXT_NOT_FOUND');
 
     expect(mockNotFound).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders product prices with the page payout currency', async () => {
+    mockLoadPriceBandPage.mockResolvedValueOnce({
+      ...priceBandPageModel,
+      payoutCurrency: 'INR',
+      products: [
+        {
+          ...priceBandPageModel.products[0],
+          price: 2500,
+        },
+      ],
+    });
+    const { PriceBandPageContent } = await import('./price-band-page-content');
+
+    render(
+      (await PriceBandPageContent({
+        params: Promise.resolve({
+          slug: 'yodha',
+          category: 'fashion',
+          priceBandSlug: 'under-5k',
+        }),
+      })) as ReactElement
+    );
+
+    expect(screen.getByText(/₹2,500|INR/)).toBeInTheDocument();
+    expect(screen.queryByText('₦2,500')).not.toBeInTheDocument();
   });
 });
