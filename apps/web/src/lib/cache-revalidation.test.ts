@@ -70,6 +70,10 @@ describe('cache-revalidation utilities', () => {
         'products'
       );
       expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'google-merchant-feed',
+        'products'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
         `merchant-feed-${MERCHANT_ID}`,
         'products'
       );
@@ -77,7 +81,7 @@ describe('cache-revalidation utilities', () => {
         `dashboard-${MERCHANT_ID}`,
         'merchant'
       );
-      expect(mockRevalidateTag).toHaveBeenCalledTimes(10);
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(11);
     });
 
     it('revalidates specific product when slug provided', () => {
@@ -118,6 +122,10 @@ describe('cache-revalidation utilities', () => {
         'products'
       );
       expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'google-merchant-feed',
+        'products'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
         `merchant-feed-${MERCHANT_ID}`,
         'products'
       );
@@ -125,7 +133,7 @@ describe('cache-revalidation utilities', () => {
         `dashboard-${MERCHANT_ID}`,
         'merchant'
       );
-      expect(mockRevalidateTag).toHaveBeenCalledTimes(11);
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(12);
     });
 
     it('revalidates non-ASCII product slugs with ByteString-safe cache tags', () => {
@@ -141,7 +149,7 @@ describe('cache-revalidation utilities', () => {
       expect(mockRevalidateTag).toHaveBeenCalledWith(expectedTag, 'products');
       expect(expectedTag).not.toContain('–');
       expect(expectedTag).not.toContain('”');
-      expect(mockRevalidateTag).toHaveBeenCalledTimes(11);
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(12);
     });
 
     it('handles empty slug gracefully', () => {
@@ -160,7 +168,7 @@ describe('cache-revalidation utilities', () => {
         `merchant-id-${MERCHANT_ID}`,
         'products'
       );
-      expect(mockRevalidateTag).toHaveBeenCalledTimes(10);
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(11);
     });
   });
 
@@ -526,9 +534,13 @@ describe('cache-revalidation utilities', () => {
   });
 
   describe('revalidateMerchantFeed', () => {
-    it('revalidates merchant feed and review-signal tags', () => {
+    it('revalidates global, merchant, and review-signal feed tags', () => {
       revalidateMerchantFeed('ogabassey');
 
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'google-merchant-feed',
+        'products'
+      );
       expect(mockRevalidateTag).toHaveBeenCalledWith(
         'merchant-feed-ogabassey',
         'products'
@@ -537,21 +549,16 @@ describe('cache-revalidation utilities', () => {
         'merchant-feed-review-signals-ogabassey',
         'products'
       );
-      expect(mockRevalidateTag).toHaveBeenCalledTimes(2);
-    });
-
-    it('does not flush the global google-merchant-feed tag', () => {
-      revalidateMerchantFeed('ogabassey');
-
-      expect(mockRevalidateTag).not.toHaveBeenCalledWith(
-        'google-merchant-feed',
-        expect.anything()
-      );
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(3);
     });
 
     it('works with merchant UUID as identifier', () => {
       revalidateMerchantFeed(MERCHANT_ID);
 
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'google-merchant-feed',
+        'products'
+      );
       expect(mockRevalidateTag).toHaveBeenCalledWith(
         `merchant-feed-${MERCHANT_ID}`,
         'products'
@@ -560,7 +567,7 @@ describe('cache-revalidation utilities', () => {
         `merchant-feed-review-signals-${MERCHANT_ID}`,
         'products'
       );
-      expect(mockRevalidateTag).toHaveBeenCalledTimes(2);
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(3);
     });
   });
 
@@ -689,7 +696,7 @@ describe('cache-revalidation utilities', () => {
         }
       }).not.toThrow();
 
-      expect(mockRevalidateTag).toHaveBeenCalledTimes(1000); // 10 calls per invocation * 100
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(1100); // 11 calls per invocation * 100
     });
 
     it('handles null/undefined merchant IDs gracefully', () => {
