@@ -39,18 +39,21 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
+import { formatDisplayCurrency } from '@/lib/format-display-currency';
 import {
   type PendingSettlement,
   type Transaction,
   updateWalletSettings,
   type WalletData,
 } from './actions';
+import { getWalletPayoutAmountOptions } from './wallet-payout-options';
 
 interface WalletClientProps {
   wallet: WalletData | null;
   pendingSettlements: PendingSettlement[];
   transactions: Transaction[];
   merchantId: string;
+  payoutCurrency?: string | null;
 }
 
 export default function WalletClient({
@@ -58,6 +61,7 @@ export default function WalletClient({
   pendingSettlements,
   transactions,
   merchantId,
+  payoutCurrency = 'NGN',
 }: WalletClientProps) {
   const { toast } = useToast();
   const router = useRouter();
@@ -120,6 +124,16 @@ export default function WalletClient({
       month: 'short',
     });
   };
+
+  const formatMoney = (amount: number) =>
+    formatDisplayCurrency(amount, payoutCurrency || 'NGN', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    });
+  const payoutAmountOptions = getWalletPayoutAmountOptions(
+    payoutCurrency,
+    wallet?.minPayoutAmount
+  );
 
   const getTypeIcon = (type: string) => {
     switch (type) {
@@ -194,7 +208,7 @@ export default function WalletClient({
               Available Balance
             </CardDescription>
             <CardTitle className="text-4xl text-green-600">
-              ₦{wallet?.availableBalance.toLocaleString() || '0'}
+              {formatMoney(wallet?.availableBalance || 0)}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -215,7 +229,7 @@ export default function WalletClient({
               Upcoming
             </CardDescription>
             <CardTitle className="text-2xl text-amber-600">
-              ₦{wallet?.upcomingBalance?.toLocaleString() || '0'}
+              {formatMoney(wallet?.upcomingBalance || 0)}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -243,7 +257,7 @@ export default function WalletClient({
               Processing
             </CardDescription>
             <CardTitle className="text-2xl">
-              ₦{wallet?.pendingBalance.toLocaleString() || '0'}
+              {formatMoney(wallet?.pendingBalance || 0)}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -259,12 +273,12 @@ export default function WalletClient({
               Total Earned
             </CardDescription>
             <CardTitle className="text-2xl">
-              ₦{wallet?.totalEarned.toLocaleString() || '0'}
+              {formatMoney(wallet?.totalEarned || 0)}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-xs text-muted-foreground">
-              Withdrawn: ₦{wallet?.totalWithdrawn.toLocaleString() || '0'}
+              Withdrawn: {formatMoney(wallet?.totalWithdrawn || 0)}
             </p>
           </CardContent>
         </Card>
@@ -308,7 +322,7 @@ export default function WalletClient({
                   </div>
                   <div className="text-right">
                     <p className="font-semibold text-green-600">
-                      +₦{settlement.amount.toLocaleString()}
+                      +{formatMoney(settlement.amount)}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {formatShortDate(settlement.expectedDate)}
@@ -386,11 +400,11 @@ export default function WalletClient({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="500">₦500</SelectItem>
-                      <SelectItem value="1000">₦1,000</SelectItem>
-                      <SelectItem value="2000">₦2,000</SelectItem>
-                      <SelectItem value="5000">₦5,000</SelectItem>
-                      <SelectItem value="10000">₦10,000</SelectItem>
+                      {payoutAmountOptions.map((amount) => (
+                        <SelectItem key={amount} value={String(amount)}>
+                          {formatMoney(amount)}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground">
@@ -447,8 +461,8 @@ export default function WalletClient({
                             : 'text-gray-900 dark:text-gray-100'
                         }`}
                       >
-                        {tx.type === 'credit' ? '+' : '-'}₦
-                        {tx.amount.toLocaleString()}
+                        {tx.type === 'credit' ? '+' : '-'}
+                        {formatMoney(tx.amount)}
                       </TableCell>
                       <TableCell>{getStatusBadge(tx.status)}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">

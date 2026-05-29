@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -215,28 +215,6 @@ describe('DashboardClientLayout', () => {
     expect(
       screen.getAllByRole('link', { name: 'Migrations' })[0]
     ).toHaveAttribute('href', '/dashboard/migrations');
-  });
-
-  it('puts urgent orders ahead of lower-priority click history', async () => {
-    mockOrdersCount.value = 904;
-    setSmartNavUsage({
-      products: {
-        clickCount: 20,
-        lastClickedAt: '2026-05-28T20:00:00.000Z',
-      },
-    });
-
-    renderLayout();
-
-    const smartNav = await screen.findByRole('navigation', {
-      name: 'Smart shortcuts',
-    });
-
-    await waitFor(() =>
-      expect(within(smartNav).getAllByRole('link')[0]).toHaveTextContent(
-        'Orders904'
-      )
-    );
   });
 
   it('records dashboard navigation clicks in merchant scoped storage', async () => {

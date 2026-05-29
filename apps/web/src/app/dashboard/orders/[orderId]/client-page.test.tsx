@@ -136,6 +136,7 @@ function makeOrder(overrides: Partial<Order> = {}): Order {
     orderNumber: 'ORD-001',
     customerName: 'Test Customer',
     total: 5000,
+    currency: 'NGN',
     paymentStatus: 'Paid',
     shippingStatus: 'Pending',
     paymentMethod: null,
@@ -174,6 +175,17 @@ describe('OrderDetailsClientPage', () => {
     // The amount appears in both "Sub Total" and "Total Amount" rows
     const matches = screen.getAllByText(/15,000/);
     expect(matches.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('renders order amounts using the order currency', () => {
+    render(
+      <OrderDetailsClientPage
+        initialOrder={makeOrder({ total: 15000, currency: 'INR' })}
+      />
+    );
+
+    expect(screen.getAllByText(/₹|INR/).length).toBeGreaterThanOrEqual(2);
+    expect(screen.queryByText(/₦/)).not.toBeInTheDocument();
   });
 
   it('renders a back-to-orders link', () => {
