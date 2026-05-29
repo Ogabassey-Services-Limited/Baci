@@ -1,4 +1,5 @@
 import { getCachedCategoryPageData } from '@/lib/cached-data';
+import { formatCurrencyCompact } from '@/lib/currency';
 import { normalizeProduct, type RawDbProduct } from '@/lib/normalize-product';
 import { buildCategorySupportLinks } from '@/lib/storefront-compare/build-commercial-support-links';
 import type {
@@ -98,7 +99,8 @@ function buildProductHref(storeUrl: string, product: CategoryInventoryProduct) {
 function buildFeaturedProducts(
   storeUrl: string,
   inferredBrands: string[],
-  products: CategoryInventoryProduct[]
+  products: CategoryInventoryProduct[],
+  countryCode?: string | null
 ) {
   const inStockProducts = products.filter(isInStock);
   const normalizedBrands = inferredBrands.map((brand) => brand.toLowerCase());
@@ -121,7 +123,7 @@ function buildFeaturedProducts(
     .map((product) => ({
       href: buildProductHref(storeUrl, product),
       title: product.name,
-      description: `${product.brand ?? 'Storefront pick'} • ₦${product.price.toLocaleString('en-NG')}`,
+      description: `${product.brand ?? 'Storefront pick'} • ${formatCurrencyCompact(product.price, countryCode || 'NG')}`,
     }));
 }
 
@@ -168,7 +170,8 @@ export async function buildInformationalClusterModel(
     featuredProducts: buildFeaturedProducts(
       input.storeUrl,
       inferred.brands,
-      products
+      products,
+      input.countryCode
     ),
   };
 }

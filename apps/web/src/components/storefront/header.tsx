@@ -98,6 +98,7 @@ export function StorefrontHeader() {
             onSelectProduct={handleProductSelect}
             placeholder="Search products..."
             className="w-full max-w-md"
+            countryCode={merchant.country}
           />
         </div>
 

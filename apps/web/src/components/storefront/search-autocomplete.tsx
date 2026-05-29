@@ -4,6 +4,7 @@ import { Search, TrendingUp, X } from 'lucide-react';
 import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
 import { Input } from '@/components/ui/input';
+import { useCurrencyWithCountry } from '@/hooks/use-currency';
 import { useDebounce } from '@/hooks/use-debounce';
 import { trackEvent } from '@/lib/event-tracking';
 import { getProductUrl } from '@/lib/seo-utils';
@@ -41,6 +42,7 @@ export interface SearchAutocompleteProps {
   id?: string;
   name?: string;
   autoFocus?: boolean;
+  countryCode?: string | null;
 }
 
 export function SearchAutocomplete({
@@ -53,6 +55,7 @@ export function SearchAutocomplete({
   id = 'search-input',
   name = 'q',
   autoFocus = false,
+  countryCode,
 }: SearchAutocompleteProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [suggestions, setSuggestions] = useState<Product[]>([]);
@@ -62,6 +65,8 @@ export function SearchAutocomplete({
   const wrapperRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const debouncedValue = useDebounce(value, 300);
+  const safeCountryCode = countryCode || 'NG';
+  const { formatCurrencyCompact } = useCurrencyWithCountry(safeCountryCode);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -316,8 +321,8 @@ export function SearchAutocomplete({
                           </span>
                         )}
                         <span className="font-bold text-red-600">
-                          <span className="sr-only">Price: </span>₦
-                          {product.price.toLocaleString()}
+                          <span className="sr-only">Price: </span>
+                          {formatCurrencyCompact(product.price)}
                         </span>
                       </div>
                     </div>

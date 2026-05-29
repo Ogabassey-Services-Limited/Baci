@@ -2008,6 +2008,7 @@ export async function getCachedBlogPost(
       slug: merchant.slug,
       logo_url: merchant.logo_url,
       custom_domain: merchant.custom_domain,
+      country: merchant.country,
     },
     post,
     relatedPosts: relatedPostsError

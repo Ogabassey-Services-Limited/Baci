@@ -38,6 +38,7 @@ export interface Order {
   orderNumber: string;
   customerName: string;
   total: number;
+  currency: string;
   shippingStatus: ShippingStatus;
   paymentStatus: PaymentStatus;
   paymentMethod: string | null;
@@ -92,6 +93,7 @@ interface DashboardOrderRecord {
   order_number: string;
   customer_name: string;
   total: string;
+  currency?: string | null;
   shipping_status: string;
   payment_status: string;
   payment_method: string | null;
@@ -278,6 +280,7 @@ export async function getOrders(
     orderNumber: order.order_number,
     customerName: formatPersonName(order.customer_name || 'Customer'),
     total: Number.parseFloat(order.total),
+    currency: order.currency || 'NGN',
     shippingStatus: formatStatus(order.shipping_status) as ShippingStatus,
     paymentStatus: formatStatus(order.payment_status) as PaymentStatus,
     paymentMethod: order.payment_method,
@@ -326,6 +329,7 @@ export async function getOrders(
       orderNumber: jOrder.jumia_order_number,
       customerName: formatPersonName(jOrder.customer_name || 'Jumia Customer'),
       total: Number.parseFloat(jOrder.total_amount),
+      currency: 'NGN',
       shippingStatus,
       paymentStatus,
       paymentMethod: 'Jumia Payout',
@@ -498,6 +502,7 @@ export async function getOrder(
     orderNumber: order.order_number,
     customerName: formatPersonName(order.customer_name || 'Customer'),
     total: Number.parseFloat(order.total),
+    currency: order.currency || 'NGN',
     shippingStatus: formatStatus(order.shipping_status) as ShippingStatus,
     paymentStatus: formatStatus(order.payment_status) as PaymentStatus,
     paymentMethod: order.payment_method,
