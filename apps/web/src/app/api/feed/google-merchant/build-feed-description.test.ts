@@ -56,4 +56,29 @@ describe('buildFeedDescription', () => {
       'Pixel Ultra with Colour: Black and RAM: 16GB for demanding workflows.'
     );
   });
+
+  it('prefers variant matrix colour, RAM and storage over product-level values', () => {
+    const description = buildFeedDescription({
+      name: 'Galaxy S24 Ultra',
+      description: 'Open box Samsung flagship with a large AMOLED display.',
+      color: 'Titanium Black',
+      product_key_specs: {
+        ram_gb: 12,
+        storage_gb: 256,
+        main_camera_mp: 200,
+      },
+      variant_attributes: {
+        color: 'Titanium Yellow',
+        ram: '12GB',
+        storage: '1TB',
+      },
+    });
+
+    expect(description).toContain('Colour: Titanium Yellow');
+    expect(description).toContain('RAM: 12GB');
+    expect(description).toContain('Storage capacity: 1TB');
+    expect(description).toContain('Rear camera resolution: 200MP');
+    expect(description).not.toContain('Colour: Titanium Black');
+    expect(description).not.toContain('Storage capacity: 256GB');
+  });
 });
