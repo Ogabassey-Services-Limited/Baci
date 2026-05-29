@@ -299,6 +299,11 @@ interface ConversionData {
   orderId?: string;
   value?: number;
   currency?: string;
+  contentName?: string;
+  contentType?: 'product' | 'product_group';
+  price?: number;
+  searchString?: string;
+  url?: string;
   items?: Array<{
     id: string;
     quantity: number;
@@ -341,7 +346,12 @@ async function sendServerConversion(
           order_id: data.orderId,
           value: data.value,
           currency: data.currency || 'NGN',
+          content_name: data.contentName,
+          content_type: data.contentType,
           contents: data.items,
+          price: data.price,
+          search_string: data.searchString,
+          url: data.url,
         },
         // All platforms receive the event with same event_id
         targets: ['facebook', 'tiktok', 'snapchat', 'google'],
@@ -720,7 +730,9 @@ export async function trackPaymentInfoAdded(
 
   // await analytics().logAddPaymentInfo({ payment_type: paymentMethod });
 
-  sendServerConversion('ADD_PAYMENT_INFO', eventId, {});
+  sendServerConversion('ADD_PAYMENT_INFO', eventId, {
+    currency: 'NGN',
+  });
 
   if (AppEventsLogger) {
     AppEventsLogger.logEvent('fb_mobile_add_payment_info', {
@@ -783,6 +795,22 @@ export async function trackAddToWishlist(product: {
     brand: product.brand,
   });
 
+  sendServerConversion('ADD_TO_WISHLIST', eventId, {
+    value: product.price,
+    currency,
+    contentName: product.name,
+    contentType: 'product',
+    price: product.price,
+    items: [
+      {
+        id: product.id,
+        quantity: 1,
+        name: product.name,
+        price: product.price,
+      },
+    ],
+  });
+
   if (isTikTokInitialized && TikTokBusiness) {
     TikTokBusiness.trackEvent(
       'AddToWishlist',
@@ -809,7 +837,9 @@ export async function trackSearch(
 
   // await analytics().logSearch({ search_term: query });
 
-  sendServerConversion('SEARCH', eventId, {});
+  sendServerConversion('SEARCH', eventId, {
+    searchString: query,
+  });
 
   if (AppEventsLogger) {
     AppEventsLogger.logEvent('fb_mobile_search', {
