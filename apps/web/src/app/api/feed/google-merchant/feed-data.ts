@@ -25,6 +25,8 @@ export interface GoogleMerchantFeedData {
   imageManifest: ImageManifestMap;
 }
 
+const GOOGLE_MERCHANT_FEED_DATA_CACHE_VERSION = 'variant-feed-data-v2';
+
 interface RawFeedProductRow extends Omit<FeedProduct, 'categories'> {
   categories?:
     | { name?: string; slug?: string }
@@ -354,7 +356,20 @@ export async function getCachedGoogleMerchantFeedData(
   merchantId: string,
   merchantSlug: string
 ): Promise<GoogleMerchantFeedData> {
+  return await getCachedGoogleMerchantFeedDataForVersion(
+    merchantId,
+    merchantSlug,
+    GOOGLE_MERCHANT_FEED_DATA_CACHE_VERSION
+  );
+}
+
+async function getCachedGoogleMerchantFeedDataForVersion(
+  merchantId: string,
+  merchantSlug: string,
+  cacheVersion: string
+): Promise<GoogleMerchantFeedData> {
   'use cache';
+  void cacheVersion;
   cacheLife('products');
   cacheTag('google-merchant-feed', 'products', `merchant-feed-${merchantId}`);
 
