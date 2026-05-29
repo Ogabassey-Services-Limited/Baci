@@ -11,8 +11,8 @@ import { Alert } from 'react-native';
 import BankTransferScreen from '@/app/bank-transfer';
 
 const mockClearCart = jest.fn();
-const mockAsyncStorageSetItem = jest.fn<
-  (key: string, value: string) => Promise<void>
+const mockPersistStorageSetItem = jest.fn<
+  (key: string, value: unknown) => Promise<void>
 >(() => Promise.resolve());
 const mockGetOrderWalletFundingIntent =
   jest.fn<(...args: unknown[]) => Promise<unknown>>();
@@ -65,14 +65,6 @@ jest.mock('@/lib/order-wallet-funding-intent', () => ({
     mockGetOrderWalletFundingIntent(...args),
 }));
 
-jest.mock('@react-native-async-storage/async-storage', () => ({
-  __esModule: true,
-  default: {
-    setItem: (key: string, value: string) =>
-      mockAsyncStorageSetItem(key, value),
-  },
-}));
-
 jest.mock('@/stores/cart-store', () => ({
   useCartStore: Object.assign(
     (selector: (state: typeof mockCartState) => unknown) =>
@@ -86,6 +78,10 @@ jest.mock('@/stores/cart-store', () => ({
             items: state.items,
             lineSequence: state.lineSequence,
           }),
+          storage: {
+            setItem: (key: string, value: unknown) =>
+              mockPersistStorageSetItem(key, value),
+          },
           version: 0,
         })),
       },
@@ -96,7 +92,7 @@ jest.mock('@/stores/cart-store', () => ({
 describe('BankTransferScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockAsyncStorageSetItem.mockResolvedValue(undefined);
+    mockPersistStorageSetItem.mockResolvedValue(undefined);
     mockGetOrderWalletFundingIntent.mockResolvedValue({
       intent: {
         currency: 'NGN',
@@ -132,13 +128,10 @@ describe('BankTransferScreen', () => {
 
     expect(mockClearCart).toHaveBeenCalledTimes(1);
     await waitFor(() => {
-      expect(mockAsyncStorageSetItem).toHaveBeenCalledWith(
-        'cart-storage',
-        JSON.stringify({
-          state: { items: [], lineSequence: 0 },
-          version: 0,
-        })
-      );
+      expect(mockPersistStorageSetItem).toHaveBeenCalledWith('cart-storage', {
+        state: { items: [], lineSequence: 0 },
+        version: 0,
+      });
       expect(router.replace).toHaveBeenCalledWith({
         pathname: '/order-success',
         params: {

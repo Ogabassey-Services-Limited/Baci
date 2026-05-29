@@ -1,4 +1,3 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
@@ -131,13 +130,10 @@ export default function BankTransferScreen() {
     const persistOpts = useCartStore.persist.getOptions();
     const partialize = persistOpts.partialize ?? ((state: unknown) => state);
     const persistedState = partialize(useCartStore.getState());
-    await AsyncStorage.setItem(
-      persistOpts.name ?? 'cart-storage',
-      JSON.stringify({
-        state: persistedState,
-        version: persistOpts.version ?? 0,
-      })
-    );
+    await persistOpts.storage?.setItem(persistOpts.name ?? 'cart-storage', {
+      state: persistedState,
+      version: persistOpts.version ?? 0,
+    });
     router.replace({
       pathname: '/order-success',
       params: {
