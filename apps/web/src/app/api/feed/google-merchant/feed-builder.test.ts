@@ -58,9 +58,10 @@ function extractLinkQueryParams(xml: string) {
 }
 
 function extractItemXml(xml: string, id: string) {
+  const escapedId = id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const item = xml.match(
     new RegExp(
-      `    <item>\\n[\\s\\S]*?<g:id>${id}</g:id>[\\s\\S]*?\\n    </item>`
+      `    <item>\\n[\\s\\S]*?<g:id>${escapedId}</g:id>[\\s\\S]*?\\n    </item>`
     )
   );
 
