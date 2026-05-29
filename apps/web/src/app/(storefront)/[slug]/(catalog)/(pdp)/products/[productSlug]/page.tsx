@@ -306,6 +306,15 @@ export async function generateMetadata(
   }
   const { product } = productResult;
   if (!product) {
+    const legacyRedirectTarget = await getCachedLegacyProductRedirectTarget(
+      productResult.merchant.id,
+      productSlug
+    );
+
+    if (!legacyRedirectTarget) {
+      notFound();
+    }
+
     // Don't issue a redirect from generateMetadata — Next.js can't change
     // HTTP status from here and falls back to an HTML <meta refresh>, which
     // Google indexes as a soft redirect / "noindex" page. The default page

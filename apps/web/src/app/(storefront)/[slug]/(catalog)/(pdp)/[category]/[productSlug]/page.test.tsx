@@ -691,29 +691,27 @@ describe('[category]/[productSlug] page metadata', () => {
     expect(mockPermanentRedirect).not.toHaveBeenCalled();
   });
 
-  it('returns noindex metadata when the product is missing and no legacy redirect exists', async () => {
+  it('throws notFound from metadata when the product is missing and no legacy redirect exists', async () => {
     const consoleWarnSpy = vi
       .spyOn(console, 'warn')
       .mockImplementation(() => undefined);
 
-    let metadata: Awaited<ReturnType<typeof generateMetadata>> | undefined;
     try {
-      metadata = await generateMetadata({
-        params: Promise.resolve({
-          slug: 'teststore',
-          category: 'smartphones',
-          productSlug: 'missing-product',
-        }),
-        searchParams: Promise.resolve({}),
-      });
+      await expect(
+        generateMetadata({
+          params: Promise.resolve({
+            slug: 'teststore',
+            category: 'smartphones',
+            productSlug: 'missing-product',
+          }),
+          searchParams: Promise.resolve({}),
+        })
+      ).rejects.toThrow('NEXT_NOT_FOUND');
     } finally {
       consoleWarnSpy.mockRestore();
     }
 
-    expect(metadata).toMatchObject({
-      title: 'Product Not Found',
-      robots: { index: false, follow: false },
-    });
+    expect(mockNotFound).toHaveBeenCalledTimes(1);
     expect(mockPermanentRedirect).not.toHaveBeenCalled();
   });
 

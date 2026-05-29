@@ -49,7 +49,7 @@ vi.mock('../../products/[productSlug]/build-product-redirect-path', () => ({
     `/redirect/${slug}${productPath}`,
 }));
 
-import LegacyProductPage from './page';
+import LegacyProductPage, { generateMetadata } from './page';
 
 describe('legacy singular product route', () => {
   beforeEach(() => {
@@ -84,6 +84,38 @@ describe('legacy singular product route', () => {
       '/redirect/ogabassey/playstation-5/wrc-9-playstation-5'
     );
     expect(mockConnection).toHaveBeenCalledOnce();
+  });
+
+  it('returns noindex metadata when the legacy route has a redirect target', async () => {
+    mockGetCachedProductWithDetails.mockResolvedValue({
+      slug: 'wrc-9-playstation-5',
+      category: 'PlayStation 5',
+    });
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: 'ogabassey',
+        productSlug: 'wrc-9-playstation-5',
+      }),
+    });
+
+    expect(metadata.robots).toMatchObject({ index: false, follow: false });
+    expect(mockConnection).toHaveBeenCalledOnce();
+    expect(mockNotFound).not.toHaveBeenCalled();
+  });
+
+  it('throws notFound from metadata when no legacy route target exists', async () => {
+    await expect(
+      generateMetadata({
+        params: Promise.resolve({
+          slug: 'ogabassey',
+          productSlug: 'missing-product',
+        }),
+      })
+    ).rejects.toThrow('NEXT_NOT_FOUND');
+
+    expect(mockConnection).toHaveBeenCalledOnce();
+    expect(mockNotFound).toHaveBeenCalledOnce();
   });
 
   it('returns notFound for invalid non-storefront slugs', async () => {
