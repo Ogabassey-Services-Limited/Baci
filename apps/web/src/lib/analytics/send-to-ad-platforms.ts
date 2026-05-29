@@ -10,14 +10,19 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
-import { facebookCAPI } from '@/lib/facebook-capi';
+import {
+  type AnalyticsPlatformConfig,
+  fetchAnalyticsPlatformConfig,
+} from '@/lib/analytics/analytics-platform-config';
+import { facebookCAPI, sendFacebookCAPIEvent } from '@/lib/facebook-capi';
 import { logger } from '@/lib/logger';
-import { snapchatCAPI } from '@/lib/snapchat-capi';
-import { tiktokEventsAPI } from '@/lib/tiktok-events-api';
+import { sendSnapchatEvent, snapchatCAPI } from '@/lib/snapchat-capi';
+import {
+  type TikTokEventProperties,
+  tiktokEventsAPI,
+} from '@/lib/tiktok-events-api';
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+export type AdPlatformTarget = 'facebook' | 'tiktok' | 'snapchat' | 'google';
 
 export interface ConversionEvent {
   merchant_id: string;
@@ -29,11 +34,21 @@ export interface ConversionEvent {
     external_id?: string;
     ip?: string;
     ua?: string;
+    fbc?: string;
+    fbp?: string;
+    ttclid?: string;
+    ttp?: string;
+    sccid?: string;
   };
   custom_data: {
     order_id?: string;
     value?: number;
     currency?: string;
+    content_name?: string;
+    content_type?: 'product' | 'product_group';
+    price?: number;
+    search_string?: string;
+    url?: string;
     contents?: Array<{
       id: string;
       quantity: number;
@@ -42,34 +57,41 @@ export interface ConversionEvent {
     }>;
   };
   source: 'web' | 'mobile_app' | 'server';
+  targets?: AdPlatformTarget[];
 }
 
-interface MerchantAdConfig {
-  facebook_pixel_id: string | null;
-  facebook_capi_token: string | null;
-  tiktok_pixel_id: string | null;
-  tiktok_access_token: string | null;
-  snapchat_pixel_id: string | null;
-  snapchat_capi_token: string | null;
-}
-
-// ---------------------------------------------------------------------------
-// Event Name Mapping: DB event_type → platform-specific event names
-// ---------------------------------------------------------------------------
+export type AdPlatformResults = Partial<
+  Record<
+    'facebook' | 'tiktok' | 'snapchat',
+    { success: boolean; error?: string }
+  >
+>;
 
 /** Maps mobile/conversion-style names to DB event_type */
 export const CONVERSION_NAME_TO_DB: Record<string, string> = {
   PURCHASE: 'purchase',
   START_CHECKOUT: 'begin_checkout',
   ADD_CART: 'add_to_cart',
+  ADD_TO_CART: 'add_to_cart',
   VIEW_CONTENT: 'product_view',
+  ADD_PAYMENT_INFO: 'add_payment_info',
+  ADD_TO_WISHLIST: 'add_to_wishlist',
+  ADD_WISHLIST: 'add_to_wishlist',
+  SEARCH: 'search',
   SIGN_UP: 'customer_registered',
+  COMPLETE_REGISTRATION: 'customer_registered',
+  PLACE_AN_ORDER: 'place_order',
+  PLACE_ORDER: 'place_order',
   // Pass-through for already-normalized names
   purchase: 'purchase',
   begin_checkout: 'begin_checkout',
   add_to_cart: 'add_to_cart',
   product_view: 'product_view',
+  add_payment_info: 'add_payment_info',
+  add_to_wishlist: 'add_to_wishlist',
+  search: 'search',
   customer_registered: 'customer_registered',
+  place_order: 'place_order',
 };
 
 const DB_TO_FACEBOOK: Record<string, string> = {
@@ -77,27 +99,41 @@ const DB_TO_FACEBOOK: Record<string, string> = {
   begin_checkout: 'InitiateCheckout',
   add_to_cart: 'AddToCart',
   product_view: 'ViewContent',
+  add_payment_info: 'AddPaymentInfo',
+  add_to_wishlist: 'AddToWishlist',
+  search: 'Search',
   customer_registered: 'CompleteRegistration',
 };
 
 const DB_TO_TIKTOK: Record<string, string> = {
-  purchase: 'purchase',
-  begin_checkout: 'begin_checkout',
-  add_to_cart: 'add_to_cart',
-  product_view: 'view_item',
-  customer_registered: 'sign_up',
+  purchase: 'Purchase',
+  begin_checkout: 'InitiateCheckout',
+  add_to_cart: 'AddToCart',
+  product_view: 'ViewContent',
+  add_payment_info: 'AddPaymentInfo',
+  add_to_wishlist: 'AddToWishlist',
+  search: 'Search',
+  customer_registered: 'CompleteRegistration',
+  place_order: 'PlaceAnOrder',
 };
 
 const DB_TO_SNAPCHAT: Record<string, string> = {
-  purchase: 'purchase',
-  begin_checkout: 'begin_checkout',
-  add_to_cart: 'add_to_cart',
-  product_view: 'view_content',
-  customer_registered: 'sign_up',
+  purchase: 'PURCHASE',
+  begin_checkout: 'START_CHECKOUT',
+  add_to_cart: 'ADD_CART',
+  product_view: 'VIEW_CONTENT',
+  add_payment_info: 'ADD_BILLING',
+  add_to_wishlist: 'ADD_TO_WISHLIST',
+  search: 'SEARCH',
+  customer_registered: 'SIGN_UP',
 };
 
 /** Event types that should be forwarded to ad platforms */
-const CONVERSION_EVENT_TYPES = new Set(Object.keys(DB_TO_FACEBOOK));
+const CONVERSION_EVENT_TYPES = new Set([
+  ...Object.keys(DB_TO_FACEBOOK),
+  ...Object.keys(DB_TO_TIKTOK),
+  ...Object.keys(DB_TO_SNAPCHAT),
+]);
 
 export function isConversionEvent(eventType: string): boolean {
   return CONVERSION_EVENT_TYPES.has(eventType);
@@ -111,10 +147,6 @@ export function normalizeEventType(eventName: string): string | undefined {
   return CONVERSION_NAME_TO_DB[eventName];
 }
 
-// ---------------------------------------------------------------------------
-// Lazy admin client (same pattern as /api/events)
-// ---------------------------------------------------------------------------
-
 let adminClient: ReturnType<typeof createClient> | null = null;
 
 function getAdminClient() {
@@ -127,38 +159,52 @@ function getAdminClient() {
   return adminClient;
 }
 
-// ---------------------------------------------------------------------------
-// Merchant config cache (per-request is fine, this runs in after())
-// ---------------------------------------------------------------------------
-
-async function fetchMerchantAdConfig(
-  merchantId: string
-): Promise<MerchantAdConfig | null> {
-  const { data, error } = await getAdminClient()
-    .from('merchants')
-    .select(
-      'facebook_pixel_id, facebook_capi_token, tiktok_pixel_id, tiktok_access_token, snapchat_pixel_id, snapchat_capi_token'
-    )
-    .eq('id', merchantId)
-    .single();
-
-  if (error || !data) {
-    logger.warn({
-      message: 'Failed to fetch merchant ad config',
-      merchantId,
-      error,
-    });
-    return null;
-  }
-  return data as MerchantAdConfig;
+function toProducts(contents: ConversionEvent['custom_data']['contents']) {
+  return (contents || []).map((content) => ({
+    id: content.id,
+    name: content.name || content.id,
+    price: content.price || 0,
+    quantity: content.quantity,
+  }));
 }
 
-// ---------------------------------------------------------------------------
-// Platform Senders
-// ---------------------------------------------------------------------------
+function toTikTokProperties(event: ConversionEvent): TikTokEventProperties {
+  const contents = event.custom_data.contents || [];
+  const firstContent = contents[0];
+  const contentIds = contents.map((content) => content.id);
+  return {
+    value: event.custom_data.value,
+    currency: event.custom_data.currency || 'NGN',
+    contentId: firstContent?.id,
+    contentIds: contentIds.length > 0 ? contentIds : undefined,
+    contentName:
+      event.custom_data.content_name || firstContent?.name || firstContent?.id,
+    contentType: event.custom_data.content_type || 'product',
+    price: event.custom_data.price ?? firstContent?.price,
+    orderId: event.custom_data.order_id,
+    searchString: event.custom_data.search_string,
+    url: event.custom_data.url,
+    contents:
+      contents.length > 0
+        ? contents.map((content) => ({
+            content_id: content.id,
+            content_name: content.name || content.id,
+            price: content.price,
+            quantity: content.quantity,
+          }))
+        : undefined,
+  };
+}
+
+function targetEnabled(
+  event: ConversionEvent,
+  target: AdPlatformTarget
+): boolean {
+  return !event.targets || event.targets.includes(target);
+}
 
 async function sendToFacebook(
-  config: MerchantAdConfig,
+  config: AnalyticsPlatformConfig,
   event: ConversionEvent,
   fbEventName: string
 ): Promise<{ success: boolean; error?: string }> {
@@ -172,6 +218,8 @@ async function sendToFacebook(
     externalId: event.user_data.external_id,
     clientIpAddress: event.user_data.ip,
     clientUserAgent: event.user_data.ua,
+    fbc: event.user_data.fbc,
+    fbp: event.user_data.fbp,
   };
 
   const pixelId = config.facebook_pixel_id;
@@ -179,6 +227,8 @@ async function sendToFacebook(
   const currency = event.custom_data.currency || 'NGN';
   const value = event.custom_data.value || 0;
   const contents = event.custom_data.contents || [];
+  const firstContent = contents[0];
+  const eventSourceUrl = event.custom_data.url;
 
   switch (fbEventName) {
     case 'Purchase':
@@ -190,12 +240,9 @@ async function sendToFacebook(
           event.custom_data.order_id || event.event_id,
           value,
           currency,
-          contents.map((c) => ({
-            id: c.id,
-            name: c.name || c.id,
-            quantity: c.quantity,
-            price: c.price || 0,
-          }))
+          toProducts(contents),
+          eventSourceUrl,
+          event.event_id
         );
       }
       return { success: false, error: 'missing_purchase_data' };
@@ -207,36 +254,84 @@ async function sendToFacebook(
         fbUserData,
         value,
         currency,
-        contents
+        contents,
+        eventSourceUrl,
+        event.event_id
       );
 
     case 'AddToCart':
-      if (contents[0]) {
+      if (firstContent) {
         return await facebookCAPI.addToCart(
           pixelId,
           token,
           fbUserData,
-          contents[0].id,
-          contents[0].name || contents[0].id,
+          firstContent.id,
+          firstContent.name || firstContent.id,
           value,
-          currency
+          currency,
+          eventSourceUrl,
+          event.event_id
         );
       }
       return { success: false, error: 'missing_cart_data' };
 
     case 'ViewContent':
-      if (contents[0]) {
+      if (firstContent) {
         return await facebookCAPI.viewContent(
           pixelId,
           token,
           fbUserData,
-          contents[0].id,
-          contents[0].name || contents[0].id,
+          firstContent.id,
+          firstContent.name || firstContent.id,
           value,
-          currency
+          currency,
+          undefined,
+          eventSourceUrl,
+          event.event_id
         );
       }
       return { success: false, error: 'missing_content_data' };
+
+    case 'Search':
+      if (!event.custom_data.search_string) {
+        return { success: false, error: 'missing_search_data' };
+      }
+      return await sendFacebookCAPIEvent(
+        pixelId,
+        token,
+        'Search',
+        fbUserData,
+        {
+          contentIds: contents.map((content) => content.id),
+          currency,
+          searchString: event.custom_data.search_string,
+          value,
+        },
+        eventSourceUrl,
+        event.event_id
+      );
+
+    case 'AddPaymentInfo':
+    case 'AddToWishlist':
+    case 'CompleteRegistration':
+      return await sendFacebookCAPIEvent(
+        pixelId,
+        token,
+        fbEventName,
+        fbUserData,
+        {
+          contentIds: contents.map((content) => content.id),
+          contentName:
+            event.custom_data.content_name ||
+            firstContent?.name ||
+            firstContent?.id,
+          contentType: event.custom_data.content_type || 'product',
+          currency,
+          value,
+        },
+        eventSourceUrl,
+        event.event_id
+      );
 
     default:
       return { success: false, error: `unmapped_event: ${fbEventName}` };
@@ -244,7 +339,7 @@ async function sendToFacebook(
 }
 
 async function sendToTikTok(
-  config: MerchantAdConfig,
+  config: AnalyticsPlatformConfig,
   event: ConversionEvent,
   ttEventName: string
 ): Promise<{ success: boolean; error?: string }> {
@@ -257,6 +352,8 @@ async function sendToTikTok(
     phone: event.user_data.phone,
     externalId: event.user_data.external_id,
     ipAddress: event.user_data.ip,
+    ttclid: event.user_data.ttclid,
+    ttp: event.user_data.ttp,
     userAgent: event.user_data.ua,
   };
 
@@ -265,9 +362,14 @@ async function sendToTikTok(
   const currency = event.custom_data.currency || 'NGN';
   const value = event.custom_data.value || 0;
   const contents = event.custom_data.contents || [];
+  const options = {
+    eventId: event.event_id,
+    url: event.custom_data.url,
+  };
+  const properties = toTikTokProperties(event);
 
   switch (ttEventName) {
-    case 'purchase':
+    case 'Purchase':
       if (value && event.custom_data.order_id && contents.length > 0) {
         return await tiktokEventsAPI.purchase(
           pixelId,
@@ -276,28 +378,95 @@ async function sendToTikTok(
           event.custom_data.order_id,
           value,
           currency,
-          contents.map((c) => ({
-            id: c.id,
-            name: c.name || c.id,
-            quantity: c.quantity,
-            price: c.price || 0,
-          }))
+          toProducts(contents),
+          options
         );
       }
       return { success: false, error: 'missing_purchase_data' };
 
-    case 'begin_checkout':
+    case 'InitiateCheckout':
       if (contents.length > 0) {
         return await tiktokEventsAPI.initiateCheckout(
           pixelId,
           token,
           ttUserData,
-          value,
-          currency,
-          contents.map((c) => c.id)
+          properties,
+          options
         );
       }
       return { success: false, error: 'missing_checkout_data' };
+
+    case 'AddToCart':
+      if (contents.length > 0) {
+        return await tiktokEventsAPI.addToCart(
+          pixelId,
+          token,
+          ttUserData,
+          properties,
+          options
+        );
+      }
+      return { success: false, error: 'missing_cart_data' };
+
+    case 'ViewContent':
+      if (contents.length > 0) {
+        return await tiktokEventsAPI.viewContent(
+          pixelId,
+          token,
+          ttUserData,
+          properties,
+          options
+        );
+      }
+      return { success: false, error: 'missing_content_data' };
+
+    case 'Search':
+      if (!event.custom_data.search_string) {
+        return { success: false, error: 'missing_search_data' };
+      }
+      return await tiktokEventsAPI.search(
+        pixelId,
+        token,
+        ttUserData,
+        event.custom_data.search_string,
+        options
+      );
+
+    case 'AddPaymentInfo':
+      return await tiktokEventsAPI.addPaymentInfo(
+        pixelId,
+        token,
+        ttUserData,
+        properties,
+        options
+      );
+
+    case 'AddToWishlist':
+      return await tiktokEventsAPI.addToWishlist(
+        pixelId,
+        token,
+        ttUserData,
+        properties,
+        options
+      );
+
+    case 'PlaceAnOrder':
+      return await tiktokEventsAPI.placeAnOrder(
+        pixelId,
+        token,
+        ttUserData,
+        properties,
+        options
+      );
+
+    case 'CompleteRegistration':
+      return await tiktokEventsAPI.completeRegistration(
+        pixelId,
+        token,
+        ttUserData,
+        properties,
+        options
+      );
 
     default:
       return { success: false, error: `unmapped_event: ${ttEventName}` };
@@ -305,7 +474,7 @@ async function sendToTikTok(
 }
 
 async function sendToSnapchat(
-  config: MerchantAdConfig,
+  config: AnalyticsPlatformConfig,
   event: ConversionEvent,
   snapEventName: string
 ): Promise<{ success: boolean; error?: string }> {
@@ -318,6 +487,7 @@ async function sendToSnapchat(
     phone: event.user_data.phone,
     ipAddress: event.user_data.ip,
     userAgent: event.user_data.ua,
+    clickId: event.user_data.sccid,
   };
 
   const pixelId = config.snapchat_pixel_id;
@@ -325,9 +495,11 @@ async function sendToSnapchat(
   const currency = event.custom_data.currency || 'NGN';
   const value = event.custom_data.value || 0;
   const contents = event.custom_data.contents || [];
+  const firstContent = contents[0];
+  const productIds = contents.map((content) => content.id);
 
   switch (snapEventName) {
-    case 'purchase':
+    case 'PURCHASE':
       if (value && event.custom_data.order_id && contents.length > 0) {
         return await snapchatCAPI.purchase(
           pixelId,
@@ -336,12 +508,13 @@ async function sendToSnapchat(
           event.custom_data.order_id,
           value,
           currency,
-          contents.map((c) => c.id)
+          productIds,
+          event.event_id
         );
       }
       return { success: false, error: 'missing_purchase_data' };
 
-    case 'begin_checkout':
+    case 'START_CHECKOUT':
       if (contents.length > 0) {
         return await snapchatCAPI.startCheckout(
           pixelId,
@@ -349,32 +522,65 @@ async function sendToSnapchat(
           snapUserData,
           value,
           currency,
-          contents.map((c) => c.id)
+          productIds,
+          event.event_id
         );
       }
       return { success: false, error: 'missing_checkout_data' };
 
-    case 'add_to_cart':
-      if (contents[0]) {
+    case 'ADD_CART':
+      if (firstContent) {
         return await snapchatCAPI.addToCart(
           pixelId,
           token,
           snapUserData,
-          contents[0].id,
+          firstContent.id,
           value,
-          currency
+          currency,
+          event.event_id
         );
       }
       return { success: false, error: 'missing_cart_data' };
+
+    case 'SEARCH':
+      if (!event.custom_data.search_string) {
+        return { success: false, error: 'missing_search_data' };
+      }
+      return await sendSnapchatEvent(
+        pixelId,
+        token,
+        'SEARCH',
+        snapUserData,
+        {
+          currency,
+          itemIds: productIds,
+          searchString: event.custom_data.search_string,
+        },
+        event.event_id
+      );
+
+    case 'VIEW_CONTENT':
+    case 'ADD_BILLING':
+    case 'ADD_TO_WISHLIST':
+    case 'SIGN_UP':
+      return await sendSnapchatEvent(
+        pixelId,
+        token,
+        snapEventName,
+        snapUserData,
+        {
+          currency,
+          itemIds: productIds,
+          numberOfItems: productIds.length || undefined,
+          price: value,
+        },
+        event.event_id
+      );
 
     default:
       return { success: false, error: `unmapped_event: ${snapEventName}` };
   }
 }
-
-// ---------------------------------------------------------------------------
-// Main Export
-// ---------------------------------------------------------------------------
 
 /**
  * Send a conversion event to all configured ad platforms.
@@ -382,36 +588,77 @@ async function sendToSnapchat(
  * Designed to run inside `after()` — never throws, logs everything internally.
  * Uses `Promise.allSettled` so one platform failure doesn't block others.
  */
-export async function sendToAdPlatforms(event: ConversionEvent): Promise<void> {
-  const config = await fetchMerchantAdConfig(event.merchant_id);
-  if (!config) return;
+export async function sendToAdPlatforms(
+  event: ConversionEvent
+): Promise<AdPlatformResults> {
+  const config = await fetchAnalyticsPlatformConfig(
+    getAdminClient(),
+    event.merchant_id
+  );
 
+  if (!config) {
+    logger.warn({
+      message: 'Failed to fetch merchant ad config',
+      merchantId: event.merchant_id,
+    });
+    return {};
+  }
+
+  if (config.offline_conversions_enabled === false) {
+    logger.info({
+      message: 'Offline conversions disabled by merchant',
+      merchantId: event.merchant_id,
+      eventType: event.event_type,
+    });
+    return {};
+  }
+
+  const jobs: Array<{
+    name: keyof AdPlatformResults;
+    run: Promise<{ success: boolean; error?: string }>;
+  }> = [];
   const fbEvent = DB_TO_FACEBOOK[event.event_type];
   const ttEvent = DB_TO_TIKTOK[event.event_type];
   const snapEvent = DB_TO_SNAPCHAT[event.event_type];
 
-  const results = await Promise.allSettled([
-    fbEvent
-      ? sendToFacebook(config, event, fbEvent)
-      : Promise.resolve({ success: false, error: 'no_mapping' }),
-    ttEvent
-      ? sendToTikTok(config, event, ttEvent)
-      : Promise.resolve({ success: false, error: 'no_mapping' }),
-    snapEvent
-      ? sendToSnapchat(config, event, snapEvent)
-      : Promise.resolve({ success: false, error: 'no_mapping' }),
-  ]);
+  if (fbEvent && targetEnabled(event, 'facebook')) {
+    jobs.push({
+      name: 'facebook',
+      run: sendToFacebook(config, event, fbEvent),
+    });
+  }
+  if (ttEvent && targetEnabled(event, 'tiktok')) {
+    jobs.push({
+      name: 'tiktok',
+      run: sendToTikTok(config, event, ttEvent),
+    });
+  }
+  if (snapEvent && targetEnabled(event, 'snapchat')) {
+    jobs.push({
+      name: 'snapchat',
+      run: sendToSnapchat(config, event, snapEvent),
+    });
+  }
 
-  const platforms = ['facebook', 'tiktok', 'snapchat'] as const;
-  const summary = platforms.map((name, i) => {
-    const r = results[i];
-    if (r.status === 'rejected') return `${name}:error`;
-    const val = r.value;
-    if (val.success) return `${name}:ok`;
-    if (val.error === 'not_configured' || val.error === 'no_mapping') {
-      return `${name}:skip`;
+  const settled = await Promise.allSettled(jobs.map((job) => job.run));
+  const results: AdPlatformResults = {};
+  for (const [index, result] of settled.entries()) {
+    const platform = jobs[index]?.name;
+    if (!platform) continue;
+    results[platform] =
+      result.status === 'fulfilled'
+        ? result.value
+        : { success: false, error: 'unhandled_error' };
+  }
+
+  const summary = jobs.map((job) => {
+    const result = results[job.name];
+    if (!result) return `${job.name}:skip`;
+    if (result.success) return `${job.name}:ok`;
+    if (result.error === 'not_configured' || result.error === 'no_mapping') {
+      return `${job.name}:skip`;
     }
-    return `${name}:fail(${val.error})`;
+    return `${job.name}:fail(${result.error})`;
   });
 
   logger.info({
@@ -422,4 +669,6 @@ export async function sendToAdPlatforms(event: ConversionEvent): Promise<void> {
     merchantId: event.merchant_id,
     results: summary,
   });
+
+  return results;
 }
