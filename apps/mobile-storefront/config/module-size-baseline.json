@@ -112,11 +112,6 @@
       "path": "stores/cart-store.ts",
       "lineCount": 411,
       "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
-    },
-    {
-      "path": "lib/offline-queue.ts",
-      "lineCount": 405,
-      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
     }
   ]
 }
