@@ -74,11 +74,6 @@
       "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
     },
     {
-      "path": "lib/vtu-checkout.ts",
-      "lineCount": 536,
-      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
-    },
-    {
       "path": "components/product/ProductDetailsBody.tsx",
       "lineCount": 494,
       "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
