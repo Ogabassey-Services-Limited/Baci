@@ -3,7 +3,10 @@
 import Script from 'next/script';
 import { useEffect, useState } from 'react';
 import type { MerchantData } from '@/hooks/merchant/types';
-import { normalizeHostname } from './google-store-widget-utils';
+import {
+  normalizeHostname,
+  resolveGoogleMerchantCenterId,
+} from './google-store-widget-utils';
 
 export {
   normalizeHostname,
@@ -11,6 +14,7 @@ export {
 } from './google-store-widget-utils';
 
 interface MerchantWidgetOptions {
+  merchant_id?: number;
   position?: 'LEFT_BOTTOM' | 'RIGHT_BOTTOM';
   sideMargin?: number;
   bottomMargin?: number;
@@ -19,7 +23,7 @@ interface MerchantWidgetOptions {
 }
 
 interface GoogleStoreWidgetProps {
-  merchant?: Pick<MerchantData, 'custom_domain'>;
+  merchant?: Pick<MerchantData, 'custom_domain' | 'feature_settings'>;
   merchantCustomDomain?: string | null;
   enabled?: boolean;
   hostname?: string;
@@ -80,6 +84,7 @@ export function GoogleStoreWidget({
   const [shouldLoadScript, setShouldLoadScript] = useState(false);
   const [scriptLoaded, setScriptLoaded] = useState(false);
   const [widgetStarted, setWidgetStarted] = useState(false);
+  const merchantCenterId = resolveGoogleMerchantCenterId(merchant);
 
   useEffect(() => {
     if (!enabled) {
@@ -164,17 +169,27 @@ export function GoogleStoreWidget({
       return;
     }
 
-    window.merchantwidget.start({
+    const widgetOptions: MerchantWidgetOptions = {
+      ...(merchantCenterId ? { merchant_id: Number(merchantCenterId) } : {}),
       position: 'LEFT_BOTTOM',
       sideMargin: 24,
       bottomMargin: 24,
       mobileSideMargin: 16,
       // Ogabassey uses a fixed mobile nav; lift the widget above it.
       mobileBottomMargin: 104,
-    });
+    };
+
+    window.merchantwidget.start(widgetOptions);
     titleMerchantWidgetFrame();
     setWidgetStarted(true);
-  }, [domainMatches, enabled, scriptLoaded, shouldLoadScript, widgetStarted]);
+  }, [
+    domainMatches,
+    enabled,
+    merchantCenterId,
+    scriptLoaded,
+    shouldLoadScript,
+    widgetStarted,
+  ]);
 
   useEffect(() => {
     if (!widgetStarted || titleMerchantWidgetFrame()) {

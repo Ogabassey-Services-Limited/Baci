@@ -29,6 +29,7 @@ const mockNotFound = vi.fn(() => {
   throw new Error('NEXT_NOT_FOUND');
 });
 const mockGetCachedBlogPost = vi.fn();
+const mockConnection = vi.hoisted(() => vi.fn());
 
 vi.mock('next/headers', () => ({
   draftMode: () => mockDraftMode(),
@@ -40,12 +41,22 @@ vi.mock('next/navigation', () => ({
   permanentRedirect: (url: string) => mockPermanentRedirect(url),
 }));
 
+vi.mock('next/server', () => ({
+  connection: () => mockConnection(),
+}));
+
 vi.mock('@/lib/cached-data', () => ({
   getCachedBlogPost: (...args: unknown[]) => mockGetCachedBlogPost(...args),
 }));
 
 vi.mock('@/lib/blog-post-redirects', () => ({
   getBlogPostRedirect: (...args: unknown[]) => mockGetBlogPostRedirect(...args),
+}));
+
+vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
+  StorefrontDynamicMetadataMarker: () => (
+    <div aria-label="dynamic metadata marker" role="status" />
+  ),
 }));
 
 vi.mock('@/lib/store-url', () => ({
@@ -130,6 +141,7 @@ describe('storefront blog post page', () => {
           : `https://${merchant.slug}.usebaci.com`
     );
     mockGetBlogPostRedirect.mockResolvedValue(null);
+    mockConnection.mockReset();
   });
 
   it('only exports the route surface from the page module', async () => {
@@ -162,13 +174,16 @@ describe('storefront blog post page', () => {
     );
 
     expect(screen.getByText('Blog post page fallback')).toBeInTheDocument();
+    expect(
+      screen.getByRole('status', { name: /dynamic metadata marker/i })
+    ).toBeInTheDocument();
     expect(screen.queryByText('Route loader fallback')).not.toBeInTheDocument();
     expect(
       screen.queryByText('Blog post page content')
     ).not.toBeInTheDocument();
   });
 
-  it('renders streamed blog post content through the page boundary', async () => {
+  it('keeps the request-time marker outside the streamed blog post content', async () => {
     render(
       await BlogPostPage({
         params: Promise.resolve({
@@ -178,6 +193,9 @@ describe('storefront blog post page', () => {
       })
     );
 
+    expect(
+      screen.getByRole('status', { name: /dynamic metadata marker/i })
+    ).toBeInTheDocument();
     expect(screen.getByText('Blog post page content')).toBeInTheDocument();
   });
 
@@ -280,6 +298,19 @@ describe('storefront blog post page', () => {
       false
     );
     expect(metadata.title).toBe('The Great 5K Stall | Ogabassey');
+  });
+
+  it('marks blog post metadata as request-time rendered', async () => {
+    mockGetCachedBlogPost.mockResolvedValue(liveBlogPost);
+
+    await generateMetadata({
+      params: Promise.resolve({
+        slug: 'ogabassey.com',
+        postSlug: 'apple-studio-display-review',
+      }),
+    });
+
+    expect(mockConnection).toHaveBeenCalledOnce();
   });
 
   it('returns noindex fallback metadata when the public cache lookup throws', async () => {

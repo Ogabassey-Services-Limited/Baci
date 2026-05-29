@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
+import { connection } from 'next/server';
 import { Suspense } from 'react';
+import { StorefrontDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker';
 import { ContentRouteLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 import {
@@ -16,6 +18,7 @@ interface PageProps {
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
+  await connection();
   const { slug } = await params;
   const merchant = await getMerchantByIdentifier(slug);
 
@@ -48,8 +51,11 @@ export async function generateMetadata({
 
 export default function ContactPage({ params }: PageProps) {
   return (
-    <Suspense fallback={<ContentRouteLoading />}>
-      <ContactPageContent params={params} />
-    </Suspense>
+    <>
+      <Suspense fallback={<ContentRouteLoading />}>
+        <ContactPageContent params={params} />
+      </Suspense>
+      <StorefrontDynamicMetadataMarker />
+    </>
   );
 }

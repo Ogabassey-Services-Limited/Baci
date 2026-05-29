@@ -14,6 +14,16 @@ vi.mock('@/lib/cached-data', () => ({
   getRequestScopedMerchant: vi.fn(),
 }));
 
+vi.mock('next/server', () => ({
+  connection: () => mockConnection(),
+}));
+
+vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
+  StorefrontDynamicMetadataMarker: () => (
+    <div aria-label="dynamic metadata marker" role="status" />
+  ),
+}));
+
 vi.mock('@/lib/merchant-template-data', () => ({
   toTemplateMerchantData: vi.fn((m: unknown) => m),
 }));
@@ -32,10 +42,6 @@ vi.mock('@/lib/seo-utils', () => ({
 
 vi.mock('next/headers', () => ({
   headers: vi.fn(),
-}));
-
-vi.mock('next/server', () => ({
-  connection: () => mockConnection(),
 }));
 
 vi.mock('@/templates/registry', () => ({
@@ -66,9 +72,8 @@ describe('FAQPage', () => {
   beforeEach(() => {
     vi.mocked(getMerchantByIdentifier).mockReset();
     vi.mocked(getRequestScopedMerchant).mockReset();
-    mockConnection.mockReset();
-    mockConnection.mockResolvedValue(undefined);
     notFound.mockClear();
+    mockConnection.mockReset();
   });
 
   it('does not emit a duplicate wrapper h1 while content is suspended', () => {
@@ -106,6 +111,43 @@ describe('FAQPage', () => {
     ).toBeInTheDocument();
   });
 
+  it('renders the dynamic metadata marker outside suspended FAQ content', () => {
+    vi.mocked(getRequestScopedMerchant).mockReturnValue(
+      new Promise<null>(() => {
+        /* deferred: keep Suspense pending */
+      })
+    );
+
+    render(
+      <Suspense fallback={null}>
+        <FAQPage params={Promise.resolve({ slug: 'test-store' })} />
+      </Suspense>
+    );
+
+    expect(
+      screen.getByRole('status', { name: 'dynamic metadata marker' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('status', { name: 'Loading page content' })
+    ).toBeInTheDocument();
+  });
+
+  it('marks FAQ metadata as request-time rendered', async () => {
+    vi.mocked(getMerchantByIdentifier).mockResolvedValue({
+      business_name: 'Test Store',
+      faq_items: [{ question: 'Q?', answer: 'A.' }],
+      pages: {},
+      logo_url: null,
+      slug: 'test-store',
+    } as unknown as Awaited<ReturnType<typeof getMerchantByIdentifier>>);
+
+    await generateMetadata({
+      params: Promise.resolve({ slug: 'test-store' }),
+    });
+
+    expect(mockConnection).toHaveBeenCalledOnce();
+  });
+
   it('does not call notFound when merchant has FAQ items', async () => {
     vi.mocked(getRequestScopedMerchant).mockResolvedValue({
       business_name: 'Test Store',
@@ -126,7 +168,6 @@ describe('FAQPage', () => {
     await vi.waitFor(() => {
       expect(getRequestScopedMerchant).toHaveBeenCalledWith('test-store');
     });
-    expect(mockConnection).toHaveBeenCalled();
     expect(notFound).not.toHaveBeenCalled();
   });
 

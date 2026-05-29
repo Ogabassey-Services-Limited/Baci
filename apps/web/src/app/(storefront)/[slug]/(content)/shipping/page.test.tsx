@@ -2,13 +2,13 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
 
-const mockConnection = vi.hoisted(() => vi.fn());
 const mockHeaders = vi.fn();
 const mockBuildMerchantTrustProfile = vi.fn();
 const mockBuildRequestScopedStoreUrl = vi.fn();
 const mockNotFound = vi.fn(() => {
   throw new Error('NEXT_NOT_FOUND');
 });
+const mockConnection = vi.hoisted(() => vi.fn());
 
 vi.mock('next/headers', () => ({
   headers: () => mockHeaders(),
@@ -83,7 +83,6 @@ const trustMerchant = {
 describe('shipping page', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockConnection.mockResolvedValue(undefined);
     mockHeaders.mockResolvedValue(new Headers());
     mockBuildRequestScopedStoreUrl.mockReturnValue('https://ogabassey.com');
     mockBuildMerchantTrustProfile.mockReturnValue({
@@ -115,6 +114,17 @@ describe('shipping page', () => {
     );
   });
 
+  it('marks shipping metadata as request-time rendered', async () => {
+    vi.mocked(getRequestScopedMerchant).mockResolvedValue(trustMerchant);
+    const { generateMetadata } = await import('./page');
+
+    await generateMetadata({
+      params: Promise.resolve({ slug: 'ogabassey' }),
+    });
+
+    expect(mockConnection).toHaveBeenCalledOnce();
+  });
+
   it('renders when the shipping summary exists', async () => {
     vi.mocked(getRequestScopedMerchant).mockResolvedValue(trustMerchant);
     const { ShippingPageContent } = await import('./shipping-page-content');
@@ -125,7 +135,6 @@ describe('shipping page', () => {
       })
     );
 
-    expect(mockConnection).toHaveBeenCalledOnce();
     expect(mockBuildMerchantTrustProfile).toHaveBeenCalledWith(
       trustMerchant,
       'https://ogabassey.com'
