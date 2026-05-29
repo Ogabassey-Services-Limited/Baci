@@ -174,16 +174,14 @@ describe('storefront blog post page', () => {
     );
 
     expect(screen.getByText('Blog post page fallback')).toBeInTheDocument();
-    expect(
-      screen.getByRole('status', { name: /dynamic metadata marker/i })
-    ).toBeInTheDocument();
     expect(screen.queryByText('Route loader fallback')).not.toBeInTheDocument();
     expect(
       screen.queryByText('Blog post page content')
     ).not.toBeInTheDocument();
+    expect(mockConnection).toHaveBeenCalledOnce();
   });
 
-  it('keeps the request-time marker outside the streamed blog post content', async () => {
+  it('renders streamed blog post content after marking the route dynamic', async () => {
     render(
       await BlogPostPage({
         params: Promise.resolve({
@@ -193,10 +191,8 @@ describe('storefront blog post page', () => {
       })
     );
 
-    expect(
-      screen.getByRole('status', { name: /dynamic metadata marker/i })
-    ).toBeInTheDocument();
     expect(screen.getByText('Blog post page content')).toBeInTheDocument();
+    expect(mockConnection).toHaveBeenCalledOnce();
   });
 
   it('permanently redirects retired blog slugs before rendering the streamed shell', async () => {
