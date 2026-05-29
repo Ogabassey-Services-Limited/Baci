@@ -6,7 +6,6 @@
 
 import type { ViewStyle } from 'react-native';
 import { Dimensions } from 'react-native';
-import type { LegacyComposedGesture } from 'react-native-gesture-handler';
 import {
   type AnimatedStyle,
   runOnJS,
@@ -16,6 +15,10 @@ import {
 } from 'react-native-reanimated';
 import { SPRING_CONFIG } from '@/constants/Colors';
 import type { GestureHandlerRuntime } from '@/lib/optional-gesture-handler';
+
+type ImageZoomGesture = ReturnType<
+  NonNullable<GestureHandlerRuntime['Gesture']>['Simultaneous']
+>;
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const MIN_SCALE = 1;
@@ -32,7 +35,7 @@ export interface UseImageZoomParams {
 }
 
 export interface UseImageZoomReturn {
-  composedGesture: LegacyComposedGesture | null;
+  composedGesture: ImageZoomGesture | null;
   animatedImageStyle: AnimatedStyle<ViewStyle>;
   resetTransform: () => void;
   resetTransformImmediate: () => void;
