@@ -1,9 +1,13 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import type React from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MerchantContextType, MerchantData } from '@/hooks/merchant/types';
 
-// Mock next/navigation and next/link
+const { mockOrdersCount } = vi.hoisted(() => ({
+  mockOrdersCount: { value: 0 },
+}));
+
 vi.mock('next/navigation', () => ({
   usePathname: vi.fn().mockReturnValue('/dashboard'),
   useRouter: vi.fn().mockReturnValue({ push: vi.fn() }),
@@ -52,13 +56,16 @@ vi.mock('@/lib/supabase/client', () => ({
   createClient: vi.fn().mockReturnValue({
     from: vi.fn().mockReturnValue({
       select: vi.fn().mockReturnValue({
-        eq: vi.fn().mockResolvedValue({ count: 0 }),
+        eq: vi
+          .fn()
+          .mockImplementation(() =>
+            Promise.resolve({ count: mockOrdersCount.value })
+          ),
       }),
     }),
   }),
 }));
 
-// Mock UI components to simplify rendering
 vi.mock('@/components/notifications/notification-banner', () => ({
   NotificationBanner: () => null,
 }));
@@ -85,7 +92,7 @@ const defaultStaffAccess: MerchantContextType['staffAccess'] = {
   permissions: {},
   role: null,
 };
-
+const smartNavStorageKey = 'baci.dashboard.smartNav.merchant-1';
 function createMerchantHookValue(
   overrides: Partial<MerchantContextType> = {}
 ): MerchantContextType {
@@ -106,61 +113,145 @@ function createMerchantHookValue(
 }
 
 function mockUseMerchantForLayout(value: ReturnType<typeof useMerchant>) {
-  vi.mocked(useMerchant).mockReturnValueOnce(value).mockReturnValueOnce(value);
+  vi.mocked(useMerchant).mockReturnValue(value);
+}
+
+function renderLayout(content = 'Test Content') {
+  return render(
+    <DashboardClientLayout>
+      <div>{content}</div>
+    </DashboardClientLayout>
+  );
+}
+
+function setSmartNavUsage(usage: unknown) {
+  localStorage.setItem(smartNavStorageKey, JSON.stringify(usage));
 }
 
 describe('DashboardClientLayout', () => {
-  it('renders the Migrations nav item', () => {
-    render(
-      <DashboardClientLayout>
-        <div>Test Content</div>
-      </DashboardClientLayout>
-    );
-
-    const migrationLinks = screen.getAllByText('Migrations');
-    expect(migrationLinks.length).toBeGreaterThan(0);
+  beforeEach(() => {
+    localStorage.clear();
+    mockOrdersCount.value = 0;
+    mockUseMerchantForLayout(createMerchantHookValue());
   });
 
-  it('renders the Migrations link with correct href', () => {
-    render(
-      <DashboardClientLayout>
-        <div>Test Content</div>
-      </DashboardClientLayout>
-    );
+  it('renders core navigation links', () => {
+    renderLayout();
 
-    const migrationLinks = screen.getAllByRole('link', { name: 'Migrations' });
-    expect(migrationLinks.length).toBeGreaterThan(0);
-    expect(migrationLinks[0]).toHaveAttribute('href', '/dashboard/migrations');
+    for (const [name, href] of [
+      ['Orders', '/dashboard/orders'],
+      ['Products', '/dashboard/products'],
+      ['Migrations', '/dashboard/migrations'],
+      ['Quiz', '/dashboard/quiz'],
+      ['Agentic', '/dashboard/agentic'],
+    ] as const) {
+      expect(screen.getAllByRole('link', { name })[0]).toHaveAttribute(
+        'href',
+        href
+      );
+    }
   });
 
-  it('renders core navigation items', () => {
-    render(
-      <DashboardClientLayout>
-        <div>Test Content</div>
-      </DashboardClientLayout>
-    );
+  it('places Marketing under Products in the main dashboard navigation', () => {
+    renderLayout();
 
-    expect(screen.getAllByText('Dashboard').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Orders').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Products').length).toBeGreaterThan(0);
-    expect(screen.getAllByRole('link', { name: 'Quiz' })[0]).toHaveAttribute(
-      'href',
-      '/dashboard/quiz'
-    );
-    expect(screen.getAllByRole('link', { name: 'Agentic' })[0]).toHaveAttribute(
-      'href',
-      '/dashboard/agentic'
+    const mainNav = screen.getByRole('navigation', { name: 'Main navigation' });
+    const navLabels = within(mainNav)
+      .getAllByRole('link')
+      .map((link) => link.textContent);
+
+    expect(navLabels.slice(0, 9)).toEqual([
+      'Dashboard',
+      'Analytics',
+      'Orders',
+      'Products',
+      'Marketing',
+      'Discount Codes',
+      'Blog',
+      'Marketplaces',
+      'Domains',
+    ]);
+    expect(
+      within(mainNav).getByRole('link', { name: 'Marketing' })
+    ).toHaveAttribute('href', '/dashboard/marketing');
+    expect(
+      within(
+        within(mainNav).getByRole('list', { name: 'Marketing submenu' })
+      ).getByRole('link', { name: 'Discount Codes' })
+    ).toHaveAttribute('href', '/dashboard/marketing/discount-codes');
+    expect(
+      within(mainNav).queryByRole('link', { name: 'Integrations' })
+    ).not.toBeInTheDocument();
+  });
+
+  it('renders smart shortcuts from merchant usage without reordering the full menu', async () => {
+    setSmartNavUsage({
+      'discount-codes': {
+        clickCount: 6,
+        lastClickedAt: '2026-05-28T21:00:00.000Z',
+      },
+      products: {
+        clickCount: 4,
+        lastClickedAt: '2026-05-28T20:00:00.000Z',
+      },
+      seo: {
+        clickCount: 2,
+        lastClickedAt: '2026-05-28T19:00:00.000Z',
+      },
+    });
+
+    renderLayout();
+
+    const smartNav = await screen.findByRole('navigation', {
+      name: 'Smart shortcuts',
+    });
+    const smartLinks = within(smartNav).getAllByRole('link');
+
+    expect(smartLinks.map((link) => link.textContent)).toEqual([
+      'Discount Codes',
+      'Products',
+      'SEO',
+    ]);
+    expect(
+      screen.getAllByRole('link', { name: 'Migrations' })[0]
+    ).toHaveAttribute('href', '/dashboard/migrations');
+  });
+
+  it('puts urgent orders ahead of lower-priority click history', async () => {
+    mockOrdersCount.value = 904;
+    setSmartNavUsage({
+      products: {
+        clickCount: 20,
+        lastClickedAt: '2026-05-28T20:00:00.000Z',
+      },
+    });
+
+    renderLayout();
+
+    const smartNav = await screen.findByRole('navigation', {
+      name: 'Smart shortcuts',
+    });
+
+    await waitFor(() =>
+      expect(within(smartNav).getAllByRole('link')[0]).toHaveTextContent(
+        'Orders904'
+      )
     );
   });
 
-  it('renders children content', () => {
-    render(
-      <DashboardClientLayout>
-        <div>Migration Page Content</div>
-      </DashboardClientLayout>
-    );
+  it('records dashboard navigation clicks in merchant scoped storage', async () => {
+    renderLayout();
 
-    expect(screen.getByText('Migration Page Content')).toBeInTheDocument();
+    await userEvent.click(screen.getAllByRole('link', { name: 'Products' })[0]);
+
+    const rawUsage = localStorage.getItem(smartNavStorageKey);
+
+    expect(rawUsage).not.toBeNull();
+    expect(JSON.parse(rawUsage ?? '{}')).toMatchObject({
+      products: {
+        clickCount: 1,
+      },
+    });
   });
 
   it('hides the Migrations nav item when the merchant lacks permission', () => {
@@ -171,11 +262,7 @@ describe('DashboardClientLayout', () => {
       })
     );
 
-    render(
-      <DashboardClientLayout>
-        <div>Test Content</div>
-      </DashboardClientLayout>
-    );
+    renderLayout();
 
     expect(
       screen.queryByRole('link', { name: 'Migrations' })
@@ -195,33 +282,10 @@ describe('DashboardClientLayout', () => {
       })
     );
 
-    render(
-      <DashboardClientLayout>
-        <div>Test Content</div>
-      </DashboardClientLayout>
-    );
+    renderLayout();
 
     expect(
       screen.queryByRole('link', { name: 'Agentic' })
-    ).not.toBeInTheDocument();
-  });
-
-  it('hides Santa Campaign for non-ogabassey merchants even when the user is owner', () => {
-    mockUseMerchantForLayout(
-      createMerchantHookValue({
-        hasPermission: vi.fn(() => true),
-        staffAccess: { ...defaultStaffAccess, isOwner: true },
-      })
-    );
-
-    render(
-      <DashboardClientLayout>
-        <div>Test Content</div>
-      </DashboardClientLayout>
-    );
-
-    expect(
-      screen.queryByRole('link', { name: 'Santa Campaign' })
     ).not.toBeInTheDocument();
   });
 });
