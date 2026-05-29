@@ -54,7 +54,7 @@ Tests      13 passed (13)
 ### `pnpm --filter @baci/mobile-storefront check:module-size`
 
 ```text
-[module-size] OK: 16 oversized module baselines within the decreasing 300-line budget.
+[module-size] OK: 15 oversized module baselines within the decreasing 300-line budget.
 ```
 
 ## Current Gap Snapshot
