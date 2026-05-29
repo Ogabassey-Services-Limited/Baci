@@ -93,14 +93,16 @@ describe('OgabasseyStaticHomePage', () => {
     });
   });
 
-  it('uses the active favicon upload bucket paths for static route icons', () => {
+  it('uses the existing merchant media favicon paths for static route icons', () => {
     expect(OGABASSEY_FAVICON_URL).toContain(
-      `/storage/v1/object/public/favicons/${OGABASSEY_MERCHANT_ID}/icon-32.png`
+      `/storage/v1/object/public/media/merchants/${OGABASSEY_MERCHANT_ID}/favicon/favicon-32.png`
     );
     expect(OGABASSEY_APPLE_TOUCH_ICON_URL).toContain(
-      `/storage/v1/object/public/favicons/${OGABASSEY_MERCHANT_ID}/apple-touch-icon.png`
+      `/storage/v1/object/public/media/merchants/${OGABASSEY_MERCHANT_ID}/favicon/apple-touch-icon.png`
     );
-    expect(OGABASSEY_FAVICON_URL).not.toContain('/media/merchants/');
-    expect(OGABASSEY_APPLE_TOUCH_ICON_URL).not.toContain('/media/merchants/');
+    expect(OGABASSEY_FAVICON_URL).not.toContain('/object/public/favicons/');
+    expect(OGABASSEY_APPLE_TOUCH_ICON_URL).not.toContain(
+      '/object/public/favicons/'
+    );
   });
 });

@@ -1,9 +1,10 @@
+import { render, screen } from '@testing-library/react';
 import { headers } from 'next/headers';
-import { Fragment, type ReactElement, Suspense } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 
 const mockConnection = vi.hoisted(() => vi.fn());
+const mockStorefrontDynamicMetadataMarker = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/cached-data', () => ({
   getMerchantByIdentifier: vi.fn(),
@@ -11,6 +12,13 @@ vi.mock('@/lib/cached-data', () => ({
 
 vi.mock('next/server', () => ({
   connection: () => mockConnection(),
+}));
+
+vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
+  StorefrontDynamicMetadataMarker: () => {
+    mockStorefrontDynamicMetadataMarker();
+    return <div aria-label="dynamic metadata marker" role="status" />;
+  },
 }));
 
 vi.mock('next/headers', () => ({
@@ -33,6 +41,7 @@ const { default: TermsPage, generateMetadata } = await import('./page');
 
 beforeEach(() => {
   mockConnection.mockReset();
+  mockStorefrontDynamicMetadataMarker.mockReset();
 });
 
 describe('terms metadata', () => {
@@ -67,43 +76,26 @@ describe('terms metadata', () => {
 });
 
 describe('terms page rendering', () => {
-  it('renders the content boundary and request-time metadata marker', async () => {
-    mockConnection.mockResolvedValueOnce(undefined);
+  it('marks terms metadata as request-time rendered', async () => {
+    vi.mocked(getMerchantByIdentifier).mockResolvedValue(null);
 
-    const element = TermsPage({
-      params: Promise.resolve({ slug: 'ogabassey.com' }),
-    }) as ReactElement<{ children: ReactElement[] }>;
-    const [contentBoundary, markerBoundary] = element.props.children;
+    await generateMetadata({
+      params: Promise.resolve({ slug: 'unknown' }),
+    });
 
-    expect(element.type).toBe(Fragment);
-    expect(contentBoundary?.type).toBe(Suspense);
-    const markerSuspense = (markerBoundary.type as () => ReactElement)();
-    expect(markerSuspense.type).toBe(Suspense);
-    const markerConnection = (
-      markerSuspense.props as {
-        children?: ReactElement;
-      }
-    ).children?.type as () => Promise<null>;
-
-    await expect(markerConnection()).resolves.toBeNull();
     expect(mockConnection).toHaveBeenCalledOnce();
   });
 
-  it('surfaces metadata marker connection failures to the route boundary', async () => {
-    mockConnection.mockRejectedValueOnce(new Error('Connection failed'));
-
-    const element = TermsPage({
+  it('returns content with the dynamic metadata marker without suspending the whole route shell', async () => {
+    const element = await TermsPage({
       params: Promise.resolve({ slug: 'ogabassey.com' }),
-    }) as ReactElement<{ children: ReactElement[] }>;
-    const markerBoundary = element.props.children[1];
-    const markerSuspense = (markerBoundary.type as () => ReactElement)();
-    const markerConnection = (
-      markerSuspense.props as {
-        children?: ReactElement;
-      }
-    ).children?.type as () => Promise<null>;
+    });
 
-    await expect(markerConnection()).rejects.toThrow('Connection failed');
-    expect(mockConnection).toHaveBeenCalledOnce();
+    render(element);
+    expect(
+      screen.getByRole('status', { name: /dynamic metadata marker/i })
+    ).toBeInTheDocument();
+    expect(mockStorefrontDynamicMetadataMarker).toHaveBeenCalledOnce();
+    expect(mockConnection).not.toHaveBeenCalled();
   });
 });

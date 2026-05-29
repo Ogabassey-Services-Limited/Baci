@@ -15,11 +15,6 @@ import {
 import { BagLoader } from '@/components/ui/bag-loader';
 import { useMerchant } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
-import {
-  exportAnalyticsAsCSV,
-  exportAnalyticsAsPDF,
-} from '@/lib/analytics-export';
-
 export default function AnalyticsClientPage() {
   const { toast } = useToast();
   const { merchant, loading: merchantLoading } = useMerchant();
@@ -142,7 +137,7 @@ export default function AnalyticsClientPage() {
     };
   }, [activeCategory, merchant?.id]);
 
-  const handleExport = (format: 'csv' | 'pdf') => {
+  const handleExport = async (format: 'csv' | 'pdf') => {
     if (!analyticsData) {
       toast({
         title: 'No data to export',
@@ -154,12 +149,14 @@ export default function AnalyticsClientPage() {
 
     try {
       if (format === 'csv') {
+        const { exportAnalyticsAsCSV } = await import('@/lib/analytics-export');
         exportAnalyticsAsCSV(analyticsData, date, merchant?.business_name);
         toast({
           title: 'CSV Exported',
           description: 'Your analytics report has been downloaded as CSV.',
         });
       } else {
+        const { exportAnalyticsAsPDF } = await import('@/lib/analytics-export');
         exportAnalyticsAsPDF(analyticsData, date, merchant?.business_name);
         toast({
           title: 'PDF Exported',
