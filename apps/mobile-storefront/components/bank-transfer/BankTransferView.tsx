@@ -4,6 +4,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type Colors from '@/constants/Colors';
 import { BRAND } from '@/constants/Colors';
 import { styles } from './bank-transfer.styles';
+import {
+  formatTransferAmount,
+  getDisplayStatusCopy,
+  type WalletFundingStatus,
+} from './bank-transfer-view.helpers';
 
 interface BankTransferViewProps {
   accountName?: string;
@@ -15,11 +20,16 @@ interface BankTransferViewProps {
   error: string | null;
   isSubmitting: boolean;
   isValid: boolean;
+  mode?: 'legacy' | 'wallet_funded';
   onBack: () => void;
   onConfirmTransfer: () => void;
   onCopyAccountName: () => void;
   onCopyAccountNumber: () => void;
   onCopyBankName: () => void;
+  orderNumber?: string;
+  pollingTimedOut?: boolean;
+  remainingAmount?: number;
+  walletFundingStatus?: WalletFundingStatus;
 }
 
 interface DetailRowProps {
@@ -28,13 +38,6 @@ interface DetailRowProps {
   label: string;
   onCopy: () => void;
   value: string;
-}
-
-function formatNairaAmount(amount?: string) {
-  if (!amount) return '--';
-  const numericAmount = Number(amount);
-  if (!Number.isFinite(numericAmount)) return '--';
-  return numericAmount.toLocaleString();
 }
 
 function DetailRow({ colors, copied, label, onCopy, value }: DetailRowProps) {
@@ -73,12 +76,25 @@ export function BankTransferView({
   error,
   isSubmitting,
   isValid,
+  mode = 'legacy',
   onBack,
   onConfirmTransfer,
   onCopyAccountName,
   onCopyAccountNumber,
   onCopyBankName,
+  orderNumber,
+  pollingTimedOut = false,
+  remainingAmount,
+  walletFundingStatus,
 }: BankTransferViewProps) {
+  const isWalletFunded = mode === 'wallet_funded';
+  const walletFundingStatusCopy = getDisplayStatusCopy({
+    orderNumber,
+    pollingTimedOut,
+    remainingAmount,
+    walletFundingStatus,
+  });
+
   if (!isValid) {
     return (
       <SafeAreaView
@@ -121,8 +137,7 @@ export function BankTransferView({
             Transfer exactly
           </Text>
           <Text style={[styles.amountValue, { color: BRAND.primary }]}>
-            {'\u20A6'}
-            {formatNairaAmount(amount)}
+            {formatTransferAmount(amount) ?? '--'}
           </Text>
         </View>
 
@@ -171,7 +186,9 @@ export function BankTransferView({
             <Text
               style={[styles.instructionText, { color: colors.textSecondary }]}
             >
-              This is a one-time account. Transfer the exact amount shown above.
+              {isWalletFunded
+                ? 'We will fund your wallet and pay this order automatically.'
+                : 'This is a one-time account. Transfer the exact amount shown above.'}
             </Text>
           </View>
           <View style={styles.instructionRow}>
@@ -183,10 +200,40 @@ export function BankTransferView({
             <Text
               style={[styles.instructionText, { color: colors.textSecondary }]}
             >
-              Payment is confirmed automatically once received.
+              {isWalletFunded
+                ? 'You can leave this screen. We will confirm automatically.'
+                : 'Payment is confirmed automatically once received.'}
             </Text>
           </View>
         </View>
+
+        {walletFundingStatusCopy ? (
+          <View
+            style={[
+              styles.statusCard,
+              {
+                backgroundColor: BRAND.primaryAlpha06,
+                borderColor: `${BRAND.primary}20`,
+              },
+            ]}
+          >
+            <Ionicons
+              name={walletFundingStatusCopy.icon}
+              size={20}
+              color={BRAND.primary}
+            />
+            <View style={styles.statusTextColumn}>
+              <Text style={[styles.statusTitle, { color: colors.text }]}>
+                {walletFundingStatusCopy.title}
+              </Text>
+              <Text
+                style={[styles.statusMessage, { color: colors.textSecondary }]}
+              >
+                {walletFundingStatusCopy.message}
+              </Text>
+            </View>
+          </View>
+        ) : null}
       </View>
 
       <View style={styles.actions}>
@@ -201,11 +248,19 @@ export function BankTransferView({
           onPress={onConfirmTransfer}
           disabled={isSubmitting}
           accessibilityRole="button"
-          accessibilityLabel="Confirm I've sent the money"
+          accessibilityLabel={
+            isWalletFunded
+              ? 'Check payment status'
+              : "Confirm I've sent the money"
+          }
           accessibilityState={{ disabled: isSubmitting }}
         >
           <Text style={[styles.primaryButtonText, { color: BRAND.onPrimary }]}>
-            {isSubmitting ? 'Processing...' : "I've Sent the Money"}
+            {isSubmitting
+              ? 'Checking...'
+              : isWalletFunded
+                ? 'Check payment status'
+                : "I've Sent the Money"}
           </Text>
         </Pressable>
       </View>
