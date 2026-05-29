@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { permanentRedirect } from 'next/navigation';
+import { connection } from 'next/server';
 import { Suspense } from 'react';
 import { StorefrontDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker';
 import { getBlogPostRedirect } from '@/lib/blog-post-redirects';
@@ -26,6 +27,7 @@ const SOCIAL_IMAGE_METADATA = {
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
+  await connection();
   const { slug, postSlug } = await params;
   let data: Awaited<ReturnType<typeof getCachedBlogPost>>;
   try {

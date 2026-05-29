@@ -29,6 +29,7 @@ const mockNotFound = vi.fn(() => {
   throw new Error('NEXT_NOT_FOUND');
 });
 const mockGetCachedBlogPost = vi.fn();
+const mockConnection = vi.hoisted(() => vi.fn());
 
 vi.mock('next/headers', () => ({
   draftMode: () => mockDraftMode(),
@@ -38,6 +39,10 @@ vi.mock('next/headers', () => ({
 vi.mock('next/navigation', () => ({
   notFound: () => mockNotFound(),
   permanentRedirect: (url: string) => mockPermanentRedirect(url),
+}));
+
+vi.mock('next/server', () => ({
+  connection: () => mockConnection(),
 }));
 
 vi.mock('@/lib/cached-data', () => ({
@@ -136,6 +141,7 @@ describe('storefront blog post page', () => {
           : `https://${merchant.slug}.usebaci.com`
     );
     mockGetBlogPostRedirect.mockResolvedValue(null);
+    mockConnection.mockReset();
   });
 
   it('only exports the route surface from the page module', async () => {
@@ -292,6 +298,19 @@ describe('storefront blog post page', () => {
       false
     );
     expect(metadata.title).toBe('The Great 5K Stall | Ogabassey');
+  });
+
+  it('marks blog post metadata as request-time rendered', async () => {
+    mockGetCachedBlogPost.mockResolvedValue(liveBlogPost);
+
+    await generateMetadata({
+      params: Promise.resolve({
+        slug: 'ogabassey.com',
+        postSlug: 'apple-studio-display-review',
+      }),
+    });
+
+    expect(mockConnection).toHaveBeenCalledOnce();
   });
 
   it('returns noindex fallback metadata when the public cache lookup throws', async () => {

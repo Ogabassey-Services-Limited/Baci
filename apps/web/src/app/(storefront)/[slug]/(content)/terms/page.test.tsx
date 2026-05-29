@@ -1,9 +1,10 @@
+import { render, screen } from '@testing-library/react';
 import { headers } from 'next/headers';
-import { type ReactElement, Suspense } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 
 const mockConnection = vi.hoisted(() => vi.fn());
+const mockStorefrontDynamicMetadataMarker = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/cached-data', () => ({
   getMerchantByIdentifier: vi.fn(),
@@ -11,6 +12,13 @@ vi.mock('@/lib/cached-data', () => ({
 
 vi.mock('next/server', () => ({
   connection: () => mockConnection(),
+}));
+
+vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
+  StorefrontDynamicMetadataMarker: () => {
+    mockStorefrontDynamicMetadataMarker();
+    return <div aria-label="dynamic metadata marker" role="status" />;
+  },
 }));
 
 vi.mock('next/headers', () => ({
@@ -33,6 +41,7 @@ const { default: TermsPage, generateMetadata } = await import('./page');
 
 beforeEach(() => {
   mockConnection.mockReset();
+  mockStorefrontDynamicMetadataMarker.mockReset();
 });
 
 describe('terms metadata', () => {
@@ -80,11 +89,15 @@ describe('terms page rendering', () => {
   it('marks the route as request-time rendered before returning content', async () => {
     mockConnection.mockResolvedValueOnce(undefined);
 
-    const element = (await TermsPage({
+    const element = await TermsPage({
       params: Promise.resolve({ slug: 'ogabassey.com' }),
-    })) as ReactElement;
+    });
 
-    expect(element.type).toBe(Suspense);
+    render(element);
+    expect(
+      screen.getByRole('status', { name: /dynamic metadata marker/i })
+    ).toBeInTheDocument();
+    expect(mockStorefrontDynamicMetadataMarker).toHaveBeenCalledOnce();
     expect(mockConnection).toHaveBeenCalledOnce();
   });
 

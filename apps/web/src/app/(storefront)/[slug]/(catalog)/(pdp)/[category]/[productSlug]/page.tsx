@@ -5,6 +5,7 @@ import { headers } from 'next/headers';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { connection } from 'next/server';
 import { type ReactNode, Suspense } from 'react';
+import { StorefrontDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker';
 import { getStorefrontShellSnapshotBase } from '@/app/(storefront)/[slug]/storefront-shell-snapshot';
 import { OgabasseyPdpProductLcpSkeleton } from '@/app/(storefront)/ogabassey/ogabassey-pdp-product-lcp-skeleton';
 import {
@@ -1095,6 +1096,7 @@ export default async function CategoryProductPage({
 
   return (
     <>
+      <StorefrontDynamicMetadataMarker />
       {earlyProductResourceHints}
       {criticalProduct ? (
         <>
