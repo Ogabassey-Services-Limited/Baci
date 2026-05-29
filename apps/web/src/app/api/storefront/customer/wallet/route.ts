@@ -30,7 +30,7 @@ function toNumber(value: unknown) {
 }
 
 function formatFundingAccount(row: WalletFundingAccountRow | null) {
-  if (!row || row.provider !== 'paystack') {
+  if (row?.provider !== 'paystack') {
     return null;
   }
 

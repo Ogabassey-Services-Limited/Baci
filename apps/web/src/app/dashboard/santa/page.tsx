@@ -14,7 +14,7 @@ export default async function SantaPage() {
   const { merchant } = await getMerchantForUser();
 
   // Guard: Only allow 'ogabassey' merchant to access this page
-  if (!merchant || merchant.slug !== 'ogabassey') {
+  if (merchant?.slug !== 'ogabassey') {
     notFound();
   }
 
