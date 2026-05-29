@@ -138,15 +138,23 @@ export const snapchatCAPI = {
     transactionId: string,
     value: number,
     currency: string,
-    productIds: string[]
+    productIds: string[],
+    eventId?: string
   ) => {
-    return sendSnapchatEvent(pixelId, accessToken, 'PURCHASE', userData, {
-      price: value,
-      currency,
-      transactionId,
-      itemIds: productIds,
-      numberOfItems: productIds.length,
-    });
+    return sendSnapchatEvent(
+      pixelId,
+      accessToken,
+      'PURCHASE',
+      userData,
+      {
+        price: value,
+        currency,
+        transactionId,
+        itemIds: productIds,
+        numberOfItems: productIds.length,
+      },
+      eventId
+    );
   },
 
   startCheckout: (
@@ -155,13 +163,21 @@ export const snapchatCAPI = {
     userData: SnapchatUserData,
     value: number,
     currency: string,
-    productIds: string[]
+    productIds: string[],
+    eventId?: string
   ) => {
-    return sendSnapchatEvent(pixelId, accessToken, 'START_CHECKOUT', userData, {
-      price: value,
-      currency,
-      itemIds: productIds,
-    });
+    return sendSnapchatEvent(
+      pixelId,
+      accessToken,
+      'START_CHECKOUT',
+      userData,
+      {
+        price: value,
+        currency,
+        itemIds: productIds,
+      },
+      eventId
+    );
   },
 
   addToCart: (
@@ -170,12 +186,20 @@ export const snapchatCAPI = {
     userData: SnapchatUserData,
     productId: string,
     price: number,
-    currency: string
+    currency: string,
+    eventId?: string
   ) => {
-    return sendSnapchatEvent(pixelId, accessToken, 'ADD_CART', userData, {
-      price,
-      currency,
-      itemIds: [productId],
-    });
+    return sendSnapchatEvent(
+      pixelId,
+      accessToken,
+      'ADD_CART',
+      userData,
+      {
+        price,
+        currency,
+        itemIds: [productId],
+      },
+      eventId
+    );
   },
 };
