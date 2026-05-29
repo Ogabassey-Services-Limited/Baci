@@ -373,6 +373,13 @@ async function getCachedGoogleMerchantFeedDataForVersion(
   cacheLife('products');
   cacheTag('google-merchant-feed', 'products', `merchant-feed-${merchantId}`);
 
+  return await getGoogleMerchantFeedData(merchantId, merchantSlug);
+}
+
+export async function getGoogleMerchantFeedData(
+  merchantId: string,
+  merchantSlug: string
+): Promise<GoogleMerchantFeedData> {
   const supabase = createAnonClient();
 
   const { data: primaryDomain, error: domainError } = await supabase
