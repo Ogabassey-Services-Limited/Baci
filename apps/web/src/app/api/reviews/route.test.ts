@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { POST } from './route';
+import { GET, POST } from './route';
 
 vi.mock('next/headers', () => ({
   cookies: vi.fn().mockResolvedValue({ get: vi.fn() }),
@@ -122,6 +122,44 @@ function buildSupabase({
   };
 }
 
+function buildReviewsGetSupabase({
+  user = null,
+}: {
+  user?: { id: string } | null;
+} = {}) {
+  const selectCalls: Array<{ columns: string; options: unknown }> = [];
+  const reviewsBuilder = {
+    select: vi.fn((columns: string, options: unknown) => {
+      selectCalls.push({ columns, options });
+      return reviewsBuilder;
+    }),
+    eq: vi.fn().mockReturnThis(),
+    order: vi.fn().mockReturnThis(),
+    range: vi.fn().mockResolvedValue({
+      data: [],
+      error: null,
+      count: 0,
+    }),
+  };
+
+  return {
+    auth: {
+      getUser: vi.fn().mockResolvedValue({
+        data: { user },
+        error: null,
+      }),
+    },
+    from: vi.fn((table: string) => {
+      if (table !== 'product_reviews') {
+        throw new Error(`Unexpected table: ${table}`);
+      }
+      return reviewsBuilder;
+    }),
+    rpc: vi.fn().mockResolvedValue({ data: [] }),
+    _selectCalls: selectCalls,
+  };
+}
+
 function buildRequest(body: unknown) {
   return new NextRequest('http://localhost/api/reviews', {
     method: 'POST',
@@ -212,5 +250,64 @@ describe('POST /api/reviews response shape', () => {
     const res = await POST(buildRequest(validPayload));
     expect(res.status).toBe(409);
     expect(supabase._insertBuilder.insert).not.toHaveBeenCalled();
+  });
+});
+
+describe('GET /api/reviews response shape', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('uses an explicit review projection instead of selecting every column', async () => {
+    const supabase = buildReviewsGetSupabase();
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockReturnValue(
+      supabase as unknown as never
+    );
+
+    const res = await GET(
+      new NextRequest(
+        `http://localhost/api/reviews?productId=${PRODUCT_ID}&status=approved`
+      )
+    );
+
+    expect(res.status).toBe(200);
+    expect(supabase._selectCalls).toHaveLength(1);
+    expect(supabase._selectCalls[0]?.columns).not.toContain('customer_email');
+    expect(supabase._selectCalls[0]?.columns).not.toContain('order_id');
+    expect(supabase._selectCalls[0]?.columns).toContain('products:product_id');
+    expect(supabase._selectCalls[0]?.columns).not.toMatch(
+      /(^|[,\s])\*($|[,\s])/
+    );
+    expect(supabase._selectCalls[0]?.options).toEqual({ count: 'exact' });
+  });
+
+  it('keeps merchant-scoped approved review lists authenticated with dashboard fields', async () => {
+    const supabase = buildReviewsGetSupabase({ user: { id: 'user-1' } });
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockReturnValue(
+      supabase as unknown as never
+    );
+    const merchantContextMod = await import(
+      '@/lib/get-merchant-for-api-request'
+    );
+    vi.mocked(merchantContextMod.getMerchantForApiRequest).mockResolvedValue({
+      merchantId: MERCHANT_ID,
+      role: 'owner',
+      permissions: [],
+    } as never);
+    const apiAuthMod = await import('@/lib/api-auth');
+
+    const res = await GET(
+      new NextRequest(
+        `http://localhost/api/reviews?merchantId=${MERCHANT_ID}&status=approved`
+      )
+    );
+
+    expect(res.status).toBe(200);
+    expect(supabase.auth.getUser).toHaveBeenCalled();
+    expect(apiAuthMod.hasPermission).toHaveBeenCalled();
+    expect(supabase._selectCalls[0]?.columns).toContain('customer_email');
+    expect(supabase._selectCalls[0]?.columns).toContain('order_id');
   });
 });

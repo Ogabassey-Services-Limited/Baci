@@ -21,8 +21,11 @@ vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(),
 }));
 
-vi.mock('@/app/api/storefront/products/product-response', () => ({
+vi.mock('./storefront-products-select', () => ({
   STOREFRONT_PRODUCTS_COMPACT_SELECT: 'compact-select',
+}));
+
+vi.mock('@/app/api/storefront/products/product-response', () => ({
   mapStorefrontProduct: (product: {
     id: string;
     name: string;

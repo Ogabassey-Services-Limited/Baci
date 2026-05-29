@@ -778,6 +778,7 @@ export async function getCachedProducts(
     limit?: number;
     offset?: number;
     categoryId?: string;
+    includeVariants?: boolean;
     /** Deprecated: the products table no longer has an is_featured column. */
     featured?: boolean;
   }
@@ -843,9 +844,12 @@ export async function getCachedProducts(
   }
 
   const products = (data || []).map(withLegacyPriceFields);
-  const variantsByProductId = await getPublicProductVariantsByProductIds(
-    products.map((product) => product.id)
-  );
+  const variantsByProductId =
+    options?.includeVariants === false
+      ? {}
+      : await getPublicProductVariantsByProductIds(
+          products.map((product) => product.id)
+        );
 
   return products.map((product) => ({
     ...product,

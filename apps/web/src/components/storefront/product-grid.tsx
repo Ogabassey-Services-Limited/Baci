@@ -126,9 +126,15 @@ export function StorefrontProductGrid({
     }
 
     if (merchant?.id && !isPreviewMode) {
+      const params = new URLSearchParams({
+        merchant_id: merchant.id,
+        compact: 'true',
+        has_images: 'true',
+      });
+
       // Fetch products
       apiGet<{ products: Product[] }>(
-        `/api/storefront/products?merchant_id=${merchant.id}`,
+        `/api/storefront/products?${params}`,
         // Dashboard product creation must be visible immediately on storefronts;
         // do not let a browser cache serve the pre-creation product list here.
         { cache: 'no-store' }

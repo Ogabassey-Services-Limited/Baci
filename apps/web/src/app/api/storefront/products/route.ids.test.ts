@@ -64,6 +64,35 @@ describe('GET /api/storefront/products ids flow', () => {
     ).toHaveBeenCalledWith('id', ['product-1']);
   });
 
+  it('uses the compact projection for recently-viewed ID lookups when requested', async () => {
+    storefrontProductsRouteTestHarness.mockProductsByIdsResult.current = {
+      data: [
+        storefrontProductsRouteTestHarness.createRawProduct({
+          id: 'product-1',
+          slug: 'sony-bravia',
+        }),
+      ],
+      error: null,
+    };
+
+    const response = await GET(
+      new NextRequest(
+        `http://localhost/api/storefront/products?merchant_id=${VALID_MERCHANT_ID}&ids=product-1&compact=true`
+      )
+    );
+    const payload = await response.json();
+    const selectArg = String(
+      storefrontProductsRouteTestHarness.mockProductsByIdsQuery.current?.select
+        .mock.calls[0]?.[0]
+    );
+
+    expect(response.status).toBe(200);
+    expect(payload.products).toHaveLength(1);
+    expect(selectArg).toContain('has_variants');
+    expect(selectArg).not.toContain('specifications');
+    expect(selectArg).not.toContain('product_key_specs');
+  });
+
   it('returns 500 when the ids query fails', async () => {
     storefrontProductsRouteTestHarness.mockProductsByIdsResult.current = {
       data: null as never,
