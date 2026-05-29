@@ -50,3 +50,7 @@
 ## 2024-05-26 - ErrorBoundary and Shipping Quotes Theming
 **Learning:** Hardcoded hex values for debug containers and shipping quote selection states failed to adapt to the dark mode context accurately and didn't utilize available tokens.
 **Action:** Removed statically defined fallback hex values and utilized proper adaptive theme tokens (`colors.destructive`, `colors.primaryLowOpacity`, `colors.muted`) to ensure consistent design language alignment in both modes.
+
+## 2025-05-18 - [products.tsx active tab text contrast]
+**Learning:** Hardcoding `#000000` for active tab text over `colors.gold` fails to adapt. Using `colors.background` provides optimal contrast because it naturally flips between light (for dark mode gold) and dark (for light mode gold).
+**Action:** Replace hardcoded hex colors on specific themed backgrounds with opposing theme tokens like `colors.background` for active states.
