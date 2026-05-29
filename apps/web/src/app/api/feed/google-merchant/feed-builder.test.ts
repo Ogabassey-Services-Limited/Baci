@@ -869,6 +869,33 @@ describe('generateGoogleMerchantFeed — conditioned variants', () => {
     );
   });
 
+  it('emits sku_matrix variant rows when the merchant flag is omitted', () => {
+    const xml = generateGoogleMerchantFeed(
+      [
+        product({
+          price: 700000,
+          variant_model: 'sku_matrix',
+          variants: [
+            {
+              id: 'variant-new-128',
+              condition: 'new',
+              price_override: 550000,
+              stock_quantity: 4,
+              attributes: { storage: '128GB' },
+            },
+          ],
+        }),
+      ],
+      merchant({ gmc_variants_enabled: undefined }),
+      BASE_URL,
+      defaultManifest
+    );
+
+    expect(xml).toContain('<g:id>variant-new-128</g:id>');
+    expect(xml).toContain('<g:item_group_id>prod-1</g:item_group_id>');
+    expect((xml.match(/<item>/g) || []).length).toBe(1);
+  });
+
   it('uses exact variant feed images before product-level images', () => {
     const xml = generateGoogleMerchantFeed(
       [
