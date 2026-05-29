@@ -104,6 +104,7 @@
     "babel-plugin-react-compiler": "^1.0.0",
     "jsdom": "^29.0.1",
     "jsonwebtoken": "^9.0.3",
+    "react-test-renderer": "19.2.3",
     "react-native-svg-transformer": "^1.5.3",
     "sharp": "^0.34.5",
     "typescript": "~6.0.3",
