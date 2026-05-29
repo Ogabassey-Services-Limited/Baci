@@ -8,11 +8,8 @@ import { type ReactNode, Suspense } from 'react';
 import { StorefrontNotFoundWithDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-not-found-with-dynamic-metadata-marker';
 import { getStorefrontShellSnapshotBase } from '@/app/(storefront)/[slug]/storefront-shell-snapshot';
 import { OgabasseyPdpProductLcpSkeleton } from '@/app/(storefront)/ogabassey/ogabassey-pdp-product-lcp-skeleton';
-import {
-  OgabasseyPdpProductResourceHints,
-  preloadOgabasseyPdpProductImage,
-} from '@/app/(storefront)/ogabassey/ogabassey-pdp-product-resource-hints';
-import { OgabasseyPdpStaticResourceHints } from '@/app/(storefront)/ogabassey/ogabassey-pdp-static-resource-hints';
+import { preloadOgabasseyPdpProductImage } from '@/app/(storefront)/ogabassey/ogabassey-pdp-product-resource-hints';
+import { preloadOgabasseyPdpStaticResources } from '@/app/(storefront)/ogabassey/ogabassey-pdp-static-resource-hints';
 import { OgabasseyPdpBelowFoldIsland } from '@/components/storefront/ogabassey/pdp/client-islands';
 import { createCriticalCartProduct } from '@/components/storefront/ogabassey/pdp/critical-cart-product';
 import { OgabasseyPdpCriticalCommerce } from '@/components/storefront/ogabassey/pdp/critical-commerce';
@@ -287,14 +284,13 @@ async function renderTemplateProductPage({
       );
     }
 
+    preloadOgabasseyPdpStaticResources();
+
     return (
-      <>
-        <OgabasseyPdpStaticResourceHints />
-        <OgabasseyPdpBelowFoldIsland
-          product={ogabasseyProduct}
-          semanticSections={semanticSections}
-        />
-      </>
+      <OgabasseyPdpBelowFoldIsland
+        product={ogabasseyProduct}
+        semanticSections={semanticSections}
+      />
     );
   }
 
@@ -1077,26 +1073,23 @@ export default async function CategoryProductPage({
     if (primaryProductImage) {
       preloadOgabasseyPdpProductImage({ src: primaryProductImage });
     }
+    if (criticalProduct) {
+      preloadOgabasseyPdpStaticResources();
+    }
   } catch (error) {
     console.warn(
-      'Unable to preload OgaBassey PDP product image early:',
+      'Unable to preload OgaBassey PDP resources early:',
       sanitizeLookupLogValue(productSlug),
       error
     );
   }
 
-  const earlyProductResourceHints =
-    merchant?.template_id === OGABASSEY_TEMPLATE_ID && primaryProductImage ? (
-      <OgabasseyPdpProductResourceHints src={primaryProductImage} />
-    ) : null;
   const criticalBasePath = await criticalBasePathPromise;
 
   return (
     <>
-      {earlyProductResourceHints}
       {criticalProduct ? (
         <>
-          <OgabasseyPdpStaticResourceHints />
           <OgabasseyPdpCriticalShell
             basePath={criticalBasePath}
             product={criticalProduct}

@@ -299,7 +299,7 @@ describe('blog page metadata', () => {
     expect(metadata.openGraph?.url).toBe('https://test-store.usebaci.com/blog');
   });
 
-  it('shows the blog listing fallback while runtime metadata and listing UI are pending', () => {
+  it('shows the blog listing fallback while request-time listing UI is pending', async () => {
     const pending = new Promise(() => {
       // Keep request-time metadata and listing UI suspended behind their boundaries.
     });
@@ -308,27 +308,17 @@ describe('blog page metadata', () => {
     });
 
     render(
-      <BlogPage
-        params={Promise.resolve({ slug: 'test-store' })}
-        searchParams={Promise.resolve({})}
-      />
+      await BlogPage({
+        params: Promise.resolve({ slug: 'test-store' }),
+        searchParams: Promise.resolve({}),
+      })
     );
 
     expect(
       screen.getByRole('status', { name: /loading blog posts/i })
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole('status', { name: /dynamic metadata marker/i })
-    ).toBeInTheDocument();
     expect(screen.queryByText('Ogabassey blog')).not.toBeInTheDocument();
-
-    const loading = screen.getByRole('status', { name: /loading blog posts/i });
-    const marker = screen.getByRole('status', {
-      name: /dynamic metadata marker/i,
-    });
-    expect(
-      loading.compareDocumentPosition(marker) & Node.DOCUMENT_POSITION_FOLLOWING
-    ).toBeTruthy();
+    expect(mockConnection).toHaveBeenCalledOnce();
   });
 
   it('renders guide collections after the blog listing', async () => {

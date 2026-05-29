@@ -3,7 +3,6 @@ import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { connection } from 'next/server';
 import { Suspense } from 'react';
-import { StorefrontDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker';
 import { ContentRouteLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { toTemplateMerchantData } from '@/lib/merchant-template-data';
@@ -54,14 +53,13 @@ export async function generateMetadata({
   };
 }
 
-export default function PrivacyPage({ params }: PageProps) {
+export default async function PrivacyPage({ params }: PageProps) {
+  await connection();
+
   return (
-    <>
-      <Suspense fallback={<ContentRouteLoading />}>
-        <PrivacyPageContent params={params} />
-      </Suspense>
-      <StorefrontDynamicMetadataMarker />
-    </>
+    <Suspense fallback={<ContentRouteLoading />}>
+      <PrivacyPageContent params={params} />
+    </Suspense>
   );
 }
 
