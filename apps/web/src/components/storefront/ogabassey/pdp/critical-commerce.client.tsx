@@ -47,13 +47,20 @@ export function OgabasseyPdpCriticalCommerceClient({
   }
 
   return (
-    <div className={styles.controls}>
+    <div className={styles.controls} data-ogabassey-pdp-commerce-controls>
       {variantCount > 1 ? (
-        <p className={styles.selectionHint}>
+        <p
+          className={styles.selectionHint}
+          data-ogabassey-pdp-commerce-selection-hint
+        >
           Choose options below before checkout.
         </p>
       ) : null}
-      <div className={styles.quantity} aria-label="Quantity">
+      <div
+        className={styles.quantity}
+        data-ogabassey-pdp-commerce-quantity
+        aria-label="Quantity"
+      >
         <button
           aria-label={`Decrease quantity for ${productName}`}
           disabled={quantity <= 1}
@@ -80,13 +87,18 @@ export function OgabasseyPdpCriticalCommerceClient({
       </div>
       <button
         className={styles.primaryAction}
+        data-ogabassey-pdp-commerce-primary-action
         disabled={!canAddToCart}
         onClick={handleAddToCart}
         type="button"
       >
         Add to cart
       </button>
-      <Link className={styles.secondaryAction} href={cartHref}>
+      <Link
+        className={styles.secondaryAction}
+        data-ogabassey-pdp-commerce-secondary-action
+        href={cartHref}
+      >
         View cart
       </Link>
     </div>

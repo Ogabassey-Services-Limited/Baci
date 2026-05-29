@@ -12,7 +12,11 @@ export function OgabasseyPdpDeferredDetailIsland({
   semanticSections = null,
 }: OgabasseyPdpDeferredDetailIslandProps) {
   return (
-    <section aria-label="Product details" data-ogabassey-pdp-semantics>
+    <section
+      aria-label="Product details"
+      className="ogabassey-pdp-details-region"
+      data-ogabassey-pdp-semantics
+    >
       {semanticSections}
       <OgabasseyPdpDeferredDetailClient product={product} />
     </section>

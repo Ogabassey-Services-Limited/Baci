@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import { useCart } from '@/hooks/cart';
 import { useV2Theme } from '../../providers/v2-theme-context';
+import { useOgabasseyScrollVisibility } from '../../scroll-visibility-store';
 import type { ChatWidgetProps } from './ChatWidget';
 
 interface ChatWidgetModule {
@@ -15,7 +16,14 @@ interface DeferredChatWidgetProps {
   loadChatWidget?: () => Promise<ChatWidgetModule>;
 }
 
-function getMobileBottomClass(pathname: string | null) {
+const CHAT_MOBILE_OFFSET_ATTRIBUTES = {
+  'data-mobile-offset-cart': '6.75rem',
+  'data-mobile-offset-default': '5.75rem',
+  'data-mobile-offset-product': '6.25rem',
+  'data-mobile-offset-screen': '1rem',
+} as const;
+
+function getMobileOffset(pathname: string | null) {
   const isProductPage =
     pathname?.match(/\/[^/]+\/[^/]+\/[^/]+/) &&
     !pathname.includes('/cart') &&
@@ -23,14 +31,14 @@ function getMobileBottomClass(pathname: string | null) {
   const isCartPage = pathname?.includes('/cart');
 
   if (isProductPage) {
-    return 'bottom-44';
+    return 'product';
   }
 
   if (isCartPage) {
-    return 'bottom-36';
+    return 'cart';
   }
 
-  return 'bottom-24';
+  return 'default';
 }
 
 export function DeferredChatWidget({
@@ -39,12 +47,27 @@ export function DeferredChatWidget({
   const { isCartOpen } = useCart();
   const { theme } = useV2Theme();
   const pathname = usePathname();
+  const isFooterVisible = useOgabasseyScrollVisibility();
   const [ChatRuntime, setChatRuntime] =
     useState<ChatWidgetModule['ChatWidget'] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   const isSanta = theme === 'santa';
-  const mobileBottomClass = getMobileBottomClass(pathname);
+  const footerOffset = getMobileOffset(pathname);
+  const mobileOffset = isFooterVisible ? footerOffset : 'screen';
+  const anchorClasses = [
+    'ogabassey-chat-anchor',
+    isCartOpen && 'ogabassey-chat-anchor--hidden',
+  ]
+    .filter(Boolean)
+    .join(' ');
+  const buttonClasses = [
+    'ogabassey-chat-button',
+    isSanta && 'ogabassey-chat-button--santa',
+    isLoading && 'ogabassey-chat-button--loading',
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   const activateChat = () => {
     if (ChatRuntime || isLoading) {
@@ -70,18 +93,16 @@ export function DeferredChatWidget({
 
   return (
     <div
-      className={`fixed ${mobileBottomClass} md:bottom-4 right-4 z-50 flex flex-col items-end gap-4 ${isCartOpen ? 'hidden' : ''}`}
+      className={anchorClasses}
+      data-mobile-offset={mobileOffset}
+      {...CHAT_MOBILE_OFFSET_ATTRIBUTES}
     >
       <div className="relative group">
         <button
           type="button"
           onClick={activateChat}
           disabled={isLoading}
-          className={`w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center transition-[transform,background-color,border-color,box-shadow,color,opacity] duration-200 hover:scale-110 group relative ${
-            isSanta
-              ? 'bg-transparent border-none shadow-none text-red-600'
-              : 'bg-white/60 backdrop-blur-md text-red-600 hover:bg-white hover:border-red-100 shadow-xl border border-gray-100'
-          } ${isLoading ? 'opacity-70 cursor-wait' : ''}`}
+          className={buttonClasses}
           aria-label="Open AI chat assistant"
         >
           {isSanta ? (
@@ -100,9 +121,9 @@ export function DeferredChatWidget({
                 fill="currentColor"
                 fillOpacity={0.1}
               />
-              <span className="absolute -top-1 -right-1 flex h-4 w-4 z-10">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-4 w-4 bg-red-600 text-[9px] font-bold text-white items-center justify-center shadow-sm border border-white">
+              <span className="ogabassey-chat-badge">
+                <span className="ogabassey-chat-badge__ping" />
+                <span className="ogabassey-chat-badge__label">
                   AI
                 </span>
               </span>
