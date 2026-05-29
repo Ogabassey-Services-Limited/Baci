@@ -17,6 +17,7 @@ import type {
   FeedVariant,
   ImageManifestMap,
 } from '../google-merchant/feed-builder';
+import { toFeedDefaultVariant } from '../google-merchant/feed-builder';
 
 const UNLIMITED_STOCK_QUANTITY = 9999;
 const FACEBOOK_TITLE_MAX_LENGTH = 150;
@@ -116,14 +117,15 @@ function resolveSkuMatrixFallback(product: FeedProduct) {
     compare_at_price: product.compare_at_price,
     condition: product.condition,
     manage_stock: product.manage_stock,
-    variants: eligibleVariants.map((variant) => ({
-      id: variant.id,
-      attributes: variant.attributes,
-      condition: variant.condition,
-      price_override: variant.price_override ?? variant.price,
-      stock_quantity: variant.stock_quantity,
-    })),
-  } satisfies ProductWithDefaultVariantLike<FeedVariant>);
+    variants: eligibleVariants.map((variant) =>
+      toFeedDefaultVariant({
+        ...variant,
+        price_override: variant.price_override ?? variant.price,
+      })
+    ),
+  } satisfies ProductWithDefaultVariantLike<
+    ReturnType<typeof toFeedDefaultVariant>
+  >);
 
   if (!defaultSelection) {
     return null;
