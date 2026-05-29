@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import Constants from 'expo-constants';
 import type { PaymentMethodType } from '@/components/checkout/PaymentMethodSelector';
+import { resolveFallbackVatRate } from '@/constants/tax';
 import { supabase } from '@/lib/supabase';
 
 const MERCHANT_ID =
@@ -17,8 +18,57 @@ export interface PaymentSettings {
   klump_min_amount: number;
   klump_max_amount: number;
   pay_on_delivery_enabled: boolean;
+  wallet_order_auto_debit_enabled: boolean;
+  wallet_paystack_dva_enabled: boolean;
   vat_registration_status: string;
+  /** VAT rate as a percentage, for example 7.5 for 7.5%. */
   vat_rate: number;
+}
+
+function safeNumber(value: unknown, fallback: number): number {
+  if (value === null || value === undefined) {
+    return fallback;
+  }
+  try {
+    const numericValue = Number(value);
+    return Number.isFinite(numericValue) ? numericValue : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function safeNonNegativeNumber(value: unknown, fallback: number): number {
+  const numericValue = safeNumber(value, fallback);
+  return numericValue >= 0 ? numericValue : fallback;
+}
+
+function isPaymentSettingsRow(
+  value: unknown
+): value is Partial<PaymentSettings> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+export function normalizePaymentSettings(
+  row: Partial<PaymentSettings> | null | undefined
+): PaymentSettings {
+  const fallbackVatRatePercent = resolveFallbackVatRate();
+
+  return {
+    paystack_enabled: row?.paystack_enabled !== false,
+    korapay_enabled: row?.korapay_enabled === true,
+    juicyway_enabled: row?.juicyway_enabled === true,
+    credpal_enabled: row?.credpal_enabled === true,
+    credit_direct_enabled: row?.credit_direct_enabled === true,
+    klump_enabled: row?.klump_enabled === true,
+    klump_min_amount: safeNumber(row?.klump_min_amount, 0),
+    klump_max_amount: safeNumber(row?.klump_max_amount, 0),
+    pay_on_delivery_enabled: row?.pay_on_delivery_enabled === true,
+    wallet_order_auto_debit_enabled:
+      row?.wallet_order_auto_debit_enabled === true,
+    wallet_paystack_dva_enabled: row?.wallet_paystack_dva_enabled === true,
+    vat_registration_status: row?.vat_registration_status ?? 'unregistered',
+    vat_rate: safeNonNegativeNumber(row?.vat_rate, fallbackVatRatePercent),
+  };
 }
 
 /**
@@ -36,7 +86,7 @@ export function useMerchantPaymentSettings() {
         .single();
 
       if (error) throw error;
-      return data as PaymentSettings;
+      return normalizePaymentSettings(isPaymentSettingsRow(data) ? data : null);
     },
     staleTime: 5 * 60 * 1000,
   });
@@ -52,7 +102,7 @@ export function getMerchantTaxRate(
   if (!settings || settings.vat_registration_status !== 'registered') {
     return 0;
   }
-  return (settings.vat_rate ?? 7.5) / 100;
+  return (settings.vat_rate ?? resolveFallbackVatRate()) / 100;
 }
 
 /**

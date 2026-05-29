@@ -73,6 +73,10 @@
       "justification": "Reviewed Android-specific compact order-summary layout."
     },
     {
+      "path": "components/checkout/checkout-crypto-payment.styles.ts",
+      "justification": "Moved reviewed checkout crypto monospace font selection out of app/checkout.tsx without changing platform behavior."
+    },
+    {
       "path": "components/checkout/checkout-identity/components/SocialSignInButtons.tsx",
       "justification": "Reviewed iOS-only Apple sign-in button rendering."
     },
