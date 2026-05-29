@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import { Suspense } from 'react';
+import './skip-link.css';
 import { RootDynamicBody } from '@/app/root-dynamic-body';
 import { Toaster } from '@/components/ui/toaster';
 import { PLATFORM_CONFIG } from '@/config/platform';
@@ -121,10 +122,7 @@ export default function RootLayout({
       </head>
       <body className={inter.variable} suppressHydrationWarning>
         {/* Skip link for accessibility - allows keyboard users to bypass navigation */}
-        <a
-          href="#main-content"
-          className="sr-only focus-visible:not-sr-only focus-visible:absolute focus-visible:top-4 focus-visible:left-4 focus-visible:z-9999 focus-visible:bg-primary focus-visible:text-primary-foreground focus-visible:px-4 focus-visible:py-2 focus-visible:rounded-md focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-        >
+        <a href="#main-content" className="baci-skip-link">
           Skip to main content
         </a>
         <Toaster />

@@ -24,19 +24,19 @@ export function ProductSemanticSections({
   }
 
   return (
-    <section className="mt-10 space-y-8 border-t border-store-background-text/12 pt-8">
+    <section className="ogabassey-pdp-semantic-sections">
       {model.trustBullets.length > 0 ? (
         <section
           aria-labelledby="product-buying-context"
-          className="space-y-4 rounded-3xl border border-store-background-text/10 bg-store-background p-5 md:p-6"
+          className="ogabassey-pdp-semantic-card"
         >
           <h2
             id="product-buying-context"
-            className="text-lg font-semibold text-store-background-text"
+            className="ogabassey-pdp-semantic-card__title"
           >
             Buying context
           </h2>
-          <ul className="space-y-2 text-sm text-store-background-text/75">
+          <ul className="ogabassey-pdp-semantic-card__list">
             {model.trustBullets.map((bullet) => (
               <li key={bullet}>{bullet}</li>
             ))}
@@ -71,20 +71,26 @@ export function ProductSemanticSections({
       />
 
       {hasGuideLinks ? (
-        <section className="space-y-4 rounded-3xl border border-store-background-text/10 bg-store-background p-5 md:p-6">
-          <h2 className="text-lg font-semibold text-store-background-text">
+        <section
+          aria-labelledby="product-guide-links"
+          className="ogabassey-pdp-semantic-card"
+        >
+          <h2
+            id="product-guide-links"
+            className="ogabassey-pdp-semantic-card__title"
+          >
             Buyer guides and support articles
           </h2>
-          <ul className="space-y-4">
+          <ul className="ogabassey-pdp-semantic-card__link-list">
             {model.guideLinks.map((link) => (
-              <li key={link.href} className="space-y-1">
+              <li key={link.href}>
                 <a
-                  className="text-sm font-semibold text-store-primary underline-offset-4 hover:underline"
+                  className="ogabassey-pdp-semantic-card__link"
                   href={link.href}
                 >
                   {link.title}
                 </a>
-                <p className="text-sm leading-6 text-store-background-text/70">
+                <p className="ogabassey-pdp-semantic-card__description">
                   {link.description}
                 </p>
               </li>
