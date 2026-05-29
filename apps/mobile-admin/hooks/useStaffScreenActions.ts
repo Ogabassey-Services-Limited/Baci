@@ -1,6 +1,7 @@
 import { Alert, Share } from 'react-native';
 import { getStaffInviteFeedback } from '@/components/staff/staff-feedback';
 import type { StaffMember, StaffRole, StaffStatus } from '@/lib/types/staff';
+import { getStaffDisplayIdentity } from './staff-screen-action-helpers';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -60,12 +61,6 @@ export function useStaffScreenActions({
   setSelectedStaff,
   updateStaff,
 }: UseStaffScreenActionsProps) {
-  const getDisplayIdentity = ({
-    email,
-    name,
-  }: Pick<StaffMember, 'email' | 'name'>) =>
-    name?.trim() || email?.trim() || 'Unknown User';
-
   const showShareableAlert = ({
     message,
     shareMessage,
@@ -161,7 +156,7 @@ export function useStaffScreenActions({
   };
 
   const handleSuspend = (member: StaffMember) => {
-    const displayIdentity = getDisplayIdentity(member);
+    const displayIdentity = getStaffDisplayIdentity(member);
     const newStatus = member.status === 'suspended' ? 'active' : 'suspended';
     const action = newStatus === 'suspended' ? 'suspend' : 'reactivate';
     const successMessage =
@@ -199,7 +194,7 @@ export function useStaffScreenActions({
   };
 
   const handleRemove = (member: StaffMember) => {
-    const displayIdentity = getDisplayIdentity(member);
+    const displayIdentity = getStaffDisplayIdentity(member);
 
     Alert.alert(
       'Remove Team Member',
@@ -247,7 +242,7 @@ export function useStaffScreenActions({
   };
 
   const showStaffActions = (member: StaffMember) => {
-    const displayIdentity = getDisplayIdentity(member);
+    const displayIdentity = getStaffDisplayIdentity(member);
     const actions: {
       text: string;
       onPress?: () => void;
