@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { connection } from 'next/server';
 import { Suspense } from 'react';
 import { StorefrontDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
@@ -21,6 +22,7 @@ interface PageProps {
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
+  await connection();
   const { slug } = await params;
   const merchant = await getMerchantByIdentifier(slug);
 
