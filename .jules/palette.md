@@ -58,3 +58,7 @@
 ## 2025-05-25 - Interactive Press Feedback and Keyboard Refinements
 **Learning:** In Expo/React Native apps within the Baci monorepo, many `Pressable` components acting as buttons or interactive cards are missing visual feedback when pressed, which makes the app feel unresponsive. Additionally, form inputs like Amount and Notes may lack `returnKeyType` configurations that improve keyboard UX.
 **Action:** When creating or modifying interactive `Pressable` elements, consistently apply the `({ pressed }) => [...]` function pattern to the style prop to provide dynamic visual feedback such as opacity changes. Add `returnKeyType="done"` to form `TextInput`s where appropriate.
+
+## 2026-05-28 - Carousel Indicator Accessibility
+**Learning:** Carousel indicator dots represented by unlabelled elements (often generic buttons or divs) lack context for visually impaired users. Without ARIA attributes, they are either invisible or read as generic controls without meaning or state.
+**Action:** Always add explicit semantic roles (e.g., `role="tab"` in a `role="tablist"`), state indicators (`aria-selected`), and descriptive labels (`aria-label` explaining which slide the dot targets) to interactive carousel pagination indicators.
