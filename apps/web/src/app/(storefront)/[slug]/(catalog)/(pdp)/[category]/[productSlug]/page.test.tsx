@@ -1010,7 +1010,7 @@ describe('[category]/[productSlug] page render', () => {
     });
   });
 
-  it('opts the request-time PDP out of resumable shell rendering', async () => {
+  it('uses the dynamic metadata marker without suspending the whole PDP shell', async () => {
     const ui = await resolveRsc(
       await CategoryProductPage({
         params: Promise.resolve({
@@ -1030,7 +1030,7 @@ describe('[category]/[productSlug] page render', () => {
       throw new Error('Expected the OgaBassey PDP critical shell to render');
     }
 
-    expect(mockConnection).toHaveBeenCalledTimes(1);
+    expect(mockConnection).not.toHaveBeenCalled();
     expect(mockStorefrontDynamicMetadataMarker).toHaveBeenCalledOnce();
     expect(
       screen.getByRole('status', { name: /dynamic metadata marker/i })

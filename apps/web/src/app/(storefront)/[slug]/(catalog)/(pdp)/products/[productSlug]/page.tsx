@@ -403,8 +403,6 @@ export async function generateMetadata(
 }
 
 export default async function ProductPage({ params, searchParams }: PageProps) {
-  await connection();
-
   const { slug, productSlug } = await params;
   const resolvedSearchParams = await searchParams;
   const productResult = await getProductCached(slug, productSlug);

@@ -86,9 +86,7 @@ describe('terms page rendering', () => {
     expect(mockConnection).toHaveBeenCalledOnce();
   });
 
-  it('marks the route as request-time rendered before returning content', async () => {
-    mockConnection.mockResolvedValueOnce(undefined);
-
+  it('returns content with the dynamic metadata marker without suspending the whole route shell', async () => {
     const element = await TermsPage({
       params: Promise.resolve({ slug: 'ogabassey.com' }),
     });
@@ -98,17 +96,6 @@ describe('terms page rendering', () => {
       screen.getByRole('status', { name: /dynamic metadata marker/i })
     ).toBeInTheDocument();
     expect(mockStorefrontDynamicMetadataMarker).toHaveBeenCalledOnce();
-    expect(mockConnection).toHaveBeenCalledOnce();
-  });
-
-  it('surfaces request-time rendering failures to the route boundary', async () => {
-    mockConnection.mockRejectedValueOnce(new Error('Connection failed'));
-
-    await expect(
-      TermsPage({
-        params: Promise.resolve({ slug: 'ogabassey.com' }),
-      })
-    ).rejects.toThrow('Connection failed');
-    expect(mockConnection).toHaveBeenCalledOnce();
+    expect(mockConnection).not.toHaveBeenCalled();
   });
 });

@@ -6,6 +6,7 @@ const mockNotFound = vi.fn(() => {
 const mockPermanentRedirect = vi.fn((url: string) => {
   throw new Error(`NEXT_REDIRECT:${url}`);
 });
+const mockConnection = vi.fn<() => Promise<void>>(() => Promise.resolve());
 const mockGetMerchantByIdentifier = vi.fn();
 const mockGetCachedProductWithDetails = vi.fn();
 const mockGetCachedLegacyProductRedirectTarget = vi.fn();
@@ -13,6 +14,10 @@ const mockGetCachedLegacyProductRedirectTarget = vi.fn();
 vi.mock('next/navigation', () => ({
   notFound: () => mockNotFound(),
   permanentRedirect: (url: string) => mockPermanentRedirect(url),
+}));
+
+vi.mock('next/server', () => ({
+  connection: () => mockConnection(),
 }));
 
 vi.mock('@/lib/cached-data', () => ({
@@ -49,6 +54,7 @@ import LegacyProductPage from './page';
 describe('legacy singular product route', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockConnection.mockResolvedValue(undefined);
     mockGetMerchantByIdentifier.mockResolvedValue({
       id: 'merchant-1',
       slug: 'ogabassey',
@@ -77,6 +83,7 @@ describe('legacy singular product route', () => {
     expect(mockPermanentRedirect).toHaveBeenCalledWith(
       '/redirect/ogabassey/playstation-5/wrc-9-playstation-5'
     );
+    expect(mockConnection).toHaveBeenCalledOnce();
   });
 
   it('returns notFound for invalid non-storefront slugs', async () => {
@@ -88,6 +95,22 @@ describe('legacy singular product route', () => {
         }),
       })
     ).rejects.toThrow('NEXT_NOT_FOUND');
+
+    expect(mockGetMerchantByIdentifier).not.toHaveBeenCalled();
+    expect(mockConnection).toHaveBeenCalledOnce();
+  });
+
+  it('surfaces request-time rendering failures before resolving redirects', async () => {
+    mockConnection.mockRejectedValueOnce(new Error('connection failed'));
+
+    await expect(
+      LegacyProductPage({
+        params: Promise.resolve({
+          slug: 'ogabassey',
+          productSlug: 'wrc-9-playstation-5',
+        }),
+      })
+    ).rejects.toThrow('connection failed');
 
     expect(mockGetMerchantByIdentifier).not.toHaveBeenCalled();
   });

@@ -595,7 +595,7 @@ describe('category page route', () => {
     ]);
   });
 
-  it('marks the route as request-time rendered and shows the catalog skeleton while category content is suspended', async () => {
+  it('keeps the route shell stable and shows the catalog skeleton while category content is suspended', async () => {
     mockCategoryPageContent.mockImplementation(() => {
       throw new Promise(() => {
         // Keep the category page content suspended behind the page fallback.
@@ -619,10 +619,11 @@ describe('category page route', () => {
     ).toBeInTheDocument();
     expect(screen.queryByText('Route loader fallback')).not.toBeInTheDocument();
     expect(screen.queryByText('Category page content')).not.toBeInTheDocument();
-    expect(mockConnection).toHaveBeenCalledOnce();
+    expect(mockConnection).not.toHaveBeenCalled();
+    expect(mockStorefrontDynamicMetadataMarker).toHaveBeenCalledOnce();
   });
 
-  it('renders category content after marking the route as request-time rendered', async () => {
+  it('renders category content with the dynamic metadata marker', async () => {
     const ui = await CategoryPageRoute({
       params: Promise.resolve({
         slug: 'test-store',
@@ -638,7 +639,7 @@ describe('category page route', () => {
     ).toBeInTheDocument();
     expect(mockStorefrontDynamicMetadataMarker).toHaveBeenCalledOnce();
     expect(screen.getByText('Category page content')).toBeInTheDocument();
-    expect(mockConnection).toHaveBeenCalledOnce();
+    expect(mockConnection).not.toHaveBeenCalled();
   });
 
   it('renders curated smartphone hub content when merchant-authored SEO is absent', async () => {
