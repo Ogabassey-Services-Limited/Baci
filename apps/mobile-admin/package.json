@@ -80,7 +80,7 @@
     "react-native-mmkv": "^4.3.0",
     "react-native-nitro-modules": "^0.35.2",
     "react-native-phone-number-input": "^2.1.0",
-    "react-native-purchases": "^9.15.0",
+    "react-native-purchases": "^10.2.0",
     "react-native-reanimated": "4.3.1",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "4.25.2",
