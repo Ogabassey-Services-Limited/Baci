@@ -7,6 +7,7 @@ import {
   getRequestScopedMerchant,
 } from '@/lib/cached-data';
 import { getCachedStorefrontProductIndex } from '@/lib/cached-storefront-product-index';
+import { formatDisplayCurrency } from '@/lib/format-display-currency';
 import type { Product } from '@/lib/products';
 import { asRoute } from '@/lib/routes';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
@@ -131,11 +132,12 @@ export async function ProductsPageContent({ params, searchParams }: PageProps) {
     merchantName: merchant.business_name,
     currency: merchant.payout_currency || 'NGN',
   });
-  const priceFormatter = new Intl.NumberFormat('en-NG', {
-    style: 'currency',
-    currency: merchant.payout_currency || 'NGN',
-    maximumFractionDigits: 0,
-  });
+  const payoutCurrency = merchant.payout_currency || 'NGN';
+  const formatProductPrice = (amount: number) =>
+    formatDisplayCurrency(amount, payoutCurrency, {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    });
   const rangeStart =
     currentProductIndex.totalCount === 0
       ? 0
@@ -263,7 +265,7 @@ export async function ProductsPageContent({ params, searchParams }: PageProps) {
                 {currentProductIndex.products.map((product) => (
                   <ProductIndexCard
                     key={product.id}
-                    formattedPrice={priceFormatter.format(product.price)}
+                    formattedPrice={formatProductPrice(product.price)}
                     pathPrefix={pathPrefix}
                     product={product}
                   />

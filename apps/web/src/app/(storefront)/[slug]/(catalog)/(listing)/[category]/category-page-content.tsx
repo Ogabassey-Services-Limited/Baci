@@ -103,7 +103,11 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
   }
 
   const categoryName = resolveCategoryPageName(data, category);
-  const normalizedProducts = normalizeCategoryPageProducts(products, category);
+  const normalizedProducts = normalizeCategoryPageProducts(
+    products,
+    category,
+    merchant.country
+  );
   const paginatedNormalizedProducts = normalizedProducts.slice(
     pageStartIndex,
     pageStartIndex + STOREFRONT_PRODUCTS_PER_PAGE
