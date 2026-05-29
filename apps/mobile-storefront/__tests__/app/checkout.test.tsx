@@ -1,8 +1,13 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 import {
+  getPaymentInitializeCalls,
   mockAlert,
   mockCreateOrder,
+  mockCreateWalletFundingAccount,
+  mockCreateOrderWalletFundingIntent,
   mockListSavingsGoals,
+  mockPaymentSettings,
+  mockRouterPush,
   mockRouterReplace,
   mockTrackCheckoutStarted,
   mockTrackError,
@@ -11,6 +16,80 @@ import {
   setupCheckoutTest,
   teardownCheckoutTest,
 } from './checkout.test-utils';
+
+function fillAddressAndContinueToPayment() {
+  fireEvent.changeText(screen.getByPlaceholderText('E.g. John'), 'Ada');
+  fireEvent.changeText(screen.getByPlaceholderText('E.g. Doe'), 'Lovelace');
+  fireEvent.changeText(
+    screen.getByPlaceholderText('e.g. 08012345678'),
+    '08031234567'
+  );
+  fireEvent.changeText(
+    screen.getByPlaceholderText('john@example.com'),
+    'ada@example.com'
+  );
+  fireEvent.press(screen.getByRole('button', { name: 'Select pickup station' }));
+  fireEvent.press(screen.getByRole('button', { name: 'Continue to payment' }));
+}
+
+function enableAuthenticatedWalletFundedCheckout() {
+  mockUseAuthStatus.mockReturnValue({
+    customer: {
+      email: 'ada@example.com',
+      first_name: 'Ada',
+      id: 'customer-1',
+      last_name: 'Lovelace',
+      phone: '08031234567',
+    },
+    isAuthenticated: true,
+    isGuest: false,
+    isInitialized: true,
+    isLoading: false,
+    user: { id: 'user-1' },
+  });
+  Object.assign(mockPaymentSettings, {
+    wallet_order_auto_debit_enabled: true,
+    wallet_paystack_dva_enabled: true,
+  });
+}
+
+async function placeWalletFundedBankTransferOrder() {
+  renderCheckoutScreen();
+  fillAddressAndContinueToPayment();
+
+  await waitFor(() => {
+    expect(screen.getByText('Bank transfer to wallet')).toBeOnTheScreen();
+  });
+
+  fireEvent.press(
+    screen.getByRole('button', { name: 'Mock select Bank transfer to wallet' })
+  );
+  fireEvent.press(screen.getByRole('button', { name: 'Continue to review' }));
+
+  await waitFor(() => {
+    expect(screen.getByText('Review Order')).toBeOnTheScreen();
+  });
+
+  fireEvent.press(screen.getByRole('button', { name: /Place order for/i }));
+}
+
+function createConsentError(code: string, message: string) {
+  const error = new Error(message) as Error & { code: string };
+  error.code = code;
+  return error;
+}
+
+function triggerAlertButton(
+  alertMock: typeof mockAlert,
+  alertTitle: string,
+  buttonIndex: number
+) {
+  const alertCall = alertMock.mock.calls.find(([title]) => title === alertTitle);
+  const button = alertCall?.[2]?.[buttonIndex] as
+    | { onPress?: () => void }
+    | undefined;
+  button?.onPress?.();
+}
 
 describe('CheckoutScreen', () => {
   beforeEach(() => {
@@ -189,6 +268,9 @@ describe('CheckoutScreen', () => {
 
     await waitFor(() => {
       expect(mockListSavingsGoals).toHaveBeenCalledTimes(1);
+      expect(
+        screen.getByRole('button', { name: 'Mock use checkout savings' })
+      ).toBeOnTheScreen();
     });
 
     fireEvent.press(
@@ -421,18 +503,7 @@ describe('CheckoutScreen', () => {
         use_savings_credit: true,
       })
     );
-    const paymentInitializeCalls = (
-      global.fetch as jest.Mock
-    ).mock.calls.filter(([input]) => {
-      const requestUrl =
-        typeof input === 'string'
-          ? input
-          : input instanceof URL
-            ? input.toString()
-            : ((input as { url?: string }).url ?? '');
-      return requestUrl.includes('/api/payments/initialize');
-    });
-    expect(paymentInitializeCalls).toHaveLength(0);
+    expect(getPaymentInitializeCalls()).toHaveLength(0);
   });
 
   it('surfaces checkout savings fetch failures with retry UI', async () => {
@@ -493,6 +564,275 @@ describe('CheckoutScreen', () => {
 
     await waitFor(() => {
       expect(mockListSavingsGoals).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it('routes eligible bank-transfer checkout through wallet funding intent without Paystack initialize', async () => {
+    mockUseAuthStatus.mockReturnValue({
+      customer: {
+        email: 'ada@example.com',
+        first_name: 'Ada',
+        id: 'customer-1',
+        last_name: 'Lovelace',
+        phone: '08031234567',
+      },
+      isAuthenticated: true,
+      isGuest: false,
+      isInitialized: true,
+      isLoading: false,
+      user: { id: 'user-1' },
+    });
+    Object.assign(mockPaymentSettings, {
+      wallet_order_auto_debit_enabled: true,
+      wallet_paystack_dva_enabled: true,
+    });
+
+    renderCheckoutScreen();
+    fillAddressAndContinueToPayment();
+
+    await waitFor(() => {
+      expect(screen.getByText('Bank transfer to wallet')).toBeOnTheScreen();
+    });
+
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Mock select Bank transfer to wallet' })
+    );
+    fireEvent.press(screen.getByRole('button', { name: 'Continue to review' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Review Order')).toBeOnTheScreen();
+    });
+
+    fireEvent.press(screen.getByRole('button', { name: /Place order for/i }));
+
+    await waitFor(() => {
+      expect(mockCreateOrderWalletFundingIntent).toHaveBeenCalledWith({
+        merchantId: '6b5cb8a4-5575-456c-b936-8cdfae30db74',
+        merchantSlug: 'ogabassey',
+        orderId: 'order-1',
+      });
+    });
+
+    const orderPayload = mockCreateOrder.mock.calls[0]?.[0] as Record<
+      string,
+      unknown
+    >;
+    expect(orderPayload).not.toHaveProperty('use_wallet_credit');
+    expect(orderPayload).not.toHaveProperty('wallet_amount');
+
+    expect(getPaymentInitializeCalls()).toHaveLength(0);
+    expect(mockRouterPush).toHaveBeenCalledWith({
+      pathname: '/bank-transfer',
+      params: expect.objectContaining({
+        accountName: 'Ogabassey Jane',
+        accountNumber: '9971002551',
+        amount: '470000',
+        bankName: 'Paystack-Titan',
+        intentId: 'intent-123',
+        orderId: 'order-1',
+        orderNumber: 'ORD-001',
+        walletFunded: 'true',
+      }),
+    });
+  });
+
+  it('asks for DVA consent once when checkout needs to create the wallet account', async () => {
+    const consentError = createConsentError(
+      'WALLET_DVA_CONSENT_REQUIRED',
+      'Wallet DVA consent required'
+    );
+    mockCreateOrderWalletFundingIntent
+      .mockRejectedValueOnce(consentError)
+      .mockResolvedValueOnce({
+        account: {
+          accountName: 'Ogabassey Jane',
+          accountNumber: '9971002551',
+          bankName: 'Paystack-Titan',
+          provider: 'paystack',
+        },
+        intent: {
+          currency: 'NGN',
+          expectedAmount: 470000,
+          expiresAt: '2026-05-27T12:00:00.000Z',
+          fundedAmount: 0,
+          id: 'intent-123',
+          orderId: 'order-1',
+          status: 'pending',
+          targetOrderAmount: 470000,
+        },
+      });
+    mockUseAuthStatus.mockReturnValue({
+      customer: {
+        email: 'ada@example.com',
+        first_name: 'Ada',
+        id: 'customer-1',
+        last_name: 'Lovelace',
+        phone: '08031234567',
+      },
+      isAuthenticated: true,
+      isGuest: false,
+      isInitialized: true,
+      isLoading: false,
+      user: { id: 'user-1' },
+    });
+    Object.assign(mockPaymentSettings, {
+      wallet_order_auto_debit_enabled: true,
+      wallet_paystack_dva_enabled: true,
+    });
+
+    renderCheckoutScreen();
+    fillAddressAndContinueToPayment();
+
+    await waitFor(() => {
+      expect(screen.getByText('Bank transfer to wallet')).toBeOnTheScreen();
+    });
+
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Mock select Bank transfer to wallet' })
+    );
+    fireEvent.press(screen.getByRole('button', { name: 'Continue to review' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Review Order')).toBeOnTheScreen();
+    });
+
+    fireEvent.press(screen.getByRole('button', { name: /Place order for/i }));
+
+    await waitFor(() => {
+      expect(mockAlert).toHaveBeenCalledWith(
+        'Create wallet account number?',
+        expect.any(String),
+        expect.any(Array),
+        expect.objectContaining({
+          cancelable: true,
+          onDismiss: expect.any(Function),
+        })
+      );
+    });
+
+    triggerAlertButton(mockAlert, 'Create wallet account number?', 1);
+
+    await waitFor(() => {
+      expect(mockCreateWalletFundingAccount).toHaveBeenCalledWith({
+        merchantId: '6b5cb8a4-5575-456c-b936-8cdfae30db74',
+        merchantSlug: 'ogabassey',
+      });
+      expect(mockCreateOrderWalletFundingIntent).toHaveBeenLastCalledWith({
+        merchantId: '6b5cb8a4-5575-456c-b936-8cdfae30db74',
+        merchantSlug: 'ogabassey',
+        orderId: 'order-1',
+      });
+    });
+  });
+
+  it('falls back to legacy bank transfer when wallet intent creation fails before consent', async () => {
+    const setupError = createConsentError(
+      'WALLET_DVA_SETUP_FAILED',
+      'Wallet DVA setup failed'
+    );
+    mockCreateOrderWalletFundingIntent.mockRejectedValueOnce(setupError);
+    enableAuthenticatedWalletFundedCheckout();
+
+    await placeWalletFundedBankTransferOrder();
+
+    await waitFor(() => {
+      expect(mockAlert).toHaveBeenCalledWith(
+        'Bank transfer unavailable',
+        expect.stringContaining('standard bank transfer'),
+        expect.any(Array)
+      );
+      expect(getPaymentInitializeCalls()).toHaveLength(1);
+    });
+    expect(mockCreateWalletFundingAccount).not.toHaveBeenCalled();
+    expect(mockRouterPush).toHaveBeenCalledWith({
+      pathname: '/bank-transfer',
+      params: expect.not.objectContaining({
+        intentId: expect.any(String),
+        walletFunded: 'true',
+      }),
+    });
+  });
+
+  it('falls back to legacy bank transfer when wallet account creation fails after consent', async () => {
+    const consentError = createConsentError(
+      'WALLET_DVA_CONSENT_REQUIRED',
+      'Wallet DVA consent required'
+    );
+    mockCreateOrderWalletFundingIntent.mockRejectedValueOnce(consentError);
+    mockCreateWalletFundingAccount.mockRejectedValueOnce(
+      new Error('Paystack unavailable')
+    );
+    enableAuthenticatedWalletFundedCheckout();
+
+    await placeWalletFundedBankTransferOrder();
+
+    await waitFor(() => {
+      expect(mockAlert).toHaveBeenCalledWith(
+        'Create wallet account number?',
+        expect.any(String),
+        expect.any(Array),
+        expect.objectContaining({
+          cancelable: true,
+          onDismiss: expect.any(Function),
+        })
+      );
+    });
+
+    triggerAlertButton(mockAlert, 'Create wallet account number?', 1);
+
+    await waitFor(() => {
+      expect(mockCreateWalletFundingAccount).toHaveBeenCalledTimes(1);
+      expect(mockCreateOrderWalletFundingIntent).toHaveBeenCalledTimes(1);
+      expect(mockAlert).toHaveBeenCalledWith(
+        'Bank transfer unavailable',
+        'Bank transfer to wallet is temporarily unavailable. We will use the standard bank transfer option instead.',
+        expect.any(Array)
+      );
+      expect(getPaymentInitializeCalls()).toHaveLength(1);
+    });
+    expect(mockRouterPush).toHaveBeenCalledWith({
+      pathname: '/bank-transfer',
+      params: expect.not.objectContaining({
+        intentId: expect.any(String),
+        walletFunded: 'true',
+      }),
+    });
+  });
+
+  it('falls back to legacy Paystack DVA for guest bank-transfer checkout', async () => {
+    Object.assign(mockPaymentSettings, {
+      wallet_order_auto_debit_enabled: true,
+      wallet_paystack_dva_enabled: true,
+    });
+
+    renderCheckoutScreen();
+    fillAddressAndContinueToPayment();
+
+    await waitFor(() => {
+      expect(screen.getByText('Bank Transfer')).toBeOnTheScreen();
+    });
+
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Mock select Bank Transfer' })
+    );
+    fireEvent.press(screen.getByRole('button', { name: 'Continue to review' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Review Order')).toBeOnTheScreen();
+    });
+
+    fireEvent.press(screen.getByRole('button', { name: /Place order for/i }));
+
+    await waitFor(() => {
+      expect(getPaymentInitializeCalls()).toHaveLength(1);
+    });
+    expect(mockCreateOrderWalletFundingIntent).not.toHaveBeenCalled();
+    expect(mockRouterPush).toHaveBeenCalledWith({
+      pathname: '/bank-transfer',
+      params: expect.not.objectContaining({
+        intentId: expect.any(String),
+        walletFunded: 'true',
+      }),
     });
   });
 });

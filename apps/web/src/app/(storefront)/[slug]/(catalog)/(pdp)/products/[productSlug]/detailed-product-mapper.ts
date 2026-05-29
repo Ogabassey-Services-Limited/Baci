@@ -43,11 +43,7 @@ function normalizeActiveOffers(offers: DetailedCachedProduct['offers']) {
   if (!Array.isArray(offers)) return [];
 
   return offers.flatMap((offer) => {
-    if (
-      !offer ||
-      offer.status !== 'active' ||
-      !isProductCondition(offer.condition)
-    ) {
+    if (offer?.status !== 'active' || !isProductCondition(offer.condition)) {
       return [];
     }
 

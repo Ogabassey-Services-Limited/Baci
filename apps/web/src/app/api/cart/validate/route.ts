@@ -180,7 +180,7 @@ export async function POST(request: NextRequest) {
       const strId = String(item.id);
       const product = productMap.get(strId);
 
-      if (!product || product.status !== 'active') {
+      if (product?.status !== 'active') {
         if (uuidRegex.test(strId) && !invalidProductIds.includes(strId)) {
           invalidProductIds.push(strId);
         }
