@@ -3,10 +3,10 @@ import {
   getProductSearchTotalCount,
 } from '@baci/shared';
 import { cookies } from 'next/headers';
-import { STOREFRONT_PRODUCTS_COMPACT_SELECT } from '@/app/api/storefront/products/product-response';
 import { logger } from './logger';
 import { type NormalizedProduct, normalizeProduct } from './normalize-product';
 import { isValidUuid, sanitizeSearchQuery } from './sanitize-core';
+import { STOREFRONT_PRODUCTS_COMPACT_SELECT } from './storefront-products-select';
 import { createPublicClient } from './supabase/public';
 import { createClient } from './supabase/server';
 
