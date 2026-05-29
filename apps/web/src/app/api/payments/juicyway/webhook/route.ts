@@ -1,6 +1,10 @@
 import { cookies } from 'next/headers';
 import { after, type NextRequest, NextResponse } from 'next/server';
 import {
+  fetchAnalyticsPlatformConfig,
+  hasConfiguredAnalyticsPlatform,
+} from '@/lib/analytics/analytics-platform-config';
+import {
   generateOrderConfirmationEmail,
   generateOrderConfirmationText,
 } from '@/lib/email-templates';
@@ -342,21 +346,10 @@ export async function POST(request: NextRequest) {
 
         // Send offline conversion events to ad platforms
         try {
-          const { data: merchantAnalytics } = await supabase
-            .from('merchants')
-            .select(`
-              offline_conversions_enabled,
-              facebook_pixel_id,
-              facebook_capi_token,
-              tiktok_pixel_id,
-              tiktok_access_token,
-              google_analytics_id,
-              ga4_api_secret,
-              snapchat_pixel_id,
-              snapchat_capi_token
-            `)
-            .eq('id', transaction.merchant_id)
-            .single();
+          const merchantAnalytics = await fetchAnalyticsPlatformConfig(
+            supabase,
+            transaction.merchant_id
+          );
 
           if (merchantAnalytics?.offline_conversions_enabled === false) {
             logger.info({
@@ -375,17 +368,7 @@ export async function POST(request: NextRequest) {
               snapchat_capi_token: merchantAnalytics.snapchat_capi_token,
             };
 
-            const hasAnalytics =
-              (analyticsConfig.facebook_pixel_id &&
-                analyticsConfig.facebook_capi_token) ||
-              (analyticsConfig.tiktok_pixel_id &&
-                analyticsConfig.tiktok_access_token) ||
-              (analyticsConfig.google_analytics_id &&
-                analyticsConfig.ga4_api_secret) ||
-              (analyticsConfig.snapchat_pixel_id &&
-                analyticsConfig.snapchat_capi_token);
-
-            if (hasAnalytics) {
+            if (hasConfiguredAnalyticsPlatform(merchantAnalytics)) {
               const adTracking = order.ad_tracking as Record<
                 string,
                 unknown
