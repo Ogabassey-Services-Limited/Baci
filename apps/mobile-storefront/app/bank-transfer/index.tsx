@@ -121,19 +121,35 @@ export default function BankTransferScreen() {
   const merchantSlug = walletRouteData?.merchantSlug;
   const isWalletFunded = validatedParams.mode === 'wallet_funded';
 
-  const routeToOrderSuccess = async ({
+  const routeToOrderSuccess = ({
     successReference,
   }: {
     successReference?: string;
   }) => {
     clearCart();
-    const persistOpts = useCartStore.persist.getOptions();
-    const partialize = persistOpts.partialize ?? ((state: unknown) => state);
-    const persistedState = partialize(useCartStore.getState());
-    await persistOpts.storage?.setItem(persistOpts.name ?? 'cart-storage', {
-      state: persistedState,
-      version: persistOpts.version ?? 0,
-    });
+    try {
+      const persistOpts = useCartStore.persist.getOptions();
+      const partialize = persistOpts.partialize ?? ((state: unknown) => state);
+      const persistedState = partialize(useCartStore.getState());
+      const persistClearedCart = persistOpts.storage?.setItem(
+        persistOpts.name ?? 'cart-storage',
+        {
+          state: persistedState,
+          version: persistOpts.version ?? 0,
+        }
+      );
+      void Promise.resolve(persistClearedCart).catch((error) => {
+        console.warn(
+          '[BankTransfer] Failed to persist cleared cart before success redirect',
+          error
+        );
+      });
+    } catch (error) {
+      console.warn(
+        '[BankTransfer] Failed to persist cleared cart before success redirect',
+        error
+      );
+    }
     router.replace({
       pathname: '/order-success',
       params: {

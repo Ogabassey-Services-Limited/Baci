@@ -175,6 +175,40 @@ describe('BankTransferScreen', () => {
     });
   });
 
+  it('routes to order success even when cleared cart persistence fails', async () => {
+    const warnSpy = jest
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+    const persistError = new Error('storage failed');
+    mockPersistStorageSetItem.mockRejectedValueOnce(persistError);
+
+    render(<BankTransferScreen />);
+
+    fireEvent.press(
+      screen.getByRole('button', { name: "Confirm I've sent the money" })
+    );
+
+    expect(mockClearCart).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(router.replace).toHaveBeenCalledWith({
+        pathname: '/order-success',
+        params: {
+          orderId: 'order-123',
+          orderNumber: 'ORD-123',
+          paymentMethod: 'bank_transfer',
+          trackingToken: 'track-token-123',
+        },
+      });
+    });
+    await waitFor(() => {
+      expect(warnSpy).toHaveBeenCalledWith(
+        '[BankTransfer] Failed to persist cleared cart before success redirect',
+        persistError
+      );
+    });
+    warnSpy.mockRestore();
+  });
+
   it('treats an explicit walletFunded=false flag as legacy even when intentId is present', () => {
     mockSearchParams = {
       accountName: 'Baci Store',

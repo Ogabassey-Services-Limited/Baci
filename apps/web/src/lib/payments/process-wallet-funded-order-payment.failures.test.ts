@@ -198,7 +198,7 @@ describe('processWalletFundedOrderPayment failure paths', () => {
     );
   });
 
-  it('treats malformed finalizer payloads as empty results instead of trusting unchecked fields', async () => {
+  it('fails closed when the finalizer returns a malformed payload', async () => {
     const supabase = createSupabase();
     supabase.rpc.mockResolvedValueOnce({
       data: {
@@ -211,25 +211,15 @@ describe('processWalletFundedOrderPayment failure paths', () => {
       error: null,
     } as never);
 
-    const result = await processWalletFundedOrderPayment({
-      gatewayReference: 'PSK_REF_1',
-      gatewayResponse: { paid_at: '2026-05-26T12:05:00.000Z' },
-      scheduleAfter: vi.fn(),
-      supabase: supabase as never,
-      transaction,
-    });
-
-    expect(result).toEqual({
-      body: {
-        debitedAmount: 0,
-        fundedAmount: 20_000,
-        orderId: 'order-1',
-        status: 'underfunded',
-      },
-      kind: 'processed',
-      orderPaid: false,
-      status: 200,
-    });
+    await expect(
+      processWalletFundedOrderPayment({
+        gatewayReference: 'PSK_REF_1',
+        gatewayResponse: { paid_at: '2026-05-26T12:05:00.000Z' },
+        scheduleAfter: vi.fn(),
+        supabase: supabase as never,
+        transaction,
+      })
+    ).rejects.toThrow('Wallet-funded order finalizer returned malformed data');
     expect(mockRunPaidOrderSideEffects).not.toHaveBeenCalled();
     expect(logger.warn).toHaveBeenCalledWith(
       expect.objectContaining({

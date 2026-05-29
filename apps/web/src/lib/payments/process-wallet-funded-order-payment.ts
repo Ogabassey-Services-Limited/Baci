@@ -107,7 +107,7 @@ function normalizeFinalizerResult(data: unknown): FinalizerResult {
     message: 'Wallet-funded order finalizer returned malformed data',
     row,
   });
-  return {};
+  throw new Error('Wallet-funded order finalizer returned malformed data');
 }
 
 function normalizeFinalizerAmount(

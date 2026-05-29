@@ -123,6 +123,8 @@ describe('runPaidOrderSideEffects failure paths', () => {
   });
 
   it('rejects mixed merchant context before building side effects', async () => {
+    const supabase = createSupabase();
+
     await expect(
       runPaidOrderSideEffects({
         actor: 'webhook:PSK_REF_1',
@@ -131,10 +133,11 @@ describe('runPaidOrderSideEffects failure paths', () => {
         order: { ...richOrder, merchant_id: 'merchant-2' },
         scheduleAfter: vi.fn(),
         settlementGateway: 'paystack',
-        supabase: createSupabase() as never,
+        supabase: supabase as never,
         transaction,
       })
     ).rejects.toThrow('paid_order_merchant_mismatch');
+    expect(supabase.from).not.toHaveBeenCalled();
     expect(mockApplyPaidOrderSideEffects).not.toHaveBeenCalled();
   });
 
