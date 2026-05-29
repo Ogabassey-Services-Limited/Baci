@@ -57,6 +57,15 @@ function extractLinkQueryParams(xml: string) {
   });
 }
 
+function extractItemXml(xml: string, id: string) {
+  const items = xml.match(/ {4}<item>\n[\s\S]*?\n {4}<\/item>/g) ?? [];
+  const item = items.find((candidate) =>
+    candidate.includes(`<g:id>${id}</g:id>`)
+  );
+
+  return item ?? '';
+}
+
 // ---------- image_link guarantees ----------
 describe('generateGoogleMerchantFeed — image_link guarantees', () => {
   it('emits verified primary image URL in g:image_link', () => {
@@ -857,6 +866,216 @@ describe('generateGoogleMerchantFeed — conditioned variants', () => {
     );
     expect(xml).toContain(
       '<g:canonical_link>https://ogabassey.com/products/test-product</g:canonical_link>'
+    );
+  });
+
+  it('uses exact variant feed images before product-level images', () => {
+    const xml = generateGoogleMerchantFeed(
+      [
+        product({
+          price: 700000,
+          variant_model: 'sku_matrix',
+          variants: [
+            {
+              id: 'variant-blue-128',
+              condition: 'new',
+              price_override: 550000,
+              stock_quantity: 4,
+              attributes: { color: 'Blue', storage: '128GB' },
+            },
+          ],
+        }),
+      ],
+      merchant({ gmc_variants_enabled: true }),
+      BASE_URL,
+      {
+        'prod-1': [
+          manifestEntry({
+            verified_url: 'https://cdn.example.com/product-main.jpg',
+          }),
+          manifestEntry({
+            variant_id: 'variant-blue-128',
+            verified_url: 'https://cdn.example.com/blue-front.jpg',
+          }),
+          manifestEntry({
+            variant_id: 'variant-blue-128',
+            is_primary: false,
+            position: 1,
+            verified_url: 'https://cdn.example.com/blue-back.jpg',
+          }),
+        ],
+      }
+    );
+    const itemXml = extractItemXml(xml, 'variant-blue-128');
+
+    expect(itemXml).toContain(
+      '<g:image_link>https://cdn.example.com/blue-front.jpg</g:image_link>'
+    );
+    expect(itemXml).toContain(
+      '<g:additional_image_link>https://cdn.example.com/blue-back.jpg</g:additional_image_link>'
+    );
+    expect(itemXml).not.toContain('product-main.jpg');
+  });
+
+  it('shares a representative color image set across same-color matrix variants', () => {
+    const xml = generateGoogleMerchantFeed(
+      [
+        product({
+          price: 700000,
+          variant_model: 'sku_matrix',
+          variants: [
+            {
+              id: 'variant-silver-128',
+              condition: 'new',
+              price_override: 550000,
+              stock_quantity: 4,
+              attributes: { color: 'Silver', storage: '128GB' },
+            },
+            {
+              id: 'variant-silver-256',
+              condition: 'used',
+              price_override: 600000,
+              stock_quantity: 2,
+              attributes: { color: 'Silver', storage: '256GB' },
+            },
+          ],
+        }),
+      ],
+      merchant({ gmc_variants_enabled: true }),
+      BASE_URL,
+      {
+        'prod-1': [
+          manifestEntry({
+            verified_url: 'https://cdn.example.com/product-main.jpg',
+          }),
+          manifestEntry({
+            variant_id: 'variant-silver-128',
+            verified_url: 'https://cdn.example.com/silver-front.jpg',
+          }),
+          manifestEntry({
+            variant_id: 'variant-silver-128',
+            is_primary: false,
+            position: 1,
+            verified_url: 'https://cdn.example.com/silver-left.jpg',
+          }),
+        ],
+      }
+    );
+    const representativeItem = extractItemXml(xml, 'variant-silver-128');
+    const sharedColorItem = extractItemXml(xml, 'variant-silver-256');
+
+    for (const itemXml of [representativeItem, sharedColorItem]) {
+      expect(itemXml).toContain(
+        '<g:image_link>https://cdn.example.com/silver-front.jpg</g:image_link>'
+      );
+      expect(itemXml).toContain(
+        '<g:additional_image_link>https://cdn.example.com/silver-left.jpg</g:additional_image_link>'
+      );
+      expect(itemXml).not.toContain('product-main.jpg');
+    }
+  });
+
+  it('keeps exact image sets for same-color matrix variants that both have images', () => {
+    const xml = generateGoogleMerchantFeed(
+      [
+        product({
+          price: 700000,
+          variant_model: 'sku_matrix',
+          variants: [
+            {
+              id: 'variant-silver-128',
+              condition: 'new',
+              price_override: 550000,
+              stock_quantity: 4,
+              attributes: { color: 'Silver', storage: '128GB' },
+            },
+            {
+              id: 'variant-silver-256',
+              condition: 'used',
+              price_override: 600000,
+              stock_quantity: 2,
+              attributes: { color: 'Silver', storage: '256GB' },
+            },
+          ],
+        }),
+      ],
+      merchant({ gmc_variants_enabled: true }),
+      BASE_URL,
+      {
+        'prod-1': [
+          manifestEntry({
+            verified_url: 'https://cdn.example.com/product-main.jpg',
+          }),
+          manifestEntry({
+            variant_id: 'variant-silver-128',
+            verified_url: 'https://cdn.example.com/silver-128-front.jpg',
+          }),
+          manifestEntry({
+            variant_id: 'variant-silver-128',
+            is_primary: false,
+            position: 1,
+            verified_url: 'https://cdn.example.com/silver-128-left.jpg',
+          }),
+          manifestEntry({
+            variant_id: 'variant-silver-256',
+            verified_url: 'https://cdn.example.com/silver-256-front.jpg',
+          }),
+          manifestEntry({
+            variant_id: 'variant-silver-256',
+            is_primary: false,
+            position: 1,
+            verified_url: 'https://cdn.example.com/silver-256-right.jpg',
+          }),
+        ],
+      }
+    );
+    const silver128Item = extractItemXml(xml, 'variant-silver-128');
+    const silver256Item = extractItemXml(xml, 'variant-silver-256');
+
+    expect(silver128Item).toContain(
+      '<g:image_link>https://cdn.example.com/silver-128-front.jpg</g:image_link>'
+    );
+    expect(silver128Item).toContain(
+      '<g:additional_image_link>https://cdn.example.com/silver-128-left.jpg</g:additional_image_link>'
+    );
+    expect(silver128Item).not.toContain('silver-256');
+    expect(silver128Item).not.toContain('product-main.jpg');
+
+    expect(silver256Item).toContain(
+      '<g:image_link>https://cdn.example.com/silver-256-front.jpg</g:image_link>'
+    );
+    expect(silver256Item).toContain(
+      '<g:additional_image_link>https://cdn.example.com/silver-256-right.jpg</g:additional_image_link>'
+    );
+    expect(silver256Item).not.toContain('silver-128');
+    expect(silver256Item).not.toContain('product-main.jpg');
+  });
+
+  it('falls back to product-level images when a variant has no scoped image set', () => {
+    const xml = generateGoogleMerchantFeed(
+      [
+        product({
+          price: 700000,
+          variant_model: 'sku_matrix',
+          variants: [
+            {
+              id: 'variant-green-128',
+              condition: 'new',
+              price_override: 550000,
+              stock_quantity: 4,
+              attributes: { color: 'Green', storage: '128GB' },
+            },
+          ],
+        }),
+      ],
+      merchant({ gmc_variants_enabled: true }),
+      BASE_URL,
+      defaultManifest
+    );
+    const itemXml = extractItemXml(xml, 'variant-green-128');
+
+    expect(itemXml).toContain(
+      '<g:image_link>https://cdn.example.com/products/test.jpg</g:image_link>'
     );
   });
 
