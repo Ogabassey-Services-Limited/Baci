@@ -159,7 +159,7 @@
       "react-native-mmkv@4.3.0": "patches/react-native-mmkv@4.3.0.patch",
       "react-native-nitro-modules@0.35.2": "patches/react-native-nitro-modules@0.35.2.patch",
       "react-native-phone-number-input@2.1.0": "patches/react-native-phone-number-input@2.1.0.patch",
-      "react-native-purchases@9.15.0": "patches/react-native-purchases@9.15.0.patch",
+      "react-native-purchases@10.2.0": "patches/react-native-purchases@10.2.0.patch",
       "react-native-safe-area-context@5.7.0": "patches/react-native-safe-area-context@5.7.0.patch",
       "react-native-webview@13.16.1": "patches/react-native-webview@13.16.1.patch"
     }
