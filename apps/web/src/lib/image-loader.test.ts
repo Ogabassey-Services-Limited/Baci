@@ -72,6 +72,16 @@ describe('imageLoader', () => {
     expect(imageLoader({ src: url, width: 64 })).toBe(url);
   });
 
+  it('returns empty strings for invalid runtime src values', () => {
+    expect(
+      imageLoader({ src: undefined as unknown as string, width: 64 })
+    ).toBe('');
+    expect(imageLoader({ src: null as unknown as string, width: 64 })).toBe('');
+    expect(
+      imageLoader({ src: { url: '/hero.jpg' } as unknown as string, width: 64 })
+    ).toBe('');
+  });
+
   it('passes width and quality through non-OgaBassey external URLs', () => {
     const url = 'https://cdn.example.com/img.avif';
     expect(imageLoader({ src: url, width: 1200, quality: 90 })).toBe(
@@ -102,6 +112,46 @@ describe('imageLoader', () => {
     const url =
       'https://cdn.ogabassey.com/image/width=229,quality=75,format=webp/core-assets/products/iphone.avif';
     expect(imageLoader({ src: url, width: 1200, quality: 90 })).toBe(url);
+  });
+
+  it('adds width and quality to format-only transformed OgaBassey CDN URLs', () => {
+    const url =
+      'https://cdn.ogabassey.com/image/format=auto/core-assets/blog/codex/post-landscape_16x9.jpg';
+    expect(imageLoader({ src: url, width: 192, quality: 80 })).toBe(
+      'https://cdn.ogabassey.com/image/width=192,quality=80,format=auto/core-assets/blog/codex/post-landscape_16x9.jpg'
+    );
+  });
+
+  it('preserves existing quality on format-only transformed OgaBassey CDN URLs', () => {
+    const url =
+      'https://cdn.ogabassey.com/image/quality=60,format=auto/core-assets/blog/codex/post-landscape_16x9.jpg?v=1#main';
+    expect(imageLoader({ src: url, width: 96, quality: 80 })).toBe(
+      'https://cdn.ogabassey.com/image/width=96,quality=60,format=auto/core-assets/blog/codex/post-landscape_16x9.jpg?v=1#main'
+    );
+  });
+
+  it('adds width and quality to transformed OgaBassey CDN URLs with multiple operations', () => {
+    const url =
+      'https://cdn.ogabassey.com/image/format=auto,blur=5/core-assets/blog/codex/post-landscape_16x9.jpg';
+    expect(imageLoader({ src: url, width: 320, quality: 70 })).toBe(
+      'https://cdn.ogabassey.com/image/width=320,quality=70,format=auto,blur=5/core-assets/blog/codex/post-landscape_16x9.jpg'
+    );
+  });
+
+  it('falls back to loader params for malformed transformed OgaBassey CDN URLs', () => {
+    expect(
+      imageLoader({
+        src: 'https://cdn.ogabassey.com/image/format=auto',
+        width: 96,
+      })
+    ).toBe('https://cdn.ogabassey.com/image/format=auto?w=96&q=75');
+
+    expect(
+      imageLoader({
+        src: 'https://cdn.ogabassey.com/image//path.jpg',
+        width: 96,
+      })
+    ).toBe('https://cdn.ogabassey.com/image//path.jpg?w=96&q=75');
   });
 
   it('leaves already transformed OgaBassey CDN URLs with query and hash unchanged', () => {
