@@ -21,6 +21,28 @@ interface ReviewUpdate {
   merchantResponse?: string;
 }
 
+const REVIEW_DETAIL_SELECT = `
+  id,
+  product_id,
+  merchant_id,
+  customer_name,
+  rating,
+  title,
+  body,
+  status,
+  verified_purchase,
+  helpful_count,
+  merchant_response,
+  merchant_response_at,
+  created_at,
+  updated_at,
+  products:product_id (
+    id,
+    name,
+    images
+  )
+`;
+
 // GET - Fetch single review
 export async function GET(
   _request: NextRequest,
@@ -54,15 +76,9 @@ export async function GET(
 
     const { data: review, error } = await supabase
       .from('product_reviews')
-      .select(`
-        *,
-        products:product_id (
-          id,
-          name,
-          images
-        )
-      `)
+      .select(REVIEW_DETAIL_SELECT)
       .eq('id', id)
+      .eq('merchant_id', merchantContext.merchantId)
       .single();
 
     if (error || !review) {
