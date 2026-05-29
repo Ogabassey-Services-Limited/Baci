@@ -1,6 +1,7 @@
 import { ArrowRight, ShoppingBag } from 'lucide-react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -11,10 +12,16 @@ import {
 } from '@/components/ui/card';
 import { getMerchantForUser } from '@/lib/merchant-server';
 import { asRoute } from '@/lib/routes';
+import { cn } from '@/lib/utils';
+import {
+  getIntegrationStatus,
+  type IntegrationStatusState,
+} from './integration-status';
 
 export const metadata = {
-  title: 'Integrations | Baci',
-  description: 'Connect your store to external platforms and services.',
+  title: 'Social Platforms | Baci',
+  description:
+    'Reach more customers and track them efficiently across social platforms.',
 };
 
 const integrations = [
@@ -170,21 +177,31 @@ const integrations = [
   },
 ];
 
-export default async function IntegrationsPage() {
+const statusClassNames: Record<IntegrationStatusState, string> = {
+  active:
+    'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+  feed_ready: 'border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300',
+  not_configured: 'border-muted-foreground/20 bg-muted text-muted-foreground',
+  partial:
+    'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300',
+};
+
+export default async function SocialPlatformsPage() {
   const { merchant } = await getMerchantForUser();
 
   if (!merchant) {
-    redirect(asRoute('/login'));
+    return redirect(asRoute('/login'));
   }
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight bg-linear-to-r from-primary via-purple-500 to-blue-600 bg-clip-text text-transparent">
-          Integrations
+        <h1 className="text-3xl font-bold bg-linear-to-r from-primary via-purple-500 to-blue-600 bg-clip-text text-transparent">
+          Social Platforms
         </h1>
         <p className="text-muted-foreground mt-2">
-          Connect your store to external platforms and services
+          Reach more customers and track them efficiently across social
+          platforms.
         </p>
       </div>
 
@@ -195,19 +212,28 @@ export default async function IntegrationsPage() {
             'rawHref' in integration && integration.rawHref
               ? integration.href
               : asRoute(integration.href);
+          const status = getIntegrationStatus(integration.id, merchant);
 
           return (
             <Card
               key={integration.id}
+              aria-label={`${integration.name} integration`}
               className="group hover:shadow-lg transition-shadow bg-card hover:border-primary/50 relative overflow-hidden"
+              role="article"
             >
               <CardHeader>
-                <div className="flex items-start justify-between">
+                <div className="flex items-start justify-between gap-4">
                   <div
                     className={`p-3 rounded-xl ${integration.color} flex items-center justify-center border border-transparent group-hover:scale-110 transition-transform duration-300`}
                   >
                     {integration.icon}
                   </div>
+                  <Badge
+                    variant="outline"
+                    className={cn('shrink-0', statusClassNames[status.state])}
+                  >
+                    {status.label}
+                  </Badge>
                 </div>
                 <CardTitle className="mt-4">{integration.name}</CardTitle>
                 <CardDescription className="line-clamp-2 mt-2">
@@ -217,7 +243,7 @@ export default async function IntegrationsPage() {
               <CardContent>
                 <Button asChild className="w-full group-hover:bg-primary/90">
                   <Link href={href}>
-                    Configure
+                    {status.actionLabel}
                     <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
                   </Link>
                 </Button>
