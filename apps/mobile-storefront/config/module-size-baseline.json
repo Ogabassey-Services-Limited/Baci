@@ -94,11 +94,6 @@
       "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
     },
     {
-      "path": "services/analytics.ts",
-      "lineCount": 478,
-      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
-    },
-    {
       "path": "components/storefront/SearchOverlay.tsx",
       "lineCount": 465,
       "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
