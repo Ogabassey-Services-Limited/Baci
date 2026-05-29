@@ -5,6 +5,7 @@ import { headers } from 'next/headers';
 import { notFound, permanentRedirect, redirect } from 'next/navigation';
 import { connection } from 'next/server';
 import { StorefrontDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker';
+import { StorefrontNotFoundWithDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-not-found-with-dynamic-metadata-marker';
 import { ProductSemanticSections } from '@/components/storefront/ogabassey/seo/product-semantic-sections';
 import {
   getCachedCategoryPageData,
@@ -242,21 +243,20 @@ function getInvalidVariantSelectionRedirectTarget(
   return null;
 }
 
-async function redirectLegacyVariantProductRoute(
+async function getLegacyVariantProductRedirectPath(
   storeSlug: string,
   productSlug: string,
   merchant: ResolvedMerchant
-): Promise<never> {
+): Promise<string | null> {
   const redirectTarget = await getCachedLegacyProductRedirectTarget(
     merchant.id,
     productSlug
   );
   if (!redirectTarget) {
-    notFound();
+    return null;
   }
   const productPath = getProductUrl(redirectTarget);
-  const targetPath = buildProductRedirectPath(storeSlug, productPath);
-  permanentRedirect(targetPath);
+  return buildProductRedirectPath(storeSlug, productPath);
 }
 
 function buildTrustBulletsFromProfile(
@@ -420,8 +420,15 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
   }
   const { merchant, product } = productResult;
   if (!product) {
-    await redirectLegacyVariantProductRoute(slug, productSlug, merchant);
-    notFound();
+    const legacyRedirectPath = await getLegacyVariantProductRedirectPath(
+      slug,
+      productSlug,
+      merchant
+    );
+    if (!legacyRedirectPath) {
+      return <StorefrontNotFoundWithDynamicMetadataMarker />;
+    }
+    permanentRedirect(asRoute(legacyRedirectPath));
   }
   const categorizedTarget = getCategorizedRedirectTarget(slug, product);
   if (categorizedTarget) {

@@ -1,4 +1,10 @@
+import { render } from '@testing-library/react';
+import type { ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const { mockStorefrontDynamicMetadataMarker } = vi.hoisted(() => ({
+  mockStorefrontDynamicMetadataMarker: vi.fn(),
+}));
 
 const mockNotFound = vi.fn(() => {
   throw new Error('NEXT_NOT_FOUND');
@@ -18,6 +24,13 @@ vi.mock('next/navigation', () => ({
 
 vi.mock('next/server', () => ({
   connection: () => mockConnection(),
+}));
+
+vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
+  StorefrontDynamicMetadataMarker: () => {
+    mockStorefrontDynamicMetadataMarker();
+    return <div aria-label="dynamic metadata marker" role="status" />;
+  },
 }));
 
 vi.mock('@/lib/cached-data', () => ({
@@ -98,6 +111,27 @@ describe('legacy singular product route', () => {
 
     expect(mockGetMerchantByIdentifier).not.toHaveBeenCalled();
     expect(mockConnection).toHaveBeenCalledOnce();
+  });
+
+  it('renders the dynamic metadata marker before notFound for missing legacy products', async () => {
+    const page = await LegacyProductPage({
+      params: Promise.resolve({
+        slug: 'ogabassey',
+        productSlug: 'missing-product',
+      }),
+    });
+
+    expect(() => render(page as ReactElement)).toThrow('NEXT_NOT_FOUND');
+
+    expect(mockGetCachedLegacyProductRedirectTarget).toHaveBeenCalledWith(
+      'merchant-1',
+      'missing-product'
+    );
+    expect(mockStorefrontDynamicMetadataMarker).toHaveBeenCalled();
+    expect(mockNotFound).toHaveBeenCalled();
+    expect(
+      mockStorefrontDynamicMetadataMarker.mock.invocationCallOrder[0]
+    ).toBeLessThan(mockNotFound.mock.invocationCallOrder[0]);
   });
 
   it('surfaces request-time rendering failures before resolving redirects', async () => {
