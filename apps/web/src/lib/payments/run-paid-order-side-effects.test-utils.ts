@@ -1,6 +1,16 @@
 import { vi } from 'vitest';
 
-export const richOrder = {
+function deepFreeze<T>(value: T): T {
+  if (!value || typeof value !== 'object') {
+    return value;
+  }
+  for (const property of Object.getOwnPropertyNames(value)) {
+    deepFreeze((value as Record<string, unknown>)[property]);
+  }
+  return Object.freeze(value) as T;
+}
+
+export const richOrder = deepFreeze({
   ad_tracking: { fbclid: 'fb-1' },
   currency: 'NGN',
   customer_email: 'jane@example.com',
@@ -22,16 +32,16 @@ export const richOrder = {
   tax_amount: 0,
   tax_basis: 'exclusive' as const,
   total: 20_000,
-};
+});
 
-export const transaction = {
+export const transaction = deepFreeze({
   amount: 20_000,
   gateway_reference: 'WALLET-DVA-ORDER-order-1',
   id: 'txn-order-1',
   merchant_id: 'merchant-1',
   order_id: 'order-1',
   platform_fee: 200,
-};
+});
 
 export function createPaidOrderSideEffectsSupabase({
   merchantData = {

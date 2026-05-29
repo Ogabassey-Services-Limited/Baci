@@ -124,9 +124,7 @@ export function buildSettlementExecutor(args: {
         p_description: `Order payment via ${validatedArgs.settlementGateway}`,
         p_gateway: validatedArgs.settlementGateway,
         p_gateway_fee: normalizedGatewayFee,
-        p_gateway_reference:
-          validatedArgs.transaction.gateway_reference ??
-          validatedArgs.externalGatewayReference,
+        p_gateway_reference: validatedArgs.externalGatewayReference,
         p_gross_amount: normalizedGrossAmount,
         p_merchant_id: validatedArgs.transaction.merchant_id,
         p_metadata: {

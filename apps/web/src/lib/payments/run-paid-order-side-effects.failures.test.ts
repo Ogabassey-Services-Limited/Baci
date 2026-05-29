@@ -122,6 +122,22 @@ describe('runPaidOrderSideEffects failure paths', () => {
     expect(mockApplyPaidOrderSideEffects).not.toHaveBeenCalled();
   });
 
+  it('rejects mixed merchant context before building side effects', async () => {
+    await expect(
+      runPaidOrderSideEffects({
+        actor: 'webhook:PSK_REF_1',
+        externalGatewayReference: 'PSK_REF_1',
+        gatewayResponse: {},
+        order: { ...richOrder, merchant_id: 'merchant-2' },
+        scheduleAfter: vi.fn(),
+        settlementGateway: 'paystack',
+        supabase: createSupabase() as never,
+        transaction,
+      })
+    ).rejects.toThrow('paid_order_merchant_mismatch');
+    expect(mockApplyPaidOrderSideEffects).not.toHaveBeenCalled();
+  });
+
   it('returns a paid-email failure when the email executor fails', async () => {
     mockSendEmail.mockResolvedValueOnce({
       error: 'smtp_failed',
@@ -221,7 +237,7 @@ describe('runPaidOrderSideEffects failure paths', () => {
       expect.objectContaining({
         p_gateway: 'paystack',
         p_gateway_fee: 300,
-        p_gateway_reference: 'WALLET-DVA-ORDER-order-1',
+        p_gateway_reference: 'PSK_REF_1',
       })
     );
   });

@@ -90,6 +90,12 @@ async function fetchMerchantDetails(
 export async function runPaidOrderSideEffects(
   args: RunPaidOrderSideEffectsArgs
 ) {
+  if (args.transaction.merchant_id !== args.order.merchant_id) {
+    throw new Error(
+      `paid_order_merchant_mismatch: transaction ${args.transaction.id} merchant_id=${args.transaction.merchant_id} but order ${args.order.id} merchant_id=${args.order.merchant_id}`
+    );
+  }
+
   // Merchant lookup failures degrade only paid-email; settlement and ad tracking do not need merchant data.
   const merchant = await fetchMerchantDetails(
     args.supabase,

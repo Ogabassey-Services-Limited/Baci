@@ -157,6 +157,35 @@ describe('triggerPurchaseConversion', () => {
     );
   });
 
+  it('treats null money values as invalid order item data', async () => {
+    await triggerPurchaseConversion(
+      createSupabaseMock() as never,
+      'merchant-1',
+      {
+        ...validOrder,
+        order_items: [
+          {
+            name: 'Missing price',
+            price: null,
+            product_id: 'product-1',
+            quantity: 1,
+          },
+        ],
+      }
+    );
+
+    expect(mockSendPurchaseConversion).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({ items: [] })
+    );
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        invalidFields: ['price'],
+        message: 'Skipping invalid order item for conversion tracking',
+      })
+    );
+  });
+
   it('throws on invalid order items when strict validation is enabled', async () => {
     await expect(
       triggerPurchaseConversion(

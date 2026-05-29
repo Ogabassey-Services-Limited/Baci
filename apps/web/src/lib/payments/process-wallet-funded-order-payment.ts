@@ -319,6 +319,19 @@ export async function processWalletFundedOrderPayment({
     orderId: finalizer.order_id ?? match.intent.orderId,
     orderPaid: finalizer.order_paid === true,
   });
+  if (finalizer.order_paid === true && !finalizer.order_id) {
+    logger.warn({
+      customerId: match.intent.customerId,
+      gatewayReference,
+      intentId: match.intent.id,
+      merchantId: match.intent.merchantId,
+      message:
+        'Wallet-funded order finalizer marked order paid without an order id',
+    });
+    throw new Error(
+      `Missing order id for paid wallet-funded order intent ${match.intent.id}`
+    );
+  }
   if (finalizer.order_paid && finalizer.order_id) {
     const fundedAmount = normalizeFinalizerAmount(
       finalizer.funded_amount,

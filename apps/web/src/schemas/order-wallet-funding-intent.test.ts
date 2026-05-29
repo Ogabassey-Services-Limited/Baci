@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ambiguousReviewSchema,
   orderWalletFundingIntentCreateSchema,
   orderWalletFundingIntentPollSchema,
 } from '@/schemas/order-wallet-funding-intent';
@@ -180,5 +181,34 @@ describe('order wallet funding intent schemas', () => {
         ])
       );
     }
+  });
+
+  it('parses a valid ambiguous review payload', () => {
+    expect(
+      ambiguousReviewSchema.parse({
+        gatewayReference: 'PSK_REF_123',
+        intentIds: ['intent-1', 'intent-2'],
+      })
+    ).toEqual({
+      gatewayReference: 'PSK_REF_123',
+      intentIds: ['intent-1', 'intent-2'],
+    });
+  });
+
+  it.each([
+    [
+      'empty gateway reference',
+      { gatewayReference: '', intentIds: ['intent-1'] },
+    ],
+    [
+      'empty intent id list',
+      { gatewayReference: 'PSK_REF_123', intentIds: [] },
+    ],
+    [
+      'blank intent id entry',
+      { gatewayReference: 'PSK_REF_123', intentIds: ['intent-1', ''] },
+    ],
+  ])('rejects ambiguous review payloads with %s', (_case, payload) => {
+    expect(ambiguousReviewSchema.safeParse(payload).success).toBe(false);
   });
 });

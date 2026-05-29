@@ -55,6 +55,9 @@ function toRequiredString(value: unknown) {
 }
 
 function toFiniteNumber(value: unknown) {
+  if (value === null || value === undefined) {
+    return null;
+  }
   if (typeof value === 'string' && value.trim() === '') {
     return null;
   }

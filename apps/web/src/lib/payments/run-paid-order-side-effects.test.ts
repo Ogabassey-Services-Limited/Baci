@@ -94,7 +94,7 @@ describe('runPaidOrderSideEffects', () => {
       expect.objectContaining({
         p_gateway: 'paystack',
         p_gateway_fee: 300,
-        p_gateway_reference: 'WALLET-DVA-ORDER-order-1',
+        p_gateway_reference: 'PSK_REF_1',
         p_metadata: expect.objectContaining({
           paystack_reference: 'PSK_REF_1',
         }),

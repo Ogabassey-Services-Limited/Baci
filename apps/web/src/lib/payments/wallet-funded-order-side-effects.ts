@@ -37,6 +37,32 @@ function withContext<T>({
   });
 }
 
+function assertWalletFundedOrderContext({
+  intent,
+  orderId,
+  orderTransaction,
+}: {
+  intent: OrderWalletFundingIntent;
+  orderId: string;
+  orderTransaction: PaidOrderSideEffectTransaction;
+}) {
+  if (intent.orderId !== orderId) {
+    throw new Error(
+      `Wallet funding intent ${intent.id} belongs to order ${intent.orderId}, not ${orderId}`
+    );
+  }
+  if (orderTransaction.order_id !== orderId) {
+    throw new Error(
+      `Transaction ${orderTransaction.id} belongs to order ${orderTransaction.order_id}, not ${orderId}`
+    );
+  }
+  if (orderTransaction.merchant_id !== intent.merchantId) {
+    throw new Error(
+      `Transaction ${orderTransaction.id} belongs to merchant ${orderTransaction.merchant_id}, not ${intent.merchantId}`
+    );
+  }
+}
+
 export async function runWalletFundedPaidOrderSideEffects({
   gatewayReference,
   gatewayResponse,
@@ -57,6 +83,7 @@ export async function runWalletFundedPaidOrderSideEffects({
   supabase: SupabaseClient;
 }) {
   assertWalletFundingIntent(intent);
+  assertWalletFundedOrderContext({ intent, orderId, orderTransaction });
 
   const order = await withContext({
     gatewayReference,

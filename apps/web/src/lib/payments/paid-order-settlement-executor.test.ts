@@ -81,7 +81,7 @@ describe('buildSettlementExecutor', () => {
       p_description: 'Order payment via paystack',
       p_gateway: 'paystack',
       p_gateway_fee: 250,
-      p_gateway_reference: 'WALLET-DVA-ORDER-order-1',
+      p_gateway_reference: 'PSK_REF_1',
       p_gross_amount: 20_000,
       p_merchant_id: 'merchant-1',
       p_metadata: {
@@ -117,7 +117,7 @@ describe('buildSettlementExecutor', () => {
       2,
       'record_merchant_settlement',
       expect.objectContaining({
-        p_gateway_reference: 'WALLET-DVA-ORDER-order-1',
+        p_gateway_reference: 'PSK_REF_1',
         p_source_id: 'order-1',
         p_source_type: 'order',
       })

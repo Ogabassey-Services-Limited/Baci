@@ -210,4 +210,51 @@ describe('runWalletFundedPaidOrderSideEffects', () => {
     ).rejects.toThrow('Invalid wallet funding intent');
     expect(mocks.fetchPaidOrder).not.toHaveBeenCalled();
   });
+
+  it('rejects mismatched intent, order, or transaction context before querying', async () => {
+    await expect(
+      runWalletFundedPaidOrderSideEffects({
+        gatewayFee: 300,
+        gatewayReference: 'gateway-ref',
+        gatewayResponse: {},
+        intent: createMockIntent({ orderId: 'other-order' }),
+        orderId: 'order-1',
+        orderTransaction: createMockOrderTransaction(),
+        scheduleAfter: vi.fn(),
+        supabase: createMockSupabase(),
+      })
+    ).rejects.toThrow('belongs to order other-order');
+
+    await expect(
+      runWalletFundedPaidOrderSideEffects({
+        gatewayFee: 300,
+        gatewayReference: 'gateway-ref',
+        gatewayResponse: {},
+        intent: createMockIntent(),
+        orderId: 'order-1',
+        orderTransaction: createMockOrderTransaction({
+          order_id: 'other-order',
+        }),
+        scheduleAfter: vi.fn(),
+        supabase: createMockSupabase(),
+      })
+    ).rejects.toThrow('belongs to order other-order');
+
+    await expect(
+      runWalletFundedPaidOrderSideEffects({
+        gatewayFee: 300,
+        gatewayReference: 'gateway-ref',
+        gatewayResponse: {},
+        intent: createMockIntent(),
+        orderId: 'order-1',
+        orderTransaction: createMockOrderTransaction({
+          merchant_id: 'merchant-2',
+        }),
+        scheduleAfter: vi.fn(),
+        supabase: createMockSupabase(),
+      })
+    ).rejects.toThrow('belongs to merchant merchant-2');
+
+    expect(mocks.fetchPaidOrder).not.toHaveBeenCalled();
+  });
 });

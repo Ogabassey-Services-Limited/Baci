@@ -160,6 +160,44 @@ describe('processWalletFundedOrderPayment failure paths', () => {
     );
   });
 
+  it('fails closed when a paid finalizer omits the order id', async () => {
+    const supabase = createSupabase();
+    supabase.rpc.mockResolvedValueOnce({
+      data: {
+        debited_amount: 20_000,
+        excess_amount: 0,
+        funded_amount: 20_000,
+        order_id: null,
+        order_paid: true,
+        order_payment_transaction_id: 'txn-order-1',
+        wallet_credit_transaction_id: 'wallet-credit-1',
+        wallet_debit_transaction_id: 'wallet-debit-1',
+      },
+      error: null,
+    } as never);
+
+    await expect(
+      processWalletFundedOrderPayment({
+        gatewayReference: 'PSK_REF_1',
+        gatewayResponse: { paid_at: '2026-05-26T12:05:00.000Z' },
+        scheduleAfter: vi.fn(),
+        supabase: supabase as never,
+        transaction,
+      })
+    ).rejects.toThrow(
+      'Missing order id for paid wallet-funded order intent intent-1'
+    );
+    expect(mockRunPaidOrderSideEffects).not.toHaveBeenCalled();
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        gatewayReference: 'PSK_REF_1',
+        intentId: 'intent-1',
+        message:
+          'Wallet-funded order finalizer marked order paid without an order id',
+      })
+    );
+  });
+
   it('treats malformed finalizer payloads as empty results instead of trusting unchecked fields', async () => {
     const supabase = createSupabase();
     supabase.rpc.mockResolvedValueOnce({

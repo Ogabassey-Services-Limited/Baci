@@ -11,7 +11,7 @@ export const FALLBACK_VAT_RATE_ENV = 'EXPO_PUBLIC_FALLBACK_VAT_RATE_PERCENT';
 // Resolve lazily so checkout normalization observes Expo/test env setup that
 // may happen after this module is imported.
 export function resolveFallbackVatRate() {
-  const rawConfiguredRate = process.env[FALLBACK_VAT_RATE_ENV];
+  const rawConfiguredRate = process.env.EXPO_PUBLIC_FALLBACK_VAT_RATE_PERCENT;
   if (!rawConfiguredRate?.trim()) {
     return DEFAULT_FALLBACK_VAT_RATE_PERCENT;
   }
