@@ -108,18 +108,6 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning data-scroll-behavior="smooth">
-      <head>
-        {/*
-          Font loading is handled automatically by next/font/google (Inter).
-          No manual preconnect/preload needed - Next.js optimizes this.
-        */}
-
-        {/*
-          DNS prefetch hints for third-party origins.
-          Note: Supabase URL is handled via env vars, no hardcoding needed.
-        */}
-        <link rel="dns-prefetch" href="https://res.cloudinary.com" />
-      </head>
       <body className={inter.variable} suppressHydrationWarning>
         {/* Skip link for accessibility - allows keyboard users to bypass navigation */}
         <a href="#main-content" className="baci-skip-link">

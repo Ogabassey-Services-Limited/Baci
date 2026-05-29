@@ -83,4 +83,14 @@ describe('RootLayout', () => {
       )
     ).toBeNull();
   });
+
+  it('renders without a manual head tag in the root layout shell', () => {
+    const { container } = render(
+      <RootLayout>
+        <main>Main content</main>
+      </RootLayout>
+    );
+
+    expect(container.querySelector('head')).toBeNull();
+  });
 });
