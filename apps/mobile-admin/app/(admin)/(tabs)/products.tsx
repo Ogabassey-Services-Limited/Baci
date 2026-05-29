@@ -511,7 +511,7 @@ export default function ProductsScreen() {
           style={[
             styles.tabText,
             isActive
-              ? { color: '#000000', fontFamily: TYPOGRAPHY.fontFamily.semiBold }
+              ? { color: colors.background, fontFamily: TYPOGRAPHY.fontFamily.semiBold }
               : { color: colors.textSecondary },
           ]}
         >
