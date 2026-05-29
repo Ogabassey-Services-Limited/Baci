@@ -124,9 +124,7 @@ export async function generateMetadata({
   };
 }
 
-export default async function CategoryPageRoute(props: PageProps) {
-  await connection();
-
+export default function CategoryPageRoute(props: PageProps) {
   return (
     <>
       <StorefrontDynamicMetadataMarker />

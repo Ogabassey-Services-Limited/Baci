@@ -55,9 +55,7 @@ export async function generateMetadata({
   };
 }
 
-export default async function TermsPage({ params }: PageProps) {
-  await connection();
-
+export default function TermsPage({ params }: PageProps) {
   return (
     <>
       <StorefrontDynamicMetadataMarker />

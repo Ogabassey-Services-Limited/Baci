@@ -1,4 +1,5 @@
 import { notFound, permanentRedirect } from 'next/navigation';
+import { connection } from 'next/server';
 import {
   getCachedLegacyProductRedirectTarget,
   getCachedProductWithDetails,
@@ -66,6 +67,8 @@ async function resolveLegacyProductPath(
 }
 
 export default async function LegacyProductPage({ params }: PageProps) {
+  await connection();
+
   const { slug, productSlug } = await params;
   const redirectPath = await resolveLegacyProductPath(slug, productSlug);
 

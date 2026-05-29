@@ -1039,7 +1039,7 @@ describe('products/[productSlug] page', () => {
         name: /Shop more Products/i,
       })
     ).toHaveAttribute('href', 'https://teststore.usebaci.com/products');
-    expect(mockConnection).toHaveBeenCalledTimes(1);
+    expect(mockConnection).not.toHaveBeenCalled();
     expect(
       screen.getByRole('link', {
         name: /Compare with Samsung Galaxy Z TriFold/i,
