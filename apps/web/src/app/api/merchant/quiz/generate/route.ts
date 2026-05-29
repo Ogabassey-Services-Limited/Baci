@@ -6,6 +6,7 @@ import {
   hasPermission,
 } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
+import { getPrimaryProductImage } from '@/lib/product-image';
 import {
   generateQuizQuestionsWithGemma,
   QuizQuestionGenerationUnavailableError,
@@ -35,6 +36,18 @@ type QuizDraftEvent = {
 type MerchantNameRow = {
   business_name: string | null;
   slug: string | null;
+};
+
+type MerchantQuizContext = {
+  displayName: string;
+  slug: string | null;
+};
+
+type PrizeProductRow = {
+  default_variant_id: string | null;
+  id: string;
+  images: Array<string | { url?: string | null }> | null;
+  name: string;
 };
 
 function slugifyTitle(title: string): string {
@@ -139,12 +152,12 @@ async function openQuizEventIfRequested(
   return { event: data, error: false };
 }
 
-async function resolveMerchantDisplayName(
+async function resolveMerchantQuizContext(
   supabase: NonNullable<
     Awaited<ReturnType<typeof authenticateApiRequest>>['supabase']
   >,
   merchantId: string
-): Promise<string> {
+): Promise<MerchantQuizContext> {
   const { data, error } = await supabase
     .from('merchants')
     .select('business_name, slug')
@@ -153,13 +166,54 @@ async function resolveMerchantDisplayName(
 
   if (error) {
     console.error('Merchant display name lookup failed:', error.message);
-    return merchantId;
+    return { displayName: merchantId, slug: null };
   }
 
   const merchant = data as MerchantNameRow | null;
-  return (
-    merchant?.business_name?.trim() || merchant?.slug?.trim() || merchantId
-  );
+  return {
+    displayName:
+      merchant?.business_name?.trim() || merchant?.slug?.trim() || merchantId,
+    slug: merchant?.slug?.trim().toLowerCase() || null,
+  };
+}
+
+async function resolvePrizeProduct(
+  supabase: NonNullable<
+    Awaited<ReturnType<typeof authenticateApiRequest>>['supabase']
+  >,
+  merchantId: string,
+  productId: string
+): Promise<PrizeProductRow | null> {
+  const { data, error } = await supabase
+    .from('products')
+    .select('id, name, images, default_variant_id')
+    .eq('id', productId)
+    .eq('merchant_id', merchantId)
+    .eq('status', 'active')
+    .maybeSingle();
+
+  if (error || !data) {
+    return null;
+  }
+
+  const product = data as Partial<PrizeProductRow>;
+  if (
+    typeof product.id !== 'string' ||
+    typeof product.name !== 'string' ||
+    product.name.trim().length === 0
+  ) {
+    return null;
+  }
+
+  return {
+    default_variant_id:
+      typeof product.default_variant_id === 'string'
+        ? product.default_variant_id
+        : null,
+    id: product.id,
+    images: Array.isArray(product.images) ? product.images : null,
+    name: product.name.trim(),
+  };
 }
 
 export async function POST(request: NextRequest) {
@@ -200,15 +254,37 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const merchantContext = await resolveMerchantQuizContext(
+    auth.supabase,
+    access.merchantId
+  );
+  if (merchantContext.slug !== 'ogabassey') {
+    return NextResponse.json(
+      { error: 'Quiz generation is only available for Ogabassey' },
+      { status: 403 }
+    );
+  }
+
+  const prizeProduct = await resolvePrizeProduct(
+    auth.supabase,
+    access.merchantId,
+    parsed.data.prizeProductId
+  );
+  if (!prizeProduct) {
+    return NextResponse.json(
+      {
+        code: 'INVALID_PRIZE_PRODUCT',
+        error: 'Select an active Ogabassey product as the quiz prize',
+      },
+      { status: 400 }
+    );
+  }
+
   let questions: GeneratedQuizQuestion[];
   try {
-    const merchantName = await resolveMerchantDisplayName(
-      auth.supabase,
-      access.merchantId
-    );
     questions = await generateQuizQuestionsWithGemma({
       difficulty: parsed.data.difficulty,
-      merchantName,
+      merchantName: merchantContext.displayName,
       questionCountPerTopic: parsed.data.questionCountPerTopic,
       topics: parsed.data.topics,
     });
@@ -227,11 +303,18 @@ export async function POST(request: NextRequest) {
 
   const slots = createSlotRows(questions);
   const variantRows = createVariantRows(questions, slots);
+  const prizeVariantId =
+    parsed.data.prizeVariantId ?? prizeProduct.default_variant_id ?? null;
+  const prizeProductImageUrl = getPrimaryProductImage(prizeProduct.images);
   const { data: event, error: eventError } = await auth.supabase
     .rpc('create_merchant_quiz_draft', {
       p_merchant_id: access.merchantId,
       p_settings: {
-        prize_name: parsed.data.prizeName,
+        prize_name: prizeProduct.name,
+        prize_product_id: prizeProduct.id,
+        prize_product_image_url: prizeProductImageUrl,
+        prize_product_name: prizeProduct.name,
+        prize_variant_id: prizeVariantId,
         time_limit_seconds: parsed.data.timeLimitSeconds,
       },
       p_slug: slugifyTitle(parsed.data.title),

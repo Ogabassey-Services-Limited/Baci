@@ -5,6 +5,7 @@ import { type FormEvent, useState } from 'react';
 import { apiPost } from '@/lib/api-client';
 import {
   type MerchantQuizGenerationResponse,
+  type MerchantQuizPrizeProduct,
   merchantQuizGenerationResponseSchema,
 } from '@/schemas/quiz';
 import { QuizAdminResult } from './quiz-admin-result';
@@ -46,10 +47,22 @@ function formatValidationSummary(
     .join('; ');
 }
 
-export function QuizAdminClient() {
+interface QuizAdminClientProps {
+  initialPrizeProducts: MerchantQuizPrizeProduct[];
+  initialPrizeProductsError?: string | null;
+}
+
+export function QuizAdminClient({
+  initialPrizeProducts,
+  initialPrizeProductsError = null,
+}: QuizAdminClientProps) {
   const [title, setTitle] = useState('Daily Phone Quiz');
   const [topics, setTopics] = useState(defaultTopics.join('\n'));
-  const [prizeName, setPrizeName] = useState('Quiz prize');
+  const [prizeProducts] =
+    useState<MerchantQuizPrizeProduct[]>(initialPrizeProducts);
+  const [selectedPrizeProductId, setSelectedPrizeProductId] = useState(
+    initialPrizeProducts[0]?.id ?? ''
+  );
   const [timeLimitSeconds, setTimeLimitSeconds] = useState('30');
   const [questionCountPerTopic, setQuestionCountPerTopic] = useState('1');
   const [difficulty, setDifficulty] = useState<'easy' | 'standard' | 'hard'>(
@@ -61,13 +74,19 @@ export function QuizAdminClient() {
   const [result, setResult] = useState<MerchantQuizGenerationResponse | null>(
     null
   );
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(
+    initialPrizeProductsError ??
+      (initialPrizeProducts.length === 0
+        ? 'Add an active product before creating a prize quiz.'
+        : null)
+  );
   const [isGenerating, setIsGenerating] = useState(false);
+
   const canGenerate =
     !isGenerating &&
     topicsFromTextarea(topics).length > 0 &&
     title.trim().length > 0 &&
-    prizeName.trim().length > 0;
+    selectedPrizeProductId.length > 0;
 
   const handleGenerate = async () => {
     setError(null);
@@ -91,11 +110,14 @@ export function QuizAdminClient() {
       if (normalizedTopics.length === 0) {
         throw new Error('Add at least one quiz topic before generating.');
       }
+      if (!selectedPrizeProductId) {
+        throw new Error('Select an active product prize before generating.');
+      }
 
       const parsed = merchantQuizGenerationResponseSchema.safeParse(
         await apiPost('/api/merchant/quiz/generate', {
           difficulty,
-          prizeName,
+          prizeProductId: selectedPrizeProductId,
           publicationMode,
           questionCountPerTopic: normalizedQuestionCountPerTopic,
           timeLimitSeconds: normalizedTimeLimitSeconds,
@@ -150,13 +172,25 @@ export function QuizAdminClient() {
             />
           </label>
           <label className="grid gap-2 text-sm font-medium">
-            Prize name
-            <input
+            Prize product
+            <select
               className="h-11 rounded-md border bg-background px-3 text-sm"
+              disabled={prizeProducts.length === 0}
               required
-              value={prizeName}
-              onChange={(event) => setPrizeName(event.target.value)}
-            />
+              value={selectedPrizeProductId}
+              onChange={(event) =>
+                setSelectedPrizeProductId(event.target.value)
+              }
+            >
+              {prizeProducts.length === 0 ? (
+                <option value="">No active products</option>
+              ) : null}
+              {prizeProducts.map((product) => (
+                <option key={product.id} value={product.id}>
+                  {product.name}
+                </option>
+              ))}
+            </select>
           </label>
           <label className="grid gap-2 text-sm font-medium">
             Difficulty

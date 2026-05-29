@@ -9,6 +9,17 @@ vi.mock('@/lib/api-client', () => ({
   apiPost: (...args: unknown[]) => mockApiPost(...args),
 }));
 
+const PRIZE_PRODUCT_ID = '55555555-5555-4555-8555-555555555555';
+const prizeProducts = [
+  {
+    defaultVariantId: null,
+    id: PRIZE_PRODUCT_ID,
+    imageUrl: 'https://cdn.example.com/iphone-15-pro-max.png',
+    name: 'iPhone 15 Pro Max',
+    price: 2100000,
+  },
+];
+
 function validGenerationResponse() {
   return {
     event: {
@@ -36,12 +47,26 @@ describe('QuizAdminClient', () => {
     mockApiPost.mockReset();
   });
 
-  it('submits topics to the Gemma generation API and shows the generated draft', async () => {
+  function renderQuizAdminClient(
+    props: Partial<Parameters<typeof QuizAdminClient>[0]> = {}
+  ) {
+    return render(
+      <QuizAdminClient
+        initialPrizeProducts={props.initialPrizeProducts ?? prizeProducts}
+        initialPrizeProductsError={props.initialPrizeProductsError ?? null}
+      />
+    );
+  }
+
+  it('submits topics and the selected prize product to the Gemma generation API', async () => {
     mockApiPost.mockResolvedValue(validGenerationResponse());
     const user = userEvent.setup();
 
-    render(<QuizAdminClient />);
+    renderQuizAdminClient();
 
+    expect(await screen.findByLabelText(/prize product/i)).toHaveValue(
+      PRIZE_PRODUCT_ID
+    );
     await user.clear(screen.getByLabelText(/quiz title/i));
     await user.type(screen.getByLabelText(/quiz title/i), 'Daily Phone Quiz');
     await user.clear(screen.getByLabelText(/topics/i));
@@ -51,7 +76,7 @@ describe('QuizAdminClient', () => {
     await waitFor(() => expect(mockApiPost).toHaveBeenCalledOnce());
     expect(mockApiPost).toHaveBeenCalledWith('/api/merchant/quiz/generate', {
       difficulty: 'standard',
-      prizeName: 'Quiz prize',
+      prizeProductId: PRIZE_PRODUCT_ID,
       publicationMode: 'draft',
       questionCountPerTopic: 1,
       timeLimitSeconds: 30,
@@ -71,8 +96,9 @@ describe('QuizAdminClient', () => {
     });
     const user = userEvent.setup();
 
-    render(<QuizAdminClient />);
+    renderQuizAdminClient();
 
+    await screen.findByLabelText(/prize product/i);
     await user.selectOptions(screen.getByLabelText(/publish/i), 'active');
     await user.click(
       screen.getByRole('button', { name: /generate and open/i })
@@ -91,8 +117,9 @@ describe('QuizAdminClient', () => {
     mockApiPost.mockRejectedValue(new Error('Gemma unavailable'));
     const user = userEvent.setup();
 
-    render(<QuizAdminClient />);
+    renderQuizAdminClient();
 
+    await screen.findByLabelText(/prize product/i);
     await user.click(screen.getByRole('button', { name: /generate draft/i }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
@@ -107,8 +134,9 @@ describe('QuizAdminClient', () => {
       .mockImplementation(() => undefined);
     const user = userEvent.setup();
 
-    render(<QuizAdminClient />);
+    renderQuizAdminClient();
 
+    await screen.findByLabelText(/prize product/i);
     await user.click(screen.getByRole('button', { name: /generate draft/i }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
@@ -124,8 +152,9 @@ describe('QuizAdminClient', () => {
   it('prevents submission when no topics are provided', async () => {
     const user = userEvent.setup();
 
-    render(<QuizAdminClient />);
+    renderQuizAdminClient();
 
+    await screen.findByLabelText(/prize product/i);
     const topics = screen.getByLabelText(/topics/i);
     await user.clear(topics);
 
@@ -144,8 +173,9 @@ describe('QuizAdminClient', () => {
     );
     const user = userEvent.setup();
 
-    render(<QuizAdminClient />);
+    renderQuizAdminClient();
 
+    await screen.findByLabelText(/prize product/i);
     const button = screen.getByRole('button', { name: /generate draft/i });
     await user.click(button);
 
@@ -155,5 +185,16 @@ describe('QuizAdminClient', () => {
     expect(
       await screen.findByText('Which iPhone model introduced USB-C?')
     ).toBeInTheDocument();
+  });
+
+  it('requires an active product before generating a quiz', async () => {
+    renderQuizAdminClient({ initialPrizeProducts: [] });
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Add an active product before creating a prize quiz.'
+    );
+    expect(
+      screen.getByRole('button', { name: /generate draft/i })
+    ).toBeDisabled();
   });
 });

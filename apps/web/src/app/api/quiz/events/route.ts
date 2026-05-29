@@ -41,6 +41,11 @@ function mapQuizEventStatus(status: string): 'open' | 'scheduled' | 'closed' {
 }
 
 function getPrizeName(settings: unknown): string {
+  const prizeProduct = getPrizeProduct(settings);
+  if (prizeProduct) {
+    return prizeProduct.name;
+  }
+
   const prizeName =
     settings &&
     typeof settings === 'object' &&
@@ -54,6 +59,32 @@ function getPrizeName(settings: unknown): string {
   }
 
   return DEFAULT_PRIZE_NAME;
+}
+
+function getPrizeProduct(settings: unknown) {
+  if (!settings || typeof settings !== 'object') return undefined;
+  const record = settings as Record<string, unknown>;
+  const id = record.prize_product_id;
+  const name = record.prize_product_name;
+  const imageUrl = record.prize_product_image_url;
+  const variantId = record.prize_variant_id;
+
+  if (typeof id !== 'string' || typeof name !== 'string') return undefined;
+  const trimmedName = name.trim();
+  if (!trimmedName) return undefined;
+
+  return {
+    id,
+    imageUrl:
+      typeof imageUrl === 'string' && imageUrl.trim().length > 0
+        ? imageUrl.trim()
+        : null,
+    name: trimmedName,
+    variantId:
+      typeof variantId === 'string' && variantId.trim().length > 0
+        ? variantId.trim()
+        : null,
+  };
 }
 
 function getResolvedMerchantId(row: unknown) {
@@ -221,6 +252,7 @@ export async function GET(request: NextRequest) {
     endsAt: event.ends_at,
     id: event.id,
     prizeName: getPrizeName(event.settings),
+    prizeProduct: getPrizeProduct(event.settings),
     questionCount,
     startsAt: event.starts_at,
     status: mapQuizEventStatus(event.status),

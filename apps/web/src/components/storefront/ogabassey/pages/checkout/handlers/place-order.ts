@@ -29,6 +29,8 @@ export interface CheckoutCartItem {
   variantAttributes?: Record<string, string>;
   selectedColor?: string;
   selectedStorage?: string;
+  quizAwardId?: string;
+  quizVoucherToken?: string;
 }
 
 export interface PlaceOrderOptions {
