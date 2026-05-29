@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import { ProductIndexCard } from '@/app/(storefront)/[slug]/(catalog)/(listing)/products/product-index-card';
+import { formatDisplayCurrency } from '@/lib/format-display-currency';
 import type { NormalizedProduct } from '@/lib/normalize-product';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import { buildPriceBandPageSchemas } from '@/lib/storefront-compare/compare-schema';
@@ -56,11 +57,11 @@ export async function PriceBandPageContent({
     notFound();
   }
 
-  const priceFormatter = new Intl.NumberFormat('en-NG', {
-    style: 'currency',
-    currency: page.payoutCurrency,
-    maximumFractionDigits: 0,
-  });
+  const formatProductPrice = (amount: number) =>
+    formatDisplayCurrency(amount, page.payoutCurrency, {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    });
   const schemas = buildPriceBandPageSchemas({
     breadcrumbItems: page.breadcrumbItems,
     pageName: page.heading,
@@ -99,7 +100,7 @@ export async function PriceBandPageContent({
           {page.products.map((product) => (
             <li key={product.id}>
               <ProductIndexCard
-                formattedPrice={priceFormatter.format(product.price)}
+                formattedPrice={formatProductPrice(product.price)}
                 pathPrefix={page.pathPrefix}
                 product={toProductIndexCardModel(product)}
               />

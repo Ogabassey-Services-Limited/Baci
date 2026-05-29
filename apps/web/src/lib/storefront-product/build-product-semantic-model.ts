@@ -1,5 +1,6 @@
 import { getProductSemanticSupport } from '@/config/product-semantic-support';
 import { CONTENT_CLUSTER_SUPPORT } from '@/config/storefront-content-clusters';
+import { formatCurrencyCompact } from '@/lib/currency';
 import {
   buildProductSupportLinks,
   type CommercialSupportLink,
@@ -16,8 +17,6 @@ import type {
   ProductSemanticModel,
   ProductSemanticSection,
 } from './product-semantic-types';
-
-const priceFormatter = new Intl.NumberFormat('en-NG');
 
 function getSupportCopy(categorySlug: string) {
   return getProductSemanticSupport(categorySlug);
@@ -103,10 +102,23 @@ function buildDirectCompareCta(input: {
   };
 }
 
-function buildCardDescription(product: ProductSemanticCandidate) {
+function buildCardDescription(
+  product: ProductSemanticCandidate,
+  countryCode?: string | null
+) {
   const details = product.condition ? [toTitleCase(product.condition)] : [];
-  details.push(`₦${priceFormatter.format(product.price)}`);
+  details.push(formatCurrencyCompact(product.price, countryCode || 'NG'));
   return details.join(' • ');
+}
+
+function buildPriceBandLabel(
+  input: BuildProductSemanticModelInput,
+  ceiling: number
+) {
+  return `Best ${input.categoryName} Under ${formatCurrencyCompact(
+    ceiling,
+    input.countryCode || 'NG'
+  )}`;
 }
 
 export const MAX_SEMANTIC_SECTION_CARDS = 6;
@@ -119,7 +131,7 @@ function buildSectionCards(
     (product) =>
       ({
         title: product.name,
-        description: buildCardDescription(product),
+        description: buildCardDescription(product, input.countryCode),
         href: buildProductHref(input.storeUrl, product),
         ...buildDirectCompareCta({
           storeUrl: input.storeUrl,
@@ -253,7 +265,9 @@ function buildTrustBullets(input: BuildProductSemanticModelInput) {
   const containingBand = findContainingBand(input);
 
   if (containingBand) {
-    bullets.push(`Listed in ${containingBand.label}`);
+    bullets.push(
+      `Listed in ${buildPriceBandLabel(input, containingBand.ceiling)}`
+    );
   }
 
   return bullets;

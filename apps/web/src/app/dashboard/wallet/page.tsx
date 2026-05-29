@@ -30,7 +30,7 @@ export default async function WalletPage() {
 
   const { data: merchant, error: merchantError } = await supabase
     .from('merchants')
-    .select('id')
+    .select('id, payout_currency')
     .eq('user_id', user.id)
     .single();
 
@@ -67,6 +67,7 @@ export default async function WalletPage() {
       pendingSettlements={walletData?.pendingSettlements || []}
       transactions={transactions}
       merchantId={merchant.id}
+      payoutCurrency={merchant.payout_currency || 'NGN'}
     />
   );
 }

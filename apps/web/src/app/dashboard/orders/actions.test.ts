@@ -80,6 +80,7 @@ const mockOrder: {
   subtotal: string;
   shipping_fee: string;
   total: string;
+  currency?: string | null;
   shipping_address: {
     address: string;
     city: string;
@@ -101,6 +102,7 @@ const mockOrder: {
   subtotal: '10000',
   shipping_fee: '1500',
   total: '11500',
+  currency: 'NGN',
   shipping_address: {
     address: '123 Test St',
     city: 'Lagos',
@@ -508,6 +510,16 @@ describe('getOrder', () => {
     const order = await getOrder(MERCHANT_ID, 'ORD-001');
 
     expect(order?.source).toBe('online_store');
+  });
+
+  it('maps order currency for the detail page', async () => {
+    mockGetOrderQueries({
+      orderRows: [{ ...mockOrder, currency: 'INR' }],
+    });
+
+    const order = await getOrder(MERCHANT_ID, 'ORD-001');
+
+    expect(order?.currency).toBe('INR');
   });
 
   it('formats legacy lowercase customer names for display', async () => {
