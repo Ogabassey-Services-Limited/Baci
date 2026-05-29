@@ -1283,7 +1283,7 @@ describe('[category]/[productSlug] page render', () => {
     );
   });
 
-  it('throws notFound before streaming when the product is missing', async () => {
+  it('renders the dynamic metadata marker before notFound when the product is missing', async () => {
     const consoleWarnSpy = vi
       .spyOn(console, 'warn')
       .mockImplementation(() => undefined);
@@ -1291,22 +1291,26 @@ describe('[category]/[productSlug] page render', () => {
     mockGetCachedLegacyProductRedirectTarget.mockResolvedValueOnce(null);
 
     try {
-      await expect(
-        CategoryProductPage({
-          params: Promise.resolve({
-            slug: 'teststore',
-            category: 'laptops',
-            productSlug: 'missing-product',
-          }),
-          searchParams: Promise.resolve({}),
-        })
-      ).rejects.toThrow('NEXT_NOT_FOUND');
+      const page = await CategoryProductPage({
+        params: Promise.resolve({
+          slug: 'teststore',
+          category: 'laptops',
+          productSlug: 'missing-product',
+        }),
+        searchParams: Promise.resolve({}),
+      });
+
+      expect(() => render(page as ReactElement)).toThrow('NEXT_NOT_FOUND');
 
       expect(mockGetCachedLegacyProductRedirectTarget).toHaveBeenCalledWith(
         baseMerchant.id,
         'missing-product'
       );
-      expect(mockNotFound).toHaveBeenCalledTimes(1);
+      expect(mockStorefrontDynamicMetadataMarker).toHaveBeenCalled();
+      expect(mockNotFound).toHaveBeenCalled();
+      expect(
+        mockStorefrontDynamicMetadataMarker.mock.invocationCallOrder[0]
+      ).toBeLessThan(mockNotFound.mock.invocationCallOrder[0]);
       expect(consoleWarnSpy).not.toHaveBeenCalledWith(
         'Product not found for storefront product route:',
         'missing-product'

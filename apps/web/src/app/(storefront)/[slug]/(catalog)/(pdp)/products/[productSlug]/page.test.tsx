@@ -702,22 +702,28 @@ describe('products/[productSlug] page', () => {
     expect(mockPermanentRedirect).not.toHaveBeenCalled();
   });
 
-  it('calls notFound during page render when no legacy redirect target exists', async () => {
+  it('renders the dynamic metadata marker before notFound when no legacy redirect target exists', async () => {
     mockGetCachedProduct.mockResolvedValue(null);
     mockGetCachedProductWithDetails.mockResolvedValue(null);
+    mockGetCachedLegacyProductRedirectTarget.mockResolvedValue(null);
     mockHeaders.mockReturnValue(makeHeaders({}));
 
-    await expect(
-      ProductPage({
-        params: Promise.resolve({
-          slug: 'teststore',
-          productSlug: 'nonexistent',
-        }),
-        searchParams: Promise.resolve({}),
-      })
-    ).rejects.toThrow('NEXT_NOT_FOUND');
+    const page = await ProductPage({
+      params: Promise.resolve({
+        slug: 'teststore',
+        productSlug: 'nonexistent',
+      }),
+      searchParams: Promise.resolve({}),
+    });
+
+    expect(() => render(page)).toThrow('NEXT_NOT_FOUND');
 
     expect(mockPermanentRedirect).not.toHaveBeenCalled();
+    expect(mockStorefrontDynamicMetadataMarker).toHaveBeenCalled();
+    expect(mockNotFound).toHaveBeenCalled();
+    expect(
+      mockStorefrontDynamicMetadataMarker.mock.invocationCallOrder[0]
+    ).toBeLessThan(mockNotFound.mock.invocationCallOrder[0]);
   });
 
   it('falls back to detailed product lookup and returns noindex metadata when category mismatch is detected', async () => {
