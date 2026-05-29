@@ -11,6 +11,7 @@ import {
   LayoutTemplate,
   Loader2,
   LogOut,
+  Megaphone,
   Menu,
   MessageCircle,
   Newspaper,
@@ -18,11 +19,11 @@ import {
   Paintbrush,
   PanelLeftClose,
   PanelLeftOpen,
-  Plug,
   Search,
   Settings,
   ShoppingCart,
   Store,
+  Tag,
   Trophy,
   UploadCloud,
   User,
@@ -69,8 +70,34 @@ import { useToast } from '@/hooks/use-toast';
 import { COUNTRIES, getCountryByCode } from '@/lib/countries';
 import { asRoute } from '@/lib/routes';
 import { cn } from '@/lib/utils';
+import {
+  buildSmartNavStorageKey,
+  getSmartShortcutItems,
+  readSmartNavUsage,
+  recordSmartNavUsage,
+  type SmartNavUsage,
+} from './smart-nav';
 
 // The original layout is now a client component to prevent hydration errors.
+
+type DashboardNavItem = {
+  id: string;
+  href: Route;
+  icon: typeof LayoutDashboard;
+  label: string;
+  badge?: number;
+  badgeVariant?: 'default' | 'destructive';
+  children?: DashboardNavItem[];
+};
+
+function flattenDashboardNavItems(
+  items: DashboardNavItem[]
+): DashboardNavItem[] {
+  return items.flatMap((item) => {
+    const { children, ...itemWithoutChildren } = item;
+    return [itemWithoutChildren, ...flattenDashboardNavItems(children ?? [])];
+  });
+}
 
 const StoreLink = ({
   isMobile = false,
@@ -205,6 +232,7 @@ export default function DashboardClientLayout({
   const { user, loading: authLoading, signOut } = useAuth();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [smartNavUsage, setSmartNavUsage] = useState<SmartNavUsage>({});
   useToast(); // Keep toast available for potential future use
 
   // Track if we've already attempted a redirect to prevent loops
@@ -306,6 +334,15 @@ export default function DashboardClientLayout({
     };
   }, [merchant?.id, ordersCount]);
 
+  useEffect(() => {
+    if (!merchant?.id || typeof window === 'undefined') {
+      return;
+    }
+
+    const storageKey = buildSmartNavStorageKey(merchant.id);
+    setSmartNavUsage(readSmartNavUsage(window.localStorage, storageKey));
+  }, [merchant?.id]);
+
   const selectedCountry = merchant?.country
     ? getCountryByCode(merchant.country)
     : null;
@@ -338,116 +375,139 @@ export default function DashboardClientLayout({
     window.location.href = '/login';
   };
 
-  const navItems: {
-    href: Route;
-    icon: typeof LayoutDashboard;
-    label: string;
-    badge?: number;
-    badgeVariant?: 'default' | 'destructive';
-  }[] = [
+  const navItems: DashboardNavItem[] = [
     {
+      id: 'dashboard',
       href: '/dashboard' as Route,
       icon: LayoutDashboard,
       label: 'Dashboard',
     },
     {
+      id: 'analytics',
       href: '/dashboard/analytics' as Route,
       icon: BarChart3,
       label: 'Analytics',
     },
     {
+      id: 'orders',
       href: '/dashboard/orders' as Route,
       icon: ShoppingCart,
       label: 'Orders',
       badge: ordersCount > 0 ? ordersCount : undefined,
     },
     {
+      id: 'products',
       href: '/dashboard/products' as Route,
       icon: Package,
       label: 'Products',
     },
     {
-      href: '/dashboard/migrations' as Route,
-      icon: UploadCloud,
-      label: 'Migrations',
+      id: 'marketing',
+      href: '/dashboard/marketing' as Route,
+      icon: Megaphone,
+      label: 'Marketing',
+      children: [
+        {
+          id: 'discount-codes',
+          href: '/dashboard/marketing/discount-codes' as Route,
+          icon: Tag,
+          label: 'Discount Codes',
+        },
+      ],
     },
     {
-      href: '/dashboard/customers' as Route,
-      icon: Users,
-      label: 'Customers',
+      id: 'blog',
+      href: '/dashboard/blog' as Route,
+      icon: Newspaper,
+      label: 'Blog',
     },
     {
-      href: '/dashboard/staff' as Route,
-      icon: UserCog,
-      label: 'Staff',
+      id: 'marketplaces',
+      href: '/dashboard/channels' as Route,
+      icon: Store,
+      label: 'Marketplaces',
     },
     {
-      href: '/dashboard/loyalty' as Route,
-      icon: Gift,
-      label: 'Loyalty',
-    },
-    {
-      href: '/dashboard/quiz' as Route,
-      icon: Trophy,
-      label: 'Quiz',
-    },
-    {
-      href: '/dashboard/santa' as Route,
-      icon: MessageCircle,
-      label: 'Santa Campaign',
-    },
-    {
-      href: '/dashboard/wallet' as Route,
-      icon: Wallet,
-      label: 'Wallet',
-    },
-    {
-      href: '/dashboard/seo' as Route,
-      icon: Search,
-      label: 'SEO',
-    },
-    {
-      href: '/dashboard/agentic' as Route,
-      icon: Bot,
-      label: 'Agentic',
-    },
-    {
+      id: 'domains',
       href: '/dashboard/domains' as Route,
       icon: Globe,
       label: 'Domains',
     },
     {
+      id: 'migrations',
+      href: '/dashboard/migrations' as Route,
+      icon: UploadCloud,
+      label: 'Migrations',
+    },
+    {
+      id: 'customers',
+      href: '/dashboard/customers' as Route,
+      icon: Users,
+      label: 'Customers',
+    },
+    {
+      id: 'staff',
+      href: '/dashboard/staff' as Route,
+      icon: UserCog,
+      label: 'Staff',
+    },
+    {
+      id: 'loyalty',
+      href: '/dashboard/loyalty' as Route,
+      icon: Gift,
+      label: 'Loyalty',
+    },
+    {
+      id: 'quiz',
+      href: '/dashboard/quiz' as Route,
+      icon: Trophy,
+      label: 'Quiz',
+    },
+    {
+      id: 'santa',
+      href: '/dashboard/santa' as Route,
+      icon: MessageCircle,
+      label: 'Santa Campaign',
+    },
+    {
+      id: 'wallet',
+      href: '/dashboard/wallet' as Route,
+      icon: Wallet,
+      label: 'Wallet',
+    },
+    {
+      id: 'seo',
+      href: '/dashboard/seo' as Route,
+      icon: Search,
+      label: 'SEO',
+    },
+    {
+      id: 'agentic',
+      href: '/dashboard/agentic' as Route,
+      icon: Bot,
+      label: 'Agentic',
+    },
+    {
+      id: 'pages',
       href: '/dashboard/pages' as Route,
       icon: FileText,
       label: 'Pages',
       // Badge disabled temporarily
     },
     {
-      href: '/dashboard/blog' as Route,
-      icon: Newspaper,
-      label: 'Blog',
-    },
-    {
+      id: 'templates',
       href: '/dashboard/templates' as Route,
       icon: LayoutTemplate,
       label: 'Templates',
     },
     {
+      id: 'customize',
       icon: Paintbrush,
       label: 'Customize Website',
       href: '/builder' as Route,
     },
     {
-      href: '/dashboard/channels' as Route,
-      icon: Store,
-      label: 'Marketplaces',
-    },
-    {
-      href: '/dashboard/integrations' as Route,
-      icon: Plug,
-      label: 'Integrations',
-    },
-    {
+      id: 'settings',
       href: '/dashboard/settings' as Route,
       icon: Settings,
       label: 'Settings',
@@ -456,7 +516,32 @@ export default function DashboardClientLayout({
 
   const { hasPermission, staffAccess } = useMerchant();
 
-  const filteredNavItems = navItems.filter((item) => {
+  // Map labels/paths to resources in role_permissions table
+  const resourceMap: Record<string, string> = {
+    Dashboard: 'dashboard',
+    Analytics: 'analytics',
+    Orders: 'orders',
+    Products: 'products',
+    Customers: 'customers',
+    Staff: 'staff',
+    Loyalty: 'marketing', // Loyalty is part of marketing permissions
+    Quiz: 'marketing',
+    'Santa Campaign': 'marketing',
+    Wallet: 'wallet', // Assuming wallet exists, check role_permissions
+    SEO: 'marketing',
+    Agentic: 'integrations',
+    Domains: 'settings',
+    Pages: 'pages',
+    Blog: 'marketing', // Blog is usually under marketing, or its own 'blog'
+    Marketing: 'marketing',
+    'Discount Codes': 'marketing',
+    Templates: 'builder',
+    'Customize Website': 'builder',
+    Marketplaces: 'integrations',
+    Settings: 'settings',
+  };
+
+  const canShowNavItem = (item: DashboardNavItem) => {
     // Santa Campaign is special (only for ogabassey)
     if (item.label === 'Santa Campaign' && merchant?.slug !== 'ogabassey') {
       return false;
@@ -473,30 +558,6 @@ export default function DashboardClientLayout({
       );
     }
 
-    // Map labels/paths to resources in role_permissions table
-    const resourceMap: Record<string, string> = {
-      Dashboard: 'dashboard',
-      Analytics: 'analytics',
-      Orders: 'orders',
-      Products: 'products',
-      Customers: 'customers',
-      Staff: 'staff',
-      Loyalty: 'marketing', // Loyalty is part of marketing permissions
-      Quiz: 'marketing',
-      'Santa Campaign': 'marketing',
-      Wallet: 'wallet', // Assuming wallet exists, check role_permissions
-      SEO: 'marketing',
-      Agentic: 'integrations',
-      Domains: 'settings',
-      Pages: 'pages',
-      Blog: 'marketing', // Blog is usually under marketing, or its own 'blog'
-      Templates: 'builder',
-      'Customize Website': 'builder',
-      Marketplaces: 'integrations',
-      Integrations: 'integrations',
-      Settings: 'settings',
-    };
-
     const resource = resourceMap[item.label];
     if (resource) {
       // For menu visibility, we generally check for 'view' permission
@@ -504,7 +565,181 @@ export default function DashboardClientLayout({
     }
 
     return true;
+  };
+
+  const filteredNavItems = navItems.flatMap((item): DashboardNavItem[] => {
+    if (!canShowNavItem(item)) {
+      return [];
+    }
+
+    const children = item.children?.filter(canShowNavItem);
+    return [
+      {
+        ...item,
+        children: children && children.length > 0 ? children : undefined,
+      },
+    ];
   });
+
+  const smartNavItems = getSmartShortcutItems({
+    items: flattenDashboardNavItems(filteredNavItems),
+    usage: smartNavUsage,
+    urgentItemIds: ordersCount > 0 ? ['orders'] : [],
+  });
+
+  const handleNavItemClick = (itemId: string) => {
+    if (!merchant?.id || typeof window === 'undefined') {
+      return;
+    }
+
+    const storageKey = buildSmartNavStorageKey(merchant.id);
+    const nextUsage = recordSmartNavUsage(
+      window.localStorage,
+      storageKey,
+      itemId
+    );
+    setSmartNavUsage(nextUsage);
+  };
+
+  const renderDesktopNavItem = (
+    item: DashboardNavItem,
+    key: string,
+    options: { isSubItem?: boolean } = {}
+  ) => {
+    const isExactActive = pathname === item.href;
+    const hasActiveChild =
+      item.children?.some((child) => pathname === child.href) ?? false;
+    const isSectionActive =
+      item.href !== '/dashboard' && pathname.startsWith(`${item.href}/`);
+    const isActive = isExactActive || hasActiveChild || isSectionActive;
+
+    return (
+      <Link
+        key={key}
+        href={item.href}
+        aria-current={isExactActive ? 'page' : undefined}
+        onClick={() => handleNavItemClick(item.id)}
+        className={cn(
+          'flex items-center transition-all duration-200 group relative overflow-hidden',
+          options.isSubItem
+            ? 'ml-7 gap-2 rounded-xl px-3 py-2 text-[13px]'
+            : 'gap-3 rounded-full px-4 py-3',
+          isActive && !options.isSubItem
+            ? 'bg-primary text-primary-foreground shadow-md shadow-primary/25'
+            : 'text-muted-foreground hover:bg-white/50 dark:hover:bg-white/10 hover:text-foreground',
+          isActive &&
+            options.isSubItem &&
+            'bg-primary/10 text-foreground ring-1 ring-primary/15',
+          isCollapsed && !options.isSubItem && 'justify-center px-2'
+        )}
+      >
+        {!isActive && (
+          <div className="absolute inset-0 bg-linear-to-r from-primary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+        )}
+
+        <item.icon
+          className={cn(
+            'shrink-0 transition-transform group-hover:scale-110',
+            options.isSubItem ? 'h-4 w-4' : 'h-5 w-5',
+            isActive && !options.isSubItem && 'animate-pulse-subtle'
+          )}
+          aria-hidden="true"
+        />
+
+        {!isCollapsed && <span className="truncate">{item.label}</span>}
+
+        {!isCollapsed && item.badge && (
+          <Badge
+            variant={item.badgeVariant || 'default'}
+            className={cn(
+              'ml-auto flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px]',
+              item.badgeVariant === 'destructive'
+                ? 'bg-red-500 hover:bg-red-600 text-white'
+                : 'bg-accent text-accent-foreground'
+            )}
+          >
+            {item.label === 'Pages' ? '!' : item.badge}
+          </Badge>
+        )}
+      </Link>
+    );
+  };
+
+  const renderMobileNavItem = (
+    item: DashboardNavItem,
+    key: string,
+    options: { isSubItem?: boolean } = {}
+  ) => {
+    const isExactActive = pathname === item.href;
+    const hasActiveChild =
+      item.children?.some((child) => pathname === child.href) ?? false;
+    const isSectionActive =
+      item.href !== '/dashboard' && pathname.startsWith(`${item.href}/`);
+    const isActive = isExactActive || hasActiveChild || isSectionActive;
+
+    return (
+      <Link
+        key={key}
+        href={item.href}
+        aria-current={isExactActive ? 'page' : undefined}
+        onClick={() => {
+          handleNavItemClick(item.id);
+          setIsSheetOpen(false);
+        }}
+        className={cn(
+          'flex items-center rounded-xl text-sm font-medium transition-all',
+          options.isSubItem ? 'gap-2 px-3 py-2' : 'gap-3 px-4 py-3',
+          isActive
+            ? 'bg-primary text-primary-foreground shadow-md'
+            : 'text-muted-foreground hover:bg-muted'
+        )}
+      >
+        <item.icon className={options.isSubItem ? 'h-4 w-4' : 'h-5 w-5'} />
+        {item.label}
+        {item.badge && (
+          <Badge className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-accent text-accent-foreground px-1.5 text-[10px]">
+            {item.label === 'Pages' ? '!' : item.badge}
+          </Badge>
+        )}
+      </Link>
+    );
+  };
+
+  const renderDesktopNavTree = (item: DashboardNavItem) => (
+    <div key={item.id} className="grid gap-1">
+      {renderDesktopNavItem(item, item.id)}
+      {!isCollapsed && item.children && item.children.length > 0 && (
+        <ul
+          aria-label={`${item.label} submenu`}
+          className="grid list-none gap-1 pl-0"
+        >
+          {item.children.map((child) => (
+            <li key={child.id}>
+              {renderDesktopNavItem(child, child.id, { isSubItem: true })}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+
+  const renderMobileNavTree = (item: DashboardNavItem) => (
+    <div key={item.id} className="grid gap-1">
+      {renderMobileNavItem(item, item.id)}
+      {item.children && item.children.length > 0 && (
+        <ul
+          aria-label={`${item.label} submenu`}
+          className="ml-6 grid list-none gap-1 border-l border-border pl-3"
+        >
+          {item.children.map((child) => (
+            <li key={child.id}>
+              {renderMobileNavItem(child, child.id, { isSubItem: true })}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
 
   // While checking auth OR if auth has succeeded but we are still waiting for the merchant,
   // show a full-page loading screen. This prevents content flashes and incorrect redirects.
@@ -560,70 +795,32 @@ export default function DashboardClientLayout({
             {/* Navigation */}
             <div className="flex-1 overflow-y-auto py-4 px-3 custom-scrollbar">
               <TooltipProvider>
-                <nav
-                  className="grid gap-2 text-sm font-medium"
-                  aria-label="Main navigation"
-                >
-                  {filteredNavItems.map((item) => {
-                    const isActive = pathname === item.href;
-                    return (
-                      <Link
-                        key={item.label}
-                        href={item.href}
-                        aria-current={isActive ? 'page' : undefined}
-                        className={cn(
-                          'flex items-center gap-3 rounded-full px-4 py-3 transition-all duration-200 group relative overflow-hidden',
-                          isActive
-                            ? 'bg-primary text-primary-foreground shadow-md shadow-primary/25'
-                            : 'text-muted-foreground hover:bg-white/50 dark:hover:bg-white/10 hover:text-foreground',
-                          isCollapsed && 'justify-center px-2'
-                        )}
-                      >
-                        {/* Hover Glow Effect */}
-                        {!isActive && (
-                          <div className="absolute inset-0 bg-linear-to-r from-primary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                        )}
-
-                        <item.icon
-                          className={cn(
-                            'h-5 w-5 shrink-0 transition-transform group-hover:scale-110',
-                            isActive && 'animate-pulse-subtle'
-                          )}
-                          aria-hidden="true"
-                        />
-
-                        {!isCollapsed && (
-                          <span className="truncate">{item.label}</span>
-                        )}
-
-                        {!isCollapsed && item.badge && (
-                          <Badge
-                            variant={item.badgeVariant || 'default'}
-                            className={cn(
-                              'ml-auto flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px]',
-                              item.badgeVariant === 'destructive'
-                                ? 'bg-red-500 hover:bg-red-600 text-white'
-                                : 'bg-accent text-accent-foreground'
-                            )}
-                          >
-                            {/* If it's the Pages alert, show an Exclamation mark if preferred, or just the number. 
-                                User asked for 'alert', usually '!' is clearer than a number for 'unfilled'. 
-                                But let's stick to number for now as it gives scope of work. */}
-                            {item.label === 'Pages' ? '!' : item.badge}
-                          </Badge>
-                        )}
-                      </Link>
-                    );
-                  })}
-                  <div className="my-4 h-px bg-linear-to-r from-transparent via-border to-transparent" />
-                  <StoreLink
-                    isMobile={false}
-                    isCollapsed={isCollapsed}
-                    merchantLoading={merchantLoading}
-                    storeUrl={storeUrl}
-                    customDomain={merchant?.custom_domain}
-                  />
-                </nav>
+                <div className="grid gap-3 text-sm font-medium">
+                  {smartNavItems.length > 0 && (
+                    <nav aria-label="Smart shortcuts" className="grid gap-2">
+                      {!isCollapsed && (
+                        <span className="px-4 text-[10px] font-semibold uppercase text-muted-foreground/70">
+                          Smart shortcuts
+                        </span>
+                      )}
+                      {smartNavItems.map((item) =>
+                        renderDesktopNavItem(item, `smart-${item.id}`)
+                      )}
+                      <div className="my-2 h-px bg-linear-to-r from-transparent via-border to-transparent" />
+                    </nav>
+                  )}
+                  <nav className="grid gap-2" aria-label="Main navigation">
+                    {filteredNavItems.map(renderDesktopNavTree)}
+                    <div className="my-4 h-px bg-linear-to-r from-transparent via-border to-transparent" />
+                    <StoreLink
+                      isMobile={false}
+                      isCollapsed={isCollapsed}
+                      merchantLoading={merchantLoading}
+                      storeUrl={storeUrl}
+                      customDomain={merchant?.custom_domain}
+                    />
+                  </nav>
+                </div>
               </TooltipProvider>
             </div>
 
@@ -701,31 +898,22 @@ export default function DashboardClientLayout({
                       <Logo />
                     </Link>
                   </div>
-                  <nav className="grid gap-2 p-4 overflow-y-auto">
-                    {filteredNavItems.map((item) => {
-                      const isActive = pathname === item.href;
-                      return (
-                        <Link
-                          key={item.label}
-                          href={item.href}
-                          className={cn(
-                            'flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all',
-                            isActive
-                              ? 'bg-primary text-primary-foreground shadow-md'
-                              : 'text-muted-foreground hover:bg-muted'
-                          )}
-                        >
-                          <item.icon className="h-5 w-5" />
-                          {item.label}
-                          {item.badge && (
-                            <Badge className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-accent text-accent-foreground px-1.5 text-[10px]">
-                              {item.badge}
-                            </Badge>
-                          )}
-                        </Link>
-                      );
-                    })}
-                  </nav>
+                  <div className="grid gap-3 p-4 overflow-y-auto">
+                    {smartNavItems.length > 0 && (
+                      <nav aria-label="Smart shortcuts" className="grid gap-2">
+                        <span className="px-4 text-[10px] font-semibold uppercase text-muted-foreground/70">
+                          Smart shortcuts
+                        </span>
+                        {smartNavItems.map((item) =>
+                          renderMobileNavItem(item, `mobile-smart-${item.id}`)
+                        )}
+                        <div className="my-1 h-px bg-border" />
+                      </nav>
+                    )}
+                    <nav className="grid gap-2" aria-label="Main navigation">
+                      {filteredNavItems.map(renderMobileNavTree)}
+                    </nav>
+                  </div>
                 </div>
               </SheetContent>
             </Sheet>
@@ -863,6 +1051,7 @@ export default function DashboardClientLayout({
         <div className="flex items-center justify-around h-16 px-2">
           <Link
             href="/dashboard"
+            onClick={() => handleNavItemClick('dashboard')}
             className={cn(
               'flex flex-col items-center justify-center gap-1 w-16 h-full transition-colors',
               pathname === '/dashboard'
@@ -875,6 +1064,7 @@ export default function DashboardClientLayout({
           </Link>
           <Link
             href="/dashboard/orders"
+            onClick={() => handleNavItemClick('orders')}
             className={cn(
               'flex flex-col items-center justify-center gap-1 w-16 h-full transition-colors relative',
               pathname === '/dashboard/orders'
@@ -894,6 +1084,7 @@ export default function DashboardClientLayout({
           </Link>
           <Link
             href="/dashboard/products"
+            onClick={() => handleNavItemClick('products')}
             className={cn(
               'flex flex-col items-center justify-center gap-1 w-16 h-full transition-colors',
               pathname === '/dashboard/products'
@@ -906,6 +1097,7 @@ export default function DashboardClientLayout({
           </Link>
           <Link
             href="/dashboard/customers"
+            onClick={() => handleNavItemClick('customers')}
             className={cn(
               'flex flex-col items-center justify-center gap-1 w-16 h-full transition-colors',
               pathname === '/dashboard/customers'

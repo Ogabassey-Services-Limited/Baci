@@ -85,6 +85,9 @@ export const routes = {
   /** Settings */
   dashboardSettings: '/dashboard/settings' as Route,
 
+  /** Marketing hub */
+  dashboardMarketing: '/dashboard/marketing' as Route,
+
   /** Marketing / Discount codes */
   dashboardDiscountCodes: '/dashboard/marketing/discount-codes' as Route,
 
