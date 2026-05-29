@@ -14,7 +14,6 @@ import type Colors from '@/constants/Colors';
 import { BRAND } from '@/constants/Colors';
 import { WalletActionsRow } from './WalletActionsRow';
 import { WalletHeroSection } from './WalletHeroSection';
-import { WalletLoyaltyRewardsCard } from './WalletLoyaltyRewardsCard';
 import {
   type WalletTransaction,
   WalletTransactionHistory,
@@ -112,8 +111,10 @@ export function WalletContent({
         fundingAccount={fundingAccount}
         isCreatingFundingAccount={isCreatingFundingAccount}
         loyaltyPoints={loyaltyPoints}
+        loyaltyTier={loyaltyTier}
         onCreateFundingAccount={onCreateFundingAccount}
         onOpenFundPanel={onOpenFundPanel}
+        onOpenRedeemPanel={onOpenRedeemPanel}
         savingsBalance={savingsBalance}
         totalBalance={totalBalance}
       />
@@ -196,12 +197,6 @@ export function WalletContent({
           </View>
         </Animated.View>
       ) : null}
-      <WalletLoyaltyRewardsCard
-        colors={colors}
-        loyaltyPoints={loyaltyPoints}
-        onOpenRedeemPanel={onOpenRedeemPanel}
-        tier={loyaltyTier}
-      />
 
       {showRedeemPanel ? (
         <Animated.View

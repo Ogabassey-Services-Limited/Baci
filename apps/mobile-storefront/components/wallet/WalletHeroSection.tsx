@@ -1,7 +1,11 @@
+import {
+  getRedeemablePointBalance,
+  VTU_MIN_REDEEMABLE_POINTS,
+} from '@baci/shared/lib';
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
-import { BRAND } from '@/constants/Colors';
+import { BRAND, palette } from '@/constants/Colors';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { formatNgnCurrency } from '@/lib/format-ngn-currency';
 import { WALLET_COLORS } from './wallet.colors';
@@ -13,23 +17,48 @@ type WalletHeroSectionProps = {
   fundingAccount: WalletDisplayFundingAccount | null;
   isCreatingFundingAccount: boolean;
   loyaltyPoints: number;
+  loyaltyTier?: string | null;
   onCreateFundingAccount: () => void;
   onOpenFundPanel: () => void;
+  onOpenRedeemPanel: () => void;
   savingsBalance: number;
   totalBalance: number;
 };
+
+function formatTierLabel(tier: string | null | undefined) {
+  const normalizedTier = tier?.trim() || 'Bronze';
+  return `${normalizedTier.charAt(0).toUpperCase()}${normalizedTier.slice(1)}`;
+}
+
+function getTierColor(tier: string) {
+  switch (tier.toLowerCase()) {
+    case 'gold':
+      return palette.amber[500];
+    case 'silver':
+      return palette.gray[400];
+    case 'platinum':
+      return '#6366F1';
+    default:
+      return '#CD7F32';
+  }
+}
 
 export function WalletHeroSection({
   earningsBalance,
   fundingAccount,
   isCreatingFundingAccount,
   loyaltyPoints,
+  loyaltyTier,
   onCreateFundingAccount,
   onOpenFundPanel,
+  onOpenRedeemPanel,
   savingsBalance,
   totalBalance,
 }: WalletHeroSectionProps) {
   const { copyToClipboard, feedback: copyFeedback } = useCopyToClipboard();
+  const tierLabel = formatTierLabel(loyaltyTier);
+  const redeemablePoints = getRedeemablePointBalance(loyaltyPoints);
+  const canRedeemPoints = loyaltyPoints >= VTU_MIN_REDEEMABLE_POINTS;
 
   const handleCopyFundingAccount = async () => {
     if (!fundingAccount) {
@@ -127,11 +156,60 @@ export function WalletHeroSection({
           </Text>
         </View>
       </View>
-      <View style={styles.loyaltyInlineRow}>
-        <Text style={styles.loyaltyInlineLabel}>Loyalty Points</Text>
-        <Text style={styles.loyaltyInlineValue}>
-          {loyaltyPoints.toLocaleString()} pts
-        </Text>
+      <View style={styles.loyaltyInlineSection}>
+        <View style={styles.loyaltyInlineHeaderRow}>
+          <View style={styles.loyaltyInlineCopy}>
+            <Text style={styles.loyaltyInlineLabel}>Loyalty Points</Text>
+            <Text style={styles.loyaltyInlineValue}>
+              {loyaltyPoints.toLocaleString()} pts
+            </Text>
+          </View>
+          <View
+            style={[
+              styles.loyaltyTierBadge,
+              { backgroundColor: getTierColor(tierLabel) },
+            ]}
+          >
+            <Ionicons
+              accessible={false}
+              importantForAccessibility="no"
+              name="star"
+              size={13}
+              color={WALLET_COLORS.white}
+            />
+            <Text style={styles.loyaltyTierText}>{tierLabel}</Text>
+          </View>
+        </View>
+        <View style={styles.loyaltyRedeemInlineRow}>
+          <Text style={styles.loyaltyRedeemInlineText}>
+            {`${redeemablePoints.toLocaleString()} points redeemable now`}
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Redeem loyalty points"
+            accessibilityHint="Opens the loyalty redemption panel"
+            accessibilityState={{ disabled: !canRedeemPoints }}
+            disabled={!canRedeemPoints}
+            onPress={onOpenRedeemPanel}
+            style={({ pressed }) => [
+              styles.loyaltyRedeemInlineButton,
+              {
+                opacity: !canRedeemPoints ? 0.5 : pressed ? 0.82 : 1,
+              },
+            ]}
+          >
+            <Ionicons
+              accessible={false}
+              importantForAccessibility="no"
+              name="gift-outline"
+              size={15}
+              color={WALLET_COLORS.white}
+            />
+            <Text style={styles.loyaltyRedeemInlineButtonText}>
+              Redeem Points
+            </Text>
+          </Pressable>
+        </View>
       </View>
     </Animated.View>
   );
