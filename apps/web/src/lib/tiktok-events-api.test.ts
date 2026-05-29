@@ -20,6 +20,11 @@ function getSentPayload(fetchMock: ReturnType<typeof mockOkFetch>) {
   return JSON.parse(String(init?.body)).data[0];
 }
 
+function getSentBody(fetchMock: ReturnType<typeof mockOkFetch>) {
+  const [, init] = fetchMock.mock.calls[0];
+  return JSON.parse(String(init?.body));
+}
+
 describe('tiktokEventsAPI', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -56,24 +61,26 @@ describe('tiktokEventsAPI', () => {
       }
     );
 
+    const body = getSentBody(fetchMock);
     const payload = getSentPayload(fetchMock);
 
+    expect(body).toMatchObject({
+      event_source: 'web',
+      event_source_id: 'pixel-1',
+    });
     expect(payload).toMatchObject({
       event: 'Purchase',
       event_id: 'evt-1',
-      pixel_code: 'pixel-1',
-      context: {
-        page: {
-          url: 'https://ogabassey.com/products/iphone-15',
-        },
-        user: {
-          email: sha256('Buyer@Example.com'),
-          external_id: sha256('customer-1'),
-          ip: '203.0.113.10',
-          phone: sha256('+2348001234567'),
-          ttclid: 'ttclid-1',
-          user_agent: 'Unit Test Agent',
-        },
+      page: {
+        url: 'https://ogabassey.com/products/iphone-15',
+      },
+      user: {
+        email: sha256('Buyer@Example.com'),
+        external_id: sha256('customer-1'),
+        ip: '203.0.113.10',
+        phone: sha256('+2348001234567'),
+        ttclid: 'ttclid-1',
+        user_agent: 'Unit Test Agent',
       },
       properties: {
         content_id: 'sku-1',
@@ -85,6 +92,58 @@ describe('tiktokEventsAPI', () => {
         value: 120_000,
       },
     });
+    expect(payload.event_time).toEqual(expect.any(Number));
+  });
+
+  it.each([
+    ['Date object', new Date('2026-05-29T20:02:19.000Z')],
+    ['ISO string', '2026-05-29T20:02:19.000Z'],
+    ['Unix seconds', 1_780_084_939],
+    ['Unix seconds string', '1780084939'],
+    ['Unix milliseconds', 1_780_084_939_000],
+    ['Unix milliseconds string', '1780084939000'],
+  ])('serializes %s event time as TikTok event_time seconds', async (_caseName, eventTime) => {
+    const fetchMock = mockOkFetch();
+
+    await tiktokEventsAPI.viewContent(
+      'pixel-1',
+      'token-1',
+      {},
+      { contentId: 'sku-1' },
+      {
+        eventId: 'evt-with-time',
+        eventTime,
+      }
+    );
+
+    expect(getSentPayload(fetchMock)).toMatchObject({
+      event_id: 'evt-with-time',
+      event_time: 1_780_084_939,
+    });
+  });
+
+  it.each([
+    ['empty string', ''],
+    ['invalid string', 'not-a-date'],
+    ['zero string', '0'],
+    ['undefined', undefined],
+  ])('falls back to current event_time for %s', async (_caseName, eventTime) => {
+    const fetchMock = mockOkFetch();
+    const before = Math.floor(Date.now() / 1000);
+
+    await tiktokEventsAPI.viewContent(
+      'pixel-1',
+      'token-1',
+      {},
+      { contentId: 'sku-1' },
+      { eventId: 'evt-fallback-time', eventTime }
+    );
+
+    const after = Math.floor(Date.now() / 1000);
+    const payload = getSentPayload(fetchMock);
+
+    expect(payload.event_time).toBeGreaterThanOrEqual(before);
+    expect(payload.event_time).toBeLessThanOrEqual(after);
   });
 
   it.each([
