@@ -37,7 +37,8 @@ export const UpsellToast: React.FC<UpsellToastProps> = ({
           const category = triggerProduct.categorySlug || triggerProduct.category;
           const params = new URLSearchParams({
             limit: '4',
-            status: 'active',
+            compact: 'true',
+            has_images: 'true',
           });
 
           // Filter to same category for semantic relevance

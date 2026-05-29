@@ -10,7 +10,7 @@ import { StarRating } from './star-rating';
 interface Review {
   id: string;
   customer_name?: string;
-  customer_email: string;
+  customer_email?: string | null;
   rating: number;
   title?: string;
   body?: string;
@@ -33,7 +33,9 @@ export function ReviewCard({ review, className }: ReviewCardProps) {
   const [isVoting, setIsVoting] = useState(false);
 
   const displayName =
-    review.customer_name || review.customer_email.split('@')[0];
+    review.customer_name ||
+    review.customer_email?.split('@')[0] ||
+    'Verified customer';
   const formattedDate = new Date(review.created_at).toLocaleDateString(
     'en-US',
     {
