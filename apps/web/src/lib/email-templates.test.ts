@@ -326,5 +326,35 @@ describe('Email Templates', () => {
       expect(output).toContain('Refund Amount: ₹5,000');
       expect(output).not.toContain('₦');
     });
+
+    it('preserves decimal amounts for currencies with minor units', () => {
+      const decimalOrderPayload = {
+        ...baseOrderData,
+        currency: 'USD',
+        items: [{ name: 'Widget', quantity: 1, price: 1234.56 }],
+        subtotal: 1234.56,
+        shippingFee: 10.25,
+        total: 1244.81,
+      };
+      const decimalReceiptPayload = {
+        ...paymentReceiptPayload,
+        currency: 'USD',
+        items: [{ name: 'Gadget', quantity: 1, price: 1234.56 }],
+        totalAmount: 1234.56,
+        amountPaidNow: 1234.56,
+        totalPaidSoFar: 1234.56,
+        balanceDue: 0,
+      };
+      const output = [
+        generateOrderConfirmationEmail(decimalOrderPayload),
+        generateOrderConfirmationText(decimalOrderPayload),
+        generatePaymentReceiptEmail(decimalReceiptPayload),
+        generatePaymentReceiptText(decimalReceiptPayload),
+      ].join('\n');
+
+      expect(output).toContain('$1,234.56');
+      expect(output).toContain('$1,244.81');
+      expect(output).not.toContain('$1,235');
+    });
   });
 });

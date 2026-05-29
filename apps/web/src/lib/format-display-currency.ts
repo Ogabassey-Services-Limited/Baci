@@ -35,11 +35,19 @@ function getFormatterCacheKey(
 }
 
 function normalizeDisplayCurrencyOptions(options: DisplayCurrencyOptions = {}) {
-  return {
+  const normalizedOptions: DisplayCurrencyOptions = {
     currencyDisplay: options.currencyDisplay ?? 'symbol',
-    minimumFractionDigits: options.minimumFractionDigits ?? 2,
-    maximumFractionDigits: options.maximumFractionDigits ?? 2,
-  } satisfies Required<DisplayCurrencyOptions>;
+  };
+
+  if (options.minimumFractionDigits !== undefined) {
+    normalizedOptions.minimumFractionDigits = options.minimumFractionDigits;
+  }
+
+  if (options.maximumFractionDigits !== undefined) {
+    normalizedOptions.maximumFractionDigits = options.maximumFractionDigits;
+  }
+
+  return normalizedOptions;
 }
 
 export function getDisplayCurrencyLocale(currency = 'NGN') {

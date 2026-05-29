@@ -13,10 +13,7 @@ interface MerchantRegistrationInfo {
 }
 
 function formatEmailMoney(amount: number, currency?: string): string {
-  return formatDisplayCurrency(amount, currency || 'NGN', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  });
+  return formatDisplayCurrency(amount, currency || 'NGN');
 }
 
 function getSafeHttpUrl(value?: string): string | undefined {

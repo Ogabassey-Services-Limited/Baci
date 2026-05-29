@@ -39,7 +39,7 @@ describe('DomainSearchPanel', () => {
             id: 'merchant-1',
             business_name: 'Yodha',
             payout_currency: 'INR',
-          } as CachedMerchant
+          } as unknown as CachedMerchant
         }
       />
     );
@@ -58,5 +58,45 @@ describe('DomainSearchPanel', () => {
       )
     ).toBeInTheDocument();
     expect(screen.queryByText(/₦/)).not.toBeInTheDocument();
+  });
+
+  it('falls back to NGN when merchant payout currency is missing', async () => {
+    globalThis.fetch = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        results: [
+          {
+            domain: 'demo.com.ng',
+            tld: '.com.ng',
+            available: true,
+            price: 2500,
+            renewalPrice: 2000,
+            category: 'local',
+          },
+        ],
+      }),
+    })) as unknown as typeof fetch;
+
+    render(
+      <DomainSearchPanel
+        merchant={
+          {
+            id: 'merchant-1',
+            business_name: 'Demo',
+            payout_currency: null,
+          } as unknown as CachedMerchant
+        }
+      />
+    );
+
+    fireEvent.change(screen.getByPlaceholderText(/search for a domain/i), {
+      target: { value: 'demo.com.ng' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /search/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('₦2,500')).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/₹|INR/)).not.toBeInTheDocument();
   });
 });

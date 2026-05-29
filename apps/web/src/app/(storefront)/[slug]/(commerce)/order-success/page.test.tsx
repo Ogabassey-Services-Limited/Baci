@@ -120,6 +120,7 @@ describe('storefront order success page', () => {
     ).toHaveAttribute('href', '/test-store/track-order?token=track-token-123');
     expect(mockGoogleCustomerReviews).toHaveBeenCalledWith(
       expect.objectContaining({
+        country: 'NG',
         products: [{ gtin: '0123456789012' }],
       })
     );
@@ -149,5 +150,8 @@ describe('storefront order success page', () => {
 
     expect(await screen.findByText(/₹|INR/)).toBeInTheDocument();
     expect(screen.queryByText(/₦/)).not.toBeInTheDocument();
+    expect(mockGoogleCustomerReviews).toHaveBeenCalledWith(
+      expect.objectContaining({ country: 'IN' })
+    );
   });
 });

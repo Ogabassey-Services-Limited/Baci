@@ -136,6 +136,7 @@ function makeOrder(overrides: Partial<Order> = {}): Order {
     orderNumber: 'ORD-001',
     customerName: 'Test Customer',
     total: 5000,
+    currency: 'NGN',
     paymentStatus: 'Paid',
     shippingStatus: 'Pending',
     paymentMethod: null,

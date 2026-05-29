@@ -51,6 +51,14 @@ describe('formatDisplayCurrency', () => {
     expect(compactInr).not.toContain('.00');
   });
 
+  it('preserves zero-decimal currency defaults for JPY', () => {
+    const jpy = formatDisplayCurrency(123_456, 'JPY');
+
+    expect(jpy).toMatch(/[¥￥]|JPY/);
+    expect(jpy).toContain('123,456');
+    expect(jpy).not.toContain('.00');
+  });
+
   it('throws for unsupported currency codes', () => {
     expect(() => formatDisplayCurrency(250, 'NOT_REAL')).toThrow();
   });

@@ -67,4 +67,36 @@ describe('WalletClient', () => {
     expect(screen.getByText('+₹750')).toBeInTheDocument();
     expect(screen.queryByText(/₦/)).not.toBeInTheDocument();
   });
+
+  it('falls back to NGN when payout currency is missing', () => {
+    render(
+      <WalletClient
+        merchantId="merchant-1"
+        payoutCurrency={null}
+        wallet={{
+          id: 'wallet-1',
+          availableBalance: 2500,
+          pendingBalance: 500,
+          upcomingBalance: 750,
+          upcomingCount: 1,
+          totalEarned: 5000,
+          totalWithdrawn: 1000,
+          autoPayoutEnabled: false,
+          autoPayoutDay: 'monday',
+          minPayoutAmount: 1000,
+          lastPayoutAt: null,
+          lastPayoutAmount: null,
+          canWithdraw: false,
+          nextSettlementDate: null,
+          nextSettlementAmount: null,
+        }}
+        pendingSettlements={[]}
+        transactions={[]}
+      />
+    );
+
+    expect(screen.getByText('₦2,500')).toBeInTheDocument();
+    expect(screen.getByText('₦5,000')).toBeInTheDocument();
+    expect(screen.queryByText(/₹|INR/)).not.toBeInTheDocument();
+  });
 });

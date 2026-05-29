@@ -162,6 +162,27 @@ describe('CategoryPageContent', () => {
     );
   });
 
+  it('threads merchant country into category product normalization', async () => {
+    mockGetMerchantByIdentifier.mockResolvedValue({
+      id: 'merchant-1',
+      business_name: 'Demo Store',
+      slug: 'demo-store',
+      country: 'IN',
+      payout_currency: 'INR',
+    });
+
+    await CategoryPageContent({
+      params: Promise.resolve({ slug: 'demo-store', category: 'phones' }),
+      searchParams: Promise.resolve({ page: '1' }),
+    });
+
+    expect(mockNormalizeCategoryPageProducts).toHaveBeenCalledWith(
+      [{ id: 'product-1' }],
+      'phones',
+      'IN'
+    );
+  });
+
   it("falls back to 'NGN' when merchant payout currency is missing", async () => {
     mockGetMerchantByIdentifier.mockResolvedValue({
       id: 'merchant-1',

@@ -185,6 +185,34 @@ describe('buildProductSemanticModel', () => {
 
     expect(model.sameBrand?.cards[0]?.description).toMatch(/₹|INR/);
     expect(model.sameBrand?.cards[0]?.description).not.toContain('₦');
+    expect(model.trustBullets.join(' ')).toMatch(/₹|INR/);
+    expect(model.trustBullets.join(' ')).not.toContain('₦');
+  });
+
+  it('falls back to Nigerian currency for semantic trust bullets', () => {
+    const currentProduct = makeCandidate({
+      slug: 'galaxy-a56',
+      name: 'Galaxy A56',
+      brand: 'Samsung',
+      price: 410_000,
+    });
+    const model = buildProductSemanticModel(
+      makeInput({
+        currentProduct,
+        inventory: [
+          currentProduct,
+          makeCandidate({
+            slug: 'galaxy-a36',
+            name: 'Galaxy A36',
+            brand: 'Samsung',
+            price: 360_000,
+          }),
+        ],
+      })
+    );
+
+    expect(model.trustBullets.join(' ')).toContain('₦');
+    expect(model.trustBullets.join(' ')).not.toMatch(/₹|INR/);
   });
 
   it('ranks alternatives by condition bucket, stock, price distance, spec overlap, then slug', () => {
