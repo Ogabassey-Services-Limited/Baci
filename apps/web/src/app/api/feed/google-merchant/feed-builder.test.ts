@@ -58,14 +58,12 @@ function extractLinkQueryParams(xml: string) {
 }
 
 function extractItemXml(xml: string, id: string) {
-  const escapedId = id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const item = xml.match(
-    new RegExp(
-      `    <item>\\n[\\s\\S]*?<g:id>${escapedId}</g:id>[\\s\\S]*?\\n    </item>`
-    )
+  const items = xml.match(/ {4}<item>\n[\s\S]*?\n {4}<\/item>/g) ?? [];
+  const item = items.find((candidate) =>
+    candidate.includes(`<g:id>${id}</g:id>`)
   );
 
-  return item?.[0] ?? '';
+  return item ?? '';
 }
 
 // ---------- image_link guarantees ----------
