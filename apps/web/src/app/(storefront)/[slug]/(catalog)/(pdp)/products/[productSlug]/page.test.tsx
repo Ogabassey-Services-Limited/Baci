@@ -302,11 +302,13 @@ function makeHeaders(entries: Record<string, string> = {}) {
 
 describe('products/[productSlug] page', () => {
   it('marks product metadata as request-time rendered', async () => {
+    mockGetCachedProduct.mockResolvedValue(uncategorizedProduct);
+
     await generateMetadata(
       {
         params: Promise.resolve({
           slug: 'teststore',
-          productSlug: 'iphone-17-pro-max',
+          productSlug: 'mystery-item',
         }),
         searchParams: Promise.resolve({}),
       },
@@ -677,23 +679,26 @@ describe('products/[productSlug] page', () => {
     );
   });
 
-  it('returns noindex metadata when product is missing — page render decides notFound vs redirect', async () => {
+  it('throws notFound from metadata when product and legacy redirect are missing', async () => {
     mockGetCachedProduct.mockResolvedValue(null);
     mockGetCachedProductWithDetails.mockResolvedValue(null);
+    mockGetCachedLegacyProductRedirectTarget.mockResolvedValue(null);
     mockHeaders.mockReturnValue(makeHeaders({}));
 
-    const metadata = await generateMetadata(
-      {
-        params: Promise.resolve({
-          slug: 'teststore',
-          productSlug: 'nonexistent',
-        }),
-        searchParams: Promise.resolve({}),
-      },
-      stubParent
-    );
+    await expect(
+      generateMetadata(
+        {
+          params: Promise.resolve({
+            slug: 'teststore',
+            productSlug: 'nonexistent',
+          }),
+          searchParams: Promise.resolve({}),
+        },
+        stubParent
+      )
+    ).rejects.toThrow('NEXT_NOT_FOUND');
 
-    expect(metadata.robots).toMatchObject({ index: false, follow: false });
+    expect(mockNotFound).toHaveBeenCalledTimes(1);
     expect(mockPermanentRedirect).not.toHaveBeenCalled();
   });
 
@@ -801,21 +806,27 @@ describe('products/[productSlug] page', () => {
   it('does not retry detailed lookup with a lowercased slug', async () => {
     mockGetCachedProduct.mockResolvedValue(null);
     mockGetCachedProductWithDetails.mockResolvedValue(null);
+    mockGetCachedLegacyProductRedirectTarget.mockResolvedValue(null);
 
-    const metadata = await generateMetadata(
-      {
-        params: Promise.resolve({
-          slug: 'teststore',
-          productSlug: 'IPHONE-15',
-        }),
-        searchParams: Promise.resolve({}),
-      },
-      stubParent
-    );
+    await expect(
+      generateMetadata(
+        {
+          params: Promise.resolve({
+            slug: 'teststore',
+            productSlug: 'IPHONE-15',
+          }),
+          searchParams: Promise.resolve({}),
+        },
+        stubParent
+      )
+    ).rejects.toThrow('NEXT_NOT_FOUND');
 
-    expect(metadata.robots).toMatchObject({ index: false, follow: false });
     expect(mockGetCachedProductWithDetails).toHaveBeenCalledTimes(1);
     expect(mockGetCachedProductWithDetails).toHaveBeenCalledWith(
+      'merchant-1',
+      'IPHONE-15'
+    );
+    expect(mockGetCachedLegacyProductRedirectTarget).toHaveBeenCalledWith(
       'merchant-1',
       'IPHONE-15'
     );
