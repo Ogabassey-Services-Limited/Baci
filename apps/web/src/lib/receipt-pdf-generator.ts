@@ -1,5 +1,5 @@
 import type { ReceiptMerchant, ReceiptOrder } from '@baci/shared';
-import { jsPDF } from 'jspdf/dist/jspdf.es.min.js';
+import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import {
   formatReceiptCurrency,
