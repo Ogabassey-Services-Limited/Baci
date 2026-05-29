@@ -1,10 +1,7 @@
 'use server';
 
 import { cookies } from 'next/headers';
-import {
-  BLOCKED_PUBLIC_BLOG_POST_SLUG_PARTS,
-  BLOCKED_PUBLIC_BLOG_POST_TITLE_PREFIXES,
-} from '@/lib/public-blog-content-quality';
+import { applyPublicBlogSqlFilters } from '@/lib/public-blog-sql-filters';
 import { createClient } from '@/lib/supabase/server';
 
 interface BlogListPost {
@@ -46,13 +43,7 @@ export async function fetchMorePosts(
     .neq('slug', '')
     .order('published_at', { ascending: false });
 
-  for (const blockedPrefix of BLOCKED_PUBLIC_BLOG_POST_TITLE_PREFIXES) {
-    query = query.not('title', 'ilike', `${blockedPrefix}%`);
-  }
-
-  for (const blockedSlugPart of BLOCKED_PUBLIC_BLOG_POST_SLUG_PARTS) {
-    query = query.not('slug', 'ilike', `%${blockedSlugPart}%`);
-  }
+  query = applyPublicBlogSqlFilters(query);
 
   if (category) {
     query = query.eq('category', category);
