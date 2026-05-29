@@ -62,3 +62,7 @@
 ## 2026-05-28 - Carousel Indicator Accessibility
 **Learning:** Carousel indicator dots represented by unlabelled elements (often generic buttons or divs) lack context for visually impaired users. Without ARIA attributes, they are either invisible or read as generic controls without meaning or state.
 **Action:** Always add explicit semantic roles (e.g., `role="tab"` in a `role="tablist"`), state indicators (`aria-selected`), and descriptive labels (`aria-label` explaining which slide the dot targets) to interactive carousel pagination indicators.
+
+## 2024-05-29 - Forgot Password Screen Accessibility
+**Learning:** Mobile React Native forms lacking `returnKeyType` or `accessibilityRole="button"` and `accessibilityState` attributes create high friction for keyboard and screen reader users.
+**Action:** Always ensure `returnKeyType="done"` with `onSubmitEditing`, use `accessibilityRole="button"`, and set `accessibilityState={{ disabled: true, busy: true }}` on disabled/loading buttons to improve a11y on interactive UI.
