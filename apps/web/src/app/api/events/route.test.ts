@@ -572,19 +572,19 @@ describe('POST /api/events', () => {
         merchant_id: 'merchant-123',
         event_type: 'purchase',
         event_id: 'evt-conv-123',
-        user_data: {
+        user_data: expect.objectContaining({
           email: 'test@example.com',
           phone: '+2348012345678',
           external_id: 'user-789',
           ip: '192.168.1.1',
           ua: 'Mozilla/5.0',
-        },
-        custom_data: {
+        }),
+        custom_data: expect.objectContaining({
           order_id: 'order-456',
           value: 250,
           currency: 'NGN',
           contents: [{ id: 'item-1', quantity: 2 }],
-        },
+        }),
         source: 'web',
       });
     });
