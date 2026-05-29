@@ -62,6 +62,21 @@ function getSafeAuthErrorFields(error: unknown) {
   return fields;
 }
 
+function isMissingAuthSession(error: unknown) {
+  const fields = getSafeAuthErrorFields(error);
+  const errorMessage = fields.errorMessage?.toLowerCase() ?? '';
+  const errorCode = fields.errorCode?.toLowerCase() ?? '';
+
+  return (
+    errorMessage.includes('auth session missing') ||
+    errorMessage.includes('session missing') ||
+    errorCode === 'session_not_found' ||
+    errorCode === 'auth_session_missing' ||
+    errorCode === 'no_authorization' ||
+    (fields.errorStatus === 400 && errorMessage.includes('session'))
+  );
+}
+
 export async function requireQuizUser(
   request?: NextRequest
 ): Promise<RequireQuizUserResult> {
@@ -92,6 +107,14 @@ export async function requireQuizUser(
   } = await supabase.auth.getUser();
 
   if (error) {
+    if (isMissingAuthSession(error)) {
+      return {
+        response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
+        supabase: null,
+        user: null,
+      };
+    }
+
     logger.error({
       message: 'Quiz auth lookup failed',
       ...getSafeAuthErrorFields(error),

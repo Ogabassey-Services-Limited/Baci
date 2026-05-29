@@ -9,9 +9,27 @@ const mockIsMerchantPermissionRedirectError = vi.fn((error: unknown) => {
 const mockRedirect = vi.fn((target: string) => {
   throw new Error(`NEXT_REDIRECT:${target}`);
 });
+const mockProductsQuery = {
+  eq: vi.fn(() => mockProductsQuery),
+  limit: vi.fn(),
+  order: vi.fn(() => mockProductsQuery),
+  select: vi.fn(() => mockProductsQuery),
+};
+const mockSupabase = {
+  from: vi.fn(() => mockProductsQuery),
+};
+const mockCreateClient = vi.fn((_cookieStore: unknown) => mockSupabase);
+
+vi.mock('next/headers', () => ({
+  cookies: vi.fn().mockResolvedValue({ get: vi.fn() }),
+}));
 
 vi.mock('next/navigation', () => ({
   redirect: (target: string) => mockRedirect(target),
+}));
+
+vi.mock('@/lib/supabase/server', () => ({
+  createClient: (cookieStore: unknown) => mockCreateClient(cookieStore),
 }));
 
 vi.mock('@/lib/merchant-server', () => ({
@@ -29,6 +47,18 @@ const { default: QuizDashboardPage } = await import('./page');
 describe('QuizDashboardPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockProductsQuery.limit.mockResolvedValue({
+      data: [
+        {
+          default_variant_id: null,
+          id: '55555555-5555-4555-8555-555555555555',
+          images: [{ url: 'https://cdn.example.com/iphone.png' }],
+          name: 'iPhone 15 Pro Max',
+          price: 2100000,
+        },
+      ],
+      error: null,
+    });
     mockIsMerchantPermissionRedirectError.mockImplementation(
       (error: unknown) => {
         return (
@@ -37,13 +67,36 @@ describe('QuizDashboardPage', () => {
         );
       }
     );
-    mockEnsurePermission.mockResolvedValue({ merchant: { id: 'merchant-1' } });
+    mockEnsurePermission.mockResolvedValue({
+      merchant: { id: 'merchant-1', slug: 'ogabassey' },
+    });
   });
 
   it('requires marketing edit permission before rendering the generator', async () => {
-    await QuizDashboardPage();
+    const element = await QuizDashboardPage();
 
     expect(mockEnsurePermission).toHaveBeenCalledWith('marketing', 'edit');
+    expect(mockSupabase.from).toHaveBeenCalledWith('products');
+    expect(mockProductsQuery.select).toHaveBeenCalledWith(
+      'id, name, price, images, default_variant_id'
+    );
+    expect(
+      (
+        element as {
+          props: {
+            initialPrizeProducts: Array<{
+              id: string;
+              imageUrl: string | null;
+            }>;
+          };
+        }
+      ).props.initialPrizeProducts
+    ).toEqual([
+      expect.objectContaining({
+        id: '55555555-5555-4555-8555-555555555555',
+        imageUrl: 'https://cdn.example.com/iphone.png',
+      }),
+    ]);
     expect(mockRedirect).not.toHaveBeenCalled();
   });
 
@@ -56,6 +109,17 @@ describe('QuizDashboardPage', () => {
       'NEXT_REDIRECT:/dashboard'
     );
     expect(mockIsMerchantPermissionRedirectError).toHaveBeenCalledOnce();
+    expect(mockRedirect).toHaveBeenCalledWith('/dashboard');
+  });
+
+  it('redirects non-Ogabassey merchants away from quiz creation', async () => {
+    mockEnsurePermission.mockResolvedValueOnce({
+      merchant: { id: 'merchant-2', slug: 'another-store' },
+    });
+
+    await expect(QuizDashboardPage()).rejects.toThrow(
+      'NEXT_REDIRECT:/dashboard'
+    );
     expect(mockRedirect).toHaveBeenCalledWith('/dashboard');
   });
 

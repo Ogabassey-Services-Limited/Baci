@@ -13,6 +13,10 @@ type QuizDraftRpcArgs = {
   p_merchant_id: string;
   p_settings: {
     prize_name: string;
+    prize_product_id: string;
+    prize_product_image_url: string | null;
+    prize_product_name: string;
+    prize_variant_id: string | null;
     time_limit_seconds: number;
   };
   p_slug: string;
@@ -36,6 +40,7 @@ type QuizDraftRpcArgs = {
 
 let lastQuizDraftRpcArgs: QuizDraftRpcArgs | null = null;
 const mockMerchantMaybeSingle = vi.fn();
+const mockPrizeProductMaybeSingle = vi.fn();
 const mockQuizDraftSingle = vi.fn();
 const mockQuizEventUpdateSingle = vi.fn();
 const mockQuizEventSelect = vi.fn(() => ({
@@ -44,6 +49,11 @@ const mockQuizEventSelect = vi.fn(() => ({
 const mockQuizEventEqSecond = vi.fn(() => ({ select: mockQuizEventSelect }));
 const mockQuizEventEqFirst = vi.fn(() => ({ eq: mockQuizEventEqSecond }));
 const mockQuizEventUpdate = vi.fn(() => ({ eq: mockQuizEventEqFirst }));
+const mockPrizeProductBuilder = {
+  eq: vi.fn(() => mockPrizeProductBuilder),
+  maybeSingle: mockPrizeProductMaybeSingle,
+  select: vi.fn(() => mockPrizeProductBuilder),
+};
 const mockFrom = vi.fn((table: string) => {
   if (table === 'merchants') {
     return {
@@ -58,6 +68,9 @@ const mockFrom = vi.fn((table: string) => {
     return {
       update: mockQuizEventUpdate,
     };
+  }
+  if (table === 'products') {
+    return mockPrizeProductBuilder;
   }
 
   return {};
@@ -86,6 +99,8 @@ vi.mock('@/lib/quiz/gemma-question-generator', () => ({
 }));
 
 const { POST } = await import('./route');
+
+const PRIZE_PRODUCT_ID = '55555555-5555-4555-8555-555555555555';
 
 function hashAnswerKey(answer: string): string {
   return crypto
@@ -127,6 +142,15 @@ describe('POST /api/merchant/quiz/generate', () => {
       },
       error: null,
     });
+    mockPrizeProductMaybeSingle.mockResolvedValue({
+      data: {
+        default_variant_id: null,
+        id: PRIZE_PRODUCT_ID,
+        images: [{ url: 'https://cdn.example.com/iphone-15-pro-max.png' }],
+        name: 'iPhone 15 Pro Max',
+      },
+      error: null,
+    });
     mockGenerateQuizQuestionsWithGemma.mockResolvedValue([
       {
         correctOptionId: 'b',
@@ -165,7 +189,7 @@ describe('POST /api/merchant/quiz/generate', () => {
     const response = await POST(
       createRequest({
         difficulty: 'standard',
-        prizeName: '₦10,000 voucher',
+        prizeProductId: PRIZE_PRODUCT_ID,
         publicationMode: 'draft',
         questionCountPerTopic: 1,
         timeLimitSeconds: 30,
@@ -185,7 +209,12 @@ describe('POST /api/merchant/quiz/generate', () => {
     expect(mockRpc).toHaveBeenCalledWith('create_merchant_quiz_draft', {
       p_merchant_id: 'merchant-1',
       p_settings: {
-        prize_name: '₦10,000 voucher',
+        prize_name: 'iPhone 15 Pro Max',
+        prize_product_id: PRIZE_PRODUCT_ID,
+        prize_product_image_url:
+          'https://cdn.example.com/iphone-15-pro-max.png',
+        prize_product_name: 'iPhone 15 Pro Max',
+        prize_variant_id: null,
         time_limit_seconds: 30,
       },
       p_slug: expect.stringMatching(/^daily-phone-quiz-[0-9a-f]{8}$/),
@@ -234,13 +263,25 @@ describe('POST /api/merchant/quiz/generate', () => {
       ],
     });
     expect(mockQuizEventUpdate).not.toHaveBeenCalled();
+    expect(mockPrizeProductBuilder.select).toHaveBeenCalledWith(
+      'id, name, images, default_variant_id'
+    );
+    expect(mockPrizeProductBuilder.eq).toHaveBeenCalledWith(
+      'id',
+      PRIZE_PRODUCT_ID
+    );
+    expect(mockPrizeProductBuilder.eq).toHaveBeenCalledWith(
+      'merchant_id',
+      'merchant-1'
+    );
+    expect(mockPrizeProductBuilder.eq).toHaveBeenCalledWith('status', 'active');
   });
 
   it('opens the generated quiz when requested by the merchant', async () => {
     const response = await POST(
       createRequest({
         difficulty: 'standard',
-        prizeName: '₦10,000 voucher',
+        prizeProductId: PRIZE_PRODUCT_ID,
         publicationMode: 'active',
         questionCountPerTopic: 1,
         timeLimitSeconds: 30,

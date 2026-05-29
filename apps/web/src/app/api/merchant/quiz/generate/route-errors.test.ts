@@ -16,7 +16,13 @@ const MockUnavailableError = vi.hoisted(
 );
 
 const mockMerchantMaybeSingle = vi.fn();
+const mockPrizeProductMaybeSingle = vi.fn();
 const mockQuizDraftSingle = vi.fn();
+const mockPrizeProductBuilder = {
+  eq: vi.fn(() => mockPrizeProductBuilder),
+  maybeSingle: mockPrizeProductMaybeSingle,
+  select: vi.fn(() => mockPrizeProductBuilder),
+};
 const mockFrom = vi.fn((table: string) => {
   if (table === 'merchants') {
     return {
@@ -26,6 +32,9 @@ const mockFrom = vi.fn((table: string) => {
         })),
       })),
     };
+  }
+  if (table === 'products') {
+    return mockPrizeProductBuilder;
   }
 
   return {};
@@ -51,6 +60,8 @@ vi.mock('@/lib/quiz/gemma-question-generator', () => ({
 
 const { POST } = await import('./route');
 
+const PRIZE_PRODUCT_ID = '55555555-5555-4555-8555-555555555555';
+
 function createRequest(body: Record<string, unknown>): NextRequest {
   return new Request('http://localhost/api/merchant/quiz/generate', {
     body: JSON.stringify(body),
@@ -70,7 +81,7 @@ function createRawRequest(body: string): NextRequest {
 function validPayload() {
   return {
     difficulty: 'standard',
-    prizeName: 'Quiz prize',
+    prizeProductId: PRIZE_PRODUCT_ID,
     questionCountPerTopic: 1,
     timeLimitSeconds: 30,
     title: 'Daily Phone Quiz',
@@ -99,6 +110,15 @@ describe('POST /api/merchant/quiz/generate errors', () => {
       data: {
         business_name: 'OgaBassey Gadgets',
         slug: 'ogabassey',
+      },
+      error: null,
+    });
+    mockPrizeProductMaybeSingle.mockResolvedValue({
+      data: {
+        default_variant_id: null,
+        id: PRIZE_PRODUCT_ID,
+        images: [],
+        name: 'iPhone 15 Pro Max',
       },
       error: null,
     });
@@ -156,6 +176,42 @@ describe('POST /api/merchant/quiz/generate errors', () => {
     const invalidBody = await POST(createRequest({ title: 'No', topics: [] }));
     expect(invalidBody.status).toBe(400);
     expect(await invalidBody.json()).toMatchObject({ error: 'Invalid input' });
+  });
+
+  it('rejects non-Ogabassey merchants before generating questions', async () => {
+    mockMerchantMaybeSingle.mockResolvedValueOnce({
+      data: {
+        business_name: 'Another Store',
+        slug: 'another-store',
+      },
+      error: null,
+    });
+
+    const response = await POST(createRequest(validPayload()));
+
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({
+      error: 'Quiz generation is only available for Ogabassey',
+    });
+    expect(mockGenerateQuizQuestionsWithGemma).not.toHaveBeenCalled();
+    expect(mockQuizDraftSingle).not.toHaveBeenCalled();
+  });
+
+  it('rejects prize products outside the active merchant catalog', async () => {
+    mockPrizeProductMaybeSingle.mockResolvedValueOnce({
+      data: null,
+      error: null,
+    });
+
+    const response = await POST(createRequest(validPayload()));
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      code: 'INVALID_PRIZE_PRODUCT',
+      error: 'Select an active Ogabassey product as the quiz prize',
+    });
+    expect(mockGenerateQuizQuestionsWithGemma).not.toHaveBeenCalled();
+    expect(mockQuizDraftSingle).not.toHaveBeenCalled();
   });
 
   it('maps Gemma configuration and generation failures to client-safe errors', async () => {

@@ -74,7 +74,7 @@
     "react-native-css-interop": "^0.2.3",
     "react-native-edge-to-edge": "^1.8.1",
     "react-native-fbsdk-next": "^13.4.3",
-    "react-native-gesture-handler": "~2.31.2",
+    "react-native-gesture-handler": "~3.0.0",
     "react-native-google-places-autocomplete": "^2.6.4",
     "react-native-keyboard-controller": "^1.21.6",
     "react-native-mmkv": "^4.3.0",
@@ -92,7 +92,7 @@
     "zustand": "^5.0.12"
   },
   "devDependencies": {
-    "@babel/plugin-transform-dynamic-import": "^7.27.1",
+    "@babel/plugin-transform-dynamic-import": "^7.29.7",
     "@react-native/metro-config": "0.85.3",
     "@testing-library/jest-native": "^5.4.3",
     "@testing-library/react-native": "^13.3.3",

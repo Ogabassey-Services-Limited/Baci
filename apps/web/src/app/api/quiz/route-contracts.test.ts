@@ -11,11 +11,12 @@ vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(),
 }));
 
-const USER_ID = 'user-1';
+const USER_ID = '99999999-9999-4999-8999-999999999999';
 const EVENT_ID = '11111111-1111-4111-8111-111111111111';
 const ATTEMPT_ID = '22222222-2222-4222-8222-222222222222';
 const QUESTION_ID = '33333333-3333-4333-8333-333333333333';
 const AWARD_ID = '44444444-4444-4444-8444-444444444444';
+const PRODUCT_ID = '55555555-5555-4555-8555-555555555555';
 
 function jsonRequest(url: string, body: unknown) {
   return new NextRequest(url, {
@@ -173,6 +174,57 @@ describe('quiz API route contracts', () => {
         scope: 'quiz_phase1a',
       }),
       p_user_id: USER_ID,
+    });
+  });
+
+  it('signs product prize voucher claims returned by the answer RPC', async () => {
+    const rpcResult = {
+      data: {
+        attemptId: ATTEMPT_ID,
+        correctAnswers: 1,
+        prizeClaim: {
+          awardId: AWARD_ID,
+          condition: null,
+          productId: PRODUCT_ID,
+          variantId: null,
+        },
+        prizeEligible: true,
+        status: 'completed',
+        totalQuestions: 1,
+      },
+      error: null,
+    };
+    mockAuthenticatedSupabase({ rpcResult });
+
+    const { POST } = await import(
+      '@/app/api/quiz/attempts/[attemptId]/answers/route'
+    );
+    const response = await POST(
+      jsonRequest(`http://localhost/api/quiz/attempts/${ATTEMPT_ID}/answers`, {
+        answer: 'A',
+        integrityTier: 'strong',
+        questionId: QUESTION_ID,
+      }),
+      { params: Promise.resolve({ attemptId: ATTEMPT_ID }) }
+    );
+
+    expect(response.status).toBe(200);
+    expect(await readJson(response)).toEqual({
+      attemptId: ATTEMPT_ID,
+      correctAnswers: 1,
+      prizeClaim: {
+        awardId: AWARD_ID,
+        cartPath: expect.stringMatching(
+          /^\/ogabassey\/cart\?item_id=55555555-5555-4555-8555-555555555555&quiz_award_id=44444444-4444-4444-8444-444444444444&quiz_voucher_token=/
+        ),
+        condition: null,
+        productId: PRODUCT_ID,
+        variantId: null,
+        voucherToken: expect.any(String),
+      },
+      prizeEligible: true,
+      status: 'completed',
+      totalQuestions: 1,
     });
   });
 

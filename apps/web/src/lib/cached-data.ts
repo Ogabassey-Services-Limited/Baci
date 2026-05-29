@@ -13,13 +13,11 @@ import { normalizeStorefrontCategoryValue } from '@/lib/normalize-storefront-cat
 import { getProductScopedCacheTag } from '@/lib/product-cache-tags';
 import { PRODUCT_KEY_SPECS_RELATION_SELECT } from '@/lib/product-key-specs-select';
 import {
-  BLOCKED_PUBLIC_BLOG_CATEGORY_VALUES,
-  BLOCKED_PUBLIC_BLOG_POST_SLUG_PARTS,
-  BLOCKED_PUBLIC_BLOG_POST_TITLE_PREFIXES,
   filterPublicBlogCategories,
   filterPublicBlogPosts,
   isPublicBlogPost,
 } from '@/lib/public-blog-content-quality';
+import { applyPublicBlogSqlFilters } from '@/lib/public-blog-sql-filters';
 import {
   normalizeRelatedBlogProductLinks,
   normalizeRelatedBlogProducts,
@@ -1345,7 +1343,7 @@ export async function getCachedLegacyProductRedirectTarget(
     | null
     | undefined;
 
-  if (!parent || parent.status !== 'active' || !parent.slug) {
+  if (parent?.status !== 'active' || !parent.slug) {
     return null;
   }
 
@@ -1940,13 +1938,7 @@ export async function getCachedBlogPost(
     .neq('slug', '')
     .neq('id', post.id);
 
-  for (const blockedPrefix of BLOCKED_PUBLIC_BLOG_POST_TITLE_PREFIXES) {
-    relatedQuery = relatedQuery.not('title', 'ilike', `${blockedPrefix}%`);
-  }
-
-  for (const blockedSlugPart of BLOCKED_PUBLIC_BLOG_POST_SLUG_PARTS) {
-    relatedQuery = relatedQuery.not('slug', 'ilike', `%${blockedSlugPart}%`);
-  }
+  relatedQuery = applyPublicBlogSqlFilters(relatedQuery);
 
   if (post.category) {
     relatedQuery = relatedQuery.eq('category', post.category);
@@ -2070,13 +2062,7 @@ export async function getCachedBlogListing(
     .neq('slug', '')
     .order('published_at', { ascending: false });
 
-  for (const blockedPrefix of BLOCKED_PUBLIC_BLOG_POST_TITLE_PREFIXES) {
-    query = query.not('title', 'ilike', `${blockedPrefix}%`);
-  }
-
-  for (const blockedSlugPart of BLOCKED_PUBLIC_BLOG_POST_SLUG_PARTS) {
-    query = query.not('slug', 'ilike', `%${blockedSlugPart}%`);
-  }
+  query = applyPublicBlogSqlFilters(query);
 
   if (category) {
     query = query.eq('category', category);
@@ -2116,25 +2102,9 @@ export async function getCachedBlogListing(
     .neq('slug', '')
     .not('category', 'is', null);
 
-  for (const blockedPrefix of BLOCKED_PUBLIC_BLOG_POST_TITLE_PREFIXES) {
-    categoriesQuery = categoriesQuery.not(
-      'title',
-      'ilike',
-      `${blockedPrefix}%`
-    );
-  }
-
-  for (const blockedSlugPart of BLOCKED_PUBLIC_BLOG_POST_SLUG_PARTS) {
-    categoriesQuery = categoriesQuery.not(
-      'slug',
-      'ilike',
-      `%${blockedSlugPart}%`
-    );
-  }
-
-  for (const blockedCategory of BLOCKED_PUBLIC_BLOG_CATEGORY_VALUES) {
-    categoriesQuery = categoriesQuery.not('category', 'ilike', blockedCategory);
-  }
+  categoriesQuery = applyPublicBlogSqlFilters(categoriesQuery, {
+    includeCategoryFilters: true,
+  });
 
   const { data: categories, error: categoriesError } = await categoriesQuery;
   if (categoriesError) {

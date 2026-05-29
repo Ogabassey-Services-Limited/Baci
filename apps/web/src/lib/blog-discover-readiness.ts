@@ -1,6 +1,7 @@
 import { DEFAULT_BLOG_MEDIA_CDN_ORIGIN } from '@/config/cdn';
 import {
   BLOG_FEATURED_VARIANT_KEYS,
+  type BlogFeaturedVariantKey,
   type BlogStorageScope,
   extractManagedBlogStoragePath,
 } from '@/lib/blog-managed-storage-paths';
@@ -8,6 +9,20 @@ import {
 const MIN_DISCOVER_IMAGE_WIDTH = 1200;
 const MIN_DISCOVER_IMAGE_HEIGHT = 675;
 const MIN_EXCLUSIVE_DISCOVER_IMAGE_PIXELS = 300_000;
+const GENERATED_CODEX_BLOG_IMAGE_PREFIX = '/core-assets/blog/codex/';
+const TRANSFORMED_CDN_IMAGE_PREFIX = '/image/';
+const GENERATED_CODEX_BLOG_IMAGE_EXTENSION_PATTERN =
+  /\.(avif|jpe?g|png|webp)$/i;
+const GENERATED_CODEX_BLOG_IMAGE_EXTENSIONS = [
+  '.avif',
+  '.jpg',
+  '.jpeg',
+  '.png',
+  '.webp',
+] as const;
+const BLOG_FEATURED_VARIANT_KEY_SET = new Set<string>(
+  BLOG_FEATURED_VARIANT_KEYS
+);
 
 export type BlogDiscoverImageReadinessCode =
   | 'BLOG_FEATURED_IMAGE_NOT_DISCOVER_READY'
@@ -80,6 +95,12 @@ function getVariantMap(
   return value;
 }
 
+function isBlogFeaturedVariantKey(
+  value: string
+): value is BlogFeaturedVariantKey {
+  return BLOG_FEATURED_VARIANT_KEY_SET.has(value);
+}
+
 function isManagedOriginalBlogPath(path: string | null): path is string {
   return Boolean(path && path.split('/').length === 3);
 }
@@ -99,15 +120,72 @@ function isTrustedManagedBlogImageUrl(raw: string): boolean {
   }
 }
 
+function getTrustedCdnSourcePath(raw: string): string | null {
+  try {
+    const url = new URL(raw);
+    if (
+      url.protocol !== 'https:' ||
+      !TRUSTED_BLOG_IMAGE_ORIGINS.has(url.origin)
+    ) {
+      return null;
+    }
+
+    const path = decodeURIComponent(url.pathname);
+    if (!path.startsWith(TRANSFORMED_CDN_IMAGE_PREFIX)) {
+      return path;
+    }
+
+    const transformPath = path.slice(TRANSFORMED_CDN_IMAGE_PREFIX.length);
+    const sourcePathIndex = transformPath.indexOf('/');
+    if (sourcePathIndex <= 0) {
+      return null;
+    }
+
+    return `/${transformPath.slice(sourcePathIndex + 1)}`;
+  } catch {
+    return null;
+  }
+}
+
+function isTrustedGeneratedCodexBlogImageUrl(raw: string): boolean {
+  const sourcePath = getTrustedCdnSourcePath(raw);
+  return Boolean(
+    sourcePath?.startsWith(GENERATED_CODEX_BLOG_IMAGE_PREFIX) &&
+      !sourcePath.includes('..') &&
+      GENERATED_CODEX_BLOG_IMAGE_EXTENSION_PATTERN.test(sourcePath)
+  );
+}
+
+function isTrustedGeneratedCodexBlogVariantUrl(
+  raw: string,
+  variantKey: BlogFeaturedVariantKey
+): boolean {
+  const sourcePath = getTrustedCdnSourcePath(raw);
+  if (
+    !sourcePath?.startsWith(GENERATED_CODEX_BLOG_IMAGE_PREFIX) ||
+    sourcePath.includes('..') ||
+    !GENERATED_CODEX_BLOG_IMAGE_EXTENSION_PATTERN.test(sourcePath)
+  ) {
+    return false;
+  }
+
+  const filename = sourcePath.split('/').at(-1)?.toLowerCase() ?? '';
+  const variantFilename = variantKey.toLowerCase();
+  return GENERATED_CODEX_BLOG_IMAGE_EXTENSIONS.some(
+    (extension) =>
+      filename === `${variantFilename}${extension}` ||
+      filename.endsWith(`-${variantFilename}${extension}`)
+  );
+}
+
 export function validateBlogImageVariantIntegrity(
   image: Pick<BlogDiscoverImageFields, 'featured_image_variants'>,
   storageScope: string | BlogStorageScope
 ): BlogDiscoverImageReadinessResult {
   const variants = getVariantMap(image.featured_image_variants);
-  const allowedKeys = new Set<string>(BLOG_FEATURED_VARIANT_KEYS);
 
   for (const [key, value] of Object.entries(variants)) {
-    if (!allowedKeys.has(key)) {
+    if (!isBlogFeaturedVariantKey(key)) {
       return notReady('BLOG_FEATURED_IMAGE_VARIANTS_INVALID', {
         variantKey: key,
       });
@@ -124,7 +202,10 @@ export function validateBlogImageVariantIntegrity(
     }
 
     const path = extractManagedBlogStoragePath(value, storageScope);
-    if (!isManagedVariantBlogPath(path)) {
+    if (
+      !isManagedVariantBlogPath(path) &&
+      !isTrustedGeneratedCodexBlogVariantUrl(value, key)
+    ) {
       return notReady('BLOG_FEATURED_IMAGE_VARIANT_NOT_MANAGED', {
         variantKey: key,
       });
@@ -152,17 +233,26 @@ export function validateBlogDiscoverImageReadiness(
     });
   }
 
-  if (!isTrustedManagedBlogImageUrl(image.featured_image_url)) {
+  const isTrustedGeneratedCodexBlogImage = isTrustedGeneratedCodexBlogImageUrl(
+    image.featured_image_url
+  );
+
+  if (
+    !isTrustedManagedBlogImageUrl(image.featured_image_url) &&
+    !isTrustedGeneratedCodexBlogImage
+  ) {
     return notReady('BLOG_FEATURED_IMAGE_NOT_MANAGED', {
       reason: 'unmanaged_featured_image',
     });
   }
 
-  const originalPath = extractManagedBlogStoragePath(
-    image.featured_image_url,
-    storageScope
-  );
-  if (!isManagedOriginalBlogPath(originalPath)) {
+  const originalPath = isTrustedGeneratedCodexBlogImage
+    ? null
+    : extractManagedBlogStoragePath(image.featured_image_url, storageScope);
+  if (
+    !isTrustedGeneratedCodexBlogImage &&
+    !isManagedOriginalBlogPath(originalPath)
+  ) {
     return notReady('BLOG_FEATURED_IMAGE_NOT_MANAGED', {
       reason: 'unmanaged_featured_image',
     });
@@ -197,7 +287,10 @@ export function validateBlogDiscoverImageReadiness(
     landscapeUrl,
     storageScope
   );
-  if (!isManagedVariantBlogPath(landscapePath)) {
+  if (
+    !isManagedVariantBlogPath(landscapePath) &&
+    !isTrustedGeneratedCodexBlogVariantUrl(landscapeUrl, 'landscape_16x9')
+  ) {
     return notReady('BLOG_FEATURED_IMAGE_VARIANT_NOT_MANAGED', {
       variantKey: 'landscape_16x9',
     });

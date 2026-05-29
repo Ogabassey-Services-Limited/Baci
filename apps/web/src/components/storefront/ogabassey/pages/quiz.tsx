@@ -286,7 +286,12 @@ export function OgabasseyV2Quiz({ merchantSlug }: OgabasseyV2QuizProps) {
             <p className="mt-2 text-sm text-store-background-text/70">
               {result.prizeEligible ? 'Prize entry recorded.' : 'Practice result recorded.'}
             </p>
-            <button type="button" onClick={() => void loadEvents()} className={`mt-5 ${secondaryButton}`}>Back to quizzes</button>
+            {result.prizeClaim ? (
+              <Link href={asRoute(result.prizeClaim.cartPath)} className={`mt-5 inline-flex items-center justify-center ${primaryButton}`}>
+                Add gift to cart
+              </Link>
+            ) : null}
+            <button type="button" onClick={() => void loadEvents()} className={`${result.prizeClaim ? 'ml-0 mt-3 block' : 'mt-5'} ${secondaryButton}`}>Back to quizzes</button>
           </section>
         ) : null}
       </div>
