@@ -1,21 +1,22 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
-import { router, Stack, useLocalSearchParams } from "expo-router";
-import { useState } from "react";
-import { Alert, Pressable } from "react-native";
-import { BankTransferView } from "@/components/bank-transfer/BankTransferView";
-import { useColorScheme } from "@/components/useColorScheme";
-import Colors from "@/constants/Colors";
-import { WALLET_FUNDING_POLLING } from "@/constants/wallet-funding";
-import { useWalletFundingPolling } from "@/hooks/use-wallet-funding-polling";
-import { setClipboardString } from "@/lib/clipboard";
-import type { WalletOrderFundingIntent } from "@/lib/order-wallet-funding-intent";
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import Ionicons from '@react-native-vector-icons/ionicons';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
+import { useState } from 'react';
+import { Alert, Pressable } from 'react-native';
+import { BankTransferView } from '@/components/bank-transfer/BankTransferView';
+import { useColorScheme } from '@/components/useColorScheme';
+import Colors from '@/constants/Colors';
+import { WALLET_FUNDING_POLLING } from '@/constants/wallet-funding';
+import { useWalletFundingPolling } from '@/hooks/use-wallet-funding-polling';
+import { setClipboardString } from '@/lib/clipboard';
+import type { WalletOrderFundingIntent } from '@/lib/order-wallet-funding-intent';
 import {
-  BankTransferParamsSchema,
   type BankTransferParams,
+  BankTransferParamsSchema,
   type WalletFundedBankTransferParams,
   WalletFundedBankTransferParamsSchema,
-} from "@/schemas/bank-transfer-params";
-import { useCartStore } from "@/stores/cart-store";
+} from '@/schemas/bank-transfer-params';
+import { useCartStore } from '@/stores/cart-store';
 
 const copyToClipboard = async (text: string) => {
   return await setClipboardString(text);
@@ -24,10 +25,10 @@ const copyToClipboard = async (text: string) => {
 const HEADER_CLOSE_STYLE = { padding: 8 } as const;
 
 function getWalletFundedRemainingAmount(
-  intent: WalletOrderFundingIntent | null,
+  intent: WalletOrderFundingIntent | null
 ) {
   if (!intent) return undefined;
-  if (typeof intent.remainingAmount === "number") {
+  if (typeof intent.remainingAmount === 'number') {
     return intent.remainingAmount;
   }
   return Math.max(intent.expectedAmount - intent.fundedAmount, 0);
@@ -38,27 +39,27 @@ type ValidatedBankTransferParams =
       data: BankTransferParams;
       error: null;
       isValid: true;
-      mode: "legacy";
+      mode: 'legacy';
     }
   | {
       data: WalletFundedBankTransferParams;
       error: null;
       isValid: true;
-      mode: "wallet_funded";
+      mode: 'wallet_funded';
     }
   | {
       data: null;
       error: string;
       isValid: false;
-      mode: "legacy" | "wallet_funded";
+      mode: 'legacy' | 'wallet_funded';
     };
 
 function validateBankTransferParams(
-  params: Record<string, string>,
+  params: Record<string, string>
 ): ValidatedBankTransferParams {
   // `intentId` is a legacy deep-link fallback; an explicit walletFunded flag wins.
   const isWalletFunded =
-    params.walletFunded === "true" ||
+    params.walletFunded === 'true' ||
     (params.walletFunded === undefined && Boolean(params.intentId));
   if (isWalletFunded) {
     const result = WalletFundedBankTransferParamsSchema.safeParse(params);
@@ -67,35 +68,35 @@ function validateBankTransferParams(
           data: result.data,
           error: null,
           isValid: true,
-          mode: "wallet_funded" as const,
+          mode: 'wallet_funded' as const,
         }
       : {
           data: null,
-          error: result.error.issues[0]?.message || "Invalid parameters",
+          error: result.error.issues[0]?.message || 'Invalid parameters',
           isValid: false,
-          mode: "wallet_funded" as const,
+          mode: 'wallet_funded' as const,
         };
   }
   const result = BankTransferParamsSchema.safeParse(params);
   if (!result.success) {
     return {
       data: null,
-      error: result.error.issues[0]?.message || "Invalid parameters",
+      error: result.error.issues[0]?.message || 'Invalid parameters',
       isValid: false,
-      mode: "legacy" as const,
+      mode: 'legacy' as const,
     };
   }
   return {
     data: result.data,
     error: null,
     isValid: true,
-    mode: "legacy",
+    mode: 'legacy',
   };
 }
 
 export default function BankTransferScreen() {
   const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? "light"];
+  const colors = Colors[colorScheme ?? 'light'];
   const params = useLocalSearchParams<Record<string, string>>();
   const clearCart = useCartStore((state) => state.clearCart);
   const [copiedField, setCopiedField] = useState<string | null>(null);
@@ -104,7 +105,7 @@ export default function BankTransferScreen() {
   const validatedParams = validateBankTransferParams(params);
   const routeData = validatedParams.data;
   const walletRouteData =
-    validatedParams.isValid && validatedParams.mode === "wallet_funded"
+    validatedParams.isValid && validatedParams.mode === 'wallet_funded'
       ? validatedParams.data
       : null;
   const {
@@ -119,20 +120,30 @@ export default function BankTransferScreen() {
   const intentId = walletRouteData?.intentId;
   const merchantId = walletRouteData?.merchantId;
   const merchantSlug = walletRouteData?.merchantSlug;
-  const isWalletFunded = validatedParams.mode === "wallet_funded";
+  const isWalletFunded = validatedParams.mode === 'wallet_funded';
 
-  const routeToOrderSuccess = ({
+  const routeToOrderSuccess = async ({
     successReference,
   }: {
     successReference?: string;
   }) => {
     clearCart();
+    const persistOpts = useCartStore.persist.getOptions();
+    const partialize = persistOpts.partialize ?? ((state: unknown) => state);
+    const persistedState = partialize(useCartStore.getState());
+    await AsyncStorage.setItem(
+      persistOpts.name ?? 'cart-storage',
+      JSON.stringify({
+        state: persistedState,
+        version: persistOpts.version ?? 0,
+      })
+    );
     router.replace({
-      pathname: "/order-success",
+      pathname: '/order-success',
       params: {
         orderId,
-        orderNumber: orderNumber || "",
-        paymentMethod: "bank_transfer",
+        orderNumber: orderNumber || '',
+        paymentMethod: 'bank_transfer',
         ...(successReference ? { reference: successReference } : {}),
         ...(trackingToken && { trackingToken }),
       },
@@ -145,12 +156,12 @@ export default function BankTransferScreen() {
     merchantId,
     merchantSlug,
     onCompleted: (intent) => {
-      routeToOrderSuccess({ successReference: intent.id });
+      void routeToOrderSuccess({ successReference: intent.id });
     },
     onError: () => {
       Alert.alert(
-        "Unable to check payment status",
-        "Please try again in a moment."
+        'Unable to check payment status',
+        'Please try again in a moment.'
       );
     },
     pollIntervalMs: WALLET_FUNDING_POLLING.INTERVAL_MS,
@@ -182,21 +193,21 @@ export default function BankTransferScreen() {
       return;
     }
     setIsLegacySubmitting(true);
-    routeToOrderSuccess({});
+    void routeToOrderSuccess({});
   };
 
   const handleClose = () => {
     Alert.alert(
-      "Leave Payment?",
-      "Your order has been created. You can complete payment later using the account details sent to your email.",
+      'Leave Payment?',
+      'Your order has been created. You can complete payment later using the account details sent to your email.',
       [
-        { text: "Stay", style: "cancel" },
+        { text: 'Stay', style: 'cancel' },
         {
-          text: "Leave",
-          style: "destructive",
+          text: 'Leave',
+          style: 'destructive',
           onPress: () => router.back(),
         },
-      ],
+      ]
     );
   };
 
@@ -206,7 +217,7 @@ export default function BankTransferScreen() {
         options={
           validatedParams.isValid
             ? {
-                title: "Bank Transfer",
+                title: 'Bank Transfer',
                 headerShown: true,
                 headerLeft: () => (
                   <Pressable
@@ -235,11 +246,11 @@ export default function BankTransferScreen() {
         mode={validatedParams.mode}
         onBack={() => router.back()}
         onConfirmTransfer={handleConfirmTransfer}
-        onCopyAccountName={() => handleCopyIfPresent(accountName, "name")}
+        onCopyAccountName={() => handleCopyIfPresent(accountName, 'name')}
         onCopyAccountNumber={() =>
-          handleCopyIfPresent(accountNumber, "account")
+          handleCopyIfPresent(accountNumber, 'account')
         }
-        onCopyBankName={() => handleCopyIfPresent(bankName, "bank")}
+        onCopyBankName={() => handleCopyIfPresent(bankName, 'bank')}
         orderNumber={orderNumber}
         pollingTimedOut={walletFundingPolling.timedOut}
         remainingAmount={getWalletFundedRemainingAmount(

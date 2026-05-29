@@ -11,9 +11,16 @@ import { Alert } from 'react-native';
 import BankTransferScreen from '@/app/bank-transfer';
 
 const mockClearCart = jest.fn();
-const mockGetOrderWalletFundingIntent = jest.fn<
-  (...args: unknown[]) => Promise<unknown>
->();
+const mockAsyncStorageSetItem = jest.fn<
+  (key: string, value: string) => Promise<void>
+>(() => Promise.resolve());
+const mockGetOrderWalletFundingIntent =
+  jest.fn<(...args: unknown[]) => Promise<unknown>>();
+const mockCartState = {
+  clearCart: mockClearCart,
+  items: [],
+  lineSequence: 0,
+};
 let mockSearchParams: Record<string, string> = {
   accountName: 'Baci Store',
   accountNumber: '1234567890',
@@ -37,11 +44,7 @@ jest.mock('expo-router', () => ({
 }));
 
 jest.mock('react-native-safe-area-context', () => ({
-  SafeAreaView: ({
-    children,
-  }: {
-    children?: React.ReactNode;
-  }) => {
+  SafeAreaView: ({ children }: { children?: React.ReactNode }) => {
     const { View } =
       jest.requireActual<typeof import('react-native')>('react-native');
 
@@ -62,14 +65,38 @@ jest.mock('@/lib/order-wallet-funding-intent', () => ({
     mockGetOrderWalletFundingIntent(...args),
 }));
 
+jest.mock('@react-native-async-storage/async-storage', () => ({
+  __esModule: true,
+  default: {
+    setItem: (key: string, value: string) =>
+      mockAsyncStorageSetItem(key, value),
+  },
+}));
+
 jest.mock('@/stores/cart-store', () => ({
-  useCartStore: (selector: (state: { clearCart: () => void }) => unknown) =>
-    selector({ clearCart: mockClearCart }),
+  useCartStore: Object.assign(
+    (selector: (state: typeof mockCartState) => unknown) =>
+      selector(mockCartState),
+    {
+      getState: jest.fn(() => mockCartState),
+      persist: {
+        getOptions: jest.fn(() => ({
+          name: 'cart-storage',
+          partialize: (state: typeof mockCartState) => ({
+            items: state.items,
+            lineSequence: state.lineSequence,
+          }),
+          version: 0,
+        })),
+      },
+    }
+  ),
 }));
 
 describe('BankTransferScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockAsyncStorageSetItem.mockResolvedValue(undefined);
     mockGetOrderWalletFundingIntent.mockResolvedValue({
       intent: {
         currency: 'NGN',
@@ -96,7 +123,7 @@ describe('BankTransferScreen', () => {
     };
   });
 
-  it('preserves tracking token when routing to order success', () => {
+  it('preserves tracking token when routing to order success', async () => {
     render(<BankTransferScreen />);
 
     fireEvent.press(
@@ -104,18 +131,27 @@ describe('BankTransferScreen', () => {
     );
 
     expect(mockClearCart).toHaveBeenCalledTimes(1);
-    expect(router.replace).toHaveBeenCalledWith({
-      pathname: '/order-success',
-      params: {
-        orderId: 'order-123',
-        orderNumber: 'ORD-123',
-        paymentMethod: 'bank_transfer',
-        trackingToken: 'track-token-123',
-      },
+    await waitFor(() => {
+      expect(mockAsyncStorageSetItem).toHaveBeenCalledWith(
+        'cart-storage',
+        JSON.stringify({
+          state: { items: [], lineSequence: 0 },
+          version: 0,
+        })
+      );
+      expect(router.replace).toHaveBeenCalledWith({
+        pathname: '/order-success',
+        params: {
+          orderId: 'order-123',
+          orderNumber: 'ORD-123',
+          paymentMethod: 'bank_transfer',
+          trackingToken: 'track-token-123',
+        },
+      });
     });
   });
 
-  it('omits tracking token when routing order success without a token', () => {
+  it('omits tracking token when routing order success without a token', async () => {
     mockSearchParams = {
       accountName: 'Baci Store',
       accountNumber: '1234567890',
@@ -133,13 +169,15 @@ describe('BankTransferScreen', () => {
     );
 
     expect(mockClearCart).toHaveBeenCalledTimes(1);
-    expect(router.replace).toHaveBeenCalledWith({
-      pathname: '/order-success',
-      params: {
-        orderId: 'order-123',
-        orderNumber: 'ORD-123',
-        paymentMethod: 'bank_transfer',
-      },
+    await waitFor(() => {
+      expect(router.replace).toHaveBeenCalledWith({
+        pathname: '/order-success',
+        params: {
+          orderId: 'order-123',
+          orderNumber: 'ORD-123',
+          paymentMethod: 'bank_transfer',
+        },
+      });
     });
   });
 
@@ -182,7 +220,9 @@ describe('BankTransferScreen', () => {
 
     expect(mockClearCart).not.toHaveBeenCalled();
 
-    await screen.findByText('We will fund your wallet and pay this order automatically.');
+    await screen.findByText(
+      'We will fund your wallet and pay this order automatically.'
+    );
 
     await waitFor(() => {
       expect(mockGetOrderWalletFundingIntent).toHaveBeenCalledWith({
@@ -205,7 +245,9 @@ describe('BankTransferScreen', () => {
   });
 
   it('keeps wallet-funded transfers on screen when status polling fails', async () => {
-    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const warnSpy = jest
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
     mockGetOrderWalletFundingIntent.mockRejectedValueOnce(new Error('fail'));
     mockSearchParams = {
       accountName: 'Ogabassey Jane',
@@ -222,7 +264,9 @@ describe('BankTransferScreen', () => {
     render(<BankTransferScreen />);
 
     expect(
-      await screen.findByText('We will fund your wallet and pay this order automatically.')
+      await screen.findByText(
+        'We will fund your wallet and pay this order automatically.'
+      )
     ).toBeTruthy();
     await waitFor(() => {
       expect(mockGetOrderWalletFundingIntent).toHaveBeenCalled();
@@ -234,8 +278,12 @@ describe('BankTransferScreen', () => {
   });
 
   it('shows immediate feedback when manual wallet-funded status check fails', async () => {
-    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
-    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    const warnSpy = jest
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+    const alertSpy = jest
+      .spyOn(Alert, 'alert')
+      .mockImplementation(() => undefined);
     mockGetOrderWalletFundingIntent.mockRejectedValue(new Error('fail'));
     mockSearchParams = {
       accountName: 'Ogabassey Jane',

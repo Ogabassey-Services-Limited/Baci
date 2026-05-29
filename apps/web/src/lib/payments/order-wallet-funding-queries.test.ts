@@ -44,6 +44,7 @@ describe('order wallet funding payment queries', () => {
     );
     expect(orderQuery.eq).toHaveBeenCalledWith('id', 'order-1');
     expect(orderQuery.eq).toHaveBeenCalledWith('merchant_id', 'merchant-1');
+    expect(orderQuery.eq).toHaveBeenCalledWith('payment_status', 'paid');
   });
 
   it('rejects malformed paid order rows before side effects run', async () => {

@@ -20,6 +20,7 @@ describe('order wallet funding intent repository errors', () => {
       reason: 'ambiguous',
     });
     expect(supabase.from).not.toHaveBeenCalled();
+    expect(supabase.rpc).not.toHaveBeenCalled();
 
     await repository.markWalletFundingIntentReviewRequired({
       gatewayReference: 'PSK_REF_1',
@@ -64,7 +65,6 @@ describe('order wallet funding intent repository errors', () => {
         customerId: 'customer-1',
         expectedAmount: 15_000,
         expiresAt: '2026-05-26T12:30:00.000Z',
-        idempotencyKey: 'ignored-by-rpc',
         merchantId: 'merchant-1',
         orderId: 'order-1',
         targetOrderAmount: 18_000,

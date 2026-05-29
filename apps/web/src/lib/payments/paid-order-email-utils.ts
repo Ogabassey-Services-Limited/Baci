@@ -5,6 +5,7 @@ import type {
 import { toNumber } from '@/lib/payments/paid-order-side-effect-utils';
 
 const MAX_URL_LENGTH = 2048;
+const BASIC_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export const PAID_ORDER_EMAIL_FALLBACK_ROOT_DOMAIN = 'usebaci.com';
 export const SUPABASE_ROW_NOT_FOUND_CODE = 'PGRST116';
@@ -33,7 +34,7 @@ export function normalizeHttpsUrl(
   }
 }
 
-function normalizeRootDomain(rootDomain: string): string {
+export function normalizeRootDomain(rootDomain: string): string {
   const normalizedUrl = normalizeHttpsUrl(rootDomain);
   if (!normalizedUrl) return PAID_ORDER_EMAIL_FALLBACK_ROOT_DOMAIN;
 
@@ -48,13 +49,44 @@ function normalizeRootDomain(rootDomain: string): string {
   }
 }
 
-function normalizeMerchantSlug(slug: string | null | undefined): string | null {
+export function normalizeMerchantSlug(
+  slug: string | null | undefined
+): string | null {
   const trimmed = slug?.trim().toLowerCase();
   if (!trimmed) return null;
   if (!/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(trimmed)) {
     return null;
   }
   return trimmed;
+}
+
+function normalizeEmailAddress(
+  value: string | null | undefined
+): string | null {
+  const trimmed = value?.trim();
+  if (!trimmed || !BASIC_EMAIL_PATTERN.test(trimmed)) {
+    return null;
+  }
+  return trimmed;
+}
+
+export function resolveMerchantReplyTo({
+  merchantDetails,
+  rootDomain,
+}: {
+  merchantDetails: MerchantDetails;
+  rootDomain: string;
+}) {
+  const explicitReplyTo =
+    normalizeEmailAddress(merchantDetails.support_email) ??
+    normalizeEmailAddress(merchantDetails.email);
+  if (explicitReplyTo) return explicitReplyTo;
+
+  const rootHost = normalizeRootDomain(rootDomain);
+  const merchantSlug = normalizeMerchantSlug(merchantDetails.slug);
+  return merchantSlug
+    ? `support@${merchantSlug}.${rootHost}`
+    : `support@${rootHost}`;
 }
 
 export function resolveMerchantUrl({

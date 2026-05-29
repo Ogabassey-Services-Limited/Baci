@@ -99,6 +99,16 @@ describe('normalizePaymentSettings', () => {
     });
   });
 
+  it('rejects negative VAT rates and falls back to the configured default', () => {
+    expect(
+      normalizePaymentSettings({
+        vat_rate: -5,
+      })
+    ).toMatchObject({
+      vat_rate: DEFAULT_FALLBACK_VAT_RATE_PERCENT,
+    });
+  });
+
   it('falls back when numeric helpers receive values that throw during parsing', () => {
     const throwingValue = {
       valueOf() {

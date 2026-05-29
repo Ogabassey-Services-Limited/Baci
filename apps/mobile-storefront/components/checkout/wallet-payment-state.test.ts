@@ -107,6 +107,20 @@ describe('getWalletPaymentState', () => {
     expect(state.portion).toBe(3000);
   });
 
+  it('keeps full wallet coverage selectable during wallet-funded bank transfer', () => {
+    const state = getWalletPaymentState({
+      ...baseInput,
+      selectedMethod: 'bank_transfer',
+      walletBalance: 5000,
+      walletFundedBankTransferMode: true,
+    });
+
+    expect(state.shouldRender).toBe(true);
+    expect(state.infoShouldRender).toBe(false);
+    expect(state.coversFully).toBe(true);
+    expect(state.residualToGateway).toBe(0);
+  });
+
   it('shows a status row while wallet balance is loading', () => {
     const state = getWalletPaymentState({
       ...baseInput,
@@ -115,6 +129,18 @@ describe('getWalletPaymentState', () => {
     });
 
     expect(state.shouldRender).toBe(false);
+    expect(state.statusShouldRender).toBe(true);
+  });
+
+  it('shows a status row while wallet balance has an error', () => {
+    const state = getWalletPaymentState({
+      ...baseInput,
+      walletError: new Error('wallet unavailable'),
+      walletIsLoading: false,
+    });
+
+    expect(state.shouldRender).toBe(false);
+    expect(state.infoShouldRender).toBe(false);
     expect(state.statusShouldRender).toBe(true);
   });
 

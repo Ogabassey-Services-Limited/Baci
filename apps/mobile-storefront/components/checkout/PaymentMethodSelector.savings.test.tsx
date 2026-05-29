@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import {
   PaymentMethodSelector,
@@ -12,15 +13,17 @@ jest.mock('@/components/useColorScheme', () => ({
   useColorScheme: () => 'dark',
 }));
 
+const noop = () => undefined;
+
 describe('PaymentMethodSelector', () => {
   describe('device savings row', () => {
     it('renders nothing savings-related without a funded matching goal', () => {
       render(
         <PaymentMethodSelector
           selectedMethod={'paystack' as PaymentMethodType}
-          onSelectMethod={() => {}}
+          onSelectMethod={noop}
           selectedTab="full"
-          onSelectTab={() => {}}
+          onSelectTab={noop}
           orderTotal={1000}
           savingsBalance={0}
           savingsGoalId="123e4567-e89b-12d3-a456-426614174555"
@@ -35,9 +38,9 @@ describe('PaymentMethodSelector', () => {
       render(
         <PaymentMethodSelector
           selectedMethod={'paystack' as PaymentMethodType}
-          onSelectMethod={() => {}}
+          onSelectMethod={noop}
           selectedTab="full"
-          onSelectTab={() => {}}
+          onSelectTab={noop}
           orderTotal={100000}
           savingsBalance={60000}
           savingsGoalId={null}
@@ -49,7 +52,7 @@ describe('PaymentMethodSelector', () => {
       );
 
       expect(
-        screen.getByRole('button', { name: /use wallet credit/i })
+        screen.getByRole('checkbox', { name: /use wallet credit/i })
       ).toBeTruthy();
     });
 
@@ -57,9 +60,9 @@ describe('PaymentMethodSelector', () => {
       render(
         <PaymentMethodSelector
           selectedMethod={'paystack' as PaymentMethodType}
-          onSelectMethod={() => {}}
+          onSelectMethod={noop}
           selectedTab="full"
-          onSelectTab={() => {}}
+          onSelectTab={noop}
           orderTotal={100000}
           savingsBalance={60000}
           savingsGoalId="123e4567-e89b-12d3-a456-426614174555"
@@ -76,9 +79,9 @@ describe('PaymentMethodSelector', () => {
       render(
         <PaymentMethodSelector
           selectedMethod={'paystack' as PaymentMethodType}
-          onSelectMethod={() => {}}
+          onSelectMethod={noop}
           selectedTab="full"
-          onSelectTab={() => {}}
+          onSelectTab={noop}
           orderTotal={100000}
           savingsBalance={60000}
           savingsFallbackTitle="phone savings"
@@ -95,9 +98,9 @@ describe('PaymentMethodSelector', () => {
       render(
         <PaymentMethodSelector
           selectedMethod={'bank_transfer' as PaymentMethodType}
-          onSelectMethod={() => {}}
+          onSelectMethod={noop}
           selectedTab="full"
-          onSelectTab={() => {}}
+          onSelectTab={noop}
           orderTotal={100000}
           savingsBalance={160000}
           savingsGoalId="123e4567-e89b-12d3-a456-426614174555"
@@ -119,9 +122,9 @@ describe('PaymentMethodSelector', () => {
       render(
         <PaymentMethodSelector
           selectedMethod={'paystack' as PaymentMethodType}
-          onSelectMethod={() => {}}
+          onSelectMethod={noop}
           selectedTab="full"
-          onSelectTab={() => {}}
+          onSelectTab={noop}
           orderTotal={100000}
           savingsBalance={60000}
           savingsGoalId="123e4567-e89b-12d3-a456-426614174555"
@@ -147,9 +150,9 @@ describe('PaymentMethodSelector', () => {
       render(
         <PaymentMethodSelector
           selectedMethod={'paystack' as PaymentMethodType}
-          onSelectMethod={() => {}}
+          onSelectMethod={noop}
           selectedTab="full"
-          onSelectTab={() => {}}
+          onSelectTab={noop}
           orderTotal={100000}
           savingsBalance={60000}
           savingsGoalId="current-goal"
@@ -178,9 +181,9 @@ describe('PaymentMethodSelector', () => {
       render(
         <PaymentMethodSelector
           selectedMethod={'pay_on_delivery' as PaymentMethodType}
-          onSelectMethod={() => {}}
+          onSelectMethod={noop}
           selectedTab="full"
-          onSelectTab={() => {}}
+          onSelectTab={noop}
           orderTotal={100000}
           savingsBalance={60000}
           savingsGoalId="123e4567-e89b-12d3-a456-426614174555"

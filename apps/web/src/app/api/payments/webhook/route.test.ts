@@ -908,7 +908,7 @@ describe('POST /api/payments/webhook', () => {
                   order_id: 'order-123',
                   amount: '1000',
                   currency: 'NGN',
-                  gateway_reference: 'REF123',
+                  gateway_reference: 'BAC-REF123',
                   metadata: {
                     transaction_type: 'agentic_checkout_payment',
                   },
@@ -1008,7 +1008,7 @@ describe('POST /api/payments/webhook', () => {
                   order_id: 'order-123',
                   amount: '1000',
                   currency: 'NGN',
-                  gateway_reference: 'REF123',
+                  gateway_reference: 'BAC-REF123',
                   metadata: {
                     transaction_type: 'agentic_checkout_payment',
                   },
@@ -2528,7 +2528,7 @@ describe('POST /api/payments/webhook', () => {
                   order_id: 'order-123',
                   amount: '1000',
                   currency: 'NGN',
-                  gateway_reference: 'REF123',
+                  gateway_reference: 'BAC-REF123',
                   status: 'pending',
                   metadata: {},
                 },
@@ -2627,15 +2627,15 @@ describe('POST /api/payments/webhook', () => {
       });
 
       // Review feedback: assert the shared side-effect runner receives the
-      // BAC-* canonical key (Δ-22) and settlement gateway. The runner owns the
-      // actual record_merchant_settlement RPC now so wallet-funded orders can
-      // reuse the same behavior.
+      // BAC-* canonical key and the external gateway reference separately. The
+      // runner owns the actual record_merchant_settlement RPC now so
+      // wallet-funded orders can reuse the same behavior.
       expect(mockRunPaidOrderSideEffects).toHaveBeenCalledWith(
         expect.objectContaining({
           externalGatewayReference: 'REF123',
           settlementGateway: 'korapay',
           transaction: expect.objectContaining({
-            gateway_reference: 'REF123',
+            gateway_reference: 'BAC-REF123',
           }),
         })
       );

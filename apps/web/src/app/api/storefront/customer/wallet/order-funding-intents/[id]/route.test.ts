@@ -51,6 +51,9 @@ const customer = {
   phone: '+2348012345678',
 };
 
+const intentId = '11111111-1111-4111-8111-111111111111';
+const orderId = '22222222-2222-4222-8222-222222222222';
+
 const intent = {
   currency: 'NGN',
   debitedAmount: 0,
@@ -58,8 +61,8 @@ const intent = {
   excessAmount: 0,
   expiresAt: '2026-05-26T12:30:00.000Z',
   fundedAmount: 10_000,
-  id: 'intent-1',
-  orderId: 'order-1',
+  id: intentId,
+  orderId,
   status: 'pending',
   targetOrderAmount: 18_000,
 };
@@ -91,9 +94,9 @@ describe('/api/storefront/customer/wallet/order-funding-intents/[id]', () => {
 
     const response = await GET(
       getRequest(
-        'http://localhost:3000/api/storefront/customer/wallet/order-funding-intents/intent-1?merchantSlug=ogabassey'
+        `http://localhost:3000/api/storefront/customer/wallet/order-funding-intents/${intentId}?merchantSlug=ogabassey`
       ),
-      { params: Promise.resolve({ id: 'intent-1' }) }
+      { params: Promise.resolve({ id: intentId }) }
     );
 
     expect(response.status).toBe(401);
@@ -103,21 +106,43 @@ describe('/api/storefront/customer/wallet/order-funding-intents/[id]', () => {
   it('rejects a missing merchant identifier', async () => {
     const response = await GET(
       getRequest(
-        'http://localhost:3000/api/storefront/customer/wallet/order-funding-intents/intent-1'
+        `http://localhost:3000/api/storefront/customer/wallet/order-funding-intents/${intentId}`
       ),
-      { params: Promise.resolve({ id: 'intent-1' }) }
+      { params: Promise.resolve({ id: intentId }) }
     );
+    const body = await response.json();
 
     expect(response.status).toBe(400);
+    expect(body).toEqual({ code: 'INVALID_QUERY', error: 'Invalid query' });
+    expect(body.details).toBeUndefined();
     expect(mockResolveWalletTopUpMerchant).not.toHaveBeenCalled();
+  });
+
+  it('rejects an invalid intent id before merchant or database work', async () => {
+    const response = await GET(
+      getRequest(
+        'http://localhost:3000/api/storefront/customer/wallet/order-funding-intents/not-a-uuid?merchantSlug=ogabassey'
+      ),
+      { params: Promise.resolve({ id: 'not-a-uuid' }) }
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({
+      code: 'INVALID_INTENT_ID',
+      error: 'Invalid intent id',
+    });
+    expect(mockResolveWalletTopUpMerchant).not.toHaveBeenCalled();
+    expect(mockExpireStaleWalletFundingIntents).not.toHaveBeenCalled();
+    expect(mockGetOrderWalletFundingIntent).not.toHaveBeenCalled();
   });
 
   it('returns the scoped intent for the authenticated customer', async () => {
     const response = await GET(
       getRequest(
-        'http://localhost:3000/api/storefront/customer/wallet/order-funding-intents/intent-1?merchantSlug=ogabassey'
+        `http://localhost:3000/api/storefront/customer/wallet/order-funding-intents/${intentId}?merchantSlug=ogabassey`
       ),
-      { params: Promise.resolve({ id: 'intent-1' }) }
+      { params: Promise.resolve({ id: intentId }) }
     );
     const body = await response.json();
 
@@ -131,7 +156,7 @@ describe('/api/storefront/customer/wallet/order-funding-intents/[id]', () => {
     expect(mockGetOrderWalletFundingIntent).toHaveBeenCalledWith(
       expect.objectContaining({
         customerId: 'customer-1',
-        id: 'intent-1',
+        id: intentId,
         merchantId: 'merchant-1',
       })
     );
@@ -147,9 +172,9 @@ describe('/api/storefront/customer/wallet/order-funding-intents/[id]', () => {
 
     const response = await GET(
       getRequest(
-        'http://localhost:3000/api/storefront/customer/wallet/order-funding-intents/intent-1?merchantSlug=ogabassey'
+        `http://localhost:3000/api/storefront/customer/wallet/order-funding-intents/${intentId}?merchantSlug=ogabassey`
       ),
-      { params: Promise.resolve({ id: 'intent-1' }) }
+      { params: Promise.resolve({ id: intentId }) }
     );
 
     expect(response.status).toBe(404);
@@ -160,9 +185,9 @@ describe('/api/storefront/customer/wallet/order-funding-intents/[id]', () => {
 
     const response = await GET(
       getRequest(
-        'http://localhost:3000/api/storefront/customer/wallet/order-funding-intents/intent-1?merchantSlug=missing'
+        `http://localhost:3000/api/storefront/customer/wallet/order-funding-intents/${intentId}?merchantSlug=missing`
       ),
-      { params: Promise.resolve({ id: 'intent-1' }) }
+      { params: Promise.resolve({ id: intentId }) }
     );
 
     expect(response.status).toBe(404);
@@ -175,9 +200,9 @@ describe('/api/storefront/customer/wallet/order-funding-intents/[id]', () => {
 
     const response = await GET(
       getRequest(
-        'http://localhost:3000/api/storefront/customer/wallet/order-funding-intents/intent-1?merchantSlug=ogabassey'
+        `http://localhost:3000/api/storefront/customer/wallet/order-funding-intents/${intentId}?merchantSlug=ogabassey`
       ),
-      { params: Promise.resolve({ id: 'intent-1' }) }
+      { params: Promise.resolve({ id: intentId }) }
     );
     const body = await response.json();
 
@@ -193,9 +218,9 @@ describe('/api/storefront/customer/wallet/order-funding-intents/[id]', () => {
 
     const response = await GET(
       getRequest(
-        'http://localhost:3000/api/storefront/customer/wallet/order-funding-intents/intent-1?merchantSlug=ogabassey'
+        `http://localhost:3000/api/storefront/customer/wallet/order-funding-intents/${intentId}?merchantSlug=ogabassey`
       ),
-      { params: Promise.resolve({ id: 'intent-1' }) }
+      { params: Promise.resolve({ id: intentId }) }
     );
 
     expect(response.status).toBe(500);
@@ -209,9 +234,9 @@ describe('/api/storefront/customer/wallet/order-funding-intents/[id]', () => {
 
     const response = await GET(
       getRequest(
-        'http://localhost:3000/api/storefront/customer/wallet/order-funding-intents/intent-1?merchantSlug=ogabassey'
+        `http://localhost:3000/api/storefront/customer/wallet/order-funding-intents/${intentId}?merchantSlug=ogabassey`
       ),
-      { params: Promise.resolve({ id: 'intent-1' }) }
+      { params: Promise.resolve({ id: intentId }) }
     );
 
     expect(response.status).toBe(500);

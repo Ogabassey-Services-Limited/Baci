@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import {
   PaymentMethodSelector,
@@ -14,6 +15,8 @@ jest.mock('@/components/useColorScheme', () => ({
   useColorScheme: () => mockColorScheme,
 }));
 
+const noop = () => undefined;
+
 function queryWalletControl() {
   return (
     screen.queryByRole('button', { name: /wallet/i }) ??
@@ -23,11 +26,11 @@ function queryWalletControl() {
 }
 
 function getPartialWalletControl() {
-  return screen.getByRole('button', { name: /use wallet credit/i });
+  return screen.getByRole('checkbox', { name: /use wallet credit/i });
 }
 
 function getFullWalletControl() {
-  return screen.getByRole('button', { name: /pay with wallet/i });
+  return screen.getByRole('radio', { name: /pay with wallet/i });
 }
 
 describe('PaymentMethodSelector', () => {
@@ -42,9 +45,9 @@ describe('PaymentMethodSelector', () => {
       render(
         <PaymentMethodSelector
           selectedMethod={'paystack' as PaymentMethodType}
-          onSelectMethod={() => {}}
+          onSelectMethod={noop}
           selectedTab="full"
-          onSelectTab={() => {}}
+          onSelectTab={noop}
           orderTotal={1000}
           walletBalance={800}
           walletOrderTotal={1000}
@@ -61,9 +64,9 @@ describe('PaymentMethodSelector', () => {
       render(
         <PaymentMethodSelector
           selectedMethod={'paystack' as PaymentMethodType}
-          onSelectMethod={() => {}}
+          onSelectMethod={noop}
           selectedTab="full"
-          onSelectTab={() => {}}
+          onSelectTab={noop}
           orderTotal={1000}
           walletMode="orders"
           walletBalance={0}
@@ -80,9 +83,9 @@ describe('PaymentMethodSelector', () => {
       render(
         <PaymentMethodSelector
           selectedMethod={'paystack' as PaymentMethodType}
-          onSelectMethod={() => {}}
+          onSelectMethod={noop}
           selectedTab="full"
-          onSelectTab={() => {}}
+          onSelectTab={noop}
           orderTotal={1000}
           walletMode="orders"
           walletBalance={800}
@@ -101,9 +104,9 @@ describe('PaymentMethodSelector', () => {
       render(
         <PaymentMethodSelector
           selectedMethod={'paystack' as PaymentMethodType}
-          onSelectMethod={() => {}}
+          onSelectMethod={noop}
           selectedTab="full"
-          onSelectTab={() => {}}
+          onSelectTab={noop}
           orderTotal={1000}
           walletMode="orders"
           walletBalance={1500}
@@ -123,9 +126,9 @@ describe('PaymentMethodSelector', () => {
       render(
         <PaymentMethodSelector
           selectedMethod={'paystack' as PaymentMethodType}
-          onSelectMethod={() => {}}
+          onSelectMethod={noop}
           selectedTab="full"
-          onSelectTab={() => {}}
+          onSelectTab={noop}
           orderTotal={1000}
           walletMode="orders"
           walletBalance={800}
@@ -145,9 +148,9 @@ describe('PaymentMethodSelector', () => {
       render(
         <PaymentMethodSelector
           selectedMethod={'paystack' as PaymentMethodType}
-          onSelectMethod={() => {}}
+          onSelectMethod={noop}
           selectedTab="full"
-          onSelectTab={() => {}}
+          onSelectTab={noop}
           orderTotal={1000}
           walletMode="orders"
           walletBalance={1500}
@@ -169,9 +172,9 @@ describe('PaymentMethodSelector', () => {
       render(
         <PaymentMethodSelector
           selectedMethod={'credit_direct' as PaymentMethodType}
-          onSelectMethod={() => {}}
+          onSelectMethod={noop}
           selectedTab="installments"
-          onSelectTab={() => {}}
+          onSelectTab={noop}
           orderTotal={120000}
           walletMode="orders"
           walletBalance={5000}
@@ -186,9 +189,9 @@ describe('PaymentMethodSelector', () => {
       render(
         <PaymentMethodSelector
           selectedMethod={'invoice' as PaymentMethodType}
-          onSelectMethod={() => {}}
+          onSelectMethod={noop}
           selectedTab="pay_later"
-          onSelectTab={() => {}}
+          onSelectTab={noop}
           orderTotal={5000}
           walletMode="orders"
           walletBalance={5000}
@@ -206,9 +209,9 @@ describe('PaymentMethodSelector', () => {
       render(
         <PaymentMethodSelector
           selectedMethod={method as PaymentMethodType}
-          onSelectMethod={() => {}}
+          onSelectMethod={noop}
           selectedTab="full"
-          onSelectTab={() => {}}
+          onSelectTab={noop}
           orderTotal={5000}
           walletMode="orders"
           walletBalance={3000}
@@ -227,9 +230,9 @@ describe('PaymentMethodSelector', () => {
       render(
         <PaymentMethodSelector
           selectedMethod={method as PaymentMethodType}
-          onSelectMethod={() => {}}
+          onSelectMethod={noop}
           selectedTab="full"
-          onSelectTab={() => {}}
+          onSelectTab={noop}
           orderTotal={5000}
           walletMode="orders"
           walletBalance={3000}
@@ -255,13 +258,13 @@ describe('PaymentMethodSelector', () => {
           selectedMethod={'paystack' as PaymentMethodType}
           onSelectMethod={onSelectMethod}
           selectedTab="full"
-          onSelectTab={() => {}}
+          onSelectTab={noop}
           orderTotal={1000}
           walletMode="orders"
           walletBalance={1500}
           walletOrderTotal={1000}
           walletSelection={{ use: true, amount: 1000 }}
-          onWalletToggle={() => {}}
+          onWalletToggle={noop}
         />
       );
 
@@ -278,9 +281,9 @@ describe('PaymentMethodSelector', () => {
       render(
         <PaymentMethodSelector
           selectedMethod={'paystack' as PaymentMethodType}
-          onSelectMethod={() => {}}
+          onSelectMethod={noop}
           selectedTab="full"
-          onSelectTab={() => {}}
+          onSelectTab={noop}
           orderTotal={1000}
           walletMode="orders"
           walletBalance={800}

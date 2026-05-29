@@ -94,7 +94,7 @@ export function WalletPayment({
           borderColor: state.isActive ? BRAND.primary : colors.border,
         },
       ]}
-      accessibilityRole="button"
+      accessibilityRole={state.coversFully ? 'radio' : 'checkbox'}
       accessibilityState={{
         checked: state.isActive,
         disabled: !onWalletToggle,

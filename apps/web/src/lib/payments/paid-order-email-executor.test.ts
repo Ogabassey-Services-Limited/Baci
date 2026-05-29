@@ -159,6 +159,28 @@ describe('buildEmailExecutor', () => {
     );
   });
 
+  it('ignores invalid reply-to source fields before generating a fallback', async () => {
+    await expect(
+      buildEmailExecutor({
+        actor: 'webhook:paystack',
+        merchantDetails: {
+          ...merchantDetails,
+          email: 'not-an-email',
+          slug: 'bad slug!',
+          support_email: 'also-invalid',
+        },
+        merchantFetchError: null,
+        order: richOrder,
+      })(stepContext)
+    ).resolves.toEqual({ messageId: 'msg-1' });
+
+    expect(mocks.sendEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        replyTo: 'support@usebaci.test',
+      })
+    );
+  });
+
   it('throws on merchant fetch, invalid payload, and send failures', async () => {
     await expect(
       buildEmailExecutor({

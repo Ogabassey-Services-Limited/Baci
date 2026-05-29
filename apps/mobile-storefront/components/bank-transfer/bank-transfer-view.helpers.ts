@@ -1,11 +1,11 @@
-import { walletOrderFundingIntentStatusSchema } from "@/schemas/order-wallet-funding-intent";
-import type { z } from "zod";
+import type { z } from 'zod';
+import type { walletOrderFundingIntentStatusSchema } from '@/schemas/order-wallet-funding-intent';
 
 export type WalletFundingStatus = z.infer<
   typeof walletOrderFundingIntentStatusSchema
 >;
 
-const NAIRA_LOCALE = "en-NG";
+const NAIRA_LOCALE = 'en-NG';
 
 export function formatNairaAmount(amount?: string) {
   if (!amount) return null;
@@ -15,7 +15,7 @@ export function formatNairaAmount(amount?: string) {
 }
 
 function formatNairaValue(amount?: number) {
-  if (typeof amount !== "number" || !Number.isFinite(amount)) return null;
+  if (typeof amount !== 'number' || !Number.isFinite(amount)) return null;
   return `₦${amount.toLocaleString(NAIRA_LOCALE)}`;
 }
 
@@ -28,55 +28,55 @@ export function getWalletFundingStatusCopy({
   remainingAmount?: number;
   status?: WalletFundingStatus;
 }) {
-  if (status === "underfunded") {
+  if (status === 'underfunded') {
     const formattedAmount = formatNairaValue(remainingAmount);
     if (!formattedAmount) {
       return {
-        title: "Additional payment needed",
+        title: 'Additional payment needed',
         message:
-          "Additional payment is needed, but we could not confirm the exact amount. Please add funds or contact support.",
-        icon: "alert-circle-outline" as const,
+          'Additional payment is needed, but we could not confirm the exact amount. Please add funds or contact support.',
+        icon: 'alert-circle-outline' as const,
       };
     }
     return {
-      title: "Transfer remaining amount",
+      title: 'Transfer remaining amount',
       message: `${formattedAmount} still needed`,
-      icon: "alert-circle-outline" as const,
+      icon: 'alert-circle-outline' as const,
     };
   }
 
-  if (status === "review_required") {
+  if (status === 'review_required') {
     return {
-      title: "Transfer under review",
+      title: 'Transfer under review',
       message: orderNumber
         ? `Support is reviewing payment for order ${orderNumber}.`
-        : "Support is reviewing payment for this order.",
-      icon: "help-circle-outline" as const,
+        : 'Support is reviewing payment for this order.',
+      icon: 'help-circle-outline' as const,
     };
   }
 
-  if (status === "failed") {
+  if (status === 'failed') {
     return {
-      title: "Payment failed",
+      title: 'Payment failed',
       message:
-        "Unable to process this payment. Please contact support or try again.",
-      icon: "close-circle-outline" as const,
+        'Unable to process this payment. Please contact support or try again.',
+      icon: 'close-circle-outline' as const,
     };
   }
 
-  if (status === "expired" || status === "cancelled") {
+  if (status === 'expired' || status === 'cancelled') {
     return {
-      title: "Payment window expired",
-      message: "Please restart checkout to generate fresh payment details.",
-      icon: "time-outline" as const,
+      title: 'Payment window expired',
+      message: 'Please restart checkout to generate fresh payment details.',
+      icon: 'time-outline' as const,
     };
   }
 
-  if (status === "completed") {
+  if (status === 'completed') {
     return {
-      title: "Payment confirmed",
-      message: "Your wallet funded this order successfully.",
-      icon: "checkmark-circle-outline" as const,
+      title: 'Payment confirmed',
+      message: 'Your wallet funded this order successfully.',
+      icon: 'checkmark-circle-outline' as const,
     };
   }
 
@@ -94,23 +94,20 @@ export function getDisplayStatusCopy({
   remainingAmount?: number;
   walletFundingStatus?: WalletFundingStatus;
 }) {
-  if (walletFundingStatus === "completed") {
-    return getWalletFundingStatusCopy({
-      orderNumber,
-      remainingAmount,
-      status: walletFundingStatus,
-    });
-  }
-  if (pollingTimedOut) {
-    return {
-      icon: "refresh-circle-outline" as const,
-      message: "Tap check payment status to refresh, or contact support.",
-      title: "Auto-check stopped",
-    };
-  }
-  return getWalletFundingStatusCopy({
+  const statusCopy = getWalletFundingStatusCopy({
     orderNumber,
     remainingAmount,
     status: walletFundingStatus,
   });
+  if (statusCopy) {
+    return statusCopy;
+  }
+  if (pollingTimedOut) {
+    return {
+      icon: 'refresh-circle-outline' as const,
+      message: 'Tap check payment status to refresh, or contact support.',
+      title: 'Auto-check stopped',
+    };
+  }
+  return null;
 }

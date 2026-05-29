@@ -1,10 +1,10 @@
 import {
   createOrderWalletFundingIntent,
   type WalletOrderFundingIntentCreateResponse,
-} from "@/lib/order-wallet-funding-intent";
-import { createWalletFundingAccount } from "@/lib/wallet-funding-account";
+} from '@/lib/order-wallet-funding-intent';
+import { createWalletFundingAccount } from '@/lib/wallet-funding-account';
 
-export const WALLET_CONSENT_DENIED = "WALLET_CONSENT_DENIED";
+export const WALLET_CONSENT_DENIED = 'WALLET_CONSENT_DENIED';
 
 export interface WalletFundedBankTransferFallback {
   code?: string;
@@ -14,16 +14,28 @@ export interface WalletFundedBankTransferFallback {
 }
 
 export function getWalletFundingErrorDetails(error: unknown) {
-  const code = typeof error === "object" &&
+  const code =
+    typeof error === 'object' &&
     error !== null &&
-    "code" in error &&
-    typeof (error as { code?: unknown }).code === "string"
-    ? (error as { code: string }).code
-    : undefined;
+    'code' in error &&
+    typeof (error as { code?: unknown }).code === 'string'
+      ? (error as { code: string }).code
+      : undefined;
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === 'string'
+        ? error
+        : typeof error === 'object' &&
+            error !== null &&
+            'message' in error &&
+            typeof (error as { message?: unknown }).message === 'string'
+          ? (error as { message: string }).message
+          : 'Unknown error';
   return {
     code,
     error,
-    message: error instanceof Error ? error.message : "Unknown error",
+    message,
   };
 }
 
@@ -68,7 +80,7 @@ export async function createWalletFundedBankTransferIntent({
     return true;
   } catch (error) {
     const errorDetails = getWalletFundingErrorDetails(error);
-    if (errorDetails.code !== "WALLET_DVA_CONSENT_REQUIRED") {
+    if (errorDetails.code !== 'WALLET_DVA_CONSENT_REQUIRED') {
       onFallback({
         code: errorDetails.code,
         consent: false,
@@ -97,7 +109,7 @@ export async function createWalletFundedBankTransferIntent({
       code: WALLET_CONSENT_DENIED,
       consent: false,
       error: null,
-      message: "User denied wallet consent",
+      message: 'User denied wallet consent',
     });
     return false;
   }

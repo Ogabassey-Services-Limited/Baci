@@ -37,6 +37,11 @@ function safeNumber(value: unknown, fallback: number): number {
   }
 }
 
+function safeNonNegativeNumber(value: unknown, fallback: number): number {
+  const numericValue = safeNumber(value, fallback);
+  return numericValue >= 0 ? numericValue : fallback;
+}
+
 function isPaymentSettingsRow(
   value: unknown
 ): value is Partial<PaymentSettings> {
@@ -62,7 +67,7 @@ export function normalizePaymentSettings(
       row?.wallet_order_auto_debit_enabled === true,
     wallet_paystack_dva_enabled: row?.wallet_paystack_dva_enabled === true,
     vat_registration_status: row?.vat_registration_status ?? 'unregistered',
-    vat_rate: safeNumber(row?.vat_rate, fallbackVatRatePercent),
+    vat_rate: safeNonNegativeNumber(row?.vat_rate, fallbackVatRatePercent),
   };
 }
 

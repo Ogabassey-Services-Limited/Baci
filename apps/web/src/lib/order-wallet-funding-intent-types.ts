@@ -44,7 +44,6 @@ export interface OrderWalletFundingIntentInsert {
   customerId: string;
   expectedAmount: number;
   expiresAt: string;
-  idempotencyKey: string;
   merchantId: string;
   orderId: string;
   targetOrderAmount: number;

@@ -59,6 +59,24 @@ describe('paid order normalization', () => {
     expect(toRichPaidOrderItems(null)).toEqual([]);
   });
 
+  it('trims optional string fields and normalizes blank values to null', () => {
+    expect(
+      toRichPaidOrder(
+        {
+          customer_email: '   ',
+          customer_name: ' Jane Doe ',
+          id: 'order-1',
+          subtotal: 20_000,
+          total: 20_000,
+        },
+        { merchantId: 'merchant-1' }
+      )
+    ).toMatchObject({
+      customer_email: null,
+      customer_name: 'Jane Doe',
+    });
+  });
+
   it('throws on invalid required order fields', () => {
     expect(() => toRichPaidOrder(null, { merchantId: 'merchant-1' })).toThrow(
       'Paid order payload is invalid'

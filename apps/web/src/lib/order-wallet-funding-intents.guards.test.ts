@@ -75,7 +75,7 @@ describe('createOrderWalletFundingIntent guards', () => {
     });
   });
 
-  it('builds a deterministic retry-scoped idempotency key for the creation attempt', async () => {
+  it('leaves creation idempotency derivation to the database RPC', async () => {
     const repository = createRepository();
 
     await createOrderWalletFundingIntent({
@@ -86,12 +86,10 @@ describe('createOrderWalletFundingIntent guards', () => {
       now: new Date('2026-05-26T12:00:00.000Z'),
     });
 
-    expect(repository.insertOrderWalletFundingIntent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        idempotencyKey:
-          'order-wallet-funding:order-1:merchant-1:customer-1:2026-05-26T12:00:00.000Z',
-      })
-    );
+    const payload = vi.mocked(repository.insertOrderWalletFundingIntent).mock
+      .calls[0]?.[0];
+    expect(payload).toEqual(expect.objectContaining({ orderId: 'order-1' }));
+    expect(payload && 'idempotencyKey' in payload).toBe(false);
   });
 
   it('defaults a blank order currency to NGN when creating the intent', async () => {

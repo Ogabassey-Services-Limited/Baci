@@ -12,7 +12,6 @@ import type {
 } from '@/lib/order-wallet-funding-intent-types';
 import { getRepository } from '@/lib/order-wallet-funding-repository-access';
 import {
-  buildWalletFundingIntentIdempotencyKey,
   INTENT_TTL_MS,
   isOrderPayable,
   roundMoney,
@@ -212,12 +211,6 @@ function createIntentRecord({
     customerId: args.customer.id,
     expectedAmount: amounts.expectedAmount,
     expiresAt: new Date(now.getTime() + INTENT_TTL_MS).toISOString(),
-    idempotencyKey: buildWalletFundingIntentIdempotencyKey({
-      customerId: args.customer.id,
-      merchantId: args.merchant.id,
-      orderId: args.orderId,
-      startedAt: now,
-    }),
     merchantId: args.merchant.id,
     orderId: args.orderId,
     targetOrderAmount: amounts.targetOrderAmount,
@@ -240,6 +233,14 @@ export async function createOrderWalletFundingIntent(
   const settings = await repository.getPaymentSettings(args.merchant.id);
   const settingsFallback = getSettingsFallback(settings);
   if (settingsFallback) return settingsFallback;
+
+  const eligibility = await validateOrderEligibility({
+    customerId: args.customer.id,
+    merchantId: args.merchant.id,
+    orderId: args.orderId,
+    repository,
+  });
+  if (eligibility.kind === 'fallback') return eligibility.result;
 
   let account: CustomerWalletPaymentAccount | null;
   try {
@@ -277,14 +278,6 @@ export async function createOrderWalletFundingIntent(
   });
   if (existingIntent)
     return { account, intent: existingIntent, kind: 'intent' };
-
-  const eligibility = await validateOrderEligibility({
-    customerId: args.customer.id,
-    merchantId: args.merchant.id,
-    orderId: args.orderId,
-    repository,
-  });
-  if (eligibility.kind === 'fallback') return eligibility.result;
 
   const intent = await createIntentRecord({
     account,

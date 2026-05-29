@@ -9,6 +9,7 @@ import {
   getFromName,
   mapOrderItemToEmailItem,
   PAID_ORDER_EMAIL_FALLBACK_ROOT_DOMAIN,
+  resolveMerchantReplyTo,
   resolveMerchantUrl,
   SUPABASE_ROW_NOT_FOUND_CODE,
 } from '@/lib/payments/paid-order-email-utils';
@@ -111,7 +112,6 @@ export function buildEmailExecutor({
 
     const rootDomain =
       env.NEXT_PUBLIC_ROOT_DOMAIN || PAID_ORDER_EMAIL_FALLBACK_ROOT_DOMAIN;
-    const merchantSlug = validatedMerchantDetails.slug?.trim();
     const emailItems = (validatedOrder.order_items ?? []).map(
       mapOrderItemToEmailItem
     );
@@ -154,12 +154,10 @@ export function buildEmailExecutor({
       emailType: 'orders',
       fromName: getFromName(validatedMerchantDetails),
       htmlContent: generateOrderConfirmationEmail(emailData),
-      replyTo:
-        validatedMerchantDetails.support_email ||
-        validatedMerchantDetails.email ||
-        (merchantSlug
-          ? `support@${merchantSlug}.${rootDomain}`
-          : `support@${rootDomain}`),
+      replyTo: resolveMerchantReplyTo({
+        merchantDetails: validatedMerchantDetails,
+        rootDomain,
+      }),
       subject: `Order Confirmation - #${emailData.orderNumber}`,
       textContent: generateOrderConfirmationText(emailData),
       to: validatedOrder.customer_email,

@@ -63,6 +63,7 @@ export async function fetchPaidOrder({
     .select(RICH_ORDER_SELECT)
     .eq('id', orderId)
     .eq('merchant_id', merchantId)
+    .eq('payment_status', 'paid')
     .single();
   if (error) {
     throw error;

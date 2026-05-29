@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { authenticateApiRequest } from '@/lib/api-auth';
 import { logger } from '@/lib/logger';
 import {
@@ -21,6 +22,10 @@ interface OrderFundingMerchant {
 type RouteContext = {
   params: Promise<{ id: string }>;
 };
+
+const routeParamsSchema = z.object({
+  id: z.string().uuid('Intent id must be a valid UUID'),
+});
 
 function formatIntent(
   intent: NonNullable<Awaited<ReturnType<typeof getOrderWalletFundingIntent>>>
@@ -62,10 +67,20 @@ export async function GET(
     });
     if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Invalid query', details: parsed.error.flatten() },
+        { code: 'INVALID_QUERY', error: 'Invalid query' },
         { status: 400 }
       );
     }
+
+    const params = await context.params;
+    const parsedParams = routeParamsSchema.safeParse(params);
+    if (!parsedParams.success) {
+      return NextResponse.json(
+        { code: 'INVALID_INTENT_ID', error: 'Invalid intent id' },
+        { status: 400 }
+      );
+    }
+    intentId = parsedParams.data.id;
 
     const resolved =
       await resolveOrderFundingMerchantAndCustomer<OrderFundingMerchant>({
@@ -76,8 +91,6 @@ export async function GET(
       });
     if ('response' in resolved) return resolved.response;
 
-    const params = await context.params;
-    intentId = params.id;
     await expireStaleWalletFundingIntents({
       customerId: resolved.customer.id,
       merchantId: resolved.merchant.id,

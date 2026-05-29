@@ -74,8 +74,11 @@ export function createQueryResult({
   error?: unknown;
 }) {
   const result = { data, error };
+  const promise = Promise.resolve(result);
   const query = {
+    catch: promise.catch.bind(promise),
     eq: vi.fn(() => query),
+    finally: promise.finally.bind(promise),
     in: vi.fn(() => query),
     limit: vi.fn(() => query),
     maybeSingle: vi.fn(async () => result),
@@ -83,6 +86,8 @@ export function createQueryResult({
     order: vi.fn(() => query),
     select: vi.fn(() => query),
     single: vi.fn(async () => result),
+    // biome-ignore lint/suspicious/noThenProperty: Supabase query builders are thenable, and these mocks need to match that contract.
+    then: promise.then.bind(promise),
     update: vi.fn(() => query),
   };
   return query;

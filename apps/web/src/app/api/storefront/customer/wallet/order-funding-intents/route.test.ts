@@ -153,8 +153,11 @@ describe('/api/storefront/customer/wallet/order-funding-intents', () => {
         orderId: 'not-a-uuid',
       })
     );
+    const body = await response.json();
 
     expect(response.status).toBe(400);
+    expect(body).toEqual({ code: 'INVALID_INPUT', error: 'Invalid input' });
+    expect(body.details).toBeUndefined();
     expect(mockResolveWalletTopUpMerchant).not.toHaveBeenCalled();
   });
 

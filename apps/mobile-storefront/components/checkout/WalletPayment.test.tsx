@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import Colors from '@/constants/Colors';
 import { WalletPayment } from './WalletPayment';
@@ -28,7 +29,9 @@ describe('WalletPayment', () => {
       />
     );
 
-    fireEvent.press(screen.getByLabelText('Use wallet credit, ₦3,000 of ₦5,000'));
+    fireEvent.press(
+      screen.getByLabelText('Use wallet credit, ₦3,000 of ₦5,000')
+    );
 
     expect(onWalletToggle).toHaveBeenCalledWith({
       amount: 3000,
@@ -49,7 +52,9 @@ describe('WalletPayment', () => {
       />
     );
 
-    fireEvent.press(screen.getByLabelText('Use wallet credit, ₦3,000 of ₦5,000'));
+    fireEvent.press(
+      screen.getByLabelText('Use wallet credit, ₦3,000 of ₦5,000')
+    );
 
     expect(onWalletToggle).toHaveBeenCalledWith({
       amount: 0,
@@ -57,7 +62,7 @@ describe('WalletPayment', () => {
     });
   });
 
-  it('uses a stable button role when wallet covers the full order', () => {
+  it('uses a single-select role when wallet covers the full order', () => {
     const onWalletToggle = jest.fn();
 
     render(
@@ -76,9 +81,11 @@ describe('WalletPayment', () => {
       />
     );
 
-    const walletRow = screen.getByLabelText('Pay with wallet, ₦3,000 available');
+    const walletRow = screen.getByLabelText(
+      'Pay with wallet, ₦3,000 available'
+    );
 
-    expect(walletRow.props.accessibilityRole).toBe('button');
+    expect(walletRow.props.accessibilityRole).toBe('radio');
     expect(walletRow.props.accessibilityState).toMatchObject({
       checked: false,
       disabled: false,
@@ -101,7 +108,9 @@ describe('WalletPayment', () => {
       />
     );
 
-    const walletRow = screen.getByLabelText('Use wallet credit, ₦3,000 of ₦5,000');
+    const walletRow = screen.getByLabelText(
+      'Use wallet credit, ₦3,000 of ₦5,000'
+    );
 
     expect(() => fireEvent.press(walletRow)).not.toThrow();
     expect(onWalletToggle).not.toHaveBeenCalled();

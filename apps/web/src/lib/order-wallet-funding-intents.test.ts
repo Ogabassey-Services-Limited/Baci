@@ -228,6 +228,8 @@ describe('createOrderWalletFundingIntent', () => {
     });
 
     expect(result).toEqual({ code: 'ORDER_NOT_PAYABLE', kind: 'fallback' });
+    expect(repository.ensureWalletPaymentAccount).not.toHaveBeenCalled();
+    expect(repository.findActiveOrderIntent).not.toHaveBeenCalled();
     expect(repository.insertOrderWalletFundingIntent).not.toHaveBeenCalled();
   });
 
@@ -245,6 +247,52 @@ describe('createOrderWalletFundingIntent', () => {
     });
 
     expect(result).toEqual({ code: 'ORDER_NOT_FOUND', kind: 'fallback' });
+    expect(repository.ensureWalletPaymentAccount).not.toHaveBeenCalled();
+    expect(repository.findActiveOrderIntent).not.toHaveBeenCalled();
+    expect(repository.insertOrderWalletFundingIntent).not.toHaveBeenCalled();
+  });
+
+  it('does not reuse an active intent when the order is no longer payable', async () => {
+    const repository = createRepository({
+      findActiveOrderIntent: vi.fn(async () => intent({ id: 'intent-stale' })),
+      getOrderForCustomer: vi.fn(async () => ({
+        ...order,
+        paymentStatus: 'paid',
+      })),
+    });
+
+    const result = await createOrderWalletFundingIntent({
+      customer,
+      merchant,
+      orderId: 'order-1',
+      repository,
+      now: new Date('2026-05-26T12:00:00.000Z'),
+    });
+
+    expect(result).toEqual({ code: 'ORDER_NOT_PAYABLE', kind: 'fallback' });
+    expect(repository.findActiveOrderIntent).not.toHaveBeenCalled();
+    expect(repository.insertOrderWalletFundingIntent).not.toHaveBeenCalled();
+  });
+
+  it('does not reuse an active intent when the order already has wallet redemption', async () => {
+    const repository = createRepository({
+      findActiveOrderIntent: vi.fn(async () => intent({ id: 'intent-stale' })),
+      hasWalletOrderRedemption: vi.fn(async () => true),
+    });
+
+    const result = await createOrderWalletFundingIntent({
+      customer,
+      merchant,
+      orderId: 'order-1',
+      repository,
+      now: new Date('2026-05-26T12:00:00.000Z'),
+    });
+
+    expect(result).toEqual({
+      code: 'ORDER_ALREADY_HAS_WALLET_REDEMPTION',
+      kind: 'fallback',
+    });
+    expect(repository.findActiveOrderIntent).not.toHaveBeenCalled();
     expect(repository.insertOrderWalletFundingIntent).not.toHaveBeenCalled();
   });
 });

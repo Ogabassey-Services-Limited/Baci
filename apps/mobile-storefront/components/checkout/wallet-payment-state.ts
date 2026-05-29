@@ -1,9 +1,9 @@
+import type { WalletSelection } from '@/lib/wallet-payment-helpers';
 import type {
   PaymentMethodType,
   PaymentTab,
   WalletMode,
 } from './PaymentMethodSelector';
-import type { WalletSelection } from '@/lib/wallet-payment-helpers';
 
 export interface WalletPaymentStateInput {
   activeSavingsAmount: number;
@@ -63,9 +63,10 @@ export function getWalletPaymentState({
     walletFundedBankTransferMode &&
     selectedMethod === 'bank_transfer' &&
     selectedTab === 'full';
+  const walletCoversTotal = usableWalletBalance >= effectiveTotal;
   const shouldRender =
     attemptAllowed &&
-    !fundedBankTransferActive &&
+    (!fundedBankTransferActive || walletCoversTotal) &&
     usableWalletBalance > 0 &&
     !walletIsLoading &&
     walletError === null;
@@ -73,6 +74,7 @@ export function getWalletPaymentState({
     attemptAllowed &&
     fundedBankTransferActive &&
     usableWalletBalance > 0 &&
+    !walletCoversTotal &&
     !walletIsLoading &&
     walletError === null;
   const statusShouldRender =
@@ -80,7 +82,7 @@ export function getWalletPaymentState({
     !fundedBankTransferActive &&
     !shouldRender &&
     (walletIsLoading || walletError !== null);
-  const coversFully = shouldRender && usableWalletBalance >= effectiveTotal;
+  const coversFully = shouldRender && walletCoversTotal;
   const portion =
     shouldRender || infoShouldRender
       ? Math.min(usableWalletBalance, effectiveTotal)

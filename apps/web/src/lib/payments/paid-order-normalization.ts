@@ -14,7 +14,9 @@ function requiredString(record: Record<string, unknown>, key: string) {
 
 function optionalString(record: Record<string, unknown>, key: string) {
   const value = record[key];
-  return typeof value === 'string' ? value : null;
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
 }
 
 const STRICT_NUMERIC_STRING = /^-?\d+(?:\.\d+)?$/;

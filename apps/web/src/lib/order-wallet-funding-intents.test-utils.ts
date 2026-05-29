@@ -94,7 +94,6 @@ export function createRepository(
         currency: payload.currency,
         expectedAmount: payload.expectedAmount,
         expiresAt: payload.expiresAt,
-        idempotencyKey: payload.idempotencyKey,
         merchantId: payload.merchantId,
         orderId: payload.orderId,
         targetOrderAmount: payload.targetOrderAmount,
