@@ -86,16 +86,16 @@ describe('terms page rendering', () => {
     expect(mockConnection).toHaveBeenCalledOnce();
   });
 
-  it('returns content with the dynamic metadata marker without suspending the whole route shell', async () => {
+  it('returns the route shell after marking the page dynamic', async () => {
     const element = await TermsPage({
       params: Promise.resolve({ slug: 'ogabassey.com' }),
     });
 
     render(element);
     expect(
-      screen.getByRole('status', { name: /dynamic metadata marker/i })
+      screen.getByRole('status', { name: /loading page content/i })
     ).toBeInTheDocument();
-    expect(mockStorefrontDynamicMetadataMarker).toHaveBeenCalledOnce();
-    expect(mockConnection).not.toHaveBeenCalled();
+    expect(mockStorefrontDynamicMetadataMarker).not.toHaveBeenCalled();
+    expect(mockConnection).toHaveBeenCalledOnce();
   });
 });

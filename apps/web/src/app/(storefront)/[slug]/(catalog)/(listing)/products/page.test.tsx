@@ -325,20 +325,20 @@ describe('products index page', () => {
     expect(notFound).not.toHaveBeenCalled();
   });
 
-  it('renders the catalog skeleton while products content is suspended', () => {
+  it('renders the catalog skeleton while products content is suspended', async () => {
     mockProductsPageContent.mockImplementation(() => {
       throw new Promise(() => {
         // Keep the page content suspended behind the page fallback.
       });
     });
 
+    const ui = await ProductsPage({
+      params: Promise.resolve({ slug: 'test-store' }),
+      searchParams: Promise.resolve({}),
+    });
+
     render(
-      <Suspense fallback={<div>Route loader fallback</div>}>
-        <ProductsPage
-          params={Promise.resolve({ slug: 'test-store' })}
-          searchParams={Promise.resolve({})}
-        />
-      </Suspense>
+      <Suspense fallback={<div>Route loader fallback</div>}>{ui}</Suspense>
     );
 
     expect(
@@ -346,39 +346,19 @@ describe('products index page', () => {
     ).toBeInTheDocument();
     expect(screen.queryByText('Route loader fallback')).not.toBeInTheDocument();
     expect(screen.queryByText('Products page content')).not.toBeInTheDocument();
-    expect(
-      screen.getByRole('status', { name: /dynamic metadata marker/i })
-    ).toBeInTheDocument();
-
-    const loading = screen.getByRole('status', {
-      name: 'Loading product listing',
-    });
-    const marker = screen.getByRole('status', {
-      name: /dynamic metadata marker/i,
-    });
-    expect(
-      loading.compareDocumentPosition(marker) & Node.DOCUMENT_POSITION_FOLLOWING
-    ).toBeTruthy();
+    expect(mockConnection).toHaveBeenCalledOnce();
   });
 
-  it('marks runtime metadata as intentional dynamic content', () => {
+  it('marks runtime metadata as intentional dynamic content', async () => {
     render(
-      <ProductsPage
-        params={Promise.resolve({ slug: 'test-store' })}
-        searchParams={Promise.resolve({})}
-      />
+      await ProductsPage({
+        params: Promise.resolve({ slug: 'test-store' }),
+        searchParams: Promise.resolve({}),
+      })
     );
 
-    expect(
-      screen.getByRole('status', { name: /dynamic metadata marker/i })
-    ).toBeInTheDocument();
-    expect(
-      screen
-        .getByText('Products page content')
-        .compareDocumentPosition(
-          screen.getByRole('status', { name: /dynamic metadata marker/i })
-        ) & Node.DOCUMENT_POSITION_FOLLOWING
-    ).toBeTruthy();
+    expect(screen.getByText('Products page content')).toBeInTheDocument();
+    expect(mockConnection).toHaveBeenCalledOnce();
   });
 
   it('keeps metadata on the canonical product index regardless of pagination', async () => {
