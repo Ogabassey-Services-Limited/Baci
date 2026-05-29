@@ -175,6 +175,32 @@ function invalidQuizVoucherTokenResponse() {
   );
 }
 
+function invalidQuizVoucherQuantityResponse() {
+  return NextResponse.json(
+    {
+      code: 'QUIZ_VOUCHER_QUANTITY_INVALID',
+      error: 'Quiz voucher items must have quantity 1',
+    },
+    { status: 400 }
+  );
+}
+
+function getQuizVoucherAwardEvent(row: unknown) {
+  if (!row || typeof row !== 'object') return null;
+  const joined = (row as { quiz_events?: unknown }).quiz_events;
+  const event = Array.isArray(joined) ? joined[0] : joined;
+  if (!event || typeof event !== 'object') return null;
+  const complianceVerified = (event as { compliance_verified?: unknown })
+    .compliance_verified;
+  const nlrcPermitRef = (event as { nlrc_permit_ref?: unknown })
+    .nlrc_permit_ref;
+
+  return {
+    complianceVerified: complianceVerified === true,
+    nlrcPermitRef: typeof nlrcPermitRef === 'string' ? nlrcPermitRef : null,
+  };
+}
+
 // GET /api/orders - Fetch orders for authenticated merchant
 export async function GET(request: NextRequest) {
   try {
@@ -346,33 +372,34 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      try {
-        // Phase 1a has no prize-bearing order path. The later production
-        // voucher path must load the quiz event/compliance evidence before
-        // calling create_storefront_order_with_quiz_voucher.
-        const quizProductionApproved =
-          getQuizPhaseEnv() === 'production' && getQuizProductionApprovedEnv();
-        enforcePrizeProductionGuard(
-          { nlrc_permit_ref: null },
-          quizProductionApproved
-        );
-      } catch (error) {
-        if (error instanceof QuizProductionNotApprovedError) {
-          return NextResponse.json(
-            {
-              error: 'Quiz vouchers are not approved for production use',
-              code: error.code,
-            },
-            { status: error.status }
-          );
-        }
+      if (
+        getQuizPhaseEnv() !== 'production' ||
+        !getQuizProductionApprovedEnv()
+      ) {
+        try {
+          enforcePrizeProductionGuard({ nlrc_permit_ref: null }, false);
+        } catch (error) {
+          if (error instanceof QuizProductionNotApprovedError) {
+            return NextResponse.json(
+              {
+                error: 'Quiz vouchers are not approved for production use',
+                code: error.code,
+              },
+              { status: error.status }
+            );
+          }
 
-        throw error;
+          throw error;
+        }
       }
 
       for (const [index, item] of items.entries()) {
         if (!hasQuizVoucherIdentifier(item)) {
           continue;
+        }
+
+        if (item.quantity !== 1) {
+          return invalidQuizVoucherQuantityResponse();
         }
 
         const voucherToken = getQuizVoucherToken(item);
@@ -421,6 +448,55 @@ export async function POST(request: NextRequest) {
           index,
           tokenVerification.payload.awardId
         );
+      }
+
+      const voucherAwardIds = [
+        ...new Set(verifiedQuizVoucherAwardIdsByIndex.values()),
+      ];
+      if (voucherAwardIds.length !== 1) {
+        return invalidQuizVoucherTokenResponse();
+      }
+
+      const { data: voucherAward, error: voucherAwardError } = await supabase
+        .from('quiz_awards')
+        .select(
+          'event_id, quiz_events!inner(nlrc_permit_ref, compliance_verified)'
+        )
+        .eq('id', voucherAwardIds[0])
+        .maybeSingle();
+      if (voucherAwardError) {
+        logger.error({
+          message: 'Quiz voucher award lookup failed',
+          error: voucherAwardError,
+          voucherAwardId: voucherAwardIds[0],
+        });
+        return invalidQuizVoucherTokenResponse();
+      }
+
+      if (!voucherAward) {
+        return invalidQuizVoucherTokenResponse();
+      }
+
+      const voucherEvent = getQuizVoucherAwardEvent(voucherAward);
+      try {
+        enforcePrizeProductionGuard(
+          { nlrc_permit_ref: voucherEvent?.nlrcPermitRef ?? null },
+          getQuizPhaseEnv() === 'production' &&
+            getQuizProductionApprovedEnv() &&
+            voucherEvent?.complianceVerified === true
+        );
+      } catch (error) {
+        if (error instanceof QuizProductionNotApprovedError) {
+          return NextResponse.json(
+            {
+              error: 'Quiz vouchers are not approved for production use',
+              code: error.code,
+            },
+            { status: error.status }
+          );
+        }
+
+        throw error;
       }
     }
 
