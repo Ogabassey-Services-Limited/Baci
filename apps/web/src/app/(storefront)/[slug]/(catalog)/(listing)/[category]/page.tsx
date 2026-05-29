@@ -27,9 +27,6 @@ import {
   resolveCategoryPageName,
 } from './category-page-content-helpers';
 
-// Enable ISR with 5 minute revalidation
-// Removed explicit revalidate export to support Dynamic IO
-
 interface PageProps {
   params: Promise<{
     slug: string; // Store slug (merchant)
@@ -43,6 +40,8 @@ interface PageProps {
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
+  await connection();
+
   const { slug, category } = await params;
 
   // 1. Get Merchant

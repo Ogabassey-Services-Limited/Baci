@@ -25,6 +25,7 @@ interface OrderData {
     id: string;
     product_name?: string;
     name?: string;
+    gtin?: string | null;
     price: number;
     quantity: number;
     product_images?: string[];
@@ -102,6 +103,11 @@ function OrderSuccessContent() {
     : hasRecoveryState
       ? 'We could not validate this order from the current link. You can return to checkout or keep shopping while we sort it out.'
       : 'We are validating your order details now. This page will update as soon as your confirmation is ready.';
+  const googleCustomerReviewProducts =
+    order?.items
+      .map((item) => item.gtin?.trim())
+      .filter((gtin): gtin is string => Boolean(gtin))
+      .map((gtin) => ({ gtin })) ?? [];
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20 pt-10">
@@ -118,6 +124,7 @@ function OrderSuccessContent() {
               .split('T')[0]
           }
           country={merchant.country || 'NG'}
+          products={googleCustomerReviewProducts}
         />
       )}
 

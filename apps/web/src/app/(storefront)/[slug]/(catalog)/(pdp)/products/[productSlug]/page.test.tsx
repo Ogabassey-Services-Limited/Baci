@@ -6,12 +6,14 @@ const {
   mockConnection,
   mockNormalizeStorefrontProductVariants,
   mockProductDetailClient,
+  mockStorefrontDynamicMetadataMarker,
 } = vi.hoisted(() => ({
   mockConnection: vi.fn<() => Promise<void>>(() => Promise.resolve()),
   mockNormalizeStorefrontProductVariants: vi.fn<
     (...args: unknown[]) => Record<string, unknown>[]
   >(() => []),
   mockProductDetailClient: vi.fn(() => null),
+  mockStorefrontDynamicMetadataMarker: vi.fn(),
 }));
 
 const mockHeaders = vi.fn();
@@ -46,6 +48,13 @@ vi.mock('next/navigation', () => ({
 
 vi.mock('next/server', () => ({
   connection: () => mockConnection(),
+}));
+
+vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
+  StorefrontDynamicMetadataMarker: () => {
+    mockStorefrontDynamicMetadataMarker();
+    return <div aria-label="dynamic metadata marker" role="status" />;
+  },
 }));
 
 vi.mock('next/link', () => ({
@@ -325,6 +334,24 @@ describe('products/[productSlug] page', () => {
       sameBrand: null,
       samePrice: null,
     });
+    mockStorefrontDynamicMetadataMarker.mockReset();
+  });
+
+  it('marks product metadata as request-time rendered', async () => {
+    mockGetCachedProduct.mockResolvedValue(uncategorizedProduct);
+
+    await generateMetadata(
+      {
+        params: Promise.resolve({
+          slug: 'teststore',
+          productSlug: 'mystery-item',
+        }),
+        searchParams: Promise.resolve({}),
+      },
+      stubParent
+    );
+
+    expect(mockConnection).toHaveBeenCalledOnce();
   });
 
   it('redirects categorized legacy products during page render in development', async () => {
@@ -399,6 +426,26 @@ describe('products/[productSlug] page', () => {
 
     expect(screen.getByText('Route loader fallback')).toBeInTheDocument();
     expect(screen.queryByText('mystery-item')).not.toBeInTheDocument();
+  });
+
+  it('opts runtime product metadata into request-time page rendering', async () => {
+    mockGetCachedProduct.mockResolvedValue(uncategorizedProduct);
+
+    render(
+      await ProductPage({
+        params: Promise.resolve({
+          slug: 'teststore',
+          productSlug: 'mystery-item',
+        }),
+        searchParams: Promise.resolve({}),
+      })
+    );
+
+    expect(mockConnection).toHaveBeenCalledOnce();
+    expect(mockStorefrontDynamicMetadataMarker).not.toHaveBeenCalled();
+    expect(
+      screen.queryByRole('status', { name: /dynamic metadata marker/i })
+    ).not.toBeInTheDocument();
   });
 
   describe('redirect routing mode', () => {
@@ -633,42 +680,51 @@ describe('products/[productSlug] page', () => {
     );
   });
 
-  it('returns noindex metadata when product is missing — page render decides notFound vs redirect', async () => {
+  it('throws notFound from metadata when product and legacy redirect are missing', async () => {
     mockGetCachedProduct.mockResolvedValue(null);
     mockGetCachedProductWithDetails.mockResolvedValue(null);
-    mockHeaders.mockReturnValue(makeHeaders({}));
-
-    const metadata = await generateMetadata(
-      {
-        params: Promise.resolve({
-          slug: 'teststore',
-          productSlug: 'nonexistent',
-        }),
-        searchParams: Promise.resolve({}),
-      },
-      stubParent
-    );
-
-    expect(metadata.robots).toMatchObject({ index: false, follow: false });
-    expect(mockPermanentRedirect).not.toHaveBeenCalled();
-  });
-
-  it('calls notFound during page render when no legacy redirect target exists', async () => {
-    mockGetCachedProduct.mockResolvedValue(null);
-    mockGetCachedProductWithDetails.mockResolvedValue(null);
+    mockGetCachedLegacyProductRedirectTarget.mockResolvedValue(null);
     mockHeaders.mockReturnValue(makeHeaders({}));
 
     await expect(
-      ProductPage({
-        params: Promise.resolve({
-          slug: 'teststore',
-          productSlug: 'nonexistent',
-        }),
-        searchParams: Promise.resolve({}),
-      })
+      generateMetadata(
+        {
+          params: Promise.resolve({
+            slug: 'teststore',
+            productSlug: 'nonexistent',
+          }),
+          searchParams: Promise.resolve({}),
+        },
+        stubParent
+      )
     ).rejects.toThrow('NEXT_NOT_FOUND');
 
+    expect(mockNotFound).toHaveBeenCalledTimes(1);
     expect(mockPermanentRedirect).not.toHaveBeenCalled();
+  });
+
+  it('triggers notFound without rendering a body marker when no legacy redirect target exists', async () => {
+    mockGetCachedProduct.mockResolvedValue(null);
+    mockGetCachedProductWithDetails.mockResolvedValue(null);
+    mockGetCachedLegacyProductRedirectTarget.mockResolvedValue(null);
+    mockHeaders.mockReturnValue(makeHeaders({}));
+
+    const page = await ProductPage({
+      params: Promise.resolve({
+        slug: 'teststore',
+        productSlug: 'nonexistent',
+      }),
+      searchParams: Promise.resolve({}),
+    });
+
+    expect(() => render(page)).toThrow('NEXT_NOT_FOUND');
+
+    expect(mockPermanentRedirect).not.toHaveBeenCalled();
+    expect(mockNotFound).toHaveBeenCalled();
+    expect(mockStorefrontDynamicMetadataMarker).not.toHaveBeenCalled();
+    expect(
+      screen.queryByRole('status', { name: /dynamic metadata marker/i })
+    ).not.toBeInTheDocument();
   });
 
   it('falls back to detailed product lookup and returns noindex metadata when category mismatch is detected', async () => {
@@ -757,21 +813,27 @@ describe('products/[productSlug] page', () => {
   it('does not retry detailed lookup with a lowercased slug', async () => {
     mockGetCachedProduct.mockResolvedValue(null);
     mockGetCachedProductWithDetails.mockResolvedValue(null);
+    mockGetCachedLegacyProductRedirectTarget.mockResolvedValue(null);
 
-    const metadata = await generateMetadata(
-      {
-        params: Promise.resolve({
-          slug: 'teststore',
-          productSlug: 'IPHONE-15',
-        }),
-        searchParams: Promise.resolve({}),
-      },
-      stubParent
-    );
+    await expect(
+      generateMetadata(
+        {
+          params: Promise.resolve({
+            slug: 'teststore',
+            productSlug: 'IPHONE-15',
+          }),
+          searchParams: Promise.resolve({}),
+        },
+        stubParent
+      )
+    ).rejects.toThrow('NEXT_NOT_FOUND');
 
-    expect(metadata.robots).toMatchObject({ index: false, follow: false });
     expect(mockGetCachedProductWithDetails).toHaveBeenCalledTimes(1);
     expect(mockGetCachedProductWithDetails).toHaveBeenCalledWith(
+      'merchant-1',
+      'IPHONE-15'
+    );
+    expect(mockGetCachedLegacyProductRedirectTarget).toHaveBeenCalledWith(
       'merchant-1',
       'IPHONE-15'
     );
@@ -995,7 +1057,7 @@ describe('products/[productSlug] page', () => {
         name: /Shop more Products/i,
       })
     ).toHaveAttribute('href', 'https://teststore.usebaci.com/products');
-    expect(mockConnection).toHaveBeenCalledTimes(1);
+    expect(mockConnection).toHaveBeenCalledOnce();
     expect(
       screen.getByRole('link', {
         name: /Compare with Samsung Galaxy Z TriFold/i,

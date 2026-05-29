@@ -14,11 +14,13 @@ const NORMALIZED_PLACEHOLDER_IMAGE =
   'https://placehold.co/400x400/f8fafc/94a3b8?text=No+Image';
 const mockGetPublishedClusterPosts = vi.fn();
 const mockConnection = vi.hoisted(() => vi.fn());
-const { mockCategoryPageContent } = vi.hoisted(() => ({
-  mockCategoryPageContent: vi.fn((_props: unknown) => (
-    <div>Category page content</div>
-  )),
-}));
+const { mockCategoryPageContent, mockStorefrontDynamicMetadataMarker } =
+  vi.hoisted(() => ({
+    mockCategoryPageContent: vi.fn((_props: unknown) => (
+      <div>Category page content</div>
+    )),
+    mockStorefrontDynamicMetadataMarker: vi.fn(),
+  }));
 
 function defaultCategoryPageImplementation({
   currentPage,
@@ -133,6 +135,13 @@ vi.mock('@/lib/normalize-product', () => ({
 
 vi.mock('next/server', () => ({
   connection: () => mockConnection(),
+}));
+
+vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
+  StorefrontDynamicMetadataMarker: () => {
+    mockStorefrontDynamicMetadataMarker();
+    return <div aria-label="dynamic metadata marker" role="status" />;
+  },
 }));
 
 vi.mock('@/lib/sanitize-json-ld', () => ({
@@ -516,6 +525,15 @@ function getLastCategoryPageProps() {
 }
 
 describe('category page route', () => {
+  it('marks category metadata as request-time rendered', async () => {
+    await generateMetadata({
+      params: Promise.resolve({ slug: 'test-store', category: 'smartphones' }),
+      searchParams: Promise.resolve({}),
+    });
+
+    expect(mockConnection).toHaveBeenCalledOnce();
+  });
+
   beforeEach(() => {
     vi.mocked(getCachedMerchant).mockReset();
     vi.mocked(getCachedMerchantByDomain).mockReset();
@@ -529,6 +547,7 @@ describe('category page route', () => {
     mockGenerateFAQSchema.mockClear();
     mockGetPublishedClusterPosts.mockReset();
     mockConnection.mockReset();
+    mockStorefrontDynamicMetadataMarker.mockReset();
     mockCategoryPageContent.mockReset();
     mockCategoryPageContent.mockImplementation(() => (
       <div>Category page content</div>
@@ -576,7 +595,7 @@ describe('category page route', () => {
     ]);
   });
 
-  it('marks the route as request-time rendered and shows the catalog skeleton while category content is suspended', async () => {
+  it('keeps the route shell stable and shows the catalog skeleton while category content is suspended', async () => {
     mockCategoryPageContent.mockImplementation(() => {
       throw new Promise(() => {
         // Keep the category page content suspended behind the page fallback.
@@ -601,9 +620,10 @@ describe('category page route', () => {
     expect(screen.queryByText('Route loader fallback')).not.toBeInTheDocument();
     expect(screen.queryByText('Category page content')).not.toBeInTheDocument();
     expect(mockConnection).toHaveBeenCalledOnce();
+    expect(mockStorefrontDynamicMetadataMarker).not.toHaveBeenCalled();
   });
 
-  it('renders category content after marking the route as request-time rendered', async () => {
+  it('renders category content after marking the route dynamic', async () => {
     const ui = await CategoryPageRoute({
       params: Promise.resolve({
         slug: 'test-store',
@@ -616,6 +636,7 @@ describe('category page route', () => {
 
     expect(screen.getByText('Category page content')).toBeInTheDocument();
     expect(mockConnection).toHaveBeenCalledOnce();
+    expect(mockStorefrontDynamicMetadataMarker).not.toHaveBeenCalled();
   });
 
   it('renders curated smartphone hub content when merchant-authored SEO is absent', async () => {
