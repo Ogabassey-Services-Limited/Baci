@@ -169,6 +169,19 @@ function buildMockSupabase(overrides: RpcOverrides = {}) {
     // biome-ignore lint/suspicious/noThenProperty: thenable mock
     then: (resolve: any) => Promise.resolve().then(resolve),
   };
+  const quizAwardChainable: any = {
+    ...sharedChainable,
+    maybeSingle: vi.fn().mockResolvedValue({
+      data: {
+        event_id: '99999999-9999-4999-8999-999999999999',
+        quiz_events: {
+          compliance_verified: true,
+          nlrc_permit_ref: 'NLRC-1',
+        },
+      },
+      error: null,
+    }),
+  };
 
   const defaultRpcOutcomes: Record<string, { data: unknown; error: unknown }> =
     {
@@ -251,7 +264,9 @@ function buildMockSupabase(overrides: RpcOverrides = {}) {
 
   return {
     auth: { getUser: vi.fn() },
-    from: vi.fn(() => sharedChainable),
+    from: vi.fn((table: string) =>
+      table === 'quiz_awards' ? quizAwardChainable : sharedChainable
+    ),
     rpc: vi.fn((name: string) => {
       const outcome = overrides[name as keyof RpcOverrides] ??
         defaultRpcOutcomes[name] ?? { data: null, error: null };
@@ -502,7 +517,7 @@ describe('POST /api/orders — quiz voucher guard', () => {
 
     expect(response.status).toBe(201);
     expect(mockEnforcePrizeProductionGuard).toHaveBeenCalledWith(
-      { nlrc_permit_ref: null },
+      { nlrc_permit_ref: 'NLRC-1' },
       true
     );
     expect(supabase.rpc).toHaveBeenCalledWith(
@@ -547,6 +562,59 @@ describe('POST /api/orders — quiz voucher guard', () => {
     expect(body).toEqual({
       code: 'QUIZ_VOUCHER_TOKEN_INVALID',
       error: 'Invalid quiz voucher token',
+    });
+    expect(supabase.rpc).not.toHaveBeenCalled();
+  });
+
+  it('rejects voucher-backed items with quantity greater than one before order RPC work', async () => {
+    vi.stubEnv('QUIZ_PHASE', 'production');
+    vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'yes');
+    vi.stubEnv('QUIZ_RPC_SERVER_SECRET', 'voucher-secret');
+    const supabase = buildMockSupabase();
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () => supabase as unknown as never
+    );
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      user: mockAuthUser(AUTH_USER_ID),
+      error: null,
+      supabase: supabase as unknown as never,
+    });
+    const token = createQuizVoucherToken({
+      payload: {
+        awardId: '11111111-1111-4111-8111-111111111111',
+        condition: null,
+        expiresAt: '2099-05-22T12:00:00.000Z',
+        productId: '22222222-2222-4222-8222-222222222222',
+        userId: AUTH_USER_ID,
+        variantId: null,
+      },
+      secret: 'voucher-secret',
+    });
+
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...baseOrderPayload,
+        items: [
+          {
+            ...baseOrderPayload.items[0],
+            price: 0,
+            product_id: '22222222-2222-4222-8222-222222222222',
+            quantity: 2,
+            voucher_token: token,
+          },
+        ],
+      }),
+    });
+
+    const response = await POST(request);
+    const body = await readJson(response);
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({
+      code: 'QUIZ_VOUCHER_QUANTITY_INVALID',
+      error: 'Quiz voucher items must have quantity 1',
     });
     expect(supabase.rpc).not.toHaveBeenCalled();
   });

@@ -7,6 +7,9 @@ const quizDifficultySchema = z.enum(['easy', 'standard', 'hard']);
 const merchantQuizPublicationModeSchema = z.enum(['draft', 'active']);
 const quizNonEmptyIdSchema = z.string().min(1);
 const quizTopicSchema = z.string().trim().min(3).max(80);
+const quizPrizeConditionSchema = z
+  .enum(['new', 'used', 'open_box', 'refurbished'])
+  .nullable();
 
 export const quizEventsQuerySchema = z
   .object({
@@ -54,12 +57,25 @@ export const claimQuizCashAwardSchema = z.object({
 
 export const merchantQuizGenerationRequestSchema = z.object({
   difficulty: quizDifficultySchema.default('standard'),
-  prizeName: z.string().trim().min(1).max(120).default('Quiz prize'),
+  prizeProductId: quizUuidSchema,
+  prizeVariantId: quizUuidSchema.optional(),
   publicationMode: merchantQuizPublicationModeSchema.default('draft'),
   questionCountPerTopic: z.coerce.number().int().min(1).max(5).default(1),
   timeLimitSeconds: z.coerce.number().int().min(5).max(60).default(30),
   title: z.string().trim().min(3).max(120),
   topics: z.array(quizTopicSchema).min(1).max(10),
+});
+
+export const merchantQuizPrizeProductSchema = z.object({
+  defaultVariantId: quizUuidSchema.nullable(),
+  id: quizUuidSchema,
+  imageUrl: z.string().trim().min(1).nullable(),
+  name: z.string().trim().min(1).max(180),
+  price: z.coerce.number().nonnegative(),
+});
+
+export const merchantQuizPrizeProductsResponseSchema = z.object({
+  products: z.array(merchantQuizPrizeProductSchema),
 });
 
 export const generatedQuizOptionSchema = z.object({
@@ -109,6 +125,10 @@ export const merchantQuizGenerationResponseSchema = z.object({
 export const quizEventSettingsSchema = z
   .object({
     prize_name: z.string().optional(),
+    prize_product_id: quizUuidSchema.optional(),
+    prize_product_image_url: z.string().nullable().optional(),
+    prize_product_name: z.string().optional(),
+    prize_variant_id: quizUuidSchema.nullable().optional(),
     time_limit_seconds: z.coerce.number().int().positive().optional(),
   })
   // Forward-compatible settings rows should not break older clients, but typoed
@@ -166,6 +186,14 @@ export const quizEventResponseSchema = z.object({
   endsAt: quizIsoDatetimeSchema.nullable(),
   id: quizNonEmptyIdSchema,
   prizeName: z.string().min(1),
+  prizeProduct: z
+    .object({
+      id: quizUuidSchema,
+      imageUrl: z.string().trim().min(1).nullable(),
+      name: z.string().trim().min(1),
+      variantId: quizUuidSchema.nullable(),
+    })
+    .optional(),
   questionCount: z.number().int().positive(),
   startsAt: quizIsoDatetimeSchema.nullable(),
   status: z.enum(['open', 'scheduled', 'closed']),
@@ -196,6 +224,16 @@ export const quizResultResponseSchema = z
   .object({
     attemptId: quizNonEmptyIdSchema,
     correctAnswers: z.number().int().nonnegative(),
+    prizeClaim: z
+      .object({
+        awardId: quizUuidSchema,
+        cartPath: z.string().trim().min(1).max(1024),
+        condition: quizPrizeConditionSchema,
+        productId: quizUuidSchema,
+        variantId: quizUuidSchema.nullable(),
+        voucherToken: z.string().trim().min(1).max(512),
+      })
+      .optional(),
     prizeEligible: z.boolean(),
     question: quizQuestionResponseSchema.optional(),
     status: z.enum(['completed', 'in_progress']),
@@ -234,6 +272,12 @@ export type MerchantQuizGenerationInput = z.infer<
 export type GeneratedQuizQuestion = z.infer<typeof generatedQuizQuestionSchema>;
 export type MerchantQuizGenerationResponse = z.infer<
   typeof merchantQuizGenerationResponseSchema
+>;
+export type MerchantQuizPrizeProduct = z.infer<
+  typeof merchantQuizPrizeProductSchema
+>;
+export type MerchantQuizPrizeProductsResponse = z.infer<
+  typeof merchantQuizPrizeProductsResponseSchema
 >;
 export type QuizEventResponse = z.infer<typeof quizEventResponseSchema>;
 export type QuizAttemptResponse = z.infer<typeof quizAttemptResponseSchema>;

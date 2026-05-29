@@ -18,6 +18,8 @@ const EVENT_ID = '11111111-1111-4111-8111-111111111111';
 const QUESTION_ID = '33333333-3333-4333-8333-333333333333';
 const MERCHANT_ID = '55555555-5555-4555-8555-555555555555';
 const MERCHANT_SLUG = 'ogabassey';
+const PRIZE_PRODUCT_ID = '66666666-6666-4666-8666-666666666666';
+const PRIZE_VARIANT_ID = '77777777-7777-4777-8777-777777777777';
 
 function testUuid(index: number) {
   return `00000000-0000-4000-8000-${String(index).padStart(12, '0')}`;
@@ -405,6 +407,44 @@ describe('quiz events route', () => {
     expect(response.status).toBe(200);
     expect(await readJson(response)).toMatchObject({
       events: [{ prizeName: 'N50,000 store credit' }],
+    });
+  });
+
+  it('returns product-backed device prize metadata for quiz events', async () => {
+    mockAuthenticatedSupabase({
+      selectResult: {
+        data: [
+          eventRow({
+            settings: {
+              prize_name: 'Fallback prize',
+              prize_product_id: PRIZE_PRODUCT_ID,
+              prize_product_image_url:
+                'https://cdn.example.com/iphone-15-pro-max.png',
+              prize_product_name: 'iPhone 15 Pro Max',
+              prize_variant_id: PRIZE_VARIANT_ID,
+            },
+          }),
+        ],
+        error: null,
+      },
+    });
+
+    const { GET } = await import('./route');
+    const response = await GET(eventsRequest());
+
+    expect(response.status).toBe(200);
+    expect(await readJson(response)).toMatchObject({
+      events: [
+        {
+          prizeName: 'iPhone 15 Pro Max',
+          prizeProduct: {
+            id: PRIZE_PRODUCT_ID,
+            imageUrl: 'https://cdn.example.com/iphone-15-pro-max.png',
+            name: 'iPhone 15 Pro Max',
+            variantId: PRIZE_VARIANT_ID,
+          },
+        },
+      ],
     });
   });
 

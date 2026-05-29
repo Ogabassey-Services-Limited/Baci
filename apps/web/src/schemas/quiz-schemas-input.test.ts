@@ -12,6 +12,8 @@ const EVENT_ID = '11111111-1111-4111-8111-111111111111';
 const ATTEMPT_ID = '22222222-2222-4222-8222-222222222222';
 const QUESTION_ID = '33333333-3333-4333-8333-333333333333';
 const AWARD_ID = '44444444-4444-4444-8444-444444444444';
+const PRODUCT_ID = '55555555-5555-4555-8555-555555555555';
+const VARIANT_ID = '66666666-6666-4666-8666-666666666666';
 
 describe('quiz route input schemas', () => {
   it('validates start attempt payloads', () => {
@@ -157,7 +159,7 @@ describe('quiz route input schemas', () => {
 
   it('validates merchant quiz generation payloads', () => {
     const basePayload = {
-      prizeName: 'Store credit',
+      prizeProductId: PRODUCT_ID,
       questionCountPerTopic: 1,
       timeLimitSeconds: 30,
       title: 'Daily Phone Quiz',
@@ -172,7 +174,8 @@ describe('quiz route input schemas', () => {
     expect(
       merchantQuizGenerationRequestSchema.parse({
         difficulty: 'hard',
-        prizeName: 'Store credit',
+        prizeProductId: PRODUCT_ID,
+        prizeVariantId: VARIANT_ID,
         questionCountPerTopic: '2',
         timeLimitSeconds: '45',
         title: 'Daily Phone Quiz',
@@ -180,7 +183,8 @@ describe('quiz route input schemas', () => {
       })
     ).toEqual({
       difficulty: 'hard',
-      prizeName: 'Store credit',
+      prizeProductId: PRODUCT_ID,
+      prizeVariantId: VARIANT_ID,
       publicationMode: 'draft',
       questionCountPerTopic: 2,
       timeLimitSeconds: 45,
@@ -190,12 +194,14 @@ describe('quiz route input schemas', () => {
 
     expect(() =>
       merchantQuizGenerationRequestSchema.parse({
+        prizeProductId: PRODUCT_ID,
         title: 'No',
         topics: ['iPhone buying advice'],
       })
     ).toThrow();
     expect(() =>
       merchantQuizGenerationRequestSchema.parse({
+        prizeProductId: PRODUCT_ID,
         title: 'Daily Phone Quiz',
         topics: [],
       })
@@ -203,6 +209,7 @@ describe('quiz route input schemas', () => {
     expect(() =>
       merchantQuizGenerationRequestSchema.parse({
         difficulty: 'expert',
+        prizeProductId: PRODUCT_ID,
         title: 'Daily Phone Quiz',
         topics: ['iPhone buying advice'],
       })
@@ -244,10 +251,17 @@ describe('quiz route input schemas', () => {
     expect(() => parsePayload({ timeLimitSeconds: 4 })).toThrow();
     expect(() => parsePayload({ timeLimitSeconds: 61 })).toThrow();
 
-    expect(parsePayload({ prizeName: 'P'.repeat(120) }).prizeName).toBe(
-      'P'.repeat(120)
+    expect(parsePayload({ prizeProductId: PRODUCT_ID }).prizeProductId).toBe(
+      PRODUCT_ID
     );
-    expect(() => parsePayload({ prizeName: '   ' })).toThrow();
-    expect(() => parsePayload({ prizeName: 'P'.repeat(121) })).toThrow();
+    expect(parsePayload({ prizeVariantId: VARIANT_ID }).prizeVariantId).toBe(
+      VARIANT_ID
+    );
+    expect(() =>
+      parsePayload({ prizeProductId: 'not-a-product-id' })
+    ).toThrow();
+    expect(() =>
+      parsePayload({ prizeVariantId: 'not-a-variant-id' })
+    ).toThrow();
   });
 });
