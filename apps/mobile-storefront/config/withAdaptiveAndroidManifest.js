@@ -2,6 +2,7 @@ const { withAndroidManifest } = require('@expo/config-plugins');
 
 const TOOLS_NAMESPACE = 'http://schemas.android.com/tools';
 const SCREEN_ORIENTATION_ATTRIBUTE = 'android:screenOrientation';
+const EXPORTED_ATTRIBUTE = 'android:exported';
 const TOOLS_REMOVE_ATTRIBUTE = 'tools:remove';
 const MAIN_ACTIVITY_NAMES = ['.MainActivity', 'com.ogabassey.store.MainActivity'];
 const ML_KIT_SCANNER_DELEGATE_ACTIVITY =
@@ -75,7 +76,12 @@ function applyAdaptiveAndroidManifest(manifest) {
     }
   }
 
-  removeScreenOrientation(ensureActivity(application, ML_KIT_SCANNER_DELEGATE_ACTIVITY), {
+  const scannerActivity = ensureActivity(
+    application,
+    ML_KIT_SCANNER_DELEGATE_ACTIVITY
+  );
+  scannerActivity.$[EXPORTED_ATTRIBUTE] = 'false';
+  removeScreenOrientation(scannerActivity, {
     addMergeRemoval: true,
   });
 
