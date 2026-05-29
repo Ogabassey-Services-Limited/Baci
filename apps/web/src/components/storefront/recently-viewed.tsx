@@ -64,9 +64,12 @@ export function RecentlyViewedProducts({
 
     // Fetch products by IDs
     const idsParam = recentlyViewedIds.slice(0, maxProducts).join(',');
-    apiGet<{ products: Product[] }>(
-      `/api/storefront/products?merchant_id=${merchant.id}&ids=${idsParam}`
-    )
+    const params = new URLSearchParams({
+      merchant_id: merchant.id,
+      ids: idsParam,
+      compact: 'true',
+    });
+    apiGet<{ products: Product[] }>(`/api/storefront/products?${params}`)
       .then((data) => {
         if (data.products) {
           // Sort products to match the order in recentlyViewedIds

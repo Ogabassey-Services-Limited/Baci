@@ -4,20 +4,22 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const {
   mockCreateStaticClient,
   mockProductSelect,
+  mockProductNot,
   mockProductLimit,
   mockMerchantSingle,
   mockProductOrder,
 } = vi.hoisted(() => {
   const mockMerchantSingle = vi.fn();
   const mockProductLimit = vi.fn();
+  const mockProductNot = vi.fn();
   const mockProductOrder = vi.fn();
-  const mockProductSelect = vi.fn(() => ({
-    eq: vi.fn(() => ({
-      eq: vi.fn(() => ({
-        order: mockProductOrder,
-      })),
-    })),
-  }));
+  const productQuery = {
+    eq: vi.fn(() => productQuery),
+    not: mockProductNot,
+    order: mockProductOrder,
+  };
+  mockProductNot.mockImplementation(() => productQuery);
+  const mockProductSelect = vi.fn(() => productQuery);
   const mockCreateStaticClient = vi.fn(() => ({
     from: vi.fn((table: string) => {
       if (table === 'merchants') {
@@ -43,6 +45,7 @@ const {
   return {
     mockCreateStaticClient,
     mockProductSelect,
+    mockProductNot,
     mockProductLimit,
     mockMerchantSingle,
     mockProductOrder,
@@ -106,6 +109,7 @@ describe('GET /api/storefront/[slug]/products', () => {
     mockMerchantSingle.mockReset();
     mockProductOrder.mockReset();
     mockProductLimit.mockReset();
+    mockProductNot.mockClear();
     mockProductSelect.mockClear();
   });
 
@@ -160,6 +164,53 @@ describe('GET /api/storefront/[slug]/products', () => {
     );
   });
 
+  it('defaults the public slug product API to the compact listing projection', async () => {
+    mockMerchantSingle.mockResolvedValue({
+      data: { id: 'merchant-123' },
+      error: null,
+    });
+    mockProductOrder.mockResolvedValue({
+      data: [product()],
+      error: null,
+    });
+
+    const response = await requestProducts(
+      'https://example.com/api/storefront/test-store/products'
+    );
+    const selectArg = String(
+      (mockProductSelect.mock.calls as unknown[][])[0]?.[0]
+    );
+
+    expect(response.status).toBe(200);
+    expect(selectArg).not.toContain('description');
+    expect(selectArg).toContain('has_variants');
+    expect(selectArg).not.toContain('specifications');
+    expect(selectArg).not.toContain('variant_attributes');
+    expect(selectArg).not.toMatch(/\boffers\b/);
+  });
+
+  it('allows explicit full product projection for comparison-style callers', async () => {
+    mockMerchantSingle.mockResolvedValue({
+      data: { id: 'merchant-123' },
+      error: null,
+    });
+    mockProductOrder.mockResolvedValue({
+      data: [product()],
+      error: null,
+    });
+
+    const response = await requestProducts(
+      'https://example.com/api/storefront/test-store/products?compact=false'
+    );
+    const selectArg = String(
+      (mockProductSelect.mock.calls as unknown[][])[0]?.[0]
+    );
+
+    expect(response.status).toBe(200);
+    expect(selectArg).toContain('specifications');
+    expect(selectArg).toContain('variant_attributes');
+  });
+
   it('applies the validated limit query to the products query', async () => {
     mockMerchantSingle.mockResolvedValue({
       data: { id: 'merchant-123' },
@@ -202,6 +253,24 @@ describe('GET /api/storefront/[slug]/products', () => {
     expect(response.status).toBe(200);
     expect(mockProductLimit).toHaveBeenCalledWith(2);
     expect(data.products).toHaveLength(2);
+  });
+
+  it('pushes image-presence filtering to the database when requested', async () => {
+    mockMerchantSingle.mockResolvedValue({
+      data: { id: 'merchant-123' },
+      error: null,
+    });
+    mockProductOrder.mockResolvedValue({
+      data: [product()],
+      error: null,
+    });
+
+    const response = await requestProducts(
+      'https://example.com/api/storefront/test-store/products?has_images=true'
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockProductNot).toHaveBeenCalledWith('images->0', 'is', null);
   });
 
   it('preserves SKU-matrix selection metadata in the response', async () => {
