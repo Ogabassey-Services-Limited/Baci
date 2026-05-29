@@ -102,16 +102,6 @@
       "path": "components/storefront/SearchOverlay.tsx",
       "lineCount": 465,
       "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
-    },
-    {
-      "path": "hooks/use-cart.ts",
-      "lineCount": 424,
-      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
-    },
-    {
-      "path": "stores/cart-store.ts",
-      "lineCount": 411,
-      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
     }
   ]
 }

@@ -161,8 +161,8 @@
       "justification": "Reviewed CSS box-shadow selection on web while preserving native snowflake styling."
     },
     {
-      "path": "hooks/use-cart.ts",
-      "justification": "Reviewed Android-specific cart notification behavior."
+      "path": "hooks/cart-notifications.ts",
+      "justification": "Reviewed Android-specific cart notification behavior extracted from the cart hook."
     },
     {
       "path": "hooks/use-haptics.ts",
