@@ -975,6 +975,82 @@ describe('generateGoogleMerchantFeed — conditioned variants', () => {
     }
   });
 
+  it('keeps exact image sets for same-color matrix variants that both have images', () => {
+    const xml = generateGoogleMerchantFeed(
+      [
+        product({
+          price: 700000,
+          variant_model: 'sku_matrix',
+          variants: [
+            {
+              id: 'variant-silver-128',
+              condition: 'new',
+              price_override: 550000,
+              stock_quantity: 4,
+              attributes: { color: 'Silver', storage: '128GB' },
+            },
+            {
+              id: 'variant-silver-256',
+              condition: 'used',
+              price_override: 600000,
+              stock_quantity: 2,
+              attributes: { color: 'Silver', storage: '256GB' },
+            },
+          ],
+        }),
+      ],
+      merchant({ gmc_variants_enabled: true }),
+      BASE_URL,
+      {
+        'prod-1': [
+          manifestEntry({
+            verified_url: 'https://cdn.example.com/product-main.jpg',
+          }),
+          manifestEntry({
+            variant_id: 'variant-silver-128',
+            verified_url: 'https://cdn.example.com/silver-128-front.jpg',
+          }),
+          manifestEntry({
+            variant_id: 'variant-silver-128',
+            is_primary: false,
+            position: 1,
+            verified_url: 'https://cdn.example.com/silver-128-left.jpg',
+          }),
+          manifestEntry({
+            variant_id: 'variant-silver-256',
+            verified_url: 'https://cdn.example.com/silver-256-front.jpg',
+          }),
+          manifestEntry({
+            variant_id: 'variant-silver-256',
+            is_primary: false,
+            position: 1,
+            verified_url: 'https://cdn.example.com/silver-256-right.jpg',
+          }),
+        ],
+      }
+    );
+    const silver128Item = extractItemXml(xml, 'variant-silver-128');
+    const silver256Item = extractItemXml(xml, 'variant-silver-256');
+
+    expect(silver128Item).toContain(
+      '<g:image_link>https://cdn.example.com/silver-128-front.jpg</g:image_link>'
+    );
+    expect(silver128Item).toContain(
+      '<g:additional_image_link>https://cdn.example.com/silver-128-left.jpg</g:additional_image_link>'
+    );
+    expect(silver128Item).not.toContain('silver-256');
+    expect(silver128Item).not.toContain('product-main.jpg');
+
+    expect(silver256Item).toContain(
+      '<g:image_link>https://cdn.example.com/silver-256-front.jpg</g:image_link>'
+    );
+    expect(silver256Item).toContain(
+      '<g:additional_image_link>https://cdn.example.com/silver-256-right.jpg</g:additional_image_link>'
+    );
+    expect(silver256Item).not.toContain('silver-128');
+    expect(silver256Item).not.toContain('product-main.jpg');
+  });
+
   it('falls back to product-level images when a variant has no scoped image set', () => {
     const xml = generateGoogleMerchantFeed(
       [
