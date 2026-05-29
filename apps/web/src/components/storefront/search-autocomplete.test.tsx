@@ -244,4 +244,79 @@ describe('SearchAutocomplete', () => {
 
     expect(combobox).toHaveAttribute('aria-busy', 'false');
   });
+
+  it('formats suggestion prices with the storefront country currency', async () => {
+    vi.useRealTimers();
+    const fetchMock = vi.mocked(globalThis.fetch);
+    fetchMock.mockResolvedValue({
+      json: async () => ({
+        suggestions: [
+          {
+            id: 'product-1',
+            name: 'Kurta Set',
+            slug: 'kurta-set',
+            category: 'Fashion',
+            price: 2500,
+            image_small: '',
+          },
+        ],
+        popularSearches: [],
+      }),
+    } as Response);
+
+    render(
+      <SearchAutocomplete
+        merchantId="merchant-1"
+        value="kurta"
+        onChange={vi.fn()}
+        countryCode="IN"
+      />
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('option', { name: /kurta set/i })
+      ).toHaveTextContent(/₹|INR/);
+    });
+    expect(
+      screen.getByRole('option', { name: /kurta set/i })
+    ).not.toHaveTextContent('₦');
+  });
+
+  it('falls back to Nigerian currency when storefront country is omitted', async () => {
+    vi.useRealTimers();
+    const fetchMock = vi.mocked(globalThis.fetch);
+    fetchMock.mockResolvedValue({
+      json: async () => ({
+        suggestions: [
+          {
+            id: 'product-1',
+            name: 'Kurta Set',
+            slug: 'kurta-set',
+            category: 'Fashion',
+            price: 2500,
+            image_small: '',
+          },
+        ],
+        popularSearches: [],
+      }),
+    } as Response);
+
+    render(
+      <SearchAutocomplete
+        merchantId="merchant-1"
+        value="kurta"
+        onChange={vi.fn()}
+      />
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('option', { name: /kurta set/i })
+      ).toHaveTextContent(/₦|NGN/);
+    });
+    expect(
+      screen.getByRole('option', { name: /kurta set/i })
+    ).not.toHaveTextContent(/₹|INR/);
+  });
 });

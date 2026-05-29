@@ -1,5 +1,6 @@
 import type { Product as OgabasseyProduct } from '@/components/storefront/ogabassey/types';
 import type { getCachedCategoryPageData } from '@/lib/cached-data';
+import { formatCurrencyCompact } from '@/lib/currency';
 import {
   normalizeProduct,
   type ProductKeySpecsRecord,
@@ -38,8 +39,11 @@ export function resolveCategoryPageName(
 
 export function normalizeCategoryPageProducts(
   products: RawDbProduct[],
-  preferredCategorySlug?: string
+  preferredCategorySlug?: string,
+  countryCode: string | null = 'NG'
 ): StorefrontCategoryProduct[] {
+  const safeCountryCode = countryCode || 'NG';
+
   return products.map((product) => {
     const normalized = normalizeProduct(product, {
       preferredCategorySlug,
@@ -50,7 +54,7 @@ export function normalizeCategoryPageProducts(
       name: normalized.name,
       slug: normalized.slug,
       description: normalized.description,
-      price: `₦${normalized.price.toLocaleString()}`,
+      price: formatCurrencyCompact(normalized.price, safeCountryCode),
       rawPrice: normalized.price,
       image: normalized.image,
       images: normalized.images,
