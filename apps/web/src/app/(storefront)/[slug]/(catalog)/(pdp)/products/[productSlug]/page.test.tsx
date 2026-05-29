@@ -301,23 +301,6 @@ function makeHeaders(entries: Record<string, string> = {}) {
 }
 
 describe('products/[productSlug] page', () => {
-  it('marks product metadata as request-time rendered', async () => {
-    mockGetCachedProduct.mockResolvedValue(uncategorizedProduct);
-
-    await generateMetadata(
-      {
-        params: Promise.resolve({
-          slug: 'teststore',
-          productSlug: 'mystery-item',
-        }),
-        searchParams: Promise.resolve({}),
-      },
-      stubParent
-    );
-
-    expect(mockConnection).toHaveBeenCalledOnce();
-  });
-
   beforeEach(() => {
     vi.clearAllMocks();
     vi.unstubAllEnvs();
@@ -352,6 +335,23 @@ describe('products/[productSlug] page', () => {
       samePrice: null,
     });
     mockStorefrontDynamicMetadataMarker.mockReset();
+  });
+
+  it('marks product metadata as request-time rendered', async () => {
+    mockGetCachedProduct.mockResolvedValue(uncategorizedProduct);
+
+    await generateMetadata(
+      {
+        params: Promise.resolve({
+          slug: 'teststore',
+          productSlug: 'mystery-item',
+        }),
+        searchParams: Promise.resolve({}),
+      },
+      stubParent
+    );
+
+    expect(mockConnection).toHaveBeenCalledOnce();
   });
 
   it('redirects categorized legacy products during page render in development', async () => {

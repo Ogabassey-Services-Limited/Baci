@@ -941,19 +941,6 @@ describe('[category]/[productSlug] page metadata', () => {
 });
 
 describe('[category]/[productSlug] page render', () => {
-  it('marks product metadata as request-time rendered', async () => {
-    await generateMetadata({
-      params: Promise.resolve({
-        slug: 'teststore',
-        category: 'laptops',
-        productSlug: 'hp-laptop-14-ep0063nia',
-      }),
-      searchParams: Promise.resolve({}),
-    });
-
-    expect(mockConnection).toHaveBeenCalledOnce();
-  });
-
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetEffectiveStock.mockReset();
@@ -1006,6 +993,19 @@ describe('[category]/[productSlug] page render', () => {
       sameBrand: null,
       samePrice: null,
     });
+  });
+
+  it('marks product metadata as request-time rendered', async () => {
+    await generateMetadata({
+      params: Promise.resolve({
+        slug: 'teststore',
+        category: 'laptops',
+        productSlug: 'hp-laptop-14-ep0063nia',
+      }),
+      searchParams: Promise.resolve({}),
+    });
+
+    expect(mockConnection).toHaveBeenCalledOnce();
   });
 
   it('renders the PDP shell after opting the page into request-time rendering', async () => {
