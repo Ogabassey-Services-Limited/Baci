@@ -1,4 +1,7 @@
-import 'dotenv/config';
+import path from 'node:path';
+if (process.env.NODE_ENV !== 'test') {
+  require('dotenv').config({ path: path.resolve(__dirname, '.env') });
+}
 import type { TikTokBusinessPlugin } from '@baci/tiktok-business';
 import type { ConfigContext, ExpoConfig } from 'expo/config';
 
@@ -96,19 +99,29 @@ const tiktokBusinessPlugin: TikTokBusinessPlugin | null =
     : null;
 
 const facebookAppId =
-  process.env.STOREFRONT_FACEBOOK_APP_ID?.trim() || undefined;
+  process.env.STOREFRONT_FACEBOOK_APP_ID?.trim();
 const facebookClientToken =
-  process.env.STOREFRONT_FACEBOOK_CLIENT_TOKEN?.trim() || undefined;
-const isFacebookSdkPartiallyConfigured = Boolean(
-  facebookAppId || facebookClientToken
-);
-const isFacebookSdkConfigured = Boolean(facebookAppId && facebookClientToken);
+  process.env.STOREFRONT_FACEBOOK_CLIENT_TOKEN?.trim();
 
-if (isFacebookSdkPartiallyConfigured && !isFacebookSdkConfigured) {
-  throw new Error(
-    '[app.config] STOREFRONT_FACEBOOK_APP_ID and STOREFRONT_FACEBOOK_CLIENT_TOKEN must be configured together.'
-  );
+const isRequiredEnv =
+  process.env.CI === 'true' ||
+  process.env.EAS_BUILD === 'true' ||
+  process.env.NODE_ENV === 'production' ||
+  process.env.NODE_ENV === 'test';
+
+if (!facebookAppId || !facebookClientToken) {
+  if (isRequiredEnv) {
+    throw new Error(
+      '[app.config] STOREFRONT_FACEBOOK_APP_ID and STOREFRONT_FACEBOOK_CLIENT_TOKEN are required in your environment to build and prevent silent fallback.'
+    );
+  } else {
+    console.warn(
+      '[app.config] WARNING: STOREFRONT_FACEBOOK_APP_ID or STOREFRONT_FACEBOOK_CLIENT_TOKEN is missing. Facebook SDK plugin will be disabled for local development.'
+    );
+  }
 }
+
+const isFacebookSdkConfigured = Boolean(facebookAppId && facebookClientToken);
 
 const facebookSdkPlugin: NonNullable<ExpoConfig['plugins']>[number] | null =
   isFacebookSdkConfigured && facebookAppId && facebookClientToken
@@ -150,6 +163,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       NSUserTrackingUsageDescription:
         'Your data will be used to provide personalized product recommendations and improve your shopping experience.',
       SKAdNetworkItems: [
+        {
+          SKAdNetworkIdentifier: 'ce2y4j37ch.skadnetwork',
+        },
         {
           SKAdNetworkIdentifier: '282ce24gcd.skadnetwork',
         },
