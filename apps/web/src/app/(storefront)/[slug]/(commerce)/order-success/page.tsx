@@ -4,6 +4,7 @@ import { ArrowRight, CheckCircle, Loader2, Star } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { useCurrencyWithCountry } from '@/hooks/use-currency';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { BACI_GOOGLE_REVIEW_URL } from '@/lib/post-purchase-actions';
 import { asRoute } from '@/lib/routes';
@@ -46,6 +47,7 @@ function OrderSuccessContent() {
   const merchantContext = useMerchantSafe();
   const basePath = merchantContext?.basePath;
   const merchant = merchantContext?.merchant;
+  const { formatCurrency } = useCurrencyWithCountry(merchant?.country);
   const auth = useAuthSafe();
   const user = auth?.user;
 
@@ -121,7 +123,7 @@ function OrderSuccessContent() {
               .toISOString()
               .split('T')[0]
           }
-          country="NG"
+          country={merchant.country || 'NG'}
           products={googleCustomerReviewProducts}
         />
       )}
@@ -176,10 +178,7 @@ function OrderSuccessContent() {
                     Items ({order.items?.length || 0})
                   </span>
                   <span className="font-medium text-gray-900">
-                    {new Intl.NumberFormat('en-NG', {
-                      style: 'currency',
-                      currency: 'NGN',
-                    }).format(order.total)}
+                    {formatCurrency(order.total)}
                   </span>
                 </div>
                 {order.customer_email && (
