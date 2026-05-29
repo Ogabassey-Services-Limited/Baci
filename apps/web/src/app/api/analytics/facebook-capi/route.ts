@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { fetchAnalyticsPlatformConfig } from '@/lib/analytics/analytics-platform-config';
 import type { FacebookUserData } from '@/lib/facebook-capi';
 import { facebookCAPI, generateEventId } from '@/lib/facebook-capi';
 import { createClient } from '@/lib/supabase/server';
@@ -60,14 +61,10 @@ export async function POST(request: NextRequest) {
     // Get merchant settings to retrieve CAPI credentials
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
-    const { data: merchant, error: merchantError } = await supabase
-      .from('merchants')
-      .select('facebook_pixel_id, facebook_capi_token')
-      .eq('id', merchantId)
-      .single();
+    const merchant = await fetchAnalyticsPlatformConfig(supabase, merchantId);
 
-    if (merchantError || !merchant) {
-      console.error('Failed to fetch merchant:', merchantError);
+    if (!merchant) {
+      console.error('Failed to fetch merchant analytics config');
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
