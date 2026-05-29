@@ -18,6 +18,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import type { CachedMerchant } from '@/lib/cached-data';
+import { formatDisplayCurrency } from '@/lib/format-display-currency';
 
 interface SearchResult {
   domain: string;
@@ -47,6 +48,11 @@ export function DomainSearchPanel({ merchant }: DomainSearchPanelProps) {
     domain: string;
     price: number;
   } | null>(null);
+  const formatDomainPrice = (price: number) =>
+    formatDisplayCurrency(price, merchant.payout_currency || 'NGN', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    });
 
   const handleSearch = async () => {
     const term = searchTerm.trim().toLowerCase();
@@ -232,14 +238,14 @@ export function DomainSearchPanel({ merchant }: DomainSearchPanelProps) {
                 <div className="text-right">
                   <div className="font-bold text-lg">
                     {result.price > 0 ? (
-                      `${merchant?.payout_currency || '₦'}${result.price.toLocaleString()}`
+                      formatDomainPrice(result.price)
                     ) : (
                       <span className="text-green-600">Free</span>
                     )}
                   </div>
                   {result.renewalPrice > 0 && (
                     <div className="text-xs text-muted-foreground">
-                      Renews at ₦{result.renewalPrice.toLocaleString()}/yr
+                      Renews at {formatDomainPrice(result.renewalPrice)}/yr
                     </div>
                   )}
                 </div>
@@ -285,7 +291,7 @@ export function DomainSearchPanel({ merchant }: DomainSearchPanelProps) {
               for{' '}
               <span className="font-semibold text-foreground">
                 {domainToPurchase && domainToPurchase.price > 0
-                  ? `₦${domainToPurchase.price.toLocaleString()}`
+                  ? formatDomainPrice(domainToPurchase.price)
                   : 'Free'}
               </span>
               ?
