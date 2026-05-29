@@ -772,6 +772,7 @@ describe('getCachedGoogleMerchantFeedData', () => {
 
     expect(result.imageManifest['product-1']).toHaveLength(2);
     expect(result.imageManifest['product-1'][0]).toEqual({
+      variant_id: null,
       verified_url: 'https://cdn.example.com/phone.jpg',
       verified_format: 'jpeg',
       status: 'verified',
@@ -779,12 +780,50 @@ describe('getCachedGoogleMerchantFeedData', () => {
       position: 0,
     });
     expect(result.imageManifest['product-1'][1]).toEqual({
+      variant_id: null,
       verified_url: 'https://cdn.example.com/phone-side.jpg',
       verified_format: 'jpeg',
       status: 'verified',
       is_primary: false,
       position: 1,
     });
+  });
+
+  it('preserves variant_id on variant-scoped image manifest rows', async () => {
+    manifestResult = {
+      data: [
+        {
+          product_id: 'product-1',
+          variant_id: 'variant-blue-128',
+          verified_url: 'https://cdn.example.com/blue-front.jpg',
+          verified_format: 'jpeg',
+          status: 'verified',
+          is_primary: true,
+          position: 0,
+        },
+      ],
+      error: null,
+    };
+    mockManifestRange.mockImplementation(() => ({
+      overrideTypes: () => Promise.resolve(manifestResult),
+    }));
+
+    const { getCachedGoogleMerchantFeedData } = await import('./feed-data');
+    const result = await getCachedGoogleMerchantFeedData(
+      'merchant-1',
+      'ogabassey'
+    );
+
+    expect(result.imageManifest['product-1']).toEqual([
+      {
+        variant_id: 'variant-blue-128',
+        verified_url: 'https://cdn.example.com/blue-front.jpg',
+        verified_format: 'jpeg',
+        status: 'verified',
+        is_primary: true,
+        position: 0,
+      },
+    ]);
   });
 
   it('fetches verified image manifest rows only for active product id chunks', async () => {
