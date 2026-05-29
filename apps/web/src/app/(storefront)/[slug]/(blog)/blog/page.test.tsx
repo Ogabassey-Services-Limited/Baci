@@ -2,8 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getCachedBlogListing } from '@/lib/cached-data';
 
-const { mockConnection, mockDefaultBlogUi } = vi.hoisted(() => ({
-  mockConnection: vi.fn(),
+const { mockDefaultBlogUi } = vi.hoisted(() => ({
   mockDefaultBlogUi: vi.fn((props: MockDefaultBlogUiProps) => (
     <div>{props.merchant.business_name} blog</div>
   )),
@@ -14,6 +13,7 @@ const mockNotFound = vi.fn(() => {
 });
 
 const mockBuildBlogClusterCollections = vi.fn();
+const mockConnection = vi.hoisted(() => vi.fn());
 
 interface MockDefaultBlogUiProps {
   blogSchema: {
@@ -33,12 +33,18 @@ vi.mock('next/navigation', () => ({
   notFound: () => mockNotFound(),
 }));
 
-vi.mock('@/lib/routes', () => ({
-  asRoute: (value: string) => value,
-}));
-
 vi.mock('next/server', () => ({
   connection: () => mockConnection(),
+}));
+
+vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
+  StorefrontDynamicMetadataMarker: () => (
+    <div aria-label="dynamic metadata marker" role="status" />
+  ),
+}));
+
+vi.mock('@/lib/routes', () => ({
+  asRoute: (value: string) => value,
 }));
 
 vi.mock('@/lib/sanitize-json-ld', () => ({
@@ -168,11 +174,20 @@ describe('blog page metadata', () => {
     mockNotFound.mockClear();
     mockBuildBlogClusterCollections.mockReset();
     mockBuildBlogClusterCollections.mockReturnValue([]);
-    mockConnection.mockReset();
     mockDefaultBlogUi.mockReset();
     mockDefaultBlogUi.mockImplementation((props: MockDefaultBlogUiProps) => (
       <div>{props.merchant.business_name} blog</div>
     ));
+    mockConnection.mockReset();
+  });
+
+  it('marks blog listing metadata as request-time rendered', async () => {
+    await generateMetadata({
+      params: Promise.resolve({ slug: 'test-store' }),
+      searchParams: Promise.resolve({}),
+    });
+
+    expect(mockConnection).toHaveBeenCalledOnce();
   });
 
   it('includes social images for the blog listing metadata', async () => {
@@ -284,7 +299,7 @@ describe('blog page metadata', () => {
     expect(metadata.openGraph?.url).toBe('https://test-store.usebaci.com/blog');
   });
 
-  it('shows the blog listing fallback while listing UI is pending', () => {
+  it('shows the blog listing fallback while request-time listing UI is pending', async () => {
     const pending = new Promise(() => {
       // Keep request-time metadata and listing UI suspended behind their boundaries.
     });
@@ -293,16 +308,17 @@ describe('blog page metadata', () => {
     });
 
     render(
-      <BlogPage
-        params={Promise.resolve({ slug: 'test-store' })}
-        searchParams={Promise.resolve({})}
-      />
+      await BlogPage({
+        params: Promise.resolve({ slug: 'test-store' }),
+        searchParams: Promise.resolve({}),
+      })
     );
 
     expect(
       screen.getByRole('status', { name: /loading blog posts/i })
     ).toBeInTheDocument();
     expect(screen.queryByText('Ogabassey blog')).not.toBeInTheDocument();
+    expect(mockConnection).toHaveBeenCalledOnce();
   });
 
   it('renders guide collections after the blog listing', async () => {
@@ -315,7 +331,6 @@ describe('blog page metadata', () => {
       })
     );
 
-    expect(mockConnection).toHaveBeenCalledOnce();
     expect(
       screen.getByRole('heading', { name: /guide collections/i })
     ).toBeInTheDocument();

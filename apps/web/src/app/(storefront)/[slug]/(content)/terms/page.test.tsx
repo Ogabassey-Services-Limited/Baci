@@ -1,9 +1,10 @@
+import { render, screen } from '@testing-library/react';
 import { headers } from 'next/headers';
-import { type ReactElement, Suspense } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 
 const mockConnection = vi.hoisted(() => vi.fn());
+const mockStorefrontDynamicMetadataMarker = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/cached-data', () => ({
   getMerchantByIdentifier: vi.fn(),
@@ -11,6 +12,13 @@ vi.mock('@/lib/cached-data', () => ({
 
 vi.mock('next/server', () => ({
   connection: () => mockConnection(),
+}));
+
+vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
+  StorefrontDynamicMetadataMarker: () => {
+    mockStorefrontDynamicMetadataMarker();
+    return <div aria-label="dynamic metadata marker" role="status" />;
+  },
 }));
 
 vi.mock('next/headers', () => ({
@@ -33,6 +41,7 @@ const { default: TermsPage, generateMetadata } = await import('./page');
 
 beforeEach(() => {
   mockConnection.mockReset();
+  mockStorefrontDynamicMetadataMarker.mockReset();
 });
 
 describe('terms metadata', () => {
@@ -67,43 +76,26 @@ describe('terms metadata', () => {
 });
 
 describe('terms page rendering', () => {
-  it('renders the content boundary and opts its content into request-time rendering', async () => {
-    mockConnection.mockResolvedValueOnce(undefined);
-    vi.mocked(headers).mockResolvedValue(new Headers());
-    vi.mocked(getMerchantByIdentifier).mockResolvedValue({
-      business_name: 'Test Store',
-      logo_url: null,
-      slug: 'test-store',
-      custom_domain: 'ogabassey.com',
-      pages: { terms: 'Terms copy' },
-      template_id: 'default',
-      updated_at: '2026-01-01T00:00:00.000Z',
-    } as unknown as Awaited<ReturnType<typeof getMerchantByIdentifier>>);
+  it('marks terms metadata as request-time rendered', async () => {
+    vi.mocked(getMerchantByIdentifier).mockResolvedValue(null);
 
-    const element = TermsPage({
-      params: Promise.resolve({ slug: 'ogabassey.com' }),
-    }) as ReactElement<{ children: ReactElement }>;
-    const content = element.props.children;
-
-    expect(element.type).toBe(Suspense);
-    await expect(
-      (content.type as (props: unknown) => Promise<unknown>)(content.props)
-    ).resolves.toBeTruthy();
+    await generateMetadata({
+      params: Promise.resolve({ slug: 'unknown' }),
+    });
 
     expect(mockConnection).toHaveBeenCalledOnce();
   });
 
-  it('surfaces request-time connection failures to the route boundary', async () => {
-    mockConnection.mockRejectedValueOnce(new Error('Connection failed'));
-
-    const element = TermsPage({
+  it('returns the route shell after marking the page dynamic', async () => {
+    const element = await TermsPage({
       params: Promise.resolve({ slug: 'ogabassey.com' }),
-    }) as ReactElement<{ children: ReactElement }>;
-    const content = element.props.children;
+    });
 
-    await expect(
-      (content.type as (props: unknown) => Promise<unknown>)(content.props)
-    ).rejects.toThrow('Connection failed');
+    render(element);
+    expect(
+      screen.getByRole('status', { name: /loading page content/i })
+    ).toBeInTheDocument();
+    expect(mockStorefrontDynamicMetadataMarker).not.toHaveBeenCalled();
     expect(mockConnection).toHaveBeenCalledOnce();
   });
 });

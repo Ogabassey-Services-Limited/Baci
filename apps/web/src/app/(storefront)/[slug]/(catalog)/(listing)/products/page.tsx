@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { connection } from 'next/server';
 import { Suspense } from 'react';
 import { CatalogListingLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
@@ -25,6 +26,7 @@ interface PageProps {
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
+  await connection();
   const { slug } = await params;
 
   if (!isValidMerchantIdentifier(slug)) {
@@ -89,7 +91,9 @@ export async function generateMetadata({
   };
 }
 
-export default function ProductsPage(props: PageProps) {
+export default async function ProductsPage(props: PageProps) {
+  await connection();
+
   return (
     <Suspense fallback={<CatalogListingLoading />}>
       <ProductsPageContent {...props} />

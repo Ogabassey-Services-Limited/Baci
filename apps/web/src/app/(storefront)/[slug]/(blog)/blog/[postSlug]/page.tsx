@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { permanentRedirect } from 'next/navigation';
+import { connection } from 'next/server';
 import { Suspense } from 'react';
 import { getBlogPostRedirect } from '@/lib/blog-post-redirects';
 import { getCachedBlogPost } from '@/lib/cached-data';
@@ -25,6 +26,7 @@ const SOCIAL_IMAGE_METADATA = {
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
+  await connection();
   const { slug, postSlug } = await params;
   let data: Awaited<ReturnType<typeof getCachedBlogPost>>;
   try {
@@ -107,6 +109,8 @@ export async function generateMetadata({
 }
 
 export default async function BlogPostPage({ params }: PageProps) {
+  await connection();
+
   const resolvedParams = await params;
   let redirectedPost: Awaited<ReturnType<typeof getBlogPostRedirect>> = null;
   try {

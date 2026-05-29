@@ -22,6 +22,7 @@ interface PageProps {
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
+  await connection();
   const { slug } = await params;
   const merchant = await getMerchantByIdentifier(slug);
 
@@ -52,7 +53,9 @@ export async function generateMetadata({
   };
 }
 
-export default function PrivacyPage({ params }: PageProps) {
+export default async function PrivacyPage({ params }: PageProps) {
+  await connection();
+
   return (
     <Suspense fallback={<ContentRouteLoading />}>
       <PrivacyPageContent params={params} />
@@ -61,8 +64,6 @@ export default function PrivacyPage({ params }: PageProps) {
 }
 
 async function PrivacyPageContent({ params }: PageProps) {
-  await connection();
-
   const { slug } = await params;
   const merchant = await getMerchantByIdentifier(slug);
 

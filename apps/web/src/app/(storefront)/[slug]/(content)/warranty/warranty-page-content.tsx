@@ -1,5 +1,4 @@
 import { notFound } from 'next/navigation';
-import { connection } from 'next/server';
 import { TrustPolicyPageClient } from '@/components/storefront/trust/trust-policy-page-client';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import { hasPublishableWarrantyPolicy } from '@/lib/storefront-trust/build-merchant-trust-profile';
@@ -10,8 +9,6 @@ interface PageProps {
 }
 
 export async function WarrantyPageContent({ params }: PageProps) {
-  await connection();
-
   const { slug } = await params;
   const context = await getTrustRouteContext(slug, { requestScopedUrl: true });
 

@@ -22,6 +22,8 @@ interface PageProps {
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
+  await connection();
+
   const { slug } = await params;
   const merchant = await getMerchantByIdentifier(slug);
 
@@ -52,7 +54,9 @@ export async function generateMetadata({
   };
 }
 
-export default function TermsPage({ params }: PageProps) {
+export default async function TermsPage({ params }: PageProps) {
+  await connection();
+
   return (
     <Suspense fallback={<ContentRouteLoading />}>
       <TermsPageContent params={params} />
@@ -61,8 +65,6 @@ export default function TermsPage({ params }: PageProps) {
 }
 
 async function TermsPageContent({ params }: PageProps) {
-  await connection();
-
   const { slug } = await params;
   const merchant = await getMerchantByIdentifier(slug);
 

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { connection } from 'next/server';
 import { Suspense } from 'react';
 import { BlogListingFallback } from '@/app/(storefront)/[slug]/(blog)/blog/BlogListingFallback';
 import { getCachedBlogListing } from '@/lib/cached-data';
@@ -13,6 +14,7 @@ import { BlogPageContent, type BlogPageProps } from './blog-page-content';
 export async function generateMetadata({
   params,
 }: BlogPageProps): Promise<Metadata> {
+  await connection();
   const { slug } = await params;
   const data = await getCachedBlogListing(slug, { page: 1 });
   if (!data) {
@@ -74,7 +76,9 @@ export async function generateMetadata({
   };
 }
 
-export default function BlogPage(props: BlogPageProps) {
+export default async function BlogPage(props: BlogPageProps) {
+  await connection();
+
   return (
     <Suspense fallback={<BlogListingFallback />}>
       <BlogPageContent {...props} />

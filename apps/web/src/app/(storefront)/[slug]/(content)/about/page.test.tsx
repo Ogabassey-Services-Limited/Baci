@@ -4,19 +4,19 @@ import { Suspense } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 
-const mockConnection = vi.hoisted(() => vi.fn());
 const mockBuildMerchantTrustProfile = vi.fn();
+const mockConnection = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/cached-data', () => ({
   getMerchantByIdentifier: vi.fn(),
 }));
 
-vi.mock('next/headers', () => ({
-  headers: vi.fn(),
-}));
-
 vi.mock('next/server', () => ({
   connection: () => mockConnection(),
+}));
+
+vi.mock('next/headers', () => ({
+  headers: vi.fn(),
 }));
 
 vi.mock('@/lib/sanitize-json-ld', () => ({
@@ -64,7 +64,6 @@ const mockedGenerateAboutPageJsonLd = vi.mocked(
 describe('AboutPage', () => {
   beforeEach(() => {
     vi.mocked(getMerchantByIdentifier).mockReset();
-    mockConnection.mockReset();
     notFound.mockClear();
     mockBuildMerchantTrustProfile.mockReset();
   });
@@ -86,7 +85,7 @@ describe('AboutPage', () => {
     expect(screen.queryByRole('heading', { level: 1 })).toBeNull();
   });
 
-  it('renders the shared content fallback while content is loading', () => {
+  it('does not render a page-owned loading fallback while content is loading', () => {
     // Deferred promise — never resolves, so Suspense stays in fallback
     vi.mocked(getMerchantByIdentifier).mockReturnValue(
       new Promise<null>(() => {
@@ -100,9 +99,7 @@ describe('AboutPage', () => {
       </Suspense>
     );
 
-    expect(
-      screen.getByRole('status', { name: 'Loading page content' })
-    ).toBeInTheDocument();
+    expect(screen.queryByText('Loading about page...')).toBeNull();
   });
 
   it('threads the assembled trust profile into the AboutPage JSON-LD builder', async () => {
@@ -177,6 +174,7 @@ describe('generateMetadata', () => {
     vi.mocked(getMerchantByIdentifier).mockReset();
     vi.mocked(headers).mockResolvedValue(new Headers());
     notFound.mockClear();
+    mockConnection.mockReset();
   });
 
   it('calls notFound when merchant is missing', async () => {
@@ -185,6 +183,20 @@ describe('generateMetadata', () => {
     await expect(
       generateMetadata({ params: Promise.resolve({ slug: 'missing' }) })
     ).rejects.toThrow('NEXT_NOT_FOUND');
+  });
+
+  it('marks about metadata as request-time rendered', async () => {
+    vi.mocked(getMerchantByIdentifier).mockResolvedValue({
+      business_name: 'Test Store',
+      about_page: {},
+      pages: {},
+    } as unknown as Awaited<ReturnType<typeof getMerchantByIdentifier>>);
+
+    await generateMetadata({
+      params: Promise.resolve({ slug: 'test' }),
+    });
+
+    expect(mockConnection).toHaveBeenCalledOnce();
   });
 
   it('returns fallback metadata when about content is empty', async () => {
