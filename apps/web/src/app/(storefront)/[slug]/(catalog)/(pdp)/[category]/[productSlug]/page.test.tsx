@@ -18,9 +18,12 @@ const {
   mockOgabasseyPdpProductResourceHints,
   mockOgabasseyPdpSemanticSections,
   mockOgabasseyPdpStaticResourceHints,
+  mockPreloadOgabasseyPdpStaticResources,
   mockOgabasseyPdpCriticalCommerce,
   mockOgabasseyPdpDeferredDetailIsland,
   mockOgabasseyProductDetailsPage,
+  mockConnection,
+  mockStorefrontDynamicMetadataMarker,
   mockGetStorefrontShellSnapshotBase,
   mockPreloadOgabasseyPdpProductImage,
   mockProductDetailClient,
@@ -33,9 +36,12 @@ const {
   >(() => null),
   mockOgabasseyPdpSemanticSections: vi.fn<(props: unknown) => void>(),
   mockOgabasseyPdpStaticResourceHints: vi.fn<() => void>(),
+  mockPreloadOgabasseyPdpStaticResources: vi.fn<() => void>(),
   mockOgabasseyPdpCriticalCommerce: vi.fn<(props: unknown) => void>(),
   mockOgabasseyPdpDeferredDetailIsland: vi.fn<(props: unknown) => void>(),
   mockOgabasseyProductDetailsPage: vi.fn<(props: unknown) => void>(),
+  mockConnection: vi.fn<() => Promise<void>>(() => Promise.resolve()),
+  mockStorefrontDynamicMetadataMarker: vi.fn(),
   mockGetStorefrontShellSnapshotBase:
     vi.fn<(...args: unknown[]) => Promise<unknown>>(),
   mockPreloadOgabasseyPdpProductImage:
@@ -74,6 +80,17 @@ vi.mock('next/navigation', () => ({
 
 vi.mock('next/headers', () => ({
   headers: () => mockHeaders(),
+}));
+
+vi.mock('next/server', () => ({
+  connection: () => mockConnection(),
+}));
+
+vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
+  StorefrontDynamicMetadataMarker: () => {
+    mockStorefrontDynamicMetadataMarker();
+    return <div aria-label="dynamic metadata marker" role="status" />;
+  },
 }));
 
 vi.mock('next/image', () => ({
@@ -134,13 +151,6 @@ vi.mock('next/link', () => ({
   ),
 }));
 
-vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
-  StorefrontDynamicMetadataMarker:
-    function MockStorefrontDynamicMetadataMarker() {
-      return <div aria-label="dynamic metadata marker" role="status" />;
-    },
-}));
-
 vi.mock('@/app/(storefront)/[slug]/storefront-shell-snapshot', () => ({
   getStorefrontShellSnapshotBase: (...args: unknown[]) =>
     mockGetStorefrontShellSnapshotBase(...args),
@@ -189,6 +199,8 @@ vi.mock(
       mockOgabasseyPdpStaticResourceHints();
       return null;
     },
+    preloadOgabasseyPdpStaticResources: () =>
+      mockPreloadOgabasseyPdpStaticResources(),
   })
 );
 
@@ -683,29 +695,27 @@ describe('[category]/[productSlug] page metadata', () => {
     expect(mockPermanentRedirect).not.toHaveBeenCalled();
   });
 
-  it('returns noindex metadata when the product is missing and no legacy redirect exists', async () => {
+  it('throws notFound from metadata when the product is missing and no legacy redirect exists', async () => {
     const consoleWarnSpy = vi
       .spyOn(console, 'warn')
       .mockImplementation(() => undefined);
 
-    let metadata: Awaited<ReturnType<typeof generateMetadata>> | undefined;
     try {
-      metadata = await generateMetadata({
-        params: Promise.resolve({
-          slug: 'teststore',
-          category: 'smartphones',
-          productSlug: 'missing-product',
-        }),
-        searchParams: Promise.resolve({}),
-      });
+      await expect(
+        generateMetadata({
+          params: Promise.resolve({
+            slug: 'teststore',
+            category: 'smartphones',
+            productSlug: 'missing-product',
+          }),
+          searchParams: Promise.resolve({}),
+        })
+      ).rejects.toThrow('NEXT_NOT_FOUND');
     } finally {
       consoleWarnSpy.mockRestore();
     }
 
-    expect(metadata).toMatchObject({
-      title: 'Product Not Found',
-      robots: { index: false, follow: false },
-    });
+    expect(mockNotFound).toHaveBeenCalledTimes(1);
     expect(mockPermanentRedirect).not.toHaveBeenCalled();
   });
 
@@ -975,9 +985,11 @@ describe('[category]/[productSlug] page render', () => {
     mockOgabasseyPdpProductResourceHints.mockReturnValue(null);
     mockOgabasseyPdpSemanticSections.mockReset();
     mockOgabasseyPdpStaticResourceHints.mockReset();
+    mockPreloadOgabasseyPdpStaticResources.mockReset();
     mockOgabasseyPdpCriticalCommerce.mockReset();
     mockOgabasseyPdpDeferredDetailIsland.mockReset();
     mockOgabasseyProductDetailsPage.mockReset();
+    mockStorefrontDynamicMetadataMarker.mockReset();
     mockBuildProductSemanticModel.mockReturnValue({
       trustBullets: [],
       supportLinks: [],
@@ -988,7 +1000,20 @@ describe('[category]/[productSlug] page render', () => {
     });
   });
 
-  it('keeps the request-time marker after the streamed product shell', async () => {
+  it('marks product metadata as request-time rendered', async () => {
+    await generateMetadata({
+      params: Promise.resolve({
+        slug: 'teststore',
+        category: 'laptops',
+        productSlug: 'hp-laptop-14-ep0063nia',
+      }),
+      searchParams: Promise.resolve({}),
+    });
+
+    expect(mockConnection).toHaveBeenCalledOnce();
+  });
+
+  it('renders the PDP shell after opting the page into request-time rendering', async () => {
     const ui = await resolveRsc(
       await CategoryProductPage({
         params: Promise.resolve({
@@ -1003,18 +1028,16 @@ describe('[category]/[productSlug] page render', () => {
     const criticalShell = container.querySelector(
       '[data-ogabassey-pdp-critical-shell]'
     );
-    const dynamicMarker = screen.getByRole('status', {
-      name: 'dynamic metadata marker',
-    });
 
     if (!criticalShell) {
       throw new Error('Expected the OgaBassey PDP critical shell to render');
     }
 
+    expect(mockConnection).toHaveBeenCalledOnce();
+    expect(mockStorefrontDynamicMetadataMarker).not.toHaveBeenCalled();
     expect(
-      criticalShell.compareDocumentPosition(dynamicMarker) &
-        Node.DOCUMENT_POSITION_FOLLOWING
-    ).toBeTruthy();
+      screen.queryByRole('status', { name: /dynamic metadata marker/i })
+    ).not.toBeInTheDocument();
     expect(
       screen.getByRole('heading', {
         level: 1,
@@ -1265,7 +1288,7 @@ describe('[category]/[productSlug] page render', () => {
     );
   });
 
-  it('throws notFound before streaming when the product is missing', async () => {
+  it('triggers notFound without rendering a body marker when the product is missing', async () => {
     const consoleWarnSpy = vi
       .spyOn(console, 'warn')
       .mockImplementation(() => undefined);
@@ -1273,22 +1296,26 @@ describe('[category]/[productSlug] page render', () => {
     mockGetCachedLegacyProductRedirectTarget.mockResolvedValueOnce(null);
 
     try {
-      await expect(
-        CategoryProductPage({
-          params: Promise.resolve({
-            slug: 'teststore',
-            category: 'laptops',
-            productSlug: 'missing-product',
-          }),
-          searchParams: Promise.resolve({}),
-        })
-      ).rejects.toThrow('NEXT_NOT_FOUND');
+      const page = await CategoryProductPage({
+        params: Promise.resolve({
+          slug: 'teststore',
+          category: 'laptops',
+          productSlug: 'missing-product',
+        }),
+        searchParams: Promise.resolve({}),
+      });
+
+      expect(() => render(page as ReactElement)).toThrow('NEXT_NOT_FOUND');
 
       expect(mockGetCachedLegacyProductRedirectTarget).toHaveBeenCalledWith(
         baseMerchant.id,
         'missing-product'
       );
-      expect(mockNotFound).toHaveBeenCalledTimes(1);
+      expect(mockNotFound).toHaveBeenCalled();
+      expect(mockStorefrontDynamicMetadataMarker).not.toHaveBeenCalled();
+      expect(
+        screen.queryByRole('status', { name: /dynamic metadata marker/i })
+      ).not.toBeInTheDocument();
       expect(consoleWarnSpy).not.toHaveBeenCalledWith(
         'Product not found for storefront product route:',
         'missing-product'
@@ -1392,13 +1419,12 @@ describe('[category]/[productSlug] page render', () => {
       )
     );
 
-    expect(mockOgabasseyPdpStaticResourceHints).toHaveBeenCalledTimes(1);
+    expect(mockPreloadOgabasseyPdpStaticResources).toHaveBeenCalledTimes(1);
+    expect(mockOgabasseyPdpStaticResourceHints).not.toHaveBeenCalled();
     expect(mockPreloadOgabasseyPdpProductImage).toHaveBeenCalledWith({
       src: productImage,
     });
-    expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
-      src: productImage,
-    });
+    expect(mockOgabasseyPdpProductResourceHints).not.toHaveBeenCalled();
   });
 
   it('preloads the OgaBassey PDP product image before full product details resolve', async () => {
@@ -1439,9 +1465,8 @@ describe('[category]/[productSlug] page render', () => {
     expect(mockPreloadOgabasseyPdpProductImage).toHaveBeenCalledWith({
       src: earlyProductImage,
     });
-    expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
-      src: earlyProductImage,
-    });
+    expect(mockPreloadOgabasseyPdpStaticResources).toHaveBeenCalledTimes(1);
+    expect(mockOgabasseyPdpProductResourceHints).not.toHaveBeenCalled();
     expect(mockOgabasseyProductDetailsPage).not.toHaveBeenCalled();
 
     resolveProductDetails?.(categorizedDetailedProduct);
@@ -1574,9 +1599,8 @@ describe('[category]/[productSlug] page render', () => {
     expect(mockPreloadOgabasseyPdpProductImage).toHaveBeenCalledWith({
       src: productImage,
     });
-    expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
-      src: productImage,
-    });
+    expect(mockPreloadOgabasseyPdpStaticResources).toHaveBeenCalledTimes(1);
+    expect(mockOgabasseyPdpProductResourceHints).not.toHaveBeenCalled();
     expect(
       screen.getByRole('heading', {
         level: 1,
@@ -1659,9 +1683,8 @@ describe('[category]/[productSlug] page render', () => {
     });
 
     render(await resolveRsc(pageUi));
-    expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
-      src: productImage,
-    });
+    expect(mockPreloadOgabasseyPdpStaticResources).toHaveBeenCalledTimes(1);
+    expect(mockOgabasseyPdpProductResourceHints).not.toHaveBeenCalled();
     expect(mockOgabasseyPdpDeferredDetailIsland).toHaveBeenCalledWith(
       expect.objectContaining({
         product: expect.objectContaining({
@@ -1693,6 +1716,7 @@ describe('[category]/[productSlug] page render', () => {
     );
 
     expect(mockOgabasseyPdpStaticResourceHints).not.toHaveBeenCalled();
+    expect(mockPreloadOgabasseyPdpStaticResources).not.toHaveBeenCalled();
     expect(mockPreloadOgabasseyPdpProductImage).not.toHaveBeenCalled();
     expect(mockOgabasseyPdpProductResourceHints).not.toHaveBeenCalled();
   });

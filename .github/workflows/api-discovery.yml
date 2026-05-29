@@ -19,7 +19,7 @@ jobs:
           fetch-depth: 0
 
       - name: API Discovery
-        uses: apisec-inc/apisec-bolt-code-discovery-github-action@674a812f6c53f3e627f669539e0be5bf0f4a3bc5 # v0.1.4
+        uses: apisec-inc/apisec-bolt-code-discovery-github-action@529a4e8ed942389172b983b53a7ba7eb93687242 # v0.1.5
         with:
           api-endpoint: ${{ secrets.API_DISCOVERY_ENDPOINT }}
           api-token: ${{ secrets.API_DISCOVERY_TOKEN }}
