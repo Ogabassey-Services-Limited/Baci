@@ -287,6 +287,7 @@ export function revalidatePageConfig(merchantId: string, pageSlug?: string) {
  * @param merchantId - Canonical merchant UUID (not slug).
  */
 export function revalidateMerchantFeed(merchantId: string) {
+  revalidateTag('google-merchant-feed', 'products');
   revalidateTag(`merchant-feed-${merchantId}`, 'products');
   revalidateTag(`merchant-feed-review-signals-${merchantId}`, 'products');
 }
