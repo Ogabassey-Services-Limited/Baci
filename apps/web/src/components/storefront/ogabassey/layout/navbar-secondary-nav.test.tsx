@@ -50,6 +50,26 @@ describe('NavbarSecondaryNav', () => {
     );
   });
 
+  it('connects the category disclosure button to the dropdown panel', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <NavbarSecondaryNav
+        basePath="/ogabassey"
+        categories={[{ name: 'Phones', slug: 'smartphones' }]}
+      />
+    );
+
+    const trigger = screen.getByRole('button', { name: /shop by category/i });
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+
+    await user.click(trigger);
+
+    const panel = screen.getByRole('region', { name: /category navigation/i });
+    expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    expect(trigger).toHaveAttribute('aria-controls', panel.id);
+  });
+
   it('normalizes legacy phone aliases to the smartphones route', async () => {
     const user = userEvent.setup();
 
