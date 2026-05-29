@@ -42,6 +42,8 @@ export function normalizeCategoryPageProducts(
   preferredCategorySlug?: string,
   countryCode: string | null = 'NG'
 ): StorefrontCategoryProduct[] {
+  const safeCountryCode = countryCode || 'NG';
+
   return products.map((product) => {
     const normalized = normalizeProduct(product, {
       preferredCategorySlug,
@@ -52,7 +54,7 @@ export function normalizeCategoryPageProducts(
       name: normalized.name,
       slug: normalized.slug,
       description: normalized.description,
-      price: formatCurrencyCompact(normalized.price, countryCode),
+      price: formatCurrencyCompact(normalized.price, safeCountryCode),
       rawPrice: normalized.price,
       image: normalized.image,
       images: normalized.images,

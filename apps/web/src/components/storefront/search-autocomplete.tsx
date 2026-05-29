@@ -55,7 +55,7 @@ export function SearchAutocomplete({
   id = 'search-input',
   name = 'q',
   autoFocus = false,
-  countryCode = 'NG',
+  countryCode,
 }: SearchAutocompleteProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [suggestions, setSuggestions] = useState<Product[]>([]);
@@ -65,7 +65,8 @@ export function SearchAutocomplete({
   const wrapperRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const debouncedValue = useDebounce(value, 300);
-  const { formatCurrencyCompact } = useCurrencyWithCountry(countryCode ?? 'NG');
+  const safeCountryCode = countryCode || 'NG';
+  const { formatCurrencyCompact } = useCurrencyWithCountry(safeCountryCode);
 
   // Close dropdown when clicking outside
   useEffect(() => {

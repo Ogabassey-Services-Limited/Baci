@@ -132,4 +132,27 @@ describe('normalizeCategoryPageProducts', () => {
     expect(result.price).toContain('₦');
     expect(result.price).not.toMatch(/₹|INR/);
   });
+
+  it('falls back to NGN when the storefront country is null', () => {
+    const [result] = normalizeCategoryPageProducts(
+      [
+        {
+          id: 'prod-6',
+          name: 'Travel Backpack',
+          slug: 'travel-backpack',
+          description: 'Carry-on friendly backpack',
+          price: 4500,
+          condition: 'new',
+          stock: 6,
+          images: ['https://cdn.example.com/backpack.png'],
+          categories: [{ name: 'Bags', slug: 'bags' }],
+        },
+      ],
+      'bags',
+      null
+    );
+
+    expect(result.price).toContain('₦');
+    expect(result.price).not.toContain('$');
+  });
 });

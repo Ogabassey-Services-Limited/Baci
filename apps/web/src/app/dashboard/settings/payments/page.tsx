@@ -70,7 +70,9 @@ export default function PaymentSettingsPage() {
   const isPaystackSupported = isBaciPaystackSettlementCountry(countryCode);
   const hasPaystackSubaccount = !!merchantData?.paystack_subaccount_code;
   const merchantCurrencyCode = getCurrencyCode(countryCode);
-  const platformFeeCap = formatCurrencyCompact(2050, countryCode);
+  const platformFeeCap = isPaystackSupported
+    ? formatCurrencyCompact(2050, 'NG')
+    : null;
   const paystackFixedFee = formatCurrencyCompact(100, 'NG');
 
   useEffect(() => {
@@ -570,8 +572,12 @@ export default function PaymentSettingsPage() {
             <h4 className="font-medium mb-2">Platform Fee</h4>
             <p className="text-sm text-muted-foreground">
               Baci charges{' '}
-              <strong>2% per transaction, capped at {platformFeeCap}</strong>.
-              This is automatically deducted from each payment.{' '}
+              <strong>
+                {platformFeeCap
+                  ? `2% per transaction, capped at ${platformFeeCap}`
+                  : '2% per transaction'}
+              </strong>
+              . This is automatically deducted from each payment.{' '}
               {isPaystackSupported
                 ? `Gateway fees (Paystack: 1.5% + ${paystackFixedFee}) are separate and borne by the platform.`
                 : 'Gateway fees depend on the provider configured for your country.'}

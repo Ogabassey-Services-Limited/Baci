@@ -46,6 +46,7 @@ import {
   updateWalletSettings,
   type WalletData,
 } from './actions';
+import { getWalletPayoutAmountOptions } from './wallet-payout-options';
 
 interface WalletClientProps {
   wallet: WalletData | null;
@@ -129,6 +130,10 @@ export default function WalletClient({
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     });
+  const payoutAmountOptions = getWalletPayoutAmountOptions(
+    payoutCurrency,
+    wallet?.minPayoutAmount
+  );
 
   const getTypeIcon = (type: string) => {
     switch (type) {
@@ -395,13 +400,11 @@ export default function WalletClient({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="500">{formatMoney(500)}</SelectItem>
-                      <SelectItem value="1000">{formatMoney(1000)}</SelectItem>
-                      <SelectItem value="2000">{formatMoney(2000)}</SelectItem>
-                      <SelectItem value="5000">{formatMoney(5000)}</SelectItem>
-                      <SelectItem value="10000">
-                        {formatMoney(10_000)}
-                      </SelectItem>
+                      {payoutAmountOptions.map((amount) => (
+                        <SelectItem key={amount} value={String(amount)}>
+                          {formatMoney(amount)}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground">

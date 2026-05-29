@@ -175,7 +175,10 @@ describe('PaymentSettingsPage', () => {
     ).toBeInTheDocument();
 
     expect(screen.getByText('Local Payments (INR)')).toBeInTheDocument();
-    expect(screen.getByText(/Baci charges/i)).toHaveTextContent('₹2,050');
+    expect(screen.getByText(/Baci charges/i)).toHaveTextContent(
+      '2% per transaction'
+    );
+    expect(screen.getByText(/Baci charges/i)).not.toHaveTextContent('₹2,050');
     expect(
       screen.queryByText(/Local Payments \(NGN\)/i)
     ).not.toBeInTheDocument();
