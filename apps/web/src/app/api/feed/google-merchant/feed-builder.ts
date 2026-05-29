@@ -524,7 +524,7 @@ export function generateGoogleMerchantFeed(
       const effectiveBrand = product.brand || brandName;
       const conditionedVariants = getConditionedVariants(product);
       const shouldEmitVariantRows =
-        merchant.gmc_variants_enabled === true &&
+        merchant.gmc_variants_enabled !== false &&
         product.variant_model === 'sku_matrix' &&
         conditionedVariants.length > 0;
 
