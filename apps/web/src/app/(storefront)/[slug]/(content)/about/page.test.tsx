@@ -5,9 +5,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 
 const mockBuildMerchantTrustProfile = vi.fn();
+const mockConnection = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/cached-data', () => ({
   getMerchantByIdentifier: vi.fn(),
+}));
+
+vi.mock('next/server', () => ({
+  connection: () => mockConnection(),
 }));
 
 vi.mock('next/headers', () => ({
@@ -169,6 +174,7 @@ describe('generateMetadata', () => {
     vi.mocked(getMerchantByIdentifier).mockReset();
     vi.mocked(headers).mockResolvedValue(new Headers());
     notFound.mockClear();
+    mockConnection.mockReset();
   });
 
   it('calls notFound when merchant is missing', async () => {
@@ -177,6 +183,20 @@ describe('generateMetadata', () => {
     await expect(
       generateMetadata({ params: Promise.resolve({ slug: 'missing' }) })
     ).rejects.toThrow('NEXT_NOT_FOUND');
+  });
+
+  it('marks about metadata as request-time rendered', async () => {
+    vi.mocked(getMerchantByIdentifier).mockResolvedValue({
+      business_name: 'Test Store',
+      about_page: {},
+      pages: {},
+    } as unknown as Awaited<ReturnType<typeof getMerchantByIdentifier>>);
+
+    await generateMetadata({
+      params: Promise.resolve({ slug: 'test' }),
+    });
+
+    expect(mockConnection).toHaveBeenCalledOnce();
   });
 
   it('returns fallback metadata when about content is empty', async () => {

@@ -6,9 +6,14 @@ import { getMerchantByIdentifier } from '@/lib/cached-data';
 const mockNotFound = vi.fn(() => {
   throw new Error('NEXT_NOT_FOUND');
 });
+const mockConnection = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/cached-data', () => ({
   getMerchantByIdentifier: vi.fn(),
+}));
+
+vi.mock('next/server', () => ({
+  connection: () => mockConnection(),
 }));
 
 vi.mock('next/headers', () => ({
@@ -71,6 +76,7 @@ describe('contact metadata', () => {
     vi.mocked(headers).mockReset();
     vi.mocked(headers).mockResolvedValue(new Headers());
     mockNotFound.mockClear();
+    mockConnection.mockReset();
   });
 
   it('returns fallback title when merchant is missing', async () => {
@@ -81,6 +87,16 @@ describe('contact metadata', () => {
     });
 
     expect(metadata.title).toBe('Contact Us');
+  });
+
+  it('marks contact metadata as request-time rendered', async () => {
+    vi.mocked(getMerchantByIdentifier).mockResolvedValue(null);
+
+    await generateMetadata({
+      params: Promise.resolve({ slug: 'unknown' }),
+    });
+
+    expect(mockConnection).toHaveBeenCalledOnce();
   });
 
   it('prefers the request-scoped custom domain for canonical metadata', async () => {

@@ -51,6 +51,7 @@ describe('GET /api/storefront/orders/[id]', () => {
       price: 5000,
       products: {
         slug: 'test-product',
+        gtin: '0123456789012',
         category: 'smartphones',
         categories: [{ name: 'Smartphones', slug: 'smartphones' }],
       },
@@ -84,6 +85,7 @@ describe('GET /api/storefront/orders/[id]', () => {
           {
             id: 'product-1',
             slug: 'test-product',
+            gtin: '0123456789012',
             category: 'smartphones',
             categories: [{ name: 'Smartphones', slug: 'smartphones' }],
           },
@@ -166,6 +168,7 @@ describe('GET /api/storefront/orders/[id]', () => {
         quantity: 2,
         price: 5000,
         product_images: undefined,
+        gtin: '0123456789012',
         product_slug: 'test-product',
         category: 'smartphones',
         category_slug: 'smartphones',

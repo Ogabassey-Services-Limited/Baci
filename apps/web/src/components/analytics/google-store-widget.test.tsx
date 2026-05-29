@@ -131,6 +131,31 @@ describe('GoogleStoreWidget', () => {
     });
   });
 
+  it('passes the Merchant Center ID to the store widget when configured', () => {
+    const start = vi.fn();
+    window.merchantwidget = { start };
+
+    render(
+      <GoogleStoreWidget
+        merchant={{
+          ...baseMerchant,
+          feature_settings: {
+            custom_settings: { google_merchant_id: '112524323' },
+          },
+        }}
+        hostname="ogabassey.com"
+      />
+    );
+
+    act(() => {
+      vi.advanceTimersByTime(20000);
+    });
+
+    expect(start).toHaveBeenCalledWith(
+      expect.objectContaining({ merchant_id: 112_524_323 })
+    );
+  });
+
   it('does not render when the current hostname does not match the merchant domain', () => {
     render(
       <GoogleStoreWidget
