@@ -59,6 +59,7 @@ export default function PayoutSettingsScreen() {
       return data as MerchantBankSettings & { id: string };
     },
     enabled: !!user?.id,
+    staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
   // Account verification — fires once per settled (accountnumber, bank) pair
