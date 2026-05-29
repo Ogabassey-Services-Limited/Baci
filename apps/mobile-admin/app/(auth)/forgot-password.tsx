@@ -77,7 +77,13 @@ export default function ForgotPasswordScreen() {
         style={StyleSheet.absoluteFill}
       />
       <SafeAreaView style={styles.content}>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
+        <Pressable
+          onPress={() => router.back()}
+          style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.7 }]}
+          accessibilityRole="button"
+          accessibilityLabel="Back to login"
+          hitSlop={12}
+        >
           <Ionicons name="arrow-back" size={24} color={colors.text} />
         </Pressable>
 
@@ -99,13 +105,22 @@ export default function ForgotPasswordScreen() {
               onChangeText={setEmail}
               autoCapitalize="none"
               keyboardType="email-address"
+              returnKeyType="done"
+              onSubmitEditing={handleReset}
             />
           </View>
 
           <Pressable
-            style={[styles.button, isLoading && { opacity: 0.7 }]}
+            style={({ pressed }) => [
+              styles.button,
+              isLoading && { opacity: 0.7 },
+              pressed && !isLoading && { opacity: 0.7 },
+            ]}
             onPress={handleReset}
             disabled={isLoading}
+            accessibilityRole="button"
+            accessibilityLabel={isLoading ? 'Sending instructions...' : 'Send Instructions'}
+            accessibilityState={{ disabled: isLoading, busy: isLoading }}
           >
             {isLoading ? (
               <ActivityIndicator color={colors.textOnPrimary} />
