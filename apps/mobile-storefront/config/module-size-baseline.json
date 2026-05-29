@@ -15,7 +15,7 @@
     },
     {
       "path": "services/ad-tracking.ts",
-      "lineCount": 940,
+      "lineCount": 938,
       "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
     },
     {
