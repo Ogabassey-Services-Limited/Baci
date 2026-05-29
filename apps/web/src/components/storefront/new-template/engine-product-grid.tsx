@@ -76,7 +76,12 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
 
             try {
                 setLoading(true);
-                const response = await fetch(`/api/storefront/${storeSlug}/products?limit=${limit}`);
+                const params = new URLSearchParams({
+                    limit: String(limit),
+                    compact: 'true',
+                    has_images: 'true',
+                });
+                const response = await fetch(`/api/storefront/${storeSlug}/products?${params}`);
 
                 if (!response.ok) throw new Error('Failed to fetch products');
 

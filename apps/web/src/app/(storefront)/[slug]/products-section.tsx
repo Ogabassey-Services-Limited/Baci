@@ -16,7 +16,10 @@ export async function ProductsSection({
   categories = [],
 }: ProductsSectionProps) {
   // Fetch products - this runs asynchronously and streams when ready
-  const products = await getCachedProducts(merchantId, { limit: 50 });
+  const products = await getCachedProducts(merchantId, {
+    includeVariants: false,
+    limit: 50,
+  });
 
   // Return products and categories for the template to render
   return { products: products as unknown as Product[], categories };

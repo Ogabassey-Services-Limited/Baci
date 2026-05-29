@@ -83,12 +83,18 @@ export function RelatedProducts({
 
     setIsLoading(true);
 
-    // Fetch all products, then filter client-side for related ones
-    // In future, this could be replaced with a dedicated /api/products/related endpoint
-    // that uses vector similarity search
-    apiGet<{ products: Product[] }>(
-      `/api/storefront/products?merchant_id=${merchant.id}`
-    )
+    const params = new URLSearchParams({
+      merchant_id: merchant.id,
+      compact: 'true',
+      has_images: 'true',
+    });
+
+    if (product.category_slug || product.category) {
+      params.set('category', product.category_slug || product.category || '');
+      params.set('limit', String(Math.max(maxProducts * 3, 12)));
+    }
+
+    apiGet<{ products: Product[] }>(`/api/storefront/products?${params}`)
       .then((data) => {
         if (data.products) {
           const related = findRelatedProducts(

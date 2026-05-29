@@ -71,6 +71,7 @@ export function ProductComparisonTable({
                 const params = new URLSearchParams({
                     q: query,
                     limit: '5',
+                    compact: 'false',
                 });
 
                 if (mainProduct.merchantId) {
