@@ -1,15 +1,8 @@
 import { notFound } from 'next/navigation';
-import { StorefrontDynamicMetadataMarker } from './storefront-dynamic-metadata-marker';
 
-function StorefrontNotFoundTrigger(): never {
+// Product routes call `connection()` before they decide to 404. Do not render
+// the dynamic metadata marker here; it caused Next resume mismatches on cached
+// storefront pages by inserting metadata boundaries into body slots.
+export function StorefrontNotFoundWithDynamicMetadataMarker(): never {
   notFound();
-}
-
-export function StorefrontNotFoundWithDynamicMetadataMarker() {
-  return (
-    <>
-      <StorefrontDynamicMetadataMarker />
-      <StorefrontNotFoundTrigger />
-    </>
-  );
 }
