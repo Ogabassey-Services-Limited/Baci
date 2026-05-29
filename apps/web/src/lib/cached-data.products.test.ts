@@ -237,6 +237,22 @@ describe('cached-data product query projections', () => {
     expect(selectArg).not.toContain('is_featured');
   });
 
+  it('getCachedProducts can skip storefront variant hydration for listing-only callers', async () => {
+    harness.mockListResult.data = productList;
+    harness.mockListResult.error = null;
+
+    await expect(
+      getCachedProducts('merchant-123', { includeVariants: false })
+    ).resolves.toEqual([
+      expect.objectContaining({ id: 'product-123', product_variants: [] }),
+      expect.objectContaining({ id: 'product-456', product_variants: [] }),
+    ]);
+    expect(harness.mockRpc).not.toHaveBeenCalledWith(
+      'get_storefront_product_variants',
+      expect.any(Object)
+    );
+  });
+
   it('getCachedProducts does not filter by the retired is_featured column', async () => {
     harness.mockListResult.data = productList;
     harness.mockListResult.error = null;

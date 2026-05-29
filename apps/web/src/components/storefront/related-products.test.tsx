@@ -181,7 +181,7 @@ describe('RelatedProducts', () => {
 
     await waitFor(() => {
       expect(apiGetMock).toHaveBeenCalledWith(
-        '/api/storefront/products?merchant_id=merchant-1'
+        '/api/storefront/products?merchant_id=merchant-1&compact=true&has_images=true&category=smartphones&limit=12'
       );
     });
 
