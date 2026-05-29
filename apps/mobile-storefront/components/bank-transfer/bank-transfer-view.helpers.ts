@@ -1,22 +1,21 @@
 import type { z } from 'zod';
 import type { walletOrderFundingIntentStatusSchema } from '@/schemas/order-wallet-funding-intent';
+import { formatPrice } from '@/stores/cart-store';
 
 export type WalletFundingStatus = z.infer<
   typeof walletOrderFundingIntentStatusSchema
 >;
 
-const NAIRA_LOCALE = 'en-NG';
-
-export function formatNairaAmount(amount?: string) {
+export function formatTransferAmount(amount?: string) {
   if (!amount) return null;
   const numericAmount = Number(amount);
   if (!Number.isFinite(numericAmount)) return null;
-  return `₦${numericAmount.toLocaleString(NAIRA_LOCALE)}`;
+  return formatPrice(numericAmount);
 }
 
-function formatNairaValue(amount?: number) {
+function formatTransferValue(amount?: number) {
   if (typeof amount !== 'number' || !Number.isFinite(amount)) return null;
-  return `₦${amount.toLocaleString(NAIRA_LOCALE)}`;
+  return formatPrice(amount);
 }
 
 export function getWalletFundingStatusCopy({
@@ -29,7 +28,7 @@ export function getWalletFundingStatusCopy({
   status?: WalletFundingStatus;
 }) {
   if (status === 'underfunded') {
-    const formattedAmount = formatNairaValue(remainingAmount);
+    const formattedAmount = formatTransferValue(remainingAmount);
     if (!formattedAmount) {
       return {
         title: 'Additional payment needed',

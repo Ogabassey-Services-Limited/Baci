@@ -66,6 +66,7 @@ jest.mock('@/lib/order-wallet-funding-intent', () => ({
 }));
 
 jest.mock('@/stores/cart-store', () => ({
+  formatPrice: (amount: number) => `₦${amount.toLocaleString('en-NG')}`,
   useCartStore: Object.assign(
     (selector: (state: typeof mockCartState) => unknown) =>
       selector(mockCartState),

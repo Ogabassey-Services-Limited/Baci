@@ -1,14 +1,19 @@
+import { jest } from '@jest/globals';
 import {
-  formatNairaAmount,
+  formatTransferAmount,
   getDisplayStatusCopy,
   getWalletFundingStatusCopy,
 } from './bank-transfer-view.helpers';
 
+jest.mock('@/stores/cart-store', () => ({
+  formatPrice: (amount: number) => `TEST ${amount.toLocaleString('en-US')}`,
+}));
+
 describe('bank transfer view helpers', () => {
   it('formats valid transfer amounts and rejects malformed values', () => {
-    expect(formatNairaAmount('20000')).toBe('₦20,000');
-    expect(formatNairaAmount('not-a-number')).toBeNull();
-    expect(formatNairaAmount()).toBeNull();
+    expect(formatTransferAmount('20000')).toBe('TEST 20,000');
+    expect(formatTransferAmount('not-a-number')).toBeNull();
+    expect(formatTransferAmount()).toBeNull();
   });
 
   it('uses timed-out wallet copy only while the wallet status is non-terminal', () => {
@@ -30,7 +35,7 @@ describe('bank transfer view helpers', () => {
       })
     ).toEqual({
       icon: 'alert-circle-outline',
-      message: '₦3,500 still needed',
+      message: 'TEST 3,500 still needed',
       title: 'Transfer remaining amount',
     });
     expect(
@@ -53,7 +58,7 @@ describe('bank transfer view helpers', () => {
       })
     ).toEqual({
       icon: 'alert-circle-outline',
-      message: '₦3,500 still needed',
+      message: 'TEST 3,500 still needed',
       title: 'Transfer remaining amount',
     });
     expect(getWalletFundingStatusCopy({ status: 'underfunded' })).toEqual({
