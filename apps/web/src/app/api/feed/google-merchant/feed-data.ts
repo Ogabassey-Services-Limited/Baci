@@ -27,7 +27,7 @@ export interface GoogleMerchantFeedData {
   imageManifest: ImageManifestMap;
 }
 
-const GOOGLE_MERCHANT_FEED_DATA_CACHE_VERSION = 'variant-feed-data-v3';
+const GOOGLE_MERCHANT_FEED_DATA_CACHE_VERSION = 'variant-feed-data-v4';
 
 interface RawFeedProductRow extends Omit<FeedProduct, 'categories'> {
   categories?:
