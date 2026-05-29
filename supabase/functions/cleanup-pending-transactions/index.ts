@@ -122,7 +122,9 @@ Deno.serve(async (_req) => {
 /**
  * Paystack Verification
  */
-async function verifyPaystack(reference: string): Promise<any> {
+async function verifyPaystack(
+  reference: string
+): Promise<'success' | 'failed' | 'pending'> {
   const secret = Deno.env.get('PAYSTACK_SECRET_KEY');
   if (!secret) throw new Error('PAYSTACK_SECRET_KEY not set');
 
@@ -143,7 +145,9 @@ async function verifyPaystack(reference: string): Promise<any> {
 /**
  * Juicyway Verification
  */
-async function verifyJuicyway(reference: string): Promise<any> {
+async function verifyJuicyway(
+  reference: string
+): Promise<'success' | 'failed' | 'pending'> {
   const secret = Deno.env.get('JUICYWAY_SECRET_KEY');
   const baseUrl =
     Deno.env.get('JUICYWAY_BASE_URL') || 'https://api.spendjuice.com';
@@ -165,7 +169,9 @@ async function verifyJuicyway(reference: string): Promise<any> {
 /**
  * Korapay Verification
  */
-async function verifyKorapay(reference: string): Promise<any> {
+async function verifyKorapay(
+  reference: string
+): Promise<'success' | 'failed' | 'pending'> {
   const secret = Deno.env.get('KORAPAY_SECRET_KEY');
   if (!secret) throw new Error('KORAPAY_SECRET_KEY not set');
 
