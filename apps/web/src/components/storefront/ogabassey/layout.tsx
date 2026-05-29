@@ -37,7 +37,7 @@ export function OgabasseyLayout({
     <>
       {merchant && (
         <DeferredGoogleStoreWidget
-          merchantCustomDomain={merchant.custom_domain}
+          merchant={merchant}
           enabled={shouldEnableGoogleStoreWidget}
         />
       )}
