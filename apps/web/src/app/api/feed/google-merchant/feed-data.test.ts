@@ -509,6 +509,64 @@ describe('getCachedGoogleMerchantFeedData', () => {
     ]);
   });
 
+  it('limits concurrent variant RPC batches', async () => {
+    const products = Array.from({ length: 501 }, (_, index) => ({
+      id: `product-${index}`,
+      name: `Phone ${index}`,
+      created_at: '2026-01-01T00:00:00.000Z',
+    }));
+    productsResult = {
+      data: products,
+      error: null,
+    };
+    const startedBatchSizes: number[] = [];
+    const deferredRpcResults: ReturnType<
+      typeof createDeferred<VariantRpcResult>
+    >[] = [];
+    mockRpc.mockImplementation((_functionName, args) => {
+      const deferred = createDeferred<VariantRpcResult>();
+      deferredRpcResults.push(deferred);
+      startedBatchSizes.push(args.p_product_ids.length);
+      return deferred.promise;
+    });
+
+    const {
+      FEED_PRODUCT_VARIANTS_MAX_CONCURRENT_BATCHES,
+      getCachedGoogleMerchantFeedData,
+    } = await import('./feed-data');
+    const resultPromise = getCachedGoogleMerchantFeedData(
+      'merchant-1',
+      'ogabassey'
+    );
+
+    await flushMicrotasks();
+
+    expect(startedBatchSizes).toEqual([100, 100, 100, 100]);
+    expect(deferredRpcResults).toHaveLength(
+      FEED_PRODUCT_VARIANTS_MAX_CONCURRENT_BATCHES
+    );
+
+    for (const deferred of deferredRpcResults.slice(
+      0,
+      FEED_PRODUCT_VARIANTS_MAX_CONCURRENT_BATCHES
+    )) {
+      deferred.resolve({ data: [], error: null });
+    }
+
+    await flushMicrotasks();
+
+    expect(startedBatchSizes).toEqual([100, 100, 100, 100, 100, 1]);
+
+    for (const deferred of deferredRpcResults.slice(
+      FEED_PRODUCT_VARIANTS_MAX_CONCURRENT_BATCHES
+    )) {
+      deferred.resolve({ data: [], error: null });
+    }
+
+    const result = await resultPromise;
+    expect(result.products).toHaveLength(501);
+  });
+
   it('hydrates feed variants from the feed RPC', async () => {
     variantRpcResult = {
       data: [
