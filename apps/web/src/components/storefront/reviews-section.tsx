@@ -18,7 +18,7 @@ import { RatingSummary, StarRating } from './star-rating';
 interface Review {
   id: string;
   customer_name?: string;
-  customer_email: string;
+  customer_email?: string | null;
   rating: number;
   title?: string;
   body?: string;
