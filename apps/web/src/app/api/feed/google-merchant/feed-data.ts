@@ -43,6 +43,7 @@ interface FeedProductCursor {
 
 type ManifestRow = {
   product_id: string;
+  variant_id?: string | null;
   verified_url: string | null;
   verified_format: string | null;
   status: string;
@@ -296,7 +297,7 @@ async function fetchVerifiedImageManifestRows(
           const { data, error } = await supabase
             .from('product_feed_images')
             .select(
-              'product_id, verified_url, verified_format, status, is_primary, position'
+              'product_id, variant_id, verified_url, verified_format, status, is_primary, position'
             )
             .eq('merchant_id', merchantId)
             .eq('status', 'verified')
@@ -406,6 +407,7 @@ export async function getCachedGoogleMerchantFeedData(
       imageManifest[row.product_id] = [];
     }
     imageManifest[row.product_id].push({
+      variant_id: row.variant_id ?? null,
       verified_url: row.verified_url,
       verified_format: row.verified_format,
       status: 'verified' as const,
