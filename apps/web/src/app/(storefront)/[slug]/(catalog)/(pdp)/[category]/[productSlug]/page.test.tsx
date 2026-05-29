@@ -941,19 +941,6 @@ describe('[category]/[productSlug] page metadata', () => {
 });
 
 describe('[category]/[productSlug] page render', () => {
-  it('marks product metadata as request-time rendered', async () => {
-    await generateMetadata({
-      params: Promise.resolve({
-        slug: 'teststore',
-        category: 'laptops',
-        productSlug: 'hp-laptop-14-ep0063nia',
-      }),
-      searchParams: Promise.resolve({}),
-    });
-
-    expect(mockConnection).toHaveBeenCalledOnce();
-  });
-
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetEffectiveStock.mockReset();
@@ -1008,7 +995,20 @@ describe('[category]/[productSlug] page render', () => {
     });
   });
 
-  it('uses the dynamic metadata marker without suspending the whole PDP shell', async () => {
+  it('marks product metadata as request-time rendered', async () => {
+    await generateMetadata({
+      params: Promise.resolve({
+        slug: 'teststore',
+        category: 'laptops',
+        productSlug: 'hp-laptop-14-ep0063nia',
+      }),
+      searchParams: Promise.resolve({}),
+    });
+
+    expect(mockConnection).toHaveBeenCalledOnce();
+  });
+
+  it('renders the PDP shell after opting the page into request-time rendering', async () => {
     const ui = await resolveRsc(
       await CategoryProductPage({
         params: Promise.resolve({
@@ -1028,11 +1028,11 @@ describe('[category]/[productSlug] page render', () => {
       throw new Error('Expected the OgaBassey PDP critical shell to render');
     }
 
-    expect(mockConnection).not.toHaveBeenCalled();
-    expect(mockStorefrontDynamicMetadataMarker).toHaveBeenCalledOnce();
+    expect(mockConnection).toHaveBeenCalledOnce();
+    expect(mockStorefrontDynamicMetadataMarker).not.toHaveBeenCalled();
     expect(
-      screen.getByRole('status', { name: /dynamic metadata marker/i })
-    ).toBeInTheDocument();
+      screen.queryByRole('status', { name: /dynamic metadata marker/i })
+    ).not.toBeInTheDocument();
     expect(
       screen.getByRole('heading', {
         level: 1,
