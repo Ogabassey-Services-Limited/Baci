@@ -28,7 +28,7 @@ interface NavbarSearchProps {
 }
 
 const SEARCH_INPUT_CLASS_NAME =
-  '[&_input]:h-11 md:[&_input]:h-12 [&_input]:bg-white [&_input]:rounded-md [&_input]:border-0 [&_input]:text-gray-800 [&_input]:placeholder-gray-500 [&_input]:text-[15px] focus:[&_input]:ring-2 focus:[&_input]:ring-primary/50';
+  'ogabassey-navbar-search ogabassey-navbar-search--autocomplete';
 
 export function NavbarSearch({
   basePath,
@@ -112,7 +112,7 @@ export function NavbarSearch({
 
   if (isBlogPage) {
     return (
-      <form onSubmit={handleSubmit} className="relative">
+      <form onSubmit={handleSubmit} className="ogabassey-navbar-search">
         <Input
           type="search"
           value={searchQuery}
@@ -122,9 +122,9 @@ export function NavbarSearch({
           aria-label="Search blog posts"
           id="blog-search-input"
           name="search"
-          className="w-full h-11 md:h-12 bg-white rounded-md border-0 text-gray-800 placeholder-gray-500 text-[15px] focus:ring-2 focus:ring-primary/50 pl-10 pr-4"
+          className="ogabassey-navbar-search__input"
         />
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+        <Search className="ogabassey-navbar-search__icon" aria-hidden="true" />
       </form>
     );
   }
@@ -144,8 +144,8 @@ export function NavbarSearch({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="relative">
-      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+    <form onSubmit={handleSubmit} className="ogabassey-navbar-search">
+      <Search className="ogabassey-navbar-search__icon" aria-hidden="true" />
       <Input
         type="search"
         value={searchQuery}
@@ -160,7 +160,7 @@ export function NavbarSearch({
         aria-label="Search products"
         id="search-input"
         name="q"
-        className="w-full h-11 md:h-12 bg-white rounded-md border-0 text-gray-800 placeholder-gray-500 text-[15px] focus:ring-2 focus:ring-primary/50 pl-10 pr-4"
+        className="ogabassey-navbar-search__input"
       />
     </form>
   );
