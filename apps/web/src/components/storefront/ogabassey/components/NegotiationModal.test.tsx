@@ -160,6 +160,29 @@ describe('NegotiationModal', () => {
     expect(screen.queryByText('Counter Offer')).not.toBeInTheDocument();
   });
 
+  it.each([
+    ['Infinix products', 'Infinix Hot 50'],
+    ['Redmi products', 'Redmi Note 13'],
+    ['Vivo products', 'Vivo Y28'],
+    ['Itel products', 'Itel S24'],
+  ])('returns a final-price response for %s', (_label, productName) => {
+    const onSuccess = vi.fn();
+    render(
+      <NegotiationModal
+        {...defaultProps}
+        productName={productName}
+        onSuccess={onSuccess}
+      />
+    );
+
+    submitLowOffer('9000');
+
+    expect(onSuccess).not.toHaveBeenCalled();
+    expect(screen.getByText('Final Price')).toBeInTheDocument();
+    expect(screen.getByText(/can't discount it further/i)).toBeInTheDocument();
+    expect(screen.queryByText('Counter Offer')).not.toBeInTheDocument();
+  });
+
   it('returns a final-price response for Samsung Galaxy A series products', () => {
     const onSuccess = vi.fn();
     render(
