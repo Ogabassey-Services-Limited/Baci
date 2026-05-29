@@ -27,7 +27,7 @@ export interface GoogleMerchantFeedData {
   imageManifest: ImageManifestMap;
 }
 
-const GOOGLE_MERCHANT_FEED_DATA_CACHE_VERSION = 'variant-feed-data-v2';
+const GOOGLE_MERCHANT_FEED_DATA_CACHE_VERSION = 'variant-feed-data-v3';
 
 interface RawFeedProductRow extends Omit<FeedProduct, 'categories'> {
   categories?:
@@ -204,7 +204,7 @@ async function fetchActiveFeedProducts(
 }
 
 interface FeedVariantRow {
-  attributes: Record<string, string> | null;
+  attributes: Record<string, unknown> | null;
   condition?: FeedVariant['condition'];
   id: string;
   price_override?: number | string | null;
