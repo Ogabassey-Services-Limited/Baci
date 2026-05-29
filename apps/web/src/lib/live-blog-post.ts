@@ -1,11 +1,10 @@
 import { getCachedFeatureSettings, getMerchantSafe } from '@/lib/cached-data';
 import { normalizeStorefrontCategoryValue } from '@/lib/normalize-storefront-category-value';
 import {
-  BLOCKED_PUBLIC_BLOG_POST_SLUG_PARTS,
-  BLOCKED_PUBLIC_BLOG_POST_TITLE_PREFIXES,
   filterPublicBlogPosts,
   isPublicBlogPost,
 } from '@/lib/public-blog-content-quality';
+import { applyPublicBlogSqlFilters } from '@/lib/public-blog-sql-filters';
 import {
   normalizeRelatedBlogProductLinks,
   normalizeRelatedBlogProducts,
@@ -83,13 +82,7 @@ export async function getLiveBlogPost(
     .neq('id', post.id)
     .order('published_at', { ascending: false });
 
-  for (const blockedPrefix of BLOCKED_PUBLIC_BLOG_POST_TITLE_PREFIXES) {
-    relatedQuery = relatedQuery.not('title', 'ilike', `${blockedPrefix}%`);
-  }
-
-  for (const blockedSlugPart of BLOCKED_PUBLIC_BLOG_POST_SLUG_PARTS) {
-    relatedQuery = relatedQuery.not('slug', 'ilike', `%${blockedSlugPart}%`);
-  }
+  relatedQuery = applyPublicBlogSqlFilters(relatedQuery);
 
   if (post.category) {
     relatedQuery = relatedQuery.eq('category', post.category);
