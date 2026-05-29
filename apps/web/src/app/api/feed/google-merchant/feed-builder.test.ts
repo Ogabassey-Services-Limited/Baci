@@ -896,6 +896,42 @@ describe('generateGoogleMerchantFeed — conditioned variants', () => {
     expect((xml.match(/<item>/g) || []).length).toBe(1);
   });
 
+  it('ignores non-string variant attributes in titles and links', () => {
+    const xml = generateGoogleMerchantFeed(
+      [
+        product({
+          price: 700000,
+          variant_model: 'sku_matrix',
+          variants: [
+            {
+              id: 'variant-new-128',
+              condition: 'new',
+              price_override: 550000,
+              stock_quantity: 4,
+              attributes: {
+                storage: '128GB',
+                channels: ['retail'],
+                rank: 1,
+              } as unknown as Record<string, string>,
+            },
+          ],
+        }),
+      ],
+      merchant({ gmc_variants_enabled: true }),
+      BASE_URL,
+      defaultManifest
+    );
+
+    expect(xml).toContain('<g:title>Test Product - 128GB - New</g:title>');
+    expect(extractLinkQueryParams(xml)).toEqual([
+      {
+        variantId: 'variant-new-128',
+        condition: 'new',
+        storage: '128GB',
+      },
+    ]);
+  });
+
   it('uses exact variant feed images before product-level images', () => {
     const xml = generateGoogleMerchantFeed(
       [

@@ -6,15 +6,15 @@ interface FeedDescriptionInput {
   description?: string | null;
   name: string;
   product_key_specs?: ProductKeySpecs | null;
-  variant_attributes?: Record<string, string | null | undefined> | null;
+  variant_attributes?: Record<string, unknown> | null;
   weight_unit?: 'kg' | 'lb' | 'g' | 'oz' | null;
   weight_value?: number | null;
 }
 
 const MAX_FEED_DESCRIPTION_LENGTH = 4500;
 
-function normalizeText(value: string | null | undefined) {
-  return stripHtmlTags(value ?? '')
+function normalizeText(value: unknown) {
+  return stripHtmlTags(typeof value === 'string' ? value : '')
     .replace(/\s+/g, ' ')
     .trim();
 }
