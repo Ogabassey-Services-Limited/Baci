@@ -41,7 +41,20 @@ vi.mock('next/navigation', () => ({
 }));
 
 vi.mock('@/components/storefront/ogabassey/pages/category-page', () => ({
-  CategoryPage: () => <div data-testid="category-page">Category page</div>,
+  CategoryPage: ({
+    products,
+  }: {
+    products?: Array<{ id: string; name: string; price: string }>;
+  }) => (
+    <div data-testid="category-page">
+      Category page
+      {products?.map((product) => (
+        <div key={product.id}>
+          {product.name}: {product.price}
+        </div>
+      ))}
+    </div>
+  ),
 }));
 
 vi.mock('@/components/ui/skeletons', () => ({
@@ -162,7 +175,7 @@ describe('CategoryPageContent', () => {
     );
   });
 
-  it('threads merchant country into category product normalization', async () => {
+  it('renders category product prices with the merchant country currency', async () => {
     mockGetMerchantByIdentifier.mockResolvedValue({
       id: 'merchant-1',
       business_name: 'Demo Store',
@@ -170,17 +183,38 @@ describe('CategoryPageContent', () => {
       country: 'IN',
       payout_currency: 'INR',
     });
+    mockNormalizeCategoryPageProducts.mockImplementation(
+      (_products, _category, country) => [
+        {
+          id: 'product-1',
+          name: 'Phone',
+          description: 'Phone description',
+          price: country === 'IN' ? '₹2,500' : '₦2,500',
+          rawPrice: 2500,
+          stock: 5,
+          image: 'https://cdn.example.com/phone.png',
+          brand: 'Brand',
+          category: 'Phones',
+          category_slug: 'phones',
+          slug: 'phone',
+          condition: 'new',
+        },
+      ]
+    );
 
-    await CategoryPageContent({
+    const ui = await CategoryPageContent({
       params: Promise.resolve({ slug: 'demo-store', category: 'phones' }),
       searchParams: Promise.resolve({ page: '1' }),
     });
+    render(ui);
 
     expect(mockNormalizeCategoryPageProducts).toHaveBeenCalledWith(
       [{ id: 'product-1' }],
       'phones',
       'IN'
     );
+    expect(screen.getByText('Phone: ₹2,500')).toBeInTheDocument();
+    expect(screen.queryByText(/₦/)).not.toBeInTheDocument();
   });
 
   it("falls back to 'NGN' when merchant payout currency is missing", async () => {
