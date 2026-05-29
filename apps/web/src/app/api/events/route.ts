@@ -208,6 +208,22 @@ export async function POST(request: NextRequest) {
     if (isConversionEvent(event_type)) {
       after(async () => {
         try {
+          const resolvedContents =
+            items ||
+            custom_data?.contents ||
+            (product_id
+              ? [
+                  {
+                    id: product_id,
+                    name: product_name,
+                    price: product_price,
+                    quantity: quantity || 1,
+                  },
+                ]
+              : undefined);
+          const resolvedValue =
+            total || custom_data?.value || product_price || undefined;
+
           await sendToAdPlatforms({
             merchant_id,
             event_type,
@@ -219,24 +235,38 @@ export async function POST(request: NextRequest) {
                   email: user_data.em,
                   phone: user_data.ph,
                   external_id: user_data.external_id,
+                  fbc: user_data.fbc || request.cookies.get('_fbc')?.value,
+                  fbp: user_data.fbp || request.cookies.get('_fbp')?.value,
                   ip:
                     request.headers.get('x-forwarded-for')?.split(',')[0] ||
                     request.headers.get('x-real-ip') ||
                     undefined,
+                  sccid: user_data.sccid || request.cookies.get('ScCid')?.value,
+                  ttclid: user_data.ttclid,
+                  ttp: user_data.ttp || request.cookies.get('_ttp')?.value,
                   ua: request.headers.get('user-agent') || undefined,
                 }
               : {
+                  fbc: request.cookies.get('_fbc')?.value,
+                  fbp: request.cookies.get('_fbp')?.value,
                   ip:
                     request.headers.get('x-forwarded-for')?.split(',')[0] ||
                     request.headers.get('x-real-ip') ||
                     undefined,
+                  sccid: request.cookies.get('ScCid')?.value,
+                  ttp: request.cookies.get('_ttp')?.value,
                   ua: request.headers.get('user-agent') || undefined,
                 },
             custom_data: {
               order_id: order_id || custom_data?.order_id,
-              value: total || custom_data?.value,
+              value: resolvedValue,
               currency: currency || custom_data?.currency || 'NGN',
-              contents: items || custom_data?.contents,
+              content_name: product_name || custom_data?.content_name,
+              content_type: custom_data?.content_type || 'product',
+              contents: resolvedContents,
+              price: product_price || custom_data?.price,
+              search_string: search_term || custom_data?.search_string,
+              url: page_url || custom_data?.url,
             },
             source: (source as 'web' | 'mobile_app' | 'server') || 'web',
           });

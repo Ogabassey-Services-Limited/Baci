@@ -16,9 +16,10 @@ export type TikTokEventName =
   | 'ViewContent'
   | 'AddToCart'
   | 'InitiateCheckout'
-  | 'CompletePayment'
+  | 'Purchase'
   | 'PlaceAnOrder'
   | 'Search'
+  | 'AddPaymentInfo'
   | 'AddToWishlist'
   | 'CompleteRegistration';
 
@@ -27,8 +28,9 @@ export interface TikTokUserData {
   phone?: string;
   externalId?: string;
   ipAddress?: string;
+  ttclid?: string;
   userAgent?: string;
-  ttp?: string; // TikTok click ID from cookie
+  ttp?: string;
 }
 
 export interface TikTokEventProperties {
@@ -38,6 +40,7 @@ export interface TikTokEventProperties {
   contentIds?: string[];
   contentName?: string;
   contentType?: 'product' | 'product_group';
+  price?: number;
   contents?: Array<{
     content_id: string;
     price?: number;
@@ -45,7 +48,28 @@ export interface TikTokEventProperties {
     content_name?: string;
   }>;
   query?: string;
+  searchString?: string;
   orderId?: string;
+  url?: string;
+}
+
+export interface TikTokEventOptions {
+  eventId?: string;
+  eventTime?: Date | string;
+  testEventCode?: string;
+  url?: string;
+}
+
+type TikTokContentInput = NonNullable<
+  TikTokEventProperties['contents']
+>[number];
+
+function compactRecord<T extends Record<string, unknown>>(
+  record: T
+): Partial<T> {
+  return Object.fromEntries(
+    Object.entries(record).filter(([, value]) => value !== undefined)
+  ) as Partial<T>;
 }
 
 /**
@@ -67,12 +91,17 @@ export async function sendTikTokEvent(
   eventName: TikTokEventName,
   userData: TikTokUserData,
   properties?: TikTokEventProperties,
-  eventId?: string,
+  eventOptions?: TikTokEventOptions | string,
   testEventCode?: string
 ): Promise<{ success: boolean; error?: string }> {
   if (!pixelId || !accessToken) {
     return { success: false, error: 'Missing pixel ID or access token' };
   }
+
+  const options =
+    typeof eventOptions === 'string'
+      ? { eventId: eventOptions, testEventCode }
+      : eventOptions;
 
   // Build user data with hashing
   const user: Record<string, string | undefined> = {};
@@ -82,6 +111,7 @@ export async function sendTikTokEvent(
   if (userData.externalId) user.external_id = hashData(userData.externalId);
   if (userData.ipAddress) user.ip = userData.ipAddress;
   if (userData.userAgent) user.user_agent = userData.userAgent;
+  if (userData.ttclid) user.ttclid = userData.ttclid;
   if (userData.ttp) user.ttp = userData.ttp;
 
   // Build properties
@@ -95,24 +125,35 @@ export async function sendTikTokEvent(
     eventProperties.content_name = properties.contentName;
   if (properties?.contentType)
     eventProperties.content_type = properties.contentType;
+  if (properties?.price !== undefined) eventProperties.price = properties.price;
   if (properties?.contents) eventProperties.contents = properties.contents;
-  if (properties?.query) eventProperties.query = properties.query;
+  if (properties?.query) eventProperties.search_string = properties.query;
+  if (properties?.searchString)
+    eventProperties.search_string = properties.searchString;
   if (properties?.orderId) eventProperties.order_id = properties.orderId;
+
+  const pageUrl = options?.url || properties?.url;
 
   const payload = {
     pixel_code: pixelId,
     event: eventName,
     event_id:
-      eventId || `${Date.now()}_${crypto.randomBytes(8).toString('hex')}`,
-    timestamp: new Date().toISOString(),
+      options?.eventId ||
+      `${Date.now()}_${crypto.randomBytes(8).toString('hex')}`,
+    timestamp:
+      options?.eventTime instanceof Date
+        ? options.eventTime.toISOString()
+        : options?.eventTime || new Date().toISOString(),
     context: {
-      user,
-      page: {
-        // url: properties?.url, // Uncomment & implement if event page URL is available as properties.url
-      },
+      user: compactRecord(user),
+      page: compactRecord({
+        url: pageUrl,
+      }),
     },
     properties: eventProperties,
-    ...(testEventCode ? { test_event_code: testEventCode } : {}),
+    ...(options?.testEventCode
+      ? { test_event_code: options.testEventCode }
+      : {}),
   };
 
   try {
@@ -159,34 +200,202 @@ export const tiktokEventsAPI = {
       name: string;
       price: number;
       quantity: number;
-    }>
+    }>,
+    options?: TikTokEventOptions
   ) => {
-    return sendTikTokEvent(pixelId, accessToken, 'CompletePayment', userData, {
-      value,
-      currency,
-      orderId,
-      contentIds: products.map((p) => p.id),
-      contents: products.map((p) => ({
-        content_id: p.id,
-        content_name: p.name,
-        price: p.price,
-        quantity: p.quantity,
-      })),
-    });
+    const contents = products.map((p) => ({
+      content_id: p.id,
+      content_name: p.name,
+      price: p.price,
+      quantity: p.quantity,
+    }));
+    const firstProduct = products[0];
+
+    return sendTikTokEvent(
+      pixelId,
+      accessToken,
+      'Purchase',
+      userData,
+      {
+        value,
+        currency,
+        orderId,
+        contentId: firstProduct?.id,
+        contentName: firstProduct?.name,
+        contentType: 'product',
+        price: firstProduct?.price,
+        contentIds: products.map((p) => p.id),
+        contents,
+      },
+      options
+    );
   },
 
   initiateCheckout: (
     pixelId: string,
     accessToken: string,
     userData: TikTokUserData,
-    value: number,
-    currency: string,
-    productIds: string[]
+    valueOrProperties: number | TikTokEventProperties,
+    currencyOrOptions?: string | TikTokEventOptions,
+    productIds?: string[],
+    options?: TikTokEventOptions
   ) => {
-    return sendTikTokEvent(pixelId, accessToken, 'InitiateCheckout', userData, {
-      value,
-      currency,
-      contentIds: productIds,
-    });
+    const properties =
+      typeof valueOrProperties === 'number'
+        ? {
+            value: valueOrProperties,
+            currency:
+              typeof currencyOrOptions === 'string'
+                ? currencyOrOptions
+                : undefined,
+            contentIds: productIds,
+          }
+        : valueOrProperties;
+    const finalOptions =
+      typeof currencyOrOptions === 'object' ? currencyOrOptions : options;
+
+    return sendTikTokEvent(
+      pixelId,
+      accessToken,
+      'InitiateCheckout',
+      userData,
+      properties,
+      finalOptions
+    );
+  },
+
+  viewContent: (
+    pixelId: string,
+    accessToken: string,
+    userData: TikTokUserData,
+    properties: TikTokEventProperties,
+    options?: TikTokEventOptions
+  ) => {
+    return sendTikTokEvent(
+      pixelId,
+      accessToken,
+      'ViewContent',
+      userData,
+      withFirstContent(properties),
+      options
+    );
+  },
+
+  addToCart: (
+    pixelId: string,
+    accessToken: string,
+    userData: TikTokUserData,
+    properties: TikTokEventProperties,
+    options?: TikTokEventOptions
+  ) => {
+    return sendTikTokEvent(
+      pixelId,
+      accessToken,
+      'AddToCart',
+      userData,
+      withFirstContent(properties),
+      options
+    );
+  },
+
+  addToWishlist: (
+    pixelId: string,
+    accessToken: string,
+    userData: TikTokUserData,
+    properties: TikTokEventProperties,
+    options?: TikTokEventOptions
+  ) => {
+    return sendTikTokEvent(
+      pixelId,
+      accessToken,
+      'AddToWishlist',
+      userData,
+      withFirstContent(properties),
+      options
+    );
+  },
+
+  addPaymentInfo: (
+    pixelId: string,
+    accessToken: string,
+    userData: TikTokUserData,
+    properties: TikTokEventProperties = {},
+    options?: TikTokEventOptions
+  ) => {
+    return sendTikTokEvent(
+      pixelId,
+      accessToken,
+      'AddPaymentInfo',
+      userData,
+      withFirstContent(properties),
+      options
+    );
+  },
+
+  placeAnOrder: (
+    pixelId: string,
+    accessToken: string,
+    userData: TikTokUserData,
+    properties: TikTokEventProperties,
+    options?: TikTokEventOptions
+  ) => {
+    return sendTikTokEvent(
+      pixelId,
+      accessToken,
+      'PlaceAnOrder',
+      userData,
+      withFirstContent(properties),
+      options
+    );
+  },
+
+  completeRegistration: (
+    pixelId: string,
+    accessToken: string,
+    userData: TikTokUserData,
+    properties: TikTokEventProperties = {},
+    options?: TikTokEventOptions
+  ) => {
+    return sendTikTokEvent(
+      pixelId,
+      accessToken,
+      'CompleteRegistration',
+      userData,
+      properties,
+      options
+    );
+  },
+
+  search: (
+    pixelId: string,
+    accessToken: string,
+    userData: TikTokUserData,
+    searchString: string,
+    options?: TikTokEventOptions
+  ) => {
+    return sendTikTokEvent(
+      pixelId,
+      accessToken,
+      'Search',
+      userData,
+      {
+        searchString,
+        url: options?.url,
+      },
+      options
+    );
   },
 };
+
+function withFirstContent(
+  properties: TikTokEventProperties
+): TikTokEventProperties {
+  const firstContent: TikTokContentInput | undefined = properties.contents?.[0];
+  return {
+    ...properties,
+    contentId: properties.contentId || firstContent?.content_id,
+    contentName: properties.contentName || firstContent?.content_name,
+    contentType: properties.contentType || 'product',
+    price: properties.price ?? firstContent?.price,
+  };
+}
