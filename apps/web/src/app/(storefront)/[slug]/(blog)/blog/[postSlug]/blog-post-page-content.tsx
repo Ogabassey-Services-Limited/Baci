@@ -137,6 +137,7 @@ async function renderBlogPostContent({
     merchantId: merchant.id,
     merchantSlug: merchant.slug,
     storeUrl: baseUrl,
+    countryCode: merchant.country,
     post: {
       slug: post.slug,
       title: post.title,

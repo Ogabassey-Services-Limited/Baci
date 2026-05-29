@@ -45,4 +45,5 @@ export interface BuildProductSemanticModelInput {
   currentProduct: ProductSemanticCandidate;
   inventory: ProductSemanticCandidate[];
   guidePosts?: PublishedClusterPost[];
+  countryCode?: string | null;
 }

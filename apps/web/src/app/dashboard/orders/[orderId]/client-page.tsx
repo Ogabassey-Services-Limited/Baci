@@ -39,6 +39,7 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { apiPatch } from '@/lib/api-client';
+import { formatDisplayCurrency } from '@/lib/format-display-currency';
 import {
   type Order,
   resendOrderConfirmation,
@@ -55,12 +56,11 @@ interface OrderDetailsClientPageProps {
   initialOrder: Order;
 }
 // Helper function
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-NG', {
-    style: 'currency',
-    currency: 'NGN',
+function formatCurrency(amount: number, currency?: string | null): string {
+  return formatDisplayCurrency(amount, currency || 'NGN', {
     minimumFractionDigits: 0,
-  }).format(amount);
+    maximumFractionDigits: 0,
+  });
 }
 
 function toDbShippingStatus(status: ShippingStatus): string {
@@ -101,6 +101,7 @@ export default function OrderDetailsClientPage({
   }
 
   const displayItems = getOrderItems(order);
+  const orderCurrency = order.currency || 'NGN';
 
   const doesOrderRequireFulfillment = () => {
     // Check for fulfillment fields OR assurance
@@ -430,11 +431,15 @@ export default function OrderDetailsClientPage({
                     <div className="flex-1">
                       <p className="font-semibold">{item.name}</p>
                       <p className="text-sm text-muted-foreground">
-                        {item.quantity} x {formatCurrency(item.price)}
+                        {item.quantity} x{' '}
+                        {formatCurrency(item.price, orderCurrency)}
                       </p>
                     </div>
                     <p className="font-semibold">
-                      {formatCurrency(item.price * item.quantity)}
+                      {formatCurrency(
+                        item.price * item.quantity,
+                        orderCurrency
+                      )}
                     </p>
                   </div>
                 ))}
@@ -502,7 +507,7 @@ export default function OrderDetailsClientPage({
               <CardContent className="space-y-4">
                 <div className="flex justify-between">
                   <span>Sub Total</span>{' '}
-                  <span>{formatCurrency(order.total)}</span>
+                  <span>{formatCurrency(order.total, orderCurrency)}</span>
                 </div>
                 {order.paymentMethod && (
                   <div className="flex justify-between">
@@ -520,15 +525,16 @@ export default function OrderDetailsClientPage({
                 )}
                 <div className="flex justify-between">
                   <span>Shipping Fee</span>{' '}
-                  <span>{formatCurrency(shippingFee)}</span>
+                  <span>{formatCurrency(shippingFee, orderCurrency)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Taxes</span> <span>{formatCurrency(taxes)}</span>
+                  <span>Taxes</span>{' '}
+                  <span>{formatCurrency(taxes, orderCurrency)}</span>
                 </div>
                 <Separator />
                 <div className="flex justify-between font-bold text-lg">
                   <span>Total Amount</span>{' '}
-                  <span>{formatCurrency(totalAmount)}</span>
+                  <span>{formatCurrency(totalAmount, orderCurrency)}</span>
                 </div>
               </CardContent>
             </Card>
@@ -576,7 +582,10 @@ export default function OrderDetailsClientPage({
                           </p>
                         </div>
                         <div className="font-semibold">
-                          {formatCurrency(tx.amount)}
+                          {formatCurrency(
+                            tx.amount,
+                            tx.currency || orderCurrency
+                          )}
                         </div>
                       </div>
                     ))}
