@@ -66,7 +66,7 @@ export interface FeedOffer {
 
 export interface FeedVariant {
   id: string;
-  attributes?: Record<string, string> | null;
+  attributes?: Record<string, unknown> | null;
   condition?: 'new' | 'used' | 'refurbished' | 'open_box' | 'uk_used' | null;
   compare_at_price?: number | null;
   price?: number | null;
@@ -74,6 +74,10 @@ export interface FeedVariant {
   sku?: string | null;
   stock_quantity?: number | null;
 }
+
+type FeedDefaultVariant = Omit<FeedVariant, 'attributes'> & {
+  attributes?: Record<string, string> | null;
+};
 
 export interface FeedMerchant {
   id: string;
@@ -104,6 +108,35 @@ const FEED_VARIANT_TITLE_AXIS_ORDER = [
   'ram',
 ] as const;
 const VALID_GMC_CONDITIONS = new Set(['new', 'used', 'refurbished'] as const);
+
+export function normalizeFeedVariantStringAttributes(
+  attributes: FeedVariant['attributes']
+): Record<string, string> | null {
+  if (!attributes) {
+    return null;
+  }
+
+  const normalizedAttributes: Record<string, string> = {};
+  for (const [key, value] of Object.entries(attributes)) {
+    if (typeof value !== 'string') {
+      continue;
+    }
+
+    const normalizedValue = value.trim();
+    if (normalizedValue) {
+      normalizedAttributes[key] = normalizedValue;
+    }
+  }
+
+  return normalizedAttributes;
+}
+
+export function toFeedDefaultVariant(variant: FeedVariant): FeedDefaultVariant {
+  return {
+    ...variant,
+    attributes: normalizeFeedVariantStringAttributes(variant.attributes),
+  };
+}
 
 function isValidForGmc(product: FeedProduct): boolean {
   if (!product.price || product.price <= 0) return false;
@@ -151,8 +184,8 @@ function getProductLevelManifestEntries(entries: FeedImageManifestEntry[]) {
   return entries.filter((entry) => !entry.variant_id);
 }
 
-function normalizeVariantVisualValue(value: string | null | undefined) {
-  return value?.trim().toLowerCase() || null;
+function normalizeVariantVisualValue(value: unknown) {
+  return typeof value === 'string' ? value.trim().toLowerCase() || null : null;
 }
 
 function getVariantVisualKey(variant: FeedVariant) {
@@ -333,7 +366,7 @@ function buildVariantUrl(productUrl: string, variant: FeedVariant) {
   }
 
   for (const axis of Object.keys(variant.attributes || {}).sort()) {
-    const value = variant.attributes?.[axis];
+    const value = getVariantAttributeText(variant.attributes || {}, axis);
     if (value) {
       params.set(axis, value);
     }
@@ -342,18 +375,27 @@ function buildVariantUrl(productUrl: string, variant: FeedVariant) {
   return `${productUrl}?${params.toString()}`;
 }
 
+function getVariantAttributeText(
+  attributes: Record<string, unknown>,
+  axis: string
+) {
+  // Variant attributes can contain non-string runtime values from imports.
+  const value = attributes[axis];
+  return typeof value === 'string' ? value.trim() : '';
+}
+
 function buildVariantTitle(product: FeedProduct, variant: FeedVariant) {
   const attributes = variant.attributes || {};
-  const prioritizedAxes = FEED_VARIANT_TITLE_AXIS_ORDER.filter(
-    (axis) => typeof attributes[axis] === 'string' && attributes[axis]?.trim()
+  const prioritizedAxes = FEED_VARIANT_TITLE_AXIS_ORDER.filter((axis) =>
+    getVariantAttributeText(attributes, axis)
   );
   const remainingAxes = Object.keys(attributes)
     .filter((axis) => !prioritizedAxes.includes(axis as never))
     .sort();
   const titleParts = [
-    ...prioritizedAxes.map((axis) => attributes[axis].trim()),
+    ...prioritizedAxes.map((axis) => getVariantAttributeText(attributes, axis)),
     ...remainingAxes
-      .map((axis) => attributes[axis]?.trim())
+      .map((axis) => getVariantAttributeText(attributes, axis))
       .filter((value): value is string => Boolean(value)),
     formatConditionTitle(variant.condition),
   ].filter(Boolean);
@@ -382,14 +424,8 @@ function resolveSkuMatrixFallback(product: FeedProduct) {
     compare_at_price: product.compare_at_price,
     condition: product.condition,
     manage_stock: product.manage_stock,
-    variants: conditionedVariants.map((variant) => ({
-      id: variant.id,
-      attributes: variant.attributes,
-      condition: variant.condition,
-      price_override: variant.price_override,
-      stock_quantity: variant.stock_quantity,
-    })),
-  } satisfies ProductWithDefaultVariantLike<FeedVariant>);
+    variants: conditionedVariants.map(toFeedDefaultVariant),
+  } satisfies ProductWithDefaultVariantLike<FeedDefaultVariant>);
 
   return defaultSelection
     ? {

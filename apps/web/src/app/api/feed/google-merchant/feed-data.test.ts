@@ -447,13 +447,124 @@ describe('getCachedGoogleMerchantFeedData', () => {
 
     expect(mockProductsLimit).toHaveBeenCalledTimes(10);
     expect(mockProductsLimit).toHaveBeenLastCalledWith(1000);
-    expect(mockRpc).toHaveBeenCalledWith('get_feed_product_variants', {
+    expect(mockRpc).toHaveBeenCalledTimes(100);
+    const rpcProductIds = mockRpc.mock.calls.flatMap(([, rpcArgs]) =>
+      Array.isArray(rpcArgs?.p_product_ids) ? rpcArgs.p_product_ids : []
+    );
+    expect(rpcProductIds).toHaveLength(10_000);
+    expect(mockRpc).toHaveBeenNthCalledWith(1, 'get_feed_product_variants', {
       p_merchant_id: 'merchant-1',
-      p_product_ids: expect.any(Array),
+      p_product_ids: Array.from(
+        { length: 100 },
+        (_, index) => `product-${index}`
+      ),
     });
-    const [, rpcArgs] = mockRpc.mock.calls[0] ?? [];
-    expect(rpcArgs?.p_product_ids).toHaveLength(10_000);
     expect(result.products).toHaveLength(10_000);
+  });
+
+  it('batches variant RPC product IDs to avoid PostgREST result truncation', async () => {
+    const products = Array.from({ length: 201 }, (_, index) => ({
+      id: `product-${index}`,
+      name: `Phone ${index}`,
+      created_at: '2026-01-01T00:00:00.000Z',
+    }));
+    productsResult = {
+      data: products,
+      error: null,
+    };
+    mockRpc.mockImplementation(async (_functionName, args) => ({
+      data: [
+        {
+          id: `variant-${args.p_product_ids[0]}`,
+          product_id: args.p_product_ids[0],
+          condition: 'new',
+          attributes: { storage: '64GB' },
+          price_override: 100000,
+          sku: null,
+          stock_quantity: 1,
+        },
+      ],
+      error: null,
+    }));
+
+    const { getCachedGoogleMerchantFeedData } = await import('./feed-data');
+    const result = await getCachedGoogleMerchantFeedData(
+      'merchant-1',
+      'ogabassey'
+    );
+
+    expect(mockRpc).toHaveBeenCalledTimes(3);
+    expect(
+      mockRpc.mock.calls.map(([, rpcArgs]) => rpcArgs.p_product_ids.length)
+    ).toEqual([100, 100, 1]);
+    expect(result.products[0]?.variants).toEqual([
+      {
+        id: 'variant-product-0',
+        condition: 'new',
+        attributes: { storage: '64GB' },
+        price_override: 100000,
+        sku: null,
+        stock_quantity: 1,
+      },
+    ]);
+  });
+
+  it('limits concurrent variant RPC batches', async () => {
+    const products = Array.from({ length: 501 }, (_, index) => ({
+      id: `product-${index}`,
+      name: `Phone ${index}`,
+      created_at: '2026-01-01T00:00:00.000Z',
+    }));
+    productsResult = {
+      data: products,
+      error: null,
+    };
+    const startedBatchSizes: number[] = [];
+    const deferredRpcResults: ReturnType<
+      typeof createDeferred<VariantRpcResult>
+    >[] = [];
+    mockRpc.mockImplementation((_functionName, args) => {
+      const deferred = createDeferred<VariantRpcResult>();
+      deferredRpcResults.push(deferred);
+      startedBatchSizes.push(args.p_product_ids.length);
+      return deferred.promise;
+    });
+
+    const {
+      FEED_PRODUCT_VARIANTS_MAX_CONCURRENT_BATCHES,
+      getCachedGoogleMerchantFeedData,
+    } = await import('./feed-data');
+    const resultPromise = getCachedGoogleMerchantFeedData(
+      'merchant-1',
+      'ogabassey'
+    );
+
+    await flushMicrotasks();
+
+    expect(startedBatchSizes).toEqual([100, 100, 100, 100]);
+    expect(deferredRpcResults).toHaveLength(
+      FEED_PRODUCT_VARIANTS_MAX_CONCURRENT_BATCHES
+    );
+
+    for (const deferred of deferredRpcResults.slice(
+      0,
+      FEED_PRODUCT_VARIANTS_MAX_CONCURRENT_BATCHES
+    )) {
+      deferred.resolve({ data: [], error: null });
+    }
+
+    await flushMicrotasks();
+
+    expect(startedBatchSizes).toEqual([100, 100, 100, 100, 100, 1]);
+
+    for (const deferred of deferredRpcResults.slice(
+      FEED_PRODUCT_VARIANTS_MAX_CONCURRENT_BATCHES
+    )) {
+      deferred.resolve({ data: [], error: null });
+    }
+
+    const result = await resultPromise;
+    expect(result.products).toHaveLength(501);
   });
 
   it('hydrates feed variants from the feed RPC', async () => {
