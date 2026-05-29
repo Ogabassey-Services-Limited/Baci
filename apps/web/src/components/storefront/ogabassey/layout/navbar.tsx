@@ -52,43 +52,44 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
   return (
     <>
       <header
-        className={`sticky top-0 z-50 shadow-md transition-transform duration-200 ease-out will-change-transform ${isVisible ? 'translate-y-0' : '-translate-y-full'}`}
+        className="ogabassey-navbar"
+        data-visible={isVisible ? 'true' : undefined}
       >
         {/* --- TOP HEADER ROW (BLACK) --- */}
-        <div className="bg-[#0F0F0F] relative z-20 text-white">
+        <div className="ogabassey-navbar__top">
           {/* Dark Pattern Background Container - Optimized CSS-only implementation */}
           {/* Dark Pattern Background Container - Restored Gadget Pattern */}
           <GadgetPattern opacity={0.1} />
 
-          <div className="max-w-[1400px] mx-auto relative z-10">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 md:gap-3 pt-3 pb-5 md:py-4 px-4 md:px-6">
+          <div className="ogabassey-navbar__inner">
+            <div className="ogabassey-navbar__primary-row">
               {/* Header Row: Menu, Logo, Icons (Mobile: Spaced out | Desktop: Grouped Left) */}
-              <div className="flex items-center justify-between md:justify-start w-full md:w-auto gap-4">
+              <div className="ogabassey-navbar__brand-row">
                 {/* Left: Menu & Logo */}
-                <div className="flex items-center gap-4 shrink-0">
+                <div className="ogabassey-navbar__brand-group">
                   <button
                     type="button"
                     aria-label="Open menu"
                     aria-expanded={isMenuOpen}
                     onClick={() => setIsMenuOpen(true)}
-                    className="flex h-11 w-11 items-center justify-center text-white transition-colors active:text-white"
+                    className="ogabassey-navbar__menu-button"
                   >
-                    <Menu className="h-6 w-6" aria-hidden="true" />
+                    <Menu aria-hidden="true" />
                   </button>
 
                   <Link
                     href={(basePath || '/') as `/${string}`}
                     prefetch={false}
-                    className="flex items-center cursor-pointer select-none active:opacity-80 transition-opacity text-white"
+                    className="ogabassey-navbar__logo-link"
                   >
-                    <Logo className="h-8 w-auto" />
+                    <Logo className="ogabassey-navbar__logo" />
                   </Link>
                 </div>
               </div>
 
               {/* Search Bar - Full Width Mobile, Center Desktop */}
               {merchantId && (
-                <div className="w-full md:flex-1 md:max-w-2xl md:mx-auto relative">
+                <div className="ogabassey-navbar__search-wrap">
                   <NavbarSearch
                     basePath={basePath}
                     isBlogPage={Boolean(isBlogPage)}
@@ -98,7 +99,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
               )}
 
               {/* Desktop Right Icons */}
-              <div className="hidden md:flex items-center gap-5 shrink-0 text-white/80">
+              <div className="ogabassey-navbar__desktop-actions">
                 <NavbarNotifications basePath={basePath} />
 
                 <Link
@@ -108,11 +109,13 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
                     e.preventDefault();
                     setIsCartOpen(true);
                   }}
-                  className="relative flex items-center justify-center hover:text-white transition-colors"
+                  className="ogabassey-navbar__icon-link"
+                  aria-label="Open cart"
                 >
-                  <ShoppingCart size={22} />
+                  <ShoppingCart size={22} aria-hidden="true" />
                   <span
-                    className={`absolute -top-1.5 -right-1.5 bg-primary text-white text-[10px] font-bold h-4 w-4 rounded-full flex items-center justify-center border border-gray-950 transition-all ${totalItems > 0 ? 'scale-100' : 'scale-0'}`}
+                    className="ogabassey-navbar__cart-badge"
+                    data-visible={totalItems > 0 ? 'true' : undefined}
                   >
                     {totalItems}
                   </span>
@@ -121,7 +124,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
                   href={`${basePath}/account` as `/${string}`}
                   prefetch={false}
                   aria-label="View account"
-                  className="flex items-center justify-center hover:text-white transition-colors"
+                  className="ogabassey-navbar__icon-link"
                 >
                   <User size={22} aria-hidden="true" />
                 </Link>

@@ -69,8 +69,12 @@ export function OgabasseyPdpCriticalShell({
 
   return (
     <section className={styles.shell} data-ogabassey-pdp-critical-shell>
-      <div className={styles.inner}>
-        <nav className={styles.breadcrumbs} aria-label="Breadcrumb">
+      <div className={styles.inner} data-ogabassey-pdp-critical-inner>
+        <nav
+          className={styles.breadcrumbs}
+          data-ogabassey-pdp-breadcrumbs
+          aria-label="Breadcrumb"
+        >
           <Link href={buildPath(basePath, '/')}>Home</Link>
           <span aria-hidden="true">/</span>
           <Link href={buildPath(basePath, `/${product.categorySlug}`)}>
@@ -79,24 +83,39 @@ export function OgabasseyPdpCriticalShell({
           <span aria-hidden="true">/</span>
           <span aria-current="page">{product.name}</span>
         </nav>
-        <div className={styles.grid}>
-          <div className={styles.imageFrame}>
+        <div className={styles.grid} data-ogabassey-pdp-grid>
+          <div className={styles.imageFrame} data-ogabassey-pdp-image-frame>
             {/* biome-ignore lint/performance/noImgElement: Server-generated native img avoids passing a loader function through the RSC payload. */}
             <img {...productImageProps} />
-            <span className={styles.condition}>{product.condition}</span>
+            <span className={styles.condition} data-ogabassey-pdp-condition>
+              {product.condition}
+            </span>
           </div>
-          <div className={styles.summary}>
-            <p className={styles.brand}>{product.brand}</p>
-            <h1 className={styles.title}>{product.name}</h1>
-            <div className={styles.ratingRow}>
-              <span className={styles.stars} aria-hidden="true">
+          <div className={styles.summary} data-ogabassey-pdp-summary>
+            <p className={styles.brand} data-ogabassey-pdp-brand>
+              {product.brand}
+            </p>
+            <h1 className={styles.title} data-ogabassey-pdp-title>
+              {product.name}
+            </h1>
+            <div className={styles.ratingRow} data-ogabassey-pdp-rating-row>
+              <span
+                className={styles.stars}
+                data-ogabassey-pdp-stars
+                aria-hidden="true"
+              >
                 ★★★★★
               </span>
-              <span className={styles.reviewCount}>
+              <span
+                className={styles.reviewCount}
+                data-ogabassey-pdp-review-count
+              >
                 {product.reviewCount} Reviews
               </span>
             </div>
-            <div className={styles.price}>{formatPrice(product.price)}</div>
+            <div className={styles.price} data-ogabassey-pdp-price>
+              {formatPrice(product.price)}
+            </div>
           </div>
           <div
             className={styles.commerceSlot}
