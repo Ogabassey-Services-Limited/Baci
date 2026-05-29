@@ -5,13 +5,11 @@ import { headers } from 'next/headers';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { connection } from 'next/server';
 import { type ReactNode, Suspense } from 'react';
+import { StorefrontNotFoundWithDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-not-found-with-dynamic-metadata-marker';
 import { getStorefrontShellSnapshotBase } from '@/app/(storefront)/[slug]/storefront-shell-snapshot';
 import { OgabasseyPdpProductLcpSkeleton } from '@/app/(storefront)/ogabassey/ogabassey-pdp-product-lcp-skeleton';
-import {
-  OgabasseyPdpProductResourceHints,
-  preloadOgabasseyPdpProductImage,
-} from '@/app/(storefront)/ogabassey/ogabassey-pdp-product-resource-hints';
-import { OgabasseyPdpStaticResourceHints } from '@/app/(storefront)/ogabassey/ogabassey-pdp-static-resource-hints';
+import { preloadOgabasseyPdpProductImage } from '@/app/(storefront)/ogabassey/ogabassey-pdp-product-resource-hints';
+import { preloadOgabasseyPdpStaticResources } from '@/app/(storefront)/ogabassey/ogabassey-pdp-static-resource-hints';
 import { OgabasseyPdpBelowFoldIsland } from '@/components/storefront/ogabassey/pdp/client-islands';
 import { createCriticalCartProduct } from '@/components/storefront/ogabassey/pdp/critical-cart-product';
 import { OgabasseyPdpCriticalCommerce } from '@/components/storefront/ogabassey/pdp/critical-commerce';
@@ -286,14 +284,13 @@ async function renderTemplateProductPage({
       );
     }
 
+    preloadOgabasseyPdpStaticResources();
+
     return (
-      <>
-        <OgabasseyPdpStaticResourceHints />
-        <OgabasseyPdpBelowFoldIsland
-          product={ogabasseyProduct}
-          semanticSections={semanticSections}
-        />
-      </>
+      <OgabasseyPdpBelowFoldIsland
+        product={ogabasseyProduct}
+        semanticSections={semanticSections}
+      />
     );
   }
 
@@ -685,6 +682,8 @@ async function getProductRouteControl(
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
+  await connection();
+
   const { slug, category, productSlug } = await params;
   if (!isValidMerchantIdentifier(slug)) {
     notFound();
@@ -692,10 +691,7 @@ export async function generateMetadata({
   const result = await getProduct(slug, category, productSlug);
 
   if (!result) {
-    return {
-      title: 'Product Not Found',
-      robots: { index: false, follow: false },
-    };
+    notFound();
   }
 
   // Don't redirect from generateMetadata — Next.js can't change HTTP status
@@ -887,8 +883,6 @@ async function CategoryProductPageContent({
   searchParams,
   productResultPromise,
 }: CategoryProductPageContentProps) {
-  await connection();
-
   const { merchant, product } = await getRenderableCategoryProductResult({
     slug,
     searchParams,
@@ -1016,6 +1010,8 @@ export default async function CategoryProductPage({
   params,
   searchParams,
 }: PageProps) {
+  await connection();
+
   const { slug, category, productSlug } = await params;
   if (!isValidMerchantIdentifier(slug)) {
     notFound();
@@ -1028,7 +1024,7 @@ export default async function CategoryProductPage({
   );
 
   if (!routeControl) {
-    notFound();
+    return <StorefrontNotFoundWithDynamicMetadataMarker />;
   }
 
   const { result: productResult, productResultPromise } = routeControl;
@@ -1077,26 +1073,23 @@ export default async function CategoryProductPage({
     if (primaryProductImage) {
       preloadOgabasseyPdpProductImage({ src: primaryProductImage });
     }
+    if (criticalProduct) {
+      preloadOgabasseyPdpStaticResources();
+    }
   } catch (error) {
     console.warn(
-      'Unable to preload OgaBassey PDP product image early:',
+      'Unable to preload OgaBassey PDP resources early:',
       sanitizeLookupLogValue(productSlug),
       error
     );
   }
 
-  const earlyProductResourceHints =
-    merchant?.template_id === OGABASSEY_TEMPLATE_ID && primaryProductImage ? (
-      <OgabasseyPdpProductResourceHints src={primaryProductImage} />
-    ) : null;
   const criticalBasePath = await criticalBasePathPromise;
 
   return (
     <>
-      {earlyProductResourceHints}
       {criticalProduct ? (
         <>
-          <OgabasseyPdpStaticResourceHints />
           <OgabasseyPdpCriticalShell
             basePath={criticalBasePath}
             product={criticalProduct}

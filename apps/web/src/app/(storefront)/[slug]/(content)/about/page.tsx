@@ -11,7 +11,6 @@ import {
 import { buildStoreUrl } from '@/lib/store-url';
 import { getTemplate } from '@/templates/registry';
 import type { MerchantAboutPage } from '@/types/about-page';
-import { ContentRouteLoading } from '../../storefront-loading-ui';
 import { AboutPageClient } from '../pages/about/about-page-client';
 import { AboutJsonLd } from './about-json-ld';
 
@@ -22,6 +21,7 @@ interface PageProps {
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
+  await connection();
   const { slug } = await params;
   const merchant = await getMerchantByIdentifier(slug);
 
@@ -59,22 +59,20 @@ export async function generateMetadata({
 }
 
 /** Streams JSON-LD separately while the visible page content loads. */
-export default function AboutPage({ params }: PageProps) {
+export default async function AboutPage({ params }: PageProps) {
+  await connection();
+
   return (
     <>
       <Suspense fallback={null}>
         <AboutJsonLd params={params} />
       </Suspense>
-      <Suspense fallback={<ContentRouteLoading />}>
-        <AboutContent params={params} />
-      </Suspense>
+      <AboutContent params={params} />
     </>
   );
 }
 
 async function AboutContent({ params }: PageProps) {
-  await connection();
-
   const { slug } = await params;
   const merchant = await getMerchantByIdentifier(slug);
 

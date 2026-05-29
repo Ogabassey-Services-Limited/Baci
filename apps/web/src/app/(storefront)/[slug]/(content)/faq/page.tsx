@@ -43,6 +43,7 @@ function extractFaqItems(merchant: {
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
+  await connection();
   const { slug } = await params;
   const merchant = await getMerchantByIdentifier(slug);
 
@@ -70,7 +71,9 @@ export async function generateMetadata({
 }
 
 /** Streams FAQ JSON-LD separately while the visible page content loads. */
-export default function FAQPage({ params }: PageProps) {
+export default async function FAQPage({ params }: PageProps) {
+  await connection();
+
   return (
     <>
       <Suspense fallback={null}>
@@ -105,8 +108,6 @@ async function FAQJsonLd({ params }: PageProps) {
 }
 
 async function FAQContent({ params }: PageProps) {
-  await connection();
-
   const { slug } = await params;
   const merchant = await getRequestScopedMerchant(slug);
 

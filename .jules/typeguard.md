@@ -7,3 +7,6 @@
 ## 2026-05-24 - [Properly Type EditorView in Novel Editor]
 **Learning:** The tiptap/novel editor callbacks (like `handleImagePaste` and `handleImageDrop`) pass the editor instance view to user functions. Previously this was typed with `any` causing type safety violations. The correct type for this is `EditorView` from the underlying `prosemirror-view` package which novel relies on.
 **Action:** When working with novel/tiptap custom extensions and callbacks, explicitly import `import type { EditorView } from '@tiptap/pm/view'` and use it to replace `any` in function signatures.
+## 2026-05-28 - [Properly Type Webhook Payloads and Edge Function Returns]
+**Learning:** Using `any` for webhook payloads (`record`, `old_record`) or external API responses (`Promise<any>` for gateway verifications) in Supabase Edge Functions defeats strict mode and allows unsafe property access.
+**Action:** Always create explicit interfaces matching the database schema (e.g., `AuthUserRecord` with an index signature `[key: string]: unknown` for safety) for webhook payloads. For API verifications, return exact literal unions (e.g., `'success' | 'failed' | 'pending'`) instead of `Promise<any>`.

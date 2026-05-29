@@ -1,3 +1,5 @@
+import { render, screen } from '@testing-library/react';
+import type { ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockNotFound = vi.fn(() => {
@@ -6,6 +8,7 @@ const mockNotFound = vi.fn(() => {
 const mockPermanentRedirect = vi.fn((url: string) => {
   throw new Error(`NEXT_REDIRECT:${url}`);
 });
+const mockConnection = vi.fn<() => Promise<void>>(() => Promise.resolve());
 const mockGetMerchantByIdentifier = vi.fn();
 const mockGetCachedProductWithDetails = vi.fn();
 const mockGetCachedLegacyProductRedirectTarget = vi.fn();
@@ -13,6 +16,10 @@ const mockGetCachedLegacyProductRedirectTarget = vi.fn();
 vi.mock('next/navigation', () => ({
   notFound: () => mockNotFound(),
   permanentRedirect: (url: string) => mockPermanentRedirect(url),
+}));
+
+vi.mock('next/server', () => ({
+  connection: () => mockConnection(),
 }));
 
 vi.mock('@/lib/cached-data', () => ({
@@ -49,6 +56,7 @@ import LegacyProductPage from './page';
 describe('legacy singular product route', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockConnection.mockResolvedValue(undefined);
     mockGetMerchantByIdentifier.mockResolvedValue({
       id: 'merchant-1',
       slug: 'ogabassey',
@@ -77,6 +85,7 @@ describe('legacy singular product route', () => {
     expect(mockPermanentRedirect).toHaveBeenCalledWith(
       '/redirect/ogabassey/playstation-5/wrc-9-playstation-5'
     );
+    expect(mockConnection).toHaveBeenCalledOnce();
   });
 
   it('returns notFound for invalid non-storefront slugs', async () => {
@@ -88,6 +97,42 @@ describe('legacy singular product route', () => {
         }),
       })
     ).rejects.toThrow('NEXT_NOT_FOUND');
+
+    expect(mockGetMerchantByIdentifier).not.toHaveBeenCalled();
+    expect(mockConnection).toHaveBeenCalledOnce();
+  });
+
+  it('triggers notFound without rendering a body marker for missing legacy products', async () => {
+    const page = await LegacyProductPage({
+      params: Promise.resolve({
+        slug: 'ogabassey',
+        productSlug: 'missing-product',
+      }),
+    });
+
+    expect(() => render(page as ReactElement)).toThrow('NEXT_NOT_FOUND');
+
+    expect(mockGetCachedLegacyProductRedirectTarget).toHaveBeenCalledWith(
+      'merchant-1',
+      'missing-product'
+    );
+    expect(mockNotFound).toHaveBeenCalled();
+    expect(
+      screen.queryByRole('status', { name: /dynamic metadata marker/i })
+    ).not.toBeInTheDocument();
+  });
+
+  it('surfaces request-time rendering failures before resolving redirects', async () => {
+    mockConnection.mockRejectedValueOnce(new Error('connection failed'));
+
+    await expect(
+      LegacyProductPage({
+        params: Promise.resolve({
+          slug: 'ogabassey',
+          productSlug: 'wrc-9-playstation-5',
+        }),
+      })
+    ).rejects.toThrow('connection failed');
 
     expect(mockGetMerchantByIdentifier).not.toHaveBeenCalled();
   });

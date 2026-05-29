@@ -1,5 +1,4 @@
 import { notFound } from 'next/navigation';
-import { connection } from 'next/server';
 import { InformationalClusterIndex } from '@/components/storefront/ogabassey/seo/informational-cluster-index';
 import { getBlogStructuredDataImageUrls } from '@/lib/blog-structured-data-images';
 import { getCachedBlogListing } from '@/lib/cached-data';
@@ -24,8 +23,6 @@ function parseBlogListingPage(page?: string): number {
 }
 
 export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
-  await connection();
-
   const { slug } = await params;
   const { category, page, search } = await searchParams;
   const currentPage = parseBlogListingPage(page);

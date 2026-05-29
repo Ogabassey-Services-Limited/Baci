@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { connection } from 'next/server';
 import { Suspense } from 'react';
 import { ContentRouteLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
 import {
@@ -15,6 +16,7 @@ interface PageProps {
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
+  await connection();
   const { slug } = await params;
   const context = await getTrustRouteContext(slug);
 
@@ -50,7 +52,9 @@ export async function generateMetadata({
   };
 }
 
-export default function ShippingPage({ params }: PageProps) {
+export default async function ShippingPage({ params }: PageProps) {
+  await connection();
+
   return (
     <Suspense fallback={<ContentRouteLoading />}>
       <ShippingPageContent params={params} />

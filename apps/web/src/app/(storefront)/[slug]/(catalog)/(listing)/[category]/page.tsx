@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { connection } from 'next/server';
 import { Suspense } from 'react';
 import { CatalogListingLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
 import {
@@ -26,9 +27,6 @@ import {
   resolveCategoryPageName,
 } from './category-page-content-helpers';
 
-// Enable ISR with 5 minute revalidation
-// Removed explicit revalidate export to support Dynamic IO
-
 interface PageProps {
   params: Promise<{
     slug: string; // Store slug (merchant)
@@ -42,6 +40,8 @@ interface PageProps {
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
+  await connection();
+
   const { slug, category } = await params;
 
   // 1. Get Merchant
@@ -123,7 +123,9 @@ export async function generateMetadata({
   };
 }
 
-export default function CategoryPageRoute(props: PageProps) {
+export default async function CategoryPageRoute(props: PageProps) {
+  await connection();
+
   return (
     <Suspense fallback={<CatalogListingLoading />}>
       <CategoryPageContent {...props} />
