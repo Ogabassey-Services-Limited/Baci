@@ -20,19 +20,16 @@ export function CommercialSupportLinks({
   return (
     <section
       aria-labelledby={headingId}
-      className="mt-10 border-t border-store-background-text/12 pt-8"
+      className="ogabassey-pdp-support-links"
     >
-      <h2
-        id={headingId}
-        className="text-xl font-semibold text-store-background-text"
-      >
+      <h2 id={headingId} className="ogabassey-pdp-support-links__title">
         {heading}
       </h2>
-      <ul className="mt-4 space-y-3">
+      <ul className="ogabassey-pdp-support-links__list">
         {links.map((link) => (
           <li key={link.href}>
             <a
-              className="text-sm font-medium text-store-primary underline-offset-4 hover:underline"
+              className="ogabassey-pdp-semantic-card__link"
               href={link.href}
             >
               {link.label}
