@@ -11,6 +11,7 @@ import ForgotPasswordScreen from './forgot-password';
 const mocks = vi.hoisted(() => ({
   alert: vi.fn(),
   back: vi.fn(),
+  getEmailError: vi.fn(),
   resetPasswordForEmail: vi.fn(),
 }));
 
@@ -142,7 +143,7 @@ vi.mock('@/hooks/useTheme', () => ({
 }));
 
 vi.mock('@/lib/sanitize', () => ({
-  getEmailError: () => null,
+  getEmailError: mocks.getEmailError,
 }));
 
 vi.mock('@/lib/supabase', () => ({
@@ -165,6 +166,7 @@ function createDeferred<T>() {
 describe('ForgotPasswordScreen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.getEmailError.mockReturnValue(null);
     mocks.resetPasswordForEmail.mockResolvedValue({ error: null });
   });
 
@@ -188,6 +190,61 @@ describe('ForgotPasswordScreen', () => {
         { redirectTo: 'https://usebaci.com/update-password' }
       );
     });
+  });
+
+  it('shows an error without calling Supabase when the email is empty', () => {
+    render(<ForgotPasswordScreen />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Send Instructions' }));
+
+    expect(mocks.alert).toHaveBeenCalledWith(
+      'Error',
+      'Please enter your email address'
+    );
+    expect(mocks.resetPasswordForEmail).not.toHaveBeenCalled();
+  });
+
+  it('shows validation errors before sending reset instructions', () => {
+    mocks.getEmailError.mockReturnValue('Enter a valid email address');
+
+    render(<ForgotPasswordScreen />);
+
+    fireEvent.change(screen.getByPlaceholderText('your@email.com'), {
+      target: { value: 'invalid-email' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Send Instructions' }));
+
+    expect(mocks.getEmailError).toHaveBeenCalledWith('invalid-email');
+    expect(mocks.alert).toHaveBeenCalledWith(
+      'Invalid Email',
+      'Enter a valid email address'
+    );
+    expect(mocks.resetPasswordForEmail).not.toHaveBeenCalled();
+  });
+
+  it('surfaces Supabase reset failures to the merchant', async () => {
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    mocks.resetPasswordForEmail.mockResolvedValue({
+      error: new Error('Reset service unavailable'),
+    });
+
+    render(<ForgotPasswordScreen />);
+
+    fireEvent.change(screen.getByPlaceholderText('your@email.com'), {
+      target: { value: 'merchant@example.com' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Send Instructions' }));
+
+    await waitFor(() => {
+      expect(mocks.alert).toHaveBeenCalledWith(
+        'Error',
+        'Reset service unavailable'
+      );
+    });
+
+    consoleError.mockRestore();
   });
 
   it('exposes accessible button state while reset instructions are sending', async () => {
