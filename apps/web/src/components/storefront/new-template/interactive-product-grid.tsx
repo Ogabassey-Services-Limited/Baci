@@ -196,6 +196,7 @@ export const InteractiveProductGrid: React.FC<InteractiveProductGridProps> = ({
               No products found matching your filters.
             </p>
             <button
+              type="button"
               onClick={handleResetFilters}
               className="mt-4 text-store-primary font-semibold hover:underline"
             >
