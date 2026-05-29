@@ -1,6 +1,8 @@
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+const mockConnection = vi.hoisted(() => vi.fn());
+
 vi.mock('next/headers', () => ({
   cookies: vi.fn(),
 }));
@@ -9,6 +11,10 @@ vi.mock('next/navigation', () => ({
   redirect: vi.fn((path: string) => {
     throw new Error(`redirect:${path}`);
   }),
+}));
+
+vi.mock('next/server', () => ({
+  connection: () => mockConnection(),
 }));
 
 vi.mock('@/lib/merchant-server', () => ({
@@ -31,6 +37,7 @@ import KycSettingsPage from './page';
 describe('KycSettingsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockConnection.mockResolvedValue(undefined);
     vi.mocked(cookies).mockResolvedValue({} as never);
   });
 
@@ -50,6 +57,7 @@ describe('KycSettingsPage', () => {
     expect(screen.queryByTestId('kyc-verification')).not.toBeInTheDocument();
     expect(cookies).not.toHaveBeenCalled();
     expect(createClient).not.toHaveBeenCalled();
+    expect(mockConnection).toHaveBeenCalledOnce();
   });
 
   it('renders Nigerian KYC forms for Nigeria merchants', async () => {
@@ -71,5 +79,6 @@ describe('KycSettingsPage', () => {
     render(await KycSettingsPage());
 
     expect(screen.getByTestId('kyc-verification')).toBeInTheDocument();
+    expect(mockConnection).toHaveBeenCalledOnce();
   });
 });

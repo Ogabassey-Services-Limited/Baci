@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import type { MerchantData } from '@/hooks/merchant/types';
 
 interface DeferredGoogleStoreWidgetProps {
-  merchant?: Pick<MerchantData, 'custom_domain'>;
+  merchant?: Pick<MerchantData, 'custom_domain' | 'feature_settings'>;
   merchantCustomDomain?: string | null;
   enabled?: boolean;
   hostname?: string;

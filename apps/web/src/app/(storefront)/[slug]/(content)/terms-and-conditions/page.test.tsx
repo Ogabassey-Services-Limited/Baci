@@ -16,12 +16,20 @@ vi.mock('next/navigation', () => ({
   permanentRedirect: vi.fn(),
 }));
 
-const { default: LegacyTermsAndConditionsPage } = await import('./page');
+const { default: LegacyTermsAndConditionsPage, generateMetadata } =
+  await import('./page');
 
 describe('legacy terms-and-conditions redirect', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockConnection.mockReset();
+  });
+
+  it('keeps redirect metadata static because the route always redirects', async () => {
+    const metadata = await generateMetadata();
+
+    expect(metadata.robots).toMatchObject({ index: false, follow: false });
+    expect(mockConnection).not.toHaveBeenCalled();
   });
 
   it('redirects custom-domain traffic to the canonical /terms URL', async () => {
