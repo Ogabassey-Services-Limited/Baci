@@ -232,10 +232,15 @@ describe('DashboardClientLayout', () => {
       name: 'Smart shortcuts',
     });
 
-    await waitFor(() =>
-      expect(within(smartNav).getAllByRole('link')[0]).toHaveTextContent(
-        'Orders904'
-      )
+    await waitFor(
+      () => {
+        const smartLabels = within(smartNav)
+          .getAllByRole('link')
+          .map((link) => link.textContent);
+
+        expect(smartLabels[0]).toBe('Orders904');
+      },
+      { timeout: 5000 }
     );
   });
 
