@@ -31,19 +31,103 @@ export interface OrderForConversion {
   customer_id?: string | null;
   ad_tracking?: Record<string, unknown> | null;
   order_items?: Array<{
-    id?: string;
-    product_id?: string;
-    name?: string;
-    price?: number | string;
-    quantity?: number;
+    id?: string | null;
+    product_id?: string | null;
+    name?: string | null;
+    price?: number | string | null;
+    quantity?: number | null;
   }> | null;
   shipping_address?: {
-    city?: string;
-    state?: string;
-    country?: string;
-    zip?: string;
-    postal_code?: string;
+    city?: string | null;
+    state?: string | null;
+    country?: string | null;
+    zip?: string | null;
+    postal_code?: string | null;
   } | null;
+}
+
+export interface TriggerPurchaseConversionOptions {
+  failOnInvalidItem?: boolean;
+}
+
+function toRequiredString(value: unknown) {
+  return typeof value === 'string' && value.trim() !== '' ? value.trim() : null;
+}
+
+function toFiniteNumber(value: unknown) {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  if (typeof value === 'string' && value.trim() === '') {
+    return null;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function toConversionItem({
+  item,
+  itemIndex,
+  orderId,
+  options,
+}: {
+  item: NonNullable<OrderForConversion['order_items']>[number];
+  itemIndex: number;
+  orderId: string;
+  options: TriggerPurchaseConversionOptions;
+}): OrderConversionData['items'][number] | null {
+  const id = toRequiredString(item.product_id) ?? toRequiredString(item.id);
+  const name = toRequiredString(item.name);
+  const price = toFiniteNumber(item.price);
+  const quantity = toFiniteNumber(item.quantity);
+  const invalidFields = [
+    id ? null : 'product_id',
+    name ? null : 'name',
+    price !== null && price >= 0 ? null : 'price',
+    quantity !== null && quantity > 0 ? null : 'quantity',
+  ].filter((field): field is string => field !== null);
+
+  if (
+    !id ||
+    !name ||
+    price === null ||
+    price < 0 ||
+    quantity === null ||
+    quantity <= 0
+  ) {
+    const logPayload = {
+      invalidFields,
+      itemIndex,
+      message: 'Skipping invalid order item for conversion tracking',
+      orderId,
+    };
+    if (options.failOnInvalidItem) {
+      logger.error({
+        ...logPayload,
+        message: 'Invalid order item for conversion tracking',
+      });
+      throw new Error(
+        `Invalid order item for conversion tracking: order=${orderId}, item=${itemIndex}, fields=${invalidFields.join(',')}`
+      );
+    }
+    logger.warn(logPayload);
+    return null;
+  }
+
+  return { id, name, price, quantity };
+}
+
+function toConversionItems(
+  order: OrderForConversion,
+  options: TriggerPurchaseConversionOptions
+) {
+  return (order.order_items ?? [])
+    .map((item, itemIndex) =>
+      toConversionItem({ item, itemIndex, options, orderId: order.id })
+    )
+    .filter(
+      (item): item is OrderConversionData['items'][number] => item !== null
+    );
 }
 
 /**
@@ -63,7 +147,8 @@ export interface OrderForConversion {
 export async function triggerPurchaseConversion(
   supabase: SupabaseClient,
   merchantId: string,
-  order: OrderForConversion
+  order: OrderForConversion,
+  options: TriggerPurchaseConversionOptions = {}
 ): Promise<void> {
   const orderNumber = order.order_number || order.id.slice(0, 8).toUpperCase();
 
@@ -136,13 +221,7 @@ export async function triggerPurchaseConversion(
       customerZip:
         order.shipping_address?.zip || order.shipping_address?.postal_code,
       customerCountry: order.shipping_address?.country,
-      items: (order.order_items || []).map((item) => ({
-        id: item.product_id || item.id || '',
-        name: item.name || 'Product',
-        price:
-          typeof item.price === 'string' ? Number(item.price) : item.price || 0,
-        quantity: item.quantity || 1,
-      })),
+      items: toConversionItems(order, options),
       // Ad tracking IDs for attribution
       fbclid: (adTracking?.fbclid as string) ?? undefined,
       fbp: (adTracking?.fbp as string) ?? undefined,

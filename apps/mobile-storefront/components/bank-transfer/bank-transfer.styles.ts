@@ -1,6 +1,8 @@
 import { StyleSheet } from 'react-native';
 import { RADIUS, SPACING } from '@/constants/Colors';
 
+const STATUS_TITLE_MARGIN_BOTTOM = SPACING.xs / 2;
+
 export const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -53,6 +55,26 @@ export const styles = StyleSheet.create({
   },
   instructionText: {
     flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  statusCard: {
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    marginTop: SPACING.lg,
+    padding: SPACING.md,
+  },
+  statusTextColumn: {
+    flex: 1,
+  },
+  statusTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: STATUS_TITLE_MARGIN_BOTTOM,
+  },
+  statusMessage: {
     fontSize: 13,
     lineHeight: 18,
   },
