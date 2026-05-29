@@ -244,6 +244,37 @@ describe('PaymentMethodSelector', () => {
     expect(screen.getByText('Bank Transfer')).toBeTruthy();
   });
 
+  it('shows wallet-funded bank-transfer copy and guidance when enabled', () => {
+    render(
+      <PaymentMethodSelector
+        selectedMethod={'bank_transfer' as PaymentMethodType}
+        onSelectMethod={() => {}}
+        selectedTab="full"
+        onSelectTab={() => {}}
+        orderTotal={250000}
+        enabledMethods={['bank_transfer']}
+        methodLabelOverrides={{ bank_transfer: 'Bank transfer to wallet' }}
+        methodDescriptionOverrides={{
+          bank_transfer:
+            'Transfer to your Bassey wallet account. We apply it to this order automatically.',
+        }}
+        walletFundedBankTransferMode
+      />
+    );
+
+    expect(screen.getByText('Bank transfer to wallet')).toBeTruthy();
+    expect(
+      screen.getByText(
+        'Transfer to your Bassey wallet account. We apply it to this order automatically.'
+      )
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        'We will fund your wallet and pay this order automatically.'
+      )
+    ).toBeTruthy();
+  });
+
   describe('wallet payment row', () => {
     // Storefront checkout opts in via walletMode='orders'. VTU's
     // UtilityPaymentOptions caller intentionally omits the prop (defaults
@@ -498,6 +529,32 @@ describe('PaymentMethodSelector', () => {
       );
 
       expect(screen.getByLabelText(/use wallet credit/i)).toBeTruthy();
+    });
+
+    it('renders wallet balance as informational copy in wallet-funded bank-transfer mode', () => {
+      const onWalletToggle = jest.fn();
+
+      render(
+        <PaymentMethodSelector
+          selectedMethod={'bank_transfer' as PaymentMethodType}
+          onSelectMethod={() => {}}
+          selectedTab="full"
+          onSelectTab={() => {}}
+          orderTotal={5000}
+          walletMode="orders"
+          walletBalance={3000}
+          walletOrderTotal={5000}
+          onWalletToggle={onWalletToggle}
+          walletFundedBankTransferMode
+        />
+      );
+
+      expect(screen.queryByLabelText(/use wallet credit/i)).toBeNull();
+      expect(screen.getByText('Wallet balance applies automatically')).toBeTruthy();
+      expect(
+        screen.getByText('₦3,000 available now · transfer shortfall only')
+      ).toBeTruthy();
+      expect(onWalletToggle).not.toHaveBeenCalled();
     });
 
     it('suppresses the active-radio visual on gateway rows when wallet fully covers and is active', () => {

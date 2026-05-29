@@ -57,18 +57,41 @@ jest.mock('@/components/checkout/DeliveryNotesCard', () => ({
 
 jest.mock('@/components/checkout/PaymentMethodSelector', () => ({
   PaymentMethodSelector: (props: {
+    methodDescriptionOverrides?: Record<string, string>;
+    methodLabelOverrides?: Record<string, string>;
+    onSelectMethod?: (method: string) => void;
     onSavingsToggle?: (selection: {
       amount: number;
       goalId: string | null;
       use: boolean;
     }) => void;
+    selectedMethod?: string;
     savingsBalance?: number;
     savingsGoalId?: string | null;
+    walletFundedBankTransferMode?: boolean;
   }) => {
     const { Pressable, Text, View } = require('react-native');
+    const bankTransferLabel =
+      props.methodLabelOverrides?.bank_transfer ?? 'Bank Transfer';
+    const bankTransferDescription =
+      props.methodDescriptionOverrides?.bank_transfer ??
+      'Pay via direct bank transfer';
     return (
       <View>
         <Text>Payment methods selector</Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Mock select ${bankTransferLabel}`}
+          onPress={() => props.onSelectMethod?.('bank_transfer')}
+        >
+          <Text>{bankTransferLabel}</Text>
+          <Text>{bankTransferDescription}</Text>
+          {props.walletFundedBankTransferMode ? (
+            <Text>
+              We will fund your wallet and pay this order automatically.
+            </Text>
+          ) : null}
+        </Pressable>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Mock use checkout savings"

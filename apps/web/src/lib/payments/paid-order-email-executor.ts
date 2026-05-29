@@ -1,0 +1,173 @@
+import { z } from 'zod';
+import { env } from '@/env';
+import {
+  generateOrderConfirmationEmail,
+  generateOrderConfirmationText,
+} from '@/lib/email-templates';
+import type { StepExecutor } from '@/lib/payments/apply-paid-order-side-effects';
+import {
+  getFromName,
+  mapOrderItemToEmailItem,
+  PAID_ORDER_EMAIL_FALLBACK_ROOT_DOMAIN,
+  resolveMerchantUrl,
+  SUPABASE_ROW_NOT_FOUND_CODE,
+} from '@/lib/payments/paid-order-email-utils';
+import type {
+  MerchantDetails,
+  RichPaidOrder,
+} from '@/lib/payments/paid-order-side-effect-types';
+import { toNumber } from '@/lib/payments/paid-order-side-effect-utils';
+import { sendEmail } from '@/lib/zeptomail';
+
+const nullableStringSchema = z.string().nullable();
+const merchantDetailsSchema = z
+  .object({
+    business_name: nullableStringSchema,
+    cac_rc_number: nullableStringSchema,
+    email: nullableStringSchema,
+    email_sender_name: nullableStringSchema,
+    slug: nullableStringSchema,
+    support_email: nullableStringSchema,
+    tax_identification_number: nullableStringSchema,
+    website_url: nullableStringSchema,
+  })
+  .strict();
+
+const richOrderEmailSchema = z
+  .object({
+    customer_email: z.string().email().nullish(),
+    customer_id: z.string().nullish(),
+    customer_name: z.string().nullish(),
+    customer_phone: z.string().nullish(),
+    id: z.string().min(1),
+    merchant_id: z.string().min(1),
+    order_items: z
+      .array(
+        z
+          .object({
+            name: nullableStringSchema,
+            price: z.union([z.number(), z.string(), z.null()]),
+            quantity: z.number().nullable(),
+            variant_name: nullableStringSchema,
+          })
+          .strict()
+      )
+      .nullish(),
+    order_number: z.string().nullish(),
+    shipping_address: z
+      .object({
+        address: nullableStringSchema.optional(),
+        city: nullableStringSchema.optional(),
+        state: nullableStringSchema.optional(),
+      })
+      .nullish(),
+    shipping_fee: z.union([z.number(), z.string()]),
+    subtotal: z.union([z.number(), z.string()]),
+    total: z.union([z.number(), z.string()]),
+  })
+  .passthrough();
+
+function validateMerchantDetails(merchantDetails: MerchantDetails) {
+  const parsed = merchantDetailsSchema.safeParse(merchantDetails);
+  if (!parsed.success) {
+    throw new Error(
+      `invalid_merchant_details_for_paid_email: ${parsed.error.message}`
+    );
+  }
+  return parsed.data;
+}
+
+function validateRichPaidOrder(order: RichPaidOrder) {
+  const parsed = richOrderEmailSchema.safeParse(order);
+  if (!parsed.success) {
+    throw new Error(`invalid_order_for_paid_email: ${parsed.error.message}`);
+  }
+  return parsed.data;
+}
+
+export function buildEmailExecutor({
+  actor,
+  merchantDetails,
+  merchantFetchError,
+  order,
+}: {
+  actor: string;
+  merchantDetails: MerchantDetails | null;
+  merchantFetchError: { code?: string; message?: string } | null;
+  order: RichPaidOrder;
+}): StepExecutor {
+  return async () => {
+    if (
+      merchantFetchError &&
+      merchantFetchError.code !== SUPABASE_ROW_NOT_FOUND_CODE
+    ) {
+      throw new Error(`merchant_fetch_error: ${merchantFetchError.message}`);
+    }
+    const validatedOrder = validateRichPaidOrder(order);
+    if (!(merchantDetails && validatedOrder.customer_email)) {
+      return { skipped: 'missing_merchant_or_customer_email' };
+    }
+    const validatedMerchantDetails = validateMerchantDetails(merchantDetails);
+
+    const rootDomain =
+      env.NEXT_PUBLIC_ROOT_DOMAIN || PAID_ORDER_EMAIL_FALLBACK_ROOT_DOMAIN;
+    const merchantSlug = validatedMerchantDetails.slug?.trim();
+    const emailItems = (validatedOrder.order_items ?? []).map(
+      mapOrderItemToEmailItem
+    );
+    const shippingAddress = validatedOrder.shipping_address ?? {};
+    const emailData = {
+      customerName: validatedOrder.customer_name ?? '',
+      items: emailItems,
+      merchantName: validatedMerchantDetails.business_name ?? '',
+      merchantRcNumber: validatedMerchantDetails.cac_rc_number ?? undefined,
+      merchantTin:
+        validatedMerchantDetails.tax_identification_number ?? undefined,
+      merchantUrl: resolveMerchantUrl({
+        merchantDetails: validatedMerchantDetails,
+        rootDomain,
+      }),
+      orderNumber:
+        validatedOrder.order_number ||
+        validatedOrder.id.slice(0, 8).toUpperCase(),
+      shippingAddress: {
+        address: shippingAddress.address ?? '',
+        city: shippingAddress.city ?? '',
+        phone: validatedOrder.customer_phone ?? '',
+        state: shippingAddress.state ?? '',
+      },
+      shippingFee: toNumber(
+        validatedOrder.shipping_fee ?? 0,
+        'order shipping fee'
+      ),
+      subtotal: toNumber(validatedOrder.subtotal, 'order subtotal'),
+      total: toNumber(validatedOrder.total, 'order total'),
+    };
+    const result = await sendEmail({
+      auditContext: {
+        customerId: validatedOrder.customer_id ?? null,
+        merchantId: validatedOrder.merchant_id,
+        metadata: { trigger: actor },
+        orderId: validatedOrder.id,
+      },
+      clientReference: `order:${validatedOrder.id}:paid_email`,
+      emailType: 'orders',
+      fromName: getFromName(validatedMerchantDetails),
+      htmlContent: generateOrderConfirmationEmail(emailData),
+      replyTo:
+        validatedMerchantDetails.support_email ||
+        validatedMerchantDetails.email ||
+        (merchantSlug
+          ? `support@${merchantSlug}.${rootDomain}`
+          : `support@${rootDomain}`),
+      subject: `Order Confirmation - #${emailData.orderNumber}`,
+      textContent: generateOrderConfirmationText(emailData),
+      to: validatedOrder.customer_email,
+      toName: validatedOrder.customer_name ?? undefined,
+    });
+    if (!result.success) {
+      throw new Error(result.error || result.errorCode || 'email_failed');
+    }
+    return { messageId: result.messageId };
+  };
+}

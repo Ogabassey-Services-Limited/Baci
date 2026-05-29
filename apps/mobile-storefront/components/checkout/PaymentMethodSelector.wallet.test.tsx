@@ -16,17 +16,18 @@ jest.mock('@/components/useColorScheme', () => ({
 
 function queryWalletControl() {
   return (
+    screen.queryByRole('button', { name: /wallet/i }) ??
     screen.queryByRole('checkbox', { name: /wallet/i }) ??
     screen.queryByRole('radio', { name: /wallet/i })
   );
 }
 
 function getPartialWalletControl() {
-  return screen.getByRole('checkbox', { name: /use wallet credit/i });
+  return screen.getByRole('button', { name: /use wallet credit/i });
 }
 
 function getFullWalletControl() {
-  return screen.getByRole('radio', { name: /pay with wallet/i });
+  return screen.getByRole('button', { name: /pay with wallet/i });
 }
 
 describe('PaymentMethodSelector', () => {
@@ -52,7 +53,7 @@ describe('PaymentMethodSelector', () => {
 
       expect(queryWalletControl()).toBeNull();
       expect(
-        screen.queryByRole('checkbox', { name: /wallet credit/i })
+        screen.queryByRole('button', { name: /wallet credit/i })
       ).toBeNull();
     });
 

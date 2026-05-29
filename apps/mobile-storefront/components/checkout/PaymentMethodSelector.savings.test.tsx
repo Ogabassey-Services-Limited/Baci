@@ -49,7 +49,7 @@ describe('PaymentMethodSelector', () => {
       );
 
       expect(
-        screen.getByRole('checkbox', { name: /use wallet credit/i })
+        screen.getByRole('button', { name: /use wallet credit/i })
       ).toBeTruthy();
     });
 
