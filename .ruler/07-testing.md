@@ -29,6 +29,30 @@ Every new or significantly modified file MUST have a colocated test file:
 - CSS/style-only changes
 - Documentation-only changes
 
+## Test-Driven Development (TDD) Requirement
+
+**CRITICAL RULE**: ALL new features, changes, and bug fixes MUST be implemented strictly using **Test-Driven Development (TDD)** methodologies. Writing production/implementation code *before* test code is strictly prohibited.
+
+### TDD Red-Green-Refactor Lifecycle
+
+For every change, you MUST strictly follow this 3-step sequence:
+
+1. **🔴 RED (Write a Failing Test first)**:
+   - Before writing any business or UI logic, write a unit or integration test that asserts the desired new behavior or reproduces the reported bug.
+   - Run the test suite (`pnpm turbo test` or direct vitest/jest runner) and verify that the test **FAILS** with the expected failure mode.
+2. **🟢 GREEN (Write Minimum Code to Pass)**:
+   - Implement the minimum amount of production code required to make the failing test pass.
+   - Run the test suite and verify that the test **PASSES**.
+3. **🔵 REFACTOR (Clean and Optimize)**:
+   - Clean up, simplify, modularize, or optimize the newly written code while ensuring the test suite remains completely **GREEN**.
+   - Ensure the code complies with all Modularity Rules (one export per file, maximum 300 lines, etc.).
+
+### Exception Rule
+
+The only exceptions to writing failing tests first are:
+- Pure CSS design/styling tweaks where visual rendering cannot be reasonably asserted in a unit/integration test.
+- Static documentation changes.
+
 ## Test Quality Standards
 
 - **AAA pattern**: Arrange, Act, Assert — in that order, clearly separated

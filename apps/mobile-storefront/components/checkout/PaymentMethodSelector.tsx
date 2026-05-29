@@ -836,6 +836,7 @@ const styles = StyleSheet.create({
   tab: {
     flex: 1,
     paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.xs,
     minHeight: 44,
     borderRadius: RADIUS.md,
     alignItems: 'center',
@@ -845,6 +846,7 @@ const styles = StyleSheet.create({
   tabText: {
     fontSize: 14,
     fontWeight: '600',
+    textAlign: 'center',
   },
   installmentInfo: {
     flexDirection: 'row',
