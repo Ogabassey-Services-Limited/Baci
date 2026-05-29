@@ -1,4 +1,5 @@
 import { createLogger } from '@/lib/logger';
+import { generateEventId, generateEventIdSync } from './ad-tracking-event-id';
 
 const log = createLogger('AdTracking');
 
@@ -20,7 +21,6 @@ const _analytics = () => ({
 });
 
 import Constants from 'expo-constants';
-import * as Crypto from 'expo-crypto';
 import { Platform } from 'react-native';
 import {
   getTrackingPermissionStatus,
@@ -98,38 +98,6 @@ let cachedMerchantId: string | null = null;
  */
 export function setMerchantId(merchantId: string): void {
   cachedMerchantId = merchantId;
-}
-
-// =============================================================================
-// EVENT ID GENERATION (Critical for deduplication)
-// =============================================================================
-
-/**
- * Generate a unique event ID for deduplication
- * This ID is sent to BOTH client-side SDKs and server-side APIs
- * so duplicate events can be detected and merged
- */
-async function generateEventId(): Promise<string> {
-  const timestamp = Date.now().toString(36);
-  const randomBytes = await Crypto.getRandomBytesAsync(8);
-  const randomHex = Array.from(randomBytes)
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
-  return `${timestamp}_${randomHex}`;
-}
-
-/**
- * Synchronous event ID generation (fallback)
- */
-function generateEventIdSync(): string {
-  const timestamp = Date.now().toString(36);
-  const cryptoUuid =
-    typeof Crypto.randomUUID === 'function' ? Crypto.randomUUID() : null;
-  const random =
-    typeof cryptoUuid === 'string' && cryptoUuid.length > 0
-      ? cryptoUuid.replace(/-/g, '').substring(0, 10)
-      : Math.random().toString(36).slice(2, 12).padEnd(10, '0');
-  return `${timestamp}_${random}`;
 }
 
 // =============================================================================
@@ -299,6 +267,11 @@ interface ConversionData {
   orderId?: string;
   value?: number;
   currency?: string;
+  contentName?: string;
+  contentType?: 'product' | 'product_group';
+  price?: number;
+  searchString?: string;
+  url?: string;
   items?: Array<{
     id: string;
     quantity: number;
@@ -341,7 +314,12 @@ async function sendServerConversion(
           order_id: data.orderId,
           value: data.value,
           currency: data.currency || 'NGN',
+          content_name: data.contentName,
+          content_type: data.contentType,
           contents: data.items,
+          price: data.price,
+          search_string: data.searchString,
+          url: data.url,
         },
         // All platforms receive the event with same event_id
         targets: ['facebook', 'tiktok', 'snapchat', 'google'],
@@ -720,7 +698,9 @@ export async function trackPaymentInfoAdded(
 
   // await analytics().logAddPaymentInfo({ payment_type: paymentMethod });
 
-  sendServerConversion('ADD_PAYMENT_INFO', eventId, {});
+  sendServerConversion('ADD_PAYMENT_INFO', eventId, {
+    currency: 'NGN',
+  });
 
   if (AppEventsLogger) {
     AppEventsLogger.logEvent('fb_mobile_add_payment_info', {
@@ -783,6 +763,22 @@ export async function trackAddToWishlist(product: {
     brand: product.brand,
   });
 
+  sendServerConversion('ADD_TO_WISHLIST', eventId, {
+    value: product.price,
+    currency,
+    contentName: product.name,
+    contentType: 'product',
+    price: product.price,
+    items: [
+      {
+        id: product.id,
+        quantity: 1,
+        name: product.name,
+        price: product.price,
+      },
+    ],
+  });
+
   if (isTikTokInitialized && TikTokBusiness) {
     TikTokBusiness.trackEvent(
       'AddToWishlist',
@@ -809,7 +805,9 @@ export async function trackSearch(
 
   // await analytics().logSearch({ search_term: query });
 
-  sendServerConversion('SEARCH', eventId, {});
+  sendServerConversion('SEARCH', eventId, {
+    searchString: query,
+  });
 
   if (AppEventsLogger) {
     AppEventsLogger.logEvent('fb_mobile_search', {

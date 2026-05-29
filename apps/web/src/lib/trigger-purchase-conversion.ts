@@ -4,6 +4,10 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import {
+  fetchAnalyticsPlatformConfig,
+  hasConfiguredAnalyticsPlatform,
+} from '@/lib/analytics/analytics-platform-config';
 import { logger } from '@/lib/logger';
 import {
   logConversionResults,
@@ -64,28 +68,16 @@ export async function triggerPurchaseConversion(
   const orderNumber = order.order_number || order.id.slice(0, 8).toUpperCase();
 
   try {
-    // Fetch merchant's analytics configuration and feature toggle
-    const { data: merchantAnalytics, error: analyticsError } = await supabase
-      .from('merchants')
-      .select(`
-        offline_conversions_enabled,
-        facebook_pixel_id,
-        facebook_capi_token,
-        tiktok_pixel_id,
-        tiktok_access_token,
-        google_analytics_id,
-        ga4_api_secret,
-        snapchat_pixel_id,
-        snapchat_capi_token
-      `)
-      .eq('id', merchantId)
-      .single();
+    // Fetch merchant's analytics configuration and feature toggle.
+    const merchantAnalytics = await fetchAnalyticsPlatformConfig(
+      supabase,
+      merchantId
+    );
 
-    if (analyticsError) {
+    if (!merchantAnalytics) {
       logger.warn({
         message: 'Failed to fetch analytics config for conversion tracking',
         merchantId,
-        error: analyticsError,
       });
       return;
     }
@@ -96,14 +88,6 @@ export async function triggerPurchaseConversion(
         message: 'Offline conversions disabled by merchant',
         merchantId,
         orderId: order.id,
-      });
-      return;
-    }
-
-    if (!merchantAnalytics) {
-      logger.warn({
-        message: 'No analytics config found for merchant',
-        merchantId,
       });
       return;
     }
@@ -120,16 +104,7 @@ export async function triggerPurchaseConversion(
     };
 
     // Check if any platform is configured
-    const hasAnalytics =
-      (analyticsConfig.facebook_pixel_id &&
-        analyticsConfig.facebook_capi_token) ||
-      (analyticsConfig.tiktok_pixel_id &&
-        analyticsConfig.tiktok_access_token) ||
-      (analyticsConfig.google_analytics_id && analyticsConfig.ga4_api_secret) ||
-      (analyticsConfig.snapchat_pixel_id &&
-        analyticsConfig.snapchat_capi_token);
-
-    if (!hasAnalytics) {
+    if (!hasConfiguredAnalyticsPlatform(merchantAnalytics)) {
       logger.info({
         message: 'No analytics platforms configured for merchant',
         merchantId,
