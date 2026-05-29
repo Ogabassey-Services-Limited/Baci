@@ -5,11 +5,13 @@ import './checkout.component-mocks.test-utils';
 import { createCheckoutFetchMock } from './checkout.fetch.test-utils';
 
 const mockRouterBack = jest.fn();
-const mockRouterPush = jest.fn();
+export const mockRouterPush = jest.fn();
 export const mockRouterReplace = jest.fn();
 const mockUseColorScheme = jest.fn(() => 'light');
 export const mockAlert = jest.fn();
 export const mockCreateOrder = jest.fn();
+export const mockCreateWalletFundingAccount = jest.fn();
+export const mockCreateOrderWalletFundingIntent = jest.fn();
 export const mockListSavingsGoals = jest.fn();
 export const mockTrackCheckoutStarted = jest.fn();
 export const mockTrackCheckoutStep = jest.fn();
@@ -45,9 +47,43 @@ const defaultMockAuthStatus: MockAuthStatus = {
   user: null,
 };
 
+const defaultMockPaymentSettings = {
+  credit_direct_enabled: false,
+  credpal_enabled: false,
+  juicyway_enabled: false,
+  klump_enabled: false,
+  klump_max_amount: 0,
+  klump_min_amount: 0,
+  korapay_enabled: false,
+  pay_on_delivery_enabled: false,
+  paystack_enabled: true,
+  vat_rate: 7.5,
+  vat_registration_status: 'unregistered',
+  wallet_order_auto_debit_enabled: false,
+  wallet_paystack_dva_enabled: false,
+};
+
+export const mockPaymentSettings = { ...defaultMockPaymentSettings };
+
+function resetMockPaymentSettings() {
+  Object.assign(mockPaymentSettings, defaultMockPaymentSettings);
+}
+
 export const mockUseAuthStatus = jest.fn<MockAuthStatus, []>(
   () => defaultMockAuthStatus
 );
+
+export function getPaymentInitializeCalls() {
+  return (global.fetch as jest.Mock).mock.calls.filter(([input]) => {
+    const requestUrl =
+      typeof input === 'string'
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : ((input as { url?: string }).url ?? '');
+    return requestUrl.includes('/api/payments/initialize');
+  });
+}
 
 const mockCartState = {
   clearCart: jest.fn(),
@@ -159,7 +195,7 @@ jest.mock('@/hooks/useMerchantPaymentSettings', () => {
   return {
     ...actual,
     useMerchantPaymentSettings: () => ({
-      data: null,
+      data: mockPaymentSettings,
     }),
   };
 });
@@ -229,6 +265,16 @@ jest.mock('@/lib/customer-savings', () => ({
   listSavingsGoals: (...args: unknown[]) => mockListSavingsGoals(...args),
 }));
 
+jest.mock('@/lib/order-wallet-funding-intent', () => ({
+  createOrderWalletFundingIntent: (...args: unknown[]) =>
+    mockCreateOrderWalletFundingIntent(...args),
+}));
+
+jest.mock('@/lib/wallet-funding-account', () => ({
+  createWalletFundingAccount: (...args: unknown[]) =>
+    mockCreateWalletFundingAccount(...args),
+}));
+
 jest.mock('@/services/push-notifications', () => ({
   scheduleLocalNotification: jest.fn(),
 }));
@@ -252,6 +298,34 @@ export function setupCheckoutTest() {
     savings: null,
     wallet: null,
   });
+  resetMockPaymentSettings();
+  mockCreateOrderWalletFundingIntent.mockResolvedValue({
+    account: {
+      accountName: 'Ogabassey Jane',
+      accountNumber: '9971002551',
+      bankName: 'Paystack-Titan',
+      provider: 'paystack',
+    },
+    intent: {
+      currency: 'NGN',
+      expectedAmount: 470000,
+      expiresAt: '2026-05-27T12:00:00.000Z',
+      fundedAmount: 0,
+      id: 'intent-123',
+      orderId: 'order-1',
+      status: 'pending',
+      targetOrderAmount: 470000,
+    },
+  });
+  mockCreateWalletFundingAccount.mockResolvedValue({
+    account: {
+      accountName: 'Ogabassey Jane',
+      accountNumber: '9971002551',
+      bankName: 'Paystack-Titan',
+      provider: 'paystack',
+    },
+    requiresConsent: false,
+  });
   mockListSavingsGoals.mockResolvedValue({
     goals: [],
     summary: {
@@ -264,6 +338,7 @@ export function setupCheckoutTest() {
 }
 
 export function teardownCheckoutTest() {
+  resetMockPaymentSettings();
   global.fetch = originalFetch;
   jest.restoreAllMocks();
 }
