@@ -1,4 +1,3 @@
-import type { Metadata } from 'next';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { connection } from 'next/server';
 import {
@@ -15,21 +14,6 @@ interface PageProps {
     slug: string;
     productSlug: string;
   }>;
-}
-
-export async function generateMetadata({
-  params,
-}: PageProps): Promise<Metadata> {
-  await connection();
-
-  const { slug, productSlug } = await params;
-  const redirectPath = await resolveLegacyProductPath(slug, productSlug);
-
-  if (!redirectPath) {
-    notFound();
-  }
-
-  return { robots: { index: false, follow: false } };
 }
 
 async function resolveLegacyProductPath(
