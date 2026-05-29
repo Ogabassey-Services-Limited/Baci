@@ -4,6 +4,7 @@ import OrderSuccessPage from '@/app/(storefront)/[slug]/(commerce)/order-success
 
 const mockSearchParams = vi.fn();
 const mockFetch = vi.fn();
+const mockGoogleCustomerReviews = vi.hoisted(() => vi.fn());
 
 vi.mock('next/navigation', () => ({
   useSearchParams: () => mockSearchParams(),
@@ -38,7 +39,10 @@ vi.mock('@/contexts/auth-context', () => ({
 }));
 
 vi.mock('@/components/analytics/google-customer-reviews', () => ({
-  GoogleCustomerReviews: () => null,
+  GoogleCustomerReviews: (props: unknown) => {
+    mockGoogleCustomerReviews(props);
+    return null;
+  },
 }));
 
 describe('storefront order success page', () => {
@@ -57,7 +61,7 @@ describe('storefront order success page', () => {
         order_number: 'ORD-123',
         tracking_token: 'track-token-123',
         customer_email: 'buyer@example.com',
-        items: [],
+        items: [{ id: 'item-1', gtin: ' 0123456789012 ', quantity: 1 }],
         subtotal: 3500,
         shipping_cost: 0,
         total: 3500,
@@ -112,6 +116,11 @@ describe('storefront order success page', () => {
     expect(
       await screen.findByRole('link', { name: /track my order/i })
     ).toHaveAttribute('href', '/test-store/track-order?token=track-token-123');
+    expect(mockGoogleCustomerReviews).toHaveBeenCalledWith(
+      expect.objectContaining({
+        products: [{ gtin: '0123456789012' }],
+      })
+    );
   });
 
   it('keeps supporting legacy token query params', async () => {
