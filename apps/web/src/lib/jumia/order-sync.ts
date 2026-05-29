@@ -94,7 +94,7 @@ async function syncIntegration(
         // Legacy cache rows without a durable sent marker are intentionally
         // retried. The per-run key and in-memory marker prevent duplicated
         // Jumia API pages from sending duplicate pushes in the same run.
-        (!existingJumia || existingJumia.notification_sent !== true) &&
+        existingJumia?.notification_sent !== true &&
         !attemptedNotificationKeys.has(notificationKey);
       const items = (await getOrderItems(client, order.id)).items;
 

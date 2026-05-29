@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
   }
 
   const row = data as UcpCatalogProductRow | null;
-  if (!row || row.status !== 'active') {
+  if (row?.status !== 'active') {
     return NextResponse.json({ error: 'Product not found' }, { status: 404 });
   }
 

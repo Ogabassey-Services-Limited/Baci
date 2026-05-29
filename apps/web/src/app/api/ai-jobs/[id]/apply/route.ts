@@ -111,7 +111,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   if (jobError) {
     return NextResponse.json({ error: 'Failed to load job' }, { status: 500 });
   }
-  if (!job || job.type !== 'storefront_layout_generation') {
+  if (job?.type !== 'storefront_layout_generation') {
     return NextResponse.json({ error: 'AI draft not found' }, { status: 404 });
   }
   if (job.status !== 'completed') {

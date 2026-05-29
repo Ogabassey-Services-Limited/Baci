@@ -1,0 +1,4 @@
+export const WALLET_FUNDING_POLLING = {
+  INTERVAL_MS: 5000,
+  TIMEOUT_MS: 120000,
+} as const;

@@ -1345,7 +1345,7 @@ export async function getCachedLegacyProductRedirectTarget(
     | null
     | undefined;
 
-  if (!parent || parent.status !== 'active' || !parent.slug) {
+  if (parent?.status !== 'active' || !parent.slug) {
     return null;
   }
 
