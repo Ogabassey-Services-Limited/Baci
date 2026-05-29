@@ -1,9 +1,15 @@
 import { headers } from 'next/headers';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
+
+const mockConnection = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/cached-data', () => ({
   getMerchantByIdentifier: vi.fn(),
+}));
+
+vi.mock('next/server', () => ({
+  connection: () => mockConnection(),
 }));
 
 vi.mock('next/headers', () => ({
@@ -25,6 +31,20 @@ vi.mock('../pages/privacy/privacy-page-client', () => ({
 const { generateMetadata } = await import('./page');
 
 describe('privacy metadata', () => {
+  beforeEach(() => {
+    mockConnection.mockReset();
+  });
+
+  it('marks privacy metadata as request-time rendered', async () => {
+    vi.mocked(getMerchantByIdentifier).mockResolvedValue(null);
+
+    await generateMetadata({
+      params: Promise.resolve({ slug: 'unknown' }),
+    });
+
+    expect(mockConnection).toHaveBeenCalledOnce();
+  });
+
   it('returns fallback title when merchant is missing', async () => {
     vi.mocked(getMerchantByIdentifier).mockResolvedValue(null);
 
