@@ -1,4 +1,5 @@
 import { createLogger } from '@/lib/logger';
+import { generateEventId, generateEventIdSync } from './ad-tracking-event-id';
 
 const log = createLogger('AdTracking');
 
@@ -20,7 +21,6 @@ const _analytics = () => ({
 });
 
 import Constants from 'expo-constants';
-import * as Crypto from 'expo-crypto';
 import { Platform } from 'react-native';
 import {
   getTrackingPermissionStatus,
@@ -98,38 +98,6 @@ let cachedMerchantId: string | null = null;
  */
 export function setMerchantId(merchantId: string): void {
   cachedMerchantId = merchantId;
-}
-
-// =============================================================================
-// EVENT ID GENERATION (Critical for deduplication)
-// =============================================================================
-
-/**
- * Generate a unique event ID for deduplication
- * This ID is sent to BOTH client-side SDKs and server-side APIs
- * so duplicate events can be detected and merged
- */
-async function generateEventId(): Promise<string> {
-  const timestamp = Date.now().toString(36);
-  const randomBytes = await Crypto.getRandomBytesAsync(8);
-  const randomHex = Array.from(randomBytes)
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
-  return `${timestamp}_${randomHex}`;
-}
-
-/**
- * Synchronous event ID generation (fallback)
- */
-function generateEventIdSync(): string {
-  const timestamp = Date.now().toString(36);
-  const cryptoUuid =
-    typeof Crypto.randomUUID === 'function' ? Crypto.randomUUID() : null;
-  const random =
-    typeof cryptoUuid === 'string' && cryptoUuid.length > 0
-      ? cryptoUuid.replace(/-/g, '').substring(0, 10)
-      : Math.random().toString(36).slice(2, 12).padEnd(10, '0');
-  return `${timestamp}_${random}`;
 }
 
 // =============================================================================
