@@ -301,23 +301,6 @@ function makeHeaders(entries: Record<string, string> = {}) {
 }
 
 describe('products/[productSlug] page', () => {
-  it('marks product metadata as request-time rendered', async () => {
-    mockGetCachedProduct.mockResolvedValue(uncategorizedProduct);
-
-    await generateMetadata(
-      {
-        params: Promise.resolve({
-          slug: 'teststore',
-          productSlug: 'mystery-item',
-        }),
-        searchParams: Promise.resolve({}),
-      },
-      stubParent
-    );
-
-    expect(mockConnection).toHaveBeenCalledOnce();
-  });
-
   beforeEach(() => {
     vi.clearAllMocks();
     vi.unstubAllEnvs();
@@ -352,6 +335,23 @@ describe('products/[productSlug] page', () => {
       samePrice: null,
     });
     mockStorefrontDynamicMetadataMarker.mockReset();
+  });
+
+  it('marks product metadata as request-time rendered', async () => {
+    mockGetCachedProduct.mockResolvedValue(uncategorizedProduct);
+
+    await generateMetadata(
+      {
+        params: Promise.resolve({
+          slug: 'teststore',
+          productSlug: 'mystery-item',
+        }),
+        searchParams: Promise.resolve({}),
+      },
+      stubParent
+    );
+
+    expect(mockConnection).toHaveBeenCalledOnce();
   });
 
   it('redirects categorized legacy products during page render in development', async () => {
@@ -428,7 +428,7 @@ describe('products/[productSlug] page', () => {
     expect(screen.queryByText('mystery-item')).not.toBeInTheDocument();
   });
 
-  it('renders the dynamic metadata marker for runtime product metadata', async () => {
+  it('opts runtime product metadata into request-time page rendering', async () => {
     mockGetCachedProduct.mockResolvedValue(uncategorizedProduct);
 
     render(
@@ -441,10 +441,11 @@ describe('products/[productSlug] page', () => {
       })
     );
 
-    expect(mockStorefrontDynamicMetadataMarker).toHaveBeenCalledOnce();
+    expect(mockConnection).toHaveBeenCalledOnce();
+    expect(mockStorefrontDynamicMetadataMarker).not.toHaveBeenCalled();
     expect(
-      screen.getByRole('status', { name: /dynamic metadata marker/i })
-    ).toBeInTheDocument();
+      screen.queryByRole('status', { name: /dynamic metadata marker/i })
+    ).not.toBeInTheDocument();
   });
 
   describe('redirect routing mode', () => {
@@ -1056,7 +1057,7 @@ describe('products/[productSlug] page', () => {
         name: /Shop more Products/i,
       })
     ).toHaveAttribute('href', 'https://teststore.usebaci.com/products');
-    expect(mockConnection).not.toHaveBeenCalled();
+    expect(mockConnection).toHaveBeenCalledOnce();
     expect(
       screen.getByRole('link', {
         name: /Compare with Samsung Galaxy Z TriFold/i,

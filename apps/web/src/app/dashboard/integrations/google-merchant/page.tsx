@@ -8,7 +8,9 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { getRecordValue } from '@/components/analytics/google-store-widget-utils';
 import { FeedUrlSection } from '@/components/dashboard/integrations/feed-url-section';
+import { GoogleMerchantCustomerReviewsCard } from '@/components/dashboard/integrations/google-merchant-customer-reviews-card';
 import { GoogleMerchantReadinessCard } from '@/components/dashboard/integrations/google-merchant-readiness-card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -34,6 +36,8 @@ export default function GoogleMerchantPage() {
     : `https://${merchant.slug}.baci.app`;
 
   const feedUrl = `${baseUrl}/api/feed/google-merchant?merchant_slug=${merchant.slug}`;
+  const featureSettings = getRecordValue(merchant.feature_settings) ?? {};
+  const customSettings = getRecordValue(featureSettings.custom_settings) ?? {};
 
   return (
     <div className="space-y-6">
@@ -57,6 +61,10 @@ export default function GoogleMerchantPage() {
           </p>
         </div>
       </div>
+
+      <GoogleMerchantCustomerReviewsCard
+        initialCustomSettings={customSettings}
+      />
 
       <Card className="glass">
         <CardHeader>
