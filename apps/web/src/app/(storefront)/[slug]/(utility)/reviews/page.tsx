@@ -34,7 +34,7 @@ export default async function ReviewsPage({
     ? await getCachedMerchantByDomain(lookupKey)
     : await getCachedMerchant(lookupKey);
 
-  if (!merchant || merchant.template_id !== 'ogabassey') {
+  if (merchant?.template_id !== 'ogabassey') {
     notFound();
   }
 
