@@ -196,11 +196,6 @@ export function CheckoutScreenView() {
   const [selectedPayment, setSelectedPayment] =
     React.useState<PaymentMethodType>('paystack');
   const [paymentTab, setPaymentTab] = React.useState<PaymentTab>('full');
-  // Wallet payment selection — independent from `selectedPayment`. The
-  // wallet can stack on top of any gateway method (partial deductible) or
-  // cover the order in full. The selection is fed into createOrder via
-  // `buildWalletOrderFields` and consumed by `<PaymentMethodSelector>`'s
-  // wallet row.
   const [walletSelection, setWalletSelection] = React.useState<
     WalletSelection | undefined
   >(undefined);

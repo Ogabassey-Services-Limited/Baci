@@ -10,12 +10,12 @@
   "modules": [
     {
       "path": "components/checkout/CheckoutScreenView.tsx",
-      "lineCount": 3028,
+      "lineCount": 3025,
       "justification": "Checkout route shell extracted to component; decompose this screen into focused submodules and remove this entry."
     },
     {
       "path": "components/product/ProductDetailScreen.tsx",
-      "lineCount": 1120,
+      "lineCount": 1111,
       "justification": "Product route shell extracted to component; decompose this screen into focused submodules and remove this entry."
     },
     {
@@ -50,7 +50,7 @@
     },
     {
       "path": "components/bnpl-checkout/BNPLCheckoutScreen.tsx",
-      "lineCount": 600,
+      "lineCount": 577,
       "justification": "BNPL checkout route shell extracted to component; split this screen into focused submodules and remove this entry."
     },
     {
@@ -116,11 +116,6 @@
     {
       "path": "lib/offline-queue.ts",
       "lineCount": 405,
-      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
-    },
-    {
-      "path": "components/utilities/use-bill-form-controller.ts",
-      "lineCount": 403,
       "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
     }
   ]

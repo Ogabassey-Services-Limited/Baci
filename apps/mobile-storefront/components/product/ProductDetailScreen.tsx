@@ -1,11 +1,3 @@
-/**
- * Product Detail Screen - Elite 2025 Edition
- * - Parallax image header with Reanimated
- * - Dynamic translucent navigation bar
- * - Fluid typography and premium spacing
- * - High-performance image handling via expo-image
- */
-
 import { resolveVariantSelectionParamResolution } from '@baci/shared/lib';
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
@@ -93,23 +85,18 @@ export function ProductDetailScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 
-  // L3 FIX: Use Dimensions.get for static sizing; safe for constants file usage
-  const HEADER_HEIGHT = Dimensions.get('window').width; // Square aspect ratio for main image
+  const HEADER_HEIGHT = Dimensions.get('window').width;
 
-  // 2026 Critical Fix: Validate slug parameter early
   const isValidSlug = Boolean(
     slug && typeof slug === 'string' && slug.length > 0
   );
 
-  // 2026 Best Practice: Network state monitoring for offline UX
   // Note: Manual onReconnect refetch removed — onlineManager.setOnline(true)
   // combined with refetchOnReconnect: true handles automatic refetching.
   const { isOnline } = useNetworkState();
 
-  // 2026 Best Practice: Haptic feedback for tactile UX
   const haptics = useHaptics();
 
-  // Only fetch if we have a valid slug
   const { product, isLoading, error, refetch } = useProduct(
     isValidSlug ? (slug ?? '') : ''
   );
@@ -126,7 +113,6 @@ export function ProductDetailScreen() {
   const savedToastState = useSavedStore((state) => state.toastState);
   const dismissSavedToast = useSavedStore((state) => state.dismissToast);
 
-  // Fetch reviews for this product
   const {
     reviews,
     stats: reviewStats,
@@ -238,10 +224,8 @@ export function ProductDetailScreen() {
           ? (product.offers[0]?.condition ?? null)
           : null);
 
-  // Timer ref for toast cleanup - prevents memory leaks (2026 Best Practice)
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Cleanup toast timer on unmount to prevent memory leaks
   useEffect(() => {
     return () => {
       if (toastTimerRef.current) {
@@ -251,7 +235,6 @@ export function ProductDetailScreen() {
     };
   }, []);
 
-  // 2026 Best Practice: Auto-dismiss saved items toast with cleanup
   const savedToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (savedToastState.show) {
@@ -271,7 +254,6 @@ export function ProductDetailScreen() {
     };
   }, [savedToastState.show, dismissSavedToast]);
 
-  // Get condition display name for cart
   const getConditionDisplay = (): string | undefined => {
     if (currentVariantDisplaySelection?.condition) {
       return formatProductConditionDisplay(
@@ -284,7 +266,6 @@ export function ProductDetailScreen() {
     return product?.condition;
   };
 
-  // Sync quantity with cart store
   const cartItem = (() => {
     if (!product) return undefined;
     return items.find(
@@ -299,10 +280,8 @@ export function ProductDetailScreen() {
 
   const quantityInCart = cartItem ? cartItem.quantity : 0;
 
-  // Local state for editable quantity input to allow smooth typing
   const [localQty, setLocalQty] = useState(quantityInCart.toString());
 
-  // Sync local quantity when store changes
   useEffect(() => {
     setLocalQty(quantityInCart.toString());
   }, [quantityInCart]);
