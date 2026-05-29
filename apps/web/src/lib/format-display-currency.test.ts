@@ -9,6 +9,12 @@ describe('formatDisplayCurrency', () => {
     expect(formatted).toMatch(/NGN|₦/);
   });
 
+  it('normalizes default formatter options consistently', () => {
+    expect(formatDisplayCurrency(1500, 'NGN')).toBe(
+      formatDisplayCurrency(1500, 'NGN', { currencyDisplay: 'symbol' })
+    );
+  });
+
   it('formats zero, negative, and fractional amounts predictably', () => {
     expect(formatDisplayCurrency(0, 'NGN')).toContain('0.00');
     const negativeFormatted = formatDisplayCurrency(-1500, 'NGN');
@@ -29,6 +35,28 @@ describe('formatDisplayCurrency', () => {
     expect(usd).toMatch(/USD|\$/);
     expect(gbp).toContain('250.00');
     expect(gbp).toMatch(/GBP|£/);
+  });
+
+  it('formats INR with the India locale and supports compact display options', () => {
+    const inr = formatDisplayCurrency(123_456, 'INR');
+    const compactInr = formatDisplayCurrency(123_456, 'INR', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    });
+
+    expect(inr).toMatch(/₹|INR/);
+    expect(inr).toContain('1,23,456.00');
+    expect(compactInr).toMatch(/₹|INR/);
+    expect(compactInr).toContain('1,23,456');
+    expect(compactInr).not.toContain('.00');
+  });
+
+  it('preserves zero-decimal currency defaults for JPY', () => {
+    const jpy = formatDisplayCurrency(123_456, 'JPY');
+
+    expect(jpy).toMatch(/[¥￥]|JPY/);
+    expect(jpy).toContain('123,456');
+    expect(jpy).not.toContain('.00');
   });
 
   it('throws for unsupported currency codes', () => {
