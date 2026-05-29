@@ -16,7 +16,9 @@ const MAX_FEED_PRODUCTS = 10_000;
 // Keep PostgREST `in(...)` URL filters under common proxy limits.
 const FEED_PRODUCT_OFFERS_BATCH_SIZE = 250;
 const FEED_IMAGE_MANIFEST_PRODUCT_BATCH_SIZE = 250;
+const FEED_PRODUCT_VARIANTS_BATCH_SIZE = 100;
 export const FEED_IMAGE_MANIFEST_MAX_CONCURRENT_BATCHES = 4;
+export const FEED_PRODUCT_VARIANTS_MAX_CONCURRENT_BATCHES = 4;
 
 export interface GoogleMerchantFeedData {
   custom_domain: string | null;
@@ -269,6 +271,61 @@ async function fetchActiveFeedOffers(
   return offerRows;
 }
 
+async function fetchFeedVariants(
+  supabase: SupabaseClient,
+  merchantId: string,
+  productIds: string[]
+): Promise<FeedVariantRow[]> {
+  const variantBatches = chunkValues(
+    productIds,
+    FEED_PRODUCT_VARIANTS_BATCH_SIZE
+  );
+  const variantRows: FeedVariantRow[] = [];
+
+  for (
+    let batchStart = 0;
+    batchStart < variantBatches.length;
+    batchStart += FEED_PRODUCT_VARIANTS_MAX_CONCURRENT_BATCHES
+  ) {
+    const batchWindow = variantBatches.slice(
+      batchStart,
+      batchStart + FEED_PRODUCT_VARIANTS_MAX_CONCURRENT_BATCHES
+    );
+    const batchResults = await Promise.all(
+      batchWindow.map(async (batchProductIds, batchWindowIndex) => {
+        const batchIndex = batchStart + batchWindowIndex;
+        const { data, error } = await supabase.rpc(
+          'get_feed_product_variants',
+          {
+            p_merchant_id: merchantId,
+            p_product_ids: batchProductIds,
+          }
+        );
+
+        if (error) {
+          console.error('DB_VARIANTS_ERROR:', {
+            batchIndex,
+            batchProductCount: batchProductIds.length,
+            error,
+            merchantId,
+          });
+          throw new Error('Failed to fetch product variants');
+        }
+
+        return (data || []) as FeedVariantRow[];
+      })
+    );
+
+    for (const rows of batchResults) {
+      if (rows.length > 0) {
+        variantRows.push(...rows);
+      }
+    }
+  }
+
+  return variantRows;
+}
+
 async function fetchVerifiedImageManifestRows(
   supabase: SupabaseClient,
   merchantId: string,
@@ -438,18 +495,7 @@ export async function getGoogleMerchantFeedData(
     });
   }
 
-  const { data: variantRows, error: variantsError } = await supabase.rpc(
-    'get_feed_product_variants',
-    {
-      p_merchant_id: merchantId,
-      p_product_ids: productIds,
-    }
-  );
-
-  if (variantsError) {
-    console.error('DB_VARIANTS_ERROR:', variantsError);
-    throw new Error('Failed to fetch product variants');
-  }
+  const variantRows = await fetchFeedVariants(supabase, merchantId, productIds);
 
   if (variantRows && variantRows.length > 0) {
     const variantsByProduct = new Map<string, FeedVariant[]>();

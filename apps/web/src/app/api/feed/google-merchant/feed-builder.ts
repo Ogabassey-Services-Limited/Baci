@@ -151,8 +151,8 @@ function getProductLevelManifestEntries(entries: FeedImageManifestEntry[]) {
   return entries.filter((entry) => !entry.variant_id);
 }
 
-function normalizeVariantVisualValue(value: string | null | undefined) {
-  return value?.trim().toLowerCase() || null;
+function normalizeVariantVisualValue(value: unknown) {
+  return typeof value === 'string' ? value.trim().toLowerCase() || null : null;
 }
 
 function getVariantVisualKey(variant: FeedVariant) {
@@ -333,7 +333,7 @@ function buildVariantUrl(productUrl: string, variant: FeedVariant) {
   }
 
   for (const axis of Object.keys(variant.attributes || {}).sort()) {
-    const value = variant.attributes?.[axis];
+    const value = getVariantAttributeText(variant.attributes || {}, axis);
     if (value) {
       params.set(axis, value);
     }
@@ -342,18 +342,27 @@ function buildVariantUrl(productUrl: string, variant: FeedVariant) {
   return `${productUrl}?${params.toString()}`;
 }
 
+function getVariantAttributeText(
+  attributes: Record<string, string>,
+  axis: string
+) {
+  // Variant attributes can contain non-string runtime values from imports.
+  const value = (attributes as Record<string, unknown>)[axis];
+  return typeof value === 'string' ? value.trim() : '';
+}
+
 function buildVariantTitle(product: FeedProduct, variant: FeedVariant) {
   const attributes = variant.attributes || {};
-  const prioritizedAxes = FEED_VARIANT_TITLE_AXIS_ORDER.filter(
-    (axis) => typeof attributes[axis] === 'string' && attributes[axis]?.trim()
+  const prioritizedAxes = FEED_VARIANT_TITLE_AXIS_ORDER.filter((axis) =>
+    getVariantAttributeText(attributes, axis)
   );
   const remainingAxes = Object.keys(attributes)
     .filter((axis) => !prioritizedAxes.includes(axis as never))
     .sort();
   const titleParts = [
-    ...prioritizedAxes.map((axis) => attributes[axis].trim()),
+    ...prioritizedAxes.map((axis) => getVariantAttributeText(attributes, axis)),
     ...remainingAxes
-      .map((axis) => attributes[axis]?.trim())
+      .map((axis) => getVariantAttributeText(attributes, axis))
       .filter((value): value is string => Boolean(value)),
     formatConditionTitle(variant.condition),
   ].filter(Boolean);

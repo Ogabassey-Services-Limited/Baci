@@ -447,13 +447,66 @@ describe('getCachedGoogleMerchantFeedData', () => {
 
     expect(mockProductsLimit).toHaveBeenCalledTimes(10);
     expect(mockProductsLimit).toHaveBeenLastCalledWith(1000);
-    expect(mockRpc).toHaveBeenCalledWith('get_feed_product_variants', {
+    expect(mockRpc).toHaveBeenCalledTimes(100);
+    const rpcProductIds = mockRpc.mock.calls.flatMap(([, rpcArgs]) =>
+      Array.isArray(rpcArgs?.p_product_ids) ? rpcArgs.p_product_ids : []
+    );
+    expect(rpcProductIds).toHaveLength(10_000);
+    expect(mockRpc).toHaveBeenNthCalledWith(1, 'get_feed_product_variants', {
       p_merchant_id: 'merchant-1',
-      p_product_ids: expect.any(Array),
+      p_product_ids: Array.from(
+        { length: 100 },
+        (_, index) => `product-${index}`
+      ),
     });
-    const [, rpcArgs] = mockRpc.mock.calls[0] ?? [];
-    expect(rpcArgs?.p_product_ids).toHaveLength(10_000);
     expect(result.products).toHaveLength(10_000);
+  });
+
+  it('batches variant RPC product IDs to avoid PostgREST result truncation', async () => {
+    const products = Array.from({ length: 201 }, (_, index) => ({
+      id: `product-${index}`,
+      name: `Phone ${index}`,
+      created_at: '2026-01-01T00:00:00.000Z',
+    }));
+    productsResult = {
+      data: products,
+      error: null,
+    };
+    mockRpc.mockImplementation(async (_functionName, args) => ({
+      data: [
+        {
+          id: `variant-${args.p_product_ids[0]}`,
+          product_id: args.p_product_ids[0],
+          condition: 'new',
+          attributes: { storage: '64GB' },
+          price_override: 100000,
+          sku: null,
+          stock_quantity: 1,
+        },
+      ],
+      error: null,
+    }));
+
+    const { getCachedGoogleMerchantFeedData } = await import('./feed-data');
+    const result = await getCachedGoogleMerchantFeedData(
+      'merchant-1',
+      'ogabassey'
+    );
+
+    expect(mockRpc).toHaveBeenCalledTimes(3);
+    expect(
+      mockRpc.mock.calls.map(([, rpcArgs]) => rpcArgs.p_product_ids.length)
+    ).toEqual([100, 100, 1]);
+    expect(result.products[0]?.variants).toEqual([
+      {
+        id: 'variant-product-0',
+        condition: 'new',
+        attributes: { storage: '64GB' },
+        price_override: 100000,
+        sku: null,
+        stock_quantity: 1,
+      },
+    ]);
   });
 
   it('hydrates feed variants from the feed RPC', async () => {
