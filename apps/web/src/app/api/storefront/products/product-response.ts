@@ -4,6 +4,8 @@ import {
   coerceStorefrontManageStock,
   getStorefrontAgentAvailability,
 } from '@/lib/storefront-agent-availability';
+import { buildStorefrontProductListingDescription } from '@/lib/storefront-product-listing-description';
+import { STOREFRONT_PRODUCTS_COMPACT_SELECT } from '@/lib/storefront-products-select';
 
 export const STOREFRONT_PRODUCTS_FULL_SELECT = `
   id,
@@ -45,32 +47,7 @@ export const STOREFRONT_PRODUCTS_FULL_SELECT = `
   )
 `;
 
-export const STOREFRONT_PRODUCTS_COMPACT_SELECT = `
-  id,
-  merchant_id,
-  name,
-  slug,
-  images,
-  category,
-  category_id,
-  brand,
-  price,
-  compare_at_price,
-  condition,
-  stock,
-  stock_quantity,
-  status,
-  manage_stock,
-  image_hint,
-  categories:category_id(id, name, slug),
-  product_categories (
-    categories (
-      id,
-      name,
-      slug
-    )
-  )
-`;
+export { STOREFRONT_PRODUCTS_COMPACT_SELECT };
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -103,7 +80,12 @@ export function mapStorefrontProduct(p: RawDbProduct) {
   return {
     id: normalized.id,
     name: normalized.name,
-    description: normalized.description,
+    description: buildStorefrontProductListingDescription({
+      brand: normalized.brand,
+      category: normalized.category,
+      description: normalized.description,
+      name: normalized.name,
+    }),
     price: normalized.price,
     compare_at_price: normalized.compare_at_price,
     image: normalized.image,

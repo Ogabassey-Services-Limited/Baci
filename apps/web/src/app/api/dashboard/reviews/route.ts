@@ -8,6 +8,29 @@ import {
 import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
 
+const DASHBOARD_REVIEWS_SELECT = `
+  id,
+  product_id,
+  merchant_id,
+  order_id,
+  customer_email,
+  customer_name,
+  rating,
+  title,
+  body,
+  status,
+  verified_purchase,
+  helpful_count,
+  merchant_response,
+  merchant_response_at,
+  created_at,
+  updated_at,
+  products:product_id (
+    name,
+    slug
+  )
+`;
+
 /**
  * GET /api/dashboard/reviews
  * Fetch all reviews for the authenticated merchant's products
@@ -68,16 +91,7 @@ export async function GET(request: NextRequest) {
     // Build query
     let query = supabase
       .from('product_reviews')
-      .select(
-        `
-                *,
-                products:product_id (
-                    name,
-                    slug
-                )
-            `,
-        { count: 'exact' }
-      )
+      .select(DASHBOARD_REVIEWS_SELECT, { count: 'exact' })
       .eq('merchant_id', merchantId)
       .order('created_at', { ascending: false });
 
