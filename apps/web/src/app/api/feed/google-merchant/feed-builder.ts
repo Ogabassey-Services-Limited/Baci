@@ -87,6 +87,11 @@ export interface FeedMerchant {
 /** Map of product_id → manifest entries for that product */
 export type ImageManifestMap = Record<string, FeedImageManifestEntry[]>;
 
+interface ResolvedFeedImages {
+  additionalImagesXml: string;
+  primaryImageUrl: string;
+}
+
 const UNLIMITED_STOCK_QUANTITY = 9999;
 const FEED_VARIANT_TITLE_AXIS_ORDER = [
   'color',
@@ -114,6 +119,120 @@ function isValidGmcUrl(url: string): boolean {
   } catch {
     return false;
   }
+}
+
+function buildAdditionalImagesXml(urls: string[]) {
+  return urls
+    .map(
+      (url) =>
+        `        <g:additional_image_link>${escapeXml(url)}</g:additional_image_link>`
+    )
+    .join('\n');
+}
+
+function resolveFeedImages(
+  entries: FeedImageManifestEntry[]
+): ResolvedFeedImages | null {
+  const primaryImageUrl = resolveGmcPrimaryImage(entries);
+
+  if (!primaryImageUrl) {
+    return null;
+  }
+
+  return {
+    primaryImageUrl,
+    additionalImagesXml: buildAdditionalImagesXml(
+      resolveGmcAdditionalImages(entries)
+    ),
+  };
+}
+
+function getProductLevelManifestEntries(entries: FeedImageManifestEntry[]) {
+  return entries.filter((entry) => !entry.variant_id);
+}
+
+function normalizeVariantVisualValue(value: string | null | undefined) {
+  return value?.trim().toLowerCase() || null;
+}
+
+function getVariantVisualKey(variant: FeedVariant) {
+  const attributes = variant.attributes || {};
+  const color = normalizeVariantVisualValue(attributes.color);
+
+  if (color) {
+    return `color:${color}`;
+  }
+
+  const colorHex = normalizeVariantVisualValue(attributes.color_hex);
+  return colorHex ? `color_hex:${colorHex}` : null;
+}
+
+function dedupeManifestEntries(entries: FeedImageManifestEntry[]) {
+  const seen = new Set<string>();
+  const deduped: FeedImageManifestEntry[] = [];
+
+  for (const entry of entries) {
+    const key =
+      entry.verified_url ||
+      `${entry.variant_id ?? 'product'}:${entry.position}`;
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    deduped.push(entry);
+  }
+
+  return deduped;
+}
+
+function getVariantManifestEntries(
+  manifestEntries: FeedImageManifestEntry[],
+  variants: FeedVariant[],
+  variant: FeedVariant
+) {
+  const exactEntries = manifestEntries.filter(
+    (entry) => entry.variant_id === variant.id
+  );
+
+  if (resolveGmcPrimaryImage(exactEntries)) {
+    return exactEntries;
+  }
+
+  const targetVisualKey = getVariantVisualKey(variant);
+  if (!targetVisualKey) {
+    return [];
+  }
+
+  const variantVisualKeys = new Map(
+    variants.map((candidate) => [candidate.id, getVariantVisualKey(candidate)])
+  );
+  const sameVisualEntries = manifestEntries.filter(
+    (entry) =>
+      entry.variant_id &&
+      variantVisualKeys.get(entry.variant_id) === targetVisualKey
+  );
+
+  return resolveGmcPrimaryImage(sameVisualEntries)
+    ? dedupeManifestEntries(sameVisualEntries)
+    : [];
+}
+
+function resolveVariantFeedImages(args: {
+  manifestEntries: FeedImageManifestEntry[];
+  productLevelImages: ResolvedFeedImages | null;
+  variant: FeedVariant;
+  variants: FeedVariant[];
+}) {
+  return (
+    resolveFeedImages(
+      getVariantManifestEntries(
+        args.manifestEntries,
+        args.variants,
+        args.variant
+      )
+    ) ?? args.productLevelImages
+  );
 }
 
 function escapeXml(unsafe: string): string {
@@ -393,20 +512,10 @@ export function generateGoogleMerchantFeed(
       });
       if (!isValidGmcUrl(productUrl)) return null;
 
-      // Resolve images from prevalidated manifest only
       const manifestEntries = imageManifest[product.id] || [];
-      const primaryImageUrl = resolveGmcPrimaryImage(manifestEntries);
-
-      // Skip products without a verified primary image — never emit blank g:image_link
-      if (!primaryImageUrl) return null;
-
-      const additionalImageUrls = resolveGmcAdditionalImages(manifestEntries);
-      const additionalImagesXml = additionalImageUrls
-        .map(
-          (url) =>
-            `        <g:additional_image_link>${escapeXml(url)}</g:additional_image_link>`
-        )
-        .join('\n');
+      const productLevelImages = resolveFeedImages(
+        getProductLevelManifestEntries(manifestEntries)
+      );
       const description = buildFeedDescription(product);
       const shippingWeight =
         product.weight_value && product.weight_unit
@@ -428,6 +537,14 @@ export function generateGoogleMerchantFeed(
         if (eligibleVariants.length > 0) {
           return eligibleVariants
             .map((variant) => {
+              const variantImages = resolveVariantFeedImages({
+                manifestEntries,
+                productLevelImages,
+                variant,
+                variants: product.variants || [],
+              });
+              if (!variantImages) return null;
+
               const effectivePrice =
                 variant.price_override ?? variant.price ?? product.price;
               const effectiveCompareAtPrice =
@@ -437,15 +554,19 @@ export function generateGoogleMerchantFeed(
                 variant
               );
               const availability = stockCount > 0 ? 'in_stock' : 'out_of_stock';
+              const variantDescription = buildFeedDescription({
+                ...product,
+                variant_attributes: variant.attributes,
+              });
               const lines = [
                 `        <g:id>${escapeXml(variant.id)}</g:id>`,
                 `        <g:item_group_id>${escapeXml(product.id)}</g:item_group_id>`,
                 `        <g:title>${escapeXml(buildVariantTitle(product, variant))}</g:title>`,
-                `        <g:description>${escapeXml(description)}</g:description>`,
+                `        <g:description>${escapeXml(variantDescription)}</g:description>`,
                 `        <g:link>${escapeXml(buildVariantUrl(productUrl, variant))}</g:link>`,
                 `        <g:canonical_link>${escapeXml(productUrl)}</g:canonical_link>`,
-                `        <g:image_link>${escapeXml(primaryImageUrl)}</g:image_link>`,
-                additionalImagesXml,
+                `        <g:image_link>${escapeXml(variantImages.primaryImageUrl)}</g:image_link>`,
+                variantImages.additionalImagesXml,
                 `        <g:availability>${availability}</g:availability>`,
                 `        <g:quantity>${stockCount}</g:quantity>`,
                 ...buildPriceLines({
@@ -475,9 +596,13 @@ export function generateGoogleMerchantFeed(
 
               return `    <item>\n${lines.join('\n')}\n    </item>`;
             })
+            .filter(Boolean)
             .join('\n');
         }
       }
+
+      // Skip product/family rows without a verified product-level primary image.
+      if (!productLevelImages) return null;
 
       const skuMatrixFallback =
         product.variant_model === 'sku_matrix'
@@ -485,7 +610,7 @@ export function generateGoogleMerchantFeed(
           : null;
       if (skuMatrixFallback) {
         return buildBaseItemXml({
-          additionalImagesXml,
+          additionalImagesXml: productLevelImages.additionalImagesXml,
           availability: skuMatrixFallback.availability,
           brandName: effectiveBrand,
           compareAtPrice: product.compare_at_price,
@@ -495,7 +620,7 @@ export function generateGoogleMerchantFeed(
           googleProductCategory: product.google_product_category,
           gtin: product.gtin,
           id: product.id,
-          imageUrl: primaryImageUrl,
+          imageUrl: productLevelImages.primaryImageUrl,
           mpn: product.mpn,
           price: skuMatrixFallback.price,
           productType: getProductType(product),
@@ -507,7 +632,7 @@ export function generateGoogleMerchantFeed(
       }
 
       const baseItem = buildBaseItemXml({
-        additionalImagesXml,
+        additionalImagesXml: productLevelImages.additionalImagesXml,
         availability:
           getFeedStockCount(product) > 0 ? 'in_stock' : 'out_of_stock',
         brandName: effectiveBrand,
@@ -518,7 +643,7 @@ export function generateGoogleMerchantFeed(
         googleProductCategory: product.google_product_category,
         gtin: product.gtin,
         id: product.id,
-        imageUrl: primaryImageUrl,
+        imageUrl: productLevelImages.primaryImageUrl,
         mpn: product.mpn,
         price: product.price,
         productType: getProductType(product),
@@ -550,8 +675,8 @@ export function generateGoogleMerchantFeed(
             `        <g:description>${escapeXml(description)}</g:description>`,
             `        <g:link>${escapeXml(`${productUrl}?condition=${offer.condition}`)}</g:link>`,
             `        <g:canonical_link>${escapeXml(productUrl)}</g:canonical_link>`,
-            `        <g:image_link>${escapeXml(primaryImageUrl)}</g:image_link>`,
-            additionalImagesXml,
+            `        <g:image_link>${escapeXml(productLevelImages.primaryImageUrl)}</g:image_link>`,
+            productLevelImages.additionalImagesXml,
             `        <g:availability>${offerAvailability}</g:availability>`,
             `        <g:quantity>${offerStock}</g:quantity>`,
             `        <g:price>${offer.price.toFixed(2)} ${currency}</g:price>`,
