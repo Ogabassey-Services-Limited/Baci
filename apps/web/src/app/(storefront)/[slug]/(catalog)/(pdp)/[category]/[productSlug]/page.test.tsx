@@ -1431,19 +1431,27 @@ describe('[category]/[productSlug] page render', () => {
     let resolveProductDetails:
       | ((value: typeof categorizedDetailedProduct) => void)
       | undefined;
+    const routeEvents: string[] = [];
     const earlyProductImage =
       'https://cdn.ogabassey.com/core-assets/products/early-lenovo-legion.avif';
-    mockGetCachedProductLcpHint.mockResolvedValueOnce(
-      toLegacyCachedProduct({
-        ...categorizedDetailedProduct,
-        images: [earlyProductImage],
-      })
-    );
-    mockGetCachedProductWithDetails.mockReturnValueOnce(
-      new Promise((resolve) => {
+    mockGetCachedProductLcpHint.mockImplementationOnce(() => {
+      routeEvents.push('lcp-hint');
+      return Promise.resolve(
+        toLegacyCachedProduct({
+          ...categorizedDetailedProduct,
+          images: [earlyProductImage],
+        })
+      );
+    });
+    mockPreloadOgabasseyPdpProductImage.mockImplementationOnce(() => {
+      routeEvents.push('product-preload');
+    });
+    mockGetCachedProductWithDetails.mockImplementationOnce(() => {
+      routeEvents.push('product-details');
+      return new Promise((resolve) => {
         resolveProductDetails = resolve;
-      })
-    );
+      });
+    });
 
     const pagePromise = CategoryProductPage({
       params: Promise.resolve({
@@ -1465,6 +1473,11 @@ describe('[category]/[productSlug] page render', () => {
     expect(mockPreloadOgabasseyPdpProductImage).toHaveBeenCalledWith({
       src: earlyProductImage,
     });
+    expect(routeEvents).toEqual([
+      'lcp-hint',
+      'product-preload',
+      'product-details',
+    ]);
     expect(mockPreloadOgabasseyPdpStaticResources).toHaveBeenCalledTimes(1);
     expect(mockOgabasseyPdpProductResourceHints).not.toHaveBeenCalled();
     expect(mockOgabasseyProductDetailsPage).not.toHaveBeenCalled();

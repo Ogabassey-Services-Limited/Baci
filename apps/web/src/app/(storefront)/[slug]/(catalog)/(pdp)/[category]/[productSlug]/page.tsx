@@ -432,7 +432,7 @@ type CategoryProductRouteControlResult =
 
 interface CategoryProductRouteControl {
   result: CategoryProductRouteControlResult;
-  productResultPromise: Promise<CategoryProductResult>;
+  loadProductResult: () => Promise<CategoryProductResult>;
 }
 
 function hasCategoryMismatch(
@@ -644,7 +644,6 @@ async function getProductRouteControl(
     return null;
   }
 
-  const productResultPromise = getProduct(storeSlug, categorySlug, productSlug);
   let cachedProduct = await getCachedProductLcpHint(merchant.id, productSlug);
   let needsValuesRedirect = false;
 
@@ -657,13 +656,15 @@ async function getProductRouteControl(
   }
 
   if (!cachedProduct) {
-    const result = await productResultPromise;
+    const result = await getProduct(storeSlug, categorySlug, productSlug);
     return result
-      ? { result, productResultPromise: Promise.resolve(result) }
+      ? { result, loadProductResult: () => Promise.resolve(result) }
       : null;
   }
 
   const product = mapCachedProductLcpHintToRouteProduct(cachedProduct);
+  const loadProductResult = () =>
+    getProduct(storeSlug, categorySlug, productSlug);
 
   return {
     result: {
@@ -675,7 +676,7 @@ async function getProductRouteControl(
       ),
       needsValuesRedirect,
     },
-    productResultPromise,
+    loadProductResult,
   };
 }
 
@@ -1027,7 +1028,7 @@ export default async function CategoryProductPage({
     return <StorefrontNotFoundWithDynamicMetadataMarker />;
   }
 
-  const { result: productResult, productResultPromise } = routeControl;
+  const { result: productResult, loadProductResult } = routeControl;
 
   if (!('product' in productResult)) {
     permanentRedirect(
@@ -1043,10 +1044,16 @@ export default async function CategoryProductPage({
   }
 
   const resolvedSearchParams = await searchParams;
+  let productResultPromise: Promise<CategoryProductResult> | null = null;
+  const getProductResultPromise = () => {
+    productResultPromise ??= loadProductResult();
+    return productResultPromise;
+  };
+
   // Unknown query keys can be dynamic variant axes, while campaign-only URLs
   // cannot affect selection and should still receive the early image hint.
   if (mayContainVariantSelectionParams(resolvedSearchParams)) {
-    const detailedProductResult = await productResultPromise;
+    const detailedProductResult = await getProductResultPromise();
 
     if (detailedProductResult && 'product' in detailedProductResult) {
       redirectInvalidVariantSelectionParams(
@@ -1084,6 +1091,7 @@ export default async function CategoryProductPage({
     );
   }
 
+  productResultPromise = getProductResultPromise();
   const criticalBasePath = await criticalBasePathPromise;
 
   return (
