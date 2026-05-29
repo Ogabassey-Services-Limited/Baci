@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import type { AdTrackingData } from '@/lib/ad-tracking-cookies';
+import { fetchAnalyticsPlatformConfig } from '@/lib/analytics/analytics-platform-config';
 import { hasPermission } from '@/lib/api-auth';
 import { cache, generateCacheKey } from '@/lib/cache';
 import {
@@ -67,24 +68,10 @@ export async function GET(request: Request) {
     }
     const merchantId = merchantContext.merchantId;
 
-    // Fetch merchant analytics config columns by resolved merchant ID
-    const { data: merchant, error: merchantError } = await supabase
-      .from('merchants')
-      .select(`
-        offline_conversions_enabled,
-        facebook_pixel_id,
-        facebook_capi_token,
-        tiktok_pixel_id,
-        tiktok_access_token,
-        google_analytics_id,
-        ga4_api_secret,
-        snapchat_pixel_id,
-        snapchat_capi_token
-      `)
-      .eq('id', merchantId)
-      .single();
+    // Fetch merchant analytics config, preferring dashboard feature settings.
+    const merchant = await fetchAnalyticsPlatformConfig(supabase, merchantId);
 
-    if (merchantError || !merchant) {
+    if (!merchant) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
