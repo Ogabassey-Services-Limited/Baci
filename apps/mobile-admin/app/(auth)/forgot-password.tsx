@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -79,7 +79,10 @@ export default function ForgotPasswordScreen() {
       <SafeAreaView style={styles.content}>
         <Pressable
           onPress={() => router.back()}
-          style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.7 }]}
+          style={({ pressed }) => [
+            styles.backButton,
+            pressed && { opacity: 0.7 },
+          ]}
           accessibilityRole="button"
           accessibilityLabel="Back to login"
           hitSlop={12}
@@ -119,7 +122,9 @@ export default function ForgotPasswordScreen() {
             onPress={handleReset}
             disabled={isLoading}
             accessibilityRole="button"
-            accessibilityLabel={isLoading ? 'Sending instructions...' : 'Send Instructions'}
+            accessibilityLabel={
+              isLoading ? 'Sending instructions...' : 'Send Instructions'
+            }
             accessibilityState={{ disabled: isLoading, busy: isLoading }}
           >
             {isLoading ? (
