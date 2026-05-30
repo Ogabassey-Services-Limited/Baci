@@ -4,6 +4,7 @@ import { openCredPalCheckout } from '@/lib/credpal';
 import { openCreditDirectCheckout } from '@/lib/credit-direct-client';
 import { createClient } from '@/lib/supabase/client';
 import { normalizeOrderPaymentMethod } from '../pending-checkout-order';
+import { persistCreditDirectPopupReference } from '../persist-credit-direct-popup-reference';
 import {
   KLUMP_WALLET_CREDIT_UNAVAILABLE_TOAST,
   isKlumpUnavailableForGatewayAmount,
@@ -582,8 +583,15 @@ export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
           setIsProcessing(false);
           isOrderInFlightRef.current = false;
         },
-        onPopup: (transactionId) => {
-          console.log('Credit Direct popup opened:', transactionId);
+        onPopup: async (transactionId) => {
+          try {
+            await persistCreditDirectPopupReference(order, transactionId);
+          } catch (error) {
+            console.error(
+              'Failed to persist Credit Direct popup reference:',
+              error instanceof Error ? error.message : error,
+            );
+          }
         },
       });
       return;
