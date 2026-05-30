@@ -441,6 +441,13 @@ const nextConfig: NextConfig = {
             key: 'Link',
             value: '<https://cdn.ogabassey.com>; rel=preconnect',
           },
+          {
+            key: 'Vary',
+            // Next streams metadata for normal browsers but blocks it for
+            // html-limited bots. cacheComponents/PPR must not reuse one
+            // user-agent shape's cached shell for the other shape.
+            value: 'User-Agent',
+          },
         ],
       },
       {
