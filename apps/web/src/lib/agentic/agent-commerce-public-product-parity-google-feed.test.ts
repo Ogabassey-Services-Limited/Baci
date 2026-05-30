@@ -58,4 +58,36 @@ describe('parseGoogleMerchantProductSampleStream', () => {
       parseGoogleMerchantProductSampleStream(stream, 'product-1')
     ).resolves.toMatchObject({ name: 'Test Phone', price: 1000 });
   });
+
+  it('matches variant feed items by item group id and returns the canonical parent URL', async () => {
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(
+          encoder.encode(`<rss><channel><item>
+            <g:id>variant-1</g:id>
+            <g:item_group_id>product-1</g:item_group_id>
+            <g:title>Test Phone - Blue</g:title>
+            <g:link>https://ogabassey.com/phones/test-phone?variantId=variant-1</g:link>
+            <g:canonical_link>https://ogabassey.com/phones/test-phone</g:canonical_link>
+            <g:image_link>https://cdn.example.com/phone-blue.jpg</g:image_link>
+            <g:availability>in_stock</g:availability>
+            <g:price>1000.00 NGN</g:price>
+          </item></channel></rss>`)
+        );
+        controller.close();
+      },
+    });
+
+    await expect(
+      parseGoogleMerchantProductSampleStream(stream, 'product-1')
+    ).resolves.toEqual({
+      availability: 'in_stock',
+      catalog_scope: 'variant',
+      image: 'https://cdn.example.com/phone-blue.jpg',
+      name: 'Test Phone - Blue',
+      price: 1000,
+      url: 'https://ogabassey.com/phones/test-phone',
+    });
+  });
 });
