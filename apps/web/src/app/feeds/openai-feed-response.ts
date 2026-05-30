@@ -64,12 +64,25 @@ export async function createPublicOpenAIFeedResponse(
 
   try {
     const merchant = toOpenAIFeedMerchant(resolution.merchant);
-    const { products } = await getCachedOpenAIFeedData(merchant.id);
+    const { imageManifest, products } = await getCachedOpenAIFeedData(
+      merchant.id
+    );
     const baseUrl = buildRequestBaseUrl(request);
+    const resolvedImageManifest = imageManifest ?? {};
     const feedLines =
       format === 'current'
-        ? generateCurrentOpenAIProductFeed(products, merchant, baseUrl)
-        : generateOpenAIFeed(products, merchant, baseUrl);
+        ? generateCurrentOpenAIProductFeed(
+            products,
+            merchant,
+            baseUrl,
+            resolvedImageManifest
+          )
+        : generateOpenAIFeed(
+            products,
+            merchant,
+            baseUrl,
+            resolvedImageManifest
+          );
 
     return new NextResponse(feedLines.join('\n'), {
       status: 200,
