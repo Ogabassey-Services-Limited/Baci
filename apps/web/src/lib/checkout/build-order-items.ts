@@ -16,6 +16,8 @@ export interface CheckoutOrderItemInput {
   selectedStorage?: string;
   hasAssurance?: boolean;
   assuranceRate?: number;
+  quizAwardId?: string;
+  quizVoucherToken?: string;
 }
 
 export interface CheckoutOrderItem {
@@ -29,6 +31,8 @@ export interface CheckoutOrderItem {
   image_url?: string;
   variantId?: string;
   variantAttributes: Record<string, string>;
+  voucher_award_id?: string;
+  voucher_token?: string;
   has_assurance: boolean;
   assurance_fee: number;
 }
@@ -39,6 +43,8 @@ export function buildCheckoutOrderItems(
   return cart.map((item) => {
     const effectivePrice = item.negotiatedPrice ?? item.price;
     const variantAttributes = { ...(item.variantAttributes ?? {}) };
+    const hasQuizVoucher = Boolean(item.quizAwardId && item.quizVoucherToken);
+    const checkoutPrice = hasQuizVoucher ? 0 : effectivePrice;
 
     if (item.selectedColor && !variantAttributes.color) {
       variantAttributes.color = item.selectedColor;
@@ -53,15 +59,21 @@ export function buildCheckoutOrderItems(
       product_id: String(item.product_id ?? item.id),
       name: item.name,
       quantity: item.quantity,
-      price: effectivePrice,
-      value: effectivePrice * item.quantity,
+      price: checkoutPrice,
+      value: checkoutPrice * item.quantity,
       image: item.image,
       image_url: item.image_url,
       variantId: item.variantId,
       variantAttributes,
+      ...(hasQuizVoucher
+        ? {
+            voucher_award_id: item.quizAwardId,
+            voucher_token: item.quizVoucherToken,
+          }
+        : {}),
       has_assurance: item.hasAssurance || false,
       assurance_fee: item.hasAssurance
-        ? effectivePrice * (item.assuranceRate || 0.05)
+        ? checkoutPrice * (item.assuranceRate || 0.05)
         : 0,
     };
   });

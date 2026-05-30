@@ -36,10 +36,12 @@ export const routes = {
     `/${slug}/${category}/${productSlug}` as Route,
 
   /** Search page: /{slug}/search?q={query} */
-  search: (slug: string, query?: string) =>
-    query
-      ? (`/${slug}/search?q=${encodeURIComponent(query)}` as Route)
-      : (`/${slug}/search` as Route),
+  search: (slug: string, query?: string): Route => {
+    const basePath: string = `/${slug}/search`;
+    if (!query) return asRoute(basePath);
+    const queryPath: string = `${basePath}?q=${encodeURIComponent(query)}`;
+    return asRoute(queryPath);
+  },
 
   /** Cart page: /{slug}/cart */
   cart: (slug: string) => `/${slug}/cart` as Route,
@@ -82,6 +84,9 @@ export const routes = {
 
   /** Settings */
   dashboardSettings: '/dashboard/settings' as Route,
+
+  /** Marketing hub */
+  dashboardMarketing: '/dashboard/marketing' as Route,
 
   /** Marketing / Discount codes */
   dashboardDiscountCodes: '/dashboard/marketing/discount-codes' as Route,
@@ -188,7 +193,7 @@ export function isValidRouteKey(key: string): key is keyof AppRoutes {
  * ```
  */
 export function asRoute(url: string): Route {
-  return url as Route;
+  return url as unknown as Route;
 }
 
 /**

@@ -43,3 +43,14 @@
 ## 2026-05-21 - Tab Layout Theming
 **Learning:** Tab Layout requires adapting colors for multiple UI parts.
 **Action:** Use theme instead of hardcoding.
+
+## 2026-05-24 - Replace Hardcoded Third-Party Brand Colors
+**Learning:** Hardcoding static brand colors like `#000000` for Amazon or `#FF9900` for Jumia fails to adapt to system themes, causing unreadable text or invisible icons in dark mode.
+**Action:** Replace hardcoded third-party colors with adaptive semantic tokens (e.g., using `colors.text` for black containers with `colors.background` for the inner icon, or mapping to close semantic values like `colors.orange`) to ensure accessibility across both themes.
+## 2024-05-26 - ErrorBoundary and Shipping Quotes Theming
+**Learning:** Hardcoded hex values for debug containers and shipping quote selection states failed to adapt to the dark mode context accurately and didn't utilize available tokens.
+**Action:** Removed statically defined fallback hex values and utilized proper adaptive theme tokens (`colors.destructive`, `colors.primaryLowOpacity`, `colors.muted`) to ensure consistent design language alignment in both modes.
+
+## 2025-05-18 - [products.tsx active tab text contrast]
+**Learning:** Hardcoding `#000000` for active tab text over `colors.gold` fails to adapt. Using `colors.background` provides optimal contrast because it naturally flips between light (for dark mode gold) and dark (for light mode gold).
+**Action:** Replace hardcoded hex colors on specific themed backgrounds with opposing theme tokens like `colors.background` for active states.

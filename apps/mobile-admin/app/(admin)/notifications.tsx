@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons";
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Stack, useRouter } from 'expo-router';
 import { Alert, Pressable, ScrollView, Switch, Text, View } from 'react-native';
@@ -73,6 +73,7 @@ export default function NotificationsScreen() {
       return data as NotificationPreferences;
     },
     enabled: !!merchant?.id,
+    staleTime: 1000 * 60 * 5,
   });
 
   const updatePreferencesMutation = useMutation({
@@ -89,7 +90,7 @@ export default function NotificationsScreen() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notification-preferences'] });
+      queryClient.invalidateQueries({ queryKey: ['notification-preferences', merchant?.id] });
     },
     onError: (error: unknown) => {
       Alert.alert(

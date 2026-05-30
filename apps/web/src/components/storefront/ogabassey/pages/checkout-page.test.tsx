@@ -142,10 +142,73 @@ import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { toast } from '@/hooks/use-toast';
 import { openCreditDirectCheckout } from '@/lib/credit-direct-client';
 import { openCredPalCheckout } from '@/lib/credpal';
+import { useAuthSafe } from '@/contexts/auth-context';
 import {
   usePersistedForm,
   usePersistedState,
 } from '@/hooks/use-persisted-state';
+import { CHECKOUT_IDEMPOTENCY_STORAGE_KEY } from './checkout/checkout-idempotency';
+
+function mockCheckoutSubmissionState() {
+  vi.mocked(useCart).mockReturnValue({
+    cart: [
+      {
+        id: 'item-1',
+        name: 'Test Product',
+        price: 5000,
+        quantity: 1,
+        image: '',
+        slug: 'test-product',
+      },
+    ],
+    cartTotal: 5000,
+    clearCart: vi.fn(),
+    isHydrated: true,
+  } as unknown as ReturnType<typeof useCart>);
+  vi.mocked(useMerchantSafe).mockReturnValue({
+    merchant: {
+      id: 'merchant-1',
+      slug: 'test-store',
+      business_name: 'Test Store',
+      vat_registration_status: 'registered',
+      vat_rate: 7.5,
+      country: 'NG',
+      feature_settings: {
+        pay_on_delivery_enabled: true,
+      },
+    },
+    basePath: '/test-store',
+  } as unknown as ReturnType<typeof useMerchantSafe>);
+  vi.mocked(usePersistedForm).mockReturnValue({
+    values: {
+      firstName: 'Ada',
+      lastName: 'Buyer',
+      customerEmail: 'ada@example.com',
+      customerPhone: '+2348123456789',
+      newAddressStreet: '2 Olaide Tomori Street',
+      newAddressState: 'Lagos',
+      newAddressCity: 'Ikeja',
+      currentStep: 'delivery',
+      completedSteps: { contact: true, delivery: false },
+    },
+    setValue: vi.fn(),
+    setValues: vi.fn(),
+    clear: vi.fn(),
+  } as unknown as ReturnType<typeof usePersistedForm>);
+}
+
+async function submitPickupPayOnDeliveryOrder() {
+  render(<CheckoutPage />);
+
+  fireEvent.click(screen.getByText('Pickup'));
+  fireEvent.click(screen.getByRole('button', { name: /continue to payment/i }));
+  fireEvent.click(await screen.findByText(/pay on delivery/i));
+  const placeOrderButton = screen
+    .getAllByRole('button', { name: /place order/i })
+    .find((button) => !button.hasAttribute('disabled'));
+  expect(placeOrderButton).toBeDefined();
+  fireEvent.click(placeOrderButton as HTMLButtonElement);
+}
 
 describe('CheckoutPage', () => {
   beforeEach(() => {
@@ -158,6 +221,9 @@ describe('CheckoutPage', () => {
     } as unknown as ReturnType<typeof useCart>);
     vi.mocked(useSearchParams).mockReturnValue(
       new URLSearchParams() as unknown as ReturnType<typeof useSearchParams>
+    );
+    vi.mocked(useAuthSafe).mockReturnValue(
+      null as unknown as ReturnType<typeof useAuthSafe>
     );
     vi.mocked(useMerchantSafe).mockReturnValue({
       merchant: {
@@ -210,6 +276,217 @@ describe('CheckoutPage', () => {
     expect(match).toBeTruthy();
   });
 
+  it('shows Klump in installment checkout when the merchant enables it', async () => {
+    vi.mocked(useCart).mockReturnValue({
+      cart: [
+        {
+          id: 'item-1',
+          name: 'Test Product',
+          price: 50000,
+          quantity: 1,
+          image: '',
+          slug: 'test-product',
+        },
+      ],
+      cartTotal: 50000,
+      clearCart: vi.fn(),
+      isHydrated: true,
+    } as unknown as ReturnType<typeof useCart>);
+    vi.mocked(useMerchantSafe).mockReturnValue({
+      merchant: {
+        id: 'merchant-1',
+        slug: 'test-store',
+        business_name: 'Test Store',
+        vat_registration_status: 'registered',
+        vat_rate: 7.5,
+        country: 'NG',
+        feature_settings: {
+          klump_enabled: true,
+        },
+      },
+      basePath: '/test-store',
+    } as unknown as ReturnType<typeof useMerchantSafe>);
+    vi.mocked(usePersistedForm).mockReturnValue({
+      values: {
+        firstName: 'Ada',
+        lastName: 'Buyer',
+        customerEmail: 'ada@example.com',
+        customerPhone: '+2348123456789',
+        newAddressStreet: '2 Olaide Tomori Street',
+        newAddressState: 'Lagos',
+        newAddressCity: 'Ikeja',
+        currentStep: 'payment',
+        completedSteps: { contact: true, delivery: true },
+      },
+      setValue: vi.fn(),
+      setValues: vi.fn(),
+      clear: vi.fn(),
+    } as unknown as ReturnType<typeof usePersistedForm>);
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({}),
+    } as Response);
+
+    render(<CheckoutPage />);
+
+    fireEvent.click(screen.getByRole('button', { name: /pay in installments/i }));
+
+    expect(await screen.findByText('Klump')).toBeInTheDocument();
+    fetchMock.mockRestore();
+  });
+
+  it('hides Klump in installment checkout when the merchant disables it', async () => {
+    vi.mocked(useCart).mockReturnValue({
+      cart: [
+        {
+          id: 'item-1',
+          name: 'Test Product',
+          price: 50000,
+          quantity: 1,
+          image: '',
+          slug: 'test-product',
+        },
+      ],
+      cartTotal: 50000,
+      clearCart: vi.fn(),
+      isHydrated: true,
+    } as unknown as ReturnType<typeof useCart>);
+    vi.mocked(useMerchantSafe).mockReturnValue({
+      merchant: {
+        id: 'merchant-1',
+        slug: 'test-store',
+        business_name: 'Test Store',
+        vat_registration_status: 'registered',
+        vat_rate: 7.5,
+        country: 'NG',
+        feature_settings: {
+          klump_enabled: false,
+        },
+      },
+      basePath: '/test-store',
+    } as unknown as ReturnType<typeof useMerchantSafe>);
+    vi.mocked(usePersistedForm).mockReturnValue({
+      values: {
+        firstName: 'Ada',
+        lastName: 'Buyer',
+        customerEmail: 'ada@example.com',
+        customerPhone: '+2348123456789',
+        newAddressStreet: '2 Olaide Tomori Street',
+        newAddressState: 'Lagos',
+        newAddressCity: 'Ikeja',
+        currentStep: 'payment',
+        completedSteps: { contact: true, delivery: true },
+      },
+      setValue: vi.fn(),
+      setValues: vi.fn(),
+      clear: vi.fn(),
+    } as unknown as ReturnType<typeof usePersistedForm>);
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({}),
+    } as Response);
+
+    render(<CheckoutPage />);
+
+    fireEvent.click(screen.getByRole('button', { name: /pay in installments/i }));
+
+    expect(screen.queryByText('Klump')).not.toBeInTheDocument();
+    fetchMock.mockRestore();
+  });
+
+  it('hides Klump when wallet credit is auto-applied', async () => {
+    vi.mocked(useAuthSafe).mockReturnValue({
+      user: {
+        id: 'customer-1',
+        email: 'ada@example.com',
+        user_metadata: {},
+      },
+    } as unknown as ReturnType<typeof useAuthSafe>);
+    vi.mocked(useCart).mockReturnValue({
+      cart: [
+        {
+          id: 'item-1',
+          name: 'Test Product',
+          price: 50000,
+          quantity: 1,
+          image: '',
+          slug: 'test-product',
+        },
+      ],
+      cartTotal: 50000,
+      clearCart: vi.fn(),
+      isHydrated: true,
+    } as unknown as ReturnType<typeof useCart>);
+    vi.mocked(useMerchantSafe).mockReturnValue({
+      merchant: {
+        id: 'merchant-1',
+        slug: 'test-store',
+        business_name: 'Test Store',
+        vat_registration_status: 'registered',
+        vat_rate: 7.5,
+        country: 'NG',
+        feature_settings: {
+          klump_enabled: true,
+        },
+      },
+      basePath: '/test-store',
+    } as unknown as ReturnType<typeof useMerchantSafe>);
+    vi.mocked(usePersistedForm).mockReturnValue({
+      values: {
+        firstName: 'Ada',
+        lastName: 'Buyer',
+        customerEmail: 'ada@example.com',
+        customerPhone: '+2348123456789',
+        newAddressStreet: '2 Olaide Tomori Street',
+        newAddressState: 'Lagos',
+        newAddressCity: 'Ikeja',
+        currentStep: 'payment',
+        completedSteps: { contact: true, delivery: true },
+      },
+      setValue: vi.fn(),
+      setValues: vi.fn(),
+      clear: vi.fn(),
+    } as unknown as ReturnType<typeof usePersistedForm>);
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(async (input) => {
+        const url = String(input);
+        if (url.startsWith('/api/storefront/customer/wallet')) {
+          return {
+            ok: true,
+            json: async () => ({ balance: 10000 }),
+          } as Response;
+        }
+
+        return {
+          ok: true,
+          json: async () => ({}),
+          text: async () => '',
+        } as Response;
+      });
+
+    try {
+      render(<CheckoutPage />);
+
+      fireEvent.click(
+        screen.getByRole('button', { name: /pay in installments/i }),
+      );
+
+      await waitFor(() => {
+        expect(
+          fetchMock.mock.calls.some(([url]) =>
+            String(url).startsWith('/api/storefront/customer/wallet'),
+          ),
+        ).toBe(true);
+      });
+      await waitFor(() => {
+        expect(screen.queryByText('Klump')).not.toBeInTheDocument();
+      });
+    } finally {
+      fetchMock.mockRestore();
+    }
+  });
+
   it('includes merchant_slug and tracking token when resuming an order', async () => {
     vi.mocked(useSearchParams).mockReturnValue(
       new URLSearchParams({
@@ -251,6 +528,7 @@ describe('CheckoutPage', () => {
           orderId: 'ord-1',
           merchantId: 'merchant-1',
           customerEmail: 'resume@example.com',
+          customerPhone: '+2348012345678',
           checkoutFingerprint: 'fingerprint',
           amountDueToGateway: 1000,
           createdAt: '2026-04-18T00:00:00.000Z',
@@ -291,6 +569,7 @@ describe('CheckoutPage', () => {
           orderId: 'ord-1',
           merchantId: 'merchant-1',
           customerEmail: 'legacy@example.com',
+          customerPhone: '+2348012345678',
           checkoutFingerprint: 'fingerprint',
           amountDueToGateway: 1000,
           createdAt: '2026-04-18T00:00:00.000Z',
@@ -412,6 +691,146 @@ describe('CheckoutPage', () => {
     fetchMock.mockRestore();
   });
 
+  it('persists resumed Credit Direct popup references for webhook reconciliation', async () => {
+    vi.mocked(useSearchParams).mockReturnValue(
+      new URLSearchParams({
+        orderId: 'ord-1',
+        gateway: 'credit_direct',
+        trackingToken: 'tok-123',
+      }) as unknown as ReturnType<typeof useSearchParams>
+    );
+
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(async (input, init) => {
+        const url = String(input);
+        if (url.startsWith('/api/storefront/orders/ord-1')) {
+          return {
+            ok: true,
+            json: async () => ({
+              id: 'ord-1',
+              short_id: 'ORD-1',
+              subtotal: 1000,
+              shipping_cost: 0,
+              total: 1000,
+              customer_name: 'Ada Buyer',
+              customer_email: 'ada@example.com',
+              customer_phone: '+2348123456789',
+              tracking_token: 'tok-123',
+              shipping_address: { address: '', city: '', state: '' },
+              items: [],
+            }),
+          } as Response;
+        }
+
+        return {
+          ok: true,
+          json: async () => ({ states: [], locations: [] }),
+          text: async () =>
+            typeof init?.body === 'string' ? init.body : '',
+        } as Response;
+      });
+
+    render(<CheckoutPage />);
+
+    await waitFor(() => {
+      expect(openCreditDirectCheckout).toHaveBeenCalled();
+    });
+
+    const callArgs = vi.mocked(openCreditDirectCheckout).mock.calls[0]?.[0];
+    await act(async () => {
+      await callArgs?.onPopup?.('cd-popup-transaction-1');
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/orders/update-payment-ref', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        orderId: 'ord-1',
+        paymentRef: 'cd-popup-transaction-1',
+        gateway: 'credit_direct',
+        tracking_token: 'tok-123',
+      }),
+    });
+
+    fetchMock.mockRestore();
+  });
+
+  it('logs resumed Credit Direct popup reference persistence failures', async () => {
+    vi.mocked(useSearchParams).mockReturnValue(
+      new URLSearchParams({
+        orderId: 'ord-1',
+        gateway: 'credit_direct',
+        trackingToken: 'tok-123',
+      }) as unknown as ReturnType<typeof useSearchParams>
+    );
+
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(async (input) => {
+        const url = String(input);
+        if (url.startsWith('/api/storefront/orders/ord-1')) {
+          return {
+            ok: true,
+            json: async () => ({
+              id: 'ord-1',
+              short_id: 'ORD-1',
+              subtotal: 1000,
+              shipping_cost: 0,
+              total: 1000,
+              customer_name: 'Ada Buyer',
+              customer_email: 'ada@example.com',
+              customer_phone: '+2348123456789',
+              tracking_token: 'tok-123',
+              shipping_address: { address: '', city: '', state: '' },
+              items: [],
+            }),
+          } as Response;
+        }
+
+        if (url === '/api/orders/update-payment-ref') {
+          return {
+            ok: false,
+            status: 500,
+            statusText: 'Server Error',
+            text: async () => 'write failed',
+          } as Response;
+        }
+
+        return {
+          ok: true,
+          json: async () => ({ states: [], locations: [] }),
+          text: async () => '',
+        } as Response;
+      });
+
+    render(<CheckoutPage />);
+
+    await waitFor(() => {
+      expect(openCreditDirectCheckout).toHaveBeenCalled();
+    });
+
+    const callArgs = vi.mocked(openCreditDirectCheckout).mock.calls[0]?.[0];
+    await act(async () => {
+      await callArgs?.onPopup?.('cd-popup-transaction-1');
+    });
+
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Failed to persist Credit Direct popup reference:',
+      expect.stringContaining('ord-1')
+    );
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Failed to persist Credit Direct popup reference:',
+      expect.stringContaining('cd-popup-transaction-1')
+    );
+
+    fetchMock.mockRestore();
+    consoleErrorSpy.mockRestore();
+  });
+
   it('blocks order creation when door delivery has no selected quote', async () => {
     vi.mocked(useCart).mockReturnValue({
       cart: [
@@ -501,6 +920,230 @@ describe('CheckoutPage', () => {
     ).toBe(false);
 
     fetchMock.mockRestore();
+  });
+
+  it('sends a stable idempotency key when creating an order', async () => {
+    const scrollSpy = vi
+      .spyOn(window, 'scrollTo')
+      .mockImplementation(() => undefined);
+    const randomUuidSpy = vi
+      .spyOn(crypto, 'randomUUID')
+      .mockReturnValue('11111111-1111-4111-8111-111111111111');
+    window.localStorage.clear();
+    vi.mocked(useCart).mockReturnValue({
+      cart: [
+        {
+          id: 'item-1',
+          name: 'Test Product',
+          price: 5000,
+          quantity: 1,
+          image: '',
+          slug: 'test-product',
+        },
+      ],
+      cartTotal: 5000,
+      clearCart: vi.fn(),
+      isHydrated: true,
+    } as unknown as ReturnType<typeof useCart>);
+    vi.mocked(useMerchantSafe).mockReturnValue({
+      merchant: {
+        id: 'merchant-1',
+        slug: 'test-store',
+        business_name: 'Test Store',
+        vat_registration_status: 'registered',
+        vat_rate: 7.5,
+        country: 'NG',
+        feature_settings: {
+          pay_on_delivery_enabled: true,
+        },
+      },
+      basePath: '/test-store',
+    } as unknown as ReturnType<typeof useMerchantSafe>);
+    vi.mocked(usePersistedForm).mockReturnValue({
+      values: {
+        firstName: 'Ada',
+        lastName: 'Buyer',
+        customerEmail: 'ada@example.com',
+        customerPhone: '+2348123456789',
+        newAddressStreet: '2 Olaide Tomori Street',
+        newAddressState: 'Lagos',
+        newAddressCity: 'Ikeja',
+        currentStep: 'delivery',
+        completedSteps: { contact: true, delivery: false },
+      },
+      setValue: vi.fn(),
+      setValues: vi.fn(),
+      clear: vi.fn(),
+    } as unknown as ReturnType<typeof usePersistedForm>);
+
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(async (input) => {
+        const url = String(input);
+        if (url === '/api/orders') {
+          return {
+            ok: true,
+            json: async () => ({
+              amountDueToGateway: 5000,
+              order: {
+                id: 'order-123',
+                order_number: 'ORD-123',
+                tracking_token: 'track-123',
+              },
+              wallet: null,
+            }),
+            text: async () => '',
+          } as Response;
+        }
+
+        return {
+          ok: true,
+          json: async () => ({ states: ['Lagos'], locations: [] }),
+          text: async () => '',
+        } as Response;
+      });
+
+    await submitPickupPayOnDeliveryOrder();
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.find(([url]) => String(url) === '/api/orders')?.[1]
+      ).toEqual(
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            'Idempotency-Key': '11111111-1111-4111-8111-111111111111',
+          }),
+        })
+      );
+    });
+    await waitFor(() => {
+      expect(
+        window.localStorage.getItem(CHECKOUT_IDEMPOTENCY_STORAGE_KEY)
+      ).toBeNull();
+    });
+
+    fetchMock.mockRestore();
+    randomUuidSpy.mockRestore();
+    scrollSpy.mockRestore();
+    window.localStorage.clear();
+  });
+
+  it('clears the idempotency key when the order is no longer reusable', async () => {
+    const scrollSpy = vi
+      .spyOn(window, 'scrollTo')
+      .mockImplementation(() => undefined);
+    const randomUuidSpy = vi
+      .spyOn(crypto, 'randomUUID')
+      .mockReturnValue('11111111-1111-4111-8111-111111111111');
+    window.localStorage.clear();
+    mockCheckoutSubmissionState();
+
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(async (input) => {
+        const url = String(input);
+        if (url === '/api/orders') {
+          return {
+            ok: false,
+            status: 409,
+            json: async () => ({
+              code: 'CHECKOUT_ORDER_NOT_REUSABLE',
+              details: 'Order is already approved and cannot be reused',
+              error: 'Order is not reusable',
+            }),
+            text: async () => '',
+          } as Response;
+        }
+
+        return {
+          ok: true,
+          json: async () => ({ states: ['Lagos'], locations: [] }),
+          text: async () => '',
+        } as Response;
+      });
+
+    await submitPickupPayOnDeliveryOrder();
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.find(([url]) => String(url) === '/api/orders')?.[1]
+      ).toEqual(
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            'Idempotency-Key': '11111111-1111-4111-8111-111111111111',
+          }),
+        })
+      );
+    });
+    await waitFor(() => {
+      expect(
+        window.localStorage.getItem(CHECKOUT_IDEMPOTENCY_STORAGE_KEY)
+      ).toBeNull();
+    });
+
+    fetchMock.mockRestore();
+    randomUuidSpy.mockRestore();
+    scrollSpy.mockRestore();
+    window.localStorage.clear();
+  });
+
+  it('clears the idempotency key when checkout idempotency conflicts', async () => {
+    const scrollSpy = vi
+      .spyOn(window, 'scrollTo')
+      .mockImplementation(() => undefined);
+    const randomUuidSpy = vi
+      .spyOn(crypto, 'randomUUID')
+      .mockReturnValue('11111111-1111-4111-8111-111111111111');
+    window.localStorage.clear();
+    mockCheckoutSubmissionState();
+
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(async (input) => {
+        const url = String(input);
+        if (url === '/api/orders') {
+          return {
+            ok: false,
+            status: 409,
+            json: async () => ({
+              code: 'CHECKOUT_IDEMPOTENCY_CONFLICT',
+              error:
+                'This checkout request was already used for a different cart, customer, or delivery payload.',
+            }),
+            text: async () => '',
+          } as Response;
+        }
+
+        return {
+          ok: true,
+          json: async () => ({ states: ['Lagos'], locations: [] }),
+          text: async () => '',
+        } as Response;
+      });
+
+    await submitPickupPayOnDeliveryOrder();
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.find(([url]) => String(url) === '/api/orders')?.[1]
+      ).toEqual(
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            'Idempotency-Key': '11111111-1111-4111-8111-111111111111',
+          }),
+        })
+      );
+    });
+    await waitFor(() => {
+      expect(
+        window.localStorage.getItem(CHECKOUT_IDEMPOTENCY_STORAGE_KEY)
+      ).toBeNull();
+    });
+
+    fetchMock.mockRestore();
+    randomUuidSpy.mockRestore();
+    scrollSpy.mockRestore();
+    window.localStorage.clear();
   });
 
   it('debounces inferred manual address location updates before mutating checkout location', async () => {

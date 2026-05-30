@@ -8,6 +8,7 @@ const mockBuildRequestScopedStoreUrl = vi.fn();
 const mockNotFound = vi.fn(() => {
   throw new Error('NEXT_NOT_FOUND');
 });
+const mockConnection = vi.hoisted(() => vi.fn());
 
 vi.mock('next/headers', () => ({
   headers: () => mockHeaders(),
@@ -15,6 +16,10 @@ vi.mock('next/headers', () => ({
 
 vi.mock('next/navigation', () => ({
   notFound: () => mockNotFound(),
+}));
+
+vi.mock('next/server', () => ({
+  connection: () => mockConnection(),
 }));
 
 vi.mock('next/link', () => ({
@@ -97,9 +102,20 @@ describe('warranty page', () => {
     );
   });
 
+  it('marks warranty metadata as request-time rendered', async () => {
+    vi.mocked(getRequestScopedMerchant).mockResolvedValue(trustMerchant);
+    const { generateMetadata } = await import('./page');
+
+    await generateMetadata({
+      params: Promise.resolve({ slug: 'ogabassey' }),
+    });
+
+    expect(mockConnection).toHaveBeenCalledOnce();
+  });
+
   it('renders when the warranty summary exists', async () => {
     vi.mocked(getRequestScopedMerchant).mockResolvedValue(trustMerchant);
-    const { WarrantyPageContent } = await import('./page');
+    const { WarrantyPageContent } = await import('./warranty-page-content');
 
     render(
       await WarrantyPageContent({
@@ -127,7 +143,7 @@ describe('warranty page', () => {
       socialLinks: {},
       derivedLinks: {},
     });
-    const { WarrantyPageContent } = await import('./page');
+    const { WarrantyPageContent } = await import('./warranty-page-content');
 
     await expect(
       WarrantyPageContent({

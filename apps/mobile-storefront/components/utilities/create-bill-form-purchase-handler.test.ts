@@ -5,16 +5,28 @@ import { HttpError } from '@/lib/fetch-with-timeout';
 import { createBillFormPurchaseHandler } from './create-bill-form-purchase-handler';
 
 type PaymentState = ReturnType<typeof useUtilityPayment>;
+type PurchaseHandlerOptions = Parameters<
+  typeof createBillFormPurchaseHandler
+>[0];
+type PurchaseHandlerOverrides = Omit<
+  Partial<PurchaseHandlerOptions>,
+  'payment'
+> & {
+  payment?: Partial<PurchaseHandlerOptions['payment']>;
+};
 
-const mockInitializeVtuCheckout = jest.fn<
-  (...args: unknown[]) => Promise<{
-    authorization_url: string;
-    gateway: 'paystack';
-    reference: string;
-  }>
->();
-const mockChargeSavedVtuCard = jest.fn<(...args: unknown[]) => Promise<unknown>>();
-const mockChargeWalletForVtu = jest.fn<(...args: unknown[]) => Promise<unknown>>();
+const mockInitializeVtuCheckout =
+  jest.fn<
+    (...args: unknown[]) => Promise<{
+      authorization_url: string;
+      gateway: 'paystack';
+      reference: string;
+    }>
+  >();
+const mockChargeSavedVtuCard =
+  jest.fn<(...args: unknown[]) => Promise<unknown>>();
+const mockChargeWalletForVtu =
+  jest.fn<(...args: unknown[]) => Promise<unknown>>();
 
 jest.mock('expo-router', () => ({
   router: {
@@ -23,9 +35,10 @@ jest.mock('expo-router', () => ({
 }));
 
 jest.mock('@/lib/vtu-checkout', () => {
-  const actual = jest.requireActual<typeof import('@/lib/vtu-checkout')>(
-    '@/lib/vtu-checkout'
-  );
+  const actual =
+    jest.requireActual<typeof import('@/lib/vtu-checkout')>(
+      '@/lib/vtu-checkout'
+    );
   return {
     ...actual,
     chargeSavedVtuCard: (...args: unknown[]) => mockChargeSavedVtuCard(...args),
@@ -38,8 +51,8 @@ jest.mock('@/lib/vtu-checkout', () => {
   };
 });
 
-function createValidHandler(overrides = {}) {
-  return createBillFormPurchaseHandler({
+function createValidHandler(overrides: PurchaseHandlerOverrides = {}) {
+  const defaults: PurchaseHandlerOptions = {
     amount: '1000',
     billType: 'electricity',
     canShowPayment: true,
@@ -59,6 +72,9 @@ function createValidHandler(overrides = {}) {
       selectedSavedCardId: null,
       supportedGateways: ['paystack'],
       walletBalance: 0,
+      walletCanRender: false,
+      walletError: null,
+      walletIsLoading: false,
       walletSelection: undefined,
       setWalletSelection: jest.fn(),
       getWalletIdempotencyKey: jest.fn(() => 'test-key'),
@@ -76,7 +92,15 @@ function createValidHandler(overrides = {}) {
     setIsSubmitting: jest.fn(),
     type: 'power',
     verifiedCustomerName: null,
+  };
+
+  return createBillFormPurchaseHandler({
+    ...defaults,
     ...overrides,
+    payment: {
+      ...defaults.payment,
+      ...overrides.payment,
+    },
   });
 }
 
@@ -115,7 +139,7 @@ describe('createBillFormPurchaseHandler', () => {
         refetchCards: jest.fn<PaymentState['refetchCards']>(),
         selectGateway: jest.fn(),
         selectSavedCard: jest.fn(),
-        selectedGateway: null,
+        selectedGateway: 'paystack',
         selectedSavedCardId: 'card-1',
         supportedGateways: ['paystack'],
         walletBalance: 0,

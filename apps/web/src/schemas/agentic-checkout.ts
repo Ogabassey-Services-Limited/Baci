@@ -39,9 +39,20 @@ const checkoutSessionBaseSchema = z.object({
     .default('NGN'),
 });
 
+const checkoutSessionCartSchema = z.object({
+  cart_id: z.string().trim().min(1, 'Cart id is required'),
+  currency: z
+    .string()
+    .trim()
+    .length(3, 'Currency must be a 3-letter ISO code')
+    .transform((value) => value.toUpperCase())
+    .optional()
+    .default('NGN'),
+});
+
 export const checkoutSessionSchema = z.preprocess(
   normalizeCheckoutAcpAliases,
-  checkoutSessionBaseSchema
+  z.union([checkoutSessionBaseSchema, checkoutSessionCartSchema])
 );
 
 const createAgenticCheckoutSessionItemSchema = agenticCheckoutItemSchema.extend(

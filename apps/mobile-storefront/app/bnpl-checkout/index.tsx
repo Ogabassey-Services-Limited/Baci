@@ -1,10 +1,4 @@
-/**
- * BNPL Checkout Screen
- * Handles Buy Now Pay Later checkout via WebView
- * Supports CredPal, Credit Direct, and Klump payment gateways
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons";
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -18,9 +12,16 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView, type WebViewNavigation } from 'react-native-webview';
 import { z } from 'zod';
+import { BNPLCheckoutStatusView } from '@/components/bnpl-checkout/BNPLCheckoutStatusView';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
 import { resolveApiBaseUrl } from '@/lib/api-url';
+import {
+  buildKlumpAuthorizationUrl,
+  isAllowedBnplPopupUrl,
+  normalizeBNPLRouteParams,
+  type BNPLRouteParams,
+} from '@/lib/bnpl-url';
 import { useCartStore } from '@/stores/cart-store';
 
 // 2026 Critical Fix: Zod schema for route parameter validation
@@ -36,6 +37,7 @@ const BNPLParamsSchema = z.object({
   customerName: z.string().optional(),
   customerPhone: z.string().optional(),
   merchantSlug: z.string().optional(),
+  reference: z.string().optional(),
   trackingToken: z.string().optional(),
 });
 
@@ -45,15 +47,6 @@ const BNPL_LOAD_TIMEOUT_MESSAGE =
   'Payment page is taking longer than expected. Check your connection and try again.';
 const BNPL_UNTRUSTED_POPUP_MESSAGE =
   'Payment provider opened an untrusted checkout window.';
-const USEBACI_HOSTNAME = 'usebaci.com';
-const BNPL_PROVIDER_POPUP_ORIGINS = new Set([
-  'https://api.credpal.com',
-  'https://app.creditdirect.ng',
-  'https://cdl.test.lendastack.io',
-  'https://checkout.creditdirect.ng',
-  'https://checkout.credpal.com',
-  'https://corporate-loans.obs.sa-brazil-1.myhuaweicloud.com',
-]);
 type BNPLCheckoutStatus = 'loading' | 'ready' | 'success' | 'error';
 
 type WebViewOpenWindowEventLike = {
@@ -62,51 +55,12 @@ type WebViewOpenWindowEventLike = {
   };
 };
 
-function isBaciReturnOrigin(targetUrl: URL, baseUrl: string) {
-  try {
-    const base = new URL(baseUrl);
-
-    if (targetUrl.origin === base.origin) {
-      return true;
-    }
-
-    if (
-      base.hostname === USEBACI_HOSTNAME &&
-      targetUrl.protocol === base.protocol &&
-      (targetUrl.hostname === USEBACI_HOSTNAME ||
-        targetUrl.hostname.endsWith(`.${USEBACI_HOSTNAME}`))
-    ) {
-      return true;
-    }
-  } catch {
-    return false;
-  }
-
-  return false;
-}
-
-function isAllowedBnplPopupUrl(targetUrl: string, baseUrl: string) {
-  try {
-    const parsedTargetUrl = new URL(targetUrl);
-
-    if (!['https:', 'http:'].includes(parsedTargetUrl.protocol)) {
-      return false;
-    }
-
-    return (
-      BNPL_PROVIDER_POPUP_ORIGINS.has(parsedTargetUrl.origin) ||
-      isBaciReturnOrigin(parsedTargetUrl, baseUrl)
-    );
-  } catch {
-    return false;
-  }
-}
-
 export default function BNPLCheckoutScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   // 2026 Best Practice: Use Record type for route params to satisfy expo-router constraints
-  const params = useLocalSearchParams<Record<string, string>>();
+  const rawParams = useLocalSearchParams<BNPLRouteParams>();
+  const params = normalizeBNPLRouteParams(rawParams);
   const webViewRef = useRef<WebView>(null);
   const loadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clearCart = useCartStore((state) => state.clearCart);
@@ -149,6 +103,9 @@ export default function BNPLCheckoutScreen() {
     authorizationUrl,
     amount,
     customerEmail,
+    customerName,
+    customerPhone,
+    reference,
     trackingToken,
   } =
     validatedParams.data || {};
@@ -188,10 +145,6 @@ export default function BNPLCheckoutScreen() {
   const bnplUrl = (() => {
     if (!validatedParams.isValid || !orderId) return '';
 
-    if (gateway === 'klump' && authorizationUrl?.trim()) {
-      return authorizationUrl.trim();
-    }
-
     const slug =
       validatedParams.isValid && validatedParams.data
         ? validatedParams.data.merchantSlug || 'ogabassey'
@@ -199,6 +152,20 @@ export default function BNPLCheckoutScreen() {
     const baseUrl = API_BASE_URL.endsWith('/')
       ? API_BASE_URL.slice(0, -1)
       : API_BASE_URL;
+
+    if (gateway === 'klump') {
+      return buildKlumpAuthorizationUrl({
+        authorizationUrl,
+        baseUrl,
+        customerEmail,
+        customerName,
+        customerPhone,
+        orderId,
+        reference,
+        slug,
+        trackingToken,
+      });
+    }
 
     const query = new URLSearchParams({
       gateway: gateway || '',
@@ -208,6 +175,12 @@ export default function BNPLCheckoutScreen() {
 
     if (customerEmail?.trim()) {
       query.set('email', customerEmail.trim());
+    }
+    if (customerName?.trim()) {
+      query.set('customerName', customerName.trim());
+    }
+    if (customerPhone?.trim()) {
+      query.set('customerPhone', customerPhone.trim());
     }
     if (trackingToken?.trim()) {
       query.set('token', trackingToken.trim());
@@ -228,27 +201,12 @@ export default function BNPLCheckoutScreen() {
   // 2026 Critical Fix: Show error state for invalid params
   if (!validatedParams.isValid) {
     return (
-      <SafeAreaView
-        style={[styles.container, { backgroundColor: colors.background }]}
-      >
-        <Stack.Screen options={{ headerShown: false }} />
-        <View style={styles.errorContainer}>
-          <Ionicons name="alert-circle" size={64} color={BRAND.primary} />
-          <Text style={[styles.errorTitle, { color: colors.text }]}>
-            Invalid Checkout
-          </Text>
-          <Text style={[styles.errorMessage, { color: colors.textSecondary }]}>
-            {validatedParams.error}
-          </Text>
-          <Pressable
-            accessibilityRole="button"
-            style={[styles.retryButton, { backgroundColor: BRAND.primary }]}
-            onPress={() => router.back()}
-          >
-            <Text style={styles.retryText}>Go Back</Text>
-          </Pressable>
-        </View>
-      </SafeAreaView>
+      <BNPLCheckoutStatusView
+        colors={colors}
+        message={validatedParams.error}
+        onBack={() => router.back()}
+        variant="invalid"
+      />
     );
   }
 
@@ -435,75 +393,24 @@ export default function BNPLCheckoutScreen() {
 
   if (status === 'success') {
     return (
-      <SafeAreaView
-        style={[styles.container, { backgroundColor: colors.background }]}
-      >
-        <View style={styles.statusContainer}>
-          <View style={[styles.statusIcon, { backgroundColor: '#DEF7EC' }]}>
-            <Ionicons name="checkmark-circle" size={48} color="#059669" />
-          </View>
-          <Text style={[styles.statusTitle, { color: colors.text }]}>
-            Payment Successful!
-          </Text>
-          <Text style={[styles.statusMessage, { color: colors.textSecondary }]}>
-            Your {gatewayName} payment has been approved. Redirecting to order
-            confirmation...
-          </Text>
-          <ActivityIndicator
-            size="small"
-            color={BRAND.primary}
-            style={styles.statusLoader}
-          />
-        </View>
-      </SafeAreaView>
+      <BNPLCheckoutStatusView
+        colors={colors}
+        gatewayName={gatewayName}
+        variant="success"
+      />
     );
   }
 
   if (status === 'error') {
     return (
-      <SafeAreaView
-        style={[styles.container, { backgroundColor: colors.background }]}
-      >
-        <Stack.Screen
-          options={{
-            title: gatewayName,
-            headerLeft: () => (
-              <Pressable onPress={() => router.back()}>
-                <Ionicons name="close" size={24} color={colors.text} />
-              </Pressable>
-            ),
-          }}
-        />
-        <View style={styles.statusContainer}>
-          <View style={[styles.statusIcon, { backgroundColor: '#FEE2E2' }]}>
-            <Ionicons name="alert-circle" size={48} color="#DC2626" />
-          </View>
-          <Text style={[styles.statusTitle, { color: colors.text }]}>
-            Payment Failed
-          </Text>
-          <Text style={[styles.statusMessage, { color: colors.textSecondary }]}>
-            {errorMessage}
-          </Text>
-          <View style={styles.errorActions}>
-            <Pressable
-              accessibilityRole="button"
-              style={[styles.retryButton, { backgroundColor: BRAND.primary }]}
-              onPress={handleRetry}
-            >
-              <Text style={styles.retryButtonText}>Try Again</Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              style={[styles.cancelButton, { borderColor: colors.border }]}
-              onPress={() => router.back()}
-            >
-              <Text style={[styles.cancelButtonText, { color: colors.text }]}>
-                Go Back
-              </Text>
-            </Pressable>
-          </View>
-        </View>
-      </SafeAreaView>
+      <BNPLCheckoutStatusView
+        colors={colors}
+        gatewayName={gatewayName}
+        message={errorMessage}
+        onBack={() => router.back()}
+        onRetry={handleRetry}
+        variant="error"
+      />
     );
   }
 
@@ -629,13 +536,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   webViewLoading: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
   },
   loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -673,82 +580,5 @@ const styles = StyleSheet.create({
   amountValue: {
     fontSize: 18,
     fontWeight: '700',
-  },
-  statusContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: SPACING.xl,
-  },
-  statusIcon: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: SPACING.lg,
-  },
-  statusTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginBottom: SPACING.sm,
-    textAlign: 'center',
-  },
-  statusMessage: {
-    fontSize: 14,
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  statusLoader: {
-    marginTop: SPACING.lg,
-  },
-  errorActions: {
-    marginTop: SPACING.xl,
-    gap: SPACING.sm,
-    width: '100%',
-  },
-  retryButton: {
-    paddingVertical: SPACING.md,
-    borderRadius: RADIUS.md,
-    alignItems: 'center',
-  },
-  retryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  cancelButton: {
-    paddingVertical: SPACING.md,
-    borderRadius: RADIUS.md,
-    alignItems: 'center',
-    borderWidth: 1,
-  },
-  cancelButtonText: {
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  // 2026 Critical Fix: Styles for invalid params error state
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: SPACING.xl,
-  },
-  errorTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginTop: SPACING.lg,
-    textAlign: 'center',
-  },
-  errorMessage: {
-    fontSize: 14,
-    marginTop: SPACING.sm,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  retryText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
   },
 });

@@ -7,6 +7,7 @@ import {
   CreditCard,
   Globe,
   Loader2,
+  Truck,
   Wallet,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -30,12 +31,16 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { useMerchant } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
+import { fetchWithCsrf } from '@/lib/api-client';
+import { isBaciPaystackSettlementCountry } from '@/lib/checkout/payment-gateway-availability';
+import { formatCurrencyCompact, getCurrencyCode } from '@/lib/currency';
 import { cn } from '@/lib/utils';
 import { VirtualTerminalSettings } from './components/virtual-terminal-settings';
 
 interface PaymentGatewaySettings {
   paystack_enabled: boolean;
   korapay_enabled: boolean;
+  pay_on_delivery_enabled: boolean;
   preferred_local_gateway: 'paystack' | 'korapay';
   preferred_international_gateway: 'paystack' | 'korapay';
   // Credit Direct BNPL
@@ -45,6 +50,7 @@ interface PaymentGatewaySettings {
 const DEFAULT_SETTINGS: PaymentGatewaySettings = {
   paystack_enabled: true,
   korapay_enabled: true,
+  pay_on_delivery_enabled: false,
   preferred_local_gateway: 'paystack',
   preferred_international_gateway: 'korapay',
   // Credit Direct BNPL defaults
@@ -53,11 +59,21 @@ const DEFAULT_SETTINGS: PaymentGatewaySettings = {
 
 export default function PaymentSettingsPage() {
   const { toast } = useToast();
-  const { merchant, loading: merchantLoading } = useMerchant();
+  const { merchant, loading: merchantLoading, reloadMerchant } = useMerchant();
   const [settings, setSettings] =
     useState<PaymentGatewaySettings>(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const merchantData = merchant as unknown as Record<string, unknown> | null;
+  const countryCode =
+    typeof merchantData?.country === 'string' ? merchantData.country : null;
+  const isPaystackSupported = isBaciPaystackSettlementCountry(countryCode);
+  const hasPaystackSubaccount = !!merchantData?.paystack_subaccount_code;
+  const merchantCurrencyCode = getCurrencyCode(countryCode);
+  const platformFeeCap = isPaystackSupported
+    ? formatCurrencyCompact(2050, 'NG')
+    : null;
+  const paystackFixedFee = formatCurrencyCompact(100, 'NG');
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -68,6 +84,7 @@ export default function PaymentSettingsPage() {
           setSettings({
             paystack_enabled: data.paystack_enabled ?? true,
             korapay_enabled: data.korapay_enabled ?? true,
+            pay_on_delivery_enabled: data.pay_on_delivery_enabled ?? false,
             preferred_local_gateway: data.preferred_local_gateway || 'paystack',
             preferred_international_gateway:
               data.preferred_international_gateway || 'korapay',
@@ -87,17 +104,34 @@ export default function PaymentSettingsPage() {
 
   const handleSave = async () => {
     setSaving(true);
+    let redirectingAfterSave = false;
     try {
-      const response = await fetch('/api/merchant/features', {
+      const response = await fetchWithCsrf('/api/merchant/features', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(settings),
+        body: JSON.stringify({
+          ...settings,
+          paystack_enabled: isPaystackSupported
+            ? settings.paystack_enabled
+            : false,
+          preferred_local_gateway:
+            !isPaystackSupported &&
+            settings.preferred_local_gateway === 'paystack'
+              ? 'korapay'
+              : settings.preferred_local_gateway,
+          preferred_international_gateway:
+            !isPaystackSupported &&
+            settings.preferred_international_gateway === 'paystack'
+              ? 'korapay'
+              : settings.preferred_international_gateway,
+        }),
       });
 
       if (response.ok) {
         // Check for onboarding flow
         const params = new URLSearchParams(window.location.search);
         if (params.get('onboarding') === 'true') {
+          redirectingAfterSave = true;
           window.location.href = '/dashboard?setup_complete=payments';
           return;
         }
@@ -116,15 +150,11 @@ export default function PaymentSettingsPage() {
         description: 'Failed to save payment settings.',
       });
     } finally {
-      if (!window.location.search.includes('onboarding=true')) {
+      if (!redirectingAfterSave) {
         setSaving(false);
       }
     }
   };
-
-  // Cast merchant to access additional fields not in base type
-  const merchantData = merchant as unknown as Record<string, unknown> | null;
-  const hasPaystackSubaccount = !!merchantData?.paystack_subaccount_code;
 
   if (loading || merchantLoading) {
     return (
@@ -139,59 +169,86 @@ export default function PaymentSettingsPage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Payment Settings</h1>
         <p className="text-muted-foreground">
-          Configure payment gateways and bank settlement details
+          Configure payment gateways, delivery payments, and settlement details
         </p>
       </div>
 
       {/* Bank Details Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Building2 className="h-5 w-5" />
-            Bank Settlement Details
-          </CardTitle>
-          <CardDescription>
-            Add your bank account to receive payments directly via Paystack
-            split payments (T+1 settlement).
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {hasPaystackSubaccount ? (
-            <div className="space-y-4">
-              <div className="flex items-center gap-3 p-4 rounded-lg bg-green-50 border border-green-200 text-green-700">
-                <Check className="h-5 w-5" />
-                <div>
-                  <p className="font-medium">Bank Account Connected</p>
-                  <p className="text-sm">
-                    Paystack subaccount is configured for automatic settlements
-                  </p>
+      {isPaystackSupported ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Building2 className="h-5 w-5" />
+              Bank Settlement Details
+            </CardTitle>
+            <CardDescription>
+              Add your bank account to receive payments directly via Paystack
+              split payments (T+1 settlement).
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {hasPaystackSubaccount ? (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 p-4 rounded-lg bg-green-50 border border-green-200 text-green-700">
+                  <Check className="h-5 w-5" />
+                  <div>
+                    <p className="font-medium">Bank Account Connected</p>
+                    <p className="text-sm">
+                      Paystack subaccount is configured for automatic
+                      settlements
+                    </p>
+                  </div>
                 </div>
+                <MerchantBankForm
+                  countryCode={countryCode}
+                  initialData={{
+                    bankCode: merchantData?.bank_code as string,
+                    bankName: merchantData?.bank_name as string,
+                    accountName: merchantData?.bank_account_name as string,
+                    accountNumber: merchantData?.bank_account_number as string,
+                    businessName: merchant?.business_name,
+                  }}
+                  onSuccess={reloadMerchant}
+                />
               </div>
-              <MerchantBankForm
-                initialData={{
-                  bankCode: merchantData?.bank_code as string,
-                  accountNumber: merchantData?.bank_account_number as string,
-                  businessName: merchant?.business_name,
-                }}
-              />
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="flex items-center gap-3 p-4 rounded-lg bg-yellow-50 border border-yellow-200 text-yellow-700">
-                <AlertCircle className="h-5 w-5" />
-                <div>
-                  <p className="font-medium">Bank Account Required</p>
-                  <p className="text-sm">
-                    Add your bank details to enable Paystack payments with
-                    automatic settlement
-                  </p>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 p-4 rounded-lg bg-yellow-50 border border-yellow-200 text-yellow-700">
+                  <AlertCircle className="h-5 w-5" />
+                  <div>
+                    <p className="font-medium">Bank Account Required</p>
+                    <p className="text-sm">
+                      Add your bank details to enable Paystack payments with
+                      automatic settlement
+                    </p>
+                  </div>
                 </div>
+                <MerchantBankForm
+                  countryCode={countryCode}
+                  initialData={{
+                    businessName: merchant?.business_name,
+                  }}
+                  onSuccess={reloadMerchant}
+                />
               </div>
-              <MerchantBankForm />
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            )}
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Building2 className="h-5 w-5" />
+              Bank Settlement Unavailable
+            </CardTitle>
+            <CardDescription>
+              Baci-managed bank settlement is currently available only for
+              Nigerian Paystack merchants. Enable Pay on Delivery below for this
+              country, or request an online payment provider integration.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      )}
 
       {/* Payment Gateways Card */}
       <Card>
@@ -210,7 +267,7 @@ export default function PaymentSettingsPage() {
           <div
             className={cn(
               'p-4 rounded-lg border-2 transition-colors',
-              settings.paystack_enabled
+              isPaystackSupported && settings.paystack_enabled
                 ? 'border-green-200 bg-green-50/50 dark:bg-green-900/10 dark:border-green-800'
                 : 'border-gray-200 dark:border-gray-800'
             )}
@@ -233,23 +290,85 @@ export default function PaymentSettingsPage() {
                     <span className="text-xs bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300 px-2 py-0.5 rounded-full">
                       Auto-Split
                     </span>
+                    {isPaystackSupported && (
+                      <span className="text-xs bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300 px-2 py-0.5 rounded-full">
+                        1.5% + {paystackFixedFee}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <Switch
+                checked={isPaystackSupported && settings.paystack_enabled}
+                onCheckedChange={(checked) =>
+                  setSettings({ ...settings, paystack_enabled: checked })
+                }
+                disabled={!isPaystackSupported || !hasPaystackSubaccount}
+              />
+            </div>
+            {!isPaystackSupported && (
+              <p className="text-xs text-yellow-600 dark:text-yellow-500 mt-2">
+                Paystack is not available for this country yet. Use Pay on
+                Delivery or request another online payment provider.
+              </p>
+            )}
+            {!hasPaystackSubaccount && (
+              <p className="text-xs text-yellow-600 dark:text-yellow-500 mt-2">
+                {isPaystackSupported
+                  ? 'Add bank details above to enable Paystack'
+                  : 'Paystack setup is disabled for this country'}
+              </p>
+            )}
+          </div>
+
+          {/* Pay on Delivery */}
+          <div
+            className={cn(
+              'p-4 rounded-lg border-2 transition-colors',
+              settings.pay_on_delivery_enabled
+                ? 'border-green-200 bg-green-50/50 dark:bg-green-900/10 dark:border-green-800'
+                : 'border-gray-200 dark:border-gray-800'
+            )}
+          >
+            <div className="flex items-start justify-between">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-lg bg-[#F59E0B] flex items-center justify-center text-white">
+                  <Truck className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-semibold">Pay on Delivery</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Let customers place orders online and pay when they receive
+                    their items.
+                  </p>
+                  <div className="flex gap-2 mt-2 flex-wrap">
+                    <span className="text-xs bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 px-2 py-0.5 rounded-full">
+                      Offline Payment
+                    </span>
+                    <span className="text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 px-2 py-0.5 rounded-full">
+                      No Gateway Required
+                    </span>
                     <span className="text-xs bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300 px-2 py-0.5 rounded-full">
-                      1.5% + N100
+                      Manual Confirmation
                     </span>
                   </div>
                 </div>
               </div>
               <Switch
-                checked={settings.paystack_enabled}
+                aria-label="Toggle Pay on Delivery"
+                checked={settings.pay_on_delivery_enabled}
                 onCheckedChange={(checked) =>
-                  setSettings({ ...settings, paystack_enabled: checked })
+                  setSettings({
+                    ...settings,
+                    pay_on_delivery_enabled: checked,
+                  })
                 }
-                disabled={!hasPaystackSubaccount}
               />
             </div>
-            {!hasPaystackSubaccount && (
-              <p className="text-xs text-yellow-600 dark:text-yellow-500 mt-2">
-                Add bank details above to enable Paystack
+            {!isPaystackSupported && (
+              <p className="text-xs text-muted-foreground mt-2">
+                Recommended while Baci-managed online payment providers are not
+                configured for your country.
               </p>
             )}
           </div>
@@ -282,7 +401,7 @@ export default function PaymentSettingsPage() {
                       Multi-Currency
                     </span>
                     <span className="text-xs bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300 px-2 py-0.5 rounded-full">
-                      NGN, KES, GHS, ZAR
+                      Multi-country
                     </span>
                   </div>
                 </div>
@@ -383,7 +502,7 @@ export default function PaymentSettingsPage() {
         <CardContent className="space-y-6">
           <div className="grid md:grid-cols-2 gap-6">
             <div className="space-y-2">
-              <Label>Local Payments (NGN)</Label>
+              <Label>Local Payments ({merchantCurrencyCode})</Label>
               <Select
                 value={settings.preferred_local_gateway}
                 onValueChange={(value: 'paystack' | 'korapay') =>
@@ -396,15 +515,20 @@ export default function PaymentSettingsPage() {
                 <SelectContent>
                   <SelectItem
                     value="paystack"
-                    disabled={!hasPaystackSubaccount}
+                    disabled={!isPaystackSupported || !hasPaystackSubaccount}
                   >
-                    Paystack {!hasPaystackSubaccount && '(Add bank details)'}
+                    Paystack{' '}
+                    {!isPaystackSupported
+                      ? '(Unavailable)'
+                      : !hasPaystackSubaccount
+                        ? '(Add bank details)'
+                        : ''}
                   </SelectItem>
                   <SelectItem value="korapay">Korapay</SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                Used for Nigerian Naira (NGN) payments
+                Used for {merchantCurrencyCode} payments in your storefront
               </p>
             </div>
 
@@ -426,14 +550,19 @@ export default function PaymentSettingsPage() {
                   <SelectItem value="korapay">Korapay (Recommended)</SelectItem>
                   <SelectItem
                     value="paystack"
-                    disabled={!hasPaystackSubaccount}
+                    disabled={!isPaystackSupported || !hasPaystackSubaccount}
                   >
-                    Paystack {!hasPaystackSubaccount && '(Add bank details)'}
+                    Paystack{' '}
+                    {!isPaystackSupported
+                      ? '(Unavailable)'
+                      : !hasPaystackSubaccount
+                        ? '(Add bank details)'
+                        : ''}
                   </SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                Used for KES, GHS, ZAR, and other currencies
+                Used for cross-border and provider-supported currencies
               </p>
             </div>
           </div>
@@ -442,9 +571,16 @@ export default function PaymentSettingsPage() {
           <div className="p-4 rounded-lg bg-muted/50 border">
             <h4 className="font-medium mb-2">Platform Fee</h4>
             <p className="text-sm text-muted-foreground">
-              Baci charges <strong>2% per transaction, capped at N2,050</strong>
-              . This is automatically deducted from each payment. Gateway fees
-              (Paystack: 1.5% + N100) are separate and borne by the platform.
+              Baci charges{' '}
+              <strong>
+                {platformFeeCap
+                  ? `2% per transaction, capped at ${platformFeeCap}`
+                  : '2% per transaction'}
+              </strong>
+              . This is automatically deducted from each payment.{' '}
+              {isPaystackSupported
+                ? `Gateway fees (Paystack: 1.5% + ${paystackFixedFee}) are separate and borne by the platform.`
+                : 'Gateway fees depend on the provider configured for your country.'}
             </p>
           </div>
         </CardContent>

@@ -1,5 +1,6 @@
-import { render, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { resetKlumpSdkLoadForTests } from '@/lib/klump-sdk';
 import { BnplLauncher } from './bnpl-launcher';
 import { CHECKOUT_PENDING_ORDER_STORAGE_KEY } from './checkout/pending-checkout-order';
 
@@ -15,12 +16,8 @@ vi.mock('next/navigation', () => ({
   useSearchParams: vi.fn(() => mockSearchParams()),
 }));
 
-vi.mock('next/script', () => ({
-  default: () => null,
-}));
-
 vi.mock('@/hooks/use-merchant-client', () => ({
-  useMerchant: vi.fn(() => ({
+  useMerchantSafe: vi.fn(() => ({
     merchant: { slug: 'test-store' },
     loading: false,
   })),
@@ -46,6 +43,13 @@ describe('BnplLauncher', () => {
     vi.clearAllMocks();
     window.history.replaceState({}, '', '/checkout/bnpl');
     window.sessionStorage.clear();
+    document
+      .querySelectorAll('script[src="https://js.useklump.com/klump.js"]')
+      .forEach((script) => script.remove());
+    document
+      .querySelectorAll('#klump_checkout, #klump__checkout')
+      .forEach((element) => element.remove());
+    resetKlumpSdkLoadForTests();
     window.Klump = mockKlumpConstructor as never;
     mockSearchParams.mockReturnValue(
       new URLSearchParams({
@@ -149,9 +153,164 @@ describe('BnplLauncher', () => {
 
     await waitFor(() => {
       expect(mockPush).toHaveBeenCalledWith(
-        '/order-success?orderId=order-1&reference=ref-1&trackingToken=track-order-token'
+        '/order-success?orderId=order-1&reference=ref-1&type=credit_direct&trackingToken=track-order-token'
       );
     });
+  });
+
+  it('normalizes string order totals before signing Credit Direct checkout', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          id: 'order-1',
+          tracking_token: 'track-order-token',
+          total: '349613.00',
+          customer_email: 'customer@example.com',
+          customer_phone: '08012345678',
+          customer_name: 'John Doe',
+          items: [
+            {
+              product_id: 'product-1',
+              name: 'Capsule',
+              price: 349613,
+              quantity: 1,
+            },
+          ],
+        }),
+      })
+    );
+    mockOpenCreditDirectCheckout.mockResolvedValue(undefined);
+
+    render(<BnplLauncher />);
+
+    await waitFor(() => {
+      expect(mockOpenCreditDirectCheckout).toHaveBeenCalledWith(
+        expect.objectContaining({ amount: 349613 })
+      );
+    });
+  });
+
+  it('uses pending checkout contact details when public order data is redacted', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          id: 'order-1',
+          tracking_token: 'track-order-token',
+          total: 1000,
+          customer_email: 'cu***@example.com',
+          customer_phone: '+2**********78',
+          customer_name: 'John Doe',
+          items: [
+            {
+              product_id: 'product-1',
+              name: 'Capsule',
+              price: 1000,
+              quantity: 1,
+            },
+          ],
+        }),
+      })
+    );
+    window.sessionStorage.setItem(
+      CHECKOUT_PENDING_ORDER_STORAGE_KEY,
+      JSON.stringify({
+        orderId: 'order-1',
+        trackingToken: 'tok-123',
+        customerEmail: 'customer@example.com',
+        customerPhone: '+2348012345678',
+      })
+    );
+    mockOpenCreditDirectCheckout.mockResolvedValue(undefined);
+
+    render(<BnplLauncher />);
+
+    await waitFor(() => {
+      expect(mockOpenCreditDirectCheckout).toHaveBeenCalledWith(
+        expect.objectContaining({
+          customerEmail: 'customer@example.com',
+          customerPhone: '+2348012345678',
+        })
+      );
+    });
+  });
+
+  it('rejects invalid Credit Direct order totals before opening checkout', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          id: 'order-1',
+          tracking_token: 'track-order-token',
+          total: 'not-a-number',
+          customer_email: 'customer@example.com',
+          customer_phone: '08012345678',
+          customer_name: 'John Doe',
+          items: [
+            {
+              product_id: 'product-1',
+              name: 'Capsule',
+              price: 1000,
+              quantity: 1,
+            },
+          ],
+        }),
+      })
+    );
+
+    render(<BnplLauncher />);
+
+    expect(
+      await screen.findByText('Invalid order total for Credit Direct checkout.')
+    ).toBeInTheDocument();
+    expect(mockOpenCreditDirectCheckout).not.toHaveBeenCalled();
+  });
+
+  it('stores Credit Direct popup transaction ids with the public tracking token', async () => {
+    mockOpenCreditDirectCheckout.mockImplementation(({ onPopup }) => {
+      onPopup('cd-popup-transaction-1');
+      return Promise.resolve();
+    });
+
+    render(<BnplLauncher />);
+
+    await waitFor(() => {
+      expect(mockApiPost).toHaveBeenCalledWith(
+        '/api/orders/update-payment-ref',
+        {
+          gateway: 'credit_direct',
+          orderId: 'order-1',
+          paymentRef: 'cd-popup-transaction-1',
+          tracking_token: 'track-order-token',
+        }
+      );
+    });
+  });
+
+  it('logs and continues when Credit Direct popup reference persistence fails', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mockApiPost.mockRejectedValueOnce(new Error('Update failed'));
+    mockOpenCreditDirectCheckout.mockImplementation(({ onPopup }) => {
+      onPopup('cd-popup-transaction-1');
+      return Promise.resolve();
+    });
+
+    try {
+      render(<BnplLauncher />);
+
+      await waitFor(() => {
+        expect(errorSpy).toHaveBeenCalledWith(
+          'Failed to persist Credit Direct popup reference:',
+          'Update failed'
+        );
+      });
+    } finally {
+      errorSpy.mockRestore();
+    }
   });
 
   it('preserves trackingToken when redirecting after CredPal success', async () => {
@@ -172,7 +331,7 @@ describe('BnplLauncher', () => {
 
     await waitFor(() => {
       expect(mockPush).toHaveBeenCalledWith(
-        '/order-success?orderId=order-1&reference=credpal-ref-1&trackingToken=track-order-token'
+        '/order-success?orderId=order-1&reference=credpal-ref-1&type=credpal&trackingToken=track-order-token'
       );
     });
   });
@@ -188,28 +347,206 @@ describe('BnplLauncher', () => {
       })
     );
     vi.stubEnv('NEXT_PUBLIC_KLUMP_PUBLIC_KEY', 'klp_pk_test_123');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          id: 'order-1',
+          tracking_token: 'track-order-token',
+          shipping_cost: 2726,
+          total: 58088.5,
+          customer_email: 'cu***@example.com',
+          customer_phone: '+2**********78',
+          customer_name: 'John Doe',
+          items: [
+            {
+              product_id: 'product-1',
+              name: 'Capsule',
+              price: 51500,
+              quantity: 1,
+            },
+          ],
+        }),
+      })
+    );
+    window.sessionStorage.setItem(
+      CHECKOUT_PENDING_ORDER_STORAGE_KEY,
+      JSON.stringify({
+        orderId: 'order-1',
+        trackingToken: 'tok-123',
+        customerEmail: 'customer@example.com',
+        customerPhone: '+234 0801 234 5678',
+      })
+    );
 
     render(<BnplLauncher />);
 
     await waitFor(() => {
       expect(mockKlumpConstructor).toHaveBeenCalled();
     });
+    expect(document.getElementById('klump__checkout')).toBeInTheDocument();
 
     const config = mockKlumpConstructor.mock.calls[0][0] as {
       data: {
+        amount: number;
+        email: string;
+        items: Array<{
+          name: string;
+          quantity: number;
+          unit_price: number;
+        }>;
         merchant_reference: string;
+        phone: string;
         redirect_url: string;
       };
+      onClose?: () => void;
+      onLoad?: () => void;
+      onSuccess?: () => void;
       publicKey: string;
     };
 
     expect(config.publicKey).toBe('klp_pk_test_123');
+    expect(config.onLoad).toEqual(expect.any(Function));
+    expect(config.onSuccess).toEqual(expect.any(Function));
+    expect(config.data.amount).toBe(58088.5);
+    expect(config.data.email).toBe('customer@example.com');
+    expect(config.data.items).toEqual([
+      { name: 'Capsule', quantity: 1, unit_price: 51500 },
+      { name: 'Delivery', quantity: 1, unit_price: 2726 },
+      { name: 'Taxes and fees', quantity: 1, unit_price: 3862.5 },
+    ]);
     expect(config.data.merchant_reference).toBe('BAC-ABCD12345678');
+    expect(config.data.phone).toBe('08012345678');
     expect(config.data.redirect_url).toContain('/checkout/bnpl?');
     expect(config.data.redirect_url).not.toContain('/test-store/checkout/bnpl?');
     expect(config.data.redirect_url).toContain('gateway=klump');
     expect(config.data.redirect_url).toContain('klump_callback=1');
     expect(config.data.redirect_url).toContain('reference=BAC-ABCD12345678');
+    expect(config.data.redirect_url).toContain('type=klump');
+
+    const klumpCheckoutFrame = document.createElement('iframe');
+    klumpCheckoutFrame.id = 'klump_checkout';
+    document.body.appendChild(klumpCheckoutFrame);
+    config.onClose?.();
+    await waitFor(() => {
+      expect(
+        screen.queryByText('Payment cancelled. Please try again.')
+      ).not.toBeInTheDocument();
+    });
+  });
+
+  it('uses the Klump global binding when the SDK does not attach itself to window', async () => {
+    mockSearchParams.mockReturnValue(
+      new URLSearchParams({
+        orderId: 'order-1',
+        gateway: 'klump',
+        merchant_slug: 'test-store',
+        reference: 'BAC-ABCD12345678',
+        trackingToken: 'tok-123',
+      })
+    );
+    vi.stubEnv('NEXT_PUBLIC_KLUMP_PUBLIC_KEY', 'klp_pk_test_123');
+    window.Klump = undefined;
+    vi.stubGlobal('Klump', mockKlumpConstructor);
+
+    render(<BnplLauncher />);
+
+    await waitFor(() => {
+      expect(mockKlumpConstructor).toHaveBeenCalled();
+    });
+  });
+
+  it('shows an error when the Klump SDK script fails to load', async () => {
+    mockSearchParams.mockReturnValue(
+      new URLSearchParams({
+        orderId: 'order-1',
+        gateway: 'klump',
+        merchant_slug: 'test-store',
+        reference: 'BAC-ABCD12345678',
+        trackingToken: 'tok-123',
+      })
+    );
+    vi.stubEnv('NEXT_PUBLIC_KLUMP_PUBLIC_KEY', 'klp_pk_test_123');
+    vi.stubGlobal('Klump', undefined);
+    window.Klump = undefined;
+
+    const originalAppendChild = document.head.appendChild.bind(document.head);
+    const appendSpy = vi
+      .spyOn(document.head, 'appendChild')
+      .mockImplementation(<T extends Node>(node: T): T => {
+        const result = originalAppendChild(node);
+        if (
+          node instanceof HTMLScriptElement &&
+          node.src === 'https://js.useklump.com/klump.js'
+        ) {
+          queueMicrotask(() => node.dispatchEvent(new Event('error')));
+        }
+        return result;
+      });
+
+    try {
+      render(<BnplLauncher />);
+
+      expect(
+        await screen.findByRole('heading', { name: 'Something went wrong' })
+      ).toBeInTheDocument();
+      expect(
+        await screen.findByText('Failed to load Klump script')
+      ).toBeInTheDocument();
+      expect(appendSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          src: 'https://js.useklump.com/klump.js',
+        })
+      );
+    } finally {
+      appendSpy.mockRestore();
+    }
+  });
+
+  it('loads the Klump SDK script when no constructor is available yet', async () => {
+    mockSearchParams.mockReturnValue(
+      new URLSearchParams({
+        orderId: 'order-1',
+        gateway: 'klump',
+        merchant_slug: 'test-store',
+        reference: 'BAC-ABCD12345678',
+        trackingToken: 'tok-123',
+      })
+    );
+    vi.stubEnv('NEXT_PUBLIC_KLUMP_PUBLIC_KEY', 'klp_pk_test_123');
+    vi.stubGlobal('Klump', undefined);
+    window.Klump = undefined;
+
+    const originalAppendChild = document.head.appendChild.bind(document.head);
+    const appendSpy = vi
+      .spyOn(document.head, 'appendChild')
+      .mockImplementation(<T extends Node>(node: T): T => {
+        const result = originalAppendChild(node);
+        if (
+          node instanceof HTMLScriptElement &&
+          node.src === 'https://js.useklump.com/klump.js'
+        ) {
+          window.Klump = mockKlumpConstructor as never;
+          node.dispatchEvent(new Event('load'));
+        }
+        return result;
+      });
+
+    try {
+      render(<BnplLauncher />);
+
+      await waitFor(() => {
+        expect(mockKlumpConstructor).toHaveBeenCalled();
+      });
+      expect(appendSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          src: 'https://js.useklump.com/klump.js',
+        })
+      );
+    } finally {
+      appendSpy.mockRestore();
+    }
   });
 
   it('records Klump callback transaction ids before redirecting to success', async () => {
@@ -236,7 +573,7 @@ describe('BnplLauncher', () => {
     });
 
     expect(mockPush).toHaveBeenCalledWith(
-      '/order-success?orderId=order-1&reference=BAC-ABCD12345678&trackingToken=tok-123'
+      '/order-success?orderId=order-1&reference=BAC-ABCD12345678&type=klump&trackingToken=tok-123'
     );
   });
 

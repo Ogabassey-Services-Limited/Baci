@@ -1,8 +1,35 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeAiStorefrontLayout } from '@/lib/ai-storefront/normalize-ai-storefront-layout';
-import { aiStorefrontLayoutSchema } from '@/schemas/ai-storefront-layout';
+import {
+  getAiStorefrontDesignRationale,
+  normalizeAiStorefrontLayout,
+} from '@/lib/ai-storefront/normalize-ai-storefront-layout';
+import {
+  aiStorefrontComponentSchema,
+  aiStorefrontLayoutSchema,
+} from '@/schemas/ai-storefront-layout';
+import { builderConfigSchema } from '@/schemas/builder';
 
 describe('normalizeAiStorefrontLayout', () => {
+  it('reads and trims the AI design rationale', () => {
+    expect(
+      getAiStorefrontDesignRationale({
+        designRationale: '  Clean retail structure  ',
+      })
+    ).toBe('Clean retail structure');
+  });
+
+  it('truncates long AI design rationales', () => {
+    expect(
+      getAiStorefrontDesignRationale({ designRationale: 'a'.repeat(510) })
+    ).toHaveLength(500);
+  });
+
+  it('returns null for missing or invalid AI design rationales', () => {
+    expect(getAiStorefrontDesignRationale({})).toBeNull();
+    expect(getAiStorefrontDesignRationale({ designRationale: 123 })).toBeNull();
+    expect(getAiStorefrontDesignRationale(undefined)).toBeNull();
+  });
+
   it('adds required commerce sections when the model omits them', () => {
     const config = normalizeAiStorefrontLayout({
       businessName: 'Bassey Phones',
@@ -171,5 +198,120 @@ describe('normalizeAiStorefrontLayout', () => {
     });
 
     expect(config.theme).toEqual(starterTheme);
+  });
+
+  it('coerces Gemma-shaped section props into strict renderer-safe props', () => {
+    const config = normalizeAiStorefrontLayout({
+      businessName: 'Codex Gadgets',
+      layout: {
+        theme: {
+          primary: '#047857',
+          accent: '#2563eb',
+          background: 'white',
+        },
+        sections: [
+          {
+            type: 'Header',
+            props: {
+              logo: 'Codex Gadgets',
+              navigation: [
+                { label: 'Home', url: '/' },
+                { label: 'Shop', url: '/products' },
+              ],
+              cta_button: { text: 'Shop now', url: '/products' },
+            },
+          },
+          {
+            type: 'Hero',
+            props: {
+              title: 'Blue and green tech essentials',
+              subtitle: 'Reliable electronics picked for everyday work.',
+              cta_button: { text: 'Browse products', url: '/products' },
+              background_color: '#f0fdfa',
+            },
+          },
+          {
+            type: 'ProductGrid',
+            props: {
+              title: 'Featured products',
+              products: [],
+            },
+          },
+          {
+            type: 'TrustBadges',
+            props: {
+              badges: [
+                'Fast Lagos delivery',
+                'Secure checkout',
+                'Warranty support',
+              ],
+            },
+          },
+          {
+            type: 'Newsletter',
+            props: {
+              title: 'Get restock alerts',
+              input_field: 'Email address',
+              cta_button: 'Subscribe',
+            },
+          },
+          {
+            type: 'Footer',
+            props: {
+              business_name: 'Codex Gadgets',
+              links: [{ label: 'Contact', url: '/contact' }],
+              copyright: '(c) 2026 Codex Gadgets',
+            },
+          },
+        ],
+      } as never,
+      starterConfig: {
+        content: [],
+        root: { title: 'Home' },
+        zones: {},
+        theme: { colors: { background: '#ffffff' } },
+      },
+    });
+
+    expect(builderConfigSchema.safeParse(config).success).toBe(true);
+    expect(
+      config.content.map((section) =>
+        aiStorefrontComponentSchema.safeParse(section)
+      )
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ success: true }),
+        expect.objectContaining({ success: true }),
+      ])
+    );
+    expect(
+      config.content.every(
+        (section) => aiStorefrontComponentSchema.safeParse(section).success
+      )
+    ).toBe(true);
+    expect(config.theme).toEqual(
+      expect.objectContaining({
+        colors: {
+          primary: '#047857',
+          accent: '#2563eb',
+          background: '#ffffff',
+        },
+      })
+    );
+    expect(
+      config.content.find((section) => section.type === 'Header')?.props
+    ).not.toHaveProperty('logo');
+    expect(
+      config.content.find((section) => section.type === 'TrustBadges')?.props
+    ).toEqual(
+      expect.objectContaining({
+        badges: expect.arrayContaining([
+          expect.objectContaining({
+            title: 'Fast Lagos delivery',
+            icon: 'check',
+          }),
+        ]),
+      })
+    );
   });
 });

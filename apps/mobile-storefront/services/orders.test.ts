@@ -34,7 +34,7 @@ const mockFetchJson = jest.fn<() => Promise<MockCreateOrderApiResponse>>();
 type MockFetchResponse = {
   ok: boolean;
   status: number;
-  json: typeof mockFetchJson;
+  json: () => Promise<unknown>;
 };
 
 type MockFetchOptions = {
@@ -208,6 +208,8 @@ async function createOrderWithItems(items: TestOrderItem[]) {
 describe('createOrder — variant_attributes', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockFetchResponse.ok = true;
+    mockFetchResponse.status = 200;
     mockFetchJson.mockResolvedValue({
       order: {
         id: 'order-1',
@@ -448,6 +450,40 @@ describe('createOrder — variant_attributes', () => {
     expect(body.payment_method).toBe('pay_on_delivery');
   });
 
+  it('uses a caller-provided idempotency key header without serializing it into the order body', async () => {
+    const { createOrder } = require('./orders');
+
+    await createOrder({
+      customer_email: 'buyer@example.com',
+      customer_name: 'Buyer User',
+      customer_phone: '+2348012345678',
+      idempotency_key: 'mobile-bnpl-key-1',
+      items: [
+        {
+          id: 'prod-bnpl-1',
+          name: 'BNPL Phone',
+          quantity: 1,
+          price: 120000,
+        },
+      ],
+      payment_method: 'credit_direct',
+      shipping_address: {
+        address: '123 St',
+        city: 'Lagos',
+        firstName: 'Buyer',
+        lastName: 'User',
+        state: 'Lagos',
+      },
+      shipping_fee: 2000,
+      subtotal: 120000,
+    });
+
+    expect(getLastFetchOptions().headers?.['Idempotency-Key']).toBe(
+      'mobile-bnpl-key-1'
+    );
+    expect(getLastFetchBody()).not.toHaveProperty('idempotency_key');
+  });
+
   it('includes the selected shipping quote metadata in the API payload', async () => {
     const { createOrder } = require('./orders');
 
@@ -507,6 +543,150 @@ describe('createOrder — variant_attributes', () => {
     expect(retryOptions?.maxRetries).toBe(0);
   });
 
+  it('surfaces known server validation details instead of the generic create-order error', async () => {
+    const { createOrder } = require('./orders');
+
+    mockFetchWithRetry.mockResolvedValueOnce({
+      ok: false,
+      status: 400,
+      json: jest.fn(() =>
+        Promise.resolve({
+          details: 'insufficient_stock',
+          error: 'Failed to create order',
+        })
+      ),
+    });
+
+    await expect(
+      createOrder({
+        customer_email: 'test@example.com',
+        customer_name: 'Test User',
+        customer_phone: '+2348012345678',
+        items: [{ id: 'prod-1', name: 'Product', quantity: 1, price: 5000 }],
+        subtotal: 5000,
+        shipping_fee: 500,
+        payment_method: 'credit_direct',
+        shipping_address: {
+          firstName: 'Test',
+          lastName: 'User',
+          address: '123 St',
+          city: 'Lagos',
+          state: 'Lagos',
+        },
+      })
+    ).rejects.toMatchObject({
+      code: 'VALIDATION_ERROR',
+      details: 'insufficient_stock',
+      message:
+        'This item is no longer available in the selected quantity. Please update your cart and try again.',
+    });
+  });
+
+  it.each([
+    {
+      details: 'insufficient_variant_stock',
+      message:
+        'This item is no longer available in the selected option. Please update your cart and try again.',
+    },
+    {
+      details: 'shipping_quote_required',
+      message:
+        'Delivery pricing changed. Please return to delivery and select a shipping option again.',
+    },
+    {
+      details: 'order_total_mismatch',
+      message:
+        'Your cart total changed. Please review your order and try again.',
+    },
+  ])('maps server validation detail $details', async ({ details, message }) => {
+    const { createOrder } = require('./orders');
+
+    mockFetchWithRetry.mockResolvedValueOnce({
+      ok: false,
+      status: 400,
+      json: jest.fn(() =>
+        Promise.resolve({
+          details,
+          error: 'Failed to create order',
+        })
+      ),
+    });
+
+    await expect(
+      createOrder({
+        customer_email: 'test@example.com',
+        customer_name: 'Test User',
+        customer_phone: '+2348012345678',
+        items: [{ id: 'prod-1', name: 'Product', quantity: 1, price: 5000 }],
+        subtotal: 5000,
+        shipping_fee: 500,
+        payment_method: 'credit_direct',
+        shipping_address: {
+          firstName: 'Test',
+          lastName: 'User',
+          address: '123 St',
+          city: 'Lagos',
+          state: 'Lagos',
+        },
+      })
+    ).rejects.toMatchObject({
+      code: 'VALIDATION_ERROR',
+      details,
+      message,
+    });
+  });
+
+  it.each([
+    ['CHECKOUT_ORDER_NOT_REUSABLE', 'CHECKOUT_ORDER_NOT_REUSABLE'],
+    ['order_not_reusable', 'CHECKOUT_ORDER_NOT_REUSABLE'],
+    ['checkout_idempotency_conflict', 'CHECKOUT_IDEMPOTENCY_CONFLICT'],
+  ])(
+    'normalizes checkout conflict code %s from the API',
+    async (apiCode, expectedCode) => {
+      const { createOrder } = require('./orders');
+
+      mockFetchResponse.ok = false;
+      mockFetchResponse.status = 409;
+      mockFetchJson.mockResolvedValueOnce({
+        code: apiCode,
+        error:
+          'This checkout order can no longer be reused. Refresh checkout and start a new order.',
+      } as never);
+
+      await expect(
+        createOrder({
+          customer_email: 'buyer@example.com',
+          customer_name: 'Buyer User',
+          customer_phone: '+2348012345678',
+          idempotency_key: 'mobile-bnpl-key-1',
+          items: [
+            {
+              id: 'prod-bnpl-1',
+              name: 'BNPL Phone',
+              quantity: 1,
+              price: 120000,
+            },
+          ],
+          payment_method: 'credit_direct',
+          shipping_address: {
+            address: '123 St',
+            city: 'Lagos',
+            firstName: 'Buyer',
+            lastName: 'User',
+            state: 'Lagos',
+          },
+          shipping_fee: 2000,
+          subtotal: 120000,
+        })
+      ).rejects.toMatchObject({
+        code: expectedCode,
+        details: expect.objectContaining({
+          code: expectedCode,
+        }),
+      });
+    }
+  );
+
   it('forwards use_wallet_credit and wallet_amount when both are provided', async () => {
     // Regression: PR A wires the storefront wallet payment-method into checkout.
     // The createOrder service layer must thread these fields through to the API,
@@ -542,6 +722,70 @@ describe('createOrder — variant_attributes', () => {
     const body = getLastFetchBody();
     expect(body.use_wallet_credit).toBe(true);
     expect(body.wallet_amount).toBe(500);
+  });
+
+  it('forwards complete savings credit fields', async () => {
+    const { createOrder } = require('./orders');
+
+    await createOrder({
+      customer_email: 'test@example.com',
+      customer_name: 'Test User',
+      customer_phone: '+2348012345678',
+      items: [
+        {
+          id: 'prod-1',
+          name: 'MacBook Air M1',
+          quantity: 1,
+          price: 720000,
+        },
+      ],
+      payment_method: 'paystack',
+      savings_amount: 500,
+      savings_goal_id: ' 123e4567-e89b-12d3-a456-426614174555 ',
+      shipping_address: {
+        firstName: 'Test',
+        lastName: 'User',
+        address: '123 St',
+        city: 'Lagos',
+        state: 'Lagos',
+      },
+      shipping_fee: 2000,
+      subtotal: 720000,
+      use_savings_credit: true,
+    });
+
+    const body = getLastFetchBody();
+    expect(body.use_savings_credit).toBe(true);
+    expect(body.savings_goal_id).toBe('123e4567-e89b-12d3-a456-426614174555');
+    expect(body.savings_amount).toBe(500);
+  });
+
+  it('strips savings fields when the savings selection is incomplete', async () => {
+    const { createOrder } = require('./orders');
+
+    await createOrder({
+      customer_email: 'test@example.com',
+      customer_name: 'Test User',
+      customer_phone: '+2348012345678',
+      items: [{ id: 'prod-1', name: 'Product', quantity: 1, price: 5000 }],
+      payment_method: 'paystack',
+      savings_amount: 500,
+      shipping_address: {
+        firstName: 'Test',
+        lastName: 'User',
+        address: '123 St',
+        city: 'Lagos',
+        state: 'Lagos',
+      },
+      shipping_fee: 500,
+      subtotal: 5000,
+      use_savings_credit: true,
+    });
+
+    const body = getLastFetchBody();
+    expect(body).not.toHaveProperty('use_savings_credit');
+    expect(body).not.toHaveProperty('savings_goal_id');
+    expect(body).not.toHaveProperty('savings_amount');
   });
 
   it('omits wallet fields entirely when neither is provided (back-compat)', async () => {
@@ -644,6 +888,58 @@ describe('createOrder — variant_attributes', () => {
           city: 'Lagos',
           state: 'Lagos',
         },
+      })
+    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+  });
+
+  it('rejects negative savings_amount at the schema boundary', async () => {
+    const { createOrder } = require('./orders');
+
+    await expect(
+      createOrder({
+        customer_email: 'test@example.com',
+        customer_name: 'Test User',
+        customer_phone: '+2348012345678',
+        items: [{ id: 'prod-1', name: 'Product', quantity: 1, price: 5000 }],
+        payment_method: 'paystack',
+        savings_amount: -100,
+        savings_goal_id: '123e4567-e89b-12d3-a456-426614174555',
+        shipping_address: {
+          firstName: 'Test',
+          lastName: 'User',
+          address: '123 St',
+          city: 'Lagos',
+          state: 'Lagos',
+        },
+        shipping_fee: 500,
+        subtotal: 5000,
+        use_savings_credit: true,
+      })
+    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+  });
+
+  it('rejects savings_amount above the mobile safety cap', async () => {
+    const { createOrder } = require('./orders');
+
+    await expect(
+      createOrder({
+        customer_email: 'test@example.com',
+        customer_name: 'Test User',
+        customer_phone: '+2348012345678',
+        items: [{ id: 'prod-1', name: 'Product', quantity: 1, price: 5000 }],
+        payment_method: 'paystack',
+        savings_amount: 10_000_001,
+        savings_goal_id: '123e4567-e89b-12d3-a456-426614174555',
+        shipping_address: {
+          firstName: 'Test',
+          lastName: 'User',
+          address: '123 St',
+          city: 'Lagos',
+          state: 'Lagos',
+        },
+        shipping_fee: 500,
+        subtotal: 5000,
+        use_savings_credit: true,
       })
     ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
   });

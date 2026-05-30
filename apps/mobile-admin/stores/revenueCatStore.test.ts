@@ -1,3 +1,4 @@
+import type { PurchasesPackage } from 'react-native-purchases';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockPurchases = vi.hoisted(() => ({
@@ -8,6 +9,21 @@ const mockPurchases = vi.hoisted(() => ({
   purchasePackage: vi.fn(),
   restorePurchases: vi.fn(),
 }));
+
+function mockNativeRuntime({ isDevice }: { isDevice: boolean }) {
+  vi.doMock('react-native-purchases', () => ({
+    default: mockPurchases,
+  }));
+  vi.doMock('expo-device', () => ({
+    isDevice,
+  }));
+  vi.doMock('@/config/runtime-platform', () => ({
+    getRuntimePlatform: () => 'android',
+    isRuntimePlatform: (platform: string) => platform === 'android',
+    selectRuntimePlatform: <T>(options: { android?: T; default?: T }) =>
+      options.android ?? options.default,
+  }));
+}
 
 describe('useRevenueCatStore', () => {
   beforeEach(() => {
@@ -23,19 +39,7 @@ describe('useRevenueCatStore', () => {
   });
 
   it('skips native purchases initialization on development emulators', async () => {
-    vi.doMock('react-native-purchases', () => ({
-      default: mockPurchases,
-    }));
-    vi.doMock('expo-device', () => ({
-      isDevice: false,
-    }));
-    vi.doMock('@/config/runtime-platform', () => ({
-      getRuntimePlatform: () => 'android',
-      isRuntimePlatform: (platform: string) => platform === 'android',
-      selectRuntimePlatform: <T>(options: { android?: T; default?: T }) =>
-        options.android ?? options.default,
-    }));
-
+    mockNativeRuntime({ isDevice: false });
     const { useRevenueCatStore } = await import('@/stores/revenueCatStore');
 
     await useRevenueCatStore.getState().initialize();
@@ -56,18 +60,7 @@ describe('useRevenueCatStore', () => {
     });
     mockPurchases.getOfferings.mockResolvedValue({ current: null });
     mockPurchases.addCustomerInfoUpdateListener.mockReturnValue(vi.fn());
-    vi.doMock('react-native-purchases', () => ({
-      default: mockPurchases,
-    }));
-    vi.doMock('expo-device', () => ({
-      isDevice: true,
-    }));
-    vi.doMock('@/config/runtime-platform', () => ({
-      getRuntimePlatform: () => 'android',
-      isRuntimePlatform: (platform: string) => platform === 'android',
-      selectRuntimePlatform: <T>(options: { android?: T; default?: T }) =>
-        options.android ?? options.default,
-    }));
+    mockNativeRuntime({ isDevice: true });
 
     const { useRevenueCatStore } = await import('@/stores/revenueCatStore');
 
@@ -79,5 +72,58 @@ describe('useRevenueCatStore', () => {
     expect(mockPurchases.getCustomerInfo).toHaveBeenCalledTimes(1);
     expect(mockPurchases.getOfferings).toHaveBeenCalledTimes(1);
     expect(useRevenueCatStore.getState().isInitialized).toBe(true);
+  });
+
+  it('returns cancelled purchase status without store errors when user cancels', async () => {
+    mockPurchases.getCustomerInfo.mockResolvedValue({
+      entitlements: { active: {} },
+    });
+    mockPurchases.getOfferings.mockResolvedValue({ current: null });
+    mockPurchases.addCustomerInfoUpdateListener.mockReturnValue(vi.fn());
+    mockPurchases.purchasePackage.mockRejectedValue({
+      message: 'Cancelled by user',
+      userCancelled: true,
+    });
+    mockNativeRuntime({ isDevice: true });
+
+    const { useRevenueCatStore } = await import('@/stores/revenueCatStore');
+    await useRevenueCatStore.getState().initialize();
+
+    const purchasePackage = {
+      product: { identifier: 'pro_monthly' },
+    } as unknown as PurchasesPackage;
+    const result = await useRevenueCatStore.getState().purchasePackage(purchasePackage);
+
+    expect(result).toEqual({ status: 'cancelled' });
+    expect(useRevenueCatStore.getState().error).toBeNull();
+    expect(useRevenueCatStore.getState().isLoading).toBe(false);
+  });
+
+  it('returns error purchase status and sets store error on non-cancelled failures', async () => {
+    mockPurchases.getCustomerInfo.mockResolvedValue({
+      entitlements: { active: {} },
+    });
+    mockPurchases.getOfferings.mockResolvedValue({ current: null });
+    mockPurchases.addCustomerInfoUpdateListener.mockReturnValue(vi.fn());
+    mockPurchases.purchasePackage.mockRejectedValue({
+      message: 'Purchase failed',
+      userCancelled: false,
+    });
+    mockNativeRuntime({ isDevice: true });
+
+    const { useRevenueCatStore } = await import('@/stores/revenueCatStore');
+    await useRevenueCatStore.getState().initialize();
+
+    const purchasePackage = {
+      product: { identifier: 'pro_monthly' },
+    } as unknown as PurchasesPackage;
+    const result = await useRevenueCatStore.getState().purchasePackage(purchasePackage);
+
+    expect(result).toEqual({
+      error: 'Purchase failed',
+      status: 'error',
+    });
+    expect(useRevenueCatStore.getState().error).toBe('Purchase failed');
+    expect(useRevenueCatStore.getState().isLoading).toBe(false);
   });
 });

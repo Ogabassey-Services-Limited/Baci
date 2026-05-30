@@ -74,7 +74,6 @@ export function getShippingProviderForMethod(
   deliveryMethod: DeliveryMethod,
   selectedQuote: ShippingQuote | undefined
 ): string | undefined {
-  if (deliveryMethod === 'airport') return 'Airport Delivery';
-  if (deliveryMethod === 'pickup_station') return 'Pick Up Station';
+  if (deliveryMethod !== 'door') return undefined;
   return selectedQuote?.provider || selectedQuote?.carrierName;
 }

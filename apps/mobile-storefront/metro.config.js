@@ -21,7 +21,11 @@ const config = getDefaultConfig(projectRoot);
 const { resolver } = config;
 
 function resolvePackageRoot(packageName) {
-  const projectPackageRoot = path.resolve(projectRoot, 'node_modules', packageName);
+  const projectPackageRoot = path.resolve(
+    projectRoot,
+    'node_modules',
+    packageName
+  );
 
   try {
     require.resolve(path.join(projectPackageRoot, 'package.json'));
@@ -36,12 +40,22 @@ const reactDomPackageRoot = resolvePackageRoot('react-dom');
 const reactNativePackageRoot = resolvePackageRoot('react-native');
 const expoPackageRoot = resolvePackageRoot('expo');
 const expoRouterPackageRoot = resolvePackageRoot('expo-router');
-const gestureHandlerPackageRoot = resolvePackageRoot('react-native-gesture-handler');
+const gestureHandlerPackageRoot = resolvePackageRoot(
+  'react-native-gesture-handler'
+);
 const reanimatedPackageRoot = resolvePackageRoot('react-native-reanimated');
 const screensPackageRoot = resolvePackageRoot('react-native-screens');
-const safeAreaContextPackageRoot = resolvePackageRoot('react-native-safe-area-context');
+const safeAreaContextPackageRoot = resolvePackageRoot(
+  'react-native-safe-area-context'
+);
+const zustandMiddlewarePath = require.resolve('zustand/middleware');
 
-config.watchFolders = [workspaceRoot];
+config.watchFolders = [
+  projectRoot,
+  path.resolve(workspaceRoot, 'node_modules'),
+  path.resolve(workspaceRoot, 'packages/shared'),
+  path.resolve(workspaceRoot, 'packages/tiktok-business'),
+];
 config.resolver = {
   ...resolver,
   nodeModulesPaths: [
@@ -61,15 +75,30 @@ config.resolver = {
     'react-native-screens': screensPackageRoot,
     'react-native-safe-area-context': safeAreaContextPackageRoot,
   },
-  // Critical for PNPM monorepos to resolve symlinked packages
-  unstable_enableSymlinks: true,
   // 2026: Enable package exports so shared-package subpath imports resolve the
   // same way in Metro as they do in the rest of the monorepo.
   unstable_enablePackageExports: true,
-  // Block test files and Node.js-only modules from being bundled by Metro.
-  // This prevents Hermes runtime errors when build tool dependencies pull in
-  // modules that use import.meta syntax (which is Node.js-only).
+  resolveRequest: (context, moduleName, platform) => {
+    // Expo web serves a classic script, while Zustand's ESM middleware contains import.meta.
+    if (platform === 'web' && moduleName === 'zustand/middleware') {
+      return {
+        filePath: zustandMiddlewarePath,
+        type: 'sourceFile',
+      };
+    }
+
+    return context.resolveRequest(context, moduleName, platform);
+  },
   blockList: [
+    // Ignore massive directories to prevent "RangeError: Map maximum size exceeded"
+    /[\\/]\.git[\\/]/,
+    /[\\/]\.pnpm-store[\\/]/,
+    /[\\/]\.next[\\/]/,
+    /[\\/]\.Derived[\\/]/,
+    /[\\/]\.gemini[\\/]/,
+    /[\\/]\.agent[\\/]/,
+    /[\\/]apps[\\/]web[\\/]node_modules[\\/]/,
+
     // Test files should not be bundled
     /\.test\.tsx?$/,
     /\.spec\.tsx?$/,

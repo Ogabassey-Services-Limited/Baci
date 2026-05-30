@@ -5,9 +5,26 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 
 const mockBuildMerchantTrustProfile = vi.fn();
+const { mockConnection, mockStorefrontDynamicMetadataMarker } = vi.hoisted(
+  () => ({
+    mockConnection: vi.fn(),
+    mockStorefrontDynamicMetadataMarker: vi.fn(),
+  })
+);
 
 vi.mock('@/lib/cached-data', () => ({
   getMerchantByIdentifier: vi.fn(),
+}));
+
+vi.mock('next/server', () => ({
+  connection: () => mockConnection(),
+}));
+
+vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
+  StorefrontDynamicMetadataMarker: () => {
+    mockStorefrontDynamicMetadataMarker();
+    return <div aria-label="dynamic metadata marker" role="status" />;
+  },
 }));
 
 vi.mock('next/headers', () => ({
@@ -50,11 +67,8 @@ vi.mock('next/navigation', () => ({
   notFound: () => notFound(),
 }));
 
-const {
-  default: AboutPage,
-  AboutJsonLd,
-  generateMetadata,
-} = await import('./page');
+const { default: AboutPage, generateMetadata } = await import('./page');
+const { AboutJsonLd } = await import('./about-json-ld');
 const mockedGenerateAboutPageJsonLd = vi.mocked(
   (await import('@/types/about-page')).generateAboutPageJsonLd
 );
@@ -64,6 +78,7 @@ describe('AboutPage', () => {
     vi.mocked(getMerchantByIdentifier).mockReset();
     notFound.mockClear();
     mockBuildMerchantTrustProfile.mockReset();
+    mockStorefrontDynamicMetadataMarker.mockReset();
   });
 
   it('does not emit a duplicate wrapper h1 while content is suspended', () => {
@@ -172,6 +187,7 @@ describe('generateMetadata', () => {
     vi.mocked(getMerchantByIdentifier).mockReset();
     vi.mocked(headers).mockResolvedValue(new Headers());
     notFound.mockClear();
+    mockConnection.mockReset();
   });
 
   it('calls notFound when merchant is missing', async () => {
@@ -180,6 +196,20 @@ describe('generateMetadata', () => {
     await expect(
       generateMetadata({ params: Promise.resolve({ slug: 'missing' }) })
     ).rejects.toThrow('NEXT_NOT_FOUND');
+  });
+
+  it('marks about metadata as request-time rendered', async () => {
+    vi.mocked(getMerchantByIdentifier).mockResolvedValue({
+      business_name: 'Test Store',
+      about_page: {},
+      pages: {},
+    } as unknown as Awaited<ReturnType<typeof getMerchantByIdentifier>>);
+
+    await generateMetadata({
+      params: Promise.resolve({ slug: 'test' }),
+    });
+
+    expect(mockConnection).toHaveBeenCalledOnce();
   });
 
   it('returns fallback metadata when about content is empty', async () => {

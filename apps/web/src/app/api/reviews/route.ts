@@ -9,6 +9,52 @@ import {
 import { createClient } from '@/lib/supabase/server';
 import { reviewSubmissionSchema } from '@/schemas/reviews';
 
+const PUBLIC_REVIEW_LIST_SELECT = `
+  id,
+  product_id,
+  merchant_id,
+  customer_name,
+  rating,
+  title,
+  body,
+  status,
+  verified_purchase,
+  helpful_count,
+  merchant_response,
+  merchant_response_at,
+  created_at,
+  updated_at,
+  products:product_id (
+    id,
+    name,
+    images
+  )
+`;
+
+const DASHBOARD_REVIEW_LIST_SELECT = `
+  id,
+  product_id,
+  merchant_id,
+  order_id,
+  customer_email,
+  customer_name,
+  rating,
+  title,
+  body,
+  status,
+  verified_purchase,
+  helpful_count,
+  merchant_response,
+  merchant_response_at,
+  created_at,
+  updated_at,
+  products:product_id (
+    id,
+    name,
+    images
+  )
+`;
+
 /**
  * Product Reviews API
  *
@@ -31,8 +77,11 @@ export async function GET(request: NextRequest) {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
-    // If fetching for merchant dashboard (all statuses), require auth
-    if (merchantId && status !== 'approved') {
+    // Merchant-scoped review lists are dashboard data even when filtered to
+    // approved reviews; public storefront reads should use productId only.
+    const isDashboardRequest = Boolean(merchantId);
+
+    if (isDashboardRequest) {
       const {
         data: { user },
         error: authError,
@@ -56,17 +105,13 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    let query = supabase.from('product_reviews').select(
-      `
-        *,
-        products:product_id (
-          id,
-          name,
-          images
-        )
-      `,
-      { count: 'exact' }
-    );
+    const reviewSelect: string = isDashboardRequest
+      ? DASHBOARD_REVIEW_LIST_SELECT
+      : PUBLIC_REVIEW_LIST_SELECT;
+
+    let query = supabase
+      .from('product_reviews')
+      .select(reviewSelect, { count: 'exact' });
 
     if (productId) {
       query = query.eq('product_id', productId);

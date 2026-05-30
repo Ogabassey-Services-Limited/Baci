@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+import { pathToFileURL } from 'node:url';
+
 const DEFAULT_HEALTH_URL = 'https://mcp.ogabassey.com/health';
 const DEFAULT_MCP_URL = 'https://mcp.ogabassey.com/mcp';
 const FETCH_ATTEMPTS = 3;
@@ -23,6 +25,26 @@ const DEFAULT_REQUIRED_TOOLS = [
   'search_products',
   'update_agentic_checkout_session',
 ];
+export const DEFAULT_REQUIRED_TOOL_SCHEMA_CONTRACTS = {
+  create_agentic_checkout_session: {
+    itemArrayProperty: 'items',
+    itemProperties: ['id', 'quantity'],
+    properties: ['currency', 'idempotency_key', 'items', 'shipping_address'],
+    required: ['items'],
+  },
+  update_agentic_checkout_session: {
+    itemArrayProperty: 'items',
+    itemProperties: ['id', 'quantity'],
+    properties: [
+      'fulfillment_option_id',
+      'idempotency_key',
+      'items',
+      'session_id',
+      'shipping_address',
+    ],
+    required: ['session_id'],
+  },
+};
 
 let timeoutMs = 15000;
 const healthUrl = process.env.MCP_HEALTH_URL || DEFAULT_HEALTH_URL;
@@ -50,10 +72,31 @@ async function main() {
     );
   }
 
+  const schemaErrors = validateToolSchemaContracts(
+    tools,
+    DEFAULT_REQUIRED_TOOL_SCHEMA_CONTRACTS,
+    requiredTools
+  );
+
+  if (schemaErrors.length > 0) {
+    throw new Error(
+      [
+        `MCP production smoke failed for ${mcpUrl}.`,
+        'Invalid tool schemas:',
+        ...schemaErrors.map((error) => `- ${error}`),
+      ].join('\n')
+    );
+  }
+
   console.log(
     `MCP production smoke passed for ${mcpUrl}: ${toolNames.length} tools`
   );
   console.log(`Verified tools: ${requiredTools.join(', ')}`);
+  console.log(
+    `Verified schema contracts: ${Object.keys(DEFAULT_REQUIRED_TOOL_SCHEMA_CONTRACTS)
+      .filter((tool) => requiredTools.includes(tool))
+      .join(', ')}`
+  );
 }
 
 async function assertHealthy(url) {
@@ -135,7 +178,89 @@ async function fetchWithTimeout(url, init) {
   throw lastError;
 }
 
-function parseRequiredTools(value, fallback) {
+export function validateToolSchemaContracts(tools, contracts, requiredTools) {
+  const requiredToolSet = new Set(requiredTools);
+  const toolByName = new Map(tools.map((tool) => [tool.name, tool]));
+  const errors = [];
+
+  for (const [toolName, contract] of Object.entries(contracts)) {
+    if (!requiredToolSet.has(toolName)) continue;
+
+    const tool = toolByName.get(toolName);
+    if (!tool) {
+      errors.push(`${toolName} is missing`);
+      continue;
+    }
+
+    errors.push(...validateToolSchemaContract(toolName, tool.inputSchema, contract));
+  }
+
+  return errors;
+}
+
+function validateToolSchemaContract(toolName, schema, contract) {
+  const errors = [];
+
+  if (!schema || typeof schema !== 'object') {
+    return [`${toolName} is missing inputSchema`];
+  }
+
+  const properties =
+    schema.properties && typeof schema.properties === 'object'
+      ? schema.properties
+      : null;
+
+  const required = Array.isArray(schema.required) ? schema.required : [];
+  for (const requiredField of contract.required) {
+    if (!required.includes(requiredField)) {
+      errors.push(`${toolName} inputSchema.required missing ${requiredField}`);
+    }
+  }
+
+  if (!properties || Object.keys(properties).length === 0) {
+    errors.push(`${toolName} inputSchema.properties is empty`);
+    return errors;
+  }
+
+  for (const propertyName of contract.properties) {
+    if (!properties[propertyName]) {
+      errors.push(`${toolName} inputSchema.properties missing ${propertyName}`);
+    }
+  }
+
+  const itemArraySchema = properties[contract.itemArrayProperty];
+  if (!itemArraySchema || itemArraySchema.type !== 'array') {
+    errors.push(
+      `${toolName} inputSchema.properties.${contract.itemArrayProperty} must be an array`
+    );
+    return errors;
+  }
+
+  const itemProperties =
+    itemArraySchema.items?.properties &&
+    typeof itemArraySchema.items.properties === 'object'
+      ? itemArraySchema.items.properties
+      : null;
+
+  if (!itemProperties || Object.keys(itemProperties).length === 0) {
+    errors.push(
+      `${toolName} inputSchema.properties.${contract.itemArrayProperty}.items.properties is empty`
+    );
+    return errors;
+  }
+
+  for (const propertyName of contract.itemProperties) {
+    if (!itemProperties[propertyName]) {
+      errors.push(
+        `${toolName} inputSchema.properties.${contract.itemArrayProperty}.items.properties missing ${propertyName}`
+      );
+    }
+  }
+
+  return errors;
+}
+
+export function parseRequiredTools(value, fallback) {
   if (!value) return fallback;
 
   const parsed = value
@@ -146,7 +271,7 @@ function parseRequiredTools(value, fallback) {
   return parsed.length > 0 ? parsed : fallback;
 }
 
-function parseTimeoutMs(value, fallback) {
+export function parseTimeoutMs(value, fallback) {
   if (value == null || value === '') return fallback;
 
   const parsed = Number(value);
@@ -165,7 +290,9 @@ function sleep(ms) {
   });
 }
 
-main().catch((error) => {
-  console.error(error instanceof Error ? error.message : error);
-  process.exit(1);
-});
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((error) => {
+    console.error(error instanceof Error ? error.message : error);
+    process.exit(1);
+  });
+}

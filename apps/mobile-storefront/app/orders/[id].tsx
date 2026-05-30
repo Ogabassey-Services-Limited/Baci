@@ -1,9 +1,4 @@
-/**
- * Order Details Screen
- * Shows full order information, items, and tracking
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons";
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -19,8 +14,13 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { OrderDetailsActionsCard } from '@/components/orders/OrderDetailsActionsCard';
 import { OrderDetailsClosedStateCard } from '@/components/orders/OrderDetailsClosedStateCard';
 import { OrderDetailsHeaderCard } from '@/components/orders/OrderDetailsHeaderCard';
+import {
+  OrderDetailsInsuranceCard,
+  type OrderDetailsInsurancePolicy,
+} from '@/components/orders/OrderDetailsInsuranceCard';
 import { OrderDetailsShippingAddressCard } from '@/components/orders/OrderDetailsShippingAddressCard';
 import { ReceiptPreviewModal } from '@/components/receipts/ReceiptPreviewModal';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -69,19 +69,6 @@ interface OrderItem {
   assurance_fee?: number;
 }
 
-interface InsurancePolicy {
-  mycover_policy_number: string | null;
-  coverage_amount: number;
-  premium_amount: number;
-  status: string;
-  claim_status: string | null;
-  policy_start_date: string | null;
-  policy_expiry_date: string | null;
-  certificate_url: string | null;
-  provider_name: string | null;
-  policy_type: string | null;
-}
-
 interface OrderDetails {
   id: string;
   order_number: string;
@@ -120,7 +107,7 @@ export default function OrderDetailsScreen() {
 
   const [order, setOrder] = useState<OrderDetails | null>(null);
   const [insurancePolicy, setInsurancePolicy] =
-    useState<InsurancePolicy | null>(null);
+    useState<OrderDetailsInsurancePolicy | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -214,7 +201,7 @@ export default function OrderDetailsScreen() {
           .limit(1);
 
         if (policies && policies.length > 0) {
-          setInsurancePolicy(policies[0] as InsurancePolicy);
+          setInsurancePolicy(policies[0] as OrderDetailsInsurancePolicy);
         }
 
         setError(null);
@@ -582,187 +569,15 @@ export default function OrderDetailsScreen() {
             ))}
           </View>
 
-          {/* Insurance Coverage */}
-          {insurancePolicy && (
-            <View style={[styles.card, { backgroundColor: colors.card }]}>
-              <View style={styles.insuranceHeader}>
-                <Ionicons name="shield-checkmark" size={20} color="#059669" />
-                <Text
-                  style={[
-                    styles.sectionTitle,
-                    { color: colors.text, marginBottom: 0, marginLeft: 8 },
-                  ]}
-                >
-                  Insurance Coverage
-                </Text>
-              </View>
-              <View style={styles.insuranceContent}>
-                {insurancePolicy.mycover_policy_number && (
-                  <View style={styles.insuranceRow}>
-                    <Text
-                      style={[
-                        styles.insuranceLabel,
-                        { color: colors.textSecondary },
-                      ]}
-                    >
-                      Policy No.
-                    </Text>
-                    <Text
-                      style={[styles.insuranceValue, { color: colors.text }]}
-                    >
-                      {insurancePolicy.mycover_policy_number}
-                    </Text>
-                  </View>
-                )}
-                <View style={styles.insuranceRow}>
-                  <Text
-                    style={[
-                      styles.insuranceLabel,
-                      { color: colors.textSecondary },
-                    ]}
-                  >
-                    Coverage
-                  </Text>
-                  <Text style={[styles.insuranceValue, { color: colors.text }]}>
-                    {formatNgnCurrency(insurancePolicy.coverage_amount)}
-                  </Text>
-                </View>
-                <View style={styles.insuranceRow}>
-                  <Text
-                    style={[
-                      styles.insuranceLabel,
-                      { color: colors.textSecondary },
-                    ]}
-                  >
-                    Premium
-                  </Text>
-                  <Text style={[styles.insuranceValue, { color: colors.text }]}>
-                    {formatNgnCurrency(insurancePolicy.premium_amount)}
-                  </Text>
-                </View>
-                <View style={styles.insuranceRow}>
-                  <Text
-                    style={[
-                      styles.insuranceLabel,
-                      { color: colors.textSecondary },
-                    ]}
-                  >
-                    Status
-                  </Text>
-                  <View
-                    style={[
-                      styles.insuranceStatusBadge,
-                      {
-                        backgroundColor:
-                          insurancePolicy.status === 'active'
-                            ? '#DCFCE7'
-                            : '#FEF3C7',
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={{
-                        fontSize: 12,
-                        fontWeight: '600',
-                        color:
-                          insurancePolicy.status === 'active'
-                            ? '#059669'
-                            : '#D97706',
-                        textTransform: 'capitalize',
-                      }}
-                    >
-                      {insurancePolicy.status}
-                    </Text>
-                  </View>
-                </View>
-                {insurancePolicy.claim_status && (
-                  <View style={styles.insuranceRow}>
-                    <Text
-                      style={[
-                        styles.insuranceLabel,
-                        { color: colors.textSecondary },
-                      ]}
-                    >
-                      Claim
-                    </Text>
-                    <Text
-                      style={[
-                        styles.insuranceValue,
-                        { color: colors.text, textTransform: 'capitalize' },
-                      ]}
-                    >
-                      {insurancePolicy.claim_status}
-                    </Text>
-                  </View>
-                )}
-                <Text
-                  style={[
-                    styles.insuranceProvider,
-                    { color: colors.textSecondary },
-                  ]}
-                >
-                  Protected by MyCover.ai /{' '}
-                  {insurancePolicy.provider_name ||
-                    'Sovereign Trust Insurance Plc'}
-                </Text>
-                {insurancePolicy.certificate_url && (
-                  <TouchableOpacity
-                    style={[
-                      styles.trackButton,
-                      { borderColor: '#059669', marginTop: 12 },
-                    ]}
-                    onPress={() =>
-                      Linking.openURL(insurancePolicy.certificate_url as string)
-                    }
-                    accessibilityRole="button"
-                    accessibilityLabel="Download insurance certificate"
-                  >
-                    <Ionicons
-                      name="document-text-outline"
-                      size={18}
-                      color="#059669"
-                    />
-                    <Text
-                      style={[styles.trackButtonText, { color: '#059669' }]}
-                    >
-                      Download Certificate
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
-          )}
-
-          {/* Assurance pending state — order has assurance items but no policy yet */}
-          {!insurancePolicy &&
-            order.payment_status === 'paid' &&
-            order.items.some((item) => item.has_assurance) && (
-              <View style={[styles.card, { backgroundColor: colors.card }]}>
-                <View style={styles.insuranceHeader}>
-                  <Ionicons
-                    name="shield-outline"
-                    size={20}
-                    color={colors.textSecondary}
-                  />
-                  <Text
-                    style={[
-                      styles.sectionTitle,
-                      { color: colors.text, marginBottom: 0, marginLeft: 8 },
-                    ]}
-                  >
-                    Insurance Coverage
-                  </Text>
-                </View>
-                <Text
-                  style={[
-                    styles.insuranceProvider,
-                    { color: colors.textSecondary, marginTop: 12 },
-                  ]}
-                >
-                  Your shipping protection is being processed...
-                </Text>
-              </View>
-            )}
+          <OrderDetailsInsuranceCard
+            colors={colors}
+            hasAssuranceItems={order.items.some((item) => item.has_assurance)}
+            insurancePolicy={insurancePolicy}
+            isPaid={order.payment_status === 'paid'}
+            onOpenCertificate={(certificateUrl) =>
+              Linking.openURL(certificateUrl)
+            }
+          />
 
           <OrderDetailsShippingAddressCard
             colors={colors}
@@ -778,201 +593,19 @@ export default function OrderDetailsScreen() {
             summaryBreakdown={summaryBreakdown}
           />
 
-          {(isReceiptReady ||
-            canShowRiderContact ||
-            canLeaveReview ||
-            canReturnOrder) && (
-            <View style={[styles.card, { backgroundColor: colors.card }]}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                Actions
-              </Text>
-              <View style={styles.actionStack}>
-                {isReceiptReady && (
-                  <TouchableOpacity
-                    style={[
-                      styles.actionButton,
-                      { borderColor: colors.border },
-                    ]}
-                    onPress={handleOpenReceipt}
-                    activeOpacity={0.9}
-                  >
-                    <View
-                      style={[
-                        styles.actionIconWrap,
-                        {
-                          backgroundColor: isDark
-                            ? 'rgba(5, 150, 105, 0.16)'
-                            : 'rgba(5, 150, 105, 0.10)',
-                        },
-                      ]}
-                    >
-                      <Ionicons
-                        name="receipt-outline"
-                        size={18}
-                        color="#059669"
-                      />
-                    </View>
-                    <View style={styles.actionCopy}>
-                      <Text
-                        style={[styles.actionTitle, { color: colors.text }]}
-                      >
-                        View Receipt
-                      </Text>
-                      <Text
-                        style={[
-                          styles.actionDescription,
-                          { color: colors.textSecondary },
-                        ]}
-                      >
-                        Preview and share your order receipt.
-                      </Text>
-                    </View>
-                    <Ionicons
-                      name="chevron-forward"
-                      size={18}
-                      color={colors.textSecondary}
-                    />
-                  </TouchableOpacity>
-                )}
-
-                {canShowRiderContact && (
-                  <TouchableOpacity
-                    style={[
-                      styles.actionButton,
-                      { borderColor: colors.border },
-                    ]}
-                    onPress={handleCallRider}
-                    activeOpacity={0.9}
-                  >
-                    <View
-                      style={[
-                        styles.actionIconWrap,
-                        {
-                          backgroundColor: isDark
-                            ? 'rgba(37, 99, 235, 0.18)'
-                            : 'rgba(37, 99, 235, 0.10)',
-                        },
-                      ]}
-                    >
-                      <Ionicons name="call-outline" size={18} color="#2563EB" />
-                    </View>
-                    <View style={styles.actionCopy}>
-                      <Text
-                        style={[styles.actionTitle, { color: colors.text }]}
-                      >
-                        Rider {merchantInfo?.rider_phone_number}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.actionDescription,
-                          { color: colors.textSecondary },
-                        ]}
-                      >
-                        Call the rider directly for a live delivery update.
-                      </Text>
-                    </View>
-                    <Ionicons
-                      name="chevron-forward"
-                      size={18}
-                      color={colors.textSecondary}
-                    />
-                  </TouchableOpacity>
-                )}
-
-                {canLeaveReview && (
-                  <TouchableOpacity
-                    style={[
-                      styles.actionButton,
-                      { borderColor: colors.border },
-                    ]}
-                    onPress={handleLeaveGoogleReview}
-                    activeOpacity={0.9}
-                  >
-                    <View
-                      style={[
-                        styles.actionIconWrap,
-                        {
-                          backgroundColor: isDark
-                            ? 'rgba(245, 158, 11, 0.18)'
-                            : 'rgba(245, 158, 11, 0.10)',
-                        },
-                      ]}
-                    >
-                      <Ionicons name="star-outline" size={18} color="#D97706" />
-                    </View>
-                    <View style={styles.actionCopy}>
-                      <Text
-                        style={[styles.actionTitle, { color: colors.text }]}
-                      >
-                        Leave a Google Review
-                      </Text>
-                      <Text
-                        style={[
-                          styles.actionDescription,
-                          { color: colors.textSecondary },
-                        ]}
-                      >
-                        Share your delivery experience publicly.
-                      </Text>
-                    </View>
-                    <Ionicons
-                      name="open-outline"
-                      size={18}
-                      color={colors.textSecondary}
-                    />
-                  </TouchableOpacity>
-                )}
-
-                {canReturnOrder && (
-                  <TouchableOpacity
-                    style={[
-                      styles.actionButton,
-                      { borderColor: colors.border },
-                    ]}
-                    onPress={handleReturnOrder}
-                    activeOpacity={0.9}
-                  >
-                    <View
-                      style={[
-                        styles.actionIconWrap,
-                        {
-                          backgroundColor: isDark
-                            ? 'rgba(107, 114, 128, 0.18)'
-                            : 'rgba(107, 114, 128, 0.10)',
-                        },
-                      ]}
-                    >
-                      <Ionicons
-                        name="return-down-back-outline"
-                        size={18}
-                        color="#6B7280"
-                      />
-                    </View>
-                    <View style={styles.actionCopy}>
-                      <Text
-                        style={[styles.actionTitle, { color: colors.text }]}
-                      >
-                        Return Order
-                      </Text>
-                      <Text
-                        style={[
-                          styles.actionDescription,
-                          { color: colors.textSecondary },
-                        ]}
-                      >
-                        Start a return with support while the in-app flow lands.
-                      </Text>
-                    </View>
-                    <Ionicons
-                      name="chevron-forward"
-                      size={18}
-                      color={colors.textSecondary}
-                    />
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
-          )}
+          <OrderDetailsActionsCard
+            canLeaveReview={canLeaveReview}
+            canReturnOrder={canReturnOrder}
+            canShowRiderContact={canShowRiderContact}
+            colors={colors}
+            isDark={isDark}
+            isReceiptReady={isReceiptReady}
+            onCallRider={handleCallRider}
+            onLeaveGoogleReview={handleLeaveGoogleReview}
+            onOpenReceipt={handleOpenReceipt}
+            onReturnOrder={handleReturnOrder}
+            riderPhoneNumber={merchantInfo?.rider_phone_number}
+          />
 
           {/* Support Button */}
           <TouchableOpacity
@@ -1056,20 +689,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: 16,
   },
-  trackButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    marginTop: 16,
-  },
-  trackButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
   orderItem: {
     flexDirection: 'row',
     paddingVertical: 12,
@@ -1103,36 +722,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
   },
-  actionStack: {
-    gap: 12,
-  },
-  actionButton: {
-    borderWidth: 1,
-    borderRadius: 16,
-    padding: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  actionIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  actionCopy: {
-    flex: 1,
-  },
-  actionTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  actionDescription: {
-    fontSize: 12,
-    lineHeight: 18,
-    marginTop: 2,
-  },
   supportButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1146,36 +735,6 @@ const styles = StyleSheet.create({
   supportButtonText: {
     fontSize: 15,
     fontWeight: '500',
-  },
-  insuranceHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  insuranceContent: {
-    marginTop: 12,
-    gap: 10,
-  },
-  insuranceRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  insuranceLabel: {
-    fontSize: 14,
-  },
-  insuranceValue: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  insuranceStatusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  insuranceProvider: {
-    fontSize: 12,
-    marginTop: 4,
-    fontStyle: 'italic',
   },
   errorText: {
     fontSize: 16,

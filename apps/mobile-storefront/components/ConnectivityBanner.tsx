@@ -1,14 +1,4 @@
-/**
- * Connectivity Banner Component
- *
- * 2025 Best Practice: "Connectivity Guard"
- * - Monitors network state with NetInfo
- * - Shows amber banner when offline: "Offline Mode: Showing cached data."
- * - Shows green banner when reconnected: "Back Online!" (auto-dismisses)
- * - Smooth slide animations for non-intrusive UX
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons";
 import NetInfo, { type NetInfoState } from '@react-native-community/netinfo';
 import { useEffect, useRef, useState } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
@@ -20,8 +10,23 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { palette } from '@/constants/Colors';
+import { getConnectivityBannerShadowStyle } from './ConnectivityBanner.shadows';
 
 type BannerState = 'hidden' | 'offline' | 'online';
+
+const BANNER_COLORS = {
+  offline: {
+    background: palette.amber[100],
+    text: palette.amber[800],
+    icon: palette.amber[600],
+  },
+  online: {
+    background: palette.emerald[100],
+    text: palette.emerald[800],
+    icon: palette.emerald[600],
+  },
+} as const;
 
 export function ConnectivityBanner() {
   const insets = useSafeAreaInsets();
@@ -33,20 +38,6 @@ export function ConnectivityBanner() {
   // Animation values
   const translateY = useSharedValue(-100);
   const opacity = useSharedValue(0);
-
-  // Banner colors
-  const colors = {
-    offline: {
-      background: '#FEF3C7', // Amber-100
-      text: '#92400E', // Amber-800
-      icon: '#D97706', // Amber-600
-    },
-    online: {
-      background: '#D1FAE5', // Emerald-100
-      text: '#065F46', // Emerald-800
-      icon: '#059669', // Emerald-600
-    },
-  };
 
   // Monitor network connectivity
   useEffect(() => {
@@ -129,12 +120,11 @@ export function ConnectivityBanner() {
     opacity: opacity.get(),
   }));
   const isOffline = bannerState === 'offline';
-  const bannerColors = isOffline ? colors.offline : colors.online;
+  const bannerColors = isOffline ? BANNER_COLORS.offline : BANNER_COLORS.online;
   const isVisible = bannerState !== 'hidden';
 
   return (
     <Animated.View
-      pointerEvents={isVisible ? 'auto' : 'none'}
       style={[
         styles.container,
         {
@@ -142,6 +132,7 @@ export function ConnectivityBanner() {
           backgroundColor: bannerColors.background,
         },
         animatedStyle,
+        { pointerEvents: isVisible ? 'auto' : 'none' },
       ]}
     >
       <View style={styles.content}>
@@ -194,17 +185,9 @@ const styles = StyleSheet.create({
     zIndex: 1000,
     paddingHorizontal: 16,
     paddingBottom: 12,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 4,
-      },
-    }),
+    ...getConnectivityBannerShadowStyle(
+      Platform.OS === 'web' ? 'web' : 'native'
+    ),
   },
   content: {
     flexDirection: 'row',

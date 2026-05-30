@@ -1,9 +1,4 @@
-/**
- * Filter Sheet Component
- * Bottom sheet with price range filter matching web platform
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons";
 import { useEffect, useState } from 'react';
 import {
   Modal,
@@ -17,8 +12,12 @@ import {
 import Animated, { SlideInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AppKeyboardContainer from '@/components/ui/AppKeyboardContainer';
-import { BRAND, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/Colors';
+import { palette, withAlpha } from '@/constants/Colors';
 import { useTheme } from '@/hooks/useTheme';
+import styles from './FilterSheet.styles';
+import { FilterSheetPresets } from './FilterSheetPresets';
+
+const MAX_PRICE_CEILING = 3_000_000;
 
 interface FilterSheetProps {
   visible: boolean;
@@ -50,16 +49,22 @@ export function FilterSheet({
   }, [maxPrice]);
 
   const handleApply = () => {
-    const min = tempMinPrice === '' ? 0 : Number(tempMinPrice);
-    const max = tempMaxPrice === '' ? 3000000 : Number(tempMaxPrice);
-    onApplyFilter(min, max);
+    const parsePrice = (value: string, fallback: number) => {
+      if (value === '') return fallback;
+      const parsed = Number(value);
+      if (!Number.isFinite(parsed)) return fallback;
+      return Math.min(MAX_PRICE_CEILING, Math.max(0, Math.floor(parsed)));
+    };
+    const min = parsePrice(tempMinPrice, 0);
+    const max = parsePrice(tempMaxPrice, MAX_PRICE_CEILING);
+    onApplyFilter(Math.min(min, max), Math.max(min, max));
     onClose();
   };
 
   const handleReset = () => {
     setTempMinPrice('0');
-    setTempMaxPrice('3000000');
-    onApplyFilter(0, 3000000);
+    setTempMaxPrice(MAX_PRICE_CEILING.toString());
+    onApplyFilter(0, MAX_PRICE_CEILING);
     onClose();
   };
 
@@ -79,9 +84,7 @@ export function FilterSheet({
         style={[
           styles.overlay,
           {
-            backgroundColor: isDark
-              ? 'rgba(0, 0, 0, 0.8)'
-              : 'rgba(0, 0, 0, 0.5)',
+            backgroundColor: withAlpha(palette.black, isDark ? 0.8 : 0.5),
           },
         ]}
       >
@@ -93,8 +96,10 @@ export function FilterSheet({
           <View style={StyleSheet.absoluteFill} />
         </TouchableWithoutFeedback>
         <AppKeyboardContainer
-          pointerEvents="box-none"
-          style={styles.keyboardAvoidingView}
+          style={[
+            styles.keyboardAvoidingView,
+            { pointerEvents: 'box-none' },
+          ]}
         >
           <Animated.View
             entering={SlideInDown.duration(300).springify()}
@@ -201,7 +206,7 @@ export function FilterSheet({
                       value={tempMaxPrice}
                       onChangeText={setTempMaxPrice}
                       keyboardType="number-pad"
-                      placeholder="3000000"
+                      placeholder={MAX_PRICE_CEILING.toString()}
                       style={[styles.input, { color: colors.text }]}
                       placeholderTextColor={colors.placeholder}
                       accessibilityLabel="Maximum price in Naira"
@@ -212,116 +217,17 @@ export function FilterSheet({
                 </View>
               </View>
 
-              {/* Quick Price Presets */}
-              <View style={styles.presets}>
-                <Text
-                  style={[styles.presetsLabel, { color: colors.textSecondary }]}
-                >
-                  Quick Select:
-                </Text>
-                <View
-                  style={styles.presetButtons}
-                  accessibilityRole="summary"
-                  accessibilityLabel="Quick price range presets"
-                >
-                  <Pressable
-                    style={[
-                      styles.presetButton,
-                      {
-                        backgroundColor: colors.muted,
-                        borderColor: colors.border,
-                      },
-                    ]}
-                    onPress={() => {
-                      setTempMinPrice('0');
-                      setTempMaxPrice('50000');
-                    }}
-                    accessibilityLabel="Under 50,000 Naira"
-                    accessibilityRole="button"
-                  >
-                    <Text
-                      style={[
-                        styles.presetText,
-                        { color: colors.textSecondary },
-                      ]}
-                    >
-                      Under ₦50k
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    style={[
-                      styles.presetButton,
-                      {
-                        backgroundColor: colors.muted,
-                        borderColor: colors.border,
-                      },
-                    ]}
-                    onPress={() => {
-                      setTempMinPrice('50000');
-                      setTempMaxPrice('150000');
-                    }}
-                    accessibilityLabel="50,000 to 150,000 Naira"
-                    accessibilityRole="button"
-                  >
-                    <Text
-                      style={[
-                        styles.presetText,
-                        { color: colors.textSecondary },
-                      ]}
-                    >
-                      ₦50k - ₦150k
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    style={[
-                      styles.presetButton,
-                      {
-                        backgroundColor: colors.muted,
-                        borderColor: colors.border,
-                      },
-                    ]}
-                    onPress={() => {
-                      setTempMinPrice('150000');
-                      setTempMaxPrice('300000');
-                    }}
-                    accessibilityLabel="150,000 to 300,000 Naira"
-                    accessibilityRole="button"
-                  >
-                    <Text
-                      style={[
-                        styles.presetText,
-                        { color: colors.textSecondary },
-                      ]}
-                    >
-                      ₦150k - ₦300k
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    style={[
-                      styles.presetButton,
-                      {
-                        backgroundColor: colors.muted,
-                        borderColor: colors.border,
-                      },
-                    ]}
-                    onPress={() => {
-                      setTempMinPrice('300000');
-                      setTempMaxPrice('3000000');
-                    }}
-                    accessibilityLabel="Above 300,000 Naira"
-                    accessibilityRole="button"
-                  >
-                    <Text
-                      style={[
-                        styles.presetText,
-                        { color: colors.textSecondary },
-                      ]}
-                    >
-                      Above ₦300k
-                    </Text>
-                  </Pressable>
-                </View>
-              </View>
+              <FilterSheetPresets
+                colors={{
+                  border: colors.border,
+                  muted: colors.muted,
+                  textSecondary: colors.textSecondary,
+                }}
+                onSelectRange={(min, max) => {
+                  setTempMinPrice(min);
+                  setTempMaxPrice(max);
+                }}
+              />
             </View>
 
             {/* Actions */}
@@ -349,148 +255,3 @@ export function FilterSheet({
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'transparent', // Overridden by inline style
-    justifyContent: 'flex-end',
-  },
-  keyboardAvoidingView: {
-    width: '100%',
-    justifyContent: 'flex-end',
-  },
-  sheet: {
-    backgroundColor: 'transparent', // Overridden by inline style colors.card
-    borderTopLeftRadius: RADIUS['2xl'],
-    borderTopRightRadius: RADIUS['2xl'],
-    paddingTop: SPACING.lg,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: SPACING.lg,
-    marginBottom: SPACING.lg,
-  },
-  title: {
-    fontSize: TYPOGRAPHY.size.xl,
-    fontFamily: 'Inter_700Bold',
-    color: 'transparent', // Overridden by inline style colors.text
-  },
-  closeButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: RADIUS.full,
-    backgroundColor: 'transparent', // Overridden by inline style colors.muted
-  },
-  content: {
-    paddingHorizontal: SPACING.lg,
-  },
-  inputRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: SPACING.sm,
-    marginBottom: SPACING.lg,
-  },
-  inputContainer: {
-    flex: 1,
-  },
-  label: {
-    fontSize: TYPOGRAPHY.size.sm,
-    fontFamily: 'Inter_600SemiBold',
-    color: 'transparent', // Overridden by inline style colors.textSecondary
-    marginBottom: SPACING.xs,
-  },
-  inputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'transparent', // Overridden by inline style colors.muted
-    borderRadius: RADIUS.lg,
-    paddingHorizontal: SPACING.md,
-    height: 50,
-    borderWidth: 1,
-    borderColor: 'transparent', // Overridden by inline style colors.border
-  },
-  currency: {
-    fontSize: TYPOGRAPHY.size.base,
-    fontFamily: 'Inter_600SemiBold',
-    color: 'transparent', // Overridden by inline style colors.textSecondary
-    marginRight: SPACING.xs,
-  },
-  input: {
-    flex: 1,
-    fontSize: TYPOGRAPHY.size.base,
-    fontFamily: 'Inter_600SemiBold',
-    color: 'transparent', // Overridden by inline style colors.text
-  },
-  separator: {
-    fontSize: TYPOGRAPHY.size.lg,
-    color: 'transparent', // Overridden by inline style colors.textSecondary
-    marginBottom: 12,
-  },
-  presets: {
-    marginBottom: SPACING.lg,
-  },
-  presetsLabel: {
-    fontSize: TYPOGRAPHY.size.sm,
-    fontFamily: 'Inter_600SemiBold',
-    color: 'transparent', // Overridden by inline style colors.textSecondary
-    marginBottom: SPACING.sm,
-  },
-  presetButtons: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: SPACING.sm,
-  },
-  presetButton: {
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    minHeight: 44,
-    justifyContent: 'center',
-    backgroundColor: 'transparent', // Overridden by inline style colors.muted
-    borderRadius: RADIUS.full,
-    borderWidth: 1,
-    borderColor: 'transparent', // Overridden by inline style colors.border
-  },
-  presetText: {
-    fontSize: TYPOGRAPHY.size.xs,
-    fontFamily: 'Inter_600SemiBold',
-    color: 'transparent', // Overridden by inline style colors.textSecondary
-  },
-  actions: {
-    flexDirection: 'row',
-    gap: SPACING.md,
-    paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.lg,
-  },
-  resetButton: {
-    flex: 1,
-    height: 50,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: RADIUS.lg,
-    borderWidth: 1.5,
-    borderColor: BRAND.primary,
-  },
-  resetText: {
-    fontSize: TYPOGRAPHY.size.base,
-    fontFamily: 'Inter_700Bold',
-    color: BRAND.primary,
-  },
-  applyButton: {
-    flex: 1,
-    height: 50,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: RADIUS.lg,
-    backgroundColor: BRAND.primary,
-  },
-  applyText: {
-    fontSize: TYPOGRAPHY.size.base,
-    fontFamily: 'Inter_700Bold',
-    color: 'white', // Using 'white' instead of hex
-  },
-});

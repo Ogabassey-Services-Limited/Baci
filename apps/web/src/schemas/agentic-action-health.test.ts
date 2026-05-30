@@ -3,6 +3,7 @@ import {
   agenticActionCheckoutSessionsSchema,
   agenticActionHealthPayloadSchema,
   agenticActionIdempotencySchema,
+  agenticActionRequestRecordSchema,
   agenticActionSchema,
 } from '@/schemas/agentic-action-health';
 
@@ -135,7 +136,8 @@ describe('agenticActionHealthPayloadSchema', () => {
               api_version: '2026-04-30',
               created_at: '2026-05-15T03:00:00.000Z',
               expires_at: '2026-05-15T03:10:00.000Z',
-              route: 'checkout_sessions.create',
+              route: 'orders.read',
+              status_code: 503,
             },
           ],
         },
@@ -289,6 +291,58 @@ describe('agenticActionIdempotencySchema', () => {
             updated_at: '2026-05-15T03:01:00.000Z',
           },
         ],
+      }).success
+    ).toBe(false);
+  });
+});
+
+describe('agenticActionRequestRecordSchema', () => {
+  it('validates recorded request outcome status codes', () => {
+    const validRecord = {
+      api_version: '2026-04-30',
+      created_at: '2026-05-15T03:00:00.000Z',
+      expires_at: '2026-05-15T03:10:00.000Z',
+      route: 'orders.read',
+      status_code: 503,
+    };
+
+    expect(
+      agenticActionRequestRecordSchema.safeParse(validRecord).success
+    ).toBe(true);
+    expect(
+      agenticActionRequestRecordSchema.safeParse({
+        ...validRecord,
+        status_code: null,
+      }).success
+    ).toBe(true);
+    expect(
+      agenticActionRequestRecordSchema.safeParse({
+        ...validRecord,
+        status_code: undefined,
+      }).success
+    ).toBe(true);
+    expect(
+      agenticActionRequestRecordSchema.safeParse({
+        ...validRecord,
+        status_code: 503.5,
+      }).success
+    ).toBe(false);
+    expect(
+      agenticActionRequestRecordSchema.safeParse({
+        ...validRecord,
+        status_code: 99,
+      }).success
+    ).toBe(false);
+    expect(
+      agenticActionRequestRecordSchema.safeParse({
+        ...validRecord,
+        status_code: 600,
+      }).success
+    ).toBe(false);
+    expect(
+      agenticActionRequestRecordSchema.safeParse({
+        ...validRecord,
+        status_code: 'server-error',
       }).success
     ).toBe(false);
   });

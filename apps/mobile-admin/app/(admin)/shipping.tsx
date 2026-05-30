@@ -1,9 +1,4 @@
-/**
- * Shipping Settings Screen
- * Configure shipping providers and delivery settings
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons";
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -86,6 +81,7 @@ export default function ShippingScreen() {
       } satisfies ShippingSettingsQueryData;
     },
     enabled: !!merchant?.id,
+    staleTime: 1000 * 60 * 5,
   });
   const settings = shippingData?.settings;
   const currency = shippingData?.currency ?? merchant?.payout_currency ?? 'NGN';

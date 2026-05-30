@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import { connection } from 'next/server';
 import { BnplLauncher } from '@/components/storefront/ogabassey/pages/bnpl-launcher';
 import {
   getCachedMerchant,
@@ -11,6 +12,8 @@ export default async function BnplCheckoutPage({
 }: {
   params: Promise<{ slug: string }>;
 }) {
+  await connection();
+
   const { slug } = await params;
 
   // Verify merchant exists
@@ -22,5 +25,5 @@ export default async function BnplCheckoutPage({
     notFound();
   }
 
-  return <BnplLauncher />;
+  return <BnplLauncher merchantSlug={slug} />;
 }

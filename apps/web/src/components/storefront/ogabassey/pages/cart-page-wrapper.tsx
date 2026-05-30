@@ -11,6 +11,8 @@ import {
 import { createClient } from '@/lib/supabase/client';
 import { CartPage } from './cart-page';
 
+const QUIZ_PRIZE_PLATFORM = 'quiz_prize';
+
 interface CartPageWrapperProps {
   merchantId: string;
   vatEnabled?: boolean;
@@ -31,6 +33,12 @@ export function CartPageWrapper({ merchantId, vatEnabled = false, vatRate = 7.5 
 
   useEffect(() => {
     const itemIds = searchParams.get('item_id');
+    const quizAwardId = searchParams.get('quiz_award_id')?.trim() || null;
+    const quizVoucherToken =
+      searchParams.get('quiz_voucher_token')?.trim() || null;
+    const variantId = searchParams.get('variant_id')?.trim() || undefined;
+    const condition = searchParams.get('condition')?.trim() || undefined;
+    const hasQuizPrizeVoucher = Boolean(quizAwardId && quizVoucherToken);
 
     // Only process once and only if item_id is present
     if (!itemIds || processedRef.current) return;
@@ -76,14 +84,28 @@ export function CartPageWrapper({ merchantId, vatEnabled = false, vatRate = 7.5 
           return;
         }
 
+        const activeProducts = products.filter(
+          (product) => product.status === 'active'
+        );
+        if (activeProducts.length === 0) {
+          toast({
+            title: 'Product not found',
+            description: 'The requested product could not be found.',
+            variant: 'destructive',
+          });
+          return;
+        }
+
         // Add each product to cart
         let addedCount = 0;
-        for (const product of products) {
+        for (const product of activeProducts) {
           const resolvedImage =
             getPrimaryProductImage(product.images) ||
             PRODUCT_IMAGE_PLACEHOLDER_URL;
           // Check if already in cart
-          const existsInCart = cart.some(item => item.id === product.id);
+          const existsInCart = hasQuizPrizeVoucher
+            ? cart.some(item => item.quizAwardId === quizAwardId)
+            : cart.some(item => item.id === product.id && !item.quizAwardId);
           if (!existsInCart) {
             addToCart(
               {
@@ -91,7 +113,16 @@ export function CartPageWrapper({ merchantId, vatEnabled = false, vatRate = 7.5 
                 image: resolvedImage,
                 imageLarge: resolvedImage,
               },
-              1
+              1,
+              hasQuizPrizeVoucher
+                ? {
+                    condition,
+                    platform: QUIZ_PRIZE_PLATFORM,
+                    quizAwardId: quizAwardId ?? undefined,
+                    quizVoucherToken: quizVoucherToken ?? undefined,
+                    variantId,
+                  }
+                : undefined
             );
             addedCount++;
           }
@@ -101,7 +132,7 @@ export function CartPageWrapper({ merchantId, vatEnabled = false, vatRate = 7.5 
           toast({
             title: addedCount === 1 ? 'Added to cart' : `${addedCount} items added`,
             description: addedCount === 1
-              ? `${products[0].name} has been added to your cart.`
+              ? `${activeProducts[0].name} has been added to your cart.`
               : `${addedCount} products have been added to your cart.`,
           });
         }
@@ -109,7 +140,15 @@ export function CartPageWrapper({ merchantId, vatEnabled = false, vatRate = 7.5 
         // Clean up URL by removing item_id parameter
         const url = new URL(window.location.href);
         url.searchParams.delete('item_id');
-        window.history.replaceState({}, '', url.pathname);
+        url.searchParams.delete('quiz_award_id');
+	        url.searchParams.delete('quiz_voucher_token');
+	        url.searchParams.delete('variant_id');
+	        url.searchParams.delete('condition');
+	        window.history.replaceState(
+	          {},
+	          '',
+	          `${url.pathname}${url.search}${url.hash}`
+	        );
 
       } catch (err) {
         console.error('Error adding products to cart:', err);

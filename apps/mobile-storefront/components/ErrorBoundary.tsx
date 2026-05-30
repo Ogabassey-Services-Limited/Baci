@@ -1,12 +1,4 @@
-/**
- * Global Error Boundary Component
- * Provides graceful error handling with retry functionality
- * Handles network errors, Supabase failures, and unexpected crashes
- *
- * 2026 Best Practice: Error boundaries with theming and comprehensive logging
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import {
   Appearance,
@@ -225,8 +217,8 @@ export class GlobalErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.hasError) {
       const content = this.getErrorContent();
-      const isDark = this.state.colorScheme === 'dark';
-      const colors = Colors[isDark ? 'dark' : 'light'];
+      const colors =
+        Colors[this.state.colorScheme === 'dark' ? 'dark' : 'light'];
 
       return (
         <View
@@ -280,13 +272,13 @@ export class GlobalErrorBoundary extends Component<Props, State> {
               <View
                 style={[
                   styles.debugContainer,
-                  { backgroundColor: isDark ? '#7F1D1D' : '#FEE2E2' },
+                  { backgroundColor: colors.destructive },
                 ]}
               >
                 <Text
                   style={[
                     styles.debugTitle,
-                    { color: isDark ? '#FECACA' : '#991B1B' },
+                    { color: colors.destructiveForeground },
                   ]}
                 >
                   Debug Info ({this.props.context || 'unknown context'}):
@@ -294,7 +286,7 @@ export class GlobalErrorBoundary extends Component<Props, State> {
                 <Text
                   style={[
                     styles.debugText,
-                    { color: isDark ? '#FCA5A5' : '#7F1D1D' },
+                    { color: colors.destructiveForeground },
                   ]}
                 >
                   {this.state.error.message}
@@ -303,7 +295,7 @@ export class GlobalErrorBoundary extends Component<Props, State> {
                   <Text
                     style={[
                       styles.debugStack,
-                      { color: isDark ? '#FCA5A5' : '#7F1D1D' },
+                      { color: colors.destructiveForeground },
                     ]}
                     numberOfLines={5}
                   >
@@ -334,8 +326,7 @@ export function ErrorFallback({
   retry: () => void;
 }) {
   const colorScheme = Appearance.getColorScheme();
-  const isDark = colorScheme === 'dark';
-  const colors = Colors[isDark ? 'dark' : 'light'];
+  const colors = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
 
   // Log error for debugging
   logError(error, undefined, 'expo-router-fallback');
@@ -417,13 +408,13 @@ export function ErrorFallback({
           <View
             style={[
               styles.debugContainer,
-              { backgroundColor: isDark ? '#7F1D1D' : '#FEE2E2' },
+              { backgroundColor: colors.destructive },
             ]}
           >
             <Text
               style={[
                 styles.debugTitle,
-                { color: isDark ? '#FECACA' : '#991B1B' },
+                { color: colors.destructiveForeground },
               ]}
             >
               Debug Info:
@@ -431,7 +422,7 @@ export function ErrorFallback({
             <Text
               style={[
                 styles.debugText,
-                { color: isDark ? '#FCA5A5' : '#7F1D1D' },
+                { color: colors.destructiveForeground },
               ]}
             >
               {error.message}
@@ -440,7 +431,7 @@ export function ErrorFallback({
               <Text
                 style={[
                   styles.debugStack,
-                  { color: isDark ? '#FCA5A5' : '#7F1D1D' },
+                  { color: colors.destructiveForeground },
                 ]}
                 numberOfLines={5}
               >

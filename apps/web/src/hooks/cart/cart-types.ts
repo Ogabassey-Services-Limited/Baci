@@ -14,6 +14,8 @@ export interface CartItem extends Product {
   negotiatedPrice?: number;
   negotiationStatus?: 'none' | 'pending' | 'accepted' | 'rejected';
   cartDiscount?: number;
+  quizAwardId?: string;
+  quizVoucherToken?: string;
   hasAssurance?: boolean;
   assuranceRate?: number;
 }
@@ -27,6 +29,8 @@ export interface AddToCartOptions {
   secondaryColorValue?: string;
   storage?: string;
   condition?: string;
+  quizAwardId?: string;
+  quizVoucherToken?: string;
   platform?: string;
   [key: string]: string | Record<string, string> | undefined;
 }

@@ -3,6 +3,7 @@ import {
   adaptUcpCheckoutCompleteRequestBody,
   adaptUcpCheckoutCreateRequestBody,
   adaptUcpCheckoutUpdateRequestBody,
+  adaptUcpShippingAddressToAgentic,
 } from '@/lib/agentic/ucp-request-adapters';
 
 describe('adaptUcpCheckoutCreateRequestBody', () => {
@@ -40,6 +41,39 @@ describe('adaptUcpCheckoutCreateRequestBody', () => {
     const body = { items: [{ id: 'product-1', quantity: 1 }] };
 
     expect(adaptUcpCheckoutCreateRequestBody(body)).toBe(body);
+  });
+
+  it('preserves UCP cart checkout references', () => {
+    expect(
+      adaptUcpCheckoutCreateRequestBody({
+        cart_id: 'cart_123',
+        currency: 'ngn',
+      })
+    ).toEqual({
+      cart_id: 'cart_123',
+      currency: 'ngn',
+    });
+  });
+});
+
+describe('adaptUcpShippingAddressToAgentic', () => {
+  it('normalizes UCP postal addresses for cart storage', () => {
+    expect(
+      adaptUcpShippingAddressToAgentic({
+        address_country: 'NG',
+        address_locality: 'Lagos',
+        address_region: 'Lagos',
+        phone_number: '+2348012345678',
+        street_address: '12 Broad Street',
+      })
+    ).toEqual({
+      address: '12 Broad Street',
+      city: 'Lagos',
+      country: 'NG',
+      country_code: 'NG',
+      phone: '+2348012345678',
+      state: 'Lagos',
+    });
   });
 });
 
@@ -183,6 +217,34 @@ describe('adaptUcpCheckoutCompleteRequestBody', () => {
 
     expect(adapted).toMatchObject({
       payment_data: { provider: 'paystack', token },
+    });
+  });
+
+  it('maps configured Google Pay instruments onto the Paystack token path', () => {
+    const adapted = adaptUcpCheckoutCompleteRequestBody({
+      payment: {
+        instruments: [
+          {
+            billing_address: {
+              email: 'buyer@example.com',
+              first_name: 'Buyer',
+              last_name: 'Googlepay',
+              phone_number: '08012345678',
+            },
+            credential: { token: 'google-pay-token', type: 'payment_token' },
+            handler_id: 'google_pay',
+            id: 'instrument_google_pay',
+            type: 'google_pay',
+          },
+        ],
+      },
+    });
+
+    expect(adapted).toMatchObject({
+      payment_data: {
+        provider: 'paystack',
+        token: 'google-pay-token',
+      },
     });
   });
 

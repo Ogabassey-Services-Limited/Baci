@@ -14,6 +14,10 @@ import {
 } from '@/lib/agentic/paystack-dva-webhook';
 import { upsertPaystackAuthorization } from '@/lib/customer-saved-payment-methods';
 import {
+  createVerifiedPaystackWebhookSignature,
+  handlePaystackSavingsWebhookTransaction,
+} from '@/lib/customer-savings-paystack-webhook';
+import {
   creditWalletTopUp,
   WALLET_TOP_UP_TRANSACTION_TYPE,
 } from '@/lib/customer-wallet-top-up';
@@ -27,11 +31,12 @@ import { formatVariantAttributesLabel } from '@/lib/format-variant-attributes-la
 import { registerDomain } from '@/lib/go54';
 import { verifyPayment as verifyKorapayPayment } from '@/lib/korapay';
 import { logger } from '@/lib/logger';
-import {
-  applyPaidOrderSideEffects,
-  type StepExecutor,
-} from '@/lib/payments/apply-paid-order-side-effects';
 import { confirmPaystackDvaByOrderAccount } from '@/lib/payments/confirm-paystack-dva-by-order-account';
+import { confirmPaystackWalletDvaTopUp } from '@/lib/payments/confirm-paystack-wallet-dva-top-up';
+import { toRichPaidOrder } from '@/lib/payments/paid-order-normalization';
+import { persistPaidOrderSideEffectRetry } from '@/lib/payments/paid-order-retry-persistence';
+import { processWalletFundedOrderPayment } from '@/lib/payments/process-wallet-funded-order-payment';
+import { runPaidOrderSideEffects } from '@/lib/payments/run-paid-order-side-effects';
 import { extractVerifiedGatewayFeeNgn } from '@/lib/payments/verified-gateway-fee';
 import {
   calculatePlatformFee,
@@ -40,7 +45,6 @@ import {
 import { isValidUuid, sanitizeForLog } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
-import { triggerPurchaseConversion } from '@/lib/trigger-purchase-conversion';
 import { fulfillPendingVtuTransaction } from '@/lib/vtu-fulfillment';
 import { sendEmail } from '@/lib/zeptomail';
 import { referenceSchema } from '@/schemas/payments';
@@ -198,6 +202,68 @@ async function handleWalletTopUpIfNeeded({
     reference: walletCredit.reference,
     wallet: {
       balance: walletCredit.balance,
+    },
+  });
+}
+
+async function handleWalletFundedOrderPaymentIfNeeded({
+  gateway,
+  gatewayResponse,
+  reference,
+  supabase,
+  transaction,
+}: {
+  gateway: PaymentGateway;
+  gatewayResponse: Record<string, unknown>;
+  reference: string;
+  supabase: SupabaseClient;
+  transaction: PaymentTransactionRecord;
+}) {
+  if (gateway !== 'paystack') {
+    return null;
+  }
+
+  const result = await processWalletFundedOrderPayment({
+    gatewayReference: reference,
+    gatewayResponse,
+    scheduleAfter: (task) => after(task),
+    supabase,
+    transaction,
+  });
+
+  if (result.kind === 'none') {
+    return null;
+  }
+
+  return NextResponse.json(result.body, { status: result.status });
+}
+
+function ensureWalletFundedOrderHandled({
+  gateway,
+  gatewayResponse,
+  reference,
+  supabase,
+  transaction,
+}: {
+  gateway: PaymentGateway;
+  gatewayResponse: Record<string, unknown>;
+  reference: string;
+  supabase: SupabaseClient;
+  transaction: Pick<
+    AgenticPaystackDvaTransaction,
+    'amount' | 'id' | 'merchant_id' | 'metadata'
+  >;
+}) {
+  return handleWalletFundedOrderPaymentIfNeeded({
+    gateway,
+    gatewayResponse,
+    reference,
+    supabase,
+    transaction: {
+      amount: transaction.amount,
+      id: transaction.id,
+      merchant_id: transaction.merchant_id,
+      metadata: transaction.metadata,
     },
   });
 }
@@ -541,6 +607,26 @@ export async function POST(request: NextRequest) {
         if (orderAccountResult.kind === 'match') {
           resolvedAgenticTransaction =
             orderAccountResult.transaction as AgenticPaystackDvaTransaction;
+        }
+      }
+
+      if (!resolvedAgenticTransaction) {
+        const walletDvaTopUp = await confirmPaystackWalletDvaTopUp({
+          supabase,
+          accountNumber: receiverAccountNumber,
+          gatewayReference: reference,
+          verifiedAmount,
+          paystackResponse: gatewayResponse,
+        });
+
+        if (walletDvaTopUp.kind === 'review') {
+          return NextResponse.json(walletDvaTopUp.body, {
+            status: walletDvaTopUp.status,
+          });
+        }
+
+        if (walletDvaTopUp.kind === 'match') {
+          resolvedAgenticTransaction = walletDvaTopUp.transaction;
         }
       }
     }
@@ -1137,6 +1223,18 @@ export async function POST(request: NextRequest) {
     }
 
     if (!updatedTxn) {
+      const walletFundedOrderResponse = await ensureWalletFundedOrderHandled({
+        gateway,
+        gatewayResponse,
+        reference,
+        supabase,
+        transaction,
+      });
+
+      if (walletFundedOrderResponse) {
+        return walletFundedOrderResponse;
+      }
+
       const walletTopUpResponse = await handleWalletTopUpIfNeeded({
         gateway,
         reference,
@@ -1151,6 +1249,27 @@ export async function POST(request: NextRequest) {
 
       if (walletTopUpResponse) {
         return walletTopUpResponse;
+      }
+
+      if (gateway === 'paystack') {
+        const savingsResponse = await handlePaystackSavingsWebhookTransaction({
+          gatewayResponse,
+          paystackSignature:
+            createVerifiedPaystackWebhookSignature(isValidSignature),
+          reference,
+          supabase,
+          transaction: {
+            amount: transaction.amount,
+            id: transaction.id,
+            merchant_id: transaction.merchant_id,
+            metadata,
+          },
+        });
+        if (savingsResponse) {
+          return NextResponse.json(savingsResponse.body, {
+            status: savingsResponse.status,
+          });
+        }
       }
 
       if (
@@ -1188,6 +1307,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: 'Already processed' });
     }
 
+    const walletFundedOrderResponse = await ensureWalletFundedOrderHandled({
+      gateway,
+      gatewayResponse,
+      reference,
+      supabase,
+      transaction,
+    });
+
+    if (walletFundedOrderResponse) {
+      return walletFundedOrderResponse;
+    }
+
     const walletTopUpResponse = await handleWalletTopUpIfNeeded({
       gateway,
       reference,
@@ -1202,6 +1333,27 @@ export async function POST(request: NextRequest) {
 
     if (walletTopUpResponse) {
       return walletTopUpResponse;
+    }
+
+    if (gateway === 'paystack') {
+      const savingsResponse = await handlePaystackSavingsWebhookTransaction({
+        gatewayResponse,
+        paystackSignature:
+          createVerifiedPaystackWebhookSignature(isValidSignature),
+        reference,
+        supabase,
+        transaction: {
+          amount: transaction.amount,
+          id: transaction.id,
+          merchant_id: transaction.merchant_id,
+          metadata,
+        },
+      });
+      if (savingsResponse) {
+        return NextResponse.json(savingsResponse.body, {
+          status: savingsResponse.status,
+        });
+      }
     }
 
     if (
@@ -1717,244 +1869,91 @@ export async function POST(request: NextRequest) {
           }
         });
 
-        // Δ-7 / A1: route paid-order side effects through the
-        // `payment_side_effects` outbox so replays (cron, manual reconcile,
-        // duplicate webhook) can't double-execute. Each step claims its own
-        // row by (order_id, step); the mark-completed UPDATE is token-gated
-        // so a stale-claim takeover by a peer worker can't double-mark.
-        const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
-
-        // Review feedback (CodeRabbit P1, Critical): destructure the
-        // error so transient fetch failures don't get silently coerced
-        // into a permanent `skipped` outbox state. Previously only
-        // `data` was destructured: a transient blip (network hiccup,
-        // PgBouncer reconnect, brief DB unavailability) would leave
-        // merchantDetails undefined → executor returned
-        // `{ skipped: ... }` (a SUCCESS value) → outbox marked the step
-        // `completed` → replay never re-attempts → customer permanently
-        // loses confirmation email. Now: distinguish PGRST116 (no rows
-        // — genuinely-missing merchant; not retryable) from any other
-        // error code (transient — throw so the executor catch marks the
-        // step `failed` and replay re-runs).
-        const { data: merchantDetails, error: merchantFetchError } =
-          await supabase
-            .from('merchants')
-            .select(
-              'business_name, slug, support_email, email_sender_name, email, tax_identification_number, cac_rc_number'
-            )
-            .eq('id', transaction.merchant_id)
-            .single();
-
-        const paidEmailExecutor: StepExecutor = async () => {
-          // Non-PGRST116 errors are transient: throw so replay retries.
-          if (merchantFetchError && merchantFetchError.code !== 'PGRST116') {
-            throw new Error(
-              `merchant_fetch_error: ${merchantFetchError.message}`
-            );
-          }
-          // PGRST116 (merchant row genuinely missing) or missing customer
-          // email (guest checkout) is permanently un-emailable. Skipping
-          // is the correct terminal state.
-          if (!(merchantDetails && order.customer_email)) {
-            return { skipped: 'missing_merchant_or_customer_email' };
-          }
-
-          const merchantUrl = `https://${merchantDetails.slug}.${rootDomain}`;
-          const emailItems = (order.order_items || []).map(
-            (item: Record<string, unknown>) => ({
-              name:
-                typeof item.variant_name === 'string' &&
-                item.variant_name.trim().length > 0
-                  ? `${(item.name as string) || 'Product'} (${item.variant_name})`
-                  : (item.name as string) || 'Product',
-              quantity: (item.quantity as number) || 1,
-              price: (item.price as number) || 0,
-            })
-          );
-
-          const emailData = {
-            orderNumber:
-              order.order_number || order.id.slice(0, 8).toUpperCase(),
-            customerName: order.customer_name,
-            items: emailItems,
-            subtotal: Number.parseFloat(order.subtotal || '0'),
-            shippingFee: Number.parseFloat(order.shipping_fee || '0'),
-            total: Number.parseFloat(order.total || '0'),
-            shippingAddress: {
-              address: order.shipping_address?.address || '',
-              city: order.shipping_address?.city || '',
-              state: order.shipping_address?.state || '',
-              phone: order.customer_phone || '',
+        try {
+          const richOrder = toRichPaidOrder(order, {
+            merchantId: transaction.merchant_id,
+          });
+          const sideEffectsResult = await runPaidOrderSideEffects({
+            supabase,
+            order: richOrder,
+            transaction: {
+              id: transaction.id,
+              order_id: order.id,
+              merchant_id: transaction.merchant_id,
+              gateway_reference: transaction.gateway_reference ?? null,
+              amount: transaction.amount,
+              platform_fee: transaction.platform_fee,
             },
-            merchantName: merchantDetails.business_name,
-            merchantUrl,
-            merchantTin: merchantDetails.tax_identification_number ?? undefined,
-            merchantRcNumber: merchantDetails.cac_rc_number ?? undefined,
-          };
-
-          const htmlContent = generateOrderConfirmationEmail(emailData);
-          const textContent = generateOrderConfirmationText(emailData);
-
-          const replyToEmail =
-            merchantDetails.support_email ||
-            merchantDetails.email ||
-            `support@${merchantDetails.slug}.${rootDomain}`;
-          const senderName = merchantDetails.email_sender_name
-            ? `${merchantDetails.email_sender_name} Orders`
-            : merchantDetails.business_name
-              ? `${merchantDetails.business_name} Orders`
-              : undefined;
-
-          const emailResult = await sendEmail({
-            to: order.customer_email,
-            toName: order.customer_name,
-            subject: `Order Confirmation - #${emailData.orderNumber}`,
-            htmlContent,
-            textContent,
-            replyTo: replyToEmail,
-            emailType: 'orders',
-            fromName: senderName,
-            // Δ-61: ZeptoMail has no Idempotency-Key. The
-            // payment_side_effects claim row is the dedup record; this
-            // client_reference gives us a server-side audit trail showing
-            // which sends actually went out.
-            clientReference: `order:${order.id}:paid_email`,
-            auditContext: {
-              merchantId: order.merchant_id,
-              orderId: order.id,
-              customerId: order.customer_id,
-              metadata: {
-                trigger: 'paystack_payment_confirmation',
-              },
-            },
+            gatewayResponse,
+            externalGatewayReference: reference,
+            actor: `webhook:${reference}`,
+            settlementGateway: gateway,
+            scheduleAfter: (task) => after(task),
           });
 
-          if (!emailResult.success) {
-            // Throw → outbox marks failed; replay retakes the claim.
-            throw new Error(
-              emailResult.error || emailResult.errorCode || 'email_failed'
-            );
-          }
-          return { messageId: emailResult.messageId };
-        };
-
-        // Review feedback (#1563 thread #2): ad-platform calls
-        // (FB CAPI / TikTok / Snap / GA4) are slow third-party APIs.
-        // Pre-A1 they ran via `after(...)` so the webhook response
-        // wasn't blocked. The outbox helper's await put them back on
-        // the response path, raising webhook timeout/retry risk. Run
-        // them via `after(...)` here, OUTSIDE the outbox helper. The
-        // ad-platform side already deduplicates by deterministic
-        // event_id (see triggerPurchaseConversion), so we don't need
-        // outbox replay tracking specifically for this step.
-        after(async () => {
+          logger.info({
+            message: 'payment_side_effects executed',
+            orderId: order.id,
+            reference,
+            ranSteps: sideEffectsResult.ranSteps,
+            skippedSteps: sideEffectsResult.skippedSteps,
+            failedSteps: sideEffectsResult.failedSteps,
+            concurrentTakeoverSteps: sideEffectsResult.concurrentTakeoverSteps,
+          });
+        } catch (sideEffectError) {
+          // If runPaidOrderSideEffects fails after payment completion,
+          // persistPaidOrderSideEffectRetry owns follow-up work. When it
+          // succeeds, the webhook response stays successful so the gateway does
+          // not duplicate retries for an already-completed transaction; only a
+          // retryPersistError causes us to rethrow sideEffectError.
           try {
-            await triggerPurchaseConversion(
-              supabase,
-              transaction.merchant_id,
-              order
-            );
-          } catch (adTrackingErr) {
-            logger.warn({
-              message: 'Ad-tracking conversion failed (after-response path)',
-              error: adTrackingErr,
+            await persistPaidOrderSideEffectRetry({
+              error: sideEffectError,
               orderId: order.id,
+              reference,
+              supabase,
+              transaction,
             });
+          } catch (retryPersistError) {
+            logger.error({
+              message:
+                'Failed to persist paid order side-effect retry after payment completion',
+              error:
+                retryPersistError instanceof Error
+                  ? {
+                      message: retryPersistError.message,
+                      stack: retryPersistError.stack,
+                    }
+                  : retryPersistError,
+              sideEffectError:
+                sideEffectError instanceof Error
+                  ? {
+                      message: sideEffectError.message,
+                      stack: sideEffectError.stack,
+                    }
+                  : sideEffectError,
+              merchantId: transaction.merchant_id,
+              orderId: order.id,
+              reference,
+              transactionId: transaction.id,
+            });
+            throw sideEffectError;
           }
-        });
-
-        const settlementExecutor: StepExecutor = async () => {
-          const grossAmount = Number(transaction.amount) || 0;
-          // Δ-0b: source the gateway fee from the verified Paystack
-          // response (Korapay verify has no fee field, returns 0).
-          const gatewayFee = extractVerifiedGatewayFeeNgn(
-            gateway,
-            gatewayResponse
-          );
-          const platformFee =
-            Number(transaction.platform_fee) ||
-            calculatePlatformFee(grossAmount * 100).platformFee / 100;
-
-          const { error: settlementError } = await supabase.rpc(
-            'record_merchant_settlement',
-            {
-              p_merchant_id: transaction.merchant_id,
-              p_source_type: 'order',
-              p_source_id: order.id,
-              p_gateway: gateway,
-              // Δ-22: settlement key is our BAC-*; Paystack ref → metadata only.
-              p_gateway_reference: transaction.gateway_reference ?? reference,
-              p_gross_amount: grossAmount,
-              p_gateway_fee: gatewayFee,
-              p_platform_fee: platformFee,
-              p_description: `Order payment via ${gateway}`,
-              p_metadata: {
-                [`${gateway}_reference`]: reference,
-                verified_gateway_fee: gatewayFee,
-              },
-            }
-          );
-          if (settlementError) {
-            throw new Error(settlementError.message);
-          }
-          return {
-            gross_amount: grossAmount,
-            gateway_fee: gatewayFee,
-            platform_fee: platformFee,
-          };
-        };
-
-        const sideEffectsResult = await applyPaidOrderSideEffects({
-          supabase,
-          order: {
-            id: order.id,
-            merchant_id: order.merchant_id,
-            payment_status: 'paid',
-            tax_basis:
-              (order as Record<string, unknown>).tax_basis === 'exclusive' ||
-              (order as Record<string, unknown>).tax_basis === 'inclusive'
-                ? ((order as Record<string, unknown>).tax_basis as
-                    | 'exclusive'
-                    | 'inclusive')
-                : null,
-            subtotal: Number((order as Record<string, unknown>).subtotal) || 0,
-            shipping_fee:
-              Number((order as Record<string, unknown>).shipping_fee) || 0,
-            gift_wrapping_fee:
-              Number((order as Record<string, unknown>).gift_wrapping_fee) || 0,
-            tax_amount:
-              Number((order as Record<string, unknown>).tax_amount) || 0,
-            discount_amount:
-              Number((order as Record<string, unknown>).discount_amount) || 0,
-            total: Number((order as Record<string, unknown>).total) || 0,
-          },
-          transaction: {
-            id: transaction.id,
-            order_id: order.id,
-            merchant_id: transaction.merchant_id,
-            gateway_reference: transaction.gateway_reference ?? null,
-            amount: transaction.amount,
-          },
-          gatewayResponse,
-          actor: `webhook:${reference}`,
-          executors: {
-            paid_email: paidEmailExecutor,
-            // ad_tracking_conversion intentionally NOT in the outbox —
-            // see the `after(() => triggerPurchaseConversion(...))`
-            // block above (review feedback #1563 thread #2).
-            merchant_settlement: settlementExecutor,
-          },
-        });
-
-        logger.info({
-          message: 'payment_side_effects executed',
-          orderId: order.id,
-          reference,
-          ranSteps: sideEffectsResult.ranSteps,
-          skippedSteps: sideEffectsResult.skippedSteps,
-          failedSteps: sideEffectsResult.failedSteps,
-          concurrentTakeoverSteps: sideEffectsResult.concurrentTakeoverSteps,
-        });
+          logger.error({
+            message: 'Paid order side effects failed after payment completion',
+            error:
+              sideEffectError instanceof Error
+                ? {
+                    message: sideEffectError.message,
+                    stack: sideEffectError.stack,
+                  }
+                : sideEffectError,
+            merchantId: transaction.merchant_id,
+            orderId: order.id,
+            reference,
+            transactionId: transaction.id,
+          });
+        }
       }
     }
 

@@ -1,5 +1,6 @@
 import 'server-only';
 import { getImageProps } from 'next/image';
+import type { ComponentProps, CSSProperties } from 'react';
 import {
   OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY,
   OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
@@ -11,11 +12,20 @@ import imageLoader from '@/lib/image-loader';
 interface LcpSkeletonProps {
   merchant: CachedMerchant | null;
   primaryProductImage: string | null;
+  productName?: string | null;
 }
+
+type NativeImagePropsWithNextInternals = ComponentProps<'img'> & {
+  fill?: unknown;
+  loader?: unknown;
+  priority?: unknown;
+  quality?: unknown;
+};
 
 export function OgabasseyPdpProductLcpSkeleton({
   merchant,
   primaryProductImage,
+  productName,
 }: LcpSkeletonProps) {
   if (!merchant || merchant.template_id !== OGABASSEY_TEMPLATE_ID) {
     return null;
@@ -39,8 +49,9 @@ export function OgabasseyPdpProductLcpSkeleton({
     );
   }
 
+  const productImageAlt = productName?.trim() || 'Loading product';
   const { props: imgProps } = getImageProps({
-    alt: 'Loading product',
+    alt: productImageAlt,
     fill: true,
     loader: imageLoader,
     priority: true,
@@ -48,6 +59,33 @@ export function OgabasseyPdpProductLcpSkeleton({
     sizes: OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
     src: primaryProductImage,
   });
+  const {
+    fill: _fill,
+    loader: _loader,
+    priority: _priority,
+    quality: _quality,
+    ...nativeImgProps
+  } = imgProps as NativeImagePropsWithNextInternals;
+  const imageFrameStyle: CSSProperties = {
+    alignItems: 'center',
+    aspectRatio: '1 / 1',
+    backgroundColor: 'hsl(var(--muted) / 0.05)',
+    border: '1px solid hsl(var(--border) / 0.4)',
+    borderRadius: '1rem',
+    display: 'flex',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    position: 'relative',
+    width: '100%',
+  };
+  const imageStyle: CSSProperties = {
+    ...nativeImgProps.style,
+    height: '100%',
+    inset: 0,
+    objectFit: 'cover',
+    position: 'absolute',
+    width: '100%',
+  };
 
   return (
     <div
@@ -69,11 +107,15 @@ export function OgabasseyPdpProductLcpSkeleton({
       {/* 2. Primary Product Image Grid Skeleton (Statically painted image) */}
       <div className="grid grid-cols-1 gap-12 lg:grid-cols-12 lg:gap-8">
         <div className="space-y-6 lg:col-span-5">
-          <div className="relative flex aspect-square items-center justify-center overflow-hidden rounded-2xl border border-border/40 bg-muted/5">
+          <div
+            className="relative flex aspect-square items-center justify-center overflow-hidden rounded-2xl border border-border/40 bg-muted/5"
+            style={imageFrameStyle}
+          >
             {/* biome-ignore lint/performance/noImgElement lint/a11y/useAltText: Native HTML img used synchronously inside server-rendered skeleton to ensure instant painting */}
             <img
-              {...imgProps}
+              {...nativeImgProps}
               className="object-cover w-full h-full absolute inset-0"
+              style={imageStyle}
               fetchPriority="high"
               decoding="sync"
             />

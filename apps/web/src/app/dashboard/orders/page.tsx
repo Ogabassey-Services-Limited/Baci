@@ -11,9 +11,7 @@ interface OrdersPageProps {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }
 
-export default async function OrdersPage({
-  searchParams,
-}: OrdersPageProps = {}) {
+export default async function OrdersPage({ searchParams }: OrdersPageProps) {
   const resolvedSearchParams = (await searchParams) ?? {};
   const sourceFilter = parseAgenticOrderSourceFilter(
     resolvedSearchParams.source

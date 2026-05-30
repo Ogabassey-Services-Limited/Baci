@@ -1,10 +1,4 @@
-/**
- * Swap/Trade-in Screen
- * Trade in old devices for credit toward new purchases
- * Features AI-powered device valuation
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons";
 import { router, Stack } from 'expo-router';
 import { useState } from 'react';
 import {
@@ -14,7 +8,7 @@ import {
   Pressable,
   ScrollView,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { StorefrontScreenShell } from '@/components/storefront/StorefrontScreenShell';
 import { SwapOverviewContent } from '@/components/swap/SwapOverviewContent';
 import {
   SwapTradeInModal,
@@ -214,7 +208,7 @@ export default function SwapScreen() {
   };
 
   return (
-    <SafeAreaView
+    <StorefrontScreenShell
       style={[styles.container, { backgroundColor: colors.background }]}
       edges={['bottom', 'left', 'right']}
     >
@@ -256,6 +250,6 @@ export default function SwapScreen() {
         onReset={resetModal}
         onStartAnalysis={startAnalysis}
       />
-    </SafeAreaView>
+    </StorefrontScreenShell>
   );
 }

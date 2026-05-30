@@ -2,8 +2,8 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { AlertCircle, Check, CheckCircle2, Loader2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useEffect, useRef, useState } from 'react';
+import { type Resolver, useForm } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -17,6 +17,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { apiPost } from '@/lib/api-client';
+import { isBaciPaystackSettlementCountry } from '@/lib/checkout/payment-gateway-availability';
 import type { Bank } from '@/lib/paystack';
 import { cn } from '@/lib/utils';
 import {
@@ -28,6 +29,7 @@ export type BankFormInput = MerchantBankFormInput;
 type BankFormValues = MerchantBankFormValues;
 
 interface MerchantBankFormProps {
+  countryCode?: string | null;
   initialData?: {
     accountName?: string;
     bankName?: string;
@@ -40,31 +42,40 @@ interface MerchantBankFormProps {
 }
 
 export function MerchantBankForm({
+  countryCode,
   initialData,
   onSuccess,
 }: MerchantBankFormProps) {
   const { toast } = useToast();
+  const isPaystackSupported = isBaciPaystackSettlementCountry(countryCode);
   const [banks, setBanks] = useState<Bank[]>([]);
-  const [isLoadingBanks, setIsLoadingBanks] = useState(true);
+  const [isLoadingBanks, setIsLoadingBanks] = useState(isPaystackSupported);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [bankSearchTerm, setBankSearchTerm] = useState('');
   const [showBankSuggestions, setShowBankSuggestions] = useState(false);
   const [verifiedName, setVerifiedName] = useState<string | null>(
-    initialData?.accountName || null
+    isPaystackSupported ? initialData?.accountName || null : null
   );
   const [verificationError, setVerificationError] = useState<string | null>(
     null
   );
+  const verifyRequestIdRef = useRef(0);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const hasHydratedAutoPayoutSetting =
     typeof initialData?.autoPayoutEnabled === 'boolean';
+  const resolver = zodResolver(merchantBankSchema) as Resolver<
+    BankFormInput,
+    unknown,
+    BankFormValues
+  >;
 
   const form = useForm<BankFormInput, unknown, BankFormValues>({
-    resolver: zodResolver(merchantBankSchema),
+    resolver,
     defaultValues: {
       accountNumber: initialData?.accountNumber || '',
       bankCode: initialData?.bankCode || '',
+      bankName: initialData?.bankName || '',
       businessName: initialData?.businessName || '',
       autoPayoutEnabled: initialData?.autoPayoutEnabled,
     },
@@ -75,6 +86,12 @@ export function MerchantBankForm({
 
   // Fetch banks on mount
   useEffect(() => {
+    if (!isPaystackSupported) {
+      setIsLoadingBanks(false);
+      setBanks([]);
+      return;
+    }
+
     const fetchBanks = async () => {
       try {
         const response = await fetch('/api/paystack/banks');
@@ -104,7 +121,7 @@ export function MerchantBankForm({
     };
 
     fetchBanks();
-  }, [toast]);
+  }, [isPaystackSupported, toast]);
 
   // Set initial search term when banks load if value exists
   useEffect(() => {
@@ -120,8 +137,16 @@ export function MerchantBankForm({
   // const selectedBankName = banks.find(b => b.code === selectedBankCode)?.name;
 
   // Verify account when both account number and bank are provided
-  const verifyAccount = async () => {
-    if (accountNumber.length !== 10 || !selectedBankCode) {
+  const verifyAccount = async (
+    requestId: number,
+    accountNumberToVerify: string,
+    bankCodeToVerify: string
+  ) => {
+    if (!isPaystackSupported) {
+      return;
+    }
+
+    if (accountNumberToVerify.length !== 10 || !bankCodeToVerify) {
       return;
     }
 
@@ -135,9 +160,13 @@ export function MerchantBankForm({
         account_number: string;
         bank_id: number | null;
       }>('/api/paystack/resolve', {
-        accountNumber,
-        bankCode: selectedBankCode,
+        accountNumber: accountNumberToVerify,
+        bankCode: bankCodeToVerify,
       });
+
+      if (requestId !== verifyRequestIdRef.current) {
+        return;
+      }
 
       if (data.account_name) {
         setVerifiedName(data.account_name);
@@ -147,29 +176,46 @@ export function MerchantBankForm({
         }
       }
     } catch (error) {
+      if (requestId !== verifyRequestIdRef.current) {
+        return;
+      }
+
       setVerificationError(
         error instanceof Error
           ? error.message
           : 'Failed to verify account. Please try again.'
       );
     } finally {
-      setIsVerifying(false);
+      if (requestId === verifyRequestIdRef.current) {
+        setIsVerifying(false);
+      }
     }
   };
 
   // Trigger verification when both fields are filled
   // biome-ignore lint/correctness/useExhaustiveDependencies: verifyAccount defined inline, dependencies managed explicitly
   useEffect(() => {
+    const requestId = verifyRequestIdRef.current + 1;
+    verifyRequestIdRef.current = requestId;
+
+    if (!isPaystackSupported) {
+      setVerifiedName(null);
+      setVerificationError(null);
+      setIsVerifying(false);
+      return;
+    }
+
     if (selectedBankCode && accountNumber.length === 10) {
-      verifyAccount();
+      verifyAccount(requestId, accountNumber, selectedBankCode);
     } else {
       setVerifiedName(null);
       setVerificationError(null);
+      setIsVerifying(false);
     }
-  }, [selectedBankCode, accountNumber]);
+  }, [isPaystackSupported, selectedBankCode, accountNumber]);
 
   const onSubmit = async (data: BankFormValues) => {
-    if (!verifiedName) {
+    if (isPaystackSupported && !verifiedName) {
       toast({
         variant: 'destructive',
         title: 'Verification Required',
@@ -183,16 +229,17 @@ export function MerchantBankForm({
     try {
       const payload: {
         accountNumber: string;
-        bankCode: string;
+        bankCode?: string;
         businessName: string;
         autoPayoutEnabled?: boolean;
       } = {
         accountNumber: data.accountNumber,
-        bankCode: data.bankCode,
         businessName: data.businessName,
+        bankCode: data.bankCode,
       };
 
       if (
+        isPaystackSupported &&
         hasHydratedAutoPayoutSetting &&
         form.formState.dirtyFields.autoPayoutEnabled
       ) {
@@ -202,7 +249,7 @@ export function MerchantBankForm({
       const result = await apiPost<{
         success: boolean;
         accountName: string;
-        subaccountCode: string;
+        subaccountCode: string | null;
       }>('/api/paystack/subaccount', payload);
 
       if (result.success) {
@@ -225,6 +272,27 @@ export function MerchantBankForm({
       setIsSubmitting(false);
     }
   };
+
+  if (!isPaystackSupported) {
+    return (
+      <div className="flex items-start gap-3 p-4 rounded-lg border bg-muted/50 text-sm text-muted-foreground">
+        <AlertCircle
+          className="h-5 w-5 shrink-0 text-muted-foreground"
+          aria-hidden="true"
+        />
+        <div>
+          <p className="font-medium text-foreground">
+            Nigerian settlement only
+          </p>
+          <p>
+            Bank account setup is available for Nigerian Paystack settlements.
+            Use Pay on Delivery or request a supported online payment provider
+            for this country.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <Form {...form}>
@@ -368,7 +436,7 @@ export function MerchantBankForm({
                         key={bank.code}
                         id={`bank-option-${index}`}
                         role="option"
-                        tabIndex={0}
+                        tabIndex={-1}
                         aria-selected={field.value === bank.code}
                         className={cn(
                           'relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-hidden hover:bg-accent hover:text-accent-foreground',

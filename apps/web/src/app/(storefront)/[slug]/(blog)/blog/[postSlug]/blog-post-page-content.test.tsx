@@ -13,6 +13,7 @@ const {
   mockNotFound,
   mockGetCachedBlogPost,
   mockGetLiveBlogPost,
+  mockGetBlogPostRedirect,
   mockBuildInformationalClusterModel,
   mockGenerateBlogPostSchema,
   mockBlogPostHeader,
@@ -26,6 +27,7 @@ const {
   }),
   mockGetCachedBlogPost: vi.fn(),
   mockGetLiveBlogPost: vi.fn(),
+  mockGetBlogPostRedirect: vi.fn(),
   mockBuildInformationalClusterModel: vi.fn(),
   mockGenerateBlogPostSchema: vi.fn<(data: unknown) => Record<string, unknown>>(
     () => ({})
@@ -56,6 +58,9 @@ vi.mock('next/link', () => ({
 
 vi.mock('next/navigation', () => ({
   notFound: () => mockNotFound(),
+  permanentRedirect: (url: string) => {
+    throw new Error(`NEXT_PERMANENT_REDIRECT:${url}`);
+  },
 }));
 
 vi.mock(
@@ -96,6 +101,10 @@ vi.mock('@/lib/cached-data', () => ({
 
 vi.mock('@/lib/live-blog-post', () => ({
   getLiveBlogPost: (...args: unknown[]) => mockGetLiveBlogPost(...args),
+}));
+
+vi.mock('@/lib/blog-post-redirects', () => ({
+  getBlogPostRedirect: (...args: unknown[]) => mockGetBlogPostRedirect(...args),
 }));
 
 vi.mock('@/lib/routes', () => ({
@@ -215,6 +224,8 @@ describe('BlogPostPageContent', () => {
       })
     );
     mockGetCachedBlogPost.mockResolvedValue(smartphoneGuideBlogPost);
+    mockGetLiveBlogPost.mockResolvedValue(null);
+    mockGetBlogPostRedirect.mockResolvedValue(null);
     mockBuildInformationalClusterModel.mockResolvedValue({
       heading: 'Continue shopping smartphones',
       primaryCategoryLink: {
@@ -386,5 +397,57 @@ describe('BlogPostPageContent', () => {
         imageUrls: expect.any(Array),
       })
     );
+  });
+
+  it('permanently redirects retired direct blog slugs before rendering notFound', async () => {
+    mockGetCachedBlogPost.mockResolvedValue(null);
+    mockGetLiveBlogPost.mockResolvedValue(null);
+    mockGetBlogPostRedirect.mockResolvedValueOnce({
+      merchant: {
+        id: 'merchant-1',
+        business_name: 'Ogabassey',
+        slug: 'ogabassey',
+        custom_domain: 'ogabassey.com',
+      },
+      targetSlug: 'canonical-post',
+    });
+
+    await expect(
+      BlogPostPageContent({
+        params: Promise.resolve({
+          slug: 'ogabassey.com',
+          postSlug: 'retired-post',
+        }),
+      })
+    ).rejects.toThrow(
+      'NEXT_PERMANENT_REDIRECT:https://ogabassey.com/blog/canonical-post'
+    );
+
+    expect(mockGetBlogPostRedirect).toHaveBeenCalledWith(
+      'ogabassey.com',
+      'retired-post'
+    );
+    expect(mockNotFound).not.toHaveBeenCalled();
+  });
+
+  it('renders notFound for missing direct blog slugs without redirects', async () => {
+    mockGetCachedBlogPost.mockResolvedValue(null);
+    mockGetLiveBlogPost.mockResolvedValue(null);
+    mockGetBlogPostRedirect.mockResolvedValueOnce(null);
+
+    await expect(
+      BlogPostPageContent({
+        params: Promise.resolve({
+          slug: 'ogabassey.com',
+          postSlug: 'retired-post',
+        }),
+      })
+    ).rejects.toThrow('NEXT_NOT_FOUND');
+
+    expect(mockGetBlogPostRedirect).toHaveBeenCalledWith(
+      'ogabassey.com',
+      'retired-post'
+    );
+    expect(mockNotFound).toHaveBeenCalled();
   });
 });

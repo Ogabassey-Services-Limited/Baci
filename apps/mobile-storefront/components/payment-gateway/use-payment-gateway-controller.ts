@@ -1,10 +1,14 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { router, useLocalSearchParams } from 'expo-router';
+import { type Href, router, useLocalSearchParams } from 'expo-router';
 import { type ComponentProps, useEffect, useRef, useState } from 'react';
 import { Alert } from 'react-native';
 import type { WebView, WebViewNavigation } from 'react-native-webview';
 import { useToast } from '@/components/ui/Toast';
 import { setClipboardString } from '@/lib/clipboard';
+import {
+  SavingsAuthorizationStillProcessingError,
+  waitForSavingsAuthorizationConfirmation,
+} from '@/lib/customer-savings';
 import {
   type WalletTopUpGateway,
   WalletTopUpStillProcessingError,
@@ -42,8 +46,14 @@ function isWalletTopUpGateway(value: unknown): value is WalletTopUpGateway {
   return value === 'paystack' || value === 'korapay';
 }
 
+function getWalletReturnHref(returnTo?: string): Href {
+  return (returnTo || '/wallet') as Href;
+}
+
 function getCloseConfirmationMessage(paymentKind?: string) {
   switch (paymentKind) {
+    case PAYMENT_KINDS.SAVINGS_AUTH:
+      return 'If you leave now, your savings card authorization may remain incomplete.';
     case PAYMENT_KINDS.VTU:
       return 'If you leave now, this utility payment may remain incomplete until you retry it.';
     case PAYMENT_KINDS.WALLET:
@@ -59,6 +69,7 @@ export function usePaymentGatewayController() {
   const webViewRef = useRef<WebView>(null);
   const copiedGatewayTextRef = useRef<string | null>(null);
   const paymentCompletionStartedRef = useRef(false);
+  const savingsAuthorizationAbortRef = useRef<AbortController | null>(null);
   const isMountedRef = useRef(true);
   const vtuConfirmationTokenRef = useRef(0);
   const navigationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
@@ -95,6 +106,8 @@ export function usePaymentGatewayController() {
         clearTimeout(loadTimeoutRef.current);
         loadTimeoutRef.current = null;
       }
+      savingsAuthorizationAbortRef.current?.abort();
+      savingsAuthorizationAbortRef.current = null;
     },
     []
   );
@@ -251,7 +264,7 @@ export function usePaymentGatewayController() {
         }
         setPaymentStatus('success');
         scheduleDelayedNavigation(() => {
-          router.replace(returnTo || '/wallet');
+          router.replace(getWalletReturnHref(returnTo));
         });
       } catch (error) {
         if (!isMountedRef.current) {
@@ -276,6 +289,73 @@ export function usePaymentGatewayController() {
     })();
   };
 
+  const beginSavingsAuthorizationCompletion = () => {
+    const currentStatus = statusRef.current;
+    if (
+      paymentCompletionStartedRef.current ||
+      currentStatus === 'processing' ||
+      currentStatus === 'success'
+    ) {
+      return;
+    }
+
+    if (!reference) {
+      setPaymentStatus('error');
+      setErrorMessage('Savings authorization details are incomplete.');
+      return;
+    }
+
+    paymentCompletionStartedRef.current = true;
+    setPaymentStatus('processing');
+    savingsAuthorizationAbortRef.current?.abort();
+    const abortController = new AbortController();
+    savingsAuthorizationAbortRef.current = abortController;
+
+    void (async () => {
+      try {
+        await waitForSavingsAuthorizationConfirmation({
+          merchantId,
+          merchantSlug,
+          reference,
+          signal: abortController.signal,
+        });
+        if (!isMountedRef.current) {
+          return;
+        }
+        clearPendingLoadTimeout();
+        await queryClient.invalidateQueries({ queryKey: WALLET_QUERY_KEY });
+        if (!isMountedRef.current) {
+          return;
+        }
+        setPaymentStatus('success');
+        scheduleDelayedNavigation(() => {
+          router.replace(returnTo || '/wallet/savings/start');
+        });
+      } catch (error) {
+        if (!isMountedRef.current) {
+          return;
+        }
+        if (error instanceof Error && error.name === 'AbortError') {
+          return;
+        }
+
+        paymentCompletionStartedRef.current = false;
+        setPaymentStatus('error');
+        setErrorMessage(
+          error instanceof SavingsAuthorizationStillProcessingError
+            ? error.message
+            : error instanceof Error
+              ? error.message
+              : 'Savings card authorization could not be confirmed.'
+        );
+      } finally {
+        if (savingsAuthorizationAbortRef.current === abortController) {
+          savingsAuthorizationAbortRef.current = null;
+        }
+      }
+    })();
+  };
+
   const beginPaymentCompletion = () => {
     const currentStatus = statusRef.current;
     if (
@@ -293,6 +373,11 @@ export function usePaymentGatewayController() {
 
     if (paymentKind === PAYMENT_KINDS.WALLET) {
       beginWalletTopUpCompletion();
+      return;
+    }
+
+    if (paymentKind === PAYMENT_KINDS.SAVINGS_AUTH) {
+      beginSavingsAuthorizationCompletion();
       return;
     }
 
@@ -406,10 +491,17 @@ export function usePaymentGatewayController() {
       if (isPaymentCancellationRedirect(navState.url)) {
         setPaymentStatus('error');
         setErrorMessage('Payment was cancelled.');
+        if (paymentKind === PAYMENT_KINDS.SAVINGS_AUTH) {
+          scheduleDelayedNavigation(() => {
+            router.replace(returnTo || '/wallet/savings/start');
+          });
+        }
       }
     },
     handleRetry: () => {
       vtuConfirmationTokenRef.current += 1;
+      savingsAuthorizationAbortRef.current?.abort();
+      savingsAuthorizationAbortRef.current = null;
       paymentCompletionStartedRef.current = false;
       copiedGatewayTextRef.current = null;
       clearPendingNavigation();
@@ -421,7 +513,8 @@ export function usePaymentGatewayController() {
     handleShouldStartLoadWithRequest: (request: { url: string }) => {
       if (
         (paymentKind === PAYMENT_KINDS.VTU ||
-          paymentKind === PAYMENT_KINDS.WALLET) &&
+          paymentKind === PAYMENT_KINDS.WALLET ||
+          paymentKind === PAYMENT_KINDS.SAVINGS_AUTH) &&
         isPaymentCompletionRedirect(request.url)
       ) {
         beginPaymentCompletion();

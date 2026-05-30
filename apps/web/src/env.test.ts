@@ -12,6 +12,7 @@ function stubBaseEnv() {
   vi.stubEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', 'anon-key');
   delete process.env.SUPABASE_JWT_SECRET;
   delete process.env.SUPABASE_AGENTIC_JWT_PRIVATE_JWK;
+  delete process.env.BACI_WORKER_PROFILE;
 }
 
 function loadEnvModule() {
@@ -79,6 +80,16 @@ describe('env validation', () => {
     await expect(loadEnvModule()).resolves.toBeDefined();
   });
 
+  it('allows the AI storefront worker profile without agentic signing material', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('GITHUB_ACTIONS', 'false');
+    vi.stubEnv('BACI_WORKER_PROFILE', 'ai-storefront-jobs');
+    delete process.env.SUPABASE_JWT_SECRET;
+    delete process.env.SUPABASE_AGENTIC_JWT_PRIVATE_JWK;
+
+    await expect(loadEnvModule()).resolves.toBeDefined();
+  });
+
   it('rejects spoofed GitHub Actions builds without GitHub run context', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     vi.stubEnv('NODE_ENV', 'production');
@@ -108,6 +119,21 @@ describe('env validation', () => {
     await expect(loadEnvModule()).resolves.toBeDefined();
   });
 
+  it('accepts common truthy values for Google Pay enablement', async () => {
+    vi.stubEnv('BACI_GOOGLE_PAY_ENABLED', 'yes');
+    vi.stubEnv('BACI_GOOGLE_PAY_GATEWAY', 'paystack');
+    vi.stubEnv('BACI_GOOGLE_PAY_GATEWAY_MERCHANT_ID', 'merchant-gateway');
+    vi.stubEnv('BACI_GOOGLE_PAY_MERCHANT_ID', 'merchant-google-pay');
+
+    const { getGooglePayAgenticConfig } = await loadEnvModule();
+
+    expect(getGooglePayAgenticConfig()).toEqual({
+      gateway: 'paystack',
+      gatewayMerchantId: 'merchant-gateway',
+      merchantId: 'merchant-google-pay',
+    });
+  });
+
   it('rejects production boot when the agentic JWT signing key is malformed', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     vi.stubEnv('NODE_ENV', 'production');
@@ -129,6 +155,60 @@ describe('env validation', () => {
     await expect(loadEnvModule()).rejects.toThrow('SUPABASE_SERVICE_ROLE_KEY');
   });
 
+  it('loads AI storefront Ollama env through the central schema', async () => {
+    vi.stubEnv('OLLAMA_STOREFRONT_BASE_URL', 'http://127.0.0.1:11434');
+    vi.stubEnv('OLLAMA_STOREFRONT_MODEL', '  gemma4:\ne2b  ');
+    vi.stubEnv('OLLAMA_STOREFRONT_TIMEOUT_MS', '300000');
+
+    const {
+      getOllamaStorefrontBaseUrl,
+      getOllamaStorefrontModel,
+      getOllamaStorefrontTimeoutMs,
+    } = await loadEnvModule();
+
+    expect(getOllamaStorefrontBaseUrl()).toBe('http://127.0.0.1:11434');
+    expect(getOllamaStorefrontModel()).toBe('gemma4:e2b');
+    expect(getOllamaStorefrontTimeoutMs()).toBe(300_000);
+  });
+
+  it('returns undefined when no AI storefront Ollama URL is configured', async () => {
+    const { getOllamaStorefrontBaseUrl } = await loadEnvModule();
+
+    expect(getOllamaStorefrontBaseUrl()).toBeUndefined();
+  });
+
+  it('rejects invalid AI storefront Ollama URLs in production', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('BACI_WORKER_PROFILE', 'ai-storefront-jobs');
+    vi.stubEnv('OLLAMA_STOREFRONT_BASE_URL', 'http://example.com:11434');
+
+    await expect(loadEnvModule()).rejects.toThrow('OLLAMA_STOREFRONT_BASE_URL');
+  });
+
+  it('rejects blank AI storefront model names at runtime', async () => {
+    vi.stubEnv('OLLAMA_STOREFRONT_MODEL', '   ');
+    const { getOllamaStorefrontModel } = await loadEnvModule();
+
+    expect(() => getOllamaStorefrontModel()).toThrow(
+      'OLLAMA_STOREFRONT_MODEL must resolve to a non-empty model name'
+    );
+  });
+
+  it.each([
+    'abc',
+    '-1',
+  ])('rejects invalid AI storefront timeouts in production: %s', async (value) => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('BACI_WORKER_PROFILE', 'ai-storefront-jobs');
+    vi.stubEnv('OLLAMA_STOREFRONT_TIMEOUT_MS', value);
+
+    await expect(loadEnvModule()).rejects.toThrow(
+      'OLLAMA_STOREFRONT_TIMEOUT_MS'
+    );
+  });
+
   it('loads server env when required production secrets are present', async () => {
     vi.stubEnv('NODE_ENV', 'production');
     vi.stubEnv('SUPABASE_JWT_SECRET', 'legacy-test-secret');
@@ -136,12 +216,10 @@ describe('env validation', () => {
     await expect(loadEnvModule()).resolves.toBeDefined();
   });
 
-  it('defaults the terminal idempotency record window to seven days', async () => {
+  it('defaults the terminal idempotency record window to 24 hours', async () => {
     const { getTerminalIdempotencyRecordWindowMs } = await loadEnvModule();
 
-    expect(getTerminalIdempotencyRecordWindowMs()).toBe(
-      7 * 24 * 60 * 60 * 1000
-    );
+    expect(getTerminalIdempotencyRecordWindowMs()).toBe(24 * 60 * 60 * 1000);
   });
 
   it('uses MYCOVER_SECRET_KEY as the MyCover webhook signing secret fallback', async () => {
@@ -308,6 +386,29 @@ describe('env model getters', () => {
     expect(getAiChatModel()).toBe('gemma4:e4b');
   });
 
+  it('defaults the chat provider to auto', async () => {
+    delete process.env.AI_CHAT_PROVIDER;
+    const { getAiChatProvider } = await loadEnvModule();
+
+    expect(getAiChatProvider()).toBe('auto');
+  });
+
+  it('normalizes a configured chat provider', async () => {
+    vi.stubEnv('AI_CHAT_PROVIDER', '  Gemini\\n\n  ');
+    const { getAiChatProvider } = await loadEnvModule();
+
+    expect(getAiChatProvider()).toBe('gemini');
+  });
+
+  it('rejects invalid chat providers in production', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('SUPABASE_JWT_SECRET', 'jwt-secret');
+    vi.stubEnv('AI_CHAT_PROVIDER', 'openai');
+
+    await expect(loadEnvModule()).rejects.toThrow(/AI_CHAT_PROVIDER/);
+  });
+
   it('rejects blank chat model names after sanitization', async () => {
     vi.stubEnv('AI_CHAT_MODEL', ' \\n\n\r ');
     const { getAiChatModel } = await loadEnvModule();
@@ -342,6 +443,83 @@ describe('env model getters', () => {
     expect(getCacTinApiBaseUrl()).toBe(
       'https://icrp.cac.gov.ng/tin_service/api/v1/public/tin'
     );
+  });
+});
+
+describe('env AI storefront trigger validation', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+    stubBaseEnv();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    vi.resetModules();
+  });
+
+  it('accepts an HTTPS trigger URL with a bearer secret', async () => {
+    vi.stubEnv(
+      'AI_STOREFRONT_TRIGGER_URL',
+      'https://workers.ogabassey.com/ai-storefront/trigger'
+    );
+    vi.stubEnv('AI_STOREFRONT_TRIGGER_SECRET', 'trigger-secret');
+    vi.stubEnv('AI_STOREFRONT_TRIGGER_TIMEOUT_MS', '7000');
+
+    const {
+      getAiStorefrontWorkerTriggerSecret,
+      getAiStorefrontWorkerTriggerTimeoutMs,
+      getAiStorefrontWorkerTriggerUrl,
+    } = await loadEnvModule();
+
+    expect(getAiStorefrontWorkerTriggerUrl()).toBe(
+      'https://workers.ogabassey.com/ai-storefront/trigger'
+    );
+    expect(getAiStorefrontWorkerTriggerSecret()).toBe('trigger-secret');
+    expect(getAiStorefrontWorkerTriggerTimeoutMs()).toBe(7000);
+  });
+
+  it('fails boot when a trigger URL is configured without a secret', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('SUPABASE_JWT_SECRET', 'jwt-secret');
+    vi.stubEnv(
+      'AI_STOREFRONT_TRIGGER_URL',
+      'https://workers.ogabassey.com/ai-storefront/trigger'
+    );
+    delete process.env.AI_STOREFRONT_TRIGGER_SECRET;
+
+    await expect(loadEnvModule()).rejects.toThrow(
+      /AI_STOREFRONT_TRIGGER_SECRET/
+    );
+  });
+
+  it('fails boot when a trigger URL is configured with a blank secret', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('SUPABASE_JWT_SECRET', 'jwt-secret');
+    vi.stubEnv(
+      'AI_STOREFRONT_TRIGGER_URL',
+      'https://workers.ogabassey.com/ai-storefront/trigger'
+    );
+    vi.stubEnv('AI_STOREFRONT_TRIGGER_SECRET', '   ');
+
+    await expect(loadEnvModule()).rejects.toThrow(
+      /AI_STOREFRONT_TRIGGER_SECRET/
+    );
+  });
+
+  it('fails boot when a trigger secret is configured without a URL', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('SUPABASE_JWT_SECRET', 'jwt-secret');
+    delete process.env.AI_STOREFRONT_TRIGGER_URL;
+    vi.stubEnv('AI_STOREFRONT_TRIGGER_SECRET', 'trigger-secret');
+
+    await expect(loadEnvModule()).rejects.toThrow(/AI_STOREFRONT_TRIGGER_URL/);
   });
 });
 
@@ -516,16 +694,16 @@ describe('env LLM server validation', () => {
     expect(getLlmServerBearer()).toBeUndefined();
   });
 
-  it('returns the chat model alias gemma-4-e4b by default', async () => {
+  it('returns the VPS Gemma Ollama model id by default', async () => {
     delete process.env.LLM_CHAT_MODEL;
     const { getLlmChatModel } = await loadEnvModule();
-    expect(getLlmChatModel()).toBe('gemma-4-e4b');
+    expect(getLlmChatModel()).toBe('gemma4:e4b');
   });
 
   it('honors a configured LLM_CHAT_MODEL after sanitization', async () => {
-    vi.stubEnv('LLM_CHAT_MODEL', '  gemma-4-e4b\\n\n\r ');
+    vi.stubEnv('LLM_CHAT_MODEL', '  gemma4:e4b\\n\n\r ');
     const { getLlmChatModel } = await loadEnvModule();
-    expect(getLlmChatModel()).toBe('gemma-4-e4b');
+    expect(getLlmChatModel()).toBe('gemma4:e4b');
   });
 
   it('rejects blank LLM_CHAT_MODEL after sanitization', async () => {

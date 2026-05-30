@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { type NextRequest, NextResponse } from 'next/server';
 import { getMyCoverWebhookSecret } from '@/env';
+import { constantTimeEqual } from '@/lib/constant-time-equal';
 import { createServiceClient } from '@/lib/supabase/service';
 import {
   type MyCoverWebhookPayload,
@@ -50,16 +51,7 @@ async function verifyWebhookSignature(
       .map((b) => b.toString(16).padStart(2, '0'))
       .join('');
 
-    const expectedLen = expectedSignature.length;
-    let result = signature.length ^ expectedLen;
-
-    for (let i = 0; i < expectedLen; i++) {
-      const charA = signature.charCodeAt(i) || 0;
-      const charB = expectedSignature.charCodeAt(i);
-      result |= charA ^ charB;
-    }
-
-    return result === 0;
+    return constantTimeEqual(signature, expectedSignature);
   } catch (error) {
     console.error('[MyCover Webhook] Signature verification error:', error);
     return false;

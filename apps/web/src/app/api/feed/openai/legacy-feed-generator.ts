@@ -1,3 +1,7 @@
+import {
+  resolveGmcAdditionalImages,
+  resolveGmcPrimaryImage,
+} from '@/lib/gmc-feed-images';
 import { getEffectiveStock } from '@/lib/product-stock';
 import { stripHtmlTags } from '@/lib/sanitize-core';
 import {
@@ -5,6 +9,7 @@ import {
   buildAgentProductUrl,
   trimTrailingSlash,
 } from '@/lib/storefront-agent-urls';
+import type { ImageManifestMap } from '../google-merchant/feed-builder';
 import {
   DEFAULT_RETURN_DAYS,
   PRODUCT_DESCRIPTION_MAX_LENGTH,
@@ -19,9 +24,6 @@ function getVariantStockCount(
   variant: OpenAIFeedVariant
 ) {
   if (product.manage_stock === false) {
-    // Product-level unmanaged stock is authoritative for the feed. Variant
-    // quantities are hidden/zeroed in this mode and there is no variant-level
-    // availability override in the product_variants feed contract.
     return UNLIMITED_STOCK_QUANTITY;
   }
 
@@ -30,7 +32,36 @@ function getVariantStockCount(
     : 0;
 }
 
-function getProductImageUrl(product: Product, variant?: OpenAIFeedVariant) {
+function getManifestEntriesForProductVariant(
+  imageManifest: ImageManifestMap,
+  product: Product,
+  variant?: OpenAIFeedVariant
+) {
+  const manifestEntries = imageManifest[product.id] || [];
+  if (!variant) {
+    return manifestEntries;
+  }
+
+  const variantEntries = manifestEntries.filter(
+    (entry) => entry.variant_id === variant.id
+  );
+  return resolveGmcPrimaryImage(variantEntries)
+    ? variantEntries
+    : manifestEntries;
+}
+
+function getProductImageUrl(
+  product: Product,
+  variant?: OpenAIFeedVariant,
+  imageManifest: ImageManifestMap = {}
+) {
+  const manifestPrimaryImage = resolveGmcPrimaryImage(
+    getManifestEntriesForProductVariant(imageManifest, product, variant)
+  );
+  if (manifestPrimaryImage) {
+    return manifestPrimaryImage;
+  }
+
   const parentFirstImageRaw = product.images?.[0];
   const parentFirstImage =
     typeof parentFirstImageRaw === 'string'
@@ -40,15 +71,28 @@ function getProductImageUrl(product: Product, variant?: OpenAIFeedVariant) {
   return variant?.primary_image || parentFirstImage;
 }
 
-function isString(value: unknown): value is string {
-  return typeof value === 'string';
-}
+function getAdditionalImageLinks(
+  product: Product,
+  imageManifest: ImageManifestMap = {},
+  variant?: OpenAIFeedVariant
+) {
+  const manifestAdditionalImages = resolveGmcAdditionalImages(
+    getManifestEntriesForProductVariant(imageManifest, product, variant)
+  );
+  if (manifestAdditionalImages.length > 0) {
+    return manifestAdditionalImages;
+  }
 
-function getAdditionalImageLinks(product: Product) {
   return product.images
     ?.slice(1, 11)
     .map((img) => (typeof img === 'string' ? img : img.url))
-    .filter(isString);
+    .filter((url): url is string => typeof url === 'string');
+}
+
+function buildPlainDescription(product: Product) {
+  return stripHtmlTags(product.description || '')
+    .trim()
+    .slice(0, PRODUCT_DESCRIPTION_MAX_LENGTH);
 }
 
 function buildVariantTitle(product: Product, variant: OpenAIFeedVariant) {
@@ -57,16 +101,9 @@ function buildVariantTitle(product: Product, variant: OpenAIFeedVariant) {
   const storage = variant.attributes?.storage || variant.attributes?.Storage;
   const titleParts = [product.name];
 
-  if (color) {
-    titleParts.push(color);
-  }
-  if (size) {
-    titleParts.push(size);
-  }
-
-  if (storage) {
-    titleParts.push(storage);
-  }
+  if (color) titleParts.push(color);
+  if (size) titleParts.push(size);
+  if (storage) titleParts.push(storage);
 
   return titleParts.join(' - ');
 }
@@ -78,6 +115,7 @@ function buildVariantFeedItem({
   baseUrl,
   currency,
   merchantUrl,
+  imageManifest,
 }: {
   product: Product;
   variant: OpenAIFeedVariant;
@@ -85,6 +123,7 @@ function buildVariantFeedItem({
   baseUrl: string;
   currency: string;
   merchantUrl: string;
+  imageManifest: ImageManifestMap;
 }): OpenAIFeedItem | null {
   const finalPrice = variant.price_override ?? product.price;
   const itemId = variant.sku || variant.id;
@@ -107,15 +146,17 @@ function buildVariantFeedItem({
     gtin: product.gtin || undefined,
     mpn: product.mpn || undefined,
     title: buildVariantTitle(product, variant),
-    description: stripHtmlTags(product.description || '')
-      .trim()
-      .slice(0, PRODUCT_DESCRIPTION_MAX_LENGTH),
+    description: buildPlainDescription(product),
     link: buildAgentProductUrl({ baseUrl, product }),
     condition: product.condition || 'new',
     product_type: product.category || product.google_product_category,
     brand: product.brand || merchant.business_name,
-    image_link: getProductImageUrl(product, variant),
-    additional_image_links: getAdditionalImageLinks(product),
+    image_link: getProductImageUrl(product, variant, imageManifest),
+    additional_image_links: getAdditionalImageLinks(
+      product,
+      imageManifest,
+      variant
+    ),
     price: `${finalPrice.toFixed(2)} ${currency}`,
     availability,
     quantity: stockCount,
@@ -134,12 +175,14 @@ function buildSimpleFeedItem({
   baseUrl,
   currency,
   merchantUrl,
+  imageManifest,
 }: {
   product: Product;
   merchant: Merchant;
   baseUrl: string;
   currency: string;
   merchantUrl: string;
+  imageManifest: ImageManifestMap;
 }): OpenAIFeedItem | null {
   const itemId = product.sku || product.id;
 
@@ -174,15 +217,13 @@ function buildSimpleFeedItem({
     gtin: product.gtin || undefined,
     mpn: product.mpn || undefined,
     title: product.name,
-    description: stripHtmlTags(product.description || '')
-      .trim()
-      .slice(0, PRODUCT_DESCRIPTION_MAX_LENGTH),
+    description: buildPlainDescription(product),
     link: buildAgentProductUrl({ baseUrl, product }),
     condition: product.condition || 'new',
     product_type: product.category || product.google_product_category,
     brand: product.brand || merchant.business_name,
-    image_link: getProductImageUrl(product),
-    additional_image_links: getAdditionalImageLinks(product),
+    image_link: getProductImageUrl(product, undefined, imageManifest),
+    additional_image_links: getAdditionalImageLinks(product, imageManifest),
     price: regularPrice,
     sale_price: salePrice,
     availability,
@@ -206,7 +247,8 @@ function stringifyFeedItem(feedItem: OpenAIFeedItem) {
 export function generateOpenAIFeed(
   products: Product[],
   merchant: Merchant,
-  baseUrl: string
+  baseUrl: string,
+  imageManifest: ImageManifestMap = {}
 ): string[] {
   const currency = merchant.payout_currency || 'NGN';
   const merchantUrl = trimTrailingSlash(baseUrl);
@@ -225,6 +267,7 @@ export function generateOpenAIFeed(
           baseUrl,
           currency,
           merchantUrl,
+          imageManifest,
         });
 
         if (feedItem) {
@@ -241,6 +284,7 @@ export function generateOpenAIFeed(
       baseUrl,
       currency,
       merchantUrl,
+      imageManifest,
     });
 
     if (feedItem) {

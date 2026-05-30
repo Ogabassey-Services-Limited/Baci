@@ -20,6 +20,7 @@ let llmChatModel = 'gemma-4-e4b';
 let llmError: Error | null = null;
 let llmStreamError: Error | null = null;
 let llmResponseText = 'LLM response';
+let chatProvider: 'auto' | 'gemini' | 'llm' | 'ollama' = 'auto';
 
 // ---- Mocks ----
 
@@ -50,6 +51,7 @@ vi.mock('@/ai/provider', () => ({
 }));
 
 vi.mock('@/env', () => ({
+  getAiChatProvider: vi.fn(() => chatProvider),
   getAiChatModel: vi.fn(() => 'gemma4:e4b'),
   getOllamaBaseUrl: vi.fn(() => ollamaBaseUrl),
   getOllamaBasicAuth: vi.fn(() => ollamaBasicAuth),
@@ -211,6 +213,7 @@ describe('POST /api/chat', () => {
     llmError = null;
     llmStreamError = null;
     llmResponseText = 'LLM response';
+    chatProvider = 'auto';
   });
 
   it('returns 429 when rate limited', async () => {
@@ -312,6 +315,28 @@ describe('POST /api/chat', () => {
     expect(generateText).not.toHaveBeenCalled();
   });
 
+  it('uses Gemini directly when configured to skip self-hosted providers', async () => {
+    // Arrange
+    chatProvider = 'gemini';
+    llmServerUrl = TEST_LLM_SERVER_URL;
+    llmServerBearer = TEST_LLM_SERVER_BEARER;
+    ollamaBaseUrl = 'https://ollama.example.com';
+
+    // Act
+    const response = await POST(
+      makeRequest({
+        messages: [{ role: 'user', content: 'Show me phones' }],
+      })
+    );
+
+    // Assert
+    expect(response.status).toBe(200);
+    expect(await response.text()).toBe('AI response');
+    expect(createLlmChatResponse).not.toHaveBeenCalled();
+    expect(createOllamaChatResponse).not.toHaveBeenCalled();
+    expect(generateText).toHaveBeenCalledOnce();
+  });
+
   it('falls back to Gemini when the Ollama request fails', async () => {
     // Arrange
     ollamaBaseUrl = 'https://ollama.example.com';
@@ -334,7 +359,7 @@ describe('POST /api/chat', () => {
     expect(createOllamaChatResponse).toHaveBeenCalledOnce();
     expect(createOllamaChatResponse).toHaveBeenCalledWith(
       expect.objectContaining({
-        timeoutMs: 8_000,
+        timeoutMs: 60_000,
       })
     );
     expect(generateText).toHaveBeenCalledOnce();
@@ -707,6 +732,25 @@ describe('POST /api/chat', () => {
     expect(await response.text()).toBe('LLM response');
     expect(createLlmChatResponse).toHaveBeenCalledOnce();
     expect(createOllamaChatResponse).not.toHaveBeenCalled();
+  });
+
+  it('uses Ollama when explicitly configured even if the LLM server is present', async () => {
+    chatProvider = 'ollama';
+    llmServerUrl = TEST_LLM_SERVER_URL;
+    llmServerBearer = TEST_LLM_SERVER_BEARER;
+    ollamaBaseUrl = 'https://ollama.example.com';
+
+    const response = await POST(
+      makeRequest({
+        messages: [{ role: 'user', content: 'Hi' }],
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.text()).toBe('Gemma response');
+    expect(createLlmChatResponse).not.toHaveBeenCalled();
+    expect(createOllamaChatResponse).toHaveBeenCalledOnce();
+    expect(generateText).not.toHaveBeenCalled();
   });
 
   it('falls back to Gemini when the LLM server request fails', async () => {

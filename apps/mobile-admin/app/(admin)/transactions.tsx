@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
@@ -9,6 +9,7 @@ import { TransactionListState } from '@/components/transactions/TransactionListS
 import { TransactionOrderCard } from '@/components/transactions/TransactionOrderCard';
 import { TransactionsSummary } from '@/components/transactions/TransactionsSummary';
 import { styles } from '@/components/transactions/transactions.styles';
+import { useAnalyticsOverview } from '@/hooks/useAnalyticsOverview';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useTheme } from '@/hooks/useTheme';
 import {
@@ -17,6 +18,7 @@ import {
   useTransactionReview,
 } from '@/hooks/useTransactionReview';
 import { useUpdateTransactionCostPrice } from '@/hooks/useUpdateTransactionCostPrice';
+import { resolveAnalyticsDateRange } from '@/lib/analytics-period';
 import {
   buildTransactionDateIso,
   filterOrdersForTransactionTab,
@@ -58,6 +60,16 @@ export default function TransactionsScreen() {
           startDate: parsedStartDate,
         }
       : undefined;
+  const currentMonthAnchor = new Date();
+  const profitRange = resolveAnalyticsDateRange(
+    'this_month',
+    currentMonthAnchor.getFullYear(),
+    currentMonthAnchor,
+    currentMonthAnchor,
+    currentMonthAnchor
+  );
+  const { data: profitAnalytics, error: profitError } =
+    useAnalyticsOverview(profitRange);
   const {
     data: orders = [],
     isLoading,
@@ -81,12 +93,16 @@ export default function TransactionsScreen() {
 
   const summary = orders.reduce(
     (acc, order) => ({
-      estimatedProfit: acc.estimatedProfit + order.estimatedProfit,
       missingCosts: acc.missingCosts + order.missingCostCount,
       transactions: acc.transactions + 1,
     }),
-    { estimatedProfit: 0, missingCosts: 0, transactions: 0 }
+    { missingCosts: 0, transactions: 0 }
   );
+  const estimatedProfitThisMonthLabel = profitError
+    ? 'Unavailable'
+    : profitAnalytics
+      ? formatCurrency(profitAnalytics.summary.profit.value)
+      : '--';
 
   const tabFilteredOrders = filterOrdersForTransactionTab(orders, activeTab);
   const visibleOrders = filterTransactionOrders(tabFilteredOrders, searchQuery);
@@ -195,7 +211,7 @@ export default function TransactionsScreen() {
           <TransactionsSummary
             activeTab={activeTab}
             colors={colors}
-            estimatedProfitLabel={formatCurrency(summary.estimatedProfit)}
+            estimatedProfitLabel={estimatedProfitThisMonthLabel}
             onTabChange={setActiveTab}
             summary={summary}
           />

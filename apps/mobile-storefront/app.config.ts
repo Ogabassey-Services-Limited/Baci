@@ -1,5 +1,14 @@
 import 'dotenv/config';
+import type { TikTokBusinessPlugin } from '@baci/tiktok-business';
 import type { ConfigContext, ExpoConfig } from 'expo/config';
+
+const {
+  DEFAULT_STOREFRONT_TIKTOK_IOS_APP_STORE_ID,
+  DEFAULT_STOREFRONT_TIKTOK_IOS_TIKTOK_APP_ID,
+} = require('./config/tiktok-constants') as {
+  DEFAULT_STOREFRONT_TIKTOK_IOS_APP_STORE_ID: string;
+  DEFAULT_STOREFRONT_TIKTOK_IOS_TIKTOK_APP_ID: string;
+};
 
 const rawAndroidVersionCode = process.env.ANDROID_VERSION_CODE;
 const parsedAndroidVersionCode =
@@ -58,6 +67,63 @@ if (rawIosAppVersion !== undefined && rawIosAppVersion.trim().length > 0) {
 }
 
 const runtimeVersion = _iosAppVersion ?? appVersion;
+const tiktokIosAppStoreId =
+  process.env.STOREFRONT_TIKTOK_APP_STORE_ID?.trim() ||
+  DEFAULT_STOREFRONT_TIKTOK_IOS_APP_STORE_ID;
+const tiktokIosAppId =
+  process.env.STOREFRONT_TIKTOK_APP_ID?.trim() ||
+  DEFAULT_STOREFRONT_TIKTOK_IOS_TIKTOK_APP_ID;
+const tiktokIosAppSecret =
+  process.env.STOREFRONT_TIKTOK_APP_SECRET?.trim() || undefined;
+const isTikTokBusinessConfigured = Boolean(
+  tiktokIosAppStoreId && tiktokIosAppId && tiktokIosAppSecret
+);
+const tiktokBusinessPlugin: TikTokBusinessPlugin | null =
+  isTikTokBusinessConfigured && tiktokIosAppSecret
+    ? [
+        '@baci/tiktok-business/plugin',
+        {
+          ios: {
+            appId: tiktokIosAppStoreId,
+            tiktokAppId: tiktokIosAppId,
+            appSecret: tiktokIosAppSecret,
+            debugMode: process.env.TIKTOK_SDK_DEBUG === '1',
+            disableSKAdNetworkSupport:
+              process.env.STOREFRONT_TIKTOK_DISABLE_SKAN === '1',
+          },
+        },
+      ]
+    : null;
+
+const facebookAppId =
+  process.env.STOREFRONT_FACEBOOK_APP_ID?.trim() || undefined;
+const facebookClientToken =
+  process.env.STOREFRONT_FACEBOOK_CLIENT_TOKEN?.trim() || undefined;
+const isFacebookSdkPartiallyConfigured = Boolean(
+  facebookAppId || facebookClientToken
+);
+const isFacebookSdkConfigured = Boolean(facebookAppId && facebookClientToken);
+
+if (isFacebookSdkPartiallyConfigured && !isFacebookSdkConfigured) {
+  throw new Error(
+    '[app.config] STOREFRONT_FACEBOOK_APP_ID and STOREFRONT_FACEBOOK_CLIENT_TOKEN must be configured together.'
+  );
+}
+
+const facebookSdkPlugin: NonNullable<ExpoConfig['plugins']>[number] | null =
+  isFacebookSdkConfigured && facebookAppId && facebookClientToken
+    ? [
+        'react-native-fbsdk-next',
+        {
+          appID: facebookAppId,
+          clientToken: facebookClientToken,
+          displayName: 'Ogabassey',
+          scheme: `fb${facebookAppId}`,
+          advertiserIDCollectionEnabled: false,
+          autoLogAppEventsEnabled: false,
+        },
+      ]
+    : null;
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
@@ -65,14 +131,11 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   slug: 'ogabassey-store',
   owner: 'ogabassey',
   version: runtimeVersion,
-  orientation: 'portrait',
+  orientation: 'default',
   icon: './assets/images/icon.png',
   userInterfaceStyle: 'automatic',
   scheme: 'ogabassey',
   assetBundlePatterns: ['**/*'],
-  splash: {
-    backgroundColor: '#000000',
-  },
   ios: {
     supportsTablet: true,
     bundleIdentifier: 'com.ogabassey.app',
@@ -86,6 +149,17 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       ITSAppUsesNonExemptEncryption: false,
       NSUserTrackingUsageDescription:
         'Your data will be used to provide personalized product recommendations and improve your shopping experience.',
+      SKAdNetworkItems: [
+        {
+          SKAdNetworkIdentifier: '282ce24gcd.skadnetwork',
+        },
+        {
+          SKAdNetworkIdentifier: 'v9wttpbfk9.skadnetwork',
+        },
+        {
+          SKAdNetworkIdentifier: 'n38lu8286q.skadnetwork',
+        },
+      ],
     },
   },
   android: {
@@ -129,7 +203,23 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   plugins: [
     'expo-router',
+    [
+      'expo-splash-screen',
+      {
+        image: './assets/images/splash-icon.png',
+        resizeMode: 'contain',
+        backgroundColor: '#000000',
+      },
+    ],
+    'expo-font',
+    'expo-image',
     'expo-secure-store',
+    'expo-sharing',
+    'expo-tracking-transparency',
+    'expo-web-browser',
+    '@react-native-vector-icons/ionicons',
+    '@react-native-vector-icons/fontawesome',
+    '@react-native-vector-icons/feather',
     [
       'expo-notifications',
       {
@@ -148,18 +238,27 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     [
       'expo-build-properties',
       {
+        android: {
+          compileSdkVersion: 36,
+          targetSdkVersion: 36,
+          buildToolsVersion: '36.0.0',
+        },
         ios: {
+          deploymentTarget: '16.4',
           useFrameworks: 'static',
         },
       },
     ],
+    ...(tiktokBusinessPlugin ? [tiktokBusinessPlugin] : []),
     './config/withFirebaseModularHeaders.js',
     './config/withObjCLinkerFlag.js',
     './config/withNoSplashImage.js',
+    './config/withAdaptiveAndroidManifest.js',
     './config/withAndroidGradleFixes.js',
     'expo-localization',
     'expo-apple-authentication',
     'react-native-edge-to-edge',
+    ...(facebookSdkPlugin ? [facebookSdkPlugin] : []),
   ],
   web: {
     bundler: 'metro',
@@ -177,6 +276,13 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
     supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
     apiUrl: process.env.EXPO_PUBLIC_API_URL,
+    tiktokBusiness: {
+      iosAppStoreId: tiktokIosAppStoreId,
+      iosTikTokAppId: tiktokIosAppId,
+      isConfigured: isTikTokBusinessConfigured,
+    },
+    facebookAppId: facebookAppId ?? null,
+    facebookClientToken: facebookClientToken ?? null,
     eas: {
       projectId: 'c6c1897b-cac8-49b0-85f9-3d277aecc379',
     },

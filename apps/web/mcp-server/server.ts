@@ -35,12 +35,13 @@ import {
   completeAgenticCheckoutSession,
   completeAgenticCheckoutSessionInputSchema,
   createAgenticCheckoutSession,
-  createAgenticCheckoutSessionInputSchema,
+  createAgenticCheckoutSessionMcpInputSchema,
   getAgenticCheckoutSession,
   getAgenticCheckoutSessionInputSchema,
   updateAgenticCheckoutSession,
-  updateAgenticCheckoutSessionInputSchema,
+  updateAgenticCheckoutSessionMcpInputSchema,
 } from './agentic-checkout-client';
+import { registerAgenticUcpTools } from './agentic-ucp-tools';
 
 // =============================================================================
 // CONFIGURATION
@@ -980,12 +981,16 @@ const widgetHtml = `<!DOCTYPE html>
 
     const formatPrice = (price) => new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', minimumFractionDigits: 0 }).format(price);
 
-    const escapeHtml = (str) => {
-      if (!str) return '';
-      const div = document.createElement('div');
-      div.textContent = str;
-      return div.innerHTML;
+    const ESCAPE_HTML_MAP = {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;',
     };
+    // Attribute-safe escaping: product data below is interpolated into innerHTML attributes.
+    const escapeHtml = (value) =>
+      String(value ?? '').replace(/[&<>"']/g, (char) => ESCAPE_HTML_MAP[char]);
 
     const openLink = (url) => window.openai?.openExternal?.({ href: url }) || window.open(url, '_blank');
     const productUrl = (slug) => 'https://ogabassey.com/ogabassey/' + encodeURIComponent(slug);
@@ -1430,6 +1435,8 @@ function createOgabasseyServer() {
 
   const agenticCheckoutClientConfig = getAgenticCheckoutClientConfig();
   if (agenticCheckoutClientConfig) {
+    registerAgenticUcpTools(server, agenticCheckoutClientConfig);
+
     server.registerTool(
       'create_agentic_checkout_session',
       {
@@ -1442,7 +1449,7 @@ function createOgabasseyServer() {
         },
         description:
           'Create a real Baci agentic checkout session through the signed and idempotent /api/agentic/checkout_sessions flow. Use this after the customer chooses products and quantities to get authoritative totals, fulfillment options, and the checkout session id. This does not complete payment or create an order. To safely retry requests on failure, generate a unique idempotency_key before the first request and reuse it for subsequent retries.',
-        inputSchema: createAgenticCheckoutSessionInputSchema,
+        inputSchema: createAgenticCheckoutSessionMcpInputSchema,
         _meta: {
           'openai/toolInvocation/invoking': 'Creating checkout session...',
           'openai/toolInvocation/invoked': 'Checkout session created',
@@ -1554,7 +1561,7 @@ function createOgabasseyServer() {
         },
         description:
           'Update a Baci agentic checkout session through the signed and idempotent /api/agentic/checkout_sessions/{session_id} flow. Use this to change items, add or replace shipping details, or select a fulfillment option before payment confirmation. To safely retry, generate a unique idempotency_key before the first request and reuse it for retries.',
-        inputSchema: updateAgenticCheckoutSessionInputSchema,
+        inputSchema: updateAgenticCheckoutSessionMcpInputSchema,
         _meta: {
           'openai/toolInvocation/invoking': 'Updating checkout session...',
           'openai/toolInvocation/invoked': 'Checkout session updated',

@@ -56,9 +56,94 @@ jest.mock('@/components/checkout/DeliveryNotesCard', () => ({
 }));
 
 jest.mock('@/components/checkout/PaymentMethodSelector', () => ({
-  PaymentMethodSelector: () => {
-    const { Text } = require('react-native');
-    return <Text>Payment methods selector</Text>;
+  PaymentMethodSelector: (props: {
+    methodDescriptionOverrides?: Record<string, string>;
+    methodLabelOverrides?: Record<string, string>;
+    onSelectMethod?: (method: string) => void;
+    onSavingsToggle?: (selection: {
+      amount: number;
+      goalId: string | null;
+      use: boolean;
+    }) => void;
+    onSelectTab?: (tab: 'full' | 'installments' | 'pay_later') => void;
+    selectedMethod?: string;
+    selectedTab?: string;
+    savingsBalance?: number;
+    savingsGoalId?: string | null;
+    walletFundedBankTransferMode?: boolean;
+  }) => {
+    const { Pressable, Text, View } = require('react-native');
+    const bankTransferLabel =
+      props.methodLabelOverrides?.bank_transfer ?? 'Bank Transfer';
+    const bankTransferDescription =
+      props.methodDescriptionOverrides?.bank_transfer ??
+      'Pay via direct bank transfer';
+    return (
+      <View>
+        <Text>Payment methods selector</Text>
+        <Text>Selected payment: {props.selectedMethod}</Text>
+        <Text>Selected tab: {props.selectedTab}</Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Mock select Credit Direct"
+          onPress={() => {
+            props.onSelectTab?.('installments');
+            props.onSelectMethod?.('credit_direct');
+          }}
+        >
+          <Text>Credit Direct</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Mock select Klump"
+          onPress={() => {
+            props.onSelectTab?.('installments');
+            props.onSelectMethod?.('klump');
+          }}
+        >
+          <Text>Klump</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Mock select ${bankTransferLabel}`}
+          onPress={() => props.onSelectMethod?.('bank_transfer')}
+        >
+          <Text>{bankTransferLabel}</Text>
+          <Text>{bankTransferDescription}</Text>
+          {props.walletFundedBankTransferMode ? (
+            <Text>
+              We will fund your wallet and pay this order automatically.
+            </Text>
+          ) : null}
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Mock use checkout savings"
+          onPress={() =>
+            props.onSavingsToggle?.({
+              amount: props.savingsBalance ?? 0,
+              goalId: props.savingsGoalId ?? null,
+              use: true,
+            })
+          }
+        >
+          <Text>Use savings</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Mock remove checkout savings"
+          onPress={() =>
+            props.onSavingsToggle?.({
+              amount: props.savingsBalance ?? 0,
+              goalId: props.savingsGoalId ?? null,
+              use: false,
+            })
+          }
+        >
+          <Text>Remove savings</Text>
+        </Pressable>
+      </View>
+    );
   },
 }));
 

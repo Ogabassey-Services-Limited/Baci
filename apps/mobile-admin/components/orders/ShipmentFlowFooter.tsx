@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons, { type IoniconsIconName } from "@react-native-vector-icons/ionicons";
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import type { ThemeColors } from '@/constants/theme';
 import type {
@@ -21,7 +21,7 @@ interface ShipmentFlowFooterProps {
 function getPrimaryIconName(
   step: ShipmentFlowStep,
   selectedMode: ShipmentCompletionMode
-): keyof typeof Ionicons.glyphMap {
+): IoniconsIconName {
   if (step === 'details') {
     return 'arrow-forward';
   }
@@ -52,10 +52,11 @@ export function ShipmentFlowFooter({
           accessibilityState={{ disabled: isSubmitting }}
           disabled={isSubmitting}
           onPress={onBack}
-          style={[
+          style={({ pressed }) => [
             styles.secondaryButton,
             { backgroundColor: colors.backgroundLight },
             isSubmitting ? styles.secondaryButtonDisabled : null,
+            { opacity: pressed ? 0.7 : 1 },
           ]}
         >
           <Text style={[styles.secondaryButtonText, { color: colors.text }]}>
@@ -70,11 +71,12 @@ export function ShipmentFlowFooter({
         accessibilityState={{ disabled: isSubmitting }}
         disabled={isSubmitting}
         onPress={onPrimaryAction}
-        style={[
+        style={({ pressed }) => [
           styles.primaryButton,
           { backgroundColor: colors.primary },
           showBack ? null : styles.primaryButtonFull,
           isSubmitting ? styles.primaryButtonDisabled : null,
+          { opacity: isSubmitting ? 1 : pressed ? 0.7 : 1 },
         ]}
       >
         {isSubmitting ? (

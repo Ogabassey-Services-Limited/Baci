@@ -185,6 +185,26 @@ describe('MerchantBankForm', () => {
     });
   });
 
+  it('does not collect bank details for non-Nigerian merchants', () => {
+    render(
+      <MerchantBankForm
+        countryCode="IN"
+        initialData={{
+          accountNumber: '1234567890123456',
+          bankName: 'HDFC Bank',
+          businessName: 'Yodha Shopping',
+        }}
+      />
+    );
+
+    expect(screen.getByText(/nigerian settlement only/i)).toBeTruthy();
+    expect(screen.queryByText('Account Verified')).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: /save bank details/i })
+    ).toBeNull();
+    expect(apiPostMock).not.toHaveBeenCalled();
+  });
+
   it('shows a save error and recovers on a subsequent submit', async () => {
     const user = userEvent.setup();
     const onSuccess = vi.fn();

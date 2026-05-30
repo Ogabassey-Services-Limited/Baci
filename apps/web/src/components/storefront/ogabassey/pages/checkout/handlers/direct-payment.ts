@@ -1,4 +1,5 @@
 import { toast } from '@/hooks/use-toast';
+import { persistCreditDirectPopupReference } from '../persist-credit-direct-popup-reference';
 import type { ResumedOrder } from '../types';
 
 export interface ExecuteDirectPaymentOptions {
@@ -106,6 +107,9 @@ export async function executeDirectPayment({
               orderId: resumedOrder.id,
               paymentRef: transactionId,
               gateway: 'credit_direct',
+              ...(resumedOrder.tracking_token && {
+                tracking_token: resumedOrder.tracking_token,
+              }),
             }),
           });
           clearCheckoutSession();
@@ -128,6 +132,19 @@ export async function executeDirectPayment({
         },
         onClose: () => {
           setIsProcessing(false);
+        },
+        onPopup: async (transactionId: string) => {
+          try {
+            await persistCreditDirectPopupReference(
+              resumedOrder,
+              transactionId,
+            );
+          } catch (error) {
+            console.error(
+              'Failed to persist Credit Direct popup reference:',
+              error instanceof Error ? error.message : error,
+            );
+          }
         },
       });
       return;

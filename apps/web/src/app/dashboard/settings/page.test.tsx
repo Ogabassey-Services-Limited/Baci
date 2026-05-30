@@ -59,7 +59,7 @@ describe('dashboard settings page', () => {
   it('renders the trust and policies navigation card', async () => {
     const query = createFeatureSettingsQueryMock(false);
     vi.mocked(getMerchantForUser).mockResolvedValue({
-      merchant: { id: 'merchant-1' },
+      merchant: { id: 'merchant-1', country: 'NG' },
     } as never);
     vi.mocked(createClient).mockReturnValue({
       from: vi.fn(() => query),
@@ -71,5 +71,27 @@ describe('dashboard settings page', () => {
     expect(
       screen.getByRole('link', { name: /manage trust & policies/i })
     ).toHaveAttribute('href', '/dashboard/settings/trust');
+    expect(
+      screen.getByRole('link', { name: /manage verification/i })
+    ).toHaveAttribute('href', '/dashboard/settings/kyc');
+  });
+
+  it('hides Nigerian KYC settings for India merchants', async () => {
+    const query = createFeatureSettingsQueryMock(false);
+    vi.mocked(getMerchantForUser).mockResolvedValue({
+      merchant: { id: 'merchant-1', country: 'IN' },
+    } as never);
+    vi.mocked(createClient).mockReturnValue({
+      from: vi.fn(() => query),
+    } as never);
+
+    render(await SettingsPage());
+
+    expect(
+      screen.queryByRole('link', { name: /manage verification/i })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/business verification/i)
+    ).not.toBeInTheDocument();
   });
 });

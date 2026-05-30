@@ -7,15 +7,27 @@ import {
   getRequestScopedMerchant,
 } from '@/lib/cached-data';
 
+const { mockConnection, mockStorefrontDynamicMetadataMarker } = vi.hoisted(
+  () => ({
+    mockConnection: vi.fn(),
+    mockStorefrontDynamicMetadataMarker: vi.fn(),
+  })
+);
+
 vi.mock('@/lib/cached-data', () => ({
   getMerchantByIdentifier: vi.fn(),
   getRequestScopedMerchant: vi.fn(),
 }));
 
+vi.mock('next/server', () => ({
+  connection: () => mockConnection(),
+}));
+
 vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
-  StorefrontDynamicMetadataMarker: () => (
-    <div aria-label="dynamic metadata marker" role="status" />
-  ),
+  StorefrontDynamicMetadataMarker: () => {
+    mockStorefrontDynamicMetadataMarker();
+    return <div aria-label="dynamic metadata marker" role="status" />;
+  },
 }));
 
 vi.mock('@/lib/merchant-template-data', () => ({
@@ -67,36 +79,38 @@ describe('FAQPage', () => {
     vi.mocked(getMerchantByIdentifier).mockReset();
     vi.mocked(getRequestScopedMerchant).mockReset();
     notFound.mockClear();
+    mockConnection.mockReset();
+    mockStorefrontDynamicMetadataMarker.mockReset();
   });
 
-  it('does not emit a duplicate wrapper h1 while content is suspended', () => {
+  it('does not emit a duplicate wrapper h1 while content is suspended', async () => {
     vi.mocked(getRequestScopedMerchant).mockReturnValue(
       new Promise<null>(() => {
         /* deferred: keep Suspense pending */
       })
     );
 
-    render(
-      <Suspense fallback={null}>
-        <FAQPage params={Promise.resolve({ slug: 'test-store' })} />
-      </Suspense>
-    );
+    const ui = await FAQPage({
+      params: Promise.resolve({ slug: 'test-store' }),
+    });
+
+    render(<Suspense fallback={null}>{ui}</Suspense>);
 
     expect(screen.queryByRole('heading', { level: 1 })).toBeNull();
   });
 
-  it('renders a layout-preserving loading fallback while content is loading', () => {
+  it('renders a layout-preserving loading fallback while content is loading', async () => {
     vi.mocked(getRequestScopedMerchant).mockReturnValue(
       new Promise<null>(() => {
         /* deferred: keep Suspense pending */
       })
     );
 
-    render(
-      <Suspense fallback={null}>
-        <FAQPage params={Promise.resolve({ slug: 'test-store' })} />
-      </Suspense>
-    );
+    const ui = await FAQPage({
+      params: Promise.resolve({ slug: 'test-store' }),
+    });
+
+    render(<Suspense fallback={null}>{ui}</Suspense>);
 
     expect(screen.queryByText('Loading FAQ...')).toBeNull();
     expect(
@@ -104,25 +118,43 @@ describe('FAQPage', () => {
     ).toBeInTheDocument();
   });
 
-  it('renders the dynamic metadata marker outside suspended FAQ content', () => {
+  it('marks the route dynamic before suspended FAQ content renders', async () => {
     vi.mocked(getRequestScopedMerchant).mockReturnValue(
       new Promise<null>(() => {
         /* deferred: keep Suspense pending */
       })
     );
 
-    render(
-      <Suspense fallback={null}>
-        <FAQPage params={Promise.resolve({ slug: 'test-store' })} />
-      </Suspense>
-    );
+    const ui = await FAQPage({
+      params: Promise.resolve({ slug: 'test-store' }),
+    });
 
-    expect(
-      screen.getByRole('status', { name: 'dynamic metadata marker' })
-    ).toBeInTheDocument();
+    render(<Suspense fallback={null}>{ui}</Suspense>);
+
     expect(
       screen.getByRole('status', { name: 'Loading page content' })
     ).toBeInTheDocument();
+    expect(mockConnection).not.toHaveBeenCalled();
+    expect(mockStorefrontDynamicMetadataMarker).toHaveBeenCalledOnce();
+    expect(
+      screen.getByRole('status', { name: /dynamic metadata marker/i })
+    ).toBeInTheDocument();
+  });
+
+  it('marks FAQ metadata as request-time rendered', async () => {
+    vi.mocked(getMerchantByIdentifier).mockResolvedValue({
+      business_name: 'Test Store',
+      faq_items: [{ question: 'Q?', answer: 'A.' }],
+      pages: {},
+      logo_url: null,
+      slug: 'test-store',
+    } as unknown as Awaited<ReturnType<typeof getMerchantByIdentifier>>);
+
+    await generateMetadata({
+      params: Promise.resolve({ slug: 'test-store' }),
+    });
+
+    expect(mockConnection).toHaveBeenCalledOnce();
   });
 
   it('does not call notFound when merchant has FAQ items', async () => {
@@ -134,11 +166,11 @@ describe('FAQPage', () => {
       slug: 'test-store',
     } as unknown as Awaited<ReturnType<typeof getRequestScopedMerchant>>);
 
-    render(
-      <Suspense fallback={null}>
-        <FAQPage params={Promise.resolve({ slug: 'test-store' })} />
-      </Suspense>
-    );
+    const ui = await FAQPage({
+      params: Promise.resolve({ slug: 'test-store' }),
+    });
+
+    render(<Suspense fallback={null}>{ui}</Suspense>);
 
     // Async RSC content streams via Suspense which jsdom can't resolve,
     // so verify the correct code path via function call assertions
@@ -151,11 +183,11 @@ describe('FAQPage', () => {
   it('calls notFound when merchant resolves to null', async () => {
     vi.mocked(getRequestScopedMerchant).mockResolvedValue(null);
 
-    render(
-      <Suspense fallback={null}>
-        <FAQPage params={Promise.resolve({ slug: 'missing' })} />
-      </Suspense>
-    );
+    const ui = await FAQPage({
+      params: Promise.resolve({ slug: 'missing' }),
+    });
+
+    render(<Suspense fallback={null}>{ui}</Suspense>);
 
     await vi.waitFor(() => {
       expect(notFound).toHaveBeenCalled();

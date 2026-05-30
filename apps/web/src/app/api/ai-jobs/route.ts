@@ -1,11 +1,13 @@
 import { cookies } from 'next/headers';
-import { type NextRequest, NextResponse } from 'next/server';
+import { after, type NextRequest, NextResponse } from 'next/server';
+import { triggerAiStorefrontWorker } from '@/lib/ai-storefront/trigger-storefront-worker';
 import { hasPermission } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
+import { logger } from '@/lib/logger';
 import { createClient } from '@/lib/supabase/server';
 import { createAiJobSchema } from '@/schemas/ai-jobs';
 
@@ -96,6 +98,25 @@ export async function POST(request: NextRequest) {
         { error: 'Failed to create job' },
         { status: 500 }
       );
+    }
+
+    if (type === 'storefront_layout_generation') {
+      after(async () => {
+        try {
+          await triggerAiStorefrontWorker({
+            jobId: job.id,
+            merchantId,
+            source: 'api',
+          });
+        } catch (error) {
+          logger.error({
+            message: 'AI storefront worker trigger failed',
+            jobId: job.id,
+            merchantId,
+            error,
+          });
+        }
+      });
     }
 
     return NextResponse.json({ job }, { status: 201 });

@@ -18,16 +18,14 @@ const SUPPORTED_UTILITY_GATEWAYS: UtilityPaymentGateway[] = [
   'bank_transfer',
 ];
 
-export function useUtilityPayment() {
+export function useUtilityPayment(amount = 0) {
   const isAuthenticated = useAuthStore((state) => !!state.session);
   const [selectedGateway, setSelectedGateway] =
     useState<UtilityPaymentGateway>('paystack');
   const [selectedSavedCardId, setSelectedSavedCardId] = useState<string | null>(null);
   const [shouldAutoSelectDefaultCard, setShouldAutoSelectDefaultCard] =
     useState(true);
-  const [walletSelection, setWalletSelection] = useState<
-    WalletSelection | undefined
-  >(undefined);
+  const [useWalletPayment, setUseWalletPayment] = useState(false);
   // Wallet-only Idempotency-Key. Held in a ref so a network failure
   // doesn't lose the key — the user's retry MUST send the same key
   // for the route's `vtu_idempotency_keys` table to dedupe.
@@ -36,6 +34,16 @@ export function useUtilityPayment() {
   const paymentSettings = useMerchantPaymentSettings();
   const wallet = useWallet();
   const walletBalance = wallet.data?.wallet.balance ?? 0;
+  const walletError = wallet.error instanceof Error ? wallet.error : null;
+  const walletCanRender =
+    walletBalance > 0 && !wallet.isLoading && walletError === null;
+  const walletSelection: WalletSelection | undefined =
+    useWalletPayment && walletCanRender && amount > 0
+      ? {
+          use: true,
+          amount: Math.min(walletBalance, amount),
+        }
+      : undefined;
   const savedCardsQuery = useQuery({
     enabled: isAuthenticated,
     queryKey: ['vtu-saved-cards'],
@@ -94,8 +102,13 @@ export function useUtilityPayment() {
     },
     supportedGateways,
     walletBalance,
+    walletCanRender,
+    walletError,
+    walletIsLoading: wallet.isLoading,
     walletSelection,
-    setWalletSelection,
+    setWalletSelection: (selection: WalletSelection | undefined) => {
+      setUseWalletPayment(selection?.use === true);
+    },
     /**
      * Returns the active wallet-only Idempotency-Key (UUID), creating
      * one on first call. Subsequent calls within the same submit

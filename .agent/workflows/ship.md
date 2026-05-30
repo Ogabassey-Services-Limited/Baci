@@ -6,6 +6,10 @@ description: Complete ship flow from quality checks through commit to PR creatio
 
 Complete the current work and prepare for shipping.
 
+> [!WARNING]
+> **NEVER run `vercel build` or direct cloud building deploy commands (like `vercel` or `vercel --prod`) without `--prebuilt`.**
+> This consumes Vercel build minutes. Production builds and deploys must always be run on the VPS host (`bassey@82.29.190.219`) via the prebuilt flow, finishing with `vercel deploy --prebuilt --prod`.
+
 ## Steps
 
 ### 1. Quality Checks

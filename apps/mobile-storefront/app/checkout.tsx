@@ -1,20 +1,10 @@
-/**
- * Checkout Screen
- * Multi-step checkout: Address -> Payment -> Confirmation
- */
-
-import { Ionicons } from '@expo/vector-icons';
-import { zodResolver } from '@hookform/resolvers/zod';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import Constants from 'expo-constants';
-import { router, Stack } from 'expo-router';
-import React, { useEffect, useEffectEvent, useRef } from 'react';
-import {
-  Controller,
-  type FieldErrors,
-  type Resolver,
-  useForm,
-} from 'react-hook-form';
+import Ionicons from "@react-native-vector-icons/ionicons";
+import { zodResolver } from "@hookform/resolvers/zod";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import Constants from "expo-constants";
+import { router, Stack } from "expo-router";
+import React, { useEffect, useEffectEvent, useRef } from "react";
+import { type FieldErrors, type Resolver, useForm } from "react-hook-form";
 import {
   ActivityIndicator,
   Alert,
@@ -25,11 +15,10 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   View,
-} from 'react-native';
+} from "react-native";
 import Animated, {
   cancelAnimation,
   useAnimatedStyle,
@@ -37,111 +26,125 @@ import Animated, {
   withRepeat,
   withSequence,
   withTiming,
-} from 'react-native-reanimated';
+} from "react-native-reanimated";
 import {
   SafeAreaView,
   useSafeAreaInsets,
-} from 'react-native-safe-area-context';
+} from "react-native-safe-area-context";
+import { CheckoutContactCard } from "@/components/checkout/CheckoutContactCard";
+import { CheckoutDeliveryCard } from "@/components/checkout/CheckoutDeliveryCard";
+import { CheckoutFormField } from "@/components/checkout/CheckoutFormField";
 import {
   type CheckoutStep,
   CheckoutStepper,
-} from '@/components/checkout/CheckoutStepper';
-import { CheckoutContactCard } from '@/components/checkout/CheckoutContactCard';
-import { CheckoutFormField } from '@/components/checkout/CheckoutFormField';
-import { CryptoSelectionModal } from '@/components/checkout/CryptoSelectionModal';
-import { DeliveryMethodCard } from '@/components/checkout/DeliveryMethodCard';
-import { DeliveryNotesCard } from '@/components/checkout/DeliveryNotesCard';
+} from "@/components/checkout/CheckoutStepper";
+import { CheckoutSavingsRetryCard } from "@/components/checkout/CheckoutSavingsRetryCard";
+import { CheckoutReviewStep } from "@/components/checkout/CheckoutReviewStep";
+import { CryptoSelectionModal } from "@/components/checkout/CryptoSelectionModal";
+import { humanizeCheckoutFieldName } from "@/components/checkout/checkout-form-field.helpers";
+import { styles } from "@/components/checkout/checkout-screen.styles";
+import {
+  fetchShippingQuotes,
+  normalizeStateName,
+  type ShippingLocation,
+} from "@/components/checkout/checkout-shipping.helpers";
+import {
+  AIRPORT_DELIVERY_FEE,
+  getDeliveryMethodFee,
+  getDeliveryMethodSummary,
+  getPaymentTabForMethod,
+  getShippingProviderForMethod,
+} from "@/components/checkout/checkout-step-helpers";
+import { DeliveryMethodCard } from "@/components/checkout/DeliveryMethodCard";
+import { DeliveryNotesCard } from "@/components/checkout/DeliveryNotesCard";
 import {
   PaymentMethodSelector,
   type PaymentMethodType,
   type PaymentTab,
-} from '@/components/checkout/PaymentMethodSelector';
+} from "@/components/checkout/PaymentMethodSelector";
 import {
   PICKUP_STATION_ADDRESS_LINES,
   PICKUP_STATION_CITY,
   PICKUP_STATION_STATE,
   PickupStationCard,
-} from '@/components/checkout/PickupStationCard';
-import {
-  fetchShippingQuotes,
-  normalizeStateName,
-  type ShippingLocation,
-} from '@/components/checkout/checkout-shipping.helpers';
-import {
-  AIRPORT_DELIVERY_FEE,
-  getDeliveryMethodFee,
-  getDeliveryMethodLabel,
-  getDeliveryMethodSummary,
-  getPaymentTabForMethod,
-  getShippingProviderForMethod,
-} from '@/components/checkout/checkout-step-helpers';
-import { humanizeCheckoutFieldName } from '@/components/checkout/checkout-form-field.helpers';
-import { ShippingQuotesCard } from '@/components/checkout/ShippingQuotesCard';
-import { SavedAddressOptions } from '@/components/checkout/SavedAddressOptions';
+} from "@/components/checkout/PickupStationCard";
+import { ShippingQuotesCard } from "@/components/checkout/ShippingQuotesCard";
 import type {
   DeliveryMethod,
   ShippingQuote,
-} from '@/components/checkout/types';
-import { AddressAutocomplete } from '@/components/ui/AddressAutocomplete';
-import AppKeyboardContainer from '@/components/ui/AppKeyboardContainer';
-import { useColorScheme } from '@/components/useColorScheme';
+} from "@/components/checkout/types";
+import type { PlaceDetails } from "@/components/ui/AddressAutocomplete";
+import AppKeyboardContainer from "@/components/ui/AppKeyboardContainer";
+import { useColorScheme } from "@/components/useColorScheme";
 import Colors, {
   BRAND,
   palette,
-  RADIUS,
-  SHADOWS,
   SPACING,
-} from '@/constants/Colors';
-import { useAuthStatus } from '@/hooks/use-auth-guard';
+} from "@/constants/Colors";
+import { useAuthStatus } from "@/hooks/use-auth-guard";
+import { useCheckoutSavings } from "@/hooks/use-checkout-savings";
+import { useWallet } from "@/hooks/use-wallet";
 import {
   getEnabledPaymentMethods,
   getMerchantTaxRate,
   useMerchantPaymentSettings,
-} from '@/hooks/useMerchantPaymentSettings';
-import { resolveApiBaseUrl } from '@/lib/api-url';
-import { deriveCheckoutIdentity } from '@/lib/checkout-identity';
+} from "@/hooks/useMerchantPaymentSettings";
+import { resolveApiBaseUrl } from "@/lib/api-url";
+import { deriveCheckoutIdentity } from "@/lib/checkout-identity";
+import {
+  buildMobileCheckoutOrderFingerprint,
+  buildMobileCheckoutOrderItems,
+  calculateMobileCheckoutAssuranceFee,
+  clearMobileCheckoutIdempotencyKey,
+  getMobileCheckoutIdempotencyKey,
+  type MobileCheckoutIdempotencyState,
+} from "@/lib/checkout-order-idempotency";
 import {
   getDefaultSavedAddress,
   type SavedAddress,
   toCheckoutAddressValues,
   upsertSavedAddress,
-} from '@/lib/checkout-saved-address';
+} from "@/lib/checkout-saved-address";
+import { setClipboardString } from "@/lib/clipboard";
+import { createWalletFundedBankTransferIntent } from "@/lib/checkout/wallet-funded-bank-transfer";
 import {
   buildKlumpBnplRouteParams,
   buildKlumpInitializePayload,
   getKlumpDisabledReason,
-} from '@/lib/klump-checkout';
-import { setClipboardString } from '@/lib/clipboard';
-import {
-  buildShippingQuoteContextKey,
-} from '@/lib/shipping-quotes';
-import { calculateCommerce, supabase } from '@/lib/supabase';
+} from "@/lib/klump-checkout";
+import { buildShippingQuoteContextKey } from "@/lib/shipping-quotes";
+import { isStoreCreditCompatiblePayment } from "@/lib/store-credit-compatible-payment";
+import type { WalletOrderFundingIntentCreateResponse } from "@/lib/order-wallet-funding-intent";
+import { calculateCommerce, supabase } from "@/lib/supabase";
 import {
   type ShippingAddressInput,
   ShippingAddressSchema,
-} from '@/lib/validation';
+} from "@/lib/validation";
 import {
-  trackCheckoutStarted,
+  buildSavingsOrderFields,
+  buildWalletOrderFields,
+  getFullyPaidStoreCreditPaymentMethod,
+  type WalletSelection,
+} from "@/lib/wallet-payment-helpers";
+import {
   trackCheckoutStep,
   trackError,
-  trackOrderCompleted,
-} from '@/services/analytics';
-import { useWallet } from '@/hooks/use-wallet';
+} from "@/services/analytics";
+import { createOrder, OrderError, type OrderResponse } from "@/services/orders";
+import { scheduleLocalNotification } from "@/services/push-notifications";
 import {
-  buildWalletOrderFields,
-  isWalletFullyPaidOrder,
-  type WalletSelection,
-} from '@/lib/wallet-payment-helpers';
-import { createOrder, OrderError, type OrderResponse } from '@/services/orders';
-import { scheduleLocalNotification } from '@/services/push-notifications';
-import { formatPrice, useCartStore } from '@/stores/cart-store';
+  trackCheckoutRoutePaymentInfo,
+  trackCheckoutRoutePurchaseCompleted,
+  trackCheckoutRouteStarted,
+} from "@/services/tiktok-checkout-route-tracking";
+import { formatPrice, useCartStore } from "@/stores/cart-store";
 
 const shippingAddressResolver = zodResolver(
-  ShippingAddressSchema as unknown as Parameters<typeof zodResolver>[0]
+  ShippingAddressSchema as unknown as Parameters<typeof zodResolver>[0],
 ) as unknown as Resolver<ShippingAddressInput>;
 
 interface PendingCryptoOrder {
-  order: OrderResponse['order'];
+  order: OrderResponse["order"];
   orderResponse: OrderResponse;
   customerEmail: string;
   customerName: string;
@@ -150,33 +153,76 @@ interface PendingCryptoOrder {
 }
 
 const API_BASE_URL = resolveApiBaseUrl(
-  process.env.EXPO_PUBLIC_API_URL || Constants.expoConfig?.extra?.apiUrl
+  process.env.EXPO_PUBLIC_API_URL || Constants.expoConfig?.extra?.apiUrl,
 );
 
 const MERCHANT_ID =
   Constants.expoConfig?.extra?.merchantId ||
-  '6b5cb8a4-5575-456c-b936-8cdfae30db74';
+  "6b5cb8a4-5575-456c-b936-8cdfae30db74";
 
-const MERCHANT_SLUG = Constants.expoConfig?.extra?.merchantSlug || 'ogabassey';
+const MERCHANT_SLUG = Constants.expoConfig?.extra?.merchantSlug || "ogabassey";
 
-const PAYMENT_METHOD_LABELS: Record<PaymentMethodType, string> = {
-  paystack: 'Card Payment (Paystack)',
-  korapay: 'Card Payment (Korapay)',
-  bank_transfer: 'Bank Transfer',
-  pay_on_delivery: 'Pay on Delivery',
-  credpal: 'CredPal (Buy Now Pay Later)',
-  credit_direct: 'Credit Direct (Installments)',
-  klump: 'Klump (Buy Now Pay Later)',
-  juicyway: 'Crypto (Juicyway)',
-  invoice: 'Generate Invoice',
-  payforme: 'Pay for Me',
-};
+function requestWalletFundingAccountConsent() {
+  return new Promise<boolean>((resolve) => {
+    let settled = false;
+    const settle = (value: boolean) => {
+      if (settled) return;
+      settled = true;
+      resolve(value);
+    };
+
+    Alert.alert(
+      "Create wallet account number?",
+      "To use bank transfer to wallet, Paystack needs your consent to create a reusable virtual account number for your wallet.",
+      [
+        {
+          text: "Use one-time transfer",
+          style: "cancel",
+          onPress: () => settle(false),
+        },
+        {
+          text: "Create account number",
+          onPress: () => settle(true),
+        },
+      ],
+      {
+        cancelable: true,
+        onDismiss: () => settle(false),
+      },
+    );
+  });
+}
+
+function isEligibleForWalletFundedBankTransfer({
+  customerId,
+  customerPhone,
+  isAuthenticated,
+  residualAfterSavings,
+  walletBalance,
+  walletOrderAutoDebitEnabled,
+}: {
+  customerId?: string | null;
+  customerPhone?: string | null;
+  isAuthenticated: boolean;
+  residualAfterSavings: number;
+  walletBalance: number;
+  walletOrderAutoDebitEnabled: boolean;
+}) {
+  return (
+    walletOrderAutoDebitEnabled &&
+    isAuthenticated &&
+    Boolean(customerId) &&
+    Boolean(customerPhone) &&
+    residualAfterSavings > 0 &&
+    walletBalance < residualAfterSavings
+  );
+}
 
 export default function CheckoutScreen() {
   const ctaArrowTranslateX = useSharedValue(0);
   const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
-  const isDark = (colorScheme ?? 'light') === 'dark';
+  const colors = Colors[colorScheme ?? "light"];
+  const isDark = (colorScheme ?? "light") === "dark";
   const insets = useSafeAreaInsets();
   const addressScrollRef = React.useRef<ScrollView>(null);
   const addressScrollOffsetRef = React.useRef(0);
@@ -193,23 +239,28 @@ export default function CheckoutScreen() {
 
   const { data: paymentSettings } = useMerchantPaymentSettings();
   const enabledPaymentMethods = getEnabledPaymentMethods(paymentSettings);
+  const walletOrderAutoDebitEnabled = Boolean(
+    paymentSettings?.paystack_enabled &&
+    paymentSettings.wallet_paystack_dva_enabled &&
+    paymentSettings.wallet_order_auto_debit_enabled,
+  );
   const availablePaymentMethods: PaymentMethodType[] = Array.from(
     new Set<PaymentMethodType>([
       ...enabledPaymentMethods,
-      'invoice',
-      'payforme',
-    ])
+      "invoice",
+      "payforme",
+    ]),
   );
 
-  const [step, setStep] = React.useState<CheckoutStep>('address');
+  const [step, setStep] = React.useState<CheckoutStep>("address");
   const [isProcessing, setIsProcessing] = React.useState(false);
   const [orderTotals, setOrderTotals] = React.useState<{
     total: number;
     taxAmount: number;
   } | null>(null);
   const [selectedPayment, setSelectedPayment] =
-    React.useState<PaymentMethodType>('paystack');
-  const [paymentTab, setPaymentTab] = React.useState<PaymentTab>('full');
+    React.useState<PaymentMethodType>("paystack");
+  const [paymentTab, setPaymentTab] = React.useState<PaymentTab>("full");
   // Wallet payment selection — independent from `selectedPayment`. The
   // wallet can stack on top of any gateway method (partial deductible) or
   // cover the order in full. The selection is fed into createOrder via
@@ -218,10 +269,26 @@ export default function CheckoutScreen() {
   const [walletSelection, setWalletSelection] = React.useState<
     WalletSelection | undefined
   >(undefined);
+  const {
+    checkoutSavingsBalance,
+    checkoutSavingsError,
+    checkoutSavingsGoal,
+    getLiveSavingsSelection,
+    isLoadingCheckoutSavings,
+    reloadCheckoutSavings,
+    savingsSelection,
+    setSavingsSelection,
+  } = useCheckoutSavings({
+    customerId: customer?.id,
+    isAuthenticated,
+    items,
+    merchantId: MERCHANT_ID,
+    merchantSlug: MERCHANT_SLUG,
+  });
   const walletQuery = useWallet();
   const walletBalance = walletQuery.data?.wallet?.balance ?? 0;
   const [deliveryMethod, setDeliveryMethod] =
-    React.useState<DeliveryMethod>('door');
+    React.useState<DeliveryMethod>("door");
   const savedDoorAddressRef = React.useRef<{
     address: string;
     city: string;
@@ -231,22 +298,22 @@ export default function CheckoutScreen() {
   const [shippingStates, setShippingStates] = React.useState<string[]>([]);
   const [shippingCities, setShippingCities] = React.useState<string[]>([]);
   const [shippingQuotes, setShippingQuotes] = React.useState<ShippingQuote[]>(
-    []
+    [],
   );
-  const [selectedQuoteId, setSelectedQuoteId] = React.useState<string>('');
+  const [selectedQuoteId, setSelectedQuoteId] = React.useState<string>("");
   const [resolvedShippingQuoteContextKey, setResolvedShippingQuoteContextKey] =
-    React.useState('');
+    React.useState("");
   const [isLoadingLocations, setIsLoadingLocations] = React.useState(false);
   const [isLoadingCities, setIsLoadingCities] = React.useState(false);
   const [isLoadingQuotes, setIsLoadingQuotes] = React.useState(false);
   const [showStatePicker, setShowStatePicker] = React.useState(false);
   const [showCityPicker, setShowCityPicker] = React.useState(false);
-  const [citySearch, setCitySearch] = React.useState('');
+  const [citySearch, setCitySearch] = React.useState("");
   const [citySearchFocused, setCitySearchFocused] = React.useState(false);
   const [saveDetails, setSaveDetails] = React.useState(false);
   const [saveAsDefaultAddress, setSaveAsDefaultAddress] = React.useState(false);
   const [savedAddresses, setSavedAddresses] = React.useState<SavedAddress[]>(
-    []
+    [],
   );
   const [selectedSavedAddressId, setSelectedSavedAddressId] = React.useState<
     string | null
@@ -256,7 +323,7 @@ export default function CheckoutScreen() {
     React.useState(false);
   const [isContactCollapsed, setIsContactCollapsed] = React.useState(false);
   const [isDeliveryCollapsed, setIsDeliveryCollapsed] = React.useState(false);
-  const [accountPassword, setAccountPassword] = React.useState('');
+  const [accountPassword, setAccountPassword] = React.useState("");
 
   // Crypto payment inline modal state
   const [showCryptoSelection, setShowCryptoSelection] = React.useState(false);
@@ -297,36 +364,38 @@ export default function CheckoutScreen() {
       firstName: checkoutFirstName,
       lastName: checkoutLastName,
       phone: checkoutPhone,
-      address: '',
-      city: '',
-      state: '',
-      notes: '',
+      address: "",
+      city: "",
+      state: "",
+      notes: "",
     },
-    mode: 'onBlur',
+    mode: "onBlur",
   });
 
-  const watchedState = watch('state');
-  const watchedCity = watch('city');
-  const watchedAddress = watch('address');
-  const watchedPhone = watch('phone');
-  const watchedFirstName = watch('firstName');
-  const watchedLastName = watch('lastName');
-  const watchedEmail = watch('email');
+  const watchedState = watch("state");
+  const watchedCity = watch("city");
+  const watchedAddress = watch("address");
+  const watchedPhone = watch("phone");
+  const watchedFirstName = watch("firstName");
+  const watchedLastName = watch("lastName");
+  const watchedEmail = watch("email");
 
   // committedAddress is set when the user picks an autocomplete suggestion or
   // loads a saved address. Only committed addresses drive re-fetches — using
   // watchedAddress here would trigger a new API call on every keystroke.
-  const [committedAddress, setCommittedAddress] = React.useState('');
+  const [committedAddress, setCommittedAddress] = React.useState("");
   const effectiveAddress = committedAddress;
   const currentShippingQuoteContextKey = buildShippingQuoteContextKey(
     watchedState,
     watchedCity,
     items,
-    effectiveAddress
+    effectiveAddress,
   );
 
   const hasTrackedStart = useRef(false);
   const isOrderInFlight = useRef(false);
+  const mobileCheckoutIdempotencyRef =
+    useRef<MobileCheckoutIdempotencyState | null>(null);
   const hasHydratedSavedAddressRef = useRef(false);
   // Sentinel: stores the city Google Places suggested, so we can match it
   // against the Topship cities list once they load.
@@ -358,7 +427,7 @@ export default function CheckoutScreen() {
   selectedQuoteIdRef.current = selectedQuoteId;
   const hasSavedAddresses = isAuthenticated && savedAddresses.length > 0;
   const hasContactIdentity = Boolean(
-    checkoutEmail && checkoutFirstName && checkoutLastName && checkoutPhone
+    checkoutEmail && checkoutFirstName && checkoutLastName && checkoutPhone,
   );
   const initialHasContactIdentityRef = useRef(hasContactIdentity);
   const formContentPaddingBottom = 116 + insets.bottom;
@@ -368,16 +437,16 @@ export default function CheckoutScreen() {
 
   const applySavedAddressToForm = (
     savedAddress: SavedAddress,
-    options?: { collapse?: boolean }
+    options?: { collapse?: boolean },
   ) => {
     const checkoutValues = toCheckoutAddressValues(savedAddress);
 
-    setValue('firstName', checkoutValues.firstName, { shouldValidate: true });
-    setValue('lastName', checkoutValues.lastName, { shouldValidate: true });
-    setValue('phone', checkoutValues.phone, { shouldValidate: true });
-    setValue('address', checkoutValues.address, { shouldValidate: true });
-    setValue('city', checkoutValues.city, { shouldValidate: true });
-    setValue('state', checkoutValues.state, { shouldValidate: true });
+    setValue("firstName", checkoutValues.firstName, { shouldValidate: true });
+    setValue("lastName", checkoutValues.lastName, { shouldValidate: true });
+    setValue("phone", checkoutValues.phone, { shouldValidate: true });
+    setValue("address", checkoutValues.address, { shouldValidate: true });
+    setValue("city", checkoutValues.city, { shouldValidate: true });
+    setValue("state", checkoutValues.state, { shouldValidate: true });
     setCommittedAddress(checkoutValues.address);
     setSelectedSavedAddressId(savedAddress.id);
     setIsAddingNewAddress(false);
@@ -415,10 +484,10 @@ export default function CheckoutScreen() {
       const nextAddresses = await (async (): Promise<SavedAddress[]> => {
         try {
           const { data, error } = await supabase
-            .from('customers')
-            .select('saved_addresses')
-            .eq('id', customer.id)
-            .eq('merchant_id', MERCHANT_ID)
+            .from("customers")
+            .select("saved_addresses")
+            .eq("id", customer.id)
+            .eq("merchant_id", MERCHANT_ID)
             .single();
 
           if (error) throw error;
@@ -430,15 +499,15 @@ export default function CheckoutScreen() {
           addresses.sort(
             (left, right) =>
               Number(Boolean(right.is_default)) -
-              Number(Boolean(left.is_default))
+              Number(Boolean(left.is_default)),
           );
           return addresses;
         } catch (error) {
           trackError(
-            'checkout_saved_addresses_fetch',
+            "checkout_saved_addresses_fetch",
             error instanceof Error
               ? error.message
-              : 'Failed to load saved addresses'
+              : "Failed to load saved addresses",
           );
           return [];
         }
@@ -461,12 +530,12 @@ export default function CheckoutScreen() {
       }
 
       const checkoutValues = toCheckoutAddressValues(defaultAddr);
-      setValue('firstName', checkoutValues.firstName, { shouldValidate: true });
-      setValue('lastName', checkoutValues.lastName, { shouldValidate: true });
-      setValue('phone', checkoutValues.phone, { shouldValidate: true });
-      setValue('address', checkoutValues.address, { shouldValidate: true });
-      setValue('city', checkoutValues.city, { shouldValidate: true });
-      setValue('state', checkoutValues.state, { shouldValidate: true });
+      setValue("firstName", checkoutValues.firstName, { shouldValidate: true });
+      setValue("lastName", checkoutValues.lastName, { shouldValidate: true });
+      setValue("phone", checkoutValues.phone, { shouldValidate: true });
+      setValue("address", checkoutValues.address, { shouldValidate: true });
+      setValue("city", checkoutValues.city, { shouldValidate: true });
+      setValue("state", checkoutValues.state, { shouldValidate: true });
       setSelectedSavedAddressId(defaultAddr.id);
       setIsAddingNewAddress(false);
       setSaveAsDefaultAddress(Boolean(defaultAddr.is_default));
@@ -492,11 +561,7 @@ export default function CheckoutScreen() {
 
   useEffect(() => {
     if (!hasTrackedStart.current && items.length > 0) {
-      trackCheckoutStarted({
-        itemCount: items.reduce((acc, item) => acc + item.quantity, 0),
-        subtotal,
-        currency: 'NGN',
-      });
+      void trackCheckoutRouteStarted({ items, subtotal });
       hasTrackedStart.current = true;
     }
   }, [items, subtotal]);
@@ -510,12 +575,12 @@ export default function CheckoutScreen() {
         firstName: checkoutFirstName,
         lastName: checkoutLastName,
         phone: checkoutPhone,
-        address: getValues('address'),
-        city: getValues('city'),
-        state: getValues('state'),
-        notes: getValues('notes'),
+        address: getValues("address"),
+        city: getValues("city"),
+        state: getValues("state"),
+        notes: getValues("notes"),
       },
-      { keepDirtyValues: true }
+      { keepDirtyValues: true },
     );
   }, [
     checkoutEmail,
@@ -530,67 +595,60 @@ export default function CheckoutScreen() {
   const currentContactSummary = `${watchedFirstName} ${watchedLastName}`.trim();
   const currentDeliverySummary = [watchedAddress, watchedCity, watchedState]
     .filter(Boolean)
-    .join(', ');
+    .join(", ");
   const openNewAddressEditor = () => {
     if (selectedSavedAddressId) {
-      setValue('address', '', { shouldValidate: false });
-      setValue('city', '', { shouldValidate: false });
-      setValue('state', '', { shouldValidate: false });
+      setValue("address", "", { shouldValidate: false });
+      setValue("city", "", { shouldValidate: false });
+      setValue("state", "", { shouldValidate: false });
     }
     setSelectedSavedAddressId(null);
     setIsAddingNewAddress(true);
     setSaveAsDefaultAddress(savedAddresses.length <= 1);
   };
 
-  const renderSavedAddressOptions = () => {
-    return (
-      <SavedAddressOptions
-        colors={colors}
-        defaultSavedAddress={defaultSavedAddress}
-        isAddingNewAddress={isAddingNewAddress}
-        isDark={isDark}
-        isLoadingSavedAddresses={isLoadingSavedAddresses}
-        onOpenNewAddressEditor={openNewAddressEditor}
-        onUseSavedAddress={applySavedAddressToForm}
-        savedAddresses={savedAddresses}
-        selectedSavedAddress={selectedSavedAddress}
-        selectedSavedAddressId={selectedSavedAddressId}
-      />
-    );
+  const handleDeliveryAddressTextChange = (
+    text: string,
+    updateAddress: (value: string) => void,
+  ) => {
+    updateAddress(text);
+    // If the user edits after committing via autocomplete, invalidate the
+    // resolved context key so the next state/city change fetches fresh rates.
+    if (committedAddress) {
+      setResolvedShippingQuoteContextKey("");
+    }
+    setCommittedAddress("");
   };
 
-  const renderDefaultAddressCheckbox = (label: string) => (
-    <View style={styles.saveDetailsSection}>
-      <Pressable
-        style={styles.checkboxRow}
-        onPress={() => setSaveAsDefaultAddress((value) => !value)}
-        accessibilityRole="checkbox"
-        accessibilityState={{ checked: saveAsDefaultAddress }}
-        accessibilityLabel={label}
-      >
-        <View
-          style={[
-            styles.checkbox,
-            saveAsDefaultAddress && styles.checkboxChecked,
-            {
-              borderColor: saveAsDefaultAddress ? BRAND.primary : colors.border,
-            },
-          ]}
-        >
-          {saveAsDefaultAddress && (
-            <Ionicons name="checkmark" size={14} color="#FFFFFF" />
-          )}
-        </View>
-        <Text style={[styles.checkboxLabel, { color: colors.text }]}>
-          {label}
-        </Text>
-      </Pressable>
-    </View>
-  );
+  const handleDeliveryAddressSelect = (
+    place: PlaceDetails,
+    updateAddress: (value: string) => void,
+  ) => {
+    const selectedAddress = place.formattedAddress || "";
+    updateAddress(selectedAddress);
+    setCommittedAddress(selectedAddress);
+    const normalizedState = place.state
+      ? normalizeStateName(place.state, shippingStates)
+      : "";
+
+    if (place.city) {
+      const normalizedCity = place.city.trim().toLowerCase();
+      if (normalizedState && normalizedCity === normalizedState.toLowerCase()) {
+        googleSuggestedCityRef.current = "";
+      } else {
+        googleSuggestedCityRef.current = place.city;
+      }
+    }
+
+    setValue("city", "", { shouldValidate: false });
+    if (normalizedState) {
+      setValue("state", normalizedState, { shouldValidate: true });
+    }
+  };
 
   const getAvailableMethodsForTab = (tab: PaymentTab) =>
     availablePaymentMethods.filter(
-      (method) => getPaymentTabForMethod(method) === tab
+      (method) => getPaymentTabForMethod(method) === tab,
     );
 
   const handleSelectPaymentTab = (tab: PaymentTab) => {
@@ -604,14 +662,14 @@ export default function CheckoutScreen() {
   // Reset payment method if current selection is not in enabled list
   useEffect(() => {
     const currentTabMethods = availablePaymentMethods.filter(
-      (method) => getPaymentTabForMethod(method) === paymentTab
+      (method) => getPaymentTabForMethod(method) === paymentTab,
     );
     const paymentStillAvailable =
       availablePaymentMethods.includes(selectedPayment);
 
     if (!paymentStillAvailable) {
       const fallbackMethod =
-        currentTabMethods[0] ?? availablePaymentMethods[0] ?? 'paystack';
+        currentTabMethods[0] ?? availablePaymentMethods[0] ?? "paystack";
       setSelectedPayment(fallbackMethod);
       setPaymentTab(getPaymentTabForMethod(fallbackMethod));
       return;
@@ -623,14 +681,14 @@ export default function CheckoutScreen() {
         setSelectedPayment(fallbackMethod);
       } else {
         const fallbackTab =
-          (['full', 'installments', 'pay_later'] as const).find((tab) =>
+          (["full", "installments", "pay_later"] as const).find((tab) =>
             availablePaymentMethods.some(
-              (method) => getPaymentTabForMethod(method) === tab
-            )
-          ) ?? 'full';
+              (method) => getPaymentTabForMethod(method) === tab,
+            ),
+          ) ?? "full";
         setPaymentTab(fallbackTab);
         const nextMethod = availablePaymentMethods.find(
-          (method) => getPaymentTabForMethod(method) === fallbackTab
+          (method) => getPaymentTabForMethod(method) === fallbackTab,
         );
         if (nextMethod) setSelectedPayment(nextMethod);
       }
@@ -638,10 +696,10 @@ export default function CheckoutScreen() {
   }, [availablePaymentMethods, selectedPayment, paymentTab]);
 
   const handleBack = () => {
-    if (step === 'payment') {
-      setStep('address');
-    } else if (step === 'review') {
-      setStep('payment');
+    if (step === "payment") {
+      setStep("address");
+    } else if (step === "review") {
+      setStep("payment");
     } else {
       router.back();
     }
@@ -651,26 +709,26 @@ export default function CheckoutScreen() {
     if (isOrderInFlight.current) {
       return true;
     }
-    if (step === 'address') {
+    if (step === "address") {
       Alert.alert(
-        'Leave Checkout?',
-        'Your cart items will be saved. Are you sure you want to leave?',
+        "Leave Checkout?",
+        "Your cart items will be saved. Are you sure you want to leave?",
         [
-          { text: 'Stay', style: 'cancel' },
+          { text: "Stay", style: "cancel" },
           {
-            text: 'Leave',
-            style: 'destructive',
+            text: "Leave",
+            style: "destructive",
             onPress: () => router.back(),
           },
-        ]
+        ],
       );
       return true;
     }
 
-    if (step === 'payment') {
-      setStep('address');
-    } else if (step === 'review') {
-      setStep('payment');
+    if (step === "payment") {
+      setStep("address");
+    } else if (step === "review") {
+      setStep("payment");
     } else {
       router.back();
     }
@@ -679,11 +737,11 @@ export default function CheckoutScreen() {
   });
 
   useEffect(() => {
-    if (Platform.OS !== 'android') return;
+    if (Platform.OS !== "android") return;
 
     const backHandler = BackHandler.addEventListener(
-      'hardwareBackPress',
-      handleHardwareBackPress
+      "hardwareBackPress",
+      handleHardwareBackPress,
     );
 
     return () => backHandler.remove();
@@ -700,11 +758,11 @@ export default function CheckoutScreen() {
       withRepeat(
         withSequence(
           withTiming(6, { duration: 800 }),
-          withTiming(0, { duration: 800 })
+          withTiming(0, { duration: 800 }),
         ),
         -1,
-        true
-      )
+        true,
+      ),
     );
 
     return () => {
@@ -740,8 +798,8 @@ export default function CheckoutScreen() {
       setShippingCities([]);
       setIsLoadingCities(false);
       setShippingQuotes([]);
-      setSelectedQuoteId('');
-      setResolvedShippingQuoteContextKey('');
+      setSelectedQuoteId("");
+      setResolvedShippingQuoteContextKey("");
       return;
     }
     const controller = new AbortController();
@@ -751,9 +809,9 @@ export default function CheckoutScreen() {
       try {
         const res = await fetch(
           `${API_BASE_URL}/api/shipping/locations?state=${encodeURIComponent(
-            watchedState
+            watchedState,
           )}`,
-          { signal: controller.signal }
+          { signal: controller.signal },
         );
         if (controller.signal.aborted) return;
         if (res.ok) {
@@ -768,7 +826,7 @@ export default function CheckoutScreen() {
                     ? locationState === normalizedState
                     : true;
                 })
-                .map((location) => location.city)
+                .map((location) => location.city),
             ),
           ].sort();
           setShippingCities(cities);
@@ -799,7 +857,7 @@ export default function CheckoutScreen() {
     // Clear so this only runs once per selection
     googleSuggestedCityRef.current = null;
 
-    if (suggestedCity === '') {
+    if (suggestedCity === "") {
       // State = City edge case: open picker for user to search
       setShowCityPicker(true);
       return;
@@ -807,12 +865,12 @@ export default function CheckoutScreen() {
 
     // Search for a case-insensitive match in the Topship cities list
     const match = shippingCities.find(
-      (c) => c.toLowerCase() === suggestedCity.toLowerCase()
+      (c) => c.toLowerCase() === suggestedCity.toLowerCase(),
     );
 
     if (match) {
       // Perfect match - auto-select it
-      setValue('city', match, { shouldValidate: true });
+      setValue("city", match, { shouldValidate: true });
     } else {
       // No match - open picker with Google city pre-filled as search
       setCitySearch(suggestedCity);
@@ -827,12 +885,12 @@ export default function CheckoutScreen() {
     }
 
     // Pickup station and airport delivery don't use dynamic shipping quotes
-    if (deliveryMethod !== 'door') {
+    if (deliveryMethod !== "door") {
       shippingQuoteAbortRef.current = null;
       setIsLoadingQuotes(false);
       setShippingQuotes([]);
-      setSelectedQuoteId('');
-      setResolvedShippingQuoteContextKey('');
+      setSelectedQuoteId("");
+      setResolvedShippingQuoteContextKey("");
       return;
     }
 
@@ -868,8 +926,8 @@ export default function CheckoutScreen() {
     } else {
       shippingQuoteAbortRef.current = null;
       setShippingQuotes([]);
-      setSelectedQuoteId('');
-      setResolvedShippingQuoteContextKey('');
+      setSelectedQuoteId("");
+      setResolvedShippingQuoteContextKey("");
     }
 
     return () => {
@@ -888,7 +946,7 @@ export default function CheckoutScreen() {
   ]);
 
   const selectedQuote = shippingQuotes.find(
-    (quote) => String(quote.id) === String(selectedQuoteId)
+    (quote) => String(quote.id) === String(selectedQuoteId),
   );
   const deliveryFee = getDeliveryMethodFee(deliveryMethod, selectedQuote);
 
@@ -924,25 +982,13 @@ export default function CheckoutScreen() {
   };
 
   // Calculate total assurance fee from cart items (2026 Best Practice: Single Source of Truth)
-  const assuranceFee = items.reduce((sum, item) => {
-    if (item.hasAssurance) {
-      return (
-        sum +
-        Math.round(
-          (item.negotiatedPrice ?? item.price) *
-            item.quantity *
-            (item.assuranceRate ?? 0.05)
-        )
-      );
-    }
-    return sum;
-  }, 0);
+  const assuranceFee = calculateMobileCheckoutAssuranceFee(items);
 
   useEffect(() => {
     const fetchTotals = async () => {
       try {
         const taxRate = getMerchantTaxRate(paymentSettings);
-        const result = await calculateCommerce('calculate_order', {
+        const result = await calculateCommerce("calculate_order", {
           subtotal,
           shippingFee: deliveryFee,
           taxRate,
@@ -959,31 +1005,74 @@ export default function CheckoutScreen() {
   const taxAmount = orderTotals?.taxAmount ?? 0;
   const total =
     orderTotals?.total ?? subtotal + deliveryFee + assuranceFee + taxAmount;
+  const liveSavingsSelectionForWalletFundedBankTransfer =
+    getLiveSavingsSelection({
+      isStoreCreditCompatible: true,
+      items,
+      orderTotal: total,
+    });
+  const walletFundedBankTransferResidual = Math.max(
+    total - (liveSavingsSelectionForWalletFundedBankTransfer?.amount ?? 0),
+    0,
+  );
+  const walletFundedBankTransferOptionEnabled =
+    isEligibleForWalletFundedBankTransfer({
+      customerId: customer?.id,
+      customerPhone: customer?.phone,
+      isAuthenticated,
+      residualAfterSavings: walletFundedBankTransferResidual,
+      walletBalance,
+      walletOrderAutoDebitEnabled,
+    });
+  const isStoreCreditCompatibleForKlumpGate = isStoreCreditCompatiblePayment({
+    paymentTab,
+    selectedPayment,
+  });
+  const liveSavingsSelectionForKlumpGate = getLiveSavingsSelection({
+    isStoreCreditCompatible: isStoreCreditCompatibleForKlumpGate,
+    items,
+    orderTotal: total,
+  });
+  const walletResidualForKlumpGate = Math.max(
+    total - (liveSavingsSelectionForKlumpGate?.amount ?? 0),
+    0,
+  );
+  const liveWalletSelectionForKlumpGate: WalletSelection | undefined =
+    walletSelection?.use === true && isStoreCreditCompatibleForKlumpGate
+      ? {
+          use: true,
+          amount: Math.max(
+            0,
+            Math.min(walletBalance, walletResidualForKlumpGate),
+          ),
+        }
+      : undefined;
   const klumpDisabledReason = getKlumpDisabledReason(
     paymentSettings,
     total,
-    walletSelection
+    liveWalletSelectionForKlumpGate,
+    liveSavingsSelectionForKlumpGate,
   );
   // Show subtotal + delivery + assurance (no VAT) in steps 1 & 2; full total (with VAT) in Review
   const displayTotal =
-    step === 'review' ? total : subtotal + deliveryFee + assuranceFee;
+    step === "review" ? total : subtotal + deliveryFee + assuranceFee;
 
   const onAddressSubmit = (data: ShippingAddressInput) => {
-    trackCheckoutStep('shipping_info', {
+    trackCheckoutStep("shipping_info", {
       state: data.state,
       city: data.city,
     });
-    setStep('payment');
+    setStep("payment");
   };
 
   const handleAddressValidationError = (
-    errors: FieldErrors<ShippingAddressInput>
+    errors: FieldErrors<ShippingAddressInput>,
   ) => {
     const hasContactErrors = Boolean(
-      errors.firstName || errors.lastName || errors.phone || errors.email
+      errors.firstName || errors.lastName || errors.phone || errors.email,
     );
     const hasDeliveryErrors = Boolean(
-      errors.address || errors.city || errors.state
+      errors.address || errors.city || errors.state,
     );
 
     if (hasContactErrors) {
@@ -1005,59 +1094,60 @@ export default function CheckoutScreen() {
         : firstField
           ? `Please complete your ${humanizeCheckoutFieldName(firstField)} before continuing.`
           : hasDeliveryErrors
-            ? 'Please complete your delivery address before continuing.'
-            : 'Please complete your contact details before continuing.';
+            ? "Please complete your delivery address before continuing."
+            : "Please complete your contact details before continuing.";
 
-    Alert.alert('Incomplete Details', message, [{ text: 'OK' }]);
+    Alert.alert("Incomplete Details", message, [{ text: "OK" }]);
   };
 
   const handleContinue = () => {
     Keyboard.dismiss();
 
-    if (step === 'address') {
-      if (deliveryMethod === 'pickup_station') {
+    if (step === "address") {
+      if (deliveryMethod === "pickup_station") {
         // For pickup station, supply the fixed address to the form for validation
         // without persisting it as the user's door address via setCommittedAddress.
-        setValue('address', PICKUP_STATION_ADDRESS_LINES.join(', '), {
+        setValue("address", PICKUP_STATION_ADDRESS_LINES.join(", "), {
           shouldValidate: true,
         });
-        setValue('city', PICKUP_STATION_CITY, { shouldValidate: true });
-        setValue('state', PICKUP_STATION_STATE, { shouldValidate: true });
+        setValue("city", PICKUP_STATION_CITY, { shouldValidate: true });
+        setValue("state", PICKUP_STATION_STATE, { shouldValidate: true });
         handleSubmit(onAddressSubmit, handleAddressValidationError)();
       } else {
         handleSubmit(onAddressSubmit, handleAddressValidationError)();
       }
-    } else if (step === 'payment') {
+    } else if (step === "payment") {
       if (!selectedPayment) {
         Alert.alert(
-          'Select Payment Method',
-          'Choose how you want to pay before continuing to review.'
+          "Select Payment Method",
+          "Choose how you want to pay before continuing to review.",
         );
         return;
       }
-      trackCheckoutStep('payment_method', {
+      trackCheckoutStep("payment_method", {
         payment_method: selectedPayment,
       });
-      setStep('review');
+      void trackCheckoutRoutePaymentInfo(selectedPayment);
+      setStep("review");
     }
   };
 
   const handleSelectDeliveryMethod = (method: DeliveryMethod) => {
-    if (method === 'pickup_station' && deliveryMethod !== 'pickup_station') {
+    if (method === "pickup_station" && deliveryMethod !== "pickup_station") {
       savedDoorAddressRef.current = {
         address: watchedAddress,
         city: watchedCity,
         state: watchedState,
       };
     } else if (
-      method !== 'pickup_station' &&
-      deliveryMethod === 'pickup_station'
+      method !== "pickup_station" &&
+      deliveryMethod === "pickup_station"
     ) {
       const saved = savedDoorAddressRef.current;
       if (saved) {
-        setValue('address', saved.address, { shouldValidate: false });
-        setValue('city', saved.city, { shouldValidate: false });
-        setValue('state', saved.state, { shouldValidate: false });
+        setValue("address", saved.address, { shouldValidate: false });
+        setValue("city", saved.city, { shouldValidate: false });
+        setValue("state", saved.state, { shouldValidate: false });
         setCommittedAddress(saved.address);
         savedDoorAddressRef.current = null;
       }
@@ -1066,15 +1156,15 @@ export default function CheckoutScreen() {
   };
 
   const handleSelectState = (state: string) => {
-    setValue('state', state, { shouldValidate: true });
-    setValue('city', '', { shouldValidate: true });
+    setValue("state", state, { shouldValidate: true });
+    setValue("city", "", { shouldValidate: true });
     setShowStatePicker(false);
   };
 
   const handleSelectCity = (city: string) => {
-    setValue('city', city, { shouldValidate: true });
+    setValue("city", city, { shouldValidate: true });
     setShowCityPicker(false);
-    setCitySearch('');
+    setCitySearch("");
   };
 
   const handleCryptoConfirm = async (chain: string, currency: string) => {
@@ -1085,9 +1175,9 @@ export default function CheckoutScreen() {
     const { orderResponse: pendingResponse } = pendingOrder;
     if (pendingResponse.amountDueToGateway !== total) {
       Alert.alert(
-        'Amount Changed',
-        'Your order total has changed since the order was created. Please go back and try again.',
-        [{ text: 'OK' }]
+        "Amount Changed",
+        "Your order total has changed since the order was created. Please go back and try again.",
+        [{ text: "OK" }],
       );
       setPendingOrder(null);
       setShowCryptoSelection(false);
@@ -1110,39 +1200,39 @@ export default function CheckoutScreen() {
       const initResponse = await fetch(
         `${API_BASE_URL}/api/payments/initialize`,
         {
-          method: 'POST',
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json',
-            'Idempotency-Key': `crypto-init-${order.id}-${chain}-${currency}`,
+            "Content-Type": "application/json",
+            "Idempotency-Key": `crypto-init-${order.id}-${chain}-${currency}`,
           },
           body: JSON.stringify({
             merchant_id: MERCHANT_ID,
             order_id: order.id,
             amount: orderResponse.amountDueToGateway,
-            currency: 'NGN',
+            currency: "NGN",
             customer_email: customerEmail,
             customer_name: customerName,
             customer_phone: customerPhone,
-            gateway: 'juicyway',
+            gateway: "juicyway",
             crypto_chain: chain,
             crypto_currency: currency,
           }),
-        }
+        },
       );
 
       const initData = await initResponse.json();
 
       if (!initResponse.ok || !initData.success) {
         throw new OrderError(
-          initData.error || 'Failed to initialize crypto payment',
-          'PAYMENT_INIT_ERROR'
+          initData.error || "Failed to initialize crypto payment",
+          "PAYMENT_INIT_ERROR",
         );
       }
 
       if (!initData.crypto_payment?.address) {
         throw new OrderError(
-          'Failed to generate crypto wallet address. Please try again.',
-          'PAYMENT_INIT_ERROR'
+          "Failed to generate crypto wallet address. Please try again.",
+          "PAYMENT_INIT_ERROR",
         );
       }
 
@@ -1158,10 +1248,10 @@ export default function CheckoutScreen() {
         chain: cp.chain || chain,
         currency: cp.currency || currency,
         amount: cp.amount || orderResponse.amountDueToGateway,
-        cryptoAmount: cp.crypto_amount || '',
-        confirmationTime: cp.confirmation_time || '',
-        reference: initData.reference || '',
-        paymentId: cp.payment_id || '',
+        cryptoAmount: cp.crypto_amount || "",
+        confirmationTime: cp.confirmation_time || "",
+        reference: initData.reference || "",
+        paymentId: cp.payment_id || "",
         trackingToken,
       });
     } catch (error) {
@@ -1169,9 +1259,9 @@ export default function CheckoutScreen() {
       setShowCryptoSelection(false);
       isOrderInFlight.current = false;
       if (error instanceof OrderError) {
-        Alert.alert('Payment Error', error.message);
+        Alert.alert("Payment Error", error.message);
       } else {
-        Alert.alert('Error', 'Failed to initialize payment');
+        Alert.alert("Error", "Failed to initialize payment");
       }
     } finally {
       setPendingOrder(null);
@@ -1187,9 +1277,9 @@ export default function CheckoutScreen() {
     // BUG-1-003 Fix: Validate cart FIRST before any processing
     if (itemsSnapshot.length === 0) {
       Alert.alert(
-        'Empty Cart',
-        'Your cart is empty. Please add items before checking out.',
-        [{ text: 'OK', onPress: () => router.replace('/') }]
+        "Empty Cart",
+        "Your cart is empty. Please add items before checking out.",
+        [{ text: "OK", onPress: () => router.replace("/") }],
       );
       return;
     }
@@ -1200,8 +1290,8 @@ export default function CheckoutScreen() {
 
     if (isLoadingQuotes) {
       Alert.alert(
-        'Still Fetching Delivery',
-        'Please wait for delivery options to finish loading before placing your order.'
+        "Still Fetching Delivery",
+        "Please wait for delivery options to finish loading before placing your order.",
       );
       return;
     }
@@ -1213,9 +1303,9 @@ export default function CheckoutScreen() {
       !availablePaymentMethods.includes(selectedPayment)
     ) {
       Alert.alert(
-        'Payment Method Unavailable',
-        'The selected payment method is no longer available. Please choose another.',
-        [{ text: 'OK', onPress: () => setStep('payment') }]
+        "Payment Method Unavailable",
+        "The selected payment method is no longer available. Please choose another.",
+        [{ text: "OK", onPress: () => setStep("payment") }],
       );
       return;
     }
@@ -1223,16 +1313,16 @@ export default function CheckoutScreen() {
     // Validate that a shipping quote is selected when shipping quotes are
     // available (i.e. the address step fetched quotes for the chosen location)
     const requiresFreshShippingQuote =
-      deliveryMethod === 'door' && Boolean(currentShippingQuoteContextKey);
+      deliveryMethod === "door" && Boolean(currentShippingQuoteContextKey);
     const hasFreshShippingQuoteSelection =
       resolvedShippingQuoteContextKey === currentShippingQuoteContextKey &&
       Boolean(selectedQuote);
 
     if (requiresFreshShippingQuote && !hasFreshShippingQuoteSelection) {
       Alert.alert(
-        'Shipping Required',
-        'Please confirm a delivery option before placing your order.',
-        [{ text: 'OK', onPress: () => setStep('address') }]
+        "Shipping Required",
+        "Please confirm a delivery option before placing your order.",
+        [{ text: "OK", onPress: () => setStep("address") }],
       );
       return;
     }
@@ -1258,31 +1348,18 @@ export default function CheckoutScreen() {
     // insured "full wallet" order would still owe the assurance fee to
     // the gateway, breaking the wallet-only bypass and forcing an extra
     // payment step.
-    const snapshotAssuranceFee = itemsSnapshot.reduce((sum, item) => {
-      if (!item.hasAssurance) {
-        return sum;
-      }
-      const effectivePrice = item.negotiatedPrice ?? item.price;
-      return (
-        sum +
-        Math.round(
-          effectivePrice * item.quantity * (item.assuranceRate ?? 0.05)
-        )
-      );
-    }, 0);
+    const snapshotAssuranceFee =
+      calculateMobileCheckoutAssuranceFee(itemsSnapshot);
     const snapshotTotal =
       snapshotSubtotal +
       snapshotDeliveryFee +
       snapshotAssuranceFee +
       snapshotTaxAmount;
-    // Recompute the wallet amount at submit time against the snapshotted
-    // total + the live walletBalance, ignoring the captured
-    // walletSelection.amount. Between toggle and submit the total can
-    // shift (shipping quote update, tax recompute) and the wallet
-    // balance can move (concurrent refunds / cashback). Clamping to
-    // min(walletBalance, snapshotTotal) keeps the submitted amount
-    // consistent with what the server will actually see and prevents a
-    // stale wallet_amount from over- or under-debiting.
+    // Recompute savings and wallet amounts at submit time against the
+    // snapshotted cart total, ignoring captured selection amounts. Between
+    // toggle and submit, totals can shift (shipping quote update, tax
+    // recompute) and balances can move (concurrent refunds / cashback).
+    // Savings is applied first, then wallet can cover only the residual.
     //
     // Also enforce the same payment-method gate the picker uses
     // (PaymentMethodSelector.tsx → walletShouldRender). If the user
@@ -1293,24 +1370,48 @@ export default function CheckoutScreen() {
     // the API doesn't receive a stale wallet redemption that would either
     // be silently ignored (BNPL/pay_later branch) or break the Juicyway
     // amount-drift guard in handleCryptoConfirm.
-    const isWalletCompatibleSubmit =
-      paymentTab === 'full' &&
-      (selectedPayment === 'paystack' ||
-        selectedPayment === 'korapay' ||
-        selectedPayment === 'bank_transfer');
+    const isStoreCreditCompatibleSubmit = isStoreCreditCompatiblePayment({
+      paymentTab,
+      selectedPayment,
+    });
+    const liveSavingsSelection = getLiveSavingsSelection({
+      isStoreCreditCompatible: isStoreCreditCompatibleSubmit,
+      items: itemsSnapshot,
+      orderTotal: snapshotTotal,
+    });
+    const liveSavingsAmount = liveSavingsSelection?.amount ?? 0;
+    const walletResidualAfterSavings = Math.max(
+      snapshotTotal - liveSavingsAmount,
+      0,
+    );
+    const shouldCreateWalletFundedBankTransferOrder =
+      selectedPayment === "bank_transfer" &&
+      isEligibleForWalletFundedBankTransfer({
+        customerId: customer?.id,
+        customerPhone: customer?.phone,
+        isAuthenticated,
+        residualAfterSavings: walletResidualAfterSavings,
+        walletBalance,
+        walletOrderAutoDebitEnabled,
+      });
+    // walletAmountForOrder stays 0 for shouldCreateWalletFundedBankTransferOrder
+    // because liveWalletSelection must not consume existing wallet credit when
+    // walletOrderAutoDebitEnabled will fund the wallet and auto-debit the order.
+    const walletAmountForOrder = shouldCreateWalletFundedBankTransferOrder
+      ? 0
+      : Math.max(0, Math.min(walletBalance, walletResidualAfterSavings));
     const liveWalletSelection: WalletSelection | undefined =
-      walletSelection?.use === true && isWalletCompatibleSubmit
+      walletSelection?.use === true &&
+      isStoreCreditCompatibleSubmit &&
+      walletAmountForOrder > 0
         ? {
             use: true,
-            amount: Math.max(
-              0,
-              Math.min(walletBalance, snapshotTotal)
-            ),
+            amount: walletAmountForOrder,
           }
         : undefined;
 
     try {
-      trackCheckoutStep('review');
+      trackCheckoutStep("review");
 
       // 2026 Fix: Use validated address from handleSubmit instead of getValues()
       // const address = getValues(); // Removed to prevent bypass
@@ -1318,95 +1419,115 @@ export default function CheckoutScreen() {
       const customerPhone = address.phone;
       const customerName = `${address.firstName} ${address.lastName}`;
       const paymentMethodForOrder =
-        selectedPayment === 'payforme' ? 'invoice' : selectedPayment;
+        selectedPayment === "payforme" ? "invoice" : selectedPayment;
       const orderShippingAddress =
-        deliveryMethod === 'pickup_station'
+        deliveryMethod === "pickup_station"
           ? {
               ...address,
-              address: PICKUP_STATION_ADDRESS_LINES.join(', '),
+              address: PICKUP_STATION_ADDRESS_LINES.join(", "),
               city: PICKUP_STATION_CITY,
               state: PICKUP_STATION_STATE,
             }
-          : deliveryMethod === 'airport'
+          : deliveryMethod === "airport"
             ? {
                 ...address,
-                address: address.address || 'Airport Delivery (Outside Lagos)',
+                address: address.address || "Airport Delivery (Outside Lagos)",
               }
             : address;
 
       const isBNPL =
-        selectedPayment === 'credpal' ||
-        selectedPayment === 'credit_direct' ||
-        selectedPayment === 'klump';
+        selectedPayment === "credpal" ||
+        selectedPayment === "credit_direct" ||
+        selectedPayment === "klump";
+      const orderItemsPayload = buildMobileCheckoutOrderItems(itemsSnapshot);
+      const selectedQuoteIdForOrder =
+        deliveryMethod === "door" && selectedQuote?.id != null
+          ? String(selectedQuote.id)
+          : undefined;
+      const shippingProviderForOrder = getShippingProviderForMethod(
+        deliveryMethod,
+        selectedQuote,
+      );
 
       if (isBNPL) {
         const klumpSubmitDisabledReason =
-          selectedPayment === 'klump'
+          selectedPayment === "klump"
             ? getKlumpDisabledReason(
                 paymentSettings,
                 snapshotTotal,
-                walletSelection
+                liveWalletSelection,
+                liveSavingsSelection,
               )
             : undefined;
         if (klumpSubmitDisabledReason) {
-          Alert.alert('Klump unavailable', klumpSubmitDisabledReason, [
-            { text: 'OK' },
+          Alert.alert("Klump unavailable", klumpSubmitDisabledReason, [
+            { text: "OK" },
           ]);
           isOrderInFlight.current = false;
           setIsProcessing(false);
           return;
         }
 
-        const orderResponse = await createOrder({
-          customer_email: customerEmail,
-          customer_name: customerName,
-          customer_phone: customerPhone,
-          items: itemsSnapshot.map((item) => {
-            const effectivePrice = item.negotiatedPrice ?? item.price;
-            return {
-              id: item.product_id,
-              product_id: item.product_id,
-              name: item.name,
-              quantity: item.quantity,
-              price: effectivePrice,
-              image_url: item.image_url,
-              variant_id: item.variant_id,
-              variant_attributes: item.variant_attributes,
-              has_assurance: item.hasAssurance || false,
-              assurance_fee: item.hasAssurance
-                ? Math.round(
-                    effectivePrice *
-                      item.quantity *
-                      (item.assuranceRate ?? 0.05)
-                  )
-                : 0,
-            };
-          }),
+        const mobileCheckoutFingerprint = buildMobileCheckoutOrderFingerprint({
+          customerEmail,
+          customerName,
+          customerPhone,
+          deliveryMethod,
+          discountAmount: 0,
+          items: orderItemsPayload,
+          selectedQuoteId: selectedQuoteIdForOrder,
+          shippingAddress: orderShippingAddress,
+          shippingFee: snapshotDeliveryFee,
+          shippingProvider: shippingProviderForOrder,
           subtotal: snapshotSubtotal,
-          shipping_fee: snapshotDeliveryFee,
-          tax_amount: snapshotTaxAmount,
-          selected_quote_id:
-            deliveryMethod === 'door' && selectedQuote?.id != null
-              ? String(selectedQuote.id)
-              : undefined,
-          shipping_provider: getShippingProviderForMethod(
-            deliveryMethod,
-            selectedQuote
-          ),
-          payment_method: paymentMethodForOrder,
-          shipping_address: orderShippingAddress,
-          source: 'mobile_app',
+          taxAmount: snapshotTaxAmount,
         });
+        const mobileCheckoutIdempotencyKey = getMobileCheckoutIdempotencyKey(
+          mobileCheckoutIdempotencyRef,
+          mobileCheckoutFingerprint,
+        );
 
-        if (selectedPayment === 'klump') {
+        let orderResponse: OrderResponse;
+        try {
+          orderResponse = await createOrder({
+            customer_email: customerEmail,
+            customer_name: customerName,
+            customer_phone: customerPhone,
+            idempotency_key: mobileCheckoutIdempotencyKey,
+            items: orderItemsPayload,
+            subtotal: snapshotSubtotal,
+            shipping_fee: snapshotDeliveryFee,
+            tax_amount: snapshotTaxAmount,
+            selected_quote_id: selectedQuoteIdForOrder,
+            shipping_provider: shippingProviderForOrder,
+            payment_method: paymentMethodForOrder,
+            shipping_address: orderShippingAddress,
+            source: "mobile_app",
+          });
+        } catch (error) {
+          if (
+            error instanceof OrderError &&
+            (error.code === "CHECKOUT_ORDER_NOT_REUSABLE" ||
+              error.code === "CHECKOUT_IDEMPOTENCY_CONFLICT")
+          ) {
+            clearMobileCheckoutIdempotencyKey(
+              mobileCheckoutIdempotencyRef,
+              mobileCheckoutFingerprint,
+            );
+          }
+
+          throw error;
+        }
+
+        if (selectedPayment === "klump") {
           const orderTotal = Number(orderResponse.order.total);
           const initResponse = await fetch(
             `${API_BASE_URL}/api/payments/initialize`,
             {
-              method: 'POST',
+              method: "POST",
               headers: {
-                'Content-Type': 'application/json',
-                'Idempotency-Key': `payment-init-${orderResponse.order.id}-klump`,
+                "Content-Type": "application/json",
+                "Idempotency-Key": `payment-init-${orderResponse.order.id}-klump`,
               },
               body: JSON.stringify(
                 buildKlumpInitializePayload({
@@ -1416,28 +1537,28 @@ export default function CheckoutScreen() {
                   merchantId: MERCHANT_ID,
                   orderId: orderResponse.order.id,
                   orderTotal,
-                })
+                }),
               ),
-            }
+            },
           );
 
           const initData = await initResponse.json();
           if (
             !initResponse.ok ||
             !initData.success ||
-            typeof initData.authorization_url !== 'string' ||
-            typeof initData.reference !== 'string'
+            typeof initData.authorization_url !== "string" ||
+            typeof initData.reference !== "string"
           ) {
             throw new OrderError(
-              initData.error || 'Failed to initialize Klump payment',
-              'PAYMENT_INIT_ERROR'
+              initData.error || "Failed to initialize Klump payment",
+              "PAYMENT_INIT_ERROR",
             );
           }
 
           isOrderInFlight.current = false;
           setIsProcessing(false);
           router.push({
-            pathname: '/bnpl-checkout',
+            pathname: "/bnpl-checkout",
             params: buildKlumpBnplRouteParams({
               amount: orderTotal,
               authorizationUrl: initData.authorization_url,
@@ -1455,7 +1576,7 @@ export default function CheckoutScreen() {
         isOrderInFlight.current = false;
         setIsProcessing(false);
         router.push({
-          pathname: '/bnpl-checkout',
+          pathname: "/bnpl-checkout",
           params: {
             orderId: orderResponse.order.id,
             gateway: selectedPayment,
@@ -1476,54 +1597,56 @@ export default function CheckoutScreen() {
         customer_email: customerEmail,
         customer_name: customerName,
         customer_phone: customerPhone,
-        items: itemsSnapshot.map((item) => {
-          const effectivePrice = item.negotiatedPrice ?? item.price;
-          return {
-            id: item.product_id,
-            product_id: item.product_id,
-            name: item.name,
-            quantity: item.quantity,
-            price: effectivePrice,
-            image_url: item.image_url,
-            variant_id: item.variant_id,
-            variant_attributes: item.variant_attributes,
-            has_assurance: item.hasAssurance || false,
-            assurance_fee: item.hasAssurance
-              ? Math.round(
-                  effectivePrice * item.quantity * (item.assuranceRate ?? 0.05)
-                )
-              : 0,
-          };
-        }),
+        items: orderItemsPayload,
         subtotal: snapshotSubtotal,
         shipping_fee: snapshotDeliveryFee,
         tax_amount: snapshotTaxAmount,
-        selected_quote_id:
-          deliveryMethod === 'door' && selectedQuote?.id != null
-            ? String(selectedQuote.id)
-            : undefined,
-        shipping_provider: getShippingProviderForMethod(
-          deliveryMethod,
-          selectedQuote
-        ),
+        selected_quote_id: selectedQuoteIdForOrder,
+        shipping_provider: shippingProviderForOrder,
         payment_method: paymentMethodForOrder,
         shipping_address: orderShippingAddress,
-        source: 'mobile_app',
+        source: "mobile_app",
+        ...buildSavingsOrderFields(liveSavingsSelection),
         ...buildWalletOrderFields(liveWalletSelection),
       });
 
       const { order } = orderResponse;
       const orderNumber =
         order.order_number || order.id.slice(0, 8).toUpperCase();
+      const routeToWalletFundedBankTransfer = (
+        response: WalletOrderFundingIntentCreateResponse,
+      ) => {
+        isOrderInFlight.current = false;
+        setIsProcessing(false);
+        router.push({
+          pathname: "/bank-transfer",
+          params: {
+            accountName: response.account.accountName,
+            accountNumber: response.account.accountNumber,
+            amount: String(response.intent.expectedAmount),
+            bankName: response.account.bankName,
+            intentId: response.intent.id,
+            merchantId: MERCHANT_ID,
+            merchantSlug: MERCHANT_SLUG,
+            orderId: order.id,
+            orderNumber,
+            reference: response.intent.id,
+            walletFunded: "true",
+            ...(order.tracking_token && {
+              trackingToken: order.tracking_token,
+            }),
+          },
+        });
+      };
       const runPostOrderSideEffects = () => {
         void (async () => {
           if (isAuthenticated && customer?.id && saveAsDefaultAddress) {
             try {
               const { data, error } = await supabase
-                .from('customers')
-                .select('saved_addresses')
-                .eq('id', customer.id)
-                .eq('merchant_id', MERCHANT_ID)
+                .from("customers")
+                .select("saved_addresses")
+                .eq("id", customer.id)
+                .eq("merchant_id", MERCHANT_ID)
                 .single();
 
               if (error) throw error;
@@ -1536,31 +1659,31 @@ export default function CheckoutScreen() {
                 {
                   selectedSavedAddressId,
                   setAsDefault: true,
-                }
+                },
               );
 
               const { error: updateError } = await supabase
-                .from('customers')
+                .from("customers")
                 .update({ saved_addresses: nextSavedAddresses })
-                .eq('id', customer.id)
-                .eq('merchant_id', MERCHANT_ID);
+                .eq("id", customer.id)
+                .eq("merchant_id", MERCHANT_ID);
 
               if (updateError) throw updateError;
             } catch (error) {
               trackError(
-                'checkout_save_default_address',
+                "checkout_save_default_address",
                 error instanceof Error
                   ? error.message
-                  : 'Failed to save default address'
+                  : "Failed to save default address",
               );
             }
           }
 
           await scheduleLocalNotification(
-            'Order Received! 📦',
+            "Order Received! 📦",
             `Your order #${orderNumber} is being processed. We'll notify you when it ships.`,
-            { type: 'order_update', orderNumber, orderId: order.id },
-            1
+            { type: "order_update", orderNumber, orderId: order.id },
+            1,
           );
 
           if (!isAuthenticated && saveDetails && accountPassword.length >= 6) {
@@ -1587,26 +1710,29 @@ export default function CheckoutScreen() {
       // attribute the completion to 'wallet' in analytics rather than
       // the still-set selectedPayment value. Otherwise wallet-funded
       // orders skew payment dashboards as paystack/korapay/bank_transfer.
-      const completedPaymentMethod = isWalletFullyPaidOrder(orderResponse)
-        ? 'wallet'
-        : selectedPayment;
-      trackOrderCompleted({
+      const fullyPaidStoreCreditPaymentMethod =
+        getFullyPaidStoreCreditPaymentMethod(orderResponse);
+      const completedPaymentMethod =
+        fullyPaidStoreCreditPaymentMethod ?? selectedPayment;
+      void trackCheckoutRoutePurchaseCompleted({
+        customerEmail,
+        customerPhone,
+        items: itemsSnapshot,
         orderId: order.id,
         orderNumber,
-        total: order.total,
-        subtotal: snapshotSubtotal,
-        shipping: snapshotDeliveryFee,
-        tax: snapshotTaxAmount,
-        currency: 'NGN',
-        itemCount: itemsSnapshot.reduce((acc, item) => acc + item.quantity, 0),
         paymentMethod: completedPaymentMethod,
+        shipping: snapshotDeliveryFee,
+        subtotal: snapshotSubtotal,
+        tax: snapshotTaxAmount,
+        total: order.total,
+        userId: user?.id,
       });
 
       // Route based on payment method
       const isOnlinePayment =
-        selectedPayment === 'paystack' || selectedPayment === 'korapay';
-      const isBankTransfer = selectedPayment === 'bank_transfer';
-      const isJuicyway = selectedPayment === 'juicyway';
+        selectedPayment === "paystack" || selectedPayment === "korapay";
+      const isBankTransfer = selectedPayment === "bank_transfer";
+      const isJuicyway = selectedPayment === "juicyway";
 
       // Juicyway crypto: Show selection modal first
       if (isJuicyway) {
@@ -1625,33 +1751,30 @@ export default function CheckoutScreen() {
         return;
       }
 
-      // Wallet-only short-circuit: when the server has already finalized
-      // the order from wallet credit, skip the gateway-initialize hop and
-      // navigate to the success screen directly. The /api/orders route
-      // calls finalize_wallet_order_payment when amountDueToGateway hits
-      // 0, so the order is already paid by the time we get here.
-      if (isWalletFullyPaidOrder(orderResponse)) {
+      // Store-credit short-circuit: when the server has already finalized
+      // the order from wallet and/or savings credit, skip the gateway
+      // initialize hop and navigate to success directly.
+      if (fullyPaidStoreCreditPaymentMethod) {
         clearCart();
         const persistOpts = useCartStore.persist.getOptions();
         const partialize = persistOpts.partialize ?? ((s: unknown) => s);
         const persistedState = partialize(useCartStore.getState());
         await AsyncStorage.setItem(
-          persistOpts.name ?? 'cart-storage',
+          persistOpts.name ?? "cart-storage",
           JSON.stringify({
             state: persistedState,
             version: persistOpts.version ?? 0,
-          })
+          }),
         );
         setIsProcessing(false);
         router.replace({
-          pathname: '/order-success',
+          pathname: "/order-success",
           params: {
             orderId: order.id,
             orderNumber,
-            paymentMethod: 'wallet',
-            walletAmountUsed: String(
-              orderResponse.wallet?.amountUsed ?? 0
-            ),
+            paymentMethod: fullyPaidStoreCreditPaymentMethod,
+            savingsAmountUsed: String(orderResponse.savings?.amountUsed ?? 0),
+            walletAmountUsed: String(orderResponse.wallet?.amountUsed ?? 0),
             ...(order.tracking_token && {
               trackingToken: order.tracking_token,
             }),
@@ -1662,44 +1785,72 @@ export default function CheckoutScreen() {
       }
 
       if (isOnlinePayment || isBankTransfer) {
+        if (isBankTransfer && shouldCreateWalletFundedBankTransferOrder) {
+          const startedWalletFundedBankTransfer =
+            await createWalletFundedBankTransferIntent({
+              merchantId: MERCHANT_ID,
+              merchantSlug: MERCHANT_SLUG,
+              onFallback: ({ code, consent, message }) => {
+                trackError("wallet_order_funding_intent_failed", message, {
+                  code,
+                  ...(consent ? { consent: true } : {}),
+                  orderId: order.id,
+                });
+                Alert.alert(
+                  "Bank transfer unavailable",
+                  "Bank transfer to wallet is temporarily unavailable. We will use the standard bank transfer option instead.",
+                  [{ text: "OK" }],
+                );
+              },
+              onSuccess: routeToWalletFundedBankTransfer,
+              orderId: order.id,
+              requestConsent: requestWalletFundingAccountConsent,
+            });
+          if (startedWalletFundedBankTransfer) {
+            runPostOrderSideEffects();
+            return;
+          }
+        }
+
         // Initialize payment gateway
-        const gateway = isBankTransfer ? 'paystack' : selectedPayment;
+        const gateway = isBankTransfer ? "paystack" : selectedPayment;
         const initResponse = await fetch(
           `${API_BASE_URL}/api/payments/initialize`,
           {
-            method: 'POST',
+            method: "POST",
             headers: {
-              'Content-Type': 'application/json',
-              'Idempotency-Key': `payment-init-${order.id}-${gateway}`,
+              "Content-Type": "application/json",
+              "Idempotency-Key": `payment-init-${order.id}-${gateway}`,
             },
             body: JSON.stringify({
               merchant_id: MERCHANT_ID,
               order_id: order.id,
               amount: orderResponse.amountDueToGateway,
-              currency: 'NGN',
+              currency: "NGN",
               customer_email: customerEmail,
               customer_name: customerName,
               customer_phone: customerPhone,
               gateway,
-              ...(isBankTransfer && { payment_type: 'dva' }),
+              ...(isBankTransfer && { payment_type: "dva" }),
             }),
-          }
+          },
         );
 
         const initData = await initResponse.json();
 
         if (!initResponse.ok || !initData.success) {
           throw new OrderError(
-            initData.error || 'Failed to initialize payment',
-            'PAYMENT_INIT_ERROR'
+            initData.error || "Failed to initialize payment",
+            "PAYMENT_INIT_ERROR",
           );
         }
 
         setIsProcessing(false);
 
         if (isBankTransfer) {
+          isOrderInFlight.current = false;
           router.push({
-            pathname: '/bank-transfer',
+            pathname: "/bank-transfer",
             params: {
               orderId: order.id,
               orderNumber,
@@ -1708,15 +1859,15 @@ export default function CheckoutScreen() {
               bankName:
                 initData.dva?.bank_name ||
                 initData.virtual_account?.bank_name ||
-                '',
+                "",
               accountNumber:
                 initData.dva?.account_number ||
                 initData.virtual_account?.account_number ||
-                '',
+                "",
               accountName:
                 initData.dva?.account_name ||
                 initData.virtual_account?.account_name ||
-                '',
+                "",
               ...(order.tracking_token && {
                 trackingToken: order.tracking_token,
               }),
@@ -1725,7 +1876,7 @@ export default function CheckoutScreen() {
         } else {
           const authUrl = initData.authorization_url || initData.checkout_url;
           router.push({
-            pathname: '/payment-gateway',
+            pathname: "/payment-gateway",
             params: {
               orderId: order.id,
               orderNumber,
@@ -1755,16 +1906,16 @@ export default function CheckoutScreen() {
       const partialize = persistOpts.partialize ?? ((s: unknown) => s);
       const persistedState = partialize(useCartStore.getState());
       await AsyncStorage.setItem(
-        persistOpts.name ?? 'cart-storage',
+        persistOpts.name ?? "cart-storage",
         JSON.stringify({
           state: persistedState,
           version: persistOpts.version ?? 0,
-        })
+        }),
       );
 
       // Navigate to success after cart is cleared
       router.replace({
-        pathname: '/order-success',
+        pathname: "/order-success",
         params: {
           orderId: order.id,
           orderNumber,
@@ -1783,52 +1934,52 @@ export default function CheckoutScreen() {
         useCartStore.getState().restoreItems(cartSnapshot);
       }
       if (error instanceof OrderError) {
-        trackError('checkout_failed', error.message, {
-          step: 'place_order',
+        trackError("checkout_failed", error.message, {
+          step: "place_order",
           paymentMethod: selectedPayment,
           errorCode: error.code,
         });
 
         switch (error.code) {
-          case 'NETWORK_ERROR':
+          case "NETWORK_ERROR":
             Alert.alert(
-              'No Connection',
-              'Please check your internet connection and try again.',
-              [{ text: 'OK' }]
+              "No Connection",
+              "Please check your internet connection and try again.",
+              [{ text: "OK" }],
             );
             break;
-          case 'VALIDATION_ERROR':
+          case "VALIDATION_ERROR":
             Alert.alert(
-              'Invalid Information',
-              error.message || 'Please check your order details and try again.',
-              [{ text: 'OK' }]
+              "Invalid Information",
+              error.message || "Please check your order details and try again.",
+              [{ text: "OK" }],
             );
             break;
-          case 'AUTH_ERROR':
+          case "AUTH_ERROR":
             Alert.alert(
-              'Session Expired',
-              'Please sign in again to complete your order.',
+              "Session Expired",
+              "Please sign in again to complete your order.",
               [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Sign In', onPress: () => router.push('/auth/login') },
-              ]
+                { text: "Cancel", style: "cancel" },
+                { text: "Sign In", onPress: () => router.push("/auth/login") },
+              ],
             );
             break;
           default:
             Alert.alert(
-              'Order Failed',
-              error.message || 'Something went wrong. Please try again.',
-              [{ text: 'OK' }]
+              "Order Failed",
+              error.message || "Something went wrong. Please try again.",
+              [{ text: "OK" }],
             );
         }
       } else {
         trackError(
-          'checkout_failed',
-          error instanceof Error ? error.message : 'Unknown error',
-          { step: 'place_order', paymentMethod: selectedPayment }
+          "checkout_failed",
+          error instanceof Error ? error.message : "Unknown error",
+          { step: "place_order", paymentMethod: selectedPayment },
         );
-        Alert.alert('Error', 'Failed to place order. Please try again.', [
-          { text: 'OK' },
+        Alert.alert("Error", "Failed to place order. Please try again.", [
+          { text: "OK" },
         ]);
       }
     } finally {
@@ -1840,9 +1991,9 @@ export default function CheckoutScreen() {
   // 2026 Fix: Wrap submission in handleSubmit to enforce validation
   const handlePlaceOrder = handleSubmit(onCheckoutSubmit, (_errors) => {
     Alert.alert(
-      'Incomplete Details',
-      'Please fill in all required fields (Address, City, Phone) to place your order.',
-      [{ text: 'OK' }]
+      "Incomplete Details",
+      "Please fill in all required fields (Address, City, Phone) to place your order.",
+      [{ text: "OK" }],
     );
   });
 
@@ -1868,8 +2019,8 @@ export default function CheckoutScreen() {
         </Text>
         <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
           {isAuthenticated
-            ? 'Choose how this order should be delivered.'
-            : 'Add your contact and delivery details to continue.'}
+            ? "Choose how this order should be delivered."
+            : "Add your contact and delivery details to continue."}
         </Text>
       </View>
 
@@ -1898,372 +2049,54 @@ export default function CheckoutScreen() {
         onSelectMethod={handleSelectDeliveryMethod}
         doorSubtitle={
           selectedQuote != null
-            ? getDeliveryMethodSummary('door', selectedQuote)
-            : 'Rates loaded after you enter your address'
+            ? getDeliveryMethodSummary("door", selectedQuote)
+            : "Rates loaded after you enter your address"
         }
         doorPrice={
-          selectedQuote != null ? formatPrice(selectedQuote.price) : '—'
+          selectedQuote != null ? formatPrice(selectedQuote.price) : "—"
         }
         airportFee={AIRPORT_DELIVERY_FEE}
       />
 
-      {deliveryMethod !== 'pickup_station' && (
-        <View
-          style={[
-            styles.card,
-            {
-              backgroundColor: colors.card,
-              borderColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
-              zIndex: 10,
-              position: 'relative',
-            },
-          ]}
-        >
-          <View style={styles.cardHeaderActionRow}>
-            <View style={[styles.cardHeader, styles.cardHeaderInline]}>
-              <Ionicons
-                name="location-outline"
-                size={16}
-                color={BRAND.primary}
-              />
-              <Text style={[styles.cardTitle, { color: colors.text }]}>
-                Delivery
-              </Text>
-            </View>
-            {(hasSavedAddresses || Boolean(currentDeliverySummary)) && (
-              <Pressable
-                style={styles.inlineEditButton}
-                onPress={() => setIsDeliveryCollapsed((value) => !value)}
-                hitSlop={10}
-                accessibilityRole="button"
-                accessibilityLabel={
-                  isDeliveryCollapsed
-                    ? 'Edit delivery address'
-                    : 'Collapse delivery address'
-                }
-              >
-                <View style={styles.inlineActionContent}>
-                  <Ionicons
-                    name={
-                      isDeliveryCollapsed
-                        ? 'create-outline'
-                        : 'checkmark-outline'
-                    }
-                    size={16}
-                    color={BRAND.primary}
-                  />
-                  <Text style={styles.inlineActionText}>
-                    {isDeliveryCollapsed ? 'Edit' : 'Done'}
-                  </Text>
-                </View>
-              </Pressable>
-            )}
-          </View>
-          {isDeliveryCollapsed ? (
-            <View
-              style={[
-                styles.summaryPanel,
-                {
-                  backgroundColor: isDark
-                    ? 'rgba(255, 255, 255, 0.04)'
-                    : palette.gray[50],
-                  borderColor: colors.border,
-                },
-              ]}
-            >
-              <View style={styles.summaryMetaRow}>
-                <Ionicons
-                  name="navigate-circle-outline"
-                  size={16}
-                  color={BRAND.primary}
-                />
-                <Text
-                  style={[
-                    styles.summaryMetaLabel,
-                    { color: colors.textSecondary },
-                  ]}
-                >
-                  {selectedSavedAddress?.is_default
-                    ? 'Default address'
-                    : 'Delivery destination'}
-                </Text>
-              </View>
-              <View style={styles.summaryTitleRow}>
-                <Text style={[styles.summaryTitle, { color: colors.text }]}>
-                  {selectedSavedAddress?.label || 'Delivery address'}
-                </Text>
-                {selectedSavedAddress?.is_default && (
-                  <View
-                    style={[
-                      styles.savedAddressDefaultBadge,
-                      { backgroundColor: `${BRAND.primary}14` },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.savedAddressDefaultBadgeText,
-                        { color: BRAND.primary },
-                      ]}
-                    >
-                      Default
-                    </Text>
-                  </View>
-                )}
-              </View>
-              <Text
-                style={[styles.summaryLine, { color: colors.textSecondary }]}
-              >
-                {currentDeliverySummary || 'No delivery address selected yet'}
-              </Text>
-            </View>
-          ) : (
-            <View
-              style={[styles.cardBody, { overflow: 'visible', zIndex: 50 }]}
-            >
-              {renderSavedAddressOptions()}
-              {hasSavedAddresses && !isAddingNewAddress ? (
-                isAuthenticated &&
-                renderDefaultAddressCheckbox(
-                  selectedSavedAddress?.is_default
-                    ? 'Keep as default address'
-                    : 'Make selected address my default'
-                )
-              ) : (
-                <>
-                  {hasSavedAddresses && (
-                    <View
-                      style={[
-                        styles.newAddressIntro,
-                        {
-                          backgroundColor: isDark
-                            ? 'rgba(255, 255, 255, 0.04)'
-                            : palette.gray[50],
-                          borderColor: colors.border,
-                        },
-                      ]}
-                    >
-                      <Ionicons
-                        name="sparkles-outline"
-                        size={18}
-                        color={BRAND.primary}
-                      />
-                      <View style={styles.newAddressIntroBody}>
-                        <Text
-                          style={[
-                            styles.newAddressIntroTitle,
-                            { color: colors.text },
-                          ]}
-                        >
-                          New delivery address
-                        </Text>
-                        <Text
-                          style={[
-                            styles.newAddressIntroText,
-                            { color: colors.textSecondary },
-                          ]}
-                        >
-                          Use this if this order should go somewhere else.
-                        </Text>
-                      </View>
-                    </View>
-                  )}
-                  <Controller
-                    control={control}
-                    name="address"
-                    render={({ field: { value, onChange } }) => (
-                      <AddressAutocomplete
-                        value={value}
-                        onChangeText={(text) => {
-                          onChange(text);
-                          // If the user edits after committing via autocomplete, invalidate
-                          // the resolved context key so the next state/city change forces a
-                          // fresh fetch against the new typed address.
-                          if (committedAddress) {
-                            setResolvedShippingQuoteContextKey('');
-                          }
-                          setCommittedAddress('');
-                        }}
-                        scrollRef={addressScrollRef}
-                        scrollOffsetRef={addressScrollOffsetRef}
-                        onSelect={(place) => {
-                          const selectedAddress = place.formattedAddress || '';
-                          onChange(selectedAddress);
-                          setCommittedAddress(selectedAddress);
-                          const normalizedState = place.state
-                            ? normalizeStateName(place.state, shippingStates)
-                            : '';
-                          if (place.city) {
-                            const normalizedCity = place.city
-                              .trim()
-                              .toLowerCase();
-                            if (
-                              normalizedState &&
-                              normalizedCity === normalizedState.toLowerCase()
-                            ) {
-                              googleSuggestedCityRef.current = '';
-                            } else {
-                              googleSuggestedCityRef.current = place.city;
-                            }
-                          }
-                          setValue('city', '', { shouldValidate: false });
-                          if (normalizedState) {
-                            setValue('state', normalizedState, {
-                              shouldValidate: true,
-                            });
-                          }
-                        }}
-                        label="Street Address"
-                        placeholder="Start typing your address..."
-                      />
-                    )}
-                  />
-
-                  <View style={styles.row}>
-                    <View style={styles.halfInput}>
-                      <Text
-                        style={[styles.label, { color: colors.textSecondary }]}
-                      >
-                        City
-                      </Text>
-                      <Controller
-                        control={control}
-                        name="city"
-                        render={({ field: { value } }) => (
-                          <>
-                            <Pressable
-                              onPress={() => setShowCityPicker(true)}
-                              style={[
-                                styles.input,
-                                styles.selectInput,
-                                {
-                                  backgroundColor: isDark
-                                    ? 'rgba(255, 255, 255, 0.05)'
-                                    : '#F9FAFB',
-                                  borderColor: errors.city
-                                    ? '#EF4444'
-                                    : 'transparent',
-                                },
-                              ]}
-                              accessibilityRole="button"
-                              accessibilityLabel="Select city"
-                            >
-                              <Text
-                                style={[
-                                  styles.selectInputText,
-                                  {
-                                    color: value
-                                      ? colors.text
-                                      : colors.textSecondary,
-                                  },
-                                ]}
-                              >
-                                {value || 'Select city'}
-                              </Text>
-                              {isLoadingCities ? (
-                                <ActivityIndicator
-                                  size="small"
-                                  color={colors.textSecondary}
-                                />
-                              ) : (
-                                <Ionicons
-                                  name="chevron-down"
-                                  size={18}
-                                  color={colors.textSecondary}
-                                />
-                              )}
-                            </Pressable>
-                            {errors.city && (
-                              <Text
-                                style={styles.fieldError}
-                                accessibilityLiveRegion="polite"
-                              >
-                                {errors.city?.message}
-                              </Text>
-                            )}
-                          </>
-                        )}
-                      />
-                    </View>
-                    <View style={styles.halfInput}>
-                      <Text
-                        style={[styles.label, { color: colors.textSecondary }]}
-                      >
-                        State
-                      </Text>
-                      <Controller
-                        control={control}
-                        name="state"
-                        render={({ field: { value } }) => (
-                          <>
-                            <Pressable
-                              onPress={() => setShowStatePicker(true)}
-                              style={[
-                                styles.input,
-                                styles.selectInput,
-                                {
-                                  backgroundColor: isDark
-                                    ? 'rgba(255, 255, 255, 0.05)'
-                                    : '#F9FAFB',
-                                  borderColor: errors.state
-                                    ? '#EF4444'
-                                    : 'transparent',
-                                },
-                              ]}
-                              accessibilityRole="button"
-                              accessibilityLabel="Select state"
-                            >
-                              <Text
-                                style={[
-                                  styles.selectInputText,
-                                  {
-                                    color: value
-                                      ? colors.text
-                                      : colors.textSecondary,
-                                  },
-                                ]}
-                              >
-                                {value || 'Select state'}
-                              </Text>
-                              {isLoadingLocations ? (
-                                <ActivityIndicator
-                                  size="small"
-                                  color={colors.textSecondary}
-                                />
-                              ) : (
-                                <Ionicons
-                                  name="chevron-down"
-                                  size={18}
-                                  color={colors.textSecondary}
-                                />
-                              )}
-                            </Pressable>
-                            {errors.state && (
-                              <Text
-                                style={styles.fieldError}
-                                accessibilityLiveRegion="polite"
-                              >
-                                {errors.state?.message}
-                              </Text>
-                            )}
-                          </>
-                        )}
-                      />
-                    </View>
-                  </View>
-                  {isAuthenticated &&
-                    renderDefaultAddressCheckbox('Set as default address')}
-                </>
-              )}
-            </View>
-          )}
-        </View>
+      {deliveryMethod !== "pickup_station" && (
+        <CheckoutDeliveryCard
+          colors={colors}
+          control={control}
+          currentDeliverySummary={currentDeliverySummary}
+          defaultSavedAddress={defaultSavedAddress}
+          errors={errors}
+          hasSavedAddresses={hasSavedAddresses}
+          isAddingNewAddress={isAddingNewAddress}
+          isAuthenticated={isAuthenticated}
+          isCollapsed={isDeliveryCollapsed}
+          isDark={isDark}
+          isLoadingCities={isLoadingCities}
+          isLoadingLocations={isLoadingLocations}
+          isLoadingSavedAddresses={isLoadingSavedAddresses}
+          onAddressSelected={handleDeliveryAddressSelect}
+          onAddressTextChanged={handleDeliveryAddressTextChange}
+          onOpenCityPicker={() => setShowCityPicker(true)}
+          onOpenNewAddressEditor={openNewAddressEditor}
+          onOpenStatePicker={() => setShowStatePicker(true)}
+          onToggleCollapsed={() => setIsDeliveryCollapsed((value) => !value)}
+          onToggleSaveAsDefaultAddress={() =>
+            setSaveAsDefaultAddress((value) => !value)
+          }
+          onUseSavedAddress={applySavedAddressToForm}
+          saveAsDefaultAddress={saveAsDefaultAddress}
+          savedAddresses={savedAddresses}
+          scrollOffsetRef={addressScrollOffsetRef}
+          scrollRef={addressScrollRef}
+          selectedSavedAddress={selectedSavedAddress}
+          selectedSavedAddressId={selectedSavedAddressId}
+        />
       )}
 
-      {deliveryMethod === 'pickup_station' && (
+      {deliveryMethod === "pickup_station" && (
         <PickupStationCard colors={colors} isDark={isDark} />
       )}
 
-      {deliveryMethod === 'door' && watchedState && watchedCity && (
+      {deliveryMethod === "door" && watchedState && watchedCity && (
         <ShippingQuotesCard
           colors={colors}
           isDark={isDark}
@@ -2310,6 +2143,15 @@ export default function CheckoutScreen() {
         </Text>
       </View>
 
+      {checkoutSavingsError ? (
+        <CheckoutSavingsRetryCard
+          colors={colors}
+          isDark={isDark}
+          message={checkoutSavingsError}
+          onRetry={reloadCheckoutSavings}
+        />
+      ) : null}
+
       <PaymentMethodSelector
         selectedMethod={selectedPayment}
         onSelectMethod={setSelectedPayment}
@@ -2322,6 +2164,28 @@ export default function CheckoutScreen() {
         walletOrderTotal={total}
         walletSelection={walletSelection}
         onWalletToggle={setWalletSelection}
+        savingsBalance={isLoadingCheckoutSavings ? 0 : checkoutSavingsBalance}
+        savingsGoalId={checkoutSavingsGoal?.id ?? null}
+        savingsGoalTitle={checkoutSavingsGoal?.title}
+        savingsSelection={savingsSelection}
+        onSavingsToggle={setSavingsSelection}
+        walletFundedBankTransferMode={
+          walletFundedBankTransferOptionEnabled &&
+          selectedPayment === "bank_transfer"
+        }
+        methodLabelOverrides={
+          walletFundedBankTransferOptionEnabled
+            ? { bank_transfer: "Bank transfer to wallet" }
+            : undefined
+        }
+        methodDescriptionOverrides={
+          walletFundedBankTransferOptionEnabled
+            ? {
+                bank_transfer:
+                  "Transfer to your Bassey wallet account. We apply it to this order automatically.",
+              }
+            : undefined
+        }
         methodDisabledReasons={
           klumpDisabledReason ? { klump: klumpDisabledReason } : undefined
         }
@@ -2329,218 +2193,26 @@ export default function CheckoutScreen() {
     </ScrollView>
   );
 
-  const renderReview = () => {
-    const address = getValues();
-
-    return (
-      <ScrollView
-        style={styles.formContainer}
-        contentContainerStyle={[
-          styles.formContent,
-          { paddingBottom: formContentPaddingBottom },
-        ]}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
-      >
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            Review Order
-          </Text>
-          <Text
-            style={[styles.sectionSubtitle, { color: colors.textSecondary }]}
-          >
-            Confirm your details before placing the order.
-          </Text>
-        </View>
-
-        <View
-          style={[
-            styles.reviewCard,
-            {
-              backgroundColor: colors.card,
-              borderColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
-              ...SHADOWS.sm,
-            },
-          ]}
-        >
-          <View style={styles.reviewHeader}>
-            <Text style={[styles.reviewTitle, { color: colors.text }]}>
-              Delivery Method
-            </Text>
-            <Pressable onPress={() => setStep('address')}>
-              <Text style={[styles.editLink, { color: BRAND.primary }]}>
-                Edit
-              </Text>
-            </Pressable>
-          </View>
-          <Text style={[styles.reviewTextStrong, { color: colors.text }]}>
-            {getDeliveryMethodLabel(deliveryMethod)}
-          </Text>
-          {selectedQuote && deliveryMethod === 'door' && (
-            <Text style={[styles.reviewText, { color: colors.textSecondary }]}>
-              {selectedQuote.displayName}
-              {selectedQuote.deliveryRange || selectedQuote.estimatedDays
-                ? ` • ${selectedQuote.deliveryRange ?? `${selectedQuote.estimatedDays} days`}`
-                : null}
-            </Text>
-          )}
-          {deliveryMethod === 'airport' && (
-            <Text style={[styles.reviewText, { color: colors.textSecondary }]}>
-              Est. 24–48 working hours
-            </Text>
-          )}
-        </View>
-
-        <View
-          style={[
-            styles.reviewCard,
-            {
-              backgroundColor: colors.card,
-              borderColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
-              ...SHADOWS.sm,
-            },
-          ]}
-        >
-          <View style={styles.reviewHeader}>
-            <Text style={[styles.reviewTitle, { color: colors.text }]}>
-              Delivery Address
-            </Text>
-          </View>
-          <Text style={[styles.reviewText, { color: colors.text }]}>
-            {address.firstName} {address.lastName}
-          </Text>
-          <Text style={[styles.reviewText, { color: colors.textSecondary }]}>
-            {address.phone}
-          </Text>
-          <Text style={[styles.reviewText, { color: colors.textSecondary }]}>
-            {deliveryMethod === 'pickup_station'
-              ? PICKUP_STATION_ADDRESS_LINES.join('\n')
-              : deliveryMethod === 'airport'
-                ? `${address.city}, ${address.state}`
-                : address.address}
-          </Text>
-        </View>
-
-        <View
-          style={[
-            styles.reviewCard,
-            {
-              backgroundColor: colors.card,
-              borderColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
-              ...SHADOWS.sm,
-            },
-          ]}
-        >
-          <View style={styles.reviewHeader}>
-            <Text style={[styles.reviewTitle, { color: colors.text }]}>
-              Payment Method
-            </Text>
-            <Pressable onPress={() => setStep('payment')}>
-              <Text style={[styles.editLink, { color: BRAND.primary }]}>
-                Edit
-              </Text>
-            </Pressable>
-          </View>
-          <Text style={[styles.reviewText, { color: colors.textSecondary }]}>
-            {PAYMENT_METHOD_LABELS[selectedPayment]}
-          </Text>
-        </View>
-
-        <View
-          style={[
-            styles.reviewCard,
-            {
-              backgroundColor: colors.card,
-              borderColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
-              ...SHADOWS.sm,
-            },
-          ]}
-        >
-          <Text style={[styles.reviewTitle, { color: colors.text }]}>
-            Order Items ({items.length})
-          </Text>
-          {items.map((item) => (
-            <View key={item.id} style={styles.orderItem}>
-              <Text style={[styles.orderItemName, { color: colors.text }]}>
-                {item.name}
-              </Text>
-              <Text
-                style={[styles.orderItemQty, { color: colors.textSecondary }]}
-              >
-                x{item.quantity}
-              </Text>
-              <Text style={[styles.orderItemPrice, { color: colors.text }]}>
-                {formatPrice(
-                  (item.negotiatedPrice ?? item.price) * item.quantity
-                )}
-              </Text>
-            </View>
-          ))}
-        </View>
-
-        <View
-          style={[
-            styles.totalCard,
-            {
-              backgroundColor: colors.card,
-              borderColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
-              ...SHADOWS.sm,
-            },
-          ]}
-        >
-          <View style={styles.totalRow}>
-            <Text style={[styles.totalLabel, { color: colors.textSecondary }]}>
-              Subtotal
-            </Text>
-            <Text style={[styles.totalValue, { color: colors.text }]}>
-              {formatPrice(subtotal)}
-            </Text>
-          </View>
-          <View style={styles.totalRow}>
-            <Text style={[styles.totalLabel, { color: colors.textSecondary }]}>
-              Delivery
-            </Text>
-            <Text style={[styles.totalValue, { color: colors.text }]}>
-              {formatPrice(deliveryFee)}
-            </Text>
-          </View>
-          {assuranceFee > 0 && (
-            <View style={styles.totalRow}>
-              <Text
-                style={[styles.totalLabel, { color: colors.textSecondary }]}
-              >
-                Device Assurance
-              </Text>
-              <Text style={[styles.totalValue, { color: colors.text }]}>
-                {formatPrice(assuranceFee)}
-              </Text>
-            </View>
-          )}
-          {orderTotals && getMerchantTaxRate(paymentSettings) > 0 && (
-            <View style={styles.totalRow}>
-              <Text
-                style={[styles.totalLabel, { color: colors.textSecondary }]}
-              >
-                VAT ({(getMerchantTaxRate(paymentSettings) * 100).toFixed(1)}%)
-              </Text>
-              <Text style={[styles.totalValue, { color: colors.text }]}>
-                {formatPrice(orderTotals.taxAmount)}
-              </Text>
-            </View>
-          )}
-          <View style={[styles.totalRow, styles.grandTotalRow]}>
-            <Text style={[styles.grandTotalLabel, { color: colors.text }]}>
-              Total
-            </Text>
-            <Text style={[styles.grandTotalValue, { color: BRAND.primary }]}>
-              {formatPrice(total)}
-            </Text>
-          </View>
-        </View>
-      </ScrollView>
-    );
-  };
+  const renderReview = () => (
+    <CheckoutReviewStep
+      address={getValues()}
+      assuranceFee={assuranceFee}
+      colors={colors}
+      deliveryFee={deliveryFee}
+      deliveryMethod={deliveryMethod}
+      formContentPaddingBottom={formContentPaddingBottom}
+      isDark={isDark}
+      items={items}
+      onEditAddress={() => setStep("address")}
+      onEditPayment={() => setStep("payment")}
+      selectedPayment={selectedPayment}
+      selectedQuote={selectedQuote}
+      subtotal={subtotal}
+      taxAmount={orderTotals?.taxAmount ?? null}
+      taxRate={getMerchantTaxRate(paymentSettings)}
+      total={total}
+    />
+  );
 
   return (
     <>
@@ -2552,7 +2224,7 @@ export default function CheckoutScreen() {
 
       <SafeAreaView
         style={[styles.container, { backgroundColor: colors.background }]}
-        edges={['top', 'left', 'right']}
+        edges={["top", "left", "right"]}
       >
         <View
           style={[
@@ -2589,9 +2261,9 @@ export default function CheckoutScreen() {
             isDark={isDark}
           />
 
-          {step === 'address' && renderAddressForm()}
-          {step === 'payment' && renderPaymentOptions()}
-          {step === 'review' && renderReview()}
+          {step === "address" && renderAddressForm()}
+          {step === "payment" && renderPaymentOptions()}
+          {step === "review" && renderReview()}
 
           <View
             style={[
@@ -2616,11 +2288,11 @@ export default function CheckoutScreen() {
                 <Text
                   style={[styles.bottomSubtle, { color: colors.textSecondary }]}
                 >
-                  {items.length} item{items.length === 1 ? '' : 's'}
+                  {items.length} item{items.length === 1 ? "" : "s"}
                 </Text>
               </View>
 
-              {step === 'review' ? (
+              {step === "review" ? (
                 <Pressable
                   style={[
                     styles.actionButton,
@@ -2629,7 +2301,7 @@ export default function CheckoutScreen() {
                   onPress={handlePlaceOrder}
                   disabled={isProcessing}
                   accessibilityRole="button"
-                  accessibilityLabel={`${selectedPayment === 'invoice' ? 'Generate invoice' : selectedPayment === 'payforme' ? 'Prepare pay for me order' : 'Place order'} for ${formatPrice(total)}`}
+                  accessibilityLabel={`${selectedPayment === "invoice" ? "Generate invoice" : selectedPayment === "payforme" ? "Prepare pay for me order" : "Place order"} for ${formatPrice(total)}`}
                   accessibilityState={{
                     disabled: isProcessing,
                     busy: isProcessing,
@@ -2643,11 +2315,11 @@ export default function CheckoutScreen() {
                   ) : (
                     <>
                       <Text style={styles.actionButtonText}>
-                        {selectedPayment === 'invoice'
-                          ? 'Generate Invoice'
-                          : selectedPayment === 'payforme'
-                            ? 'Pay for Me'
-                            : 'Place Order'}
+                        {selectedPayment === "invoice"
+                          ? "Generate Invoice"
+                          : selectedPayment === "payforme"
+                            ? "Pay for Me"
+                            : "Place Order"}
                       </Text>
                       <Animated.View style={animatedCtaArrowStyle}>
                         <Ionicons
@@ -2667,7 +2339,7 @@ export default function CheckoutScreen() {
                   ]}
                   onPress={handleContinue}
                   accessibilityRole="button"
-                  accessibilityLabel={`Continue to ${step === 'address' ? 'payment' : 'review'}`}
+                  accessibilityLabel={`Continue to ${step === "address" ? "payment" : "review"}`}
                 >
                   <Text style={styles.actionButtonText}>Continue</Text>
                   <Animated.View style={animatedCtaArrowStyle}>
@@ -2709,7 +2381,7 @@ export default function CheckoutScreen() {
               initialNumToRender={15}
               maxToRenderPerBatch={10}
               windowSize={5}
-              removeClippedSubviews={Platform.OS === 'android'}
+              removeClippedSubviews={Platform.OS === "android"}
               renderItem={({ item }) => (
                 <Pressable
                   style={[
@@ -2717,7 +2389,7 @@ export default function CheckoutScreen() {
                     { borderBottomColor: colors.border },
                     item === watchedState && {
                       backgroundColor: isDark
-                        ? 'rgba(217, 59, 48, 0.14)'
+                        ? "rgba(217, 59, 48, 0.14)"
                         : palette.red[50],
                     },
                   ]}
@@ -2731,10 +2403,10 @@ export default function CheckoutScreen() {
                           color:
                             item === watchedState
                               ? isDark
-                                ? '#FDECEA'
+                                ? "#FDECEA"
                                 : BRAND.primary
                               : colors.text,
-                          fontWeight: item === watchedState ? '700' : '500',
+                          fontWeight: item === watchedState ? "700" : "500",
                         },
                       ]}
                     >
@@ -2769,12 +2441,10 @@ export default function CheckoutScreen() {
         animationType="slide"
         onRequestClose={() => {
           setShowCityPicker(false);
-          setCitySearch('');
+          setCitySearch("");
         }}
       >
-        <AppKeyboardContainer
-          style={styles.pickerOverlay}
-        >
+        <AppKeyboardContainer style={styles.pickerOverlay}>
           <View style={[styles.pickerSheet, { backgroundColor: colors.card }]}>
             <View style={styles.pickerHeader}>
               <Text style={[styles.pickerTitle, { color: colors.text }]}>
@@ -2783,7 +2453,7 @@ export default function CheckoutScreen() {
               <Pressable
                 onPress={() => {
                   setShowCityPicker(false);
-                  setCitySearch('');
+                  setCitySearch("");
                 }}
                 hitSlop={12}
               >
@@ -2795,11 +2465,11 @@ export default function CheckoutScreen() {
                 styles.citySearchContainer,
                 {
                   backgroundColor: isDark
-                    ? 'rgba(255, 255, 255, 0.05)'
-                    : '#F9FAFB',
+                    ? "rgba(255, 255, 255, 0.05)"
+                    : "#F9FAFB",
                   borderColor: citySearchFocused
                     ? BRAND.primary
-                    : 'transparent',
+                    : "transparent",
                 },
               ]}
             >
@@ -2821,7 +2491,7 @@ export default function CheckoutScreen() {
                 returnKeyType="done"
               />
               {citySearch.length > 0 && (
-                <Pressable onPress={() => setCitySearch('')} hitSlop={8}>
+                <Pressable onPress={() => setCitySearch("")} hitSlop={8}>
                   <Ionicons
                     name="close-circle"
                     size={18}
@@ -2834,7 +2504,7 @@ export default function CheckoutScreen() {
               data={
                 citySearch
                   ? shippingCities.filter((c) =>
-                      c.toLowerCase().includes(citySearch.toLowerCase())
+                      c.toLowerCase().includes(citySearch.toLowerCase()),
                     )
                   : shippingCities
               }
@@ -2849,7 +2519,7 @@ export default function CheckoutScreen() {
               initialNumToRender={15}
               maxToRenderPerBatch={10}
               windowSize={5}
-              removeClippedSubviews={Platform.OS === 'android'}
+              removeClippedSubviews={Platform.OS === "android"}
               renderItem={({ item }) => (
                 <Pressable
                   style={[
@@ -2857,7 +2527,7 @@ export default function CheckoutScreen() {
                     { borderBottomColor: colors.border },
                     item === watchedCity && {
                       backgroundColor: isDark
-                        ? 'rgba(217, 59, 48, 0.14)'
+                        ? "rgba(217, 59, 48, 0.14)"
                         : palette.red[50],
                     },
                   ]}
@@ -2871,10 +2541,10 @@ export default function CheckoutScreen() {
                           color:
                             item === watchedCity
                               ? isDark
-                                ? '#FDECEA'
+                                ? "#FDECEA"
                                 : BRAND.primary
                               : colors.text,
-                          fontWeight: item === watchedCity ? '700' : '500',
+                          fontWeight: item === watchedCity ? "700" : "500",
                         },
                       ]}
                     >
@@ -2942,17 +2612,17 @@ export default function CheckoutScreen() {
               <Pressable
                 onPress={() => {
                   Alert.alert(
-                    'Close Payment?',
+                    "Close Payment?",
                     "If you've already sent crypto, your order will still be processed once the payment is detected on the blockchain.",
                     [
-                      { text: 'Stay', style: 'cancel' },
+                      { text: "Stay", style: "cancel" },
                       {
-                        text: 'Close',
+                        text: "Close",
                         onPress: () => {
                           setCryptoPayment(null);
                         },
                       },
-                    ]
+                    ],
                   );
                 }}
                 style={styles.cryptoCloseBtn}
@@ -2984,7 +2654,7 @@ export default function CheckoutScreen() {
                   style={[styles.cryptoAmountValue, { color: colors.text }]}
                 >
                   {cryptoPayment.cryptoAmount ||
-                    (cryptoPayment.amount / 100).toLocaleString()}{' '}
+                    (cryptoPayment.amount / 100).toLocaleString()}{" "}
                   <Text style={{ color: BRAND.primary }}>
                     {cryptoPayment.currency}
                   </Text>
@@ -2992,12 +2662,12 @@ export default function CheckoutScreen() {
                 <View style={styles.cryptoChainBadge}>
                   <View style={styles.cryptoPulseDot} />
                   <Text style={styles.cryptoChainText}>
-                    Network:{' '}
+                    Network:{" "}
                     {{
-                      TRX: 'Tron (TRC-20)',
-                      ETH: 'Ethereum (ERC-20)',
-                      MATIC: 'Polygon',
-                      AVAXC: 'Avalanche C-Chain',
+                      TRX: "Tron (TRC-20)",
+                      ETH: "Ethereum (ERC-20)",
+                      MATIC: "Polygon",
+                      AVAXC: "Avalanche C-Chain",
                     }[cryptoPayment.chain] || cryptoPayment.chain}
                   </Text>
                 </View>
@@ -3024,36 +2694,36 @@ export default function CheckoutScreen() {
                       styles.cryptoCopyBtn,
                       {
                         backgroundColor:
-                          copiedCryptoField === 'address'
+                          copiedCryptoField === "address"
                             ? `${palette.emerald[500]}15`
                             : `${BRAND.primary}15`,
                       },
                     ]}
                     onPress={async () => {
                       const success = await setClipboardString(
-                        cryptoPayment.address
+                        cryptoPayment.address,
                       );
                       if (success) {
-                        setCopiedCryptoField('address');
+                        setCopiedCryptoField("address");
                         if (cryptoCopyTimerRef.current)
                           clearTimeout(cryptoCopyTimerRef.current);
                         cryptoCopyTimerRef.current = setTimeout(
                           () => setCopiedCryptoField(null),
-                          2000
+                          2000,
                         );
                       }
                     }}
                   >
                     <Ionicons
                       name={
-                        copiedCryptoField === 'address'
-                          ? 'checkmark'
-                          : 'copy-outline'
+                        copiedCryptoField === "address"
+                          ? "checkmark"
+                          : "copy-outline"
                       }
                       size={18}
                       color={
-                        copiedCryptoField === 'address'
-                          ? '#059669'
+                        copiedCryptoField === "address"
+                          ? "#059669"
                           : BRAND.primary
                       }
                     />
@@ -3065,7 +2735,7 @@ export default function CheckoutScreen() {
               <View style={styles.cryptoWarning}>
                 <Ionicons name="warning" size={18} color="#F59E0B" />
                 <Text style={styles.cryptoWarningText}>
-                  Only send {cryptoPayment.currency} on the{' '}
+                  Only send {cryptoPayment.currency} on the{" "}
                   {cryptoPayment.chain} network. Using the wrong network will
                   result in permanent loss.
                 </Text>
@@ -3129,11 +2799,11 @@ export default function CheckoutScreen() {
                   const { orderId, orderNumber, trackingToken } = cryptoPayment;
                   setCryptoPayment(null);
                   router.replace({
-                    pathname: '/order-success',
+                    pathname: "/order-success",
                     params: {
                       orderId,
                       orderNumber,
-                      paymentMethod: 'juicyway',
+                      paymentMethod: "juicyway",
                       ...(trackingToken && { trackingToken }),
                     },
                   });
@@ -3156,742 +2826,3 @@ export default function CheckoutScreen() {
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  contentShell: {
-    flex: 1,
-  },
-  screenHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: SPACING.md,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-  },
-  backBtn: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  screenHeaderTitle: {
-    flex: 1,
-    fontSize: 18,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  screenHeaderSpacer: {
-    width: 40,
-  },
-  formContainer: {
-    flex: 1,
-    paddingHorizontal: SPACING.md,
-  },
-  formContent: {
-    paddingBottom: 116,
-  },
-  sectionHeader: {
-    marginBottom: SPACING.md,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  sectionSubtitle: {
-    fontSize: 13,
-    marginTop: 6,
-  },
-  card: {
-    borderRadius: RADIUS.xl,
-    paddingHorizontal: SPACING.md,
-    paddingTop: 14,
-    paddingBottom: SPACING.md,
-    marginBottom: SPACING.sm,
-    borderWidth: 1,
-    borderColor: 'transparent',
-    ...SHADOWS.sm,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: SPACING.md,
-  },
-  cardHeaderInline: {
-    marginBottom: 0,
-  },
-  cardHeaderActionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: SPACING.md,
-  },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    letterSpacing: -0.3,
-  },
-  inlineEditButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  inlineActionContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  inlineActionText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: BRAND.primary,
-  },
-  cardBody: {
-    gap: SPACING.sm,
-  },
-  contactCardBody: {
-    gap: 10,
-  },
-  summarySection: {
-    gap: 8,
-  },
-  summaryPanel: {
-    borderWidth: 1,
-    borderRadius: 18,
-    padding: 14,
-    gap: 8,
-  },
-  summaryMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  summaryMetaLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    letterSpacing: 0.1,
-  },
-  summaryTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    flexWrap: 'wrap',
-  },
-  summaryTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  summaryLine: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  row: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  halfInput: {
-    flex: 1,
-  },
-  inputGroup: {
-    marginBottom: 12,
-  },
-  compactInputGroup: {
-    marginBottom: 8,
-  },
-  label: {
-    fontSize: 13,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  input: {
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 15,
-    borderColor: 'transparent',
-  },
-  multilineInput: {
-    minHeight: 80,
-    textAlignVertical: 'top',
-  },
-  selectInput: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  selectInputText: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: '500',
-    marginRight: 8,
-  },
-  helperText: {
-    fontSize: 12,
-  },
-  savedAddressDefaultBadge: {
-    borderRadius: RADIUS.full,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  savedAddressDefaultBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  deliveryMethodList: {
-    gap: 10,
-  },
-  deliveryMethodCard: {
-    borderWidth: 1,
-    borderRadius: 18,
-    padding: 14,
-    gap: 12,
-  },
-  deliveryMethodTopRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-  },
-  deliveryMethodLabelWrap: {
-    flex: 1,
-    gap: 4,
-  },
-  deliveryMethodTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  deliveryMethodSubtitle: {
-    fontSize: 12,
-    lineHeight: 18,
-  },
-  deliveryMethodMeta: {
-    alignItems: 'flex-end',
-    gap: 8,
-  },
-  deliveryMethodPrice: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  deliveryMethodExpanded: {
-    gap: 10,
-  },
-  deliveryStaticInfo: {
-    borderWidth: 1,
-    borderRadius: 14,
-    padding: 12,
-  },
-  deliveryStaticTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    marginBottom: 2,
-  },
-  deliveryStaticText: {
-    fontSize: 13,
-    lineHeight: 20,
-  },
-  newAddressIntro: {
-    borderWidth: 1,
-    borderRadius: 16,
-    padding: 12,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-  },
-  newAddressIntroBody: {
-    flex: 1,
-    gap: 2,
-  },
-  newAddressIntroTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  newAddressIntroText: {
-    fontSize: 12,
-    lineHeight: 18,
-  },
-  quoteRow: {
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  quoteInfo: {
-    flex: 1,
-    marginRight: 12,
-  },
-  quoteHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 4,
-  },
-  quoteTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  quoteMeta: {
-    fontSize: 12,
-  },
-  quoteRight: {
-    alignItems: 'flex-end',
-    gap: 4,
-  },
-  quotePrice: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  quoteBadge: {
-    backgroundColor: '#DBEAFE',
-    borderRadius: RADIUS.full,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  quoteBadgeDark: {
-    backgroundColor: '#111827',
-    borderRadius: RADIUS.full,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  quoteBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 9,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-  },
-  quoteLoadingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  reviewCard: {
-    padding: SPACING.lg,
-    borderRadius: RADIUS.xl,
-    borderWidth: 1,
-    borderColor: 'transparent',
-    marginBottom: SPACING.md,
-  },
-  reviewHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  reviewTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  reviewTextStrong: {
-    fontSize: 14,
-    fontWeight: '700',
-    marginBottom: 2,
-  },
-  editLink: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  reviewText: {
-    fontSize: 14,
-    lineHeight: 22,
-  },
-  orderItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  orderItemName: {
-    flex: 1,
-    fontSize: 14,
-  },
-  orderItemQty: {
-    fontSize: 13,
-    marginHorizontal: 12,
-  },
-  orderItemPrice: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  totalCard: {
-    padding: SPACING.lg,
-    borderRadius: RADIUS.xl,
-    borderWidth: 1,
-    borderColor: 'transparent',
-    marginBottom: 100,
-  },
-  totalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  totalLabel: {
-    fontSize: 14,
-  },
-  totalValue: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  grandTotalRow: {
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-    marginTop: 8,
-    paddingTop: 16,
-  },
-  grandTotalLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  grandTotalValue: {
-    fontSize: 20,
-    fontWeight: '800',
-  },
-  bottomAction: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    zIndex: 80,
-    paddingHorizontal: SPACING.md,
-    paddingTop: SPACING.sm,
-    borderTopWidth: 1,
-    ...SHADOWS.lg,
-  },
-  bottomBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  bottomSummary: {
-    minWidth: 120,
-  },
-  bottomLabel: {
-    fontSize: 11,
-    color: palette.gray[500],
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-  },
-  bottomValue: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: palette.gray[900],
-  },
-  bottomSubtle: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 16,
-    borderRadius: RADIUS.xl,
-    flex: 1,
-  },
-  actionButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  processingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  fieldError: {
-    color: '#DC2626',
-    fontSize: 13,
-    fontWeight: '500',
-    marginTop: 6,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  pickerOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'flex-end',
-  },
-  pickerSheet: {
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 16,
-    maxHeight: '70%',
-  },
-  pickerHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  pickerTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  pickerItem: {
-    minHeight: 48,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-    borderRadius: 12,
-    justifyContent: 'center',
-  },
-  pickerItemContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  pickerItemText: {
-    fontSize: 14,
-  },
-  citySearchContainer: {
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
-  },
-  citySearchInput: {
-    flex: 1,
-    fontSize: 14,
-  },
-  retryCard: {
-    borderWidth: 2,
-    borderColor: '#FCD34D',
-    borderStyle: 'dashed',
-    backgroundColor: '#FFFBEB',
-    borderRadius: 16,
-    padding: 16,
-    alignItems: 'center',
-    gap: 10,
-  },
-  retryIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#FEF3C7',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  retryTextWrap: {
-    alignItems: 'center',
-  },
-  retryTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  retrySubtitle: {
-    fontSize: 12,
-    color: '#B45309',
-    marginTop: 4,
-    textAlign: 'center',
-  },
-  retryBadge: {
-    backgroundColor: '#FEF3C7',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 999,
-  },
-  retryBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#B45309',
-  },
-  saveDetailsSection: {
-    gap: SPACING.sm,
-  },
-  checkboxRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-    paddingVertical: SPACING.xs,
-    minHeight: 44,
-  },
-  checkbox: {
-    width: 22,
-    height: 22,
-    borderRadius: 6,
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkboxChecked: {
-    backgroundColor: BRAND.primary,
-  },
-  checkboxLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    flex: 1,
-  },
-  accountInfoBanner: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: SPACING.sm,
-    padding: SPACING.md,
-    borderRadius: RADIUS.md,
-  },
-  accountInfoText: {
-    flex: 1,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-
-  // Crypto payment modal styles
-  cryptoHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.md,
-  },
-  cryptoHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-  },
-  cryptoHeaderTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  cryptoBackBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  cryptoCloseBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  cryptoContent: {
-    padding: SPACING.lg,
-    gap: SPACING.md,
-  },
-  cryptoAmountCard: {
-    padding: SPACING.lg,
-    borderRadius: RADIUS.lg,
-    alignItems: 'center',
-    gap: 4,
-  },
-  cryptoAmountLabel: {
-    fontSize: 13,
-  },
-  cryptoAmountValue: {
-    fontSize: 28,
-    fontWeight: '700',
-  },
-  cryptoChainBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#F3F4F6',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
-    marginTop: 4,
-  },
-  cryptoPulseDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#22C55E',
-  },
-  cryptoChainText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#374151',
-  },
-  cryptoAddressCard: {
-    padding: SPACING.lg,
-    borderRadius: RADIUS.lg,
-    gap: SPACING.sm,
-  },
-  cryptoFieldLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#9CA3AF',
-    letterSpacing: 0.5,
-  },
-  cryptoAddressRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-  },
-  cryptoAddressText: {
-    flex: 1,
-    fontSize: 13,
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-    lineHeight: 20,
-  },
-  cryptoCopyBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  cryptoWarning: {
-    flexDirection: 'row',
-    gap: SPACING.sm,
-    padding: SPACING.md,
-    borderRadius: RADIUS.md,
-    backgroundColor: '#FFF8E1',
-  },
-  cryptoWarningText: {
-    flex: 1,
-    fontSize: 12,
-    color: '#92400E',
-    lineHeight: 18,
-  },
-  cryptoInfoCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-    padding: SPACING.md,
-    borderRadius: RADIUS.md,
-  },
-  cryptoInfoText: {
-    flex: 1,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  cryptoReference: {
-    textAlign: 'center',
-    fontSize: 12,
-  },
-  cryptoBottomAction: {
-    padding: SPACING.lg,
-    borderTopWidth: 1,
-    gap: SPACING.sm,
-  },
-  cryptoDoneBtn: {
-    paddingVertical: SPACING.md,
-    borderRadius: RADIUS.md,
-    alignItems: 'center',
-  },
-  cryptoDoneBtnText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  cryptoHelpText: {
-    textAlign: 'center',
-    fontSize: 12,
-    lineHeight: 16,
-  },
-});

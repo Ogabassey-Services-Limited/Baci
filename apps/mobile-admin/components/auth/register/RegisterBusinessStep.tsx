@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons";
 import {
   ActivityIndicator,
   Pressable,
@@ -7,6 +7,7 @@ import {
   View,
 } from 'react-native';
 import type { BusinessTypeId } from '@/constants/business-types';
+import { COUNTRIES } from '@/constants/countries';
 import { useTheme } from '@/hooks/useTheme';
 import { BusinessTypeSelector } from '../BusinessTypeSelector';
 import { RegisterLegalText } from './RegisterLegalText';
@@ -15,6 +16,7 @@ import { getStyles } from './register.styles';
 interface RegisterFormData {
   businessName: string;
   businessType: string;
+  country: string;
   otherBusinessType: string;
   slug: string;
 }
@@ -23,6 +25,7 @@ interface RegisterBusinessStepProps {
   formData: RegisterFormData;
   isLoading: boolean;
   onBusinessTypeChange: (typeId: BusinessTypeId) => void;
+  onCountryChange: (countryCode: string) => void;
   onLaunchStore: () => void;
   onOtherBusinessTypeChange: (text: string) => void;
   onBusinessNameChange: (text: string) => void;
@@ -34,6 +37,7 @@ export function RegisterBusinessStep({
   isLoading,
   onBusinessNameChange,
   onBusinessTypeChange,
+  onCountryChange,
   onLaunchStore,
   onOtherBusinessTypeChange,
   onSlugChange,
@@ -85,6 +89,40 @@ export function RegisterBusinessStep({
           selectedType={formData.businessType}
           textColor={colors.textSecondary}
         />
+      </View>
+
+      <View style={styles.inputGroup}>
+        <Text style={styles.label}>Country/Region</Text>
+        <View style={styles.countryOptions}>
+          {COUNTRIES.map((country) => {
+            const isSelected = formData.country === country.code;
+            return (
+              <Pressable
+                accessibilityLabel={`Country ${country.name}`}
+                accessibilityRole="button"
+                accessibilityState={{ selected: isSelected }}
+                key={country.code}
+                onPress={() => onCountryChange(country.code)}
+                style={[
+                  styles.countryOption,
+                  isSelected && {
+                    backgroundColor: colors.primary,
+                    borderColor: colors.primary,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.countryOptionText,
+                    isSelected && { color: colors.textOnPrimary },
+                  ]}
+                >
+                  {country.name}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
       </View>
 
       {formData.businessType === 'other' ? (

@@ -32,6 +32,14 @@ const InsightSchema = z.object({
   ),
 });
 
+const AI_INSIGHTS_TIMEOUT_MS = 10_000;
+const AI_INSIGHTS_RETRY_CONFIG = {
+  maxRetries: 0,
+  initialDelayMs: 0,
+  maxDelayMs: 0,
+  backoffMultiplier: 1,
+};
+
 async function generateInsights(
   supabase: ReturnType<typeof createClient>,
   merchantId: string,
@@ -121,6 +129,8 @@ async function generateInsights(
       return await generateObject({
         model: geminiFlash,
         schema: InsightSchema,
+        maxRetries: 0,
+        timeout: AI_INSIGHTS_TIMEOUT_MS,
         prompt: `
 Analyze the following e-commerce data for a merchant and provide 3-5 actionable insights.
 Focus on trends, opportunities for growth, and potential issues.
@@ -136,7 +146,7 @@ Provide insights in the following categories:
 Be specific and constructive.
       `,
       });
-    });
+    }, AI_INSIGHTS_RETRY_CONFIG);
 
     // Cache the insights for 24 hours (86400 seconds)
     cache.set(cacheKey, object, 86400);

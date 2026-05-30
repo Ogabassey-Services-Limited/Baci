@@ -84,11 +84,15 @@ vi.mock('expo-linear-gradient', async () => {
 
 vi.mock('react-native-edge-to-edge', () => ({ SystemBars: () => null }));
 
-vi.mock('@expo/vector-icons', async () => {
+vi.mock('@react-native-vector-icons/ionicons', async () => {
   const React = await import('react');
   return {
     Ionicons: ({ name }: { name: string }) =>
       React.createElement('span', null, name),
+
+    default: ({ name }: { name: string }) =>
+      React.createElement('span', null, name),
+    __esModule: true,
   };
 });
 
@@ -176,12 +180,14 @@ describe('CompleteProfileScreen', () => {
       target: { value: 'Akin Gadgets' },
     });
     fireEvent.click(screen.getByText('Electronics & Gadgets'));
+    fireEvent.click(screen.getByRole('button', { name: 'Country India' }));
     fireEvent.click(screen.getByRole('button', { name: 'Launch Store' }));
 
     expect(mocks.mutate).toHaveBeenCalledTimes(1);
     expect(mocks.mutate.mock.calls[0][0]).toMatchObject({
       businessName: 'Akin Gadgets',
       businessType: 'electronics',
+      country: 'IN',
       email: 'merchant@example.com',
       firstName: 'Akin',
       lastName: 'John',

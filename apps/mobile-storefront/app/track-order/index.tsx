@@ -9,7 +9,8 @@ import {
   getCustomerOrderStatusMeta,
   type CustomerOrderStatusKey,
 } from '@/lib/customer-order-status';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@react-native-vector-icons/ionicons';
+import { TrackOrderTimelineCard } from '@/components/track-order/TrackOrderTimelineCard';
 import Constants from 'expo-constants';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -101,23 +102,6 @@ interface TrackOrderData {
   };
 }
 
-const TIMELINE_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
-  order: 'receipt-outline',
-  payment: 'card-outline',
-  processing: 'cog-outline',
-  shipped: 'airplane-outline',
-  delivered: 'checkmark-circle-outline',
-  cancelled: 'close-circle-outline',
-  returned: 'return-down-back-outline',
-};
-
-const STATUS_COLORS: Record<string, string> = {
-  completed: '#10B981',
-  current: BRAND.primary,
-  pending: '#9CA3AF',
-  failed: '#EF4444',
-};
-
 function formatPrice(amount: number, currency = 'NGN'): string {
   return `${currency === 'NGN' ? '\u20A6' : currency} ${amount.toLocaleString()}`;
 }
@@ -128,16 +112,6 @@ function formatDate(dateStr: string): string {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
-  });
-}
-
-function formatDateTime(dateStr: string): string {
-  const date = new Date(dateStr);
-  return date.toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
   });
 }
 
@@ -281,7 +255,6 @@ export default function TrackOrderScreen() {
           gestureEnabled: true,
         }}
       />
-
       <SafeAreaView
         style={[styles.container, { backgroundColor: colors.background }]}
       >
@@ -359,82 +332,7 @@ export default function TrackOrderScreen() {
             )}
           </View>
 
-          {/* Timeline */}
-          <View
-            style={[
-              styles.card,
-              { backgroundColor: colors.card, borderColor: colors.border },
-            ]}
-          >
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              Order Timeline
-            </Text>
-            {timeline.map((event, index) => {
-              const isLast = index === timeline.length - 1;
-              const eventColor =
-                STATUS_COLORS[event.status] || STATUS_COLORS.pending;
-
-              return (
-                <View
-                  key={`${event.icon}-${index}`}
-                  style={styles.timelineItem}
-                >
-                  <View style={styles.timelineLeft}>
-                    <View
-                      style={[
-                        styles.timelineDot,
-                        { backgroundColor: eventColor },
-                      ]}
-                    >
-                      <Ionicons
-                        name={TIMELINE_ICONS[event.icon] || 'ellipse'}
-                        size={14}
-                        color="#FFFFFF"
-                      />
-                    </View>
-                    {!isLast && (
-                      <View
-                        style={[
-                          styles.timelineLine,
-                          {
-                            backgroundColor:
-                              event.status === 'completed'
-                                ? '#10B981'
-                                : colors.border,
-                          },
-                        ]}
-                      />
-                    )}
-                  </View>
-                  <View style={styles.timelineContent}>
-                    <Text
-                      style={[styles.timelineTitle, { color: colors.text }]}
-                    >
-                      {event.title}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.timelineDesc,
-                        { color: colors.textSecondary },
-                      ]}
-                    >
-                      {event.description}
-                    </Text>
-                    {event.timestamp ? (
-                      <Text
-                        style={[
-                          styles.timelineTime,
-                          { color: colors.textSecondary },
-                        ]}
-                      >
-                        {formatDateTime(event.timestamp)}
-                      </Text>
-                    ) : null}
-                  </View>
-                </View>
-              );
-            })}
-          </View>
+          <TrackOrderTimelineCard colors={colors} timeline={timeline} />
 
           {/* Shipping Tracking */}
           {shipping_tracking && (
@@ -862,44 +760,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     marginBottom: 12,
-  },
-  // Timeline
-  timelineItem: {
-    flexDirection: 'row',
-    minHeight: 60,
-  },
-  timelineLeft: {
-    width: 32,
-    alignItems: 'center',
-  },
-  timelineDot: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  timelineLine: {
-    width: 2,
-    flex: 1,
-    marginVertical: 4,
-  },
-  timelineContent: {
-    flex: 1,
-    paddingLeft: 12,
-    paddingBottom: 16,
-  },
-  timelineTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  timelineDesc: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-  timelineTime: {
-    fontSize: 11,
-    marginTop: 4,
   },
   // Shipping tracking
   trackingRow: {

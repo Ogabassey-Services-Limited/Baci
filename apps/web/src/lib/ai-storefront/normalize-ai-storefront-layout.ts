@@ -1,88 +1,70 @@
-import type {
-  AiStorefrontComponent,
-  AiStorefrontLayout,
-} from '@/schemas/ai-storefront-layout';
+import type { AiStorefrontComponent } from '@/schemas/ai-storefront-layout';
 import type { BuilderConfigInput } from '@/schemas/builder';
+import { normalizeComponent } from './ai-storefront-normalize-component';
+import {
+  defaultFooter,
+  defaultHeader,
+  defaultHero,
+  defaultProductGrid,
+} from './ai-storefront-normalize-defaults';
+import {
+  asRecord,
+  hexColor,
+  type ThemeColors,
+  text,
+} from './ai-storefront-normalize-types';
 
 interface NormalizeAiStorefrontLayoutInput {
   businessName: string;
-  layout: AiStorefrontLayout;
+  layout: unknown;
   starterConfig: BuilderConfigInput;
 }
 
-function asRecord(value: unknown): Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : {};
+function normalizeTheme(value: unknown): ThemeColors | null {
+  const record = asRecord(value);
+  const theme = {
+    primary: hexColor(record.primary),
+    accent: hexColor(record.accent),
+    background: hexColor(record.background),
+  };
+  const entries = Object.entries(theme).filter(
+    (entry): entry is [keyof ThemeColors, string] => Boolean(entry[1])
+  );
+
+  return entries.length > 0 ? Object.fromEntries(entries) : null;
 }
 
-function withId<T extends AiStorefrontComponent>(
-  component: T,
-  index: number
-): T {
+function normalizeLayout(
+  businessName: string,
+  layout: unknown
+): {
+  theme: ThemeColors | null;
+  sections: AiStorefrontComponent[];
+} {
+  const record = asRecord(layout);
+  const rawSections = Array.isArray(record.sections) ? record.sections : [];
+  const sections = rawSections.flatMap((section, index) => {
+    const normalized = normalizeComponent(businessName, section, index);
+    return normalized ? [normalized] : [];
+  });
+
   return {
-    ...component,
-    props: {
-      ...component.props,
-      id: component.props.id || `${component.type.toLowerCase()}-${index + 1}`,
-    },
+    theme: normalizeTheme(record.theme),
+    sections,
   };
 }
 
-function defaultHeader(): AiStorefrontComponent {
-  return {
-    type: 'Header',
-    props: {
-      id: 'header',
-      showLogo: true,
-      showSearch: true,
-      showCart: true,
-      showMenu: true,
-      sticky: true,
-      navigationLinks: [
-        { label: 'Home', url: '/' },
-        { label: 'Shop', url: '/products' },
-      ],
-      ctaButton: { show: false },
-      layout: 'logo-left-nav-center',
-      searchStyle: 'outline',
-      searchRadius: 'md',
-      paddingY: 'md',
-      glassEffect: false,
-    },
-  };
-}
-
-function defaultProductGrid(): AiStorefrontComponent {
-  return {
-    type: 'ProductGrid',
-    props: {
-      id: 'product-grid',
-      title: 'Featured products',
-      columns: 3,
-      limit: 8,
-      sortBy: 'newest',
-      showFilters: true,
-    },
-  };
-}
-
-function defaultFooter(businessName: string): AiStorefrontComponent {
-  return {
-    type: 'Footer',
-    props: {
-      id: 'footer',
-      copyrightText: `(c) ${new Date().getFullYear()} ${businessName}. All rights reserved.`,
-      showQuickLinks: true,
-      quickLinks: [
-        { label: 'About', url: '/about' },
-        { label: 'Contact', url: '/contact' },
-        { label: 'Terms', url: '/terms' },
-      ],
-      socialLinks: {},
-      showNewsletter: false,
-    },
-  };
+function insertAfterFirst(
+  sections: AiStorefrontComponent[],
+  afterType: AiStorefrontComponent['type'],
+  section: AiStorefrontComponent
+): void {
+  const index = sections.findIndex((candidate) => candidate.type === afterType);
+  if (index >= 0) {
+    sections.splice(index + 1, 0, section);
+    return;
+  }
+  sections.unshift(section);
 }
 
 function enforceRequiredSections(
@@ -93,6 +75,10 @@ function enforceRequiredSections(
 
   if (!next.some((section) => section.type === 'Header')) {
     next.unshift(defaultHeader());
+  }
+
+  if (!next.some((section) => section.type === 'Hero')) {
+    insertAfterFirst(next, 'Header', defaultHero(businessName));
   }
 
   if (!next.some((section) => section.type === 'ProductGrid')) {
@@ -124,13 +110,18 @@ function dedupeSingletons(
   });
 }
 
+export function getAiStorefrontDesignRationale(layout: unknown): string | null {
+  return text(asRecord(layout).designRationale, 500) ?? null;
+}
+
 export function normalizeAiStorefrontLayout({
   businessName,
   layout,
   starterConfig,
 }: NormalizeAiStorefrontLayoutInput): BuilderConfigInput {
+  const normalizedLayout = normalizeLayout(businessName, layout);
   const sections = dedupeSingletons(
-    enforceRequiredSections(layout.sections.map(withId), businessName)
+    enforceRequiredSections(normalizedLayout.sections, businessName)
   );
   const starterTheme = asRecord(starterConfig.theme);
   const starterThemeColors = asRecord(starterTheme.colors);
@@ -146,21 +137,13 @@ export function normalizeAiStorefrontLayout({
       props: section.props,
     })),
     zones: starterConfig.zones ?? {},
-    ...(layout.theme
+    ...(normalizedLayout.theme
       ? {
           theme: {
             ...starterTheme,
             colors: {
               ...starterThemeColors,
-              ...(layout.theme.primary !== undefined
-                ? { primary: layout.theme.primary }
-                : {}),
-              ...(layout.theme.accent !== undefined
-                ? { accent: layout.theme.accent }
-                : {}),
-              ...(layout.theme.background !== undefined
-                ? { background: layout.theme.background }
-                : {}),
+              ...normalizedLayout.theme,
             },
           },
         }

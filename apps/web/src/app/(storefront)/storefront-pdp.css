@@ -1,0 +1,36 @@
+@import "tailwindcss" source(none);
+@import "./storefront-core.css";
+
+@config "../../../tailwind.storefront.scoped.config.ts";
+
+@source "./[slug]/layout.tsx";
+@source "./[slug]/(catalog)/(pdp)/layout.tsx";
+@source "./[slug]/(catalog)/(pdp)/product/[productSlug]/page.tsx";
+@source "./[slug]/(catalog)/(pdp)/product/[productSlug]/loading.tsx";
+@source "./[slug]/(catalog)/(pdp)/products/[productSlug]/page.tsx";
+@source "./[slug]/(catalog)/(pdp)/products/[productSlug]/loading.tsx";
+@source "./[slug]/(catalog)/(pdp)/products/[productSlug]/product-detail-client.tsx";
+@source "./[slug]/(catalog)/(pdp)/[category]/[productSlug]/page.tsx";
+@source "./[slug]/(catalog)/(pdp)/[category]/[productSlug]/loading.tsx";
+@source "./[slug]/(catalog)/(pdp)/[category]/[productSlug]/default-product-detail-client.tsx";
+@source "./[slug]/(catalog)/(pdp)/[category]/[productSlug]/default-product-page-renderer.tsx";
+@source "./[slug]/(catalog)/(pdp)/[category]/[productSlug]/ogabassey-pdp-semantic-sections.tsx";
+@source "../../components/storefront/deferred-page-view-tracker.tsx";
+@source "../../components/storefront/storefront-theme-provider.tsx";
+@source "../../components/storefront/ogabassey/storefront-layout.tsx";
+@source "../../components/storefront/ogabassey/storefront-layout-chrome.tsx";
+@source "../../components/storefront/ogabassey/storefront-layout-providers.tsx";
+@source "../../components/storefront/ogabassey/layout";
+@source "../../components/storefront/ogabassey/providers";
+@source "../../components/storefront/ogabassey/pdp/client-islands.tsx";
+@source "../../components/storefront/ogabassey/pdp/critical-shell.tsx";
+@source "../../components/storefront/ogabassey/pdp/deferred-detail-island.tsx";
+@source "../../components/storefront/ogabassey/pdp/deferred-detail-island.client.tsx";
+@source "../../components/storefront/ogabassey/pages/product-details-page/deferred-details-skeleton.tsx";
+@source "../../components/storefront/ogabassey/pages/product-details-page/deferred-product-details-sections-loader.tsx";
+@source "../../components/storefront/ogabassey/pages/product-details-page/deferred-product-details-sections.tsx";
+@source "../../components/storefront/ogabassey/pages/product-details-page/product-details-tabs.tsx";
+@source "../../components/storefront/ogabassey/components/ProductComparisonTable.tsx";
+@source "../../components/storefront/ogabassey/components/ProductVideo.tsx";
+@source "../../components/storefront/brand-products.tsx";
+@source "../../components/storefront/price-range-products.tsx";

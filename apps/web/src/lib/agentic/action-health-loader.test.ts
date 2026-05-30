@@ -87,8 +87,24 @@ describe('loadAgenticActionHealth', () => {
             status_code: 500,
             updated_at: '2026-05-16T09:18:00.000Z',
           },
+          {
+            created_at: '2026-05-16T09:19:00.000Z',
+            expires_at: '2026-05-16T09:39:00.000Z',
+            route: 'checkout_sessions.cancel',
+            status_code: 502,
+            updated_at: '2026-05-16T09:20:00.000Z',
+          },
         ],
-        request_records: [],
+        request_records: [
+          {
+            agent_id: 'openai:chatgpt',
+            api_version: '2026-04-30',
+            created_at: '2026-05-16T09:30:00.000Z',
+            expires_at: '2026-05-16T10:15:00.000Z',
+            route: 'orders.read',
+            status_code: 503,
+          },
+        ],
       },
       error: null,
     });
@@ -99,8 +115,10 @@ describe('loadAgenticActionHealth', () => {
 
     expect(actionCodes).toContain('AGENTIC_IDEMPOTENCY_ERRORS');
     expect(actionCodes).toContain('AGENTIC_CHECKOUT_COMPLETE_ERRORS');
+    expect(actionCodes).toContain('AGENTIC_CHECKOUT_CANCEL_ERRORS');
     expect(actionCodes).toContain('AGENTIC_IDEMPOTENCY_STALE_IN_PROGRESS');
     expect(actionCodes).toContain('AGENTIC_ORDER_FINALIZING');
+    expect(actionCodes).toContain('AGENTIC_ORDER_READ_ERRORS');
     expect(actionCodes).toContain('AGENTIC_PAYMENT_PENDING_STALE');
     expect(actionCodes).toContain('AGENTIC_PAYMENT_CLAIMING');
     expect(actionCodes).toContain('AGENTIC_AGENT_ALLOWLIST_UNSET');
@@ -140,9 +158,9 @@ describe('loadAgenticActionHealth', () => {
     expect(result.idempotency).toMatchObject({
       active_in_progress_count: 0,
       in_progress_count: 1,
-      recent_count: 3,
+      recent_count: 4,
       stale_in_progress_count: 1,
-      terminal_error_count: 2,
+      terminal_error_count: 3,
       records: [
         expect.objectContaining({
           route: 'COMPLETE',
@@ -159,8 +177,38 @@ describe('loadAgenticActionHealth', () => {
           state: 'server_error',
           status_code: 500,
         }),
+        expect.objectContaining({
+          route: 'checkout_sessions.cancel',
+          state: 'server_error',
+          status_code: 502,
+        }),
       ],
     });
+    expect(result.actions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'AGENTIC_CHECKOUT_CANCEL_ERRORS',
+          count: 1,
+          severity: 'attention',
+        }),
+        expect.objectContaining({
+          code: 'AGENTIC_IDEMPOTENCY_ERRORS',
+          count: 1,
+          severity: 'attention',
+        }),
+        expect.objectContaining({
+          code: 'AGENTIC_ORDER_READ_ERRORS',
+          count: 1,
+          severity: 'attention',
+        }),
+      ])
+    );
+    expect(result.requests?.records).toEqual([
+      expect.objectContaining({
+        route: 'orders.read',
+        status_code: 503,
+      }),
+    ]);
   });
 
   it('throws when rpc returns an error', async () => {
@@ -295,6 +343,107 @@ describe('loadAgenticActionHealth', () => {
     ]);
     expect(result.actions.map((action) => action.code)).toEqual([
       'AGENTIC_IDEMPOTENCY_STALE_IN_PROGRESS',
+    ]);
+  });
+
+  it('keeps terminal idempotency alerts scoped to the current health window', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-28T12:00:00.000Z'));
+    getActionHealthRequestControlSummary.mockResolvedValue({
+      allowlistCount: 1,
+      denylistCount: 0,
+      error: null,
+      isAgenticCheckoutEnabled: true,
+    });
+    const supabase = {
+      rpc: vi.fn().mockResolvedValue({
+        data: {
+          checkout_sessions: [],
+          idempotency_records: [
+            {
+              created_at: '2026-05-22T19:15:54.000Z',
+              expires_at: '2026-05-23T19:15:54.000Z',
+              route: 'checkout_sessions.create',
+              status_code: 500,
+              updated_at: '2026-05-22T19:15:55.000Z',
+            },
+            {
+              created_at: '2026-05-28T11:15:54.000Z',
+              expires_at: '2026-05-29T11:15:54.000Z',
+              route: 'checkout_sessions.create',
+              status_code: 500,
+              updated_at: '2026-05-28T11:15:55.000Z',
+            },
+          ],
+          request_records: [],
+        },
+        error: null,
+      }),
+    } as unknown as SupabaseClient;
+
+    const result = await loadAgenticActionHealth(supabase, 'merchant-1');
+
+    expect(result.idempotency).toMatchObject({
+      recent_count: 1,
+      terminal_error_count: 1,
+    });
+    expect(result.idempotency?.records).toEqual([
+      expect.objectContaining({
+        route: 'checkout_sessions.create',
+        state: 'server_error',
+        updated_at: '2026-05-28T11:15:55.000Z',
+      }),
+    ]);
+    expect(result.actions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'AGENTIC_IDEMPOTENCY_ERRORS',
+          count: 1,
+          severity: 'attention',
+        }),
+      ])
+    );
+  });
+
+  it('does not alert on expired or non-server-error order reads', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-18T10:00:00.000Z'));
+    getActionHealthRequestControlSummary.mockResolvedValue({
+      allowlistCount: 1,
+      denylistCount: 0,
+      error: null,
+      isAgenticCheckoutEnabled: true,
+    });
+    const supabase = {
+      rpc: vi.fn().mockResolvedValue({
+        data: {
+          checkout_sessions: [],
+          idempotency_records: [],
+          request_records: [
+            {
+              api_version: '2026-04-30',
+              created_at: '2026-05-18T09:00:00.000Z',
+              expires_at: '2026-05-18T09:15:00.000Z',
+              route: 'orders.read',
+              status_code: 503,
+            },
+            {
+              api_version: '2026-04-30',
+              created_at: '2026-05-18T09:55:00.000Z',
+              expires_at: '2026-05-18T10:10:00.000Z',
+              route: 'orders.read',
+              status_code: 404,
+            },
+          ],
+        },
+        error: null,
+      }),
+    } as unknown as SupabaseClient;
+
+    const result = await loadAgenticActionHealth(supabase, 'merchant-1');
+
+    expect(result.actions).toEqual([
+      expect.objectContaining({ code: 'AGENTIC_ACTIONS_HEALTHY' }),
     ]);
   });
 

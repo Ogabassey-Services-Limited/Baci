@@ -1,0 +1,124 @@
+import { NextRequest } from 'next/server';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase';
+
+const mockVerifyAgenticApiKey = vi.hoisted(() => vi.fn(() => true));
+const mockResolveAgenticMerchantContext = vi.hoisted(() =>
+  vi.fn(async () => ({
+    agent_user_agent_allowlist: [],
+    agent_user_agent_denylist: [],
+    agentic_checkout_enabled: true,
+    business_name: 'Ogabassey',
+    custom_domain: undefined,
+    id: 'merchant-1',
+    pay_on_delivery_enabled: false,
+    paystack_subaccount_code: null,
+    slug: 'ogabassey',
+  }))
+);
+
+vi.mock('@/lib/agentic/auth', () => ({
+  verifyAgenticApiKey: mockVerifyAgenticApiKey,
+}));
+
+vi.mock('@/lib/agentic/agent-request-controls', () => ({
+  verifyAgenticRequestAccess: vi.fn(() => ({ ok: true })),
+}));
+
+vi.mock('@/lib/agentic/merchant-context', () => ({
+  resolveAgenticMerchantContext: mockResolveAgenticMerchantContext,
+}));
+
+vi.mock('@/lib/agentic/scoped-supabase', () => ({
+  createAgenticScopedSupabaseClient: vi.fn(),
+}));
+
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: vi.fn(() => ({})),
+}));
+
+type ProductRow = {
+  id: string;
+  name: string;
+  price?: number;
+  slug?: string;
+  status?: string;
+};
+
+let query: {
+  eq: ReturnType<typeof vi.fn>;
+  in: ReturnType<typeof vi.fn>;
+  limit: ReturnType<typeof vi.fn>;
+};
+
+function mockProductRows(rows: ProductRow[]) {
+  query = {
+    eq: vi.fn(() => query),
+    in: vi.fn(() => query),
+    limit: vi.fn(async () => ({ data: rows, error: null })),
+  };
+  vi.mocked(createAgenticScopedSupabaseClient).mockReturnValue({
+    from: vi.fn(() => ({ select: vi.fn(() => query) })),
+  } as never);
+}
+
+describe('POST /api/agentic/catalog/lookup', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockVerifyAgenticApiKey.mockReturnValue(true);
+    mockProductRows([]);
+  });
+
+  it('returns lookup products in requested ID order', async () => {
+    mockProductRows([
+      {
+        id: 'product-2',
+        name: 'MacBook',
+        price: 2_500_000,
+        slug: 'macbook',
+        status: 'active',
+      },
+      {
+        id: 'product-1',
+        name: 'iPhone',
+        price: 1_200_000,
+        slug: 'iphone',
+        status: 'active',
+      },
+    ]);
+
+    const { POST } = await import('./route');
+    const response = await POST(
+      new NextRequest('http://localhost/api/agentic/catalog/lookup', {
+        body: JSON.stringify({ ids: ['product-1', 'product-2'] }),
+        method: 'POST',
+      })
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.products.map((product: { id: string }) => product.id)).toEqual([
+      'product-1',
+      'product-2',
+    ]);
+    expect(body.products[0].variants).toEqual([
+      expect.objectContaining({
+        inputs: [expect.objectContaining({ id: 'product-1' })],
+      }),
+    ]);
+    expect(query.in).toHaveBeenCalledWith('id', ['product-1', 'product-2']);
+  });
+
+  it('rejects empty lookup IDs', async () => {
+    const { POST } = await import('./route');
+    const response = await POST(
+      new NextRequest('http://localhost/api/agentic/catalog/lookup', {
+        body: JSON.stringify({ ids: [] }),
+        method: 'POST',
+      })
+    );
+
+    expect(response.status).toBe(400);
+    expect(query.in).not.toHaveBeenCalled();
+  });
+});

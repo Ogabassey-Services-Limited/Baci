@@ -10,15 +10,21 @@ import {
 import { getBlogCacheTag } from '@/lib/blog-cache-tags';
 import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
 import { normalizeStorefrontCategoryValue } from '@/lib/normalize-storefront-category-value';
+import { getProductScopedCacheTag } from '@/lib/product-cache-tags';
 import { PRODUCT_KEY_SPECS_RELATION_SELECT } from '@/lib/product-key-specs-select';
 import {
-  BLOCKED_PUBLIC_BLOG_CATEGORY_VALUES,
-  BLOCKED_PUBLIC_BLOG_POST_SLUG_PARTS,
-  BLOCKED_PUBLIC_BLOG_POST_TITLE_PREFIXES,
   filterPublicBlogCategories,
   filterPublicBlogPosts,
   isPublicBlogPost,
 } from '@/lib/public-blog-content-quality';
+import { applyPublicBlogSqlFilters } from '@/lib/public-blog-sql-filters';
+import {
+  normalizeRelatedBlogProductLinks,
+  normalizeRelatedBlogProducts,
+  RELATED_BLOG_PRODUCT_LINKS_SELECT,
+  RELATED_BLOG_PRODUCTS_SELECT,
+} from '@/lib/related-blog-products';
+import { normalizeOgabasseyBusinessType } from '@/lib/storefront/ogabassey-entity';
 import { STOREFRONT_BLOG_POST_SELECT } from '@/lib/storefront-blog-post-select';
 import {
   isDomainIdentifier,
@@ -283,6 +289,19 @@ export interface CachedMerchant {
   updated_at?: string;
 }
 
+function normalizeCachedMerchantEntity<
+  T extends {
+    business_type?: string | null;
+    custom_domain?: string | null;
+    slug?: string | null;
+  },
+>(merchant: T): Omit<T, 'business_type'> & { business_type: string } {
+  return {
+    ...merchant,
+    business_type: normalizeOgabasseyBusinessType(merchant),
+  };
+}
+
 /**
  * Cached merchant data by slug
  * Uses 'merchant' cacheLife profile (stale 5min, revalidate 60s, expire 1hr)
@@ -400,11 +419,13 @@ export async function getCachedMerchant(
 
     if (primaryDomain) {
       const result: CachedMerchant = {
-        ...data,
+        ...normalizeCachedMerchantEntity({
+          ...data,
+          custom_domain: primaryDomain.domain,
+        }),
         feature_settings: data.feature_settings as unknown as
           | MerchantFeatureSettings
           | undefined,
-        custom_domain: primaryDomain.domain,
       };
       return result;
     }
@@ -412,7 +433,7 @@ export async function getCachedMerchant(
 
   if (data) {
     const result: CachedMerchant = {
-      ...data,
+      ...normalizeCachedMerchantEntity(data),
       feature_settings: data.feature_settings as unknown as
         | MerchantFeatureSettings
         | undefined,
@@ -558,9 +579,11 @@ export async function getCachedMerchantByDomain(
 
   // Return with the custom_domain set
   const result: CachedMerchant = {
-    ...data,
+    ...normalizeCachedMerchantEntity({
+      ...data,
+      custom_domain: domainData.domain,
+    }),
     feature_settings: normalizedSettings,
-    custom_domain: domainData.domain,
   };
   return result;
 }
@@ -736,7 +759,7 @@ export async function getCachedMerchantById(
     return null;
   }
 
-  return data;
+  return normalizeCachedMerchantEntity(data);
 }
 
 /**
@@ -753,6 +776,7 @@ export async function getCachedProducts(
     limit?: number;
     offset?: number;
     categoryId?: string;
+    includeVariants?: boolean;
     /** Deprecated: the products table no longer has an is_featured column. */
     featured?: boolean;
   }
@@ -775,8 +799,8 @@ export async function getCachedProducts(
         compare_at_price,
         status,
         is_parent,
-        quantity,
-        track_quantity,
+        quantity:stock_quantity,
+        track_quantity:manage_stock,
         images,
         color_images,
         brand,
@@ -818,14 +842,138 @@ export async function getCachedProducts(
   }
 
   const products = (data || []).map(withLegacyPriceFields);
-  const variantsByProductId = await getPublicProductVariantsByProductIds(
-    products.map((product) => product.id)
-  );
+  const variantsByProductId =
+    options?.includeVariants === false
+      ? {}
+      : await getPublicProductVariantsByProductIds(
+          products.map((product) => product.id)
+        );
 
   return products.map((product) => ({
     ...product,
     product_variants: variantsByProductId[product.id] || [],
   }));
+}
+
+/**
+ * Product fields required before the full PDP stream can render.
+ * Keep this shape narrow so the LCP image hint is not delayed by rich product joins.
+ */
+export interface CachedProductLcpHint {
+  brand?: string | null;
+  category?: string | null;
+  categories?:
+    | {
+        id: string;
+        name: string;
+        slug: string;
+      }
+    | Array<{
+        id: string;
+        name: string;
+        slug: string;
+      }>
+    | null;
+  condition?: string | null;
+  id: string;
+  images?: Array<
+    | string
+    | {
+        alt?: string | null;
+        url: string;
+      }
+  > | null;
+  manage_stock?: boolean | null;
+  name: string;
+  price?: number | string | null;
+  product_categories?: Array<{
+    categories:
+      | {
+          id: string;
+          name: string;
+          slug: string;
+        }
+      | Array<{
+          id: string;
+          name: string;
+          slug: string;
+        }>
+      | null;
+  }> | null;
+  schema_markup?: unknown;
+  slug?: string | null;
+  stock_quantity?: number | null;
+}
+
+/**
+ * Cached product route and image hint by slug.
+ * Avoids the full product projection and variant RPC on the LCP preload path.
+ */
+export async function getCachedProductLcpHint(
+  merchantId: string,
+  productSlug: string
+): Promise<CachedProductLcpHint | null> {
+  'use cache: remote';
+  cacheLife('products');
+  cacheTag(
+    'product',
+    'product-lcp-hint',
+    getProductScopedCacheTag('product', merchantId, productSlug)
+  );
+
+  const supabase = getPublicSupabaseClient();
+  const isUuid =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      productSlug
+    );
+
+  let query = supabase
+    .from('products')
+    .select(`
+        id,
+        brand,
+        name,
+        slug,
+        price,
+        condition,
+        manage_stock,
+        stock_quantity,
+        category,
+        schema_markup,
+        images,
+        categories:category_id (
+          id,
+          name,
+          slug
+        ),
+        product_categories (
+          category_id,
+          categories (
+            id,
+            name,
+            slug
+          )
+        )
+      `)
+    .eq('merchant_id', merchantId)
+    .eq('status', 'active');
+
+  if (isUuid) {
+    query = query.or(
+      `slug.eq.${productSlug.toLowerCase()},id.eq.${productSlug}`
+    );
+  } else {
+    query = query.eq('slug', productSlug.toLowerCase());
+  }
+
+  const { data, error } = await query.maybeSingle();
+
+  if (error) {
+    console.error('Error fetching product LCP hint:', error);
+    return null;
+  }
+
+  return data as CachedProductLcpHint | null;
 }
 
 /**
@@ -838,7 +986,10 @@ export async function getCachedProduct(
 ) {
   'use cache: remote';
   cacheLife('products');
-  cacheTag('product', `product-${merchantId}-${productSlug}`);
+  cacheTag(
+    'product',
+    getProductScopedCacheTag('product', merchantId, productSlug)
+  );
 
   const supabase = getPublicSupabaseClient();
 
@@ -861,8 +1012,8 @@ export async function getCachedProduct(
         min_variant_price,
         max_variant_price,
         status,
-        quantity,
-        track_quantity,
+        quantity:stock_quantity,
+        track_quantity:manage_stock,
         images,
         color_images,
         created_at,
@@ -883,6 +1034,11 @@ export async function getCachedProduct(
           images,
           status
         ),
+        categories:category_id (
+          id,
+          name,
+          slug
+        ),
         product_categories (
           category_id,
           categories (
@@ -901,7 +1057,7 @@ export async function getCachedProduct(
     query = query.eq('slug', productSlug.toLowerCase());
   }
 
-  const { data, error } = await query.single();
+  const { data, error } = await query.maybeSingle();
 
   if (error) {
     console.error('Error fetching product:', error);
@@ -998,7 +1154,7 @@ export async function getCachedProductWithDetails(
   cacheTag(
     'product',
     'product-details',
-    `product-${merchantId}-${productSlug}`
+    getProductScopedCacheTag('product', merchantId, productSlug)
   );
 
   const supabase = getPublicSupabaseClient();
@@ -1125,7 +1281,7 @@ export async function getCachedLegacyProductRedirectTarget(
   cacheTag(
     'product',
     'product-legacy-redirect',
-    `product-legacy-redirect-${merchantId}-${productSlug}`
+    getProductScopedCacheTag('product-legacy-redirect', merchantId, productSlug)
   );
 
   const supabase = getServiceRoleSupabaseClient();
@@ -1187,7 +1343,7 @@ export async function getCachedLegacyProductRedirectTarget(
     | null
     | undefined;
 
-  if (!parent || parent.status !== 'active' || !parent.slug) {
+  if (parent?.status !== 'active' || !parent.slug) {
     return null;
   }
 
@@ -1782,13 +1938,7 @@ export async function getCachedBlogPost(
     .neq('slug', '')
     .neq('id', post.id);
 
-  for (const blockedPrefix of BLOCKED_PUBLIC_BLOG_POST_TITLE_PREFIXES) {
-    relatedQuery = relatedQuery.not('title', 'ilike', `${blockedPrefix}%`);
-  }
-
-  for (const blockedSlugPart of BLOCKED_PUBLIC_BLOG_POST_SLUG_PARTS) {
-    relatedQuery = relatedQuery.not('slug', 'ilike', `%${blockedSlugPart}%`);
-  }
+  relatedQuery = applyPublicBlogSqlFilters(relatedQuery);
 
   if (post.category) {
     relatedQuery = relatedQuery.eq('category', post.category);
@@ -1801,19 +1951,47 @@ export async function getCachedBlogPost(
     console.error('Error fetching related blog posts:', relatedPostsError);
   }
 
+  const { data: linkedProducts, error: linkedProductsError } = await supabase
+    .from('blog_post_products')
+    .select(RELATED_BLOG_PRODUCT_LINKS_SELECT)
+    .eq('merchant_id', merchant.id)
+    .eq('blog_post_id', post.id)
+    .order('created_at', { ascending: true });
+
+  if (linkedProductsError) {
+    console.error('Error fetching linked blog products:', linkedProductsError);
+  }
+
+  let normalizedRelatedProducts = linkedProductsError
+    ? []
+    : normalizeRelatedBlogProductLinks(linkedProducts).slice(0, 8);
+
   const normalizedCategorySlug = normalizeStorefrontCategoryValue(
     post.category
   );
-  const { data: relatedProducts } = normalizedCategorySlug
-    ? await supabase
+
+  if (normalizedRelatedProducts.length === 0 && normalizedCategorySlug) {
+    const { data: relatedProducts, error: relatedProductsError } =
+      await supabase
         .from('products')
-        .select('id, name, slug, category_slug')
+        .select(RELATED_BLOG_PRODUCTS_SELECT)
         .eq('merchant_id', merchant.id)
         .eq('status', 'active')
-        .eq('category_slug', normalizedCategorySlug)
+        .eq('categories.slug', normalizedCategorySlug)
         .order('updated_at', { ascending: false })
-        .limit(6)
-    : { data: [] };
+        .limit(6);
+
+    if (relatedProductsError) {
+      console.error(
+        'Error fetching related blog products:',
+        relatedProductsError
+      );
+    }
+
+    normalizedRelatedProducts = relatedProductsError
+      ? []
+      : normalizeRelatedBlogProducts(relatedProducts);
+  }
 
   return {
     merchant: {
@@ -1822,6 +2000,7 @@ export async function getCachedBlogPost(
       slug: merchant.slug,
       logo_url: merchant.logo_url,
       custom_domain: merchant.custom_domain,
+      country: merchant.country,
     },
     post,
     relatedPosts: relatedPostsError
@@ -1830,7 +2009,7 @@ export async function getCachedBlogPost(
           0,
           RELATED_BLOG_POSTS_LIMIT
         ),
-    relatedProducts: relatedProducts || [],
+    relatedProducts: normalizedRelatedProducts,
   };
 }
 
@@ -1883,13 +2062,7 @@ export async function getCachedBlogListing(
     .neq('slug', '')
     .order('published_at', { ascending: false });
 
-  for (const blockedPrefix of BLOCKED_PUBLIC_BLOG_POST_TITLE_PREFIXES) {
-    query = query.not('title', 'ilike', `${blockedPrefix}%`);
-  }
-
-  for (const blockedSlugPart of BLOCKED_PUBLIC_BLOG_POST_SLUG_PARTS) {
-    query = query.not('slug', 'ilike', `%${blockedSlugPart}%`);
-  }
+  query = applyPublicBlogSqlFilters(query);
 
   if (category) {
     query = query.eq('category', category);
@@ -1929,25 +2102,9 @@ export async function getCachedBlogListing(
     .neq('slug', '')
     .not('category', 'is', null);
 
-  for (const blockedPrefix of BLOCKED_PUBLIC_BLOG_POST_TITLE_PREFIXES) {
-    categoriesQuery = categoriesQuery.not(
-      'title',
-      'ilike',
-      `${blockedPrefix}%`
-    );
-  }
-
-  for (const blockedSlugPart of BLOCKED_PUBLIC_BLOG_POST_SLUG_PARTS) {
-    categoriesQuery = categoriesQuery.not(
-      'slug',
-      'ilike',
-      `%${blockedSlugPart}%`
-    );
-  }
-
-  for (const blockedCategory of BLOCKED_PUBLIC_BLOG_CATEGORY_VALUES) {
-    categoriesQuery = categoriesQuery.not('category', 'ilike', blockedCategory);
-  }
+  categoriesQuery = applyPublicBlogSqlFilters(categoriesQuery, {
+    includeCategoryFilters: true,
+  });
 
   const { data: categories, error: categoriesError } = await categoriesQuery;
   if (categoriesError) {

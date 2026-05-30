@@ -1,8 +1,7 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons";
 import { Stack } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { paymentGatewayStyles as styles } from '@/components/payment-gateway/payment-gateway.styles';
 import type Colors from '@/constants/Colors';
 import { BRAND, withAlpha } from '@/constants/Colors';
@@ -62,10 +61,7 @@ export function PaymentErrorView({
   };
 
   return (
-    <SafeAreaView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      edges={['bottom']}
-    >
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Stack.Screen
         options={{
           title: gatewayName,
@@ -134,6 +130,6 @@ export function PaymentErrorView({
           </Pressable>
         </View>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }

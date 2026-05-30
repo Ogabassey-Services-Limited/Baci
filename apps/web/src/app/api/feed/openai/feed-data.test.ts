@@ -44,11 +44,22 @@ interface ReviewFixture {
   rating: number | string | null;
 }
 
+interface ManifestFixture {
+  product_id: string;
+  variant_id?: string | null;
+  verified_url: string | null;
+  verified_format: string | null;
+  status: string;
+  is_primary: boolean;
+  position: number;
+}
+
 let productsResult: { data: ProductFixture[] | null; error: unknown };
 let nullCreatedAtProductsResult: {
   data: ProductFixture[] | null;
   error: unknown;
 };
+let manifestResult: { data: ManifestFixture[] | null; error: unknown };
 let reviewsResult: {
   count?: number | null;
   data: ReviewFixture[] | null;
@@ -66,6 +77,10 @@ const mockProductsOr = vi.fn();
 const mockProductsNot = vi.fn();
 const mockProductsOrder = vi.fn();
 const mockProductsLimit = vi.fn();
+const mockManifestEq = vi.fn();
+const mockManifestIn = vi.fn();
+const mockManifestOrder = vi.fn();
+const mockManifestRange = vi.fn();
 const mockReviewSelect = vi.fn();
 const mockReviewsIn = vi.fn();
 const mockReviewsOrder = vi.fn();
@@ -139,6 +154,33 @@ function createMockSupabase() {
           }),
         };
       }
+      if (table === 'product_feed_images') {
+        return {
+          select: () => {
+            const query = {
+              eq: (column: string, value: unknown) => {
+                mockManifestEq(column, value);
+                return query;
+              },
+              in: (column: string, values: string[]) => {
+                mockManifestIn(column, values);
+                return query;
+              },
+              order: (
+                column: string,
+                options?: {
+                  ascending: boolean;
+                }
+              ) => {
+                mockManifestOrder(column, options);
+                return query;
+              },
+              range: (from: number, to: number) => mockManifestRange(from, to),
+            };
+            return query;
+          },
+        };
+      }
       throw new Error(`Unexpected table: ${table}`);
     },
   };
@@ -153,6 +195,10 @@ beforeEach(() => {
   mockProductsGt.mockReset();
   mockProductsOrder.mockReset();
   mockProductsLimit.mockReset();
+  mockManifestEq.mockReset();
+  mockManifestIn.mockReset();
+  mockManifestOrder.mockReset();
+  mockManifestRange.mockReset();
   mockReviewSelect.mockReset();
   mockReviewsIn.mockReset();
   mockReviewsOrder.mockReset();
@@ -189,8 +235,31 @@ beforeEach(() => {
     error: null,
   };
   nullCreatedAtProductsResult = { data: [], error: null };
+  manifestResult = {
+    data: [
+      {
+        product_id: 'prod-1',
+        verified_url: 'https://cdn.example.com/manifest-front.jpg',
+        verified_format: 'jpeg',
+        status: 'verified',
+        is_primary: true,
+        position: 0,
+      },
+      {
+        product_id: 'prod-1',
+        variant_id: 'var-1',
+        verified_url: 'https://cdn.example.com/manifest-red.jpg',
+        verified_format: 'jpeg',
+        status: 'verified',
+        is_primary: true,
+        position: 1,
+      },
+    ],
+    error: null,
+  };
   reviewsResult = { data: [], error: null };
   reviewPageResults = [];
+  mockManifestRange.mockImplementation(() => Promise.resolve(manifestResult));
   mockReviewsRange.mockImplementation(() =>
     Promise.resolve(reviewPageResults.shift() ?? reviewsResult)
   );
@@ -227,6 +296,68 @@ describe('getCachedOpenAIFeedData', () => {
     );
     expect(mockReviewSelect).not.toHaveBeenCalled();
     expect(mockReviewsIn).not.toHaveBeenCalled();
+  });
+
+  it('returns a verified feed image manifest for active products', async () => {
+    const { getCachedOpenAIFeedData } = await import('./feed-data');
+    const result = await getCachedOpenAIFeedData('merchant-1');
+
+    expect(mockManifestEq).toHaveBeenCalledWith('merchant_id', 'merchant-1');
+    expect(mockManifestEq).toHaveBeenCalledWith('status', 'verified');
+    expect(mockManifestIn).toHaveBeenCalledWith('product_id', ['prod-1']);
+    expect(mockManifestOrder).toHaveBeenCalledWith('product_id', {
+      ascending: true,
+    });
+    expect(mockManifestOrder).toHaveBeenCalledWith('position', {
+      ascending: true,
+    });
+    expect(mockManifestOrder).toHaveBeenCalledWith('id', { ascending: true });
+    expect(result.imageManifest?.['prod-1']).toEqual([
+      {
+        variant_id: null,
+        verified_url: 'https://cdn.example.com/manifest-front.jpg',
+        verified_format: 'jpeg',
+        status: 'verified',
+        is_primary: true,
+        position: 0,
+      },
+      {
+        variant_id: 'var-1',
+        verified_url: 'https://cdn.example.com/manifest-red.jpg',
+        verified_format: 'jpeg',
+        status: 'verified',
+        is_primary: true,
+        position: 1,
+      },
+    ]);
+  });
+
+  it('throws when the feed image manifest query fails', async () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(
+      // biome-ignore lint/suspicious/noEmptyBlockStatements: suppress console.error noise in tests
+      () => {}
+    );
+    manifestResult = {
+      data: null,
+      error: { message: 'manifest unavailable' },
+    };
+
+    const { getCachedOpenAIFeedData } = await import('./feed-data');
+
+    await expect(getCachedOpenAIFeedData('merchant-1')).rejects.toThrow(
+      'Failed to fetch image manifest'
+    );
+    expect(mockManifestEq).toHaveBeenCalledWith('merchant_id', 'merchant-1');
+    expect(mockManifestEq).toHaveBeenCalledWith('status', 'verified');
+    expect(mockManifestIn).toHaveBeenCalledWith('product_id', ['prod-1']);
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'DB_IMAGE_MANIFEST_ERROR:',
+      expect.objectContaining({
+        error: expect.objectContaining({ message: 'manifest unavailable' }),
+        merchantId: 'merchant-1',
+      })
+    );
+    consoleSpy.mockRestore();
   });
 
   it('selects canonical URL and joined category fields without reading a missing category_slug column', async () => {

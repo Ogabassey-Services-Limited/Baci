@@ -1,9 +1,9 @@
 /**
- * Expo config plugin: Android Gradle fixes for AGP 9.x + RN 0.84
+ * Expo config plugin: Android Gradle fixes for AGP 9.x + RN 0.85
  *
  * Applies after `expo prebuild --clean` so native dirs are always correct:
  * 1. Removes kotlin-gradle-plugin classpath (built into AGP 9.x)
- * 2. Removes apply plugin "org.jetbrains.kotlin.android" (built into AGP 9.x)
+ * 2. Keeps apply plugin "org.jetbrains.kotlin.android" for Kotlin compilation
  * 3. Changes proguard-android.txt → proguard-android-optimize.txt (AGP 9.x requirement)
  * 4. Bumps Gradle wrapper to 9.3.1 (minimum for AGP 9.x)
  * 5. Adds async-storage local maven repo
@@ -13,10 +13,10 @@ const fs = require('node:fs');
 const path = require('node:path');
 const {
   addAsyncStorageRepo,
+  ensureGradleProperty,
   ensureGradleWrapperVersion,
   ensureReleaseSigning,
   fixProguardOptimize,
-  removeKotlinAndroidPlugin,
   removeKotlinGradlePlugin,
 } = require('../../../.github/scripts/expoAndroidGradleFixes');
 
@@ -61,11 +61,8 @@ function withAndroidGradleFixes(config) {
       if (fs.existsSync(appBuildGradle)) {
         let content = fs.readFileSync(appBuildGradle, 'utf-8');
 
-        // Remove kotlin.android plugin
-        content = removeKotlinAndroidPlugin(
-          content,
-          `failed to remove Kotlin Android plugin from ${appBuildGradle}`
-        );
+        // Keep kotlin.android plugin for compilation of MainApplication/MainActivity
+        // (Removing it disables Kotlin compilation, causing ClassNotFoundException on MainApplication)
 
         // Fix proguard file name
         content = fixProguardOptimize(
@@ -76,6 +73,21 @@ function withAndroidGradleFixes(config) {
         content = ensureReleaseSigning(content);
 
         fs.writeFileSync(appBuildGradle, content);
+      }
+
+      const gradleProperties = path.join(
+        cfg.modRequest.platformProjectRoot,
+        'gradle.properties'
+      );
+
+      if (fs.existsSync(gradleProperties)) {
+        let content = fs.readFileSync(gradleProperties, 'utf-8');
+        content = ensureGradleProperty(
+          content,
+          'android.builtInKotlin',
+          'false'
+        );
+        fs.writeFileSync(gradleProperties, content);
       }
 
       // Fix Gradle wrapper version

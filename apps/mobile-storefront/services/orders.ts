@@ -28,6 +28,7 @@ import { resolveApiBaseUrl } from '@/lib/api-url';
 import { createLogger } from '@/lib/logger';
 import { offlineQueue } from '@/lib/offline-queue';
 import { supabase } from '@/lib/supabase';
+import { buildMobileOrderPayload } from './order-payload';
 
 const log = createLogger('Order');
 
@@ -41,6 +42,9 @@ const API_URL = resolveApiBaseUrl(
 const MERCHANT_ID =
   Constants.expoConfig?.extra?.merchantId ||
   '6b5cb8a4-5575-456c-b936-8cdfae30db74';
+// Mobile savings credit is expressed in naira; backend order validation still
+// recomputes the allowed redemption amount against the selected savings goal.
+const MAX_SAVINGS_CREDIT_AMOUNT = 10_000_000;
 
 // Order item schema for validation
 const OrderItemSchema = z.object({
@@ -75,6 +79,7 @@ const CreateOrderRequestSchema = z.object({
   customer_email: z.string().email('Invalid email address'),
   customer_name: z.string().min(1, 'Name is required'),
   customer_phone: z.string().min(10, 'Valid phone number required'),
+  idempotency_key: z.string().trim().min(1).max(128).optional(),
   items: z.array(OrderItemSchema).min(1, 'At least one item required'),
   subtotal: z.number().min(0),
   shipping_fee: z.number().min(0),
@@ -99,6 +104,13 @@ const CreateOrderRequestSchema = z.object({
   // wallet_amount: undefined }` is dropped, not forwarded.
   use_wallet_credit: z.boolean().optional(),
   wallet_amount: z.number().nonnegative().optional(),
+  use_savings_credit: z.boolean().optional(),
+  savings_goal_id: z.string().trim().uuid().optional(),
+  savings_amount: z
+    .number()
+    .positive()
+    .max(MAX_SAVINGS_CREDIT_AMOUNT, 'Savings amount exceeds maximum')
+    .optional(),
 });
 
 // Order response schema
@@ -119,6 +131,14 @@ const OrderResponseSchema = z.object({
       transactionId: z.string().nullable(),
     })
     .nullable(),
+  savings: z
+    .object({
+      amountUsed: z.number(),
+      goalId: z.string(),
+      redemptionId: z.string().nullable(),
+    })
+    .nullable()
+    .optional(),
   amountDueToGateway: z.number(),
 });
 
@@ -139,6 +159,58 @@ export class OrderError extends Error {
     this.code = code;
     this.details = details;
   }
+}
+
+const ORDER_VALIDATION_ERROR_MESSAGES: Record<string, string> = {
+  insufficient_stock:
+    'This item is no longer available in the selected quantity. Please update your cart and try again.',
+  insufficient_variant_stock:
+    'This item is no longer available in the selected option. Please update your cart and try again.',
+  invalid_items: 'One or more cart items are no longer available.',
+  order_total_mismatch:
+    'Your cart total changed. Please review your order and try again.',
+  shipping_quote_required:
+    'Delivery pricing changed. Please return to delivery and select a shipping option again.',
+  tax_amount_mismatch:
+    'Your order total changed. Please review your order and try again.',
+};
+
+function readResponseString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim().length > 0
+    ? value.trim()
+    : undefined;
+}
+
+function normalizeConflictCode(value: unknown): string {
+  const rawCode = readResponseString(value);
+  if (!rawCode) return 'ORDER_CONFLICT';
+
+  const normalizedCode = rawCode
+    .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+    .replace(/[\s-]+/g, '_')
+    .toUpperCase();
+
+  if (normalizedCode === 'ORDER_NOT_REUSABLE') {
+    return 'CHECKOUT_ORDER_NOT_REUSABLE';
+  }
+
+  if (
+    normalizedCode === 'CHECKOUT_ORDER_NOT_REUSABLE' ||
+    normalizedCode === 'CHECKOUT_IDEMPOTENCY_CONFLICT'
+  ) {
+    return normalizedCode;
+  }
+
+  return normalizedCode;
+}
+
+function getValidationErrorMessage(error: string, details: unknown): string {
+  const detailCode = readResponseString(details);
+  if (detailCode && ORDER_VALIDATION_ERROR_MESSAGES[detailCode]) {
+    return ORDER_VALIDATION_ERROR_MESSAGES[detailCode];
+  }
+
+  return ORDER_VALIDATION_ERROR_MESSAGES[error] ?? error;
 }
 
 /**
@@ -201,64 +273,13 @@ export async function createOrder(
     : { data: { user: null }, error: null };
 
   // 4. Prepare order payload matching web API expectations
-  const orderPayload = {
-    merchant_id: MERCHANT_ID,
-    customer_email: request.customer_email,
-    customer_name: request.customer_name,
-    customer_phone: request.customer_phone,
-    items: validatedRequest.items.map((item) => ({
-      id: item.id,
-      condition: item.condition,
-      product_id: item.product_id || item.id,
-      name: item.name,
-      quantity: item.quantity,
-      price: item.price,
-      image_url: item.image_url,
-      value: Math.round(item.price * item.quantity),
-      variant_id: item.variant_id,
-      variant_attributes: item.variant_attributes || {},
-      has_assurance: item.has_assurance ?? false,
-      assurance_fee: item.assurance_fee ?? 0,
-      voucher_award_id: item.voucher_award_id,
-      voucher_token: item.voucher_token,
-    })),
-    subtotal: request.subtotal,
-    shipping_fee: request.shipping_fee,
-    tax_amount: request.tax_amount ?? 0,
-    discount_amount: request.discount_amount ?? 0,
-    payment_method: request.payment_method,
-    selected_quote_id: request.selected_quote_id ?? null,
-    shipping_provider: request.shipping_provider ?? null,
-    payment_status:
-      request.payment_method === 'pay_on_delivery' ? 'pending' : 'unpaid',
-    shipping_status: 'pending',
-    shipping_address: {
-      firstName: request.shipping_address.firstName,
-      lastName: request.shipping_address.lastName,
-      address: request.shipping_address.address,
-      city: request.shipping_address.city,
-      state: request.shipping_address.state,
-      notes: request.shipping_address.notes || '',
-    },
-    source: 'mobile_app',
-    // Include user_id if authenticated for customer profile linking
-    ...(!authError && user?.id && { user_id: user.id }),
-    // Wallet payment selection. Forward only when the intent is fully
-    // formed: opt-in true AND a positive numeric amount. A malformed
-    // `{ use_wallet_credit: true, wallet_amount: undefined }` (or 0 /
-    // negative) gets dropped here so the server never sees a partial
-    // wallet intent.
-    ...(request.use_wallet_credit === true &&
-      typeof request.wallet_amount === 'number' &&
-      request.wallet_amount > 0 && {
-        use_wallet_credit: request.use_wallet_credit,
-        wallet_amount: request.wallet_amount,
-      }),
-  };
+  const orderPayload = buildMobileOrderPayload(validatedRequest, {
+    merchantId: MERCHANT_ID,
+    userId: authError ? undefined : user?.id,
+  });
 
   try {
-    // BUG-1-008 FIX: Generate idempotency key to prevent duplicate orders on retry
-    const idempotencyKey = Crypto.randomUUID();
+    const idempotencyKey = validatedRequest.idempotency_key ?? Crypto.randomUUID();
 
     // 5. Make API call to create order with retry and timeout
     // 2026 Best Practice: Automatic retry with exponential backoff for resilience
@@ -286,9 +307,14 @@ export async function createOrder(
 
     // 6. Handle HTTP errors (4xx errors are not retried, handle them here)
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
+      const errorData = (await response.json().catch(() => ({}))) as {
+        code?: unknown;
+        details?: unknown;
+        error?: unknown;
+      };
       const errorMessage =
-        errorData.error || `Order creation failed (${response.status})`;
+        readResponseString(errorData.error) ||
+        `Order creation failed (${response.status})`;
 
       trackError('order_creation_failed', errorMessage, {
         status: response.status,
@@ -296,10 +322,11 @@ export async function createOrder(
       });
 
       if (response.status === 400) {
+        const details = errorData.details ?? errorData.code;
         throw new OrderError(
-          errorMessage,
+          getValidationErrorMessage(errorMessage, details),
           'VALIDATION_ERROR',
-          errorData.details
+          details
         );
       } else if (response.status === 401) {
         throw new OrderError(
@@ -311,6 +338,14 @@ export async function createOrder(
           ? 'Checkout is temporarily unavailable for this store. Please try again later.'
           : errorMessage;
         throw new OrderError(notFoundMessage, 'NOT_FOUND');
+      } else if (response.status === 409) {
+        const conflictCode = normalizeConflictCode(errorData.code);
+        const conflictDetails =
+          errorData.details ??
+          (typeof errorData === 'object' && errorData !== null
+            ? { ...errorData, code: conflictCode }
+            : conflictCode);
+        throw new OrderError(errorMessage, conflictCode, conflictDetails);
       } else if (response.status >= 500) {
         throw new OrderError(
           'Server error. Please try again in a few moments.',

@@ -16,9 +16,9 @@ describe('StorefrontDynamicMetadataMarker', () => {
     mockConnection.mockReset();
   });
 
-  it('keeps the request-time marker behind Suspense', () => {
+  it('keeps the request-time marker inside a null Suspense boundary', () => {
     const element = StorefrontDynamicMetadataMarker() as ReactElement<{
-      children?: unknown;
+      children?: ReactElement;
       fallback?: unknown;
     }>;
 
@@ -28,26 +28,24 @@ describe('StorefrontDynamicMetadataMarker', () => {
 
   it('marks metadata routes as request-time rendered', async () => {
     mockConnection.mockResolvedValueOnce(undefined);
-    const element = StorefrontDynamicMetadataMarker() as ReactElement<{
+    const suspense = StorefrontDynamicMetadataMarker() as ReactElement<{
       children?: ReactElement;
     }>;
-    const connectionElement = element.props.children;
 
     await expect(
-      (connectionElement?.type as () => Promise<null>)()
+      (suspense.props.children?.type as () => Promise<null>)()
     ).resolves.toBeNull();
     expect(mockConnection).toHaveBeenCalledOnce();
   });
 
   it('surfaces connection failures to the surrounding route boundary', async () => {
     mockConnection.mockRejectedValueOnce(new Error('connection failed'));
-    const element = StorefrontDynamicMetadataMarker() as ReactElement<{
+    const suspense = StorefrontDynamicMetadataMarker() as ReactElement<{
       children?: ReactElement;
     }>;
-    const connectionElement = element.props.children;
 
     await expect(
-      (connectionElement?.type as () => Promise<null>)()
+      (suspense.props.children?.type as () => Promise<null>)()
     ).rejects.toThrow('connection failed');
 
     expect(mockConnection).toHaveBeenCalledOnce();

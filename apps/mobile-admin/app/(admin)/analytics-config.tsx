@@ -1,10 +1,4 @@
-/**
- * Analytics & Tracking Configuration Screen
- * Full CAPI support for Facebook, TikTok, Google Analytics, and Snapchat
- * 2026 Best Practice: Complete server-side tracking setup
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons, { type IoniconsIconName } from "@react-native-vector-icons/ionicons";
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Stack, useRouter } from 'expo-router';
 import type React from 'react';
@@ -96,6 +90,7 @@ export default function AnalyticsConfigScreen() {
       return data;
     },
     enabled: !!user?.id,
+    staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
   // Populate state
@@ -192,7 +187,7 @@ export default function AnalyticsConfigScreen() {
     value: string;
     field: keyof AnalyticsState;
     placeholder: string;
-    icon: keyof typeof Ionicons.glyphMap;
+    icon: IoniconsIconName;
     secureTextEntry?: boolean;
   }) => (
     <View style={styles.inputGroup}>
@@ -235,7 +230,7 @@ export default function AnalyticsConfigScreen() {
     isConfigured,
   }: {
     title: string;
-    icon: keyof typeof Ionicons.glyphMap;
+    icon: IoniconsIconName;
     iconColor: string;
     isExpanded: boolean;
     onToggle: () => void;

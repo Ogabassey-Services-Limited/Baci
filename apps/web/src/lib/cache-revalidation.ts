@@ -19,6 +19,7 @@ import {
   PLATFORM_BLOG_LIST_CACHE_TAG,
   PLATFORM_BLOG_SITEMAP_CACHE_TAG,
 } from '@/lib/platform-blog';
+import { getProductScopedCacheTag } from '@/lib/product-cache-tags';
 import { buildStorefrontProductsCacheTags } from '@/lib/storefront-products-cache-key';
 
 interface BlogRevalidationOptions {
@@ -66,7 +67,10 @@ export function revalidateProducts(merchantId: string, productSlug?: string) {
 
   // Invalidate specific product cache if slug provided
   if (productSlug) {
-    revalidateTag(`product-${normalizedMerchantId}-${productSlug}`, 'products');
+    revalidateTag(
+      getProductScopedCacheTag('product', normalizedMerchantId, productSlug),
+      'products'
+    );
   }
 
   // Invalidate product details and category page data (includes products)
@@ -283,6 +287,7 @@ export function revalidatePageConfig(merchantId: string, pageSlug?: string) {
  * @param merchantId - Canonical merchant UUID (not slug).
  */
 export function revalidateMerchantFeed(merchantId: string) {
+  revalidateTag('google-merchant-feed', 'products');
   revalidateTag(`merchant-feed-${merchantId}`, 'products');
   revalidateTag(`merchant-feed-review-signals-${merchantId}`, 'products');
 }

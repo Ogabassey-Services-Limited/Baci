@@ -1,9 +1,8 @@
 import type { ImeiServiceTierDefinition } from '@baci/shared/imei';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons, { type IoniconsIconName } from "@react-native-vector-icons/ionicons";
 import { Image } from 'expo-image';
 import { router, Stack } from 'expo-router';
 import { Pressable, ScrollView, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { BRAND, withAlpha } from '@/constants/Colors';
 import type { ImeiResult } from '@/lib/validation';
 import { getVerdictColors } from './get-verdict-colors';
@@ -29,10 +28,7 @@ export function ImeiCheckResultView({
   const statusCards = getImeiResultStatusCards(result, colors);
 
   return (
-    <SafeAreaView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      edges={['bottom', 'left', 'right']}
-    >
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Stack.Screen
         options={{
           title: 'IMEI Results',
@@ -116,7 +112,7 @@ export function ImeiCheckResultView({
           </Text>
         </Pressable>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -180,7 +176,7 @@ function StatusCard({
 }: {
   cleanAware?: boolean;
   colors: ImeiCheckerColors;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: IoniconsIconName;
   label: string;
   tint?: string;
   value: string;

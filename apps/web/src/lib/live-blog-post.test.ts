@@ -49,6 +49,7 @@ const mockMerchant = {
   slug: 'test-store',
   logo_url: 'https://example.com/logo.png',
   custom_domain: 'shop.example.com',
+  country: 'IN',
 };
 
 describe('getLiveBlogPost', () => {
@@ -156,6 +157,7 @@ describe('getLiveBlogPost', () => {
     expect(result).not.toBeNull();
     expect(result?.merchant.id).toBe('merchant-123');
     expect(result?.merchant.business_name).toBe('Test Store');
+    expect(result?.merchant.country).toBe('IN');
     expect(result?.post).toEqual(mockPost);
     expect(result?.relatedPosts).toEqual([
       { id: 'related-1', slug: 'related-post', title: 'Related Post' },
@@ -230,8 +232,12 @@ describe('getLiveBlogPost', () => {
     await getLiveBlogPost('test-store', 'my-post');
 
     expect(mockQueryBuilder.eq).toHaveBeenCalledWith(
-      'category_slug',
+      'categories.slug',
       'product-news'
+    );
+    expect(mockQueryBuilder.eq).not.toHaveBeenCalledWith(
+      'category_slug',
+      expect.anything()
     );
   });
 
@@ -423,9 +429,9 @@ describe('getLiveBlogPost', () => {
     expect(mockQueryBuilder.eq).toHaveBeenCalledWith('slug', 'my-post');
   });
 
-  it('does not filter related products by category_slug when post category is empty/whitespace', async () => {
+  it('does not filter related products by category relation when post category is empty/whitespace', async () => {
     // Negative case: the slugifier returns null for whitespace-only categories,
-    // so the related-products query should skip the .eq('category_slug', …)
+    // so the related-products query should skip the category relation filter
     // filter rather than query with an empty or normalized-null value.
     vi.mocked(getMerchantSafe).mockResolvedValue(mockMerchant as never);
     vi.mocked(getCachedFeatureSettings).mockResolvedValue({
@@ -454,9 +460,9 @@ describe('getLiveBlogPost', () => {
 
     expect(result).not.toBeNull();
     // Related-products branch should be skipped entirely — no `.eq` call on
-    // category_slug should appear (since we never enter the products query).
+    // category relation filter should not appear (the products query is skipped).
     expect(mockQueryBuilder.eq).not.toHaveBeenCalledWith(
-      'category_slug',
+      'categories.slug',
       expect.anything()
     );
     expect(result?.relatedProducts).toEqual([]);

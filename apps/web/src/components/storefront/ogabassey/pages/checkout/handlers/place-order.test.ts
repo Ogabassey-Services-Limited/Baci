@@ -433,6 +433,92 @@ describe('handlePlaceOrder', () => {
     });
   });
 
+  describe('Credit Direct', () => {
+    it('persists the popup transaction reference for webhook reconciliation', async () => {
+      const { openCreditDirectCheckout } = await import(
+        '@/lib/credit-direct-client'
+      );
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            order: { id: 'order-cd', tracking_token: 'track-cd' },
+            wallet: null,
+            amountDueToGateway: 12000,
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          statusText: 'OK',
+        });
+
+      const opts = buildOpts({ paymentMethod: 'credit_direct' });
+      await handlePlaceOrder(opts);
+
+      const callArgs = vi.mocked(openCreditDirectCheckout).mock.calls[0]?.[0];
+      expect(callArgs).toBeDefined();
+      await callArgs?.onPopup?.('cd-popup-transaction-1');
+
+      expect(mockFetch).toHaveBeenLastCalledWith(
+        '/api/orders/update-payment-ref',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            orderId: 'order-cd',
+            paymentRef: 'cd-popup-transaction-1',
+            gateway: 'credit_direct',
+            tracking_token: 'track-cd',
+          }),
+        },
+      );
+    });
+
+    it('logs popup reference persistence failures for webhook reconciliation', async () => {
+      const consoleErrorSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
+      const { openCreditDirectCheckout } = await import(
+        '@/lib/credit-direct-client'
+      );
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            order: { id: 'order-cd', tracking_token: 'track-cd' },
+            wallet: null,
+            amountDueToGateway: 12000,
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 500,
+          statusText: 'Server Error',
+          text: async () => 'write failed',
+        });
+
+      const opts = buildOpts({ paymentMethod: 'credit_direct' });
+      await handlePlaceOrder(opts);
+
+      const callArgs = vi.mocked(openCreditDirectCheckout).mock.calls[0]?.[0];
+      await expect(
+        callArgs?.onPopup?.('cd-popup-transaction-1'),
+      ).resolves.toBeUndefined();
+
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        'Failed to persist Credit Direct popup reference:',
+        expect.stringContaining('order-cd'),
+      );
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        'Failed to persist Credit Direct popup reference:',
+        expect.stringContaining('cd-popup-transaction-1'),
+      );
+
+      consoleErrorSpy.mockRestore();
+    });
+  });
+
   describe('Crypto (Juicyway)', () => {
     it('opens crypto selector for juicyway payment', async () => {
       mockFetch.mockResolvedValue({
@@ -450,6 +536,128 @@ describe('handlePlaceOrder', () => {
       expect(opts.crypto.setPendingCryptoOrder).toHaveBeenCalled();
       expect(opts.crypto.setShowCryptoSelector).toHaveBeenCalledWith(true);
       expect(opts.setIsProcessing).toHaveBeenCalledWith(false);
+    });
+  });
+
+  describe('Klump', () => {
+    it('blocks Klump before order creation when wallet credit reduces the payable amount', async () => {
+      const { toast } = await import('@/hooks/use-toast');
+      const opts = buildOpts({
+        paymentMethod: 'klump',
+        payWithWallet: true,
+        walletAmountUsed: 5_000,
+      });
+
+      await handlePlaceOrder(opts);
+
+      expect(mockFetch).not.toHaveBeenCalled();
+      expect(toast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Klump unavailable with wallet credit',
+        }),
+      );
+      expect(opts.setIsProcessing).toHaveBeenCalledWith(false);
+      expect(opts.isOrderInFlightRef.current).toBe(false);
+    });
+
+    it('does not initialize Klump if the order response has a reduced gateway amount', async () => {
+      const { toast } = await import('@/hooks/use-toast');
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          order: { id: 'order-klump', tracking_token: 'track-klump' },
+          wallet: { amountUsed: 5_000, newBalance: 0 },
+          amountDueToGateway: 7_000,
+        }),
+      });
+
+      const opts = buildOpts({ paymentMethod: 'klump' });
+      await handlePlaceOrder(opts);
+
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect(toast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Klump unavailable with wallet credit',
+        }),
+      );
+      expect(opts.setIsProcessing).toHaveBeenCalledWith(false);
+      expect(opts.isOrderInFlightRef.current).toBe(false);
+    });
+
+    it('initializes Klump payment after creating the order', async () => {
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            order: { id: 'order-klump', tracking_token: 'track-klump' },
+            wallet: null,
+            amountDueToGateway: 12000,
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            success: true,
+            authorization_url: window.location.href,
+          }),
+        });
+
+      const opts = buildOpts({ paymentMethod: 'klump' });
+      await handlePlaceOrder(opts);
+
+      const orderBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(orderBody).toEqual(
+        expect.objectContaining({
+          payment_method: 'card',
+        }),
+      );
+      expect(mockFetch).toHaveBeenCalledWith(
+        '/api/payments/initialize',
+        expect.objectContaining({ method: 'POST' }),
+      );
+      const initBody = JSON.parse(mockFetch.mock.calls[1][1].body);
+      expect(initBody).toEqual(
+        expect.objectContaining({
+          gateway: 'klump',
+          merchant_id: 'merchant-1',
+          order_id: 'order-klump',
+          amount: 12000,
+        }),
+      );
+    });
+
+    it('resets checkout state when Klump initialization fails', async () => {
+      const { toast } = await import('@/hooks/use-toast');
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            order: { id: 'order-klump', tracking_token: 'track-klump' },
+            wallet: null,
+            amountDueToGateway: 12000,
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: false,
+          json: async () => ({ error: 'Klump is not enabled for this merchant' }),
+        });
+
+      const opts = buildOpts({ paymentMethod: 'klump' });
+      await handlePlaceOrder(opts);
+
+      expect(toast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Checkout Failed',
+          description: 'Klump is not enabled for this merchant',
+        }),
+      );
+      expect(opts.setIsProcessing).toHaveBeenCalledWith(false);
+      expect(opts.isOrderInFlightRef.current).toBe(false);
+      expect(opts.setCurrentStep).toHaveBeenCalledWith('payment');
+      expect(opts.setCompletedSteps).toHaveBeenCalledWith({
+        contact: true,
+        delivery: true,
+      });
     });
   });
 

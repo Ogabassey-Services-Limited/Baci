@@ -1,15 +1,18 @@
 import type { Metadata } from 'next';
-import { draftMode } from 'next/headers';
-import { notFound } from 'next/navigation';
+import { permanentRedirect } from 'next/navigation';
+import { connection } from 'next/server';
 import { Suspense } from 'react';
 import { StorefrontDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker';
+import { getBlogPostRedirect } from '@/lib/blog-post-redirects';
+import { getCachedBlogPost } from '@/lib/cached-data';
+import { asRoute } from '@/lib/routes';
 import { buildStoreUrl } from '@/lib/store-url';
+import { BlogPostPageFallback } from './BlogPostPageFallback';
 import {
   buildCanonicalBlogPostUrl,
   getBlogPostTextPreview,
 } from './blog-post-content';
 import BlogPostPageContent from './blog-post-page-content';
-import { getResolvedBlogPost } from './get-resolved-blog-post';
 
 interface PageProps {
   params: Promise<{ slug: string; postSlug: string }>;
@@ -24,12 +27,27 @@ const SOCIAL_IMAGE_METADATA = {
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
+  await connection();
   const { slug, postSlug } = await params;
-  const isDraftMode = (await draftMode()).isEnabled;
-  const data = await getResolvedBlogPost(slug, postSlug, isDraftMode);
+  let data: Awaited<ReturnType<typeof getCachedBlogPost>>;
+  try {
+    // Public metadata must remain cacheable; draft previews are rendered by
+    // the request-time content subtree and deliberately receive noindex data.
+    data = await getCachedBlogPost(slug, postSlug, false);
+  } catch (error) {
+    console.error('Error fetching cached public blog metadata', {
+      slug,
+      postSlug,
+      error,
+    });
+    data = null;
+  }
 
   if (!data) {
-    notFound();
+    return {
+      title: 'Blog Post',
+      robots: { index: false, follow: false },
+    };
   }
 
   const { merchant, post } = data;
@@ -91,13 +109,39 @@ export async function generateMetadata({
   };
 }
 
-export default function BlogPostPage({ params }: PageProps) {
+export default async function BlogPostPage({ params }: PageProps) {
+  const resolvedParams = await params;
+  let redirectedPost: Awaited<ReturnType<typeof getBlogPostRedirect>> = null;
+  try {
+    redirectedPost = await getBlogPostRedirect(
+      resolvedParams.slug,
+      resolvedParams.postSlug
+    );
+  } catch (error) {
+    console.error('Blog redirect lookup failed at page boundary', {
+      slug: resolvedParams.slug,
+      postSlug: resolvedParams.postSlug,
+      error,
+    });
+  }
+
+  if (redirectedPost) {
+    permanentRedirect(
+      asRoute(
+        buildCanonicalBlogPostUrl(
+          redirectedPost.merchant,
+          redirectedPost.targetSlug
+        )
+      )
+    );
+  }
+
   return (
     <>
-      <Suspense fallback={null}>
-        <StorefrontDynamicMetadataMarker />
+      <Suspense fallback={<BlogPostPageFallback />}>
+        <BlogPostPageContent params={Promise.resolve(resolvedParams)} />
       </Suspense>
-      <BlogPostPageContent params={params} />
+      <StorefrontDynamicMetadataMarker />
     </>
   );
 }

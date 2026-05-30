@@ -56,7 +56,6 @@ export function useBillFormController({
   const billersQuery = useVTUBillers(billType);
   const verify = useVTUVerify();
   const customer = useAuthStore((state) => state.customer);
-  const payment = useUtilityPayment();
   const [selectedBiller, setSelectedBiller] = useState<Biller | null>(null);
   const [selectedBillItemCodes, setSelectedBillItemCodes] = useState<string[]>(
     []
@@ -100,6 +99,7 @@ export function useBillFormController({
     ? (selectedBillItem?.itemCode ?? null)
     : (selectedBiller?.billerId ?? null);
   const numericAmount = parseUtilityAmount(amount);
+  const payment = useUtilityPayment(numericAmount);
   const normalizedCustomerId = customerId.trim();
   const currentVerificationKey = `${selectedBiller?.billerId ?? ''}:${
     selectedBillItemIdentifier ?? ''

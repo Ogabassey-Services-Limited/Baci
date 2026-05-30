@@ -1,11 +1,3 @@
-/**
- * Root Layout for Ogabassey Store
- * Handles navigation, theme, and auth initialization
- * Design aligned with Baci web app
- */
-
-import { Ionicons } from '@expo/vector-icons';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useFonts } from 'expo-font';
 import '../global.css';
 import {
@@ -24,6 +16,7 @@ import { usePushNotifications } from '@/hooks/use-push-notifications';
 import { offlineQueue } from '@/lib/offline-queue';
 import { DEFAULT_SYNC_STORAGE_KEYS, initializeStorage } from '@/lib/storage';
 import { initAnalytics } from '@/services/analytics';
+import { initAdTracking } from '@/services/ad-tracking';
 import { type CreateOrderRequest, createOrder } from '@/services/orders';
 import { useAuthStore } from '@/stores/auth-store';
 
@@ -53,8 +46,6 @@ export default function RootLayout() {
     Inter_600SemiBold,
     Inter_700Bold,
     Inter_900Black,
-    ...FontAwesome.font,
-    ...Ionicons.font,
   });
 
   const initialize = useAuthStore((state) => state.initialize);
@@ -96,6 +87,7 @@ export default function RootLayout() {
         await initialize();
       }
       await initAnalytics();
+      await initAdTracking();
       await offlineQueue.initialize();
       offlineQueue.registerHandler('create_order', async (orderData) => {
         return await createOrder(orderData as CreateOrderRequest);

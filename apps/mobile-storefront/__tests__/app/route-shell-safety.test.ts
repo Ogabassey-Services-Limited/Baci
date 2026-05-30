@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 const APP_ROOT = path.resolve(__dirname, '../../app');
@@ -12,6 +12,18 @@ const DYNAMIC_ROUTE_MODULE_PATTERN =
 const LAYOUT_ROUTE_MODULE_PATTERN = /^_layout\.(ts|tsx|js|jsx)$/;
 const INDEX_ROUTE_MODULE_PATTERN = /^index\.(ts|tsx|js|jsx)$/;
 const SHELL_JSX_PATTERN = /<StorefrontScreenShell(?=[\s/>])/;
+const SHELL_DELEGATE_MODULES = new Map<
+  string,
+  { modulePath: string; routeJsxPattern: RegExp }
+>([
+  [
+    'wallet/index.tsx',
+    {
+      modulePath: '../components/wallet/WalletScreenView.tsx',
+      routeJsxPattern: /<WalletScreenView(?=[\s/>])/,
+    },
+  ],
+]);
 
 type RouteModule = {
   actualPath: string;
@@ -51,17 +63,17 @@ const EXPLICIT_STATIC_ROUTES = new Set([
   'profile/edit.tsx',
   'search.tsx',
   'utilities/history.tsx',
+  'wallet/manage-cards.tsx',
+  'wallet/savings/start.tsx',
 ]);
 
 // Decreasing baseline: every route listed here currently does not render
 // StorefrontScreenShell. As routes migrate, this list must shrink.
 const SHELL_EXEMPT_ROUTES = new Set([
   '(tabs)/cart.tsx',
-  '(tabs)/categories.tsx',
   '(tabs)/index.tsx',
   '(tabs)/wallet.tsx',
   'addresses/[id].tsx',
-  'auth/callback.tsx',
   'auth/login.tsx',
   'bank-transfer/index.tsx',
   'bnpl-checkout/index.tsx',
@@ -69,21 +81,13 @@ const SHELL_EXEMPT_ROUTES = new Set([
   'compare/index.tsx',
   'crypto-payment/index.tsx',
   'faq/index.tsx',
-  'imei-check/index.tsx',
   'order-success.tsx',
   'orders/[id].tsx',
-  'orders/index.tsx',
-  'payment-gateway/index.tsx',
   'product/[slug].tsx',
-  'profile/delete-account.tsx',
   'profile/edit.tsx',
-  'receipts/index.tsx',
-  'repairs/index.tsx',
   'saved/index.tsx',
   'search.tsx',
-  'swap/index.tsx',
   'track-order/index.tsx',
-  'utilities/[type].tsx',
 ]);
 
 function collectModuleFiles(currentPath: string): string[] {
@@ -158,10 +162,28 @@ function isShellCheckRoute(routePath: string) {
   return !API_ROUTE_MODULE_PATTERN.test(fileName);
 }
 
-function routeUsesStorefrontScreenShell(routeModule: RouteModule) {
-  const absolutePath = path.join(APP_ROOT, routeModule.actualPath);
+function moduleUsesStorefrontScreenShell(absolutePath: string) {
   const source = readFileSync(absolutePath, 'utf8');
   return SHELL_JSX_PATTERN.test(source);
+}
+
+function routeUsesStorefrontScreenShell(routeModule: RouteModule) {
+  const absolutePath = path.join(APP_ROOT, routeModule.actualPath);
+  const routeSource = readFileSync(absolutePath, 'utf8');
+  if (SHELL_JSX_PATTERN.test(routeSource)) {
+    return true;
+  }
+
+  const shellDelegate = SHELL_DELEGATE_MODULES.get(
+    routeModule.normalizedPath
+  );
+  if (!shellDelegate || !shellDelegate.routeJsxPattern.test(routeSource)) {
+    return false;
+  }
+
+  return moduleUsesStorefrontScreenShell(
+    path.resolve(APP_ROOT, shellDelegate.modulePath)
+  );
 }
 
 describe('app route shell safety', () => {
@@ -198,11 +220,15 @@ describe('app route shell safety', () => {
 
     const staleExemptions = [...SHELL_EXEMPT_ROUTES]
       .filter((routePath) => routePathSet.has(routePath))
-      .filter((routePath) =>
-        routeModulesByPath
-          .get(routePath)!
-          .every(routeUsesStorefrontScreenShell)
-      );
+      .filter((routePath) => {
+        const routeModules = routeModulesByPath.get(routePath);
+        if (!routeModules) {
+          throw new Error(
+            `Route module index missing entry for shell exemption: ${routePath}`
+          );
+        }
+        return routeModules.every(routeUsesStorefrontScreenShell);
+      });
 
     const orphanedExemptions = [...SHELL_EXEMPT_ROUTES].filter(
       (routePath) => !routePathSet.has(routePath)
@@ -220,7 +246,9 @@ describe('app route shell safety', () => {
           ...(unexpectedRoutesWithoutShell.length > 0
             ? [
                 'Routes missing StorefrontScreenShell that are not in the exemption baseline:',
-                ...unexpectedRoutesWithoutShell.map((routePath) => `- ${routePath}`),
+                ...unexpectedRoutesWithoutShell.map(
+                  (routePath) => `- ${routePath}`
+                ),
                 '',
                 'Either migrate the route to StorefrontScreenShell, or add a justified temporary exemption.',
                 '',

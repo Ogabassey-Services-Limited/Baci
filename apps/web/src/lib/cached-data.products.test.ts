@@ -1,8 +1,10 @@
+import { cacheTag } from 'next/cache';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   getCachedCategoryPageData,
   getCachedLegacyProductRedirectTarget,
   getCachedProduct,
+  getCachedProductLcpHint,
   getCachedProducts,
   getCachedProductWithDetails,
 } from '@/lib/cached-data';
@@ -11,6 +13,7 @@ import {
   type CachedDataTestHarness,
   resetMockCreateClient,
 } from '@/lib/cached-data.test-utils';
+import { getProductScopedCacheTag } from '@/lib/product-cache-tags';
 
 vi.mock('@/env', () => ({
   getSupabaseUrl: vi.fn(() => 'https://test.supabase.co'),
@@ -71,9 +74,12 @@ describe('cached-data product query projections', () => {
     error: { message: 'RPC failed', code: 'P0001' },
   };
   const standaloneCurrencyColumnPattern = /(?:^|[\s,])currency\s*(?:,|\n|$)/;
+  const standaloneQuantityColumnPattern = /(?:^|[\s,])quantity\s*(?:,|\n|$)/;
+  const standaloneTrackQuantityColumnPattern =
+    /(?:^|[\s,])track_quantity\s*(?:,|\n|$)/;
 
   it('getCachedProduct uses explicit column select without product_variants', async () => {
-    harness.mockSingle.mockResolvedValueOnce(singleProductResult);
+    harness.mockMaybeSingle.mockResolvedValueOnce(singleProductResult);
 
     await getCachedProduct('merchant-123', 'iphone-16');
 
@@ -82,8 +88,61 @@ describe('cached-data product query projections', () => {
     const selectArg = String(harness.mockSelect.mock.calls.at(-1)?.[0]);
     expect(selectArg).not.toMatch(/\*\s*,/);
     expect(selectArg).not.toMatch(standaloneCurrencyColumnPattern);
+    expect(selectArg).not.toMatch(standaloneQuantityColumnPattern);
+    expect(selectArg).not.toMatch(standaloneTrackQuantityColumnPattern);
+    expect(selectArg).toContain('quantity:stock_quantity');
+    expect(selectArg).toContain('track_quantity:manage_stock');
+    expect(selectArg).toContain('categories:category_id');
     expect(selectArg).not.toContain('is_featured');
     expect(selectArg).toContain('canonical_url');
+  });
+
+  it('getCachedProductLcpHint reads only route and image fields without hydrating variants', async () => {
+    harness.mockMaybeSingle.mockResolvedValueOnce(singleProductResult);
+
+    await getCachedProductLcpHint('merchant-123', 'iphone-16');
+
+    expect(harness.mockEq).toHaveBeenCalledWith('merchant_id', 'merchant-123');
+    expect(harness.mockEq).toHaveBeenCalledWith('slug', 'iphone-16');
+    const selectArg = String(harness.mockSelect.mock.calls.at(-1)?.[0]);
+    expect(selectArg).toContain('brand');
+    expect(selectArg).toContain('condition');
+    expect(selectArg).toContain('id');
+    expect(selectArg).toContain('name');
+    expect(selectArg).toContain('slug');
+    expect(selectArg).toContain('price');
+    expect(selectArg).toContain('images');
+    expect(selectArg).toContain('manage_stock');
+    expect(selectArg).toContain('schema_markup');
+    expect(selectArg).toContain('stock_quantity');
+    expect(selectArg).toContain('categories:category_id');
+    expect(selectArg).toContain('product_categories');
+    expect(selectArg).not.toContain('description');
+    expect(selectArg).not.toContain('specifications');
+    expect(selectArg).not.toContain('review_count');
+    expect(selectArg).not.toContain('product_variants');
+    expect(selectArg).not.toContain('product_key_specs');
+    expect(selectArg).not.toContain('product_offers');
+    expect(harness.mockRpc).not.toHaveBeenCalled();
+  });
+
+  it('getCachedProductLcpHint supports UUID-shaped product slugs as well as IDs', async () => {
+    const uuidPath = 'ABCDEF12-3456-4789-ABCD-ABCDEF123456';
+    harness.mockMaybeSingle.mockResolvedValueOnce(singleProductResult);
+
+    await getCachedProductLcpHint('merchant-123', uuidPath);
+
+    expect(harness.mockOr).toHaveBeenCalledWith(
+      `slug.eq.${uuidPath.toLowerCase()},id.eq.${uuidPath}`
+    );
+  });
+
+  it('getCachedProductLcpHint returns null on query error', async () => {
+    harness.mockMaybeSingle.mockResolvedValueOnce(productQueryError);
+
+    await expect(
+      getCachedProductLcpHint('merchant-123', 'missing-product')
+    ).resolves.toBeNull();
   });
 
   it('getCachedProductWithDetails uses explicit column select without product_variants', async () => {
@@ -97,6 +156,26 @@ describe('cached-data product query projections', () => {
     expect(selectArg).not.toMatch(/\*\s*,/);
     expect(selectArg).toContain('imageHint:image_hint');
     expect(selectArg).toContain('fulfillmentFields:fulfillment_fields');
+  });
+
+  it('uses ByteString-safe product cache tags for non-ASCII product slugs', async () => {
+    const productSlug = 'dell-alienware-x14-r2-–-14”';
+    harness.mockMaybeSingle.mockResolvedValueOnce(singleProductResult);
+
+    await getCachedProductWithDetails('merchant-123', productSlug);
+
+    const expectedTag = getProductScopedCacheTag(
+      'product',
+      'merchant-123',
+      productSlug
+    );
+    expect(cacheTag).toHaveBeenCalledWith(
+      'product',
+      'product-details',
+      expectedTag
+    );
+    expect(expectedTag).not.toContain('–');
+    expect(expectedTag).not.toContain('”');
   });
 
   it('getCachedProducts attaches storefront variants from the public RPC', async () => {
@@ -151,7 +230,27 @@ describe('cached-data product query projections', () => {
     );
     const selectArg = String(harness.mockSelect.mock.calls.at(-1)?.[0]);
     expect(selectArg).not.toMatch(standaloneCurrencyColumnPattern);
+    expect(selectArg).not.toMatch(standaloneQuantityColumnPattern);
+    expect(selectArg).not.toMatch(standaloneTrackQuantityColumnPattern);
+    expect(selectArg).toContain('quantity:stock_quantity');
+    expect(selectArg).toContain('track_quantity:manage_stock');
     expect(selectArg).not.toContain('is_featured');
+  });
+
+  it('getCachedProducts can skip storefront variant hydration for listing-only callers', async () => {
+    harness.mockListResult.data = productList;
+    harness.mockListResult.error = null;
+
+    await expect(
+      getCachedProducts('merchant-123', { includeVariants: false })
+    ).resolves.toEqual([
+      expect.objectContaining({ id: 'product-123', product_variants: [] }),
+      expect.objectContaining({ id: 'product-456', product_variants: [] }),
+    ]);
+    expect(harness.mockRpc).not.toHaveBeenCalledWith(
+      'get_storefront_product_variants',
+      expect.any(Object)
+    );
   });
 
   it('getCachedProducts does not filter by the retired is_featured column', async () => {
@@ -218,15 +317,30 @@ describe('cached-data product query projections', () => {
   });
 
   it('getCachedProduct returns null on query error', async () => {
-    harness.mockSingle.mockResolvedValueOnce(productQueryError);
+    harness.mockMaybeSingle.mockResolvedValueOnce(productQueryError);
 
     await expect(
       getCachedProduct('merchant-123', 'missing-product')
     ).resolves.toBeNull();
   });
 
+  it('getCachedProduct treats an expected missing lookup as null without logging an error', async () => {
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    harness.mockMaybeSingle.mockResolvedValueOnce({ data: null, error: null });
+
+    await expect(
+      getCachedProduct('merchant-123', 'legacy-product-slug')
+    ).resolves.toBeNull();
+
+    expect(harness.mockMaybeSingle).toHaveBeenCalledOnce();
+    expect(harness.mockSingle).not.toHaveBeenCalled();
+    expect(consoleErrorSpy).not.toHaveBeenCalled();
+  });
+
   it('getCachedProduct attaches storefront variants from the public RPC', async () => {
-    harness.mockSingle.mockResolvedValueOnce(singleProductResult);
+    harness.mockMaybeSingle.mockResolvedValueOnce(singleProductResult);
     harness.mockRpc.mockResolvedValueOnce({
       data: [
         {
@@ -256,7 +370,7 @@ describe('cached-data product query projections', () => {
   });
 
   it('getCachedProduct maps price fields to legacy base/sale fields', async () => {
-    harness.mockSingle.mockResolvedValueOnce({
+    harness.mockMaybeSingle.mockResolvedValueOnce({
       data: {
         id: 'product-123',
         slug: 'iphone-16',
@@ -282,7 +396,7 @@ describe('cached-data product query projections', () => {
   });
 
   it('getCachedProduct falls back to empty variants when the public RPC fails', async () => {
-    harness.mockSingle.mockResolvedValueOnce(singleProductResult);
+    harness.mockMaybeSingle.mockResolvedValueOnce(singleProductResult);
     harness.mockRpc.mockResolvedValueOnce(rpcFailure);
 
     const result = await getCachedProduct('merchant-123', 'iphone-16');

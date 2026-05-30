@@ -7,11 +7,10 @@
  */
 
 import { resolveVariantSelectionParamResolution } from '@baci/shared/lib';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Dimensions,
   type GestureResponderEvent,
@@ -32,15 +31,18 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useShallow } from 'zustand/react/shallow';
-import { OfflineEmptyState } from '@/components/OfflineNotice';
 import { FlyToCartParticle } from '@/components/product/FlyToCartParticle';
+import { getFallbackVariantSelections } from '@/components/product/hooks/get-fallback-variant-selections';
+import { getFirstImageIndexForColor } from '@/components/product/hooks/get-first-image-index-for-color';
+import { getSelectionSyncSignature } from '@/components/product/hooks/get-selection-sync-signature';
 import { useProductDetailSelection } from '@/components/product/hooks/use-product-detail-selection';
 import { NegotiationModal } from '@/components/product/NegotiationModal';
+import { ProductDetailRouteState } from '@/components/product/ProductDetailRouteState';
 import { ProductDetailsBody } from '@/components/product/ProductDetailsBody';
 import { ProductImageGallery } from '@/components/product/ProductImageGallery';
 import { StickyBottomActions } from '@/components/product/StickyBottomActions';
 import { useColorScheme } from '@/components/useColorScheme';
-import Colors, { BRAND, RADIUS } from '@/constants/Colors';
+import Colors, { RADIUS } from '@/constants/Colors';
 import { PLACEHOLDER_IMAGE_URL } from '@/constants/Images';
 import {
   MIN_STICKY_BOTTOM_PADDING,
@@ -55,124 +57,19 @@ import { resolveCartItemImageUrl } from '@/lib/cart-display';
 import { createLogger } from '@/lib/logger';
 import { findMatchingConditionOffer } from '@/lib/product-condition-offers';
 import { resolveVariantSelectionFromImage } from '@/lib/product-image-selection';
-import {
-  isInternalSelectionAxis,
-  stripInternalSelectionAxes,
-} from '@/lib/product-internal-selection-axes';
-import { mergeVariantAttributes } from '@/lib/product-normalization';
+import { stripInternalSelectionAxes } from '@/lib/product-internal-selection-axes';
 import { normalizeRouteCondition } from '@/lib/product-route/normalize-route-condition';
 import { resolveProductVariantMetadata } from '@/lib/product-variant-metadata';
+import { trackProductRouteAddToCart, trackProductRouteWishlistAdd, useTrackProductRouteViewed } from '@/services/tiktok-product-route-tracking';
 import { useCartStore } from '@/stores/cart-store';
 import { useSavedStore } from '@/stores/saved-store';
 import {
   formatProductConditionDisplay,
   getDiscountPercentage,
-  type Product,
   type ProductCondition,
 } from '@/types/product';
 
 const log = createLogger('ProductDetail');
-
-function getFirstColorOption(product: Product | null) {
-  if (!product) {
-    return null;
-  }
-
-  const imageDrivenColor = Object.keys(product.color_images ?? {}).find(
-    Boolean
-  );
-  if (imageDrivenColor) {
-    return imageDrivenColor;
-  }
-
-  const variantColor = product.variants
-    ?.map((variant) =>
-      (variant.attributes?.color ?? variant.attributes?.colour)?.trim()
-    )
-    .find((value): value is string => Boolean(value));
-  if (variantColor) {
-    return variantColor;
-  }
-
-  const firstColor = product.colors?.[0];
-  if (typeof firstColor === 'string') {
-    return firstColor;
-  }
-
-  return firstColor?.name ?? null;
-}
-
-function getFirstImageIndexForColor(args: {
-  color: string | null | undefined;
-  colorImages?: Record<string, string[]>;
-  images: string[];
-}) {
-  const color = args.color?.trim();
-  if (!color) {
-    return 0;
-  }
-
-  const preferredImages = args.colorImages?.[color] ?? [];
-  const preferredImage = preferredImages.find(Boolean);
-  if (!preferredImage) {
-    return 0;
-  }
-
-  const index = args.images.indexOf(preferredImage);
-  return index >= 0 ? index : 0;
-}
-
-function getFallbackVariantSelections(product: Product | null) {
-  if (!product) {
-    return {
-      attributes: {} as Record<string, string>,
-      color: null as string | null,
-      storage: null as string | null,
-    };
-  }
-
-  const mergedVariantAttributes = mergeVariantAttributes(
-    product.variant_attributes,
-    product.variants
-  );
-  const fallbackAttributes = Object.fromEntries(
-    Object.entries(mergedVariantAttributes ?? {})
-      .filter(
-        ([axis, values]) =>
-          !isInternalSelectionAxis(axis) && Array.isArray(values)
-      )
-      .map(([axis, values]) => [axis, values[0]])
-      .filter(
-        (entry): entry is [string, string] => typeof entry[1] === 'string'
-      )
-  );
-
-  return {
-    attributes: fallbackAttributes,
-    color: getFirstColorOption(product),
-    storage: mergedVariantAttributes?.storage?.[0] ?? null,
-  };
-}
-
-function getSelectionSyncSignature(product: Product | null) {
-  if (!product) {
-    return '';
-  }
-
-  return JSON.stringify({
-    colorImages: product.color_images ?? null,
-    images: product.images ?? null,
-    colors: product.colors ?? null,
-    id: product.id,
-    variantAttributes: product.variant_attributes ?? null,
-    variants:
-      product.variants?.map((variant) => ({
-        attributes: variant.attributes ?? null,
-        id: variant.id,
-        stock_quantity: variant.stock_quantity ?? null,
-      })) ?? [],
-  });
-}
 
 function getFirstRouteParamValue(
   value: string | string[] | null | undefined
@@ -337,10 +234,8 @@ export default function ProductDetailScreen() {
           ? (product.offers[0]?.condition ?? null)
           : null);
 
-  // Timer ref for toast cleanup - prevents memory leaks (2026 Best Practice)
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Cleanup toast timer on unmount to prevent memory leaks
   useEffect(() => {
     return () => {
       if (toastTimerRef.current) {
@@ -350,7 +245,6 @@ export default function ProductDetailScreen() {
     };
   }, []);
 
-  // 2026 Best Practice: Auto-dismiss saved items toast with cleanup
   const savedToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (savedToastState.show) {
@@ -370,7 +264,6 @@ export default function ProductDetailScreen() {
     };
   }, [savedToastState.show, dismissSavedToast]);
 
-  // Get condition display name for cart
   const getConditionDisplay = (): string | undefined => {
     if (currentVariantDisplaySelection?.condition) {
       return formatProductConditionDisplay(
@@ -383,7 +276,6 @@ export default function ProductDetailScreen() {
     return product?.condition;
   };
 
-  // Sync quantity with cart store
   const cartItem = (() => {
     if (!product) return undefined;
     return items.find(
@@ -398,10 +290,8 @@ export default function ProductDetailScreen() {
 
   const quantityInCart = cartItem ? cartItem.quantity : 0;
 
-  // Local state for editable quantity input to allow smooth typing
   const [localQty, setLocalQty] = useState(quantityInCart.toString());
 
-  // Sync local quantity when store changes
   useEffect(() => {
     setLocalQty(quantityInCart.toString());
   }, [quantityInCart]);
@@ -474,7 +364,6 @@ export default function ProductDetailScreen() {
     new Map()
   );
 
-  // H13 FIX: Clean up all particle timers on unmount
   useEffect(() => {
     const timers = particleTimersRef.current;
     return () => {
@@ -556,7 +445,6 @@ export default function ProductDetailScreen() {
     return { backgroundColor };
   });
 
-  // Effective price hooks — must run unconditionally before early returns
   const { price: effectivePrice, comparePrice: effectiveComparePrice } =
     useEffectivePrice(
       product ?? null,
@@ -565,7 +453,8 @@ export default function ProductDetailScreen() {
       negotiatedPrice
     );
 
-  // calculatedPrice is the price without negotiation, used in the NegotiationModal
+  useTrackProductRouteViewed(product, effectivePrice);
+
   const { price: calculatedPrice } = useEffectivePrice(
     product ?? null,
     currentVariantDisplaySelection,
@@ -656,98 +545,49 @@ export default function ProductDetailScreen() {
     setSelectedImageIndex(0);
   }, [images.length, selectedImageIndex, setSelectedImageIndex]);
 
+  const handleProductRouteBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+
+    router.replace('/');
+  };
+
   // 2026 Critical Fix: Handle invalid slug parameter
   if (!isValidSlug) {
     return (
-      <View
-        style={[styles.errorContainer, { backgroundColor: colors.background }]}
-      >
-        <Ionicons
-          name="alert-circle-outline"
-          size={64}
-          color={colors.textSecondary}
-        />
-        <Text style={[styles.errorTitle, { color: colors.text }]}>
-          Invalid Product Link
-        </Text>
-        <Text style={[styles.errorSubtitle, { color: colors.textSecondary }]}>
-          This product link is not valid. Please try searching for the product.
-        </Text>
-        <Pressable
-          style={[styles.retryButton, { backgroundColor: BRAND.primary }]}
-          onPress={() =>
-            router.canGoBack() ? router.back() : router.replace('/')
-          }
-          accessibilityLabel="Go back to previous screen"
-          accessibilityRole="button"
-        >
-          <Text style={styles.retryButtonText}>Go Back</Text>
-        </Pressable>
-      </View>
+      <ProductDetailRouteState
+        colors={colors}
+        onGoBack={handleProductRouteBack}
+        state="invalid"
+      />
     );
   }
 
   if (isLoading) {
-    return (
-      <View
-        style={[
-          styles.loadingContainer,
-          { backgroundColor: colors.background },
-        ]}
-      >
-        <ActivityIndicator size="large" color={BRAND.primary} />
-        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-          Loading product...
-        </Text>
-      </View>
-    );
+    return <ProductDetailRouteState colors={colors} state="loading" />;
   }
 
   if (error || !product) {
     // 2026 Best Practice: Show offline-specific error when not connected
     if (!isOnline) {
       return (
-        <View
-          style={[
-            styles.errorContainer,
-            { backgroundColor: colors.background },
-          ]}
-        >
-          <OfflineEmptyState
-            title="Product Unavailable Offline"
-            description="Connect to the internet to view this product. It will auto-retry when your connection is restored."
-            onRetry={() => refetch()}
-          />
-        </View>
+        <ProductDetailRouteState
+          colors={colors}
+          onRetry={() => refetch()}
+          state="offline"
+        />
       );
     }
 
     return (
-      <View
-        style={[styles.errorContainer, { backgroundColor: colors.background }]}
-      >
-        <Ionicons
-          name="alert-circle-outline"
-          size={64}
-          color={colors.textSecondary}
-        />
-        <Text style={[styles.errorTitle, { color: colors.text }]}>
-          Product not found
-        </Text>
-        <Text style={[styles.errorSubtitle, { color: colors.textSecondary }]}>
-          {error || 'This product may no longer be available'}
-        </Text>
-        <Pressable
-          style={[styles.retryButton, { backgroundColor: BRAND.primary }]}
-          onPress={() =>
-            router.canGoBack() ? router.back() : router.replace('/')
-          }
-          accessibilityLabel="Go back to previous screen"
-          accessibilityRole="button"
-        >
-          <Text style={styles.retryButtonText}>Go Back</Text>
-        </Pressable>
-      </View>
+      <ProductDetailRouteState
+        colors={colors}
+        error={error}
+        onGoBack={handleProductRouteBack}
+        state="error"
+      />
     );
   }
 
@@ -842,6 +682,7 @@ export default function ProductDetailScreen() {
       condition: conditionDisplay,
       variant_name: currentVariantDisplaySelection?.variant.name,
     });
+    void trackProductRouteAddToCart(product, effectivePrice);
 
     setShowAddedToast(true);
     // Clear any existing timer before setting a new one (2026 Best Practice)
@@ -950,7 +791,11 @@ export default function ProductDetailScreen() {
             <Pressable
               onPress={() => {
                 haptics.light();
+                const shouldTrackWishlistAdd = !isSaved(product.id);
                 toggleSaved(product);
+                if (shouldTrackWishlistAdd) {
+                  void trackProductRouteWishlistAdd(product, effectivePrice);
+                }
               }}
               hitSlop={12}
               accessibilityLabel={
@@ -1212,42 +1057,6 @@ export default function ProductDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 14,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 40,
-  },
-  errorTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  errorSubtitle: {
-    fontSize: 14,
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  retryButton: {
-    marginTop: 24,
-    paddingHorizontal: 32,
-    paddingVertical: 12,
-    borderRadius: 24,
-  },
-  retryButtonText: {
-    color: '#FFF',
-    fontWeight: '600',
   },
   header: {
     position: 'absolute',

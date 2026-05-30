@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   mutateAsync: vi.fn(),
   routerPush: vi.fn(),
+  useAnalyticsOverview: vi.fn(),
   useTransactionReview: vi.fn(),
   useUpdateTransactionCostPrice: vi.fn(),
 }));
@@ -75,8 +76,11 @@ vi.mock('react-native-edge-to-edge', () => ({
   SystemBars: () => null,
 }));
 
-vi.mock('@expo/vector-icons', () => ({
+vi.mock('@react-native-vector-icons/ionicons', () => ({
   Ionicons: () => null,
+
+  default: () => null,
+  __esModule: true,
 }));
 
 vi.mock('expo-router', async () => {
@@ -116,6 +120,10 @@ vi.mock('@/hooks/useCurrency', () => ({
     format: (amount: number) => `₦${amount.toLocaleString('en-US')}`,
     symbol: '₦',
   }),
+}));
+
+vi.mock('@/hooks/useAnalyticsOverview', () => ({
+  useAnalyticsOverview: mocks.useAnalyticsOverview,
 }));
 
 vi.mock('@/hooks/useTransactionReview', () => ({
@@ -346,6 +354,13 @@ describe('TransactionsScreen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.mutateAsync.mockResolvedValue(undefined);
+    mocks.useAnalyticsOverview.mockReturnValue({
+      data: {
+        summary: {
+          profit: { value: 1250 },
+        },
+      },
+    });
     mocks.useTransactionReview.mockReturnValue({
       data: sampleOrders,
       error: null,
@@ -404,6 +419,51 @@ describe('TransactionsScreen', () => {
     render(<TransactionsScreen />);
 
     expect(screen.getByText('No transactions yet.')).toBeInTheDocument();
+  });
+
+  it('loads the estimated profit from the current-month analytics range', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-25T12:00:00.000Z'));
+
+    try {
+      render(<TransactionsScreen />);
+
+      expect(mocks.useAnalyticsOverview).toHaveBeenCalledTimes(1);
+      const [{ endDate, startDate }] = mocks.useAnalyticsOverview.mock.calls[0];
+      expect(startDate.getFullYear()).toBe(2026);
+      expect(startDate.getMonth()).toBe(4);
+      expect(startDate.getDate()).toBe(1);
+      expect(startDate.getHours()).toBe(0);
+      expect(endDate.getFullYear()).toBe(2026);
+      expect(endDate.getMonth()).toBe(4);
+      expect(endDate.getDate()).toBe(25);
+      expect(endDate.getHours()).toBe(23);
+      expect(screen.getByText('₦1,250')).toBeInTheDocument();
+      expect(screen.queryByText('₦4,000')).not.toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not report zero profit while the monthly aggregate is loading', () => {
+    mocks.useAnalyticsOverview.mockReturnValue({ data: undefined });
+
+    render(<TransactionsScreen />);
+
+    expect(screen.getByText('--')).toBeInTheDocument();
+    expect(screen.queryByText('₦0')).not.toBeInTheDocument();
+  });
+
+  it('shows when the monthly estimated profit is unavailable', () => {
+    mocks.useAnalyticsOverview.mockReturnValue({
+      data: undefined,
+      error: new Error('analytics unavailable'),
+    });
+
+    render(<TransactionsScreen />);
+
+    expect(screen.getByText('Unavailable')).toBeInTheDocument();
+    expect(screen.queryByText('--')).not.toBeInTheDocument();
   });
 
   it('shows a validation error before saving an invalid cost price', async () => {

@@ -27,6 +27,9 @@ vi.mock('@/lib/storefront-route-identifier', () => ({
   resolveRouteIdentifier: vi.fn(() => 'ogabassey'),
 }));
 
+import { getMerchantByIdentifier } from '@/lib/cached-data';
+import { resolveRouteIdentifier } from '@/lib/storefront-route-identifier';
+
 // ---- Tests ----
 
 describe('robots()', () => {
@@ -64,7 +67,10 @@ describe('robots()', () => {
     const result = await robots();
 
     expect(result.sitemap).toEqual([
-      'https://ogabassey.usebaci.com/sitemap.xml',
+      'https://ogabassey.usebaci.com/sitemap/static.xml',
+      'https://ogabassey.usebaci.com/sitemap/products.xml',
+      'https://ogabassey.usebaci.com/sitemap/categories.xml',
+      'https://ogabassey.usebaci.com/sitemap/commercial-support.xml',
       'https://ogabassey.usebaci.com/blog/sitemap.xml',
     ]);
   });
@@ -128,7 +134,10 @@ describe('robots()', () => {
     expect(disallows).not.toContain('/onboarding/');
     expect(disallows).not.toContain('/auth/');
     expect(result.sitemap).toEqual([
-      'https://ogabassey.usebaci.com/sitemap.xml',
+      'https://ogabassey.usebaci.com/sitemap/static.xml',
+      'https://ogabassey.usebaci.com/sitemap/products.xml',
+      'https://ogabassey.usebaci.com/sitemap/categories.xml',
+      'https://ogabassey.usebaci.com/sitemap/commercial-support.xml',
       'https://ogabassey.usebaci.com/blog/sitemap.xml',
     ]);
   });
@@ -148,8 +157,65 @@ describe('robots()', () => {
     expect(disallows).not.toContain('/_next/');
     expect(disallows).not.toContain('/dashboard/');
     expect(result.sitemap).toEqual([
-      'https://shop.ogabassey.com/sitemap.xml',
+      'https://shop.ogabassey.com/sitemap/static.xml',
+      'https://shop.ogabassey.com/sitemap/products.xml',
+      'https://shop.ogabassey.com/sitemap/categories.xml',
+      'https://shop.ogabassey.com/sitemap/commercial-support.xml',
       'https://shop.ogabassey.com/blog/sitemap.xml',
+    ]);
+  });
+
+  it('canonicalizes legacy blog subdomain robots to the root storefront host', async () => {
+    const { default: robots } = await import('./robots');
+    process.env.NEXT_PUBLIC_ROOT_DOMAIN = 'usebaci.com';
+    mockHost = 'blog.ogabassey.com';
+
+    const result = await robots();
+
+    expect(resolveRouteIdentifier).not.toHaveBeenCalled();
+    expect(getMerchantByIdentifier).toHaveBeenCalledWith('ogabassey.com');
+    expect(result.sitemap).toEqual([
+      'https://ogabassey.com/sitemap/static.xml',
+      'https://ogabassey.com/sitemap/products.xml',
+      'https://ogabassey.com/sitemap/categories.xml',
+      'https://ogabassey.com/sitemap/commercial-support.xml',
+      'https://ogabassey.com/blog/sitemap.xml',
+    ]);
+  });
+
+  it('canonicalizes legacy blog hosts case-insensitively', async () => {
+    const { default: robots } = await import('./robots');
+    process.env.NEXT_PUBLIC_ROOT_DOMAIN = 'usebaci.com';
+    mockHost = 'Blog.OgaBassey.com';
+
+    const result = await robots();
+
+    expect(resolveRouteIdentifier).not.toHaveBeenCalled();
+    expect(getMerchantByIdentifier).toHaveBeenCalledWith('ogabassey.com');
+    expect(result.sitemap).toEqual([
+      'https://ogabassey.com/sitemap/static.xml',
+      'https://ogabassey.com/sitemap/products.xml',
+      'https://ogabassey.com/sitemap/categories.xml',
+      'https://ogabassey.com/sitemap/commercial-support.xml',
+      'https://ogabassey.com/blog/sitemap.xml',
+    ]);
+  });
+
+  it('preserves ports when canonicalizing legacy blog hosts', async () => {
+    const { default: robots } = await import('./robots');
+    process.env.NEXT_PUBLIC_ROOT_DOMAIN = 'usebaci.com';
+    mockHost = 'blog.ogabassey.com:8443';
+
+    const result = await robots();
+
+    expect(resolveRouteIdentifier).not.toHaveBeenCalled();
+    expect(getMerchantByIdentifier).toHaveBeenCalledWith('ogabassey.com');
+    expect(result.sitemap).toEqual([
+      'https://ogabassey.com:8443/sitemap/static.xml',
+      'https://ogabassey.com:8443/sitemap/products.xml',
+      'https://ogabassey.com:8443/sitemap/categories.xml',
+      'https://ogabassey.com:8443/sitemap/commercial-support.xml',
+      'https://ogabassey.com:8443/blog/sitemap.xml',
     ]);
   });
 
@@ -250,6 +316,11 @@ describe('robots()', () => {
 
     const result = await robots();
 
-    expect(result.sitemap).toBe('https://ogabassey.usebaci.com/sitemap.xml');
+    expect(result.sitemap).toEqual([
+      'https://ogabassey.usebaci.com/sitemap/static.xml',
+      'https://ogabassey.usebaci.com/sitemap/products.xml',
+      'https://ogabassey.usebaci.com/sitemap/categories.xml',
+      'https://ogabassey.usebaci.com/sitemap/commercial-support.xml',
+    ]);
   });
 });

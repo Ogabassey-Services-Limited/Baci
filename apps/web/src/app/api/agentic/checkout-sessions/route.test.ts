@@ -5,10 +5,12 @@ const { mockPostCheckoutSession } = vi.hoisted(() => ({
   mockPostCheckoutSession: vi.fn(),
 }));
 
-vi.mock('@/app/api/agentic/checkout_sessions/route', () => ({
-  handleAgenticCheckoutSessionCreate: mockPostCheckoutSession,
-  POST: vi.fn(),
-}));
+vi.mock(
+  '@/app/api/agentic/checkout_sessions/checkout-session-create-handler',
+  () => ({
+    handleAgenticCheckoutSessionCreate: mockPostCheckoutSession,
+  })
+);
 
 describe('POST /api/agentic/checkout-sessions', () => {
   beforeEach(() => {

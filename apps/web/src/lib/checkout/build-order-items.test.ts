@@ -77,4 +77,73 @@ describe('buildCheckoutOrderItems', () => {
       }),
     ]);
   });
+
+  it('preserves quiz voucher metadata on gift checkout items', () => {
+    const items = buildCheckoutOrderItems([
+      {
+        id: '55555555-5555-4555-8555-555555555555',
+        name: 'iPhone 15 Pro Max',
+        price: 2100000,
+        quantity: 1,
+        quizAwardId: '44444444-4444-4444-8444-444444444444',
+        quizVoucherToken: 'signed-token',
+      },
+    ]);
+
+    expect(items).toEqual([
+      expect.objectContaining({
+        product_id: '55555555-5555-4555-8555-555555555555',
+        price: 0,
+        value: 0,
+        voucher_award_id: '44444444-4444-4444-8444-444444444444',
+        voucher_token: 'signed-token',
+      }),
+    ]);
+  });
+
+  it('omits quiz voucher metadata when only the award id is present', () => {
+    const [item] = buildCheckoutOrderItems([
+      {
+        id: '55555555-5555-4555-8555-555555555555',
+        name: 'iPhone 15 Pro Max',
+        price: 2100000,
+        quantity: 1,
+        quizAwardId: '44444444-4444-4444-8444-444444444444',
+      },
+    ]);
+
+    expect(item).not.toHaveProperty('voucher_award_id');
+    expect(item).not.toHaveProperty('voucher_token');
+  });
+
+  it('omits quiz voucher metadata when only the token is present', () => {
+    const [item] = buildCheckoutOrderItems([
+      {
+        id: '55555555-5555-4555-8555-555555555555',
+        name: 'iPhone 15 Pro Max',
+        price: 2100000,
+        quantity: 1,
+        quizVoucherToken: 'signed-token',
+      },
+    ]);
+
+    expect(item).not.toHaveProperty('voucher_award_id');
+    expect(item).not.toHaveProperty('voucher_token');
+  });
+
+  it('omits quiz voucher metadata when voucher fields are empty', () => {
+    const [item] = buildCheckoutOrderItems([
+      {
+        id: '55555555-5555-4555-8555-555555555555',
+        name: 'iPhone 15 Pro Max',
+        price: 2100000,
+        quantity: 1,
+        quizAwardId: '',
+        quizVoucherToken: '',
+      },
+    ]);
+
+    expect(item).not.toHaveProperty('voucher_award_id');
+    expect(item).not.toHaveProperty('voucher_token');
+  });
 });

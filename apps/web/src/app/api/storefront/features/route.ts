@@ -132,6 +132,13 @@ const DEFAULT_FEATURES: StorefrontFeatures = {
   autoBlogEnabled: false,
 };
 
+function normalizePreferredGateway(
+  gateway: 'paystack' | 'korapay',
+  paystackEnabled: boolean
+): 'paystack' | 'korapay' {
+  return !paystackEnabled && gateway === 'paystack' ? 'korapay' : gateway;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const parseResult = storefrontFeaturesQuerySchema.safeParse({
@@ -156,7 +163,7 @@ export async function GET(request: NextRequest) {
 
     const merchantLookupQuery = supabase
       .from('merchants')
-      .select('id, paystack_subaccount_code');
+      .select('id, country, paystack_subaccount_code');
     const merchantLookup = slug
       ? await merchantLookupQuery.eq('slug', slug).single()
       : await merchantLookupQuery.eq('id', merchantId).single();
@@ -207,16 +214,35 @@ export async function GET(request: NextRequest) {
 
     // If no settings, return defaults
     if (!settings) {
+      const paystackEnabled = isPaystackCheckoutAvailable({
+        country: merchant.country,
+        paystack_subaccount_code: merchant.paystack_subaccount_code,
+        feature_settings: {
+          paystack_enabled: DEFAULT_FEATURES.paystackEnabled,
+        },
+      });
+
       return NextResponse.json({
         ...DEFAULT_FEATURES,
-        paystackEnabled: isPaystackCheckoutAvailable({
-          paystack_subaccount_code: merchant.paystack_subaccount_code,
-          feature_settings: {
-            paystack_enabled: DEFAULT_FEATURES.paystackEnabled,
-          },
-        }),
+        paystackEnabled,
+        preferredLocalGateway: normalizePreferredGateway(
+          DEFAULT_FEATURES.preferredLocalGateway,
+          paystackEnabled
+        ),
+        preferredInternationalGateway: normalizePreferredGateway(
+          DEFAULT_FEATURES.preferredInternationalGateway,
+          paystackEnabled
+        ),
       });
     }
+
+    const paystackEnabled = isPaystackCheckoutAvailable({
+      country: merchant.country,
+      paystack_subaccount_code: merchant.paystack_subaccount_code,
+      feature_settings: {
+        paystack_enabled: settings.paystack_enabled ?? true,
+      },
+    });
 
     // Transform to public format (hide sensitive data like pixel IDs)
     const publicFeatures: StorefrontFeatures = {
@@ -227,12 +253,7 @@ export async function GET(request: NextRequest) {
       discountCodesEnabled: settings.discount_codes_enabled ?? true,
       guestCheckoutEnabled: settings.guest_checkout_enabled ?? true,
       // Payment gateways
-      paystackEnabled: isPaystackCheckoutAvailable({
-        paystack_subaccount_code: merchant.paystack_subaccount_code,
-        feature_settings: {
-          paystack_enabled: settings.paystack_enabled ?? true,
-        },
-      }),
+      paystackEnabled,
       korapayEnabled: settings.korapay_enabled ?? true,
       payOnDeliveryEnabled: settings.pay_on_delivery_enabled ?? false,
       creditDirectEnabled: settings.credit_direct_enabled ?? false,
@@ -242,9 +263,14 @@ export async function GET(request: NextRequest) {
       creditDirectMaxAmount: settings.credit_direct_max_amount ?? 500000,
       klumpMinAmount: settings.klump_min_amount ?? 10000,
       klumpMaxAmount: settings.klump_max_amount ?? 500000,
-      preferredLocalGateway: settings.preferred_local_gateway || 'paystack',
-      preferredInternationalGateway:
+      preferredLocalGateway: normalizePreferredGateway(
+        settings.preferred_local_gateway || 'paystack',
+        paystackEnabled
+      ),
+      preferredInternationalGateway: normalizePreferredGateway(
         settings.preferred_international_gateway || 'korapay',
+        paystackEnabled
+      ),
       shippingProviders: settings.shipping_providers ?? ['gigl', 'topship'],
       freeShippingThreshold: settings.free_shipping_threshold,
       collectPhone: settings.checkout_collect_phone ?? true,

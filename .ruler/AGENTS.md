@@ -73,6 +73,6 @@ Launch the Android dev client with `pnpm --filter baci-mobile-admin android:laun
 
 ## Deployment
 
-- Hosted on **Vercel** with auto-deploys from Git
+- Hosted on **Vercel**; production deploys use a local/prebuilt CI build and must finish with `vercel deploy --prebuilt --prod`. The default runner is the VPS prebuilt flow on `bassey@82.29.190.219`; owner-approved emergency fallback may use a GitHub-hosted runner for the same prebuilt flow.
 - Cron jobs in `vercel.json`
 - Database on Supabase (always-on PostgreSQL)

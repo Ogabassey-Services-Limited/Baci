@@ -11,7 +11,10 @@ import {
 import { createClient } from '@/lib/supabase/server';
 import { storefrontProductsQuerySchema } from '@/schemas/storefront-products-query';
 import type { StorefrontProductsQuery } from '@/schemas/storefront-products-query.types';
-import { storefrontProductsRouteData } from './storefront-products-route-data';
+import {
+  type RawStorefrontProductRow,
+  storefrontProductsRouteData,
+} from './storefront-products-route-data';
 
 type ProductFilters = StorefrontProductsQuery;
 
@@ -46,10 +49,14 @@ function createCachedProductsFetcher(
         getSupabaseAnonKey()
       );
       const hasInMemoryFilters = hasInMemoryStorefrontFilters(filters);
+      const selectColumns: string =
+        filters.compact === false
+          ? storefrontProductsRouteData.STOREFRONT_PRODUCTS_SELECT
+          : storefrontProductsRouteData.STOREFRONT_PRODUCTS_COMPACT_SELECT;
 
       let query = supabase
         .from('products')
-        .select(storefrontProductsRouteData.STOREFRONT_PRODUCTS_SELECT)
+        .select(selectColumns)
         .eq('merchant_id', merchantId)
         .eq('status', 'active');
 
@@ -103,11 +110,14 @@ function createCachedProductsFetcher(
           break;
       }
 
-      const { data: products, error } = await query;
+      const { data: products, error } = (await query) as {
+        data: RawStorefrontProductRow[] | null;
+        error: unknown;
+      };
 
       if (error) throw error;
 
-      let filteredProducts = products || [];
+      let filteredProducts: RawStorefrontProductRow[] = products || [];
 
       if (
         filters.category &&
@@ -160,15 +170,26 @@ function createCachedProductsFetcher(
   );
 }
 
-async function fetchProductsByIds(merchantId: string, ids: string[]) {
+async function fetchProductsByIds(
+  merchantId: string,
+  ids: string[],
+  options: { compact?: boolean } = {}
+) {
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
+  const selectColumns: string =
+    options.compact === false
+      ? storefrontProductsRouteData.STOREFRONT_PRODUCTS_SELECT
+      : storefrontProductsRouteData.STOREFRONT_PRODUCTS_COMPACT_SELECT;
 
-  const { data: products, error } = await supabase
+  const { data: products, error } = (await supabase
     .from('products')
-    .select(storefrontProductsRouteData.STOREFRONT_PRODUCTS_SELECT)
+    .select(selectColumns)
     .eq('merchant_id', merchantId)
-    .in('id', ids);
+    .in('id', ids)) as {
+    data: RawStorefrontProductRow[] | null;
+    error: unknown;
+  };
 
   if (error) throw error;
 
@@ -184,7 +205,7 @@ export async function GET(request: NextRequest) {
     );
 
     if (!parsed.success) {
-      console.error(
+      console.warn(
         'API Validation Failed:',
         JSON.stringify(parsed.error.flatten(), null, 2)
       );
@@ -228,7 +249,9 @@ export async function GET(request: NextRequest) {
         );
       }
 
-      const products = await fetchProductsByIds(merchantId, idList);
+      const products = await fetchProductsByIds(merchantId, idList, {
+        compact,
+      });
       return NextResponse.json(
         { products },
         {
@@ -243,7 +266,7 @@ export async function GET(request: NextRequest) {
       category: category || undefined,
       brand: brand || undefined,
       condition: condition || undefined,
-      compact: compact || undefined,
+      compact: compact ?? true,
       limit,
       min_price,
       max_price,

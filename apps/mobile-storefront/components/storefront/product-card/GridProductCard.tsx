@@ -1,9 +1,10 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons";
 import { Image } from 'expo-image';
-import { Pressable, Text, View } from 'react-native';
+import { Platform, Pressable, Text, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import Colors, { BRAND, withAlpha } from '@/constants/Colors';
 import { formatPrice, formatProductConditionDisplay } from '@/types/product';
+import { getProductCardShadowStyles } from '../ProductCard.shadows';
 import styles from '../ProductCard.styles';
 import type { GridProductCardProps } from './types';
 
@@ -39,16 +40,21 @@ export default function GridProductCard({
           backgroundColor: BRAND.primary,
           color: colors.background,
         };
+  const cardShadowStyles = getProductCardShadowStyles(
+    Platform.OS === 'web' ? 'web' : 'native',
+    shadowColor,
+    colors.black
+  );
 
   return (
     <AnimatedPressable
       style={[
         styles.gridContainer,
+        cardShadowStyles.gridContainer,
         {
           width: gridWidth,
           backgroundColor: colors.card,
           borderColor: colors.border,
-          shadowColor,
         },
         animatedStyle,
       ]}
@@ -62,7 +68,6 @@ export default function GridProductCard({
         <Pressable
           onPress={handleWishlistPress}
           style={styles.wishlistBtn}
-          pointerEvents="box-only"
           hitSlop={8}
           accessibilityLabel={
             isSaved
@@ -124,13 +129,12 @@ export default function GridProductCard({
           onPress={handleAddToCart}
           style={[
             styles.floatingCartBtn,
+            cardShadowStyles.floatingCartBtn,
             {
               backgroundColor: colors.card,
               borderColor: colors.border,
-              shadowColor: colors.black,
             },
           ]}
-          pointerEvents="box-only"
           accessibilityLabel={`Add ${product.name} to cart`}
           accessibilityRole="button"
         >

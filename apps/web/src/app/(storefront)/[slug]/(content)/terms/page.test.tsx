@@ -1,9 +1,24 @@
+import { render, screen } from '@testing-library/react';
 import { headers } from 'next/headers';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
+
+const mockConnection = vi.hoisted(() => vi.fn());
+const mockStorefrontDynamicMetadataMarker = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/cached-data', () => ({
   getMerchantByIdentifier: vi.fn(),
+}));
+
+vi.mock('next/server', () => ({
+  connection: () => mockConnection(),
+}));
+
+vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
+  StorefrontDynamicMetadataMarker: () => {
+    mockStorefrontDynamicMetadataMarker();
+    return <div aria-label="dynamic metadata marker" role="status" />;
+  },
 }));
 
 vi.mock('next/headers', () => ({
@@ -22,7 +37,12 @@ vi.mock('../pages/terms/terms-page-client', () => ({
   TermsPageClient: vi.fn(() => null),
 }));
 
-const { generateMetadata } = await import('./page');
+const { default: TermsPage, generateMetadata } = await import('./page');
+
+beforeEach(() => {
+  mockConnection.mockReset();
+  mockStorefrontDynamicMetadataMarker.mockReset();
+});
 
 describe('terms metadata', () => {
   it('returns fallback title when merchant is missing', async () => {
@@ -52,5 +72,33 @@ describe('terms metadata', () => {
 
     expect(metadata.alternates?.canonical).toBe('https://ogabassey.com/terms');
     expect(metadata.openGraph?.url).toBe('https://ogabassey.com/terms');
+  });
+});
+
+describe('terms page rendering', () => {
+  it('marks terms metadata as request-time rendered', async () => {
+    vi.mocked(getMerchantByIdentifier).mockResolvedValue(null);
+
+    await generateMetadata({
+      params: Promise.resolve({ slug: 'unknown' }),
+    });
+
+    expect(mockConnection).toHaveBeenCalledOnce();
+  });
+
+  it('returns the route shell with a dynamic metadata marker', async () => {
+    const element = await TermsPage({
+      params: Promise.resolve({ slug: 'ogabassey.com' }),
+    });
+
+    render(element);
+    expect(
+      screen.getByRole('status', { name: /loading page content/i })
+    ).toBeInTheDocument();
+    expect(mockStorefrontDynamicMetadataMarker).toHaveBeenCalledOnce();
+    expect(
+      screen.getByRole('status', { name: /dynamic metadata marker/i })
+    ).toBeInTheDocument();
+    expect(mockConnection).not.toHaveBeenCalled();
   });
 });

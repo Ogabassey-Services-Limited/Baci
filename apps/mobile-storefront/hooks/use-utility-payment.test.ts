@@ -6,6 +6,12 @@ import { useUtilityPayment } from '@/hooks/use-utility-payment';
 
 const mockUseMerchantPaymentSettings = jest.fn();
 const mockListSavedVtuCards = jest.fn();
+let mockWalletQuery: {
+  data?: { wallet: { balance: number } };
+  error?: Error | null;
+  isError?: boolean;
+  isLoading?: boolean;
+};
 
 jest.mock('@/hooks/useMerchantPaymentSettings', () => ({
   useMerchantPaymentSettings: () => mockUseMerchantPaymentSettings(),
@@ -24,7 +30,7 @@ jest.mock('@/lib/vtu-checkout', () => ({
 }));
 
 jest.mock('@/hooks/use-wallet', () => ({
-  useWallet: () => ({ data: { wallet: { balance: 0 } } }),
+  useWallet: () => mockWalletQuery,
 }));
 
 jest.mock('@/stores/auth-store', () => ({
@@ -75,6 +81,12 @@ describe('useUtilityPayment', () => {
     mockUseMerchantPaymentSettings.mockReturnValue({
       data: { paystack_enabled: true, korapay_enabled: true },
     });
+    mockWalletQuery = {
+      data: { wallet: { balance: 0 } },
+      error: null,
+      isError: false,
+      isLoading: false,
+    };
     mockListSavedVtuCards.mockResolvedValue([
       {
         id: 'card-1',
@@ -191,11 +203,17 @@ describe('useUtilityPayment', () => {
   // same selection. Pin the public shape so a future refactor that
   // moves the state elsewhere can't silently break the controllers.
   it('exposes walletBalance, walletSelection, and setWalletSelection', async () => {
-    const { result } = renderHook(() => useUtilityPayment(), {
+    mockWalletQuery = {
+      data: { wallet: { balance: 1_500 } },
+      error: null,
+      isError: false,
+      isLoading: false,
+    };
+    const { result } = renderHook(() => useUtilityPayment(500), {
       wrapper: createWrapper(),
     });
 
-    expect(result.current.walletBalance).toBe(0);
+    expect(result.current.walletBalance).toBe(1500);
     expect(result.current.walletSelection).toBeUndefined();
 
     act(() => {
@@ -206,5 +224,55 @@ describe('useUtilityPayment', () => {
       use: true,
       amount: 500,
     });
+  });
+
+  it('recalculates walletSelection from the latest amount after the wallet is toggled on', async () => {
+    mockWalletQuery = {
+      data: { wallet: { balance: 1_500 } },
+      error: null,
+      isError: false,
+      isLoading: false,
+    };
+    let amount = 500;
+
+    const { result, rerender } = renderHook(() => useUtilityPayment(amount), {
+      wrapper: createWrapper(),
+    });
+
+    act(() => {
+      result.current.setWalletSelection({ use: true, amount: 500 });
+    });
+
+    expect(result.current.walletSelection).toEqual({
+      use: true,
+      amount: 500,
+    });
+
+    amount = 1_000;
+    rerender(undefined);
+
+    expect(result.current.walletSelection).toEqual({
+      use: true,
+      amount: 1_000,
+    });
+  });
+
+  it('exposes wallet query loading and error state separately from a zero balance', () => {
+    const walletError = new Error('wallet unavailable');
+    mockWalletQuery = {
+      data: undefined,
+      error: walletError,
+      isError: true,
+      isLoading: false,
+    };
+
+    const { result } = renderHook(() => useUtilityPayment(), {
+      wrapper: createWrapper(),
+    });
+
+    expect(result.current.walletBalance).toBe(0);
+    expect(result.current.walletError).toBe(walletError);
+    expect(result.current.walletIsLoading).toBe(false);
+    expect(result.current.walletCanRender).toBe(false);
   });
 });

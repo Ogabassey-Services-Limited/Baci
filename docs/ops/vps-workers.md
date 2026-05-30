@@ -29,6 +29,13 @@ export NODE_ENV=production
 /home/bassey/baci-workers/bin/process-ai-storefront-jobs.sh
 ```
 
+The normal production path is event-triggered, not polling-first. Web enqueue
+paths POST a signed request to the VPS trigger listener at
+`/ai-storefront/trigger`; the listener starts
+`bin/process-ai-storefront-jobs.sh` immediately under the shared Ollama and
+storefront worker locks. Cron remains as a 10-minute recovery sweep for missed
+triggers, service restarts, or temporarily failed web-to-VPS calls.
+
 The import queue, Jumia order sync, and async storefront generation runners execute web-owned TypeScript entrypoints through `tsx` from a separate Baci repo checkout. `tsx` stays in `devDependencies` to avoid expanding the Next.js production dependency surface, so this full checkout must install development dependencies until those entrypoints are compiled to JavaScript before deployment.
 
 That Baci checkout is separate from the `vps-workers` deployment directory installed by `deploy.sh`. `vps-workers/deploy.sh` always installs the worker directory with `pnpm install --frozen-lockfile --prod`.
@@ -55,19 +62,26 @@ Some cron work intentionally remains in the web app because it needs web-only ru
 
 - `/api/cron/cleanup-orders`, scheduled daily at 01:00.
 - `/api/ai-jobs/worker`, scheduled daily at 02:00.
+- `supabase-retention-cleanup`, scheduled daily at 03:20.
 - `/api/cron/process-settlements`, scheduled daily at 05:00.
 - `/api/cron/reconcile-vtu-processing`, scheduled every 5 minutes.
 - `/api/cron/wallet-payouts`, scheduled daily at 06:00.
 - `/api/cron/vtu-cashback-summaries`, scheduled monthly on the 1st at 08:30.
 - `/api/cron/publish-scheduled-posts`, scheduled every 15 minutes.
 - `/api/inventory/push-alerts`, scheduled every 6 hours.
-- `storefront_layout_generation` storefront worker, scheduled every 2 minutes:
-  `*/2 * * * * flock -n /var/lock/ai-storefront.lock /home/bassey/baci-workers/bin/process-ai-storefront-jobs.sh >> /home/bassey/baci-workers/logs/ai-storefront-jobs.log 2>&1`
+- `storefront_layout_generation` storefront worker, started immediately by
+  `baci-ai-storefront-trigger.service` and swept every 10 minutes as a fallback:
+  `*/10 * * * * flock -n /home/bassey/baci-workers/locks/ollama-workload.lock flock -n /home/bassey/baci-workers/locks/ai-storefront-jobs.lock bash -lc 'export NODE_ENV=production && export BACI_WORKER_PROFILE=ai-storefront-jobs && cd /home/bassey/baci-workers && /home/bassey/baci-workers/bin/process-ai-storefront-jobs.sh' >> /home/bassey/baci-workers/logs/ai-storefront-jobs.log 2>&1`
+
+The VPS also runs `jobs/cleanup-agentic-request-records.mjs` directly against
+Supabase at minute 10 of every hour. It deletes `agentic_request_records` only
+after `expires_at` is at least one hour old, preserving the request replay and
+order-read health observation window while bounding telemetry retention.
 
 `/api/ai-jobs/worker` must remain limited to short web-safe jobs such as price
 list processing. It must not claim `storefront_layout_generation`; those jobs
-run through `/home/bassey/baci-workers/bin/process-ai-storefront-jobs.sh` every
-2 minutes with `flock`.
+run through `/home/bassey/baci-workers/bin/process-ai-storefront-jobs.sh` via
+the signed trigger service, with cron only as the 10-minute fallback sweep.
 
 These entries require `BACI_WEB_BASE_URL` and `CRON_SECRET` in `/home/bassey/baci-workers/.env`. `BACI_WEB_BASE_URL` must be an `https://` TLS-terminated production web origin, for example `https://ogabassey.com`; do not use `http://` for production web cron calls because `CRON_SECRET` is sent on each request. `CRON_SECRET` must exist in both the VPS worker environment and the web deployment environment with the same value; rotate both copies together through the normal secret-management process.
 
@@ -75,6 +89,13 @@ The storefront worker also requires `OLLAMA_STOREFRONT_BASE_URL` in the worker
 `.env` for the private Ollama/Gemma endpoint, and
 `AI_STOREFRONT_GENERATION_ENABLED=true` to process queued storefront jobs. Keep
 the flag `false` to pause generation without changing web onboarding.
+
+The trigger listener requires `AI_STOREFRONT_TRIGGER_SECRET` in the VPS worker
+environment. Keep `AI_STOREFRONT_TRIGGER_HOST=127.0.0.1` and expose only a
+TLS-terminated reverse proxy path to `/ai-storefront/trigger`. The web
+deployment needs the matching `AI_STOREFRONT_TRIGGER_URL` and
+`AI_STOREFRONT_TRIGGER_SECRET`; when those are absent, enqueueing still works
+and cron performs the fallback sweep.
 
 ## Troubleshooting
 
@@ -86,7 +107,26 @@ reachable from the VPS at `OLLAMA_STOREFRONT_BASE_URL`. Keep
 `AI_STOREFRONT_GENERATION_ENABLED=false` until a manual run succeeds and queue
 metadata shows bounded duration, retry count, and validation errors.
 
-If a web cron wrapper fails, inspect the matching log first: `/home/bassey/baci-workers/logs/ai-jobs-worker.log`, `/home/bassey/baci-workers/logs/reconcile-vtu-processing.log`, `/home/bassey/baci-workers/logs/wallet-payouts.log`, `/home/bassey/baci-workers/logs/publish-scheduled-posts.log`, or `/home/bassey/baci-workers/logs/inventory-push-alerts.log`. A 401 almost always means the VPS `CRON_SECRET` does not match the web deployment.
+If web-created storefront jobs do not start immediately, check the trigger
+service first:
+
+```bash
+systemctl --user status baci-ai-storefront-trigger.service
+journalctl --user -u baci-ai-storefront-trigger.service -n 100 --no-pager
+```
+
+Then verify the reverse proxy reaches `127.0.0.1:3917`, the web deployment and
+VPS worker share the same `AI_STOREFRONT_TRIGGER_SECRET`, and the worker lock
+files do not correspond to an actively running process.
+
+If a web cron wrapper fails, inspect the matching log first: `/home/bassey/baci-workers/logs/ai-jobs-worker.log`, `/home/bassey/baci-workers/logs/reconcile-vtu-processing.log`, `/home/bassey/baci-workers/logs/wallet-payouts.log`, `/home/bassey/baci-workers/logs/publish-scheduled-posts.log`, or `/home/bassey/baci-workers/logs/inventory-push-alerts.log`. A 401 almost always means the VPS `CRON_SECRET` does not match the web deployment. For request-retention cleanup failures, inspect `/home/bassey/baci-workers/logs/cleanup-agentic-request-records.log` and confirm the server-only Supabase worker credentials are current.
+
+If Supabase storage or database usage starts rising unexpectedly, inspect
+`/home/bassey/baci-workers/logs/cleanup-import-uploads.log` and
+`/home/bassey/baci-workers/logs/supabase-retention-cleanup.log`. The import
+cleanup removes stale terminal import preview rows and migration CSVs after
+`IMPORT_JOB_RETENTION_DAYS` days, while the retention worker bounds low-value
+analytics events, `cron.job_run_details`, and `net._http_response`.
 
 If a repo-backed TypeScript runner reports that `tsx` is missing, the separate Baci checkout used to run the web script was likely installed with production-only dependencies. Run `pnpm install --frozen-lockfile` in that checkout, then rerun the affected `/home/bassey/baci-workers/bin/*.sh` script.
 

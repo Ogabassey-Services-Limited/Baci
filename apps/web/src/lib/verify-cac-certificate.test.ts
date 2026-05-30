@@ -45,6 +45,7 @@ describe('extractCACCertificateData', () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
   });
 
@@ -59,9 +60,53 @@ describe('extractCACCertificateData', () => {
 
     expect(global.fetch).not.toHaveBeenCalled();
     expect(generateText).toHaveBeenCalledOnce();
+    expect(generateText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        maxRetries: 0,
+        timeout: 7_000,
+      })
+    );
     expect(result.rcNumber).toBe('RC123456');
     expect(result.businessName).toBe('BACI TECHNOLOGIES LTD');
     expect(result.documentType).toBe('Certificate of Incorporation');
+  });
+
+  it('falls back to Gemini when Ollama exceeds the bounded timeout', async () => {
+    vi.useFakeTimers();
+    vi.mocked(getOllamaBaseUrl).mockReturnValue('https://ollama.example.com');
+    vi.mocked(global.fetch).mockImplementationOnce((_input, init) => {
+      return new Promise<Response>((_resolve, reject) => {
+        const signal = init?.signal;
+        if (!signal) {
+          reject(new Error('Expected an abort signal'));
+          return;
+        }
+
+        signal.addEventListener(
+          'abort',
+          () => {
+            const abortError = new Error('Aborted');
+            abortError.name = 'AbortError';
+            reject(abortError);
+          },
+          { once: true }
+        );
+      });
+    });
+    vi.mocked(generateText).mockResolvedValueOnce({
+      text: validJsonResponse,
+    } as Awaited<ReturnType<typeof generateText>>);
+
+    const buffer = new Uint8Array([0xff, 0xd8, 0xff]);
+    const resultPromise = extractCACCertificateData(buffer, 'image/jpeg');
+
+    await vi.advanceTimersByTimeAsync(5_000);
+
+    await expect(resultPromise).resolves.toMatchObject({
+      rcNumber: 'RC123456',
+      businessName: 'BACI TECHNOLOGIES LTD',
+    });
+    expect(generateText).toHaveBeenCalledOnce();
   });
 
   it('uses Ollama for image files when OLLAMA_BASE_URL is configured', async () => {

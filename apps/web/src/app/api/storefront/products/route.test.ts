@@ -60,6 +60,31 @@ describe('GET /api/storefront/products', () => {
     expect(payload.error).toBe('Merchant ID is required');
   });
 
+  it('logs invalid query parameters as client warnings', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(vi.fn());
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(vi.fn());
+
+    try {
+      const response = await GET(
+        new NextRequest(
+          'http://localhost/api/storefront/products?merchant_id=not-a-uuid'
+        )
+      );
+      const payload = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(payload.error).toBe('Invalid parameters');
+      expect(warnSpy).toHaveBeenCalledWith(
+        'API Validation Failed:',
+        expect.stringContaining('Invalid uuid')
+      );
+      expect(errorSpy).not.toHaveBeenCalled();
+    } finally {
+      warnSpy.mockRestore();
+      errorSpy.mockRestore();
+    }
+  });
+
   it('matches category filters against category slugs as well as names', async () => {
     storefrontProductsRouteTestHarness.mockProductsResult.current = {
       data: [
@@ -244,6 +269,86 @@ describe('GET /api/storefront/products', () => {
     expect(
       storefrontProductsRouteTestHarness.mockProductsQuery.current?.limit
     ).toHaveBeenCalledWith(5);
+  });
+
+  it('uses the compact product projection when requested by listing callers', async () => {
+    storefrontProductsRouteTestHarness.mockProductsResult.current = {
+      data: [
+        storefrontProductsRouteTestHarness.createRawProduct({
+          id: 'compact-1',
+        }),
+      ],
+      error: null,
+    };
+
+    const response = await GET(
+      new NextRequest(createRequestUrl('compact=true&limit=5'))
+    );
+    const payload = await response.json();
+    const selectArg = String(
+      storefrontProductsRouteTestHarness.mockProductsQuery.current?.select.mock
+        .calls[0]?.[0]
+    );
+
+    expect(response.status).toBe(200);
+    expect(payload.products).toHaveLength(1);
+    expect(selectArg).not.toContain('description');
+    expect(selectArg).toContain('has_variants');
+    expect(selectArg).toContain('categories:category_id(id, name, slug)');
+    expect(selectArg).not.toContain('specifications');
+    expect(selectArg).not.toContain('product_key_specs');
+    expect(selectArg).not.toContain('variant_attributes');
+    expect(selectArg).not.toMatch(/\boffers\b/);
+  });
+
+  it('defaults listing callers to the compact product projection', async () => {
+    storefrontProductsRouteTestHarness.mockProductsResult.current = {
+      data: [
+        storefrontProductsRouteTestHarness.createRawProduct({
+          id: 'default-compact-1',
+        }),
+      ],
+      error: null,
+    };
+
+    const response = await GET(new NextRequest(createRequestUrl('limit=5')));
+    const payload = await response.json();
+    const selectArg = String(
+      storefrontProductsRouteTestHarness.mockProductsQuery.current?.select.mock
+        .calls[0]?.[0]
+    );
+
+    expect(response.status).toBe(200);
+    expect(payload.products).toHaveLength(1);
+    expect(selectArg).toContain('has_variants');
+    expect(selectArg).not.toContain('specifications');
+    expect(selectArg).not.toContain('variant_attributes');
+  });
+
+  it('allows explicit full projection for comparison-style callers', async () => {
+    storefrontProductsRouteTestHarness.mockProductsResult.current = {
+      data: [
+        storefrontProductsRouteTestHarness.createRawProduct({
+          id: 'full-1',
+        }),
+      ],
+      error: null,
+    };
+
+    const response = await GET(
+      new NextRequest(createRequestUrl('compact=false&limit=5'))
+    );
+    const payload = await response.json();
+    const selectArg = String(
+      storefrontProductsRouteTestHarness.mockProductsQuery.current?.select.mock
+        .calls[0]?.[0]
+    );
+
+    expect(response.status).toBe(200);
+    expect(payload.products).toHaveLength(1);
+    expect(selectArg).toContain('specifications');
+    expect(selectArg).toContain('variant_attributes');
+    expect(selectArg).toMatch(/\boffers\b/);
   });
 
   it('applies the image-presence filter when has_images=true', async () => {

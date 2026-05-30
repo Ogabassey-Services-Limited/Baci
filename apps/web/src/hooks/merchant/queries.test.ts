@@ -142,6 +142,11 @@ describe('fetchDashboardMerchant', () => {
       business_type: 'FASHION',
       slug: 'owner-store',
       feature_settings: null,
+      paystack_subaccount_code: null,
+      bank_account_number: '1234567890123456',
+      bank_account_name: 'Yodha Shopping',
+      bank_code: null,
+      bank_name: 'HDFC Bank',
       support_email: 'support@ogabassey.com',
       support_phone: '+2348000000000',
       legal_entity_name: 'Ogabassey Gadgets Ltd',
@@ -178,6 +183,10 @@ describe('fetchDashboardMerchant', () => {
     expect(result.merchant?.trust_profile).toEqual({
       founded_year: 2018,
     });
+    expect(result.merchant?.bank_account_number).toBe('1234567890123456');
+    expect(result.merchant?.bank_account_name).toBe('Yodha Shopping');
+    expect(result.merchant?.bank_code).toBeNull();
+    expect(result.merchant?.bank_name).toBe('HDFC Bank');
     expect(result.staffAccess.isOwner).toBe(true);
     expect(result.staffAccess.isStaff).toBe(false);
   });
@@ -239,6 +248,32 @@ describe('fetchDashboardMerchant', () => {
 
     const selectArg = merchantsHandler.select.mock.calls[0]?.[0] as string;
     expect(selectArg).not.toContain('custom_domain');
+  });
+
+  it('selects bank details for dashboard payment settings hydration', async () => {
+    const merchantsHandler = mockQueryChain({
+      data: {
+        id: 'merchant-1',
+        user_id: 'user-1',
+        business_name: 'Owner Store',
+        business_type: 'FASHION',
+        slug: 'owner-store',
+        feature_settings: null,
+      },
+      error: null,
+    });
+    const supabase = createMockSupabase({
+      merchants: merchantsHandler,
+      staff_members: mockQueryChain({ data: null, error: null }),
+    });
+
+    await fetchDashboardMerchant(supabase, 'user-1');
+
+    const selectArg = merchantsHandler.select.mock.calls[0]?.[0] as string;
+    expect(selectArg).toContain('bank_account_number');
+    expect(selectArg).toContain('bank_account_name');
+    expect(selectArg).toContain('bank_code');
+    expect(selectArg).toContain('bank_name');
   });
 });
 

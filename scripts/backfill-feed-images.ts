@@ -304,7 +304,9 @@ async function main() {
 
   console.log(`\nUpserted ${upserted}/${upsertRows.length} rows into product_feed_images (${failedRows} failed)`);
 
-  // 7. Mark stale rows — (product_id, source_url) pairs no longer in current set
+  // 7. Mark stale product-level rows — (product_id, source_url) pairs no
+  // longer in the current product.images source set. Variant-scoped feed-only
+  // rows are owned by the image-generation pipeline.
   const existingRows: { id: string; product_id: string; source_url: string }[] = [];
   let staleOffset = 0;
   let staleHasMore = true;
@@ -315,6 +317,7 @@ async function main() {
       .from('product_feed_images')
       .select('id, product_id, source_url')
       .eq('merchant_id', merchantId)
+      .is('variant_id', null)
       .neq('status', 'stale')
       .range(staleOffset, staleOffset + PAGE_SIZE - 1);
 

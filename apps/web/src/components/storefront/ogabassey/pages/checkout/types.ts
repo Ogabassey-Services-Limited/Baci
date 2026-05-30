@@ -108,9 +108,11 @@ export type PaymentMethod =
   | 'juicyway'
   | 'credpal'
   | 'credit_direct'
+  | 'klump'
   | 'invoice'
   | 'payforme'
   | 'pod'
   | 'bank_transfer'
+  | 'paypal'
   | '';
 export type PaymentTab = 'full' | 'installments';

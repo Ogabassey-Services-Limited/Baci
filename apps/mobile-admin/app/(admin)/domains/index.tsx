@@ -1,9 +1,4 @@
-/**
- * Domains Dashboard Listing
- * 2026 Refactor: Full native management
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons";
 import { useQuery } from '@tanstack/react-query';
 import { Stack, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -95,6 +90,7 @@ export default function DomainsDashboard() {
     queryFn: () => fetchMerchantDomains(merchantId as string),
     enabled: !!merchantId,
     ...(fallbackDomains.length > 0 && { placeholderData: fallbackDomains }),
+    staleTime: 1000 * 60 * 5,
   });
 
   const onRefresh = () => {

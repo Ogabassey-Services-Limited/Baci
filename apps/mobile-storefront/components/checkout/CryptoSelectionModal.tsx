@@ -1,16 +1,16 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons";
 import React, { useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
-import Colors, { BRAND, RADIUS, SHADOWS, SPACING } from '@/constants/Colors';
+import Colors, { BRAND, palette, SPACING, withAlpha } from '@/constants/Colors';
+import styles from './CryptoSelectionModal.styles';
 
 type Stablecoin = 'USDT' | 'USDC';
 type Network = 'TRX' | 'ETH' | 'MATIC' | 'AVAXC';
@@ -76,7 +76,7 @@ export function CryptoSelectionModal({
           {/* Header */}
           <View style={[styles.header, { backgroundColor: BRAND.primary }]}>
             <View style={styles.headerTitleRow}>
-              <Ionicons name="card-outline" size={20} color="#FFFFFF" />
+              <Ionicons name="card-outline" size={20} color={palette.white} />
               <Text style={styles.headerTitle}>Select Crypto Payment</Text>
             </View>
             <Pressable
@@ -85,7 +85,7 @@ export function CryptoSelectionModal({
               accessibilityRole="button"
               accessibilityLabel="Close modal"
             >
-              <Ionicons name="close" size={24} color="#FFFFFF" />
+              <Ionicons name="close" size={24} color={palette.white} />
             </Pressable>
           </View>
 
@@ -109,7 +109,7 @@ export function CryptoSelectionModal({
                         selectedCoin === coin ? BRAND.primary : colors.border,
                       backgroundColor:
                         selectedCoin === coin
-                          ? `${BRAND.primary}10`
+                          ? withAlpha(BRAND.primary, 0.06)
                           : 'transparent',
                     },
                   ]}
@@ -162,7 +162,7 @@ export function CryptoSelectionModal({
                             ? BRAND.primary
                             : colors.border,
                           backgroundColor: isSelected
-                            ? `${BRAND.primary}10`
+                            ? withAlpha(BRAND.primary, 0.06)
                             : 'transparent',
                         },
                       ]}
@@ -195,7 +195,6 @@ export function CryptoSelectionModal({
               {availableNetworks.length > 3 && (
                 <View
                   style={[styles.scrollHint, { backgroundColor: colors.card }]}
-                  pointerEvents="none"
                 >
                   <Ionicons
                     name="chevron-forward"
@@ -241,7 +240,7 @@ export function CryptoSelectionModal({
               ]}
             >
               {isProcessing ? (
-                <ActivityIndicator color="#FFFFFF" />
+                <ActivityIndicator color={palette.white} />
               ) : (
                 <Text style={styles.confirmBtnText}>
                   Continue with {selectedCoin} on {selectedNetwork}
@@ -259,128 +258,3 @@ export function CryptoSelectionModal({
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    padding: SPACING.md,
-  },
-  sheet: {
-    borderRadius: RADIUS.lg,
-    overflow: 'hidden',
-    ...SHADOWS.medium,
-  },
-  header: {
-    padding: SPACING.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  headerTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.xs,
-  },
-  headerTitle: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  closeBtn: {
-    padding: 4,
-  },
-  content: {
-    padding: SPACING.lg,
-  },
-  sectionLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: SPACING.sm,
-  },
-  optionsRow: {
-    flexDirection: 'row',
-    gap: SPACING.md,
-  },
-  optionCard: {
-    flex: 1,
-    borderWidth: 1.5,
-    borderRadius: RADIUS.md,
-    padding: SPACING.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  optionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  optionSubtitle: {
-    fontSize: 12,
-  },
-  networkContainer: {
-    position: 'relative',
-  },
-  networkScroll: {
-    gap: SPACING.sm,
-    paddingRight: SPACING.lg,
-  },
-  networkCard: {
-    width: 100,
-    borderWidth: 1.5,
-    borderRadius: RADIUS.md,
-    padding: SPACING.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  networkTime: {
-    fontSize: 10,
-    marginTop: 2,
-  },
-  scrollHint: {
-    position: 'absolute',
-    right: 0,
-    top: 0,
-    bottom: 0,
-    width: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-    opacity: 0.7,
-  },
-  infoBox: {
-    marginTop: SPACING.lg,
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: SPACING.md,
-    borderRadius: RADIUS.md,
-    gap: SPACING.sm,
-  },
-  infoTextContainer: {
-    flex: 1,
-  },
-  infoTitle: {
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  infoSubtitle: {
-    fontSize: 12,
-  },
-  confirmBtn: {
-    marginTop: SPACING.xl,
-    paddingVertical: SPACING.md,
-    borderRadius: RADIUS.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  confirmBtnText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  helperText: {
-    marginTop: SPACING.md,
-    textAlign: 'center',
-    fontSize: 12,
-  },
-});

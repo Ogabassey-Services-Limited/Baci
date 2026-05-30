@@ -69,20 +69,28 @@ export async function POST(request: Request) {
       const redactedEmail = email
         ? `${email.slice(0, 3)}***@${email.split('@')[1]}`
         : 'unknown';
-      logger.error({
+      const verifyErrorMessage = verifyError?.message ?? '';
+      const isExpectedOtpFailure =
+        verifyErrorMessage.includes('expired') ||
+        verifyErrorMessage.includes('invalid');
+      const logVerificationFailure = isExpectedOtpFailure
+        ? logger.warn
+        : logger.error;
+
+      logVerificationFailure({
         message: 'OTP verification error',
         error: verifyError,
         email: redactedEmail,
       });
 
-      if (verifyError?.message?.includes('expired')) {
+      if (verifyErrorMessage.includes('expired')) {
         return NextResponse.json(
           { error: 'Verification code has expired. Please request a new one.' },
           { status: 400 }
         );
       }
 
-      if (verifyError?.message?.includes('invalid')) {
+      if (verifyErrorMessage.includes('invalid')) {
         return NextResponse.json(
           { error: 'Invalid verification code. Please check and try again.' },
           { status: 400 }

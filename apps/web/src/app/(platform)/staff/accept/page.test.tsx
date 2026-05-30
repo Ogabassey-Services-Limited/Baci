@@ -3,9 +3,8 @@ import { render, screen } from '@testing-library/react';
 import { redirect } from 'next/navigation';
 import type { ReactElement, ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import StaffAcceptPage, {
-  StaffAcceptPageContent,
-} from '@/app/(platform)/staff/accept/page';
+import StaffAcceptPage from '@/app/(platform)/staff/accept/page';
+import { StaffAcceptPageContent } from '@/app/(platform)/staff/accept/staff-accept-page-content';
 
 vi.mock('next/link', () => ({
   default: ({ children, href }: { children: ReactNode; href: string }) => (

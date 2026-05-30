@@ -8,6 +8,7 @@ const mockBuildRequestScopedStoreUrl = vi.fn();
 const mockNotFound = vi.fn(() => {
   throw new Error('NEXT_NOT_FOUND');
 });
+const mockConnection = vi.hoisted(() => vi.fn());
 
 vi.mock('next/headers', () => ({
   headers: () => mockHeaders(),
@@ -15,6 +16,10 @@ vi.mock('next/headers', () => ({
 
 vi.mock('next/navigation', () => ({
   notFound: () => mockNotFound(),
+}));
+
+vi.mock('next/server', () => ({
+  connection: () => mockConnection(),
 }));
 
 vi.mock('next/link', () => ({
@@ -109,9 +114,20 @@ describe('shipping page', () => {
     );
   });
 
+  it('marks shipping metadata as request-time rendered', async () => {
+    vi.mocked(getRequestScopedMerchant).mockResolvedValue(trustMerchant);
+    const { generateMetadata } = await import('./page');
+
+    await generateMetadata({
+      params: Promise.resolve({ slug: 'ogabassey' }),
+    });
+
+    expect(mockConnection).toHaveBeenCalledOnce();
+  });
+
   it('renders when the shipping summary exists', async () => {
     vi.mocked(getRequestScopedMerchant).mockResolvedValue(trustMerchant);
-    const { ShippingPageContent } = await import('./page');
+    const { ShippingPageContent } = await import('./shipping-page-content');
 
     render(
       await ShippingPageContent({
@@ -126,6 +142,18 @@ describe('shipping page', () => {
     expect(
       screen.getByRole('heading', { name: 'Shipping Policy' })
     ).toBeInTheDocument();
+  });
+
+  it('throws not found when the trust route context is unavailable', async () => {
+    vi.mocked(getRequestScopedMerchant).mockResolvedValue(null);
+    const { ShippingPageContent } = await import('./shipping-page-content');
+
+    await expect(
+      ShippingPageContent({
+        params: Promise.resolve({ slug: 'missing-store' }),
+      })
+    ).rejects.toThrow('NEXT_NOT_FOUND');
+    expect(mockNotFound).toHaveBeenCalledOnce();
   });
 
   it('renders when only shipping regions exist', async () => {
@@ -145,7 +173,7 @@ describe('shipping page', () => {
       socialLinks: {},
       derivedLinks: { contact: 'https://ogabassey.com/contact' },
     });
-    const { ShippingPageContent } = await import('./page');
+    const { ShippingPageContent } = await import('./shipping-page-content');
 
     render(
       await ShippingPageContent({
@@ -190,7 +218,7 @@ describe('shipping page', () => {
       socialLinks: {},
       derivedLinks: {},
     });
-    const { ShippingPageContent } = await import('./page');
+    const { ShippingPageContent } = await import('./shipping-page-content');
 
     render(
       await ShippingPageContent({
@@ -226,7 +254,7 @@ describe('shipping page', () => {
       socialLinks: {},
       derivedLinks: { contact: 'https://ogabassey.com/contact' },
     });
-    const { ShippingPageContent } = await import('./page');
+    const { ShippingPageContent } = await import('./shipping-page-content');
 
     render(
       await ShippingPageContent({

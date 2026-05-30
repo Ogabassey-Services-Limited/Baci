@@ -44,6 +44,7 @@ export interface PendingCheckoutOrderSnapshot {
   trackingToken?: string;
   merchantId: string;
   customerEmail: string;
+  customerPhone: string;
   checkoutFingerprint: string;
   amountDueToGateway: number;
   createdAt: string;
@@ -86,6 +87,11 @@ const NON_REUSABLE_SHIPPING_STATUSES = new Set([
   'completed',
   'cancelled',
 ]);
+const NON_REUSABLE_PAYMENT_STATUSES = new Set([
+  'paid',
+  'bnpl_approved',
+  'refunded',
+]);
 
 function normalizeText(value: string | null | undefined): string {
   return (value || '').trim().replace(/\s+/g, ' ').toLowerCase();
@@ -103,12 +109,16 @@ function normalizeVariantAttributes(attributes?: Record<string, string>) {
 
 /**
  * Normalizes checkout payment methods to the persisted order values used for
- * pending-order reuse. Card gateways (`paystack`, `korapay`) are stored as
- * `card`, methods with distinct downstream handling are persisted as-is, and
- * anything else falls back to `pod` for pay-on-delivery compatibility.
+ * pending-order reuse. Card-backed gateways (`paystack`, `korapay`, `klump`)
+ * are stored as `card`, methods with distinct downstream handling are persisted
+ * as-is, and anything else falls back to `pod` for pay-on-delivery compatibility.
  */
 export function normalizeOrderPaymentMethod(paymentMethod: PaymentMethod): string {
-  if (paymentMethod === 'paystack' || paymentMethod === 'korapay') {
+  if (
+    paymentMethod === 'paystack' ||
+    paymentMethod === 'korapay' ||
+    paymentMethod === 'klump'
+  ) {
     return 'card';
   }
 
@@ -118,7 +128,8 @@ export function normalizeOrderPaymentMethod(paymentMethod: PaymentMethod): strin
     paymentMethod === 'invoice' ||
     paymentMethod === 'juicyway' ||
     paymentMethod === 'bank_transfer' ||
-    paymentMethod === 'payforme'
+    paymentMethod === 'payforme' ||
+    paymentMethod === 'paypal'
   ) {
     return paymentMethod;
   }
@@ -224,7 +235,7 @@ export async function resolvePendingCheckoutOrder({
 
   if (
     !existingOrder?.id ||
-    existingOrder.payment_status === 'paid' ||
+    NON_REUSABLE_PAYMENT_STATUSES.has(existingOrder.payment_status || '') ||
     NON_REUSABLE_SHIPPING_STATUSES.has(existingOrder.shipping_status || '')
   ) {
     return { reusableOrder: null, clearStoredOrder: true };

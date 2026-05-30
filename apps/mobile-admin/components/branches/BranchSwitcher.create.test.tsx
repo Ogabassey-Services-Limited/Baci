@@ -28,11 +28,17 @@ const mocks = vi.hoisted(() => ({
   updateMutateAsync: vi.fn(),
 }));
 
-vi.mock('@expo/vector-icons', async () => {
+vi.mock('@react-native-vector-icons/ionicons', async () => {
   const React = await import('react');
   return {
     Ionicons: ({ name }: { name: string }) =>
       React.createElement('span', { 'data-icon': name }),
+
+    default: ({ name }: { name: string }) =>
+      React.createElement('span', {
+        'data-icon': name,
+      }),
+    __esModule: true,
   };
 });
 
@@ -235,7 +241,9 @@ describe('BranchSwitcher create and active branch filtering', () => {
 
     expect(mocks.createMutateAsync).not.toHaveBeenCalled();
     expect(
-      screen.getByText(/(too (small|short).*2|expected string to have >=2)/i)
+      screen.getByText(
+        /(too (small|short).*2|expected string to have >=2|string must contain at least 2)/i
+      )
     ).toBeInTheDocument();
   });
 });

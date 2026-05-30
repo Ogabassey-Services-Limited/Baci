@@ -18,6 +18,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { STOREFRONT_AGENT_ROUTES } from '@/config/storefront-agent-routes';
 import { STOREFRONT_FEED_ROUTES } from '@/config/storefront-feed-routes';
 import {
+  getStorefrontMetadataCacheBucket,
+  STOREFRONT_METADATA_CACHE_BUCKET_HEADER,
+} from '@/config/storefront-metadata-cache-bots';
+import {
   CLICK_ID_PARAMS,
   extractClickIdsFromUrl,
   generateClickIdCookies,
@@ -48,6 +52,10 @@ const RESERVED_SUBDOMAINS = new Set([
 
 // Valid subdomain pattern: alphanumeric and hyphens, 1-63 chars, no leading/trailing hyphens
 const VALID_SUBDOMAIN_REGEX = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
+const CACHE_UNSAFE_ENCODED_DOUBLE_QUOTE_REGEX = /%e2%80%(?:9c|9d|b3)/gi;
+const CACHE_UNSAFE_ENCODED_SINGLE_QUOTE_REGEX = /%e2%80%(?:98|99|b2)/gi;
+const CACHE_UNSAFE_ENCODED_SPACE_OR_DASH_REGEX =
+  /(?:%c2%a0|%e2%80%(?:90|91|92|93|94|95))/gi;
 
 // Platform-owned IndexNow key file. Scoped to this exact path so that merchants
 // remain free to publish their own `/<key>.txt` file on custom domains without
@@ -55,6 +63,8 @@ const VALID_SUBDOMAIN_REGEX = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
 const INDEXNOW_KEY_PATH = '/0751d5c882ab3d7c013ecbfe9e624d71.txt';
 const KLUMP_WEBHOOK_API_PATH = '/api/payments/klump/webhook';
 const LEGACY_KLUMP_WOOCOMMERCE_WEBHOOK_PATH = '/wc-api/klp_wc_payment_webhook';
+const STOREFRONT_ROOT_SITEMAP_PATH = '/sitemap.xml';
+const STOREFRONT_ROOT_SITEMAP_REWRITE_PATH = '/sitemap/root.xml';
 const PUBLIC_MACHINE_READABLE_PATHS = new Set<string>([
   ...Object.values(STOREFRONT_AGENT_ROUTES),
   ...Object.values(STOREFRONT_FEED_ROUTES),
@@ -64,14 +74,30 @@ const MERCHANT_CONTEXT_HEADERS = [
   'x-merchant-domain',
   'x-merchant-slug',
 ] as const;
+function appendVaryHeader(response: NextResponse, value: string): void {
+  const currentValue = response.headers.get('Vary');
+  const existingValues =
+    currentValue?.split(',').map((entry) => entry.trim().toLowerCase()) ?? [];
 
-function cloneRequestHeadersWithoutMerchantContext(
-  request: NextRequest
-): Headers {
+  if (existingValues.includes(value.toLowerCase())) {
+    return;
+  }
+
+  response.headers.set(
+    'Vary',
+    currentValue ? `${currentValue}, ${value}` : value
+  );
+}
+
+function buildProxyRequestHeaders(request: NextRequest): Headers {
   const headers = new Headers(request.headers);
   for (const header of MERCHANT_CONTEXT_HEADERS) {
     headers.delete(header);
   }
+  headers.set(
+    STOREFRONT_METADATA_CACHE_BUCKET_HEADER,
+    getStorefrontMetadataCacheBucket(request.headers.get('user-agent') ?? '')
+  );
   return headers;
 }
 
@@ -269,6 +295,35 @@ function lowercaseStorefrontPathname(pathname: string): string {
   }
 
   return normalized;
+}
+
+function normalizeCacheSafeStorefrontPathname(pathname: string): string | null {
+  // Next remote cache currently serializes the request URL through ByteString
+  // constrained headers. Keep this targeted to imported punctuation and apply
+  // it on the raw URL path so existing escapes like %2F are preserved.
+  const punctuationNormalizedPathname = pathname
+    .split('/')
+    .map((segment) =>
+      segment
+        .replace(CACHE_UNSAFE_ENCODED_DOUBLE_QUOTE_REGEX, '')
+        .replace(CACHE_UNSAFE_ENCODED_SINGLE_QUOTE_REGEX, '')
+        .replace(CACHE_UNSAFE_ENCODED_SPACE_OR_DASH_REGEX, '-')
+        .replace(/[\u201c\u201d\u2033]/g, '')
+        .replace(/[\u2018\u2019\u2032]/g, '')
+        .replace(/[\u00a0\u2010-\u2015]/g, '-')
+    )
+    .join('/');
+
+  if (punctuationNormalizedPathname === pathname) {
+    return null;
+  }
+
+  const normalizedPathname = punctuationNormalizedPathname
+    .split('/')
+    .map((segment) => segment.replace(/-+/g, '-'))
+    .join('/');
+
+  return normalizedPathname || '/';
 }
 
 function isLegacyKlumpWooCommerceWebhookPath(pathname: string): boolean {
@@ -501,7 +556,7 @@ function buildMerchantFeedPassThroughResponse({
   customDomain?: string;
   merchantSlug?: string | null;
 }): NextResponse {
-  const feedHeaders = cloneRequestHeadersWithoutMerchantContext(request);
+  const feedHeaders = buildProxyRequestHeaders(request);
 
   if (customDomain) {
     feedHeaders.set('x-custom-domain', customDomain);
@@ -527,6 +582,53 @@ function buildMerchantFeedPassThroughResponse({
     userAgent,
     routeType,
     isLocal,
+    undefined,
+    request,
+    hostname
+  );
+}
+
+function buildStorefrontRootSitemapRewriteResponse({
+  request,
+  pathname,
+  userAgent,
+  hostname,
+  routeIdentifier,
+  customDomain,
+  merchantSlug,
+}: {
+  request: NextRequest;
+  pathname: string;
+  userAgent: string;
+  hostname: string;
+  routeIdentifier: string;
+  customDomain?: string;
+  merchantSlug?: string | null;
+}): NextResponse {
+  const sitemapUrl = request.nextUrl.clone();
+  sitemapUrl.pathname = `/${routeIdentifier}${STOREFRONT_ROOT_SITEMAP_REWRITE_PATH}`;
+
+  const sitemapHeaders = buildProxyRequestHeaders(request);
+  if (customDomain) {
+    sitemapHeaders.set('x-custom-domain', customDomain);
+    sitemapHeaders.set('x-merchant-domain', customDomain);
+  }
+  if (merchantSlug) {
+    sitemapHeaders.set('x-merchant-slug', merchantSlug);
+  }
+
+  const response = NextResponse.rewrite(sitemapUrl, {
+    request: {
+      headers: sitemapHeaders,
+    },
+  });
+
+  return applySecurityHeaders(
+    response,
+    pathname,
+    userAgent,
+    'storefront',
+    isLocalhost(hostname),
     undefined,
     request,
     hostname
@@ -1043,6 +1145,25 @@ export async function proxy(request: NextRequest) {
     (prefix) =>
       lowerPathname === prefix || lowerPathname.startsWith(`${prefix}/`)
   );
+  const rawPathname = new URL(request.url).pathname;
+  const cacheSafeStorefrontPathname =
+    normalizeCacheSafeStorefrontPathname(rawPathname);
+
+  if (
+    cacheSafeStorefrontPathname &&
+    !isNonStorefrontPrefix &&
+    !isStaticFile &&
+    !isWellKnownPassthrough &&
+    !isLlmsPassthrough
+  ) {
+    return NextResponse.redirect(
+      new URL(
+        cacheSafeStorefrontPathname + request.nextUrl.search,
+        request.url
+      ),
+      308
+    );
+  }
 
   if (
     pathname !== normalizedStorefrontPathname &&
@@ -1225,6 +1346,21 @@ export async function proxy(request: NextRequest) {
       const domainPathSegments = pathname.split('/').filter(Boolean);
       const domainMerchantSlug = await getSlugForCustomDomain(domain);
 
+      if (pathname === STOREFRONT_ROOT_SITEMAP_PATH) {
+        // Next's `sitemap.ts` metadata file can lose to the dynamic
+        // `[category]` route on rewritten custom domains. Keep the public URL
+        // stable while routing to the explicit sitemap route handler.
+        return buildStorefrontRootSitemapRewriteResponse({
+          request,
+          pathname,
+          userAgent,
+          hostname,
+          routeIdentifier: domainMerchantSlug ?? domain,
+          customDomain: domain,
+          merchantSlug: domainMerchantSlug,
+        });
+      }
+
       // Public machine-readable contracts are App Router routes, not storefront pages.
       // Run before slug-prefix canonicalization so a merchant slug named
       // "feeds" cannot shadow the canonical XML feed endpoint.
@@ -1295,7 +1431,7 @@ export async function proxy(request: NextRequest) {
         const apiUrl = request.nextUrl.clone();
         apiUrl.pathname = strippedApiPathname;
 
-        const apiHeaders = cloneRequestHeadersWithoutMerchantContext(request);
+        const apiHeaders = buildProxyRequestHeaders(request);
         apiHeaders.set('x-custom-domain', domain);
         apiHeaders.set('x-merchant-domain', domain);
 
@@ -1324,8 +1460,7 @@ export async function proxy(request: NextRequest) {
       // API routes should NOT be rewritten - they exist at /api/*, not /domain/api/*
       // This fixes 405 errors when calling APIs from custom domains
       if (pathname.startsWith('/api')) {
-        const requestHeaders =
-          cloneRequestHeadersWithoutMerchantContext(request);
+        const requestHeaders = buildProxyRequestHeaders(request);
         requestHeaders.set('x-custom-domain', domain);
         requestHeaders.set('x-merchant-domain', domain);
 
@@ -1358,8 +1493,7 @@ export async function proxy(request: NextRequest) {
 
       if (isAlreadyRewritten) {
         // Already rewritten, just pass through with headers set
-        const requestHeaders =
-          cloneRequestHeadersWithoutMerchantContext(request);
+        const requestHeaders = buildProxyRequestHeaders(request);
         requestHeaders.set('x-custom-domain', domain);
         requestHeaders.set('x-merchant-domain', domain);
 
@@ -1389,15 +1523,20 @@ export async function proxy(request: NextRequest) {
 
       // Sitemap file paths: rewrite using merchant slug (not domain) to avoid
       // dots in [slug], which break Next.js metadata file-convention routing.
-      if (pathname.startsWith('/sitemap') || pathname === '/blog/sitemap.xml') {
+      if (
+        pathname.startsWith('/sitemap/') ||
+        pathname === '/blog/sitemap.xml'
+      ) {
         const sitemapUrl = request.nextUrl.clone();
         // Use merchant slug if found, otherwise fall through to domain-based rewrite
         sitemapUrl.pathname = `/${domainMerchantSlug ?? domain}${pathname}`;
 
-        const sitemapHeaders =
-          cloneRequestHeadersWithoutMerchantContext(request);
+        const sitemapHeaders = buildProxyRequestHeaders(request);
         sitemapHeaders.set('x-custom-domain', domain);
         sitemapHeaders.set('x-merchant-domain', domain);
+        if (domainMerchantSlug) {
+          sitemapHeaders.set('x-merchant-slug', domainMerchantSlug);
+        }
 
         const response = NextResponse.rewrite(sitemapUrl, {
           request: {
@@ -1427,7 +1566,7 @@ export async function proxy(request: NextRequest) {
           const mdUrl = request.nextUrl.clone();
           mdUrl.pathname = toLlmApiPath(pathname, domainMerchantSlug);
 
-          const mdHeaders = cloneRequestHeadersWithoutMerchantContext(request);
+          const mdHeaders = buildProxyRequestHeaders(request);
           mdHeaders.set('x-custom-domain', domain);
           mdHeaders.set('x-merchant-domain', domain);
 
@@ -1442,7 +1581,7 @@ export async function proxy(request: NextRequest) {
       const url = request.nextUrl.clone();
       url.pathname = `/${domain}${pathname}`;
 
-      const requestHeaders = cloneRequestHeadersWithoutMerchantContext(request);
+      const requestHeaders = buildProxyRequestHeaders(request);
       requestHeaders.set('x-custom-domain', domain);
       requestHeaders.set('x-merchant-domain', domain);
 
@@ -1513,7 +1652,7 @@ export async function proxy(request: NextRequest) {
     // Do NOT rewrite API routes to /[subdomain]/api/...
     // Instead, pass them through with headers
     if (pathname.startsWith('/api')) {
-      const requestHeaders = cloneRequestHeadersWithoutMerchantContext(request);
+      const requestHeaders = buildProxyRequestHeaders(request);
       requestHeaders.set('x-merchant-slug', subdomain as string);
 
       // Pass through without rewriting path
@@ -1548,13 +1687,24 @@ export async function proxy(request: NextRequest) {
       });
     }
 
+    if (pathname === STOREFRONT_ROOT_SITEMAP_PATH) {
+      return buildStorefrontRootSitemapRewriteResponse({
+        request,
+        pathname,
+        userAgent,
+        hostname,
+        routeIdentifier: subdomain,
+        merchantSlug: subdomain,
+      });
+    }
+
     // LLM markdown mirrors: rewrite .md paths to /api/llm/ to avoid
     // route collisions with dynamic [category] segments in the storefront tree.
     if (pathname.endsWith('.md')) {
       const mdUrl = request.nextUrl.clone();
       mdUrl.pathname = toLlmApiPath(pathname, subdomain as string);
 
-      const mdHeaders = cloneRequestHeadersWithoutMerchantContext(request);
+      const mdHeaders = buildProxyRequestHeaders(request);
       mdHeaders.set('x-merchant-slug', subdomain as string);
 
       return NextResponse.rewrite(mdUrl, {
@@ -1565,7 +1715,7 @@ export async function proxy(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = `/${subdomain}${pathname}`;
 
-    const requestHeaders = cloneRequestHeadersWithoutMerchantContext(request);
+    const requestHeaders = buildProxyRequestHeaders(request);
     requestHeaders.set('x-merchant-slug', subdomain as string);
 
     const response = NextResponse.rewrite(url, {
@@ -1618,6 +1768,28 @@ export async function proxy(request: NextRequest) {
           return NextResponse.redirect(customDomainUrl, 301);
         }
       }
+    }
+  }
+
+  if (
+    (isRootDomain(hostname, ROOT_DOMAIN) || isVercelPreview(hostname)) &&
+    !isLocalhost(hostname)
+  ) {
+    const pathSegments = pathname.split('/').filter(Boolean);
+    if (
+      pathSegments.length === 2 &&
+      pathSegments[1]?.toLowerCase() === 'sitemap.xml' &&
+      isValidSubdomain(pathSegments[0]) &&
+      !RESERVED_SUBDOMAINS.has(pathSegments[0])
+    ) {
+      return buildStorefrontRootSitemapRewriteResponse({
+        request,
+        pathname,
+        userAgent,
+        hostname,
+        routeIdentifier: pathSegments[0],
+        merchantSlug: pathSegments[0],
+      });
     }
   }
 
@@ -1719,6 +1891,12 @@ function applySecurityHeaders(
 
   // Set pathname header for server components to detect current route
   response.headers.set('x-pathname', pathname);
+
+  if (routeType === 'storefront') {
+    // Keep this for direct middleware responses; next.config.ts owns the final
+    // HTML Vary because rewritten app responses can replace middleware Vary.
+    appendVaryHeader(response, STOREFRONT_METADATA_CACHE_BUCKET_HEADER);
+  }
 
   // HSTS: Enforce HTTPS with subdomains and preload (Lighthouse Best Practice)
   // Skip on localhost to avoid Unlighthouse/CI failures (ERR_SSL_PROTOCOL_ERROR)

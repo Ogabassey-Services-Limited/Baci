@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useMerchant } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
+import { fetchWithCsrf } from '@/lib/api-client';
 
 interface UseIntegrationSettingsOptions<T> {
   /** Keys to fetch from the merchant features API */
@@ -77,7 +78,7 @@ export function useIntegrationSettings<T extends object>({
   // Save settings to the features API
   const saveSettings = async (updates: Partial<T>) => {
     try {
-      const response = await fetch('/api/merchant/features', {
+      const response = await fetchWithCsrf('/api/merchant/features', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updates),

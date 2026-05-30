@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons";
 import * as ImagePicker from 'expo-image-picker';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -47,6 +47,7 @@ export default function BlogPostDetailScreen() {
   const [excerpt, setExcerpt] = useState('');
   const [category, setCategory] = useState('');
   const [featuredImage, setFeaturedImage] = useState('');
+  const [publishedAt, setPublishedAt] = useState<string | null>(null);
   const [status, setStatus] = useState<'draft' | 'published' | 'archived'>(
     'draft'
   );
@@ -58,7 +59,9 @@ export default function BlogPostDetailScreen() {
       try {
         const { data, error } = await supabase
           .from('blog_posts')
-          .select('title, excerpt, category, featured_image_url, status')
+          .select(
+            'title, excerpt, category, featured_image_url, status, published_at'
+          )
           .eq('id', id)
           .eq('merchant_id', merchant.id)
           .single();
@@ -68,6 +71,7 @@ export default function BlogPostDetailScreen() {
         setExcerpt(data.excerpt || '');
         setCategory(data.category || '');
         setFeaturedImage(data.featured_image_url || '');
+        setPublishedAt(data.published_at || null);
         setStatus(data.status);
       } catch (e) {
         console.error(e);
@@ -147,19 +151,27 @@ export default function BlogPostDetailScreen() {
     }
   };
 
-  const handleSave = async () => {
+  const persistPost = async (
+    nextStatus: 'draft' | 'published' | 'archived' = status
+  ) => {
     setIsSaving(true);
     try {
       if (!merchant?.id) {
         throw new Error('Merchant ID is missing');
       }
 
+      const nextPublishedAt =
+        nextStatus === 'published'
+          ? publishedAt || new Date().toISOString()
+          : publishedAt;
+
       const payload = {
         title,
         excerpt,
         category,
         featured_image_url: featuredImage,
-        status,
+        status: nextStatus,
+        published_at: nextPublishedAt,
         merchant_id: merchant.id,
         updated_at: new Date().toISOString(),
       };
@@ -184,12 +196,37 @@ export default function BlogPostDetailScreen() {
         if (error) throw error;
       }
 
+      setStatus(nextStatus);
+      setPublishedAt(nextPublishedAt);
       router.back();
     } catch (e: unknown) {
       Alert.alert('Error', (e as Error).message);
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleSave = async () => {
+    await persistPost();
+  };
+
+  const handlePublishToggle = async () => {
+    await persistPost(status === 'published' ? 'draft' : 'published');
+  };
+
+  const handlePreview = () => {
+    if (id === 'new') {
+      Alert.alert(
+        'Save post first',
+        'Save this post before opening the mobile preview.'
+      );
+      return;
+    }
+
+    router.push({
+      pathname: '/blog/preview',
+      params: { id },
+    });
   };
 
   const handleDelete = () => {
@@ -420,12 +457,34 @@ export default function BlogPostDetailScreen() {
         {/* Content Actions */}
         <View style={{ marginBottom: SPACING.lg }}>
           <Pressable
-            onPress={() =>
-              Alert.alert(
-                'Preview',
-                'Preview functionality coming soon! Check the web dashboard for live preview.'
-              )
+            onPress={handlePublishToggle}
+            disabled={isSaving}
+            style={({ pressed }) => [
+              styles.publishButton,
+              {
+                backgroundColor:
+                  status === 'published' ? colors.warning : colors.primary,
+              },
+              pressed && { opacity: 0.7 },
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel={
+              status === 'published' ? 'Unpublish Article' : 'Publish Article'
             }
+            accessibilityState={{ disabled: isSaving }}
+          >
+            <Ionicons
+              name={status === 'published' ? 'archive-outline' : 'send'}
+              size={20}
+              color="#FFFFFF"
+            />
+            <Text style={styles.publishButtonText}>
+              {status === 'published' ? 'Unpublish Article' : 'Publish Article'}
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={handlePreview}
             style={({ pressed }) => [
               styles.actionButton,
               { backgroundColor: colors.card, borderColor: colors.primary },
@@ -588,6 +647,20 @@ const styles = StyleSheet.create({
   actionText: {
     fontSize: TYPOGRAPHY.size.md,
     fontFamily: TYPOGRAPHY.fontFamily.medium,
+  },
+  publishButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: SPACING.md,
+    borderRadius: RADIUS.md,
+    marginBottom: SPACING.md,
+    gap: 8,
+  },
+  publishButtonText: {
+    color: '#FFFFFF',
+    fontSize: TYPOGRAPHY.size.md,
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
   deleteButton: {
     padding: SPACING.md,

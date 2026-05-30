@@ -221,10 +221,13 @@ export async function GET(request: NextRequest) {
       return baseUrlResult.response;
     }
 
-    const { products } = await getCachedOpenAIFeedData(merchant.id);
+    const { imageManifest, products } = await getCachedOpenAIFeedData(
+      merchant.id
+    );
     const cacheHeaders = baseUrlResult.isStorefrontScoped
       ? CACHE_HEADERS.SHORT
       : CACHE_HEADERS.LONG;
+    const resolvedImageManifest = imageManifest ?? {};
 
     // Generate JSONL feed
     const feedLines =
@@ -232,9 +235,15 @@ export async function GET(request: NextRequest) {
         ? generateCurrentOpenAIProductFeed(
             products,
             merchant,
-            baseUrlResult.baseUrl
+            baseUrlResult.baseUrl,
+            resolvedImageManifest
           )
-        : generateOpenAIFeed(products, merchant, baseUrlResult.baseUrl);
+        : generateOpenAIFeed(
+            products,
+            merchant,
+            baseUrlResult.baseUrl,
+            resolvedImageManifest
+          );
     const feedContent = feedLines.join('\n');
 
     // Return gzipped if format=jsonl requested

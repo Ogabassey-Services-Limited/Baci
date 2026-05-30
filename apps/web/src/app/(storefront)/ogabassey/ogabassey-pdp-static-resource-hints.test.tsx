@@ -1,5 +1,5 @@
 import { renderToString } from 'react-dom/server';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('server-only', () => ({}));
 
@@ -50,11 +50,24 @@ vi.mock('next/image', () => ({
   getImageProps: mockGetImageProps,
 }));
 
-import { OgabasseyPdpStaticResourceHints } from '@/app/(storefront)/ogabassey/ogabassey-pdp-static-resource-hints';
+const mockPreload = vi.hoisted(() => vi.fn());
+
+vi.mock('react-dom', () => ({
+  preload: mockPreload,
+}));
+
+import {
+  OgabasseyPdpStaticResourceHints,
+  preloadOgabasseyPdpStaticResources,
+} from '@/app/(storefront)/ogabassey/ogabassey-pdp-static-resource-hints';
 import { FLASH_SALE_PROMO_IMAGE } from '@/components/storefront/ogabassey/components/hero-data';
 import imageLoader from '@/lib/image-loader';
 
 describe('OgabasseyPdpStaticResourceHints', () => {
+  beforeEach(() => {
+    mockPreload.mockClear();
+  });
+
   it('emits one desktop-only banner preload that matches the custom image loader', () => {
     const html = renderToString(<OgabasseyPdpStaticResourceHints />);
     const template = document.createElement('template');
@@ -88,11 +101,11 @@ describe('OgabasseyPdpStaticResourceHints', () => {
       imageLoader({ src: FLASH_SALE_PROMO_IMAGE, width: 640 })
     );
     expect(bannerPreload?.getAttribute('imagesrcset')).toContain('quality=75');
-    expect(bannerPreload?.getAttribute('imagesrcset')).toContain('format=webp');
+    expect(bannerPreload?.getAttribute('imagesrcset')).toContain('format=auto');
     expect(bannerPreload?.getAttribute('imagesizes')).toBe(
       '(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 1400px'
     );
-    expect(bannerPreload?.getAttribute('type')).toBe('image/webp');
+    expect(bannerPreload?.getAttribute('type')).toBeNull();
 
     // Only the banner is preloaded by this hint because the PDP wrapper uses
     // `hidden md:block`, so no mobile-media preload should exist.
@@ -154,5 +167,23 @@ describe('OgabasseyPdpStaticResourceHints', () => {
       '/image/banner?width=3840&format=png&quality=75'
     );
     expect(bannerPreload?.getAttribute('type')).toBe('image/png');
+  });
+
+  it('preloads the desktop banner without rendering a body link', () => {
+    preloadOgabasseyPdpStaticResources();
+
+    expect(mockPreload).toHaveBeenCalledWith(
+      imageLoader({ src: FLASH_SALE_PROMO_IMAGE, width: 3840 }),
+      expect.objectContaining({
+        as: 'image',
+        fetchPriority: 'high',
+        imageSizes:
+          '(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 1400px',
+        imageSrcSet: expect.stringContaining(
+          imageLoader({ src: FLASH_SALE_PROMO_IMAGE, width: 640 })
+        ),
+        media: '(min-width: 768px)',
+      })
+    );
   });
 });

@@ -130,6 +130,7 @@ describe('resolveAgenticMerchantContext', () => {
       await loadMerchantContextModule();
     const mock = createMerchantLookupMock({
       business_name: 'Demo Store',
+      custom_domain: 'demo.example.com',
       id: 'merchant-2',
       paystack_subaccount_code: null,
       slug: 'demo-store',
@@ -138,8 +139,9 @@ describe('resolveAgenticMerchantContext', () => {
     const context = await resolveAgenticMerchantContext(mock.supabase as never);
 
     expect(context?.id).toBe('merchant-2');
+    expect(context?.custom_domain).toBe('demo.example.com');
     expect(mock.from).toHaveBeenCalledWith('merchants');
-    expect(mock.select).not.toHaveBeenCalledWith(
+    expect(mock.select).toHaveBeenCalledWith(
       expect.stringContaining('custom_domain')
     );
     expect(mock.eq).toHaveBeenCalledWith('slug', 'demo-store');

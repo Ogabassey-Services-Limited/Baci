@@ -4,6 +4,7 @@ import { ArrowRight, CheckCircle, Loader2, Star } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { useCurrencyWithCountry } from '@/hooks/use-currency';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { BACI_GOOGLE_REVIEW_URL } from '@/lib/post-purchase-actions';
 import { asRoute } from '@/lib/routes';
@@ -24,6 +25,7 @@ interface OrderData {
     id: string;
     product_name?: string;
     name?: string;
+    gtin?: string | null;
     price: number;
     quantity: number;
     product_images?: string[];
@@ -45,6 +47,7 @@ function OrderSuccessContent() {
   const merchantContext = useMerchantSafe();
   const basePath = merchantContext?.basePath;
   const merchant = merchantContext?.merchant;
+  const { formatCurrency } = useCurrencyWithCountry(merchant?.country);
   const auth = useAuthSafe();
   const user = auth?.user;
 
@@ -100,6 +103,11 @@ function OrderSuccessContent() {
     : hasRecoveryState
       ? 'We could not validate this order from the current link. You can return to checkout or keep shopping while we sort it out.'
       : 'We are validating your order details now. This page will update as soon as your confirmation is ready.';
+  const googleCustomerReviewProducts =
+    order?.items
+      .map((item) => item.gtin?.trim())
+      .filter((gtin): gtin is string => Boolean(gtin))
+      .map((gtin) => ({ gtin })) ?? [];
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20 pt-10">
@@ -115,7 +123,8 @@ function OrderSuccessContent() {
               .toISOString()
               .split('T')[0]
           }
-          country="NG"
+          country={merchant.country || 'NG'}
+          products={googleCustomerReviewProducts}
         />
       )}
 
@@ -169,10 +178,7 @@ function OrderSuccessContent() {
                     Items ({order.items?.length || 0})
                   </span>
                   <span className="font-medium text-gray-900">
-                    {new Intl.NumberFormat('en-NG', {
-                      style: 'currency',
-                      currency: 'NGN',
-                    }).format(order.total)}
+                    {formatCurrency(order.total)}
                   </span>
                 </div>
                 {order.customer_email && (

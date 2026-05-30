@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   alert: vi.fn(),
   supabaseFrom: vi.fn(),
   deleteFn: vi.fn(),
+  updateFn: vi.fn(),
 }));
 
 // ---- Module mocks (must be before component import) ----
@@ -85,11 +86,15 @@ vi.mock('expo-router', () => ({
   useLocalSearchParams: () => ({ id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11' }),
 }));
 
-vi.mock('@expo/vector-icons', async () => {
+vi.mock('@react-native-vector-icons/ionicons', async () => {
   const React = await import('react');
   return {
     Ionicons: ({ name }: { name: string }) =>
       React.createElement('span', null, name),
+
+    default: ({ name }: { name: string }) =>
+      React.createElement('span', null, name),
+    __esModule: true,
   };
 });
 
@@ -167,12 +172,17 @@ function setupSupabaseMocks(deleteResult: { error: unknown }) {
   const eqId = vi.fn().mockReturnValue({ eq: eqMerchant });
   mocks.deleteFn.mockReturnValue({ eq: eqId });
 
+  const updateEqMerchant = vi.fn().mockResolvedValue({ error: null });
+  const updateEqId = vi.fn().mockReturnValue({ eq: updateEqMerchant });
+  mocks.updateFn.mockReturnValue({ eq: updateEqId });
+
   const selectSingle = vi.fn().mockResolvedValue({
     data: {
       title: 'Test Post',
       excerpt: 'Excerpt',
       category: 'Tech',
       featured_image_url: '',
+      published_at: null,
       status: 'draft',
     },
     error: null,
@@ -186,14 +196,10 @@ function setupSupabaseMocks(deleteResult: { error: unknown }) {
     select: selectMock,
     delete: mocks.deleteFn,
     insert: vi.fn().mockResolvedValue({ error: null }),
-    update: vi.fn().mockReturnValue({
-      eq: vi.fn().mockReturnValue({
-        eq: vi.fn().mockResolvedValue({ error: null }),
-      }),
-    }),
+    update: mocks.updateFn,
   });
 
-  return { eqId, eqMerchant };
+  return { eqId, eqMerchant, updateEqId, updateEqMerchant };
 }
 
 type AlertButton = { text: string; onPress?: () => Promise<void> };
@@ -217,7 +223,7 @@ describe('BlogPostDetailScreen - Delete handler', () => {
   it('scopes delete query to merchant_id for tenant isolation', async () => {
     const { eqId, eqMerchant } = setupSupabaseMocks({ error: null });
 
-    await act(() => {
+    await act(async () => {
       render(<BlogPostDetailScreen />);
     });
 
@@ -264,7 +270,7 @@ describe('BlogPostDetailScreen - Delete handler', () => {
     const supabaseError = { message: 'RLS policy violation', code: '42501' };
     setupSupabaseMocks({ error: supabaseError });
 
-    await act(() => {
+    await act(async () => {
       render(<BlogPostDetailScreen />);
     });
 
@@ -296,5 +302,64 @@ describe('BlogPostDetailScreen - Delete handler', () => {
 
     // router.back() should NOT be called on error
     expect(mocks.routerBack).not.toHaveBeenCalled();
+  });
+
+  it('publishes the current draft from an explicit publish button', async () => {
+    const { updateEqId, updateEqMerchant } = setupSupabaseMocks({
+      error: null,
+    });
+
+    await act(async () => {
+      render(<BlogPostDetailScreen />);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Publish Article')).toBeTruthy();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Publish Article'));
+    });
+
+    await waitFor(() => {
+      expect(mocks.updateFn).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 'published',
+          published_at: expect.any(String),
+        })
+      );
+    });
+    expect(updateEqId).toHaveBeenCalledWith(
+      'id',
+      'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'
+    );
+    expect(updateEqMerchant).toHaveBeenCalledWith(
+      'merchant_id',
+      'merchant-abc-123'
+    );
+    expect(mocks.routerBack).toHaveBeenCalled();
+  });
+
+  it('opens the native article preview instead of showing the placeholder alert', async () => {
+    setupSupabaseMocks({ error: null });
+
+    await act(async () => {
+      render(<BlogPostDetailScreen />);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Preview Article')).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByText('Preview Article'));
+
+    expect(mocks.routerPush).toHaveBeenCalledWith({
+      pathname: '/blog/preview',
+      params: { id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11' },
+    });
+    expect(mocks.alert).not.toHaveBeenCalledWith(
+      'Preview',
+      expect.stringContaining('coming soon')
+    );
   });
 });

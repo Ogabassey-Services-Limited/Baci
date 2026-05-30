@@ -19,8 +19,9 @@ on:
         type: string
 
 concurrency:
-  # Shared self-hosted runner serialization prevents pnpm store corruption.
-  group: baci-android-runner
+  # Serialize admin release runs only. Cross-app serialization is avoided because
+  # GitHub preserves only one pending run per concurrency group.
+  group: android-admin-release-${{ github.ref }}
   cancel-in-progress: false
 
 permissions:
@@ -29,6 +30,7 @@ permissions:
 env:
   JAVA_VERSION: '21'
   NODE_VERSION: '24'
+  ANDROID_NODE_OPTIONS: "--no-strip-types --max-old-space-size=2048"
   PNPM_STORE_DIR: ${{ github.workspace }}/.pnpm-store
   WORKING_DIR: apps/mobile-admin
   # Offset added to github.run_number to avoid collisions with
@@ -38,29 +40,16 @@ env:
 jobs:
   build-and-deploy:
     name: Build AAB & Upload to Play Store
-    runs-on: baci-android
-    # Cross-workflow VPS mutex — separate from `vps-deploy-build` to avoid
-    # silent-pending-cancel when 3+ heavy jobs queue against a single group
-    # (GHA only allows 1 running + 1 pending; a 3rd arrival evicts the
-    # pending one regardless of `cancel-in-progress: false`). Admin and
-    # storefront Android share `vps-android-build` so they serialise against
-    # each other but can run concurrently with deploy — the collision surfaces
-    # as a visible OOM/retry rather than a silently cancelled Play Store release.
-    concurrency:
-      group: vps-android-build
-      cancel-in-progress: false
-    timeout-minutes: 45
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
 
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
 
       - name: Setup pnpm
-        # standalone: true bypasses the npm install path. `dest` gives each job
-        # its own pnpm install location instead of the shared user-level
-        # ~/setup-pnpm/ — without it, concurrent jobs on the same VPS user race
-        # each other's downloads and leave the binary half-written, manifesting
-        # as `pnpm: 1: This: not found` exit 127 (runs 25461414210, 25467270212).
         uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
         with:
           standalone: true
@@ -87,15 +76,25 @@ jobs:
         with:
           store-dir: ${{ env.PNPM_STORE_DIR }}
 
-      # Node 22+ type stripping breaks expo-modules-core.
-      - name: Disable Node type stripping
-        run: echo "NODE_OPTIONS=--no-strip-types" >> "$GITHUB_ENV"
-
-      # VPS has persistent disk — pnpm store, Gradle caches, and Turbo cache
-      # survive across runs. No actions/cache needed.
+      - name: Cache Gradle packages
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-${{ runner.arch }}-mobile-admin-gradle-${{ hashFiles('pnpm-lock.yaml', 'apps/mobile-admin/package.json', 'apps/mobile-admin/android/build.gradle', 'apps/mobile-admin/android/settings.gradle', 'apps/mobile-admin/android/gradle.properties', 'apps/mobile-admin/android/app/build.gradle', 'apps/mobile-admin/android/gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-mobile-admin-gradle-
 
       - name: Install dependencies
-        run: .github/scripts/pnpm-install-with-retry.sh --frozen-lockfile
+        uses: ./.github/actions/pnpm-install-cached
+        env:
+          # Node 22+ type stripping breaks expo-modules-core; cap old-space for
+          # standard 7GB GitHub-hosted runners.
+          NODE_OPTIONS: ${{ env.ANDROID_NODE_OPTIONS }}
+        with:
+          store-dir: ${{ env.PNPM_STORE_DIR }}
+          install-command: .github/scripts/pnpm-install-with-retry.sh --frozen-lockfile
 
       - name: Fix Hermes compiler path
         # RN 0.83+ ships hermesc in the hermes-compiler package, but
@@ -163,6 +162,7 @@ jobs:
         working-directory: ${{ env.WORKING_DIR }}
         env:
           CI: "1"
+          NODE_OPTIONS: ${{ env.ANDROID_NODE_OPTIONS }}
           ANDROID_VERSION_CODE: ${{ env.VERSION_CODE }}
           EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
@@ -191,7 +191,8 @@ jobs:
       - name: Build Android App Bundle
         working-directory: ${{ env.WORKING_DIR }}/android
         env:
-          GRADLE_OPTS: "-Xmx4g"
+          GRADLE_OPTS: "-Xmx2048m -Dkotlin.daemon.jvm.options=-Xmx1024m"
+          NODE_OPTIONS: ${{ env.ANDROID_NODE_OPTIONS }}
           ANDROID_KEYSTORE_FILE: ${{ env.ANDROID_ADMIN_KEYSTORE_FILE }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
@@ -205,7 +206,7 @@ jobs:
           EXPO_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY }}
           EXPO_PUBLIC_REVENUECAT_API_KEY_ANDROID: ${{ secrets.EXPO_PUBLIC_REVENUECAT_API_KEY_ANDROID }}
           VERSION_CODE: ${{ env.VERSION_CODE }}
-        run: ./gradlew app:bundleRelease -x lint -x test --configure-on-demand --build-cache --parallel --no-daemon
+        run: ./gradlew app:bundleRelease -x lint -x test --configure-on-demand --build-cache --max-workers=2 --no-daemon
 
       - name: Upload AAB artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

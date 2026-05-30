@@ -17,6 +17,7 @@ function validPayload(overrides: Record<string, unknown> = {}) {
   return {
     businessName: 'Test Business',
     businessType: 'retail',
+    country: 'NG',
     brandColors: '#ff0000',
     logoUrl: 'https://example.com/logo.png',
     email: 'user@example.com',
@@ -59,6 +60,36 @@ describe('onboardingSchema', () => {
       validPayload({ businessType: '' })
     );
     expect(result.success).toBe(false);
+  });
+
+  it('rejects missing country', () => {
+    const { country: _country, ...payload } = validPayload();
+
+    const result = onboardingSchema.safeParse(payload);
+
+    expect(result.success).toBe(false);
+  });
+
+  it('normalizes country to uppercase ISO code', () => {
+    const result = onboardingSchema.safeParse(
+      validPayload({ country: ' in ' })
+    );
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.country).toBe('IN');
+    }
+  });
+
+  it.each(['1N', 'ZZZ', 'ZZ'])('rejects invalid country code %s', (country) => {
+    const result = onboardingSchema.safeParse(validPayload({ country }));
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(
+        result.error.issues.some((issue) => issue.path[0] === 'country')
+      ).toBe(true);
+    }
   });
 
   it('rejects invalid email', () => {
@@ -171,6 +202,7 @@ describe('mobileOnboardingSchema', () => {
     const result = mobileOnboardingSchema.safeParse({
       businessName: 'Mobile Store',
       businessType: 'fashion',
+      country: 'NG',
       brandColors: 'blue',
       email: 'mobile@test.com',
     });
@@ -212,6 +244,7 @@ describe('step1Schema', () => {
     const result = step1Schema.safeParse({
       businessName: 'My Shop',
       businessType: 'electronics',
+      country: 'NG',
     });
     expect(result.success).toBe(true);
   });
@@ -220,6 +253,7 @@ describe('step1Schema', () => {
     const result = step1Schema.safeParse({
       businessName: 'My Shop',
       businessType: 'electronics',
+      country: 'NG',
       slug: 'My Cool Store',
     });
     expect(result.success).toBe(true);
@@ -232,6 +266,7 @@ describe('step1Schema', () => {
     const result = step1Schema.safeParse({
       businessName: 'My Shop',
       businessType: 'electronics',
+      country: 'NG',
       slug: 'ab',
     });
     expect(result.success).toBe(false);

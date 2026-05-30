@@ -18,3 +18,18 @@
 ## 2025-05-19 - Exact getItemLayout only for fixed-axis FlatLists
 **Learning:** React Native's `getItemLayout` is safe only when each item has an exact, deterministic size on the scroll axis. Rough estimates for text-heavy vertical rows, country lists, addresses, or history cards can corrupt offsets when content wraps or font scaling changes.
 **Action:** Provide `getItemLayout` only when the rendered item enforces the exact scroll-axis dimension, such as a horizontal pager whose item width is the viewport width. Leave variable-height lists to React Native's measurement path.
+## 2025-05-24 - Prevent redundant queries by adding staleTime
+**Learning:** In the mobile admin app, several React Query hooks (`useStaffAccounts`, `useStoreReadiness`, `useQuickAddProductMatches`) lacked `staleTime` configurations, causing them to refetch data immediately upon remounting or window focus, leading to unnecessary Supabase database load.
+**Action:** Always configure `staleTime` (e.g., `1000 * 60 * 5` for 5 minutes) on data-fetching queries to prevent over-fetching when the user navigates between screens.
+## 2025-05-25 - Prevent redundant queries by adding staleTime to specific admin screens
+**Learning:** React Query hooks like `useQuery` without a configured `staleTime` default to 0. In mobile-admin components like `profile`, `kyc`, `domains`, `shipping`, `payment-methods`, and `expenses`, this causes Supabase data to be refetched on every screen focus, which is unnecessary for static data.
+**Action:** Always configure `staleTime` (e.g., `1000 * 60 * 5` for 5 minutes) on data-fetching hooks for relatively static data to prevent over-fetching when navigating back and forth to these screens.
+## 2025-05-25 - Prevent redundant queries by adding staleTime to specific admin screens
+**Learning:** React Query hooks like `useQuery` without a configured `staleTime` default to 0. In mobile-admin components like `useOrder`, this causes Supabase data to be refetched on every screen focus, which is unnecessary for static data.
+**Action:** Always configure `staleTime` (e.g., `1000 * 60` for 1 minute) on data-fetching hooks for relatively static data to prevent over-fetching when navigating back and forth to these screens.
+## 2025-05-27 - Prevent redundant queries by adding staleTime to specific admin screens
+**Learning:** React Query hooks like `useQuery` without a configured `staleTime` default to 0. In mobile-admin components like `useProductPickerVariants` and `useUnlinkedOrderItemReconciliation`, this causes Supabase data to be refetched on every screen focus, which is unnecessary for static data.
+**Action:** Always configure `staleTime` (e.g., `1000 * 60 * 5` for 5 minutes) on data-fetching hooks for relatively static data to prevent over-fetching when navigating back and forth to these screens.
+## 2025-05-30 - Prevent redundant queries by adding staleTime to specific admin screens
+**Learning:** React Query hooks like `useQuery` without a configured `staleTime` default to 0. In mobile-admin components like `analytics-config` and `payout-settings`, this causes Supabase data to be refetched on every screen focus, which is unnecessary for static configuration data.
+**Action:** Always configure `staleTime` (e.g., `1000 * 60 * 5` for 5 minutes) on data-fetching hooks for relatively static configuration data to prevent over-fetching when navigating back and forth to these screens.

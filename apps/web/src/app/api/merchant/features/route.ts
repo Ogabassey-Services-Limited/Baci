@@ -88,7 +88,6 @@ export interface MerchantFeatureSettings {
   // Notifications
   email_notifications_enabled: boolean;
   sms_notifications_enabled: boolean;
-  offline_conversions_enabled: boolean;
 
   // Blog settings
   blog_enabled: boolean;
@@ -115,6 +114,27 @@ export interface MerchantFeatureSettings {
 
   created_at: string;
   updated_at: string;
+}
+
+const PRIVATE_NO_STORE_HEADERS = {
+  'Cache-Control': 'private, no-store, no-cache, max-age=0, must-revalidate',
+};
+
+function jsonNoStore<T>(body: T, init?: ResponseInit) {
+  const headers = new Headers(init?.headers);
+  headers.set('Cache-Control', PRIVATE_NO_STORE_HEADERS['Cache-Control']);
+  return NextResponse.json(body, {
+    ...init,
+    headers,
+  });
+}
+
+function withNoStore(response: NextResponse) {
+  response.headers.set(
+    'Cache-Control',
+    PRIVATE_NO_STORE_HEADERS['Cache-Control']
+  );
+  return response;
 }
 
 // Columns selected when reading merchant feature settings.
@@ -189,7 +209,6 @@ const MERCHANT_FEATURE_SELECT_FIELDS: readonly (keyof MerchantFeatureSettings)[]
     'vtu_customer_cashback_enabled',
     'vtu_customer_cashback_rate',
     'custom_settings',
-    'offline_conversions_enabled',
     'created_at',
     'updated_at',
   ];
@@ -266,7 +285,6 @@ const DEFAULT_SETTINGS: Partial<MerchantFeatureSettings> = {
   custom_robots_txt: null,
   email_notifications_enabled: true,
   sms_notifications_enabled: false,
-  offline_conversions_enabled: false,
   // Blog defaults
   blog_enabled: false,
   auto_blog_enabled: false,
@@ -292,7 +310,7 @@ export async function GET(request: NextRequest) {
   try {
     const auth = await authenticateApiRequest(request);
     if (auth.error || !auth.user || !auth.supabase) {
-      return NextResponse.json(
+      return jsonNoStore(
         { error: auth.error || 'Unauthorized' },
         { status: 401 }
       );
@@ -300,10 +318,7 @@ export async function GET(request: NextRequest) {
 
     const access = await getUserAccess(auth.supabase);
     if (!access) {
-      return NextResponse.json(
-        { error: 'Merchant not found' },
-        { status: 404 }
-      );
+      return jsonNoStore({ error: 'Merchant not found' }, { status: 404 });
     }
 
     if (
@@ -311,7 +326,7 @@ export async function GET(request: NextRequest) {
       !hasPermission(access, 'marketing', 'view') &&
       !hasPermission(access, 'dashboard', 'view')
     ) {
-      return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
+      return jsonNoStore({ error: 'Permission denied' }, { status: 403 });
     }
 
     // Get or create settings
@@ -334,7 +349,7 @@ export async function GET(request: NextRequest) {
 
       if (createError) {
         console.error('Error creating feature settings:', createError);
-        return NextResponse.json(
+        return jsonNoStore(
           { error: 'Failed to create settings' },
           { status: 500 }
         );
@@ -343,19 +358,16 @@ export async function GET(request: NextRequest) {
       settings = newSettings;
     } else if (error) {
       console.error('Error fetching feature settings:', error);
-      return NextResponse.json(
+      return jsonNoStore(
         { error: 'Failed to fetch settings' },
         { status: 500 }
       );
     }
 
-    return NextResponse.json(settings);
+    return jsonNoStore(settings);
   } catch (error) {
     console.error('Feature settings GET error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return jsonNoStore({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
@@ -364,14 +376,14 @@ export async function PATCH(request: NextRequest) {
     const { valid, response } = await checkCsrfProtection(request);
     if (!valid) {
       return (
-        response ??
-        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+        (response ? withNoStore(response) : null) ??
+        jsonNoStore({ error: 'CSRF validation failed' }, { status: 403 })
       );
     }
 
     const auth = await authenticateApiRequest(request);
     if (auth.error || !auth.user || !auth.supabase) {
-      return NextResponse.json(
+      return jsonNoStore(
         { error: auth.error || 'Unauthorized' },
         { status: 401 }
       );
@@ -379,28 +391,25 @@ export async function PATCH(request: NextRequest) {
 
     const access = await getUserAccess(auth.supabase);
     if (!access) {
-      return NextResponse.json(
-        { error: 'Merchant not found' },
-        { status: 404 }
-      );
+      return jsonNoStore({ error: 'Merchant not found' }, { status: 404 });
     }
 
     if (!hasPermission(access, 'settings', 'edit')) {
-      return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
+      return jsonNoStore({ error: 'Permission denied' }, { status: 403 });
     }
 
     let updates: Record<string, unknown>;
     try {
       updates = await request.json();
     } catch {
-      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+      return jsonNoStore({ error: 'Invalid JSON body' }, { status: 400 });
     }
 
     const parsedUpdates = merchantFeatureSettingsSchema
       .partial()
       .safeParse(updates);
     if (!parsedUpdates.success) {
-      return NextResponse.json(
+      return jsonNoStore(
         {
           error: 'Invalid input',
           details: parsedUpdates.error.flatten().fieldErrors,
@@ -433,7 +442,7 @@ export async function PATCH(request: NextRequest) {
 
     if (error) {
       console.error('Error updating feature settings:', error);
-      return NextResponse.json(
+      return jsonNoStore(
         { error: 'Failed to update settings' },
         { status: 500 }
       );
@@ -443,13 +452,10 @@ export async function PATCH(request: NextRequest) {
     revalidateFeatures(access.merchantId);
     revalidateMerchant(access.merchantId);
 
-    return NextResponse.json(settings);
+    return jsonNoStore(settings);
   } catch (error) {
     console.error('Feature settings PATCH error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return jsonNoStore({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
@@ -458,14 +464,14 @@ export async function PUT(request: NextRequest) {
     const { valid, response } = await checkCsrfProtection(request);
     if (!valid) {
       return (
-        response ??
-        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+        (response ? withNoStore(response) : null) ??
+        jsonNoStore({ error: 'CSRF validation failed' }, { status: 403 })
       );
     }
 
     const auth = await authenticateApiRequest(request);
     if (auth.error || !auth.user || !auth.supabase) {
-      return NextResponse.json(
+      return jsonNoStore(
         { error: auth.error || 'Unauthorized' },
         { status: 401 }
       );
@@ -473,28 +479,25 @@ export async function PUT(request: NextRequest) {
 
     const access = await getUserAccess(auth.supabase);
     if (!access) {
-      return NextResponse.json(
-        { error: 'Merchant not found' },
-        { status: 404 }
-      );
+      return jsonNoStore({ error: 'Merchant not found' }, { status: 404 });
     }
 
     if (!hasPermission(access, 'settings', 'edit')) {
-      return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
+      return jsonNoStore({ error: 'Permission denied' }, { status: 403 });
     }
 
     let newSettings: Record<string, unknown>;
     try {
       newSettings = await request.json();
     } catch {
-      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+      return jsonNoStore({ error: 'Invalid JSON body' }, { status: 400 });
     }
 
     const parsedSettings = merchantFeatureSettingsSchema
       .partial()
       .safeParse(newSettings);
     if (!parsedSettings.success) {
-      return NextResponse.json(
+      return jsonNoStore(
         {
           error: 'Invalid input',
           details: parsedSettings.error.flatten().fieldErrors,
@@ -525,22 +528,16 @@ export async function PUT(request: NextRequest) {
 
     if (error) {
       console.error('Error replacing feature settings:', error);
-      return NextResponse.json(
-        { error: 'Failed to save settings' },
-        { status: 500 }
-      );
+      return jsonNoStore({ error: 'Failed to save settings' }, { status: 500 });
     }
 
     // Invalidate cache
     revalidateFeatures(access.merchantId);
     revalidateMerchant(access.merchantId);
 
-    return NextResponse.json(settings);
+    return jsonNoStore(settings);
   } catch (error) {
     console.error('Feature settings PUT error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return jsonNoStore({ error: 'Internal server error' }, { status: 500 });
   }
 }

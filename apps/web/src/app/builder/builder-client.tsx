@@ -68,6 +68,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/auth-context';
+import { CartProvider } from '@/hooks/use-cart';
 import { useMerchant } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
 import { apiPost, apiPut, fetchWithCsrf } from '@/lib/api-client';
@@ -1153,7 +1154,9 @@ export default function BuilderClient() {
                       maxWidth: '100%',
                     }}
                   >
-                    <Puck.Preview />
+                    <CartProvider>
+                      <Puck.Preview />
+                    </CartProvider>
                   </div>
                 </div>
                 <GeminiCommandBar

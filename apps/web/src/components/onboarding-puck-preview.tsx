@@ -10,10 +10,10 @@ import { CartProvider } from '@/hooks/use-cart';
 import type { MerchantData } from '@/hooks/use-merchant';
 import { MerchantProvider } from '@/hooks/use-merchant-client';
 import {
-  deriveThemeFromColors,
   generateFeatures,
   generateHeroSlides,
-} from '@/lib/initial-template-generator';
+} from '@/lib/initial-template-preview-content';
+import { deriveThemeFromColors } from '@/lib/initial-template-preview-theme';
 import { getInitialTemplateProfile } from '@/lib/initial-template-profiles';
 import type { BrandColors } from '@/types';
 

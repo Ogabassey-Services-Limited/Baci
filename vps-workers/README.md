@@ -84,6 +84,9 @@ OLLAMA_STOREFRONT_BASE_URL=http://localhost:11434
 OLLAMA_STOREFRONT_MODEL=gemma4:e4b
 OLLAMA_STOREFRONT_TIMEOUT_MS=90000
 AI_STOREFRONT_GENERATION_ENABLED=false
+AI_STOREFRONT_TRIGGER_SECRET=...
+AI_STOREFRONT_TRIGGER_HOST=127.0.0.1
+AI_STOREFRONT_TRIGGER_PORT=3917
 VERCEL_ERROR_LOG_PATH=/home/bassey/baci-workers/logs/vercel-drain.jsonl
 BACI_REMEDIATION_OUTPUT_DIR=/home/bassey/baci-workers/logs/vercel-error-remediator
 BACI_REMEDIATION_MIN_OCCURRENCES=2
@@ -94,6 +97,10 @@ BACI_REMEDIATION_VERIFY_COMMAND="pnpm turbo lint && pnpm turbo typecheck"
 BACI_REMEDIATION_NOTIFY_EMAILS=owner@example.com
 VERCEL_LOG_DRAIN_SECRET=...
 VERCEL_LOG_DRAIN_RECEIVER_PORT=8787
+IMPORT_JOB_RETENTION_DAYS=30
+ANALYTICS_LOW_VALUE_RETENTION="30 days"
+SUPABASE_CRON_LOG_RETENTION="14 days"
+SUPABASE_PG_NET_RETENTION="1 day"
 ```
 
 Do not commit this file or any `.env*` file to version control. Keep those
@@ -113,6 +120,9 @@ Variable purposes:
 - `OLLAMA_STOREFRONT_MODEL`: Gemma model used for storefront layout generation.
 - `OLLAMA_STOREFRONT_TIMEOUT_MS`: Per-request Ollama timeout for the storefront worker.
 - `AI_STOREFRONT_GENERATION_ENABLED`: Rollout flag for enqueueing new storefront generation jobs during onboarding.
+- `AI_STOREFRONT_TRIGGER_SECRET`: Bearer secret required by the local trigger listener before it starts the storefront worker.
+- `AI_STOREFRONT_TRIGGER_HOST`: Bind host for the trigger listener. Keep the default `127.0.0.1` and expose it only through an HTTPS reverse proxy.
+- `AI_STOREFRONT_TRIGGER_PORT`: Local trigger listener port. Default is `3917`.
 - `VERCEL_ERROR_LOG_PATH`: JSONL file written by the Vercel log-drain receiver or log export process. Each line must be one Vercel log event JSON object.
 - `BACI_REMEDIATION_OUTPUT_DIR`: Directory where the remediator writes Codex prompts and reports.
 - `BACI_REMEDIATION_MIN_OCCURRENCES`: Minimum repeated fingerprint count before the worker creates remediation work. Default is `2`.
@@ -123,6 +133,10 @@ Variable purposes:
 - `BACI_REMEDIATION_NOTIFY_EMAILS`: Comma-separated report recipients. Requires `ZEPTOMAIL_TOKEN`; `ZEPTOMAIL_FROM_DOMAIN` defaults to `usebaci.com`.
 - `VERCEL_LOG_DRAIN_SECRET`: Shared secret used to verify Vercel Drain HMAC signatures before appending log events.
 - `VERCEL_LOG_DRAIN_RECEIVER_PORT`: Local receiver port proxied by nginx. Default is `8787`.
+- `IMPORT_JOB_RETENTION_DAYS`: Days to keep terminal import job previews and migration CSVs before cleanup. Default is `30`.
+- `ANALYTICS_LOW_VALUE_RETENTION`: Retention interval for raw `page_view` and `search` analytics events. Default is `30 days`.
+- `SUPABASE_CRON_LOG_RETENTION`: Retention interval for `cron.job_run_details`. Default is `14 days`.
+- `SUPABASE_PG_NET_RETENTION`: Retention interval for `net._http_response`. Default is `1 day`.
 
 ### Runtime Checks and Rotation
 
@@ -152,6 +166,11 @@ $CRON_SECRET`; `/api/cron/process-settlements` uses `POST` and the others use
 - `/api/cron/wallet-payouts`
 - `/api/inventory/push-alerts`
 
+`jobs/cleanup-agentic-request-records.mjs` is a direct database maintenance
+worker scheduled hourly at minute 10. It uses `SUPABASE_SERVICE_ROLE_KEY` only
+on the VPS to remove request records more than one hour past `expires_at`, so
+agent route latency does not depend on retention cleanup.
+
 `CRON_SECRET` must never be committed to source. Inject it through environment
 variables or the project's secret manager, keep it aligned between the VPS
 worker and web deployment, and rotate it through the normal secret-management
@@ -161,6 +180,14 @@ process. No API keys, passwords, or tokens should be stored in repo files.
 jobs such as price list processing. Long `storefront_layout_generation` jobs
 must run through `bin/process-ai-storefront-jobs.sh`, which talks to local
 Ollama from the VPS checkout and processes one job per invocation.
+
+`jobs/ai-storefront-trigger-server.mjs` is the event-driven entrypoint for
+storefront generation. `deploy.sh` installs it as the
+`baci-ai-storefront-trigger.service` user service. The web app calls it after a
+`storefront_layout_generation` job is enqueued, using the matching
+`AI_STOREFRONT_TRIGGER_URL` and `AI_STOREFRONT_TRIGGER_SECRET` values in the web
+deployment. The cron entry remains as a 10-minute fallback sweep, not the
+primary scheduler.
 
 ## Vercel Error Remediator
 

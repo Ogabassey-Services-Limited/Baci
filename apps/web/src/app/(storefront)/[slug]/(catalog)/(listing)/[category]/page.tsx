@@ -1,0 +1,138 @@
+import type { Metadata } from 'next';
+import { connection } from 'next/server';
+import { Suspense } from 'react';
+import { StorefrontDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker';
+import { CatalogListingLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
+import {
+  getCachedCategoryPageData,
+  getCachedMerchant,
+  getCachedMerchantByDomain,
+} from '@/lib/cached-data';
+import type { RawDbProduct } from '@/lib/normalize-product';
+import {
+  generateMetaDescription,
+  generateMetaTitle,
+  getIndexableRobotsMetadata,
+} from '@/lib/seo-utils';
+import { buildStoreUrl } from '@/lib/store-url';
+import { STOREFRONT_PRODUCTS_PER_PAGE } from '@/lib/storefront-pagination';
+import {
+  getStorefrontOpenGraphImages,
+  getStorefrontTwitterImages,
+} from '@/lib/storefront-social-images';
+import { isDomainIdentifier } from '@/lib/validation';
+import { CategoryPageContent } from './category-page-content';
+import {
+  buildCategoryPageHubModel,
+  normalizeCategoryPageProducts,
+  resolveCategoryPageName,
+} from './category-page-content-helpers';
+
+interface PageProps {
+  params: Promise<{
+    slug: string; // Store slug (merchant)
+    category: string; // Category slug
+  }>;
+  searchParams: Promise<{
+    page?: string;
+  }>;
+}
+
+export async function generateMetadata({
+  params,
+}: PageProps): Promise<Metadata> {
+  await connection();
+
+  const { slug, category } = await params;
+
+  // 1. Get Merchant
+  const merchant = isDomainIdentifier(slug)
+    ? await getCachedMerchantByDomain(slug)
+    : await getCachedMerchant(slug);
+
+  if (!merchant) {
+    return {
+      title: 'Store Not Found',
+    };
+  }
+
+  const data = await getCachedCategoryPageData(merchant.id, category, slug);
+
+  const categoryName = resolveCategoryPageName(data, category);
+  const normalizedProducts = normalizeCategoryPageProducts(
+    data.products as unknown as RawDbProduct[],
+    undefined,
+    merchant.country
+  );
+  const paginatedProducts = normalizedProducts.slice(
+    0,
+    STOREFRONT_PRODUCTS_PER_PAGE
+  );
+
+  const baseUrl = buildStoreUrl(merchant);
+  const categoryUrl = `${baseUrl}/${category}`;
+  const hubContent = buildCategoryPageHubModel({
+    data,
+    categorySlug: category,
+    categoryName,
+    merchantBusinessName: merchant.business_name,
+    storeUrl: baseUrl,
+    products: normalizedProducts,
+  });
+  const paginatedCategoryUrl = categoryUrl;
+
+  const titleFragment = hubContent.intro.heading;
+  const title = generateMetaTitle(titleFragment, {
+    maxLength: 70,
+    suffix: merchant.business_name,
+    fallback: categoryName,
+  });
+  const description = generateMetaDescription(
+    hubContent.intro.description,
+    160,
+    {
+      minLength: 110,
+      fallback: `Explore ${categoryName} at ${merchant.business_name}. Compare trusted options, pricing, and key specs with nationwide delivery and flexible payment plans.`,
+    }
+  );
+  const firstProductImage = paginatedProducts[0]?.image || null;
+  const socialImageCandidates = [firstProductImage, merchant.logo_url];
+
+  return {
+    title,
+    description,
+    alternates: {
+      canonical: paginatedCategoryUrl,
+    },
+    robots: getIndexableRobotsMetadata(),
+    openGraph: {
+      title,
+      description,
+      url: paginatedCategoryUrl,
+      type: 'website',
+      siteName: merchant.business_name,
+      images: getStorefrontOpenGraphImages(
+        baseUrl,
+        categoryName,
+        ...socialImageCandidates
+      ),
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: getStorefrontTwitterImages(baseUrl, ...socialImageCandidates),
+    },
+  };
+}
+
+export default function CategoryPageRoute(props: PageProps) {
+  return (
+    <>
+      <Suspense fallback={<CatalogListingLoading />}>
+        <CategoryPageContent {...props} />
+      </Suspense>
+      <StorefrontDynamicMetadataMarker />
+    </>
+  );
+}

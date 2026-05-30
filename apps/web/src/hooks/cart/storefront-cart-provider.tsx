@@ -300,6 +300,8 @@ export function StorefrontCartProvider({
             | 'open_box'
             | 'refurbished'
             | undefined,
+          quizAwardId: normalizedOptions?.quizAwardId,
+          quizVoucherToken: normalizedOptions?.quizVoucherToken,
           negotiationStatus: 'none',
           hasAssurance: false,
           assuranceRate: DEFAULT_ASSURANCE_RATE,

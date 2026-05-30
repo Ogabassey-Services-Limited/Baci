@@ -1,15 +1,13 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import * as Haptics from 'expo-haptics';
 import { Stack } from 'expo-router';
 import {
-  ActivityIndicator,
   Alert,
   Linking,
   Pressable,
   ScrollView,
-  Switch,
   Text,
   View,
 } from 'react-native';
@@ -18,6 +16,7 @@ import {
   APPEARANCE_OPTIONS,
 } from '@/components/settings/constants';
 import { SettingsCardSection } from '@/components/settings/SettingsCardSection';
+import { SettingsNotificationSection } from '@/components/settings/SettingsNotificationSection';
 import { SettingsSectionRow } from '@/components/settings/SettingsSectionRow';
 import { styles } from '@/components/settings/styles';
 import { StorefrontScreenShell } from '@/components/storefront/StorefrontScreenShell';
@@ -183,40 +182,14 @@ export default function SettingsScreen() {
           </View>
         </SettingsCardSection>
 
-        <SettingsCardSection
-          cardBackgroundColor={colors.card}
-          cardBorderColor={colors.border}
-          title="NOTIFICATIONS"
-          titleColor={colors.textSecondary}
-          delay={200}
-        >
-          <SettingsSectionRow
-            icon="notifications-outline"
-            iconBackgroundColor={`${BRAND.primary}15`}
-            iconColor={BRAND.primary}
-            label="Push Notifications"
-            labelColor={colors.text}
-            subtitle="Order updates, deals, and alerts"
-            subtitleColor={colors.textSecondary}
-            right={
-              isPushLoading ? (
-                <ActivityIndicator size="small" color={colors.primary} />
-              ) : (
-                <Switch
-                  value={isRegistered}
-                  onValueChange={(value) => {
-                    void handleNotificationToggle(value);
-                  }}
-                  trackColor={{
-                    false: colors.border,
-                    true: colors.primary,
-                  }}
-                  accessibilityLabel="Toggle push notifications"
-                />
-              )
-            }
-          />
-        </SettingsCardSection>
+        <SettingsNotificationSection
+          colors={colors}
+          isLoading={isPushLoading}
+          isRegistered={isRegistered}
+          onToggle={(value) => {
+            void handleNotificationToggle(value);
+          }}
+        />
 
         <SettingsCardSection
           cardBackgroundColor={colors.card}

@@ -73,7 +73,7 @@ describe('OgabasseyPdpProductResourceHints', () => {
     expect(mockGetImageProps).toHaveBeenCalledWith(
       expect.objectContaining({
         loader: expect.any(Function),
-        quality: 70,
+        quality: 35,
         sizes: OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
         src: productImage,
       })
@@ -82,14 +82,14 @@ describe('OgabasseyPdpProductResourceHints', () => {
     expect(html).toContain('as="image"');
     expect(html).toMatch(/fetchpriority="high"/i);
     expect(html).toContain(
-      `href="${imageLoader({ src: productImage, width: 640, quality: 70 })}"`
+      `href="${imageLoader({ src: productImage, width: 640, quality: 35 })}"`
     );
     expect(html).toContain(`imageSizes="${OGABASSEY_PDP_PRIMARY_IMAGE_SIZES}"`);
     expect(html).toMatch(/imageSrcSet="[^"]*lenovo-legion\.avif/);
     expect(html).toContain(
-      imageLoader({ src: productImage, width: 640, quality: 70 })
+      imageLoader({ src: productImage, width: 640, quality: 35 })
     );
-    expect(html).toContain('type="image/webp"');
+    expect(html).not.toContain('type="image/');
   });
 
   it('uses the fallback URL extension when the image is not CDN transformed', () => {
@@ -110,13 +110,13 @@ describe('OgabasseyPdpProductResourceHints', () => {
     preloadOgabasseyPdpProductImage({ src: productImage });
 
     expect(mockPreload).toHaveBeenCalledWith(
-      imageLoader({ src: productImage, width: 640, quality: 70 }),
+      imageLoader({ src: productImage, width: 640, quality: 35 }),
       {
         as: 'image',
         fetchPriority: 'high',
         imageSizes: OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
         imageSrcSet: expect.stringContaining('lenovo-legion.avif 640w'),
-        type: 'image/webp',
+        type: undefined,
       }
     );
   });

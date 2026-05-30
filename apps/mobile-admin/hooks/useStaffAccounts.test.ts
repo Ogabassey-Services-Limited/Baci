@@ -14,14 +14,19 @@ const mocks = vi.hoisted(() => ({
 
 const emptyQueryResult = { data: [], error: null };
 
-function createQuery(result = emptyQueryResult) {
+function createQuery(result = emptyQueryResult, terminalOrderCall = 1) {
+  let orderCalls = 0;
   const query = {
-    select: vi.fn(() => query),
-    eq: vi.fn(() => query),
-    order: vi.fn(() => query),
-    then: (resolve: (value: typeof result) => unknown) =>
-      Promise.resolve(result).then(resolve),
+    select: vi.fn(),
+    eq: vi.fn(),
+    order: vi.fn(),
   };
+  query.select.mockReturnValue(query);
+  query.eq.mockReturnValue(query);
+  query.order.mockImplementation(() => {
+    orderCalls += 1;
+    return orderCalls === terminalOrderCall ? Promise.resolve(result) : query;
+  });
 
   return query;
 }
@@ -84,7 +89,7 @@ describe('useStaffAccounts', () => {
     mocks.supabaseFrom.mockImplementation((table: string) => {
       if (table === 'branches') {
         return {
-          ...createQuery(),
+          ...createQuery(emptyQueryResult, 2),
           insert: mocks.directInsert,
         };
       }
@@ -167,5 +172,28 @@ describe('useStaffAccounts', () => {
       expect(mocks.alert).toHaveBeenCalledWith('Error', 'API down');
     });
     expect(mocks.directInsert).not.toHaveBeenCalled();
+  });
+
+  it('reuses fresh staff and branch query results when the hook remounts', async () => {
+    const { Wrapper } = createWrapper();
+    const callbacks = { onAccountCreated: vi.fn() };
+    const firstRender = renderHook(() => useStaffAccounts(callbacks), {
+      wrapper: Wrapper,
+    });
+
+    await waitFor(() => {
+      expect(firstRender.result.current.isLoading).toBe(false);
+    });
+    expect(mocks.supabaseFrom).toHaveBeenCalledTimes(2);
+    firstRender.unmount();
+
+    const secondRender = renderHook(() => useStaffAccounts(callbacks), {
+      wrapper: Wrapper,
+    });
+
+    await waitFor(() => {
+      expect(secondRender.result.current.isLoading).toBe(false);
+    });
+    expect(mocks.supabaseFrom).toHaveBeenCalledTimes(2);
   });
 });

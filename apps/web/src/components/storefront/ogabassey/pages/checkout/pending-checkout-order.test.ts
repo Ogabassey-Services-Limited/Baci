@@ -10,8 +10,10 @@ describe('pending-checkout-order', () => {
   it('maps payment methods to persisted order values', () => {
     expect(normalizeOrderPaymentMethod('paystack')).toBe('card');
     expect(normalizeOrderPaymentMethod('korapay')).toBe('card');
+    expect(normalizeOrderPaymentMethod('klump')).toBe('card');
     expect(normalizeOrderPaymentMethod('bank_transfer')).toBe('bank_transfer');
     expect(normalizeOrderPaymentMethod('payforme')).toBe('payforme');
+    expect(normalizeOrderPaymentMethod('paypal')).toBe('paypal');
     expect(normalizeOrderPaymentMethod('pod')).toBe('pod');
   });
 
@@ -81,6 +83,7 @@ describe('pending-checkout-order', () => {
       trackingToken: 'tracking-token-123',
       merchantId: 'merchant-1',
       customerEmail: 'john@example.com',
+      customerPhone: '+2348012345678',
       checkoutFingerprint: 'fingerprint-1',
       amountDueToGateway: 12000,
       createdAt: '2026-04-09T09:00:00.000Z',
@@ -141,6 +144,7 @@ describe('pending-checkout-order', () => {
       trackingToken: 'tracking-token-123',
       merchantId: 'merchant-1',
       customerEmail: 'john@example.com',
+      customerPhone: '+2348012345678',
       checkoutFingerprint: 'fingerprint-1',
       amountDueToGateway: 0,
       createdAt: '2026-04-09T09:00:00.000Z',
@@ -210,6 +214,7 @@ describe('pending-checkout-order', () => {
         trackingToken: 'tracking-token-123',
         merchantId: 'merchant-1',
         customerEmail: 'john@example.com',
+        customerPhone: '+2348012345678',
         checkoutFingerprint: 'fingerprint-1',
         amountDueToGateway: 12000,
         createdAt: '2026-04-09T09:00:00.000Z',
@@ -230,6 +235,45 @@ describe('pending-checkout-order', () => {
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 
+  it.each(['paid', 'bnpl_approved', 'refunded'])(
+    'clears a locally pending order when payment status is %s',
+    async (paymentStatus) => {
+      const fetchImpl = vi.fn<typeof fetch>().mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          id: 'order-123',
+          payment_status: paymentStatus,
+          shipping_status: 'pending',
+          total: 1000,
+        }),
+      } as Response);
+
+      const result = await resolvePendingCheckoutOrder({
+        pendingOrder: {
+          orderId: 'order-123',
+          orderNumber: 'ORD-123',
+          trackingToken: 'tracking-token-123',
+          merchantId: 'merchant-1',
+          customerEmail: 'ada@example.com',
+          customerPhone: '+2348123456789',
+          checkoutFingerprint: 'fingerprint-1',
+          amountDueToGateway: 1000,
+          createdAt: '2026-05-28T00:00:00.000Z',
+        },
+        merchantId: 'merchant-1',
+        merchantSlug: 'ogabassey',
+        customerEmail: 'ada@example.com',
+        checkoutFingerprint: 'fingerprint-1',
+        paymentMethod: 'credit_direct',
+        shippingProvider: 'GIGL',
+        fetchImpl,
+      });
+
+      expect(result).toEqual({ reusableOrder: null, clearStoredOrder: true });
+      expect(fetchImpl).toHaveBeenCalledTimes(1);
+    }
+  );
+
   it('clears the stored order when the fingerprint no longer matches', async () => {
     const result = await resolvePendingCheckoutOrder({
       pendingOrder: {
@@ -237,6 +281,7 @@ describe('pending-checkout-order', () => {
         trackingToken: 'tracking-token-123',
         merchantId: 'merchant-1',
         customerEmail: 'john@example.com',
+        customerPhone: '+2348012345678',
         checkoutFingerprint: 'old-fingerprint',
         amountDueToGateway: 12000,
         createdAt: '2026-04-09T09:00:00.000Z',

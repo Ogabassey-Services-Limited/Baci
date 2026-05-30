@@ -217,8 +217,11 @@ vi.mock('expo-router', async () => {
   };
 });
 
-vi.mock('@expo/vector-icons', () => ({
+vi.mock('@react-native-vector-icons/ionicons', () => ({
   Ionicons: () => <span>icon</span>,
+
+  default: () => <span>icon</span>,
+  __esModule: true,
 }));
 
 vi.mock('react-native', () => ({
@@ -383,9 +386,7 @@ describe('AddExpenseScreen', () => {
         merchant_id: 'merchant-1',
         receipt_url: 'https://example.com/file',
       });
-      expect(mocks.invalidateQueries).toHaveBeenCalledWith({
-        queryKey: ['expenses'],
-      });
+      expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['expenses', 'merchant-1'] });
     });
 
     await invokeAlertButton('Success');

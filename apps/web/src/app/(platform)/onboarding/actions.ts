@@ -2,6 +2,7 @@
 
 import type { User } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
+import { after } from 'next/server';
 import {
   getAppUrl,
   getConfiguredAppUrl,
@@ -10,6 +11,8 @@ import {
   isAiStorefrontGenerationEnabled,
   isProduction,
 } from '@/env';
+import { triggerAiStorefrontWorker } from '@/lib/ai-storefront/trigger-storefront-worker';
+import { getCountryByCode } from '@/lib/countries';
 import { sendWelcomeEmail } from '@/lib/email';
 import { logger } from '@/lib/logger';
 import type { createAdminClient as createAdminClientFactory } from '@/lib/supabase/admin';
@@ -109,9 +112,11 @@ export async function submitOnboarding(
     businessName,
     businessType,
     otherBusinessType,
+    country,
     logoUrl,
     brandColors: brandColorsString,
   } = validationResult.data;
+  const payoutCurrency = getCountryByCode(country)?.currency ?? 'USD';
 
   let brandColors: BrandColors | null = null;
   if (brandColorsString) {
@@ -265,6 +270,8 @@ export async function submitOnboarding(
           email,
           business_name: businessName,
           business_type: finalBusinessType,
+          country,
+          payout_currency: payoutCurrency,
           logo_url: logoUrl,
           // Sync logo to favicon for mobile app compatibility
           favicon_png_192_url: logoUrl,
@@ -289,6 +296,8 @@ export async function submitOnboarding(
           email,
           business_name: businessName,
           business_type: finalBusinessType,
+          country,
+          payout_currency: payoutCurrency,
           logo_url: logoUrl,
           // Sync logo to favicon for mobile app compatibility
           favicon_png_192_url: logoUrl,
@@ -390,6 +399,22 @@ export async function submitOnboarding(
             message: 'AI storefront generation job enqueue failed',
             merchantId: merchant.id,
             error: aiJobError,
+          });
+        }
+        if (!aiJobError || aiJobError.code === '23505') {
+          after(async () => {
+            try {
+              await triggerAiStorefrontWorker({
+                merchantId: merchant.id,
+                source: 'onboarding',
+              });
+            } catch (error) {
+              logger.error({
+                message: 'AI storefront worker trigger failed',
+                merchantId: merchant.id,
+                error,
+              });
+            }
           });
         }
       }

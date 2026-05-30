@@ -11,6 +11,7 @@ import Animated, {
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
+import { BRAND, palette, withAlpha } from '@/constants/Colors';
 
 import iconImage from '../assets/images/icon.png';
 
@@ -23,8 +24,8 @@ type AnimatedSplashProps = {
 /**
  * Full-screen animated splash overlay using Reanimated (worklet-driven).
  * Children render behind the overlay and are ready when it fades.
- * Blocks touch (pointerEvents="auto") until isReady, then switches to
- * pointerEvents="none" so the fadeout overlay doesn't intercept taps.
+ * Blocks touch through style.pointerEvents until isReady, then lets taps pass
+ * through the fading overlay.
  */
 export function AnimatedSplash({
   isReady,
@@ -117,8 +118,11 @@ export function AnimatedSplash({
     <View style={styles.wrapper}>
       {children}
       <Animated.View
-        pointerEvents={isReady ? 'none' : 'auto'}
-        style={[styles.container, containerStyle]}
+        style={[
+          styles.container,
+          containerStyle,
+          { pointerEvents: isReady ? 'none' : 'auto' },
+        ]}
       >
         <Animated.View style={[styles.logoContainer, logoStyle]}>
           <Image source={iconImage} style={styles.logo} resizeMode="contain" />
@@ -141,8 +145,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   container: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#000000',
+    ...StyleSheet.absoluteFill,
+    backgroundColor: palette.black,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -162,20 +166,20 @@ const styles = StyleSheet.create({
     width: 48,
     height: 3,
     borderRadius: 2,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: withAlpha(palette.white, 0.1),
     overflow: 'hidden',
   },
   shimmerFill: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#DC2626',
+    backgroundColor: BRAND.primary,
     borderRadius: 2,
   },
   tagline: {
     marginTop: 16,
     fontSize: 14,
     fontWeight: '500',
-    color: 'rgba(255, 255, 255, 0.6)',
+    color: withAlpha(palette.white, 0.6),
     letterSpacing: 1,
   },
 });

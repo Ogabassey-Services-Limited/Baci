@@ -29,6 +29,40 @@ type MerchantForUserResult = {
   user: User | null;
 };
 
+export class MerchantAuthenticationRequiredError extends Error {
+  constructor() {
+    super('Authentication required');
+    this.name = 'MerchantAuthenticationRequiredError';
+  }
+}
+
+export class NoMerchantAccessError extends Error {
+  constructor() {
+    super('No merchant access');
+    this.name = 'NoMerchantAccessError';
+  }
+}
+
+export class MerchantPermissionDeniedError extends Error {
+  constructor(resource: string, action: string) {
+    super(`Permission denied: ${action} access to ${resource} is required`);
+    this.name = 'MerchantPermissionDeniedError';
+  }
+}
+
+export function isMerchantPermissionRedirectError(
+  error: unknown
+): error is
+  | MerchantAuthenticationRequiredError
+  | NoMerchantAccessError
+  | MerchantPermissionDeniedError {
+  return (
+    error instanceof MerchantAuthenticationRequiredError ||
+    error instanceof NoMerchantAccessError ||
+    error instanceof MerchantPermissionDeniedError
+  );
+}
+
 // Use React cache() to deduplicate this call within a single request
 // This means layout.tsx and page.tsx will share the same result
 export const getMerchantForUser = cache(
@@ -110,11 +144,11 @@ export async function ensurePermission(
   const { merchant, staffAccess, user } = await getMerchantForUser();
 
   if (!user) {
-    throw new Error('Authentication required');
+    throw new MerchantAuthenticationRequiredError();
   }
 
   if (!merchant) {
-    throw new Error('No merchant access');
+    throw new NoMerchantAccessError();
   }
 
   // Owners have full access
@@ -130,9 +164,7 @@ export async function ensurePermission(
   // Check specific permission
   const resourcePermissions = staffAccess.permissions?.[resource];
   if (!resourcePermissions?.[action] && !resourcePermissions?.all) {
-    throw new Error(
-      `Permission denied: ${action} access to ${resource} is required`
-    );
+    throw new MerchantPermissionDeniedError(resource, action);
   }
 
   return { merchant, staffAccess };

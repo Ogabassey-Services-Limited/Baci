@@ -7,27 +7,36 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 import { createLogger } from './logger';
 
 const log = createLogger('Storage');
 
 /**
  * Batch storage helpers
- * Uses v3 getMany/removeMany when available, falls back to individual calls.
+ * Uses v3 getMany/removeMany when available, falls back to batch v2 calls.
  */
+type AsyncStorageBatchExtensions = typeof AsyncStorage & {
+  getMany?: (keys: string[]) => Promise<Record<string, string | null>>;
+  removeMany?: (keys: string[]) => Promise<void>;
+};
+
+const batchStorage = AsyncStorage as AsyncStorageBatchExtensions;
+
 export async function getStorageEntries(
   keys: readonly string[]
 ): Promise<[string, string | null][]> {
   if (keys.length === 0) return [];
 
-  if (typeof AsyncStorage.getMany === 'function') {
-    const record = await AsyncStorage.getMany([...keys]);
+  if (typeof batchStorage.getMany === 'function') {
+    const record = await batchStorage.getMany([...keys]);
     return Object.entries(record);
   }
 
-  // Fallback: individual getItem calls
-  // @ts-expect-error multiGet is missing from typings but exists and avoids bridge traffic
-  return AsyncStorage.multiGet([...keys]);
+  return (await AsyncStorage.multiGet([...keys])).map(([key, value]) => [
+    key,
+    value,
+  ]);
 }
 
 export async function removeStorageItems(
@@ -35,13 +44,11 @@ export async function removeStorageItems(
 ): Promise<void> {
   if (keys.length === 0) return;
 
-  if (typeof AsyncStorage.removeMany === 'function') {
-    await AsyncStorage.removeMany([...keys]);
+  if (typeof batchStorage.removeMany === 'function') {
+    await batchStorage.removeMany([...keys]);
     return;
   }
 
-  // Fallback: individual removeItem calls
-  // @ts-expect-error multiRemove is missing from typings but exists and avoids bridge traffic
   await AsyncStorage.multiRemove([...keys]);
 }
 
@@ -90,10 +97,18 @@ export const DEFAULT_SYNC_STORAGE_KEYS = [
   'search_history',
 ] as const;
 
+function isServerWebRender(): boolean {
+  return Platform.OS === 'web' && typeof window === 'undefined';
+}
+
 export const syncStorage = {
   getItem: (name: string): string | null => {
     // BUG-4-007 FIX: Warn if accessed before initialization to help debug race conditions
-    if (!isStorageInitialized && !initializationPromise) {
+    if (
+      !isStorageInitialized &&
+      !initializationPromise &&
+      !isServerWebRender()
+    ) {
       log.warn(
         `Storage accessed ("${name}") before initialization complete. ` +
           'Ensure initializeStorage() is called and awaited in _layout.tsx before Zustand stores are accessed.'
@@ -184,4 +199,7 @@ export function initializeStorage(keys: readonly string[]): Promise<void> {
   return initializationPromise;
 }
 
-void initializeStorage(DEFAULT_SYNC_STORAGE_KEYS);
+// Expo evaluates web routes on the server, where AsyncStorage accesses window.localStorage.
+if (!isServerWebRender()) {
+  void initializeStorage(DEFAULT_SYNC_STORAGE_KEYS);
+}

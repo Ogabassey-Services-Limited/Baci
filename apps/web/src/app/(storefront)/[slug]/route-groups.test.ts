@@ -10,16 +10,19 @@ const runtimeRouteManifest = [
   '(home)/page.tsx',
   '(home)/loading.tsx',
   '(catalog)/loading.tsx',
-  '(catalog)/products/page.tsx',
-  '(catalog)/products/[productSlug]/page.tsx',
-  '(catalog)/products/[productSlug]/loading.tsx',
-  '(catalog)/product/[productSlug]/page.tsx',
-  '(catalog)/product/[productSlug]/loading.tsx',
-  '(catalog)/[category]/page.tsx',
-  '(catalog)/[category]/[productSlug]/page.tsx',
-  '(catalog)/[category]/[productSlug]/loading.tsx',
-  '(catalog)/[category]/compare/[comparisonSlug]/loading.tsx',
-  '(catalog)/[category]/best-under/[priceBandSlug]/loading.tsx',
+  '(catalog)/(listing)/products/page.tsx',
+  '(catalog)/(listing)/search/page.tsx',
+  '(catalog)/(listing)/[category]/page.tsx',
+  '(catalog)/(listing)/[category]/compare/[comparisonSlug]/page.tsx',
+  '(catalog)/(listing)/[category]/compare/[comparisonSlug]/loading.tsx',
+  '(catalog)/(listing)/[category]/best-under/[priceBandSlug]/page.tsx',
+  '(catalog)/(listing)/[category]/best-under/[priceBandSlug]/loading.tsx',
+  '(catalog)/(pdp)/products/[productSlug]/page.tsx',
+  '(catalog)/(pdp)/products/[productSlug]/loading.tsx',
+  '(catalog)/(pdp)/product/[productSlug]/page.tsx',
+  '(catalog)/(pdp)/product/[productSlug]/loading.tsx',
+  '(catalog)/(pdp)/[category]/[productSlug]/page.tsx',
+  '(catalog)/(pdp)/[category]/[productSlug]/loading.tsx',
   '(blog)/loading.tsx',
   '(blog)/blog/page.tsx',
   '(blog)/blog/[postSlug]/page.tsx',
@@ -32,6 +35,7 @@ const runtimeRouteManifest = [
   '(content)/privacy-policy/page.tsx',
   '(content)/terms/page.tsx',
   '(content)/terms-of-service/page.tsx',
+  '(content)/terms-and-conditions/page.tsx',
   '(content)/returns/page.tsx',
   '(content)/shipping/page.tsx',
   '(content)/warranty/page.tsx',
@@ -138,36 +142,36 @@ const firstPaintOwnershipManifest = [
   },
   {
     routePath: '/products',
-    pagePath: '(catalog)/products/page.tsx',
+    pagePath: '(catalog)/(listing)/products/page.tsx',
     loadingPath: '(catalog)/loading.tsx',
     label: 'Loading product listing',
     renderStrategy: 'lazy-module',
   },
   {
     routePath: '/phones',
-    pagePath: '(catalog)/[category]/page.tsx',
+    pagePath: '(catalog)/(listing)/[category]/page.tsx',
     loadingPath: '(catalog)/loading.tsx',
     label: 'Loading product listing',
     renderStrategy: 'lazy-module',
   },
   {
     routePath: '/products/iphone-16-pro',
-    pagePath: '(catalog)/products/[productSlug]/page.tsx',
-    loadingPath: '(catalog)/products/[productSlug]/loading.tsx',
+    pagePath: '(catalog)/(pdp)/products/[productSlug]/page.tsx',
+    loadingPath: '(catalog)/(pdp)/products/[productSlug]/loading.tsx',
     label: 'Loading product page',
     renderStrategy: 'lazy-module',
   },
   {
     routePath: '/product/iphone-16-pro',
-    pagePath: '(catalog)/product/[productSlug]/page.tsx',
-    loadingPath: '(catalog)/product/[productSlug]/loading.tsx',
+    pagePath: '(catalog)/(pdp)/product/[productSlug]/page.tsx',
+    loadingPath: '(catalog)/(pdp)/product/[productSlug]/loading.tsx',
     label: 'Loading product page',
     renderStrategy: 'lazy-module',
   },
   {
     routePath: '/phones/iphone-16-pro',
-    pagePath: '(catalog)/[category]/[productSlug]/page.tsx',
-    loadingPath: '(catalog)/[category]/[productSlug]/loading.tsx',
+    pagePath: '(catalog)/(pdp)/[category]/[productSlug]/page.tsx',
+    loadingPath: '(catalog)/(pdp)/[category]/[productSlug]/loading.tsx',
     label: 'Loading product page',
     renderStrategy: 'lazy-module',
   },
@@ -227,6 +231,34 @@ describe('storefront route groups', () => {
     ).toBe(false);
     expect(
       existsSync(resolve(slugDirectory, 'storefront-layout-fallback.test.tsx'))
+    ).toBe(false);
+  });
+
+  it('keeps PDP routes out of the full catalog CSS group', () => {
+    expect(existsSync(resolve(slugDirectory, '(catalog)/layout.tsx'))).toBe(
+      false
+    );
+    expect(
+      existsSync(resolve(slugDirectory, '(catalog)/(pdp)/layout.tsx'))
+    ).toBe(true);
+    expect(
+      existsSync(resolve(slugDirectory, '(catalog)/(listing)/layout.tsx'))
+    ).toBe(true);
+    expect(
+      existsSync(
+        resolve(
+          slugDirectory,
+          '(catalog)/(pdp)/[category]/[productSlug]/page.tsx'
+        )
+      )
+    ).toBe(true);
+    expect(
+      existsSync(
+        resolve(
+          slugDirectory,
+          '(catalog)/(listing)/[category]/[productSlug]/page.tsx'
+        )
+      )
     ).toBe(false);
   });
 

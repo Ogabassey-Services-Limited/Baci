@@ -142,11 +142,60 @@ describe('merchant-server', () => {
     });
     mocks.fetchPrimaryDomain.mockResolvedValue(null);
 
-    const { ensurePermission } = await loadModule();
+    const {
+      ensurePermission,
+      isMerchantPermissionRedirectError,
+      NoMerchantAccessError,
+    } = await loadModule();
 
-    await expect(ensurePermission('products', 'view')).rejects.toThrow(
-      'No merchant access'
-    );
+    let rejection: unknown;
+    try {
+      await ensurePermission('products', 'view');
+    } catch (error) {
+      rejection = error;
+    }
+
+    expect(rejection).toBeInstanceOf(NoMerchantAccessError);
+    expect(isMerchantPermissionRedirectError(rejection)).toBe(true);
+  });
+
+  it('throws a typed redirect error when staff lacks a permission', async () => {
+    const user = { id: 'user-1', email: 'staff@example.com' };
+
+    mocks.getUser.mockResolvedValue({
+      data: { user },
+      error: null,
+    });
+    mocks.fetchDashboardMerchant.mockResolvedValue({
+      merchant: {
+        id: 'merchant-1',
+        business_name: 'Staff Store',
+        slug: 'staff-store',
+      },
+      staffAccess: {
+        isStaff: true,
+        isOwner: false,
+        role: 'viewer',
+        permissions: { products: { view: true } },
+      },
+    });
+    mocks.fetchPrimaryDomain.mockResolvedValue(null);
+
+    const {
+      ensurePermission,
+      isMerchantPermissionRedirectError,
+      MerchantPermissionDeniedError,
+    } = await loadModule();
+
+    let rejection: unknown;
+    try {
+      await ensurePermission('marketing', 'edit');
+    } catch (error) {
+      rejection = error;
+    }
+
+    expect(rejection).toBeInstanceOf(MerchantPermissionDeniedError);
+    expect(isMerchantPermissionRedirectError(rejection)).toBe(true);
   });
 
   it('marks the lookup as errored when the rich merchant query fails', async () => {

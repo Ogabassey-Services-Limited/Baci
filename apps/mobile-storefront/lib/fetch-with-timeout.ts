@@ -113,6 +113,9 @@ export async function fetchWithTimeout(
   } catch (error) {
     // Check if it was an abort (timeout)
     if (error instanceof Error && error.name === 'AbortError') {
+      if (callerSignal?.aborted) {
+        throw error;
+      }
       // TODO: Implement retry UI at component level
       throw new TimeoutError(timeout);
     }

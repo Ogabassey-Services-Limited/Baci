@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type {
   GPTFulfillmentOption,
@@ -18,6 +18,9 @@ import { logger } from '@/lib/logger';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 const mockGetIdempotencyKey = vi.fn(() => 'idem-1');
+const mockConvertUcpCartToCheckout = vi.hoisted(() =>
+  vi.fn(async () => new Response(JSON.stringify({ id: 'agentic_session_1' })))
+);
 type MockAgenticMerchantContext = {
   agent_user_agent_allowlist?: string[];
   agent_user_agent_denylist?: string[];
@@ -120,6 +123,10 @@ vi.mock('@/lib/agentic/request-replay', () => ({
 
 vi.mock('@/lib/agentic/scoped-supabase', () => ({
   createAgenticScopedSupabaseClient: vi.fn(),
+}));
+
+vi.mock('@/lib/agentic/ucp-cart-checkout-conversion', () => ({
+  convertUcpCartToCheckout: mockConvertUcpCartToCheckout,
 }));
 
 vi.mock('@/lib/supabase/admin', () => ({
@@ -446,6 +453,70 @@ describe('POST /api/agentic/checkout_sessions', () => {
     );
   });
 
+  it('delegates UCP cart references to the cart conversion flow', async () => {
+    const mockSupabase = { from: vi.fn() };
+    vi.mocked(createAdminClient).mockReturnValue(mockSupabase as never);
+    vi.mocked(createAgenticScopedSupabaseClient).mockReturnValue(
+      mockSupabase as never
+    );
+
+    const request = new NextRequest(
+      'http://localhost/api/agentic/checkout_sessions',
+      {
+        body: JSON.stringify({ cart_id: 'cart_123' }),
+        headers: {
+          'Content-Type': 'application/json',
+          'Idempotency-Key': 'idem-1',
+        },
+        method: 'POST',
+      }
+    );
+
+    const { POST } = await import('./route');
+    const response = await POST(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.id).toBe('agentic_session_1');
+    expect(mockConvertUcpCartToCheckout).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cartId: 'cart_123',
+        requestUrl: 'http://localhost/api/agentic/checkout_sessions',
+      })
+    );
+    expect(calculateCheckoutSession).not.toHaveBeenCalled();
+  });
+
+  it('returns conversion errors for UCP cart references', async () => {
+    vi.mocked(mockConvertUcpCartToCheckout).mockResolvedValueOnce(
+      NextResponse.json({ error: 'Cart not found' }, { status: 404 })
+    );
+    const mockSupabase = { from: vi.fn() };
+    vi.mocked(createAdminClient).mockReturnValue(mockSupabase as never);
+    vi.mocked(createAgenticScopedSupabaseClient).mockReturnValue(
+      mockSupabase as never
+    );
+
+    const request = new NextRequest(
+      'http://localhost/api/agentic/checkout_sessions',
+      {
+        body: JSON.stringify({ cart_id: 'cart_missing' }),
+        headers: {
+          'Content-Type': 'application/json',
+          'Idempotency-Key': 'idem-1',
+        },
+        method: 'POST',
+      }
+    );
+
+    const { POST } = await import('./route');
+    const response = await POST(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(404);
+    expect(body).toEqual({ error: 'Cart not found' });
+  });
+
   it('creates a checkout session from native ACP item-shaped line_items and fulfillment_details', async () => {
     const insertSpy = vi.fn((_: Record<string, unknown>) => ({
       select: vi.fn(() => ({
@@ -575,7 +646,9 @@ describe('POST /api/agentic/checkout_sessions', () => {
       }
     );
 
-    const { handleAgenticCheckoutSessionCreate } = await import('./route');
+    const { handleAgenticCheckoutSessionCreate } = await import(
+      './checkout-session-create-handler'
+    );
     const response = await handleAgenticCheckoutSessionCreate(request, {
       requestBodyAdapter: adaptUcpCheckoutCreateRequestBody,
     });

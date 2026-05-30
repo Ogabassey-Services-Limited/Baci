@@ -10,6 +10,7 @@ const getCachedGoogleMerchantFeedData = vi.fn();
 const getCachedGooglePlacesReviews = vi.fn();
 const buildMerchantTrustProfile = vi.fn();
 const buildAgentCommerceTrustReadiness = vi.fn();
+const checkAgentCommerceUniversalCartReadiness = vi.fn();
 const supabaseFrom = vi.fn();
 
 vi.mock('@/lib/supabase/server', () => ({
@@ -23,6 +24,11 @@ vi.mock('@/lib/merchant-server', () => ({
 vi.mock('@/lib/agentic/action-health-loader', () => ({
   loadAgenticActionHealth: (...args: unknown[]) =>
     loadAgenticActionHealth(...args),
+}));
+
+vi.mock('@/lib/agentic/agent-commerce-health-monitor', () => ({
+  checkAgentCommerceUniversalCartReadiness: (...args: unknown[]) =>
+    checkAgentCommerceUniversalCartReadiness(...args),
 }));
 
 vi.mock('@/lib/store-url', () => ({
@@ -299,6 +305,12 @@ describe('loadAgenticCentersData', () => {
       staffAccess: ownerStaffAccess,
     });
     loadAgenticActionHealth.mockResolvedValue(actionHealth);
+    checkAgentCommerceUniversalCartReadiness.mockResolvedValue({
+      checks: [],
+      lastCheckedAt: '2026-05-26T12:00:00.000Z',
+      status: 'pass',
+      url: 'https://shop.example.com/.well-known/ucp',
+    });
     getCachedOpenAIFeedData.mockResolvedValue({ products: [] });
     getCachedGoogleMerchantFeedData.mockResolvedValue({
       imageManifest: {},
@@ -328,6 +340,10 @@ describe('loadAgenticCentersData', () => {
       expect.anything(),
       'merchant-1'
     );
+    expect(checkAgentCommerceUniversalCartReadiness).toHaveBeenCalledWith({
+      custom_domain: null,
+      slug: 'demo',
+    });
     expect(getCachedOpenAIFeedData).toHaveBeenCalledWith('merchant-1', true);
     expect(getCachedGoogleMerchantFeedData).toHaveBeenCalledWith(
       'merchant-1',
@@ -360,6 +376,10 @@ describe('loadAgenticCentersData', () => {
       isPartial: false,
       totalCrawls: 2,
       windowDays: 14,
+    });
+    expect(result.universalCartReadiness).toMatchObject({
+      status: 'pass',
+      url: 'https://shop.example.com/.well-known/ucp',
     });
   });
 

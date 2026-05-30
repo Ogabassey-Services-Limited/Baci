@@ -6,14 +6,15 @@ interface FeedDescriptionInput {
   description?: string | null;
   name: string;
   product_key_specs?: ProductKeySpecs | null;
+  variant_attributes?: Record<string, unknown> | null;
   weight_unit?: 'kg' | 'lb' | 'g' | 'oz' | null;
   weight_value?: number | null;
 }
 
 const MAX_FEED_DESCRIPTION_LENGTH = 4500;
 
-function normalizeText(value: string | null | undefined) {
-  return stripHtmlTags(value ?? '')
+function normalizeText(value: unknown) {
+  return stripHtmlTags(typeof value === 'string' ? value : '')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -35,9 +36,36 @@ function buildWeightLabel(input: FeedDescriptionInput) {
   return undefined;
 }
 
+function getVariantAttribute(
+  attributes: FeedDescriptionInput['variant_attributes'],
+  aliases: string[]
+) {
+  if (!attributes) {
+    return undefined;
+  }
+
+  const normalizedAliases = new Set(
+    aliases.map((alias) => alias.toLowerCase())
+  );
+
+  for (const [key, value] of Object.entries(attributes)) {
+    if (!normalizedAliases.has(key.toLowerCase())) {
+      continue;
+    }
+
+    const normalizedValue = normalizeText(value);
+    if (normalizedValue) {
+      return normalizedValue;
+    }
+  }
+
+  return undefined;
+}
+
 function buildSpecDetails(input: FeedDescriptionInput) {
   const specs = input.product_key_specs ?? {};
   const color =
+    getVariantAttribute(input.variant_attributes, ['color', 'colour']) ||
     normalizeText(input.color) ||
     (typeof specs.available_colors === 'string'
       ? normalizeText(specs.available_colors)
@@ -51,9 +79,17 @@ function buildSpecDetails(input: FeedDescriptionInput) {
       ? normalizeText(specs.display_resolution)
       : undefined;
   const ram =
-    typeof specs.ram_gb === 'number' ? `${specs.ram_gb}GB` : undefined;
+    getVariantAttribute(input.variant_attributes, ['ram', 'memory']) ||
+    (typeof specs.ram_gb === 'number' ? `${specs.ram_gb}GB` : undefined);
   const storage =
-    typeof specs.storage_gb === 'number' ? `${specs.storage_gb}GB` : undefined;
+    getVariantAttribute(input.variant_attributes, [
+      'storage',
+      'storage_capacity',
+      'rom',
+    ]) ||
+    (typeof specs.storage_gb === 'number'
+      ? `${specs.storage_gb}GB`
+      : undefined);
   const rearCamera =
     typeof specs.main_camera_mp === 'number'
       ? `${specs.main_camera_mp}MP`

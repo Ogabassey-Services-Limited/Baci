@@ -151,6 +151,30 @@ describe('/api/analytics/crawler-log', () => {
     expect(response.status).toBe(401);
   });
 
+  it('rejects POST events with wrong-length bearer secrets without logging', async () => {
+    const payload = {
+      urlPath: '/agent-commerce.json',
+      userAgent: 'GPTBot/1.0',
+    };
+
+    const shortSecretResponse = await POST(
+      createRequest('http://localhost/api/analytics/crawler-log', {
+        body: payload,
+        headers: { authorization: 'Bearer short' },
+      })
+    );
+    const longSecretResponse = await POST(
+      createRequest('http://localhost/api/analytics/crawler-log', {
+        body: payload,
+        headers: { authorization: 'Bearer internal-secret-extra' },
+      })
+    );
+
+    expect(shortSecretResponse.status).toBe(401);
+    expect(longSecretResponse.status).toBe(401);
+    expect(mockCreateAdminClient).not.toHaveBeenCalled();
+  });
+
   it('validates POST event payloads', async () => {
     const response = await POST(
       createRequest('http://localhost/api/analytics/crawler-log', {

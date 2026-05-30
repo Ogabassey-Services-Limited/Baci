@@ -97,12 +97,9 @@ describe('useVTUBillers', () => {
           billers: [mockEKEDCBiller],
         }),
     } as Awaited<ReturnType<typeof fetchWithRetry>>);
-    const { result, unmount } = renderHook(
-      () => useVTUBillers('electricity'),
-      {
-        wrapper: createWrapper(queryClient),
-      }
-    );
+    const { result, unmount } = renderHook(() => useVTUBillers('electricity'), {
+      wrapper: createWrapper(queryClient),
+    });
     unmountHook = unmount;
 
     await waitFor(() => {
@@ -115,12 +112,9 @@ describe('useVTUBillers', () => {
       mockEKEDCBiller,
     ]);
 
-    const { result, unmount } = renderHook(
-      () => useVTUBillers('electricity'),
-      {
-        wrapper: createWrapper(queryClient),
-      }
-    );
+    const { result, unmount } = renderHook(() => useVTUBillers('electricity'), {
+      wrapper: createWrapper(queryClient),
+    });
     unmountHook = unmount;
 
     await waitFor(() => {
@@ -129,17 +123,59 @@ describe('useVTUBillers', () => {
     expect(mockFetchWithRetry).not.toHaveBeenCalled();
   });
 
+  it('keeps nested Kuda data packages available to the data purchase form', async () => {
+    mockFetchWithRetry.mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          billers: [
+            {
+              billerId: '2082751a-89c7-4862-86c5-5498194b32f3',
+              billerName: 'MTN',
+              billerType: 'Internet Data',
+              categoryId: 'data',
+              categoryName: 'Internet Data',
+              billItems: [
+                {
+                  amount: 3500,
+                  isAmountFixed: true,
+                  itemCode: 'MTN-35GB-MONTHLY',
+                  itemCurrencySymbol: 'NGN',
+                  itemFee: 0,
+                  itemName: 'MTN 3.5GB Monthly',
+                },
+              ],
+            },
+          ],
+        }),
+    } as Awaited<ReturnType<typeof fetchWithRetry>>);
+
+    const { result, unmount } = renderHook(() => useVTUBillers('data'), {
+      wrapper: createWrapper(queryClient),
+    });
+    unmountHook = unmount;
+
+    await waitFor(() => {
+      expect(result.current.data?.[0]).toMatchObject({
+        billerId: '2082751a-89c7-4862-86c5-5498194b32f3',
+        billItems: [
+          expect.objectContaining({
+            itemCode: 'MTN-35GB-MONTHLY',
+            amount: 3500,
+          }),
+        ],
+      });
+    });
+  });
+
   it('returns an error state when fetchWithRetry rejects without cached billers', async () => {
     // Failed requests have no provider payload to preserve; cached query data is the only fallback path.
     const fetchError = new Error('Network unavailable');
     mockFetchWithRetry.mockRejectedValue(fetchError);
 
-    const { result, unmount } = renderHook(
-      () => useVTUBillers('electricity'),
-      {
-        wrapper: createWrapper(queryClient),
-      }
-    );
+    const { result, unmount } = renderHook(() => useVTUBillers('electricity'), {
+      wrapper: createWrapper(queryClient),
+    });
     unmountHook = unmount;
 
     await waitFor(() => {
@@ -155,12 +191,9 @@ describe('useVTUBillers', () => {
       status: 503,
     } as Awaited<ReturnType<typeof fetchWithRetry>>);
 
-    const { result, unmount } = renderHook(
-      () => useVTUBillers('electricity'),
-      {
-        wrapper: createWrapper(queryClient),
-      }
-    );
+    const { result, unmount } = renderHook(() => useVTUBillers('electricity'), {
+      wrapper: createWrapper(queryClient),
+    });
     unmountHook = unmount;
 
     await waitFor(() => {
@@ -182,12 +215,9 @@ describe('useVTUBillers', () => {
     );
     mockFetchWithRetry.mockRejectedValue(new Error('Network unavailable'));
 
-    const { result, unmount } = renderHook(
-      () => useVTUBillers('electricity'),
-      {
-        wrapper: createWrapper(queryClient),
-      }
-    );
+    const { result, unmount } = renderHook(() => useVTUBillers('electricity'), {
+      wrapper: createWrapper(queryClient),
+    });
     unmountHook = unmount;
 
     await waitFor(() => {

@@ -38,7 +38,7 @@ vi.mock('next/navigation', () => ({
   redirect: (...args: unknown[]) => mockRedirect(...args),
 }));
 
-import { BlogPageContent } from './page';
+import { BlogPageContent } from './blog-page-content';
 
 describe('platform blog listing page', () => {
   beforeEach(() => {

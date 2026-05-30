@@ -3,7 +3,12 @@ import { Suspense } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
 
-const { mockStorefrontContent, mockStorefrontPageContent } = vi.hoisted(() => ({
+const {
+  mockFullStorefrontCssImport,
+  mockStorefrontContent,
+  mockStorefrontPageContent,
+} = vi.hoisted(() => ({
+  mockFullStorefrontCssImport: vi.fn(),
   mockStorefrontContent: vi.fn(
     ({ merchant }: { merchant: { business_name: string } }) => (
       <div>{merchant.business_name} storefront</div>
@@ -13,6 +18,11 @@ const { mockStorefrontContent, mockStorefrontPageContent } = vi.hoisted(() => ({
     <div>Storefront page content</div>
   )),
 }));
+
+vi.mock('@/app/(storefront)/storefront-full.css', () => {
+  mockFullStorefrontCssImport();
+  return {};
+});
 
 vi.mock('@/lib/cached-data', () => ({
   getRequestScopedMerchant: vi.fn(),
@@ -131,6 +141,10 @@ describe('Storefront homepage structured data', () => {
         ['x-pathname', '/'],
       ])
     );
+  });
+
+  it('loads the full storefront stylesheet at the dynamic home page leaf', () => {
+    expect(mockFullStorefrontCssImport).toHaveBeenCalledOnce();
   });
 
   it('emits OnlineStore, WebSite, and address-backed Store schemas on the homepage', async () => {

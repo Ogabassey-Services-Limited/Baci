@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   buildCachedDataTestHarness,
   type CachedDataTestHarness,
+  mockMerchant,
 } from '@/lib/cached-data.test-utils';
 
 const mockCreateClient = vi.fn();
@@ -23,6 +24,9 @@ import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
 import {
   getCachedCategories,
   getCachedFeatureSettings,
+  getCachedMerchant,
+  getCachedMerchantByDomain,
+  getCachedMerchantById,
   getCachedProductRatingStats,
   getCachedProducts,
   getPublicSupabaseClient,
@@ -126,6 +130,172 @@ describe('getCachedCategories', () => {
     const result = await getCachedCategories('merchant-1');
 
     expect(result).toEqual([]);
+  });
+});
+
+describe('cached merchant entity normalization', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    harness = buildCachedDataTestHarness();
+    mockCreateClient.mockReturnValue({
+      from: harness.mockFrom,
+      rpc: harness.mockRpc,
+      auth: { getUser: vi.fn() },
+    });
+  });
+
+  it('normalizes the OgaBassey slug merchant away from stale fashion business type', async () => {
+    harness.mockMaybeSingle.mockResolvedValueOnce({
+      data: {
+        ...mockMerchant,
+        business_type: 'fashion',
+        feature_settings: [],
+        slug: 'ogabassey',
+      },
+      error: null,
+      count: null,
+    });
+    harness.mockSingle.mockResolvedValueOnce({
+      data: { domain: 'ogabassey.com' },
+      error: null,
+      count: null,
+    });
+
+    const merchant = await getCachedMerchant('ogabassey');
+
+    expect(merchant).toEqual(
+      expect.objectContaining({
+        business_type: 'electronics',
+        custom_domain: 'ogabassey.com',
+        slug: 'ogabassey',
+      })
+    );
+  });
+
+  it('normalizes the OgaBassey domain merchant away from stale fashion business type', async () => {
+    harness.mockMaybeSingle.mockResolvedValueOnce({
+      data: { merchant_id: mockMerchant.id, domain: 'ogabassey.com' },
+      error: null,
+      count: null,
+    });
+    harness.mockSingle.mockResolvedValueOnce({
+      data: {
+        ...mockMerchant,
+        business_type: 'fashion',
+        feature_settings: [],
+        slug: 'ogabassey',
+      },
+      error: null,
+      count: null,
+    });
+
+    const merchant = await getCachedMerchantByDomain('ogabassey.com');
+
+    expect(merchant).toEqual(
+      expect.objectContaining({
+        business_type: 'electronics',
+        custom_domain: 'ogabassey.com',
+        slug: 'ogabassey',
+      })
+    );
+  });
+
+  it('normalizes OgaBassey merchant lookup by id when the slug is available', async () => {
+    harness.mockSingle.mockResolvedValueOnce({
+      data: {
+        ...mockMerchant,
+        business_type: 'fashion',
+        slug: 'ogabassey',
+      },
+      error: null,
+      count: null,
+    });
+
+    const merchant = await getCachedMerchantById(mockMerchant.id);
+
+    expect(merchant).toEqual(
+      expect.objectContaining({
+        business_type: 'electronics',
+        slug: 'ogabassey',
+      })
+    );
+  });
+
+  it('preserves business type for non-OgaBassey slug merchants', async () => {
+    harness.mockMaybeSingle.mockResolvedValueOnce({
+      data: {
+        ...mockMerchant,
+        business_type: 'fashion',
+        feature_settings: [],
+        slug: 'fashionstore',
+      },
+      error: null,
+      count: null,
+    });
+    harness.mockSingle.mockResolvedValueOnce({
+      data: { domain: 'fashion.example' },
+      error: null,
+      count: null,
+    });
+
+    const merchant = await getCachedMerchant('fashionstore');
+
+    expect(merchant).toEqual(
+      expect.objectContaining({
+        business_type: 'fashion',
+        custom_domain: 'fashion.example',
+        slug: 'fashionstore',
+      })
+    );
+  });
+
+  it('preserves business type for non-OgaBassey domain merchants', async () => {
+    harness.mockMaybeSingle.mockResolvedValueOnce({
+      data: { merchant_id: mockMerchant.id, domain: 'fashion.example' },
+      error: null,
+      count: null,
+    });
+    harness.mockSingle.mockResolvedValueOnce({
+      data: {
+        ...mockMerchant,
+        business_type: 'fashion',
+        feature_settings: [],
+        slug: 'fashionstore',
+      },
+      error: null,
+      count: null,
+    });
+
+    const merchant = await getCachedMerchantByDomain('fashion.example');
+
+    expect(merchant).toEqual(
+      expect.objectContaining({
+        business_type: 'fashion',
+        custom_domain: 'fashion.example',
+        slug: 'fashionstore',
+      })
+    );
+  });
+
+  it('preserves business type for non-OgaBassey merchant lookup by id', async () => {
+    harness.mockSingle.mockResolvedValueOnce({
+      data: {
+        ...mockMerchant,
+        business_type: 'fashion',
+        slug: 'fashionstore',
+      },
+      error: null,
+      count: null,
+    });
+
+    const merchant = await getCachedMerchantById(mockMerchant.id);
+
+    expect(merchant).toEqual(
+      expect.objectContaining({
+        business_type: 'fashion',
+        slug: 'fashionstore',
+      })
+    );
   });
 });
 

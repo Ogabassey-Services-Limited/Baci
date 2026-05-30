@@ -62,6 +62,14 @@ function applyPurchaseRequirements(
     }
   }
 
+  if (data.type === 'data' && !data.dataPlanCode) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'dataPlanCode is required for data purchases',
+      path: ['dataPlanCode'],
+    });
+  }
+
   if (
     data.type === 'electricity' ||
     data.type === 'cable_tv' ||

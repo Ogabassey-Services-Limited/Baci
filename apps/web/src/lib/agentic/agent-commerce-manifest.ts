@@ -1,11 +1,16 @@
 import {
+  AGENTIC_PAYMENT_METHOD_GOOGLE_PAY,
   AGENTIC_PAYMENT_METHOD_PAY_ON_DELIVERY,
   AGENTIC_PAYMENT_METHOD_PAYSTACK_BANK_TRANSFER,
   type AgenticPaymentMethod,
 } from '@/config/agentic-payment-methods';
 import { STOREFRONT_AGENT_ROUTES } from '@/config/storefront-agent-routes';
 import { STOREFRONT_FEED_ROUTES } from '@/config/storefront-feed-routes';
-import { getPaystackSecretKey } from '@/env';
+import {
+  type GooglePayAgenticConfig,
+  getGooglePayAgenticConfig,
+  getPaystackSecretKey,
+} from '@/env';
 import {
   getConfiguredAgenticMerchantSlug,
   isAgenticCheckoutRuntimeConfigured,
@@ -74,6 +79,9 @@ export type AgentCommerceManifest = {
   auth: ReturnType<typeof buildAgenticCheckoutAuth> | null;
   capabilities: string[];
   links: AgentCommerceLinks;
+  payment_handler_configs?: {
+    google_pay?: GooglePayAgenticConfig;
+  };
   payment_methods: AgenticPaymentMethod[];
   platform: 'baci';
   schema_version: typeof AGENT_COMMERCE_SCHEMA_VERSION;
@@ -102,7 +110,13 @@ export function buildAgentCommerceManifest(
   merchant: MerchantPaymentConfig,
   baseUrl: string
 ): AgentCommerceManifest {
-  const paymentMethods = buildAgenticPaymentMethods(merchant);
+  const googlePayConfig = getGooglePayAgenticConfig();
+  const paymentMethods = buildAgenticPaymentMethods(merchant, googlePayConfig);
+  const enabledGooglePayConfig = paymentMethods.includes(
+    AGENTIC_PAYMENT_METHOD_GOOGLE_PAY
+  )
+    ? googlePayConfig
+    : null;
   const signedAgentReadsEnabled =
     isAgenticCheckoutRuntimeConfigured() &&
     merchant.slug === getConfiguredAgenticMerchantSlug();
@@ -129,6 +143,9 @@ export function buildAgentCommerceManifest(
       ...(checkoutEnabled ? [...AGENT_COMMERCE_CHECKOUT_CAPABILITIES] : []),
     ],
     payment_methods: checkoutEnabled ? paymentMethods : [],
+    ...(checkoutEnabled && enabledGooglePayConfig
+      ? { payment_handler_configs: { google_pay: enabledGooglePayConfig } }
+      : {}),
     auth: signedAgentReadsEnabled ? buildAgenticCheckoutAuth() : null,
     links: {
       agent_native_commerce: buildUrl(
@@ -161,13 +178,19 @@ export function buildAgentCommerceManifest(
   };
 }
 
-function buildAgenticPaymentMethods(merchant: MerchantPaymentConfig) {
+function buildAgenticPaymentMethods(
+  merchant: MerchantPaymentConfig,
+  googlePayConfig: GooglePayAgenticConfig | null
+) {
   const methods: AgenticPaymentMethod[] = [];
-  if (
+  const paystackReady =
     getPaystackSecretKey() &&
-    isValidPaystackSubaccountCode(merchant.paystack_subaccount_code)
-  ) {
+    isValidPaystackSubaccountCode(merchant.paystack_subaccount_code);
+  if (paystackReady) {
     methods.push(AGENTIC_PAYMENT_METHOD_PAYSTACK_BANK_TRANSFER);
+    if (googlePayConfig?.gateway === 'paystack') {
+      methods.push(AGENTIC_PAYMENT_METHOD_GOOGLE_PAY);
+    }
   }
   const payOnDeliveryEnabled =
     merchant.feature_settings?.pay_on_delivery_enabled;

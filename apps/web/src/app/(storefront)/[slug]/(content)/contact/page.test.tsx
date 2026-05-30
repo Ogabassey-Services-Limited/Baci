@@ -1,14 +1,27 @@
 import { render } from '@testing-library/react';
 import { headers } from 'next/headers';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
+
+const mockNotFound = vi.fn(() => {
+  throw new Error('NEXT_NOT_FOUND');
+});
+const mockConnection = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/cached-data', () => ({
   getMerchantByIdentifier: vi.fn(),
 }));
 
+vi.mock('next/server', () => ({
+  connection: () => mockConnection(),
+}));
+
 vi.mock('next/headers', () => ({
   headers: vi.fn(),
+}));
+
+vi.mock('next/navigation', () => ({
+  notFound: () => mockNotFound(),
 }));
 
 vi.mock('@/lib/sanitize-json-ld', () => ({
@@ -23,7 +36,8 @@ vi.mock('../pages/contact/contact-page-client', () => ({
   ContactPageClient: vi.fn(() => null),
 }));
 
-const { ContactPageContent, generateMetadata } = await import('./page');
+const { ContactPageContent } = await import('./contact-page-content');
+const { generateMetadata } = await import('./page');
 
 const merchantFixture = {
   business_name: 'Test Store',
@@ -57,6 +71,14 @@ const merchantFixture = {
 };
 
 describe('contact metadata', () => {
+  beforeEach(() => {
+    vi.mocked(getMerchantByIdentifier).mockReset();
+    vi.mocked(headers).mockReset();
+    vi.mocked(headers).mockResolvedValue(new Headers());
+    mockNotFound.mockClear();
+    mockConnection.mockReset();
+  });
+
   it('returns fallback title when merchant is missing', async () => {
     vi.mocked(getMerchantByIdentifier).mockResolvedValue(null);
 
@@ -65,6 +87,16 @@ describe('contact metadata', () => {
     });
 
     expect(metadata.title).toBe('Contact Us');
+  });
+
+  it('marks contact metadata as request-time rendered', async () => {
+    vi.mocked(getMerchantByIdentifier).mockResolvedValue(null);
+
+    await generateMetadata({
+      params: Promise.resolve({ slug: 'unknown' }),
+    });
+
+    expect(mockConnection).toHaveBeenCalledOnce();
   });
 
   it('prefers the request-scoped custom domain for canonical metadata', async () => {
@@ -132,5 +164,37 @@ describe('contact metadata', () => {
       returnMethod: 'https://schema.org/ReturnByMail',
       returnFees: 'https://schema.org/FreeReturn',
     });
+  });
+
+  it('throws not found when the merchant is missing at render time', async () => {
+    vi.mocked(getMerchantByIdentifier).mockResolvedValue(null);
+
+    await expect(
+      ContactPageContent({
+        params: Promise.resolve({ slug: 'missing-store' }),
+      })
+    ).rejects.toThrow('NEXT_NOT_FOUND');
+    expect(mockNotFound).toHaveBeenCalledOnce();
+  });
+
+  it('throws not found when contact data is whitespace only', async () => {
+    vi.mocked(getMerchantByIdentifier).mockResolvedValue({
+      ...merchantFixture,
+      email: '   ',
+      phone: '   ',
+      support_email: '   ',
+      support_phone: '   ',
+      pages: {
+        contact: '   ',
+      },
+      trust_profile: {},
+    } as unknown as Awaited<ReturnType<typeof getMerchantByIdentifier>>);
+
+    await expect(
+      ContactPageContent({
+        params: Promise.resolve({ slug: 'test-store' }),
+      })
+    ).rejects.toThrow('NEXT_NOT_FOUND');
+    expect(mockNotFound).toHaveBeenCalledOnce();
   });
 });

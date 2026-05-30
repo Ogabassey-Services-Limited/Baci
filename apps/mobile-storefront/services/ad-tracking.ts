@@ -1,28 +1,5 @@
-/**
- * Unified Ad Tracking Service - 2026 Best Practices
- *
- * SERVER-SIDE FIRST APPROACH
- * ==========================
- * All conversion events are sent to our server which then forwards to:
- * - Meta/Facebook Conversions API (CAPI)
- * - TikTok Events API
- * - Snapchat Conversions API
- * - Google Ads Enhanced Conversions
- *
- * Why server-side first?
- * 1. iOS 14.5+ ATT compliance - bypasses tracking restrictions
- * 2. No ad blockers - server-side can't be blocked
- * 3. Better data quality - single source of truth
- * 4. Event deduplication - use event_id to prevent duplicates
- * 5. PII hashing done on server - more secure
- *
- * Client-side SDKs (Facebook, TikTok) are used as BACKUP only
- * and include the same event_id for deduplication.
- *
- * @see https://developers.facebook.com/docs/marketing-api/conversions-api/deduplicate-pixel-and-server-events
- */
-
 import { createLogger } from '@/lib/logger';
+import { generateEventId, generateEventIdSync } from './ad-tracking-event-id';
 
 const log = createLogger('AdTracking');
 
@@ -44,44 +21,20 @@ const _analytics = () => ({
 });
 
 import Constants from 'expo-constants';
-import * as Crypto from 'expo-crypto';
-import {
-  getTrackingPermissionsAsync,
-  requestTrackingPermissionsAsync,
-} from 'expo-tracking-transparency';
 import { Platform } from 'react-native';
-
-// 2026 Best Practice: Dynamic imports for native modules to prevent evaluation-time crashes
-// Minimal interfaces for dynamically loaded SDK methods we actually use
-interface FBSettingsLike {
-  initializeSDK: () => void;
-  setAdvertiserTrackingEnabled: (enabled: boolean) => void;
-}
-interface AppEventsLoggerLike {
-  logEvent: {
-    (name: string, params?: Record<string, unknown>): void;
-    (name: string, valueToSum: number, params?: Record<string, unknown>): void;
-  };
-  logPurchase: (
-    amount: number,
-    currency: string,
-    params?: Record<string, unknown>
-  ) => void;
-  setUserData: (data: Record<string, string | undefined>) => void;
-  clearUserID: () => void;
-}
-interface AEMReporterIOSLike {
-  logAEMEvent: (
-    name: string,
-    value: number,
-    currency: string,
-    params: Record<string, unknown>
-  ) => void;
-}
-interface TikTokBusinessLike {
-  init: (config: Record<string, unknown>) => Promise<void>;
-  trackEvent: (name: string, params?: Record<string, unknown>) => void;
-}
+import {
+  getTrackingPermissionStatus,
+  requestTrackingPermissionStatus,
+} from '@/lib/tracking-transparency';
+import { buildTikTokCommerceEventParams } from './tiktok-commerce-event-data';
+import {
+  type AEMReporterIOSLike,
+  type AppEventsLoggerLike,
+  type FBSettingsLike,
+  loadAdTrackingNativeModules,
+  type TikTokBusinessLike,
+} from './ad-tracking-native-modules';
+import { toTikTokEventData } from './tiktok-event-data';
 
 let FBSettings: FBSettingsLike | null = null;
 let AppEventsLogger: AppEventsLoggerLike | null = null;
@@ -89,25 +42,11 @@ let AEMReporterIOS: AEMReporterIOSLike | null = null;
 let TikTokBusiness: TikTokBusinessLike | null = null;
 
 const loadNativeModules = async () => {
-  if (Platform.OS === 'web') return;
-  try {
-    const [fb, tt] = await Promise.all([
-      import('react-native-fbsdk-next'),
-      import('react-native-tiktok-business'),
-    ]);
-
-    if (fb) {
-      FBSettings = fb.Settings as unknown as FBSettingsLike;
-      AppEventsLogger = fb.AppEventsLogger as unknown as AppEventsLoggerLike;
-      AEMReporterIOS = fb.AEMReporterIOS as unknown as AEMReporterIOSLike;
-    }
-
-    if (tt) {
-      TikTokBusiness = (tt.default || tt) as unknown as TikTokBusinessLike;
-    }
-  } catch (e) {
-    console.debug('[AdTracking] Native modules ignored or failed to load:', e);
-  }
+  const modules = await loadAdTrackingNativeModules();
+  FBSettings = modules.FBSettings;
+  AppEventsLogger = modules.AppEventsLogger;
+  AEMReporterIOS = modules.AEMReporterIOS;
+  TikTokBusiness = modules.TikTokBusiness;
 };
 
 loadNativeModules();
@@ -129,9 +68,12 @@ import {
 
 const FB_APP_ID = Constants.expoConfig?.extra?.facebookAppId || '';
 const FB_CLIENT_TOKEN = Constants.expoConfig?.extra?.facebookClientToken || '';
-const TIKTOK_APP_ID = Constants.expoConfig?.extra?.tiktokAppId || '';
-const TIKTOK_ACCESS_TOKEN =
-  Constants.expoConfig?.extra?.tiktokAccessToken || '';
+const TIKTOK_BUSINESS_CONFIG = Constants.expoConfig?.extra?.tiktokBusiness as
+  | { isConfigured?: boolean; iosTikTokAppId?: string | null }
+  | undefined;
+const IS_TIKTOK_BUSINESS_CONFIGURED = Boolean(
+  TIKTOK_BUSINESS_CONFIG?.isConfigured
+);
 const API_URL =
   Constants.expoConfig?.extra?.apiUrl || 'https://ogabassey.com/api';
 
@@ -148,7 +90,6 @@ let cachedUserData: {
   lastName?: string;
 } = {};
 
-// Store merchant ID for analytics attribution
 let cachedMerchantId: string | null = null;
 
 /**
@@ -157,33 +98,6 @@ let cachedMerchantId: string | null = null;
  */
 export function setMerchantId(merchantId: string): void {
   cachedMerchantId = merchantId;
-}
-
-// =============================================================================
-// EVENT ID GENERATION (Critical for deduplication)
-// =============================================================================
-
-/**
- * Generate a unique event ID for deduplication
- * This ID is sent to BOTH client-side SDKs and server-side APIs
- * so duplicate events can be detected and merged
- */
-async function generateEventId(): Promise<string> {
-  const timestamp = Date.now().toString(36);
-  const randomBytes = await Crypto.getRandomBytesAsync(8);
-  const randomHex = Array.from(randomBytes)
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
-  return `${timestamp}_${randomHex}`;
-}
-
-/**
- * Synchronous event ID generation (fallback)
- */
-function generateEventIdSync(): string {
-  const timestamp = Date.now().toString(36);
-  const random = Crypto.randomUUID().replace(/-/g, '').substring(0, 10);
-  return `${timestamp}_${random}`;
 }
 
 // =============================================================================
@@ -206,7 +120,7 @@ export async function initAdTracking(): Promise<void> {
   try {
     // 1. Check ATT permission on iOS
     if (Platform.OS === 'ios') {
-      const { status } = await getTrackingPermissionsAsync();
+      const { status } = await getTrackingPermissionStatus();
       isTrackingAllowed = status === 'granted';
       if (FBSettings) {
         FBSettings.setAdvertiserTrackingEnabled(isTrackingAllowed);
@@ -221,19 +135,13 @@ export async function initAdTracking(): Promise<void> {
       log.info('Facebook SDK initialized (backup)');
     }
 
-    // 4. Initialize TikTok SDK (backup tracking)
-    if (TIKTOK_APP_ID && TIKTOK_ACCESS_TOKEN && TikTokBusiness) {
-      try {
-        await TikTokBusiness.init({
-          appId: TIKTOK_APP_ID,
-          tiktokAppId: TIKTOK_APP_ID,
-          accessToken: TIKTOK_ACCESS_TOKEN,
-          debug: __DEV__,
-        });
-        isTikTokInitialized = true;
+    // 3. TikTok SDK initializes natively from app.config plugin values.
+    if (IS_TIKTOK_BUSINESS_CONFIGURED && TikTokBusiness) {
+      isTikTokInitialized = Boolean(
+        TikTokBusiness.initialize?.() || TikTokBusiness.isInitialized?.()
+      );
+      if (isTikTokInitialized) {
         log.info('TikTok SDK initialized (backup)');
-      } catch (ttError) {
-        log.warn('TikTok SDK init error:', ttError);
       }
     }
 
@@ -255,7 +163,7 @@ export async function requestTrackingPermission(): Promise<string> {
   if (Platform.OS !== 'ios') return 'granted';
 
   try {
-    const { status } = await requestTrackingPermissionsAsync();
+    const { status } = await requestTrackingPermissionStatus();
     isTrackingAllowed = status === 'granted';
     if (FBSettings) {
       FBSettings.setAdvertiserTrackingEnabled(isTrackingAllowed);
@@ -321,6 +229,15 @@ export async function identifyUser(
       phone: properties.phone,
     });
   }
+
+  if (isTrackingAllowed && isTikTokInitialized && TikTokBusiness?.identify) {
+    TikTokBusiness.identify(
+      userId,
+      undefined,
+      properties?.phone,
+      properties?.email
+    );
+  }
 }
 
 /**
@@ -333,6 +250,9 @@ export async function resetUserIdentity(): Promise<void> {
   // await analytics().resetAnalyticsData();
   if (AppEventsLogger) {
     AppEventsLogger.clearUserID();
+  }
+  if (TikTokBusiness?.logout) {
+    TikTokBusiness.logout();
   }
 }
 
@@ -347,6 +267,11 @@ interface ConversionData {
   orderId?: string;
   value?: number;
   currency?: string;
+  contentName?: string;
+  contentType?: 'product' | 'product_group';
+  price?: number;
+  searchString?: string;
+  url?: string;
   items?: Array<{
     id: string;
     quantity: number;
@@ -389,7 +314,12 @@ async function sendServerConversion(
           order_id: data.orderId,
           value: data.value,
           currency: data.currency || 'NGN',
+          content_name: data.contentName,
+          content_type: data.contentType,
           contents: data.items,
+          price: data.price,
+          search_string: data.searchString,
+          url: data.url,
         },
         // All platforms receive the event with same event_id
         targets: ['facebook', 'tiktok', 'snapchat', 'google'],
@@ -426,7 +356,8 @@ function sendClientBackup(
   ttEvent: string | null,
   value: number,
   currency: string,
-  params: Record<string, string | number>
+  params: Record<string, unknown>,
+  tikTokParams: Record<string, unknown> = params
 ): void {
   // Facebook (backup) - include event_id for deduplication
   if (AppEventsLogger) {
@@ -441,12 +372,13 @@ function sendClientBackup(
     AEMReporterIOS.logAEMEvent(fbEvent, value, currency, params);
   }
 
-  // TikTok (backup) - Cast to any due to SDK type mismatch
+  // TikTok (backup)
   if (isTikTokInitialized && ttEvent && TikTokBusiness) {
-    TikTokBusiness.trackEvent(ttEvent, {
-      ...params,
-      event_id: eventId, // TikTok uses event_id for dedup
-    });
+    TikTokBusiness.trackEvent(
+      ttEvent,
+      eventId,
+      toTikTokEventData(tikTokParams)
+    );
   }
 }
 
@@ -463,9 +395,28 @@ export async function trackProductViewed(product: {
   price: number;
   currency?: string;
   category?: string;
+  brand?: string;
+  description?: string;
 }): Promise<void> {
   const eventId = generateEventIdSync();
   const currency = product.currency || 'NGN';
+  const tikTokParams = buildTikTokCommerceEventParams({
+    contentId: product.id,
+    contentName: product.name,
+    currency,
+    description: product.description,
+    value: product.price,
+    items: [
+      {
+        id: product.id,
+        name: product.name,
+        price: product.price,
+        quantity: 1,
+        category: product.category,
+        brand: product.brand,
+      },
+    ],
+  });
 
   // 1. PostHog (product analytics - not ad tracking)
   posthogProductViewed({
@@ -475,22 +426,6 @@ export async function trackProductViewed(product: {
     currency,
     category: product.category,
   });
-
-  // Firebase (Removed)
-  /*
-  await analytics().logViewItem({
-    items: [
-      {
-        item_id: product.id,
-        item_name: product.name,
-        price: product.price,
-        item_category: product.category,
-      },
-    ],
-    currency,
-    value: product.price,
-  });
-  */
 
   // 3. SERVER-SIDE (PRIMARY) - sends to Facebook, TikTok, Snapchat, Google
   sendServerConversion('VIEW_CONTENT', eventId, {
@@ -513,9 +448,8 @@ export async function trackProductViewed(product: {
       fb_content_id: product.id,
       fb_content_type: 'product',
       fb_currency: currency,
-      content_id: product.id,
-      content_name: product.name,
-    }
+    },
+    tikTokParams
   );
 }
 
@@ -530,12 +464,29 @@ export async function trackAddToCart(
     quantity: number;
     currency?: string;
     category?: string;
+    brand?: string;
   },
   cartTotal?: number
 ): Promise<void> {
   const eventId = generateEventIdSync();
   const currency = product.currency || 'NGN';
   const value = product.price * product.quantity;
+  const tikTokParams = buildTikTokCommerceEventParams({
+    contentId: product.id,
+    contentName: product.name,
+    currency,
+    value,
+    items: [
+      {
+        id: product.id,
+        name: product.name,
+        price: product.price,
+        quantity: product.quantity,
+        category: product.category,
+        brand: product.brand,
+      },
+    ],
+  });
 
   // 1. PostHog
   posthogAddToCart(
@@ -549,23 +500,6 @@ export async function trackAddToCart(
     },
     cartTotal
   );
-
-  // Firebase (Removed)
-  /*
-  await analytics().logAddToCart({
-    items: [
-      {
-        item_id: product.id,
-        item_name: product.name,
-        price: product.price,
-        quantity: product.quantity,
-        item_category: product.category,
-      },
-    ],
-    currency,
-    value,
-  });
-  */
 
   // 3. SERVER-SIDE (PRIMARY)
   sendServerConversion('ADD_CART', eventId, {
@@ -594,9 +528,8 @@ export async function trackAddToCart(
       fb_content_type: 'product',
       fb_currency: currency,
       fb_num_items: product.quantity,
-      content_id: product.id,
-      quantity: product.quantity,
-    }
+    },
+    tikTokParams
   );
 }
 
@@ -607,25 +540,23 @@ export async function trackCheckoutStarted(checkout: {
   itemCount: number;
   subtotal: number;
   currency?: string;
-  items?: Array<{ id: string; name: string; price: number; quantity: number }>;
+  items?: Array<{
+    id: string;
+    name: string;
+    price: number;
+    quantity: number;
+    category?: string;
+    brand?: string;
+  }>;
 }): Promise<void> {
   const eventId = generateEventIdSync();
   const currency = checkout.currency || 'NGN';
-
-  // Firebase (Removed)
-  /*
-  await analytics().logBeginCheckout({
-    items:
-      checkout.items?.map((item) => ({
-        item_id: item.id,
-        item_name: item.name,
-        price: item.price,
-        quantity: item.quantity,
-      })) || [],
+  const tikTokParams = buildTikTokCommerceEventParams({
     currency,
     value: checkout.subtotal,
+    quantity: checkout.itemCount,
+    items: checkout.items,
   });
-  */
 
   // 2. SERVER-SIDE (PRIMARY)
   sendServerConversion('START_CHECKOUT', eventId, {
@@ -644,14 +575,14 @@ export async function trackCheckoutStarted(checkout: {
     'START_CHECKOUT',
     eventId,
     'fb_mobile_initiated_checkout',
-    'InitiateCheckout',
+    'Checkout',
     checkout.subtotal,
     currency,
     {
       fb_currency: currency,
       fb_num_items: checkout.itemCount,
-      quantity: checkout.itemCount,
-    }
+    },
+    tikTokParams
   );
 }
 
@@ -673,6 +604,7 @@ export async function trackPurchase(order: {
     price: number;
     quantity: number;
     category?: string;
+    brand?: string;
   }>;
   paymentMethod?: string;
   couponCode?: string;
@@ -684,6 +616,15 @@ export async function trackPurchase(order: {
   const eventId = await generateEventId();
   const currency = order.currency || 'NGN';
   const totalItems = order.items.reduce((sum, i) => sum + i.quantity, 0);
+  const tikTokParams = buildTikTokCommerceEventParams({
+    currency,
+    value: order.total,
+    quantity: totalItems,
+    items: order.items,
+    extra: {
+      order_id: order.orderId,
+    },
+  });
 
   // 1. PostHog (product analytics)
   posthogOrderCompleted({
@@ -698,26 +639,6 @@ export async function trackPurchase(order: {
     paymentMethod: order.paymentMethod,
     couponCode: order.couponCode,
   });
-
-  // Firebase (Removed)
-  /*
-  await analytics().logPurchase({
-    transaction_id: order.orderId,
-    affiliation: 'Ogabassey Mobile App',
-    value: order.total,
-    currency,
-    tax: order.tax,
-    shipping: order.shipping,
-    coupon: order.couponCode,
-    items: order.items.map((item) => ({
-      item_id: item.id,
-      item_name: item.name,
-      price: item.price,
-      quantity: item.quantity,
-      item_category: item.category,
-    })),
-  });
-  */
 
   // 3. SERVER-SIDE (PRIMARY) - this is the authoritative source
   sendServerConversion('PURCHASE', eventId, {
@@ -755,21 +676,13 @@ export async function trackPurchase(order: {
     });
   }
 
-  // TikTok - Cast to any due to SDK type mismatch
+  // TikTok
   if (isTikTokInitialized && TikTokBusiness) {
-    TikTokBusiness.trackEvent('CompletePayment', {
-      content_type: 'product',
-      contents: order.items.map((item) => ({
-        content_id: item.id,
-        content_name: item.name,
-        quantity: item.quantity,
-        price: item.price,
-      })),
-      quantity: totalItems,
-      value: order.total,
-      currency,
-      event_id: eventId,
-    });
+    TikTokBusiness.trackEvent(
+      'Purchase',
+      eventId,
+      toTikTokEventData(tikTokParams)
+    );
   }
 
   log.info(`Purchase tracked: ${order.orderId} - ${order.total} ${currency}`);
@@ -779,13 +692,15 @@ export async function trackPurchase(order: {
  * Track payment info added
  */
 export async function trackPaymentInfoAdded(
-  _paymentMethod: string
+  paymentMethod: string
 ): Promise<void> {
   const eventId = generateEventIdSync();
 
   // await analytics().logAddPaymentInfo({ payment_type: paymentMethod });
 
-  sendServerConversion('ADD_PAYMENT_INFO', eventId, {});
+  sendServerConversion('ADD_PAYMENT_INFO', eventId, {
+    currency: 'NGN',
+  });
 
   if (AppEventsLogger) {
     AppEventsLogger.logEvent('fb_mobile_add_payment_info', {
@@ -795,6 +710,81 @@ export async function trackPaymentInfoAdded(
 
   if (Platform.OS === 'ios' && AEMReporterIOS) {
     AEMReporterIOS.logAEMEvent('fb_mobile_add_payment_info', 0, 'NGN', {});
+  }
+
+  if (isTikTokInitialized && TikTokBusiness) {
+    TikTokBusiness.trackEvent(
+      'AddPaymentInfo',
+      eventId,
+      toTikTokEventData({
+        payment_method: paymentMethod,
+        currency: 'NGN',
+      })
+    );
+  }
+}
+
+/**
+ * Track product added to wishlist
+ */
+export async function trackAddToWishlist(product: {
+  id: string;
+  name: string;
+  price?: number;
+  currency?: string;
+  category?: string;
+  brand?: string;
+}): Promise<void> {
+  const eventId = generateEventIdSync();
+  const currency = product.currency || 'NGN';
+  const tikTokParams = buildTikTokCommerceEventParams({
+    contentId: product.id,
+    contentName: product.name,
+    currency,
+    value: product.price,
+    items: [
+      {
+        id: product.id,
+        name: product.name,
+        price: product.price,
+        quantity: 1,
+        category: product.category,
+        brand: product.brand,
+      },
+    ],
+  });
+
+  posthogTrack('Wishlist Item Added', {
+    product_id: product.id,
+    product_name: product.name,
+    price: product.price,
+    currency,
+    category: product.category,
+    brand: product.brand,
+  });
+
+  sendServerConversion('ADD_TO_WISHLIST', eventId, {
+    value: product.price,
+    currency,
+    contentName: product.name,
+    contentType: 'product',
+    price: product.price,
+    items: [
+      {
+        id: product.id,
+        quantity: 1,
+        name: product.name,
+        price: product.price,
+      },
+    ],
+  });
+
+  if (isTikTokInitialized && TikTokBusiness) {
+    TikTokBusiness.trackEvent(
+      'AddToWishlist',
+      eventId,
+      toTikTokEventData(tikTokParams)
+    );
   }
 }
 
@@ -815,7 +805,9 @@ export async function trackSearch(
 
   // await analytics().logSearch({ search_term: query });
 
-  sendServerConversion('SEARCH', eventId, {});
+  sendServerConversion('SEARCH', eventId, {
+    searchString: query,
+  });
 
   if (AppEventsLogger) {
     AppEventsLogger.logEvent('fb_mobile_search', {
@@ -825,10 +817,13 @@ export async function trackSearch(
   }
 
   if (isTikTokInitialized && TikTokBusiness) {
-    TikTokBusiness.trackEvent('Search', {
-      query,
-      event_id: eventId,
-    });
+    TikTokBusiness.trackEvent(
+      'Search',
+      eventId,
+      toTikTokEventData({
+        query,
+      })
+    );
   }
 }
 
@@ -892,10 +887,13 @@ export async function trackSignup(
   }
 
   if (isTikTokInitialized && TikTokBusiness) {
-    TikTokBusiness.trackEvent('CompleteRegistration', {
-      registration_method: method,
-      event_id: eventId,
-    });
+    TikTokBusiness.trackEvent(
+      'Registration',
+      eventId,
+      toTikTokEventData({
+        registration_method: method,
+      })
+    );
   }
 }
 
@@ -935,6 +933,6 @@ export async function trackCustomEvent(
   }
 
   if (isTikTokInitialized && TikTokBusiness) {
-    TikTokBusiness.trackEvent(eventName, { ...params, event_id: eventId });
+    TikTokBusiness.trackEvent(eventName, eventId, toTikTokEventData(params));
   }
 }

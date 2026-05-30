@@ -2,6 +2,10 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { type NextRequest, NextResponse } from 'next/server';
 import { getCronSecret } from '@/env';
 import { loadAgenticActionHealth } from '@/lib/agentic/action-health-loader';
+import {
+  type AgenticActionHealthSummary,
+  summarizeAgenticActionHealth,
+} from '@/lib/agentic/action-health-summary';
 import type { AgentCommerceFeedHealthResult } from '@/lib/agentic/agent-commerce-feed-health';
 import {
   buildAgentCommerceFeedHealthActions,
@@ -9,18 +13,39 @@ import {
   getAgentCommerceFeedStatusReason,
 } from '@/lib/agentic/agent-commerce-feed-health';
 import {
+  type AgentCommerceCrawlerHealthResult,
   type AgenticCommerceHealthActionSummary,
   type AgenticCommerceHealthStatus,
+  buildAgentCommerceCrawlerHealthActions,
   buildAgentCommerceManifestHealthActions,
+  buildAgentCommerceUniversalCartHealthActions,
+  checkAgentCommerceCrawlerHealth,
+  checkAgentCommerceUniversalCartReadiness,
   fetchPrimaryAgenticMerchantDomains,
+  getAgentCommerceCrawlerStatusReason,
   getAgentCommerceManifestStatusReason,
+  getAgentCommerceUniversalCartStatusReason,
   getAgenticCommerceHealthStatus,
   summarizeAgenticCommerceHealthActions,
+  type UniversalCartReadinessResult,
 } from '@/lib/agentic/agent-commerce-health-monitor';
 import {
   type AgentCommerceManifestHealthResult,
   checkAgentCommerceManifestHealth,
 } from '@/lib/agentic/agent-commerce-manifest-health';
+import {
+  type AgentCommercePublicProductParityResult,
+  buildAgentCommercePublicProductParityActions,
+  checkAgentCommercePublicProductParity,
+  getAgentCommercePublicProductParityStatusReason,
+} from '@/lib/agentic/agent-commerce-public-product-parity-health';
+import { checkAgentCommerceSupportChatHealth } from '@/lib/agentic/agent-commerce-support-chat-health';
+import {
+  type AgentCommerceTrustHealthResult,
+  buildAgentCommerceTrustHealthActions,
+  checkAgentCommerceTrustHealth,
+  getAgentCommerceTrustStatusReason,
+} from '@/lib/agentic/agent-commerce-trust-health';
 import { hasValidCronSecret } from '@/lib/cron-secret-auth';
 import { logger } from '@/lib/logger';
 import { sanitizeForLog } from '@/lib/sanitize-core';
@@ -42,13 +67,18 @@ interface MonitoredMerchantRow {
 
 interface AgenticCommerceHealthMerchantResult {
   actions: AgenticCommerceHealthActionSummary[];
+  action_health?: AgenticActionHealthSummary;
   business_name?: string;
+  crawler?: AgentCommerceCrawlerHealthResult;
   feeds?: AgentCommerceFeedHealthResult;
   manifest?: AgentCommerceManifestHealthResult;
   merchant_id?: string;
+  parity?: AgentCommercePublicProductParityResult;
   slug: string;
   status: AgenticCommerceHealthStatus;
   status_reason: string;
+  trust?: AgentCommerceTrustHealthResult;
+  universal_cart?: UniversalCartReadinessResult;
 }
 
 function normalizeMerchantSlug(value: string) {
@@ -159,42 +189,82 @@ async function buildMerchantHealthResult({
   }
 
   try {
-    const [health, manifest, feeds] = await Promise.all([
-      loadAgenticActionHealth(supabase, merchant.id, {
-        recordsSource: 'admin_direct',
-      }),
-      checkAgentCommerceManifestHealth({
-        custom_domain: merchant.custom_domain,
-        slug,
-      }),
-      checkAgentCommerceFeedHealth({
-        merchantId: merchant.id,
-        slug,
-      }),
-    ]);
+    const [health, manifest, feeds, crawler, trust, parity, universalCart] =
+      await Promise.all([
+        loadAgenticActionHealth(supabase, merchant.id, {
+          recordsSource: 'admin_direct',
+        }),
+        checkAgentCommerceManifestHealth({
+          custom_domain: merchant.custom_domain,
+          slug,
+        }),
+        checkAgentCommerceFeedHealth({
+          merchantId: merchant.id,
+          slug,
+        }),
+        checkAgentCommerceCrawlerHealth(supabase, merchant.id),
+        checkAgentCommerceTrustHealth({
+          custom_domain: merchant.custom_domain,
+          slug,
+        }),
+        checkAgentCommercePublicProductParity({
+          custom_domain: merchant.custom_domain,
+          slug,
+        }),
+        checkAgentCommerceUniversalCartReadiness({
+          custom_domain: merchant.custom_domain,
+          slug,
+        }),
+      ]);
     const manifestActions = buildAgentCommerceManifestHealthActions(manifest);
     const feedActions = buildAgentCommerceFeedHealthActions(feeds);
+    const crawlerActions = buildAgentCommerceCrawlerHealthActions(crawler);
+    const trustActions = buildAgentCommerceTrustHealthActions(trust);
+    const parityActions = buildAgentCommercePublicProductParityActions(parity);
+    const universalCartActions =
+      buildAgentCommerceUniversalCartHealthActions(universalCart);
     const mergedActions = [
       ...health.actions,
       ...manifestActions,
       ...feedActions,
+      ...crawlerActions,
+      ...trustActions,
+      ...parityActions,
+      ...universalCartActions,
     ];
     const status = getAgenticCommerceHealthStatus(mergedActions);
     return {
       actions: summarizeAgenticCommerceHealthActions(mergedActions),
+      action_health: summarizeAgenticActionHealth(health),
       business_name: merchant.business_name ?? undefined,
+      crawler,
       feeds,
       manifest,
       merchant_id: merchant.id,
+      parity,
       slug,
       status,
-      status_reason: getAgentCommerceFeedStatusReason(
-        feeds,
-        getAgentCommerceManifestStatusReason(
-          manifest,
-          `agentic_action_health_${status}`
+      status_reason: getAgentCommercePublicProductParityStatusReason(
+        parity,
+        getAgentCommerceUniversalCartStatusReason(
+          universalCart,
+          getAgentCommerceTrustStatusReason(
+            trust,
+            getAgentCommerceCrawlerStatusReason(
+              crawler,
+              getAgentCommerceFeedStatusReason(
+                feeds,
+                getAgentCommerceManifestStatusReason(
+                  manifest,
+                  `agentic_action_health_${status}`
+                )
+              )
+            )
+          )
         )
       ),
+      trust,
+      universal_cart: universalCart,
     };
   } catch (_error) {
     return {
@@ -240,29 +310,40 @@ export async function GET(request: NextRequest) {
       supabase,
       Array.from(merchantsBySlug.values(), (merchant) => merchant.id)
     );
-    const merchants = await Promise.all(
-      monitorRequest.slugs.map((slug) => {
-        const merchant = merchantsBySlug.get(slug);
-        return buildMerchantHealthResult({
-          merchant: merchant
-            ? {
-                ...merchant,
-                custom_domain:
-                  primaryDomainsByMerchantId.get(merchant.id) ?? null,
-              }
-            : undefined,
-          slug,
-          supabase,
-        });
-      })
-    );
+    const [merchants, supportChat] = await Promise.all([
+      Promise.all(
+        monitorRequest.slugs.map((slug) => {
+          const merchant = merchantsBySlug.get(slug);
+          return buildMerchantHealthResult({
+            merchant: merchant
+              ? {
+                  ...merchant,
+                  custom_domain:
+                    primaryDomainsByMerchantId.get(merchant.id) ?? null,
+                }
+              : undefined,
+            slug,
+            supabase,
+          });
+        })
+      ),
+      checkAgentCommerceSupportChatHealth(),
+    ]);
     const status = getOverallStatus(merchants);
     const summary = {
       checked_at: new Date().toISOString(),
       merchant_count: merchants.length,
       merchants,
       status,
+      support_chat: supportChat,
     };
+
+    if (supportChat.status === 'attention') {
+      logger.warn({
+        message: 'Support chat health monitor needs attention',
+        support_chat: supportChat,
+      });
+    }
 
     if (status === 'attention') {
       logger.warn({

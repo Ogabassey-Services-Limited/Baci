@@ -91,12 +91,16 @@ vi.mock('expo-linear-gradient', async () => {
 
 vi.mock('react-native-edge-to-edge', () => ({ SystemBars: () => null }));
 
-vi.mock('@expo/vector-icons', async () => {
+vi.mock('@react-native-vector-icons/ionicons', async () => {
   const React = await import('react');
   return {
     useColorScheme: vi.fn(() => 'light'),
     Ionicons: ({ name }: { name: string }) =>
       React.createElement('span', null, name),
+
+    default: ({ name }: { name: string }) =>
+      React.createElement('span', null, name),
+    __esModule: true,
   };
 });
 
@@ -184,6 +188,7 @@ function fillFormAndSubmit() {
     target: { value: 'Test Store' },
   });
   fireEvent.click(screen.getByText('Fashion & Apparel'));
+  fireEvent.click(screen.getByRole('button', { name: 'Country India' }));
 
   // Submit the form → triggers register.mutate(payload, { onSuccess, onError })
   fireEvent.click(screen.getByText('Launch Store'));
@@ -227,6 +232,7 @@ describe('RegisterScreen', () => {
       lastName: 'User',
       businessName: 'Test Store',
       businessType: 'fashion',
+      country: 'IN',
     });
   });
 

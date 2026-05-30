@@ -1,0 +1,197 @@
+{
+  "maxLines": 300,
+  "roots": [
+    "components",
+    "hooks",
+    "lib",
+    "services",
+    "stores"
+  ],
+  "modules": [
+    {
+      "path": "components/checkout/PaymentMethodSelector.tsx",
+      "lineCount": 957,
+      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
+    },
+    {
+      "path": "services/ad-tracking.ts",
+      "lineCount": 938,
+      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
+    },
+    {
+      "path": "stores/auth-store.ts",
+      "lineCount": 923,
+      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
+    },
+    {
+      "path": "hooks/product-utils.ts",
+      "lineCount": 738,
+      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
+    },
+    {
+      "path": "services/orders.ts",
+      "lineCount": 607,
+      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
+    },
+    {
+      "path": "components/ui/PhoneInput.tsx",
+      "lineCount": 604,
+      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
+    },
+    {
+      "path": "components/ui/AddressAutocomplete.tsx",
+      "lineCount": 584,
+      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
+    },
+    {
+      "path": "components/storefront/SearchDropdown.tsx",
+      "lineCount": 565,
+      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
+    },
+    {
+      "path": "components/payment-gateway/use-payment-gateway-controller.ts",
+      "lineCount": 545,
+      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
+    },
+    {
+      "path": "lib/vtu-checkout.ts",
+      "lineCount": 536,
+      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
+    },
+    {
+      "path": "components/storefront/Header.tsx",
+      "lineCount": 530,
+      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
+    },
+    {
+      "path": "components/ErrorBoundary.tsx",
+      "lineCount": 515,
+      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
+    },
+    {
+      "path": "lib/api.ts",
+      "lineCount": 505,
+      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
+    },
+    {
+      "path": "components/product/ProductDetailsBody.tsx",
+      "lineCount": 494,
+      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
+    },
+    {
+      "path": "services/analytics.ts",
+      "lineCount": 478,
+      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
+    },
+    {
+      "path": "components/storefront/SearchOverlay.tsx",
+      "lineCount": 465,
+      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
+    },
+    {
+      "path": "hooks/use-cart.ts",
+      "lineCount": 424,
+      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
+    },
+    {
+      "path": "components/OfflineNotice.tsx",
+      "lineCount": 422,
+      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
+    },
+    {
+      "path": "stores/cart-store.ts",
+      "lineCount": 411,
+      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
+    },
+    {
+      "path": "lib/offline-queue.ts",
+      "lineCount": 405,
+      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
+    },
+    {
+      "path": "components/utilities/use-bill-form-controller.ts",
+      "lineCount": 403,
+      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
+    },
+    {
+      "path": "lib/supabase.ts",
+      "lineCount": 402,
+      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
+    },
+    {
+      "path": "components/product/ReviewsList.tsx",
+      "lineCount": 388,
+      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
+    },
+    {
+      "path": "components/swap/swap-screen.styles.ts",
+      "lineCount": 388,
+      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
+    },
+    {
+      "path": "components/ui/PermissionModal.tsx",
+      "lineCount": 372,
+      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
+    },
+    {
+      "path": "components/storefront/ProductGrid.tsx",
+      "lineCount": 360,
+      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
+    },
+    {
+      "path": "components/utilities/use-airtime-form-controller.ts",
+      "lineCount": 343,
+      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
+    },
+    {
+      "path": "lib/sanitize-html.ts",
+      "lineCount": 338,
+      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
+    },
+    {
+      "path": "components/utilities/BillItemSelectionSection.tsx",
+      "lineCount": 335,
+      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
+    },
+    {
+      "path": "components/negotiation/useNegotiationModalController.ts",
+      "lineCount": 328,
+      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
+    },
+    {
+      "path": "components/storefront/Footer.tsx",
+      "lineCount": 328,
+      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
+    },
+    {
+      "path": "components/checkout/checkout-identity/styles.ts",
+      "lineCount": 325,
+      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
+    },
+    {
+      "path": "components/quiz/QuizScreen.tsx",
+      "lineCount": 316,
+      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
+    },
+    {
+      "path": "components/utilities/create-bill-form-purchase-handler.ts",
+      "lineCount": 315,
+      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
+    },
+    {
+      "path": "components/chat/ChatModal.tsx",
+      "lineCount": 312,
+      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
+    },
+    {
+      "path": "lib/utility-repeat.ts",
+      "lineCount": 311,
+      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
+    },
+    {
+      "path": "components/checkout/OrderSummary.tsx",
+      "lineCount": 303,
+      "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
+    }
+  ]
+}

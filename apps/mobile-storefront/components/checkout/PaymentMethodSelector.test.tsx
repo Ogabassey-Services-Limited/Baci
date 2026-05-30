@@ -126,9 +126,7 @@ describe('PaymentMethodSelector', () => {
 
     const klumpRow = screen.getByLabelText('Klump. Minimum order: ₦7,500');
 
-    expect(klumpRow.props.accessibilityState).toMatchObject({
-      disabled: true,
-    });
+    expect(screen.getByText('Minimum order: ₦7,500')).toBeTruthy();
 
     fireEvent.press(klumpRow);
 
@@ -154,9 +152,41 @@ describe('PaymentMethodSelector', () => {
       'Klump. Wallet credit cannot be combined with Klump'
     );
 
-    expect(klumpRow.props.accessibilityState).toMatchObject({
-      disabled: true,
-    });
+    expect(
+      screen.getByText('Wallet credit cannot be combined with Klump')
+    ).toBeTruthy();
+
+    fireEvent.press(klumpRow);
+
+    expect(onSelectMethod).not.toHaveBeenCalled();
+  });
+
+  it('disables Klump when device savings credit is already active', () => {
+    const onSelectMethod = jest.fn();
+
+    render(
+      <PaymentMethodSelector
+        selectedMethod={'klump' as PaymentMethodType}
+        onSelectMethod={onSelectMethod}
+        selectedTab="installments"
+        onSelectTab={() => {}}
+        orderTotal={120000}
+        enabledMethods={['klump' as PaymentMethodType]}
+        savingsSelection={{
+          use: true,
+          goalId: '123e4567-e89b-12d3-a456-426614174555',
+          amount: 5000,
+        }}
+      />
+    );
+
+    const klumpRow = screen.getByLabelText(
+      'Klump. Device savings cannot be combined with Klump'
+    );
+
+    expect(
+      screen.getByText('Device savings cannot be combined with Klump')
+    ).toBeTruthy();
 
     fireEvent.press(klumpRow);
 
@@ -164,10 +194,12 @@ describe('PaymentMethodSelector', () => {
   });
 
   it('can show Paystack as an unselected alternate card option when a saved card owns the selection', () => {
+    const onSelectMethod = jest.fn();
+
     render(
       <PaymentMethodSelector
         selectedMethod={'paystack' as PaymentMethodType}
-        onSelectMethod={() => {}}
+        onSelectMethod={onSelectMethod}
         selectedTab="full"
         onSelectTab={() => {}}
         orderTotal={1000}
@@ -182,10 +214,10 @@ describe('PaymentMethodSelector', () => {
     );
 
     expect(screen.queryByText('Pay with Card')).toBeNull();
-    expect(alternateCard.props.accessibilityState).toMatchObject({
-      checked: false,
-      disabled: false,
-    });
+
+    fireEvent.press(alternateCard);
+
+    expect(onSelectMethod).toHaveBeenCalledWith('paystack');
   });
 
   it('applies payment method description and badge overrides', () => {
@@ -210,6 +242,37 @@ describe('PaymentMethodSelector', () => {
     ).toBeTruthy();
     expect(screen.getByText('2x cashback')).toBeTruthy();
     expect(screen.getByText('Bank Transfer')).toBeTruthy();
+  });
+
+  it('shows wallet-funded bank-transfer copy and guidance when enabled', () => {
+    render(
+      <PaymentMethodSelector
+        selectedMethod={'bank_transfer' as PaymentMethodType}
+        onSelectMethod={() => {}}
+        selectedTab="full"
+        onSelectTab={() => {}}
+        orderTotal={250000}
+        enabledMethods={['bank_transfer']}
+        methodLabelOverrides={{ bank_transfer: 'Bank transfer to wallet' }}
+        methodDescriptionOverrides={{
+          bank_transfer:
+            'Transfer to your Bassey wallet account. We apply it to this order automatically.',
+        }}
+        walletFundedBankTransferMode
+      />
+    );
+
+    expect(screen.getByText('Bank transfer to wallet')).toBeTruthy();
+    expect(
+      screen.getByText(
+        'Transfer to your Bassey wallet account. We apply it to this order automatically.'
+      )
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        'We will fund your wallet and pay this order automatically.'
+      )
+    ).toBeTruthy();
   });
 
   describe('wallet payment row', () => {
@@ -252,6 +315,56 @@ describe('PaymentMethodSelector', () => {
       );
 
       expect(screen.queryByLabelText(/wallet/i)).toBeNull();
+    });
+
+    it('renders a disabled wallet status row while the VTU wallet balance is loading', () => {
+      render(
+        <PaymentMethodSelector
+          selectedMethod={'paystack' as PaymentMethodType}
+          onSelectMethod={() => {}}
+          selectedTab="full"
+          onSelectTab={() => {}}
+          orderTotal={1000}
+          walletMode="vtu"
+          walletBalance={0}
+          walletOrderTotal={1000}
+          walletIsLoading
+        />
+      );
+
+      const walletRow = screen.getByLabelText(
+        'Wallet. Checking wallet balance'
+      );
+
+      expect(walletRow.props.accessibilityState).toMatchObject({
+        disabled: true,
+      });
+      expect(screen.getByText('Checking wallet balance')).toBeTruthy();
+    });
+
+    it('renders a disabled wallet status row when the VTU wallet balance cannot be loaded', () => {
+      render(
+        <PaymentMethodSelector
+          selectedMethod={'paystack' as PaymentMethodType}
+          onSelectMethod={() => {}}
+          selectedTab="full"
+          onSelectTab={() => {}}
+          orderTotal={1000}
+          walletMode="vtu"
+          walletBalance={0}
+          walletOrderTotal={1000}
+          walletError={new Error('wallet unavailable')}
+        />
+      );
+
+      const walletRow = screen.getByLabelText(
+        'Wallet unavailable. Use card while wallet refreshes'
+      );
+
+      expect(walletRow.props.accessibilityState).toMatchObject({
+        disabled: true,
+      });
+      expect(screen.getByText('Wallet unavailable')).toBeTruthy();
     });
 
     it('renders the wallet row in partial-deductible mode when balance < orderTotal', () => {
@@ -416,6 +529,32 @@ describe('PaymentMethodSelector', () => {
       );
 
       expect(screen.getByLabelText(/use wallet credit/i)).toBeTruthy();
+    });
+
+    it('renders wallet balance as informational copy in wallet-funded bank-transfer mode', () => {
+      const onWalletToggle = jest.fn();
+
+      render(
+        <PaymentMethodSelector
+          selectedMethod={'bank_transfer' as PaymentMethodType}
+          onSelectMethod={() => {}}
+          selectedTab="full"
+          onSelectTab={() => {}}
+          orderTotal={5000}
+          walletMode="orders"
+          walletBalance={3000}
+          walletOrderTotal={5000}
+          onWalletToggle={onWalletToggle}
+          walletFundedBankTransferMode
+        />
+      );
+
+      expect(screen.queryByLabelText(/use wallet credit/i)).toBeNull();
+      expect(screen.getByText('Wallet balance applies automatically')).toBeTruthy();
+      expect(
+        screen.getByText('₦3,000 available now · transfer shortfall only')
+      ).toBeTruthy();
+      expect(onWalletToggle).not.toHaveBeenCalled();
     });
 
     it('suppresses the active-radio visual on gateway rows when wallet fully covers and is active', () => {

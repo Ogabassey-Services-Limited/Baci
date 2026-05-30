@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons, { type IoniconsIconName } from "@react-native-vector-icons/ionicons";
 import { type Href, useRouter } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import {
@@ -24,7 +24,7 @@ type ServiceShortcut = {
   title: string;
   subtitle: string;
   href: Href;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: IoniconsIconName;
   accent: string;
 };
 
@@ -56,6 +56,13 @@ const SERVICE_SHORTCUTS: ServiceShortcut[] = [
     icon: 'swap-horizontal-outline',
     accent: palette.emerald[500],
   },
+  {
+    title: 'Prize Quiz',
+    subtitle: 'Play for rewards',
+    href: '/quiz',
+    icon: 'trophy-outline',
+    accent: palette.red[500],
+  },
 ];
 
 const CARD_HEIGHT = 36;
@@ -73,7 +80,11 @@ export function HomeServiceCards({
   const { width } = useWindowDimensions();
   const isCompact = width < COMPACT_BREAKPOINT;
   const rowWidth = Math.max(width - SPACING.md * 2, 0);
-  const cardWidth = Math.max((rowWidth - CARD_GAP * 2) / 3, 0);
+  const cardWidth = Math.max(
+    (rowWidth - CARD_GAP * (SERVICE_SHORTCUTS.length - 1)) /
+      SERVICE_SHORTCUTS.length,
+    0
+  );
   const cardHeight = isCompact ? COMPACT_CARD_HEIGHT : CARD_HEIGHT;
   const runnerProgress = useRef(new Animated.Value(0)).current;
 

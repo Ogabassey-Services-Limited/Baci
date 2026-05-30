@@ -1,0 +1,133 @@
+import { describe, expect, it } from 'vitest';
+import {
+  buildUcpCatalogProductResponse,
+  filterActiveUcpCatalogProductRows,
+  mapStorefrontProductToUcpCatalogProduct,
+  mapUcpCatalogProductRow,
+  UCP_CATALOG_LOOKUP_CAPABILITY,
+} from './ucp-catalog-adapters';
+
+describe('ucp catalog adapters', () => {
+  it('maps a storefront product into a UCP catalog product', () => {
+    const product = mapStorefrontProductToUcpCatalogProduct({
+      currency: 'NGN',
+      description: 'A flagship phone',
+      id: 'product-1',
+      image_url: 'https://cdn.example/p.jpg',
+      in_stock: true,
+      name: 'iPhone 15',
+      price: 1_200_000,
+      product_url: 'https://ogabassey.com/ogabassey/products/iphone-15',
+    });
+
+    expect(product).toMatchObject({
+      id: 'product-1',
+      title: 'iPhone 15',
+      description: { plain: 'A flagship phone' },
+      price_range: {
+        min: { amount: 1_200_000, currency: 'NGN' },
+        max: { amount: 1_200_000, currency: 'NGN' },
+      },
+      url: 'https://ogabassey.com/ogabassey/products/iphone-15',
+      variants: [
+        expect.objectContaining({
+          id: 'product-1',
+          inputs: [{ id: 'product-1', match: 'featured' }],
+          price: { amount: 1_200_000, currency: 'NGN' },
+          availability: { available: true },
+        }),
+      ],
+    });
+  });
+
+  it('maps product rows with storefront URLs, images, and stock semantics', () => {
+    const product = mapUcpCatalogProductRow({
+      baseUrl: 'https://ogabassey.com',
+      currency: 'ngn',
+      row: {
+        description: 'Laptop',
+        id: 'product-2',
+        images: [{ url: 'https://cdn.example/laptop.jpg' }],
+        manage_stock: true,
+        merchant_id: 'merchant-1',
+        name: 'MacBook Pro',
+        price: '2500000.00',
+        slug: 'macbook-pro',
+        status: 'active',
+        stock: 0,
+        stock_quantity: 3,
+      },
+    });
+
+    expect(product).toMatchObject({
+      id: 'product-2',
+      media: [
+        {
+          alt_text: 'MacBook Pro',
+          type: 'image',
+          url: 'https://cdn.example/laptop.jpg',
+        },
+      ],
+      price_range: {
+        min: { amount: 2_500_000, currency: 'NGN' },
+      },
+      url: expect.stringContaining('macbook-pro'),
+      variants: [
+        expect.objectContaining({
+          availability: { available: true },
+        }),
+      ],
+    });
+  });
+
+  it('keeps unmanaged inventory available and filters inactive rows', () => {
+    const rows = filterActiveUcpCatalogProductRows([
+      {
+        id: 'draft-product',
+        merchant_id: 'merchant-1',
+        name: 'Draft',
+        price: 100,
+        status: 'draft',
+      },
+      {
+        id: 'product-1',
+        manage_stock: false,
+        merchant_id: 'merchant-1',
+        name: 'Live',
+        price: 200,
+        status: 'active',
+      },
+    ]);
+
+    const product = mapUcpCatalogProductRow({
+      baseUrl: 'https://ogabassey.com',
+      currency: 'NGN',
+      row: rows[0],
+    });
+
+    expect(rows).toHaveLength(1);
+    expect(product.variants[0]?.availability).toEqual({ available: true });
+  });
+
+  it('builds a UCP capability envelope for product detail responses', () => {
+    const product = mapStorefrontProductToUcpCatalogProduct({
+      currency: 'NGN',
+      id: 'product-1',
+      in_stock: true,
+      name: 'iPhone',
+      price: 1_200_000,
+      product_url: 'https://ogabassey.com/products/iphone',
+    });
+
+    expect(buildUcpCatalogProductResponse(product)).toMatchObject({
+      product,
+      messages: [],
+      ucp: {
+        status: 'success',
+        capabilities: {
+          [UCP_CATALOG_LOOKUP_CAPABILITY]: [{ version: '2026-04-08' }],
+        },
+      },
+    });
+  });
+});

@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons, { type IoniconsIconName } from "@react-native-vector-icons/ionicons";
 import { Pressable, Text, View } from 'react-native';
 import type { ThemeColors } from '@/constants/theme';
 import { styles } from './ShipmentFlowSheet.styles';
@@ -7,7 +7,7 @@ interface ShipmentOptionCardProps {
   colors: ThemeColors;
   description: string;
   disabled?: boolean;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: IoniconsIconName;
   onPress: () => void;
   selected: boolean;
   title: string;
@@ -29,12 +29,12 @@ export function ShipmentOptionCard({
       accessibilityState={{ disabled, checked: selected }}
       disabled={disabled}
       onPress={onPress}
-      style={[
+      style={({ pressed }) => [
         styles.optionCard,
         {
           backgroundColor: selected ? colors.primaryLight : colors.card,
           borderColor: selected ? colors.primary : colors.border,
-          opacity: disabled ? 0.48 : 1,
+          opacity: disabled ? 0.48 : pressed ? 0.7 : 1,
         },
       ]}
     >

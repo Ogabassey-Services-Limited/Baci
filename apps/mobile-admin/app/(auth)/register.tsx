@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -35,6 +35,7 @@ export default function RegisterScreen() {
     lastName: '',
     businessName: '',
     businessType: '',
+    country: 'NG',
     otherBusinessType: '',
     slug: '',
   });
@@ -161,6 +162,7 @@ export default function RegisterScreen() {
         lastName: formData.lastName.trim(),
         businessName: formData.businessName,
         businessType: formData.businessType,
+        country: formData.country,
         otherBusinessType: formData.otherBusinessType,
         slug: formData.slug || undefined,
         brandColors: JSON.stringify({
@@ -225,7 +227,7 @@ export default function RegisterScreen() {
       <SystemBars style="light" />
       <LinearGradient
         colors={['#0D0D1A', '#1A1A2E']}
-        style={StyleSheet.absoluteFillObject}
+        style={StyleSheet.absoluteFill}
       />
 
       <AppFormScreen
@@ -272,6 +274,7 @@ export default function RegisterScreen() {
             onBusinessTypeChange={(typeId: BusinessTypeId) =>
               updateForm('businessType', typeId)
             }
+            onCountryChange={(countryCode) => updateForm('country', countryCode)}
             onLaunchStore={handleRegister}
             onOtherBusinessTypeChange={(text) =>
               updateForm('otherBusinessType', text)

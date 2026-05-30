@@ -1,17 +1,21 @@
 import { Lock, Shield } from 'lucide-react';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { connection } from 'next/server';
 import {
   Card,
   CardDescription,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { isBaciPaystackSettlementCountry } from '@/lib/checkout/payment-gateway-availability';
 import { getMerchantForUser } from '@/lib/merchant-server';
 import { createClient } from '@/lib/supabase/server';
 import { KycVerification } from './kyc-verification';
 
 export default async function KycSettingsPage() {
+  await connection();
+
   try {
     const { merchant, staffAccess } = await getMerchantForUser();
 
@@ -33,6 +37,33 @@ export default async function KycSettingsPage() {
                   <CardDescription>
                     Only the store owner can verify identity. Contact your store
                     owner to complete KYC verification.
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+          </Card>
+        </div>
+      );
+    }
+
+    if (!isBaciPaystackSettlementCountry(merchant.country)) {
+      return (
+        <div className="container max-w-2xl py-8">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-muted">
+                  <Shield className="h-6 w-6 text-muted-foreground" />
+                </div>
+                <div>
+                  <h1 className="text-2xl font-semibold leading-none tracking-tight">
+                    Verification Not Required
+                  </h1>
+                  <CardDescription>
+                    Additional identity verification is not required for stores
+                    registered in your country. We will only ask for
+                    provider-specific verification when it applies to your
+                    selected settlement method.
                   </CardDescription>
                 </div>
               </div>

@@ -1,4 +1,4 @@
-import { handleAgenticCheckoutSessionComplete } from '@/app/api/agentic/checkout_sessions/[id]/complete/route';
+import { handleAgenticCheckoutSessionComplete } from '@/app/api/agentic/checkout_sessions/[id]/complete/checkout-session-complete-handler';
 import { adaptUcpCheckoutCompleteRequestBody } from '@/lib/agentic/ucp-request-adapters';
 import { adaptCheckoutResponseToUcp } from '@/lib/agentic/ucp-response-adapters';
 

@@ -9,5 +9,12 @@ export const merchantBankSchema = z.object({
   autoPayoutEnabled: z.boolean().optional(),
 });
 
-export type MerchantBankFormInput = z.input<typeof merchantBankSchema>;
-export type MerchantBankFormValues = z.infer<typeof merchantBankSchema>;
+export interface MerchantBankFormInput {
+  accountNumber: string;
+  bankCode?: string;
+  bankName?: string;
+  businessName: string;
+  autoPayoutEnabled?: boolean;
+}
+
+export type MerchantBankFormValues = MerchantBankFormInput;

@@ -6,6 +6,11 @@ import { GET, POST } from './route';
 const mockConfirmAgenticPaystackDvaPayment = vi.hoisted(() => vi.fn());
 const mockGetPaystackDvaReceiverAccountNumber = vi.hoisted(() => vi.fn());
 const mockMarkAgenticPaystackDvaSessionPaid = vi.hoisted(() => vi.fn());
+const mockConfirmPaystackWalletDvaTopUp = vi.hoisted(() => vi.fn());
+const mockCreditWalletTopUp = vi.hoisted(() => vi.fn());
+const mockHandlePaystackSavingsWebhookTransaction = vi.hoisted(() => vi.fn());
+const mockProcessWalletFundedOrderPayment = vi.hoisted(() => vi.fn());
+const mockRunPaidOrderSideEffects = vi.hoisted(() => vi.fn());
 
 // Mock environment variables
 vi.mock('@/env', () => ({
@@ -23,6 +28,25 @@ vi.mock('@/lib/agentic/paystack-dva-webhook', () => ({
 
 vi.mock('@/lib/agentic/paystack-dva-session-paid', () => ({
   markAgenticPaystackDvaSessionPaid: mockMarkAgenticPaystackDvaSessionPaid,
+}));
+
+vi.mock('@/lib/payments/confirm-paystack-wallet-dva-top-up', () => ({
+  confirmPaystackWalletDvaTopUp: mockConfirmPaystackWalletDvaTopUp,
+}));
+
+vi.mock('@/lib/payments/process-wallet-funded-order-payment', () => ({
+  processWalletFundedOrderPayment: mockProcessWalletFundedOrderPayment,
+}));
+
+vi.mock('@/lib/payments/run-paid-order-side-effects', () => ({
+  runPaidOrderSideEffects: mockRunPaidOrderSideEffects,
+}));
+
+vi.mock('@/lib/customer-savings-paystack-webhook', () => ({
+  createVerifiedPaystackWebhookSignature: (isVerified: boolean) =>
+    isVerified ? { verified: true } : null,
+  handlePaystackSavingsWebhookTransaction:
+    mockHandlePaystackSavingsWebhookTransaction,
 }));
 
 // Mock Next.js headers
@@ -155,6 +179,11 @@ vi.mock('@/lib/customer-saved-payment-methods', () => ({
   upsertPaystackAuthorization: vi.fn(),
 }));
 
+vi.mock('@/lib/customer-wallet-top-up', () => ({
+  creditWalletTopUp: mockCreditWalletTopUp,
+  WALLET_TOP_UP_TRANSACTION_TYPE: 'wallet_topup',
+}));
+
 vi.mock('@/lib/vtu-fulfillment', () => ({
   fulfillPendingVtuTransaction: vi.fn(() =>
     Promise.resolve({
@@ -209,7 +238,8 @@ function createMockRequest(
 
 // Helper to setup service client for successful transaction processing
 function setupSuccessfulTransactionMocks(
-  transactionData: Record<string, unknown> = {}
+  transactionData: Record<string, unknown> = {},
+  options: { updatedTransaction?: Record<string, unknown> | null } = {}
 ) {
   const defaultTransaction = {
     id: 'txn-123',
@@ -243,7 +273,10 @@ function setupSuccessfulTransactionMocks(
         neq: vi.fn().mockReturnThis(),
         select: vi.fn().mockReturnThis(),
         maybeSingle: vi.fn().mockResolvedValue({
-          data: { id: 'txn-123' },
+          data:
+            'updatedTransaction' in options
+              ? options.updatedTransaction
+              : { id: 'txn-123' },
           error: null,
         }),
       };
@@ -297,6 +330,20 @@ describe('POST /api/payments/webhook', () => {
     mockConfirmAgenticPaystackDvaPayment.mockResolvedValue({
       handled: false,
     });
+    mockConfirmPaystackWalletDvaTopUp.mockResolvedValue({ kind: 'none' });
+    mockProcessWalletFundedOrderPayment.mockResolvedValue({ kind: 'none' });
+    mockRunPaidOrderSideEffects.mockResolvedValue({
+      concurrentTakeoverSteps: [],
+      failedSteps: [],
+      ranSteps: ['paid_email', 'merchant_settlement'],
+      skippedSteps: [],
+    });
+    mockCreditWalletTopUp.mockResolvedValue({
+      balance: 20000,
+      reference: 'REF123',
+      transactionId: 'wallet-credit-1',
+    });
+    mockHandlePaystackSavingsWebhookTransaction.mockResolvedValue(null);
     mockGetPaystackDvaReceiverAccountNumber.mockReturnValue(null);
     mockMarkAgenticPaystackDvaSessionPaid.mockResolvedValue({
       ok: true,
@@ -861,7 +908,7 @@ describe('POST /api/payments/webhook', () => {
                   order_id: 'order-123',
                   amount: '1000',
                   currency: 'NGN',
-                  gateway_reference: 'REF123',
+                  gateway_reference: 'BAC-REF123',
                   metadata: {
                     transaction_type: 'agentic_checkout_payment',
                   },
@@ -961,7 +1008,7 @@ describe('POST /api/payments/webhook', () => {
                   order_id: 'order-123',
                   amount: '1000',
                   currency: 'NGN',
-                  gateway_reference: 'REF123',
+                  gateway_reference: 'BAC-REF123',
                   metadata: {
                     transaction_type: 'agentic_checkout_payment',
                   },
@@ -1185,6 +1232,797 @@ describe('POST /api/payments/webhook', () => {
           }),
         })
       );
+    });
+
+    it('credits a wallet DVA transfer after order DVA matching falls through', async () => {
+      const body = {
+        event: 'charge.success',
+        data: {
+          authorization: {
+            receiver_bank_account_number: '9812858131',
+          },
+          reference: 'REF123',
+        },
+      };
+      const bodyString = JSON.stringify(body);
+      const signature = createSignature(bodyString, 'test-paystack-secret');
+      const request = createMockRequest(body, {
+        'x-paystack-signature': signature,
+      });
+
+      const { verifyTransaction } = await import('@/lib/paystack');
+      vi.mocked(verifyTransaction).mockResolvedValue({
+        success: true,
+        data: {
+          id: 1,
+          status: 'success',
+          amount: 2_000_000,
+          reference: 'REF123',
+          currency: 'NGN',
+          channel: 'dedicated_nuban',
+          paid_at: '2026-05-21T10:00:00Z',
+          created_at: '2026-05-21T09:59:00Z',
+          customer: {
+            customer_code: 'CUS_test',
+            email: 'wallet@example.com',
+            first_name: 'Wallet',
+            id: 1,
+            last_name: null,
+            phone: '+2348012345678',
+          },
+          metadata: null,
+          fees: 30000,
+          fees_split: null,
+        },
+      });
+      mockGetPaystackDvaReceiverAccountNumber.mockReturnValue('9812858131');
+      mockConfirmPaystackWalletDvaTopUp.mockResolvedValueOnce({
+        kind: 'match',
+        transaction: {
+          amount: 20000,
+          currency: 'NGN',
+          gateway_reference: 'REF123',
+          id: 'wallet-txn-1',
+          merchant_id: 'merchant-1',
+          metadata: {
+            customer_id: 'customer-1',
+            transaction_type: 'wallet_topup',
+          },
+          order_id: null,
+          platform_fee: 0,
+        },
+      });
+
+      const transactionUpdate = vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({
+          data: { id: 'wallet-txn-1' },
+          error: null,
+        }),
+        neq: vi.fn().mockReturnThis(),
+        select: vi.fn().mockReturnThis(),
+      });
+      vi.mocked(mockServiceClient.from).mockImplementation((table: string) => {
+        if (table === 'transactions') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            update: transactionUpdate,
+            eq: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({
+              data: null,
+              error: { code: 'PGRST116', message: 'Not found' },
+            }),
+          } as any;
+        }
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: null, error: null }),
+        } as any;
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data).toEqual({
+        message: 'Wallet top-up credited',
+        reference: 'REF123',
+        wallet: { balance: 20000 },
+      });
+      expect(mockConfirmPaystackWalletDvaTopUp).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accountNumber: '9812858131',
+          gatewayReference: 'REF123',
+          verifiedAmount: { amount: 20000, currency: 'NGN' },
+        })
+      );
+      expect(mockCreditWalletTopUp).toHaveBeenCalledWith(
+        expect.objectContaining({
+          amount: 20000,
+          customerId: 'customer-1',
+          gateway: 'paystack',
+          merchantId: 'merchant-1',
+          reference: 'REF123',
+          transactionId: 'wallet-txn-1',
+        })
+      );
+    });
+
+    it('returns wallet-funded order processed responses before plain wallet top-up crediting', async () => {
+      const body = {
+        event: 'charge.success',
+        data: {
+          authorization: {
+            receiver_bank_account_number: '9812858131',
+          },
+          reference: 'REF123',
+        },
+      };
+      const bodyString = JSON.stringify(body);
+      const signature = createSignature(bodyString, 'test-paystack-secret');
+      const request = createMockRequest(body, {
+        'x-paystack-signature': signature,
+      });
+
+      const { verifyTransaction } = await import('@/lib/paystack');
+      vi.mocked(verifyTransaction).mockResolvedValue({
+        success: true,
+        data: {
+          amount: 2_000_000,
+          channel: 'dedicated_nuban',
+          created_at: '2026-05-21T09:59:00Z',
+          currency: 'NGN',
+          customer: {
+            customer_code: 'CUS_test',
+            email: 'wallet@example.com',
+            first_name: 'Wallet',
+            id: 1,
+            last_name: null,
+            phone: '+2348012345678',
+          },
+          fees: 30000,
+          fees_split: null,
+          id: 1,
+          metadata: null,
+          paid_at: '2026-05-21T10:00:00Z',
+          reference: 'REF123',
+          status: 'success',
+        },
+      });
+      mockGetPaystackDvaReceiverAccountNumber.mockReturnValue('9812858131');
+      mockConfirmPaystackWalletDvaTopUp.mockResolvedValueOnce({
+        kind: 'match',
+        transaction: {
+          amount: 20000,
+          currency: 'NGN',
+          gateway_reference: 'REF123',
+          id: 'wallet-txn-1',
+          merchant_id: 'merchant-1',
+          metadata: {
+            customer_id: 'customer-1',
+            transaction_type: 'wallet_topup',
+            wallet_payment_account_id: 'wallet-account-1',
+          },
+          order_id: null,
+          platform_fee: 0,
+        },
+      });
+      mockProcessWalletFundedOrderPayment.mockResolvedValueOnce({
+        body: {
+          fundedAmount: 20000,
+          orderId: 'order-1',
+          status: 'completed',
+        },
+        kind: 'processed',
+        orderPaid: true,
+        status: 200,
+      });
+
+      const transactionUpdate = vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({
+          data: { id: 'wallet-txn-1' },
+          error: null,
+        }),
+        neq: vi.fn().mockReturnThis(),
+        select: vi.fn().mockReturnThis(),
+      });
+      vi.mocked(mockServiceClient.from).mockImplementation((table: string) => {
+        if (table === 'transactions') {
+          return {
+            eq: vi.fn().mockReturnThis(),
+            select: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({
+              data: null,
+              error: { code: 'PGRST116', message: 'Not found' },
+            }),
+            update: transactionUpdate,
+          } as any;
+        }
+        return {
+          eq: vi.fn().mockReturnThis(),
+          select: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: null, error: null }),
+        } as any;
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data).toEqual({
+        fundedAmount: 20000,
+        orderId: 'order-1',
+        status: 'completed',
+      });
+      expect(mockProcessWalletFundedOrderPayment).toHaveBeenCalledWith(
+        expect.objectContaining({
+          gatewayReference: 'REF123',
+          transaction: expect.objectContaining({ id: 'wallet-txn-1' }),
+        })
+      );
+      expect(mockCreditWalletTopUp).not.toHaveBeenCalled();
+    });
+
+    it('processes wallet-funded order retries when the transaction update finds no row', async () => {
+      const body = {
+        event: 'charge.success',
+        data: {
+          authorization: {
+            receiver_bank_account_number: '9812858131',
+          },
+          reference: 'REF123',
+        },
+      };
+      const bodyString = JSON.stringify(body);
+      const signature = createSignature(bodyString, 'test-paystack-secret');
+      const request = createMockRequest(body, {
+        'x-paystack-signature': signature,
+      });
+
+      const { verifyTransaction } = await import('@/lib/paystack');
+      vi.mocked(verifyTransaction).mockResolvedValue({
+        success: true,
+        data: {
+          amount: 2_000_000,
+          channel: 'dedicated_nuban',
+          created_at: '2026-05-21T09:59:00Z',
+          currency: 'NGN',
+          customer: {
+            customer_code: 'CUS_test',
+            email: 'wallet@example.com',
+            first_name: 'Wallet',
+            id: 1,
+            last_name: null,
+            phone: '+2348012345678',
+          },
+          fees: 30000,
+          fees_split: null,
+          id: 1,
+          metadata: null,
+          paid_at: '2026-05-21T10:00:00Z',
+          reference: 'REF123',
+          status: 'success',
+        },
+      });
+      mockGetPaystackDvaReceiverAccountNumber.mockReturnValue('9812858131');
+      mockConfirmPaystackWalletDvaTopUp.mockResolvedValueOnce({
+        kind: 'match',
+        transaction: {
+          amount: 20000,
+          currency: 'NGN',
+          gateway_reference: 'REF123',
+          id: 'wallet-txn-1',
+          merchant_id: 'merchant-1',
+          metadata: {
+            customer_id: 'customer-1',
+            transaction_type: 'wallet_topup',
+            wallet_payment_account_id: 'wallet-account-1',
+          },
+          order_id: null,
+          platform_fee: 0,
+        },
+      });
+      mockProcessWalletFundedOrderPayment.mockResolvedValueOnce({
+        body: {
+          fundedAmount: 20000,
+          orderId: 'order-1',
+          status: 'completed',
+        },
+        kind: 'processed',
+        orderPaid: true,
+        status: 200,
+      });
+
+      const transactionUpdate = vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({
+          data: null,
+          error: null,
+        }),
+        neq: vi.fn().mockReturnThis(),
+        select: vi.fn().mockReturnThis(),
+      });
+      vi.mocked(mockServiceClient.from).mockImplementation((table: string) => {
+        if (table === 'transactions') {
+          return {
+            eq: vi.fn().mockReturnThis(),
+            select: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({
+              data: null,
+              error: { code: 'PGRST116', message: 'Not found' },
+            }),
+            update: transactionUpdate,
+          } as any;
+        }
+        return {
+          eq: vi.fn().mockReturnThis(),
+          select: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: null, error: null }),
+        } as any;
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data).toEqual({
+        fundedAmount: 20000,
+        orderId: 'order-1',
+        status: 'completed',
+      });
+      expect(mockProcessWalletFundedOrderPayment).toHaveBeenCalledWith(
+        expect.objectContaining({
+          gatewayReference: 'REF123',
+          transaction: expect.objectContaining({ id: 'wallet-txn-1' }),
+        })
+      );
+      expect(mockCreditWalletTopUp).not.toHaveBeenCalled();
+    });
+
+    it('returns 500 when wallet-funded order processing fails before plain wallet top-up crediting', async () => {
+      const body = {
+        event: 'charge.success',
+        data: {
+          authorization: {
+            receiver_bank_account_number: '9812858131',
+          },
+          reference: 'REF123',
+        },
+      };
+      const bodyString = JSON.stringify(body);
+      const signature = createSignature(bodyString, 'test-paystack-secret');
+      const request = createMockRequest(body, {
+        'x-paystack-signature': signature,
+      });
+
+      const { verifyTransaction } = await import('@/lib/paystack');
+      vi.mocked(verifyTransaction).mockResolvedValue({
+        success: true,
+        data: {
+          amount: 2_000_000,
+          channel: 'dedicated_nuban',
+          created_at: '2026-05-21T09:59:00Z',
+          currency: 'NGN',
+          customer: {
+            customer_code: 'CUS_test',
+            email: 'wallet@example.com',
+            first_name: 'Wallet',
+            id: 1,
+            last_name: null,
+            phone: '+2348012345678',
+          },
+          fees: 30000,
+          fees_split: null,
+          id: 1,
+          metadata: null,
+          paid_at: '2026-05-21T10:00:00Z',
+          reference: 'REF123',
+          status: 'success',
+        },
+      });
+      mockGetPaystackDvaReceiverAccountNumber.mockReturnValue('9812858131');
+      mockConfirmPaystackWalletDvaTopUp.mockResolvedValueOnce({
+        kind: 'match',
+        transaction: {
+          amount: 20000,
+          currency: 'NGN',
+          gateway_reference: 'REF123',
+          id: 'wallet-txn-1',
+          merchant_id: 'merchant-1',
+          metadata: {
+            customer_id: 'customer-1',
+            transaction_type: 'wallet_topup',
+            wallet_payment_account_id: 'wallet-account-1',
+          },
+          order_id: null,
+          platform_fee: 0,
+        },
+      });
+      mockProcessWalletFundedOrderPayment.mockRejectedValueOnce(
+        new Error('processing failed')
+      );
+
+      const transactionUpdate = vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({
+          data: { id: 'wallet-txn-1' },
+          error: null,
+        }),
+        neq: vi.fn().mockReturnThis(),
+        select: vi.fn().mockReturnThis(),
+      });
+      vi.mocked(mockServiceClient.from).mockImplementation((table: string) => {
+        if (table === 'transactions') {
+          return {
+            eq: vi.fn().mockReturnThis(),
+            select: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({
+              data: null,
+              error: { code: 'PGRST116', message: 'Not found' },
+            }),
+            update: transactionUpdate,
+          } as any;
+        }
+        return {
+          eq: vi.fn().mockReturnThis(),
+          select: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: null, error: null }),
+        } as any;
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(data.error).toBeDefined();
+      expect(mockProcessWalletFundedOrderPayment).toHaveBeenCalledWith(
+        expect.objectContaining({
+          gatewayReference: 'REF123',
+          transaction: expect.objectContaining({ id: 'wallet-txn-1' }),
+        })
+      );
+      expect(mockCreditWalletTopUp).not.toHaveBeenCalled();
+    });
+
+    it('returns wallet DVA review responses without crediting the wallet', async () => {
+      const body = {
+        event: 'charge.success',
+        data: {
+          authorization: {
+            receiver_bank_account_number: '9812858131',
+          },
+          reference: 'REF123',
+        },
+      };
+      const bodyString = JSON.stringify(body);
+      const signature = createSignature(bodyString, 'test-paystack-secret');
+      const request = createMockRequest(body, {
+        'x-paystack-signature': signature,
+      });
+
+      const { verifyTransaction } = await import('@/lib/paystack');
+      vi.mocked(verifyTransaction).mockResolvedValue({
+        success: true,
+        data: {
+          id: 1,
+          status: 'success',
+          amount: 2_000_000,
+          reference: 'REF123',
+          currency: 'NGN',
+          channel: 'dedicated_nuban',
+          paid_at: '2026-05-21T10:00:00Z',
+          created_at: '2026-05-21T09:59:00Z',
+          customer: {
+            customer_code: 'CUS_test',
+            email: 'wallet@example.com',
+            first_name: 'Wallet',
+            id: 1,
+            last_name: null,
+            phone: '+2348012345678',
+          },
+          metadata: null,
+          fees: 30000,
+          fees_split: null,
+        },
+      });
+      mockGetPaystackDvaReceiverAccountNumber.mockReturnValue('9812858131');
+      mockConfirmPaystackWalletDvaTopUp.mockResolvedValueOnce({
+        body: {
+          code: 'WALLET_DVA_REVIEW_REQUIRED',
+          error: 'Wallet DVA transfer requires review',
+        },
+        kind: 'review',
+        status: 409,
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(409);
+      expect(data).toEqual({
+        code: 'WALLET_DVA_REVIEW_REQUIRED',
+        error: 'Wallet DVA transfer requires review',
+      });
+      expect(mockCreditWalletTopUp).not.toHaveBeenCalled();
+    });
+
+    it('routes Paystack savings auto-debit transactions through the savings handler', async () => {
+      const body = {
+        event: 'charge.success',
+        data: {
+          reference: 'SVG-11111111-2026-05-21',
+        },
+      };
+      const bodyString = JSON.stringify(body);
+      const signature = createSignature(bodyString, 'test-paystack-secret');
+      const request = createMockRequest(body, {
+        'x-paystack-signature': signature,
+      });
+
+      const { verifyTransaction } = await import('@/lib/paystack');
+      vi.mocked(verifyTransaction).mockResolvedValue({
+        success: true,
+        data: {
+          id: 1,
+          status: 'success',
+          amount: 2_000_000,
+          reference: 'SVG-11111111-2026-05-21',
+          currency: 'NGN',
+          channel: 'card',
+          paid_at: '2026-05-21T10:00:00Z',
+          created_at: '2026-05-21T09:59:00Z',
+          customer: {
+            customer_code: 'CUS_test',
+            email: 'wallet@example.com',
+            first_name: 'Wallet',
+            id: 1,
+            last_name: null,
+            phone: '+2348012345678',
+          },
+          metadata: {
+            transaction_type: 'savings_auto_debit',
+          },
+          fees: 30000,
+          fees_split: null,
+        },
+      });
+      mockHandlePaystackSavingsWebhookTransaction.mockResolvedValueOnce({
+        body: {
+          message: 'Savings auto-debit applied',
+          reference: 'SVG-11111111-2026-05-21',
+        },
+        handled: true,
+        status: 200,
+      });
+      setupSuccessfulTransactionMocks({
+        amount: '20000',
+        gateway_reference: 'SVG-11111111-2026-05-21',
+        metadata: {
+          customer_id: 'customer-1',
+          goal_id: 'goal-1',
+          idempotency_key: 'savings:goal-1:2026-05-21',
+          transaction_type: 'savings_auto_debit',
+        },
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data).toEqual({
+        message: 'Savings auto-debit applied',
+        reference: 'SVG-11111111-2026-05-21',
+      });
+      expect(mockHandlePaystackSavingsWebhookTransaction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          paystackSignature: { verified: true },
+          reference: 'SVG-11111111-2026-05-21',
+          transaction: expect.objectContaining({
+            metadata: expect.objectContaining({
+              transaction_type: 'savings_auto_debit',
+            }),
+          }),
+        })
+      );
+    });
+
+    it('routes duplicate Paystack savings webhooks through the savings handler when the transaction is already completed', async () => {
+      const body = {
+        event: 'charge.success',
+        data: {
+          reference: 'SVG-11111111-2026-05-21',
+        },
+      };
+      const bodyString = JSON.stringify(body);
+      const signature = createSignature(bodyString, 'test-paystack-secret');
+      const request = createMockRequest(body, {
+        'x-paystack-signature': signature,
+      });
+
+      const { verifyTransaction } = await import('@/lib/paystack');
+      vi.mocked(verifyTransaction).mockResolvedValue({
+        success: true,
+        data: {
+          id: 1,
+          status: 'success',
+          amount: 2_000_000,
+          reference: 'SVG-11111111-2026-05-21',
+          currency: 'NGN',
+          channel: 'card',
+          paid_at: '2026-05-21T10:00:00Z',
+          created_at: '2026-05-21T09:59:00Z',
+          customer: {
+            customer_code: 'CUS_test',
+            email: 'wallet@example.com',
+            first_name: 'Wallet',
+            id: 1,
+            last_name: null,
+            phone: '+2348012345678',
+          },
+          metadata: {
+            transaction_type: 'savings_auto_debit',
+          },
+          fees: 30000,
+          fees_split: null,
+        },
+      });
+      mockHandlePaystackSavingsWebhookTransaction.mockResolvedValueOnce({
+        body: {
+          message: 'Savings auto-debit applied',
+          reference: 'SVG-11111111-2026-05-21',
+        },
+        handled: true,
+        status: 200,
+      });
+      setupSuccessfulTransactionMocks(
+        {
+          amount: '20000',
+          gateway_reference: 'SVG-11111111-2026-05-21',
+          metadata: {
+            customer_id: 'customer-1',
+            goal_id: 'goal-1',
+            idempotency_key: 'savings:goal-1:2026-05-21',
+            transaction_type: 'savings_auto_debit',
+          },
+          status: 'completed',
+        },
+        { updatedTransaction: null }
+      );
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data).toEqual({
+        message: 'Savings auto-debit applied',
+        reference: 'SVG-11111111-2026-05-21',
+      });
+      expect(mockHandlePaystackSavingsWebhookTransaction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          paystackSignature: { verified: true },
+          reference: 'SVG-11111111-2026-05-21',
+        })
+      );
+    });
+
+    it('propagates savings webhook handler failures', async () => {
+      const body = {
+        event: 'charge.success',
+        data: {
+          reference: 'SVG-11111111-2026-05-21',
+        },
+      };
+      const bodyString = JSON.stringify(body);
+      const signature = createSignature(bodyString, 'test-paystack-secret');
+      const request = createMockRequest(body, {
+        'x-paystack-signature': signature,
+      });
+
+      const { verifyTransaction } = await import('@/lib/paystack');
+      vi.mocked(verifyTransaction).mockResolvedValue({
+        success: true,
+        data: {
+          id: 1,
+          status: 'success',
+          amount: 2_000_000,
+          reference: 'SVG-11111111-2026-05-21',
+          currency: 'NGN',
+          channel: 'card',
+          paid_at: '2026-05-21T10:00:00Z',
+          created_at: '2026-05-21T09:59:00Z',
+          customer: {
+            customer_code: 'CUS_test',
+            email: 'wallet@example.com',
+            first_name: 'Wallet',
+            id: 1,
+            last_name: null,
+            phone: '+2348012345678',
+          },
+          metadata: {
+            transaction_type: 'savings_auto_debit',
+          },
+          fees: 30000,
+          fees_split: null,
+        },
+      });
+      mockHandlePaystackSavingsWebhookTransaction.mockResolvedValueOnce({
+        body: { error: 'Savings contribution failed' },
+        handled: true,
+        status: 500,
+      });
+      setupSuccessfulTransactionMocks({
+        amount: '20000',
+        gateway_reference: 'SVG-11111111-2026-05-21',
+        metadata: {
+          customer_id: 'customer-1',
+          goal_id: 'goal-1',
+          idempotency_key: 'savings:goal-1:2026-05-21',
+          transaction_type: 'savings_auto_debit',
+        },
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(data).toEqual({ error: 'Savings contribution failed' });
+    });
+
+    it('does not route Korapay webhooks with savings metadata through the Paystack savings handler', async () => {
+      const body = {
+        event: 'charge.success',
+        data: {
+          reference: 'KORA-SVG-1',
+          status: 'success',
+          metadata: {
+            transaction_type: 'savings_auto_debit',
+          },
+        },
+      };
+      const signature = createKorapaySignature(
+        body.data,
+        'test-korapay-secret'
+      );
+      const request = createMockRequest(body, {
+        'x-korapay-signature': signature,
+      });
+
+      const { verifyPayment } = await import('@/lib/korapay');
+      vi.mocked(verifyPayment).mockResolvedValue({
+        success: true,
+        data: {
+          amount: 20_000,
+          created_at: '2026-05-21T09:59:00Z',
+          currency: 'NGN',
+          customer: { email: 'savings@example.com', name: 'Savings Customer' },
+          paid_at: '2026-05-21T10:00:00Z',
+          reference: 'KORA-SVG-1',
+          status: 'success',
+        },
+      });
+      setupSuccessfulTransactionMocks({
+        amount: '20000',
+        currency: 'NGN',
+        gateway_reference: 'KORA-SVG-1',
+        metadata: {
+          customer_id: 'customer-1',
+          transaction_type: 'savings_auto_debit',
+        },
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data).toEqual({
+        message: 'Payment processed successfully',
+        success: true,
+      });
+      expect(
+        mockHandlePaystackSavingsWebhookTransaction
+      ).not.toHaveBeenCalled();
     });
   });
 
@@ -1690,7 +2528,7 @@ describe('POST /api/payments/webhook', () => {
                   order_id: 'order-123',
                   amount: '1000',
                   currency: 'NGN',
-                  gateway_reference: 'REF123',
+                  gateway_reference: 'BAC-REF123',
                   status: 'pending',
                   metadata: {},
                 },
@@ -1788,21 +2626,165 @@ describe('POST /api/payments/webhook', () => {
         message: 'Payment processed successfully',
       });
 
-      // Review feedback: assert the settlement RPC was called with the
-      // BAC-* canonical key (Δ-22) and gateway-prefixed metadata (review:
-      // not hardcoded paystack_reference). gateway_reference here is
-      // 'REF123' from the mocked transaction; gateway is 'korapay' from
-      // the x-korapay-signature header.
-      expect(mockServiceClient.rpc).toHaveBeenCalledWith(
-        'record_merchant_settlement',
+      // Review feedback: assert the shared side-effect runner receives the
+      // BAC-* canonical key and the external gateway reference separately. The
+      // runner owns the actual record_merchant_settlement RPC now so
+      // wallet-funded orders can reuse the same behavior.
+      expect(mockRunPaidOrderSideEffects).toHaveBeenCalledWith(
         expect.objectContaining({
-          p_gateway_reference: 'REF123',
-          p_gateway: 'korapay',
-          p_metadata: expect.objectContaining({
-            korapay_reference: 'REF123',
-            verified_gateway_fee: 0, // korapay verify response has no fees field
+          externalGatewayReference: 'REF123',
+          settlementGateway: 'korapay',
+          transaction: expect.objectContaining({
+            gateway_reference: 'BAC-REF123',
           }),
         })
+      );
+    });
+
+    it('acknowledges completed payments when paid-order side effects throw', async () => {
+      const body = {
+        reference: 'REF-SIDE-EFFECT-1',
+        status: 'success',
+        event: 'charge.success',
+        amount: 1000,
+      };
+      const bodyString = JSON.stringify(body);
+      const signature = createSignature(bodyString, 'test-korapay-secret');
+      const request = createMockRequest(body, {
+        'x-korapay-signature': signature,
+      });
+      const { logger } = await import('@/lib/logger');
+      const { verifyPayment } = await import('@/lib/korapay');
+      vi.mocked(verifyPayment).mockResolvedValue({
+        success: true,
+        data: {
+          amount: 1000,
+          created_at: '2026-01-01T00:00:00Z',
+          currency: 'NGN',
+          customer: { email: 'test@example.com', name: 'Test' },
+          paid_at: '2026-01-01T00:00:00Z',
+          reference: 'REF-SIDE-EFFECT-1',
+          status: 'success',
+        },
+      });
+      mockRunPaidOrderSideEffects.mockRejectedValueOnce(
+        new Error('side effects unavailable')
+      );
+      const retryUpsert = vi.fn(async () => ({ data: null, error: null }));
+
+      let transactionCallCount = 0;
+      vi.mocked(mockServiceClient.from).mockImplementation((table: string) => {
+        if (table === 'transactions') {
+          transactionCallCount += 1;
+          if (transactionCallCount === 1) {
+            return {
+              eq: vi.fn().mockReturnThis(),
+              select: vi.fn().mockReturnThis(),
+              single: vi.fn().mockResolvedValue({
+                data: {
+                  amount: '1000',
+                  currency: 'NGN',
+                  gateway_reference: 'REF-SIDE-EFFECT-1',
+                  id: 'txn-side-effect-1',
+                  merchant_id: 'merchant-123',
+                  metadata: {},
+                  order_id: 'order-123',
+                  status: 'pending',
+                },
+                error: null,
+              }),
+            } as never;
+          }
+          return {
+            eq: vi.fn().mockReturnThis(),
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: { id: 'txn-side-effect-1' },
+              error: null,
+            }),
+            neq: vi.fn().mockReturnThis(),
+            select: vi.fn().mockReturnThis(),
+            update: vi.fn().mockReturnThis(),
+          } as never;
+        }
+
+        if (table === 'orders') {
+          return {
+            eq: vi.fn().mockReturnThis(),
+            select: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({
+              data: {
+                currency: 'NGN',
+                customer_email: 'john@example.com',
+                customer_name: 'John Doe',
+                customer_phone: '+234',
+                id: 'order-123',
+                merchant_id: 'merchant-123',
+                order_items: [],
+                order_number: 'ORD-123',
+                shipping_address: {},
+                shipping_fee: '100',
+                subtotal: '900',
+                total: '1000',
+              },
+              error: null,
+            }),
+            update: vi.fn().mockReturnThis(),
+          } as never;
+        }
+
+        if (table === 'payment_side_effects') {
+          return {
+            upsert: retryUpsert,
+          } as never;
+        }
+
+        return {
+          eq: vi.fn().mockReturnThis(),
+          insert: vi.fn().mockReturnThis(),
+          select: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: null, error: null }),
+          update: vi.fn().mockReturnThis(),
+        } as never;
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data).toMatchObject({
+        message: 'Payment processed successfully',
+        success: true,
+      });
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'Paid order side effects failed after payment completion',
+          orderId: 'order-123',
+          reference: 'REF-SIDE-EFFECT-1',
+          transactionId: 'txn-side-effect-1',
+        })
+      );
+      expect(retryUpsert).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({
+            order_id: 'order-123',
+            status: 'failed',
+            step: 'paid_email',
+            transaction_id: 'txn-side-effect-1',
+          }),
+          expect.objectContaining({
+            order_id: 'order-123',
+            status: 'failed',
+            step: 'ad_tracking_conversion',
+            transaction_id: 'txn-side-effect-1',
+          }),
+          expect.objectContaining({
+            order_id: 'order-123',
+            status: 'failed',
+            step: 'merchant_settlement',
+            transaction_id: 'txn-side-effect-1',
+          }),
+        ]),
+        { onConflict: 'order_id,step' }
       );
     });
 

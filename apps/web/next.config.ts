@@ -1,19 +1,27 @@
 import path from 'node:path';
 import bundleAnalyzer from '@next/bundle-analyzer';
 import type { NextConfig } from 'next';
+import {
+  STOREFRONT_METADATA_BLOCKING_BOT_USER_AGENT_REGEX,
+  STOREFRONT_METADATA_CACHE_BUCKET_HEADER,
+} from './src/config/storefront-metadata-cache-bots';
 
 const withBundleAnalyzer = bundleAnalyzer({
   enabled: process.env.ANALYZE === 'true',
   openAnalyzer: false,
 });
-
-/**
- * Force blocking metadata rendering (no streaming) for crawlers that commonly
- * parse only static head tags in HTML. This keeps Ahrefs/Semrush audits aligned
- * with what social/search bots see.
- */
-const HTML_LIMITED_BOTS_UA_RE =
-  /Googlebot|Googlebot-Image|Googlebot-News|Googlebot-Video|[\w-]+-Google|Google-[\w-]+|Chrome-Lighthouse|Slurp|DuckDuckBot|baiduspider|yandex|sogou|bitlybot|tumblr|vkShare|quora link preview|redditbot|ia_archiver|Bingbot|BingPreview|applebot|facebookexternalhit|facebookcatalog|Twitterbot|LinkedInBot|Slackbot|Discordbot|WhatsApp|SkypeUriPreview|Yeti|googleweblight|AhrefsBot|AhrefsSiteAudit|SemrushBot|MJ12bot|DotBot|rogerbot|PetalBot|Bytespider/i;
+// Keep this as an explicit static-asset suffix list. A generic dotted-path
+// exclusion drops valid HTML routes such as `/products/iphone-v1.2`.
+const HTML_DOCUMENT_STATIC_FILE_EXTENSION_PATTERN =
+  '.*\\.(?:avif|css|eot|gif|ico|jpe?g|js|json|map|png|svg|ttf|txt|webmanifest|webp|woff2?|xml)$';
+const HTML_DOCUMENT_ROUTE_SOURCE = `/((?!api(?:/|$)|_next(?:/|$)|${HTML_DOCUMENT_STATIC_FILE_EXTENSION_PATTERN}).*)`;
+const STOREFRONT_METADATA_VARY_HEADER_VALUE = [
+  STOREFRONT_METADATA_CACHE_BUCKET_HEADER,
+  'rsc',
+  'next-router-state-tree',
+  'next-router-prefetch',
+  'next-router-segment-prefetch',
+].join(', ');
 
 const nextConfig: NextConfig = {
   // Keep heavy server-only packages external to reduce function bundle size and peak memory.
@@ -39,6 +47,12 @@ const nextConfig: NextConfig = {
 
   // Enable 'use cache' directive for Dynamic IO (Next.js 16)
   cacheComponents: true,
+
+  // Keep Next's origin metadata mode synchronized with proxy.ts cache buckets.
+  // With PPR/cacheComponents, Next blocks streaming metadata for DOM bots such
+  // as Googlebot as well as HTML-limited bots; using the shared classifier
+  // avoids caching bot shells in the browser bucket.
+  htmlLimitedBots: STOREFRONT_METADATA_BLOCKING_BOT_USER_AGENT_REGEX,
 
   // Custom cache profiles for 'use cache' + cacheLife()
   cacheLife: {
@@ -170,6 +184,7 @@ const nextConfig: NextConfig = {
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
     // Optimize image formats - AVIF is 20% smaller than WebP
     formats: ['image/avif', 'image/webp'],
+    qualities: [35, 50, 60, 70, 75, 80, 85, 90, 100],
     // Cache optimized images (Next.js 16 default is 4 hours / 14400s)
     minimumCacheTTL: 60 * 60 * 24 * 365,
   },
@@ -216,10 +231,6 @@ const nextConfig: NextConfig = {
 
   // Enable typed routes for compile-time validation of Link hrefs
   typedRoutes: true,
-
-  // Disable metadata streaming for HTML-limited crawlers so SEO audits read
-  // full OG/Twitter/title tags directly from the initial HTML head.
-  htmlLimitedBots: HTML_LIMITED_BOTS_UA_RE,
 
   // Turbopack resolve alias (Next.js 16 default bundler)
   // Maps @tiptap/extension-text-style to compat shim that re-exports
@@ -300,6 +311,34 @@ const nextConfig: NextConfig = {
           '/blog/why-the-samsung-galaxy-s21-ultra-is-still-a-top-pick-in-2024',
         destination:
           '/blog/samsung-galaxy-s21-ultra-in-2025-powerful-enough-or-just-hanging-on',
+        permanent: true,
+      },
+      // Imported slug contained an encoded non-breaking hyphen. Keep old
+      // links valid while routing cacheable requests through its ASCII slug.
+      {
+        source:
+          '/blog/wwdc-2025-5-game%e2%80%91changing-apple-announcements/:path*',
+        destination: '/blog/wwdc-2025-5-game-changing-apple-announcements',
+        permanent: true,
+      },
+      {
+        source:
+          '/blog/2025/06/10/wwdc-2025-5-game%e2%80%91changing-apple-announcements/:path*',
+        destination: '/blog/wwdc-2025-5-game-changing-apple-announcements',
+        permanent: true,
+      },
+      // This imported slug used non-breaking hyphens after WWDC and 2025.
+      // Redirect both URL-encoded forms before remote cache key handling.
+      {
+        source:
+          '/blog/wwdc%e2%80%912025%e2%80%915-game-changing-apple-announcements/:path*',
+        destination: '/blog/wwdc-2025-5-game-changing-apple-announcements',
+        permanent: true,
+      },
+      {
+        source:
+          '/blog/wwdc%25e2%2580%25912025%25e2%2580%25915-game-changing-apple-announcements/:path*',
+        destination: '/blog/wwdc-2025-5-game-changing-apple-announcements',
         permanent: true,
       },
       // Note: legacy WordPress category permalink redirects (/blog/:legacyCategory/:postSlug)
@@ -416,6 +455,27 @@ const nextConfig: NextConfig = {
   // Security headers
   headers() {
     return [
+      {
+        source: HTML_DOCUMENT_ROUTE_SOURCE,
+        headers: [
+          {
+            key: 'Vary',
+            // Exclude static/API paths, but allow dotted custom-domain rewrite
+            // segments like /ogabassey.com/products to receive the HTML Vary.
+            value: STOREFRONT_METADATA_VARY_HEADER_VALUE,
+          },
+        ],
+      },
+      {
+        source: '/(.*)',
+        has: [{ type: 'host', value: 'ogabassey.com' }],
+        headers: [
+          {
+            key: 'Link',
+            value: '<https://cdn.ogabassey.com>; rel=preconnect',
+          },
+        ],
+      },
       {
         source: '/(.*)',
         headers: [

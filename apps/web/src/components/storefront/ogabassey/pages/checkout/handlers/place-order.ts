@@ -4,6 +4,11 @@ import { openCredPalCheckout } from '@/lib/credpal';
 import { openCreditDirectCheckout } from '@/lib/credit-direct-client';
 import { createClient } from '@/lib/supabase/client';
 import { normalizeOrderPaymentMethod } from '../pending-checkout-order';
+import { persistCreditDirectPopupReference } from '../persist-credit-direct-popup-reference';
+import {
+  KLUMP_WALLET_CREDIT_UNAVAILABLE_TOAST,
+  isKlumpUnavailableForGatewayAmount,
+} from '../utils';
 import type {
   SavedAddress,
   ShippingQuote,
@@ -25,6 +30,8 @@ export interface CheckoutCartItem {
   variantAttributes?: Record<string, string>;
   selectedColor?: string;
   selectedStorage?: string;
+  quizAwardId?: string;
+  quizVoucherToken?: string;
 }
 
 export interface PlaceOrderOptions {
@@ -313,6 +320,20 @@ export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
     return;
   }
   const shippingProvider = shippingProviderResolution.provider;
+  const clientPayableAmount = payWithWallet ? total - walletAmountUsed : total;
+
+  if (
+    isKlumpUnavailableForGatewayAmount({
+      paymentMethod,
+      payableAmount: clientPayableAmount,
+      orderAmount: total,
+    })
+  ) {
+    toast(KLUMP_WALLET_CREDIT_UNAVAILABLE_TOAST);
+    setIsProcessing(false);
+    isOrderInFlightRef.current = false;
+    return;
+  }
 
   const orderItems = buildCheckoutOrderItems(cart);
 
@@ -403,6 +424,19 @@ export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
       ? `&trackingToken=${order.tracking_token}`
       : '';
 
+    if (
+      isKlumpUnavailableForGatewayAmount({
+        paymentMethod,
+        payableAmount: paymentAmount,
+        orderAmount: total,
+      })
+    ) {
+      toast(KLUMP_WALLET_CREDIT_UNAVAILABLE_TOAST);
+      setIsProcessing(false);
+      isOrderInFlightRef.current = false;
+      return;
+    }
+
     if (walletResult?.amountUsed) {
       setWalletBalance(walletResult.newBalance);
     }
@@ -455,7 +489,11 @@ export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
       return;
     }
 
-    if (paymentMethod === 'paystack' || paymentMethod === 'korapay') {
+    if (
+      paymentMethod === 'paystack' ||
+      paymentMethod === 'korapay' ||
+      paymentMethod === 'klump'
+    ) {
       const result = await initializeCardPayment(
         merchant.id,
         order.id,
@@ -545,8 +583,15 @@ export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
           setIsProcessing(false);
           isOrderInFlightRef.current = false;
         },
-        onPopup: (transactionId) => {
-          console.log('Credit Direct popup opened:', transactionId);
+        onPopup: async (transactionId) => {
+          try {
+            await persistCreditDirectPopupReference(order, transactionId);
+          } catch (error) {
+            console.error(
+              'Failed to persist Credit Direct popup reference:',
+              error instanceof Error ? error.message : error,
+            );
+          }
         },
       });
       return;
@@ -645,7 +690,7 @@ export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
   }
 }
 
-/** Initialize payment via Paystack or Korapay. */
+/** Initialize payment through the server-side payment initialization route. */
 async function initializeCardPayment(
   merchantId: string,
   orderId: string,

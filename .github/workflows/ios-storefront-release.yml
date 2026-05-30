@@ -42,6 +42,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
 
       - name: Select Xcode ${{ env.XCODE_VERSION }}
         run: sudo xcode-select -s "/Applications/Xcode_${{ env.XCODE_VERSION }}.app/Contents/Developer"
@@ -164,6 +166,7 @@ jobs:
           EXPO_PUBLIC_WEB_API_URL: https://usebaci.com
           EXPO_PUBLIC_API_URL: https://usebaci.com
           EXPO_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY }}
+          STOREFRONT_TIKTOK_APP_SECRET: ${{ secrets.STOREFRONT_TIKTOK_APP_SECRET }}
         run: pnpm exec expo prebuild --platform ios --clean
 
       - name: Fix prebuild signing style for archive
@@ -173,6 +176,14 @@ jobs:
           if [ -f "$PBXPROJ" ]; then
             sed -i '' 's/"Apple Distribution"/"Apple Development"/g' "$PBXPROJ" || true
           fi
+
+      - name: Cache CocoaPods
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        with:
+          path: apps/mobile-storefront/ios/Pods
+          key: ${{ runner.os }}-storefront-pods-${{ hashFiles('apps/mobile-storefront/ios/Podfile.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-storefront-pods-
 
       - name: Install CocoaPods
         working-directory: ${{ env.WORKING_DIR }}/ios

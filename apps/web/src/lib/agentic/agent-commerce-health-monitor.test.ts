@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   buildAgentCommerceManifestHealthActions,
+  checkAgentCommerceUniversalCartReadiness,
   fetchPrimaryAgenticMerchantDomains,
   getAgentCommerceManifestStatusReason,
   getAgenticCommerceHealthStatus,
@@ -93,6 +94,48 @@ describe('agentic commerce health summaries', () => {
         { ...actions[1], count: 1, severity: 'monitor' },
       ])
     ).toBe('monitor');
+  });
+});
+
+describe('checkAgentCommerceUniversalCartReadiness', () => {
+  it('marks Universal Cart ready only when cart and catalog capabilities exist', async () => {
+    const result = await checkAgentCommerceUniversalCartReadiness(
+      { custom_domain: 'ogabassey.com', slug: 'ogabassey' },
+      async () =>
+        new Response(
+          JSON.stringify({
+            ucp: {
+              capabilities: {
+                'dev.ucp.shopping.cart': [{}],
+                'dev.ucp.shopping.catalog.lookup': [{}],
+                'dev.ucp.shopping.catalog.search': [{}],
+                'dev.ucp.shopping.checkout': [{}],
+                'dev.ucp.shopping.order': [{}],
+              },
+              payment_handlers: {
+                'com.paystack.bank_transfer': [{}],
+              },
+            },
+          })
+        )
+    );
+
+    expect(result.status).toBe('pass');
+  });
+
+  it('marks Universal Cart readiness failed when the profile cannot be fetched', async () => {
+    const result = await checkAgentCommerceUniversalCartReadiness(
+      { custom_domain: 'ogabassey.com', slug: 'ogabassey' },
+      () => {
+        throw new Error('network down');
+      }
+    );
+
+    expect(result.status).toBe('fail');
+    expect(result.checks[0]).toMatchObject({
+      id: 'ucp_profile_reachable',
+      status: 'fail',
+    });
   });
 });
 

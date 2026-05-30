@@ -58,11 +58,28 @@ const optionalTrimmedStringSchema = z.preprocess((value) => {
   return trimmed || undefined;
 }, z.string().optional());
 
+const ENV_VALUE_LINE_BREAK_PATTERN = /\\n|\r?\n|\r/g;
+
+const aiChatProviderSchema = z.preprocess(
+  (value) => {
+    if (value === undefined) return value;
+    if (typeof value !== 'string') return value;
+
+    const trimmed = value
+      .replace(ENV_VALUE_LINE_BREAK_PATTERN, '')
+      .trim()
+      .toLowerCase();
+    return trimmed || undefined;
+  },
+  z.enum(['auto', 'gemini', 'llm', 'ollama']).default('auto')
+);
+export type AiChatProvider = z.infer<typeof aiChatProviderSchema>;
+
 const DEFAULT_CAC_API_URL =
   'https://authapp.cac.gov.ng/name_similarity_app/api/public_search/search';
 const DEFAULT_CAC_TIN_API_BASE_URL =
   'https://icrp.cac.gov.ng/tin_service/api/v1/public/tin';
-const DEFAULT_TERMINAL_IDEMPOTENCY_RECORD_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+const DEFAULT_TERMINAL_IDEMPOTENCY_RECORD_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Strict 127.0.0.0/8 hostname matcher. Anchored regex on the URL `hostname`
@@ -146,6 +163,10 @@ const serverSchema = z
     KORAPAY_SECRET_KEY: z.string().optional(),
     JUICYWAY_SECRET_KEY: z.string().optional(),
     PAYSTACK_SECRET_KEY: z.string().optional(),
+    BACI_GOOGLE_PAY_ENABLED: z.string().optional(),
+    BACI_GOOGLE_PAY_GATEWAY: z.string().optional(),
+    BACI_GOOGLE_PAY_GATEWAY_MERCHANT_ID: z.string().optional(),
+    BACI_GOOGLE_PAY_MERCHANT_ID: z.string().optional(),
     SICKW_API_KEY: optionalTrimmedStringSchema,
     IMEI_HASH_SALT: optionalTrimmedStringSchema,
     OPENAI_AGENTIC_API_KEY: z.string().optional(),
@@ -169,6 +190,7 @@ const serverSchema = z
     GOOGLE_MAPS_API_KEY: optionalTrimmedStringSchema,
     GOOGLE_PLACES_API_KEY: optionalTrimmedStringSchema,
     AI_CHAT_MODEL: z.string().default('gemma4:e4b'),
+    AI_CHAT_PROVIDER: aiChatProviderSchema,
 
     // BNPL
     CREDIT_DIRECT_PRIVATE_KEY: z.string().optional(),
@@ -231,6 +253,15 @@ const serverSchema = z
       .positive()
       .default(90_000),
     AI_STOREFRONT_GENERATION_ENABLED: defaultFalseBooleanStringSchema,
+    AI_STOREFRONT_TRIGGER_URL: httpsOrLocalhostUrl(
+      'AI_STOREFRONT_TRIGGER_URL'
+    ).optional(),
+    AI_STOREFRONT_TRIGGER_SECRET: optionalTrimmedStringSchema,
+    AI_STOREFRONT_TRIGGER_TIMEOUT_MS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(5000),
 
     // LLM server (llama.cpp / OpenAI-compatible — Gemma 4 + MTP drafter on VPS)
     LLM_SERVER_URL: httpsOrLocalhostUrl('LLM_SERVER_URL').optional(),
@@ -244,7 +275,7 @@ const serverSchema = z
           'LLM_SERVER_BEARER must be a valid bearer token (no control chars, ≤2048 chars, not "BearerXyz")',
       }
     ),
-    LLM_CHAT_MODEL: z.string().default('gemma-4-e4b'),
+    LLM_CHAT_MODEL: z.string().default('gemma4:e4b'),
 
     // Jumia Marketplace
     JUMIA_ENVIRONMENT: z.enum(['staging', 'production']).default('staging'),
@@ -257,10 +288,15 @@ const serverSchema = z
       process.env.GITHUB_ACTIONS === 'true' &&
       Boolean(process.env.GITHUB_RUN_ID) &&
       Boolean(process.env.GITHUB_REPOSITORY);
+    // This VPS worker only runs Ollama layout generation; it never signs
+    // agentic JWTs, so it should not fail boot on unrelated signing material.
+    const isAiStorefrontWorker =
+      process.env.BACI_WORKER_PROFILE === 'ai-storefront-jobs';
 
     if (
       value.NODE_ENV !== 'production' ||
       isGitHubActionsBuild ||
+      isAiStorefrontWorker ||
       value.SUPABASE_AGENTIC_JWT_PRIVATE_JWK ||
       value.SUPABASE_JWT_SECRET
     ) {
@@ -281,6 +317,30 @@ const serverSchema = z
         message:
           'QUIZ_RPC_SERVER_SECRET is required when QUIZ_PHASE is production',
         path: ['QUIZ_RPC_SERVER_SECRET'],
+      });
+    }
+  })
+  .superRefine((value, ctx) => {
+    if (
+      value.AI_STOREFRONT_TRIGGER_URL &&
+      !value.AI_STOREFRONT_TRIGGER_SECRET
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'AI_STOREFRONT_TRIGGER_SECRET is required when AI_STOREFRONT_TRIGGER_URL is set',
+        path: ['AI_STOREFRONT_TRIGGER_SECRET'],
+      });
+    }
+    if (
+      value.AI_STOREFRONT_TRIGGER_SECRET &&
+      !value.AI_STOREFRONT_TRIGGER_URL
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'AI_STOREFRONT_TRIGGER_URL is required when AI_STOREFRONT_TRIGGER_SECRET is set',
+        path: ['AI_STOREFRONT_TRIGGER_URL'],
       });
     }
   })
@@ -332,13 +392,11 @@ const formatErrors = (
     })
     .filter(Boolean);
 
-const MODEL_NAME_LINE_BREAK_PATTERN = /\\n|\r?\n|\r/g;
-
 const validateSanitizedModel = (
   value: string | undefined,
   name: string
 ): string => {
-  const model = value?.replace(MODEL_NAME_LINE_BREAK_PATTERN, '').trim() ?? '';
+  const model = value?.replace(ENV_VALUE_LINE_BREAK_PATTERN, '').trim() ?? '';
 
   if (!model) {
     throw new Error(`${name} must resolve to a non-empty model name`);
@@ -382,6 +440,11 @@ const getEnv = () => {
         KORAPAY_SECRET_KEY: process.env.KORAPAY_SECRET_KEY,
         JUICYWAY_SECRET_KEY: process.env.JUICYWAY_SECRET_KEY,
         PAYSTACK_SECRET_KEY: process.env.PAYSTACK_SECRET_KEY,
+        BACI_GOOGLE_PAY_ENABLED: process.env.BACI_GOOGLE_PAY_ENABLED,
+        BACI_GOOGLE_PAY_GATEWAY: process.env.BACI_GOOGLE_PAY_GATEWAY,
+        BACI_GOOGLE_PAY_GATEWAY_MERCHANT_ID:
+          process.env.BACI_GOOGLE_PAY_GATEWAY_MERCHANT_ID,
+        BACI_GOOGLE_PAY_MERCHANT_ID: process.env.BACI_GOOGLE_PAY_MERCHANT_ID,
         SICKW_API_KEY: process.env.SICKW_API_KEY,
         IMEI_HASH_SALT: process.env.IMEI_HASH_SALT,
         KUDA_BILL_DEBUG: process.env.KUDA_BILL_DEBUG,
@@ -403,6 +466,7 @@ const getEnv = () => {
         GOOGLE_MAPS_API_KEY: process.env.GOOGLE_MAPS_API_KEY,
         GOOGLE_PLACES_API_KEY: process.env.GOOGLE_PLACES_API_KEY,
         AI_CHAT_MODEL: process.env.AI_CHAT_MODEL,
+        AI_CHAT_PROVIDER: process.env.AI_CHAT_PROVIDER,
         CREDIT_DIRECT_PRIVATE_KEY: process.env.CREDIT_DIRECT_PRIVATE_KEY,
         NODE_ENV: process.env.NODE_ENV,
         JUICYWAY_BASE_URL: process.env.JUICYWAY_BASE_URL,
@@ -437,6 +501,10 @@ const getEnv = () => {
         OLLAMA_STOREFRONT_TIMEOUT_MS: process.env.OLLAMA_STOREFRONT_TIMEOUT_MS,
         AI_STOREFRONT_GENERATION_ENABLED:
           process.env.AI_STOREFRONT_GENERATION_ENABLED,
+        AI_STOREFRONT_TRIGGER_URL: process.env.AI_STOREFRONT_TRIGGER_URL,
+        AI_STOREFRONT_TRIGGER_SECRET: process.env.AI_STOREFRONT_TRIGGER_SECRET,
+        AI_STOREFRONT_TRIGGER_TIMEOUT_MS:
+          process.env.AI_STOREFRONT_TRIGGER_TIMEOUT_MS,
         LLM_SERVER_URL: process.env.LLM_SERVER_URL,
         LLM_SERVER_BEARER: process.env.LLM_SERVER_BEARER,
         LLM_CHAT_MODEL: process.env.LLM_CHAT_MODEL,
@@ -646,6 +714,35 @@ export const getPaystackSecretKey = () => {
   );
   return secret || undefined;
 };
+export type GooglePayAgenticConfig = {
+  gateway: string;
+  gatewayMerchantId: string;
+  merchantId: string;
+};
+export const getGooglePayAgenticConfig = () => {
+  if (isBrowserRuntime()) return null;
+  const enabled = ['1', 'on', 'true', 'yes'].includes(
+    trimSecret(
+      process.env.BACI_GOOGLE_PAY_ENABLED ?? env?.BACI_GOOGLE_PAY_ENABLED
+    ).toLowerCase()
+  );
+  const gateway = trimSecret(
+    process.env.BACI_GOOGLE_PAY_GATEWAY ?? env?.BACI_GOOGLE_PAY_GATEWAY
+  ).toLowerCase();
+  const gatewayMerchantId = trimSecret(
+    process.env.BACI_GOOGLE_PAY_GATEWAY_MERCHANT_ID ??
+      env?.BACI_GOOGLE_PAY_GATEWAY_MERCHANT_ID
+  );
+  const merchantId = trimSecret(
+    process.env.BACI_GOOGLE_PAY_MERCHANT_ID ?? env?.BACI_GOOGLE_PAY_MERCHANT_ID
+  );
+
+  if (!enabled || !gateway || !gatewayMerchantId || !merchantId) {
+    return null;
+  }
+
+  return { gateway, gatewayMerchantId, merchantId };
+};
 export const getSickwApiKey = () => {
   if (isBrowserRuntime()) return undefined;
   const secret = trimSecret(process.env.SICKW_API_KEY ?? env?.SICKW_API_KEY);
@@ -716,6 +813,24 @@ export const getAiChatModel = () => {
   if (typeof window !== 'undefined')
     throw new Error('AI_CHAT_MODEL cannot be accessed on the client');
   return validateSanitizedModel(env.AI_CHAT_MODEL, 'AI_CHAT_MODEL');
+};
+export const getAiChatProvider = (): AiChatProvider => {
+  if (typeof window !== 'undefined')
+    throw new Error('AI_CHAT_PROVIDER cannot be accessed on the client');
+
+  const runtimeProvider = process.env.AI_CHAT_PROVIDER;
+  if (runtimeProvider !== undefined) {
+    const parsedProvider = aiChatProviderSchema.safeParse(runtimeProvider);
+    if (!parsedProvider.success) {
+      throw new Error(
+        'AI_CHAT_PROVIDER must be one of auto, gemini, llm, ollama'
+      );
+    }
+
+    return parsedProvider.data;
+  }
+
+  return env.AI_CHAT_PROVIDER;
 };
 export const getCreditDirectPublicKey = () => env?.CREDIT_DIRECT_PUBLIC_KEY;
 export const getCreditDirectPrivateKey = () => env?.CREDIT_DIRECT_PRIVATE_KEY;
@@ -887,6 +1002,27 @@ export const isAiStorefrontGenerationEnabled = () => {
       'AI_STOREFRONT_GENERATION_ENABLED cannot be accessed on the client'
     );
   return env.AI_STOREFRONT_GENERATION_ENABLED;
+};
+export const getAiStorefrontWorkerTriggerUrl = () => {
+  if (isBrowserRuntime())
+    throw new Error(
+      'AI_STOREFRONT_TRIGGER_URL cannot be accessed on the client'
+    );
+  return env?.AI_STOREFRONT_TRIGGER_URL;
+};
+export const getAiStorefrontWorkerTriggerSecret = () => {
+  if (isBrowserRuntime())
+    throw new Error(
+      'AI_STOREFRONT_TRIGGER_SECRET cannot be accessed on the client'
+    );
+  return env?.AI_STOREFRONT_TRIGGER_SECRET;
+};
+export const getAiStorefrontWorkerTriggerTimeoutMs = () => {
+  if (isBrowserRuntime())
+    throw new Error(
+      'AI_STOREFRONT_TRIGGER_TIMEOUT_MS cannot be accessed on the client'
+    );
+  return env.AI_STOREFRONT_TRIGGER_TIMEOUT_MS;
 };
 export const getLlmServerUrl = () => {
   if (isBrowserRuntime())

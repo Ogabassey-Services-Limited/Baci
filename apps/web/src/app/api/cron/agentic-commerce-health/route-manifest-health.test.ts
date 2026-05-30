@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/env', () => ({
   getCronSecret: vi.fn(() => 'cron-secret'),
+  getRootDomain: vi.fn(() => 'usebaci.com'),
 }));
 
 vi.mock('@/lib/agentic/action-health-loader', () => ({
@@ -13,6 +14,31 @@ vi.mock('@/lib/agentic/agent-commerce-manifest-health', () => ({
   checkAgentCommerceManifestHealth: vi.fn(),
 }));
 
+vi.mock('@/lib/agentic/agent-commerce-health-monitor', async () => {
+  const actual = await vi.importActual<
+    typeof import('@/lib/agentic/agent-commerce-health-monitor')
+  >('@/lib/agentic/agent-commerce-health-monitor');
+
+  return {
+    ...actual,
+    checkAgentCommerceUniversalCartReadiness: vi.fn(),
+  };
+});
+
+vi.mock(
+  '@/lib/agentic/agent-commerce-public-product-parity-health',
+  async () => {
+    const actual = await vi.importActual<
+      typeof import('@/lib/agentic/agent-commerce-public-product-parity-health')
+    >('@/lib/agentic/agent-commerce-public-product-parity-health');
+
+    return {
+      ...actual,
+      checkAgentCommercePublicProductParity: vi.fn(),
+    };
+  }
+);
+
 vi.mock('@/lib/agentic/agent-commerce-feed-health', async () => {
   const actual = await vi.importActual<
     typeof import('@/lib/agentic/agent-commerce-feed-health')
@@ -21,6 +47,21 @@ vi.mock('@/lib/agentic/agent-commerce-feed-health', async () => {
   return {
     ...actual,
     checkAgentCommerceFeedHealth: vi.fn(),
+  };
+});
+
+vi.mock('@/lib/agentic/agent-commerce-support-chat-health', () => ({
+  checkAgentCommerceSupportChatHealth: vi.fn(),
+}));
+
+vi.mock('@/lib/agentic/agent-commerce-trust-health', async () => {
+  const actual = await vi.importActual<
+    typeof import('@/lib/agentic/agent-commerce-trust-health')
+  >('@/lib/agentic/agent-commerce-trust-health');
+
+  return {
+    ...actual,
+    checkAgentCommerceTrustHealth: vi.fn(),
   };
 });
 
@@ -38,7 +79,11 @@ vi.mock('@/lib/supabase/admin', () => ({
 
 import { loadAgenticActionHealth } from '@/lib/agentic/action-health-loader';
 import { checkAgentCommerceFeedHealth } from '@/lib/agentic/agent-commerce-feed-health';
+import { checkAgentCommerceUniversalCartReadiness } from '@/lib/agentic/agent-commerce-health-monitor';
 import { checkAgentCommerceManifestHealth } from '@/lib/agentic/agent-commerce-manifest-health';
+import { checkAgentCommercePublicProductParity } from '@/lib/agentic/agent-commerce-public-product-parity-health';
+import { checkAgentCommerceSupportChatHealth } from '@/lib/agentic/agent-commerce-support-chat-health';
+import { checkAgentCommerceTrustHealth } from '@/lib/agentic/agent-commerce-trust-health';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { GET } from './route';
 
@@ -53,6 +98,33 @@ function createCronRequest() {
 }
 
 function createSupabaseMock() {
+  const crawlerQuery = {
+    eq: vi.fn(),
+    gte: vi.fn(),
+    limit: vi.fn().mockResolvedValue({
+      data: [
+        {
+          agent_family: 'openai',
+          bot_name: 'OpenAI',
+          cache_outcome: 'hit',
+          crawled_at: '2026-05-22T10:00:00.000Z',
+          host: 'ogabassey.com',
+          response_time_ms: 120,
+          status_code: 200,
+          url_path: '/agent-commerce.json',
+          user_agent: 'GPTBot/1.0',
+        },
+      ],
+      error: null,
+    }),
+    order: vi.fn(),
+    select: vi.fn(),
+  };
+  crawlerQuery.select.mockReturnValue(crawlerQuery);
+  crawlerQuery.eq.mockReturnValue(crawlerQuery);
+  crawlerQuery.gte.mockReturnValue(crawlerQuery);
+  crawlerQuery.order.mockReturnValue(crawlerQuery);
+
   const domainQuery = {
     eq: vi.fn(),
     in: vi.fn(),
@@ -85,6 +157,7 @@ function createSupabaseMock() {
 
   return {
     from: vi.fn((table: string) => {
+      if (table === 'crawler_logs') return crawlerQuery;
       if (table === 'domains') return domainQuery;
       if (table === 'merchants') return merchantQuery;
       throw new Error(`Unexpected table: ${table}`);
@@ -105,6 +178,38 @@ describe('GET /api/cron/agentic-commerce-health manifest monitoring', () => {
       shared_product_count: 2,
       stale_product_count: 0,
       status: 'ok',
+    });
+    vi.mocked(checkAgentCommerceSupportChatHealth).mockResolvedValue({
+      issue_count: 0,
+      issues: [],
+      response_time_ms: 120,
+      status: 'ok',
+      url: 'https://usebaci.com/api/chat',
+    });
+    vi.mocked(checkAgentCommerceTrustHealth).mockResolvedValue({
+      issue_count: 0,
+      issues: [],
+      status: 'ok',
+      url: 'https://ogabassey.com/agent-trust.json',
+    });
+    vi.mocked(checkAgentCommercePublicProductParity).mockResolvedValue({
+      issue_count: 0,
+      issues: [],
+      sample_product_id: 'product-1',
+      status: 'ok',
+      surfaces: {
+        agent_products: 'https://ogabassey.com/feeds/agent-products.jsonl',
+        google_merchant_xml: 'https://ogabassey.com/feeds/google-merchant.xml',
+        product_api:
+          'https://ogabassey.com/api/storefront/ogabassey/products?limit=10',
+        product_page: 'https://ogabassey.com/phones/test-phone',
+      },
+    });
+    vi.mocked(checkAgentCommerceUniversalCartReadiness).mockResolvedValue({
+      checks: [],
+      lastCheckedAt: '2026-05-26T12:00:00.000Z',
+      status: 'pass',
+      url: 'https://ogabassey.com/.well-known/ucp',
     });
     vi.mocked(loadAgenticActionHealth).mockResolvedValue({
       actions: [

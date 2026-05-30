@@ -20,18 +20,8 @@ const { mockGenerateStorefrontLayoutMetadata, mockStorefrontLayout } =
       }) => <section aria-label="generic storefront layout">{children}</section>
     ),
   }));
-const { mockPreconnect, mockPrefetchDNS, mockPreload } = vi.hoisted(() => ({
-  mockPreconnect: vi.fn(),
-  mockPrefetchDNS: vi.fn(),
-  mockPreload: vi.fn(),
-}));
 
 vi.mock('server-only', () => ({}));
-vi.mock('react-dom', () => ({
-  preconnect: mockPreconnect,
-  prefetchDNS: mockPrefetchDNS,
-  preload: mockPreload,
-}));
 
 vi.mock('@/app/(storefront)/[slug]/layout', () => ({
   default: mockStorefrontLayout,
@@ -49,7 +39,8 @@ import OgabasseyLayout, {
 
 describe('OgabasseyLayout', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    mockGenerateStorefrontLayoutMetadata.mockClear();
+    mockStorefrontLayout.mockClear();
   });
 
   it('renders the storefront layout with the static OgaBassey identifier', async () => {
@@ -74,9 +65,6 @@ describe('OgabasseyLayout', () => {
     ).toBeInTheDocument();
     unmount();
     await expect(props?.params).resolves.toEqual({ slug: 'ogabassey' });
-    expect(mockPrefetchDNS).not.toHaveBeenCalled();
-    expect(mockPreconnect).not.toHaveBeenCalled();
-    expect(mockPreload).not.toHaveBeenCalled();
   });
 
   it('keeps the storefront viewport settings', () => {

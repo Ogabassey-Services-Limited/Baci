@@ -1,9 +1,4 @@
-/**
- * Compare Button Component
- * Toggle button to add/remove products from comparison
- */
-
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from "@react-native-vector-icons/ionicons";
 import { Alert, Pressable, StyleSheet, Text } from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
@@ -50,7 +45,11 @@ export function CompareButton({
   return (
     <Pressable
       onPress={handlePress}
-      style={[
+      accessibilityRole="button"
+      accessibilityLabel={isInComparison ? 'Remove from comparison' : 'Add to comparison'}
+      accessibilityState={{ checked: isInComparison }}
+      accessibilityHint="Toggles adding or removing this product from the comparison list"
+      style={({ pressed }) => [
         styles.button,
         size === 'small' && styles.buttonSmall,
         {
@@ -58,6 +57,7 @@ export function CompareButton({
             ? `${BRAND.primary}15`
             : `${colors.textSecondary}10`,
           borderColor: isInComparison ? BRAND.primary : colors.border,
+          opacity: pressed ? 0.7 : 1,
         },
       ]}
     >

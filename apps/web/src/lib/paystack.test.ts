@@ -116,4 +116,137 @@ describe('paystack helpers', () => {
       });
     }
   });
+
+  it('creates wallet DVAs with merchant subaccount and explicit test-bank flag', async () => {
+    // The explicit flag keeps test-bank routing intentional instead of inferring it from the secret-key prefix.
+    vi.stubEnv('PAYSTACK_WALLET_DVA_USE_TEST_BANK', 'true');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          status: true,
+          message: 'ok',
+          data: {
+            bank: {
+              name: 'Test Bank',
+              id: 9,
+              slug: 'test-bank',
+            },
+            account_name: 'Ogabassey/Jane Doe',
+            account_number: '1234567890',
+            assigned: true,
+            currency: 'NGN',
+            metadata: null,
+            active: true,
+            id: 97,
+            created_at: '2026-05-21T10:00:00.000Z',
+            updated_at: '2026-05-21T10:00:00.000Z',
+            customer: {
+              id: 17328,
+              email: 'jane@example.com',
+              customer_code: 'CUS_wallet123',
+              first_name: 'Jane',
+              last_name: 'Doe',
+            },
+            split_config: {
+              subaccount: 'ACCT_merchant123',
+            },
+          },
+        }),
+      })
+    );
+
+    const { createDedicatedAccountForWallet } = await import('@/lib/paystack');
+    const result = await createDedicatedAccountForWallet({
+      customerCode: 'CUS_wallet123',
+      subaccount: 'ACCT_merchant123',
+      preferredBank: 'wema-bank',
+    });
+
+    expect(result.success).toBe(true);
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith(
+      expect.stringContaining('/dedicated_account'),
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          customer: 'CUS_wallet123',
+          preferred_bank: 'test-bank',
+          subaccount: 'ACCT_merchant123',
+        }),
+      })
+    );
+
+    if (result.success) {
+      expect(result.data).toEqual({
+        providerAccountId: '97',
+        providerCustomerCode: 'CUS_wallet123',
+        providerSubaccountCode: 'ACCT_merchant123',
+        accountNumber: '1234567890',
+        accountName: 'Ogabassey/Jane Doe',
+        bankName: 'Test Bank',
+        bankSlug: 'test-bank',
+        currency: 'NGN',
+      });
+    }
+  });
+
+  it('rejects wallet DVA responses that do not include a 10-digit account number', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          status: true,
+          message: 'ok',
+          data: {
+            bank: { name: 'Wema Bank' },
+            account_name: 'Ogabassey/Jane Doe',
+            account_number: '123',
+            currency: 'NGN',
+            customer: {
+              customer_code: 'CUS_wallet123',
+            },
+            split_config: {
+              subaccount: 'ACCT_merchant123',
+            },
+          },
+        }),
+      })
+    );
+
+    const { createDedicatedAccountForWallet } = await import('@/lib/paystack');
+    const result = await createDedicatedAccountForWallet({
+      customerCode: 'CUS_wallet123',
+      subaccount: 'ACCT_merchant123',
+    });
+
+    expect(result).toMatchObject({
+      success: false,
+      code: 'VALIDATION_ERROR',
+    });
+  });
+
+  it('extracts receiver account numbers from supported Paystack DVA webhook shapes', async () => {
+    const { extractPaystackReceiverAccountNumber } = await import(
+      '@/lib/paystack'
+    );
+
+    expect(
+      extractPaystackReceiverAccountNumber({
+        data: { receiver_account_number: '1234567890' },
+      })
+    ).toBe('1234567890');
+    expect(
+      extractPaystackReceiverAccountNumber({
+        data: { dedicated_account: { account_number: '0987654321' } },
+      })
+    ).toBe('0987654321');
+    expect(
+      extractPaystackReceiverAccountNumber({
+        data: { authorization: { receiver_bank_account_number: '1122334455' } },
+      })
+    ).toBe('1122334455');
+    expect(extractPaystackReceiverAccountNumber({ data: {} })).toBeNull();
+  });
 });

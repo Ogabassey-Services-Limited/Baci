@@ -2,13 +2,21 @@ import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getCachedBlogListing } from '@/lib/cached-data';
 
-const { mockDefaultBlogUi } = vi.hoisted(() => ({
-  mockDefaultBlogUi: vi.fn((props: MockDefaultBlogUiProps) => (
-    <div>{props.merchant.business_name} blog</div>
-  )),
-}));
+const { mockDefaultBlogUi, mockStorefrontDynamicMetadataMarker } = vi.hoisted(
+  () => ({
+    mockDefaultBlogUi: vi.fn((props: MockDefaultBlogUiProps) => (
+      <div>{props.merchant.business_name} blog</div>
+    )),
+    mockStorefrontDynamicMetadataMarker: vi.fn(),
+  })
+);
+
+const mockNotFound = vi.fn(() => {
+  throw new Error('NEXT_NOT_FOUND');
+});
 
 const mockBuildBlogClusterCollections = vi.fn();
+const mockConnection = vi.hoisted(() => vi.fn());
 
 interface MockDefaultBlogUiProps {
   blogSchema: {
@@ -24,10 +32,19 @@ vi.mock('@/lib/cached-data', () => ({
   getCachedBlogListing: vi.fn(),
 }));
 
+vi.mock('next/navigation', () => ({
+  notFound: () => mockNotFound(),
+}));
+
+vi.mock('next/server', () => ({
+  connection: () => mockConnection(),
+}));
+
 vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
-  StorefrontDynamicMetadataMarker: () => (
-    <div aria-label="dynamic metadata marker" role="status" />
-  ),
+  StorefrontDynamicMetadataMarker: () => {
+    mockStorefrontDynamicMetadataMarker();
+    return <div aria-label="dynamic metadata marker" role="status" />;
+  },
 }));
 
 vi.mock('@/lib/routes', () => ({
@@ -151,22 +168,31 @@ function buildListingResult(
   };
 }
 
-const {
-  BlogPageContent,
-  default: BlogPage,
-  generateMetadata,
-} = await import('./page');
+const { default: BlogPage, generateMetadata } = await import('./page');
+const { BlogPageContent } = await import('./blog-page-content');
 
 describe('blog page metadata', () => {
   beforeEach(() => {
     vi.mocked(getCachedBlogListing).mockReset();
     vi.mocked(getCachedBlogListing).mockResolvedValue(buildListingResult());
+    mockNotFound.mockClear();
     mockBuildBlogClusterCollections.mockReset();
     mockBuildBlogClusterCollections.mockReturnValue([]);
     mockDefaultBlogUi.mockReset();
     mockDefaultBlogUi.mockImplementation((props: MockDefaultBlogUiProps) => (
       <div>{props.merchant.business_name} blog</div>
     ));
+    mockStorefrontDynamicMetadataMarker.mockReset();
+    mockConnection.mockReset();
+  });
+
+  it('marks blog listing metadata as request-time rendered', async () => {
+    await generateMetadata({
+      params: Promise.resolve({ slug: 'test-store' }),
+      searchParams: Promise.resolve({}),
+    });
+
+    expect(mockConnection).toHaveBeenCalledOnce();
   });
 
   it('includes social images for the blog listing metadata', async () => {
@@ -209,7 +235,7 @@ describe('blog page metadata', () => {
     ]);
   });
 
-  it('uses the merchant custom domain for paginated metadata URLs', async () => {
+  it('keeps metadata on the canonical blog listing regardless of pagination', async () => {
     vi.mocked(getCachedBlogListing).mockResolvedValueOnce(
       buildListingResult({
         merchant: {
@@ -225,10 +251,11 @@ describe('blog page metadata', () => {
       searchParams: Promise.resolve({ page: '2' }),
     });
 
-    expect(metadata.alternates?.canonical).toBe(
-      'https://example.com/blog?page=2'
-    );
-    expect(metadata.openGraph?.url).toBe('https://example.com/blog?page=2');
+    expect(metadata.alternates?.canonical).toBe('https://example.com/blog');
+    expect(metadata.openGraph?.url).toBe('https://example.com/blog');
+    expect(getCachedBlogListing).toHaveBeenCalledWith('example.com', {
+      page: 1,
+    });
   });
 
   it('returns fallback metadata when the merchant is missing', async () => {
@@ -253,6 +280,18 @@ describe('blog page metadata', () => {
     expect(metadata).toEqual({ title: 'Blog Not Found' });
   });
 
+  it('throws not found when the listing data is missing at render time', async () => {
+    vi.mocked(getCachedBlogListing).mockResolvedValueOnce(null);
+
+    await expect(
+      BlogPageContent({
+        params: Promise.resolve({ slug: 'missing-store' }),
+        searchParams: Promise.resolve({}),
+      })
+    ).rejects.toThrow('NEXT_NOT_FOUND');
+    expect(mockNotFound).toHaveBeenCalledOnce();
+  });
+
   it('clamps invalid page params back to the first page metadata', async () => {
     const metadata = await generateMetadata({
       params: Promise.resolve({ slug: 'test-store' }),
@@ -265,7 +304,7 @@ describe('blog page metadata', () => {
     expect(metadata.openGraph?.url).toBe('https://test-store.usebaci.com/blog');
   });
 
-  it('shows the blog listing fallback while runtime metadata and listing UI are pending', () => {
+  it('shows the blog listing fallback while request-time listing UI is pending', async () => {
     const pending = new Promise(() => {
       // Keep request-time metadata and listing UI suspended behind their boundaries.
     });
@@ -274,22 +313,24 @@ describe('blog page metadata', () => {
     });
 
     render(
-      <BlogPage
-        params={Promise.resolve({ slug: 'test-store' })}
-        searchParams={Promise.resolve({})}
-      />
+      await BlogPage({
+        params: Promise.resolve({ slug: 'test-store' }),
+        searchParams: Promise.resolve({}),
+      })
     );
 
     expect(
       screen.getByRole('status', { name: /loading blog posts/i })
     ).toBeInTheDocument();
+    expect(screen.queryByText('Ogabassey blog')).not.toBeInTheDocument();
+    expect(mockConnection).not.toHaveBeenCalled();
+    expect(mockStorefrontDynamicMetadataMarker).toHaveBeenCalledOnce();
     expect(
       screen.getByRole('status', { name: /dynamic metadata marker/i })
     ).toBeInTheDocument();
-    expect(screen.queryByText('Ogabassey blog')).not.toBeInTheDocument();
   });
 
-  it('renders guide collections above the blog listing', async () => {
+  it('renders guide collections after the blog listing', async () => {
     mockBuildBlogClusterCollections.mockReturnValue(clusterCollections);
 
     render(
@@ -308,6 +349,21 @@ describe('blog page metadata', () => {
       'href',
       'https://ogabassey.com/blog/best-phones-in-nigeria'
     );
+    const blogListing = screen.getByText('Ogabassey blog');
+    const guideCollections = screen.getByRole('heading', {
+      name: /guide collections/i,
+    });
+    const discoveryLinks = screen.getByRole('heading', {
+      name: /continue exploring/i,
+    });
+    expect(
+      blogListing.compareDocumentPosition(guideCollections) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+    expect(
+      guideCollections.compareDocumentPosition(discoveryLinks) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
   });
 
   it('uses structured image variants and preserves listing pagination totals', async () => {

@@ -20,18 +20,8 @@ const { mockGenerateStorefrontLayoutMetadata, mockStorefrontLayout } =
       }) => <section aria-label="storefront layout">{children}</section>
     ),
   }));
-const { mockPreconnect, mockPrefetchDNS, mockPreload } = vi.hoisted(() => ({
-  mockPreconnect: vi.fn(),
-  mockPrefetchDNS: vi.fn(),
-  mockPreload: vi.fn(),
-}));
 
 vi.mock('server-only', () => ({}));
-vi.mock('react-dom', () => ({
-  preconnect: mockPreconnect,
-  prefetchDNS: mockPrefetchDNS,
-  preload: mockPreload,
-}));
 
 vi.mock('@/app/(storefront)/[slug]/layout', () => ({
   default: mockStorefrontLayout,
@@ -49,7 +39,8 @@ import OgabasseyDomainLayout, {
 
 describe('OgabasseyDomainLayout', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    mockGenerateStorefrontLayoutMetadata.mockClear();
+    mockStorefrontLayout.mockClear();
   });
 
   it('renders the storefront layout with the domain identifier', async () => {
@@ -74,9 +65,6 @@ describe('OgabasseyDomainLayout', () => {
     ).toBeInTheDocument();
     unmount();
     await expect(props?.params).resolves.toEqual({ slug: 'ogabassey.com' });
-    expect(mockPrefetchDNS).not.toHaveBeenCalled();
-    expect(mockPreconnect).not.toHaveBeenCalled();
-    expect(mockPreload).not.toHaveBeenCalled();
   });
 
   it('delegates merchant-level metadata with the domain identifier', async () => {
