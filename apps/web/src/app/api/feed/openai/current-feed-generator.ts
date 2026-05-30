@@ -1,16 +1,40 @@
+import {
+  resolveGmcAdditionalImages,
+  resolveGmcPrimaryImage,
+} from '@/lib/gmc-feed-images';
 import { stripHtmlTags } from '@/lib/sanitize-core';
 import {
   coerceStorefrontManageStock,
   getStorefrontAgentAvailability,
 } from '@/lib/storefront-agent-availability';
 import { buildAgentProductUrl } from '@/lib/storefront-agent-urls';
+import type { ImageManifestMap } from '../google-merchant/feed-builder';
 import { PRODUCT_DESCRIPTION_MAX_LENGTH } from './feed-constants';
 import type { OpenAIFeedVariant } from './feed-data';
 import type { CurrentOpenAIFeedItem, Merchant, Product } from './feed-types';
 
-function getOpenAIFeedImageUrl(product: Product): string {
-  const firstImage = product.images?.[0];
-  return typeof firstImage === 'string' ? firstImage : firstImage?.url || '';
+function isString(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0;
+}
+
+function getOpenAIFeedImageUrls(
+  product: Product,
+  imageManifest: ImageManifestMap
+): string[] {
+  const manifestEntries = imageManifest[product.id] || [];
+  const manifestPrimaryImage = resolveGmcPrimaryImage(manifestEntries);
+  if (manifestPrimaryImage) {
+    return [
+      manifestPrimaryImage,
+      ...resolveGmcAdditionalImages(manifestEntries),
+    ];
+  }
+
+  return (
+    product.images
+      ?.map((image) => (typeof image === 'string' ? image : image.url))
+      .filter(isString) || []
+  );
 }
 
 function getCurrentFeedCategoryValue(product: Product): string {
@@ -117,7 +141,8 @@ function hasCurrentFeedOffer(product: Product): boolean {
 export function generateCurrentOpenAIProductFeed(
   products: Product[],
   merchant: Merchant,
-  baseUrl: string
+  baseUrl: string,
+  imageManifest: ImageManifestMap = {}
 ): string[] {
   const currency = merchant.payout_currency || 'NGN';
 
@@ -136,7 +161,7 @@ export function generateCurrentOpenAIProductFeed(
         stock: product.stock,
         stock_quantity: product.stock_quantity,
       });
-      const imageUrl = getOpenAIFeedImageUrl(product);
+      const imageUrls = getOpenAIFeedImageUrls(product, imageManifest);
 
       const item: CurrentOpenAIFeedItem = {
         id: product.id,
@@ -147,7 +172,7 @@ export function generateCurrentOpenAIProductFeed(
             .slice(0, PRODUCT_DESCRIPTION_MAX_LENGTH),
         },
         url,
-        media: imageUrl ? [{ type: 'image', url: imageUrl }] : [],
+        media: imageUrls.map((url) => ({ type: 'image', url })),
         variants: buildCurrentFeedVariants(
           product,
           url,
