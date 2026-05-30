@@ -634,6 +634,72 @@ describe('Middleware Proxy', () => {
     );
   });
 
+  it('sets the streaming metadata cache bucket for normal custom-domain browsers', async () => {
+    const req = new NextRequest(
+      'https://ogabassey.com/smartphones/samsung-galaxy-a37-5g'
+    );
+    req.headers.set('host', 'ogabassey.com');
+    req.headers.set(
+      'user-agent',
+      'Mozilla/5.0 AppleWebKit/537.36 Chrome/125.0 Safari/537.36'
+    );
+
+    const res = await proxy(req);
+
+    expect(res.headers.get('x-middleware-rewrite')).toBe(
+      'https://ogabassey.com/ogabassey.com/smartphones/samsung-galaxy-a37-5g'
+    );
+    expect(
+      res.headers.get('x-middleware-request-x-baci-metadata-cache-bucket')
+    ).toBe('streaming');
+    expect(res.headers.get('Vary')).toBe('x-baci-metadata-cache-bucket');
+  });
+
+  it('overwrites spoofed metadata cache buckets for metadata-blocking bots', async () => {
+    const req = new NextRequest(
+      'https://ogabassey.com/smartphones/samsung-galaxy-a37-5g'
+    );
+    req.headers.set('host', 'ogabassey.com');
+    req.headers.set('user-agent', 'Twitterbot/1.0');
+    req.headers.set('x-baci-metadata-cache-bucket', 'streaming');
+
+    const res = await proxy(req);
+
+    expect(
+      res.headers.get('x-middleware-request-x-baci-metadata-cache-bucket')
+    ).toBe('metadata-blocking');
+    expect(res.headers.get('Vary')).toBe('x-baci-metadata-cache-bucket');
+  });
+
+  it('puts Next PPR DOM bots in the metadata-blocking cache bucket', async () => {
+    const req = new NextRequest(
+      'https://ogabassey.com/smartphones/samsung-galaxy-a37-5g'
+    );
+    req.headers.set('host', 'ogabassey.com');
+    req.headers.set('user-agent', 'Googlebot/2.1');
+
+    const res = await proxy(req);
+
+    expect(
+      res.headers.get('x-middleware-request-x-baci-metadata-cache-bucket')
+    ).toBe('metadata-blocking');
+    expect(res.headers.get('Vary')).toBe('x-baci-metadata-cache-bucket');
+  });
+
+  it('applies metadata cache partitioning to merchant subdomains', async () => {
+    const req = new NextRequest(
+      `https://ogabassey.${ROOT_DOMAIN}/smartphones/samsung-galaxy-a37-5g`
+    );
+    req.headers.set('host', `ogabassey.${ROOT_DOMAIN}`);
+
+    const res = await proxy(req);
+
+    expect(
+      res.headers.get('x-middleware-request-x-baci-metadata-cache-bucket')
+    ).toBe('streaming');
+    expect(res.headers.get('Vary')).toBe('x-baci-metadata-cache-bucket');
+  });
+
   it.each([
     '/agent-commerce.json',
     '/agent-trust.json',
