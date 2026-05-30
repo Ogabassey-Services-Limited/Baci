@@ -49,7 +49,8 @@ export function useCachedImageUri(
 
         // Check if already cached
         if (dest.exists && !cancelled) {
-          setLocalUri(dest.uri);
+          const cachedUri = typeof dest.uri === 'string' ? dest.uri : (dest.uri as any)?.toString() || '';
+          setLocalUri(cachedUri);
           setIsLoading(false);
           return;
         }
@@ -59,7 +60,8 @@ export function useCachedImageUri(
           idempotent: true,
         });
         if (!cancelled) {
-          setLocalUri(downloaded.uri);
+          const downloadedUri = typeof downloaded.uri === 'string' ? downloaded.uri : (downloaded.uri as any)?.toString() || '';
+          setLocalUri(downloadedUri);
         }
       } catch {
         // Network error — fall back to the original URL so SafeImage

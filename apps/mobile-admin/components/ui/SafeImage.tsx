@@ -75,10 +75,17 @@ function SafeImage({
   const [isLoadingXml, setIsLoadingXml] = useState(false);
 
   // SVG Detection Logic
-  const uri =
+  const rawUri =
     typeof source === 'object' && source !== null && 'uri' in source
-      ? (source as { uri?: string }).uri
+      ? (source as { uri?: unknown }).uri
       : undefined;
+
+  const uri =
+    typeof rawUri === 'string'
+      ? rawUri
+      : rawUri && typeof rawUri === 'object'
+        ? (rawUri as any).toString()
+        : undefined;
 
   const isSvg =
     typeof uri === 'string' &&
@@ -231,9 +238,33 @@ function SafeImage({
 
   // NOTE: Completely isolated from expo-image due to iOS CoreGraphics crash
   // related to 24-bpp PNGs and color spaces (rdar://143602439)
+  // Sanitize source to guarantee uri is a string if it's an object/array
+  const resolvedSource = (() => {
+    if (!source) return source;
+    if (Array.isArray(source)) {
+      return source.map((src) =>
+        typeof src === 'object' && src !== null && 'uri' in src
+          ? {
+              ...src,
+              uri: typeof src.uri === 'string' ? src.uri : src.uri ? String(src.uri) : undefined,
+            }
+          : src
+      );
+    }
+    if (typeof source === 'object' && 'uri' in source) {
+      return {
+        ...source,
+        uri: typeof source.uri === 'string' ? source.uri : source.uri ? String(source.uri) : undefined,
+      };
+    }
+    return source;
+  })();
+
+  // NOTE: Completely isolated from expo-image due to iOS CoreGraphics crash
+  // related to 24-bpp PNGs and color spaces (rdar://143602439)
   return (
     <Image
-      source={source as ImageSourcePropType}
+      source={resolvedSource as ImageSourcePropType}
       style={style}
       resizeMode={resizeMode}
       onError={handleError}

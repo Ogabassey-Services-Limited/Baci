@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { asyncStorage as AsyncStorage } from '@/lib/storage';
 import * as StoreReview from 'expo-store-review';
 import { useEffect } from 'react';
 

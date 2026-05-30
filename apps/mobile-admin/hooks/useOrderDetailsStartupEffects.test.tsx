@@ -3,12 +3,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   getItem: vi.fn(),
+  setItem: vi.fn(),
+  removeItem: vi.fn(),
 }));
 
-vi.mock('@react-native-async-storage/async-storage', () => ({
-  default: {
-    getItem: mocks.getItem,
-  },
+vi.mock('@/lib/storage', () => ({
+  asyncStorage: mocks,
 }));
 
 import { useOrderDetailsStartupEffects } from './useOrderDetailsStartupEffects';

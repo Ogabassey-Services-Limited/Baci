@@ -4,10 +4,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const asyncStorageMock = vi.hoisted(() => ({
   getItem: vi.fn<(key: string) => Promise<string | null>>(),
   setItem: vi.fn(),
+  removeItem: vi.fn(),
 }));
 
-vi.mock('@react-native-async-storage/async-storage', () => ({
-  default: asyncStorageMock,
+vi.mock('@/lib/storage', () => ({
+  asyncStorage: asyncStorageMock,
 }));
 
 vi.mock('@/lib/validators/storage', () => ({

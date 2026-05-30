@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { asyncStorage as AsyncStorage } from '@/lib/storage';
 import type React from 'react';
 import { createContext, useContext, useEffect, useState } from 'react';
 
@@ -39,7 +39,7 @@ export function OnboardingProvider({
 
   useEffect(() => {
     checkOnboarding();
-  }, [checkOnboarding]);
+  }, []);
 
   const completeOnboarding = async () => {
     try {

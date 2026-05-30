@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { asyncStorage as AsyncStorage } from '@/lib/storage';
 import { Alert, Linking, Share } from 'react-native';
 import type { OrderDetailsRecord } from '@/components/orders/order-details.types';
 import { extractOrderDeliveryAddress } from '@/lib/orders';

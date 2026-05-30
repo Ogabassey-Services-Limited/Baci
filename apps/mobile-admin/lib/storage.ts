@@ -19,3 +19,19 @@ export const zustandStorage = {
     return storage.remove(name);
   },
 };
+
+/**
+ * Helper to emulate AsyncStorage using MMKV for absolute compatibility and high performance.
+ */
+export const asyncStorage = {
+  getItem: async (key: string): Promise<string | null> => {
+    const value = storage.getString(key);
+    return value ?? null;
+  },
+  setItem: async (key: string, value: string): Promise<void> => {
+    storage.set(key, value);
+  },
+  removeItem: async (key: string): Promise<void> => {
+    storage.remove(key);
+  },
+};
