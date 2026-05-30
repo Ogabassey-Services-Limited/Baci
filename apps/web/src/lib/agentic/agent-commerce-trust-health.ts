@@ -3,7 +3,9 @@ import { STOREFRONT_AGENT_ROUTES } from '@/config/storefront-agent-routes';
 import { buildStoreUrl } from '@/lib/store-url';
 import type { AgenticAction } from '@/schemas/agentic-action-health';
 
-const TRUST_FETCH_TIMEOUT_MS = 5_000;
+// agent-trust.json can miss Vercel cache during the cron and still be healthy;
+// keep this below the cron maxDuration but above normal cold storefront latency.
+export const TRUST_FETCH_TIMEOUT_MS = 15_000;
 
 type AgentCommerceTrustHealthStatus = 'attention' | 'monitor' | 'ok';
 
