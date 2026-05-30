@@ -219,7 +219,7 @@ function OrderSuccessContent() {
             {isInvoice && (
               <Link
                 href={asRoute(getHref('/receipts'))}
-                className="inline-flex items-center justify-center gap-2 px-6 py-4 bg-white text-gray-900 font-bold rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors w-full"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-store-border bg-store-background px-6 py-4 font-bold text-store-background-text transition-colors hover:bg-store-secondary"
               >
                 <Download size={18} />
                 Download Invoice PDF

@@ -52,9 +52,9 @@ export default function CheckoutSuccessPage() {
 
 function CheckoutSuccessLoading() {
   return (
-    <div className="min-h-screen bg-linear-to-b from-green-50/50 via-white to-gray-50 flex items-center justify-center p-4">
-      <div className="flex items-center gap-3 text-gray-700">
-        <Loader2 className="w-5 h-5 animate-spin text-green-600" />
+    <div className="flex min-h-screen items-center justify-center bg-linear-to-b from-store-primary/5 via-store-background to-store-secondary p-4">
+      <div className="flex items-center gap-3 text-store-background-text">
+        <Loader2 className="h-5 w-5 animate-spin text-store-primary" />
         <p className="text-sm font-medium">Loading order confirmation...</p>
       </div>
     </div>

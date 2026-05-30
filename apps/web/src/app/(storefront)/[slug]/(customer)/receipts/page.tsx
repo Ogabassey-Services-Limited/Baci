@@ -126,12 +126,6 @@ export default function ReceiptsPage() {
     );
   }
 
-  const isOgabassey = merchant?.template_id === 'ogabassey';
-
-  if (isOgabassey) {
-    return <OgabasseyV2Receipts />;
-  }
-
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-linear-to-b from-background to-muted/20">
@@ -153,6 +147,12 @@ export default function ReceiptsPage() {
         </div>
       </div>
     );
+  }
+
+  const isOgabassey = merchant?.template_id === 'ogabassey';
+
+  if (isOgabassey) {
+    return <OgabasseyV2Receipts />;
   }
 
   if (!customer || !merchantSlug) {

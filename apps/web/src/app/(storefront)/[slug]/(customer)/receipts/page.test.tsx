@@ -2,6 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ReceiptsPage from '@/app/(storefront)/[slug]/(customer)/receipts/page';
+import { useCustomerAuth } from '@/contexts/customer-auth-context';
 import { useMerchant } from '@/hooks/use-merchant-client';
 
 vi.mock('next/navigation', () => ({
@@ -284,6 +285,30 @@ describe('ReceiptsPage', () => {
 
     render(<ReceiptsPage />);
     expect(screen.getByTestId('ogabassey-receipts-page')).toBeInTheDocument();
+  });
+
+  it('requires authentication before rendering Ogabassey receipts', () => {
+    vi.mocked(useMerchant).mockReturnValue(
+      createMerchantMock({
+        slug: 'ogabassey',
+        templateId: 'ogabassey',
+        basePath: '/ogabassey',
+      })
+    );
+    vi.mocked(useCustomerAuth).mockReturnValueOnce({
+      customer: null,
+      isAuthenticated: false,
+      isLoading: false,
+    } as ReturnType<typeof useCustomerAuth>);
+
+    render(<ReceiptsPage />);
+
+    expect(
+      screen.queryByTestId('ogabassey-receipts-page')
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      /please sign in to view your receipts and invoices/i
+    );
   });
 
   it('uses the standard receipts page when only the slug matches ogabassey', async () => {
