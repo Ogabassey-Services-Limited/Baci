@@ -14,17 +14,17 @@ import { supabase } from '@/lib/supabase';
 import type { ProductFormValues } from '@/lib/validators/product';
 import { fetchProductDetail } from './product-detail-query';
 import { createProductRecord, updateProductRecord } from './product-save';
+import type {
+  InventoryStats,
+  Product,
+  ProductStatus,
+  ProductsPage,
+} from './products.types';
 import {
   fetchProducts,
   updateProductStatus,
   updateProductStock,
 } from './products-data';
-import type {
-  InventoryStats,
-  Product,
-  ProductsPage,
-  ProductStatus,
-} from './products.types';
 import { useMerchant } from './useMerchant';
 
 export type StockFilter = AdminProductStockFilter;
@@ -59,6 +59,7 @@ export function useProduct(productId: string) {
       return fetchProductDetail({ merchantId: merchant.id, productId });
     },
     queryKey: ['product', productId],
+    staleTime: 1000 * 60 * 5,
   });
 }
 
@@ -66,7 +67,11 @@ export function useUpdateProduct() {
   const queryClient = useQueryClient();
   const { merchant } = useMerchant();
 
-  return useMutation<Product, Error, { id: string; updates: ProductFormValues }>({
+  return useMutation<
+    Product,
+    Error,
+    { id: string; updates: ProductFormValues }
+  >({
     mutationFn: ({
       id,
       updates,
