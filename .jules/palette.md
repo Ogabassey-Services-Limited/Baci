@@ -66,3 +66,6 @@
 ## 2024-05-29 - Forgot Password Screen Accessibility
 **Learning:** Mobile React Native forms lacking `returnKeyType` or `accessibilityRole="button"` and `accessibilityState` attributes create high friction for keyboard and screen reader users.
 **Action:** Always ensure `returnKeyType="done"` with `onSubmitEditing`, use `accessibilityRole="button"`, and set `accessibilityState={{ disabled: true, busy: true }}` on disabled/loading buttons to improve a11y on interactive UI.
+## 2024-05-30 - Form Keyboard UX Optimization
+**Learning:** In React Native mobile apps, large forms with multiple text inputs create friction if the user must manually tap the screen to move to the next field.
+**Action:** Enhance form usability by combining `returnKeyType="next"` with `onSubmitEditing={() => nextInputRef.current?.focus()}` on sequential inputs, and `returnKeyType="done"` with `onSubmitEditing={submitForm}` on the final input.
