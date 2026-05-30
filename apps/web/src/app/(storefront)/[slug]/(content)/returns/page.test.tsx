@@ -109,17 +109,6 @@ describe('returns page', () => {
     );
   });
 
-  it('marks returns metadata as request-time rendered', async () => {
-    vi.mocked(getRequestScopedMerchant).mockResolvedValue(trustMerchant);
-    const { generateMetadata } = await import('./page');
-
-    await generateMetadata({
-      params: Promise.resolve({ slug: 'ogabassey' }),
-    });
-
-    expect(mockConnection).toHaveBeenCalledOnce();
-  });
-
   it('renders when the return summary exists', async () => {
     vi.mocked(getRequestScopedMerchant).mockResolvedValue(trustMerchant);
     const { ReturnsPageContent } = await import('./returns-page-content');

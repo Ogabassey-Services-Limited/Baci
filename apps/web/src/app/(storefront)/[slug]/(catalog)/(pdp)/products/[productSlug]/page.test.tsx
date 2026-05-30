@@ -337,23 +337,6 @@ describe('products/[productSlug] page', () => {
     mockStorefrontDynamicMetadataMarker.mockReset();
   });
 
-  it('marks product metadata as request-time rendered', async () => {
-    mockGetCachedProduct.mockResolvedValue(uncategorizedProduct);
-
-    await generateMetadata(
-      {
-        params: Promise.resolve({
-          slug: 'teststore',
-          productSlug: 'mystery-item',
-        }),
-        searchParams: Promise.resolve({}),
-      },
-      stubParent
-    );
-
-    expect(mockConnection).toHaveBeenCalledOnce();
-  });
-
   it('redirects categorized legacy products during page render in development', async () => {
     vi.stubEnv('NODE_ENV', 'development');
     mockGetCachedProduct.mockResolvedValue(categorizedProduct);

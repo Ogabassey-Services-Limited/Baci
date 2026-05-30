@@ -89,16 +89,6 @@ describe('contact metadata', () => {
     expect(metadata.title).toBe('Contact Us');
   });
 
-  it('marks contact metadata as request-time rendered', async () => {
-    vi.mocked(getMerchantByIdentifier).mockResolvedValue(null);
-
-    await generateMetadata({
-      params: Promise.resolve({ slug: 'unknown' }),
-    });
-
-    expect(mockConnection).toHaveBeenCalledOnce();
-  });
-
   it('prefers the request-scoped custom domain for canonical metadata', async () => {
     vi.mocked(headers).mockResolvedValue(
       new Headers([['x-custom-domain', 'ogabassey.com']])

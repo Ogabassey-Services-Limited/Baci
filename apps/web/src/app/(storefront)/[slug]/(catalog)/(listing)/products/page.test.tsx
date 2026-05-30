@@ -405,15 +405,6 @@ describe('products index page', () => {
     });
   });
 
-  it('marks product index metadata as request-time rendered', async () => {
-    await generateMetadata({
-      params: Promise.resolve({ slug: 'test-store' }),
-      searchParams: Promise.resolve({ page: '1' }),
-    });
-
-    expect(mockConnection).toHaveBeenCalledOnce();
-  });
-
   it('omits ?page=1 from the first-page canonical URL', async () => {
     const metadata = await generateMetadata({
       params: Promise.resolve({ slug: 'test-store' }),

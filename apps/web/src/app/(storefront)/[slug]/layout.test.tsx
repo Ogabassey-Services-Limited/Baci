@@ -9,6 +9,7 @@ import {
 
 const providerSnapshots: unknown[] = [];
 let themeProviderRenders = 0;
+const mockConnection = vi.hoisted(() => vi.fn());
 const mockOgabasseyStorefrontLayout = vi.hoisted(() =>
   vi.fn(
     ({
@@ -81,6 +82,10 @@ const notFound = vi.fn(() => {
 
 vi.mock('next/navigation', () => ({
   notFound: () => notFound(),
+}));
+
+vi.mock('next/server', () => ({
+  connection: () => mockConnection(),
 }));
 
 vi.mock('next/headers', () => ({
@@ -167,6 +172,7 @@ describe('storefront layout', () => {
     vi.mocked(getStorefrontShellSnapshotBase).mockReset();
     vi.mocked(getStorefrontShellSnapshot).mockReset();
     notFound.mockClear();
+    mockConnection.mockClear();
     mockOgabasseyStorefrontLayout.mockClear();
     providerSnapshots.length = 0;
     themeProviderRenders = 0;
@@ -195,6 +201,7 @@ describe('storefront layout', () => {
     await waitFor(() => {
       expect(getStorefrontShellSnapshotBase).toHaveBeenCalledWith('ogabassey');
     });
+    expect(mockConnection).toHaveBeenCalledOnce();
     expect(getStorefrontShellSnapshot).toHaveBeenCalledWith(
       baseShellSnapshotWithoutCategories
     );
@@ -287,6 +294,7 @@ describe('storefront layout', () => {
 describe('storefront layout metadata', () => {
   beforeEach(() => {
     vi.mocked(getRequestScopedMerchant).mockReset();
+    mockConnection.mockClear();
   });
 
   it('uses the merchant domain as metadataBase for custom domains', async () => {
@@ -300,6 +308,7 @@ describe('storefront layout metadata', () => {
       params: Promise.resolve({ slug: 'ogabassey' }),
     });
 
+    expect(mockConnection).toHaveBeenCalledOnce();
     expect(metadata.metadataBase?.toString()).toBe('https://ogabassey.com/');
   });
 

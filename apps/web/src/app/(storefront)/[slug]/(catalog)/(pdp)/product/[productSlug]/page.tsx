@@ -69,7 +69,6 @@ async function resolveLegacyProductPath(
 
 export default async function LegacyProductPage({ params }: PageProps) {
   await connection();
-
   const { slug, productSlug } = await params;
   if (!isValidMerchantIdentifier(slug)) {
     notFound();

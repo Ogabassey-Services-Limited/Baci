@@ -27,7 +27,9 @@ import {
 import { normalizeOgabasseyBusinessType } from '@/lib/storefront/ogabassey-entity';
 import { STOREFRONT_BLOG_POST_SELECT } from '@/lib/storefront-blog-post-select';
 import {
+  isBuildTimeRoutePlaceholder,
   isDomainIdentifier,
+  isNextProductionBuildPhase,
   isValidMerchantIdentifier,
 } from '@/lib/validation';
 import type { MerchantAboutPage } from '@/types/about-page';
@@ -35,6 +37,205 @@ import type { MerchantTrustProfileDraft } from '../../../../packages/shared/src/
 
 const RELATED_BLOG_POSTS_LIMIT = 3;
 const RELATED_BLOG_POSTS_FETCH_LIMIT = 12;
+
+// Build-only placeholder records let Next compile dynamic storefront shells
+// without DB lookups. Keep all call sites gated by isBuildTimeRoutePlaceholder
+// or isMockBuildTimeMerchantId so literal public placeholder URLs never render them.
+export const MOCK_BUILD_TIME_MERCHANT: CachedMerchant = {
+  id: 'mock-merchant-id',
+  business_name: 'Storefront',
+  site_title: 'Storefront',
+  site_tagline: 'Your Storefront',
+  site_description: 'Welcome to our storefront',
+  business_type: 'retail',
+  logo_url: '/placeholder.png',
+  phone: '08000000000',
+  email: 'support@example.com',
+  slug: 'storefront',
+  business_address: '123 Main St, Lagos, Nigeria',
+  payout_currency: 'NGN',
+  is_published: true,
+  template_id: 'ogabassey',
+  plan_tier: 'free',
+  premium_features: {},
+  brand_colors: {
+    primary: '#000000',
+    secondary: '#ffffff',
+    accent: '#ff0000',
+    background: '#ffffff',
+  },
+  feature_settings: {
+    blog_enabled: true,
+    shipping_insurance_enabled: false,
+  },
+};
+
+export const MOCK_BUILD_TIME_PRODUCT_LCP_HINT: CachedProductLcpHint = {
+  id: 'mock-product-id',
+  brand: 'OgaBassey',
+  name: 'Product Name',
+  slug: 'product-slug',
+  price: 0,
+  condition: 'new',
+  manage_stock: true,
+  stock_quantity: 10,
+  category: 'Electronics',
+  images: ['/placeholder.png'],
+  categories: {
+    id: 'mock-category-id',
+    name: 'Electronics',
+    slug: 'electronics',
+  },
+  product_categories: [
+    {
+      categories: {
+        id: 'mock-category-id',
+        name: 'Electronics',
+        slug: 'electronics',
+      },
+    },
+  ],
+};
+
+export const MOCK_BUILD_TIME_PRODUCT = {
+  id: 'mock-product-id',
+  merchant_id: 'mock-merchant-id',
+  name: 'Product Name',
+  description: 'Product description goes here.',
+  slug: 'product-slug',
+  canonical_url: 'https://example.com/product-slug',
+  price: 0,
+  base_price: 0,
+  sale_price: 0,
+  compare_at_price: 0,
+  min_variant_price: 0,
+  max_variant_price: 0,
+  status: 'active',
+  quantity: 10,
+  track_quantity: true,
+  stock: 10,
+  stock_quantity: 10,
+  manage_stock: true,
+  imageHint: 'Product Name',
+  images: ['/placeholder.png'],
+  color_images: [],
+  brand: 'OgaBassey',
+  condition: 'new',
+  product_variants: [],
+  product_key_specs: null,
+  specifications: null,
+  variant_attributes: null,
+  fulfillmentFields: [],
+  category: 'Electronics',
+  category_slug: 'electronics',
+  product_offers: [],
+  categories: {
+    id: 'mock-category-id',
+    name: 'Electronics',
+    slug: 'electronics',
+  },
+  product_categories: [
+    {
+      category_id: 'mock-category-id',
+      categories: {
+        id: 'mock-category-id',
+        name: 'Electronics',
+        slug: 'electronics',
+      },
+    },
+  ],
+};
+
+export const MOCK_BUILD_TIME_CATEGORY_PAGE_DATA = {
+  isCollection: false as const,
+  category: {
+    id: 'mock-category-id',
+    name: 'Electronics',
+    slug: 'electronics',
+    description: 'Browse our collection of Electronics products.',
+    image_url: null,
+    seo_heading: null,
+    seo_description: null,
+    seo_features: null,
+    seo_faq: null,
+    parent: null,
+  },
+  products: [MOCK_BUILD_TIME_PRODUCT],
+  fallbackName: 'Electronics',
+  fallbackDescription: 'Browse our collection of Electronics products.',
+};
+
+const MOCK_BUILD_TIME_ISO_DATE = '2026-01-01T00:00:00.000Z';
+
+export const MOCK_BUILD_TIME_BLOG_POST = {
+  merchant: {
+    id: 'mock-merchant-id',
+    business_name: 'Storefront',
+    slug: 'storefront',
+    logo_url: '/placeholder.png',
+    custom_domain: undefined,
+    country: undefined,
+  },
+  post: {
+    id: 'mock-post-id',
+    title: 'Blog Post Title',
+    content: 'Blog post content goes here.',
+    slug: 'blog-post-slug',
+    created_at: MOCK_BUILD_TIME_ISO_DATE,
+    published_at: MOCK_BUILD_TIME_ISO_DATE,
+    excerpt: 'Blog post excerpt',
+    cover_image: '/placeholder.png',
+    featured_image_url: '/placeholder.png',
+    featured_image_alt: 'Blog Post Title',
+    featured_image_width: 800,
+    featured_image_height: 600,
+    featured_image_variants: null,
+    category: 'General',
+    tags: [],
+    keywords: [],
+    author_name: 'Author Name',
+    author_title: 'Author',
+    author_image_url: '/placeholder.png',
+    author_bio: 'Author Bio',
+    status: 'published',
+    seo_title: 'Blog Post Title',
+    seo_description: 'Blog post excerpt',
+    reading_time_minutes: 5,
+    word_count: 500,
+    view_count: 0,
+    updated_at: MOCK_BUILD_TIME_ISO_DATE,
+  },
+  relatedPosts: [],
+  relatedProducts: [],
+};
+
+function createMockBuildTimeBlogListing(
+  page: number,
+  searchQuery: string | undefined
+) {
+  return {
+    merchant: {
+      id: MOCK_BUILD_TIME_MERCHANT.id,
+      business_name: MOCK_BUILD_TIME_MERCHANT.business_name,
+      slug: MOCK_BUILD_TIME_MERCHANT.slug,
+      logo_url: MOCK_BUILD_TIME_MERCHANT.logo_url,
+      template_id: MOCK_BUILD_TIME_MERCHANT.template_id,
+      custom_domain: MOCK_BUILD_TIME_MERCHANT.custom_domain,
+    },
+    posts: [],
+    totalPosts: 0,
+    categories: [],
+    currentPage: page,
+    totalPages: 0,
+    searchQuery,
+  };
+}
+
+function isMockBuildTimeMerchantId(merchantId: string): boolean {
+  return (
+    isNextProductionBuildPhase() && merchantId === MOCK_BUILD_TIME_MERCHANT.id
+  );
+}
 
 /**
  * Create a Supabase client for cached queries.
@@ -313,6 +514,10 @@ export async function getCachedMerchant(
   cacheLife('merchant');
   cacheTag('merchants', `merchant-${slug}`);
 
+  if (isBuildTimeRoutePlaceholder(slug)) {
+    return MOCK_BUILD_TIME_MERCHANT;
+  }
+
   const supabase = getServiceRoleSupabaseClient();
 
   const { data, error } = await supabase
@@ -454,6 +659,10 @@ export async function getCachedMerchantByDomain(
   'use cache: remote';
   cacheLife('merchant');
   cacheTag('merchants', 'domains', `domain-${domain.toLowerCase()}`);
+
+  if (isBuildTimeRoutePlaceholder(domain)) {
+    return MOCK_BUILD_TIME_MERCHANT;
+  }
 
   const normalizedDomain = domain.toLowerCase();
   // Use Service Role to allow lookup of unpublished merchants (for "Coming Soon" page)
@@ -643,6 +852,10 @@ export async function getMerchantByIdentifier(
   identifier: string
 ): Promise<CachedMerchant | null> {
   if (!isValidMerchantIdentifier(identifier)) return null;
+
+  if (isBuildTimeRoutePlaceholder(identifier)) {
+    return MOCK_BUILD_TIME_MERCHANT;
+  }
 
   if (isDomainIdentifier(identifier)) {
     return await getCachedMerchantByDomain(identifier.toLowerCase());
@@ -921,6 +1134,14 @@ export async function getCachedProductLcpHint(
     getProductScopedCacheTag('product', merchantId, productSlug)
   );
 
+  if (
+    isBuildTimeRoutePlaceholder(productSlug) ||
+    isBuildTimeRoutePlaceholder(merchantId) ||
+    isMockBuildTimeMerchantId(merchantId)
+  ) {
+    return MOCK_BUILD_TIME_PRODUCT_LCP_HINT;
+  }
+
   const supabase = getPublicSupabaseClient();
   const isUuid =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
@@ -990,6 +1211,14 @@ export async function getCachedProduct(
     'product',
     getProductScopedCacheTag('product', merchantId, productSlug)
   );
+
+  if (
+    isBuildTimeRoutePlaceholder(productSlug) ||
+    isBuildTimeRoutePlaceholder(merchantId) ||
+    isMockBuildTimeMerchantId(merchantId)
+  ) {
+    return MOCK_BUILD_TIME_PRODUCT;
+  }
 
   const supabase = getPublicSupabaseClient();
 
@@ -1156,6 +1385,14 @@ export async function getCachedProductWithDetails(
     'product-details',
     getProductScopedCacheTag('product', merchantId, productSlug)
   );
+
+  if (
+    isBuildTimeRoutePlaceholder(productSlug) ||
+    isBuildTimeRoutePlaceholder(merchantId) ||
+    isMockBuildTimeMerchantId(merchantId)
+  ) {
+    return MOCK_BUILD_TIME_PRODUCT;
+  }
 
   const supabase = getPublicSupabaseClient();
 
@@ -1471,6 +1708,15 @@ export async function getCachedCategoryPageData(
   'use cache: remote';
   cacheLife('storefront-page');
   cacheTag('category-page-data', 'products', 'categories');
+
+  if (
+    isBuildTimeRoutePlaceholder(categorySlug) ||
+    isBuildTimeRoutePlaceholder(_storeSlug) ||
+    isBuildTimeRoutePlaceholder(merchantId) ||
+    isMockBuildTimeMerchantId(merchantId)
+  ) {
+    return MOCK_BUILD_TIME_CATEGORY_PAGE_DATA;
+  }
 
   // Added storeSlug for logic if needed
   // Use public client (no cookies)
@@ -1887,6 +2133,13 @@ export async function getCachedBlogPost(
   cacheLife('merchant');
   cacheTag('blog-posts', getBlogCacheTag(identifier, postSlug));
 
+  if (
+    isBuildTimeRoutePlaceholder(postSlug) ||
+    isBuildTimeRoutePlaceholder(identifier)
+  ) {
+    return MOCK_BUILD_TIME_BLOG_POST;
+  }
+
   const lookupKey = identifier.toLowerCase();
   const merchant = await getMerchantStrict(lookupKey);
 
@@ -2034,6 +2287,10 @@ export async function getCachedBlogListing(
     'blog-posts',
     `blog-list-${identifier.toLowerCase()}-${category || 'all'}-${page}`
   );
+
+  if (isBuildTimeRoutePlaceholder(identifier)) {
+    return createMockBuildTimeBlogListing(page, searchQuery);
+  }
 
   const limit = BLOG_LISTING_PAGE_SIZE;
   const offset = (page - 1) * limit;

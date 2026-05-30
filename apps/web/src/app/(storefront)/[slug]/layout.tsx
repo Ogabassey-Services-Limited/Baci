@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import '@/app/(storefront)/storefront-core.css';
 import { notFound } from 'next/navigation';
+import { connection } from 'next/server';
 import type React from 'react';
 import { Suspense } from 'react';
 import { DeferredPageViewTracker } from '@/components/storefront/deferred-page-view-tracker';
@@ -71,6 +72,8 @@ export async function generateMetadata({
 }: {
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
+  await connection();
+
   const { slug } = await params;
 
   // Validate identifier format
@@ -226,6 +229,11 @@ export async function StorefrontLayoutContent(props: {
   children: React.ReactNode;
   params: Promise<{ slug: string }>;
 }) {
+  // Keep tenant validation and notFound() request-bound. Without this guard,
+  // Next can prerender a placeholder [slug] 404 shell and later resume it with
+  // a real merchant tree, which is the storefront resume-mismatch failure mode.
+  await connection();
+
   const { slug } = await props.params;
 
   if (!isValidMerchantIdentifier(slug)) {

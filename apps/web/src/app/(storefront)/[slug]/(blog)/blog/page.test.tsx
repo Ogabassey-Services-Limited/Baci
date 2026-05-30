@@ -186,15 +186,6 @@ describe('blog page metadata', () => {
     mockConnection.mockReset();
   });
 
-  it('marks blog listing metadata as request-time rendered', async () => {
-    await generateMetadata({
-      params: Promise.resolve({ slug: 'test-store' }),
-      searchParams: Promise.resolve({}),
-    });
-
-    expect(mockConnection).toHaveBeenCalledOnce();
-  });
-
   it('includes social images for the blog listing metadata', async () => {
     const metadata = await generateMetadata({
       params: Promise.resolve({ slug: 'test-store' }),
