@@ -162,11 +162,67 @@ function fixProguardOptimize(content, description) {
   );
 }
 
+function getGradleProperty(content, key) {
+  const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const propertyPattern = new RegExp(`^${escapedKey}=(.*)$`, 'm');
+  const match = content.match(propertyPattern);
+  return match ? match[1].trim() : null;
+}
+
+function getJvmArgKey(token) {
+  if (token.startsWith('-Xmx')) return '-Xmx';
+  if (token.startsWith('-Xms')) return '-Xms';
+  if (token.startsWith('-XX:MaxMetaspaceSize=')) {
+    return '-XX:MaxMetaspaceSize';
+  }
+  if (token.startsWith('-XX:MetaspaceSize=')) return '-XX:MetaspaceSize';
+  return token;
+}
+
+function ensureMergedJvmArgs(content, desiredArgs) {
+  const currentJvmArgs = getGradleProperty(content, 'org.gradle.jvmargs');
+  const currentTokens = currentJvmArgs
+    ? currentJvmArgs.split(/\s+/).filter(Boolean)
+    : [];
+
+  const tokenMap = new Map();
+  const rawTokens = [];
+
+  for (const token of currentTokens) {
+    const key = getJvmArgKey(token);
+    if (key !== token) {
+      tokenMap.set(key, token);
+    } else {
+      rawTokens.push(token);
+    }
+  }
+
+  for (const token of desiredArgs) {
+    const key = getJvmArgKey(token);
+    if (key !== token) {
+      tokenMap.set(key, token);
+    } else {
+      if (!rawTokens.includes(token)) {
+        rawTokens.push(token);
+      }
+    }
+  }
+
+  const merged = Array.from(tokenMap.values()).concat(rawTokens);
+
+  return ensureGradleProperty(
+    content,
+    'org.gradle.jvmargs',
+    merged.join(' ')
+  );
+}
+
 module.exports = {
   addAsyncStorageRepo,
   assertReplaceOrThrow,
   ensureGradleWrapperVersion,
   ensureGradleProperty,
+  ensureMergedJvmArgs,
   ensureReleaseSigning,
   fixProguardOptimize,
   removeKotlinAndroidPlugin,

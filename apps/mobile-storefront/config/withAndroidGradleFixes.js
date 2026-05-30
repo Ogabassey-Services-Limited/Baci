@@ -15,6 +15,7 @@ const {
   addAsyncStorageRepo,
   ensureGradleProperty,
   ensureGradleWrapperVersion,
+  ensureMergedJvmArgs,
   ensureReleaseSigning,
   fixProguardOptimize,
   removeKotlinGradlePlugin,
@@ -140,6 +141,11 @@ function withAndroidGradleFixes(config) {
           'android.builtInKotlin',
           'false'
         );
+
+        content = ensureMergedJvmArgs(content, [
+          '-Xmx2048m',
+          '-XX:MaxMetaspaceSize=1024m',
+        ]);
         fs.writeFileSync(gradleProperties, content);
       }
 

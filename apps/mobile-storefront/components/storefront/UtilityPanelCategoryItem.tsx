@@ -77,7 +77,7 @@ export function UtilityPanelCategoryItem({
           { backgroundColor: colors.muted },
           isActive && [
             styles.circleIconActive,
-            { backgroundColor: colors.selectedIconBackground },
+            { backgroundColor: colors.card },
           ],
           isActive && activeShadowStyle,
           { transform: [{ scale: iconScale }] },
