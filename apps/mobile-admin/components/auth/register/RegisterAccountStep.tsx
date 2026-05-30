@@ -1,4 +1,5 @@
 import Ionicons from "@react-native-vector-icons/ionicons";
+import { useRef } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
 import type { PasswordValidationResult } from '@/lib/password-utils';
@@ -38,6 +39,12 @@ export function RegisterAccountStep({
 }: RegisterAccountStepProps) {
   const { colors } = useTheme();
   const styles = getStyles(colors);
+
+  const lastNameRef = useRef<TextInput>(null);
+  const emailRef = useRef<TextInput>(null);
+  const passwordRef = useRef<TextInput>(null);
+  const confirmPasswordRef = useRef<TextInput>(null);
+
   return (
     <View style={styles.formSection}>
       <Text style={styles.sectionTitle}>Account Details</Text>
@@ -54,11 +61,14 @@ export function RegisterAccountStep({
             autoCapitalize="words"
             value={formData.firstName}
             onChangeText={(text) => updateForm('firstName', text)}
+            returnKeyType="next"
+            onSubmitEditing={() => lastNameRef.current?.focus()}
           />
         </View>
         <View style={styles.nameInputGroup}>
           <Text style={styles.label}>Last Name</Text>
           <TextInput
+            ref={lastNameRef}
             accessibilityLabel="Last Name"
             style={styles.input}
             placeholder="Doe"
@@ -66,6 +76,8 @@ export function RegisterAccountStep({
             autoCapitalize="words"
             value={formData.lastName}
             onChangeText={(text) => updateForm('lastName', text)}
+            returnKeyType="next"
+            onSubmitEditing={() => emailRef.current?.focus()}
           />
         </View>
       </View>
@@ -73,6 +85,7 @@ export function RegisterAccountStep({
       <View style={styles.inputGroup}>
         <Text style={styles.label}>Email Address</Text>
         <TextInput
+          ref={emailRef}
           accessibilityLabel="Email Address"
           style={styles.input}
           placeholder="you@example.com"
@@ -81,6 +94,8 @@ export function RegisterAccountStep({
           autoCapitalize="none"
           value={formData.email}
           onChangeText={(text) => updateForm('email', text)}
+          returnKeyType="next"
+          onSubmitEditing={() => passwordRef.current?.focus()}
         />
       </View>
 
@@ -88,6 +103,7 @@ export function RegisterAccountStep({
         <Text style={styles.label}>Password</Text>
         <View style={styles.passwordContainer}>
           <TextInput
+            ref={passwordRef}
             accessibilityLabel="Password"
             style={styles.passwordInput}
             placeholder="••••••••"
@@ -95,6 +111,8 @@ export function RegisterAccountStep({
             secureTextEntry={!showPassword}
             value={formData.password}
             onChangeText={(text) => updateForm('password', text)}
+            returnKeyType="next"
+            onSubmitEditing={() => confirmPasswordRef.current?.focus()}
           />
           <PasswordVisibilityToggle
             accessibilityLabel={
@@ -116,6 +134,7 @@ export function RegisterAccountStep({
         <Text style={styles.label}>Confirm Password</Text>
         <View style={styles.passwordContainer}>
           <TextInput
+            ref={confirmPasswordRef}
             accessibilityLabel="Confirm Password"
             style={styles.passwordInput}
             placeholder="••••••••"
@@ -123,6 +142,8 @@ export function RegisterAccountStep({
             secureTextEntry={!showPassword}
             value={formData.confirmPassword}
             onChangeText={(text) => updateForm('confirmPassword', text)}
+            returnKeyType="done"
+            onSubmitEditing={onNext}
           />
           <PasswordVisibilityToggle
             accessibilityLabel={
