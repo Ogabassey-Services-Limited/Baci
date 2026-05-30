@@ -210,7 +210,7 @@ export function HeroMobileCarousel({
         );
       })}
 
-      <div className="absolute bottom-3 left-6 flex gap-1.5 z-20">
+      <div className="absolute bottom-3 right-6 flex gap-1.5 z-20">
         {MOBILE_SLIDES.map((slide, idx) => {
           const isActive = currentSlide === idx;
 
