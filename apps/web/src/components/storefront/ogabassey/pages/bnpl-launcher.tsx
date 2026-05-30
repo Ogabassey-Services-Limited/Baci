@@ -207,6 +207,7 @@ export function BnplLauncher({ merchantSlug = 'ogabassey' }: BnplLauncherProps) 
                     const successQuery = new URLSearchParams({
                         orderId,
                         reference: klumpReference,
+                        type: 'klump',
                     });
                     successQuery.set('trackingToken', trackingToken);
                     router.push(`/order-success?${successQuery.toString()}`);
@@ -303,6 +304,7 @@ export function BnplLauncher({ merchantSlug = 'ogabassey' }: BnplLauncherProps) 
                             const successQuery = new URLSearchParams({
                                 orderId: order.id,
                                 reference: ref,
+                                type: 'credit_direct',
                             });
                             if (order.tracking_token) {
                                 successQuery.set('trackingToken', order.tracking_token);
@@ -373,6 +375,7 @@ export function BnplLauncher({ merchantSlug = 'ogabassey' }: BnplLauncherProps) 
                             const successQuery = new URLSearchParams({
                                 orderId: order.id,
                                 reference: data.order_no,
+                                type: 'credpal',
                             });
                             if (order.tracking_token) {
                                 successQuery.set('trackingToken', order.tracking_token);
@@ -413,6 +416,7 @@ export function BnplLauncher({ merchantSlug = 'ogabassey' }: BnplLauncherProps) 
                         merchant_slug: slug,
                         orderId: order.id,
                         reference: klumpReference,
+                        type: 'klump',
                     });
                     callbackQuery.set('trackingToken', trackingToken);
                     if (lookupEmail) {

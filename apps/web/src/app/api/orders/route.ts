@@ -12,6 +12,10 @@ import {
 } from '@/lib/checkout/canonical-order-subtotal';
 import { computeExpectedTotalDiscount } from '@/lib/checkout/expected-total-discount';
 import {
+  buildOrderIdempotencyPayload,
+  hashOrderIdempotencyPayload,
+} from '@/lib/checkout/order-idempotency';
+import {
   generateOrderConfirmationEmail,
   generateOrderConfirmationText,
 } from '@/lib/email-templates';
@@ -357,6 +361,9 @@ export async function POST(request: NextRequest) {
     const resolvedUserId = user?.id || null;
 
     const hasVoucherItem = hasQuizVoucherItem(items);
+    const requestIdempotencyKey = hasVoucherItem
+      ? null
+      : getRequestIdempotencyKey(request);
     const verifiedQuizVoucherAwardIdsByIndex = new Map<number, string>();
 
     // Phase 1b voucher orders are user-bound. Keep the prize path behind the
@@ -535,6 +542,7 @@ export async function POST(request: NextRequest) {
         variant_attributes:
           item.variantAttributes || item.variant_attributes || {},
         quantity: item.quantity,
+        price: itemPrice,
         has_assurance: hasAssurance,
         assurance_fee: assuranceFee,
         ...(voucherAwardId ? { voucher_award_id: voucherAwardId } : {}),
@@ -789,6 +797,19 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const checkoutRequestHash = requestIdempotencyKey
+      ? hashOrderIdempotencyPayload(
+          buildOrderIdempotencyPayload({
+            ...body,
+            discount_amount: serverDerivedDiscountAmount,
+            gift_wrapping_fee: giftWrappingFeeValue,
+            items: orderItemsPayload,
+            shipping_fee: shippingFeeValue,
+            tax_amount: serverComputedTaxAmount,
+          })
+        )
+      : null;
+
     const requestedSavingsRedemption =
       use_savings_credit &&
       savings_goal_id &&
@@ -803,7 +824,7 @@ export async function POST(request: NextRequest) {
             variant_id: item.variant_id ?? null,
           })),
           merchantId: merchant_id,
-          requestIdempotencyKey: getRequestIdempotencyKey(request),
+          requestIdempotencyKey,
           savingsAmount: savings_amount,
           savingsGoalId: savings_goal_id,
         })
@@ -866,6 +887,12 @@ export async function POST(request: NextRequest) {
       ...(quizVoucherRouteProof
         ? { p_route_proof: quizVoucherRouteProof }
         : {}),
+      ...(requestIdempotencyKey && checkoutRequestHash
+        ? {
+            p_checkout_idempotency_key: requestIdempotencyKey,
+            p_checkout_request_hash: checkoutRequestHash,
+          }
+        : {}),
     };
 
     const orderCreateRpcName = requestedSavingsRedemption
@@ -909,6 +936,26 @@ export async function POST(request: NextRequest) {
                 ? 400
                 : 409,
           }
+        );
+      }
+      if (message === 'checkout_idempotency_conflict') {
+        return NextResponse.json(
+          {
+            code: 'CHECKOUT_IDEMPOTENCY_CONFLICT',
+            error:
+              'This checkout request was already used for a different cart, customer, or delivery payload.',
+          },
+          { status: 409 }
+        );
+      }
+      if (message === 'order_not_reusable') {
+        return NextResponse.json(
+          {
+            code: 'CHECKOUT_ORDER_NOT_REUSABLE',
+            error:
+              'This checkout order can no longer be reused. Refresh checkout and start a new order.',
+          },
+          { status: 409 }
         );
       }
       const clientErrorCodes = [
@@ -969,6 +1016,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const idempotencyReplayed =
+      typeof order === 'object' &&
+      order !== null &&
+      'idempotency_replayed' in order &&
+      order.idempotency_replayed === true;
     const orderTotal = Number(order.total ?? 0);
     const orderSubtotal = Number(order.subtotal ?? 0);
     const orderShippingFee = Number(order.shipping_fee ?? shippingFeeValue);
@@ -1176,7 +1228,10 @@ export async function POST(request: NextRequest) {
     //
     // after() runs after the response is sent — email/push never block the response.
     const isWalletFullyPaid = walletFinalized || storeCreditFinalized;
-    if (payOnDelivery || payment_method === 'invoice' || isWalletFullyPaid) {
+    const shouldSendImmediateOrderNotifications =
+      !idempotencyReplayed &&
+      (payOnDelivery || payment_method === 'invoice' || isWalletFullyPaid);
+    if (shouldSendImmediateOrderNotifications) {
       if (merchant.business_name && merchant.slug) {
         const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
         const merchantUrl = `https://${merchant.slug}.${rootDomain}`;
@@ -1354,30 +1409,35 @@ export async function POST(request: NextRequest) {
         }
       : order;
 
+    const responseBody = {
+      order: responseOrder,
+      // Wallet redemption details for UI display
+      wallet: walletRedemptionResult
+        ? {
+            amountUsed: walletRedemptionResult.amountRedeemed,
+            newBalance: walletRedemptionResult.newBalance,
+            transactionId: walletRedemptionResult.transactionId,
+          }
+        : null,
+      savings: savingsRedemptionResult
+        ? {
+            amountUsed: savingsRedemptionResult.amountRedeemed,
+            goalId: savingsRedemptionResult.goalId,
+            redemptionId: savingsRedemptionResult.redemptionId,
+          }
+        : null,
+      // Amount still due to payment gateway (for payment initialization)
+      amountDueToGateway: Math.max(amountDueToGateway, 0),
+      ...(idempotencyReplayed ? { idempotency: { replayed: true } } : {}),
+    };
+
     // Return order with wallet info for checkout UI
-    return NextResponse.json(
-      {
-        order: responseOrder,
-        // Wallet redemption details for UI display
-        wallet: walletRedemptionResult
-          ? {
-              amountUsed: walletRedemptionResult.amountRedeemed,
-              newBalance: walletRedemptionResult.newBalance,
-              transactionId: walletRedemptionResult.transactionId,
-            }
-          : null,
-        savings: savingsRedemptionResult
-          ? {
-              amountUsed: savingsRedemptionResult.amountRedeemed,
-              goalId: savingsRedemptionResult.goalId,
-              redemptionId: savingsRedemptionResult.redemptionId,
-            }
-          : null,
-        // Amount still due to payment gateway (for payment initialization)
-        amountDueToGateway: Math.max(amountDueToGateway, 0),
-      },
-      { status: 201 }
-    );
+    return NextResponse.json(responseBody, {
+      headers: idempotencyReplayed
+        ? { 'x-idempotency-replayed': 'true' }
+        : undefined,
+      status: idempotencyReplayed ? 200 : 201,
+    });
   } catch (error) {
     logger.error({ message: 'Unexpected error in POST /api/orders', error });
     return NextResponse.json(

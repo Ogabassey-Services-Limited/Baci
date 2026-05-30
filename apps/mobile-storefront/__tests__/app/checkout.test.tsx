@@ -12,6 +12,7 @@ import {
   mockTrackCheckoutStarted,
   mockTrackError,
   mockUseAuthStatus,
+  mockUseMerchantPaymentSettings,
   renderCheckoutScreen,
   setupCheckoutTest,
   teardownCheckoutTest,
@@ -181,6 +182,164 @@ describe('CheckoutScreen', () => {
     });
   });
 
+  it('reuses the same order idempotency key when mobile BNPL switches providers', async () => {
+    mockUseMerchantPaymentSettings.mockReturnValue({
+      data: {
+        ...mockPaymentSettings,
+        credpal_enabled: false,
+        credit_direct_enabled: true,
+        juicyway_enabled: false,
+        klump_enabled: true,
+        klump_max_amount: 5_000_000,
+        klump_min_amount: 1_000,
+        korapay_enabled: false,
+        pay_on_delivery_enabled: false,
+        paystack_enabled: true,
+        vat_rate: 0,
+        vat_registration_status: 'unregistered',
+      },
+    });
+    renderCheckoutScreen();
+
+    fireEvent.changeText(screen.getByPlaceholderText('E.g. John'), 'Ada');
+    fireEvent.changeText(screen.getByPlaceholderText('E.g. Doe'), 'Lovelace');
+    fireEvent.changeText(
+      screen.getByPlaceholderText('e.g. 08012345678'),
+      '08031234567'
+    );
+    fireEvent.changeText(
+      screen.getByPlaceholderText('john@example.com'),
+      'ada@example.com'
+    );
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Select pickup station' })
+    );
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Continue to payment' })
+    );
+    await waitFor(() => {
+      expect(screen.getByText('Payment Method')).toBeOnTheScreen();
+    });
+
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Mock select Credit Direct' })
+    );
+    await waitFor(() => {
+      expect(screen.getByText('Selected payment: credit_direct')).toBeOnTheScreen();
+    });
+    fireEvent.press(screen.getByRole('button', { name: 'Continue to review' }));
+    await waitFor(() => {
+      expect(screen.getByText('Review Order')).toBeOnTheScreen();
+    });
+    fireEvent.press(screen.getByRole('button', { name: /Place order for/i }));
+
+    await waitFor(() => {
+      expect(mockCreateOrder).toHaveBeenCalledTimes(1);
+    });
+    expect(mockCreateOrder.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({
+        idempotency_key: expect.any(String),
+        payment_method: 'credit_direct',
+      })
+    );
+    const firstKey = mockCreateOrder.mock.calls[0]?.[0]?.idempotency_key;
+
+    fireEvent.press(screen.getByRole('button', { name: 'Edit payment method' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Mock select Klump' }));
+    await waitFor(() => {
+      expect(screen.getByText('Selected payment: klump')).toBeOnTheScreen();
+    });
+    fireEvent.press(screen.getByRole('button', { name: 'Continue to review' }));
+    fireEvent.press(screen.getByRole('button', { name: /Place order for/i }));
+
+    await waitFor(() => {
+      expect(mockCreateOrder).toHaveBeenCalledTimes(2);
+    });
+    expect(mockCreateOrder.mock.calls[1]?.[0]?.idempotency_key).toBe(firstKey);
+  });
+
+  it.each([
+    'CHECKOUT_ORDER_NOT_REUSABLE',
+    'CHECKOUT_IDEMPOTENCY_CONFLICT',
+  ])('rotates the mobile BNPL idempotency key after %s', async (errorCode) => {
+    const { OrderError } = require('@/services/orders');
+    const staleOrderError = new OrderError(
+      'This checkout order can no longer be reused.',
+      errorCode
+    );
+
+    mockUseMerchantPaymentSettings.mockReturnValue({
+      data: {
+        ...mockPaymentSettings,
+        credpal_enabled: false,
+        credit_direct_enabled: true,
+        juicyway_enabled: false,
+        klump_enabled: true,
+        klump_max_amount: 5_000_000,
+        klump_min_amount: 1_000,
+        korapay_enabled: false,
+        pay_on_delivery_enabled: false,
+        paystack_enabled: true,
+        vat_rate: 0,
+        vat_registration_status: 'unregistered',
+      },
+    });
+    mockCreateOrder.mockRejectedValueOnce(staleOrderError);
+    renderCheckoutScreen();
+
+    fireEvent.changeText(screen.getByPlaceholderText('E.g. John'), 'Ada');
+    fireEvent.changeText(screen.getByPlaceholderText('E.g. Doe'), 'Lovelace');
+    fireEvent.changeText(
+      screen.getByPlaceholderText('e.g. 08012345678'),
+      '08031234567'
+    );
+    fireEvent.changeText(
+      screen.getByPlaceholderText('john@example.com'),
+      'ada@example.com'
+    );
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Select pickup station' })
+    );
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Continue to payment' })
+    );
+    await waitFor(() => {
+      expect(screen.getByText('Payment Method')).toBeOnTheScreen();
+    });
+
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Mock select Credit Direct' })
+    );
+    await waitFor(() => {
+      expect(screen.getByText('Selected payment: credit_direct')).toBeOnTheScreen();
+    });
+    fireEvent.press(screen.getByRole('button', { name: 'Continue to review' }));
+    await waitFor(() => {
+      expect(screen.getByText('Review Order')).toBeOnTheScreen();
+    });
+    fireEvent.press(screen.getByRole('button', { name: /Place order for/i }));
+
+    await waitFor(() => {
+      expect(mockCreateOrder).toHaveBeenCalledTimes(1);
+    });
+    expect(mockCreateOrder.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({
+        idempotency_key: expect.any(String),
+        payment_method: 'credit_direct',
+      })
+    );
+    const firstKey = mockCreateOrder.mock.calls[0]?.[0]?.idempotency_key;
+
+    fireEvent.press(screen.getByRole('button', { name: /Place order for/i }));
+
+    await waitFor(() => {
+      expect(mockCreateOrder).toHaveBeenCalledTimes(2);
+    });
+    expect(mockCreateOrder.mock.calls[1]?.[0]?.idempotency_key).not.toBe(
+      firstKey
+    );
+  });
+
   it('shows a validation alert when continuing with missing contact details', async () => {
     renderCheckoutScreen();
 
@@ -271,6 +430,9 @@ describe('CheckoutScreen', () => {
       expect(
         screen.getByRole('button', { name: 'Mock use checkout savings' })
       ).toBeOnTheScreen();
+    });
+    await waitFor(() => {
+      expect(screen.getByText('Payment Method')).toBeOnTheScreen();
     });
 
     fireEvent.press(

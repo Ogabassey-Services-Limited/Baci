@@ -113,5 +113,6 @@ export type PaymentMethod =
   | 'payforme'
   | 'pod'
   | 'bank_transfer'
+  | 'paypal'
   | '';
 export type PaymentTab = 'full' | 'installments';

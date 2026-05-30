@@ -65,6 +65,9 @@ export const OrderSuccessPage: React.FC = () => {
   const trackingToken = searchParams.get('trackingToken');
   const successType = searchParams.get('type') || 'standard'; // standard, invoice, payforme
   const payerName = searchParams.get('payerName') || 'Friend';
+  const isBnplSuccess = ['credit_direct', 'credpal', 'klump'].includes(
+    successType
+  );
 
   const order = orderId ? getOrder(orderId) : undefined;
 
@@ -75,6 +78,7 @@ export const OrderSuccessPage: React.FC = () => {
   const getTitle = () => {
     if (successType === 'invoice') return 'Invoice Generated!';
     if (successType === 'payforme') return 'Request Sent!';
+    if (isBnplSuccess) return 'BNPL Checkout Submitted';
     return 'Order Successful!';
   };
 
@@ -83,6 +87,8 @@ export const OrderSuccessPage: React.FC = () => {
       return 'Your invoice has been generated successfully. Please complete the transfer to process your order.';
     if (successType === 'payforme')
       return `We've sent a payment link to ${payerName}. Your order will be processed once payment is received.`;
+    if (isBnplSuccess)
+      return 'We will confirm your order after the provider approves the payment. You can track this order while approval is pending.';
     return 'Thank you for shopping with Ogabassey. Your receipt will be available for download after your order has been shipped.';
   };
 
