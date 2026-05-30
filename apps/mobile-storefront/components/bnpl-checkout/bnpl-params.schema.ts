@@ -7,7 +7,7 @@ export const BNPLParamsSchema = z.object({
   }),
   authorizationUrl: z.string().min(1).optional(),
   amount: z.string().regex(/^\d+$/, 'Amount must be a number').optional(),
-  customerEmail: z.email().optional(),
+  customerEmail: z.string().email().optional(),
   customerName: z.string().optional(),
   customerPhone: z.string().optional(),
   merchantSlug: z.string().optional(),

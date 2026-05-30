@@ -20,7 +20,7 @@ import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
 
 const previewParamsSchema = z.object({
-  id: z.uuid(),
+  id: z.string().uuid(),
 });
 
 const blogPreviewPostSchema = z.object({
