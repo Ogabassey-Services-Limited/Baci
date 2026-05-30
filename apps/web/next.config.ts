@@ -10,7 +10,11 @@ const withBundleAnalyzer = bundleAnalyzer({
   enabled: process.env.ANALYZE === 'true',
   openAnalyzer: false,
 });
-const HTML_DOCUMENT_ROUTE_SOURCE = '/((?!api|_next|.*\\..*).*)';
+// Keep this as an explicit static-asset suffix list. A generic dotted-path
+// exclusion drops valid HTML routes such as `/products/iphone-v1.2`.
+const HTML_DOCUMENT_STATIC_FILE_EXTENSION_PATTERN =
+  '.*\\.(?:avif|css|eot|gif|ico|jpe?g|js|json|map|png|svg|ttf|txt|webmanifest|webp|woff2?|xml)$';
+const HTML_DOCUMENT_ROUTE_SOURCE = `/((?!api(?:/|$)|_next(?:/|$)|${HTML_DOCUMENT_STATIC_FILE_EXTENSION_PATTERN}).*)`;
 const STOREFRONT_METADATA_VARY_HEADER_VALUE = [
   STOREFRONT_METADATA_CACHE_BUCKET_HEADER,
   'rsc',
@@ -456,8 +460,8 @@ const nextConfig: NextConfig = {
         headers: [
           {
             key: 'Vary',
-            // This must be emitted by Next headers, not only proxy.ts:
-            // middleware-set Vary is not preserved on rewritten app responses.
+            // Exclude static/API paths, but allow dotted custom-domain rewrite
+            // segments like /ogabassey.com/products to receive the HTML Vary.
             value: STOREFRONT_METADATA_VARY_HEADER_VALUE,
           },
         ],

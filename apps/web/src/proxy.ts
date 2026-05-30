@@ -52,6 +52,10 @@ const RESERVED_SUBDOMAINS = new Set([
 
 // Valid subdomain pattern: alphanumeric and hyphens, 1-63 chars, no leading/trailing hyphens
 const VALID_SUBDOMAIN_REGEX = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
+const CACHE_UNSAFE_ENCODED_DOUBLE_QUOTE_REGEX = /%e2%80%(?:9c|9d|b3)/gi;
+const CACHE_UNSAFE_ENCODED_SINGLE_QUOTE_REGEX = /%e2%80%(?:98|99|b2)/gi;
+const CACHE_UNSAFE_ENCODED_SPACE_OR_DASH_REGEX =
+  /(?:%c2%a0|%e2%80%(?:90|91|92|93|94|95))/gi;
 
 // Platform-owned IndexNow key file. Scoped to this exact path so that merchants
 // remain free to publish their own `/<key>.txt` file on custom domains without
@@ -289,6 +293,35 @@ function lowercaseStorefrontPathname(pathname: string): string {
   }
 
   return normalized;
+}
+
+function normalizeCacheSafeStorefrontPathname(pathname: string): string | null {
+  // Next remote cache currently serializes the request URL through ByteString
+  // constrained headers. Keep this targeted to imported punctuation and apply
+  // it on the raw URL path so existing escapes like %2F are preserved.
+  const punctuationNormalizedPathname = pathname
+    .split('/')
+    .map((segment) =>
+      segment
+        .replace(CACHE_UNSAFE_ENCODED_DOUBLE_QUOTE_REGEX, '')
+        .replace(CACHE_UNSAFE_ENCODED_SINGLE_QUOTE_REGEX, '')
+        .replace(CACHE_UNSAFE_ENCODED_SPACE_OR_DASH_REGEX, '-')
+        .replace(/[\u201c\u201d\u2033]/g, '')
+        .replace(/[\u2018\u2019\u2032]/g, '')
+        .replace(/[\u00a0\u2010-\u2015]/g, '-')
+    )
+    .join('/');
+
+  if (punctuationNormalizedPathname === pathname) {
+    return null;
+  }
+
+  const normalizedPathname = punctuationNormalizedPathname
+    .split('/')
+    .map((segment) => segment.replace(/-+/g, '-'))
+    .join('/');
+
+  return normalizedPathname || '/';
 }
 
 function isLegacyKlumpWooCommerceWebhookPath(pathname: string): boolean {
@@ -1063,6 +1096,25 @@ export async function proxy(request: NextRequest) {
     (prefix) =>
       lowerPathname === prefix || lowerPathname.startsWith(`${prefix}/`)
   );
+  const rawPathname = new URL(request.url).pathname;
+  const cacheSafeStorefrontPathname =
+    normalizeCacheSafeStorefrontPathname(rawPathname);
+
+  if (
+    cacheSafeStorefrontPathname &&
+    !isNonStorefrontPrefix &&
+    !isStaticFile &&
+    !isWellKnownPassthrough &&
+    !isLlmsPassthrough
+  ) {
+    return NextResponse.redirect(
+      new URL(
+        cacheSafeStorefrontPathname + request.nextUrl.search,
+        request.url
+      ),
+      308
+    );
+  }
 
   if (
     pathname !== normalizedStorefrontPathname &&
