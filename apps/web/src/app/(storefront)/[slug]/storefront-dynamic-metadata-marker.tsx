@@ -1,9 +1,15 @@
 import { connection } from 'next/server';
 import { Suspense } from 'react';
 
+function createStorefrontDynamicMetadataHost() {
+  return (
+    <div aria-hidden="true" data-storefront-dynamic-metadata-marker="" hidden />
+  );
+}
+
 async function StorefrontDynamicMetadataConnection() {
   await connection();
-  return null;
+  return createStorefrontDynamicMetadataHost();
 }
 
 /**
@@ -12,10 +18,14 @@ async function StorefrontDynamicMetadataConnection() {
  * at the page boundary; page-level `connection()` blocks prerendered shells,
  * and placing the marker after route-level Suspense wrappers has produced
  * metadata-boundary resume mismatches on Vercel.
+ *
+ * The fallback must be a stable host node. A null fallback leaves no prerendered
+ * DOM slot, then the request-time metadata boundary can resume where React
+ * expects the next storefront <div>.
  */
 export function StorefrontDynamicMetadataMarker() {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={createStorefrontDynamicMetadataHost()}>
       <StorefrontDynamicMetadataConnection />
     </Suspense>
   );
