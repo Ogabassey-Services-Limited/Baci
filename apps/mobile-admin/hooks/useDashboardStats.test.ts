@@ -250,6 +250,7 @@ describe('fetchTopProducts', () => {
       {
         name: 'get_top_products',
         args: expect.objectContaining({
+          p_branch_id: null,
           p_merchant_id: 'merchant-1',
           p_limit: 5,
         }),
@@ -267,20 +268,17 @@ describe('fetchTopProducts', () => {
     ]);
   });
 
-  it('filters top products by selected branch without using the unscoped RPC cache path', async () => {
-    supabaseMock.enqueue([
+  it('passes selected branch scope to the top products RPC', async () => {
+    supabaseMock.enqueueRpc([
       {
         data: [
           {
-            quantity: 2,
-            price: 150,
-            product_id: 'product-1',
-            products: {
-              id: 'product-1',
-              name: 'Phone',
-              price: 200,
-              images: ['phone.jpg'],
-            },
+            id: 'product-1',
+            image_url: 'phone.jpg',
+            name: 'Phone',
+            price: 200,
+            total_revenue: 300,
+            total_sold: 2,
           },
         ],
         error: null,
@@ -292,14 +290,17 @@ describe('fetchTopProducts', () => {
       branchId: 'branch-1',
     });
 
-    expect(supabaseMock.rpcCalls).toEqual([]);
-    expect(
-      supabaseMock.chains.flatMap((chain) =>
-        chain.calls.filter(
-          (call) => call.method === 'eq' && call.args[0] === 'orders.branch_id'
-        )
-      )
-    ).toEqual([{ method: 'eq', args: ['orders.branch_id', 'branch-1'] }]);
+    expect(supabaseMock.calls).toEqual([]);
+    expect(supabaseMock.rpcCalls).toEqual([
+      {
+        name: 'get_top_products',
+        args: expect.objectContaining({
+          p_branch_id: 'branch-1',
+          p_merchant_id: 'merchant-1',
+          p_limit: 5,
+        }),
+      },
+    ]);
     expect(products).toEqual([
       {
         id: 'product-1',

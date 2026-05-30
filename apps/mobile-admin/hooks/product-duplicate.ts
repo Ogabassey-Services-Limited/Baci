@@ -2,7 +2,8 @@ import { normalizeProductSearchText } from '@baci/shared';
 import { fetchAdminProductSuggestionCandidates } from '@/lib/product-search';
 import { supabase } from '@/lib/supabase';
 
-export const DUPLICATE_PRODUCT_ERROR = 'A product with this name already exists.';
+export const DUPLICATE_PRODUCT_ERROR =
+  'A product with this name already exists.';
 
 export function toProductSlug(name: string): string {
   return name
@@ -21,6 +22,10 @@ export function isDuplicateConstraintError(error: {
   );
 }
 
+export function escapePostgresLikePattern(value: string): string {
+  return value.replace(/[\\%_]/g, '\\$&');
+}
+
 export async function assertNoDuplicateProduct(args: {
   merchantId: string;
   productName: string;
@@ -33,7 +38,7 @@ export async function assertNoDuplicateProduct(args: {
     .from('products')
     .select('id', { count: 'exact', head: true })
     .eq('merchant_id', args.merchantId)
-    .ilike('name', normalizedName);
+    .ilike('name', escapePostgresLikePattern(normalizedName));
 
   let slugQuery = supabase
     .from('products')
