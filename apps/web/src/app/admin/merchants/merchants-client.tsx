@@ -139,7 +139,7 @@ export function MerchantsClient({
         </div>
         <Button variant="outline" onClick={fetchMerchants} disabled={loading}>
           <RefreshCw
-            className={`mr-2 h-4 w-4 ${loading ? 'motion-safe:animate-spin' : ''}`}
+            className={`mr-2 size-4 ${loading ? 'motion-safe:animate-spin' : ''}`}
             aria-hidden="true"
           />
           Refresh
@@ -167,7 +167,7 @@ export function MerchantsClient({
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div className="relative max-w-sm flex-1">
               <Search
-                className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
                 aria-hidden="true"
               />
               <Input
@@ -187,7 +187,7 @@ export function MerchantsClient({
                 }}
               >
                 <SelectTrigger className="w-[150px]" aria-label="Health status">
-                  <Filter className="mr-2 h-4 w-4" aria-hidden="true" />
+                  <Filter className="mr-2 size-4" aria-hidden="true" />
                   <SelectValue placeholder="Health Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -230,7 +230,7 @@ export function MerchantsClient({
                   key={index}
                   className="flex items-center gap-4 rounded-lg border p-4"
                 >
-                  <Skeleton className="h-10 w-10 rounded-full" />
+                  <Skeleton className="size-10 rounded-full" />
                   <div className="flex-1 space-y-2">
                     <Skeleton className="h-4 w-48" />
                     <Skeleton className="h-3 w-32" />
@@ -243,7 +243,7 @@ export function MerchantsClient({
           ) : filteredMerchants.length === 0 ? (
             <div className="py-12 text-center text-muted-foreground">
               <Building2
-                className="mx-auto mb-4 h-12 w-12 opacity-50"
+                className="mx-auto mb-4 size-12 opacity-50"
                 aria-hidden="true"
               />
               <p className="font-medium">No merchants found</p>

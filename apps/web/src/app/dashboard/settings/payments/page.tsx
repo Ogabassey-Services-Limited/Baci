@@ -159,7 +159,7 @@ export default function PaymentSettingsPage() {
   if (loading || merchantLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin" />
+        <Loader2 className="size-8 animate-spin" />
       </div>
     );
   }
@@ -178,7 +178,7 @@ export default function PaymentSettingsPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Building2 className="h-5 w-5" />
+              <Building2 className="size-5" />
               Bank Settlement Details
             </CardTitle>
             <CardDescription>
@@ -190,7 +190,7 @@ export default function PaymentSettingsPage() {
             {hasPaystackSubaccount ? (
               <div className="space-y-4">
                 <div className="flex items-center gap-3 p-4 rounded-lg bg-green-50 border border-green-200 text-green-700">
-                  <Check className="h-5 w-5" />
+                  <Check className="size-5" />
                   <div>
                     <p className="font-medium">Bank Account Connected</p>
                     <p className="text-sm">
@@ -214,7 +214,7 @@ export default function PaymentSettingsPage() {
             ) : (
               <div className="space-y-4">
                 <div className="flex items-center gap-3 p-4 rounded-lg bg-yellow-50 border border-yellow-200 text-yellow-700">
-                  <AlertCircle className="h-5 w-5" />
+                  <AlertCircle className="size-5" />
                   <div>
                     <p className="font-medium">Bank Account Required</p>
                     <p className="text-sm">
@@ -238,7 +238,7 @@ export default function PaymentSettingsPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Building2 className="h-5 w-5" />
+              <Building2 className="size-5" />
               Bank Settlement Unavailable
             </CardTitle>
             <CardDescription>
@@ -254,7 +254,7 @@ export default function PaymentSettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <CreditCard className="h-5 w-5" />
+            <CreditCard className="size-5" />
             Payment Gateways
           </CardTitle>
           <CardDescription>
@@ -274,7 +274,7 @@ export default function PaymentSettingsPage() {
           >
             <div className="flex items-start justify-between">
               <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-lg bg-[#00C3F7] flex items-center justify-center text-white font-bold text-sm">
+                <div className="size-10 rounded-lg bg-[#00C3F7] flex items-center justify-center text-white font-bold text-sm">
                   PS
                 </div>
                 <div>
@@ -332,8 +332,8 @@ export default function PaymentSettingsPage() {
           >
             <div className="flex items-start justify-between">
               <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-lg bg-[#F59E0B] flex items-center justify-center text-white">
-                  <Truck className="h-5 w-5" />
+                <div className="size-10 rounded-lg bg-[#F59E0B] flex items-center justify-center text-white">
+                  <Truck className="size-5" />
                 </div>
                 <div>
                   <h3 className="font-semibold">Pay on Delivery</h3>
@@ -384,7 +384,7 @@ export default function PaymentSettingsPage() {
           >
             <div className="flex items-start justify-between">
               <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-lg bg-[#6366F1] flex items-center justify-center text-white font-bold text-sm">
+                <div className="size-10 rounded-lg bg-[#6366F1] flex items-center justify-center text-white font-bold text-sm">
                   KP
                 </div>
                 <div>
@@ -424,7 +424,7 @@ export default function PaymentSettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Wallet className="h-5 w-5" />
+            <Wallet className="size-5" />
             Buy Now, Pay Later (BNPL)
           </CardTitle>
           <CardDescription>
@@ -443,7 +443,7 @@ export default function PaymentSettingsPage() {
           >
             <div className="flex items-start justify-between">
               <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-lg bg-linear-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm">
+                <div className="size-10 rounded-lg bg-linear-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm">
                   CD
                 </div>
                 <div>
@@ -491,7 +491,7 @@ export default function PaymentSettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Globe className="h-5 w-5" />
+            <Globe className="size-5" />
             Gateway Preferences
           </CardTitle>
           <CardDescription>
@@ -589,7 +589,7 @@ export default function PaymentSettingsPage() {
       {/* Save Button */}
       <div className="flex justify-end">
         <Button onClick={handleSave} disabled={saving}>
-          {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
           Save Settings
         </Button>
       </div>

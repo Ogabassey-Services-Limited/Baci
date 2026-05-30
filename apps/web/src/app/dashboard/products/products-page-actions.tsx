@@ -57,7 +57,7 @@ export function ProductsPageActions({
           void onBulkPublish();
         }}
       >
-        <CheckCircle className="h-3.5 w-3.5" />
+        <CheckCircle className="size-3.5" />
         <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
           Publish All
         </span>
@@ -68,7 +68,7 @@ export function ProductsPageActions({
         className="h-9 gap-1"
         onClick={onCsvImport}
       >
-        <Send className="h-3.5 w-3.5" />
+        <Send className="size-3.5" />
         <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
           Upload CSV
         </span>
@@ -79,7 +79,7 @@ export function ProductsPageActions({
         className="h-9 gap-1"
         onClick={onUploadImage}
       >
-        <ImageIcon className="h-3.5 w-3.5" />
+        <ImageIcon className="size-3.5" />
         <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
           Upload Image
         </span>
@@ -96,7 +96,7 @@ export function ProductsPageActions({
             disabled={isSyncing || isLoading}
           >
             <RefreshCw
-              className={`h-3.5 w-3.5 ${isSyncing ? 'animate-spin' : ''}`}
+              className={`size-3.5 ${isSyncing ? 'animate-spin' : ''}`}
             />
             <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
               Sync Sheet
@@ -110,7 +110,7 @@ export function ProductsPageActions({
                 className="h-9 px-2 text-blue-600 border-blue-200 hover:bg-blue-50 rounded-l-none border-l-0"
                 disabled={isSyncing || isLoading}
               >
-                <ChevronDown className="h-3.5 w-3.5" />
+                <ChevronDown className="size-3.5" />
                 <span className="sr-only">Options</span>
               </Button>
             </DropdownMenuTrigger>
@@ -121,7 +121,7 @@ export function ProductsPageActions({
                 }}
                 className="text-red-600 focus:text-red-600"
               >
-                <Trash2 className="mr-2 h-4 w-4" />
+                <Trash2 className="mr-2 size-4" />
                 Disconnect Sheet
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -148,7 +148,7 @@ export function ProductsPageActions({
           void onJumiaImport();
         }}
       >
-        <RefreshCw className="h-3.5 w-3.5" />
+        <RefreshCw className="size-3.5" />
         <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
           Jumia Import
         </span>
@@ -158,11 +158,11 @@ export function ProductsPageActions({
         className="gap-2 border-dashed border-primary/50 bg-primary/5 hover:bg-primary/10 text-primary"
         onClick={onFixImages}
       >
-        <ImageIcon className="h-4 w-4" />
+        <ImageIcon className="size-4" />
         Fix Images
       </Button>
       <Button size="sm" className="h-9 gap-1" onClick={onAddProduct}>
-        <PlusCircle className="h-3.5 w-3.5" />
+        <PlusCircle className="size-3.5" />
         <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
           Add Product
         </span>

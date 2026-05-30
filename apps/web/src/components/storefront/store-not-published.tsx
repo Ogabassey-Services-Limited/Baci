@@ -10,11 +10,11 @@ export function StoreNotPublished({ businessName }: StoreNotPublishedProps) {
       <div className="text-center px-4 max-w-md">
         <div className="mb-8 flex justify-center">
           <div className="relative">
-            <div className="h-24 w-24 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
-              <Store className="h-12 w-12 text-amber-600 dark:text-amber-400" />
+            <div className="size-24 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+              <Store className="size-12 text-amber-600 dark:text-amber-400" />
             </div>
-            <div className="absolute -bottom-1 -right-1 h-10 w-10 rounded-full bg-amber-500 flex items-center justify-center shadow-lg">
-              <Construction className="h-5 w-5 text-white" />
+            <div className="absolute -bottom-1 -right-1 size-10 rounded-full bg-amber-500 flex items-center justify-center shadow-lg">
+              <Construction className="size-5 text-white" />
             </div>
           </div>
         </div>

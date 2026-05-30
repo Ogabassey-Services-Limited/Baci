@@ -482,14 +482,14 @@ export default function LoyaltyProgramPage() {
                   </CardDescription>
                 </div>
                 <Button>
-                  <Gift className="h-4 w-4 mr-2" />
+                  <Gift className="size-4 mr-2" />
                   Add Reward
                 </Button>
               </div>
             </CardHeader>
             <CardContent>
               <div className="text-center py-12 text-muted-foreground">
-                <Award className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <Award className="size-12 mx-auto mb-4 opacity-50" />
                 <p>No rewards created yet</p>
                 <p className="text-sm">
                   Create rewards like discounts, free shipping, or free products

@@ -92,12 +92,12 @@ export function GoogleMerchantReadinessCard() {
       <CardContent className="space-y-4">
         {isLoading ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Checking readiness...
+            <Loader2 className="size-4 animate-spin" />
+            Checking readiness…
           </div>
         ) : error ? (
           <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
+            <AlertCircle className="size-4" />
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         ) : readiness ? (
@@ -119,9 +119,9 @@ export function GoogleMerchantReadinessCard() {
                 >
                   <div className="flex items-start gap-3">
                     {check.severity === 'pass' ? (
-                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+                      <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
                     ) : (
-                      <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+                      <TriangleAlert className="mt-0.5 size-4 shrink-0" />
                     )}
                     <div className="space-y-1">
                       <div className="font-medium">{check.label}</div>

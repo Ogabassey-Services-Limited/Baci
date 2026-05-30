@@ -7,7 +7,7 @@ describe('ProductDetailRouteState', () => {
   it('renders the loading state', () => {
     render(<ProductDetailRouteState colors={Colors.light} state="loading" />);
 
-    expect(screen.getByText('Loading product...')).toBeTruthy();
+    expect(screen.getByText('Loading product…')).toBeTruthy();
   });
 
   it('renders the invalid-link state and calls the back action', () => {

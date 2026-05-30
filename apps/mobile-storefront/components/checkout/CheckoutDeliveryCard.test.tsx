@@ -15,7 +15,7 @@ jest.mock('@/components/ui/AddressAutocomplete', () => ({
     return (
       <MockTextInput
         onChangeText={props.onChangeText}
-        placeholder={props.placeholder ?? 'Start typing your address...'}
+        placeholder={props.placeholder ?? 'Start typing your address…'}
         value={props.value}
       />
     );
@@ -154,7 +154,7 @@ describe('CheckoutDeliveryCard', () => {
 
     expect(screen.getByText('Delivery')).toBeTruthy();
     fireEvent.changeText(
-      screen.getByPlaceholderText('Start typing your address...'),
+      screen.getByPlaceholderText('Start typing your address…'),
       '12 Marina Road'
     );
     fireEvent.press(screen.getByRole('button', { name: 'Select city' }));

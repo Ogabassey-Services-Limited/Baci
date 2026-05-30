@@ -76,7 +76,7 @@ export function ConnectJumiaDialog({
           <Card className="border-orange-200 bg-orange-50/50 dark:bg-orange-900/10 dark:border-orange-900/30">
             <CardContent className="pt-5 space-y-3">
               <div className="flex items-center gap-2 font-semibold">
-                <Zap className="h-5 w-5 text-orange-500" />
+                <Zap className="size-5 text-orange-500" />
                 Fast Connection
               </div>
               <p className="text-sm text-muted-foreground">
@@ -111,7 +111,7 @@ export function ConnectJumiaDialog({
             className="w-full"
             onClick={() => setShowManualForm(!showManualForm)}
           >
-            <KeyRound className="h-4 w-4 mr-2" />
+            <KeyRound className="size-4 mr-2" />
             {showManualForm ? 'Hide Manual Entry' : 'Enter Refresh Token'}
           </Button>
 
@@ -150,9 +150,7 @@ export function ConnectJumiaDialog({
                 onClick={handleManualConnect}
                 disabled={connecting || !refreshToken.trim()}
               >
-                {connecting && (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                )}
+                {connecting && <Loader2 className="size-4 mr-2 animate-spin" />}
                 {connecting ? 'Connecting...' : 'Connect Token'}
               </Button>
             </div>

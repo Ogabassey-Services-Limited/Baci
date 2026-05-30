@@ -170,7 +170,7 @@ export default function CustomersClientPage({
   if (authLoading) {
     return (
       <div className="flex justify-center items-center h-full">
-        <Loader2 className="h-8 w-8 motion-safe:animate-spin" />
+        <Loader2 className="size-8 motion-safe:animate-spin" />
       </div>
     );
   }
@@ -187,7 +187,7 @@ export default function CustomersClientPage({
             size="sm"
             className="border-primary text-primary hover:bg-primary/10"
           >
-            <Download className="mr-2 h-4 w-4" />
+            <Download className="mr-2 size-4" />
             Export CSV
           </Button>
           <Button
@@ -197,14 +197,14 @@ export default function CustomersClientPage({
             className="border-primary text-primary hover:bg-primary/10"
           >
             <Link href="/dashboard/analytics?category=customers">
-              <BarChart className="mr-2 h-4 w-4 text-primary" />
+              <BarChart className="mr-2 size-4 text-primary" />
               Customer Analytics
             </Link>
           </Button>
           <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
             <DialogTrigger asChild>
               <Button size="sm">
-                <Plus className="mr-2 h-4 w-4" />
+                <Plus className="mr-2 size-4" />
                 Add New Customer
               </Button>
             </DialogTrigger>
@@ -294,7 +294,7 @@ export default function CustomersClientPage({
 
       <div className="flex items-center gap-2">
         <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-primary" />
+          <Search className="absolute left-2.5 top-2.5 size-4 text-primary" />
           <Input
             placeholder="Search customers..."
             className="pl-8 border-primary/50 focus-visible:ring-primary"
@@ -323,7 +323,7 @@ export default function CustomersClientPage({
             {loading ? (
               <TableRow>
                 <TableCell colSpan={8} className="h-24 text-center">
-                  <Loader2 className="h-6 w-6 motion-safe:animate-spin mx-auto" />
+                  <Loader2 className="size-6 motion-safe:animate-spin mx-auto" />
                 </TableCell>
               </TableRow>
             ) : customers.length === 0 ? (
@@ -349,7 +349,7 @@ export default function CustomersClientPage({
                 return (
                   <TableRow key={customer.id}>
                     <TableCell>
-                      <Avatar className="h-8 w-8">
+                      <Avatar className="size-8">
                         <AvatarFallback>{initials}</AvatarFallback>
                       </Avatar>
                     </TableCell>
@@ -386,21 +386,21 @@ export default function CustomersClientPage({
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8"
+                            className="size-8"
                             aria-label={`Actions for ${displayName}`}
                           >
-                            <MoreVertical className="h-4 w-4" />
+                            <MoreVertical className="size-4" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <Link href={`/dashboard/customers/${customer.id}`}>
                             <DropdownMenuItem>
-                              <Edit className="mr-2 h-4 w-4" />
+                              <Edit className="mr-2 size-4" />
                               View Profile
                             </DropdownMenuItem>
                           </Link>
                           <DropdownMenuItem className="text-red-600">
-                            <Trash2 className="mr-2 h-4 w-4" />
+                            <Trash2 className="mr-2 size-4" />
                             Delete
                           </DropdownMenuItem>
                         </DropdownMenuContent>

@@ -63,9 +63,9 @@ export function ApplyTemplateButton({
       aria-label={isActivating ? 'Applying template...' : 'Apply this template'}
     >
       {isActivating ? (
-        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+        <Loader2 className="mr-2 size-4 animate-spin" />
       ) : (
-        <CheckCircle className="mr-2 h-4 w-4" />
+        <CheckCircle className="mr-2 size-4" />
       )}
       {isActivating ? 'Applying...' : 'Apply'}
     </Button>

@@ -141,7 +141,7 @@ export default function PlatformSettingsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Loader2 className="size-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -166,9 +166,9 @@ export default function PlatformSettingsPage() {
         </div>
         <Button onClick={handleSave} disabled={saving}>
           {saving ? (
-            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            <Loader2 className="size-4 mr-2 animate-spin" />
           ) : (
-            <Save className="h-4 w-4 mr-2" />
+            <Save className="size-4 mr-2" />
           )}
           Save Changes
         </Button>
@@ -177,15 +177,15 @@ export default function PlatformSettingsPage() {
       <Tabs defaultValue="analytics" className="space-y-6">
         <TabsList className="grid w-full grid-cols-3 lg:w-[400px]">
           <TabsTrigger value="analytics" className="flex items-center gap-2">
-            <BarChart3 className="h-4 w-4" />
+            <BarChart3 className="size-4" />
             Analytics
           </TabsTrigger>
           <TabsTrigger value="fees" className="flex items-center gap-2">
-            <DollarSign className="h-4 w-4" />
+            <DollarSign className="size-4" />
             Fees
           </TabsTrigger>
           <TabsTrigger value="features" className="flex items-center gap-2">
-            <Settings2 className="h-4 w-4" />
+            <Settings2 className="size-4" />
             Features
           </TabsTrigger>
         </TabsList>
@@ -197,7 +197,7 @@ export default function PlatformSettingsPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <svg
-                  className="w-5 h-5 text-orange-500"
+                  className="size-5 text-orange-500"
                   viewBox="0 0 24 24"
                   fill="currentColor"
                   aria-hidden="true"
@@ -254,9 +254,9 @@ export default function PlatformSettingsPage() {
                       onClick={() => toggleSecretVisibility('ga4_secret')}
                     >
                       {showSecrets.ga4_secret ? (
-                        <EyeOff className="h-4 w-4" />
+                        <EyeOff className="size-4" />
                       ) : (
-                        <Eye className="h-4 w-4" />
+                        <Eye className="size-4" />
                       )}
                     </Button>
                   </div>
@@ -275,7 +275,7 @@ export default function PlatformSettingsPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Facebook className="w-5 h-5 text-blue-600" />
+                <Facebook className="size-5 text-blue-600" />
                 Facebook / Meta
               </CardTitle>
               <CardDescription>
@@ -320,9 +320,9 @@ export default function PlatformSettingsPage() {
                       onClick={() => toggleSecretVisibility('fb_capi')}
                     >
                       {showSecrets.fb_capi ? (
-                        <EyeOff className="h-4 w-4" />
+                        <EyeOff className="size-4" />
                       ) : (
-                        <Eye className="h-4 w-4" />
+                        <Eye className="size-4" />
                       )}
                     </Button>
                   </div>
@@ -342,7 +342,7 @@ export default function PlatformSettingsPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <svg
-                  className="w-5 h-5"
+                  className="size-5"
                   viewBox="0 0 24 24"
                   fill="currentColor"
                   aria-hidden="true"
@@ -392,9 +392,9 @@ export default function PlatformSettingsPage() {
                       onClick={() => toggleSecretVisibility('tiktok_token')}
                     >
                       {showSecrets.tiktok_token ? (
-                        <EyeOff className="h-4 w-4" />
+                        <EyeOff className="size-4" />
                       ) : (
-                        <Eye className="h-4 w-4" />
+                        <Eye className="size-4" />
                       )}
                     </Button>
                   </div>
@@ -414,7 +414,7 @@ export default function PlatformSettingsPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <svg
-                  className="w-5 h-5 text-yellow-400"
+                  className="size-5 text-yellow-400"
                   viewBox="0 0 24 24"
                   fill="currentColor"
                   aria-hidden="true"
@@ -464,9 +464,9 @@ export default function PlatformSettingsPage() {
                       onClick={() => toggleSecretVisibility('snap_capi')}
                     >
                       {showSecrets.snap_capi ? (
-                        <EyeOff className="h-4 w-4" />
+                        <EyeOff className="size-4" />
                       ) : (
-                        <Eye className="h-4 w-4" />
+                        <Eye className="size-4" />
                       )}
                     </Button>
                   </div>
@@ -486,7 +486,7 @@ export default function PlatformSettingsPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <svg
-                  className="w-5 h-5"
+                  className="size-5"
                   viewBox="0 0 24 24"
                   fill="currentColor"
                   aria-hidden="true"

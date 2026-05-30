@@ -127,8 +127,8 @@ export function CookieConsent() {
           // Simple View - Horizontal Floating Bar
           <div className="flex flex-col md:flex-row items-center gap-4 md:gap-6">
             <div className="flex items-center gap-4 flex-1 w-full md:w-auto">
-              <div className="hidden sm:flex items-center justify-center w-10 h-10 rounded-full bg-primary/10 shrink-0">
-                <Cookie className="w-5 h-5 text-primary" />
+              <div className="hidden sm:flex items-center justify-center size-10 rounded-full bg-primary/10 shrink-0">
+                <Cookie className="size-5 text-primary" />
               </div>
 
               <div className="flex-1 space-y-1">
@@ -179,8 +179,8 @@ export function CookieConsent() {
           <div className="space-y-6">
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-center gap-3">
-                <div className="hidden sm:flex items-center justify-center w-10 h-10 rounded-full bg-primary/10 shrink-0">
-                  <Settings2 className="w-5 h-5 text-primary" />
+                <div className="hidden sm:flex items-center justify-center size-10 rounded-full bg-primary/10 shrink-0">
+                  <Settings2 className="size-5 text-primary" />
                 </div>
                 <div>
                   <h3 className="font-semibold text-lg">Cookie Preferences</h3>
@@ -196,15 +196,15 @@ export function CookieConsent() {
                 className="text-muted-foreground hover:text-foreground p-1 rounded-md hover:bg-muted"
                 aria-label="Close details"
               >
-                <X className="w-5 h-5" />
+                <X className="size-5" />
               </button>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2 max-h-[60vh] overflow-y-auto pr-2">
               {/* Necessary Cookies */}
               <div className="flex items-start gap-3 p-3 rounded-xl bg-muted/50 border border-border/50">
-                <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-green-500/10 shrink-0">
-                  <Shield className="w-4 h-4 text-green-600" />
+                <div className="flex items-center justify-center size-8 rounded-lg bg-green-500/10 shrink-0">
+                  <Shield className="size-4 text-green-600" />
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center justify-between">
@@ -232,7 +232,7 @@ export function CookieConsent() {
                       functional: e.target.checked,
                     }))
                   }
-                  className="mt-1 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                  className="mt-1 size-4 rounded border-gray-300 text-primary focus:ring-primary"
                 />
                 <label
                   htmlFor="functional"
@@ -258,7 +258,7 @@ export function CookieConsent() {
                       analytics: e.target.checked,
                     }))
                   }
-                  className="mt-1 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                  className="mt-1 size-4 rounded border-gray-300 text-primary focus:ring-primary"
                 />
                 <label
                   htmlFor="analytics"
@@ -283,7 +283,7 @@ export function CookieConsent() {
                       marketing: e.target.checked,
                     }))
                   }
-                  className="mt-1 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                  className="mt-1 size-4 rounded border-gray-300 text-primary focus:ring-primary"
                 />
                 <label
                   htmlFor="marketing"

@@ -40,7 +40,7 @@ export function EmailForm({
         </Label>
         <div className="relative">
           <Mail
-            className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400"
+            className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-gray-400"
             aria-hidden="true"
           />
           <Input
@@ -72,8 +72,8 @@ export function EmailForm({
       >
         {isSending ? (
           <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
-            Sending code...
+            <Loader2 className="mr-2 size-4 animate-spin" aria-hidden="true" />
+            Sending code…
           </>
         ) : (
           'Continue with email'

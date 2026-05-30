@@ -44,9 +44,9 @@ const statusColors = {
 // Engine status icon
 function EngineStatusIcon({ enabled }: { enabled: boolean }) {
   return enabled ? (
-    <CheckCircle className="h-4 w-4 text-green-600" />
+    <CheckCircle className="size-4 text-green-600" />
   ) : (
-    <XCircle className="h-4 w-4 text-gray-400" />
+    <XCircle className="size-4 text-gray-400" />
   );
 }
 
@@ -71,14 +71,14 @@ function PreviewActionBar({ template }: { template: TemplateDefinition }) {
           <Sheet>
             <SheetTrigger asChild>
               <Button variant="outline" size="icon">
-                <Info className="h-4 w-4" />
+                <Info className="size-4" />
               </Button>
             </SheetTrigger>
             <TemplateInfoSheet template={template} />
           </Sheet>
           <Button variant="outline" size="sm" asChild>
             <Link href="/dashboard/templates">
-              <XCircle className="h-4 w-4 mr-1" />
+              <XCircle className="size-4 mr-1" />
               Close
             </Link>
           </Button>
@@ -172,7 +172,7 @@ function TemplateInfoSheet({ template }: { template: TemplateDefinition }) {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm flex items-center gap-2">
-              <Info className="h-4 w-4" />
+              <Info className="size-4" />
               Preview Mode
             </CardTitle>
           </CardHeader>
@@ -300,8 +300,8 @@ function ActivateButton({ templateId }: { templateId: string }) {
   if (isAuthenticated === null) {
     return (
       <Button className="w-full" disabled>
-        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-        Checking...
+        <Loader2 className="mr-2 size-4 animate-spin" />
+        Checking…
       </Button>
     );
   }
@@ -313,12 +313,12 @@ function ActivateButton({ templateId }: { templateId: string }) {
       disabled={isActivating}
     >
       {isActivating ? (
-        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+        <Loader2 className="mr-2 size-4 animate-spin" />
       ) : (
-        <CheckCircle className="mr-2 h-4 w-4" />
+        <CheckCircle className="mr-2 size-4" />
       )}
       {isActivating
-        ? 'Activating...'
+        ? 'Activating…'
         : isAuthenticated
           ? 'Use This Template'
           : 'Login to Use Template'}
@@ -333,7 +333,7 @@ function ErrorDisplay({ message }: { message: string }) {
       <Card className="max-w-md w-full">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-red-600">
-            <AlertCircle className="h-5 w-5" />
+            <AlertCircle className="size-5" />
             Template Error
           </CardTitle>
         </CardHeader>
@@ -353,8 +353,8 @@ function LoadingDisplay() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="text-center">
-        <Loader2 className="h-8 w-8 animate-spin mx-auto text-blue-600" />
-        <p className="mt-4 text-gray-600">Loading template...</p>
+        <Loader2 className="size-8 animate-spin mx-auto text-blue-600" />
+        <p className="mt-4 text-gray-600">Loading template…</p>
       </div>
     </div>
   );

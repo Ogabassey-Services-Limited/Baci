@@ -194,7 +194,7 @@ export default function ConfirmInsuranceDialog({
             Cancel
           </Button>
           <Button onClick={handleConfirm} disabled={loading} className="gap-2">
-            {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+            {loading && <Loader2 className="size-4 animate-spin" />}
             {isAssuranceOrder ? 'Confirm & Purchase Policy' : 'Confirm Order'}
           </Button>
         </DialogFooter>

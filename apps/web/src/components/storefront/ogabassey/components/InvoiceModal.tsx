@@ -101,7 +101,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
         {/* Header */}
         <div className="flex justify-between items-center p-4 border-b border-gray-100 bg-gray-50/50 rounded-t-2xl shrink-0">
           <h3 className="font-bold text-gray-900">Invoice Preview</h3>
-          <button
+          <button type="button"
             onClick={onClose}
             className="p-2 hover:bg-gray-100 rounded-full text-gray-500 transition-colors"
           >
@@ -154,7 +154,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
                 </p>
                 <p className="text-gray-600">Lagos, Nigeria</p>
               </div>
-              <div className="md:text-right flex flex-col md:items-end justify-between space-y-4">
+              <div className="md:text-right flex flex-col md:items-end justify-between gap-y-4">
                 <div className="grid grid-cols-2 gap-8 md:gap-4">
                   <div>
                     <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">
@@ -298,13 +298,13 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
 
         {/* Footer / Download Button */}
         <div className="p-4 border-t border-gray-100 bg-white rounded-b-2xl flex justify-center shrink-0">
-          <button
+          <button type="button"
             onClick={handleDownload}
             disabled={isDownloading}
             className="bg-gray-900 hover:bg-black text-white font-bold py-3.5 px-10 rounded-xl shadow-lg transition-all flex items-center gap-3 active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed w-full md:w-auto justify-center"
           >
             {isDownloading ? (
-              <span className="flex items-center gap-2">Processing...</span>
+              <span className="flex items-center gap-2">Processing…</span>
             ) : (
               <>
                 <Download size={20} /> Download PDF Invoice

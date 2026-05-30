@@ -160,7 +160,7 @@ export function JumiaCategorySelector({
                 ? 'Loading...'
                 : 'Category selected'
               : 'Select Jumia Category...')}
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[400px] p-0" align="start">
@@ -186,7 +186,7 @@ export function JumiaCategorySelector({
             </CommandEmpty>
             {loading ? (
               <div className="p-4 text-sm text-center text-muted-foreground">
-                Loading categories...
+                Loading categories…
               </div>
             ) : (
               <CommandGroup>
@@ -203,7 +203,7 @@ export function JumiaCategorySelector({
                     >
                       <Check
                         className={cn(
-                          'mr-2 h-4 w-4',
+                          'mr-2 size-4',
                           value === category.code ? 'opacity-100' : 'opacity-0'
                         )}
                       />

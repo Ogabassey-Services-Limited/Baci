@@ -292,7 +292,7 @@ export function WishListPageClient({
           <CardContent className="pt-6">
             <div className="text-center mb-6">
               <Heart
-                className="mx-auto h-12 w-12 text-red-500 mb-4"
+                className="mx-auto size-12 text-red-500 mb-4"
                 aria-hidden="true"
               />
               <h1 className="text-2xl font-bold mb-2">Your Wish List</h1>
@@ -338,9 +338,9 @@ export function WishListPageClient({
             {wishListItems.length > 0 && (
               <Button variant="outline" onClick={handleShareWishlist}>
                 {shareUrlCopied ? (
-                  <Check className="mr-2 h-4 w-4" aria-hidden="true" />
+                  <Check className="mr-2 size-4" aria-hidden="true" />
                 ) : (
-                  <Share2 className="mr-2 h-4 w-4" aria-hidden="true" />
+                  <Share2 className="mr-2 size-4" aria-hidden="true" />
                 )}
                 {shareUrlCopied ? 'Copied!' : 'Share'}
               </Button>
@@ -362,17 +362,17 @@ export function WishListPageClient({
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
           <Loader2
-            className="h-8 w-8 motion-safe:animate-spin"
+            className="size-8 motion-safe:animate-spin"
             aria-hidden="true"
           />
-          <span className="sr-only">Loading your wish list...</span>
+          <span className="sr-only">Loading your wish list…</span>
         </div>
       ) : wishListItems.length === 0 ? (
         <Card className="glass-themed">
           <CardContent className="py-12">
             <div className="text-center">
               <Package
-                className="mx-auto h-12 w-12 text-muted-foreground mb-4"
+                className="mx-auto size-12 text-muted-foreground mb-4"
                 aria-hidden="true"
               />
               <h3 className="text-lg font-semibold mb-2">
@@ -406,7 +406,7 @@ export function WishListPageClient({
                 ) : (
                   <div className="w-full h-full bg-muted flex items-center justify-center">
                     <Package
-                      className="h-12 w-12 text-muted-foreground"
+                      className="size-12 text-muted-foreground"
                       aria-hidden="true"
                     />
                   </div>
@@ -434,12 +434,12 @@ export function WishListPageClient({
                     >
                       {movingToCartId === item.id ? (
                         <Loader2
-                          className="mr-2 h-4 w-4 motion-safe:animate-spin"
+                          className="mr-2 size-4 motion-safe:animate-spin"
                           aria-hidden="true"
                         />
                       ) : (
                         <ShoppingCart
-                          className="mr-2 h-4 w-4"
+                          className="mr-2 size-4"
                           aria-hidden="true"
                         />
                       )}
@@ -464,11 +464,11 @@ export function WishListPageClient({
                       >
                         {removingItemId === item.id ? (
                           <Loader2
-                            className="h-4 w-4 motion-safe:animate-spin"
+                            className="size-4 motion-safe:animate-spin"
                             aria-hidden="true"
                           />
                         ) : (
-                          <Trash2 className="h-4 w-4" aria-hidden="true" />
+                          <Trash2 className="size-4" aria-hidden="true" />
                         )}
                       </Button>
                     </div>
@@ -489,11 +489,11 @@ export function WishListPageClient({
                     >
                       {removingItemId === item.id ? (
                         <Loader2
-                          className="mr-2 h-4 w-4 motion-safe:animate-spin"
+                          className="mr-2 size-4 motion-safe:animate-spin"
                           aria-hidden="true"
                         />
                       ) : (
-                        <Trash2 className="mr-2 h-4 w-4" aria-hidden="true" />
+                        <Trash2 className="mr-2 size-4" aria-hidden="true" />
                       )}
                       Remove
                     </Button>

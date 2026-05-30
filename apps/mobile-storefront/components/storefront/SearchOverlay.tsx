@@ -126,7 +126,7 @@ export function SearchOverlay({
               ref={inputRef}
               value={query}
               onChangeText={setQuery}
-              placeholder="Search products..."
+              placeholder="Search products…"
               placeholderTextColor={colorScheme === 'dark' ? '#666' : '#999'}
               style={[styles.input, { color: colors.text }]}
               returnKeyType="search"

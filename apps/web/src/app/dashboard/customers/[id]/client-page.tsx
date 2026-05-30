@@ -191,14 +191,14 @@ export default function CustomerDetailClientPage({
         <div className="flex items-center gap-4">
           <Link href="/dashboard/customers">
             <Button variant="ghost" size="icon">
-              <ArrowLeft className="h-4 w-4" />
+              <ArrowLeft className="size-4" />
             </Button>
           </Link>
           <h1 className="text-2xl font-bold">Customer Profile</h1>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setEditOpen(true)}>
-            <Edit className="mr-2 h-4 w-4" />
+            <Edit className="mr-2 size-4" />
             Edit Profile
           </Button>
           <Dialog open={editOpen} onOpenChange={setEditOpen}>
@@ -278,7 +278,7 @@ export default function CustomerDetailClientPage({
             </DialogContent>
           </Dialog>
           <Button variant="destructive" size="icon" onClick={handleDelete}>
-            <Trash2 className="h-4 w-4" />
+            <Trash2 className="size-4" />
           </Button>
         </div>
       </div>
@@ -288,7 +288,7 @@ export default function CustomerDetailClientPage({
         <Card className="md:col-span-2">
           <CardContent className="p-6">
             <div className="flex items-start gap-4">
-              <Avatar className="h-20 w-20">
+              <Avatar className="size-20">
                 <AvatarFallback className="text-2xl">{initials}</AvatarFallback>
               </Avatar>
               <div className="flex-1">
@@ -335,9 +335,9 @@ export default function CustomerDetailClientPage({
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-4 w-4 ml-1"
+                            className="size-4 ml-1"
                           >
-                            <Edit className="h-3 w-3" />
+                            <Edit className="size-3" />
                           </Button>
                         </DialogTrigger>
                         <DialogContent>
@@ -381,11 +381,11 @@ export default function CustomerDetailClientPage({
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center gap-3">
-                <Phone className="h-4 w-4 text-muted-foreground" />
+                <Phone className="size-4 text-muted-foreground" />
                 <span>{customer.phone || 'No phone number'}</span>
               </div>
               <div className="flex items-center gap-3">
-                <Mail className="h-4 w-4 text-muted-foreground" />
+                <Mail className="size-4 text-muted-foreground" />
                 <span>{customer.email || 'No email'}</span>
               </div>
             </CardContent>
@@ -397,7 +397,7 @@ export default function CustomerDetailClientPage({
             </CardHeader>
             <CardContent>
               <div className="flex items-start gap-3">
-                <MapPin className="h-4 w-4 text-muted-foreground mt-1" />
+                <MapPin className="size-4 text-muted-foreground mt-1" />
                 <span>{customer.address || 'No address provided'}</span>
               </div>
             </CardContent>
@@ -413,7 +413,7 @@ export default function CustomerDetailClientPage({
         <CardContent>
           {orders.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              <ShoppingBag className="h-12 w-12 mx-auto mb-3 opacity-20" />
+              <ShoppingBag className="size-12 mx-auto mb-3 opacity-20" />
               <p>No orders found for this customer.</p>
             </div>
           ) : (

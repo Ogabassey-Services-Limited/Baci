@@ -23,12 +23,12 @@ export default async function SecuritySettingsPage() {
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" asChild>
           <Link href="/dashboard/settings">
-            <ChevronLeft className="h-4 w-4" />
+            <ChevronLeft className="size-4" />
           </Link>
         </Button>
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-lg bg-primary/10">
-            <Shield className="h-5 w-5 text-primary" />
+            <Shield className="size-5 text-primary" />
           </div>
           <div>
             <h1 className="text-2xl font-bold tracking-tight">

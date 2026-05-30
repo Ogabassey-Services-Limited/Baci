@@ -277,7 +277,7 @@ export function MerchantBankForm({
     return (
       <div className="flex items-start gap-3 p-4 rounded-lg border bg-muted/50 text-sm text-muted-foreground">
         <AlertCircle
-          className="h-5 w-5 shrink-0 text-muted-foreground"
+          className="size-5 shrink-0 text-muted-foreground"
           aria-hidden="true"
         />
         <div>
@@ -407,7 +407,7 @@ export function MerchantBankForm({
                   {isLoadingBanks && (
                     <div className="absolute right-3 top-1/2 -translate-y-1/2">
                       <Loader2
-                        className="h-4 w-4 animate-spin text-muted-foreground"
+                        className="size-4 animate-spin text-muted-foreground"
                         aria-hidden="true"
                       />
                     </div>
@@ -468,7 +468,7 @@ export function MerchantBankForm({
                       >
                         <Check
                           className={cn(
-                            'mr-2 h-4 w-4',
+                            'mr-2 size-4',
                             field.value === bank.code
                               ? 'opacity-100'
                               : 'opacity-0'
@@ -501,15 +501,15 @@ export function MerchantBankForm({
         {/* Verification Status */}
         {isVerifying && (
           <div className="flex items-center gap-2 text-muted-foreground text-sm">
-            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-            Verifying account...
+            <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+            Verifying account…
           </div>
         )}
 
         {verifiedName && (
           <div className="rounded-md bg-green-50 dark:bg-green-950/50 p-4 flex items-start gap-3 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800">
             <CheckCircle2
-              className="h-5 w-5 shrink-0 mt-0.5"
+              className="size-5 shrink-0 mt-0.5"
               aria-hidden="true"
             />
             <div className="space-y-1">
@@ -521,7 +521,7 @@ export function MerchantBankForm({
 
         {verificationError && (
           <div className="rounded-md bg-red-50 dark:bg-red-950/50 p-4 flex items-center gap-3 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800">
-            <AlertCircle className="h-5 w-5 shrink-0" aria-hidden="true" />
+            <AlertCircle className="size-5 shrink-0" aria-hidden="true" />
             <div>
               <p className="font-medium">Verification Failed</p>
               <p className="text-sm">{verificationError}</p>
@@ -558,7 +558,7 @@ export function MerchantBankForm({
                       <FormControl>
                         <input
                           type="checkbox"
-                          className="h-5 w-5 rounded border-gray-300 text-store-primary focus:ring-store-primary"
+                          className="size-5 rounded border-gray-300 text-store-primary focus:ring-store-primary"
                           checked={field.value ?? false}
                           onChange={field.onChange}
                         />
@@ -589,7 +589,7 @@ export function MerchantBankForm({
           disabled={isSubmitting || isVerifying || !verifiedName}
         >
           {isSubmitting && (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+            <Loader2 className="mr-2 size-4 animate-spin" aria-hidden="true" />
           )}
           {isSubmitting ? 'Saving...' : 'Save Bank Details'}
         </Button>

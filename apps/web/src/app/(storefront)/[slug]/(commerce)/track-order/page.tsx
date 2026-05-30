@@ -150,8 +150,8 @@ function HorizontalProgressBar({
     return (
       <div className="py-8 w-full max-w-2xl mx-auto px-4">
         <output aria-label={label} className="flex flex-col items-center gap-3">
-          <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
-            <XCircle className="w-7 h-7 text-red-500" />
+          <div className="size-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+            <XCircle className="size-7 text-red-500" />
           </div>
           <span className="inline-block px-4 py-1.5 rounded-full text-sm font-medium bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800">
             {label}
@@ -211,9 +211,9 @@ function HorizontalProgressBar({
                 )}
               >
                 {isCompleted ? (
-                  <Check className="w-5 h-5 font-bold" strokeWidth={3} />
+                  <Check className="size-5 font-bold" strokeWidth={3} />
                 ) : (
-                  <div className="w-2.5 h-2.5 rounded-full bg-gray-300 dark:bg-gray-600" />
+                  <div className="size-2.5 rounded-full bg-gray-300 dark:bg-gray-600" />
                 )}
               </div>
               <div className="absolute top-12 left-1/2 -translate-x-1/2 w-32 text-center pointer-events-none">
@@ -459,12 +459,12 @@ function OrderTrackContent() {
               <ThemedButton type="submit" className="w-full" disabled={loading}>
                 {loading ? (
                   <>
-                    <Clock className="mr-2 h-4 w-4 animate-spin" />
-                    Searching...
+                    <Clock className="mr-2 size-4 animate-spin" />
+                    Searching…
                   </>
                 ) : (
                   <>
-                    <Search className="mr-2 h-4 w-4" />
+                    <Search className="mr-2 size-4" />
                     Track Order
                   </>
                 )}
@@ -477,8 +477,8 @@ function OrderTrackContent() {
       {/* Loading indicator for token-based lookups (form is hidden) */}
       {isTokenLookup && loading && (
         <div className="flex items-center justify-center py-12">
-          <Clock className="mr-2 h-5 w-5 animate-spin text-muted-foreground" />
-          <span className="text-muted-foreground">Searching...</span>
+          <Clock className="mr-2 size-5 animate-spin text-muted-foreground" />
+          <span className="text-muted-foreground">Searching…</span>
         </div>
       )}
 
@@ -504,7 +504,7 @@ function OrderTrackContent() {
                     Placed on {formatDate(orderData.order.created_at)}
                   </p>
                   <div className="flex items-center gap-2 text-muted-foreground">
-                    <Globe className="h-4 w-4" />
+                    <Globe className="size-4" />
                     <span className="text-sm">via Website</span>
                   </div>
                 </div>
@@ -622,7 +622,7 @@ function OrderTrackContent() {
                               : 'white',
                           }}
                         >
-                          <Icon className="w-5 h-5" />
+                          <Icon className="size-5" />
                         </div>
                         {index < orderData.timeline.length - 1 && (
                           <div
@@ -685,7 +685,7 @@ function OrderTrackContent() {
                       rel="noopener noreferrer"
                     >
                       Track with carrier{' '}
-                      <ExternalLink className="ml-1 h-3 w-3" />
+                      <ExternalLink className="ml-1 size-3" />
                     </a>
                   </ThemedButton>
                 </div>
@@ -703,7 +703,7 @@ function OrderTrackContent() {
                 {orderData.items.map((item) => (
                   <div key={item.id} className="flex gap-4">
                     {item.product_image && (
-                      <div className="relative w-16 h-16 bg-gray-100 rounded-lg overflow-hidden shrink-0">
+                      <div className="relative size-16 bg-gray-100 rounded-lg overflow-hidden shrink-0">
                         <Image
                           src={item.product_image}
                           alt={item.product_name}
@@ -788,7 +788,7 @@ function OrderTrackContent() {
             <ThemedCard>
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
-                  <MapPin className="h-4 w-4" />
+                  <MapPin className="size-4" />
                   Shipping Address
                 </CardTitle>
               </CardHeader>
@@ -818,7 +818,7 @@ function OrderTrackContent() {
                     className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
                     style={{ color: 'var(--store-primary)' }}
                   >
-                    <Mail className="h-4 w-4" />
+                    <Mail className="size-4" />
                     {orderData.merchant.support_email}
                   </a>
                 )}
@@ -828,7 +828,7 @@ function OrderTrackContent() {
                     className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
                     style={{ color: 'var(--store-primary)' }}
                   >
-                    <Phone className="h-4 w-4" />
+                    <Phone className="size-4" />
                     {orderData.merchant.support_phone}
                   </a>
                 )}

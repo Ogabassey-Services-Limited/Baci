@@ -69,21 +69,21 @@ export function HairExtensionsHome(props: TemplatePageProps) {
                 {/* Sparkle decorations */}
                 <div className="absolute inset-0 overflow-hidden">
                     <div className="absolute top-20 left-20 text-[#B76E79] opacity-30">
-                        <Sparkles className="w-8 h-8" />
+                        <Sparkles className="size-8" />
                     </div>
                     <div className="absolute top-40 right-32 text-[#B76E79] opacity-20">
-                        <Star className="w-6 h-6" />
+                        <Star className="size-6" />
                     </div>
                     <div className="absolute bottom-32 left-1/4 text-[#B76E79] opacity-25">
-                        <Crown className="w-10 h-10" />
+                        <Crown className="size-10" />
                     </div>
                 </div>
 
                 <div className="relative max-w-7xl mx-auto px-6 py-24">
                     <div className="max-w-3xl">
                         <div className="flex items-center gap-3 mb-6">
-                            <div className="w-14 h-14 bg-linear-to-br from-[#B76E79] to-[#F5D0C5] rounded-full flex items-center justify-center">
-                                <Crown className="w-7 h-7 text-white" />
+                            <div className="size-14 bg-linear-to-br from-[#B76E79] to-[#F5D0C5] rounded-full flex items-center justify-center">
+                                <Crown className="size-7 text-white" />
                             </div>
                             <div className="flex gap-2">
                                 <span className="px-3 py-1 bg-[#B76E79] text-white text-xs font-semibold rounded-full">
@@ -108,7 +108,7 @@ export function HairExtensionsHome(props: TemplatePageProps) {
                         </p>
 
                         <div className="flex flex-wrap gap-4">
-                            <button
+                            <button type="button"
                                 onClick={() => {
                                     document.getElementById('products')?.scrollIntoView({ behavior: 'smooth' });
                                 }}
@@ -116,8 +116,8 @@ export function HairExtensionsHome(props: TemplatePageProps) {
                             >
                                 Shop Collection
                             </button>
-                            <button className="px-8 py-4 bg-white/10 text-white rounded-full font-semibold hover:bg-white/20 transition-colors border border-white/20 flex items-center gap-2">
-                                <PlayCircle className="w-5 h-5" />
+                            <button type="button" className="px-8 py-4 bg-white/10 text-white rounded-full font-semibold hover:bg-white/20 transition-colors border border-white/20 flex items-center gap-2">
+                                <PlayCircle className="size-5" />
                                 Watch Tutorial
                             </button>
                         </div>
@@ -133,8 +133,8 @@ export function HairExtensionsHome(props: TemplatePageProps) {
                             const Icon = badge.icon;
                             return (
                                 <div key={index} className="flex items-center gap-3">
-                                    <div className="w-12 h-12 bg-linear-to-br from-[#B76E79]/20 to-[#B76E79]/10 rounded-full flex items-center justify-center shrink-0 border border-[#B76E79]/30">
-                                        <Icon className="w-5 h-5 text-[#B76E79]" />
+                                    <div className="size-12 bg-linear-to-br from-[#B76E79]/20 to-[#B76E79]/10 rounded-full flex items-center justify-center shrink-0 border border-[#B76E79]/30">
+                                        <Icon className="size-5 text-[#B76E79]" />
                                     </div>
                                     <div>
                                         <div className="font-semibold text-white text-sm">{badge.title}</div>
@@ -160,7 +160,7 @@ export function HairExtensionsHome(props: TemplatePageProps) {
                         {textures.map((texture) => {
                             const isActive = selectedTexture === texture.value;
                             return (
-                                <button
+                                <button type="button"
                                     key={texture.value}
                                     onClick={() => setSelectedTexture(texture.value)}
                                     className={`px-6 py-3 rounded-full font-medium transition-all flex items-center gap-2 ${isActive
@@ -187,10 +187,10 @@ export function HairExtensionsHome(props: TemplatePageProps) {
                         {lengths.map((length) => {
                             const isActive = selectedLength === length;
                             return (
-                                <button
+                                <button type="button"
                                     key={length}
                                     onClick={() => setSelectedLength(isActive ? null : length)}
-                                    className={`w-14 h-14 rounded-full font-bold transition-all ${isActive
+                                    className={`size-14 rounded-full font-bold transition-all ${isActive
                                             ? 'bg-[#B76E79] text-white shadow-lg'
                                             : 'bg-white/5 text-gray-400 hover:bg-white/10 border border-white/10'
                                         }`}
@@ -254,20 +254,20 @@ export function HairExtensionsHome(props: TemplatePageProps) {
                             <ul className="space-y-3 mb-8">
                                 {['Clip-in installation', 'Sew-in techniques', 'Lace front styling', 'Maintenance tips'].map((item, idx) => (
                                     <li key={idx} className="flex items-center gap-3 text-white">
-                                        <div className="w-5 h-5 bg-white text-[#B76E79] rounded-full flex items-center justify-center text-xs font-bold">✓</div>
+                                        <div className="size-5 bg-white text-[#B76E79] rounded-full flex items-center justify-center text-xs font-bold">✓</div>
                                         <span>{item}</span>
                                     </li>
                                 ))}
                             </ul>
-                            <button className="px-8 py-4 bg-white text-[#B76E79] rounded-full font-semibold hover:bg-white/90 transition-colors shadow-lg flex items-center gap-2">
-                                <PlayCircle className="w-5 h-5" />
+                            <button type="button" className="px-8 py-4 bg-white text-[#B76E79] rounded-full font-semibold hover:bg-white/90 transition-colors shadow-lg flex items-center gap-2">
+                                <PlayCircle className="size-5" />
                                 Watch Tutorials
                             </button>
                         </div>
                         <div className="relative">
                             <div className="bg-white/10 backdrop-blur-xs rounded-3xl p-8 text-center border border-white/20">
-                                <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                                    <PlayCircle className="w-10 h-10 text-white" />
+                                <div className="size-20 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <PlayCircle className="size-10 text-white" />
                                 </div>
                                 <div className="text-2xl font-bold text-white">50+ Videos</div>
                                 <div className="text-white/70">Free tutorials</div>
@@ -301,7 +301,7 @@ export function HairExtensionsHome(props: TemplatePageProps) {
                                 </div>
                                 <div className="p-4">
                                     <div className="flex items-center gap-2 mb-2">
-                                        <Heart className="w-4 h-4 text-[#B76E79]" />
+                                        <Heart className="size-4 text-[#B76E79]" />
                                         <span className="font-semibold text-white">{t.name}</span>
                                     </div>
                                     <span className="text-sm text-gray-400">{t.style}</span>
@@ -343,7 +343,7 @@ export function HairExtensionsHome(props: TemplatePageProps) {
                                 <p className="text-gray-400 text-sm mb-4">{bundle.items}</p>
                                 <div className="text-3xl font-bold text-[#B76E79] mb-1">{bundle.price}</div>
                                 <div className="text-sm text-green-400">Save {bundle.save}</div>
-                                <button className={`w-full mt-6 py-3 rounded-full font-semibold transition-all ${idx === 1
+                                <button type="button" className={`w-full mt-6 py-3 rounded-full font-semibold transition-all ${idx === 1
                                         ? 'bg-[#B76E79] text-white hover:bg-[#A05D68]'
                                         : 'bg-white/10 text-white hover:bg-white/20 border border-white/20'
                                     }`}>
@@ -361,7 +361,7 @@ export function HairExtensionsHome(props: TemplatePageProps) {
                     <div className="grid md:grid-cols-4 gap-8 mb-8">
                         <div>
                             <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                                <Crown className="w-5 h-5 text-[#B76E79]" />
+                                <Crown className="size-5 text-[#B76E79]" />
                                 {merchant.business_name}
                             </h3>
                             <p className="text-sm leading-relaxed mb-4">

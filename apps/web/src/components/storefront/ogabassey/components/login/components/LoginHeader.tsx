@@ -25,7 +25,7 @@ export function LoginHeader({
           href={asRoute(backHref)}
           className="flex items-center gap-2 text-gray-500 hover:text-gray-900 transition-colors"
         >
-          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+          <ArrowLeft className="size-4" aria-hidden="true" />
           <span>{backLabel}</span>
         </Link>
       </div>

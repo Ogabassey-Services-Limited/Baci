@@ -54,7 +54,7 @@ export function KycVerification({
       <CardHeader>
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-lg bg-primary/10">
-            <Shield className="h-6 w-6 text-primary" />
+            <Shield className="size-6 text-primary" />
           </div>
           <div>
             <CardTitle>KYC Verification</CardTitle>
@@ -71,7 +71,7 @@ export function KycVerification({
           <AccordionItem value="nin">
             <AccordionTrigger>
               <div className="flex items-center gap-3">
-                <Fingerprint className="h-5 w-5 text-muted-foreground" />
+                <Fingerprint className="size-5 text-muted-foreground" />
                 <span>NIN Verification</span>
                 <VerificationBadge verified={verificationStatus.nin_verified} />
               </div>
@@ -91,7 +91,7 @@ export function KycVerification({
           <AccordionItem value="bvn">
             <AccordionTrigger>
               <div className="flex items-center gap-3">
-                <CreditCard className="h-5 w-5 text-muted-foreground" />
+                <CreditCard className="size-5 text-muted-foreground" />
                 <span>BVN Verification</span>
                 <VerificationBadge verified={verificationStatus.bvn_verified} />
               </div>
@@ -112,7 +112,7 @@ export function KycVerification({
           <AccordionItem value="cac">
             <AccordionTrigger>
               <div className="flex items-center gap-3">
-                <Building2 className="h-5 w-5 text-muted-foreground" />
+                <Building2 className="size-5 text-muted-foreground" />
                 <span>CAC Verification</span>
                 <VerificationBadge verified={verificationStatus.cac_verified} />
               </div>
@@ -129,7 +129,7 @@ export function KycVerification({
         </Accordion>
 
         <div className="flex items-center gap-2 pt-2 text-xs text-muted-foreground">
-          <Lock className="h-3 w-3" />
+          <Lock className="size-3" />
           <span>
             Your information is encrypted and securely stored. We only use it
             for payment verification purposes.

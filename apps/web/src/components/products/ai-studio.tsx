@@ -163,7 +163,7 @@ export function AIStudio({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-yellow-500" />
+            <Sparkles className="size-5 text-yellow-500" />
             AI Studio: {productName}
           </DialogTitle>
         </DialogHeader>
@@ -172,7 +172,7 @@ export function AIStudio({
           {step === 'capture' && (
             <div className="space-y-6 text-center w-full">
               <div className="border-2 border-dashed border-muted-foreground/25 rounded-xl p-8 bg-muted/5">
-                <Camera className="w-16 h-16 mx-auto text-muted-foreground mb-4 opacity-50" />
+                <Camera className="size-16 mx-auto text-muted-foreground mb-4 opacity-50" />
                 <p className="text-sm text-muted-foreground mb-6">
                   Take a photo of your product. AI will automatically remove the
                   background and add a studio white backdrop.
@@ -184,7 +184,7 @@ export function AIStudio({
                     className="w-full"
                     onClick={() => cameraInputRef.current?.click()}
                   >
-                    <Camera className="w-4 h-4 mr-2" />
+                    <Camera className="size-4 mr-2" />
                     Snap Photo
                   </Button>
                   <Button
@@ -193,7 +193,7 @@ export function AIStudio({
                     className="w-full"
                     onClick={() => fileInputRef.current?.click()}
                   >
-                    <Upload className="w-4 h-4 mr-2" />
+                    <Upload className="size-4 mr-2" />
                     Upload
                   </Button>
                 </div>
@@ -221,13 +221,13 @@ export function AIStudio({
 
           {step === 'processing' && (
             <div className="text-center space-y-4">
-              <div className="relative w-32 h-32 mx-auto">
+              <div className="relative size-32 mx-auto">
                 <div className="absolute inset-0 border-4 border-muted rounded-full" />
                 <div className="absolute inset-0 border-4 border-primary rounded-full border-t-transparent animate-spin" />
-                <Wand2 className="absolute inset-0 m-auto w-12 h-12 text-primary animate-pulse" />
+                <Wand2 className="absolute inset-0 m-auto size-12 text-primary animate-pulse" />
               </div>
               <div>
-                <h3 className="font-semibold text-lg">Magic in progress...</h3>
+                <h3 className="font-semibold text-lg">Magic in progress…</h3>
                 <p className="text-sm text-muted-foreground">{loadingText}</p>
               </div>
             </div>
@@ -254,7 +254,7 @@ export function AIStudio({
                   onClick={() => setStep('capture')}
                   disabled={isUploading}
                 >
-                  <X className="w-4 h-4 mr-2" />
+                  <X className="size-4 mr-2" />
                   Retake
                 </Button>
                 <Button
@@ -264,12 +264,12 @@ export function AIStudio({
                 >
                   {isUploading ? (
                     <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Saving...
+                      <Loader2 className="size-4 mr-2 animate-spin" />
+                      Saving…
                     </>
                   ) : (
                     <>
-                      <Check className="w-4 h-4 mr-2" />
+                      <Check className="size-4 mr-2" />
                       Save Image
                     </>
                   )}

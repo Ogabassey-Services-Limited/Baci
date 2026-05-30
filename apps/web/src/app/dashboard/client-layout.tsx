@@ -126,8 +126,8 @@ const StoreLink = ({
       <div className={cn(baseClassName, 'opacity-50 cursor-not-allowed')}>
         <Loader2
           className={cn(
-            'h-4 w-4 motion-safe:animate-spin',
-            isMobile && 'h-5 w-5'
+            'size-4 motion-safe:animate-spin',
+            isMobile && 'size-5'
           )}
         />
         {!isCollapsed && !isMobile && 'Visit Store'}
@@ -139,7 +139,7 @@ const StoreLink = ({
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>{loadingContent}</TooltipTrigger>
-          <TooltipContent side="right">Loading store...</TooltipContent>
+          <TooltipContent side="right">Loading store…</TooltipContent>
         </Tooltip>
       </TooltipProvider>
     );
@@ -156,7 +156,7 @@ const StoreLink = ({
 
   const linkContent = (
     <>
-      <Store className={isMobile ? 'h-5 w-5' : 'h-4 w-4'} />
+      <Store className={isMobile ? 'size-5' : 'size-4'} />
       {!isCollapsed && !isMobile && (
         <span className="font-medium text-foreground">{displayUrl}</span>
       )}
@@ -640,7 +640,7 @@ export default function DashboardClientLayout({
         <item.icon
           className={cn(
             'shrink-0 transition-transform group-hover:scale-110',
-            options.isSubItem ? 'h-4 w-4' : 'h-5 w-5',
+            options.isSubItem ? 'size-4' : 'size-5',
             isActive && !options.isSubItem && 'animate-pulse-subtle'
           )}
           aria-hidden="true"
@@ -694,7 +694,7 @@ export default function DashboardClientLayout({
             : 'text-muted-foreground hover:bg-muted'
         )}
       >
-        <item.icon className={options.isSubItem ? 'h-4 w-4' : 'h-5 w-5'} />
+        <item.icon className={options.isSubItem ? 'size-4' : 'size-5'} />
         {item.label}
         {item.badge && (
           <Badge className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-accent text-accent-foreground px-1.5 text-[10px]">
@@ -828,7 +828,7 @@ export default function DashboardClientLayout({
             <div className="p-4 mt-auto">
               {!isCollapsed && (
                 <div className="relative overflow-hidden rounded-2xl bg-linear-to-br from-primary to-primary/80 p-4 text-primary-foreground shadow-lg">
-                  <div className="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-white/10 blur-2xl" />
+                  <div className="absolute -right-4 -top-4 size-24 rounded-full bg-white/10 blur-2xl" />
                   <h4 className="font-semibold relative z-10">
                     Upgrade to Pro
                   </h4>
@@ -861,9 +861,9 @@ export default function DashboardClientLayout({
             )}
           >
             {isCollapsed ? (
-              <PanelLeftOpen className="h-4 w-4" />
+              <PanelLeftOpen className="size-4" />
             ) : (
-              <PanelLeftClose className="h-4 w-4" />
+              <PanelLeftClose className="size-4" />
             )}
             <span className="sr-only">
               {isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
@@ -879,7 +879,7 @@ export default function DashboardClientLayout({
                   size="icon"
                   className="shrink-0 md:hidden"
                 >
-                  <Menu className="h-5 w-5" />
+                  <Menu className="size-5" />
                   <span className="sr-only">Toggle navigation menu</span>
                 </Button>
               </SheetTrigger>
@@ -929,7 +929,7 @@ export default function DashboardClientLayout({
                     className="rounded-full"
                     aria-label="User menu"
                   >
-                    <User className="h-5 w-5" />
+                    <User className="size-5" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
@@ -964,7 +964,7 @@ export default function DashboardClientLayout({
                     aria-label="Select country"
                   >
                     {merchantLoading ? (
-                      <Loader2 className="h-3 w-3 animate-spin" />
+                      <Loader2 className="size-3 animate-spin" />
                     ) : selectedCountry ? (
                       <span className="text-lg leading-none">
                         {selectedCountry.flag}
@@ -972,7 +972,7 @@ export default function DashboardClientLayout({
                     ) : (
                       '🌐'
                     )}
-                    <ChevronDown className="h-3 w-3 opacity-50" />
+                    <ChevronDown className="size-3 opacity-50" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-[200px]">
@@ -1002,10 +1002,10 @@ export default function DashboardClientLayout({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 rounded-full hover:bg-white/50"
+                    className="size-8 rounded-full hover:bg-white/50"
                     aria-label="User menu"
                   >
-                    <User className="h-4 w-4" />
+                    <User className="size-4" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
@@ -1020,7 +1020,7 @@ export default function DashboardClientLayout({
                     onClick={handleSignOut}
                     className="text-red-500"
                   >
-                    <LogOut className="mr-2 h-4 w-4" />
+                    <LogOut className="mr-2 size-4" />
                     Logout
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -1059,7 +1059,7 @@ export default function DashboardClientLayout({
                 : 'text-muted-foreground hover:text-foreground'
             )}
           >
-            <LayoutDashboard className="h-5 w-5" />
+            <LayoutDashboard className="size-5" />
             <span className="text-[10px] font-medium">Home</span>
           </Link>
           <Link
@@ -1073,9 +1073,9 @@ export default function DashboardClientLayout({
             )}
           >
             <div className="relative">
-              <ShoppingCart className="h-5 w-5" />
+              <ShoppingCart className="size-5" />
               {ordersCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white ring-2 ring-background">
+                <span className="absolute -top-1.5 -right-1.5 flex size-3.5 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white ring-2 ring-background">
                   {ordersCount}
                 </span>
               )}
@@ -1092,7 +1092,7 @@ export default function DashboardClientLayout({
                 : 'text-muted-foreground hover:text-foreground'
             )}
           >
-            <Package className="h-5 w-5" />
+            <Package className="size-5" />
             <span className="text-[10px] font-medium">Products</span>
           </Link>
           <Link
@@ -1105,7 +1105,7 @@ export default function DashboardClientLayout({
                 : 'text-muted-foreground hover:text-foreground'
             )}
           >
-            <Users className="h-5 w-5" />
+            <Users className="size-5" />
             <span className="text-[10px] font-medium">Customers</span>
           </Link>
           <button
@@ -1115,7 +1115,7 @@ export default function DashboardClientLayout({
               'flex flex-col items-center justify-center gap-1 w-16 h-full transition-colors text-muted-foreground hover:text-foreground'
             )}
           >
-            <Menu className="h-5 w-5" />
+            <Menu className="size-5" />
             <span className="text-[10px] font-medium">Menu</span>
           </button>
         </div>

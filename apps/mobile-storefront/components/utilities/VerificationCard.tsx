@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 interface VerificationCardProps {
@@ -18,7 +18,7 @@ export function VerificationCard({
     return (
       <View style={[styles.card, styles.loadingCard]}>
         <ActivityIndicator size="small" color="#6B7280" />
-        <Text style={styles.loadingText}>Verifying customer...</Text>
+        <Text style={styles.loadingText}>Verifying customer…</Text>
       </View>
     );
   }

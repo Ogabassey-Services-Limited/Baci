@@ -107,10 +107,7 @@ export function MerchantTable({
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" size="icon">
-                        <MoreHorizontal
-                          className="h-4 w-4"
-                          aria-hidden="true"
-                        />
+                        <MoreHorizontal className="size-4" aria-hidden="true" />
                         <span className="sr-only">Actions</span>
                       </Button>
                     </DropdownMenuTrigger>
@@ -119,20 +116,20 @@ export function MerchantTable({
                       <DropdownMenuSeparator />
                       <DropdownMenuItem asChild>
                         <Link href={`/admin/merchants/${merchant.merchant_id}`}>
-                          <Users className="mr-2 h-4 w-4" aria-hidden="true" />
+                          <Users className="mr-2 size-4" aria-hidden="true" />
                           View merchant users
                         </Link>
                       </DropdownMenuItem>
                       {merchant.email ? (
                         <DropdownMenuItem asChild>
                           <a href={`mailto:${merchant.email}`}>
-                            <Mail className="mr-2 h-4 w-4" aria-hidden="true" />
+                            <Mail className="mr-2 size-4" aria-hidden="true" />
                             Send Email
                           </a>
                         </DropdownMenuItem>
                       ) : (
                         <DropdownMenuItem disabled>
-                          <Mail className="mr-2 h-4 w-4" aria-hidden="true" />
+                          <Mail className="mr-2 size-4" aria-hidden="true" />
                           Send Email
                         </DropdownMenuItem>
                       )}
@@ -151,7 +148,7 @@ export function MerchantTable({
                         }}
                       >
                         <ExternalLink
-                          className="mr-2 h-4 w-4"
+                          className="mr-2 size-4"
                           aria-hidden="true"
                         />
                         View Store

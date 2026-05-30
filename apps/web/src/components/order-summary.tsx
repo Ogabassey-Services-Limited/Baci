@@ -74,7 +74,7 @@ export function OrderSummary({
           {discountAmount > 0 && discountCode && (
             <div className="flex justify-between text-green-600">
               <span className="flex items-center gap-1">
-                <Tag className="h-3 w-3" />
+                <Tag className="size-3" />
                 Discount ({discountCode})
               </span>
               <span>-{formatCurrency(discountAmount)}</span>

@@ -26,7 +26,7 @@ export default function ErrorPage({
         </div>
 
         <div className="text-center mb-6">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+          <div className="size-16 mx-auto mb-4 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
             <span className="text-3xl">⚠️</span>
           </div>
           <h1 className="text-2xl font-bold mb-2 text-red-600 dark:text-red-400">

@@ -96,7 +96,7 @@ export function OgabasseyPdpProductLcpSkeleton({
       aria-label="Loading product details"
     >
       {/* 1. Breadcrumbs Skeleton */}
-      <div className="flex items-center space-x-2 py-4 text-sm text-muted-foreground/40 animate-pulse">
+      <div className="flex items-center gap-x-2 py-4 text-sm text-muted-foreground/40 animate-pulse">
         <div className="h-4 bg-muted/20 rounded w-12" />
         <span>/</span>
         <div className="h-4 bg-muted/20 rounded w-16" />
@@ -124,7 +124,7 @@ export function OgabasseyPdpProductLcpSkeleton({
             {[1, 2, 3, 4].map((i) => (
               <div
                 key={i}
-                className="h-24 w-24 shrink-0 rounded-xl bg-muted/20"
+                className="size-24 shrink-0 rounded-xl bg-muted/20"
               />
             ))}
           </div>

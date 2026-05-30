@@ -226,9 +226,9 @@ export function CacVerification({
             />
             <Button type="submit" disabled={searching || !rcNumber.trim()}>
               {searching ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 className="mr-2 size-4 animate-spin" />
               ) : (
-                <Search className="mr-2 h-4 w-4" />
+                <Search className="mr-2 size-4" />
               )}
               Search CAC
             </Button>
@@ -300,7 +300,7 @@ export function CacVerification({
           )}
           <div className="flex gap-3">
             <Button variant="outline" onClick={() => setCacStep('confirm')}>
-              <ArrowLeft className="mr-2 h-4 w-4" />
+              <ArrowLeft className="mr-2 size-4" />
               Back
             </Button>
             <Button
@@ -308,9 +308,9 @@ export function CacVerification({
               disabled={uploading || !selectedFile}
             >
               {uploading ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 className="mr-2 size-4 animate-spin" />
               ) : (
-                <Upload className="mr-2 h-4 w-4" />
+                <Upload className="mr-2 size-4" />
               )}
               Verify Certificate
             </Button>

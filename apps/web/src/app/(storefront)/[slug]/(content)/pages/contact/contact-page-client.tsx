@@ -120,7 +120,7 @@ export function ContactPageClient({
                 <div className="container px-4 md:px-6 text-center">
                   <div className="flex justify-center mb-6">
                     <div className="p-4 bg-primary/10 rounded-full">
-                      <MessageSquare className="h-10 w-10 text-primary" />
+                      <MessageSquare className="size-10 text-primary" />
                     </div>
                   </div>
                   <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">
@@ -210,12 +210,12 @@ export function ContactPageClient({
                       >
                         {isSubmitting ? (
                           <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Sending...
+                            <Loader2 className="mr-2 size-4 animate-spin" />
+                            Sending…
                           </>
                         ) : (
                           <>
-                            <Send className="mr-2 h-4 w-4" />
+                            <Send className="mr-2 size-4" />
                             Send Message
                           </>
                         )}
@@ -233,7 +233,7 @@ export function ContactPageClient({
                           <Card>
                             <CardContent className="flex items-center gap-4 p-4">
                               <div className="p-3 bg-primary/10 rounded-full">
-                                <Mail className="h-5 w-5 text-primary" />
+                                <Mail className="size-5 text-primary" />
                               </div>
                               <div>
                                 <p className="text-sm text-muted-foreground">
@@ -254,7 +254,7 @@ export function ContactPageClient({
                           <Card>
                             <CardContent className="flex items-center gap-4 p-4">
                               <div className="p-3 bg-primary/10 rounded-full">
-                                <Phone className="h-5 w-5 text-primary" />
+                                <Phone className="size-5 text-primary" />
                               </div>
                               <div>
                                 <p className="text-sm text-muted-foreground">
@@ -275,7 +275,7 @@ export function ContactPageClient({
                           <Card>
                             <CardContent className="flex items-center gap-4 p-4">
                               <div className="p-3 bg-primary/10 rounded-full">
-                                <MapPin className="h-5 w-5 text-primary" />
+                                <MapPin className="size-5 text-primary" />
                               </div>
                               <div>
                                 <p className="text-sm text-muted-foreground">
@@ -294,7 +294,7 @@ export function ContactPageClient({
                             <CardContent className="p-4">
                               <div className="flex items-center gap-3 mb-3">
                                 <div className="p-3 bg-primary/10 rounded-full">
-                                  <Clock className="h-5 w-5 text-primary" />
+                                  <Clock className="size-5 text-primary" />
                                 </div>
                                 <p className="font-medium">Business Hours</p>
                               </div>

@@ -44,17 +44,17 @@ export function AnalyticsFilters({
               size="sm"
               className="rounded-full bg-white/60 dark:bg-black/40 backdrop-blur-xl border-none shadow-sm ring-1 ring-black/5 dark:ring-white/10 hover:bg-white/80 dark:hover:bg-black/60"
             >
-              <Download className="mr-2 h-4 w-4" />
+              <Download className="mr-2 size-4" />
               Export Report
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => onExport?.('csv')}>
-              <FileSpreadsheet className="mr-2 h-4 w-4" />
+              <FileSpreadsheet className="mr-2 size-4" />
               Export as CSV
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => onExport?.('pdf')}>
-              <FileText className="mr-2 h-4 w-4" />
+              <FileText className="mr-2 size-4" />
               Export as PDF
             </DropdownMenuItem>
           </DropdownMenuContent>

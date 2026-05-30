@@ -169,7 +169,7 @@ export function RewardsCatalog({
     return (
       <Card>
         <CardContent className="py-8 text-center">
-          <AlertCircle className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+          <AlertCircle className="size-12 mx-auto text-muted-foreground mb-4" />
           <h3 className="font-semibold mb-2">Join to See Rewards</h3>
           <p className="text-sm text-muted-foreground">
             Enroll in our loyalty program to view and redeem rewards
@@ -183,7 +183,7 @@ export function RewardsCatalog({
     return (
       <Card>
         <CardContent className="py-8 text-center">
-          <Gift className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+          <Gift className="size-12 mx-auto text-muted-foreground mb-4" />
           <h3 className="font-semibold mb-2">No Rewards Available</h3>
           <p className="text-sm text-muted-foreground">
             Check back later for new rewards
@@ -219,7 +219,7 @@ export function RewardsCatalog({
                 <CardHeader className="pb-2">
                   <div className="flex items-start justify-between">
                     <div className="p-2 bg-primary/10 rounded-lg">
-                      <Icon className="h-5 w-5 text-primary" />
+                      <Icon className="size-5 text-primary" />
                     </div>
                     <Badge variant="secondary">{getRewardLabel(reward)}</Badge>
                   </div>
@@ -240,7 +240,7 @@ export function RewardsCatalog({
 
                   {reward.min_tier && tierInfo && (
                     <div className="flex items-center gap-1 text-xs text-muted-foreground mb-3">
-                      <Lock className="h-3 w-3" />
+                      <Lock className="size-3" />
                       <span>
                         Requires{' '}
                         <span className={tierInfo.colors.text}>
@@ -276,7 +276,7 @@ export function RewardsCatalog({
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Check className="h-5 w-5 text-green-600" />
+              <Check className="size-5 text-green-600" />
               Reward Redeemed!
             </DialogTitle>
             <DialogDescription>
@@ -298,7 +298,7 @@ export function RewardsCatalog({
                     onClick={copyCode}
                     aria-label="Copy redemption code"
                   >
-                    <Copy className="h-4 w-4" />
+                    <Copy className="size-4" />
                   </Button>
                 </div>
               </div>

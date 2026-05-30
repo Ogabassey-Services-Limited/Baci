@@ -246,10 +246,10 @@ export const EditorToolbar = ({
           type="button"
           onClick={handleUndo}
           disabled={!canUndo}
-          className="h-8 w-8 p-0"
+          className="size-8 p-0"
           title="Undo"
         >
-          <Undo className="h-4 w-4" />
+          <Undo className="size-4" />
         </Button>
         <Button
           variant="ghost"
@@ -257,10 +257,10 @@ export const EditorToolbar = ({
           type="button"
           onClick={handleRedo}
           disabled={!canRedo}
-          className="h-8 w-8 p-0"
+          className="size-8 p-0"
           title="Redo"
         >
-          <Redo className="h-4 w-4" />
+          <Redo className="size-4" />
         </Button>
       </div>
 
@@ -280,12 +280,12 @@ export const EditorToolbar = ({
             size="sm"
             type="button"
             onClick={btn.command}
-            className={cn('h-8 w-8 p-0', {
+            className={cn('size-8 p-0', {
               'bg-accent text-accent-foreground': btn.isActive(),
             })}
             title={btn.title}
           >
-            <btn.icon className="h-4 w-4" />
+            <btn.icon className="size-4" />
           </Button>
         ))}
       </div>
@@ -301,12 +301,12 @@ export const EditorToolbar = ({
             size="sm"
             type="button"
             onClick={btn.command}
-            className={cn('h-8 w-8 p-0', {
+            className={cn('size-8 p-0', {
               'bg-accent text-accent-foreground': btn.isActive(),
             })}
             title={btn.title}
           >
-            <btn.icon className="h-4 w-4" />
+            <btn.icon className="size-4" />
           </Button>
         ))}
       </div>
@@ -322,12 +322,12 @@ export const EditorToolbar = ({
             size="sm"
             type="button"
             onClick={btn.command}
-            className={cn('h-8 w-8 p-0', {
+            className={cn('size-8 p-0', {
               'bg-accent text-accent-foreground': btn.isActive(),
             })}
             title={btn.title}
           >
-            <btn.icon className="h-4 w-4" />
+            <btn.icon className="size-4" />
           </Button>
         ))}
         <Button
@@ -337,13 +337,13 @@ export const EditorToolbar = ({
           onClick={() =>
             getTiptap(editor)?.chain().focus().toggleBlockquote().run()
           }
-          className={cn('h-8 w-8 p-0', {
+          className={cn('size-8 p-0', {
             'bg-accent text-accent-foreground':
               getTiptap(editor)?.isActive('blockquote'),
           })}
           title="Blockquote"
         >
-          <Quote className="h-4 w-4" />
+          <Quote className="size-4" />
         </Button>
         <Button
           variant="ghost"
@@ -352,10 +352,10 @@ export const EditorToolbar = ({
           onClick={() =>
             getTiptap(editor)?.chain().focus().setHorizontalRule().run()
           }
-          className="h-8 w-8 p-0"
+          className="size-8 p-0"
           title="Horizontal Rule"
         >
-          <Minus className="h-4 w-4" />
+          <Minus className="size-4" />
         </Button>
       </div>
 
@@ -373,13 +373,13 @@ export const EditorToolbar = ({
           size="sm"
           type="button"
           onClick={onOpenLink}
-          className={cn('h-8 w-8 p-0', {
+          className={cn('size-8 p-0', {
             'bg-accent text-accent-foreground':
               getTiptap(editor)?.isActive('link'),
           })}
           title="Hyperlink"
         >
-          <LinkIcon className="h-4 w-4" />
+          <LinkIcon className="size-4" />
         </Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -387,10 +387,10 @@ export const EditorToolbar = ({
               variant="ghost"
               size="sm"
               type="button"
-              className="h-8 w-8 p-0"
+              className="size-8 p-0"
               title="Insert Image"
             >
-              <ImageIcon className="h-4 w-4" />
+              <ImageIcon className="size-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-48">
@@ -398,14 +398,14 @@ export const EditorToolbar = ({
               onClick={() => fileInputRef.current?.click()}
               aria-label="Upload image from device"
             >
-              <ImageIcon className="mr-2 h-4 w-4" />
+              <ImageIcon className="mr-2 size-4" />
               Upload from device
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={openImageInsertPopover}
               aria-label="Insert image from URL"
             >
-              <LinkIcon className="mr-2 h-4 w-4" />
+              <LinkIcon className="mr-2 size-4" />
               Insert from URL
             </DropdownMenuItem>
             {getTiptap(editor)?.isActive('image') ? (
@@ -413,7 +413,7 @@ export const EditorToolbar = ({
                 onClick={openImageCaptionPopover}
                 aria-label="Edit selected image caption"
               >
-                <ImageIcon className="mr-2 h-4 w-4" />
+                <ImageIcon className="mr-2 size-4" />
                 Edit caption
               </DropdownMenuItem>
             ) : null}
@@ -518,10 +518,10 @@ export const EditorToolbar = ({
               .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
               .run()
           }
-          className="h-8 w-8 p-0"
+          className="size-8 p-0"
           title="Insert Table"
         >
-          <Grid className="h-4 w-4" />
+          <Grid className="size-4" />
         </Button>
         <Button
           variant="ghost"
@@ -542,10 +542,10 @@ export const EditorToolbar = ({
               }
             }
           }}
-          className="h-8 w-8 p-0"
+          className="size-8 p-0"
           title="Insert YouTube Video"
         >
-          <YoutubeIcon className="h-4 w-4" />
+          <YoutubeIcon className="size-4" />
         </Button>
         <div className="flex items-center gap-1 border-x px-1 mx-1">
           <Button
@@ -556,12 +556,12 @@ export const EditorToolbar = ({
               getTiptap(editor)?.chain().focus().toggleSuperscript().run()
             }
             className={cn(
-              'h-8 w-8 p-0',
+              'size-8 p-0',
               getTiptap(editor)?.isActive('superscript') && 'bg-accent'
             )}
             title="Superscript"
           >
-            <SuperscriptIcon className="h-4 w-4" />
+            <SuperscriptIcon className="size-4" />
           </Button>
           <Button
             variant="ghost"
@@ -571,12 +571,12 @@ export const EditorToolbar = ({
               getTiptap(editor)?.chain().focus().toggleSubscript().run()
             }
             className={cn(
-              'h-8 w-8 p-0',
+              'size-8 p-0',
               getTiptap(editor)?.isActive('subscript') && 'bg-accent'
             )}
             title="Subscript"
           >
-            <SubscriptIcon className="h-4 w-4" />
+            <SubscriptIcon className="size-4" />
           </Button>
         </div>
         {onOpenProducts && (
@@ -585,10 +585,10 @@ export const EditorToolbar = ({
             size="sm"
             type="button"
             onClick={onOpenProducts}
-            className="h-8 w-8 p-0"
+            className="size-8 p-0"
             title="Embed Products"
           >
-            <ShoppingBag className="h-4 w-4" />
+            <ShoppingBag className="size-4" />
           </Button>
         )}
       </div>

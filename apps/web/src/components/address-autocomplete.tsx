@@ -208,7 +208,7 @@ export function AddressAutocomplete({
   return (
     <div className="relative group" style={{ overflow: 'visible' }}>
       {showIcon && (
-        <Home className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-store-primary transition-colors duration-200 z-10" />
+        <Home className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground group-focus-within:text-store-primary transition-colors duration-200 z-10" />
       )}
       <InputComponent
         {...props}
@@ -235,11 +235,11 @@ export function AddressAutocomplete({
             className="text-muted-foreground hover:text-foreground transition-colors"
             aria-label="Clear address"
           >
-            <X className="h-4 w-4" />
+            <X className="size-4" />
           </button>
         )}
         {isLoading && (
-          <Loader2 className="h-4 w-4 animate-spin text-store-primary" />
+          <Loader2 className="size-4 animate-spin text-store-primary" />
         )}
       </div>
 
@@ -276,7 +276,7 @@ export function AddressAutocomplete({
                         : 'bg-gray-100 text-gray-500 group-hover/item:bg-store-primary/10 group-hover/item:text-store-primary'
                     )}
                   >
-                    <MapPin className="h-3.5 w-3.5" />
+                    <MapPin className="size-3.5" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p

@@ -100,24 +100,20 @@ export async function StorefrontPageContent({
   return (
     <>
       {(localBusinessSchema || webSiteSchema) && (
-        <script
-          type="application/ld+json"
-          // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema from sanitized merchant data
-          dangerouslySetInnerHTML={{
-            __html: safeJsonLdStringify({
-              '@context': 'https://schema.org',
-              '@graph': [organizationSchema, localBusinessSchema, webSiteSchema]
-                .filter(Boolean)
-                .map((schema) => {
-                  const { '@context': _, ...rest } = schema as Record<
-                    string,
-                    unknown
-                  >;
-                  return rest;
-                }),
-            }),
-          }}
-        />
+        <script type="application/ld+json">
+          {safeJsonLdStringify({
+            '@context': 'https://schema.org',
+            '@graph': [organizationSchema, localBusinessSchema, webSiteSchema]
+              .filter(Boolean)
+              .map((schema) => {
+                const { '@context': _, ...rest } = schema as Record<
+                  string,
+                  unknown
+                >;
+                return rest;
+              }),
+          })}
+        </script>
       )}
 
       <StorefrontContent merchant={merchant} />

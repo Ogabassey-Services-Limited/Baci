@@ -97,8 +97,8 @@ export function FoodBeverageHome(props: TemplatePageProps) {
                 <div className="relative max-w-7xl mx-auto px-6 py-20">
                     <div className="max-w-3xl">
                         <div className="flex items-center gap-3 mb-6">
-                            <div className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center">
-                                <ChefHat className="w-7 h-7" />
+                            <div className="size-14 bg-white/20 rounded-full flex items-center justify-center">
+                                <ChefHat className="size-7" />
                             </div>
                             <div className="flex gap-2">
                                 <span className="px-3 py-1 bg-store-accent text-white text-xs font-semibold rounded-full">
@@ -120,7 +120,7 @@ export function FoodBeverageHome(props: TemplatePageProps) {
                         </p>
 
                         <div className="flex flex-wrap gap-4">
-                            <button
+                            <button type="button"
                                 onClick={() => {
                                     document.getElementById('products')?.scrollIntoView({ behavior: 'smooth' });
                                 }}
@@ -128,8 +128,8 @@ export function FoodBeverageHome(props: TemplatePageProps) {
                             >
                                 Shop Fresh
                             </button>
-                            <button className="px-8 py-4 bg-store-accent text-white rounded-full font-semibold hover:bg-[color-mix(in_srgb,var(--store-accent),black_10%)] transition-colors shadow-lg flex items-center gap-2">
-                                <Heart className="w-5 h-5" />
+                            <button type="button" className="px-8 py-4 bg-store-accent text-white rounded-full font-semibold hover:bg-[color-mix(in_srgb,var(--store-accent),black_10%)] transition-colors shadow-lg flex items-center gap-2">
+                                <Heart className="size-5" />
                                 Weekly Box
                             </button>
                         </div>
@@ -145,8 +145,8 @@ export function FoodBeverageHome(props: TemplatePageProps) {
                             const Icon = badge.icon;
                             return (
                                 <div key={index} className="flex items-center gap-3">
-                                    <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center shrink-0">
-                                        <Icon className="w-6 h-6 text-store-primary" />
+                                    <div className="size-12 bg-orange-100 rounded-full flex items-center justify-center shrink-0">
+                                        <Icon className="size-6 text-store-primary" />
                                     </div>
                                     <div>
                                         <div className="font-semibold text-store-foreground text-sm">{badge.title}</div>
@@ -170,7 +170,7 @@ export function FoodBeverageHome(props: TemplatePageProps) {
                             const Icon = category.icon;
                             const isActive = selectedCategory === category.value;
                             return (
-                                <button
+                                <button type="button"
                                     key={category.value}
                                     onClick={() => setSelectedCategory(category.value)}
                                     className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 ${isActive
@@ -212,7 +212,7 @@ export function FoodBeverageHome(props: TemplatePageProps) {
                                 {dietaryFilters.map((filter) => {
                                     const isActive = selectedDiet === filter.value;
                                     return (
-                                        <button
+                                        <button type="button"
                                             key={filter.value}
                                             onClick={() => setSelectedDiet(isActive ? null : filter.value)}
                                             className={`px-4 py-2 rounded-full text-sm font-medium transition-all border ${isActive
@@ -256,12 +256,12 @@ export function FoodBeverageHome(props: TemplatePageProps) {
                             <ul className="space-y-3 mb-8">
                                 {['Seasonal local produce', 'Artisan breads & pastries', 'Free delivery included', 'Skip or cancel anytime'].map((item, idx) => (
                                     <li key={idx} className="flex items-center gap-3">
-                                        <div className="w-5 h-5 bg-lime-400 text-[color-mix(in_srgb,var(--store-accent),black_40%)] rounded-full flex items-center justify-center text-xs font-bold">✓</div>
+                                        <div className="size-5 bg-lime-400 text-[color-mix(in_srgb,var(--store-accent),black_40%)] rounded-full flex items-center justify-center text-xs font-bold">✓</div>
                                         <span>{item}</span>
                                     </li>
                                 ))}
                             </ul>
-                            <button className="px-8 py-4 bg-white text-store-accent rounded-full font-semibold hover:bg-lime-50 transition-colors shadow-lg">
+                            <button type="button" className="px-8 py-4 bg-white text-store-accent rounded-full font-semibold hover:bg-lime-50 transition-colors shadow-lg">
                                 Start Your Box →
                             </button>
                         </div>
@@ -297,7 +297,7 @@ export function FoodBeverageHome(props: TemplatePageProps) {
                                     <h3 className="text-xl font-serif font-bold text-store-foreground mb-2">{recipe.name}</h3>
                                     <div className="flex items-center gap-4 text-sm text-gray-600">
                                         <span className="flex items-center gap-1">
-                                            <Clock className="w-4 h-4" /> {recipe.time}
+                                            <Clock className="size-4" /> {recipe.time}
                                         </span>
                                         <span className="px-2 py-1 bg-orange-100 text-store-primary rounded-full text-xs font-medium">
                                             {recipe.difficulty}
@@ -333,7 +333,7 @@ export function FoodBeverageHome(props: TemplatePageProps) {
                                 Our commitment to sustainable practices means less packaging, local sourcing,
                                 and supporting small-batch producers who care about their craft.
                             </p>
-                            <button className="text-store-primary font-semibold hover:text-[color-mix(in_srgb,var(--store-primary),black_20%)] transition-colors">
+                            <button type="button" className="text-store-primary font-semibold hover:text-[color-mix(in_srgb,var(--store-primary),black_20%)] transition-colors">
                                 Learn More About Our Farms →
                             </button>
                         </div>

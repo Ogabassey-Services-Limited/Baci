@@ -65,7 +65,7 @@ export function RichTextEditor({
           onPressedChange={() => editor.chain().focus().toggleBold().run()}
           aria-label="Toggle bold"
         >
-          <Bold className="h-4 w-4" />
+          <Bold className="size-4" />
         </Toggle>
         <Toggle
           size="sm"
@@ -73,7 +73,7 @@ export function RichTextEditor({
           onPressedChange={() => editor.chain().focus().toggleItalic().run()}
           aria-label="Toggle italic"
         >
-          <Italic className="h-4 w-4" />
+          <Italic className="size-4" />
         </Toggle>
         <Toggle
           size="sm"
@@ -83,7 +83,7 @@ export function RichTextEditor({
           }
           aria-label="Toggle heading"
         >
-          <Heading2 className="h-4 w-4" />
+          <Heading2 className="size-4" />
         </Toggle>
         <Toggle
           size="sm"
@@ -93,7 +93,7 @@ export function RichTextEditor({
           }
           aria-label="Toggle bullet list"
         >
-          <List className="h-4 w-4" />
+          <List className="size-4" />
         </Toggle>
         <Toggle
           size="sm"
@@ -103,7 +103,7 @@ export function RichTextEditor({
           }
           aria-label="Toggle ordered list"
         >
-          <ListOrdered className="h-4 w-4" />
+          <ListOrdered className="size-4" />
         </Toggle>
         <Toggle
           size="sm"
@@ -113,7 +113,7 @@ export function RichTextEditor({
           }
           aria-label="Toggle quote"
         >
-          <Quote className="h-4 w-4" />
+          <Quote className="size-4" />
         </Toggle>
         <div className="ml-auto flex gap-1">
           <Button
@@ -121,20 +121,20 @@ export function RichTextEditor({
             size="sm"
             onClick={() => editor.chain().focus().undo().run()}
             disabled={!editor.can().undo()}
-            className="h-8 w-8 p-0"
+            className="size-8 p-0"
             aria-label="Undo"
           >
-            <Undo className="h-4 w-4" />
+            <Undo className="size-4" />
           </Button>
           <Button
             variant="ghost"
             size="sm"
             onClick={() => editor.chain().focus().redo().run()}
             disabled={!editor.can().redo()}
-            className="h-8 w-8 p-0"
+            className="size-8 p-0"
             aria-label="Redo"
           >
-            <Redo className="h-4 w-4" />
+            <Redo className="size-4" />
           </Button>
         </div>
       </div>

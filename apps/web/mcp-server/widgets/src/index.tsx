@@ -107,7 +107,7 @@ function ProductCard({
         )}
       </div>
       <div className="product-actions">
-        <button
+        <button type="button"
           className={`btn-add-cart ${isInCart ? 'in-cart' : ''}`}
           onClick={() => onAddToCart(product)}
           disabled={isInCart}
@@ -144,7 +144,7 @@ function ProductCard({
             </>
           )}
         </button>
-        <button
+        <button type="button"
           className="btn-buy-now"
           onClick={() => {
             const url = `https://ogabassey.com/ogabassey/cart?item_id=${product.id}`;
@@ -202,7 +202,7 @@ function CartSummary({
           <div key={item.product.id} className="cart-item">
             <span className="cart-item-name">{item.product.name}</span>
             <span className="cart-item-qty">×{item.quantity}</span>
-            <button
+            <button type="button"
               className="cart-item-remove"
               onClick={() => onRemoveItem(item.product.id)}
               aria-label={`Remove ${item.product.name}`}
@@ -212,7 +212,7 @@ function CartSummary({
           </div>
         ))}
       </div>
-      <button className="btn-checkout" onClick={onViewCart}>
+      <button type="button" className="btn-checkout" onClick={onViewCart}>
         Proceed to Checkout →
       </button>
     </div>
@@ -290,7 +290,7 @@ function App() {
           </div>
         </div>
         {cart.length > 0 && (
-          <button className="cart-badge" onClick={handleViewCart}>
+          <button type="button" className="cart-badge" onClick={handleViewCart}>
             <svg
               width="20"
               height="20"
@@ -345,7 +345,7 @@ function App() {
       {/* Mobile Sticky Footer */}
       {cart.length > 0 && (
         <div className="mobile-sticky-footer">
-          <button
+          <button type="button"
             className="btn-negotiate-icon"
             onClick={() => {
               window.openai?.sendFollowUpMessage?.(
@@ -369,14 +369,14 @@ function App() {
               <path d="M16 10h.01" />
             </svg>
           </button>
-          <button className="btn-checkout-sticky" onClick={handleViewCart}>
+          <button type="button" className="btn-checkout-sticky" onClick={handleViewCart}>
             Proceed to Checkout →
           </button>
         </div>
       )}
 
       <footer className="widget-footer">
-        <button
+        <button type="button"
           className="btn-browse-more"
           onClick={() => {
             window.openai?.openExternal?.({ href: 'https://ogabassey.com' }) ||

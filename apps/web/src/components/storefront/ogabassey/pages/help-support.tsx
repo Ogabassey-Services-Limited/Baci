@@ -257,7 +257,7 @@ export const OgabasseyV2HelpSupport: React.FC<HelpProps> = ({ merchant }) => {
                   </div>
                 </div>
                 {/* Decoration */}
-                <div className="absolute -top-10 -right-10 w-32 h-32 bg-red-600 rounded-full blur-3xl opacity-20" />
+                <div className="absolute -top-10 -right-10 size-32 bg-red-600 rounded-full blur-3xl opacity-20" />
               </div>
 
               <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">

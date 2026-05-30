@@ -28,9 +28,9 @@ export function ProcessingView() {
 
   return (
     <div className="flex flex-col items-center justify-center h-full text-center py-12">
-      <Loader2 className="w-16 h-16 animate-spin text-primary mb-6" />
+      <Loader2 className="size-16 animate-spin text-primary mb-6" />
       <h2 className="text-2xl font-semibold mb-2">
-        AI is analyzing your file...
+        AI is analyzing your file…
       </h2>
       <p className="text-muted-foreground transition-all duration-300">
         {progressSteps[currentStep]}

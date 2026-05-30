@@ -48,7 +48,7 @@ export function HomeGoodsHome(props: TemplatePageProps) {
                             <p className="text-xl text-stone-600 mb-8 leading-relaxed">
                                 Curated furniture and decor to make every room feel like home. Quality craftsmanship, timeless design.
                             </p>
-                            <button
+                            <button type="button"
                                 onClick={() => {
                                     document.getElementById('products')?.scrollIntoView({ behavior: 'smooth' });
                                 }}
@@ -71,7 +71,7 @@ export function HomeGoodsHome(props: TemplatePageProps) {
                                 const Icon = room.icon;
                                 const isActive = selectedCategory === room.category;
                                 return (
-                                    <button
+                                    <button type="button"
                                         key={room.name}
                                         onClick={() => setSelectedCategory(room.category)}
                                         className={`p-6 rounded-2xl border-2 transition-all ${isActive
@@ -126,7 +126,7 @@ export function HomeGoodsHome(props: TemplatePageProps) {
                             <div className="relative h-96 rounded-2xl overflow-hidden shadow-2xl">
                                 <div className="absolute inset-0 bg-linear-to-br from-amber-200 to-stone-300 flex items-center justify-center">
                                     <div className="text-center">
-                                        <HomeIcon className="w-24 h-24 text-white/50 mx-auto mb-4" />
+                                        <HomeIcon className="size-24 text-white/50 mx-auto mb-4" />
                                         <p className="text-white/70 text-sm">Lifestyle Image Placeholder</p>
                                     </div>
                                 </div>

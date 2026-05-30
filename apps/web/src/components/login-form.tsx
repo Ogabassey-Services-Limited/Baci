@@ -30,7 +30,7 @@ const GoogleIcon = () => (
     role="img"
     viewBox="0 0 24 24"
     xmlns="http://www.w3.org/2000/svg"
-    className="h-5 w-5"
+    className="size-5"
   >
     <title>Google</title>
     <path
@@ -57,7 +57,7 @@ const AppleIcon = () => (
     role="img"
     viewBox="0 0 24 24"
     xmlns="http://www.w3.org/2000/svg"
-    className="h-5 w-5 fill-current"
+    className="size-5 fill-current"
   >
     <title>Apple</title>
     <path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.671-1.48 3.671-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.609 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701z" />
@@ -190,8 +190,8 @@ export default function LoginForm({
       <div className="absolute top-0 left-0 w-full h-full bg-[url('/grid.svg')] bg-center mask-[linear-gradient(180deg,white,rgba(255,255,255,0))]" />
 
       {/* Simplified static orbs (no animation) */}
-      <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-primary/20 rounded-full blur-3xl" />
-      <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-accent/20 rounded-full blur-3xl" />
+      <div className="absolute top-1/4 left-1/4 size-64 bg-primary/20 rounded-full blur-3xl" />
+      <div className="absolute bottom-1/4 right-1/4 size-64 bg-accent/20 rounded-full blur-3xl" />
 
       {/* CSS transition instead of framer-motion */}
       <div className="relative z-10 w-full max-w-[420px] p-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -230,7 +230,7 @@ export default function LoginForm({
                   <div className="space-y-2">
                     <Label htmlFor="email">Email</Label>
                     <div className="relative group">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                       <Input
                         id="email"
                         name="email"
@@ -257,7 +257,7 @@ export default function LoginForm({
                       </Button>
                     </div>
                     <div className="relative group">
-                      <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                      <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                       <Input
                         id="password"
                         name="password"
@@ -279,9 +279,9 @@ export default function LoginForm({
                         }
                       >
                         {showPassword ? (
-                          <EyeOff className="h-4 w-4 text-muted-foreground" />
+                          <EyeOff className="size-4 text-muted-foreground" />
                         ) : (
-                          <Eye className="h-4 w-4 text-muted-foreground" />
+                          <Eye className="size-4 text-muted-foreground" />
                         )}
                       </Button>
                     </div>
@@ -289,7 +289,7 @@ export default function LoginForm({
                   <SubmitButton
                     className="w-full h-11 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/25 transition-all hover:scale-[1.02] active:scale-[0.98]"
                     pendingText="Signing in..."
-                    icon={<ArrowRight className="ml-2 h-4 w-4" />}
+                    icon={<ArrowRight className="ml-2 size-4" />}
                     disabled={isGoogleLoading}
                   >
                     Sign In
@@ -315,7 +315,7 @@ export default function LoginForm({
                     disabled={isGoogleLoading || isAppleLoading}
                   >
                     {isGoogleLoading ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <Loader2 className="size-4 animate-spin" />
                     ) : (
                       <GoogleIcon />
                     )}
@@ -329,7 +329,7 @@ export default function LoginForm({
                     disabled={isGoogleLoading || isAppleLoading}
                   >
                     {isAppleLoading ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <Loader2 className="size-4 animate-spin" />
                     ) : (
                       <AppleIcon />
                     )}
@@ -355,7 +355,7 @@ export default function LoginForm({
                   <div className="space-y-2">
                     <Label htmlFor="forgot-email">Email</Label>
                     <div className="relative group">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                       <Input
                         id="forgot-email"
                         name="email"
@@ -370,7 +370,7 @@ export default function LoginForm({
                   <SubmitButton
                     className="w-full h-11 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/25 transition-all hover:scale-[1.02]"
                     pendingText="Sending..."
-                    icon={<Sparkles className="ml-2 h-4 w-4" />}
+                    icon={<Sparkles className="ml-2 size-4" />}
                   >
                     Send Reset Link
                   </SubmitButton>

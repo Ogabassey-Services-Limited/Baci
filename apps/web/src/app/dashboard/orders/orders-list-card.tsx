@@ -69,7 +69,7 @@ export function OrdersListCard({
                 <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
                   Bulk Actions
                 </span>
-                <ChevronDown className="h-3.5 w-3.5" />
+                <ChevronDown className="size-3.5" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">

@@ -63,7 +63,7 @@ export function ProductsPageDialogs({
           </DialogHeader>
           {editingProduct?.migration_status === 'needs_review' ? (
             <Alert className="border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-100">
-              <AlertCircle className="h-4 w-4 text-amber-700 dark:text-amber-300" />
+              <AlertCircle className="size-4 text-amber-700 dark:text-amber-300" />
               <AlertTitle>Review before saving</AlertTitle>
               <AlertDescription>
                 Confirm the default variant, variant conditions, and price/stock

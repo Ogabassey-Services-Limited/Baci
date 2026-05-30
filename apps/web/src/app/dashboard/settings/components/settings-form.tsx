@@ -297,7 +297,7 @@ export function SettingsForm({
         <div className="flex justify-end">
           <Button type="submit" disabled={isSaving}>
             {isSaving && (
-              <Loader2 className="mr-2 h-4 w-4 motion-safe:animate-spin" />
+              <Loader2 className="mr-2 size-4 motion-safe:animate-spin" />
             )}
             Save Changes
           </Button>

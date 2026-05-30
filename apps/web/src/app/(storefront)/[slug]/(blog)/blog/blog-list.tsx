@@ -168,14 +168,14 @@ export function BlogList({
                 <CardContent>
                   <div className="flex items-center gap-4 text-sm text-muted-foreground">
                     <div className="flex items-center gap-1">
-                      <User className="w-3.5 h-3.5" />
+                      <User className="size-3.5" />
                       <span className="truncate max-w-[100px]">
                         {post.author_name}
                       </span>
                     </div>
                     {post.published_at && (
                       <div className="flex items-center gap-1">
-                        <Calendar className="w-3.5 h-3.5" />
+                        <Calendar className="size-3.5" />
                         <span>
                           {new Date(post.published_at).toLocaleDateString()}
                         </span>
@@ -183,7 +183,7 @@ export function BlogList({
                     )}
                     {post.reading_time_minutes && (
                       <div className="flex items-center gap-1">
-                        <Clock className="w-3.5 h-3.5" />
+                        <Clock className="size-3.5" />
                         <span>{post.reading_time_minutes} min</span>
                       </div>
                     )}
@@ -201,7 +201,7 @@ export function BlogList({
           className="flex justify-center items-center py-12"
         >
           {isPending && (
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            <Loader2 className="size-8 animate-spin text-primary" />
           )}
         </div>
       )}

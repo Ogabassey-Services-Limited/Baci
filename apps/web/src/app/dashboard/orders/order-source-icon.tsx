@@ -33,7 +33,7 @@ function WhatsAppIcon({ label }: { label: string }) {
   return (
     <BrandIconFrame label={label}>
       <svg
-        className="h-5 w-5 text-[#25D366]"
+        className="size-5 text-[#25D366]"
         viewBox="0 0 24 24"
         fill="currentColor"
         aria-hidden="true"
@@ -48,7 +48,7 @@ function InstagramIcon({ label }: { label: string }) {
   return (
     <BrandIconFrame label={label}>
       <svg
-        className="h-5 w-5 text-[#E1306C]"
+        className="size-5 text-[#E1306C]"
         viewBox="0 0 24 24"
         fill="currentColor"
         aria-hidden="true"
@@ -63,7 +63,7 @@ function FacebookIcon({ label }: { label: string }) {
   return (
     <BrandIconFrame label={label}>
       <svg
-        className="h-5 w-5 text-[#1877F2]"
+        className="size-5 text-[#1877F2]"
         viewBox="0 0 24 24"
         fill="currentColor"
         aria-hidden="true"
@@ -78,7 +78,7 @@ function TikTokIcon({ label }: { label: string }) {
   return (
     <BrandIconFrame label={label}>
       <svg
-        className="h-5 w-5 text-slate-900 dark:text-white"
+        className="size-5 text-slate-900 dark:text-white"
         viewBox="0 0 24 24"
         fill="currentColor"
         aria-hidden="true"
@@ -117,7 +117,7 @@ export function OrderSourceIcon({ source }: { source: string }) {
   ) {
     return (
       <BrandIconFrame label={label}>
-        <Globe className="h-5 w-5 text-cyan-300" />
+        <Globe className="size-5 text-cyan-300" />
       </BrandIconFrame>
     );
   }
@@ -125,7 +125,7 @@ export function OrderSourceIcon({ source }: { source: string }) {
   if (normalizedSource === 'manual' || normalizedSource === 'staff_entry') {
     return (
       <BrandIconFrame label={label}>
-        <PencilLine className="h-5 w-5 text-slate-300" />
+        <PencilLine className="size-5 text-slate-300" />
       </BrandIconFrame>
     );
   }
@@ -133,7 +133,7 @@ export function OrderSourceIcon({ source }: { source: string }) {
   if (normalizedSource === 'physical') {
     return (
       <BrandIconFrame label={label}>
-        <Store className="h-5 w-5 text-orange-300" />
+        <Store className="size-5 text-orange-300" />
       </BrandIconFrame>
     );
   }
@@ -141,7 +141,7 @@ export function OrderSourceIcon({ source }: { source: string }) {
   if (normalizedSource === 'jumia') {
     return (
       <BrandIconFrame label={label}>
-        <div className="relative h-6 w-6 overflow-hidden rounded-full border border-gray-100 bg-white shadow-sm">
+        <div className="relative size-6 overflow-hidden rounded-full border border-gray-100 bg-white shadow-sm">
           <Image
             src="/jumia-logo.png"
             alt=""
@@ -156,7 +156,7 @@ export function OrderSourceIcon({ source }: { source: string }) {
 
   return (
     <BrandIconFrame label={label}>
-      <CircleDot className="h-5 w-5 text-muted-foreground" />
+      <CircleDot className="size-5 text-muted-foreground" />
     </BrandIconFrame>
   );
 }

@@ -192,7 +192,7 @@ describe('NegotiationModalView', () => {
       />
     );
 
-    expect(screen.getByText('Checking best deal...')).toBeTruthy();
+    expect(screen.getByText('Checking best deal…')).toBeTruthy();
   });
 
   it('renders success state and triggers success callback', () => {
@@ -275,7 +275,9 @@ describe('NegotiationModalView', () => {
 
     expect(screen.getByText('Share proof of a lower price')).toBeTruthy();
     expect(onPickImage).toHaveBeenCalledTimes(1);
-    expect(onUploadLinkChange).toHaveBeenCalledWith('https://example.com/offer');
+    expect(onUploadLinkChange).toHaveBeenCalledWith(
+      'https://example.com/offer'
+    );
     expect(onBackFromUpload).toHaveBeenCalledTimes(1);
     expect(onUploadSubmit).toHaveBeenCalledTimes(1);
   });

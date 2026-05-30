@@ -17,7 +17,7 @@ export const SourceRequestModal: React.FC<SourceRequestModalProps> = ({
   return (
     <div className="fixed inset-0 z-60 bg-black/50 flex items-center justify-center p-4">
       <div className="bg-white rounded-xl p-6 w-full max-w-md relative">
-        <button
+        <button type="button"
           onClick={onClose}
           className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
         >

@@ -71,7 +71,7 @@ export function CheckoutAuthModal({
         <form onSubmit={handleLogin} className="space-y-4 py-4">
           {error && (
             <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
+              <AlertCircle className="size-4" />
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
@@ -101,8 +101,8 @@ export function CheckoutAuthModal({
           <Button type="submit" className="w-full" disabled={isLoading}>
             {isLoading ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Signing in...
+                <Loader2 className="mr-2 size-4 animate-spin" />
+                Signing in…
               </>
             ) : (
               'Sign In'

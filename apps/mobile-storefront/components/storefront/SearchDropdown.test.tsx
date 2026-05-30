@@ -49,7 +49,7 @@ describe('SearchDropdown', () => {
   it('renders search controls when visible', () => {
     render(<SearchDropdown isVisible onClose={() => {}} topOffset={72} />);
 
-    expect(screen.getByPlaceholderText('Search products...')).toBeTruthy();
+    expect(screen.getByPlaceholderText('Search products…')).toBeTruthy();
     expect(screen.getByLabelText('Cancel search')).toBeTruthy();
   });
 

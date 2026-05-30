@@ -145,7 +145,7 @@ export default function VTUSettingsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin" />
+        <Loader2 className="size-8 animate-spin" />
       </div>
     );
   }
@@ -163,7 +163,7 @@ export default function VTUSettingsPage() {
       {/* Status Banner */}
       {!settings.vtu_enabled && (
         <div className="flex items-center gap-3 p-4 rounded-lg bg-yellow-50 border border-yellow-200 text-yellow-700">
-          <AlertCircle className="h-5 w-5" />
+          <AlertCircle className="size-5" />
           <div>
             <p className="font-medium">VTU Services Disabled</p>
             <p className="text-sm">
@@ -175,7 +175,7 @@ export default function VTUSettingsPage() {
 
       {settings.vtu_enabled && (
         <div className="flex items-center gap-3 p-4 rounded-lg bg-green-50 border border-green-200 text-green-700">
-          <Check className="h-5 w-5" />
+          <Check className="size-5" />
           <div>
             <p className="font-medium">VTU Services Active</p>
             <p className="text-sm">
@@ -189,7 +189,7 @@ export default function VTUSettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Phone className="h-5 w-5" />
+            <Phone className="size-5" />
             Enable VTU Services
           </CardTitle>
           <CardDescription>
@@ -208,8 +208,8 @@ export default function VTUSettingsPage() {
           >
             <div className="flex items-start justify-between">
               <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-lg bg-linear-to-br from-green-500 to-emerald-600 flex items-center justify-center text-white">
-                  <Phone className="h-5 w-5" />
+                <div className="size-10 rounded-lg bg-linear-to-br from-green-500 to-emerald-600 flex items-center justify-center text-white">
+                  <Phone className="size-5" />
                 </div>
                 <div>
                   <h3 className="font-semibold">VTU (Value Top-Up)</h3>
@@ -252,7 +252,7 @@ export default function VTUSettingsPage() {
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <Phone className="h-5 w-5 text-green-600" />
+                    <Phone className="size-5 text-green-600" />
                     <div>
                       <h4 className="font-medium">Airtime</h4>
                       <p className="text-xs text-muted-foreground">
@@ -280,7 +280,7 @@ export default function VTUSettingsPage() {
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <Wifi className="h-5 w-5 text-blue-600" />
+                    <Wifi className="size-5 text-blue-600" />
                     <div>
                       <h4 className="font-medium">Data Bundles</h4>
                       <p className="text-xs text-muted-foreground">
@@ -305,7 +305,7 @@ export default function VTUSettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <ShoppingCart className="h-5 w-5" />
+            <ShoppingCart className="size-5" />
             Checkout Add-ons
           </CardTitle>
           <CardDescription>
@@ -316,8 +316,8 @@ export default function VTUSettingsPage() {
         <CardContent className="space-y-6">
           <div className="flex items-center justify-between p-4 rounded-lg border">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center">
-                <Plus className="h-5 w-5 text-orange-600" />
+              <div className="size-10 rounded-lg bg-orange-100 flex items-center justify-center">
+                <Plus className="size-5 text-orange-600" />
               </div>
               <div>
                 <h4 className="font-medium">Add Airtime to Order</h4>
@@ -350,7 +350,7 @@ export default function VTUSettingsPage() {
                     onClick={() => removeAmount(amount)}
                   >
                     ₦{amount.toLocaleString()}
-                    <X className="h-3 w-3 ml-1" />
+                    <X className="size-3 ml-1" />
                   </Badge>
                 ))}
               </div>
@@ -365,7 +365,7 @@ export default function VTUSettingsPage() {
                   className="w-48"
                 />
                 <Button variant="outline" size="sm" onClick={addAmount}>
-                  <Plus className="h-4 w-4 mr-1" />
+                  <Plus className="size-4 mr-1" />
                   Add
                 </Button>
               </div>
@@ -381,7 +381,7 @@ export default function VTUSettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Gift className="h-5 w-5" />
+            <Gift className="size-5" />
             Loyalty Rewards
           </CardTitle>
           <CardDescription>
@@ -392,8 +392,8 @@ export default function VTUSettingsPage() {
         <CardContent>
           <div className="flex items-center justify-between p-4 rounded-lg border">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
-                <Gift className="h-5 w-5 text-purple-600" />
+              <div className="size-10 rounded-lg bg-purple-100 flex items-center justify-center">
+                <Gift className="size-5 text-purple-600" />
               </div>
               <div>
                 <h4 className="font-medium">Airtime as Rewards</h4>
@@ -429,7 +429,7 @@ export default function VTUSettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5" />
+            <TrendingUp className="size-5" />
             Commission & Earnings
           </CardTitle>
           <CardDescription>
@@ -530,7 +530,7 @@ export default function VTUSettingsPage() {
 
           <div className="p-4 rounded-lg bg-blue-50 border border-blue-200">
             <h4 className="font-medium text-blue-800 mb-2 flex items-center gap-2">
-              <Settings className="h-4 w-4" />
+              <Settings className="size-4" />
               Example Earnings
             </h4>
             <p className="text-sm text-blue-700">
@@ -562,7 +562,7 @@ export default function VTUSettingsPage() {
       {/* Save Button */}
       <div className="flex justify-end">
         <Button onClick={handleSave} disabled={saving}>
-          {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
           Save Settings
         </Button>
       </div>

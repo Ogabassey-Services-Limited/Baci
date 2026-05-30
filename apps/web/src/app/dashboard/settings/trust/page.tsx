@@ -48,12 +48,12 @@ export default async function TrustSettingsPage() {
           aria-label="Back to settings"
         >
           <Link href="/dashboard/settings">
-            <ChevronLeft className="h-4 w-4" />
+            <ChevronLeft className="size-4" />
           </Link>
         </Button>
         <div className="flex items-center gap-3">
           <div className="rounded-lg bg-primary/10 p-2">
-            <ShieldCheck className="h-5 w-5 text-primary" />
+            <ShieldCheck className="size-5 text-primary" />
           </div>
           <div>
             <h1 className="text-2xl font-bold tracking-tight">

@@ -197,7 +197,7 @@ function StandardReceiptsPage({
               aria-label="Back to account"
               href={asRoute(getHref('/account'))}
             >
-              <ArrowLeft className="h-4 w-4" />
+              <ArrowLeft className="size-4" />
             </Link>
           </Button>
           <div>
@@ -213,7 +213,7 @@ function StandardReceiptsPage({
             <div className="relative">
               <Search
                 aria-hidden="true"
-                className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
               />
               <Input
                 aria-label="Search orders by number, product, or document type"
@@ -234,7 +234,7 @@ function StandardReceiptsPage({
             >
               Loading receipts and invoices
             </output>
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            <Loader2 className="size-8 animate-spin text-muted-foreground" />
           </div>
         ) : ordersError ? (
           <ReceiptsStateCard
@@ -258,7 +258,7 @@ function StandardReceiptsPage({
         ) : filteredOrders.length === 0 ? (
           <Card>
             <CardContent className="p-12 text-center">
-              <ReceiptText className="mx-auto mb-4 h-14 w-14 text-muted-foreground/60" />
+              <ReceiptText className="mx-auto mb-4 size-14 text-muted-foreground/60" />
               <h2 className="mb-2 text-lg font-semibold">No documents yet</h2>
               <p className="text-muted-foreground">
                 Receipts or invoices will appear here when they become
@@ -274,7 +274,7 @@ function StandardReceiptsPage({
 
               return (
                 <Card key={order.id}>
-                  <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
+                  <CardHeader className="flex flex-row items-start justify-between gap-4 gap-y-0">
                     <div>
                       <CardTitle className="text-lg">
                         #{order.order_number}
@@ -287,7 +287,7 @@ function StandardReceiptsPage({
                       </p>
                     </div>
                     <div className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium capitalize">
-                      <FileText className="h-3.5 w-3.5" />
+                      <FileText className="size-3.5" />
                       {documentKind}
                     </div>
                   </CardHeader>
@@ -314,7 +314,7 @@ function StandardReceiptsPage({
                       </Button>
                       <Button asChild>
                         <a href={downloadHref}>
-                          <Download className="mr-2 h-4 w-4" />
+                          <Download className="mr-2 size-4" />
                           Download{' '}
                           {documentKind === 'receipt' ? 'Receipt' : 'Invoice'}
                         </a>

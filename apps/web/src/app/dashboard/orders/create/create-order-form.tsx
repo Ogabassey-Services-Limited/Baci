@@ -206,9 +206,9 @@ export function CreateOrderForm() {
                                 !field.value && 'text-muted-foreground'
                               )}
                             >
-                              <User className="mr-2 h-4 w-4 shrink-0" />
+                              <User className="mr-2 size-4 shrink-0" />
                               {field.value || 'Select customer'}
-                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                              <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
                             </Button>
                           </FormControl>
                         </PopoverTrigger>
@@ -248,7 +248,7 @@ export function CreateOrderForm() {
                       <FormLabel>Customer Email</FormLabel>
                       <FormControl>
                         <div className="relative">
-                          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                           <Input
                             type="email"
                             placeholder="john@example.com"
@@ -282,7 +282,7 @@ export function CreateOrderForm() {
                               ) : (
                                 <span>Pick a date</span>
                               )}
-                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                              <CalendarIcon className="ml-auto size-4 opacity-50" />
                             </Button>
                           </FormControl>
                         </PopoverTrigger>
@@ -360,10 +360,10 @@ export function CreateOrderForm() {
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="text-red-500 hover:text-red-600 h-8 w-8"
+                        className="text-red-500 hover:text-red-600 size-8"
                         onClick={() => remove(index)}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="size-4" />
                         <span className="sr-only">Remove Item</span>
                       </Button>
                     </div>
@@ -386,7 +386,7 @@ export function CreateOrderForm() {
                       variant="outline"
                       className="mt-4 w-full"
                     >
-                      <PlusCircle className="mr-2 h-4 w-4" /> Add Product
+                      <PlusCircle className="mr-2 size-4" /> Add Product
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent

@@ -32,7 +32,7 @@ export function PrivacyPageClient({
                 <div className="container px-4 md:px-6 text-center">
                   <div className="flex justify-center mb-6">
                     <div className="p-4 bg-primary/10 rounded-full">
-                      <Shield className="h-10 w-10 text-primary" />
+                      <Shield className="size-10 text-primary" />
                     </div>
                   </div>
                   <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">
@@ -51,7 +51,7 @@ export function PrivacyPageClient({
                   <div className="grid sm:grid-cols-3 gap-6 max-w-4xl mx-auto">
                     <div className="flex items-center gap-3">
                       <div className="p-2 bg-green-100 dark:bg-green-900/20 rounded-lg">
-                        <Lock className="h-5 w-5 text-green-600 dark:text-green-400" />
+                        <Lock className="size-5 text-green-600 dark:text-green-400" />
                       </div>
                       <div>
                         <p className="font-medium">Secure Data</p>
@@ -62,7 +62,7 @@ export function PrivacyPageClient({
                     </div>
                     <div className="flex items-center gap-3">
                       <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
-                        <Eye className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                        <Eye className="size-5 text-blue-600 dark:text-blue-400" />
                       </div>
                       <div>
                         <p className="font-medium">Transparency</p>
@@ -73,7 +73,7 @@ export function PrivacyPageClient({
                     </div>
                     <div className="flex items-center gap-3">
                       <div className="p-2 bg-purple-100 dark:bg-purple-900/20 rounded-lg">
-                        <FileText className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                        <FileText className="size-5 text-purple-600 dark:text-purple-400" />
                       </div>
                       <div>
                         <p className="font-medium">Your Rights</p>

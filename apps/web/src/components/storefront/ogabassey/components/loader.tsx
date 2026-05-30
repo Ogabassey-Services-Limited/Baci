@@ -6,7 +6,7 @@ export const OgabasseyLoader: React.FC = () => {
     <div className="flex flex-col items-center justify-center min-h-[400px] w-full h-full bg-white p-8">
       <Logo isLoading height={80} className="w-auto" />
       <p className="mt-4 text-gray-400 text-sm font-medium animate-pulse">
-        Loading amazing gadgets...
+        Loading amazing gadgets…
       </p>
     </div>
   );

@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { useQuery } from '@tanstack/react-query';
 import { Stack, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -262,7 +262,7 @@ export default function PayoutSettingsScreen() {
                       { color: colors.textSecondary },
                     ]}
                   >
-                    Verifying account...
+                    Verifying account…
                   </Text>
                 </View>
               )}

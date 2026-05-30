@@ -37,7 +37,7 @@ export function SeoPreview({
         <div className="bg-white p-4 rounded-md shadow-sm border max-w-[600px]">
           <div className="flex items-center gap-2 mb-1">
             <div className="bg-gray-100 rounded-full p-1">
-              <div className="w-4 h-4 bg-gray-300 rounded-full" />
+              <div className="size-4 bg-gray-300 rounded-full" />
             </div>
             <div className="flex flex-col">
               <span className="text-xs text-gray-700">{merchantUrl}</span>

@@ -99,7 +99,7 @@ export async function BlogPostPageContent({ params }: PageProps) {
               href={asRoute('/blog')}
               className="mb-8 inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
             >
-              <ArrowLeft className="h-4 w-4" />
+              <ArrowLeft className="size-4" />
               Back to Blog
             </Link>
 
@@ -115,13 +115,13 @@ export async function BlogPostPageContent({ params }: PageProps) {
               <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
                 {post.published_at ? (
                   <span className="inline-flex items-center gap-1">
-                    <Calendar className="h-4 w-4" />
+                    <Calendar className="size-4" />
                     {formatDate(post.published_at)}
                   </span>
                 ) : null}
                 {post.reading_time_minutes ? (
                   <span className="inline-flex items-center gap-1">
-                    <Clock className="h-4 w-4" />
+                    <Clock className="size-4" />
                     {post.reading_time_minutes} min read
                   </span>
                 ) : null}

@@ -74,12 +74,12 @@ export function LogoGeneratorModal({
             >
               {isGenerating ? (
                 <>
-                  <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
-                  Creating...
+                  <Loader2 className="mr-2 size-3.5 animate-spin" />
+                  Creating…
                 </>
               ) : (
                 <>
-                  <Wand2 className="mr-2 h-3.5 w-3.5" />
+                  <Wand2 className="mr-2 size-3.5" />
                   Generate Logo
                 </>
               )}
