@@ -162,11 +162,52 @@ function fixProguardOptimize(content, description) {
   );
 }
 
+function getGradleProperty(content, key) {
+  const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const propertyPattern = new RegExp(`^${escapedKey}=(.*)$`, 'm');
+  const match = content.match(propertyPattern);
+  return match ? match[1].trim() : null;
+}
+
+function getJvmArgKey(token) {
+  if (token.startsWith('-Xmx')) return '-Xmx';
+  if (token.startsWith('-Xms')) return '-Xms';
+  if (token.startsWith('-XX:MaxMetaspaceSize=')) {
+    return '-XX:MaxMetaspaceSize';
+  }
+  if (token.startsWith('-XX:MetaspaceSize=')) return '-XX:MetaspaceSize';
+  return token;
+}
+
+function ensureMergedJvmArgs(content, desiredArgs) {
+  const currentJvmArgs = getGradleProperty(content, 'org.gradle.jvmargs');
+  const currentTokens = currentJvmArgs
+    ? currentJvmArgs.split(/\s+/).filter(Boolean)
+    : [];
+  const mergedTokens = [...currentTokens];
+  const seenKeys = new Set(currentTokens.map(getJvmArgKey));
+
+  for (const token of desiredArgs) {
+    const key = getJvmArgKey(token);
+    if (!seenKeys.has(key)) {
+      seenKeys.add(key);
+      mergedTokens.push(token);
+    }
+  }
+
+  return ensureGradleProperty(
+    content,
+    'org.gradle.jvmargs',
+    mergedTokens.join(' ')
+  );
+}
+
 module.exports = {
   addAsyncStorageRepo,
   assertReplaceOrThrow,
   ensureGradleWrapperVersion,
   ensureGradleProperty,
+  ensureMergedJvmArgs,
   ensureReleaseSigning,
   fixProguardOptimize,
   removeKotlinAndroidPlugin,

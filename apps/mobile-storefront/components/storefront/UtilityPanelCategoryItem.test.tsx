@@ -1,11 +1,20 @@
 import { jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 import Colors from '@/constants/Colors';
 import { UtilityPanelCategoryItem } from './UtilityPanelCategoryItem';
 
 jest.mock('@/components/useColorScheme', () => ({
   useColorScheme: () => 'light',
 }));
+
+function getIconStyle(button: ReturnType<typeof screen.getByRole>) {
+  const icon = button.children[0];
+  if (!icon || typeof icon === 'string') {
+    throw new Error('Expected utility button to render an icon element');
+  }
+  return StyleSheet.flatten(icon.props.style);
+}
 
 describe('UtilityPanelCategoryItem', () => {
   it('renders an active utility and invokes its action', () => {
@@ -22,11 +31,12 @@ describe('UtilityPanelCategoryItem', () => {
       />
     );
 
-    expect(screen.getByTestId('utility-category-icon-u-airtime')).toHaveStyle({
-      backgroundColor: Colors.light.card,
-    });
+    const airtimeButton = screen.getByRole('button', { name: 'Airtime' });
+    expect(getIconStyle(airtimeButton)?.backgroundColor).toBe(
+      Colors.light.card
+    );
 
-    fireEvent.press(screen.getByLabelText('Airtime'));
+    fireEvent.press(airtimeButton);
 
     expect(onPress).toHaveBeenCalledTimes(1);
   });

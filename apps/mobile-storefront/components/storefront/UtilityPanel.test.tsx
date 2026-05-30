@@ -1,6 +1,6 @@
 import { jest } from '@jest/globals';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
-import { Animated } from 'react-native';
+import { Animated, StyleSheet } from 'react-native';
 import Colors from '@/constants/Colors';
 import { UtilityPanel } from './UtilityPanel';
 
@@ -31,6 +31,14 @@ function createAnimation() {
       callback?.({ finished: true });
     },
   };
+}
+
+function getIconStyle(button: ReturnType<typeof screen.getByRole>) {
+  const icon = button.children[0];
+  if (!icon || typeof icon === 'string') {
+    throw new Error('Expected utility button to render an icon element');
+  }
+  return StyleSheet.flatten(icon.props.style);
 }
 
 jest.mock('@/components/useColorScheme', () => ({
@@ -95,9 +103,10 @@ describe('UtilityPanel', () => {
     expect(screen.getByTestId('utility-panel-promo-banner')).toHaveStyle({
       backgroundColor: Colors.light.promoBackground,
     });
-    expect(screen.getByTestId('utility-category-icon-u-airtime')).toHaveStyle({
-      backgroundColor: Colors.light.card,
-    });
+    const airtimeButton = screen.getByRole('button', { name: 'Airtime' });
+    expect(getIconStyle(airtimeButton)?.backgroundColor).toBe(
+      Colors.light.card
+    );
 
     mockUseColorScheme.mockReturnValue('dark');
 
@@ -111,9 +120,10 @@ describe('UtilityPanel', () => {
     expect(screen.getByTestId('utility-panel-promo-banner')).toHaveStyle({
       backgroundColor: Colors.dark.promoBackground,
     });
-    expect(screen.getByTestId('utility-category-icon-u-airtime')).toHaveStyle({
-      backgroundColor: Colors.dark.card,
-    });
+    const airtimeButtonDark = screen.getByRole('button', { name: 'Airtime' });
+    expect(getIconStyle(airtimeButtonDark)?.backgroundColor).toBe(
+      Colors.dark.card
+    );
   });
 
   it('renders an explicit error state for non-utility category failures', () => {
