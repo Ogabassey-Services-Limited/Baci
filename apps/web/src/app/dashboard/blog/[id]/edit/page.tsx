@@ -864,7 +864,7 @@ export default function EditBlogPostPage() {
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" asChild>
             <Link href={asRoute('/dashboard/blog')}>
-              <ArrowLeft className="w-4 h-4" />
+              <ArrowLeft className="size-4" />
             </Link>
           </Button>
           <div>
@@ -888,7 +888,7 @@ export default function EditBlogPostPage() {
             {isSaving ? (
               <BagLoader size={16} />
             ) : (
-              <Eye className="w-4 h-4 mr-2" />
+              <Eye className="size-4 mr-2" />
             )}
             Preview
           </Button>
@@ -905,7 +905,7 @@ export default function EditBlogPostPage() {
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  <ExternalLink className="w-4 h-4 mr-2" />
+                  <ExternalLink className="size-4 mr-2" />
                   View Live
                 </a>
               </Button>
@@ -918,7 +918,7 @@ export default function EditBlogPostPage() {
             {isSaving ? (
               <BagLoader size={16} />
             ) : (
-              <Save className="w-4 h-4 mr-2" />
+              <Save className="size-4 mr-2" />
             )}
             Save Changes
           </Button>
@@ -931,7 +931,7 @@ export default function EditBlogPostPage() {
             >
               <PopoverTrigger asChild>
                 <Button variant="outline" disabled={isSaving}>
-                  <CalendarIcon className="w-4 h-4 mr-2" />
+                  <CalendarIcon className="size-4 mr-2" />
                   {formData.status === 'scheduled' && scheduledDate
                     ? `Scheduled: ${format(scheduledDate, 'MMM d, HH:mm')}`
                     : 'Schedule'}
@@ -949,7 +949,7 @@ export default function EditBlogPostPage() {
                       onClick={handleAISuggestSchedule}
                       className="h-7 text-[10px] px-2 text-primary"
                     >
-                      <Sparkles className="w-3 h-3 mr-1" />
+                      <Sparkles className="size-3 mr-1" />
                       AI Suggest
                     </Button>
                   </div>
@@ -961,7 +961,7 @@ export default function EditBlogPostPage() {
                     minDate={new Date()}
                   />
                   <div className="flex items-center gap-2 border-t pt-4">
-                    <Clock className="w-4 h-4 text-muted-foreground ml-2" />
+                    <Clock className="size-4 text-muted-foreground ml-2" />
                     <Input
                       type="time"
                       className="h-8 py-1"
@@ -1002,7 +1002,7 @@ export default function EditBlogPostPage() {
               {isSaving ? (
                 <BagLoader size={16} />
               ) : (
-                <Send className="w-4 h-4 mr-2" />
+                <Send className="size-4 mr-2" />
               )}
               Publish Now
             </Button>
@@ -1022,7 +1022,7 @@ export default function EditBlogPostPage() {
               onClick={() => savePost('archived')}
               disabled={isSaving}
             >
-              <Archive className="w-4 h-4 mr-2" />
+              <Archive className="size-4 mr-2" />
               Archive
             </Button>
           )}
@@ -1111,7 +1111,7 @@ export default function EditBlogPostPage() {
                       className="mt-4"
                       onClick={() => setEmbeddedProducts([])}
                     >
-                      <X className="w-4 h-4 mr-2" />
+                      <X className="size-4 mr-2" />
                       Clear All Products
                     </Button>
                   </CardContent>
@@ -1162,7 +1162,7 @@ export default function EditBlogPostPage() {
                         size="sm"
                         onClick={handleRemoveFeaturedImage}
                       >
-                        <X className="w-4 h-4 mr-2" />
+                        <X className="size-4 mr-2" />
                         Remove Image
                       </Button>
                     </div>
@@ -1179,7 +1179,7 @@ export default function EditBlogPostPage() {
                 {isUploading && (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <BagLoader size={16} />
-                    Uploading image...
+                    Uploading image…
                   </div>
                 )}
               </div>

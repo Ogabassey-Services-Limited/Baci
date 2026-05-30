@@ -489,7 +489,7 @@ export function VariantBuilder({
                           <div className="aspect-square mb-2 rounded-lg overflow-hidden bg-muted flex items-center justify-center relative">
                             {isEnhancing && (
                               <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-10">
-                                <Loader2 className="h-6 w-6 text-white animate-spin" />
+                                <Loader2 className="size-6 text-white animate-spin" />
                               </div>
                             )}
                             {variantWithColor?.primary_image ? (
@@ -501,7 +501,7 @@ export function VariantBuilder({
                                 className="w-full h-full object-cover"
                               />
                             ) : (
-                              <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                              <ImageIcon className="size-8 text-muted-foreground" />
                             )}
                           </div>
                           <p className="text-sm font-medium text-center">
@@ -518,9 +518,9 @@ export function VariantBuilder({
                             disabled={isEnhancing}
                           >
                             {isEnhancing ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
+                              <Loader2 className="size-4 animate-spin" />
                             ) : (
-                              <Wand2 className="h-4 w-4 mr-2" />
+                              <Wand2 className="size-4 mr-2" />
                             )}
                             Enhance
                           </Button>
@@ -628,7 +628,7 @@ export function VariantBuilder({
                     key={variant.id || `variant-${index}`}
                     className="flex items-center gap-3 p-3 border rounded-lg bg-card"
                   >
-                    <div className="w-10 h-10 rounded border overflow-hidden shrink-0 bg-muted">
+                    <div className="size-10 rounded border overflow-hidden shrink-0 bg-muted">
                       {variant.primary_image && (
                         <Image
                           src={variant.primary_image}
@@ -712,7 +712,7 @@ export function VariantBuilder({
                                       handleAttributeRemove(attr.key, value);
                                     }}
                                   >
-                                    <X className="h-3 w-3" />
+                                    <X className="size-3" />
                                   </button>
                                 </span>
                               )
@@ -765,7 +765,7 @@ export function VariantBuilder({
                         }
                       }}
                     >
-                      <Plus className="h-4 w-4" />
+                      <Plus className="size-4" />
                     </Button>
                   </>
                 }

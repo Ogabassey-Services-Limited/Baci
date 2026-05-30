@@ -117,7 +117,7 @@ export function StorefrontHeader() {
             <Button
               variant="outline"
               size="icon"
-              className="relative touch-manipulation h-11 w-11 min-w-[44px] min-h-[44px]"
+              className="relative touch-manipulation size-11 min-w-[44px] min-h-[44px]"
               style={{ color: 'var(--theme-header-icon, #000000)' }}
             >
               <CartIcon count={cartCount} size={20} />

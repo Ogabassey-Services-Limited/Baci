@@ -192,7 +192,7 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
                   className={`rounded-full border border-white shadow-sm transition-all duration-300 ease-out ${
                     isSelected
                       ? 'w-4 h-4 ring-2 ring-gray-300 ring-offset-1 z-30 scale-110'
-                      : 'w-3.5 h-3.5 hover:scale-110 hover:z-20 opacity-90 hover:opacity-100'
+                      : 'size-3.5 hover:scale-110 hover:z-20 opacity-90 hover:opacity-100'
                   }`}
                   style={{ backgroundColor: hexColor }}
                   title={colorName}
@@ -204,7 +204,7 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
               );
             })}
             {product.colors.length > 4 && (
-              <div className="w-3.5 h-3.5 rounded-full bg-gray-100 border border-white flex items-center justify-center text-[8px] font-bold text-gray-500 shadow-sm ml-0.5">
+              <div className="size-3.5 rounded-full bg-gray-100 border border-white flex items-center justify-center text-[8px] font-bold text-gray-500 shadow-sm ml-0.5">
                 +
               </div>
             )}

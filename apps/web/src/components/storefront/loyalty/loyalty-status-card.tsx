@@ -67,7 +67,7 @@ export function LoyaltyStatusCard({
     return (
       <div className="flex items-center gap-3 p-3 bg-linear-to-r from-purple-50 to-pink-50 rounded-lg">
         <div className="p-2 bg-white rounded-full shadow-sm">
-          <Sparkles className="h-4 w-4 text-purple-600" />
+          <Sparkles className="size-4 text-purple-600" />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
@@ -96,7 +96,7 @@ export function LoyaltyStatusCard({
       <div className="bg-linear-to-r from-purple-600 to-pink-600 p-4 text-white">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Trophy className="h-5 w-5" />
+            <Trophy className="size-5" />
             <span className="font-medium">Rewards Member</span>
           </div>
           <Badge
@@ -148,7 +148,7 @@ export function LoyaltyStatusCard({
                 </p>
                 <p className="text-xs text-green-600">Redeem your points now</p>
               </div>
-              <ArrowRight className="h-4 w-4 text-green-600" />
+              <ArrowRight className="size-4 text-green-600" />
             </div>
           </div>
         )}

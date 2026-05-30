@@ -17,9 +17,9 @@ export function LivePreviewCard({
       {/* Browser Chrome */}
       <div className="h-8 bg-muted flex items-center px-4 gap-2 border-b border-border">
         <div className="flex gap-1.5 opacity-50 group-hover:opacity-100 transition-opacity">
-          <div className="w-2.5 h-2.5 rounded-full bg-red-500/80" />
-          <div className="w-2.5 h-2.5 rounded-full bg-amber-500/80" />
-          <div className="w-2.5 h-2.5 rounded-full bg-green-500/80" />
+          <div className="size-2.5 rounded-full bg-red-500/80" />
+          <div className="size-2.5 rounded-full bg-amber-500/80" />
+          <div className="size-2.5 rounded-full bg-green-500/80" />
         </div>
         <div className="ml-4 h-4 bg-background/50 rounded-full w-40 text-[10px] flex items-center pl-2 text-muted-foreground font-mono">
           baci.store/{template.id}
@@ -84,7 +84,7 @@ export function LivePreviewCard({
               href={`/template-preview/${template.id}` as Route}
               aria-label={`Preview ${template.name} template`}
             >
-              <Eye className="mr-2 h-4 w-4" aria-hidden="true" />
+              <Eye className="mr-2 size-4" aria-hidden="true" />
               Preview
             </Link>
           </Button>
@@ -123,7 +123,7 @@ export function SmallPreviewCard({
         <div className="aspect-4/3 bg-muted relative">
           {/* Mini Browser Bar */}
           <div className="absolute top-0 inset-x-0 h-6 bg-black/5 dark:bg-black/20 backdrop-blur-sm flex items-center px-3 z-10">
-            <div className="w-1.5 h-1.5 rounded-full bg-foreground/20" />
+            <div className="size-1.5 rounded-full bg-foreground/20" />
           </div>
 
           {/* Simplified Preview Content */}
@@ -162,7 +162,7 @@ export function SmallPreviewCard({
               href={`/template-preview/${template.id}` as Route}
               aria-label={`Preview ${template.name}`}
             >
-              <Eye className="h-3 w-3" />
+              <Eye className="size-3" />
             </Link>
           </Button>
         </div>

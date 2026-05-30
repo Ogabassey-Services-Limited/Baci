@@ -202,7 +202,7 @@ export const InteractiveProductGrid: React.FC<InteractiveProductGridProps> = ({
             <p className="text-gray-500 text-lg">
               No products found matching your filters.
             </p>
-            <button
+            <button type="button"
               onClick={handleResetFilters}
               className="mt-4 text-primary font-semibold hover:underline"
             >
@@ -254,7 +254,7 @@ export const InteractiveProductGrid: React.FC<InteractiveProductGridProps> = ({
         {/* Load More Button */}
         {filteredProducts.length > 0 && hasMoreProducts && (
           <div className="mt-8 flex flex-col items-center gap-2">
-            <button
+            <button type="button"
               onClick={handleLoadMore}
               className="px-8 py-3 bg-gray-900 hover:bg-primary text-white font-semibold rounded-xl transition-all duration-200 active:scale-95"
             >

@@ -77,7 +77,7 @@ export function UtilityPaymentMethodSelector({
               (!canUseWallet || isLoading) && 'cursor-not-allowed opacity-70'
             )}
           >
-            <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-store-primary/10 text-store-primary">
+            <span className="flex size-10 items-center justify-center rounded-lg bg-store-primary/10 text-store-primary">
               <Wallet size={20} />
             </span>
             <span className="flex-1">
@@ -110,7 +110,7 @@ export function UtilityPaymentMethodSelector({
             isLoading && 'cursor-not-allowed opacity-70'
           )}
         >
-          <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-600">
+          <span className="flex size-10 items-center justify-center rounded-lg bg-gray-100 text-gray-600">
             <CreditCard size={20} />
           </span>
           <span className="flex-1">

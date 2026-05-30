@@ -57,7 +57,7 @@ export const CartPage: React.FC = () => {
 
         {cart.length === 0 ? (
           <div className="bg-white rounded-3xl p-12 text-center shadow-sm border border-gray-100">
-            <div className="w-24 h-24 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6 text-gray-300">
+            <div className="size-24 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6 text-gray-300">
               <ShoppingBag size={40} />
             </div>
             <h2 className="text-2xl font-bold text-gray-900 mb-2">
@@ -83,7 +83,7 @@ export const CartPage: React.FC = () => {
                   key={item.variant_id || item.id}
                   className="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-100 flex gap-4 md:gap-6 group transition-all hover:shadow-md"
                 >
-                  <div className="w-24 h-24 md:w-32 md:h-32 bg-gray-50 rounded-xl shrink-0 p-2">
+                  <div className="size-24 md:w-32 md:h-32 bg-gray-50 rounded-xl shrink-0 p-2">
                     <img
                       src={item.image}
                       alt={item.name}
@@ -132,7 +132,7 @@ export const CartPage: React.FC = () => {
                               item.variant_id
                             )
                           }
-                          className="w-8 h-8 flex items-center justify-center rounded-md bg-white text-gray-600 shadow-sm hover:text-red-600 disabled:opacity-50"
+                          className="size-8 flex items-center justify-center rounded-md bg-white text-gray-600 shadow-sm hover:text-red-600 disabled:opacity-50"
                           disabled={item.quantity <= 1}
                           aria-label="Decrease quantity"
                         >
@@ -149,7 +149,7 @@ export const CartPage: React.FC = () => {
                               item.variant_id
                             )
                           }
-                          className="w-8 h-8 flex items-center justify-center rounded-md bg-white text-gray-600 shadow-sm hover:text-red-600"
+                          className="size-8 flex items-center justify-center rounded-md bg-white text-gray-600 shadow-sm hover:text-red-600"
                           aria-label="Increase quantity"
                         >
                           <Plus size={14} />

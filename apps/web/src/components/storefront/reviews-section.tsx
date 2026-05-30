@@ -112,7 +112,7 @@ export function ReviewsSection({
     return (
       <div className={cn('py-8', className)}>
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+          <Loader2 className="size-8 animate-spin text-muted-foreground" />
         </div>
       </div>
     );
@@ -181,7 +181,7 @@ export function ReviewsSection({
                 disabled={isLoadingMore}
               >
                 {isLoadingMore && (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  <Loader2 className="size-4 mr-2 animate-spin" />
                 )}
                 Load More Reviews
               </Button>
@@ -190,7 +190,7 @@ export function ReviewsSection({
         </>
       ) : (
         <div className="text-center py-12 bg-muted/30 rounded-lg">
-          <MessageSquareText className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+          <MessageSquareText className="size-12 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-lg font-semibold mb-2">No Reviews Yet</h3>
           <p className="text-muted-foreground mb-4">
             Be the first to review {productName}

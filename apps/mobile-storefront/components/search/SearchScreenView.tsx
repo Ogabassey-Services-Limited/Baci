@@ -115,7 +115,7 @@ export default function SearchScreenView({
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-            Searching...
+            Searching…
           </Text>
         </View>
       );

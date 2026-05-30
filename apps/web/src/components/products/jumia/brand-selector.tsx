@@ -122,7 +122,7 @@ export function JumiaBrandSelector({
           className="w-full justify-between"
         >
           {value?.name || 'Select Jumia Brand...'}
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[300px] p-0" align="start">
@@ -149,7 +149,7 @@ export function JumiaBrandSelector({
             )}
             {fetchStatus === 'loading' || fetchStatus === 'idle' ? (
               <div className="p-4 text-sm text-center text-muted-foreground">
-                Loading brands...
+                Loading brands…
               </div>
             ) : (
               <CommandGroup>
@@ -165,7 +165,7 @@ export function JumiaBrandSelector({
                     >
                       <Check
                         className={cn(
-                          'mr-2 h-4 w-4',
+                          'mr-2 size-4',
                           value?.code === brand.code
                             ? 'opacity-100'
                             : 'opacity-0'

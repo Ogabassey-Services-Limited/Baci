@@ -108,7 +108,7 @@ export default function NotificationPreferencesPage() {
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" asChild>
           <Link href="/dashboard/notifications">
-            <ArrowLeft className="h-4 w-4" />
+            <ArrowLeft className="size-4" />
           </Link>
         </Button>
         <div>
@@ -125,7 +125,7 @@ export default function NotificationPreferencesPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Bell className="h-5 w-5" />
+            <Bell className="size-5" />
             Notification Channels
           </CardTitle>
           <CardDescription>
@@ -216,11 +216,11 @@ export default function NotificationPreferencesPage() {
           {isSaving ? (
             <>
               <BagLoader size={16} />
-              Saving...
+              Saving…
             </>
           ) : (
             <>
-              <Save className="h-4 w-4 mr-2" />
+              <Save className="size-4 mr-2" />
               Save Preferences
             </>
           )}

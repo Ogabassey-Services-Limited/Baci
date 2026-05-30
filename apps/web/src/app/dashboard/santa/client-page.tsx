@@ -79,9 +79,9 @@ export default function SantaClientPage() {
       {/* Stats Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card className="border-red-100 bg-red-50/30 dark:bg-red-950/10">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardHeader className="flex flex-row items-center justify-between gap-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-            <ShoppingBag className="h-4 w-4 text-red-600" />
+            <ShoppingBag className="size-4 text-red-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
@@ -94,9 +94,9 @@ export default function SantaClientPage() {
         </Card>
 
         <Card className="border-blue-100 bg-blue-50/30 dark:bg-blue-950/10">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardHeader className="flex flex-row items-center justify-between gap-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Conversations</CardTitle>
-            <MessageCircle className="h-4 w-4 text-blue-600" />
+            <MessageCircle className="size-4 text-blue-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats?.total_chats || 0}</div>
@@ -107,11 +107,11 @@ export default function SantaClientPage() {
         </Card>
 
         <Card className="border-green-100 bg-green-50/30 dark:bg-green-950/10">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardHeader className="flex flex-row items-center justify-between gap-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
               Wishes Granted
             </CardTitle>
-            <ThumbsUp className="h-4 w-4 text-green-600" />
+            <ThumbsUp className="size-4 text-green-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
@@ -124,9 +124,9 @@ export default function SantaClientPage() {
         </Card>
 
         <Card className="border-orange-100 bg-orange-50/30 dark:bg-orange-950/10">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardHeader className="flex flex-row items-center justify-between gap-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Wishes Denied</CardTitle>
-            <ThumbsDown className="h-4 w-4 text-orange-600" />
+            <ThumbsDown className="size-4 text-orange-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">

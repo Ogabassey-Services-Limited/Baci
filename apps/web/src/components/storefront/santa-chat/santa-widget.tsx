@@ -20,7 +20,7 @@ export function SantaWidget() {
         <button
           type="button"
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-6 right-6 z-50 w-16 h-16 rounded-full bg-red-600 text-white shadow-2xl flex items-center justify-center hover:bg-red-700 transition-all duration-300 hover:scale-110 animate-bounce"
+          className="fixed bottom-6 right-6 z-50 size-16 rounded-full bg-red-600 text-white shadow-2xl flex items-center justify-center hover:bg-red-700 transition-all duration-300 hover:scale-110 animate-bounce"
           style={{ animationDuration: '2s' }}
           aria-label="Chat with Santa"
         >

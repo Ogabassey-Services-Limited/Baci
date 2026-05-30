@@ -37,7 +37,7 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
         {message.role === 'user' ? (
           <User size={14} className="text-red-600" />
         ) : isSanta ? (
-          <SantaIcon className="w-6 h-6" />
+          <SantaIcon className="size-6" />
         ) : (
           <Sparkles size={14} />
         )}

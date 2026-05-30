@@ -70,7 +70,7 @@ export function AgentCommerceTrustReadinessCard({
       <CardContent className="space-y-4">
         {error || !readiness ? (
           <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
+            <AlertCircle className="size-4" />
             <AlertDescription>
               {error ?? 'Unable to load agent trust health'}
             </AlertDescription>
@@ -111,7 +111,7 @@ export function AgentCommerceTrustReadinessCard({
                           rel="noreferrer"
                           target="_blank"
                         >
-                          <ExternalLink className="h-3.5 w-3.5" />
+                          <ExternalLink className="size-3.5" />
                         </a>
                       </Button>
                     </div>
@@ -154,7 +154,7 @@ export function AgentCommerceTrustReadinessCard({
                           href={action.href}
                         >
                           Review
-                          <ArrowRight className="h-3.5 w-3.5" />
+                          <ArrowRight className="size-3.5" />
                         </Link>
                       </Button>
                     </li>
@@ -174,9 +174,9 @@ export function AgentCommerceTrustReadinessCard({
                 >
                   <div className="flex items-start gap-3">
                     {check.severity === 'pass' ? (
-                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+                      <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
                     ) : (
-                      <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+                      <TriangleAlert className="mt-0.5 size-4 shrink-0" />
                     )}
                     <div className="space-y-1">
                       <div className="font-medium">{check.label}</div>

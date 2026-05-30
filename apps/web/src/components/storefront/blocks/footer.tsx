@@ -123,11 +123,11 @@ export function Footer({
                   <Link
                     key={platform}
                     href={asRoute(url)}
-                    className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center hover:bg-white hover:text-black transition-all"
+                    className="size-10 bg-white/10 rounded-full flex items-center justify-center hover:bg-white hover:text-black transition-all"
                     target="_blank"
                     rel="noopener noreferrer"
                   >
-                    <Icon className="w-5 h-5" />
+                    <Icon className="size-5" />
                   </Link>
                 );
               })}

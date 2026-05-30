@@ -22,7 +22,7 @@ export function DvaModal({
         {/* Header */}
         <div className="sticky top-0 bg-linear-to-r from-store-primary to-store-primary/80 p-6 flex items-center justify-between rounded-t-2xl">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+            <div className="size-10 bg-white/20 rounded-xl flex items-center justify-center">
               <Building2 size={20} className="text-white" />
             </div>
             <div>
@@ -37,7 +37,7 @@ export function DvaModal({
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center text-white hover:bg-white/30 transition-colors"
+            className="size-8 rounded-lg bg-white/20 flex items-center justify-center text-white hover:bg-white/30 transition-colors"
           >
             <X size={16} />
           </button>
@@ -103,7 +103,7 @@ export function DvaModal({
 
           {/* Instruction & Timer */}
           <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 flex gap-4">
-            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm shrink-0">
+            <div className="size-10 bg-white rounded-xl flex items-center justify-center shadow-sm shrink-0">
               <Clock size={20} className="text-blue-600" />
             </div>
             <div>
@@ -121,12 +121,12 @@ export function DvaModal({
           <div className="flex flex-col items-center justify-center py-4 gap-3">
             <div className="flex items-center gap-3 text-store-primary">
               <div className="flex gap-1">
-                <div className="w-1.5 h-1.5 bg-store-primary rounded-full animate-bounce [animation-delay:-0.3s]" />
-                <div className="w-1.5 h-1.5 bg-store-primary rounded-full animate-bounce [animation-delay:-0.15s]" />
-                <div className="w-1.5 h-1.5 bg-store-primary rounded-full animate-bounce" />
+                <div className="size-1.5 bg-store-primary rounded-full animate-bounce [animation-delay:-0.3s]" />
+                <div className="size-1.5 bg-store-primary rounded-full animate-bounce [animation-delay:-0.15s]" />
+                <div className="size-1.5 bg-store-primary rounded-full animate-bounce" />
               </div>
               <span className="text-sm font-bold">
-                Waiting for transfer...
+                Waiting for transfer…
               </span>
             </div>
             <p className="text-[10px] text-gray-400 text-center">

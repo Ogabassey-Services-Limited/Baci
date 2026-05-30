@@ -89,7 +89,7 @@ export function AgenticTrustCenterCard({
       <Card className="border-border/70">
         <CardHeader className="space-y-2">
           <CardTitle className="flex items-center gap-2 text-base">
-            <ShieldCheck className="h-5 w-5 text-primary" />
+            <ShieldCheck className="size-5 text-primary" />
             Agent trust center
           </CardTitle>
           <CardDescription>
@@ -99,7 +99,7 @@ export function AgenticTrustCenterCard({
         <CardContent>
           <div className="rounded-md border border-amber-200 bg-amber-50/70 p-3 text-sm text-amber-950">
             <p className="flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4" />
+              <AlertTriangle className="size-4" />
               Unable to load trust readiness right now.
             </p>
           </div>
@@ -114,7 +114,7 @@ export function AgenticTrustCenterCard({
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-1">
             <CardTitle className="flex items-center gap-2 text-base">
-              <ShieldCheck className="h-5 w-5 text-primary" />
+              <ShieldCheck className="size-5 text-primary" />
               Agent trust center
             </CardTitle>
             <CardDescription>
@@ -171,7 +171,7 @@ export function AgenticTrustCenterCard({
                     href={action.href}
                   >
                     Review
-                    <ExternalLink className="ml-2 h-3.5 w-3.5" />
+                    <ExternalLink className="ml-2 size-3.5" />
                   </Link>
                 </Button>
               </div>

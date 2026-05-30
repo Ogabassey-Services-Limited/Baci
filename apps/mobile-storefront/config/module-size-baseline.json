@@ -1,11 +1,5 @@
 {
   "maxLines": 300,
-  "roots": [
-    "components",
-    "hooks",
-    "lib",
-    "services",
-    "stores"
-  ],
+  "roots": ["components", "hooks", "lib", "services", "stores"],
   "modules": []
 }

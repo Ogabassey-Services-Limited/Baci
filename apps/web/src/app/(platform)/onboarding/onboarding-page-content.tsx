@@ -17,11 +17,11 @@ export default function OnboardingPageContent() {
       {/* Animated Orbs */}
       {/* Animated Orbs - Optimized with gradients instead of heavy blur filters */}
       <div
-        className="absolute top-1/4 left-1/4 w-[500px] h-[500px] bg-[radial-gradient(circle,var(--theme-primary)_0%,transparent_70%)] opacity-20 animate-pulse pointer-events-none"
+        className="absolute top-1/4 left-1/4 size-[500px] bg-[radial-gradient(circle,var(--theme-primary)_0%,transparent_70%)] opacity-20 animate-pulse pointer-events-none"
         style={{ animationDuration: '4s' }}
       />
       <div
-        className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-[radial-gradient(circle,var(--theme-accent)_0%,transparent_70%)] opacity-20 animate-pulse pointer-events-none"
+        className="absolute bottom-1/4 right-1/4 size-[500px] bg-[radial-gradient(circle,var(--theme-accent)_0%,transparent_70%)] opacity-20 animate-pulse pointer-events-none"
         style={{ animationDuration: '6s' }}
       />
 

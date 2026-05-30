@@ -225,7 +225,7 @@ export default function CreateNotificationPage() {
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" asChild>
           <Link href="/admin/notifications">
-            <ArrowLeft className="h-4 w-4" />
+            <ArrowLeft className="size-4" />
           </Link>
         </Button>
         <div>
@@ -291,9 +291,7 @@ export default function CreateNotificationPage() {
                     {typeOptions.map((option) => (
                       <SelectItem key={option.value} value={option.value}>
                         <div className="flex items-center gap-2">
-                          <option.icon
-                            className={cn('h-4 w-4', option.color)}
-                          />
+                          <option.icon className={cn('size-4', option.color)} />
                           {option.label}
                         </div>
                       </SelectItem>
@@ -356,7 +354,7 @@ export default function CreateNotificationPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5" />
+              <Users className="size-5" />
               Targeting
             </CardTitle>
             <CardDescription>
@@ -426,7 +424,7 @@ export default function CreateNotificationPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Bell className="h-5 w-5" />
+              <Bell className="size-5" />
               Delivery
             </CardTitle>
             <CardDescription>Configure how and when to send</CardDescription>
@@ -538,7 +536,7 @@ export default function CreateNotificationPage() {
                   );
                   const Icon = typeOption?.icon || Info;
                   return (
-                    <Icon className={cn('h-5 w-5 mt-0.5', typeOption?.color)} />
+                    <Icon className={cn('size-5 mt-0.5', typeOption?.color)} />
                   );
                 })()}
                 <div className="flex-1">
@@ -572,17 +570,17 @@ export default function CreateNotificationPage() {
           <Button type="submit" disabled={isSubmitting}>
             {isSubmitting ? (
               <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                <Loader2 className="size-4 mr-2 animate-spin" />
                 {scheduleEnabled ? 'Scheduling...' : 'Sending...'}
               </>
             ) : scheduleEnabled ? (
               <>
-                <Clock className="h-4 w-4 mr-2" />
+                <Clock className="size-4 mr-2" />
                 Schedule Notification
               </>
             ) : (
               <>
-                <Send className="h-4 w-4 mr-2" />
+                <Send className="size-4 mr-2" />
                 Send Now
               </>
             )}

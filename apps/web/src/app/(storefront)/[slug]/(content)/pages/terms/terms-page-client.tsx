@@ -44,7 +44,7 @@ export function TermsPageClient({ merchant, content }: TermsPageClientProps) {
                 <div className="container px-4 md:px-6 text-center">
                   <div className="flex justify-center mb-6">
                     <div className="p-4 bg-primary/10 rounded-full">
-                      <ScrollText className="h-10 w-10 text-primary" />
+                      <ScrollText className="size-10 text-primary" />
                     </div>
                   </div>
                   <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">
@@ -62,7 +62,7 @@ export function TermsPageClient({ merchant, content }: TermsPageClientProps) {
                   <div className="grid sm:grid-cols-3 gap-6 max-w-4xl mx-auto">
                     <div className="flex items-center gap-3">
                       <div className="p-2 bg-green-100 dark:bg-green-900/20 rounded-lg">
-                        <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
+                        <CheckCircle className="size-5 text-green-600 dark:text-green-400" />
                       </div>
                       <div>
                         <p className="font-medium">Agreement</p>
@@ -73,7 +73,7 @@ export function TermsPageClient({ merchant, content }: TermsPageClientProps) {
                     </div>
                     <div className="flex items-center gap-3">
                       <div className="p-2 bg-amber-100 dark:bg-amber-900/20 rounded-lg">
-                        <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                        <AlertCircle className="size-5 text-amber-600 dark:text-amber-400" />
                       </div>
                       <div>
                         <p className="font-medium">Responsibilities</p>
@@ -84,7 +84,7 @@ export function TermsPageClient({ merchant, content }: TermsPageClientProps) {
                     </div>
                     <div className="flex items-center gap-3">
                       <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
-                        <Scale className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                        <Scale className="size-5 text-blue-600 dark:text-blue-400" />
                       </div>
                       <div>
                         <p className="font-medium">Fair Use</p>

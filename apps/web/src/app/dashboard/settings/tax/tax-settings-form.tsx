@@ -241,7 +241,7 @@ export function TaxSettingsForm({
                 VAT Collection
                 {vatEnabled && (
                   <span className="inline-flex items-center gap-1 text-xs font-medium text-green-600 bg-green-100 px-2 py-0.5 rounded-full">
-                    <CheckCircle2 className="h-3 w-3" />
+                    <CheckCircle2 className="size-3" />
                     Active
                   </span>
                 )}
@@ -299,7 +299,7 @@ export function TaxSettingsForm({
                 className="font-mono"
               />
               <Button onClick={handleSaveTaxId} disabled={isLoading}>
-                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isLoading && <Loader2 className="mr-2 size-4 animate-spin" />}
                 {taxId ? 'Verify & Save' : 'Save'}
               </Button>
             </div>
@@ -314,7 +314,7 @@ export function TaxSettingsForm({
       <Card className="glass">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Building2 className="h-5 w-5" />
+            <Building2 className="size-5" />
             Legal Entity Name
           </CardTitle>
           <CardDescription>
@@ -334,7 +334,7 @@ export function TaxSettingsForm({
               />
               <Button onClick={handleSaveLegalEntity} disabled={isSavingEntity}>
                 {isSavingEntity && (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="mr-2 size-4 animate-spin" />
                 )}
                 Save
               </Button>
@@ -351,7 +351,7 @@ export function TaxSettingsForm({
       <Card className="glass">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <MapPin className="h-5 w-5" />
+            <MapPin className="size-5" />
             Registered Business Address
           </CardTitle>
           <CardDescription>
@@ -410,7 +410,7 @@ export function TaxSettingsForm({
               onChange={(e) => setStateCode(e.target.value)}
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
             >
-              <option value="">Select state...</option>
+              <option value="">Select state…</option>
               {NIGERIAN_STATES.map((state) => (
                 <option key={state.code} value={state.code}>
                   {state.name}
@@ -425,7 +425,7 @@ export function TaxSettingsForm({
             className="w-full"
           >
             {isSavingAddress && (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Loader2 className="mr-2 size-4 animate-spin" />
             )}
             Save Address
           </Button>
@@ -434,7 +434,7 @@ export function TaxSettingsForm({
 
       {/* Info Alert */}
       <Alert>
-        <Info className="h-4 w-4" />
+        <Info className="size-4" />
         <AlertTitle>About VAT in Nigeria</AlertTitle>
         <AlertDescription>
           VAT is mandatory for businesses with annual turnover above ₦25

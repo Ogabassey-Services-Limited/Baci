@@ -122,7 +122,7 @@ export function TagInput({
           }
           aria-label="Add tag"
         >
-          <Plus className="h-4 w-4" />
+          <Plus className="size-4" />
         </Button>
       </div>
 
@@ -146,7 +146,7 @@ export function TagInput({
                 }}
                 aria-label={`Remove ${tag}`}
               >
-                <X className="h-3 w-3" />
+                <X className="size-3" />
               </button>
             </Badge>
           ))}

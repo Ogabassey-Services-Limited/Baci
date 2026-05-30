@@ -101,11 +101,9 @@ async function PrivacyPageContent({ params }: PageProps) {
   };
 
   const jsonLdScript = (
-    <script
-      type="application/ld+json"
-      // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema is sanitized via safeJsonLdStringify
-      dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(privacySchema) }}
-    />
+    <script type="application/ld+json">
+      {safeJsonLdStringify(privacySchema)}
+    </script>
   );
 
   // Resolve template component server-side for SEO (H1 in SSR HTML)

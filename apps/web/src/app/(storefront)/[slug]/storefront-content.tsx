@@ -287,13 +287,9 @@ export async function StorefrontContent({
     .slice(0, 24);
 
   const homepageSchema = homeCollectionSchema ? (
-    <script
-      type="application/ld+json"
-      // biome-ignore lint/security/noDangerouslySetInnerHtml: CollectionPage schema serialized with safeJsonLdStringify
-      dangerouslySetInnerHTML={{
-        __html: safeJsonLdStringify(homeCollectionSchema),
-      }}
-    />
+    <script type="application/ld+json">
+      {safeJsonLdStringify(homeCollectionSchema)}
+    </script>
   ) : null;
   const discoveryLinksSection = (
     <section

@@ -75,7 +75,7 @@ export const SavedPage: React.FC = () => {
                 </div>
 
                 <div className="mt-3 z-20 flex gap-2">
-                  <button
+                  <button type="button"
                     onClick={(e) => {
                       e.preventDefault();
                       addToCart(product as any, 1);
@@ -85,7 +85,7 @@ export const SavedPage: React.FC = () => {
                   >
                     <ShoppingCart size={14} /> Add
                   </button>
-                  <button
+                  <button type="button"
                     onClick={(e) => {
                       e.preventDefault();
                       toggleSaved(product);

@@ -228,7 +228,7 @@ export function ColorPicker({ color, onChange }: ColorPickerProps) {
           style={{ background: 'linear-gradient(to top, black, transparent)' }}
         />
         <div
-          className="absolute w-4 h-4 rounded-full border-2 border-white shadow-md pointer-events-none"
+          className="absolute size-4 rounded-full border-2 border-white shadow-md pointer-events-none"
           style={{
             left: `${saturation}%`,
             top: `${100 - lightness}%`,
@@ -268,7 +268,7 @@ export function ColorPicker({ color, onChange }: ColorPickerProps) {
           }}
         >
           <div
-            className="absolute h-5 w-5 -top-0.5 rounded-full border-2 border-white bg-transparent shadow-md pointer-events-none"
+            className="absolute size-5 -top-0.5 rounded-full border-2 border-white bg-transparent shadow-md pointer-events-none"
             style={{
               left: `${(hue / 360) * 100}%`,
               transform: 'translateX(-50%)',

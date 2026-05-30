@@ -38,7 +38,7 @@ export function StatusDropdown({
           data-no-card-toggle="true"
         >
           <StatusBadge status={shippingStatus} type="shipping" />
-          <ChevronDown className="h-4 w-4" />
+          <ChevronDown className="size-4" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
@@ -46,7 +46,7 @@ export function StatusDropdown({
           <DropdownMenuItem
             onSelect={() => onStatusUpdate(order.orderNumber, 'Processing')}
           >
-            <CheckCircle className="mr-2 h-4 w-4" />
+            <CheckCircle className="mr-2 size-4" />
             <span>Confirm Order</span>
           </DropdownMenuItem>
         )}
@@ -54,7 +54,7 @@ export function StatusDropdown({
           <DropdownMenuItem
             onSelect={() => onStatusUpdate(order.orderNumber, 'Shipped')}
           >
-            <Truck className="mr-2 h-4 w-4" />
+            <Truck className="mr-2 size-4" />
             <span>Ship Order</span>
           </DropdownMenuItem>
         )}
@@ -62,7 +62,7 @@ export function StatusDropdown({
           <DropdownMenuItem
             onSelect={() => onStatusUpdate(order.orderNumber, 'Delivered')}
           >
-            <PackageCheck className="mr-2 h-4 w-4" />
+            <PackageCheck className="mr-2 size-4" />
             <span>Mark as Delivered</span>
           </DropdownMenuItem>
         )}
@@ -70,7 +70,7 @@ export function StatusDropdown({
           <DropdownMenuItem
             onSelect={() => onStatusUpdate(order.orderNumber, 'Returned')}
           >
-            <RefreshCw className="mr-2 h-4 w-4" />
+            <RefreshCw className="mr-2 size-4" />
             <span>Process Return</span>
           </DropdownMenuItem>
         )}
@@ -79,7 +79,7 @@ export function StatusDropdown({
             onSelect={() => onStatusUpdate(order.orderNumber, 'Canceled')}
             className="text-red-600 focus:bg-red-50 focus:text-red-600"
           >
-            <X className="mr-2 h-4 w-4" />
+            <X className="mr-2 size-4" />
             <span>Cancel Order</span>
           </DropdownMenuItem>
         )}

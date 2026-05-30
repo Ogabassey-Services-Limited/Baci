@@ -214,7 +214,7 @@ export const Footer: React.FC<FooterProps> = ({ merchant, storeSlug }) => {
               Download App
             </h3>
             <div className="flex gap-2 mb-6">
-              <button className="flex items-center gap-2 bg-black border border-gray-700 rounded-lg px-3 py-1.5 hover:bg-gray-900 transition-colors group">
+              <button type="button" className="flex items-center gap-2 bg-black border border-gray-700 rounded-lg px-3 py-1.5 hover:bg-gray-900 transition-colors group">
                 <Apple size={22} className="text-white fill-current" />
                 <div className="text-left leading-none">
                   <div className="text-[9px] text-gray-400 font-medium group-hover:text-gray-300">
@@ -225,8 +225,8 @@ export const Footer: React.FC<FooterProps> = ({ merchant, storeSlug }) => {
                   </div>
                 </div>
               </button>
-              <button className="flex items-center gap-2 bg-black border border-gray-700 rounded-lg px-3 py-1.5 hover:bg-gray-900 transition-colors group">
-                <svg viewBox="0 0 24 24" className="w-5 h-5">
+              <button type="button" className="flex items-center gap-2 bg-black border border-gray-700 rounded-lg px-3 py-1.5 hover:bg-gray-900 transition-colors group">
+                <svg viewBox="0 0 24 24" className="size-5">
                   <path
                     fill="#4285F4"
                     d="M23.64 12.48l-2.95-3.07L16.2 13.9l4.49 4.49c.87-.93 1.35-2.22.95-3.55zM.65 1.57C.24 2.21 0 3.06 0 4.13v15.74c0 1.07.24 1.92.65 2.56l.06.05L13.1 10.09v-.19L.71 1.52l-.06.05z"
@@ -259,7 +259,7 @@ export const Footer: React.FC<FooterProps> = ({ merchant, storeSlug }) => {
               <span className="text-[10px] text-gray-500 font-medium">Secured by:</span>
               {/* Paystack Logo Badge */}
               <div className="flex items-center gap-1 bg-white px-2 py-1 rounded border border-gray-200 shadow-sm opacity-90 hover:opacity-100 transition-opacity">
-                <svg viewBox="0 0 24 24" className="w-4 h-4 text-blue-600 fill-current">
+                <svg viewBox="0 0 24 24" className="size-4 text-blue-600 fill-current">
                   <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14h-2v-2h2v2zm0-4h-2V7h2v6z" />
                 </svg>
                 <span className="text-[10px] font-bold text-gray-900 tracking-tight">Paystack</span>
@@ -267,7 +267,7 @@ export const Footer: React.FC<FooterProps> = ({ merchant, storeSlug }) => {
 
               {/* Flutterwave Logo Badge */}
               <div className="flex items-center gap-1 bg-white px-2 py-1 rounded border border-gray-200 shadow-sm opacity-90 hover:opacity-100 transition-opacity">
-                <svg viewBox="0 0 24 24" className="w-4 h-4 text-orange-500 fill-current">
+                <svg viewBox="0 0 24 24" className="size-4 text-orange-500 fill-current">
                   <path d="M12 2L2 22h10l10-20H12zm0 6l-5 10h10L12 8z" />
                 </svg>
                 <span className="text-[10px] font-bold text-gray-900 tracking-tight">Flutterwave</span>

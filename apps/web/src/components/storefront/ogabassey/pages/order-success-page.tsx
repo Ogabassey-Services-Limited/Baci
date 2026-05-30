@@ -94,10 +94,10 @@ export const OrderSuccessPage: React.FC = () => {
 
   const getIcon = () => {
     if (successType === 'invoice')
-      return <FileText className="text-blue-600 w-10 h-10" />;
+      return <FileText className="text-blue-600 size-10" />;
     if (successType === 'payforme')
-      return <Share2 className="text-purple-600 w-10 h-10" />;
-    return <ShoppingBag className="text-green-600 w-10 h-10" />;
+      return <Share2 className="text-purple-600 size-10" />;
+    return <ShoppingBag className="text-green-600 size-10" />;
   };
 
   const getBgColor = () => {
@@ -139,7 +139,7 @@ export const OrderSuccessPage: React.FC = () => {
         </div>
 
         {/* Confetti Effect Background */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-green-100/50 rounded-full blur-3xl -z-10" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 size-48 bg-green-100/50 rounded-full blur-3xl -z-10" />
       </div>
 
       {/* Content */}
@@ -157,7 +157,7 @@ export const OrderSuccessPage: React.FC = () => {
         {/* Download Invoice Button (Only for Invoice Mode) */}
         {successType === 'invoice' && displayOrder && (
           <div className="mb-10">
-            <button
+            <button type="button"
               onClick={() => setIsInvoiceOpen(true)}
               className="w-full bg-store-primary hover:bg-store-primary/90 text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-lg hover:shadow-store-primary/20 flex items-center justify-center gap-2 active:scale-[0.98]"
             >
@@ -180,7 +180,7 @@ export const OrderSuccessPage: React.FC = () => {
             rel="noopener noreferrer"
             className="bg-white border border-gray-200 text-gray-700 font-bold py-3 px-6 rounded-xl hover:border-gray-300 hover:bg-gray-50 transition-all flex items-center justify-center gap-3 w-full shadow-sm group"
           >
-            <GoogleIcon className="w-5 h-5 group-hover:scale-110 transition-transform" />
+            <GoogleIcon className="size-5 group-hover:scale-110 transition-transform" />
             Leave a Google Review
           </a>
         </div>
@@ -198,7 +198,7 @@ export const OrderSuccessPage: React.FC = () => {
           >
             Continue Shopping
           </Link>
-          <button
+          <button type="button"
             onClick={() => {
               if (!isAuthenticated && trackingToken) {
                 router.push(getUrl(`/track-order?token=${trackingToken}`) as any);

@@ -224,7 +224,7 @@ export default function AnnouncementBarPage() {
                 {isSaving ? (
                   <>
                     <BagLoader size={16} />
-                    Saving...
+                    Saving…
                   </>
                 ) : (
                   'Save Changes'

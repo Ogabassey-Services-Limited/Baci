@@ -204,7 +204,7 @@ export function GadgetDefaultTemplate({
                     )}
                   >
                     <Link href={asRoute(getFullHref('/category/all'))}>
-                      Explore Collection <ArrowRight className="w-5 h-5" />
+                      Explore Collection <ArrowRight className="size-5" />
                     </Link>
                   </ThemedButton>
                 </div>
@@ -278,7 +278,7 @@ export function GadgetDefaultTemplate({
                   }}
                 >
                   <cat.icon
-                    className="w-8 h-8 mb-3 transition-transform group-hover:scale-110"
+                    className="size-8 mb-3 transition-transform group-hover:scale-110"
                     style={{ color: theme.colors.accent }}
                   />
                   <span className="font-medium text-center">{cat.label}</span>

@@ -82,7 +82,7 @@ export function OrderSummarySidebar({
               key={item.cartItemId ?? item.id ?? `order-item-${index}`}
               className="flex gap-3"
             >
-              <div className="w-12 h-12 bg-gray-50 rounded-lg border border-gray-100 p-1 shrink-0 relative">
+              <div className="size-12 bg-gray-50 rounded-lg border border-gray-100 p-1 shrink-0 relative">
                 <ThumbnailImage
                   src={item.image || item.image_url || '/placeholder.png'}
                   alt={
@@ -140,7 +140,7 @@ export function OrderSummarySidebar({
               !selectedQuoteId &&
               deliveryCost === 0 ? (
                 <span className="text-gray-500 font-normal italic">
-                  Calculated...
+                  Calculated…
                 </span>
               ) : deliveryCost === 0 ? (
                 'Free'
@@ -161,16 +161,16 @@ export function OrderSummarySidebar({
             <div className="py-2 animate-in fade-in">
               {walletLoading ? (
                 <div className="flex items-center gap-2 text-gray-500">
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Loader2 className="size-4 animate-spin" />
                   <span className="text-sm">
-                    Checking wallet balance...
+                    Checking wallet balance…
                   </span>
                 </div>
               ) : (
                 <>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center">
+                      <div className="size-6 rounded-full bg-green-100 flex items-center justify-center">
                         <span className="text-green-600 text-xs font-bold">
                           ₦
                         </span>
@@ -200,7 +200,7 @@ export function OrderSummarySidebar({
                       }`}
                     >
                       <span
-                        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                        className={`inline-block size-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
                           payWithWallet
                             ? 'translate-x-4'
                             : 'translate-x-0'
@@ -244,7 +244,7 @@ export function OrderSummarySidebar({
                 onChange={(e) =>
                   setNewsletterOptIn(e.target.checked)
                 }
-                className="peer h-4 w-4 rounded border-gray-300 text-store-primary focus:ring-store-primary"
+                className="peer size-4 rounded border-gray-300 text-store-primary focus:ring-store-primary"
               />
             </div>
             <span className="text-xs text-gray-600 group-hover:text-gray-900 transition-colors">
@@ -253,7 +253,7 @@ export function OrderSummarySidebar({
           </label>
         )}
 
-        <button
+        <button type="button"
           onClick={handlePlaceOrder}
           disabled={
             isProcessing ||

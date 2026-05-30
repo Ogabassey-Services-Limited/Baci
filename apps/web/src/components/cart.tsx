@@ -66,7 +66,7 @@ export function Cart() {
                             updateQuantity(item.id, item.quantity - 1)
                           }
                           disabled={item.quantity <= 1}
-                          className="h-11 w-11 min-w-[44px] min-h-[44px]"
+                          className="size-11 min-w-[44px] min-h-[44px]"
                         />
                         <Input
                           type="number"
@@ -86,7 +86,7 @@ export function Cart() {
                           onClick={() =>
                             updateQuantity(item.id, item.quantity + 1)
                           }
-                          className="h-11 w-11 min-w-[44px] min-h-[44px]"
+                          className="size-11 min-w-[44px] min-h-[44px]"
                         />
                       </div>
                     </div>
@@ -117,7 +117,7 @@ export function Cart() {
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-center px-6">
-              <ShoppingBag className="w-20 h-20 text-muted-foreground/50 mb-4" />
+              <ShoppingBag className="size-20 text-muted-foreground/50 mb-4" />
               <p className="text-lg font-semibold">Your cart is empty</p>
               <p className="text-muted-foreground mt-2">
                 Add some products to get started!

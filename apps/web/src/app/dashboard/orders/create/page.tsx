@@ -12,9 +12,9 @@ export default function CreateOrderPage() {
             type="button"
             variant="outline"
             size="icon"
-            className="h-7 w-7"
+            className="size-7"
           >
-            <ChevronLeft className="h-4 w-4" />
+            <ChevronLeft className="size-4" />
             <span className="sr-only">Back to Orders</span>
           </Button>
         </Link>

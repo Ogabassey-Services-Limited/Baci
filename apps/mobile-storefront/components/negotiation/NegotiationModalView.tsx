@@ -1,5 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
-import { formatPrice } from '@/stores/cart-store';
+import Ionicons from '@react-native-vector-icons/ionicons';
 import {
   ActivityIndicator,
   Alert,
@@ -10,15 +9,18 @@ import {
   View,
 } from 'react-native';
 import Animated, { FadeIn, FadeInDown, FadeOut } from 'react-native-reanimated';
-import AppKeyboardContainer from '@/components/ui/AppKeyboardContainer';
 import AppKeyboardAwareScrollView from '@/components/ui/AppKeyboardAwareScrollView';
+import AppKeyboardContainer from '@/components/ui/AppKeyboardContainer';
 import { BRAND, palette } from '@/constants/Colors';
-import { NEGOTIATION_CHEAPER_BUTTON_THRESHOLD } from './negotiation.constants';
+import { formatPrice } from '@/stores/cart-store';
 import { negotiationModalViewStyles as styles } from './NegotiationModalView.styles';
 import type {
   NegotiationModalViewProps,
   NegotiationStatus,
 } from './NegotiationModalView.types';
+import { NegotiationOfferForm } from './NegotiationOfferForm';
+import { NegotiationProductSummary } from './NegotiationProductSummary';
+import { NEGOTIATION_CHEAPER_BUTTON_THRESHOLD } from './negotiation.constants';
 import { validateNegotiationOffer } from './negotiation-validators';
 
 export type { NegotiationModalViewProps, NegotiationStatus };
@@ -123,63 +125,52 @@ export function NegotiationModalView({
             ]}
             showsVerticalScrollIndicator={false}
           >
-            <View style={styles.productInfo}>
-              <Text style={styles.productLabel}>PRODUCT</Text>
-              <Text style={styles.productName} numberOfLines={1}>
-                {productName}
-              </Text>
-              <Text style={styles.priceRow}>
-                <Text style={styles.priceLabel}>Current Price: </Text>
-                <Text style={styles.priceValue}>{formatPrice(currentPrice)}</Text>
-              </Text>
-            </View>
+            <NegotiationProductSummary
+              currentPrice={currentPrice}
+              productName={productName}
+            />
 
             {status === 'input' && (
-              <Animated.View entering={FadeIn.duration(200)}>
-                <Text style={styles.inputLabel}>Your Offer (₦)</Text>
-                <View style={styles.inputContainer}>
-                  <TextInput
-                    style={styles.priceInput}
-                    value={offer}
-                    onChangeText={onOfferChange}
-                    placeholder="Enter amount..."
-                    placeholderTextColor={palette.gray[400]}
-                    keyboardType="numeric"
-                  />
-                </View>
-                <Pressable
-                  style={styles.submitButton}
-                  onPress={handleSubmitPress}
-                  accessibilityLabel="Submit your offer"
-                  accessibilityRole="button"
-                >
-                  <Text style={styles.submitButtonText}>Submit Offer</Text>
-                </Pressable>
-              </Animated.View>
+              <NegotiationOfferForm
+                offer={offer}
+                onOfferChange={onOfferChange}
+                onSubmitPress={handleSubmitPress}
+              />
             )}
 
             {status === 'processing' && (
-              <Animated.View entering={FadeIn.duration(120)} style={styles.centerContainer}>
+              <Animated.View
+                entering={FadeIn.duration(120)}
+                style={styles.centerContainer}
+              >
                 <ActivityIndicator size="large" color={BRAND.primary} />
-                <Text style={styles.processingText}>Checking best deal...</Text>
+                <Text style={styles.processingText}>Checking best deal…</Text>
               </Animated.View>
             )}
 
             {status === 'success' && (
-              <Animated.View entering={FadeIn.duration(200)} style={styles.centerContainer}>
+              <Animated.View
+                entering={FadeIn.duration(200)}
+                style={styles.centerContainer}
+              >
                 <View style={styles.successCircle}>
                   <Ionicons name="checkmark-circle" size={28} color="#16A34A" />
                 </View>
                 <Text style={styles.successTitle}>Offer Accepted!</Text>
                 <Text style={styles.successSubtext}>{message}</Text>
                 <Pressable style={successButtonStyle} onPress={onSuccessAction}>
-                  <Text style={successButtonTextStyle}>{successActionLabel}</Text>
+                  <Text style={successButtonTextStyle}>
+                    {successActionLabel}
+                  </Text>
                 </Pressable>
               </Animated.View>
             )}
 
             {status === 'failed' && (
-              <Animated.View entering={FadeIn.duration(200)} style={styles.centerContainer}>
+              <Animated.View
+                entering={FadeIn.duration(200)}
+                style={styles.centerContainer}
+              >
                 <View style={styles.amberCircle}>
                   <Ionicons name="alert-circle" size={28} color="#F59E0B" />
                 </View>
@@ -187,21 +178,41 @@ export function NegotiationModalView({
                 <Text style={styles.successSubtext}>{message}</Text>
                 {counterOffer ? (
                   <View style={styles.counterBox}>
-                    <Text style={styles.counterPrice}>{formatPrice(counterOffer)}</Text>
-                    <Pressable style={styles.acceptButton} onPress={onAcceptCounter}>
-                      <Ionicons name="checkmark-circle" size={16} color="#FFF" />
+                    <Text style={styles.counterPrice}>
+                      {formatPrice(counterOffer)}
+                    </Text>
+                    <Pressable
+                      style={styles.acceptButton}
+                      onPress={onAcceptCounter}
+                    >
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={16}
+                        color="#FFF"
+                      />
                       <Text style={styles.acceptButtonText}>Accept Offer</Text>
                     </Pressable>
                   </View>
                 ) : null}
                 <View style={styles.failedActions}>
                   <Pressable style={styles.tryAgainButton} onPress={onTryAgain}>
-                    <Text style={styles.tryAgainButtonText}>Negotiate Again</Text>
+                    <Text style={styles.tryAgainButtonText}>
+                      Negotiate Again
+                    </Text>
                   </Pressable>
                   {attemptCount >= NEGOTIATION_CHEAPER_BUTTON_THRESHOLD ? (
-                    <Pressable style={styles.cheaperButton} onPress={onOpenUpload}>
-                      <Ionicons name="cloud-upload-outline" size={16} color="#1D4ED8" />
-                      <Text style={styles.cheaperButtonText}>I saw it cheaper</Text>
+                    <Pressable
+                      style={styles.cheaperButton}
+                      onPress={onOpenUpload}
+                    >
+                      <Ionicons
+                        name="cloud-upload-outline"
+                        size={16}
+                        color="#1D4ED8"
+                      />
+                      <Text style={styles.cheaperButtonText}>
+                        I saw it cheaper
+                      </Text>
                     </Pressable>
                   ) : null}
                 </View>
@@ -210,7 +221,9 @@ export function NegotiationModalView({
 
             {status === 'upload' && (
               <Animated.View entering={FadeIn.duration(200)}>
-                <Text style={styles.inputLabel}>Share proof of a lower price</Text>
+                <Text style={styles.inputLabel}>
+                  Share proof of a lower price
+                </Text>
                 <Text style={styles.uploadHelp}>{message}</Text>
                 <View style={styles.uploadInfoBox}>
                   <Text style={styles.uploadInfoText}>
@@ -236,26 +249,42 @@ export function NegotiationModalView({
                   autoCapitalize="none"
                 />
                 <View style={styles.uploadActions}>
-                  <Pressable style={styles.backButton} onPress={onBackFromUpload}>
+                  <Pressable
+                    style={styles.backButton}
+                    onPress={onBackFromUpload}
+                  >
                     <Text style={styles.backButtonText}>Back</Text>
                   </Pressable>
-                  <Pressable style={styles.sendReviewButton} onPress={onUploadSubmit}>
+                  <Pressable
+                    style={styles.sendReviewButton}
+                    onPress={onUploadSubmit}
+                  >
                     <Ionicons name="cloud-upload" size={16} color="#FFF" />
-                    <Text style={styles.sendReviewButtonText}>Send for Review</Text>
+                    <Text style={styles.sendReviewButtonText}>
+                      Send for Review
+                    </Text>
                   </Pressable>
                 </View>
               </Animated.View>
             )}
 
             {status === 'submitted' && (
-              <Animated.View entering={FadeIn.duration(200)} style={styles.centerContainer}>
+              <Animated.View
+                entering={FadeIn.duration(200)}
+                style={styles.centerContainer}
+              >
                 <View style={styles.successCircle}>
                   <Ionicons name="checkmark-circle" size={28} color="#16A34A" />
                 </View>
                 <Text style={styles.successTitle}>Request Sent</Text>
                 <Text style={styles.successSubtext}>{message}</Text>
-                <Pressable style={styles.doneButton} onPress={onSubmittedAction}>
-                  <Text style={styles.doneButtonText}>{submittedActionLabel}</Text>
+                <Pressable
+                  style={styles.doneButton}
+                  onPress={onSubmittedAction}
+                >
+                  <Text style={styles.doneButtonText}>
+                    {submittedActionLabel}
+                  </Text>
                 </Pressable>
               </Animated.View>
             )}

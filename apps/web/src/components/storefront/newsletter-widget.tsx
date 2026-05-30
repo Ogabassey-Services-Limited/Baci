@@ -147,7 +147,7 @@ export function NewsletterWidget({
         type="button"
         onClick={handleExpand}
         className={cn(
-          'fixed z-40 w-12 h-12 rounded-full shadow-lg',
+          'fixed z-40 size-12 rounded-full shadow-lg',
           'bg-primary text-primary-foreground',
           'flex items-center justify-center',
           'animate-in fade-in slide-in-from-bottom-4 duration-300',
@@ -162,7 +162,7 @@ export function NewsletterWidget({
         }}
         aria-label="Open newsletter signup"
       >
-        <Gift className="w-5 h-5" />
+        <Gift className="size-5" />
       </button>
     );
   }
@@ -192,7 +192,7 @@ export function NewsletterWidget({
         >
           <svg
             aria-hidden="true"
-            className="w-4 h-4"
+            className="size-4"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -211,7 +211,7 @@ export function NewsletterWidget({
           className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
           aria-label="Close newsletter signup"
         >
-          <X className="w-4 h-4" />
+          <X className="size-4" />
         </button>
       </div>
 
@@ -219,13 +219,13 @@ export function NewsletterWidget({
         {/* Header with gift icon */}
         <div className="text-center mb-4">
           <div
-            className="inline-flex items-center justify-center w-12 h-12 rounded-full mb-3"
+            className="inline-flex items-center justify-center size-12 rounded-full mb-3"
             style={{
               backgroundColor: 'var(--store-accent, hsl(var(--accent)))',
               color: 'var(--store-accent-text, hsl(var(--accent-foreground)))',
             }}
           >
-            <Gift className="w-6 h-6" />
+            <Gift className="size-6" />
           </div>
           <h3
             className="text-lg font-bold"
@@ -241,7 +241,7 @@ export function NewsletterWidget({
         {/* Subscription form */}
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="relative">
-            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
             <Input
               type="email"
               placeholder="Enter your email"
@@ -260,8 +260,8 @@ export function NewsletterWidget({
           >
             {isSubmitting ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Subscribing...
+                <Loader2 className="mr-2 size-4 animate-spin" />
+                Subscribing…
               </>
             ) : (
               'Get My Discount'

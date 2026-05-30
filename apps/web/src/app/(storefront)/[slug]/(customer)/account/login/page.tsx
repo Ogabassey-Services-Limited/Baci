@@ -182,7 +182,7 @@ function DefaultLoginPage() {
   if (merchantLoading || authLoading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-white">
-        <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+        <Loader2 className="size-8 animate-spin text-gray-400" />
         <p className="text-sm text-gray-500">
           {merchantLoading
             ? 'Loading store data...'
@@ -207,7 +207,7 @@ function DefaultLoginPage() {
             href={asRoute('/')}
             className="flex items-center gap-2 text-gray-500 hover:text-gray-900 transition-colors"
           >
-            <ArrowLeft className="h-4 w-4" />
+            <ArrowLeft className="size-4" />
             <span>Back to store</span>
           </Link>
         </div>
@@ -228,8 +228,8 @@ function DefaultLoginPage() {
                 unoptimized
               />
             ) : (
-              <div className="h-12 w-12 mx-auto mb-2 rounded-full bg-primary/10 flex items-center justify-center">
-                <ShieldCheck className="h-6 w-6 text-primary" />
+              <div className="size-12 mx-auto mb-2 rounded-full bg-primary/10 flex items-center justify-center">
+                <ShieldCheck className="size-6 text-primary" />
               </div>
             )}
             <CardTitle className="text-2xl">
@@ -251,7 +251,7 @@ function DefaultLoginPage() {
                 <div className="space-y-2">
                   <Label htmlFor="email">Email address</Label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
                     <Input
                       id="email"
                       type="email"
@@ -276,8 +276,8 @@ function DefaultLoginPage() {
                 >
                   {isSending ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Sending code...
+                      <Loader2 className="mr-2 size-4 animate-spin" />
+                      Sending code…
                     </>
                   ) : (
                     'Continue with email'
@@ -315,13 +315,13 @@ function DefaultLoginPage() {
                 >
                   {isGoogleLoading ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Connecting...
+                      <Loader2 className="mr-2 size-4 animate-spin" />
+                      Connecting…
                     </>
                   ) : (
                     <>
                       <svg
-                        className="mr-2 h-4 w-4"
+                        className="mr-2 size-4"
                         viewBox="0 0 24 24"
                         aria-labelledby="google-logo-title"
                       >
@@ -403,8 +403,8 @@ function DefaultLoginPage() {
 
                 {isVerifying && (
                   <div className="flex items-center justify-center gap-2 text-muted-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>Verifying...</span>
+                    <Loader2 className="size-4 animate-spin" />
+                    <span>Verifying…</span>
                   </div>
                 )}
 

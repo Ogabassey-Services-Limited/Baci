@@ -157,7 +157,7 @@ export function OgabasseyLoginPage() {
             <div
                 className="min-h-screen flex flex-col items-center justify-center gap-4 bg-background"
             >
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <Loader2 className="size-8 animate-spin text-primary" />
                 <p className="text-sm text-gray-500">
                     {merchantLoading
                         ? 'Loading store data...'
@@ -172,8 +172,8 @@ export function OgabasseyLoginPage() {
             className="min-h-screen flex flex-col relative overflow-hidden bg-[#FAFAFA]"
         >
             {/* Soft Red Gradient Background - Premium Brand Touch */}
-            <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] bg-[#D62027]/5 rounded-full blur-[120px] pointer-events-none" />
-            <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] bg-[#D62027]/5 rounded-full blur-[120px] pointer-events-none" />
+            <div className="absolute top-[-10%] right-[-10%] size-[50%] bg-[#D62027]/5 rounded-full blur-[120px] pointer-events-none" />
+            <div className="absolute bottom-[-10%] left-[-10%] size-[50%] bg-[#D62027]/5 rounded-full blur-[120px] pointer-events-none" />
 
             {/* Subtle primary accent line at top */}
             <div
@@ -187,7 +187,7 @@ export function OgabasseyLoginPage() {
                         href={asRoute('/')}
                         className="flex items-center gap-2 text-gray-500 hover:text-gray-900 transition-colors"
                     >
-                        <ArrowLeft className="h-4 w-4" />
+                        <ArrowLeft className="size-4" />
                         <span>Back to store</span>
                     </Link>
                 </div>
@@ -220,7 +220,7 @@ export function OgabasseyLoginPage() {
                                     Email address
                                 </Label>
                                 <div className="relative">
-                                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
                                     <Input
                                         id="email"
                                         type="email"
@@ -245,8 +245,8 @@ export function OgabasseyLoginPage() {
                             >
                                 {isSending ? (
                                     <>
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                        Sending code...
+                                        <Loader2 className="mr-2 size-4 animate-spin" />
+                                        Sending code…
                                     </>
                                 ) : (
                                     'Continue with email'
@@ -283,13 +283,13 @@ export function OgabasseyLoginPage() {
                             >
                                 {isGoogleLoading ? (
                                     <>
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                        Connecting...
+                                        <Loader2 className="mr-2 size-4 animate-spin" />
+                                        Connecting…
                                     </>
                                 ) : (
                                     <>
                                         <svg
-                                            className="mr-2 h-4 w-4"
+                                            className="mr-2 size-4"
                                             viewBox="0 0 24 24"
                                             aria-labelledby="google-logo-title"
                                         >
@@ -371,8 +371,8 @@ export function OgabasseyLoginPage() {
 
                             {isVerifying && (
                                 <div className="flex items-center justify-center gap-2 text-gray-500">
-                                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                                    <span>Verifying...</span>
+                                    <Loader2 className="size-4 animate-spin text-primary" />
+                                    <span>Verifying…</span>
                                 </div>
                             )}
 

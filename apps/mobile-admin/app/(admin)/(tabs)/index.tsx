@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { useQueryClient } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
@@ -515,7 +515,7 @@ export default function HomeScreen() {
             {isOrdersLoading ? (
               <View style={{ padding: 20, alignItems: 'center' }}>
                 <Text style={{ color: colors.textSecondary }}>
-                  Loading transactions...
+                  Loading transactions…
                 </Text>
               </View>
             ) : (

@@ -140,7 +140,7 @@ export function PuckStorefront({ onNoConfig }: PuckStorefrontProps) {
         }}
       >
         <Loader2
-          className="h-8 w-8 motion-safe:animate-spin"
+          className="size-8 motion-safe:animate-spin"
           aria-label="Loading store"
         />
       </div>

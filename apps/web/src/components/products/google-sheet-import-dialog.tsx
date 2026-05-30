@@ -116,7 +116,7 @@ export function GoogleSheetImportDialog({
             </div>
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center gap-x-2">
             <Checkbox
               id="saveUrl"
               checked={saveUrl}
@@ -142,8 +142,8 @@ export function GoogleSheetImportDialog({
           <Button onClick={handleImport} disabled={isLoading || !url}>
             {isLoading ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Importing...
+                <Loader2 className="mr-2 size-4 animate-spin" />
+                Importing…
               </>
             ) : (
               'Import & Analyze'

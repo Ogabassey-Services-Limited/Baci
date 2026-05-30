@@ -179,7 +179,7 @@ export function OgabasseyV2Quiz({ merchantSlug }: OgabasseyV2QuizProps) {
         </section>
 
         {isLoading ? (
-          <section aria-live="polite" className={panel}>Checking your quiz access...</section>
+          <section aria-live="polite" className={panel}>Checking your quiz access…</section>
         ) : null}
 
         {!isLoading && !isAuthenticated ? (
@@ -198,7 +198,7 @@ export function OgabasseyV2Quiz({ merchantSlug }: OgabasseyV2QuizProps) {
         ) : null}
 
         {isAuthenticated && (status === 'loading' || status === 'idle') ? (
-          <section aria-live="polite" className={panel}>Loading quiz events...</section>
+          <section aria-live="polite" className={panel}>Loading quiz events…</section>
         ) : null}
 
         {isAuthenticated && status === 'error' ? (

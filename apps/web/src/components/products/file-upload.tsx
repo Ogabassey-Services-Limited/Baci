@@ -81,10 +81,10 @@ export function FileUpload() {
         >
           <input {...getInputProps()} />
           <div className="flex flex-col items-center justify-center gap-4">
-            <UploadCloud className="w-12 h-12 text-muted-foreground" />
+            <UploadCloud className="size-12 text-muted-foreground" />
             {file ? (
               <div className="flex items-center gap-2 text-sm font-medium">
-                <FileIcon className="h-4 w-4" />
+                <FileIcon className="size-4" />
                 <span>{file.name}</span>
               </div>
             ) : (

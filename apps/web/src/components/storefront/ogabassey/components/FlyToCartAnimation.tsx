@@ -91,7 +91,7 @@ export const FlyToCartAnimation: React.FC<FlyToCartAnimationProps> = ({
             {imageSrc ? (
                 <Image src={imageSrc} alt="" fill sizes="40px" className="object-cover" />
             ) : (
-                <div className="w-2 h-2 bg-white rounded-full" />
+                <div className="size-2 bg-white rounded-full" />
             )}
         </div>,
         document.body

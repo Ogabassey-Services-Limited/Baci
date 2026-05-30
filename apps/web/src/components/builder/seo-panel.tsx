@@ -76,7 +76,7 @@ export function SEOPanel({ seoData, onChange, pagePath = '/' }: SEOPanelProps) {
         {/* Basic SEO */}
         <Card className="p-4 space-y-4">
           <div className="flex items-center gap-2">
-            <Search className="w-4 h-4 text-primary" />
+            <Search className="size-4 text-primary" />
             <h3 className="font-medium">Search Engine Optimization</h3>
           </div>
 
@@ -100,7 +100,7 @@ export function SEOPanel({ seoData, onChange, pagePath = '/' }: SEOPanelProps) {
               />
               {titleStatus !== 'good' && (
                 <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                  <AlertCircle className="w-3 h-3" />
+                  <AlertCircle className="size-3" />
                   {titleStatus === 'short'
                     ? 'Title is too short. Aim for 50-60 characters.'
                     : 'Title is too long. Keep it under 60 characters.'}
@@ -108,7 +108,7 @@ export function SEOPanel({ seoData, onChange, pagePath = '/' }: SEOPanelProps) {
               )}
               {titleStatus === 'good' && (
                 <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
-                  <CheckCircle2 className="w-3 h-3" />
+                  <CheckCircle2 className="size-3" />
                   Perfect length!
                 </p>
               )}
@@ -134,7 +134,7 @@ export function SEOPanel({ seoData, onChange, pagePath = '/' }: SEOPanelProps) {
               />
               {descStatus !== 'good' && (
                 <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                  <AlertCircle className="w-3 h-3" />
+                  <AlertCircle className="size-3" />
                   {descStatus === 'short'
                     ? 'Description is too short. Aim for 150-160 characters.'
                     : 'Description is too long. Keep it under 160 characters.'}
@@ -142,7 +142,7 @@ export function SEOPanel({ seoData, onChange, pagePath = '/' }: SEOPanelProps) {
               )}
               {descStatus === 'good' && (
                 <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
-                  <CheckCircle2 className="w-3 h-3" />
+                  <CheckCircle2 className="size-3" />
                   Perfect length!
                 </p>
               )}
@@ -179,7 +179,7 @@ export function SEOPanel({ seoData, onChange, pagePath = '/' }: SEOPanelProps) {
         {/* Google Search Preview */}
         <Card className="p-4">
           <div className="flex items-center gap-2 mb-3">
-            <Globe className="w-4 h-4 text-primary" />
+            <Globe className="size-4 text-primary" />
             <h3 className="font-medium">Google Search Preview</h3>
           </div>
           <div className="bg-white border rounded-lg p-3 space-y-1">
@@ -196,7 +196,7 @@ export function SEOPanel({ seoData, onChange, pagePath = '/' }: SEOPanelProps) {
         {/* Social Media / Open Graph */}
         <Card className="p-4 space-y-4">
           <div className="flex items-center gap-2">
-            <Share2 className="w-4 h-4 text-primary" />
+            <Share2 className="size-4 text-primary" />
             <h3 className="font-medium">Social Media Sharing</h3>
           </div>
 
@@ -268,7 +268,7 @@ export function SEOPanel({ seoData, onChange, pagePath = '/' }: SEOPanelProps) {
         {(data.ogTitle || data.title) && (
           <Card className="p-4">
             <div className="flex items-center gap-2 mb-3">
-              <Share2 className="w-4 h-4 text-primary" />
+              <Share2 className="size-4 text-primary" />
               <h3 className="font-medium">Social Share Preview</h3>
             </div>
             <div className="border rounded-lg overflow-hidden bg-white">
@@ -304,7 +304,7 @@ export function SEOPanel({ seoData, onChange, pagePath = '/' }: SEOPanelProps) {
         {/* Generated Meta Tags */}
         <Card className="p-4 space-y-3">
           <div className="flex items-center gap-2">
-            <Code className="w-4 h-4 text-primary" />
+            <Code className="size-4 text-primary" />
             <h3 className="font-medium">Generated Meta Tags</h3>
           </div>
           <div className="bg-muted rounded-md p-3 font-mono text-xs overflow-x-auto">
@@ -333,7 +333,7 @@ ${data.ogImage ? `<meta name="twitter:image" content="${data.ogImage}" />` : ''}
         {/* SEO Tips */}
         <Card className="p-4 bg-primary/5 border-primary/20">
           <h4 className="font-medium text-sm mb-2 flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-primary" />
+            <AlertCircle className="size-4 text-primary" />
             SEO Tips
           </h4>
           <ul className="text-xs space-y-1.5 text-muted-foreground">

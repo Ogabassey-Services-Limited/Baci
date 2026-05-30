@@ -45,13 +45,13 @@ export function CryptoPaymentModal({
               <button
                 type="button"
                 onClick={onBack}
-                className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center text-white hover:bg-white/30 transition-colors"
+                className="size-8 rounded-lg bg-white/20 flex items-center justify-center text-white hover:bg-white/30 transition-colors"
                 aria-label="Change network or coin"
               >
                 <ArrowLeft size={16} />
               </button>
             ) : (
-              <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+              <div className="size-8 bg-white/20 rounded-lg flex items-center justify-center">
                 <CreditCard size={16} className="text-white" />
               </div>
             )}
@@ -60,7 +60,7 @@ export function CryptoPaymentModal({
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center text-white hover:bg-white/30 transition-colors"
+            className="size-8 rounded-lg bg-white/20 flex items-center justify-center text-white hover:bg-white/30 transition-colors"
           >
             <X size={16} />
           </button>
@@ -77,7 +77,7 @@ export function CryptoPaymentModal({
                   `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${data.address}&margin=10`
                 }
                 alt="Scan"
-                className="w-24 h-24"
+                className="size-24"
                 loading="lazy"
               />
             </div>
@@ -94,7 +94,7 @@ export function CryptoPaymentModal({
                 </p>
               </div>
               <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-gray-100 border border-gray-200">
-                <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                <span className="size-1.5 rounded-full bg-green-500 animate-pulse" />
                 <p className="text-xs font-semibold text-gray-700">
                   Network:{' '}
                   {CHAIN_DISPLAY_NAMES[data.chain] || data.chain}
@@ -148,7 +148,7 @@ export function CryptoPaymentModal({
 
           {/* Confirmation Time */}
           <div className="flex items-center gap-3 bg-store-primary/5 rounded-xl p-4 border border-store-primary/20">
-            <div className="w-10 h-10 bg-store-primary/10 rounded-full flex items-center justify-center shrink-0">
+            <div className="size-10 bg-store-primary/10 rounded-full flex items-center justify-center shrink-0">
               <Clock size={20} className="text-store-primary" />
             </div>
             <div>
@@ -176,9 +176,9 @@ export function CryptoPaymentModal({
                 />
                 <span className="text-sm font-medium text-blue-800">
                   {verificationStatus === 'checking' &&
-                    'Checking payment status...'}
+                    'Checking payment status…'}
                   {verificationStatus === 'pending' &&
-                    'Waiting for blockchain confirmation...'}
+                    'Waiting for blockchain confirmation…'}
                 </span>
               </div>
               <p className="text-xs text-blue-600">
@@ -190,7 +190,7 @@ export function CryptoPaymentModal({
           {verificationStatus === 'confirmed' && (
             <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-center">
               <p className="text-sm font-medium text-green-800">
-                Payment confirmed! Redirecting to order confirmation...
+                Payment confirmed! Redirecting to order confirmation…
               </p>
             </div>
           )}
@@ -217,7 +217,7 @@ export function CryptoPaymentModal({
             {isVerifying ? (
               <span className="flex items-center justify-center gap-2">
                 <Loader2 size={18} className="animate-spin" />
-                Verifying Payment...
+                Verifying Payment…
               </span>
             ) : (
               "I've Sent the Payment"

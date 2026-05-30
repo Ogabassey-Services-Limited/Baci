@@ -84,7 +84,7 @@ export default async function MerchantUsersPage({
         <div className="space-y-2">
           <Button asChild variant="ghost" size="sm" className="-ml-3">
             <Link href="/admin/merchants">
-              <ArrowLeft className="mr-2 h-4 w-4" aria-hidden="true" />
+              <ArrowLeft className="mr-2 size-4" aria-hidden="true" />
               Merchants
             </Link>
           </Button>
@@ -99,7 +99,7 @@ export default async function MerchantUsersPage({
           {merchantMailtoHref ? (
             <Button asChild variant="outline" size="sm">
               <a href={merchantMailtoHref}>
-                <Mail className="mr-2 h-4 w-4" aria-hidden="true" />
+                <Mail className="mr-2 size-4" aria-hidden="true" />
                 Email owner
               </a>
             </Button>
@@ -110,7 +110,7 @@ export default async function MerchantUsersPage({
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <Card role="group" aria-label="Web users summary">
           <CardContent className="flex items-center gap-3 p-4">
-            <Users className="h-8 w-8 text-primary" aria-hidden="true" />
+            <Users className="size-8 text-primary" aria-hidden="true" />
             <div>
               <p className="text-stat">{data.summary.webUsers}</p>
               <p className="text-xs text-muted-foreground">Web users</p>
@@ -119,7 +119,7 @@ export default async function MerchantUsersPage({
         </Card>
         <Card role="group" aria-label="Staff users summary">
           <CardContent className="flex items-center gap-3 p-4">
-            <Building2 className="h-8 w-8 text-primary" aria-hidden="true" />
+            <Building2 className="size-8 text-primary" aria-hidden="true" />
             <div>
               <p className="text-stat">{data.summary.staffUsers}</p>
               <p className="text-xs text-muted-foreground">Staff users</p>
@@ -128,7 +128,7 @@ export default async function MerchantUsersPage({
         </Card>
         <Card role="group" aria-label="Admin app installations summary">
           <CardContent className="flex items-center gap-3 p-4">
-            <Smartphone className="h-8 w-8 text-primary" aria-hidden="true" />
+            <Smartphone className="size-8 text-primary" aria-hidden="true" />
             <div>
               <p className="text-stat">
                 {data.summary.activeAdminAppInstallations}
@@ -141,7 +141,7 @@ export default async function MerchantUsersPage({
         </Card>
         <Card role="group" aria-label="Storefront app installations summary">
           <CardContent className="flex items-center gap-3 p-4">
-            <Smartphone className="h-8 w-8 text-primary" aria-hidden="true" />
+            <Smartphone className="size-8 text-primary" aria-hidden="true" />
             <div>
               <p className="text-stat">
                 {data.summary.activeStorefrontAppInstallations}
@@ -154,7 +154,7 @@ export default async function MerchantUsersPage({
         </Card>
         <Card role="group" aria-label="App-only users summary">
           <CardContent className="flex items-center gap-3 p-4">
-            <Users className="h-8 w-8 text-primary" aria-hidden="true" />
+            <Users className="size-8 text-primary" aria-hidden="true" />
             <div>
               <p className="text-stat">{data.summary.unmatchedAppUsers}</p>
               <p className="text-xs text-muted-foreground">App-only users</p>

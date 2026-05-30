@@ -156,7 +156,7 @@ export function JumiaPriceForm({
           variant="destructive"
           className="bg-destructive/10 border-destructive/20 text-destructive"
         >
-          <AlertCircle className="h-4 w-4" />
+          <AlertCircle className="size-4" />
           <AlertTitle>Low Price Warning</AlertTitle>
           <AlertDescription>
             Your Jumia price ({ngnFormatter.format(Number(jumiaPrice))}) is more

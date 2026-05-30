@@ -80,7 +80,7 @@ export const MobileOrderSummary: React.FC<MobileOrderSummaryProps> = ({
                     <div className="space-y-4 mb-6 pt-2">
                         {cart.map((item) => (
                             <div key={item.cartItemId} className="flex gap-3">
-                                <div className="relative w-16 h-16 bg-white rounded-lg border border-gray-100 p-1 shrink-0">
+                                <div className="relative size-16 bg-white rounded-lg border border-gray-100 p-1 shrink-0">
                                     <Image
                                         src={item.image || '/placeholder.png'}
                                         alt={item.name}
@@ -88,7 +88,7 @@ export const MobileOrderSummary: React.FC<MobileOrderSummaryProps> = ({
                                         sizes="64px"
                                         className="object-contain mix-blend-multiply"
                                     />
-                                    <span className="absolute -top-2 -right-2 w-5 h-5 bg-gray-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                                    <span className="absolute -top-2 -right-2 size-5 bg-gray-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
                                         {item.quantity}
                                     </span>
                                 </div>
@@ -190,7 +190,7 @@ export const MobileCheckoutActions: React.FC<MobileCheckoutActionsProps> = ({
                     </p>
                 </div>
 
-                <button
+                <button type="button"
                     onClick={onNext}
                     disabled={isDisabled || isProcessing}
                     className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-lg hover:shadow-red-200"

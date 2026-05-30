@@ -100,9 +100,9 @@ export function CheckoutIdentityModal({
         {/* Header */}
         <div className="bg-gray-50 px-6 py-4 flex items-center justify-between border-b border-gray-100">
           <h3 className="font-bold text-lg text-gray-900">Checkout</h3>
-          <button
+          <button type="button"
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded-full transition-colors"
+            className="size-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded-full transition-colors"
             aria-label="Close"
           >
             <X size={20} />
@@ -111,7 +111,7 @@ export function CheckoutIdentityModal({
 
         {/* Tabs */}
         <div className="flex border-b border-gray-100">
-          <button
+          <button type="button"
             onClick={() => setActiveTab('new')}
             className={cn(
               "flex-1 flex items-center justify-center gap-2 py-3.5 font-bold text-sm transition-colors border-b-2",
@@ -123,7 +123,7 @@ export function CheckoutIdentityModal({
             <UserPlus size={16} />
             New Customer
           </button>
-          <button
+          <button type="button"
             onClick={() => setActiveTab('signin')}
             className={cn(
               "flex-1 flex items-center justify-center gap-2 py-3.5 font-bold text-sm transition-colors border-b-2",
@@ -150,7 +150,7 @@ export function CheckoutIdentityModal({
                 <p className="text-xs text-gray-500 mb-4">
                   Fastest way to checkout. Create an account later if you wish.
                 </p>
-                <button
+                <button type="button"
                   onClick={handleGuestCheckout}
                   className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3.5 rounded-xl text-sm shadow-lg active:scale-[0.98] transition-all"
                 >
@@ -177,7 +177,7 @@ export function CheckoutIdentityModal({
                 <p className="text-xs text-gray-600 mb-4">
                   Save your details for faster checkout next time.
                 </p>
-                <button
+                <button type="button"
                   onClick={() => router.push(signupUrl)}
                   className="w-full border-2 border-red-600 text-red-600 hover:bg-red-50 font-bold py-3.5 rounded-xl text-sm transition-all"
                 >
@@ -248,8 +248,8 @@ export function CheckoutIdentityModal({
               >
                 {isLoading ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Signing in...
+                    <Loader2 className="size-4 animate-spin" />
+                    Signing in…
                   </>
                 ) : (
                   <>

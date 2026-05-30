@@ -304,19 +304,19 @@ export function BlogClientPage({
       case 'published':
         return (
           <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
-            <CheckCircle className="w-3 h-3 mr-1" /> Published
+            <CheckCircle className="size-3 mr-1" /> Published
           </Badge>
         );
       case 'archived':
         return (
           <Badge variant="secondary">
-            <Archive className="w-3 h-3 mr-1" /> Archived
+            <Archive className="size-3 mr-1" /> Archived
           </Badge>
         );
       default:
         return (
           <Badge variant="outline">
-            <Clock className="w-3 h-3 mr-1" /> Draft
+            <Clock className="size-3 mr-1" /> Draft
           </Badge>
         );
     }
@@ -383,7 +383,7 @@ export function BlogClientPage({
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  <Rss className="w-4 h-4 mr-2" />
+                  <Rss className="size-4 mr-2" />
                   RSS Feed
                 </a>
               </Button>
@@ -391,14 +391,14 @@ export function BlogClientPage({
             {autoBlogEnabled && (
               <Button variant="outline" asChild>
                 <Link href="/dashboard/blog/ai-generator">
-                  <Sparkles className="w-4 h-4 mr-2" />
+                  <Sparkles className="size-4 mr-2" />
                   AI Generator
                 </Link>
               </Button>
             )}
             <Button asChild>
               <Link href="/dashboard/blog/new">
-                <Plus className="w-4 h-4 mr-2" />
+                <Plus className="size-4 mr-2" />
                 New Post
               </Link>
             </Button>
@@ -490,7 +490,7 @@ export function BlogClientPage({
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
           <Input
             placeholder="Search posts..."
             value={searchQuery}
@@ -523,13 +523,13 @@ export function BlogClientPage({
       {/* Posts List */}
       {isLoading && posts.length === 0 ? (
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-8 h-8 animate-spin" />
+          <Loader2 className="size-8 animate-spin" />
         </div>
       ) : posts.length === 0 ? (
         <Card>
           <CardContent className="py-12">
             <div className="text-center text-muted-foreground">
-              <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
+              <FileText className="size-12 mx-auto mb-4 opacity-50" />
               <p className="mb-4">
                 {searchQuery || statusFilter !== 'all'
                   ? 'No posts found matching your filters'
@@ -538,7 +538,7 @@ export function BlogClientPage({
               {!searchQuery && statusFilter === 'all' && (
                 <Button asChild>
                   <Link href="/dashboard/blog/new">
-                    <Plus className="w-4 h-4 mr-2" />
+                    <Plus className="size-4 mr-2" />
                     Create Your First Post
                   </Link>
                 </Button>
@@ -554,7 +554,7 @@ export function BlogClientPage({
                 <div className="flex items-start gap-4">
                   {/* Thumbnail */}
                   {post.featured_image_url && (
-                    <div className="hidden sm:block w-24 h-24 rounded-lg overflow-hidden bg-muted shrink-0 relative">
+                    <div className="hidden sm:block size-24 rounded-lg overflow-hidden bg-muted shrink-0 relative">
                       <Image
                         src={post.featured_image_url}
                         alt=""
@@ -602,7 +602,7 @@ export function BlogClientPage({
 
                       <div className="flex items-center gap-4 text-sm text-muted-foreground">
                         <span className="flex items-center gap-1">
-                          <Calendar className="w-3 h-3" />
+                          <Calendar className="size-3" />
                           {post.published_at
                             ? format(new Date(post.published_at), 'MMM d, yyyy')
                             : `Updated ${formatDistanceToNow(new Date(post.updated_at))} ago`}
@@ -619,19 +619,19 @@ export function BlogClientPage({
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="w-4 h-4" />
+                          <MoreHorizontal className="size-4" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => handlePreview(post)}>
-                          <Eye className="w-4 h-4 mr-2" />
+                          <Eye className="size-4 mr-2" />
                           Preview
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>
                           <Link
                             href={asRoute(`/dashboard/blog/${post.id}/edit`)}
                           >
-                            <Edit className="w-4 h-4 mr-2" />
+                            <Edit className="size-4 mr-2" />
                             Edit
                           </Link>
                         </DropdownMenuItem>
@@ -648,7 +648,7 @@ export function BlogClientPage({
                                 target="_blank"
                                 rel="noopener noreferrer"
                               >
-                                <ExternalLink className="w-4 h-4 mr-2" />
+                                <ExternalLink className="size-4 mr-2" />
                                 View Live
                               </a>
                             </DropdownMenuItem>
@@ -660,7 +660,7 @@ export function BlogClientPage({
                               updatePostStatus(post.id, 'published')
                             }
                           >
-                            <CheckCircle className="w-4 h-4 mr-2" />
+                            <CheckCircle className="size-4 mr-2" />
                             Publish
                           </DropdownMenuItem>
                         )}
@@ -668,7 +668,7 @@ export function BlogClientPage({
                           <DropdownMenuItem
                             onClick={() => updatePostStatus(post.id, 'draft')}
                           >
-                            <Clock className="w-4 h-4 mr-2" />
+                            <Clock className="size-4 mr-2" />
                             Unpublish
                           </DropdownMenuItem>
                         )}
@@ -678,7 +678,7 @@ export function BlogClientPage({
                               updatePostStatus(post.id, 'archived')
                             }
                           >
-                            <Archive className="w-4 h-4 mr-2" />
+                            <Archive className="size-4 mr-2" />
                             Archive
                           </DropdownMenuItem>
                         )}
@@ -687,7 +687,7 @@ export function BlogClientPage({
                           onClick={() => setDeletePostId(post.id)}
                           className="text-destructive focus:text-destructive"
                         >
-                          <Trash2 className="w-4 h-4 mr-2" />
+                          <Trash2 className="size-4 mr-2" />
                           Delete
                         </DropdownMenuItem>
                       </DropdownMenuContent>

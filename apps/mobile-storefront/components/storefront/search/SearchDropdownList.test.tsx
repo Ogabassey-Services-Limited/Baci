@@ -68,7 +68,7 @@ describe('SearchDropdownList', () => {
       />
     );
 
-    expect(screen.getByText('Searching...')).toBeTruthy();
+    expect(screen.getByText('Searching…')).toBeTruthy();
   });
 
   it('renders results and selects a product', () => {

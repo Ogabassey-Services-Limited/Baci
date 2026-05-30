@@ -107,7 +107,7 @@ describe('NavbarSecondaryNav', () => {
       screen.getByRole('button', { name: /shop by category/i })
     );
 
-    expect(screen.getByText('Loading categories...')).toBeInTheDocument();
+    expect(screen.getByText('Loading categories…')).toBeInTheDocument();
   });
 
   it('closes the category dropdown when the user clicks outside', async () => {

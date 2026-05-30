@@ -16,7 +16,7 @@ export function DidYouMeanBanner({
 }: DidYouMeanBannerProps) {
   return (
     <Alert className="mb-4">
-      <AlertCircle className="h-4 w-4" />
+      <AlertCircle className="size-4" />
       <AlertDescription>
         No results found for{' '}
         <span className="font-semibold">&quot;{originalQuery}&quot;</span>. Did

@@ -96,7 +96,7 @@ export default function Step3_Account({
     <div className="space-y-4">
       {user ? (
         <Alert>
-          <CheckCircle className="h-4 w-4" />
+          <CheckCircle className="size-4" />
           <AlertTitle>Logged In</AlertTitle>
           <AlertDescription className="space-y-3">
             <p>
@@ -126,7 +126,7 @@ export default function Step3_Account({
               <FormItem>
                 <FormLabel>Email Address</FormLabel>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                   <FormControl>
                     <Input
                       type="email"
@@ -162,7 +162,7 @@ export default function Step3_Account({
             disabled={magicLinkSubmitting}
           >
             {magicLinkSubmitting && (
-              <Loader2 className="mr-2 h-4 w-4 motion-safe:animate-spin" />
+              <Loader2 className="mr-2 size-4 motion-safe:animate-spin" />
             )}
             {magicLinkSubmitting
               ? 'Sending Magic Link...'
@@ -184,7 +184,7 @@ export default function Step3_Account({
               <FormItem>
                 <FormLabel>Password</FormLabel>
                 <div className="relative">
-                  <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                   <FormControl>
                     <Input
                       type={showPassword ? 'text' : 'password'}
@@ -205,16 +205,16 @@ export default function Step3_Account({
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 z-10 text-muted-foreground hover:text-foreground"
+                    className="absolute right-1 top-1/2 -translate-y-1/2 size-7 z-10 text-muted-foreground hover:text-foreground"
                     onClick={() => setShowPassword(!showPassword)}
                     aria-label={
                       showPassword ? 'Hide password' : 'Show password'
                     }
                   >
                     {showPassword ? (
-                      <EyeOff className="h-4 w-4" />
+                      <EyeOff className="size-4" />
                     ) : (
-                      <Eye className="h-4 w-4" />
+                      <Eye className="size-4" />
                     )}
                   </Button>
                 </div>
@@ -232,7 +232,7 @@ export default function Step3_Account({
                 <FormItem className="animate-fade-in">
                   <FormLabel>Confirm Password</FormLabel>
                   <div className="relative">
-                    <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                     <FormControl>
                       <Input
                         type={showConfirmPassword ? 'text' : 'password'}
@@ -253,7 +253,7 @@ export default function Step3_Account({
                       type="button"
                       variant="ghost"
                       size="icon"
-                      className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 z-10 text-muted-foreground hover:text-foreground"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 size-7 z-10 text-muted-foreground hover:text-foreground"
                       onClick={() =>
                         setShowConfirmPassword(!showConfirmPassword)
                       }
@@ -262,9 +262,9 @@ export default function Step3_Account({
                       }
                     >
                       {showConfirmPassword ? (
-                        <EyeOff className="h-4 w-4" />
+                        <EyeOff className="size-4" />
                       ) : (
-                        <Eye className="h-4 w-4" />
+                        <Eye className="size-4" />
                       )}
                     </Button>
                   </div>

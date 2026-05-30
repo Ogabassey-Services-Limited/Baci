@@ -1,6 +1,12 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { Stack } from 'expo-router';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type Colors from '@/constants/Colors';
 import { BRAND, RADIUS, SPACING, withAlpha } from '@/constants/Colors';
@@ -114,7 +120,7 @@ export function BNPLCheckoutStatusView(props: BNPLCheckoutStatusViewProps) {
             ]}
           >
             Your {props.gatewayName} payment has been approved. Redirecting to
-            order confirmation...
+            order confirmation…
           </Text>
           <ActivityIndicator
             accessibilityLabel="Redirecting after payment success"
@@ -184,14 +190,14 @@ export function BNPLCheckoutStatusView(props: BNPLCheckoutStatusViewProps) {
           <Pressable
             accessibilityLabel="Go back"
             accessibilityRole="button"
-            style={[styles.secondaryButton, { borderColor: props.colors.border }]}
+            style={[
+              styles.secondaryButton,
+              { borderColor: props.colors.border },
+            ]}
             onPress={props.onBack}
           >
             <Text
-              style={[
-                styles.secondaryButtonText,
-                { color: props.colors.text },
-              ]}
+              style={[styles.secondaryButtonText, { color: props.colors.text }]}
             >
               Go Back
             </Text>

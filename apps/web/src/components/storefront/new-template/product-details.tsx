@@ -325,7 +325,7 @@ export const ProductDetails: React.FC = () => {
                               aria-label={`Select color ${color.name}`}
                             >
                               <div
-                                className="w-9 h-9 rounded-full border border-black/5 shadow-inner"
+                                className="size-9 rounded-full border border-black/5 shadow-inner"
                                 style={{ backgroundColor: color.value }}
                               />
                               {isSelected && (
@@ -385,7 +385,7 @@ export const ProductDetails: React.FC = () => {
                   <div className="flex items-center bg-gray-100 rounded-xl p-1 w-fit">
                     <button type="button"
                       onClick={() => handleQuantityChange(-1)}
-                      className="w-10 h-10 flex items-center justify-center rounded-lg bg-white text-gray-600 shadow-sm hover:text-red-600 disabled:opacity-50"
+                      className="size-10 flex items-center justify-center rounded-lg bg-white text-gray-600 shadow-sm hover:text-red-600 disabled:opacity-50"
                       disabled={quantity <= 1}
                       aria-label="Decrease quantity"
                     >
@@ -396,7 +396,7 @@ export const ProductDetails: React.FC = () => {
                     </span>
                     <button type="button"
                       onClick={() => handleQuantityChange(1)}
-                      className="w-10 h-10 flex items-center justify-center rounded-lg bg-white text-gray-600 shadow-sm hover:text-red-600"
+                      className="size-10 flex items-center justify-center rounded-lg bg-white text-gray-600 shadow-sm hover:text-red-600"
                       aria-label="Increase quantity"
                     >
                       <Plus size={16} />
@@ -428,7 +428,7 @@ export const ProductDetails: React.FC = () => {
                 {/* Trust Badges */}
                 <div className="grid grid-cols-2 gap-4 mt-8">
                   <div className="flex items-center gap-3 p-3 rounded-xl bg-gray-50">
-                    <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm text-green-600">
+                    <div className="size-10 rounded-full bg-white flex items-center justify-center shadow-sm text-green-600">
                       <ShieldCheck size={20} />
                     </div>
                     <div>
@@ -441,7 +441,7 @@ export const ProductDetails: React.FC = () => {
                     </div>
                   </div>
                   <div className="flex items-center gap-3 p-3 rounded-xl bg-gray-50">
-                    <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm text-blue-600">
+                    <div className="size-10 rounded-full bg-white flex items-center justify-center shadow-sm text-blue-600">
                       <Truck size={20} />
                     </div>
                     <div>
@@ -536,7 +536,7 @@ export const ProductDetails: React.FC = () => {
                             aria-label={`Select color ${color.name}`}
                           >
                             <div
-                              className="w-11 h-11 rounded-full border border-black/5 shadow-inner"
+                              className="size-11 rounded-full border border-black/5 shadow-inner"
                               style={{ backgroundColor: color.value }}
                             />
                             {isSelected && (

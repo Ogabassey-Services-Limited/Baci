@@ -29,7 +29,7 @@ export function CryptoSelectorModal({
         {/* Header */}
         <div className="sticky top-0 bg-linear-to-r from-store-primary to-store-primary/80 p-4 flex items-center justify-between rounded-t-2xl">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+            <div className="size-8 bg-white/20 rounded-lg flex items-center justify-center">
               <CreditCard size={16} className="text-white" />
             </div>
             <h2 className="font-bold text-white">Select Crypto Payment</h2>
@@ -37,7 +37,7 @@ export function CryptoSelectorModal({
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center text-white hover:bg-white/30 transition-colors"
+            className="size-8 rounded-lg bg-white/20 flex items-center justify-center text-white hover:bg-white/30 transition-colors"
           >
             <X size={16} />
           </button>
@@ -132,7 +132,7 @@ export function CryptoSelectorModal({
             {isInitializingCrypto ? (
               <>
                 <Loader2 size={18} className="animate-spin" />
-                Generating Address...
+                Generating Address…
               </>
             ) : (
               <>
