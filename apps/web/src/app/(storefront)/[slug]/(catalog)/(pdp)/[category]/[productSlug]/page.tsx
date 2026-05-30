@@ -3,11 +3,12 @@ import { resolveVariantSelectionParamResolution } from '@baci/shared/lib';
 import type { Metadata, Route } from 'next';
 import { headers } from 'next/headers';
 import { notFound, permanentRedirect } from 'next/navigation';
+import { connection } from 'next/server';
 import { type ReactNode, Suspense } from 'react';
 import { StorefrontRouteNotFound } from '@/app/(storefront)/[slug]/storefront-route-not-found';
 import { getStorefrontShellSnapshotBase } from '@/app/(storefront)/[slug]/storefront-shell-snapshot';
 import { OgabasseyPdpProductLcpSkeleton } from '@/app/(storefront)/ogabassey/ogabassey-pdp-product-lcp-skeleton';
-import { preloadOgabasseyPdpProductImage } from '@/app/(storefront)/ogabassey/ogabassey-pdp-product-resource-hints';
+import { OgabasseyPdpProductResourceHints } from '@/app/(storefront)/ogabassey/ogabassey-pdp-product-resource-hints';
 import { preloadOgabasseyPdpStaticResources } from '@/app/(storefront)/ogabassey/ogabassey-pdp-static-resource-hints';
 import { OgabasseyPdpBelowFoldIsland } from '@/components/storefront/ogabassey/pdp/client-islands';
 import { createCriticalCartProduct } from '@/components/storefront/ogabassey/pdp/critical-cart-product';
@@ -682,6 +683,11 @@ async function getProductRouteControl(
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
+  // Keep PDP metadata request-bound with the body tree. If this runs during a
+  // static prerender pass, Next can resume a page host slot as its metadata
+  // boundary and log `Expected the resume to render <div>`.
+  await connection();
+
   const { slug, category, productSlug } = await params;
   if (!isValidMerchantIdentifier(slug)) {
     notFound();
@@ -1072,9 +1078,6 @@ export default async function CategoryProductPage({
     : Promise.resolve<'' | `/${string}`>('');
 
   try {
-    if (primaryProductImage) {
-      preloadOgabasseyPdpProductImage({ src: primaryProductImage });
-    }
     if (criticalProduct) {
       preloadOgabasseyPdpStaticResources();
     }
@@ -1091,6 +1094,9 @@ export default async function CategoryProductPage({
 
   return (
     <>
+      {primaryProductImage ? (
+        <OgabasseyPdpProductResourceHints src={primaryProductImage} />
+      ) : null}
       {criticalProduct ? (
         <>
           <OgabasseyPdpCriticalShell

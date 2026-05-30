@@ -24,7 +24,6 @@ const {
   mockOgabasseyProductDetailsPage,
   mockConnection,
   mockGetStorefrontShellSnapshotBase,
-  mockPreloadOgabasseyPdpProductImage,
   mockProductDetailClient,
 } = vi.hoisted(() => ({
   mockNormalizeStorefrontProductVariants: vi.fn<
@@ -42,8 +41,6 @@ const {
   mockConnection: vi.fn<() => Promise<void>>(() => Promise.resolve()),
   mockGetStorefrontShellSnapshotBase:
     vi.fn<(...args: unknown[]) => Promise<unknown>>(),
-  mockPreloadOgabasseyPdpProductImage:
-    vi.fn<(props: { src: string | null | undefined }) => void>(),
   mockProductDetailClient: vi.fn<(props: unknown) => null>(() => null),
 }));
 
@@ -201,9 +198,6 @@ vi.mock(
     OgabasseyPdpProductResourceHints: (props: {
       src: string | null | undefined;
     }) => mockOgabasseyPdpProductResourceHints(props),
-    preloadOgabasseyPdpProductImage: (props: {
-      src: string | null | undefined;
-    }) => mockPreloadOgabasseyPdpProductImage(props),
   })
 );
 
@@ -658,6 +652,26 @@ describe('[category]/[productSlug] page metadata', () => {
     mockGetCachedLegacyProductRedirectTarget.mockResolvedValue(null);
     mockGetPublishedClusterPosts.mockReset();
     mockGetPublishedClusterPosts.mockResolvedValue([]);
+  });
+
+  it('opts product metadata into request-time rendering before lookup', async () => {
+    mockGetCachedProductWithDetails.mockResolvedValue(
+      categorizedDetailedProduct
+    );
+
+    await generateMetadata({
+      params: Promise.resolve({
+        slug: 'teststore',
+        category: 'laptops',
+        productSlug: 'hp-laptop-14-ep0063nia',
+      }),
+      searchParams: Promise.resolve({}),
+    });
+
+    expect(mockConnection).toHaveBeenCalledTimes(1);
+    expect(mockConnection.mock.invocationCallOrder[0]).toBeLessThan(
+      mockGetRequestScopedMerchant.mock.invocationCallOrder[0]
+    );
   });
 
   it('returns noindex metadata for legacy archived variant slugs (real HTTP 308 happens during page render)', async () => {
@@ -1390,10 +1404,9 @@ describe('[category]/[productSlug] page render', () => {
 
     expect(mockPreloadOgabasseyPdpStaticResources).toHaveBeenCalledTimes(1);
     expect(mockOgabasseyPdpStaticResourceHints).not.toHaveBeenCalled();
-    expect(mockPreloadOgabasseyPdpProductImage).toHaveBeenCalledWith({
+    expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
       src: productImage,
     });
-    expect(mockOgabasseyPdpProductResourceHints).not.toHaveBeenCalled();
   });
 
   it('preloads the OgaBassey PDP product image before full product details resolve', async () => {
@@ -1412,8 +1425,9 @@ describe('[category]/[productSlug] page render', () => {
         })
       );
     });
-    mockPreloadOgabasseyPdpProductImage.mockImplementationOnce(() => {
-      routeEvents.push('product-preload');
+    mockOgabasseyPdpProductResourceHints.mockImplementationOnce(() => {
+      routeEvents.push('product-hints');
+      return null;
     });
     mockGetCachedProductWithDetails.mockImplementationOnce(() => {
       routeEvents.push('product-details');
@@ -1439,22 +1453,21 @@ describe('[category]/[productSlug] page render', () => {
       baseMerchant.id,
       'hp-laptop-14-ep0063nia'
     );
-    expect(mockPreloadOgabasseyPdpProductImage).toHaveBeenCalledWith({
+    expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
       src: earlyProductImage,
     });
     expect(routeEvents).toEqual([
       'lcp-hint',
-      'product-preload',
       'product-details',
+      'product-hints',
     ]);
     expect(mockPreloadOgabasseyPdpStaticResources).toHaveBeenCalledTimes(1);
-    expect(mockOgabasseyPdpProductResourceHints).not.toHaveBeenCalled();
     expect(mockOgabasseyProductDetailsPage).not.toHaveBeenCalled();
 
     resolveProductDetails?.(categorizedDetailedProduct);
     render(await resolveRsc(resolvedPage));
 
-    expect(mockPreloadOgabasseyPdpProductImage).toHaveBeenCalledTimes(1);
+    expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledTimes(1);
     expect(mockOgabasseyPdpDeferredDetailIsland).toHaveBeenCalled();
   });
 
@@ -1491,7 +1504,7 @@ describe('[category]/[productSlug] page render', () => {
       { skipContent: true }
     );
 
-    expect(mockPreloadOgabasseyPdpProductImage).toHaveBeenCalledWith({
+    expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
       src: earlyProductImage,
     });
     expect(mockOgabasseyProductDetailsPage).not.toHaveBeenCalled();
@@ -1536,7 +1549,6 @@ describe('[category]/[productSlug] page render', () => {
     ).rejects.toThrow('NEXT_REDIRECT');
 
     expect(mockPermanentRedirect).toHaveBeenCalledTimes(1);
-    expect(mockPreloadOgabasseyPdpProductImage).not.toHaveBeenCalled();
     expect(mockOgabasseyPdpProductResourceHints).not.toHaveBeenCalled();
   });
 
@@ -1578,11 +1590,10 @@ describe('[category]/[productSlug] page render', () => {
     render(ui);
 
     expect(mockPermanentRedirect).not.toHaveBeenCalled();
-    expect(mockPreloadOgabasseyPdpProductImage).toHaveBeenCalledWith({
+    expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
       src: productImage,
     });
     expect(mockPreloadOgabasseyPdpStaticResources).toHaveBeenCalledTimes(1);
-    expect(mockOgabasseyPdpProductResourceHints).not.toHaveBeenCalled();
     expect(
       screen.getByRole('heading', {
         level: 1,
@@ -1618,7 +1629,6 @@ describe('[category]/[productSlug] page render', () => {
       )
     );
 
-    expect(mockPreloadOgabasseyPdpProductImage).not.toHaveBeenCalled();
     expect(mockOgabasseyPdpProductResourceHints).not.toHaveBeenCalled();
     expect(mockOgabasseyPdpDeferredDetailIsland).toHaveBeenCalled();
   });
@@ -1666,7 +1676,9 @@ describe('[category]/[productSlug] page render', () => {
 
     render(await resolveRsc(pageUi));
     expect(mockPreloadOgabasseyPdpStaticResources).toHaveBeenCalledTimes(1);
-    expect(mockOgabasseyPdpProductResourceHints).not.toHaveBeenCalled();
+    expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
+      src: productImage,
+    });
     expect(mockOgabasseyPdpDeferredDetailIsland).toHaveBeenCalledWith(
       expect.objectContaining({
         product: expect.objectContaining({
@@ -1699,7 +1711,6 @@ describe('[category]/[productSlug] page render', () => {
 
     expect(mockOgabasseyPdpStaticResourceHints).not.toHaveBeenCalled();
     expect(mockPreloadOgabasseyPdpStaticResources).not.toHaveBeenCalled();
-    expect(mockPreloadOgabasseyPdpProductImage).not.toHaveBeenCalled();
     expect(mockOgabasseyPdpProductResourceHints).not.toHaveBeenCalled();
   });
 

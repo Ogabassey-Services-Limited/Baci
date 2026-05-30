@@ -1,7 +1,12 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { OGABASSEY_PDP_PRIMARY_IMAGE_SIZES } from '@/components/storefront/ogabassey/config/product-media';
+import {
+  OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_MEDIA,
+  OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA,
+  OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_SIZES,
+  OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
+} from '@/components/storefront/ogabassey/config/product-media';
 import imageLoader from '@/lib/image-loader';
 
 vi.mock('server-only', () => ({}));
@@ -37,29 +42,16 @@ const mockGetImageProps = vi.hoisted(() =>
     }
   )
 );
-const mockPreload = vi.hoisted(() => vi.fn());
 
 vi.mock('next/image', () => ({
   getImageProps: mockGetImageProps,
 }));
 
-vi.mock('react-dom', async () => {
-  const actual = await vi.importActual<typeof import('react-dom')>('react-dom');
-  return {
-    ...actual,
-    preload: mockPreload,
-  };
-});
-
-import {
-  OgabasseyPdpProductResourceHints,
-  preloadOgabasseyPdpProductImage,
-} from './ogabassey-pdp-product-resource-hints';
+import { OgabasseyPdpProductResourceHints } from './ogabassey-pdp-product-resource-hints';
 
 describe('OgabasseyPdpProductResourceHints', () => {
   beforeEach(() => {
     mockGetImageProps.mockClear();
-    mockPreload.mockClear();
   });
 
   it('renders an early preload link for the primary product image with the gallery sizes', () => {
@@ -82,13 +74,29 @@ describe('OgabasseyPdpProductResourceHints', () => {
     expect(html).toContain('as="image"');
     expect(html).toMatch(/fetchpriority="high"/i);
     expect(html).toContain(
-      `href="${imageLoader({ src: productImage, width: 640, quality: 35 })}"`
+      `href="${imageLoader({ src: productImage, width: 750, quality: 35 })}"`
+    );
+    expect(html).toContain(
+      `media="${OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA}"`
+    );
+    expect(html).toContain(
+      `media="${OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_MEDIA}"`
+    );
+    expect(html).toContain(
+      `imageSizes="${OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_SIZES}"`
     );
     expect(html).toContain(`imageSizes="${OGABASSEY_PDP_PRIMARY_IMAGE_SIZES}"`);
     expect(html).toMatch(/imageSrcSet="[^"]*lenovo-legion\.avif/);
     expect(html).toContain(
-      imageLoader({ src: productImage, width: 640, quality: 35 })
+      imageLoader({ src: productImage, width: 750, quality: 35 })
     );
+    const mobileLink = html
+      .match(/<link[^>]+>/g)
+      ?.find((link) =>
+        link.includes(`media="${OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA}"`)
+      );
+    expect(mobileLink).toContain('750w');
+    expect(mobileLink).not.toContain('1080w');
     expect(html).not.toContain('type="image/');
   });
 
@@ -103,24 +111,6 @@ describe('OgabasseyPdpProductResourceHints', () => {
     expect(html).toContain('type="image/png"');
   });
 
-  it('imperatively preloads the primary product image during server render', () => {
-    const productImage =
-      'https://cdn.ogabassey.com/core-assets/products/lenovo-legion.avif';
-
-    preloadOgabasseyPdpProductImage({ src: productImage });
-
-    expect(mockPreload).toHaveBeenCalledWith(
-      imageLoader({ src: productImage, width: 640, quality: 35 }),
-      {
-        as: 'image',
-        fetchPriority: 'high',
-        imageSizes: OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
-        imageSrcSet: expect.stringContaining('lenovo-legion.avif 640w'),
-        type: undefined,
-      }
-    );
-  });
-
   it('skips empty product image URLs', () => {
     const html = renderToStaticMarkup(
       createElement(OgabasseyPdpProductResourceHints, { src: '' })
@@ -128,8 +118,6 @@ describe('OgabasseyPdpProductResourceHints', () => {
 
     expect(html).toBe('');
     expect(mockGetImageProps).not.toHaveBeenCalled();
-    preloadOgabasseyPdpProductImage({ src: '' });
-    expect(mockPreload).not.toHaveBeenCalled();
   });
 
   it('skips null product image URLs', () => {
