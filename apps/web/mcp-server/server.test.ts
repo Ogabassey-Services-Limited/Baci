@@ -9,11 +9,14 @@ const serverSource = readFileSync(
   join(testFileDirectory, 'server.ts'),
   'utf8'
 );
-const snippetStart = serverSource.search(/\bconst\s+ESCAPE_HTML_MAP\s*=/);
+const snippetStartMatch = /^\s*const\s+ESCAPE_HTML_MAP\s*=/m.exec(
+  serverSource
+);
+const snippetStart = snippetStartMatch?.index ?? -1;
 const snippetEndMatch =
   snippetStart === -1
     ? null
-    : /\n\s*const\s+openLink\s*=/.exec(serverSource.slice(snippetStart));
+    : /^\s*const\s+openLink\s*=/m.exec(serverSource.slice(snippetStart));
 const snippetEnd =
   snippetStart === -1 || snippetEndMatch === null
     ? -1
