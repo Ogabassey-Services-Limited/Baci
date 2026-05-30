@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { chunkValues } from '@/lib/chunk-values';
 import type { OpenAIFeedProduct } from './feed-data';
 
 const OPENAI_FEED_REVIEW_ROWS_PAGE_SIZE = 1000;
@@ -15,17 +16,6 @@ function toFiniteNumber(value: unknown): number | null {
 
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
-}
-
-function chunkValues<T>(items: T[], size: number): T[][] {
-  if (size <= 0) return [items];
-
-  const chunks: T[][] = [];
-  for (let index = 0; index < items.length; index += size) {
-    chunks.push(items.slice(index, index + size));
-  }
-
-  return chunks;
 }
 
 function withApprovedReviewSignals(

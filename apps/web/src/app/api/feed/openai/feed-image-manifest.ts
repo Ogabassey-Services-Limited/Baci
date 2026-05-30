@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { chunkValues } from '@/lib/chunk-values';
 import type { ImageManifestMap } from '../google-merchant/feed-builder';
 
 const OPENAI_FEED_IMAGE_MANIFEST_PAGE_SIZE = 1000;
@@ -14,17 +15,6 @@ type FeedImageManifestRow = {
   is_primary: boolean;
   position: number;
 };
-
-function chunkValues<T>(items: T[], size: number): T[][] {
-  if (size <= 0) return [items];
-
-  const chunks: T[][] = [];
-  for (let index = 0; index < items.length; index += size) {
-    chunks.push(items.slice(index, index + size));
-  }
-
-  return chunks;
-}
 
 function buildImageManifest(rows: FeedImageManifestRow[]): ImageManifestMap {
   const imageManifest: ImageManifestMap = {};
