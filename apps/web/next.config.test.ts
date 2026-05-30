@@ -73,7 +73,8 @@ describe('next.config OgaBassey resource headers', () => {
     expect(headers).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          source: '/((?!api|_next|.*\\..*).*)',
+          source:
+            '/((?!api(?:/|$)|_next(?:/|$)|.*\\.(?:avif|css|eot|gif|ico|jpe?g|js|json|map|png|svg|ttf|txt|webmanifest|webp|woff2?|xml)$).*)',
           headers: expect.arrayContaining([
             {
               key: 'Vary',
