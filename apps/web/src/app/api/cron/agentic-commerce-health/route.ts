@@ -88,6 +88,7 @@ function normalizeMerchantSlug(value: string) {
 function getMonitorSlugsFromEnv() {
   const rawValue =
     process.env.AGENTIC_HEALTH_MONITOR_MERCHANT_SLUGS ??
+    process.env.BACI_AGENTIC_MERCHANT_SLUG ??
     process.env.OPENAI_AGENTIC_MERCHANT_SLUG ??
     DEFAULT_MONITORED_MERCHANT_SLUG;
   const parsed = agenticCommerceHealthCronQuerySchema.safeParse({

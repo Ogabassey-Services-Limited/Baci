@@ -1,7 +1,9 @@
 import crypto from 'node:crypto';
 
 const OPENAI_WEBHOOK_URL = process.env.OPENAI_AGENTIC_WEBHOOK_URL;
-const MERCHANT_SIGNING_KEY = process.env.OPENAI_AGENTIC_SIGNING_KEY; // Provided by OpenAI
+const MERCHANT_SIGNING_KEY =
+  process.env.BACI_AGENTIC_SIGNING_KEY ??
+  process.env.OPENAI_AGENTIC_SIGNING_KEY;
 const MERCHANT_NAME_HEADER =
   process.env.OPENAI_AGENTIC_MERCHANT_HEADER_NAME || 'Merchant-Signature'; // e.g., 'Ogabassey-Signature'
 
@@ -27,7 +29,7 @@ export async function sendAgenticWebhook(
   orderData: AgenticOrderData
 ) {
   if (!OPENAI_WEBHOOK_URL || !MERCHANT_SIGNING_KEY) {
-    console.warn('OpenAI Webhook configuration missing. Skipping webhook.');
+    console.warn('Agentic webhook configuration missing. Skipping webhook.');
     return;
   }
 
