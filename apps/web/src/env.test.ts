@@ -352,6 +352,51 @@ describe('env validation', () => {
     expect(getAgenticMerchantSlug()).toBe('baci-store');
   });
 
+  it('falls back to legacy agentic aliases when Baci-owned aliases are blank', async () => {
+    vi.stubEnv('BACI_AGENTIC_ACCESS_TOKEN', '   ');
+    vi.stubEnv('BACI_AGENTIC_ACCESS_TOKEN_PREVIOUS', '   ');
+    vi.stubEnv('BACI_AGENTIC_CONFIRMATION_KEY', '   ');
+    vi.stubEnv('BACI_AGENTIC_CONFIRMATION_KEY_PREVIOUS', '   ');
+    vi.stubEnv('BACI_AGENTIC_SIGNING_KEY', '   ');
+    vi.stubEnv('BACI_AGENTIC_SIGNING_KEY_PREVIOUS', '   ');
+    vi.stubEnv('BACI_AGENTIC_MERCHANT_SLUG', '   ');
+    vi.stubEnv('OPENAI_AGENTIC_API_KEY', ' legacy-access ');
+    vi.stubEnv('OPENAI_AGENTIC_API_KEY_PREVIOUS', ' legacy-previous-access ');
+    vi.stubEnv('OPENAI_AGENTIC_CONFIRMATION_KEY', ' legacy-confirmation ');
+    vi.stubEnv(
+      'OPENAI_AGENTIC_CONFIRMATION_KEY_PREVIOUS',
+      ' legacy-previous-confirmation '
+    );
+    vi.stubEnv('OPENAI_AGENTIC_SIGNING_KEY', ' legacy-signing ');
+    vi.stubEnv(
+      'OPENAI_AGENTIC_SIGNING_KEY_PREVIOUS',
+      ' legacy-previous-signing '
+    );
+    vi.stubEnv('OPENAI_AGENTIC_MERCHANT_SLUG', ' legacy-store ');
+    const {
+      getAgenticApiKey,
+      getAgenticApiKeys,
+      getAgenticConfirmationKeys,
+      getAgenticMerchantSlug,
+      getAgenticSigningKeys,
+    } = await loadEnvModule();
+
+    expect(getAgenticApiKey()).toBe('legacy-access');
+    expect(getAgenticApiKeys()).toEqual([
+      'legacy-access',
+      'legacy-previous-access',
+    ]);
+    expect(getAgenticConfirmationKeys()).toEqual([
+      'legacy-confirmation',
+      'legacy-previous-confirmation',
+    ]);
+    expect(getAgenticSigningKeys()).toEqual([
+      'legacy-signing',
+      'legacy-previous-signing',
+    ]);
+    expect(getAgenticMerchantSlug()).toBe('legacy-store');
+  });
+
   it('treats empty agentic runtime secrets as unset', async () => {
     vi.stubEnv('OPENAI_AGENTIC_API_KEY', '');
     vi.stubEnv('OPENAI_AGENTIC_API_KEY_PREVIOUS', '');

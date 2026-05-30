@@ -713,7 +713,7 @@ export const getAgenticApiKeys = () => {
   });
 
   return [currentApiKey, previousApiKey]
-    .map(trimSecret)
+    .map((value) => trimSecret(value))
     .filter((value) => value.length > 0);
 };
 export const getAgenticConfirmationKeys = () => {
@@ -732,7 +732,7 @@ export const getAgenticConfirmationKeys = () => {
       primaryRaw: process.env.BACI_AGENTIC_CONFIRMATION_KEY_PREVIOUS,
     }),
   ]
-    .map(trimSecret)
+    .map((value) => trimSecret(value))
     .filter((value) => value.length > 0);
 };
 export const getAgenticMerchantSlug = () => {
@@ -760,7 +760,7 @@ export const getAgenticSigningKeys = () => {
       primaryRaw: process.env.BACI_AGENTIC_SIGNING_KEY_PREVIOUS,
     }),
   ]
-    .map(trimSecret)
+    .map((value) => trimSecret(value))
     .filter((value) => value.length > 0);
 };
 export const getPaystackSecretKey = () => {

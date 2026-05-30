@@ -1,11 +1,14 @@
 import crypto from 'node:crypto';
 
 const OPENAI_WEBHOOK_URL = process.env.OPENAI_AGENTIC_WEBHOOK_URL;
-const MERCHANT_SIGNING_KEY =
-  process.env.BACI_AGENTIC_SIGNING_KEY ??
-  process.env.OPENAI_AGENTIC_SIGNING_KEY;
 const MERCHANT_NAME_HEADER =
   process.env.OPENAI_AGENTIC_MERCHANT_HEADER_NAME || 'Merchant-Signature'; // e.g., 'Ogabassey-Signature'
+
+const trimEnvSecret = (value: string | undefined) => value?.trim() ?? '';
+
+const getMerchantSigningKey = () =>
+  trimEnvSecret(process.env.BACI_AGENTIC_SIGNING_KEY) ||
+  trimEnvSecret(process.env.OPENAI_AGENTIC_SIGNING_KEY);
 
 export type AgenticWebhookEvent = 'order.created' | 'order.updated';
 
@@ -28,7 +31,8 @@ export async function sendAgenticWebhook(
   event: AgenticWebhookEvent,
   orderData: AgenticOrderData
 ) {
-  if (!OPENAI_WEBHOOK_URL || !MERCHANT_SIGNING_KEY) {
+  const merchantSigningKey = getMerchantSigningKey();
+  if (!OPENAI_WEBHOOK_URL || !merchantSigningKey) {
     console.warn('Agentic webhook configuration missing. Skipping webhook.');
     return;
   }
@@ -44,7 +48,7 @@ export async function sendAgenticWebhook(
 
   // Create HMAC Signature
   const signature = crypto
-    .createHmac('sha256', MERCHANT_SIGNING_KEY)
+    .createHmac('sha256', merchantSigningKey)
     .update(payloadString)
     .digest('hex');
 
