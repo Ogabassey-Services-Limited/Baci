@@ -630,7 +630,7 @@ describe('WalletScreen', () => {
         amount: 2500,
         customerName: 'Ada Lovelace',
         customerPhone: '08012345678',
-        merchantId: null,
+        merchantId: undefined,
         merchantSlug: 'ogabassey',
       });
     });
@@ -811,7 +811,7 @@ describe('WalletScreen', () => {
     expect(mockInitializeWalletTopUp).not.toHaveBeenCalled();
   });
 
-  it('blocks invalid loyalty point redemption before hitting the mutation', () => {
+  it('blocks invalid loyalty point redemption before hitting the mutation', async () => {
     const alertSpy = jest
       .spyOn(Alert, 'alert')
       .mockImplementation(() => undefined);
@@ -822,14 +822,16 @@ describe('WalletScreen', () => {
     fireEvent.press(screen.getByText('Set Invalid Redeem Points'));
     fireEvent.press(screen.getByText('Confirm Redeem'));
 
-    expect(alertSpy).toHaveBeenCalledWith(
-      'Invalid Input',
-      'Please enter a valid number of points'
-    );
+    await waitFor(() => {
+      expect(alertSpy).toHaveBeenCalledWith(
+        'Invalid Input',
+        'Please enter a valid number of points'
+      );
+    });
     expect(mockMutateAsync).not.toHaveBeenCalled();
   });
 
-  it('blocks non-100-point redemption amounts before hitting the mutation', () => {
+  it('blocks non-100-point redemption amounts before hitting the mutation', async () => {
     const alertSpy = jest
       .spyOn(Alert, 'alert')
       .mockImplementation(() => undefined);
@@ -841,10 +843,12 @@ describe('WalletScreen', () => {
     fireEvent.press(screen.getByText('Confirm Redeem'));
 
     expect(mockMutateAsync).not.toHaveBeenCalled();
-    expect(alertSpy).toHaveBeenCalledWith(
-      'Invalid Points',
-      'Redeem points in 100-point blocks'
-    );
+    await waitFor(() => {
+      expect(alertSpy).toHaveBeenCalledWith(
+        'Invalid Points',
+        'Redeem points in 100-point blocks'
+      );
+    });
   });
 
   it('allows higher redemption values and surfaces backend validation errors', async () => {

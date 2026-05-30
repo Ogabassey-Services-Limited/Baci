@@ -1,0 +1,163 @@
+import Ionicons from "@react-native-vector-icons/ionicons";
+import type { RefObject } from 'react';
+import { ActivityIndicator, Alert, Pressable, Text, TextInput, View } from 'react-native';
+import type Colors from '@/constants/Colors';
+import { TextContentTypes } from '@/hooks/use-keyboard';
+import { getFirstError, OtpSchema } from '@/lib/validation';
+import { loginStepStyles } from './LoginStep.styles';
+
+type ColorsScheme = (typeof Colors)['light'];
+
+interface LoginOtpStepProps {
+  colors: ColorsScheme;
+  dismissAndNavigate: () => void;
+  email: string;
+  isLoading: boolean;
+  isMountedRef: RefObject<boolean>;
+  isVerifyingRef: RefObject<boolean>;
+  onResendOtp: () => Promise<void>;
+  otp: string;
+  otpError: string | null;
+  otpInputRef: RefObject<TextInput | null>;
+  setOtp: (value: string) => void;
+  setOtpError: (value: string | null) => void;
+  verifyOtp: (
+    email: string,
+    token: string
+  ) => Promise<{ error?: string; success: boolean }>;
+}
+
+export function LoginOtpStep({
+  colors,
+  dismissAndNavigate,
+  email,
+  isLoading,
+  isMountedRef,
+  isVerifyingRef,
+  onResendOtp,
+  otp,
+  otpError,
+  otpInputRef,
+  setOtp,
+  setOtpError,
+  verifyOtp,
+}: LoginOtpStepProps) {
+  const submitOtp = async (token: string) => {
+    if (isVerifyingRef.current) return;
+    const otpResult = OtpSchema.safeParse(token.trim());
+    const error = getFirstError(otpResult);
+    if (error) {
+      setOtpError(error);
+      return;
+    }
+    setOtpError(null);
+    isVerifyingRef.current = true;
+    try {
+      const result = await verifyOtp(email.toLowerCase().trim(), token.trim());
+      if (!isMountedRef.current) return;
+      if (result.success) {
+        dismissAndNavigate();
+      } else {
+        Alert.alert('Error', result.error || 'Invalid code');
+      }
+    } finally {
+      isVerifyingRef.current = false;
+    }
+  };
+
+  return (
+    <>
+      <Text style={[loginStepStyles.title, { color: colors.text }]}>
+        Verify Your Email
+      </Text>
+      <Text style={[loginStepStyles.subtitle, { color: colors.textSecondary }]}>
+        We've sent a 6-digit verification code to{'\n'}
+        <Text style={{ fontWeight: '600', color: colors.text }}>{email}</Text>
+      </Text>
+
+      <View style={loginStepStyles.inputGroup}>
+        <Text style={[loginStepStyles.label, { color: colors.textSecondary }]}>
+          Verification Code
+        </Text>
+        <View
+          style={[
+            loginStepStyles.inputContainer,
+            {
+              backgroundColor: colors.muted,
+              borderColor: otpError ? colors.error : colors.border,
+            },
+          ]}
+        >
+          <Ionicons
+            name="keypad-outline"
+            size={20}
+            color={otpError ? colors.error : colors.textSecondary}
+          />
+          <TextInput
+            ref={otpInputRef}
+            style={[
+              loginStepStyles.input,
+              loginStepStyles.otpInput,
+              { color: colors.text },
+            ]}
+            placeholder="000000"
+            placeholderTextColor={colors.placeholder}
+            value={otp}
+            onChangeText={(text) => {
+              setOtp(text);
+              if (otpError) setOtpError(null);
+              if (text.length === 6) void submitOtp(text);
+            }}
+            keyboardType="number-pad"
+            maxLength={6}
+            editable={!isLoading}
+            textContentType={TextContentTypes.oneTimeCode}
+            autoComplete="one-time-code"
+            returnKeyType="done"
+          />
+        </View>
+        {otpError && (
+          <Text style={[loginStepStyles.errorText, { color: colors.error }]}>
+            {otpError}
+          </Text>
+        )}
+      </View>
+
+      <Pressable
+        style={[
+          loginStepStyles.primaryButton,
+          { backgroundColor: colors.primary },
+          isLoading && loginStepStyles.buttonDisabled,
+        ]}
+        onPress={() => void submitOtp(otp)}
+        disabled={isLoading}
+      >
+        {isLoading ? (
+          <ActivityIndicator color={colors.primaryForeground} />
+        ) : (
+          <Text
+            style={[
+              loginStepStyles.primaryButtonText,
+              { color: colors.primaryForeground },
+            ]}
+          >
+            Verify
+          </Text>
+        )}
+      </Pressable>
+
+      <View style={loginStepStyles.resendContainer}>
+        <Text
+          style={[loginStepStyles.resendText, { color: colors.textSecondary }]}
+        >
+          Didn't receive the code?
+        </Text>
+        <Pressable onPress={() => void onResendOtp()} disabled={isLoading}>
+          <Text style={[loginStepStyles.resendLink, { color: colors.primary }]}>
+            Resend
+          </Text>
+        </Pressable>
+      </View>
+    </>
+  );
+}

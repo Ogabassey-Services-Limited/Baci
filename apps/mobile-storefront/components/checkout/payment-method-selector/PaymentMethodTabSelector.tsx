@@ -42,7 +42,7 @@ export function PaymentMethodTabSelector({
         onPress={() => onSelectTab('full')}
         accessibilityRole="tab"
         accessibilityState={{ selected: selectedTab === 'full' }}
-        accessibilityLabel="Full payment"
+        accessibilityLabel="Full Payment"
       >
         <Text
           style={[

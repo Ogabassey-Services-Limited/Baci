@@ -22,6 +22,7 @@ interface PaymentMethodStoreCreditRowsProps {
   savingsTotalBalance: number;
   walletAccessibilityLabel: string;
   walletCoversFully: boolean;
+  walletInfoShouldRender: boolean;
   walletIsActive: boolean;
   walletPortion: number;
   walletResidualToCard: number;
@@ -45,6 +46,7 @@ export function PaymentMethodStoreCreditRows({
   savingsTotalBalance,
   walletAccessibilityLabel,
   walletCoversFully,
+  walletInfoShouldRender,
   walletIsActive,
   walletIsLoading,
   walletPortion,
@@ -126,6 +128,38 @@ export function PaymentMethodStoreCreditRows({
 
       {walletStatusShouldRender ? (
         <WalletStatusRow colors={colors} isLoading={walletIsLoading} />
+      ) : null}
+
+      {walletInfoShouldRender ? (
+        <View
+          style={[
+            styles.methodCard,
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+            },
+          ]}
+          accessibilityRole="text"
+          accessibilityLabel={`Wallet balance applies automatically. ${formatPrice(walletPortion)} available now`}
+        >
+          <View
+            style={[
+              styles.methodIconContainer,
+              { backgroundColor: `${BRAND.primary}20` },
+            ]}
+          >
+            <Ionicons name="wallet-outline" size={24} color={BRAND.primary} />
+          </View>
+
+          <View style={styles.methodInfo}>
+            <Text style={[styles.methodLabel, { color: colors.text }]}>
+              Wallet balance applies automatically
+            </Text>
+            <Text style={[styles.methodDesc, { color: colors.textSecondary }]}>
+              {`${formatPrice(walletPortion)} available now · transfer shortfall only`}
+            </Text>
+          </View>
+        </View>
       ) : null}
 
       {walletShouldRender ? (

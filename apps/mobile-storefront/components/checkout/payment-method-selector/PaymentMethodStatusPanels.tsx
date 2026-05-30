@@ -25,6 +25,7 @@ interface PaymentMethodStatusPanelsProps {
   warningBackground: string;
   warningSubtleTextColor: string;
   warningTextColor: string;
+  walletFundedBankTransferMode: boolean;
 }
 
 export function PaymentMethodStatusPanels({
@@ -38,6 +39,7 @@ export function PaymentMethodStatusPanels({
   warningBackground,
   warningSubtleTextColor,
   warningTextColor,
+  walletFundedBankTransferMode,
 }: PaymentMethodStatusPanelsProps) {
   return (
     <>
@@ -121,8 +123,9 @@ export function PaymentMethodStatusPanels({
         <View style={[styles.bankInfo, { backgroundColor: colors.card }]}>
           <Ionicons name="information-circle" size={18} color={BRAND.primary} />
           <Text style={[styles.bankInfoText, { color: colors.textSecondary }]}>
-            A unique account number will be generated for this order. Payment
-            confirms automatically.
+            {walletFundedBankTransferMode
+              ? 'We will fund your wallet and pay this order automatically.'
+              : 'A unique account number will be generated for this order. Payment confirms automatically.'}
           </Text>
         </View>
       ) : null}

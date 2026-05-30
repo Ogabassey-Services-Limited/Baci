@@ -59,6 +59,7 @@ export interface PaymentMethodSelectorProps {
   methodDescriptionOverrides?: Partial<Record<PaymentMethodType, string>>;
   methodDisabledReasons?: Partial<Record<PaymentMethodType, string>>;
   methodLabelOverrides?: Partial<Record<PaymentMethodType, string>>;
+  walletFundedBankTransferMode?: boolean;
 }
 
 export const BNPL_MIN_AMOUNT = 10000;

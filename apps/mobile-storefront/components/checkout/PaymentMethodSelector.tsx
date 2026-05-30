@@ -113,17 +113,33 @@ export function PaymentMethodSelector({
     walletEffectiveTotal > 0 &&
     selectedTab === 'full' &&
     supportsPartialPayment;
+  const walletCoversTotal = walletBalance >= walletEffectiveTotal;
+  const walletFundedBankTransferActive =
+    walletFundedBankTransferMode &&
+    selectedMethod === 'bank_transfer' &&
+    selectedTab === 'full';
   const walletShouldRender =
     walletAttemptAllowed &&
+    (!walletFundedBankTransferActive || walletCoversTotal) &&
     walletBalance > 0 &&
+    !walletIsLoading &&
+    walletError === null;
+  const walletInfoShouldRender =
+    walletAttemptAllowed &&
+    walletFundedBankTransferActive &&
+    walletBalance > 0 &&
+    !walletCoversTotal &&
     !walletIsLoading &&
     walletError === null;
   const walletStatusShouldRender =
     walletAttemptAllowed &&
     !walletShouldRender &&
     (walletIsLoading || walletError !== null);
-  const walletCoversFully = walletShouldRender && walletBalance >= walletEffectiveTotal;
-  const walletPortion = walletShouldRender ? Math.min(walletBalance, walletEffectiveTotal) : 0;
+  const walletCoversFully = walletShouldRender && walletCoversTotal;
+  const walletPortion =
+    walletShouldRender || walletInfoShouldRender
+      ? Math.min(walletBalance, walletEffectiveTotal)
+      : 0;
   const walletResidualToCard = walletShouldRender
     ? Math.max(walletEffectiveTotal - walletBalance, 0)
     : 0;
@@ -170,6 +186,7 @@ export function PaymentMethodSelector({
         savingsTotalBalance={savingsBalance}
         walletAccessibilityLabel={walletAccessibilityLabel}
         walletCoversFully={walletCoversFully}
+        walletInfoShouldRender={walletInfoShouldRender}
         walletIsActive={walletIsActive}
         walletIsLoading={walletIsLoading}
         walletPortion={walletPortion}
@@ -198,6 +215,7 @@ export function PaymentMethodSelector({
         warningBackground={warningBackground}
         warningSubtleTextColor={warningSubtleTextColor}
         warningTextColor={warningTextColor}
+        walletFundedBankTransferMode={walletFundedBankTransferMode}
       />
 
       <View

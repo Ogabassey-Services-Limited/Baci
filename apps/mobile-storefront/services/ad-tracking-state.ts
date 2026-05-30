@@ -1,0 +1,102 @@
+import Constants from 'expo-constants';
+import { createLogger } from '@/lib/logger';
+import {
+  type AEMReporterIOSLike,
+  type AppEventsLoggerLike,
+  type FBSettingsLike,
+  loadAdTrackingNativeModules,
+  type TikTokBusinessLike,
+} from './ad-tracking-native-modules';
+import type { AdTrackingUserProperties } from './ad-tracking.types';
+
+export const adTrackingLog = createLogger('AdTracking');
+
+export const FB_APP_ID = Constants.expoConfig?.extra?.facebookAppId || '';
+export const FB_CLIENT_TOKEN =
+  Constants.expoConfig?.extra?.facebookClientToken || '';
+const TIKTOK_BUSINESS_CONFIG = Constants.expoConfig?.extra?.tiktokBusiness as
+  | { isConfigured?: boolean; iosTikTokAppId?: string | null }
+  | undefined;
+export const IS_TIKTOK_BUSINESS_CONFIGURED = Boolean(
+  TIKTOK_BUSINESS_CONFIG?.isConfigured
+);
+export const AD_API_URL =
+  Constants.expoConfig?.extra?.apiUrl || 'https://ogabassey.com/api';
+
+let FBSettings: FBSettingsLike | null = null;
+let AppEventsLogger: AppEventsLoggerLike | null = null;
+let AEMReporterIOS: AEMReporterIOSLike | null = null;
+let TikTokBusiness: TikTokBusinessLike | null = null;
+
+let isTrackingAllowed = false;
+let isInitialized = false;
+let isTikTokInitialized = false;
+let cachedMerchantId: string | null = null;
+let cachedUserData: AdTrackingUserProperties & { userId?: string } = {};
+
+export async function loadNativeModules(): Promise<void> {
+  const modules = await loadAdTrackingNativeModules();
+  FBSettings = modules.FBSettings;
+  AppEventsLogger = modules.AppEventsLogger;
+  AEMReporterIOS = modules.AEMReporterIOS;
+  TikTokBusiness = modules.TikTokBusiness;
+}
+
+void loadNativeModules();
+
+export function getAdTrackingModules() {
+  return { FBSettings, AppEventsLogger, AEMReporterIOS, TikTokBusiness };
+}
+
+export function setMerchantId(merchantId: string): void {
+  cachedMerchantId = merchantId;
+}
+
+export function getCachedMerchantId(): string | null {
+  return cachedMerchantId;
+}
+
+export function setCachedUserData(
+  userId: string,
+  properties?: AdTrackingUserProperties
+): void {
+  cachedUserData = {
+    userId,
+    email: properties?.email,
+    phone: properties?.phone,
+    firstName: properties?.firstName,
+    lastName: properties?.lastName,
+  };
+}
+
+export function clearCachedUserData(): void {
+  cachedUserData = {};
+}
+
+export function getCachedUserData() {
+  return cachedUserData;
+}
+
+export function getIsTrackingAllowed(): boolean {
+  return isTrackingAllowed;
+}
+
+export function setIsTrackingAllowed(value: boolean): void {
+  isTrackingAllowed = value;
+}
+
+export function getIsInitialized(): boolean {
+  return isInitialized;
+}
+
+export function setIsInitialized(value: boolean): void {
+  isInitialized = value;
+}
+
+export function getIsTikTokInitialized(): boolean {
+  return isTikTokInitialized;
+}
+
+export function setIsTikTokInitialized(value: boolean): void {
+  isTikTokInitialized = value;
+}
