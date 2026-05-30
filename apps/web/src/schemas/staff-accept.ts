@@ -3,7 +3,7 @@ import { z } from 'zod';
 export const staffAcceptSchema = z.object({
   token: z
     .string({
-      error: 'Invitation token is required',
+      message: 'Invitation token is required',
     })
     .min(1, 'Invitation token is required')
     .max(255, 'Invalid invitation token format')
