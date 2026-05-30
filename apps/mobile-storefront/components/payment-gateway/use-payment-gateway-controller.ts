@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { router, useLocalSearchParams } from 'expo-router';
+import { type Href, router, useLocalSearchParams } from 'expo-router';
 import { type ComponentProps, useEffect, useRef, useState } from 'react';
 import { Alert } from 'react-native';
 import type { WebView, WebViewNavigation } from 'react-native-webview';
@@ -251,7 +251,7 @@ export function usePaymentGatewayController() {
         }
         setPaymentStatus('success');
         scheduleDelayedNavigation(() => {
-          router.replace((returnTo || '/wallet') as any);
+          router.replace((returnTo || '/wallet') as Href);
         });
       } catch (error) {
         if (!isMountedRef.current) {
