@@ -7,7 +7,12 @@ import {
   getRequestScopedMerchant,
 } from '@/lib/cached-data';
 
-const mockConnection = vi.hoisted(() => vi.fn());
+const { mockConnection, mockStorefrontDynamicMetadataMarker } = vi.hoisted(
+  () => ({
+    mockConnection: vi.fn(),
+    mockStorefrontDynamicMetadataMarker: vi.fn(),
+  })
+);
 
 vi.mock('@/lib/cached-data', () => ({
   getMerchantByIdentifier: vi.fn(),
@@ -19,9 +24,10 @@ vi.mock('next/server', () => ({
 }));
 
 vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
-  StorefrontDynamicMetadataMarker: () => (
-    <div aria-label="dynamic metadata marker" role="status" />
-  ),
+  StorefrontDynamicMetadataMarker: () => {
+    mockStorefrontDynamicMetadataMarker();
+    return <div aria-label="dynamic metadata marker" role="status" />;
+  },
 }));
 
 vi.mock('@/lib/merchant-template-data', () => ({
@@ -74,6 +80,7 @@ describe('FAQPage', () => {
     vi.mocked(getRequestScopedMerchant).mockReset();
     notFound.mockClear();
     mockConnection.mockReset();
+    mockStorefrontDynamicMetadataMarker.mockReset();
   });
 
   it('does not emit a duplicate wrapper h1 while content is suspended', async () => {
@@ -127,7 +134,11 @@ describe('FAQPage', () => {
     expect(
       screen.getByRole('status', { name: 'Loading page content' })
     ).toBeInTheDocument();
-    expect(mockConnection).toHaveBeenCalledOnce();
+    expect(mockConnection).not.toHaveBeenCalled();
+    expect(mockStorefrontDynamicMetadataMarker).toHaveBeenCalledOnce();
+    expect(
+      screen.getByRole('status', { name: /dynamic metadata marker/i })
+    ).toBeInTheDocument();
   });
 
   it('marks FAQ metadata as request-time rendered', async () => {

@@ -428,7 +428,7 @@ describe('products/[productSlug] page', () => {
     expect(screen.queryByText('mystery-item')).not.toBeInTheDocument();
   });
 
-  it('opts runtime product metadata into request-time page rendering', async () => {
+  it('opts runtime product metadata in with a dynamic marker', async () => {
     mockGetCachedProduct.mockResolvedValue(uncategorizedProduct);
 
     render(
@@ -441,11 +441,11 @@ describe('products/[productSlug] page', () => {
       })
     );
 
-    expect(mockConnection).toHaveBeenCalledOnce();
-    expect(mockStorefrontDynamicMetadataMarker).not.toHaveBeenCalled();
+    expect(mockConnection).not.toHaveBeenCalled();
+    expect(mockStorefrontDynamicMetadataMarker).toHaveBeenCalledOnce();
     expect(
-      screen.queryByRole('status', { name: /dynamic metadata marker/i })
-    ).not.toBeInTheDocument();
+      screen.getByRole('status', { name: /dynamic metadata marker/i })
+    ).toBeInTheDocument();
   });
 
   describe('redirect routing mode', () => {
@@ -1057,7 +1057,11 @@ describe('products/[productSlug] page', () => {
         name: /Shop more Products/i,
       })
     ).toHaveAttribute('href', 'https://teststore.usebaci.com/products');
-    expect(mockConnection).toHaveBeenCalledOnce();
+    expect(mockConnection).not.toHaveBeenCalled();
+    expect(mockStorefrontDynamicMetadataMarker).toHaveBeenCalledOnce();
+    expect(
+      screen.getByRole('status', { name: /dynamic metadata marker/i })
+    ).toBeInTheDocument();
     expect(
       screen.getByRole('link', {
         name: /Compare with Samsung Galaxy Z TriFold/i,

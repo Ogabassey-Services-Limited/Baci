@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { connection } from 'next/server';
 import { Suspense } from 'react';
+import { StorefrontDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { toTemplateMerchantData } from '@/lib/merchant-template-data';
 import {
@@ -59,15 +60,14 @@ export async function generateMetadata({
 }
 
 /** Streams JSON-LD separately while the visible page content loads. */
-export default async function AboutPage({ params }: PageProps) {
-  await connection();
-
+export default function AboutPage({ params }: PageProps) {
   return (
     <>
       <Suspense fallback={null}>
         <AboutJsonLd params={params} />
       </Suspense>
       <AboutContent params={params} />
+      <StorefrontDynamicMetadataMarker />
     </>
   );
 }

@@ -7,9 +7,10 @@ async function StorefrontDynamicMetadataConnection() {
 }
 
 /**
- * @deprecated Do not render this from storefront page bodies. Page modules
- * should call `await connection()` directly before returning their shell; this
- * Suspense marker can put Next metadata boundaries into body resume slots.
+ * Next 16 PPR marker for routes whose `generateMetadata()` is request-time.
+ * Keep this after the route shell instead of awaiting `connection()` at the
+ * page boundary; page-level `connection()` blocks prerendered shells and has
+ * produced metadata-boundary resume mismatches on Vercel.
  */
 export function StorefrontDynamicMetadataMarker() {
   return (
