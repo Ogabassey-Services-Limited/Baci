@@ -23,9 +23,12 @@ describe('dashboard stat date ranges', () => {
   });
 
   it('builds previous period ranges when comparisons are available', () => {
+    const previousDayStart = new Date(2026, 4, 28).toISOString();
+    const previousDayEnd = new Date(2026, 4, 29).toISOString();
+
     expect(getPreviousPeriodDateRange('today')).toEqual({
-      end: '2026-05-28T23:00:00.000Z',
-      start: '2026-05-27T23:00:00.000Z',
+      end: previousDayEnd,
+      start: previousDayStart,
     });
     expect(getPreviousPeriodDateRange('all')).toBeNull();
   });
