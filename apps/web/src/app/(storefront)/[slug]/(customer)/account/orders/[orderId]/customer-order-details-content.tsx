@@ -89,7 +89,7 @@ export function CustomerOrderDetailsContent({
               aria-label="Back to orders"
               href={asRoute(getHref('/account/orders'))}
             >
-              <ArrowLeft className="h-4 w-4" />
+              <ArrowLeft className="size-4" />
             </Link>
           </Button>
           <div>
@@ -149,7 +149,7 @@ export function CustomerOrderDetailsContent({
                 href={asRoute(getHref(`/account/orders/${order.id}/insurance`))}
                 className="flex items-center gap-2 rounded-md border p-4 text-sm font-medium hover:bg-muted/40"
               >
-                <ShieldCheck className="h-5 w-5 text-green-600" />
+                <ShieldCheck className="size-5 text-green-600" />
                 View Insurance Policy
               </Link>
             )}
@@ -160,7 +160,7 @@ export function CustomerOrderDetailsContent({
               </CardHeader>
               <CardContent className="space-y-5">
                 <div className="flex gap-3">
-                  <Truck className="mt-0.5 h-5 w-5 text-muted-foreground" />
+                  <Truck className="mt-0.5 size-5 text-muted-foreground" />
                   <div>
                     <p className="font-medium">
                       {formatStatusLabel(order.shipping_status)}
@@ -172,7 +172,7 @@ export function CustomerOrderDetailsContent({
                   </div>
                 </div>
                 <div className="flex gap-3">
-                  <CreditCard className="mt-0.5 h-5 w-5 text-muted-foreground" />
+                  <CreditCard className="mt-0.5 size-5 text-muted-foreground" />
                   <div>
                     <p className="font-medium">
                       {formatStatusLabel(order.payment_status)}
@@ -232,14 +232,14 @@ export function CustomerOrderDetailsContent({
             <div className="space-y-3">
               <Button asChild className="w-full">
                 <a href={documentHref}>
-                  <Download className="mr-2 h-4 w-4" />
+                  <Download className="mr-2 size-4" />
                   {documentLabel}
                 </a>
               </Button>
               {shouldShowRiderContact ? (
                 <Button asChild variant="outline" className="w-full">
                   <a href={`tel:${order.rider_phone_number}`}>
-                    <Phone className="mr-2 h-4 w-4" />
+                    <Phone className="mr-2 size-4" />
                     Call Rider {order.rider_phone_number}
                   </a>
                 </Button>
@@ -251,7 +251,7 @@ export function CustomerOrderDetailsContent({
                     target="_blank"
                     rel="noreferrer"
                   >
-                    <Star className="mr-2 h-4 w-4" />
+                    <Star className="mr-2 size-4" />
                     Leave a Google Review
                   </a>
                 </Button>
@@ -259,7 +259,7 @@ export function CustomerOrderDetailsContent({
               {shouldShowReturn && returnHref ? (
                 <Button asChild variant="outline" className="w-full">
                   <a href={returnHref}>
-                    <RotateCcw className="mr-2 h-4 w-4" />
+                    <RotateCcw className="mr-2 size-4" />
                     Return Order
                   </a>
                 </Button>
@@ -267,7 +267,7 @@ export function CustomerOrderDetailsContent({
               {buyAgainHref ? (
                 <Button asChild variant="outline" className="w-full">
                   <Link href={buyAgainHref}>
-                    <Package className="mr-2 h-4 w-4" />
+                    <Package className="mr-2 size-4" />
                     Buy Again
                   </Link>
                 </Button>

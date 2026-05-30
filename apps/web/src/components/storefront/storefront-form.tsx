@@ -140,7 +140,7 @@ export function StorefrontForm({
   if (submitStatus === 'success') {
     return (
       <div className="rounded-lg border border-green-200 bg-green-50 p-6 text-center">
-        <CheckCircle2 className="w-12 h-12 text-green-600 mx-auto mb-3" />
+        <CheckCircle2 className="size-12 text-green-600 mx-auto mb-3" />
         <p className="text-green-800 font-medium">{successMessage}</p>
       </div>
     );
@@ -150,7 +150,7 @@ export function StorefrontForm({
     <form onSubmit={handleSubmit} className="space-y-4">
       {submitStatus === 'error' && (
         <div className="rounded-lg border border-red-200 bg-red-50 p-4 flex items-start gap-3">
-          <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 shrink-0" />
+          <AlertCircle className="size-5 text-red-600 mt-0.5 shrink-0" />
           <p className="text-red-800 text-sm">
             Something went wrong. Please try again later.
           </p>
@@ -194,7 +194,7 @@ export function StorefrontForm({
               </SelectContent>
             </Select>
           ) : field.type === 'checkbox' ? (
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center gap-x-2">
               <Checkbox
                 id={field.id}
                 checked={(formData[field.id] as boolean) || false}
@@ -236,8 +236,8 @@ export function StorefrontForm({
       <Button type="submit" disabled={isSubmitting} className="w-full">
         {isSubmitting ? (
           <>
-            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            Submitting...
+            <Loader2 className="size-4 mr-2 animate-spin" />
+            Submitting…
           </>
         ) : (
           submitButtonText

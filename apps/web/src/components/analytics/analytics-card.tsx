@@ -41,11 +41,11 @@ export function AnalyticsCard({
   const getTrendIcon = (t?: 'up' | 'down' | 'neutral') => {
     switch (t) {
       case 'up':
-        return <ArrowUp className="h-3 w-3" />;
+        return <ArrowUp className="size-3" />;
       case 'down':
-        return <ArrowDown className="h-3 w-3" />;
+        return <ArrowDown className="size-3" />;
       default:
-        return <Minus className="h-3 w-3" />;
+        return <Minus className="size-3" />;
     }
   };
 
@@ -56,12 +56,12 @@ export function AnalyticsCard({
       className={cn('h-full', className)}
     >
       <Card className="h-full overflow-hidden border-none bg-white/60 dark:bg-black/40 backdrop-blur-xl shadow-sm hover:shadow-md transition-all duration-300 rounded-2xl ring-1 ring-black/5 dark:ring-white/10">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardHeader className="flex flex-row items-center justify-between gap-y-0 pb-2">
           <CardTitle className="text-sm font-medium text-muted-foreground">
             {title}
           </CardTitle>
           <div className="p-2 rounded-xl bg-primary/5 text-primary">
-            <Icon className="h-4 w-4" />
+            <Icon className="size-4" />
           </div>
         </CardHeader>
         <CardContent>

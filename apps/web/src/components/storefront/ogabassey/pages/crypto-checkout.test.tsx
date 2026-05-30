@@ -139,7 +139,7 @@ describe('CryptoCheckoutPage', () => {
 
     // Assert
     expect(screen.getByText('Preparing Crypto Payment')).toBeInTheDocument();
-    expect(screen.getByText('Generating wallet address...')).toBeInTheDocument();
+    expect(screen.getByText('Generating wallet address…')).toBeInTheDocument();
     expect(screen.getByText('Please do not close this window.')).toBeInTheDocument();
   });
 
@@ -444,8 +444,8 @@ describe('CryptoCheckoutPage', () => {
 
     // Assert - button should be disabled
     await waitFor(() => {
-      expect(screen.getByText(/Verifying Payment.../i)).toBeInTheDocument();
-      const disabledButton = screen.getByRole('button', { name: /Verifying Payment.../i });
+      expect(screen.getByText(/Verifying Payment…/i)).toBeInTheDocument();
+      const disabledButton = screen.getByRole('button', { name: /Verifying Payment…/i });
       expect(disabledButton).toBeDisabled();
     });
   });

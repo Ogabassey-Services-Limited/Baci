@@ -146,7 +146,7 @@ export function CreateConsignmentForm({
     <form onSubmit={handleSubmit(onSubmit, onInvalid)}>
       <CardHeader className="pb-2">
         <div className="flex items-center gap-2">
-          <Package className="h-5 w-5 text-store-primary" />
+          <Package className="size-5 text-store-primary" />
           <CardTitle className="text-lg">Create Consignment Order</CardTitle>
         </div>
         <CardDescription>
@@ -217,10 +217,10 @@ export function CreateConsignmentForm({
                   size="icon"
                   onClick={() => remove(index)}
                   disabled={fields.length <= 1}
-                  className="h-8 w-8 text-muted-foreground hover:text-destructive disabled:opacity-30"
+                  className="size-8 text-muted-foreground hover:text-destructive disabled:opacity-30"
                   aria-label={`Remove product row ${index + 1}`}
                 >
-                  <Trash2 className="h-4 w-4" />
+                  <Trash2 className="size-4" />
                 </Button>
               </div>
             ))}
@@ -231,7 +231,7 @@ export function CreateConsignmentForm({
             onClick={() => append({ sku: '', quantity: '', labelCode: '' })}
             className="flex items-center gap-1 text-sm text-store-primary hover:underline mt-1 h-auto p-0"
           >
-            <Plus className="h-3.5 w-3.5" />
+            <Plus className="size-3.5" />
             Add Product
           </Button>
         </div>
@@ -243,8 +243,8 @@ export function CreateConsignmentForm({
           >
             {isSubmitting ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Sending...
+                <Loader2 className="mr-2 size-4 animate-spin" />
+                Sending…
               </>
             ) : (
               'Send to Jumia Warehouse'

@@ -170,7 +170,7 @@ export function StoreSettingsPanel({
         {/* Product Page Settings */}
         <Card className="p-4 space-y-4">
           <div className="flex items-center gap-2">
-            <Palette className="w-4 h-4 text-primary" />
+            <Palette className="size-4 text-primary" />
             <h3 className="font-medium">Product Page Layout</h3>
           </div>
 
@@ -317,7 +317,7 @@ export function StoreSettingsPanel({
         {/* Cart Settings */}
         <Card className="p-4 space-y-4">
           <div className="flex items-center gap-2">
-            <ShoppingCart className="w-4 h-4 text-primary" />
+            <ShoppingCart className="size-4 text-primary" />
             <h3 className="font-medium">Shopping Cart</h3>
           </div>
 
@@ -430,7 +430,7 @@ export function StoreSettingsPanel({
         {/* Checkout Settings */}
         <Card className="p-4 space-y-4">
           <div className="flex items-center gap-2">
-            <CreditCard className="w-4 h-4 text-primary" />
+            <CreditCard className="size-4 text-primary" />
             <h3 className="font-medium">Checkout Experience</h3>
           </div>
 
@@ -515,7 +515,7 @@ export function StoreSettingsPanel({
         {/* Shipping Settings */}
         <Card className="p-4 space-y-4">
           <div className="flex items-center gap-2">
-            <Truck className="w-4 h-4 text-primary" />
+            <Truck className="size-4 text-primary" />
             <h3 className="font-medium">Shipping Options</h3>
           </div>
 
@@ -574,7 +574,7 @@ export function StoreSettingsPanel({
         {/* Store Policies */}
         <Card className="p-4 space-y-4">
           <div className="flex items-center gap-2">
-            <FileText className="w-4 h-4 text-primary" />
+            <FileText className="size-4 text-primary" />
             <h3 className="font-medium">Store Policies</h3>
           </div>
 
@@ -634,7 +634,7 @@ export function StoreSettingsPanel({
         {/* Tips */}
         <Card className="p-4 bg-primary/5 border-primary/20">
           <h4 className="font-medium text-sm mb-2 flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-primary" />
+            <AlertCircle className="size-4 text-primary" />
             Store Settings Tips
           </h4>
           <ul className="text-xs space-y-1.5 text-muted-foreground">

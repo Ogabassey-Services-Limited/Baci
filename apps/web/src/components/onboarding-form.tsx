@@ -127,7 +127,7 @@ function OnboardingNavigation({
         >
           {isLoading ? (
             <>
-              <Loader2 className="mr-2 h-4 w-4 motion-safe:animate-spin" />
+              <Loader2 className="mr-2 size-4 motion-safe:animate-spin" />
               {isSubmitting
                 ? user
                   ? 'Saving...'
@@ -429,8 +429,8 @@ export default function OnboardingForm() {
 
   if (isRedirecting) {
     return (
-      <div className="flex h-screen w-full flex-col items-center justify-center space-y-4 bg-muted/10">
-        <div className="relative h-20 w-20">
+      <div className="flex h-screen w-full flex-col items-center justify-center gap-y-4 bg-muted/10">
+        <div className="relative size-20">
           <div className="relative flex h-full w-full items-center justify-center">
             <BagLoader size={80} />
           </div>
@@ -440,7 +440,7 @@ export default function OnboardingForm() {
             Preparing Dashboard
           </h2>
           <p className="text-muted-foreground">
-            Setting up your new store environment...
+            Setting up your new store environment…
           </p>
         </div>
       </div>
@@ -491,7 +491,7 @@ export default function OnboardingForm() {
 
             <div
               className={cn(
-                'space-y-4 w-full mx-auto',
+                'gap-y-4 w-full mx-auto',
                 showPreview ? 'max-w-full' : 'max-w-lg'
               )}
             >
@@ -524,7 +524,7 @@ export default function OnboardingForm() {
                     {step === 3 &&
                       (magicLinkSent ? (
                         <Alert className="mt-4">
-                          <AlertCircle className="h-4 w-4" />
+                          <AlertCircle className="size-4" />
                           <AlertTitle>Magic Link Sent!</AlertTitle>
                           <AlertDescription>
                             Please check your email for a link to sign in. You

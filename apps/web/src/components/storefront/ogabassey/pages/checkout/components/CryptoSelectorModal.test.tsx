@@ -263,7 +263,7 @@ describe('CryptoSelectorModal', () => {
       );
 
       expect(screen.getByTestId('loader2-icon')).toBeInTheDocument();
-      expect(screen.getByText('Generating Address...')).toBeInTheDocument();
+      expect(screen.getByText('Generating Address…')).toBeInTheDocument();
     });
 
     it('disables continue button when isInitializingCrypto is true', () => {

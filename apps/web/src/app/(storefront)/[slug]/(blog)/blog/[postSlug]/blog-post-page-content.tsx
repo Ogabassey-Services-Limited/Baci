@@ -155,7 +155,7 @@ async function renderBlogPostContent({
     <>
       {isDraftMode && (
         <div className="bg-amber-600 text-white py-2 px-4 flex items-center justify-center gap-2 sticky top-0 z-50 shadow-md">
-          <AlertTriangle className="h-4 w-4" />
+          <AlertTriangle className="size-4" />
           <span className="text-sm font-medium">
             Preview Mode: Showing unpublished draft
           </span>
@@ -169,24 +169,12 @@ async function renderBlogPostContent({
           </Button>
         </div>
       )}
-      <script
-        type="application/ld+json"
-        /*
-          biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
-          nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
-        */
-        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(blogSchema) }}
-      />
-      <script
-        type="application/ld+json"
-        /*
-          biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
-          nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
-        */
-        dangerouslySetInnerHTML={{
-          __html: safeJsonLdStringify(breadcrumbSchema),
-        }}
-      />
+      <script type="application/ld+json">
+        {safeJsonLdStringify(blogSchema)}
+      </script>
+      <script type="application/ld+json">
+        {safeJsonLdStringify(breadcrumbSchema)}
+      </script>
 
       <ViewCounter postId={post.id} />
 
@@ -197,7 +185,7 @@ async function renderBlogPostContent({
               href={asRoute(`${basePath}/blog`)}
               className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
             >
-              <ArrowLeft className="w-4 h-4" />
+              <ArrowLeft className="size-4" />
               Back to Blog
             </Link>
           </div>
@@ -256,7 +244,7 @@ async function renderBlogPostContent({
           <div className="container mx-auto px-4 text-center">
             <Link href={asRoute(`${basePath}/blog`)}>
               <Button variant="outline">
-                <ArrowLeft className="w-4 h-4 mr-2" />
+                <ArrowLeft className="size-4 mr-2" />
                 Back to all articles
               </Button>
             </Link>

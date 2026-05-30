@@ -234,7 +234,7 @@ export default function AdminDashboardPage() {
             disabled={refreshing}
           >
             <RefreshCw
-              className={`h-4 w-4 mr-2 ${refreshing ? 'motion-safe:animate-spin' : ''}`}
+              className={`size-4 mr-2 ${refreshing ? 'motion-safe:animate-spin' : ''}`}
             />
             Refresh
           </Button>
@@ -302,7 +302,7 @@ export default function AdminDashboardPage() {
             <Card className="border-emerald-500/20 bg-emerald-500/5">
               <CardContent className="flex items-center gap-4 p-6">
                 <div className="p-3 rounded-full bg-emerald-500/10">
-                  <Banknote className="h-6 w-6 text-emerald-500" />
+                  <Banknote className="size-6 text-emerald-500" />
                 </div>
                 <div className="flex-1">
                   <p className="text-sm text-muted-foreground font-medium">
@@ -320,7 +320,7 @@ export default function AdminDashboardPage() {
             <Card className="border-orange-500/20 bg-orange-500/5">
               <CardContent className="flex items-center gap-4 p-6">
                 <div className="p-3 rounded-full bg-orange-500/10">
-                  <DollarSign className="h-6 w-6 text-orange-500" />
+                  <DollarSign className="size-6 text-orange-500" />
                 </div>
                 <div className="flex-1">
                   <p className="text-sm text-muted-foreground font-medium">
@@ -338,7 +338,7 @@ export default function AdminDashboardPage() {
             <Card className="border-blue-500/20 bg-blue-500/5">
               <CardContent className="flex items-center gap-4 p-6">
                 <div className="p-3 rounded-full bg-blue-500/10">
-                  <Wallet className="h-6 w-6 text-blue-500" />
+                  <Wallet className="size-6 text-blue-500" />
                 </div>
                 <div className="flex-1">
                   <p className="text-sm text-muted-foreground font-medium">
@@ -529,7 +529,7 @@ export default function AdminDashboardPage() {
           <Card className="border-emerald-500/20 bg-emerald-500/5 cursor-pointer hover:bg-emerald-500/10 transition-colors">
             <CardContent className="flex items-center gap-4 p-4">
               <div className="p-2 rounded-full bg-emerald-500/10">
-                <CheckCircle className="h-5 w-5 text-emerald-500" />
+                <CheckCircle className="size-5 text-emerald-500" />
               </div>
               <div>
                 <p className="text-2xl font-bold">
@@ -546,7 +546,7 @@ export default function AdminDashboardPage() {
           <Card className="border-amber-500/20 bg-amber-500/5 cursor-pointer hover:bg-amber-500/10 transition-colors">
             <CardContent className="flex items-center gap-4 p-4">
               <div className="p-2 rounded-full bg-amber-500/10">
-                <AlertTriangle className="h-5 w-5 text-amber-500" />
+                <AlertTriangle className="size-5 text-amber-500" />
               </div>
               <div>
                 <p className="text-2xl font-bold">
@@ -561,7 +561,7 @@ export default function AdminDashboardPage() {
           <Card className="border-red-500/20 bg-red-500/5 cursor-pointer hover:bg-red-500/10 transition-colors">
             <CardContent className="flex items-center gap-4 p-4">
               <div className="p-2 rounded-full bg-red-500/10">
-                <XCircle className="h-5 w-5 text-red-500" />
+                <XCircle className="size-5 text-red-500" />
               </div>
               <div>
                 <p className="text-2xl font-bold">
@@ -576,7 +576,7 @@ export default function AdminDashboardPage() {
           <Card className="border-indigo-500/20 bg-indigo-500/5 cursor-pointer hover:bg-indigo-500/10 transition-colors">
             <CardContent className="flex items-center gap-4 p-4">
               <div className="p-2 rounded-full bg-indigo-500/10">
-                <Users className="h-5 w-5 text-indigo-500" />
+                <Users className="size-5 text-indigo-500" />
               </div>
               <div>
                 <p className="text-2xl font-bold">
@@ -620,7 +620,7 @@ export default function AdminDashboardPage() {
           <Link href="/admin/merchants">
             <Button variant="outline" size="sm">
               View All
-              <ArrowRight className="h-4 w-4 ml-2" />
+              <ArrowRight className="size-4 ml-2" />
             </Button>
           </Link>
         </CardHeader>
@@ -630,7 +630,7 @@ export default function AdminDashboardPage() {
               {[...Array(5)].map((_, i) => (
                 // biome-ignore lint/suspicious/noArrayIndexKey: Skeleton
                 <div key={i} className="flex items-center gap-4">
-                  <Skeleton className="h-10 w-10 rounded-full" />
+                  <Skeleton className="size-10 rounded-full" />
                   <div className="flex-1">
                     <Skeleton className="h-4 w-32 mb-2" />
                     <Skeleton className="h-3 w-24" />
@@ -646,7 +646,7 @@ export default function AdminDashboardPage() {
                   key={merchant.id}
                   className="flex items-center gap-4 p-2 rounded-lg hover:bg-muted/50 transition-colors"
                 >
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary font-bold">
+                  <div className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary font-bold">
                     {index + 1}
                   </div>
                   <div className="flex-1 min-w-0">

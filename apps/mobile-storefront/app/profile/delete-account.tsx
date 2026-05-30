@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { Redirect, Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
@@ -261,7 +261,7 @@ export default function DeleteAccountScreen() {
                     { color: colors.destructiveForeground },
                   ]}
                 >
-                  Deleting account...
+                  Deleting account…
                 </Text>
               </>
             ) : (

@@ -108,13 +108,13 @@ export function OgabasseyV2Repairs({ storeSlug }: OgabasseyV2RepairsProps) {
           <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/circuit.png')]" />
 
           {/* Red Glow Effect */}
-          <div className="absolute -right-20 -bottom-20 w-96 h-96 bg-red-600 rounded-full blur-[120px] opacity-20" />
+          <div className="absolute -right-20 -bottom-20 size-96 bg-red-600 rounded-full blur-[120px] opacity-20" />
         </div>
 
         {/* The Repair Impact */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
           <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm text-center group hover:-translate-y-1 transition-transform">
-            <div className="w-14 h-14 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
+            <div className="size-14 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
               <HeartPulse size={28} />
             </div>
             <h3 className="font-bold text-gray-900 mb-2">Extend Lifespan</h3>
@@ -124,7 +124,7 @@ export function OgabasseyV2Repairs({ storeSlug }: OgabasseyV2RepairsProps) {
             </p>
           </div>
           <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm text-center group hover:-translate-y-1 transition-transform">
-            <div className="w-14 h-14 bg-gray-100 text-gray-700 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
+            <div className="size-14 bg-gray-100 text-gray-700 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
               <Leaf size={28} />
             </div>
             <h3 className="font-bold text-gray-900 mb-2">Reduce E-Waste</h3>
@@ -134,7 +134,7 @@ export function OgabasseyV2Repairs({ storeSlug }: OgabasseyV2RepairsProps) {
             </p>
           </div>
           <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm text-center group hover:-translate-y-1 transition-transform">
-            <div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
+            <div className="size-14 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
               <ShieldCheck size={28} />
             </div>
             <h3 className="font-bold text-gray-900 mb-2">Data Safety</h3>
@@ -159,7 +159,7 @@ export function OgabasseyV2Repairs({ storeSlug }: OgabasseyV2RepairsProps) {
               <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity text-red-500">
                 <Zap size={40} className="opacity-10" />
               </div>
-              <div className="w-12 h-12 bg-gray-50 rounded-xl flex items-center justify-center mb-4 group-hover:bg-red-50 group-hover:text-red-600 transition-colors">
+              <div className="size-12 bg-gray-50 rounded-xl flex items-center justify-center mb-4 group-hover:bg-red-50 group-hover:text-red-600 transition-colors">
                 <service.icon size={24} />
               </div>
               <h4 className="font-bold text-gray-900 mb-1">{service.title}</h4>
@@ -180,7 +180,7 @@ export function OgabasseyV2Repairs({ storeSlug }: OgabasseyV2RepairsProps) {
         {/* Maintenance Banner */}
         <div className="bg-white border border-gray-200 rounded-2xl p-8 md:p-10 relative overflow-hidden mb-16 shadow-sm">
           <div className="relative z-10 flex flex-col md:flex-row items-center gap-8">
-            <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center text-red-600 shrink-0 border border-red-100">
+            <div className="size-20 bg-red-50 rounded-full flex items-center justify-center text-red-600 shrink-0 border border-red-100">
               <Sparkles size={40} />
             </div>
             <div className="flex-1 text-center md:text-left">
@@ -195,7 +195,7 @@ export function OgabasseyV2Repairs({ storeSlug }: OgabasseyV2RepairsProps) {
               </p>
             </div>
             <div className="shrink-0">
-              <button className="bg-gray-900 text-white font-bold py-3 px-6 rounded-xl hover:bg-black transition-colors shadow-lg active:scale-95">
+              <button type="button" className="bg-gray-900 text-white font-bold py-3 px-6 rounded-xl hover:bg-black transition-colors shadow-lg active:scale-95">
                 Visit Store
               </button>
             </div>
@@ -204,7 +204,7 @@ export function OgabasseyV2Repairs({ storeSlug }: OgabasseyV2RepairsProps) {
 
         {/* Recycling Section - Neutral Tones */}
         <div className="bg-gray-100 rounded-3xl p-8 md:p-12 text-center border border-gray-200">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-white rounded-full mb-6 text-gray-700 shadow-sm">
+          <div className="inline-flex items-center justify-center size-16 bg-white rounded-full mb-6 text-gray-700 shadow-sm">
             <Recycle size={32} />
           </div>
           <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-4">

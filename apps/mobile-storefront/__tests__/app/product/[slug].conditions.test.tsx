@@ -29,7 +29,7 @@ describe('ProductDetailScreen condition offer stock gating', () => {
 
     render(<ProductDetailScreen />);
 
-    expect(screen.getByText('Loading product...')).toBeTruthy();
+    expect(screen.getByText('Loading product…')).toBeTruthy();
     expect(mockProductDetailsBody).not.toHaveBeenCalled();
   });
 

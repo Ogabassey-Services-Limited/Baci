@@ -138,9 +138,9 @@ export function AIInsightsPanel({
         )}
       >
         {isAnalyzing ? (
-          <RefreshCw className="h-5 w-5 text-indigo-500 animate-spin" />
+          <RefreshCw className="size-5 text-indigo-500 animate-spin" />
         ) : (
-          <Sparkles className="h-5 w-5 text-primary" />
+          <Sparkles className="size-5 text-primary" />
         )}
       </div>
 

@@ -118,7 +118,7 @@ export const GiftModal: React.FC<GiftModalProps> = ({ isOpen, onClose }) => {
           <h3 className="font-bold text-gray-900 flex items-center gap-2">
             <Gift className="text-red-600" size={20} /> Gift Personalization
           </h3>
-          <button
+          <button type="button"
             onClick={onClose}
             className="p-1 hover:bg-gray-100 rounded-full text-gray-500"
           >
@@ -165,7 +165,7 @@ export const GiftModal: React.FC<GiftModalProps> = ({ isOpen, onClose }) => {
                       <img
                         src={item.image}
                         alt={item.name}
-                        className="w-8 h-8 object-contain rounded bg-gray-50 p-0.5"
+                        className="size-8 object-contain rounded bg-gray-50 p-0.5"
                       />
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-bold text-gray-900 truncate">
@@ -215,7 +215,7 @@ export const GiftModal: React.FC<GiftModalProps> = ({ isOpen, onClose }) => {
                     value="anonymous"
                     checked={senderType === 'anonymous'}
                     onChange={() => setSenderType('anonymous')}
-                    className="w-4 h-4 text-red-600 accent-red-600"
+                    className="size-4 text-red-600 accent-red-600"
                   />
                   <span className="text-sm font-medium">Send Anonymously</span>
                 </label>
@@ -226,7 +226,7 @@ export const GiftModal: React.FC<GiftModalProps> = ({ isOpen, onClose }) => {
                     value="named"
                     checked={senderType === 'named'}
                     onChange={() => setSenderType('named')}
-                    className="w-4 h-4 text-red-600 accent-red-600"
+                    className="size-4 text-red-600 accent-red-600"
                   />
                   <span className="text-sm font-medium">Include My Name</span>
                 </label>
@@ -327,7 +327,7 @@ export const GiftModal: React.FC<GiftModalProps> = ({ isOpen, onClose }) => {
                             value="standard"
                             checked={wrapping === 'standard'}
                             onChange={() => setWrapping('standard')}
-                            className="w-4 h-4 text-red-600 accent-red-600"
+                            className="size-4 text-red-600 accent-red-600"
                           />
                           <span className="text-sm font-medium">
                             Wrap it for me
@@ -360,7 +360,7 @@ export const GiftModal: React.FC<GiftModalProps> = ({ isOpen, onClose }) => {
                             value="custom"
                             checked={wrapping === 'custom'}
                             onChange={() => setWrapping('custom')}
-                            className="w-4 h-4 text-red-600 accent-red-600"
+                            className="size-4 text-red-600 accent-red-600"
                           />
                           <span className="text-sm font-medium">
                             Custom Wrap

@@ -147,8 +147,8 @@ export function StoreBuildStatusCard({ onApplied }: StoreBuildStatusCardProps) {
     return (
       <Card className="border-primary/20 bg-primary/5">
         <CardContent className="flex items-center gap-3 py-6 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Checking store build status...
+          <Loader2 className="size-4 animate-spin" />
+          Checking store build status…
         </CardContent>
       </Card>
     );
@@ -172,9 +172,9 @@ export function StoreBuildStatusCard({ onApplied }: StoreBuildStatusCardProps) {
             <div>
               <CardTitle className="flex items-center gap-2">
                 {status.aiStatus === 'applied' ? (
-                  <CheckCircle2 className="h-5 w-5 text-green-600" />
+                  <CheckCircle2 className="size-5 text-green-600" />
                 ) : (
-                  <Wand2 className="h-5 w-5 text-primary" />
+                  <Wand2 className="size-5 text-primary" />
                 )}
                 {getStatusLabel(status.aiStatus)}
               </CardTitle>
@@ -183,7 +183,7 @@ export function StoreBuildStatusCard({ onApplied }: StoreBuildStatusCardProps) {
               </CardDescription>
             </div>
             {status.aiStatus === 'processing' && (
-              <Loader2 className="h-5 w-5 animate-spin text-primary" />
+              <Loader2 className="size-5 animate-spin text-primary" />
             )}
           </div>
           <div className="space-y-2 pt-2">
@@ -207,16 +207,16 @@ export function StoreBuildStatusCard({ onApplied }: StoreBuildStatusCardProps) {
           {status.aiStatus === 'ready' && status.canApplyAiDraft && (
             <Button onClick={() => applyDraft()} disabled={applying}>
               {applying ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 className="mr-2 size-4 animate-spin" />
               ) : (
-                <Sparkles className="mr-2 h-4 w-4" />
+                <Sparkles className="mr-2 size-4" />
               )}
               Apply AI design
             </Button>
           )}
           <Button asChild variant="ghost">
             <Link href="/builder">
-              <Pencil className="mr-2 h-4 w-4" />
+              <Pencil className="mr-2 size-4" />
               Edit starter store
             </Link>
           </Button>

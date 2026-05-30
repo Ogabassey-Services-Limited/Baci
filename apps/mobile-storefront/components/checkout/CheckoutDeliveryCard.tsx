@@ -149,7 +149,7 @@ export function CheckoutDeliveryCard({
                       onAddressTextChanged(text, onChange)
                     }
                     onSelect={(place) => onAddressSelected(place, onChange)}
-                    placeholder="Start typing your address..."
+                    placeholder="Start typing your address…"
                     scrollOffsetRef={scrollOffsetRef}
                     scrollRef={scrollRef}
                     value={value}

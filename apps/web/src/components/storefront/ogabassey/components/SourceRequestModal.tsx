@@ -58,7 +58,7 @@ export const SourceRequestModal: React.FC<SourceRequestModalProps> = ({
               Request Product Sourcing
             </h3>
           </div>
-          <button
+          <button type="button"
             onClick={onClose}
             className="p-1 hover:bg-gray-100 rounded-full text-gray-500 transition-colors"
           >
@@ -134,7 +134,7 @@ export const SourceRequestModal: React.FC<SourceRequestModalProps> = ({
             </form>
           ) : (
             <div className="text-center py-8 flex flex-col items-center animate-in fade-in slide-in-from-bottom-4">
-              <div className="w-20 h-20 bg-green-50 text-green-600 rounded-full flex items-center justify-center mb-6 shadow-sm border border-green-100">
+              <div className="size-20 bg-green-50 text-green-600 rounded-full flex items-center justify-center mb-6 shadow-sm border border-green-100">
                 <CheckCircle2 size={40} />
               </div>
               <h4 className="text-2xl font-bold text-gray-900 mb-2">
@@ -148,7 +148,7 @@ export const SourceRequestModal: React.FC<SourceRequestModalProps> = ({
               <p className="text-gray-400 text-xs mb-8 max-w-xs mx-auto bg-gray-50 p-2 rounded-lg border border-gray-100">
                 Note: We will also let you know if we are unable to source it.
               </p>
-              <button
+              <button type="button"
                 onClick={onClose}
                 className="bg-gray-900 hover:bg-black text-white font-bold py-3 px-12 rounded-xl transition-all shadow-lg active:scale-95"
               >

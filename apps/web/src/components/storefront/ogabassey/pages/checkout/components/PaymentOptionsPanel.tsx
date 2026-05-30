@@ -80,7 +80,7 @@ export function PaymentOptionsPanel({
                 title="Paystack"
                 description="Card, Bank Transfer, USSD"
                 badge={{ label: 'Popular', className: 'bg-green-100 text-green-700' }}
-                icon={<PaystackLogo className="w-6 h-6" />}
+                icon={<PaystackLogo className="size-6" />}
               />
             )}
             {bankTransferCheckoutAvailable && (
@@ -91,7 +91,7 @@ export function PaymentOptionsPanel({
                 title="Bank Transfer"
                 description="Pay to a unique virtual account"
                 badge={{ label: 'Automatic', className: 'bg-blue-100 text-blue-700' }}
-                icon={<BankTransferLogo className="w-6 h-6" />}
+                icon={<BankTransferLogo className="size-6" />}
               />
             )}
             {korapayCheckoutAvailable && (
@@ -101,7 +101,7 @@ export function PaymentOptionsPanel({
                 setPaymentMethod={setPaymentMethod}
                 title="Korapay"
                 description="Card payments across Africa"
-                icon={<KorapayLogo className="w-6 h-6" />}
+                icon={<KorapayLogo className="size-6" />}
               />
             )}
             {featureSettings?.juicyway_enabled === true && (
@@ -112,7 +112,7 @@ export function PaymentOptionsPanel({
                 title="Juicyway"
                 description="USDT, USDC etc"
                 badge={{ label: 'Crypto', className: 'bg-purple-100 text-purple-700' }}
-                icon={<JuicywayLogo className="w-6 h-6" />}
+                icon={<JuicywayLogo className="size-6" />}
               />
             )}
             {featureSettings?.pay_on_delivery_enabled === true && (
@@ -123,7 +123,7 @@ export function PaymentOptionsPanel({
                 title="Pay on Delivery"
                 description="Pay when you receive your items"
                 icon={
-                  <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
+                  <div className="size-8 bg-gray-100 rounded-lg flex items-center justify-center">
                     <Truck size={16} className="text-gray-600" />
                   </div>
                 }
@@ -148,7 +148,7 @@ export function PaymentOptionsPanel({
                   label: 'Salary earners only',
                   className: 'bg-green-100 text-green-700',
                 }}
-                icon={<CredPalLogo className="w-6 h-6" />}
+                icon={<CredPalLogo className="size-6" />}
               />
             )}
             {featureSettings?.credit_direct_enabled === true && (
@@ -162,7 +162,7 @@ export function PaymentOptionsPanel({
                   label: 'Salary & Business owners',
                   className: 'bg-purple-100 text-purple-700',
                 }}
-                icon={<CreditDirectLogo className="w-6 h-6" />}
+                icon={<CreditDirectLogo className="size-6" />}
               />
             )}
             {klumpEligible && (
@@ -177,7 +177,7 @@ export function PaymentOptionsPanel({
                   className: 'bg-store-primary/10 text-store-primary',
                 }}
                 icon={
-                  <div className="w-8 h-8 bg-store-primary/5 rounded-lg flex items-center justify-center text-xs font-black text-store-primary">
+                  <div className="size-8 bg-store-primary/5 rounded-lg flex items-center justify-center text-xs font-black text-store-primary">
                     K
                   </div>
                 }

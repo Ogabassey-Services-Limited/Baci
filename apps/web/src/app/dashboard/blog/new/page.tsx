@@ -643,7 +643,7 @@ export default function NewBlogPostPage() {
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" asChild>
             <Link href={asRoute('/dashboard/blog')}>
-              <ArrowLeft className="w-4 h-4" />
+              <ArrowLeft className="size-4" />
             </Link>
           </Button>
           <div>
@@ -656,9 +656,9 @@ export default function NewBlogPostPage() {
         <div className="flex items-center gap-2">
           <Button variant="outline" onClick={handlePreview} disabled={isSaving}>
             {isSaving ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              <Loader2 className="size-4 mr-2 animate-spin" />
             ) : (
-              <Eye className="w-4 h-4 mr-2" />
+              <Eye className="size-4 mr-2" />
             )}
             Preview
           </Button>
@@ -668,17 +668,17 @@ export default function NewBlogPostPage() {
             disabled={isSaving}
           >
             {isSaving ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              <Loader2 className="size-4 mr-2 animate-spin" />
             ) : (
-              <Save className="w-4 h-4 mr-2" />
+              <Save className="size-4 mr-2" />
             )}
             Save Draft
           </Button>
           <Button onClick={() => savePost('published')} disabled={isSaving}>
             {isSaving ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              <Loader2 className="size-4 mr-2 animate-spin" />
             ) : (
-              <Send className="w-4 h-4 mr-2" />
+              <Send className="size-4 mr-2" />
             )}
             Publish
           </Button>
@@ -786,7 +786,7 @@ export default function NewBlogPostPage() {
                   className="mt-4"
                   onClick={() => setEmbeddedProducts([])}
                 >
-                  <X className="w-4 h-4 mr-2" />
+                  <X className="size-4 mr-2" />
                   Clear All Products
                 </Button>
               </CardContent>
@@ -819,7 +819,7 @@ export default function NewBlogPostPage() {
                         size="sm"
                         onClick={handleRemoveFeaturedImage}
                       >
-                        <X className="w-4 h-4 mr-2" />
+                        <X className="size-4 mr-2" />
                         Remove Image
                       </Button>
                     </div>
@@ -835,8 +835,8 @@ export default function NewBlogPostPage() {
                 )}
                 {isUploading && (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Uploading image...
+                    <Loader2 className="size-4 animate-spin" />
+                    Uploading image…
                   </div>
                 )}
               </div>

@@ -28,7 +28,7 @@ export default function MerchantUsersLoading() {
             key={index}
           >
             <CardContent className="flex items-center gap-3 p-4">
-              <Skeleton className="h-8 w-8 rounded-full" />
+              <Skeleton className="size-8 rounded-full" />
               <div className="space-y-2">
                 <Skeleton className="h-7 w-10" />
                 <Skeleton className="h-3 w-24" />

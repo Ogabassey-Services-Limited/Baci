@@ -253,7 +253,7 @@ describe('DataForm', () => {
     });
     render(<DataForm onSuccess={jest.fn()} />);
 
-    expect(screen.getByText('Loading providers...')).toBeOnTheScreen();
+    expect(screen.getByText('Loading providers…')).toBeOnTheScreen();
     expect(screen.queryByText('MTN 1GB Data')).toBeNull();
   });
 

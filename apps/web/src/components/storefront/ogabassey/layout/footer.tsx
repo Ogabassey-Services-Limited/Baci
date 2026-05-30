@@ -210,7 +210,7 @@ export const OgabasseyFooter: React.FC<FooterProps> = ({ storeSlug, logo }) => {
               Download App
             </h3>
             <div className="flex gap-2 mb-6">
-              <button
+              <button type="button"
                 className="flex items-center gap-2 bg-black border border-gray-700 rounded-lg px-3 py-1.5 hover:bg-gray-900 transition-colors group"
                 aria-label="Download on the App Store"
               >
@@ -224,11 +224,11 @@ export const OgabasseyFooter: React.FC<FooterProps> = ({ storeSlug, logo }) => {
                   </div>
                 </div>
               </button>
-              <button
+              <button type="button"
                 className="flex items-center gap-2 bg-black border border-gray-700 rounded-lg px-3 py-1.5 hover:bg-gray-900 transition-colors group"
                 aria-label="Get it on Google Play"
               >
-                <svg viewBox="0 0 24 24" className="w-5 h-5" aria-hidden="true">
+                <svg viewBox="0 0 24 24" className="size-5" aria-hidden="true">
                   <path
                     fill="#4285F4"
                     d="M23.64 12.48l-2.95-3.07L16.2 13.9l4.49 4.49c.87-.93 1.35-2.22.95-3.55zM.65 1.57C.24 2.21 0 3.06 0 4.13v15.74c0 1.07.24 1.92.65 2.56l.06.05L13.1 10.09v-.19L.71 1.52l-.06.05z"

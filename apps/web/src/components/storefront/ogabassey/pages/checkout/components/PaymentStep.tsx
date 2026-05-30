@@ -158,7 +158,7 @@ export function PaymentStep({
                     type="checkbox"
                     checked={newsletterOptIn}
                     onChange={(e) => setNewsletterOptIn(e.target.checked)}
-                    className="peer h-4 w-4 rounded border-gray-300 text-store-primary focus:ring-store-primary"
+                    className="peer size-4 rounded border-gray-300 text-store-primary focus:ring-store-primary"
                   />
                 </div>
                 <span className="text-xs text-gray-600 group-hover:text-gray-900 transition-colors">
@@ -166,7 +166,7 @@ export function PaymentStep({
                 </span>
               </label>
             )}
-            <button
+            <button type="button"
               onClick={handlePlaceOrder}
               disabled={
                 isProcessing ||

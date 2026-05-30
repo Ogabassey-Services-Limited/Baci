@@ -20,9 +20,9 @@ export default function DashboardError({
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] p-6">
       <div className="flex flex-col items-center text-center max-w-md">
-        <div className="w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center mb-6">
+        <div className="size-16 bg-destructive/10 rounded-full flex items-center justify-center mb-6">
           <AlertTriangle
-            className="w-8 h-8 text-destructive"
+            className="size-8 text-destructive"
             aria-hidden="true"
           />
         </div>
@@ -49,12 +49,12 @@ export default function DashboardError({
 
         <div className="flex gap-4">
           <Button onClick={reset} variant="default">
-            <RefreshCw className="w-4 h-4 mr-2" aria-hidden="true" />
+            <RefreshCw className="size-4 mr-2" aria-hidden="true" />
             Try again
           </Button>
           <Button asChild variant="outline">
             <Link href="/dashboard">
-              <Home className="w-4 h-4 mr-2" aria-hidden="true" />
+              <Home className="size-4 mr-2" aria-hidden="true" />
               Dashboard home
             </Link>
           </Button>

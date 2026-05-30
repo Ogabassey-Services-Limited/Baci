@@ -30,7 +30,7 @@ export default async function KycSettingsPage() {
             <CardHeader>
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-muted">
-                  <Lock className="h-6 w-6 text-muted-foreground" />
+                  <Lock className="size-6 text-muted-foreground" />
                 </div>
                 <div>
                   <CardTitle>KYC Verification</CardTitle>
@@ -53,7 +53,7 @@ export default async function KycSettingsPage() {
             <CardHeader>
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-muted">
-                  <Shield className="h-6 w-6 text-muted-foreground" />
+                  <Shield className="size-6 text-muted-foreground" />
                 </div>
                 <div>
                   <h1 className="text-2xl font-semibold leading-none tracking-tight">
@@ -88,7 +88,7 @@ export default async function KycSettingsPage() {
             <CardHeader>
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-destructive/10">
-                  <Shield className="h-6 w-6 text-destructive" />
+                  <Shield className="size-6 text-destructive" />
                 </div>
                 <div>
                   <CardTitle>Unable to load verification status</CardTitle>
@@ -122,7 +122,7 @@ export default async function KycSettingsPage() {
           <CardHeader>
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-destructive/10">
-                <Shield className="h-6 w-6 text-destructive" />
+                <Shield className="size-6 text-destructive" />
               </div>
               <div>
                 <CardTitle>Unable to load KYC settings</CardTitle>

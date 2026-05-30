@@ -133,7 +133,7 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center pt-20">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
+        <div className="animate-spin rounded-full size-8 border-b-2 border-red-600"></div>
       </div>
     );
   }

@@ -188,7 +188,7 @@ export function ProductComparisonTable({
                                 Current
                             </span>
                         </div>
-                        <div className="relative w-24 h-24 mb-3">
+                        <div className="relative size-24 mb-3">
                             <Image
                                 src={mainProduct.images?.[0] || mainProduct.image}
                                 alt={mainProduct.name}
@@ -210,14 +210,14 @@ export function ProductComparisonTable({
                             <div key={slotIdx} className="p-4 flex flex-col items-center justify-end h-56 border-r border-gray-100 last:border-0 relative bg-white">
                                 {product ? (
                                     <>
-                                        <button
+                                        <button type="button"
                                             onClick={() => removeProduct(slotIdx)}
                                             className="absolute top-3 right-3 text-gray-400 hover:text-red-600 transition-colors"
                                             aria-label="Remove product"
                                         >
                                             <X size={16} />
                                         </button>
-                                        <div className="relative w-24 h-24 mb-3">
+                                        <div className="relative size-24 mb-3">
                                             <Image
                                                 src={product.images?.[0] || product.image}
                                                 alt={product.name}
@@ -240,7 +240,7 @@ export function ProductComparisonTable({
                                             <div className="w-full h-full absolute inset-0 bg-white z-10 p-4 flex flex-col">
                                                 <div className="flex items-center justify-between mb-3">
                                                     <span className="text-xs font-bold text-gray-500 uppercase">Add Product</span>
-                                                    <button onClick={() => setIsSearching(null)} aria-label="Cancel search"><X size={16} /></button>
+                                                    <button type="button" onClick={() => setIsSearching(null)} aria-label="Cancel search"><X size={16} /></button>
                                                 </div>
                                                 <div className="relative">
                                                     <Search size={14} className="absolute left-3 top-3 text-gray-400" />
@@ -263,12 +263,12 @@ export function ProductComparisonTable({
                                                     {!loading && results.length > 0 && (
                                                         <div className="space-y-1">
                                                             {results.map(res => (
-                                                                <button
+                                                                <button type="button"
                                                                     key={res.id}
                                                                     onClick={() => addProduct(res)}
                                                                     className="w-full flex items-center gap-3 p-2 hover:bg-gray-50 rounded-lg text-left transition-colors"
                                                                 >
-                                                                    <div className="w-8 h-8 rounded bg-gray-100 shrink-0 flex items-center justify-center overflow-hidden relative">
+                                                                    <div className="size-8 rounded bg-gray-100 shrink-0 flex items-center justify-center overflow-hidden relative">
                                                                         <Image src={res.image || res.imageLarge || '/placeholder.png'} alt={res.name} fill sizes="32px" className="object-cover" />
                                                                     </div>
                                                                     <div className="min-w-0">
@@ -288,7 +288,7 @@ export function ProductComparisonTable({
                                                 </div>
                                             </div>
                                         ) : (
-                                            <button
+                                            <button type="button"
                                                 onClick={() => {
                                                     setIsSearching(slotIdx);
                                                     setQuery('');
@@ -296,7 +296,7 @@ export function ProductComparisonTable({
                                                 }}
                                                 className="w-full h-full border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center text-gray-400 hover:border-red-200 hover:text-red-500 hover:bg-red-50 transition-all gap-2"
                                             >
-                                                <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center group-hover:bg-white">
+                                                <div className="size-10 rounded-full bg-gray-50 flex items-center justify-center group-hover:bg-white">
                                                     <Plus size={20} />
                                                 </div>
                                                 <span className="text-xs font-bold uppercase tracking-wider text-center px-2">

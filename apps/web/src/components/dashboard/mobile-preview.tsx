@@ -33,8 +33,8 @@ export function MobilePreview({ config }: MobilePreviewProps) {
           <div className="h-6 bg-black flex justify-between px-6 items-center text-[10px] text-white">
             <span>9:41</span>
             <div className="flex gap-1">
-              <div className="w-3 h-3 bg-white/20 rounded-full" />
-              <div className="w-3 h-3 bg-white/20 rounded-full" />
+              <div className="size-3 bg-white/20 rounded-full" />
+              <div className="size-3 bg-white/20 rounded-full" />
             </div>
           </div>
 
@@ -48,7 +48,7 @@ export function MobilePreview({ config }: MobilePreviewProps) {
                   <span className="text-xs font-bold">
                     {block.props.storeName}
                   </span>
-                  <div className="w-4 h-4 bg-gray-200 rounded-full" />
+                  <div className="size-4 bg-gray-200 rounded-full" />
                 </div>
               )}
               {block.type === 'HeroCarousel' && (

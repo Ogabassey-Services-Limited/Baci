@@ -34,9 +34,9 @@ export function ProductCatalogRowActions({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="h-8 w-8 p-0">
+        <Button variant="ghost" className="size-8 p-0">
           <span className="sr-only">Open menu</span>
-          <MoreHorizontal className="h-4 w-4" />
+          <MoreHorizontal className="size-4" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
@@ -44,7 +44,7 @@ export function ProductCatalogRowActions({
         {onEditProduct ? (
           <>
             <DropdownMenuItem onClick={() => onEditProduct(product)}>
-              <Edit className="mr-2 h-4 w-4" />
+              <Edit className="mr-2 size-4" />
               {product.migration_status === 'needs_review'
                 ? 'Resolve Review'
                 : 'Edit Product'}
@@ -64,7 +64,7 @@ export function ProductCatalogRowActions({
                   onSelectJumiaIntegration(integration.id, product)
                 }
               >
-                <Package className="mr-2 h-4 w-4" />
+                <Package className="mr-2 size-4" />
                 {integration.shop_name || 'Jumia Shop'}
               </DropdownMenuItem>
             ))}
@@ -78,9 +78,9 @@ export function ProductCatalogRowActions({
             }
           >
             {jumiaLoading ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Loader2 className="mr-2 size-4 animate-spin" />
             ) : (
-              <Package className="mr-2 h-4 w-4" />
+              <Package className="mr-2 size-4" />
             )}
             Export to Jumia
           </DropdownMenuItem>

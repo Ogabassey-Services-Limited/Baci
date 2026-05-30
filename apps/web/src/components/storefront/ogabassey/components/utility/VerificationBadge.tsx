@@ -18,8 +18,8 @@ export function VerificationBadge({
   if (isLoading) {
     return (
       <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-xl border border-gray-200 animate-pulse">
-        <div className="w-5 h-5 rounded-full bg-gray-300" />
-        <span className="text-sm text-gray-400">Verifying customer...</span>
+        <div className="size-5 rounded-full bg-gray-300" />
+        <span className="text-sm text-gray-400">Verifying customer…</span>
       </div>
     );
   }

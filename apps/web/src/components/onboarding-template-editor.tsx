@@ -50,7 +50,7 @@ const CustomPuckHeader = ({
     <header className="h-16 border-b flex items-center justify-between px-6 bg-background/80 backdrop-blur-md shrink-0 z-10">
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="sm" onClick={onClose}>
-          <ArrowLeft className="mr-2 h-4 w-4" />
+          <ArrowLeft className="mr-2 size-4" />
           Back
         </Button>
         <div className="h-6 w-px bg-border" />
@@ -59,11 +59,11 @@ const CustomPuckHeader = ({
 
       <div className="flex items-center gap-3">
         <Button variant="outline" size="sm" onClick={onOpenTemplates}>
-          <LayoutTemplate className="mr-2 h-4 w-4" />
+          <LayoutTemplate className="mr-2 size-4" />
           Templates
         </Button>
         <Button onClick={() => onPublish(data)} disabled={isSaving}>
-          {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          {isSaving && <Loader2 className="mr-2 size-4 animate-spin" />}
           Continue Onboarding
         </Button>
       </div>
@@ -93,7 +93,7 @@ class EditorErrorBoundary extends Component<
       return (
         <div className="fixed inset-0 z-100 bg-background flex items-center justify-center p-8">
           <div className="max-w-md w-full space-y-4 text-center">
-            <div className="mx-auto w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center text-destructive mb-4">
+            <div className="mx-auto size-12 rounded-full bg-destructive/10 flex items-center justify-center text-destructive mb-4">
               <span className="text-2xl">!</span>
             </div>
             <h2 className="text-xl font-semibold">Something went wrong</h2>
@@ -264,7 +264,7 @@ export function OnboardingTemplateEditor({
                       variant="secondary"
                       className="bg-amber-100 text-amber-800 hover:bg-amber-100"
                     >
-                      <Lock className="w-3 h-3 mr-1" /> Premium
+                      <Lock className="size-3 mr-1" /> Premium
                     </Badge>
                   ) : (
                     <Badge variant="secondary">Free</Badge>
@@ -275,7 +275,7 @@ export function OnboardingTemplateEditor({
                 </p>
                 {selectedTemplateId === template.id && (
                   <div className="absolute top-4 right-4">
-                    <Check className="w-4 h-4 text-primary" />
+                    <Check className="size-4 text-primary" />
                   </div>
                 )}
               </button>

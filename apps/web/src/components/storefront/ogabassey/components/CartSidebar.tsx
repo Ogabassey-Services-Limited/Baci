@@ -151,7 +151,7 @@ export const CartSidebar: React.FC = () => {
                   ({cart.length} items)
                 </span>
               </h2>
-              <button
+              <button type="button"
                 onClick={() => setIsCartOpen(false)}
                 className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-500 hover:text-red-600"
                 aria-label="Close cart"
@@ -194,7 +194,7 @@ export const CartSidebar: React.FC = () => {
                       >
                         <Link
                           href={productHref}
-                          className="relative w-24 h-24 bg-gray-50 rounded-lg border border-gray-100 p-2 shrink-0 self-start mt-1 block group/image"
+                          className="relative size-24 bg-gray-50 rounded-lg border border-gray-100 p-2 shrink-0 self-start mt-1 block group/image"
                         >
                           <Image
                             src={item.image || '/placeholder.png'}
@@ -228,7 +228,7 @@ export const CartSidebar: React.FC = () => {
                               >
                                 {item.name}
                               </Link>
-                              <button
+                              <button type="button"
                                 onClick={() => removeFromCart(item.cartItemId)}
                                 className="text-gray-400 hover:text-red-600 p-1 -mt-1 -mr-1"
                                 aria-label="Remove item"
@@ -246,7 +246,7 @@ export const CartSidebar: React.FC = () => {
                                 {item.selectedColor && (
                                   <span className="flex items-center gap-1">
                                     <span
-                                      className="w-2.5 h-2.5 rounded-full border border-gray-300 shadow-sm"
+                                      className="size-2.5 rounded-full border border-gray-300 shadow-sm"
                                       style={{
                                         backgroundColor:
                                           item.selectedColorValue ||
@@ -276,7 +276,7 @@ export const CartSidebar: React.FC = () => {
                             <div className="flex flex-col gap-3">
                               {/* Quantity */}
                               <div className="flex items-center border border-gray-200 rounded-md w-fit">
-                                <button
+                                <button type="button"
                                   onClick={() =>
                                     updateQuantity(
                                       item.cartItemId,
@@ -292,7 +292,7 @@ export const CartSidebar: React.FC = () => {
                                 <span className="w-6 text-center text-xs font-medium">
                                   {item.quantity}
                                 </span>
-                                <button
+                                <button type="button"
                                   onClick={() =>
                                     updateQuantity(
                                       item.cartItemId,
@@ -316,7 +316,7 @@ export const CartSidebar: React.FC = () => {
                                   </span>
                                 </div>
                               ) : (
-                                <button
+                                <button type="button"
                                   onClick={() => openItemNegotiation(item)}
                                   className="flex items-center gap-1.5 text-[10px] font-bold text-red-600 hover:text-red-700 transition-colors"
                                 >
@@ -430,7 +430,7 @@ export const CartSidebar: React.FC = () => {
                 </div>
 
                 {/* Negotiate Total Button */}
-                <button
+                <button type="button"
                   onClick={openTotalNegotiation}
                   className="w-full bg-gray-100 hover:bg-gray-200 text-gray-900 font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-colors border border-gray-200"
                 >
@@ -438,7 +438,7 @@ export const CartSidebar: React.FC = () => {
                   Negotiate Total Amount
                 </button>
 
-                <button
+                <button type="button"
                   onClick={async () => {
                     setIsCheckoutLoading(true);
                     // Close the sidebar first to prevent it staying open
@@ -454,7 +454,7 @@ export const CartSidebar: React.FC = () => {
                   className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-red-200 group disabled:opacity-70 disabled:cursor-not-allowed"
                 >
                   {isCheckoutLoading ? (
-                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <div className="size-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   ) : (
                     <>
                       Proceed to Checkout
@@ -474,7 +474,7 @@ export const CartSidebar: React.FC = () => {
                   >
                     View Full Cart
                   </Link>
-                  <button
+                  <button type="button"
                     onClick={() => setIsCartOpen(false)}
                     className="w-full text-center text-gray-500 hover:text-gray-900 text-sm font-medium py-3.5 px-4 rounded-xl hover:bg-gray-50 transition-colors"
                   >

@@ -145,7 +145,7 @@ export function NotificationBanner({ className }: NotificationBannerProps) {
               onClick={handleAction}
             >
               {currentBanner.action_label}
-              <ExternalLink className="h-3 w-3 ml-1" />
+              <ExternalLink className="size-3 ml-1" />
             </Button>
           )}
         </div>
@@ -154,12 +154,12 @@ export function NotificationBanner({ className }: NotificationBannerProps) {
         <Button
           variant="ghost"
           size="icon"
-          className="h-6 w-6 shrink-0 hover:bg-transparent"
+          className="size-6 shrink-0 hover:bg-transparent"
           onClick={handleDismiss}
           disabled={isDismissing}
           aria-label="Dismiss notification"
         >
-          <X className="h-4 w-4" />
+          <X className="size-4" />
         </Button>
       </div>
     </div>
@@ -230,7 +230,7 @@ export function NotificationBannerStack({
                   onClick={() => window.open(banner.action_url ?? '', '_blank')}
                 >
                   {banner.action_label}
-                  <ExternalLink className="h-3 w-3 ml-1" />
+                  <ExternalLink className="size-3 ml-1" />
                 </Button>
               )}
             </div>
@@ -238,12 +238,12 @@ export function NotificationBannerStack({
             <Button
               variant="ghost"
               size="icon"
-              className="h-6 w-6 shrink-0 hover:bg-transparent"
+              className="size-6 shrink-0 hover:bg-transparent"
               onClick={() => handleDismiss(banner)}
               disabled={isDismissing}
               aria-label="Dismiss notification"
             >
-              <X className="h-4 w-4" />
+              <X className="size-4" />
             </Button>
           </div>
         );

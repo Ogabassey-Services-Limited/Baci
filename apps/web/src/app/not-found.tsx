@@ -50,7 +50,7 @@ export default function NotFound() {
               className="bg-primary hover:bg-primary/90 text-white rounded-full h-12 px-8 shadow-lg shadow-primary/20 hover:translate-y-[-2px] transition-all"
             >
               <Link href="/">
-                <Home className="mr-2 h-4 w-4" /> Go Home
+                <Home className="mr-2 size-4" /> Go Home
               </Link>
             </Button>
             <Button
@@ -60,7 +60,7 @@ export default function NotFound() {
               className="rounded-full h-12 px-8 border-2 hover:bg-accent/5 hover:text-accent hover:border-accent/50 transition-all"
             >
               <Link href="/contact">
-                Contact Support <ArrowRight className="ml-2 h-4 w-4" />
+                Contact Support <ArrowRight className="ml-2 size-4" />
               </Link>
             </Button>
           </div>

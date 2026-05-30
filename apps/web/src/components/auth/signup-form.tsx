@@ -79,8 +79,8 @@ export default function SignupForm() {
       <div className="absolute top-0 left-0 w-full h-full bg-[url('/grid.svg')] bg-center mask-[linear-gradient(180deg,white,rgba(255,255,255,0))]" />
 
       {/* Simplified static orbs */}
-      <div className="absolute top-1/4 right-1/4 w-64 h-64 bg-primary/20 rounded-full blur-3xl" />
-      <div className="absolute bottom-1/4 left-1/4 w-64 h-64 bg-accent/20 rounded-full blur-3xl" />
+      <div className="absolute top-1/4 right-1/4 size-64 bg-primary/20 rounded-full blur-3xl" />
+      <div className="absolute bottom-1/4 left-1/4 size-64 bg-accent/20 rounded-full blur-3xl" />
 
       <div className="relative z-10 w-full max-w-[420px] p-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
         <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/60 dark:bg-black/40 backdrop-blur-xl shadow-2xl">
@@ -117,7 +117,7 @@ export default function SignupForm() {
                       <FormItem>
                         <FormLabel>Email</FormLabel>
                         <div className="relative group">
-                          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                           <FormControl>
                             <Input
                               {...field}
@@ -147,7 +147,7 @@ export default function SignupForm() {
                       <FormItem>
                         <FormLabel>Password</FormLabel>
                         <div className="relative group">
-                          <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                          <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                           <FormControl>
                             <Input
                               {...field}
@@ -165,9 +165,9 @@ export default function SignupForm() {
                             onClick={() => setShowPassword(!showPassword)}
                           >
                             {showPassword ? (
-                              <EyeOff className="h-4 w-4 text-muted-foreground" />
+                              <EyeOff className="size-4 text-muted-foreground" />
                             ) : (
-                              <Eye className="h-4 w-4 text-muted-foreground" />
+                              <Eye className="size-4 text-muted-foreground" />
                             )}
                           </Button>
                         </div>
@@ -183,7 +183,7 @@ export default function SignupForm() {
                       <FormItem>
                         <FormLabel>Confirm Password</FormLabel>
                         <div className="relative group">
-                          <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                          <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                           <FormControl>
                             <Input
                               {...field}
@@ -203,9 +203,9 @@ export default function SignupForm() {
                             }
                           >
                             {showConfirmPassword ? (
-                              <EyeOff className="h-4 w-4 text-muted-foreground" />
+                              <EyeOff className="size-4 text-muted-foreground" />
                             ) : (
-                              <Eye className="h-4 w-4 text-muted-foreground" />
+                              <Eye className="size-4 text-muted-foreground" />
                             )}
                           </Button>
                         </div>
@@ -217,7 +217,7 @@ export default function SignupForm() {
                   <SubmitButton
                     className="w-full h-11 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/25 transition-all hover:scale-[1.02] active:scale-[0.98]"
                     pendingText="Creating Account..."
-                    icon={<ArrowRight className="ml-2 h-4 w-4" />}
+                    icon={<ArrowRight className="ml-2 size-4" />}
                   >
                     Create Account
                   </SubmitButton>

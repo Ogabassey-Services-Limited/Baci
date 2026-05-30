@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { FlashList } from '@shopify/flash-list';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import React from 'react';
@@ -77,9 +77,12 @@ export default function CategoryScreen() {
     // Basic sanitization: remove special chars except hyphens
     const sanitized = slug.replace(/[^a-zA-Z0-9-]/g, '').toLowerCase();
 
-    return (titles[sanitized] ||
-    sanitized.charAt(0).toUpperCase() +
-      sanitized.slice(1).replace(/-/g, ' ') || 'Category');
+    return (
+      titles[sanitized] ||
+      sanitized.charAt(0).toUpperCase() +
+        sanitized.slice(1).replace(/-/g, ' ') ||
+      'Category'
+    );
   };
 
   const renderProduct = ({ item, index }: { item: Product; index: number }) => (
@@ -128,7 +131,7 @@ export default function CategoryScreen() {
         <View style={styles.emptyContainer}>
           <ActivityIndicator size="large" color={BRAND.primary} />
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-            Loading products...
+            Loading products…
           </Text>
         </View>
       );

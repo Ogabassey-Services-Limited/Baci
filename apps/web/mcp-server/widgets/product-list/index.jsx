@@ -48,13 +48,13 @@ function ProductCard({ product, onAddToCart, isInCart }) {
         </div>
       </div>
       <div className="product-actions">
-        <button
+        <button type="button"
           className={`btn-cart ${isInCart ? 'in-cart' : ''}`}
           onClick={() => onAddToCart(product)}
         >
           {isInCart ? '✓ In Cart' : '+ Add to Cart'}
         </button>
-        <button className="btn-buy">Buy Now</button>
+        <button type="button" className="btn-buy">Buy Now</button>
       </div>
     </div>
   );
@@ -71,7 +71,7 @@ function CartSummary({ items, onViewCart }) {
         {items.length} item{items.length > 1 ? 's' : ''} in cart
       </span>
       <span className="cart-total">₦{total.toLocaleString()}</span>
-      <button className="btn-checkout" onClick={onViewCart}>
+      <button type="button" className="btn-checkout" onClick={onViewCart}>
         Checkout →
       </button>
     </div>
@@ -158,7 +158,7 @@ function App() {
       </div>
 
       <footer className="widget-footer">
-        <button
+        <button type="button"
           className="btn-see-more"
           onClick={() => {
             if (window.openai?.openExternal) {

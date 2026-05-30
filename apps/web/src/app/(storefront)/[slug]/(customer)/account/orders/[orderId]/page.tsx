@@ -161,7 +161,7 @@ export default function CustomerOrderDetailsPage() {
             <output aria-label="Loading order" className="sr-only">
               Loading order
             </output>
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            <Loader2 className="size-8 animate-spin text-muted-foreground" />
           </div>
         </div>
       </div>

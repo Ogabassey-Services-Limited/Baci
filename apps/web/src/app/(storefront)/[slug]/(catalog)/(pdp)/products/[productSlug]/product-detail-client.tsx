@@ -646,7 +646,7 @@ export default function ProductDetailClient({
               )}
             </div>
 
-            <div className="flex flex-col justify-center space-y-6 py-4">
+            <div className="flex flex-col justify-center gap-y-6 py-4">
               <div>
                 <h1
                   className="text-3xl lg:text-4xl font-bold font-headline"
@@ -842,7 +842,7 @@ export default function ProductDetailClient({
                               )}
                             >
                               {isSelected && (
-                                <Check className="w-3 h-3 inline mr-1" />
+                                <Check className="size-3 inline mr-1" />
                               )}
                               {value}
                             </button>
@@ -889,7 +889,7 @@ export default function ProductDetailClient({
               {product.minimum_order_quantity &&
                 product.minimum_order_quantity > 1 && (
                   <Alert className="bg-blue-50 border-blue-200 text-blue-800">
-                    <Info className="h-4 w-4 text-blue-600" />
+                    <Info className="size-4 text-blue-600" />
                     <AlertDescription>
                       Minimum order quantity:{' '}
                       <strong>{product.minimum_order_quantity} units</strong>
@@ -913,7 +913,7 @@ export default function ProductDetailClient({
                         colorRole="accent"
                         size="icon"
                         variant="outline"
-                        className="h-10 w-10"
+                        className="size-10"
                         onClick={() =>
                           updateQuantity(
                             effectiveVariantId
@@ -925,7 +925,7 @@ export default function ProductDetailClient({
                         }
                         aria-label={`Decrease quantity of ${product.name}`}
                       >
-                        <Minus className="h-4 w-4" aria-hidden="true" />
+                        <Minus className="size-4" aria-hidden="true" />
                       </ThemedButton>
                       <Input
                         type="number"
@@ -952,7 +952,7 @@ export default function ProductDetailClient({
                         colorRole="accent"
                         size="icon"
                         variant="default"
-                        className="h-10 w-10"
+                        className="size-10"
                         onClick={() =>
                           updateQuantity(
                             effectiveVariantId
@@ -964,7 +964,7 @@ export default function ProductDetailClient({
                         }
                         aria-label={`Increase quantity of ${product.name}`}
                       >
-                        <Plus className="h-4 w-4" aria-hidden="true" />
+                        <Plus className="size-4" aria-hidden="true" />
                       </ThemedButton>
                     </div>
                     <Link href={asRoute(getHref('/checkout'))}>
@@ -984,11 +984,11 @@ export default function ProductDetailClient({
                         colorRole="accent"
                         size="icon"
                         variant="outline"
-                        className="h-10 w-10"
+                        className="size-10"
                         onClick={() => handleQuantityChange(quantity - 1)}
                         aria-label={`Decrease quantity of ${product.name}`}
                       >
-                        <Minus className="h-4 w-4" aria-hidden="true" />
+                        <Minus className="size-4" aria-hidden="true" />
                       </ThemedButton>
                       <Input
                         type="number"
@@ -1006,11 +1006,11 @@ export default function ProductDetailClient({
                         colorRole="accent"
                         size="icon"
                         variant="default"
-                        className="h-10 w-10"
+                        className="size-10"
                         onClick={() => handleQuantityChange(quantity + 1)}
                         aria-label={`Increase quantity of ${product.name}`}
                       >
-                        <Plus className="h-4 w-4" aria-hidden="true" />
+                        <Plus className="size-4" aria-hidden="true" />
                       </ThemedButton>
                     </div>
                     <ThemedButton

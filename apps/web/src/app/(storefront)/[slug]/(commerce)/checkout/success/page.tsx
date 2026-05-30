@@ -54,8 +54,8 @@ function CheckoutSuccessLoading() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-linear-to-b from-store-primary/5 via-store-background to-store-secondary p-4">
       <div className="flex items-center gap-3 text-store-background-text">
-        <Loader2 className="h-5 w-5 animate-spin text-store-primary" />
-        <p className="text-sm font-medium">Loading order confirmation...</p>
+        <Loader2 className="size-5 animate-spin text-store-primary" />
+        <p className="text-sm font-medium">Loading order confirmation…</p>
       </div>
     </div>
   );
@@ -212,9 +212,9 @@ function CheckoutSuccessContent() {
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ type: 'spring', delay: 0.1 }}
-            className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6"
+            className="size-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6"
           >
-            <AlertCircle className="w-10 h-10 text-red-600" />
+            <AlertCircle className="size-10 text-red-600" />
           </motion.div>
 
           <h1 className="text-2xl font-bold text-gray-900 mb-3">
@@ -227,7 +227,7 @@ function CheckoutSuccessContent() {
 
           <div className="bg-red-50 border border-red-100 rounded-2xl p-4 mb-6">
             <p className="text-sm text-red-700">
-              Redirecting you back to checkout in a few seconds...
+              Redirecting you back to checkout in a few seconds…
             </p>
           </div>
 
@@ -236,7 +236,7 @@ function CheckoutSuccessContent() {
             className="w-full inline-flex items-center justify-center gap-2 bg-red-600 text-white py-4 px-6 rounded-2xl font-semibold hover:bg-red-700 transition-all"
           >
             Try Again
-            <ArrowRight className="w-5 h-5" />
+            <ArrowRight className="size-5" />
           </Link>
         </motion.div>
       </div>
@@ -262,11 +262,11 @@ function CheckoutSuccessContent() {
             initial={{ scale: 0, rotate: -180 }}
             animate={{ scale: 1, rotate: 0 }}
             transition={{ type: 'spring', stiffness: 200, delay: 0.1 }}
-            className="relative w-24 h-24 mx-auto mb-6"
+            className="relative size-24 mx-auto mb-6"
           >
             <div className="absolute inset-0 bg-linear-to-br from-green-400 to-green-600 rounded-full opacity-20 animate-pulse" />
             <div className="absolute inset-2 bg-linear-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center shadow-lg">
-              <CheckCircle2 className="w-12 h-12 text-white" />
+              <CheckCircle2 className="size-12 text-white" />
             </div>
           </motion.div>
 
@@ -320,9 +320,9 @@ function CheckoutSuccessContent() {
               className="bg-white rounded-2xl border border-amber-100 p-4 shadow-sm"
             >
               <div className="flex items-center gap-3 text-amber-700">
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <Loader2 className="size-4 animate-spin" />
                 <p className="text-sm font-medium">
-                  Confirming your payment status...
+                  Confirming your payment status…
                 </p>
               </div>
             </motion.div>
@@ -366,7 +366,7 @@ function CheckoutSuccessContent() {
                       className="flex flex-col items-center text-center"
                     >
                       <div
-                        className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 transition-all ${
+                        className={`size-10 rounded-full flex items-center justify-center mb-2 transition-all ${
                           isCompleted
                             ? 'bg-green-500 text-white'
                             : isActive
@@ -374,7 +374,7 @@ function CheckoutSuccessContent() {
                               : 'bg-gray-100 text-gray-400'
                         }`}
                       >
-                        <StepIcon className="w-5 h-5" />
+                        <StepIcon className="size-5" />
                       </div>
                       <span
                         className={`text-xs font-medium ${
@@ -402,8 +402,8 @@ function CheckoutSuccessContent() {
             </h2>
             <div className="space-y-4">
               <div className="flex items-start gap-4">
-                <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center shrink-0">
-                  <Mail className="w-5 h-5 text-blue-600" />
+                <div className="size-10 bg-blue-100 rounded-xl flex items-center justify-center shrink-0">
+                  <Mail className="size-5 text-blue-600" />
                 </div>
                 <div>
                   <h3 className="font-semibold text-gray-900 mb-1">
@@ -420,8 +420,8 @@ function CheckoutSuccessContent() {
               </div>
 
               <div className="flex items-start gap-4">
-                <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center shrink-0">
-                  <Clock className="w-5 h-5 text-amber-600" />
+                <div className="size-10 bg-amber-100 rounded-xl flex items-center justify-center shrink-0">
+                  <Clock className="size-5 text-amber-600" />
                 </div>
                 <div>
                   <h3 className="font-semibold text-gray-900 mb-1">
@@ -435,8 +435,8 @@ function CheckoutSuccessContent() {
               </div>
 
               <div className="flex items-start gap-4">
-                <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center shrink-0">
-                  <Truck className="w-5 h-5 text-purple-600" />
+                <div className="size-10 bg-purple-100 rounded-xl flex items-center justify-center shrink-0">
+                  <Truck className="size-5 text-purple-600" />
                 </div>
                 <div>
                   <h3 className="font-semibold text-gray-900 mb-1">
@@ -459,8 +459,8 @@ function CheckoutSuccessContent() {
             className="bg-linear-to-br from-gray-900 to-gray-800 rounded-3xl p-6 text-white"
           >
             <div className="flex items-start gap-4">
-              <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center shrink-0">
-                <FileText className="w-6 h-6 text-white" />
+              <div className="size-12 bg-white/10 rounded-xl flex items-center justify-center shrink-0">
+                <FileText className="size-6 text-white" />
               </div>
               <div className="flex-1">
                 <h3 className="font-semibold text-lg mb-1">
@@ -478,7 +478,7 @@ function CheckoutSuccessContent() {
                     )}
                     className="inline-flex items-center justify-center gap-2 bg-white text-gray-900 px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-100 transition-colors"
                   >
-                    <Download className="w-4 h-4" />
+                    <Download className="size-4" />
                     {isInvoice
                       ? 'Download Invoice PDF'
                       : 'View Order Documents'}
@@ -499,14 +499,14 @@ function CheckoutSuccessContent() {
               href={asRoute(getHref('/'))}
               className="flex-1 inline-flex items-center justify-center gap-2 bg-red-600 text-white py-4 px-6 rounded-2xl font-semibold hover:bg-red-700 transition-all shadow-lg shadow-red-600/25"
             >
-              <ShoppingBag className="w-5 h-5" />
+              <ShoppingBag className="size-5" />
               Continue Shopping
             </Link>
             <Link
               href={asRoute(getHref('/account/orders'))}
               className="flex-1 inline-flex items-center justify-center gap-2 bg-white text-gray-700 py-4 px-6 rounded-2xl font-semibold hover:bg-gray-50 transition-all border border-gray-200"
             >
-              <Package className="w-5 h-5" />
+              <Package className="size-5" />
               Track Order
             </Link>
             <a
@@ -515,7 +515,7 @@ function CheckoutSuccessContent() {
               rel="noreferrer"
               className="flex-1 inline-flex items-center justify-center gap-2 bg-white text-gray-700 py-4 px-6 rounded-2xl font-semibold hover:bg-gray-50 transition-all border border-gray-200"
             >
-              <Star className="w-5 h-5" />
+              <Star className="size-5" />
               Leave a Google Review
             </a>
           </motion.div>

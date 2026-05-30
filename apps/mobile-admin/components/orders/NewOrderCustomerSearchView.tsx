@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { FlatList, Pressable, Text, TextInput, View } from 'react-native';
 import type { useNewOrderController } from '@/hooks/useNewOrderController';
 import {
@@ -92,7 +92,7 @@ export function NewOrderCustomerSearchView({
             <View style={{ padding: 16 }}>
               {customersQuery.isFetchingNextPage ? (
                 <Text style={{ color: colors.textMuted, textAlign: 'center' }}>
-                  Loading more customers...
+                  Loading more customers…
                 </Text>
               ) : (
                 <Pressable

@@ -56,7 +56,7 @@ export function TableOfContents() {
       className="mb-8 p-4 bg-muted/50 rounded-lg border border-border/50"
     >
       <div className="flex items-center gap-2 mb-3 text-sm font-semibold text-foreground">
-        <List className="w-4 h-4" />
+        <List className="size-4" />
         In this article
       </div>
       <ul className="space-y-1.5">

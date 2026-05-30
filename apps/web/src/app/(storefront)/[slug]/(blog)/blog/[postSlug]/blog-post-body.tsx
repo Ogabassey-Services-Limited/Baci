@@ -104,7 +104,7 @@ export async function BlogPostBody({
       {/* Tags */}
       {post.tags && post.tags.length > 0 && (
         <div className="flex flex-wrap items-center gap-2 mb-8 pt-8 border-t">
-          <Tag className="w-4 h-4 text-muted-foreground" />
+          <Tag className="size-4 text-muted-foreground" />
           {post.tags.map((tag: string) => (
             <Badge key={tag} variant="outline">
               {tag}

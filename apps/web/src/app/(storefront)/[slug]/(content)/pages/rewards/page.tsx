@@ -106,7 +106,7 @@ export default function RewardsPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="text-center">
-              <AlertCircle className="h-12 w-12 mx-auto text-destructive mb-4" />
+              <AlertCircle className="size-12 mx-auto text-destructive mb-4" />
               <h2 className="text-xl font-semibold mb-2">
                 Unable to Load Rewards
               </h2>
@@ -140,8 +140,8 @@ export default function RewardsPage() {
     return (
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-purple-100 rounded-full mb-4">
-            <Sparkles className="h-8 w-8 text-purple-600" />
+          <div className="inline-flex items-center justify-center size-16 bg-purple-100 rounded-full mb-4">
+            <Sparkles className="size-8 text-purple-600" />
           </div>
           <h1 className="text-3xl font-bold mb-2">Rewards Program</h1>
           <p className="text-muted-foreground max-w-md mx-auto">
@@ -197,7 +197,7 @@ export default function RewardsPage() {
                 <CardContent className="pt-6">
                   <div className="flex flex-col items-center text-center">
                     <div className="p-3 bg-purple-100 rounded-full mb-3">
-                      <benefit.icon className="h-6 w-6 text-purple-600" />
+                      <benefit.icon className="size-6 text-purple-600" />
                     </div>
                     <h3 className="font-medium mb-1">{benefit.title}</h3>
                     <p className="text-sm text-muted-foreground">
@@ -249,7 +249,7 @@ export default function RewardsPage() {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle className="flex items-center gap-2">
-                    <Trophy className="h-5 w-5" />
+                    <Trophy className="size-5" />
                     {displayTier} Member
                   </CardTitle>
                   <Badge
@@ -269,7 +269,7 @@ export default function RewardsPage() {
                       key={benefit}
                       className="flex items-center gap-2 text-sm"
                     >
-                      <div className="w-1.5 h-1.5 bg-primary rounded-full" />
+                      <div className="size-1.5 bg-primary rounded-full" />
                       {benefit}
                     </li>
                   ))}
@@ -282,11 +282,11 @@ export default function RewardsPage() {
           <Tabs defaultValue="rewards">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="rewards" className="flex items-center gap-2">
-                <Gift className="h-4 w-4" />
+                <Gift className="size-4" />
                 Rewards
               </TabsTrigger>
               <TabsTrigger value="history" className="flex items-center gap-2">
-                <History className="h-4 w-4" />
+                <History className="size-4" />
                 History
               </TabsTrigger>
             </TabsList>
@@ -304,7 +304,7 @@ export default function RewardsPage() {
                 <CardContent>
                   {recentTransactions.length === 0 ? (
                     <div className="text-center py-8">
-                      <History className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                      <History className="size-12 mx-auto text-muted-foreground mb-4" />
                       <p className="text-muted-foreground">
                         No transactions yet
                       </p>
@@ -328,9 +328,9 @@ export default function RewardsPage() {
                               }`}
                             >
                               {transaction.points > 0 ? (
-                                <TrendingUp className="h-4 w-4 text-green-600" />
+                                <TrendingUp className="size-4 text-green-600" />
                               ) : (
-                                <TrendingDown className="h-4 w-4 text-red-600" />
+                                <TrendingDown className="size-4 text-red-600" />
                               )}
                             </div>
                             <div>

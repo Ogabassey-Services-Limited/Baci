@@ -28,7 +28,7 @@ const FilterSection: React.FC<FilterSectionProps> = ({
 
   return (
     <div className="border-b border-gray-100 py-4 last:border-0">
-      <button
+      <button type="button"
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center justify-between w-full text-left mb-2 group"
       >
@@ -146,7 +146,7 @@ export const CategoryFiltersSidebar: React.FC<CategoryFiltersSidebarProps> = ({
           <Search size={16} className="text-red-600" />
           Filters
         </h3>
-        <button
+        <button type="button"
           onClick={onClearFilters}
           className="text-xs font-bold text-red-600 hover:text-red-700 hover:underline"
         >

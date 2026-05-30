@@ -152,7 +152,7 @@ export default function NotificationDetailsPage({
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <Loader2 className="size-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -160,7 +160,7 @@ export default function NotificationDetailsPage({
   if (!notification) {
     return (
       <div className="text-center py-12">
-        <Bell className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+        <Bell className="size-12 mx-auto mb-4 text-muted-foreground opacity-50" />
         <h2 className="text-xl font-semibold mb-2">Notification Not Found</h2>
         <p className="text-muted-foreground mb-4">
           The notification you're looking for doesn't exist or has been deleted.
@@ -200,7 +200,7 @@ export default function NotificationDetailsPage({
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" asChild>
             <Link href="/admin/notifications">
-              <ArrowLeft className="h-4 w-4" />
+              <ArrowLeft className="size-4" />
             </Link>
           </Button>
           <div>
@@ -224,9 +224,9 @@ export default function NotificationDetailsPage({
           disabled={isDeleting}
         >
           {isDeleting ? (
-            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            <Loader2 className="size-4 mr-2 animate-spin" />
           ) : (
-            <Trash2 className="h-4 w-4 mr-2" />
+            <Trash2 className="size-4 mr-2" />
           )}
           Delete
         </Button>
@@ -236,9 +236,9 @@ export default function NotificationDetailsPage({
       {notification.sent_at && (
         <div className="grid gap-4 md:grid-cols-4">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="flex flex-row items-center justify-between gap-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Sent</CardTitle>
-              <Send className="h-4 w-4 text-muted-foreground" />
+              <Send className="size-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
@@ -247,9 +247,9 @@ export default function NotificationDetailsPage({
             </CardContent>
           </Card>
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="flex flex-row items-center justify-between gap-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Read</CardTitle>
-              <Eye className="h-4 w-4 text-muted-foreground" />
+              <Eye className="size-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
@@ -258,9 +258,9 @@ export default function NotificationDetailsPage({
             </CardContent>
           </Card>
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="flex flex-row items-center justify-between gap-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Dismissed</CardTitle>
-              <CheckCircle className="h-4 w-4 text-muted-foreground" />
+              <CheckCircle className="size-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
@@ -269,9 +269,9 @@ export default function NotificationDetailsPage({
             </CardContent>
           </Card>
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="flex flex-row items-center justify-between gap-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Read Rate</CardTitle>
-              <BarChart3 className="h-4 w-4 text-muted-foreground" />
+              <BarChart3 className="size-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
@@ -363,7 +363,7 @@ export default function NotificationDetailsPage({
               <div>
                 <p className="text-muted-foreground">Target</p>
                 <div className="flex items-center gap-1">
-                  <Users className="h-4 w-4" />
+                  <Users className="size-4" />
                   <span className="font-medium capitalize">
                     {notification.target_type === 'all'
                       ? 'All Merchants'
@@ -401,7 +401,7 @@ export default function NotificationDetailsPage({
                 <div>
                   <p className="text-muted-foreground">Scheduled For</p>
                   <div className="flex items-center gap-1">
-                    <Clock className="h-4 w-4" />
+                    <Clock className="size-4" />
                     <span className="font-medium">
                       {format(
                         new Date(notification.scheduled_for),

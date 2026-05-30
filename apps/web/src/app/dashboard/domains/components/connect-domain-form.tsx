@@ -147,12 +147,12 @@ export function ConnectDomainForm() {
             <Button type="submit" disabled={form.formState.isSubmitting}>
               {form.formState.isSubmitting ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Connecting...
+                  <Loader2 className="size-4 mr-2 animate-spin" />
+                  Connecting…
                 </>
               ) : (
                 <>
-                  <Plus className="w-4 h-4 mr-2" />
+                  <Plus className="size-4 mr-2" />
                   Connect
                 </>
               )}
@@ -193,10 +193,10 @@ export function ConnectDomainForm() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-6 w-6"
+                      className="size-6"
                       onClick={() => copyToClipboard(verificationInfo.token)}
                     >
-                      <Copy className="w-3 h-3" />
+                      <Copy className="size-3" />
                       <span className="sr-only">Copy token</span>
                     </Button>
                   </div>

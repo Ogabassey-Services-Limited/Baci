@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { useQuery } from '@tanstack/react-query';
 import { Stack, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -160,7 +160,7 @@ export default function DomainsDashboard() {
 
           {loading ? (
             <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-              Loading domains...
+              Loading domains…
             </Text>
           ) : fetchError ? (
             <Pressable

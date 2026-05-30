@@ -172,21 +172,21 @@ export function BrandProducts({
                 variant="outline"
                 size="icon"
                 colorRole="accent"
-                className="h-8 w-8"
+                className="size-8"
                 onClick={() => scrollContainer('left')}
                 aria-label="Scroll left"
               >
-                <ChevronLeft className="h-4 w-4" />
+                <ChevronLeft className="size-4" />
               </ThemedButton>
               <ThemedButton
                 variant="outline"
                 size="icon"
                 colorRole="accent"
-                className="h-8 w-8"
+                className="size-8"
                 onClick={() => scrollContainer('right')}
                 aria-label="Scroll right"
               >
-                <ChevronRight className="h-4 w-4" />
+                <ChevronRight className="size-4" />
               </ThemedButton>
             </div>
           )}
@@ -209,7 +209,7 @@ export function BrandProducts({
           </div>
         ) : isLoading ? (
           <div className="flex justify-center py-8">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            <Loader2 className="size-6 animate-spin text-muted-foreground" />
           </div>
         ) : (
           <div

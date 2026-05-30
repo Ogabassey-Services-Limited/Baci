@@ -15,8 +15,8 @@ export async function RootCartPageContent() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-linear-to-b from-gray-50 to-white">
       <div className="text-center max-w-md px-6">
-        <div className="mx-auto w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-6">
-          <ShoppingCart className="w-8 h-8 text-gray-400" />
+        <div className="mx-auto size-16 bg-gray-100 rounded-full flex items-center justify-center mb-6">
+          <ShoppingCart className="size-8 text-gray-400" />
         </div>
         <h1 className="text-2xl font-bold text-gray-900 mb-2">
           Your Cart is Empty
@@ -28,7 +28,7 @@ export async function RootCartPageContent() {
         <div className="flex flex-col gap-3">
           <Button asChild size="lg">
             <Link href="/ogabassey">
-              <Store className="w-4 h-4 mr-2" />
+              <Store className="size-4 mr-2" />
               Browse Ogabassey Store
             </Link>
           </Button>

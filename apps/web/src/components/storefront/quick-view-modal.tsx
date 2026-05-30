@@ -165,7 +165,7 @@ export function QuickViewModal({
           className="absolute right-4 top-4 z-10 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-hidden focus:ring-2 focus:ring-ring focus:ring-offset-2"
           aria-label="Close"
         >
-          <X className="h-5 w-5" />
+          <X className="size-5" />
         </button>
 
         <div className="grid md:grid-cols-2 gap-0">
@@ -376,7 +376,7 @@ export function QuickViewModal({
                             >
                               {isSelected && (
                                 <Check
-                                  className="w-3 h-3 inline mr-1"
+                                  className="size-3 inline mr-1"
                                   aria-hidden="true"
                                 />
                               )}
@@ -418,12 +418,12 @@ export function QuickViewModal({
                   colorRole="accent"
                   size="icon"
                   variant="outline"
-                  className="h-10 w-10 rounded-r-none"
+                  className="size-10 rounded-r-none"
                   onClick={() => handleQuantityChange(quantity - 1)}
                   disabled={quantity <= (product.minimum_order_quantity || 1)}
                   aria-label="Decrease quantity"
                 >
-                  <Minus className="h-4 w-4" />
+                  <Minus className="size-4" />
                 </ThemedButton>
                 <Input
                   type="number"
@@ -441,11 +441,11 @@ export function QuickViewModal({
                   colorRole="accent"
                   size="icon"
                   variant="outline"
-                  className="h-10 w-10 rounded-l-none"
+                  className="size-10 rounded-l-none"
                   onClick={() => handleQuantityChange(quantity + 1)}
                   aria-label="Increase quantity"
                 >
-                  <Plus className="h-4 w-4" />
+                  <Plus className="size-4" />
                 </ThemedButton>
               </div>
               <ThemedButton
@@ -466,7 +466,7 @@ export function QuickViewModal({
               onClick={onClose}
             >
               View Full Details
-              <ExternalLink className="w-4 h-4" />
+              <ExternalLink className="size-4" />
             </Link>
           </div>
         </div>

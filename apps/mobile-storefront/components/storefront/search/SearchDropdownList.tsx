@@ -119,7 +119,7 @@ export function SearchDropdownList({
       <View style={styles.statusContainer}>
         <ActivityIndicator size="small" color={BRAND.primary} />
         <Text style={[styles.statusText, { color: colors.textSecondary }]}>
-          Searching...
+          Searching…
         </Text>
       </View>
     );

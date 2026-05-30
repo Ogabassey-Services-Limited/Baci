@@ -80,22 +80,22 @@ export function ProductCatalogRow({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-6 w-6 p-0 hover:bg-transparent"
+                className="size-6 p-0 hover:bg-transparent"
                 onClick={() => onToggleProduct(product.id)}
                 aria-label={
                   isExpanded ? 'Collapse variants' : 'Expand variants'
                 }
               >
                 {isExpanded ? (
-                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  <ChevronDown className="size-4 text-muted-foreground" />
                 ) : (
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  <ChevronRight className="size-4 text-muted-foreground" />
                 )}
               </Button>
             ) : (
               <div className="w-6" />
             )}
-            <div className="relative h-12 w-12 rounded-lg overflow-hidden border border-border/50 bg-muted/20 shrink-0">
+            <div className="relative size-12 rounded-lg overflow-hidden border border-border/50 bg-muted/20 shrink-0">
               {product.image ? (
                 <Image
                   src={product.image}
@@ -109,7 +109,7 @@ export function ProductCatalogRow({
                 />
               ) : (
                 <div className="h-full w-full flex items-center justify-center text-muted-foreground/30">
-                  <Package className="h-5 w-5" />
+                  <Package className="size-5" />
                 </div>
               )}
             </div>
@@ -142,8 +142,8 @@ export function ProductCatalogRow({
                 )}
                 {isSaving && isDirty && (
                   <span className="flex items-center gap-1 text-[10px] text-blue-600 font-medium animate-pulse">
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    Saving...
+                    <Loader2 className="size-3 animate-spin" />
+                    Saving…
                   </span>
                 )}
               </div>
@@ -202,7 +202,7 @@ export function ProductCatalogRow({
                   className="absolute -right-6 top-1/2 -translate-y-1/2"
                   title={`Low Stock (Threshold: ${product.low_stock_threshold ?? 5})`}
                 >
-                  <AlertTriangle className="h-4 w-4 text-amber-500" />
+                  <AlertTriangle className="size-4 text-amber-500" />
                 </div>
               )}
             </div>
@@ -215,7 +215,7 @@ export function ProductCatalogRow({
               className="flex items-center justify-center gap-1.5 text-muted-foreground/70"
               title="Infinite Stock"
             >
-              <InfinityIcon className="h-4 w-4" />
+              <InfinityIcon className="size-4" />
             </div>
           )}
         </TableCell>

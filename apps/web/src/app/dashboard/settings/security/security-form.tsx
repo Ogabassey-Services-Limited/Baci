@@ -126,7 +126,7 @@ export function SecurityForm() {
     return (
       <Card className="glass">
         <CardContent className="flex items-center justify-center py-12">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <Loader2 className="size-6 animate-spin text-muted-foreground" />
         </CardContent>
       </Card>
     );
@@ -136,7 +136,7 @@ export function SecurityForm() {
     <Card className="glass">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <KeyRound className="h-5 w-5" />
+          <KeyRound className="size-5" />
           {hasPasswordIdentity ? 'Change Password' : 'Set Password'}
         </CardTitle>
         <CardDescription>
@@ -148,7 +148,7 @@ export function SecurityForm() {
       <CardContent>
         {!hasPasswordIdentity && (
           <Alert className="mb-6">
-            <AlertCircle className="h-4 w-4" />
+            <AlertCircle className="size-4" />
             <AlertDescription>
               Your account currently uses{' '}
               {user?.app_metadata?.provider === 'apple' ? 'Apple' : 'Google'}{' '}
@@ -228,9 +228,7 @@ export function SecurityForm() {
             />
 
             <Button type="submit" disabled={isSubmitting} className="mt-2">
-              {isSubmitting && (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              )}
+              {isSubmitting && <Loader2 className="mr-2 size-4 animate-spin" />}
               {hasPasswordIdentity ? 'Change Password' : 'Set Password'}
             </Button>
           </form>

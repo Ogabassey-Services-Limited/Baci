@@ -161,7 +161,7 @@ export function MetricCard({
         className
       )}
     >
-      <div className="w-12 h-12 bg-accent/10 rounded-full flex items-center justify-center mb-4">
+      <div className="size-12 bg-accent/10 rounded-full flex items-center justify-center mb-4">
         {icon}
       </div>
       <div>

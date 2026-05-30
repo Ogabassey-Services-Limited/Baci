@@ -41,7 +41,7 @@ export function MerchantHealthBadge({
           className="border-emerald-500/20 bg-emerald-500/10 text-emerald-600"
           label="Healthy"
         >
-          <CheckCircle className="mr-1 h-3 w-3" aria-hidden="true" />
+          <CheckCircle className="mr-1 size-3" aria-hidden="true" />
           Healthy
         </StatusBadge>
       );
@@ -51,7 +51,7 @@ export function MerchantHealthBadge({
           className="border-amber-500/20 bg-amber-500/10 text-amber-600"
           label="At Risk"
         >
-          <AlertTriangle className="mr-1 h-3 w-3" aria-hidden="true" />
+          <AlertTriangle className="mr-1 size-3" aria-hidden="true" />
           At Risk
         </StatusBadge>
       );
@@ -61,7 +61,7 @@ export function MerchantHealthBadge({
           className="border-destructive/20 bg-destructive/10 text-destructive"
           label="Churned"
         >
-          <XCircle className="mr-1 h-3 w-3" aria-hidden="true" />
+          <XCircle className="mr-1 size-3" aria-hidden="true" />
           Churned
         </StatusBadge>
       );
@@ -71,7 +71,7 @@ export function MerchantHealthBadge({
           className="border-indigo-500/20 bg-indigo-500/10 text-indigo-600"
           label="New"
         >
-          <Clock className="mr-1 h-3 w-3" aria-hidden="true" />
+          <Clock className="mr-1 size-3" aria-hidden="true" />
           New
         </StatusBadge>
       );

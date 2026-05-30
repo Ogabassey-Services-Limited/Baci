@@ -29,7 +29,7 @@ export function ProductMigrationBadges({
           variant="secondary"
           className="gap-1 border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300"
         >
-          <Grid2x2 className="h-3 w-3" />
+          <Grid2x2 className="size-3" />
           SKU Matrix
         </Badge>
       ) : null}
@@ -38,7 +38,7 @@ export function ProductMigrationBadges({
           variant="secondary"
           className="gap-1 border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300"
         >
-          <AlertTriangle className="h-3 w-3" />
+          <AlertTriangle className="size-3" />
           Needs Review
         </Badge>
       ) : null}
@@ -47,7 +47,7 @@ export function ProductMigrationBadges({
           variant="secondary"
           className="gap-1 border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300"
         >
-          <CheckCircle2 className="h-3 w-3" />
+          <CheckCircle2 className="size-3" />
           Migrated
         </Badge>
       ) : null}

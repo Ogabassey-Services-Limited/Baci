@@ -298,9 +298,9 @@ export default function OrderDetailsClientPage({
               type="button"
               variant="outline"
               size="icon"
-              className="h-8 w-8"
+              className="size-8"
             >
-              <ChevronLeft className="h-4 w-4" />
+              <ChevronLeft className="size-4" />
               <span className="sr-only">Back to Orders</span>
             </Button>
           </Link>
@@ -309,18 +309,18 @@ export default function OrderDetailsClientPage({
           </h1>
           <div className="ml-auto flex items-center gap-2">
             <Button variant="outline" size="sm" className="gap-1">
-              <Share2 className="h-3.5 w-3.5" />
+              <Share2 className="size-3.5" />
               <span>Share</span>
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="icon" className="h-9 w-9">
-                  <MoreVertical className="h-4 w-4" />
+                <Button variant="outline" size="icon" className="size-9">
+                  <MoreVertical className="size-4" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent>
                 <DropdownMenuItem onSelect={() => handleResendNotification()}>
-                  <Send className="mr-2 h-4 w-4" /> Resend Email
+                  <Send className="mr-2 size-4" /> Resend Email
                 </DropdownMenuItem>
                 <DropdownMenuItem>Print Invoice</DropdownMenuItem>
                 <DropdownMenuItem>Contact Customer</DropdownMenuItem>
@@ -381,13 +381,13 @@ export default function OrderDetailsClientPage({
                     </p>
                     {order.customer_phone && (
                       <div className="flex items-center gap-2 text-sm mt-1">
-                        <Phone className="w-4 h-4 text-muted-foreground" />
+                        <Phone className="size-4 text-muted-foreground" />
                         <span>{order.customer_phone}</span>
                       </div>
                     )}
                     {order.customer_email && (
                       <div className="flex items-center gap-2 text-sm mt-1">
-                        <Mail className="w-4 h-4 text-muted-foreground" />
+                        <Mail className="size-4 text-muted-foreground" />
                         <span>{order.customer_email}</span>
                       </div>
                     )}
@@ -404,7 +404,7 @@ export default function OrderDetailsClientPage({
                     variant="default"
                     className="mt-2 bg-blue-50 border-blue-200 text-blue-800"
                   >
-                    <Package className="h-4 w-4 text-blue-800!" />
+                    <Package className="size-4 text-blue-800!" />
                     <AlertTitle>Fulfillment Details Required</AlertTitle>
                     <AlertDescription>
                       One or more items in this order need specific details
@@ -451,13 +451,13 @@ export default function OrderDetailsClientPage({
                     onClick={secondaryAction.action}
                     className="gap-1"
                   >
-                    <secondaryAction.icon className="h-4 w-4" />
+                    <secondaryAction.icon className="size-4" />
                     {secondaryAction.text}
                   </Button>
                 )}
                 {primaryAction && (
                   <Button onClick={primaryAction.action} className="gap-1">
-                    <primaryAction.icon className="h-4 w-4" />
+                    <primaryAction.icon className="size-4" />
                     {primaryAction.text}
                   </Button>
                 )}
@@ -500,7 +500,7 @@ export default function OrderDetailsClientPage({
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>Payment Summary</CardTitle>
                 <Button variant="outline" size="sm" className="gap-1">
-                  <Download className="h-3.5 w-3.5" />
+                  <Download className="size-3.5" />
                   Download Receipt
                 </Button>
               </CardHeader>
@@ -616,14 +616,14 @@ export default function OrderDetailsClientPage({
                     size="sm"
                     className="gap-1 text-xs h-7"
                   >
-                    <Edit className="h-3 w-3" /> Edit
+                    <Edit className="size-3" /> Edit
                   </Button>
                   <Button
                     variant="outline"
                     size="sm"
                     className="gap-1 text-xs h-7"
                   >
-                    <Copy className="h-3 w-3" /> Copy
+                    <Copy className="size-3" /> Copy
                   </Button>
                 </div>
               </CardContent>

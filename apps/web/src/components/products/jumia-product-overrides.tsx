@@ -136,7 +136,7 @@ export function JumiaProductOverrides({
           className="flex items-center justify-center p-12"
           role="status"
         >
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <Loader2 className="size-8 animate-spin text-muted-foreground" />
         </CardContent>
       </ThemedCard>
     );
@@ -151,7 +151,7 @@ export function JumiaProductOverrides({
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <div className="relative h-6 w-6 overflow-hidden rounded">
+            <div className="relative size-6 overflow-hidden rounded">
               <Image
                 src="/jumia-logo.png"
                 alt="Jumia"
@@ -196,8 +196,8 @@ export function JumiaProductOverrides({
           >
             {saving ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Updating Jumia...
+                <Loader2 className="mr-2 size-4 animate-spin" />
+                Updating Jumia…
               </>
             ) : (
               'Save Jumia Settings'

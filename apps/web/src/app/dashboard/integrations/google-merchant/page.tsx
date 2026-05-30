@@ -28,7 +28,7 @@ export default function GoogleMerchantPage() {
   const { merchant } = useMerchant();
 
   if (!merchant) {
-    return <div>Loading...</div>;
+    return <div>Loading…</div>;
   }
 
   const baseUrl = merchant.custom_domain
@@ -49,7 +49,7 @@ export default function GoogleMerchantPage() {
           aria-label="Back to integrations"
         >
           <Link href={asRoute('/dashboard/integrations')}>
-            <ArrowLeft className="h-4 w-4" />
+            <ArrowLeft className="size-4" />
           </Link>
         </Button>
         <div>
@@ -82,13 +82,13 @@ export default function GoogleMerchantPage() {
               alt="Google"
               width={32}
               height={32}
-              className="h-8 w-8"
+              className="size-8"
             />
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <Alert>
-            <AlertCircle className="h-4 w-4" />
+            <AlertCircle className="size-4" />
             <AlertDescription>
               <strong>What is Google Merchant Center?</strong>
               <br />
@@ -120,7 +120,7 @@ export default function GoogleMerchantPage() {
                   className="text-primary hover:underline inline-flex items-center gap-1"
                 >
                   Google Merchant Center
-                  <ExternalLink className="h-3 w-3" />
+                  <ExternalLink className="size-3" />
                 </a>{' '}
                 and sign in with your Google account
               </li>
@@ -151,7 +151,7 @@ export default function GoogleMerchantPage() {
           </div>
 
           <Alert>
-            <AlertCircle className="h-4 w-4" />
+            <AlertCircle className="size-4" />
             <AlertDescription>
               <strong>Important:</strong> After setting up the feed in Google
               Merchant Center, it may take 3-5 days for Google to review and
@@ -164,27 +164,27 @@ export default function GoogleMerchantPage() {
             <h4 className="font-semibold text-sm mb-3">Feed includes:</h4>
             <div className="grid grid-cols-2 gap-2 text-sm">
               <div className="flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-green-600" />
+                <CheckCircle2 className="size-4 text-green-600" />
                 Product titles & descriptions
               </div>
               <div className="flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-green-600" />
+                <CheckCircle2 className="size-4 text-green-600" />
                 Pricing & availability
               </div>
               <div className="flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-green-600" />
+                <CheckCircle2 className="size-4 text-green-600" />
                 Product images
               </div>
               <div className="flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-green-600" />
+                <CheckCircle2 className="size-4 text-green-600" />
                 Brand & condition
               </div>
               <div className="flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-green-600" />
+                <CheckCircle2 className="size-4 text-green-600" />
                 GTINs & MPNs
               </div>
               <div className="flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-green-600" />
+                <CheckCircle2 className="size-4 text-green-600" />
                 Shipping weights
               </div>
             </div>

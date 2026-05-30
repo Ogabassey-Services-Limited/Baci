@@ -695,9 +695,9 @@ export default function AddProductForm({
                       className="mt-2 w-full"
                     >
                       {isAutofilling ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        <Loader2 className="mr-2 size-4 animate-spin" />
                       ) : (
-                        <Wand2 className="mr-2 h-4 w-4" />
+                        <Wand2 className="mr-2 size-4" />
                       )}
                       Autofill with AI
                     </Button>
@@ -727,9 +727,9 @@ export default function AddProductForm({
                       disabled={isGenerating}
                     >
                       {isGenerating ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        <Loader2 className="mr-2 size-4 animate-spin" />
                       ) : (
-                        <Sparkles className="mr-2 h-4 w-4" />
+                        <Sparkles className="mr-2 size-4" />
                       )}
                       Generate with AI
                     </Button>
@@ -1274,7 +1274,7 @@ export default function AddProductForm({
                                 <div className="text-sm font-medium mb-2 flex items-center justify-between">
                                   <span>{color}</span>
                                   {enhancingImages[color] && (
-                                    <Sparkles className="h-3 w-3 text-yellow-500 animate-pulse" />
+                                    <Sparkles className="size-3 text-yellow-500 animate-pulse" />
                                   )}
                                 </div>
                                 <div className="aspect-square relative rounded-md overflow-hidden bg-muted border group">
@@ -1299,7 +1299,7 @@ export default function AddProductForm({
                                           disabled={enhancingImages[color]}
                                           title="AI transforms your photo into a professional product image"
                                         >
-                                          <Sparkles className="h-3 w-3 mr-1" />
+                                          <Sparkles className="size-3 mr-1" />
                                           AI Enhance
                                         </Button>
                                         <Button
@@ -1313,7 +1313,7 @@ export default function AddProductForm({
                                           disabled={enhancingImages[color]}
                                           title="Quick background removal"
                                         >
-                                          <Wand2 className="h-3 w-3 mr-1" />
+                                          <Wand2 className="size-3 mr-1" />
                                           Remove BG
                                         </Button>
                                         <label className="cursor-pointer">
@@ -1338,7 +1338,7 @@ export default function AddProductForm({
                                     </>
                                   ) : (
                                     <label className="flex flex-col items-center justify-center w-full h-full cursor-pointer hover:bg-muted/80 transition-colors">
-                                      <ImageIcon className="h-8 w-8 text-muted-foreground mb-2" />
+                                      <ImageIcon className="size-8 text-muted-foreground mb-2" />
                                       <span className="text-xs text-muted-foreground">
                                         Upload
                                       </span>
@@ -1590,7 +1590,7 @@ export default function AddProductForm({
               Cancel
             </Button>
             <Button type="submit" disabled={isSaving}>
-              {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isSaving && <Loader2 className="mr-2 size-4 animate-spin" />}
               {initialData ? 'Update Product' : 'Save Product'}
             </Button>
           </div>

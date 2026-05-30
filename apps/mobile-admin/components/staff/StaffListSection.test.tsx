@@ -153,7 +153,7 @@ describe('StaffListSection', () => {
       />
     );
 
-    expect(screen.getByText('Loading team members...')).toBeInTheDocument();
+    expect(screen.getByText('Loading team members…')).toBeInTheDocument();
     expect(screen.getByText('loading-spinner')).toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'Invite team member' })

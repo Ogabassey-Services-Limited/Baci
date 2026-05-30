@@ -1986,7 +1986,7 @@ export const CheckoutPage: React.FC = () => {
     return (
       <div className="min-h-screen bg-gray-50/50 flex items-center justify-center pb-20">
         <div className="flex flex-col items-center gap-4">
-          <Loader2 className="w-12 h-12 animate-spin text-store-primary" />
+          <Loader2 className="size-12 animate-spin text-store-primary" />
           <p className="text-gray-500 font-medium animate-pulse">
             {isLoadingResumedOrder ? 'Loading order...' : 'Initializing secure checkout...'}
           </p>
@@ -2000,8 +2000,8 @@ export const CheckoutPage: React.FC = () => {
     return (
       <div className="min-h-screen bg-gray-50/50 flex items-center justify-center pb-20">
         <div className="text-center max-w-md mx-auto px-4">
-          <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <AlertCircle className="w-10 h-10 text-red-500" />
+          <div className="size-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <AlertCircle className="size-10 text-red-500" />
           </div>
           <h1 className="text-2xl font-bold text-gray-900 mb-2">Something Went Wrong</h1>
           <p className="text-gray-500 mb-6">{resumeOrderError}</p>
@@ -2063,26 +2063,26 @@ export const CheckoutPage: React.FC = () => {
       {/* Checkout Navbar */}
       <div className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-gray-200/50 shadow-sm supports-[backdrop-filter]:bg-white/60">
         <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <button
+          <button type="button"
             onClick={() => router.push(asRoute(getHref('/cart')))}
             className="group flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-store-primary transition-colors"
           >
-            <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center group-hover:bg-store-primary/5 transition-colors">
-              <ChevronRight className="w-4 h-4 rotate-180 group-hover:text-store-primary transition-colors" />
+            <div className="size-8 rounded-full bg-gray-100 flex items-center justify-center group-hover:bg-store-primary/5 transition-colors">
+              <ChevronRight className="size-4 rotate-180 group-hover:text-store-primary transition-colors" />
             </div>
             <span className="hidden sm:inline">Return to Cart</span>
           </button>
 
           <div className="flex flex-col items-center">
             <div className="font-bold text-gray-900 tracking-tight flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-green-600" />
+              <ShieldCheck className="size-4 text-green-600" />
               <span>Secure Checkout</span>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
             <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 bg-green-50 text-green-700 text-xs font-medium rounded-full border border-green-100">
-              <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+              <div className="size-1.5 rounded-full bg-green-500 animate-pulse" />
               Encrypted
             </div>
           </div>
@@ -2101,7 +2101,7 @@ export const CheckoutPage: React.FC = () => {
             {/* Header */}
             <div className="sticky top-0 bg-linear-to-r from-store-primary to-store-primary/80 p-4 flex items-center justify-between rounded-t-2xl">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+                <div className="size-8 bg-white/20 rounded-lg flex items-center justify-center">
                   <CreditCard size={16} className="text-white" />
                 </div>
                 <h2 className="font-bold text-white">Select Crypto Payment</h2>
@@ -2113,7 +2113,7 @@ export const CheckoutPage: React.FC = () => {
                   setPendingCryptoOrder(null);
                   isOrderInFlightRef.current = false;
                 }}
-                className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center text-white hover:bg-white/30 transition-colors"
+                className="size-8 rounded-lg bg-white/20 flex items-center justify-center text-white hover:bg-white/30 transition-colors"
               >
                 <X size={16} />
               </button>
@@ -2205,7 +2205,7 @@ export const CheckoutPage: React.FC = () => {
                 {isInitializingCrypto ? (
                   <>
                     <Loader2 size={18} className="animate-spin" />
-                    Generating Address...
+                    Generating Address…
                   </>
                 ) : (
                   <>
@@ -2229,7 +2229,7 @@ export const CheckoutPage: React.FC = () => {
             {/* Header */}
             <div className="sticky top-0 bg-linear-to-r from-store-primary to-store-primary/80 p-4 flex items-center justify-between rounded-t-2xl">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+                <div className="size-8 bg-white/20 rounded-lg flex items-center justify-center">
                   <CreditCard size={16} className="text-white" />
                 </div>
                 <h2 className="font-bold text-white">Pay with Crypto</h2>
@@ -2243,7 +2243,7 @@ export const CheckoutPage: React.FC = () => {
                   setCryptoVerificationStatus('idle');
                   setIsVerifyingCrypto(false);
                 }}
-                className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center text-white hover:bg-white/30 transition-colors"
+                className="size-8 rounded-lg bg-white/20 flex items-center justify-center text-white hover:bg-white/30 transition-colors"
               >
                 <X size={16} />
               </button>
@@ -2258,7 +2258,7 @@ export const CheckoutPage: React.FC = () => {
                   <img
                     src={cryptoPaymentData.qrcode || `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${cryptoPaymentData.address}&margin=10`}
                     alt="Scan"
-                    className="w-24 h-24"
+                    className="size-24"
                     loading="lazy"
                   />
                 </div>
@@ -2272,7 +2272,7 @@ export const CheckoutPage: React.FC = () => {
                     </p>
                   </div>
                   <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-gray-100 border border-gray-200">
-                    <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                    <span className="size-1.5 rounded-full bg-green-500 animate-pulse" />
                     <p className="text-xs font-semibold text-gray-700">
                       Network: {chainDisplayNames[cryptoPaymentData.chain] || cryptoPaymentData.chain}
                     </p>
@@ -2312,7 +2312,7 @@ export const CheckoutPage: React.FC = () => {
 
               {/* Confirmation Time */}
               <div className="flex items-center gap-3 bg-store-primary/5 rounded-xl p-4 border border-store-primary/20">
-                <div className="w-10 h-10 bg-store-primary/10 rounded-full flex items-center justify-center shrink-0">
+                <div className="size-10 bg-store-primary/10 rounded-full flex items-center justify-center shrink-0">
                   <Clock size={20} className="text-store-primary" />
                 </div>
                 <div>
@@ -2345,7 +2345,7 @@ export const CheckoutPage: React.FC = () => {
               {cryptoVerificationStatus === 'confirmed' && (
                 <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-center">
                   <p className="text-sm font-medium text-green-800">
-                    Payment confirmed! Redirecting to order confirmation...
+                    Payment confirmed! Redirecting to order confirmation…
                   </p>
                 </div>
               )}
@@ -2371,7 +2371,7 @@ export const CheckoutPage: React.FC = () => {
                 {isVerifyingCrypto ? (
                   <span className="flex items-center justify-center gap-2">
                     <Loader2 size={18} className="animate-spin" />
-                    Verifying Payment...
+                    Verifying Payment…
                   </span>
                 ) : (
                   "I've Sent the Payment"
@@ -2412,7 +2412,7 @@ export const CheckoutPage: React.FC = () => {
             {/* Header */}
             <div className="sticky top-0 bg-linear-to-r from-store-primary to-store-primary/80 p-6 flex items-center justify-between rounded-t-2xl">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                <div className="size-10 bg-white/20 rounded-xl flex items-center justify-center">
                   <Building2 size={20} className="text-white" />
                 </div>
                 <div>
@@ -2423,7 +2423,7 @@ export const CheckoutPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setDvaData(null)}
-                className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center text-white hover:bg-white/30 transition-colors"
+                className="size-8 rounded-lg bg-white/20 flex items-center justify-center text-white hover:bg-white/30 transition-colors"
               >
                 <X size={16} />
               </button>
@@ -2476,7 +2476,7 @@ export const CheckoutPage: React.FC = () => {
 
               {/* Instruction & Timer */}
               <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 flex gap-4">
-                <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm shrink-0">
+                <div className="size-10 bg-white rounded-xl flex items-center justify-center shadow-sm shrink-0">
                   <Clock size={20} className="text-blue-600" />
                 </div>
                 <div>
@@ -2491,11 +2491,11 @@ export const CheckoutPage: React.FC = () => {
               <div className="flex flex-col items-center justify-center py-4 gap-3">
                 <div className="flex items-center gap-3 text-store-primary">
                   <div className="flex gap-1">
-                    <div className="w-1.5 h-1.5 bg-store-primary rounded-full animate-bounce [animation-delay:-0.3s]" />
-                    <div className="w-1.5 h-1.5 bg-store-primary rounded-full animate-bounce [animation-delay:-0.15s]" />
-                    <div className="w-1.5 h-1.5 bg-store-primary rounded-full animate-bounce" />
+                    <div className="size-1.5 bg-store-primary rounded-full animate-bounce [animation-delay:-0.3s]" />
+                    <div className="size-1.5 bg-store-primary rounded-full animate-bounce [animation-delay:-0.15s]" />
+                    <div className="size-1.5 bg-store-primary rounded-full animate-bounce" />
                   </div>
-                  <span className="text-sm font-bold">Waiting for transfer...</span>
+                  <span className="text-sm font-bold">Waiting for transfer…</span>
                 </div>
                 <p className="text-[10px] text-gray-400 text-center">
                   Reference: {dvaData.reference}
@@ -2528,13 +2528,13 @@ export const CheckoutPage: React.FC = () => {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-2xl font-black text-gray-900 flex items-center gap-3">
-            <span className="w-10 h-10 bg-store-primary text-white rounded-xl flex items-center justify-center shadow-store-primary/20 shadow-lg">
+            <span className="size-10 bg-store-primary text-white rounded-xl flex items-center justify-center shadow-store-primary/20 shadow-lg">
               <ShieldCheck size={20} />
             </span>
             Secure Checkout
           </h1>
           <div className="flex items-center gap-2 text-sm text-gray-500 bg-white px-3 py-1.5 rounded-full border border-gray-100 shadow-sm">
-            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+            <div className="size-2 rounded-full bg-green-500 animate-pulse" />
             SSL Encrypted
           </div>
         </div>
@@ -2561,7 +2561,7 @@ export const CheckoutPage: React.FC = () => {
             {!user && currentStep === 'contact' && (
               <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 flex items-center justify-between animate-in fade-in slide-in-from-top-2 duration-500">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm">
+                  <div className="size-10 bg-white rounded-xl flex items-center justify-center shadow-sm">
                     <User size={20} className="text-blue-600" />
                   </div>
                   <div>
@@ -2587,7 +2587,7 @@ export const CheckoutPage: React.FC = () => {
                 className="w-full px-6 py-4 flex items-center justify-between text-left"
               >
                 <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs transition-colors ${completedSteps.contact ? 'bg-green-100 text-green-600' : currentStep === 'contact' ? 'bg-store-primary/10 text-store-primary' : 'bg-gray-100 text-gray-500'
+                  <div className={`size-6 rounded-full flex items-center justify-center text-xs transition-colors ${completedSteps.contact ? 'bg-green-100 text-green-600' : currentStep === 'contact' ? 'bg-store-primary/10 text-store-primary' : 'bg-gray-100 text-gray-500'
                     }`}>
                     {completedSteps.contact ? <Check size={14} /> : '1'}
                   </div>
@@ -2700,7 +2700,7 @@ export const CheckoutPage: React.FC = () => {
                                   setCreateAccount(e.target.checked);
                                   setShowPasswordInput(e.target.checked);
                                 }}
-                                className="peer h-5 w-5 rounded border-gray-300 text-store-primary focus:ring-store-primary"
+                                className="peer size-5 rounded border-gray-300 text-store-primary focus:ring-store-primary"
                               />
                             </div>
                             <div>
@@ -2772,7 +2772,7 @@ export const CheckoutPage: React.FC = () => {
                 className="w-full px-6 py-4 flex items-center justify-between text-left disabled:opacity-50 disabled:cursor-not-allowed hidden-disabled"
               >
                 <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs transition-colors ${completedSteps.delivery ? 'bg-green-100 text-green-600' : currentStep === 'delivery' ? 'bg-store-primary/10 text-store-primary' : 'bg-gray-100 text-gray-500'
+                  <div className={`size-6 rounded-full flex items-center justify-center text-xs transition-colors ${completedSteps.delivery ? 'bg-green-100 text-green-600' : currentStep === 'delivery' ? 'bg-store-primary/10 text-store-primary' : 'bg-gray-100 text-gray-500'
                     }`}>
                     {completedSteps.delivery ? <Check size={14} /> : '2'}
                   </div>
@@ -2826,7 +2826,7 @@ export const CheckoutPage: React.FC = () => {
                                     setNewAddressCity(parts[parts.length - 2] || '');
                                   }
                                 }}
-                                className="mt-1 w-4 h-4 text-store-primary focus:ring-store-primary border-gray-300"
+                                className="mt-1 size-4 text-store-primary focus:ring-store-primary border-gray-300"
                               />
                               <div className="ml-3">
                                 <p className="font-bold text-gray-900 text-sm">
@@ -2946,7 +2946,7 @@ export const CheckoutPage: React.FC = () => {
                               const subtitle = method === 'door' ? 'To your address' : method === 'pickup' ? 'Collect at store' : 'Via air cargo';
 
                               return (
-                                <button
+                                <button type="button"
                                   key={method}
                                   onClick={() => setDeliveryMethod(method)}
                                   className={`flex-1 flex flex-col items-center justify-center p-3 sm:p-4 rounded-xl border-2 transition-all gap-1 min-w-[100px] ${deliveryMethod === method
@@ -2954,7 +2954,7 @@ export const CheckoutPage: React.FC = () => {
                                     : 'border-gray-100 bg-white text-gray-500 hover:border-gray-200 hover:bg-gray-50'
                                     }`}
                                 >
-                                  <Icon className={`w-6 h-6 ${deliveryMethod === method ? 'text-store-primary' : 'text-gray-400'}`} />
+                                  <Icon className={`size-6 ${deliveryMethod === method ? 'text-store-primary' : 'text-gray-400'}`} />
                                   <span className="text-xs sm:text-sm font-bold">{label}</span>
                                   <span className="text-[10px] text-gray-400">{subtitle}</span>
                                 </button>
@@ -3006,10 +3006,10 @@ export const CheckoutPage: React.FC = () => {
                                   onChange={() => setAirportType('delivery')}
                                   className="sr-only"
                                 />
-                                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${airportType === 'delivery' ? 'border-store-primary' : 'border-gray-400'
+                                <div className={`size-5 rounded-full border-2 flex items-center justify-center ${airportType === 'delivery' ? 'border-store-primary' : 'border-gray-400'
                                   }`}>
                                   {airportType === 'delivery' && (
-                                    <div className="w-2.5 h-2.5 rounded-full bg-store-primary" />
+                                    <div className="size-2.5 rounded-full bg-store-primary" />
                                   )}
                                 </div>
                                 <div className="flex-1">
@@ -3032,10 +3032,10 @@ export const CheckoutPage: React.FC = () => {
                                   onChange={() => setAirportType('pickup')}
                                   className="sr-only"
                                 />
-                                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${airportType === 'pickup' ? 'border-store-primary' : 'border-gray-400'
+                                <div className={`size-5 rounded-full border-2 flex items-center justify-center ${airportType === 'pickup' ? 'border-store-primary' : 'border-gray-400'
                                   }`}>
                                   {airportType === 'pickup' && (
-                                    <div className="w-2.5 h-2.5 rounded-full bg-store-primary" />
+                                    <div className="size-2.5 rounded-full bg-store-primary" />
                                   )}
                                 </div>
                                 <div className="flex-1">
@@ -3073,7 +3073,7 @@ export const CheckoutPage: React.FC = () => {
                                         name="shipping_quote"
                                         checked={selectedQuoteId === quote.id}
                                         onChange={() => setSelectedQuoteId(quote.id)}
-                                        className="w-4 h-4 text-store-primary focus:ring-store-primary border-gray-300"
+                                        className="size-4 text-store-primary focus:ring-store-primary border-gray-300"
                                       />
                                       <div>
                                         <div className="flex items-center gap-2">
@@ -3110,7 +3110,7 @@ export const CheckoutPage: React.FC = () => {
                                 }}
                                 className="w-full bg-linear-to-r from-amber-50 to-orange-50 border-2 border-dashed border-amber-300 rounded-xl p-5 flex flex-col items-center gap-3 hover:border-amber-400 hover:shadow-md transition-all group cursor-pointer"
                               >
-                                <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center text-amber-600 group-hover:scale-110 transition-transform">
+                                <div className="size-12 bg-amber-100 rounded-full flex items-center justify-center text-amber-600 group-hover:scale-110 transition-transform">
                                   <Truck size={24} />
                                 </div>
                                 <div className="text-center">
@@ -3200,7 +3200,7 @@ export const CheckoutPage: React.FC = () => {
                     item.kind === 'cart' ? (item.negotiatedPrice || item.price) : item.price;
                   return (
                     <div key={itemKey} className="flex gap-3">
-                      <div className="relative w-12 h-12 bg-gray-50 rounded-lg border border-gray-100 p-1 shrink-0">
+                      <div className="relative size-12 bg-gray-50 rounded-lg border border-gray-100 p-1 shrink-0">
                         <Image
                           src={itemImage}
                           alt={itemName}
@@ -3246,7 +3246,7 @@ export const CheckoutPage: React.FC = () => {
                     }
                   >
                     {deliveryMethod === 'door' && !selectedQuoteId && deliveryCost === 0
-                      ? <span className="text-gray-500 font-normal italic">Calculated...</span>
+                      ? <span className="text-gray-500 font-normal italic">Calculated…</span>
                       : deliveryCost === 0 ? 'Free' : `₦${deliveryCost.toLocaleString()}`}
                   </span>
                 </div>
@@ -3262,14 +3262,14 @@ export const CheckoutPage: React.FC = () => {
                   <div className="py-2 animate-in fade-in">
                     {walletLoading ? (
                       <div className="flex items-center gap-2 text-gray-500">
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span className="text-sm">Checking wallet balance...</span>
+                        <Loader2 className="size-4 animate-spin" />
+                        <span className="text-sm">Checking wallet balance…</span>
                       </div>
                     ) : (
                       <>
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center">
+                            <div className="size-6 rounded-full bg-green-100 flex items-center justify-center">
                               <span className="text-green-600 text-xs font-bold">₦</span>
                             </div>
                             <div>
@@ -3284,7 +3284,7 @@ export const CheckoutPage: React.FC = () => {
                               }`}
                           >
                             <span
-                              className={`inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${payWithWallet ? 'translate-x-4' : 'translate-x-0'
+                              className={`inline-block size-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${payWithWallet ? 'translate-x-4' : 'translate-x-0'
                                 }`}
                             />
                           </button>
@@ -3322,7 +3322,7 @@ export const CheckoutPage: React.FC = () => {
                       type="checkbox"
                       checked={newsletterOptIn}
                       onChange={(e) => setNewsletterOptIn(e.target.checked)}
-                      className="peer h-4 w-4 rounded border-gray-300 text-store-primary focus:ring-store-primary"
+                      className="peer size-4 rounded border-gray-300 text-store-primary focus:ring-store-primary"
                     />
                   </div>
                   <span className="text-xs text-gray-600 group-hover:text-gray-900 transition-colors">

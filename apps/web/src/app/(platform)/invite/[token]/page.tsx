@@ -67,8 +67,8 @@ function AcceptInvitePageFallback() {
       <Card className="w-full max-w-md">
         <CardContent className="pt-6">
           <div className="flex flex-col items-center gap-4">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <p className="text-muted-foreground">Loading invitation...</p>
+            <Loader2 className="size-8 animate-spin text-primary" />
+            <p className="text-muted-foreground">Loading invitation…</p>
           </div>
         </CardContent>
       </Card>
@@ -264,8 +264,8 @@ function AcceptInvitePageContent() {
         <Card className="w-full max-w-md">
           <CardContent className="pt-6">
             <div className="flex flex-col items-center gap-4">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <p className="text-muted-foreground">Validating invitation...</p>
+              <Loader2 className="size-8 animate-spin text-primary" />
+              <p className="text-muted-foreground">Validating invitation…</p>
             </div>
           </CardContent>
         </Card>
@@ -278,8 +278,8 @@ function AcceptInvitePageContent() {
       <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
-              <XCircle className="h-6 w-6 text-red-600" />
+            <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-full bg-red-100">
+              <XCircle className="size-6 text-red-600" />
             </div>
             <CardTitle>Invalid Invitation</CardTitle>
             <CardDescription>{error}</CardDescription>
@@ -303,8 +303,8 @@ function AcceptInvitePageContent() {
       <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
-              <CheckCircle className="h-6 w-6 text-green-600" />
+            <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-full bg-green-100">
+              <CheckCircle className="size-6 text-green-600" />
             </div>
             <CardTitle>Welcome to the Team!</CardTitle>
             <CardDescription>
@@ -314,10 +314,10 @@ function AcceptInvitePageContent() {
           <CardContent className="text-center">
             <p className="text-sm text-muted-foreground mb-4">
               {inviteClient === 'mobile'
-                ? 'Opening the Baci app...'
-                : 'Redirecting you to the dashboard...'}
+                ? 'Opening the Baci app…'
+                : 'Redirecting you to the dashboard…'}
             </p>
-            <Loader2 className="h-5 w-5 animate-spin mx-auto text-primary" />
+            <Loader2 className="size-5 animate-spin mx-auto text-primary" />
           </CardContent>
         </Card>
       </div>
@@ -328,8 +328,8 @@ function AcceptInvitePageContent() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-            <Mail className="h-6 w-6 text-primary" />
+          <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-full bg-primary/10">
+            <Mail className="size-6 text-primary" />
           </div>
           <CardTitle>Team Invitation</CardTitle>
           <CardDescription>You've been invited to join a team</CardDescription>
@@ -338,14 +338,14 @@ function AcceptInvitePageContent() {
           {/* Invitation Details */}
           <div className="space-y-4">
             <div className="flex items-center gap-3 p-3 bg-muted rounded-lg">
-              <Building2 className="h-5 w-5 text-muted-foreground" />
+              <Building2 className="size-5 text-muted-foreground" />
               <div>
                 <p className="text-sm text-muted-foreground">Store</p>
                 <p className="font-medium">{invitation?.merchantName}</p>
               </div>
             </div>
             <div className="flex items-center gap-3 p-3 bg-muted rounded-lg">
-              <Shield className="h-5 w-5 text-muted-foreground" />
+              <Shield className="size-5 text-muted-foreground" />
               <div>
                 <p className="text-sm text-muted-foreground">Role</p>
                 <p className="font-medium">
@@ -354,7 +354,7 @@ function AcceptInvitePageContent() {
               </div>
             </div>
             <div className="flex items-center gap-3 p-3 bg-muted rounded-lg">
-              <Mail className="h-5 w-5 text-muted-foreground" />
+              <Mail className="size-5 text-muted-foreground" />
               <div>
                 <p className="text-sm text-muted-foreground">Invited Email</p>
                 <p className="font-medium">{invitation?.email}</p>
@@ -394,7 +394,7 @@ function AcceptInvitePageContent() {
                   href={`/login?redirect=${encodeURIComponent(postAuthRedirect)}&email=${encodeURIComponent(invitation?.email || '')}`}
                 >
                   <Button className="w-full">
-                    <LogIn className="mr-2 h-4 w-4" />
+                    <LogIn className="mr-2 size-4" />
                     Sign in with {invitation?.email}
                   </Button>
                 </Link>
@@ -406,12 +406,12 @@ function AcceptInvitePageContent() {
                 >
                   {accepting ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Accepting...
+                      <Loader2 className="mr-2 size-4 animate-spin" />
+                      Accepting…
                     </>
                   ) : (
                     <>
-                      <CheckCircle className="mr-2 h-4 w-4" />
+                      <CheckCircle className="mr-2 size-4" />
                       Accept Invitation
                     </>
                   )}
@@ -441,7 +441,7 @@ function AcceptInvitePageContent() {
                   href={`/login?redirect=${encodeURIComponent(postAuthRedirect)}&email=${encodeURIComponent(invitation?.email || '')}`}
                 >
                   <Button variant="outline" className="w-full">
-                    <LogIn className="mr-2 h-4 w-4" />
+                    <LogIn className="mr-2 size-4" />
                     Sign In
                   </Button>
                 </Link>

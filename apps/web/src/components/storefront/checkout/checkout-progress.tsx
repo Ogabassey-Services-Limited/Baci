@@ -58,7 +58,7 @@ export function CheckoutProgress({
                     )}
                   >
                     {isCompleted ? (
-                      <Check className="h-4 w-4" />
+                      <Check className="size-4" />
                     ) : (
                       <span
                         className={cn(

@@ -51,24 +51,12 @@ export function DefaultBlogUi({
 }: DefaultBlogUiProps) {
   return (
     <>
-      <script
-        type="application/ld+json"
-        /*
-          biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
-          nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
-        */
-        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(blogSchema) }}
-      />
-      <script
-        type="application/ld+json"
-        /*
-          biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
-          nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
-        */
-        dangerouslySetInnerHTML={{
-          __html: safeJsonLdStringify(breadcrumbSchema),
-        }}
-      />
+      <script type="application/ld+json">
+        {safeJsonLdStringify(blogSchema)}
+      </script>
+      <script type="application/ld+json">
+        {safeJsonLdStringify(breadcrumbSchema)}
+      </script>
       <div className="min-h-screen bg-background">
         <div className="bg-card border-b">
           <div className="container mx-auto px-4 py-8">
@@ -99,7 +87,7 @@ export function DefaultBlogUi({
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
               >
-                <Rss className="w-4 h-4" />
+                <Rss className="size-4" />
                 RSS Feed
               </a>
             </div>

@@ -154,9 +154,9 @@ export function FAQSettingsClient({
             disabled={isGenerating}
           >
             {isGenerating ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Loader2 className="mr-2 size-4 animate-spin" />
             ) : (
-              <Wand2 className="mr-2 h-4 w-4" />
+              <Wand2 className="mr-2 size-4" />
             )}
             {faqs.length > 0 ? 'Regenerate' : 'Generate'} with AI
           </ThemedButton>
@@ -165,9 +165,9 @@ export function FAQSettingsClient({
             disabled={isSaving || faqs.length === 0}
           >
             {isSaving ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Loader2 className="mr-2 size-4 animate-spin" />
             ) : (
-              <Save className="mr-2 h-4 w-4" />
+              <Save className="mr-2 size-4" />
             )}
             Save FAQs
           </ThemedButton>
@@ -176,7 +176,7 @@ export function FAQSettingsClient({
 
       {faqs.length === 0 ? (
         <ThemedCard className="p-8 text-center">
-          <RefreshCw className="mx-auto h-12 w-12 text-muted-foreground/50" />
+          <RefreshCw className="mx-auto size-12 text-muted-foreground/50" />
           <h3 className="mt-4 text-lg font-medium">No FAQs yet</h3>
           <p className="mt-2 text-muted-foreground">
             Generate FAQs with AI or add them manually to improve your
@@ -184,11 +184,11 @@ export function FAQSettingsClient({
           </p>
           <div className="mt-4 flex justify-center gap-2">
             <ThemedButton variant="outline" onClick={handleAddFAQ}>
-              <Plus className="mr-2 h-4 w-4" />
+              <Plus className="mr-2 size-4" />
               Add Manually
             </ThemedButton>
             <ThemedButton onClick={handleGenerate} disabled={isGenerating}>
-              <Wand2 className="mr-2 h-4 w-4" />
+              <Wand2 className="mr-2 size-4" />
               Generate with AI
             </ThemedButton>
           </div>
@@ -272,7 +272,7 @@ export function FAQSettingsClient({
                         // biome-ignore lint/style/noNonNullAssertion: ID guaranteed by context
                         onClick={() => handleDeleteFAQ(faq.id!)}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="size-4" />
                       </ThemedButton>
                     </div>
                   </div>
@@ -286,7 +286,7 @@ export function FAQSettingsClient({
             onClick={handleAddFAQ}
             className="w-full"
           >
-            <Plus className="mr-2 h-4 w-4" />
+            <Plus className="mr-2 size-4" />
             Add FAQ
           </ThemedButton>
         </div>

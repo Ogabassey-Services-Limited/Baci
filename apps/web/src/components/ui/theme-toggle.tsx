@@ -43,7 +43,7 @@ export function ThemeToggle() {
         <Button
           variant="ghost"
           size="icon"
-          className="h-11 w-11 min-w-[44px] min-h-[44px]"
+          className="size-11 min-w-[44px] min-h-[44px]"
           aria-label={
             mounted
               ? `Current theme: ${theme}. Click to change.`
@@ -53,9 +53,9 @@ export function ThemeToggle() {
         >
           <span className="transition-transform duration-200">
             {mounted && resolvedTheme === 'dark' ? (
-              <Moon className="h-5 w-5" />
+              <Moon className="size-5" />
             ) : (
-              <Sun className="h-5 w-5" />
+              <Sun className="size-5" />
             )}
           </span>
           <span className="sr-only">Toggle theme</span>
@@ -63,15 +63,15 @@ export function ThemeToggle() {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="glass">
         <DropdownMenuItem onClick={() => setTheme('light')}>
-          <Sun className="mr-2 h-4 w-4" />
+          <Sun className="mr-2 size-4" />
           <span>Light</span>
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => setTheme('dark')}>
-          <Moon className="mr-2 h-4 w-4" />
+          <Moon className="mr-2 size-4" />
           <span>Dark</span>
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => setTheme('system')}>
-          <Monitor className="mr-2 h-4 w-4" />
+          <Monitor className="mr-2 size-4" />
           <span>System</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
@@ -94,20 +94,20 @@ export function ThemeToggleSimple() {
   };
 
   const icon = !mounted ? (
-    <Sun className="h-5 w-5" />
+    <Sun className="size-5" />
   ) : theme === 'system' ? (
-    <Monitor className="h-5 w-5" />
+    <Monitor className="size-5" />
   ) : resolvedTheme === 'dark' ? (
-    <Moon className="h-5 w-5" />
+    <Moon className="size-5" />
   ) : (
-    <Sun className="h-5 w-5" />
+    <Sun className="size-5" />
   );
 
   return (
     <Button
       variant="ghost"
       size="icon"
-      className="h-11 w-11 min-w-[44px] min-h-[44px]"
+      className="size-11 min-w-[44px] min-h-[44px]"
       onClick={cycleTheme}
       aria-label={
         mounted ? `Current theme: ${theme}. Click to change.` : 'Toggle theme'

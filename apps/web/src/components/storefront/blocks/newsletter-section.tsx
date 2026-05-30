@@ -30,8 +30,8 @@ export function NewsletterSection({
       }}
     >
       {/* Decorative Circles */}
-      <div className="absolute top-0 left-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
-      <div className="absolute bottom-0 right-0 w-96 h-96 bg-white/5 rounded-full blur-3xl translate-x-1/3 translate-y-1/3" />
+      <div className="absolute top-0 left-0 size-64 bg-white/5 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
+      <div className="absolute bottom-0 right-0 size-96 bg-white/5 rounded-full blur-3xl translate-x-1/3 translate-y-1/3" />
 
       <div className="container mx-auto px-4 relative z-10">
         <div className="max-w-2xl mx-auto text-center">
@@ -55,7 +55,7 @@ export function NewsletterSection({
               size="lg"
               className="h-12 px-8 bg-white text-black hover:bg-white/90"
             >
-              {buttonText} <ArrowRight className="ml-2 w-4 h-4" />
+              {buttonText} <ArrowRight className="ml-2 size-4" />
             </Button>
           </form>
         </div>

@@ -69,8 +69,8 @@ export function LoyaltyEnrollmentForm({
       <Card className="border-green-200 bg-green-50">
         <CardContent className="pt-6">
           <div className="text-center">
-            <div className="inline-flex items-center justify-center w-12 h-12 bg-green-100 rounded-full mb-4">
-              <Check className="h-6 w-6 text-green-600" />
+            <div className="inline-flex items-center justify-center size-12 bg-green-100 rounded-full mb-4">
+              <Check className="size-6 text-green-600" />
             </div>
             <h3 className="text-lg font-semibold text-green-900 mb-2">
               Welcome to the Club!
@@ -109,7 +109,7 @@ export function LoyaltyEnrollmentForm({
     <Card className="overflow-hidden">
       <div className="bg-linear-to-r from-purple-600 to-pink-600 p-6 text-white">
         <div className="flex items-center gap-2 mb-2">
-          <Sparkles className="h-5 w-5" />
+          <Sparkles className="size-5" />
           <span className="font-semibold">Rewards Program</span>
         </div>
         <h3 className="text-xl font-bold mb-1">
@@ -129,7 +129,7 @@ export function LoyaltyEnrollmentForm({
               className="flex items-center gap-3"
             >
               <div className="p-1.5 bg-purple-100 rounded-full">
-                <benefit.icon className="h-4 w-4 text-purple-600" />
+                <benefit.icon className="size-4 text-purple-600" />
               </div>
               <span className="text-sm">{benefit.text}</span>
             </div>
