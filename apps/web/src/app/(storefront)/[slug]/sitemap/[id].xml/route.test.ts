@@ -6,6 +6,7 @@ const routeHeadersState = vi.hoisted(() => ({
 
 const mockResolveStorefrontSitemapContext = vi.fn();
 const mockGetNamedSitemapEntries = vi.fn();
+const mockGetRootSitemapEntries = vi.fn();
 const mockCreateSitemapResponse = vi.fn();
 
 vi.mock('next/headers', () => ({
@@ -17,6 +18,8 @@ vi.mock('../../sitemap-data', () => ({
     mockResolveStorefrontSitemapContext(...args),
   getNamedSitemapEntries: (...args: unknown[]) =>
     mockGetNamedSitemapEntries(...args),
+  getRootSitemapEntries: (...args: unknown[]) =>
+    mockGetRootSitemapEntries(...args),
   createSitemapResponse: (...args: unknown[]) =>
     mockCreateSitemapResponse(...args),
 }));
@@ -114,5 +117,28 @@ describe('GET /[slug]/sitemap/[id].xml', () => {
       { merchant: { id: 'm1' } },
       'products'
     );
+  });
+
+  it('returns the combined root storefront sitemap for root.xml rewrites', async () => {
+    mockResolveStorefrontSitemapContext.mockResolvedValue({
+      merchant: { id: 'm1' },
+    });
+    mockGetRootSitemapEntries.mockResolvedValue([
+      { url: 'https://ogabassey.com' },
+      { url: 'https://ogabassey.com/smartphones/iphone-17-pro' },
+    ]);
+
+    const { GET } = await import('./route');
+    const response = await GET(
+      new Request('https://ogabassey.com/ogabassey/sitemap/root.xml'),
+      { params: Promise.resolve({ slug: 'ogabassey', id: 'root.xml' }) }
+    );
+    const body = await response.text();
+
+    expect(mockGetRootSitemapEntries).toHaveBeenCalledWith({
+      merchant: { id: 'm1' },
+    });
+    expect(mockGetNamedSitemapEntries).not.toHaveBeenCalled();
+    expect(body).toContain('https://ogabassey.com/smartphones/iphone-17-pro');
   });
 });

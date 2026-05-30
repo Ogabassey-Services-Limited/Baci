@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { connection } from 'next/server';
 import { Suspense } from 'react';
+import { StorefrontDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker';
 import { ContentRouteLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 import {
@@ -48,12 +49,13 @@ export async function generateMetadata({
   };
 }
 
-export default async function ContactPage({ params }: PageProps) {
-  await connection();
-
+export default function ContactPage({ params }: PageProps) {
   return (
-    <Suspense fallback={<ContentRouteLoading />}>
-      <ContactPageContent params={params} />
-    </Suspense>
+    <>
+      <Suspense fallback={<ContentRouteLoading />}>
+        <ContactPageContent params={params} />
+      </Suspense>
+      <StorefrontDynamicMetadataMarker />
+    </>
   );
 }

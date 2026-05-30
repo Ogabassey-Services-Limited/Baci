@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { permanentRedirect } from 'next/navigation';
 import { connection } from 'next/server';
 import { Suspense } from 'react';
+import { StorefrontDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker';
 import { getBlogPostRedirect } from '@/lib/blog-post-redirects';
 import { getCachedBlogPost } from '@/lib/cached-data';
 import { asRoute } from '@/lib/routes';
@@ -109,8 +110,6 @@ export async function generateMetadata({
 }
 
 export default async function BlogPostPage({ params }: PageProps) {
-  await connection();
-
   const resolvedParams = await params;
   let redirectedPost: Awaited<ReturnType<typeof getBlogPostRedirect>> = null;
   try {
@@ -138,8 +137,11 @@ export default async function BlogPostPage({ params }: PageProps) {
   }
 
   return (
-    <Suspense fallback={<BlogPostPageFallback />}>
-      <BlogPostPageContent params={Promise.resolve(resolvedParams)} />
-    </Suspense>
+    <>
+      <Suspense fallback={<BlogPostPageFallback />}>
+        <BlogPostPageContent params={Promise.resolve(resolvedParams)} />
+      </Suspense>
+      <StorefrontDynamicMetadataMarker />
+    </>
   );
 }
