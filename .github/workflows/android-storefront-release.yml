@@ -153,6 +153,8 @@ jobs:
           EXPO_PUBLIC_WEB_API_URL: https://usebaci.com
           EXPO_PUBLIC_API_URL: https://usebaci.com
           EXPO_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY }}
+          STOREFRONT_FACEBOOK_APP_ID: ${{ secrets.STOREFRONT_FACEBOOK_APP_ID }}
+          STOREFRONT_FACEBOOK_CLIENT_TOKEN: ${{ secrets.STOREFRONT_FACEBOOK_CLIENT_TOKEN }}
         run: pnpm exec expo prebuild --platform android --clean
 
       - name: Fix splash screen resource reference
@@ -198,6 +200,8 @@ jobs:
           EXPO_PUBLIC_WEB_API_URL: https://usebaci.com
           EXPO_PUBLIC_API_URL: https://usebaci.com
           EXPO_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY }}
+          STOREFRONT_FACEBOOK_APP_ID: ${{ secrets.STOREFRONT_FACEBOOK_APP_ID }}
+          STOREFRONT_FACEBOOK_CLIENT_TOKEN: ${{ secrets.STOREFRONT_FACEBOOK_CLIENT_TOKEN }}
         run: |
           GRADLE_ARGS="app:bundleRelease -x lint -x lintVitalAnalyzeRelease -x test --configure-on-demand --build-cache --max-workers=2 --no-daemon"
           # shellcheck disable=SC2086
