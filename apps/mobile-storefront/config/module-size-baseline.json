@@ -10,7 +10,7 @@
   "modules": [
     {
       "path": "components/checkout/PaymentMethodSelector.tsx",
-      "lineCount": 955,
+      "lineCount": 949,
       "justification": "Existing oversized module baseline; shrink or remove this entry as modularization progresses."
     },
     {

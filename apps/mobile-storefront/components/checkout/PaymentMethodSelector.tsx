@@ -439,10 +439,7 @@ export function PaymentMethodSelector({
           <Pressable
             style={[
               styles.tab,
-              selectedTab === 'full' && [
-                styles.activeTab,
-                { backgroundColor: BRAND.primary },
-              ],
+              selectedTab === 'full' && { backgroundColor: BRAND.primary },
             ]}
             onPress={() => onSelectTab('full')}
             accessibilityRole="tab"
@@ -462,10 +459,9 @@ export function PaymentMethodSelector({
             <Pressable
               style={[
                 styles.tab,
-                selectedTab === 'installments' && [
-                  styles.activeTab,
-                  { backgroundColor: BRAND.primary },
-                ],
+                selectedTab === 'installments' && {
+                  backgroundColor: BRAND.primary,
+                },
               ]}
               onPress={() => onSelectTab('installments')}
               accessibilityRole="tab"
@@ -491,10 +487,9 @@ export function PaymentMethodSelector({
             <Pressable
               style={[
                 styles.tab,
-                selectedTab === 'pay_later' && [
-                  styles.activeTab,
-                  { backgroundColor: BRAND.primary },
-                ],
+                selectedTab === 'pay_later' && {
+                  backgroundColor: BRAND.primary,
+                },
               ]}
               onPress={() => onSelectTab('pay_later')}
               accessibilityRole="tab"
@@ -842,7 +837,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  activeTab: {},
   tabText: { fontSize: 14, fontWeight: '600', textAlign: 'center' },
   installmentInfo: {
     flexDirection: 'row',
