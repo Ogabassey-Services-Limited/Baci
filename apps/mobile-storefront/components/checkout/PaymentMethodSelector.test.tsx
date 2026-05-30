@@ -610,4 +610,32 @@ describe('PaymentMethodSelector', () => {
       expect(onWalletToggle).toHaveBeenCalledWith({ use: false, amount: 0 });
     });
   });
+
+  describe('Tab Selector layout alignment', () => {
+    it('enforces centered text alignment and horizontal padding on tab components to prevent layout overlap', () => {
+      render(
+        <PaymentMethodSelector
+          selectedMethod={'paystack' as PaymentMethodType}
+          onSelectMethod={() => {}}
+          selectedTab="full"
+          onSelectTab={() => {}}
+          orderTotal={120000}
+        />
+      );
+
+      const tabTextElement = screen.getByText('Full Payment');
+      const textStyles = Array.isArray(tabTextElement.props.style)
+        ? Object.assign({}, ...tabTextElement.props.style.filter(Boolean))
+        : tabTextElement.props.style;
+
+      expect(textStyles.textAlign).toBe('center');
+
+      const tabElement = screen.getByRole('tab', { name: 'Full payment' });
+      const tabStyles = Array.isArray(tabElement.props.style)
+        ? Object.assign({}, ...tabElement.props.style.filter(Boolean))
+        : tabElement.props.style;
+
+      expect(tabStyles.paddingHorizontal).toBeGreaterThanOrEqual(4);
+    });
+  });
 });

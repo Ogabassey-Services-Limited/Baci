@@ -836,16 +836,14 @@ const styles = StyleSheet.create({
   tab: {
     flex: 1,
     paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.xs,
     minHeight: 44,
     borderRadius: RADIUS.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
   activeTab: {},
-  tabText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
+  tabText: { fontSize: 14, fontWeight: '600', textAlign: 'center' },
   installmentInfo: {
     flexDirection: 'row',
     padding: SPACING.md,
