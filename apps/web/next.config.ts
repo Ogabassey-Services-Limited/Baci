@@ -1,11 +1,23 @@
 import path from 'node:path';
 import bundleAnalyzer from '@next/bundle-analyzer';
 import type { NextConfig } from 'next';
+import {
+  STOREFRONT_METADATA_BLOCKING_BOT_USER_AGENT_REGEX,
+  STOREFRONT_METADATA_CACHE_BUCKET_HEADER,
+} from './src/config/storefront-metadata-cache-bots';
 
 const withBundleAnalyzer = bundleAnalyzer({
   enabled: process.env.ANALYZE === 'true',
   openAnalyzer: false,
 });
+const HTML_DOCUMENT_ROUTE_SOURCE = '/((?!api|_next|.*\\..*).*)';
+const STOREFRONT_METADATA_VARY_HEADER_VALUE = [
+  STOREFRONT_METADATA_CACHE_BUCKET_HEADER,
+  'rsc',
+  'next-router-state-tree',
+  'next-router-prefetch',
+  'next-router-segment-prefetch',
+].join(', ');
 
 const nextConfig: NextConfig = {
   // Keep heavy server-only packages external to reduce function bundle size and peak memory.
@@ -31,6 +43,12 @@ const nextConfig: NextConfig = {
 
   // Enable 'use cache' directive for Dynamic IO (Next.js 16)
   cacheComponents: true,
+
+  // Keep Next's origin metadata mode synchronized with proxy.ts cache buckets.
+  // With PPR/cacheComponents, Next blocks streaming metadata for DOM bots such
+  // as Googlebot as well as HTML-limited bots; using the shared classifier
+  // avoids caching bot shells in the browser bucket.
+  htmlLimitedBots: STOREFRONT_METADATA_BLOCKING_BOT_USER_AGENT_REGEX,
 
   // Custom cache profiles for 'use cache' + cacheLife()
   cacheLife: {
@@ -433,6 +451,17 @@ const nextConfig: NextConfig = {
   // Security headers
   headers() {
     return [
+      {
+        source: HTML_DOCUMENT_ROUTE_SOURCE,
+        headers: [
+          {
+            key: 'Vary',
+            // This must be emitted by Next headers, not only proxy.ts:
+            // middleware-set Vary is not preserved on rewritten app responses.
+            value: STOREFRONT_METADATA_VARY_HEADER_VALUE,
+          },
+        ],
+      },
       {
         source: '/(.*)',
         has: [{ type: 'host', value: 'ogabassey.com' }],
