@@ -318,7 +318,7 @@ function ActivateButton({ templateId }: { templateId: string }) {
         <CheckCircle className="mr-2 size-4" />
       )}
       {isActivating
-        ? 'Activating...'
+        ? 'Activating…'
         : isAuthenticated
           ? 'Use This Template'
           : 'Login to Use Template'}
