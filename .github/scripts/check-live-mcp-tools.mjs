@@ -150,6 +150,18 @@ async function listTools(url) {
   );
 }
 
+function formatErrorCause(cause) {
+  if (cause instanceof Error) {
+    return cause.message;
+  }
+
+  try {
+    return JSON.stringify(cause) ?? String(cause);
+  } catch {
+    return String(cause);
+  }
+}
+
 async function fetchWithTimeout(url, init) {
   let lastError;
 
@@ -171,9 +183,7 @@ async function fetchWithTimeout(url, init) {
           error instanceof Error ? error.message : error
         }`,
         error && typeof error === 'object' && 'cause' in error && error.cause
-          ? `(Cause: ${
-              error.cause instanceof Error ? error.cause.message : JSON.stringify(error.cause)
-            })`
+          ? `(Cause: ${formatErrorCause(error.cause)})`
           : ''
       );
       if (attempt === FETCH_ATTEMPTS) {
