@@ -114,7 +114,9 @@ describe('generateReceiptHtml', () => {
     );
 
     const itemRow =
-      html.match(/<tr[\s\S]*Samsung Galaxy S22 Ultra[\s\S]*<\/tr>/)?.[0] ?? '';
+      (html.match(/<tr[\s\S]*?<\/tr>/g) ?? []).find((row) =>
+        row.includes('Samsung Galaxy S22 Ultra')
+      ) ?? '';
     expect(itemRow).toContain('IMEI: 222222222222222');
     expect(itemRow).toContain('S/N: ITEM-SERIAL');
     expect(itemRow).not.toContain('IMEI: 111111111111111');
