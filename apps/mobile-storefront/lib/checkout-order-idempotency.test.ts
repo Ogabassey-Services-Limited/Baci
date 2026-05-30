@@ -1,6 +1,9 @@
 import { jest } from '@jest/globals';
 import {
   buildMobileCheckoutFingerprint,
+  buildMobileCheckoutOrderFingerprint,
+  buildMobileCheckoutOrderItems,
+  calculateMobileCheckoutAssuranceFee,
   clearMobileCheckoutIdempotencyKey,
   getMobileCheckoutIdempotencyKey,
   type MobileCheckoutIdempotencyState,
@@ -107,6 +110,111 @@ describe('checkout-order-idempotency', () => {
     });
 
     expect(second).toBe(first);
+  });
+
+  it('builds order payload items with negotiated prices and assurance fees', () => {
+    const orderItems = buildMobileCheckoutOrderItems(
+      [
+        {
+          image_url: 'https://example.com/phone.jpg',
+          name: 'Phone',
+          negotiatedPrice: 90_000,
+          price: 100_000,
+          product_id: 'prod-phone',
+          quantity: 2,
+          variant_attributes: { Storage: '256GB' },
+          variant_id: 'variant-phone',
+          hasAssurance: true,
+          assuranceRate: 0.1,
+        },
+      ],
+      0.05
+    );
+
+    expect(orderItems).toEqual([
+      {
+        id: 'prod-phone',
+        product_id: 'prod-phone',
+        name: 'Phone',
+        quantity: 2,
+        price: 90_000,
+        image_url: 'https://example.com/phone.jpg',
+        variant_id: 'variant-phone',
+        variant_attributes: { Storage: '256GB' },
+        has_assurance: true,
+        assurance_fee: 18_000,
+      },
+    ]);
+  });
+
+  it('calculates assurance fees with the default and item-specific rates', () => {
+    expect(
+      calculateMobileCheckoutAssuranceFee([
+        {
+          name: 'Phone',
+          price: 100_000,
+          product_id: 'prod-phone',
+          quantity: 2,
+          hasAssurance: true,
+        },
+        {
+          name: 'Case',
+          negotiatedPrice: 5_000,
+          price: 8_000,
+          product_id: 'prod-case',
+          quantity: 1,
+          hasAssurance: true,
+          assuranceRate: 0.1,
+        },
+        {
+          name: 'Cable',
+          price: 2_000,
+          product_id: 'prod-cable',
+          quantity: 3,
+        },
+      ])
+    ).toBe(10_500);
+  });
+
+  it('builds the checkout fingerprint from order payload items', () => {
+    const orderItems = buildMobileCheckoutOrderItems(
+      [
+        {
+          name: 'Phone',
+          price: 1000,
+          product_id: 'prod-a',
+          quantity: 2,
+          variant_attributes: { Color: 'Blue', Storage: '128GB' },
+          variant_id: 'variant-a',
+          hasAssurance: true,
+          assuranceRate: 0.05,
+        },
+      ],
+      0.05
+    );
+
+    const fingerprint = buildMobileCheckoutOrderFingerprint({
+      ...baseInput,
+      items: orderItems,
+    });
+
+    expect(fingerprint).toBe(
+      buildMobileCheckoutFingerprint({
+        ...baseInput,
+        items: [
+          {
+            assuranceFee: 100,
+            hasAssurance: true,
+            id: 'prod-a',
+            price: 1000,
+            productId: 'prod-a',
+            quantity: 2,
+            variantAttributes: { Color: 'Blue', Storage: '128GB' },
+            variantId: 'variant-a',
+          },
+        ],
+      })
+    );
   });
 
   it('normalizes empty optional shipping fields consistently', () => {

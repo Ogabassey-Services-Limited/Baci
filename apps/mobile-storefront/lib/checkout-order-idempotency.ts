@@ -45,6 +45,32 @@ interface MobileCheckoutIdempotencyInput {
   walletAmount?: number | null;
 }
 
+export interface MobileCheckoutOrderItemInput {
+  image_url?: string;
+  name: string;
+  negotiatedPrice?: number;
+  price: number;
+  product_id: string;
+  quantity: number;
+  variant_attributes?: Record<string, string>;
+  variant_id?: string;
+  hasAssurance?: boolean;
+  assuranceRate?: number;
+}
+
+export interface MobileCheckoutOrderItemPayload {
+  id: string;
+  product_id: string;
+  name: string;
+  quantity: number;
+  price: number;
+  image_url?: string;
+  variant_id?: string;
+  variant_attributes?: Record<string, string>;
+  has_assurance: boolean;
+  assurance_fee: number;
+}
+
 function normalizeString(value: string | null | undefined) {
   return (value ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
 }
@@ -156,6 +182,75 @@ export function buildMobileCheckoutFingerprint(
     subtotal: normalizeNumber(input.subtotal),
     taxAmount: normalizeNumber(input.taxAmount),
     walletAmount: normalizeNumber(input.walletAmount),
+  });
+}
+
+export function buildMobileCheckoutOrderItems(
+  items: readonly MobileCheckoutOrderItemInput[],
+  defaultAssuranceRate = 0.05
+): MobileCheckoutOrderItemPayload[] {
+  return items.map((item) => {
+    const effectivePrice = item.negotiatedPrice ?? item.price;
+    return {
+      id: item.product_id,
+      product_id: item.product_id,
+      name: item.name,
+      quantity: item.quantity,
+      price: effectivePrice,
+      image_url: item.image_url,
+      variant_id: item.variant_id,
+      variant_attributes: item.variant_attributes,
+      has_assurance: item.hasAssurance || false,
+      assurance_fee: item.hasAssurance
+        ? Math.round(
+            effectivePrice *
+              item.quantity *
+              (item.assuranceRate ?? defaultAssuranceRate)
+          )
+        : 0,
+    };
+  });
+}
+
+export function calculateMobileCheckoutAssuranceFee(
+  items: readonly MobileCheckoutOrderItemInput[],
+  defaultAssuranceRate = 0.05
+) {
+  return items.reduce((sum, item) => {
+    if (!item.hasAssurance) {
+      return sum;
+    }
+
+    const effectivePrice = item.negotiatedPrice ?? item.price;
+    return (
+      sum +
+      Math.round(
+        effectivePrice *
+          item.quantity *
+          (item.assuranceRate ?? defaultAssuranceRate)
+      )
+    );
+  }, 0);
+}
+
+export function buildMobileCheckoutOrderFingerprint({
+  items,
+  ...input
+}: Omit<MobileCheckoutIdempotencyInput, 'items'> & {
+  items: readonly MobileCheckoutOrderItemPayload[];
+}) {
+  return buildMobileCheckoutFingerprint({
+    ...input,
+    items: items.map((item) => ({
+      assuranceFee: item.assurance_fee,
+      hasAssurance: item.has_assurance,
+      id: item.id,
+      price: item.price,
+      productId: item.product_id,
+      quantity: item.quantity,
+      variantAttributes: item.variant_attributes,
+      variantId: item.variant_id,
+    })),
   });
 }
 

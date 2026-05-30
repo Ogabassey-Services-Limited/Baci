@@ -92,7 +92,9 @@ import {
 import { resolveApiBaseUrl } from "@/lib/api-url";
 import { deriveCheckoutIdentity } from "@/lib/checkout-identity";
 import {
-  buildMobileCheckoutFingerprint,
+  buildMobileCheckoutOrderFingerprint,
+  buildMobileCheckoutOrderItems,
+  calculateMobileCheckoutAssuranceFee,
   clearMobileCheckoutIdempotencyKey,
   getMobileCheckoutIdempotencyKey,
   type MobileCheckoutIdempotencyState,
@@ -140,8 +142,6 @@ import { formatPrice, useCartStore } from "@/stores/cart-store";
 const shippingAddressResolver = zodResolver(
   ShippingAddressSchema as unknown as Parameters<typeof zodResolver>[0],
 ) as unknown as Resolver<ShippingAddressInput>;
-
-const DEFAULT_ASSURANCE_RATE = 0.05;
 
 interface PendingCryptoOrder {
   order: OrderResponse["order"];
@@ -982,19 +982,7 @@ export default function CheckoutScreen() {
   };
 
   // Calculate total assurance fee from cart items (2026 Best Practice: Single Source of Truth)
-  const assuranceFee = items.reduce((sum, item) => {
-    if (item.hasAssurance) {
-      return (
-        sum +
-        Math.round(
-          (item.negotiatedPrice ?? item.price) *
-            item.quantity *
-            (item.assuranceRate ?? DEFAULT_ASSURANCE_RATE),
-        )
-      );
-    }
-    return sum;
-  }, 0);
+  const assuranceFee = calculateMobileCheckoutAssuranceFee(items);
 
   useEffect(() => {
     const fetchTotals = async () => {
@@ -1360,20 +1348,8 @@ export default function CheckoutScreen() {
     // insured "full wallet" order would still owe the assurance fee to
     // the gateway, breaking the wallet-only bypass and forcing an extra
     // payment step.
-    const snapshotAssuranceFee = itemsSnapshot.reduce((sum, item) => {
-      if (!item.hasAssurance) {
-        return sum;
-      }
-      const effectivePrice = item.negotiatedPrice ?? item.price;
-      return (
-        sum +
-        Math.round(
-          effectivePrice *
-            item.quantity *
-            (item.assuranceRate ?? DEFAULT_ASSURANCE_RATE),
-        )
-      );
-    }, 0);
+    const snapshotAssuranceFee =
+      calculateMobileCheckoutAssuranceFee(itemsSnapshot);
     const snapshotTotal =
       snapshotSubtotal +
       snapshotDeliveryFee +
@@ -1463,27 +1439,7 @@ export default function CheckoutScreen() {
         selectedPayment === "credpal" ||
         selectedPayment === "credit_direct" ||
         selectedPayment === "klump";
-      const orderItemsPayload = itemsSnapshot.map((item) => {
-        const effectivePrice = item.negotiatedPrice ?? item.price;
-        return {
-          id: item.product_id,
-          product_id: item.product_id,
-          name: item.name,
-          quantity: item.quantity,
-          price: effectivePrice,
-          image_url: item.image_url,
-          variant_id: item.variant_id,
-          variant_attributes: item.variant_attributes,
-          has_assurance: item.hasAssurance || false,
-          assurance_fee: item.hasAssurance
-            ? Math.round(
-                effectivePrice *
-                  item.quantity *
-                  (item.assuranceRate ?? DEFAULT_ASSURANCE_RATE),
-              )
-            : 0,
-        };
-      });
+      const orderItemsPayload = buildMobileCheckoutOrderItems(itemsSnapshot);
       const selectedQuoteIdForOrder =
         deliveryMethod === "door" && selectedQuote?.id != null
           ? String(selectedQuote.id)
@@ -1512,31 +1468,15 @@ export default function CheckoutScreen() {
           return;
         }
 
-        const mobileCheckoutFingerprint = buildMobileCheckoutFingerprint({
+        const mobileCheckoutFingerprint = buildMobileCheckoutOrderFingerprint({
           customerEmail,
           customerName,
           customerPhone,
           deliveryMethod,
           discountAmount: 0,
-          items: orderItemsPayload.map((item) => ({
-            assuranceFee: item.assurance_fee,
-            hasAssurance: item.has_assurance,
-            id: item.id,
-            price: item.price,
-            productId: item.product_id,
-            quantity: item.quantity,
-            variantAttributes: item.variant_attributes,
-            variantId: item.variant_id,
-          })),
+          items: orderItemsPayload,
           selectedQuoteId: selectedQuoteIdForOrder,
-          shippingAddress: {
-            address: orderShippingAddress.address,
-            city: orderShippingAddress.city,
-            firstName: orderShippingAddress.firstName,
-            lastName: orderShippingAddress.lastName,
-            notes: orderShippingAddress.notes,
-            state: orderShippingAddress.state,
-          },
+          shippingAddress: orderShippingAddress,
           shippingFee: snapshotDeliveryFee,
           shippingProvider: shippingProviderForOrder,
           subtotal: snapshotSubtotal,
