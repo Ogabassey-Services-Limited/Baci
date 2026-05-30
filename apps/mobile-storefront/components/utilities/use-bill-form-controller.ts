@@ -4,15 +4,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SPACING } from '@/constants/Colors';
 import { useKeyboard } from '@/hooks/use-keyboard';
 import { useUtilityPayment } from '@/hooks/use-utility-payment';
-import type { Biller, BillItem } from '@/hooks/use-vtu-billers';
 import { useVTUBillers } from '@/hooks/use-vtu-billers';
 import { useVTUVerify } from '@/hooks/use-vtu-verify';
-import {
-  filterBeneficiaries,
-  getBeneficiaries,
-  saveBeneficiary,
-  type UtilityBeneficiary,
-} from '@/lib/utility-beneficiaries';
+import type { UtilityBeneficiary } from '@/lib/utility-beneficiaries';
 import { useAuthStore } from '@/stores/auth-store';
 import {
   BILL_FORM_FOOTER_ERROR_BUFFER,
@@ -21,20 +15,17 @@ import {
   IDENTIFIER_LABELS,
 } from './bill-form.constants';
 import {
-  getAmountForLeaf,
-  getInitialAmountForSelection,
   parseUtilityAmount,
 } from './bill-form.helpers';
 import type { BillFormProps } from './bill-form.types';
 import type { BillFormController } from './bill-form-controller.types';
-import { findInitialBillerMatch } from './bill-item-matching';
-import {
-  getResolvedBillItemCodes,
-  resolveBillItemSelection,
-  updateBillItemSelection,
-} from './bill-item-selection';
 import { createBillFormPurchaseHandler } from './create-bill-form-purchase-handler';
 import { getUtilityFooterOffset } from './get-utility-footer-offset';
+import {
+  type BillFormBeneficiarySaveRequest,
+  useBillFormBeneficiaries,
+} from './use-bill-form-beneficiaries';
+import { useBillFormSelection } from './use-bill-form-selection';
 import { useNextStepScroll } from './use-next-step-scroll';
 import { formatUtilityAmountInput } from './utility-amount-format';
 
@@ -56,16 +47,10 @@ export function useBillFormController({
   const billersQuery = useVTUBillers(billType);
   const verify = useVTUVerify();
   const customer = useAuthStore((state) => state.customer);
-  const [selectedBiller, setSelectedBiller] = useState<Biller | null>(null);
-  const [selectedBillItemCodes, setSelectedBillItemCodes] = useState<string[]>(
-    []
-  );
   const [customerId, setCustomerId] = useState(initialCustomerIdentifier ?? '');
   const [amount, setAmount] = useState(initialAmount ?? '');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isSubmittingRef = useRef(false);
-  const [isProviderPickerExpanded, setIsProviderPickerExpanded] =
-    useState(true);
   const [isRepeatPaymentActive, setIsRepeatPaymentActive] = useState(false);
   const [verifiedCustomerName, setVerifiedCustomerName] = useState<
     string | null
@@ -73,31 +58,56 @@ export function useBillFormController({
   const [shouldScrollToNextStep, setShouldScrollToNextStep] = useState(false);
   const [shouldScrollToPayment, setShouldScrollToPayment] = useState(false);
   const pendingVerificationKeyRef = useRef<string | null>(null);
-  const hasInitializedRef = useRef(false);
   const [verifiedSelectionKey, setVerifiedSelectionKey] = useState<
     string | null
   >(null);
-  const [allBeneficiaries, setAllBeneficiaries] = useState<
-    UtilityBeneficiary[]
-  >([]);
+  const [beneficiarySaveRequest, setBeneficiarySaveRequest] =
+    useState<BillFormBeneficiarySaveRequest | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const scheduleNextStepScroll = useNextStepScroll(scrollViewRef, () => {
     setShouldScrollToNextStep(false);
   });
-  const billItemSelection = resolveBillItemSelection(
-    selectedBiller?.billItems,
-    selectedBillItemCodes
-  );
-  const selectedBillItem = billItemSelection.leaf;
-  const selectedBillItemPathLabel = billItemSelection.selectedPath
-    .map((item) => item.itemName)
-    .join(' / ');
-  const requiresBillItemSelection = billItemSelection.levels.length > 0;
-  const isBillItemSelectionComplete =
-    !requiresBillItemSelection || billItemSelection.isComplete;
-  const selectedBillItemIdentifier = requiresBillItemSelection
-    ? (selectedBillItem?.itemCode ?? null)
-    : (selectedBiller?.billerId ?? null);
+  const resetVerification = () => {
+    pendingVerificationKeyRef.current = null;
+    setVerifiedSelectionKey(null);
+    if (!verify.isPending) {
+      verify.reset();
+    }
+  };
+  const deactivateRepeatPayment = () => {
+    setIsRepeatPaymentActive(false);
+    setVerifiedCustomerName(null);
+  };
+  const {
+    billItemSelection,
+    handleBillItemSelect,
+    handleBillerSelect,
+    isBillItemSelectionComplete,
+    isProviderPickerExpanded,
+    requiresBillItemSelection,
+    selectedBiller,
+    selectedBillItem,
+    selectedBillItemIdentifier,
+    selectedBillItemPathLabel,
+    setProviderPickerExpanded,
+  } = useBillFormSelection({
+    billers: billersQuery.data,
+    initialAmount,
+    initialBillerName,
+    initialBillItemIdentifier,
+    initialCustomerIdentifier,
+    isRepeatPaymentReady,
+    onInitialRepeatPaymentReady: () => {
+      setIsRepeatPaymentActive(true);
+      setShouldScrollToPayment(true);
+    },
+    onSelectionChanged: () => {
+      setShouldScrollToNextStep(true);
+      deactivateRepeatPayment();
+      resetVerification();
+    },
+    setAmount,
+  });
   const numericAmount = parseUtilityAmount(amount);
   const payment = useUtilityPayment(numericAmount);
   const normalizedCustomerId = customerId.trim();
@@ -108,36 +118,13 @@ export function useBillFormController({
     isRepeatPaymentActive || verifiedSelectionKey === currentVerificationKey
   );
 
-  const beneficiaries =
-    selectedBiller && selectedBillItemIdentifier
-      ? filterBeneficiaries(
-          allBeneficiaries,
-          selectedBiller.billerId,
-          selectedBillItemIdentifier
-        )
-      : [];
-
-  // Load beneficiaries on mount and reload when biller/item or signed-in
-  // customer changes. Beneficiaries are scoped to the authenticated customer
-  // so they don't leak across users on the same device.
-  // The cleanup flag ignores stale resolutions when the auth user changes
-  // (e.g. logout/login) while a pending getBeneficiaries promise is in
-  // flight, so the previous user's results never overwrite the new
-  // user's state.
   const authenticatedCustomerId = customer?.id ?? null;
-  useEffect(() => {
-    let cancelled = false;
-    getBeneficiaries(authenticatedCustomerId)
-      .then((result) => {
-        if (!cancelled) {
-          setAllBeneficiaries(result);
-        }
-      })
-      .catch((err) => console.error('getBeneficiaries failed', err));
-    return () => {
-      cancelled = true;
-    };
-  }, [authenticatedCustomerId]);
+  const beneficiaries = useBillFormBeneficiaries({
+    authenticatedCustomerId,
+    saveRequest: beneficiarySaveRequest,
+    selectedBiller,
+    selectedBillItemIdentifier,
+  });
 
   useEffect(() => {
     if (!(verify.data?.verified && pendingVerificationKeyRef.current)) {
@@ -145,42 +132,24 @@ export function useBillFormController({
     }
     setVerifiedSelectionKey(pendingVerificationKeyRef.current);
     pendingVerificationKeyRef.current = null;
-    setVerifiedCustomerName(verify.data.customerName?.trim() || null);
+    const customerName = verify.data.customerName?.trim() || null;
+    setVerifiedCustomerName(customerName);
 
-    // Persist the verified beneficiary for future sessions.
-    const customerName = verify.data?.customerName;
     const biller = selectedBiller;
     const billItemId = selectedBillItemIdentifier;
     const normalizedCustomerId = customerId.trim();
     if (!(biller && billItemId && customerName)) {
+      setBeneficiarySaveRequest(null);
       return;
     }
-    // Capture the auth user at request start so a logout/login mid-flight
-    // doesn't reseed state with the prior user's beneficiaries.
-    const requestUserId = authenticatedCustomerId;
-    let cancelled = false;
-    saveBeneficiary(requestUserId, {
+    setBeneficiarySaveRequest({
+      authenticatedCustomerId,
       billerId: biller.billerId,
       billerName: biller.billerName,
       billItemIdentifier: billItemId,
       customerId: normalizedCustomerId,
       customerName,
-    })
-      .then(() => getBeneficiaries(requestUserId))
-      .then((result) => {
-        if (!cancelled && requestUserId === authenticatedCustomerId) {
-          setAllBeneficiaries(result);
-        }
-      })
-      .catch((err) =>
-        console.error(
-          'utility-beneficiaries: post-verification save failed',
-          err
-        )
-      );
-    return () => {
-      cancelled = true;
-    };
+    });
   }, [
     verify.data?.verified,
     verify.data?.customerName,
@@ -189,90 +158,6 @@ export function useBillFormController({
     customerId,
     authenticatedCustomerId,
   ]);
-
-  useEffect(() => {
-    if (hasInitializedRef.current || !billersQuery.data?.length) {
-      return;
-    }
-    const match = findInitialBillerMatch({
-      billers: billersQuery.data,
-      initialBillerName,
-      initialBillItemIdentifier,
-    });
-    if (!match) {
-      return;
-    }
-    const nextSelection = resolveBillItemSelection(
-      match.biller.billItems,
-      match.codes
-    );
-    setSelectedBiller(match.biller);
-    hasInitializedRef.current = true;
-    if (!match.resolvedToSpecificBillItem || !nextSelection.isComplete) {
-      return;
-    }
-
-    setSelectedBillItemCodes(match.codes);
-    setIsProviderPickerExpanded(false);
-    setAmount(getInitialAmountForSelection(nextSelection.leaf, initialAmount));
-    if (isRepeatPaymentReady && initialCustomerIdentifier) {
-      setIsRepeatPaymentActive(true);
-      setShouldScrollToPayment(true);
-    }
-  }, [
-    billersQuery.data,
-    initialAmount,
-    initialBillerName,
-    initialBillItemIdentifier,
-    initialCustomerIdentifier,
-    isRepeatPaymentReady,
-  ]);
-
-  const resetVerification = () => {
-    pendingVerificationKeyRef.current = null;
-    setVerifiedSelectionKey(null);
-    if (!verify.isPending) {
-      verify.reset();
-    }
-  };
-
-  const deactivateRepeatPayment = () => {
-    setIsRepeatPaymentActive(false);
-    setVerifiedCustomerName(null);
-  };
-
-  const handleBillerSelect = (biller: Biller) => {
-    const nextCodes = getResolvedBillItemCodes(biller.billItems);
-    const nextSelection = resolveBillItemSelection(biller.billItems, nextCodes);
-    setSelectedBiller(biller);
-    setSelectedBillItemCodes(nextCodes);
-    setIsProviderPickerExpanded(false);
-    setShouldScrollToNextStep(true);
-    deactivateRepeatPayment();
-    setAmount(getAmountForLeaf(nextSelection.leaf));
-    resetVerification();
-  };
-
-  const handleBillItemSelect = (depth: number, billItem: BillItem) => {
-    if (!selectedBiller) {
-      return;
-    }
-    const nextCodes = updateBillItemSelection(
-      selectedBiller.billItems,
-      selectedBillItemCodes,
-      depth,
-      billItem.itemCode
-    );
-    const nextSelection = resolveBillItemSelection(
-      selectedBiller.billItems,
-      nextCodes
-    );
-    setSelectedBillItemCodes(nextCodes);
-    deactivateRepeatPayment();
-    setAmount(getAmountForLeaf(nextSelection.leaf));
-    setShouldScrollToNextStep(true);
-    resetVerification();
-  };
 
   const handleVerify = () => {
     dismissKeyboard();
@@ -379,7 +264,7 @@ export function useBillFormController({
     scrollViewRef,
     selectedBiller,
     selectedBillItemIdentifier,
-    setProviderPickerExpanded: setIsProviderPickerExpanded,
+    setProviderPickerExpanded,
     setRepeatPaymentActive: (isActive: boolean) => {
       if (!isActive) {
         deactivateRepeatPayment();

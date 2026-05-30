@@ -3,62 +3,22 @@ import { Alert, Platform } from 'react-native';
 import type { ImpactFeedbackStyle } from 'expo-haptics';
 import type { NegotiationStatus } from './NegotiationModalView';
 import { NEGOTIATION_CHEAPER_BUTTON_THRESHOLD } from './negotiation.constants';
+import {
+  createNegotiationSessionId,
+  extractNegotiationFileExtension,
+  isRemoteEvidenceUrl,
+  NEGOTIATION_EVIDENCE_BUCKET,
+} from './negotiation-evidence';
+import {
+  ensureNegotiationNativeModules,
+  getNegotiationHapticsModule,
+  getNegotiationImagePickerModule,
+} from './negotiation-native-modules';
 import { createLogger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 
 const log = createLogger('NegotiationModal');
-const NEGOTIATION_EVIDENCE_BUCKET = 'negotiation-evidence';
-
-type NativeImagePicker = typeof import('expo-image-picker');
-type NativeHaptics = typeof import('expo-haptics');
-
-let imagePickerModule: NativeImagePicker | null = null;
-let hapticsModule: NativeHaptics | null = null;
-let nativeModulesPromise: Promise<void> | null = null;
-
-const ensureNativeModules = () => {
-  if (Platform.OS === 'web') {
-    return Promise.resolve();
-  }
-
-  if (nativeModulesPromise) {
-    return nativeModulesPromise;
-  }
-
-  nativeModulesPromise = Promise.all([
-    import('expo-image-picker'),
-    import('expo-haptics'),
-  ])
-    .then(([imagePicker, haptics]) => {
-      imagePickerModule = imagePicker;
-      hapticsModule = haptics;
-    })
-    .catch((error) => {
-      console.debug(
-        '[NegotiationModal] Native modules ignored or failed to load:',
-        error
-      );
-    });
-
-  return nativeModulesPromise;
-};
-
-void ensureNativeModules();
-
-const createSessionId = () =>
-  `mobile-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`}`;
-
-const isRemoteEvidenceUrl = (value: string) => /^https?:\/\//i.test(value);
-
-const extractFileExtension = (uri: string, contentType: string) => {
-  const fromContentType = contentType.split('/')[1]?.split(';')[0];
-  if (fromContentType) {
-    return fromContentType;
-  }
-
-  const uriMatch = uri.match(/\.([a-zA-Z0-9]+)(?:\?|$)/);
-  return uriMatch?.[1] ?? 'jpg';
-};
+void ensureNegotiationNativeModules();
 
 interface NegotiationItemInfo {
   currentPrice: number;
@@ -108,6 +68,7 @@ export function useNegotiationModalController({
   }, [visible]);
 
   const triggerHaptic = (style?: ImpactFeedbackStyle) => {
+    const hapticsModule = getNegotiationHapticsModule();
     if (Platform.OS !== 'ios' || !hapticsModule) {
       return;
     }
@@ -119,7 +80,7 @@ export function useNegotiationModalController({
 
   const handleSubmitOffer = (offerAmount: number) => {
     setStatus('processing');
-    triggerHaptic(hapticsModule?.ImpactFeedbackStyle?.Medium);
+    triggerHaptic(getNegotiationHapticsModule()?.ImpactFeedbackStyle?.Medium);
 
     setTimeout(() => {
       const discountPercentage = 1 - offerAmount / currentPrice;
@@ -128,7 +89,7 @@ export function useNegotiationModalController({
         setStatus('success');
         setOffer(offerAmount.toString());
         setMessage(successMessageFormatter(offerAmount));
-        triggerHaptic(hapticsModule?.ImpactFeedbackStyle?.Heavy);
+        triggerHaptic(getNegotiationHapticsModule()?.ImpactFeedbackStyle?.Heavy);
         onAcceptedPrice?.(offerAmount);
         return;
       }
@@ -159,7 +120,7 @@ export function useNegotiationModalController({
         setCounterOffer(proposedCounter);
         setMessage(replyMessage);
         setAttemptCount((previous) => previous + 1);
-        triggerHaptic(hapticsModule?.ImpactFeedbackStyle?.Medium);
+        triggerHaptic(getNegotiationHapticsModule()?.ImpactFeedbackStyle?.Medium);
       }
     }, 1500);
   };
@@ -172,7 +133,7 @@ export function useNegotiationModalController({
     setStatus('success');
     setOffer(counterOffer.toString());
     setMessage(successMessageFormatter(counterOffer));
-    triggerHaptic(hapticsModule?.ImpactFeedbackStyle?.Heavy);
+    triggerHaptic(getNegotiationHapticsModule()?.ImpactFeedbackStyle?.Heavy);
     onAcceptedPrice?.(counterOffer);
   };
 
@@ -191,7 +152,7 @@ export function useNegotiationModalController({
     }
 
     const blob = await response.blob();
-    const extension = extractFileExtension(fileUri, blob.type);
+    const extension = extractNegotiationFileExtension(fileUri, blob.type);
     const filePath = `${merchantId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${extension}`;
     const body = await blob.arrayBuffer();
 
@@ -230,7 +191,7 @@ export function useNegotiationModalController({
 
       const { error } = await supabase.from('negotiation_requests').insert({
         merchant_id: merchantId,
-        session_id: createSessionId(),
+        session_id: createNegotiationSessionId(),
         customer_id: user?.id ?? null,
         type,
         item_info:
@@ -254,7 +215,7 @@ export function useNegotiationModalController({
       setMessage(
         "Request submitted! We'll notify you as soon as the merchant reviews your offer."
       );
-      triggerHaptic(hapticsModule?.ImpactFeedbackStyle?.Heavy);
+      triggerHaptic(getNegotiationHapticsModule()?.ImpactFeedbackStyle?.Heavy);
     } catch (error) {
       log.error('Failed to submit request:', error);
       Alert.alert('Error', 'Failed to submit request. Please try again.');
@@ -286,8 +247,9 @@ export function useNegotiationModalController({
   };
 
   const pickImage = async () => {
-    await ensureNativeModules();
+    await ensureNegotiationNativeModules();
 
+    const imagePickerModule = getNegotiationImagePickerModule();
     if (!imagePickerModule) {
       Alert.alert(
         'Not Supported',

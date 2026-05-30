@@ -13,8 +13,16 @@
       "justification": "Reviewed CSS box-shadow disabling on web while preserving the native no-shadow tab-bar override."
     },
     {
-      "path": "app/checkout.tsx",
+      "path": "components/checkout/CheckoutScreenView.tsx",
       "justification": "Reviewed Android hardware-back handling, list virtualization, and monospace font selection."
+    },
+    {
+      "path": "components/checkout/CheckoutScreenView.styles.ts",
+      "justification": "Reviewed platform-specific monospace font selection for the crypto payment address."
+    },
+    {
+      "path": "components/checkout/use-checkout-navigation.ts",
+      "justification": "Reviewed Android hardware-back handling extracted from the checkout screen."
     },
     {
       "path": "app/imei-check/index.tsx",
@@ -161,8 +169,8 @@
       "justification": "Reviewed CSS box-shadow selection on web while preserving native snowflake styling."
     },
     {
-      "path": "hooks/use-cart.ts",
-      "justification": "Reviewed Android-specific cart notification behavior."
+      "path": "hooks/cart-notifications.ts",
+      "justification": "Reviewed Android-specific cart notification behavior extracted from the cart hook."
     },
     {
       "path": "hooks/use-haptics.ts",
@@ -197,8 +205,8 @@
       "justification": "Reviewed iOS-only ATT dynamic import guard so web and Android do not evaluate the native tracking module."
     },
     {
-      "path": "services/ad-tracking.ts",
-      "justification": "Reviewed web guard and iOS attribution API handling."
+      "path": "services/ad-tracking-runtime.ts",
+      "justification": "Reviewed centralized web guard and iOS attribution API handling for ad tracking."
     },
     {
       "path": "services/ad-tracking-native-modules.ts",

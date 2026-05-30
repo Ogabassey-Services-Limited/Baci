@@ -20,7 +20,7 @@ const SHELL_DELEGATE_MODULES = new Map<
     'wallet/index.tsx',
     {
       modulePath: '../components/wallet/WalletScreenView.tsx',
-      routeJsxPattern: /<WalletScreenView(?=[\s/>])/,
+      routeJsxPattern: /<WalletScreen(?=[\s/>])/,
     },
   ],
 ]);

@@ -1,0 +1,165 @@
+import type { User } from '@supabase/supabase-js';
+import { useEffect, useRef, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import type { ScrollView } from 'react-native';
+import { deriveCheckoutIdentity } from '@/lib/checkout-identity';
+import type { ShippingAddressInput } from '@/lib/validation';
+import { trackCheckoutRouteStarted } from '@/services/tiktok-checkout-route-tracking';
+import type { Customer } from '@/stores/auth-store';
+import type { CartItem } from '@/stores/cart-store';
+import {
+  CHECKOUT_API_BASE_URL,
+  CHECKOUT_MERCHANT_ID,
+  shippingAddressResolver,
+} from './checkout-screen.constants';
+import { useCheckoutSavedAddresses } from './use-checkout-saved-addresses';
+import { useCheckoutShipping } from './use-checkout-shipping';
+
+interface UseCheckoutAddressStateParams {
+  customer: Customer | null;
+  isAuthenticated: boolean;
+  items: CartItem[];
+  subtotal: number;
+  user: User | null;
+}
+
+export function useCheckoutAddressState({
+  customer,
+  isAuthenticated,
+  items,
+  subtotal,
+  user,
+}: UseCheckoutAddressStateParams) {
+  const addressScrollRef = useRef<ScrollView>(null);
+  const addressScrollOffsetRef = useRef(0);
+  const hasTrackedStart = useRef(false);
+  const [saveDetails, setSaveDetails] = useState(false);
+  const [accountPassword, setAccountPassword] = useState('');
+  const checkoutIdentity = deriveCheckoutIdentity({ customer, user });
+  const checkoutEmail = checkoutIdentity.email;
+  const checkoutFirstName = checkoutIdentity.firstName;
+  const checkoutLastName = checkoutIdentity.lastName;
+  const checkoutPhone = checkoutIdentity.phone;
+
+  const form = useForm<ShippingAddressInput>({
+    resolver: shippingAddressResolver,
+    defaultValues: {
+      email: checkoutEmail,
+      firstName: checkoutFirstName,
+      lastName: checkoutLastName,
+      phone: checkoutPhone,
+      address: '',
+      city: '',
+      state: '',
+      notes: '',
+    },
+    mode: 'onBlur',
+  });
+  const {
+    getValues,
+    reset,
+    setValue,
+    watch,
+  } = form;
+  const watchedState = watch('state');
+  const watchedCity = watch('city');
+  const watchedAddress = watch('address');
+  const watchedPhone = watch('phone');
+  const watchedFirstName = watch('firstName');
+  const watchedLastName = watch('lastName');
+  const watchedEmail = watch('email');
+
+  const shipping = useCheckoutShipping({
+    apiBaseUrl: CHECKOUT_API_BASE_URL,
+    customer,
+    items,
+    setValue,
+    watchedAddress,
+    watchedCity,
+    watchedEmail,
+    watchedFirstName,
+    watchedLastName,
+    watchedPhone,
+    watchedState,
+  });
+  const hasContactIdentity = Boolean(
+    checkoutEmail && checkoutFirstName && checkoutLastName && checkoutPhone
+  );
+  const savedAddresses = useCheckoutSavedAddresses({
+    customerId: customer?.id,
+    hasInitialContactIdentity: hasContactIdentity,
+    isAuthenticated,
+    merchantId: CHECKOUT_MERCHANT_ID,
+    setCommittedAddress: shipping.setCommittedAddress,
+    setValue,
+  });
+
+  useEffect(() => {
+    if (!hasTrackedStart.current && items.length > 0) {
+      void trackCheckoutRouteStarted({ items, subtotal }).catch(() => {
+        // Checkout analytics must not interrupt checkout entry.
+      });
+      hasTrackedStart.current = true;
+    }
+  }, [items, subtotal]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    reset(
+      {
+        email: checkoutEmail,
+        firstName: checkoutFirstName,
+        lastName: checkoutLastName,
+        phone: checkoutPhone,
+        address: getValues('address'),
+        city: getValues('city'),
+        state: getValues('state'),
+        notes: getValues('notes'),
+      },
+      { keepDirtyValues: true }
+    );
+  }, [
+    checkoutEmail,
+    checkoutFirstName,
+    checkoutLastName,
+    checkoutPhone,
+    getValues,
+    isAuthenticated,
+    reset,
+  ]);
+
+  const currentContactSummary = `${watchedFirstName} ${watchedLastName}`.trim();
+  const currentDeliverySummary = [watchedAddress, watchedCity, watchedState]
+    .filter(Boolean)
+    .join(', ');
+  const openNewAddressEditor = () => {
+    if (savedAddresses.selectedSavedAddressId) {
+      setValue('address', '', { shouldValidate: false });
+      setValue('city', '', { shouldValidate: false });
+      setValue('state', '', { shouldValidate: false });
+    }
+    savedAddresses.openNewAddressEditor();
+  };
+
+  return {
+    accountPassword,
+    addressScrollOffsetRef,
+    addressScrollRef,
+    currentContactSummary,
+    currentDeliverySummary,
+    form,
+    hasContactIdentity,
+    openNewAddressEditor,
+    saveDetails,
+    savedAddresses,
+    setAccountPassword,
+    setSaveDetails,
+    shipping,
+    watchedCity,
+    watchedEmail,
+    watchedPhone,
+    watchedState,
+  };
+}
+
+export type CheckoutAddressState = ReturnType<typeof useCheckoutAddressState>;

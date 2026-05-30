@@ -1,13 +1,3 @@
-/**
- * CheckoutIdentityModal Styles
- * Centralized styles for checkout identity components
- *
- * 2026 Best Practices:
- * - Extracted styles for maintainability
- * - Consistent design tokens usage
- * - Reusable style patterns
- */
-
 import { StyleSheet } from 'react-native';
 import { BRAND, palette, RADIUS, SHADOWS, SPACING } from '@/constants/Colors';
 
@@ -17,7 +7,6 @@ export const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'flex-end',
   },
-
   // Backdrop
   backdrop: {
     ...StyleSheet.absoluteFill,
@@ -26,7 +15,6 @@ export const styles = StyleSheet.create({
   backdropPressable: {
     flex: 1,
   },
-
   // Bottom Sheet
   sheet: {
     backgroundColor: '#FFF',
@@ -45,7 +33,6 @@ export const styles = StyleSheet.create({
     backgroundColor: palette.gray[300],
     borderRadius: 2,
   },
-
   // Header
   header: {
     flexDirection: 'row',
@@ -70,7 +57,6 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: palette.gray[100],
   },
-
   // Tabs
   tabContainer: {
     flexDirection: 'row',
@@ -99,13 +85,11 @@ export const styles = StyleSheet.create({
   tabTextActive: {
     color: BRAND.primary,
   },
-
   // Content
   content: {
     padding: SPACING.lg,
     gap: SPACING.md, // Reduced from lg (24) to md (16) for more compact forms
   },
-
   // Option Cards
   optionCard: {
     padding: 20,
@@ -143,7 +127,6 @@ export const styles = StyleSheet.create({
     textAlign: 'center',
     color: palette.gray[600],
   },
-
   // Buttons
   primaryButton: {
     height: 54,
@@ -182,7 +165,6 @@ export const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#DC2626',
   },
-
   // Social Buttons
   socialButton: {
     height: 54,
@@ -204,7 +186,6 @@ export const styles = StyleSheet.create({
     fontWeight: '600',
     color: palette.gray[900],
   },
-
   // Divider
   divider: {
     flexDirection: 'row',
@@ -223,7 +204,6 @@ export const styles = StyleSheet.create({
     color: palette.gray[400],
     textTransform: 'uppercase',
   },
-
   // Error
   errorContainer: {
     flexDirection: 'row',
@@ -241,7 +221,6 @@ export const styles = StyleSheet.create({
     fontWeight: '500',
     color: BRAND.primary,
   },
-
   // Form Inputs
   inputGroup: {
     gap: 6,
@@ -294,7 +273,6 @@ export const styles = StyleSheet.create({
     fontWeight: '600',
     color: palette.gray[500],
   },
-
   // Footer
   footer: {
     flexDirection: 'row',
@@ -313,13 +291,3 @@ export const styles = StyleSheet.create({
     fontWeight: '500',
   },
 });
-
-// Export color constants for component use
-export const colors = {
-  primary: '#DC2626',
-  primaryDark: '#B91C1C',
-  amber: '#F59E0B',
-  white: '#FFF',
-  gray500: palette.gray[500],
-  gray400: palette.gray[400],
-} as const;

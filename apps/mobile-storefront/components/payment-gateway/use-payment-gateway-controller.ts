@@ -1,67 +1,32 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { type Href, router, useLocalSearchParams } from 'expo-router';
-import { type ComponentProps, useEffect, useRef, useState } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
 import { Alert } from 'react-native';
-import type { WebView, WebViewNavigation } from 'react-native-webview';
+import type { WebView } from 'react-native-webview';
 import { useToast } from '@/components/ui/Toast';
 import { setClipboardString } from '@/lib/clipboard';
-import {
-  SavingsAuthorizationStillProcessingError,
-  waitForSavingsAuthorizationConfirmation,
-} from '@/lib/customer-savings';
-import {
-  type WalletTopUpGateway,
-  WalletTopUpStillProcessingError,
-  waitForWalletTopUpConfirmation,
-} from '@/lib/wallet-top-up';
-import { PaymentGatewayParamsSchema } from '@/schemas/payment-gateway';
 import { useCartStore } from '@/stores/cart-store';
 import { createPaymentGatewayMessageHandler } from './create-payment-gateway-message-handler';
 import {
-  isPaymentCancellationRedirect,
-  isPaymentCompletionRedirect,
+  beginSavingsAuthorizationCompletion,
+  beginWalletTopUpCompletion,
+} from './payment-gateway-completions';
+import {
+  getCloseConfirmationMessage,
+  parsePaymentGatewayParams,
+} from './payment-gateway-controller.helpers';
+import type {
+  PaymentGatewayRefs,
+  PaymentGatewayStatus,
+} from './payment-gateway-controller.types';
+import { createPaymentGatewayEventHandlers } from './payment-gateway-event-handlers';
+import { createPaymentGatewayTimers } from './payment-gateway-timers';
+import {
   isPaymentGateway,
   PAYMENT_GATEWAY_LABELS,
   PAYMENT_KINDS,
 } from './payment-gateway.helpers';
 import { handleVtuConfirmation } from './use-vtu-payment-completion';
-
-type WebViewErrorEvent = Parameters<
-  NonNullable<ComponentProps<typeof WebView>['onError']>
->[0];
-type PaymentGatewayStatus =
-  | 'loading'
-  | 'ready'
-  | 'processing'
-  | 'success'
-  | 'error';
-
-const PAYMENT_LOAD_TIMEOUT_MS = 45_000;
-const PAYMENT_SUCCESS_NAV_DELAY_MS = 1500;
-const PAYMENT_LOAD_TIMEOUT_MESSAGE =
-  'Payment page is taking longer than expected. Check your connection and try again.';
-const WALLET_QUERY_KEY = ['wallet'] as const;
-
-function isWalletTopUpGateway(value: unknown): value is WalletTopUpGateway {
-  return value === 'paystack' || value === 'korapay';
-}
-
-function getWalletReturnHref(returnTo?: string): Href {
-  return (returnTo || '/wallet') as Href;
-}
-
-function getCloseConfirmationMessage(paymentKind?: string) {
-  switch (paymentKind) {
-    case PAYMENT_KINDS.SAVINGS_AUTH:
-      return 'If you leave now, your savings card authorization may remain incomplete.';
-    case PAYMENT_KINDS.VTU:
-      return 'If you leave now, this utility payment may remain incomplete until you retry it.';
-    case PAYMENT_KINDS.WALLET:
-      return 'If you leave now, your wallet top-up may remain incomplete until you retry it.';
-    default:
-      return 'Your order has been created. If you leave, you can complete payment later from your orders page.';
-  }
-}
 
 export function usePaymentGatewayController() {
   const queryClient = useQueryClient();
@@ -81,6 +46,17 @@ export function usePaymentGatewayController() {
   const [status, setStatusState] = useState<PaymentGatewayStatus>('loading');
   const statusRef = useRef<PaymentGatewayStatus>('loading');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const gatewayRefs: PaymentGatewayRefs = {
+    copiedGatewayTextRef,
+    isMountedRef,
+    loadTimeoutRef,
+    navigationTimeoutRef,
+    paymentCompletionStartedRef,
+    savingsAuthorizationAbortRef,
+    statusRef,
+    vtuConfirmationTokenRef,
+    webViewRef,
+  };
 
   const setPaymentStatus = (
     nextStatus:
@@ -112,62 +88,18 @@ export function usePaymentGatewayController() {
     []
   );
 
-  const clearPendingNavigation = () => {
-    if (navigationTimeoutRef.current) {
-      clearTimeout(navigationTimeoutRef.current);
-      navigationTimeoutRef.current = null;
-    }
-  };
+  const {
+    clearPendingLoadTimeout,
+    clearPendingNavigation,
+    scheduleDelayedNavigation,
+    scheduleLoadTimeout,
+  } = createPaymentGatewayTimers({
+    refs: gatewayRefs,
+    setErrorMessage,
+    setPaymentStatus,
+  });
 
-  const clearPendingLoadTimeout = () => {
-    if (loadTimeoutRef.current) {
-      clearTimeout(loadTimeoutRef.current);
-      loadTimeoutRef.current = null;
-    }
-  };
-
-  const scheduleLoadTimeout = () => {
-    if (!isMountedRef.current) {
-      return;
-    }
-    clearPendingLoadTimeout();
-    loadTimeoutRef.current = setTimeout(() => {
-      loadTimeoutRef.current = null;
-      if (!isMountedRef.current) {
-        return;
-      }
-      if (statusRef.current !== 'loading') {
-        return;
-      }
-      setErrorMessage(PAYMENT_LOAD_TIMEOUT_MESSAGE);
-      setPaymentStatus('error');
-    }, PAYMENT_LOAD_TIMEOUT_MS);
-  };
-
-  const scheduleDelayedNavigation = (navigate: () => void) => {
-    if (!isMountedRef.current) {
-      return;
-    }
-    clearPendingNavigation();
-    navigationTimeoutRef.current = setTimeout(() => {
-      navigationTimeoutRef.current = null;
-      if (isMountedRef.current) {
-        navigate();
-      }
-    }, PAYMENT_SUCCESS_NAV_DELAY_MS);
-  };
-
-  const validatedParams = (() => {
-    const result = PaymentGatewayParamsSchema.safeParse(params);
-    if (!result.success) {
-      return {
-        data: null,
-        error: result.error.issues[0]?.message || 'Invalid parameters',
-        isValid: false,
-      };
-    }
-    return { data: result.data, error: null, isValid: true };
-  })();
+  const validatedParams = parsePaymentGatewayParams(params);
 
   const {
     amount,
@@ -227,135 +159,6 @@ export function usePaymentGatewayController() {
     });
   };
 
-  const beginWalletTopUpCompletion = () => {
-    const currentStatus = statusRef.current;
-    if (
-      paymentCompletionStartedRef.current ||
-      currentStatus === 'processing' ||
-      currentStatus === 'success'
-    ) {
-      return;
-    }
-
-    if (!isWalletTopUpGateway(gateway) || !reference) {
-      setPaymentStatus('error');
-      setErrorMessage('Wallet top-up details are incomplete.');
-      return;
-    }
-
-    paymentCompletionStartedRef.current = true;
-    clearPendingLoadTimeout();
-    setPaymentStatus('processing');
-
-    void (async () => {
-      try {
-        await waitForWalletTopUpConfirmation({
-          gateway,
-          merchantId,
-          merchantSlug,
-          reference,
-        });
-        if (!isMountedRef.current) {
-          return;
-        }
-        await queryClient.invalidateQueries({ queryKey: WALLET_QUERY_KEY });
-        if (!isMountedRef.current) {
-          return;
-        }
-        setPaymentStatus('success');
-        scheduleDelayedNavigation(() => {
-          router.replace(getWalletReturnHref(returnTo));
-        });
-      } catch (error) {
-        if (!isMountedRef.current) {
-          return;
-        }
-
-        if (error instanceof WalletTopUpStillProcessingError) {
-          paymentCompletionStartedRef.current = false;
-          setPaymentStatus('error');
-          setErrorMessage(error.message);
-          return;
-        }
-
-        paymentCompletionStartedRef.current = false;
-        setPaymentStatus('error');
-        setErrorMessage(
-          error instanceof Error
-            ? error.message
-            : 'Wallet top-up could not be confirmed.'
-        );
-      }
-    })();
-  };
-
-  const beginSavingsAuthorizationCompletion = () => {
-    const currentStatus = statusRef.current;
-    if (
-      paymentCompletionStartedRef.current ||
-      currentStatus === 'processing' ||
-      currentStatus === 'success'
-    ) {
-      return;
-    }
-
-    if (!reference) {
-      setPaymentStatus('error');
-      setErrorMessage('Savings authorization details are incomplete.');
-      return;
-    }
-
-    paymentCompletionStartedRef.current = true;
-    setPaymentStatus('processing');
-    savingsAuthorizationAbortRef.current?.abort();
-    const abortController = new AbortController();
-    savingsAuthorizationAbortRef.current = abortController;
-
-    void (async () => {
-      try {
-        await waitForSavingsAuthorizationConfirmation({
-          merchantId,
-          merchantSlug,
-          reference,
-          signal: abortController.signal,
-        });
-        if (!isMountedRef.current) {
-          return;
-        }
-        clearPendingLoadTimeout();
-        await queryClient.invalidateQueries({ queryKey: WALLET_QUERY_KEY });
-        if (!isMountedRef.current) {
-          return;
-        }
-        setPaymentStatus('success');
-        scheduleDelayedNavigation(() => {
-          router.replace(returnTo || '/wallet/savings/start');
-        });
-      } catch (error) {
-        if (!isMountedRef.current) {
-          return;
-        }
-        if (error instanceof Error && error.name === 'AbortError') {
-          return;
-        }
-
-        paymentCompletionStartedRef.current = false;
-        setPaymentStatus('error');
-        setErrorMessage(
-          error instanceof SavingsAuthorizationStillProcessingError
-            ? error.message
-            : error instanceof Error
-              ? error.message
-              : 'Savings card authorization could not be confirmed.'
-        );
-      } finally {
-        if (savingsAuthorizationAbortRef.current === abortController) {
-          savingsAuthorizationAbortRef.current = null;
-        }
-      }
-    })();
-  };
-
   const beginPaymentCompletion = () => {
     const currentStatus = statusRef.current;
     if (
@@ -372,12 +175,36 @@ export function usePaymentGatewayController() {
     }
 
     if (paymentKind === PAYMENT_KINDS.WALLET) {
-      beginWalletTopUpCompletion();
+      beginWalletTopUpCompletion({
+        clearPendingLoadTimeout,
+        gateway,
+        merchantId,
+        merchantSlug,
+        queryClient,
+        reference,
+        refs: gatewayRefs,
+        returnTo,
+        scheduleDelayedNavigation,
+        setErrorMessage,
+        setPaymentStatus,
+      });
       return;
     }
 
     if (paymentKind === PAYMENT_KINDS.SAVINGS_AUTH) {
-      beginSavingsAuthorizationCompletion();
+      beginSavingsAuthorizationCompletion({
+        clearPendingLoadTimeout,
+        gateway,
+        merchantId,
+        merchantSlug,
+        queryClient,
+        reference,
+        refs: gatewayRefs,
+        returnTo,
+        scheduleDelayedNavigation,
+        setErrorMessage,
+        setPaymentStatus,
+      });
       return;
     }
 
@@ -439,6 +266,18 @@ export function usePaymentGatewayController() {
       { text: 'Leave', style: 'destructive', onPress: () => router.back() },
     ]);
   };
+  const eventHandlers = createPaymentGatewayEventHandlers({
+    beginPaymentCompletion,
+    clearPendingLoadTimeout,
+    clearPendingNavigation,
+    paymentKind,
+    refs: gatewayRefs,
+    returnTo,
+    scheduleDelayedNavigation,
+    scheduleLoadTimeout,
+    setErrorMessage,
+    setPaymentStatus,
+  });
 
   return {
     amount,
@@ -448,92 +287,7 @@ export function usePaymentGatewayController() {
     // Alias retained for checkout back-button consumers; both paths confirm cancellation.
     handleBack: handleClose,
     handleClose,
-    handleLoadEnd: () => {
-      clearPendingLoadTimeout();
-      setPaymentStatus((currentStatus) =>
-        currentStatus === 'error' ||
-        currentStatus === 'processing' ||
-        currentStatus === 'success'
-          ? currentStatus
-          : 'ready'
-      );
-    },
-    handleLoadStart: () => {
-      const currentStatus = statusRef.current;
-      if (
-        currentStatus === 'error' ||
-        currentStatus === 'processing' ||
-        currentStatus === 'success'
-      ) {
-        return;
-      }
-      setErrorMessage(null);
-      scheduleLoadTimeout();
-      setPaymentStatus((currentStatus) =>
-        currentStatus === 'error' ||
-        currentStatus === 'processing' ||
-        currentStatus === 'success'
-          ? currentStatus
-          : 'loading'
-      );
-    },
-    handleNavigationChange: (navState: WebViewNavigation) => {
-      if (
-        statusRef.current === 'processing' ||
-        statusRef.current === 'success'
-      ) {
-        return;
-      }
-      if (isPaymentCompletionRedirect(navState.url)) {
-        beginPaymentCompletion();
-        return;
-      }
-      if (isPaymentCancellationRedirect(navState.url)) {
-        setPaymentStatus('error');
-        setErrorMessage('Payment was cancelled.');
-        if (paymentKind === PAYMENT_KINDS.SAVINGS_AUTH) {
-          scheduleDelayedNavigation(() => {
-            router.replace(returnTo || '/wallet/savings/start');
-          });
-        }
-      }
-    },
-    handleRetry: () => {
-      vtuConfirmationTokenRef.current += 1;
-      savingsAuthorizationAbortRef.current?.abort();
-      savingsAuthorizationAbortRef.current = null;
-      paymentCompletionStartedRef.current = false;
-      copiedGatewayTextRef.current = null;
-      clearPendingNavigation();
-      clearPendingLoadTimeout();
-      setPaymentStatus('loading');
-      setErrorMessage(null);
-      webViewRef.current?.reload();
-    },
-    handleShouldStartLoadWithRequest: (request: { url: string }) => {
-      if (
-        (paymentKind === PAYMENT_KINDS.VTU ||
-          paymentKind === PAYMENT_KINDS.WALLET ||
-          paymentKind === PAYMENT_KINDS.SAVINGS_AUTH) &&
-        isPaymentCompletionRedirect(request.url)
-      ) {
-        beginPaymentCompletion();
-        return false;
-      }
-      return true;
-    },
-    handleWebViewError: (syntheticEvent: WebViewErrorEvent) => {
-      const { nativeEvent } = syntheticEvent;
-      if (
-        paymentCompletionStartedRef.current ||
-        nativeEvent.url?.startsWith('about:')
-      ) {
-        return;
-      }
-      clearPendingLoadTimeout();
-      setPaymentStatus('error');
-      setErrorMessage(nativeEvent.description || 'Failed to load payment page');
-    },
+    ...eventHandlers,
     handleWebViewMessage,
     paymentKind,
     status,

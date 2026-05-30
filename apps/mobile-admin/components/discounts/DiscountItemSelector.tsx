@@ -6,7 +6,6 @@ import {
   Modal,
   Pressable,
   SafeAreaView,
-  StyleSheet,
   Text,
   TextInput,
   View,
@@ -14,7 +13,6 @@ import {
 import SafeImage from '@/components/ui/SafeImage';
 import { AppKeyboardContainer } from '@/components/ui/AppKeyboardContainer';
 import { getVirtualizedListProps } from '@/components/ui/virtualized-list-props';
-import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
 import {
@@ -22,6 +20,7 @@ import {
   type SelectableItem,
 } from '@/lib/discount-items';
 import { stripHtmlTags } from '@/lib/sanitize';
+import { styles } from './DiscountItemSelector.styles';
 
 interface DiscountItemSelectorProps {
   visible: boolean;
@@ -283,75 +282,3 @@ export function DiscountItemSelector({
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: SPACING.md,
-    borderBottomWidth: 1,
-  },
-  closeBtn: { padding: SPACING.xs },
-  saveBtn: { padding: SPACING.xs },
-  title: {
-    fontSize: TYPOGRAPHY.size.lg,
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-  },
-  saveText: {
-    fontSize: TYPOGRAPHY.size.md,
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    margin: SPACING.md,
-    padding: SPACING.sm,
-    borderRadius: RADIUS.md,
-  },
-  searchInput: {
-    flex: 1,
-    marginLeft: SPACING.sm,
-    fontSize: TYPOGRAPHY.size.md,
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
-  },
-  loader: { marginTop: SPACING.xl },
-  list: { paddingHorizontal: SPACING.md },
-  itemRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: SPACING.md,
-    borderBottomWidth: 1,
-  },
-  itemImage: {
-    width: 50,
-    height: 50,
-    borderRadius: RADIUS.sm,
-    marginRight: SPACING.md,
-  },
-  itemInfo: { flex: 1, marginRight: SPACING.md },
-  itemName: {
-    fontSize: TYPOGRAPHY.size.md,
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
-  },
-  itemDesc: {
-    fontSize: TYPOGRAPHY.size.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
-    marginTop: 2,
-  },
-  errorBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: SPACING.md,
-    padding: SPACING.sm,
-    borderRadius: RADIUS.sm,
-    gap: SPACING.sm,
-  },
-  errorText: {
-    flex: 1,
-    fontSize: TYPOGRAPHY.size.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
-  },
-});

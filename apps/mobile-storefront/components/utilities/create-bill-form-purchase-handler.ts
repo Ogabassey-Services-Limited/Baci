@@ -1,8 +1,9 @@
 import { router } from 'expo-router';
 import { Alert } from 'react-native';
-import type { useUtilityPayment } from '@/hooks/use-utility-payment';
-import type { Biller } from '@/hooks/use-vtu-billers';
 import { HttpError } from '@/lib/fetch-with-timeout';
+import {
+  type CreateBillFormPurchaseHandlerInput,
+} from './bill-form-purchase.types';
 import {
   chargeSavedVtuCard,
   chargeWalletForVtu,
@@ -16,46 +17,12 @@ import {
   waitForVtuConfirmation,
 } from '@/lib/vtu-checkout';
 import { IDENTIFIER_LABELS } from './bill-form.constants';
-import type { BillFormProps } from './bill-form.types';
 
-type PaymentState = ReturnType<typeof useUtilityPayment>;
 const SAVED_CARD_CONFIRMATION_GATEWAY: VtuConfirmationGateway = 'paystack';
 const MIN_BILL_PAYMENT_AMOUNT = 50;
 const MAX_BILL_PAYMENT_AMOUNT = 500_000;
 const GENERIC_PAYMENT_ERROR_MESSAGE = 'Payment failed. Please try again.';
 const AMOUNT_DISPLAY_LOCALE = 'en-NG';
-
-interface BillCustomer {
-  first_name?: string | null;
-  last_name?: string | null;
-  email?: string | null;
-  phone?: string | null;
-}
-
-interface CreateBillFormPurchaseHandlerInput {
-  amount: string;
-  billType: 'electricity' | 'cable_tv' | 'betting';
-  canShowPayment: boolean;
-  customer: BillCustomer | null | undefined;
-  customerId: string;
-  dismissKeyboard: () => void;
-  getIsSubmitting: () => boolean;
-  numericAmount: number;
-  onSuccess: BillFormProps['onSuccess'];
-  payment: PaymentState;
-  selectedBiller: Biller | null;
-  selectedBillItemIdentifier: string | null;
-  selectedBillItemPathLabel: string;
-  setIsSubmitting: (isSubmitting: boolean) => void;
-  type: BillFormProps['type'];
-  /**
-   * Verified bill customer-of-record name (meter owner / account holder)
-   * from the verify step or a previous successful purchase. When present,
-   * sent as the API payload's `customerName` so the row's `customer_name`
-   * column reflects the bill recipient, not the buyer.
-   */
-  verifiedCustomerName: string | null;
-}
 
 function getSafePaymentErrorMessage(error: unknown): string {
   if (error instanceof VtuPaymentStillProcessingError) {

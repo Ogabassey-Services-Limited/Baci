@@ -10,6 +10,10 @@ import {
   isRuntimePlatform,
   selectRuntimePlatform,
 } from '@/config/runtime-platform';
+import {
+  isProFromInfo,
+  shouldSkipNativePurchasesOnDevelopmentSimulator,
+} from './revenueCatStore.helpers';
 
 /** Typed interface for the subset of Purchases methods actually used in this store */
 interface PurchasesModule {
@@ -23,10 +27,6 @@ interface PurchasesModule {
     aPackage: PurchasesPackage
   ): Promise<{ customerInfo: CustomerInfo }>;
   restorePurchases(): Promise<CustomerInfo>;
-}
-
-interface DeviceModule {
-  isDevice?: boolean;
 }
 
 // 2026 Best Practice: Dynamic imports for native modules to prevent evaluation-time crashes
@@ -44,56 +44,9 @@ const loadNativeModules = async () => {
 
 loadNativeModules();
 
-const shouldSkipNativePurchasesOnDevelopmentSimulator = async () => {
-  if (!__DEV__ || isRuntimePlatform('web')) {
-    return false;
-  }
-
-  try {
-    const deviceModule = (await import('expo-device')) as DeviceModule;
-    return deviceModule.isDevice === false;
-  } catch {
-    return false;
-  }
-};
-
 // Get keys from environment
 const API_KEY_IOS = process.env.EXPO_PUBLIC_REVENUECAT_API_KEY_IOS;
 const API_KEY_ANDROID = process.env.EXPO_PUBLIC_REVENUECAT_API_KEY_ANDROID;
-
-/**
- * Helper to check pro entitlement status - centralized to avoid drift
- */
-const isProFromInfo = (info: CustomerInfo | null): boolean => {
-  if (!info) return false;
-
-  const activeKeys = Object.keys(info.entitlements.active);
-  // 2026 Best Practice: Support multiple identifiers to prevent "Activation" delays
-  const possibleProKeys = [
-    'pro',
-    'baci_pro',
-    'premium',
-    'all_features',
-    'monthly',
-    'yearly',
-    'default',
-  ];
-
-  const isPro = activeKeys.some((key) =>
-    possibleProKeys.includes(key.toLowerCase())
-  );
-
-  if (activeKeys.length > 0 && __DEV__) {
-    console.log(
-      '[RevenueCat] Active Entitlements:',
-      activeKeys,
-      'Is Pro:',
-      isPro
-    );
-  }
-
-  return isPro;
-};
 
 interface RevenueCatState {
   currentOffering: PurchasesOffering | null;

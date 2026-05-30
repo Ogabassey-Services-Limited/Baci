@@ -1,0 +1,279 @@
+import { router } from 'expo-router';
+import type { MutableRefObject } from 'react';
+import type { PaymentMethodType } from '@/components/checkout/PaymentMethodSelector';
+import {
+  getFullyPaidStoreCreditPaymentMethod,
+  type StoreCreditPaymentMethod,
+} from '@/lib/wallet-payment-helpers';
+import { OrderError, type OrderResponse } from '@/services/orders';
+import { clearAndPersistCheckoutCart } from './checkout-cart-persistence';
+import {
+  CHECKOUT_API_BASE_URL,
+  CHECKOUT_MERCHANT_ID,
+  type PendingCryptoOrder,
+} from './checkout-screen.constants';
+import { startWalletFundedBankTransferCheckout } from './checkout-wallet-funded-bank-transfer';
+
+const PAYMENT_INIT_TIMEOUT_MS = 10_000;
+
+interface FinalizeCheckoutPaymentParams {
+  clearCart: () => void;
+  customerEmail: string;
+  customerName: string;
+  customerPhone: string;
+  isOrderInFlight: MutableRefObject<boolean>;
+  orderNumber: string;
+  orderResponse: OrderResponse;
+  runPostOrderSideEffects: () => void;
+  selectedPayment: PaymentMethodType;
+  setIsProcessing: (value: boolean) => void;
+  setPendingOrder: (value: PendingCryptoOrder | null) => void;
+  setShowCryptoSelection: (value: boolean) => void;
+  shouldCreateWalletFundedBankTransferOrder: boolean;
+}
+
+export async function finalizeCheckoutPayment({
+  clearCart,
+  customerEmail,
+  customerName,
+  customerPhone,
+  isOrderInFlight,
+  orderNumber,
+  orderResponse,
+  runPostOrderSideEffects,
+  selectedPayment,
+  setIsProcessing,
+  setPendingOrder,
+  setShowCryptoSelection,
+  shouldCreateWalletFundedBankTransferOrder,
+}: FinalizeCheckoutPaymentParams) {
+  const { order } = orderResponse;
+  const fullyPaidStoreCreditPaymentMethod =
+    getFullyPaidStoreCreditPaymentMethod(orderResponse);
+
+  if (selectedPayment === 'juicyway') {
+    setPendingOrder({
+      order,
+      orderResponse,
+      customerEmail,
+      customerName,
+      customerPhone,
+      trackingToken: order.tracking_token || undefined,
+    });
+    setIsProcessing(false);
+    isOrderInFlight.current = false;
+    setShowCryptoSelection(true);
+    runPostOrderSideEffects();
+    return;
+  }
+
+  if (fullyPaidStoreCreditPaymentMethod) {
+    await routeStoreCreditSuccess({
+      clearCart,
+      orderId: order.id,
+      orderNumber,
+      orderResponse,
+      paymentMethod: fullyPaidStoreCreditPaymentMethod,
+      setIsProcessing,
+      trackingToken: order.tracking_token,
+    });
+    runPostOrderSideEffects();
+    return;
+  }
+
+  const isOnlinePayment =
+    selectedPayment === 'paystack' || selectedPayment === 'korapay';
+  const isBankTransfer = selectedPayment === 'bank_transfer';
+
+  if (isOnlinePayment || isBankTransfer) {
+    if (isBankTransfer && shouldCreateWalletFundedBankTransferOrder) {
+      const startedWalletFundedBankTransfer =
+        await startWalletFundedBankTransferCheckout({
+          isOrderInFlight,
+          orderId: order.id,
+          orderNumber,
+          setIsProcessing,
+          trackingToken: order.tracking_token,
+        });
+      if (startedWalletFundedBankTransfer) {
+        runPostOrderSideEffects();
+        return;
+      }
+    }
+
+    await initializeGatewayAndRoute({
+      customerEmail,
+      customerName,
+      customerPhone,
+      orderId: order.id,
+      orderNumber,
+      orderResponse,
+      selectedPayment,
+      setIsProcessing,
+      trackingToken: order.tracking_token,
+    });
+    isOrderInFlight.current = false;
+    runPostOrderSideEffects();
+    return;
+  }
+
+  await clearAndPersistCheckoutCart(clearCart);
+  isOrderInFlight.current = false;
+  router.replace({
+    pathname: '/order-success',
+    params: {
+      orderId: order.id,
+      orderNumber,
+      paymentMethod: selectedPayment,
+      ...(order.tracking_token && {
+        trackingToken: order.tracking_token,
+      }),
+    },
+  });
+  runPostOrderSideEffects();
+}
+
+async function routeStoreCreditSuccess({
+  clearCart,
+  orderId,
+  orderNumber,
+  orderResponse,
+  paymentMethod,
+  setIsProcessing,
+  trackingToken,
+}: {
+  clearCart: () => void;
+  orderId: string;
+  orderNumber: string;
+  orderResponse: OrderResponse;
+  paymentMethod: StoreCreditPaymentMethod;
+  setIsProcessing: (value: boolean) => void;
+  trackingToken?: string | null;
+}) {
+  await clearAndPersistCheckoutCart(clearCart);
+  setIsProcessing(false);
+  router.replace({
+    pathname: '/order-success',
+    params: {
+      orderId,
+      orderNumber,
+      paymentMethod,
+      savingsAmountUsed: String(orderResponse.savings?.amountUsed ?? 0),
+      walletAmountUsed: String(orderResponse.wallet?.amountUsed ?? 0),
+      ...(trackingToken && {
+        trackingToken,
+      }),
+    },
+  });
+}
+
+async function initializeGatewayAndRoute({
+  customerEmail,
+  customerName,
+  customerPhone,
+  orderId,
+  orderNumber,
+  orderResponse,
+  selectedPayment,
+  setIsProcessing,
+  trackingToken,
+}: {
+  customerEmail: string;
+  customerName: string;
+  customerPhone: string;
+  orderId: string;
+  orderNumber: string;
+  orderResponse: OrderResponse;
+  selectedPayment: PaymentMethodType;
+  setIsProcessing: (value: boolean) => void;
+  trackingToken?: string | null;
+}) {
+  const isBankTransfer = selectedPayment === 'bank_transfer';
+  const gateway = isBankTransfer ? 'paystack' : selectedPayment;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), PAYMENT_INIT_TIMEOUT_MS);
+  let initResponse: Response;
+  try {
+    initResponse = await fetch(`${CHECKOUT_API_BASE_URL}/api/payments/initialize`, {
+      method: 'POST',
+      signal: controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        'Idempotency-Key': `payment-init-${orderId}-${gateway}`,
+      },
+      body: JSON.stringify({
+        merchant_id: CHECKOUT_MERCHANT_ID,
+        order_id: orderId,
+        amount: orderResponse.amountDueToGateway,
+        currency: 'NGN',
+        customer_email: customerEmail,
+        customer_name: customerName,
+        customer_phone: customerPhone,
+        gateway,
+        ...(isBankTransfer && { payment_type: 'dva' }),
+      }),
+    });
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new OrderError('Payment initialization timed out', 'PAYMENT_INIT_TIMEOUT');
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+
+  let initData;
+  try {
+    initData = await initResponse.json();
+  } catch (error) {
+    throw new OrderError(
+      'Failed to parse payment initialization response',
+      'PAYMENT_INIT_ERROR',
+      error
+    );
+  }
+  if (!initResponse.ok || !initData.success) {
+    throw new OrderError(
+      initData.error || 'Failed to initialize payment',
+      'PAYMENT_INIT_ERROR'
+    );
+  }
+
+  setIsProcessing(false);
+  if (isBankTransfer) {
+    router.push({
+      pathname: '/bank-transfer',
+      params: {
+        orderId,
+        orderNumber,
+        reference: initData.reference,
+        amount: String(orderResponse.amountDueToGateway),
+        bankName:
+          initData.dva?.bank_name || initData.virtual_account?.bank_name || '',
+        accountNumber:
+          initData.dva?.account_number ||
+          initData.virtual_account?.account_number ||
+          '',
+        accountName:
+          initData.dva?.account_name ||
+          initData.virtual_account?.account_name ||
+          '',
+        ...(trackingToken && { trackingToken }),
+      },
+    });
+    return;
+  }
+
+  router.push({
+    pathname: '/payment-gateway',
+    params: {
+      orderId,
+      orderNumber,
+      gateway: selectedPayment,
+      authorizationUrl: initData.authorization_url || initData.checkout_url,
+      reference: initData.reference,
+      amount: String(orderResponse.amountDueToGateway),
+      ...(trackingToken && { trackingToken }),
+    },
+  });
+}
