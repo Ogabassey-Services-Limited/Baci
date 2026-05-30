@@ -137,6 +137,26 @@ function createSupabaseMock({
   };
 }
 
+function createOrderResultWithFulfillment(
+  fulfillmentDetails: Record<string, string | null>
+): QueryResult {
+  return {
+    data: {
+      ...(orderResult.data as Record<string, unknown>),
+      fulfillment_details: fulfillmentDetails,
+    },
+    error: null,
+  };
+}
+
+function getGeneratedInvoiceItems() {
+  const invoiceData = vi.mocked(generateInvoiceBlob).mock.calls[0]?.[0] as {
+    items: Array<{ description?: string }>;
+  };
+
+  return invoiceData.items;
+}
+
 describe('GET /api/orders/[id]/invoice', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -155,13 +175,11 @@ describe('GET /api/orders/[id]/invoice', () => {
 
     expect(response.status).toBe(200);
 
-    const invoiceData = vi.mocked(generateInvoiceBlob).mock.calls[0]?.[0] as {
-      items: Array<{ description?: string }>;
-    };
+    const invoiceItems = getGeneratedInvoiceItems();
 
-    expect(invoiceData.items[0]?.description).toBeUndefined();
-    expect(invoiceData.items[1]?.description).toContain('IMEI: IMEI-123');
-    expect(invoiceData.items[1]?.description).toContain('S/N: SN-456');
+    expect(invoiceItems[0]?.description).toBeUndefined();
+    expect(invoiceItems[1]?.description).toContain('IMEI: IMEI-123');
+    expect(invoiceItems[1]?.description).toContain('S/N: SN-456');
   });
 
   it('attaches order-level IMEI details to the first item when no device item exists', async () => {
@@ -212,13 +230,81 @@ describe('GET /api/orders/[id]/invoice', () => {
 
     expect(response.status).toBe(200);
 
-    const invoiceData = vi.mocked(generateInvoiceBlob).mock.calls[0]?.[0] as {
-      items: Array<{ description?: string }>;
-    };
+    const invoiceItems = getGeneratedInvoiceItems();
 
-    expect(invoiceData.items[0]?.description).toContain('IMEI: IMEI-123');
-    expect(invoiceData.items[0]?.description).toContain('S/N: SN-456');
-    expect(invoiceData.items[1]?.description).toBeUndefined();
+    expect(invoiceItems[0]?.description).toContain('IMEI: IMEI-123');
+    expect(invoiceItems[0]?.description).toContain('S/N: SN-456');
+    expect(invoiceItems[1]?.description).toBeUndefined();
+  });
+
+  it('attaches camelCase serialNumber fulfillment details to the device item', async () => {
+    vi.mocked(createClient).mockReturnValue(
+      createSupabaseMock({
+        order: createOrderResultWithFulfillment({
+          imei: 'IMEI-789',
+          serialNumber: 'SN-CAMEL',
+        }),
+      }) as unknown as ReturnType<typeof createClient>
+    );
+
+    const response = await GET(
+      new NextRequest(`http://localhost/api/orders/${ORDER_ID}/invoice`),
+      { params: Promise.resolve({ id: ORDER_ID }) }
+    );
+
+    expect(response.status).toBe(200);
+
+    const invoiceItems = getGeneratedInvoiceItems();
+
+    expect(invoiceItems[0]?.description).toBeUndefined();
+    expect(invoiceItems[1]?.description).toContain('IMEI: IMEI-789');
+    expect(invoiceItems[1]?.description).toContain('S/N: SN-CAMEL');
+  });
+
+  it('attaches IMEI-only fulfillment details without adding a serial label', async () => {
+    vi.mocked(createClient).mockReturnValue(
+      createSupabaseMock({
+        order: createOrderResultWithFulfillment({
+          imei: 'IMEI-ONLY',
+          serial_number: null,
+        }),
+      }) as unknown as ReturnType<typeof createClient>
+    );
+
+    const response = await GET(
+      new NextRequest(`http://localhost/api/orders/${ORDER_ID}/invoice`),
+      { params: Promise.resolve({ id: ORDER_ID }) }
+    );
+
+    expect(response.status).toBe(200);
+
+    const invoiceItems = getGeneratedInvoiceItems();
+
+    expect(invoiceItems[1]?.description).toContain('IMEI: IMEI-ONLY');
+    expect(invoiceItems[1]?.description).not.toContain('S/N:');
+  });
+
+  it('attaches serial-only fulfillment details without adding an IMEI label', async () => {
+    vi.mocked(createClient).mockReturnValue(
+      createSupabaseMock({
+        order: createOrderResultWithFulfillment({
+          imei: null,
+          serial_number: 'SN-ONLY',
+        }),
+      }) as unknown as ReturnType<typeof createClient>
+    );
+
+    const response = await GET(
+      new NextRequest(`http://localhost/api/orders/${ORDER_ID}/invoice`),
+      { params: Promise.resolve({ id: ORDER_ID }) }
+    );
+
+    expect(response.status).toBe(200);
+
+    const invoiceItems = getGeneratedInvoiceItems();
+
+    expect(invoiceItems[1]?.description).toContain('S/N: SN-ONLY');
+    expect(invoiceItems[1]?.description).not.toContain('IMEI:');
   });
 
   it('returns 401 when the merchant user is not authenticated', async () => {

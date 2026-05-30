@@ -1351,6 +1351,10 @@ export async function POST(request: NextRequest) {
                 });
 
                 if (dvaResult.success) {
+                  // System-owned DVA/reminder records are written after the
+                  // validated order exists; customers do not own these tables
+                  // through RLS, so the server-only admin client is scoped to
+                  // this post-response side effect and order.id.
                   backgroundSupabase ??= createAdminClient();
                   const { error: insertError } = await backgroundSupabase
                     .from('order_payment_accounts')
