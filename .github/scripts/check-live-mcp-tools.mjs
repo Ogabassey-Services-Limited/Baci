@@ -4,8 +4,8 @@ import { pathToFileURL } from 'node:url';
 
 const DEFAULT_HEALTH_URL = 'https://mcp.ogabassey.com/health';
 const DEFAULT_MCP_URL = 'https://mcp.ogabassey.com/mcp';
-const FETCH_ATTEMPTS = 3;
-const FETCH_RETRY_DELAY_MS = 1000;
+const FETCH_ATTEMPTS = 5;
+const FETCH_RETRY_DELAY_MS = 2000;
 const DEFAULT_REQUIRED_TOOLS = [
   'add_to_cart',
   'browse_categories',
@@ -150,6 +150,18 @@ async function listTools(url) {
   );
 }
 
+function formatErrorCause(cause) {
+  if (cause instanceof Error) {
+    return cause.message;
+  }
+
+  try {
+    return JSON.stringify(cause) ?? String(cause);
+  } catch {
+    return String(cause);
+  }
+}
+
 async function fetchWithTimeout(url, init) {
   let lastError;
 
@@ -166,6 +178,14 @@ async function fetchWithTimeout(url, init) {
 
       lastError = new Error(`HTTP ${response.status}`);
     } catch (error) {
+      console.warn(
+        `[Attempt ${attempt}/${FETCH_ATTEMPTS}] Failed to fetch ${url}: ${
+          error instanceof Error ? error.message : error
+        }`,
+        error && typeof error === 'object' && 'cause' in error && error.cause
+          ? `(Cause: ${formatErrorCause(error.cause)})`
+          : ''
+      );
       if (attempt === FETCH_ATTEMPTS) {
         throw error;
       }
