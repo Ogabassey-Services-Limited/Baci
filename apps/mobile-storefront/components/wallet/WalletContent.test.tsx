@@ -93,7 +93,10 @@ describe('WalletContent', () => {
     expect(screen.getAllByText('Earnings').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Savings').length).toBeGreaterThan(0);
     expect(screen.getAllByText('2,000 pts')).toHaveLength(1);
-    expect(screen.getByText('Redeem Rewards')).toBeOnTheScreen();
+    expect(screen.queryByText('Redeem Rewards')).toBeNull();
+    expect(
+      screen.getByRole('button', { name: 'Redeem loyalty points' })
+    ).toBeOnTheScreen();
     expect(
       screen.getByRole('button', { name: 'Start savings' })
     ).toBeOnTheScreen();
@@ -176,6 +179,16 @@ describe('WalletContent', () => {
     expect(props.onStartSavings).toHaveBeenCalledTimes(1);
     expect(props.onManageCards).toHaveBeenCalledTimes(1);
     expect(props.onQuickSave).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens loyalty redemption from the hero loyalty row', () => {
+    render(<WalletContent {...props} />);
+
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Redeem loyalty points' })
+    );
+
+    expect(props.onOpenRedeemPanel).toHaveBeenCalledTimes(1);
   });
 
   it('hides quick save when there is no active savings context', () => {
