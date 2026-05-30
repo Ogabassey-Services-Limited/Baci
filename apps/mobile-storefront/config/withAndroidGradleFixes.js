@@ -72,7 +72,43 @@ function withAndroidGradleFixes(config) {
 
         content = ensureReleaseSigning(content);
 
+        // Dynamically inject Facebook SDK resource entries to avoid hardcoding secrets in VCS
+        if (!content.includes('resValue "string", "facebook_app_id"')) {
+          const searchStr = 'defaultConfig {';
+          const index = content.indexOf(searchStr);
+          if (index !== -1) {
+            const insertIndex = index + searchStr.length;
+            const resValues = `
+        resValue "string", "facebook_app_id", System.getenv("STOREFRONT_FACEBOOK_APP_ID") ?: ""
+        resValue "string", "facebook_client_token", System.getenv("STOREFRONT_FACEBOOK_CLIENT_TOKEN") ?: ""
+        resValue "string", "fb_login_protocol_scheme", "fb" + (System.getenv("STOREFRONT_FACEBOOK_APP_ID") ?: "")`;
+            content = content.slice(0, insertIndex) + resValues + content.slice(insertIndex);
+          }
+        }
+
         fs.writeFileSync(appBuildGradle, content);
+      }
+
+      // Strip hardcoded Facebook SDK secrets from strings.xml to prevent committing them to VCS
+      const stringsXmlPath = path.join(
+        cfg.modRequest.platformProjectRoot,
+        'app',
+        'src',
+        'main',
+        'res',
+        'values',
+        'strings.xml'
+      );
+
+      if (fs.existsSync(stringsXmlPath)) {
+        let content = fs.readFileSync(stringsXmlPath, 'utf-8');
+        content = content.replace(/\s*<string name="facebook_app_id">.*?<\/string>\s*/g, '\n');
+        content = content.replace(/\s*<string name="facebook_client_token">.*?<\/string>\s*/g, '\n');
+        content = content.replace(/\s*<string name="fb_login_protocol_scheme">.*?<\/string>\s*/g, '\n');
+        
+        // Normalize any empty lines/excessive newlines
+        content = content.replace(/\n\s*\n/g, '\n');
+        fs.writeFileSync(stringsXmlPath, content);
       }
 
       const gradleProperties = path.join(
