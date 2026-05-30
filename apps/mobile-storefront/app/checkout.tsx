@@ -92,6 +92,12 @@ import {
 import { resolveApiBaseUrl } from "@/lib/api-url";
 import { deriveCheckoutIdentity } from "@/lib/checkout-identity";
 import {
+  buildMobileCheckoutFingerprint,
+  clearMobileCheckoutIdempotencyKey,
+  getMobileCheckoutIdempotencyKey,
+  type MobileCheckoutIdempotencyState,
+} from "@/lib/checkout-order-idempotency";
+import {
   getDefaultSavedAddress,
   type SavedAddress,
   toCheckoutAddressValues,
@@ -388,6 +394,8 @@ export default function CheckoutScreen() {
 
   const hasTrackedStart = useRef(false);
   const isOrderInFlight = useRef(false);
+  const mobileCheckoutIdempotencyRef =
+    useRef<MobileCheckoutIdempotencyState | null>(null);
   const hasHydratedSavedAddressRef = useRef(false);
   // Sentinel: stores the city Google Places suggested, so we can match it
   // against the Topship cities list once they load.
@@ -1455,6 +1463,35 @@ export default function CheckoutScreen() {
         selectedPayment === "credpal" ||
         selectedPayment === "credit_direct" ||
         selectedPayment === "klump";
+      const orderItemsPayload = itemsSnapshot.map((item) => {
+        const effectivePrice = item.negotiatedPrice ?? item.price;
+        return {
+          id: item.product_id,
+          product_id: item.product_id,
+          name: item.name,
+          quantity: item.quantity,
+          price: effectivePrice,
+          image_url: item.image_url,
+          variant_id: item.variant_id,
+          variant_attributes: item.variant_attributes,
+          has_assurance: item.hasAssurance || false,
+          assurance_fee: item.hasAssurance
+            ? Math.round(
+                effectivePrice *
+                  item.quantity *
+                  (item.assuranceRate ?? DEFAULT_ASSURANCE_RATE),
+              )
+            : 0,
+        };
+      });
+      const selectedQuoteIdForOrder =
+        deliveryMethod === "door" && selectedQuote?.id != null
+          ? String(selectedQuote.id)
+          : undefined;
+      const shippingProviderForOrder = getShippingProviderForMethod(
+        deliveryMethod,
+        selectedQuote,
+      );
 
       if (isBNPL) {
         const klumpSubmitDisabledReason =
@@ -1475,46 +1512,72 @@ export default function CheckoutScreen() {
           return;
         }
 
-        const orderResponse = await createOrder({
-          customer_email: customerEmail,
-          customer_name: customerName,
-          customer_phone: customerPhone,
-          items: itemsSnapshot.map((item) => {
-            const effectivePrice = item.negotiatedPrice ?? item.price;
-            return {
-              id: item.product_id,
-              product_id: item.product_id,
-              name: item.name,
-              quantity: item.quantity,
-              price: effectivePrice,
-              image_url: item.image_url,
-              variant_id: item.variant_id,
-              variant_attributes: item.variant_attributes,
-              has_assurance: item.hasAssurance || false,
-              assurance_fee: item.hasAssurance
-                ? Math.round(
-                    effectivePrice *
-                      item.quantity *
-                      (item.assuranceRate ?? DEFAULT_ASSURANCE_RATE),
-                  )
-                : 0,
-            };
-          }),
+        const mobileCheckoutFingerprint = buildMobileCheckoutFingerprint({
+          customerEmail,
+          customerName,
+          customerPhone,
+          deliveryMethod,
+          discountAmount: 0,
+          items: orderItemsPayload.map((item) => ({
+            assuranceFee: item.assurance_fee,
+            hasAssurance: item.has_assurance,
+            id: item.id,
+            price: item.price,
+            productId: item.product_id,
+            quantity: item.quantity,
+            variantAttributes: item.variant_attributes,
+            variantId: item.variant_id,
+          })),
+          selectedQuoteId: selectedQuoteIdForOrder,
+          shippingAddress: {
+            address: orderShippingAddress.address,
+            city: orderShippingAddress.city,
+            firstName: orderShippingAddress.firstName,
+            lastName: orderShippingAddress.lastName,
+            notes: orderShippingAddress.notes,
+            state: orderShippingAddress.state,
+          },
+          shippingFee: snapshotDeliveryFee,
+          shippingProvider: shippingProviderForOrder,
           subtotal: snapshotSubtotal,
-          shipping_fee: snapshotDeliveryFee,
-          tax_amount: snapshotTaxAmount,
-          selected_quote_id:
-            deliveryMethod === "door" && selectedQuote?.id != null
-              ? String(selectedQuote.id)
-              : undefined,
-          shipping_provider: getShippingProviderForMethod(
-            deliveryMethod,
-            selectedQuote,
-          ),
-          payment_method: paymentMethodForOrder,
-          shipping_address: orderShippingAddress,
-          source: "mobile_app",
+          taxAmount: snapshotTaxAmount,
         });
+        const mobileCheckoutIdempotencyKey = getMobileCheckoutIdempotencyKey(
+          mobileCheckoutIdempotencyRef,
+          mobileCheckoutFingerprint,
+        );
+
+        let orderResponse: OrderResponse;
+        try {
+          orderResponse = await createOrder({
+            customer_email: customerEmail,
+            customer_name: customerName,
+            customer_phone: customerPhone,
+            idempotency_key: mobileCheckoutIdempotencyKey,
+            items: orderItemsPayload,
+            subtotal: snapshotSubtotal,
+            shipping_fee: snapshotDeliveryFee,
+            tax_amount: snapshotTaxAmount,
+            selected_quote_id: selectedQuoteIdForOrder,
+            shipping_provider: shippingProviderForOrder,
+            payment_method: paymentMethodForOrder,
+            shipping_address: orderShippingAddress,
+            source: "mobile_app",
+          });
+        } catch (error) {
+          if (
+            error instanceof OrderError &&
+            (error.code === "CHECKOUT_ORDER_NOT_REUSABLE" ||
+              error.code === "CHECKOUT_IDEMPOTENCY_CONFLICT")
+          ) {
+            clearMobileCheckoutIdempotencyKey(
+              mobileCheckoutIdempotencyRef,
+              mobileCheckoutFingerprint,
+            );
+          }
+
+          throw error;
+        }
 
         if (selectedPayment === "klump") {
           const orderTotal = Number(orderResponse.order.total);
@@ -1594,38 +1657,12 @@ export default function CheckoutScreen() {
         customer_email: customerEmail,
         customer_name: customerName,
         customer_phone: customerPhone,
-        items: itemsSnapshot.map((item) => {
-          const effectivePrice = item.negotiatedPrice ?? item.price;
-          return {
-            id: item.product_id,
-            product_id: item.product_id,
-            name: item.name,
-            quantity: item.quantity,
-            price: effectivePrice,
-            image_url: item.image_url,
-            variant_id: item.variant_id,
-            variant_attributes: item.variant_attributes,
-            has_assurance: item.hasAssurance || false,
-            assurance_fee: item.hasAssurance
-              ? Math.round(
-                  effectivePrice *
-                    item.quantity *
-                    (item.assuranceRate ?? DEFAULT_ASSURANCE_RATE),
-                )
-              : 0,
-          };
-        }),
+        items: orderItemsPayload,
         subtotal: snapshotSubtotal,
         shipping_fee: snapshotDeliveryFee,
         tax_amount: snapshotTaxAmount,
-        selected_quote_id:
-          deliveryMethod === "door" && selectedQuote?.id != null
-            ? String(selectedQuote.id)
-            : undefined,
-        shipping_provider: getShippingProviderForMethod(
-          deliveryMethod,
-          selectedQuote,
-        ),
+        selected_quote_id: selectedQuoteIdForOrder,
+        shipping_provider: shippingProviderForOrder,
         payment_method: paymentMethodForOrder,
         shipping_address: orderShippingAddress,
         source: "mobile_app",

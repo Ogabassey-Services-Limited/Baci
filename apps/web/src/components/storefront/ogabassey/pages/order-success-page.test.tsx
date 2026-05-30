@@ -45,6 +45,9 @@ function setSearchParams(params: Record<string, string>) {
 describe('OrderSuccessPage', () => {
   beforeEach(() => {
     mockPush.mockClear();
+    vi.mocked(useCustomerAuth).mockReturnValue({
+      isAuthenticated: false,
+    } as ReturnType<typeof useCustomerAuth>);
   });
 
   it('renders order not found when no orderId', () => {
@@ -76,6 +79,23 @@ describe('OrderSuccessPage', () => {
       ),
     ).toBeTruthy();
   });
+
+  it.each(['credit_direct', 'credpal', 'klump'])(
+    'renders BNPL pending approval language for %s',
+    (type) => {
+      setSearchParams({ orderId: 'bnpl-1', type });
+      render(<OrderSuccessPage />);
+
+      expect(
+        screen.getByRole('heading', { name: /bnpl checkout submitted/i })
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          /we will confirm your order after the provider approves the payment/i
+        )
+      ).toBeInTheDocument();
+    }
+  );
 
   it('guest with trackingToken navigates to track-order page', () => {
     setSearchParams({ orderId: 'ord-1', trackingToken: 'tok_abc123' });

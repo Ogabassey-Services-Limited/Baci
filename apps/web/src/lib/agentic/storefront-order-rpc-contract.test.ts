@@ -23,6 +23,9 @@ const storefrontOrderRpcDynamicPatchPatterns = [
 ];
 const ambiguousCustomerConflictTargetPattern =
   /ON\s+CONFLICT\s*\(\s*merchant_id\s*,\s*email\s*\)/i;
+// Signature history: the migration must remove the 19-arg B3 overload,
+// the 21-arg initial B3.5 overload, and the 22-arg parity-check overload.
+const EXPECTED_CREATE_STOREFRONT_ORDER_DROP_COUNT = 3;
 
 function readLatestStorefrontOrderRpcMigrationSql() {
   for (const fileName of readdirSync(migrationsDirectory)
@@ -190,6 +193,53 @@ describe('agentic storefront order RPC contract', () => {
     expect(sql).toContain('hashtext(p_merchant_id::text)');
     expect(sql).toContain('hashtext(v_normalized_customer_phone)');
     expect(sql).toContain('ORDER BY t.product_id, t.variant_id');
+  });
+
+  it('covers storefront checkout idempotency SQL contract', () => {
+    const sql = readLatestStorefrontOrderRpcMigrationSql();
+
+    expect(sql).toMatch(/checkout_idempotency_key\s+text/i);
+    expect(sql).toMatch(/checkout_request_hash\s+text/i);
+    expect(sql).toMatch(/idempotency_replayed\s+boolean/i);
+    const orderDropMatches = sql.match(
+      /DROP\s+FUNCTION\s+IF\s+EXISTS\s+public\.create_storefront_order/gi
+    );
+    expect(orderDropMatches).not.toBeNull();
+    expect(orderDropMatches?.length).toBeGreaterThanOrEqual(
+      EXPECTED_CREATE_STOREFRONT_ORDER_DROP_COUNT
+    );
+    expect(sql).toMatch(
+      /DROP\s+FUNCTION\s+IF\s+EXISTS\s+public\.create_storefront_order_with_savings/i
+    );
+    expect(sql).toMatch(/checkout_idempotency_conflict/i);
+    expect(sql).toMatch(/order_not_reusable/i);
+    expect(sql).toMatch(/IF\s+FOUND\s+THEN/i);
+    expect(sql).toMatch(/payment_method\s*=\s*trim\(p_payment_method\)/i);
+    expect(sql).toMatch(/payment_reference\s*=\s*NULL/i);
+    expect(sql).toMatch(/pg_advisory_xact_lock/i);
+    expect(sql).toMatch(
+      /create_storefront_order_with_savings[\s\S]*p_checkout_idempotency_key\s+text/i
+    );
+    expect(sql).toMatch(
+      /create_storefront_order_with_savings[\s\S]*p_checkout_request_hash\s+text/i
+    );
+    expect(sql).toMatch(
+      /create_storefront_order_with_savings[\s\S]*idempotency_replayed\s+boolean/i
+    );
+    expect(sql).toMatch(
+      /prepare_storefront_order_for_checkout[\s\S]*bnpl_approved[\s\S]*refunded/i
+    );
+  });
+
+  it('clears stale Credit Direct transaction references when a new session starts', () => {
+    const sql = readLatestStorefrontOrderRpcMigrationSql();
+
+    expect(sql).toMatch(
+      /CREATE OR REPLACE FUNCTION public\.set_credit_direct_session/i
+    );
+    expect(sql).toContain(
+      "v_notes - 'creditDirectTransactionId' - 'credit_directTransactionId'"
+    );
   });
 });
 
@@ -504,7 +554,9 @@ describe('agentic storefront order RPC contract — B3.5 VAT enforcement', () =>
     // the RPC would expose the gap. Placing the check above all
     // side effects keeps the guard local and obviously correct.
     const parityIndex = sql.indexOf("RAISE EXCEPTION 'order_total_mismatch'");
-    const customerLockIndex = sql.indexOf('pg_advisory_xact_lock');
+    const customerLockIndex = sql.indexOf(
+      'hashtext(v_normalized_customer_phone)'
+    );
     const orderInsertIndex = sql.indexOf('INSERT INTO orders');
     const stockUpdateIndex = sql.indexOf('UPDATE product_variants');
 
@@ -529,7 +581,10 @@ describe('agentic storefront order RPC contract — B3.5 VAT enforcement', () =>
     const reSelectMatch = sql.match(
       /SELECT\s+total,\s*tax_amount[\s\S]*?INTO\s+v_total,\s*v_tax_amount[\s\S]*?FROM\s+orders[\s\S]*?WHERE\s+id\s*=\s*v_order_id/i
     );
-    const returnQueryIndex = sql.search(/RETURN\s+QUERY/i);
+    const returnQueryIndex =
+      reSelectMatch?.index === undefined
+        ? -1
+        : sql.indexOf('RETURN QUERY', reSelectMatch.index);
 
     expect(itemsInsertIndex).toBeGreaterThan(-1);
     expect(reSelectMatch).not.toBeNull();
@@ -541,21 +596,23 @@ describe('agentic storefront order RPC contract — B3.5 VAT enforcement', () =>
     }
   });
 
-  it('drops both prior signatures (19-arg B3 and 21-arg initial B3.5)', () => {
+  it('drops the historical create_storefront_order signatures', () => {
     const sql = readLatestStorefrontOrderRpcMigrationSql();
 
     // Adding params changes the function identity in PostgreSQL —
     // `CREATE OR REPLACE` would leave the stale overloads alive,
     // and PostgREST positional callers could route to one that
     // skips the new enforcement. The migration MUST DROP every
-    // prior signature explicitly: the 19-arg B3 form AND the
-    // intermediate 21-arg form from the initial B3.5 push (Codex
-    // P1 required a 22nd param `p_expected_total`).
+    // prior signature explicitly: the 19-arg B3 form, the
+    // intermediate 21-arg form from the initial B3.5 push, and the
+    // 22-arg parity-check form after Codex P1 added `p_expected_total`.
     const dropMatches = sql.match(
       /DROP\s+FUNCTION\s+IF\s+EXISTS\s+public\.create_storefront_order/gi
     );
     expect(dropMatches).not.toBeNull();
-    expect(dropMatches?.length).toBeGreaterThanOrEqual(2);
+    expect(dropMatches?.length).toBeGreaterThanOrEqual(
+      EXPECTED_CREATE_STOREFRONT_ORDER_DROP_COUNT
+    );
 
     // The new signature must be re-granted to anon / authenticated
     // / service_role since DROP wipes function grants. The

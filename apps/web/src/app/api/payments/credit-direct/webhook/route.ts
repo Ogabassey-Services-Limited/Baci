@@ -11,6 +11,10 @@ import { notifyNewOrder, notifyPaymentReceived } from '@/lib/expo-push';
 import { logger } from '@/lib/logger';
 import { createServiceClient } from '@/lib/supabase/service';
 
+function readNoteString(value: unknown) {
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
 /**
  * POST /api/payments/credit-direct/webhook
  *
@@ -89,9 +93,8 @@ export async function POST(request: NextRequest) {
     const { data: orders, error: orderError } = await supabase
       .from('orders')
       .select(
-        'id, merchant_id, total, payment_status, customer_email, customer_name, order_number, notes'
+        'id, merchant_id, total, payment_status, payment_method, customer_email, customer_name, order_number, notes'
       )
-      .eq('payment_method', 'credit_direct')
       .ilike('notes', `%${payload.checkoutTransactionId}%`);
 
     if (orderError) {
@@ -112,6 +115,7 @@ export async function POST(request: NextRequest) {
       merchant_id: string;
       total: number;
       payment_status: string;
+      payment_method: string | null;
       customer_email: string;
       customer_name: string;
       order_number: string | null;
@@ -122,7 +126,7 @@ export async function POST(request: NextRequest) {
       const { data: orderById } = await supabase
         .from('orders')
         .select(
-          'id, merchant_id, total, payment_status, customer_email, customer_name, order_number, notes'
+          'id, merchant_id, total, payment_status, payment_method, customer_email, customer_name, order_number, notes'
         )
         .eq('id', payload.metaData)
         .single();
@@ -147,6 +151,29 @@ export async function POST(request: NextRequest) {
     } catch {
       parsedNotes = {};
     }
+    const activeTransactionId =
+      readNoteString(parsedNotes.creditDirectTransactionId) ??
+      readNoteString(parsedNotes.credit_directTransactionId);
+    const activeSessionId = readNoteString(parsedNotes.creditDirectSessionId);
+    const activeReference = activeTransactionId ?? activeSessionId;
+
+    if (
+      order.payment_method !== 'credit_direct' ||
+      activeReference !== payload.checkoutTransactionId
+    ) {
+      logger.warn({
+        message: 'Ignoring stale Credit Direct webhook for inactive session',
+        orderId: order.id,
+        orderPaymentMethod: order.payment_method,
+        activeReference,
+        transactionId: payload.checkoutTransactionId,
+      });
+      return NextResponse.json({
+        received: true,
+        warning: 'Stale Credit Direct session',
+      });
+    }
+
     const signedAmount =
       typeof parsedNotes.creditDirectSignedAmount === 'number'
         ? parsedNotes.creditDirectSignedAmount
@@ -178,7 +205,7 @@ export async function POST(request: NextRequest) {
           .update({
             payment_status: 'bnpl_approved',
             notes: JSON.stringify({
-              ...JSON.parse(order.notes || '{}'),
+              ...parsedNotes,
               creditDirectTransactionId: payload.checkoutTransactionId,
               creditDirectCustomer: payload.checkoutCustomer,
               bnplApprovedAt: payload.timeStamp,
@@ -251,7 +278,7 @@ export async function POST(request: NextRequest) {
           .update({
             payment_status: 'paid',
             notes: JSON.stringify({
-              ...JSON.parse(order.notes || '{}'),
+              ...parsedNotes,
               merchantPaidAt: payload.timeStamp,
               platformFee,
               merchantAmount,

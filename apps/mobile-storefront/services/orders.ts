@@ -78,6 +78,7 @@ const CreateOrderRequestSchema = z.object({
   customer_email: z.string().email('Invalid email address'),
   customer_name: z.string().min(1, 'Name is required'),
   customer_phone: z.string().min(10, 'Valid phone number required'),
+  idempotency_key: z.string().trim().min(1).max(128).optional(),
   items: z.array(OrderItemSchema).min(1, 'At least one item required'),
   subtotal: z.number().min(0),
   shipping_fee: z.number().min(0),
@@ -177,6 +178,29 @@ function readResponseString(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim().length > 0
     ? value.trim()
     : undefined;
+}
+
+function normalizeConflictCode(value: unknown): string {
+  const rawCode = readResponseString(value);
+  if (!rawCode) return 'ORDER_CONFLICT';
+
+  const normalizedCode = rawCode
+    .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+    .replace(/[\s-]+/g, '_')
+    .toUpperCase();
+
+  if (normalizedCode === 'ORDER_NOT_REUSABLE') {
+    return 'CHECKOUT_ORDER_NOT_REUSABLE';
+  }
+
+  if (
+    normalizedCode === 'CHECKOUT_ORDER_NOT_REUSABLE' ||
+    normalizedCode === 'CHECKOUT_IDEMPOTENCY_CONFLICT'
+  ) {
+    return normalizedCode;
+  }
+
+  return normalizedCode;
 }
 
 function getValidationErrorMessage(error: string, details: unknown): string {
@@ -316,8 +340,7 @@ export async function createOrder(
   };
 
   try {
-    // BUG-1-008 FIX: Generate idempotency key to prevent duplicate orders on retry
-    const idempotencyKey = Crypto.randomUUID();
+    const idempotencyKey = validatedRequest.idempotency_key ?? Crypto.randomUUID();
 
     // 5. Make API call to create order with retry and timeout
     // 2026 Best Practice: Automatic retry with exponential backoff for resilience
@@ -376,6 +399,14 @@ export async function createOrder(
           ? 'Checkout is temporarily unavailable for this store. Please try again later.'
           : errorMessage;
         throw new OrderError(notFoundMessage, 'NOT_FOUND');
+      } else if (response.status === 409) {
+        const conflictCode = normalizeConflictCode(errorData.code);
+        const conflictDetails =
+          errorData.details ??
+          (typeof errorData === 'object' && errorData !== null
+            ? { ...errorData, code: conflictCode }
+            : conflictCode);
+        throw new OrderError(errorMessage, conflictCode, conflictDetails);
       } else if (response.status >= 500) {
         throw new OrderError(
           'Server error. Please try again in a few moments.',
