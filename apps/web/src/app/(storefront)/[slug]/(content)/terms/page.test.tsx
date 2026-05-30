@@ -76,16 +76,6 @@ describe('terms metadata', () => {
 });
 
 describe('terms page rendering', () => {
-  it('marks terms metadata as request-time rendered', async () => {
-    vi.mocked(getMerchantByIdentifier).mockResolvedValue(null);
-
-    await generateMetadata({
-      params: Promise.resolve({ slug: 'unknown' }),
-    });
-
-    expect(mockConnection).toHaveBeenCalledOnce();
-  });
-
   it('returns the route shell with a dynamic metadata marker', async () => {
     const element = await TermsPage({
       params: Promise.resolve({ slug: 'ogabassey.com' }),

@@ -101,10 +101,23 @@ export function isValidMerchantSlug(slug: string): boolean {
 }
 
 /**
+ * Detects if a string is a dynamic route placeholder from Next.js build compilation (e.g. "[slug]").
+ */
+export function isRoutePlaceholder(value: string | null | undefined): boolean {
+  if (typeof value !== 'string') return false;
+  const trimmed = value.trim();
+  return trimmed.startsWith('[') && trimmed.endsWith(']');
+}
+
+/**
  * Validates if the string is either a valid slug OR a valid domain.
  * @param identifier The string to check.
  * @returns True if it matches either format.
  */
 export function isValidMerchantIdentifier(identifier: string): boolean {
-  return isValidMerchantSlug(identifier) || isDomainIdentifier(identifier);
+  return (
+    isRoutePlaceholder(identifier) ||
+    isValidMerchantSlug(identifier) ||
+    isDomainIdentifier(identifier)
+  );
 }

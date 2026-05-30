@@ -308,19 +308,6 @@ describe('storefront blog post page', () => {
     expect(metadata.title).toBe('The Great 5K Stall | Ogabassey');
   });
 
-  it('marks blog post metadata as request-time rendered', async () => {
-    mockGetCachedBlogPost.mockResolvedValue(liveBlogPost);
-
-    await generateMetadata({
-      params: Promise.resolve({
-        slug: 'ogabassey.com',
-        postSlug: 'apple-studio-display-review',
-      }),
-    });
-
-    expect(mockConnection).toHaveBeenCalledOnce();
-  });
-
   it('returns noindex fallback metadata when the public cache lookup throws', async () => {
     const consoleErrorSpy = vi
       .spyOn(console, 'error')

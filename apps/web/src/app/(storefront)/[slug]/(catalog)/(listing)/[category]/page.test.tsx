@@ -525,15 +525,6 @@ function getLastCategoryPageProps() {
 }
 
 describe('category page route', () => {
-  it('marks category metadata as request-time rendered', async () => {
-    await generateMetadata({
-      params: Promise.resolve({ slug: 'test-store', category: 'smartphones' }),
-      searchParams: Promise.resolve({}),
-    });
-
-    expect(mockConnection).toHaveBeenCalledOnce();
-  });
-
   beforeEach(() => {
     vi.mocked(getCachedMerchant).mockReset();
     vi.mocked(getCachedMerchantByDomain).mockReset();

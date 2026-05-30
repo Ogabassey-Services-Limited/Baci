@@ -18,7 +18,6 @@ export default async function LegacyTermsOfServicePage({
   searchParams,
 }: PageProps) {
   await connection();
-
   const { slug } = await params;
   permanentRedirect(
     buildStorefrontRedirect(await headers(), slug, '/terms', await searchParams)

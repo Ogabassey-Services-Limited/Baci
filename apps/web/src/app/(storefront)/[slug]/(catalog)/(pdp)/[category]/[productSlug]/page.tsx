@@ -3,7 +3,6 @@ import { resolveVariantSelectionParamResolution } from '@baci/shared/lib';
 import type { Metadata, Route } from 'next';
 import { headers } from 'next/headers';
 import { notFound, permanentRedirect } from 'next/navigation';
-import { connection } from 'next/server';
 import { type ReactNode, Suspense } from 'react';
 import { StorefrontDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker';
 import { StorefrontNotFoundWithDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-not-found-with-dynamic-metadata-marker';
@@ -612,7 +611,7 @@ const getProduct = async (
       merchantId: product.merchant_id || merchant.id,
       productId: product.id,
     }),
-  } as Product;
+  } as unknown as Product;
 
   const productCategorySlug =
     dbCategorySlug ||
@@ -684,8 +683,6 @@ async function getProductRouteControl(
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
-  await connection();
-
   const { slug, category, productSlug } = await params;
   if (!isValidMerchantIdentifier(slug)) {
     notFound();

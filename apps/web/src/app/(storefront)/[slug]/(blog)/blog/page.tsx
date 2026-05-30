@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import { connection } from 'next/server';
 import { Suspense } from 'react';
 import { BlogListingFallback } from '@/app/(storefront)/[slug]/(blog)/blog/BlogListingFallback';
 import { StorefrontDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker';
@@ -15,7 +14,6 @@ import { BlogPageContent, type BlogPageProps } from './blog-page-content';
 export async function generateMetadata({
   params,
 }: BlogPageProps): Promise<Metadata> {
-  await connection();
   const { slug } = await params;
   const data = await getCachedBlogListing(slug, { page: 1 });
   if (!data) {

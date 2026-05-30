@@ -198,20 +198,6 @@ describe('generateMetadata', () => {
     ).rejects.toThrow('NEXT_NOT_FOUND');
   });
 
-  it('marks about metadata as request-time rendered', async () => {
-    vi.mocked(getMerchantByIdentifier).mockResolvedValue({
-      business_name: 'Test Store',
-      about_page: {},
-      pages: {},
-    } as unknown as Awaited<ReturnType<typeof getMerchantByIdentifier>>);
-
-    await generateMetadata({
-      params: Promise.resolve({ slug: 'test' }),
-    });
-
-    expect(mockConnection).toHaveBeenCalledOnce();
-  });
-
   it('returns fallback metadata when about content is empty', async () => {
     vi.mocked(getMerchantByIdentifier).mockResolvedValue({
       business_name: 'Test Store',

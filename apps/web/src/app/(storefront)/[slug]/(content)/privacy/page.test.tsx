@@ -35,16 +35,6 @@ describe('privacy metadata', () => {
     mockConnection.mockReset();
   });
 
-  it('marks privacy metadata as request-time rendered', async () => {
-    vi.mocked(getMerchantByIdentifier).mockResolvedValue(null);
-
-    await generateMetadata({
-      params: Promise.resolve({ slug: 'unknown' }),
-    });
-
-    expect(mockConnection).toHaveBeenCalledOnce();
-  });
-
   it('returns fallback title when merchant is missing', async () => {
     vi.mocked(getMerchantByIdentifier).mockResolvedValue(null);
 
