@@ -634,6 +634,41 @@ describe('Middleware Proxy', () => {
     );
   });
 
+  it('sets the streaming metadata cache bucket for normal custom-domain browsers', async () => {
+    const req = new NextRequest(
+      'https://ogabassey.com/smartphones/samsung-galaxy-a37-5g'
+    );
+    req.headers.set('host', 'ogabassey.com');
+    req.headers.set(
+      'user-agent',
+      'Mozilla/5.0 AppleWebKit/537.36 Chrome/125.0 Safari/537.36'
+    );
+
+    const res = await proxy(req);
+
+    expect(res.headers.get('x-middleware-rewrite')).toBe(
+      'https://ogabassey.com/ogabassey.com/smartphones/samsung-galaxy-a37-5g'
+    );
+    expect(
+      res.headers.get('x-middleware-request-x-baci-metadata-cache-bucket')
+    ).toBe('streaming');
+  });
+
+  it('overwrites spoofed metadata cache buckets for HTML-limited bots', async () => {
+    const req = new NextRequest(
+      'https://ogabassey.com/smartphones/samsung-galaxy-a37-5g'
+    );
+    req.headers.set('host', 'ogabassey.com');
+    req.headers.set('user-agent', 'Twitterbot/1.0');
+    req.headers.set('x-baci-metadata-cache-bucket', 'streaming');
+
+    const res = await proxy(req);
+
+    expect(
+      res.headers.get('x-middleware-request-x-baci-metadata-cache-bucket')
+    ).toBe('html-limited');
+  });
+
   it.each([
     '/agent-commerce.json',
     '/agent-trust.json',

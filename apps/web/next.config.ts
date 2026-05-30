@@ -443,10 +443,10 @@ const nextConfig: NextConfig = {
           },
           {
             key: 'Vary',
-            // Next streams metadata for normal browsers but blocks it for
-            // html-limited bots. cacheComponents/PPR must not reuse one
-            // user-agent shape's cached shell for the other shape.
-            value: 'User-Agent',
+            // proxy.ts normalizes Next's HTML-limited bot detection into two
+            // buckets. Do not vary on raw User-Agent here; that would create
+            // near-unbounded storefront cache keys and regress TTFB/LCP.
+            value: 'x-baci-metadata-cache-bucket',
           },
         ],
       },

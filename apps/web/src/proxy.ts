@@ -64,6 +64,21 @@ const MERCHANT_CONTEXT_HEADERS = [
   'x-merchant-domain',
   'x-merchant-slug',
 ] as const;
+const METADATA_CACHE_BUCKET_HEADER = 'x-baci-metadata-cache-bucket';
+
+// Mirrors Next 16.2's HTML-limited bot list so cacheComponents/PPR can keep
+// streamed-browser shells separate from blocking-metadata bot shells without
+// varying on raw User-Agent, which would fragment the edge cache per visitor.
+const HTML_LIMITED_METADATA_BOT_USER_AGENT_REGEX =
+  /[\w-]+-Google|Google-[\w-]+|Chrome-Lighthouse|Slurp|DuckDuckBot|baiduspider|yandex|sogou|bitlybot|tumblr|vkShare|quora link preview|redditbot|ia_archiver|Bingbot|BingPreview|applebot|facebookexternalhit|facebookcatalog|Twitterbot|LinkedInBot|Slackbot|Discordbot|WhatsApp|SkypeUriPreview|Yeti|googleweblight/i;
+
+function getMetadataCacheBucket(
+  userAgent: string
+): 'html-limited' | 'streaming' {
+  return HTML_LIMITED_METADATA_BOT_USER_AGENT_REGEX.test(userAgent)
+    ? 'html-limited'
+    : 'streaming';
+}
 
 function cloneRequestHeadersWithoutMerchantContext(
   request: NextRequest
@@ -72,6 +87,10 @@ function cloneRequestHeadersWithoutMerchantContext(
   for (const header of MERCHANT_CONTEXT_HEADERS) {
     headers.delete(header);
   }
+  headers.set(
+    METADATA_CACHE_BUCKET_HEADER,
+    getMetadataCacheBucket(request.headers.get('user-agent') ?? '')
+  );
   return headers;
 }
 

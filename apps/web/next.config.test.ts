@@ -36,7 +36,7 @@ describe('next.config OgaBassey resource headers', () => {
     );
   });
 
-  it('partitions OgaBassey storefront HTML cache by user agent without disabling streamed metadata', async () => {
+  it('partitions OgaBassey storefront HTML cache by normalized metadata bucket', async () => {
     expect(nextConfig.htmlLimitedBots).toBeUndefined();
     expect(typeof nextConfig.headers).toBe('function');
     const headers = await nextConfig.headers();
@@ -49,7 +49,7 @@ describe('next.config OgaBassey resource headers', () => {
           headers: expect.arrayContaining([
             {
               key: 'Vary',
-              value: 'User-Agent',
+              value: 'x-baci-metadata-cache-bucket',
             },
           ]),
         }),
