@@ -70,7 +70,15 @@ export function BNPLCheckoutScreen() {
     statusRef,
   });
 
-  useEffect(() => () => clearPendingLoadTimeout(), [clearPendingLoadTimeout]);
+  // Clear timeout on unmount to prevent memory leaks and callback triggers
+  useEffect(() => {
+    return () => {
+      if (loadTimeoutRef.current) {
+        clearTimeout(loadTimeoutRef.current);
+        loadTimeoutRef.current = null;
+      }
+    };
+  }, []);
 
   const bnplUrl = buildBNPLCheckoutUrl({
     apiBaseUrl: API_BASE_URL,
