@@ -1,6 +1,6 @@
 import { jest } from '@jest/globals';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
-import { Animated, StyleSheet } from 'react-native';
+import { Animated } from 'react-native';
 import Colors from '@/constants/Colors';
 import { UtilityPanel } from './UtilityPanel';
 
@@ -33,14 +33,6 @@ function createAnimation() {
   };
 }
 
-function getIconStyle(button: ReturnType<typeof screen.getByRole>) {
-  const icon = button.children[0];
-  if (!icon || typeof icon === 'string') {
-    throw new Error('Expected utility button to render an icon element');
-  }
-  return StyleSheet.flatten(icon.props.style);
-}
-
 jest.mock('@/components/useColorScheme', () => ({
   useColorScheme: () => mockUseColorScheme(),
 }));
@@ -52,6 +44,28 @@ jest.mock('@/hooks', () => ({
 jest.mock('@/hooks/use-vtu-billers', () => ({
   usePrefetchBillers: () => mockUsePrefetchBillers(),
 }));
+
+type TestInstance = {
+  type: string | Function;
+  children: Array<string | TestInstance>;
+};
+
+function findHostElement(instance: unknown): TestInstance | null {
+  if (!instance) return null;
+  const testInstance = instance as TestInstance;
+  if (typeof testInstance.type === 'string') {
+    return testInstance;
+  }
+  for (const child of testInstance.children || []) {
+    if (typeof child !== 'string') {
+      const found: TestInstance | null = findHostElement(child);
+      if (found) {
+        return found;
+      }
+    }
+  }
+  return null;
+}
 
 describe('UtilityPanel', () => {
   beforeEach(() => {
@@ -103,10 +117,10 @@ describe('UtilityPanel', () => {
     expect(screen.getByTestId('utility-panel-promo-banner')).toHaveStyle({
       backgroundColor: Colors.light.promoBackground,
     });
-    const airtimeButton = screen.getByRole('button', { name: 'Airtime' });
-    expect(getIconStyle(airtimeButton)?.backgroundColor).toBe(
-      Colors.light.card
-    );
+    const airtimeButtonLight = screen.getByRole('button', { name: 'Airtime' });
+    expect(findHostElement(airtimeButtonLight.children[0])).toHaveStyle({
+      backgroundColor: Colors.light.card,
+    });
 
     mockUseColorScheme.mockReturnValue('dark');
 
@@ -121,9 +135,9 @@ describe('UtilityPanel', () => {
       backgroundColor: Colors.dark.promoBackground,
     });
     const airtimeButtonDark = screen.getByRole('button', { name: 'Airtime' });
-    expect(getIconStyle(airtimeButtonDark)?.backgroundColor).toBe(
-      Colors.dark.card
-    );
+    expect(findHostElement(airtimeButtonDark.children[0])).toHaveStyle({
+      backgroundColor: Colors.dark.card,
+    });
   });
 
   it('renders an explicit error state for non-utility category failures', () => {

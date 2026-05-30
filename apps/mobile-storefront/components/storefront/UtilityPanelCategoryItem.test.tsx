@@ -1,6 +1,5 @@
 import { jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import { StyleSheet } from 'react-native';
 import Colors from '@/constants/Colors';
 import { UtilityPanelCategoryItem } from './UtilityPanelCategoryItem';
 
@@ -8,12 +7,26 @@ jest.mock('@/components/useColorScheme', () => ({
   useColorScheme: () => 'light',
 }));
 
-function getIconStyle(button: ReturnType<typeof screen.getByRole>) {
-  const icon = button.children[0];
-  if (!icon || typeof icon === 'string') {
-    throw new Error('Expected utility button to render an icon element');
+type TestInstance = {
+  type: string | Function;
+  children: Array<string | TestInstance>;
+};
+
+function findHostElement(instance: unknown): TestInstance | null {
+  if (!instance) return null;
+  const testInstance = instance as TestInstance;
+  if (typeof testInstance.type === 'string') {
+    return testInstance;
   }
-  return StyleSheet.flatten(icon.props.style);
+  for (const child of testInstance.children || []) {
+    if (typeof child !== 'string') {
+      const found: TestInstance | null = findHostElement(child);
+      if (found) {
+        return found;
+      }
+    }
+  }
+  return null;
 }
 
 describe('UtilityPanelCategoryItem', () => {
@@ -32,9 +45,9 @@ describe('UtilityPanelCategoryItem', () => {
     );
 
     const airtimeButton = screen.getByRole('button', { name: 'Airtime' });
-    expect(getIconStyle(airtimeButton)?.backgroundColor).toBe(
-      Colors.light.card
-    );
+    expect(findHostElement(airtimeButton.children[0])).toHaveStyle({
+      backgroundColor: Colors.light.card,
+    });
 
     fireEvent.press(airtimeButton);
 
