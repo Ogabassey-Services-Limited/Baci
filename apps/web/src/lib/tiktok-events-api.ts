@@ -55,7 +55,7 @@ export interface TikTokEventProperties {
 
 export interface TikTokEventOptions {
   eventId?: string;
-  eventTime?: Date | string;
+  eventTime?: Date | number | string;
   testEventCode?: string;
   url?: string;
 }
@@ -63,6 +63,8 @@ export interface TikTokEventOptions {
 type TikTokContentInput = NonNullable<
   TikTokEventProperties['contents']
 >[number];
+
+const MILLISECOND_TIMESTAMP_THRESHOLD = 1_000_000_000_000;
 
 function compactRecord<T extends Record<string, unknown>>(
   record: T
@@ -80,6 +82,55 @@ function hashData(data: string): string {
     .createHash('sha256')
     .update(data.toLowerCase().trim())
     .digest('hex');
+}
+
+function normalizeUnixSeconds(value: number): number {
+  return Math.floor(
+    value > MILLISECOND_TIMESTAMP_THRESHOLD ? value / 1000 : value
+  );
+}
+
+function currentUnixSeconds(): number {
+  return Math.floor(Date.now() / 1000);
+}
+
+function toEventTime(eventTime: Date | number | string | undefined): number {
+  if (eventTime instanceof Date) {
+    const timestamp = eventTime.getTime();
+    if (!Number.isFinite(timestamp) || timestamp <= 0) {
+      return currentUnixSeconds();
+    }
+    return Math.floor(timestamp / 1000);
+  }
+
+  if (typeof eventTime === 'number') {
+    if (!Number.isFinite(eventTime) || eventTime <= 0) {
+      return currentUnixSeconds();
+    }
+    return normalizeUnixSeconds(eventTime);
+  }
+
+  if (typeof eventTime === 'string') {
+    const trimmedTime = eventTime.trim();
+    if (!trimmedTime) {
+      return currentUnixSeconds();
+    }
+
+    const numericTime = Number(trimmedTime);
+    if (Number.isFinite(numericTime)) {
+      if (numericTime <= 0) {
+        return currentUnixSeconds();
+      }
+      return normalizeUnixSeconds(numericTime);
+    }
+
+    const parsedTime = Date.parse(trimmedTime);
+    if (Number.isFinite(parsedTime)) {
+      return Math.floor(parsedTime / 1000);
+    }
+  }
+
+  return currentUnixSeconds();
 }
 
 /**
@@ -135,25 +186,16 @@ export async function sendTikTokEvent(
   const pageUrl = options?.url || properties?.url;
 
   const payload = {
-    pixel_code: pixelId,
     event: eventName,
     event_id:
       options?.eventId ||
       `${Date.now()}_${crypto.randomBytes(8).toString('hex')}`,
-    timestamp:
-      options?.eventTime instanceof Date
-        ? options.eventTime.toISOString()
-        : options?.eventTime || new Date().toISOString(),
-    context: {
-      user: compactRecord(user),
-      page: compactRecord({
-        url: pageUrl,
-      }),
-    },
+    event_time: toEventTime(options?.eventTime),
+    user: compactRecord(user),
+    page: compactRecord({
+      url: pageUrl,
+    }),
     properties: eventProperties,
-    ...(options?.testEventCode
-      ? { test_event_code: options.testEventCode }
-      : {}),
   };
 
   try {
@@ -164,7 +206,12 @@ export async function sendTikTokEvent(
         'Access-Token': accessToken,
       },
       body: JSON.stringify({
+        event_source: 'web',
+        event_source_id: pixelId,
         data: [payload],
+        ...(options?.testEventCode
+          ? { test_event_code: options.testEventCode }
+          : {}),
       }),
     });
 
