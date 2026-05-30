@@ -610,7 +610,7 @@ describe('category page route', () => {
       searchParams: Promise.resolve({}),
     });
 
-    render(
+    const { container } = render(
       <Suspense fallback={<div>Route loader fallback</div>}>{ui}</Suspense>
     );
 
@@ -625,7 +625,7 @@ describe('category page route', () => {
       name: /dynamic metadata marker/i,
     });
     expect(marker).toBeInTheDocument();
-    expect(document.body.querySelector('[role="status"]')).toBe(marker);
+    expect(container.firstElementChild).toBe(marker);
   });
 
   it('renders category content with a dynamic metadata marker', async () => {
