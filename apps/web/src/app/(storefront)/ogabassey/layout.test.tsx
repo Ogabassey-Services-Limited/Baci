@@ -2,30 +2,24 @@ import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockGenerateStorefrontLayoutMetadata, mockStorefrontLayout } =
-  vi.hoisted(() => ({
-    mockGenerateStorefrontLayoutMetadata: vi.fn(
-      (_props: { params: Promise<{ slug: string }> }) =>
-        Promise.resolve({ manifest: null })
-    ),
-    mockStorefrontLayout: vi.fn(
-      ({
-        children,
-        loadingFallback: _loadingFallback,
-        params: _params,
-      }: {
-        children: ReactNode;
-        loadingFallback?: ReactNode;
-        params: Promise<{ slug: string }>;
-      }) => <section aria-label="generic storefront layout">{children}</section>
-    ),
-  }));
+const { mockStorefrontLayout } = vi.hoisted(() => ({
+  mockStorefrontLayout: vi.fn(
+    ({
+      children,
+      loadingFallback: _loadingFallback,
+      params: _params,
+    }: {
+      children: ReactNode;
+      loadingFallback?: ReactNode;
+      params: Promise<{ slug: string }>;
+    }) => <section aria-label="generic storefront layout">{children}</section>
+  ),
+}));
 
 vi.mock('server-only', () => ({}));
 
 vi.mock('@/app/(storefront)/[slug]/layout', () => ({
   default: mockStorefrontLayout,
-  generateMetadata: mockGenerateStorefrontLayoutMetadata,
   generateViewport: () => ({
     width: 'device-width',
     initialScale: 1,
@@ -33,13 +27,12 @@ vi.mock('@/app/(storefront)/[slug]/layout', () => ({
 }));
 
 import OgabasseyLayout, {
-  generateMetadata,
   generateViewport,
+  metadata,
 } from '@/app/(storefront)/ogabassey/layout';
 
 describe('OgabasseyLayout', () => {
   beforeEach(() => {
-    mockGenerateStorefrontLayoutMetadata.mockClear();
     mockStorefrontLayout.mockClear();
   });
 
@@ -74,31 +67,12 @@ describe('OgabasseyLayout', () => {
     });
   });
 
-  it('delegates merchant-level metadata to the generic storefront layout', async () => {
-    const metadata = await generateMetadata();
-
+  it('provides high-performance static metadata', () => {
+    expect(metadata.title).toBe('OgaBassey - Official Online Store');
+    expect(metadata.description).toContain('OgaBassey');
     expect(metadata.manifest).toBeNull();
-    expect(mockGenerateStorefrontLayoutMetadata).toHaveBeenCalledWith({
-      params: expect.any(Promise),
-    });
-    const props = mockGenerateStorefrontLayoutMetadata.mock.calls[0]?.[0];
-    await expect(props?.params).resolves.toEqual({ slug: 'ogabassey' });
-  });
-
-  it('keeps the platform manifest disabled when merchant metadata fails', async () => {
-    const consoleError = vi
-      .spyOn(console, 'error')
-      .mockImplementation(() => undefined);
-    mockGenerateStorefrontLayoutMetadata.mockRejectedValueOnce(
-      new Error('metadata failed')
-    );
-
-    try {
-      await expect(generateMetadata()).resolves.toEqual({
-        manifest: null,
-      });
-    } finally {
-      consoleError.mockRestore();
-    }
+    expect(metadata.icons).toBeDefined();
+    expect(metadata.openGraph).toBeDefined();
+    expect(metadata.twitter).toBeDefined();
   });
 });

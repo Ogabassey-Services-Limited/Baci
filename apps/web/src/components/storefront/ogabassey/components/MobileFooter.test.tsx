@@ -61,4 +61,14 @@ describe('MobileFooter', () => {
       'false'
     );
   });
+
+  it('renders a dynamic accessible name for the Cart link based on item count', () => {
+    render(<MobileFooter storeSlug="test" />);
+    
+    // Total items is 3 in mock useCart, so the label should be 'Cart (3 items)'
+    expect(screen.getByRole('link', { name: /cart/i })).toHaveAttribute(
+      'aria-label',
+      'Cart (3 items)'
+    );
+  });
 });

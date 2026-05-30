@@ -88,7 +88,7 @@ export const MobileFooter: React.FC<MobileFooterProps> = ({ storeSlug = '' }) =>
               href={asRoute(`${basePath}${path}`)}
               prefetch={false}
               className="ogabassey-mobile-footer__item"
-              aria-label={label}
+              aria-label={badge !== undefined && badge > 0 ? `${label} (${badge} items)` : label}
               aria-current={active ? 'page' : undefined}
               data-active={active ? 'true' : undefined}
             >
@@ -104,7 +104,7 @@ export const MobileFooter: React.FC<MobileFooterProps> = ({ storeSlug = '' }) =>
                 {badge !== undefined && badge > 0 && (
                   <span
                     className="ogabassey-mobile-footer__badge"
-                    aria-label={`${badge} items in cart`}
+                    aria-hidden="true"
                   >
                     {badge > 99 ? '99+' : badge}
                   </span>
