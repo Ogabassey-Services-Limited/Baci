@@ -96,7 +96,7 @@ describe('UtilityPanel', () => {
       backgroundColor: Colors.light.promoBackground,
     });
     expect(screen.getByTestId('utility-category-icon-u-airtime')).toHaveStyle({
-      backgroundColor: Colors.light.selectedIconBackground,
+      backgroundColor: Colors.light.card,
     });
 
     mockUseColorScheme.mockReturnValue('dark');
@@ -112,7 +112,7 @@ describe('UtilityPanel', () => {
       backgroundColor: Colors.dark.promoBackground,
     });
     expect(screen.getByTestId('utility-category-icon-u-airtime')).toHaveStyle({
-      backgroundColor: Colors.dark.selectedIconBackground,
+      backgroundColor: Colors.dark.card,
     });
   });
 

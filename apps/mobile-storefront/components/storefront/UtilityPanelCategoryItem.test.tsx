@@ -23,7 +23,7 @@ describe('UtilityPanelCategoryItem', () => {
     );
 
     expect(screen.getByTestId('utility-category-icon-u-airtime')).toHaveStyle({
-      backgroundColor: Colors.light.selectedIconBackground,
+      backgroundColor: Colors.light.card,
     });
 
     fireEvent.press(screen.getByLabelText('Airtime'));

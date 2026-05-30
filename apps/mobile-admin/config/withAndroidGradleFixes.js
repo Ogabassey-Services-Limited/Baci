@@ -195,6 +195,11 @@ function withAndroidGradleFixes(config) {
           'android.builtInKotlin',
           'false'
         );
+        content = ensureGradleProperty(
+          content,
+          'org.gradle.jvmargs',
+          '-Xmx2048m -XX:MaxMetaspaceSize=1024m'
+        );
         fs.writeFileSync(gradleProperties, content);
       }
 
