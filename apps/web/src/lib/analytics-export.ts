@@ -1,3 +1,4 @@
+// Use browser ESM bundle to avoid Turbopack resolving jspdf.node.min.js (fflate dynamic worker error).
 import { jsPDF } from 'jspdf/dist/jspdf.es.min.js';
 import autoTable from 'jspdf-autotable';
 import type { AnalyticsData } from '@/components/analytics/draggable-analytics-grid';
