@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -15,38 +15,15 @@ import {
 
 import { SvgUri, SvgXml } from 'react-native-svg';
 
-// Default blurhash for smooth loading placeholder
-// (Kept for interface compatibility even if not used by native Image)
 const DEFAULT_BLURHASH = 'L6PZfSi_.AyE_3t7t7RjE1%MWBR*';
 
 export interface SafeImageProps extends Omit<ImageProps, 'onError'> {
-  /**
-   * Optional callback when image fails to load
-   */
   onLoadError?: (error: Error) => void;
-  /**
-   * Custom fallback component to render on error
-   */
   fallbackComponent?: React.ReactNode;
-  /**
-   * Whether to show a placeholder icon on error (default: true)
-   */
   showFallbackIcon?: boolean;
-  /**
-   * Container style for the fallback view
-   */
   fallbackStyle?: StyleProp<ViewStyle>;
-  /**
-   * Fallback icon size (default: 32)
-   */
   fallbackIconSize?: number;
-  /**
-   * Fallback icon color (default: #9CA3AF - gray-400)
-   */
   fallbackIconColor?: string;
-  /**
-   * Compatibility props for expo-image (ignored by native Image)
-   */
   contentFit?: 'cover' | 'contain' | 'fill' | 'none' | 'scale-down';
   placeholder?: string | { blurhash: string };
   transition?: number;
@@ -80,12 +57,7 @@ function SafeImage({
       ? (source as { uri?: unknown }).uri
       : undefined;
 
-  const uri =
-    typeof rawUri === 'string'
-      ? rawUri
-      : rawUri && typeof rawUri === 'object'
-        ? (rawUri as any).toString()
-        : undefined;
+  const uri = rawUri == null ? undefined : String(rawUri);
 
   const isSvg =
     typeof uri === 'string' &&
@@ -236,8 +208,6 @@ function SafeImage({
   if (contentFit === 'fill') resizeMode = 'stretch';
   if (contentFit === 'none') resizeMode = 'center';
 
-  // NOTE: Completely isolated from expo-image due to iOS CoreGraphics crash
-  // related to 24-bpp PNGs and color spaces (rdar://143602439)
   // Sanitize source to guarantee uri is a string if it's an object/array
   const resolvedSource = (() => {
     if (!source) return source;
@@ -246,7 +216,12 @@ function SafeImage({
         typeof src === 'object' && src !== null && 'uri' in src
           ? {
               ...src,
-              uri: typeof src.uri === 'string' ? src.uri : src.uri ? String(src.uri) : undefined,
+              uri:
+                typeof src.uri === 'string'
+                  ? src.uri
+                  : src.uri
+                    ? String(src.uri)
+                    : undefined,
             }
           : src
       );
@@ -254,7 +229,12 @@ function SafeImage({
     if (typeof source === 'object' && 'uri' in source) {
       return {
         ...source,
-        uri: typeof source.uri === 'string' ? source.uri : source.uri ? String(source.uri) : undefined,
+        uri:
+          typeof source.uri === 'string'
+            ? source.uri
+            : source.uri
+              ? String(source.uri)
+              : undefined,
       };
     }
     return source;

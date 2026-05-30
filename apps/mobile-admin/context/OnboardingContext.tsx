@@ -1,6 +1,6 @@
-import { asyncStorage as AsyncStorage } from '@/lib/storage';
 import type React from 'react';
 import { createContext, useContext, useEffect, useState } from 'react';
+import { asyncStorage as AsyncStorage } from '@/lib/storage';
 
 const ONBOARDING_KEY = 'baci_has_seen_onboarding';
 
@@ -25,19 +25,19 @@ export function OnboardingProvider({
   );
   const [isLoading, setIsLoading] = useState(true);
 
-  const checkOnboarding = async () => {
-    try {
-      const value = await AsyncStorage.getItem(ONBOARDING_KEY);
-      setHasSeenOnboarding(value === 'true');
-    } catch (error) {
-      console.error('Error checking onboarding status:', error);
-      setHasSeenOnboarding(false);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   useEffect(() => {
+    const checkOnboarding = async () => {
+      try {
+        const value = await AsyncStorage.getItem(ONBOARDING_KEY);
+        setHasSeenOnboarding(value === 'true');
+      } catch (error) {
+        console.error('Error checking onboarding status:', error);
+        setHasSeenOnboarding(false);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
     checkOnboarding();
   }, []);
 

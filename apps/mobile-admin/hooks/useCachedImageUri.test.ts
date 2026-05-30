@@ -16,8 +16,8 @@ const { mocks } = vi.hoisted(() => {
 
   class MockFile {
     exists = false;
-    uri: any;
-    constructor(parent: any, name: string) {
+    uri: MockURL;
+    constructor(_parent: unknown, name: string) {
       this.exists = mockFileExists();
       this.uri = new MockURL(`file:///cache/${name}`);
     }
@@ -29,7 +29,7 @@ const { mocks } = vi.hoisted(() => {
       mockFileExists,
       MockURL,
       MockFile,
-    }
+    },
   };
 });
 
@@ -74,14 +74,16 @@ describe('useCachedImageUri', () => {
     });
 
     expect(typeof result.current.uri).toBe('string');
-    expect(result.current.uri).toBe('file:///cache/img_cache_https___example_com_image_png.png');
+    expect(result.current.uri).toBe(
+      'file:///cache/img_cache_https___example_com_image_png.png'
+    );
     expect(mocks.mockDownloadFileAsync).not.toHaveBeenCalled();
   });
 
   it('downloads file and returns stringified downloaded URI if not cached', async () => {
     mocks.mockFileExists.mockReturnValue(false);
     const remoteUri = 'https://example.com/image2.png';
-    
+
     mocks.mockDownloadFileAsync.mockResolvedValue({
       uri: new mocks.MockURL('file:///cache/downloaded_image2.png'),
     });

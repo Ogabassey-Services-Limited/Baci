@@ -49,7 +49,8 @@ export function useCachedImageUri(
 
         // Check if already cached
         if (dest.exists && !cancelled) {
-          const cachedUri = typeof dest.uri === 'string' ? dest.uri : (dest.uri as any)?.toString() || '';
+          const cachedUri =
+            typeof dest.uri === 'string' ? dest.uri : String(dest.uri);
           setLocalUri(cachedUri);
           setIsLoading(false);
           return;
@@ -60,7 +61,10 @@ export function useCachedImageUri(
           idempotent: true,
         });
         if (!cancelled) {
-          const downloadedUri = typeof downloaded.uri === 'string' ? downloaded.uri : (downloaded.uri as any)?.toString() || '';
+          const downloadedUri =
+            typeof downloaded.uri === 'string'
+              ? downloaded.uri
+              : String(downloaded.uri);
           setLocalUri(downloadedUri);
         }
       } catch {
