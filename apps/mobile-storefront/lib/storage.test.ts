@@ -26,8 +26,8 @@ type AsyncStorageMock = {
   removeItem: jest.Mock;
   getMany?: jest.Mock;
   removeMany?: jest.Mock;
-  multiGet: jest.Mock;
-  multiRemove: jest.Mock;
+  multiGet?: jest.Mock;
+  multiRemove?: jest.Mock;
 };
 
 const storageMock = AsyncStorage as unknown as AsyncStorageMock;
@@ -37,6 +37,8 @@ describe('storage batching helpers', () => {
     jest.clearAllMocks();
     storageMock.getMany = jest.fn();
     storageMock.removeMany = jest.fn();
+    storageMock.multiGet = jest.fn();
+    storageMock.multiRemove = jest.fn();
   });
 
   it('uses getMany (v3 batch API) when available', async () => {
@@ -57,7 +59,7 @@ describe('storage batching helpers', () => {
 
   it('falls back to multiGet when getMany is unavailable', async () => {
     storageMock.getMany = undefined;
-    storageMock.multiGet.mockResolvedValue([
+    storageMock.multiGet?.mockResolvedValue([
       ['cart', 'cached-cart'],
       ['prefs', null],
     ]);
@@ -82,11 +84,39 @@ describe('storage batching helpers', () => {
 
   it('falls back to multiRemove when removeMany is unavailable', async () => {
     storageMock.removeMany = undefined;
-    storageMock.multiRemove.mockResolvedValue(undefined);
+    storageMock.multiRemove?.mockResolvedValue(undefined);
 
     await removeStorageItems(['cache:a', 'cache:b']);
 
     expect(storageMock.multiRemove).toHaveBeenCalledWith(['cache:a', 'cache:b']);
+  });
+
+  it('falls back to individual getItem calls when no batch read API is available', async () => {
+    storageMock.getMany = undefined;
+    storageMock.multiGet = undefined;
+    storageMock.getItem.mockImplementation(async (key: string) =>
+      key === 'cart' ? 'cached-cart' : null
+    );
+
+    const result = await getStorageEntries(['cart', 'prefs']);
+
+    expect(result).toEqual([
+      ['cart', 'cached-cart'],
+      ['prefs', null],
+    ]);
+    expect(storageMock.getItem).toHaveBeenNthCalledWith(1, 'cart');
+    expect(storageMock.getItem).toHaveBeenNthCalledWith(2, 'prefs');
+  });
+
+  it('falls back to individual removeItem calls when no batch remove API is available', async () => {
+    storageMock.removeMany = undefined;
+    storageMock.multiRemove = undefined;
+    storageMock.removeItem.mockResolvedValue(undefined);
+
+    await removeStorageItems(['cache:a', 'cache:b']);
+
+    expect(storageMock.removeItem).toHaveBeenNthCalledWith(1, 'cache:a');
+    expect(storageMock.removeItem).toHaveBeenNthCalledWith(2, 'cache:b');
   });
 
   it('returns empty array for empty keys', async () => {
@@ -120,7 +150,7 @@ describe('storage batching helpers', () => {
 
   it('propagates multiGet fallback errors', async () => {
     storageMock.getMany = undefined;
-    storageMock.multiGet.mockRejectedValue(new Error('multi read failed'));
+    storageMock.multiGet?.mockRejectedValue(new Error('multi read failed'));
 
     await expect(getStorageEntries(['cart'])).rejects.toThrow(
       'multi read failed'
@@ -129,7 +159,7 @@ describe('storage batching helpers', () => {
 
   it('propagates multiRemove fallback errors', async () => {
     storageMock.removeMany = undefined;
-    storageMock.multiRemove.mockRejectedValue(new Error('multi remove failed'));
+    storageMock.multiRemove?.mockRejectedValue(new Error('multi remove failed'));
 
     await expect(removeStorageItems(['cache:a'])).rejects.toThrow(
       'multi remove failed'

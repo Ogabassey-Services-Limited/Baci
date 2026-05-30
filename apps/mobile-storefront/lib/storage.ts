@@ -19,7 +19,11 @@ const log = createLogger('Storage');
 type AsyncStorageBatchExtensions = typeof AsyncStorage & {
   getMany?: (keys: string[]) => Promise<Record<string, string | null>>;
   removeMany?: (keys: string[]) => Promise<void>;
+  multiGet?: (keys: string[]) => Promise<StorageEntry[]>;
+  multiRemove?: (keys: string[]) => Promise<void>;
 };
+
+type StorageEntry = [string, string | null];
 
 const batchStorage = AsyncStorage as AsyncStorageBatchExtensions;
 
@@ -33,10 +37,16 @@ export async function getStorageEntries(
     return Object.entries(record);
   }
 
-  return (await AsyncStorage.multiGet([...keys])).map(([key, value]) => [
-    key,
-    value,
-  ]);
+  if (typeof batchStorage.multiGet === 'function') {
+    return batchStorage.multiGet([...keys]);
+  }
+
+  return Promise.all(
+    keys.map(async (key): Promise<StorageEntry> => [
+      key,
+      await AsyncStorage.getItem(key),
+    ])
+  );
 }
 
 export async function removeStorageItems(
@@ -49,7 +59,12 @@ export async function removeStorageItems(
     return;
   }
 
-  await AsyncStorage.multiRemove([...keys]);
+  if (typeof batchStorage.multiRemove === 'function') {
+    await batchStorage.multiRemove([...keys]);
+    return;
+  }
+
+  await Promise.all(keys.map((key) => AsyncStorage.removeItem(key)));
 }
 
 /**
