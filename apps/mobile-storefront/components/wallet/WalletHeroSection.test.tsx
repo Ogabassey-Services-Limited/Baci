@@ -47,9 +47,7 @@ const baseProps = {
   },
   isCreatingFundingAccount: false,
   loyaltyPoints: 2000,
-  loyaltyTier: 'silver',
   onCreateFundingAccount: jest.fn(),
-  onOpenRedeemPanel: jest.fn(),
   onOpenFundPanel: jest.fn(),
   savingsBalance: 35000,
   totalBalance: 160000,
@@ -70,11 +68,6 @@ describe('WalletHeroSection', () => {
     expect(screen.getAllByText('Earnings').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Savings').length).toBeGreaterThan(0);
     expect(screen.getByText('2,000 pts')).toBeOnTheScreen();
-    expect(screen.getByText('Silver')).toBeOnTheScreen();
-    expect(screen.getByText('2,000 points redeemable now')).toBeOnTheScreen();
-    expect(
-      screen.getByRole('button', { name: 'Redeem loyalty points' })
-    ).toBeOnTheScreen();
     expect(
       screen.getByRole('button', { name: 'Copy funding account number' })
     ).toBeOnTheScreen();
@@ -117,27 +110,5 @@ describe('WalletHeroSection', () => {
     );
 
     expect(baseProps.onCreateFundingAccount).toHaveBeenCalledTimes(1);
-  });
-
-  it('opens loyalty redemption from the hero without a duplicate rewards card', () => {
-    render(<WalletHeroSection {...baseProps} />);
-
-    expect(screen.queryByText('Redeem Rewards')).toBeNull();
-
-    fireEvent.press(
-      screen.getByRole('button', { name: 'Redeem loyalty points' })
-    );
-
-    expect(baseProps.onOpenRedeemPanel).toHaveBeenCalledTimes(1);
-  });
-
-  it('disables redemption until enough points are redeemable', () => {
-    render(<WalletHeroSection {...baseProps} loyaltyPoints={50} />);
-
-    fireEvent.press(
-      screen.getByRole('button', { name: 'Redeem loyalty points' })
-    );
-
-    expect(baseProps.onOpenRedeemPanel).not.toHaveBeenCalled();
   });
 });

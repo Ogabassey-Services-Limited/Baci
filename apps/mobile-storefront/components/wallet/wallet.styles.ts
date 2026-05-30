@@ -4,10 +4,13 @@ import { WALLET_COLORS } from './wallet.colors';
 import { walletHeroStyles } from './wallet-hero.styles';
 
 const ACTION_FONT_SIZE = 15;
+const COMPACT_PADDING_X = 10;
+const COMPACT_PADDING_Y = 6;
 const FIELD_PADDING_Y = 14;
 const ICON_SIZE = 40;
 const PANEL_GAP = 12;
 const PANEL_PADDING = 20;
+const SMALL_BUTTON_PADDING_Y = 10;
 const TIGHT_MARGIN = 2;
 
 export const styles = StyleSheet.create({
@@ -42,6 +45,64 @@ export const styles = StyleSheet.create({
     marginTop: SPACING.md,
     borderRadius: RADIUS['3xl'],
     padding: SPACING.lg,
+  },
+  loyaltyCard: {
+    marginHorizontal: SPACING.md,
+    borderRadius: RADIUS['2xl'],
+    padding: PANEL_PADDING,
+    borderWidth: 1,
+  },
+  loyaltyHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  loyaltyLabel: {
+    fontSize: TYPOGRAPHY.size.base,
+    fontWeight: TYPOGRAPHY.weight.medium,
+  },
+  loyaltyPoints: {
+    fontSize: TYPOGRAPHY.size['3xl'],
+    fontWeight: TYPOGRAPHY.weight.black,
+    marginTop: SPACING.xs,
+  },
+  tierBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    paddingHorizontal: COMPACT_PADDING_X,
+    paddingVertical: COMPACT_PADDING_Y,
+    borderRadius: RADIUS.full,
+  },
+  tierText: {
+    color: WALLET_COLORS.white,
+    fontSize: TYPOGRAPHY.size.sm,
+    fontWeight: TYPOGRAPHY.weight.bold,
+  },
+  redeemSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: SPACING.md,
+    paddingTop: SPACING.md,
+    borderTopWidth: 1,
+  },
+  redeemInfo: {
+    fontSize: TYPOGRAPHY.size.sm,
+    flex: 1,
+  },
+  redeemBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: COMPACT_PADDING_Y,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SMALL_BUTTON_PADDING_Y,
+    borderRadius: RADIUS.lg,
+  },
+  redeemBtnText: {
+    color: WALLET_COLORS.white,
+    fontSize: TYPOGRAPHY.size.base,
+    fontWeight: TYPOGRAPHY.weight.semibold,
   },
   redeemPanel: {
     marginHorizontal: SPACING.md,
