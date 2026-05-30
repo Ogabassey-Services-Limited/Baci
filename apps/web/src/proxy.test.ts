@@ -655,7 +655,7 @@ describe('Middleware Proxy', () => {
     expect(res.headers.get('Vary')).toBe('x-baci-metadata-cache-bucket');
   });
 
-  it('overwrites spoofed metadata cache buckets for HTML-limited bots', async () => {
+  it('overwrites spoofed metadata cache buckets for metadata-blocking bots', async () => {
     const req = new NextRequest(
       'https://ogabassey.com/smartphones/samsung-galaxy-a37-5g'
     );
@@ -667,7 +667,22 @@ describe('Middleware Proxy', () => {
 
     expect(
       res.headers.get('x-middleware-request-x-baci-metadata-cache-bucket')
-    ).toBe('html-limited');
+    ).toBe('metadata-blocking');
+    expect(res.headers.get('Vary')).toBe('x-baci-metadata-cache-bucket');
+  });
+
+  it('puts Next PPR DOM bots in the metadata-blocking cache bucket', async () => {
+    const req = new NextRequest(
+      'https://ogabassey.com/smartphones/samsung-galaxy-a37-5g'
+    );
+    req.headers.set('host', 'ogabassey.com');
+    req.headers.set('user-agent', 'Googlebot/2.1');
+
+    const res = await proxy(req);
+
+    expect(
+      res.headers.get('x-middleware-request-x-baci-metadata-cache-bucket')
+    ).toBe('metadata-blocking');
     expect(res.headers.get('Vary')).toBe('x-baci-metadata-cache-bucket');
   });
 

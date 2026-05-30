@@ -18,6 +18,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { STOREFRONT_AGENT_ROUTES } from '@/config/storefront-agent-routes';
 import { STOREFRONT_FEED_ROUTES } from '@/config/storefront-feed-routes';
 import {
+  getStorefrontMetadataCacheBucket,
+  STOREFRONT_METADATA_CACHE_BUCKET_HEADER,
+} from '@/config/storefront-metadata-cache-bots';
+import {
   CLICK_ID_PARAMS,
   extractClickIdsFromUrl,
   generateClickIdCookies,
@@ -64,22 +68,6 @@ const MERCHANT_CONTEXT_HEADERS = [
   'x-merchant-domain',
   'x-merchant-slug',
 ] as const;
-const METADATA_CACHE_BUCKET_HEADER = 'x-baci-metadata-cache-bucket';
-
-// Mirrors Next 16.2's HTML-limited bot list so cacheComponents/PPR can keep
-// streamed-browser shells separate from blocking-metadata bot shells without
-// varying on raw User-Agent, which would fragment the edge cache per visitor.
-const HTML_LIMITED_METADATA_BOT_USER_AGENT_REGEX =
-  /[\w-]+-Google|Google-[\w-]+|Chrome-Lighthouse|Slurp|DuckDuckBot|baiduspider|yandex|sogou|bitlybot|tumblr|vkShare|quora link preview|redditbot|ia_archiver|Bingbot|BingPreview|applebot|facebookexternalhit|facebookcatalog|Twitterbot|LinkedInBot|Slackbot|Discordbot|WhatsApp|SkypeUriPreview|Yeti|googleweblight/i;
-
-function getMetadataCacheBucket(
-  userAgent: string
-): 'html-limited' | 'streaming' {
-  return HTML_LIMITED_METADATA_BOT_USER_AGENT_REGEX.test(userAgent)
-    ? 'html-limited'
-    : 'streaming';
-}
-
 function appendVaryHeader(response: NextResponse, value: string): void {
   const currentValue = response.headers.get('Vary');
   const existingValues =
@@ -95,16 +83,14 @@ function appendVaryHeader(response: NextResponse, value: string): void {
   );
 }
 
-function cloneRequestHeadersWithoutMerchantContext(
-  request: NextRequest
-): Headers {
+function buildProxyRequestHeaders(request: NextRequest): Headers {
   const headers = new Headers(request.headers);
   for (const header of MERCHANT_CONTEXT_HEADERS) {
     headers.delete(header);
   }
   headers.set(
-    METADATA_CACHE_BUCKET_HEADER,
-    getMetadataCacheBucket(request.headers.get('user-agent') ?? '')
+    STOREFRONT_METADATA_CACHE_BUCKET_HEADER,
+    getStorefrontMetadataCacheBucket(request.headers.get('user-agent') ?? '')
   );
   return headers;
 }
@@ -535,7 +521,7 @@ function buildMerchantFeedPassThroughResponse({
   customDomain?: string;
   merchantSlug?: string | null;
 }): NextResponse {
-  const feedHeaders = cloneRequestHeadersWithoutMerchantContext(request);
+  const feedHeaders = buildProxyRequestHeaders(request);
 
   if (customDomain) {
     feedHeaders.set('x-custom-domain', customDomain);
@@ -1329,7 +1315,7 @@ export async function proxy(request: NextRequest) {
         const apiUrl = request.nextUrl.clone();
         apiUrl.pathname = strippedApiPathname;
 
-        const apiHeaders = cloneRequestHeadersWithoutMerchantContext(request);
+        const apiHeaders = buildProxyRequestHeaders(request);
         apiHeaders.set('x-custom-domain', domain);
         apiHeaders.set('x-merchant-domain', domain);
 
@@ -1358,8 +1344,7 @@ export async function proxy(request: NextRequest) {
       // API routes should NOT be rewritten - they exist at /api/*, not /domain/api/*
       // This fixes 405 errors when calling APIs from custom domains
       if (pathname.startsWith('/api')) {
-        const requestHeaders =
-          cloneRequestHeadersWithoutMerchantContext(request);
+        const requestHeaders = buildProxyRequestHeaders(request);
         requestHeaders.set('x-custom-domain', domain);
         requestHeaders.set('x-merchant-domain', domain);
 
@@ -1392,8 +1377,7 @@ export async function proxy(request: NextRequest) {
 
       if (isAlreadyRewritten) {
         // Already rewritten, just pass through with headers set
-        const requestHeaders =
-          cloneRequestHeadersWithoutMerchantContext(request);
+        const requestHeaders = buildProxyRequestHeaders(request);
         requestHeaders.set('x-custom-domain', domain);
         requestHeaders.set('x-merchant-domain', domain);
 
@@ -1428,8 +1412,7 @@ export async function proxy(request: NextRequest) {
         // Use merchant slug if found, otherwise fall through to domain-based rewrite
         sitemapUrl.pathname = `/${domainMerchantSlug ?? domain}${pathname}`;
 
-        const sitemapHeaders =
-          cloneRequestHeadersWithoutMerchantContext(request);
+        const sitemapHeaders = buildProxyRequestHeaders(request);
         sitemapHeaders.set('x-custom-domain', domain);
         sitemapHeaders.set('x-merchant-domain', domain);
         if (domainMerchantSlug) {
@@ -1464,7 +1447,7 @@ export async function proxy(request: NextRequest) {
           const mdUrl = request.nextUrl.clone();
           mdUrl.pathname = toLlmApiPath(pathname, domainMerchantSlug);
 
-          const mdHeaders = cloneRequestHeadersWithoutMerchantContext(request);
+          const mdHeaders = buildProxyRequestHeaders(request);
           mdHeaders.set('x-custom-domain', domain);
           mdHeaders.set('x-merchant-domain', domain);
 
@@ -1479,7 +1462,7 @@ export async function proxy(request: NextRequest) {
       const url = request.nextUrl.clone();
       url.pathname = `/${domain}${pathname}`;
 
-      const requestHeaders = cloneRequestHeadersWithoutMerchantContext(request);
+      const requestHeaders = buildProxyRequestHeaders(request);
       requestHeaders.set('x-custom-domain', domain);
       requestHeaders.set('x-merchant-domain', domain);
 
@@ -1550,7 +1533,7 @@ export async function proxy(request: NextRequest) {
     // Do NOT rewrite API routes to /[subdomain]/api/...
     // Instead, pass them through with headers
     if (pathname.startsWith('/api')) {
-      const requestHeaders = cloneRequestHeadersWithoutMerchantContext(request);
+      const requestHeaders = buildProxyRequestHeaders(request);
       requestHeaders.set('x-merchant-slug', subdomain as string);
 
       // Pass through without rewriting path
@@ -1591,7 +1574,7 @@ export async function proxy(request: NextRequest) {
       const mdUrl = request.nextUrl.clone();
       mdUrl.pathname = toLlmApiPath(pathname, subdomain as string);
 
-      const mdHeaders = cloneRequestHeadersWithoutMerchantContext(request);
+      const mdHeaders = buildProxyRequestHeaders(request);
       mdHeaders.set('x-merchant-slug', subdomain as string);
 
       return NextResponse.rewrite(mdUrl, {
@@ -1602,7 +1585,7 @@ export async function proxy(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = `/${subdomain}${pathname}`;
 
-    const requestHeaders = cloneRequestHeadersWithoutMerchantContext(request);
+    const requestHeaders = buildProxyRequestHeaders(request);
     requestHeaders.set('x-merchant-slug', subdomain as string);
 
     const response = NextResponse.rewrite(url, {
@@ -1758,7 +1741,7 @@ function applySecurityHeaders(
   response.headers.set('x-pathname', pathname);
 
   if (routeType === 'storefront') {
-    appendVaryHeader(response, METADATA_CACHE_BUCKET_HEADER);
+    appendVaryHeader(response, STOREFRONT_METADATA_CACHE_BUCKET_HEADER);
   }
 
   // HSTS: Enforce HTTPS with subdomains and preload (Lighthouse Best Practice)
