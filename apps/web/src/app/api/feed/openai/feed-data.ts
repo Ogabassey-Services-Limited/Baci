@@ -2,16 +2,13 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { cacheLife, cacheTag } from 'next/cache';
 import { createAnonClient } from '@/lib/supabase/anon';
 import type { ImageManifestMap } from '../google-merchant/feed-builder';
+import { fetchVerifiedOpenAIImageManifest } from './feed-image-manifest';
+import { hydrateOpenAIFeedProductsWithReviewSignals } from './feed-review-signals';
 
 const OPENAI_FEED_PRODUCTS_PAGE_SIZE = 1000;
-const OPENAI_FEED_IMAGE_MANIFEST_PAGE_SIZE = 1000;
 // Keep parity with Google feed product coverage until variant hydration supports
 // catalogs above 10k products across both machine-readable surfaces.
 const MAX_OPENAI_FEED_PRODUCTS = 10_000;
-const OPENAI_FEED_IMAGE_MANIFEST_PRODUCT_BATCH_SIZE = 250;
-const OPENAI_FEED_IMAGE_MANIFEST_MAX_CONCURRENT_BATCHES = 4;
-const OPENAI_FEED_REVIEW_ROWS_PAGE_SIZE = 1000;
-const OPENAI_FEED_REVIEW_PRODUCTS_CHUNK_SIZE = 200;
 const OPENAI_FEED_PRODUCTS_SELECT = `id, name, description, slug, canonical_url, price, compare_at_price, images,
        brand, gtin, mpn, sku, stock, stock_quantity, manage_stock, condition, google_product_category, category,
        weight_value, weight_unit, created_at, updated_at,
@@ -64,21 +61,6 @@ interface RawOpenAIFeedProductRow extends OpenAIFeedProduct {
   }> | null;
 }
 
-interface RawOpenAIFeedReviewSignalRow {
-  product_id: string | null;
-  rating: number | string | null;
-}
-
-type ManifestRow = {
-  product_id: string;
-  variant_id?: string | null;
-  verified_url: string | null;
-  verified_format: string | null;
-  status: string;
-  is_primary: boolean;
-  position: number;
-};
-
 export interface OpenAIFeedData {
   imageManifest?: ImageManifestMap;
   products: OpenAIFeedProduct[];
@@ -127,256 +109,6 @@ function normalizeOpenAIFeedProducts(
       category: rest.category ?? joinedCategory?.name ?? undefined,
     };
   });
-}
-
-function toFiniteNumber(value: unknown): number | null {
-  if (value === null || value === undefined) return null;
-  if (typeof value === 'string' && value.trim().length === 0) return null;
-
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
-function chunkValues<T>(items: T[], size: number): T[][] {
-  if (size <= 0) return [items];
-
-  const chunks: T[][] = [];
-  for (let index = 0; index < items.length; index += size) {
-    chunks.push(items.slice(index, index + size));
-  }
-
-  return chunks;
-}
-
-function withApprovedReviewSignals(
-  products: OpenAIFeedProduct[],
-  reviewStatsByProductId: Map<string, { count: number; ratingTotal: number }>
-): OpenAIFeedProduct[] {
-  return products.map((product) => {
-    const stats = reviewStatsByProductId.get(product.id);
-
-    if (!stats || stats.count <= 0) {
-      return {
-        ...product,
-        average_rating: null,
-        review_count: 0,
-      };
-    }
-
-    return {
-      ...product,
-      average_rating: Math.round((stats.ratingTotal / stats.count) * 10) / 10,
-      review_count: stats.count,
-    };
-  });
-}
-
-async function fetchApprovedReviewSignalStats(
-  supabase: SupabaseClient,
-  merchantId: string,
-  productIds: string[]
-): Promise<Map<string, { count: number; ratingTotal: number }>> {
-  const reviewStatsByProductId = new Map<
-    string,
-    { count: number; ratingTotal: number }
-  >();
-
-  for (const productIdChunk of chunkValues(
-    productIds,
-    OPENAI_FEED_REVIEW_PRODUCTS_CHUNK_SIZE
-  )) {
-    let offset = 0;
-    let requestedExactCount = false;
-    let totalRows: number | null = null;
-
-    while (true) {
-      const shouldRequestExactCount = !requestedExactCount;
-      requestedExactCount = true;
-      const reviewQuery = supabase.from('product_reviews');
-      const selectQuery = shouldRequestExactCount
-        ? reviewQuery.select('product_id, rating', { count: 'exact' })
-        : reviewQuery.select('product_id, rating');
-      const { count, data, error } = await selectQuery
-        .eq('merchant_id', merchantId)
-        .eq('status', 'approved')
-        .in('product_id', productIdChunk)
-        .order('product_id', { ascending: true })
-        .order('id', { ascending: true })
-        .range(offset, offset + OPENAI_FEED_REVIEW_ROWS_PAGE_SIZE - 1);
-
-      if (error) {
-        throw error;
-      }
-
-      const rows = (data || []) as RawOpenAIFeedReviewSignalRow[];
-      if (shouldRequestExactCount && typeof count === 'number') {
-        totalRows = count;
-      }
-      for (const row of rows) {
-        if (!row.product_id) continue;
-
-        const rating = toFiniteNumber(row.rating);
-        if (rating === null || rating < 0 || rating > 5) {
-          continue;
-        }
-
-        const current = reviewStatsByProductId.get(row.product_id) ?? {
-          count: 0,
-          ratingTotal: 0,
-        };
-        reviewStatsByProductId.set(row.product_id, {
-          count: current.count + 1,
-          ratingTotal: current.ratingTotal + rating,
-        });
-      }
-
-      if (rows.length === 0) {
-        break;
-      }
-
-      const nextOffset = offset + rows.length;
-      if (totalRows !== null && nextOffset >= totalRows) {
-        break;
-      }
-      if (
-        totalRows === null &&
-        rows.length < OPENAI_FEED_REVIEW_ROWS_PAGE_SIZE
-      ) {
-        break;
-      }
-
-      offset = nextOffset;
-    }
-  }
-
-  return reviewStatsByProductId;
-}
-
-async function hydrateProductsWithReviewSignals(
-  supabase: SupabaseClient,
-  merchantId: string,
-  products: OpenAIFeedProduct[]
-): Promise<OpenAIFeedProduct[]> {
-  if (products.length === 0) return products;
-
-  const productIds = products.map((product) => product.id);
-  if (productIds.length === 0) return products;
-
-  try {
-    const reviewStatsByProductId = await fetchApprovedReviewSignalStats(
-      supabase,
-      merchantId,
-      productIds
-    );
-    return withApprovedReviewSignals(products, reviewStatsByProductId);
-  } catch (error) {
-    console.warn('DB_REVIEW_SIGNAL_WARNING:', {
-      error,
-      merchantId,
-      productCount: productIds.length,
-    });
-    return products.map((product) => ({
-      ...product,
-      average_rating: null,
-      review_count: null,
-    }));
-  }
-}
-
-async function fetchVerifiedImageManifestRows(
-  supabase: SupabaseClient,
-  merchantId: string,
-  productIds: string[]
-): Promise<ManifestRow[]> {
-  const manifestBatches = chunkValues(
-    productIds,
-    OPENAI_FEED_IMAGE_MANIFEST_PRODUCT_BATCH_SIZE
-  );
-  const manifestRows: ManifestRow[] = [];
-
-  for (
-    let batchStart = 0;
-    batchStart < manifestBatches.length;
-    batchStart += OPENAI_FEED_IMAGE_MANIFEST_MAX_CONCURRENT_BATCHES
-  ) {
-    const batchWindow = manifestBatches.slice(
-      batchStart,
-      batchStart + OPENAI_FEED_IMAGE_MANIFEST_MAX_CONCURRENT_BATCHES
-    );
-    const batchResults = await Promise.all(
-      batchWindow.map(async (batchProductIds, batchWindowIndex) => {
-        const batchIndex = batchStart + batchWindowIndex;
-        const batchRows: ManifestRow[] = [];
-        let offset = 0;
-
-        while (true) {
-          const { data, error } = await supabase
-            .from('product_feed_images')
-            .select(
-              'product_id, variant_id, verified_url, verified_format, status, is_primary, position'
-            )
-            .eq('merchant_id', merchantId)
-            .eq('status', 'verified')
-            .in('product_id', batchProductIds)
-            .order('product_id', { ascending: true })
-            .order('position', { ascending: true })
-            .order('id', { ascending: true })
-            .range(offset, offset + OPENAI_FEED_IMAGE_MANIFEST_PAGE_SIZE - 1);
-
-          if (error) {
-            console.error('DB_IMAGE_MANIFEST_ERROR:', {
-              batchIndex,
-              batchProductCount: batchProductIds.length,
-              error,
-              merchantId,
-              offset,
-            });
-            throw new Error('Failed to fetch image manifest');
-          }
-
-          const page = (data || []) as ManifestRow[];
-          batchRows.push(...page);
-
-          if (page.length < OPENAI_FEED_IMAGE_MANIFEST_PAGE_SIZE) {
-            break;
-          }
-
-          offset += OPENAI_FEED_IMAGE_MANIFEST_PAGE_SIZE;
-        }
-
-        return batchRows;
-      })
-    );
-
-    for (const rows of batchResults) {
-      if (rows.length > 0) {
-        manifestRows.push(...rows);
-      }
-    }
-  }
-
-  return manifestRows;
-}
-
-function buildImageManifest(rows: ManifestRow[]): ImageManifestMap {
-  const imageManifest: ImageManifestMap = {};
-
-  for (const row of rows) {
-    if (!imageManifest[row.product_id]) {
-      imageManifest[row.product_id] = [];
-    }
-
-    imageManifest[row.product_id].push({
-      variant_id: row.variant_id ?? null,
-      verified_url: row.verified_url,
-      verified_format: row.verified_format,
-      status: 'verified',
-      is_primary: row.is_primary,
-      position: row.position,
-    });
-  }
-
-  return imageManifest;
 }
 
 async function fetchActiveOpenAIFeedProducts(
@@ -492,17 +224,20 @@ export async function getCachedOpenAIFeedData(
   const supabase = createAnonClient();
   const products = await fetchActiveOpenAIFeedProducts(supabase, merchantId);
   const productIds = products.map((product) => product.id);
-  const imageManifest =
-    productIds.length > 0
-      ? buildImageManifest(
-          await fetchVerifiedImageManifestRows(supabase, merchantId, productIds)
-        )
-      : undefined;
+  const imageManifest = await fetchVerifiedOpenAIImageManifest(
+    supabase,
+    merchantId,
+    productIds
+  );
 
   return {
     imageManifest,
     products: includeReviewSignals
-      ? await hydrateProductsWithReviewSignals(supabase, merchantId, products)
+      ? await hydrateOpenAIFeedProductsWithReviewSignals(
+          supabase,
+          merchantId,
+          products
+        )
       : products,
   };
 }
