@@ -3,6 +3,7 @@ import nextConfig from './next.config';
 import {
   getStorefrontMetadataCacheBucket,
   STOREFRONT_METADATA_BLOCKING_BOT_USER_AGENT_REGEX,
+  STOREFRONT_METADATA_CACHE_BUCKET_HEADER,
 } from './src/config/storefront-metadata-cache-bots';
 
 describe('next.config OgaBassey resource headers', () => {
@@ -63,6 +64,31 @@ describe('next.config OgaBassey resource headers', () => {
       ) ?? [];
 
     expect(varyValues).not.toContain('User-Agent');
+  });
+
+  it('partitions HTML document cache by the normalized metadata bucket header', async () => {
+    expect(typeof nextConfig.headers).toBe('function');
+    const headers = await nextConfig.headers();
+
+    expect(headers).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          source: '/((?!api|_next|.*\\..*).*)',
+          headers: expect.arrayContaining([
+            {
+              key: 'Vary',
+              value: [
+                STOREFRONT_METADATA_CACHE_BUCKET_HEADER,
+                'rsc',
+                'next-router-state-tree',
+                'next-router-prefetch',
+                'next-router-segment-prefetch',
+              ].join(', '),
+            },
+          ]),
+        }),
+      ])
+    );
   });
 
   it('redirects the imported encoded blog slug to its ASCII canonical URL', async () => {
