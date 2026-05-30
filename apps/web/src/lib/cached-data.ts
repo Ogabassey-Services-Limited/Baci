@@ -147,7 +147,7 @@ export const MOCK_BUILD_TIME_PRODUCT = {
 };
 
 export const MOCK_BUILD_TIME_CATEGORY_PAGE_DATA = {
-  isCollection: false,
+  isCollection: false as const,
   category: {
     id: 'mock-category-id',
     name: 'Electronics',
