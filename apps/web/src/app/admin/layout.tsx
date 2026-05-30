@@ -39,12 +39,11 @@ export async function AdminLayoutContent({
 
 function AdminLayoutFallback() {
   return (
-    <div
+    <output
       className="min-h-screen bg-background text-foreground"
-      role="status"
       aria-live="polite"
     >
       <span className="sr-only">Loading admin workspace</span>
-    </div>
+    </output>
   );
 }

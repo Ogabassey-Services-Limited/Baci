@@ -6,13 +6,9 @@ export default function BlogPostEditLoading() {
       aria-busy="true"
       className="min-h-[calc(100vh-8rem)] space-y-6 bg-background text-foreground"
     >
-      <div
-        aria-label="Loading blog post editor"
-        className="sr-only"
-        role="status"
-      >
+      <output aria-label="Loading blog post editor" className="sr-only">
         Loading blog post editor
-      </div>
+      </output>
 
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center gap-4">
