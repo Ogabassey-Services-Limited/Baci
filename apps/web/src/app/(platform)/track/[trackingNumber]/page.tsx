@@ -256,10 +256,12 @@ function TrackingPageContent({ params }: TrackingPageProps) {
 function TrackingPageFallback() {
   return (
     <div className="min-h-screen flex items-center justify-center">
-      <div className="text-center space-y-4" role="status" aria-live="polite">
+      <output className="text-center space-y-4" aria-live="polite">
         <Loader2 className="h-12 w-12 animate-spin mx-auto text-muted-foreground" />
-        <p className="text-muted-foreground">Tracking your shipment...</p>
-      </div>
+        <span className="block text-muted-foreground">
+          Tracking your shipment...
+        </span>
+      </output>
     </div>
   );
 }

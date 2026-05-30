@@ -14,13 +14,12 @@ import type { LoadingScreenProps } from '../types';
  */
 export function LoadingScreen({ message = 'Loading...' }: LoadingScreenProps) {
   return (
-    <div
+    <output
       className="min-h-screen flex flex-col items-center justify-center gap-4 bg-background"
-      role="status"
       aria-live="polite"
     >
       <Loader2 className="h-8 w-8 animate-spin text-primary" aria-hidden="true" />
-      <p className="text-sm text-gray-500">{message}</p>
-    </div>
+      <span className="text-sm text-gray-500">{message}</span>
+    </output>
   );
 }

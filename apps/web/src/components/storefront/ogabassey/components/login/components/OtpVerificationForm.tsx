@@ -51,14 +51,13 @@ export function OtpVerificationForm({
       )}
 
       {isVerifying && (
-        <div
+        <output
           className="flex items-center justify-center gap-2 text-gray-500"
-          role="status"
           aria-live="polite"
         >
           <Loader2 className="h-4 w-4 animate-spin text-primary" aria-hidden="true" />
           <span>Verifying...</span>
-        </div>
+        </output>
       )}
 
       <div className="text-center space-y-2">

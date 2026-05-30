@@ -8,12 +8,9 @@ export const metadata = {
 
 function RootCartPageFallback() {
   return (
-    <div
-      className="flex min-h-screen items-center justify-center bg-linear-to-b from-gray-50 to-white text-sm text-gray-500"
-      role="status"
-    >
+    <output className="flex min-h-screen items-center justify-center bg-linear-to-b from-gray-50 to-white text-sm text-gray-500">
       Loading cart...
-    </div>
+    </output>
   );
 }
 
