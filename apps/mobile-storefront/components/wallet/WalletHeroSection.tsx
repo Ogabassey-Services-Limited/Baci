@@ -5,7 +5,7 @@ import {
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
-import { BRAND, palette } from '@/constants/Colors';
+import { BRAND } from '@/constants/Colors';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { formatNgnCurrency } from '@/lib/format-ngn-currency';
 import { WALLET_COLORS } from './wallet.colors';
@@ -33,13 +33,13 @@ function formatTierLabel(tier: string | null | undefined) {
 function getTierColor(tier: string) {
   switch (tier.toLowerCase()) {
     case 'gold':
-      return palette.amber[500];
+      return WALLET_COLORS.loyaltyTierGoldBackground;
     case 'silver':
-      return palette.gray[400];
+      return WALLET_COLORS.loyaltyTierSilverBackground;
     case 'platinum':
-      return '#6366F1';
+      return WALLET_COLORS.loyaltyTierPlatinumBackground;
     default:
-      return '#CD7F32';
+      return WALLET_COLORS.loyaltyTierBronzeBackground;
   }
 }
 
@@ -175,7 +175,7 @@ export function WalletHeroSection({
               importantForAccessibility="no"
               name="star"
               size={13}
-              color={WALLET_COLORS.white}
+              color={WALLET_COLORS.loyaltyTierText}
             />
             <Text style={styles.loyaltyTierText}>{tierLabel}</Text>
           </View>

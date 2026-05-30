@@ -166,7 +166,7 @@ export const walletHeroStyles = {
     borderRadius: RADIUS.full,
   },
   loyaltyTierText: {
-    color: WALLET_COLORS.white,
+    color: WALLET_COLORS.loyaltyTierText,
     fontSize: TYPOGRAPHY.size.xs,
     fontWeight: TYPOGRAPHY.weight.bold,
   },
