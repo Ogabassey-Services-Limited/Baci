@@ -35,27 +35,17 @@ function parseGoogleMerchantProductItem(
     const parsed = publicProductGoogleFeedItemSchema.safeParse(
       getObjectField(parser.parse(itemXml), 'item')
     );
-    if (
-      !parsed.success ||
-      (parsed.data.id !== productId && parsed.data.item_group_id !== productId)
-    ) {
-      return null;
-    }
+    if (!parsed.success || parsed.data.id !== productId) return null;
     const item = parsed.data;
     const price = parsePrice(item.sale_price ?? item.price);
     if (price === null) return null;
-    const isGroupedVariant =
-      item.id !== productId && item.item_group_id === productId;
 
     return publicProductComparableSurfaceSchema.parse({
       availability: item.availability,
-      ...(isGroupedVariant ? { catalog_scope: 'variant' as const } : {}),
       image: item.image_link,
       name: item.title,
       price,
-      // Variant Google feed entries use g:link for the purchasable SKU and
-      // g:canonical_link for the parent PDP; parity compares parent surfaces.
-      url: item.canonical_link ?? item.link,
+      url: item.link,
     });
   } catch (_error) {
     return null;

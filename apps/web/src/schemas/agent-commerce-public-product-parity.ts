@@ -18,7 +18,6 @@ export const publicProductApiResponseSchema = z.object({
 
 export const publicProductComparableSurfaceSchema = z.object({
   availability: publicProductAvailabilitySchema,
-  catalog_scope: z.enum(['product', 'variant']).optional(),
   image: z.string(),
   name: z.string().min(1),
   price: z.number(),
@@ -42,10 +41,8 @@ export const publicProductCurrentFeedItemSchema = z.object({
 
 export const publicProductGoogleFeedItemSchema = z.object({
   availability: publicProductAvailabilitySchema,
-  canonical_link: z.string().url().optional(),
   id: z.string().min(1),
   image_link: z.string(),
-  item_group_id: z.string().min(1).optional(),
   link: z.string().url(),
   price: z.string(),
   sale_price: z.string().optional(),

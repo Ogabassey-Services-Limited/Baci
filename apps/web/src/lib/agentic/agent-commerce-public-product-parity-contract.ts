@@ -197,19 +197,11 @@ export function comparePublicProductParitySurfaces({
 }): PublicProductParityField[] {
   const fields: PublicProductParityField[] = [];
   const comparableFields = ['availability', 'image', 'name', 'price'] as const;
-  const googleComparableFields: readonly PublicProductParityField[] =
-    google.catalog_scope === 'variant'
-      ? ['availability', 'price']
-      : comparableFields;
 
   for (const field of comparableFields) {
-    // Google Merchant rows matched by item_group_id are SKU-level variants;
-    // title and image can include variant merchandising while the parent PDP,
-    // API, price, availability, and canonical URL remain the parity contract.
-    const shouldCompareGoogleField = googleComparableFields.includes(field);
     if (
       current[field] !== api[field] ||
-      (shouldCompareGoogleField && google[field] !== api[field]) ||
+      google[field] !== api[field] ||
       pdp[field] !== api[field]
     ) {
       fields.push(field);

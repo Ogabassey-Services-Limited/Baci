@@ -241,38 +241,6 @@ describe('public product parity surface parsers', () => {
     ).toEqual(['availability', 'price']);
   });
 
-  it('allows SKU-specific Google variant titles and images for grouped product samples', () => {
-    const current = parseCurrentAgentProductSample(
-      CURRENT_FEED_LINE,
-      'product-1'
-    );
-    const google = parseGoogleMerchantProductSample(
-      GOOGLE_XML.replace(
-        '<g:id>product-1</g:id>',
-        '<g:id>variant-1</g:id><g:item_group_id>product-1</g:item_group_id>'
-      )
-        .replace('Test Phone', 'Test Phone - Blue - New')
-        .replace(
-          'https://cdn.example.com/phone.jpg',
-          'https://cdn.example.com/phone-blue.jpg'
-        ),
-      'product-1'
-    );
-    const pdp = parsePdpProductSample(PDP_HTML);
-    if (!current || !google || !pdp) {
-      throw new Error('Expected every public product parity surface to parse.');
-    }
-
-    expect(
-      comparePublicProductParitySurfaces({
-        api: API_SAMPLE,
-        current,
-        google,
-        pdp,
-      })
-    ).toEqual([]);
-  });
-
   it('skips an unsupported Product JSON-LD block when a later block is comparable', () => {
     const current = parseCurrentAgentProductSample(
       CURRENT_FEED_LINE,
