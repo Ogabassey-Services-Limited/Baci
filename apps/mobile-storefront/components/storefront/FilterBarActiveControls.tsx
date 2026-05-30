@@ -70,8 +70,12 @@ export function FilterBarActiveControls({
   minRating,
   onSelectRating,
 }: FilterBarActiveControlsProps) {
-  const [tempMinPrice, setTempMinPrice] = useState(formatMinPriceInput(minPrice));
-  const [tempMaxPrice, setTempMaxPrice] = useState(formatMaxPriceInput(maxPrice));
+  const [tempMinPrice, setTempMinPrice] = useState(
+    formatMinPriceInput(minPrice)
+  );
+  const [tempMaxPrice, setTempMaxPrice] = useState(
+    formatMaxPriceInput(maxPrice)
+  );
 
   useEffect(() => {
     setTempMinPrice(formatMinPriceInput(minPrice));
@@ -80,10 +84,7 @@ export function FilterBarActiveControls({
 
   const handlePriceBlur = () => {
     const nextMinPrice = normalizePriceInput(tempMinPrice, 0);
-    const nextMaxPrice = normalizePriceInput(
-      tempMaxPrice,
-      MAX_PRICE_CEILING
-    );
+    const nextMaxPrice = normalizePriceInput(tempMaxPrice, MAX_PRICE_CEILING);
 
     setTempMinPrice(formatMinPriceInput(nextMinPrice));
     setTempMaxPrice(formatMaxPriceInput(nextMaxPrice));
@@ -209,9 +210,7 @@ export function FilterBarActiveControls({
               accessibilityRole="button"
               accessibilityLabel={`${rating}+`}
               accessibilityState={{ selected: minRating === rating }}
-              onPress={() =>
-                onSelectRating(minRating === rating ? 0 : rating)
-              }
+              onPress={() => onSelectRating(minRating === rating ? 0 : rating)}
               style={[
                 styles.ratingChip,
                 minRating === rating && styles.ratingChipActive,
@@ -230,9 +229,7 @@ export function FilterBarActiveControls({
                 name="star"
                 size={10}
                 color={
-                  minRating === rating
-                    ? palette.amber[700]
-                    : palette.amber[500]
+                  minRating === rating ? palette.amber[700] : palette.amber[500]
                 }
               />
             </Pressable>

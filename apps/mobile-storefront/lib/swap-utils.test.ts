@@ -18,10 +18,7 @@ const analysisResult: AIAnalysisResult = {
   estimatedValue: 275000,
   basePrice: 300000,
   deductionPercent: 8.33,
-  observations: [
-    'Minor screen scratch',
-    'Battery health at 89%\nNeeds review',
-  ],
+  observations: ['Minor screen scratch', 'Battery health at 89%\nNeeds review'],
 };
 
 describe('getSwapGradeColor', () => {

@@ -62,12 +62,24 @@ function createProps() {
 
 describe('OrderSuccessView', () => {
   it('renders invoice messaging and a fallback delivery timeline', () => {
-    render(<OrderSuccessView {...createProps()} paymentMethod="invoice" />);
+    const onViewOrders = jest.fn();
+    render(
+      <OrderSuccessView
+        {...createProps()}
+        paymentMethod="invoice"
+        onViewOrders={onViewOrders}
+      />
+    );
 
     expect(screen.getByText('Invoice ready')).toBeTruthy();
+    expect(screen.getByText('Invoice Generated!')).toBeTruthy();
     expect(screen.getByText('Delivery Timeline')).toBeTruthy();
     expect(screen.getByText('Shared after order confirmation')).toBeTruthy();
     expect(screen.queryByText('Payment Ref')).toBeNull();
+
+    expect(screen.getByRole('button', { name: 'View Invoice' })).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'View Invoice' }));
+    expect(onViewOrders).toHaveBeenCalledTimes(1);
   });
 
   it('renders order details and delegates accessible post-purchase actions', () => {
@@ -89,6 +101,7 @@ describe('OrderSuccessView', () => {
     );
 
     expect(screen.getByText('Payment request ready')).toBeTruthy();
+    expect(screen.getByText('Order Saved!')).toBeTruthy();
     expect(screen.getByText('#BAC-100')).toBeTruthy();
     expect(screen.getByText('Estimated Delivery')).toBeTruthy();
     expect(screen.getByText('pay-ref')).toBeTruthy();
@@ -117,7 +130,9 @@ describe('OrderSuccessView', () => {
       />
     );
 
-    fireEvent.press(screen.getByRole('button', { name: 'Allow notifications' }));
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Allow notifications' })
+    );
     fireEvent.press(screen.getByRole('button', { name: 'Not now' }));
 
     expect(onPermissionGrant).toHaveBeenCalledTimes(1);

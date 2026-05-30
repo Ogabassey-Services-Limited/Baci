@@ -27,19 +27,22 @@ function getSuccessTone(paymentMethod?: string) {
   if (paymentMethod === 'invoice') {
     return {
       eyebrow: 'Invoice ready',
+      title: 'Invoice Generated!',
       subtitle:
-        "We've prepared your invoice. Once payment is made, we'll confirm the order and start processing it.",
+        "We've prepared your invoice and sent it to your email. Once payment is made, we'll confirm the order and start processing it.",
     };
   }
   if (paymentMethod === 'payforme') {
     return {
       eyebrow: 'Payment request ready',
+      title: 'Order Saved!',
       subtitle:
         "We've saved this order for later payment. Once it is settled, we'll confirm it and begin processing.",
     };
   }
   return {
     eyebrow: 'Order confirmed',
+    title: 'Order Placed!',
     subtitle:
       "Thanks for your order. We'll send a confirmation email and keep you updated as it moves.",
   };
@@ -92,7 +95,7 @@ export function OrderSuccessView({
               <Text style={styles.eyebrowText}>{successTone.eyebrow}</Text>
             </View>
             <Text style={[styles.title, { color: colors.text }]}>
-              Order Placed!
+              {successTone.title}
             </Text>
             <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
               {successTone.subtitle}
@@ -223,10 +226,32 @@ export function OrderSuccessView({
               </View>
             </View>
             <View style={styles.actions}>
+              {paymentMethod === 'invoice' ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="View Invoice"
+                  style={[
+                    styles.reviewButton,
+                    { backgroundColor: colors.success, marginBottom: 12 },
+                  ]}
+                  onPress={onViewOrders}
+                >
+                  <Ionicons
+                    name="document-text-outline"
+                    size={18}
+                    color="#ffffff"
+                    style={{ marginRight: 8 }}
+                  />
+                  <Text style={styles.reviewButtonText}>View Invoice</Text>
+                </Pressable>
+              ) : null}
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Leave a Google Review"
-                style={[styles.reviewButton, { backgroundColor: BRAND.primary }]}
+                style={[
+                  styles.reviewButton,
+                  { backgroundColor: BRAND.primary },
+                ]}
                 onPress={onLeaveGoogleReview}
               >
                 <View style={styles.googleLogoWrap}>

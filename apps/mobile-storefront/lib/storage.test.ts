@@ -86,7 +86,10 @@ describe('storage batching helpers', () => {
 
     await removeStorageItems(['cache:a', 'cache:b']);
 
-    expect(storageMock.multiRemove).toHaveBeenCalledWith(['cache:a', 'cache:b']);
+    expect(storageMock.multiRemove).toHaveBeenCalledWith([
+      'cache:a',
+      'cache:b',
+    ]);
   });
 
   it('returns empty array for empty keys', async () => {

@@ -5,17 +5,18 @@ import {
 } from './store-credit-compatible-payment';
 
 describe('isStoreCreditCompatiblePayment', () => {
-  it.each(['paystack', 'korapay', 'bank_transfer'] as const)(
-    'allows %s full-payment settlement',
-    (selectedPayment) => {
-      expect(
-        isStoreCreditCompatiblePayment({
-          paymentTab: 'full',
-          selectedPayment,
-        })
-      ).toBe(true);
-    }
-  );
+  it.each([
+    'paystack',
+    'korapay',
+    'bank_transfer',
+  ] as const)('allows %s full-payment settlement', (selectedPayment) => {
+    expect(
+      isStoreCreditCompatiblePayment({
+        paymentTab: 'full',
+        selectedPayment,
+      })
+    ).toBe(true);
+  });
 
   it('rejects delayed, installment, and unsupported payment paths', () => {
     expect(
@@ -43,15 +44,12 @@ describe('isStoreCreditCompatiblePayment', () => {
     { paymentTab: 'full', selectedPayment: 'PAYSTACK' },
     { paymentTab: 'full', selectedPayment: 'crypto' },
     { paymentTab: 'full', selectedPayment: 'cheque' },
-  ])(
-    'rejects invalid runtime input %#',
-    ({ paymentTab, selectedPayment }) => {
-      expect(
-        isStoreCreditCompatiblePayment({
-          paymentTab: paymentTab as StoreCreditPaymentTab,
-          selectedPayment: selectedPayment as StoreCreditPaymentMethod,
-        })
-      ).toBe(false);
-    }
-  );
+  ])('rejects invalid runtime input %#', ({ paymentTab, selectedPayment }) => {
+    expect(
+      isStoreCreditCompatiblePayment({
+        paymentTab: paymentTab as StoreCreditPaymentTab,
+        selectedPayment: selectedPayment as StoreCreditPaymentMethod,
+      })
+    ).toBe(false);
+  });
 });

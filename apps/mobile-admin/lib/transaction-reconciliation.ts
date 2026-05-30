@@ -69,27 +69,27 @@ export function rankReconciliationCandidates(args: {
       const overlap = itemTokens.filter((token) =>
         productTokens.has(token)
       ).length;
-	      const priceDistance = Math.abs(args.item.price - product.price);
-	      const closePrice =
-	        priceDistance <=
-	        Math.max(PRICE_DISTANCE_FLOOR, args.item.price * PRICE_DISTANCE_RATIO);
-	      const statusBoost =
-	        product.status === 'active' ? ACTIVE_STATUS_SCORE_BOOST : 0;
+      const priceDistance = Math.abs(args.item.price - product.price);
+      const closePrice =
+        priceDistance <=
+        Math.max(PRICE_DISTANCE_FLOOR, args.item.price * PRICE_DISTANCE_RATIO);
+      const statusBoost =
+        product.status === 'active' ? ACTIVE_STATUS_SCORE_BOOST : 0;
 
-	      if (overlap < MIN_TOKEN_OVERLAP_TO_CONSIDER) {
-	        return null;
-	      }
+      if (overlap < MIN_TOKEN_OVERLAP_TO_CONSIDER) {
+        return null;
+      }
 
-	      const score =
-	        overlap * RANK_SCORE_PER_TOKEN_OVERLAP +
-	        statusBoost +
-	        (closePrice ? CLOSE_PRICE_SCORE_BONUS : 0);
-	      const confidence =
-	        overlap >= HIGH_CONFIDENCE_MIN_TOKEN_OVERLAP && closePrice
-	          ? CONFIDENCE_HIGH
-	          : overlap >= MEDIUM_CONFIDENCE_MIN_TOKEN_OVERLAP && closePrice
-	            ? CONFIDENCE_MEDIUM
-	            : CONFIDENCE_LOW;
+      const score =
+        overlap * RANK_SCORE_PER_TOKEN_OVERLAP +
+        statusBoost +
+        (closePrice ? CLOSE_PRICE_SCORE_BONUS : 0);
+      const confidence =
+        overlap >= HIGH_CONFIDENCE_MIN_TOKEN_OVERLAP && closePrice
+          ? CONFIDENCE_HIGH
+          : overlap >= MEDIUM_CONFIDENCE_MIN_TOKEN_OVERLAP && closePrice
+            ? CONFIDENCE_MEDIUM
+            : CONFIDENCE_LOW;
 
       return {
         confidence,
@@ -103,7 +103,7 @@ export function rankReconciliationCandidates(args: {
     .filter(
       (candidate): candidate is RankedReconciliationCandidate =>
         candidate !== null
-	    )
-	    .sort((a, b) => b.score - a.score)
-	    .slice(0, MAX_RECONCILIATION_MATCHES);
-	}
+    )
+    .sort((a, b) => b.score - a.score)
+    .slice(0, MAX_RECONCILIATION_MATCHES);
+}

@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
@@ -83,9 +83,7 @@ export function CheckoutIdentityModal({
       accessibilityViewIsModal={true}
       accessibilityLabel="Checkout options modal"
     >
-      <AppKeyboardContainer
-        style={styles.container}
-      >
+      <AppKeyboardContainer style={styles.container}>
         {/* Backdrop */}
         <Animated.View style={[styles.backdrop, animatedBackdropStyle]}>
           <Pressable
@@ -117,10 +115,7 @@ export function CheckoutIdentityModal({
 
           {/* Header */}
           <View style={styles.header}>
-            <Text
-              style={styles.headerTitle}
-              accessibilityRole="header"
-            >
+            <Text style={styles.headerTitle} accessibilityRole="header">
               Checkout
             </Text>
             <Pressable

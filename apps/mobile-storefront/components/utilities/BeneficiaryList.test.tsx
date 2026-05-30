@@ -120,7 +120,7 @@ describe('BeneficiaryList', () => {
     const unicodeBeneficiary: UtilityBeneficiary = {
       id: 'EKEDC_NG:EKEDC_PREPAID:22222222222',
       customerId: '22222222222',
-      customerName: "OLUṢừGUN ADEBÁYỌ",
+      customerName: 'OLUṢừGUN ADEBÁYỌ',
       billerId: 'EKEDC_NG',
       billerName: 'EKEDC NG',
       billItemIdentifier: 'EKEDC_PREPAID',
@@ -133,7 +133,9 @@ describe('BeneficiaryList', () => {
         onSelect={jest.fn()}
       />
     );
-    expect(screen.getByText(unicodeBeneficiary.customerName.toUpperCase())).toBeOnTheScreen();
+    expect(
+      screen.getByText(unicodeBeneficiary.customerName.toUpperCase())
+    ).toBeOnTheScreen();
     expect(
       screen.getByText(`Meter Number: ${unicodeBeneficiary.customerId}`)
     ).toBeOnTheScreen();

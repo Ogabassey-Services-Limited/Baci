@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { BRAND } from '@/constants/Colors';
 
@@ -23,7 +23,11 @@ export function OrdersListEmptyState({
   if (hasOrders) {
     return (
       <View style={styles.emptyState}>
-        <Ionicons name="search-outline" size={64} color={colors.textSecondary} />
+        <Ionicons
+          name="search-outline"
+          size={64}
+          color={colors.textSecondary}
+        />
         <Text style={[styles.emptyTitle, { color: colors.text }]}>
           No matching orders
         </Text>
@@ -45,7 +49,9 @@ export function OrdersListEmptyState({
   return (
     <View style={styles.emptyState}>
       <Ionicons name="receipt-outline" size={64} color={colors.textSecondary} />
-      <Text style={[styles.emptyTitle, { color: colors.text }]}>No orders yet</Text>
+      <Text style={[styles.emptyTitle, { color: colors.text }]}>
+        No orders yet
+      </Text>
       <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
         When you place orders, they&apos;ll appear here
       </Text>

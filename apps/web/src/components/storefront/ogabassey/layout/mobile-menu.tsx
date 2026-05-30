@@ -54,7 +54,7 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
     { label: 'Member Status', icon: Crown, path: '/member-status' },
     { label: 'Orders', icon: ShoppingBag, path: '/account/orders' },
     { label: 'Saved Items', icon: Heart, path: '/wishlist' },
-    { label: 'Receipts', icon: FileText, path: '/receipts' },
+    { label: 'Receipts & Invoices', icon: FileText, path: '/receipts' },
     { label: 'Address Book', icon: MapPin, path: '/account/addresses' },
     { label: 'Swap / Trade-in', icon: RefreshCw, path: '/swap' },
     { label: 'My Reviews', icon: Star, path: '/reviews' },

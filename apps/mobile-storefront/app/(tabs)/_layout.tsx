@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { Tabs, router } from 'expo-router';
 import type React from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
@@ -62,7 +62,9 @@ function TabBarIcon({
               },
             ]}
           >
-            <Text style={[styles.badgeText, { color: colors.primaryForeground }]}>
+            <Text
+              style={[styles.badgeText, { color: colors.primaryForeground }]}
+            >
               {badge > 99 ? '99+' : badge}
             </Text>
           </View>
@@ -113,9 +115,7 @@ export default function TabLayout() {
           height: TAB_BAR_BASE_HEIGHT + insets.bottom,
           paddingBottom: Math.max(insets.bottom - 4, 8),
           paddingTop: 6,
-          ...getTabBarShadowStyle(
-            Platform.OS === 'web' ? 'web' : 'native'
-          ),
+          ...getTabBarShadowStyle(Platform.OS === 'web' ? 'web' : 'native'),
         },
         tabBarItemStyle: {
           height: TAB_BAR_BASE_HEIGHT,

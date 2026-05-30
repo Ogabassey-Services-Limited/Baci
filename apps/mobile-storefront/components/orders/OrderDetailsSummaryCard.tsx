@@ -115,7 +115,13 @@ export function OrderDetailsSummaryCard({
         </View>
       )}
 
-      <View style={[styles.summaryRow, styles.totalRow, { borderTopColor: colors.border }]}>
+      <View
+        style={[
+          styles.summaryRow,
+          styles.totalRow,
+          { borderTopColor: colors.border },
+        ]}
+      >
         <Text style={[styles.totalLabel, { color: colors.text }]}>Total</Text>
         <Text style={[styles.totalValue, { color: colors.text }]}>
           {formatCurrency(summaryBreakdown.total)}

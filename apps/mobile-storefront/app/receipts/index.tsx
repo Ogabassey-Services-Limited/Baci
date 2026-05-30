@@ -15,6 +15,7 @@ import { useRequireAuth } from '@/hooks/use-auth-guard';
 import { useNetworkState } from '@/hooks/use-network-state';
 import { useReceiptPreview } from '@/hooks/use-receipt-preview';
 import { receiptDetailQueryOptions, useReceipts } from '@/hooks/use-receipts';
+import { useAuthStore } from '@/stores/auth-store';
 
 export default function ReceiptsScreen() {
   const colorScheme = useColorScheme();
@@ -22,11 +23,17 @@ export default function ReceiptsScreen() {
   const queryClient = useQueryClient();
 
   // Auth guard
-  const { redirectTo, user, isLoading: isAuthLoading } = useRequireAuth();
+  const { redirectTo, isLoading: isAuthLoading } = useRequireAuth();
   const { isOnline } = useNetworkState();
+  const customer = useAuthStore((state) => state.customer);
 
   // Data
-  const { data: receipts, isLoading, error, refetch } = useReceipts(user?.id);
+  const {
+    data: receipts,
+    isLoading,
+    error,
+    refetch,
+  } = useReceipts(customer?.id);
 
   // Receipt preview state machine (idle → loading → open → idle)
   const preview = useReceiptPreview();

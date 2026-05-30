@@ -52,7 +52,9 @@ describe('CartQuantityInput', () => {
 
   it('syncs local input value when external value prop changes', () => {
     const onChange = jest.fn();
-    const { rerender } = render(<CartQuantityInput value={1} onChange={onChange} />);
+    const { rerender } = render(
+      <CartQuantityInput value={1} onChange={onChange} />
+    );
 
     expect(screen.getByDisplayValue('1')).toBeTruthy();
 

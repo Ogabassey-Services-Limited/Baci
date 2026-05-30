@@ -17,7 +17,9 @@ describe('merchant analytics types', () => {
         totalViews: 12,
       },
       brandBreakdown: [{ name: 'Apple', revenue: 1200, value: 1200 }],
-      chartData: [{ day: 'Apr 10', orders: 1, profit: 600, revenue: 1200, tax: 0 }],
+      chartData: [
+        { day: 'Apr 10', orders: 1, profit: 600, revenue: 1200, tax: 0 },
+      ],
       customerBreakdown: [{ name: 'Customer', revenue: 1200, value: 1 }],
       recentSales: [
         {
@@ -50,7 +52,9 @@ describe('merchant analytics types', () => {
       topBrand: { name: 'Apple', revenue: 1200, value: 1200 },
       topCustomer: { name: 'Customer', value: 1 },
       topPaymentMethod: { name: 'card', value: 100 },
-      topProducts: [{ id: 'product-1', name: 'iPhone', revenue: 1200, units: 1 }],
+      topProducts: [
+        { id: 'product-1', name: 'iPhone', revenue: 1200, units: 1 },
+      ],
     };
 
     expect(value.summary.revenue.value).toBe(1200);

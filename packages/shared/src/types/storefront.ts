@@ -1,4 +1,3 @@
-
 export interface StorefrontTransformedOrderItem {
   id: string;
   product_id: string;

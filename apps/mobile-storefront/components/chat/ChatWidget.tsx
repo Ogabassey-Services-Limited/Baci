@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import * as Haptics from 'expo-haptics';
 import { usePathname } from 'expo-router';
 import { Animated, Platform, Pressable, Text, View } from 'react-native';

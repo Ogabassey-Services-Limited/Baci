@@ -399,7 +399,7 @@ describe('PAYMENT_CLIPBOARD_BRIDGE', () => {
       "console.warn('Baci clipboard bridge native postMessage unavailable',"
     );
     expect(PAYMENT_CLIPBOARD_BRIDGE.script).toContain(
-      'payloadLength: String(payload || \'\').length'
+      "payloadLength: String(payload || '').length"
     );
     expect(PAYMENT_CLIPBOARD_BRIDGE.script).not.toContain(
       'clipboardData.getData'

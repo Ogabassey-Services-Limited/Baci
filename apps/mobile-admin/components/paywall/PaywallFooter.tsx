@@ -1,4 +1,10 @@
-import { ActivityIndicator, Linking, Pressable, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Linking,
+  Pressable,
+  Text,
+  View,
+} from 'react-native';
 import { isRuntimePlatform } from '@/config/runtime-platform';
 import type { ThemeColors } from '@/constants/theme';
 import type { PurchasesPackage } from 'react-native-purchases';
@@ -72,7 +78,10 @@ export default function PaywallFooter({
       </Pressable>
 
       <Text
-        style={[paywallStyles.subscriptionDisclosure, { color: colors.textMuted }]}
+        style={[
+          paywallStyles.subscriptionDisclosure,
+          { color: colors.textMuted },
+        ]}
       >
         {selectedPackage && (
           <>
@@ -92,7 +101,9 @@ export default function PaywallFooter({
           accessibilityLabel="Restore previous purchases"
           style={paywallStyles.footerLinkTouchTarget}
         >
-          <Text style={[paywallStyles.smallLink, { color: colors.textSecondary }]}>
+          <Text
+            style={[paywallStyles.smallLink, { color: colors.textSecondary }]}
+          >
             Restore Purchases
           </Text>
         </Pressable>
@@ -103,7 +114,9 @@ export default function PaywallFooter({
           accessibilityLabel="View terms of service"
           style={paywallStyles.footerLinkTouchTarget}
         >
-          <Text style={[paywallStyles.smallLink, { color: colors.textSecondary }]}>
+          <Text
+            style={[paywallStyles.smallLink, { color: colors.textSecondary }]}
+          >
             Terms
           </Text>
         </Pressable>
@@ -114,7 +127,9 @@ export default function PaywallFooter({
           accessibilityLabel="View privacy policy"
           style={paywallStyles.footerLinkTouchTarget}
         >
-          <Text style={[paywallStyles.smallLink, { color: colors.textSecondary }]}>
+          <Text
+            style={[paywallStyles.smallLink, { color: colors.textSecondary }]}
+          >
             Privacy
           </Text>
         </Pressable>

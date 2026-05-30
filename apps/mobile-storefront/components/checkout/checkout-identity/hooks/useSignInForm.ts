@@ -176,7 +176,7 @@ export function useSignInForm({
     pendingSocialSignInRef.current = true;
 
     try {
-      const result = await signInWithGoogle();
+      const result = await signInWithGoogle('/checkout');
 
       if (!result.success) {
         pendingSocialSignInRef.current = false;

@@ -7,11 +7,9 @@ type PresentationProps = {
   presentation?: 'stack' | 'tab';
 };
 
-const mockWalletScreen = jest.fn(
-  ({ presentation }: PresentationProps) => (
-    <Text>{`wallet-presentation:${presentation ?? 'stack'}`}</Text>
-  )
-);
+const mockWalletScreen = jest.fn(({ presentation }: PresentationProps) => (
+  <Text>{`wallet-presentation:${presentation ?? 'stack'}`}</Text>
+));
 
 jest.mock('@/app/wallet', () => ({
   __esModule: true,

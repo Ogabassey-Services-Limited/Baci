@@ -174,9 +174,7 @@ function routeUsesStorefrontScreenShell(routeModule: RouteModule) {
     return true;
   }
 
-  const shellDelegate = SHELL_DELEGATE_MODULES.get(
-    routeModule.normalizedPath
-  );
+  const shellDelegate = SHELL_DELEGATE_MODULES.get(routeModule.normalizedPath);
   if (!shellDelegate || !shellDelegate.routeJsxPattern.test(routeSource)) {
     return false;
   }

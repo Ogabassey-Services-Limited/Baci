@@ -46,6 +46,8 @@ export default function CheckoutSuccessPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const reference = searchParams.get('reference');
+  const orderId = searchParams.get('orderId');
+  const trackingToken = searchParams.get('trackingToken');
   const { clearCart } = useCart();
   const merchantContext = useMerchantSafe();
   const basePath = merchantContext?.basePath || '';
@@ -59,6 +61,7 @@ export default function CheckoutSuccessPage() {
   );
   const [isVerifying, setIsVerifying] = useState(false);
   const [orderNumber, setOrderNumber] = useState<string | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<string | null>(null);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler handles memoization
   useEffect(() => {
@@ -71,6 +74,42 @@ export default function CheckoutSuccessPage() {
 
     const verifyPayment = async () => {
       if (!reference) {
+        if (orderId) {
+          setIsVerifying(true);
+          try {
+            const slug = merchantContext?.merchant?.slug;
+            const url = `/api/storefront/orders/${orderId}?slug=${slug}${
+              trackingToken ? `&tracking_token=${trackingToken}` : ''
+            }`;
+            const response = await fetch(url);
+            const data = (await response.ok) ? await response.json() : null;
+            if (data && (data.order_number || data.short_id)) {
+              clearCart();
+              setStatus('success');
+              setOrderNumber(data.order_number || data.short_id);
+              if (data.payment_method) {
+                setPaymentMethod(data.payment_method);
+              }
+            } else {
+              // Fallback if API lookup fails
+              clearCart();
+              setStatus('success');
+              setOrderNumber(orderId.slice(0, 8).toUpperCase());
+            }
+          } catch (error) {
+            console.error(
+              'Failed to fetch order details on success page:',
+              error
+            );
+            clearCart();
+            setStatus('success');
+            setOrderNumber(orderId.slice(0, 8).toUpperCase());
+          } finally {
+            setIsVerifying(false);
+          }
+          return;
+        }
+
         router.push(asRoute(getHref('/checkout')));
         return;
       }
@@ -119,7 +158,15 @@ export default function CheckoutSuccessPage() {
         clearTimeout(timerHandle.current);
       }
     };
-  }, [reference, clearCart, router, basePath]);
+  }, [
+    reference,
+    orderId,
+    trackingToken,
+    merchantContext,
+    clearCart,
+    router,
+    basePath,
+  ]);
 
   useEffect(() => {
     if (status !== 'success' || typeof window === 'undefined') {
@@ -205,7 +252,12 @@ export default function CheckoutSuccessPage() {
             transition={{ delay: 0.2 }}
             className="text-3xl md:text-4xl font-bold text-gray-900 mb-3"
           >
-            {isConfirmed ? 'Order Received!' : 'Order Being Processed'}
+            {isConfirmed
+              ? paymentMethod === 'invoice' ||
+                searchParams.get('type') === 'invoice'
+                ? 'Invoice Generated!'
+                : 'Order Received!'
+              : 'Order Being Processed'}
           </motion.h1>
 
           <motion.p
@@ -276,6 +328,14 @@ export default function CheckoutSuccessPage() {
                   const isActive = index === 0;
                   const isCompleted = isConfirmed && index === 0;
                   const StepIcon = step.icon;
+                  let stepLabel = step.label;
+                  if (
+                    step.id === 'received' &&
+                    (paymentMethod === 'invoice' ||
+                      searchParams.get('type') === 'invoice')
+                  ) {
+                    stepLabel = 'Invoice Generated';
+                  }
 
                   return (
                     <motion.div
@@ -301,7 +361,7 @@ export default function CheckoutSuccessPage() {
                           isActive ? 'text-green-600' : 'text-gray-500'
                         }`}
                       >
-                        {step.label}
+                        {stepLabel}
                       </span>
                     </motion.div>
                   );
@@ -327,11 +387,16 @@ export default function CheckoutSuccessPage() {
                 </div>
                 <div>
                   <h3 className="font-semibold text-gray-900 mb-1">
-                    Order Confirmation Email
+                    {paymentMethod === 'invoice' ||
+                    searchParams.get('type') === 'invoice'
+                      ? 'Invoice Sent to Email'
+                      : 'Order Confirmation Email'}
                   </h3>
                   <p className="text-sm text-gray-600">
-                    You&apos;ll receive an email with your order details and
-                    tracking information once your order is confirmed.
+                    {paymentMethod === 'invoice' ||
+                    searchParams.get('type') === 'invoice'
+                      ? "We've generated a compliant e-invoice and sent it to your email with payment instructions."
+                      : "You'll receive an email with your order details and tracking information once your order is confirmed."}
                   </p>
                 </div>
               </div>
@@ -384,17 +449,28 @@ export default function CheckoutSuccessPage() {
                   Your Receipt & Invoice
                 </h3>
                 <p className="text-gray-300 text-sm mb-4">
-                  Your invoice is available from your order details in your
-                  account. Your receipt will appear there and in the documents
-                  archive once the order has shipped.
+                  {paymentMethod === 'invoice' ||
+                  searchParams.get('type') === 'invoice'
+                    ? 'Your e-invoice is generated and ready to download. You can settle the invoice at any time to activate your order processing.'
+                    : 'Your invoice is available from your order details in your account. Your receipt will appear there and in the documents archive once the order has shipped.'}
                 </p>
                 <div className="flex flex-col sm:flex-row gap-3">
                   <Link
-                    href={asRoute(getHref('/account/orders'))}
+                    href={asRoute(
+                      getHref(
+                        paymentMethod === 'invoice' ||
+                          searchParams.get('type') === 'invoice'
+                          ? '/receipts'
+                          : '/account/orders'
+                      )
+                    )}
                     className="inline-flex items-center justify-center gap-2 bg-white text-gray-900 px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-100 transition-colors"
                   >
                     <Download className="w-4 h-4" />
-                    View Order Documents
+                    {paymentMethod === 'invoice' ||
+                    searchParams.get('type') === 'invoice'
+                      ? 'Download Invoice PDF'
+                      : 'View Order Documents'}
                   </Link>
                 </div>
               </div>

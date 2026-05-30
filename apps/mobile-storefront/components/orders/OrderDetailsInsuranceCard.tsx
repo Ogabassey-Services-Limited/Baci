@@ -107,7 +107,9 @@ export function OrderDetailsInsuranceCard({
       <View style={styles.insuranceContent}>
         {insurancePolicy.mycover_policy_number && (
           <View style={styles.insuranceRow}>
-            <Text style={[styles.insuranceLabel, { color: colors.textSecondary }]}>
+            <Text
+              style={[styles.insuranceLabel, { color: colors.textSecondary }]}
+            >
               Policy No.
             </Text>
             <Text style={[styles.insuranceValue, { color: colors.text }]}>
@@ -116,7 +118,9 @@ export function OrderDetailsInsuranceCard({
           </View>
         )}
         <View style={styles.insuranceRow}>
-          <Text style={[styles.insuranceLabel, { color: colors.textSecondary }]}>
+          <Text
+            style={[styles.insuranceLabel, { color: colors.textSecondary }]}
+          >
             Coverage
           </Text>
           <Text style={[styles.insuranceValue, { color: colors.text }]}>
@@ -124,7 +128,9 @@ export function OrderDetailsInsuranceCard({
           </Text>
         </View>
         <View style={styles.insuranceRow}>
-          <Text style={[styles.insuranceLabel, { color: colors.textSecondary }]}>
+          <Text
+            style={[styles.insuranceLabel, { color: colors.textSecondary }]}
+          >
             Premium
           </Text>
           <Text style={[styles.insuranceValue, { color: colors.text }]}>
@@ -132,7 +138,9 @@ export function OrderDetailsInsuranceCard({
           </Text>
         </View>
         <View style={styles.insuranceRow}>
-          <Text style={[styles.insuranceLabel, { color: colors.textSecondary }]}>
+          <Text
+            style={[styles.insuranceLabel, { color: colors.textSecondary }]}
+          >
             Status
           </Text>
           <View

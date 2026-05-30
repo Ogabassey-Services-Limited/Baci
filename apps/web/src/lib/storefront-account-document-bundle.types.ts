@@ -72,6 +72,7 @@ export interface StorefrontAccountDocumentOrderRow {
   firs_csid: string | null;
   firs_qr_code: string | null;
   payment_terms: string | null;
+  fulfillment_details?: JsonRecord | null;
 }
 
 export interface StorefrontAccountDocumentItemRow {

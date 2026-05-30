@@ -147,9 +147,9 @@ describe('formatUtilityAmountInput', () => {
       );
       // BCP-47 unicode extension subtags should be stripped before
       // region lookup so de-CH-u-nu-latn still hits the apostrophe override.
-      expect(
-        formatUtilityAmountInput('1’234.56', 'de-CH-u-nu-latn')
-      ).toBe(expectFor('de-CH', 1234.56));
+      expect(formatUtilityAmountInput('1’234.56', 'de-CH-u-nu-latn')).toBe(
+        expectFor('de-CH', 1234.56)
+      );
       // Unmapped comma-decimal locales (id-ID, vi-VN) must default to
       // comma-decimal/dot-group instead of regressing to dot-decimal.
       expect(formatUtilityAmountInput('1.234,56', 'id-ID')).toBe(

@@ -20,7 +20,9 @@ export function matchesOrderListFilter(
 
   switch (filter) {
     case 'active':
-      return status === 'placed' || status === 'confirmed' || status === 'shipped';
+      return (
+        status === 'placed' || status === 'confirmed' || status === 'shipped'
+      );
     case 'delivered':
       return status === 'delivered';
     case 'closed':
@@ -45,8 +47,9 @@ export function buildOrderListFilters(
     {
       key: 'delivered',
       label: 'Delivered',
-      count: orders.filter((order) => matchesOrderListFilter(order, 'delivered'))
-        .length,
+      count: orders.filter((order) =>
+        matchesOrderListFilter(order, 'delivered')
+      ).length,
     },
     {
       key: 'closed',

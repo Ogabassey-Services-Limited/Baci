@@ -88,7 +88,9 @@ describe('storefront customer API client', () => {
     const expiresAt = Math.floor((now + 120_000) / 1000);
     const dateNowSpy = jest.spyOn(Date, 'now').mockReturnValue(now);
     mockGetSession.mockResolvedValueOnce({
-      data: { session: { access_token: 'cached-token', expires_at: expiresAt } },
+      data: {
+        session: { access_token: 'cached-token', expires_at: expiresAt },
+      },
       error: null,
     });
     mockFetchWithTimeout.mockResolvedValue({
@@ -99,7 +101,9 @@ describe('storefront customer API client', () => {
     });
 
     try {
-      await client.fetchJson({ path: '/api/storefront/customer/savings/goals' });
+      await client.fetchJson({
+        path: '/api/storefront/customer/savings/goals',
+      });
       await client.fetchJson({
         path: '/api/storefront/customer/savings/contributions',
       });

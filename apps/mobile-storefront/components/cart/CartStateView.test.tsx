@@ -63,9 +63,7 @@ describe('CartStateView', () => {
     );
 
     expect(screen.getByText('Your cart is empty 🛒')).toBeTruthy();
-    fireEvent.press(
-      screen.getByRole('button', { name: 'Start shopping' })
-    );
+    fireEvent.press(screen.getByRole('button', { name: 'Start shopping' }));
     expect(onStartShopping).toHaveBeenCalledTimes(1);
   });
 });

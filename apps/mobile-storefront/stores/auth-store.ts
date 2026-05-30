@@ -21,6 +21,7 @@ import {
   clearStoredPushToken,
   getStoredPushToken,
 } from '../lib/push-token-storage';
+import { queryClient } from '../lib/query-client';
 import { supabase } from '../lib/supabase';
 import { CustomerRowSchema, MerchantRowSchema } from '../lib/validation';
 import { removePushTokenFromServer } from '../services/push-notifications';
@@ -29,7 +30,6 @@ import {
   initTimeout,
   shouldInvalidateSessionOnGetUserError,
 } from './auth-helpers';
-import { queryClient } from '../lib/query-client';
 import { useCartStore } from './cart-store';
 import { useComparisonStore } from './comparison-store';
 import { useSavedStore } from './saved-store';
@@ -90,7 +90,9 @@ interface AuthState {
     email: string,
     password: string
   ) => Promise<{ success: boolean; error?: string }>;
-  signInWithGoogle: () => Promise<{ success: boolean; error?: string }>;
+  signInWithGoogle: (
+    returnTo?: string
+  ) => Promise<{ success: boolean; error?: string }>;
   signInWithApple: () => Promise<{ success: boolean; error?: string }>;
   signOut: () => Promise<void>;
   deleteAccount: () => Promise<DeleteAccountResult>;
@@ -509,7 +511,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   // Sign in with Google OAuth (Implicit flow)
-  signInWithGoogle: async () => {
+  signInWithGoogle: async (returnTo?: string) => {
     const state = get();
     if (state.isLoading && state.isInitialized) {
       log.warn('Sign-in already in progress, skipping');
@@ -523,7 +525,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const { makeRedirectUri } = await import('expo-auth-session');
       const QueryParams = await import('expo-auth-session/build/QueryParams');
 
-      const redirectUrl = makeRedirectUri();
+      const baseRedirectUrl = makeRedirectUri({ path: 'auth/callback' });
+      const redirectUrl = returnTo
+        ? `${baseRedirectUrl}?returnTo=${encodeURIComponent(returnTo)}`
+        : baseRedirectUrl;
       log.debug('Generated OAuth redirect URL:', redirectUrl);
 
       const { data, error } = await supabase.auth.signInWithOAuth({

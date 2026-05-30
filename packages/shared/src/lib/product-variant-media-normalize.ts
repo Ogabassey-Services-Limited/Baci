@@ -37,7 +37,10 @@ export function normalizeColorName(value: string | null | undefined) {
   if (typeof value !== 'string') {
     return '';
   }
-  return value.trim().replace(/^["']+|["']+$/g, '').trim();
+  return value
+    .trim()
+    .replace(/^["']+|["']+$/g, '')
+    .trim();
 }
 
 /**

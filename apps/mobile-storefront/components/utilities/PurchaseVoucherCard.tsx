@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { Alert, Pressable, Text, View } from 'react-native';
 import type Colors from '@/constants/Colors';
 import { setClipboardString } from '@/lib/clipboard';

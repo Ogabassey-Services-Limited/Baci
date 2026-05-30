@@ -48,7 +48,9 @@ describe('Facebook SDK Expo config', () => {
     expect(() => {
       const appConfig = loadAppConfigWithFacebookEnv({});
       renderConfig(appConfig);
-    }).toThrow(/STOREFRONT_FACEBOOK_APP_ID and STOREFRONT_FACEBOOK_CLIENT_TOKEN/);
+    }).toThrow(
+      /STOREFRONT_FACEBOOK_APP_ID and STOREFRONT_FACEBOOK_CLIENT_TOKEN/
+    );
   });
 
   it('injects the Facebook SDK plugin when both credentials are configured', () => {
@@ -78,13 +80,17 @@ describe('Facebook SDK Expo config', () => {
       loadAppConfigWithFacebookEnv({
         STOREFRONT_FACEBOOK_APP_ID: '123456789',
       })
-    ).toThrow(/STOREFRONT_FACEBOOK_APP_ID and STOREFRONT_FACEBOOK_CLIENT_TOKEN/);
+    ).toThrow(
+      /STOREFRONT_FACEBOOK_APP_ID and STOREFRONT_FACEBOOK_CLIENT_TOKEN/
+    );
 
     expect(() =>
       loadAppConfigWithFacebookEnv({
         STOREFRONT_FACEBOOK_CLIENT_TOKEN: 'client-token',
       })
-    ).toThrow(/STOREFRONT_FACEBOOK_APP_ID and STOREFRONT_FACEBOOK_CLIENT_TOKEN/);
+    ).toThrow(
+      /STOREFRONT_FACEBOOK_APP_ID and STOREFRONT_FACEBOOK_CLIENT_TOKEN/
+    );
   });
 
   it('declares SKAdNetwork identifiers for TikTok and Facebook campaign attribution', () => {

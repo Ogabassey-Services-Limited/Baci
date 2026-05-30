@@ -150,8 +150,7 @@ export function createBillFormPurchaseHandler({
       // (meter owner / account holder), so prefer the verified name when we
       // have it. Falls back to the buyer name only when verification produced
       // no name — keeps existing legacy receipts from going blank.
-      const customerName =
-        verifiedCustomerName?.trim() || buyerName;
+      const customerName = verifiedCustomerName?.trim() || buyerName;
       const payload = {
         amount: numericAmount,
         billItemIdentifier: selectedBillItemIdentifier ?? undefined,
@@ -304,10 +303,7 @@ export function createBillFormPurchaseHandler({
         },
       });
     } catch (error) {
-      Alert.alert(
-        'Payment Failed',
-        getSafePaymentErrorMessage(error)
-      );
+      Alert.alert('Payment Failed', getSafePaymentErrorMessage(error));
     } finally {
       setIsSubmitting(false);
     }

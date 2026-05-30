@@ -2,13 +2,7 @@ import Ionicons from '@react-native-vector-icons/ionicons';
 // router removed as it was unused.
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  Animated,
-  Easing,
-  Text,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Animated, Easing, Text, View } from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
 import { type Category, useCategories } from '@/hooks';

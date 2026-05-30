@@ -33,7 +33,11 @@ describe('RouteRepeatParamsSchema', () => {
   it.each([
     ['zero amount', { repeatAmount: '0' }, 'repeatAmount'],
     ['NaN amount', { repeatAmount: 'NaN' }, 'repeatAmount'],
-    ['US phone number', { repeatPhoneNumber: '+15551234567' }, 'repeatPhoneNumber'],
+    [
+      'US phone number',
+      { repeatPhoneNumber: '+15551234567' },
+      'repeatPhoneNumber',
+    ],
   ])('rejects semantic invalid repeat params for %s', (_label, params, path) => {
     const result = RouteRepeatParamsSchema.safeParse(params);
 

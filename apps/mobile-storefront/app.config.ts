@@ -98,8 +98,7 @@ const tiktokBusinessPlugin: TikTokBusinessPlugin | null =
       ]
     : null;
 
-const facebookAppId =
-  process.env.STOREFRONT_FACEBOOK_APP_ID?.trim();
+const facebookAppId = process.env.STOREFRONT_FACEBOOK_APP_ID?.trim();
 const facebookClientToken =
   process.env.STOREFRONT_FACEBOOK_CLIENT_TOKEN?.trim();
 

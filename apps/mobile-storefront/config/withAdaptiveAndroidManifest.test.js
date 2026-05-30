@@ -103,7 +103,9 @@ describe('withAdaptiveAndroidManifest', () => {
 
     const manifest = withAdaptiveAndroidManifest(config).modResults;
 
-    expect(findActivity(manifest, ML_KIT_SCANNER_DELEGATE_ACTIVITY).$).toMatchObject({
+    expect(
+      findActivity(manifest, ML_KIT_SCANNER_DELEGATE_ACTIVITY).$
+    ).toMatchObject({
       'android:exported': 'false',
       'tools:remove': 'android:theme,android:screenOrientation',
     });
@@ -114,7 +116,9 @@ describe('withAdaptiveAndroidManifest', () => {
 
     const manifest = withAdaptiveAndroidManifest(config).modResults;
 
-    expect(findActivity(manifest, ML_KIT_SCANNER_DELEGATE_ACTIVITY).$).toMatchObject({
+    expect(
+      findActivity(manifest, ML_KIT_SCANNER_DELEGATE_ACTIVITY).$
+    ).toMatchObject({
       'android:name': ML_KIT_SCANNER_DELEGATE_ACTIVITY,
       'android:exported': 'false',
       'tools:remove': 'android:screenOrientation',

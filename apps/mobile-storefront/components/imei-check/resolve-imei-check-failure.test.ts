@@ -156,16 +156,16 @@ describe('tier visibility helpers', () => {
       expanded: boolean
     ): ImeiServiceTierKey[] => (expanded ? ['full', 'activation'] : ['full']);
 
-    expect(
-      hasAdditionalPublicImeiServiceTierKeys(getVisibleTiers, 'all')
-    ).toBe(true);
+    expect(hasAdditionalPublicImeiServiceTierKeys(getVisibleTiers, 'all')).toBe(
+      true
+    );
   });
 
   it('returns false when collapsed and expanded public tiers are identical', () => {
     const getVisibleTiers = (): ImeiServiceTierKey[] => ['full', 'carrier'];
 
-    expect(
-      hasAdditionalPublicImeiServiceTierKeys(getVisibleTiers, 'all')
-    ).toBe(false);
+    expect(hasAdditionalPublicImeiServiceTierKeys(getVisibleTiers, 'all')).toBe(
+      false
+    );
   });
 });

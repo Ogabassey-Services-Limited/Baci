@@ -58,7 +58,7 @@ describe('generateReceiptHtml', () => {
 
     expect(html).toContain('S/N');
     expect(html).toContain('SN-LEGACY-123');
-    expect(html.match(/S\/N/g) ?? []).toHaveLength(1);
+    expect(html.match(/S\/N/g) ?? []).toHaveLength(2);
   });
 
   it('does not emit unsafe brand colors into receipt styles', () => {

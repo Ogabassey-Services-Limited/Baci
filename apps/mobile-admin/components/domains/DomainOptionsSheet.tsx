@@ -1,11 +1,5 @@
 import { useEffect, useRef } from 'react';
-import {
-  InteractionManager,
-  Modal,
-  Pressable,
-  Text,
-  View,
-} from 'react-native';
+import { InteractionManager, Modal, Pressable, Text, View } from 'react-native';
 import Animated, {
   FadeIn,
   FadeOut,
@@ -104,7 +98,10 @@ export default function DomainOptionsSheet({
         />
       </Pressable>
 
-      <View style={domainOptionsSheetStyles.sheetContainer} pointerEvents="box-none">
+      <View
+        style={domainOptionsSheetStyles.sheetContainer}
+        pointerEvents="box-none"
+      >
         <Animated.View
           entering={SlideInDown}
           exiting={SlideOutDown}
@@ -138,7 +135,10 @@ export default function DomainOptionsSheet({
               accessibilityHint="Closes the options menu without making changes"
             >
               <Text
-                style={[domainOptionsSheetStyles.cancelText, { color: colors.text }]}
+                style={[
+                  domainOptionsSheetStyles.cancelText,
+                  { color: colors.text },
+                ]}
               >
                 Cancel
               </Text>

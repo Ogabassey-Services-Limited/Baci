@@ -60,7 +60,11 @@ import { resolveVariantSelectionFromImage } from '@/lib/product-image-selection'
 import { stripInternalSelectionAxes } from '@/lib/product-internal-selection-axes';
 import { normalizeRouteCondition } from '@/lib/product-route/normalize-route-condition';
 import { resolveProductVariantMetadata } from '@/lib/product-variant-metadata';
-import { trackProductRouteAddToCart, trackProductRouteWishlistAdd, useTrackProductRouteViewed } from '@/services/tiktok-product-route-tracking';
+import {
+  trackProductRouteAddToCart,
+  trackProductRouteWishlistAdd,
+  useTrackProductRouteViewed,
+} from '@/services/tiktok-product-route-tracking';
 import { useCartStore } from '@/stores/cart-store';
 import { useSavedStore } from '@/stores/saved-store';
 import {

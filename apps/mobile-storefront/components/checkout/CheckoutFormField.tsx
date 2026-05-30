@@ -1,9 +1,5 @@
 import React from 'react';
-import {
-  type Control,
-  Controller,
-  type FieldErrors,
-} from 'react-hook-form';
+import { type Control, Controller, type FieldErrors } from 'react-hook-form';
 import {
   StyleSheet,
   Text,

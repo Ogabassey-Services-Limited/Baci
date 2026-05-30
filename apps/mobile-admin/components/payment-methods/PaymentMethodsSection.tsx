@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { StyleSheet, Switch, Text, View } from 'react-native';
 import {
   RADIUS,

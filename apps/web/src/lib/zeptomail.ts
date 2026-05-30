@@ -93,6 +93,11 @@ interface SendEmailParams {
   // duplicate window. Not an idempotency key (ZeptoMail does not support
   // one); idempotency lives in the payment_side_effects claim row.
   clientReference?: string;
+  attachments?: Array<{
+    name: string;
+    content: string;
+    mime_type: string;
+  }>;
 }
 
 interface SendEmailWithTemplateParams {
@@ -329,6 +334,7 @@ export async function sendEmail({
   fromName,
   auditContext,
   clientReference,
+  attachments,
 }: SendEmailParams): Promise<EmailResult> {
   const sender = getSenderAddress(emailType, fromName);
 
@@ -416,6 +422,7 @@ export async function sendEmail({
         // when supplied; absent otherwise so unrelated calls don't have
         // to set it. The omission test asserts this.
         ...(clientReference && { client_reference: clientReference }),
+        ...(attachments && { attachments }),
         ...(replyTo && {
           reply_to: [
             {

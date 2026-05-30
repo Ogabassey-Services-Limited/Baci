@@ -550,7 +550,9 @@ describe('PaymentMethodSelector', () => {
       );
 
       expect(screen.queryByLabelText(/use wallet credit/i)).toBeNull();
-      expect(screen.getByText('Wallet balance applies automatically')).toBeTruthy();
+      expect(
+        screen.getByText('Wallet balance applies automatically')
+      ).toBeTruthy();
       expect(
         screen.getByText('₦3,000 available now · transfer shortfall only')
       ).toBeTruthy();

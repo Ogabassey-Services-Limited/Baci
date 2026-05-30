@@ -35,12 +35,7 @@ interface SupabaseQueryError {
 export function isTransactionReviewSchemaCacheError(
   error: SupabaseQueryError | null
 ) {
-  const errorText = [
-    error?.code,
-    error?.message,
-    error?.details,
-    error?.hint,
-  ]
+  const errorText = [error?.code, error?.message, error?.details, error?.hint]
     .filter(Boolean)
     .join(' ')
     .toLowerCase();

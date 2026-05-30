@@ -49,7 +49,9 @@ describe('LoginEmailStep', () => {
     fireEvent.press(screen.getByText('Use password instead'));
     fireEvent.press(screen.getByText('Google'));
     fireEvent.press(screen.getByText('Apple'));
-    fireEvent.press(screen.getByRole('link', { name: 'Open terms of service' }));
+    fireEvent.press(
+      screen.getByRole('link', { name: 'Open terms of service' })
+    );
     fireEvent.press(screen.getByRole('link', { name: 'Open privacy policy' }));
 
     expect(onEmailChange).toHaveBeenCalledWith('shopper@example.com');

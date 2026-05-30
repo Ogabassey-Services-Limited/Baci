@@ -139,11 +139,15 @@ export function LoginEmailStep({
       </Pressable>
 
       <View style={styles.divider}>
-        <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+        <View
+          style={[styles.dividerLine, { backgroundColor: colors.border }]}
+        />
         <Text style={[styles.dividerText, { color: colors.textSecondary }]}>
           or
         </Text>
-        <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+        <View
+          style={[styles.dividerLine, { backgroundColor: colors.border }]}
+        />
       </View>
 
       <View style={styles.socialContainer}>

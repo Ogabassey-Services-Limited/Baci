@@ -106,7 +106,9 @@ export default function Paywall({ onClose }: PaywallProps) {
 
   if (isLoading && !currentOffering) {
     return (
-      <View style={[paywallStyles.center, { backgroundColor: colors.background }]}>
+      <View
+        style={[paywallStyles.center, { backgroundColor: colors.background }]}
+      >
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );

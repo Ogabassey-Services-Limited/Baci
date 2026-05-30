@@ -46,6 +46,8 @@ interface OrderConfirmationData extends MerchantRegistrationInfo {
   merchantName: string;
   merchantUrl: string;
   currency?: string;
+  paymentMethod?: string;
+  paymentLink?: string;
 }
 
 /**
@@ -57,6 +59,7 @@ interface OrderConfirmationData extends MerchantRegistrationInfo {
 export function generateOrderConfirmationEmail(
   data: OrderConfirmationData
 ): string {
+  const isInvoice = data.paymentMethod === 'invoice';
   const itemsHtml = data.items
     .map(
       (item) => `
@@ -81,7 +84,7 @@ export function generateOrderConfirmationEmail(
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Order Confirmation #${data.orderNumber}</title>
+  <title>${isInvoice ? `Invoice #${data.orderNumber} Generated` : `Order Confirmation #${data.orderNumber}`}</title>
   <style>
     @media only screen and (max-width: 600px) {
       .container { width: 100% !important; padding: 20px !important; }
@@ -114,8 +117,12 @@ export function generateOrderConfirmationEmail(
                 </tr>
                 <tr>
                   <td colspan="2" style="padding-top: 30px;">
-                    <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700; line-height: 1.2;">Order #${data.orderNumber} Confirmed</h1>
-                    <p style="margin: 10px 0 0 0; color: #cbd5e1; font-size: 16px;">Thank you for your purchase</p>
+                    <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700; line-height: 1.2;">
+                      ${isInvoice ? `Invoice #${data.orderNumber} Generated` : `Order #${data.orderNumber} Confirmed`}
+                    </h1>
+                    <p style="margin: 10px 0 0 0; color: #cbd5e1; font-size: 16px;">
+                      ${isInvoice ? 'Your e-invoice has been prepared' : 'Thank you for your purchase'}
+                    </p>
                   </td>
                 </tr>
               </table>
@@ -127,7 +134,11 @@ export function generateOrderConfirmationEmail(
             <td style="padding: 40px 40px 20px 40px;">
               <p style="margin: 0; font-size: 16px; color: #334155; line-height: 1.6;">Hi <strong>${data.customerName}</strong>,</p>
               <p style="margin: 16px 0 0 0; font-size: 16px; color: #475569; line-height: 1.6;">
-                We've received your order and are getting it ready! Your items are currently <strong>on hold</strong> until we receive payment confirmation (if applicable).
+                ${
+                  isInvoice
+                    ? `We've generated a compliant e-invoice for your order. A copy of the PDF invoice has been attached to this email. You can complete your payment via bank transfer or by using the payment link below.`
+                    : `We've received your order and are getting it ready! Your items are currently <strong>on hold</strong> until we receive payment confirmation (if applicable).`
+                }
               </p>
             </td>
           </tr>
@@ -197,8 +208,8 @@ export function generateOrderConfirmationEmail(
           <!-- CTA -->
           <tr>
             <td align="center" style="padding: 0 40px 40px 40px;">
-              <a href="${data.merchantUrl}" style="background-color: #0f172a; color: #ffffff; padding: 16px 40px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px; display: inline-block; box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.2);">
-                View Order
+              <a href="${isInvoice && data.paymentLink ? data.paymentLink : data.merchantUrl}" style="background-color: #0f172a; color: #ffffff; padding: 16px 40px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px; display: inline-block; box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.2);">
+                ${isInvoice ? 'View & Pay Invoice' : 'View Order'}
               </a>
             </td>
           </tr>
@@ -237,12 +248,49 @@ export function generateOrderConfirmationEmail(
 export function generateOrderConfirmationText(
   data: OrderConfirmationData
 ): string {
+  const isInvoice = data.paymentMethod === 'invoice';
   const itemsText = data.items
     .map(
       (item) =>
         `${item.name} x${item.quantity} - ${formatEmailMoney(item.price, data.currency)}`
     )
     .join('\n');
+
+  if (isInvoice) {
+    return `
+Invoice Generated!
+
+Hi ${data.customerName},
+
+We've generated a compliant e-invoice for your order. A copy of the PDF invoice has been attached to this email.
+
+Order Number: #${data.orderNumber}
+
+Items Ordered:
+${itemsText}
+
+Subtotal: ${formatEmailMoney(data.subtotal, data.currency)}
+Shipping: ${formatEmailMoney(data.shippingFee, data.currency)}
+Total: ${formatEmailMoney(data.total, data.currency)}
+
+Shipping Address:
+${data.shippingAddress.address}
+${data.shippingAddress.city}, ${data.shippingAddress.state}
+Phone: ${data.shippingAddress.phone}
+
+What's next?
+Please review the payment instructions in the attached PDF invoice. You can pay via bank transfer or using the payment link below.
+
+Payment Link: ${data.paymentLink || data.merchantUrl}
+
+Visit Store: ${data.merchantUrl}
+
+If you have any questions about your invoice, please contact ${data.merchantName} directly.
+
+---
+Powered by Baci - AI E-commerce Platform
+    `.trim();
+  }
 
   return `
 Order Confirmed!

@@ -123,10 +123,13 @@ describe('Cart NegotiationModal wrapper', () => {
       })
     );
 
-    const controllerArgs = mockUseNegotiationModalController.mock.calls[0]?.[0] as {
+    const controllerArgs = mockUseNegotiationModalController.mock
+      .calls[0]?.[0] as {
       successMessageFormatter: (value: number) => string;
     };
-    expect(controllerArgs.successMessageFormatter(450000)).toBe('New price: ₦450,000');
+    expect(controllerArgs.successMessageFormatter(450000)).toBe(
+      'New price: ₦450,000'
+    );
 
     const renderedProps = mockRenderView.mock.calls[0]?.[0] as {
       onSuccessAction: unknown;

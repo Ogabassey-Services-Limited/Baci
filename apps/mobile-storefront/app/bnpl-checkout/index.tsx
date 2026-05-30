@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -107,8 +107,7 @@ export default function BNPLCheckoutScreen() {
     customerPhone,
     reference,
     trackingToken,
-  } =
-    validatedParams.data || {};
+  } = validatedParams.data || {};
 
   useEffect(
     () => () => {

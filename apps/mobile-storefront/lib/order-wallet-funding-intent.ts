@@ -1,11 +1,11 @@
-import { createStorefrontCustomerApiClient } from "@/lib/storefront-customer-api-client";
+import { createStorefrontCustomerApiClient } from '@/lib/storefront-customer-api-client';
 import {
   walletOrderFundingIntentCreateResponseSchema,
   walletOrderFundingIntentPollResponseSchema,
   walletOrderFundingIntentSchema,
-} from "@/schemas/order-wallet-funding-intent";
-import type { ZodType } from "zod";
-import { z } from "zod";
+} from '@/schemas/order-wallet-funding-intent';
+import type { ZodType } from 'zod';
+import { z } from 'zod';
 
 type WalletOrderFundingApiClient = ReturnType<
   typeof createStorefrontCustomerApiClient
@@ -22,10 +22,10 @@ export type WalletOrderFundingIntentCreateResponse = z.infer<
 export class WalletFundingIntentValidationError extends Error {
   constructor(
     message: string,
-    public readonly zodError: z.ZodError,
+    public readonly zodError: z.ZodError
   ) {
     super(message);
-    this.name = "WalletFundingIntentValidationError";
+    this.name = 'WalletFundingIntentValidationError';
   }
 }
 
@@ -34,7 +34,7 @@ function parseResponse<T>(schema: ZodType<T>, data: unknown, context: string) {
   if (!parsed.success) {
     throw new WalletFundingIntentValidationError(
       `Invalid wallet order funding intent ${context} response: ${parsed.error.message}`,
-      parsed.error,
+      parsed.error
     );
   }
   return parsed.data;
@@ -44,12 +44,16 @@ function parseCreateResponse(data: unknown) {
   return parseResponse(
     walletOrderFundingIntentCreateResponseSchema,
     data,
-    "create",
+    'create'
   );
 }
 
 function parsePollResponse(data: unknown) {
-  return parseResponse(walletOrderFundingIntentPollResponseSchema, data, "poll");
+  return parseResponse(
+    walletOrderFundingIntentPollResponseSchema,
+    data,
+    'poll'
+  );
 }
 
 function getWalletOrderFundingApiClient(client?: WalletOrderFundingApiClient) {
@@ -80,8 +84,8 @@ export async function createOrderWalletFundingIntent({
       ...identifiers,
       orderId,
     },
-    method: "POST",
-    path: "/api/storefront/customer/wallet/order-funding-intents",
+    method: 'POST',
+    path: '/api/storefront/customer/wallet/order-funding-intents',
   });
 
   return parseCreateResponse(data);

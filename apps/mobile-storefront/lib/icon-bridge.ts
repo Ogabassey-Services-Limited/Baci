@@ -1,4 +1,6 @@
-import Ionicons, { type IoniconsIconName } from "@react-native-vector-icons/ionicons";
+import Ionicons, {
+  type IoniconsIconName,
+} from '@react-native-vector-icons/ionicons';
 
 export type WebIconName =
   | 'Shirt'
@@ -32,9 +34,7 @@ const ICON_MAP: Record<string, IoniconsIconName> = {
 /**
  * Get the corresponding mobile icon for a business type or category slug
  */
-export function getCategoryIcon(
-  identifier: string
-): IoniconsIconName {
+export function getCategoryIcon(identifier: string): IoniconsIconName {
   const normalized = identifier.toLowerCase();
   return ICON_MAP[normalized] || ICON_MAP.general;
 }

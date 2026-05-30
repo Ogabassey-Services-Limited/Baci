@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -430,15 +430,16 @@ export default function OrderDetailsScreen() {
     order.items,
     insurancePolicy?.premium_amount
   );
-  const summaryBreakdown: OrderDetailsSummaryBreakdown = getOrderSummaryBreakdown({
-    subtotal: order.subtotal,
-    shippingFee: order.shipping_fee,
-    taxAmount: order.tax_amount,
-    discountAmount: order.discount_amount,
-    total: order.total,
-    paymentStatus: order.payment_status,
-    assuranceFee: orderAssuranceFee,
-  });
+  const summaryBreakdown: OrderDetailsSummaryBreakdown =
+    getOrderSummaryBreakdown({
+      subtotal: order.subtotal,
+      shippingFee: order.shipping_fee,
+      taxAmount: order.tax_amount,
+      discountAmount: order.discount_amount,
+      total: order.total,
+      paymentStatus: order.payment_status,
+      assuranceFee: orderAssuranceFee,
+    });
   const isReceiptReady = isStorefrontReceiptAvailable({
     paymentStatus: order.payment_status,
     shippingStatus: order.shipping_status,

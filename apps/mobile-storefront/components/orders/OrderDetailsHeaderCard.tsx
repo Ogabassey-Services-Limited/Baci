@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import type { ComponentProps } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import type { CustomerOrderStatusMeta } from '@/lib/customer-order-status';
@@ -33,7 +33,10 @@ export function OrderDetailsHeaderCard({
   return (
     <View style={styles.orderHeader}>
       <View
-        style={[styles.orderHeaderIcon, { backgroundColor: statusPalette.surface }]}
+        style={[
+          styles.orderHeaderIcon,
+          { backgroundColor: statusPalette.surface },
+        ]}
       >
         <Ionicons
           name={statusMeta.icon as ComponentProps<typeof Ionicons>['name']}
@@ -46,8 +49,15 @@ export function OrderDetailsHeaderCard({
           <Text style={[styles.orderNumber, { color: colors.text }]}>
             Order #{orderNumber}
           </Text>
-          <View style={[styles.statusChip, { backgroundColor: statusPalette.surface }]}>
-            <Text style={[styles.statusChipText, { color: statusPalette.accent }]}>
+          <View
+            style={[
+              styles.statusChip,
+              { backgroundColor: statusPalette.surface },
+            ]}
+          >
+            <Text
+              style={[styles.statusChipText, { color: statusPalette.accent }]}
+            >
               {statusMeta.shortLabel}
             </Text>
           </View>
@@ -55,7 +65,12 @@ export function OrderDetailsHeaderCard({
         <Text style={[styles.orderDate, { color: colors.textSecondary }]}>
           {formatDate(createdAt)}
         </Text>
-        <Text style={[styles.orderStatusDescription, { color: colors.textSecondary }]}>
+        <Text
+          style={[
+            styles.orderStatusDescription,
+            { color: colors.textSecondary },
+          ]}
+        >
           {statusMeta.description}
         </Text>
       </View>

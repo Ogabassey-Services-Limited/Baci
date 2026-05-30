@@ -11,7 +11,10 @@ test('systemd unit leaves enough process headroom for Node and Sharp', async () 
   );
   const limitMatch = unit.match(/^LimitNPROC=(\d+)$/m);
 
-  assert.ok(limitMatch, 'Expected baci-cdn-transformer.service to set LimitNPROC');
+  assert.ok(
+    limitMatch,
+    'Expected baci-cdn-transformer.service to set LimitNPROC'
+  );
   assert.ok(
     Number.parseInt(limitMatch[1], 10) >= MIN_NPROC_LIMIT,
     'LimitNPROC must leave room for system processes plus Node/Sharp worker threads'

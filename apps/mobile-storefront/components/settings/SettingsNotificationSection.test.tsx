@@ -39,7 +39,9 @@ describe('SettingsNotificationSection', () => {
       false: Colors.dark.border,
       true: Colors.dark.primary,
     });
-    expect(screen.getByLabelText('Toggle push notifications')).toBeOnTheScreen();
+    expect(
+      screen.getByLabelText('Toggle push notifications')
+    ).toBeOnTheScreen();
 
     fireEvent(toggle, 'valueChange', false);
 
@@ -56,9 +58,9 @@ describe('SettingsNotificationSection', () => {
       />
     );
 
-    expect(
-      UNSAFE_getByType(ActivityIndicator).props.color
-    ).toBe(Colors.dark.primary);
+    expect(UNSAFE_getByType(ActivityIndicator).props.color).toBe(
+      Colors.dark.primary
+    );
     expect(screen.queryByLabelText('Toggle push notifications')).toBeNull();
   });
 });

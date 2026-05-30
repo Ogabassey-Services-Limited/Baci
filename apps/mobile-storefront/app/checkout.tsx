@@ -1,10 +1,10 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
-import { zodResolver } from "@hookform/resolvers/zod";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import Constants from "expo-constants";
-import { router, Stack } from "expo-router";
-import React, { useEffect, useEffectEvent, useRef } from "react";
-import { type FieldErrors, type Resolver, useForm } from "react-hook-form";
+import Ionicons from '@react-native-vector-icons/ionicons';
+import { zodResolver } from '@hookform/resolvers/zod';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
+import { router, Stack } from 'expo-router';
+import React, { useEffect, useEffectEvent, useRef } from 'react';
+import { type FieldErrors, type Resolver, useForm } from 'react-hook-form';
 import {
   ActivityIndicator,
   Alert,
@@ -18,7 +18,7 @@ import {
   Text,
   TextInput,
   View,
-} from "react-native";
+} from 'react-native';
 import Animated, {
   cancelAnimation,
   useAnimatedStyle,
@@ -26,119 +26,112 @@ import Animated, {
   withRepeat,
   withSequence,
   withTiming,
-} from "react-native-reanimated";
+} from 'react-native-reanimated';
 import {
   SafeAreaView,
   useSafeAreaInsets,
-} from "react-native-safe-area-context";
-import { CheckoutContactCard } from "@/components/checkout/CheckoutContactCard";
-import { CheckoutDeliveryCard } from "@/components/checkout/CheckoutDeliveryCard";
-import { CheckoutFormField } from "@/components/checkout/CheckoutFormField";
+} from 'react-native-safe-area-context';
+import { CheckoutContactCard } from '@/components/checkout/CheckoutContactCard';
+import { CheckoutDeliveryCard } from '@/components/checkout/CheckoutDeliveryCard';
+import { CheckoutFormField } from '@/components/checkout/CheckoutFormField';
 import {
   type CheckoutStep,
   CheckoutStepper,
-} from "@/components/checkout/CheckoutStepper";
-import { CheckoutSavingsRetryCard } from "@/components/checkout/CheckoutSavingsRetryCard";
-import { CheckoutReviewStep } from "@/components/checkout/CheckoutReviewStep";
-import { CryptoSelectionModal } from "@/components/checkout/CryptoSelectionModal";
-import { humanizeCheckoutFieldName } from "@/components/checkout/checkout-form-field.helpers";
-import { styles } from "@/components/checkout/checkout-screen.styles";
+} from '@/components/checkout/CheckoutStepper';
+import { CheckoutSavingsRetryCard } from '@/components/checkout/CheckoutSavingsRetryCard';
+import { CheckoutReviewStep } from '@/components/checkout/CheckoutReviewStep';
+import { CryptoSelectionModal } from '@/components/checkout/CryptoSelectionModal';
+import { humanizeCheckoutFieldName } from '@/components/checkout/checkout-form-field.helpers';
+import { styles } from '@/components/checkout/checkout-screen.styles';
 import {
   fetchShippingQuotes,
   normalizeStateName,
   type ShippingLocation,
-} from "@/components/checkout/checkout-shipping.helpers";
+} from '@/components/checkout/checkout-shipping.helpers';
 import {
   AIRPORT_DELIVERY_FEE,
   getDeliveryMethodFee,
   getDeliveryMethodSummary,
   getPaymentTabForMethod,
   getShippingProviderForMethod,
-} from "@/components/checkout/checkout-step-helpers";
-import { DeliveryMethodCard } from "@/components/checkout/DeliveryMethodCard";
-import { DeliveryNotesCard } from "@/components/checkout/DeliveryNotesCard";
+} from '@/components/checkout/checkout-step-helpers';
+import { DeliveryMethodCard } from '@/components/checkout/DeliveryMethodCard';
+import { DeliveryNotesCard } from '@/components/checkout/DeliveryNotesCard';
 import {
   PaymentMethodSelector,
   type PaymentMethodType,
   type PaymentTab,
-} from "@/components/checkout/PaymentMethodSelector";
+} from '@/components/checkout/PaymentMethodSelector';
 import {
   PICKUP_STATION_ADDRESS_LINES,
   PICKUP_STATION_CITY,
   PICKUP_STATION_STATE,
   PickupStationCard,
-} from "@/components/checkout/PickupStationCard";
-import { ShippingQuotesCard } from "@/components/checkout/ShippingQuotesCard";
+} from '@/components/checkout/PickupStationCard';
+import { ShippingQuotesCard } from '@/components/checkout/ShippingQuotesCard';
 import type {
   DeliveryMethod,
   ShippingQuote,
-} from "@/components/checkout/types";
-import type { PlaceDetails } from "@/components/ui/AddressAutocomplete";
-import AppKeyboardContainer from "@/components/ui/AppKeyboardContainer";
-import { useColorScheme } from "@/components/useColorScheme";
-import Colors, {
-  BRAND,
-  palette,
-  SPACING,
-} from "@/constants/Colors";
-import { useAuthStatus } from "@/hooks/use-auth-guard";
-import { useCheckoutSavings } from "@/hooks/use-checkout-savings";
-import { useWallet } from "@/hooks/use-wallet";
+} from '@/components/checkout/types';
+import type { PlaceDetails } from '@/components/ui/AddressAutocomplete';
+import AppKeyboardContainer from '@/components/ui/AppKeyboardContainer';
+import { useColorScheme } from '@/components/useColorScheme';
+import Colors, { BRAND, palette, SPACING } from '@/constants/Colors';
+import { useAuthStatus } from '@/hooks/use-auth-guard';
+import { useCheckoutSavings } from '@/hooks/use-checkout-savings';
+import { useWallet } from '@/hooks/use-wallet';
 import {
   getEnabledPaymentMethods,
   getMerchantTaxRate,
   useMerchantPaymentSettings,
-} from "@/hooks/useMerchantPaymentSettings";
-import { resolveApiBaseUrl } from "@/lib/api-url";
-import { deriveCheckoutIdentity } from "@/lib/checkout-identity";
+} from '@/hooks/useMerchantPaymentSettings';
+import { resolveApiBaseUrl } from '@/lib/api-url';
+import { deriveCheckoutIdentity } from '@/lib/checkout-identity';
 import {
   getDefaultSavedAddress,
   type SavedAddress,
   toCheckoutAddressValues,
   upsertSavedAddress,
-} from "@/lib/checkout-saved-address";
-import { setClipboardString } from "@/lib/clipboard";
-import { createWalletFundedBankTransferIntent } from "@/lib/checkout/wallet-funded-bank-transfer";
+} from '@/lib/checkout-saved-address';
+import { setClipboardString } from '@/lib/clipboard';
+import { createWalletFundedBankTransferIntent } from '@/lib/checkout/wallet-funded-bank-transfer';
 import {
   buildKlumpBnplRouteParams,
   buildKlumpInitializePayload,
   getKlumpDisabledReason,
-} from "@/lib/klump-checkout";
-import { buildShippingQuoteContextKey } from "@/lib/shipping-quotes";
-import { isStoreCreditCompatiblePayment } from "@/lib/store-credit-compatible-payment";
-import type { WalletOrderFundingIntentCreateResponse } from "@/lib/order-wallet-funding-intent";
-import { calculateCommerce, supabase } from "@/lib/supabase";
+} from '@/lib/klump-checkout';
+import { buildShippingQuoteContextKey } from '@/lib/shipping-quotes';
+import { isStoreCreditCompatiblePayment } from '@/lib/store-credit-compatible-payment';
+import type { WalletOrderFundingIntentCreateResponse } from '@/lib/order-wallet-funding-intent';
+import { calculateCommerce, supabase } from '@/lib/supabase';
 import {
   type ShippingAddressInput,
   ShippingAddressSchema,
-} from "@/lib/validation";
+} from '@/lib/validation';
 import {
   buildSavingsOrderFields,
   buildWalletOrderFields,
   getFullyPaidStoreCreditPaymentMethod,
   type WalletSelection,
-} from "@/lib/wallet-payment-helpers";
-import {
-  trackCheckoutStep,
-  trackError,
-} from "@/services/analytics";
-import { createOrder, OrderError, type OrderResponse } from "@/services/orders";
-import { scheduleLocalNotification } from "@/services/push-notifications";
+} from '@/lib/wallet-payment-helpers';
+import { trackCheckoutStep, trackError } from '@/services/analytics';
+import { createOrder, OrderError, type OrderResponse } from '@/services/orders';
+import { scheduleLocalNotification } from '@/services/push-notifications';
 import {
   trackCheckoutRoutePaymentInfo,
   trackCheckoutRoutePurchaseCompleted,
   trackCheckoutRouteStarted,
-} from "@/services/tiktok-checkout-route-tracking";
-import { formatPrice, useCartStore } from "@/stores/cart-store";
+} from '@/services/tiktok-checkout-route-tracking';
+import { formatPrice, useCartStore } from '@/stores/cart-store';
 
 const shippingAddressResolver = zodResolver(
-  ShippingAddressSchema as unknown as Parameters<typeof zodResolver>[0],
+  ShippingAddressSchema as unknown as Parameters<typeof zodResolver>[0]
 ) as unknown as Resolver<ShippingAddressInput>;
 
 const DEFAULT_ASSURANCE_RATE = 0.05;
 
 interface PendingCryptoOrder {
-  order: OrderResponse["order"];
+  order: OrderResponse['order'];
   orderResponse: OrderResponse;
   customerEmail: string;
   customerName: string;
@@ -147,14 +140,14 @@ interface PendingCryptoOrder {
 }
 
 const API_BASE_URL = resolveApiBaseUrl(
-  process.env.EXPO_PUBLIC_API_URL || Constants.expoConfig?.extra?.apiUrl,
+  process.env.EXPO_PUBLIC_API_URL || Constants.expoConfig?.extra?.apiUrl
 );
 
 const MERCHANT_ID =
   Constants.expoConfig?.extra?.merchantId ||
-  "6b5cb8a4-5575-456c-b936-8cdfae30db74";
+  '6b5cb8a4-5575-456c-b936-8cdfae30db74';
 
-const MERCHANT_SLUG = Constants.expoConfig?.extra?.merchantSlug || "ogabassey";
+const MERCHANT_SLUG = Constants.expoConfig?.extra?.merchantSlug || 'ogabassey';
 
 function requestWalletFundingAccountConsent() {
   return new Promise<boolean>((resolve) => {
@@ -166,23 +159,23 @@ function requestWalletFundingAccountConsent() {
     };
 
     Alert.alert(
-      "Create wallet account number?",
-      "To use bank transfer to wallet, Paystack needs your consent to create a reusable virtual account number for your wallet.",
+      'Create wallet account number?',
+      'To use bank transfer to wallet, Paystack needs your consent to create a reusable virtual account number for your wallet.',
       [
         {
-          text: "Use one-time transfer",
-          style: "cancel",
+          text: 'Use one-time transfer',
+          style: 'cancel',
           onPress: () => settle(false),
         },
         {
-          text: "Create account number",
+          text: 'Create account number',
           onPress: () => settle(true),
         },
       ],
       {
         cancelable: true,
         onDismiss: () => settle(false),
-      },
+      }
     );
   });
 }
@@ -215,8 +208,8 @@ function isEligibleForWalletFundedBankTransfer({
 export default function CheckoutScreen() {
   const ctaArrowTranslateX = useSharedValue(0);
   const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? "light"];
-  const isDark = (colorScheme ?? "light") === "dark";
+  const colors = Colors[colorScheme ?? 'light'];
+  const isDark = (colorScheme ?? 'light') === 'dark';
   const insets = useSafeAreaInsets();
   const addressScrollRef = React.useRef<ScrollView>(null);
   const addressScrollOffsetRef = React.useRef(0);
@@ -235,26 +228,26 @@ export default function CheckoutScreen() {
   const enabledPaymentMethods = getEnabledPaymentMethods(paymentSettings);
   const walletOrderAutoDebitEnabled = Boolean(
     paymentSettings?.paystack_enabled &&
-    paymentSettings.wallet_paystack_dva_enabled &&
-    paymentSettings.wallet_order_auto_debit_enabled,
+      paymentSettings.wallet_paystack_dva_enabled &&
+      paymentSettings.wallet_order_auto_debit_enabled
   );
   const availablePaymentMethods: PaymentMethodType[] = Array.from(
     new Set<PaymentMethodType>([
       ...enabledPaymentMethods,
-      "invoice",
-      "payforme",
-    ]),
+      'invoice',
+      'payforme',
+    ])
   );
 
-  const [step, setStep] = React.useState<CheckoutStep>("address");
+  const [step, setStep] = React.useState<CheckoutStep>('address');
   const [isProcessing, setIsProcessing] = React.useState(false);
   const [orderTotals, setOrderTotals] = React.useState<{
     total: number;
     taxAmount: number;
   } | null>(null);
   const [selectedPayment, setSelectedPayment] =
-    React.useState<PaymentMethodType>("paystack");
-  const [paymentTab, setPaymentTab] = React.useState<PaymentTab>("full");
+    React.useState<PaymentMethodType>('paystack');
+  const [paymentTab, setPaymentTab] = React.useState<PaymentTab>('full');
   // Wallet payment selection — independent from `selectedPayment`. The
   // wallet can stack on top of any gateway method (partial deductible) or
   // cover the order in full. The selection is fed into createOrder via
@@ -282,7 +275,7 @@ export default function CheckoutScreen() {
   const walletQuery = useWallet();
   const walletBalance = walletQuery.data?.wallet?.balance ?? 0;
   const [deliveryMethod, setDeliveryMethod] =
-    React.useState<DeliveryMethod>("door");
+    React.useState<DeliveryMethod>('door');
   const savedDoorAddressRef = React.useRef<{
     address: string;
     city: string;
@@ -292,22 +285,22 @@ export default function CheckoutScreen() {
   const [shippingStates, setShippingStates] = React.useState<string[]>([]);
   const [shippingCities, setShippingCities] = React.useState<string[]>([]);
   const [shippingQuotes, setShippingQuotes] = React.useState<ShippingQuote[]>(
-    [],
+    []
   );
-  const [selectedQuoteId, setSelectedQuoteId] = React.useState<string>("");
+  const [selectedQuoteId, setSelectedQuoteId] = React.useState<string>('');
   const [resolvedShippingQuoteContextKey, setResolvedShippingQuoteContextKey] =
-    React.useState("");
+    React.useState('');
   const [isLoadingLocations, setIsLoadingLocations] = React.useState(false);
   const [isLoadingCities, setIsLoadingCities] = React.useState(false);
   const [isLoadingQuotes, setIsLoadingQuotes] = React.useState(false);
   const [showStatePicker, setShowStatePicker] = React.useState(false);
   const [showCityPicker, setShowCityPicker] = React.useState(false);
-  const [citySearch, setCitySearch] = React.useState("");
+  const [citySearch, setCitySearch] = React.useState('');
   const [citySearchFocused, setCitySearchFocused] = React.useState(false);
   const [saveDetails, setSaveDetails] = React.useState(false);
   const [saveAsDefaultAddress, setSaveAsDefaultAddress] = React.useState(false);
   const [savedAddresses, setSavedAddresses] = React.useState<SavedAddress[]>(
-    [],
+    []
   );
   const [selectedSavedAddressId, setSelectedSavedAddressId] = React.useState<
     string | null
@@ -317,7 +310,7 @@ export default function CheckoutScreen() {
     React.useState(false);
   const [isContactCollapsed, setIsContactCollapsed] = React.useState(false);
   const [isDeliveryCollapsed, setIsDeliveryCollapsed] = React.useState(false);
-  const [accountPassword, setAccountPassword] = React.useState("");
+  const [accountPassword, setAccountPassword] = React.useState('');
 
   // Crypto payment inline modal state
   const [showCryptoSelection, setShowCryptoSelection] = React.useState(false);
@@ -358,32 +351,32 @@ export default function CheckoutScreen() {
       firstName: checkoutFirstName,
       lastName: checkoutLastName,
       phone: checkoutPhone,
-      address: "",
-      city: "",
-      state: "",
-      notes: "",
+      address: '',
+      city: '',
+      state: '',
+      notes: '',
     },
-    mode: "onBlur",
+    mode: 'onBlur',
   });
 
-  const watchedState = watch("state");
-  const watchedCity = watch("city");
-  const watchedAddress = watch("address");
-  const watchedPhone = watch("phone");
-  const watchedFirstName = watch("firstName");
-  const watchedLastName = watch("lastName");
-  const watchedEmail = watch("email");
+  const watchedState = watch('state');
+  const watchedCity = watch('city');
+  const watchedAddress = watch('address');
+  const watchedPhone = watch('phone');
+  const watchedFirstName = watch('firstName');
+  const watchedLastName = watch('lastName');
+  const watchedEmail = watch('email');
 
   // committedAddress is set when the user picks an autocomplete suggestion or
   // loads a saved address. Only committed addresses drive re-fetches — using
   // watchedAddress here would trigger a new API call on every keystroke.
-  const [committedAddress, setCommittedAddress] = React.useState("");
+  const [committedAddress, setCommittedAddress] = React.useState('');
   const effectiveAddress = committedAddress;
   const currentShippingQuoteContextKey = buildShippingQuoteContextKey(
     watchedState,
     watchedCity,
     items,
-    effectiveAddress,
+    effectiveAddress
   );
 
   const hasTrackedStart = useRef(false);
@@ -419,7 +412,7 @@ export default function CheckoutScreen() {
   selectedQuoteIdRef.current = selectedQuoteId;
   const hasSavedAddresses = isAuthenticated && savedAddresses.length > 0;
   const hasContactIdentity = Boolean(
-    checkoutEmail && checkoutFirstName && checkoutLastName && checkoutPhone,
+    checkoutEmail && checkoutFirstName && checkoutLastName && checkoutPhone
   );
   const initialHasContactIdentityRef = useRef(hasContactIdentity);
   const formContentPaddingBottom = 116 + insets.bottom;
@@ -429,16 +422,16 @@ export default function CheckoutScreen() {
 
   const applySavedAddressToForm = (
     savedAddress: SavedAddress,
-    options?: { collapse?: boolean },
+    options?: { collapse?: boolean }
   ) => {
     const checkoutValues = toCheckoutAddressValues(savedAddress);
 
-    setValue("firstName", checkoutValues.firstName, { shouldValidate: true });
-    setValue("lastName", checkoutValues.lastName, { shouldValidate: true });
-    setValue("phone", checkoutValues.phone, { shouldValidate: true });
-    setValue("address", checkoutValues.address, { shouldValidate: true });
-    setValue("city", checkoutValues.city, { shouldValidate: true });
-    setValue("state", checkoutValues.state, { shouldValidate: true });
+    setValue('firstName', checkoutValues.firstName, { shouldValidate: true });
+    setValue('lastName', checkoutValues.lastName, { shouldValidate: true });
+    setValue('phone', checkoutValues.phone, { shouldValidate: true });
+    setValue('address', checkoutValues.address, { shouldValidate: true });
+    setValue('city', checkoutValues.city, { shouldValidate: true });
+    setValue('state', checkoutValues.state, { shouldValidate: true });
     setCommittedAddress(checkoutValues.address);
     setSelectedSavedAddressId(savedAddress.id);
     setIsAddingNewAddress(false);
@@ -476,10 +469,10 @@ export default function CheckoutScreen() {
       const nextAddresses = await (async (): Promise<SavedAddress[]> => {
         try {
           const { data, error } = await supabase
-            .from("customers")
-            .select("saved_addresses")
-            .eq("id", customer.id)
-            .eq("merchant_id", MERCHANT_ID)
+            .from('customers')
+            .select('saved_addresses')
+            .eq('id', customer.id)
+            .eq('merchant_id', MERCHANT_ID)
             .single();
 
           if (error) throw error;
@@ -491,15 +484,15 @@ export default function CheckoutScreen() {
           addresses.sort(
             (left, right) =>
               Number(Boolean(right.is_default)) -
-              Number(Boolean(left.is_default)),
+              Number(Boolean(left.is_default))
           );
           return addresses;
         } catch (error) {
           trackError(
-            "checkout_saved_addresses_fetch",
+            'checkout_saved_addresses_fetch',
             error instanceof Error
               ? error.message
-              : "Failed to load saved addresses",
+              : 'Failed to load saved addresses'
           );
           return [];
         }
@@ -522,12 +515,12 @@ export default function CheckoutScreen() {
       }
 
       const checkoutValues = toCheckoutAddressValues(defaultAddr);
-      setValue("firstName", checkoutValues.firstName, { shouldValidate: true });
-      setValue("lastName", checkoutValues.lastName, { shouldValidate: true });
-      setValue("phone", checkoutValues.phone, { shouldValidate: true });
-      setValue("address", checkoutValues.address, { shouldValidate: true });
-      setValue("city", checkoutValues.city, { shouldValidate: true });
-      setValue("state", checkoutValues.state, { shouldValidate: true });
+      setValue('firstName', checkoutValues.firstName, { shouldValidate: true });
+      setValue('lastName', checkoutValues.lastName, { shouldValidate: true });
+      setValue('phone', checkoutValues.phone, { shouldValidate: true });
+      setValue('address', checkoutValues.address, { shouldValidate: true });
+      setValue('city', checkoutValues.city, { shouldValidate: true });
+      setValue('state', checkoutValues.state, { shouldValidate: true });
       setSelectedSavedAddressId(defaultAddr.id);
       setIsAddingNewAddress(false);
       setSaveAsDefaultAddress(Boolean(defaultAddr.is_default));
@@ -567,12 +560,12 @@ export default function CheckoutScreen() {
         firstName: checkoutFirstName,
         lastName: checkoutLastName,
         phone: checkoutPhone,
-        address: getValues("address"),
-        city: getValues("city"),
-        state: getValues("state"),
-        notes: getValues("notes"),
+        address: getValues('address'),
+        city: getValues('city'),
+        state: getValues('state'),
+        notes: getValues('notes'),
       },
-      { keepDirtyValues: true },
+      { keepDirtyValues: true }
     );
   }, [
     checkoutEmail,
@@ -587,12 +580,12 @@ export default function CheckoutScreen() {
   const currentContactSummary = `${watchedFirstName} ${watchedLastName}`.trim();
   const currentDeliverySummary = [watchedAddress, watchedCity, watchedState]
     .filter(Boolean)
-    .join(", ");
+    .join(', ');
   const openNewAddressEditor = () => {
     if (selectedSavedAddressId) {
-      setValue("address", "", { shouldValidate: false });
-      setValue("city", "", { shouldValidate: false });
-      setValue("state", "", { shouldValidate: false });
+      setValue('address', '', { shouldValidate: false });
+      setValue('city', '', { shouldValidate: false });
+      setValue('state', '', { shouldValidate: false });
     }
     setSelectedSavedAddressId(null);
     setIsAddingNewAddress(true);
@@ -601,46 +594,46 @@ export default function CheckoutScreen() {
 
   const handleDeliveryAddressTextChange = (
     text: string,
-    updateAddress: (value: string) => void,
+    updateAddress: (value: string) => void
   ) => {
     updateAddress(text);
     // If the user edits after committing via autocomplete, invalidate the
     // resolved context key so the next state/city change fetches fresh rates.
     if (committedAddress) {
-      setResolvedShippingQuoteContextKey("");
+      setResolvedShippingQuoteContextKey('');
     }
-    setCommittedAddress("");
+    setCommittedAddress('');
   };
 
   const handleDeliveryAddressSelect = (
     place: PlaceDetails,
-    updateAddress: (value: string) => void,
+    updateAddress: (value: string) => void
   ) => {
-    const selectedAddress = place.formattedAddress || "";
+    const selectedAddress = place.formattedAddress || '';
     updateAddress(selectedAddress);
     setCommittedAddress(selectedAddress);
     const normalizedState = place.state
       ? normalizeStateName(place.state, shippingStates)
-      : "";
+      : '';
 
     if (place.city) {
       const normalizedCity = place.city.trim().toLowerCase();
       if (normalizedState && normalizedCity === normalizedState.toLowerCase()) {
-        googleSuggestedCityRef.current = "";
+        googleSuggestedCityRef.current = '';
       } else {
         googleSuggestedCityRef.current = place.city;
       }
     }
 
-    setValue("city", "", { shouldValidate: false });
+    setValue('city', '', { shouldValidate: false });
     if (normalizedState) {
-      setValue("state", normalizedState, { shouldValidate: true });
+      setValue('state', normalizedState, { shouldValidate: true });
     }
   };
 
   const getAvailableMethodsForTab = (tab: PaymentTab) =>
     availablePaymentMethods.filter(
-      (method) => getPaymentTabForMethod(method) === tab,
+      (method) => getPaymentTabForMethod(method) === tab
     );
 
   const handleSelectPaymentTab = (tab: PaymentTab) => {
@@ -654,14 +647,14 @@ export default function CheckoutScreen() {
   // Reset payment method if current selection is not in enabled list
   useEffect(() => {
     const currentTabMethods = availablePaymentMethods.filter(
-      (method) => getPaymentTabForMethod(method) === paymentTab,
+      (method) => getPaymentTabForMethod(method) === paymentTab
     );
     const paymentStillAvailable =
       availablePaymentMethods.includes(selectedPayment);
 
     if (!paymentStillAvailable) {
       const fallbackMethod =
-        currentTabMethods[0] ?? availablePaymentMethods[0] ?? "paystack";
+        currentTabMethods[0] ?? availablePaymentMethods[0] ?? 'paystack';
       setSelectedPayment(fallbackMethod);
       setPaymentTab(getPaymentTabForMethod(fallbackMethod));
       return;
@@ -673,14 +666,14 @@ export default function CheckoutScreen() {
         setSelectedPayment(fallbackMethod);
       } else {
         const fallbackTab =
-          (["full", "installments", "pay_later"] as const).find((tab) =>
+          (['full', 'installments', 'pay_later'] as const).find((tab) =>
             availablePaymentMethods.some(
-              (method) => getPaymentTabForMethod(method) === tab,
-            ),
-          ) ?? "full";
+              (method) => getPaymentTabForMethod(method) === tab
+            )
+          ) ?? 'full';
         setPaymentTab(fallbackTab);
         const nextMethod = availablePaymentMethods.find(
-          (method) => getPaymentTabForMethod(method) === fallbackTab,
+          (method) => getPaymentTabForMethod(method) === fallbackTab
         );
         if (nextMethod) setSelectedPayment(nextMethod);
       }
@@ -688,10 +681,10 @@ export default function CheckoutScreen() {
   }, [availablePaymentMethods, selectedPayment, paymentTab]);
 
   const handleBack = () => {
-    if (step === "payment") {
-      setStep("address");
-    } else if (step === "review") {
-      setStep("payment");
+    if (step === 'payment') {
+      setStep('address');
+    } else if (step === 'review') {
+      setStep('payment');
     } else {
       router.back();
     }
@@ -701,26 +694,26 @@ export default function CheckoutScreen() {
     if (isOrderInFlight.current) {
       return true;
     }
-    if (step === "address") {
+    if (step === 'address') {
       Alert.alert(
-        "Leave Checkout?",
-        "Your cart items will be saved. Are you sure you want to leave?",
+        'Leave Checkout?',
+        'Your cart items will be saved. Are you sure you want to leave?',
         [
-          { text: "Stay", style: "cancel" },
+          { text: 'Stay', style: 'cancel' },
           {
-            text: "Leave",
-            style: "destructive",
+            text: 'Leave',
+            style: 'destructive',
             onPress: () => router.back(),
           },
-        ],
+        ]
       );
       return true;
     }
 
-    if (step === "payment") {
-      setStep("address");
-    } else if (step === "review") {
-      setStep("payment");
+    if (step === 'payment') {
+      setStep('address');
+    } else if (step === 'review') {
+      setStep('payment');
     } else {
       router.back();
     }
@@ -729,11 +722,11 @@ export default function CheckoutScreen() {
   });
 
   useEffect(() => {
-    if (Platform.OS !== "android") return;
+    if (Platform.OS !== 'android') return;
 
     const backHandler = BackHandler.addEventListener(
-      "hardwareBackPress",
-      handleHardwareBackPress,
+      'hardwareBackPress',
+      handleHardwareBackPress
     );
 
     return () => backHandler.remove();
@@ -750,11 +743,11 @@ export default function CheckoutScreen() {
       withRepeat(
         withSequence(
           withTiming(6, { duration: 800 }),
-          withTiming(0, { duration: 800 }),
+          withTiming(0, { duration: 800 })
         ),
         -1,
-        true,
-      ),
+        true
+      )
     );
 
     return () => {
@@ -790,8 +783,8 @@ export default function CheckoutScreen() {
       setShippingCities([]);
       setIsLoadingCities(false);
       setShippingQuotes([]);
-      setSelectedQuoteId("");
-      setResolvedShippingQuoteContextKey("");
+      setSelectedQuoteId('');
+      setResolvedShippingQuoteContextKey('');
       return;
     }
     const controller = new AbortController();
@@ -801,9 +794,9 @@ export default function CheckoutScreen() {
       try {
         const res = await fetch(
           `${API_BASE_URL}/api/shipping/locations?state=${encodeURIComponent(
-            watchedState,
+            watchedState
           )}`,
-          { signal: controller.signal },
+          { signal: controller.signal }
         );
         if (controller.signal.aborted) return;
         if (res.ok) {
@@ -818,7 +811,7 @@ export default function CheckoutScreen() {
                     ? locationState === normalizedState
                     : true;
                 })
-                .map((location) => location.city),
+                .map((location) => location.city)
             ),
           ].sort();
           setShippingCities(cities);
@@ -849,7 +842,7 @@ export default function CheckoutScreen() {
     // Clear so this only runs once per selection
     googleSuggestedCityRef.current = null;
 
-    if (suggestedCity === "") {
+    if (suggestedCity === '') {
       // State = City edge case: open picker for user to search
       setShowCityPicker(true);
       return;
@@ -857,12 +850,12 @@ export default function CheckoutScreen() {
 
     // Search for a case-insensitive match in the Topship cities list
     const match = shippingCities.find(
-      (c) => c.toLowerCase() === suggestedCity.toLowerCase(),
+      (c) => c.toLowerCase() === suggestedCity.toLowerCase()
     );
 
     if (match) {
       // Perfect match - auto-select it
-      setValue("city", match, { shouldValidate: true });
+      setValue('city', match, { shouldValidate: true });
     } else {
       // No match - open picker with Google city pre-filled as search
       setCitySearch(suggestedCity);
@@ -877,12 +870,12 @@ export default function CheckoutScreen() {
     }
 
     // Pickup station and airport delivery don't use dynamic shipping quotes
-    if (deliveryMethod !== "door") {
+    if (deliveryMethod !== 'door') {
       shippingQuoteAbortRef.current = null;
       setIsLoadingQuotes(false);
       setShippingQuotes([]);
-      setSelectedQuoteId("");
-      setResolvedShippingQuoteContextKey("");
+      setSelectedQuoteId('');
+      setResolvedShippingQuoteContextKey('');
       return;
     }
 
@@ -918,8 +911,8 @@ export default function CheckoutScreen() {
     } else {
       shippingQuoteAbortRef.current = null;
       setShippingQuotes([]);
-      setSelectedQuoteId("");
-      setResolvedShippingQuoteContextKey("");
+      setSelectedQuoteId('');
+      setResolvedShippingQuoteContextKey('');
     }
 
     return () => {
@@ -938,7 +931,7 @@ export default function CheckoutScreen() {
   ]);
 
   const selectedQuote = shippingQuotes.find(
-    (quote) => String(quote.id) === String(selectedQuoteId),
+    (quote) => String(quote.id) === String(selectedQuoteId)
   );
   const deliveryFee = getDeliveryMethodFee(deliveryMethod, selectedQuote);
 
@@ -981,7 +974,7 @@ export default function CheckoutScreen() {
         Math.round(
           (item.negotiatedPrice ?? item.price) *
             item.quantity *
-            (item.assuranceRate ?? DEFAULT_ASSURANCE_RATE),
+            (item.assuranceRate ?? DEFAULT_ASSURANCE_RATE)
         )
       );
     }
@@ -992,7 +985,7 @@ export default function CheckoutScreen() {
     const fetchTotals = async () => {
       try {
         const taxRate = getMerchantTaxRate(paymentSettings);
-        const result = await calculateCommerce("calculate_order", {
+        const result = await calculateCommerce('calculate_order', {
           subtotal,
           shippingFee: deliveryFee,
           taxRate,
@@ -1017,7 +1010,7 @@ export default function CheckoutScreen() {
     });
   const walletFundedBankTransferResidual = Math.max(
     total - (liveSavingsSelectionForWalletFundedBankTransfer?.amount ?? 0),
-    0,
+    0
   );
   const walletFundedBankTransferOptionEnabled =
     isEligibleForWalletFundedBankTransfer({
@@ -1039,7 +1032,7 @@ export default function CheckoutScreen() {
   });
   const walletResidualForKlumpGate = Math.max(
     total - (liveSavingsSelectionForKlumpGate?.amount ?? 0),
-    0,
+    0
   );
   const liveWalletSelectionForKlumpGate: WalletSelection | undefined =
     walletSelection?.use === true && isStoreCreditCompatibleForKlumpGate
@@ -1047,7 +1040,7 @@ export default function CheckoutScreen() {
           use: true,
           amount: Math.max(
             0,
-            Math.min(walletBalance, walletResidualForKlumpGate),
+            Math.min(walletBalance, walletResidualForKlumpGate)
           ),
         }
       : undefined;
@@ -1055,28 +1048,28 @@ export default function CheckoutScreen() {
     paymentSettings,
     total,
     liveWalletSelectionForKlumpGate,
-    liveSavingsSelectionForKlumpGate,
+    liveSavingsSelectionForKlumpGate
   );
   // Show subtotal + delivery + assurance (no VAT) in steps 1 & 2; full total (with VAT) in Review
   const displayTotal =
-    step === "review" ? total : subtotal + deliveryFee + assuranceFee;
+    step === 'review' ? total : subtotal + deliveryFee + assuranceFee;
 
   const onAddressSubmit = (data: ShippingAddressInput) => {
-    trackCheckoutStep("shipping_info", {
+    trackCheckoutStep('shipping_info', {
       state: data.state,
       city: data.city,
     });
-    setStep("payment");
+    setStep('payment');
   };
 
   const handleAddressValidationError = (
-    errors: FieldErrors<ShippingAddressInput>,
+    errors: FieldErrors<ShippingAddressInput>
   ) => {
     const hasContactErrors = Boolean(
-      errors.firstName || errors.lastName || errors.phone || errors.email,
+      errors.firstName || errors.lastName || errors.phone || errors.email
     );
     const hasDeliveryErrors = Boolean(
-      errors.address || errors.city || errors.state,
+      errors.address || errors.city || errors.state
     );
 
     if (hasContactErrors) {
@@ -1098,60 +1091,60 @@ export default function CheckoutScreen() {
         : firstField
           ? `Please complete your ${humanizeCheckoutFieldName(firstField)} before continuing.`
           : hasDeliveryErrors
-            ? "Please complete your delivery address before continuing."
-            : "Please complete your contact details before continuing.";
+            ? 'Please complete your delivery address before continuing.'
+            : 'Please complete your contact details before continuing.';
 
-    Alert.alert("Incomplete Details", message, [{ text: "OK" }]);
+    Alert.alert('Incomplete Details', message, [{ text: 'OK' }]);
   };
 
   const handleContinue = () => {
     Keyboard.dismiss();
 
-    if (step === "address") {
-      if (deliveryMethod === "pickup_station") {
+    if (step === 'address') {
+      if (deliveryMethod === 'pickup_station') {
         // For pickup station, supply the fixed address to the form for validation
         // without persisting it as the user's door address via setCommittedAddress.
-        setValue("address", PICKUP_STATION_ADDRESS_LINES.join(", "), {
+        setValue('address', PICKUP_STATION_ADDRESS_LINES.join(', '), {
           shouldValidate: true,
         });
-        setValue("city", PICKUP_STATION_CITY, { shouldValidate: true });
-        setValue("state", PICKUP_STATION_STATE, { shouldValidate: true });
+        setValue('city', PICKUP_STATION_CITY, { shouldValidate: true });
+        setValue('state', PICKUP_STATION_STATE, { shouldValidate: true });
         handleSubmit(onAddressSubmit, handleAddressValidationError)();
       } else {
         handleSubmit(onAddressSubmit, handleAddressValidationError)();
       }
-    } else if (step === "payment") {
+    } else if (step === 'payment') {
       if (!selectedPayment) {
         Alert.alert(
-          "Select Payment Method",
-          "Choose how you want to pay before continuing to review.",
+          'Select Payment Method',
+          'Choose how you want to pay before continuing to review.'
         );
         return;
       }
-      trackCheckoutStep("payment_method", {
+      trackCheckoutStep('payment_method', {
         payment_method: selectedPayment,
       });
       void trackCheckoutRoutePaymentInfo(selectedPayment);
-      setStep("review");
+      setStep('review');
     }
   };
 
   const handleSelectDeliveryMethod = (method: DeliveryMethod) => {
-    if (method === "pickup_station" && deliveryMethod !== "pickup_station") {
+    if (method === 'pickup_station' && deliveryMethod !== 'pickup_station') {
       savedDoorAddressRef.current = {
         address: watchedAddress,
         city: watchedCity,
         state: watchedState,
       };
     } else if (
-      method !== "pickup_station" &&
-      deliveryMethod === "pickup_station"
+      method !== 'pickup_station' &&
+      deliveryMethod === 'pickup_station'
     ) {
       const saved = savedDoorAddressRef.current;
       if (saved) {
-        setValue("address", saved.address, { shouldValidate: false });
-        setValue("city", saved.city, { shouldValidate: false });
-        setValue("state", saved.state, { shouldValidate: false });
+        setValue('address', saved.address, { shouldValidate: false });
+        setValue('city', saved.city, { shouldValidate: false });
+        setValue('state', saved.state, { shouldValidate: false });
         setCommittedAddress(saved.address);
         savedDoorAddressRef.current = null;
       }
@@ -1160,15 +1153,15 @@ export default function CheckoutScreen() {
   };
 
   const handleSelectState = (state: string) => {
-    setValue("state", state, { shouldValidate: true });
-    setValue("city", "", { shouldValidate: true });
+    setValue('state', state, { shouldValidate: true });
+    setValue('city', '', { shouldValidate: true });
     setShowStatePicker(false);
   };
 
   const handleSelectCity = (city: string) => {
-    setValue("city", city, { shouldValidate: true });
+    setValue('city', city, { shouldValidate: true });
     setShowCityPicker(false);
-    setCitySearch("");
+    setCitySearch('');
   };
 
   const handleCryptoConfirm = async (chain: string, currency: string) => {
@@ -1179,9 +1172,9 @@ export default function CheckoutScreen() {
     const { orderResponse: pendingResponse } = pendingOrder;
     if (pendingResponse.amountDueToGateway !== total) {
       Alert.alert(
-        "Amount Changed",
-        "Your order total has changed since the order was created. Please go back and try again.",
-        [{ text: "OK" }],
+        'Amount Changed',
+        'Your order total has changed since the order was created. Please go back and try again.',
+        [{ text: 'OK' }]
       );
       setPendingOrder(null);
       setShowCryptoSelection(false);
@@ -1204,39 +1197,39 @@ export default function CheckoutScreen() {
       const initResponse = await fetch(
         `${API_BASE_URL}/api/payments/initialize`,
         {
-          method: "POST",
+          method: 'POST',
           headers: {
-            "Content-Type": "application/json",
-            "Idempotency-Key": `crypto-init-${order.id}-${chain}-${currency}`,
+            'Content-Type': 'application/json',
+            'Idempotency-Key': `crypto-init-${order.id}-${chain}-${currency}`,
           },
           body: JSON.stringify({
             merchant_id: MERCHANT_ID,
             order_id: order.id,
             amount: orderResponse.amountDueToGateway,
-            currency: "NGN",
+            currency: 'NGN',
             customer_email: customerEmail,
             customer_name: customerName,
             customer_phone: customerPhone,
-            gateway: "juicyway",
+            gateway: 'juicyway',
             crypto_chain: chain,
             crypto_currency: currency,
           }),
-        },
+        }
       );
 
       const initData = await initResponse.json();
 
       if (!initResponse.ok || !initData.success) {
         throw new OrderError(
-          initData.error || "Failed to initialize crypto payment",
-          "PAYMENT_INIT_ERROR",
+          initData.error || 'Failed to initialize crypto payment',
+          'PAYMENT_INIT_ERROR'
         );
       }
 
       if (!initData.crypto_payment?.address) {
         throw new OrderError(
-          "Failed to generate crypto wallet address. Please try again.",
-          "PAYMENT_INIT_ERROR",
+          'Failed to generate crypto wallet address. Please try again.',
+          'PAYMENT_INIT_ERROR'
         );
       }
 
@@ -1252,10 +1245,10 @@ export default function CheckoutScreen() {
         chain: cp.chain || chain,
         currency: cp.currency || currency,
         amount: cp.amount || orderResponse.amountDueToGateway,
-        cryptoAmount: cp.crypto_amount || "",
-        confirmationTime: cp.confirmation_time || "",
-        reference: initData.reference || "",
-        paymentId: cp.payment_id || "",
+        cryptoAmount: cp.crypto_amount || '',
+        confirmationTime: cp.confirmation_time || '',
+        reference: initData.reference || '',
+        paymentId: cp.payment_id || '',
         trackingToken,
       });
     } catch (error) {
@@ -1263,9 +1256,9 @@ export default function CheckoutScreen() {
       setShowCryptoSelection(false);
       isOrderInFlight.current = false;
       if (error instanceof OrderError) {
-        Alert.alert("Payment Error", error.message);
+        Alert.alert('Payment Error', error.message);
       } else {
-        Alert.alert("Error", "Failed to initialize payment");
+        Alert.alert('Error', 'Failed to initialize payment');
       }
     } finally {
       setPendingOrder(null);
@@ -1281,9 +1274,9 @@ export default function CheckoutScreen() {
     // BUG-1-003 Fix: Validate cart FIRST before any processing
     if (itemsSnapshot.length === 0) {
       Alert.alert(
-        "Empty Cart",
-        "Your cart is empty. Please add items before checking out.",
-        [{ text: "OK", onPress: () => router.replace("/") }],
+        'Empty Cart',
+        'Your cart is empty. Please add items before checking out.',
+        [{ text: 'OK', onPress: () => router.replace('/') }]
       );
       return;
     }
@@ -1294,8 +1287,8 @@ export default function CheckoutScreen() {
 
     if (isLoadingQuotes) {
       Alert.alert(
-        "Still Fetching Delivery",
-        "Please wait for delivery options to finish loading before placing your order.",
+        'Still Fetching Delivery',
+        'Please wait for delivery options to finish loading before placing your order.'
       );
       return;
     }
@@ -1307,9 +1300,9 @@ export default function CheckoutScreen() {
       !availablePaymentMethods.includes(selectedPayment)
     ) {
       Alert.alert(
-        "Payment Method Unavailable",
-        "The selected payment method is no longer available. Please choose another.",
-        [{ text: "OK", onPress: () => setStep("payment") }],
+        'Payment Method Unavailable',
+        'The selected payment method is no longer available. Please choose another.',
+        [{ text: 'OK', onPress: () => setStep('payment') }]
       );
       return;
     }
@@ -1317,16 +1310,16 @@ export default function CheckoutScreen() {
     // Validate that a shipping quote is selected when shipping quotes are
     // available (i.e. the address step fetched quotes for the chosen location)
     const requiresFreshShippingQuote =
-      deliveryMethod === "door" && Boolean(currentShippingQuoteContextKey);
+      deliveryMethod === 'door' && Boolean(currentShippingQuoteContextKey);
     const hasFreshShippingQuoteSelection =
       resolvedShippingQuoteContextKey === currentShippingQuoteContextKey &&
       Boolean(selectedQuote);
 
     if (requiresFreshShippingQuote && !hasFreshShippingQuoteSelection) {
       Alert.alert(
-        "Shipping Required",
-        "Please confirm a delivery option before placing your order.",
-        [{ text: "OK", onPress: () => setStep("address") }],
+        'Shipping Required',
+        'Please confirm a delivery option before placing your order.',
+        [{ text: 'OK', onPress: () => setStep('address') }]
       );
       return;
     }
@@ -1362,7 +1355,7 @@ export default function CheckoutScreen() {
         Math.round(
           effectivePrice *
             item.quantity *
-            (item.assuranceRate ?? DEFAULT_ASSURANCE_RATE),
+            (item.assuranceRate ?? DEFAULT_ASSURANCE_RATE)
         )
       );
     }, 0);
@@ -1398,10 +1391,10 @@ export default function CheckoutScreen() {
     const liveSavingsAmount = liveSavingsSelection?.amount ?? 0;
     const walletResidualAfterSavings = Math.max(
       snapshotTotal - liveSavingsAmount,
-      0,
+      0
     );
     const shouldCreateWalletFundedBankTransferOrder =
-      selectedPayment === "bank_transfer" &&
+      selectedPayment === 'bank_transfer' &&
       isEligibleForWalletFundedBankTransfer({
         customerId: customer?.id,
         customerPhone: customer?.phone,
@@ -1427,7 +1420,7 @@ export default function CheckoutScreen() {
         : undefined;
 
     try {
-      trackCheckoutStep("review");
+      trackCheckoutStep('review');
 
       // 2026 Fix: Use validated address from handleSubmit instead of getValues()
       // const address = getValues(); // Removed to prevent bypass
@@ -1435,40 +1428,40 @@ export default function CheckoutScreen() {
       const customerPhone = address.phone;
       const customerName = `${address.firstName} ${address.lastName}`;
       const paymentMethodForOrder =
-        selectedPayment === "payforme" ? "invoice" : selectedPayment;
+        selectedPayment === 'payforme' ? 'invoice' : selectedPayment;
       const orderShippingAddress =
-        deliveryMethod === "pickup_station"
+        deliveryMethod === 'pickup_station'
           ? {
               ...address,
-              address: PICKUP_STATION_ADDRESS_LINES.join(", "),
+              address: PICKUP_STATION_ADDRESS_LINES.join(', '),
               city: PICKUP_STATION_CITY,
               state: PICKUP_STATION_STATE,
             }
-          : deliveryMethod === "airport"
+          : deliveryMethod === 'airport'
             ? {
                 ...address,
-                address: address.address || "Airport Delivery (Outside Lagos)",
+                address: address.address || 'Airport Delivery (Outside Lagos)',
               }
             : address;
 
       const isBNPL =
-        selectedPayment === "credpal" ||
-        selectedPayment === "credit_direct" ||
-        selectedPayment === "klump";
+        selectedPayment === 'credpal' ||
+        selectedPayment === 'credit_direct' ||
+        selectedPayment === 'klump';
 
       if (isBNPL) {
         const klumpSubmitDisabledReason =
-          selectedPayment === "klump"
+          selectedPayment === 'klump'
             ? getKlumpDisabledReason(
                 paymentSettings,
                 snapshotTotal,
                 liveWalletSelection,
-                liveSavingsSelection,
+                liveSavingsSelection
               )
             : undefined;
         if (klumpSubmitDisabledReason) {
-          Alert.alert("Klump unavailable", klumpSubmitDisabledReason, [
-            { text: "OK" },
+          Alert.alert('Klump unavailable', klumpSubmitDisabledReason, [
+            { text: 'OK' },
           ]);
           isOrderInFlight.current = false;
           setIsProcessing(false);
@@ -1495,7 +1488,7 @@ export default function CheckoutScreen() {
                 ? Math.round(
                     effectivePrice *
                       item.quantity *
-                      (item.assuranceRate ?? DEFAULT_ASSURANCE_RATE),
+                      (item.assuranceRate ?? DEFAULT_ASSURANCE_RATE)
                   )
                 : 0,
             };
@@ -1504,27 +1497,27 @@ export default function CheckoutScreen() {
           shipping_fee: snapshotDeliveryFee,
           tax_amount: snapshotTaxAmount,
           selected_quote_id:
-            deliveryMethod === "door" && selectedQuote?.id != null
+            deliveryMethod === 'door' && selectedQuote?.id != null
               ? String(selectedQuote.id)
               : undefined,
           shipping_provider: getShippingProviderForMethod(
             deliveryMethod,
-            selectedQuote,
+            selectedQuote
           ),
           payment_method: paymentMethodForOrder,
           shipping_address: orderShippingAddress,
-          source: "mobile_app",
+          source: 'mobile_app',
         });
 
-        if (selectedPayment === "klump") {
+        if (selectedPayment === 'klump') {
           const orderTotal = Number(orderResponse.order.total);
           const initResponse = await fetch(
             `${API_BASE_URL}/api/payments/initialize`,
             {
-              method: "POST",
+              method: 'POST',
               headers: {
-                "Content-Type": "application/json",
-                "Idempotency-Key": `payment-init-${orderResponse.order.id}-klump`,
+                'Content-Type': 'application/json',
+                'Idempotency-Key': `payment-init-${orderResponse.order.id}-klump`,
               },
               body: JSON.stringify(
                 buildKlumpInitializePayload({
@@ -1534,28 +1527,28 @@ export default function CheckoutScreen() {
                   merchantId: MERCHANT_ID,
                   orderId: orderResponse.order.id,
                   orderTotal,
-                }),
+                })
               ),
-            },
+            }
           );
 
           const initData = await initResponse.json();
           if (
             !initResponse.ok ||
             !initData.success ||
-            typeof initData.authorization_url !== "string" ||
-            typeof initData.reference !== "string"
+            typeof initData.authorization_url !== 'string' ||
+            typeof initData.reference !== 'string'
           ) {
             throw new OrderError(
-              initData.error || "Failed to initialize Klump payment",
-              "PAYMENT_INIT_ERROR",
+              initData.error || 'Failed to initialize Klump payment',
+              'PAYMENT_INIT_ERROR'
             );
           }
 
           isOrderInFlight.current = false;
           setIsProcessing(false);
           router.push({
-            pathname: "/bnpl-checkout",
+            pathname: '/bnpl-checkout',
             params: buildKlumpBnplRouteParams({
               amount: orderTotal,
               authorizationUrl: initData.authorization_url,
@@ -1573,7 +1566,7 @@ export default function CheckoutScreen() {
         isOrderInFlight.current = false;
         setIsProcessing(false);
         router.push({
-          pathname: "/bnpl-checkout",
+          pathname: '/bnpl-checkout',
           params: {
             orderId: orderResponse.order.id,
             gateway: selectedPayment,
@@ -1610,7 +1603,7 @@ export default function CheckoutScreen() {
               ? Math.round(
                   effectivePrice *
                     item.quantity *
-                    (item.assuranceRate ?? DEFAULT_ASSURANCE_RATE),
+                    (item.assuranceRate ?? DEFAULT_ASSURANCE_RATE)
                 )
               : 0,
           };
@@ -1619,16 +1612,16 @@ export default function CheckoutScreen() {
         shipping_fee: snapshotDeliveryFee,
         tax_amount: snapshotTaxAmount,
         selected_quote_id:
-          deliveryMethod === "door" && selectedQuote?.id != null
+          deliveryMethod === 'door' && selectedQuote?.id != null
             ? String(selectedQuote.id)
             : undefined,
         shipping_provider: getShippingProviderForMethod(
           deliveryMethod,
-          selectedQuote,
+          selectedQuote
         ),
         payment_method: paymentMethodForOrder,
         shipping_address: orderShippingAddress,
-        source: "mobile_app",
+        source: 'mobile_app',
         ...buildSavingsOrderFields(liveSavingsSelection),
         ...buildWalletOrderFields(liveWalletSelection),
       });
@@ -1637,12 +1630,12 @@ export default function CheckoutScreen() {
       const orderNumber =
         order.order_number || order.id.slice(0, 8).toUpperCase();
       const routeToWalletFundedBankTransfer = (
-        response: WalletOrderFundingIntentCreateResponse,
+        response: WalletOrderFundingIntentCreateResponse
       ) => {
         isOrderInFlight.current = false;
         setIsProcessing(false);
         router.push({
-          pathname: "/bank-transfer",
+          pathname: '/bank-transfer',
           params: {
             accountName: response.account.accountName,
             accountNumber: response.account.accountNumber,
@@ -1654,7 +1647,7 @@ export default function CheckoutScreen() {
             orderId: order.id,
             orderNumber,
             reference: response.intent.id,
-            walletFunded: "true",
+            walletFunded: 'true',
             ...(order.tracking_token && {
               trackingToken: order.tracking_token,
             }),
@@ -1666,10 +1659,10 @@ export default function CheckoutScreen() {
           if (isAuthenticated && customer?.id && saveAsDefaultAddress) {
             try {
               const { data, error } = await supabase
-                .from("customers")
-                .select("saved_addresses")
-                .eq("id", customer.id)
-                .eq("merchant_id", MERCHANT_ID)
+                .from('customers')
+                .select('saved_addresses')
+                .eq('id', customer.id)
+                .eq('merchant_id', MERCHANT_ID)
                 .single();
 
               if (error) throw error;
@@ -1682,31 +1675,31 @@ export default function CheckoutScreen() {
                 {
                   selectedSavedAddressId,
                   setAsDefault: true,
-                },
+                }
               );
 
               const { error: updateError } = await supabase
-                .from("customers")
+                .from('customers')
                 .update({ saved_addresses: nextSavedAddresses })
-                .eq("id", customer.id)
-                .eq("merchant_id", MERCHANT_ID);
+                .eq('id', customer.id)
+                .eq('merchant_id', MERCHANT_ID);
 
               if (updateError) throw updateError;
             } catch (error) {
               trackError(
-                "checkout_save_default_address",
+                'checkout_save_default_address',
                 error instanceof Error
                   ? error.message
-                  : "Failed to save default address",
+                  : 'Failed to save default address'
               );
             }
           }
 
           await scheduleLocalNotification(
-            "Order Received! 📦",
+            'Order Received! 📦',
             `Your order #${orderNumber} is being processed. We'll notify you when it ships.`,
-            { type: "order_update", orderNumber, orderId: order.id },
-            1,
+            { type: 'order_update', orderNumber, orderId: order.id },
+            1
           );
 
           if (!isAuthenticated && saveDetails && accountPassword.length >= 6) {
@@ -1753,9 +1746,9 @@ export default function CheckoutScreen() {
 
       // Route based on payment method
       const isOnlinePayment =
-        selectedPayment === "paystack" || selectedPayment === "korapay";
-      const isBankTransfer = selectedPayment === "bank_transfer";
-      const isJuicyway = selectedPayment === "juicyway";
+        selectedPayment === 'paystack' || selectedPayment === 'korapay';
+      const isBankTransfer = selectedPayment === 'bank_transfer';
+      const isJuicyway = selectedPayment === 'juicyway';
 
       // Juicyway crypto: Show selection modal first
       if (isJuicyway) {
@@ -1783,15 +1776,15 @@ export default function CheckoutScreen() {
         const partialize = persistOpts.partialize ?? ((s: unknown) => s);
         const persistedState = partialize(useCartStore.getState());
         await AsyncStorage.setItem(
-          persistOpts.name ?? "cart-storage",
+          persistOpts.name ?? 'cart-storage',
           JSON.stringify({
             state: persistedState,
             version: persistOpts.version ?? 0,
-          }),
+          })
         );
         setIsProcessing(false);
         router.replace({
-          pathname: "/order-success",
+          pathname: '/order-success',
           params: {
             orderId: order.id,
             orderNumber,
@@ -1814,15 +1807,15 @@ export default function CheckoutScreen() {
               merchantId: MERCHANT_ID,
               merchantSlug: MERCHANT_SLUG,
               onFallback: ({ code, consent, message }) => {
-                trackError("wallet_order_funding_intent_failed", message, {
+                trackError('wallet_order_funding_intent_failed', message, {
                   code,
                   ...(consent ? { consent: true } : {}),
                   orderId: order.id,
                 });
                 Alert.alert(
-                  "Bank transfer unavailable",
-                  "Bank transfer to wallet is temporarily unavailable. We will use the standard bank transfer option instead.",
-                  [{ text: "OK" }],
+                  'Bank transfer unavailable',
+                  'Bank transfer to wallet is temporarily unavailable. We will use the standard bank transfer option instead.',
+                  [{ text: 'OK' }]
                 );
               },
               onSuccess: routeToWalletFundedBankTransfer,
@@ -1836,35 +1829,35 @@ export default function CheckoutScreen() {
         }
 
         // Initialize payment gateway
-        const gateway = isBankTransfer ? "paystack" : selectedPayment;
+        const gateway = isBankTransfer ? 'paystack' : selectedPayment;
         const initResponse = await fetch(
           `${API_BASE_URL}/api/payments/initialize`,
           {
-            method: "POST",
+            method: 'POST',
             headers: {
-              "Content-Type": "application/json",
-              "Idempotency-Key": `payment-init-${order.id}-${gateway}`,
+              'Content-Type': 'application/json',
+              'Idempotency-Key': `payment-init-${order.id}-${gateway}`,
             },
             body: JSON.stringify({
               merchant_id: MERCHANT_ID,
               order_id: order.id,
               amount: orderResponse.amountDueToGateway,
-              currency: "NGN",
+              currency: 'NGN',
               customer_email: customerEmail,
               customer_name: customerName,
               customer_phone: customerPhone,
               gateway,
-              ...(isBankTransfer && { payment_type: "dva" }),
+              ...(isBankTransfer && { payment_type: 'dva' }),
             }),
-          },
+          }
         );
 
         const initData = await initResponse.json();
 
         if (!initResponse.ok || !initData.success) {
           throw new OrderError(
-            initData.error || "Failed to initialize payment",
-            "PAYMENT_INIT_ERROR",
+            initData.error || 'Failed to initialize payment',
+            'PAYMENT_INIT_ERROR'
           );
         }
 
@@ -1873,7 +1866,7 @@ export default function CheckoutScreen() {
         if (isBankTransfer) {
           isOrderInFlight.current = false;
           router.push({
-            pathname: "/bank-transfer",
+            pathname: '/bank-transfer',
             params: {
               orderId: order.id,
               orderNumber,
@@ -1882,15 +1875,15 @@ export default function CheckoutScreen() {
               bankName:
                 initData.dva?.bank_name ||
                 initData.virtual_account?.bank_name ||
-                "",
+                '',
               accountNumber:
                 initData.dva?.account_number ||
                 initData.virtual_account?.account_number ||
-                "",
+                '',
               accountName:
                 initData.dva?.account_name ||
                 initData.virtual_account?.account_name ||
-                "",
+                '',
               ...(order.tracking_token && {
                 trackingToken: order.tracking_token,
               }),
@@ -1899,7 +1892,7 @@ export default function CheckoutScreen() {
         } else {
           const authUrl = initData.authorization_url || initData.checkout_url;
           router.push({
-            pathname: "/payment-gateway",
+            pathname: '/payment-gateway',
             params: {
               orderId: order.id,
               orderNumber,
@@ -1929,16 +1922,16 @@ export default function CheckoutScreen() {
       const partialize = persistOpts.partialize ?? ((s: unknown) => s);
       const persistedState = partialize(useCartStore.getState());
       await AsyncStorage.setItem(
-        persistOpts.name ?? "cart-storage",
+        persistOpts.name ?? 'cart-storage',
         JSON.stringify({
           state: persistedState,
           version: persistOpts.version ?? 0,
-        }),
+        })
       );
 
       // Navigate to success after cart is cleared
       router.replace({
-        pathname: "/order-success",
+        pathname: '/order-success',
         params: {
           orderId: order.id,
           orderNumber,
@@ -1957,52 +1950,52 @@ export default function CheckoutScreen() {
         useCartStore.getState().restoreItems(cartSnapshot);
       }
       if (error instanceof OrderError) {
-        trackError("checkout_failed", error.message, {
-          step: "place_order",
+        trackError('checkout_failed', error.message, {
+          step: 'place_order',
           paymentMethod: selectedPayment,
           errorCode: error.code,
         });
 
         switch (error.code) {
-          case "NETWORK_ERROR":
+          case 'NETWORK_ERROR':
             Alert.alert(
-              "No Connection",
-              "Please check your internet connection and try again.",
-              [{ text: "OK" }],
+              'No Connection',
+              'Please check your internet connection and try again.',
+              [{ text: 'OK' }]
             );
             break;
-          case "VALIDATION_ERROR":
+          case 'VALIDATION_ERROR':
             Alert.alert(
-              "Invalid Information",
-              error.message || "Please check your order details and try again.",
-              [{ text: "OK" }],
+              'Invalid Information',
+              error.message || 'Please check your order details and try again.',
+              [{ text: 'OK' }]
             );
             break;
-          case "AUTH_ERROR":
+          case 'AUTH_ERROR':
             Alert.alert(
-              "Session Expired",
-              "Please sign in again to complete your order.",
+              'Session Expired',
+              'Please sign in again to complete your order.',
               [
-                { text: "Cancel", style: "cancel" },
-                { text: "Sign In", onPress: () => router.push("/auth/login") },
-              ],
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Sign In', onPress: () => router.push('/auth/login') },
+              ]
             );
             break;
           default:
             Alert.alert(
-              "Order Failed",
-              error.message || "Something went wrong. Please try again.",
-              [{ text: "OK" }],
+              'Order Failed',
+              error.message || 'Something went wrong. Please try again.',
+              [{ text: 'OK' }]
             );
         }
       } else {
         trackError(
-          "checkout_failed",
-          error instanceof Error ? error.message : "Unknown error",
-          { step: "place_order", paymentMethod: selectedPayment },
+          'checkout_failed',
+          error instanceof Error ? error.message : 'Unknown error',
+          { step: 'place_order', paymentMethod: selectedPayment }
         );
-        Alert.alert("Error", "Failed to place order. Please try again.", [
-          { text: "OK" },
+        Alert.alert('Error', 'Failed to place order. Please try again.', [
+          { text: 'OK' },
         ]);
       }
     } finally {
@@ -2014,9 +2007,9 @@ export default function CheckoutScreen() {
   // 2026 Fix: Wrap submission in handleSubmit to enforce validation
   const handlePlaceOrder = handleSubmit(onCheckoutSubmit, (_errors) => {
     Alert.alert(
-      "Incomplete Details",
-      "Please fill in all required fields (Address, City, Phone) to place your order.",
-      [{ text: "OK" }],
+      'Incomplete Details',
+      'Please fill in all required fields (Address, City, Phone) to place your order.',
+      [{ text: 'OK' }]
     );
   });
 
@@ -2042,8 +2035,8 @@ export default function CheckoutScreen() {
         </Text>
         <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
           {isAuthenticated
-            ? "Choose how this order should be delivered."
-            : "Add your contact and delivery details to continue."}
+            ? 'Choose how this order should be delivered.'
+            : 'Add your contact and delivery details to continue.'}
         </Text>
       </View>
 
@@ -2072,16 +2065,16 @@ export default function CheckoutScreen() {
         onSelectMethod={handleSelectDeliveryMethod}
         doorSubtitle={
           selectedQuote != null
-            ? getDeliveryMethodSummary("door", selectedQuote)
-            : "Rates loaded after you enter your address"
+            ? getDeliveryMethodSummary('door', selectedQuote)
+            : 'Rates loaded after you enter your address'
         }
         doorPrice={
-          selectedQuote != null ? formatPrice(selectedQuote.price) : "—"
+          selectedQuote != null ? formatPrice(selectedQuote.price) : '—'
         }
         airportFee={AIRPORT_DELIVERY_FEE}
       />
 
-      {deliveryMethod !== "pickup_station" && (
+      {deliveryMethod !== 'pickup_station' && (
         <CheckoutDeliveryCard
           colors={colors}
           control={control}
@@ -2115,11 +2108,11 @@ export default function CheckoutScreen() {
         />
       )}
 
-      {deliveryMethod === "pickup_station" && (
+      {deliveryMethod === 'pickup_station' && (
         <PickupStationCard colors={colors} isDark={isDark} />
       )}
 
-      {deliveryMethod === "door" && watchedState && watchedCity && (
+      {deliveryMethod === 'door' && watchedState && watchedCity && (
         <ShippingQuotesCard
           colors={colors}
           isDark={isDark}
@@ -2194,18 +2187,18 @@ export default function CheckoutScreen() {
         onSavingsToggle={setSavingsSelection}
         walletFundedBankTransferMode={
           walletFundedBankTransferOptionEnabled &&
-          selectedPayment === "bank_transfer"
+          selectedPayment === 'bank_transfer'
         }
         methodLabelOverrides={
           walletFundedBankTransferOptionEnabled
-            ? { bank_transfer: "Bank transfer to wallet" }
+            ? { bank_transfer: 'Bank transfer to wallet' }
             : undefined
         }
         methodDescriptionOverrides={
           walletFundedBankTransferOptionEnabled
             ? {
                 bank_transfer:
-                  "Transfer to your Bassey wallet account. We apply it to this order automatically.",
+                  'Transfer to your Bassey wallet account. We apply it to this order automatically.',
               }
             : undefined
         }
@@ -2226,8 +2219,8 @@ export default function CheckoutScreen() {
       formContentPaddingBottom={formContentPaddingBottom}
       isDark={isDark}
       items={items}
-      onEditAddress={() => setStep("address")}
-      onEditPayment={() => setStep("payment")}
+      onEditAddress={() => setStep('address')}
+      onEditPayment={() => setStep('payment')}
       selectedPayment={selectedPayment}
       selectedQuote={selectedQuote}
       subtotal={subtotal}
@@ -2247,7 +2240,7 @@ export default function CheckoutScreen() {
 
       <SafeAreaView
         style={[styles.container, { backgroundColor: colors.background }]}
-        edges={["top", "left", "right"]}
+        edges={['top', 'left', 'right']}
       >
         <View
           style={[
@@ -2284,9 +2277,9 @@ export default function CheckoutScreen() {
             isDark={isDark}
           />
 
-          {step === "address" && renderAddressForm()}
-          {step === "payment" && renderPaymentOptions()}
-          {step === "review" && renderReview()}
+          {step === 'address' && renderAddressForm()}
+          {step === 'payment' && renderPaymentOptions()}
+          {step === 'review' && renderReview()}
 
           <View
             style={[
@@ -2311,11 +2304,11 @@ export default function CheckoutScreen() {
                 <Text
                   style={[styles.bottomSubtle, { color: colors.textSecondary }]}
                 >
-                  {items.length} item{items.length === 1 ? "" : "s"}
+                  {items.length} item{items.length === 1 ? '' : 's'}
                 </Text>
               </View>
 
-              {step === "review" ? (
+              {step === 'review' ? (
                 <Pressable
                   style={[
                     styles.actionButton,
@@ -2324,7 +2317,7 @@ export default function CheckoutScreen() {
                   onPress={handlePlaceOrder}
                   disabled={isProcessing}
                   accessibilityRole="button"
-                  accessibilityLabel={`${selectedPayment === "invoice" ? "Generate invoice" : selectedPayment === "payforme" ? "Prepare pay for me order" : "Place order"} for ${formatPrice(total)}`}
+                  accessibilityLabel={`${selectedPayment === 'invoice' ? 'Generate invoice' : selectedPayment === 'payforme' ? 'Prepare pay for me order' : 'Place order'} for ${formatPrice(total)}`}
                   accessibilityState={{
                     disabled: isProcessing,
                     busy: isProcessing,
@@ -2338,11 +2331,11 @@ export default function CheckoutScreen() {
                   ) : (
                     <>
                       <Text style={styles.actionButtonText}>
-                        {selectedPayment === "invoice"
-                          ? "Generate Invoice"
-                          : selectedPayment === "payforme"
-                            ? "Pay for Me"
-                            : "Place Order"}
+                        {selectedPayment === 'invoice'
+                          ? 'Generate Invoice'
+                          : selectedPayment === 'payforme'
+                            ? 'Pay for Me'
+                            : 'Place Order'}
                       </Text>
                       <Animated.View style={animatedCtaArrowStyle}>
                         <Ionicons
@@ -2362,7 +2355,7 @@ export default function CheckoutScreen() {
                   ]}
                   onPress={handleContinue}
                   accessibilityRole="button"
-                  accessibilityLabel={`Continue to ${step === "address" ? "payment" : "review"}`}
+                  accessibilityLabel={`Continue to ${step === 'address' ? 'payment' : 'review'}`}
                 >
                   <Text style={styles.actionButtonText}>Continue</Text>
                   <Animated.View style={animatedCtaArrowStyle}>
@@ -2404,7 +2397,7 @@ export default function CheckoutScreen() {
               initialNumToRender={15}
               maxToRenderPerBatch={10}
               windowSize={5}
-              removeClippedSubviews={Platform.OS === "android"}
+              removeClippedSubviews={Platform.OS === 'android'}
               renderItem={({ item }) => (
                 <Pressable
                   style={[
@@ -2412,7 +2405,7 @@ export default function CheckoutScreen() {
                     { borderBottomColor: colors.border },
                     item === watchedState && {
                       backgroundColor: isDark
-                        ? "rgba(217, 59, 48, 0.14)"
+                        ? 'rgba(217, 59, 48, 0.14)'
                         : palette.red[50],
                     },
                   ]}
@@ -2426,10 +2419,10 @@ export default function CheckoutScreen() {
                           color:
                             item === watchedState
                               ? isDark
-                                ? "#FDECEA"
+                                ? '#FDECEA'
                                 : BRAND.primary
                               : colors.text,
-                          fontWeight: item === watchedState ? "700" : "500",
+                          fontWeight: item === watchedState ? '700' : '500',
                         },
                       ]}
                     >
@@ -2464,7 +2457,7 @@ export default function CheckoutScreen() {
         animationType="slide"
         onRequestClose={() => {
           setShowCityPicker(false);
-          setCitySearch("");
+          setCitySearch('');
         }}
       >
         <AppKeyboardContainer style={styles.pickerOverlay}>
@@ -2476,7 +2469,7 @@ export default function CheckoutScreen() {
               <Pressable
                 onPress={() => {
                   setShowCityPicker(false);
-                  setCitySearch("");
+                  setCitySearch('');
                 }}
                 hitSlop={12}
               >
@@ -2488,11 +2481,11 @@ export default function CheckoutScreen() {
                 styles.citySearchContainer,
                 {
                   backgroundColor: isDark
-                    ? "rgba(255, 255, 255, 0.05)"
-                    : "#F9FAFB",
+                    ? 'rgba(255, 255, 255, 0.05)'
+                    : '#F9FAFB',
                   borderColor: citySearchFocused
                     ? BRAND.primary
-                    : "transparent",
+                    : 'transparent',
                 },
               ]}
             >
@@ -2514,7 +2507,7 @@ export default function CheckoutScreen() {
                 returnKeyType="done"
               />
               {citySearch.length > 0 && (
-                <Pressable onPress={() => setCitySearch("")} hitSlop={8}>
+                <Pressable onPress={() => setCitySearch('')} hitSlop={8}>
                   <Ionicons
                     name="close-circle"
                     size={18}
@@ -2527,7 +2520,7 @@ export default function CheckoutScreen() {
               data={
                 citySearch
                   ? shippingCities.filter((c) =>
-                      c.toLowerCase().includes(citySearch.toLowerCase()),
+                      c.toLowerCase().includes(citySearch.toLowerCase())
                     )
                   : shippingCities
               }
@@ -2542,7 +2535,7 @@ export default function CheckoutScreen() {
               initialNumToRender={15}
               maxToRenderPerBatch={10}
               windowSize={5}
-              removeClippedSubviews={Platform.OS === "android"}
+              removeClippedSubviews={Platform.OS === 'android'}
               renderItem={({ item }) => (
                 <Pressable
                   style={[
@@ -2550,7 +2543,7 @@ export default function CheckoutScreen() {
                     { borderBottomColor: colors.border },
                     item === watchedCity && {
                       backgroundColor: isDark
-                        ? "rgba(217, 59, 48, 0.14)"
+                        ? 'rgba(217, 59, 48, 0.14)'
                         : palette.red[50],
                     },
                   ]}
@@ -2564,10 +2557,10 @@ export default function CheckoutScreen() {
                           color:
                             item === watchedCity
                               ? isDark
-                                ? "#FDECEA"
+                                ? '#FDECEA'
                                 : BRAND.primary
                               : colors.text,
-                          fontWeight: item === watchedCity ? "700" : "500",
+                          fontWeight: item === watchedCity ? '700' : '500',
                         },
                       ]}
                     >
@@ -2635,17 +2628,17 @@ export default function CheckoutScreen() {
               <Pressable
                 onPress={() => {
                   Alert.alert(
-                    "Close Payment?",
+                    'Close Payment?',
                     "If you've already sent crypto, your order will still be processed once the payment is detected on the blockchain.",
                     [
-                      { text: "Stay", style: "cancel" },
+                      { text: 'Stay', style: 'cancel' },
                       {
-                        text: "Close",
+                        text: 'Close',
                         onPress: () => {
                           setCryptoPayment(null);
                         },
                       },
-                    ],
+                    ]
                   );
                 }}
                 style={styles.cryptoCloseBtn}
@@ -2677,7 +2670,7 @@ export default function CheckoutScreen() {
                   style={[styles.cryptoAmountValue, { color: colors.text }]}
                 >
                   {cryptoPayment.cryptoAmount ||
-                    (cryptoPayment.amount / 100).toLocaleString()}{" "}
+                    (cryptoPayment.amount / 100).toLocaleString()}{' '}
                   <Text style={{ color: BRAND.primary }}>
                     {cryptoPayment.currency}
                   </Text>
@@ -2685,12 +2678,12 @@ export default function CheckoutScreen() {
                 <View style={styles.cryptoChainBadge}>
                   <View style={styles.cryptoPulseDot} />
                   <Text style={styles.cryptoChainText}>
-                    Network:{" "}
+                    Network:{' '}
                     {{
-                      TRX: "Tron (TRC-20)",
-                      ETH: "Ethereum (ERC-20)",
-                      MATIC: "Polygon",
-                      AVAXC: "Avalanche C-Chain",
+                      TRX: 'Tron (TRC-20)',
+                      ETH: 'Ethereum (ERC-20)',
+                      MATIC: 'Polygon',
+                      AVAXC: 'Avalanche C-Chain',
                     }[cryptoPayment.chain] || cryptoPayment.chain}
                   </Text>
                 </View>
@@ -2717,36 +2710,36 @@ export default function CheckoutScreen() {
                       styles.cryptoCopyBtn,
                       {
                         backgroundColor:
-                          copiedCryptoField === "address"
+                          copiedCryptoField === 'address'
                             ? `${palette.emerald[500]}15`
                             : `${BRAND.primary}15`,
                       },
                     ]}
                     onPress={async () => {
                       const success = await setClipboardString(
-                        cryptoPayment.address,
+                        cryptoPayment.address
                       );
                       if (success) {
-                        setCopiedCryptoField("address");
+                        setCopiedCryptoField('address');
                         if (cryptoCopyTimerRef.current)
                           clearTimeout(cryptoCopyTimerRef.current);
                         cryptoCopyTimerRef.current = setTimeout(
                           () => setCopiedCryptoField(null),
-                          2000,
+                          2000
                         );
                       }
                     }}
                   >
                     <Ionicons
                       name={
-                        copiedCryptoField === "address"
-                          ? "checkmark"
-                          : "copy-outline"
+                        copiedCryptoField === 'address'
+                          ? 'checkmark'
+                          : 'copy-outline'
                       }
                       size={18}
                       color={
-                        copiedCryptoField === "address"
-                          ? "#059669"
+                        copiedCryptoField === 'address'
+                          ? '#059669'
                           : BRAND.primary
                       }
                     />
@@ -2758,7 +2751,7 @@ export default function CheckoutScreen() {
               <View style={styles.cryptoWarning}>
                 <Ionicons name="warning" size={18} color="#F59E0B" />
                 <Text style={styles.cryptoWarningText}>
-                  Only send {cryptoPayment.currency} on the{" "}
+                  Only send {cryptoPayment.currency} on the{' '}
                   {cryptoPayment.chain} network. Using the wrong network will
                   result in permanent loss.
                 </Text>
@@ -2822,11 +2815,11 @@ export default function CheckoutScreen() {
                   const { orderId, orderNumber, trackingToken } = cryptoPayment;
                   setCryptoPayment(null);
                   router.replace({
-                    pathname: "/order-success",
+                    pathname: '/order-success',
                     params: {
                       orderId,
                       orderNumber,
-                      paymentMethod: "juicyway",
+                      paymentMethod: 'juicyway',
                       ...(trackingToken && { trackingToken }),
                     },
                   });

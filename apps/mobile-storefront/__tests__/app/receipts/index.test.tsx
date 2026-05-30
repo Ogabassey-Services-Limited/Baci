@@ -29,6 +29,12 @@ const mockUseRequireAuth = jest.fn();
 const mockUseNetworkState = jest.fn();
 const mockUseReceiptPreview = jest.fn();
 const mockUseReceipts = jest.fn();
+const mockUseAuthState = jest.fn();
+
+jest.mock('@/stores/auth-store', () => ({
+  useAuthStore: (selector: (state: any) => unknown) =>
+    selector(mockUseAuthState()),
+}));
 
 jest.mock('expo-router', () => ({
   Redirect: ({ href }: { href: string }) => mockRedirect({ href }),
@@ -119,6 +125,9 @@ describe('ReceiptsScreen', () => {
       isLoading: false,
       redirectTo: null,
       user: { id: 'customer-1' },
+    });
+    mockUseAuthState.mockReturnValue({
+      customer: { id: 'customer-1' },
     });
     mockUseNetworkState.mockReturnValue({ isOnline: true });
     mockUseReceiptPreview.mockReturnValue({

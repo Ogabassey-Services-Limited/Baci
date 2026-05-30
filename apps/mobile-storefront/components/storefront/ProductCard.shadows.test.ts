@@ -7,7 +7,11 @@ describe('getProductCardShadowStyles', () => {
     const floatingCartShadowColor = '#111827';
 
     expect(
-      getProductCardShadowStyles('web', gridShadowColor, floatingCartShadowColor)
+      getProductCardShadowStyles(
+        'web',
+        gridShadowColor,
+        floatingCartShadowColor
+      )
     ).toEqual({
       gridContainer: {
         boxShadow: `0px 2px 4px ${withAlpha(gridShadowColor, 0.05)}`,
@@ -19,9 +23,7 @@ describe('getProductCardShadowStyles', () => {
   });
 
   it('preserves the native shadow contract', () => {
-    expect(
-      getProductCardShadowStyles('native', '#000000', '#111827')
-    ).toEqual({
+    expect(getProductCardShadowStyles('native', '#000000', '#111827')).toEqual({
       gridContainer: {
         shadowColor: '#000000',
         shadowOffset: { width: 0, height: 2 },

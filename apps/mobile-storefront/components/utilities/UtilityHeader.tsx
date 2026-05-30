@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import type React from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { utilityPurchaseStyles as styles } from '@/components/utilities/utility-purchase.styles';

@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Stack, useRouter } from 'expo-router';
 import { Alert, Pressable, ScrollView, Switch, Text, View } from 'react-native';
@@ -90,7 +90,9 @@ export default function NotificationsScreen() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notification-preferences', merchant?.id] });
+      queryClient.invalidateQueries({
+        queryKey: ['notification-preferences', merchant?.id],
+      });
     },
     onError: (error: unknown) => {
       Alert.alert(

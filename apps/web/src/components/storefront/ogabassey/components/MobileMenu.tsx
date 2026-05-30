@@ -72,7 +72,7 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
     { label: 'Saved Items', icon: Heart, path: '/wishlist' },
     { label: 'IMEI Checker', icon: ScanBarcode, path: '/imei-check' },
     { label: 'Wallet', icon: Wallet, path: '/wallet' },
-    { label: 'Receipts', icon: FileText, path: '/receipts' },
+    { label: 'Receipts & Invoices', icon: FileText, path: '/receipts' },
     { label: 'Address Book', icon: MapPin, path: '/account/addresses' },
     { label: 'Repairs', icon: Wrench, path: '/repairs' },
     { label: 'Swap / Trade-in', icon: RefreshCw, path: '/swap' },

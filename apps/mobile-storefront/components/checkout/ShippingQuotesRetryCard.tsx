@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type Colors from '@/constants/Colors';
 import { RADIUS, SPACING } from '@/constants/Colors';
@@ -49,7 +49,10 @@ export function ShippingQuotesRetryCard({
       </View>
       <View style={styles.retryTextWrap}>
         <Text
-          style={[styles.retryTitle, { color: isDark ? colors.text : '#111827' }]}
+          style={[
+            styles.retryTitle,
+            { color: isDark ? colors.text : '#111827' },
+          ]}
         >
           Oops! Rates took a detour
         </Text>

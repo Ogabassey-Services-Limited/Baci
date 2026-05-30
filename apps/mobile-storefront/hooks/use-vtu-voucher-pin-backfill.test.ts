@@ -15,9 +15,8 @@ const mockGetSession =
       error: null | { message: string };
     }>
   >();
-const mockFetchWithTimeout = jest.fn<
-  (url: string, options: RequestInit) => Promise<Response>
->();
+const mockFetchWithTimeout =
+  jest.fn<(url: string, options: RequestInit) => Promise<Response>>();
 const mockUseAuthStore = jest.fn<() => string | null>();
 
 jest.mock('@/lib/supabase', () => ({
@@ -42,7 +41,9 @@ jest.mock('@/stores/auth-store', () => ({
 }));
 
 jest.mock('@/env', () => ({ EXPO_PUBLIC_API_URL: 'http://localhost:3001' }));
-jest.mock('@/lib/config', () => ({ CONFIG: { MERCHANT_SLUG: 'test-merchant' } }));
+jest.mock('@/lib/config', () => ({
+  CONFIG: { MERCHANT_SLUG: 'test-merchant' },
+}));
 
 function makeResponse(body: unknown, ok = true): Response {
   return {
@@ -89,7 +90,9 @@ describe('useVtuVoucherPinBackfill', () => {
   it('returns the voucher pin once the poll finds a match', async () => {
     mockFetchWithTimeout.mockResolvedValue(
       makeResponse({
-        transactions: [{ request_reference: 'REF-001', voucher_pin: '1234-5678' }],
+        transactions: [
+          { request_reference: 'REF-001', voucher_pin: '1234-5678' },
+        ],
       })
     );
 
@@ -140,7 +143,10 @@ describe('useVtuVoucherPinBackfill', () => {
   it('returns null immediately when apiType is null (unsupported utility type)', () => {
     const { result } = renderHook(
       () =>
-        useVtuVoucherPinBackfill({ ...BASE_INPUT, utilityType: 'airtime' as never }),
+        useVtuVoucherPinBackfill({
+          ...BASE_INPUT,
+          utilityType: 'airtime' as never,
+        }),
       { wrapper }
     );
 
@@ -151,10 +157,9 @@ describe('useVtuVoucherPinBackfill', () => {
   it('returns null immediately when userId is absent (unauthenticated)', () => {
     mockUseAuthStore.mockReturnValue(null);
 
-    const { result } = renderHook(
-      () => useVtuVoucherPinBackfill(BASE_INPUT),
-      { wrapper }
-    );
+    const { result } = renderHook(() => useVtuVoucherPinBackfill(BASE_INPUT), {
+      wrapper,
+    });
 
     expect(result.current).toBeNull();
     expect(mockFetchWithTimeout).not.toHaveBeenCalled();
@@ -166,10 +171,9 @@ describe('useVtuVoucherPinBackfill', () => {
       error: { message: 'Auth error' },
     });
 
-    const { result } = renderHook(
-      () => useVtuVoucherPinBackfill(BASE_INPUT),
-      { wrapper }
-    );
+    const { result } = renderHook(() => useVtuVoucherPinBackfill(BASE_INPUT), {
+      wrapper,
+    });
 
     await waitFor(() => expect(mockGetSession).toHaveBeenCalledTimes(1));
     expect(mockFetchWithTimeout).not.toHaveBeenCalled();
@@ -179,10 +183,9 @@ describe('useVtuVoucherPinBackfill', () => {
   it('halts polling immediately on a non-retriable HTTP error', async () => {
     mockFetchWithTimeout.mockResolvedValue(makeResponse({}, false));
 
-    const { result } = renderHook(
-      () => useVtuVoucherPinBackfill(BASE_INPUT),
-      { wrapper }
-    );
+    const { result } = renderHook(() => useVtuVoucherPinBackfill(BASE_INPUT), {
+      wrapper,
+    });
 
     await waitFor(() => expect(mockFetchWithTimeout).toHaveBeenCalledTimes(1));
 
@@ -195,10 +198,9 @@ describe('useVtuVoucherPinBackfill', () => {
   it('halts polling immediately when fetchWithTimeout rejects (network/timeout)', async () => {
     mockFetchWithTimeout.mockRejectedValue(new Error('Network timeout'));
 
-    const { result } = renderHook(
-      () => useVtuVoucherPinBackfill(BASE_INPUT),
-      { wrapper }
-    );
+    const { result } = renderHook(() => useVtuVoucherPinBackfill(BASE_INPUT), {
+      wrapper,
+    });
 
     await waitFor(() => expect(mockFetchWithTimeout).toHaveBeenCalledTimes(1));
 
@@ -215,10 +217,9 @@ describe('useVtuVoucherPinBackfill', () => {
         .mockRejectedValue(new Error('Invalid JSON')),
     } as unknown as Response);
 
-    const { result } = renderHook(
-      () => useVtuVoucherPinBackfill(BASE_INPUT),
-      { wrapper }
-    );
+    const { result } = renderHook(() => useVtuVoucherPinBackfill(BASE_INPUT), {
+      wrapper,
+    });
 
     await waitFor(() => expect(mockFetchWithTimeout).toHaveBeenCalledTimes(1));
 
@@ -230,10 +231,9 @@ describe('useVtuVoucherPinBackfill', () => {
   it('halts polling immediately when response schema does not match', async () => {
     mockFetchWithTimeout.mockResolvedValue(makeResponse({ unexpected: true }));
 
-    const { result } = renderHook(
-      () => useVtuVoucherPinBackfill(BASE_INPUT),
-      { wrapper }
-    );
+    const { result } = renderHook(() => useVtuVoucherPinBackfill(BASE_INPUT), {
+      wrapper,
+    });
 
     await waitFor(() => expect(mockFetchWithTimeout).toHaveBeenCalledTimes(1));
 

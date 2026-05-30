@@ -208,15 +208,22 @@ export function QuizScreen({
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={`${getEventStartButtonText(event.status, status === 'starting', EXAM_PASS_POINTS_COST)} ${event.title}`}
-                accessibilityState={{ disabled: status === 'starting' || event.status !== 'open' }}
+                accessibilityState={{
+                  disabled: status === 'starting' || event.status !== 'open',
+                }}
                 disabled={status === 'starting' || event.status !== 'open'}
                 onPress={() => {
-                  if (status !== 'starting' && event.status === 'open') void handleStart(event.id);
+                  if (status !== 'starting' && event.status === 'open')
+                    void handleStart(event.id);
                 }}
                 style={styles.primaryButton}
               >
                 <Text style={styles.primaryButtonText}>
-                  {getEventStartButtonText(event.status, status === 'starting', EXAM_PASS_POINTS_COST)}
+                  {getEventStartButtonText(
+                    event.status,
+                    status === 'starting',
+                    EXAM_PASS_POINTS_COST
+                  )}
                 </Text>
               </Pressable>
             </View>

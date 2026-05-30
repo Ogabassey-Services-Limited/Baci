@@ -22,7 +22,10 @@ import { normalizeWalletFundAmountParam } from '@/lib/normalize-wallet-fund-amou
 import { pickMerchantId } from '@/lib/pick-merchant-id';
 import { sanitizeWalletReturnTo } from '@/lib/sanitize-wallet-return-to';
 import { initializeWalletTopUp } from '@/lib/wallet-top-up';
-import { WALLET_TOP_UP_MAX_AMOUNT, WALLET_TOP_UP_MIN_AMOUNT } from '@/lib/wallet-top-up-constants';
+import {
+  WALLET_TOP_UP_MAX_AMOUNT,
+  WALLET_TOP_UP_MIN_AMOUNT,
+} from '@/lib/wallet-top-up-constants';
 import { trackError, trackEvent } from '@/services/analytics';
 import { scheduleLocalNotification } from '@/services/push-notifications';
 import { useAuthStore } from '@/stores/auth-store';
@@ -61,7 +64,9 @@ export default function WalletScreen({
   const createFundingAccountMutation = useCreateWalletFundingAccount();
 
   const [redeemPoints, setRedeemPoints] = useState('');
-  const [showRedeemPanel, setShowRedeemPanel] = useState(routeAction === 'redeem');
+  const [showRedeemPanel, setShowRedeemPanel] = useState(
+    routeAction === 'redeem'
+  );
   const [fundAmount, setFundAmount] = useState(routeRequiredAmount);
   const [showFundPanel, setShowFundPanel] = useState(routeAction === 'fund');
   const [isFundPending, setIsFundPending] = useState(false);

@@ -50,7 +50,9 @@ export default function PaywallPackageList({
             ? ' per year, best value'
             : ` per year, save ${annualSavingsPercent} percent`;
         const annualBadgeText =
-          annualSavingsPercent === null ? 'BEST VALUE' : `SAVE ${annualSavingsPercent}%`;
+          annualSavingsPercent === null
+            ? 'BEST VALUE'
+            : `SAVE ${annualSavingsPercent}%`;
 
         return (
           <Pressable
@@ -79,7 +81,9 @@ export default function PaywallPackageList({
                     { backgroundColor: colors.success },
                   ]}
                 >
-                  <Text style={paywallStyles.savingsText}>{annualBadgeText}</Text>
+                  <Text style={paywallStyles.savingsText}>
+                    {annualBadgeText}
+                  </Text>
                 </View>
               )}
             </View>
@@ -88,7 +92,10 @@ export default function PaywallPackageList({
                 {pack.product.priceString}
               </Text>
               <Text
-                style={[paywallStyles.tierPeriod, { color: colors.textSecondary }]}
+                style={[
+                  paywallStyles.tierPeriod,
+                  { color: colors.textSecondary },
+                ]}
               >
                 /{isAnnual ? 'year' : 'mo'}
               </Text>

@@ -1,9 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { type FieldErrors, useForm } from 'react-hook-form';
-import {
-  Text as MockText,
-  TextInput as MockTextInput,
-} from 'react-native';
+import { Text as MockText, TextInput as MockTextInput } from 'react-native';
 import type { ShippingAddressInput } from '@/lib/validation';
 import { CheckoutContactCard } from './CheckoutContactCard';
 
@@ -104,9 +101,7 @@ describe('CheckoutContactCard', () => {
     const onToggleSaveDetails = jest.fn();
 
     render(
-      <CheckoutContactCardHarness
-        onToggleSaveDetails={onToggleSaveDetails}
-      />
+      <CheckoutContactCardHarness onToggleSaveDetails={onToggleSaveDetails} />
     );
 
     expect(screen.getByText('Contact')).toBeTruthy();
@@ -172,12 +167,7 @@ describe('CheckoutContactCard', () => {
   });
 
   it('shows the done action and hides guest save-details when an authenticated contact is expanded', () => {
-    render(
-      <CheckoutContactCardHarness
-        hasContactIdentity
-        isAuthenticated
-      />
-    );
+    render(<CheckoutContactCardHarness hasContactIdentity isAuthenticated />);
 
     expect(
       screen.getByRole('button', { name: 'Collapse contact details' })

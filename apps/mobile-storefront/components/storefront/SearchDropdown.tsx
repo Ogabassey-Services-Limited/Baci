@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -16,7 +16,12 @@ import {
 import { SafeImage } from '@/components/ui/SafeImage';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SHADOWS, SPACING } from '@/constants/Colors';
-import { type Category, useCategories, useProducts, useDebounce } from '@/hooks';
+import {
+  type Category,
+  useCategories,
+  useProducts,
+  useDebounce,
+} from '@/hooks';
 import { useSearchStorage } from '@/hooks/use-search-storage';
 import { formatPrice, type Product } from '@/types/product';
 

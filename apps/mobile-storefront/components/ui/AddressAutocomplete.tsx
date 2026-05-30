@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import Constants from 'expo-constants';
 import * as Crypto from 'expo-crypto';
 import { useEffect, useRef, useState } from 'react';
@@ -145,7 +145,10 @@ export function AddressAutocomplete({
     const hideSub = Keyboard.addListener('keyboardDidHide', () => {
       keyboardHeightRef.current = 0;
     });
-    return () => { showSub.remove(); hideSub.remove(); };
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
   }, []);
 
   // When dropdown opens, scroll parent so the dropdown clears the keyboard
@@ -156,7 +159,8 @@ export function AddressAutocomplete({
       const DROPDOWN_HEIGHT = 280;
       const PADDING = 16;
       const screenHeight = Dimensions.get('window').height;
-      const kbHeight = keyboardHeightRef.current || Keyboard.metrics()?.height || 0;
+      const kbHeight =
+        keyboardHeightRef.current || Keyboard.metrics()?.height || 0;
       const keyboardTop = screenHeight - kbHeight;
       const dropdownBottom = screenY + inputHeight + DROPDOWN_HEIGHT + PADDING;
       if (dropdownBottom > keyboardTop) {
@@ -413,7 +417,11 @@ export function AddressAutocomplete({
                 key={item.placeId}
                 style={({ pressed }: { pressed: boolean }) => [
                   styles.predictionItem,
-                  { borderBottomColor: isDark ? 'rgba(255,255,255,0.05)' : colors.border },
+                  {
+                    borderBottomColor: isDark
+                      ? 'rgba(255,255,255,0.05)'
+                      : colors.border,
+                  },
                   pressed && {
                     backgroundColor: isDark
                       ? 'rgba(255,255,255,0.04)'
@@ -425,7 +433,16 @@ export function AddressAutocomplete({
                 accessibilityLabel={`${item.mainText}, ${item.secondaryText}`}
               >
                 <View style={styles.predictionRow}>
-                  <View style={[styles.predictionPinRail, { backgroundColor: isDark ? 'rgba(217, 59, 48, 0.14)' : `${BRAND.primary}12` }]}>
+                  <View
+                    style={[
+                      styles.predictionPinRail,
+                      {
+                        backgroundColor: isDark
+                          ? 'rgba(217, 59, 48, 0.14)'
+                          : `${BRAND.primary}12`,
+                      },
+                    ]}
+                  >
                     <Ionicons
                       name="location"
                       size={18}
@@ -441,7 +458,10 @@ export function AddressAutocomplete({
                       {item.mainText}
                     </Text>
                     <Text
-                      style={[styles.predictionSecondary, { color: colors.textSecondary }]}
+                      style={[
+                        styles.predictionSecondary,
+                        { color: colors.textSecondary },
+                      ]}
                       numberOfLines={1}
                     >
                       {item.secondaryText}
@@ -453,10 +473,16 @@ export function AddressAutocomplete({
             <View
               style={[
                 styles.footer,
-                { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : colors.muted },
+                {
+                  backgroundColor: isDark
+                    ? 'rgba(255,255,255,0.04)'
+                    : colors.muted,
+                },
               ]}
             >
-              <Text style={[styles.footerText, { color: colors.textSecondary }]}>
+              <Text
+                style={[styles.footerText, { color: colors.textSecondary }]}
+              >
                 Powered by{' '}
               </Text>
               <Text style={[styles.footerText, { color: '#4285F4' }]}>G</Text>

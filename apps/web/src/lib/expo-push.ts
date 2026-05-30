@@ -652,20 +652,25 @@ export function notifyNewOrder(
   orderNumber: string,
   customerName: string,
   amount: number,
-  currency = 'NGN'
+  currency = 'NGN',
+  paymentMethod?: string
 ): Promise<NotificationSendResult> {
   const formattedAmount = formatCurrency(amount, currency);
+  const isInvoice = paymentMethod === 'invoice';
 
   return notifyMerchant(
     merchantId,
-    '🛒 New Order',
-    `Order #${orderNumber} from ${customerName} - ${formattedAmount}`,
+    isInvoice ? '📄 New Invoice Generated' : '🛒 New Order',
+    isInvoice
+      ? `Invoice #${orderNumber} generated for ${customerName} - ${formattedAmount}`
+      : `Order #${orderNumber} from ${customerName} - ${formattedAmount}`,
     {
-      type: 'new_order',
+      type: isInvoice ? 'new_invoice' : 'new_order',
       order_id: orderId,
       order_number: orderNumber,
       amount,
       currency,
+      payment_method: paymentMethod,
     },
     'orders'
   );

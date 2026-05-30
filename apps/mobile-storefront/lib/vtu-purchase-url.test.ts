@@ -15,9 +15,7 @@ describe('buildVtuPurchaseUrl', () => {
   });
 
   it('builds a purchase URL from a configured API base URL', () => {
-    expect(buildVtuPurchaseUrl()).toBe(
-      'https://usebaci.com/api/vtu/purchase'
-    );
+    expect(buildVtuPurchaseUrl()).toBe('https://usebaci.com/api/vtu/purchase');
   });
 
   it('fails fast when the API base URL is empty', () => {

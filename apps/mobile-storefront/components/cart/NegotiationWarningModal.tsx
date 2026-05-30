@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import type React from 'react';
 import { Modal, Pressable, Text, View } from 'react-native';
 import type Colors from '@/constants/Colors';
@@ -63,7 +63,9 @@ export default function NegotiationWarningModal({
             </Text>
           </View>
 
-          <Text style={[styles.warningDescription, { color: colors.textSecondary }]}>
+          <Text
+            style={[styles.warningDescription, { color: colors.textSecondary }]}
+          >
             Negotiating items individually will disable bulk cart negotiation.
             <Text style={styles.warningDescriptionBold}>
               {' '}
@@ -109,7 +111,10 @@ export default function NegotiationWarningModal({
             >
               <Ionicons name="cash-outline" size={18} color={colors.text} />
               <Text
-                style={[styles.warningSecondaryButtonText, { color: colors.text }]}
+                style={[
+                  styles.warningSecondaryButtonText,
+                  { color: colors.text },
+                ]}
               >
                 Bulk Negotiate Entire Cart
               </Text>

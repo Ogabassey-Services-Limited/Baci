@@ -296,4 +296,6 @@ export function useStartSavingsController() {
   };
 }
 
-export type StartSavingsController = ReturnType<typeof useStartSavingsController>;
+export type StartSavingsController = ReturnType<
+  typeof useStartSavingsController
+>;

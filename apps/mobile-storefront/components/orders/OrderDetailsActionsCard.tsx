@@ -71,9 +71,7 @@ export function OrderDetailsActionsCard({
 
   return (
     <View style={[styles.card, { backgroundColor: colors.card }]}>
-      <Text style={[styles.sectionTitle, { color: colors.text }]}>
-        Actions
-      </Text>
+      <Text style={[styles.sectionTitle, { color: colors.text }]}>Actions</Text>
       <View style={styles.actionStack}>
         {isReceiptReady ? (
           <TouchableOpacity

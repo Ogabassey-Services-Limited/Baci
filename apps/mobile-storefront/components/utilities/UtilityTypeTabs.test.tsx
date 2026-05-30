@@ -74,7 +74,9 @@ describe('UtilityTypeTabs', () => {
     ['dark', Colors.dark],
   ];
 
-  it.each(themeCases)('marks the selected type and applies %s theme styling', (colorScheme, expectedColors) => {
+  it.each(
+    themeCases
+  )('marks the selected type and applies %s theme styling', (colorScheme, expectedColors) => {
     mockColorScheme = colorScheme;
 
     render(<UtilityTypeTabs selectedType="data" onSelect={jest.fn()} />);

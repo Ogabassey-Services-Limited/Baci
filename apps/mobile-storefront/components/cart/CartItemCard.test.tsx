@@ -98,7 +98,9 @@ describe('CartItemCard', () => {
 
     renderCard(item);
 
-    expect(screen.getByText(formatPrice(item.price * item.quantity))).toBeTruthy();
+    expect(
+      screen.getByText(formatPrice(item.price * item.quantity))
+    ).toBeTruthy();
     expect(screen.getByText(formatPrice(800 * item.quantity))).toBeTruthy();
   });
 
@@ -137,8 +139,12 @@ describe('CartItemCard', () => {
 
     renderCard(item, { handleQuantityChange, updateQuantity });
 
-    fireEvent.press(screen.getByLabelText('Decrease quantity for iPhone 13 Pro'));
-    fireEvent.press(screen.getByLabelText('Increase quantity for iPhone 13 Pro'));
+    fireEvent.press(
+      screen.getByLabelText('Decrease quantity for iPhone 13 Pro')
+    );
+    fireEvent.press(
+      screen.getByLabelText('Increase quantity for iPhone 13 Pro')
+    );
     expect(handleQuantityChange).toHaveBeenNthCalledWith(1, item, -1);
     expect(handleQuantityChange).toHaveBeenNthCalledWith(2, item, 1);
 
@@ -169,8 +175,12 @@ describe('CartItemCard', () => {
 
     renderCard(item, { toggleAssurance });
 
-    expect(screen.getByText(`Screen & Liquid Damage +${formatPrice(400)}`)).toBeTruthy();
-    fireEvent.press(screen.getByLabelText('Toggle Ogabassey Assurance for iPhone 13 Pro'));
+    expect(
+      screen.getByText(`Screen & Liquid Damage +${formatPrice(400)}`)
+    ).toBeTruthy();
+    fireEvent.press(
+      screen.getByLabelText('Toggle Ogabassey Assurance for iPhone 13 Pro')
+    );
     expect(toggleAssurance).toHaveBeenCalledWith(item.id);
   });
 

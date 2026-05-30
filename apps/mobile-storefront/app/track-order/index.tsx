@@ -30,10 +30,9 @@ import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
 import { resolveApiBaseUrl } from '@/lib/api-url';
 
-const API_BASE_URL =
-  resolveApiBaseUrl(
-    process.env.EXPO_PUBLIC_API_URL || Constants.expoConfig?.extra?.apiUrl
-  );
+const API_BASE_URL = resolveApiBaseUrl(
+  process.env.EXPO_PUBLIC_API_URL || Constants.expoConfig?.extra?.apiUrl
+);
 
 const MERCHANT_SLUG = Constants.expoConfig?.extra?.merchantSlug || 'ogabassey';
 
@@ -304,7 +303,9 @@ export default function TrackOrderScreen() {
               <View style={[styles.badge, { backgroundColor: badge.bg }]}>
                 <Ionicons
                   name={
-                    statusMeta.icon as React.ComponentProps<typeof Ionicons>['name']
+                    statusMeta.icon as React.ComponentProps<
+                      typeof Ionicons
+                    >['name']
                   }
                   size={14}
                   color={badge.color}
@@ -576,7 +577,10 @@ export default function TrackOrderScreen() {
                     style={({ pressed }) => [
                       styles.contactBtn,
                       { borderColor: colors.border },
-                      pressed && { opacity: 0.7, backgroundColor: colors.border + '20' },
+                      pressed && {
+                        opacity: 0.7,
+                        backgroundColor: colors.border + '20',
+                      },
                     ]}
                     onPress={() =>
                       Linking.openURL(`mailto:${merchant.support_email}`)
@@ -602,7 +606,10 @@ export default function TrackOrderScreen() {
                     style={({ pressed }) => [
                       styles.contactBtn,
                       { borderColor: colors.border },
-                      pressed && { opacity: 0.7, backgroundColor: colors.border + '20' },
+                      pressed && {
+                        opacity: 0.7,
+                        backgroundColor: colors.border + '20',
+                      },
                     ]}
                     onPress={() =>
                       Linking.openURL(`tel:${merchant.support_phone}`)

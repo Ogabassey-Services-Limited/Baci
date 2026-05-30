@@ -1,4 +1,6 @@
-import Ionicons, { type IoniconsIconName } from "@react-native-vector-icons/ionicons";
+import Ionicons, {
+  type IoniconsIconName,
+} from '@react-native-vector-icons/ionicons';
 import { Image } from 'expo-image';
 import { useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -6,11 +8,11 @@ import creditDirectLogoSource from '@/assets/images/creditdirect.jpg';
 import credpalLogoSource from '@/assets/images/credpal.png';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, palette, RADIUS, SPACING } from '@/constants/Colors';
+import { isStoreCreditCompatiblePayment } from '@/lib/store-credit-compatible-payment';
 import type {
   SavingsSelection,
   WalletSelection,
 } from '@/lib/wallet-payment-helpers';
-import { isStoreCreditCompatiblePayment } from '@/lib/store-credit-compatible-payment';
 import { formatPrice } from '@/stores/cart-store';
 import { WalletPayment } from './WalletPayment';
 import { getWalletPaymentState } from './wallet-payment-state';
@@ -105,7 +107,8 @@ const PAYMENT_METHODS: PaymentMethod[] = [
   {
     id: 'invoice',
     label: 'Generate Invoice',
-    description: 'Create an invoice for later payment',
+    description:
+      'Generated invoice will be sent to your email. Ideal for companies.',
     icon: 'receipt-outline',
     tab: 'pay_later',
   },
@@ -805,8 +808,8 @@ export function PaymentMethodSelector({
             color={BRAND.primary}
           />
           <Text style={[styles.bankInfoText, { color: colors.textSecondary }]}>
-            We&apos;ll create an invoice for this order so you can complete
-            payment later.
+            We&apos;ll generate an invoice for this order and send it to your
+            email. Ideal for companies.
           </Text>
         </View>
       )}

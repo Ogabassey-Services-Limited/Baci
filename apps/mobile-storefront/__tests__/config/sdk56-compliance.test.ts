@@ -1,8 +1,6 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 
-
-
 const ROOT = path.resolve(__dirname, '../..');
 const EXCLUDED_SOURCE_DIRECTORIES = new Set(['__tests__', 'test-utils']);
 
@@ -34,8 +32,9 @@ describe('SDK 56 compliance', () => {
   it('uses a manual runtime version for bare workflow builds', () => {
     // Set dummy Facebook environment variables for this test so loading the config doesn't throw
     const originalFacebookAppId = process.env.STOREFRONT_FACEBOOK_APP_ID;
-    const originalFacebookClientToken = process.env.STOREFRONT_FACEBOOK_CLIENT_TOKEN;
-    
+    const originalFacebookClientToken =
+      process.env.STOREFRONT_FACEBOOK_CLIENT_TOKEN;
+
     process.env.STOREFRONT_FACEBOOK_APP_ID = '123456789';
     process.env.STOREFRONT_FACEBOOK_CLIENT_TOKEN = 'client-token';
 
@@ -54,11 +53,12 @@ describe('SDK 56 compliance', () => {
       } else {
         process.env.STOREFRONT_FACEBOOK_APP_ID = originalFacebookAppId;
       }
-      
+
       if (originalFacebookClientToken === undefined) {
         delete process.env.STOREFRONT_FACEBOOK_CLIENT_TOKEN;
       } else {
-        process.env.STOREFRONT_FACEBOOK_CLIENT_TOKEN = originalFacebookClientToken;
+        process.env.STOREFRONT_FACEBOOK_CLIENT_TOKEN =
+          originalFacebookClientToken;
       }
     }
   });

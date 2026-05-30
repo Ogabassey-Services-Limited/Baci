@@ -36,8 +36,13 @@ function parsePendingLoyaltyRedemptionRecord(
 
     if (typeof parsedValue === 'object' && parsedValue !== null) {
       const record = parsedValue as Record<string, unknown>;
-      const { attemptId, createdAt, pointsBeforeRedeem, redemptionId, version } =
-        record;
+      const {
+        attemptId,
+        createdAt,
+        pointsBeforeRedeem,
+        redemptionId,
+        version,
+      } = record;
 
       if (
         version === 2 &&
@@ -78,11 +83,7 @@ function canReusePendingLoyaltyRedemptionRecord({
   ttlMs: number;
 }) {
   const ageMs = now - record.createdAt;
-  return (
-    ageMs >= 0 &&
-    ageMs <= ttlMs &&
-    record.attemptId === attemptId
-  );
+  return ageMs >= 0 && ageMs <= ttlMs && record.attemptId === attemptId;
 }
 
 export async function getOrCreatePendingLoyaltyRedemptionId({

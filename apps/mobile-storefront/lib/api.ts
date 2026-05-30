@@ -461,9 +461,10 @@ export async function withSupabaseRetry<
       // Notify about retry
       if (onRetry) {
         // onRetry expects an Error, so we construct one if it's a plain object
-        const retryError = result.error instanceof Error
-          ? result.error
-          : new Error(result.error.message);
+        const retryError =
+          result.error instanceof Error
+            ? result.error
+            : new Error(result.error.message);
         onRetry(attempt + 1, retryError, delayMs);
       }
 

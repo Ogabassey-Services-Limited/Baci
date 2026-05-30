@@ -19,11 +19,8 @@ export type StoreCreditPaymentMethod =
  * balances applied before gateway settlement; Paystack, Korapay, and bank
  * transfer can still collect any remaining cash amount in the same checkout.
  */
-const STORE_CREDIT_COMPATIBLE_PAYMENT_METHODS: ReadonlySet<StoreCreditPaymentMethod> = new Set([
-  'paystack',
-  'korapay',
-  'bank_transfer',
-]);
+const STORE_CREDIT_COMPATIBLE_PAYMENT_METHODS: ReadonlySet<StoreCreditPaymentMethod> =
+  new Set(['paystack', 'korapay', 'bank_transfer']);
 
 /**
  * isStoreCreditCompatiblePayment returns whether store credit can be combined

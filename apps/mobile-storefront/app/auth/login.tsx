@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -12,9 +12,10 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useShallow } from 'zustand/react/shallow';
 import {
-  LoginEmailStep,
   type LoginAuthMethod,
+  LoginEmailStep,
 } from '@/components/auth/LoginEmailStep';
 import { loginStepStyles } from '@/components/auth/LoginStep.styles';
 import AppKeyboardAwareScrollView from '@/components/ui/AppKeyboardAwareScrollView';
@@ -25,7 +26,6 @@ import { TextContentTypes, useKeyboard } from '@/hooks/use-keyboard';
 import { createLogger } from '@/lib/logger';
 import { EmailSchema, getFirstError, OtpSchema } from '@/lib/validation';
 import { useAuthStore } from '@/stores/auth-store';
-import { useShallow } from 'zustand/react/shallow';
 
 const log = createLogger('Login');
 
@@ -234,9 +234,7 @@ export default function LoginScreen() {
   const handleGoogleSignIn = async () => {
     setIsGoogleLoading(true);
     try {
-      // 2026 Best Practice: The signInWithGoogle call now clears its own Loading state
-      // in the store once the browser opens.
-      const result = await signInWithGoogle();
+      const result = await signInWithGoogle(returnTo || undefined);
 
       if (result.success) {
         log.info('Google sign-in flow initiated successfully');
@@ -405,7 +403,9 @@ export default function LoginScreen() {
       </Pressable>
 
       <View style={loginStepStyles.resendContainer}>
-        <Text style={[loginStepStyles.resendText, { color: colors.textSecondary }]}>
+        <Text
+          style={[loginStepStyles.resendText, { color: colors.textSecondary }]}
+        >
           Didn't receive the code?
         </Text>
         <Pressable onPress={handleResendOtp} disabled={isLoading}>
@@ -464,7 +464,9 @@ export default function LoginScreen() {
           />
           <Pressable
             onPress={() => setShowPassword(!showPassword)}
-            accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+            accessibilityLabel={
+              showPassword ? 'Hide password' : 'Show password'
+            }
             accessibilityRole="button"
             style={({ pressed }) => [
               loginStepStyles.passwordToggle,
@@ -535,7 +537,9 @@ export default function LoginScreen() {
         }}
         style={loginStepStyles.methodToggle}
       >
-        <Text style={[loginStepStyles.methodToggleText, { color: colors.primary }]}>
+        <Text
+          style={[loginStepStyles.methodToggleText, { color: colors.primary }]}
+        >
           Sign in with verification code instead
         </Text>
       </Pressable>
@@ -573,31 +577,31 @@ export default function LoginScreen() {
             />
           </View>
 
-          {step === 'email'
-            ? (
-                <LoginEmailStep
-                  authMethod={authMethod}
-                  colors={colors}
-                  email={email}
-                  emailError={emailError}
-                  isAppleLoading={isAppleLoading}
-                  isGoogleLoading={isGoogleLoading}
-                  isLoading={isLoading}
-                  onAppleSignIn={handleAppleSignIn}
-                  onContinue={handleContinue}
-                  onEmailChange={(text) => {
-                    setEmail(text);
-                    if (emailError) setEmailError(null);
-                  }}
-                  onGoogleSignIn={handleGoogleSignIn}
-                  onToggleAuthMethod={() =>
-                    setAuthMethod(authMethod === 'otp' ? 'password' : 'otp')
-                  }
-                />
-              )
-            : step === 'otp'
-              ? renderOtpStep()
-              : renderPasswordStep()}
+          {step === 'email' ? (
+            <LoginEmailStep
+              authMethod={authMethod}
+              colors={colors}
+              email={email}
+              emailError={emailError}
+              isAppleLoading={isAppleLoading}
+              isGoogleLoading={isGoogleLoading}
+              isLoading={isLoading}
+              onAppleSignIn={handleAppleSignIn}
+              onContinue={handleContinue}
+              onEmailChange={(text) => {
+                setEmail(text);
+                if (emailError) setEmailError(null);
+              }}
+              onGoogleSignIn={handleGoogleSignIn}
+              onToggleAuthMethod={() =>
+                setAuthMethod(authMethod === 'otp' ? 'password' : 'otp')
+              }
+            />
+          ) : step === 'otp' ? (
+            renderOtpStep()
+          ) : (
+            renderPasswordStep()
+          )}
         </AppKeyboardAwareScrollView>
       </SafeAreaView>
     </>

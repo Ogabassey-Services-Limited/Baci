@@ -1,13 +1,6 @@
 {
   "maxLines": 300,
-  "roots": [
-    "components",
-    "hooks",
-    "lib",
-    "services",
-    "stores",
-    "utils"
-  ],
+  "roots": ["components", "hooks", "lib", "services", "stores", "utils"],
   "modules": [
     {
       "path": "hooks/useProducts.ts",

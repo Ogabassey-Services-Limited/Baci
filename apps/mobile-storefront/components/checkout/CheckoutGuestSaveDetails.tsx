@@ -1,10 +1,5 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
-import {
-  Pressable,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { Pressable, Text, TextInput, View } from 'react-native';
 import { BRAND } from '@/constants/Colors';
 import { checkoutContactCardStyles as styles } from './CheckoutContactCard.styles';
 
@@ -31,7 +26,8 @@ export function CheckoutGuestSaveDetails({
   onToggleSaveDetails,
   saveDetails,
 }: CheckoutGuestSaveDetailsProps) {
-  const hasShortPassword = accountPassword.length > 0 && accountPassword.length < 6;
+  const hasShortPassword =
+    accountPassword.length > 0 && accountPassword.length < 6;
 
   return (
     <View style={styles.saveDetailsSection}>
@@ -66,8 +62,14 @@ export function CheckoutGuestSaveDetails({
               { backgroundColor: BRAND.primaryAlpha06 },
             ]}
           >
-            <Ionicons name="information-circle" size={18} color={BRAND.primary} />
-            <Text style={[styles.accountInfoText, { color: colors.textSecondary }]}>
+            <Ionicons
+              name="information-circle"
+              size={18}
+              color={BRAND.primary}
+            />
+            <Text
+              style={[styles.accountInfoText, { color: colors.textSecondary }]}
+            >
               This will create an account so you can track your order and
               checkout faster next time.
             </Text>

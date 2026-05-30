@@ -4,7 +4,10 @@ const TOOLS_NAMESPACE = 'http://schemas.android.com/tools';
 const SCREEN_ORIENTATION_ATTRIBUTE = 'android:screenOrientation';
 const EXPORTED_ATTRIBUTE = 'android:exported';
 const TOOLS_REMOVE_ATTRIBUTE = 'tools:remove';
-const MAIN_ACTIVITY_NAMES = ['.MainActivity', 'com.ogabassey.store.MainActivity'];
+const MAIN_ACTIVITY_NAMES = [
+  '.MainActivity',
+  'com.ogabassey.store.MainActivity',
+];
 const ML_KIT_SCANNER_DELEGATE_ACTIVITY =
   'com.google.mlkit.vision.codescanner.internal.GmsBarcodeScanningDelegateActivity';
 
@@ -47,7 +50,10 @@ function appendToolsRemove(activity, attribute) {
   const currentValue = activity.$[TOOLS_REMOVE_ATTRIBUTE];
   const values = new Set(
     typeof currentValue === 'string'
-      ? currentValue.split(',').map((value) => value.trim()).filter(Boolean)
+      ? currentValue
+          .split(',')
+          .map((value) => value.trim())
+          .filter(Boolean)
       : []
   );
 
@@ -95,7 +101,9 @@ function withAdaptiveAndroidManifest(config) {
   }
 
   return withAndroidManifest(config, (innerConfig) => {
-    innerConfig.modResults = applyAdaptiveAndroidManifest(innerConfig.modResults);
+    innerConfig.modResults = applyAdaptiveAndroidManifest(
+      innerConfig.modResults
+    );
     return innerConfig;
   });
 }

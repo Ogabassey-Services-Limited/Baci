@@ -33,7 +33,11 @@ const menuItems: MenuItem[] = [
     authRequired: true,
   },
   { label: 'Orders', icon: 'bag-outline', path: '/orders' },
-  { label: 'Receipts', icon: 'document-text-outline', path: '/receipts' },
+  {
+    label: 'Receipts & Invoices',
+    icon: 'document-text-outline',
+    path: '/receipts',
+  },
   { label: 'Saved Items', icon: 'heart-outline', path: '/saved' },
   { label: 'IMEI Checker', icon: 'scan-outline', path: '/imei-check' },
   { label: 'Wallet', icon: 'wallet-outline', path: '/wallet' },

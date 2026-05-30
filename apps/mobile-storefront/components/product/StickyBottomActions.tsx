@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { router } from 'expo-router';
 import {
   type GestureResponderEvent,
@@ -82,7 +82,9 @@ export function StickyBottomActions({
           </Pressable>
 
           <View style={styles.qtyCenter}>
-            <Text style={[styles.qtyLabel, { color: colors.textSecondary }]}>In Cart</Text>
+            <Text style={[styles.qtyLabel, { color: colors.textSecondary }]}>
+              In Cart
+            </Text>
             <TextInput
               style={[styles.qtyInput, { color: colors.text }]}
               value={localQty}
@@ -189,9 +191,7 @@ export function StickyBottomActions({
   // In inline mode, still respect `paddingBottom` so callers that rely on it
   // (e.g. to clear safe-area insets) get consistent behavior with floating
   // mode rather than having the prop silently ignored.
-  return (
-    <View style={[styles.inlineBar, { paddingBottom }]}>{content}</View>
-  );
+  return <View style={[styles.inlineBar, { paddingBottom }]}>{content}</View>;
 }
 
 const styles = StyleSheet.create({

@@ -28,7 +28,9 @@ function fillAddressAndContinueToPayment() {
     screen.getByPlaceholderText('john@example.com'),
     'ada@example.com'
   );
-  fireEvent.press(screen.getByRole('button', { name: 'Select pickup station' }));
+  fireEvent.press(
+    screen.getByRole('button', { name: 'Select pickup station' })
+  );
   fireEvent.press(screen.getByRole('button', { name: 'Continue to payment' }));
 }
 
@@ -84,7 +86,9 @@ function triggerAlertButton(
   alertTitle: string,
   buttonIndex: number
 ) {
-  const alertCall = alertMock.mock.calls.find(([title]) => title === alertTitle);
+  const alertCall = alertMock.mock.calls.find(
+    ([title]) => title === alertTitle
+  );
   const button = alertCall?.[2]?.[buttonIndex] as
     | { onPress?: () => void }
     | undefined;
@@ -100,23 +104,19 @@ describe('CheckoutScreen', () => {
     teardownCheckoutTest();
   });
 
-  it(
-    'renders checkout with address step visible by default',
-    async () => {
-      renderCheckoutScreen();
+  it('renders checkout with address step visible by default', async () => {
+    renderCheckoutScreen();
 
-      expect(screen.getByText('Checkout')).toBeOnTheScreen();
-      expect(screen.getByText('Delivery Address')).toBeOnTheScreen();
-      expect(screen.getByLabelText('checkout-step')).toHaveTextContent(
-        'step:address'
-      );
+    expect(screen.getByText('Checkout')).toBeOnTheScreen();
+    expect(screen.getByText('Delivery Address')).toBeOnTheScreen();
+    expect(screen.getByLabelText('checkout-step')).toHaveTextContent(
+      'step:address'
+    );
 
-      await waitFor(() => {
-        expect(mockTrackCheckoutStarted).toHaveBeenCalledTimes(1);
-      });
-    },
-    15_000
-  );
+    await waitFor(() => {
+      expect(mockTrackCheckoutStarted).toHaveBeenCalledTimes(1);
+    });
+  }, 15_000);
 
   it('continues from address to payment when required fields are valid', async () => {
     renderCheckoutScreen();
@@ -595,7 +595,9 @@ describe('CheckoutScreen', () => {
     });
 
     fireEvent.press(
-      screen.getByRole('button', { name: 'Mock select Bank transfer to wallet' })
+      screen.getByRole('button', {
+        name: 'Mock select Bank transfer to wallet',
+      })
     );
     fireEvent.press(screen.getByRole('button', { name: 'Continue to review' }));
 
@@ -688,7 +690,9 @@ describe('CheckoutScreen', () => {
     });
 
     fireEvent.press(
-      screen.getByRole('button', { name: 'Mock select Bank transfer to wallet' })
+      screen.getByRole('button', {
+        name: 'Mock select Bank transfer to wallet',
+      })
     );
     fireEvent.press(screen.getByRole('button', { name: 'Continue to review' }));
 

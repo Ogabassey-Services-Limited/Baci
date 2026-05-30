@@ -1,16 +1,16 @@
-import { z } from "zod";
-import { WalletFundingAccountSchema } from "@/schemas/wallet-funding-account";
+import { z } from 'zod';
+import { WalletFundingAccountSchema } from '@/schemas/wallet-funding-account';
 
 export const walletOrderFundingIntentStatusSchema = z.enum([
-  "pending",
-  "underfunded",
-  "funded",
-  "processing",
-  "completed",
-  "expired",
-  "cancelled",
-  "review_required",
-  "failed",
+  'pending',
+  'underfunded',
+  'funded',
+  'processing',
+  'completed',
+  'expired',
+  'cancelled',
+  'review_required',
+  'failed',
 ]);
 
 const currencySchema = z
