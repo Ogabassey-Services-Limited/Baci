@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
+import type { FormEvent } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockUseFormStatus = vi.hoisted(() =>
@@ -53,7 +54,7 @@ describe('SubmitButton', () => {
     expect(button).toHaveAttribute('aria-busy', 'true');
     expect(button).toHaveAttribute('aria-disabled', 'true');
     expect(button).toHaveClass(
-      'aria-disabled:pointer-events-none',
+      'aria-disabled:cursor-not-allowed',
       'aria-disabled:opacity-50'
     );
     expect(button).not.toBeDisabled();
@@ -87,5 +88,34 @@ describe('SubmitButton', () => {
     fireEvent.click(button);
 
     expect(onClick).not.toHaveBeenCalled();
+  });
+
+  it('blocks repeated form submits while pending without dropping focusability', () => {
+    mockUseFormStatus.mockReturnValue({
+      action: null,
+      data: null,
+      method: null,
+      pending: true,
+    });
+    const onSubmit = vi.fn((event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+    });
+
+    render(
+      <form onSubmit={onSubmit}>
+        <label htmlFor="email">Email</label>
+        <input id="email" name="email" />
+        <SubmitButton pendingText="Saving">Save</SubmitButton>
+      </form>
+    );
+
+    const button = screen.getByRole('button', { name: 'Saving' });
+    const form = button.closest('form');
+    expect(form).not.toBeNull();
+
+    fireEvent.submit(form as HTMLFormElement);
+
+    expect(button).not.toBeDisabled();
+    expect(onSubmit).not.toHaveBeenCalled();
   });
 });
