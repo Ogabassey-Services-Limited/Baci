@@ -1,0 +1,36 @@
+import { describe, expect, it } from 'vitest';
+import imageLoader from '@/lib/image-loader';
+import { buildOgabasseyPdpMobileImageSrcSet } from './product-image-source';
+
+describe('buildOgabasseyPdpMobileImageSrcSet', () => {
+  it('caps mobile PDP LCP candidates at the measured mobile width budget', () => {
+    const src =
+      'https://cdn.ogabassey.com/core-assets/products/gaming/nintendo-switch-hotel-transylvania.avif';
+
+    const srcSet = buildOgabasseyPdpMobileImageSrcSet(src);
+
+    expect(srcSet).toContain(
+      `${imageLoader({ src, width: 750, quality: 35 })} 750w`
+    );
+    expect(srcSet).toContain(
+      `${imageLoader({ src, width: 640, quality: 35 })} 640w`
+    );
+    expect(srcSet).not.toContain('828w');
+    expect(srcSet).not.toContain('1080w');
+  });
+
+  it('keeps the cap for non-CDN image loader URL shapes', () => {
+    const src = 'https://assets.example.com/products/demo-product.png';
+
+    const srcSet = buildOgabasseyPdpMobileImageSrcSet(src);
+
+    expect(srcSet).toContain(
+      `${imageLoader({ src, width: 750, quality: 35 })} 750w`
+    );
+    expect(srcSet).toContain(
+      `${imageLoader({ src, width: 640, quality: 35 })} 640w`
+    );
+    expect(srcSet).not.toContain('828w');
+    expect(srcSet).not.toContain('1080w');
+  });
+});
