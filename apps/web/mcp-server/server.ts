@@ -54,13 +54,27 @@ const PORT = Number(process.env.MCP_PORT ?? 8787);
 const MCP_PATH = '/mcp';
 const AGENTIC_CHECKOUT_API_BASE_URL =
   process.env.MCP_AGENTIC_CHECKOUT_BASE_URL ?? 'https://ogabassey.com';
-const AGENTIC_CHECKOUT_API_KEY = process.env.OPENAI_AGENTIC_API_KEY;
-const AGENTIC_CHECKOUT_SIGNING_KEY = process.env.OPENAI_AGENTIC_SIGNING_KEY;
+const AGENTIC_CHECKOUT_API_KEY = getAgenticCredential(
+  'BACI_AGENTIC_ACCESS_TOKEN',
+  'OPENAI_AGENTIC_API_KEY'
+);
+const AGENTIC_CHECKOUT_SIGNING_KEY = getAgenticCredential(
+  'BACI_AGENTIC_SIGNING_KEY',
+  'OPENAI_AGENTIC_SIGNING_KEY'
+);
 
 type ConfiguredAgenticCheckoutClientConfig = AgenticCheckoutClientConfig & {
   apiKey: string;
   signingKey: string;
 };
+
+function getAgenticCredential(primaryName: string, legacyName: string) {
+  const primary = process.env[primaryName]?.trim();
+  if (primary) return primary;
+
+  const legacy = process.env[legacyName]?.trim();
+  return legacy || undefined;
+}
 
 function getAgenticCheckoutClientConfig():
   | ConfiguredAgenticCheckoutClientConfig
@@ -1722,7 +1736,7 @@ function createOgabasseyServer() {
     );
   } else {
     console.warn(
-      'Agentic checkout tools disabled: missing OPENAI_AGENTIC_API_KEY or OPENAI_AGENTIC_SIGNING_KEY'
+      'Agentic checkout tools disabled: missing BACI_AGENTIC_ACCESS_TOKEN or BACI_AGENTIC_SIGNING_KEY'
     );
   }
 
