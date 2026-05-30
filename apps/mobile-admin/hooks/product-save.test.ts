@@ -1,22 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createProductRecord, updateProductRecord } from './product-save';
 
-type QueryCall = { method: string; args: unknown[] };
-type QueryResponse = {
+type RpcCall = { name: string; args: Record<string, unknown> };
+type RpcResponse = {
   data: Record<string, unknown> | null;
-  error: null | { message: string };
+  error: null | { code?: string; message: string };
 };
 
 const mocks = vi.hoisted(() => ({
   assertNoDuplicateProduct: vi.fn(),
-  calls: [] as QueryCall[],
-  responses: [] as QueryResponse[],
-  syncStructuredVariants: vi.fn(),
+  calls: [] as RpcCall[],
+  response: {
+    data: null,
+    error: null,
+  } as RpcResponse,
 }));
 
 vi.mock('@baci/shared', () => ({
   inferProductVariantModel: vi.fn(() => 'sku_matrix'),
-  MOBILE_ADMIN_PRODUCT_COLUMNS: 'id, name, variant_model',
   normalizeProductVariantModel: vi.fn((value: unknown) => value ?? 'legacy'),
 }));
 
@@ -29,34 +30,9 @@ vi.mock('@/lib/product-inventory', () => ({
 
 vi.mock('@/lib/supabase', () => ({
   supabase: {
-    from: (table: string) => {
-      const query = {
-        delete: (...args: unknown[]) => {
-          mocks.calls.push({ args, method: `${table}.delete` });
-          return query;
-        },
-        eq: (...args: unknown[]) => {
-          mocks.calls.push({ args, method: `${table}.eq` });
-          return query;
-        },
-        insert: (...args: unknown[]) => {
-          mocks.calls.push({ args, method: `${table}.insert` });
-          return query;
-        },
-        select: (...args: unknown[]) => {
-          mocks.calls.push({ args, method: `${table}.select` });
-          return query;
-        },
-        single: () =>
-          Promise.resolve(
-            mocks.responses.shift() ?? { data: null, error: null }
-          ),
-        update: (...args: unknown[]) => {
-          mocks.calls.push({ args, method: `${table}.update` });
-          return query;
-        },
-      };
-      return query;
+    rpc: (name: string, args: Record<string, unknown>) => {
+      mocks.calls.push({ args, name });
+      return Promise.resolve(mocks.response);
     },
   },
 }));
@@ -72,13 +48,8 @@ vi.mock('./product-duplicate', () => ({
     params: Parameters<typeof mocks.assertNoDuplicateProduct>[0]
   ) => mocks.assertNoDuplicateProduct(params),
   DUPLICATE_PRODUCT_ERROR: 'A product with this name already exists',
-  isDuplicateConstraintError: () => false,
-}));
-
-vi.mock('./product-variant-sync', () => ({
-  syncStructuredVariants: (
-    params: Parameters<typeof mocks.syncStructuredVariants>[0]
-  ) => mocks.syncStructuredVariants(params),
+  isDuplicateConstraintError: (error: { code?: string; message?: string }) =>
+    error.code === '23505' || error.message?.includes('duplicate'),
 }));
 
 const productForm = {
@@ -117,23 +88,17 @@ describe('product save helpers', () => {
   beforeEach(() => {
     mocks.assertNoDuplicateProduct.mockReset();
     mocks.calls = [];
-    mocks.responses = [];
-    mocks.syncStructuredVariants.mockReset();
+    mocks.response = {
+      data: {
+        id: 'product-1',
+        name: 'Ankara Bag',
+        variant_model: 'sku_matrix',
+      },
+      error: null,
+    };
   });
 
-  it('creates a product, syncs variants, and persists the inferred variant model', async () => {
-    mocks.responses = [
-      { data: { id: 'product-1', name: 'Ankara Bag' }, error: null },
-      {
-        data: {
-          id: 'product-1',
-          name: 'Ankara Bag',
-          variant_model: 'sku_matrix',
-        },
-        error: null,
-      },
-    ];
-
+  it('creates a product and variants through the atomic save RPC', async () => {
     const product = await createProductRecord({
       merchantId: 'merchant-1',
       newProduct: productForm,
@@ -143,16 +108,21 @@ describe('product save helpers', () => {
       merchantId: 'merchant-1',
       productName: 'Ankara Bag',
     });
-    expect(mocks.syncStructuredVariants).toHaveBeenCalledWith({
-      hasVariants: true,
-      merchantId: 'merchant-1',
-      productId: 'product-1',
-      variants: productForm.variants,
-    });
-    expect(mocks.calls).toContainEqual({
-      args: [[expect.objectContaining({ merchant_id: 'merchant-1' })]],
-      method: 'products.insert',
-    });
+    expect(mocks.calls).toEqual([
+      {
+        args: expect.objectContaining({
+          p_merchant_id: 'merchant-1',
+          p_product_id: null,
+          p_product_payload: expect.objectContaining({
+            has_variants: true,
+            name: 'Ankara Bag',
+          }),
+          p_variant_model: 'sku_matrix',
+          p_variants: productForm.variants,
+        }),
+        name: 'save_mobile_admin_product_with_variants',
+      },
+    ]);
     expect(product).toEqual(
       expect.objectContaining({
         id: 'product-1',
@@ -162,43 +132,7 @@ describe('product save helpers', () => {
     );
   });
 
-  it('rolls back a newly inserted product when variant sync fails', async () => {
-    const syncError = new Error('variant sync failed');
-    mocks.responses = [
-      { data: { id: 'product-1', name: 'Ankara Bag' }, error: null },
-    ];
-    mocks.syncStructuredVariants.mockRejectedValueOnce(syncError);
-
-    await expect(
-      createProductRecord({
-        merchantId: 'merchant-1',
-        newProduct: productForm,
-      })
-    ).rejects.toBe(syncError);
-
-    expect(mocks.calls).toContainEqual({
-      args: [],
-      method: 'products.delete',
-    });
-    expect(mocks.calls).toContainEqual({
-      args: ['id', 'product-1'],
-      method: 'products.eq',
-    });
-  });
-
-  it('updates an existing product with duplicate exclusion and variant sync', async () => {
-    mocks.responses = [
-      { data: { id: 'product-1', name: 'Ankara Bag' }, error: null },
-      {
-        data: {
-          id: 'product-1',
-          name: 'Ankara Bag',
-          variant_model: 'sku_matrix',
-        },
-        error: null,
-      },
-    ];
-
+  it('updates an existing product with duplicate exclusion through the same RPC', async () => {
     await updateProductRecord({
       id: 'product-1',
       merchantId: 'merchant-1',
@@ -210,11 +144,26 @@ describe('product save helpers', () => {
       merchantId: 'merchant-1',
       productName: 'Ankara Bag',
     });
-    expect(mocks.syncStructuredVariants).toHaveBeenCalledWith({
-      hasVariants: true,
-      merchantId: 'merchant-1',
-      productId: 'product-1',
-      variants: productForm.variants,
+    expect(mocks.calls[0]).toEqual({
+      args: expect.objectContaining({
+        p_merchant_id: 'merchant-1',
+        p_product_id: 'product-1',
+      }),
+      name: 'save_mobile_admin_product_with_variants',
     });
+  });
+
+  it('maps duplicate RPC errors to the product duplicate message', async () => {
+    mocks.response = {
+      data: null,
+      error: { code: '23505', message: 'duplicate key value violates unique' },
+    };
+
+    await expect(
+      createProductRecord({
+        merchantId: 'merchant-1',
+        newProduct: productForm,
+      })
+    ).rejects.toThrow('A product with this name already exists');
   });
 });

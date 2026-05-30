@@ -1,6 +1,5 @@
 import {
   inferProductVariantModel,
-  MOBILE_ADMIN_PRODUCT_COLUMNS as PRODUCT_COLUMNS,
   normalizeProductVariantModel,
 } from '@baci/shared';
 import { normalizeProductInventory } from '@/lib/product-inventory';
@@ -14,7 +13,6 @@ import {
   DUPLICATE_PRODUCT_ERROR,
   isDuplicateConstraintError,
 } from './product-duplicate';
-import { syncStructuredVariants } from './product-variant-sync';
 import type { Product } from './products.types';
 
 export async function updateProductRecord(args: {
@@ -44,43 +42,13 @@ export async function updateProductRecord(args: {
     productName: productPayload.name,
   });
 
-  const { data, error } = await supabase
-    .from('products')
-    .update({ ...productPayload, updated_at: new Date().toISOString() })
-    .eq('id', args.id)
-    .eq('merchant_id', args.merchantId)
-    .select(PRODUCT_COLUMNS)
-    .single();
-
-  if (error) {
-    if (isDuplicateConstraintError(error)) throw new Error(DUPLICATE_PRODUCT_ERROR);
-    throw new Error(error.message);
-  }
-
-  await syncStructuredVariants({
-    hasVariants: productPayload.has_variants,
+  return saveProductWithVariants({
     merchantId: args.merchantId,
     productId: args.id,
+    productPayload,
+    variantModel,
     variants: variantsForSync,
   });
-
-  const { data: rolloutProduct, error: rolloutError } = await supabase
-    .from('products')
-    .update({
-      variant_model: variantModel,
-      ...(variantModel === 'sku_matrix'
-        ? { migration_status: 'migrated' as const }
-        : {}),
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', args.id)
-    .eq('merchant_id', args.merchantId)
-    .select(PRODUCT_COLUMNS)
-    .single();
-
-  if (rolloutError) throw new Error(rolloutError.message);
-
-  return normalizeProductInventory(rolloutProduct ?? data);
 }
 
 export async function createProductRecord(args: {
@@ -108,47 +76,38 @@ export async function createProductRecord(args: {
     productName: productPayload.name,
   });
 
-  const { data, error } = await supabase
-    .from('products')
-    .insert([{ ...productPayload, merchant_id: args.merchantId }])
-    .select(PRODUCT_COLUMNS)
-    .single();
+  return saveProductWithVariants({
+    merchantId: args.merchantId,
+    productId: null,
+    productPayload,
+    variantModel,
+    variants: variantsForSync,
+  });
+}
+
+async function saveProductWithVariants(args: {
+  merchantId: string;
+  productId: string | null;
+  productPayload: Record<string, unknown>;
+  variantModel: 'legacy' | 'sku_matrix';
+  variants: unknown[];
+}): Promise<Product> {
+  const { data, error } = await supabase.rpc(
+    'save_mobile_admin_product_with_variants',
+    {
+      p_merchant_id: args.merchantId,
+      p_product_id: args.productId,
+      p_product_payload: args.productPayload,
+      p_variant_model: args.variantModel,
+      p_variants: args.variants,
+    }
+  );
 
   if (error) {
-    if (isDuplicateConstraintError(error)) throw new Error(DUPLICATE_PRODUCT_ERROR);
+    if (isDuplicateConstraintError(error))
+      throw new Error(DUPLICATE_PRODUCT_ERROR);
     throw new Error(error.message);
   }
 
-  try {
-    await syncStructuredVariants({
-      hasVariants: productPayload.has_variants,
-      merchantId: args.merchantId,
-      productId: data.id,
-      variants: variantsForSync,
-    });
-
-    const { data: rolloutProduct, error: rolloutError } = await supabase
-      .from('products')
-      .update({
-        variant_model: variantModel,
-        ...(variantModel === 'sku_matrix'
-          ? { migration_status: 'migrated' as const }
-          : {}),
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', data.id)
-      .eq('merchant_id', args.merchantId)
-      .select(PRODUCT_COLUMNS)
-      .single();
-
-    if (rolloutError) throw new Error(rolloutError.message);
-    return normalizeProductInventory(rolloutProduct ?? data);
-  } catch (variantError) {
-    await supabase
-      .from('products')
-      .delete()
-      .eq('id', data.id)
-      .eq('merchant_id', args.merchantId);
-    throw variantError;
-  }
+  return normalizeProductInventory(data as Product);
 }

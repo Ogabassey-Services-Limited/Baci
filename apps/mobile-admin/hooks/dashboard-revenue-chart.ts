@@ -1,121 +1,107 @@
-import { applyOrderBranchScope } from '@/lib/branch-scope-query';
 import { supabase } from '@/lib/supabase';
 import { ALL_BRANCH_SCOPE, type BranchScope } from '@/schemas/branch';
 import type { RevenueDataPoint, TimePeriod } from './dashboard-stats.types';
+
+interface RevenueChartBucket {
+  end_at: string;
+  label: string;
+  ordinal: number;
+  start_at: string;
+}
+
+type RevenueChartRpcPoint = {
+  label?: unknown;
+  value?: unknown;
+};
 
 export async function fetchRevenueChart(
   merchantId: string,
   period: TimePeriod,
   scope: BranchScope = ALL_BRANCH_SCOPE
 ): Promise<RevenueDataPoint[]> {
-  const now = new Date();
-  let rangeStart: Date;
-  const rangeEnd: Date = now;
+  const buckets = buildRevenueChartBuckets(period);
+  const { data, error } = await supabase.rpc('get_mobile_admin_revenue_chart', {
+    p_branch_id: scope.type === 'branch' ? scope.branchId : null,
+    p_buckets: buckets,
+    p_merchant_id: merchantId,
+  });
 
-  if (period === 'today') {
-    rangeStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  } else if (period === 'week') {
-    rangeStart = new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000);
-    rangeStart = new Date(
-      rangeStart.getFullYear(),
-      rangeStart.getMonth(),
-      rangeStart.getDate()
-    );
-  } else if (period === 'month') {
-    rangeStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  } else {
-    const sixMonthsAgo = new Date(now);
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
-    rangeStart = new Date(
-      sixMonthsAgo.getFullYear(),
-      sixMonthsAgo.getMonth(),
-      1
-    );
-  }
-
-  let ordersQuery = supabase
-    .from('orders')
-    .select('total, created_at')
-    .eq('merchant_id', merchantId)
-    .gte('created_at', rangeStart.toISOString())
-    .lte('created_at', rangeEnd.toISOString());
-  ordersQuery = applyOrderBranchScope(ordersQuery, scope);
-
-  const { data: orders, error } = await ordersQuery;
   if (error) {
-    throw new Error(`fetchRevenueChart orders query failed: ${error.message}`);
+    throw new Error(`fetchRevenueChart rpc failed: ${error.message}`);
   }
 
+  if (!Array.isArray(data)) {
+    return buckets.map((bucket) => ({ label: bucket.label, value: 0 }));
+  }
+
+  return data.map((point: RevenueChartRpcPoint) => ({
+    label: typeof point.label === 'string' ? point.label : '',
+    value: Number(point.value ?? 0),
+  }));
+}
+
+export function buildRevenueChartBuckets(
+  period: TimePeriod
+): RevenueChartBucket[] {
+  const now = new Date();
+
   if (period === 'today') {
-    const slots = [
+    const startOfDay = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate()
+    );
+    return [
       { label: '12am', start: 0, end: 4 },
       { label: '4am', start: 4, end: 8 },
       { label: '8am', start: 8, end: 12 },
       { label: '12pm', start: 12, end: 16 },
       { label: '4pm', start: 16, end: 20 },
       { label: '8pm', start: 20, end: 24 },
-    ];
-    const buckets = slots.map((slot) => ({ label: slot.label, value: 0 }));
-    orders?.forEach((order) => {
-      const hour = new Date(order.created_at).getHours();
-      const slotIndex = slots.findIndex((s) => hour >= s.start && hour < s.end);
-      if (slotIndex >= 0) buckets[slotIndex].value += order.total || 0;
+    ].map((slot, ordinal) => {
+      const start = new Date(startOfDay);
+      start.setHours(slot.start, 0, 0, 0);
+      const end = new Date(startOfDay);
+      end.setHours(slot.end, 0, 0, 0);
+      return toRevenueChartBucket(slot.label, start, end, ordinal);
     });
-    return buckets;
   }
 
   if (period === 'week') {
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const dayBuckets: { label: string; date: string; value: number }[] = [];
-    for (let i = 6; i >= 0; i--) {
-      const date = new Date(now);
-      date.setDate(date.getDate() - i);
-      const dateStr = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
-      dayBuckets.push({ date: dateStr, label: days[date.getDay()], value: 0 });
-    }
-    orders?.forEach((order) => {
-      const d = new Date(order.created_at);
-      const dateStr = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-      const bucket = dayBuckets.find((b) => b.date === dateStr);
-      if (bucket) bucket.value += order.total || 0;
+    return Array.from({ length: 7 }, (_, ordinal) => {
+      const start = new Date(now);
+      start.setDate(start.getDate() - (6 - ordinal));
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(start);
+      end.setDate(end.getDate() + 1);
+      return toRevenueChartBucket(days[start.getDay()], start, end, ordinal);
     });
-    return dayBuckets.map(({ label, value }) => ({ label, value }));
   }
 
   if (period === 'month') {
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const weeksInMonth = Math.ceil((now.getDate() + startOfMonth.getDay()) / 7);
-    const weekCount = Math.min(weeksInMonth, 5);
-    const weekBuckets: {
-      label: string;
-      start: Date;
-      end: Date;
-      value: number;
-    }[] = [];
-    for (let week = 0; week < weekCount; week++) {
-      const weekStart = new Date(startOfMonth);
-      weekStart.setDate(weekStart.getDate() + week * 7 - startOfMonth.getDay());
-      if (weekStart < startOfMonth) weekStart.setTime(startOfMonth.getTime());
-      const weekEnd = new Date(weekStart);
-      weekEnd.setDate(weekEnd.getDate() + 7);
-      if (weekEnd > now) weekEnd.setTime(now.getTime());
-      weekBuckets.push({
-        end: weekEnd,
-        label: `Wk ${week + 1}`,
-        start: weekStart,
-        value: 0,
-      });
-    }
-    orders?.forEach((order) => {
-      const orderDate = new Date(order.created_at);
-      for (const bucket of weekBuckets) {
-        if (orderDate >= bucket.start && orderDate < bucket.end) {
-          bucket.value += order.total || 0;
-          break;
-        }
+    const buckets: RevenueChartBucket[] = [];
+    let cursor = new Date(startOfMonth);
+    while (cursor < now && buckets.length < 5) {
+      const start = new Date(cursor);
+      const end = new Date(start);
+      const daysUntilNextWeek = start.getDay() === 0 ? 7 : 7 - start.getDay();
+      end.setDate(end.getDate() + daysUntilNextWeek);
+      if (end > now) {
+        end.setTime(now.getTime());
       }
-    });
-    return weekBuckets.map(({ label, value }) => ({ label, value }));
+      buckets.push(
+        toRevenueChartBucket(
+          `Wk ${buckets.length + 1}`,
+          start,
+          end,
+          buckets.length
+        )
+      );
+      cursor = new Date(end);
+    }
+    return buckets;
   }
 
   const months = [
@@ -132,30 +118,30 @@ export async function fetchRevenueChart(
     'Nov',
     'Dec',
   ];
-  const monthBuckets: {
-    label: string;
-    year: number;
-    month: number;
-    value: number;
-  }[] = [];
-  for (let i = 5; i >= 0; i--) {
-    const date = new Date(now);
-    date.setMonth(date.getMonth() - i);
-    monthBuckets.push({
-      label: months[date.getMonth()],
-      month: date.getMonth(),
-      value: 0,
-      year: date.getFullYear(),
-    });
-  }
-
-  orders?.forEach((order) => {
-    const d = new Date(order.created_at);
-    const bucket = monthBuckets.find(
-      (b) => b.year === d.getFullYear() && b.month === d.getMonth()
+  return Array.from({ length: 6 }, (_, ordinal) => {
+    const start = new Date(
+      now.getFullYear(),
+      now.getMonth() - (5 - ordinal),
+      1
     );
-    if (bucket) bucket.value += order.total || 0;
+    const end = new Date(start.getFullYear(), start.getMonth() + 1, 1);
+    if (end > now) {
+      end.setTime(now.getTime());
+    }
+    return toRevenueChartBucket(months[start.getMonth()], start, end, ordinal);
   });
+}
 
-  return monthBuckets.map(({ label, value }) => ({ label, value }));
+function toRevenueChartBucket(
+  label: string,
+  start: Date,
+  end: Date,
+  ordinal: number
+): RevenueChartBucket {
+  return {
+    end_at: end.toISOString(),
+    label,
+    ordinal,
+    start_at: start.toISOString(),
+  };
 }
