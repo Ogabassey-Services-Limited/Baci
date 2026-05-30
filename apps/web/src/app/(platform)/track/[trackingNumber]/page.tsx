@@ -256,7 +256,10 @@ function TrackingPageContent({ params }: TrackingPageProps) {
 function TrackingPageFallback() {
   return (
     <div className="min-h-screen flex items-center justify-center">
-      <output className="text-center space-y-4" aria-live="polite">
+      <output
+        className="flex flex-col items-center space-y-4"
+        aria-live="polite"
+      >
         <Loader2 className="size-12 animate-spin mx-auto text-muted-foreground" />
         <span className="block text-muted-foreground">
           Tracking your shipment…

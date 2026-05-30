@@ -10,6 +10,7 @@ interface JsonLdProps<T extends Thing> {
  * Adheres to Google's rigorous Rich Result testing standards.
  */
 export function JsonLd<T extends Thing>({ data }: JsonLdProps<T>) {
+  if (!data) return null;
   return (
     <script type="application/ld+json">{safeJsonLdStringify(data)}</script>
   );
