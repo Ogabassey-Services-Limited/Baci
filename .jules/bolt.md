@@ -33,6 +33,6 @@
 ## 2025-05-30 - Prevent redundant queries by adding staleTime to specific admin screens
 **Learning:** React Query hooks like `useQuery` without a configured `staleTime` default to 0. In mobile-admin components like `analytics-config` and `payout-settings`, this causes Supabase data to be refetched on every screen focus, which is unnecessary for static configuration data.
 **Action:** Always configure `staleTime` (e.g., `1000 * 60 * 5` for 5 minutes) on data-fetching hooks for relatively static configuration data to prevent over-fetching when navigating back and forth to these screens.
-## 2025-05-30 - Prevent redundant queries by adding staleTime to specific admin screens
-**Learning:** React Query hooks like `useQuery` without a configured `staleTime` default to 0. In mobile-admin components like `useProduct` in `useProducts.ts`, this causes Supabase data to be refetched on every screen focus or remount, which is unnecessary for static data.
-**Action:** Always configure `staleTime` (e.g., `1000 * 60 * 5` for 5 minutes) on data-fetching hooks for relatively static data to prevent over-fetching when navigating back and forth to these screens.
+## 2025-05-30 - Keep admin entity detail caches tenant-scoped and short-lived
+**Learning:** Admin entity details such as products and orders are mutable operational data, not static configuration. Their React Query keys must include tenant context and their freshness windows must stay short enough to avoid stale inventory edits.
+**Action:** Include the merchant id in detail query keys and prefer short `staleTime` values (for example, 30 seconds) unless the data has real-time invalidation or optimistic concurrency controls.

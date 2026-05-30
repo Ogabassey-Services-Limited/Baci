@@ -50,16 +50,17 @@ export function useProducts(filters?: AdminProductSearchFilters) {
 
 export function useProduct(productId: string) {
   const { merchant } = useMerchant();
+  const merchantId = merchant?.id;
 
   return useQuery({
-    enabled: !!productId && productId !== 'new' && !!merchant?.id,
+    enabled: !!productId && productId !== 'new' && !!merchantId,
     queryFn: () => {
       if (!productId || productId === 'new') return null;
-      if (!merchant?.id) throw new Error('No merchant');
-      return fetchProductDetail({ merchantId: merchant.id, productId });
+      if (!merchantId) throw new Error('No merchant');
+      return fetchProductDetail({ merchantId, productId });
     },
-    queryKey: ['product', productId],
-    staleTime: 1000 * 60 * 5,
+    queryKey: ['product', merchantId, productId],
+    staleTime: 1000 * 30,
   });
 }
 
@@ -84,8 +85,10 @@ export function useUpdateProduct() {
     },
     mutationKey: ['updateProduct'],
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['product', data.id] });
-      queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({
+        queryKey: ['product', merchant?.id, data.id],
+      });
+      queryClient.invalidateQueries({ queryKey: ['products', merchant?.id] });
     },
   });
 }
@@ -101,7 +104,7 @@ export function useCreateProduct() {
     },
     mutationKey: ['createProduct'],
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['products', merchant?.id] });
     },
   });
 }
@@ -173,7 +176,8 @@ export function useUpdateProductStock() {
       return { previousQueriesData };
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['products', merchant?.id] });
+      queryClient.invalidateQueries({ queryKey: ['product', merchant?.id] });
     },
   });
 }
@@ -194,8 +198,11 @@ export function useUpdateProductStatus() {
       return updateProductStatus(productId, status, merchant.id);
     },
     mutationKey: ['updateProductStatus'],
-    onSettled: () => {
+    onSettled: (_data, _error, { productId }) => {
       queryClient.invalidateQueries({ queryKey: ['products', merchant?.id] });
+      queryClient.invalidateQueries({
+        queryKey: ['product', merchant?.id, productId],
+      });
     },
   });
 }
