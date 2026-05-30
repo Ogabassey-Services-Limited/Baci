@@ -306,6 +306,54 @@ describe('env validation', () => {
     expect(getSupabaseAgenticJwtPrivateJwk()).toBe(validAgenticPrivateJwk);
   });
 
+  it('prefers Baci-owned agentic runtime secrets over legacy OpenAI-named aliases', async () => {
+    vi.stubEnv('BACI_AGENTIC_ACCESS_TOKEN', ' baci-access ');
+    vi.stubEnv('BACI_AGENTIC_ACCESS_TOKEN_PREVIOUS', ' baci-previous-access ');
+    vi.stubEnv('BACI_AGENTIC_CONFIRMATION_KEY', ' baci-confirmation ');
+    vi.stubEnv(
+      'BACI_AGENTIC_CONFIRMATION_KEY_PREVIOUS',
+      ' baci-previous-confirmation '
+    );
+    vi.stubEnv('BACI_AGENTIC_SIGNING_KEY', ' baci-signing ');
+    vi.stubEnv('BACI_AGENTIC_SIGNING_KEY_PREVIOUS', ' baci-previous-signing ');
+    vi.stubEnv('BACI_AGENTIC_MERCHANT_SLUG', ' baci-store ');
+    vi.stubEnv('OPENAI_AGENTIC_API_KEY', ' legacy-access ');
+    vi.stubEnv('OPENAI_AGENTIC_API_KEY_PREVIOUS', ' legacy-previous-access ');
+    vi.stubEnv('OPENAI_AGENTIC_CONFIRMATION_KEY', ' legacy-confirmation ');
+    vi.stubEnv(
+      'OPENAI_AGENTIC_CONFIRMATION_KEY_PREVIOUS',
+      ' legacy-previous-confirmation '
+    );
+    vi.stubEnv('OPENAI_AGENTIC_SIGNING_KEY', ' legacy-signing ');
+    vi.stubEnv(
+      'OPENAI_AGENTIC_SIGNING_KEY_PREVIOUS',
+      ' legacy-previous-signing '
+    );
+    vi.stubEnv('OPENAI_AGENTIC_MERCHANT_SLUG', ' legacy-store ');
+    const {
+      getAgenticApiKey,
+      getAgenticApiKeys,
+      getAgenticConfirmationKeys,
+      getAgenticMerchantSlug,
+      getAgenticSigningKeys,
+    } = await loadEnvModule();
+
+    expect(getAgenticApiKey()).toBe('baci-access');
+    expect(getAgenticApiKeys()).toEqual([
+      'baci-access',
+      'baci-previous-access',
+    ]);
+    expect(getAgenticConfirmationKeys()).toEqual([
+      'baci-confirmation',
+      'baci-previous-confirmation',
+    ]);
+    expect(getAgenticSigningKeys()).toEqual([
+      'baci-signing',
+      'baci-previous-signing',
+    ]);
+    expect(getAgenticMerchantSlug()).toBe('baci-store');
+  });
+
   it('treats empty agentic runtime secrets as unset', async () => {
     vi.stubEnv('OPENAI_AGENTIC_API_KEY', '');
     vi.stubEnv('OPENAI_AGENTIC_API_KEY_PREVIOUS', '');
