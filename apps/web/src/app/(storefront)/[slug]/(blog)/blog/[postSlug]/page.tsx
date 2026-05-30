@@ -138,10 +138,10 @@ export default async function BlogPostPage({ params }: PageProps) {
 
   return (
     <>
+      <StorefrontDynamicMetadataMarker />
       <Suspense fallback={<BlogPostPageFallback />}>
         <BlogPostPageContent params={Promise.resolve(resolvedParams)} />
       </Suspense>
-      <StorefrontDynamicMetadataMarker />
     </>
   );
 }
