@@ -1,5 +1,8 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
+import type { ExpoConfig } from 'expo/config';
+
+type AppConfig = typeof import('../../app.config').default;
 
 const ROOT = path.resolve(__dirname, '../..');
 const EXCLUDED_SOURCE_DIRECTORIES = new Set(['__tests__', 'test-utils']);
@@ -30,23 +33,30 @@ function findTypeScriptSourceFiles(directory: string): string[] {
 
 describe('SDK 56 compliance', () => {
   it('uses a manual runtime version for bare workflow builds', () => {
-    // Set dummy Facebook environment variables for this test so loading the config doesn't throw
     const originalFacebookAppId = process.env.STOREFRONT_FACEBOOK_APP_ID;
-    const originalFacebookClientToken = process.env.STOREFRONT_FACEBOOK_CLIENT_TOKEN;
+    const originalFacebookClientToken =
+      process.env.STOREFRONT_FACEBOOK_CLIENT_TOKEN;
 
     process.env.STOREFRONT_FACEBOOK_APP_ID = '123456789';
     process.env.STOREFRONT_FACEBOOK_CLIENT_TOKEN = 'client-token';
 
     try {
-      const appConfig = require('../../app.config').default;
-      const config = appConfig({ config: {} as never } as unknown as Parameters<
-        typeof appConfig
-      >[0]);
+      let config: ExpoConfig | undefined;
+
+      jest.isolateModules(() => {
+        const appConfig = require('../../app.config').default as AppConfig;
+        config = appConfig({
+          config: {} as never,
+        } as Parameters<AppConfig>[0]);
+      });
+
+      if (!config) {
+        throw new Error('Expected app config to render');
+      }
 
       expect(typeof config.runtimeVersion).toBe('string');
       expect(config.runtimeVersion).toBe(config.version);
     } finally {
-      // Restore original environment variables if any
       if (originalFacebookAppId === undefined) {
         delete process.env.STOREFRONT_FACEBOOK_APP_ID;
       } else {
@@ -56,7 +66,8 @@ describe('SDK 56 compliance', () => {
       if (originalFacebookClientToken === undefined) {
         delete process.env.STOREFRONT_FACEBOOK_CLIENT_TOKEN;
       } else {
-        process.env.STOREFRONT_FACEBOOK_CLIENT_TOKEN = originalFacebookClientToken;
+        process.env.STOREFRONT_FACEBOOK_CLIENT_TOKEN =
+          originalFacebookClientToken;
       }
     }
   });
