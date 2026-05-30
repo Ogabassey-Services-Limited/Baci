@@ -94,12 +94,14 @@ describe('OgabasseyStaticHomePage', () => {
   });
 
   it('uses the existing merchant media favicon paths for static route icons', () => {
-    expect(OGABASSEY_FAVICON_URL).toContain(
-      `/storage/v1/object/public/media/merchants/${OGABASSEY_MERCHANT_ID}/favicon/favicon-32.png`
+    expect(OGABASSEY_FAVICON_URL).toBe(
+      `https://cdn.ogabassey.com/media/merchants/${OGABASSEY_MERCHANT_ID}/favicon/favicon-32.png`
     );
-    expect(OGABASSEY_APPLE_TOUCH_ICON_URL).toContain(
-      `/storage/v1/object/public/media/merchants/${OGABASSEY_MERCHANT_ID}/favicon/apple-touch-icon.png`
+    expect(OGABASSEY_APPLE_TOUCH_ICON_URL).toBe(
+      `https://cdn.ogabassey.com/media/merchants/${OGABASSEY_MERCHANT_ID}/favicon/apple-touch-icon.png`
     );
+    expect(OGABASSEY_FAVICON_URL).not.toContain('.supabase.co/');
+    expect(OGABASSEY_APPLE_TOUCH_ICON_URL).not.toContain('.supabase.co/');
     expect(OGABASSEY_FAVICON_URL).not.toContain('/object/public/favicons/');
     expect(OGABASSEY_APPLE_TOUCH_ICON_URL).not.toContain(
       '/object/public/favicons/'

@@ -83,6 +83,64 @@ describe('cached-data merchant safety helpers', () => {
       );
     });
 
+    it('canonicalizes OgaBassey public media URLs to CDN URLs before rendering', async () => {
+      const merchantWithSupabaseMedia = {
+        ...mockMerchant,
+        id: '6b5cb8a4-5575-456c-b936-8cdfae30db74',
+        slug: 'ogabassey',
+        custom_domain: 'ogabassey.com',
+        template_id: 'ogabassey',
+        logo_url:
+          'https://aivqthbxdshhltbwipbr.supabase.co/storage/v1/object/public/media/6b5cb8a4-5575-456c-b936-8cdfae30db74/ogabassey_logo_2026_v1.svg',
+        favicon_png_32_url:
+          'https://aivqthbxdshhltbwipbr.supabase.co/storage/v1/object/public/media/merchants/6b5cb8a4-5575-456c-b936-8cdfae30db74/favicon/favicon-32.png',
+        favicon_apple_touch_url:
+          'https://aivqthbxdshhltbwipbr.supabase.co/storage/v1/object/public/media/merchants/6b5cb8a4-5575-456c-b936-8cdfae30db74/favicon/apple-touch-icon.png',
+      };
+      harness.mockMaybeSingle.mockResolvedValueOnce({
+        data: merchantWithSupabaseMedia,
+        error: null,
+      });
+      harness.mockSingle.mockResolvedValueOnce({
+        data: { domain: 'ogabassey.com' },
+        error: null,
+      });
+
+      await expect(getMerchantSafe('ogabassey')).resolves.toMatchObject({
+        logo_url:
+          'https://cdn.ogabassey.com/media/6b5cb8a4-5575-456c-b936-8cdfae30db74/ogabassey_logo_2026_v1.svg',
+        favicon_png_32_url:
+          'https://cdn.ogabassey.com/media/merchants/6b5cb8a4-5575-456c-b936-8cdfae30db74/favicon/favicon-32.png',
+        favicon_apple_touch_url:
+          'https://cdn.ogabassey.com/media/merchants/6b5cb8a4-5575-456c-b936-8cdfae30db74/favicon/apple-touch-icon.png',
+      });
+    });
+
+    it('does not rewrite non-OgaBassey merchant media onto the OgaBassey CDN', async () => {
+      const merchantMediaUrl =
+        'https://project.supabase.co/storage/v1/object/public/media/merchant-1/logo.svg';
+      const merchantWithSupabaseMedia = {
+        ...mockMerchant,
+        id: 'merchant-1',
+        slug: 'test-store',
+        custom_domain: 'test-store.example.com',
+        template_id: 'ogabassey',
+        logo_url: merchantMediaUrl,
+      };
+      harness.mockMaybeSingle.mockResolvedValueOnce({
+        data: merchantWithSupabaseMedia,
+        error: null,
+      });
+      harness.mockSingle.mockResolvedValueOnce({
+        data: { domain: 'test-store.example.com' },
+        error: null,
+      });
+
+      await expect(getMerchantSafe('test-store')).resolves.toMatchObject({
+        logo_url: merchantMediaUrl,
+      });
+    });
+
     it('retries once on first failure and returns data on retry success', async () => {
       harness.mockMaybeSingle
         .mockRejectedValueOnce(new Error('Transient network error'))

@@ -2,6 +2,7 @@ import type { RegisteredAddress } from '@baci/shared';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { cacheLife, cacheTag } from 'next/cache';
 import { cache } from 'react';
+import { OGABASSEY_MERCHANT_ID } from '@/config/ogabassey';
 import {
   getSupabaseAnonKey,
   getSupabaseServiceRoleKey,
@@ -26,6 +27,7 @@ import {
 } from '@/lib/related-blog-products';
 import { normalizeOgabasseyBusinessType } from '@/lib/storefront/ogabassey-entity';
 import { STOREFRONT_BLOG_POST_SELECT } from '@/lib/storefront-blog-post-select';
+import { canonicalizeStorefrontMediaUrl } from '@/lib/storefront-media-cdn-url';
 import {
   isDomainIdentifier,
   isValidMerchantIdentifier,
@@ -289,16 +291,73 @@ export interface CachedMerchant {
   updated_at?: string;
 }
 
+type CachedMerchantMediaFields = {
+  custom_domain?: string | null;
+  favicon_apple_touch_url?: string | null;
+  favicon_png_32_url?: string | null;
+  favicon_svg_url?: string | null;
+  id?: string | null;
+  logo_url?: string | null;
+  slug?: string | null;
+};
+
+function isOgabasseyMerchantEntity(merchant: CachedMerchantMediaFields) {
+  const customDomain = merchant.custom_domain?.toLowerCase();
+  const slug = merchant.slug?.toLowerCase();
+
+  return (
+    merchant.id === OGABASSEY_MERCHANT_ID ||
+    customDomain === 'ogabassey.com' ||
+    slug === 'ogabassey'
+  );
+}
+
+function canonicalizeMerchantMediaUrl(value: string | null | undefined) {
+  if (!value) {
+    return value;
+  }
+
+  return canonicalizeStorefrontMediaUrl(value) ?? value;
+}
+
+function withStorefrontMediaCdnUrls<T extends CachedMerchantMediaFields>(
+  merchant: T
+): T {
+  if (!isOgabasseyMerchantEntity(merchant)) {
+    return merchant;
+  }
+
+  return {
+    ...merchant,
+    favicon_apple_touch_url: canonicalizeMerchantMediaUrl(
+      merchant.favicon_apple_touch_url
+    ),
+    favicon_png_32_url: canonicalizeMerchantMediaUrl(
+      merchant.favicon_png_32_url
+    ),
+    favicon_svg_url: canonicalizeMerchantMediaUrl(merchant.favicon_svg_url),
+    logo_url: canonicalizeMerchantMediaUrl(merchant.logo_url),
+  } as T;
+}
+
 function normalizeCachedMerchantEntity<
   T extends {
     business_type?: string | null;
     custom_domain?: string | null;
+    favicon_apple_touch_url?: string | null;
+    favicon_png_32_url?: string | null;
+    favicon_svg_url?: string | null;
+    id?: string | null;
+    logo_url?: string | null;
     slug?: string | null;
+    template_id?: string | null;
   },
 >(merchant: T): Omit<T, 'business_type'> & { business_type: string } {
+  const merchantWithCdnMedia = withStorefrontMediaCdnUrls(merchant);
+
   return {
-    ...merchant,
-    business_type: normalizeOgabasseyBusinessType(merchant),
+    ...merchantWithCdnMedia,
+    business_type: normalizeOgabasseyBusinessType(merchantWithCdnMedia),
   };
 }
 

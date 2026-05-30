@@ -1,10 +1,12 @@
+import { DEFAULT_MEDIA_CDN_ORIGIN } from '@/config/cdn';
+
 interface ImageLoaderParams {
   src: string;
   width: number;
   quality?: number;
 }
 
-const OGABASSEY_CDN_HOSTNAME = 'cdn.ogabassey.com';
+const OGABASSEY_CDN_HOSTNAME = new URL(DEFAULT_MEDIA_CDN_ORIGIN).hostname;
 const DEFAULT_IMAGE_QUALITY = 75;
 const MIN_TRANSFORM_WIDTH = 16;
 const MAX_TRANSFORM_WIDTH = 3840;

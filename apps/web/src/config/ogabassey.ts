@@ -1,3 +1,5 @@
+import { DEFAULT_MEDIA_CDN_ORIGIN } from '@/config/cdn';
+
 export const OGABASSEY_URL = 'https://ogabassey.com';
 export const OGABASSEY_TITLE = 'OgaBassey - Official Online Store';
 export const OGABASSEY_DESCRIPTION =
@@ -5,12 +7,8 @@ export const OGABASSEY_DESCRIPTION =
 export const OGABASSEY_SOCIAL_IMAGE_URL = `${OGABASSEY_URL}/template-previews/ogabassey-v2.png`;
 export const OGABASSEY_TWITTER_HANDLE = '@ogabasseyy';
 
-const SUPABASE_PUBLIC_URL =
-  process.env.NEXT_PUBLIC_SUPABASE_URL ??
-  'https://aivqthbxdshhltbwipbr.supabase.co';
-
 export const OGABASSEY_MERCHANT_ID = '6b5cb8a4-5575-456c-b936-8cdfae30db74';
-const OGABASSEY_FAVICON_BASE_PATH = `media/merchants/${OGABASSEY_MERCHANT_ID}/favicon`;
+const OGABASSEY_FAVICON_BASE_PATH = `merchants/${OGABASSEY_MERCHANT_ID}/favicon`;
 
-export const OGABASSEY_FAVICON_URL = `${SUPABASE_PUBLIC_URL}/storage/v1/object/public/${OGABASSEY_FAVICON_BASE_PATH}/favicon-32.png`;
-export const OGABASSEY_APPLE_TOUCH_ICON_URL = `${SUPABASE_PUBLIC_URL}/storage/v1/object/public/${OGABASSEY_FAVICON_BASE_PATH}/apple-touch-icon.png`;
+export const OGABASSEY_FAVICON_URL = `${DEFAULT_MEDIA_CDN_ORIGIN}/media/${OGABASSEY_FAVICON_BASE_PATH}/favicon-32.png`;
+export const OGABASSEY_APPLE_TOUCH_ICON_URL = `${DEFAULT_MEDIA_CDN_ORIGIN}/media/${OGABASSEY_FAVICON_BASE_PATH}/apple-touch-icon.png`;
