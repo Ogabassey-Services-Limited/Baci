@@ -185,8 +185,9 @@ export async function waitForVtuConfirmation({
 
     lastProcessingResult = result;
     if (attempt < maxAttempts - 1) {
+      const delayMs = Math.min(1200 + attempt * 300, 4000);
       await new Promise((resolve) => {
-        setTimeout(resolve, 1200);
+        setTimeout(resolve, delayMs);
       });
     }
   }

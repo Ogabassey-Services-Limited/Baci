@@ -61,6 +61,14 @@ export function AddressAutocomplete({
   const isDark = (colorScheme ?? 'light') === 'dark';
   const [isFocused, setIsFocused] = useState(false);
 
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
   const blurCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wrapperRef = useRef<View>(null);
@@ -120,18 +128,24 @@ export function AddressAutocomplete({
 
   const fetchPredictions = async (input: string) => {
     if (input.length < 2) {
-      setPredictions([]);
+      if (isMountedRef.current) {
+        setPredictions([]);
+      }
       return;
     }
 
-    setIsLoading(true);
+    if (isMountedRef.current) {
+      setIsLoading(true);
+    }
     const results = await fetchAddressPredictions({
       country,
       input,
       sessionToken,
     });
-    setPredictions(results);
-    setIsLoading(false);
+    if (isMountedRef.current) {
+      setPredictions(results);
+      setIsLoading(false);
+    }
   };
 
   const handleInputChange = (text: string) => {
@@ -154,18 +168,24 @@ export function AddressAutocomplete({
     setInternalValue(prediction.mainText);
     onChangeText?.(prediction.mainText);
     setIsOpen(false);
-    setIsLoading(true);
+    if (isMountedRef.current) {
+      setIsLoading(true);
+    }
 
     const details = await fetchPlaceDetails({ prediction, sessionToken });
     try {
       if (details && onSelect) {
         onSelect(details);
       }
-      // Refresh session token after selection
-      setSessionToken(generateSessionToken());
+      if (isMountedRef.current) {
+        // Refresh session token after selection
+        setSessionToken(generateSessionToken());
+      }
     } finally {
-      setIsLoading(false);
-      setPredictions([]);
+      if (isMountedRef.current) {
+        setIsLoading(false);
+        setPredictions([]);
+      }
     }
   };
 
