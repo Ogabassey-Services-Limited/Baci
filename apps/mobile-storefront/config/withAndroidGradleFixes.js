@@ -81,7 +81,7 @@ function withAndroidGradleFixes(config) {
             const resValues = `
         resValue "string", "facebook_app_id", System.getenv("STOREFRONT_FACEBOOK_APP_ID") ?: ""
         resValue "string", "facebook_client_token", System.getenv("STOREFRONT_FACEBOOK_CLIENT_TOKEN") ?: ""
-        resValue "string", "fb_login_protocol_scheme", "fb" + (System.getenv("STOREFRONT_FACEBOOK_APP_ID") ?: "")`;
+        resValue "string", "fb_login_protocol_scheme", System.getenv("STOREFRONT_FACEBOOK_APP_ID") ? "fb" + System.getenv("STOREFRONT_FACEBOOK_APP_ID") : "fb_local_dev"`;
             content = content.slice(0, insertIndex) + resValues + content.slice(insertIndex);
           }
         }

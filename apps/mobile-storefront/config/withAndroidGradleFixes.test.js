@@ -143,7 +143,7 @@ android {
     // Assert dynamic Facebook resValue injection
     expect(appBuildGradle).toContain('resValue "string", "facebook_app_id", System.getenv("STOREFRONT_FACEBOOK_APP_ID")');
     expect(appBuildGradle).toContain('resValue "string", "facebook_client_token", System.getenv("STOREFRONT_FACEBOOK_CLIENT_TOKEN")');
-    expect(appBuildGradle).toContain('resValue "string", "fb_login_protocol_scheme", "fb" + (System.getenv("STOREFRONT_FACEBOOK_APP_ID") ?: "")');
+    expect(appBuildGradle).toContain('resValue "string", "fb_login_protocol_scheme", System.getenv("STOREFRONT_FACEBOOK_APP_ID") ? "fb" + System.getenv("STOREFRONT_FACEBOOK_APP_ID") : "fb_local_dev"');
     
     // Assert static Facebook secrets stripping
     expect(stringsXml).not.toContain('facebook_app_id');
