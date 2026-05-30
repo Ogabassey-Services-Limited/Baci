@@ -19,7 +19,7 @@ const log = createLogger('Storage');
 type AsyncStorageBatchExtensions = typeof AsyncStorage & {
   getMany?: (keys: string[]) => Promise<Record<string, string | null>>;
   removeMany?: (keys: string[]) => Promise<void>;
-  multiGet?: (keys: string[]) => Promise<StorageEntry[]>;
+  multiGet?: (keys: string[]) => Promise<readonly StorageEntry[]>;
   multiRemove?: (keys: string[]) => Promise<void>;
 };
 
@@ -38,7 +38,8 @@ export async function getStorageEntries(
   }
 
   if (typeof batchStorage.multiGet === 'function') {
-    return batchStorage.multiGet([...keys]);
+    const entries = await batchStorage.multiGet([...keys]);
+    return entries.map(([key, value]): StorageEntry => [key, value]);
   }
 
   return Promise.all(

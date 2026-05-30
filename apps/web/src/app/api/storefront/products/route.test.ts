@@ -76,7 +76,7 @@ describe('GET /api/storefront/products', () => {
       expect(payload.error).toBe('Invalid parameters');
       expect(warnSpy).toHaveBeenCalledWith(
         'API Validation Failed:',
-        expect.stringMatching(/Invalid UUID/i)
+        expect.stringContaining('Invalid uuid')
       );
       expect(errorSpy).not.toHaveBeenCalled();
     } finally {
