@@ -4,6 +4,7 @@ vi.mock('server-only', () => ({}));
 
 import {
   checkAgentCommerceTrustHealth,
+  TRUST_FETCH_TIMEOUT_MS,
   validateAgentCommerceTrustHealth,
 } from './agent-commerce-trust-health';
 
@@ -181,6 +182,10 @@ describe('validateAgentCommerceTrustHealth', () => {
 });
 
 describe('checkAgentCommerceTrustHealth', () => {
+  it('allows cold public trust readiness responses to exceed five seconds', () => {
+    expect(TRUST_FETCH_TIMEOUT_MS).toBeGreaterThanOrEqual(15_000);
+  });
+
   it('fetches public trust readiness without cache and validates it', async () => {
     const fetcher = vi
       .fn<typeof fetch>()
