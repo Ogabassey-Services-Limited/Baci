@@ -1485,7 +1485,7 @@ describe('Middleware Proxy', () => {
 
     it('does not redirect when only percent-encoded octets differ in case', async () => {
       const req = new NextRequest(
-        `https://ogabassey.${ROOT_DOMAIN}/laptop/14%E2%80%9D-hp-omnibook-x-copilot%2B-pc-`
+        `https://ogabassey.${ROOT_DOMAIN}/laptop/hp-omnibook-x-copilot%2B-pc`
       );
       req.headers.set('host', `ogabassey.${ROOT_DOMAIN}`);
 
@@ -1493,6 +1493,130 @@ describe('Middleware Proxy', () => {
 
       expect(res.status).not.toBe(308);
       expect(res.headers.get('location')).toBeNull();
+    });
+
+    it('does not redirect lowercase percent-encoded non-Latin slugs without unsafe punctuation', async () => {
+      const req = new NextRequest(
+        `https://ogabassey.${ROOT_DOMAIN}/search/%d1%82%d0%b5%d0%bb%d0%b5%d1%84%d0%be%d0%bd-case`
+      );
+      req.headers.set('host', `ogabassey.${ROOT_DOMAIN}`);
+
+      const res = await proxy(req);
+
+      expect(res.status).not.toBe(308);
+      expect(res.headers.get('location')).toBeNull();
+    });
+
+    it('does not collapse ordinary double hyphens without unsafe punctuation', async () => {
+      const req = new NextRequest(
+        `https://ogabassey.${ROOT_DOMAIN}/accessories/iphone--case`
+      );
+      req.headers.set('host', `ogabassey.${ROOT_DOMAIN}`);
+
+      const res = await proxy(req);
+
+      expect(res.status).not.toBe(308);
+      expect(res.headers.get('location')).toBeNull();
+    });
+
+    it('redirects smart-quote storefront slugs before remote cache handling', async () => {
+      const req = new NextRequest(
+        `https://ogabassey.${ROOT_DOMAIN}/smartphones/15%E2%80%9D-macbook-air-2023-16gb-512gb-m3`
+      );
+      req.headers.set('host', `ogabassey.${ROOT_DOMAIN}`);
+
+      const res = await proxy(req);
+      const location = res.headers.get('location');
+
+      expect(res.status).toBe(308);
+      expect(location).toBeTruthy();
+      expect(new URL(location || '').pathname).toBe(
+        '/smartphones/15-macbook-air-2023-16gb-512gb-m3'
+      );
+    });
+
+    it('redirects typographic-dash storefront slugs to cache-safe ASCII', async () => {
+      const req = new NextRequest(
+        `https://ogabassey.${ROOT_DOMAIN}/laptops/dell-alienware-x14-r2-%E2%80%93-14%E2%80%9D`
+      );
+      req.headers.set('host', `ogabassey.${ROOT_DOMAIN}`);
+
+      const res = await proxy(req);
+      const location = res.headers.get('location');
+
+      expect(res.status).toBe(308);
+      expect(location).toBeTruthy();
+      expect(new URL(location || '').pathname).toBe(
+        '/laptops/dell-alienware-x14-r2-14'
+      );
+    });
+
+    it('preserves encoded reserved path separators while normalizing smart punctuation', async () => {
+      const req = new NextRequest(
+        `https://ogabassey.${ROOT_DOMAIN}/collections/phones%2Fandroid%E2%80%9D`
+      );
+      req.headers.set('host', `ogabassey.${ROOT_DOMAIN}`);
+
+      const res = await proxy(req);
+      const location = res.headers.get('location');
+
+      expect(res.status).toBe(308);
+      expect(location).toBeTruthy();
+      expect(new URL(location || '').pathname).toBe(
+        '/collections/phones%2Fandroid'
+      );
+    });
+
+    it('preserves encoded literal percent signs while normalizing smart punctuation', async () => {
+      const req = new NextRequest(
+        `https://ogabassey.${ROOT_DOMAIN}/products/100%25-cotton%E2%80%9D`
+      );
+      req.headers.set('host', `ogabassey.${ROOT_DOMAIN}`);
+
+      const res = await proxy(req);
+      const location = res.headers.get('location');
+
+      expect(res.status).toBe(308);
+      expect(location).toBeTruthy();
+      expect(new URL(location || '').pathname).toBe('/products/100%25-cotton');
+    });
+
+    it('redirects non-breaking-space storefront slugs to cache-safe ASCII', async () => {
+      const req = new NextRequest(
+        `https://ogabassey.${ROOT_DOMAIN}/accessories/iphone%C2%A0case`
+      );
+      req.headers.set('host', `ogabassey.${ROOT_DOMAIN}`);
+
+      const res = await proxy(req);
+      const location = res.headers.get('location');
+
+      expect(res.status).toBe(308);
+      expect(location).toBeTruthy();
+      expect(new URL(location || '').pathname).toBe('/accessories/iphone-case');
+    });
+
+    it('preserves non-Latin route bytes instead of erasing them', async () => {
+      const req = new NextRequest(
+        `https://ogabassey.${ROOT_DOMAIN}/search/%D1%82%D0%B5%D0%BB%D0%B5%D1%84%D0%BE%D0%BD%E2%80%9D-case`
+      );
+      req.headers.set('host', `ogabassey.${ROOT_DOMAIN}`);
+
+      const res = await proxy(req);
+      const location = res.headers.get('location');
+
+      expect(res.status).toBe(308);
+      expect(location).toBeTruthy();
+      expect(new URL(location || '').pathname).toBe(
+        '/search/%D1%82%D0%B5%D0%BB%D0%B5%D1%84%D0%BE%D0%BD-case'
+      );
+
+      const followUpReq = new NextRequest(location || '');
+      followUpReq.headers.set('host', `ogabassey.${ROOT_DOMAIN}`);
+
+      const followUpRes = await proxy(followUpReq);
+
+      expect(followUpRes.status).not.toBe(308);
+      expect(followUpRes.headers.get('location')).toBeNull();
     });
   });
 
