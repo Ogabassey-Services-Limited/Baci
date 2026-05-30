@@ -1,33 +1,12 @@
 import { jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import Colors from '@/constants/Colors';
+import { findHostElement } from '@/test-support/find-host-element';
 import { UtilityPanelCategoryItem } from './UtilityPanelCategoryItem';
 
 jest.mock('@/components/useColorScheme', () => ({
   useColorScheme: () => 'light',
 }));
-
-type TestInstance = {
-  type: string | Function;
-  children: Array<string | TestInstance>;
-};
-
-function findHostElement(instance: unknown): TestInstance | null {
-  if (!instance) return null;
-  const testInstance = instance as TestInstance;
-  if (typeof testInstance.type === 'string') {
-    return testInstance;
-  }
-  for (const child of testInstance.children || []) {
-    if (typeof child !== 'string') {
-      const found: TestInstance | null = findHostElement(child);
-      if (found) {
-        return found;
-      }
-    }
-  }
-  return null;
-}
 
 describe('UtilityPanelCategoryItem', () => {
   it('renders an active utility and invokes its action', () => {

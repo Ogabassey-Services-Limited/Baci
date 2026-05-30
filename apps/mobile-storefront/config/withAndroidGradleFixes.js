@@ -14,7 +14,7 @@ const path = require('node:path');
 const {
   addAsyncStorageRepo,
   ensureGradleProperty,
-  getGradleProperty,
+  ensureMergedJvmArgs,
   ensureGradleWrapperVersion,
   ensureReleaseSigning,
   fixProguardOptimize,
@@ -141,20 +141,10 @@ function withAndroidGradleFixes(config) {
           'android.builtInKotlin',
           'false'
         );
-        const currentJvmArgs = getGradleProperty(content, 'org.gradle.jvmargs') || '';
-        const desiredFlags = ['-Xmx2048m', '-XX:MaxMetaspaceSize=1024m'];
-        const currentTokens = currentJvmArgs.split(/\s+/).filter(Boolean);
-        const mergedTokens = [...currentTokens];
-        for (const flag of desiredFlags) {
-          if (!mergedTokens.includes(flag)) {
-            mergedTokens.push(flag);
-          }
-        }
-        content = ensureGradleProperty(
-          content,
-          'org.gradle.jvmargs',
-          mergedTokens.join(' ')
-        );
+        content = ensureMergedJvmArgs(content, [
+          '-Xmx2048m',
+          '-XX:MaxMetaspaceSize=1024m',
+        ]);
         fs.writeFileSync(gradleProperties, content);
       }
 

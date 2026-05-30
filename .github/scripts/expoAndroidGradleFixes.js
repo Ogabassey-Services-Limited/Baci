@@ -109,7 +109,7 @@ function ensureGradleWrapperVersion(content) {
 function getGradleProperty(content, key) {
   const propertyPattern = new RegExp(`^${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}=(.*)$`, 'm');
   const match = content.match(propertyPattern);
-  return match ? match[1] : null;
+  return match ? match[1].trim() : null;
 }
 
 function ensureGradleProperty(content, key, value) {
@@ -122,6 +122,36 @@ function ensureGradleProperty(content, key, value) {
   return `${content}${separator}${key}=${value}\n`;
 }
 
+function getJvmArgKey(token) {
+  if (token.startsWith('-Xmx')) {
+    return '-Xmx';
+  }
+  if (token.startsWith('-XX:MaxMetaspaceSize=')) {
+    return '-XX:MaxMetaspaceSize';
+  }
+
+  const equalsIndex = token.indexOf('=');
+  return equalsIndex === -1 ? token : token.slice(0, equalsIndex);
+}
+
+function ensureMergedJvmArgs(content, desiredArgs) {
+  const currentArgs = getGradleProperty(content, 'org.gradle.jvmargs') || '';
+  const mergedByKey = new Map();
+
+  for (const token of currentArgs.split(/\s+/).filter(Boolean)) {
+    mergedByKey.set(getJvmArgKey(token), token);
+  }
+
+  for (const token of desiredArgs) {
+    mergedByKey.set(getJvmArgKey(token), token);
+  }
+
+  return ensureGradleProperty(
+    content,
+    'org.gradle.jvmargs',
+    Array.from(mergedByKey.values()).join(' ')
+  );
+}
 
 function removeKotlinGradlePlugin(content, description) {
   if (!content.includes('org.jetbrains.kotlin:kotlin-gradle-plugin')) {
@@ -174,7 +204,9 @@ module.exports = {
   assertReplaceOrThrow,
   ensureGradleWrapperVersion,
   ensureGradleProperty,
+  ensureMergedJvmArgs,
   getGradleProperty,
+  getJvmArgKey,
   ensureReleaseSigning,
   fixProguardOptimize,
   removeKotlinAndroidPlugin,
