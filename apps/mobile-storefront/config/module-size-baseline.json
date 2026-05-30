@@ -7,5 +7,14 @@
     "services",
     "stores"
   ],
-  "modules": []
+  "modules": [
+    {
+      "path": "components/negotiation/NegotiationModalView.tsx",
+      "lineCount": 318
+    },
+    {
+      "path": "components/swap/SwapTradeInModal.tsx",
+      "lineCount": 357
+    }
+  ]
 }
