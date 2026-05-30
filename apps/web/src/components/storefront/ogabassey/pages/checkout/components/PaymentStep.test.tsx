@@ -852,7 +852,12 @@ describe('PaymentStep', () => {
 
       // Assert - button exists but text is replaced with spinner
       const buttons = screen.getAllByRole('button');
-      const placeOrderButton = buttons.find(btn => btn.className.includes('bg-store-primary'));
+      const placeOrderButton = buttons.find((btn) =>
+        btn.className.includes('bg-store-primary')
+      );
+      if (!placeOrderButton) {
+        throw new Error('Expected mobile place order button to be rendered');
+      }
       expect(placeOrderButton).toBeDisabled();
 
       // Verify spinner is shown
