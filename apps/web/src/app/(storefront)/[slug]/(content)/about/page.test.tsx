@@ -5,7 +5,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 
 const mockBuildMerchantTrustProfile = vi.fn();
-const mockConnection = vi.hoisted(() => vi.fn());
+const { mockConnection, mockStorefrontDynamicMetadataMarker } = vi.hoisted(
+  () => ({
+    mockConnection: vi.fn(),
+    mockStorefrontDynamicMetadataMarker: vi.fn(),
+  })
+);
 
 vi.mock('@/lib/cached-data', () => ({
   getMerchantByIdentifier: vi.fn(),
@@ -13,6 +18,13 @@ vi.mock('@/lib/cached-data', () => ({
 
 vi.mock('next/server', () => ({
   connection: () => mockConnection(),
+}));
+
+vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
+  StorefrontDynamicMetadataMarker: () => {
+    mockStorefrontDynamicMetadataMarker();
+    return <div aria-label="dynamic metadata marker" role="status" />;
+  },
 }));
 
 vi.mock('next/headers', () => ({
@@ -66,6 +78,7 @@ describe('AboutPage', () => {
     vi.mocked(getMerchantByIdentifier).mockReset();
     notFound.mockClear();
     mockBuildMerchantTrustProfile.mockReset();
+    mockStorefrontDynamicMetadataMarker.mockReset();
   });
 
   it('does not emit a duplicate wrapper h1 while content is suspended', () => {

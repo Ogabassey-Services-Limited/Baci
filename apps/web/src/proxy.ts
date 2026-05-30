@@ -63,6 +63,8 @@ const CACHE_UNSAFE_ENCODED_SPACE_OR_DASH_REGEX =
 const INDEXNOW_KEY_PATH = '/0751d5c882ab3d7c013ecbfe9e624d71.txt';
 const KLUMP_WEBHOOK_API_PATH = '/api/payments/klump/webhook';
 const LEGACY_KLUMP_WOOCOMMERCE_WEBHOOK_PATH = '/wc-api/klp_wc_payment_webhook';
+const STOREFRONT_ROOT_SITEMAP_PATH = '/sitemap.xml';
+const STOREFRONT_ROOT_SITEMAP_REWRITE_PATH = '/sitemap/root.xml';
 const PUBLIC_MACHINE_READABLE_PATHS = new Set<string>([
   ...Object.values(STOREFRONT_AGENT_ROUTES),
   ...Object.values(STOREFRONT_FEED_ROUTES),
@@ -580,6 +582,53 @@ function buildMerchantFeedPassThroughResponse({
     userAgent,
     routeType,
     isLocal,
+    undefined,
+    request,
+    hostname
+  );
+}
+
+function buildStorefrontRootSitemapRewriteResponse({
+  request,
+  pathname,
+  userAgent,
+  hostname,
+  routeIdentifier,
+  customDomain,
+  merchantSlug,
+}: {
+  request: NextRequest;
+  pathname: string;
+  userAgent: string;
+  hostname: string;
+  routeIdentifier: string;
+  customDomain?: string;
+  merchantSlug?: string | null;
+}): NextResponse {
+  const sitemapUrl = request.nextUrl.clone();
+  sitemapUrl.pathname = `/${routeIdentifier}${STOREFRONT_ROOT_SITEMAP_REWRITE_PATH}`;
+
+  const sitemapHeaders = buildProxyRequestHeaders(request);
+  if (customDomain) {
+    sitemapHeaders.set('x-custom-domain', customDomain);
+    sitemapHeaders.set('x-merchant-domain', customDomain);
+  }
+  if (merchantSlug) {
+    sitemapHeaders.set('x-merchant-slug', merchantSlug);
+  }
+
+  const response = NextResponse.rewrite(sitemapUrl, {
+    request: {
+      headers: sitemapHeaders,
+    },
+  });
+
+  return applySecurityHeaders(
+    response,
+    pathname,
+    userAgent,
+    'storefront',
+    isLocalhost(hostname),
     undefined,
     request,
     hostname
@@ -1297,6 +1346,21 @@ export async function proxy(request: NextRequest) {
       const domainPathSegments = pathname.split('/').filter(Boolean);
       const domainMerchantSlug = await getSlugForCustomDomain(domain);
 
+      if (pathname === STOREFRONT_ROOT_SITEMAP_PATH) {
+        // Next's `sitemap.ts` metadata file can lose to the dynamic
+        // `[category]` route on rewritten custom domains. Keep the public URL
+        // stable while routing to the explicit sitemap route handler.
+        return buildStorefrontRootSitemapRewriteResponse({
+          request,
+          pathname,
+          userAgent,
+          hostname,
+          routeIdentifier: domainMerchantSlug ?? domain,
+          customDomain: domain,
+          merchantSlug: domainMerchantSlug,
+        });
+      }
+
       // Public machine-readable contracts are App Router routes, not storefront pages.
       // Run before slug-prefix canonicalization so a merchant slug named
       // "feeds" cannot shadow the canonical XML feed endpoint.
@@ -1459,7 +1523,10 @@ export async function proxy(request: NextRequest) {
 
       // Sitemap file paths: rewrite using merchant slug (not domain) to avoid
       // dots in [slug], which break Next.js metadata file-convention routing.
-      if (pathname.startsWith('/sitemap') || pathname === '/blog/sitemap.xml') {
+      if (
+        pathname.startsWith('/sitemap/') ||
+        pathname === '/blog/sitemap.xml'
+      ) {
         const sitemapUrl = request.nextUrl.clone();
         // Use merchant slug if found, otherwise fall through to domain-based rewrite
         sitemapUrl.pathname = `/${domainMerchantSlug ?? domain}${pathname}`;
@@ -1620,6 +1687,17 @@ export async function proxy(request: NextRequest) {
       });
     }
 
+    if (pathname === STOREFRONT_ROOT_SITEMAP_PATH) {
+      return buildStorefrontRootSitemapRewriteResponse({
+        request,
+        pathname,
+        userAgent,
+        hostname,
+        routeIdentifier: subdomain,
+        merchantSlug: subdomain,
+      });
+    }
+
     // LLM markdown mirrors: rewrite .md paths to /api/llm/ to avoid
     // route collisions with dynamic [category] segments in the storefront tree.
     if (pathname.endsWith('.md')) {
@@ -1690,6 +1768,28 @@ export async function proxy(request: NextRequest) {
           return NextResponse.redirect(customDomainUrl, 301);
         }
       }
+    }
+  }
+
+  if (
+    (isRootDomain(hostname, ROOT_DOMAIN) || isVercelPreview(hostname)) &&
+    !isLocalhost(hostname)
+  ) {
+    const pathSegments = pathname.split('/').filter(Boolean);
+    if (
+      pathSegments.length === 2 &&
+      pathSegments[1]?.toLowerCase() === 'sitemap.xml' &&
+      isValidSubdomain(pathSegments[0]) &&
+      !RESERVED_SUBDOMAINS.has(pathSegments[0])
+    ) {
+      return buildStorefrontRootSitemapRewriteResponse({
+        request,
+        pathname,
+        userAgent,
+        hostname,
+        routeIdentifier: pathSegments[0],
+        merchantSlug: pathSegments[0],
+      });
     }
   }
 

@@ -619,11 +619,14 @@ describe('category page route', () => {
     ).toBeInTheDocument();
     expect(screen.queryByText('Route loader fallback')).not.toBeInTheDocument();
     expect(screen.queryByText('Category page content')).not.toBeInTheDocument();
-    expect(mockConnection).toHaveBeenCalledOnce();
-    expect(mockStorefrontDynamicMetadataMarker).not.toHaveBeenCalled();
+    expect(mockConnection).not.toHaveBeenCalled();
+    expect(mockStorefrontDynamicMetadataMarker).toHaveBeenCalledOnce();
+    expect(
+      screen.getByRole('status', { name: /dynamic metadata marker/i })
+    ).toBeInTheDocument();
   });
 
-  it('renders category content after marking the route dynamic', async () => {
+  it('renders category content with a dynamic metadata marker', async () => {
     const ui = await CategoryPageRoute({
       params: Promise.resolve({
         slug: 'test-store',
@@ -635,8 +638,11 @@ describe('category page route', () => {
     render(ui);
 
     expect(screen.getByText('Category page content')).toBeInTheDocument();
-    expect(mockConnection).toHaveBeenCalledOnce();
-    expect(mockStorefrontDynamicMetadataMarker).not.toHaveBeenCalled();
+    expect(mockConnection).not.toHaveBeenCalled();
+    expect(mockStorefrontDynamicMetadataMarker).toHaveBeenCalledOnce();
+    expect(
+      screen.getByRole('status', { name: /dynamic metadata marker/i })
+    ).toBeInTheDocument();
   });
 
   it('renders curated smartphone hub content when merchant-authored SEO is absent', async () => {

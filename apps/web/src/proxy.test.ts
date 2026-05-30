@@ -634,6 +634,38 @@ describe('Middleware Proxy', () => {
     );
   });
 
+  it('rewrites custom-domain root sitemaps to the explicit root sitemap route', async () => {
+    const req = new NextRequest('https://ogabassey.com/sitemap.xml');
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(getSlugForCustomDomain).toHaveBeenCalledWith('ogabassey.com');
+    expect(res.headers.get('x-middleware-rewrite')).toBe(
+      'https://ogabassey.com/ogabassey/sitemap/root.xml'
+    );
+    expect(res.headers.get('x-middleware-request-x-merchant-domain')).toBe(
+      'ogabassey.com'
+    );
+    expect(res.headers.get('x-middleware-request-x-merchant-slug')).toBe(
+      'ogabassey'
+    );
+  });
+
+  it('rewrites subdomain root sitemaps to the explicit root sitemap route', async () => {
+    const req = new NextRequest(`https://ogabassey.${ROOT_DOMAIN}/sitemap.xml`);
+    req.headers.set('host', `ogabassey.${ROOT_DOMAIN}`);
+
+    const res = await proxy(req);
+
+    expect(res.headers.get('x-middleware-rewrite')).toBe(
+      `https://ogabassey.${ROOT_DOMAIN}/ogabassey/sitemap/root.xml`
+    );
+    expect(res.headers.get('x-middleware-request-x-merchant-slug')).toBe(
+      'ogabassey'
+    );
+  });
+
   it('sets the streaming metadata cache bucket for normal custom-domain browsers', async () => {
     const req = new NextRequest(
       'https://ogabassey.com/smartphones/samsung-galaxy-a37-5g'

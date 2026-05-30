@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { connection } from 'next/server';
 import { Suspense } from 'react';
+import { StorefrontDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker';
 import { ContentRouteLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
 import {
   getMerchantByIdentifier,
@@ -71,9 +72,7 @@ export async function generateMetadata({
 }
 
 /** Streams FAQ JSON-LD separately while the visible page content loads. */
-export default async function FAQPage({ params }: PageProps) {
-  await connection();
-
+export default function FAQPage({ params }: PageProps) {
   return (
     <>
       <Suspense fallback={null}>
@@ -82,6 +81,7 @@ export default async function FAQPage({ params }: PageProps) {
       <Suspense fallback={<ContentRouteLoading />}>
         <FAQContent params={params} />
       </Suspense>
+      <StorefrontDynamicMetadataMarker />
     </>
   );
 }
