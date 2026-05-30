@@ -47,6 +47,7 @@ export function SubmitButton({
     <Button
       type="submit"
       disabled={isDisabled}
+      aria-busy={pending}
       className={cn(className)}
       {...props}
     >
