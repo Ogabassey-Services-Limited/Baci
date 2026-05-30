@@ -1,3 +1,9 @@
+import {
+  appendReceiptFulfillmentDescription,
+  isDeviceReceiptItemName,
+  normalizeReceiptFulfillmentDetails,
+  type ReceiptFulfillmentDetails,
+} from '@baci/shared';
 import { cookies } from 'next/headers';
 import { after, type NextRequest, NextResponse } from 'next/server';
 import { getQuizPhaseEnv, getQuizProductionApprovedEnv } from '@/env';
@@ -134,14 +140,6 @@ type QuizVoucherItemCandidate = {
   voucher_token?: unknown;
 };
 type OrderCreateItem = OrderCreateInput['items'][number];
-type FulfillmentDetails = {
-  imei?: string | null;
-  serialNumber?: string | null;
-  serial_number?: string | null;
-};
-
-const DEVICE_ITEM_NAME_PATTERN =
-  /phone|iphone|samsung|pixel|galaxy|ipad|xiaomi|redmi|infinix|tecno|macbook|laptop|sim/i;
 
 function hasNonEmptyVoucherIdentifier(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
@@ -195,52 +193,8 @@ function getOrderItemDisplayName(item: OrderCreateItem): string {
 
 function getOrderFulfillmentDetails(
   order: Record<string, unknown>
-): FulfillmentDetails | null {
-  const fulfillment = order.fulfillment_details;
-  if (
-    !fulfillment ||
-    typeof fulfillment !== 'object' ||
-    Array.isArray(fulfillment)
-  ) {
-    return null;
-  }
-
-  return fulfillment as FulfillmentDetails;
-}
-
-function appendOrderFulfillmentDescription({
-  description,
-  fulfillment,
-  hasDeviceItem,
-  index,
-  itemName,
-}: {
-  description?: string;
-  fulfillment: FulfillmentDetails | null;
-  hasDeviceItem: boolean;
-  index: number;
-  itemName: string;
-}): string | undefined {
-  const imei = fulfillment?.imei;
-  const serial = fulfillment?.serialNumber || fulfillment?.serial_number;
-  if (!imei && !serial) {
-    return description;
-  }
-
-  const isDevice = DEVICE_ITEM_NAME_PATTERN.test(itemName);
-  const shouldUseOrderFallback = isDevice || (!hasDeviceItem && index === 0);
-  if (!shouldUseOrderFallback) {
-    return description;
-  }
-
-  const parts = [];
-  if (imei) parts.push(`IMEI: ${imei}`);
-  if (serial) parts.push(`S/N: ${serial}`);
-  const fulfillmentDescription = parts.join(' | ');
-
-  return description
-    ? `${description}\n${fulfillmentDescription}`
-    : fulfillmentDescription;
+): ReceiptFulfillmentDetails | null {
+  return normalizeReceiptFulfillmentDetails(order.fulfillment_details);
 }
 
 function invalidQuizVoucherTokenResponse() {
@@ -1434,7 +1388,7 @@ export async function POST(request: NextRequest) {
                 );
                 const invoiceItemNames = items.map(getOrderItemDisplayName);
                 const invoiceHasDeviceItem = invoiceItemNames.some((name) =>
-                  DEVICE_ITEM_NAME_PATTERN.test(name)
+                  isDeviceReceiptItemName(name)
                 );
 
                 const invoiceItems: InvoiceLineItem[] = items.map(
@@ -1443,7 +1397,7 @@ export async function POST(request: NextRequest) {
                       invoiceItemNames[index] ?? getOrderItemDisplayName(item);
                     const price = item.negotiatedPrice ?? item.price;
                     const quantity = item.quantity;
-                    const description = appendOrderFulfillmentDescription({
+                    const description = appendReceiptFulfillmentDescription({
                       fulfillment,
                       hasDeviceItem: invoiceHasDeviceItem,
                       index,
@@ -1554,11 +1508,28 @@ export async function POST(request: NextRequest) {
 
                 // Log standard initial reminder row in order_reminders
                 backgroundSupabase ??= createAdminClient();
-                await backgroundSupabase.from('order_reminders').insert({
-                  order_id: order.id,
-                  channel: 'email',
-                  payment_link: paymentLink,
-                });
+                const { error: reminderInsertError } = await backgroundSupabase
+                  .from('order_reminders')
+                  .insert({
+                    order_id: order.id,
+                    channel: 'email',
+                    payment_link: paymentLink,
+                  });
+
+                if (reminderInsertError) {
+                  logger.error({
+                    message: 'Failed to store initial invoice reminder',
+                    orderId: order.id,
+                    paymentLink,
+                    error: reminderInsertError,
+                  });
+                } else {
+                  logger.info({
+                    message: 'Stored initial invoice reminder successfully',
+                    orderId: order.id,
+                    paymentLink,
+                  });
+                }
 
                 logger.info({
                   message:

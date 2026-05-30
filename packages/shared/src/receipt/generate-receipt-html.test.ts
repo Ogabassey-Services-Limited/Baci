@@ -58,7 +58,8 @@ describe('generateReceiptHtml', () => {
 
     expect(html).toContain('S/N');
     expect(html).toContain('SN-LEGACY-123');
-    expect(html.match(/S\/N/g) ?? []).toHaveLength(2);
+    expect(html).toMatch(/cell-item[\s\S]*S\/N: SN-LEGACY-123/);
+    expect(html).toMatch(/Fulfillment Details[\s\S]*SN-LEGACY-123/);
   });
 
   it('attaches order-level fulfillment details to the first device item', () => {
@@ -88,6 +89,65 @@ describe('generateReceiptHtml', () => {
       /Leather Case[\s\S]*IMEI: 353456789012345[\s\S]*iPhone 15 Pro/
     );
     expect(html).toMatch(/iPhone 15 Pro[\s\S]*IMEI: 353456789012345/);
+  });
+
+  it('prefers item-level fulfillment details over order-level fallback details', () => {
+    const html = generateReceiptHtml(
+      createReceiptOrder({
+        fulfillment_details: {
+          imei: '111111111111111',
+          serialNumber: 'ORDER-SERIAL',
+        },
+        items: [
+          {
+            product_name: 'Samsung Galaxy S22 Ultra',
+            quantity: 1,
+            price: 500000,
+            fulfillment_details: {
+              imei: '222222222222222',
+              serialNumber: 'ITEM-SERIAL',
+            },
+          },
+        ],
+      }),
+      createReceiptMerchant()
+    );
+
+    const itemRow =
+      html.match(/<tr[\s\S]*Samsung Galaxy S22 Ultra[\s\S]*<\/tr>/)?.[0] ?? '';
+    expect(itemRow).toContain('IMEI: 222222222222222');
+    expect(itemRow).toContain('S/N: ITEM-SERIAL');
+    expect(itemRow).not.toContain('IMEI: 111111111111111');
+    expect(itemRow).not.toContain('S/N: ORDER-SERIAL');
+  });
+
+  it('uses order-level fulfillment fallback on only one device item', () => {
+    const html = generateReceiptHtml(
+      createReceiptOrder({
+        fulfillment_details: {
+          imei: '353456789012345',
+          serialNumber: 'SN-123',
+        },
+        items: [
+          {
+            product_name: 'iPhone 15 Pro',
+            quantity: 1,
+            price: 500000,
+          },
+          {
+            product_name: 'Samsung Galaxy S22 Ultra',
+            quantity: 1,
+            price: 450000,
+          },
+        ],
+      }),
+      createReceiptMerchant()
+    );
+
+    const itemRows = (html.match(/<tr[\s\S]*?<\/tr>/g) ?? [])
+      .filter((row) => /iPhone 15 Pro|Samsung Galaxy S22 Ultra/.test(row))
+      .join('\n');
+    expect(itemRows.match(/IMEI: 353456789012345/g) ?? []).toHaveLength(1);
   });
 
   it('does not emit unsafe brand colors into receipt styles', () => {

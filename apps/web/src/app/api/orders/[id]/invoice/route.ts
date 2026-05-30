@@ -1,3 +1,8 @@
+import {
+  appendReceiptFulfillmentDescription,
+  isDeviceReceiptItemName,
+  normalizeReceiptFulfillmentDetails,
+} from '@baci/shared';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
@@ -56,9 +61,6 @@ interface ShippingAddress {
   phone?: string;
 }
 
-const DEVICE_ITEM_NAME_PATTERN =
-  /phone|iphone|samsung|pixel|galaxy|ipad|xiaomi|redmi|infinix|tecno|macbook|laptop|sim/i;
-
 /**
  * GET /api/orders/[id]/invoice
  * Generate and download a Peppol BIS 3.0 compliant invoice PDF
@@ -95,7 +97,7 @@ export async function GET(
       .from('orders')
       .select(
         `
-        ${ORDER_COLUMNS}, invoice_type_code, invoice_issue_date, tax_point_date, payment_due_date, buyer_reference, purchase_order_reference, tax_exclusive_amount, tax_inclusive_amount, invoice_note, firs_irn, firs_csid, firs_qr_code, payment_terms,
+        ${ORDER_COLUMNS}, fulfillment_details, invoice_type_code, invoice_issue_date, tax_point_date, payment_due_date, buyer_reference, purchase_order_reference, tax_exclusive_amount, tax_inclusive_amount, invoice_note, firs_irn, firs_csid, firs_qr_code, payment_terms,
         merchants!inner (
           id,
           user_id,
@@ -218,51 +220,40 @@ export async function GET(
       taxSubtotals = subtotals || [];
     }
 
-    const fulfillment = order.fulfillment_details as {
-      imei?: string | null;
-      serialNumber?: string | null;
-      serial_number?: string | null;
-    } | null;
-    const imei = fulfillment?.imei;
-    const serial = fulfillment?.serialNumber || fulfillment?.serial_number;
-    const hasDeviceItem = (orderItems as OrderItem[]).some((item) =>
-      DEVICE_ITEM_NAME_PATTERN.test(item.name || '')
+    const typedOrderItems = orderItems as OrderItem[];
+    const fulfillment = normalizeReceiptFulfillmentDetails(
+      order.fulfillment_details
+    );
+    const hasDeviceItem = typedOrderItems.some((item) =>
+      isDeviceReceiptItemName(item.name || '')
     );
 
     // Build invoice line items
-    const items: InvoiceLineItem[] = (orderItems as OrderItem[]).map(
-      (item, index) => {
-        let desc = item.item_description || undefined;
-        if (fulfillment && (imei || serial)) {
-          const isDevice = DEVICE_ITEM_NAME_PATTERN.test(item.name || '');
-          const shouldUseOrderFallback =
-            isDevice || (!hasDeviceItem && index === 0);
-          if (shouldUseOrderFallback) {
-            const parts = [];
-            if (imei) parts.push(`IMEI: ${imei}`);
-            if (serial) parts.push(`S/N: ${serial}`);
-            const fulfillmentStr = parts.join(' | ');
-            desc = desc ? `${desc}\n${fulfillmentStr}` : fulfillmentStr;
-          }
-        }
+    const items: InvoiceLineItem[] = typedOrderItems.map((item, index) => {
+      const desc = appendReceiptFulfillmentDescription({
+        description: item.item_description || undefined,
+        fulfillment,
+        hasDeviceItem,
+        index,
+        itemName: item.name || '',
+      });
 
-        return {
-          line_id: item.line_id || index + 1,
-          product_id: item.product_id || undefined,
-          name: item.name || '',
-          description: desc,
-          quantity: item.quantity,
-          unit_code: item.unit_code || 'EA',
-          price: Number(item.price),
-          line_extension_amount:
-            item.line_extension_amount || item.quantity * Number(item.price),
-          vat_category_code: item.vat_category_code || 'S',
-          vat_rate: item.vat_rate || merchant.vat_rate || 7.5,
-          vat_amount: item.vat_amount || 0,
-          sellers_item_id: item.sellers_item_id || undefined,
-        };
-      }
-    );
+      return {
+        line_id: item.line_id || index + 1,
+        product_id: item.product_id || undefined,
+        name: item.name || '',
+        description: desc,
+        quantity: item.quantity,
+        unit_code: item.unit_code || 'EA',
+        price: Number(item.price),
+        line_extension_amount:
+          item.line_extension_amount || item.quantity * Number(item.price),
+        vat_category_code: item.vat_category_code || 'S',
+        vat_rate: item.vat_rate || merchant.vat_rate || 7.5,
+        vat_amount: item.vat_amount || 0,
+        sellers_item_id: item.sellers_item_id || undefined,
+      };
+    });
 
     // Build tax subtotals for invoice
     const invoiceTaxSubtotals: TaxSubtotal[] = taxSubtotals.map((st) => ({

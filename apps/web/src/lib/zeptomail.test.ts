@@ -194,6 +194,27 @@ describe('zeptomail audit logging', () => {
     ]);
   });
 
+  it('omits attachments when none are supplied', async () => {
+    sendMailMock.mockResolvedValue({ request_id: 'zepto-no-attachments' });
+    const { sendEmail } = await import('./zeptomail');
+
+    await sendEmail({
+      to: 'customer@example.com',
+      subject: 'No attachment',
+      htmlContent: '<p>No attachment</p>',
+    });
+    await sendEmail({
+      to: 'customer@example.com',
+      subject: 'Empty attachments',
+      htmlContent: '<p>No attachment</p>',
+      attachments: [],
+    });
+
+    expect(sendMailMock).toHaveBeenCalledTimes(2);
+    expect(sendMailMock.mock.calls[0]?.[0]).not.toHaveProperty('attachments');
+    expect(sendMailMock.mock.calls[1]?.[0]).not.toHaveProperty('attachments');
+  });
+
   it('logs invalid recipient validation failures without calling the provider', async () => {
     const { sendEmail } = await import('./zeptomail');
 

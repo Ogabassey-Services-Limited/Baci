@@ -27,6 +27,12 @@ export interface ReceiptMerchant {
   } | null;
 }
 
+export interface ReceiptFulfillmentDetails {
+  imei?: string | null;
+  serialNumber?: string | null;
+  serial_number?: string | null;
+}
+
 export interface ReceiptOrder {
   order_number: string;
   created_at: string;
@@ -57,25 +63,29 @@ export interface ReceiptOrder {
     bank_name: string;
     account_name: string;
   } | null;
-  fulfillment_details?: {
-    imei?: string | null;
-    serialNumber?: string | null;
-    serial_number?: string | null;
-  } | null;
+  fulfillment_details?: ReceiptFulfillmentDetails | null;
   items: Array<{
     product_name: string;
     name?: string;
     variant_name?: string;
     quantity: number;
     price: number;
+    /**
+     * @deprecated Keep fulfillment identifiers in `fulfillment_details`.
+     * These flat fields are read only for legacy order snapshots.
+     */
     imei?: string | null;
+    /**
+     * @deprecated Keep fulfillment identifiers in `fulfillment_details`.
+     * These flat fields are read only for legacy order snapshots.
+     */
     serial_number?: string | null;
+    /**
+     * @deprecated Keep fulfillment identifiers in `fulfillment_details`.
+     * These flat fields are read only for legacy order snapshots.
+     */
     serialNumber?: string | null;
-    fulfillment_details?: {
-      imei?: string | null;
-      serialNumber?: string | null;
-      serial_number?: string | null;
-    } | null;
+    fulfillment_details?: ReceiptFulfillmentDetails | null;
   }>;
   transactions?: Array<{
     amount: number;

@@ -2840,24 +2840,23 @@ describe('POST /api/orders — B3.5 VAT RPC error mapping', () => {
 });
 
 describe('POST /api/orders — invoice payment method email attachment', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it('generates a Peppol BIS 3.0 PDF invoice and attaches it to the confirmation email when payment method is invoice', async () => {
-    const supabase = buildMockSupabase();
+  function createBackgroundSupabaseMock({
+    accountError = null,
+    reminderError = null,
+  }: {
+    accountError?: unknown;
+    reminderError?: unknown;
+  } = {}) {
+    const accountInsert = vi.fn().mockResolvedValue({ error: accountError });
+    const reminderInsert = vi.fn().mockResolvedValue({ error: reminderError });
     const backgroundSupabase = {
       from: vi.fn((table: string) => {
         if (table === 'order_payment_accounts') {
-          return {
-            insert: vi.fn().mockResolvedValue({ error: null }),
-          };
+          return { insert: accountInsert };
         }
 
         if (table === 'order_reminders') {
-          return {
-            insert: vi.fn().mockResolvedValue({ error: null }),
-          };
+          return { insert: reminderInsert };
         }
 
         return {
@@ -2865,6 +2864,27 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
         };
       }),
     };
+
+    return { accountInsert, backgroundSupabase, reminderInsert };
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGeneratePaymentAccount.mockResolvedValue({
+      success: true,
+      data: {
+        bank_name: 'Wema Bank',
+        account_number: '1234567890',
+        account_name: 'OgaBassey-Test',
+        customer_code: 'CUS_mock',
+      },
+    });
+    mockSendEmail.mockResolvedValue({ success: true });
+  });
+
+  it('generates a Peppol BIS 3.0 PDF invoice and attaches it to the confirmation email when payment method is invoice', async () => {
+    const supabase = buildMockSupabase();
+    const { backgroundSupabase } = createBackgroundSupabaseMock();
     mockCreateAdminClient.mockReturnValue(backgroundSupabase);
 
     supabase.from = vi.fn((_table: string) => {
@@ -2967,5 +2987,116 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
     );
     expect(backgroundSupabase.from).toHaveBeenCalledWith('order_reminders');
     expect(supabase.from).not.toHaveBeenCalledWith('order_payment_accounts');
+  });
+
+  it('still sends the invoice email when background DVA persistence fails', async () => {
+    const supabase = buildMockSupabase();
+    const { accountInsert, backgroundSupabase, reminderInsert } =
+      createBackgroundSupabaseMock({
+        accountError: { message: 'insert failed' },
+        reminderError: { message: 'reminder failed' },
+      });
+    mockCreateAdminClient.mockReturnValue(backgroundSupabase);
+
+    supabase.from = vi.fn((_table: string) => ({
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({
+        data: {
+          id: MERCHANT_ID,
+          business_name: 'Test Merchant',
+          country: 'NG',
+          slug: 'test-merchant',
+          support_email: 'support@example.com',
+          email_sender_name: 'Test Store',
+          email: 'merchant@example.com',
+          vat_registration_status: 'registered',
+          vat_rate: 7.5,
+        },
+        error: null,
+      }),
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: {
+          id: MERCHANT_ID,
+          business_name: 'Test Merchant',
+          country: 'NG',
+          slug: 'test-merchant',
+          support_email: 'support@example.com',
+          email_sender_name: 'Test Store',
+          email: 'merchant@example.com',
+          vat_registration_status: 'registered',
+          vat_rate: 7.5,
+        },
+        error: null,
+      }),
+      in: vi.fn().mockReturnThis(),
+      returns: vi.fn().mockResolvedValue({ data: [], error: null }),
+      insert: vi.fn().mockResolvedValue({ error: null }),
+      update: vi.fn().mockReturnThis(),
+      // biome-ignore lint/suspicious/noThenProperty: simulated thenable mock
+      then: (resolve: any) => Promise.resolve().then(resolve),
+    })) as any;
+
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () => supabase as unknown as never
+    );
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      user: null,
+      error: null,
+      supabase: supabase as unknown as never,
+    });
+
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...baseOrderPayload,
+        payment_method: 'invoice',
+      }),
+    });
+
+    const response = await POST(request);
+    expect(response.status).toBe(201);
+
+    await vi.waitFor(() => expect(mockSendEmail).toHaveBeenCalled(), {
+      timeout: 1000,
+    });
+
+    expect(mockGeneratePaymentAccount).toHaveBeenCalled();
+    expect(accountInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        order_id: 'order-id',
+        account_number: '1234567890',
+      })
+    );
+    expect(reminderInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        order_id: 'order-id',
+        channel: 'email',
+      })
+    );
+    expect(backgroundSupabase.from).toHaveBeenCalledWith(
+      'order_payment_accounts'
+    );
+    expect(backgroundSupabase.from).toHaveBeenCalledWith('order_reminders');
+    expect(mockSendEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        attachments: expect.arrayContaining([
+          expect.objectContaining({ mime_type: 'application/pdf' }),
+        ]),
+      })
+    );
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Failed to store auto-generated invoice DVA',
+        orderId: 'order-id',
+      })
+    );
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Failed to store initial invoice reminder',
+        orderId: 'order-id',
+      })
+    );
   });
 });

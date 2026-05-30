@@ -78,8 +78,12 @@ export default function CheckoutSuccessPage() {
           setIsVerifying(true);
           try {
             const slug = merchantContext?.merchant?.slug;
-            const url = `/api/storefront/orders/${orderId}?slug=${slug}${
-              trackingToken ? `&tracking_token=${trackingToken}` : ''
+            const query = new URLSearchParams();
+            if (slug) query.set('merchant_slug', slug);
+            if (trackingToken) query.set('tracking_token', trackingToken);
+            const queryString = query.toString();
+            const url = `/api/storefront/orders/${encodeURIComponent(orderId)}${
+              queryString ? `?${queryString}` : ''
             }`;
             const response = await fetch(url);
             const data = response.ok ? await response.json() : null;

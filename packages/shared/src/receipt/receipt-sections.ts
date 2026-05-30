@@ -1,5 +1,10 @@
 import { escapeHtml, escapeJsString } from './escape-html';
-import { getReceiptFulfillmentRows } from './receipt-fulfillment';
+import {
+  getReceiptFulfillmentRows,
+  getReceiptFulfillmentSummary,
+  isDeviceReceiptItemName,
+  shouldAttachFulfillmentToItem,
+} from './receipt-fulfillment';
 import {
   getReceiptDisplaySubtotal,
   getReceiptVatRate,
@@ -8,13 +13,6 @@ import {
 } from './receipt-money';
 import { sanitizeSvg } from './sanitize-svg';
 import type { ReceiptMerchant, ReceiptOptions, ReceiptOrder } from './types';
-
-const DEVICE_ITEM_NAME_PATTERN =
-  /phone|iphone|samsung|pixel|galaxy|ipad|xiaomi|redmi|infinix|tecno|macbook|laptop|sim/i;
-
-function isDeviceReceiptItemName(name: string): boolean {
-  return DEVICE_ITEM_NAME_PATTERN.test(name);
-}
 
 export function renderLogoHtml(
   merchant: ReceiptMerchant,
@@ -49,6 +47,8 @@ export function renderItemRows(
     isDeviceReceiptItemName(item.product_name || item.name || '')
   );
 
+  let orderFallbackEmitted = false;
+
   return order.items
     .map((item, index) => {
       const baseName = item.product_name || item.name || 'Item';
@@ -58,35 +58,31 @@ export function renderItemRows(
 
       let fulfillmentHtml = '';
 
-      const itemImei = item.imei || item.fulfillment_details?.imei;
-      const itemSerial =
-        item.serial_number ||
-        item.serialNumber ||
-        item.fulfillment_details?.serial_number ||
-        item.fulfillment_details?.serialNumber;
+      const itemSummary = getReceiptFulfillmentSummary({
+        imei: item.fulfillment_details?.imei || item.imei,
+        serialNumber:
+          item.fulfillment_details?.serialNumber || item.serialNumber,
+        serial_number:
+          item.fulfillment_details?.serial_number || item.serial_number,
+      });
 
-      if (itemImei || itemSerial) {
-        const parts = [];
-        if (itemImei) parts.push(`IMEI: ${itemImei}`);
-        if (itemSerial) parts.push(`S/N: ${itemSerial}`);
-        fulfillmentHtml = `<div style="font-size: 11px; color: #4b5563; margin-top: 3px; font-weight: 500;">${escapeHtml(parts.join(' | '))}</div>`;
+      if (itemSummary) {
+        fulfillmentHtml = `<div style="font-size: 11px; color: #4b5563; margin-top: 3px; font-weight: 500;">${escapeHtml(itemSummary)}</div>`;
       } else if (order.fulfillment_details) {
-        const imei = order.fulfillment_details.imei;
-        const serial =
-          order.fulfillment_details.serialNumber ||
-          order.fulfillment_details.serial_number;
+        const shouldUseOrderFallback = shouldAttachFulfillmentToItem({
+          hasDeviceItem,
+          index,
+          itemName: baseName,
+        });
+        const orderSummary = getReceiptFulfillmentSummary(
+          order.fulfillment_details
+        );
 
-        const isDevice = isDeviceReceiptItemName(baseName);
-        const shouldUseOrderFallback =
-          isDevice || (!hasDeviceItem && index === 0);
-
-        if ((imei || serial) && shouldUseOrderFallback) {
-          const parts = [];
-          if (imei) parts.push(`IMEI: ${imei}`);
-          if (serial) parts.push(`S/N: ${serial}`);
-          if (parts.length > 0) {
-            fulfillmentHtml = `<div style="font-size: 11px; color: #4b5563; margin-top: 3px; font-weight: 500;">${escapeHtml(parts.join(' | '))}</div>`;
-          }
+        // If an order has only order-level identifiers, attach them to the
+        // first item so single-line non-device invoices still show the data.
+        if (orderSummary && shouldUseOrderFallback && !orderFallbackEmitted) {
+          fulfillmentHtml = `<div style="font-size: 11px; color: #4b5563; margin-top: 3px; font-weight: 500;">${escapeHtml(orderSummary)}</div>`;
+          orderFallbackEmitted = true;
         }
       }
 

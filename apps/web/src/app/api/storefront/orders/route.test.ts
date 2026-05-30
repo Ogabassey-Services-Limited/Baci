@@ -62,6 +62,11 @@ function createSupabaseMock(input?: {
       tracking_number: string | null;
       shipping_provider: string | null;
       payment_method: string | null;
+      fulfillment_details?: {
+        imei?: string | null;
+        serialNumber?: string | null;
+        serial_number?: string | null;
+      } | null;
       order_items: Array<{
         id: string;
         product_id: string;
@@ -253,6 +258,10 @@ describe('GET /api/storefront/orders', () => {
                 tracking_number: 'TRACK-1',
                 shipping_provider: 'GIGL',
                 payment_method: 'card',
+                fulfillment_details: {
+                  imei: '353456789012345',
+                  serialNumber: 'SN-123',
+                },
                 order_items: [
                   {
                     id: 'item-1',
@@ -305,6 +314,10 @@ describe('GET /api/storefront/orders', () => {
           shipping_provider: 'GIGL',
           payment_method: 'card',
           virtual_account: null,
+          fulfillment_details: {
+            imei: '353456789012345',
+            serialNumber: 'SN-123',
+          },
           balance: 0,
           current_document_kind: 'receipt',
           receipt_eligible: true,

@@ -93,6 +93,10 @@ export function buildReceiptOrder(input: BuildReceiptOrderInput): ReceiptOrder {
       product_name: item.product_name || item.name,
       quantity: item.quantity,
       price: item.price,
+      imei: item.imei,
+      serial_number: item.serial_number,
+      serialNumber: item.serialNumber,
+      fulfillment_details: item.fulfillment_details,
     })),
     transactions: input.transactions.map((transaction) => ({
       amount: asNumber(transaction.amount),
