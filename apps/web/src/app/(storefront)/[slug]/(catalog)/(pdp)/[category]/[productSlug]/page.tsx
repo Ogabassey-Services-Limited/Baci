@@ -8,7 +8,7 @@ import { type ReactNode, Suspense } from 'react';
 import { StorefrontRouteNotFound } from '@/app/(storefront)/[slug]/storefront-route-not-found';
 import { getStorefrontShellSnapshotBase } from '@/app/(storefront)/[slug]/storefront-shell-snapshot';
 import { OgabasseyPdpProductLcpSkeleton } from '@/app/(storefront)/ogabassey/ogabassey-pdp-product-lcp-skeleton';
-import { preloadOgabasseyPdpProductImage } from '@/app/(storefront)/ogabassey/ogabassey-pdp-product-resource-hints';
+import { OgabasseyPdpProductResourceHints } from '@/app/(storefront)/ogabassey/ogabassey-pdp-product-resource-hints';
 import { preloadOgabasseyPdpStaticResources } from '@/app/(storefront)/ogabassey/ogabassey-pdp-static-resource-hints';
 import { OgabasseyPdpBelowFoldIsland } from '@/components/storefront/ogabassey/pdp/client-islands';
 import { createCriticalCartProduct } from '@/components/storefront/ogabassey/pdp/critical-cart-product';
@@ -1078,9 +1078,6 @@ export default async function CategoryProductPage({
     : Promise.resolve<'' | `/${string}`>('');
 
   try {
-    if (primaryProductImage) {
-      preloadOgabasseyPdpProductImage({ src: primaryProductImage });
-    }
     if (criticalProduct) {
       preloadOgabasseyPdpStaticResources();
     }
@@ -1097,6 +1094,9 @@ export default async function CategoryProductPage({
 
   return (
     <>
+      {primaryProductImage ? (
+        <OgabasseyPdpProductResourceHints src={primaryProductImage} />
+      ) : null}
       {criticalProduct ? (
         <>
           <OgabasseyPdpCriticalShell

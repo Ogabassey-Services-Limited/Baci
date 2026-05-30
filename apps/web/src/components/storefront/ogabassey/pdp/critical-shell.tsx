@@ -3,12 +3,15 @@ import Link from 'next/link';
 import type { Route } from 'next';
 import type { ComponentProps, ReactNode } from 'react';
 import {
+  OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA,
+  OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_SIZES,
   OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY,
   OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
 } from '@/components/storefront/ogabassey/config/product-media';
 import imageLoader from '@/lib/image-loader';
 import type { OgabasseyPdpCriticalProduct } from './critical-product';
 import styles from './critical-shell.module.css';
+import { buildOgabasseyPdpMobileImageSrcSet } from './product-image-source';
 
 interface OgabasseyPdpCriticalShellProps {
   basePath: string;
@@ -60,12 +63,21 @@ function getNativeProductImageProps(product: OgabasseyPdpCriticalProduct) {
   return nativeProps;
 }
 
+function getMobileProductImageSourceProps(product: OgabasseyPdpCriticalProduct) {
+  return {
+    media: OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA,
+    sizes: OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_SIZES,
+    srcSet: buildOgabasseyPdpMobileImageSrcSet(product.image),
+  };
+}
+
 export function OgabasseyPdpCriticalShell({
   basePath,
   children,
   product,
 }: OgabasseyPdpCriticalShellProps) {
   const productImageProps = getNativeProductImageProps(product);
+  const mobileSourceProps = getMobileProductImageSourceProps(product);
 
   return (
     <section className={styles.shell} data-ogabassey-pdp-critical-shell>
@@ -85,8 +97,11 @@ export function OgabasseyPdpCriticalShell({
         </nav>
         <div className={styles.grid} data-ogabassey-pdp-grid>
           <div className={styles.imageFrame} data-ogabassey-pdp-image-frame>
-            {/* biome-ignore lint/performance/noImgElement: Server-generated native img avoids passing a loader function through the RSC payload. */}
-            <img {...productImageProps} />
+            <picture data-ogabassey-pdp-picture>
+              <source {...mobileSourceProps} />
+              {/* biome-ignore lint/performance/noImgElement: Server-generated native img avoids passing a loader function through the RSC payload. */}
+              <img {...productImageProps} />
+            </picture>
             <span className={styles.condition} data-ogabassey-pdp-condition>
               {product.condition}
             </span>
