@@ -196,9 +196,6 @@ export async function sendTikTokEvent(
       url: pageUrl,
     }),
     properties: eventProperties,
-    ...(options?.testEventCode
-      ? { test_event_code: options.testEventCode }
-      : {}),
   };
 
   try {
@@ -212,6 +209,9 @@ export async function sendTikTokEvent(
         event_source: 'web',
         event_source_id: pixelId,
         data: [payload],
+        ...(options?.testEventCode
+          ? { test_event_code: options.testEventCode }
+          : {}),
       }),
     });
 

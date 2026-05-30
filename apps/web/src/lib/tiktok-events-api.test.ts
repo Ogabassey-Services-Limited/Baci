@@ -122,6 +122,30 @@ describe('tiktokEventsAPI', () => {
     });
   });
 
+  it('sends test_event_code at the TikTok request root', async () => {
+    const fetchMock = mockOkFetch();
+
+    await tiktokEventsAPI.viewContent(
+      'pixel-1',
+      'token-1',
+      {},
+      { contentId: 'sku-1' },
+      {
+        eventId: 'evt-test-event',
+        testEventCode: 'TEST123',
+      }
+    );
+
+    const body = getSentBody(fetchMock);
+
+    expect(body).toMatchObject({
+      event_source: 'web',
+      event_source_id: 'pixel-1',
+      test_event_code: 'TEST123',
+    });
+    expect(body.data[0]).not.toHaveProperty('test_event_code');
+  });
+
   it.each([
     ['empty string', ''],
     ['invalid string', 'not-a-date'],
