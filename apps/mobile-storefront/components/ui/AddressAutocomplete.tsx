@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -42,10 +42,7 @@ export function AddressAutocomplete({
   ...props
 }: AddressAutocompleteProps) {
   const [predictions, setPredictions] = useState<PlacePrediction[]>([]);
-  const [sessionToken, setSessionToken] = useState<string>(() =>
-    generateSessionToken()
-  );
-  // L6 fix: Track previous session token and clear prediction cache when it changes
+  const [sessionToken, setSessionToken] = useState(generateSessionToken);
   const prevSessionTokenRef = useRef(sessionToken);
   useEffect(() => {
     if (prevSessionTokenRef.current !== sessionToken) {
@@ -74,7 +71,6 @@ export function AddressAutocomplete({
   const wrapperRef = useRef<View>(null);
   const keyboardHeightRef = useRef(0);
 
-  // M16 fix: Clean up debounce timer on unmount
   useEffect(() => {
     return () => {
       if (debounceTimer.current) {
@@ -88,7 +84,6 @@ export function AddressAutocomplete({
     };
   }, []);
 
-  // Track keyboard height and scroll into view when dropdown opens
   useEffect(() => {
     const showSub = Keyboard.addListener('keyboardDidShow', (e) => {
       keyboardHeightRef.current = e.endCoordinates.height;
@@ -96,10 +91,12 @@ export function AddressAutocomplete({
     const hideSub = Keyboard.addListener('keyboardDidHide', () => {
       keyboardHeightRef.current = 0;
     });
-    return () => { showSub.remove(); hideSub.remove(); };
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
   }, []);
 
-  // When dropdown opens, scroll parent so the dropdown clears the keyboard
   useEffect(() => {
     if (!isOpen || predictions.length === 0 || !scrollRef?.current) return;
     wrapperRef.current?.measureInWindow((_x, screenY, _w, inputHeight) => {
@@ -107,7 +104,8 @@ export function AddressAutocomplete({
       const DROPDOWN_HEIGHT = 280;
       const PADDING = 16;
       const screenHeight = Dimensions.get('window').height;
-      const kbHeight = keyboardHeightRef.current || Keyboard.metrics()?.height || 0;
+      const kbHeight =
+        keyboardHeightRef.current || Keyboard.metrics()?.height || 0;
       const keyboardTop = screenHeight - kbHeight;
       const dropdownBottom = screenY + inputHeight + DROPDOWN_HEIGHT + PADDING;
       if (dropdownBottom > keyboardTop) {
@@ -121,7 +119,6 @@ export function AddressAutocomplete({
     });
   }, [isOpen, predictions.length, scrollRef, scrollOffsetRef]);
 
-  // Sync with external value
   useEffect(() => {
     setInternalValue(value);
   }, [value]);
@@ -153,7 +150,6 @@ export function AddressAutocomplete({
     onChangeText?.(text);
     setIsOpen(text.trim().length >= 2);
 
-    // Debounce API call
     if (debounceTimer.current) {
       clearTimeout(debounceTimer.current);
     }
@@ -178,7 +174,6 @@ export function AddressAutocomplete({
         onSelect(details);
       }
       if (isMountedRef.current) {
-        // Refresh session token after selection
         setSessionToken(generateSessionToken());
       }
     } finally {
@@ -246,7 +241,6 @@ export function AddressAutocomplete({
             if (blurCloseTimerRef.current) {
               clearTimeout(blurCloseTimerRef.current);
             }
-            // Delay so prediction-item taps can fire before the dropdown closes
             blurCloseTimerRef.current = setTimeout(() => {
               setIsOpen(false);
               blurCloseTimerRef.current = null;
@@ -259,7 +253,6 @@ export function AddressAutocomplete({
           textContentType="fullStreetAddress"
           accessibilityLabel="Street address"
           accessibilityHint="Start typing to see address suggestions"
-          // BUG-5-021: Improved accessibility for screen readers
           accessibilityRole="combobox"
           accessibilityState={{ expanded: isOpen }}
           {...props}
@@ -287,7 +280,6 @@ export function AddressAutocomplete({
         ) : null}
       </View>
 
-      {/* Error Message */}
       {error && (
         <Text style={[styles.error, { color: colors.destructive }]}>
           {error}
