@@ -73,6 +73,8 @@ vi.mock('@tanstack/react-query', () => ({
   keepPreviousData: Symbol('keepPreviousData'),
   useInfiniteQuery: (config: {
     queryFn: (args: { pageParam?: number }) => Promise<unknown>;
+    queryKey: readonly unknown[];
+    staleTime?: number;
   }) => {
     mocks.infiniteQueryConfigs.push(config);
     mocks.queryPromises.push(config.queryFn({ pageParam: 0 }));
