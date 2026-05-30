@@ -3,6 +3,7 @@ import { resolveVariantSelectionParamResolution } from '@baci/shared/lib';
 import type { Metadata, Route } from 'next';
 import { headers } from 'next/headers';
 import { notFound, permanentRedirect } from 'next/navigation';
+import { connection } from 'next/server';
 import { type ReactNode, Suspense } from 'react';
 import { StorefrontRouteNotFound } from '@/app/(storefront)/[slug]/storefront-route-not-found';
 import { getStorefrontShellSnapshotBase } from '@/app/(storefront)/[slug]/storefront-shell-snapshot';
@@ -682,6 +683,11 @@ async function getProductRouteControl(
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
+  // Keep PDP metadata request-bound with the body tree. If this runs during a
+  // static prerender pass, Next can resume a page host slot as its metadata
+  // boundary and log `Expected the resume to render <div>`.
+  await connection();
+
   const { slug, category, productSlug } = await params;
   if (!isValidMerchantIdentifier(slug)) {
     notFound();
