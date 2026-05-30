@@ -175,9 +175,11 @@ export function useUpdateProductStock() {
 
       return { previousQueriesData };
     },
-    onSettled: () => {
+    onSettled: (_data, _error, { productId }) => {
       queryClient.invalidateQueries({ queryKey: ['products', merchant?.id] });
-      queryClient.invalidateQueries({ queryKey: ['product', merchant?.id] });
+      queryClient.invalidateQueries({
+        queryKey: ['product', merchant?.id, productId],
+      });
     },
   });
 }

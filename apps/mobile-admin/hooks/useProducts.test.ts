@@ -2,12 +2,38 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   chainCalls: [] as Array<{ method: string; args: unknown[] }>,
+  fetchProductDetail: vi.fn(),
+  infiniteQueryConfigs: [] as Array<{
+    queryFn: (args: { pageParam?: number }) => Promise<unknown>;
+    queryKey: readonly unknown[];
+    staleTime?: number;
+  }>,
+  mutationConfigs: [] as Array<{
+    onSettled?: (
+      data: unknown,
+      error: unknown,
+      variables: { productId: string; stock: number }
+    ) => void;
+  }>,
   productQueryResult: {
     count: 0,
     data: [] as unknown[],
     error: null as { message: string } | null,
   },
-  queryPromises: [] as Array<Promise<unknown>>,
+  queryClient: {
+    cancelQueries: vi.fn(),
+    getQueriesData: vi.fn(() => []),
+    invalidateQueries: vi.fn(),
+    setQueriesData: vi.fn(),
+    setQueryData: vi.fn(),
+  },
+  queryConfigs: [] as Array<{
+    enabled?: boolean;
+    queryFn: () => Promise<unknown>;
+    queryKey: readonly unknown[];
+    staleTime?: number;
+  }>,
+  queryPromises: [] as Promise<unknown>[],
   rpc: vi.fn(),
 }));
 
@@ -32,6 +58,7 @@ function makeProductQuery() {
   ]) {
     chain[method] = passthrough(method);
   }
+  // biome-ignore lint/suspicious/noThenProperty: Supabase query builders are thenable.
   chain.then = (
     resolve: (value: {
       data: unknown[];
@@ -44,20 +71,34 @@ function makeProductQuery() {
 
 vi.mock('@tanstack/react-query', () => ({
   keepPreviousData: Symbol('keepPreviousData'),
-  useInfiniteQuery: ({
-    queryFn,
-  }: {
+  useInfiniteQuery: (config: {
     queryFn: (args: { pageParam?: number }) => Promise<unknown>;
   }) => {
-    mocks.queryPromises.push(queryFn({ pageParam: 0 }));
+    mocks.infiniteQueryConfigs.push(config);
+    mocks.queryPromises.push(config.queryFn({ pageParam: 0 }));
     return {};
   },
-  useMutation: () => ({}),
-  useQuery: ({ queryFn }: { queryFn: () => Promise<unknown> }) => {
-    mocks.queryPromises.push(queryFn());
+  useMutation: (config: {
+    onSettled?: (
+      data: unknown,
+      error: unknown,
+      variables: { productId: string; stock: number }
+    ) => void;
+  }) => {
+    mocks.mutationConfigs.push(config);
     return {};
   },
-  useQueryClient: () => ({}),
+  useQuery: (config: {
+    enabled?: boolean;
+    queryFn: () => Promise<unknown>;
+    queryKey: readonly unknown[];
+    staleTime?: number;
+  }) => {
+    mocks.queryConfigs.push(config);
+    mocks.queryPromises.push(config.queryFn());
+    return {};
+  },
+  useQueryClient: () => mocks.queryClient,
 }));
 
 vi.mock('@/hooks/useMerchant', () => ({
@@ -77,13 +118,32 @@ vi.mock('@/lib/supabase', () => ({
   },
 }));
 
-import { useInventoryStats, useProducts } from './useProducts';
+vi.mock('./product-detail-query', () => ({
+  fetchProductDetail: mocks.fetchProductDetail,
+}));
+
+import {
+  useInventoryStats,
+  useProduct,
+  useProducts,
+  useUpdateProductStock,
+} from './useProducts';
 
 describe('useProducts branch semantics', () => {
   beforeEach(() => {
     mocks.chainCalls.length = 0;
+    mocks.infiniteQueryConfigs.length = 0;
+    mocks.mutationConfigs.length = 0;
+    mocks.queryConfigs.length = 0;
     mocks.queryPromises.length = 0;
+    mocks.fetchProductDetail.mockReset();
     mocks.productQueryResult = { count: 0, data: [], error: null };
+    mocks.queryClient.cancelQueries.mockReset();
+    mocks.queryClient.getQueriesData.mockReset();
+    mocks.queryClient.getQueriesData.mockReturnValue([]);
+    mocks.queryClient.invalidateQueries.mockReset();
+    mocks.queryClient.setQueriesData.mockReset();
+    mocks.queryClient.setQueryData.mockReset();
     mocks.rpc.mockReset();
   });
 
@@ -96,6 +156,46 @@ describe('useProducts branch semantics', () => {
         (call) => call.method === 'eq' && call.args[0] === 'branch_id'
       )
     ).toEqual([]);
+  });
+
+  it('scopes product list query keys by merchant id while preserving filters', () => {
+    const filters = { status: 'active' as const };
+
+    useProducts(filters);
+
+    expect(mocks.infiniteQueryConfigs[0]?.queryKey).toEqual([
+      'products',
+      'merchant-1',
+      filters,
+    ]);
+  });
+
+  it('scopes product detail query keys by merchant id with a short freshness window', () => {
+    mocks.fetchProductDetail.mockResolvedValue({ id: 'product-1' });
+
+    useProduct('product-1');
+
+    expect(mocks.queryConfigs[0]).toMatchObject({
+      enabled: true,
+      queryKey: ['product', 'merchant-1', 'product-1'],
+      staleTime: 1000 * 30,
+    });
+  });
+
+  it('invalidates the product list and changed product after stock updates settle', () => {
+    useUpdateProductStock();
+
+    mocks.mutationConfigs[0]?.onSettled?.(undefined, undefined, {
+      productId: 'product-1',
+      stock: 7,
+    });
+
+    expect(mocks.queryClient.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['products', 'merchant-1'],
+    });
+    expect(mocks.queryClient.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['product', 'merchant-1', 'product-1'],
+    });
   });
 
   it('calls inventory stats RPC only with merchant id', () => {
