@@ -251,7 +251,7 @@ export function usePaymentGatewayController() {
         }
         setPaymentStatus('success');
         scheduleDelayedNavigation(() => {
-          router.replace(returnTo || '/wallet');
+          router.replace((returnTo || '/wallet') as any);
         });
       } catch (error) {
         if (!isMountedRef.current) {
