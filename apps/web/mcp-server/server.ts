@@ -42,6 +42,7 @@ import {
   updateAgenticCheckoutSessionMcpInputSchema,
 } from './agentic-checkout-client';
 import { registerAgenticUcpTools } from './agentic-ucp-tools';
+import { widgetEscapeHtmlScript } from './widget-escape-html';
 
 // =============================================================================
 // CONFIGURATION
@@ -981,15 +982,7 @@ const widgetHtml = `<!DOCTYPE html>
 
     const formatPrice = (price) => new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', minimumFractionDigits: 0 }).format(price);
 
-    const escapeHtml = (str) => {
-      if (str === null || str === undefined) return '';
-      return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-    };
+    ${widgetEscapeHtmlScript}
 
     const openLink = (url) => window.openai?.openExternal?.({ href: url }) || window.open(url, '_blank');
     const productUrl = (slug) => 'https://ogabassey.com/ogabassey/' + encodeURIComponent(slug);
