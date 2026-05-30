@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
-import type { ExpoConfig } from 'expo/config';
+import type { ConfigContext, ExpoConfig } from 'expo/config';
 
 type AppConfig = typeof import('../../app.config').default;
 
@@ -45,9 +45,14 @@ describe('SDK 56 compliance', () => {
 
       jest.isolateModules(() => {
         const appConfig = require('../../app.config').default as AppConfig;
-        config = appConfig({
-          config: {} as never,
-        } as Parameters<AppConfig>[0]);
+        const configContext: ConfigContext = {
+          config: {} as ExpoConfig,
+          packageJsonPath: '',
+          projectRoot: ROOT,
+          staticConfigPath: '',
+        };
+
+        config = appConfig(configContext);
       });
 
       if (!config) {
