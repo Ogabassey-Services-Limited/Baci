@@ -91,7 +91,7 @@ export function OgabasseyV2Wallet() {
                 </div>
 
                 <div className="flex">
-                  <button
+                  <button type="button"
                     onClick={handleFundWallet}
                     className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-red-900/20 active:scale-95"
                   >
@@ -112,7 +112,7 @@ export function OgabasseyV2Wallet() {
                 className="flex flex-col items-center justify-center py-8 text-center bg-gray-50 rounded-xl border border-dashed border-gray-200 cursor-pointer hover:bg-gray-100 transition-colors"
                 role="button"
               >
-                <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm mb-3">
+                <div className="size-12 bg-white rounded-full flex items-center justify-center shadow-sm mb-3">
                   <Plus size={24} className="text-gray-400" />
                 </div>
                 <p className="text-sm font-medium text-gray-600">

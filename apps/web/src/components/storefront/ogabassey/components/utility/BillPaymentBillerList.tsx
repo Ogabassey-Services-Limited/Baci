@@ -77,14 +77,13 @@ export function BillPaymentBillerList({
         Select {label} Provider
       </span>
       {isLoading ? (
-        <div
+        <output
           className="flex items-center justify-center py-6 text-gray-400"
-          role="status"
           aria-label="Loading providers"
         >
           <Loader2 className="animate-spin mr-2" size={18} />
-          Loading providers...
-        </div>
+          Loading providers…
+        </output>
       ) : billers.length === 0 ? (
         <p className="text-sm text-gray-500 py-4 text-center">
           No providers available for {label}

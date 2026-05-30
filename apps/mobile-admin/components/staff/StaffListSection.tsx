@@ -1,4 +1,6 @@
-import Ionicons, { type IoniconsIconName } from "@react-native-vector-icons/ionicons";
+import Ionicons, {
+  type IoniconsIconName,
+} from '@react-native-vector-icons/ionicons';
 import { FlashList } from '@shopify/flash-list';
 import {
   ActivityIndicator,
@@ -78,7 +80,7 @@ export function StaffListSection({
     <View accessibilityRole="progressbar" style={styles.emptyContainer}>
       <ActivityIndicator color={colors.primary} size="large" />
       <Text style={[styles.emptyTitle, { color: colors.text }]}>
-        Loading team members...
+        Loading team members…
       </Text>
       <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
         Checking your current staff list

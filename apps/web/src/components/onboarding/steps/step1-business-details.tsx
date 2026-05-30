@@ -252,7 +252,7 @@ export default function Step1_BusinessDetails({ onKeyDown }: Step1Props) {
               className="group h-auto p-0 text-[13px] font-semibold text-primary hover:bg-transparent transition-all duration-300"
               onClick={() => setIsGeneratorOpen(true)}
             >
-              <Sparkles className="w-3.5 h-3.5 mr-0.5 text-amber-500 group-hover:text-amber-600 transition-colors" />
+              <Sparkles className="size-3.5 mr-0.5 text-amber-500 group-hover:text-amber-600 transition-colors" />
               <span className="bg-linear-to-r from-primary via-primary to-primary/70 bg-clip-text text-transparent group-hover:from-primary/90 group-hover:to-primary/60">
                 Generate Business Name
               </span>

@@ -122,7 +122,7 @@ export function AccountPageClient() {
             {merchant?.business_name || 'Store'}
           </Link>
           <Button variant="ghost" size="sm" onClick={handleLogout}>
-            <LogOut className="h-4 w-4 mr-2" />
+            <LogOut className="size-4 mr-2" />
             Sign out
           </Button>
         </div>
@@ -133,8 +133,8 @@ export function AccountPageClient() {
         {/* Welcome section */}
         <div className="mb-8">
           <div className="flex items-center gap-4 mb-4">
-            <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
-              <User className="h-8 w-8 text-primary" />
+            <div className="size-16 rounded-full bg-primary/10 flex items-center justify-center">
+              <User className="size-8 text-primary" />
             </div>
             <div>
               <h1 className="text-2xl font-bold">
@@ -191,8 +191,8 @@ export function AccountPageClient() {
               <Link key={link.href} href={asRoute(getHref(link.href))}>
                 <Card className="h-full hover:bg-muted/50 transition-colors cursor-pointer">
                   <CardHeader className="flex flex-row items-center gap-4">
-                    <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                      <Icon className="h-6 w-6 text-primary" />
+                    <div className="size-12 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                      <Icon className="size-6 text-primary" />
                     </div>
                     <div>
                       <CardTitle className="text-lg">{link.title}</CardTitle>
@@ -209,7 +209,7 @@ export function AccountPageClient() {
         {(customer.total_orders || 0) === 0 && (
           <Card className="mt-8 bg-primary/5 border-primary/20">
             <CardContent className="p-6 text-center">
-              <Package className="h-12 w-12 mx-auto mb-4 text-primary/60" />
+              <Package className="size-12 mx-auto mb-4 text-primary/60" />
               <h3 className="font-semibold mb-2">No orders yet</h3>
               <p className="text-muted-foreground mb-4">
                 Start shopping and your orders will appear here

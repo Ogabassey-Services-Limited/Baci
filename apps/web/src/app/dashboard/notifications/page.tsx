@@ -110,13 +110,13 @@ export default function NotificationsPage() {
         <div className="flex gap-2">
           {unreadCount > 0 && (
             <Button variant="outline" onClick={handleMarkAllAsRead}>
-              <CheckCheck className="h-4 w-4 mr-2" />
+              <CheckCheck className="size-4 mr-2" />
               Mark All Read
             </Button>
           )}
           <Button variant="outline" asChild>
             <Link href="/dashboard/notifications/preferences">
-              <Settings className="h-4 w-4 mr-2" />
+              <Settings className="size-4 mr-2" />
               Preferences
             </Link>
           </Button>
@@ -169,7 +169,7 @@ export default function NotificationsPage() {
             </div>
           ) : filteredNotifications.length === 0 ? (
             <div className="text-center py-12">
-              <Bell className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+              <Bell className="size-12 mx-auto mb-4 text-muted-foreground opacity-50" />
               <h3 className="text-lg font-medium mb-1">No notifications</h3>
               <p className="text-muted-foreground">
                 {filter === 'unread'
@@ -243,7 +243,7 @@ function NotificationCard({
     >
       {/* Icon */}
       <div className={cn('shrink-0 p-2 rounded-full', typeStyle.bg)}>
-        <Icon className="h-4 w-4" />
+        <Icon className="size-4" />
       </div>
 
       {/* Content */}
@@ -260,7 +260,7 @@ function NotificationCard({
                 {notification.notification?.title}
               </h4>
               {isUnread && (
-                <span className="shrink-0 h-2 w-2 bg-primary rounded-full" />
+                <span className="shrink-0 size-2 bg-primary rounded-full" />
               )}
             </div>
             <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
@@ -282,7 +282,7 @@ function NotificationCard({
           <div className="flex items-center gap-2">
             {notification.notification?.action_url && (
               <Button variant="ghost" size="sm" className="h-7 text-xs">
-                <ExternalLink className="h-3 w-3 mr-1" />
+                <ExternalLink className="size-3 mr-1" />
                 {notification.notification.action_label || 'View'}
               </Button>
             )}

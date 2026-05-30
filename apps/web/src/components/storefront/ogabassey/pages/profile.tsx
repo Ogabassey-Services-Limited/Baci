@@ -126,7 +126,7 @@ export const OgabasseyV2Profile: React.FC = () => {
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col items-center text-center relative overflow-hidden">
               <div className="absolute top-0 left-0 right-0 h-24 bg-linear-to-r from-gray-900 to-gray-800" />
 
-              <div className="relative w-24 h-24 rounded-full border-4 border-white shadow-md mb-4 mt-8 bg-gray-200 flex items-center justify-center">
+              <div className="relative size-24 rounded-full border-4 border-white shadow-md mb-4 mt-8 bg-gray-200 flex items-center justify-center">
                 {/* Replaced Image with Initials fallback if no generic avatar */}
                 <span className="text-2xl font-bold text-gray-600">
                   {getInitials(displayName)}
@@ -191,7 +191,7 @@ export const OgabasseyV2Profile: React.FC = () => {
                   className="flex items-center justify-between p-4 md:p-6 border-b border-gray-50 last:border-0 hover:bg-gray-50 transition-colors group active:bg-gray-100"
                 >
                   <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-full bg-gray-50 text-gray-600 flex items-center justify-center group-hover:bg-red-50 group-hover:text-red-600 transition-colors">
+                    <div className="size-10 rounded-full bg-gray-50 text-gray-600 flex items-center justify-center group-hover:bg-red-50 group-hover:text-red-600 transition-colors">
                       <item.icon size={20} />
                     </div>
                     <div>
@@ -214,7 +214,7 @@ export const OgabasseyV2Profile: React.FC = () => {
                 className="w-full flex items-center justify-between p-4 md:p-6 hover:bg-red-50 transition-colors group text-left active:bg-red-100"
               >
                 <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-full bg-red-50 text-red-600 flex items-center justify-center group-hover:bg-red-100 transition-colors">
+                  <div className="size-10 rounded-full bg-red-50 text-red-600 flex items-center justify-center group-hover:bg-red-100 transition-colors">
                     <LogOut size={20} />
                   </div>
                   <div>

@@ -40,7 +40,7 @@ describe('ProductCatalogTable', () => {
   it('renders only the loader during the initial loading state', () => {
     render(<ProductCatalogTable {...createProps({ isLoading: true })} />);
 
-    expect(screen.getByText('Loading catalog...')).toBeInTheDocument();
+    expect(screen.getByText('Loading catalog…')).toBeInTheDocument();
     expect(screen.queryByRole('table')).toBeNull();
   });
 

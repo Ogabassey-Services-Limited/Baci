@@ -118,15 +118,15 @@ export default function InsurancePolicyPage() {
   if (loading) {
     return (
       <div className="flex h-64 w-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Loader2 className="size-8 animate-spin text-primary" />
       </div>
     );
   }
 
   if (error || !policy) {
     return (
-      <div className="flex flex-col items-center justify-center space-y-4 py-12">
-        <AlertTriangle className="h-12 w-12 text-muted-foreground" />
+      <div className="flex flex-col items-center justify-center gap-y-4 py-12">
+        <AlertTriangle className="size-12 text-muted-foreground" />
         <h2 className="text-xl font-semibold">Policy Not Found</h2>
         <p className="text-muted-foreground text-center max-w-md">{error}</p>
         <Button onClick={() => router.back()}>Go Back</Button>
@@ -146,7 +146,7 @@ export default function InsurancePolicyPage() {
       </div>
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardHeader className="flex flex-row items-center justify-between gap-y-0 pb-2">
           <div className="space-y-1">
             <CardTitle className="text-base font-medium">
               Policy Status
@@ -203,7 +203,7 @@ export default function InsurancePolicyPage() {
               Insured Item
             </div>
             <div className="flex items-center gap-2 p-3 border rounded-md bg-muted/40">
-              <ShieldCheck className="h-5 w-5 text-green-600" />
+              <ShieldCheck className="size-5 text-green-600" />
               <span className="font-medium">
                 {policy.itemsInsured?.product_name || 'Device'}
               </span>
@@ -225,7 +225,7 @@ export default function InsurancePolicyPage() {
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                <FileText className="h-4 w-4" /> Download Certificate
+                <FileText className="size-4" /> Download Certificate
               </a>
             </Button>
           )}
@@ -235,7 +235,7 @@ export default function InsurancePolicyPage() {
             onClick={handleFileClaim}
           >
             {/* Link to external claim portal or show modal */}
-            <ExternalLink className="h-4 w-4" />
+            <ExternalLink className="size-4" />
             File a Claim
           </Button>
         </CardFooter>
@@ -243,7 +243,7 @@ export default function InsurancePolicyPage() {
 
       <div className="rounded-lg border p-4 bg-muted/20">
         <h3 className="font-semibold mb-2 flex items-center gap-2">
-          <AlertTriangle className="h-4 w-4" /> Important Information
+          <AlertTriangle className="size-4" /> Important Information
         </h3>
         <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
           <li>Claims must be reported within 48 hours of the incident.</li>

@@ -80,7 +80,7 @@ export function FAQPageClient({
                 <div className="container px-4 md:px-6 text-center">
                   <div className="flex justify-center mb-6">
                     <div className="p-4 bg-primary/10 rounded-full">
-                      <HelpCircle className="h-10 w-10 text-primary" />
+                      <HelpCircle className="size-10 text-primary" />
                     </div>
                   </div>
                   <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">
@@ -95,7 +95,7 @@ export function FAQPageClient({
                   {hasStructuredFAQs && (
                     <search className="max-w-md mx-auto relative">
                       <Search
-                        className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground"
+                        className="absolute left-3 top-1/2 -translate-y-1/2 size-5 text-muted-foreground"
                         aria-hidden="true"
                       />
                       <Input

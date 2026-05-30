@@ -85,7 +85,7 @@ export function AboutPageClient({
                     {aboutPage.story && (
                       <section className="max-w-4xl mx-auto">
                         <h2 className="text-3xl font-bold mb-6 flex items-center gap-3">
-                          <Quote className="h-8 w-8 text-primary" />
+                          <Quote className="size-8 text-primary" />
                           Our Story
                         </h2>
                         <SafeHtml
@@ -103,7 +103,7 @@ export function AboutPageClient({
                             <Card className="bg-primary/5 border-primary/20">
                               <CardContent className="pt-6">
                                 <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                                  <Star className="h-5 w-5 text-primary" />
+                                  <Star className="size-5 text-primary" />
                                   Our Vision
                                 </h3>
                                 <p className="text-muted-foreground">
@@ -116,7 +116,7 @@ export function AboutPageClient({
                             <Card className="bg-accent/5 border-accent/20">
                               <CardContent className="pt-6">
                                 <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                                  <CheckCircle className="h-5 w-5 text-accent" />
+                                  <CheckCircle className="size-5 text-accent" />
                                   Our Values
                                 </h3>
                                 <ul className="space-y-2">
@@ -125,7 +125,7 @@ export function AboutPageClient({
                                       key={value}
                                       className="flex items-center gap-2 text-muted-foreground"
                                     >
-                                      <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                                      <span className="size-1.5 rounded-full bg-primary" />
                                       {value}
                                     </li>
                                   ))}
@@ -178,7 +178,7 @@ export function AboutPageClient({
                               <div>
                                 <div className="text-3xl md:text-4xl font-bold text-primary flex items-center justify-center gap-1">
                                   {aboutPage.social_proof.rating}
-                                  <Star className="h-6 w-6 fill-yellow-400 text-yellow-400" />
+                                  <Star className="size-6 fill-yellow-400 text-yellow-400" />
                                 </div>
                                 <div className="text-sm text-muted-foreground">
                                   {aboutPage.social_proof.review_count} Reviews
@@ -194,7 +194,7 @@ export function AboutPageClient({
                     {aboutPage.founder_name && (
                       <section className="max-w-4xl mx-auto">
                         <h2 className="text-3xl font-bold mb-8 flex items-center gap-3">
-                          <Users className="h-8 w-8 text-primary" />
+                          <Users className="size-8 text-primary" />
                           Meet the Founder
                         </h2>
                         <div className="flex flex-col md:flex-row gap-8 items-center md:items-start">
@@ -215,7 +215,7 @@ export function AboutPageClient({
                             </h3>
                             {aboutPage.founded_year && (
                               <Badge variant="secondary" className="mb-4">
-                                <Calendar className="h-3 w-3 mr-1" />
+                                <Calendar className="size-3 mr-1" />
                                 Founded in {aboutPage.founded_year}
                               </Badge>
                             )}
@@ -268,7 +268,7 @@ export function AboutPageClient({
                                         rel="noopener noreferrer"
                                         className="text-muted-foreground hover:text-primary"
                                       >
-                                        <ExternalLink className="h-4 w-4" />
+                                        <ExternalLink className="size-4" />
                                       </a>
                                     )}
                                   </div>
@@ -285,7 +285,7 @@ export function AboutPageClient({
                       aboutPage.milestones.length > 0 && (
                         <section className="max-w-4xl mx-auto">
                           <h2 className="text-3xl font-bold mb-8 flex items-center gap-3">
-                            <Calendar className="h-8 w-8 text-primary" />
+                            <Calendar className="size-8 text-primary" />
                             Our Journey
                           </h2>
                           <div className="space-y-6">
@@ -300,7 +300,7 @@ export function AboutPageClient({
                                   </span>
                                 </div>
                                 <div className="relative pb-6 border-l-2 border-primary/20 pl-6">
-                                  <div className="absolute -left-2 top-1 h-4 w-4 rounded-full bg-primary" />
+                                  <div className="absolute -left-2 top-1 size-4 rounded-full bg-primary" />
                                   <h3 className="font-semibold">
                                     {milestone.title}
                                   </h3>
@@ -320,7 +320,7 @@ export function AboutPageClient({
                     {aboutPage.awards && aboutPage.awards.length > 0 && (
                       <section className="max-w-4xl mx-auto">
                         <h2 className="text-3xl font-bold mb-8 flex items-center gap-3">
-                          <Trophy className="h-8 w-8 text-primary" />
+                          <Trophy className="size-8 text-primary" />
                           Awards & Recognition
                         </h2>
                         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -330,7 +330,7 @@ export function AboutPageClient({
                               className="bg-yellow-50 dark:bg-yellow-950/20 border-yellow-200 dark:border-yellow-800"
                             >
                               <CardContent className="pt-6 text-center">
-                                <Award className="h-8 w-8 text-yellow-600 mx-auto mb-3" />
+                                <Award className="size-8 text-yellow-600 mx-auto mb-3" />
                                 <h3 className="font-semibold">{award.title}</h3>
                                 {award.issuer && (
                                   <p className="text-sm text-muted-foreground">
@@ -354,7 +354,7 @@ export function AboutPageClient({
                       getVideoEmbedUrl(aboutPage.video_url) && (
                         <section className="max-w-4xl mx-auto">
                           <h2 className="text-3xl font-bold mb-8 flex items-center gap-3">
-                            <Play className="h-8 w-8 text-primary" />
+                            <Play className="size-8 text-primary" />
                             Watch Our Story
                           </h2>
                           <div className="aspect-video rounded-xl overflow-hidden bg-muted">

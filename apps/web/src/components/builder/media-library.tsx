@@ -228,12 +228,12 @@ export function MediaLibrary({ onSelect, maxSizeMB = 5 }: MediaLibraryProps) {
           <div className="p-8 flex flex-col items-center justify-center text-center">
             {uploading ? (
               <>
-                <Loader2 className="w-12 h-12 text-primary animate-spin mb-4" />
-                <p className="text-sm text-muted-foreground">Uploading...</p>
+                <Loader2 className="size-12 text-primary animate-spin mb-4" />
+                <p className="text-sm text-muted-foreground">Uploading…</p>
               </>
             ) : (
               <>
-                <Upload className="w-12 h-12 text-muted-foreground mb-4" />
+                <Upload className="size-12 text-muted-foreground mb-4" />
                 <h3 className="font-medium mb-1">Upload Image</h3>
                 <p className="text-sm text-muted-foreground mb-4">
                   Drag and drop or click to browse
@@ -243,7 +243,7 @@ export function MediaLibrary({ onSelect, maxSizeMB = 5 }: MediaLibraryProps) {
                   onClick={() => fileInputRef.current?.click()}
                   disabled={uploading}
                 >
-                  <Upload className="w-4 h-4 mr-2" />
+                  <Upload className="size-4 mr-2" />
                   Choose File
                 </Button>
                 <p className="text-xs text-muted-foreground mt-3">
@@ -256,7 +256,7 @@ export function MediaLibrary({ onSelect, maxSizeMB = 5 }: MediaLibraryProps) {
 
         {/* Search */}
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
           <Input
             placeholder="Search images..."
             value={searchQuery}
@@ -268,20 +268,20 @@ export function MediaLibrary({ onSelect, maxSizeMB = 5 }: MediaLibraryProps) {
         {/* Files Grid */}
         {loading ? (
           <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 text-primary animate-spin" />
+            <Loader2 className="size-8 text-primary animate-spin" />
           </div>
         ) : filteredFiles.length === 0 ? (
           <Card className="p-8 flex flex-col items-center justify-center text-center bg-muted/50">
             {searchQuery ? (
               <>
-                <Search className="w-12 h-12 text-muted-foreground mb-4" />
+                <Search className="size-12 text-muted-foreground mb-4" />
                 <p className="text-sm text-muted-foreground">
                   No images found for "{searchQuery}"
                 </p>
               </>
             ) : (
               <>
-                <FolderOpen className="w-12 h-12 text-muted-foreground mb-4" />
+                <FolderOpen className="size-12 text-muted-foreground mb-4" />
                 <p className="text-sm text-muted-foreground">
                   No images yet. Upload your first image above!
                 </p>
@@ -317,7 +317,7 @@ export function MediaLibrary({ onSelect, maxSizeMB = 5 }: MediaLibraryProps) {
                   {/* Selection indicator */}
                   {selectedFile === file.url && (
                     <div className="absolute top-2 right-2 bg-primary text-primary-foreground rounded-full p-1">
-                      <Check className="w-4 h-4" />
+                      <Check className="size-4" />
                     </div>
                   )}
 
@@ -325,21 +325,21 @@ export function MediaLibrary({ onSelect, maxSizeMB = 5 }: MediaLibraryProps) {
                   <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                     <CopyButton
                       value={file.url}
-                      className="h-8 w-8 bg-secondary text-secondary-foreground hover:bg-secondary/80 border-0"
+                      className="size-8 bg-secondary text-secondary-foreground hover:bg-secondary/80 border-0"
                       label="Copy URL"
                       successLabel="Copied!"
                     />
                     <Button
                       size="icon"
                       variant="destructive"
-                      className="h-8 w-8"
+                      className="size-8"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleDelete(file.id, file.name);
                       }}
                       aria-label={`Delete ${file.name}`}
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="size-4" />
                     </Button>
                   </div>
                 </div>
@@ -361,7 +361,7 @@ export function MediaLibrary({ onSelect, maxSizeMB = 5 }: MediaLibraryProps) {
         {/* Tips */}
         <Card className="p-4 bg-primary/5 border-primary/20">
           <h4 className="font-medium text-sm mb-2 flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-primary" />
+            <AlertCircle className="size-4 text-primary" />
             Media Library Tips
           </h4>
           <ul className="text-xs space-y-1.5 text-muted-foreground">

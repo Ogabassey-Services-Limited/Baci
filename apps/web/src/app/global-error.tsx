@@ -20,8 +20,8 @@ export default function GlobalError({
         className={`${inter.variable} font-sans antialiased min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950 p-4`}
       >
         <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-8 max-w-md w-full shadow-xl space-y-6 text-center">
-          <div className="w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/20 flex items-center justify-center mx-auto text-red-600 dark:text-red-400">
-            <AlertTriangle className="w-8 h-8" />
+          <div className="size-16 rounded-full bg-red-100 dark:bg-red-900/20 flex items-center justify-center mx-auto text-red-600 dark:text-red-400">
+            <AlertTriangle className="size-8" />
           </div>
 
           <div className="space-y-2">
@@ -39,7 +39,7 @@ export default function GlobalError({
               className="w-full flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white"
               size="lg"
             >
-              <RefreshCcw className="w-4 h-4" />
+              <RefreshCcw className="size-4" />
               Refresh Application
             </Button>
           </div>

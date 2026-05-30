@@ -35,8 +35,8 @@ export function BentoCard({
           {/* Top row: Icon + Action badge */}
           <div className="flex items-center justify-between mb-2">
             {Icon && (
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary dark:bg-primary/20 shrink-0">
-                <Icon className="h-4 w-4" />
+              <div className="flex size-9 items-center justify-center rounded-full bg-primary/10 text-primary dark:bg-primary/20 shrink-0">
+                <Icon className="size-4" />
               </div>
             )}
             {action}

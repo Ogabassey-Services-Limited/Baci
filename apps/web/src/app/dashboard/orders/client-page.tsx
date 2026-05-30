@@ -385,22 +385,22 @@ export default function OrdersClientPage({
           <Button
             size="icon"
             variant="outline"
-            className="h-11 min-h-[44px] w-11 min-w-[44px]"
+            className="size-11 min-h-[44px] min-w-[44px]"
           >
-            <File className="h-4 w-4" />
+            <File className="size-4" />
             <span className="sr-only">Export</span>
           </Button>
           <Button
             size="icon"
             variant="outline"
-            className="h-11 min-h-[44px] w-11 min-w-[44px]"
+            className="size-11 min-h-[44px] min-w-[44px]"
           >
-            <RefreshCw className="h-4 w-4" />
+            <RefreshCw className="size-4" />
             <span className="sr-only">Refresh</span>
           </Button>
           <Link href="/dashboard/orders/create">
             <Button size="sm" className="h-11 min-h-[44px] gap-1">
-              <PlusCircle className="h-4 w-4" />
+              <PlusCircle className="size-4" />
               <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
                 Create Order
               </span>

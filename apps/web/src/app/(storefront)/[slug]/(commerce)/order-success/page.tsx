@@ -150,10 +150,10 @@ function OrderSuccessContent() {
             }`}
           >
             {hasValidatedOrder ? (
-              <CheckCircle className="w-10 h-10 text-green-600" />
+              <CheckCircle className="size-10 text-green-600" />
             ) : (
               <Loader2
-                className={`w-10 h-10 ${
+                className={`size-10 ${
                   hasRecoveryState
                     ? 'text-amber-600'
                     : 'animate-spin text-gray-500'
@@ -167,8 +167,8 @@ function OrderSuccessContent() {
 
           {loading && (
             <div className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-4 py-2 text-sm text-gray-500 mb-8">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              <span>Fetching your order summary...</span>
+              <Loader2 className="size-4 animate-spin" />
+              <span>Fetching your order summary…</span>
             </div>
           )}
 

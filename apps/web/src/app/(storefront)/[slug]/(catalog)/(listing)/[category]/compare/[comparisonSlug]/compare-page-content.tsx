@@ -49,21 +49,13 @@ export async function ComparePageContent({ params }: ComparePageContentProps) {
 
   return (
     <>
-      <script
-        type="application/ld+json"
-        // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema sanitized
-        dangerouslySetInnerHTML={{
-          __html: safeJsonLdStringify(schemas.breadcrumb),
-        }}
-      />
+      <script type="application/ld+json">
+        {safeJsonLdStringify(schemas.breadcrumb)}
+      </script>
       {schemas.faq && (
-        <script
-          type="application/ld+json"
-          // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema sanitized
-          dangerouslySetInnerHTML={{
-            __html: safeJsonLdStringify(schemas.faq),
-          }}
-        />
+        <script type="application/ld+json">
+          {safeJsonLdStringify(schemas.faq)}
+        </script>
       )}
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
         <header className="space-y-4">

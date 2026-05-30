@@ -1,5 +1,5 @@
 import type { MerchantAnalyticsResponse } from '@baci/shared';
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -223,7 +223,7 @@ export default function ReportSelectionModal({
           >
             <ActivityIndicator size="large" color={colors.primary} />
             <Text style={[styles.loaderText, { color: colors.textSecondary }]}>
-              Generating PDF...
+              Generating PDF…
             </Text>
           </View>
         )}

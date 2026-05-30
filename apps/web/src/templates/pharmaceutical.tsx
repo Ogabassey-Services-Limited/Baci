@@ -58,8 +58,8 @@ export function PharmaceuticalHome(props: TemplatePageProps) {
                 <div className="relative max-w-7xl mx-auto px-6 py-16">
                     <div className="max-w-3xl">
                         <div className="flex items-center gap-3 mb-4">
-                            <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
-                                <Pill className="w-6 h-6" />
+                            <div className="size-12 bg-white/20 rounded-full flex items-center justify-center">
+                                <Pill className="size-6" />
                             </div>
                             <div className="flex gap-2">
                                 <span className="px-3 py-1 bg-green-500 text-white text-xs font-semibold rounded-full">
@@ -80,7 +80,7 @@ export function PharmaceuticalHome(props: TemplatePageProps) {
                         </p>
 
                         <div className="flex flex-wrap gap-4">
-                            <button
+                            <button type="button"
                                 onClick={() => {
                                     document.getElementById('products')?.scrollIntoView({ behavior: 'smooth' });
                                 }}
@@ -88,14 +88,14 @@ export function PharmaceuticalHome(props: TemplatePageProps) {
                             >
                                 Shop Now
                             </button>
-                            <button
+                            <button type="button"
                                 onClick={() => {
                                     // TODO: Implement prescription upload feature
                                     alert('Prescription upload coming soon!');
                                 }}
                                 className="px-8 py-4 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600 transition-colors shadow-lg flex items-center gap-2"
                             >
-                                <Upload className="w-5 h-5" />
+                                <Upload className="size-5" />
                                 Upload Prescription
                             </button>
                         </div>
@@ -111,8 +111,8 @@ export function PharmaceuticalHome(props: TemplatePageProps) {
                             const Icon = badge.icon;
                             return (
                                 <div key={index} className="flex items-center gap-3">
-                                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center shrink-0">
-                                        <Icon className="w-6 h-6 text-blue-600" />
+                                    <div className="size-12 bg-blue-100 rounded-full flex items-center justify-center shrink-0">
+                                        <Icon className="size-6 text-blue-600" />
                                     </div>
                                     <div>
                                         <div className="font-semibold text-gray-900 text-sm">{badge.title}</div>
@@ -145,21 +145,21 @@ export function PharmaceuticalHome(props: TemplatePageProps) {
                                         'Order delivered to your doorstep'
                                     ].map((step, idx) => (
                                         <div key={idx} className="flex items-center gap-3">
-                                            <div className="w-6 h-6 bg-green-500 text-white rounded-full flex items-center justify-center text-sm font-bold shrink-0">
+                                            <div className="size-6 bg-green-500 text-white rounded-full flex items-center justify-center text-sm font-bold shrink-0">
                                                 {idx + 1}
                                             </div>
                                             <span className="text-gray-700">{step}</span>
                                         </div>
                                     ))}
                                 </div>
-                                <button className="px-6 py-3 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600 transition-colors flex items-center gap-2">
-                                    <Upload className="w-5 h-5" />
+                                <button type="button" className="px-6 py-3 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600 transition-colors flex items-center gap-2">
+                                    <Upload className="size-5" />
                                     Upload Prescription Now
                                 </button>
                             </div>
                             <div className="relative h-64 bg-linear-to-br from-blue-100 to-green-100 rounded-xl flex items-center justify-center">
                                 <div className="text-center">
-                                    <Upload className="w-16 h-16 text-blue-600/30 mx-auto mb-3" />
+                                    <Upload className="size-16 text-blue-600/30 mx-auto mb-3" />
                                     <p className="text-gray-500 text-sm">Prescription Upload Placeholder</p>
                                 </div>
                             </div>
@@ -179,7 +179,7 @@ export function PharmaceuticalHome(props: TemplatePageProps) {
                             const Icon = category.icon;
                             const isActive = selectedCategory === category.value;
                             return (
-                                <button
+                                <button type="button"
                                     key={category.value}
                                     onClick={() => setSelectedCategory(category.value)}
                                     className={`p-6 rounded-xl border-2 transition-all ${isActive
@@ -225,7 +225,7 @@ export function PharmaceuticalHome(props: TemplatePageProps) {
                                 {categories.map((category) => {
                                     const isActive = selectedCategory === category.value;
                                     return (
-                                        <button
+                                        <button type="button"
                                             key={category.value}
                                             onClick={() => setSelectedCategory(category.value)}
                                             className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-all ${isActive
@@ -277,8 +277,8 @@ export function PharmaceuticalHome(props: TemplatePageProps) {
                             const Icon = resource.icon;
                             return (
                                 <div key={idx} className="p-6 border border-gray-200 rounded-xl hover:border-blue-300 hover:shadow-lg transition-all">
-                                    <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
-                                        <Icon className="w-6 h-6 text-blue-600" />
+                                    <div className="size-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
+                                        <Icon className="size-6 text-blue-600" />
                                     </div>
                                     <h3 className="text-xl font-semibold text-gray-900 mb-2">{resource.title}</h3>
                                     <p className="text-gray-600">{resource.description}</p>

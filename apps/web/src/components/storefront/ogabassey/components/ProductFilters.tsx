@@ -57,7 +57,7 @@ export const ProductFilters: React.FC<ProductFiltersProps> = ({
             {categories.map((category) => {
               const Icon = CATEGORY_ICONS[category] || LayoutGrid;
               return (
-                <button
+                <button type="button"
                   key={category}
                   onClick={() => onSelectCategory(category)}
                   className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200 border active:scale-95 ${
@@ -93,7 +93,7 @@ export const ProductFilters: React.FC<ProductFiltersProps> = ({
                   Filter
                 </span>
                 {isFilterActive && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse ml-0.5" />
+                  <span className="size-1.5 rounded-full bg-white animate-pulse ml-0.5" />
                 )}
               </button>
 
@@ -141,7 +141,7 @@ export const ProductFilters: React.FC<ProductFiltersProps> = ({
                   <button
                     type="button"
                     onClick={() => onPriceChange(0, 3000000)}
-                    className="h-10 w-10 flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-100"
+                    className="size-10 flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-100"
                     title="Reset Price"
                   >
                     <X size={16} />
@@ -152,14 +152,14 @@ export const ProductFilters: React.FC<ProductFiltersProps> = ({
 
             {/* View Mode Toggle */}
             <div className="flex items-center bg-gray-100 rounded-lg p-1 border border-gray-200 ml-auto lg:ml-0 h-10">
-              <button
+              <button type="button"
                 onClick={() => onViewModeChange('grid')}
                 className={`h-full px-2.5 rounded-md transition-all active:scale-95 ${viewMode === 'grid' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-400 md:hover:text-gray-600'}`}
                 title="Grid View"
               >
                 <LayoutGrid size={18} />
               </button>
-              <button
+              <button type="button"
                 onClick={() => onViewModeChange('list')}
                 className={`h-full px-2.5 rounded-md transition-all active:scale-95 ${viewMode === 'list' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-400 md:hover:text-gray-600'}`}
                 title="List View"

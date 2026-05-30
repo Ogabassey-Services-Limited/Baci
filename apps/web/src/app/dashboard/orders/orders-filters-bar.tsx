@@ -69,7 +69,7 @@ export function OrdersFiltersBar({
   return (
     <>
       <div className="relative">
-        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+        <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
         <Input
           type="search"
           placeholder="Search orders..."
@@ -82,7 +82,7 @@ export function OrdersFiltersBar({
 
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <div className="flex items-center gap-2">
-          <ListFilter className="h-4 w-4 text-blue-800" />
+          <ListFilter className="size-4 text-blue-800" />
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -90,11 +90,11 @@ export function OrdersFiltersBar({
               variant="outline"
               className="gap-1 border-blue-200 bg-blue-50/50 text-blue-800 hover:bg-blue-100 hover:text-blue-900"
             >
-              <CreditCard className="h-4 w-4" />
+              <CreditCard className="size-4" />
               <span>
                 {paymentFilter === 'All' ? 'Payment Status' : paymentFilter}
               </span>
-              <ChevronDown className="h-4 w-4" />
+              <ChevronDown className="size-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
@@ -103,7 +103,7 @@ export function OrdersFiltersBar({
               onCheckedChange={() => onPaymentFilterChange('All')}
               className="text-blue-800"
             >
-              <List className="mr-2 h-4 w-4" />
+              <List className="mr-2 size-4" />
               All
             </DropdownMenuCheckboxItem>
             <DropdownMenuSeparator />
@@ -117,7 +117,7 @@ export function OrdersFiltersBar({
                   onCheckedChange={() => onPaymentFilterChange(status)}
                   className="text-blue-800"
                 >
-                  <Icon className="mr-2 h-4 w-4" />
+                  <Icon className="mr-2 size-4" />
                   {status}
                 </DropdownMenuCheckboxItem>
               );
@@ -131,11 +131,11 @@ export function OrdersFiltersBar({
               variant="outline"
               className="gap-1 border-blue-200 bg-blue-50/50 text-blue-800 hover:bg-blue-100 hover:text-blue-900"
             >
-              <Truck className="h-4 w-4" />
+              <Truck className="size-4" />
               <span>
                 {shippingFilter === 'All' ? 'Shipping Status' : shippingFilter}
               </span>
-              <ChevronDown className="h-4 w-4" />
+              <ChevronDown className="size-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
@@ -144,7 +144,7 @@ export function OrdersFiltersBar({
               onCheckedChange={() => onShippingFilterChange('All')}
               className="text-blue-800"
             >
-              <List className="mr-2 h-4 w-4" />
+              <List className="mr-2 size-4" />
               All
             </DropdownMenuCheckboxItem>
             <DropdownMenuSeparator />
@@ -158,7 +158,7 @@ export function OrdersFiltersBar({
                   onCheckedChange={() => onShippingFilterChange(status)}
                   className="text-blue-800"
                 >
-                  <Icon className="mr-2 h-4 w-4" />
+                  <Icon className="mr-2 size-4" />
                   {status}
                 </DropdownMenuCheckboxItem>
               );

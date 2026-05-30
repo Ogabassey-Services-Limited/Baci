@@ -456,7 +456,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
             {actionLabel}
           </Link>
         ) : (
-          <button
+          <button type="button"
             onClick={onAction}
             className="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-8 rounded-xl transition-all shadow-lg hover:shadow-red-200 transform hover:-translate-y-0.5 active:scale-95"
           >

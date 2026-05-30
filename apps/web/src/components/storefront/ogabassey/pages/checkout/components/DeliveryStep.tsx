@@ -134,7 +134,7 @@ export function DeliveryStep({
                       <label className="text-xs font-bold text-gray-700 uppercase tracking-wide">
                         Where should we deliver?
                       </label>
-                      <button
+                      <button type="button"
                         onClick={() => setIsNewAddressMode(!isNewAddressMode)}
                         className="text-xs font-bold text-store-primary hover:underline"
                       >
@@ -163,7 +163,7 @@ export function DeliveryStep({
                               setNewAddressCity(parts[parts.length - 2] || '');
                             }
                           }}
-                          className="mt-1 w-4 h-4 text-store-primary focus:ring-store-primary border-gray-300"
+                          className="mt-1 size-4 text-store-primary focus:ring-store-primary border-gray-300"
                         />
                         <div className="ml-3">
                           <p className="font-bold text-gray-900 text-sm">
@@ -277,7 +277,7 @@ export function DeliveryStep({
                         const subtitle = method === 'door' ? 'To your address' : method === 'pickup' ? 'Collect at store' : 'Via air cargo';
 
                         return (
-                          <button
+                          <button type="button"
                             key={method}
                             onClick={() => setDeliveryMethod(method)}
                             className={`flex-1 flex flex-col items-center justify-center p-3 sm:p-4 rounded-xl border-2 transition-all gap-1 min-w-[100px] ${deliveryMethod === method
@@ -340,7 +340,7 @@ export function DeliveryStep({
                           <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${airportType === 'delivery' ? 'border-store-primary' : 'border-gray-400'
                             }`}>
                             {airportType === 'delivery' && (
-                              <div className="w-2.5 h-2.5 rounded-full bg-store-primary" />
+                              <div className="size-2.5 rounded-full bg-store-primary" />
                             )}
                           </div>
                           <div className="flex-1">
@@ -366,7 +366,7 @@ export function DeliveryStep({
                           <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${airportType === 'pickup' ? 'border-store-primary' : 'border-gray-400'
                             }`}>
                             {airportType === 'pickup' && (
-                              <div className="w-2.5 h-2.5 rounded-full bg-store-primary" />
+                              <div className="size-2.5 rounded-full bg-store-primary" />
                             )}
                           </div>
                           <div className="flex-1">
@@ -404,7 +404,7 @@ export function DeliveryStep({
                                   name="shipping_quote"
                                   checked={selectedQuoteId === quote.id}
                                   onChange={() => setSelectedQuoteId(quote.id)}
-                                  className="w-4 h-4 text-store-primary focus:ring-store-primary border-gray-300"
+                                  className="size-4 text-store-primary focus:ring-store-primary border-gray-300"
                                 />
                                 <div>
                                   <div className="flex items-center gap-2">
@@ -441,7 +441,7 @@ export function DeliveryStep({
                           }}
                           className="w-full bg-linear-to-r from-amber-50 to-orange-50 border-2 border-dashed border-amber-300 rounded-xl p-5 flex flex-col items-center gap-3 hover:border-amber-400 hover:shadow-md transition-all group cursor-pointer"
                         >
-                          <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center text-amber-600 group-hover:scale-110 transition-transform">
+                          <div className="size-12 bg-amber-100 rounded-full flex items-center justify-center text-amber-600 group-hover:scale-110 transition-transform">
                             <Truck size={24} />
                           </div>
                           <div className="text-center">

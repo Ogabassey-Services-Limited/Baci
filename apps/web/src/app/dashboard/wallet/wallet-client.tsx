@@ -138,12 +138,12 @@ export default function WalletClient({
   const getTypeIcon = (type: string) => {
     switch (type) {
       case 'credit':
-        return <ArrowDownToLine className="h-4 w-4 text-green-500" />;
+        return <ArrowDownToLine className="size-4 text-green-500" />;
       case 'withdrawal':
       case 'payout':
-        return <ArrowUpFromLine className="h-4 w-4 text-blue-500" />;
+        return <ArrowUpFromLine className="size-4 text-blue-500" />;
       default:
-        return <Wallet className="h-4 w-4 text-gray-500" />;
+        return <Wallet className="size-4 text-gray-500" />;
     }
   };
 
@@ -192,7 +192,7 @@ export default function WalletClient({
           disabled={isPending}
         >
           <RefreshCw
-            className={`h-4 w-4 mr-2 ${isPending ? 'animate-spin' : ''}`}
+            className={`size-4 mr-2 ${isPending ? 'animate-spin' : ''}`}
           />
           Refresh
         </Button>
@@ -204,7 +204,7 @@ export default function WalletClient({
         <Card className="md:col-span-2 lg:col-span-2 border-green-200 bg-green-50/50 dark:bg-green-950/20">
           <CardHeader className="pb-2">
             <CardDescription className="flex items-center gap-2">
-              <Banknote className="h-4 w-4" />
+              <Banknote className="size-4" />
               Available Balance
             </CardDescription>
             <CardTitle className="text-4xl text-green-600">
@@ -225,7 +225,7 @@ export default function WalletClient({
         <Card className="border-amber-200 bg-amber-50/50 dark:bg-amber-950/20">
           <CardHeader className="pb-2">
             <CardDescription className="flex items-center gap-2">
-              <CalendarClock className="h-4 w-4" />
+              <CalendarClock className="size-4" />
               Upcoming
             </CardDescription>
             <CardTitle className="text-2xl text-amber-600">
@@ -253,7 +253,7 @@ export default function WalletClient({
         <Card>
           <CardHeader className="pb-2">
             <CardDescription className="flex items-center gap-2">
-              <Clock className="h-4 w-4" />
+              <Clock className="size-4" />
               Processing
             </CardDescription>
             <CardTitle className="text-2xl">
@@ -269,7 +269,7 @@ export default function WalletClient({
         <Card>
           <CardHeader className="pb-2">
             <CardDescription className="flex items-center gap-2">
-              <TrendingUp className="h-4 w-4" />
+              <TrendingUp className="size-4" />
               Total Earned
             </CardDescription>
             <CardTitle className="text-2xl">
@@ -289,7 +289,7 @@ export default function WalletClient({
         <Card>
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
-              <CalendarClock className="h-5 w-5 text-amber-500" />
+              <CalendarClock className="size-5 text-amber-500" />
               Upcoming Settlements
             </CardTitle>
             <CardDescription>
@@ -304,8 +304,8 @@ export default function WalletClient({
                   className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-full bg-amber-100 flex items-center justify-center">
-                      <ArrowDownToLine className="h-5 w-5 text-amber-600" />
+                    <div className="size-10 rounded-full bg-amber-100 flex items-center justify-center">
+                      <ArrowDownToLine className="size-5 text-amber-600" />
                     </div>
                     <div>
                       <p className="font-medium text-sm">
@@ -341,7 +341,7 @@ export default function WalletClient({
         <Card>
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
-              <Clock className="h-5 w-5" />
+              <Clock className="size-5" />
               Auto-Payout Settings
             </CardTitle>
             <CardDescription>
@@ -425,7 +425,7 @@ export default function WalletClient({
           <CardContent>
             {transactions.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
-                <Wallet className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                <Wallet className="size-12 mx-auto mb-3 opacity-50" />
                 <p>No transactions yet</p>
                 <p className="text-sm">
                   Earnings from sales and VTU will appear here

@@ -25,8 +25,8 @@ export default function AppError({
 
       <main className="flex-1 flex flex-col items-center justify-center p-4 text-center">
         <div className="bg-card border border-border rounded-2xl p-8 max-w-md w-full shadow-lg space-y-6">
-          <div className="w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/20 flex items-center justify-center mx-auto text-red-600 dark:text-red-400">
-            <AlertTriangle className="w-8 h-8" />
+          <div className="size-16 rounded-full bg-red-100 dark:bg-red-900/20 flex items-center justify-center mx-auto text-red-600 dark:text-red-400">
+            <AlertTriangle className="size-8" />
           </div>
 
           <div className="space-y-2">
@@ -45,7 +45,7 @@ export default function AppError({
               className="w-full flex items-center gap-2"
               size="lg"
             >
-              <RefreshCcw className="w-4 h-4" />
+              <RefreshCcw className="size-4" />
               Try again
             </Button>
             <Button

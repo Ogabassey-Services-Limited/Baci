@@ -25,12 +25,12 @@ export function OrdersUrgentAlert({
 
   return (
     <Alert className="relative border-yellow-200 bg-yellow-50/80 text-yellow-900 backdrop-blur-xs dark:border-yellow-500/20 dark:bg-yellow-500/10 dark:text-yellow-100">
-      <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-300" />
+      <AlertTriangle className="size-4 text-yellow-600 dark:text-yellow-300" />
       <AlertTitle className="font-semibold">
         {statsLoading ? (
           <span className="flex items-center gap-2">
             <BagLoader size={16} />
-            Checking orders...
+            Checking orders…
           </span>
         ) : (
           `${stats.urgentOrders.toLocaleString()} order${stats.urgentOrders !== 1 ? 's' : ''} require${stats.urgentOrders === 1 ? 's' : ''} urgent attention.`
@@ -48,10 +48,10 @@ export function OrdersUrgentAlert({
       <Button
         variant="ghost"
         size="icon"
-        className="absolute right-2 top-2 h-6 w-6"
+        className="absolute right-2 top-2 size-6"
         onClick={onDismiss}
       >
-        <X className="h-4 w-4" />
+        <X className="size-4" />
         <span className="sr-only">Dismiss</span>
       </Button>
     </Alert>

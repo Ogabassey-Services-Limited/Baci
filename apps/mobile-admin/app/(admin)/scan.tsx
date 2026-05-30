@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { Camera, CameraView } from 'expo-camera';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -95,7 +95,7 @@ export default function ScanScreen() {
       >
         <View style={styles.centerContent}>
           <Text style={[styles.message, { color: colors.text }]}>
-            Requesting camera permission...
+            Requesting camera permission…
           </Text>
         </View>
       </SafeAreaView>

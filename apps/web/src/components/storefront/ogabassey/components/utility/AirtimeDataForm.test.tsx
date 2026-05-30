@@ -121,7 +121,7 @@ describe('AirtimeDataForm', () => {
     });
   });
 
-  it('shows "Processing..." when loading is true', () => {
+  it('shows "Processing…" when loading is true', () => {
     render(
       <AirtimeDataForm
         type="airtime"
@@ -130,6 +130,6 @@ describe('AirtimeDataForm', () => {
       />
     );
 
-    expect(screen.getByText('Processing...')).toBeInTheDocument();
+    expect(screen.getByText('Processing…')).toBeInTheDocument();
   });
 });

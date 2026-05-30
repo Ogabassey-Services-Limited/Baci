@@ -375,7 +375,7 @@ export function TrustSettingsClient({
             )}
             <Button type="submit" className="sm:w-fit" disabled={isSaving}>
               {isSaving ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 className="mr-2 size-4 animate-spin" />
               ) : null}
               Save Trust Settings
             </Button>

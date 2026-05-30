@@ -98,18 +98,18 @@ function DomainPaymentCallbackContent() {
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
             {status === 'processing' && (
-              <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/20 rounded-full flex items-center justify-center">
-                <Loader2 className="w-8 h-8 text-blue-600 dark:text-blue-400 animate-spin" />
+              <div className="size-16 bg-blue-100 dark:bg-blue-900/20 rounded-full flex items-center justify-center">
+                <Loader2 className="size-8 text-blue-600 dark:text-blue-400 animate-spin" />
               </div>
             )}
             {status === 'success' && (
-              <div className="w-16 h-16 bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center">
-                <CheckCircle2 className="w-8 h-8 text-green-600 dark:text-green-400" />
+              <div className="size-16 bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center">
+                <CheckCircle2 className="size-8 text-green-600 dark:text-green-400" />
               </div>
             )}
             {status === 'error' && (
-              <div className="w-16 h-16 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center">
-                <XCircle className="w-8 h-8 text-red-600 dark:text-red-400" />
+              <div className="size-16 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center">
+                <XCircle className="size-8 text-red-600 dark:text-red-400" />
               </div>
             )}
           </div>
@@ -118,7 +118,7 @@ function DomainPaymentCallbackContent() {
         <CardContent className="text-center space-y-4">
           {status === 'processing' && (
             <p className="text-muted-foreground">
-              Please wait while we complete your domain registration...
+              Please wait while we complete your domain registration…
             </p>
           )}
 
@@ -175,7 +175,7 @@ export default function DomainPaymentCallbackPage() {
     <Suspense
       fallback={
         <div className="container mx-auto p-6 flex items-center justify-center min-h-[60vh]">
-          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+          <Loader2 className="size-8 animate-spin text-muted-foreground" />
         </div>
       }
     >

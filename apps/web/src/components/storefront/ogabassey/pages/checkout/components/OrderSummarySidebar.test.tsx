@@ -190,7 +190,7 @@ describe('OrderSummarySidebar', () => {
       expect(screen.getByText('Free')).toBeInTheDocument();
     });
 
-    it('shows "Calculated..." for door delivery without selected quote', () => {
+    it('shows "Calculated…" for door delivery without selected quote', () => {
       // Arrange
       const propsWithCalculating = {
         ...defaultProps,
@@ -202,7 +202,7 @@ describe('OrderSummarySidebar', () => {
       render(<OrderSummarySidebar {...propsWithCalculating} />);
 
       // Assert
-      expect(screen.getByText('Calculated...')).toBeInTheDocument();
+      expect(screen.getByText('Calculated…')).toBeInTheDocument();
     });
 
     it('displays total amount correctly', () => {
@@ -332,7 +332,7 @@ describe('OrderSummarySidebar', () => {
       render(<OrderSummarySidebar {...propsWithLoading} />);
 
       // Assert
-      expect(screen.getByText('Checking wallet balance...')).toBeInTheDocument();
+      expect(screen.getByText('Checking wallet balance…')).toBeInTheDocument();
     });
 
     it('toggles wallet credit when toggle button is clicked', () => {

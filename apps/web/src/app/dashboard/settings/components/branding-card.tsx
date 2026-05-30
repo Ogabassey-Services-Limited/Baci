@@ -68,12 +68,12 @@ export function BrandingCard({
                   className="rounded-md p-2 object-contain"
                 />
                 <div className="absolute top-2 right-2 bg-green-500 rounded-full p-1.5 shadow-md">
-                  <CheckCircle className="w-4 h-4 text-white" />
+                  <CheckCircle className="size-4 text-white" />
                 </div>
               </>
             ) : (
               <>
-                <Upload className="w-8 h-8 text-muted-foreground mb-2" />
+                <Upload className="size-8 text-muted-foreground mb-2" />
                 <p className="text-sm text-muted-foreground mb-2">
                   Click to upload new logo
                 </p>
@@ -81,7 +81,7 @@ export function BrandingCard({
             )}
             {isUploading && (
               <div className="absolute inset-0 bg-white/80 flex items-center justify-center rounded-lg">
-                <Loader2 className="w-8 h-8 motion-safe:animate-spin text-primary" />
+                <Loader2 className="size-8 motion-safe:animate-spin text-primary" />
               </div>
             )}
             <Input
@@ -109,7 +109,7 @@ export function BrandingCard({
                       <PopoverTrigger asChild>
                         <button
                           type="button"
-                          className="w-12 h-12 rounded-full border-2 cursor-pointer relative group"
+                          className="size-12 rounded-full border-2 cursor-pointer relative group"
                           aria-label={`Edit ${role} color`}
                         >
                           <div
@@ -119,7 +119,7 @@ export function BrandingCard({
                             }}
                           />
                           <div className="absolute inset-0 bg-black/30 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Pencil className="w-5 h-5 text-white" />
+                            <Pencil className="size-5 text-white" />
                           </div>
                         </button>
                       </PopoverTrigger>
@@ -144,7 +144,7 @@ export function BrandingCard({
                 disabled={isUploading}
                 aria-label="Shuffle Colors"
               >
-                <Shuffle className="w-4 h-4" />
+                <Shuffle className="size-4" />
               </Button>
             </div>
           ) : (

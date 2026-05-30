@@ -80,15 +80,15 @@ export const OgabasseyV2Sustainability: React.FC = () => {
         </div>
 
         {/* Decorative Elements */}
-        <Leaf className="absolute top-10 left-10 text-white/5 w-32 h-32 -rotate-12" />
-        <Globe className="absolute bottom-10 right-10 text-white/5 w-40 h-40 rotate-12" />
+        <Leaf className="absolute top-10 left-10 text-white/5 size-32 -rotate-12" />
+        <Globe className="absolute bottom-10 right-10 text-white/5 size-40 rotate-12" />
       </div>
 
       <div className="max-w-[1400px] mx-auto px-4 md:px-6 py-16 md:py-24">
         {/* The Paperless Story */}
         <div className="bg-green-50 rounded-3xl p-8 md:p-12 mb-20 border border-green-100 flex flex-col md:flex-row items-center gap-12">
           <div className="flex-1">
-            <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mb-6 shadow-sm text-green-600">
+            <div className="size-16 bg-white rounded-2xl flex items-center justify-center mb-6 shadow-sm text-green-600">
               <FileDigit size={32} />
             </div>
             <h2 className="text-3xl font-bold text-gray-900 mb-4">
@@ -150,7 +150,7 @@ export const OgabasseyV2Sustainability: React.FC = () => {
               key={item.title}
               className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all group"
             >
-              <div className="w-14 h-14 bg-gray-50 rounded-full flex items-center justify-center mb-6 group-hover:bg-green-50 group-hover:text-green-600 transition-colors">
+              <div className="size-14 bg-gray-50 rounded-full flex items-center justify-center mb-6 group-hover:bg-green-50 group-hover:text-green-600 transition-colors">
                 <item.icon size={28} />
               </div>
               <h3 className="text-xl font-bold text-gray-900 mb-3">
@@ -177,7 +177,7 @@ export const OgabasseyV2Sustainability: React.FC = () => {
             {/* Education Card */}
             <div className="bg-blue-50 rounded-2xl p-8 border border-blue-100 relative overflow-hidden group hover:shadow-lg transition-all">
               <div className="relative z-10">
-                <div className="w-14 h-14 bg-white text-blue-600 rounded-full flex items-center justify-center mb-6 shadow-sm">
+                <div className="size-14 bg-white text-blue-600 rounded-full flex items-center justify-center mb-6 shadow-sm">
                   <BookOpen size={24} />
                 </div>
                 <h3 className="text-2xl font-bold text-gray-900 mb-3">
@@ -196,13 +196,13 @@ export const OgabasseyV2Sustainability: React.FC = () => {
                   Read Our Tips <ArrowRight size={18} />
                 </Link>
               </div>
-              <BookOpen className="absolute -bottom-6 -right-6 text-blue-200 opacity-50 w-40 h-40 -rotate-12 transition-transform group-hover:scale-110" />
+              <BookOpen className="absolute -bottom-6 -right-6 text-blue-200 opacity-50 size-40 -rotate-12 transition-transform group-hover:scale-110" />
             </div>
 
             {/* Maintenance Card */}
             <div className="bg-indigo-50 rounded-2xl p-8 border border-indigo-100 relative overflow-hidden group hover:shadow-lg transition-all">
               <div className="relative z-10">
-                <div className="w-14 h-14 bg-white text-indigo-600 rounded-full flex items-center justify-center mb-6 shadow-sm">
+                <div className="size-14 bg-white text-indigo-600 rounded-full flex items-center justify-center mb-6 shadow-sm">
                   <Sparkles size={24} />
                 </div>
                 <h3 className="text-2xl font-bold text-gray-900 mb-3">
@@ -221,7 +221,7 @@ export const OgabasseyV2Sustainability: React.FC = () => {
                   Visit Repair Lab <ArrowRight size={18} />
                 </Link>
               </div>
-              <Sparkles className="absolute -bottom-6 -right-6 text-indigo-200 opacity-50 w-40 h-40 rotate-12 transition-transform group-hover:scale-110" />
+              <Sparkles className="absolute -bottom-6 -right-6 text-indigo-200 opacity-50 size-40 rotate-12 transition-transform group-hover:scale-110" />
             </div>
           </div>
         </div>

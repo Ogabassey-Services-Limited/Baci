@@ -60,7 +60,7 @@ export function ImagePickerField({
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogTrigger asChild>
           <Button variant="outline" className="w-full">
-            <ImageIcon className="w-4 h-4 mr-2" />
+            <ImageIcon className="size-4 mr-2" />
             {value ? 'Change Image' : 'Choose Image'}
           </Button>
         </DialogTrigger>
@@ -115,7 +115,7 @@ export function ImagePickerField({
                       }
                     }}
                   >
-                    <LinkIcon className="w-4 h-4 mr-2" />
+                    <LinkIcon className="size-4 mr-2" />
                     Use URL
                   </Button>
                 </div>

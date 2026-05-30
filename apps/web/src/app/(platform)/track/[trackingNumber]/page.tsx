@@ -71,8 +71,8 @@ function TrackingPageContent({ params }: TrackingPageProps) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center space-y-4">
-          <Loader2 className="h-12 w-12 animate-spin mx-auto text-muted-foreground" />
-          <p className="text-muted-foreground">Tracking your shipment...</p>
+          <Loader2 className="size-12 animate-spin mx-auto text-muted-foreground" />
+          <p className="text-muted-foreground">Tracking your shipment…</p>
         </div>
       </div>
     );
@@ -83,12 +83,12 @@ function TrackingPageContent({ params }: TrackingPageProps) {
       <div className="min-h-screen flex items-center justify-center p-4">
         <Card className="max-w-md w-full">
           <CardContent className="pt-6 text-center space-y-4">
-            <AlertCircle className="h-12 w-12 text-red-500 mx-auto" />
+            <AlertCircle className="size-12 text-red-500 mx-auto" />
             <h2 className="text-xl font-semibold">Tracking Not Found</h2>
             <p className="text-muted-foreground">{error}</p>
             <Button asChild variant="outline">
               <Link href="/">
-                <ArrowLeft className="mr-2 h-4 w-4" />
+                <ArrowLeft className="mr-2 size-4" />
                 Back to Home
               </Link>
             </Button>
@@ -113,7 +113,7 @@ function TrackingPageContent({ params }: TrackingPageProps) {
         <div className="flex items-center justify-between">
           <Button asChild variant="ghost" size="sm">
             <Link href="/">
-              <ArrowLeft className="mr-2 h-4 w-4" />
+              <ArrowLeft className="mr-2 size-4" />
               Back
             </Link>
           </Button>
@@ -157,7 +157,7 @@ function TrackingPageContent({ params }: TrackingPageProps) {
 
             {tracking.shipment?.receiverCity && (
               <div className="mt-4 flex items-center gap-2 text-muted-foreground">
-                <MapPin className="h-4 w-4" />
+                <MapPin className="size-4" />
                 <span>
                   Delivering to {tracking.shipment.receiverCity}
                   {tracking.shipment.receiverState &&
@@ -218,7 +218,7 @@ function TrackingPageContent({ params }: TrackingPageProps) {
                         </p>
                         {event.location && (
                           <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
-                            <MapPin className="h-3 w-3" />
+                            <MapPin className="size-3" />
                             {event.location}
                           </p>
                         )}
@@ -256,10 +256,15 @@ function TrackingPageContent({ params }: TrackingPageProps) {
 function TrackingPageFallback() {
   return (
     <div className="min-h-screen flex items-center justify-center">
-      <div className="text-center space-y-4" role="status" aria-live="polite">
-        <Loader2 className="h-12 w-12 animate-spin mx-auto text-muted-foreground" />
-        <p className="text-muted-foreground">Tracking your shipment...</p>
-      </div>
+      <output
+        className="flex flex-col items-center space-y-4"
+        aria-live="polite"
+      >
+        <Loader2 className="size-12 animate-spin mx-auto text-muted-foreground" />
+        <span className="block text-muted-foreground">
+          Tracking your shipment…
+        </span>
+      </output>
     </div>
   );
 }

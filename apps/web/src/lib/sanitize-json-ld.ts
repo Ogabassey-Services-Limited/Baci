@@ -63,9 +63,7 @@ export function sanitizeSchemaMarkup<T>(obj: T): T {
  * Escape the serialized JSON for the HTML script context without changing the
  * data values that JSON parsers, including structured-data crawlers, receive.
  */
-export function safeJsonLdStringify<T extends Record<string, unknown>>(
-  schema: T
-): string {
+export function safeJsonLdStringify(schema: unknown): string {
   return JSON.stringify(schema).replace(
     JSON_LD_SCRIPT_ESCAPE_REGEX,
     (match) => JSON_LD_SCRIPT_ESCAPE_MAP[match] ?? match

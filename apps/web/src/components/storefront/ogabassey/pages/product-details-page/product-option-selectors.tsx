@@ -104,7 +104,7 @@ export function ProductOptionSelectors({
                     out of stock.
                   </span>
                 </div>
-                <div className="-mt-1 ml-6 h-2 w-2 rotate-45 bg-gray-900" />
+                <div className="-mt-1 ml-6 size-2 rotate-45 bg-gray-900" />
               </div>
             )}
 
@@ -158,17 +158,17 @@ export function ProductOptionSelectors({
                     title={color.name}
                   >
                     <div
-                      className="h-11 w-11 rounded-full border border-black/5 shadow-inner"
+                      className="size-11 rounded-full border border-black/5 shadow-inner"
                       style={{ backgroundColor: color.value }}
                     />
                     {isPrimary && (
-                      <div className="absolute -right-1 -top-1 z-10 flex h-5 w-5 items-center justify-center rounded-full border-2 border-white bg-store-primary text-[10px] font-bold text-store-primary-text shadow-sm">
+                      <div className="absolute -right-1 -top-1 z-10 flex size-5 items-center justify-center rounded-full border-2 border-white bg-store-primary text-[10px] font-bold text-store-primary-text shadow-sm">
                         1
                       </div>
                     )}
                     {isSecondary && (
                       <div
-                        className="absolute -right-1 -top-1 z-10 flex h-5 w-5 items-center justify-center rounded-full border-2 border-white bg-store-option-secondary text-[10px] font-bold text-store-primary-text shadow-sm"
+                        className="absolute -right-1 -top-1 z-10 flex size-5 items-center justify-center rounded-full border-2 border-white bg-store-option-secondary text-[10px] font-bold text-store-primary-text shadow-sm"
                         style={
                           {
                             '--store-option-secondary': secondaryAccent,

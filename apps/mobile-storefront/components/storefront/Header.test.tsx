@@ -112,7 +112,7 @@ describe('Header search behavior', () => {
       />
     );
 
-    const input = screen.getByPlaceholderText('Search products...');
+    const input = screen.getByPlaceholderText('Search products…');
 
     fireEvent.changeText(input, 'samsung');
     fireEvent(input, 'submitEditing');

@@ -257,7 +257,7 @@ export function SantaChatDialog({
                 viewBox="0 0 24 24"
                 strokeWidth={2.5}
                 stroke="currentColor"
-                className="w-6 h-6"
+                className="size-6"
                 aria-hidden="true"
               >
                 <path
@@ -300,7 +300,7 @@ export function SantaChatDialog({
               xmlns="http://www.w3.org/2000/svg"
               viewBox="0 0 24 24"
               fill="currentColor"
-              className="w-6 h-6"
+              className="size-6"
               aria-hidden="true"
             >
               <path
@@ -310,7 +310,7 @@ export function SantaChatDialog({
               />
             </svg>
             {cartCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-green-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+              <span className="absolute -top-1 -right-1 bg-green-500 text-white text-xs font-bold rounded-full size-5 flex items-center justify-center">
                 {cartCount > 9 ? '9+' : cartCount}
               </span>
             )}
@@ -326,7 +326,7 @@ export function SantaChatDialog({
               xmlns="http://www.w3.org/2000/svg"
               viewBox="0 0 20 20"
               fill="currentColor"
-              className="w-5 h-5"
+              className="size-5"
               aria-hidden="true"
             >
               <path

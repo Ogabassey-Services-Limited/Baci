@@ -65,9 +65,9 @@ function ScoreBadge({ score }: { score: number }) {
 
 function StatusIcon({ hasValue }: { hasValue: boolean }) {
   return hasValue ? (
-    <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+    <CheckCircle2 className="size-4 text-green-600 dark:text-green-400" />
   ) : (
-    <XCircle className="h-4 w-4 text-red-500 dark:text-red-400" />
+    <XCircle className="size-4 text-red-500 dark:text-red-400" />
   );
 }
 
@@ -200,7 +200,7 @@ export default function SEOClient({
             disabled={isPending}
           >
             <RefreshCw
-              className={`h-4 w-4 mr-2 ${isPending ? 'animate-spin' : ''}`}
+              className={`size-4 mr-2 ${isPending ? 'animate-spin' : ''}`}
             />
             Refresh
           </Button>
@@ -213,7 +213,7 @@ export default function SEOClient({
             {optimizing ? (
               <BagLoader size={16} />
             ) : (
-              <Sparkles className="h-4 w-4 mr-2" />
+              <Sparkles className="size-4 mr-2" />
             )}
             Optimize ({selectedProducts.length})
           </Button>
@@ -224,11 +224,11 @@ export default function SEOClient({
       {initialSummary && (
         <div className="grid gap-4 md:grid-cols-5">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="flex flex-row items-center justify-between gap-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
                 Average Score
               </CardTitle>
-              <Target className="h-4 w-4 text-muted-foreground" />
+              <Target className="size-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
@@ -244,11 +244,11 @@ export default function SEOClient({
             </CardContent>
           </Card>
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="flex flex-row items-center justify-between gap-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
                 Fully Optimized
               </CardTitle>
-              <CheckCircle2 className="h-4 w-4 text-green-500" />
+              <CheckCircle2 className="size-4 text-green-500" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-600 dark:text-green-400">
@@ -260,11 +260,11 @@ export default function SEOClient({
             </CardContent>
           </Card>
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="flex flex-row items-center justify-between gap-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
                 Missing Titles
               </CardTitle>
-              <FileText className="h-4 w-4 text-orange-500 dark:text-orange-400" />
+              <FileText className="size-4 text-orange-500 dark:text-orange-400" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
@@ -273,11 +273,11 @@ export default function SEOClient({
             </CardContent>
           </Card>
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="flex flex-row items-center justify-between gap-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
                 Missing Descriptions
               </CardTitle>
-              <FileText className="h-4 w-4 text-orange-500 dark:text-orange-400" />
+              <FileText className="size-4 text-orange-500 dark:text-orange-400" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
@@ -286,11 +286,11 @@ export default function SEOClient({
             </CardContent>
           </Card>
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="flex flex-row items-center justify-between gap-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
                 Missing Keywords
               </CardTitle>
-              <Tag className="h-4 w-4 text-orange-500 dark:text-orange-400" />
+              <Tag className="size-4 text-orange-500 dark:text-orange-400" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
@@ -308,7 +308,7 @@ export default function SEOClient({
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="flex items-center gap-2">
-                  <Sparkles className="h-5 w-5 text-primary" />
+                  <Sparkles className="size-5 text-primary" />
                   AI-Generated Optimizations
                 </CardTitle>
                 <CardDescription>
@@ -534,11 +534,11 @@ export default function SEOClient({
           </Table>
 
           {totalPages > 1 && (
-            <div className="flex items-center justify-end space-x-2 py-4">
+            <div className="flex items-center justify-end gap-x-2 py-4">
               <div className="flex-1 text-sm text-muted-foreground text-left">
                 Page {currentPage} of {totalPages}
               </div>
-              <div className="space-x-2">
+              <div className="gap-x-2">
                 <Button
                   variant="outline"
                   size="sm"
@@ -546,7 +546,7 @@ export default function SEOClient({
                   disabled={currentPage === 1}
                   aria-label="Previous page"
                 >
-                  <ChevronLeft className="h-4 w-4" />
+                  <ChevronLeft className="size-4" />
                 </Button>
                 <Button
                   variant="outline"
@@ -557,7 +557,7 @@ export default function SEOClient({
                   disabled={currentPage === totalPages}
                   aria-label="Next page"
                 >
-                  <ChevronRight className="h-4 w-4" />
+                  <ChevronRight className="size-4" />
                 </Button>
               </div>
             </div>

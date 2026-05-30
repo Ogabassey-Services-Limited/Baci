@@ -26,7 +26,7 @@ export function Breadcrumbs({
   const separatorElement = {
     slash: <span className="mx-2 text-muted-foreground">/</span>,
     chevron: (
-      <ChevronRight className="mx-2 h-4 w-4 text-muted-foreground shrink-0" />
+      <ChevronRight className="mx-2 size-4 text-muted-foreground shrink-0" />
     ),
     arrow: <span className="mx-2 text-muted-foreground">→</span>,
   };
@@ -60,7 +60,7 @@ export function Breadcrumbs({
                     isHome && 'flex items-center gap-1'
                   )}
                 >
-                  {isHome && <Home className="h-4 w-4" />}
+                  {isHome && <Home className="size-4" />}
                   <span className={isHome ? 'sr-only sm:not-sr-only' : ''}>
                     {item.label}
                   </span>

@@ -50,7 +50,7 @@ export const Hero: React.FC = () => {
                 {[1, 2, 3].map((i) => (
                   <div
                     key={i}
-                    className={`w-2 h-2 rounded-full bg-white/50 animate-pulse`}
+                    className={`size-2 rounded-full bg-white/50 animate-pulse`}
                     style={{ animationDelay: `${i * 200}ms` }}
                   />
                 ))}
@@ -143,7 +143,7 @@ export const Hero: React.FC = () => {
           {/* Icons */}
           <div className="flex justify-center gap-8 md:gap-12 flex-wrap">
             <div className="flex flex-col items-center gap-2 group cursor-pointer">
-              <div className="w-12 h-12 rounded-full bg-red-50 text-red-600 flex items-center justify-center group-hover:bg-red-600 group-hover:text-white transition-all duration-300">
+              <div className="size-12 rounded-full bg-red-50 text-red-600 flex items-center justify-center group-hover:bg-red-600 group-hover:text-white transition-all duration-300">
                 <svg
                   width="20"
                   height="20"
@@ -160,7 +160,7 @@ export const Hero: React.FC = () => {
               <span className="text-xs font-bold text-gray-700">Airtime</span>
             </div>
             <div className="flex flex-col items-center gap-2 group cursor-pointer">
-              <div className="w-12 h-12 rounded-full bg-gray-50 text-gray-600 flex items-center justify-center group-hover:bg-red-600 group-hover:text-white transition-all duration-300">
+              <div className="size-12 rounded-full bg-gray-50 text-gray-600 flex items-center justify-center group-hover:bg-red-600 group-hover:text-white transition-all duration-300">
                 <svg
                   width="20"
                   height="20"
@@ -180,7 +180,7 @@ export const Hero: React.FC = () => {
               <span className="text-xs font-bold text-gray-700">Data</span>
             </div>
             <div className="flex flex-col items-center gap-2 group cursor-pointer">
-              <div className="w-12 h-12 rounded-full bg-gray-50 text-gray-600 flex items-center justify-center group-hover:bg-red-600 group-hover:text-white transition-all duration-300">
+              <div className="size-12 rounded-full bg-gray-50 text-gray-600 flex items-center justify-center group-hover:bg-red-600 group-hover:text-white transition-all duration-300">
                 <svg
                   width="20"
                   height="20"
@@ -198,7 +198,7 @@ export const Hero: React.FC = () => {
               <span className="text-xs font-bold text-gray-700">Tv</span>
             </div>
             <div className="flex flex-col items-center gap-2 group cursor-pointer">
-              <div className="w-12 h-12 rounded-full bg-gray-50 text-gray-600 flex items-center justify-center group-hover:bg-red-600 group-hover:text-white transition-all duration-300">
+              <div className="size-12 rounded-full bg-gray-50 text-gray-600 flex items-center justify-center group-hover:bg-red-600 group-hover:text-white transition-all duration-300">
                 <svg
                   width="20"
                   height="20"
@@ -215,7 +215,7 @@ export const Hero: React.FC = () => {
               <span className="text-xs font-bold text-gray-700">Power</span>
             </div>
             <div className="flex flex-col items-center gap-2 group cursor-pointer">
-              <div className="w-12 h-12 rounded-full bg-gray-50 text-gray-600 flex items-center justify-center group-hover:bg-red-600 group-hover:text-white transition-all duration-300">
+              <div className="size-12 rounded-full bg-gray-50 text-gray-600 flex items-center justify-center group-hover:bg-red-600 group-hover:text-white transition-all duration-300">
                 <Gamepad2 size={20} />
               </div>
               <span className="text-xs font-bold text-gray-700">Betting</span>

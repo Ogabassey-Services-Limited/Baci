@@ -238,7 +238,7 @@ export function FileUploader({
         <input {...getInputProps()} />
         <div className="flex flex-col items-center justify-center gap-2">
           <div className="p-3 rounded-full bg-muted">
-            <Upload className="h-6 w-6 text-muted-foreground" />
+            <Upload className="size-6 text-muted-foreground" />
           </div>
           <div className="space-y-1">
             <p className="text-sm font-medium">
@@ -266,7 +266,7 @@ export function FileUploader({
       {errors.length > 0 && (
         <div className="rounded-md bg-destructive/15 p-3 text-sm text-destructive">
           <div className="flex items-center gap-2 font-medium mb-1">
-            <AlertCircle className="h-4 w-4" />
+            <AlertCircle className="size-4" />
             <span>Upload Errors</span>
           </div>
           <ul className="list-disc list-inside space-y-1 text-xs">
@@ -303,7 +303,7 @@ export function FileUploader({
                   type="button"
                   variant="destructive"
                   size="icon"
-                  className="h-8 w-8"
+                  className="size-8"
                   aria-label={
                     entry.file
                       ? `Remove ${entry.file.name}`
@@ -314,7 +314,7 @@ export function FileUploader({
                     removeFile(index);
                   }}
                 >
-                  <X className="h-4 w-4" aria-hidden="true" />
+                  <X className="size-4" aria-hidden="true" />
                 </Button>
               </div>
             </div>

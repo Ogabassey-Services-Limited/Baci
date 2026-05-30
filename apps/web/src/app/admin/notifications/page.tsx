@@ -241,7 +241,7 @@ export default function AdminNotificationsPage() {
         </div>
         <Button asChild>
           <Link href="/admin/notifications/create">
-            <Plus className="h-4 w-4 mr-2" />
+            <Plus className="size-4 mr-2" />
             Create Notification
           </Link>
         </Button>
@@ -250,38 +250,38 @@ export default function AdminNotificationsPage() {
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardHeader className="flex flex-row items-center justify-between gap-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Sent</CardTitle>
-            <Send className="h-4 w-4 text-muted-foreground" />
+            <Send className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalSent}</div>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardHeader className="flex flex-row items-center justify-between gap-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Avg Read Rate</CardTitle>
-            <BarChart3 className="h-4 w-4 text-muted-foreground" />
+            <BarChart3 className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.avgReadRate}%</div>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardHeader className="flex flex-row items-center justify-between gap-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
               Active Banners
             </CardTitle>
-            <Bell className="h-4 w-4 text-muted-foreground" />
+            <Bell className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.activeBanners}</div>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardHeader className="flex flex-row items-center justify-between gap-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Scheduled</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
+            <Clock className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.scheduled}</div>
@@ -295,7 +295,7 @@ export default function AdminNotificationsPage() {
           <div className="flex items-center justify-between">
             <CardTitle className="text-base">Notifications</CardTitle>
             <Button variant="outline" size="sm" onClick={fetchNotifications}>
-              <RefreshCw className="h-4 w-4 mr-2" />
+              <RefreshCw className="size-4 mr-2" />
               Refresh
             </Button>
           </div>
@@ -304,7 +304,7 @@ export default function AdminNotificationsPage() {
           <div className="flex flex-wrap gap-4 mb-4">
             {/* Search */}
             <div className="relative flex-1 min-w-[200px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
               <Input
                 placeholder="Search notifications..."
                 className="pl-9"
@@ -386,11 +386,11 @@ export default function AdminNotificationsPage() {
           {/* Table */}
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              <Loader2 className="size-8 animate-spin text-muted-foreground" />
             </div>
           ) : notifications.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              <Bell className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <Bell className="size-12 mx-auto mb-4 opacity-50" />
               <p>No notifications found</p>
               <Button asChild variant="link" className="mt-2">
                 <Link href="/admin/notifications/create">
@@ -444,7 +444,7 @@ export default function AdminNotificationsPage() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1 text-sm">
-                          <Users className="h-3 w-3" />
+                          <Users className="size-3" />
                           {getTargetLabel(notification)}
                         </div>
                       </TableCell>
@@ -480,7 +480,7 @@ export default function AdminNotificationsPage() {
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon">
-                              <MoreHorizontal className="h-4 w-4" />
+                              <MoreHorizontal className="size-4" />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
@@ -491,14 +491,14 @@ export default function AdminNotificationsPage() {
                                 )
                               }
                             >
-                              <Eye className="h-4 w-4 mr-2" />
+                              <Eye className="size-4 mr-2" />
                               View Details
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={() => setDeleteId(notification.id)}
                               className="text-red-600"
                             >
-                              <Trash2 className="h-4 w-4 mr-2" />
+                              <Trash2 className="size-4 mr-2" />
                               Delete
                             </DropdownMenuItem>
                           </DropdownMenuContent>

@@ -52,11 +52,11 @@ export function ColorPickerField({
               className="w-full justify-start text-left font-normal px-2"
             >
               <div
-                className="w-4 h-4 rounded-full mr-2 border shadow-sm"
+                className="size-4 rounded-full mr-2 border shadow-sm"
                 style={{ background: value }}
               />
               <span className="truncate flex-1">{value || 'Select color'}</span>
-              <Paintbrush className="h-4 w-4 opacity-50 ml-2" />
+              <Paintbrush className="size-4 opacity-50 ml-2" />
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-64 p-3">

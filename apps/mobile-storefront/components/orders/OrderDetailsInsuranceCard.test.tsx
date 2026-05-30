@@ -61,7 +61,7 @@ describe('OrderDetailsInsuranceCard', () => {
     );
 
     expect(
-      screen.getByText('Your shipping protection is being processed...')
+      screen.getByText('Your shipping protection is being processed…')
     ).toBeTruthy();
 
     rerender(

@@ -54,9 +54,7 @@ describe('BNPLCheckoutStatusView', () => {
     expect(screen.getByRole('alert')).toBeTruthy();
     expect(screen.getByText('Provider connection failed')).toBeTruthy();
 
-    fireEvent.press(
-      screen.getByRole('button', { name: 'Try payment again' })
-    );
+    fireEvent.press(screen.getByRole('button', { name: 'Try payment again' }));
     fireEvent.press(screen.getByRole('button', { name: 'Go back' }));
 
     expect(onRetry).toHaveBeenCalledTimes(1);
@@ -75,7 +73,7 @@ describe('BNPLCheckoutStatusView', () => {
     expect(screen.getByRole('alert')).toBeTruthy();
     expect(
       screen.getByText(
-        'Your Klump payment has been approved. Redirecting to order confirmation...'
+        'Your Klump payment has been approved. Redirecting to order confirmation…'
       )
     ).toBeTruthy();
     expect(

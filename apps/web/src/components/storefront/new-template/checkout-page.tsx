@@ -198,8 +198,8 @@ export const CheckoutPage: React.FC = () => {
 
                 <div className="space-y-4 mb-8">
                   <label className="flex items-center gap-4 p-4 border border-red-600 bg-red-50 rounded-xl cursor-pointer">
-                    <div className="w-5 h-5 rounded-full border-2 border-red-600 flex items-center justify-center">
-                      <div className="w-2.5 h-2.5 rounded-full bg-red-600" />
+                    <div className="size-5 rounded-full border-2 border-red-600 flex items-center justify-center">
+                      <div className="size-2.5 rounded-full bg-red-600" />
                     </div>
                     <div className="flex-1">
                       <span className="font-bold text-gray-900 block">
@@ -217,7 +217,7 @@ export const CheckoutPage: React.FC = () => {
                   </label>
 
                   <label className="flex items-center gap-4 p-4 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50">
-                    <div className="w-5 h-5 rounded-full border-2 border-gray-300" />
+                    <div className="size-5 rounded-full border-2 border-gray-300" />
                     <div className="flex-1">
                       <span className="font-bold text-gray-900 block">
                         Bank Transfer
@@ -242,7 +242,7 @@ export const CheckoutPage: React.FC = () => {
 
             {step === 3 && (
               <div className="bg-white p-12 rounded-3xl shadow-sm border border-gray-100 text-center animate-in zoom-in-95 duration-300">
-                <div className="w-24 h-24 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                <div className="size-24 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
                   <Check size={48} strokeWidth={3} />
                 </div>
                 <h2 className="text-3xl font-bold text-gray-900 mb-4">
@@ -276,7 +276,7 @@ export const CheckoutPage: React.FC = () => {
                       key={item.variant_id || item.id}
                       className="flex gap-3"
                     >
-                      <div className="w-16 h-16 bg-gray-50 rounded-lg p-1 shrink-0">
+                      <div className="size-16 bg-gray-50 rounded-lg p-1 shrink-0">
                         <img
                           src={item.image}
                           alt=""

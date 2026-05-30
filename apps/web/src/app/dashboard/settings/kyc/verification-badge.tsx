@@ -16,7 +16,7 @@ export function VerificationBadge({ verified }: VerificationBadgeProps) {
     >
       {verified ? (
         <>
-          <CheckCircle2 className="h-3 w-3" />
+          <CheckCircle2 className="size-3" />
           Verified
         </>
       ) : (

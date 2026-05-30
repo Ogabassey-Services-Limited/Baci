@@ -138,7 +138,7 @@ export default function AnalyticsPage() {
             disabled={loading}
           >
             <RefreshCw
-              className={`h-4 w-4 mr-2 ${loading ? 'motion-safe:animate-spin' : ''}`}
+              className={`size-4 mr-2 ${loading ? 'motion-safe:animate-spin' : ''}`}
             />
             Refresh
           </Button>
@@ -166,16 +166,16 @@ export default function AnalyticsPage() {
                   <p className="text-sm font-medium text-muted-foreground">
                     Paid GMV
                   </p>
-                  <DollarSign className="h-4 w-4 text-muted-foreground" />
+                  <DollarSign className="size-4 text-muted-foreground" />
                 </div>
                 <p className="text-2xl font-bold mt-2">
                   {formatCurrency(analytics?.summary.totalGmv || 0)}
                 </p>
                 <div className="flex items-center mt-1">
                   {(analytics?.summary.gmvChange || 0) >= 0 ? (
-                    <ArrowUpRight className="h-4 w-4 text-emerald-500" />
+                    <ArrowUpRight className="size-4 text-emerald-500" />
                   ) : (
-                    <ArrowDownRight className="h-4 w-4 text-red-500" />
+                    <ArrowDownRight className="size-4 text-red-500" />
                   )}
                   <span
                     className={`text-sm ${(analytics?.summary.gmvChange || 0) >= 0 ? 'text-emerald-500' : 'text-red-500'}`}
@@ -195,16 +195,16 @@ export default function AnalyticsPage() {
                   <p className="text-sm font-medium text-muted-foreground">
                     Paid Orders
                   </p>
-                  <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+                  <ShoppingCart className="size-4 text-muted-foreground" />
                 </div>
                 <p className="text-2xl font-bold mt-2">
                   {formatNumber(analytics?.summary.totalOrders || 0)}
                 </p>
                 <div className="flex items-center mt-1">
                   {(analytics?.summary.orderChange || 0) >= 0 ? (
-                    <ArrowUpRight className="h-4 w-4 text-emerald-500" />
+                    <ArrowUpRight className="size-4 text-emerald-500" />
                   ) : (
-                    <ArrowDownRight className="h-4 w-4 text-red-500" />
+                    <ArrowDownRight className="size-4 text-red-500" />
                   )}
                   <span
                     className={`text-sm ${(analytics?.summary.orderChange || 0) >= 0 ? 'text-emerald-500' : 'text-red-500'}`}
@@ -224,16 +224,16 @@ export default function AnalyticsPage() {
                   <p className="text-sm font-medium text-muted-foreground">
                     Avg Order Value
                   </p>
-                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                  <TrendingUp className="size-4 text-muted-foreground" />
                 </div>
                 <p className="text-2xl font-bold mt-2">
                   {formatCurrency(analytics?.summary.avgOrderValue || 0)}
                 </p>
                 <div className="flex items-center mt-1">
                   {(analytics?.summary.aovChange || 0) >= 0 ? (
-                    <ArrowUpRight className="h-4 w-4 text-emerald-500" />
+                    <ArrowUpRight className="size-4 text-emerald-500" />
                   ) : (
-                    <ArrowDownRight className="h-4 w-4 text-red-500" />
+                    <ArrowDownRight className="size-4 text-red-500" />
                   )}
                   <span
                     className={`text-sm ${(analytics?.summary.aovChange || 0) >= 0 ? 'text-emerald-500' : 'text-red-500'}`}
@@ -253,7 +253,7 @@ export default function AnalyticsPage() {
                   <p className="text-sm font-medium text-muted-foreground">
                     Active Merchants
                   </p>
-                  <Users className="h-4 w-4 text-muted-foreground" />
+                  <Users className="size-4 text-muted-foreground" />
                 </div>
                 <p className="text-2xl font-bold mt-2">
                   {formatNumber(analytics?.summary.activeMerchants || 0)}
@@ -273,7 +273,7 @@ export default function AnalyticsPage() {
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5" />
+              <BarChart3 className="size-5" />
               GMV Over Time
             </CardTitle>
             <CardDescription>

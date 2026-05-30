@@ -235,19 +235,19 @@ export default function ReviewsPage() {
       case 'approved':
         return (
           <Badge className="bg-green-100 text-green-800">
-            <CheckCircle className="w-3 h-3 mr-1" /> Approved
+            <CheckCircle className="size-3 mr-1" /> Approved
           </Badge>
         );
       case 'rejected':
         return (
           <Badge variant="destructive">
-            <XCircle className="w-3 h-3 mr-1" /> Rejected
+            <XCircle className="size-3 mr-1" /> Rejected
           </Badge>
         );
       default:
         return (
           <Badge variant="secondary">
-            <Clock className="w-3 h-3 mr-1" /> Pending
+            <Clock className="size-3 mr-1" /> Pending
           </Badge>
         );
     }
@@ -306,7 +306,7 @@ export default function ReviewsPage() {
             <CardDescription>Average Rating</CardDescription>
             <CardTitle className="text-2xl flex items-center gap-1">
               {stats.averageRating}{' '}
-              <Star className="w-5 h-5 text-yellow-400 fill-yellow-400" />
+              <Star className="size-5 text-yellow-400 fill-yellow-400" />
             </CardTitle>
           </CardHeader>
         </Card>
@@ -315,7 +315,7 @@ export default function ReviewsPage() {
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
           <Input
             placeholder="Search reviews..."
             value={searchQuery}
@@ -345,7 +345,7 @@ export default function ReviewsPage() {
         <Card>
           <CardContent className="py-12">
             <div className="text-center text-muted-foreground">
-              <MessageSquare className="w-12 h-12 mx-auto mb-4 opacity-50" />
+              <MessageSquare className="size-12 mx-auto mb-4 opacity-50" />
               <p>No reviews found</p>
             </div>
           </CardContent>
@@ -362,7 +362,7 @@ export default function ReviewsPage() {
                       {getStatusBadge(review.status)}
                       {review.verified_purchase && (
                         <Badge variant="outline" className="text-green-600">
-                          <CheckCircle className="w-3 h-3 mr-1" /> Verified
+                          <CheckCircle className="size-3 mr-1" /> Verified
                         </Badge>
                       )}
                     </div>
@@ -406,7 +406,7 @@ export default function ReviewsPage() {
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" size="icon">
-                        <MoreHorizontal className="w-4 h-4" />
+                        <MoreHorizontal className="size-4" />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
@@ -418,7 +418,7 @@ export default function ReviewsPage() {
                             }
                             disabled={isUpdating}
                           >
-                            <CheckCircle className="w-4 h-4 mr-2" />
+                            <CheckCircle className="size-4 mr-2" />
                             Approve
                           </DropdownMenuItem>
                           <DropdownMenuItem
@@ -427,7 +427,7 @@ export default function ReviewsPage() {
                             }
                             disabled={isUpdating}
                           >
-                            <XCircle className="w-4 h-4 mr-2" />
+                            <XCircle className="size-4 mr-2" />
                             Reject
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
@@ -440,7 +440,7 @@ export default function ReviewsPage() {
                           setShowResponseDialog(true);
                         }}
                       >
-                        <MessageSquare className="w-4 h-4 mr-2" />
+                        <MessageSquare className="size-4 mr-2" />
                         {review.merchant_response
                           ? 'Edit Response'
                           : 'Add Response'}
@@ -450,7 +450,7 @@ export default function ReviewsPage() {
                         onClick={() => deleteReview(review.id)}
                         className="text-destructive"
                       >
-                        <Trash2 className="w-4 h-4 mr-2" />
+                        <Trash2 className="size-4 mr-2" />
                         Delete
                       </DropdownMenuItem>
                     </DropdownMenuContent>

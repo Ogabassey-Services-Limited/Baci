@@ -158,7 +158,7 @@ jest.mock('@/components/ui/AddressAutocomplete', () => ({
     const { TextInput } = require('react-native');
     return (
       <TextInput
-        placeholder="Start typing your address..."
+        placeholder="Start typing your address…"
         value={value}
         onChangeText={onChangeText}
       />

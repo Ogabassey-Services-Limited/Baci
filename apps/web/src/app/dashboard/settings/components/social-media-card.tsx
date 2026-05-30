@@ -155,12 +155,12 @@ export function SocialMediaCard({
             >
               {saveStatus === 'saving' ? (
                 <>
-                  <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
-                  Saving...
+                  <Loader2 className="size-3 animate-spin" aria-hidden />
+                  Saving…
                 </>
               ) : (
                 <>
-                  <CheckCircle className="h-3 w-3" aria-hidden /> Saved
+                  <CheckCircle className="size-3" aria-hidden /> Saved
                 </>
               )}
             </output>
@@ -176,7 +176,7 @@ export function SocialMediaCard({
           {SOCIAL_FIELDS.map(({ id, label, icon: Icon, placeholder }) => (
             <div key={id} className="space-y-2">
               <Label htmlFor={id} className="flex items-center gap-2">
-                <Icon className="w-4 h-4" />
+                <Icon className="size-4" />
                 {label}
               </Label>
               <Input

@@ -209,6 +209,6 @@ describe('TaxSettingsForm', () => {
     const select = screen.getByLabelText('State') as HTMLSelectElement;
     const options = select.querySelectorAll('option');
     expect(options.length).toBe(38);
-    expect(options[0].textContent).toBe('Select state...');
+    expect(options[0].textContent).toBe('Select state…');
   });
 });

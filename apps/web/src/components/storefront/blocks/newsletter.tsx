@@ -38,7 +38,7 @@ export function Newsletter({
       <div className="container mx-auto max-w-4xl text-center">
         <div className="flex justify-center mb-6">
           <div className="p-3 bg-primary/10 rounded-full text-primary">
-            <Mail className="w-8 h-8" />
+            <Mail className="size-8" />
           </div>
         </div>
 

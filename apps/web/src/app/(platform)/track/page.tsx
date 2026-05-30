@@ -33,7 +33,7 @@ export default function TrackPage() {
         {/* Back Link */}
         <Button asChild variant="ghost" size="sm">
           <Link href="/">
-            <ArrowLeft className="mr-2 h-4 w-4" />
+            <ArrowLeft className="mr-2 size-4" />
             Back to Home
           </Link>
         </Button>
@@ -41,8 +41,8 @@ export default function TrackPage() {
         {/* Main Card */}
         <Card>
           <CardHeader className="text-center">
-            <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
-              <Package className="h-8 w-8 text-primary" />
+            <div className="mx-auto size-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
+              <Package className="size-8 text-primary" />
             </div>
             <CardTitle className="text-2xl">Track Your Order</CardTitle>
             <CardDescription>
@@ -53,7 +53,7 @@ export default function TrackPage() {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                 <Input
                   type="text"
                   placeholder="Enter tracking number"

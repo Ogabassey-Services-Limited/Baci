@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
@@ -160,7 +160,7 @@ export default function EditContentScreen() {
             <Text
               style={[blogEditorStyles.loadingText, { color: colors.text }]}
             >
-              Polishing with AI...
+              Polishing with AI…
             </Text>
           </View>
         </View>

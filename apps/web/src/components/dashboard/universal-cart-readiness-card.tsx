@@ -25,7 +25,7 @@ export function UniversalCartReadinessCard({
       <Card className="border-border/70">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            <ShoppingCart className="h-5 w-5 text-primary" />
+            <ShoppingCart className="size-5 text-primary" />
             Universal Cart readiness
           </CardTitle>
           <CardDescription>Readiness data is unavailable.</CardDescription>
@@ -49,7 +49,7 @@ export function UniversalCartReadinessCard({
     <Card className="border-border/70">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
-          <ShoppingCart className="h-5 w-5 text-primary" />
+          <ShoppingCart className="size-5 text-primary" />
           Universal Cart readiness
           <StatusBadge status={readiness.status} />
         </CardTitle>
