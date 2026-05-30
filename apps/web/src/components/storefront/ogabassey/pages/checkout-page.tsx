@@ -38,6 +38,7 @@ import { AddressAutocomplete } from '@/components/address-autocomplete';
 import { openCredPalCheckout } from '@/lib/credpal';
 import { openCreditDirectCheckout } from '@/lib/credit-direct-client';
 import { asRoute } from '@/lib/routes';
+import type { ShippingQuote } from '@/types/shipping-quote';
 import { toast } from '@/hooks/use-toast';
 import { createClient } from '@/lib/supabase/client';
 import { calculateCommerce } from '@/lib/supabase/client';
@@ -88,17 +89,6 @@ interface SavedAddress {
 interface ShippingLocation {
   city: string;
   state: string;
-}
-
-interface ShippingQuote {
-  id: string;
-  provider: string;
-  serviceTier: string;
-  carrierName: string;
-  displayName: string;
-  price: number;
-  estimatedDays: number;
-  currency: string;
 }
 
 interface QuoteResponse {

@@ -56,6 +56,7 @@ import { getCountryByCode } from '@/lib/countries';
 import { trackEvent } from '@/lib/event-tracking';
 import { trackServerSideBeginCheckout } from '@/lib/server-side-analytics';
 import { createClient } from '@/lib/supabase/client';
+import type { ShippingQuote } from '@/types/shipping-quote';
 
 const DEFAULT_SHIPPING_FEE = Number.parseFloat(
   process.env.NEXT_PUBLIC_DEFAULT_SHIPPING_FEE ?? '10.00'
@@ -386,25 +387,6 @@ function Step0_Auth({
       )}
     </div>
   );
-}
-
-interface ShippingQuote {
-  id: string;
-  provider: 'GIGL' | 'TOPSHIP';
-  serviceTier: string;
-  carrierName: string;
-  displayName: string;
-  estimatedDays: number;
-  minDays?: number;
-  maxDays?: number;
-  price: number;
-  currency: string;
-  pickupIncluded: boolean;
-  insuranceIncluded: boolean;
-  isStationPickup?: boolean;
-  stationName?: string;
-  stationAddress?: string;
-  providerRateId?: string;
 }
 
 function Step1_Shipping({
