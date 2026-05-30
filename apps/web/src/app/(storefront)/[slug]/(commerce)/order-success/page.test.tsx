@@ -4,6 +4,8 @@ import OrderSuccessPage from '@/app/(storefront)/[slug]/(commerce)/order-success
 
 const mockSearchParams = vi.fn();
 const mockFetch = vi.fn();
+let mockMerchant = { slug: 'test-store', country: 'NG' };
+const mockGoogleCustomerReviews = vi.hoisted(() => vi.fn());
 
 vi.mock('next/navigation', () => ({
   useSearchParams: () => mockSearchParams(),
@@ -27,7 +29,7 @@ vi.mock('next/link', () => ({
 vi.mock('@/hooks/use-merchant-client', () => ({
   useMerchantSafe: () => ({
     basePath: '/test-store',
-    merchant: { slug: 'test-store' },
+    merchant: mockMerchant,
   }),
 }));
 
@@ -38,7 +40,10 @@ vi.mock('@/contexts/auth-context', () => ({
 }));
 
 vi.mock('@/components/analytics/google-customer-reviews', () => ({
-  GoogleCustomerReviews: () => null,
+  GoogleCustomerReviews: (props: unknown) => {
+    mockGoogleCustomerReviews(props);
+    return null;
+  },
 }));
 
 describe('storefront order success page', () => {
@@ -50,6 +55,7 @@ describe('storefront order success page', () => {
         trackingToken: 'track-token-123',
       })
     );
+    mockMerchant = { slug: 'test-store', country: 'NG' };
     mockFetch.mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -57,7 +63,7 @@ describe('storefront order success page', () => {
         order_number: 'ORD-123',
         tracking_token: 'track-token-123',
         customer_email: 'buyer@example.com',
-        items: [],
+        items: [{ id: 'item-1', gtin: ' 0123456789012 ', quantity: 1 }],
         subtotal: 3500,
         shipping_cost: 0,
         total: 3500,
@@ -112,6 +118,12 @@ describe('storefront order success page', () => {
     expect(
       await screen.findByRole('link', { name: /track my order/i })
     ).toHaveAttribute('href', '/test-store/track-order?token=track-token-123');
+    expect(mockGoogleCustomerReviews).toHaveBeenCalledWith(
+      expect.objectContaining({
+        country: 'NG',
+        products: [{ gtin: '0123456789012' }],
+      })
+    );
   });
 
   it('keeps supporting legacy token query params', async () => {
@@ -129,5 +141,37 @@ describe('storefront order success page', () => {
         '/api/storefront/orders/order-123?merchant_slug=test-store&token=legacy-token-123'
       );
     });
+  });
+
+  it('formats the order total with the merchant country currency', async () => {
+    mockMerchant = { slug: 'test-store', country: 'IN' };
+
+    render(<OrderSuccessPage />);
+
+    expect(await screen.findByText(/₹|INR/)).toBeInTheDocument();
+    expect(screen.queryByText(/₦/)).not.toBeInTheDocument();
+    expect(mockGoogleCustomerReviews).toHaveBeenCalledWith(
+      expect.objectContaining({ country: 'IN' })
+    );
+  });
+
+  it('renders invoice specific heading and description when type is invoice', async () => {
+    mockSearchParams.mockReturnValue(
+      new URLSearchParams({
+        orderId: 'order-123',
+        type: 'invoice',
+      })
+    );
+
+    render(<OrderSuccessPage />);
+
+    expect(
+      await screen.findByRole('heading', { name: /invoice generated!/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /we have prepared your invoice and sent it to your email/i
+      )
+    ).toBeInTheDocument();
   });
 });

@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { authenticateApiRequest } from '@/lib/api-auth';
+import { logger } from '@/lib/logger';
 import { createQuizVoucherToken } from '@/lib/quiz-voucher-token';
 import { POST } from './route';
 
@@ -12,6 +13,7 @@ const {
   mockNotifyPaymentReceived,
   mockSendEmail,
   mockAfter,
+  mockGeneratePaymentAccount,
 } = vi.hoisted(() => ({
   MockQuizProductionNotApprovedError: class MockQuizProductionNotApprovedError extends Error {
     code = 'quiz_production_not_approved' as const;
@@ -31,6 +33,21 @@ const {
   ),
   mockSendEmail: vi.fn(() => Promise.resolve({ success: true })),
   mockAfter: vi.fn((cb: () => unknown) => cb()),
+  mockGeneratePaymentAccount: vi.fn(() =>
+    Promise.resolve({
+      success: true,
+      data: {
+        bank_name: 'Wema Bank',
+        account_number: '1234567890',
+        account_name: 'OgaBassey-Test',
+        customer_code: 'CUS_mock',
+      },
+    })
+  ),
+}));
+
+vi.mock('@/lib/paystack', () => ({
+  generatePaymentAccount: mockGeneratePaymentAccount,
 }));
 
 vi.mock('@/env', () => ({
@@ -117,8 +134,11 @@ interface RpcOverrides {
     data: unknown;
     error: unknown;
   };
+  create_storefront_order_with_savings?: { data: unknown; error: unknown };
   redeem_wallet_for_order?: { data: unknown; error: unknown };
+  redeem_savings_for_order?: { data: unknown; error: unknown };
   finalize_wallet_order_payment?: { data: unknown; error: unknown };
+  finalize_store_credit_order_payment?: { data: unknown; error: unknown };
 }
 
 function buildMockSupabase(overrides: RpcOverrides = {}) {
@@ -165,6 +185,19 @@ function buildMockSupabase(overrides: RpcOverrides = {}) {
     // biome-ignore lint/suspicious/noThenProperty: thenable mock
     then: (resolve: any) => Promise.resolve().then(resolve),
   };
+  const quizAwardChainable: any = {
+    ...sharedChainable,
+    maybeSingle: vi.fn().mockResolvedValue({
+      data: {
+        event_id: '99999999-9999-4999-8999-999999999999',
+        quiz_events: {
+          compliance_verified: true,
+          nlrc_permit_ref: 'NLRC-1',
+        },
+      },
+      error: null,
+    }),
+  };
 
   const defaultRpcOutcomes: Record<string, { data: unknown; error: unknown }> =
     {
@@ -195,20 +228,94 @@ function buildMockSupabase(overrides: RpcOverrides = {}) {
         error: null,
       },
       redeem_wallet_for_order: { data: null, error: null },
+      redeem_savings_for_order: { data: null, error: null },
+      create_storefront_order_with_savings: { data: null, error: null },
       finalize_wallet_order_payment: { data: null, error: null },
+      finalize_store_credit_order_payment: { data: null, error: null },
       // B3.5 round 7 (CodeRabbit High): the helper's variant lookup
       // now routes through this SECURITY DEFINER RPC.
       get_order_variant_overrides: { data: [], error: null },
     };
 
+  if (!overrides.create_storefront_order_with_savings) {
+    const savingsOutcome =
+      overrides.redeem_savings_for_order ??
+      defaultRpcOutcomes.redeem_savings_for_order;
+    if (savingsOutcome.error) {
+      defaultRpcOutcomes.create_storefront_order_with_savings = {
+        data: null,
+        error: savingsOutcome.error,
+      };
+    } else {
+      const savingsRow = Array.isArray(savingsOutcome.data)
+        ? savingsOutcome.data[0]
+        : savingsOutcome.data;
+      const createOrderOutcome =
+        overrides.create_storefront_order ??
+        defaultRpcOutcomes.create_storefront_order;
+      const orderRow = Array.isArray(createOrderOutcome.data)
+        ? createOrderOutcome.data[0]
+        : createOrderOutcome.data;
+      defaultRpcOutcomes.create_storefront_order_with_savings =
+        savingsRow?.success
+          ? {
+              data: [
+                {
+                  ...(orderRow as Record<string, unknown>),
+                  savings_goal_id: savingsRow.goal_id,
+                  savings_goal_status: savingsRow.goal_status,
+                  savings_redeemed_amount: savingsRow.redeemed_amount,
+                  savings_redemption_id: savingsRow.redemption_id,
+                  savings_redemption_success: true,
+                },
+              ],
+              error: null,
+            }
+          : {
+              data: [{ ...(orderRow as Record<string, unknown>) }],
+              error: null,
+            };
+    }
+  }
+
   return {
     auth: { getUser: vi.fn() },
-    from: vi.fn(() => sharedChainable),
+    from: vi.fn((table: string) =>
+      table === 'quiz_awards' ? quizAwardChainable : sharedChainable
+    ),
     rpc: vi.fn((name: string) => {
       const outcome = overrides[name as keyof RpcOverrides] ??
         defaultRpcOutcomes[name] ?? { data: null, error: null };
       return Promise.resolve(outcome);
     }),
+  };
+}
+
+function createOrderWithSavingsRow({
+  redeemedAmount,
+  goalId = '123e4567-e89b-12d3-a456-426614174555',
+  goalStatus = 'paused',
+  redemptionId = '77777777-aaaa-bbbb-cccc-dddddddddddd',
+  total = 1000,
+}: {
+  goalId?: string;
+  goalStatus?: string;
+  redeemedAmount: number;
+  redemptionId?: string;
+  total?: number;
+}) {
+  return {
+    id: 'order-id',
+    order_number: 'ORD-123',
+    total,
+    subtotal: total,
+    shipping_fee: 0,
+    customer_id: CUSTOMER_ID,
+    savings_goal_id: goalId,
+    savings_goal_status: goalStatus,
+    savings_redeemed_amount: redeemedAmount,
+    savings_redemption_id: redemptionId,
+    savings_redemption_success: true,
   };
 }
 
@@ -426,7 +533,7 @@ describe('POST /api/orders — quiz voucher guard', () => {
 
     expect(response.status).toBe(201);
     expect(mockEnforcePrizeProductionGuard).toHaveBeenCalledWith(
-      { nlrc_permit_ref: null },
+      { nlrc_permit_ref: 'NLRC-1' },
       true
     );
     expect(supabase.rpc).toHaveBeenCalledWith(
@@ -471,6 +578,59 @@ describe('POST /api/orders — quiz voucher guard', () => {
     expect(body).toEqual({
       code: 'QUIZ_VOUCHER_TOKEN_INVALID',
       error: 'Invalid quiz voucher token',
+    });
+    expect(supabase.rpc).not.toHaveBeenCalled();
+  });
+
+  it('rejects voucher-backed items with quantity greater than one before order RPC work', async () => {
+    vi.stubEnv('QUIZ_PHASE', 'production');
+    vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'yes');
+    vi.stubEnv('QUIZ_RPC_SERVER_SECRET', 'voucher-secret');
+    const supabase = buildMockSupabase();
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () => supabase as unknown as never
+    );
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      user: mockAuthUser(AUTH_USER_ID),
+      error: null,
+      supabase: supabase as unknown as never,
+    });
+    const token = createQuizVoucherToken({
+      payload: {
+        awardId: '11111111-1111-4111-8111-111111111111',
+        condition: null,
+        expiresAt: '2099-05-22T12:00:00.000Z',
+        productId: '22222222-2222-4222-8222-222222222222',
+        userId: AUTH_USER_ID,
+        variantId: null,
+      },
+      secret: 'voucher-secret',
+    });
+
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...baseOrderPayload,
+        items: [
+          {
+            ...baseOrderPayload.items[0],
+            price: 0,
+            product_id: '22222222-2222-4222-8222-222222222222',
+            quantity: 2,
+            voucher_token: token,
+          },
+        ],
+      }),
+    });
+
+    const response = await POST(request);
+    const body = await readJson(response);
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({
+      code: 'QUIZ_VOUCHER_QUANTITY_INVALID',
+      error: 'Quiz voucher items must have quantity 1',
     });
     expect(supabase.rpc).not.toHaveBeenCalled();
   });
@@ -680,6 +840,283 @@ describe('POST /api/orders — wallet response shape', () => {
       transactionId: '99999999-aaaa-bbbb-cccc-dddddddddddd',
     });
     expect(body.amountDueToGateway).toBe(700);
+  });
+
+  it('applies savings before wallet and returns the combined residual', async () => {
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () =>
+        buildMockSupabase({
+          redeem_savings_for_order: {
+            data: [
+              {
+                goal_id: '123e4567-e89b-12d3-a456-426614174555',
+                goal_status: 'paused',
+                redeemed_amount: 500,
+                redemption_id: '77777777-aaaa-bbbb-cccc-dddddddddddd',
+                remaining_goal_amount: 1500,
+                success: true,
+              },
+            ],
+            error: null,
+          },
+          redeem_wallet_for_order: {
+            data: [
+              {
+                success: true,
+                redeemed_amount: 300,
+                new_balance: 200,
+                transaction_id: '99999999-aaaa-bbbb-cccc-dddddddddddd',
+              },
+            ],
+            error: null,
+          },
+        }) as unknown as never
+    );
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/orders', {
+        method: 'POST',
+        headers: {
+          'Idempotency-Key': 'checkout-retry-key-1',
+        },
+        body: JSON.stringify({
+          ...baseOrderPayload,
+          savings_amount: 500,
+          savings_goal_id: '123e4567-e89b-12d3-a456-426614174555',
+          use_savings_credit: true,
+          use_wallet_credit: true,
+          wallet_amount: 300,
+        }),
+      })
+    );
+    const body = await readJson(response);
+
+    expect(response.status).toBe(201);
+    expect(body.savings).toEqual({
+      amountUsed: 500,
+      goalId: '123e4567-e89b-12d3-a456-426614174555',
+      redemptionId: '77777777-aaaa-bbbb-cccc-dddddddddddd',
+    });
+    expect(body.wallet).toEqual({
+      amountUsed: 300,
+      newBalance: 200,
+      transactionId: '99999999-aaaa-bbbb-cccc-dddddddddddd',
+    });
+    expect(body.amountDueToGateway).toBe(200);
+  });
+
+  it('creates savings checkout orders through the atomic savings order RPC', async () => {
+    const rpcSpy = vi.fn();
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation((() => {
+      const sb = buildMockSupabase({
+        create_storefront_order_with_savings: {
+          data: [createOrderWithSavingsRow({ redeemedAmount: 500 })],
+          error: null,
+        },
+      });
+      const originalRpc = sb.rpc;
+      sb.rpc = vi.fn((name: string, params?: unknown) => {
+        rpcSpy(name, params);
+        return originalRpc(name);
+      });
+      return sb;
+    }) as unknown as never);
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/orders', {
+        method: 'POST',
+        headers: {
+          'Idempotency-Key': 'checkout-retry-key-1',
+        },
+        body: JSON.stringify({
+          ...baseOrderPayload,
+          savings_amount: 500,
+          savings_goal_id: '123e4567-e89b-12d3-a456-426614174555',
+          use_savings_credit: true,
+        }),
+      })
+    );
+
+    expect(response.status).toBe(201);
+    expect(rpcSpy).toHaveBeenCalledWith(
+      'create_storefront_order_with_savings',
+      expect.objectContaining({
+        p_savings_amount: 500,
+        p_savings_goal_id: '123e4567-e89b-12d3-a456-426614174555',
+        p_savings_idempotency_key: 'order:checkout-retry-key-1:savings',
+      })
+    );
+    expect(rpcSpy).not.toHaveBeenCalledWith(
+      'redeem_savings_for_order',
+      expect.anything()
+    );
+  });
+
+  it('fails explicit savings checkout when savings redemption is rejected', async () => {
+    const supabaseMod = await import('@/lib/supabase/server');
+    const finalizeSpy = vi.fn((_params?: unknown) =>
+      Promise.resolve({ data: null, error: null })
+    );
+    vi.mocked(supabaseMod.createClient).mockImplementation((() => {
+      const sb = buildMockSupabase({
+        redeem_savings_for_order: {
+          data: null,
+          error: {
+            code: 'P0001',
+            message: 'savings_goal_does_not_match_order',
+          },
+        },
+      });
+      const originalRpc = sb.rpc;
+      sb.rpc = vi.fn((name: string) => {
+        if (name === 'finalize_store_credit_order_payment') {
+          return finalizeSpy();
+        }
+        return originalRpc(name);
+      });
+      return sb;
+    }) as unknown as never);
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/orders', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...baseOrderPayload,
+          savings_amount: 500,
+          savings_goal_id: '123e4567-e89b-12d3-a456-426614174555',
+          use_savings_credit: true,
+        }),
+      })
+    );
+    const body = await readJson(response);
+
+    expect(response.status).toBe(409);
+    expect(body).toEqual({
+      code: 'P0001',
+      error: 'savings_goal_does_not_match_order',
+    });
+    expect(finalizeSpy).not.toHaveBeenCalled();
+  });
+
+  it('full savings coverage returns amountDueToGateway=0 and finalizes as savings', async () => {
+    const finalizeSpy = vi.fn((_params?: unknown) =>
+      Promise.resolve({ data: null, error: null })
+    );
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation((() => {
+      const sb = buildMockSupabase({
+        redeem_savings_for_order: {
+          data: [
+            {
+              goal_id: '123e4567-e89b-12d3-a456-426614174555',
+              goal_status: 'spent',
+              redeemed_amount: 1000,
+              redemption_id: '77777777-aaaa-bbbb-cccc-dddddddddddd',
+              remaining_goal_amount: 0,
+              success: true,
+            },
+          ],
+          error: null,
+        },
+      });
+      const originalRpc = sb.rpc;
+      sb.rpc = vi.fn((name: string, params?: unknown) => {
+        if (name === 'finalize_store_credit_order_payment') {
+          return finalizeSpy(params);
+        }
+        return originalRpc(name);
+      });
+      return sb;
+    }) as unknown as never);
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/orders', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...baseOrderPayload,
+          savings_amount: 1000,
+          savings_goal_id: '123e4567-e89b-12d3-a456-426614174555',
+          use_savings_credit: true,
+        }),
+      })
+    );
+    const body = await readJson(response);
+
+    expect(response.status).toBe(201);
+    expect(body.amountDueToGateway).toBe(0);
+    expect(body.order.payment_status).toBe('paid');
+    expect(body.order.payment_method).toBe('savings');
+    expect(body.savings.amountUsed).toBe(1000);
+    expect(finalizeSpy).toHaveBeenCalledWith({
+      p_amount: 1000,
+      p_order_id: 'order-id',
+      p_payment_method: 'savings',
+    });
+  });
+
+  it('does not return a zero gateway residual when full savings finalization fails', async () => {
+    const finalizeSpy = vi.fn((_params?: unknown) =>
+      Promise.resolve({
+        data: null,
+        error: {
+          code: 'P0001',
+          message: 'store_credit_finalize_failed',
+        },
+      })
+    );
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation((() => {
+      const sb = buildMockSupabase({
+        redeem_savings_for_order: {
+          data: [
+            {
+              goal_id: '123e4567-e89b-12d3-a456-426614174555',
+              goal_status: 'spent',
+              redeemed_amount: 1000,
+              redemption_id: '77777777-aaaa-bbbb-cccc-dddddddddddd',
+              remaining_goal_amount: 0,
+              success: true,
+            },
+          ],
+          error: null,
+        },
+      });
+      const originalRpc = sb.rpc;
+      sb.rpc = vi.fn((name: string, params?: unknown) => {
+        if (name === 'finalize_store_credit_order_payment') {
+          return finalizeSpy(params);
+        }
+        return originalRpc(name);
+      });
+      return sb;
+    }) as unknown as never);
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/orders', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...baseOrderPayload,
+          savings_amount: 1000,
+          savings_goal_id: '123e4567-e89b-12d3-a456-426614174555',
+          use_savings_credit: true,
+        }),
+      })
+    );
+    const body = await readJson(response);
+
+    expect(response.status).toBe(409);
+    expect(body).toEqual({
+      code: 'STORE_CREDIT_FINALIZE_FAILED',
+      error: 'store_credit_finalize_failed',
+      orderId: 'order-id',
+    });
+    expect(finalizeSpy).toHaveBeenCalledWith({
+      p_amount: 1000,
+      p_order_id: 'order-id',
+      p_payment_method: 'savings',
+    });
   });
 
   it('full-coverage wallet redemption returns amountDueToGateway=0 and finalizes payment', async () => {
@@ -967,6 +1404,74 @@ describe('POST /api/orders — B3.5 VAT RPC error mapping', () => {
     });
     const response = await POST(request);
     expect(response.status).toBe(400);
+  });
+
+  it('logs known client order rejections as warnings instead of Vercel errors', async () => {
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () =>
+        buildMockSupabase({
+          create_storefront_order: {
+            data: null,
+            error: { code: 'P0001', message: 'shipping_quote_required' },
+          },
+        }) as unknown as never
+    );
+
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...baseOrderPayload,
+        shipping_provider: 'gigl',
+      }),
+    });
+    const response = await POST(request);
+    const body = await readJson(response);
+
+    expect(response.status).toBe(400);
+    expect(body.details).toBe('shipping_quote_required');
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: expect.objectContaining({ message: 'shipping_quote_required' }),
+        message: 'Storefront order rejected by client-side validation',
+      })
+    );
+    expect(logger.error).not.toHaveBeenCalled();
+  });
+
+  it('logs unknown RPC failures as errors and returns 500', async () => {
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () =>
+        buildMockSupabase({
+          create_storefront_order: {
+            data: null,
+            error: {
+              code: 'P9999',
+              message: 'database_connection_lost',
+            },
+          },
+        }) as unknown as never
+    );
+
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify(baseOrderPayload),
+    });
+    const response = await POST(request);
+    const body = await readJson(response);
+
+    expect(response.status).toBe(500);
+    expect(body.details).toBe('database_connection_lost');
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: expect.objectContaining({
+          message: 'database_connection_lost',
+        }),
+        message: 'Error creating order',
+      })
+    );
+    expect(logger.warn).not.toHaveBeenCalled();
   });
 
   it('forwards p_gift_wrapping_fee to the RPC', async () => {
@@ -1985,5 +2490,161 @@ describe('POST /api/orders — B3.5 VAT RPC error mapping', () => {
     });
     const response = await POST(request);
     expect(response.status).toBe(400);
+  });
+});
+
+describe('POST /api/orders — invoice payment method email attachment', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('generates a Peppol BIS 3.0 PDF invoice and attaches it to the confirmation email when payment method is invoice', async () => {
+    const supabase = buildMockSupabase();
+
+    // Mock supabase.from queries inside the after() block:
+    // for 'order_tax_subtotals' and 'order_items'
+    supabase.from = vi.fn((table: string) => {
+      if (table === 'order_tax_subtotals') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockResolvedValue({
+            data: [
+              {
+                vat_category_code: 'S',
+                vat_rate: 7.5,
+                taxable_amount: 1000,
+                tax_amount: 75,
+                exemption_reason: null,
+              },
+            ],
+            error: null,
+          }),
+        };
+      }
+      if (table === 'order_payment_accounts') {
+        return {
+          insert: vi.fn().mockResolvedValue({ error: null }),
+        };
+      }
+      if (table === 'order_items') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockResolvedValue({
+            data: [
+              {
+                id: 'item-1',
+                line_id: 1,
+                name: 'Widget',
+                item_description: 'A beautiful widget',
+                quantity: 1,
+                price: 1000,
+                unit_code: 'EA',
+                line_extension_amount: 1000,
+                vat_category_code: 'S',
+                vat_rate: 7.5,
+                vat_amount: 75,
+                sellers_item_id: 'WIDGET-01',
+                product_id: 'p-1',
+              },
+            ],
+            error: null,
+          }),
+        };
+      }
+      // Mock fallback single/maybeSingle queries
+      return {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        single: vi.fn().mockResolvedValue({
+          data: {
+            id: MERCHANT_ID,
+            business_name: 'Test Merchant',
+            country: 'NG',
+            slug: 'test-merchant',
+            support_email: 'support@example.com',
+            email_sender_name: 'Test Store',
+            email: 'merchant@example.com',
+            vat_registration_status: 'registered',
+            vat_rate: 7.5,
+          },
+          error: null,
+        }),
+        maybeSingle: vi.fn().mockResolvedValue({
+          data: {
+            id: MERCHANT_ID,
+            business_name: 'Test Merchant',
+            country: 'NG',
+            slug: 'test-merchant',
+            support_email: 'support@example.com',
+            email_sender_name: 'Test Store',
+            email: 'merchant@example.com',
+            vat_registration_status: 'registered',
+            vat_rate: 7.5,
+          },
+          error: null,
+        }),
+        in: vi.fn().mockReturnThis(),
+        returns: vi.fn().mockResolvedValue({ data: [], error: null }),
+        insert: vi.fn().mockResolvedValue({ error: null }),
+        update: vi.fn().mockReturnThis(),
+        // biome-ignore lint/suspicious/noThenProperty: simulated thenable mock
+        then: (resolve: any) => Promise.resolve().then(resolve),
+      };
+    }) as any;
+
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () => supabase as unknown as never
+    );
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      user: null,
+      error: null,
+      supabase: supabase as unknown as never,
+    });
+
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...baseOrderPayload,
+        payment_method: 'invoice',
+      }),
+    });
+
+    const response = await POST(request);
+    expect(response.status).toBe(201);
+
+    // Wait for the async after() block to settle (yield to the event loop)
+    await vi.waitFor(() => expect(mockSendEmail).toHaveBeenCalled(), {
+      timeout: 1000,
+    });
+
+    // Assert sendEmail was called with the invoice attachment
+    expect(mockSendEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: 'customer@example.com',
+        subject: expect.stringContaining('Invoice Generated'),
+        attachments: expect.arrayContaining([
+          expect.objectContaining({
+            name: expect.stringMatching(/^invoice-ORD-.*\.pdf$/),
+            mime_type: 'application/pdf',
+            content: expect.any(String), // base64 string
+          }),
+        ]),
+      })
+    );
+
+    // Assert DVA generation was automatically triggered
+    expect(mockGeneratePaymentAccount).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: 'customer@example.com',
+        firstName: 'Test',
+        lastName: 'Customer',
+        phone: '08012345678',
+        orderId: 'order-id',
+      })
+    );
+
+    // Assert the auto-generated DVA was persisted in the order_payment_accounts table
+    expect(supabase.from).toHaveBeenCalledWith('order_payment_accounts');
   });
 });

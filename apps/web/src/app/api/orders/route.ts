@@ -23,8 +23,10 @@ import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
+import { generateInvoiceBlob } from '@/lib/invoice-generator';
 import { logger } from '@/lib/logger';
 import { ORDER_WITH_ITEMS_QUERY } from '@/lib/order-queries';
+import { generatePaymentAccount } from '@/lib/paystack';
 import {
   enforcePrizeProductionGuard,
   QuizProductionNotApprovedError,
@@ -39,6 +41,49 @@ import { type OrderCreateInput, orderCreateSchema } from '@/schemas/orders';
 
 function isPayOnDelivery(paymentMethod: string): boolean {
   return paymentMethod === 'pod' || paymentMethod === 'pay_on_delivery';
+}
+
+function getRequestIdempotencyKey(request: NextRequest) {
+  const headerValue = request.headers.get('idempotency-key')?.trim();
+  return headerValue ? headerValue : null;
+}
+
+function getSavingsRedemptionIdempotencyKey({
+  customerEmail,
+  items,
+  merchantId,
+  requestIdempotencyKey,
+  savingsAmount,
+  savingsGoalId,
+}: {
+  customerEmail: string;
+  items: Array<{
+    product_id: string;
+    quantity: number;
+    variant_id?: string | null;
+  }>;
+  merchantId: string;
+  requestIdempotencyKey: string | null;
+  savingsAmount: number;
+  savingsGoalId: string;
+}) {
+  if (requestIdempotencyKey) {
+    return `order:${requestIdempotencyKey}:savings`;
+  }
+
+  const itemFingerprint = items
+    .map(
+      (item) => `${item.product_id}:${item.variant_id ?? ''}:${item.quantity}`
+    )
+    .join('|');
+  return [
+    'order_savings',
+    merchantId,
+    customerEmail.toLowerCase(),
+    savingsGoalId,
+    savingsAmount,
+    itemFingerprint,
+  ].join(':');
 }
 
 /** Server-authoritative assurance rate — never trust the client value. */
@@ -130,6 +175,32 @@ function invalidQuizVoucherTokenResponse() {
     },
     { status: 400 }
   );
+}
+
+function invalidQuizVoucherQuantityResponse() {
+  return NextResponse.json(
+    {
+      code: 'QUIZ_VOUCHER_QUANTITY_INVALID',
+      error: 'Quiz voucher items must have quantity 1',
+    },
+    { status: 400 }
+  );
+}
+
+function getQuizVoucherAwardEvent(row: unknown) {
+  if (!row || typeof row !== 'object') return null;
+  const joined = (row as { quiz_events?: unknown }).quiz_events;
+  const event = Array.isArray(joined) ? joined[0] : joined;
+  if (!event || typeof event !== 'object') return null;
+  const complianceVerified = (event as { compliance_verified?: unknown })
+    .compliance_verified;
+  const nlrcPermitRef = (event as { nlrc_permit_ref?: unknown })
+    .nlrc_permit_ref;
+
+  return {
+    complianceVerified: complianceVerified === true,
+    nlrcPermitRef: typeof nlrcPermitRef === 'string' ? nlrcPermitRef : null,
+  };
 }
 
 // GET /api/orders - Fetch orders for authenticated merchant
@@ -272,6 +343,9 @@ export async function POST(request: NextRequest) {
       // Wallet redemption
       use_wallet_credit,
       wallet_amount,
+      use_savings_credit,
+      savings_amount,
+      savings_goal_id,
       // User ID
       user_id,
     } = body;
@@ -300,33 +374,34 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      try {
-        // Phase 1a has no prize-bearing order path. The later production
-        // voucher path must load the quiz event/compliance evidence before
-        // calling create_storefront_order_with_quiz_voucher.
-        const quizProductionApproved =
-          getQuizPhaseEnv() === 'production' && getQuizProductionApprovedEnv();
-        enforcePrizeProductionGuard(
-          { nlrc_permit_ref: null },
-          quizProductionApproved
-        );
-      } catch (error) {
-        if (error instanceof QuizProductionNotApprovedError) {
-          return NextResponse.json(
-            {
-              error: 'Quiz vouchers are not approved for production use',
-              code: error.code,
-            },
-            { status: error.status }
-          );
-        }
+      if (
+        getQuizPhaseEnv() !== 'production' ||
+        !getQuizProductionApprovedEnv()
+      ) {
+        try {
+          enforcePrizeProductionGuard({ nlrc_permit_ref: null }, false);
+        } catch (error) {
+          if (error instanceof QuizProductionNotApprovedError) {
+            return NextResponse.json(
+              {
+                error: 'Quiz vouchers are not approved for production use',
+                code: error.code,
+              },
+              { status: error.status }
+            );
+          }
 
-        throw error;
+          throw error;
+        }
       }
 
       for (const [index, item] of items.entries()) {
         if (!hasQuizVoucherIdentifier(item)) {
           continue;
+        }
+
+        if (item.quantity !== 1) {
+          return invalidQuizVoucherQuantityResponse();
         }
 
         const voucherToken = getQuizVoucherToken(item);
@@ -376,13 +451,62 @@ export async function POST(request: NextRequest) {
           tokenVerification.payload.awardId
         );
       }
+
+      const voucherAwardIds = [
+        ...new Set(verifiedQuizVoucherAwardIdsByIndex.values()),
+      ];
+      if (voucherAwardIds.length !== 1) {
+        return invalidQuizVoucherTokenResponse();
+      }
+
+      const { data: voucherAward, error: voucherAwardError } = await supabase
+        .from('quiz_awards')
+        .select(
+          'event_id, quiz_events!inner(nlrc_permit_ref, compliance_verified)'
+        )
+        .eq('id', voucherAwardIds[0])
+        .maybeSingle();
+      if (voucherAwardError) {
+        logger.error({
+          message: 'Quiz voucher award lookup failed',
+          error: voucherAwardError,
+          voucherAwardId: voucherAwardIds[0],
+        });
+        return invalidQuizVoucherTokenResponse();
+      }
+
+      if (!voucherAward) {
+        return invalidQuizVoucherTokenResponse();
+      }
+
+      const voucherEvent = getQuizVoucherAwardEvent(voucherAward);
+      try {
+        enforcePrizeProductionGuard(
+          { nlrc_permit_ref: voucherEvent?.nlrcPermitRef ?? null },
+          getQuizPhaseEnv() === 'production' &&
+            getQuizProductionApprovedEnv() &&
+            voucherEvent?.complianceVerified === true
+        );
+      } catch (error) {
+        if (error instanceof QuizProductionNotApprovedError) {
+          return NextResponse.json(
+            {
+              error: 'Quiz vouchers are not approved for production use',
+              code: error.code,
+            },
+            { status: error.status }
+          );
+        }
+
+        throw error;
+      }
     }
 
     // Fetch merchant to verify it exists (include business_name, slug for email)
     const { data: merchant, error: merchantFetchError } = await supabase
       .from('merchants')
       .select(
-        'id, rider_phone_number, business_name, business_address, slug, support_email, email_sender_name, email, tax_identification_number, cac_rc_number, plan_tier'
+        'id, phone, rider_phone_number, business_name, business_address, slug, support_email, email_sender_name, email, tax_identification_number, cac_rc_number, plan_tier, vat_registration_status, vat_rate, registered_address, support_phone, logo_url, legal_entity_name'
       )
       .eq('id', merchant_id)
       .single();
@@ -667,72 +791,128 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const orderCreateRpcName = hasVoucherItem
-      ? 'create_storefront_order_with_quiz_voucher'
-      : 'create_storefront_order';
+    const requestedSavingsRedemption =
+      use_savings_credit &&
+      savings_goal_id &&
+      typeof savings_amount === 'number' &&
+      savings_amount > 0;
+    const savingsRedemptionIdempotencyKey = requestedSavingsRedemption
+      ? getSavingsRedemptionIdempotencyKey({
+          customerEmail: customer_email,
+          items: orderItemsPayload.map((item) => ({
+            product_id: item.product_id ?? '',
+            quantity: item.quantity,
+            variant_id: item.variant_id ?? null,
+          })),
+          merchantId: merchant_id,
+          requestIdempotencyKey: getRequestIdempotencyKey(request),
+          savingsAmount: savings_amount,
+          savingsGoalId: savings_goal_id,
+        })
+      : null;
+
+    if (requestedSavingsRedemption && hasVoucherItem) {
+      return NextResponse.json(
+        {
+          code: 'SAVINGS_VOUCHER_COMBINATION_UNSUPPORTED',
+          error: 'Savings cannot be combined with quiz voucher orders',
+        },
+        { status: 400 }
+      );
+    }
+
+    const orderRpcArgs = {
+      p_merchant_id: merchant_id,
+      p_customer_email: customer_email,
+      p_customer_name: customer_name,
+      p_customer_phone: customer_phone || null,
+      p_items: orderItemsPayload,
+      p_shipping_fee: shippingFeeValue,
+      p_discount_amount: serverDerivedDiscountAmount,
+      p_tax_amount: serverComputedTaxAmount,
+      p_payment_method: payment_method,
+      p_payment_status: effectivePaymentStatus,
+      p_shipping_status: shipping_status,
+      p_shipping_address: shipping_address || null,
+      p_source: source,
+      p_notes: notes || null,
+      p_ad_tracking: adTrackingPayload,
+      p_selected_quote_id: body.selected_quote_id || null,
+      p_shipping_provider: resolvedShippingProvider,
+      p_tracking_number: resolvedTrackingNumber || null,
+      p_user_id: resolvedUserId,
+      // Server-computed tax — replaces the client-supplied value
+      // so legacy callers without `tax_amount` succeed and
+      // storefront callers can't fake a wrong-but-matching value
+      // (Codex P1 round 6).
+      // B3.5 (Δ-42, Δ-47): tax_basis + gift_wrapping_fee. The RPC
+      // enforces VAT itself for VAT-registered merchants and also
+      // runs a client/server total parity check (Codex P1) against
+      // p_expected_total BEFORE any side effects, so a mismatch
+      // rolls back atomically — no orphan order, no stock leak.
+      //
+      // Codex P1 round 6 (PR #1622): `tax_basis` is SERVER-controlled
+      // policy, NOT caller input. The RPC itself overrides
+      // `v_tax_basis := 'exclusive'` after enum validation
+      // (`create_storefront_order` is GRANT'd to anon via PostgREST,
+      // so the trust boundary has to live IN the function — see
+      // the `Codex P1 round 6 ii` comment in
+      // `20260512200000_storefront_order_vat_enforcement.sql`).
+      // This API-level hardcode is defense-in-depth — any caller
+      // routing through /api/orders also gets the right value
+      // without relying on PostgREST RLS / RPC behavior.
+      p_tax_basis: 'exclusive',
+      p_gift_wrapping_fee: giftWrappingFeeValue,
+      p_expected_total:
+        typeof body.expected_total === 'number' ? body.expected_total : null,
+      ...(quizVoucherRouteProof
+        ? { p_route_proof: quizVoucherRouteProof }
+        : {}),
+    };
+
+    const orderCreateRpcName = requestedSavingsRedemption
+      ? 'create_storefront_order_with_savings'
+      : hasVoucherItem
+        ? 'create_storefront_order_with_quiz_voucher'
+        : 'create_storefront_order';
 
     const { data: orderRows, error: orderError } = await supabase.rpc(
       orderCreateRpcName,
-      {
-        p_merchant_id: merchant_id,
-        p_customer_email: customer_email,
-        p_customer_name: customer_name,
-        p_customer_phone: customer_phone || null,
-        p_items: orderItemsPayload,
-        p_shipping_fee: shippingFeeValue,
-        p_discount_amount: serverDerivedDiscountAmount,
-        p_tax_amount: serverComputedTaxAmount,
-        p_payment_method: payment_method,
-        p_payment_status: effectivePaymentStatus,
-        p_shipping_status: shipping_status,
-        p_shipping_address: shipping_address || null,
-        p_source: source,
-        p_notes: notes || null,
-        p_ad_tracking: adTrackingPayload,
-        p_selected_quote_id: body.selected_quote_id || null,
-        p_shipping_provider: resolvedShippingProvider,
-        p_tracking_number: resolvedTrackingNumber || null,
-        p_user_id: resolvedUserId,
-        // Server-computed tax — replaces the client-supplied value
-        // so legacy callers without `tax_amount` succeed and
-        // storefront callers can't fake a wrong-but-matching value
-        // (Codex P1 round 6).
-        // B3.5 (Δ-42, Δ-47): tax_basis + gift_wrapping_fee. The RPC
-        // enforces VAT itself for VAT-registered merchants and also
-        // runs a client/server total parity check (Codex P1) against
-        // p_expected_total BEFORE any side effects, so a mismatch
-        // rolls back atomically — no orphan order, no stock leak.
-        //
-        // Codex P1 round 6 (PR #1622): `tax_basis` is SERVER-controlled
-        // policy, NOT caller input. The RPC itself overrides
-        // `v_tax_basis := 'exclusive'` after enum validation
-        // (`create_storefront_order` is GRANT'd to anon via PostgREST,
-        // so the trust boundary has to live IN the function — see
-        // the `Codex P1 round 6 ii` comment in
-        // `20260512200000_storefront_order_vat_enforcement.sql`).
-        // This API-level hardcode is defense-in-depth — any caller
-        // routing through /api/orders also gets the right value
-        // without relying on PostgREST RLS / RPC behavior.
-        p_tax_basis: 'exclusive',
-        p_gift_wrapping_fee: giftWrappingFeeValue,
-        p_expected_total:
-          typeof body.expected_total === 'number' ? body.expected_total : null,
-        ...(quizVoucherRouteProof
-          ? { p_route_proof: quizVoucherRouteProof }
-          : {}),
-      }
+      requestedSavingsRedemption
+        ? {
+            ...orderRpcArgs,
+            p_savings_amount: savings_amount,
+            p_savings_goal_id: savings_goal_id,
+            p_savings_idempotency_key: savingsRedemptionIdempotencyKey,
+          }
+        : orderRpcArgs
     );
 
     const order = Array.isArray(orderRows) ? orderRows[0] : orderRows;
 
     if (orderError || !order) {
-      logger.error({ message: 'Error creating order', error: orderError });
       const code =
         typeof orderError?.code === 'string' ? orderError.code : null;
       const message =
         typeof orderError?.message === 'string'
           ? orderError.message
           : code || 'Failed to create order';
+      if (
+        requestedSavingsRedemption &&
+        (message.includes('savings_') || code === '22023' || code === '42501')
+      ) {
+        return NextResponse.json(
+          { code: code ?? 'SAVINGS_REDEMPTION_FAILED', error: message },
+          {
+            status:
+              code === '22023' ||
+              code === '42501' ||
+              message.includes('not_authorized')
+                ? 400
+                : 409,
+          }
+        );
+      }
       const clientErrorCodes = [
         'invalid_items',
         'invalid_quantity',
@@ -777,6 +957,14 @@ export async function POST(request: NextRequest) {
       const isClientError =
         (code ? clientErrorCodes.includes(code) : false) ||
         clientErrorCodes.includes(message);
+      if (isClientError) {
+        logger.warn({
+          message: 'Storefront order rejected by client-side validation',
+          error: orderError,
+        });
+      } else {
+        logger.error({ message: 'Error creating order', error: orderError });
+      }
       return NextResponse.json(
         { error: 'Failed to create order', details: message },
         { status: isClientError ? 400 : 500 }
@@ -797,8 +985,55 @@ export async function POST(request: NextRequest) {
       newBalance: number;
       transactionId: string | null;
     } | null = null;
+    let savingsRedemptionResult: {
+      success: boolean;
+      amountRedeemed: number;
+      goalId: string;
+      redemptionId: string | null;
+    } | null = null;
 
-    if (use_wallet_credit && wallet_amount > 0 && customer_id) {
+    if (requestedSavingsRedemption) {
+      const savingsOrder = order as Record<string, unknown>;
+      if (savingsOrder.savings_redemption_success === true) {
+        savingsRedemptionResult = {
+          success: true,
+          amountRedeemed: Number(savingsOrder.savings_redeemed_amount),
+          goalId: String(savingsOrder.savings_goal_id ?? savings_goal_id),
+          redemptionId:
+            typeof savingsOrder.savings_redemption_id === 'string'
+              ? savingsOrder.savings_redemption_id
+              : null,
+        };
+      } else {
+        logger.error({
+          message: 'Savings redemption failed after order RPC',
+          orderId: order.id,
+          orderNumber: order.order_number,
+          customerId: customer_id,
+          merchantId: merchant_id,
+          savingsGoalId: savings_goal_id,
+          requestedSavingsAmount: savings_amount,
+          savingsRedemptionSuccess: savingsOrder.savings_redemption_success,
+        });
+        return NextResponse.json(
+          {
+            code: 'SAVINGS_REDEMPTION_FAILED',
+            error: 'Savings redemption failed',
+          },
+          { status: 409 }
+        );
+      }
+    }
+
+    const savingsAmountUsed = savingsRedemptionResult?.amountRedeemed || 0;
+    const remainingAfterSavings = Math.max(orderTotal - savingsAmountUsed, 0);
+
+    if (
+      use_wallet_credit &&
+      wallet_amount > 0 &&
+      customer_id &&
+      remainingAfterSavings > 0
+    ) {
       try {
         // Call atomic wallet redemption function (handles idempotency via order_id)
         const { data: redemptionData, error: redemptionError } =
@@ -806,7 +1041,7 @@ export async function POST(request: NextRequest) {
             p_customer_id: customer_id,
             p_merchant_id: merchant_id,
             p_order_id: order.id,
-            p_amount: Math.min(wallet_amount, orderTotal), // Can't redeem more than order total
+            p_amount: Math.min(wallet_amount, remainingAfterSavings), // Can't redeem more than residual total
             p_order_reference: order.order_number || order.id,
           });
 
@@ -856,11 +1091,17 @@ export async function POST(request: NextRequest) {
 
     // Calculate amount due to payment gateway (total - wallet credit used)
     const walletAmountUsed = walletRedemptionResult?.amountRedeemed || 0;
-    const amountDueToGateway = orderTotal - walletAmountUsed;
+    const amountDueToGateway =
+      orderTotal - savingsAmountUsed - walletAmountUsed;
     let walletFinalized = false;
+    let storeCreditFinalized = false;
 
     // If wallet fully covers the order, mark as paid immediately (2025 best practice)
-    if (walletAmountUsed > 0 && amountDueToGateway <= 0) {
+    if (
+      savingsAmountUsed === 0 &&
+      walletAmountUsed > 0 &&
+      amountDueToGateway <= 0
+    ) {
       const { error: walletFinalizeError } = await supabase.rpc(
         'finalize_wallet_order_payment',
         {
@@ -885,6 +1126,46 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    if (savingsAmountUsed > 0 && amountDueToGateway <= 0) {
+      const paymentMethod = walletAmountUsed > 0 ? 'store_credit' : 'savings';
+      const { error: storeCreditFinalizeError } = await supabase.rpc(
+        'finalize_store_credit_order_payment',
+        {
+          p_amount: savingsAmountUsed + walletAmountUsed,
+          p_order_id: order.id,
+          p_payment_method: paymentMethod,
+        }
+      );
+
+      if (storeCreditFinalizeError) {
+        const message =
+          typeof storeCreditFinalizeError.message === 'string'
+            ? storeCreditFinalizeError.message
+            : 'Savings/store-credit payment finalization failed';
+        logger.error({
+          message: 'Failed to finalize savings/store-credit payment',
+          error: storeCreditFinalizeError,
+          orderId: order.id,
+        });
+        return NextResponse.json(
+          {
+            code: 'STORE_CREDIT_FINALIZE_FAILED',
+            error: message,
+            orderId: order.id,
+          },
+          { status: 409 }
+        );
+      }
+
+      storeCreditFinalized = true;
+      logger.info({
+        message: 'Order fully paid with savings/store credit',
+        orderId: order.id,
+        savingsAmountUsed,
+        walletAmountUsed,
+      });
+    }
+
     // NOTE: Order confirmation email is NOT sent here at order creation.
     // It is sent ONLY after payment is confirmed via webhook handlers:
     // - /api/payments/webhook/route.ts (for Paystack/Korapay)
@@ -896,7 +1177,7 @@ export async function POST(request: NextRequest) {
     // - Wallet-paid orders: payment already confirmed via wallet redemption
     //
     // after() runs after the response is sent — email/push never block the response.
-    const isWalletFullyPaid = walletFinalized;
+    const isWalletFullyPaid = walletFinalized || storeCreditFinalized;
     if (payOnDelivery || payment_method === 'invoice' || isWalletFullyPaid) {
       if (merchant.business_name && merchant.slug) {
         const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
@@ -925,6 +1206,8 @@ export async function POST(request: NextRequest) {
           price: item.price || 0,
         }));
 
+        const paymentLink = `${merchantUrl}/checkout/resume/${order.id}`;
+
         const emailData = {
           orderNumber: orderNum,
           customerName: customer_name,
@@ -942,6 +1225,8 @@ export async function POST(request: NextRequest) {
           merchantUrl,
           merchantTin: merchant.tax_identification_number ?? undefined,
           merchantRcNumber: merchant.cac_rc_number ?? undefined,
+          paymentMethod: payment_method,
+          paymentLink,
         };
 
         const htmlContent = generateOrderConfirmationEmail(emailData);
@@ -961,15 +1246,254 @@ export async function POST(request: NextRequest) {
         // ZeptoMail calls never block or time out the order creation response.
         after(async () => {
           try {
+            let attachments:
+              | Array<{ name: string; content: string; mime_type: string }>
+              | undefined;
+
+            if (payment_method === 'invoice') {
+              try {
+                // Auto-generate Dedicated Virtual Account (DVA) for automatic confirmation
+                const nameParts = (customer_name || 'Customer')
+                  .trim()
+                  .split(' ');
+                const firstName = nameParts[0] || 'Customer';
+                const lastName = nameParts.slice(1).join(' ') || 'User';
+                const dvaResult = await generatePaymentAccount({
+                  email: customer_email || `${order.id}@orders.usebaci.com`,
+                  firstName,
+                  lastName,
+                  phone: customer_phone || merchant.phone || '08000000000',
+                  orderId: order.id,
+                });
+
+                if (dvaResult.success) {
+                  const { error: insertError } = await supabase
+                    .from('order_payment_accounts')
+                    .insert({
+                      order_id: order.id,
+                      account_number: dvaResult.data.account_number,
+                      bank_name: dvaResult.data.bank_name,
+                      account_name: dvaResult.data.account_name,
+                      provider: 'paystack',
+                    });
+
+                  if (insertError) {
+                    logger.error({
+                      message: 'Failed to store auto-generated invoice DVA',
+                      orderId: order.id,
+                      error: insertError,
+                    });
+                  } else {
+                    logger.info({
+                      message: 'Stored auto-generated invoice DVA successfully',
+                      orderId: order.id,
+                      accountNumber: dvaResult.data.account_number,
+                    });
+                  }
+                } else {
+                  logger.error({
+                    message: 'Auto-generation of invoice DVA failed',
+                    orderId: order.id,
+                    error: dvaResult.error,
+                  });
+                }
+
+                // 1. Fetch complete tax subtotals and database items to ensure precise compliance values
+                const { data: taxRows } = await supabase
+                  .from('order_tax_subtotals')
+                  .select(
+                    'vat_category_code, vat_rate, taxable_amount, tax_amount, exemption_reason'
+                  )
+                  .eq('order_id', order.id);
+
+                const { data: dbItems } = await supabase
+                  .from('order_items')
+                  .select(
+                    'id, line_id, name, item_description, quantity, price, unit_code, line_extension_amount, vat_category_code, vat_rate, vat_amount, sellers_item_id, product_id'
+                  )
+                  .eq('order_id', order.id);
+
+                const { data: orderDetails } = await supabase
+                  .from('orders')
+                  .select('fulfillment_details')
+                  .eq('id', order.id)
+                  .single();
+
+                const fulfillment = orderDetails?.fulfillment_details as {
+                  imei?: string | null;
+                  serialNumber?: string | null;
+                  serial_number?: string | null;
+                } | null;
+
+                const imei = fulfillment?.imei;
+                const serial =
+                  fulfillment?.serialNumber || fulfillment?.serial_number;
+
+                const invoiceItems = (dbItems || []).map((item, index) => {
+                  let desc = item.item_description || undefined;
+                  if (fulfillment && (imei || serial)) {
+                    const isDevice =
+                      /phone|iphone|samsung|pixel|galaxy|ipad|xiaomi|redmi|infinix|tecno|macbook|laptop|sim/i.test(
+                        item.name || ''
+                      );
+                    const isFirstItem = index === 0;
+                    if (isDevice || isFirstItem) {
+                      const parts = [];
+                      if (imei) parts.push(`IMEI: ${imei}`);
+                      if (serial) parts.push(`S/N: ${serial}`);
+                      const fulfillmentStr = parts.join(' | ');
+                      desc = desc
+                        ? `${desc}\n${fulfillmentStr}`
+                        : fulfillmentStr;
+                    }
+                  }
+
+                  return {
+                    line_id: item.line_id || index + 1,
+                    product_id: item.product_id || undefined,
+                    name: item.name,
+                    description: desc,
+                    quantity: item.quantity,
+                    unit_code: item.unit_code || 'EA',
+                    price: Number(item.price),
+                    line_extension_amount:
+                      item.line_extension_amount ||
+                      item.quantity * Number(item.price),
+                    vat_category_code: item.vat_category_code || 'S',
+                    vat_rate: item.vat_rate || merchant.vat_rate || 7.5,
+                    vat_amount: item.vat_amount || 0,
+                    sellers_item_id: item.sellers_item_id || undefined,
+                  };
+                });
+
+                const invoiceTaxSubtotals = (taxRows || []).map((st) => ({
+                  vat_category_code: st.vat_category_code,
+                  vat_rate: st.vat_rate,
+                  taxable_amount: Number(st.taxable_amount),
+                  tax_amount: Number(st.tax_amount),
+                  exemption_reason: st.exemption_reason || undefined,
+                }));
+
+                // If no tax subtotals exist, create a default one
+                if (
+                  invoiceTaxSubtotals.length === 0 &&
+                  merchant.vat_registration_status === 'registered'
+                ) {
+                  invoiceTaxSubtotals.push({
+                    vat_category_code: 'S',
+                    vat_rate: merchant.vat_rate || 7.5,
+                    taxable_amount: orderSubtotal,
+                    tax_amount: Number(order.tax_amount || 0),
+                    exemption_reason: undefined,
+                  });
+                }
+
+                const shippingAddr = shipping_address as {
+                  address?: string;
+                  city?: string;
+                  state?: string;
+                  postal_code?: string;
+                  country?: string;
+                } | null;
+                const customerAddress = shippingAddr
+                  ? {
+                      street: shippingAddr.address,
+                      city: shippingAddr.city,
+                      state: shippingAddr.state,
+                      postal_code: shippingAddr.postal_code,
+                      country: shippingAddr.country || 'NG',
+                    }
+                  : undefined;
+
+                const invoiceData = {
+                  invoice_number: orderNum,
+                  invoice_type_code: '380',
+                  issue_date: new Date(order.created_at || Date.now()),
+                  due_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // Default 14 days payment terms
+                  currency: order.currency || 'NGN',
+                  merchant: {
+                    business_name: merchant.business_name,
+                    legal_entity_name: merchant.legal_entity_name || undefined,
+                    tax_identification_number:
+                      merchant.tax_identification_number || undefined,
+                    cac_rc_number: merchant.cac_rc_number || undefined,
+                    vat_registration_status:
+                      merchant.vat_registration_status || 'not_registered',
+                    vat_rate: merchant.vat_rate || 7.5,
+                    registered_address:
+                      merchant.registered_address || undefined,
+                    support_email: merchant.support_email || undefined,
+                    support_phone: merchant.support_phone || undefined,
+                    logo_url: merchant.logo_url || undefined,
+                  },
+                  customer: {
+                    name: customer_name,
+                    email: customer_email || undefined,
+                    phone: customer_phone || undefined,
+                    address: customerAddress,
+                  },
+                  items: invoiceItems,
+                  tax_subtotals: invoiceTaxSubtotals,
+                  subtotal: orderSubtotal,
+                  tax_exclusive_amount: orderSubtotal,
+                  tax_amount: Number(order.tax_amount || 0),
+                  tax_inclusive_amount:
+                    orderSubtotal + Number(order.tax_amount || 0),
+                  shipping_fee: orderShippingFee,
+                  discount_amount: Number(order.discount_amount || 0),
+                  total: orderTotal,
+                  notes: notes || undefined,
+                };
+
+                const pdfBlob = generateInvoiceBlob(invoiceData);
+                const arrayBuffer = await pdfBlob.arrayBuffer();
+                const base64Content =
+                  Buffer.from(arrayBuffer).toString('base64');
+
+                attachments = [
+                  {
+                    name: `invoice-${orderNum}.pdf`,
+                    content: base64Content,
+                    mime_type: 'application/pdf',
+                  },
+                ];
+
+                // Log standard initial reminder row in order_reminders
+                await supabase.from('order_reminders').insert({
+                  order_id: order.id,
+                  channel: 'email',
+                  payment_link: paymentLink,
+                });
+
+                logger.info({
+                  message:
+                    'Generated and logged initial invoice PDF and reminder log',
+                  orderId: order.id,
+                  orderNumber: orderNum,
+                });
+              } catch (err) {
+                logger.error({
+                  message:
+                    'Failed to generate invoice PDF or log initial reminder',
+                  orderId: order.id,
+                  error: err,
+                });
+              }
+            }
+
             const emailResult = await sendEmail({
               to: customer_email,
               toName: customer_name,
-              subject: `Order Confirmation - #${emailData.orderNumber}`,
+              subject:
+                payment_method === 'invoice'
+                  ? `Invoice Generated - #${emailData.orderNumber}`
+                  : `Order Confirmation - #${emailData.orderNumber}`,
               htmlContent,
               textContent,
               replyTo: replyToEmail,
               emailType: 'orders',
               fromName: senderName,
+              attachments,
               auditContext: {
                 merchantId: merchant_id,
                 orderId: order.id,
@@ -1015,7 +1539,9 @@ export async function POST(request: NextRequest) {
             order.id,
             orderNum,
             customer_name,
-            orderTotal
+            orderTotal,
+            order.currency || 'NGN',
+            payment_method
           );
           if (pushResult.failed > 0 || pushResult.errors.length > 0) {
             logger.warn({
@@ -1064,7 +1590,15 @@ export async function POST(request: NextRequest) {
     }
 
     const responseOrder = isWalletFullyPaid
-      ? { ...order, payment_status: 'paid', payment_method: 'wallet' }
+      ? {
+          ...order,
+          payment_status: 'paid',
+          payment_method: storeCreditFinalized
+            ? walletAmountUsed > 0
+              ? 'store_credit'
+              : 'savings'
+            : 'wallet',
+        }
       : order;
 
     // Return order with wallet info for checkout UI
@@ -1079,8 +1613,15 @@ export async function POST(request: NextRequest) {
               transactionId: walletRedemptionResult.transactionId,
             }
           : null,
+        savings: savingsRedemptionResult
+          ? {
+              amountUsed: savingsRedemptionResult.amountRedeemed,
+              goalId: savingsRedemptionResult.goalId,
+              redemptionId: savingsRedemptionResult.redemptionId,
+            }
+          : null,
         // Amount still due to payment gateway (for payment initialization)
-        amountDueToGateway,
+        amountDueToGateway: Math.max(amountDueToGateway, 0),
       },
       { status: 201 }
     );

@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { computeAgenticOrderTax } from '@/lib/agentic/checkout-order-tax';
 import { authenticateApiRequest } from '@/lib/api-auth';
 import { normalizeEnvBoolean } from '@/lib/env-boolean';
+import { createQuizVoucherToken } from '@/lib/quiz-voucher-token';
 import { POST } from './route';
 
 const {
@@ -363,7 +364,9 @@ describe('Order API Security', () => {
       'order-id',
       'ORD-123',
       validOrderPayload.customer_name,
-      1000
+      1000,
+      'NGN',
+      'pay_on_delivery'
     );
     expect(mockNotifyPaymentReceived).not.toHaveBeenCalled();
   });
@@ -601,10 +604,33 @@ describe('Order API Security', () => {
     it('keeps quiz voucher orders fail-closed until event permit evidence is wired', async () => {
       vi.stubEnv('QUIZ_PHASE', 'production');
       vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'true');
+      vi.stubEnv('QUIZ_RPC_SERVER_SECRET', 'voucher-secret');
       vi.mocked(authenticateApiRequest).mockResolvedValue({
         user: mockAuthUser(validOrderPayload.user_id),
         error: null,
         supabase: mockSupabase as unknown as never,
+      });
+      sharedChainableMock.maybeSingle.mockResolvedValueOnce({
+        data: {
+          event_id: '99999999-9999-4999-8999-999999999999',
+          quiz_events: {
+            compliance_verified: false,
+            nlrc_permit_ref: null,
+          },
+        },
+        error: null,
+      });
+      const productId = '22222222-2222-4222-8222-222222222222';
+      const token = createQuizVoucherToken({
+        payload: {
+          awardId: '11111111-1111-4111-8111-111111111111',
+          condition: null,
+          expiresAt: '2099-05-22T12:00:00.000Z',
+          productId,
+          userId: validOrderPayload.user_id,
+          variantId: null,
+        },
+        secret: 'voucher-secret',
       });
 
       const request = new NextRequest('http://localhost:3000/api/orders', {
@@ -614,8 +640,9 @@ describe('Order API Security', () => {
           items: [
             {
               ...validOrderPayload.items[0],
+              product_id: productId,
               price: 0,
-              voucher_token: 'quiz-voucher-token',
+              voucher_token: token,
             },
           ],
         }),

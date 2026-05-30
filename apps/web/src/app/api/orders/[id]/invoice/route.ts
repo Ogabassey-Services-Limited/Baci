@@ -215,23 +215,49 @@ export async function GET(
       taxSubtotals = subtotals || [];
     }
 
+    const fulfillment = order.fulfillment_details as {
+      imei?: string | null;
+      serialNumber?: string | null;
+      serial_number?: string | null;
+    } | null;
+    const imei = fulfillment?.imei;
+    const serial = fulfillment?.serialNumber || fulfillment?.serial_number;
+
     // Build invoice line items
     const items: InvoiceLineItem[] = (orderItems as OrderItem[]).map(
-      (item, index) => ({
-        line_id: item.line_id || index + 1,
-        product_id: item.product_id || undefined,
-        name: item.name,
-        description: item.item_description || undefined,
-        quantity: item.quantity,
-        unit_code: item.unit_code || 'EA',
-        price: Number(item.price),
-        line_extension_amount:
-          item.line_extension_amount || item.quantity * Number(item.price),
-        vat_category_code: item.vat_category_code || 'S',
-        vat_rate: item.vat_rate || merchant.vat_rate || 7.5,
-        vat_amount: item.vat_amount || 0,
-        sellers_item_id: item.sellers_item_id || undefined,
-      })
+      (item, index) => {
+        let desc = item.item_description || undefined;
+        if (fulfillment && (imei || serial)) {
+          const isDevice =
+            /phone|iphone|samsung|pixel|galaxy|ipad|xiaomi|redmi|infinix|tecno|macbook|laptop|sim/i.test(
+              item.name || ''
+            );
+          const isFirstItem = index === 0;
+          if (isDevice || isFirstItem) {
+            const parts = [];
+            if (imei) parts.push(`IMEI: ${imei}`);
+            if (serial) parts.push(`S/N: ${serial}`);
+            const fulfillmentStr = parts.join(' | ');
+            desc = desc ? `${desc}\n${fulfillmentStr}` : fulfillmentStr;
+          }
+        }
+
+        return {
+          line_id: item.line_id || index + 1,
+          product_id: item.product_id || undefined,
+          name: item.name || '',
+          description: desc,
+          quantity: item.quantity,
+          unit_code: item.unit_code || 'EA',
+          price: Number(item.price),
+          line_extension_amount:
+            item.line_extension_amount || item.quantity * Number(item.price),
+          vat_category_code: item.vat_category_code || 'S',
+          vat_rate: item.vat_rate || merchant.vat_rate || 7.5,
+          vat_amount: item.vat_amount || 0,
+          sellers_item_id: item.sellers_item_id || undefined,
+        };
+      }
     );
 
     // Build tax subtotals for invoice

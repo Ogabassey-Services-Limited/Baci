@@ -45,10 +45,49 @@ export function renderItemRows(
         ? `${baseName} (${item.variant_name})`
         : baseName;
 
+      let fulfillmentHtml = '';
+
+      const itemImei = item.imei || item.fulfillment_details?.imei;
+      const itemSerial =
+        item.serial_number ||
+        item.serialNumber ||
+        item.fulfillment_details?.serial_number ||
+        item.fulfillment_details?.serialNumber;
+
+      if (itemImei || itemSerial) {
+        const parts = [];
+        if (itemImei) parts.push(`IMEI: ${itemImei}`);
+        if (itemSerial) parts.push(`S/N: ${itemSerial}`);
+        fulfillmentHtml = `<div style="font-size: 11px; color: #4b5563; margin-top: 3px; font-weight: 500;">${escapeHtml(parts.join(' | '))}</div>`;
+      } else if (order.fulfillment_details) {
+        const imei = order.fulfillment_details.imei;
+        const serial =
+          order.fulfillment_details.serialNumber ||
+          order.fulfillment_details.serial_number;
+
+        const isDevice =
+          /phone|iphone|samsung|pixel|galaxy|ipad|xiaomi|redmi|infinix|tecno|macbook|laptop|sim/i.test(
+            baseName
+          );
+        const isFirstItem = index === 0;
+
+        if ((imei || serial) && (isDevice || isFirstItem)) {
+          const parts = [];
+          if (imei) parts.push(`IMEI: ${imei}`);
+          if (serial) parts.push(`S/N: ${serial}`);
+          if (parts.length > 0) {
+            fulfillmentHtml = `<div style="font-size: 11px; color: #4b5563; margin-top: 3px; font-weight: 500;">${escapeHtml(parts.join(' | '))}</div>`;
+          }
+        }
+      }
+
       return `
       <tr class="${index % 2 === 1 ? 'zebra' : ''}">
         <td class="cell-num">${index + 1}</td>
-        <td class="cell-item">${escapeHtml(itemLabel)}</td>
+        <td class="cell-item">
+          <div>${escapeHtml(itemLabel)}</div>
+          ${fulfillmentHtml}
+        </td>
         <td class="cell-qty">${item.quantity}</td>
         <td class="cell-price">${formatMoney(item.price)}</td>
         <td class="cell-total">${formatMoney(item.price * item.quantity)}</td>

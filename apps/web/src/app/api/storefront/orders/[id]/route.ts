@@ -18,6 +18,7 @@ interface OrderItem {
   quantity: number;
   price: number;
   product_images?: string[];
+  gtin?: string | null;
   product_slug?: string;
   category?: string;
   category_slug?: string;
@@ -25,6 +26,7 @@ interface OrderItem {
   products?:
     | {
         slug?: string;
+        gtin?: string | null;
         category?: string;
         category_slug?: string;
         categories?:
@@ -34,6 +36,7 @@ interface OrderItem {
       }
     | {
         slug?: string;
+        gtin?: string | null;
         category?: string;
         category_slug?: string;
         categories?:
@@ -46,6 +49,7 @@ interface OrderItem {
 
 function extractJoinedProduct(products: OrderItem['products']): {
   slug?: string;
+  gtin?: string | null;
   category?: string;
   category_slug?: string;
   categories?:
@@ -64,6 +68,7 @@ function flattenOrderItemProductData(item: OrderItem) {
 
   return {
     product_slug: product?.slug || item.product_slug,
+    gtin: product?.gtin || item.gtin || null,
     category: product?.category || item.category,
     category_slug: categories?.slug || item.category_slug,
     categories,
@@ -76,6 +81,7 @@ async function fetchProductRouteDetails(
     data: Array<{
       id: string;
       slug: string | null;
+      gtin: string | null;
       category: string | null;
       categories?:
         | { name?: string; slug?: string }[]
@@ -112,6 +118,7 @@ async function fetchProductRouteDetails(
       product.id,
       {
         product_slug: product.slug,
+        gtin: product.gtin,
         category: product.category,
         category_slug: Array.isArray(product.categories)
           ? product.categories[0]?.slug || null
@@ -151,6 +158,7 @@ function mapOrderItemsWithRoutes(
     string,
     {
       product_slug?: string | null;
+      gtin?: string | null;
       category?: string | null;
       category_slug?: string | null;
       categories?: { name?: string; slug?: string } | null;
@@ -245,7 +253,14 @@ export async function GET(
             payment_status,
             shipping_status,
             payment_method,
-            merchant_id
+            merchant_id,
+            fulfillment_details,
+            order_payment_accounts (
+              account_number,
+              bank_name,
+              account_name,
+              provider
+            )
           `
         )
         .eq('id', id)
@@ -293,6 +308,7 @@ export async function GET(
               price,
               products:products!order_items_product_id_fkey (
                 slug,
+                gtin,
                 category,
                 categories:categories (
                   name,
@@ -315,6 +331,7 @@ export async function GET(
           shipping_cost: order.shipping_fee,
           short_id: order.order_number,
           items: mapOrderItemsWithRoutes(items || []),
+          virtual_account: order.order_payment_accounts?.[0] || null,
         });
       }
     }
@@ -363,6 +380,7 @@ export async function GET(
           .select(`
             id,
             slug,
+            gtin,
             category,
             categories:categories (
               name,

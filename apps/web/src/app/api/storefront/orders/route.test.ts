@@ -304,6 +304,7 @@ describe('GET /api/storefront/orders', () => {
           tracking_number: 'TRACK-1',
           shipping_provider: 'GIGL',
           payment_method: 'card',
+          virtual_account: null,
           balance: 0,
           current_document_kind: 'receipt',
           receipt_eligible: true,

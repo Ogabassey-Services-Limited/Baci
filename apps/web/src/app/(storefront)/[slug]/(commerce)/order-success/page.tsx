@@ -1,9 +1,10 @@
 'use client';
 
-import { ArrowRight, CheckCircle, Loader2, Star } from 'lucide-react';
+import { ArrowRight, CheckCircle, Download, Loader2, Star } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { useCurrencyWithCountry } from '@/hooks/use-currency';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { BACI_GOOGLE_REVIEW_URL } from '@/lib/post-purchase-actions';
 import { asRoute } from '@/lib/routes';
@@ -18,12 +19,14 @@ interface OrderData {
   customer_phone?: string;
   shipping_address?: Record<string, unknown>;
   payment_status?: string;
+  payment_method?: string;
   shipping_status?: string;
   merchant_id?: string;
   items: Array<{
     id: string;
     product_name?: string;
     name?: string;
+    gtin?: string | null;
     price: number;
     quantity: number;
     product_images?: string[];
@@ -45,6 +48,7 @@ function OrderSuccessContent() {
   const merchantContext = useMerchantSafe();
   const basePath = merchantContext?.basePath;
   const merchant = merchantContext?.merchant;
+  const { formatCurrency } = useCurrencyWithCountry(merchant?.country);
   const auth = useAuthSafe();
   const user = auth?.user;
 
@@ -90,16 +94,30 @@ function OrderSuccessContent() {
 
   const hasValidatedOrder = Boolean(order);
   const hasRecoveryState = !loading && !hasValidatedOrder;
+  const isInvoice =
+    _type === 'invoice' ||
+    order?.payment_status === 'invoice' ||
+    order?.payment_method === 'invoice';
+
   const heading = hasValidatedOrder
-    ? 'Order Confirmed!'
+    ? isInvoice
+      ? 'Invoice Generated!'
+      : 'Order Confirmed!'
     : hasRecoveryState
       ? 'We could not confirm this order yet'
       : 'Finalizing your order';
   const description = hasValidatedOrder
-    ? 'Thank you for your purchase. Your order has been received.'
+    ? isInvoice
+      ? 'We have prepared your invoice and sent it to your email. Please check your inbox.'
+      : 'Thank you for your purchase. Your order has been received.'
     : hasRecoveryState
       ? 'We could not validate this order from the current link. You can return to checkout or keep shopping while we sort it out.'
       : 'We are validating your order details now. This page will update as soon as your confirmation is ready.';
+  const googleCustomerReviewProducts =
+    order?.items
+      .map((item) => item.gtin?.trim())
+      .filter((gtin): gtin is string => Boolean(gtin))
+      .map((gtin) => ({ gtin })) ?? [];
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20 pt-10">
@@ -115,7 +133,8 @@ function OrderSuccessContent() {
               .toISOString()
               .split('T')[0]
           }
-          country="NG"
+          country={merchant.country || 'NG'}
+          products={googleCustomerReviewProducts}
         />
       )}
 
@@ -169,10 +188,7 @@ function OrderSuccessContent() {
                     Items ({order.items?.length || 0})
                   </span>
                   <span className="font-medium text-gray-900">
-                    {new Intl.NumberFormat('en-NG', {
-                      style: 'currency',
-                      currency: 'NGN',
-                    }).format(order.total)}
+                    {formatCurrency(order.total)}
                   </span>
                 </div>
                 {order.customer_email && (
@@ -197,6 +213,16 @@ function OrderSuccessContent() {
               >
                 Return to Checkout
                 <ArrowRight size={18} />
+              </Link>
+            )}
+
+            {isInvoice && (
+              <Link
+                href={asRoute(getHref('/receipts'))}
+                className="inline-flex items-center justify-center gap-2 px-6 py-4 bg-white text-gray-900 font-bold rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors w-full"
+              >
+                <Download size={18} />
+                Download Invoice PDF
               </Link>
             )}
 
