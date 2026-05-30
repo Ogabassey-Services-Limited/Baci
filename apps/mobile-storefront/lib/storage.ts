@@ -38,7 +38,9 @@ export async function getStorageEntries(
   }
 
   if (typeof batchStorage.multiGet === 'function') {
-    return batchStorage.multiGet([...keys]);
+    const entries = await batchStorage.multiGet([...keys]);
+    // React Native types expose multiGet results as readonly; normalize for callers.
+    return entries.map(([key, value]): StorageEntry => [key, value]);
   }
 
   return Promise.all(
