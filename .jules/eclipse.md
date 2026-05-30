@@ -54,6 +54,6 @@
 ## 2025-05-18 - [products.tsx active tab text contrast]
 **Learning:** Hardcoding `#000000` for active tab text over `colors.gold` fails to adapt. Using `colors.background` provides optimal contrast because it naturally flips between light (for dark mode gold) and dark (for light mode gold).
 **Action:** Replace hardcoded hex colors on specific themed backgrounds with opposing theme tokens like `colors.background` for active states.
-## 2024-05-18 - Avoid Static Variable Caching in StyleSheet.create
+## 2026-05-30 - Avoid Static Variable Caching in StyleSheet.create
 **Learning:** In React Native, `StyleSheet.create` statically caches styles when the module is imported. Attempting to use dynamic theme hook variables (like `colors.textOnPrimary`) inside `StyleSheet.create` without evaluating them correctly on render leads to runtime referencing issues or theming bugs.
 **Action:** When migrating hardcoded hex colors to dynamic theme variables within a component using `StyleSheet.create`, do not redefine the styles directly in the static sheet using hook-derived objects. Extract the hardcoded property and apply the dynamic value explicitly via an inline style override array during render, e.g., `style={[styles.baseText, { color: colors.textOnPrimary }]}`.
