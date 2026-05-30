@@ -59,7 +59,7 @@ jest.mock('react-native-keyboard-controller', () => ({
 
 // Mock AsyncStorage
 jest.mock('@react-native-async-storage/async-storage', () =>
-  require('@react-native-async-storage/async-storage/jest/async-storage-mock')
+  require('./__mocks__/async-storage')
 );
 
 // Mock expo-haptics
