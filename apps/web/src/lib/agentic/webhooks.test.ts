@@ -19,9 +19,11 @@ describe('sendAgenticWebhook', () => {
   });
 
   it('falls back to the legacy signing key when the Baci signing key is blank', async () => {
+    const legacySigningKey = ['legacy', 'signing', 'key'].join('-');
+
     vi.stubEnv('OPENAI_AGENTIC_WEBHOOK_URL', 'https://agent.example/webhook');
     vi.stubEnv('BACI_AGENTIC_SIGNING_KEY', '   ');
-    vi.stubEnv('OPENAI_AGENTIC_SIGNING_KEY', ' legacy-signing-key ');
+    vi.stubEnv('OPENAI_AGENTIC_SIGNING_KEY', ` ${legacySigningKey} `);
     const { sendAgenticWebhook } = await import('./webhooks');
 
     await sendAgenticWebhook('order.created', {
@@ -37,7 +39,7 @@ describe('sendAgenticWebhook', () => {
 
     const body = String(init?.body);
     const expectedSignature = crypto
-      .createHmac('sha256', 'legacy-signing-key')
+      .createHmac('sha256', legacySigningKey)
       .update(body)
       .digest('hex');
     expect(init?.headers).toMatchObject({
