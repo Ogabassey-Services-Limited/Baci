@@ -1,6 +1,8 @@
+import type { ShippingProviderCode } from '@/lib/shipping/types';
+
 export interface ShippingQuote {
   id: string;
-  provider: string;
+  provider: ShippingProviderCode;
   serviceTier: string;
   carrierName: string;
   displayName: string;
@@ -10,8 +12,8 @@ export interface ShippingQuote {
   maxDays?: number;
   price: number;
   currency: string;
-  pickupIncluded?: boolean;
-  insuranceIncluded?: boolean;
+  pickupIncluded: boolean;
+  insuranceIncluded: boolean;
   isStationPickup?: boolean;
   stationName?: string;
   stationAddress?: string;

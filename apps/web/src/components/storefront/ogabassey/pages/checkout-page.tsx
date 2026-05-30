@@ -3082,7 +3082,7 @@ export const CheckoutPage: React.FC = () => {
                                           {quote.carrierName.includes('Topship') && <span className="text-[10px] bg-blue-600 text-white px-1.5 py-0.5 rounded font-bold">Best Value</span>}
                                         </div>
                                         <p className="text-xs text-gray-500 mt-0.5">
-                                          Est. Delivery: {(quote as any).deliveryRange || `${quote.estimatedDays} days`}
+                                          Est. Delivery: {quote.deliveryRange || `${quote.estimatedDays} days`}
                                         </p>
                                       </div>
                                     </div>

@@ -234,13 +234,15 @@ describe('DeliveryStep', () => {
           shippingQuotes={[
             {
               id: 'q1',
-              provider: 'gigl',
+              provider: 'GIGL',
               serviceTier: 'standard',
               carrierName: 'GIG Logistics',
               displayName: 'Standard Delivery',
               price: 3500,
               estimatedDays: 3,
               currency: 'NGN',
+              pickupIncluded: false,
+              insuranceIncluded: false,
             },
           ]}
         />,

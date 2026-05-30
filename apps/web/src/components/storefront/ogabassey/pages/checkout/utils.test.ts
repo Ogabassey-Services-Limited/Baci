@@ -78,16 +78,20 @@ describe('calculateDeliveryCost', () => {
       price: 3500,
       estimatedDays: 3,
       currency: 'NGN',
+      pickupIncluded: false,
+      insuranceIncluded: false,
     },
     {
       id: '2',
-      provider: 'Topship',
+      provider: 'TOPSHIP',
       serviceTier: 'express',
       carrierName: 'Topship',
       displayName: 'Topship Express',
       price: 5000,
       estimatedDays: 1,
       currency: 'NGN',
+      pickupIncluded: false,
+      insuranceIncluded: false,
     },
   ];
 
