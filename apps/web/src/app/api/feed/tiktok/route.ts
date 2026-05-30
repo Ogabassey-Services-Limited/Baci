@@ -1,185 +1,44 @@
-import { createClient } from '@supabase/supabase-js';
+import { toGoogleListingCondition } from '@baci/shared/lib';
 import { type NextRequest, NextResponse } from 'next/server';
-import { stripHtmlTags } from '@/lib/sanitize-core';
-import { getEffectiveProductStock } from '@/lib/seo-utils';
+import { buildFeedDescription } from '@/app/api/feed/google-merchant/build-feed-description';
+import type {
+  FeedMerchant,
+  FeedProduct,
+  ImageManifestMap,
+} from '@/app/api/feed/google-merchant/feed-builder';
+import { getCachedGoogleMerchantFeedData } from '@/app/api/feed/google-merchant/feed-data';
+import { buildMerchantBaseUrl } from '@/app/api/feed/google-merchant/route-utils';
+import {
+  MerchantNotFoundError,
+  resolveFeedMerchant,
+} from '@/lib/feed-identifier';
+import {
+  resolveGmcAdditionalImages,
+  resolveGmcPrimaryImage,
+} from '@/lib/gmc-feed-images';
+import { getEffectiveStock } from '@/lib/product-stock';
+import { buildAgentProductUrl } from '@/lib/storefront-agent-urls';
+import { googleMerchantFeedQuerySchema } from '@/schemas/google-merchant-feed-query';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '';
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+const UNLIMITED_STOCK_QUANTITY = 9999;
 
-/**
- * TikTok Shopping Product Feed API
- *
- * Generates an XML feed compatible with TikTok Shop
- * @see https://ads.tiktok.com/help/article/product-catalog-feed-spec
- *
- * Usage: /api/feed/tiktok?merchant_id=xxx
- * or: /api/feed/tiktok?merchant_slug=xxx
- */
-export async function GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams;
-  const merchantId = searchParams.get('merchant_id');
-  const merchantSlug = searchParams.get('merchant_slug');
+interface ResolvedTikTokImages {
+  additionalImageUrls: string[];
+  primaryImageUrl: string;
+}
 
-  if (!merchantId && !merchantSlug) {
-    return NextResponse.json(
-      { error: 'merchant_id or merchant_slug parameter is required' },
-      { status: 400 }
-    );
+function isUnmanagedStock(manageStock: boolean | null | undefined): boolean {
+  return manageStock === false || manageStock == null;
+}
+
+function getProductStockCount(product: FeedProduct): number {
+  if (isUnmanagedStock(product.manage_stock)) {
+    return UNLIMITED_STOCK_QUANTITY;
   }
 
-  // Get merchant data
-  const merchantQuery = supabase
-    .from('merchants')
-    .select('id, business_name, country, payout_currency, slug');
-
-  const { data: merchant, error: merchantError } = merchantId
-    ? await merchantQuery.eq('id', merchantId).single()
-    : await merchantQuery.eq('slug', merchantSlug ?? '').single();
-
-  if (merchantError || !merchant) {
-    return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
-  }
-
-  // Get active products with all necessary fields
-  const { data: products, error: productsError } = await supabase
-    .from('products')
-    // PERFORMANCE: Use explicit column selection instead of .select('*') to prevent overfetching full product rows (which include internal metadata or unneeded JSON fields) and reduce memory/bandwidth overhead in large product feeds.
-    .select(
-      'id, name, description, slug, price, compare_at_price, images, image, "imageLarge", brand, gtin, mpn, sku, stock, stock_quantity, condition, google_product_category, category'
-    )
-    .eq('merchant_id', merchant.id)
-    .eq('status', 'active')
-    .order('created_at', { ascending: false });
-
-  if (productsError) {
-    return NextResponse.json(
-      { error: 'Failed to fetch products' },
-      { status: 500 }
-    );
-  }
-
-  // Determine base URL from request headers
-  const host = request.headers.get('host') || `${merchant.slug}.baci.app`;
-  const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
-  const baseUrl = `${protocol}://${host}`;
-
-  // Generate TikTok catalog feed
-  const feedXml = generateTikTokFeed(products || [], merchant, baseUrl);
-
-  return new NextResponse(feedXml, {
-    status: 200,
-    headers: {
-      'Content-Type': 'application/xml; charset=utf-8',
-      'Cache-Control': 'public, max-age=3600, s-maxage=3600', // Cache for 1 hour
-    },
-  });
+  return getEffectiveStock(product);
 }
 
-interface Product {
-  id: string;
-  name: string;
-  description: string;
-  slug?: string;
-  price: number;
-  compare_at_price?: number;
-  images?: Array<{ url: string; alt?: string }>;
-  image?: string;
-  imageLarge?: string;
-  brand?: string;
-  gtin?: string;
-  mpn?: string;
-  sku?: string;
-  stock: number;
-  stock_quantity?: number | null;
-  condition?: 'new' | 'used' | 'refurbished';
-  google_product_category?: string;
-  category?: string;
-}
-
-interface Merchant {
-  id: string;
-  business_name: string;
-  country?: string;
-  payout_currency?: string;
-  slug: string;
-}
-
-function generateTikTokFeed(
-  products: Product[],
-  merchant: Merchant,
-  baseUrl: string
-): string {
-  const currency = merchant.payout_currency || 'USD';
-  const brandName = merchant.business_name;
-
-  const items = products
-    .map((product) => {
-      const productUrl = `${baseUrl}/products/${product.slug || product.id}`;
-      const imageUrl =
-        product.images?.[0]?.url || product.imageLarge || product.image || '';
-
-      // Additional images (TikTok supports multiple)
-      const additionalImages =
-        product.images
-          ?.slice(1, 10)
-          .map(
-            (img) =>
-              `        <additional_image_link>${escapeXml(img.url)}</additional_image_link>`
-          )
-          .join('\n') || '';
-
-      // Availability - TikTok uses 'in_stock' / 'out_of_stock'
-      const availability = getEffectiveProductStock(product)
-        ? 'in_stock'
-        : 'out_of_stock';
-
-      // Condition
-      const condition = product.condition || 'new';
-
-      // Sale price
-      const salePrice =
-        product.compare_at_price && product.compare_at_price > product.price
-          ? `        <sale_price>${product.price} ${currency}</sale_price>\n        <price>${product.compare_at_price} ${currency}</price>`
-          : `        <price>${product.price} ${currency}</price>`;
-
-      // TikTok requires SKU or ID
-      const itemGroupId = product.sku || product.id;
-
-      return `    <item>
-        <id>${escapeXml(product.id)}</id>
-        <item_group_id>${escapeXml(itemGroupId)}</item_group_id>
-        <title>${escapeXml(product.name)}</title>
-        <description>${escapeXml(stripHtmlTags(product.description).trim())}</description>
-        <availability>${availability}</availability>
-${salePrice}
-        <link>${escapeXml(productUrl)}</link>
-        <image_link>${escapeXml(imageUrl)}</image_link>
-${additionalImages}
-        <brand>${escapeXml(product.brand || brandName)}</brand>
-        <condition>${condition}</condition>
-${product.gtin ? `        <gtin>${escapeXml(product.gtin)}</gtin>` : ''}
-${product.mpn ? `        <mpn>${escapeXml(product.mpn)}</mpn>` : ''}
-${product.category ? `        <product_type>${escapeXml(product.category)}</product_type>` : ''}
-${product.google_product_category ? `        <google_product_category>${escapeXml(product.google_product_category)}</google_product_category>` : ''}
-    </item>`;
-    })
-    .join('\n');
-
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0" xmlns:g="http://base.google.com/ns/1.0">
-  <channel>
-    <title>${escapeXml(brandName)} - TikTok Catalog</title>
-    <link>${escapeXml(baseUrl)}</link>
-    <description>Product catalog for ${escapeXml(brandName)}</description>
-${items}
-  </channel>
-</rss>`;
-}
-
-/**
- * Escape XML special characters
- */
 function escapeXml(unsafe: string): string {
   if (!unsafe) return '';
   return unsafe
@@ -189,4 +48,228 @@ function escapeXml(unsafe: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;');
+}
+
+function resolveTikTokImages(
+  manifestEntries: ImageManifestMap[string] | undefined
+): ResolvedTikTokImages | null {
+  const entries = manifestEntries || [];
+  const primaryImageUrl = resolveGmcPrimaryImage(entries);
+  if (!primaryImageUrl) {
+    return null;
+  }
+
+  return {
+    primaryImageUrl,
+    additionalImageUrls: resolveGmcAdditionalImages(entries),
+  };
+}
+
+function toTikTokCondition(condition?: string | null) {
+  return toGoogleListingCondition(condition) || 'new';
+}
+
+function buildPriceLines(args: {
+  compareAtPrice?: number | null;
+  currency: string;
+  price: number;
+}) {
+  const formattedPrice = args.price.toFixed(2);
+  if (
+    typeof args.compareAtPrice === 'number' &&
+    args.compareAtPrice > args.price
+  ) {
+    return [
+      `        <sale_price>${formattedPrice} ${args.currency}</sale_price>`,
+      `        <price>${args.compareAtPrice.toFixed(2)} ${args.currency}</price>`,
+    ];
+  }
+
+  return [`        <price>${formattedPrice} ${args.currency}</price>`];
+}
+
+function buildItemXml(args: {
+  additionalImageUrls: string[];
+  availability: string;
+  brandName: string;
+  compareAtPrice?: number | null;
+  condition: string;
+  currency: string;
+  description: string;
+  googleProductCategory?: string;
+  id: string;
+  imageUrl: string;
+  itemGroupId: string;
+  link: string;
+  mpn?: string;
+  gtin?: string;
+  price: number;
+  productType?: string | null;
+  title: string;
+}) {
+  const additionalImagesXml = args.additionalImageUrls
+    .map(
+      (url) =>
+        `        <additional_image_link>${escapeXml(url)}</additional_image_link>`
+    )
+    .join('\n');
+  const lines = [
+    `        <id>${escapeXml(args.id)}</id>`,
+    `        <item_group_id>${escapeXml(args.itemGroupId)}</item_group_id>`,
+    `        <title>${escapeXml(args.title)}</title>`,
+    `        <description>${escapeXml(args.description)}</description>`,
+    `        <availability>${args.availability}</availability>`,
+    ...buildPriceLines({
+      compareAtPrice: args.compareAtPrice,
+      currency: args.currency,
+      price: args.price,
+    }),
+    `        <link>${escapeXml(args.link)}</link>`,
+    `        <image_link>${escapeXml(args.imageUrl)}</image_link>`,
+    additionalImagesXml,
+    `        <brand>${escapeXml(args.brandName)}</brand>`,
+    `        <condition>${args.condition}</condition>`,
+    args.gtin ? `        <gtin>${escapeXml(args.gtin)}</gtin>` : '',
+    args.mpn ? `        <mpn>${escapeXml(args.mpn)}</mpn>` : '',
+    args.productType
+      ? `        <product_type>${escapeXml(args.productType)}</product_type>`
+      : '',
+    args.googleProductCategory
+      ? `        <google_product_category>${escapeXml(args.googleProductCategory)}</google_product_category>`
+      : '',
+  ].filter(Boolean);
+
+  return `    <item>\n${lines.join('\n')}\n    </item>`;
+}
+
+function generateTikTokFeed(
+  products: FeedProduct[],
+  merchant: FeedMerchant,
+  baseUrl: string,
+  imageManifest: ImageManifestMap
+): string {
+  const currency = merchant.payout_currency || 'USD';
+  const brandName = merchant.business_name;
+  const normalizedBaseUrl = baseUrl.replace(/\/+$/, '');
+
+  const items = products
+    .filter(
+      (product) => product.id && product.name?.trim() && product.price > 0
+    )
+    .map((product) => {
+      const images = resolveTikTokImages(imageManifest[product.id]);
+      if (!images) {
+        return null;
+      }
+
+      const stockCount = getProductStockCount(product);
+      const productUrl = buildAgentProductUrl({
+        baseUrl: normalizedBaseUrl,
+        product,
+      });
+
+      return buildItemXml({
+        additionalImageUrls: images.additionalImageUrls,
+        availability: stockCount > 0 ? 'in_stock' : 'out_of_stock',
+        brandName: product.brand || brandName,
+        compareAtPrice: product.compare_at_price,
+        condition: toTikTokCondition(product.condition),
+        currency,
+        description: buildFeedDescription(product),
+        googleProductCategory: product.google_product_category,
+        gtin: product.gtin,
+        id: product.id,
+        imageUrl: images.primaryImageUrl,
+        itemGroupId: product.sku || product.id,
+        link: productUrl,
+        mpn: product.mpn,
+        price: product.price,
+        productType: product.categories?.name || product.category,
+        title: product.name,
+      });
+    })
+    .filter(Boolean)
+    .join('\n');
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:g="http://base.google.com/ns/1.0">
+  <channel>
+    <title>${escapeXml(brandName)} - TikTok Catalog</title>
+    <link>${escapeXml(normalizedBaseUrl)}</link>
+    <description>Product catalog for ${escapeXml(brandName)}</description>
+${items}
+  </channel>
+</rss>`;
+}
+
+/**
+ * TikTok Shopping Product Feed API
+ *
+ * Generates an XML feed compatible with TikTok Shop.
+ * Images are sourced from the same verified `product_feed_images` manifest
+ * used by the Google and Meta catalog feeds.
+ *
+ * Usage: /api/feed/tiktok?merchant_id=xxx
+ * or: /api/feed/tiktok?merchant_slug=xxx
+ */
+export async function GET(request: NextRequest) {
+  const searchParams = request.nextUrl.searchParams;
+  const rawParams = {
+    merchant_id: searchParams.get('merchant_id') || undefined,
+    merchant_slug: searchParams.get('merchant_slug') || undefined,
+  };
+
+  const parsed = googleMerchantFeedQuerySchema.safeParse(rawParams);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: parsed.error.issues[0]?.message || 'Invalid query parameters' },
+      { status: 400 }
+    );
+  }
+
+  const { merchant_id: merchantIdParam, merchant_slug: merchantSlug } =
+    parsed.data;
+  const identifier = merchantIdParam || merchantSlug || '';
+  const isBySlug = !merchantIdParam && !!merchantSlug;
+
+  try {
+    const resolvedMerchant = await resolveFeedMerchant(identifier, isBySlug);
+    const { custom_domain, imageManifest, products } =
+      await getCachedGoogleMerchantFeedData(
+        resolvedMerchant.id,
+        resolvedMerchant.slug
+      );
+    const merchant = {
+      ...resolvedMerchant,
+      custom_domain,
+    };
+    const baseUrl = buildMerchantBaseUrl({
+      slug: resolvedMerchant.slug,
+      custom_domain,
+    });
+
+    return new NextResponse(
+      generateTikTokFeed(products, merchant, baseUrl, imageManifest),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/xml; charset=utf-8',
+          'Cache-Control': 'public, max-age=3600, s-maxage=3600',
+        },
+      }
+    );
+  } catch (error) {
+    if (error instanceof MerchantNotFoundError) {
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
+    }
+
+    console.error('TIKTOK_FEED_GENERATION_ERROR:', error);
+    return NextResponse.json(
+      { error: 'Failed to generate feed' },
+      { status: 500 }
+    );
+  }
 }

@@ -85,7 +85,8 @@ describe('GET /feeds/openai.jsonl', () => {
     expect(mockGenerateOpenAIFeed).toHaveBeenCalledWith(
       [{ id: 'product-1', name: 'iPhone 16' }],
       expect.objectContaining({ id: 'merchant-1', slug: 'ogabassey' }),
-      'https://ogabassey.com'
+      'https://ogabassey.com',
+      {}
     );
     expect(mockGenerateCurrentOpenAIProductFeed).not.toHaveBeenCalled();
   });

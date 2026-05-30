@@ -1,11 +1,15 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { cacheLife, cacheTag } from 'next/cache';
 import { createAnonClient } from '@/lib/supabase/anon';
+import type { ImageManifestMap } from '../google-merchant/feed-builder';
 
 const OPENAI_FEED_PRODUCTS_PAGE_SIZE = 1000;
+const OPENAI_FEED_IMAGE_MANIFEST_PAGE_SIZE = 1000;
 // Keep parity with Google feed product coverage until variant hydration supports
 // catalogs above 10k products across both machine-readable surfaces.
 const MAX_OPENAI_FEED_PRODUCTS = 10_000;
+const OPENAI_FEED_IMAGE_MANIFEST_PRODUCT_BATCH_SIZE = 250;
+const OPENAI_FEED_IMAGE_MANIFEST_MAX_CONCURRENT_BATCHES = 4;
 const OPENAI_FEED_REVIEW_ROWS_PAGE_SIZE = 1000;
 const OPENAI_FEED_REVIEW_PRODUCTS_CHUNK_SIZE = 200;
 const OPENAI_FEED_PRODUCTS_SELECT = `id, name, description, slug, canonical_url, price, compare_at_price, images,
@@ -65,7 +69,18 @@ interface RawOpenAIFeedReviewSignalRow {
   rating: number | string | null;
 }
 
+type ManifestRow = {
+  product_id: string;
+  variant_id?: string | null;
+  verified_url: string | null;
+  verified_format: string | null;
+  status: string;
+  is_primary: boolean;
+  position: number;
+};
+
 export interface OpenAIFeedData {
+  imageManifest?: ImageManifestMap;
   products: OpenAIFeedProduct[];
 }
 
@@ -268,6 +283,102 @@ async function hydrateProductsWithReviewSignals(
   }
 }
 
+async function fetchVerifiedImageManifestRows(
+  supabase: SupabaseClient,
+  merchantId: string,
+  productIds: string[]
+): Promise<ManifestRow[]> {
+  const manifestBatches = chunkValues(
+    productIds,
+    OPENAI_FEED_IMAGE_MANIFEST_PRODUCT_BATCH_SIZE
+  );
+  const manifestRows: ManifestRow[] = [];
+
+  for (
+    let batchStart = 0;
+    batchStart < manifestBatches.length;
+    batchStart += OPENAI_FEED_IMAGE_MANIFEST_MAX_CONCURRENT_BATCHES
+  ) {
+    const batchWindow = manifestBatches.slice(
+      batchStart,
+      batchStart + OPENAI_FEED_IMAGE_MANIFEST_MAX_CONCURRENT_BATCHES
+    );
+    const batchResults = await Promise.all(
+      batchWindow.map(async (batchProductIds, batchWindowIndex) => {
+        const batchIndex = batchStart + batchWindowIndex;
+        const batchRows: ManifestRow[] = [];
+        let offset = 0;
+
+        while (true) {
+          const { data, error } = await supabase
+            .from('product_feed_images')
+            .select(
+              'product_id, variant_id, verified_url, verified_format, status, is_primary, position'
+            )
+            .eq('merchant_id', merchantId)
+            .eq('status', 'verified')
+            .in('product_id', batchProductIds)
+            .order('product_id', { ascending: true })
+            .order('position', { ascending: true })
+            .order('id', { ascending: true })
+            .range(offset, offset + OPENAI_FEED_IMAGE_MANIFEST_PAGE_SIZE - 1);
+
+          if (error) {
+            console.error('DB_IMAGE_MANIFEST_ERROR:', {
+              batchIndex,
+              batchProductCount: batchProductIds.length,
+              error,
+              merchantId,
+              offset,
+            });
+            throw new Error('Failed to fetch image manifest');
+          }
+
+          const page = (data || []) as ManifestRow[];
+          batchRows.push(...page);
+
+          if (page.length < OPENAI_FEED_IMAGE_MANIFEST_PAGE_SIZE) {
+            break;
+          }
+
+          offset += OPENAI_FEED_IMAGE_MANIFEST_PAGE_SIZE;
+        }
+
+        return batchRows;
+      })
+    );
+
+    for (const rows of batchResults) {
+      if (rows.length > 0) {
+        manifestRows.push(...rows);
+      }
+    }
+  }
+
+  return manifestRows;
+}
+
+function buildImageManifest(rows: ManifestRow[]): ImageManifestMap {
+  const imageManifest: ImageManifestMap = {};
+
+  for (const row of rows) {
+    if (!imageManifest[row.product_id]) {
+      imageManifest[row.product_id] = [];
+    }
+
+    imageManifest[row.product_id].push({
+      variant_id: row.variant_id ?? null,
+      verified_url: row.verified_url,
+      verified_format: row.verified_format,
+      status: 'verified',
+      is_primary: row.is_primary,
+      position: row.position,
+    });
+  }
+
+  return imageManifest;
+}
+
 async function fetchActiveOpenAIFeedProducts(
   supabase: SupabaseClient,
   merchantId: string
@@ -380,8 +491,16 @@ export async function getCachedOpenAIFeedData(
 
   const supabase = createAnonClient();
   const products = await fetchActiveOpenAIFeedProducts(supabase, merchantId);
+  const productIds = products.map((product) => product.id);
+  const imageManifest =
+    productIds.length > 0
+      ? buildImageManifest(
+          await fetchVerifiedImageManifestRows(supabase, merchantId, productIds)
+        )
+      : undefined;
 
   return {
+    imageManifest,
     products: includeReviewSignals
       ? await hydrateProductsWithReviewSignals(supabase, merchantId, products)
       : products,
