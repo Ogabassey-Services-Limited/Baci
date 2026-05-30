@@ -1,5 +1,6 @@
 export type TestTreeInstance = {
   type: unknown;
+  props?: Record<string, unknown>;
   children?: Array<string | TestTreeInstance>;
 };
 

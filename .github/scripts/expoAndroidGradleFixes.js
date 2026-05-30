@@ -126,30 +126,46 @@ function getJvmArgKey(token) {
   if (token.startsWith('-Xmx')) {
     return '-Xmx';
   }
+  if (token.startsWith('-Xms')) {
+    return '-Xms';
+  }
   if (token.startsWith('-XX:MaxMetaspaceSize=')) {
     return '-XX:MaxMetaspaceSize';
   }
+  if (token.startsWith('-XX:MetaspaceSize=')) {
+    return '-XX:MetaspaceSize';
+  }
 
-  const equalsIndex = token.indexOf('=');
-  return equalsIndex === -1 ? token : token.slice(0, equalsIndex);
+  return null;
 }
 
 function ensureMergedJvmArgs(content, desiredArgs) {
   const currentArgs = getGradleProperty(content, 'org.gradle.jvmargs') || '';
+  const rawTokens = [];
   const mergedByKey = new Map();
 
   for (const token of currentArgs.split(/\s+/).filter(Boolean)) {
-    mergedByKey.set(getJvmArgKey(token), token);
+    const key = getJvmArgKey(token);
+    if (key) {
+      mergedByKey.set(key, token);
+    } else {
+      rawTokens.push(token);
+    }
   }
 
   for (const token of desiredArgs) {
-    mergedByKey.set(getJvmArgKey(token), token);
+    const key = getJvmArgKey(token);
+    if (key) {
+      mergedByKey.set(key, token);
+    } else {
+      rawTokens.push(token);
+    }
   }
 
   return ensureGradleProperty(
     content,
     'org.gradle.jvmargs',
-    Array.from(mergedByKey.values()).join(' ')
+    [...rawTokens, ...Array.from(mergedByKey.values())].join(' ')
   );
 }
 
