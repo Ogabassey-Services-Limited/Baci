@@ -1,9 +1,14 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  isBuildTimeRoutePlaceholder,
   isRoutePlaceholder,
   isValidMerchantIdentifier,
   isValidMerchantSlug,
 } from '@/lib/validation';
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 describe('validation reserved storefront paths', () => {
   it('accepts a normal merchant slug', () => {
@@ -33,6 +38,7 @@ describe('isRoutePlaceholder', () => {
     expect(isRoutePlaceholder('slug')).toBe(false);
     expect(isRoutePlaceholder('[slug')).toBe(false);
     expect(isRoutePlaceholder('slug]')).toBe(false);
+    expect(isRoutePlaceholder('[slug-name]')).toBe(false);
     expect(isRoutePlaceholder('')).toBe(false);
     expect(isRoutePlaceholder(null)).toBe(false);
     expect(isRoutePlaceholder(undefined)).toBe(false);
@@ -40,7 +46,18 @@ describe('isRoutePlaceholder', () => {
 });
 
 describe('isValidMerchantIdentifier with route placeholders', () => {
-  it('accepts a dynamic route placeholder as valid', () => {
+  it('rejects dynamic route placeholders at runtime', () => {
+    vi.stubEnv('NEXT_PHASE', 'phase-production-server');
+
+    expect(isBuildTimeRoutePlaceholder('[slug]')).toBe(false);
+    expect(isValidMerchantIdentifier('[slug]')).toBe(false);
+    expect(isValidMerchantIdentifier('[merchant_id]')).toBe(false);
+  });
+
+  it('accepts dynamic route placeholders only during Next production build compilation', () => {
+    vi.stubEnv('NEXT_PHASE', 'phase-production-build');
+
+    expect(isBuildTimeRoutePlaceholder('[slug]')).toBe(true);
     expect(isValidMerchantIdentifier('[slug]')).toBe(true);
     expect(isValidMerchantIdentifier('[merchant_id]')).toBe(true);
   });

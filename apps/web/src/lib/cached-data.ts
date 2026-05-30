@@ -27,8 +27,9 @@ import {
 import { normalizeOgabasseyBusinessType } from '@/lib/storefront/ogabassey-entity';
 import { STOREFRONT_BLOG_POST_SELECT } from '@/lib/storefront-blog-post-select';
 import {
+  isBuildTimeRoutePlaceholder,
   isDomainIdentifier,
-  isRoutePlaceholder,
+  isNextProductionBuildPhase,
   isValidMerchantIdentifier,
 } from '@/lib/validation';
 import type { MerchantAboutPage } from '@/types/about-page';
@@ -37,6 +38,9 @@ import type { MerchantTrustProfileDraft } from '../../../../packages/shared/src/
 const RELATED_BLOG_POSTS_LIMIT = 3;
 const RELATED_BLOG_POSTS_FETCH_LIMIT = 12;
 
+// Build-only placeholder records let Next compile dynamic storefront shells
+// without DB lookups. Keep all call sites gated by isBuildTimeRoutePlaceholder
+// or isMockBuildTimeMerchantId so literal public placeholder URLs never render them.
 export const MOCK_BUILD_TIME_MERCHANT: CachedMerchant = {
   id: 'mock-merchant-id',
   business_name: 'Storefront',
@@ -142,6 +146,27 @@ export const MOCK_BUILD_TIME_PRODUCT = {
   ],
 };
 
+export const MOCK_BUILD_TIME_CATEGORY_PAGE_DATA = {
+  isCollection: false,
+  category: {
+    id: 'mock-category-id',
+    name: 'Electronics',
+    slug: 'electronics',
+    description: 'Browse our collection of Electronics products.',
+    image_url: null,
+    seo_heading: null,
+    seo_description: null,
+    seo_features: null,
+    seo_faq: null,
+    parent: null,
+  },
+  products: [MOCK_BUILD_TIME_PRODUCT],
+  fallbackName: 'Electronics',
+  fallbackDescription: 'Browse our collection of Electronics products.',
+};
+
+const MOCK_BUILD_TIME_ISO_DATE = '2026-01-01T00:00:00.000Z';
+
 export const MOCK_BUILD_TIME_BLOG_POST = {
   merchant: {
     id: 'mock-merchant-id',
@@ -156,8 +181,8 @@ export const MOCK_BUILD_TIME_BLOG_POST = {
     title: 'Blog Post Title',
     content: 'Blog post content goes here.',
     slug: 'blog-post-slug',
-    created_at: new Date().toISOString(),
-    published_at: new Date().toISOString(),
+    created_at: MOCK_BUILD_TIME_ISO_DATE,
+    published_at: MOCK_BUILD_TIME_ISO_DATE,
     excerpt: 'Blog post excerpt',
     cover_image: '/placeholder.png',
     featured_image_url: '/placeholder.png',
@@ -178,11 +203,39 @@ export const MOCK_BUILD_TIME_BLOG_POST = {
     reading_time_minutes: 5,
     word_count: 500,
     view_count: 0,
-    updated_at: new Date().toISOString(),
+    updated_at: MOCK_BUILD_TIME_ISO_DATE,
   },
   relatedPosts: [],
   relatedProducts: [],
 };
+
+function createMockBuildTimeBlogListing(
+  page: number,
+  searchQuery: string | undefined
+) {
+  return {
+    merchant: {
+      id: MOCK_BUILD_TIME_MERCHANT.id,
+      business_name: MOCK_BUILD_TIME_MERCHANT.business_name,
+      slug: MOCK_BUILD_TIME_MERCHANT.slug,
+      logo_url: MOCK_BUILD_TIME_MERCHANT.logo_url,
+      template_id: MOCK_BUILD_TIME_MERCHANT.template_id,
+      custom_domain: MOCK_BUILD_TIME_MERCHANT.custom_domain,
+    },
+    posts: [],
+    totalPosts: 0,
+    categories: [],
+    currentPage: page,
+    totalPages: 0,
+    searchQuery,
+  };
+}
+
+function isMockBuildTimeMerchantId(merchantId: string): boolean {
+  return (
+    isNextProductionBuildPhase() && merchantId === MOCK_BUILD_TIME_MERCHANT.id
+  );
+}
 
 /**
  * Create a Supabase client for cached queries.
@@ -461,7 +514,7 @@ export async function getCachedMerchant(
   cacheLife('merchant');
   cacheTag('merchants', `merchant-${slug}`);
 
-  if (isRoutePlaceholder(slug)) {
+  if (isBuildTimeRoutePlaceholder(slug)) {
     return MOCK_BUILD_TIME_MERCHANT;
   }
 
@@ -607,7 +660,7 @@ export async function getCachedMerchantByDomain(
   cacheLife('merchant');
   cacheTag('merchants', 'domains', `domain-${domain.toLowerCase()}`);
 
-  if (isRoutePlaceholder(domain)) {
+  if (isBuildTimeRoutePlaceholder(domain)) {
     return MOCK_BUILD_TIME_MERCHANT;
   }
 
@@ -800,7 +853,7 @@ export async function getMerchantByIdentifier(
 ): Promise<CachedMerchant | null> {
   if (!isValidMerchantIdentifier(identifier)) return null;
 
-  if (isRoutePlaceholder(identifier)) {
+  if (isBuildTimeRoutePlaceholder(identifier)) {
     return MOCK_BUILD_TIME_MERCHANT;
   }
 
@@ -1081,7 +1134,11 @@ export async function getCachedProductLcpHint(
     getProductScopedCacheTag('product', merchantId, productSlug)
   );
 
-  if (isRoutePlaceholder(productSlug) || isRoutePlaceholder(merchantId)) {
+  if (
+    isBuildTimeRoutePlaceholder(productSlug) ||
+    isBuildTimeRoutePlaceholder(merchantId) ||
+    isMockBuildTimeMerchantId(merchantId)
+  ) {
     return MOCK_BUILD_TIME_PRODUCT_LCP_HINT;
   }
 
@@ -1155,7 +1212,11 @@ export async function getCachedProduct(
     getProductScopedCacheTag('product', merchantId, productSlug)
   );
 
-  if (isRoutePlaceholder(productSlug) || isRoutePlaceholder(merchantId)) {
+  if (
+    isBuildTimeRoutePlaceholder(productSlug) ||
+    isBuildTimeRoutePlaceholder(merchantId) ||
+    isMockBuildTimeMerchantId(merchantId)
+  ) {
     return MOCK_BUILD_TIME_PRODUCT;
   }
 
@@ -1325,7 +1386,11 @@ export async function getCachedProductWithDetails(
     getProductScopedCacheTag('product', merchantId, productSlug)
   );
 
-  if (isRoutePlaceholder(productSlug) || isRoutePlaceholder(merchantId)) {
+  if (
+    isBuildTimeRoutePlaceholder(productSlug) ||
+    isBuildTimeRoutePlaceholder(merchantId) ||
+    isMockBuildTimeMerchantId(merchantId)
+  ) {
     return MOCK_BUILD_TIME_PRODUCT;
   }
 
@@ -1643,6 +1708,15 @@ export async function getCachedCategoryPageData(
   'use cache: remote';
   cacheLife('storefront-page');
   cacheTag('category-page-data', 'products', 'categories');
+
+  if (
+    isBuildTimeRoutePlaceholder(categorySlug) ||
+    isBuildTimeRoutePlaceholder(_storeSlug) ||
+    isBuildTimeRoutePlaceholder(merchantId) ||
+    isMockBuildTimeMerchantId(merchantId)
+  ) {
+    return MOCK_BUILD_TIME_CATEGORY_PAGE_DATA;
+  }
 
   // Added storeSlug for logic if needed
   // Use public client (no cookies)
@@ -2059,7 +2133,10 @@ export async function getCachedBlogPost(
   cacheLife('merchant');
   cacheTag('blog-posts', getBlogCacheTag(identifier, postSlug));
 
-  if (isRoutePlaceholder(postSlug) || isRoutePlaceholder(identifier)) {
+  if (
+    isBuildTimeRoutePlaceholder(postSlug) ||
+    isBuildTimeRoutePlaceholder(identifier)
+  ) {
     return MOCK_BUILD_TIME_BLOG_POST;
   }
 
@@ -2210,6 +2287,10 @@ export async function getCachedBlogListing(
     'blog-posts',
     `blog-list-${identifier.toLowerCase()}-${category || 'all'}-${page}`
   );
+
+  if (isBuildTimeRoutePlaceholder(identifier)) {
+    return createMockBuildTimeBlogListing(page, searchQuery);
+  }
 
   const limit = BLOG_LISTING_PAGE_SIZE;
   const offset = (page - 1) * limit;
