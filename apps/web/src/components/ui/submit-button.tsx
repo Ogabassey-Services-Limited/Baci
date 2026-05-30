@@ -62,7 +62,10 @@ export function SubmitButton({
       aria-disabled={isDisabled}
       aria-busy={pending}
       onClick={handleClick}
-      className={cn(className)}
+      className={cn(
+        'aria-disabled:pointer-events-none aria-disabled:opacity-50',
+        className
+      )}
       {...props}
     >
       {pending ? (

@@ -52,7 +52,20 @@ describe('SubmitButton', () => {
     const button = screen.getByRole('button', { name: 'Saving' });
     expect(button).toHaveAttribute('aria-busy', 'true');
     expect(button).toHaveAttribute('aria-disabled', 'true');
+    expect(button).toHaveClass(
+      'aria-disabled:pointer-events-none',
+      'aria-disabled:opacity-50'
+    );
     expect(button).not.toBeDisabled();
+  });
+
+  it('uses native disabled state when explicitly disabled while idle', () => {
+    render(<SubmitButton disabled>Save</SubmitButton>);
+
+    const button = screen.getByRole('button', { name: 'Save' });
+    expect(button).toHaveAttribute('aria-busy', 'false');
+    expect(button).toHaveAttribute('aria-disabled', 'true');
+    expect(button).toBeDisabled();
   });
 
   it('ignores clicks while pending without dropping native focusability', () => {
