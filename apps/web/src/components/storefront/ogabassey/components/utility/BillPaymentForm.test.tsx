@@ -25,7 +25,7 @@ describe('BillPaymentForm', () => {
     mockFetch.mockClear();
   });
 
-  it('shows loading state initially ("Loading providers...")', async () => {
+  it('shows loading state initially ("Loading providers…")', async () => {
     mockFetch.mockImplementation(() => new Promise(() => {}));
 
     render(
@@ -36,7 +36,7 @@ describe('BillPaymentForm', () => {
       />
     );
 
-    expect(screen.getByText('Loading providers...')).toBeInTheDocument();
+    expect(screen.getByText('Loading providers…')).toBeInTheDocument();
   });
 
   it('renders billers after fetch completes', async () => {

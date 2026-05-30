@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { FlashList, type ListRenderItemInfo } from '@shopify/flash-list';
 import { router } from 'expo-router';
 import { useRef, useState } from 'react';
@@ -511,7 +511,10 @@ export default function ProductsScreen() {
           style={[
             styles.tabText,
             isActive
-              ? { color: colors.background, fontFamily: TYPOGRAPHY.fontFamily.semiBold }
+              ? {
+                  color: colors.background,
+                  fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+                }
               : { color: colors.textSecondary },
           ]}
         >
@@ -526,7 +529,7 @@ export default function ProductsScreen() {
       return (
         <View style={styles.summaryWrapper}>
           <View style={[styles.summaryBar, { backgroundColor: colors.card }]}>
-            <Text style={{ color: colors.text }}>Loading stats...</Text>
+            <Text style={{ color: colors.text }}>Loading stats…</Text>
           </View>
         </View>
       );

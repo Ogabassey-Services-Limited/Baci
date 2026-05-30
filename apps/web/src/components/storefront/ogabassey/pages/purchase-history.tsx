@@ -81,7 +81,7 @@ export const OgabasseyV2PurchaseHistory: React.FC<PurchaseHistoryProps> = ({
                     className="bg-white rounded-2xl border border-gray-100 p-4 md:p-6 flex flex-col md:flex-row gap-6 items-start md:items-center shadow-sm hover:shadow-md transition-shadow"
                   >
                     {/* Image - Placeholder for now if not in API */}
-                    <div className="w-20 h-20 bg-gray-50 rounded-xl p-2 shrink-0 border border-gray-100 flex items-center justify-center">
+                    <div className="size-20 bg-gray-50 rounded-xl p-2 shrink-0 border border-gray-100 flex items-center justify-center">
                       {/* TODO: Add image to Order Item API response */}
                       <ShoppingCart className="text-gray-300" size={32} />
                     </div>

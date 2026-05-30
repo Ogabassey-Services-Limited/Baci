@@ -108,7 +108,7 @@ export function NewOrderQuickAddDialog({
         ) : null}
         {isLoadingQuickAddProductMatches ? (
           <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
-            Checking product catalog...
+            Checking product catalog…
           </Text>
         ) : null}
         <View style={styles.dialogActions}>

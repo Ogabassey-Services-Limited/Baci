@@ -58,13 +58,13 @@ interface SystemHealth {
 function getStatusIcon(status: string) {
   switch (status) {
     case 'healthy':
-      return <CheckCircle className="h-4 w-4 text-emerald-500" />;
+      return <CheckCircle className="size-4 text-emerald-500" />;
     case 'warning':
-      return <AlertTriangle className="h-4 w-4 text-amber-500" />;
+      return <AlertTriangle className="size-4 text-amber-500" />;
     case 'critical':
-      return <XCircle className="h-4 w-4 text-red-500" />;
+      return <XCircle className="size-4 text-red-500" />;
     default:
-      return <Activity className="h-4 w-4 text-muted-foreground" />;
+      return <Activity className="size-4 text-muted-foreground" />;
   }
 }
 
@@ -201,7 +201,7 @@ export default function SystemHealthPage() {
         <div className="flex items-center gap-2">
           <Button variant="outline" onClick={fetchHealth} disabled={loading}>
             <RefreshCw
-              className={`h-4 w-4 mr-2 ${loading ? 'motion-safe:animate-spin' : ''}`}
+              className={`size-4 mr-2 ${loading ? 'motion-safe:animate-spin' : ''}`}
             />
             Refresh Status
           </Button>
@@ -211,7 +211,7 @@ export default function SystemHealthPage() {
             disabled={refreshingViews}
           >
             <Zap
-              className={`h-4 w-4 mr-2 ${refreshingViews ? 'animate-pulse' : ''}`}
+              className={`size-4 mr-2 ${refreshingViews ? 'animate-pulse' : ''}`}
             />
             Refresh Analytics Views
           </Button>
@@ -234,11 +234,11 @@ export default function SystemHealthPage() {
                 <div className="flex items-center justify-between">
                   <span className="text-stat">{healthScore}%</span>
                   {healthScore >= 80 ? (
-                    <CheckCircle className="h-8 w-8 text-emerald-500" />
+                    <CheckCircle className="size-8 text-emerald-500" />
                   ) : healthScore >= 50 ? (
-                    <AlertTriangle className="h-8 w-8 text-amber-500" />
+                    <AlertTriangle className="size-8 text-amber-500" />
                   ) : (
-                    <XCircle className="h-8 w-8 text-red-500" />
+                    <XCircle className="size-8 text-red-500" />
                   )}
                 </div>
                 <Progress value={healthScore} className="h-2" />
@@ -259,7 +259,7 @@ export default function SystemHealthPage() {
               <Skeleton className="h-20 w-full" />
             ) : (
               <div className="flex items-center gap-4">
-                <Database className="h-12 w-12 text-primary" />
+                <Database className="size-12 text-primary" />
                 <div>
                   <p className="text-section-title">Supabase</p>
                   <p className="text-sm text-muted-foreground">
@@ -280,7 +280,7 @@ export default function SystemHealthPage() {
               <Skeleton className="h-20 w-full" />
             ) : (
               <div className="flex items-center gap-4">
-                <Clock className="h-12 w-12 text-muted-foreground" />
+                <Clock className="size-12 text-muted-foreground" />
                 <div>
                   <p className="text-lg font-medium">
                     {health?.checkedAt
@@ -316,7 +316,7 @@ export default function SystemHealthPage() {
                   key={i}
                   className="flex items-center gap-4 p-4 border rounded-lg"
                 >
-                  <Skeleton className="h-6 w-6 rounded-full" />
+                  <Skeleton className="size-6 rounded-full" />
                   <div className="flex-1 space-y-2">
                     <Skeleton className="h-4 w-48" />
                     <Skeleton className="h-3 w-64" />
@@ -345,7 +345,7 @@ export default function SystemHealthPage() {
             </div>
           ) : (
             <div className="text-center py-8 text-muted-foreground">
-              <Activity className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <Activity className="size-12 mx-auto mb-4 opacity-50" />
               <p className="font-medium">No health check data available</p>
               <p className="text-sm">
                 Health check functions may not be set up in the database.
@@ -398,7 +398,7 @@ export default function SystemHealthPage() {
             </div>
           ) : (
             <div className="text-center py-8 text-muted-foreground">
-              <HardDrive className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <HardDrive className="size-12 mx-auto mb-4 opacity-50" />
               <p className="font-medium">No index recommendations</p>
               <p className="text-sm">
                 Your database indexes are optimally configured.
@@ -413,7 +413,7 @@ export default function SystemHealthPage() {
         <Card className="border-amber-500/20">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              <AlertTriangle className="size-5 text-amber-500" />
               Missing Indexes
             </CardTitle>
             <CardDescription>
@@ -449,7 +449,7 @@ export default function SystemHealthPage() {
               onClick={refreshAnalyticsViews}
               disabled={refreshingViews}
             >
-              <Zap className="h-6 w-6" />
+              <Zap className="size-6" />
               <span>Refresh Analytics Views</span>
               <span className="text-xs text-muted-foreground">
                 Update materialized views
@@ -461,7 +461,7 @@ export default function SystemHealthPage() {
               onClick={fetchHealth}
               disabled={loading}
             >
-              <Activity className="h-6 w-6" />
+              <Activity className="size-6" />
               <span>Run Health Check</span>
               <span className="text-xs text-muted-foreground">
                 Check database status
@@ -478,7 +478,7 @@ export default function SystemHealthPage() {
                 });
               }}
             >
-              <HardDrive className="h-6 w-6" />
+              <HardDrive className="size-6" />
               <span>View Backups</span>
               <span className="text-xs text-muted-foreground">
                 Managed by Supabase

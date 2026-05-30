@@ -440,7 +440,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
               Negotiate Price
             </h3>
           </div>
-          <button
+          <button type="button"
             onClick={onClose}
             className="text-[hsl(var(--background))]/70 hover:text-[hsl(var(--background))]"
             aria-label="Close"
@@ -504,7 +504,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
             <div className="flex flex-col items-center justify-center py-4">
               <Loader2 size={40} className="text-[var(--store-primary)] animate-spin mb-4" />
               <p className="font-medium text-[hsl(var(--muted-foreground))]">
-                Reviewing your offer...
+                Reviewing your offer…
               </p>
               <p className="text-xs text-[hsl(var(--muted-foreground))]/80 mt-2">
                 Checking with sales manager
@@ -514,14 +514,14 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
 
           {status === 'success' && (
             <div className="flex flex-col items-center justify-center py-2 text-center animate-in fade-in slide-in-from-bottom-2">
-              <div className="w-12 h-12 bg-[var(--store-primary)]/10 rounded-full flex items-center justify-center mb-3">
+              <div className="size-12 bg-[var(--store-primary)]/10 rounded-full flex items-center justify-center mb-3">
                 <CheckCircle2 size={28} className="text-[var(--store-primary)]" />
               </div>
               <h4 className="text-xl font-bold text-[hsl(var(--card-foreground))] mb-1">Offer Accepted!</h4>
               <p className="text-sm text-[hsl(var(--muted-foreground))] mb-4">
                 {message || 'Price has been updated in your cart.'}
               </p>
-              <button
+              <button type="button"
                 onClick={onClose}
                 className="bg-[hsl(var(--foreground))] text-[hsl(var(--background))] px-6 py-2 rounded-lg font-bold text-sm hover:opacity-90 transition-opacity"
               >
@@ -532,7 +532,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
 
           {status === 'failed' && (
             <div className="flex flex-col items-center justify-center py-2 text-center animate-in shake duration-300">
-              <div className="w-12 h-12 bg-[var(--store-primary)]/10 rounded-full flex items-center justify-center mb-3">
+              <div className="size-12 bg-[var(--store-primary)]/10 rounded-full flex items-center justify-center mb-3">
                 <HandCoins size={28} className="text-[var(--store-primary)]" />
               </div>
               <h4 className="text-lg font-bold text-[hsl(var(--card-foreground))] mb-1">
@@ -548,7 +548,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
 
               <div className="flex flex-col w-full gap-2">
                 {counterOffer && (
-                  <button
+                  <button type="button"
                     onClick={handleAcceptCounter}
                     className="w-full bg-[var(--store-primary)] hover:bg-[var(--store-primary)]/90 text-[var(--store-primary-text)] font-bold py-3 rounded-xl transition-colors shadow-md flex items-center justify-center gap-2"
                   >
@@ -556,7 +556,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
                     Accept ₦{counterOffer.toLocaleString()}
                   </button>
                 )}
-                <button
+                <button type="button"
                   onClick={() => {
                     setMessage('');
                     setStatus('input');
@@ -568,7 +568,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
 
                 {/* I Saw It Cheaper - only after the final (3%) counter offer. */}
                 {attemptCount >= COUNTER_DISCOUNT_STEPS.length && (
-                  <button
+                  <button type="button"
                     onClick={() => setStatus('upload')}
                     className="w-full bg-[var(--store-primary)]/5 text-[var(--store-primary)] font-bold py-3 rounded-xl hover:bg-[var(--store-primary)]/10 transition-colors border border-[var(--store-primary)]/20 flex items-center justify-center gap-2"
                   >
@@ -582,14 +582,14 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
 
           {status === 'final' && (
             <div className="flex flex-col items-center justify-center py-2 text-center animate-in fade-in slide-in-from-bottom-2">
-              <div className="w-12 h-12 bg-[var(--store-primary)]/10 rounded-full flex items-center justify-center mb-3">
+              <div className="size-12 bg-[var(--store-primary)]/10 rounded-full flex items-center justify-center mb-3">
                 <HandCoins size={28} className="text-[var(--store-primary)]" />
               </div>
               <h4 className="text-lg font-bold text-[hsl(var(--card-foreground))] mb-1">
                 Final Price
               </h4>
               <p className="text-sm text-[hsl(var(--muted-foreground))] mb-6">{message}</p>
-              <button
+              <button type="button"
                 onClick={onClose}
                 className="bg-[hsl(var(--foreground))] text-[hsl(var(--background))] px-8 py-2 rounded-xl font-bold text-sm hover:opacity-90 transition-opacity"
               >
@@ -669,12 +669,12 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
 
           {status === 'submitted' && (
             <div className="flex flex-col items-center justify-center py-4 text-center">
-              <div className="w-12 h-12 bg-[var(--store-primary)]/10 rounded-full flex items-center justify-center mb-3">
+              <div className="size-12 bg-[var(--store-primary)]/10 rounded-full flex items-center justify-center mb-3">
                 <CheckCircle2 size={28} className="text-[var(--store-primary)]" />
               </div>
               <h4 className="text-lg font-bold text-[hsl(var(--card-foreground))] mb-1">Request Sent</h4>
               <p className="text-sm text-[hsl(var(--muted-foreground))] mb-6">{message}</p>
-              <button
+              <button type="button"
                 onClick={onClose}
                 className="bg-[hsl(var(--foreground))] text-[hsl(var(--background))] px-8 py-2 rounded-xl font-bold text-sm hover:opacity-90 transition-opacity"
               >

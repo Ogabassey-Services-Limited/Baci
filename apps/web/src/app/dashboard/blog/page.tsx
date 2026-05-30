@@ -44,8 +44,8 @@ export default async function BlogPage() {
         <Card>
           <CardContent className="py-16">
             <div className="text-center max-w-md mx-auto">
-              <div className="w-16 h-16 rounded-full bg-accent/10 flex items-center justify-center mx-auto mb-6">
-                <PenTool className="w-8 h-8 text-accent" />
+              <div className="size-16 rounded-full bg-accent/10 flex items-center justify-center mx-auto mb-6">
+                <PenTool className="size-8 text-accent" />
               </div>
               <h2 className="text-2xl font-bold mb-2">Blog Feature</h2>
               <p className="text-muted-foreground mb-6">

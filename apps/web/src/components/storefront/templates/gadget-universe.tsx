@@ -90,23 +90,23 @@ export function GadgetUniverseTemplate() {
           <div className="flex justify-between items-center bg-pink-50 rounded-2xl p-6 md:p-8">
             <div className="flex items-center gap-4">
               <div className="p-3 bg-red-100 rounded-full text-red-600">
-                <Phone className="w-6 h-6" />
+                <Phone className="size-6" />
               </div>
               <span className="font-bold text-lg">Trade-in Available</span>
             </div>
 
             <div className="flex gap-8 hidden md:flex">
               <div className="flex flex-col items-center gap-2 text-red-500">
-                <Wifi className="w-6 h-6" />
+                <Wifi className="size-6" />
               </div>
               <div className="flex flex-col items-center gap-2 text-red-500">
-                <Laptop className="w-6 h-6" />
+                <Laptop className="size-6" />
               </div>
               <div className="flex flex-col items-center gap-2 text-red-500">
-                <Speaker className="w-6 h-6" />
+                <Speaker className="size-6" />
               </div>
               <div className="flex flex-col items-center gap-2 text-red-500">
-                <Gamepad2 className="w-6 h-6" />
+                <Gamepad2 className="size-6" />
               </div>
             </div>
 

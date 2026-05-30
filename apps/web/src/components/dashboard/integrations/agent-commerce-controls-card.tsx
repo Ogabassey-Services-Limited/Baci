@@ -131,7 +131,7 @@ export function AgentCommerceControlsCard({
     <Card className="glass">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Power className="h-4 w-4" />
+          <Power className="size-4" />
           Agent checkout controls
         </CardTitle>
         <CardDescription>
@@ -188,7 +188,7 @@ export function AgentCommerceControlsCard({
               onClick={handleSaveAgentAccessControls}
               disabled={isSaving}
             >
-              <Save className="h-4 w-4" />
+              <Save className="size-4" />
               Save agent access controls
             </Button>
           </div>
@@ -202,7 +202,7 @@ export function AgentCommerceControlsCard({
 
         {error ? (
           <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
+            <AlertCircle className="size-4" />
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         ) : null}

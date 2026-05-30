@@ -277,6 +277,6 @@ describe('NewOrderQuickAddDialog', () => {
       />
     );
 
-    expect(screen.getByText('Checking product catalog...')).toBeInTheDocument();
+    expect(screen.getByText('Checking product catalog…')).toBeInTheDocument();
   });
 });

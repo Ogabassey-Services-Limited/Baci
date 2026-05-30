@@ -70,7 +70,7 @@ function SuccessPageContent() {
       <Card>
         <CardHeader className="text-center">
           <div className="mx-auto bg-green-100 rounded-full p-3 w-fit">
-            <CheckCircle className="h-12 w-12 text-green-600" />
+            <CheckCircle className="size-12 text-green-600" />
           </div>
           <CardTitle className="text-3xl mt-4">Order Confirmed!</CardTitle>
           {order?.order_number && (
@@ -152,7 +152,7 @@ function SuccessPageContent() {
                 rel="noreferrer"
                 className="inline-flex items-center gap-2 text-sm font-medium text-foreground/80 hover:text-foreground"
               >
-                <Star className="h-4 w-4" />
+                <Star className="size-4" />
                 Leave a Google Review
               </a>
             </div>

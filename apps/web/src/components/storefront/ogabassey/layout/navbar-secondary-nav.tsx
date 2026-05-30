@@ -154,7 +154,7 @@ export function NavbarSecondaryNav({
                   })
                 ) : (
                   <div className="ogabassey-navbar-secondary__dropdown-empty">
-                    Loading categories...
+                    Loading categories…
                   </div>
                 )}
               </div>

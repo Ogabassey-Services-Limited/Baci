@@ -425,7 +425,7 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
           <div className="lg:col-span-3">
             {filteredProducts.length === 0 ? (
               <div className="text-center py-20 bg-store-background rounded-2xl border border-store-background-text/10 shadow-sm">
-                <div className="w-16 h-16 bg-store-background-text/5 rounded-full flex items-center justify-center mx-auto mb-4">
+                <div className="size-16 bg-store-background-text/5 rounded-full flex items-center justify-center mx-auto mb-4">
                   <Filter
                     className="text-store-background-text/40"
                     size={32}

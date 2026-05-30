@@ -543,7 +543,7 @@ function CustomFooter({
                     rel="noopener noreferrer"
                     aria-label={`Follow us on ${platform}`}
                   >
-                    <Icon className="w-5 h-5" />
+                    <Icon className="size-5" />
                   </Link>
                 );
               })}
@@ -1567,7 +1567,7 @@ export const builderConfig: Config<
       render: ({ quote, author, role, avatar, rating = 5 }) => (
         <section className="py-12 container px-4 md:px-6">
           <div className="max-w-3xl mx-auto text-center">
-            <Quote className="w-12 h-12 mx-auto mb-6 text-muted-foreground/20" />
+            <Quote className="size-12 mx-auto mb-6 text-muted-foreground/20" />
             <blockquote className="text-2xl font-medium mb-6">
               "{quote}"
             </blockquote>
@@ -1594,7 +1594,7 @@ export const builderConfig: Config<
                   <Star
                     // biome-ignore lint/suspicious/noArrayIndexKey: Stars are static and stable
                     key={`star-${i}`}
-                    className={cn('w-4 h-4', {
+                    className={cn('size-4', {
                       'fill-current': i < rating,
                     })}
                     aria-hidden="true"
@@ -1698,7 +1698,7 @@ export const builderConfig: Config<
                     className="flex flex-col items-center text-center p-6 bg-background rounded-lg shadow-sm"
                   >
                     <div
-                      className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-4 text-primary"
+                      className="size-12 rounded-full bg-primary/10 flex items-center justify-center mb-4 text-primary"
                       aria-hidden="true"
                     >
                       {renderIcon((feature.icon as string) || 'check', {
@@ -1739,7 +1739,7 @@ export const builderConfig: Config<
         <section className="py-16 container px-4 md:px-6">
           <div className="bg-primary text-primary-foreground rounded-2xl p-8 md:p-12 text-center max-w-4xl mx-auto">
             <Mail
-              className="w-12 h-12 mx-auto mb-6 opacity-80"
+              className="size-12 mx-auto mb-6 opacity-80"
               aria-hidden="true"
             />
             <h2 className="text-3xl font-bold mb-4">{title}</h2>
@@ -1962,7 +1962,7 @@ export const builderConfig: Config<
         <section className="py-8 container px-4 md:px-6">
           <div className="p-8 bg-muted text-center rounded-lg border">
             <Instagram
-              className="w-12 h-12 mx-auto mb-4 text-muted-foreground"
+              className="size-12 mx-auto mb-4 text-muted-foreground"
               aria-hidden="true"
             />
             <h3 className="text-lg font-semibold mb-2">Instagram Feed</h3>
@@ -2244,7 +2244,7 @@ export const builderConfig: Config<
         <section className="py-8 container px-4 md:px-6">
           <div className="max-w-2xl mx-auto">
             <div className="relative">
-              <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+              <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 size-5 text-muted-foreground" />
               <Input className="pl-10 h-12 text-lg" placeholder={placeholder} />
             </div>
             {showFilters && (
@@ -2752,7 +2752,7 @@ export const builderConfig: Config<
                       <div key={info.label} className="flex items-start gap-4">
                         <div className="p-3 rounded-lg bg-store-primary/10">
                           {renderIcon(info.icon, {
-                            className: 'w-5 h-5',
+                            className: 'size-5',
                             style: { color: 'var(--store-primary)' },
                           })}
                         </div>
@@ -3252,9 +3252,8 @@ export const builderConfig: Config<
                         className={cn(
                           'rounded-full flex items-center justify-center',
                           style === 'cards' && 'mb-4 w-16 h-16 bg-primary/10',
-                          style === 'minimal' && 'w-12 h-12 bg-primary/10',
-                          style === 'icons-only' &&
-                            'mb-2 w-12 h-12 bg-primary/10'
+                          style === 'minimal' && 'size-12 bg-primary/10',
+                          style === 'icons-only' && 'mb-2 size-12 bg-primary/10'
                         )}
                         style={{
                           color: 'var(--store-primary)',
@@ -3263,7 +3262,7 @@ export const builderConfig: Config<
                         {renderIcon(badge.icon, {
                           className: cn(
                             style === 'cards' && 'w-6 h-6 md:w-7 md:h-7',
-                            style === 'minimal' && 'w-5 h-5',
+                            style === 'minimal' && 'size-5',
                             style === 'icons-only' && 'w-7 h-7 md:w-8 md:h-8'
                           ),
                           style: { color: 'var(--store-primary)' },
@@ -3408,7 +3407,7 @@ export const builderConfig: Config<
                   aria-label="Dismiss announcement"
                 >
                   <svg
-                    className="w-4 h-4"
+                    className="size-4"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"

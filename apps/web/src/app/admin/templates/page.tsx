@@ -38,7 +38,7 @@ export default function AdminTemplatesPage() {
                 />
               ) : (
                 <div className="flex items-center justify-center h-full text-muted-foreground">
-                  <LayoutTemplate className="h-10 w-10" aria-hidden="true" />
+                  <LayoutTemplate className="size-10" aria-hidden="true" />
                 </div>
               )}
               {template.isPremium && (
@@ -47,7 +47,7 @@ export default function AdminTemplatesPage() {
                     variant="secondary"
                     className="bg-amber-100 text-amber-800 hover:bg-amber-100"
                   >
-                    <Lock className="w-3 h-3 mr-1" aria-hidden="true" /> Premium
+                    <Lock className="size-3 mr-1" aria-hidden="true" /> Premium
                   </Badge>
                 </div>
               )}

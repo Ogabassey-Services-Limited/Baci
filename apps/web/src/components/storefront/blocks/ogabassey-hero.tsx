@@ -94,7 +94,7 @@ export function OgabasseyHero({
                 className="absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/30 text-white hover:bg-black/50 transition-all opacity-0 group-hover:opacity-100 z-20"
                 aria-label="Previous slide"
               >
-                <ChevronLeft className="w-6 h-6" />
+                <ChevronLeft className="size-6" />
               </button>
               <button
                 type="button"
@@ -105,7 +105,7 @@ export function OgabasseyHero({
                 className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/30 text-white hover:bg-black/50 transition-all opacity-0 group-hover:opacity-100 z-20"
                 aria-label="Next slide"
               >
-                <ChevronRight className="w-6 h-6" />
+                <ChevronRight className="size-6" />
               </button>
 
               {/* Dots navigation */}

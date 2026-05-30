@@ -171,7 +171,7 @@ export function CheckoutIdentityModal({
                     variant="destructive"
                     className="rounded-xl bg-red-50 border-red-100 text-red-600"
                   >
-                    <AlertCircle className="h-4 w-4" />
+                    <AlertCircle className="size-4" />
                     <AlertDescription className="text-xs font-medium">
                       {error}
                     </AlertDescription>
@@ -228,8 +228,8 @@ export function CheckoutIdentityModal({
                 >
                   {isLoading ? (
                     <>
-                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                      Signing in...
+                      <Loader2 className="mr-2 size-5 animate-spin" />
+                      Signing in…
                     </>
                   ) : (
                     <span className="flex items-center gap-2">

@@ -119,7 +119,7 @@ function getStatusBadge(status: string) {
           variant="outline"
           className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
         >
-          <CheckCircle className="h-3 w-3 mr-1" />
+          <CheckCircle className="size-3 mr-1" />
           Active
         </Badge>
       );
@@ -129,7 +129,7 @@ function getStatusBadge(status: string) {
           variant="outline"
           className="bg-amber-500/10 text-amber-600 border-amber-500/20"
         >
-          <Clock className="h-3 w-3 mr-1" />
+          <Clock className="size-3 mr-1" />
           Pending
         </Badge>
       );
@@ -139,7 +139,7 @@ function getStatusBadge(status: string) {
           variant="outline"
           className="bg-red-500/10 text-red-600 border-red-500/20"
         >
-          <XCircle className="h-3 w-3 mr-1" />
+          <XCircle className="size-3 mr-1" />
           Suspended
         </Badge>
       );
@@ -399,7 +399,7 @@ export function TeamClient({ initialStaff }: TeamClientProps) {
       <div className="flex items-center gap-4">
         <Link href="/dashboard">
           <Button variant="ghost" size="icon">
-            <ArrowLeft className="h-4 w-4" />
+            <ArrowLeft className="size-4" />
           </Button>
         </Link>
         <div>
@@ -416,7 +416,7 @@ export function TeamClient({ initialStaff }: TeamClientProps) {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="flex items-center gap-2">
-                <Users className="h-5 w-5" />
+                <Users className="size-5" />
                 Team Members
               </CardTitle>
               <CardDescription>
@@ -427,7 +427,7 @@ export function TeamClient({ initialStaff }: TeamClientProps) {
             <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
               <DialogTrigger asChild>
                 <Button>
-                  <UserPlus className="h-4 w-4 mr-2" />
+                  <UserPlus className="size-4 mr-2" />
                   Invite Team Member
                 </Button>
               </DialogTrigger>
@@ -513,7 +513,7 @@ export function TeamClient({ initialStaff }: TeamClientProps) {
                       control={form.control}
                       name="autoCreateAccount"
                       render={({ field }) => (
-                        <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                        <FormItem className="flex flex-row items-start gap-x-3 space-y-0 rounded-md border p-4">
                           <FormControl>
                             <Checkbox
                               checked={field.value as boolean}
@@ -545,12 +545,12 @@ export function TeamClient({ initialStaff }: TeamClientProps) {
                       <Button type="submit" disabled={isInvitePending}>
                         {isInvitePending ? (
                           <>
-                            <Loader2 className="h-4 w-4 mr-2 motion-safe:animate-spin" />
-                            Sending...
+                            <Loader2 className="size-4 mr-2 motion-safe:animate-spin" />
+                            Sending…
                           </>
                         ) : (
                           <>
-                            <Mail className="h-4 w-4 mr-2" />
+                            <Mail className="size-4 mr-2" />
                             Send Invitation
                           </>
                         )}
@@ -566,13 +566,13 @@ export function TeamClient({ initialStaff }: TeamClientProps) {
           {/* Staff Table */}
           {staff.length === 0 ? (
             <div className="text-center py-12 border rounded-lg bg-muted/30">
-              <Users className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
+              <Users className="size-12 mx-auto mb-4 text-muted-foreground/50" />
               <h3 className="font-medium mb-1">No team members yet</h3>
               <p className="text-sm text-muted-foreground mb-4">
                 Invite staff members to help manage your store.
               </p>
               <Button onClick={() => setInviteDialogOpen(true)}>
-                <UserPlus className="h-4 w-4 mr-2" />
+                <UserPlus className="size-4 mr-2" />
                 Invite Your First Team Member
               </Button>
             </div>
@@ -611,7 +611,7 @@ export function TeamClient({ initialStaff }: TeamClientProps) {
                                 variant="secondary"
                                 className="cursor-help"
                               >
-                                <Shield className="h-3 w-3 mr-1" />
+                                <Shield className="size-3 mr-1" />
                                 {ROLE_LABELS[member.role]}
                               </Badge>
                             </TooltipTrigger>
@@ -636,7 +636,7 @@ export function TeamClient({ initialStaff }: TeamClientProps) {
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button variant="ghost" size="icon">
-                                <MoreHorizontal className="h-4 w-4" />
+                                <MoreHorizontal className="size-4" />
                                 <span className="sr-only">Actions</span>
                               </Button>
                             </DropdownMenuTrigger>
@@ -645,7 +645,7 @@ export function TeamClient({ initialStaff }: TeamClientProps) {
                                 <DropdownMenuItem
                                   onClick={() => handleResendInvite(member.id)}
                                 >
-                                  <RefreshCw className="h-4 w-4 mr-2" />
+                                  <RefreshCw className="size-4 mr-2" />
                                   Resend Invitation
                                 </DropdownMenuItem>
                               )}
@@ -660,7 +660,7 @@ export function TeamClient({ initialStaff }: TeamClientProps) {
                                   setRoleDialogOpen(true);
                                 }}
                               >
-                                <Shield className="h-4 w-4 mr-2" />
+                                <Shield className="size-4 mr-2" />
                                 Change Role
                               </DropdownMenuItem>
                               {member.status === 'active' && (
@@ -669,7 +669,7 @@ export function TeamClient({ initialStaff }: TeamClientProps) {
                                     handleResetPassword(member.id, member.email)
                                   }
                                 >
-                                  <Key className="h-4 w-4 mr-2" />
+                                  <Key className="size-4 mr-2" />
                                   Reset Password
                                 </DropdownMenuItem>
                               )}
@@ -680,7 +680,7 @@ export function TeamClient({ initialStaff }: TeamClientProps) {
                                     handleSuspend(member.id, member.status)
                                   }
                                 >
-                                  <XCircle className="h-4 w-4 mr-2" />
+                                  <XCircle className="size-4 mr-2" />
                                   Suspend Access
                                 </DropdownMenuItem>
                               )}
@@ -690,7 +690,7 @@ export function TeamClient({ initialStaff }: TeamClientProps) {
                                     handleSuspend(member.id, member.status)
                                   }
                                 >
-                                  <CheckCircle className="h-4 w-4 mr-2" />
+                                  <CheckCircle className="size-4 mr-2" />
                                   Reactivate
                                 </DropdownMenuItem>
                               )}
@@ -700,7 +700,7 @@ export function TeamClient({ initialStaff }: TeamClientProps) {
                                 }
                                 className="text-red-600"
                               >
-                                <Trash2 className="h-4 w-4 mr-2" />
+                                <Trash2 className="size-4 mr-2" />
                                 Remove
                               </DropdownMenuItem>
                             </DropdownMenuContent>
@@ -720,7 +720,7 @@ export function TeamClient({ initialStaff }: TeamClientProps) {
       <Card className="glass">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Shield className="h-5 w-5" />
+            <Shield className="size-5" />
             Role Permissions
           </CardTitle>
           <CardDescription>
@@ -771,7 +771,7 @@ export function TeamClient({ initialStaff }: TeamClientProps) {
               disabled={isPending}
               onClick={confirmRemoveStaff}
             >
-              <Trash2 className="h-4 w-4 mr-2" />
+              <Trash2 className="size-4 mr-2" />
               Remove
             </Button>
           </DialogFooter>
@@ -838,12 +838,12 @@ export function TeamClient({ initialStaff }: TeamClientProps) {
             >
               {isPending ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 motion-safe:animate-spin" />
-                  Updating...
+                  <Loader2 className="size-4 mr-2 motion-safe:animate-spin" />
+                  Updating…
                 </>
               ) : (
                 <>
-                  <Shield className="h-4 w-4 mr-2" />
+                  <Shield className="size-4 mr-2" />
                   Update Role
                 </>
               )}

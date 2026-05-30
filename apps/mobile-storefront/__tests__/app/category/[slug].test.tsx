@@ -245,7 +245,7 @@ describe('CategoryScreen', () => {
 
     render(<CategoryScreen />);
 
-    expect(screen.getByText('Loading products...')).toBeTruthy();
+    expect(screen.getByText('Loading products…')).toBeTruthy();
   });
 
   it('renders the fetch error state when product loading fails', () => {

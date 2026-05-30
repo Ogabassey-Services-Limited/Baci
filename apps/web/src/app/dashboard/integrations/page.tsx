@@ -35,7 +35,7 @@ const integrations = [
     icon: (
       <svg
         viewBox="0 0 24 24"
-        className="h-10 w-10"
+        className="size-10"
         role="img"
         aria-label="Google logo"
       >
@@ -69,7 +69,7 @@ const integrations = [
     // Official Facebook Logo (Circle)
     icon: (
       <svg
-        className="h-10 w-10 text-[#1877F2]"
+        className="size-10 text-[#1877F2]"
         viewBox="0 0 24 24"
         fill="currentColor"
         role="img"
@@ -90,7 +90,7 @@ const integrations = [
     // Official TikTok Logo
     icon: (
       <svg
-        className="h-10 w-10 text-black dark:text-white"
+        className="size-10 text-black dark:text-white"
         viewBox="0 0 24 24"
         fill="currentColor"
         role="img"
@@ -113,7 +113,7 @@ const integrations = [
       <svg
         role="img"
         viewBox="0 0 515 515"
-        className="h-8 w-8"
+        className="size-8"
         aria-label="Snapchat"
       >
         <title>Snapchat</title>
@@ -141,7 +141,7 @@ const integrations = [
     // Official X Logo
     icon: (
       <svg
-        className="h-9 w-9 text-black dark:text-white"
+        className="size-9 text-black dark:text-white"
         viewBox="0 0 24 24"
         fill="currentColor"
         role="img"
@@ -163,7 +163,7 @@ const integrations = [
     icon: (
       <svg
         viewBox="0 0 24 24"
-        className="h-10 w-10"
+        className="size-10"
         role="img"
         aria-label="Google Analytics logo"
       >
@@ -244,7 +244,7 @@ export default async function SocialPlatformsPage() {
                 <Button asChild className="w-full group-hover:bg-primary/90">
                   <Link href={href}>
                     {status.actionLabel}
-                    <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                    <ArrowRight className="ml-2 size-4 transition-transform group-hover:translate-x-1" />
                   </Link>
                 </Button>
               </CardContent>
@@ -256,7 +256,7 @@ export default async function SocialPlatformsPage() {
       <Card className="glass border-dashed border-2">
         <CardContent className="flex flex-col items-center justify-center py-10">
           <div className="rounded-full bg-muted p-4 mb-4">
-            <ShoppingBag className="h-8 w-8 text-muted-foreground" />
+            <ShoppingBag className="size-8 text-muted-foreground" />
           </div>
           <h3 className="text-lg font-semibold mb-2">More Coming Soon</h3>
           <p className="text-muted-foreground text-center max-w-md">

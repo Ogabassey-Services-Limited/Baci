@@ -1,4 +1,6 @@
-import Ionicons, { type IoniconsIconName } from "@react-native-vector-icons/ionicons";
+import Ionicons, {
+  type IoniconsIconName,
+} from '@react-native-vector-icons/ionicons';
 import { Stack, useRouter } from 'expo-router';
 import {
   Linking,
@@ -89,7 +91,7 @@ export default function HelpCenterScreen() {
             onPress={handleOpenHelp}
           >
             <Ionicons name="search" size={24} color="#FFFFFF" />
-            <Text style={styles.searchText}>Search help articles...</Text>
+            <Text style={styles.searchText}>Search help articles…</Text>
           </Pressable>
 
           {/* Topics */}

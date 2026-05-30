@@ -177,7 +177,7 @@ export function DomainSearchPanel({ merchant }: DomainSearchPanelProps) {
     <div className="space-y-6">
       <div className="flex gap-2">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
           <Input
             placeholder="Search for a domain (e.g. mystore.com)..."
             value={searchTerm}
@@ -187,11 +187,7 @@ export function DomainSearchPanel({ merchant }: DomainSearchPanelProps) {
           />
         </div>
         <Button onClick={handleSearch} disabled={isSearching}>
-          {isSearching ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            'Search'
-          )}
+          {isSearching ? <Loader2 className="size-4 animate-spin" /> : 'Search'}
         </Button>
       </div>
 
@@ -261,10 +257,10 @@ export function DomainSearchPanel({ merchant }: DomainSearchPanelProps) {
                     disabled={!!purchasingDomain}
                   >
                     {purchasingDomain === result.domain ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <Loader2 className="size-4 animate-spin" />
                     ) : (
                       <>
-                        <ShoppingCart className="w-4 h-4 mr-2" />
+                        <ShoppingCart className="size-4 mr-2" />
                         Buy
                       </>
                     )}

@@ -176,7 +176,7 @@ export function CSVBulkImportDialog({
               onClick={downloadTemplate}
               type="button"
             >
-              <Download className="mr-2 h-4 w-4" />
+              <Download className="mr-2 size-4" />
               Download CSV Template
             </Button>
             <p className="text-xs text-muted-foreground">
@@ -198,7 +198,7 @@ export function CSVBulkImportDialog({
             </div>
             {file && (
               <p className="text-sm text-muted-foreground flex items-center gap-1">
-                <FileSpreadsheet className="h-4 w-4" />
+                <FileSpreadsheet className="size-4" />
                 {file.name}
               </p>
             )}
@@ -207,7 +207,7 @@ export function CSVBulkImportDialog({
           {/* Progress Bar */}
           {isUploading && (
             <div className="space-y-2">
-              <Label>Uploading...</Label>
+              <Label>Uploading…</Label>
               <Progress value={uploadProgress} />
             </div>
           )}
@@ -221,9 +221,9 @@ export function CSVBulkImportDialog({
             >
               <div className="flex items-start gap-2">
                 {result.failed === 0 ? (
-                  <CheckCircle className="h-4 w-4 text-green-500 mt-0.5" />
+                  <CheckCircle className="size-4 text-green-500 mt-0.5" />
                 ) : (
-                  <XCircle className="h-4 w-4 text-yellow-500 mt-0.5" />
+                  <XCircle className="size-4 text-yellow-500 mt-0.5" />
                 )}
                 <div className="flex-1">
                   <AlertDescription>
@@ -244,9 +244,7 @@ export function CSVBulkImportDialog({
                             </li>
                           ))}
                           {result.errors.length > 5 && (
-                            <li>
-                              ...and {result.errors.length - 5} more errors
-                            </li>
+                            <li>…and {result.errors.length - 5} more errors</li>
                           )}
                         </ul>
                       </div>
@@ -270,12 +268,12 @@ export function CSVBulkImportDialog({
             <Button onClick={handleUpload} disabled={!file || isUploading}>
               {isUploading ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Uploading...
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  Uploading…
                 </>
               ) : (
                 <>
-                  <Upload className="mr-2 h-4 w-4" />
+                  <Upload className="mr-2 size-4" />
                   Import Products
                 </>
               )}

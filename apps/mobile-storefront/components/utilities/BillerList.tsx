@@ -85,7 +85,7 @@ export function BillerList({
       <View style={styles.centered}>
         <ActivityIndicator color={BRAND.primary} />
         <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-          Loading providers...
+          Loading providers…
         </Text>
       </View>
     );

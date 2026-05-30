@@ -60,7 +60,7 @@ const CopyButton = ({
       aria-label={ariaLabel || 'Copy to clipboard'}
       className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm"
     >
-      {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+      {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
       {copied ? 'Copied!' : 'Copy'}
     </button>
   );
@@ -71,7 +71,7 @@ export const platformInstructions: Record<string, PlatformInstructions> = {
     name: 'Google Analytics 4',
     icon: (
       <svg
-        className="w-5 h-5"
+        className="size-5"
         viewBox="0 0 24 24"
         fill="currentColor"
         aria-hidden="true"
@@ -117,7 +117,7 @@ export const platformInstructions: Record<string, PlatformInstructions> = {
     name: 'Facebook/Meta Pixel',
     icon: (
       <svg
-        className="w-5 h-5"
+        className="size-5"
         viewBox="0 0 24 24"
         fill="currentColor"
         aria-hidden="true"
@@ -165,7 +165,7 @@ export const platformInstructions: Record<string, PlatformInstructions> = {
     name: 'TikTok Pixel',
     icon: (
       <svg
-        className="w-5 h-5"
+        className="size-5"
         viewBox="0 0 24 24"
         fill="currentColor"
         aria-hidden="true"
@@ -213,7 +213,7 @@ export const platformInstructions: Record<string, PlatformInstructions> = {
     name: 'Snapchat Pixel',
     icon: (
       <svg
-        className="w-5 h-5"
+        className="size-5"
         viewBox="0 0 24 24"
         fill="currentColor"
         aria-hidden="true"
@@ -261,7 +261,7 @@ export const platformInstructions: Record<string, PlatformInstructions> = {
     name: 'Twitter/X Pixel',
     icon: (
       <svg
-        className="w-5 h-5"
+        className="size-5"
         viewBox="0 0 24 24"
         fill="currentColor"
         aria-hidden="true"
@@ -332,12 +332,12 @@ export function SetupInstructions({
         >
           {isOpen ? (
             <>
-              Hide setup instructions <ChevronUp className="w-3 h-3 ml-1" />
+              Hide setup instructions <ChevronUp className="size-3 ml-1" />
             </>
           ) : (
             <>
               How to find your {instructions.pixelIdLabel}?{' '}
-              <ChevronDown className="w-3 h-3 ml-1" />
+              <ChevronDown className="size-3 ml-1" />
             </>
           )}
         </Button>
@@ -352,7 +352,7 @@ export function SetupInstructions({
           <div className="space-y-3">
             {instructions.steps.map((step, index) => (
               <div key={step.title} className="flex gap-3">
-                <div className="shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-medium flex items-center justify-center">
+                <div className="shrink-0 size-6 rounded-full bg-primary/10 text-primary text-xs font-medium flex items-center justify-center">
                   {index + 1}
                 </div>
                 <div className="space-y-1">
@@ -368,7 +368,7 @@ export function SetupInstructions({
                       className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
                     >
                       {step.linkText || 'Learn more'}{' '}
-                      <ExternalLink className="w-3 h-3" />
+                      <ExternalLink className="size-3" />
                     </a>
                   )}
                 </div>
@@ -397,7 +397,7 @@ export function SetupInstructions({
 
           {instructions.tips && instructions.tips.length > 0 && (
             <Alert className="bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800">
-              <AlertCircle className="h-4 w-4 text-blue-600" />
+              <AlertCircle className="size-4 text-blue-600" />
               <AlertDescription className="text-xs">
                 <strong className="block mb-1">Pro Tips:</strong>
                 <ul className="list-disc list-inside space-y-0.5">

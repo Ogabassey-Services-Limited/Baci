@@ -37,8 +37,8 @@ export function StorefrontLayoutLoadingFallback({
             <div className="h-4 w-16 rounded bg-[var(--store-background-text,#111827)]/14" />
           </div>
           <div className="flex gap-3">
-            <div className="h-10 w-10 rounded-full bg-[var(--store-background-text,#111827)]/14" />
-            <div className="h-10 w-10 rounded-full bg-[var(--store-background-text,#111827)]/14" />
+            <div className="size-10 rounded-full bg-[var(--store-background-text,#111827)]/14" />
+            <div className="size-10 rounded-full bg-[var(--store-background-text,#111827)]/14" />
           </div>
         </div>
       </header>

@@ -171,26 +171,16 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
 
   return (
     <>
-      <script
-        type="application/ld+json"
-        // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema sanitized
-        dangerouslySetInnerHTML={{
-          __html: safeJsonLdStringify(collectionSchema),
-        }}
-      />
-      <script
-        type="application/ld+json"
-        // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema sanitized
-        dangerouslySetInnerHTML={{
-          __html: safeJsonLdStringify(breadcrumbSchema),
-        }}
-      />
+      <script type="application/ld+json">
+        {safeJsonLdStringify(collectionSchema)}
+      </script>
+      <script type="application/ld+json">
+        {safeJsonLdStringify(breadcrumbSchema)}
+      </script>
       {faqSchema && (
-        <script
-          type="application/ld+json"
-          // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema sanitized
-          dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(faqSchema) }}
-        />
+        <script type="application/ld+json">
+          {safeJsonLdStringify(faqSchema)}
+        </script>
       )}
 
       <V2ComparisonScope storageNamespace={merchant.id}>

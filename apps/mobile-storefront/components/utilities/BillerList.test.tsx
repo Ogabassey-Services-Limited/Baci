@@ -35,7 +35,7 @@ describe('BillerList', () => {
       />
     );
 
-    expect(screen.getByText('Loading providers...')).toBeOnTheScreen();
+    expect(screen.getByText('Loading providers…')).toBeOnTheScreen();
   });
 
   it('shows an error message when provider loading fails', () => {

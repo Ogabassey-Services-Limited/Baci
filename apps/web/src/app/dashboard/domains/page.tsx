@@ -108,8 +108,8 @@ export default async function DomainsPage({
         <TabsContent value="overview" className="space-y-4 pt-4">
           {!hasDomains ? (
             <div className="flex flex-col items-center justify-center p-12 border-2 border-dashed rounded-xl bg-slate-50/50 dark:bg-slate-900/50">
-              <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/20 rounded-full flex items-center justify-center mb-4">
-                <Plus className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+              <div className="size-16 bg-blue-100 dark:bg-blue-900/20 rounded-full flex items-center justify-center mb-4">
+                <Plus className="size-8 text-blue-600 dark:text-blue-400" />
               </div>
               <h2 className="text-xl font-semibold mb-2">No domains yet</h2>
               <p className="text-muted-foreground text-center max-w-md mb-6">

@@ -107,7 +107,7 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
     if (loading) {
         return (
             <div className="max-w-[1400px] mx-auto px-4 py-12 text-center text-gray-400">
-                Loading products...
+                Loading products…
             </div>
         );
     }

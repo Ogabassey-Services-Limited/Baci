@@ -150,7 +150,7 @@ export function RelatedProducts({
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
             <Sparkles
-              className="w-5 h-5 text-muted-foreground"
+              className="size-5 text-muted-foreground"
               aria-hidden="true"
             />
             <h2 className="text-xl font-bold tracking-tight sm:text-2xl">
@@ -164,21 +164,21 @@ export function RelatedProducts({
                 variant="outline"
                 size="icon"
                 colorRole="accent"
-                className="h-8 w-8"
+                className="size-8"
                 onClick={() => scrollContainer('left')}
                 aria-label="Scroll left"
               >
-                <ChevronLeft className="h-4 w-4" />
+                <ChevronLeft className="size-4" />
               </ThemedButton>
               <ThemedButton
                 variant="outline"
                 size="icon"
                 colorRole="accent"
-                className="h-8 w-8"
+                className="size-8"
                 onClick={() => scrollContainer('right')}
                 aria-label="Scroll right"
               >
-                <ChevronRight className="h-4 w-4" />
+                <ChevronRight className="size-4" />
               </ThemedButton>
             </div>
           )}
@@ -187,7 +187,7 @@ export function RelatedProducts({
         {/* Products */}
         {isLoading ? (
           <div className="flex justify-center py-8">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            <Loader2 className="size-6 animate-spin text-muted-foreground" />
           </div>
         ) : (
           <div

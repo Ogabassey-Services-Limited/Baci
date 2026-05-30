@@ -318,7 +318,7 @@ export function BillPaymentForm({
           {loading ? (
             <>
               <Loader2 className="animate-spin" size={20} />
-              Processing...
+              Processing…
             </>
           ) : (
             <>Pay ₦{amount ? Number(amount).toLocaleString() : '0.00'}</>

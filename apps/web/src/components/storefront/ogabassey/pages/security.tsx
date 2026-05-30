@@ -172,7 +172,7 @@ export const OgabasseyV2Security: React.FC = () => {
               <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100">
                 <div className="flex items-center gap-4">
                   <div
-                    className={`w-10 h-10 rounded-full flex items-center justify-center ${twoFactorEnabled ? 'bg-green-100 text-green-600' : 'bg-gray-200 text-gray-500'}`}
+                    className={`size-10 rounded-full flex items-center justify-center ${twoFactorEnabled ? 'bg-green-100 text-green-600' : 'bg-gray-200 text-gray-500'}`}
                   >
                     <Lock size={20} />
                   </div>
@@ -220,7 +220,7 @@ export const OgabasseyV2Security: React.FC = () => {
                     className="flex items-center justify-between py-2"
                   >
                     <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 bg-gray-50 rounded-lg flex items-center justify-center text-gray-500">
+                      <div className="size-10 bg-gray-50 rounded-lg flex items-center justify-center text-gray-500">
                         {session.device.includes('iPhone') ||
                         session.device.includes('Android') ? (
                           <Smartphone size={20} />
@@ -266,15 +266,15 @@ export const OgabasseyV2Security: React.FC = () => {
               </h3>
               <ul className="space-y-3">
                 <li className="flex gap-2 text-sm text-blue-800">
-                  <div className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5 shrink-0" />
+                  <div className="size-1.5 rounded-full bg-blue-400 mt-1.5 shrink-0" />
                   Use a strong password with symbols and numbers.
                 </li>
                 <li className="flex gap-2 text-sm text-blue-800">
-                  <div className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5 shrink-0" />
+                  <div className="size-1.5 rounded-full bg-blue-400 mt-1.5 shrink-0" />
                   Enable 2FA for maximum protection.
                 </li>
                 <li className="flex gap-2 text-sm text-blue-800">
-                  <div className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5 shrink-0" />
+                  <div className="size-1.5 rounded-full bg-blue-400 mt-1.5 shrink-0" />
                   Log out from public devices immediately after use.
                 </li>
               </ul>
@@ -325,7 +325,7 @@ export const OgabasseyV2Security: React.FC = () => {
 
             {passwordSuccess ? (
               <div className="flex flex-col items-center justify-center py-8 text-center animate-in fade-in">
-                <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-4">
+                <div className="size-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-4">
                   <CheckCircle2 size={32} />
                 </div>
                 <h4 className="text-xl font-bold text-gray-900 mb-2">

@@ -88,7 +88,7 @@ export function AgenticCrawlerVisibilityCard({
       <Card className="border-border/70">
         <CardHeader className="space-y-2">
           <CardTitle className="flex items-center gap-2 text-base">
-            <Radar className="h-5 w-5 text-primary" />
+            <Radar className="size-5 text-primary" />
             Agent crawler visibility
           </CardTitle>
           <CardDescription>
@@ -98,7 +98,7 @@ export function AgenticCrawlerVisibilityCard({
         <CardContent>
           <div className="rounded-md border border-amber-200 bg-amber-50/70 p-3 text-sm text-amber-950">
             <p className="flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4" />
+              <AlertTriangle className="size-4" />
               Unable to load crawler activity right now.
             </p>
           </div>
@@ -119,13 +119,13 @@ export function AgenticCrawlerVisibilityCard({
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-1">
             <CardTitle className="flex items-center gap-2 text-base">
-              <Radar className="h-5 w-5 text-primary" />
+              <Radar className="size-5 text-primary" />
               Agent crawler visibility
             </CardTitle>
             <CardDescription>{tone.description}</CardDescription>
           </div>
           <Badge variant={tone.variant}>
-            <Icon className="mr-1 h-3.5 w-3.5" />
+            <Icon className="mr-1 size-3.5" />
             {tone.badge}
           </Badge>
         </div>
@@ -162,7 +162,7 @@ export function AgenticCrawlerVisibilityCard({
         {summary.isPartial && (
           <div className="rounded-md border border-amber-200 bg-amber-50/70 p-3 text-sm text-amber-950">
             <p className="flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 shrink-0" />
+              <AlertTriangle className="size-4 shrink-0" />
               Crawler metrics are capped at the newest{' '}
               {summary.totalCrawls.toLocaleString('en-US')} records in this
               window.
@@ -183,7 +183,7 @@ export function AgenticCrawlerVisibilityCard({
                     key={`${bot.family}:${bot.name}`}
                   >
                     <span className="flex min-w-0 items-center gap-2">
-                      <Bot className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <Bot className="size-4 shrink-0 text-muted-foreground" />
                       <span className="truncate">{bot.name}</span>
                     </span>
                     <Badge variant="outline">

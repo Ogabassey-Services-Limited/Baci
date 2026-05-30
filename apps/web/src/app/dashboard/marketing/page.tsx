@@ -67,8 +67,8 @@ export default async function MarketingPage() {
               className="group bg-card transition-shadow hover:border-primary/50 hover:shadow-lg"
             >
               <CardHeader>
-                <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary transition-transform duration-300 group-hover:scale-105">
-                  <Icon className="h-5 w-5" aria-hidden="true" />
+                <div className="mb-4 flex size-11 items-center justify-center rounded-xl bg-primary/10 text-primary transition-transform duration-300 group-hover:scale-105">
+                  <Icon className="size-5" aria-hidden="true" />
                 </div>
                 <CardTitle>{section.title}</CardTitle>
                 <CardDescription>{section.description}</CardDescription>
@@ -77,7 +77,7 @@ export default async function MarketingPage() {
                 <Button asChild className="w-full">
                   <Link href={section.href}>
                     Open {section.title}
-                    <ArrowRight className="ml-2 h-4 w-4" aria-hidden="true" />
+                    <ArrowRight className="ml-2 size-4" aria-hidden="true" />
                   </Link>
                 </Button>
               </CardContent>

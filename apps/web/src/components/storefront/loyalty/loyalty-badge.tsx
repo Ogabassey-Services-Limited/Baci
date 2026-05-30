@@ -55,7 +55,7 @@ export function LoyaltyBadge({
             tierInfo.colors.border
           )}
         >
-          <Sparkles className="h-3 w-3" />
+          <Sparkles className="size-3" />
           {showPoints
             ? pointsBalance.toLocaleString()
             : tier.charAt(0).toUpperCase() + tier.slice(1)}

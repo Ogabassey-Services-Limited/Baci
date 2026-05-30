@@ -122,7 +122,7 @@ export default function CustomerSettingsPage() {
             href={asRoute('/account')}
             className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
           >
-            <ArrowLeft className="h-4 w-4" />
+            <ArrowLeft className="size-4" />
             <span>Back to account</span>
           </Link>
         </div>
@@ -142,7 +142,7 @@ export default function CustomerSettingsPage() {
           <Card>
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
-                <User className="h-5 w-5" />
+                <User className="size-5" />
                 Profile Information
               </CardTitle>
               <CardDescription>Update your personal details</CardDescription>
@@ -163,7 +163,7 @@ export default function CustomerSettingsPage() {
                 <div className="grid gap-2">
                   <Label htmlFor="email">Email</Label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                     <Input
                       id="email"
                       type="email"
@@ -181,7 +181,7 @@ export default function CustomerSettingsPage() {
                 <div className="grid gap-2">
                   <Label htmlFor="phone">Phone Number</Label>
                   <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                     <Input
                       id="phone"
                       type="tel"
@@ -196,8 +196,8 @@ export default function CustomerSettingsPage() {
                 <Button type="submit" disabled={isSaving}>
                   {isSaving ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Saving...
+                      <Loader2 className="mr-2 size-4 animate-spin" />
+                      Saving…
                     </>
                   ) : (
                     'Save Changes'
@@ -270,7 +270,7 @@ export default function CustomerSettingsPage() {
             </CardHeader>
             <CardContent>
               <Button variant="destructive" onClick={handleLogout}>
-                <LogOut className="h-4 w-4 mr-2" />
+                <LogOut className="size-4 mr-2" />
                 Sign Out
               </Button>
             </CardContent>

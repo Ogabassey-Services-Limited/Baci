@@ -32,8 +32,8 @@ export const SmartQuoteLoader = () => {
                 <div className="absolute inset-0 border-4 border-red-600 border-t-transparent rounded-full animate-spin" />
 
                 {/* Center Icon */}
-                <div className="relative w-12 h-12 flex items-center justify-center bg-white rounded-full shadow-sm z-10 m-2">
-                    <Icon className="text-red-600 w-6 h-6 animate-pulse" />
+                <div className="relative size-12 flex items-center justify-center bg-white rounded-full shadow-sm z-10 m-2">
+                    <Icon className="text-red-600 size-6 animate-pulse" />
                 </div>
             </div>
 

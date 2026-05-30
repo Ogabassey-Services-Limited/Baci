@@ -156,9 +156,9 @@ export function BlogEditorFields({
             onClick={onUploadFeatured}
           >
             {uploadingFeatured ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Loader2 className="mr-2 size-4 animate-spin" />
             ) : (
-              <Upload className="mr-2 h-4 w-4" />
+              <Upload className="mr-2 size-4" />
             )}
             Upload featured image
           </Button>
@@ -207,7 +207,7 @@ export function BlogEditorFields({
 
         <div className="flex justify-end">
           <Button type="button" onClick={onSubmit} disabled={saving}>
-            {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            {saving ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
             {isEditMode ? 'Save Changes' : 'Create Post'}
           </Button>
         </div>

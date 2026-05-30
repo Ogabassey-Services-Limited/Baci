@@ -187,7 +187,7 @@ export const OgabasseyV2CartPage: React.FC<OgabasseyV2CartPageProps> = ({
                           {item.selectedColor && (
                             <div className="flex items-center gap-1 bg-gray-50 border border-gray-100 rounded px-1.5 py-0.5">
                               <span
-                                className="w-2 h-2 rounded-full border border-gray-300"
+                                className="size-2 rounded-full border border-gray-300"
                                 style={{
                                   backgroundColor:
                                     item.selectedColorValue ||
@@ -218,7 +218,7 @@ export const OgabasseyV2CartPage: React.FC<OgabasseyV2CartPageProps> = ({
                       </div>
 
                       {/* Remove Button - Absolute Top Right */}
-                      <button
+                      <button type="button"
                         onClick={() => removeFromCart(item.cartItemId)}
                         className="absolute top-4 right-4 text-red-600 md:hover:text-red-700 p-1.5 md:hover:bg-red-50 rounded-full transition-colors active:bg-red-50"
                         aria-label="Remove item"
@@ -234,7 +234,7 @@ export const OgabasseyV2CartPage: React.FC<OgabasseyV2CartPageProps> = ({
                     <div className="flex items-center justify-between gap-3">
                       {/* Quantity */}
                       <div className="flex items-center border border-gray-200 rounded-lg h-9 md:h-10 bg-gray-50">
-                        <button
+                        <button type="button"
                           onClick={() =>
                             updateQuantity(item.cartItemId, item.quantity - 1)
                           }
@@ -247,7 +247,7 @@ export const OgabasseyV2CartPage: React.FC<OgabasseyV2CartPageProps> = ({
                         <span className="w-8 text-center text-xs md:text-sm font-bold text-gray-900">
                           {item.quantity}
                         </span>
-                        <button
+                        <button type="button"
                           onClick={() =>
                             updateQuantity(item.cartItemId, item.quantity + 1)
                           }
@@ -324,7 +324,7 @@ export const OgabasseyV2CartPage: React.FC<OgabasseyV2CartPageProps> = ({
                             </span>
                           </div>
                         ) : (
-                          <button
+                          <button type="button"
                             onClick={() => openItemNegotiation(item)}
                             className="flex items-center gap-1.5 text-xs font-bold text-red-600 md:hover:bg-red-50 px-2 py-1.5 rounded-lg transition-colors border border-red-100 md:hover:border-red-200 active:bg-red-50 active:scale-95"
                           >
@@ -366,7 +366,7 @@ export const OgabasseyV2CartPage: React.FC<OgabasseyV2CartPageProps> = ({
                 </div>
 
                 <div className="space-y-3">
-                  <button
+                  <button type="button"
                     onClick={openTotalNegotiation}
                     className="w-full bg-gray-100 md:hover:bg-gray-200 text-gray-900 font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-colors border border-gray-200 active:scale-[0.98] active:bg-gray-200"
                   >
@@ -374,7 +374,7 @@ export const OgabasseyV2CartPage: React.FC<OgabasseyV2CartPageProps> = ({
                     Negotiate Total
                   </button>
 
-                  <button className="w-full bg-red-600 md:hover:bg-red-700 text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg md:hover:shadow-red-200 group active:scale-[0.98] active:shadow-none">
+                  <button type="button" className="w-full bg-red-600 md:hover:bg-red-700 text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg md:hover:shadow-red-200 group active:scale-[0.98] active:shadow-none">
                     Proceed to Checkout
                     <ArrowRight
                       size={20}

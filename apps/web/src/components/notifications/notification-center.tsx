@@ -106,7 +106,7 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
               className="h-auto py-1 px-2 text-xs"
               onClick={handleMarkAllAsRead}
             >
-              <CheckCheck className="h-3 w-3 mr-1" />
+              <CheckCheck className="size-3 mr-1" />
               Mark all read
             </Button>
           )}
@@ -213,7 +213,7 @@ function NotificationItem({ notification, onClick }: NotificationItemProps) {
 
             {notification.notification?.action_url && (
               <span className="text-xs text-primary flex items-center">
-                <ExternalLink className="h-3 w-3 mr-0.5" />
+                <ExternalLink className="size-3 mr-0.5" />
                 View
               </span>
             )}

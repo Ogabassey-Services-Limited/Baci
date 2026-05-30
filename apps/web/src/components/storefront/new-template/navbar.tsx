@@ -249,7 +249,7 @@ export const Navbar: React.FC = () => {
                         ))
                       ) : (
                         <div className="p-8 text-center text-gray-500">
-                          <BellOff className="w-8 h-8 mx-auto mb-3 text-gray-300" />
+                          <BellOff className="size-8 mx-auto mb-3 text-gray-300" />
                           <p className="text-sm">No notifications yet</p>
                         </div>
                       )}
@@ -263,7 +263,7 @@ export const Navbar: React.FC = () => {
                 href={asRoute(getHref('/profile'))}
                 className="hidden sm:flex items-center gap-2 p-1.5 pr-3 rounded-full hover:bg-white/10 border border-white/20 hover:border-white/40 transition-all group"
               >
-                <div className="w-8 h-8 bg-white/10 rounded-full flex items-center justify-center text-white group-hover:bg-white group-hover:text-store-primary transition-colors">
+                <div className="size-8 bg-white/10 rounded-full flex items-center justify-center text-white group-hover:bg-white group-hover:text-store-primary transition-colors">
                   <User size={18} />
                 </div>
                 <span className="text-sm font-bold text-white">Account</span>
@@ -275,7 +275,7 @@ export const Navbar: React.FC = () => {
                   <ShoppingCart size={20} />
                 </div>
                 {cartCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-store-primary text-(--store-on-primary,white) text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-white">
+                  <span className="absolute -top-1 -right-1 size-5 bg-store-primary text-(--store-on-primary,white) text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-white">
                     {cartCount}
                   </span>
                 )}

@@ -40,7 +40,7 @@ export function ProductMediaGallery({
       {productData.images.slice(0, 4).map((image, index) => (
         <div
           key={`${image}-${index}`}
-          className="h-24 w-24 shrink-0 rounded-xl bg-gray-100"
+          className="size-24 shrink-0 rounded-xl bg-gray-100"
         />
       ))}
     </div>
@@ -80,7 +80,7 @@ export function ProductMediaGallery({
                 type="button"
                 onClick={() => onSelectImage(index)}
                 aria-label={`View image ${index + 1}`}
-                className={`relative flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gray-50 p-0 transition-all active:scale-95 ${
+                className={`relative flex size-24 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gray-50 p-0 transition-all active:scale-95 ${
                   selectedImage === index
                     ? 'border-2 border-store-primary ring-2 ring-store-primary/20'
                     : 'border-2 border-transparent md:hover:border-gray-200'

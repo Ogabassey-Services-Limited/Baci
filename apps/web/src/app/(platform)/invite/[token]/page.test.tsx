@@ -69,7 +69,7 @@ describe('AcceptInvitePage', () => {
   it('renders the validating state while the invitation request is pending', () => {
     render(<AcceptInvitePage />);
 
-    expect(screen.getByText('Validating invitation...')).toBeInTheDocument();
+    expect(screen.getByText('Validating invitation…')).toBeInTheDocument();
   });
 
   it('renders a local fallback while invite params are pending', () => {

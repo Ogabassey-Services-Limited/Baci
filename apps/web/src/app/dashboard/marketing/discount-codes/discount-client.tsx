@@ -275,25 +275,25 @@ export function DiscountClient({
           </p>
         </div>
         <Button onClick={openCreateDialog}>
-          <PlusCircle className="mr-2 h-4 w-4" />
+          <PlusCircle className="mr-2 size-4" />
           Create Code
         </Button>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
         <Card className="glass hover-lift">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardHeader className="flex flex-row items-center justify-between gap-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Codes</CardTitle>
-            <Tag className="h-4 w-4 text-muted-foreground" />
+            <Tag className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{discountCodes.length}</div>
           </CardContent>
         </Card>
         <Card className="glass hover-lift">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardHeader className="flex flex-row items-center justify-between gap-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Active Codes</CardTitle>
-            <Percent className="h-4 w-4 text-muted-foreground" />
+            <Percent className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
@@ -302,9 +302,9 @@ export function DiscountClient({
           </CardContent>
         </Card>
         <Card className="glass hover-lift">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardHeader className="flex flex-row items-center justify-between gap-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Uses</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <DollarSign className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
@@ -324,7 +324,7 @@ export function DiscountClient({
         <CardContent>
           {discountCodes.length === 0 ? (
             <div className="text-center py-12">
-              <Tag className="mx-auto h-12 w-12 text-muted-foreground" />
+              <Tag className="mx-auto size-12 text-muted-foreground" />
               <h3 className="mt-4 text-lg font-semibold">
                 No discount codes yet
               </h3>
@@ -332,7 +332,7 @@ export function DiscountClient({
                 Create your first discount code to start offering promotions.
               </p>
               <Button onClick={openCreateDialog} className="mt-4">
-                <PlusCircle className="mr-2 h-4 w-4" />
+                <PlusCircle className="mr-2 size-4" />
                 Create Code
               </Button>
             </div>
@@ -359,7 +359,7 @@ export function DiscountClient({
                         <CopyButton
                           value={code.code}
                           variant="ghost"
-                          className="h-6 w-6"
+                          className="size-6"
                           label="Copy code"
                         />
                       </div>
@@ -398,7 +398,7 @@ export function DiscountClient({
                           onClick={() => openEditDialog(code)}
                           aria-label={`Edit ${code.code}`}
                         >
-                          <Edit className="h-4 w-4" />
+                          <Edit className="size-4" />
                         </Button>
                         <Button
                           variant="ghost"
@@ -406,7 +406,7 @@ export function DiscountClient({
                           onClick={() => openDeleteDialog(code.id, code.code)}
                           aria-label={`Delete ${code.code}`}
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="size-4" />
                         </Button>
                       </div>
                     </TableCell>
@@ -613,7 +613,7 @@ export function DiscountClient({
                 />
               </div>
 
-              <div className="col-span-2 flex items-center space-x-2">
+              <div className="col-span-2 flex items-center gap-x-2">
                 <Switch
                   id="is_active"
                   checked={formData.is_active}
@@ -638,7 +638,7 @@ export function DiscountClient({
                 {isPending ? (
                   <>
                     <BagLoader size={16} />
-                    Saving...
+                    Saving…
                   </>
                 ) : (
                   <>{editingCode ? 'Update' : 'Create'} Code</>
@@ -679,11 +679,11 @@ export function DiscountClient({
               {isPending ? (
                 <>
                   <BagLoader size={16} />
-                  Deleting...
+                  Deleting…
                 </>
               ) : (
                 <>
-                  <Trash2 className="h-4 w-4 mr-2" />
+                  <Trash2 className="size-4 mr-2" />
                   Delete
                 </>
               )}

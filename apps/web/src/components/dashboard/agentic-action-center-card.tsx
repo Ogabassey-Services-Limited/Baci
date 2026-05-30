@@ -110,7 +110,7 @@ export function AgenticActionCenterCard({
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-1">
             <CardTitle className="flex items-center gap-2 text-base">
-              <Bot className="h-5 w-5 text-primary" />
+              <Bot className="size-5 text-primary" />
               Agent action center
             </CardTitle>
             <CardDescription>{statusDescription}</CardDescription>
@@ -214,7 +214,7 @@ export function AgenticActionCenterCard({
                   key={action.code}
                 >
                   <div className="flex min-w-0 gap-3">
-                    <Icon className="mt-0.5 h-4 w-4 shrink-0" />
+                    <Icon className="mt-0.5 size-4 shrink-0" />
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="text-sm font-medium">{tone.label}</p>
@@ -238,7 +238,7 @@ export function AgenticActionCenterCard({
                     <Button asChild size="sm" variant="outline">
                       <Link href={href}>
                         Review
-                        <ExternalLink className="ml-2 h-3.5 w-3.5" />
+                        <ExternalLink className="ml-2 size-3.5" />
                       </Link>
                     </Button>
                   )}

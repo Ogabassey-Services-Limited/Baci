@@ -23,11 +23,11 @@ const PasswordInput = React.forwardRef<HTMLInputElement, InputProps>(
         >
           {showPassword ? (
             <EyeOff
-              className="h-4 w-4 text-muted-foreground"
+              className="size-4 text-muted-foreground"
               aria-hidden="true"
             />
           ) : (
-            <Eye className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+            <Eye className="size-4 text-muted-foreground" aria-hidden="true" />
           )}
         </button>
       </div>

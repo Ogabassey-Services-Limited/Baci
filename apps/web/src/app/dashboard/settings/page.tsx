@@ -75,7 +75,7 @@ export default async function SettingsPage() {
         <Card className="glass">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <CreditCard className="h-5 w-5" />
+              <CreditCard className="size-5" />
               Payment Settings
             </CardTitle>
             <CardDescription>
@@ -91,7 +91,7 @@ export default async function SettingsPage() {
             >
               <Link href="/dashboard/settings/payments">
                 <span>Manage Payment Settings</span>
-                <ChevronRight className="h-4 w-4" />
+                <ChevronRight className="size-4" />
               </Link>
             </Button>
           </CardContent>
@@ -101,7 +101,7 @@ export default async function SettingsPage() {
           <Card className="glass">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <BadgeCheck className="h-5 w-5" />
+                <BadgeCheck className="size-5" />
                 Business Verification (KYC)
               </CardTitle>
               <CardDescription>
@@ -117,7 +117,7 @@ export default async function SettingsPage() {
               >
                 <Link href="/dashboard/settings/kyc">
                   <span>Manage Verification</span>
-                  <ChevronRight className="h-4 w-4" />
+                  <ChevronRight className="size-4" />
                 </Link>
               </Button>
             </CardContent>
@@ -128,7 +128,7 @@ export default async function SettingsPage() {
         <Card className="glass">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Receipt className="h-5 w-5" />
+              <Receipt className="size-5" />
               Tax Settings
             </CardTitle>
             <CardDescription>
@@ -143,7 +143,7 @@ export default async function SettingsPage() {
             >
               <Link href="/dashboard/settings/tax">
                 <span>Manage Tax Settings</span>
-                <ChevronRight className="h-4 w-4" />
+                <ChevronRight className="size-4" />
               </Link>
             </Button>
           </CardContent>
@@ -153,7 +153,7 @@ export default async function SettingsPage() {
         <Card className="glass">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <ShieldCheck className="h-5 w-5" />
+              <ShieldCheck className="size-5" />
               Trust & Policies
             </CardTitle>
             <CardDescription>
@@ -169,7 +169,7 @@ export default async function SettingsPage() {
             >
               <Link href="/dashboard/settings/trust">
                 <span>Manage Trust & Policies</span>
-                <ChevronRight className="h-4 w-4" />
+                <ChevronRight className="size-4" />
               </Link>
             </Button>
           </CardContent>
@@ -179,7 +179,7 @@ export default async function SettingsPage() {
         <Card className="glass">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5" />
+              <Users className="size-5" />
               Team Management
             </CardTitle>
             <CardDescription>
@@ -195,7 +195,7 @@ export default async function SettingsPage() {
             >
               <Link href="/dashboard/staff">
                 <span>Manage Team Members</span>
-                <ChevronRight className="h-4 w-4" />
+                <ChevronRight className="size-4" />
               </Link>
             </Button>
           </CardContent>
@@ -205,7 +205,7 @@ export default async function SettingsPage() {
         <Card className="glass">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Shield className="h-5 w-5" />
+              <Shield className="size-5" />
               Account Security
             </CardTitle>
             <CardDescription>
@@ -220,7 +220,7 @@ export default async function SettingsPage() {
             >
               <Link href="/dashboard/settings/security">
                 <span>Manage Security Settings</span>
-                <ChevronRight className="h-4 w-4" />
+                <ChevronRight className="size-4" />
               </Link>
             </Button>
           </CardContent>

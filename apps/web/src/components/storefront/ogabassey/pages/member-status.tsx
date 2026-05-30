@@ -187,7 +187,7 @@ export const OgabasseyV2MemberStatus: React.FC = () => {
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
               <div className="space-y-6">
                 <div className="flex gap-4">
-                  <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center shrink-0">
+                  <div className="size-10 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center shrink-0">
                     <Gift size={20} />
                   </div>
                   <div>
@@ -208,7 +208,7 @@ export const OgabasseyV2MemberStatus: React.FC = () => {
                 </div>
 
                 <div className="flex gap-4">
-                  <div className="w-10 h-10 bg-green-50 text-green-600 rounded-full flex items-center justify-center shrink-0">
+                  <div className="size-10 bg-green-50 text-green-600 rounded-full flex items-center justify-center shrink-0">
                     <UserCheck size={20} />
                   </div>
                   <div>
@@ -229,7 +229,7 @@ export const OgabasseyV2MemberStatus: React.FC = () => {
                 </div>
 
                 <div className="flex gap-4">
-                  <div className="w-10 h-10 bg-purple-50 text-purple-600 rounded-full flex items-center justify-center shrink-0">
+                  <div className="size-10 bg-purple-50 text-purple-600 rounded-full flex items-center justify-center shrink-0">
                     <Star size={20} />
                   </div>
                   <div>
@@ -311,7 +311,7 @@ export const OgabasseyV2MemberStatus: React.FC = () => {
                           key={benefit}
                           className={`text-xs flex items-start gap-2 ${isUnlocked ? 'text-gray-600' : 'text-gray-400'}`}
                         >
-                          <span className="mt-0.5 w-1 h-1 rounded-full bg-gray-300 shrink-0" />
+                          <span className="mt-0.5 size-1 rounded-full bg-gray-300 shrink-0" />
                           {benefit}
                         </li>
                       ))}

@@ -69,7 +69,7 @@ export function BuilderSidebar({
       <div className="w-[72px] flex flex-col items-center py-4 border-r bg-white z-20">
         <div className="mb-6">
           {/* Logo placeholder or Home icon */}
-          <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-primary font-bold">
+          <div className="size-8 bg-primary/10 rounded-full flex items-center justify-center text-primary font-bold">
             B
           </div>
         </div>
@@ -94,7 +94,7 @@ export function BuilderSidebar({
             >
               <item.icon
                 className={cn(
-                  'w-5 h-5',
+                  'size-5',
                   activeTab === item.id && 'fill-current opacity-20'
                 )}
               />
@@ -108,7 +108,7 @@ export function BuilderSidebar({
             type="button"
             className="flex flex-col items-center justify-center w-full h-[60px] text-muted-foreground hover:text-foreground gap-1"
           >
-            <MessageSquare className="w-5 h-5" />
+            <MessageSquare className="size-5" />
             <span className="text-[10px]">Feedback</span>
           </button>
         </div>
@@ -132,7 +132,7 @@ export function BuilderSidebar({
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8"
+              className="size-8"
               onClick={() => setActiveTab(null)}
             >
               <span className="sr-only">Close</span>
@@ -142,7 +142,7 @@ export function BuilderSidebar({
                 viewBox="0 0 15 15"
                 fill="none"
                 xmlns="http://www.w3.org/2000/svg"
-                className="h-4 w-4"
+                className="size-4"
                 aria-hidden="true"
               >
                 <path

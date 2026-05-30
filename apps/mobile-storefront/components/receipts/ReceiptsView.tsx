@@ -131,7 +131,7 @@ export function ReceiptsView({
           <Text
             style={[styles.generatingText, { color: colors.textSecondary }]}
           >
-            Loading receipt...
+            Loading receipt…
           </Text>
         </View>
       ) : null}

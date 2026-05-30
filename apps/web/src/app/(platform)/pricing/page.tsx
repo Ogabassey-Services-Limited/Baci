@@ -83,7 +83,7 @@ export default function PricingPage() {
           <section className="container px-4 md:px-6">
             <div className="text-center mb-16 max-w-3xl mx-auto">
               <div className="inline-flex items-center gap-2 px-4 py-2 bg-accent/10 rounded-full text-accent-foreground text-sm font-medium mb-6">
-                <Sparkles className="w-4 h-4" />
+                <Sparkles className="size-4" />
                 <span>Simple Pricing</span>
               </div>
               <h1 className="text-4xl md:text-6xl font-bold tracking-tight mb-6">
@@ -124,8 +124,8 @@ export default function PricingPage() {
                   <ul className="space-y-4 mb-8 flex-1">
                     {plan.features.map((feature) => (
                       <li key={feature} className="flex items-center gap-3">
-                        <div className="w-6 h-6 rounded-full bg-green-100 text-green-600 flex items-center justify-center shrink-0">
-                          <Check className="w-4 h-4" />
+                        <div className="size-6 rounded-full bg-green-100 text-green-600 flex items-center justify-center shrink-0">
+                          <Check className="size-4" />
                         </div>
                         <span className="text-sm">{feature}</span>
                       </li>

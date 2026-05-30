@@ -266,8 +266,8 @@ export function CryptoCheckoutPage() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-xl shadow-lg max-w-md w-full p-8 text-center">
-          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <AlertCircle className="w-8 h-8 text-red-600" />
+          <div className="size-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <AlertCircle className="size-8 text-red-600" />
           </div>
           <h2 className="text-xl font-bold text-gray-900 mb-2">
             Payment Initialization Failed
@@ -289,16 +289,16 @@ export function CryptoCheckoutPage() {
     return (
       <div className="min-h-screen bg-white flex flex-col items-center justify-center p-4">
         <div className="text-center">
-          <div className="relative w-20 h-20 mx-auto mb-6">
+          <div className="relative size-20 mx-auto mb-6">
             <div className="absolute inset-0 border-4 border-gray-100 rounded-full" />
             <div className="absolute inset-0 border-4 border-emerald-500 rounded-full border-t-transparent animate-spin" />
-            <ShieldCheck className="absolute inset-0 m-auto text-emerald-500 w-8 h-8" />
+            <ShieldCheck className="absolute inset-0 m-auto text-emerald-500 size-8" />
           </div>
           <h1 className="text-2xl font-bold text-gray-900 mb-2">
             Preparing Crypto Payment
           </h1>
           <p className="text-gray-500">
-            Generating wallet address...
+            Generating wallet address…
           </p>
           <p className="text-xs text-gray-400 mt-8">
             Please do not close this window.
@@ -315,7 +315,7 @@ export function CryptoCheckoutPage() {
       <div className="bg-white rounded-2xl shadow-xl max-w-md w-full overflow-hidden">
         {/* Header */}
         <div className="bg-linear-to-r from-emerald-600 to-emerald-500 p-4 flex items-center gap-2">
-          <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+          <div className="size-8 bg-white/20 rounded-lg flex items-center justify-center">
             <ShieldCheck size={16} className="text-white" />
           </div>
           <h2 className="font-bold text-white">Pay with Crypto</h2>
@@ -331,7 +331,7 @@ export function CryptoCheckoutPage() {
                   `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${cryptoData.address}&margin=10`
                 }
                 alt="Scan to pay"
-                className="w-24 h-24"
+                className="size-24"
                 loading="lazy"
               />
             </div>
@@ -346,7 +346,7 @@ export function CryptoCheckoutPage() {
                 </p>
               </div>
               <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-gray-100 border border-gray-200">
-                <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                <span className="size-1.5 rounded-full bg-green-500 animate-pulse" />
                 <p className="text-xs font-semibold text-gray-700">
                   Network: {chainLabel}
                 </p>
@@ -400,7 +400,7 @@ export function CryptoCheckoutPage() {
           {/* Confirmation Time */}
           {cryptoData.confirmation_time && (
             <div className="flex items-center gap-3 bg-emerald-50 rounded-xl p-4 border border-emerald-100">
-              <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center shrink-0">
+              <div className="size-10 bg-emerald-100 rounded-full flex items-center justify-center shrink-0">
                 <Clock size={20} className="text-emerald-600" />
               </div>
               <div>
@@ -425,7 +425,7 @@ export function CryptoCheckoutPage() {
               <div className="flex items-center justify-center gap-2 mb-2">
                 <Loader2 size={18} className="animate-spin text-blue-600" />
                 <span className="text-sm font-medium text-blue-800">
-                  Checking payment status...
+                  Checking payment status…
                 </span>
               </div>
               <p className="text-xs text-blue-600">
@@ -437,7 +437,7 @@ export function CryptoCheckoutPage() {
           {status === 'confirmed' && (
             <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-center">
               <p className="text-sm font-medium text-green-800">
-                Payment confirmed! Redirecting...
+                Payment confirmed! Redirecting…
               </p>
             </div>
           )}
@@ -464,7 +464,7 @@ export function CryptoCheckoutPage() {
             {status === 'verifying' ? (
               <span className="flex items-center justify-center gap-2">
                 <Loader2 size={18} className="animate-spin" />
-                Verifying Payment...
+                Verifying Payment…
               </span>
             ) : (
               "I've Sent the Payment"

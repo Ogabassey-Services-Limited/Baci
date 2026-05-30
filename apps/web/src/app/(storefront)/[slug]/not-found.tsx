@@ -53,7 +53,7 @@ export default function StorefrontNotFound() {
               size="lg"
               className="w-full sm:w-auto"
             >
-              <Home className="mr-2 h-4 w-4" />
+              <Home className="mr-2 size-4" />
               Back to {storeName}
             </ThemedButton>
           </Link>
@@ -64,7 +64,7 @@ export default function StorefrontNotFound() {
               size="lg"
               className="w-full sm:w-auto"
             >
-              <Search className="mr-2 h-4 w-4" />
+              <Search className="mr-2 size-4" />
               Browse Products
             </ThemedButton>
           </Link>
@@ -80,7 +80,7 @@ export default function StorefrontNotFound() {
               href={asRoute(`${basePath || ''}/`)}
               className="text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
             >
-              <ArrowLeft className="h-3 w-3" /> Home
+              <ArrowLeft className="size-3" /> Home
             </Link>
             <span className="text-border">|</span>
             <Link

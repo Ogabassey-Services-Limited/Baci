@@ -174,11 +174,11 @@ export function OrderCard({
                   <span className="mr-1 font-semibold">{contextLabel}</span>
                 )}
                 {isUrgent ? (
-                  <AlertTriangle className="h-3 w-3" />
+                  <AlertTriangle className="size-3" />
                 ) : isWarning ? (
-                  <Clock className="h-3 w-3" />
+                  <Clock className="size-3" />
                 ) : (
-                  <Clock className="h-3 w-3 opacity-50" />
+                  <Clock className="size-3 opacity-50" />
                 )}
                 {timeDisplay}
               </div>
@@ -189,7 +189,7 @@ export function OrderCard({
                 visibleItems.map((item) => (
                   <div
                     key={item.id}
-                    className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted dark:border-slate-800 dark:bg-slate-900"
+                    className="relative flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted dark:border-slate-800 dark:bg-slate-900"
                   >
                     {item.image ? (
                       <Image
@@ -200,7 +200,7 @@ export function OrderCard({
                         className="object-cover"
                       />
                     ) : (
-                      <Box className="h-5 w-5 text-muted-foreground/50" />
+                      <Box className="size-5 text-muted-foreground/50" />
                     )}
                     {item.quantity > 1 && (
                       <div className="absolute -bottom-1 -right-1 rounded-full bg-foreground px-1 py-0.5 text-[10px] font-bold text-background shadow-sm">
@@ -216,7 +216,7 @@ export function OrderCard({
               )}
 
               {remainingItems > 0 && (
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-dashed border-muted-foreground/30 bg-muted/50 text-xs font-medium text-muted-foreground dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-400">
+                <div className="flex size-12 shrink-0 items-center justify-center rounded-lg border border-dashed border-muted-foreground/30 bg-muted/50 text-xs font-medium text-muted-foreground dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-400">
                   +{remainingItems}
                 </div>
               )}
@@ -265,14 +265,14 @@ export function OrderCard({
               variant="ghost"
               size="icon"
               onClick={toggleExpanded}
-              className="h-9 w-9 shrink-0 rounded-lg"
+              className="size-9 shrink-0 rounded-lg"
               aria-label={`${isExpanded ? 'Collapse' : 'Expand'} details for order ${order.orderNumber}`}
               data-no-card-toggle="true"
             >
               {isExpanded ? (
-                <ChevronUp className="h-4 w-4" />
+                <ChevronUp className="size-4" />
               ) : (
-                <ChevronDown className="h-4 w-4" />
+                <ChevronDown className="size-4" />
               )}
             </Button>
           </div>

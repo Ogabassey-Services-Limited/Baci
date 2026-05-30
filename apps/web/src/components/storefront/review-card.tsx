@@ -102,7 +102,7 @@ export function ReviewCard({ review, className }: ReviewCardProps) {
             <StarRating rating={review.rating} size="sm" />
             {review.verified_purchase && (
               <span className="inline-flex items-center gap-1 text-xs text-green-600 font-medium">
-                <CheckCircle className="w-3 h-3" />
+                <CheckCircle className="size-3" />
                 Verified Purchase
               </span>
             )}
@@ -128,7 +128,7 @@ export function ReviewCard({ review, className }: ReviewCardProps) {
           {review.merchant_response && (
             <div className="mt-4 bg-muted/50 rounded-lg p-4">
               <div className="flex items-center gap-2 text-sm font-medium mb-2">
-                <MessageSquare className="w-4 h-4" />
+                <MessageSquare className="size-4" />
                 Store Response
               </div>
               <p className="text-sm text-muted-foreground">
@@ -147,9 +147,7 @@ export function ReviewCard({ review, className }: ReviewCardProps) {
           disabled={hasVoted || isVoting}
           className={cn('text-muted-foreground', hasVoted && 'text-primary')}
         >
-          <ThumbsUp
-            className={cn('w-4 h-4 mr-1', hasVoted && 'fill-current')}
-          />
+          <ThumbsUp className={cn('size-4 mr-1', hasVoted && 'fill-current')} />
           Helpful ({helpfulCount})
         </Button>
       </div>

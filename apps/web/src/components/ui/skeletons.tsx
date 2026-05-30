@@ -56,7 +56,7 @@ export function ProductCardSkeleton({ className }: { className?: string }) {
         <div className="h-3 w-16 bg-gray-200 rounded" />
         <div className="h-3 w-12 bg-gray-200 rounded" />
       </div>
-      <span className="sr-only">Loading product details...</span>
+      <span className="sr-only">Loading product details…</span>
     </div>
   );
 }
@@ -152,7 +152,7 @@ export function StatsCardSkeleton({ className }: { className?: string }) {
     <div className={cn('p-6 rounded-lg border bg-card', className)}>
       <div className="flex items-center justify-between mb-4">
         <Skeleton className="h-4 w-24" />
-        <Skeleton className="h-8 w-8 rounded-full" />
+        <Skeleton className="size-8 rounded-full" />
       </div>
       <Skeleton className="h-8 w-32 mb-2" />
       <Skeleton className="h-3 w-20" />
@@ -202,7 +202,7 @@ export function ProductDetailSkeleton({ className }: { className?: string }) {
         <div className="flex gap-2">
           {Array.from({ length: 4 }).map((_, i) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: Skeleton
-            <div key={i} className="w-20 h-20 rounded-md bg-gray-200" />
+            <div key={i} className="size-20 rounded-md bg-gray-200" />
           ))}
         </div>
       </div>
@@ -222,7 +222,7 @@ export function ProductDetailSkeleton({ className }: { className?: string }) {
           <div className="h-12 flex-1 bg-gray-200 rounded" />
         </div>
       </div>
-      <span className="sr-only">Loading product information...</span>
+      <span className="sr-only">Loading product information…</span>
     </div>
   );
 }
@@ -233,7 +233,7 @@ export function ProductDetailSkeleton({ className }: { className?: string }) {
 export function CartItemSkeleton({ className }: { className?: string }) {
   return (
     <div className={cn('flex gap-4 p-4 border-b', className)}>
-      <Skeleton className="w-20 h-20 rounded-md shrink-0" />
+      <Skeleton className="size-20 rounded-md shrink-0" />
       <div className="flex-1 space-y-2">
         <Skeleton className="h-4 w-3/4" />
         <Skeleton className="h-4 w-1/4" />
@@ -363,8 +363,8 @@ export function StorefrontHeaderSkeleton({
             ))}
           </div>
           <div className="flex gap-4">
-            <div className="h-10 w-10 rounded-full bg-gray-200" />
-            <div className="h-10 w-10 rounded-full bg-gray-200" />
+            <div className="size-10 rounded-full bg-gray-200" />
+            <div className="size-10 rounded-full bg-gray-200" />
           </div>
         </div>
       </div>
@@ -467,9 +467,9 @@ export function ProductsPageSkeleton({ className }: { className?: string }) {
       <div className="flex justify-between items-center">
         <Skeleton className="h-4 w-48" />
         <div className="flex gap-2">
-          <Skeleton className="h-10 w-10" />
-          <Skeleton className="h-10 w-10" />
-          <Skeleton className="h-10 w-10" />
+          <Skeleton className="size-10" />
+          <Skeleton className="size-10" />
+          <Skeleton className="size-10" />
         </div>
       </div>
     </div>

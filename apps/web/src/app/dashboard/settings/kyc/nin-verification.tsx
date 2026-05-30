@@ -84,7 +84,7 @@ export function NinVerification({
   if (verified) {
     return (
       <Alert className="border-green-200 bg-green-50 text-green-800">
-        <CheckCircle2 className="h-4 w-4 text-green-600" />
+        <CheckCircle2 className="size-4 text-green-600" />
         <AlertTitle>Verified</AlertTitle>
         <AlertDescription>Your NIN has been verified.</AlertDescription>
       </Alert>
@@ -213,8 +213,8 @@ export function NinVerification({
           >
             {form.formState.isSubmitting ? (
               <>
-                <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                Verifying...
+                <span className="mr-2 size-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                Verifying…
               </>
             ) : (
               'Verify NIN'

@@ -94,7 +94,7 @@ function SetupChecklistMobileWidget({
     >
       <div className="flex items-center gap-4">
         {/* Progress Ring */}
-        <div className="relative h-12 w-12 shrink-0">
+        <div className="relative size-12 shrink-0">
           <svg
             className="h-full w-full -rotate-90 text-background"
             viewBox="0 0 36 36"
@@ -137,8 +137,8 @@ function SetupChecklistMobileWidget({
         </div>
       </div>
 
-      <div className="h-8 w-8 rounded-full bg-background/50 flex items-center justify-center">
-        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+      <div className="size-8 rounded-full bg-background/50 flex items-center justify-center">
+        <ChevronRight className="size-4 text-muted-foreground" />
       </div>
     </button>
   );
@@ -236,7 +236,7 @@ export function SetupChecklist({
       <Card className={cn(compact && 'border-0 shadow-none')}>
         <CardContent className="py-8">
           <div className="flex items-center justify-center">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            <div className="size-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
           </div>
         </CardContent>
       </Card>
@@ -268,7 +268,7 @@ export function SetupChecklist({
       {!readiness.isReady && requiredIncomplete.length > 0 && (
         <div className="mb-4 p-3 rounded-lg bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200 text-sm">
           <div className="flex items-center gap-2 font-medium">
-            <AlertCircle className="h-4 w-4" />
+            <AlertCircle className="size-4" />
             {requiredIncomplete.length} required{' '}
             {requiredIncomplete.length === 1 ? 'item' : 'items'} remaining
           </div>
@@ -307,7 +307,7 @@ export function SetupChecklist({
             : `Show ${incompleteItems.length - 3} more items`}
           <ArrowRight
             className={cn(
-              'h-3 w-3 transition-transform',
+              'size-3 transition-transform',
               showAll && 'rotate-90'
             )}
           />
@@ -317,7 +317,7 @@ export function SetupChecklist({
       {/* All done state */}
       {incompleteItems.length === 0 && (
         <div className="py-8 text-center">
-          <CheckCircle2 className="h-12 w-12 text-green-600 mx-auto mb-3" />
+          <CheckCircle2 className="size-12 text-green-600 mx-auto mb-3" />
           <p className="font-medium text-lg">All set up!</p>
           <p className="text-muted-foreground text-sm">
             Your store is fully configured and ready for customers.
@@ -335,17 +335,17 @@ export function SetupChecklist({
           <h3 className="text-lg font-semibold flex items-center gap-2">
             {readiness.isPublished ? (
               <>
-                <CheckCircle2 className="h-5 w-5 text-green-600" />
+                <CheckCircle2 className="size-5 text-green-600" />
                 Store is Live
               </>
             ) : readiness.isReady ? (
               <>
-                <Rocket className="h-5 w-5 text-primary" />
+                <Rocket className="size-5 text-primary" />
                 Ready to Launch
               </>
             ) : (
               <>
-                <AlertCircle className="h-5 w-5 text-amber-600" />
+                <AlertCircle className="size-5 text-amber-600" />
                 Store Setup
               </>
             )}
@@ -364,9 +364,9 @@ export function SetupChecklist({
             className="shrink-0"
           >
             {publishing ? (
-              <div className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent mr-2" />
+              <div className="size-3 animate-spin rounded-full border-2 border-white border-t-transparent mr-2" />
             ) : (
-              <Rocket className="h-3 w-3 mr-2" />
+              <Rocket className="size-3 mr-2" />
             )}
             Publish
           </Button>
@@ -425,7 +425,7 @@ export function SetupChecklist({
             className="absolute top-4 right-4 p-1 rounded-full hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             aria-label="Dismiss setup checklist"
           >
-            <X className="h-4 w-4 text-muted-foreground" />
+            <X className="size-4 text-muted-foreground" />
           </button>
         )}
 
@@ -435,17 +435,17 @@ export function SetupChecklist({
               <CardTitle className="flex items-center gap-2">
                 {readiness.isPublished ? (
                   <>
-                    <CheckCircle2 className="h-5 w-5 text-green-600" />
+                    <CheckCircle2 className="size-5 text-green-600" />
                     Store is Live
                   </>
                 ) : readiness.isReady ? (
                   <>
-                    <Rocket className="h-5 w-5 text-primary" />
+                    <Rocket className="size-5 text-primary" />
                     Ready to Launch
                   </>
                 ) : (
                   <>
-                    <AlertCircle className="h-5 w-5 text-amber-600" />
+                    <AlertCircle className="size-5 text-amber-600" />
                     Complete Your Store Setup
                   </>
                 )}
@@ -467,9 +467,9 @@ export function SetupChecklist({
                 className="shrink-0"
               >
                 {publishing ? (
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent mr-2" />
+                  <div className="size-4 animate-spin rounded-full border-2 border-white border-t-transparent mr-2" />
                 ) : (
-                  <Rocket className="h-4 w-4 mr-2" />
+                  <Rocket className="size-4 mr-2" />
                 )}
                 Publish Store
               </Button>
@@ -530,10 +530,10 @@ function SetupItemRow({ item, isNext }: { item: SetupItem; isNext?: boolean }) {
         )}
       >
         {item.completed ? (
-          <CheckCircle2 className="h-4 w-4" />
+          <CheckCircle2 className="size-4" />
         ) : (
           <Circle
-            className={cn('h-4 w-4', isNext ? 'text-primary' : 'text-gray-400')}
+            className={cn('size-4', isNext ? 'text-primary' : 'text-gray-400')}
           />
         )}
       </div>
@@ -541,7 +541,7 @@ function SetupItemRow({ item, isNext }: { item: SetupItem; isNext?: boolean }) {
       {/* Category icon */}
       <div
         className={cn(
-          'shrink-0 h-8 w-8 rounded-lg flex items-center justify-center',
+          'shrink-0 size-8 rounded-lg flex items-center justify-center',
           item.completed
             ? 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-400'
             : isNext
@@ -549,7 +549,7 @@ function SetupItemRow({ item, isNext }: { item: SetupItem; isNext?: boolean }) {
               : 'bg-muted text-muted-foreground'
         )}
       >
-        <Icon className="h-4 w-4" />
+        <Icon className="size-4" />
       </div>
 
       {/* Content */}
@@ -589,7 +589,7 @@ function SetupItemRow({ item, isNext }: { item: SetupItem; isNext?: boolean }) {
       {/* Arrow */}
       <ArrowRight
         className={cn(
-          'shrink-0 h-4 w-4 transition-transform group-hover:translate-x-1',
+          'shrink-0 size-4 transition-transform group-hover:translate-x-1',
           item.completed
             ? 'text-green-600 dark:text-green-400'
             : isNext

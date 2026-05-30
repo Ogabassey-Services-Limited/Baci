@@ -160,21 +160,13 @@ export async function OgabasseyHomeDynamicContent({
 
   return (
     <>
-      <script
-        type="application/ld+json"
-        // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema is escaped with safeJsonLdStringify for script context
-        dangerouslySetInnerHTML={{
-          __html: safeJsonLdStringify(buildOrganizationGraphSchema(merchant)),
-        }}
-      />
+      <script type="application/ld+json">
+        {safeJsonLdStringify(buildOrganizationGraphSchema(merchant))}
+      </script>
       {homeCollectionSchema ? (
-        <script
-          type="application/ld+json"
-          // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema is escaped with safeJsonLdStringify for script context
-          dangerouslySetInnerHTML={{
-            __html: safeJsonLdStringify(homeCollectionSchema),
-          }}
-        />
+        <script type="application/ld+json">
+          {safeJsonLdStringify(homeCollectionSchema)}
+        </script>
       ) : null}
       <AnalyticsProvider />
       <OgabasseyHomePage

@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import Constants from 'expo-constants';
 import { type Href, router } from 'expo-router';
 import { useEffect, useRef } from 'react';
@@ -183,7 +183,7 @@ export function Header({
                     value={searchQuery}
                     onChangeText={onSearchQueryChange}
                     onSubmitEditing={onSearchSubmit}
-                    placeholder="Search products..."
+                    placeholder="Search products…"
                     placeholderTextColor={colors.placeholder}
                     returnKeyType="search"
                     selectTextOnFocus={true}
@@ -273,7 +273,7 @@ export function Header({
         >
           <Ionicons name="search" size={18} color={colors.placeholder} />
           <Text style={styles.defaultSearchPlaceholder}>
-            Search our collection...
+            Search our collection…
           </Text>
         </Pressable>
       )}
