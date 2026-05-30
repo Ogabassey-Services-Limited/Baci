@@ -28,4 +28,12 @@ describe('cart query cache helpers', () => {
   it('returns undefined when cached products are missing', () => {
     expect(getCachedProductStock(queryClient, 'product-2')).toBeUndefined();
   });
+
+  it('returns undefined when the cached products do not include the product', () => {
+    queryClient.setQueryData(['products', 'featured'], [
+      { id: 'product-1', stock_quantity: 4 },
+    ]);
+
+    expect(getCachedProductStock(queryClient, 'product-999')).toBeUndefined();
+  });
 });
