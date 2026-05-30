@@ -1,10 +1,13 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import { Suspense } from 'react';
+import * as ReactDOM from 'react-dom';
 import './skip-link.css';
 import { RootDynamicBody } from '@/app/root-dynamic-body';
 import { Toaster } from '@/components/ui/toaster';
 import { PLATFORM_CONFIG } from '@/config/platform';
+
+const CLOUDINARY_ORIGIN = 'https://res.cloudinary.com';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -106,20 +109,10 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  ReactDOM.prefetchDNS(CLOUDINARY_ORIGIN);
+
   return (
     <html lang="en" suppressHydrationWarning data-scroll-behavior="smooth">
-      <head>
-        {/*
-          Font loading is handled automatically by next/font/google (Inter).
-          No manual preconnect/preload needed - Next.js optimizes this.
-        */}
-
-        {/*
-          DNS prefetch hints for third-party origins.
-          Note: Supabase URL is handled via env vars, no hardcoding needed.
-        */}
-        <link rel="dns-prefetch" href="https://res.cloudinary.com" />
-      </head>
       <body className={inter.variable} suppressHydrationWarning>
         {/* Skip link for accessibility - allows keyboard users to bypass navigation */}
         <a href="#main-content" className="baci-skip-link">
