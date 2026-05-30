@@ -976,20 +976,13 @@ async function CategoryProductPageContent({
   return (
     <>
       {/* nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml - JSON-LD is sanitized and not executed */}
-      <script
-        type="application/ld+json"
-        // nosemgrep: react-dangerouslysetinnerhtml, typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
-        // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema sanitized with safeJsonLdStringify()
-        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(productSchema) }}
-      />
+      <script type="application/ld+json">
+        {safeJsonLdStringify(productSchema)}
+      </script>
       {/* nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml - JSON-LD is sanitized and not executed */}
-      <script
-        type="application/ld+json"
-        // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema sanitized with safeJsonLdStringify()
-        dangerouslySetInnerHTML={{
-          __html: safeJsonLdStringify(breadcrumbSchema),
-        }} // nosemgrep: react-dangerouslysetinnerhtml, typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
-      />
+      <script type="application/ld+json">
+        {safeJsonLdStringify(breadcrumbSchema)}
+      </script>
       {/* Hidden crawlable summary without a second page-level heading */}
       <article className="sr-only" aria-label={`${product.name} summary`}>
         <p>{priceSeoCopy.answer}</p>

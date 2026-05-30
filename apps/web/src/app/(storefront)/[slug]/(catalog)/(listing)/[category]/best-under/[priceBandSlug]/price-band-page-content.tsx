@@ -72,20 +72,12 @@ export async function PriceBandPageContent({
 
   return (
     <>
-      <script
-        type="application/ld+json"
-        // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema sanitized
-        dangerouslySetInnerHTML={{
-          __html: safeJsonLdStringify(schemas.breadcrumb),
-        }}
-      />
-      <script
-        type="application/ld+json"
-        // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema sanitized
-        dangerouslySetInnerHTML={{
-          __html: safeJsonLdStringify(schemas.itemList),
-        }}
-      />
+      <script type="application/ld+json">
+        {safeJsonLdStringify(schemas.breadcrumb)}
+      </script>
+      <script type="application/ld+json">
+        {safeJsonLdStringify(schemas.itemList)}
+      </script>
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <header className="space-y-3">
           <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">

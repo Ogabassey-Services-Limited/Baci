@@ -137,20 +137,12 @@ export async function SearchPageContent({
 
   return (
     <>
-      <script
-        type="application/ld+json"
-        // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema serialized safely
-        dangerouslySetInnerHTML={{
-          __html: safeJsonLdStringify(breadcrumbSchema),
-        }}
-      />
-      <script
-        type="application/ld+json"
-        // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema serialized safely
-        dangerouslySetInnerHTML={{
-          __html: safeJsonLdStringify(searchResultsSchema),
-        }}
-      />
+      <script type="application/ld+json">
+        {safeJsonLdStringify(breadcrumbSchema)}
+      </script>
+      <script type="application/ld+json">
+        {safeJsonLdStringify(searchResultsSchema)}
+      </script>
       <div className="min-h-screen bg-[color-mix(in_srgb,var(--store-background,#ffffff)_94%,var(--store-background-text,#111827)_6%)] pb-20 pt-6">
         <div className="mx-auto max-w-[1400px] px-4 md:px-6">
           <nav className="flex items-center gap-2 text-sm text-store-background-text/55">
