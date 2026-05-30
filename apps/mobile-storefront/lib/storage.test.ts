@@ -88,7 +88,10 @@ describe('storage batching helpers', () => {
 
     await removeStorageItems(['cache:a', 'cache:b']);
 
-    expect(storageMock.multiRemove).toHaveBeenCalledWith(['cache:a', 'cache:b']);
+    expect(storageMock.multiRemove).toHaveBeenCalledWith([
+      'cache:a',
+      'cache:b',
+    ]);
   });
 
   it('falls back to individual getItem calls when no batch read API is available', async () => {
@@ -159,7 +162,9 @@ describe('storage batching helpers', () => {
 
   it('propagates multiRemove fallback errors', async () => {
     storageMock.removeMany = undefined;
-    storageMock.multiRemove?.mockRejectedValue(new Error('multi remove failed'));
+    storageMock.multiRemove?.mockRejectedValue(
+      new Error('multi remove failed')
+    );
 
     await expect(removeStorageItems(['cache:a'])).rejects.toThrow(
       'multi remove failed'
