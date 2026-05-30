@@ -223,6 +223,7 @@ const attentionAction = {
 
 describe('GET /api/cron/agentic-commerce-health', () => {
   beforeEach(() => {
+    vi.unstubAllEnvs();
     vi.clearAllMocks();
     vi.mocked(getCronSecret).mockReturnValue('cron-secret');
     vi.mocked(checkAgentCommerceManifestHealth).mockResolvedValue({
@@ -417,6 +418,29 @@ describe('GET /api/cron/agentic-commerce-health', () => {
       'merchant_id',
       'merchant-1'
     );
+  });
+
+  it('falls back to the legacy merchant slug env when the Baci slug is blank', async () => {
+    vi.stubEnv('BACI_AGENTIC_MERCHANT_SLUG', '   ');
+    vi.stubEnv('OPENAI_AGENTIC_MERCHANT_SLUG', ' legacy-store ');
+    const supabase = createSupabaseMock({
+      merchantRows: [
+        {
+          business_name: 'Legacy Store',
+          id: 'merchant-legacy',
+          is_published: true,
+          slug: 'legacy-store',
+        },
+      ],
+    });
+    vi.mocked(createAdminClient).mockReturnValue(supabase as never);
+
+    const response = await GET(createCronRequest());
+
+    expect(response.status).toBe(200);
+    expect(supabase.__mocks.merchantQuery.in).toHaveBeenCalledWith('slug', [
+      'legacy-store',
+    ]);
   });
 
   it('reports support chat provider failure without failing commerce status', async () => {
