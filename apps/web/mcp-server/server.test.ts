@@ -1,22 +1,29 @@
 import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { runInNewContext } from 'node:vm';
 import { describe, expect, it } from 'vitest';
 
+const testFileDirectory = dirname(fileURLToPath(import.meta.url));
 const serverSource = readFileSync(
-  join(process.cwd(), 'mcp-server/server.ts'),
+  join(testFileDirectory, 'server.ts'),
   'utf8'
 );
-const snippetStart = serverSource.indexOf('const ESCAPE_HTML_MAP = {');
-const snippetEnd = serverSource.indexOf('\n\n    const openLink =', snippetStart);
+const snippetStart = serverSource.search(/\bconst\s+ESCAPE_HTML_MAP\s*=/);
+const snippetEndMatch =
+  snippetStart === -1
+    ? null
+    : /\n\s*const\s+openLink\s*=/.exec(serverSource.slice(snippetStart));
+const snippetEnd =
+  snippetStart === -1 || snippetEndMatch === null
+    ? -1
+    : snippetStart + snippetEndMatch.index;
 
 if (snippetStart === -1 || snippetEnd === -1) {
   throw new Error('Embedded escapeHtml snippet not found in MCP server widget');
 }
 
-const escapeHtmlSnippet = serverSource
-  .slice(snippetStart, snippetEnd)
-  .replace(/^    /gm, '');
+const escapeHtmlSnippet = serverSource.slice(snippetStart, snippetEnd);
 
 function runEmbeddedEscapeHtml(input: unknown) {
   const context: { input: unknown; result?: string } = { input };
