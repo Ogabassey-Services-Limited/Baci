@@ -2,6 +2,23 @@ import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+type MockStorefrontMerchant = {
+  id: string;
+  slug: string;
+  business_name: string;
+  business_type: string;
+  site_title: string;
+  site_description: string;
+  logo_url: string;
+  favicon_svg_url: string | null;
+  favicon_png_32_url: string | null;
+  favicon_apple_touch_url: string | null;
+  feature_settings: {
+    google_site_verification: string;
+  };
+  published_config: null;
+};
+
 const { mockStorefrontLayout } = vi.hoisted(() => ({
   mockStorefrontLayout: vi.fn(
     ({
@@ -17,7 +34,9 @@ const { mockStorefrontLayout } = vi.hoisted(() => ({
 }));
 
 const { mockGetRequestScopedMerchant } = vi.hoisted(() => ({
-  mockGetRequestScopedMerchant: vi.fn(() =>
+  mockGetRequestScopedMerchant: vi.fn<
+    (slug: string) => Promise<MockStorefrontMerchant | null>
+  >(() =>
     Promise.resolve({
       id: 'ogabassey',
       slug: 'ogabassey',
