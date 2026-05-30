@@ -97,7 +97,7 @@ export async function GET(
       .from('orders')
       .select(
         `
-        ${ORDER_COLUMNS}, fulfillment_details, invoice_type_code, invoice_issue_date, tax_point_date, payment_due_date, buyer_reference, purchase_order_reference, tax_exclusive_amount, tax_inclusive_amount, invoice_note, firs_irn, firs_csid, firs_qr_code, payment_terms,
+        ${ORDER_COLUMNS}, invoice_type_code, invoice_issue_date, tax_point_date, payment_due_date, buyer_reference, purchase_order_reference, tax_exclusive_amount, tax_inclusive_amount, invoice_note, firs_irn, firs_csid, firs_qr_code, payment_terms,
         merchants!inner (
           id,
           user_id,

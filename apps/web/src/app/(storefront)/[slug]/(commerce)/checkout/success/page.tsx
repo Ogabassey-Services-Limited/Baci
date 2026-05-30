@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { AdUnit } from '@/components/storefront/ogabassey/components/AdUnit';
 import { CHECKOUT_PENDING_ORDER_STORAGE_KEY } from '@/components/storefront/ogabassey/pages/checkout/pending-checkout-order';
 import { useCart } from '@/hooks/cart';
@@ -43,6 +43,25 @@ const orderSteps = [
 ];
 
 export default function CheckoutSuccessPage() {
+  return (
+    <Suspense fallback={<CheckoutSuccessLoading />}>
+      <CheckoutSuccessContent />
+    </Suspense>
+  );
+}
+
+function CheckoutSuccessLoading() {
+  return (
+    <div className="min-h-screen bg-linear-to-b from-green-50/50 via-white to-gray-50 flex items-center justify-center p-4">
+      <div className="flex items-center gap-3 text-gray-700">
+        <Loader2 className="w-5 h-5 animate-spin text-green-600" />
+        <p className="text-sm font-medium">Loading order confirmation...</p>
+      </div>
+    </div>
+  );
+}
+
+function CheckoutSuccessContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const reference = searchParams.get('reference');
@@ -226,6 +245,8 @@ export default function CheckoutSuccessPage() {
 
   // Success & Pending States (main redesigned page)
   const isConfirmed = status === 'success';
+  const isInvoice =
+    paymentMethod === 'invoice' || searchParams.get('type') === 'invoice';
 
   return (
     <div className="min-h-screen bg-linear-to-b from-green-50/50 via-white to-gray-50">
@@ -257,8 +278,7 @@ export default function CheckoutSuccessPage() {
             className="text-3xl md:text-4xl font-bold text-gray-900 mb-3"
           >
             {isConfirmed
-              ? paymentMethod === 'invoice' ||
-                searchParams.get('type') === 'invoice'
+              ? isInvoice
                 ? 'Invoice Generated!'
                 : 'Order Received!'
               : 'Order Being Processed'}
@@ -333,11 +353,7 @@ export default function CheckoutSuccessPage() {
                   const isCompleted = isConfirmed && index === 0;
                   const StepIcon = step.icon;
                   let stepLabel = step.label;
-                  if (
-                    step.id === 'received' &&
-                    (paymentMethod === 'invoice' ||
-                      searchParams.get('type') === 'invoice')
-                  ) {
+                  if (step.id === 'received' && isInvoice) {
                     stepLabel = 'Invoice Generated';
                   }
 
@@ -391,14 +407,12 @@ export default function CheckoutSuccessPage() {
                 </div>
                 <div>
                   <h3 className="font-semibold text-gray-900 mb-1">
-                    {paymentMethod === 'invoice' ||
-                    searchParams.get('type') === 'invoice'
+                    {isInvoice
                       ? 'Invoice Sent to Email'
                       : 'Order Confirmation Email'}
                   </h3>
                   <p className="text-sm text-gray-600">
-                    {paymentMethod === 'invoice' ||
-                    searchParams.get('type') === 'invoice'
+                    {isInvoice
                       ? "We've generated a compliant e-invoice and sent it to your email with payment instructions."
                       : "You'll receive an email with your order details and tracking information once your order is confirmed."}
                   </p>
@@ -453,26 +467,19 @@ export default function CheckoutSuccessPage() {
                   Your Receipt & Invoice
                 </h3>
                 <p className="text-gray-300 text-sm mb-4">
-                  {paymentMethod === 'invoice' ||
-                  searchParams.get('type') === 'invoice'
+                  {isInvoice
                     ? 'Your e-invoice is generated and ready to download. You can settle the invoice at any time to activate your order processing.'
                     : 'Your invoice is available from your order details in your account. Your receipt will appear there and in the documents archive once the order has shipped.'}
                 </p>
                 <div className="flex flex-col sm:flex-row gap-3">
                   <Link
                     href={asRoute(
-                      getHref(
-                        paymentMethod === 'invoice' ||
-                          searchParams.get('type') === 'invoice'
-                          ? '/receipts'
-                          : '/account/orders'
-                      )
+                      getHref(isInvoice ? '/receipts' : '/account/orders')
                     )}
                     className="inline-flex items-center justify-center gap-2 bg-white text-gray-900 px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-100 transition-colors"
                   >
                     <Download className="w-4 h-4" />
-                    {paymentMethod === 'invoice' ||
-                    searchParams.get('type') === 'invoice'
+                    {isInvoice
                       ? 'Download Invoice PDF'
                       : 'View Order Documents'}
                   </Link>
