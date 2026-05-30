@@ -1,0 +1,55 @@
+import { render, screen } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const mockUseFormStatus = vi.hoisted(() =>
+  vi.fn(() => ({
+    action: null,
+    data: null,
+    method: null,
+    pending: false,
+  }))
+);
+
+vi.mock('react-dom', async () => {
+  const actual = await vi.importActual<typeof import('react-dom')>('react-dom');
+  return {
+    ...actual,
+    useFormStatus: mockUseFormStatus,
+  };
+});
+
+import { SubmitButton } from './submit-button';
+
+describe('SubmitButton', () => {
+  beforeEach(() => {
+    mockUseFormStatus.mockReturnValue({
+      action: null,
+      data: null,
+      method: null,
+      pending: false,
+    });
+  });
+
+  it('marks the button idle when the parent form is not pending', () => {
+    render(<SubmitButton>Save</SubmitButton>);
+
+    const button = screen.getByRole('button', { name: 'Save' });
+    expect(button).toHaveAttribute('aria-busy', 'false');
+    expect(button).not.toBeDisabled();
+  });
+
+  it('marks the button busy while the parent form is pending', () => {
+    mockUseFormStatus.mockReturnValue({
+      action: null,
+      data: null,
+      method: null,
+      pending: true,
+    });
+
+    render(<SubmitButton pendingText="Saving">Save</SubmitButton>);
+
+    const button = screen.getByRole('button', { name: 'Saving' });
+    expect(button).toHaveAttribute('aria-busy', 'true');
+    expect(button).toBeDisabled();
+  });
+});
