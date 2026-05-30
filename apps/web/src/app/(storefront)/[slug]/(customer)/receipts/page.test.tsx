@@ -285,6 +285,7 @@ describe('ReceiptsPage', () => {
 
     render(<ReceiptsPage />);
     expect(screen.getByText('Ogabassey Receipts Page')).toBeInTheDocument();
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it('requires authentication before rendering Ogabassey receipts', () => {
