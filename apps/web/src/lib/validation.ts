@@ -12,8 +12,6 @@ export const VALID_DOMAIN_REGEX =
   /^([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$/i;
 
 const MAX_MERCHANT_IDENTIFIER_LENGTH = 254;
-const NEXT_PRODUCTION_BUILD_PHASE = 'phase-production-build';
-const ROUTE_PLACEHOLDER_REGEX = /^\[[A-Za-z][A-Za-z0-9_]*\]$/;
 
 /**
  * Reserved paths that should NOT be treated as merchant slugs to avoid routing conflicts.
@@ -103,38 +101,10 @@ export function isValidMerchantSlug(slug: string): boolean {
 }
 
 /**
- * Detects if a string is a dynamic route placeholder from Next.js build compilation (e.g. "[slug]").
- */
-export function isRoutePlaceholder(value: string | null | undefined): boolean {
-  if (typeof value !== 'string') return false;
-  const trimmed = value.trim();
-  return ROUTE_PLACEHOLDER_REGEX.test(trimmed);
-}
-
-export function isNextProductionBuildPhase(): boolean {
-  return process.env.NEXT_PHASE === NEXT_PRODUCTION_BUILD_PHASE;
-}
-
-/**
- * Only production builds may substitute mock data for Next route placeholders.
- * Runtime requests to literal placeholder paths must stay invalid so mock storefront
- * content can never be rendered or cached for public traffic.
- */
-export function isBuildTimeRoutePlaceholder(
-  value: string | null | undefined
-): boolean {
-  return isNextProductionBuildPhase() && isRoutePlaceholder(value);
-}
-
-/**
  * Validates if the string is either a valid slug OR a valid domain.
  * @param identifier The string to check.
  * @returns True if it matches either format.
  */
 export function isValidMerchantIdentifier(identifier: string): boolean {
-  return (
-    isBuildTimeRoutePlaceholder(identifier) ||
-    isValidMerchantSlug(identifier) ||
-    isDomainIdentifier(identifier)
-  );
+  return isValidMerchantSlug(identifier) || isDomainIdentifier(identifier);
 }
