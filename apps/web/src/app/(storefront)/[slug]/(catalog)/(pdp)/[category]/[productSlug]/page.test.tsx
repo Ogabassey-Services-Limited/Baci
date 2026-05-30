@@ -1035,9 +1035,11 @@ describe('[category]/[productSlug] page render', () => {
 
     expect(mockConnection).not.toHaveBeenCalled();
     expect(mockStorefrontDynamicMetadataMarker).toHaveBeenCalledOnce();
-    expect(
-      screen.getByRole('status', { name: /dynamic metadata marker/i })
-    ).toBeInTheDocument();
+    const marker = screen.getByRole('status', {
+      name: /dynamic metadata marker/i,
+    });
+    expect(marker).toBeInTheDocument();
+    expect(container.firstElementChild).toBe(marker);
     expect(
       screen.getByRole('heading', {
         level: 1,
