@@ -275,7 +275,7 @@ describe('ReceiptsPage', () => {
   });
 
   it('renders OgabasseyV2Receipts when the merchant is ogabassey', () => {
-    vi.mocked(useMerchant).mockReturnValueOnce(
+    vi.mocked(useMerchant).mockReturnValue(
       createMerchantMock({
         slug: 'ogabassey',
         templateId: 'ogabassey',
@@ -284,7 +284,7 @@ describe('ReceiptsPage', () => {
     );
 
     render(<ReceiptsPage />);
-    expect(screen.getByTestId('ogabassey-receipts-page')).toBeInTheDocument();
+    expect(screen.getByText('Ogabassey Receipts Page')).toBeInTheDocument();
   });
 
   it('requires authentication before rendering Ogabassey receipts', () => {
@@ -304,10 +304,34 @@ describe('ReceiptsPage', () => {
     render(<ReceiptsPage />);
 
     expect(
-      screen.queryByTestId('ogabassey-receipts-page')
+      screen.queryByText('Ogabassey Receipts Page')
     ).not.toBeInTheDocument();
     expect(screen.getByRole('alert')).toHaveTextContent(
       /please sign in to view your receipts and invoices/i
+    );
+  });
+
+  it('requires customer details before rendering Ogabassey receipts', () => {
+    vi.mocked(useMerchant).mockReturnValue(
+      createMerchantMock({
+        slug: 'ogabassey',
+        templateId: 'ogabassey',
+        basePath: '/ogabassey',
+      })
+    );
+    vi.mocked(useCustomerAuth).mockReturnValueOnce({
+      customer: null,
+      isAuthenticated: true,
+      isLoading: false,
+    } as ReturnType<typeof useCustomerAuth>);
+
+    render(<ReceiptsPage />);
+
+    expect(
+      screen.queryByText('Ogabassey Receipts Page')
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      /we could not load your account details/i
     );
   });
 
@@ -323,7 +347,7 @@ describe('ReceiptsPage', () => {
     render(<ReceiptsPage />);
 
     expect(
-      screen.queryByTestId('ogabassey-receipts-page')
+      screen.queryByText('Ogabassey Receipts Page')
     ).not.toBeInTheDocument();
     await waitFor(() => {
       expect(fetch).toHaveBeenCalledWith(
