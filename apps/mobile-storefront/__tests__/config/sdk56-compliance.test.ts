@@ -1,6 +1,8 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
-import appConfig from '../../app.config';
+import type { ExpoConfig } from 'expo/config';
+
+type AppConfig = typeof import('../../app.config').default;
 
 const ROOT = path.resolve(__dirname, '../..');
 const EXCLUDED_SOURCE_DIRECTORIES = new Set(['__tests__', 'test-utils']);
@@ -31,12 +33,43 @@ function findTypeScriptSourceFiles(directory: string): string[] {
 
 describe('SDK 56 compliance', () => {
   it('uses a manual runtime version for bare workflow builds', () => {
-    const config = appConfig({ config: {} as never } as unknown as Parameters<
-      typeof appConfig
-    >[0]);
+    const originalFacebookAppId = process.env.STOREFRONT_FACEBOOK_APP_ID;
+    const originalFacebookClientToken =
+      process.env.STOREFRONT_FACEBOOK_CLIENT_TOKEN;
 
-    expect(typeof config.runtimeVersion).toBe('string');
-    expect(config.runtimeVersion).toBe(config.version);
+    process.env.STOREFRONT_FACEBOOK_APP_ID = '123456789';
+    process.env.STOREFRONT_FACEBOOK_CLIENT_TOKEN = 'client-token';
+
+    try {
+      let config: ExpoConfig | undefined;
+
+      jest.isolateModules(() => {
+        const appConfig = require('../../app.config').default as AppConfig;
+        config = appConfig({
+          config: {} as never,
+        } as Parameters<AppConfig>[0]);
+      });
+
+      if (!config) {
+        throw new Error('Expected app config to render');
+      }
+
+      expect(typeof config.runtimeVersion).toBe('string');
+      expect(config.runtimeVersion).toBe(config.version);
+    } finally {
+      if (originalFacebookAppId === undefined) {
+        delete process.env.STOREFRONT_FACEBOOK_APP_ID;
+      } else {
+        process.env.STOREFRONT_FACEBOOK_APP_ID = originalFacebookAppId;
+      }
+
+      if (originalFacebookClientToken === undefined) {
+        delete process.env.STOREFRONT_FACEBOOK_CLIENT_TOKEN;
+      } else {
+        process.env.STOREFRONT_FACEBOOK_CLIENT_TOKEN =
+          originalFacebookClientToken;
+      }
+    }
   });
 
   it('app.config.ts does not contain an explicit newArchEnabled override', () => {
