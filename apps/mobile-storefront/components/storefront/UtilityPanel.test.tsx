@@ -93,7 +93,9 @@ describe('UtilityPanel', () => {
       />
     );
 
-    expect(screen.getByTestId('utility-panel-promo-banner')).toHaveStyle({
+    expect(
+      screen.getByLabelText('We Pay YOU When You Buy Airtime!')
+    ).toHaveStyle({
       backgroundColor: Colors.light.promoBackground,
     });
     const airtimeButtonLight = screen.getByRole('button', { name: 'Airtime' });
@@ -110,7 +112,9 @@ describe('UtilityPanel', () => {
       />
     );
 
-    expect(screen.getByTestId('utility-panel-promo-banner')).toHaveStyle({
+    expect(
+      screen.getByLabelText('We Pay YOU When You Buy Airtime!')
+    ).toHaveStyle({
       backgroundColor: Colors.dark.promoBackground,
     });
     const airtimeButtonDark = screen.getByRole('button', { name: 'Airtime' });
