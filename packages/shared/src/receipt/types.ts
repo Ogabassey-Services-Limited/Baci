@@ -68,6 +68,14 @@ export interface ReceiptOrder {
     variant_name?: string;
     quantity: number;
     price: number;
+    imei?: string | null;
+    serial_number?: string | null;
+    serialNumber?: string | null;
+    fulfillment_details?: {
+      imei?: string | null;
+      serialNumber?: string | null;
+      serial_number?: string | null;
+    } | null;
   }>;
   transactions?: Array<{
     amount: number;
