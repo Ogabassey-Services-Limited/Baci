@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockUseFormStatus = vi.hoisted(() =>
@@ -35,6 +35,7 @@ describe('SubmitButton', () => {
 
     const button = screen.getByRole('button', { name: 'Save' });
     expect(button).toHaveAttribute('aria-busy', 'false');
+    expect(button).not.toHaveAttribute('aria-disabled');
     expect(button).not.toBeDisabled();
   });
 
@@ -50,6 +51,28 @@ describe('SubmitButton', () => {
 
     const button = screen.getByRole('button', { name: 'Saving' });
     expect(button).toHaveAttribute('aria-busy', 'true');
-    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute('aria-disabled', 'true');
+    expect(button).not.toBeDisabled();
+  });
+
+  it('ignores clicks while pending without dropping native focusability', () => {
+    mockUseFormStatus.mockReturnValue({
+      action: null,
+      data: null,
+      method: null,
+      pending: true,
+    });
+    const onClick = vi.fn();
+
+    render(
+      <SubmitButton pendingText="Saving" onClick={onClick}>
+        Save
+      </SubmitButton>
+    );
+
+    const button = screen.getByRole('button', { name: 'Saving' });
+    fireEvent.click(button);
+
+    expect(onClick).not.toHaveBeenCalled();
   });
 });

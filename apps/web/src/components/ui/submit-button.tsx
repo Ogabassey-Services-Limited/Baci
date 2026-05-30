@@ -1,6 +1,7 @@
 'use client';
 
 import { Loader2 } from 'lucide-react';
+import type { MouseEvent } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Button, type ButtonProps } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -37,17 +38,30 @@ export function SubmitButton({
   pendingIcon,
   disabled,
   className,
+  onClick,
   ...props
 }: SubmitButtonProps) {
   const { pending } = useFormStatus();
 
   const isDisabled = pending || disabled;
+  const nativeDisabled = disabled === true && !pending;
+  const handleClick = (event: MouseEvent<HTMLButtonElement>) => {
+    if (isDisabled) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+
+    onClick?.(event);
+  };
 
   return (
     <Button
       type="submit"
-      disabled={isDisabled}
+      disabled={nativeDisabled}
+      aria-disabled={isDisabled}
       aria-busy={pending}
+      onClick={handleClick}
       className={cn(className)}
       {...props}
     >

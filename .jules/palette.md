@@ -71,5 +71,5 @@
 **Action:** Enhance form usability by combining `returnKeyType="next"` with `onSubmitEditing={() => nextInputRef.current?.focus()}` on sequential inputs, and `returnKeyType="done"` with `onSubmitEditing={submitForm}` on the final input.
 
 ## 2024-05-30 - Submit Button Loading State Visibility
-**Learning:** The `SubmitButton` component visually indicated loading states (spinner and disabled appearance) using React 19's `useFormStatus`, but assistive technologies like screen readers were not explicitly informed that the button was actively processing a submission.
-**Action:** Adding `aria-busy={pending}` to submit buttons explicitly announces the ongoing background processing task to assistive technologies. Apply this ARIA pattern universally to any buttons that initiate async network requests and enter a visually disabled "loading" state.
+**Learning:** The `SubmitButton` component visually indicated loading states using React 19's `useFormStatus`, but assistive technologies need the control to remain focusable to announce the busy transition.
+**Action:** Pair `aria-busy={pending}` with `aria-disabled={pending}` for submit buttons in loading states, and block clicks manually instead of applying native `disabled` during pending submissions.
