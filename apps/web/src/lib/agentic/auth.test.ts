@@ -12,11 +12,21 @@ function makeRequest(authHeader?: string): NextRequest {
 
 describe('verifyAgenticApiKey', () => {
   beforeEach(() => {
+    vi.unstubAllEnvs();
     vi.stubEnv('OPENAI_AGENTIC_API_KEY', 'test-secret-key');
   });
 
   it('returns true for valid Bearer token', () => {
     expect(verifyAgenticApiKey(makeRequest('Bearer test-secret-key'))).toBe(
+      true
+    );
+  });
+
+  it('accepts Baci-owned bearer tokens without an OpenAI-named alias', () => {
+    vi.stubEnv('OPENAI_AGENTIC_API_KEY', '');
+    vi.stubEnv('BACI_AGENTIC_ACCESS_TOKEN', 'baci-secret-key');
+
+    expect(verifyAgenticApiKey(makeRequest('Bearer baci-secret-key'))).toBe(
       true
     );
   });
