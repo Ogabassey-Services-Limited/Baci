@@ -54,6 +54,21 @@ test('ensureMergedJvmArgs: preserves repeated key-value JVM flags outside manage
   assert.match(result, /-Xmx2048m/);
 });
 
+test('ensureMergedJvmArgs: deduplicates unmanaged desired tokens already present', () => {
+  const content =
+    'org.gradle.jvmargs=-XX:+UseG1GC --add-opens=java.base/java.lang=ALL-UNNAMED\n';
+  const desiredArgs = [
+    '--add-opens=java.base/java.lang=ALL-UNNAMED',
+    '-Xmx2048m',
+  ];
+  const result = ensureMergedJvmArgs(content, desiredArgs);
+
+  const matches = result.match(/--add-opens=java\.base\/java\.lang=ALL-UNNAMED/g);
+  assert.equal(matches?.length, 1);
+  assert.match(result, /-XX:\+UseG1GC/);
+  assert.match(result, /-Xmx2048m/);
+});
+
 test('ensureMergedJvmArgs: replaces initial heap and metaspace values', () => {
   const content =
     'org.gradle.jvmargs=-Xms256m -XX:MetaspaceSize=256m -Xmx1024m -XX:MaxMetaspaceSize=512m\n';

@@ -148,7 +148,7 @@ function ensureMergedJvmArgs(content, desiredArgs) {
     const key = getJvmArgKey(token);
     if (key) {
       mergedByKey.set(key, token);
-    } else {
+    } else if (!rawTokens.includes(token)) {
       rawTokens.push(token);
     }
   }
@@ -157,7 +157,7 @@ function ensureMergedJvmArgs(content, desiredArgs) {
     const key = getJvmArgKey(token);
     if (key) {
       mergedByKey.set(key, token);
-    } else {
+    } else if (!rawTokens.includes(token)) {
       rawTokens.push(token);
     }
   }

@@ -10,9 +10,7 @@ export type HostTestInstance = TestTreeInstance & {
 
 function isTestTreeInstance(instance: unknown): instance is TestTreeInstance {
   return (
-    typeof instance === 'object' &&
-    instance !== null &&
-    'type' in instance
+    typeof instance === 'object' && instance !== null && 'type' in instance
   );
 }
 
