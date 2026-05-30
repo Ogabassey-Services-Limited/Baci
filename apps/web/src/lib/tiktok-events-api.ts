@@ -96,11 +96,15 @@ function currentUnixSeconds(): number {
 
 function toEventTime(eventTime: Date | number | string | undefined): number {
   if (eventTime instanceof Date) {
-    return Math.floor(eventTime.getTime() / 1000);
+    const timestamp = eventTime.getTime();
+    if (!Number.isFinite(timestamp) || timestamp <= 0) {
+      return currentUnixSeconds();
+    }
+    return Math.floor(timestamp / 1000);
   }
 
   if (typeof eventTime === 'number') {
-    if (eventTime <= 0) {
+    if (!Number.isFinite(eventTime) || eventTime <= 0) {
       return currentUnixSeconds();
     }
     return normalizeUnixSeconds(eventTime);

@@ -125,6 +125,8 @@ describe('tiktokEventsAPI', () => {
   it.each([
     ['empty string', ''],
     ['invalid string', 'not-a-date'],
+    ['invalid Date', new Date('invalid')],
+    ['NaN', Number.NaN],
     ['zero string', '0'],
     ['undefined', undefined],
   ])('falls back to current event_time for %s', async (_caseName, eventTime) => {
