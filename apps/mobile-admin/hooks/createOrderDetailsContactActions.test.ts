@@ -1,12 +1,14 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { asyncStorage as AsyncStorage } from '@/lib/storage';
 import { Alert, Linking } from 'react-native';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { OrderDetailsRecord } from '@/components/orders/order-details.types';
 import { createOrderDetailsContactActions } from './createOrderDetailsContactActions';
 
-vi.mock('@react-native-async-storage/async-storage', () => ({
-  default: {
+vi.mock('@/lib/storage', () => ({
+  asyncStorage: {
     setItem: vi.fn(),
+    getItem: vi.fn(),
+    removeItem: vi.fn(),
   },
 }));
 

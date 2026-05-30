@@ -6,7 +6,7 @@
  * const { token, isRegistered, registerPush, unregisterPush } = usePushNotifications();
  */
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { asyncStorage as AsyncStorage } from '@/lib/storage';
 import type {
   EventSubscription,
   Notification as ExpoNotification,
