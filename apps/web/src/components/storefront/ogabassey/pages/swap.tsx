@@ -107,7 +107,7 @@ function TradeInModal({
           <h3 className="font-bold text-lg flex items-center gap-2">
             <SparklesIcon className="text-red-600" /> AI Trade-in Valuator
           </h3>
-          <button onClick={onClose} className="p-1 hover:bg-gray-200 rounded-full transition-colors">
+          <button type="button" onClick={onClose} className="p-1 hover:bg-gray-200 rounded-full transition-colors">
             <X size={20} className="text-gray-500" />
           </button>
         </div>
@@ -117,7 +117,7 @@ function TradeInModal({
           {step === 'upload' && (
             <div className="text-center space-y-6">
               <div className="bg-blue-50 border-2 border-dashed border-blue-200 rounded-xl p-8 transition-all hover:bg-blue-100/50">
-                <div className="w-16 h-16 bg-white text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
+                <div className="size-16 bg-white text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
                   <Video size={32} />
                 </div>
                 <h4 className="font-semibold text-gray-900 mb-2">Upload a Video of Your Device</h4>
@@ -134,7 +134,7 @@ function TradeInModal({
                 />
 
                 {!videoFile ? (
-                  <button
+                  <button type="button"
                     onClick={() => fileInputRef.current?.click()}
                     className="bg-blue-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-blue-700 transition-colors inline-flex items-center gap-2"
                   >
@@ -145,7 +145,7 @@ function TradeInModal({
                     <span className="text-sm font-medium text-green-600 bg-green-50 px-3 py-1 rounded-full flex items-center gap-1">
                       <Check size={14} /> {videoFile.name}
                     </span>
-                    <button
+                    <button type="button"
                       onClick={() => setVideoFile(null)}
                       className="text-xs text-red-500 hover:text-red-700 underline"
                     >
@@ -159,7 +159,7 @@ function TradeInModal({
                 <p className="text-sm text-red-600 bg-red-50 p-2 rounded-lg">{error}</p>
               )}
 
-              <button
+              <button type="button"
                 onClick={startAnalysis}
                 disabled={!videoFile}
                 className="w-full bg-red-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-red-100 flex items-center justify-center gap-2"
@@ -171,14 +171,14 @@ function TradeInModal({
 
           {step === 'analyzing' && (
             <div className="text-center py-12">
-              <div className="relative w-20 h-20 mx-auto mb-6">
+              <div className="relative size-20 mx-auto mb-6">
                 <div className="absolute inset-0 border-4 border-gray-100 rounded-full"></div>
                 <div className="absolute inset-0 border-4 border-red-600 rounded-full border-t-transparent animate-spin"></div>
                 <SparklesIcon className="absolute inset-0 m-auto text-red-600 animate-pulse" size={24} />
               </div>
-              <h4 className="text-xl font-bold text-gray-900 mb-2">Gemini AI is Analyzing...</h4>
+              <h4 className="text-xl font-bold text-gray-900 mb-2">Gemini AI is Analyzing…</h4>
               <p className="text-gray-500 text-sm animate-pulse">
-                Checking screen condition... Identification model...
+                Checking screen condition… Identification model…
               </p>
             </div>
           )}
@@ -223,14 +223,14 @@ function TradeInModal({
                 </ul>
               </div>
 
-              <button
+              <button type="button"
                 onClick={handleCompleteTradeIn}
                 className="w-full bg-green-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-green-700 transition-all shadow-lg shadow-green-100 flex items-center justify-center gap-2"
               >
                 Accept Offer & Chat <Check size={20} />
               </button>
 
-              <button
+              <button type="button"
                 onClick={() => setStep('upload')}
                 className="w-full text-gray-500 text-sm py-2 hover:text-gray-700"
               >
@@ -298,7 +298,7 @@ export function OgabasseyV2Swap() {
             <p className="text-white/80 mb-8 text-sm md:text-base">
               Simply upload a short video of your device. Our AI will analyze the condition and give you an instant trade-in offer.
             </p>
-            <button
+            <button type="button"
               onClick={() => setIsModalOpen(true)}
               className="bg-white text-red-700 font-bold py-3.5 px-8 rounded-xl hover:bg-gray-100 transition-colors shadow-lg active:scale-95 flex items-center gap-2"
             >
@@ -307,8 +307,8 @@ export function OgabasseyV2Swap() {
           </div>
 
           {/* Background Decorations */}
-          <div className="absolute right-0 bottom-0 w-64 h-64 bg-white/10 rounded-full blur-3xl transform translate-y-1/2 translate-x-1/2" />
-          <RefreshCw className="absolute -right-12 top-1/2 -translate-y-1/2 text-white/10 w-80 h-80 rotate-12" />
+          <div className="absolute right-0 bottom-0 size-64 bg-white/10 rounded-full blur-3xl transform translate-y-1/2 translate-x-1/2" />
+          <RefreshCw className="absolute -right-12 top-1/2 -translate-y-1/2 text-white/10 size-80 rotate-12" />
         </div>
 
         {/* How it Works */}
@@ -339,7 +339,7 @@ export function OgabasseyV2Swap() {
                 key={idx}
                 className="bg-white p-6 rounded-2xl border border-gray-100 text-center shadow-sm relative"
               >
-                <div className="w-14 h-14 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-100">
+                <div className="size-14 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-100">
                   <step.icon size={24} />
                 </div>
                 <h4 className="font-bold text-gray-900 mb-2">{step.title}</h4>
@@ -375,7 +375,7 @@ export function OgabasseyV2Swap() {
                 key={i}
                 className="flex items-center gap-3 p-3 hover:bg-gray-50 rounded-xl transition-colors border-b border-gray-50 last:border-0"
               >
-                <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center text-green-600 shrink-0">
+                <div className="size-6 rounded-full bg-green-100 flex items-center justify-center text-green-600 shrink-0">
                   <Check size={14} strokeWidth={3} />
                 </div>
                 <span className="text-sm font-medium text-gray-700">
@@ -388,7 +388,7 @@ export function OgabasseyV2Swap() {
 
         {/* Sustainability Impact */}
         <div className="bg-green-50 rounded-2xl p-6 md:p-8 border border-green-100 flex flex-col md:flex-row items-center gap-6 text-center md:text-left shadow-sm">
-          <div className="w-16 h-16 bg-white text-green-600 rounded-full flex items-center justify-center shadow-sm shrink-0 border border-green-100">
+          <div className="size-16 bg-white text-green-600 rounded-full flex items-center justify-center shadow-sm shrink-0 border border-green-100">
             <Leaf size={32} />
           </div>
           <div className="flex-1">

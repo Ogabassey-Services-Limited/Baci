@@ -85,7 +85,7 @@ export function AnalyticsCategoryNav({
               />
             )}
             <span className="relative z-10 flex items-center gap-2">
-              <Icon className="h-4 w-4" />
+              <Icon className="size-4" />
               {category.label}
             </span>
           </button>

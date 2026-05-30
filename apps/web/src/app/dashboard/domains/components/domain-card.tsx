@@ -100,7 +100,7 @@ export function DomainCard({ domain }: DomainCardProps) {
         variant={config.variant}
         className={`flex items-center gap-1 ${config.className || ''}`}
       >
-        <Icon className="w-3 h-3" />
+        <Icon className="size-3" />
         {config.label}
       </Badge>
     );
@@ -309,7 +309,7 @@ export function DomainCard({ domain }: DomainCardProps) {
                   disabled={isSettingPrimary}
                 >
                   {isSettingPrimary ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <Loader2 className="size-4 animate-spin" />
                   ) : (
                     'Set Primary'
                   )}
@@ -324,7 +324,7 @@ export function DomainCard({ domain }: DomainCardProps) {
                   disabled={isVerifying}
                 >
                   {isVerifying ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <Loader2 className="size-4 animate-spin" />
                   ) : (
                     'Verify DNS'
                   )}
@@ -334,7 +334,7 @@ export function DomainCard({ domain }: DomainCardProps) {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" aria-label="More options">
-                    <MoreVertical className="w-4 h-4" />
+                    <MoreVertical className="size-4" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
@@ -343,7 +343,7 @@ export function DomainCard({ domain }: DomainCardProps) {
                       onClick={() => setShowDeleteDialog(true)}
                       className="text-red-600 focus:text-red-600 focus:bg-red-50"
                     >
-                      <Trash2 className="w-4 h-4 mr-2" />
+                      <Trash2 className="size-4 mr-2" />
                       Delete Domain
                     </DropdownMenuItem>
                   )}
@@ -372,7 +372,7 @@ export function DomainCard({ domain }: DomainCardProps) {
                       }
                     }}
                   >
-                    <ExternalLink className="w-4 h-4 mr-2" />
+                    <ExternalLink className="size-4 mr-2" />
                     Visit Site
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -399,7 +399,7 @@ export function DomainCard({ domain }: DomainCardProps) {
               className="bg-red-600 hover:bg-red-700"
             >
               {isDeleting ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <Loader2 className="size-4 animate-spin" />
               ) : (
                 'Delete'
               )}

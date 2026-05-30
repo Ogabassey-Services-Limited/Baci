@@ -243,7 +243,7 @@ export default function CustomerAddressesPage() {
             href={asRoute('/account')}
             className="flex items-center gap-2 text-gray-500 hover:text-gray-900 transition-colors"
           >
-            <ArrowLeft className="h-4 w-4" />
+            <ArrowLeft className="size-4" />
             <span>Back to account</span>
           </Link>
         </div>
@@ -404,8 +404,8 @@ export default function CustomerAddressesPage() {
             <Button onClick={handleSave} disabled={isSaving}>
               {isSaving ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving...
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  Saving…
                 </>
               ) : (
                 'Save Address'

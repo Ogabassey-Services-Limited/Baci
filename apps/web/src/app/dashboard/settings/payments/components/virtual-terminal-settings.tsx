@@ -270,7 +270,7 @@ export function VirtualTerminalSettings({
     return (
       <Card>
         <CardContent className="p-8 flex items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <Loader2 className="size-8 animate-spin text-primary" />
         </CardContent>
       </Card>
     );
@@ -282,7 +282,7 @@ export function VirtualTerminalSettings({
         <div className="flex items-start justify-between">
           <div>
             <CardTitle className="flex items-center gap-2">
-              <Wallet className="h-5 w-5" />
+              <Wallet className="size-5" />
               Payment Accounts
             </CardTitle>
             <CardDescription>
@@ -293,25 +293,25 @@ export function VirtualTerminalSettings({
         </div>
       </CardHeader>
       <CardContent>
-        <Tabs defaultValue="accounts" className="space-y-4">
+        <Tabs defaultValue="accounts" className="gap-y-4">
           <TabsList>
             <TabsTrigger value="accounts" className="flex items-center gap-1.5">
-              <User className="h-4 w-4" />
+              <User className="size-4" />
               Staff Accounts
             </TabsTrigger>
             <TabsTrigger value="branches" className="flex items-center gap-1.5">
-              <Building2 className="h-4 w-4" />
+              <Building2 className="size-4" />
               Branches
             </TabsTrigger>
           </TabsList>
 
           {/* Staff Accounts Tab */}
-          <TabsContent value="accounts" className="space-y-4">
+          <TabsContent value="accounts" className="gap-y-4">
             <div className="flex justify-end">
               <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
                 <DialogTrigger asChild>
                   <Button size="sm">
-                    <Plus className="h-4 w-4 mr-1" />
+                    <Plus className="size-4 mr-1" />
                     New Staff Account
                   </Button>
                 </DialogTrigger>
@@ -323,7 +323,7 @@ export function VirtualTerminalSettings({
                       tracking.
                     </DialogDescription>
                   </DialogHeader>
-                  <div className="space-y-4 py-4">
+                  <div className="gap-y-4 py-4">
                     <div className="space-y-2">
                       <Label htmlFor="account-name">Account Name</Label>
                       <Input
@@ -394,7 +394,7 @@ export function VirtualTerminalSettings({
                     </Button>
                     <Button onClick={handleCreateAccount} disabled={creating}>
                       {creating && (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        <Loader2 className="mr-2 size-4 animate-spin" />
                       )}
                       Create Account
                     </Button>
@@ -404,9 +404,9 @@ export function VirtualTerminalSettings({
             </div>
 
             {accounts.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 text-center space-y-4 border-2 border-dashed rounded-lg">
-                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                  <User className="h-6 w-6 text-primary" />
+              <div className="flex flex-col items-center justify-center py-8 text-center gap-y-4 border-2 border-dashed rounded-lg">
+                <div className="size-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  <User className="size-6 text-primary" />
                 </div>
                 <div>
                   <h4 className="font-semibold">No Staff Accounts Yet</h4>
@@ -424,8 +424,8 @@ export function VirtualTerminalSettings({
                   >
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                          <User className="h-5 w-5 text-primary" />
+                        <div className="size-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                          <User className="size-5 text-primary" />
                         </div>
                         <div>
                           <h4 className="font-semibold">{account.name}</h4>
@@ -448,7 +448,7 @@ export function VirtualTerminalSettings({
                               Account Number
                             </span>
                             <Copy
-                              className="h-3 w-3 cursor-pointer text-muted-foreground hover:text-primary"
+                              className="size-3 cursor-pointer text-muted-foreground hover:text-primary"
                               onClick={() =>
                                 copyToClipboard(
                                   account.account_number || '',
@@ -478,7 +478,7 @@ export function VirtualTerminalSettings({
                               rel="noopener noreferrer"
                               className="text-primary hover:underline flex items-center gap-1 text-xs"
                             >
-                              Open <ExternalLink className="h-3 w-3" />
+                              Open <ExternalLink className="size-3" />
                             </a>
                           </div>
                           <Button
@@ -492,7 +492,7 @@ export function VirtualTerminalSettings({
                               )
                             }
                           >
-                            <Copy className="h-3 w-3 mr-1" />
+                            <Copy className="size-3 mr-1" />
                             Copy Link
                           </Button>
                         </div>
@@ -505,7 +505,7 @@ export function VirtualTerminalSettings({
           </TabsContent>
 
           {/* Branches Tab */}
-          <TabsContent value="branches" className="space-y-4">
+          <TabsContent value="branches" className="gap-y-4">
             <div className="flex justify-end">
               <Dialog
                 open={branchDialogOpen}
@@ -513,7 +513,7 @@ export function VirtualTerminalSettings({
               >
                 <DialogTrigger asChild>
                   <Button size="sm">
-                    <Plus className="h-4 w-4 mr-1" />
+                    <Plus className="size-4 mr-1" />
                     New Branch
                   </Button>
                 </DialogTrigger>
@@ -524,7 +524,7 @@ export function VirtualTerminalSettings({
                       Add a new store location to organize your staff accounts.
                     </DialogDescription>
                   </DialogHeader>
-                  <div className="space-y-4 py-4">
+                  <div className="gap-y-4 py-4">
                     <div className="space-y-2">
                       <Label htmlFor="branch-name">Branch Name</Label>
                       <Input
@@ -572,7 +572,7 @@ export function VirtualTerminalSettings({
                     </Button>
                     <Button onClick={handleCreateBranch} disabled={creating}>
                       {creating && (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        <Loader2 className="mr-2 size-4 animate-spin" />
                       )}
                       Create Branch
                     </Button>
@@ -582,9 +582,9 @@ export function VirtualTerminalSettings({
             </div>
 
             {branches.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 text-center space-y-4 border-2 border-dashed rounded-lg">
-                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Building2 className="h-6 w-6 text-primary" />
+              <div className="flex flex-col items-center justify-center py-8 text-center gap-y-4 border-2 border-dashed rounded-lg">
+                <div className="size-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Building2 className="size-6 text-primary" />
                 </div>
                 <div>
                   <h4 className="font-semibold">No Branches Yet</h4>
@@ -602,8 +602,8 @@ export function VirtualTerminalSettings({
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                          <MapPin className="h-5 w-5 text-primary" />
+                        <div className="size-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                          <MapPin className="size-5 text-primary" />
                         </div>
                         <div>
                           <h4 className="font-semibold flex items-center gap-2">
@@ -635,7 +635,7 @@ export function VirtualTerminalSettings({
 
         <div className="mt-6 p-4 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 flex gap-3">
           <QrCode
-            className="h-5 w-5 text-blue-600 dark:text-blue-400 shrink-0"
+            className="size-5 text-blue-600 dark:text-blue-400 shrink-0"
             aria-hidden="true"
           />
           <p className="text-xs text-blue-700 dark:text-blue-300 leading-relaxed">

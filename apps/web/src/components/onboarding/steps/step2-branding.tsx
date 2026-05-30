@@ -361,7 +361,7 @@ export default function Step2_Branding() {
             className="flex-1 h-11 text-sm font-medium border-primary/20 hover:border-primary/40 hover:bg-primary/5"
             onClick={() => setShowMobilePreview(true)}
           >
-            <Eye className="mr-2 h-4 w-4" />
+            <Eye className="mr-2 size-4" />
             Preview Store
           </Button>
           <Button
@@ -370,7 +370,7 @@ export default function Step2_Branding() {
             className="flex-1 h-11 text-sm font-medium border-primary/20 hover:border-primary/40 hover:bg-primary/5"
             onClick={() => setShowTemplateSelector(true)}
           >
-            <LayoutTemplate className="mr-2 h-4 w-4" />
+            <LayoutTemplate className="mr-2 size-4" />
             Choose Template
           </Button>
         </div>
@@ -390,7 +390,7 @@ export default function Step2_Branding() {
               </FormLabel>
               {isGenerating && (
                 <span className="text-xs text-muted-foreground animate-pulse">
-                  AI is working...
+                  AI is working…
                 </span>
               )}
             </div>
@@ -421,7 +421,7 @@ export default function Step2_Branding() {
                     {/* Hover Overlay */}
                     <div className="absolute inset-0 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 transform scale-95 group-hover:scale-100 bg-black/60 backdrop-blur-[2px] rounded-xl">
                       <div className="bg-white/10 backdrop-blur-md p-3 rounded-full mb-2 shadow-lg border border-white/20">
-                        <RefreshCw className="w-6 h-6 text-white" />
+                        <RefreshCw className="size-6 text-white" />
                       </div>
                       <span className="text-xs font-semibold text-white tracking-wide">
                         Replace Logo
@@ -440,9 +440,9 @@ export default function Step2_Branding() {
                     {/* Status Indicators */}
                     {isUploading && (
                       <div className="absolute bottom-4 right-4 bg-black/60 backdrop-blur-md rounded-full px-3 py-1.5 flex items-center gap-2 z-30">
-                        <Loader2 className="w-3 h-3 text-white animate-spin" />
+                        <Loader2 className="size-3 text-white animate-spin" />
                         <span className="text-xs text-white font-medium">
-                          Saving...
+                          Saving…
                         </span>
                       </div>
                     )}
@@ -452,9 +452,9 @@ export default function Step2_Branding() {
                   <div className="relative w-full h-full flex flex-col items-center justify-center cursor-pointer group">
                     <div className="w-12 h-12 md:w-16 md:h-16 rounded-full bg-muted/30 flex items-center justify-center mb-2 md:mb-4 group-hover:scale-110 transition-transform duration-300">
                       {isGenerating ? (
-                        <Loader2 className="w-6 h-6 md:w-8 md:h-8 animate-spin text-primary" />
+                        <Loader2 className="size-6 md:w-8 md:h-8 animate-spin text-primary" />
                       ) : (
-                        <Upload className="w-6 h-6 md:w-8 md:h-8 text-muted-foreground/50" />
+                        <Upload className="size-6 md:w-8 md:h-8 text-muted-foreground/50" />
                       )}
                     </div>
                     <p className="text-xs md:text-sm font-medium text-muted-foreground group-hover:text-primary transition-colors">
@@ -483,9 +483,9 @@ export default function Step2_Branding() {
                   className="w-full border-dashed border-2 hover:border-solid hover:bg-muted/50"
                 >
                   {isUploading ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2 className="mr-2 size-4 animate-spin" />
                   ) : (
-                    <Eraser className="mr-2 h-4 w-4" />
+                    <Eraser className="mr-2 size-4" />
                   )}
                   {isUploading ? 'Processing...' : 'Remove Background'}
                 </Button>
@@ -495,7 +495,7 @@ export default function Step2_Branding() {
               {isUploading && progress > 0 && (
                 <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2">
                   <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>Downloading AI Model...</span>
+                    <span>Downloading AI Model…</span>
                     <span>{progress}%</span>
                   </div>
                   <Progress value={progress} className="h-2" />
@@ -510,7 +510,7 @@ export default function Step2_Branding() {
           {currentLogoDataUri || logoUrl ? (
             <>
               <div className="flex items-center justify-center gap-2 text-blue-400 mb-2">
-                <Wand2 className="w-4 h-4" />
+                <Wand2 className="size-4" />
                 <h3 className="font-semibold text-sm text-foreground">
                   Customise Colours
                 </h3>
@@ -537,7 +537,7 @@ export default function Step2_Branding() {
                               <PopoverTrigger asChild>
                                 <button
                                   type="button"
-                                  className="w-10 h-10 rounded-full shadow-sm border-2 border-white/10 ring-2 ring-transparent hover:ring-primary/20 transition-all cursor-pointer relative overflow-hidden"
+                                  className="size-10 rounded-full shadow-sm border-2 border-white/10 ring-2 ring-transparent hover:ring-primary/20 transition-all cursor-pointer relative overflow-hidden"
                                   aria-label={`Edit ${role} color`}
                                 >
                                   <div
@@ -587,14 +587,14 @@ export default function Step2_Branding() {
                 variant="outline"
                 className="hidden md:flex w-full border-dashed border-2 hover:border-solid hover:bg-muted/50"
               >
-                <Shuffle className="mr-2 h-4 w-4" />
+                <Shuffle className="mr-2 size-4" />
                 Shuffle Colors
               </Button>
             </>
           ) : (
             <>
               <div className="hidden md:flex items-center gap-2 text-amber-400 h-7">
-                <Sparkles className="w-5 h-5" />
+                <Sparkles className="size-5" />
                 <h3 className="font-semibold text-lg text-foreground pt-1">
                   Need a Logo?
                 </h3>
@@ -634,7 +634,7 @@ export default function Step2_Branding() {
                       disabled={isLoading}
                       className="w-full bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 hover:text-amber-600 border border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-400 dark:hover:bg-amber-500/20 font-medium mt-auto shadow-sm"
                     >
-                      <Sparkles className="w-4 h-4 mr-2" />
+                      <Sparkles className="size-4 mr-2" />
                       Generate with AI
                     </Button>
                   </LogoGeneratorModal>

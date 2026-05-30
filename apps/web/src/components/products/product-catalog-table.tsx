@@ -98,14 +98,14 @@ export function ProductCatalogTable({
       ) : null}
       {isLoading && (
         <div className="flex flex-col items-center justify-center py-12 text-muted-foreground/50">
-          <Loader2 className="h-8 w-8 animate-spin mb-2" />
-          <span className="text-sm font-medium">Loading catalog...</span>
+          <Loader2 className="size-8 animate-spin mb-2" />
+          <span className="text-sm font-medium">Loading catalog…</span>
         </div>
       )}
       {!isLoading && products.length === 0 && (
         <div className="flex flex-col items-center justify-center py-16 text-center">
-          <div className="h-12 w-12 rounded-full bg-muted/30 flex items-center justify-center mb-3">
-            <Package className="h-6 w-6 text-muted-foreground/60" />
+          <div className="size-12 rounded-full bg-muted/30 flex items-center justify-center mb-3">
+            <Package className="size-6 text-muted-foreground/60" />
           </div>
           <h3 className="text-sm font-medium text-foreground">
             No products found

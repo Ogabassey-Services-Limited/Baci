@@ -193,7 +193,7 @@ export function BlogEditorClient({
       <div className="space-y-2">
         <Button asChild variant="ghost" className="px-0">
           <Link href="/admin/blog">
-            <ArrowLeft className="mr-2 h-4 w-4" />
+            <ArrowLeft className="mr-2 size-4" />
             Back to posts
           </Link>
         </Button>

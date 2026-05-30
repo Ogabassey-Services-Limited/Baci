@@ -301,7 +301,7 @@ const ChartLegendContent = React.forwardRef<
                 <itemConfig.icon />
               ) : (
                 <div
-                  className="h-2 w-2 shrink-0 rounded-[2px]"
+                  className="size-2 shrink-0 rounded-[2px]"
                   style={{
                     // biome-ignore lint/suspicious/noExplicitAny: Recharts payload is loosely typed
                     backgroundColor: (item as any).color,

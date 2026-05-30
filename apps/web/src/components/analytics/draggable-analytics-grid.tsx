@@ -690,7 +690,7 @@ export function DraggableAnalyticsGrid({
             className="gap-2 shrink-0"
             aria-label="Customize Dashboard Layout"
           >
-            <Settings2 className="w-4 h-4" />
+            <Settings2 className="size-4" />
             Customize Dashboard
           </Button>
         </div>
@@ -937,7 +937,7 @@ export function DraggableAnalyticsGrid({
                       className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50 transition-colors"
                     >
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                        <div className="size-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                           <span className="text-xs font-bold text-primary">
                             {sale.name.charAt(0)}
                           </span>
@@ -978,7 +978,7 @@ export function DraggableAnalyticsGrid({
                     className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50 transition-colors"
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="h-8 w-8 rounded-full bg-secondary/10 flex items-center justify-center shrink-0">
+                      <div className="size-8 rounded-full bg-secondary/10 flex items-center justify-center shrink-0">
                         <span className="text-xs font-bold text-secondary-foreground">
                           #{i + 1}
                         </span>
@@ -1070,12 +1070,12 @@ export function DraggableAnalyticsGrid({
                       >
                         {data.adAnalytics.offlineConversionsEnabled ? (
                           <>
-                            <Check className="w-4 h-4" />
+                            <Check className="size-4" />
                             <span>Offline conversions enabled</span>
                           </>
                         ) : (
                           <>
-                            <AlertTriangle className="w-4 h-4" />
+                            <AlertTriangle className="size-4" />
                             <span>Offline conversions disabled</span>
                           </>
                         )}
@@ -1083,7 +1083,7 @@ export function DraggableAnalyticsGrid({
                     </div>
                   ) : (
                     <div className="flex items-center justify-center h-full">
-                      <p className="text-muted-foreground">Loading...</p>
+                      <p className="text-muted-foreground">Loading…</p>
                     </div>
                   )}
                 </BentoCard>
@@ -1144,7 +1144,7 @@ export function DraggableAnalyticsGrid({
                     </div>
                   ) : (
                     <div className="flex items-center justify-center h-full">
-                      <p className="text-muted-foreground">Loading...</p>
+                      <p className="text-muted-foreground">Loading…</p>
                     </div>
                   )}
                 </BentoCard>
@@ -1198,7 +1198,7 @@ export function DraggableAnalyticsGrid({
                     </div>
                   ) : (
                     <div className="flex items-center justify-center h-full">
-                      <p className="text-muted-foreground">Loading...</p>
+                      <p className="text-muted-foreground">Loading…</p>
                     </div>
                   )}
                 </BentoCard>
@@ -1245,7 +1245,7 @@ export function DraggableAnalyticsGrid({
                     </div>
                   ) : (
                     <div className="flex items-center justify-center h-full">
-                      <p className="text-muted-foreground">Loading...</p>
+                      <p className="text-muted-foreground">Loading…</p>
                     </div>
                   )}
                 </BentoCard>
@@ -1271,7 +1271,7 @@ export function DraggableAnalyticsGrid({
           className="gap-2 shrink-0"
           aria-label="Save Dashboard Layout"
         >
-          <Check className="w-4 h-4" />
+          <Check className="size-4" />
           Save Layout
         </Button>
       </div>
@@ -1428,7 +1428,7 @@ export function DraggableAnalyticsGrid({
                       className="flex items-center justify-between p-2 rounded-lg hover:bg-white/50 dark:hover:bg-white/5 transition-colors"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
+                        <div className="size-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
                           {sale.name.charAt(0)}
                         </div>
                         <div>
@@ -1464,7 +1464,7 @@ export function DraggableAnalyticsGrid({
                       className="flex items-center justify-between p-2 rounded-lg hover:bg-white/50 dark:hover:bg-white/5 transition-colors"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">
+                        <div className="size-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">
                           #{index + 1}
                         </div>
                         <div>
@@ -1534,7 +1534,7 @@ export function DraggableAnalyticsGrid({
                 <div className="space-y-3 custom-scrollbar overflow-y-auto max-h-[200px] pr-2">
                   {(data?.inventoryAlerts || []).length === 0 ? (
                     <div className="text-center py-4 text-muted-foreground">
-                      <Package className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                      <Package className="size-8 mx-auto mb-2 opacity-50" />
                       <p className="text-sm">No active alerts</p>
                     </div>
                   ) : (
@@ -1589,7 +1589,7 @@ export function DraggableAnalyticsGrid({
                 <div className="space-y-3 custom-scrollbar overflow-y-auto max-h-[300px] pr-2">
                   {(data?.inventoryForecasts || []).length === 0 ? (
                     <div className="text-center py-8 text-muted-foreground">
-                      <TrendingUp className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                      <TrendingUp className="size-8 mx-auto mb-2 opacity-50" />
                       <p className="text-sm">No forecast data available</p>
                       <p className="text-xs">
                         Add products with stock tracking enabled
@@ -1706,7 +1706,7 @@ export function DraggableAnalyticsGrid({
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="p-3 rounded-lg bg-green-500/10 text-center">
-                      <Crown className="w-5 h-5 mx-auto mb-1 text-green-600" />
+                      <Crown className="size-5 mx-auto mb-1 text-green-600" />
                       <div className="text-lg font-bold text-green-600">
                         {data?.segmentSummary?.champions_count || 0}
                       </div>
@@ -1715,7 +1715,7 @@ export function DraggableAnalyticsGrid({
                       </div>
                     </div>
                     <div className="p-3 rounded-lg bg-red-500/10 text-center">
-                      <AlertTriangle className="w-5 h-5 mx-auto mb-1 text-red-600" />
+                      <AlertTriangle className="size-5 mx-auto mb-1 text-red-600" />
                       <div className="text-lg font-bold text-red-600">
                         {data?.segmentSummary?.at_risk_count || 0}
                       </div>
@@ -1773,7 +1773,7 @@ export function DraggableAnalyticsGrid({
                   })}
                   {(data?.segmentSummary?.segments || []).length === 0 && (
                     <div className="text-center py-4 text-muted-foreground">
-                      <Users className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                      <Users className="size-8 mx-auto mb-2 opacity-50" />
                       <p className="text-sm">No segment data yet</p>
                     </div>
                   )}

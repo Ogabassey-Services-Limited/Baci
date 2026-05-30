@@ -279,7 +279,7 @@ export function NotificationBell({
       <AnimatePresence>
         {hasNotification && (
           <motion.span
-            className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-red-500"
+            className="absolute -top-1 -right-1 size-3 rounded-full bg-red-500"
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             exit={{ scale: 0 }}
@@ -372,7 +372,7 @@ export function CartIcon({
         {count > 0 && (
           <motion.span
             key={count}
-            className="absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground"
+            className="absolute -top-2 -right-2 flex size-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground"
             initial={{ scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0, opacity: 0 }}

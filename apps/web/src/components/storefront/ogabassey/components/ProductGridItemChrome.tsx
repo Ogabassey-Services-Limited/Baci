@@ -75,14 +75,14 @@ export function ProductGridImageChrome({
     <>
       {product.colors && product.colors.length > 1 && (
         <>
-          <button
+          <button type="button"
             onClick={onPrevColor}
             className="absolute -left-2 md:left-2 top-1/2 -translate-y-1/2 z-30 p-2 md:p-1.5 bg-transparent md:bg-white/40 md:backdrop-blur-md border-0 md:border md:border-white/50 rounded-full shadow-none md:shadow-sm text-gray-500 md:text-gray-700 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all duration-200 md:hover:bg-white/60 hover:text-gray-900 pointer-events-auto active:scale-95 touch-manipulation"
             aria-label="Previous color"
           >
             <ChevronLeft size={24} className="md:w-[18px] md:h-[18px]" />
           </button>
-          <button
+          <button type="button"
             onClick={onNextColor}
             className="absolute -right-2 md:right-2 top-1/2 -translate-y-1/2 z-30 p-2 md:p-1.5 bg-transparent md:bg-white/40 md:backdrop-blur-md border-0 md:border md:border-white/50 rounded-full shadow-none md:shadow-sm text-gray-500 md:text-gray-700 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all duration-200 md:hover:bg-white/60 hover:text-gray-900 pointer-events-auto active:scale-95 touch-manipulation"
             aria-label="Next color"
@@ -123,13 +123,13 @@ export function ProductGridImageChrome({
               typeof color === 'string' ? color : `${color.name}-${color.value}`;
 
             return (
-              <button
+              <button type="button"
                 key={colorKey}
                 onClick={(event) => onSelectColor(event, index)}
                 className={`rounded-full border border-white shadow-sm transition-all duration-300 ease-out ${
                   isSelected
                     ? 'w-4 h-4 ring-2 ring-gray-300 ring-offset-1 z-30 scale-110'
-                    : 'w-3.5 h-3.5 hover:scale-110 hover:z-20 opacity-90 hover:opacity-100'
+                    : 'size-3.5 hover:scale-110 hover:z-20 opacity-90 hover:opacity-100'
                 }`}
                 style={{ backgroundColor: getHexColor(color) }}
                 title={typeof color === 'string' ? color : color.name}
@@ -140,14 +140,14 @@ export function ProductGridImageChrome({
             );
           })}
           {product.colors.length > 4 && (
-            <div className="w-3.5 h-3.5 rounded-full bg-gray-100 border border-white flex items-center justify-center text-[8px] font-bold text-gray-500 shadow-sm ml-0.5">
+            <div className="size-3.5 rounded-full bg-gray-100 border border-white flex items-center justify-center text-[8px] font-bold text-gray-500 shadow-sm ml-0.5">
               +
             </div>
           )}
         </div>
       )}
 
-      <button
+      <button type="button"
         onClick={(event) => {
           event.preventDefault();
           event.stopPropagation();
@@ -181,7 +181,7 @@ export function ProductGridImageChrome({
           )}
         </Link>
       ) : (
-        <button
+        <button type="button"
           onClick={(event) => onAddToCart(event, product)}
           aria-label={
             isAdded

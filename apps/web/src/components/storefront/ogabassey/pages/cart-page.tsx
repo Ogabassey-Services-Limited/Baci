@@ -261,7 +261,7 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
                           {item.selectedColor && (
                             <div className="flex items-center gap-1 bg-gray-50 border border-gray-100 rounded px-1.5 py-0.5">
                               <span
-                                className="w-2 h-2 rounded-full border border-gray-300"
+                                className="size-2 rounded-full border border-gray-300"
                                 style={{
                                   backgroundColor:
                                     item.selectedColorValue ||
@@ -292,7 +292,7 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
                       </div>
 
                       {/* Remove Button - Absolute Top Right */}
-                      <button
+                      <button type="button"
                         onClick={() => removeFromCart(item.cartItemId)}
                         className="absolute top-4 right-4 text-store-primary md:hover:text-store-primary p-1.5 md:hover:bg-store-primary/5 rounded-full transition-colors active:bg-store-primary/5"
                       >
@@ -307,7 +307,7 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
                     <div className="flex items-center justify-between gap-3">
                       {/* Quantity */}
                       <div className="flex items-center border border-gray-200 rounded-lg h-9 md:h-10 bg-gray-50">
-                        <button
+                        <button type="button"
                           onClick={() =>
                             updateQuantity(item.cartItemId, item.quantity - 1)
                           }
@@ -319,7 +319,7 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
                         <span className="w-8 text-center text-xs md:text-sm font-bold text-gray-900">
                           {item.quantity}
                         </span>
-                        <button
+                        <button type="button"
                           onClick={() =>
                             updateQuantity(item.cartItemId, item.quantity + 1)
                           }
@@ -403,7 +403,7 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
                             </span>
                           </div>
                         ) : (
-                          <button
+                          <button type="button"
                             onClick={() => openItemNegotiation(item)}
                             className="flex items-center gap-1.5 text-xs font-bold text-store-primary md:hover:bg-store-primary/5 px-2 py-1.5 rounded-lg transition-colors border border-red-100 md:hover:border-store-primary/40 active:bg-store-primary/5 active:scale-95"
                           >
@@ -426,7 +426,7 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sticky top-24">
 
                 <div className="space-y-3">
-                  <button
+                  <button type="button"
                     onClick={openTotalNegotiation}
                     className="w-full bg-gray-100 md:hover:bg-gray-200 text-gray-900 font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-colors border border-gray-200 active:scale-[0.98] active:bg-gray-200"
                   >
@@ -434,7 +434,7 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
                     Negotiate Total
                   </button>
 
-                  <button
+                  <button type="button"
                     onClick={handleCheckoutClick}
                     className="w-full bg-black hover:bg-gray-900 text-white font-bold py-3.5 px-4 rounded-xl items-center justify-center gap-2 transition-all shadow-lg active:scale-[0.98] active:shadow-none relative z-10 hidden md:flex"
                   >
@@ -485,7 +485,7 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
       {cart.length > 0 && (
         <div className="fixed bottom-24 left-0 right-0 bg-white border-t border-gray-200 p-3 flex items-center gap-2 shadow-[0_-4px_16px_rgba(0,0,0,0.08)] md:hidden z-40">
           {/* Negotiate Icon Button */}
-          <button
+          <button type="button"
             onClick={openTotalNegotiation}
             className="h-14 px-3 flex flex-col items-center justify-center bg-gray-100 hover:bg-gray-200 active:bg-gray-200 rounded-xl border border-gray-200 transition-colors shrink-0"
             aria-label="Bulk Negotiate"
@@ -496,7 +496,7 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
           </button>
 
           {/* Checkout Button */}
-          <button
+          <button type="button"
             onClick={handleCheckoutClick}
             className="flex-1 bg-red-600 hover:bg-red-700 active:bg-red-700 active:scale-[0.98] text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg"
           >
@@ -512,7 +512,7 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center">
+              <div className="size-12 bg-amber-100 rounded-full flex items-center justify-center">
                 <AppNegotiateIcon className="text-amber-600" size={24} />
               </div>
               <h3 className="text-xl font-bold text-gray-900">Choose Negotiation Mode</h3>
@@ -522,7 +522,7 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
               <span className="font-semibold"> You can only use one approach.</span>
             </p>
             <div className="flex flex-col gap-3">
-              <button
+              <button type="button"
                 onClick={() => {
                   if (pendingNegotiateItem) {
                     actuallyOpenItemNegotiation(pendingNegotiateItem);
@@ -532,7 +532,7 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
               >
                 Negotiate This Item
               </button>
-              <button
+              <button type="button"
                 onClick={() => {
                   setShowNegotiateWarning(false);
                   setPendingNegotiateItem(null);
@@ -543,7 +543,7 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
                 <AppNegotiateIcon size={18} />
                 Bulk Negotiate Entire Cart
               </button>
-              <button
+              <button type="button"
                 onClick={() => {
                   setShowNegotiateWarning(false);
                   setPendingNegotiateItem(null);

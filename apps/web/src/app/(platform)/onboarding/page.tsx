@@ -13,7 +13,7 @@ function OnboardingPageFallback() {
       className="flex min-h-screen items-center justify-center text-sm text-muted-foreground"
       role="status"
     >
-      Loading onboarding...
+      Loading onboarding…
     </div>
   );
 }

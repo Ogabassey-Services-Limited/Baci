@@ -120,7 +120,7 @@ export function BlogListClient({
         </div>
         <Button asChild>
           <Link href="/admin/blog/new">
-            <Plus className="mr-2 h-4 w-4" />
+            <Plus className="mr-2 size-4" />
             New Post
           </Link>
         </Button>
@@ -176,7 +176,7 @@ export function BlogListClient({
                       </Button>
                       <Button asChild variant="outline" size="sm">
                         <Link href={`/admin/blog/${post.id}/edit`}>
-                          <PencilLine className="mr-1 h-4 w-4" />
+                          <PencilLine className="mr-1 size-4" />
                           Edit
                         </Link>
                       </Button>
@@ -187,9 +187,9 @@ export function BlogListClient({
                         onClick={() => handleDelete(post)}
                       >
                         {deleting ? (
-                          <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                          <Loader2 className="mr-1 size-4 animate-spin" />
                         ) : (
-                          <Trash2 className="mr-1 h-4 w-4" />
+                          <Trash2 className="mr-1 size-4" />
                         )}
                         Delete
                       </Button>
@@ -209,8 +209,8 @@ export function BlogListClient({
               >
                 {loadingMore ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Loading...
+                    <Loader2 className="mr-2 size-4 animate-spin" />
+                    Loading…
                   </>
                 ) : (
                   'Load more'

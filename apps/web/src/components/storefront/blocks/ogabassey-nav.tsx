@@ -76,7 +76,7 @@ export function OgabasseyNav({
           </nav>
 
           <div className="flex items-center text-gray-400 pl-4 border-l border-gray-100 ml-4">
-            <ChevronRight className="w-5 h-5" />
+            <ChevronRight className="size-5" />
           </div>
         </div>
       </div>

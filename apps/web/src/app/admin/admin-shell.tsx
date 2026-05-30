@@ -117,7 +117,7 @@ export function AdminShell({
                 <Logo />
                 {!isCollapsed && (
                   <span className="flex items-center gap-1.5 text-sm font-medium text-primary">
-                    <Shield className="h-4 w-4 text-primary" />
+                    <Shield className="size-4 text-primary" />
                     Admin
                   </span>
                 )}
@@ -146,7 +146,7 @@ export function AdminShell({
                           <TooltipTrigger asChild>
                             <span className="flex items-center gap-3">
                               <item.icon
-                                className="h-4 w-4"
+                                className="size-4"
                                 aria-hidden="true"
                               />
                               {!isCollapsed && <span>{item.label}</span>}
@@ -169,7 +169,7 @@ export function AdminShell({
                       isCollapsed && 'justify-center'
                     )}
                   >
-                    <Users className="h-4 w-4" aria-hidden="true" />
+                    <Users className="size-4" aria-hidden="true" />
                     {!isCollapsed && <span>Merchant Dashboard</span>}
                   </Link>
                 </nav>
@@ -189,9 +189,9 @@ export function AdminShell({
             )}
           >
             {isCollapsed ? (
-              <PanelLeftOpen className="h-5 w-5" aria-hidden="true" />
+              <PanelLeftOpen className="size-5" aria-hidden="true" />
             ) : (
-              <PanelLeftClose className="h-5 w-5" aria-hidden="true" />
+              <PanelLeftClose className="size-5" aria-hidden="true" />
             )}
             <span className="sr-only">
               {isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
@@ -206,7 +206,7 @@ export function AdminShell({
                   size="icon"
                   className="shrink-0 md:hidden"
                 >
-                  <Menu className="h-5 w-5" aria-hidden="true" />
+                  <Menu className="size-5" aria-hidden="true" />
                   <span className="sr-only">Toggle navigation menu</span>
                 </Button>
               </SheetTrigger>
@@ -220,7 +220,7 @@ export function AdminShell({
                     className="mb-4 flex items-center gap-2 text-lg font-semibold"
                   >
                     <Logo />
-                    <Shield className="h-4 w-4 text-primary" />
+                    <Shield className="size-4 text-primary" />
                     <span className="text-sm text-primary">Admin</span>
                   </Link>
                   {navItems.map((item) => {
@@ -235,7 +235,7 @@ export function AdminShell({
                           isActive && 'bg-muted text-foreground'
                         )}
                       >
-                        <item.icon className="h-5 w-5" aria-hidden="true" />
+                        <item.icon className="size-5" aria-hidden="true" />
                         {item.label}
                       </Link>
                     );
@@ -245,7 +245,7 @@ export function AdminShell({
                     href="/dashboard"
                     className="mx-[-0.65rem] flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground hover:text-foreground"
                   >
-                    <Users className="h-5 w-5" aria-hidden="true" />
+                    <Users className="size-5" aria-hidden="true" />
                     Merchant Dashboard
                   </Link>
                 </nav>
@@ -254,7 +254,7 @@ export function AdminShell({
 
             <div className="w-full flex-1">
               <div className="flex items-center gap-2">
-                <Shield className="h-4 w-4 text-primary" aria-hidden="true" />
+                <Shield className="size-4 text-primary" aria-hidden="true" />
                 <span className="text-sm font-medium">Platform Admin</span>
               </div>
             </div>
@@ -262,7 +262,7 @@ export function AdminShell({
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="default" size="icon" className="rounded-full">
-                  <User className="h-5 w-5" aria-hidden="true" />
+                  <User className="size-5" aria-hidden="true" />
                   <span className="sr-only">Toggle user menu</span>
                 </Button>
               </DropdownMenuTrigger>
@@ -274,7 +274,7 @@ export function AdminShell({
                 <DropdownMenuItem
                   onClick={() => router.push('/dashboard/settings')}
                 >
-                  <Settings className="mr-2 h-4 w-4" aria-hidden="true" />
+                  <Settings className="mr-2 size-4" aria-hidden="true" />
                   Settings
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
@@ -282,7 +282,7 @@ export function AdminShell({
                   onClick={handleSignOut}
                   className="text-destructive focus:bg-destructive/10 focus:text-destructive"
                 >
-                  <LogOut className="mr-2 h-4 w-4" aria-hidden="true" />
+                  <LogOut className="mr-2 size-4" aria-hidden="true" />
                   <span>Logout</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>

@@ -151,7 +151,7 @@ export function GoogleMerchantCustomerReviewsCard({
           </div>
 
           <Alert role="note">
-            <AlertCircle className="h-4 w-4" />
+            <AlertCircle className="size-4" />
             <AlertDescription>
               This ID is sent only on completed order pages so Google can show
               the Customer Reviews survey opt-in for eligible buyers.
@@ -160,9 +160,9 @@ export function GoogleMerchantCustomerReviewsCard({
 
           <Button className="sm:w-fit" disabled={isSaving} type="submit">
             {isSaving ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Loader2 className="mr-2 size-4 animate-spin" />
             ) : (
-              <Save className="mr-2 h-4 w-4" />
+              <Save className="mr-2 size-4" />
             )}
             Save Customer Reviews
           </Button>

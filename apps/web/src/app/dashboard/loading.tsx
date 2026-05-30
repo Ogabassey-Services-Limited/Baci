@@ -4,9 +4,9 @@ export default function DashboardLoading() {
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
       {/* Header */}
-      <div className="flex items-center justify-between space-y-2">
+      <div className="flex items-center justify-between gap-y-2">
         <Skeleton className="h-8 w-48" />
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center gap-x-2">
           <Skeleton className="h-10 w-28" />
           <Skeleton className="h-10 w-32" />
         </div>
@@ -19,11 +19,11 @@ export default function DashboardLoading() {
             key={`metric-skeleton-${metric}`}
             className="rounded-xl border bg-card text-card-foreground shadow-sm p-6"
           >
-            <div className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <div className="flex flex-row items-center justify-between gap-y-0 pb-2">
               <Skeleton className="h-4 w-24" />
-              <Skeleton className="h-4 w-4 rounded-full" />
+              <Skeleton className="size-4 rounded-full" />
             </div>
-            <div className="space-y-2 mt-2">
+            <div className="gap-y-2 mt-2">
               <Skeleton className="h-8 w-20" />
               <Skeleton className="h-3 w-32" />
             </div>
@@ -56,7 +56,7 @@ export default function DashboardLoading() {
                   key={`sale-skeleton-${saleId}`}
                   className="flex items-center"
                 >
-                  <Skeleton className="h-9 w-9 rounded-full" />
+                  <Skeleton className="size-9 rounded-full" />
                   <div className="ml-4 space-y-1">
                     <Skeleton className="h-4 w-32" />
                     <Skeleton className="h-3 w-24" />

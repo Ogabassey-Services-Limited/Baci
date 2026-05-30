@@ -56,8 +56,8 @@ export function OtpVerificationForm({
           role="status"
           aria-live="polite"
         >
-          <Loader2 className="h-4 w-4 animate-spin text-primary" aria-hidden="true" />
-          <span>Verifying...</span>
+          <Loader2 className="size-4 animate-spin text-primary" aria-hidden="true" />
+          <span>Verifying…</span>
         </div>
       )}
 

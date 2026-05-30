@@ -97,7 +97,7 @@ export const OgabasseyV2AboutUs: React.FC<AboutProps> = ({ merchant }) => {
                 key={stat.label}
                 className="py-8 md:py-12 flex flex-col items-center text-center px-4 hover:bg-gray-100/50 transition-colors"
               >
-                <stat.icon className="w-8 h-8 text-red-600 mb-3 opacity-80" />
+                <stat.icon className="size-8 text-red-600 mb-3 opacity-80" />
                 <span className="text-3xl md:text-4xl font-extrabold text-gray-900 mb-1">
                   {stat.value}
                 </span>
@@ -210,8 +210,8 @@ export const OgabasseyV2AboutUs: React.FC<AboutProps> = ({ merchant }) => {
               Start Shopping <ChevronRight size={20} />
             </Link>
           </div>
-          <div className="absolute top-0 left-0 w-64 h-64 bg-white/10 rounded-full -translate-x-1/2 -translate-y-1/2" />
-          <div className="absolute bottom-0 right-0 w-96 h-96 bg-white/10 rounded-full translate-x-1/3 translate-y-1/3" />
+          <div className="absolute top-0 left-0 size-64 bg-white/10 rounded-full -translate-x-1/2 -translate-y-1/2" />
+          <div className="absolute bottom-0 right-0 size-96 bg-white/10 rounded-full translate-x-1/3 translate-y-1/3" />
         </div>
       </div>
     </div>

@@ -16,7 +16,7 @@ export default function BlogPostEditLoading() {
 
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center gap-4">
-          <Skeleton className="h-10 w-10 rounded-md" />
+          <Skeleton className="size-10 rounded-md" />
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <Skeleton className="h-8 w-36" />
@@ -62,7 +62,7 @@ export default function BlogPostEditLoading() {
                 {['format', 'bold', 'italic', 'link', 'image', 'list'].map(
                   (control) => (
                     <Skeleton
-                      className="h-8 w-8 rounded-md"
+                      className="size-8 rounded-md"
                       key={`editor-loading-${control}`}
                     />
                   )

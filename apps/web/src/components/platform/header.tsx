@@ -72,7 +72,7 @@ export function PlatformHeader() {
                 size="icon"
                 className="md:hidden hover:bg-primary/10"
               >
-                <Menu className="h-6 w-6" />
+                <Menu className="size-6" />
                 <span className="sr-only">Toggle menu</span>
               </Button>
             </SheetTrigger>

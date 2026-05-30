@@ -81,7 +81,7 @@ export function InlineContextMenu({
             className="flex items-center cursor-grab active:cursor-grabbing px-1"
             style={{ color: '#2a2c6e80' }}
           >
-            <GripVertical className="w-4 h-4" />
+            <GripVertical className="size-4" />
           </div>
 
           <div
@@ -109,7 +109,7 @@ export function InlineContextMenu({
                 aria-label="Edit Properties"
                 variant="ghost"
                 size="sm"
-                className="h-8 w-8 p-0 transition-all"
+                className="size-8 p-0 transition-all"
                 style={{ color: '#2a2c6e' }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.backgroundColor = '#2a2c6e10';
@@ -119,7 +119,7 @@ export function InlineContextMenu({
                 }}
                 onClick={() => handleAction(onEdit)}
               >
-                <Settings className="w-4 h-4" />
+                <Settings className="size-4" />
               </Button>
             </TooltipTrigger>
             <TooltipContent>
@@ -134,7 +134,7 @@ export function InlineContextMenu({
                 aria-label="Duplicate"
                 variant="ghost"
                 size="sm"
-                className="h-8 w-8 p-0 transition-all"
+                className="size-8 p-0 transition-all"
                 style={{ color: '#2a2c6e' }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.backgroundColor = '#2a2c6e10';
@@ -144,7 +144,7 @@ export function InlineContextMenu({
                 }}
                 onClick={() => handleAction(onDuplicate)}
               >
-                <Copy className="w-4 h-4" />
+                <Copy className="size-4" />
               </Button>
             </TooltipTrigger>
             <TooltipContent>
@@ -159,7 +159,7 @@ export function InlineContextMenu({
                 aria-label="Move Up"
                 variant="ghost"
                 size="sm"
-                className="h-8 w-8 p-0 transition-all disabled:opacity-30"
+                className="size-8 p-0 transition-all disabled:opacity-30"
                 style={{ color: '#2a2c6e' }}
                 onMouseEnter={(e) => {
                   if (canMoveUp) {
@@ -172,7 +172,7 @@ export function InlineContextMenu({
                 onClick={() => handleAction(onMoveUp)}
                 disabled={!canMoveUp}
               >
-                <ChevronUp className="w-4 h-4" />
+                <ChevronUp className="size-4" />
               </Button>
             </TooltipTrigger>
             <TooltipContent>
@@ -187,7 +187,7 @@ export function InlineContextMenu({
                 aria-label="Move Down"
                 variant="ghost"
                 size="sm"
-                className="h-8 w-8 p-0 transition-all disabled:opacity-30"
+                className="size-8 p-0 transition-all disabled:opacity-30"
                 style={{ color: '#2a2c6e' }}
                 onMouseEnter={(e) => {
                   if (canMoveDown) {
@@ -200,7 +200,7 @@ export function InlineContextMenu({
                 onClick={() => handleAction(onMoveDown)}
                 disabled={!canMoveDown}
               >
-                <ChevronDown className="w-4 h-4" />
+                <ChevronDown className="size-4" />
               </Button>
             </TooltipTrigger>
             <TooltipContent>
@@ -220,7 +220,7 @@ export function InlineContextMenu({
                 aria-label="Delete"
                 variant="ghost"
                 size="sm"
-                className="h-8 w-8 p-0 transition-all"
+                className="size-8 p-0 transition-all"
                 style={{ color: '#dc2626' }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.backgroundColor = '#dc262610';
@@ -230,7 +230,7 @@ export function InlineContextMenu({
                 }}
                 onClick={() => handleAction(onDelete)}
               >
-                <Trash2 className="w-4 h-4" />
+                <Trash2 className="size-4" />
               </Button>
             </TooltipTrigger>
             <TooltipContent>
@@ -247,7 +247,7 @@ export function InlineContextMenu({
                     aria-label="More Options"
                     variant="ghost"
                     size="sm"
-                    className="h-8 w-8 p-0 transition-all"
+                    className="size-8 p-0 transition-all"
                     style={{ color: '#2a2c6e' }}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.backgroundColor = '#2a2c6e10';
@@ -256,7 +256,7 @@ export function InlineContextMenu({
                       e.currentTarget.style.backgroundColor = 'transparent';
                     }}
                   >
-                    <MoreHorizontal className="w-4 h-4" />
+                    <MoreHorizontal className="size-4" />
                   </Button>
                 </DropdownMenuTrigger>
               </TooltipTrigger>
@@ -266,11 +266,11 @@ export function InlineContextMenu({
             </Tooltip>
             <DropdownMenuContent align="end" className="w-48">
               <DropdownMenuItem onClick={() => handleAction(onEdit)}>
-                <Edit3 className="w-4 h-4 mr-2" />
+                <Edit3 className="size-4 mr-2" />
                 Edit Properties
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleAction(onDuplicate)}>
-                <Copy className="w-4 h-4 mr-2" />
+                <Copy className="size-4 mr-2" />
                 Duplicate
               </DropdownMenuItem>
               <DropdownMenuSeparator />
@@ -278,7 +278,7 @@ export function InlineContextMenu({
                 onClick={() => handleAction(onDelete)}
                 className="text-red-600 focus:text-red-600"
               >
-                <Trash2 className="w-4 h-4 mr-2" />
+                <Trash2 className="size-4 mr-2" />
                 Delete
               </DropdownMenuItem>
             </DropdownMenuContent>

@@ -31,7 +31,7 @@ export function ProductCatalogVariantRow({
     <TableRow className="bg-muted/10 hover:bg-muted/20 border-b border-border/40">
       <TableCell className="pl-12 py-2">
         <div className="flex items-center gap-3">
-          <div className="h-8 w-8 rounded overflow-hidden border border-border/50 bg-background shrink-0">
+          <div className="size-8 rounded overflow-hidden border border-border/50 bg-background shrink-0">
             {variant.primary_image ? (
               <Image
                 src={variant.primary_image}
@@ -44,7 +44,7 @@ export function ProductCatalogVariantRow({
               />
             ) : (
               <div className="h-full w-full flex items-center justify-center text-muted-foreground/20">
-                <Package className="h-3 w-3" />
+                <Package className="size-3" />
               </div>
             )}
           </div>
@@ -96,7 +96,7 @@ export function ProductCatalogVariantRow({
               className="absolute -right-6 top-1/2 -translate-y-1/2"
               title={`Low Stock (Threshold: ${product.low_stock_threshold ?? 5})`}
             >
-              <AlertTriangle className="h-3 w-3 text-amber-500" />
+              <AlertTriangle className="size-3 text-amber-500" />
             </div>
           )}
         </div>

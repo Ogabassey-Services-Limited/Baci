@@ -53,7 +53,7 @@ export function BNPLCheckoutWebView({
           <View style={[styles.loadingCard, { backgroundColor: colors.card }]}>
             <ActivityIndicator size="large" color={BRAND.primary} />
             <Text style={[styles.loadingText, { color: colors.text }]}>
-              Launching {gatewayName}...
+              Launching {gatewayName}…
             </Text>
             <Text
               style={[styles.loadingSubtext, { color: colors.textSecondary }]}

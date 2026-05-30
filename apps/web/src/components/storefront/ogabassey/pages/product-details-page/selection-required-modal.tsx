@@ -154,7 +154,7 @@ export function SelectionRequiredModal({
                       }`}
                     >
                       <div
-                        className="h-11 w-11 rounded-full border border-black/5 shadow-inner"
+                        className="size-11 rounded-full border border-black/5 shadow-inner"
                         style={{ backgroundColor: color.value }}
                       />
                       {isSelected && (

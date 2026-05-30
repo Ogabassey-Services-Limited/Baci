@@ -210,14 +210,14 @@ export default function PagesClient() {
                             variant="secondary"
                             className="bg-green-100 text-green-700 hover:bg-green-100/80 gap-1"
                           >
-                            <CheckCircle className="w-3 h-3" />
+                            <CheckCircle className="size-3" />
                             Completed
                           </Badge>
                         )}
                       </div>
                     </AccordionTrigger>
                     <AccordionContent>
-                      <div className="flex items-center space-x-2 mb-6 pb-4 border-b">
+                      <div className="flex items-center gap-x-2 mb-6 pb-4 border-b">
                         <Switch
                           id={`status-${page.name}`}
                           checked={!!completedPages[page.name]}

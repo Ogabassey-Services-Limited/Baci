@@ -44,6 +44,6 @@ describe('OrdersUrgentAlert', () => {
       />
     );
 
-    expect(screen.getByText('Checking orders...')).toBeInTheDocument();
+    expect(screen.getByText('Checking orders…')).toBeInTheDocument();
   });
 });

@@ -177,7 +177,7 @@ export function StickyAddToCart({
         )}
         aria-label="Scroll to top"
       >
-        <ChevronUp className="w-5 h-5" />
+        <ChevronUp className="size-5" />
       </button>
 
       {/* Sticky bar */}
@@ -210,7 +210,7 @@ export function StickyAddToCart({
                     )
                   }
                   disabled={cartItem.quantity <= 1}
-                  className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full"
+                  className="size-11 min-w-[44px] min-h-[44px] rounded-full"
                 />
                 <span className="w-8 text-center font-medium">
                   {cartItem.quantity}
@@ -226,7 +226,7 @@ export function StickyAddToCart({
                       selectedVariant?.id
                     )
                   }
-                  className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full"
+                  className="size-11 min-w-[44px] min-h-[44px] rounded-full"
                 />
               </div>
             ) : (
@@ -237,7 +237,7 @@ export function StickyAddToCart({
                     type="minus"
                     onClick={() => handleQuantityChange(quantity - 1)}
                     disabled={quantity <= (product.minimum_order_quantity || 1)}
-                    className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full"
+                    className="size-11 min-w-[44px] min-h-[44px] rounded-full"
                   />
                   <span className="w-6 text-center text-sm font-medium">
                     {quantity}
@@ -245,7 +245,7 @@ export function StickyAddToCart({
                   <QuantityButton
                     type="plus"
                     onClick={() => handleQuantityChange(quantity + 1)}
-                    className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full"
+                    className="size-11 min-w-[44px] min-h-[44px] rounded-full"
                   />
                 </div>
 
@@ -257,7 +257,7 @@ export function StickyAddToCart({
                   onClick={handleAddToCart}
                   disabled={isOutOfStock}
                 >
-                  <ShoppingCart className="w-4 h-4" />
+                  <ShoppingCart className="size-4" />
                   {isOutOfStock ? 'Unavailable' : 'Add'}
                 </ThemedButton>
               </div>

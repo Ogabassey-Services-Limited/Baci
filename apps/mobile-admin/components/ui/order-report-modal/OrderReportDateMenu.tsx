@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import type { GestureResponderEvent } from 'react-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
@@ -112,7 +112,7 @@ export function OrderReportDateMenu({
                     },
                   ]}
                 >
-                  Custom Range...
+                  Custom Range…
                 </Text>
                 <Ionicons
                   name="calendar-outline"

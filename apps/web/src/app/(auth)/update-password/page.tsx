@@ -48,9 +48,9 @@ export default function UpdatePasswordPage() {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-gray-50 dark:bg-zinc-900">
         <div className="w-full max-w-md space-y-8 bg-white dark:bg-zinc-800 p-10 rounded-xl shadow-sm border border-gray-100 dark:border-zinc-700 text-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30 mb-6">
+          <div className="mx-auto flex size-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30 mb-6">
             <svg
-              className="h-10 w-10 text-green-600 dark:text-green-500"
+              className="size-10 text-green-600 dark:text-green-500"
               fill="none"
               viewBox="0 0 24 24"
               strokeWidth="2"

@@ -170,13 +170,13 @@ export function HeroCarouselCard({
                 className="text-destructive"
                 aria-label={`Remove slide ${index + 1}`}
               >
-                <Trash2 className="w-4 h-4" />
+                <Trash2 className="size-4" />
               </Button>
             </div>
           </Card>
         ))}
         <Button type="button" variant="outline" onClick={addSlide}>
-          <Plus className="w-4 h-4 mr-2" /> Add Slide
+          <Plus className="size-4 mr-2" /> Add Slide
         </Button>
       </CardContent>
     </Card>

@@ -15,7 +15,7 @@ function SignupLoadingFallback() {
       <span className="sr-only">Loading sign up…</span>
       <div
         aria-hidden="true"
-        className="h-8 w-8 animate-spin rounded-full border-2 border-muted border-t-primary"
+        className="size-8 animate-spin rounded-full border-2 border-muted border-t-primary"
       />
     </div>
   );

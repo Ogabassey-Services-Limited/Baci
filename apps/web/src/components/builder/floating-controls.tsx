@@ -144,7 +144,7 @@ export function FloatingControls() {
         <Button
           variant="ghost"
           size="icon"
-          className="h-6 w-6"
+          className="size-6"
           onClick={() =>
             // Puck derives `selectedItem` from `ui.itemSelector` in its reducer
             // (see makeStatePublic). Setting `itemSelector: null` is the
@@ -153,7 +153,7 @@ export function FloatingControls() {
           }
           aria-label="Close controls"
         >
-          <X className="h-4 w-4" />
+          <X className="size-4" />
         </Button>
       </div>
 
@@ -219,7 +219,7 @@ export function FloatingControls() {
                     {fieldConfig.options.map((opt) => (
                       <div
                         key={opt.value}
-                        className="flex items-center space-x-2"
+                        className="flex items-center gap-x-2"
                       >
                         <RadioGroupItem
                           value={opt.value}

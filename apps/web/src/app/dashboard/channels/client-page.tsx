@@ -224,7 +224,7 @@ export default function ChannelsClientPage() {
         <Card className="border-destructive">
           <CardContent className="pt-6">
             <p className="text-sm text-destructive flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4" />
+              <AlertTriangle className="size-4" />
               {fetchError}
             </p>
             <Button
@@ -233,7 +233,7 @@ export default function ChannelsClientPage() {
               className="mt-3"
               onClick={refetch}
             >
-              <RefreshCw className="h-4 w-4 mr-1.5" />
+              <RefreshCw className="size-4 mr-1.5" />
               Retry
             </Button>
           </CardContent>
@@ -245,7 +245,7 @@ export default function ChannelsClientPage() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-lg flex items-center justify-center border overflow-hidden p-1.5">
+              <div className="size-12 rounded-lg flex items-center justify-center border overflow-hidden p-1.5">
                 <Image
                   src={jumiaLogo}
                   alt="Jumia"
@@ -296,7 +296,7 @@ export default function ChannelsClientPage() {
                   </p>
                   {integration.sync_error && (
                     <p className="text-sm text-destructive mt-1 flex items-center gap-1">
-                      <AlertTriangle className="h-3.5 w-3.5" />
+                      <AlertTriangle className="size-3.5" />
                       {integration.sync_error}
                     </p>
                   )}
@@ -310,9 +310,9 @@ export default function ChannelsClientPage() {
                     disabled={syncingIds.has(integration.id)}
                   >
                     {syncingIds.has(integration.id) ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <Loader2 className="size-4 animate-spin" />
                     ) : (
-                      <RefreshCw className="h-4 w-4" />
+                      <RefreshCw className="size-4" />
                     )}
                     <span className="ml-1.5">
                       {syncingIds.has(integration.id)
@@ -327,9 +327,9 @@ export default function ChannelsClientPage() {
                     disabled={stockSyncingIds.has(integration.id)}
                   >
                     {stockSyncingIds.has(integration.id) ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <Loader2 className="size-4 animate-spin" />
                     ) : (
-                      <ArrowUpDown className="h-4 w-4" />
+                      <ArrowUpDown className="size-4" />
                     )}
                     <span className="ml-1.5">
                       {stockSyncingIds.has(integration.id)
@@ -343,7 +343,7 @@ export default function ChannelsClientPage() {
                     className="border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
                     onClick={() => setDisconnectId(integration.id)}
                   >
-                    <Unlink className="h-4 w-4" />
+                    <Unlink className="size-4" />
                     <span>Disconnect Jumia</span>
                     <span className="sr-only">
                       {' '}
@@ -358,7 +358,7 @@ export default function ChannelsClientPage() {
             <div className="pt-4 border-t flex gap-3">
               <Button variant="outline" className="flex-1" asChild>
                 <Link href="/dashboard/orders?source=jumia">
-                  <Package className="h-4 w-4 mr-2" />
+                  <Package className="size-4 mr-2" />
                   View Jumia Orders
                 </Link>
               </Button>
@@ -368,7 +368,7 @@ export default function ChannelsClientPage() {
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  <ExternalLink className="h-4 w-4 mr-2" />
+                  <ExternalLink className="size-4 mr-2" />
                   Vendor Center
                 </a>
               </Button>
@@ -378,15 +378,15 @@ export default function ChannelsClientPage() {
           <CardContent>
             <ul className="text-sm text-muted-foreground space-y-2">
               <li className="flex items-center gap-2">
-                <Package className="h-4 w-4 text-green-500" />
+                <Package className="size-4 text-green-500" />
                 Receive orders in your Baci dashboard
               </li>
               <li className="flex items-center gap-2">
-                <Zap className="h-4 w-4 text-green-500" />
+                <Zap className="size-4 text-green-500" />
                 Get push notifications for new orders
               </li>
               <li className="flex items-center gap-2">
-                <RefreshCw className="h-4 w-4 text-green-500" />
+                <RefreshCw className="size-4 text-green-500" />
                 Manage inventory across platforms
               </li>
             </ul>
@@ -398,7 +398,7 @@ export default function ChannelsClientPage() {
       <Card className="border-dashed opacity-60">
         <CardHeader>
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-blue-500 rounded-lg flex items-center justify-center">
+            <div className="size-12 bg-blue-500 rounded-lg flex items-center justify-center">
               <span className="text-2xl font-bold text-white">K</span>
             </div>
             <div>

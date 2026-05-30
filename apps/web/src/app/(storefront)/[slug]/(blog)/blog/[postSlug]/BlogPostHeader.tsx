@@ -36,14 +36,14 @@ export function BlogPostHeader({
       <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
         {author_name && (
           <div className="flex items-center gap-2">
-            <User className="h-4 w-4" />
+            <User className="size-4" />
             <span>{author_name}</span>
             {author_title && <span className="text-xs">({author_title})</span>}
           </div>
         )}
         {published_at && (
           <div className="flex items-center gap-2">
-            <Calendar className="h-4 w-4" />
+            <Calendar className="size-4" />
             <time dateTime={published_at}>
               {new Date(published_at).toLocaleDateString(resolvedLocale, {
                 year: 'numeric',
@@ -55,7 +55,7 @@ export function BlogPostHeader({
         )}
         {reading_time_minutes && (
           <div className="flex items-center gap-2">
-            <Clock className="h-4 w-4" />
+            <Clock className="size-4" />
             <span>{reading_time_minutes} min read</span>
           </div>
         )}

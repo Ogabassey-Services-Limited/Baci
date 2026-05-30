@@ -96,9 +96,9 @@ function BaciLandingPage({ metrics }: { metrics: LandingMetrics }) {
               paddingRight: 'max(1rem, env(safe-area-inset-right))',
             }}
           >
-            <div className="flex flex-col items-center space-y-8 text-center max-w-5xl mx-auto">
+            <div className="flex flex-col items-center gap-y-8 text-center max-w-5xl mx-auto">
               <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/90 dark:bg-white/10 border border-accent/60 rounded-full text-indigo-900 dark:text-indigo-100 text-sm font-medium shadow-sm backdrop-blur-xs animate-fade-in">
-                <Sparkles className="w-4 h-4 text-accent" />
+                <Sparkles className="size-4 text-accent" />
                 <span>AI-Powered E-commerce Platform</span>
               </div>
 
@@ -111,7 +111,7 @@ function BaciLandingPage({ metrics }: { metrics: LandingMetrics }) {
                   <span className="relative inline-block">
                     ı
                     <span
-                      className="absolute top-[-0.005em] left-[52%] -translate-x-1/2 w-[0.16em] h-[0.16em] bg-accent rounded-full"
+                      className="absolute top-[-0.005em] left-[52%] -translate-x-1/2 size-[0.16em] bg-accent rounded-full"
                       aria-hidden="true"
                     />
                   </span>
@@ -131,7 +131,7 @@ function BaciLandingPage({ metrics }: { metrics: LandingMetrics }) {
                   className="bg-primary hover:bg-primary/90 text-primary-foreground dark:text-indigo-950 text-lg px-8 h-14 rounded-full shadow-xl shadow-primary/20 transition-all hover:shadow-primary/40 hover:-translate-y-1"
                 >
                   <Link href="/onboarding">
-                    Start Free Trial <ArrowRight className="ml-2 h-5 w-5" />
+                    Start Free Trial <ArrowRight className="ml-2 size-5" />
                   </Link>
                 </Button>
                 <Button
@@ -148,19 +148,19 @@ function BaciLandingPage({ metrics }: { metrics: LandingMetrics }) {
               <div className="w-full max-w-4xl mt-6 pt-4 border-t border-slate-200/60 dark:border-slate-800/60">
                 <ul className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <MetricCard
-                    icon={<Store className="w-5 h-5 text-accent" />}
+                    icon={<Store className="size-5 text-accent" />}
                     label="Active Merchants"
                     value={`${metrics.merchants.toLocaleString()}+`}
                     delay={0.1}
                   />
                   <MetricCard
-                    icon={<DollarSign className="w-5 h-5 text-green-500" />}
+                    icon={<DollarSign className="size-5 text-green-500" />}
                     label="Sales Processed"
                     value={`$${metrics.sales}`}
                     delay={0.2}
                   />
                   <MetricCard
-                    icon={<Star className="w-5 h-5 text-yellow-500" />}
+                    icon={<Star className="size-5 text-yellow-500" />}
                     label="Average Rating"
                     value={`${metrics.rating}/5.0`}
                     delay={0.3}
@@ -175,8 +175,8 @@ function BaciLandingPage({ metrics }: { metrics: LandingMetrics }) {
         <section className="py-24 relative overflow-hidden">
           <div className="absolute inset-0 bg-primary dark:bg-slate-950">
             <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10" />
-            <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-accent/20 rounded-full blur-[120px] will-change-transform" />
-            <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-purple-500/20 rounded-full blur-[120px] will-change-transform" />
+            <div className="absolute top-0 right-0 size-[600px] bg-accent/20 rounded-full blur-[120px] will-change-transform" />
+            <div className="absolute bottom-0 left-0 size-[600px] bg-purple-500/20 rounded-full blur-[120px] will-change-transform" />
           </div>
 
           <div
@@ -186,7 +186,7 @@ function BaciLandingPage({ metrics }: { metrics: LandingMetrics }) {
               paddingRight: 'max(1rem, env(safe-area-inset-right))',
             }}
           >
-            <div className="max-w-4xl mx-auto text-center space-y-8">
+            <div className="max-w-4xl mx-auto text-center gap-y-8">
               <h2 className="text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl text-white">
                 Ready to launch your empire?
               </h2>
@@ -205,11 +205,11 @@ function BaciLandingPage({ metrics }: { metrics: LandingMetrics }) {
               </div>
               <div className="flex items-center justify-center gap-8 pt-8 text-white/60 text-sm">
                 <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-accent" />
+                  <CheckCircle2 className="size-4 text-accent" />
                   <span>No credit card required</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-accent" />
+                  <CheckCircle2 className="size-4 text-accent" />
                   <span>Cancel anytime</span>
                 </div>
               </div>
@@ -241,37 +241,37 @@ function BaciLandingPage({ metrics }: { metrics: LandingMetrics }) {
             <ul className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
               {[
                 {
-                  icon: <Palette className="w-6 h-6 text-purple-500" />,
+                  icon: <Palette className="size-6 text-purple-500" />,
                   title: 'Custom Branding',
                   description:
                     'Upload your logo and let our AI automatically generate a matching color palette and theme.',
                 },
                 {
-                  icon: <Sparkles className="w-6 h-6 text-accent" />,
+                  icon: <Sparkles className="size-6 text-accent" />,
                   title: 'AI-Powered Design',
                   description:
                     'Generate your entire store layout, branding, and copy in seconds with advanced AI.',
                 },
                 {
-                  icon: <ShoppingBag className="w-6 h-6 text-blue-500" />,
+                  icon: <ShoppingBag className="size-6 text-blue-500" />,
                   title: 'Smart Inventory',
                   description:
                     'Track stock levels, manage variants, and get low-stock alerts automatically.',
                 },
                 {
-                  icon: <Store className="w-6 h-6 text-green-500" />,
+                  icon: <Store className="size-6 text-green-500" />,
                   title: 'Multi-Channel',
                   description:
                     'Sell everywhere - online, social media, and in-person with unified inventory.',
                 },
                 {
-                  icon: <Zap className="w-6 h-6 text-yellow-500" />,
+                  icon: <Zap className="size-6 text-yellow-500" />,
                   title: 'Lightning Fast',
                   description:
                     'Built on modern edge infrastructure for sub-second load times globally.',
                 },
                 {
-                  icon: <BarChart className="w-6 h-6 text-red-500" />,
+                  icon: <BarChart className="size-6 text-red-500" />,
                   title: 'Real-time Analytics',
                   description:
                     'Get actionable insights on sales, visitors, and conversion rates instantly.',
@@ -279,7 +279,7 @@ function BaciLandingPage({ metrics }: { metrics: LandingMetrics }) {
               ].map((feature) => (
                 <li key={feature.title}>
                   <article className="h-full p-8 rounded-2xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-[transform,box-shadow] duration-200 group">
-                    <div className="w-12 h-12 rounded-xl bg-slate-50 dark:bg-slate-900 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-200">
+                    <div className="size-12 rounded-xl bg-slate-50 dark:bg-slate-900 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-200">
                       {feature.icon}
                     </div>
                     <h3 className="text-xl font-bold mb-3 text-primary dark:text-white">
@@ -324,27 +324,27 @@ function BaciLandingPage({ metrics }: { metrics: LandingMetrics }) {
                   title: 'Sign Up & Tell Us About Your Business',
                   description:
                     'Answer a few quick questions about your products, brand, and target audience. Our AI will understand your vision.',
-                  icon: <Sparkles className="w-8 h-8 text-accent" />,
+                  icon: <Sparkles className="size-8 text-accent" />,
                 },
                 {
                   step: '2',
                   title: 'AI Generates Your Store',
                   description:
                     'Watch as our AI creates your complete store: product pages, branding, copy, and layout—all optimized for conversions.',
-                  icon: <Zap className="w-8 h-8 text-accent" />,
+                  icon: <Zap className="size-8 text-accent" />,
                 },
                 {
                   step: '3',
                   title: 'Customize & Launch',
                   description:
                     "Fine-tune any details you'd like, connect your payment processor, and go live. Start selling in minutes, not months.",
-                  icon: <CheckCircle2 className="w-8 h-8 text-accent" />,
+                  icon: <CheckCircle2 className="size-8 text-accent" />,
                 },
               ].map((step, i) => (
                 <li key={step.step} className="relative">
                   <article className="h-full p-8 rounded-2xl glass border border-slate-200 dark:border-slate-800 group">
                     <div className="flex items-center gap-4 mb-6">
-                      <div className="w-16 h-16 rounded-2xl bg-accent/10 flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
+                      <div className="size-16 rounded-2xl bg-accent/10 flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
                         {step.icon}
                       </div>
                       <span className="text-6xl font-bold text-accent/20">
@@ -362,7 +362,7 @@ function BaciLandingPage({ metrics }: { metrics: LandingMetrics }) {
                     <div className="hidden md:flex absolute top-1/2 -right-4 w-12 items-center justify-center transform translate-x-1/2 -translate-y-1/2 z-10">
                       <div className="absolute w-full h-[2px] bg-slate-200 dark:bg-slate-800" />
                       <div className="relative bg-white dark:bg-slate-950 p-1 rounded-full border border-slate-200 dark:border-slate-800 shadow-sm">
-                        <ArrowRight className="w-4 h-4 text-accent" />
+                        <ArrowRight className="size-4 text-accent" />
                       </div>
                     </div>
                   )}

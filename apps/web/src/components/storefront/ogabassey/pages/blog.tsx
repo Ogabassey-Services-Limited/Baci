@@ -229,7 +229,7 @@ export const OgabasseyV2Blog: React.FC<OgabasseyBlogProps> = ({
                       <span className="flex items-center gap-1">
                         <Calendar size={12} className="text-red-500" /> {formatDate(post.published_at)}
                       </span>
-                      <span className="w-1 h-1 rounded-full bg-gray-300"></span>
+                      <span className="size-1 rounded-full bg-gray-300"></span>
                       <span>{post.reading_time_minutes || 3} MIN READ</span>
                     </div>
 
@@ -243,7 +243,7 @@ export const OgabasseyV2Blog: React.FC<OgabasseyBlogProps> = ({
 
                     <div className="flex items-center justify-between pt-6 border-t border-gray-50 mt-auto">
                       <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 border border-gray-200">
+                        <div className="size-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 border border-gray-200">
                           <User size={14} />
                         </div>
                         <span className="text-xs font-bold text-gray-700">

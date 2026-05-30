@@ -355,7 +355,7 @@ export function StorefrontProductGrid({
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-start gap-6">
                 <div className="flex items-center gap-3">
                   <svg
-                    className="w-5 h-5 text-muted-foreground"
+                    className="size-5 text-muted-foreground"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"

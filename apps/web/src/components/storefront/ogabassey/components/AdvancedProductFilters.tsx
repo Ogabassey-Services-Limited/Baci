@@ -119,7 +119,7 @@ export const AdvancedProductFilters: React.FC<AdvancedProductFiltersProps> = ({
             {categories.map((category) => {
               const Icon = CATEGORY_ICONS[category] || LayoutGrid;
               return (
-                <button
+                <button type="button"
                   key={category}
                   onClick={() => onSelectCategory(category)}
                   className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200 border active:scale-95 active:bg-gray-50 ${selectedCategory === category
@@ -142,7 +142,7 @@ export const AdvancedProductFilters: React.FC<AdvancedProductFiltersProps> = ({
             >
               {/* Filter Type Toggle */}
               <div className="relative">
-                <button
+                <button type="button"
                   onClick={() => setIsFilterMenuOpen(!isFilterMenuOpen)}
                   className="flex items-center gap-2 text-red-600 bg-red-50 hover:bg-red-100 px-3 py-2 rounded-lg transition-colors active:scale-95"
                 >
@@ -166,7 +166,7 @@ export const AdvancedProductFilters: React.FC<AdvancedProductFiltersProps> = ({
                         { id: 'condition', label: 'Condition', icon: Check },
                         { id: 'rating', label: 'Rating', icon: Star },
                       ].map((item) => (
-                        <button
+                        <button type="button"
                           key={item.id}
                           onClick={() => {
                             setActiveFilterType(item.id as FilterType);
@@ -252,7 +252,7 @@ export const AdvancedProductFilters: React.FC<AdvancedProductFiltersProps> = ({
                     {/* Scroll Container */}
                     <div className="flex overflow-x-auto hide-scrollbar gap-2 pr-0">
                       {['All', ...brands].map((brand) => (
-                        <button
+                        <button type="button"
                           key={brand}
                           onClick={() => onSelectBrand(brand)}
                           className={`px-3 py-1.5 text-xs font-bold rounded-md whitespace-nowrap transition-colors border shrink-0 ${selectedBrand === brand
@@ -270,7 +270,7 @@ export const AdvancedProductFilters: React.FC<AdvancedProductFiltersProps> = ({
                 {activeFilterType === 'condition' && (
                   <div className="flex bg-gray-100 p-1 rounded-lg w-full overflow-hidden">
                     {['All', 'New', 'Open Box', 'Used'].map((condition) => (
-                      <button
+                      <button type="button"
                         key={condition}
                         onClick={() => onSelectCondition(condition)}
                         className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all whitespace-nowrap px-1 ${selectedCondition === condition
@@ -287,7 +287,7 @@ export const AdvancedProductFilters: React.FC<AdvancedProductFiltersProps> = ({
                 {activeFilterType === 'rating' && (
                   <div className="flex items-center gap-1 w-full justify-between bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
                     {[4, 3, 2, 1].map((rating) => (
-                      <button
+                      <button type="button"
                         key={rating}
                         onClick={() =>
                           onSelectRating(minRating === rating ? 0 : rating)
@@ -304,7 +304,7 @@ export const AdvancedProductFilters: React.FC<AdvancedProductFiltersProps> = ({
                         />
                       </button>
                     ))}
-                    <button
+                    <button type="button"
                       onClick={() => onSelectRating(0)}
                       className={`text-xs font-medium px-2 py-1 rounded text-gray-400 hover:text-gray-600 ${minRating === 0 ? 'text-gray-900 underline decoration-red-500' : ''}`}
                     >
@@ -317,7 +317,7 @@ export const AdvancedProductFilters: React.FC<AdvancedProductFiltersProps> = ({
 
             {/* View Mode Toggle */}
             <div className="flex items-center bg-gray-100 rounded-lg p-1 border border-gray-200 ml-auto lg:ml-0 z-20 relative">
-              <button
+              <button type="button"
                 onClick={() => onViewModeChange('grid')}
                 className={`p-1.5 rounded-md transition-all active:scale-95 ${viewMode === 'grid' ? 'bg-white text-red-600 shadow-sm' : 'text-gray-400 md:hover:text-gray-600'}`}
                 title="Grid View"
@@ -325,7 +325,7 @@ export const AdvancedProductFilters: React.FC<AdvancedProductFiltersProps> = ({
               >
                 <LayoutGrid size={18} />
               </button>
-              <button
+              <button type="button"
                 onClick={() => onViewModeChange('list')}
                 className={`p-1.5 rounded-md transition-all active:scale-95 ${viewMode === 'list' ? 'bg-white text-red-600 shadow-sm' : 'text-gray-400 md:hover:text-gray-600'}`}
                 title="List View"

@@ -74,7 +74,7 @@ export const OgabasseyV2SavedItems: React.FC = () => {
         {savedItems.length === 0 ? (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center py-16">
-              <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
+              <div className="size-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Heart className="text-red-400" size={32} />
               </div>
               <h3 className="text-lg font-bold text-gray-900 mb-1">

@@ -19,7 +19,7 @@ export const Footer: React.FC = () => {
     <footer className="bg-[#0a0a0a] text-white pt-20 pb-10 relative overflow-hidden">
       {/* Decorative Elements */}
       <div className="absolute top-0 left-0 w-full h-px bg-linear-to-r from-transparent via-gray-800 to-transparent" />
-      <div className="absolute -top-40 -right-40 w-80 h-80 bg-red-600/5 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute -top-40 -right-40 size-80 bg-red-600/5 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-full h-[300px] bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.03] pointer-events-none" />
 
       {/* Pattern Overlay */}
@@ -202,7 +202,7 @@ export const Footer: React.FC = () => {
               Download App
             </h3>
             <div className="flex gap-2 mb-6">
-              <button className="flex items-center gap-2 bg-black border border-gray-700 rounded-lg px-3 py-1.5 hover:bg-gray-900 transition-colors group">
+              <button type="button" className="flex items-center gap-2 bg-black border border-gray-700 rounded-lg px-3 py-1.5 hover:bg-gray-900 transition-colors group">
                 <Apple size={22} className="text-white fill-current" />
                 <div className="text-left leading-none">
                   <div className="text-[9px] text-gray-400 font-medium group-hover:text-gray-300">
@@ -213,8 +213,8 @@ export const Footer: React.FC = () => {
                   </div>
                 </div>
               </button>
-              <button className="flex items-center gap-2 bg-black border border-gray-700 rounded-lg px-3 py-1.5 hover:bg-gray-900 transition-colors group">
-                <svg viewBox="0 0 24 24" className="w-5 h-5">
+              <button type="button" className="flex items-center gap-2 bg-black border border-gray-700 rounded-lg px-3 py-1.5 hover:bg-gray-900 transition-colors group">
+                <svg viewBox="0 0 24 24" className="size-5">
                   <path
                     fill="#4285F4"
                     d="M23.64 12.48l-2.95-3.07L16.2 13.9l4.49 4.49c.87-.93 1.35-2.22.95-3.55zM.65 1.57C.24 2.21 0 3.06 0 4.13v15.74c0 1.07.24 1.92.65 2.56l.06.05L13.1 10.09v-.19L.71 1.52l-.06.05z"

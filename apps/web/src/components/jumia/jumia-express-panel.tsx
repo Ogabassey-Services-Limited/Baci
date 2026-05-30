@@ -20,7 +20,7 @@ export function JumiaExpressPanel({
       <ThemedCard accentPosition="top" accentColor="primary">
         <CardHeader>
           <div className="flex items-center gap-3">
-            <div className="relative h-8 w-8 overflow-hidden rounded border border-gray-100 bg-white">
+            <div className="relative size-8 overflow-hidden rounded border border-gray-100 bg-white">
               <Image
                 src="/jumia-logo.png"
                 alt="Jumia"

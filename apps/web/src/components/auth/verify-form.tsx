@@ -155,8 +155,8 @@ export default function VerifyForm() {
       {/* Background Effects (Matching Signup) */}
       <div className="absolute inset-0 w-full h-full bg-[radial-gradient(ellipse_at_top,var(--tw-gradient-stops))] from-primary/20 via-background to-background" />
       <div className="absolute top-0 left-0 w-full h-full bg-[url('/grid.svg')] bg-center mask-[linear-gradient(180deg,white,rgba(255,255,255,0))]" />
-      <div className="absolute top-1/4 right-1/4 w-64 h-64 bg-primary/20 rounded-full blur-3xl" />
-      <div className="absolute bottom-1/4 left-1/4 w-64 h-64 bg-accent/20 rounded-full blur-3xl" />
+      <div className="absolute top-1/4 right-1/4 size-64 bg-primary/20 rounded-full blur-3xl" />
+      <div className="absolute bottom-1/4 left-1/4 size-64 bg-accent/20 rounded-full blur-3xl" />
 
       <div className="relative z-10 w-full max-w-[420px] p-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
         <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/60 dark:bg-black/40 backdrop-blur-xl shadow-2xl">
@@ -190,7 +190,7 @@ export default function VerifyForm() {
                   control={form.control}
                   name="code"
                   render={({ field }) => (
-                    <FormItem className="flex flex-col items-center space-y-4">
+                    <FormItem className="flex flex-col items-center gap-y-4">
                       <FormControl>
                         <InputOTP maxLength={6} {...field}>
                           <InputOTPGroup>
@@ -217,9 +217,9 @@ export default function VerifyForm() {
                   disabled={isLoading}
                 >
                   {isLoading ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2 className="mr-2 size-4 animate-spin" />
                   ) : (
-                    <ArrowRight className="mr-2 h-4 w-4" />
+                    <ArrowRight className="mr-2 size-4" />
                   )}
                   Verify Email
                 </Button>

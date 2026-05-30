@@ -16,7 +16,7 @@ import type { SocialSignInButtonsProps } from '../types';
  */
 function GoogleLogo() {
   return (
-    <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
+    <svg className="mr-2 size-4" viewBox="0 0 24 24" aria-hidden="true">
       <path
         fill="#4285F4"
         d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -42,7 +42,7 @@ function GoogleLogo() {
  */
 function AppleLogo() {
   return (
-    <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <svg className="mr-2 size-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
       <path d="M12.152 6.896c-.548 0-1.211.516-1.211 1.164 0 .644.721 1.187 1.211 1.187.533 0 1.211-.54 1.211-1.187 0-.648-.678-1.164-1.211-1.164zm5.552 13.911c-.964.953-2.148 2.152-3.504 2.152-1.305 0-1.68-.82-3.32-.82s-2.083.82-3.327.82c-1.352 0-2.651-1.352-3.551-2.651-1.852-2.651-3.152-7.351-1.152-10.851 1.001-1.752 2.752-2.852 4.702-2.852 1.45 0 2.501.95 3.351.95s1.951-.95 3.451-.95c1.251 0 2.651.65 3.501 1.701-2.852 1.6-2.401 5.551.501 6.751-.751 2.151-2.101 4.701-3.652 6.751zM11.95 4.88c-.052-2.4 1.952-4.45 4.352-4.5s4.452 1.95 4.502 4.35c.052 2.4-1.952 4.45-4.352 4.5s-4.452-1.95-4.502-4.35z" />
     </svg>
   );
@@ -69,7 +69,7 @@ export function SocialSignInButtons({
         aria-label="Sign in with Google"
       >
         {isGoogleLoading ? (
-          <Loader2 className="h-4 w-4 animate-spin text-primary" aria-hidden="true" />
+          <Loader2 className="size-4 animate-spin text-primary" aria-hidden="true" />
         ) : (
           <div className="flex items-center justify-center">
             <GoogleLogo />
@@ -87,7 +87,7 @@ export function SocialSignInButtons({
         aria-label="Sign in with Apple"
       >
         {isAppleLoading ? (
-          <Loader2 className="h-4 w-4 animate-spin text-primary" aria-hidden="true" />
+          <Loader2 className="size-4 animate-spin text-primary" aria-hidden="true" />
         ) : (
           <div className="flex items-center justify-center">
             <AppleLogo />

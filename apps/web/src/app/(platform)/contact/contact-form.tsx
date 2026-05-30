@@ -104,12 +104,12 @@ export function PlatformContactForm() {
         >
           {isSubmitting ? (
             <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Sending...
+              <Loader2 className="mr-2 size-4 animate-spin" />
+              Sending…
             </>
           ) : (
             <>
-              <Send className="mr-2 h-4 w-4" />
+              <Send className="mr-2 size-4" />
               Send Message
             </>
           )}

@@ -20,7 +20,7 @@ function RadioDot({ checked }: { checked: boolean }) {
         checked ? 'border-store-primary' : 'border-gray-400'
       }`}
     >
-      {checked && <div className="w-2.5 h-2.5 rounded-full bg-store-primary" />}
+      {checked && <div className="size-2.5 rounded-full bg-store-primary" />}
     </div>
   );
 }

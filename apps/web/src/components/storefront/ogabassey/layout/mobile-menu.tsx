@@ -95,7 +95,7 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
               {menuItems.map((item) => {
                 const isActive = pathname === item.path;
                 return (
-                  <button
+                  <button type="button"
                     key={item.label}
                     onClick={() => handleNavigate(item.path)}
                     className={`w-full flex items-center justify-between p-3 rounded-xl transition-colors text-sm group ${isActive ? 'bg-red-50 text-red-600 font-bold' : 'hover:bg-gray-50 text-gray-700 font-medium'}`}
@@ -121,7 +121,7 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
 
         {/* Footer */}
         <div className="p-5 border-t border-gray-100 bg-gray-50 md:hidden">
-          <button
+          <button type="button"
             onClick={() => handleNavigate('/account/login')}
             className="w-full bg-gray-900 text-white font-bold py-3.5 rounded-xl shadow-lg active:scale-95 transition-transform"
           >

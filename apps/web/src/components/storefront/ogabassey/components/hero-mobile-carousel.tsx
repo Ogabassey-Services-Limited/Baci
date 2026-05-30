@@ -178,7 +178,7 @@ export function HeroMobileCarousel({
                   {slide.title}
                 </h2>
                 <p className="text-xs opacity-90 mb-3">{slide.subtitle}</p>
-                <button
+                <button type="button"
                   className="text-xs font-bold px-4 py-2 rounded-full flex min-h-12 items-center gap-1 w-fit border"
                   style={HERO_CTA_STYLE}
                   aria-label="Watch video demo"

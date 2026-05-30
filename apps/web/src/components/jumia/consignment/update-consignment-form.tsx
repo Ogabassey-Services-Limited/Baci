@@ -165,7 +165,7 @@ export function UpdateConsignmentForm({
     <form onSubmit={handleSubmit(onSubmit)}>
       <CardHeader className="pb-2">
         <div className="flex items-center gap-2">
-          <Truck className="h-5 w-5 text-store-primary" />
+          <Truck className="size-5 text-store-primary" />
           <CardTitle className="text-lg">Update Consignment Order</CardTitle>
         </div>
         <CardDescription>
@@ -300,8 +300,8 @@ export function UpdateConsignmentForm({
           >
             {isSubmitting ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Updating...
+                <Loader2 className="mr-2 size-4 animate-spin" />
+                Updating…
               </>
             ) : (
               'Update Shipment'

@@ -595,7 +595,7 @@ export default function BuilderClient() {
   if (authLoading || merchantLoading || pageLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Loader2 className="size-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -603,7 +603,7 @@ export default function BuilderClient() {
   if (!user || !merchant) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <p>Redirecting to login...</p>
+        <p>Redirecting to login…</p>
       </div>
     );
   }
@@ -834,7 +834,7 @@ export default function BuilderClient() {
                                 marginBottom: '0.5rem',
                               }}
                             >
-                              <IconComponent className="w-8 h-8" />
+                              <IconComponent className="size-8" />
                             </div>
                             <span
                               style={{
@@ -865,9 +865,9 @@ export default function BuilderClient() {
         <div className="flex flex-col h-screen bg-background">
           <header className="h-14 border-b flex items-center justify-between px-4 bg-background/95 backdrop-blur-sm z-10 shrink-0">
             <div className="flex items-center gap-2">
-              <Button variant="ghost" size="icon" asChild className="h-9 w-9">
+              <Button variant="ghost" size="icon" asChild className="size-9">
                 <Link href="/dashboard">
-                  <ArrowLeft className="w-4 h-4" />
+                  <ArrowLeft className="size-4" />
                   <span className="sr-only">Back to Dashboard</span>
                 </Link>
               </Button>
@@ -898,9 +898,9 @@ export default function BuilderClient() {
                   className="h-9"
                 >
                   {applyingAiDraft ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <Loader2 className="size-4 animate-spin" />
                   ) : (
-                    <Sparkles className="w-4 h-4" />
+                    <Sparkles className="size-4" />
                   )}
                   <span className="ml-2 hidden sm:inline">Apply AI design</span>
                 </Button>
@@ -915,9 +915,9 @@ export default function BuilderClient() {
                     className="h-9"
                   >
                     {saving ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <Loader2 className="size-4 animate-spin" />
                     ) : (
-                      <Save className="w-4 h-4" />
+                      <Save className="size-4" />
                     )}
                     <span className="ml-2 hidden sm:inline">Save Draft</span>
                   </Button>
@@ -928,9 +928,9 @@ export default function BuilderClient() {
                     className="h-9"
                   >
                     {publishing ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <Loader2 className="size-4 animate-spin" />
                     ) : (
-                      <Globe className="w-4 h-4" />
+                      <Globe className="size-4" />
                     )}
                     <span className="ml-2 hidden sm:inline">Publish</span>
                   </Button>
@@ -977,7 +977,7 @@ export default function BuilderClient() {
                   <div className="space-y-4">
                     <div className="p-4 border rounded-lg bg-linear-to-br from-purple-50 to-blue-50 border-purple-200">
                       <h3 className="font-semibold mb-2 flex items-center gap-2">
-                        <Sparkles className="w-4 h-4 text-purple-600" />
+                        <Sparkles className="size-4 text-purple-600" />
                         Gemini AI Assistant
                       </h3>
                       <p className="text-sm text-muted-foreground mb-4">
@@ -1139,7 +1139,7 @@ export default function BuilderClient() {
                         }`}
                         title={`${label} (${width}px)`}
                       >
-                        <Icon className="w-4 h-4 text-primary" />
+                        <Icon className="size-4 text-primary" />
                         <span className="text-xs font-medium">{label}</span>
                       </button>
                     ))}
@@ -1176,12 +1176,12 @@ export default function BuilderClient() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-7 w-7 p-0"
+                      className="size-7 p-0"
                       onClick={() => setShowFieldsSidebar(false)}
                     >
                       <span className="sr-only">Close</span>
                       <svg
-                        className="w-4 h-4"
+                        className="size-4"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"

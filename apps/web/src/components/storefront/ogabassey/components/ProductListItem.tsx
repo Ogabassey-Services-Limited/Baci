@@ -111,14 +111,14 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
         {/* Navigation Arrows (Desktop Hover Only) */}
         {product.colors && product.colors.length > 1 && (
           <>
-            <button
+            <button type="button"
               onClick={handlePrevColor}
               aria-label="Previous color"
               className="absolute left-1 top-1/2 -translate-y-1/2 z-30 p-1 bg-white/40 backdrop-blur-md border border-white/50 rounded-full shadow-sm text-gray-700 opacity-0 md:group-hover:opacity-100 transition-opacity duration-200 hover:bg-white/60 hover:text-gray-900 pointer-events-auto"
             >
               <ChevronLeft size={14} />
             </button>
-            <button
+            <button type="button"
               onClick={handleNextColor}
               aria-label="Next color"
               className="absolute right-1 top-1/2 -translate-y-1/2 z-30 p-1 bg-white/40 backdrop-blur-md border border-white/50 rounded-full shadow-sm text-gray-700 opacity-0 md:group-hover:opacity-100 transition-opacity duration-200 hover:bg-white/60 hover:text-gray-900 pointer-events-auto"
@@ -172,7 +172,7 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
               const isSelected = idx === activeColorIndex;
               const colorName = typeof color === 'string' ? color : color.name;
               return (
-                <button
+                <button type="button"
                   key={idx}
                   onClick={(e) => handleColorSelect(e, idx)}
                   aria-label={`Select ${colorName} color`}
@@ -189,7 +189,7 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
         )}
 
         {/* Wishlist Button - Top Right of Image */}
-        <button
+        <button type="button"
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -252,7 +252,7 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
               View Options <ShoppingCart size={20} />
             </Link>
           ) : (
-            <button
+            <button type="button"
               onClick={(e) => onAddToCart(e, product)}
               className={`z-20 flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all active:scale-95 ${isAdded
                 ? 'bg-red-600 text-white pointer-events-none'

@@ -83,7 +83,7 @@ export function BillPaymentBillerList({
           aria-label="Loading providers"
         >
           <Loader2 className="animate-spin mr-2" size={18} />
-          Loading providers...
+          Loading providers…
         </div>
       ) : billers.length === 0 ? (
         <p className="text-sm text-gray-500 py-4 text-center">

@@ -41,7 +41,7 @@ export function ProductsPageWorkflowContent({
         <>
           <div className="flex items-center gap-2 mb-6">
             <Button variant="ghost" onClick={() => onSetWorkflowStep('view')}>
-              <ArrowLeft className="mr-2 h-4 w-4" />
+              <ArrowLeft className="mr-2 size-4" />
               Back to List
             </Button>
           </div>

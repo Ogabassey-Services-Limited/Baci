@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import * as ImagePicker from 'expo-image-picker';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -24,7 +24,7 @@ import { createUploadFile, type RNFormData } from '@/types/upload';
 
 // Route param validation - accepts UUID or 'new' for creating new posts
 const routeParamsSchema = z.object({
-  id: z.union([z.literal('new'), z.string().uuid()]),
+  id: z.union([z.literal('new'), z.uuid()]),
 });
 
 export default function BlogPostDetailScreen() {

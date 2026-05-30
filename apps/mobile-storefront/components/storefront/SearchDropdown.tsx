@@ -128,7 +128,7 @@ export function SearchDropdown({
                 ref={inputRef}
                 value={activeQuery}
                 onChangeText={setQuery}
-                placeholder="Search products..."
+                placeholder="Search products…"
                 placeholderTextColor={colors.placeholder}
                 style={[styles.input, { color: colors.text }]}
                 returnKeyType="search"

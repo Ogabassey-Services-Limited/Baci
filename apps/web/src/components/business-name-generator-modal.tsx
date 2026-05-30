@@ -131,7 +131,7 @@ export function BusinessNameGeneratorModal({
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl">
-            <Sparkles className="w-5 h-5 text-primary" />
+            <Sparkles className="size-5 text-primary" />
             AI Business Name Generator
           </DialogTitle>
           <DialogDescription>
@@ -178,12 +178,12 @@ export function BusinessNameGeneratorModal({
             >
               {isGenerating ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Generating Ideas...
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  Generating Ideas…
                 </>
               ) : (
                 <>
-                  <Sparkles className="mr-2 h-4 w-4" />
+                  <Sparkles className="mr-2 size-4" />
                   Generate Names
                 </>
               )}

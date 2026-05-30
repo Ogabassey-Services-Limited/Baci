@@ -241,9 +241,9 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
             onClick={handleGenerateDescriptions}
           >
             {isPro ? (
-              <Sparkles className="w-4 h-4" />
+              <Sparkles className="size-4" />
             ) : (
-              <Lock className="w-4 h-4" />
+              <Lock className="size-4" />
             )}
             Auto-Enrich
           </Button>
@@ -457,14 +457,14 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
       >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Researching Products...</DialogTitle>
+            <DialogTitle>Researching Products…</DialogTitle>
             <DialogDescription>
               Our AI is researching and writing descriptions for your products.
             </DialogDescription>
           </DialogHeader>
           <div className="py-6 space-y-4">
             <div className="flex items-center justify-between text-sm">
-              <span>Analyzing batch...</span>
+              <span>Analyzing batch…</span>
               <span>{genProgress}%</span>
             </div>
             <Progress value={genProgress} className="h-2" />
