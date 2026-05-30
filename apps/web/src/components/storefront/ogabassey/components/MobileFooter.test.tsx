@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { useCart } from '@/hooks/cart';
 
 vi.mock('next/link', () => ({
   default: ({
@@ -69,6 +70,17 @@ describe('MobileFooter', () => {
     expect(screen.getByRole('link', { name: /cart/i })).toHaveAttribute(
       'aria-label',
       'Cart (3 items)'
+    );
+  });
+
+  it('renders a dynamic accessible name for the Cart link with singular item suffix when there is exactly 1 item', () => {
+    vi.mocked(useCart).mockReturnValueOnce({ totalItems: 1 } as unknown as ReturnType<typeof useCart>);
+    
+    render(<MobileFooter storeSlug="test" />);
+    
+    expect(screen.getByRole('link', { name: /cart/i })).toHaveAttribute(
+      'aria-label',
+      'Cart (1 item)'
     );
   });
 });

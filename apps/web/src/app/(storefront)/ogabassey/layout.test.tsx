@@ -16,7 +16,32 @@ const { mockStorefrontLayout } = vi.hoisted(() => ({
   ),
 }));
 
+const { mockGetRequestScopedMerchant } = vi.hoisted(() => ({
+  mockGetRequestScopedMerchant: vi.fn(() =>
+    Promise.resolve({
+      id: 'ogabassey',
+      slug: 'ogabassey',
+      business_name: 'OgaBassey',
+      business_type: 'electronics',
+      site_title: 'OgaBassey - Official Online Store',
+      site_description: 'Buy Gadgets Pay Later',
+      logo_url: 'https://ogabassey.cdn/logo.png',
+      favicon_svg_url: null,
+      favicon_png_32_url: null,
+      favicon_apple_touch_url: null,
+      feature_settings: {
+        google_site_verification: 'g-verify-code',
+      },
+      published_config: null,
+    })
+  ),
+}));
+
 vi.mock('server-only', () => ({}));
+
+vi.mock('@/lib/cached-data', () => ({
+  getRequestScopedMerchant: mockGetRequestScopedMerchant,
+}));
 
 vi.mock('@/app/(storefront)/[slug]/layout', () => ({
   default: mockStorefrontLayout,
@@ -27,13 +52,14 @@ vi.mock('@/app/(storefront)/[slug]/layout', () => ({
 }));
 
 import OgabasseyLayout, {
+  generateMetadata,
   generateViewport,
-  metadata,
 } from '@/app/(storefront)/ogabassey/layout';
 
 describe('OgabasseyLayout', () => {
   beforeEach(() => {
     mockStorefrontLayout.mockClear();
+    mockGetRequestScopedMerchant.mockClear();
   });
 
   it('renders the storefront layout with the static OgaBassey identifier', async () => {
@@ -67,12 +93,15 @@ describe('OgabasseyLayout', () => {
     });
   });
 
-  it('provides high-performance static metadata', () => {
+  it('provides high-performance dynamic metadata from the database', async () => {
+    const metadata = await generateMetadata();
     expect(metadata.title).toBe('OgaBassey - Official Online Store');
-    expect(metadata.description).toContain('OgaBassey');
+    expect(metadata.description).toContain('Buy Gadgets Pay Later');
     expect(metadata.manifest).toBeNull();
     expect(metadata.icons).toBeDefined();
     expect(metadata.openGraph).toBeDefined();
     expect(metadata.twitter).toBeDefined();
+    expect(metadata.verification?.google).toBe('g-verify-code');
+    expect(mockGetRequestScopedMerchant).toHaveBeenCalledWith('ogabassey');
   });
 });

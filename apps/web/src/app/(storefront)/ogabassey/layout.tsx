@@ -8,54 +8,102 @@ import {
   HERO_MOBILE_LCP_FALLBACK_SRC,
   HERO_MOBILE_LCP_SRC,
 } from '@/components/storefront/ogabassey/components/hero-data';
-import {
-  OGABASSEY_APPLE_TOUCH_ICON_URL,
-  OGABASSEY_DESCRIPTION,
-  OGABASSEY_FAVICON_URL,
-  OGABASSEY_SOCIAL_IMAGE_URL,
-  OGABASSEY_TITLE,
-  OGABASSEY_TWITTER_HANDLE,
-  OGABASSEY_URL,
-} from '@/config/ogabassey';
 import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
+import { getRequestScopedMerchant } from '@/lib/cached-data';
+import { buildStoreUrl } from '@/lib/store-url';
+import {
+  getStorefrontSeoDescription,
+  getStorefrontSeoTitle,
+} from '../[slug]/seo-helpers';
 
 const OGABASSEY_PARAMS = Promise.resolve({ slug: OGABASSEY_TEMPLATE_ID });
 
 export { generateViewport };
 
-export const metadata: Metadata = {
-  metadataBase: new URL(OGABASSEY_URL),
-  title: OGABASSEY_TITLE,
-  description: OGABASSEY_DESCRIPTION,
-  icons: {
-    icon: OGABASSEY_FAVICON_URL,
-    shortcut: OGABASSEY_FAVICON_URL,
-    apple: OGABASSEY_APPLE_TOUCH_ICON_URL,
-  },
-  openGraph: {
-    title: OGABASSEY_TITLE,
-    description: OGABASSEY_DESCRIPTION,
-    url: OGABASSEY_URL,
-    type: 'website',
-    siteName: 'OgaBassey',
-    images: [
-      {
-        url: OGABASSEY_SOCIAL_IMAGE_URL,
-        width: 1440,
-        height: 900,
-        alt: 'OgaBassey storefront preview',
-      },
-    ],
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: OGABASSEY_TITLE,
-    description: OGABASSEY_DESCRIPTION,
-    images: [OGABASSEY_SOCIAL_IMAGE_URL],
-    site: OGABASSEY_TWITTER_HANDLE,
-  },
-  manifest: null,
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const merchant = await getRequestScopedMerchant(OGABASSEY_TEMPLATE_ID);
+  if (!merchant) {
+    return {
+      title: 'OgaBassey - Official Online Store',
+      description: 'OgaBassey Storefront',
+      manifest: null,
+    };
+  }
+
+  // Extract verification code from feature settings or published config
+  const featureSettings = merchant.feature_settings;
+  const publishedConfig = merchant.published_config;
+
+  const rawVerification =
+    featureSettings?.google_site_verification ||
+    publishedConfig?.google_site_verification;
+  const verificationCode =
+    typeof rawVerification === 'string' ? rawVerification : undefined;
+
+  // Build icons configuration for merchant favicon
+  const faviconSvg = merchant.favicon_svg_url;
+  const faviconPng32 = merchant.favicon_png_32_url;
+  const faviconAppleTouch = merchant.favicon_apple_touch_url;
+
+  const icons =
+    faviconSvg || faviconPng32 || faviconAppleTouch
+      ? {
+          icon: [
+            ...(faviconSvg ? [{ url: faviconSvg, type: 'image/svg+xml' }] : []),
+            ...(faviconPng32
+              ? [{ url: faviconPng32, sizes: '32x32', type: 'image/png' }]
+              : []),
+          ].filter(Boolean),
+          apple: faviconAppleTouch
+            ? [{ url: faviconAppleTouch, sizes: '180x180', type: 'image/png' }]
+            : undefined,
+        }
+      : merchant.logo_url
+        ? {
+            icon: [{ url: merchant.logo_url }],
+            apple: [{ url: merchant.logo_url }],
+          }
+        : undefined;
+
+  const description = getStorefrontSeoDescription(merchant);
+  const title = getStorefrontSeoTitle(merchant);
+  const baseUrl = buildStoreUrl(merchant);
+  let metadataBase: URL | undefined;
+
+  try {
+    metadataBase = baseUrl ? new URL(baseUrl) : undefined;
+  } catch {
+    metadataBase = undefined;
+  }
+
+  return {
+    metadataBase,
+    title,
+    description,
+    icons,
+    verification: verificationCode
+      ? {
+          google: verificationCode,
+        }
+      : undefined,
+    openGraph: {
+      title: merchant.site_title || merchant.business_name,
+      description,
+      images: merchant.logo_url ? [{ url: merchant.logo_url }] : [],
+      url: baseUrl || undefined,
+      type: 'website',
+      siteName: merchant.business_name || 'OgaBassey',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: merchant.logo_url ? [merchant.logo_url] : [],
+    },
+    // Disable platform manifest for merchant stores to prevent Baci branding leakage
+    manifest: null,
+  };
+}
 
 export default function OgabasseyLayout({ children }: { children: ReactNode }) {
   return (
