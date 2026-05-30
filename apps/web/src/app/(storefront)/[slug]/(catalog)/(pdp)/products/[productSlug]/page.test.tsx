@@ -401,20 +401,24 @@ describe('products/[productSlug] page', () => {
     expect(screen.queryByText('mystery-item')).not.toBeInTheDocument();
   });
 
-  it('opts runtime product metadata in with a dynamic marker', async () => {
+  it('opts product metadata into request-time rendering before lookup', async () => {
     mockGetCachedProduct.mockResolvedValue(uncategorizedProduct);
 
-    render(
-      await ProductPage({
+    await generateMetadata(
+      {
         params: Promise.resolve({
           slug: 'teststore',
           productSlug: 'mystery-item',
         }),
         searchParams: Promise.resolve({}),
-      })
+      },
+      stubParent
     );
 
-    expect(mockConnection).not.toHaveBeenCalled();
+    expect(mockConnection).toHaveBeenCalledTimes(1);
+    expect(mockConnection.mock.invocationCallOrder[0]).toBeLessThan(
+      mockGetRequestScopedMerchant.mock.invocationCallOrder[0]
+    );
   });
 
   describe('redirect routing mode', () => {

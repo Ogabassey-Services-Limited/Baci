@@ -91,6 +91,12 @@ describe('OgabasseyPdpCriticalShell', () => {
     expect(
       screen.getByRole('img', { name: 'Lenovo Legion Pro 9' })
     ).not.toHaveAttribute('fill');
+    const mobileSource = document.querySelector(
+      'source[media="(max-width: 767px)"]'
+    );
+    expect(mobileSource).toHaveAttribute('sizes', 'calc(100vw - 32px)');
+    expect(mobileSource?.getAttribute('srcset')).toContain('750w');
+    expect(mobileSource?.getAttribute('srcset')).not.toContain('1080w');
     expect(screen.getByRole('link', { name: 'Laptops' })).toHaveAttribute(
       'href',
       '/laptops'

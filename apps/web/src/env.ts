@@ -169,6 +169,13 @@ const serverSchema = z
     BACI_GOOGLE_PAY_MERCHANT_ID: z.string().optional(),
     SICKW_API_KEY: optionalTrimmedStringSchema,
     IMEI_HASH_SALT: optionalTrimmedStringSchema,
+    BACI_AGENTIC_ACCESS_TOKEN: z.string().optional(),
+    BACI_AGENTIC_ACCESS_TOKEN_PREVIOUS: z.string().optional(),
+    BACI_AGENTIC_CONFIRMATION_KEY: z.string().optional(),
+    BACI_AGENTIC_CONFIRMATION_KEY_PREVIOUS: z.string().optional(),
+    BACI_AGENTIC_MERCHANT_SLUG: z.string().optional(),
+    BACI_AGENTIC_SIGNING_KEY: z.string().optional(),
+    BACI_AGENTIC_SIGNING_KEY_PREVIOUS: z.string().optional(),
     OPENAI_AGENTIC_API_KEY: z.string().optional(),
     OPENAI_AGENTIC_API_KEY_PREVIOUS: z.string().optional(),
     OPENAI_AGENTIC_CONFIRMATION_KEY: z.string().optional(),
@@ -448,6 +455,17 @@ const getEnv = () => {
         SICKW_API_KEY: process.env.SICKW_API_KEY,
         IMEI_HASH_SALT: process.env.IMEI_HASH_SALT,
         KUDA_BILL_DEBUG: process.env.KUDA_BILL_DEBUG,
+        BACI_AGENTIC_ACCESS_TOKEN: process.env.BACI_AGENTIC_ACCESS_TOKEN,
+        BACI_AGENTIC_ACCESS_TOKEN_PREVIOUS:
+          process.env.BACI_AGENTIC_ACCESS_TOKEN_PREVIOUS,
+        BACI_AGENTIC_CONFIRMATION_KEY:
+          process.env.BACI_AGENTIC_CONFIRMATION_KEY,
+        BACI_AGENTIC_CONFIRMATION_KEY_PREVIOUS:
+          process.env.BACI_AGENTIC_CONFIRMATION_KEY_PREVIOUS,
+        BACI_AGENTIC_MERCHANT_SLUG: process.env.BACI_AGENTIC_MERCHANT_SLUG,
+        BACI_AGENTIC_SIGNING_KEY: process.env.BACI_AGENTIC_SIGNING_KEY,
+        BACI_AGENTIC_SIGNING_KEY_PREVIOUS:
+          process.env.BACI_AGENTIC_SIGNING_KEY_PREVIOUS,
         OPENAI_AGENTIC_API_KEY: process.env.OPENAI_AGENTIC_API_KEY,
         OPENAI_AGENTIC_API_KEY_PREVIOUS:
           process.env.OPENAI_AGENTIC_API_KEY_PREVIOUS,
@@ -599,6 +617,19 @@ const getRuntimeEnvValue = (
   const trimmedFallback = trimSecret(fallbackValue);
   return trimmedFallback || undefined;
 };
+const getRuntimeEnvAliasValue = ({
+  legacyFallback,
+  legacyRaw,
+  primaryFallback,
+  primaryRaw,
+}: {
+  legacyFallback: string | undefined;
+  legacyRaw: string | undefined;
+  primaryFallback: string | undefined;
+  primaryRaw: string | undefined;
+}): string | undefined =>
+  getRuntimeEnvValue(primaryRaw, primaryFallback) ??
+  getRuntimeEnvValue(legacyRaw, legacyFallback);
 const getRuntimeQuizIntegrityTierOverrides = (
   rawValue: string | undefined,
   fallbackValue: QuizIntegrityTierOverrides
@@ -666,45 +697,70 @@ export const getAgenticApiKey = () => {
 };
 export const getAgenticApiKeys = () => {
   if (isBrowserRuntime()) return [];
-  const currentApiKey = trimSecret(
-    process.env.OPENAI_AGENTIC_API_KEY ?? env?.OPENAI_AGENTIC_API_KEY
-  );
+  const currentApiKey = getRuntimeEnvAliasValue({
+    legacyFallback: env?.OPENAI_AGENTIC_API_KEY,
+    legacyRaw: process.env.OPENAI_AGENTIC_API_KEY,
+    primaryFallback: env?.BACI_AGENTIC_ACCESS_TOKEN,
+    primaryRaw: process.env.BACI_AGENTIC_ACCESS_TOKEN,
+  });
   if (!currentApiKey) return [];
 
-  const previousApiKey = trimSecret(
-    process.env.OPENAI_AGENTIC_API_KEY_PREVIOUS ??
-      env?.OPENAI_AGENTIC_API_KEY_PREVIOUS
-  );
+  const previousApiKey = getRuntimeEnvAliasValue({
+    legacyFallback: env?.OPENAI_AGENTIC_API_KEY_PREVIOUS,
+    legacyRaw: process.env.OPENAI_AGENTIC_API_KEY_PREVIOUS,
+    primaryFallback: env?.BACI_AGENTIC_ACCESS_TOKEN_PREVIOUS,
+    primaryRaw: process.env.BACI_AGENTIC_ACCESS_TOKEN_PREVIOUS,
+  });
 
-  return [currentApiKey, previousApiKey].filter((value) => value.length > 0);
+  return [currentApiKey, previousApiKey]
+    .map((value) => trimSecret(value))
+    .filter((value) => value.length > 0);
 };
 export const getAgenticConfirmationKeys = () => {
   if (isBrowserRuntime()) return [];
   return [
-    process.env.OPENAI_AGENTIC_CONFIRMATION_KEY ??
-      env?.OPENAI_AGENTIC_CONFIRMATION_KEY,
-    process.env.OPENAI_AGENTIC_CONFIRMATION_KEY_PREVIOUS ??
-      env?.OPENAI_AGENTIC_CONFIRMATION_KEY_PREVIOUS,
+    getRuntimeEnvAliasValue({
+      legacyFallback: env?.OPENAI_AGENTIC_CONFIRMATION_KEY,
+      legacyRaw: process.env.OPENAI_AGENTIC_CONFIRMATION_KEY,
+      primaryFallback: env?.BACI_AGENTIC_CONFIRMATION_KEY,
+      primaryRaw: process.env.BACI_AGENTIC_CONFIRMATION_KEY,
+    }),
+    getRuntimeEnvAliasValue({
+      legacyFallback: env?.OPENAI_AGENTIC_CONFIRMATION_KEY_PREVIOUS,
+      legacyRaw: process.env.OPENAI_AGENTIC_CONFIRMATION_KEY_PREVIOUS,
+      primaryFallback: env?.BACI_AGENTIC_CONFIRMATION_KEY_PREVIOUS,
+      primaryRaw: process.env.BACI_AGENTIC_CONFIRMATION_KEY_PREVIOUS,
+    }),
   ]
-    .map(trimSecret)
+    .map((value) => trimSecret(value))
     .filter((value) => value.length > 0);
 };
 export const getAgenticMerchantSlug = () => {
   if (isBrowserRuntime()) return undefined;
-  const slug = trimSecret(
-    process.env.OPENAI_AGENTIC_MERCHANT_SLUG ??
-      env?.OPENAI_AGENTIC_MERCHANT_SLUG
-  );
-  return slug || undefined;
+  return getRuntimeEnvAliasValue({
+    legacyFallback: env?.OPENAI_AGENTIC_MERCHANT_SLUG,
+    legacyRaw: process.env.OPENAI_AGENTIC_MERCHANT_SLUG,
+    primaryFallback: env?.BACI_AGENTIC_MERCHANT_SLUG,
+    primaryRaw: process.env.BACI_AGENTIC_MERCHANT_SLUG,
+  });
 };
 export const getAgenticSigningKeys = () => {
   if (isBrowserRuntime()) return [];
   return [
-    process.env.OPENAI_AGENTIC_SIGNING_KEY ?? env?.OPENAI_AGENTIC_SIGNING_KEY,
-    process.env.OPENAI_AGENTIC_SIGNING_KEY_PREVIOUS ??
-      env?.OPENAI_AGENTIC_SIGNING_KEY_PREVIOUS,
+    getRuntimeEnvAliasValue({
+      legacyFallback: env?.OPENAI_AGENTIC_SIGNING_KEY,
+      legacyRaw: process.env.OPENAI_AGENTIC_SIGNING_KEY,
+      primaryFallback: env?.BACI_AGENTIC_SIGNING_KEY,
+      primaryRaw: process.env.BACI_AGENTIC_SIGNING_KEY,
+    }),
+    getRuntimeEnvAliasValue({
+      legacyFallback: env?.OPENAI_AGENTIC_SIGNING_KEY_PREVIOUS,
+      legacyRaw: process.env.OPENAI_AGENTIC_SIGNING_KEY_PREVIOUS,
+      primaryFallback: env?.BACI_AGENTIC_SIGNING_KEY_PREVIOUS,
+      primaryRaw: process.env.BACI_AGENTIC_SIGNING_KEY_PREVIOUS,
+    }),
   ]
-    .map(trimSecret)
+    .map((value) => trimSecret(value))
     .filter((value) => value.length > 0);
 };
 export const getPaystackSecretKey = () => {

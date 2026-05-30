@@ -242,6 +242,23 @@ describe('isAgenticCheckoutRuntimeConfigured', () => {
     expect(isAgenticCheckoutRuntimeConfigured()).toBe(true);
   });
 
+  it('accepts Baci-owned runtime secrets without OpenAI-named aliases', async () => {
+    stubBaseEnv();
+    vi.stubEnv('BACI_AGENTIC_MERCHANT_SLUG', 'demo-store');
+    vi.stubEnv('BACI_AGENTIC_ACCESS_TOKEN', 'agent-api-key');
+    vi.stubEnv('BACI_AGENTIC_CONFIRMATION_KEY', 'confirmation-key');
+    vi.stubEnv('BACI_AGENTIC_SIGNING_KEY', 'signing-key');
+    vi.stubEnv('PAYSTACK_SECRET_KEY', 'paystack-secret');
+    vi.stubEnv(
+      'SUPABASE_AGENTIC_JWT_PRIVATE_JWK',
+      createValidAgenticPrivateJwk()
+    );
+    const { isAgenticCheckoutRuntimeConfigured } =
+      await loadMerchantContextModule();
+
+    expect(isAgenticCheckoutRuntimeConfigured()).toBe(true);
+  });
+
   it.each([
     'OPENAI_AGENTIC_MERCHANT_SLUG',
     'OPENAI_AGENTIC_API_KEY',

@@ -157,8 +157,10 @@ Once connected, users can ask:
 |----------|----------|-------------|
 | `NEXT_PUBLIC_SUPABASE_URL` | Yes | Supabase project URL |
 | `SUPABASE_SERVICE_ROLE_KEY` | Yes | Supabase service role key |
-| `OPENAI_AGENTIC_API_KEY` | Yes for checkout | Bearer token for Baci agentic checkout APIs |
-| `OPENAI_AGENTIC_SIGNING_KEY` | Yes for checkout | HMAC signing key for Baci agentic checkout APIs |
+| `BACI_AGENTIC_ACCESS_TOKEN` | Yes for checkout | Baci-owned bearer token for agentic checkout APIs; this is not an OpenAI Platform API key |
+| `BACI_AGENTIC_SIGNING_KEY` | Yes for checkout | Baci-owned HMAC signing key for agentic checkout APIs |
+| `OPENAI_AGENTIC_API_KEY` | Legacy alias | Backwards-compatible alias for `BACI_AGENTIC_ACCESS_TOKEN` |
+| `OPENAI_AGENTIC_SIGNING_KEY` | Legacy alias | Backwards-compatible alias for `BACI_AGENTIC_SIGNING_KEY` |
 | `MCP_AGENTIC_CHECKOUT_BASE_URL` | No | Baci storefront/API origin for agentic checkout (default: `https://ogabassey.com`) |
 | `MCP_PORT` | No | Server port (default: 8787) |
 | `NGROK_AUTHTOKEN` | No | ngrok auth token for dev tunnel |
