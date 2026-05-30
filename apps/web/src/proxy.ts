@@ -1741,6 +1741,8 @@ function applySecurityHeaders(
   response.headers.set('x-pathname', pathname);
 
   if (routeType === 'storefront') {
+    // Keep this for direct middleware responses; next.config.ts owns the final
+    // HTML Vary because rewritten app responses can replace middleware Vary.
     appendVaryHeader(response, STOREFRONT_METADATA_CACHE_BUCKET_HEADER);
   }
 

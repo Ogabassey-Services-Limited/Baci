@@ -981,12 +981,16 @@ const widgetHtml = `<!DOCTYPE html>
 
     const formatPrice = (price) => new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', minimumFractionDigits: 0 }).format(price);
 
-    const escapeHtml = (str) => {
-      if (!str) return '';
-      const div = document.createElement('div');
-      div.textContent = str;
-      return div.innerHTML;
+    const ESCAPE_HTML_MAP = {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;',
     };
+    // Attribute-safe escaping: product data below is interpolated into innerHTML attributes.
+    const escapeHtml = (value) =>
+      String(value ?? '').replace(/[&<>"']/g, (char) => ESCAPE_HTML_MAP[char]);
 
     const openLink = (url) => window.openai?.openExternal?.({ href: url }) || window.open(url, '_blank');
     const productUrl = (slug) => 'https://ogabassey.com/ogabassey/' + encodeURIComponent(slug);
