@@ -184,21 +184,36 @@ function ensureMergedJvmArgs(content, desiredArgs) {
   const currentTokens = currentJvmArgs
     ? currentJvmArgs.split(/\s+/).filter(Boolean)
     : [];
-  const mergedTokens = [...currentTokens];
-  const seenKeys = new Set(currentTokens.map(getJvmArgKey));
+
+  const tokenMap = new Map();
+  const rawTokens = [];
+
+  for (const token of currentTokens) {
+    const key = getJvmArgKey(token);
+    if (key !== token) {
+      tokenMap.set(key, token);
+    } else {
+      rawTokens.push(token);
+    }
+  }
 
   for (const token of desiredArgs) {
     const key = getJvmArgKey(token);
-    if (!seenKeys.has(key)) {
-      seenKeys.add(key);
-      mergedTokens.push(token);
+    if (key !== token) {
+      tokenMap.set(key, token);
+    } else {
+      if (!rawTokens.includes(token)) {
+        rawTokens.push(token);
+      }
     }
   }
+
+  const merged = Array.from(tokenMap.values()).concat(rawTokens);
 
   return ensureGradleProperty(
     content,
     'org.gradle.jvmargs',
-    mergedTokens.join(' ')
+    merged.join(' ')
   );
 }
 
