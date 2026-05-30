@@ -23,7 +23,6 @@ const {
   mockOgabasseyPdpDeferredDetailIsland,
   mockOgabasseyProductDetailsPage,
   mockConnection,
-  mockStorefrontDynamicMetadataMarker,
   mockGetStorefrontShellSnapshotBase,
   mockPreloadOgabasseyPdpProductImage,
   mockProductDetailClient,
@@ -41,7 +40,6 @@ const {
   mockOgabasseyPdpDeferredDetailIsland: vi.fn<(props: unknown) => void>(),
   mockOgabasseyProductDetailsPage: vi.fn<(props: unknown) => void>(),
   mockConnection: vi.fn<() => Promise<void>>(() => Promise.resolve()),
-  mockStorefrontDynamicMetadataMarker: vi.fn(),
   mockGetStorefrontShellSnapshotBase:
     vi.fn<(...args: unknown[]) => Promise<unknown>>(),
   mockPreloadOgabasseyPdpProductImage:
@@ -84,13 +82,6 @@ vi.mock('next/headers', () => ({
 
 vi.mock('next/server', () => ({
   connection: () => mockConnection(),
-}));
-
-vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
-  StorefrontDynamicMetadataMarker: () => {
-    mockStorefrontDynamicMetadataMarker();
-    return <div aria-label="dynamic metadata marker" role="status" />;
-  },
 }));
 
 vi.mock('next/image', () => ({
@@ -989,7 +980,6 @@ describe('[category]/[productSlug] page render', () => {
     mockOgabasseyPdpCriticalCommerce.mockReset();
     mockOgabasseyPdpDeferredDetailIsland.mockReset();
     mockOgabasseyProductDetailsPage.mockReset();
-    mockStorefrontDynamicMetadataMarker.mockReset();
     mockBuildProductSemanticModel.mockReturnValue({
       trustBullets: [],
       supportLinks: [],
@@ -1000,7 +990,7 @@ describe('[category]/[productSlug] page render', () => {
     });
   });
 
-  it('renders the PDP shell with a dynamic metadata marker', async () => {
+  it('renders the PDP shell without a page-level metadata marker', async () => {
     const ui = await resolveRsc(
       await CategoryProductPage({
         params: Promise.resolve({
@@ -1021,12 +1011,6 @@ describe('[category]/[productSlug] page render', () => {
     }
 
     expect(mockConnection).not.toHaveBeenCalled();
-    expect(mockStorefrontDynamicMetadataMarker).toHaveBeenCalledOnce();
-    const marker = screen.getByRole('status', {
-      name: /dynamic metadata marker/i,
-    });
-    expect(marker).toBeInTheDocument();
-    expect(container.firstElementChild).toBe(marker);
     expect(
       screen.getByRole('heading', {
         level: 1,
@@ -1301,10 +1285,6 @@ describe('[category]/[productSlug] page render', () => {
         'missing-product'
       );
       expect(mockNotFound).toHaveBeenCalled();
-      expect(mockStorefrontDynamicMetadataMarker).not.toHaveBeenCalled();
-      expect(
-        screen.queryByRole('status', { name: /dynamic metadata marker/i })
-      ).not.toBeInTheDocument();
       expect(consoleWarnSpy).not.toHaveBeenCalledWith(
         'Product not found for storefront product route:',
         'missing-product'

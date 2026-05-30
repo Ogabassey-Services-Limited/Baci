@@ -10,15 +10,13 @@ vi.mock('next/navigation', () => ({
   },
 }));
 
-import { StorefrontNotFoundWithDynamicMetadataMarker } from './storefront-not-found-with-dynamic-metadata-marker';
+import { StorefrontRouteNotFound } from './storefront-route-not-found';
 
-describe('StorefrontNotFoundWithDynamicMetadataMarker', () => {
-  it('triggers notFound without rendering a body marker', () => {
+describe('StorefrontRouteNotFound', () => {
+  it('triggers notFound without rendering a body placeholder', () => {
     calls.length = 0;
 
-    expect(() =>
-      render(<StorefrontNotFoundWithDynamicMetadataMarker />)
-    ).toThrow('NEXT_NOT_FOUND');
+    expect(() => render(<StorefrontRouteNotFound />)).toThrow('NEXT_NOT_FOUND');
 
     expect(calls.length).toBeGreaterThan(0);
     expect(calls.every((call) => call === 'notFound')).toBe(true);

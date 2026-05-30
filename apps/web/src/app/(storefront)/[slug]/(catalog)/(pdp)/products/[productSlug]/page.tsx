@@ -3,8 +3,7 @@ import { resolveVariantSelectionParamResolution } from '@baci/shared/lib';
 import type { Metadata, ResolvingMetadata } from 'next';
 import { headers } from 'next/headers';
 import { notFound, permanentRedirect, redirect } from 'next/navigation';
-import { StorefrontDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker';
-import { StorefrontNotFoundWithDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-not-found-with-dynamic-metadata-marker';
+import { StorefrontRouteNotFound } from '@/app/(storefront)/[slug]/storefront-route-not-found';
 import { ProductSemanticSections } from '@/components/storefront/ogabassey/seo/product-semantic-sections';
 import {
   getCachedCategoryPageData,
@@ -423,7 +422,7 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
       merchant
     );
     if (!legacyRedirectPath) {
-      return <StorefrontNotFoundWithDynamicMetadataMarker />;
+      return <StorefrontRouteNotFound />;
     }
     permanentRedirect(asRoute(legacyRedirectPath));
   }
@@ -558,7 +557,6 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
       : null;
   return (
     <>
-      <StorefrontDynamicMetadataMarker />
       <script
         type="application/ld+json"
         // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema sanitized with safeJsonLdStringify()

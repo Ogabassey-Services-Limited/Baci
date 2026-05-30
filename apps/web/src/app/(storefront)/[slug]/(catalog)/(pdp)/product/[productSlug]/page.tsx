@@ -1,6 +1,6 @@
 import { notFound, permanentRedirect } from 'next/navigation';
 import { connection } from 'next/server';
-import { StorefrontNotFoundWithDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-not-found-with-dynamic-metadata-marker';
+import { StorefrontRouteNotFound } from '@/app/(storefront)/[slug]/storefront-route-not-found';
 import {
   getCachedLegacyProductRedirectTarget,
   getCachedProductWithDetails,
@@ -77,7 +77,7 @@ export default async function LegacyProductPage({ params }: PageProps) {
   const redirectPath = await resolveLegacyProductPath(slug, productSlug);
 
   if (!redirectPath) {
-    return <StorefrontNotFoundWithDynamicMetadataMarker />;
+    return <StorefrontRouteNotFound />;
   }
 
   permanentRedirect(buildProductRedirectPath(slug, redirectPath));

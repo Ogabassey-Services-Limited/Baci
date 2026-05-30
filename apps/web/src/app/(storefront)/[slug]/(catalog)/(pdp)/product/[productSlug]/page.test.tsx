@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render } from '@testing-library/react';
 import type { ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -117,9 +117,6 @@ describe('legacy singular product route', () => {
       'missing-product'
     );
     expect(mockNotFound).toHaveBeenCalled();
-    expect(
-      screen.queryByRole('status', { name: /dynamic metadata marker/i })
-    ).not.toBeInTheDocument();
   });
 
   it('surfaces request-time rendering failures before resolving redirects', async () => {
