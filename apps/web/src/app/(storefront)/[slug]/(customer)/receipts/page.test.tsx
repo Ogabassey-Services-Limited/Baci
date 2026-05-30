@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ReceiptsPage from '@/app/(storefront)/[slug]/(customer)/receipts/page';
@@ -72,9 +72,52 @@ function createErrorResponse(body: unknown, status = 500): Response {
   } as Response;
 }
 
+type MockMerchantReturn = ReturnType<typeof useMerchant>;
+
+function createMerchantMock({
+  basePath,
+  slug,
+  templateId,
+}: {
+  basePath: string;
+  slug: string;
+  templateId: string;
+}): MockMerchantReturn {
+  return {
+    merchant: {
+      id: `${slug}-merchant-id`,
+      user_id: `${slug}-owner-id`,
+      business_name: `${slug} Store`,
+      business_type: 'electronics',
+      slug,
+      template_id: templateId,
+    },
+    loading: false,
+    updateMerchant: vi.fn(),
+    reloadMerchant: vi.fn(),
+    staffAccess: {
+      isStaff: false,
+      isOwner: true,
+      role: null,
+      permissions: {},
+    },
+    hasPermission: vi.fn(() => true),
+    routingMode: 'path',
+    basePath,
+    navigationCategories: [],
+  };
+}
+
 describe('ReceiptsPage', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn());
+    vi.mocked(useMerchant).mockReturnValue(
+      createMerchantMock({
+        slug: 'default',
+        templateId: 'default',
+        basePath: '/default',
+      })
+    );
   });
 
   afterEach(() => {
@@ -231,13 +274,37 @@ describe('ReceiptsPage', () => {
   });
 
   it('renders OgabasseyV2Receipts when the merchant is ogabassey', () => {
-    vi.mocked(useMerchant).mockReturnValueOnce({
-      merchant: { slug: 'ogabassey', template_id: 'ogabassey' },
-      loading: false,
-      basePath: '/ogabassey',
-    } as any);
+    vi.mocked(useMerchant).mockReturnValueOnce(
+      createMerchantMock({
+        slug: 'ogabassey',
+        templateId: 'ogabassey',
+        basePath: '/ogabassey',
+      })
+    );
 
     render(<ReceiptsPage />);
     expect(screen.getByTestId('ogabassey-receipts-page')).toBeInTheDocument();
+  });
+
+  it('uses the standard receipts page when only the slug matches ogabassey', async () => {
+    const slugMatchedMerchant = createMerchantMock({
+      slug: 'ogabassey',
+      templateId: 'default',
+      basePath: '/ogabassey',
+    });
+    vi.mocked(useMerchant).mockReturnValue(slugMatchedMerchant);
+    vi.mocked(fetch).mockResolvedValue(createJsonResponse({ orders: [] }));
+
+    render(<ReceiptsPage />);
+
+    expect(
+      screen.queryByTestId('ogabassey-receipts-page')
+    ).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(
+        '/api/storefront/orders?merchantSlug=ogabassey',
+        expect.any(Object)
+      );
+    });
   });
 });

@@ -126,11 +126,7 @@ export default function ReceiptsPage() {
     );
   }
 
-  const isOgabassey =
-    merchant?.template_id === 'ogabassey' ||
-    merchant?.slug === 'ogabassey' ||
-    merchant?.custom_domain?.includes('ogabassey') ||
-    merchant?.business_name?.toLowerCase().includes('ogabassey');
+  const isOgabassey = merchant?.template_id === 'ogabassey';
 
   if (isOgabassey) {
     return <OgabasseyV2Receipts />;

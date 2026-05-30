@@ -56,6 +56,9 @@ interface ShippingAddress {
   phone?: string;
 }
 
+const DEVICE_ITEM_NAME_PATTERN =
+  /phone|iphone|samsung|pixel|galaxy|ipad|xiaomi|redmi|infinix|tecno|macbook|laptop|sim/i;
+
 /**
  * GET /api/orders/[id]/invoice
  * Generate and download a Peppol BIS 3.0 compliant invoice PDF
@@ -222,18 +225,19 @@ export async function GET(
     } | null;
     const imei = fulfillment?.imei;
     const serial = fulfillment?.serialNumber || fulfillment?.serial_number;
+    const hasDeviceItem = (orderItems as OrderItem[]).some((item) =>
+      DEVICE_ITEM_NAME_PATTERN.test(item.name || '')
+    );
 
     // Build invoice line items
     const items: InvoiceLineItem[] = (orderItems as OrderItem[]).map(
       (item, index) => {
         let desc = item.item_description || undefined;
         if (fulfillment && (imei || serial)) {
-          const isDevice =
-            /phone|iphone|samsung|pixel|galaxy|ipad|xiaomi|redmi|infinix|tecno|macbook|laptop|sim/i.test(
-              item.name || ''
-            );
-          const isFirstItem = index === 0;
-          if (isDevice || isFirstItem) {
+          const isDevice = DEVICE_ITEM_NAME_PATTERN.test(item.name || '');
+          const shouldUseOrderFallback =
+            isDevice || (!hasDeviceItem && index === 0);
+          if (shouldUseOrderFallback) {
             const parts = [];
             if (imei) parts.push(`IMEI: ${imei}`);
             if (serial) parts.push(`S/N: ${serial}`);

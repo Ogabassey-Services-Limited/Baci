@@ -27,7 +27,11 @@ import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
-import { generateInvoiceBlob } from '@/lib/invoice-generator';
+import {
+  generateInvoiceBlob,
+  type InvoiceLineItem,
+  type TaxSubtotal,
+} from '@/lib/invoice-generator';
 import { logger } from '@/lib/logger';
 import { ORDER_WITH_ITEMS_QUERY } from '@/lib/order-queries';
 import { generatePaymentAccount } from '@/lib/paystack';
@@ -39,6 +43,7 @@ import { createQuizRpcServerProof } from '@/lib/quiz-proof';
 import { verifyQuizVoucherToken } from '@/lib/quiz-voucher-token';
 import { getClientIdentifier } from '@/lib/rate-limit';
 import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/zeptomail';
 import { type OrderCreateInput, orderCreateSchema } from '@/schemas/orders';
@@ -129,6 +134,14 @@ type QuizVoucherItemCandidate = {
   voucher_token?: unknown;
 };
 type OrderCreateItem = OrderCreateInput['items'][number];
+type FulfillmentDetails = {
+  imei?: string | null;
+  serialNumber?: string | null;
+  serial_number?: string | null;
+};
+
+const DEVICE_ITEM_NAME_PATTERN =
+  /phone|iphone|samsung|pixel|galaxy|ipad|xiaomi|redmi|infinix|tecno|macbook|laptop|sim/i;
 
 function hasNonEmptyVoucherIdentifier(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
@@ -169,6 +182,65 @@ function getOrderItemVariantId(item: OrderCreateItem): string | null {
 
 function getOrderItemCondition(item: OrderCreateItem): string | null {
   return item.condition || null;
+}
+
+function getOrderItemDisplayName(item: OrderCreateItem): string {
+  const baseName = item.name || item.productName || 'Product';
+  const variantLabel = formatVariantAttributesLabel(
+    item.variantAttributes || item.variant_attributes
+  );
+
+  return variantLabel ? `${baseName} (${variantLabel})` : baseName;
+}
+
+function getOrderFulfillmentDetails(
+  order: Record<string, unknown>
+): FulfillmentDetails | null {
+  const fulfillment = order.fulfillment_details;
+  if (
+    !fulfillment ||
+    typeof fulfillment !== 'object' ||
+    Array.isArray(fulfillment)
+  ) {
+    return null;
+  }
+
+  return fulfillment as FulfillmentDetails;
+}
+
+function appendOrderFulfillmentDescription({
+  description,
+  fulfillment,
+  hasDeviceItem,
+  index,
+  itemName,
+}: {
+  description?: string;
+  fulfillment: FulfillmentDetails | null;
+  hasDeviceItem: boolean;
+  index: number;
+  itemName: string;
+}): string | undefined {
+  const imei = fulfillment?.imei;
+  const serial = fulfillment?.serialNumber || fulfillment?.serial_number;
+  if (!imei && !serial) {
+    return description;
+  }
+
+  const isDevice = DEVICE_ITEM_NAME_PATTERN.test(itemName);
+  const shouldUseOrderFallback = isDevice || (!hasDeviceItem && index === 0);
+  if (!shouldUseOrderFallback) {
+    return description;
+  }
+
+  const parts = [];
+  if (imei) parts.push(`IMEI: ${imei}`);
+  if (serial) parts.push(`S/N: ${serial}`);
+  const fulfillmentDescription = parts.join(' | ');
+
+  return description
+    ? `${description}\n${fulfillmentDescription}`
+    : fulfillmentDescription;
 }
 
 function invalidQuizVoucherTokenResponse() {
@@ -1304,6 +1376,9 @@ export async function POST(request: NextRequest) {
             let attachments:
               | Array<{ name: string; content: string; mime_type: string }>
               | undefined;
+            let backgroundSupabase: ReturnType<
+              typeof createAdminClient
+            > | null = null;
 
             if (payment_method === 'invoice') {
               try {
@@ -1322,7 +1397,8 @@ export async function POST(request: NextRequest) {
                 });
 
                 if (dvaResult.success) {
-                  const { error: insertError } = await supabase
+                  backgroundSupabase ??= createAdminClient();
+                  const { error: insertError } = await backgroundSupabase
                     .from('order_payment_accounts')
                     .insert({
                       order_id: order.id,
@@ -1353,87 +1429,44 @@ export async function POST(request: NextRequest) {
                   });
                 }
 
-                // 1. Fetch complete tax subtotals and database items to ensure precise compliance values
-                const { data: taxRows } = await supabase
-                  .from('order_tax_subtotals')
-                  .select(
-                    'vat_category_code, vat_rate, taxable_amount, tax_amount, exemption_reason'
-                  )
-                  .eq('order_id', order.id);
-
-                const { data: dbItems } = await supabase
-                  .from('order_items')
-                  .select(
-                    'id, line_id, name, item_description, quantity, price, unit_code, line_extension_amount, vat_category_code, vat_rate, vat_amount, sellers_item_id, product_id'
-                  )
-                  .eq('order_id', order.id);
-
-                const { data: orderDetails } = await supabase
-                  .from('orders')
-                  .select('fulfillment_details')
-                  .eq('id', order.id)
-                  .single();
-
-                const fulfillment = orderDetails?.fulfillment_details as {
-                  imei?: string | null;
-                  serialNumber?: string | null;
-                  serial_number?: string | null;
-                } | null;
-
-                const imei = fulfillment?.imei;
-                const serial =
-                  fulfillment?.serialNumber || fulfillment?.serial_number;
-
-                const invoiceDeviceItemNamePattern =
-                  /phone|iphone|samsung|pixel|galaxy|ipad|xiaomi|redmi|infinix|tecno|macbook|laptop|sim/i;
-                const invoiceHasDeviceItem = (dbItems || []).some((item) =>
-                  invoiceDeviceItemNamePattern.test(item.name || '')
+                const fulfillment = getOrderFulfillmentDetails(
+                  order as Record<string, unknown>
+                );
+                const invoiceItemNames = items.map(getOrderItemDisplayName);
+                const invoiceHasDeviceItem = invoiceItemNames.some((name) =>
+                  DEVICE_ITEM_NAME_PATTERN.test(name)
                 );
 
-                const invoiceItems = (dbItems || []).map((item, index) => {
-                  let desc = item.item_description || undefined;
-                  if (fulfillment && (imei || serial)) {
-                    const isDevice = invoiceDeviceItemNamePattern.test(
-                      item.name || ''
-                    );
-                    const shouldUseOrderFallback =
-                      isDevice || (!invoiceHasDeviceItem && index === 0);
-                    if (shouldUseOrderFallback) {
-                      const parts = [];
-                      if (imei) parts.push(`IMEI: ${imei}`);
-                      if (serial) parts.push(`S/N: ${serial}`);
-                      const fulfillmentStr = parts.join(' | ');
-                      desc = desc
-                        ? `${desc}\n${fulfillmentStr}`
-                        : fulfillmentStr;
-                    }
+                const invoiceItems: InvoiceLineItem[] = items.map(
+                  (item, index) => {
+                    const name =
+                      invoiceItemNames[index] ?? getOrderItemDisplayName(item);
+                    const price = item.negotiatedPrice ?? item.price;
+                    const quantity = item.quantity;
+                    const description = appendOrderFulfillmentDescription({
+                      fulfillment,
+                      hasDeviceItem: invoiceHasDeviceItem,
+                      index,
+                      itemName: name,
+                    });
+
+                    return {
+                      line_id: index + 1,
+                      product_id: getOrderItemProductId(item),
+                      name,
+                      description,
+                      quantity,
+                      unit_code: 'EA',
+                      price,
+                      line_extension_amount: quantity * price,
+                      vat_category_code: 'S',
+                      vat_rate: merchant.vat_rate || 7.5,
+                      vat_amount: 0,
+                    };
                   }
+                );
 
-                  return {
-                    line_id: item.line_id || index + 1,
-                    product_id: item.product_id || undefined,
-                    name: item.name,
-                    description: desc,
-                    quantity: item.quantity,
-                    unit_code: item.unit_code || 'EA',
-                    price: Number(item.price),
-                    line_extension_amount:
-                      item.line_extension_amount ||
-                      item.quantity * Number(item.price),
-                    vat_category_code: item.vat_category_code || 'S',
-                    vat_rate: item.vat_rate || merchant.vat_rate || 7.5,
-                    vat_amount: item.vat_amount || 0,
-                    sellers_item_id: item.sellers_item_id || undefined,
-                  };
-                });
-
-                const invoiceTaxSubtotals = (taxRows || []).map((st) => ({
-                  vat_category_code: st.vat_category_code,
-                  vat_rate: st.vat_rate,
-                  taxable_amount: Number(st.taxable_amount),
-                  tax_amount: Number(st.tax_amount),
-                  exemption_reason: st.exemption_reason || undefined,
-                }));
+                const invoiceTaxSubtotals: TaxSubtotal[] = [];
 
                 // If no tax subtotals exist, create a default one
                 if (
@@ -1520,7 +1553,8 @@ export async function POST(request: NextRequest) {
                 ];
 
                 // Log standard initial reminder row in order_reminders
-                await supabase.from('order_reminders').insert({
+                backgroundSupabase ??= createAdminClient();
+                await backgroundSupabase.from('order_reminders').insert({
                   order_id: order.id,
                   channel: 'email',
                   payment_link: paymentLink,

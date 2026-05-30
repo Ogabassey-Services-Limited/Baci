@@ -82,7 +82,7 @@ export default function CheckoutSuccessPage() {
               trackingToken ? `&tracking_token=${trackingToken}` : ''
             }`;
             const response = await fetch(url);
-            const data = (await response.ok) ? await response.json() : null;
+            const data = response.ok ? await response.json() : null;
             if (data && (data.order_number || data.short_id)) {
               clearCart();
               setStatus('success');

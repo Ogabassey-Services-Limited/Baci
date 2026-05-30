@@ -14,6 +14,7 @@ const {
   mockSendEmail,
   mockAfter,
   mockGeneratePaymentAccount,
+  mockCreateAdminClient,
 } = vi.hoisted(() => ({
   MockQuizProductionNotApprovedError: class MockQuizProductionNotApprovedError extends Error {
     code = 'quiz_production_not_approved' as const;
@@ -44,10 +45,15 @@ const {
       },
     })
   ),
+  mockCreateAdminClient: vi.fn(),
 }));
 
 vi.mock('@/lib/paystack', () => ({
   generatePaymentAccount: mockGeneratePaymentAccount,
+}));
+
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: mockCreateAdminClient,
 }));
 
 vi.mock('@/env', () => ({
@@ -2840,57 +2846,28 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
 
   it('generates a Peppol BIS 3.0 PDF invoice and attaches it to the confirmation email when payment method is invoice', async () => {
     const supabase = buildMockSupabase();
+    const backgroundSupabase = {
+      from: vi.fn((table: string) => {
+        if (table === 'order_payment_accounts') {
+          return {
+            insert: vi.fn().mockResolvedValue({ error: null }),
+          };
+        }
 
-    // Mock supabase.from queries inside the after() block:
-    // for 'order_tax_subtotals' and 'order_items'
-    supabase.from = vi.fn((table: string) => {
-      if (table === 'order_tax_subtotals') {
-        return {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockResolvedValue({
-            data: [
-              {
-                vat_category_code: 'S',
-                vat_rate: 7.5,
-                taxable_amount: 1000,
-                tax_amount: 75,
-                exemption_reason: null,
-              },
-            ],
-            error: null,
-          }),
-        };
-      }
-      if (table === 'order_payment_accounts') {
+        if (table === 'order_reminders') {
+          return {
+            insert: vi.fn().mockResolvedValue({ error: null }),
+          };
+        }
+
         return {
           insert: vi.fn().mockResolvedValue({ error: null }),
         };
-      }
-      if (table === 'order_items') {
-        return {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockResolvedValue({
-            data: [
-              {
-                id: 'item-1',
-                line_id: 1,
-                name: 'Widget',
-                item_description: 'A beautiful widget',
-                quantity: 1,
-                price: 1000,
-                unit_code: 'EA',
-                line_extension_amount: 1000,
-                vat_category_code: 'S',
-                vat_rate: 7.5,
-                vat_amount: 75,
-                sellers_item_id: 'WIDGET-01',
-                product_id: 'p-1',
-              },
-            ],
-            error: null,
-          }),
-        };
-      }
+      }),
+    };
+    mockCreateAdminClient.mockReturnValue(backgroundSupabase);
+
+    supabase.from = vi.fn((_table: string) => {
       // Mock fallback single/maybeSingle queries
       return {
         select: vi.fn().mockReturnThis(),
@@ -2985,6 +2962,10 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
     );
 
     // Assert the auto-generated DVA was persisted in the order_payment_accounts table
-    expect(supabase.from).toHaveBeenCalledWith('order_payment_accounts');
+    expect(backgroundSupabase.from).toHaveBeenCalledWith(
+      'order_payment_accounts'
+    );
+    expect(backgroundSupabase.from).toHaveBeenCalledWith('order_reminders');
+    expect(supabase.from).not.toHaveBeenCalledWith('order_payment_accounts');
   });
 });
