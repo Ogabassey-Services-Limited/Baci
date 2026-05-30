@@ -104,7 +104,8 @@ export const OgabasseyV2Receipts: React.FC = () => {
                 shipping_address:
                   (order.shipping_address as ReceiptOrder['shipping_address']) ??
                   null,
-                virtual_account: null,
+                virtual_account: (order.virtual_account as ReceiptOrder['virtual_account']) ?? null,
+                fulfillment_details: (order.fulfillment_details as ReceiptOrder['fulfillment_details']) ?? null,
                 items: items.map((item) => ({
                   product_name:
                     (item.product_name as string) ||

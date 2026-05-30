@@ -1,5 +1,18 @@
-export type { ReceiptMerchant, ReceiptOptions, ReceiptOrder } from './types';
 export { getBankNameFromCode } from './bank-codes';
 export { escapeHtml, escapeJsString } from './escape-html';
 export { generateReceiptHtml } from './generate-receipt-html';
+export {
+  appendReceiptFulfillmentDescription,
+  getReceiptFulfillmentRows,
+  getReceiptFulfillmentSummary,
+  isDeviceReceiptItemName,
+  normalizeReceiptFulfillmentDetails,
+  shouldAttachFulfillmentToItem,
+} from './receipt-fulfillment';
 export { sanitizeSvg } from './sanitize-svg';
+export type {
+  ReceiptFulfillmentDetails,
+  ReceiptMerchant,
+  ReceiptOptions,
+  ReceiptOrder,
+} from './types';

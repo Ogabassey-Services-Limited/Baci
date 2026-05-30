@@ -13,6 +13,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { loadArchiveOrders } from '@/app/(storefront)/[slug]/(customer)/receipts/load-archive-orders';
 import { ReceiptsStateCard } from '@/app/(storefront)/[slug]/(customer)/receipts/receipts-state-card';
+import { OgabasseyV2Receipts } from '@/components/storefront/ogabassey/pages/receipts';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -49,14 +50,7 @@ export default function ReceiptsPage() {
     isAuthenticated,
     isLoading: authLoading,
   } = useCustomerAuth();
-  const [orders, setOrders] = useState<StorefrontOrder[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isLoadingOrders, setIsLoadingOrders] = useState(true);
-  const [ordersError, setOrdersError] = useState<string | null>(null);
-  const archiveOrdersControllerRef = useRef<AbortController | null>(null);
   const resolvedBasePath = basePath || '';
-  const getHref = (path: string) => `${resolvedBasePath}${path}`;
-  const customerId = customer?.id;
   const merchantSlug = merchant?.slug;
 
   useEffect(() => {
@@ -70,46 +64,6 @@ export default function ReceiptsPage() {
       );
     }
   }, [merchantLoading, authLoading, isAuthenticated, router, resolvedBasePath]);
-
-  useEffect(() => {
-    if (!customerId || !merchantSlug) return;
-    archiveOrdersControllerRef.current?.abort();
-    const controller = new AbortController();
-    archiveOrdersControllerRef.current = controller;
-    void loadArchiveOrders({
-      merchantSlug,
-      setOrders,
-      setIsLoadingOrders,
-      setOrdersError,
-      signal: controller.signal,
-    });
-
-    return () => {
-      archiveOrdersControllerRef.current?.abort();
-      archiveOrdersControllerRef.current = null;
-    };
-  }, [customerId, merchantSlug]);
-
-  const archiveOrders = orders.filter(
-    (order) =>
-      Boolean(order.receipt_eligible) ||
-      ARCHIVE_STATUSES.has(normalizeShippingStatus(order.shipping_status))
-  );
-
-  const query = searchQuery.trim().toLowerCase();
-  const filteredOrders = query
-    ? archiveOrders.filter((order) => {
-        const matchesOrder = order.order_number.toLowerCase().includes(query);
-        const matchesItems = order.items.some((item) =>
-          (item.product_name || item.name).toLowerCase().includes(query)
-        );
-        const matchesType = (order.current_document_kind || 'invoice')
-          .toLowerCase()
-          .includes(query);
-
-        return matchesOrder || matchesItems || matchesType;
-      })
-    : archiveOrders;
 
   if (merchantLoading || authLoading) {
     return (
@@ -162,6 +116,77 @@ export default function ReceiptsPage() {
       </div>
     );
   }
+
+  const isOgabassey = merchant?.template_id === 'ogabassey';
+
+  if (isOgabassey) {
+    return <OgabasseyV2Receipts />;
+  }
+
+  return (
+    <StandardReceiptsPage
+      merchantSlug={merchantSlug}
+      resolvedBasePath={resolvedBasePath}
+    />
+  );
+}
+
+interface StandardReceiptsPageProps {
+  merchantSlug: string;
+  resolvedBasePath: string;
+}
+
+function StandardReceiptsPage({
+  merchantSlug,
+  resolvedBasePath,
+}: StandardReceiptsPageProps) {
+  const [orders, setOrders] = useState<StorefrontOrder[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isLoadingOrders, setIsLoadingOrders] = useState(true);
+  const [ordersError, setOrdersError] = useState<string | null>(null);
+  const archiveOrdersControllerRef = useRef<AbortController | null>(null);
+  const getHref = (path: string) => `${resolvedBasePath}${path}`;
+
+  useEffect(() => {
+    archiveOrdersControllerRef.current?.abort();
+    const controller = new AbortController();
+    archiveOrdersControllerRef.current = controller;
+    void loadArchiveOrders({
+      merchantSlug,
+      setOrders,
+      setIsLoadingOrders,
+      setOrdersError,
+      signal: controller.signal,
+    });
+
+    return () => {
+      archiveOrdersControllerRef.current?.abort();
+      archiveOrdersControllerRef.current = null;
+    };
+  }, [merchantSlug]);
+
+  const archiveOrders = orders.filter(
+    (order) =>
+      Boolean(order.receipt_eligible) ||
+      ARCHIVE_STATUSES.has(normalizeShippingStatus(order.shipping_status)) ||
+      order.payment_method === 'invoice' ||
+      order.paymentMethod === 'invoice'
+  );
+
+  const query = searchQuery.trim().toLowerCase();
+  const filteredOrders = query
+    ? archiveOrders.filter((order) => {
+        const matchesOrder = order.order_number.toLowerCase().includes(query);
+        const matchesItems = order.items.some((item) =>
+          (item.product_name || item.name).toLowerCase().includes(query)
+        );
+        const matchesType = (order.current_document_kind || 'invoice')
+          .toLowerCase()
+          .includes(query);
+
+        return matchesOrder || matchesItems || matchesType;
+      })
+    : archiveOrders;
 
   return (
     <div className="min-h-screen bg-linear-to-b from-background to-muted/20">
@@ -217,7 +242,6 @@ export default function ReceiptsPage() {
             message={ordersError}
             actionLabel="Try Again"
             onAction={() => {
-              if (!customerId || !merchantSlug) return;
               archiveOrdersControllerRef.current?.abort();
               const controller = new AbortController();
               archiveOrdersControllerRef.current = controller;

@@ -167,6 +167,54 @@ describe('zeptomail audit logging', () => {
     expect(callArgs).not.toHaveProperty('client_reference');
   });
 
+  it('forwards HTML email attachments when supplied', async () => {
+    sendMailMock.mockResolvedValue({ request_id: 'zepto-attachment' });
+    const { sendEmail } = await import('./zeptomail');
+
+    await sendEmail({
+      to: 'customer@example.com',
+      subject: 'Invoice',
+      htmlContent: '<p>Attached</p>',
+      attachments: [
+        {
+          name: 'invoice-123.pdf',
+          content: 'base64-pdf',
+          mime_type: 'application/pdf',
+        },
+      ],
+    });
+
+    const callArgs = sendMailMock.mock.calls[0]?.[0];
+    expect(callArgs?.attachments).toEqual([
+      {
+        name: 'invoice-123.pdf',
+        content: 'base64-pdf',
+        mime_type: 'application/pdf',
+      },
+    ]);
+  });
+
+  it('omits attachments when none are supplied', async () => {
+    sendMailMock.mockResolvedValue({ request_id: 'zepto-no-attachments' });
+    const { sendEmail } = await import('./zeptomail');
+
+    await sendEmail({
+      to: 'customer@example.com',
+      subject: 'No attachment',
+      htmlContent: '<p>No attachment</p>',
+    });
+    await sendEmail({
+      to: 'customer@example.com',
+      subject: 'Empty attachments',
+      htmlContent: '<p>No attachment</p>',
+      attachments: [],
+    });
+
+    expect(sendMailMock).toHaveBeenCalledTimes(2);
+    expect(sendMailMock.mock.calls[0]?.[0]).not.toHaveProperty('attachments');
+    expect(sendMailMock.mock.calls[1]?.[0]).not.toHaveProperty('attachments');
+  });
+
   it('logs invalid recipient validation failures without calling the provider', async () => {
     const { sendEmail } = await import('./zeptomail');
 

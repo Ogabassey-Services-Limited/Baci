@@ -1,3 +1,5 @@
+import type { ReceiptOrder } from '@baci/shared';
+
 type JsonRecord = Record<string, unknown>;
 type MoneyValue = number | string | null;
 export type RateValue = number | string | null;
@@ -72,6 +74,7 @@ export interface StorefrontAccountDocumentOrderRow {
   firs_csid: string | null;
   firs_qr_code: string | null;
   payment_terms: string | null;
+  fulfillment_details?: ReceiptOrder['fulfillment_details'] | null;
 }
 
 export interface StorefrontAccountDocumentItemRow {
@@ -82,6 +85,7 @@ export interface StorefrontAccountDocumentItemRow {
   name: string;
   quantity: number | null;
   price: MoneyValue;
+  fulfillment_details?: ReceiptOrder['fulfillment_details'] | null;
 }
 
 export interface StorefrontAccountDocumentTransactionRow {

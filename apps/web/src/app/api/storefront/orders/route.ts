@@ -117,6 +117,7 @@ export async function GET(request: NextRequest) {
         tracking_number,
         shipping_provider,
         payment_method,
+        fulfillment_details,
         order_items (
           id,
           name,
@@ -133,6 +134,12 @@ export async function GET(request: NextRequest) {
               slug
             )
           )
+        ),
+        order_payment_accounts (
+          account_number,
+          bank_name,
+          account_name,
+          provider
         )
       `)
       .eq('customer_id', customer.id)
@@ -169,6 +176,8 @@ export async function GET(request: NextRequest) {
         tracking_number: order.tracking_number,
         shipping_provider: order.shipping_provider,
         payment_method: order.payment_method,
+        fulfillment_details: order.fulfillment_details,
+        virtual_account: order.order_payment_accounts?.[0] || null,
         balance: Math.max(
           0,
           Number(order.total || 0) - Number(order.amount_paid || 0)

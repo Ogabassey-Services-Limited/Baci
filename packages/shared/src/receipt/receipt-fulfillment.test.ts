@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { getReceiptFulfillmentRows } from './receipt-fulfillment';
+import {
+  appendReceiptFulfillmentDescription,
+  getReceiptFulfillmentRows,
+  getReceiptFulfillmentSummary,
+  isDeviceReceiptItemName,
+  normalizeReceiptFulfillmentDetails,
+} from './receipt-fulfillment';
 import type { ReceiptOrder } from './types';
 
 function createReceiptOrder(
@@ -70,5 +76,133 @@ describe('getReceiptFulfillmentRows', () => {
     );
 
     expect(rows).toEqual([{ label: 'IMEI', value: 'IMEI-1234567890' }]);
+  });
+});
+
+describe('isDeviceReceiptItemName', () => {
+  it('matches concrete phone and computer device names', () => {
+    expect(isDeviceReceiptItemName('iPhone 15 Pro')).toBe(true);
+    expect(isDeviceReceiptItemName('Samsung Galaxy S22 Ultra')).toBe(true);
+    expect(isDeviceReceiptItemName('MacBook Air M3')).toBe(true);
+  });
+
+  it('does not treat accessories or partial words as devices', () => {
+    expect(isDeviceReceiptItemName('Phone Case')).toBe(false);
+    expect(isDeviceReceiptItemName('Laptop Bag')).toBe(false);
+    expect(isDeviceReceiptItemName('Simulated Leather Cover')).toBe(false);
+  });
+});
+
+describe('normalizeReceiptFulfillmentDetails', () => {
+  it('returns null for non-object or blank fulfillment details', () => {
+    expect(normalizeReceiptFulfillmentDetails(null)).toBeNull();
+    expect(normalizeReceiptFulfillmentDetails(['IMEI-1'])).toBeNull();
+    expect(
+      normalizeReceiptFulfillmentDetails({
+        imei: ' ',
+        serialNumber: '',
+      })
+    ).toBeNull();
+  });
+
+  it('normalizes non-blank IMEI and legacy serial values', () => {
+    expect(
+      normalizeReceiptFulfillmentDetails({
+        imei: ' 353456789012345 ',
+        serial_number: ' SN-LEGACY ',
+      })
+    ).toEqual({
+      imei: '353456789012345',
+      serialNumber: 'SN-LEGACY',
+    });
+  });
+});
+
+describe('getReceiptFulfillmentSummary', () => {
+  it('formats IMEI-only fulfillment details', () => {
+    expect(getReceiptFulfillmentSummary({ imei: 'IMEI-123' })).toBe(
+      'IMEI: IMEI-123'
+    );
+  });
+
+  it('formats serial-only fulfillment details', () => {
+    expect(getReceiptFulfillmentSummary({ serialNumber: 'SN-123' })).toBe(
+      'S/N: SN-123'
+    );
+  });
+
+  it('falls back to legacy serial_number details', () => {
+    expect(getReceiptFulfillmentSummary({ serial_number: 'SN-LEGACY' })).toBe(
+      'S/N: SN-LEGACY'
+    );
+  });
+
+  it('formats combined fulfillment details in display order', () => {
+    expect(
+      getReceiptFulfillmentSummary({
+        imei: 'IMEI-123',
+        serialNumber: 'SN-123',
+      })
+    ).toBe('IMEI: IMEI-123 | S/N: SN-123');
+  });
+
+  it('returns null for null or blank fulfillment details', () => {
+    expect(getReceiptFulfillmentSummary(null)).toBeNull();
+    expect(
+      getReceiptFulfillmentSummary({
+        imei: ' ',
+        serialNumber: '',
+        serial_number: null,
+      })
+    ).toBeNull();
+  });
+});
+
+describe('appendReceiptFulfillmentDescription', () => {
+  it('appends fulfillment details to detected device items', () => {
+    expect(
+      appendReceiptFulfillmentDescription({
+        description: 'Original description',
+        fulfillment: { imei: 'IMEI-123', serialNumber: 'SN-123' },
+        hasDeviceItem: true,
+        index: 1,
+        itemName: 'iPhone 15 Pro',
+      })
+    ).toBe('Original description\nIMEI: IMEI-123 | S/N: SN-123');
+  });
+
+  it('uses the first item fallback when no device item is present', () => {
+    expect(
+      appendReceiptFulfillmentDescription({
+        fulfillment: { serialNumber: 'SN-123' },
+        hasDeviceItem: false,
+        index: 0,
+        itemName: 'Custom Order',
+      })
+    ).toBe('S/N: SN-123');
+  });
+
+  it('leaves non-device items unchanged when another device item exists', () => {
+    expect(
+      appendReceiptFulfillmentDescription({
+        description: 'Case',
+        fulfillment: { imei: 'IMEI-123' },
+        hasDeviceItem: true,
+        index: 0,
+        itemName: 'Leather Case',
+      })
+    ).toBe('Case');
+  });
+
+  it('returns the original description when fulfillment details are blank', () => {
+    expect(
+      appendReceiptFulfillmentDescription({
+        description: 'Original',
+        fulfillment: { imei: ' ', serialNumber: '' },
+        hasDeviceItem: false,
+        index: 0,
+        itemName: 'Custom Order',
+      })
+    ).toBe('Original');
   });
 });
