@@ -80,6 +80,21 @@ function getMetadataCacheBucket(
     : 'streaming';
 }
 
+function appendVaryHeader(response: NextResponse, value: string): void {
+  const currentValue = response.headers.get('Vary');
+  const existingValues =
+    currentValue?.split(',').map((entry) => entry.trim().toLowerCase()) ?? [];
+
+  if (existingValues.includes(value.toLowerCase())) {
+    return;
+  }
+
+  response.headers.set(
+    'Vary',
+    currentValue ? `${currentValue}, ${value}` : value
+  );
+}
+
 function cloneRequestHeadersWithoutMerchantContext(
   request: NextRequest
 ): Headers {
@@ -1741,6 +1756,10 @@ function applySecurityHeaders(
 
   // Set pathname header for server components to detect current route
   response.headers.set('x-pathname', pathname);
+
+  if (routeType === 'storefront') {
+    appendVaryHeader(response, METADATA_CACHE_BUCKET_HEADER);
+  }
 
   // HSTS: Enforce HTTPS with subdomains and preload (Lighthouse Best Practice)
   // Skip on localhost to avoid Unlighthouse/CI failures (ERR_SSL_PROTOCOL_ERROR)

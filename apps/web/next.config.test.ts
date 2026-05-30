@@ -36,25 +36,19 @@ describe('next.config OgaBassey resource headers', () => {
     );
   });
 
-  it('partitions OgaBassey storefront HTML cache by normalized metadata bucket', async () => {
+  it('does not partition OgaBassey storefront HTML cache by raw user agent', async () => {
     expect(nextConfig.htmlLimitedBots).toBeUndefined();
     expect(typeof nextConfig.headers).toBe('function');
     const headers = await nextConfig.headers();
 
-    expect(headers).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          source: '/(.*)',
-          has: [{ type: 'host', value: 'ogabassey.com' }],
-          headers: expect.arrayContaining([
-            {
-              key: 'Vary',
-              value: 'x-baci-metadata-cache-bucket',
-            },
-          ]),
-        }),
-      ])
-    );
+    const varyValues =
+      headers?.flatMap((entry) =>
+        entry.headers
+          .filter((header) => header.key.toLowerCase() === 'vary')
+          .map((header) => header.value)
+      ) ?? [];
+
+    expect(varyValues).not.toContain('User-Agent');
   });
 
   it('redirects the imported encoded blog slug to its ASCII canonical URL', async () => {

@@ -441,13 +441,6 @@ const nextConfig: NextConfig = {
             key: 'Link',
             value: '<https://cdn.ogabassey.com>; rel=preconnect',
           },
-          {
-            key: 'Vary',
-            // proxy.ts normalizes Next's HTML-limited bot detection into two
-            // buckets. Do not vary on raw User-Agent here; that would create
-            // near-unbounded storefront cache keys and regress TTFB/LCP.
-            value: 'x-baci-metadata-cache-bucket',
-          },
         ],
       },
       {
