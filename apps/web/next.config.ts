@@ -1,6 +1,7 @@
 import path from 'node:path';
 import bundleAnalyzer from '@next/bundle-analyzer';
 import type { NextConfig } from 'next';
+import { STOREFRONT_METADATA_BLOCKING_BOT_USER_AGENT_REGEX } from './src/config/storefront-metadata-cache-bots';
 
 const withBundleAnalyzer = bundleAnalyzer({
   enabled: process.env.ANALYZE === 'true',
@@ -31,6 +32,12 @@ const nextConfig: NextConfig = {
 
   // Enable 'use cache' directive for Dynamic IO (Next.js 16)
   cacheComponents: true,
+
+  // Keep Next's origin metadata mode synchronized with proxy.ts cache buckets.
+  // With PPR/cacheComponents, Next blocks streaming metadata for DOM bots such
+  // as Googlebot as well as HTML-limited bots; using the shared classifier
+  // avoids caching bot shells in the browser bucket.
+  htmlLimitedBots: STOREFRONT_METADATA_BLOCKING_BOT_USER_AGENT_REGEX,
 
   // Custom cache profiles for 'use cache' + cacheLife()
   cacheLife: {
