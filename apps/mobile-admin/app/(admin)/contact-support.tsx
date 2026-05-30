@@ -111,15 +111,15 @@ export default function ContactSupportScreen() {
         >
           {/* WhatsApp Quick Contact */}
           <Pressable
-            style={[styles.whatsappCard, { backgroundColor: '#25D366' }]}
+            style={[styles.whatsappCard, { backgroundColor: colors.success }]}
             onPress={handleWhatsApp}
           >
-            <Ionicons name="logo-whatsapp" size={28} color="#FFFFFF" />
+            <Ionicons name="logo-whatsapp" size={28} color={colors.textOnPrimary} />
             <View style={styles.whatsappContent}>
-              <Text style={styles.whatsappTitle}>Chat on WhatsApp</Text>
-              <Text style={styles.whatsappSubtitle}>Get instant support</Text>
+              <Text style={[styles.whatsappTitle, { color: colors.textOnPrimary }]}>Chat on WhatsApp</Text>
+              <Text style={[styles.whatsappSubtitle, { color: colors.textOnPrimary }]}>Get instant support</Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color="#FFFFFF" />
+            <Ionicons name="chevron-forward" size={20} color={colors.textOnPrimary} />
           </Pressable>
 
           {/* Subject Selection */}
@@ -148,7 +148,7 @@ export default function ContactSupportScreen() {
                     name={option.icon}
                     size={18}
                     color={
-                      selectedSubject === option.id ? '#FFFFFF' : colors.text
+                      selectedSubject === option.id ? colors.textOnPrimary : colors.text
                     }
                   />
                   <Text
@@ -157,7 +157,7 @@ export default function ContactSupportScreen() {
                       {
                         color:
                           selectedSubject === option.id
-                            ? '#FFFFFF'
+                            ? colors.textOnPrimary
                             : colors.text,
                       },
                     ]}
@@ -205,11 +205,11 @@ export default function ContactSupportScreen() {
             disabled={isSending}
           >
             {isSending ? (
-              <ActivityIndicator color="#FFFFFF" />
+              <ActivityIndicator color={colors.textOnPrimary} />
             ) : (
               <>
-                <Ionicons name="send" size={20} color="#FFFFFF" />
-                <Text style={styles.submitButtonText}>Send Message</Text>
+                <Ionicons name="send" size={20} color={colors.textOnPrimary} />
+                <Text style={[styles.submitButtonText, { color: colors.textOnPrimary }]}>Send Message</Text>
               </>
             )}
           </Pressable>
@@ -263,12 +263,11 @@ const styles = StyleSheet.create({
   },
   whatsappContent: { flex: 1 },
   whatsappTitle: {
-    color: '#FFFFFF',
     fontSize: TYPOGRAPHY.size.md,
     fontFamily: TYPOGRAPHY.fontFamily.bold,
   },
   whatsappSubtitle: {
-    color: 'rgba(255,255,255,0.8)',
+    opacity: 0.8,
     fontSize: TYPOGRAPHY.size.sm,
     fontFamily: TYPOGRAPHY.fontFamily.regular,
   },
@@ -313,7 +312,6 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.xl,
   },
   submitButtonText: {
-    color: '#FFFFFF',
     fontSize: TYPOGRAPHY.size.md,
     fontFamily: TYPOGRAPHY.fontFamily.bold,
   },
