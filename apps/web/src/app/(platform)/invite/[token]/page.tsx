@@ -314,8 +314,8 @@ function AcceptInvitePageContent() {
           <CardContent className="text-center">
             <p className="text-sm text-muted-foreground mb-4">
               {inviteClient === 'mobile'
-                ? 'Opening the Baci app...'
-                : 'Redirecting you to the dashboard...'}
+                ? 'Opening the Baci app…'
+                : 'Redirecting you to the dashboard…'}
             </p>
             <Loader2 className="size-5 animate-spin mx-auto text-primary" />
           </CardContent>

@@ -30,7 +30,7 @@ describe('NegotiationOfferForm', () => {
     );
 
     fireEvent.changeText(
-      screen.getByPlaceholderText('Enter amount...'),
+      screen.getByPlaceholderText('Enter amount…'),
       '440000'
     );
     fireEvent.press(screen.getByText('Submit Offer'));

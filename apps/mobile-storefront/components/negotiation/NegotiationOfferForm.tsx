@@ -22,7 +22,7 @@ export function NegotiationOfferForm({
           style={styles.priceInput}
           value={offer}
           onChangeText={onOfferChange}
-          placeholder="Enter amount..."
+          placeholder="Enter amount…"
           placeholderTextColor={palette.gray[400]}
           keyboardType="numeric"
         />
