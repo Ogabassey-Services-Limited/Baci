@@ -31,7 +31,11 @@ export const MobileFooter: React.FC<MobileFooterProps> = ({ storeSlug = '' }) =>
   const isVisible = useOgabasseyScrollVisibility();
 
   // Build store-relative path - handle both with and without leading slash
-  const normalizedSlug = storeSlug.startsWith('/') ? storeSlug : (storeSlug ? `/${storeSlug}` : '');
+  const normalizedSlug = storeSlug.startsWith('/')
+    ? storeSlug
+    : storeSlug
+      ? `/${storeSlug}`
+      : '';
   const basePath = normalizedSlug;
 
   // Active state logic
@@ -81,6 +85,11 @@ export const MobileFooter: React.FC<MobileFooterProps> = ({ storeSlug = '' }) =>
       <div className="ogabassey-mobile-footer__items">
         {navItems.map(({ path, icon: Icon, label, badge }) => {
           const active = isActive(path);
+          const badgeText = badge !== undefined && badge > 99 ? '99+' : badge;
+          const badgeLabel =
+            badge !== undefined && badge > 0
+              ? `${label} (${badgeText} ${badge === 1 ? 'item' : 'items'})`
+              : label;
 
           return (
             <Link
@@ -88,7 +97,7 @@ export const MobileFooter: React.FC<MobileFooterProps> = ({ storeSlug = '' }) =>
               href={asRoute(`${basePath}${path}`)}
               prefetch={false}
               className="ogabassey-mobile-footer__item"
-              aria-label={badge !== undefined && badge > 0 ? `${label} (${badge} ${badge === 1 ? 'item' : 'items'})` : label}
+              aria-label={badgeLabel}
               aria-current={active ? 'page' : undefined}
               data-active={active ? 'true' : undefined}
             >
@@ -106,7 +115,7 @@ export const MobileFooter: React.FC<MobileFooterProps> = ({ storeSlug = '' }) =>
                     className="ogabassey-mobile-footer__badge"
                     aria-hidden="true"
                   >
-                    {badge > 99 ? '99+' : badge}
+                    {badgeText}
                   </span>
                 )}
               </div>

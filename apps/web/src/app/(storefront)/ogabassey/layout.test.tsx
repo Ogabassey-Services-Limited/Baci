@@ -55,6 +55,7 @@ import OgabasseyLayout, {
   generateMetadata,
   generateViewport,
 } from '@/app/(storefront)/ogabassey/layout';
+import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 
 describe('OgabasseyLayout', () => {
   beforeEach(() => {
@@ -83,7 +84,9 @@ describe('OgabasseyLayout', () => {
       screen.getByRole('img', { name: /ogabassey storefront hero/i })
     ).toBeInTheDocument();
     unmount();
-    await expect(props?.params).resolves.toEqual({ slug: 'ogabassey' });
+    await expect(props?.params).resolves.toEqual({
+      slug: OGABASSEY_TEMPLATE_ID,
+    });
   });
 
   it('keeps the storefront viewport settings', () => {
@@ -102,6 +105,20 @@ describe('OgabasseyLayout', () => {
     expect(metadata.openGraph).toBeDefined();
     expect(metadata.twitter).toBeDefined();
     expect(metadata.verification?.google).toBe('g-verify-code');
-    expect(mockGetRequestScopedMerchant).toHaveBeenCalledWith('ogabassey');
+    expect(mockGetRequestScopedMerchant).toHaveBeenCalledWith(
+      OGABASSEY_TEMPLATE_ID
+    );
+  });
+
+  it('falls back to static OgaBassey metadata when merchant data is unavailable', async () => {
+    mockGetRequestScopedMerchant.mockResolvedValueOnce(null);
+
+    const metadata = await generateMetadata();
+
+    expect(metadata).toMatchObject({
+      title: 'OgaBassey - Official Online Store',
+      description: 'OgaBassey Storefront',
+      manifest: null,
+    });
   });
 });
