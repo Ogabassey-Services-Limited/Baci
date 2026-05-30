@@ -145,6 +145,7 @@ function createMockSupabaseClient() {
     update: vi.fn().mockReturnThis(),
     delete: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
+    in: vi.fn().mockReturnThis(),
     ilike: vi.fn().mockReturnThis(),
     single: vi.fn().mockResolvedValue({ data: null, error: null }),
   };
@@ -319,6 +320,10 @@ describe('POST /api/payments/credit-direct/webhook', () => {
 
       expect(response.status).toBe(200);
       expect(data).toEqual({ received: true, warning: 'Order not found' });
+      expect(mockChain.in).toHaveBeenCalledWith('payment_method', [
+        'credit_direct',
+        'klump',
+      ]);
       expect(logger.warn).toHaveBeenCalledWith({
         message: 'Order not found for Credit Direct webhook',
         transactionId: 'txn_123456789',

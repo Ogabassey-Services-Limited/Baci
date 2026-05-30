@@ -95,6 +95,7 @@ export async function POST(request: NextRequest) {
       .select(
         'id, merchant_id, total, payment_status, payment_method, customer_email, customer_name, order_number, notes'
       )
+      .in('payment_method', ['credit_direct', 'klump'])
       .ilike('notes', `%${payload.checkoutTransactionId}%`);
 
     if (orderError) {
