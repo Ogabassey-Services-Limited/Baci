@@ -58,7 +58,36 @@ describe('generateReceiptHtml', () => {
 
     expect(html).toContain('S/N');
     expect(html).toContain('SN-LEGACY-123');
-    expect(html.match(/S\/N/g) ?? []).toHaveLength(1);
+    expect(html.match(/S\/N/g) ?? []).toHaveLength(2);
+  });
+
+  it('attaches order-level fulfillment details to the first device item', () => {
+    const html = generateReceiptHtml(
+      createReceiptOrder({
+        fulfillment_details: {
+          imei: '353456789012345',
+          serialNumber: 'SN-123',
+        },
+        items: [
+          {
+            product_name: 'Leather Case',
+            quantity: 1,
+            price: 25000,
+          },
+          {
+            product_name: 'iPhone 15 Pro',
+            quantity: 1,
+            price: 500000,
+          },
+        ],
+      }),
+      createReceiptMerchant()
+    );
+
+    expect(html).not.toMatch(
+      /Leather Case[\s\S]*IMEI: 353456789012345[\s\S]*iPhone 15 Pro/
+    );
+    expect(html).toMatch(/iPhone 15 Pro[\s\S]*IMEI: 353456789012345/);
   });
 
   it('does not emit unsafe brand colors into receipt styles', () => {

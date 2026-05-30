@@ -13,6 +13,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { loadArchiveOrders } from '@/app/(storefront)/[slug]/(customer)/receipts/load-archive-orders';
 import { ReceiptsStateCard } from '@/app/(storefront)/[slug]/(customer)/receipts/receipts-state-card';
+import { OgabasseyV2Receipts } from '@/components/storefront/ogabassey/pages/receipts';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -93,7 +94,9 @@ export default function ReceiptsPage() {
   const archiveOrders = orders.filter(
     (order) =>
       Boolean(order.receipt_eligible) ||
-      ARCHIVE_STATUSES.has(normalizeShippingStatus(order.shipping_status))
+      ARCHIVE_STATUSES.has(normalizeShippingStatus(order.shipping_status)) ||
+      order.payment_method === 'invoice' ||
+      order.paymentMethod === 'invoice'
   );
 
   const query = searchQuery.trim().toLowerCase();
@@ -121,6 +124,16 @@ export default function ReceiptsPage() {
         </div>
       </div>
     );
+  }
+
+  const isOgabassey =
+    merchant?.template_id === 'ogabassey' ||
+    merchant?.slug === 'ogabassey' ||
+    merchant?.custom_domain?.includes('ogabassey') ||
+    merchant?.business_name?.toLowerCase().includes('ogabassey');
+
+  if (isOgabassey) {
+    return <OgabasseyV2Receipts />;
   }
 
   if (!isAuthenticated) {

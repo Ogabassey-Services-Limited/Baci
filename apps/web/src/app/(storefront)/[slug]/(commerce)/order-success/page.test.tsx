@@ -154,4 +154,24 @@ describe('storefront order success page', () => {
       expect.objectContaining({ country: 'IN' })
     );
   });
+
+  it('renders invoice specific heading and description when type is invoice', async () => {
+    mockSearchParams.mockReturnValue(
+      new URLSearchParams({
+        orderId: 'order-123',
+        type: 'invoice',
+      })
+    );
+
+    render(<OrderSuccessPage />);
+
+    expect(
+      await screen.findByRole('heading', { name: /invoice generated!/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /we have prepared your invoice and sent it to your email/i
+      )
+    ).toBeInTheDocument();
+  });
 });

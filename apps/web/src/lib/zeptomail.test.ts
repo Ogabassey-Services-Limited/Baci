@@ -167,6 +167,33 @@ describe('zeptomail audit logging', () => {
     expect(callArgs).not.toHaveProperty('client_reference');
   });
 
+  it('forwards HTML email attachments when supplied', async () => {
+    sendMailMock.mockResolvedValue({ request_id: 'zepto-attachment' });
+    const { sendEmail } = await import('./zeptomail');
+
+    await sendEmail({
+      to: 'customer@example.com',
+      subject: 'Invoice',
+      htmlContent: '<p>Attached</p>',
+      attachments: [
+        {
+          name: 'invoice-123.pdf',
+          content: 'base64-pdf',
+          mime_type: 'application/pdf',
+        },
+      ],
+    });
+
+    const callArgs = sendMailMock.mock.calls[0]?.[0];
+    expect(callArgs?.attachments).toEqual([
+      {
+        name: 'invoice-123.pdf',
+        content: 'base64-pdf',
+        mime_type: 'application/pdf',
+      },
+    ]);
+  });
+
   it('logs invalid recipient validation failures without calling the provider', async () => {
     const { sendEmail } = await import('./zeptomail');
 

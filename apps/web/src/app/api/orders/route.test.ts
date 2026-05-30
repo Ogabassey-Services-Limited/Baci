@@ -13,6 +13,7 @@ const {
   mockNotifyPaymentReceived,
   mockSendEmail,
   mockAfter,
+  mockGeneratePaymentAccount,
 } = vi.hoisted(() => ({
   MockQuizProductionNotApprovedError: class MockQuizProductionNotApprovedError extends Error {
     code = 'quiz_production_not_approved' as const;
@@ -32,6 +33,21 @@ const {
   ),
   mockSendEmail: vi.fn(() => Promise.resolve({ success: true })),
   mockAfter: vi.fn((cb: () => unknown) => cb()),
+  mockGeneratePaymentAccount: vi.fn(() =>
+    Promise.resolve({
+      success: true,
+      data: {
+        bank_name: 'Wema Bank',
+        account_number: '1234567890',
+        account_name: 'OgaBassey-Test',
+        customer_code: 'CUS_mock',
+      },
+    })
+  ),
+}));
+
+vi.mock('@/lib/paystack', () => ({
+  generatePaymentAccount: mockGeneratePaymentAccount,
 }));
 
 vi.mock('@/env', () => ({
@@ -2814,5 +2830,161 @@ describe('POST /api/orders — B3.5 VAT RPC error mapping', () => {
     });
     const response = await POST(request);
     expect(response.status).toBe(400);
+  });
+});
+
+describe('POST /api/orders — invoice payment method email attachment', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('generates a Peppol BIS 3.0 PDF invoice and attaches it to the confirmation email when payment method is invoice', async () => {
+    const supabase = buildMockSupabase();
+
+    // Mock supabase.from queries inside the after() block:
+    // for 'order_tax_subtotals' and 'order_items'
+    supabase.from = vi.fn((table: string) => {
+      if (table === 'order_tax_subtotals') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockResolvedValue({
+            data: [
+              {
+                vat_category_code: 'S',
+                vat_rate: 7.5,
+                taxable_amount: 1000,
+                tax_amount: 75,
+                exemption_reason: null,
+              },
+            ],
+            error: null,
+          }),
+        };
+      }
+      if (table === 'order_payment_accounts') {
+        return {
+          insert: vi.fn().mockResolvedValue({ error: null }),
+        };
+      }
+      if (table === 'order_items') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockResolvedValue({
+            data: [
+              {
+                id: 'item-1',
+                line_id: 1,
+                name: 'Widget',
+                item_description: 'A beautiful widget',
+                quantity: 1,
+                price: 1000,
+                unit_code: 'EA',
+                line_extension_amount: 1000,
+                vat_category_code: 'S',
+                vat_rate: 7.5,
+                vat_amount: 75,
+                sellers_item_id: 'WIDGET-01',
+                product_id: 'p-1',
+              },
+            ],
+            error: null,
+          }),
+        };
+      }
+      // Mock fallback single/maybeSingle queries
+      return {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        single: vi.fn().mockResolvedValue({
+          data: {
+            id: MERCHANT_ID,
+            business_name: 'Test Merchant',
+            country: 'NG',
+            slug: 'test-merchant',
+            support_email: 'support@example.com',
+            email_sender_name: 'Test Store',
+            email: 'merchant@example.com',
+            vat_registration_status: 'registered',
+            vat_rate: 7.5,
+          },
+          error: null,
+        }),
+        maybeSingle: vi.fn().mockResolvedValue({
+          data: {
+            id: MERCHANT_ID,
+            business_name: 'Test Merchant',
+            country: 'NG',
+            slug: 'test-merchant',
+            support_email: 'support@example.com',
+            email_sender_name: 'Test Store',
+            email: 'merchant@example.com',
+            vat_registration_status: 'registered',
+            vat_rate: 7.5,
+          },
+          error: null,
+        }),
+        in: vi.fn().mockReturnThis(),
+        returns: vi.fn().mockResolvedValue({ data: [], error: null }),
+        insert: vi.fn().mockResolvedValue({ error: null }),
+        update: vi.fn().mockReturnThis(),
+        // biome-ignore lint/suspicious/noThenProperty: simulated thenable mock
+        then: (resolve: any) => Promise.resolve().then(resolve),
+      };
+    }) as any;
+
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () => supabase as unknown as never
+    );
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      user: null,
+      error: null,
+      supabase: supabase as unknown as never,
+    });
+
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...baseOrderPayload,
+        payment_method: 'invoice',
+      }),
+    });
+
+    const response = await POST(request);
+    expect(response.status).toBe(201);
+
+    // Wait for the async after() block to settle (yield to the event loop)
+    await vi.waitFor(() => expect(mockSendEmail).toHaveBeenCalled(), {
+      timeout: 1000,
+    });
+
+    // Assert sendEmail was called with the invoice attachment
+    expect(mockSendEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: 'customer@example.com',
+        subject: expect.stringContaining('Invoice Generated'),
+        attachments: expect.arrayContaining([
+          expect.objectContaining({
+            name: expect.stringMatching(/^invoice-ORD-.*\.pdf$/),
+            mime_type: 'application/pdf',
+            content: expect.any(String), // base64 string
+          }),
+        ]),
+      })
+    );
+
+    // Assert DVA generation was automatically triggered
+    expect(mockGeneratePaymentAccount).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: 'customer@example.com',
+        firstName: 'Test',
+        lastName: 'Customer',
+        phone: '08012345678',
+        orderId: 'order-id',
+      })
+    );
+
+    // Assert the auto-generated DVA was persisted in the order_payment_accounts table
+    expect(supabase.from).toHaveBeenCalledWith('order_payment_accounts');
   });
 });

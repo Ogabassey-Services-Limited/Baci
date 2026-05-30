@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ReceiptsPage from '@/app/(storefront)/[slug]/(customer)/receipts/page';
+import { useMerchant } from '@/hooks/use-merchant-client';
 
 vi.mock('next/navigation', () => ({
   useRouter: vi.fn(() => ({ push: vi.fn() })),
@@ -27,10 +28,16 @@ vi.mock('@/contexts/customer-auth-context', () => ({
 
 vi.mock('@/hooks/use-merchant-client', () => ({
   useMerchant: vi.fn(() => ({
-    merchant: { slug: 'ogabassey' },
+    merchant: { slug: 'default', template_id: 'default' },
     loading: false,
-    basePath: '/ogabassey',
+    basePath: '/default',
   })),
+}));
+
+vi.mock('@/components/storefront/ogabassey/pages/receipts', () => ({
+  OgabasseyV2Receipts: () => (
+    <div data-testid="ogabassey-receipts-page">Ogabassey Receipts Page</div>
+  ),
 }));
 
 function createJsonResponse(body: unknown): Response {
@@ -151,6 +158,25 @@ describe('ReceiptsPage', () => {
               },
             ],
           },
+          {
+            id: 'order-invoice-unpaid',
+            order_number: 'ORD-1004',
+            created_at: '2026-03-25T10:00:00.000Z',
+            total: 50000,
+            currency: 'NGN',
+            shipping_status: 'processing',
+            current_document_kind: 'invoice',
+            receipt_eligible: false,
+            payment_method: 'invoice',
+            items: [
+              {
+                id: 'item-5',
+                name: 'Invoice Item',
+                quantity: 1,
+                price: 50000,
+              },
+            ],
+          },
         ],
       })
     );
@@ -160,24 +186,31 @@ describe('ReceiptsPage', () => {
     expect(await screen.findByText('#ORD-1001')).toBeInTheDocument();
     expect(screen.getByText('#ORD-1002')).toBeInTheDocument();
     expect(screen.getByText('#ORD-1003')).toBeInTheDocument();
+    expect(screen.getByText('#ORD-1004')).toBeInTheDocument();
     expect(screen.queryByText('#ORD-1000')).not.toBeInTheDocument();
     expect(
-      screen.getByRole('link', { name: /download invoice/i })
+      screen.getAllByRole('link', { name: /download invoice/i })[0]
     ).toHaveAttribute(
       'href',
-      '/api/storefront/account/orders/order-shipped/invoice?merchantSlug=ogabassey'
+      '/api/storefront/account/orders/order-shipped/invoice?merchantSlug=default'
+    );
+    expect(
+      screen.getAllByRole('link', { name: /download invoice/i })[1]
+    ).toHaveAttribute(
+      'href',
+      '/api/storefront/account/orders/order-invoice-unpaid/invoice?merchantSlug=default'
     );
     expect(
       screen.getAllByRole('link', { name: /download receipt/i })[0]
     ).toHaveAttribute(
       'href',
-      '/api/storefront/account/orders/order-delivered/receipt?merchantSlug=ogabassey'
+      '/api/storefront/account/orders/order-delivered/receipt?merchantSlug=default'
     );
     expect(
       screen.getAllByRole('link', { name: /download receipt/i })[1]
     ).toHaveAttribute(
       'href',
-      '/api/storefront/account/orders/order-imported-receipt/receipt?merchantSlug=ogabassey'
+      '/api/storefront/account/orders/order-imported-receipt/receipt?merchantSlug=default'
     );
   });
 
@@ -195,5 +228,16 @@ describe('ReceiptsPage', () => {
     expect(screen.getByText(/failed to load archive/i)).toBeInTheDocument();
     expect(screen.queryByText('#ORD-1001')).not.toBeInTheDocument();
     expect(screen.queryByText('#ORD-1002')).not.toBeInTheDocument();
+  });
+
+  it('renders OgabasseyV2Receipts when the merchant is ogabassey', () => {
+    vi.mocked(useMerchant).mockReturnValueOnce({
+      merchant: { slug: 'ogabassey', template_id: 'ogabassey' },
+      loading: false,
+      basePath: '/ogabassey',
+    } as any);
+
+    render(<ReceiptsPage />);
+    expect(screen.getByTestId('ogabassey-receipts-page')).toBeInTheDocument();
   });
 });
