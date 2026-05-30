@@ -87,6 +87,11 @@ const NON_REUSABLE_SHIPPING_STATUSES = new Set([
   'completed',
   'cancelled',
 ]);
+const NON_REUSABLE_PAYMENT_STATUSES = new Set([
+  'paid',
+  'bnpl_approved',
+  'refunded',
+]);
 
 function normalizeText(value: string | null | undefined): string {
   return (value || '').trim().replace(/\s+/g, ' ').toLowerCase();
@@ -123,7 +128,8 @@ export function normalizeOrderPaymentMethod(paymentMethod: PaymentMethod): strin
     paymentMethod === 'invoice' ||
     paymentMethod === 'juicyway' ||
     paymentMethod === 'bank_transfer' ||
-    paymentMethod === 'payforme'
+    paymentMethod === 'payforme' ||
+    paymentMethod === 'paypal'
   ) {
     return paymentMethod;
   }
@@ -229,7 +235,7 @@ export async function resolvePendingCheckoutOrder({
 
   if (
     !existingOrder?.id ||
-    existingOrder.payment_status === 'paid' ||
+    NON_REUSABLE_PAYMENT_STATUSES.has(existingOrder.payment_status || '') ||
     NON_REUSABLE_SHIPPING_STATUSES.has(existingOrder.shipping_status || '')
   ) {
     return { reusableOrder: null, clearStoredOrder: true };

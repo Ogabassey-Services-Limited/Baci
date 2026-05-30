@@ -333,6 +333,15 @@ const baseOrderPayload = {
   },
 };
 
+const baseOrderRow = {
+  id: 'order-id',
+  order_number: 'ORD-123',
+  total: 1000,
+  subtotal: 1000,
+  shipping_fee: 0,
+  customer_id: CUSTOMER_ID,
+};
+
 async function readJson(response: Response) {
   return JSON.parse(await response.text());
 }
@@ -1158,6 +1167,337 @@ describe('POST /api/orders — wallet response shape', () => {
     expect(body.order.payment_status).toBe('paid');
     expect(body.order.payment_method).toBe('wallet');
     expect(finalizeSpy).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('POST /api/orders — checkout idempotency', () => {
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      user: null,
+      error: 'Not authenticated',
+      supabase: null,
+    });
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () => buildMockSupabase() as unknown as never
+    );
+  });
+
+  it('passes checkout idempotency params to the storefront order RPC', async () => {
+    const rpcSpy = vi.fn();
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation((() => {
+      const sb = buildMockSupabase();
+      const originalRpc = sb.rpc;
+      sb.rpc = vi.fn((name: string, params?: unknown) => {
+        if (name === 'create_storefront_order') {
+          rpcSpy(params);
+        }
+        return originalRpc(name);
+      });
+      return sb;
+    }) as unknown as never);
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/orders', {
+        method: 'POST',
+        headers: { 'Idempotency-Key': 'checkout-key-1' },
+        body: JSON.stringify({
+          ...baseOrderPayload,
+          payment_method: 'credit_direct',
+        }),
+      })
+    );
+
+    expect(response.status).toBe(201);
+    expect(rpcSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        p_checkout_idempotency_key: 'checkout-key-1',
+        p_checkout_request_hash: expect.stringMatching(/^[a-f0-9]{64}$/),
+      })
+    );
+  });
+
+  it('returns replay metadata, residual gateway amount, and skips duplicate wallet-paid notifications', async () => {
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () =>
+        buildMockSupabase({
+          create_storefront_order: {
+            data: [
+              {
+                ...baseOrderRow,
+                idempotency_replayed: true,
+                payment_method: 'credit_direct',
+                payment_status: 'bnpl_pending',
+                total: 300,
+              },
+            ],
+            error: null,
+          },
+          redeem_wallet_for_order: {
+            data: [
+              {
+                success: true,
+                redeemed_amount: 300,
+                new_balance: 200,
+                transaction_id: '99999999-aaaa-bbbb-cccc-dddddddddddd',
+              },
+            ],
+            error: null,
+          },
+        }) as unknown as never
+    );
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/orders', {
+        method: 'POST',
+        headers: { 'Idempotency-Key': 'checkout-key-1' },
+        body: JSON.stringify({
+          ...baseOrderPayload,
+          payment_method: 'credit_direct',
+          use_wallet_credit: true,
+          wallet_amount: 300,
+        }),
+      })
+    );
+    const body = await readJson(response);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('x-idempotency-replayed')).toBe('true');
+    expect(body.idempotency).toEqual({ replayed: true });
+    expect(body.wallet).toEqual({
+      amountUsed: 300,
+      newBalance: 200,
+      transactionId: '99999999-aaaa-bbbb-cccc-dddddddddddd',
+    });
+    expect(body.amountDueToGateway).toBe(0);
+    expect(mockSendEmail).not.toHaveBeenCalled();
+    expect(mockNotifyNewOrder).not.toHaveBeenCalled();
+    expect(mockNotifyPaymentReceived).not.toHaveBeenCalled();
+  });
+
+  it('passes checkout idempotency params through the savings wrapper RPC', async () => {
+    const rpcSpy = vi.fn();
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation((() => {
+      const sb = buildMockSupabase({
+        create_storefront_order_with_savings: {
+          data: [
+            {
+              ...baseOrderRow,
+              idempotency_replayed: true,
+              savings_goal_id: '123e4567-e89b-12d3-a456-426614174555',
+              savings_goal_status: 'paused',
+              savings_redeemed_amount: 500,
+              savings_redemption_id: '77777777-aaaa-bbbb-cccc-dddddddddddd',
+              savings_redemption_success: true,
+            },
+          ],
+          error: null,
+        },
+      });
+      const originalRpc = sb.rpc;
+      sb.rpc = vi.fn((name: string, params?: unknown) => {
+        rpcSpy(name, params);
+        return originalRpc(name);
+      });
+      return sb;
+    }) as unknown as never);
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/orders', {
+        method: 'POST',
+        headers: { 'Idempotency-Key': 'checkout-key-1' },
+        body: JSON.stringify({
+          ...baseOrderPayload,
+          savings_amount: 500,
+          savings_goal_id: '123e4567-e89b-12d3-a456-426614174555',
+          use_savings_credit: true,
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(rpcSpy).toHaveBeenCalledWith(
+      'create_storefront_order_with_savings',
+      expect.objectContaining({
+        p_checkout_idempotency_key: 'checkout-key-1',
+        p_checkout_request_hash: expect.stringMatching(/^[a-f0-9]{64}$/),
+        p_savings_idempotency_key: 'order:checkout-key-1:savings',
+      })
+    );
+  });
+
+  it('does not pass checkout idempotency params through the quiz voucher wrapper RPC', async () => {
+    vi.stubEnv('QUIZ_PHASE', 'production');
+    vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'yes');
+    vi.stubEnv('QUIZ_RPC_SERVER_SECRET', 'voucher-secret');
+    const supabase = buildMockSupabase();
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () => supabase as unknown as never
+    );
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      user: mockAuthUser(AUTH_USER_ID),
+      error: null,
+      supabase: supabase as unknown as never,
+    });
+    const awardId = '11111111-1111-4111-8111-111111111111';
+    const productId = '22222222-2222-4222-8222-222222222222';
+    const token = createQuizVoucherToken({
+      payload: {
+        awardId,
+        condition: 'new',
+        expiresAt: '2099-05-22T12:00:00.000Z',
+        productId,
+        userId: AUTH_USER_ID,
+        variantId: null,
+      },
+      secret: 'voucher-secret',
+    });
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/orders', {
+        method: 'POST',
+        headers: { 'Idempotency-Key': 'checkout-key-1' },
+        body: JSON.stringify({
+          ...baseOrderPayload,
+          items: [
+            {
+              ...baseOrderPayload.items[0],
+              condition: 'new',
+              price: 0,
+              product_id: productId,
+              voucher_token: token,
+            },
+          ],
+        }),
+      })
+    );
+
+    expect(response.status).toBe(201);
+    const quizRpcCall = vi
+      .mocked(supabase.rpc)
+      .mock.calls.find(
+        ([name]) => name === 'create_storefront_order_with_quiz_voucher'
+      ) as [string, Record<string, unknown>] | undefined;
+    if (!quizRpcCall) {
+      throw new Error('Expected quiz voucher RPC to be called');
+    }
+    const [, quizRpcParams] = quizRpcCall;
+    expect(quizRpcParams).not.toHaveProperty('p_checkout_idempotency_key');
+    expect(quizRpcParams).not.toHaveProperty('p_checkout_request_hash');
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'create_storefront_order_with_quiz_voucher',
+      expect.objectContaining({
+        p_route_proof: expect.objectContaining({
+          action: 'create_storefront_order_with_quiz_voucher',
+          subject_id: awardId,
+          user_id: AUTH_USER_ID,
+        }),
+      })
+    );
+  });
+
+  it('treats a BNPL provider switch as an order replay, not a new order', async () => {
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () =>
+        buildMockSupabase({
+          create_storefront_order: {
+            data: [
+              {
+                ...baseOrderRow,
+                idempotency_replayed: true,
+                payment_method: 'card',
+                payment_status: 'unpaid',
+              },
+            ],
+            error: null,
+          },
+        }) as unknown as never
+    );
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/orders', {
+        method: 'POST',
+        headers: { 'Idempotency-Key': 'checkout-key-1' },
+        body: JSON.stringify({
+          ...baseOrderPayload,
+          payment_method: 'card',
+        }),
+      })
+    );
+    const body = await readJson(response);
+
+    expect(response.status).toBe(200);
+    expect(body.order.id).toBe('order-id');
+    expect(body.order.payment_method).toBe('card');
+    expect(body.idempotency).toEqual({ replayed: true });
+  });
+
+  it('maps checkout idempotency conflicts to 409', async () => {
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () =>
+        buildMockSupabase({
+          create_storefront_order: {
+            data: null,
+            error: { code: 'P0001', message: 'checkout_idempotency_conflict' },
+          },
+        }) as unknown as never
+    );
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/orders', {
+        method: 'POST',
+        headers: { 'Idempotency-Key': 'checkout-key-1' },
+        body: JSON.stringify({
+          ...baseOrderPayload,
+          payment_method: 'credit_direct',
+        }),
+      })
+    );
+
+    expect(response.status).toBe(409);
+    await expect(readJson(response)).resolves.toMatchObject({
+      code: 'CHECKOUT_IDEMPOTENCY_CONFLICT',
+      error:
+        'This checkout request was already used for a different cart, customer, or delivery payload.',
+    });
+  });
+
+  it('maps reusable-order conflicts to 409', async () => {
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () =>
+        buildMockSupabase({
+          create_storefront_order: {
+            data: null,
+            error: { code: 'P0001', message: 'order_not_reusable' },
+          },
+        }) as unknown as never
+    );
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/orders', {
+        method: 'POST',
+        headers: { 'Idempotency-Key': 'checkout-key-1' },
+        body: JSON.stringify({
+          ...baseOrderPayload,
+          payment_method: 'credit_direct',
+        }),
+      })
+    );
+
+    expect(response.status).toBe(409);
+    await expect(readJson(response)).resolves.toMatchObject({
+      code: 'CHECKOUT_ORDER_NOT_REUSABLE',
+      error:
+        'This checkout order can no longer be reused. Refresh checkout and start a new order.',
+    });
   });
 });
 
