@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 import {
   PaymentMethodSelector,
   type PaymentMethodType,
@@ -624,16 +625,12 @@ describe('PaymentMethodSelector', () => {
       );
 
       const tabTextElement = screen.getByText('Full Payment');
-      const textStyles = Array.isArray(tabTextElement.props.style)
-        ? Object.assign({}, ...tabTextElement.props.style.filter(Boolean))
-        : tabTextElement.props.style;
+      const textStyles = StyleSheet.flatten(tabTextElement.props.style);
 
       expect(textStyles.textAlign).toBe('center');
 
-      const tabElement = screen.getByRole('tab', { name: 'Full payment' });
-      const tabStyles = Array.isArray(tabElement.props.style)
-        ? Object.assign({}, ...tabElement.props.style.filter(Boolean))
-        : tabElement.props.style;
+      const tabElement = screen.getByRole('tab', { name: 'Full Payment' });
+      const tabStyles = StyleSheet.flatten(tabElement.props.style);
 
       expect(tabStyles.paddingHorizontal).toBeGreaterThanOrEqual(4);
     });
