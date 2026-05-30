@@ -7,6 +7,16 @@ const withBundleAnalyzer = bundleAnalyzer({
   openAnalyzer: false,
 });
 
+/**
+ * Keep generated metadata out of the streamed body tree for every user agent.
+ * Next's default html-limited bot detection changes metadata placement by UA;
+ * with cacheComponents/PPR, a cached storefront shell can then be resumed by a
+ * different UA shape and trip React's metadata-boundary resume fallback. The
+ * product/category metadata queries are cached, so this preserves SEO head tags
+ * without reintroducing the UA-dependent body slot.
+ */
+const HTML_LIMITED_BOTS_UA_RE = /.*/;
+
 const nextConfig: NextConfig = {
   // Keep heavy server-only packages external to reduce function bundle size and peak memory.
   // These are only used in specific API routes and should not be bundled into every function.
@@ -209,6 +219,8 @@ const nextConfig: NextConfig = {
 
   // Enable typed routes for compile-time validation of Link hrefs
   typedRoutes: true,
+
+  htmlLimitedBots: HTML_LIMITED_BOTS_UA_RE,
 
   // Turbopack resolve alias (Next.js 16 default bundler)
   // Maps @tiptap/extension-text-style to compat shim that re-exports

@@ -12,8 +12,14 @@ describe('next.config OgaBassey resource headers', () => {
     ]);
   });
 
-  it('does not override Next metadata rendering for normal storefront browsers', () => {
-    expect(nextConfig.htmlLimitedBots).toBeUndefined();
+  it('keeps metadata placement deterministic across cached storefront user agents', () => {
+    expect(nextConfig.htmlLimitedBots).toBeDefined();
+    expect(nextConfig.htmlLimitedBots?.test('Mozilla/5.0 Chrome/136.0')).toBe(
+      true
+    );
+    expect(nextConfig.htmlLimitedBots?.test('facebookexternalhit/1.1')).toBe(
+      true
+    );
   });
 
   it('preconnects the OgaBassey CDN on the production custom domain', async () => {
