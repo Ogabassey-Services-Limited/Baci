@@ -1,17 +1,41 @@
 import type { VTUHistoryTransaction } from '@/hooks/use-vtu-history';
 import { createLogger } from '@/lib/logger';
-import type {
-  UtilityRepeatDefaults,
-  UtilityRepeatRecipient,
-  UtilityRepeatRouteParams,
-  UtilityRouteType,
-} from '@/lib/utility-repeat.types';
-export type {
-  UtilityRepeatDefaults,
-  UtilityRepeatRecipient,
-  UtilityRepeatRouteParams,
-  UtilityRouteType,
-} from '@/lib/utility-repeat.types';
+
+export type UtilityRouteType = 'airtime' | 'data' | 'tv' | 'power' | 'gaming';
+
+export interface UtilityRepeatRouteParams {
+  repeatAmount?: string;
+  repeatBillerName?: string;
+  repeatBillItemIdentifier?: string;
+  repeatCustomerIdentifier?: string;
+  repeatCustomerName?: string;
+  repeatDataPlanCode?: string;
+  repeatNetworkProvider?: string;
+  repeatPhoneNumber?: string;
+  repeatVerified?: '1';
+  type: UtilityRouteType;
+}
+
+export interface UtilityRepeatDefaults {
+  amount?: string;
+  billerName?: string;
+  billItemIdentifier?: string;
+  customerIdentifier?: string;
+  customerName?: string;
+  dataPlanCode?: string;
+  isVerified?: boolean;
+  networkProvider?: string;
+  phoneNumber?: string;
+}
+
+export interface UtilityRepeatRecipient {
+  id: string;
+  title: string;
+  identifierLabel: string;
+  identifier: string;
+  meta: string;
+  defaults: UtilityRepeatDefaults;
+}
 
 const HISTORY_TYPE_TO_UTILITY_ROUTE = {
   airtime: 'airtime',

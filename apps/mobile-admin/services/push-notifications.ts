@@ -16,7 +16,6 @@ import type * as DeviceType from 'expo-device';
 import type * as NotificationsType from 'expo-notifications';
 import { getRuntimePlatform, isRuntimePlatform } from '@/config/runtime-platform';
 import { supabase } from '@/lib/supabase';
-import { setupAndroidChannels } from './push-notification-channels';
 
 // 2026 Best Practice: Dynamic imports for native modules to prevent evaluation-time crashes
 let Device: typeof DeviceType | null = null;
@@ -132,7 +131,7 @@ export async function registerForPushNotifications(): Promise<string | null> {
 
     // Configure Android notification channels
     if (isRuntimePlatform('android')) {
-      await setupAndroidChannels(Notifications);
+      await setupAndroidChannels();
     }
 
     return token;
@@ -140,6 +139,55 @@ export async function registerForPushNotifications(): Promise<string | null> {
     console.error('[Push] Failed to get push token:', error);
     return null;
   }
+}
+
+/**
+ * Set up Android notification channels
+ * Different channels allow users to customize notification behavior per type
+ */
+async function setupAndroidChannels(): Promise<void> {
+  if (!Notifications) return;
+
+  // Orders channel - HIGH priority for new order alerts
+  await Notifications.setNotificationChannelAsync('orders', {
+    name: 'New Orders',
+    description: 'Notifications when you receive new orders',
+    importance: Notifications?.AndroidImportance?.HIGH || 4,
+    vibrationPattern: [0, 250, 250, 250],
+    lightColor: '#10B981', // Green for positive
+  });
+
+  // Payments channel - HIGH priority for payment confirmations
+  await Notifications.setNotificationChannelAsync('payments', {
+    name: 'Payments',
+    description: 'Payment received notifications',
+    importance: Notifications?.AndroidImportance?.HIGH || 4,
+    vibrationPattern: [0, 250, 250, 250],
+    lightColor: '#10B981',
+  });
+
+  // Stock channel - DEFAULT priority for inventory alerts
+  await Notifications.setNotificationChannelAsync('stock', {
+    name: 'Stock Alerts',
+    description: 'Low stock and inventory notifications',
+    importance: Notifications?.AndroidImportance?.DEFAULT || 3,
+    vibrationPattern: [0, 200],
+    lightColor: '#F59E0B', // Amber for warning
+  });
+
+  // Admin channel - DEFAULT priority for platform announcements
+  await Notifications.setNotificationChannelAsync('admin', {
+    name: 'Platform Updates',
+    description: 'Messages from Baci platform',
+    importance: Notifications?.AndroidImportance?.DEFAULT || 3,
+  });
+
+  // General channel - LOW priority for misc notifications
+  await Notifications.setNotificationChannelAsync('general', {
+    name: 'General',
+    description: 'Other notifications',
+    importance: Notifications?.AndroidImportance?.LOW || 2,
+  });
 }
 
 /**

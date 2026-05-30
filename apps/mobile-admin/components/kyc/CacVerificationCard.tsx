@@ -2,14 +2,14 @@ import { normalizeCacSearchTerm, parseCacRegistration } from '@baci/shared';
 import Ionicons from "@react-native-vector-icons/ionicons";
 import { useMutation } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { Alert, Pressable, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
 import { apiClient, apiFormData, NetworkError } from '@/lib/api-client';
 import { createUploadFile } from '@/types/upload';
 import CacResultStep from './CacResultStep';
 import CacSearchStep from './CacSearchStep';
 import CacUploadStep from './CacUploadStep';
-import { styles } from './CacVerificationCard.styles';
 import {
   chooseCertificateSource,
   pickCertificateFromFiles,
@@ -275,3 +275,33 @@ export default function CacVerificationCard({
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  card: {
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    padding: SPACING.lg,
+    marginBottom: SPACING.lg,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    flex: 1,
+  },
+  title: {
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+    fontSize: TYPOGRAPHY.size.lg,
+  },
+  approvedName: {
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
+    fontSize: TYPOGRAPHY.size.sm,
+    marginTop: SPACING.xs,
+  },
+  body: { marginTop: SPACING.lg, gap: SPACING.md },
+});

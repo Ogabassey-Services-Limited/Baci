@@ -11,11 +11,6 @@ import type { BillItem } from '@/hooks/use-vtu-billers';
 import type { useVTUVerify } from '@/hooks/use-vtu-verify';
 import type { UtilityBeneficiary } from '@/lib/utility-beneficiaries';
 import type { UtilityRepeatRecipient } from '@/lib/utility-repeat';
-import {
-  BILL_ITEM_AMOUNT_FORMATTER,
-  getVerifyErrorMessage,
-  getVisibleBillBeneficiaries,
-} from './bill-item-selection.helpers';
 import { BeneficiaryList } from './BeneficiaryList';
 import {
   IDENTIFIER_LABELS,
@@ -29,6 +24,48 @@ import { RecentUtilityRecipients } from './RecentUtilityRecipients';
 import { VerificationCard } from './VerificationCard';
 
 type VerifyState = ReturnType<typeof useVTUVerify>;
+
+const BILL_ITEM_AMOUNT_FORMATTER = new Intl.NumberFormat('en-NG', {
+  currency: 'NGN',
+  currencyDisplay: 'narrowSymbol',
+  maximumFractionDigits: 2,
+  style: 'currency',
+});
+
+function getVerifyErrorMessage(error: unknown): string | undefined {
+  if (!error) {
+    return undefined;
+  }
+  if (typeof error === 'string') {
+    return error;
+  }
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'message' in error &&
+    typeof error.message === 'string'
+  ) {
+    return error.message;
+  }
+  return String(error);
+}
+
+function getBillRecipientKey(
+  billItemIdentifier: string | undefined,
+  customerId: string | undefined
+): string | null {
+  const trimmedBillItemIdentifier = billItemIdentifier?.trim();
+  const trimmedCustomerId = customerId?.trim();
+
+  if (!trimmedBillItemIdentifier || !trimmedCustomerId) {
+    return null;
+  }
+
+  return `${trimmedBillItemIdentifier}:${trimmedCustomerId}`;
+}
 
 interface BillItemSelectionSectionProps {
   beneficiaries: UtilityBeneficiary[];
@@ -75,10 +112,24 @@ export function BillItemSelectionSection({
   const isVerified = isRepeatPaymentActive || (verify.data?.verified ?? false);
   const isVerifyDisabled =
     !trimmedCustomerId || !selectedBillItemIdentifier || verify.isPending;
-  const visibleBeneficiaries = getVisibleBillBeneficiaries(
-    beneficiaries,
+  const recentRecipientKeys = new Set(
     recentRecipients
+      .map((recipient) =>
+        getBillRecipientKey(
+          recipient.defaults.billItemIdentifier,
+          recipient.defaults.customerIdentifier ?? recipient.identifier
+        )
+      )
+      .filter((key): key is string => key !== null)
   );
+  const visibleBeneficiaries = beneficiaries.filter((beneficiary) => {
+    const beneficiaryKey = getBillRecipientKey(
+      beneficiary.billItemIdentifier,
+      beneficiary.customerId
+    );
+
+    return !beneficiaryKey || !recentRecipientKeys.has(beneficiaryKey);
+  });
 
   return (
     <>

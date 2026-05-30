@@ -8,10 +8,16 @@
  * - Network connectivity checks before edge function calls
  */
 
+import NetInfo from '@react-native-community/netinfo';
 import { createClient } from '@supabase/supabase-js';
 import Constants from 'expo-constants';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
+import {
+  calculateOrderTotals,
+  canFallbackToLocalOrderTotals,
+  normalizeRemoteOrderTotals,
+} from './commerce';
 import { createLogger } from './logger';
 
 const log = createLogger('Supabase');
@@ -181,4 +187,216 @@ export async function signOut() {
   }
 }
 
-export { calculateCommerce, CommerceError } from './commerce-brain';
+import type {
+  CalculateOrderInputType,
+  CalculateOrderOutputType,
+  CalculateVTUInputType,
+  CalculateVTUOutputType,
+  RedeemLoyaltyInputType,
+  RedeemLoyaltyOutputType,
+} from './validation';
+
+/** Default timeout for edge function calls (30 seconds) */
+const EDGE_FUNCTION_TIMEOUT = 30000;
+
+/**
+ * Check network connectivity before edge function calls
+ * 2026 Best Practice: Always verify network before critical operations
+ */
+async function checkNetwork(): Promise<boolean> {
+  const state = await NetInfo.fetch();
+  return state.isConnected === true && state.isInternetReachable !== false;
+}
+
+/**
+ * Custom error class for commerce operations
+ * 2026 Best Practice: Typed errors for better error handling
+ */
+export class CommerceError extends Error {
+  code: string;
+
+  constructor(message: string, code: string) {
+    super(message);
+    this.name = 'CommerceError';
+    this.code = code;
+  }
+}
+
+/**
+ * Call the central commerce brain (Supabase Edge Function)
+ * Centralizes math for Parity between Web & App
+ * Includes analytics instrumentation for tracking
+ *
+ * 2026 Best Practices:
+ * - Function overloads for type-safe API calls
+ * - Network connectivity check before edge function calls
+ * - Typed error handling
+ */
+export async function calculateCommerce(
+  action: 'calculate_order',
+  data: CalculateOrderInputType
+): Promise<CalculateOrderOutputType>;
+export async function calculateCommerce(
+  action: 'calculate_vtu',
+  data: CalculateVTUInputType
+): Promise<CalculateVTUOutputType>;
+export async function calculateCommerce(
+  action: 'redeem_loyalty',
+  data: RedeemLoyaltyInputType
+): Promise<RedeemLoyaltyOutputType>;
+export async function calculateCommerce(
+  action: 'calculate_vtu' | 'calculate_order' | 'redeem_loyalty',
+  data: CalculateOrderInputType | CalculateVTUInputType | RedeemLoyaltyInputType
+): Promise<
+  CalculateOrderOutputType | CalculateVTUOutputType | RedeemLoyaltyOutputType
+> {
+  const startTime = Date.now();
+
+  // 2026 Best Practice: Check network before edge function calls
+  const isOnline = await checkNetwork();
+  if (!isOnline) {
+    throw new CommerceError(
+      'No internet connection. Please check your network and try again.',
+      'NETWORK_ERROR'
+    );
+  }
+
+  try {
+    // 2026 Best Practice: Timeout for edge function calls
+    // Prevents requests from hanging indefinitely on poor connections
+    // supabase.functions.invoke() does not accept an AbortSignal,
+    // so we use Promise.race to enforce the timeout.
+    let result: unknown;
+    let error: unknown;
+
+    try {
+      const invokePromise = supabase.functions.invoke('calculate-commerce', {
+        body: { action, data },
+      });
+
+      let timeoutId: ReturnType<typeof setTimeout>;
+      const timeoutPromise = new Promise<never>((_resolve, reject) => {
+        timeoutId = setTimeout(() => {
+          reject(
+            new CommerceError(
+              'Request timed out. Please check your connection and try again.',
+              'TIMEOUT_ERROR'
+            )
+          );
+        }, EDGE_FUNCTION_TIMEOUT);
+      });
+
+      try {
+        const response = await Promise.race([invokePromise, timeoutPromise]);
+        clearTimeout(timeoutId!);
+        result = response.data;
+        error = response.error;
+      } catch (e) {
+        clearTimeout(timeoutId!);
+        error = e;
+      }
+    } catch (e) {
+      error = e;
+    }
+
+    if (error) {
+      if (
+        action === 'calculate_order' &&
+        canFallbackToLocalOrderTotals(error)
+      ) {
+        const fallbackResult = calculateOrderTotals(
+          data as CalculateOrderInputType
+        );
+
+        log.warn(
+          `Commerce Brain unavailable [${action}], using local totals fallback.`,
+          error
+        );
+
+        try {
+          const { trackEvent } = await import('@/services/analytics');
+          trackEvent('commerce_brain_fallback', {
+            action,
+            duration_ms: Date.now() - startTime,
+            reason:
+              (error as { message?: string })?.message ||
+              'Edge function unavailable',
+          });
+        } catch (trackErr) {
+          log.warn('Failed to track fallback event:', trackErr);
+        }
+
+        return fallbackResult;
+      }
+
+      log.error(`Commerce Brain Error [${action}]:`, error);
+
+      // Track commerce brain failure with safe dynamic import
+      try {
+        const { trackError } = await import('@/services/analytics');
+        const errorMessage =
+          (error as { message?: string })?.message || 'Unknown error';
+        trackError('commerce_brain_error', errorMessage, {
+          action,
+          duration_ms: Date.now() - startTime,
+        });
+      } catch (trackErr) {
+        log.warn('Failed to track error:', trackErr);
+      }
+
+      if (error instanceof Error) throw error;
+      throw new CommerceError(
+        (error as { message?: string })?.message ||
+        'Commerce calculation failed',
+        'COMMERCE_BRAIN_ERROR'
+      );
+    }
+
+    const normalizedResult =
+      action === 'calculate_order'
+        ? normalizeRemoteOrderTotals(
+            data as CalculateOrderInputType,
+            result as Partial<CalculateOrderOutputType> | null | undefined
+          )
+        : result;
+
+    // Track successful commerce brain call
+    try {
+      const { trackEvent } = await import('@/services/analytics');
+      trackEvent('commerce_brain_called', {
+        action,
+        success: true,
+        duration_ms: Date.now() - startTime,
+      });
+    } catch (trackErr) {
+      log.warn('Failed to track event:', trackErr);
+    }
+
+    // Type assertion needed: Supabase edge function returns untyped JSON.
+    // The function overloads above guarantee the correct return type per action.
+    return normalizedResult as
+      | CalculateOrderOutputType
+      | CalculateVTUOutputType
+      | RedeemLoyaltyOutputType;
+  } catch (error) {
+    if (error instanceof CommerceError) throw error;
+
+    // Track external failures (network, etc)
+    try {
+      const { trackError } = await import('@/services/analytics');
+      trackError(
+        'commerce_brain_error',
+        error instanceof Error ? error.message : 'Unknown error',
+        {
+          action,
+          duration_ms: Date.now() - startTime,
+        }
+      );
+    } catch (trackErr) {
+      log.warn('Failed to track catch error:', trackErr);
+    }
+
+    if (error instanceof Error) throw error;
+    throw new CommerceError('Unknown commerce error', 'UNKNOWN_ERROR');
+  }
+}

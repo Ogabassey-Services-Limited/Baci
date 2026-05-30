@@ -16,11 +16,10 @@ import AppKeyboardContainer from '@/components/ui/AppKeyboardContainer';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
 import { useKeyboard } from '@/hooks/use-keyboard';
-import { ChatSuggestionsRow } from './ChatSuggestionsRow';
 import { CHAT_POWERED_BY_LABEL } from './constants';
 import { styles } from './styles';
 import { TypingIndicator } from './TypingIndicator';
-import { type ChatMessage } from './types';
+import { type ChatMessage, SUGGESTIONS } from './types';
 
 const CHAT_INPUT_KEYBOARD_GAP = 8;
 
@@ -109,6 +108,28 @@ export function ChatModal({
             {item.text}
           </Text>
         </View>
+      </View>
+    );
+  };
+
+  const renderSuggestions = () => {
+    if (messages.length > 2 || isLoading) return null;
+    return (
+      <View style={styles.suggestionsContainer}>
+        {SUGGESTIONS.map((s) => (
+          <Pressable
+            key={s.label}
+            style={[styles.suggestionChip, { borderColor: colors.border }]}
+            onPress={() => onSuggestionPress(s.label)}
+            accessibilityRole="button"
+            accessibilityLabel={`Suggestion: ${s.label}`}
+          >
+            <Ionicons name={s.icon} size={14} color={BRAND.primary} />
+            <Text style={[styles.suggestionText, { color: colors.text }]}>
+              {s.label}
+            </Text>
+          </Pressable>
+        ))}
       </View>
     );
   };
@@ -236,12 +257,7 @@ export function ChatModal({
             ]}
             testID="chat-input-container"
           >
-            <ChatSuggestionsRow
-              colors={colors}
-              isLoading={isLoading}
-              messagesCount={messages.length}
-              onSuggestionPress={onSuggestionPress}
-            />
+            {renderSuggestions()}
             <View style={styles.inputRow}>
               <TextInput
                 ref={inputRef}

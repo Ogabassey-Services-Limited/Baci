@@ -1,5 +1,4 @@
-import { BRAND_COLORS } from '@baci/shared';
-import Ionicons from '@react-native-vector-icons/ionicons';
+import Ionicons from "@react-native-vector-icons/ionicons";
 import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
@@ -112,37 +111,15 @@ export default function ContactSupportScreen() {
         >
           {/* WhatsApp Quick Contact */}
           <Pressable
-            style={[
-              styles.whatsappCard,
-              { backgroundColor: BRAND_COLORS.whatsapp },
-            ]}
+            style={[styles.whatsappCard, { backgroundColor: '#25D366' }]}
             onPress={handleWhatsApp}
           >
-            <Ionicons
-              name="logo-whatsapp"
-              size={28}
-              color={colors.textOnPrimary}
-            />
+            <Ionicons name="logo-whatsapp" size={28} color="#FFFFFF" />
             <View style={styles.whatsappContent}>
-              <Text
-                style={[styles.whatsappTitle, { color: colors.textOnPrimary }]}
-              >
-                Chat on WhatsApp
-              </Text>
-              <Text
-                style={[
-                  styles.whatsappSubtitle,
-                  { color: colors.textOnPrimary },
-                ]}
-              >
-                Get instant support
-              </Text>
+              <Text style={styles.whatsappTitle}>Chat on WhatsApp</Text>
+              <Text style={styles.whatsappSubtitle}>Get instant support</Text>
             </View>
-            <Ionicons
-              name="chevron-forward"
-              size={20}
-              color={colors.textOnPrimary}
-            />
+            <Ionicons name="chevron-forward" size={20} color="#FFFFFF" />
           </Pressable>
 
           {/* Subject Selection */}
@@ -171,9 +148,7 @@ export default function ContactSupportScreen() {
                     name={option.icon}
                     size={18}
                     color={
-                      selectedSubject === option.id
-                        ? colors.textOnPrimary
-                        : colors.text
+                      selectedSubject === option.id ? colors.textOnPrimary : colors.text
                     }
                   />
                   <Text
@@ -234,14 +209,7 @@ export default function ContactSupportScreen() {
             ) : (
               <>
                 <Ionicons name="send" size={20} color={colors.textOnPrimary} />
-                <Text
-                  style={[
-                    styles.submitButtonText,
-                    { color: colors.textOnPrimary },
-                  ]}
-                >
-                  Send Message
-                </Text>
+                <Text style={[styles.submitButtonText, { color: colors.textOnPrimary }]}>Send Message</Text>
               </>
             )}
           </Pressable>
@@ -295,11 +263,12 @@ const styles = StyleSheet.create({
   },
   whatsappContent: { flex: 1 },
   whatsappTitle: {
+    color: '#FFFFFF',
     fontSize: TYPOGRAPHY.size.md,
     fontFamily: TYPOGRAPHY.fontFamily.bold,
   },
   whatsappSubtitle: {
-    opacity: 0.8,
+    color: 'rgba(255,255,255,0.8)',
     fontSize: TYPOGRAPHY.size.sm,
     fontFamily: TYPOGRAPHY.fontFamily.regular,
   },

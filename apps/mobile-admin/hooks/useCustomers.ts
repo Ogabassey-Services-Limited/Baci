@@ -6,6 +6,7 @@
 import {
   buildCustomerAddressLine,
   buildCustomerNameFields,
+  buildCustomerSearchFilter,
   CUSTOMER_ADMIN_COLUMNS,
 } from '@baci/shared';
 import {
@@ -14,10 +15,86 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
+import { sanitizeSearchQuery } from '@/lib/sanitize';
 import { supabase } from '@/lib/supabase';
-import { fetchCustomers, fetchCustomerStats } from './customers-data';
 import { useMerchant } from './useMerchant';
-export type { Customer } from './customers-data';
+
+export interface Customer {
+  id: string;
+  merchant_id: string;
+  full_name: string | null;
+  email: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  phone: string | null;
+  address: string | null;
+  total_orders: number;
+  total_spent: number;
+  store_credit: number;
+  loyalty_points: number;
+  created_at: string;
+  updated_at: string;
+  last_login_at: string | null;
+  deleted_at: string | null;
+}
+
+interface CustomersPage {
+  customers: Customer[];
+  nextCursor: number | null;
+  totalCount: number;
+}
+
+const PAGE_SIZE = 20;
+
+async function fetchCustomers(
+  merchantId: string,
+  cursor: number = 0,
+  filters?: {
+    search?: string;
+    sortBy?: 'recent' | 'orders' | 'spent' | 'alpha';
+  }
+): Promise<CustomersPage> {
+  let query = supabase
+    .from('customers')
+    .select(CUSTOMER_ADMIN_COLUMNS, { count: 'exact' })
+    .eq('merchant_id', merchantId)
+    .is('deleted_at', null) // Exclude soft-deleted customers
+    .range(cursor, cursor + PAGE_SIZE - 1);
+
+  // Apply sorting
+  switch (filters?.sortBy) {
+    case 'orders':
+      query = query.order('total_orders', { ascending: false });
+      break;
+    case 'spent':
+      query = query.order('total_spent', { ascending: false });
+      break;
+    case 'alpha':
+      query = query.order('full_name', { ascending: true });
+      break;
+    default:
+      query = query.order('created_at', { ascending: false });
+  }
+
+  if (filters?.search) {
+    const term = sanitizeSearchQuery(filters.search);
+    if (term) {
+      query = query.or(buildCustomerSearchFilter(term));
+    }
+  }
+
+  const { data, error, count } = await query;
+
+  if (error) throw new Error(error.message);
+
+  const hasMore = (count ?? 0) > cursor + PAGE_SIZE;
+
+  return {
+    customers: data ?? [],
+    nextCursor: hasMore ? cursor + PAGE_SIZE : null,
+    totalCount: count ?? 0,
+  };
+}
 
 export function useCustomers(filters?: {
   search?: string;
@@ -86,8 +163,68 @@ export function useCustomerStats() {
   return useQuery({
     queryKey: ['customer-stats', merchant?.id],
     queryFn: async () => {
-      if (!merchant?.id) throw new Error('No merchant selected');
-      return fetchCustomerStats(merchant.id);
+      const now = new Date();
+      const startOfMonth = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        1
+      ).toISOString();
+      const startOfWeek = new Date(
+        now.getTime() - 7 * 24 * 60 * 60 * 1000
+      ).toISOString();
+
+      // PERFORMANCE: Use Promise.all to run independent count queries concurrently
+      const [totalRes, newThisMonthRes, newThisWeekRes, returningRes] =
+        await Promise.all([
+          // Total customers (excluding deleted)
+          supabase
+            .from('customers')
+            .select('id', { count: 'exact', head: true })
+            .eq('merchant_id', merchant?.id)
+            .is('deleted_at', null),
+          // New this month
+          supabase
+            .from('customers')
+            .select('id', { count: 'exact', head: true })
+            .eq('merchant_id', merchant?.id)
+            .is('deleted_at', null)
+            .gte('created_at', startOfMonth),
+          // New this week
+          supabase
+            .from('customers')
+            .select('id', { count: 'exact', head: true })
+            .eq('merchant_id', merchant?.id)
+            .is('deleted_at', null)
+            .gte('created_at', startOfWeek),
+          // Returning customers (more than 1 order)
+          supabase
+            .from('customers')
+            .select('id', { count: 'exact', head: true })
+            .eq('merchant_id', merchant?.id)
+            .is('deleted_at', null)
+            .gt('total_orders', 1),
+        ]);
+
+      if (totalRes.error) throw new Error(totalRes.error.message);
+      if (newThisMonthRes.error) {
+        throw new Error(newThisMonthRes.error.message);
+      }
+      if (newThisWeekRes.error) throw new Error(newThisWeekRes.error.message);
+      if (returningRes.error) throw new Error(returningRes.error.message);
+
+      const { count: total } = totalRes;
+      const { count: newThisMonth } = newThisMonthRes;
+      const { count: newThisWeek } = newThisWeekRes;
+      const { count: returning } = returningRes;
+
+      return {
+        total: total ?? 0,
+        newThisMonth: newThisMonth ?? 0,
+        newThisWeek: newThisWeek ?? 0,
+        returning: returning ?? 0,
+        retentionRate:
+          total && total > 0 ? Math.round(((returning ?? 0) / total) * 100) : 0,
+      };
     },
     enabled: !!merchant?.id,
     staleTime: 1000 * 60 * 5, // 5 minutes

@@ -2,13 +2,14 @@ import Ionicons from "@react-native-vector-icons/ionicons";
 import React from 'react';
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
+  StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
-import Colors, { BRAND } from '@/constants/Colors';
-import { offlineNoticeStyles as styles } from './OfflineNotice.styles';
+import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
 
 interface OfflineNoticeProps {
   /** Type of notice to display */
@@ -263,3 +264,159 @@ export function OfflineEmptyState({
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  // Banner styles
+  banner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    gap: SPACING.sm,
+  },
+  bannerText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#92400E',
+  },
+  bannerRetry: {
+    padding: SPACING.xs,
+  },
+
+  // Inline styles
+  inline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    paddingVertical: SPACING.xs,
+  },
+  inlineText: {
+    flex: 1,
+    fontSize: 12,
+  },
+  inlineRetry: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+
+  // Card styles
+  card: {
+    margin: SPACING.md,
+    padding: SPACING.xl,
+    borderRadius: RADIUS.xl,
+    alignItems: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  cardIconContainer: {
+    marginBottom: SPACING.md,
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: SPACING.xs,
+    textAlign: 'center',
+  },
+  cardMessage: {
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: SPACING.md,
+  },
+  cachedNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    paddingVertical: SPACING.xs,
+    paddingHorizontal: SPACING.sm,
+    borderRadius: RADIUS.md,
+    marginBottom: SPACING.md,
+  },
+  cachedText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  retryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.sm,
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.xl,
+    borderRadius: RADIUS.lg,
+    marginTop: SPACING.sm,
+  },
+  retryButtonDisabled: {
+    opacity: 0.7,
+  },
+  retryButtonText: {
+    color: '#FFF',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+
+  // Empty state styles
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: SPACING.xl,
+  },
+  emptyIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: SPACING.lg,
+    position: 'relative',
+  },
+  emptyIconBadge: {
+    position: 'absolute',
+    bottom: -4,
+    right: -4,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#DC2626',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: SPACING.xs,
+    textAlign: 'center',
+  },
+  emptyDescription: {
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: SPACING.lg,
+  },
+  emptyRetryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.sm,
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.xl,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1.5,
+  },
+  emptyRetryText: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+});

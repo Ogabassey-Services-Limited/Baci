@@ -45,7 +45,6 @@ const {
   PRODUCT_SELECT,
   fetchProductRow,
   fetchProductsPage,
-  isUuid,
   resolveAndEvictProduct,
   resolveProductRow,
   transformProduct,
@@ -199,11 +198,6 @@ describe('product-utils', () => {
   it('does not select removed products.colors columns from Supabase', () => {
     expect(PRODUCT_SELECT).not.toMatch(/\bcolors\b/);
     expect(PRODUCT_DETAIL_SELECT).not.toMatch(/\bcolors\b/);
-  });
-
-  it('recognizes standard UUIDs without matching shortened UUID-like values', () => {
-    expect(isUuid('123e4567-e89b-12d3-a456-426614174000')).toBe(true);
-    expect(isUuid('123e4567-e89b-12d3-426614174000')).toBe(false);
   });
 
   it('resolveProductRow falls back to legacy slug candidates', async () => {

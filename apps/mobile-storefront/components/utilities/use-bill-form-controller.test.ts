@@ -129,11 +129,8 @@ describe('useBillFormController', () => {
     mockVerifyData = undefined;
     mockVerifyIsPending = false;
     mockAuthCustomer = null;
-    // Default stubs: keep background beneficiary loads pending so tests that
-    // do not assert beneficiary state do not receive post-assertion updates.
-    mockGetBeneficiaries.mockImplementation(
-      () => new Promise<UtilityBeneficiary[]>(() => {})
-    );
+    // Default stubs: empty beneficiaries, passthrough filter
+    mockGetBeneficiaries.mockResolvedValue([]);
     mockSaveBeneficiary.mockResolvedValue(undefined);
     mockFilterBeneficiaries.mockReturnValue([]);
   });

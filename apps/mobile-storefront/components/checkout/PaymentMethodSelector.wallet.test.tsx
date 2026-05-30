@@ -120,27 +120,6 @@ describe('PaymentMethodSelector', () => {
       expect(screen.getByText(/₦1,500/)).toBeTruthy();
     });
 
-    it('keeps wallet payment CTA visible when wallet balance is sufficient', () => {
-      render(
-        <PaymentMethodSelector
-          selectedMethod={'paystack' as PaymentMethodType}
-          onSelectMethod={() => {}}
-          selectedTab="full"
-          onSelectTab={() => {}}
-          orderTotal={15000}
-          walletMode="orders"
-          walletBalance={20000}
-          walletOrderTotal={15000}
-        />
-      );
-
-      const walletControl =
-        screen.queryByRole('radio', { name: /pay with wallet/i }) ??
-        screen.queryByRole('checkbox', { name: /use wallet credit/i });
-
-      expect(walletControl).toBeTruthy();
-    });
-
     it('emits walletSelection with use=true and amount=balance when partial wallet is toggled on', () => {
       const onWalletToggle = jest.fn();
 

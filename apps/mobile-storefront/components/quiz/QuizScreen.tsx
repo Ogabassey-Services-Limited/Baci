@@ -19,10 +19,11 @@ import {
 } from '@/services/quiz';
 import { useQuizStore } from '@/stores/quiz-store';
 import { useShallow } from 'zustand/react/shallow';
-import { QuizEventsList } from './QuizEventsList';
 import { createQuizStyles } from './QuizScreen.styles';
 import {
   formatPointCount,
+  formatTimeRange,
+  getEventStartButtonText,
   getQuizErrorMessage,
   shouldShowEventList,
 } from './QuizScreen.utils';
@@ -186,16 +187,41 @@ export function QuizScreen({
       ) : null}
 
       {shouldShowEventList(status) && events.length > 0 ? (
-        <QuizEventsList
-          events={events}
-          isStarting={status === 'starting'}
-          locale={locale}
-          onStart={(eventId) => {
-            void handleStart(eventId);
-          }}
-          styles={styles}
-          timeNotSetLabel={QUIZ_COPY.timeNotSet}
-        />
+        <View
+          accessibilityRole="list"
+          accessibilityLabel="Available quiz events"
+        >
+          {events.map((event) => (
+            <View
+              key={event.id}
+              accessibilityLabel={`Quiz event ${event.title}, prize ${event.prizeName}`}
+              style={styles.eventCard}
+            >
+              <Text style={styles.eventTitle}>{event.title}</Text>
+              <Text style={styles.eventPrize}>{event.prizeName}</Text>
+              <Text style={styles.eventMeta}>
+                {event.questionCount} questions,{' '}
+                {formatTimeRange(event, locale, QUIZ_COPY.timeNotSet)},{' '}
+                {formatPointCount(EXAM_PASS_POINTS_COST, 'loyalty point')} exam
+                pass
+              </Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`${getEventStartButtonText(event.status, status === 'starting', EXAM_PASS_POINTS_COST)} ${event.title}`}
+                accessibilityState={{ disabled: status === 'starting' || event.status !== 'open' }}
+                disabled={status === 'starting' || event.status !== 'open'}
+                onPress={() => {
+                  if (status !== 'starting' && event.status === 'open') void handleStart(event.id);
+                }}
+                style={styles.primaryButton}
+              >
+                <Text style={styles.primaryButtonText}>
+                  {getEventStartButtonText(event.status, status === 'starting', EXAM_PASS_POINTS_COST)}
+                </Text>
+              </Pressable>
+            </View>
+          ))}
+        </View>
       ) : null}
 
       {(status === 'question' || status === 'submitting') && attempt ? (

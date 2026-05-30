@@ -19,11 +19,54 @@ import { useBlogImageUpload } from '@/hooks/blog-editor/useBlogImageUpload';
 import { useMerchant } from '@/hooks/useMerchant';
 import { supabase } from '@/lib/supabase';
 import { parseWebViewEditorMessage } from '@/lib/validators/storage';
-import { getErrorMessage, normalizeSafeLinkUrl } from './useBlogEditor.helpers';
+
 interface UseBlogEditorOptions {
   id: string | string[] | undefined;
   webViewRef: RefObject<WebView | null>;
 }
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'message' in error &&
+    typeof error.message === 'string' &&
+    error.message.trim()
+  ) {
+    return error.message;
+  }
+
+  return fallback;
+}
+
+function normalizeSafeLinkUrl(value: string): string | null {
+  const trimmedValue = value.trim();
+
+  if (!trimmedValue) {
+    return null;
+  }
+
+  const candidate = /^[a-z][a-z0-9+.-]*:/i.test(trimmedValue)
+    ? trimmedValue
+    : `https://${trimmedValue}`;
+
+  try {
+    const parsedUrl = new URL(candidate);
+
+    if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+      return null;
+    }
+
+    return parsedUrl.toString();
+  } catch {
+    return null;
+  }
+}
+
 export function useBlogEditor({ id, webViewRef }: UseBlogEditorOptions) {
   const postId = normalizeBlogPostId(id);
   const [isAIModalVisible, setIsAIModalVisible] = useState(false);

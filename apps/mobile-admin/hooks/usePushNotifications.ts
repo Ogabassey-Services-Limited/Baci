@@ -42,7 +42,7 @@ async function loadNotificationsForDevice() {
   }
 }
 
-import { useRouter } from 'expo-router';
+import { type Href, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
   clearBadge,
@@ -53,9 +53,21 @@ import {
 } from '@/services/push-notifications';
 import { useAuth } from './useAuth';
 import { useMerchant } from './useMerchant';
-import { navigateToNotificationTarget } from './push-notification-navigation';
 
 const PUSH_TOKEN_STORAGE_KEY = '@baci_push_token';
+
+function encodeAdminEntityId(value: unknown): string | null {
+  if (typeof value !== 'string' && typeof value !== 'number') {
+    return null;
+  }
+
+  const trimmedValue = String(value).trim();
+  if (!trimmedValue) {
+    return null;
+  }
+
+  return encodeURIComponent(trimmedValue);
+}
 
 interface UsePushNotificationsResult {
   token: string | null;
@@ -63,6 +75,55 @@ interface UsePushNotificationsResult {
   isLoading: boolean;
   registerPush: (userId?: string, merchantId?: string) => Promise<void>;
   unregisterPush: () => Promise<void>;
+}
+
+function navigateToNotificationTarget(
+  router: ReturnType<typeof useRouter>,
+  navParams: ReturnType<typeof getNotificationNavigationParams>
+) {
+  if (!navParams) {
+    return;
+  }
+
+  const entityId = encodeAdminEntityId(navParams.params?.id);
+
+  switch (navParams.screen) {
+    case 'order':
+      router.push(
+        entityId
+          ? (`/(admin)/order/${entityId}` as Href)
+          : '/(admin)/(tabs)/orders'
+      );
+      return;
+    case 'product':
+      router.push(
+        entityId
+          ? (`/(admin)/product/${entityId}` as Href)
+          : '/(admin)/(tabs)/products'
+      );
+      return;
+    case 'orders':
+      router.push('/(admin)/(tabs)/orders');
+      return;
+    case 'products':
+      router.push('/(admin)/(tabs)/products');
+      return;
+    case 'notifications':
+      router.push('/(admin)/notifications');
+      return;
+    case 'negotiations':
+      router.push('/(admin)/negotiations');
+      return;
+    case 'negotiation':
+      router.push(
+        entityId
+          ? (`/(admin)/negotiations/${entityId}` as Href)
+          : '/(admin)/negotiations'
+      );
+      return;
+    default:
+      router.push('/(admin)/(tabs)');
+  }
 }
 
 export function usePushNotifications(): UsePushNotificationsResult {
