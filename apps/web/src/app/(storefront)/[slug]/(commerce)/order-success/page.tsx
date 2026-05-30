@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowRight, CheckCircle, Loader2, Star } from 'lucide-react';
+import { ArrowRight, CheckCircle, Download, Loader2, Star } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -19,6 +19,7 @@ interface OrderData {
   customer_phone?: string;
   shipping_address?: Record<string, unknown>;
   payment_status?: string;
+  payment_method?: string;
   shipping_status?: string;
   merchant_id?: string;
   items: Array<{
@@ -93,13 +94,22 @@ function OrderSuccessContent() {
 
   const hasValidatedOrder = Boolean(order);
   const hasRecoveryState = !loading && !hasValidatedOrder;
+  const isInvoice =
+    _type === 'invoice' ||
+    order?.payment_status === 'invoice' ||
+    order?.payment_method === 'invoice';
+
   const heading = hasValidatedOrder
-    ? 'Order Confirmed!'
+    ? isInvoice
+      ? 'Invoice Generated!'
+      : 'Order Confirmed!'
     : hasRecoveryState
       ? 'We could not confirm this order yet'
       : 'Finalizing your order';
   const description = hasValidatedOrder
-    ? 'Thank you for your purchase. Your order has been received.'
+    ? isInvoice
+      ? 'We have prepared your invoice and sent it to your email. Please check your inbox.'
+      : 'Thank you for your purchase. Your order has been received.'
     : hasRecoveryState
       ? 'We could not validate this order from the current link. You can return to checkout or keep shopping while we sort it out.'
       : 'We are validating your order details now. This page will update as soon as your confirmation is ready.';
@@ -203,6 +213,16 @@ function OrderSuccessContent() {
               >
                 Return to Checkout
                 <ArrowRight size={18} />
+              </Link>
+            )}
+
+            {isInvoice && (
+              <Link
+                href={asRoute(getHref('/receipts'))}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-store-border bg-store-background px-6 py-4 font-bold text-store-background-text transition-colors hover:bg-store-secondary"
+              >
+                <Download size={18} />
+                Download Invoice PDF
               </Link>
             )}
 

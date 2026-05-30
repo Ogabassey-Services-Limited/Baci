@@ -1095,6 +1095,7 @@ export default async function CategoryProductPage({
 
   return (
     <>
+      <StorefrontDynamicMetadataMarker />
       {criticalProduct ? (
         <>
           <OgabasseyPdpCriticalShell
@@ -1137,7 +1138,6 @@ export default async function CategoryProductPage({
           />
         </Suspense>
       )}
-      <StorefrontDynamicMetadataMarker />
     </>
   );
 }

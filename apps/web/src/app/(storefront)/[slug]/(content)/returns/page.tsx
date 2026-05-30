@@ -56,10 +56,10 @@ export async function generateMetadata({
 export default function ReturnsPage({ params }: PageProps) {
   return (
     <>
+      <StorefrontDynamicMetadataMarker />
       <Suspense fallback={<ContentRouteLoading />}>
         <ReturnsPageContent params={params} />
       </Suspense>
-      <StorefrontDynamicMetadataMarker />
     </>
   );
 }

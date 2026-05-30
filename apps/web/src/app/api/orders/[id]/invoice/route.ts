@@ -1,3 +1,8 @@
+import {
+  appendReceiptFulfillmentDescription,
+  isDeviceReceiptItemName,
+  normalizeReceiptFulfillmentDetails,
+} from '@baci/shared';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
@@ -215,13 +220,29 @@ export async function GET(
       taxSubtotals = subtotals || [];
     }
 
+    const typedOrderItems = orderItems as OrderItem[];
+    const fulfillment = normalizeReceiptFulfillmentDetails(
+      order.fulfillment_details
+    );
+    const hasDeviceItem = typedOrderItems.some((item) =>
+      isDeviceReceiptItemName(item.name || '')
+    );
+
     // Build invoice line items
-    const items: InvoiceLineItem[] = (orderItems as OrderItem[]).map(
-      (item, index) => ({
+    const items: InvoiceLineItem[] = typedOrderItems.map((item, index) => {
+      const desc = appendReceiptFulfillmentDescription({
+        description: item.item_description || undefined,
+        fulfillment,
+        hasDeviceItem,
+        index,
+        itemName: item.name || '',
+      });
+
+      return {
         line_id: item.line_id || index + 1,
         product_id: item.product_id || undefined,
-        name: item.name,
-        description: item.item_description || undefined,
+        name: item.name || '',
+        description: desc,
         quantity: item.quantity,
         unit_code: item.unit_code || 'EA',
         price: Number(item.price),
@@ -231,8 +252,8 @@ export async function GET(
         vat_rate: item.vat_rate || merchant.vat_rate || 7.5,
         vat_amount: item.vat_amount || 0,
         sellers_item_id: item.sellers_item_id || undefined,
-      })
-    );
+      };
+    });
 
     // Build tax subtotals for invoice
     const invoiceTaxSubtotals: TaxSubtotal[] = taxSubtotals.map((st) => ({

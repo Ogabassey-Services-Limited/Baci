@@ -1,3 +1,9 @@
+import {
+  appendReceiptFulfillmentDescription,
+  isDeviceReceiptItemName,
+  normalizeReceiptFulfillmentDetails,
+  type ReceiptFulfillmentDetails,
+} from '@baci/shared';
 import { cookies } from 'next/headers';
 import { after, type NextRequest, NextResponse } from 'next/server';
 import { getQuizPhaseEnv, getQuizProductionApprovedEnv } from '@/env';
@@ -27,8 +33,14 @@ import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
+import {
+  generateInvoiceBlob,
+  type InvoiceLineItem,
+  type TaxSubtotal,
+} from '@/lib/invoice-generator';
 import { logger } from '@/lib/logger';
 import { ORDER_WITH_ITEMS_QUERY } from '@/lib/order-queries';
+import { generatePaymentAccount } from '@/lib/paystack';
 import {
   enforcePrizeProductionGuard,
   QuizProductionNotApprovedError,
@@ -37,6 +49,7 @@ import { createQuizRpcServerProof } from '@/lib/quiz-proof';
 import { verifyQuizVoucherToken } from '@/lib/quiz-voucher-token';
 import { getClientIdentifier } from '@/lib/rate-limit';
 import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/zeptomail';
 import { type OrderCreateInput, orderCreateSchema } from '@/schemas/orders';
@@ -167,6 +180,21 @@ function getOrderItemVariantId(item: OrderCreateItem): string | null {
 
 function getOrderItemCondition(item: OrderCreateItem): string | null {
   return item.condition || null;
+}
+
+function getOrderItemDisplayName(item: OrderCreateItem): string {
+  const baseName = item.name || item.productName || 'Product';
+  const variantLabel = formatVariantAttributesLabel(
+    item.variantAttributes || item.variant_attributes
+  );
+
+  return variantLabel ? `${baseName} (${variantLabel})` : baseName;
+}
+
+function getOrderFulfillmentDetails(
+  order: Record<string, unknown>
+): ReceiptFulfillmentDetails | null {
+  return normalizeReceiptFulfillmentDetails(order.fulfillment_details);
 }
 
 function invalidQuizVoucherTokenResponse() {
@@ -511,7 +539,7 @@ export async function POST(request: NextRequest) {
     const { data: merchant, error: merchantFetchError } = await supabase
       .from('merchants')
       .select(
-        'id, rider_phone_number, business_name, business_address, slug, support_email, email_sender_name, email, tax_identification_number, cac_rc_number, plan_tier'
+        'id, phone, rider_phone_number, business_name, business_address, slug, support_email, email_sender_name, email, tax_identification_number, cac_rc_number, plan_tier, vat_registration_status, vat_rate, registered_address, support_phone, logo_url, legal_entity_name'
       )
       .eq('id', merchant_id)
       .single();
@@ -1259,6 +1287,8 @@ export async function POST(request: NextRequest) {
           price: item.price || 0,
         }));
 
+        const paymentLink = `${merchantUrl}/checkout/resume/${order.id}`;
+
         const emailData = {
           orderNumber: orderNum,
           customerName: customer_name,
@@ -1276,6 +1306,8 @@ export async function POST(request: NextRequest) {
           merchantUrl,
           merchantTin: merchant.tax_identification_number ?? undefined,
           merchantRcNumber: merchant.cac_rc_number ?? undefined,
+          paymentMethod: payment_method,
+          paymentLink,
         };
 
         const htmlContent = generateOrderConfirmationEmail(emailData);
@@ -1295,15 +1327,243 @@ export async function POST(request: NextRequest) {
         // ZeptoMail calls never block or time out the order creation response.
         after(async () => {
           try {
+            let attachments:
+              | Array<{ name: string; content: string; mime_type: string }>
+              | undefined;
+            let backgroundSupabase: ReturnType<
+              typeof createAdminClient
+            > | null = null;
+
+            if (payment_method === 'invoice') {
+              try {
+                // Auto-generate Dedicated Virtual Account (DVA) for automatic confirmation
+                const nameParts = (customer_name || 'Customer')
+                  .trim()
+                  .split(' ');
+                const firstName = nameParts[0] || 'Customer';
+                const lastName = nameParts.slice(1).join(' ') || 'User';
+                const dvaResult = await generatePaymentAccount({
+                  email: customer_email || `${order.id}@orders.usebaci.com`,
+                  firstName,
+                  lastName,
+                  phone: customer_phone || merchant.phone || '08000000000',
+                  orderId: order.id,
+                });
+
+                if (dvaResult.success) {
+                  // System-owned DVA/reminder records are written after the
+                  // validated order exists; customers do not own these tables
+                  // through RLS, so the server-only admin client is scoped to
+                  // this post-response side effect and order.id.
+                  backgroundSupabase ??= createAdminClient();
+                  const { error: insertError } = await backgroundSupabase
+                    .from('order_payment_accounts')
+                    .insert({
+                      order_id: order.id,
+                      account_number: dvaResult.data.account_number,
+                      bank_name: dvaResult.data.bank_name,
+                      account_name: dvaResult.data.account_name,
+                      provider: 'paystack',
+                    });
+
+                  if (insertError) {
+                    logger.error({
+                      message: 'Failed to store auto-generated invoice DVA',
+                      orderId: order.id,
+                      error: insertError,
+                    });
+                  } else {
+                    logger.info({
+                      message: 'Stored auto-generated invoice DVA successfully',
+                      orderId: order.id,
+                      accountNumber: dvaResult.data.account_number,
+                    });
+                  }
+                } else {
+                  logger.error({
+                    message: 'Auto-generation of invoice DVA failed',
+                    orderId: order.id,
+                    error: dvaResult.error,
+                  });
+                }
+
+                const fulfillment = getOrderFulfillmentDetails(
+                  order as Record<string, unknown>
+                );
+                const invoiceItemNames = items.map(getOrderItemDisplayName);
+                const invoiceHasDeviceItem = invoiceItemNames.some((name) =>
+                  isDeviceReceiptItemName(name)
+                );
+
+                const invoiceItems: InvoiceLineItem[] = items.map(
+                  (item, index) => {
+                    const name =
+                      invoiceItemNames[index] ?? getOrderItemDisplayName(item);
+                    const price = item.negotiatedPrice ?? item.price;
+                    const quantity = item.quantity;
+                    const description = appendReceiptFulfillmentDescription({
+                      fulfillment,
+                      hasDeviceItem: invoiceHasDeviceItem,
+                      index,
+                      itemName: name,
+                    });
+
+                    return {
+                      line_id: index + 1,
+                      product_id: getOrderItemProductId(item),
+                      name,
+                      description,
+                      quantity,
+                      unit_code: 'EA',
+                      price,
+                      line_extension_amount: quantity * price,
+                      vat_category_code: 'S',
+                      vat_rate: merchant.vat_rate || 7.5,
+                      vat_amount: 0,
+                    };
+                  }
+                );
+
+                const invoiceTaxSubtotals: TaxSubtotal[] = [];
+
+                // If no tax subtotals exist, create a default one
+                if (
+                  invoiceTaxSubtotals.length === 0 &&
+                  merchant.vat_registration_status === 'registered'
+                ) {
+                  invoiceTaxSubtotals.push({
+                    vat_category_code: 'S',
+                    vat_rate: merchant.vat_rate || 7.5,
+                    taxable_amount: orderSubtotal,
+                    tax_amount: Number(order.tax_amount || 0),
+                    exemption_reason: undefined,
+                  });
+                }
+
+                const shippingAddr = shipping_address as {
+                  address?: string;
+                  city?: string;
+                  state?: string;
+                  postal_code?: string;
+                  country?: string;
+                } | null;
+                const customerAddress = shippingAddr
+                  ? {
+                      street: shippingAddr.address,
+                      city: shippingAddr.city,
+                      state: shippingAddr.state,
+                      postal_code: shippingAddr.postal_code,
+                      country: shippingAddr.country || 'NG',
+                    }
+                  : undefined;
+
+                const invoiceData = {
+                  invoice_number: orderNum,
+                  invoice_type_code: '380',
+                  issue_date: new Date(order.created_at || Date.now()),
+                  due_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // Default 14 days payment terms
+                  currency: order.currency || 'NGN',
+                  merchant: {
+                    business_name: merchant.business_name,
+                    legal_entity_name: merchant.legal_entity_name || undefined,
+                    tax_identification_number:
+                      merchant.tax_identification_number || undefined,
+                    cac_rc_number: merchant.cac_rc_number || undefined,
+                    vat_registration_status:
+                      merchant.vat_registration_status || 'not_registered',
+                    vat_rate: merchant.vat_rate || 7.5,
+                    registered_address:
+                      merchant.registered_address || undefined,
+                    support_email: merchant.support_email || undefined,
+                    support_phone: merchant.support_phone || undefined,
+                    logo_url: merchant.logo_url || undefined,
+                  },
+                  customer: {
+                    name: customer_name,
+                    email: customer_email || undefined,
+                    phone: customer_phone || undefined,
+                    address: customerAddress,
+                  },
+                  items: invoiceItems,
+                  tax_subtotals: invoiceTaxSubtotals,
+                  subtotal: orderSubtotal,
+                  tax_exclusive_amount: orderSubtotal,
+                  tax_amount: Number(order.tax_amount || 0),
+                  tax_inclusive_amount:
+                    orderSubtotal + Number(order.tax_amount || 0),
+                  shipping_fee: orderShippingFee,
+                  discount_amount: Number(order.discount_amount || 0),
+                  total: orderTotal,
+                  notes: notes || undefined,
+                };
+
+                const pdfBlob = generateInvoiceBlob(invoiceData);
+                const arrayBuffer = await pdfBlob.arrayBuffer();
+                const base64Content =
+                  Buffer.from(arrayBuffer).toString('base64');
+
+                attachments = [
+                  {
+                    name: `invoice-${orderNum}.pdf`,
+                    content: base64Content,
+                    mime_type: 'application/pdf',
+                  },
+                ];
+
+                // Log standard initial reminder row in order_reminders
+                backgroundSupabase ??= createAdminClient();
+                const { error: reminderInsertError } = await backgroundSupabase
+                  .from('order_reminders')
+                  .insert({
+                    order_id: order.id,
+                    channel: 'email',
+                    payment_link: paymentLink,
+                  });
+
+                if (reminderInsertError) {
+                  logger.error({
+                    message: 'Failed to store initial invoice reminder',
+                    orderId: order.id,
+                    paymentLink,
+                    error: reminderInsertError,
+                  });
+                } else {
+                  logger.info({
+                    message: 'Stored initial invoice reminder successfully',
+                    orderId: order.id,
+                    paymentLink,
+                  });
+                }
+
+                logger.info({
+                  message:
+                    'Generated and logged initial invoice PDF and reminder log',
+                  orderId: order.id,
+                  orderNumber: orderNum,
+                });
+              } catch (err) {
+                logger.error({
+                  message:
+                    'Failed to generate invoice PDF or log initial reminder',
+                  orderId: order.id,
+                  error: err,
+                });
+              }
+            }
+
             const emailResult = await sendEmail({
               to: customer_email,
               toName: customer_name,
-              subject: `Order Confirmation - #${emailData.orderNumber}`,
+              subject:
+                payment_method === 'invoice'
+                  ? `Invoice Generated - #${emailData.orderNumber}`
+                  : `Order Confirmation - #${emailData.orderNumber}`,
               htmlContent,
               textContent,
               replyTo: replyToEmail,
               emailType: 'orders',
               fromName: senderName,
+              attachments,
               auditContext: {
                 merchantId: merchant_id,
                 orderId: order.id,
@@ -1349,7 +1609,8 @@ export async function POST(request: NextRequest) {
             order.id,
             orderNum,
             customer_name,
-            orderTotal
+            orderTotal,
+            order.currency || 'NGN'
           );
           if (pushResult.failed > 0 || pushResult.errors.length > 0) {
             logger.warn({

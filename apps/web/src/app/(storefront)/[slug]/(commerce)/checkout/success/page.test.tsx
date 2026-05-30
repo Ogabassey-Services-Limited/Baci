@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import CheckoutSuccessPage from '@/app/(storefront)/[slug]/(commerce)/checkout/success/page';
@@ -7,6 +7,7 @@ const mockPush = vi.fn();
 const mockSearchParams = vi.fn();
 const mockClearCart = vi.fn();
 const mockFetch = vi.fn();
+const mockUseMerchantSafe = vi.fn();
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: mockPush }),
@@ -50,10 +51,7 @@ vi.mock('@/hooks/cart', () => ({
 }));
 
 vi.mock('@/hooks/use-merchant-client', () => ({
-  useMerchantSafe: () => ({
-    basePath: '/test-store',
-    merchant: { business_name: 'Test Store' },
-  }),
+  useMerchantSafe: () => mockUseMerchantSafe(),
 }));
 
 vi.mock(
@@ -75,6 +73,10 @@ describe('checkout success page', () => {
         reference: 'txn-ref-123',
       })
     );
+    mockUseMerchantSafe.mockReturnValue({
+      basePath: '/test-store',
+      merchant: { business_name: 'Test Store', slug: 'test-store' },
+    });
     mockFetch.mockReturnValue(new Promise(() => undefined));
     global.fetch = mockFetch as unknown as typeof fetch;
   });
@@ -94,5 +96,76 @@ describe('checkout success page', () => {
     expect(
       screen.getByRole('link', { name: /contact our support team/i })
     ).toHaveAttribute('href', '/test-store/contact');
+  });
+
+  it('fetches invoice order details with merchant slug and tracking token', async () => {
+    mockSearchParams.mockReturnValue(
+      new URLSearchParams({
+        orderId: 'order-123',
+        trackingToken: 'track-token-123',
+        type: 'invoice',
+      })
+    );
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        order_number: 'ORD-1001',
+        payment_method: 'invoice',
+      }),
+    });
+
+    render(<CheckoutSuccessPage />);
+
+    await waitFor(() =>
+      expect(mockFetch).toHaveBeenCalledWith(
+        '/api/storefront/orders/order-123?merchant_slug=test-store&tracking_token=track-token-123'
+      )
+    );
+    expect(mockClearCart).toHaveBeenCalled();
+    expect(
+      await screen.findByRole('heading', { name: /invoice generated/i })
+    ).toBeInTheDocument();
+  });
+
+  it('does not send a literal undefined slug when merchant context has no slug', async () => {
+    mockSearchParams.mockReturnValue(
+      new URLSearchParams({
+        orderId: 'order-123',
+      })
+    );
+    mockUseMerchantSafe.mockReturnValue({
+      basePath: '/test-store',
+      merchant: { business_name: 'Test Store' },
+    });
+    mockFetch.mockResolvedValue({
+      ok: false,
+      json: async () => ({}),
+    });
+
+    render(<CheckoutSuccessPage />);
+
+    await waitFor(() =>
+      expect(mockFetch).toHaveBeenCalledWith('/api/storefront/orders/order-123')
+    );
+    expect(mockFetch.mock.calls[0]?.[0]).not.toContain('undefined');
+  });
+
+  it('falls back to a derived order number when order lookup rejects', async () => {
+    mockSearchParams.mockReturnValue(
+      new URLSearchParams({
+        orderId: 'abcdefgh-1234',
+      })
+    );
+    mockFetch.mockRejectedValue(new Error('network failed'));
+
+    render(<CheckoutSuccessPage />);
+
+    expect(
+      await screen.findByRole('heading', { name: /order received/i })
+    ).toBeInTheDocument();
+    expect(mockClearCart).toHaveBeenCalled();
+    await waitFor(() =>
+      expect(screen.getByText('#ABCDEFGH')).toBeInTheDocument()
+    );
   });
 });
