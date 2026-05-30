@@ -43,8 +43,8 @@ describe('storage batching helpers', () => {
 
   it('uses getMany (v3 batch API) when available', async () => {
     storageMock.getMany?.mockResolvedValue({
-      cart: '{"items":1}',
       prefs: null,
+      cart: '{"items":1}',
     });
 
     const result = await getStorageEntries(['cart', 'prefs']);
@@ -55,6 +55,21 @@ describe('storage batching helpers', () => {
     ]);
     expect(storageMock.getMany).toHaveBeenCalledWith(['cart', 'prefs']);
     expect(storageMock.getItem).not.toHaveBeenCalled();
+  });
+
+  it('preserves requested key order and duplicates for getMany results', async () => {
+    storageMock.getMany?.mockResolvedValue({
+      prefs: null,
+      cart: '{"items":1}',
+    });
+
+    const result = await getStorageEntries(['cart', 'prefs', 'cart']);
+
+    expect(result).toEqual([
+      ['cart', '{"items":1}'],
+      ['prefs', null],
+      ['cart', '{"items":1}'],
+    ]);
   });
 
   it('falls back to multiGet when getMany is unavailable', async () => {

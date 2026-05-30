@@ -34,7 +34,7 @@ export async function getStorageEntries(
 
   if (typeof batchStorage.getMany === 'function') {
     const record = await batchStorage.getMany([...keys]);
-    return Object.entries(record);
+    return keys.map((key) => [key, record[key] ?? null]);
   }
 
   if (typeof batchStorage.multiGet === 'function') {
@@ -42,10 +42,12 @@ export async function getStorageEntries(
   }
 
   return Promise.all(
-    keys.map(async (key): Promise<StorageEntry> => [
-      key,
-      await AsyncStorage.getItem(key),
-    ])
+    keys.map(
+      async (key): Promise<StorageEntry> => [
+        key,
+        await AsyncStorage.getItem(key),
+      ]
+    )
   );
 }
 
