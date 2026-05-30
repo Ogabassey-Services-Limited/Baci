@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import * as ReactDOM from 'react-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { mockRootDynamicBody } = vi.hoisted(() => ({
@@ -24,9 +25,14 @@ vi.mock('@/components/ui/toaster', () => ({
 
 import RootLayout from '@/app/layout';
 
+const prefetchDNSSpy = vi
+  .spyOn(ReactDOM, 'prefetchDNS')
+  .mockImplementation(() => undefined);
+
 describe('RootLayout', () => {
   beforeEach(() => {
     mockRootDynamicBody.mockReset();
+    prefetchDNSSpy.mockClear();
   });
 
   it('renders the page shell beside the root dynamic body', () => {
@@ -82,5 +88,25 @@ describe('RootLayout', () => {
         'link[rel="preconnect"][href="https://cdn.ogabassey.com"]'
       )
     ).toBeNull();
+  });
+
+  it('renders without a manual head tag in the root layout shell', () => {
+    const { container } = render(
+      <RootLayout>
+        <main>Main content</main>
+      </RootLayout>
+    );
+
+    expect(container.querySelector('head')).toBeNull();
+  });
+
+  it('emits a global DNS prefetch hint for Cloudinary images', () => {
+    render(
+      <RootLayout>
+        <main>Main content</main>
+      </RootLayout>
+    );
+
+    expect(prefetchDNSSpy).toHaveBeenCalledWith('https://res.cloudinary.com');
   });
 });
