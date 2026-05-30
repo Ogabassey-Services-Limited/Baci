@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { useRef } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
@@ -62,6 +62,7 @@ export function RegisterAccountStep({
             value={formData.firstName}
             onChangeText={(text) => updateForm('firstName', text)}
             returnKeyType="next"
+            blurOnSubmit={false}
             onSubmitEditing={() => lastNameRef.current?.focus()}
           />
         </View>
@@ -77,6 +78,7 @@ export function RegisterAccountStep({
             value={formData.lastName}
             onChangeText={(text) => updateForm('lastName', text)}
             returnKeyType="next"
+            blurOnSubmit={false}
             onSubmitEditing={() => emailRef.current?.focus()}
           />
         </View>
@@ -95,6 +97,7 @@ export function RegisterAccountStep({
           value={formData.email}
           onChangeText={(text) => updateForm('email', text)}
           returnKeyType="next"
+          blurOnSubmit={false}
           onSubmitEditing={() => passwordRef.current?.focus()}
         />
       </View>
@@ -112,6 +115,7 @@ export function RegisterAccountStep({
             value={formData.password}
             onChangeText={(text) => updateForm('password', text)}
             returnKeyType="next"
+            blurOnSubmit={false}
             onSubmitEditing={() => confirmPasswordRef.current?.focus()}
           />
           <PasswordVisibilityToggle
