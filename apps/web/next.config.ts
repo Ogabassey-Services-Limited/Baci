@@ -25,7 +25,9 @@ const STOREFRONT_METADATA_VARY_HEADER_VALUE = [
 
 const nextConfig: NextConfig = {
   // Keep heavy server-only packages external to reduce function bundle size and peak memory.
-  // These are only used in specific API routes and should not be bundled into every function.
+  // jsPDF stays external here so server PDF generators can use the package
+  // entrypoint without Turbopack bundling fflate's worker path into app code.
+  // These packages are only used in specific API routes and should not be bundled into every function.
   serverExternalPackages: [
     'jspdf',
     'jspdf-autotable',

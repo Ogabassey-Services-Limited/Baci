@@ -11,6 +11,12 @@ describe('next.config OgaBassey resource headers', () => {
     expect(nextConfig.skipTrailingSlashRedirect).toBe(true);
   });
 
+  it('keeps server PDF dependencies externalized for Node PDF generation', () => {
+    expect(nextConfig.serverExternalPackages).toEqual(
+      expect.arrayContaining(['jspdf', 'jspdf-autotable'])
+    );
+  });
+
   it('allows tuned OgaBassey image quality values', () => {
     expect(nextConfig.images?.qualities).toEqual([
       35, 50, 60, 70, 75, 80, 85, 90, 100,
