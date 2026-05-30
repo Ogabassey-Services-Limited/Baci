@@ -364,7 +364,8 @@ describe('Order API Security', () => {
       'order-id',
       'ORD-123',
       validOrderPayload.customer_name,
-      1000
+      1000,
+      'NGN'
     );
     expect(mockNotifyPaymentReceived).not.toHaveBeenCalled();
   });
