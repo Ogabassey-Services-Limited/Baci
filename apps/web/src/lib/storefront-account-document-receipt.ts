@@ -84,10 +84,19 @@ export function buildReceiptOrder(input: BuildReceiptOrderInput): ReceiptOrder {
           account_name: input.paymentAccount.account_name || '',
         }
       : null,
+    fulfillment_details: input.order.fulfillment_details
+      ? (asRecord(
+          input.order.fulfillment_details
+        ) as ReceiptOrder['fulfillment_details'])
+      : null,
     items: input.orderItems.map((item) => ({
       product_name: item.product_name || item.name,
       quantity: item.quantity,
       price: item.price,
+      imei: item.imei,
+      serial_number: item.serial_number,
+      serialNumber: item.serialNumber,
+      fulfillment_details: item.fulfillment_details,
     })),
     transactions: input.transactions.map((transaction) => ({
       amount: asNumber(transaction.amount),

@@ -610,7 +610,7 @@ describe('category page route', () => {
       searchParams: Promise.resolve({}),
     });
 
-    render(
+    const { container } = render(
       <Suspense fallback={<div>Route loader fallback</div>}>{ui}</Suspense>
     );
 
@@ -621,9 +621,11 @@ describe('category page route', () => {
     expect(screen.queryByText('Category page content')).not.toBeInTheDocument();
     expect(mockConnection).not.toHaveBeenCalled();
     expect(mockStorefrontDynamicMetadataMarker).toHaveBeenCalledOnce();
-    expect(
-      screen.getByRole('status', { name: /dynamic metadata marker/i })
-    ).toBeInTheDocument();
+    const marker = screen.getByRole('status', {
+      name: /dynamic metadata marker/i,
+    });
+    expect(marker).toBeInTheDocument();
+    expect(container.firstElementChild).toBe(marker);
   });
 
   it('renders category content with a dynamic metadata marker', async () => {

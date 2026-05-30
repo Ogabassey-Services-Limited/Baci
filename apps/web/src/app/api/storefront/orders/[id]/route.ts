@@ -253,7 +253,14 @@ export async function GET(
             payment_status,
             shipping_status,
             payment_method,
-            merchant_id
+            merchant_id,
+            fulfillment_details,
+            order_payment_accounts (
+              account_number,
+              bank_name,
+              account_name,
+              provider
+            )
           `
         )
         .eq('id', id)
@@ -324,6 +331,7 @@ export async function GET(
           shipping_cost: order.shipping_fee,
           short_id: order.order_number,
           items: mapOrderItemsWithRoutes(items || []),
+          virtual_account: order.order_payment_accounts?.[0] || null,
         });
       }
     }

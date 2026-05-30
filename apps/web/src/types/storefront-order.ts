@@ -1,3 +1,4 @@
+import type { ReceiptOrder } from '@baci/shared';
 import type { PaymentStatus, ShippingStatus } from '@baci/shared/types';
 
 export interface StorefrontOrderItem {
@@ -21,6 +22,19 @@ export interface StorefrontOrderItem {
   product_image?: string;
   image?: string;
   has_assurance?: boolean;
+  /**
+   * @deprecated Prefer `fulfillment_details` for new payloads.
+   */
+  imei?: string | null;
+  /**
+   * @deprecated Prefer `fulfillment_details` for new payloads.
+   */
+  serial_number?: string | null;
+  /**
+   * @deprecated Prefer `fulfillment_details` for new payloads.
+   */
+  serialNumber?: string | null;
+  fulfillment_details?: ReceiptOrder['fulfillment_details'] | null;
 }
 
 export interface StorefrontVirtualAccount {
@@ -110,6 +124,7 @@ export interface StorefrontOrder {
   rider_phone_number?: string | null;
   notes?: string | null;
   virtual_account?: StorefrontVirtualAccount | null;
+  fulfillment_details?: ReceiptOrder['fulfillment_details'] | null;
   transactions?: StorefrontTransaction[];
 
   items: StorefrontOrderItem[];

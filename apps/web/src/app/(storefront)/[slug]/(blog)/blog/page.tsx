@@ -80,10 +80,10 @@ export async function generateMetadata({
 export default function BlogPage(props: BlogPageProps) {
   return (
     <>
+      <StorefrontDynamicMetadataMarker />
       <Suspense fallback={<BlogListingFallback />}>
         <BlogPageContent {...props} />
       </Suspense>
-      <StorefrontDynamicMetadataMarker />
     </>
   );
 }

@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { asyncStorage as AsyncStorage } from '@/lib/storage';
 import { useEffect } from 'react';
 import type { OrderDetailsRecord } from '@/components/orders/order-details.types';
 import { parseSavedRiders } from '@/lib/validators/storage';

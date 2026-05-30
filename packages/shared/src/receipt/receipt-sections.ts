@@ -1,5 +1,10 @@
 import { escapeHtml, escapeJsString } from './escape-html';
-import { getReceiptFulfillmentRows } from './receipt-fulfillment';
+import {
+  getReceiptFulfillmentRows,
+  getReceiptFulfillmentSummary,
+  isDeviceReceiptItemName,
+  shouldAttachFulfillmentToItem,
+} from './receipt-fulfillment';
 import {
   getReceiptDisplaySubtotal,
   getReceiptVatRate,
@@ -38,6 +43,12 @@ export function renderItemRows(
     return '<tr><td colspan="5" style="text-align:center;padding:16px;color:#9ca3af;">No items</td></tr>';
   }
 
+  const hasDeviceItem = order.items.some((item) =>
+    isDeviceReceiptItemName(item.product_name || item.name || '')
+  );
+
+  let orderFallbackEmitted = false;
+
   return order.items
     .map((item, index) => {
       const baseName = item.product_name || item.name || 'Item';
@@ -45,10 +56,43 @@ export function renderItemRows(
         ? `${baseName} (${item.variant_name})`
         : baseName;
 
+      let fulfillmentHtml = '';
+
+      const itemSummary = getReceiptFulfillmentSummary({
+        imei: item.fulfillment_details?.imei || item.imei,
+        serialNumber:
+          item.fulfillment_details?.serialNumber || item.serialNumber,
+        serial_number:
+          item.fulfillment_details?.serial_number || item.serial_number,
+      });
+
+      if (itemSummary) {
+        fulfillmentHtml = `<div style="font-size: 11px; color: #4b5563; margin-top: 3px; font-weight: 500;">${escapeHtml(itemSummary)}</div>`;
+      } else if (order.fulfillment_details) {
+        const shouldUseOrderFallback = shouldAttachFulfillmentToItem({
+          hasDeviceItem,
+          index,
+          itemName: baseName,
+        });
+        const orderSummary = getReceiptFulfillmentSummary(
+          order.fulfillment_details
+        );
+
+        // If an order has only order-level identifiers, attach them to the
+        // first item so single-line non-device invoices still show the data.
+        if (orderSummary && shouldUseOrderFallback && !orderFallbackEmitted) {
+          fulfillmentHtml = `<div style="font-size: 11px; color: #4b5563; margin-top: 3px; font-weight: 500;">${escapeHtml(orderSummary)}</div>`;
+          orderFallbackEmitted = true;
+        }
+      }
+
       return `
       <tr class="${index % 2 === 1 ? 'zebra' : ''}">
         <td class="cell-num">${index + 1}</td>
-        <td class="cell-item">${escapeHtml(itemLabel)}</td>
+        <td class="cell-item">
+          <div>${escapeHtml(itemLabel)}</div>
+          ${fulfillmentHtml}
+        </td>
         <td class="cell-qty">${item.quantity}</td>
         <td class="cell-price">${formatMoney(item.price)}</td>
         <td class="cell-total">${formatMoney(item.price * item.quantity)}</td>
