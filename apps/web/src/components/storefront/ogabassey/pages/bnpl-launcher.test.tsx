@@ -153,7 +153,7 @@ describe('BnplLauncher', () => {
 
     await waitFor(() => {
       expect(mockPush).toHaveBeenCalledWith(
-        '/order-success?orderId=order-1&reference=ref-1&trackingToken=track-order-token'
+        '/order-success?orderId=order-1&reference=ref-1&type=credit_direct&trackingToken=track-order-token'
       );
     });
   });
@@ -331,7 +331,7 @@ describe('BnplLauncher', () => {
 
     await waitFor(() => {
       expect(mockPush).toHaveBeenCalledWith(
-        '/order-success?orderId=order-1&reference=credpal-ref-1&trackingToken=track-order-token'
+        '/order-success?orderId=order-1&reference=credpal-ref-1&type=credpal&trackingToken=track-order-token'
       );
     });
   });
@@ -423,6 +423,7 @@ describe('BnplLauncher', () => {
     expect(config.data.redirect_url).toContain('gateway=klump');
     expect(config.data.redirect_url).toContain('klump_callback=1');
     expect(config.data.redirect_url).toContain('reference=BAC-ABCD12345678');
+    expect(config.data.redirect_url).toContain('type=klump');
 
     const klumpCheckoutFrame = document.createElement('iframe');
     klumpCheckoutFrame.id = 'klump_checkout';
@@ -572,7 +573,7 @@ describe('BnplLauncher', () => {
     });
 
     expect(mockPush).toHaveBeenCalledWith(
-      '/order-success?orderId=order-1&reference=BAC-ABCD12345678&trackingToken=tok-123'
+      '/order-success?orderId=order-1&reference=BAC-ABCD12345678&type=klump&trackingToken=tok-123'
     );
   });
 

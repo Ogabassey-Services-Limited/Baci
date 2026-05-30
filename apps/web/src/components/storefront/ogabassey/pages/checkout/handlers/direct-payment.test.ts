@@ -282,6 +282,56 @@ describe('executeDirectPayment', () => {
       expect(callArgs.merchantSlug).toBe('ogabassey');
     });
 
+    it('persists the popup transaction reference for webhook reconciliation', async () => {
+      await executeDirectPayment({
+        ...defaultOpts,
+        preferredGateway: 'credit_direct',
+      });
+      const callArgs = mockOpenCreditDirectCheckout.mock.calls[0][0];
+      await callArgs.onPopup('cd-popup-transaction-1');
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/orders/update-payment-ref',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            orderId: 'order-123',
+            paymentRef: 'cd-popup-transaction-1',
+            gateway: 'credit_direct',
+            tracking_token: 'track-token-123',
+          }),
+        },
+      );
+    });
+
+    it('logs popup reference persistence failures without throwing', async () => {
+      (global.fetch as Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        statusText: 'Server Error',
+        text: async () => 'write failed',
+      });
+
+      await executeDirectPayment({
+        ...defaultOpts,
+        preferredGateway: 'credit_direct',
+      });
+      const callArgs = mockOpenCreditDirectCheckout.mock.calls[0][0];
+
+      await expect(
+        callArgs.onPopup('cd-popup-transaction-1'),
+      ).resolves.toBeUndefined();
+      expect(console.error).toHaveBeenCalledWith(
+        'Failed to persist Credit Direct popup reference:',
+        expect.stringContaining('order-123'),
+      );
+      expect(console.error).toHaveBeenCalledWith(
+        'Failed to persist Credit Direct popup reference:',
+        expect.stringContaining('cd-popup-transaction-1'),
+      );
+    });
+
     describe('onSuccess callback', () => {
       it('calls update-payment-ref API with correct params', async () => {
         await executeDirectPayment({

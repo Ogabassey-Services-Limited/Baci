@@ -1,6 +1,7 @@
 import { render } from '@testing-library/react-native';
 import type React from 'react';
 import { Alert } from 'react-native';
+import type { PaymentSettings } from '@/hooks/useMerchantPaymentSettings';
 import './checkout.component-mocks.test-utils';
 import { createCheckoutFetchMock } from './checkout.fetch.test-utils';
 
@@ -16,6 +17,12 @@ export const mockListSavingsGoals = jest.fn();
 export const mockTrackCheckoutStarted = jest.fn();
 export const mockTrackCheckoutStep = jest.fn();
 export const mockTrackError = jest.fn();
+export const mockUseMerchantPaymentSettings = jest.fn<
+  { data: PaymentSettings | null },
+  []
+>(() => ({ data: mockPaymentSettings }));
+export const mockCryptoRandomUUID = jest.fn();
+let mockCryptoUuidCounter = 0;
 
 type MockCheckoutCustomer = {
   email: string;
@@ -156,6 +163,11 @@ jest.mock('react-native-reanimated', () => {
   };
 });
 
+jest.mock('expo-crypto', () => ({
+  getRandomBytesAsync: async (length: number) => new Uint8Array(length).fill(7),
+  randomUUID: () => mockCryptoRandomUUID(),
+}));
+
 jest.mock('@/components/useColorScheme', () => ({
   useColorScheme: () => mockUseColorScheme(),
 }));
@@ -194,9 +206,7 @@ jest.mock('@/hooks/useMerchantPaymentSettings', () => {
   const actual = jest.requireActual('@/hooks/useMerchantPaymentSettings');
   return {
     ...actual,
-    useMerchantPaymentSettings: () => ({
-      data: mockPaymentSettings,
-    }),
+    useMerchantPaymentSettings: () => mockUseMerchantPaymentSettings(),
   };
 });
 
@@ -256,7 +266,14 @@ jest.mock('@/services/analytics', () => ({
 
 jest.mock('@/services/orders', () => ({
   OrderError: class extends Error {
-    code = 'TEST_ERROR';
+    code: string;
+    details?: unknown;
+
+    constructor(message: string, code = 'TEST_ERROR', details?: unknown) {
+      super(message);
+      this.code = code;
+      this.details = details;
+    }
   },
   createOrder: (...args: unknown[]) => mockCreateOrder(...args),
 }));
@@ -283,8 +300,15 @@ const CheckoutScreen = require('@/app/checkout').default as React.ComponentType;
 
 export function setupCheckoutTest() {
   jest.clearAllMocks();
+  mockCryptoUuidCounter = 0;
+  mockCryptoRandomUUID.mockImplementation(
+    () => `mobile-test-key-${++mockCryptoUuidCounter}`
+  );
   jest.spyOn(Alert, 'alert').mockImplementation(mockAlert);
   mockUseAuthStatus.mockReturnValue(defaultMockAuthStatus);
+  mockUseMerchantPaymentSettings.mockReturnValue({
+    data: mockPaymentSettings,
+  });
   mockCreateOrder.mockResolvedValue({
     amountDueToGateway: 1000,
     order: {

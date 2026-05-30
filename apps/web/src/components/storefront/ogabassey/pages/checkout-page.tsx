@@ -55,6 +55,11 @@ import {
   resolvePendingCheckoutOrder,
   type PendingCheckoutOrderSnapshot,
 } from './checkout/pending-checkout-order';
+import {
+  clearCheckoutIdempotencyKey,
+  getCheckoutIdempotencyKey,
+} from './checkout/checkout-idempotency';
+import { persistCreditDirectPopupReference } from './checkout/persist-credit-direct-popup-reference';
 import { PaymentStep } from './checkout/components/PaymentStep';
 import {
   KLUMP_WALLET_CREDIT_UNAVAILABLE_TOAST,
@@ -1131,6 +1136,19 @@ export const CheckoutPage: React.FC = () => {
           onClose: () => {
             setIsProcessing(false);
           },
+          onPopup: async (transactionId) => {
+            try {
+              await persistCreditDirectPopupReference(
+                resumedOrder,
+                transactionId
+              );
+            } catch (error) {
+              console.error(
+                'Failed to persist Credit Direct popup reference:',
+                error instanceof Error ? error.message : error
+              );
+            }
+          },
         });
         return;
       }
@@ -1424,10 +1442,16 @@ export const CheckoutPage: React.FC = () => {
         order = reusablePendingOrder.reusableOrder.order;
         amountDueToGateway = reusablePendingOrder.reusableOrder.amountDueToGateway;
       } else {
+        const checkoutIdempotencyKey =
+          await getCheckoutIdempotencyKey(checkoutFingerprint);
+
         // 1. Create order in database via API (with wallet redemption if applicable)
         const orderResponse = await fetch('/api/orders', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'Idempotency-Key': checkoutIdempotencyKey,
+          },
           body: JSON.stringify({
             merchant_id: merchant.id,
             customer_email: customerEmail,
@@ -1500,6 +1524,15 @@ export const CheckoutPage: React.FC = () => {
 
         if (!orderResponse.ok) {
           const errorData = await orderResponse.json();
+          const errorCode =
+            typeof errorData.code === 'string' ? errorData.code : '';
+          if (
+            errorCode === 'CHECKOUT_ORDER_NOT_REUSABLE' ||
+            errorCode === 'CHECKOUT_IDEMPOTENCY_CONFLICT'
+          ) {
+            clearPendingCheckoutOrder();
+            await clearCheckoutIdempotencyKey(checkoutFingerprint);
+          }
           console.error('Order creation failed:', {
             status: orderResponse.status,
             error: errorData.error,
@@ -1576,6 +1609,7 @@ export const CheckoutPage: React.FC = () => {
       // Order API already marks it as paid, just redirect to success
       if (paymentAmount <= 0) {
         clearPendingCheckoutOrder();
+        await clearCheckoutIdempotencyKey(checkoutFingerprint);
         clearCheckoutSession();
         // Defer clearCart to avoid flashing empty state before redirect
         const successQuery = new URLSearchParams({
@@ -1693,9 +1727,10 @@ export const CheckoutPage: React.FC = () => {
             price: item.price,
             quantity: item.quantity,
           })),
-          onSuccess: (transactionId) => {
+          onSuccess: async (transactionId) => {
             console.log('Credit Direct success:', transactionId);
             clearPendingCheckoutOrder();
+            await clearCheckoutIdempotencyKey(checkoutFingerprint);
             clearCheckoutSession();
             clearCart();
             const successQuery = new URLSearchParams({
@@ -1724,8 +1759,15 @@ export const CheckoutPage: React.FC = () => {
             setIsProcessing(false);
             isOrderInFlightRef.current = false;
           },
-          onPopup: (transactionId) => {
-            console.log('Credit Direct popup opened:', transactionId);
+          onPopup: async (transactionId) => {
+            try {
+              await persistCreditDirectPopupReference(order, transactionId);
+            } catch (error) {
+              console.error(
+                'Failed to persist Credit Direct popup reference:',
+                error instanceof Error ? error.message : error
+              );
+            }
           },
         });
         // Don't proceed further - callbacks handle the flow
@@ -1754,9 +1796,10 @@ export const CheckoutPage: React.FC = () => {
           customerEmail,
           customerName: `${firstName} ${lastName}`.trim(),
           customerPhone,
-          onSuccess: (data) => {
+          onSuccess: async (data) => {
             console.log('CredPal success:', data);
             clearPendingCheckoutOrder();
+            await clearCheckoutIdempotencyKey(checkoutFingerprint);
             clearCheckoutSession();
             clearCart();
             const successQuery = new URLSearchParams({
@@ -1791,6 +1834,7 @@ export const CheckoutPage: React.FC = () => {
       } else if (paymentMethod === 'invoice') {
         // Invoice/Pay Later - order created, redirect to success
         clearPendingCheckoutOrder();
+        await clearCheckoutIdempotencyKey(checkoutFingerprint);
         clearCheckoutSession();
         const successQuery = new URLSearchParams({
           type: 'invoice',
@@ -1804,6 +1848,7 @@ export const CheckoutPage: React.FC = () => {
       } else if (paymentMethod === 'payforme') {
         // Pay For Me - TODO: send payment link
         clearPendingCheckoutOrder();
+        await clearCheckoutIdempotencyKey(checkoutFingerprint);
         clearCheckoutSession();
         const successQuery = new URLSearchParams({
           type: 'payforme',
@@ -1818,6 +1863,7 @@ export const CheckoutPage: React.FC = () => {
       } else {
         // Default: POD or other
         clearPendingCheckoutOrder();
+        await clearCheckoutIdempotencyKey(checkoutFingerprint);
         clearCheckoutSession();
         const successQuery = new URLSearchParams({
           type: 'standard',

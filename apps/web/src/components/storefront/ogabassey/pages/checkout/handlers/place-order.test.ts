@@ -433,6 +433,92 @@ describe('handlePlaceOrder', () => {
     });
   });
 
+  describe('Credit Direct', () => {
+    it('persists the popup transaction reference for webhook reconciliation', async () => {
+      const { openCreditDirectCheckout } = await import(
+        '@/lib/credit-direct-client'
+      );
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            order: { id: 'order-cd', tracking_token: 'track-cd' },
+            wallet: null,
+            amountDueToGateway: 12000,
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          statusText: 'OK',
+        });
+
+      const opts = buildOpts({ paymentMethod: 'credit_direct' });
+      await handlePlaceOrder(opts);
+
+      const callArgs = vi.mocked(openCreditDirectCheckout).mock.calls[0]?.[0];
+      expect(callArgs).toBeDefined();
+      await callArgs?.onPopup?.('cd-popup-transaction-1');
+
+      expect(mockFetch).toHaveBeenLastCalledWith(
+        '/api/orders/update-payment-ref',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            orderId: 'order-cd',
+            paymentRef: 'cd-popup-transaction-1',
+            gateway: 'credit_direct',
+            tracking_token: 'track-cd',
+          }),
+        },
+      );
+    });
+
+    it('logs popup reference persistence failures for webhook reconciliation', async () => {
+      const consoleErrorSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
+      const { openCreditDirectCheckout } = await import(
+        '@/lib/credit-direct-client'
+      );
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            order: { id: 'order-cd', tracking_token: 'track-cd' },
+            wallet: null,
+            amountDueToGateway: 12000,
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 500,
+          statusText: 'Server Error',
+          text: async () => 'write failed',
+        });
+
+      const opts = buildOpts({ paymentMethod: 'credit_direct' });
+      await handlePlaceOrder(opts);
+
+      const callArgs = vi.mocked(openCreditDirectCheckout).mock.calls[0]?.[0];
+      await expect(
+        callArgs?.onPopup?.('cd-popup-transaction-1'),
+      ).resolves.toBeUndefined();
+
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        'Failed to persist Credit Direct popup reference:',
+        expect.stringContaining('order-cd'),
+      );
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        'Failed to persist Credit Direct popup reference:',
+        expect.stringContaining('cd-popup-transaction-1'),
+      );
+
+      consoleErrorSpy.mockRestore();
+    });
+  });
+
   describe('Crypto (Juicyway)', () => {
     it('opens crypto selector for juicyway payment', async () => {
       mockFetch.mockResolvedValue({
