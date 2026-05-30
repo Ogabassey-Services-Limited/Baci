@@ -2,14 +2,11 @@ import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getCachedBlogListing } from '@/lib/cached-data';
 
-const { mockDefaultBlogUi, mockStorefrontDynamicMetadataMarker } = vi.hoisted(
-  () => ({
-    mockDefaultBlogUi: vi.fn((props: MockDefaultBlogUiProps) => (
-      <div>{props.merchant.business_name} blog</div>
-    )),
-    mockStorefrontDynamicMetadataMarker: vi.fn(),
-  })
-);
+const { mockDefaultBlogUi } = vi.hoisted(() => ({
+  mockDefaultBlogUi: vi.fn((props: MockDefaultBlogUiProps) => (
+    <div>{props.merchant.business_name} blog</div>
+  )),
+}));
 
 const mockNotFound = vi.fn(() => {
   throw new Error('NEXT_NOT_FOUND');
@@ -38,13 +35,6 @@ vi.mock('next/navigation', () => ({
 
 vi.mock('next/server', () => ({
   connection: () => mockConnection(),
-}));
-
-vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
-  StorefrontDynamicMetadataMarker: () => {
-    mockStorefrontDynamicMetadataMarker();
-    return <div aria-label="dynamic metadata marker" role="status" />;
-  },
 }));
 
 vi.mock('@/lib/routes', () => ({
@@ -182,7 +172,6 @@ describe('blog page metadata', () => {
     mockDefaultBlogUi.mockImplementation((props: MockDefaultBlogUiProps) => (
       <div>{props.merchant.business_name} blog</div>
     ));
-    mockStorefrontDynamicMetadataMarker.mockReset();
     mockConnection.mockReset();
   });
 
@@ -315,10 +304,6 @@ describe('blog page metadata', () => {
     ).toBeInTheDocument();
     expect(screen.queryByText('Ogabassey blog')).not.toBeInTheDocument();
     expect(mockConnection).not.toHaveBeenCalled();
-    expect(mockStorefrontDynamicMetadataMarker).toHaveBeenCalledOnce();
-    expect(
-      screen.getByRole('status', { name: /dynamic metadata marker/i })
-    ).toBeInTheDocument();
   });
 
   it('renders guide collections after the blog listing', async () => {

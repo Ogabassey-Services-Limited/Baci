@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
-import { StorefrontDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { toTemplateMerchantData } from '@/lib/merchant-template-data';
 import {
@@ -61,7 +60,6 @@ export async function generateMetadata({
 export default function AboutPage({ params }: PageProps) {
   return (
     <>
-      <StorefrontDynamicMetadataMarker />
       <Suspense fallback={null}>
         <AboutJsonLd params={params} />
       </Suspense>

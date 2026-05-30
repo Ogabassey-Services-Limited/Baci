@@ -6,14 +6,12 @@ const {
   mockConnection,
   mockNormalizeStorefrontProductVariants,
   mockProductDetailClient,
-  mockStorefrontDynamicMetadataMarker,
 } = vi.hoisted(() => ({
   mockConnection: vi.fn<() => Promise<void>>(() => Promise.resolve()),
   mockNormalizeStorefrontProductVariants: vi.fn<
     (...args: unknown[]) => Record<string, unknown>[]
   >(() => []),
   mockProductDetailClient: vi.fn(() => null),
-  mockStorefrontDynamicMetadataMarker: vi.fn(),
 }));
 
 const mockHeaders = vi.fn();
@@ -48,13 +46,6 @@ vi.mock('next/navigation', () => ({
 
 vi.mock('next/server', () => ({
   connection: () => mockConnection(),
-}));
-
-vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
-  StorefrontDynamicMetadataMarker: () => {
-    mockStorefrontDynamicMetadataMarker();
-    return <div aria-label="dynamic metadata marker" role="status" />;
-  },
 }));
 
 vi.mock('next/link', () => ({
@@ -334,7 +325,6 @@ describe('products/[productSlug] page', () => {
       sameBrand: null,
       samePrice: null,
     });
-    mockStorefrontDynamicMetadataMarker.mockReset();
   });
 
   it('redirects categorized legacy products during page render in development', async () => {
@@ -425,10 +415,6 @@ describe('products/[productSlug] page', () => {
     );
 
     expect(mockConnection).not.toHaveBeenCalled();
-    expect(mockStorefrontDynamicMetadataMarker).toHaveBeenCalledOnce();
-    expect(
-      screen.getByRole('status', { name: /dynamic metadata marker/i })
-    ).toBeInTheDocument();
   });
 
   describe('redirect routing mode', () => {
@@ -704,10 +690,6 @@ describe('products/[productSlug] page', () => {
 
     expect(mockPermanentRedirect).not.toHaveBeenCalled();
     expect(mockNotFound).toHaveBeenCalled();
-    expect(mockStorefrontDynamicMetadataMarker).not.toHaveBeenCalled();
-    expect(
-      screen.queryByRole('status', { name: /dynamic metadata marker/i })
-    ).not.toBeInTheDocument();
   });
 
   it('falls back to detailed product lookup and returns noindex metadata when category mismatch is detected', async () => {
@@ -1041,10 +1023,6 @@ describe('products/[productSlug] page', () => {
       })
     ).toHaveAttribute('href', 'https://teststore.usebaci.com/products');
     expect(mockConnection).not.toHaveBeenCalled();
-    expect(mockStorefrontDynamicMetadataMarker).toHaveBeenCalledOnce();
-    expect(
-      screen.getByRole('status', { name: /dynamic metadata marker/i })
-    ).toBeInTheDocument();
     expect(
       screen.getByRole('link', {
         name: /Compare with Samsung Galaxy Z TriFold/i,

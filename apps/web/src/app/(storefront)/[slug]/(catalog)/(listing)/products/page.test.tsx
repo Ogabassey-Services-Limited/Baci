@@ -8,13 +8,11 @@ import {
 } from '@/lib/cached-data';
 import { getCachedStorefrontProductIndex } from '@/lib/cached-storefront-product-index';
 
-const { mockProductsPageContent, mockStorefrontDynamicMetadataMarker } =
-  vi.hoisted(() => ({
-    mockProductsPageContent: vi.fn((_props: unknown) => (
-      <div>Products page content</div>
-    )),
-    mockStorefrontDynamicMetadataMarker: vi.fn(),
-  }));
+const { mockProductsPageContent } = vi.hoisted(() => ({
+  mockProductsPageContent: vi.fn((_props: unknown) => (
+    <div>Products page content</div>
+  )),
+}));
 const mockConnection = vi.hoisted(() => vi.fn());
 
 vi.mock('next/image', () => ({
@@ -50,13 +48,6 @@ vi.mock('@/lib/cached-data', () => ({
 
 vi.mock('@/lib/cached-storefront-product-index', () => ({
   getCachedStorefrontProductIndex: vi.fn(),
-}));
-
-vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
-  StorefrontDynamicMetadataMarker: () => {
-    mockStorefrontDynamicMetadataMarker();
-    return <div aria-label="dynamic metadata marker" role="status" />;
-  },
 }));
 
 vi.mock('@/lib/routes', () => ({
@@ -189,7 +180,6 @@ describe('products index page', () => {
       },
     ]);
     mockConnection.mockReset();
-    mockStorefrontDynamicMetadataMarker.mockReset();
   });
 
   it('renders product and category links for crawlable discovery', async () => {
@@ -351,10 +341,6 @@ describe('products index page', () => {
     expect(screen.queryByText('Route loader fallback')).not.toBeInTheDocument();
     expect(screen.queryByText('Products page content')).not.toBeInTheDocument();
     expect(mockConnection).not.toHaveBeenCalled();
-    expect(mockStorefrontDynamicMetadataMarker).toHaveBeenCalledOnce();
-    expect(
-      screen.getByRole('status', { name: /dynamic metadata marker/i })
-    ).toBeInTheDocument();
   });
 
   it('marks runtime metadata with a page-level dynamic marker', async () => {
@@ -367,10 +353,6 @@ describe('products index page', () => {
 
     expect(screen.getByText('Products page content')).toBeInTheDocument();
     expect(mockConnection).not.toHaveBeenCalled();
-    expect(mockStorefrontDynamicMetadataMarker).toHaveBeenCalledOnce();
-    expect(
-      screen.getByRole('status', { name: /dynamic metadata marker/i })
-    ).toBeInTheDocument();
   });
 
   it('keeps metadata on the canonical product index regardless of pagination', async () => {

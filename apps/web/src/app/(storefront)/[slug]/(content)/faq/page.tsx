@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
-import { StorefrontDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker';
 import { ContentRouteLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
 import {
   getMerchantByIdentifier,
@@ -73,7 +72,6 @@ export async function generateMetadata({
 export default function FAQPage({ params }: PageProps) {
   return (
     <>
-      <StorefrontDynamicMetadataMarker />
       <Suspense fallback={null}>
         <FAQJsonLd params={params} />
       </Suspense>

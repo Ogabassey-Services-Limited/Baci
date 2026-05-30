@@ -4,7 +4,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 
 const mockConnection = vi.hoisted(() => vi.fn());
-const mockStorefrontDynamicMetadataMarker = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/cached-data', () => ({
   getMerchantByIdentifier: vi.fn(),
@@ -12,13 +11,6 @@ vi.mock('@/lib/cached-data', () => ({
 
 vi.mock('next/server', () => ({
   connection: () => mockConnection(),
-}));
-
-vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
-  StorefrontDynamicMetadataMarker: () => {
-    mockStorefrontDynamicMetadataMarker();
-    return <div aria-label="dynamic metadata marker" role="status" />;
-  },
 }));
 
 vi.mock('next/headers', () => ({
@@ -41,7 +33,6 @@ const { default: TermsPage, generateMetadata } = await import('./page');
 
 beforeEach(() => {
   mockConnection.mockReset();
-  mockStorefrontDynamicMetadataMarker.mockReset();
 });
 
 describe('terms metadata', () => {
@@ -76,7 +67,7 @@ describe('terms metadata', () => {
 });
 
 describe('terms page rendering', () => {
-  it('returns the route shell with a dynamic metadata marker', async () => {
+  it('returns the route shell without a page-level metadata marker', async () => {
     const element = await TermsPage({
       params: Promise.resolve({ slug: 'ogabassey.com' }),
     });
@@ -84,10 +75,6 @@ describe('terms page rendering', () => {
     render(element);
     expect(
       screen.getByRole('status', { name: /loading page content/i })
-    ).toBeInTheDocument();
-    expect(mockStorefrontDynamicMetadataMarker).toHaveBeenCalledOnce();
-    expect(
-      screen.getByRole('status', { name: /dynamic metadata marker/i })
     ).toBeInTheDocument();
     expect(mockConnection).not.toHaveBeenCalled();
   });

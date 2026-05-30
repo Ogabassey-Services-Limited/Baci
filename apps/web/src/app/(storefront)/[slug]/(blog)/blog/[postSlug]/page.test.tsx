@@ -7,7 +7,6 @@ const {
   mockBuildStoreUrl,
   mockGetBlogPostRedirect,
   mockPermanentRedirect,
-  mockStorefrontDynamicMetadataMarker,
 } = vi.hoisted(() => ({
   mockBlogPostPageContent: vi.fn((_props: unknown) => (
     <div>Blog post page content</div>
@@ -22,7 +21,6 @@ const {
   mockPermanentRedirect: vi.fn((url: string) => {
     throw new Error(`NEXT_PERMANENT_REDIRECT:${url}`);
   }),
-  mockStorefrontDynamicMetadataMarker: vi.fn(),
 }));
 
 const mockDraftMode = vi.fn();
@@ -53,13 +51,6 @@ vi.mock('@/lib/cached-data', () => ({
 
 vi.mock('@/lib/blog-post-redirects', () => ({
   getBlogPostRedirect: (...args: unknown[]) => mockGetBlogPostRedirect(...args),
-}));
-
-vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
-  StorefrontDynamicMetadataMarker: () => {
-    mockStorefrontDynamicMetadataMarker();
-    return <div aria-label="dynamic metadata marker" role="status" />;
-  },
 }));
 
 vi.mock('@/lib/store-url', () => ({
@@ -145,7 +136,6 @@ describe('storefront blog post page', () => {
     );
     mockGetBlogPostRedirect.mockResolvedValue(null);
     mockConnection.mockReset();
-    mockStorefrontDynamicMetadataMarker.mockReset();
   });
 
   it('only exports the route surface from the page module', async () => {
@@ -183,13 +173,9 @@ describe('storefront blog post page', () => {
       screen.queryByText('Blog post page content')
     ).not.toBeInTheDocument();
     expect(mockConnection).not.toHaveBeenCalled();
-    expect(mockStorefrontDynamicMetadataMarker).toHaveBeenCalledOnce();
-    expect(
-      screen.getByRole('status', { name: /dynamic metadata marker/i })
-    ).toBeInTheDocument();
   });
 
-  it('renders streamed blog post content with a dynamic metadata marker', async () => {
+  it('renders streamed blog post content without a page-level metadata marker', async () => {
     render(
       await BlogPostPage({
         params: Promise.resolve({
@@ -201,10 +187,6 @@ describe('storefront blog post page', () => {
 
     expect(screen.getByText('Blog post page content')).toBeInTheDocument();
     expect(mockConnection).not.toHaveBeenCalled();
-    expect(mockStorefrontDynamicMetadataMarker).toHaveBeenCalledOnce();
-    expect(
-      screen.getByRole('status', { name: /dynamic metadata marker/i })
-    ).toBeInTheDocument();
   });
 
   it('permanently redirects retired blog slugs before rendering the streamed shell', async () => {

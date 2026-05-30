@@ -7,12 +7,9 @@ import {
   getRequestScopedMerchant,
 } from '@/lib/cached-data';
 
-const { mockConnection, mockStorefrontDynamicMetadataMarker } = vi.hoisted(
-  () => ({
-    mockConnection: vi.fn(),
-    mockStorefrontDynamicMetadataMarker: vi.fn(),
-  })
-);
+const { mockConnection } = vi.hoisted(() => ({
+  mockConnection: vi.fn(),
+}));
 
 vi.mock('@/lib/cached-data', () => ({
   getMerchantByIdentifier: vi.fn(),
@@ -21,13 +18,6 @@ vi.mock('@/lib/cached-data', () => ({
 
 vi.mock('next/server', () => ({
   connection: () => mockConnection(),
-}));
-
-vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
-  StorefrontDynamicMetadataMarker: () => {
-    mockStorefrontDynamicMetadataMarker();
-    return <div aria-label="dynamic metadata marker" role="status" />;
-  },
 }));
 
 vi.mock('@/lib/merchant-template-data', () => ({
@@ -80,7 +70,6 @@ describe('FAQPage', () => {
     vi.mocked(getRequestScopedMerchant).mockReset();
     notFound.mockClear();
     mockConnection.mockReset();
-    mockStorefrontDynamicMetadataMarker.mockReset();
   });
 
   it('does not emit a duplicate wrapper h1 while content is suspended', async () => {

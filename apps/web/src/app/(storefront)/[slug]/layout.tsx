@@ -232,6 +232,8 @@ export async function StorefrontLayoutContent(props: {
   // Keep tenant validation and notFound() request-bound. Without this guard,
   // Next can prerender a placeholder [slug] 404 shell and later resume it with
   // a real merchant tree, which is the storefront resume-mismatch failure mode.
+  // Do not re-add per-page hidden metadata markers; those create an extra host
+  // slot that can collide with Next's internal metadata boundary during resume.
   await connection();
 
   const { slug } = await props.params;

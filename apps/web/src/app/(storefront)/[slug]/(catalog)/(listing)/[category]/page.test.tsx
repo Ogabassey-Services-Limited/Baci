@@ -14,13 +14,11 @@ const NORMALIZED_PLACEHOLDER_IMAGE =
   'https://placehold.co/400x400/f8fafc/94a3b8?text=No+Image';
 const mockGetPublishedClusterPosts = vi.fn();
 const mockConnection = vi.hoisted(() => vi.fn());
-const { mockCategoryPageContent, mockStorefrontDynamicMetadataMarker } =
-  vi.hoisted(() => ({
-    mockCategoryPageContent: vi.fn((_props: unknown) => (
-      <div>Category page content</div>
-    )),
-    mockStorefrontDynamicMetadataMarker: vi.fn(),
-  }));
+const { mockCategoryPageContent } = vi.hoisted(() => ({
+  mockCategoryPageContent: vi.fn((_props: unknown) => (
+    <div>Category page content</div>
+  )),
+}));
 
 function defaultCategoryPageImplementation({
   currentPage,
@@ -135,13 +133,6 @@ vi.mock('@/lib/normalize-product', () => ({
 
 vi.mock('next/server', () => ({
   connection: () => mockConnection(),
-}));
-
-vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
-  StorefrontDynamicMetadataMarker: () => {
-    mockStorefrontDynamicMetadataMarker();
-    return <div aria-label="dynamic metadata marker" role="status" />;
-  },
 }));
 
 vi.mock('@/lib/sanitize-json-ld', () => ({
@@ -538,7 +529,6 @@ describe('category page route', () => {
     mockGenerateFAQSchema.mockClear();
     mockGetPublishedClusterPosts.mockReset();
     mockConnection.mockReset();
-    mockStorefrontDynamicMetadataMarker.mockReset();
     mockCategoryPageContent.mockReset();
     mockCategoryPageContent.mockImplementation(() => (
       <div>Category page content</div>
@@ -601,7 +591,7 @@ describe('category page route', () => {
       searchParams: Promise.resolve({}),
     });
 
-    const { container } = render(
+    render(
       <Suspense fallback={<div>Route loader fallback</div>}>{ui}</Suspense>
     );
 
@@ -611,15 +601,9 @@ describe('category page route', () => {
     expect(screen.queryByText('Route loader fallback')).not.toBeInTheDocument();
     expect(screen.queryByText('Category page content')).not.toBeInTheDocument();
     expect(mockConnection).not.toHaveBeenCalled();
-    expect(mockStorefrontDynamicMetadataMarker).toHaveBeenCalledOnce();
-    const marker = screen.getByRole('status', {
-      name: /dynamic metadata marker/i,
-    });
-    expect(marker).toBeInTheDocument();
-    expect(container.firstElementChild).toBe(marker);
   });
 
-  it('renders category content with a dynamic metadata marker', async () => {
+  it('renders category content without a page-level metadata marker', async () => {
     const ui = await CategoryPageRoute({
       params: Promise.resolve({
         slug: 'test-store',
@@ -632,10 +616,6 @@ describe('category page route', () => {
 
     expect(screen.getByText('Category page content')).toBeInTheDocument();
     expect(mockConnection).not.toHaveBeenCalled();
-    expect(mockStorefrontDynamicMetadataMarker).toHaveBeenCalledOnce();
-    expect(
-      screen.getByRole('status', { name: /dynamic metadata marker/i })
-    ).toBeInTheDocument();
   });
 
   it('renders curated smartphone hub content when merchant-authored SEO is absent', async () => {
