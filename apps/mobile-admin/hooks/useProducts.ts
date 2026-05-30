@@ -14,17 +14,17 @@ import { supabase } from '@/lib/supabase';
 import type { ProductFormValues } from '@/lib/validators/product';
 import { fetchProductDetail } from './product-detail-query';
 import { createProductRecord, updateProductRecord } from './product-save';
+import type {
+  InventoryStats,
+  Product,
+  ProductStatus,
+  ProductsPage,
+} from './products.types';
 import {
   fetchProducts,
   updateProductStatus,
   updateProductStock,
 } from './products-data';
-import type {
-  InventoryStats,
-  Product,
-  ProductsPage,
-  ProductStatus,
-} from './products.types';
 import { useMerchant } from './useMerchant';
 
 export type StockFilter = AdminProductStockFilter;
@@ -50,15 +50,17 @@ export function useProducts(filters?: AdminProductSearchFilters) {
 
 export function useProduct(productId: string) {
   const { merchant } = useMerchant();
+  const merchantId = merchant?.id;
 
   return useQuery({
-    enabled: !!productId && productId !== 'new' && !!merchant?.id,
+    enabled: !!productId && productId !== 'new' && !!merchantId,
     queryFn: () => {
       if (!productId || productId === 'new') return null;
-      if (!merchant?.id) throw new Error('No merchant');
-      return fetchProductDetail({ merchantId: merchant.id, productId });
+      if (!merchantId) throw new Error('No merchant');
+      return fetchProductDetail({ merchantId, productId });
     },
-    queryKey: ['product', productId],
+    queryKey: ['product', merchantId, productId],
+    staleTime: 1000 * 30,
   });
 }
 
@@ -66,7 +68,11 @@ export function useUpdateProduct() {
   const queryClient = useQueryClient();
   const { merchant } = useMerchant();
 
-  return useMutation<Product, Error, { id: string; updates: ProductFormValues }>({
+  return useMutation<
+    Product,
+    Error,
+    { id: string; updates: ProductFormValues }
+  >({
     mutationFn: ({
       id,
       updates,
@@ -79,8 +85,10 @@ export function useUpdateProduct() {
     },
     mutationKey: ['updateProduct'],
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['product', data.id] });
-      queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({
+        queryKey: ['product', merchant?.id, data.id],
+      });
+      queryClient.invalidateQueries({ queryKey: ['products', merchant?.id] });
     },
   });
 }
@@ -96,7 +104,7 @@ export function useCreateProduct() {
     },
     mutationKey: ['createProduct'],
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['products', merchant?.id] });
     },
   });
 }
@@ -167,8 +175,11 @@ export function useUpdateProductStock() {
 
       return { previousQueriesData };
     },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['products'] });
+    onSettled: (_data, _error, { productId }) => {
+      queryClient.invalidateQueries({ queryKey: ['products', merchant?.id] });
+      queryClient.invalidateQueries({
+        queryKey: ['product', merchant?.id, productId],
+      });
     },
   });
 }
@@ -189,8 +200,11 @@ export function useUpdateProductStatus() {
       return updateProductStatus(productId, status, merchant.id);
     },
     mutationKey: ['updateProductStatus'],
-    onSettled: () => {
+    onSettled: (_data, _error, { productId }) => {
       queryClient.invalidateQueries({ queryKey: ['products', merchant?.id] });
+      queryClient.invalidateQueries({
+        queryKey: ['product', merchant?.id, productId],
+      });
     },
   });
 }
