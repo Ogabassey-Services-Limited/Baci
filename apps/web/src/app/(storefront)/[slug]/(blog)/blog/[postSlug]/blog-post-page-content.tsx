@@ -169,24 +169,12 @@ async function renderBlogPostContent({
           </Button>
         </div>
       )}
-      <script
-        type="application/ld+json"
-        /*
-          biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
-          nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
-        */
-        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(blogSchema) }}
-      />
-      <script
-        type="application/ld+json"
-        /*
-          biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
-          nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
-        */
-        dangerouslySetInnerHTML={{
-          __html: safeJsonLdStringify(breadcrumbSchema),
-        }}
-      />
+      <script type="application/ld+json">
+        {safeJsonLdStringify(blogSchema)}
+      </script>
+      <script type="application/ld+json">
+        {safeJsonLdStringify(breadcrumbSchema)}
+      </script>
 
       <ViewCounter postId={post.id} />
 

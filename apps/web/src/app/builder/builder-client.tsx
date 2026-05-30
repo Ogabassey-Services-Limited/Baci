@@ -1015,10 +1015,8 @@ export default function BuilderClient() {
                 }
                 mediaPanel={<MediaLibrary />}
               >
-                <style
-                  // biome-ignore lint/security/noDangerouslySetInnerHtml: Static CSS styles
-                  dangerouslySetInnerHTML={{
-                    __html: `
+                <style>
+                  {`
                                     /* Hide category titles to create continuous grid */
                                     .PuckSidebarSection-title {
                                         display: none !important;
@@ -1107,9 +1105,8 @@ export default function BuilderClient() {
                                     .Puck-overlay > div {
                                         pointer-events: auto;
                                     }
-                                `,
-                  }}
-                />
+                                `}
+                </style>
                 <Puck.Components />
               </BuilderSidebar>
 

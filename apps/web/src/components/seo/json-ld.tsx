@@ -1,4 +1,5 @@
 import type { Thing, WithContext } from 'schema-dts';
+import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 
 interface JsonLdProps<T extends Thing> {
   data: WithContext<T>;
@@ -10,16 +11,6 @@ interface JsonLdProps<T extends Thing> {
  */
 export function JsonLd<T extends Thing>({ data }: JsonLdProps<T>) {
   return (
-    <script
-      type="application/ld+json"
-      // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD is sanitized below
-      dangerouslySetInnerHTML={{
-        __html: JSON.stringify(data)
-          .replace(/</g, '\\u003c')
-          .replace(/>/g, '\\u003e')
-          .replace(/\u2028/g, '\\u2028')
-          .replace(/\u2029/g, '\\u2029'),
-      }}
-    />
+    <script type="application/ld+json">{safeJsonLdStringify(data)}</script>
   );
 }

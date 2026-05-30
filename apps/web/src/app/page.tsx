@@ -54,16 +54,12 @@ function PlatformSchemas() {
   const { '@context': _wsCtx, ...wsWithoutContext } = websiteSchema;
 
   return (
-    <script
-      type="application/ld+json"
-      // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD structured data sanitized via safeJsonLdStringify
-      dangerouslySetInnerHTML={{
-        __html: safeJsonLdStringify({
-          '@context': 'https://schema.org',
-          '@graph': [orgWithoutContext, wsWithoutContext],
-        }),
-      }}
-    />
+    <script type="application/ld+json">
+      {safeJsonLdStringify({
+        '@context': 'https://schema.org',
+        '@graph': [orgWithoutContext, wsWithoutContext],
+      })}
+    </script>
   );
 }
 
@@ -371,43 +367,39 @@ function BaciLandingPage({ metrics }: { metrics: LandingMetrics }) {
             </ol>
 
             {/* HowTo Schema */}
-            <script
-              type="application/ld+json"
-              // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema is sanitized via safeJsonLdStringify
-              dangerouslySetInnerHTML={{
-                __html: safeJsonLdStringify({
-                  '@context': 'https://schema.org',
-                  '@type': 'HowTo',
-                  name: 'How to Create an E-commerce Store with Baci',
-                  description:
-                    'Launch your professional e-commerce store in three simple steps using AI-powered tools.',
-                  step: [
-                    {
-                      '@type': 'HowToStep',
-                      position: 1,
-                      name: 'Sign Up & Tell Us About Your Business',
-                      text: 'Answer a few quick questions about your products, brand, and target audience. Our AI will understand your vision.',
-                      url: 'https://baci.app#how-it-works',
-                    },
-                    {
-                      '@type': 'HowToStep',
-                      position: 2,
-                      name: 'AI Generates Your Store',
-                      text: 'Watch as our AI creates your complete store: product pages, branding, copy, and layout—all optimized for conversions.',
-                      url: 'https://baci.app#how-it-works',
-                    },
-                    {
-                      '@type': 'HowToStep',
-                      position: 3,
-                      name: 'Customize & Launch',
-                      text: "Fine-tune any details you'd like, connect your payment processor, and go live. Start selling in minutes, not months.",
-                      url: 'https://baci.app#how-it-works',
-                    },
-                  ],
-                  totalTime: 'PT10M',
-                }),
-              }}
-            />
+            <script type="application/ld+json">
+              {safeJsonLdStringify({
+                '@context': 'https://schema.org',
+                '@type': 'HowTo',
+                name: 'How to Create an E-commerce Store with Baci',
+                description:
+                  'Launch your professional e-commerce store in three simple steps using AI-powered tools.',
+                step: [
+                  {
+                    '@type': 'HowToStep',
+                    position: 1,
+                    name: 'Sign Up & Tell Us About Your Business',
+                    text: 'Answer a few quick questions about your products, brand, and target audience. Our AI will understand your vision.',
+                    url: 'https://baci.app#how-it-works',
+                  },
+                  {
+                    '@type': 'HowToStep',
+                    position: 2,
+                    name: 'AI Generates Your Store',
+                    text: 'Watch as our AI creates your complete store: product pages, branding, copy, and layout—all optimized for conversions.',
+                    url: 'https://baci.app#how-it-works',
+                  },
+                  {
+                    '@type': 'HowToStep',
+                    position: 3,
+                    name: 'Customize & Launch',
+                    text: "Fine-tune any details you'd like, connect your payment processor, and go live. Start selling in minutes, not months.",
+                    url: 'https://baci.app#how-it-works',
+                  },
+                ],
+                totalTime: 'PT10M',
+              })}
+            </script>
           </div>
         </section>
 
@@ -497,82 +489,78 @@ function BaciLandingPage({ metrics }: { metrics: LandingMetrics }) {
             </div>
 
             {/* FAQ Schema */}
-            <script
-              type="application/ld+json"
-              // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema is sanitized via safeJsonLdStringify
-              dangerouslySetInnerHTML={{
-                __html: safeJsonLdStringify({
-                  '@context': 'https://schema.org',
-                  '@type': 'FAQPage',
-                  mainEntity: [
-                    {
-                      '@type': 'Question',
-                      name: 'Do I need coding skills to use Baci?',
-                      acceptedAnswer: {
-                        '@type': 'Answer',
-                        text: 'Not at all! Baci is designed for everyone. Our AI handles all the technical work—you just answer a few questions about your business, and we create your entire store automatically.',
-                      },
+            <script type="application/ld+json">
+              {safeJsonLdStringify({
+                '@context': 'https://schema.org',
+                '@type': 'FAQPage',
+                mainEntity: [
+                  {
+                    '@type': 'Question',
+                    name: 'Do I need coding skills to use Baci?',
+                    acceptedAnswer: {
+                      '@type': 'Answer',
+                      text: 'Not at all! Baci is designed for everyone. Our AI handles all the technical work—you just answer a few questions about your business, and we create your entire store automatically.',
                     },
-                    {
-                      '@type': 'Question',
-                      name: 'How long does it take to launch my store?',
-                      acceptedAnswer: {
-                        '@type': 'Answer',
-                        text: 'Most merchants go live in under 10 minutes. The AI generates your store in seconds, and you can customize and launch immediately. No waiting for developers or designers.',
-                      },
+                  },
+                  {
+                    '@type': 'Question',
+                    name: 'How long does it take to launch my store?',
+                    acceptedAnswer: {
+                      '@type': 'Answer',
+                      text: 'Most merchants go live in under 10 minutes. The AI generates your store in seconds, and you can customize and launch immediately. No waiting for developers or designers.',
                     },
-                    {
-                      '@type': 'Question',
-                      name: 'Can I use my own domain name?',
-                      acceptedAnswer: {
-                        '@type': 'Answer',
-                        text: 'Yes! You can connect your custom domain or use a free Baci subdomain. We provide step-by-step instructions to connect your domain from providers like GoDaddy, Namecheap, or Google Domains.',
-                      },
+                  },
+                  {
+                    '@type': 'Question',
+                    name: 'Can I use my own domain name?',
+                    acceptedAnswer: {
+                      '@type': 'Answer',
+                      text: 'Yes! You can connect your custom domain or use a free Baci subdomain. We provide step-by-step instructions to connect your domain from providers like GoDaddy, Namecheap, or Google Domains.',
                     },
-                    {
-                      '@type': 'Question',
-                      name: 'What payment methods can I accept?',
-                      acceptedAnswer: {
-                        '@type': 'Answer',
-                        text: 'Baci integrates with major payment processors including Stripe, PayPal, and local payment methods. Accept credit cards, debit cards, digital wallets, and more—all with secure, PCI-compliant checkout.',
-                      },
+                  },
+                  {
+                    '@type': 'Question',
+                    name: 'What payment methods can I accept?',
+                    acceptedAnswer: {
+                      '@type': 'Answer',
+                      text: 'Baci integrates with major payment processors including Stripe, PayPal, and local payment methods. Accept credit cards, debit cards, digital wallets, and more—all with secure, PCI-compliant checkout.',
                     },
-                    {
-                      '@type': 'Question',
-                      name: 'Is there a free trial?',
-                      acceptedAnswer: {
-                        '@type': 'Answer',
-                        text: "Yes! Start with our 14-day free trial. No credit card required. Test all features, build your store, and only pay when you're ready to go live.",
-                      },
+                  },
+                  {
+                    '@type': 'Question',
+                    name: 'Is there a free trial?',
+                    acceptedAnswer: {
+                      '@type': 'Answer',
+                      text: "Yes! Start with our 14-day free trial. No credit card required. Test all features, build your store, and only pay when you're ready to go live.",
                     },
-                    {
-                      '@type': 'Question',
-                      name: 'Can I migrate from another platform?',
-                      acceptedAnswer: {
-                        '@type': 'Answer',
-                        text: 'Absolutely. We offer free migration assistance for stores moving from Shopify, WooCommerce, or other platforms. Our team will help you import your products, customers, and orders seamlessly.',
-                      },
+                  },
+                  {
+                    '@type': 'Question',
+                    name: 'Can I migrate from another platform?',
+                    acceptedAnswer: {
+                      '@type': 'Answer',
+                      text: 'Absolutely. We offer free migration assistance for stores moving from Shopify, WooCommerce, or other platforms. Our team will help you import your products, customers, and orders seamlessly.',
                     },
-                    {
-                      '@type': 'Question',
-                      name: 'Do you offer customer support?',
-                      acceptedAnswer: {
-                        '@type': 'Answer',
-                        text: 'Yes! We provide 24/7 email support for all plans, plus live chat and priority support for premium customers. Our comprehensive knowledge base and video tutorials are also available anytime.',
-                      },
+                  },
+                  {
+                    '@type': 'Question',
+                    name: 'Do you offer customer support?',
+                    acceptedAnswer: {
+                      '@type': 'Answer',
+                      text: 'Yes! We provide 24/7 email support for all plans, plus live chat and priority support for premium customers. Our comprehensive knowledge base and video tutorials are also available anytime.',
                     },
-                    {
-                      '@type': 'Question',
-                      name: 'Can I sell physical and digital products?',
-                      acceptedAnswer: {
-                        '@type': 'Answer',
-                        text: 'Yes! Baci supports both physical products (with inventory tracking and shipping) and digital products (instant delivery via secure download links). You can sell both types in the same store.',
-                      },
+                  },
+                  {
+                    '@type': 'Question',
+                    name: 'Can I sell physical and digital products?',
+                    acceptedAnswer: {
+                      '@type': 'Answer',
+                      text: 'Yes! Baci supports both physical products (with inventory tracking and shipping) and digital products (instant delivery via secure download links). You can sell both types in the same store.',
                     },
-                  ],
-                }),
-              }}
-            />
+                  },
+                ],
+              })}
+            </script>
           </div>
         </section>
       </main>

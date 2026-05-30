@@ -95,11 +95,7 @@ async function FAQJsonLd({ params }: PageProps) {
   const faqSchema = generateFAQSchema(faqItems);
 
   return (
-    <script
-      type="application/ld+json"
-      // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema is sanitized via safeJsonLdStringify
-      dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(faqSchema) }}
-    />
+    <script type="application/ld+json">{safeJsonLdStringify(faqSchema)}</script>
   );
 }
 
