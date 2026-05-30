@@ -79,10 +79,18 @@ function withAndroidGradleFixes(config) {
           if (index !== -1) {
             const insertIndex = index + searchStr.length;
             const resValues = `
-        resValue "string", "facebook_app_id", System.getenv("STOREFRONT_FACEBOOK_APP_ID") ?: ""
-        resValue "string", "facebook_client_token", System.getenv("STOREFRONT_FACEBOOK_CLIENT_TOKEN") ?: ""
-        resValue "string", "fb_login_protocol_scheme", System.getenv("STOREFRONT_FACEBOOK_APP_ID") ? "fb" + System.getenv("STOREFRONT_FACEBOOK_APP_ID") : "fb_local_dev"`;
-            content = content.slice(0, insertIndex) + resValues + content.slice(insertIndex);
+        def storefrontFacebookAppId = System.getenv("STOREFRONT_FACEBOOK_APP_ID") ?: ""
+        def storefrontFacebookClientToken = System.getenv("STOREFRONT_FACEBOOK_CLIENT_TOKEN") ?: ""
+        if ((storefrontFacebookAppId && !storefrontFacebookClientToken) || (!storefrontFacebookAppId && storefrontFacebookClientToken)) {
+            throw new GradleException("STOREFRONT_FACEBOOK_APP_ID and STOREFRONT_FACEBOOK_CLIENT_TOKEN must be configured together.")
+        }
+        resValue "string", "facebook_app_id", storefrontFacebookAppId
+        resValue "string", "facebook_client_token", storefrontFacebookClientToken
+        resValue "string", "fb_login_protocol_scheme", storefrontFacebookAppId ? "fb" + storefrontFacebookAppId : "fb_local_dev"`;
+            content =
+              content.slice(0, insertIndex) +
+              resValues +
+              content.slice(insertIndex);
           }
         }
 
@@ -102,10 +110,19 @@ function withAndroidGradleFixes(config) {
 
       if (fs.existsSync(stringsXmlPath)) {
         let content = fs.readFileSync(stringsXmlPath, 'utf-8');
-        content = content.replace(/\s*<string name="facebook_app_id">.*?<\/string>\s*/g, '\n');
-        content = content.replace(/\s*<string name="facebook_client_token">.*?<\/string>\s*/g, '\n');
-        content = content.replace(/\s*<string name="fb_login_protocol_scheme">.*?<\/string>\s*/g, '\n');
-        
+        content = content.replace(
+          /\s*<string name="facebook_app_id">.*?<\/string>\s*/g,
+          '\n'
+        );
+        content = content.replace(
+          /\s*<string name="facebook_client_token">.*?<\/string>\s*/g,
+          '\n'
+        );
+        content = content.replace(
+          /\s*<string name="fb_login_protocol_scheme">.*?<\/string>\s*/g,
+          '\n'
+        );
+
         // Normalize any empty lines/excessive newlines
         content = content.replace(/\n\s*\n/g, '\n');
         fs.writeFileSync(stringsXmlPath, content);

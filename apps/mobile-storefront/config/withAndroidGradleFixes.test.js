@@ -139,12 +139,27 @@ android {
     expect(appBuildGradle).toContain('ANDROID_KEYSTORE_FILE');
     expect(appBuildGradle).toContain('signingConfig signingConfigs.release');
     expect(appBuildGradle).toContain('proguard-android-optimize.txt');
-    
+
     // Assert dynamic Facebook resValue injection
-    expect(appBuildGradle).toContain('resValue "string", "facebook_app_id", System.getenv("STOREFRONT_FACEBOOK_APP_ID")');
-    expect(appBuildGradle).toContain('resValue "string", "facebook_client_token", System.getenv("STOREFRONT_FACEBOOK_CLIENT_TOKEN")');
-    expect(appBuildGradle).toContain('resValue "string", "fb_login_protocol_scheme", System.getenv("STOREFRONT_FACEBOOK_APP_ID") ? "fb" + System.getenv("STOREFRONT_FACEBOOK_APP_ID") : "fb_local_dev"');
-    
+    expect(appBuildGradle).toContain(
+      'def storefrontFacebookAppId = System.getenv("STOREFRONT_FACEBOOK_APP_ID") ?: ""'
+    );
+    expect(appBuildGradle).toContain(
+      'def storefrontFacebookClientToken = System.getenv("STOREFRONT_FACEBOOK_CLIENT_TOKEN") ?: ""'
+    );
+    expect(appBuildGradle).toContain(
+      'STOREFRONT_FACEBOOK_APP_ID and STOREFRONT_FACEBOOK_CLIENT_TOKEN must be configured together.'
+    );
+    expect(appBuildGradle).toContain(
+      'resValue "string", "facebook_app_id", storefrontFacebookAppId'
+    );
+    expect(appBuildGradle).toContain(
+      'resValue "string", "facebook_client_token", storefrontFacebookClientToken'
+    );
+    expect(appBuildGradle).toContain(
+      'resValue "string", "fb_login_protocol_scheme", storefrontFacebookAppId ? "fb" + storefrontFacebookAppId : "fb_local_dev"'
+    );
+
     // Assert static Facebook secrets stripping
     expect(stringsXml).not.toContain('facebook_app_id');
     expect(stringsXml).not.toContain('facebook_client_token');
