@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import type { ConfigContext, ExpoConfig } from 'expo/config';
 
+// Mock dotenv/config to prevent it from loading the local .env file during tests
+jest.mock('dotenv/config', () => ({}));
+
 const originalEnv = process.env;
 
 function loadAppConfigWithFacebookEnv(env: {

@@ -1,5 +1,6 @@
 import { type ReactNode, useEffect } from 'react';
-import { Image, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Image } from 'expo-image';
 import Animated, {
   cancelAnimation,
   Easing,
@@ -125,7 +126,7 @@ export function AnimatedSplash({
         ]}
       >
         <Animated.View style={[styles.logoContainer, logoStyle]}>
-          <Image source={iconImage} style={styles.logo} resizeMode="contain" />
+          <Image source={iconImage} style={styles.logo} contentFit="contain" />
         </Animated.View>
 
         <Animated.View style={[styles.shimmerBar, shimmerStyle]}>

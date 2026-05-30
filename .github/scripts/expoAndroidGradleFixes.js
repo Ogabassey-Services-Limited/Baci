@@ -13,6 +13,9 @@ function assertReplaceOrThrow(content, pattern, replacement, description) {
 }
 
 function ensureReleaseSigning(content) {
+  if (content.includes('signingConfigs.release.storeFile != null')) {
+    return content;
+  }
   let updated = content;
 
   if (!updated.includes('ANDROID_KEYSTORE_FILE')) {
@@ -80,6 +83,10 @@ function ensureGradleWrapperVersion(content) {
         'Gradle distributionUrl rewrite'
       );
 
+  if (updated.includes(`distributionSha256Sum=${GRADLE_SHA256}`)) {
+    return updated;
+  }
+
   if (updated.includes('distributionSha256Sum=')) {
     updated = assertReplaceOrThrow(
       updated,
@@ -110,6 +117,9 @@ function ensureGradleProperty(content, key, value) {
 }
 
 function removeKotlinGradlePlugin(content, description) {
+  if (!content.includes('org.jetbrains.kotlin:kotlin-gradle-plugin')) {
+    return content;
+  }
   return assertReplaceOrThrow(
     content,
     /\s*classpath\(['"]org\.jetbrains\.kotlin:kotlin-gradle-plugin['"]\)\s*\n?/g,
@@ -141,6 +151,9 @@ function removeKotlinAndroidPlugin(content, description) {
 }
 
 function fixProguardOptimize(content, description) {
+  if (content.includes('proguard-android-optimize.txt')) {
+    return content;
+  }
   return assertReplaceOrThrow(
     content,
     /proguard-android\.txt/g,

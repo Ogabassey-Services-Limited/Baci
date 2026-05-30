@@ -62,6 +62,10 @@ allprojects {
       `apply plugin: "org.jetbrains.kotlin.android"
 
 android {
+    defaultConfig {
+        applicationId 'com.ogabassey.store'
+    }
+
     signingConfigs {
         debug {
             storeFile file('debug.keystore')
@@ -79,6 +83,17 @@ android {
     }
 }
 `
+    );
+    writeProjectFile(
+      mockPlatformProjectRoot,
+      'app/src/main/res/values/strings.xml',
+      `<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="app_name">Ogabassey</string>
+  <string name="facebook_app_id">354703740472594</string>
+  <string name="facebook_client_token">1530248058ff9f74e7599e43f17be3b2</string>
+  <string name="fb_login_protocol_scheme">fb354703740472594</string>
+</resources>`
     );
     writeProjectFile(
       mockPlatformProjectRoot,
@@ -109,6 +124,10 @@ android {
       mockPlatformProjectRoot,
       'gradle/wrapper/gradle-wrapper.properties'
     );
+    const stringsXml = readProjectFile(
+      mockPlatformProjectRoot,
+      'app/src/main/res/values/strings.xml'
+    );
 
     expect(rootBuildGradle).not.toContain('kotlin-gradle-plugin');
     expect(rootBuildGradle).toContain(
@@ -120,6 +139,33 @@ android {
     expect(appBuildGradle).toContain('ANDROID_KEYSTORE_FILE');
     expect(appBuildGradle).toContain('signingConfig signingConfigs.release');
     expect(appBuildGradle).toContain('proguard-android-optimize.txt');
+
+    // Assert dynamic Facebook resValue injection
+    expect(appBuildGradle).toContain(
+      'def storefrontFacebookAppId = System.getenv("STOREFRONT_FACEBOOK_APP_ID") ?: ""'
+    );
+    expect(appBuildGradle).toContain(
+      'def storefrontFacebookClientToken = System.getenv("STOREFRONT_FACEBOOK_CLIENT_TOKEN") ?: ""'
+    );
+    expect(appBuildGradle).toContain(
+      'STOREFRONT_FACEBOOK_APP_ID and STOREFRONT_FACEBOOK_CLIENT_TOKEN must be configured together.'
+    );
+    expect(appBuildGradle).toContain(
+      'resValue "string", "facebook_app_id", storefrontFacebookAppId'
+    );
+    expect(appBuildGradle).toContain(
+      'resValue "string", "facebook_client_token", storefrontFacebookClientToken'
+    );
+    expect(appBuildGradle).toContain(
+      'resValue "string", "fb_login_protocol_scheme", storefrontFacebookAppId ? "fb" + storefrontFacebookAppId : "fb_local_dev"'
+    );
+
+    // Assert static Facebook secrets stripping
+    expect(stringsXml).not.toContain('facebook_app_id');
+    expect(stringsXml).not.toContain('facebook_client_token');
+    expect(stringsXml).not.toContain('fb_login_protocol_scheme');
+    expect(stringsXml).toContain('app_name');
+
     expect(gradleProperties).toContain('android.builtInKotlin=false');
     expect(wrapperProperties).toContain('gradle-9.3.1-bin.zip');
     expect(wrapperProperties).toContain('distributionSha256Sum=');
