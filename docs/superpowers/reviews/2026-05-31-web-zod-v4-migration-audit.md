@@ -1,6 +1,12 @@
 # Web Zod v4 Migration Audit
 
 ## Dependency Graph
+- `apps/web` Zod changed from `^3.25.76` to `^4.4.3`.
+- `packages/shared` now declares `zod@^4.4.3` because shared source imports Zod and exports shared schemas.
+- `@hookform/resolvers` stayed at `^5.4.0`; it is already above the `5.1.1+` resolver floor for Zod v4.
+- `openai` was not added or upgraded by this checkpoint. The lockfile still contains `openai@4.104.0` through LangSmith/LangChain/CopilotKit peer paths, and pnpm reports a peer warning because that package declares `zod@^3.23.8`.
+- Current `openai@6.39.1` package metadata declares `zod@^3.25 || ^4.0`, but upgrading OpenAI is intentionally deferred unless the Zod v4 migration hits a hard type/runtime blocker.
+- `pnpm --filter @baci/web list zod --depth 0` reports direct `zod 4.4.3`.
 
 ## Codemod Scope
 
