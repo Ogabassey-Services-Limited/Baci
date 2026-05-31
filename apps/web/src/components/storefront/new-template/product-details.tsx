@@ -19,7 +19,6 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import type React from 'react';
 import { useEffect, useState } from 'react';
-import type { CartItem } from '@/hooks/cart/cart-types';
 import { useCart } from '@/hooks/use-cart';
 import { products } from './data';
 import { Footer } from './footer';
@@ -61,8 +60,8 @@ export const ProductDetails: React.FC = () => {
   // Calculate quantity in cart for this product
   // Note: This is a simplification. Real cart might have multiple items for same product with different variants.
   const _quantityInCart = cart
-    .filter((item: CartItem) => item.id === productData.id)
-    .reduce((acc: number, item: CartItem) => acc + item.quantity, 0);
+    .filter((item: any) => item.id === productData.id)
+    .reduce((acc: number, item: any) => acc + item.quantity, 0);
 
   const handleQuantityChange = (delta: number) => {
     setQuantity((prev) => Math.max(1, prev + delta));
