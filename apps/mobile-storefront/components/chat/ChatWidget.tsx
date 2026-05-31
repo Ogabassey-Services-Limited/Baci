@@ -176,8 +176,7 @@ export function ChatWidget({
         {/* GestureDetector wraps only the FAB itself */}
         <GestureDetector gesture={composedGesture}>
           <Animated.View style={animatedIconStyle}>
-            <Touchable
-              activeOpacity={0.7}
+            <Animated.View
               style={[
                 styles.fab,
                 {
@@ -199,7 +198,7 @@ export function ChatWidget({
               <View style={styles.aiBadge}>
                 <Text style={styles.aiBadgeText}>AI</Text>
               </View>
-            </Touchable>
+            </Animated.View>
           </Animated.View>
         </GestureDetector>
 

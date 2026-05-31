@@ -207,11 +207,9 @@ export function useDraggableFab(
   // RNGH 3.0 Tap Gesture Definition
   const tapGesture = useTapGesture({
     maxDistance: 8,
-    onDeactivate: (event) => {
-      if (!event.canceled) {
-        scheduleOnRN(triggerHaptic, Haptics.ImpactFeedbackStyle.Medium);
-        scheduleOnRN(handlePressJS);
-      }
+    onActivate: () => {
+      scheduleOnRN(triggerHaptic, Haptics.ImpactFeedbackStyle.Medium);
+      scheduleOnRN(handlePressJS);
     },
   });
 
