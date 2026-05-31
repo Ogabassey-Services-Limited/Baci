@@ -4,3 +4,4 @@ trustPolicy: no-downgrade
 packages:
   - "apps/*"
   - "packages/*"
+  - "apps/web/mcp-server/widgets"
