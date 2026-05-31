@@ -1,7 +1,7 @@
 import { jest } from '@jest/globals';
 
 jest.mock('react-native-reanimated', () => {
-  const { View, Text } = jest.requireActual('react-native') as any;
+  const { View, Text } = jest.requireActual('react-native') as Record<string, unknown>;
 
   return {
     __esModule: true,

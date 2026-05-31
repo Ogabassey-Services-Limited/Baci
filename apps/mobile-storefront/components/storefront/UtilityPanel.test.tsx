@@ -1,9 +1,9 @@
 import { jest } from '@jest/globals';
 
-const mockWithTiming = jest.fn((toValue: number, config?: object) => toValue);
+const mockWithTiming = jest.fn((toValue: number, _config?: object) => toValue);
 
 jest.mock('react-native-reanimated', () => {
-  const { View, Text } = jest.requireActual('react-native') as any;
+  const { View, Text } = jest.requireActual('react-native') as Record<string, unknown>;
 
   return {
     __esModule: true,
@@ -20,12 +20,12 @@ jest.mock('react-native-reanimated', () => {
         value = newValue;
       },
     }),
-    withTiming: (toValue: number, config?: object, callback?: Function) => {
+    withTiming: (toValue: number, config?: object, callback?: (isFinished?: boolean) => void) => {
       mockWithTiming(toValue, config);
       callback?.(true);
       return toValue;
     },
-    withSpring: (toValue: number, config?: object, callback?: Function) => {
+    withSpring: (toValue: number, config?: object, callback?: (isFinished?: boolean) => void) => {
       callback?.(true);
       return toValue;
     },
