@@ -666,7 +666,7 @@ describe('Middleware Proxy', () => {
     );
   });
 
-  it('sets the streaming metadata cache bucket for normal custom-domain browsers', async () => {
+  it('forces blocking metadata for normal custom-domain storefront browsers', async () => {
     const req = new NextRequest(
       'https://ogabassey.com/smartphones/samsung-galaxy-a37-5g'
     );
@@ -683,7 +683,10 @@ describe('Middleware Proxy', () => {
     );
     expect(
       res.headers.get('x-middleware-request-x-baci-metadata-cache-bucket')
-    ).toBe('streaming');
+    ).toBe('metadata-blocking');
+    expect(res.headers.get('x-middleware-request-user-agent')).toContain(
+      'BaciMetadataBlocking'
+    );
     expect(res.headers.get('Vary')).toBe('x-baci-metadata-cache-bucket');
   });
 
@@ -728,7 +731,10 @@ describe('Middleware Proxy', () => {
 
     expect(
       res.headers.get('x-middleware-request-x-baci-metadata-cache-bucket')
-    ).toBe('streaming');
+    ).toBe('metadata-blocking');
+    expect(res.headers.get('x-middleware-request-user-agent')).toContain(
+      'BaciMetadataBlocking'
+    );
     expect(res.headers.get('Vary')).toBe('x-baci-metadata-cache-bucket');
   });
 

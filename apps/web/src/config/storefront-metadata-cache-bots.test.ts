@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   getStorefrontMetadataCacheBucket,
   STOREFRONT_METADATA_BLOCKING_BOT_USER_AGENT_REGEX,
+  STOREFRONT_METADATA_BLOCKING_USER_AGENT_TOKEN,
 } from './storefront-metadata-cache-bots';
 
 describe('storefront metadata cache bot classifier', () => {
@@ -10,6 +11,7 @@ describe('storefront metadata cache bot classifier', () => {
     ['AdsBot-Google (+http://www.google.com/adsbot.html)'],
     ['Google-InspectionTool/1.0'],
     ['Twitterbot/1.0'],
+    [`Mozilla/5.0 ${STOREFRONT_METADATA_BLOCKING_USER_AGENT_TOKEN}`],
   ])('uses the metadata-blocking bucket for %s', (userAgent) => {
     expect(
       STOREFRONT_METADATA_BLOCKING_BOT_USER_AGENT_REGEX.test(userAgent)

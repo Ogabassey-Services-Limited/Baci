@@ -50,6 +50,21 @@ function readLatestStorefrontOrderRpcMigrationSql() {
   throw new Error('No create_storefront_order migration found');
 }
 
+function readLatestPaymentReferenceHotfixSql() {
+  for (const fileName of readdirSync(migrationsDirectory)
+    .filter(
+      (file) =>
+        migrationFilePattern.test(file) &&
+        file.includes('payment_reference_reuse')
+    )
+    .sort()
+    .reverse()) {
+    return readFileSync(resolve(migrationsDirectory, fileName), 'utf8');
+  }
+
+  throw new Error('No payment_reference reuse hotfix migration found');
+}
+
 describe('agentic storefront order RPC contract', () => {
   it('replaces the latest RPC explicitly instead of patching function text dynamically', () => {
     const sql = readLatestStorefrontOrderRpcMigrationSql();
@@ -57,6 +72,20 @@ describe('agentic storefront order RPC contract', () => {
     expect(sql).toMatch(storefrontOrderRpcDefinitionPattern);
     expect(sql).not.toContain('pg_get_functiondef');
     expect(sql).not.toContain('EXECUTE v_updated_definition');
+  });
+
+  it('does not write absent orders.payment_reference during pending-order reuse', () => {
+    const sql = readLatestPaymentReferenceHotfixSql();
+
+    expect(sql).toMatch(storefrontOrderRpcDefinitionPattern);
+    expect(sql).toMatch(
+      /CREATE\s+OR\s+REPLACE\s+FUNCTION\s+public\.prepare_storefront_order_for_checkout/i
+    );
+    expect(sql).toMatch(
+      /orders table intentionally does not have payment_reference/
+    );
+    expect(sql).toContain('transactions/checkout_sessions');
+    expect(sql).not.toMatch(/payment_reference\s*=\s*NULL/i);
   });
 
   it('keeps latest RPC agentic checkout buyers guest-scoped while preserving standard auth binding', () => {
