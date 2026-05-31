@@ -54,6 +54,10 @@ export async function generateMetadata({
 
   const data = await getCachedCategoryPageData(merchant.id, category, slug);
 
+  if (!data.isCollection && data.isInactiveCategory) {
+    return { robots: { index: false, follow: false } };
+  }
+
   const categoryName = resolveCategoryPageName(data, category);
   const normalizedProducts = normalizeCategoryPageProducts(
     data.products as unknown as RawDbProduct[],

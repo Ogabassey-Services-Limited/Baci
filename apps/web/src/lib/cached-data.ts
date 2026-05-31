@@ -1608,24 +1608,26 @@ export async function getCachedCategoryPageData(
   }
 
   // 3. Try to find category by slug
-  const { data: category } = await supabase
+  const { data: categoryRow } = await supabase
     .from('categories')
     .select(
-      'id, name, slug, description, image_url, seo_heading, seo_description, seo_features, seo_faq, parent:parent_id(name, slug)'
+      'id, name, slug, description, image_url, is_active, seo_heading, seo_description, seo_features, seo_faq, parent:parent_id(name, slug)'
     )
     .eq('merchant_id', merchantId)
     .eq('slug', categorySlug)
     .single();
+  const isInactiveCategory = Boolean(categoryRow && !categoryRow.is_active);
+  const category = categoryRow?.is_active ? categoryRow : null;
 
   // Fallback: decode the slug to get category name and Title Case it
   const categoryName =
-    category?.name ||
+    categoryRow?.name ||
     decodeURIComponent(categorySlug)
       .replace(/-/g, ' ')
       .replace(/\b\w/g, (l) => l.toUpperCase());
 
   const categoryDescription =
-    category?.description ||
+    categoryRow?.description ||
     `Browse our collection of ${categoryName} products.`;
 
   // Note: We need CATEGORY_SEO_DEFAULTS here.
@@ -1649,6 +1651,7 @@ export async function getCachedCategoryPageData(
       .from('categories')
       .select('id')
       .eq('merchant_id', merchantId)
+      .eq('is_active', true)
       .or(`id.eq.${category.id},parent_id.eq.${category.id}`);
 
     const categoryIds = Array.from(
@@ -1685,8 +1688,8 @@ export async function getCachedCategoryPageData(
     productsError = err;
   }
 
-  if (!category?.id || products.length === 0) {
-    // Fallback
+  if (!category?.id && !isInactiveCategory) {
+    // Legacy fallback for category URLs that predate canonical category rows.
     const sanitizedCategoryName = categoryName.replace(/[,().]/g, '');
     const { data: productData, error: err } = await supabase
       .from('products')
@@ -1726,6 +1729,7 @@ export async function getCachedCategoryPageData(
     products: products || [],
     fallbackName: categoryName,
     fallbackDescription: categoryDescription,
+    isInactiveCategory,
   };
 }
 

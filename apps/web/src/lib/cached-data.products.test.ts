@@ -485,6 +485,7 @@ describe('cached-data product query projections', () => {
         slug: 'smartphones',
         description: 'Phones',
         image_url: null,
+        is_active: true,
         seo_heading: null,
         seo_description: null,
         seo_features: null,
@@ -519,10 +520,89 @@ describe('cached-data product query projections', () => {
       'product_categories.category_id',
       ['cat-smartphones', 'cat-iphone']
     );
+    expect(harness.mockEq).toHaveBeenCalledWith('is_active', true);
     expect(harness.mockLimit).not.toHaveBeenCalled();
     const selectArg = String(harness.mockSelect.mock.calls.at(-1)?.[0]);
     expect(selectArg).toContain('product_key_specs (');
     expect(selectArg).not.toMatch(/,\s*product_key_specs\s*,/);
     expect(result.products).toEqual(productQueryResult.data);
+  });
+
+  it('getCachedCategoryPageData does not use loose fallback for active canonical categories with no products', async () => {
+    harness.mockSingle.mockResolvedValueOnce({
+      data: {
+        id: 'cat-empty',
+        name: 'Empty Category',
+        slug: 'empty-category',
+        description: 'No products yet',
+        image_url: null,
+        is_active: true,
+        seo_heading: null,
+        seo_description: null,
+        seo_features: null,
+        seo_faq: null,
+        parent: null,
+      },
+      error: null,
+    });
+
+    harness.mockListResult.data = [{ id: 'cat-empty' }];
+    harness.mockQueryExecution
+      .mockImplementationOnce(() => Promise.resolve(harness.mockListResult))
+      .mockImplementationOnce(() =>
+        Promise.resolve({
+          data: [],
+          error: null,
+        })
+      );
+
+    const result = await getCachedCategoryPageData(
+      'merchant-123',
+      'empty-category',
+      'test-store'
+    );
+
+    expect(harness.mockOr).toHaveBeenCalledTimes(1);
+    expect(harness.mockOr).toHaveBeenCalledWith(
+      'id.eq.cat-empty,parent_id.eq.cat-empty'
+    );
+    expect(harness.mockQueryExecution).toHaveBeenCalledTimes(2);
+    expect(result.products).toEqual([]);
+  });
+
+  it('getCachedCategoryPageData marks inactive categories without loose fallback products', async () => {
+    harness.mockSingle.mockResolvedValueOnce({
+      data: {
+        id: 'cat-stale',
+        name: 'Stale Category',
+        slug: 'stale-category',
+        description: 'Old category',
+        image_url: null,
+        is_active: false,
+        seo_heading: null,
+        seo_description: null,
+        seo_features: null,
+        seo_faq: null,
+        parent: null,
+      },
+      error: null,
+    });
+
+    const result = await getCachedCategoryPageData(
+      'merchant-123',
+      'stale-category',
+      'test-store'
+    );
+
+    expect(result).toMatchObject({
+      isCollection: false,
+      category: null,
+      fallbackName: 'Stale Category',
+      fallbackDescription: 'Old category',
+      isInactiveCategory: true,
+      products: [],
+    });
+    expect(harness.mockQueryExecution).not.toHaveBeenCalled();
+    expect(harness.mockOr).not.toHaveBeenCalled();
   });
 });

@@ -91,6 +91,11 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
     getCachedCategoryPageData(merchant.id, category, slug),
     getPublishedClusterPosts(merchant.id),
   ]);
+
+  if (!data.isCollection && data.isInactiveCategory) {
+    notFound();
+  }
+
   const products = data.products as unknown as RawDbProduct[];
   const totalPages = Math.max(
     1,
