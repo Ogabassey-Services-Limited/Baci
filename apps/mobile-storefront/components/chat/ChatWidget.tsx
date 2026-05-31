@@ -10,7 +10,7 @@ import { getChatWidgetBottomOffset } from '@/constants/layout';
 import { useShallow } from 'zustand/react/shallow';
 import { useUIStore } from '@/stores/ui-store';
 import { ChatModal } from './ChatModal';
-import { HIDDEN_ROUTES } from './constants';
+import { EDGE_MARGIN, HIDDEN_ROUTES } from './constants';
 import { styles } from './styles';
 import type { ChatWidgetProps } from './types';
 import { useChat } from './use-chat';
@@ -98,11 +98,11 @@ export function ChatWidget({
         style={[
           styles.fabContainer,
           {
-            left: pan.x,
-            top: pan.y,
+            right: EDGE_MARGIN,
+            bottom: effectiveBottomOffset,
+            transform: [{ translateX: pan.x }, { translateY: pan.y }],
           },
         ]}
-        {...panResponder.panHandlers}
       >
         {/* Proactive Nudge - Horizontal thought bubble */}
         {proactiveMsg && !isChatOpen && !isDragging && (
@@ -158,6 +158,7 @@ export function ChatWidget({
           style={{
             transform: [{ scale: isDragging ? 1.1 : pulseAnim }],
           }}
+          {...panResponder.panHandlers}
         >
           <Pressable
             style={[
@@ -166,7 +167,6 @@ export function ChatWidget({
                 backgroundColor: santaMode ? BRAND.primary : colors.card,
                 borderColor: isDragging ? BRAND.primary : colors.border,
                 borderWidth: isDragging ? 2 : 1,
-                pointerEvents: 'none',
               },
             ]}
             accessibilityRole="button"

@@ -12,16 +12,11 @@ export function useDraggableFab(
   const [isOverDismissZone, setIsOverDismissZone] = useState(false);
   const isOverDismissZoneRef = useRef(false);
 
-  // Use runtime dimensions for initial position (not stale module-level constants)
-  const { width: initialW, height: initialH } = Dimensions.get('window');
 
-  // Draggable FAB position - starts at bottom right
-  const pan = useRef(
-    new Animated.ValueXY({
-      x: initialW - FAB_SIZE - EDGE_MARGIN,
-      y: initialH - bottomOffset - FAB_SIZE,
-    })
-  ).current;
+  
+
+  // Draggable FAB translation - starts at (0, 0) relative to its styled layout position
+  const pan = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
 
   // Track if user moved significantly (to distinguish tap from drag)
   const hasMoved = useRef(false);
@@ -29,9 +24,9 @@ export function useDraggableFab(
   // Pulse animation for FAB (only when not dragging)
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
-  // M29 fix: Track animated values via listeners instead of accessing private _value
-  const panXRef = useRef(initialW - FAB_SIZE - EDGE_MARGIN);
-  const panYRef = useRef(initialH - bottomOffset - FAB_SIZE);
+  // Track accumulated translation values via listeners
+  const panXRef = useRef(0);
+  const panYRef = useRef(0);
 
   useEffect(() => {
     const xId = pan.x.addListener(({ value }) => {
@@ -59,6 +54,8 @@ export function useDraggableFab(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
+      onStartShouldSetPanResponderCapture: () => true,
+      onMoveShouldSetPanResponderCapture: () => true,
       onPanResponderTerminationRequest: () => false,
       onShouldBlockNativeResponder: () => true,
       onPanResponderGrant: () => {
@@ -67,9 +64,16 @@ export function useDraggableFab(
         setIsOverDismissZone(false);
         isOverDismissZoneRef.current = false;
 
-        // Record starting absolute coordinates of the FAB
+        // Record starting absolute translation before resetting value to 0
         dragStartXRef.current = panXRef.current;
         dragStartYRef.current = panYRef.current;
+
+        // Record translation offset and reset value to 0 for delta tracking
+        pan.setOffset({
+          x: panXRef.current,
+          y: panYRef.current,
+        });
+        pan.setValue({ x: 0, y: 0 });
 
         if (Platform.OS === 'ios') {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -80,15 +84,18 @@ export function useDraggableFab(
           hasMoved.current = true;
         }
 
-        // Calculate absolute position based on starting coordinates + delta displacement
-        const absoluteX = dragStartXRef.current + gestureState.dx;
-        const absoluteY = dragStartYRef.current + gestureState.dy;
+        // Set value directly relative to offset
+        pan.setValue({ x: gestureState.dx, y: gestureState.dy });
 
-        // Set the values directly on the animated coordinate system for synchronous updates
-        pan.setValue({ x: absoluteX, y: absoluteY });
+        // Calculate absolute position based on start layout + accumulated translation offset + current gesture delta
+        const { width: screenW, height: screenH } = Dimensions.get('window');
+        const currentStartX = screenW - FAB_SIZE - EDGE_MARGIN;
+        const currentStartY = screenH - bottomOffsetRef.current - FAB_SIZE;
+
+        const absoluteX = currentStartX + dragStartXRef.current + gestureState.dx;
+        const absoluteY = currentStartY + dragStartYRef.current + gestureState.dy;
 
         // Realtime distance detection to the bottom center Dismiss Zone
-        const { width: screenW, height: screenH } = Dimensions.get('window');
         const fabCenterX = absoluteX + FAB_SIZE / 2;
         const fabCenterY = absoluteY + FAB_SIZE / 2;
         
@@ -123,6 +130,7 @@ export function useDraggableFab(
 
         // If user tapped without dragging, trigger the onPress callback
         if (!hasMoved.current) {
+          pan.flattenOffset();
           setIsOverDismissZone(false);
           isOverDismissZoneRef.current = false;
           if (onPress) {
@@ -133,6 +141,7 @@ export function useDraggableFab(
 
         // Check if released over Dismiss Zone
         if (isOverDismissZoneRef.current) {
+          pan.flattenOffset();
           if (Platform.OS === 'ios') {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
           }
@@ -144,25 +153,39 @@ export function useDraggableFab(
           return;
         }
 
-        const currentX = panXRef.current;
-        const currentY = panYRef.current;
+        // Save translation state by flattening the offset
+        pan.flattenOffset();
+
+        const currentTranslationX = panXRef.current;
+        const currentTranslationY = panYRef.current;
         const { width: screenW, height: screenH } = Dimensions.get('window');
 
-        // Clamp FAB inside margins (doesn't hard snap to left/right, stays anywhere)
-        const targetX = Math.min(
-          Math.max(currentX, EDGE_MARGIN),
-          screenW - FAB_SIZE - EDGE_MARGIN
-        );
+        // Current start layout coordinates
+        const currentStartX = screenW - FAB_SIZE - EDGE_MARGIN;
+        const currentStartY = screenH - bottomOffsetRef.current - FAB_SIZE;
 
-        // M30 fix: Read bottomOffset from ref for fresh value
+        // Current absolute coordinates
+        const currentX = currentStartX + currentTranslationX;
+        const currentY = currentStartY + currentTranslationY;
+
+        // Snaps to edges: left or right nearest horizontal bound
+        const leftBound = EDGE_MARGIN;
+        const rightBound = screenW - FAB_SIZE - EDGE_MARGIN;
+        const targetX = currentX + FAB_SIZE / 2 < screenW / 2 ? leftBound : rightBound;
+
+        // Clamp Y inside vertical margins
         const clampBottom = bottomOffsetRef.current;
         const minY = 100; // Below status bar
         const maxY = screenH - clampBottom - FAB_SIZE;
         const targetY = Math.min(Math.max(currentY, minY), maxY);
 
-        // Animate to snapped position
+        // Convert the target absolute coordinates back to translation values
+        const targetTranslationX = targetX - currentStartX;
+        const targetTranslationY = targetY - currentStartY;
+
+        // Animate translation to snapped position
         Animated.spring(pan, {
-          toValue: { x: targetX, y: targetY },
+          toValue: { x: targetTranslationX, y: targetTranslationY },
           useNativeDriver: false,
           friction: 7,
           tension: 40,
@@ -180,10 +203,10 @@ export function useDraggableFab(
 
   useEffect(() => {
     const listenerId = pan.x.addListener(({ value }) => {
-      // Use runtime Dimensions instead of stale module-level SNAP_THRESHOLD
-      // so nudge position stays correct after orientation changes
       const currentWidth = Dimensions.get('window').width;
-      isOnRight.current = value + FAB_SIZE / 2 > currentWidth / 2;
+      const currentStartX = currentWidth - FAB_SIZE - EDGE_MARGIN;
+      const absoluteX = currentStartX + value;
+      isOnRight.current = absoluteX + FAB_SIZE / 2 > currentWidth / 2;
     });
     return () => {
       pan.x.removeListener(listenerId);
