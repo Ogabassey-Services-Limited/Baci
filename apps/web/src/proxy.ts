@@ -113,10 +113,10 @@ const IMAGE_FILES_REGEX =
 const BOT_USER_AGENT_REGEX =
   /bot|crawler|spider|crawling|googlebot|bingbot|slurp|duckduckbot|baiduspider|yandexbot|facebookexternalhit|twitterbot|rogerbot|linkedinbot|embedly|quora link preview|showyoubot|outbrain|pinterest|slackbot|vkShare|W3C_Validator/i;
 const PROTOCOL_SCHEME_REGEX = /^[a-z][a-z0-9+.-]*:/i;
-const PRODUCT_PAGE_REGEX = /^\/[^/]+\/products\/[^/]+$/;
-const NESTED_PRODUCT_REGEX = /^\/[^/]+\/[^/]+\/[^/]+$/;
+const NESTED_PRODUCT_SUBROUTE_EXCLUSIONS = new Set(['best-under', 'compare']);
 const CATEGORY_PAGE_REGEX = /^\/[^/]+\/[^/]+\/?$/;
 const STOREFRONT_HOME_REGEX = /^\/[^/]+\/?$/;
+const PDP_HTML_CACHE_CONTROL = 'no-cache, no-store, max-age=0, must-revalidate';
 // Matches blog index/post paths on both the platform root (`/blog`, `/blog/...`)
 // and slug-prefixed storefront variants served from the root domain
 // (`/{slug}/blog`, `/{slug}/blog/...`). Used to canonicalize thumbnail params.
@@ -125,6 +125,97 @@ const STOREFRONT_HOME_REGEX = /^\/[^/]+\/?$/;
 // e.g. `/api/blog/posts` must reach its handler instead of being redirected.
 const BLOG_PATH_REGEX =
   /^(?:\/(?!(?:api|dashboard|admin|auth|login|onboarding|builder|reset-password|checkout|cart|staff|invite|actions|about|contact|pricing|privacy|terms|features|developers|demo|debug-auth|template-preview|track|_next|sitemap\.xml|robots\.txt|manifest\.webmanifest|favicon\.ico)(?:\/|$))[^/]+)?\/blog(?:\/.*)?$/;
+
+// Cache routing must classify the public URL shape, not the rewritten path:
+// root/preview/plain-localhost storefronts are `/{slug}/...`, while custom
+// domains and merchant subdomains start directly at the storefront content path.
+function isSlugPrefixedStorefrontRequest(
+  hostname: string | undefined
+): boolean {
+  if (!hostname) {
+    return false;
+  }
+
+  return (
+    isRootDomain(hostname, ROOT_DOMAIN) ||
+    isVercelPreview(hostname) ||
+    (isLocalhost(hostname) && extractLocalhostSubdomain(hostname) === null)
+  );
+}
+
+function getStorefrontContentSegments(
+  pathname: string,
+  hostname: string | undefined,
+  routeType: 'admin' | 'auth' | 'storefront' | 'api'
+): string[] {
+  if (routeType !== 'storefront') {
+    return [];
+  }
+
+  const pathSegments = pathname.split('/').filter(Boolean);
+  return isSlugPrefixedStorefrontRequest(hostname)
+    ? pathSegments.slice(1)
+    : pathSegments;
+}
+
+function getNestedProductSubrouteSegment(
+  pathname: string,
+  hostname: string | undefined,
+  routeType: 'admin' | 'auth' | 'storefront' | 'api'
+): string | null {
+  const contentSegments = getStorefrontContentSegments(
+    pathname,
+    hostname,
+    routeType
+  );
+  if (contentSegments.length !== 3) {
+    return null;
+  }
+
+  return contentSegments[1] ?? null;
+}
+
+function isStorefrontNestedListingPath(
+  pathname: string,
+  hostname: string | undefined,
+  routeType: 'admin' | 'auth' | 'storefront' | 'api'
+): boolean {
+  const subrouteSegment = getNestedProductSubrouteSegment(
+    pathname,
+    hostname,
+    routeType
+  );
+  return (
+    subrouteSegment !== null &&
+    NESTED_PRODUCT_SUBROUTE_EXCLUSIONS.has(subrouteSegment)
+  );
+}
+
+function isStorefrontProductPagePath(
+  pathname: string,
+  hostname: string | undefined,
+  routeType: 'admin' | 'auth' | 'storefront' | 'api'
+): boolean {
+  const contentSegments = getStorefrontContentSegments(
+    pathname,
+    hostname,
+    routeType
+  );
+  if (contentSegments.length === 2) {
+    return true;
+  }
+
+  const subrouteSegment = getNestedProductSubrouteSegment(
+    pathname,
+    hostname,
+    routeType
+  );
+  if (subrouteSegment === null) {
+    return false;
+  }
+
+  return !NESTED_PRODUCT_SUBROUTE_EXCLUSIONS.has(subrouteSegment);
+}
 
 // Routes that should not be rewritten (main app routes)
 const MAIN_APP_ROUTES = [
@@ -1953,26 +2044,9 @@ function applySecurityHeaders(
     return response;
   }
 
-  // Cache product pages (both /products/slug and /category/slug formats)
-  if (
-    pathname.match(PRODUCT_PAGE_REGEX) ||
-    pathname.match(NESTED_PRODUCT_REGEX)
-  ) {
-    response.headers.set(
-      'Cache-Control',
-      isBot
-        ? 's-maxage=3600, stale-while-revalidate=86400'
-        : 's-maxage=300, stale-while-revalidate=3600'
-    );
-    return response;
-  }
-
-  // Cache category pages
-  if (
-    pathname.match(CATEGORY_PAGE_REGEX) &&
-    !pathname.startsWith('/dashboard') &&
-    !pathname.startsWith('/api')
-  ) {
+  // Keep SEO listing subroutes cacheable; they share the 3-segment shape used
+  // by category PDPs but do not stream PDP metadata/content slots.
+  if (isStorefrontNestedListingPath(pathname, hostname, routeType)) {
     response.headers.set(
       'Cache-Control',
       isBot
@@ -1982,18 +2056,39 @@ function applySecurityHeaders(
     return response;
   }
 
-  // Cache storefront home pages
+  // Do not CDN-cache PDP HTML. Next 16 Cache Components can stream internal
+  // metadata boundaries ahead of the resolved page tree; replaying a cached
+  // PDP document shell has produced production resume mismatches. Product data
+  // and static assets remain cached below the HTML layer.
+  if (isStorefrontProductPagePath(pathname, hostname, routeType)) {
+    response.headers.set('Cache-Control', PDP_HTML_CACHE_CONTROL);
+    return response;
+  }
+
+  // Two-segment storefront documents include custom-domain PDP URLs such as
+  // `/smartphones/samsung-galaxy-z-fold-4`. Keep them out of the CDN document
+  // cache for the same Next resume-safety reason as explicit PDP routes.
   if (
+    routeType === 'storefront' &&
+    pathname.match(CATEGORY_PAGE_REGEX) &&
+    !pathname.startsWith('/dashboard') &&
+    !pathname.startsWith('/api')
+  ) {
+    response.headers.set('Cache-Control', PDP_HTML_CACHE_CONTROL);
+    return response;
+  }
+
+  // Single-segment storefront documents can be catalog pages on custom domains
+  // (`/steam-deck`) or path-mode merchant shells (`/{slug}`). Keep these HTML
+  // documents out of CDN storage; lower-level product/category data caches
+  // still carry repeat traffic.
+  if (
+    routeType === 'storefront' &&
     pathname.match(STOREFRONT_HOME_REGEX) &&
     !pathname.startsWith('/dashboard') &&
     !pathname.startsWith('/api')
   ) {
-    response.headers.set(
-      'Cache-Control',
-      isBot
-        ? 's-maxage=600, stale-while-revalidate=3600'
-        : 's-maxage=60, stale-while-revalidate=300'
-    );
+    response.headers.set('Cache-Control', PDP_HTML_CACHE_CONTROL);
     return response;
   }
 
