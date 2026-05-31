@@ -1450,12 +1450,64 @@ const DEFAULT_TITLE_MAX_LENGTH = 70;
 /**
  * Standard robots policy for indexable public storefront pages.
  */
-export function getIndexableRobotsMetadata(): Metadata['robots'] {
+const STOREFRONT_FILTER_SEARCH_PARAMS: ReadonlyMap<string, string> = new Map([
+  ['brand', 'brand'],
+  ['brands', 'brand'],
+  ['color', 'color'],
+  ['colors', 'color'],
+  ['condition', 'condition'],
+  ['displaySize', 'displaySize'],
+  ['displayType', 'displayType'],
+  ['maxPrice', 'maxPrice'],
+  ['minPrice', 'minPrice'],
+  ['ram', 'ram'],
+  ['simType', 'simType'],
+  ['storage', 'storage'],
+] as const);
+
+export type StorefrontRobotsSearchParams = Record<
+  string,
+  string | string[] | undefined
+>;
+
+function hasSearchParamValue(value: string | string[] | undefined): boolean {
+  if (Array.isArray(value)) {
+    return value.some((entry) => entry.trim() !== '');
+  }
+
+  return typeof value === 'string' && value.trim() !== '';
+}
+
+function countActiveStorefrontFilters(
+  searchParams?: StorefrontRobotsSearchParams
+): number {
+  if (!searchParams) {
+    return 0;
+  }
+
+  const activeFilters = new Set<string>();
+
+  for (const [key, value] of Object.entries(searchParams)) {
+    const canonicalFilterKey = STOREFRONT_FILTER_SEARCH_PARAMS.get(key);
+
+    if (canonicalFilterKey && hasSearchParamValue(value)) {
+      activeFilters.add(canonicalFilterKey);
+    }
+  }
+
+  return activeFilters.size;
+}
+
+export function getIndexableRobotsMetadata(
+  searchParams?: StorefrontRobotsSearchParams
+): Metadata['robots'] {
+  const isIndexable = countActiveStorefrontFilters(searchParams) <= 1;
+
   return {
-    index: true,
+    index: isIndexable,
     follow: true,
     googleBot: {
-      index: true,
+      index: isIndexable,
       follow: true,
       'max-image-preview': 'large',
       'max-snippet': -1,

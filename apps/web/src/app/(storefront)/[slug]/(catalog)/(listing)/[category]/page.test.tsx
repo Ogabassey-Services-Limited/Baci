@@ -879,7 +879,7 @@ describe('category page route', () => {
     );
   });
 
-  it('keeps metadata on the canonical category listing regardless of pagination', async () => {
+  it('uses page-specific category metadata for paginated listings', async () => {
     const firstPageMetadata = await generateMetadata({
       params: Promise.resolve({ slug: 'test-store', category: 'smartphones' }),
       searchParams: Promise.resolve({ page: '1' }),
@@ -893,23 +893,38 @@ describe('category page route', () => {
       'https://test-store.usebaci.com/smartphones'
     );
     expect(secondPageMetadata.alternates?.canonical).toBe(
-      'https://test-store.usebaci.com/smartphones'
+      'https://test-store.usebaci.com/smartphones?page=2'
     );
     expect(typeof secondPageMetadata.title).toBe('string');
     expect(secondPageMetadata.title).toContain('Smartphones');
-    expect(secondPageMetadata.title).not.toContain('Page 2');
+    expect(secondPageMetadata.title).toContain('Page 2');
     expect(secondPageMetadata.title).toContain('Ogabassey');
     expect((secondPageMetadata.title as string).length).toBeLessThanOrEqual(70);
     expect(secondPageMetadata.title).not.toContain('| Ogabassey | Ogabassey');
+    expect(secondPageMetadata.openGraph?.url).toBe(
+      'https://test-store.usebaci.com/smartphones?page=2'
+    );
     expect(secondPageMetadata.openGraph?.images).toEqual([
       {
-        url: 'https://cdn.example.com/product-1.png',
+        url: 'https://cdn.example.com/product-21.png',
         alt: 'Smartphones',
       },
     ]);
     expect(secondPageMetadata.twitter?.images).toEqual([
-      'https://cdn.example.com/product-1.png',
+      'https://cdn.example.com/product-21.png',
     ]);
+  });
+
+  it('matches the category route 404 behavior for out-of-range metadata pages', async () => {
+    await expect(
+      generateMetadata({
+        params: Promise.resolve({
+          slug: 'test-store',
+          category: 'smartphones',
+        }),
+        searchParams: Promise.resolve({ page: '3' }),
+      })
+    ).rejects.toThrow('NEXT_NOT_FOUND');
   });
 
   it('uses hub faq items for FAQ JSON-LD', async () => {

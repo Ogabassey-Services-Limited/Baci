@@ -693,6 +693,49 @@ describe('getIndexableRobotsMetadata', () => {
       'max-video-preview': -1,
     });
   });
+
+  it('keeps focused single-filter listing URLs indexable', () => {
+    expect(getIndexableRobotsMetadata({ brand: 'Dell' })).toMatchObject({
+      index: true,
+      follow: true,
+      googleBot: {
+        index: true,
+        follow: true,
+      },
+    });
+  });
+
+  it('deduplicates legacy singular and plural keys for the same listing filter', () => {
+    expect(
+      getIndexableRobotsMetadata({
+        brand: 'Dell',
+        brands: 'Dell',
+      })
+    ).toMatchObject({
+      index: true,
+      follow: true,
+      googleBot: {
+        index: true,
+        follow: true,
+      },
+    });
+  });
+
+  it('noindexes multi-filter listing URLs while preserving follow directives', () => {
+    expect(
+      getIndexableRobotsMetadata({
+        brand: 'Dell',
+        minPrice: '100000',
+      })
+    ).toMatchObject({
+      index: false,
+      follow: true,
+      googleBot: {
+        index: false,
+        follow: true,
+      },
+    });
+  });
 });
 
 describe('generateOrganizationSchema', () => {

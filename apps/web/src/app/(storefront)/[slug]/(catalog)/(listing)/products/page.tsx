@@ -9,7 +9,11 @@ import {
   getIndexableRobotsMetadata,
 } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
-import { STOREFRONT_PRODUCTS_PER_PAGE } from '@/lib/storefront-pagination';
+import {
+  buildStorefrontPageHref,
+  parseStorefrontPageParam,
+  STOREFRONT_PRODUCTS_PER_PAGE,
+} from '@/lib/storefront-pagination';
 import {
   getStorefrontOpenGraphImages,
   getStorefrontTwitterImages,
@@ -19,13 +23,20 @@ import { ProductsPageContent } from './products-page-content';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ page?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
 export async function generateMetadata({
   params,
+  searchParams,
 }: PageProps): Promise<Metadata> {
   const { slug } = await params;
+  const resolvedSearchParams = await searchParams;
+  const currentPage = parseStorefrontPageParam(resolvedSearchParams.page);
+
+  if (!currentPage) {
+    notFound();
+  }
 
   if (!isValidMerchantIdentifier(slug)) {
     notFound();
@@ -40,13 +51,25 @@ export async function generateMetadata({
   }
 
   const productIndex = await getCachedStorefrontProductIndex(merchant.id, {
-    page: 1,
+    page: currentPage,
     limit: STOREFRONT_PRODUCTS_PER_PAGE,
   });
+  const totalPages = Math.max(1, productIndex.totalPages || 1);
+
+  if (!productIndex.hasError && currentPage > totalPages) {
+    notFound();
+  }
 
   const baseUrl = buildStoreUrl(merchant);
   const productsUrl = `${baseUrl}/products`;
-  const title = `Products | ${merchant.business_name}`;
+  const paginatedProductsUrl = buildStorefrontPageHref(
+    productsUrl,
+    currentPage
+  );
+  const title =
+    currentPage > 1
+      ? `Products | Page ${currentPage} | ${merchant.business_name}`
+      : `Products | ${merchant.business_name}`;
   const description = generateMetaDescription(
     merchant.site_description || '',
     160,
@@ -65,13 +88,13 @@ export async function generateMetadata({
     title,
     description,
     alternates: {
-      canonical: productsUrl,
+      canonical: paginatedProductsUrl,
     },
-    robots: getIndexableRobotsMetadata(),
+    robots: getIndexableRobotsMetadata(resolvedSearchParams),
     openGraph: {
       title,
       description,
-      url: productsUrl,
+      url: paginatedProductsUrl,
       type: 'website',
       siteName: merchant.business_name,
       images: getStorefrontOpenGraphImages(
