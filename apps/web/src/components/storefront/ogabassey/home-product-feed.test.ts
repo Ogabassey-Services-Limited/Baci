@@ -63,6 +63,7 @@ describe('mapStorefrontProductsToOgabasseyProducts', () => {
         price: '₦2,100,000',
         rawPrice: 2100000,
         image: '/default.jpg',
+        image_alt: 'Black',
         description: 'Flagship phone',
         rating: 4.9,
         category: 'Smartphones',
@@ -94,6 +95,7 @@ describe('mapStorefrontProductsToOgabasseyProducts', () => {
         category: 'General',
         condition: 'New & Used',
         image: '/galaxy.jpg',
+        image_alt: 'Galaxy',
         has_condition_offers: true,
       })
     );

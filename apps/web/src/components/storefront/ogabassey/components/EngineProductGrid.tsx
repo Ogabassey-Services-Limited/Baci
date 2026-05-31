@@ -49,13 +49,22 @@ function toTemplateProducts(storefrontProducts: StorefrontProduct[]): Product[] 
       maximumFractionDigits: 0,
     }).format(product.price);
 
+    let imageAlt = '';
     const images = (product.images ?? []).flatMap((image) => {
       if (typeof image === 'string') {
         return image ? [image] : [];
       }
 
       if (image && typeof image === 'object' && 'url' in image) {
-        return typeof image.url === 'string' && image.url ? [image.url] : [];
+        if (typeof image.url !== 'string' || !image.url) {
+          return [];
+        }
+
+        if (!imageAlt && 'alt' in image && typeof image.alt === 'string') {
+          imageAlt = image.alt.trim();
+        }
+
+        return [image.url];
       }
 
       return [];
@@ -79,6 +88,7 @@ function toTemplateProducts(storefrontProducts: StorefrontProduct[]): Product[] 
       price: formattedPrice,
       rawPrice: product.price,
       image: product.image || images[0] || '',
+      image_alt: imageAlt || undefined,
       description: product.description,
       rating: product.rating ?? 4.5,
       category: categoryObj?.name || product.category || 'General',

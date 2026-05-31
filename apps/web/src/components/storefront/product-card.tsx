@@ -49,6 +49,15 @@ function buildStorefrontProductHref(
   return `/${merchantSlug}${normalizedPath}` as Route;
 }
 
+function getRenderedProductImageAlt(product: Product): string {
+  const renderedImageUrl = (product.imageLarge || product.image || '').trim();
+  const matchingImage = product.images?.find(
+    (image) => image.url.trim() === renderedImageUrl
+  );
+
+  return matchingImage?.alt.trim() || product.name;
+}
+
 /**
  * Product Card for Storefront Grid
  * Relying on React Compiler for automatic memoization and performance optimizations.
@@ -90,7 +99,7 @@ export function StorefrontProductCard({
   // Extract category (handles both categories join and direct category)
   const productCategory =
     product.categories?.name || product.category || 'General';
-  const productImageAlt = product.images?.[0]?.alt?.trim() || product.name;
+  const productImageAlt = getRenderedProductImageAlt(product);
 
   const handleAddToCart = () => {
     if (isOutOfStock) return;
@@ -138,6 +147,7 @@ export function StorefrontProductCard({
         <Link
           href={buildStorefrontProductHref(product, merchantSlug)}
           className="block"
+          aria-label={product.name}
         >
           <ProductCardImage
             src={product.imageLarge}

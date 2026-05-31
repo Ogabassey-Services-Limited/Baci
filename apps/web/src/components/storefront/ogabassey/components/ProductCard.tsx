@@ -34,9 +34,39 @@ function stripHtml(html: string): string {
   return result;
 }
 
+function getImagePayloadAlt(product: Product): string {
+  if (!Array.isArray(product.images)) {
+    return '';
+  }
+
+  const primaryImageUrl = product.image.trim();
+
+  for (const image of product.images as unknown[]) {
+    if (!image || typeof image !== 'object') {
+      continue;
+    }
+
+    const candidate = image as Record<string, unknown>;
+    const url = typeof candidate.url === 'string' ? candidate.url.trim() : '';
+
+    if (primaryImageUrl && url && url !== primaryImageUrl) {
+      continue;
+    }
+
+    const alt = typeof candidate.alt === 'string' ? candidate.alt.trim() : '';
+    if (alt) {
+      return alt;
+    }
+  }
+
+  return '';
+}
+
 function getProductImageAlt(product: Product): string {
   const explicitAlt =
-    product.seo_alt_text?.trim() || product.image_alt?.trim() || '';
+    product.seo_alt_text?.trim() ||
+    product.image_alt?.trim() ||
+    getImagePayloadAlt(product);
 
   if (explicitAlt) {
     return explicitAlt;

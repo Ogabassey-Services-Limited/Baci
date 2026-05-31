@@ -156,6 +156,34 @@ describe('ProductCard', () => {
     ).toBeInTheDocument();
   });
 
+  it('uses alt text from the primary image payload when present', () => {
+    render(
+      <ProductCard
+        product={
+          {
+            ...mockProduct,
+            image: 'https://example.com/img.jpg',
+            images: [
+              {
+                url: 'https://example.com/img.jpg',
+                alt: 'Retail box with device front view',
+                order: 0,
+              },
+            ],
+          } as unknown as typeof mockProduct
+        }
+        onAddToCart={vi.fn()}
+        isAdded={false}
+      />
+    );
+
+    expect(
+      screen.getByRole('img', {
+        name: 'Retail box with device front view',
+      })
+    ).toBeInTheDocument();
+  });
+
   it('falls back to a brand-qualified image alt when the name omits the brand', () => {
     render(
       <ProductCard

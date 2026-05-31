@@ -36,17 +36,32 @@ const mapImage = (image: unknown): string => {
   return '';
 };
 
+const mapImageAlt = (image: unknown): string => {
+  if (
+    typeof image === 'object' &&
+    image !== null &&
+    'alt' in image &&
+    typeof image.alt === 'string'
+  ) {
+    return image.alt.trim();
+  }
+
+  return '';
+};
+
 export function mapStorefrontProductsToOgabasseyProducts(
   storefrontProducts: StorefrontProduct[]
 ): OgabasseyProduct[] {
   return storefrontProducts.map((product) => {
     const images: string[] = [];
+    let imageAlt = '';
 
     if (product.images) {
       for (const image of product.images) {
         const mappedImage = mapImage(image);
         if (mappedImage) {
           images.push(mappedImage);
+          imageAlt ||= mapImageAlt(image);
         }
       }
     }
@@ -64,6 +79,7 @@ export function mapStorefrontProductsToOgabasseyProducts(
       price: NGN_PRICE_FORMATTER.format(product.price),
       rawPrice: product.price,
       image: product.image || images[0] || '',
+      image_alt: imageAlt || undefined,
       description: product.description,
       rating: product.rating ?? 4.5,
       category: category?.name || product.category || 'General',
