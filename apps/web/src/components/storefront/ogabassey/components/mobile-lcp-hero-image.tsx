@@ -83,6 +83,7 @@ export function MobileLcpHeroImage({
       />
       <img
         {...imgProps}
+        alt={alt}
         fetchPriority={shouldPrioritizeImage ? 'high' : undefined}
         src={TRANSPARENT_PIXEL_SRC}
         className={`h-full w-full ${

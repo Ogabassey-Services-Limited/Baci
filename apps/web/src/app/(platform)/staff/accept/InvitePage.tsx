@@ -5,14 +5,14 @@ import { ThemedCard } from '@/components/themed/themed-card';
 
 export interface InvitePageProps {
   merchantName: string;
-  role: string;
+  staffRole: string;
   inviteEmail: string;
   token: string;
 }
 
 export default function InvitePage({
   merchantName,
-  role,
+  staffRole,
   inviteEmail,
   token,
 }: InvitePageProps) {
@@ -33,7 +33,7 @@ export default function InvitePage({
           <h1 className="text-2xl font-bold mb-2">You're Invited! 🎉</h1>
           <p className="text-muted-foreground">
             <strong>{merchantName}</strong> has invited you to join their team
-            as a <strong>{role}</strong>.
+            as a <strong>{staffRole}</strong>.
           </p>
         </div>
 
