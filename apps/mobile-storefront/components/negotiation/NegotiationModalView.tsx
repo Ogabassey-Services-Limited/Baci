@@ -1,5 +1,4 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
-import { formatPrice } from '@/stores/cart-store';
 import {
   ActivityIndicator,
   Alert,
@@ -10,15 +9,18 @@ import {
   View,
 } from 'react-native';
 import Animated, { FadeIn, FadeInDown, FadeOut } from 'react-native-reanimated';
-import AppKeyboardContainer from '@/components/ui/AppKeyboardContainer';
 import AppKeyboardAwareScrollView from '@/components/ui/AppKeyboardAwareScrollView';
+import AppKeyboardContainer from '@/components/ui/AppKeyboardContainer';
 import { BRAND, palette } from '@/constants/Colors';
-import { NEGOTIATION_CHEAPER_BUTTON_THRESHOLD } from './negotiation.constants';
+import { formatPrice } from '@/stores/cart-store';
 import { negotiationModalViewStyles as styles } from './NegotiationModalView.styles';
 import type {
   NegotiationModalViewProps,
   NegotiationStatus,
 } from './NegotiationModalView.types';
+import { NegotiationOfferForm } from './NegotiationOfferForm';
+import { NegotiationProductSummary } from './NegotiationProductSummary';
+import { NEGOTIATION_CHEAPER_BUTTON_THRESHOLD } from './negotiation.constants';
 import { validateNegotiationOffer } from './negotiation-validators';
 
 export type { NegotiationModalViewProps, NegotiationStatus };
@@ -123,41 +125,17 @@ export function NegotiationModalView({
             ]}
             showsVerticalScrollIndicator={false}
           >
-            <View style={styles.productInfo}>
-              <Text style={styles.productLabel}>PRODUCT</Text>
-              <Text style={styles.productName} numberOfLines={1}>
-                {productName}
-              </Text>
-              <Text style={styles.priceRow}>
-                <Text style={styles.priceLabel}>Current Price: </Text>
-                <Text style={styles.priceValue}>
-                  {formatPrice(currentPrice)}
-                </Text>
-              </Text>
-            </View>
+            <NegotiationProductSummary
+              currentPrice={currentPrice}
+              productName={productName}
+            />
 
             {status === 'input' && (
-              <Animated.View entering={FadeIn.duration(200)}>
-                <Text style={styles.inputLabel}>Your Offer (₦)</Text>
-                <View style={styles.inputContainer}>
-                  <TextInput
-                    style={styles.priceInput}
-                    value={offer}
-                    onChangeText={onOfferChange}
-                    placeholder="Enter amount..."
-                    placeholderTextColor={palette.gray[400]}
-                    keyboardType="numeric"
-                  />
-                </View>
-                <Pressable
-                  style={styles.submitButton}
-                  onPress={handleSubmitPress}
-                  accessibilityLabel="Submit your offer"
-                  accessibilityRole="button"
-                >
-                  <Text style={styles.submitButtonText}>Submit Offer</Text>
-                </Pressable>
-              </Animated.View>
+              <NegotiationOfferForm
+                offer={offer}
+                onOfferChange={onOfferChange}
+                onSubmitPress={handleSubmitPress}
+              />
             )}
 
             {status === 'processing' && (
@@ -166,7 +144,7 @@ export function NegotiationModalView({
                 style={styles.centerContainer}
               >
                 <ActivityIndicator size="large" color={BRAND.primary} />
-                <Text style={styles.processingText}>Checking best deal...</Text>
+                <Text style={styles.processingText}>Checking best deal…</Text>
               </Animated.View>
             )}
 

@@ -262,7 +262,7 @@ export default function PayoutSettingsScreen() {
                       { color: colors.textSecondary },
                     ]}
                   >
-                    Verifying account...
+                    Verifying account…
                   </Text>
                 </View>
               )}

@@ -114,7 +114,7 @@ describe('ScanScreen', () => {
       // Camera permission is null before the async effect resolves
       mockPermissionStatus = 'granted';
       render(<ScanScreen />);
-      expect(screen.getByText('Requesting camera permission...')).toBeDefined();
+      expect(screen.getByText('Requesting camera permission…')).toBeDefined();
     });
 
     it('renders permission denied state with Go Back button', async () => {

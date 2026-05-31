@@ -3,11 +3,12 @@ import { resolveVariantSelectionParamResolution } from '@baci/shared/lib';
 import type { Metadata, Route } from 'next';
 import { headers } from 'next/headers';
 import { notFound, permanentRedirect } from 'next/navigation';
+import { connection } from 'next/server';
 import { type ReactNode, Suspense } from 'react';
 import { StorefrontRouteNotFound } from '@/app/(storefront)/[slug]/storefront-route-not-found';
 import { getStorefrontShellSnapshotBase } from '@/app/(storefront)/[slug]/storefront-shell-snapshot';
 import { OgabasseyPdpProductLcpSkeleton } from '@/app/(storefront)/ogabassey/ogabassey-pdp-product-lcp-skeleton';
-import { preloadOgabasseyPdpProductImage } from '@/app/(storefront)/ogabassey/ogabassey-pdp-product-resource-hints';
+import { OgabasseyPdpProductResourceHints } from '@/app/(storefront)/ogabassey/ogabassey-pdp-product-resource-hints';
 import { preloadOgabasseyPdpStaticResources } from '@/app/(storefront)/ogabassey/ogabassey-pdp-static-resource-hints';
 import { OgabasseyPdpBelowFoldIsland } from '@/components/storefront/ogabassey/pdp/client-islands';
 import { createCriticalCartProduct } from '@/components/storefront/ogabassey/pdp/critical-cart-product';
@@ -970,20 +971,13 @@ async function CategoryProductPageContent({
   return (
     <>
       {/* nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml - JSON-LD is sanitized and not executed */}
-      <script
-        type="application/ld+json"
-        // nosemgrep: react-dangerouslysetinnerhtml, typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
-        // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema sanitized with safeJsonLdStringify()
-        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(productSchema) }}
-      />
+      <script type="application/ld+json">
+        {safeJsonLdStringify(productSchema)}
+      </script>
       {/* nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml - JSON-LD is sanitized and not executed */}
-      <script
-        type="application/ld+json"
-        // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema sanitized with safeJsonLdStringify()
-        dangerouslySetInnerHTML={{
-          __html: safeJsonLdStringify(breadcrumbSchema),
-        }} // nosemgrep: react-dangerouslysetinnerhtml, typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
-      />
+      <script type="application/ld+json">
+        {safeJsonLdStringify(breadcrumbSchema)}
+      </script>
       {/* Hidden crawlable summary without a second page-level heading */}
       <article className="sr-only" aria-label={`${product.name} summary`}>
         <p>{priceSeoCopy.answer}</p>
@@ -1008,6 +1002,10 @@ export default async function CategoryProductPage({
   params,
   searchParams,
 }: PageProps) {
+  // Keep the PDP leaf segment request-time. A cacheable PDP shell can resume
+  // with Next's metadata boundary in the first host slot on Vercel/Next 16.
+  await connection();
+
   const { slug, category, productSlug } = await params;
   if (!isValidMerchantIdentifier(slug)) {
     notFound();
@@ -1072,9 +1070,6 @@ export default async function CategoryProductPage({
     : Promise.resolve<'' | `/${string}`>('');
 
   try {
-    if (primaryProductImage) {
-      preloadOgabasseyPdpProductImage({ src: primaryProductImage });
-    }
     if (criticalProduct) {
       preloadOgabasseyPdpStaticResources();
     }
@@ -1091,6 +1086,9 @@ export default async function CategoryProductPage({
 
   return (
     <>
+      {primaryProductImage ? (
+        <OgabasseyPdpProductResourceHints src={primaryProductImage} />
+      ) : null}
       {criticalProduct ? (
         <>
           <OgabasseyPdpCriticalShell

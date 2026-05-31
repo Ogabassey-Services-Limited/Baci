@@ -71,7 +71,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
       }}
     />
   ) : (
-    <div className="w-10 h-10 rounded-full bg-red-600 flex items-center justify-center text-white shadow-lg p-2 self-start">
+    <div className="size-10 rounded-full bg-red-600 flex items-center justify-center text-white shadow-lg p-2 self-start">
       <svg
         xmlns="http://www.w3.org/2000/svg"
         viewBox="0 0 24 24"

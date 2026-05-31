@@ -120,7 +120,7 @@ export function BNPLCheckoutStatusView(props: BNPLCheckoutStatusViewProps) {
             ]}
           >
             Your {props.gatewayName} payment has been approved. Redirecting to
-            order confirmation...
+            order confirmation…
           </Text>
           <ActivityIndicator
             accessibilityLabel="Redirecting after payment success"

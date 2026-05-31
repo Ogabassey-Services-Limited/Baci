@@ -233,7 +233,7 @@ export default function InventoryScreen() {
       >
         <ActivityIndicator size="large" color={colors.primary} />
         <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-          Loading inventory...
+          Loading inventory…
         </Text>
       </SafeAreaView>
     );

@@ -117,7 +117,7 @@ export function ReviewForm({
       <Card className={className}>
         <CardContent className="pt-6">
           <div className="text-center py-8">
-            <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
+            <CheckCircle className="size-12 text-green-500 mx-auto mb-4" />
             <h3 className="text-lg font-semibold mb-2">Thank You!</h3>
             <p className="text-muted-foreground">
               Your review has been submitted and is pending approval.
@@ -194,7 +194,7 @@ export function ReviewForm({
           </div>
 
           <Button type="submit" disabled={isSubmitting} className="w-full">
-            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isSubmitting && <Loader2 className="mr-2 size-4 animate-spin" />}
             Submit Review
           </Button>
 

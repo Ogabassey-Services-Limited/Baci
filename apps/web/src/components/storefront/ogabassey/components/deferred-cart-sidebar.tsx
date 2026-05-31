@@ -9,10 +9,9 @@ type CartSidebarComponent = ComponentType;
 
 function CartSidebarLoading() {
   return (
-    <div
+    <output
       aria-label="Loading cart"
       className="fixed inset-y-0 right-0 z-[60] w-screen max-w-md bg-[var(--store-background)] shadow-2xl"
-      role="status"
     />
   );
 }

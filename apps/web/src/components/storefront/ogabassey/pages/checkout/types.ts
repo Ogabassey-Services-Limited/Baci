@@ -1,3 +1,5 @@
+import type { ShippingQuote } from '@/types/shipping-quote';
+
 export interface SavedAddress {
   id: number;
   label: string;
@@ -11,16 +13,7 @@ export interface ShippingLocation {
   state: string;
 }
 
-export interface ShippingQuote {
-  id: string;
-  provider: string;
-  serviceTier: string;
-  carrierName: string;
-  displayName: string;
-  price: number;
-  estimatedDays: number;
-  currency: string;
-}
+export type { ShippingQuote };
 
 export interface QuoteResponse {
   quotes: {

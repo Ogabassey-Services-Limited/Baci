@@ -121,7 +121,7 @@ export const NodeSelector = ({ open, onOpenChange }: NodeSelectorProps) => {
       >
         <Button size="sm" variant="ghost" className="gap-2">
           <span className="whitespace-nowrap text-sm">{activeItem.name}</span>
-          <ChevronDown className="h-4 w-4" />
+          <ChevronDown className="size-4" />
         </Button>
       </PopoverTrigger>
       <PopoverContent sideOffset={5} align="start" className="w-48 p-1">
@@ -136,11 +136,11 @@ export const NodeSelector = ({ open, onOpenChange }: NodeSelectorProps) => {
           >
             <div className="flex items-center gap-2">
               <div className="rounded-sm border p-1">
-                <item.icon className="h-3 w-3" />
+                <item.icon className="size-3" />
               </div>
               <span>{item.name}</span>
             </div>
-            {activeItem.name === item.name && <Check className="h-4 w-4" />}
+            {activeItem.name === item.name && <Check className="size-4" />}
           </EditorBubbleItem>
         ))}
       </PopoverContent>

@@ -21,7 +21,7 @@ export function OrderCardDetails({
       <div className="grid gap-6 md:grid-cols-2">
         <div>
           <h4 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            <Box className="h-3 w-3" /> Item Details
+            <Box className="size-3" /> Item Details
           </h4>
           <div className="space-y-2">
             {order.items?.map((item) => (
@@ -30,8 +30,8 @@ export function OrderCardDetails({
                 className="flex items-center justify-between rounded p-2 text-sm hover:bg-muted/20"
               >
                 <div className="flex items-center gap-3 overflow-hidden">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-muted">
-                    <Box className="h-4 w-4 text-muted-foreground/40" />
+                  <div className="flex size-8 shrink-0 items-center justify-center rounded bg-muted">
+                    <Box className="size-4 text-muted-foreground/40" />
                   </div>
                   <div className="truncate">
                     <p className="truncate font-medium">{item.name}</p>
@@ -55,7 +55,7 @@ export function OrderCardDetails({
 
         <div>
           <h4 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            <MapPin className="h-3 w-3" /> Fulfillment
+            <MapPin className="size-3" /> Fulfillment
           </h4>
           <div className="dashboard-surface-elevated space-y-3 rounded-lg border p-4 text-sm">
             <div className="flex justify-between border-b pb-2">

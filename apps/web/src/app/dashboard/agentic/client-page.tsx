@@ -73,7 +73,7 @@ export default function AgenticDashboardClientPage({
         <Card className="border-border/70">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
-              <Bot className="h-5 w-5 text-primary" />
+              <Bot className="size-5 text-primary" />
               Agentic centers are unavailable
             </CardTitle>
             <CardDescription>
@@ -87,7 +87,7 @@ export default function AgenticDashboardClientPage({
           <Card className="border-border/70">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
-                <Bot className="h-5 w-5 text-primary" />
+                <Bot className="size-5 text-primary" />
                 Agentic centers are paused
               </CardTitle>
               <CardDescription>
@@ -108,25 +108,25 @@ export default function AgenticDashboardClientPage({
           <TabsList aria-label="Agentic commerce center tabs">
             {showActionCenter && (
               <TabsTrigger value="actions">
-                <Bot className="mr-2 h-4 w-4" />
+                <Bot className="mr-2 size-4" />
                 Action center
               </TabsTrigger>
             )}
             {showTrustCenter && (
               <TabsTrigger value="trust">
-                <ShieldCheck className="mr-2 h-4 w-4" />
+                <ShieldCheck className="mr-2 size-4" />
                 Trust center
               </TabsTrigger>
             )}
             {showUniversalCart && (
               <TabsTrigger value="universal-cart">
-                <ShoppingCart className="mr-2 h-4 w-4" />
+                <ShoppingCart className="mr-2 size-4" />
                 Universal Cart
               </TabsTrigger>
             )}
             {showCrawlerCenter && (
               <TabsTrigger value="crawler">
-                <Radar className="mr-2 h-4 w-4" />
+                <Radar className="mr-2 size-4" />
                 Crawler visibility
               </TabsTrigger>
             )}

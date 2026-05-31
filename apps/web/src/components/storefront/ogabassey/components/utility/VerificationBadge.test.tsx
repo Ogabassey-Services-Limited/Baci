@@ -10,7 +10,7 @@ vi.mock('@/env', () => ({
 }));
 
 describe('VerificationBadge', () => {
-  it('shows loading state with "Verifying customer..." text', () => {
+  it('shows loading state with "Verifying customer…" text', () => {
     render(
       <VerificationBadge
         verified={false}
@@ -18,7 +18,7 @@ describe('VerificationBadge', () => {
       />
     );
 
-    expect(screen.getByText('Verifying customer...')).toBeInTheDocument();
+    expect(screen.getByText('Verifying customer…')).toBeInTheDocument();
   });
 
   it('shows verified state with customer name', () => {

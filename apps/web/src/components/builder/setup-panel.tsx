@@ -142,7 +142,7 @@ export function SetupPanel({ settings, onChange }: SetupPanelProps) {
         {/* Site Settings */}
         <Card className="p-4 space-y-4">
           <div className="flex items-center gap-2">
-            <Globe className="w-4 h-4 text-primary" />
+            <Globe className="size-4 text-primary" />
             <h3 className="font-medium">General Site Settings</h3>
           </div>
 
@@ -281,7 +281,7 @@ export function SetupPanel({ settings, onChange }: SetupPanelProps) {
         {/* Branding */}
         <Card className="p-4 space-y-4">
           <div className="flex items-center gap-2">
-            <ImageIcon className="w-4 h-4 text-primary" />
+            <ImageIcon className="size-4 text-primary" />
             <h3 className="font-medium">Branding</h3>
           </div>
 
@@ -323,7 +323,7 @@ export function SetupPanel({ settings, onChange }: SetupPanelProps) {
         {/* Social Media */}
         <Card className="p-4 space-y-4">
           <div className="flex items-center gap-2">
-            <Globe className="w-4 h-4 text-primary" />
+            <Globe className="size-4 text-primary" />
             <h3 className="font-medium">Social Media Links</h3>
           </div>
 
@@ -385,7 +385,7 @@ export function SetupPanel({ settings, onChange }: SetupPanelProps) {
         {/* Analytics Integration */}
         <Card className="p-4 space-y-4">
           <div className="flex items-center gap-2">
-            <BarChart3 className="w-4 h-4 text-primary" />
+            <BarChart3 className="size-4 text-primary" />
             <h3 className="font-medium">Analytics & Tracking</h3>
           </div>
 
@@ -462,7 +462,7 @@ export function SetupPanel({ settings, onChange }: SetupPanelProps) {
         {/* Custom Code Injection */}
         <Card className="p-4 space-y-4">
           <div className="flex items-center gap-2">
-            <Code2 className="w-4 h-4 text-primary" />
+            <Code2 className="size-4 text-primary" />
             <h3 className="font-medium">Custom Code Injection</h3>
           </div>
 
@@ -546,7 +546,7 @@ export function SetupPanel({ settings, onChange }: SetupPanelProps) {
         {/* Tips */}
         <Card className="p-4 bg-primary/5 border-primary/20">
           <h4 className="font-medium text-sm mb-2 flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-primary" />
+            <AlertCircle className="size-4 text-primary" />
             Setup Tips
           </h4>
           <ul className="text-xs space-y-1.5 text-muted-foreground">

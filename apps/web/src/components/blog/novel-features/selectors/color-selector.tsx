@@ -122,7 +122,7 @@ export const ColorSelector = ({ open, onOpenChange }: ColorSelectorProps) => {
           >
             A
           </span>
-          <ChevronDown className="h-4 w-4" />
+          <ChevronDown className="size-4" />
         </Button>
       </PopoverTrigger>
 
@@ -161,7 +161,7 @@ export const ColorSelector = ({ open, onOpenChange }: ColorSelectorProps) => {
                 <span>{color.name}</span>
               </div>
               {editor.isActive('textStyle', { color: color.color }) && (
-                <Check className="h-4 w-4" />
+                <Check className="size-4" />
               )}
             </EditorBubbleItem>
           ))}
@@ -196,7 +196,7 @@ export const ColorSelector = ({ open, onOpenChange }: ColorSelectorProps) => {
                 <span>{color.name}</span>
               </div>
               {editor.isActive('highlight', { color: color.color }) && (
-                <Check className="h-4 w-4" />
+                <Check className="size-4" />
               )}
             </EditorBubbleItem>
           ))}

@@ -6,18 +6,17 @@ import { createClient } from '@/lib/supabase/server';
 
 function SignupLoadingFallback() {
   return (
-    <div
+    <output
       aria-busy="true"
       aria-live="polite"
       className="flex min-h-[50vh] items-center justify-center"
-      role="status"
     >
       <span className="sr-only">Loading sign up…</span>
-      <div
+      <span
         aria-hidden="true"
-        className="h-8 w-8 animate-spin rounded-full border-2 border-muted border-t-primary"
+        className="block size-8 animate-spin rounded-full border-2 border-muted border-t-primary"
       />
-    </div>
+    </output>
   );
 }
 

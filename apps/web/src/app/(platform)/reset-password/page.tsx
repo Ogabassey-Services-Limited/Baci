@@ -148,11 +148,11 @@ function ResetPasswordForm() {
 
       {/* Animated Orbs */}
       <div
-        className="absolute top-1/4 left-1/4 w-64 h-64 bg-primary/30 rounded-full blur-3xl animate-pulse"
+        className="absolute top-1/4 left-1/4 size-64 bg-primary/30 rounded-full blur-3xl animate-pulse"
         style={{ animationDuration: '4s' }}
       />
       <div
-        className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-accent/30 rounded-full blur-3xl animate-pulse"
+        className="absolute bottom-1/4 right-1/4 size-64 bg-accent/30 rounded-full blur-3xl animate-pulse"
         style={{ animationDuration: '6s' }}
       />
 
@@ -197,7 +197,7 @@ function ResetPasswordForm() {
                       <FormLabel>New Password</FormLabel>
                       <FormControl>
                         <div className="relative group">
-                          <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                          <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                           <Input
                             type={showPassword ? 'text' : 'password'}
                             placeholder="Min. 8 characters"
@@ -219,9 +219,9 @@ function ResetPasswordForm() {
                             onClick={() => setShowPassword(!showPassword)}
                           >
                             {showPassword ? (
-                              <EyeOff className="h-4 w-4 text-muted-foreground" />
+                              <EyeOff className="size-4 text-muted-foreground" />
                             ) : (
-                              <Eye className="h-4 w-4 text-muted-foreground" />
+                              <Eye className="size-4 text-muted-foreground" />
                             )}
                           </Button>
                         </div>
@@ -239,7 +239,7 @@ function ResetPasswordForm() {
                       <FormLabel>Confirm New Password</FormLabel>
                       <FormControl>
                         <div className="relative group">
-                          <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                          <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                           <Input
                             type={showConfirmPassword ? 'text' : 'password'}
                             placeholder="Re-enter your new password"
@@ -263,9 +263,9 @@ function ResetPasswordForm() {
                             }
                           >
                             {showConfirmPassword ? (
-                              <EyeOff className="h-4 w-4 text-muted-foreground" />
+                              <EyeOff className="size-4 text-muted-foreground" />
                             ) : (
-                              <Eye className="h-4 w-4 text-muted-foreground" />
+                              <Eye className="size-4 text-muted-foreground" />
                             )}
                           </Button>
                         </div>
@@ -295,7 +295,7 @@ export default function ResetPasswordPage() {
     <Suspense
       fallback={
         <div className="flex min-h-screen w-full items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin" />
+          <Loader2 className="size-8 animate-spin" />
         </div>
       }
     >

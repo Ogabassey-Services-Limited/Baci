@@ -75,7 +75,7 @@ export function OrderDetailsInsuranceCard({
             { color: colors.textSecondary, marginTop: 12 },
           ]}
         >
-          Your shipping protection is being processed...
+          Your shipping protection is being processed…
         </Text>
       </View>
     );

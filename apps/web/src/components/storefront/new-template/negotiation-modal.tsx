@@ -128,7 +128,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
             <div className="flex flex-col items-center justify-center py-4">
               <Loader2 size={40} className="text-red-600 animate-spin mb-4" />
               <p className="font-medium text-gray-600">
-                Reviewing your offer...
+                Reviewing your offer…
               </p>
               <p className="text-xs text-gray-400 mt-2">
                 Checking with sales manager
@@ -138,7 +138,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
 
           {status === 'success' && (
             <div className="flex flex-col items-center justify-center py-2 text-center animate-in fade-in slide-in-from-bottom-2">
-              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-3">
+              <div className="size-12 bg-green-100 rounded-full flex items-center justify-center mb-3">
                 <CheckCircle2 size={28} className="text-green-600" />
               </div>
               <h4 className="text-xl font-bold text-gray-900 mb-1">
@@ -158,7 +158,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
 
           {status === 'failed' && (
             <div className="flex flex-col items-center justify-center py-2 text-center animate-in shake duration-300">
-              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-3">
+              <div className="size-12 bg-red-100 rounded-full flex items-center justify-center mb-3">
                 <AlertCircle size={28} className="text-red-600" />
               </div>
               <h4 className="text-lg font-bold text-gray-900 mb-1">

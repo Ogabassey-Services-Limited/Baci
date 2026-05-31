@@ -165,7 +165,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
           {/* Action Buttons - Top Right */}
           <div className="absolute top-1.5 right-1.5 md:top-2 md:right-2 z-20 flex flex-col gap-1.5 md:gap-2">
-            <button
+            <button type="button"
               onClick={toggleLike}
               className={`h-7 w-7 md:h-8 md:w-8 flex items-center justify-center rounded-full shadow-sm border transition-all duration-200 pointer-events-auto active:scale-95 ${isLiked
                 ? 'bg-white border-red-100 text-red-600'
@@ -182,7 +182,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               />
             </button>
 
-            <button
+            <button type="button"
               onClick={toggleCompare}
               className={`h-7 w-7 md:h-8 md:w-8 flex items-center justify-center rounded-full shadow-sm border transition-all duration-200 pointer-events-auto active:scale-95 ${isComparing
                 ? 'bg-primary/10 border-primary/20 text-primary'
@@ -210,7 +210,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               />
             </Link>
           ) : (
-            <button
+            <button type="button"
               onClick={handleCartClick}
               aria-label={`Add ${product.name} to cart`}
               className={`absolute bottom-2 right-2 md:bottom-3 md:right-3 z-20 h-9 w-9 md:h-10 md:w-10 flex items-center justify-center rounded-full shadow-lg border border-gray-100 transition-all duration-300 pointer-events-auto active:scale-95 bg-white text-gray-900 md:hover:bg-primary md:hover:text-white md:hover:border-primary overflow-visible`}
@@ -362,7 +362,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
           <div className="flex items-center gap-2 z-20 pointer-events-auto">
             {/* Compare Button (List View) */}
-            <button
+            <button type="button"
               onClick={toggleCompare}
               className={`p-2 rounded-lg transition-all duration-200 border ${isComparing
                 ? 'bg-primary/10 border-primary/20 text-primary'
@@ -384,7 +384,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 View Options <ShoppingCart size={16} />
               </Link>
             ) : (
-              <button
+              <button type="button"
                 onClick={handleCartClick}
                 aria-label={`Add ${product.name} to cart`}
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all active:scale-95 bg-gray-900 text-white md:hover:bg-primary relative overflow-visible`}
@@ -402,7 +402,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       </div>
 
       {/* Wishlist Button - Absolute Top Right of Card in List View */}
-      <button
+      <button type="button"
         onClick={toggleLike}
         aria-label={isLiked ? 'Remove from wishlist' : 'Add to wishlist'}
         title={isLiked ? 'Remove from Wishlist' : 'Add to Wishlist'}

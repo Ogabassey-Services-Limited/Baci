@@ -257,7 +257,7 @@ describe('DataForm', () => {
 
     fireEvent.changeText(screen.getByLabelText('Phone Number'), '08031234567');
 
-    expect(screen.getByText('Loading providers...')).toBeOnTheScreen();
+    expect(screen.getByText('Loading providers…')).toBeOnTheScreen();
     expect(screen.queryByText('MTN 1GB Data')).toBeNull();
   });
 

@@ -148,8 +148,8 @@ function UpgradeModal() {
         <div className="bg-linear-to-br from-purple-600 via-indigo-600 to-blue-600 px-6 py-8 text-white relative overflow-hidden">
           {/* Background pattern */}
           <div className="absolute inset-0 opacity-10">
-            <div className="absolute top-0 right-0 w-40 h-40 rounded-full bg-white/20 -translate-y-1/2 translate-x-1/2" />
-            <div className="absolute bottom-0 left-0 w-32 h-32 rounded-full bg-white/20 translate-y-1/2 -translate-x-1/2" />
+            <div className="absolute top-0 right-0 size-40 rounded-full bg-white/20 -translate-y-1/2 translate-x-1/2" />
+            <div className="absolute bottom-0 left-0 size-32 rounded-full bg-white/20 translate-y-1/2 -translate-x-1/2" />
           </div>
 
           {/* Close button */}
@@ -163,7 +163,7 @@ function UpgradeModal() {
           </button>
 
           {/* Icon */}
-          <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center mb-4">
+          <div className="size-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center mb-4">
             <IconComponent size={32} className="text-white" />
           </div>
 
@@ -196,7 +196,7 @@ function UpgradeModal() {
             </p>
             {planFeatures.map(([key, meta]) => (
               <div key={key} className="flex items-center gap-3">
-                <div className="w-5 h-5 bg-green-100 rounded-full flex items-center justify-center shrink-0">
+                <div className="size-5 bg-green-100 rounded-full flex items-center justify-center shrink-0">
                   <Check size={12} className="text-green-600" />
                 </div>
                 <span className="text-gray-700">{meta.name}</span>

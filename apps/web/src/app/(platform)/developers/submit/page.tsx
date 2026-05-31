@@ -84,8 +84,8 @@ export default function SubmitTemplatePage() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <Card className="max-w-md w-full text-center p-8 shadow-xl border-green-100">
-          <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-6">
-            <CheckCircle className="w-8 h-8 text-green-600" />
+          <div className="mx-auto size-16 bg-green-100 rounded-full flex items-center justify-center mb-6">
+            <CheckCircle className="size-8 text-green-600" />
           </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-2">
             Submission Successful!
@@ -112,7 +112,7 @@ export default function SubmitTemplatePage() {
           href="/template-preview"
           className="inline-flex items-center text-sm text-gray-500 hover:text-gray-900 mb-8 transition-colors"
         >
-          <ArrowLeft className="w-4 h-4 mr-2" />
+          <ArrowLeft className="size-4 mr-2" />
           Back to Gallery
         </Link>
 
@@ -185,7 +185,7 @@ export default function SubmitTemplatePage() {
                         : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                     )}
                   >
-                    <Github className="w-5 h-5 mr-3" />
+                    <Github className="size-5 mr-3" />
                     <span className="font-medium">GitHub Repository</span>
                   </button>
 
@@ -199,7 +199,7 @@ export default function SubmitTemplatePage() {
                         : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                     )}
                   >
-                    <Upload className="w-5 h-5 mr-3" />
+                    <Upload className="size-5 mr-3" />
                     <span className="font-medium">Upload Zip Archive</span>
                   </button>
                 </div>
@@ -213,7 +213,7 @@ export default function SubmitTemplatePage() {
                       Repository URL
                     </Label>
                     <div className="relative">
-                      <Github className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                      <Github className="absolute left-3 top-3 size-4 text-gray-400" />
                       <Input
                         id="repo"
                         name="repo"
@@ -241,12 +241,12 @@ export default function SubmitTemplatePage() {
                         className="text-xs text-red-600 flex items-center"
                         role="alert"
                       >
-                        <AlertCircle className="w-3 h-3 mr-1" />
+                        <AlertCircle className="size-3 mr-1" />
                         {repoError}
                       </p>
                     ) : (
                       <p className="text-xs text-gray-500 flex items-center">
-                        <AlertCircle className="w-3 h-3 mr-1" />
+                        <AlertCircle className="size-3 mr-1" />
                         Make sure the repository is public or you've invited
                         @baci-bot
                       </p>
@@ -258,7 +258,7 @@ export default function SubmitTemplatePage() {
                       Project Archive
                     </Label>
                     <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center bg-white hover:bg-gray-50/50 transition-colors cursor-pointer">
-                      <Upload className="w-8 h-8 text-gray-400 mx-auto mb-3" />
+                      <Upload className="size-8 text-gray-400 mx-auto mb-3" />
                       <p className="text-sm font-medium text-gray-900">
                         Click to upload or drag and drop
                       </p>
@@ -286,13 +286,13 @@ export default function SubmitTemplatePage() {
                 >
                   {isSubmitting ? (
                     <span className="flex items-center">
-                      <span className="animate-spin mr-2 h-4 w-4 border-2 border-current border-t-transparent rounded-full" />
-                      Submitting...
+                      <span className="animate-spin mr-2 size-4 border-2 border-current border-t-transparent rounded-full" />
+                      Submitting…
                     </span>
                   ) : (
                     <span className="flex items-center">
                       Submit Template
-                      <Code2 className="ml-2 w-4 h-4" />
+                      <Code2 className="ml-2 size-4" />
                     </span>
                   )}
                 </Button>

@@ -101,7 +101,7 @@ export function FaviconUpload() {
 
       {(preview || merchant?.favicon_png_32_url) && (
         <div className="flex items-center gap-4 p-4 border rounded-lg bg-muted/50">
-          <div className="relative w-8 h-8">
+          <div className="relative size-8">
             <Image
               src={preview || merchant?.favicon_png_32_url || ''}
               alt="Current favicon"
@@ -124,12 +124,12 @@ export function FaviconUpload() {
         >
           {uploading ? (
             <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Processing...
+              <Loader2 className="size-4 animate-spin" />
+              Processing…
             </>
           ) : (
             <>
-              <Upload className="w-4 h-4" />
+              <Upload className="size-4" />
               Upload Favicon
             </>
           )}

@@ -76,7 +76,7 @@ export function ReviewsList({
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="small" color={BRAND.primary} />
         <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-          Loading reviews...
+          Loading reviews…
         </Text>
       </View>
     );

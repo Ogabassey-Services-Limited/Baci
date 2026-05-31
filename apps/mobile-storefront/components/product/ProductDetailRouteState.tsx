@@ -36,7 +36,7 @@ export function ProductDetailRouteState({
       >
         <ActivityIndicator size="large" color={colors.primary} />
         <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-          Loading product...
+          Loading product…
         </Text>
       </View>
     );

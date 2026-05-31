@@ -1,4 +1,4 @@
-import Ionicons from '@react-native-vector-icons/ionicons';
+import type Ionicons from '@react-native-vector-icons/ionicons';
 // router removed as it was unused.
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
@@ -134,6 +134,7 @@ export function UtilityPanel({
   const hasCategoryError = Boolean(error) && !isUtility;
   const showContainer = variant === 'card' || isUtility;
   const itemVariant = isUtility ? 'circle' : variant; // Force circle icons for utilities
+  const activeUtilityWord = UTILITY_WORDS[activeUtilityIndex] || 'Airtime!';
 
   if (hasCategoryError) {
     return (
@@ -166,7 +167,9 @@ export function UtilityPanel({
     >
       {/* Dynamic Unified Banner */}
       <View
-        testID="utility-panel-promo-banner"
+        accessible
+        accessibilityRole="summary"
+        accessibilityLabel={`We Pay YOU When You Buy ${activeUtilityWord}`}
         style={[
           styles.promoBanner,
           { backgroundColor: colors.promoBackground },
@@ -184,7 +187,7 @@ export function UtilityPanel({
                 },
               ]}
             >
-              {UTILITY_WORDS[activeUtilityIndex] || 'Airtime!'}
+              {activeUtilityWord}
             </Animated.Text>
           </Text>
         </View>

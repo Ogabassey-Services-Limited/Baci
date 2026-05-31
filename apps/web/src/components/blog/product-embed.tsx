@@ -98,7 +98,7 @@ export function ProductEmbedPicker({
         </DialogHeader>
 
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
           <Input
             placeholder="Search products..."
             value={search}
@@ -110,11 +110,11 @@ export function ProductEmbedPicker({
         <ScrollArea className="h-[400px] pr-4">
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
-              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              <Loader2 className="size-6 animate-spin text-muted-foreground" />
             </div>
           ) : products.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              <Package className="w-12 h-12 mx-auto mb-2 opacity-50" />
+              <Package className="size-12 mx-auto mb-2 opacity-50" />
               <p>No products found</p>
             </div>
           ) : (
@@ -148,8 +148,8 @@ export function ProductEmbedPicker({
                       className="object-cover rounded"
                     />
                   ) : (
-                    <div className="w-12 h-12 bg-muted rounded flex items-center justify-center">
-                      <Package className="w-6 h-6 text-muted-foreground" />
+                    <div className="size-12 bg-muted rounded flex items-center justify-center">
+                      <Package className="size-6 text-muted-foreground" />
                     </div>
                   )}
                   <div className="flex-1 min-w-0">
@@ -232,7 +232,7 @@ export function ProductCard({
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center">
-                <Package className="w-12 h-12 text-muted-foreground" />
+                <Package className="size-12 text-muted-foreground" />
               </div>
             )}
             {hasDiscount && (
@@ -254,7 +254,7 @@ export function ProductCard({
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
-              <Package className="w-12 h-12 text-muted-foreground" />
+              <Package className="size-12 text-muted-foreground" />
             </div>
           )}
           {hasDiscount && (
@@ -295,7 +295,7 @@ export function ProductCard({
               onAddToCart(product.id);
             }}
           >
-            <ShoppingCart className="w-4 h-4 mr-2" />
+            <ShoppingCart className="size-4 mr-2" />
             Add to Cart
           </Button>
         )}

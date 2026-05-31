@@ -181,8 +181,8 @@ export function RepairBookingWizard({
         animate={{ opacity: 1, scale: 1 }}
         className="max-w-md mx-auto text-center py-12 px-4"
       >
-        <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-          <CheckCircle className="w-10 h-10 text-green-600" />
+        <div className="size-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+          <CheckCircle className="size-10 text-green-600" />
         </div>
         <h2 className="text-2xl font-bold mb-2">Booking Confirmed!</h2>
         <p className="text-muted-foreground mb-8">
@@ -267,7 +267,7 @@ export function RepairBookingWizard({
                                   />
                                 </FormControl>
                                 <FormLabel className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary has-data-[state=checked]:border-primary cursor-pointer transition-all">
-                                  <type.icon className="mb-3 h-6 w-6" />
+                                  <type.icon className="mb-3 size-6" />
                                   {type.label}
                                 </FormLabel>
                               </FormItem>
@@ -410,7 +410,7 @@ export function RepairBookingWizard({
                                     : undefined,
                               }}
                             >
-                              <MapPin className="mb-2 h-6 w-6" />
+                              <MapPin className="mb-2 size-6" />
                               <span className="font-medium">Drop-off</span>
                               <span className="text-xs text-muted-foreground text-center">
                                 I'll bring it to you
@@ -433,7 +433,7 @@ export function RepairBookingWizard({
                                     : undefined,
                               }}
                             >
-                              <Truck className="mb-2 h-6 w-6" />
+                              <Truck className="mb-2 size-6" />
                               <span className="font-medium">Pickup</span>
                               <span className="text-xs text-muted-foreground text-center">
                                 Pick up from me
@@ -467,8 +467,8 @@ export function RepairBookingWizard({
                         </FormControl>
                         {isCalculatingShipping && (
                           <div className="flex items-center text-sm text-muted-foreground mt-2">
-                            <Loader2 className="w-3 h-3 mr-2 animate-spin" />{' '}
-                            Calculating pickup fee...
+                            <Loader2 className="size-3 mr-2 animate-spin" />{' '}
+                            Calculating pickup fee…
                           </div>
                         )}
                         {shippingQuote && !isCalculatingShipping && (
@@ -481,9 +481,9 @@ export function RepairBookingWizard({
                             )}
                           >
                             {shippingQuote.isFree ? (
-                              <CheckCircle className="w-4 h-4 mr-2" />
+                              <CheckCircle className="size-4 mr-2" />
                             ) : (
-                              <Truck className="w-4 h-4 mr-2" />
+                              <Truck className="size-4 mr-2" />
                             )}
                             {shippingQuote.message ||
                               shippingQuote.formattedPrice}
@@ -508,7 +508,7 @@ export function RepairBookingWizard({
                             {...field}
                             min={new Date().toISOString().slice(0, 16)}
                           />
-                          <Calendar className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
+                          <Calendar className="absolute right-3 top-2.5 size-4 text-muted-foreground pointer-events-none" />
                         </div>
                       </FormControl>
                       <FormMessage />
@@ -529,7 +529,7 @@ export function RepairBookingWizard({
               >
                 <div className="bg-muted/50 rounded-lg p-6 space-y-4">
                   <h3 className="font-semibold text-lg flex items-center gap-2">
-                    <CheckCircle className="w-5 h-5 text-primary" /> Summary
+                    <CheckCircle className="size-5 text-primary" /> Summary
                   </h3>
 
                   <div className="grid grid-cols-2 gap-4 text-sm">
@@ -589,7 +589,7 @@ export function RepairBookingWizard({
                 </div>
 
                 <div className="bg-blue-50 text-blue-800 p-4 rounded-md flex gap-3 items-start text-sm">
-                  <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+                  <AlertCircle className="size-5 shrink-0 mt-0.5" />
                   <p>
                     Submitting this request does not guarantee an appointment
                     slot. The merchant will review and confirm availability.
@@ -607,7 +607,7 @@ export function RepairBookingWizard({
               disabled={currentStep === 0 || isSubmitting}
               className={currentStep === 0 ? 'invisible' : ''}
             >
-              <ChevronLeft className="w-4 h-4 mr-2" /> Back
+              <ChevronLeft className="size-4 mr-2" /> Back
             </Button>
 
             {currentStep < steps.length - 1 ? (
@@ -617,7 +617,7 @@ export function RepairBookingWizard({
                 className="inline-flex items-center px-6 py-2.5 rounded-md font-medium text-white transition-colors"
                 style={{ backgroundColor: 'var(--theme-primary, #dc2626)' }}
               >
-                Next <ChevronRight className="w-4 h-4 ml-2" />
+                Next <ChevronRight className="size-4 ml-2" />
               </button>
             ) : (
               <button
@@ -628,8 +628,7 @@ export function RepairBookingWizard({
               >
                 {isSubmitting ? (
                   <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />{' '}
-                    Submitting...
+                    <Loader2 className="size-4 mr-2 animate-spin" /> Submitting…
                   </>
                 ) : (
                   'Book Appointment'

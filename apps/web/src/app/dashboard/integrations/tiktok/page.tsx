@@ -43,7 +43,7 @@ export default function TikTokIntegrationPage() {
   };
 
   if (!hasMerchant || isLoading) {
-    return <div>Loading...</div>;
+    return <div>Loading…</div>;
   }
 
   const baseUrl = merchant?.custom_domain
@@ -57,7 +57,7 @@ export default function TikTokIntegrationPage() {
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" asChild>
           <Link href={asRoute('/dashboard/integrations')}>
-            <ArrowLeft className="h-4 w-4" />
+            <ArrowLeft className="size-4" />
           </Link>
         </Button>
         <div>
@@ -78,7 +78,7 @@ export default function TikTokIntegrationPage() {
               </CardDescription>
             </div>
             <svg
-              className="h-8 w-8"
+              className="size-8"
               viewBox="0 0 24 24"
               fill="none"
               aria-hidden="true"
@@ -92,7 +92,7 @@ export default function TikTokIntegrationPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <Alert>
-            <AlertCircle className="h-4 w-4" />
+            <AlertCircle className="size-4" />
             <AlertDescription>
               TikTok Shopping allows you to showcase products in videos and run
               shoppable ads to reach younger audiences. Perfect for brands
@@ -120,7 +120,7 @@ export default function TikTokIntegrationPage() {
                   className="text-primary hover:underline inline-flex items-center gap-1"
                 >
                   TikTok Seller Center
-                  <ExternalLink className="h-3 w-3" />
+                  <ExternalLink className="size-3" />
                 </a>{' '}
                 (or TikTok Ads Manager for ads)
               </li>
@@ -145,7 +145,7 @@ export default function TikTokIntegrationPage() {
           </div>
 
           <Alert>
-            <AlertCircle className="h-4 w-4" />
+            <AlertCircle className="size-4" />
             <AlertDescription>
               <strong>Tip:</strong> TikTok Shop works best when combined with
               creator partnerships and engaging video content. Consider using

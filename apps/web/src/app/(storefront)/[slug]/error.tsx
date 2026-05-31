@@ -25,8 +25,8 @@ export default function StorefrontError({ error, reset }: ErrorProps) {
     <div className="flex min-h-[60vh] flex-col items-center justify-center p-8">
       <div className="text-center space-y-6 max-w-lg">
         {/* Error icon */}
-        <div className="mx-auto w-20 h-20 rounded-full bg-destructive/10 flex items-center justify-center">
-          <AlertTriangle className="h-10 w-10 text-destructive" />
+        <div className="mx-auto size-20 rounded-full bg-destructive/10 flex items-center justify-center">
+          <AlertTriangle className="size-10 text-destructive" />
         </div>
 
         <h1
@@ -65,7 +65,7 @@ export default function StorefrontError({ error, reset }: ErrorProps) {
             onClick={reset}
             className="w-full sm:w-auto"
           >
-            <RefreshCw className="mr-2 h-4 w-4" />
+            <RefreshCw className="mr-2 size-4" />
             Try Again
           </ThemedButton>
           <Link href={asRoute(`${basePath || ''}/`)}>
@@ -75,7 +75,7 @@ export default function StorefrontError({ error, reset }: ErrorProps) {
               size="lg"
               className="w-full sm:w-auto"
             >
-              <Home className="mr-2 h-4 w-4" />
+              <Home className="mr-2 size-4" />
               Go to Homepage
             </ThemedButton>
           </Link>

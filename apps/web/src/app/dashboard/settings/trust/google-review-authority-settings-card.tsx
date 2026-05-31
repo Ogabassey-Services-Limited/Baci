@@ -176,7 +176,7 @@ export function GoogleReviewAuthoritySettingsCard({
 
           <Button className="sm:w-fit" disabled={isSubmitting} type="submit">
             {isSubmitting ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Loader2 className="mr-2 size-4 animate-spin" />
             ) : null}
             Save Google Reviews
           </Button>

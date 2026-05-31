@@ -179,7 +179,7 @@ export function StorefrontProductCard({
           className="absolute bottom-3 left-1/2 -translate-x-1/2 hidden md:flex items-center gap-1.5 bg-white/95 backdrop-blur-xs text-gray-900 px-4 py-2 rounded-full text-sm font-medium shadow-lg opacity-0 group-hover/image:opacity-100 focus-visible:opacity-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary transition-all duration-200 hover:bg-white hover:scale-105"
           aria-label={`Quick view ${product.name}`}
         >
-          <Eye className="w-4 h-4" aria-hidden="true" />
+          <Eye className="size-4" aria-hidden="true" />
           Quick View
         </button>
       </div>
@@ -216,12 +216,12 @@ export function StorefrontProductCard({
                 colorRole="primary"
                 size="icon"
                 variant="outline"
-                className="h-10 w-10 min-w-[44px] min-h-[44px]"
+                className="size-10 min-w-[44px] min-h-[44px]"
                 onClick={handleDecreaseQuantity}
                 disabled={cartItem.quantity <= 0}
                 aria-label={`Decrease quantity of ${product.name}`}
               >
-                <Minus className="h-4 w-4" aria-hidden="true" />
+                <Minus className="size-4" aria-hidden="true" />
               </ThemedButton>
               <Input
                 type="number"
@@ -235,14 +235,14 @@ export function StorefrontProductCard({
               <ThemedButton
                 colorRole="primary"
                 size="icon"
-                className="h-10 w-10 min-w-[44px] min-h-[44px]"
+                className="size-10 min-w-[44px] min-h-[44px]"
                 onClick={handleIncreaseQuantity}
                 disabled={
                   product.manage_stock && cartItem.quantity >= product.stock
                 }
                 aria-label={`Increase quantity of ${product.name}`}
               >
-                <Plus className="h-4 w-4" aria-hidden="true" />
+                <Plus className="size-4" aria-hidden="true" />
               </ThemedButton>
             </div>
           ) : (

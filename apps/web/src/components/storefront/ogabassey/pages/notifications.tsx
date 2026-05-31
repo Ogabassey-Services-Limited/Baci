@@ -169,7 +169,7 @@ export const OgabasseyV2Notifications: React.FC = () => {
         {filteredNotifications.length === 0 ? (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center py-16">
-              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <div className="size-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Bell className="text-gray-400" size={32} />
               </div>
               <h3 className="text-lg font-bold text-gray-900 mb-1">
@@ -196,7 +196,7 @@ export const OgabasseyV2Notifications: React.FC = () => {
                       className={`relative p-4 rounded-xl border transition-all duration-200 group ${notification.read ? 'bg-white border-gray-100' : 'bg-white border-red-100 shadow-sm'}`}
                     >
                       {!notification.read && (
-                        <div className="absolute top-4 right-4 w-2 h-2 bg-red-600 rounded-full" />
+                        <div className="absolute top-4 right-4 size-2 bg-red-600 rounded-full" />
                       )}
 
                       <div className="flex gap-4">

@@ -6,25 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { useCurrency } from '@/hooks/use-currency';
 import { apiPost } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
-
-interface ShippingQuote {
-  id: string;
-  provider: 'GIGL' | 'TOPSHIP';
-  serviceTier: string;
-  carrierName: string;
-  displayName: string;
-  estimatedDays: number;
-  minDays?: number;
-  maxDays?: number;
-  price: number;
-  currency: string;
-  pickupIncluded: boolean;
-  insuranceIncluded: boolean;
-  isStationPickup?: boolean;
-  stationName?: string;
-  stationAddress?: string;
-  providerRateId?: string;
-}
+import type { ShippingQuote } from '@/types/shipping-quote';
 
 interface QuotesResponse {
   quotes: {
@@ -190,9 +172,9 @@ export function ShippingOptions({
   if (isLoading) {
     return (
       <div className={cn('flex items-center justify-center py-8', className)}>
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground mr-2" />
+        <Loader2 className="size-6 animate-spin text-muted-foreground mr-2" />
         <span className="text-muted-foreground">
-          Finding best shipping options...
+          Finding best shipping options…
         </span>
       </div>
     );
@@ -219,7 +201,7 @@ export function ShippingOptions({
           className
         )}
       >
-        <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
+        <Package className="size-8 mx-auto mb-2 opacity-50" />
         <p>Enter your address to see shipping options</p>
       </div>
     );
@@ -258,7 +240,7 @@ export function ShippingOptions({
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 {/* Provider badge */}
-                <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-xs font-bold">
+                <div className="size-10 rounded-lg bg-muted flex items-center justify-center text-xs font-bold">
                   {getProviderLogo(quote.provider)}
                 </div>
 
@@ -266,12 +248,12 @@ export function ShippingOptions({
                   <div className="flex items-center gap-2">
                     <p className="font-semibold">{quote.carrierName}</p>
                     {selectedQuoteId === quote.id && (
-                      <Check className="h-4 w-4 text-primary" />
+                      <Check className="size-4 text-primary" />
                     )}
                   </div>
                   <div className="flex items-center gap-3 text-sm text-muted-foreground">
                     <span className="flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
+                      <Clock className="size-3" />
                       {formatDeliveryTime(quote)}
                     </span>
                     {quote.isStationPickup && (
@@ -325,7 +307,7 @@ export function SelectedShippingDisplay({
     return (
       <Card className={className}>
         <CardContent className="p-4 flex items-center gap-4">
-          <Truck className="h-6 w-6 text-muted-foreground" />
+          <Truck className="size-6 text-muted-foreground" />
           <div className="flex-1">
             <p className="font-semibold text-muted-foreground">
               No shipping selected
@@ -343,7 +325,7 @@ export function SelectedShippingDisplay({
     <Card className={className}>
       <CardContent className="p-4 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Truck className="h-6 w-6 text-muted-foreground" />
+          <Truck className="size-6 text-muted-foreground" />
           <div>
             <p className="font-semibold">{quote.carrierName}</p>
             <p className="text-sm text-muted-foreground">

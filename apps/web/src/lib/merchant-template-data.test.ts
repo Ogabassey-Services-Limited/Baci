@@ -56,6 +56,16 @@ const BASE_MERCHANT: CachedMerchant = {
   feature_settings: {
     blog_enabled: true,
     shipping_insurance_enabled: false,
+    google_store_widget_enabled: true,
+    custom_settings: {
+      google_merchant_id: '112524323',
+      google_store_widget_enabled: false,
+      paypal_secret_key: 'server-only-paypal-secret',
+      tiktok_access_token: 'server-only-tiktok-token',
+    },
+    facebook_capi_token: 'server-only-facebook-token',
+    ga4_api_secret: 'server-only-ga4-secret',
+    paypal_secret_key: 'server-only-nested-secret',
   },
   published_config: {
     google_site_verification: 'google-token',
@@ -117,7 +127,18 @@ describe('toTemplateMerchantData', () => {
     expect(result.registered_address).toEqual(BASE_MERCHANT.registered_address);
     expect(result.tax_identification_number).toBe('TIN-12345');
     expect(result.trust_profile).toEqual(BASE_MERCHANT.trust_profile);
-    expect(result.feature_settings).toEqual(BASE_MERCHANT.feature_settings);
+    expect(result.feature_settings).toEqual({
+      blog_enabled: true,
+      shipping_insurance_enabled: false,
+      google_store_widget_enabled: true,
+      custom_settings: {
+        google_merchant_id: '112524323',
+        google_store_widget_enabled: false,
+      },
+    });
+    expect(JSON.stringify(result.feature_settings)).not.toContain(
+      'server-only'
+    );
     expect(result.published_config).toEqual(BASE_MERCHANT.published_config);
     expect(result.plan_tier).toBe('pro');
     expect(result.pages).toEqual(BASE_MERCHANT.pages);
@@ -151,6 +172,47 @@ describe('toTemplateMerchantData', () => {
     });
   });
 
+  it('does not serialize secret feature settings into storefront merchant data', () => {
+    const result = toTemplateMerchantData({
+      ...BASE_MERCHANT,
+      feature_settings: {
+        blog_enabled: true,
+        custom_settings: {
+          google_merchant_id: '112524323',
+          paypal_secret_key: 'server-only-paypal-secret',
+          paypal_client_id: 'client-id-still-not-needed-in-shell',
+          nested_secret: { value: 'server-only-nested-secret' },
+        },
+        facebook_capi_token: 'server-only-facebook-token',
+        ga4_api_secret: 'server-only-ga4-secret',
+        tiktok_access_token: 'server-only-tiktok-token',
+        webhook_secret: 'server-only-webhook-secret',
+      },
+    });
+
+    expect(result.feature_settings).toEqual({
+      blog_enabled: true,
+      custom_settings: {
+        google_merchant_id: '112524323',
+      },
+    });
+    expect(JSON.stringify(result)).not.toContain('server-only');
+    expect(JSON.stringify(result)).not.toContain('client-id-still-not-needed');
+  });
+
+  it('does not create public settings objects for empty or missing allowlisted keys', () => {
+    const result = toTemplateMerchantData({
+      ...BASE_MERCHANT,
+      feature_settings: {
+        custom_settings: {},
+        google_merchant_id: undefined,
+        google_store_widget_enabled: undefined,
+      },
+    } as CachedMerchant);
+
+    expect(result.feature_settings).toBeUndefined();
+  });
+
   it('handles a merchant without optional fields', () => {
     const minimal: CachedMerchant = {
       id: 'min-1',
@@ -176,6 +238,7 @@ describe('toTemplateMerchantData', () => {
     expect(result.hero_slides).toBeUndefined();
     expect(result.mobile_hero_slides).toBeUndefined();
     expect(result.brand_colors).toBeUndefined();
+    expect(result.feature_settings).toBeUndefined();
   });
 
   it('drops unsupported plan tiers and non-string premium features', () => {

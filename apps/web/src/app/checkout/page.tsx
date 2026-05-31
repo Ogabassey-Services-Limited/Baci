@@ -56,6 +56,7 @@ import { getCountryByCode } from '@/lib/countries';
 import { trackEvent } from '@/lib/event-tracking';
 import { trackServerSideBeginCheckout } from '@/lib/server-side-analytics';
 import { createClient } from '@/lib/supabase/client';
+import type { ShippingQuote } from '@/types/shipping-quote';
 
 const DEFAULT_SHIPPING_FEE = Number.parseFloat(
   process.env.NEXT_PUBLIC_DEFAULT_SHIPPING_FEE ?? '10.00'
@@ -260,7 +261,7 @@ function Step0_Auth({
                     <FormLabel>Email</FormLabel>
                     <FormControl>
                       <div className="relative">
-                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                         <ThemedInput
                           type="email"
                           placeholder="you@example.com"
@@ -286,7 +287,7 @@ function Step0_Auth({
                 disabled={isLoading}
               >
                 {isLoading && (
-                  <Loader2 className="mr-2 h-4 w-4 motion-safe:animate-spin" />
+                  <Loader2 className="mr-2 size-4 motion-safe:animate-spin" />
                 )}
                 Continue with email
               </ThemedButton>
@@ -349,8 +350,8 @@ function Step0_Auth({
 
             {isLoading && (
               <div className="flex items-center justify-center gap-2 text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span>Verifying...</span>
+                <Loader2 className="size-4 animate-spin" />
+                <span>Verifying…</span>
               </div>
             )}
 
@@ -388,25 +389,6 @@ function Step0_Auth({
   );
 }
 
-interface ShippingQuote {
-  id: string;
-  provider: 'GIGL' | 'TOPSHIP';
-  serviceTier: string;
-  carrierName: string;
-  displayName: string;
-  estimatedDays: number;
-  minDays?: number;
-  maxDays?: number;
-  price: number;
-  currency: string;
-  pickupIncluded: boolean;
-  insuranceIncluded: boolean;
-  isStationPickup?: boolean;
-  stationName?: string;
-  stationAddress?: string;
-  providerRateId?: string;
-}
-
 function Step1_Shipping({
   onShippingSelect,
   selectedQuote,
@@ -440,7 +422,7 @@ function Step1_Shipping({
               <FormLabel>First Name</FormLabel>
               <FormControl>
                 <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                   <ThemedInput
                     placeholder="John"
                     {...field}
@@ -463,7 +445,7 @@ function Step1_Shipping({
               <FormLabel>Last Name (Surname)</FormLabel>
               <FormControl>
                 <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                   <ThemedInput
                     placeholder="Doe"
                     {...field}
@@ -487,7 +469,7 @@ function Step1_Shipping({
             <FormLabel>Email</FormLabel>
             <FormControl>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                 <ThemedInput
                   type="email"
                   placeholder="you@example.com"
@@ -608,7 +590,7 @@ function Step1_Shipping({
       {watchCity && watchState && isNigerian && (
         <div className="pt-4 border-t">
           <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
-            <Truck className="h-5 w-5" />
+            <Truck className="size-5" />
             Shipping Options
           </h3>
           <ShippingOptions
@@ -734,7 +716,7 @@ function Step2_Payment({
             >
               <div className="flex items-center gap-4">
                 <div
-                  className="flex h-10 w-10 items-center justify-center rounded-lg text-white font-bold text-sm"
+                  className="flex size-10 items-center justify-center rounded-lg text-white font-bold text-sm"
                   style={{ backgroundColor: gateway.color }}
                 >
                   {gateway.id === 'paystack'
@@ -752,9 +734,9 @@ function Step2_Payment({
                   </p>
                 </div>
                 {selectedGateway === gateway.id && (
-                  <div className="h-5 w-5 rounded-full bg-primary flex items-center justify-center">
+                  <div className="size-5 rounded-full bg-primary flex items-center justify-center">
                     <svg
-                      className="h-3 w-3 text-white"
+                      className="size-3 text-white"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -786,7 +768,7 @@ function Step2_Payment({
       ) : (
         <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
           <div className="flex items-center gap-4">
-            <CreditCard className="h-8 w-8 text-muted-foreground" />
+            <CreditCard className="size-8 text-muted-foreground" />
             <div>
               <p className="font-semibold">No payment methods available</p>
               <p className="text-sm text-muted-foreground">
@@ -1397,7 +1379,7 @@ function CheckoutPageContent() {
   if (pageLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Loader2 className="size-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -1410,11 +1392,11 @@ function CheckoutPageContent() {
 
       {/* Animated Orbs */}
       <div
-        className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/20 rounded-full blur-3xl animate-pulse"
+        className="absolute top-1/4 left-1/4 size-96 bg-primary/20 rounded-full blur-3xl animate-pulse"
         style={{ animationDuration: '4s' }}
       />
       <div
-        className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-accent/20 rounded-full blur-3xl animate-pulse"
+        className="absolute bottom-1/4 right-1/4 size-96 bg-accent/20 rounded-full blur-3xl animate-pulse"
         style={{ animationDuration: '6s' }}
       />
 
@@ -1438,7 +1420,7 @@ function CheckoutPageContent() {
                         size="icon"
                         className="rounded-full hover:bg-white/10"
                       >
-                        <ArrowLeft className="h-5 w-5" />
+                        <ArrowLeft className="size-5" />
                       </Button>
                     </Link>
                     <h1 className="text-2xl font-bold tracking-tight">
@@ -1535,11 +1517,11 @@ function CheckoutPageContent() {
                               className="flex-1 h-11 shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all"
                             >
                               {formIsLoading ? (
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                <Loader2 className="mr-2 size-4 animate-spin" />
                               ) : selectedGateway === 'pod' ? (
-                                <Truck className="mr-2 h-4 w-4" />
+                                <Truck className="mr-2 size-4" />
                               ) : (
-                                <CreditCard className="mr-2 h-4 w-4" />
+                                <CreditCard className="mr-2 size-4" />
                               )}
                               {selectedGateway === 'pod'
                                 ? 'Place Order'
@@ -1568,7 +1550,7 @@ function CheckoutPageContent() {
               <div className="absolute inset-0 bg-linear-to-br from-white/10 via-transparent to-transparent pointer-events-none" />
               <div className="relative p-6 md:p-8">
                 <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
-                  <Sparkles className="h-5 w-5 text-primary" />
+                  <Sparkles className="size-5 text-primary" />
                   Order Summary
                 </h2>
 
@@ -1593,7 +1575,7 @@ function CheckoutPageContent() {
                   <div className="flex items-center gap-2 bg-white/30 dark:bg-black/20 p-3 rounded-xl">
                     <div className="p-1.5 bg-green-100 dark:bg-green-900/30 rounded-full text-green-600">
                       <svg
-                        className="w-3 h-3"
+                        className="size-3"
                         fill="none"
                         viewBox="0 0 24 24"
                         stroke="currentColor"
@@ -1611,7 +1593,7 @@ function CheckoutPageContent() {
                   </div>
                   <div className="flex items-center gap-2 bg-white/30 dark:bg-black/20 p-3 rounded-xl">
                     <div className="p-1.5 bg-blue-100 dark:bg-blue-900/30 rounded-full text-blue-600">
-                      <Truck className="w-3 h-3" />
+                      <Truck className="size-3" />
                     </div>
                     <span>Fast Delivery</span>
                   </div>

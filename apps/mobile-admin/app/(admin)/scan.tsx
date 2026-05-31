@@ -95,7 +95,7 @@ export default function ScanScreen() {
       >
         <View style={styles.centerContent}>
           <Text style={[styles.message, { color: colors.text }]}>
-            Requesting camera permission...
+            Requesting camera permission…
           </Text>
         </View>
       </SafeAreaView>

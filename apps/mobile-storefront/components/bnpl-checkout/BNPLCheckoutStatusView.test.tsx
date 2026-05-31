@@ -73,7 +73,7 @@ describe('BNPLCheckoutStatusView', () => {
     expect(screen.getByRole('alert')).toBeTruthy();
     expect(
       screen.getByText(
-        'Your Klump payment has been approved. Redirecting to order confirmation...'
+        'Your Klump payment has been approved. Redirecting to order confirmation…'
       )
     ).toBeTruthy();
     expect(

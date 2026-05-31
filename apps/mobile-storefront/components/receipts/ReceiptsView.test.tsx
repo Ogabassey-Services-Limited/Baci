@@ -159,7 +159,7 @@ describe('ReceiptsView', () => {
     );
 
     expect(screen.getByText('Showing offline receipts')).toBeOnTheScreen();
-    expect(screen.getByText('Loading receipt...')).toBeOnTheScreen();
+    expect(screen.getByText('Loading receipt…')).toBeOnTheScreen();
     expect(screen.getByText('1 receipt found')).toBeOnTheScreen();
     expect(screen.getByText('Receipt preview open')).toBeOnTheScreen();
 

@@ -19,7 +19,7 @@ export function OrderStateCard(props: OrderStateCardProps) {
       <div className="container mx-auto max-w-5xl px-4 py-8">
         <Card className="border-destructive/50">
           <CardContent className="p-10 text-center">
-            <AlertCircle className="mx-auto mb-4 h-14 w-14 text-destructive/60" />
+            <AlertCircle className="mx-auto mb-4 size-14 text-destructive/60" />
             <h1 className="mb-2 text-xl font-semibold">{props.title}</h1>
             <p className="mb-6 text-muted-foreground">{props.message}</p>
             <Button asChild variant="outline">

@@ -221,7 +221,7 @@ export function StorefrontFooter() {
                     href={`mailto:${merchant.support_email}`}
                     className="flex items-center gap-2 hover:opacity-100 transition-opacity"
                   >
-                    <Mail className="h-4 w-4 shrink-0" />
+                    <Mail className="size-4 shrink-0" />
                     <span>{merchant.support_email}</span>
                   </a>
                 )}
@@ -230,13 +230,13 @@ export function StorefrontFooter() {
                     href={`tel:${merchant.support_phone}`}
                     className="flex items-center gap-2 hover:opacity-100 transition-opacity"
                   >
-                    <Phone className="h-4 w-4 shrink-0" />
+                    <Phone className="size-4 shrink-0" />
                     <span>{merchant.support_phone}</span>
                   </a>
                 )}
                 {merchant.business_address && (
                   <div className="flex items-start gap-2">
-                    <MapPin className="h-4 w-4 shrink-0 mt-0.5" />
+                    <MapPin className="size-4 shrink-0 mt-0.5" />
                     <span>{merchant.business_address}</span>
                   </div>
                 )}
@@ -270,7 +270,7 @@ export function StorefrontFooter() {
                         color: 'var(--theme-footer-link, currentColor)',
                       }}
                     >
-                      <Icon className="h-5 w-5" />
+                      <Icon className="size-5" />
                     </a>
                   );
                 })}

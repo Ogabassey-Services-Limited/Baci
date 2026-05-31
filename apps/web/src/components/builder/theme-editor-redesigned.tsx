@@ -87,7 +87,7 @@ export function ThemeEditor({ theme, onChange, onReset }: ThemeEditorProps) {
             onClick={onReset}
             className="h-8 gap-1.5 text-xs"
           >
-            <RotateCcw className="w-3.5 h-3.5" />
+            <RotateCcw className="size-3.5" />
             Reset
           </Button>
         </div>
@@ -439,9 +439,9 @@ function Section({
       >
         <span className="text-sm font-medium">{title}</span>
         {isExpanded ? (
-          <ChevronUp className="w-4 h-4 text-muted-foreground" />
+          <ChevronUp className="size-4 text-muted-foreground" />
         ) : (
-          <ChevronDown className="w-4 h-4 text-muted-foreground" />
+          <ChevronDown className="size-4 text-muted-foreground" />
         )}
       </button>
       {isExpanded && <div className="px-4 pb-4">{children}</div>}
@@ -470,7 +470,7 @@ function ColorSwatch({
             type="color"
             value={value}
             onChange={(e) => onChange(e.target.value)}
-            className="w-10 h-10 rounded border cursor-pointer"
+            className="size-10 rounded border cursor-pointer"
             style={{ padding: '2px' }}
           />
         </div>

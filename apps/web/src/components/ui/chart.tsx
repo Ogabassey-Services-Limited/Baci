@@ -80,13 +80,9 @@ const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
     return null;
   }
 
-  return (
-    <style
-      // biome-ignore lint/security/noDangerouslySetInnerHtml: Dynamic CSS styles
-      dangerouslySetInnerHTML={{
-        __html: Object.entries(THEMES)
-          .map(
-            ([theme, prefix]) => `
+  const chartCss = Object.entries(THEMES)
+    .map(
+      ([theme, prefix]) => `
 ${prefix} [data-chart=${id}] {
 ${colorConfig
   .map(([key, itemConfig]) => {
@@ -98,11 +94,10 @@ ${colorConfig
   .join('\n')}
 }
 `
-          )
-          .join('\n'),
-      }}
-    />
-  );
+    )
+    .join('\n');
+
+  return <style>{chartCss}</style>;
 };
 
 const ChartTooltip = RechartsPrimitive.Tooltip;
@@ -301,7 +296,7 @@ const ChartLegendContent = React.forwardRef<
                 <itemConfig.icon />
               ) : (
                 <div
-                  className="h-2 w-2 shrink-0 rounded-[2px]"
+                  className="size-2 shrink-0 rounded-[2px]"
                   style={{
                     // biome-ignore lint/suspicious/noExplicitAny: Recharts payload is loosely typed
                     backgroundColor: (item as any).color,

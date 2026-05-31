@@ -150,7 +150,7 @@ export function CheckStockSection({
     <>
       <CardHeader className="pb-2">
         <div className="flex items-center gap-2">
-          <BarChart3 className="h-5 w-5 text-store-primary" />
+          <BarChart3 className="size-5 text-store-primary" />
           <CardTitle className="text-lg">Check Warehouse Stock</CardTitle>
         </div>
         <CardDescription>
@@ -187,7 +187,7 @@ export function CheckStockSection({
           >
             {loading && (
               <Loader2
-                className="mr-2 h-4 w-4 animate-spin"
+                className="mr-2 size-4 animate-spin"
                 aria-hidden="true"
               />
             )}

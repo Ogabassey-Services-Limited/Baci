@@ -131,7 +131,7 @@ export default function CategoryScreen() {
         <View style={styles.emptyContainer}>
           <ActivityIndicator size="large" color={BRAND.primary} />
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-            Loading products...
+            Loading products…
           </Text>
         </View>
       );

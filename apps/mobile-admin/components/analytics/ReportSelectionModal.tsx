@@ -223,7 +223,7 @@ export default function ReportSelectionModal({
           >
             <ActivityIndicator size="large" color={colors.primary} />
             <Text style={[styles.loaderText, { color: colors.textSecondary }]}>
-              Generating PDF...
+              Generating PDF…
             </Text>
           </View>
         )}

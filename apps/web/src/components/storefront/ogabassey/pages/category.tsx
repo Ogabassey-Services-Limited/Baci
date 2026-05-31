@@ -229,13 +229,13 @@ export const OgabasseyV2CategoryPage: React.FC<
           {/* View Mode & Mobile Filter Toggle */}
           <div className="flex items-center gap-2">
             <div className="hidden md:flex items-center bg-white rounded-lg p-1 border border-gray-200">
-              <button
+              <button type="button"
                 onClick={() => setViewMode('grid')}
                 className={`p-2 rounded-md transition-all ${viewMode === 'grid' ? 'bg-gray-100 text-gray-900 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
               >
                 <LayoutGrid size={18} />
               </button>
-              <button
+              <button type="button"
                 onClick={() => setViewMode('list')}
                 className={`p-2 rounded-md transition-all ${viewMode === 'list' ? 'bg-gray-100 text-gray-900 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
               >
@@ -243,7 +243,7 @@ export const OgabasseyV2CategoryPage: React.FC<
               </button>
             </div>
 
-            <button
+            <button type="button"
               onClick={() => setIsMobileFilterOpen(true)}
               className="md:hidden flex items-center gap-2 bg-red-600 text-white px-4 py-2.5 rounded-xl text-sm font-bold shadow-md active:scale-95"
             >
@@ -274,7 +274,7 @@ export const OgabasseyV2CategoryPage: React.FC<
           <div className="lg:col-span-3">
             {filteredProducts.length === 0 ? (
               <div className="text-center py-20 bg-white rounded-2xl border border-gray-100 shadow-sm">
-                <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                <div className="size-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
                   <Filter className="text-gray-400" size={32} />
                 </div>
                 <h3 className="text-lg font-bold text-gray-900 mb-1">
@@ -283,7 +283,7 @@ export const OgabasseyV2CategoryPage: React.FC<
                 <p className="text-gray-500 text-sm mb-6">
                   Try adjusting your filters to find what you're looking for.
                 </p>
-                <button
+                <button type="button"
                   onClick={() => setFilters(initialFilterState)}
                   className="text-red-600 font-bold hover:underline"
                 >
@@ -342,7 +342,7 @@ export const OgabasseyV2CategoryPage: React.FC<
           <div className="relative w-full max-w-xs bg-white h-full shadow-2xl overflow-y-auto animate-in slide-in-from-right duration-300">
             <div className="sticky top-0 bg-white z-10 px-5 py-4 border-b border-gray-100 flex items-center justify-between">
               <h3 className="font-bold text-lg text-gray-900">Filters</h3>
-              <button
+              <button type="button"
                 onClick={() => setIsMobileFilterOpen(false)}
                 className="p-1 hover:bg-gray-100 rounded-full"
               >
@@ -359,7 +359,7 @@ export const OgabasseyV2CategoryPage: React.FC<
               />
             </div>
             <div className="absolute bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100">
-              <button
+              <button type="button"
                 onClick={() => setIsMobileFilterOpen(false)}
                 className="w-full bg-red-600 text-white font-bold py-3 rounded-xl shadow-lg active:scale-95"
               >

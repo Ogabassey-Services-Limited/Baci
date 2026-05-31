@@ -529,7 +529,7 @@ export const OgabasseyV2ProductDetails: React.FC<
 
             <div className="flex gap-4 overflow-x-auto pb-2 hide-scrollbar">
               {productData.images.map((img, idx) => (
-                <button
+                <button type="button"
                   key={idx}
                   onClick={() => {
                     setSelectedImage(idx);
@@ -629,7 +629,7 @@ export const OgabasseyV2ProductDetails: React.FC<
                     )}
                 </div>
               </div>
-              <button
+              <button type="button"
                 onClick={() =>
                   setDeliveryLocation((prev) =>
                     prev === 'Lagos' ? 'Outside Lagos' : 'Lagos'
@@ -656,7 +656,7 @@ export const OgabasseyV2ProductDetails: React.FC<
                           choice is out of stock.
                         </span>
                       </div>
-                      <div className="w-2 h-2 bg-gray-900 rotate-45 ml-6 -mt-1" />
+                      <div className="size-2 bg-gray-900 rotate-45 ml-6 -mt-1" />
                     </div>
                   )}
 
@@ -687,7 +687,7 @@ export const OgabasseyV2ProductDetails: React.FC<
                     const isSecondary = secondaryColor === idx;
 
                     return (
-                      <button
+                      <button type="button"
                         key={idx}
                         onClick={() => handleColorSelection(idx)}
                         className={`group relative w - 14 h - 14 rounded - full flex items - center justify - center transition - all duration - 300 outline - none active: scale - 95 ${isPrimary
@@ -701,20 +701,20 @@ export const OgabasseyV2ProductDetails: React.FC<
                       >
                         {/* Color Circle */}
                         <div
-                          className="w-11 h-11 rounded-full border border-black/5 shadow-inner"
+                          className="size-11 rounded-full border border-black/5 shadow-inner"
                           style={{ backgroundColor: color.value }}
                         />
 
                         {/* Primary Badge (1) */}
                         {isPrimary && (
-                          <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white shadow-sm z-10">
+                          <div className="absolute -top-1 -right-1 size-5 bg-red-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white shadow-sm z-10">
                             1
                           </div>
                         )}
 
                         {/* Secondary Badge (2) */}
                         {isSecondary && (
-                          <div className="absolute -top-1 -right-1 w-5 h-5 bg-blue-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white shadow-sm z-10">
+                          <div className="absolute -top-1 -right-1 size-5 bg-blue-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white shadow-sm z-10">
                             2
                           </div>
                         )}
@@ -750,7 +750,7 @@ export const OgabasseyV2ProductDetails: React.FC<
                   </label>
                   <div className="flex flex-wrap gap-3">
                     {productData.storage.map((size, idx) => (
-                      <button
+                      <button type="button"
                         key={idx}
                         onClick={() => setSelectedStorage(idx)}
                         className={`px - 4 py - 3 rounded - xl border text - sm font - bold transition - all active: scale - 95 ${selectedStorage === idx ? 'border-red-600 bg-red-50 text-red-700 ring-2 ring-red-100' : 'border-gray-200 text-gray-700 md:hover:border-gray-400 md:hover:bg-gray-50'} `}
@@ -768,7 +768,7 @@ export const OgabasseyV2ProductDetails: React.FC<
               {quantityInCart > 0 ? (
                 /* Counter State */
                 <div className="flex items-center justify-between w-full h-full bg-white border-2 border-red-600 rounded-xl overflow-hidden animate-in fade-in duration-200">
-                  <button
+                  <button type="button"
                     onClick={handleDecrement}
                     className="h-full w-16 flex items-center justify-center text-red-600 hover:bg-red-50 transition-colors border-r border-red-100"
                     aria-label={quantityInCart === 1 ? "Remove item" : "Decrease quantity"}
@@ -797,7 +797,7 @@ export const OgabasseyV2ProductDetails: React.FC<
                       className="text-lg font-bold text-gray-900 w-16 text-center bg-transparent border-none outline-hidden p-0 focus:ring-0 focus:border-none"
                     />
                   </div>
-                  <button
+                  <button type="button"
                     onClick={handleIncrement}
                     className="h-full w-16 flex items-center justify-center text-red-600 hover:bg-red-50 transition-colors border-l border-red-100"
                     aria-label="Increase quantity"
@@ -807,7 +807,7 @@ export const OgabasseyV2ProductDetails: React.FC<
                 </div>
               ) : (
                 /* Add to Cart Button */
-                <button
+                <button type="button"
                   onClick={validateAndAddToCart}
                   className="w-full h-full bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl transition-all shadow-lg hover:shadow-red-200 flex items-center justify-center gap-2"
                 >
@@ -859,25 +859,25 @@ export const OgabasseyV2ProductDetails: React.FC<
         {/* Tabs Section */}
         <div className="mt-8">
           <div className="flex border-b border-gray-200 mb-8 overflow-x-auto hide-scrollbar">
-            <button
+            <button type="button"
               onClick={() => setActiveTab('description')}
               className={`pb - 4 px - 6 font - semibold text - lg transition - colors whitespace - nowrap ${activeTab === 'description' ? 'text-red-600 border-b-2 border-red-600' : 'text-gray-500 md:hover:text-gray-800'} `}
             >
               Description
             </button>
-            <button
+            <button type="button"
               onClick={() => setActiveTab('specs')}
               className={`pb - 4 px - 6 font - semibold text - lg transition - colors whitespace - nowrap ${activeTab === 'specs' ? 'text-red-600 border-b-2 border-red-600' : 'text-gray-500 md:hover:text-gray-800'} `}
             >
               Specifications
             </button>
-            <button
+            <button type="button"
               onClick={() => setActiveTab('reviews')}
               className={`pb - 4 px - 6 font - semibold text - lg transition - colors whitespace - nowrap ${activeTab === 'reviews' ? 'text-red-600 border-b-2 border-red-600' : 'text-gray-500 md:hover:text-gray-800'} `}
             >
               Reviews (124)
             </button>
-            <button
+            <button type="button"
               onClick={() => setActiveTab('compare')}
               className={`pb - 4 px - 6 font - semibold text - lg transition - colors whitespace - nowrap flex items - center gap - 2 ${activeTab === 'compare' ? 'text-red-600 border-b-2 border-red-600' : 'text-gray-500 md:hover:text-gray-800'} `}
             >
@@ -928,7 +928,7 @@ export const OgabasseyV2ProductDetails: React.FC<
                   <h3 className="text-xl font-bold text-gray-900">
                     Customer Reviews
                   </h3>
-                  <button className="text-sm font-bold text-red-600 hover:text-red-700">
+                  <button type="button" className="text-sm font-bold text-red-600 hover:text-red-700">
                     Write a Review
                   </button>
                 </div>
@@ -972,7 +972,7 @@ export const OgabasseyV2ProductDetails: React.FC<
                 <div className="space-y-4">
                   {PRODUCT_REVIEWS.length === 0 ? (
                     <div className="text-center py-8">
-                      <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+                      <div className="size-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
                         <Star size={24} className="text-gray-400" />
                       </div>
                       <h4 className="font-bold text-gray-900 mb-2">No reviews yet</h4>
@@ -986,7 +986,7 @@ export const OgabasseyV2ProductDetails: React.FC<
                       >
                         <div className="flex justify-between items-start mb-2">
                           <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-full bg-red-50 text-red-600 flex items-center justify-center font-bold text-xs">
+                            <div className="size-8 rounded-full bg-red-50 text-red-600 flex items-center justify-center font-bold text-xs">
                               <User size={14} />
                             </div>
                             <div>
@@ -1058,7 +1058,7 @@ export const OgabasseyV2ProductDetails: React.FC<
                         Current
                       </div>
                       <div className="h-44 flex flex-col items-center justify-end pb-4 pt-4">
-                        <div className="bg-white p-2 rounded-xl shadow-sm mb-2 overflow-hidden border border-red-100 h-24 w-24 flex items-center justify-center relative">
+                        <div className="bg-white p-2 rounded-xl shadow-sm mb-2 overflow-hidden border border-red-100 size-24 flex items-center justify-center relative">
                           <Image
                             src={productData.images[0]}
                             alt={productData.name}
@@ -1109,7 +1109,7 @@ export const OgabasseyV2ProductDetails: React.FC<
                     {comparableProducts.map((comp, idx) => (
                       <div key={idx} className="space-y-4 relative group">
                         <div className="h-44 flex flex-col items-center justify-end pb-4 pt-4 opacity-90 hover:opacity-100 transition-opacity">
-                          <div className="p-2 mb-2 rounded-xl overflow-hidden bg-gray-50 border border-gray-200 h-24 w-24 flex items-center justify-center relative">
+                          <div className="p-2 mb-2 rounded-xl overflow-hidden bg-gray-50 border border-gray-200 size-24 flex items-center justify-center relative">
                             <Image
                               src={comp.image}
                               alt={comp.name}
@@ -1157,7 +1157,7 @@ export const OgabasseyV2ProductDetails: React.FC<
                         {/* Comparison Actions */}
                         <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col gap-1">
                           {isInCompare(comp.id) ? (
-                            <button
+                            <button type="button"
                               onClick={() => removeFromCompare(comp.id)}
                               className="bg-white text-red-500 p-1 rounded-full shadow-sm border border-gray-200 hover:bg-red-50"
                               title="Remove from comparison"
@@ -1165,7 +1165,7 @@ export const OgabasseyV2ProductDetails: React.FC<
                               <X size={14} />
                             </button>
                           ) : (
-                            <button
+                            <button type="button"
                               onClick={() => handleAddToCompare(comp)}
                               className="bg-white text-blue-500 p-1 rounded-full shadow-sm border border-gray-200 hover:bg-blue-50"
                               title="Add to comparison list"

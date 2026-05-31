@@ -128,7 +128,7 @@ describe('DvaModal', () => {
         />
       );
 
-      expect(screen.getByText('Waiting for transfer...')).toBeInTheDocument();
+      expect(screen.getByText('Waiting for transfer…')).toBeInTheDocument();
     });
 
     it('renders reference number', () => {

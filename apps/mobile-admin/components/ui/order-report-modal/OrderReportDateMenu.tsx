@@ -112,7 +112,7 @@ export function OrderReportDateMenu({
                     },
                   ]}
                 >
-                  Custom Range...
+                  Custom Range…
                 </Text>
                 <Ionicons
                   name="calendar-outline"

@@ -46,7 +46,7 @@ export const SavedToast: React.FC<SavedToastProps> = ({
               : 'Removed from wishlist'}
           </p>
         </div>
-        <button
+        <button type="button"
           onClick={onClose}
           className="absolute top-2 right-2 text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-50 transition-colors"
         >

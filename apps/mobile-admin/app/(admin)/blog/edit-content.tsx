@@ -160,7 +160,7 @@ export default function EditContentScreen() {
             <Text
               style={[blogEditorStyles.loadingText, { color: colors.text }]}
             >
-              Polishing with AI...
+              Polishing with AI…
             </Text>
           </View>
         </View>

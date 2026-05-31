@@ -2,9 +2,7 @@ import { useState } from 'react';
 import type { Biller } from '@/hooks/use-vtu-billers';
 import { detectNetwork } from '@/lib/network-utils';
 import type { UtilityRepeatRecipient } from '@/lib/utility-repeat';
-import {
-  inferProviderFromDataBillerName,
-} from './data-form.helpers';
+import { inferProviderFromDataBillerName } from './data-form.helpers';
 
 interface UseDataFormBeneficiaryControllerProps {
   initialPhoneNumber?: string;
@@ -56,7 +54,10 @@ export function useDataFormBeneficiaryController({
       return providerName === detected;
     });
 
-    if (matchingBiller && selectedDataBiller?.billerId !== matchingBiller.billerId) {
+    if (
+      matchingBiller &&
+      selectedDataBiller?.billerId !== matchingBiller.billerId
+    ) {
       setSelectedDataBiller(matchingBiller);
       setIsDataPickerExpanded(false);
       const hasDataPackages = (matchingBiller.billItems?.length ?? 0) > 0;

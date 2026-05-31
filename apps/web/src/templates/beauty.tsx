@@ -118,7 +118,7 @@ export function BeautyHome(props: TemplatePageProps) {
                                         'Build your perfect routine'
                                     ].map((item, idx) => (
                                         <li key={idx} className="flex items-center gap-3 text-gray-700">
-                                            <div className="w-6 h-6 bg-rose-500 text-white rounded-full flex items-center justify-center text-xs font-bold shrink-0">
+                                            <div className="size-6 bg-rose-500 text-white rounded-full flex items-center justify-center text-xs font-bold shrink-0">
                                                 {idx + 1}
                                             </div>
                                             <span>{item}</span>
@@ -131,7 +131,7 @@ export function BeautyHome(props: TemplatePageProps) {
                             </div>
                             <div className="relative h-96 bg-linear-to-br from-white to-purple-50 rounded-2xl flex items-center justify-center shadow-inner">
                                 <div className="text-center">
-                                    <Sparkles className="w-20 h-20 text-rose-400 mx-auto mb-4" />
+                                    <Sparkles className="size-20 text-rose-400 mx-auto mb-4" />
                                     <p className="text-gray-500">Interactive Quiz Placeholder</p>
                                 </div>
                             </div>
@@ -155,7 +155,7 @@ export function BeautyHome(props: TemplatePageProps) {
                             const Icon = concern.icon;
                             const isActive = selectedConcern === concern.value;
                             return (
-                                <button
+                                <button type="button"
                                     key={concern.value}
                                     onClick={() => setSelectedConcern(concern.value)}
                                     className={`p-6 rounded-2xl border-2 transition-all ${isActive
@@ -163,7 +163,7 @@ export function BeautyHome(props: TemplatePageProps) {
                                         : 'border-gray-200 bg-white hover:border-rose-200 hover:shadow-md'
                                         }`}
                                 >
-                                    <Icon className={`w-8 h-8 mx-auto mb-3 ${isActive ? 'text-rose-600' : 'text-gray-400'}`} />
+                                    <Icon className={`size-8 mx-auto mb-3 ${isActive ? 'text-rose-600' : 'text-gray-400'}`} />
                                     <span className={`block text-sm font-medium ${isActive ? 'text-rose-900' : 'text-gray-700'}`}>
                                         {concern.name}
                                     </span>
@@ -201,7 +201,7 @@ export function BeautyHome(props: TemplatePageProps) {
                                 {skinConcerns.map((concern) => {
                                     const isActive = selectedConcern === concern.value;
                                     return (
-                                        <button
+                                        <button type="button"
                                             key={concern.value}
                                             onClick={() => setSelectedConcern(concern.value)}
                                             className={`px-5 py-2.5 rounded-full text-sm font-medium transition-all ${isActive
@@ -241,8 +241,8 @@ export function BeautyHome(props: TemplatePageProps) {
                             const Icon = ingredient.icon;
                             return (
                                 <div key={idx} className="p-8 bg-white rounded-2xl shadow-md hover:shadow-xl transition-shadow">
-                                    <div className="w-16 h-16 bg-linear-to-br from-rose-100 to-purple-100 rounded-full flex items-center justify-center mb-4 mx-auto">
-                                        <Icon className="w-8 h-8 text-rose-600" />
+                                    <div className="size-16 bg-linear-to-br from-rose-100 to-purple-100 rounded-full flex items-center justify-center mb-4 mx-auto">
+                                        <Icon className="size-8 text-rose-600" />
                                     </div>
                                     <h3 className="text-lg font-semibold text-gray-900 text-center mb-2">
                                         {ingredient.name}
@@ -275,13 +275,13 @@ export function BeautyHome(props: TemplatePageProps) {
                             <div key={idx} className="bg-linear-to-br from-purple-50 to-pink-50 rounded-2xl p-6 shadow-md hover:shadow-lg transition-shadow">
                                 <div className="aspect-square bg-linear-to-br from-white to-purple-100 rounded-xl mb-4 flex items-center justify-center">
                                     <div className="text-center">
-                                        <Heart className="w-12 h-12 text-rose-300 mx-auto mb-2" />
+                                        <Heart className="size-12 text-rose-300 mx-auto mb-2" />
                                         <p className="text-gray-500 text-sm">Before/After Photo</p>
                                     </div>
                                 </div>
                                 <div className="flex gap-1 mb-3">
                                     {[...Array(5)].map((_, i) => (
-                                        <Star key={i} className="w-4 h-4 fill-rose-500 text-rose-500" />
+                                        <Star key={i} className="size-4 fill-rose-500 text-rose-500" />
                                     ))}
                                 </div>
                                 <p className="text-gray-700 mb-3 italic">
@@ -312,8 +312,8 @@ export function BeautyHome(props: TemplatePageProps) {
                             const Icon = routine.icon;
                             return (
                                 <div key={idx} className="bg-white rounded-2xl p-8 shadow-lg">
-                                    <div className="w-16 h-16 bg-linear-to-br from-rose-100 to-purple-100 rounded-full flex items-center justify-center mb-4 mx-auto">
-                                        <Icon className="w-8 h-8 text-rose-600" />
+                                    <div className="size-16 bg-linear-to-br from-rose-100 to-purple-100 rounded-full flex items-center justify-center mb-4 mx-auto">
+                                        <Icon className="size-8 text-rose-600" />
                                     </div>
                                     <h3 className="text-2xl font-serif text-center text-gray-900 mb-6">
                                         {routine.time} Routine
@@ -321,7 +321,7 @@ export function BeautyHome(props: TemplatePageProps) {
                                     <ul className="space-y-3">
                                         {routine.steps.map((step, stepIdx) => (
                                             <li key={stepIdx} className="flex items-center gap-3 text-gray-700">
-                                                <span className="w-6 h-6 bg-rose-500 text-white rounded-full flex items-center justify-center text-xs font-bold shrink-0">
+                                                <span className="size-6 bg-rose-500 text-white rounded-full flex items-center justify-center text-xs font-bold shrink-0">
                                                     {stepIdx + 1}
                                                 </span>
                                                 {step}

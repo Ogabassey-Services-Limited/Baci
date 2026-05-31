@@ -107,7 +107,7 @@ export const OgabasseyV2Orders: React.FC = () => {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         {/* Assuming Loader2 is available or use simple text */}
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
+        <div className="animate-spin rounded-full size-8 border-b-2 border-red-600"></div>
       </div>
     );
   }
@@ -148,7 +148,7 @@ export const OgabasseyV2Orders: React.FC = () => {
         {orders.length === 0 ? (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center py-16">
-              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <div className="size-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Package className="text-gray-400" size={32} />
               </div>
               <h3 className="text-lg font-bold text-gray-900 mb-1">
@@ -168,7 +168,7 @@ export const OgabasseyV2Orders: React.FC = () => {
         ) : filteredOrders.length === 0 ? (
           <div className="flex-1 flex items-center justify-center py-20">
             <div className="text-center">
-              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4 border border-gray-200">
+              <div className="size-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4 border border-gray-200">
                 <Search className="text-gray-400" size={32} />
               </div>
               <h3 className="text-lg font-bold text-gray-900 mb-1">
@@ -235,7 +235,7 @@ export const OgabasseyV2Orders: React.FC = () => {
                               key={item.id}
                               className="flex gap-4 items-center group/item hover:bg-gray-50 p-2 rounded-xl transition-colors -mx-2"
                             >
-                              <div className="w-16 h-16 bg-gray-50 rounded-lg p-2 border border-gray-100 shrink-0 group-hover/item:bg-white group-hover/item:border-red-100 transition-colors relative">
+                              <div className="size-16 bg-gray-50 rounded-lg p-2 border border-gray-100 shrink-0 group-hover/item:bg-white group-hover/item:border-red-100 transition-colors relative">
                                 <Image
                                   src={item.image || item.product_image || '/placeholder.png'}
                                   alt={item.name}
@@ -266,7 +266,7 @@ export const OgabasseyV2Orders: React.FC = () => {
                             href={asRoute(productHref)}
                             className="flex gap-4 items-center group/item hover:bg-gray-50 p-2 rounded-xl transition-colors -mx-2"
                           >
-                            <div className="w-16 h-16 bg-gray-50 rounded-lg p-2 border border-gray-100 shrink-0 group-hover/item:bg-white group-hover/item:border-red-100 transition-colors relative">
+                            <div className="size-16 bg-gray-50 rounded-lg p-2 border border-gray-100 shrink-0 group-hover/item:bg-white group-hover/item:border-red-100 transition-colors relative">
                               <Image
                                 src={item.image || item.product_image || '/placeholder.png'}
                                 alt={item.name}

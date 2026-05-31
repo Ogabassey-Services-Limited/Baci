@@ -34,7 +34,7 @@ export function UtilityHeader({
   topInset,
   surfaceColor,
 }: UtilityHeaderProps): React.ReactElement {
-  // We apply a +6pt additional spacing to topInset to visually offset the header 
+  // We apply a +6pt additional spacing to topInset to visually offset the header
   // from the safe-area notch and to match the tab bar height offset used elsewhere.
   // This ensures a balanced top spacing across devices relative to MIN_PADDING_TOP.
   const paddingTop = Math.max(topInset + 6, MIN_PADDING_TOP);

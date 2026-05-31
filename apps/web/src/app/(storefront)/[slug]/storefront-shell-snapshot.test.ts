@@ -264,4 +264,28 @@ describe('getStorefrontShellSnapshot', () => {
     });
     expect(getCachedNavigationCategories).not.toHaveBeenCalled();
   });
+
+  it('redacts secret feature settings before serializing shell merchant data', async () => {
+    vi.mocked(getRequestScopedMerchant).mockResolvedValue({
+      ...baseMerchant,
+      feature_settings: {
+        blog_enabled: true,
+        custom_settings: {
+          google_merchant_id: '112524323',
+          paypal_secret_key: 'server-only-paypal-secret',
+        },
+        tiktok_access_token: 'server-only-tiktok-token',
+      },
+    } as unknown as Awaited<ReturnType<typeof getRequestScopedMerchant>>);
+
+    const shellSnapshotBase = await getStorefrontShellSnapshotBase('ogabassey');
+
+    expect(shellSnapshotBase?.merchant.feature_settings).toEqual({
+      blog_enabled: true,
+      custom_settings: {
+        google_merchant_id: '112524323',
+      },
+    });
+    expect(JSON.stringify(shellSnapshotBase)).not.toContain('server-only');
+  });
 });

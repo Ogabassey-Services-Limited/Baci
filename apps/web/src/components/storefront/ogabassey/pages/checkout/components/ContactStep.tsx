@@ -228,7 +228,7 @@ export function ContactStep({
                           setCreateAccount(e.target.checked);
                           setShowPasswordInput(e.target.checked);
                         }}
-                        className="peer h-5 w-5 rounded border-gray-300 text-store-primary focus:ring-store-primary"
+                        className="peer size-5 rounded border-gray-300 text-store-primary focus:ring-store-primary"
                       />
                     </div>
                     <div>

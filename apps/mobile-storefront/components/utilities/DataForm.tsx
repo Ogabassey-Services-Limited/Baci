@@ -138,8 +138,7 @@ export function DataForm({
     setSelectedDataBiller(biller);
     setSelectedPlan(hasDataPackages ? null : biller.billerId);
     setSelectedProvider(
-      inferProviderFromDataBillerName(biller.billerName) ??
-        selectedProvider
+      inferProviderFromDataBillerName(biller.billerName) ?? selectedProvider
     );
     if (hasDataPackages) {
       setPlanAmount(0);

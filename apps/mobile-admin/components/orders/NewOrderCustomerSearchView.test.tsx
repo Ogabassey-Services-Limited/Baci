@@ -239,7 +239,7 @@ describe('NewOrderCustomerSearchView', () => {
 
     render(<NewOrderCustomerSearchView controller={controller} />);
 
-    expect(screen.getByText('Loading more customers...')).toBeInTheDocument();
+    expect(screen.getByText('Loading more customers…')).toBeInTheDocument();
   });
 
   it('shows a loading empty state while customers are loading', () => {

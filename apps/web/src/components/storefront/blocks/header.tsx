@@ -264,7 +264,7 @@ export function Header({
               })}
             >
               <div className="relative group">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 opacity-50 group-focus-within:opacity-100 transition-opacity" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 opacity-50 group-focus-within:opacity-100 transition-opacity" />
                 <Input
                   type="search"
                   placeholder="Search..."
@@ -309,7 +309,7 @@ export function Header({
                 className="md:hidden"
                 aria-label="Search"
               >
-                <Search className="w-5 h-5" />
+                <Search className="size-5" />
               </Button>
             )}
 
@@ -334,12 +334,12 @@ export function Header({
                       aria-label="User account"
                       className="p-2 hover:bg-black/5 rounded-full transition-colors group hidden sm:block"
                     >
-                      <User className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                      <User className="size-5 group-hover:scale-110 transition-transform" />
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-56">
                     <DropdownMenuLabel className="font-normal">
-                      <div className="flex flex-col space-y-1">
+                      <div className="flex flex-col gap-y-1">
                         <p className="text-sm font-medium leading-none">
                           {[
                             customerSession.customer.first_name,
@@ -359,7 +359,7 @@ export function Header({
                         href={asRoute(getHref('/account'))}
                         className="cursor-pointer"
                       >
-                        <User className="mr-2 h-4 w-4" />
+                        <User className="mr-2 size-4" />
                         My Account
                       </Link>
                     </DropdownMenuItem>
@@ -368,7 +368,7 @@ export function Header({
                         href={asRoute(getHref('/account/orders'))}
                         className="cursor-pointer"
                       >
-                        <Package className="mr-2 h-4 w-4" />
+                        <Package className="mr-2 size-4" />
                         Orders
                       </Link>
                     </DropdownMenuItem>
@@ -377,7 +377,7 @@ export function Header({
                         href={asRoute(getHref('/account/settings'))}
                         className="cursor-pointer"
                       >
-                        <Settings className="mr-2 h-4 w-4" />
+                        <Settings className="mr-2 size-4" />
                         Settings
                       </Link>
                     </DropdownMenuItem>
@@ -386,7 +386,7 @@ export function Header({
                       onClick={handleLogout}
                       className="cursor-pointer text-destructive focus:text-destructive"
                     >
-                      <LogOut className="mr-2 h-4 w-4" />
+                      <LogOut className="mr-2 size-4" />
                       Sign out
                     </DropdownMenuItem>
                   </DropdownMenuContent>
@@ -409,9 +409,9 @@ export function Header({
                   aria-label="Shopping cart"
                   className="relative p-2 hover:bg-black/5 rounded-full transition-colors group"
                 >
-                  <ShoppingBag className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                  <ShoppingBag className="size-5 group-hover:scale-110 transition-transform" />
                   {cartCount > 0 && (
-                    <span className="absolute top-0 right-0 h-4 w-4 bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center rounded-full shadow-sm animate-in zoom-in">
+                    <span className="absolute top-0 right-0 size-4 bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center rounded-full shadow-sm animate-in zoom-in">
                       {cartCount}
                     </span>
                   )}
@@ -427,9 +427,9 @@ export function Header({
                 className="md:hidden p-2 hover:bg-black/5 rounded-full transition-colors"
               >
                 {mobileMenuOpen ? (
-                  <X className="w-6 h-6" />
+                  <X className="size-6" />
                 ) : (
-                  <Menu className="w-6 h-6" />
+                  <Menu className="size-6" />
                 )}
               </button>
             )}
@@ -501,7 +501,7 @@ export function Header({
                           onClick={() => setMobileMenuOpen(false)}
                           className="flex items-center gap-2"
                         >
-                          <User className="h-5 w-5" />
+                          <User className="size-5" />
                           My Account
                         </Link>
                         <Link
@@ -509,7 +509,7 @@ export function Header({
                           onClick={() => setMobileMenuOpen(false)}
                           className="flex items-center gap-2"
                         >
-                          <Package className="h-5 w-5" />
+                          <Package className="size-5" />
                           Orders
                         </Link>
                         <button
@@ -520,7 +520,7 @@ export function Header({
                           }}
                           className="flex items-center gap-2 text-destructive"
                         >
-                          <LogOut className="h-5 w-5" />
+                          <LogOut className="size-5" />
                           Sign out
                         </button>
                       </>
@@ -530,7 +530,7 @@ export function Header({
                         onClick={() => setMobileMenuOpen(false)}
                         className="flex items-center gap-2"
                       >
-                        <User className="h-5 w-5" />
+                        <User className="size-5" />
                         Sign in
                       </Link>
                     )}

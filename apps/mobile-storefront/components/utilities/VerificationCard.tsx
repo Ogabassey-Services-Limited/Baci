@@ -18,7 +18,7 @@ export function VerificationCard({
     return (
       <View style={[styles.card, styles.loadingCard]}>
         <ActivityIndicator size="small" color="#6B7280" />
-        <Text style={styles.loadingText}>Verifying customer...</Text>
+        <Text style={styles.loadingText}>Verifying customer…</Text>
       </View>
     );
   }

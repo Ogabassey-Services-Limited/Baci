@@ -183,7 +183,7 @@ export function Header({
                     value={searchQuery}
                     onChangeText={onSearchQueryChange}
                     onSubmitEditing={onSearchSubmit}
-                    placeholder="Search products..."
+                    placeholder="Search products…"
                     placeholderTextColor={colors.placeholder}
                     returnKeyType="search"
                     selectTextOnFocus={true}
@@ -273,7 +273,7 @@ export function Header({
         >
           <Ionicons name="search" size={18} color={colors.placeholder} />
           <Text style={styles.defaultSearchPlaceholder}>
-            Search our collection...
+            Search our collection…
           </Text>
         </Pressable>
       )}

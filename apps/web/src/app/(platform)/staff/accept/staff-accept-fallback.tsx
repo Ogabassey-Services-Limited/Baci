@@ -11,7 +11,7 @@ export function StaffAcceptFallback() {
         <div className="text-center" role="status" aria-live="polite">
           <div
             aria-hidden="true"
-            className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent"
+            className="mx-auto mb-4 size-8 animate-spin rounded-full border-2 border-primary border-t-transparent"
           />
           <h1 className="text-2xl font-bold mb-2">Checking invitation</h1>
           <p className="text-muted-foreground">

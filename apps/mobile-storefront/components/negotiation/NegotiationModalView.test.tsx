@@ -192,7 +192,7 @@ describe('NegotiationModalView', () => {
       />
     );
 
-    expect(screen.getByText('Checking best deal...')).toBeTruthy();
+    expect(screen.getByText('Checking best deal…')).toBeTruthy();
   });
 
   it('renders success state and triggers success callback', () => {

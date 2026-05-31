@@ -56,7 +56,7 @@ export function GeminiCommandBar({
       <div className="space-y-3">
         <form onSubmit={handleSubmit} className="flex flex-col gap-2">
           <div className="relative">
-            <Sparkles className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-purple-500" />
+            <Sparkles className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-purple-500" />
             <Input
               value={command}
               onChange={(e) => setCommand(e.target.value)}
@@ -68,14 +68,14 @@ export function GeminiCommandBar({
             <Button
               type="submit"
               size="icon"
-              className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 bg-linear-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+              className="absolute right-1 top-1/2 -translate-y-1/2 size-7 bg-linear-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
               disabled={isLoading || disabled || !command.trim()}
               aria-label="Apply Gemini command"
             >
               {isLoading ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <Loader2 className="size-3.5 animate-spin" />
               ) : (
-                <Sparkles className="w-3.5 h-3.5" />
+                <Sparkles className="size-3.5" />
               )}
             </Button>
           </div>
@@ -83,7 +83,7 @@ export function GeminiCommandBar({
           {showSuggestions && !isLoading && !disabled && (
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Lightbulb className="w-3.5 h-3.5" />
+                <Lightbulb className="size-3.5" />
                 <span>Try these suggestions:</span>
               </div>
               <div className="flex flex-wrap gap-1.5">
@@ -124,7 +124,7 @@ export function GeminiCommandBar({
           <div className="flex gap-2">
             <div className="relative flex-1">
               <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-purple-500" />
+                <Sparkles className="size-4 text-purple-500" />
                 <span className="text-xs font-medium text-purple-600 hidden sm:inline">
                   Gemini AI
                 </span>
@@ -147,12 +147,12 @@ export function GeminiCommandBar({
             >
               {isLoading ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Generating...
+                  <Loader2 className="size-4 mr-2 animate-spin" />
+                  Generating…
                 </>
               ) : (
                 <>
-                  Apply <ArrowRight className="w-4 h-4 ml-2" />
+                  Apply <ArrowRight className="size-4 ml-2" />
                 </>
               )}
             </Button>
@@ -161,7 +161,7 @@ export function GeminiCommandBar({
           {showSuggestions && !isLoading && !disabled && (
             <div className="space-y-2 animate-in slide-in-from-bottom-2 duration-200">
               <div className="flex items-center gap-2 text-xs font-medium text-purple-700">
-                <Lightbulb className="w-4 h-4" />
+                <Lightbulb className="size-4" />
                 <span>Quick suggestions:</span>
               </div>
               <div className="flex flex-wrap gap-2">

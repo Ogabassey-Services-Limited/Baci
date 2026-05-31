@@ -169,7 +169,7 @@ export function OgabasseyHeader({
                         <div className="flex flex-col items-center justify-center py-8 text-gray-400">
                           <Loader2 className="animate-spin mb-2" size={32} />
                           <p className="text-sm font-medium">
-                            Gemini is thinking...
+                            Gemini is thinking…
                           </p>
                         </div>
                       ) : results && results.length > 0 ? (
@@ -244,7 +244,7 @@ export function OgabasseyHeader({
               >
                 <ShoppingCart size={22} />
                 {cartCount > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 bg-red-600 text-white text-[10px] font-bold h-4 w-4 rounded-full flex items-center justify-center border border-[#1a1a1a]">
+                  <span className="absolute -top-1.5 -right-1.5 bg-red-600 text-white text-[10px] font-bold size-4 rounded-full flex items-center justify-center border border-[#1a1a1a]">
                     {cartCount}
                   </span>
                 )}

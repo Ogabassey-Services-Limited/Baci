@@ -158,7 +158,7 @@ describe('CryptoPaymentModal', () => {
         />,
       );
       expect(
-        screen.getByText('Checking payment status...'),
+        screen.getByText('Checking payment status…'),
       ).toBeInTheDocument();
     });
 
@@ -171,7 +171,7 @@ describe('CryptoPaymentModal', () => {
         />,
       );
       expect(
-        screen.getByText('Waiting for blockchain confirmation...'),
+        screen.getByText('Waiting for blockchain confirmation…'),
       ).toBeInTheDocument();
     });
 
@@ -181,7 +181,7 @@ describe('CryptoPaymentModal', () => {
       );
       expect(
         screen.getByText(
-          'Payment confirmed! Redirecting to order confirmation...',
+          'Payment confirmed! Redirecting to order confirmation…',
         ),
       ).toBeInTheDocument();
     });

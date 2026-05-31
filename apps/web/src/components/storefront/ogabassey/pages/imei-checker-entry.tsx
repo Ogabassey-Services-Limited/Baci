@@ -286,7 +286,7 @@ export const OgabasseyImeiEntry = ({
             className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm"
             key={title}
           >
-            <div className="w-12 h-12 bg-[var(--store-primary)]/5 text-[var(--store-primary)] rounded-xl flex items-center justify-center mb-4">
+            <div className="size-12 bg-[var(--store-primary)]/5 text-[var(--store-primary)] rounded-xl flex items-center justify-center mb-4">
               <Icon size={24} />
             </div>
             <h3 className="font-bold text-gray-900 mb-2">{title}</h3>

@@ -80,12 +80,12 @@ export function PaymentLogo({
 
     const sizeClasses = {
         sm: 'w-5 h-5',
-        md: 'w-6 h-6',
+        md: 'size-6',
         lg: 'w-8 h-8',
     };
 
     const containerSizes = {
-        sm: 'w-6 h-6',
+        sm: 'size-6',
         md: 'w-8 h-8',
         lg: 'w-10 h-10',
     };
@@ -282,10 +282,10 @@ export function PaymentTrustBadges() {
         >
             <span className="text-xs text-gray-500 font-medium">Secure payments via</span>
             <div className="flex items-center gap-2" role="list">
-                <div role="listitem"><PaystackLogo className="w-6 h-6" /></div>
-                <div role="listitem"><KorapayLogo className="w-6 h-6" /></div>
-                <div role="listitem"><CredPalLogo className="w-6 h-6" /></div>
-                <div role="listitem"><CreditDirectLogo className="w-6 h-6" /></div>
+                <div role="listitem"><PaystackLogo className="size-6" /></div>
+                <div role="listitem"><KorapayLogo className="size-6" /></div>
+                <div role="listitem"><CredPalLogo className="size-6" /></div>
+                <div role="listitem"><CreditDirectLogo className="size-6" /></div>
             </div>
         </section>
     );

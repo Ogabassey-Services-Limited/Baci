@@ -113,7 +113,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
                 <img
                   src="/african-santa-head.svg"
                   alt="Santa"
-                  className="w-9 h-9 object-contain rounded-full border-2 border-red-400"
+                  className="size-9 object-contain rounded-full border-2 border-red-400"
                 />
               ) : (
                 <Sparkles size={24} className="text-red-600" />
@@ -215,8 +215,8 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
             <p className="text-sm font-bold text-gray-900 text-center leading-tight">
               Make a wish! {'\u2728'}
             </p>
-            <div className="absolute -bottom-2 -right-1 w-3 h-3 bg-white rounded-full border-r border-b border-red-100" />
-            <div className="absolute -bottom-4 -right-3 w-2 h-2 bg-white/90 rounded-full border border-red-50" />
+            <div className="absolute -bottom-2 -right-1 size-3 bg-white rounded-full border-r border-b border-red-100" />
+            <div className="absolute -bottom-4 -right-3 size-2 bg-white/90 rounded-full border border-red-50" />
           </div>
         )}
 
@@ -224,7 +224,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
         {!isOpen && !isSanta && proactiveMsg && (
           <div className="absolute bottom-[90%] right-[85%] mr-[-20px] mb-[-10px] w-48 bg-white px-4 py-3 rounded-2xl rounded-tr-none shadow-lg border border-red-50 transform transition-[transform,opacity] duration-300 animate-in fade-in slide-in-from-bottom-4 z-40">
             <div className="text-gray-800 text-xs font-medium leading-relaxed">{proactiveMsg}</div>
-            <div className="absolute -bottom-1.5 -right-1 w-4 h-4 bg-white rotate-45 border-r border-b border-red-50" />
+            <div className="absolute -bottom-1.5 -right-1 size-4 bg-white rotate-45 border-r border-b border-red-50" />
             <button
               type="button"
               onClick={(e) => {

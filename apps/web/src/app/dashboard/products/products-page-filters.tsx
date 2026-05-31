@@ -59,7 +59,7 @@ export function ProductsPageFilters({
     <div className="flex flex-col gap-2">
       <form onSubmit={handleSubmit}>
         <div className="relative w-full">
-          <Search className="absolute left-2.5 top-3 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute left-2.5 top-3 size-4 text-muted-foreground" />
           <Textarea
             placeholder="Search products or paste a price list to run AI updates... ✨"
             className="w-full resize-none appearance-none bg-background pl-8 pr-12 shadow-none min-h-[40px] pt-2.5 border-primary/20"
@@ -74,10 +74,10 @@ export function ProductsPageFilters({
           <Button
             type="submit"
             size="icon"
-            className="absolute right-2 top-1.5 h-8 w-8"
+            className="absolute right-2 top-1.5 size-8"
             disabled={isLoading || !searchTerm.trim()}
           >
-            {isLoading ? <BagLoader size={16} /> : <Send className="h-4 w-4" />}
+            {isLoading ? <BagLoader size={16} /> : <Send className="size-4" />}
             <span className="sr-only">Submit</span>
           </Button>
         </div>
@@ -90,9 +90,9 @@ export function ProductsPageFilters({
               variant="outline"
               className="gap-1 border-primary/20 bg-blue-50/50 text-blue-800 hover:bg-blue-100 hover:text-blue-900 dark:bg-blue-950/20 dark:text-blue-300 dark:hover:bg-blue-900/40 dark:hover:text-blue-100"
             >
-              <ListFilter className="h-4 w-4" />
+              <ListFilter className="size-4" />
               <span>Migration: {getMigrationFilterLabel(migrationFilter)}</span>
-              <ChevronDown className="h-4 w-4" />
+              <ChevronDown className="size-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
@@ -103,7 +103,7 @@ export function ProductsPageFilters({
                 onCheckedChange={() => onMigrationFilterChange(option.value)}
                 className="text-blue-800 dark:text-blue-100"
               >
-                <option.icon className="mr-2 h-4 w-4" />
+                <option.icon className="mr-2 size-4" />
                 {option.label}
               </DropdownMenuCheckboxItem>
             ))}
@@ -116,9 +116,9 @@ export function ProductsPageFilters({
               variant="outline"
               className="gap-1 border-primary/20 bg-blue-50/50 text-blue-800 hover:bg-blue-100 hover:text-blue-900 dark:bg-blue-950/20 dark:text-blue-300 dark:hover:bg-blue-900/40 dark:hover:text-blue-100"
             >
-              <ListFilter className="h-4 w-4" />
+              <ListFilter className="size-4" />
               <span>Status: {getStatusFilterLabel(statusFilter)}</span>
-              <ChevronDown className="h-4 w-4" />
+              <ChevronDown className="size-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
@@ -129,7 +129,7 @@ export function ProductsPageFilters({
                 onCheckedChange={() => onStatusFilterChange(option.value)}
                 className="text-blue-800 dark:text-blue-100"
               >
-                <option.icon className="mr-2 h-4 w-4" />
+                <option.icon className="mr-2 size-4" />
                 {option.label}
               </DropdownMenuCheckboxItem>
             ))}
@@ -142,9 +142,9 @@ export function ProductsPageFilters({
               variant="outline"
               className="gap-1 border-primary/20 bg-blue-50/50 text-blue-800 hover:bg-blue-100 hover:text-blue-900 dark:bg-blue-950/20 dark:text-blue-300 dark:hover:bg-blue-900/40 dark:hover:text-blue-100"
             >
-              <ListFilter className="h-4 w-4" />
+              <ListFilter className="size-4" />
               <span>Stock: {getStockFilterLabel(stockFilter)}</span>
-              <ChevronDown className="h-4 w-4" />
+              <ChevronDown className="size-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
@@ -155,7 +155,7 @@ export function ProductsPageFilters({
                 onCheckedChange={() => onStockFilterChange(option.value)}
                 className="text-blue-800 dark:text-blue-100"
               >
-                <option.icon className="mr-2 h-4 w-4" />
+                <option.icon className="mr-2 size-4" />
                 {option.label}
               </DropdownMenuCheckboxItem>
             ))}

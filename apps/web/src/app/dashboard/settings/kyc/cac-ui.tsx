@@ -46,7 +46,7 @@ export function CacConfirmStep({
         </div>
         <div className="mt-6 flex gap-3">
           <Button variant="outline" onClick={onBack}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
+            <ArrowLeft className="mr-2 size-4" />
             Back
           </Button>
           <Button onClick={onConfirm}>Confirm &amp; Upload Certificate</Button>

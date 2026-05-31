@@ -77,18 +77,18 @@ export function HandmadeHome(props: TemplatePageProps) {
         {/* Decorative elements */}
         <div className="absolute inset-0 overflow-hidden opacity-20">
           <div className="absolute top-10 right-20">
-            <div className="w-32 h-32 rounded-full border-2 border-[#C4785E] border-dashed"></div>
+            <div className="size-32 rounded-full border-2 border-[#C4785E] border-dashed"></div>
           </div>
           <div className="absolute bottom-20 left-10">
-            <div className="w-20 h-20 rotate-45 border-2 border-[#7D8B6C]"></div>
+            <div className="size-20 rotate-45 border-2 border-[#7D8B6C]"></div>
           </div>
         </div>
 
         <div className="relative max-w-7xl mx-auto px-6 py-20">
           <div className="max-w-3xl">
             <div className="flex items-center gap-3 mb-6">
-              <div className="w-14 h-14 bg-[#C4785E] rounded-full flex items-center justify-center">
-                <Palette className="w-7 h-7 text-white" />
+              <div className="size-14 bg-[#C4785E] rounded-full flex items-center justify-center">
+                <Palette className="size-7 text-white" />
               </div>
               <div className="flex gap-2">
                 <span className="px-3 py-1 bg-[#7D8B6C] text-white text-xs font-semibold rounded-full">
@@ -120,7 +120,7 @@ export function HandmadeHome(props: TemplatePageProps) {
                 Explore Collection
               </button>
               <button type="button" className="px-8 py-4 bg-white text-[#3D2F2F] rounded-full font-semibold hover:bg-gray-50 transition-colors shadow-md border border-[#E5DDD3] flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C4785E] focus-visible:ring-offset-2">
-                <MessageCircle className="w-5 h-5" />
+                <MessageCircle className="size-5" />
                 Custom Orders
               </button>
             </div>
@@ -136,8 +136,8 @@ export function HandmadeHome(props: TemplatePageProps) {
               const Icon = badge.icon;
               return (
                 <div key={index} className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-[#C4785E]/10 rounded-full flex items-center justify-center shrink-0">
-                    <Icon className="w-5 h-5 text-[#C4785E]" />
+                  <div className="size-12 bg-[#C4785E]/10 rounded-full flex items-center justify-center shrink-0">
+                    <Icon className="size-5 text-[#C4785E]" />
                   </div>
                   <div>
                     <div className="font-semibold text-[#3D2F2F] text-sm">{badge.title}</div>
@@ -178,7 +178,7 @@ export function HandmadeHome(props: TemplatePageProps) {
                 of human hands at work.
               </p>
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-[#C4785E] rounded-full flex items-center justify-center text-white font-bold">
+                <div className="size-12 bg-[#C4785E] rounded-full flex items-center justify-center text-white font-bold">
                   AC
                 </div>
                 <div>
@@ -291,19 +291,19 @@ export function HandmadeHome(props: TemplatePageProps) {
               <ul className="space-y-3 mb-8">
                 {['Personalized engravings', 'Custom sizes & colors', 'Bespoke designs', 'Gift commissions'].map((item, idx) => (
                   <li key={idx} className="flex items-center gap-3">
-                    <div className="w-5 h-5 bg-white text-[#C4785E] rounded-full flex items-center justify-center text-xs font-bold">✓</div>
+                    <div className="size-5 bg-white text-[#C4785E] rounded-full flex items-center justify-center text-xs font-bold">✓</div>
                     <span>{item}</span>
                   </li>
                 ))}
               </ul>
               <button type="button" className="px-8 py-4 bg-white text-[#C4785E] rounded-full font-semibold hover:bg-white/90 transition-colors shadow-lg flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#C4785E]">
-                <MessageCircle className="w-5 h-5" />
+                <MessageCircle className="size-5" />
                 Start a Custom Order
               </button>
             </div>
             <div className="relative">
               <div className="bg-white/10 backdrop-blur-xs rounded-3xl p-8 text-center border border-white/20">
-                <Scissors className="w-16 h-16 text-white/80 mx-auto mb-4" />
+                <Scissors className="size-16 text-white/80 mx-auto mb-4" />
                 <div className="text-2xl font-bold">Made Just for You</div>
                 <div className="text-white/70">Usually ready in 2-3 weeks</div>
               </div>
@@ -328,12 +328,12 @@ export function HandmadeHome(props: TemplatePageProps) {
               <div key={idx} className="bg-white rounded-2xl p-6 shadow-sm border border-[#E5DDD3]">
                 <div className="flex gap-1 mb-4">
                   {[...Array(5)].map((_, i) => (
-                    <Star key={i} className="w-4 h-4 text-[#C4785E] fill-[#C4785E]" />
+                    <Star key={i} className="size-4 text-[#C4785E] fill-[#C4785E]" />
                   ))}
                 </div>
                 <p className="text-[#5D4E4E] mb-4 italic">"{t.text}"</p>
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-[#C4785E]/10 rounded-full flex items-center justify-center text-[#C4785E] font-semibold">
+                  <div className="size-10 bg-[#C4785E]/10 rounded-full flex items-center justify-center text-[#C4785E] font-semibold">
                     {t.name.charAt(0)}
                   </div>
                   <div>
@@ -350,7 +350,7 @@ export function HandmadeHome(props: TemplatePageProps) {
       {/* Sustainability */}
       <section className="py-12 bg-[#7D8B6C] text-white">
         <div className="max-w-5xl mx-auto px-6 text-center">
-          <Leaf className="w-10 h-10 mx-auto mb-4" />
+          <Leaf className="size-10 mx-auto mb-4" />
           <h2 className="text-2xl font-serif font-bold mb-4">
             Crafted with Care for Our Planet
           </h2>
@@ -367,7 +367,7 @@ export function HandmadeHome(props: TemplatePageProps) {
           <div className="grid md:grid-cols-4 gap-8 mb-8">
             <div>
               <h3 className="text-xl font-serif font-bold text-white mb-4 flex items-center gap-2">
-                <Palette className="w-5 h-5 text-[#C4785E]" />
+                <Palette className="size-5 text-[#C4785E]" />
                 {merchant.business_name}
               </h3>
               <p className="text-sm leading-relaxed mb-4">

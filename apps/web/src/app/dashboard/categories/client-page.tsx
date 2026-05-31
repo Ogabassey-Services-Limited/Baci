@@ -38,7 +38,7 @@ export default function CategoriesClientPage({
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" asChild>
             <Link href="/dashboard/products">
-              <ArrowLeft className="h-4 w-4" />
+              <ArrowLeft className="size-4" />
             </Link>
           </Button>
           <div>
@@ -57,7 +57,7 @@ export default function CategoriesClientPage({
           <div className="flex items-center justify-between">
             <CardTitle>All Categories ({initialCategories.length})</CardTitle>
             <div className="relative w-64">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-2 top-2.5 size-4 text-muted-foreground" />
               <Input
                 placeholder="Search categories..."
                 value={searchTerm}
@@ -91,8 +91,8 @@ export default function CategoriesClientPage({
                   <TableRow key={cat.name} className="group">
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-2">
-                        <div className="h-8 w-8 rounded-full bg-yellow-100 dark:bg-yellow-900/30 flex items-center justify-center">
-                          <Package className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+                        <div className="size-8 rounded-full bg-yellow-100 dark:bg-yellow-900/30 flex items-center justify-center">
+                          <Package className="size-4 text-yellow-600 dark:text-yellow-400" />
                         </div>
                         {cat.name}
                       </div>

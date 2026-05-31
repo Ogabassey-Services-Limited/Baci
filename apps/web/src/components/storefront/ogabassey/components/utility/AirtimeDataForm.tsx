@@ -97,7 +97,7 @@ export function AirtimeDataForm({
             )}
           >
             <div
-              className="w-8 h-8 rounded-full mb-1"
+              className="size-8 rounded-full mb-1"
               style={{ backgroundColor: provider.color }}
             />
             <span className="text-[10px] font-bold text-gray-700">
@@ -146,7 +146,7 @@ export function AirtimeDataForm({
         {loading ? (
           <>
             <Loader2 className="animate-spin" size={20} />
-            Processing...
+            Processing…
           </>
         ) : (
           <>Pay ₦{amount ? Number(amount).toLocaleString() : '0.00'}</>

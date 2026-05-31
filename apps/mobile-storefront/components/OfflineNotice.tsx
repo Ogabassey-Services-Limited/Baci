@@ -166,7 +166,7 @@ export function OfflineNotice({
           {isRetrying ? (
             <>
               <ActivityIndicator size="small" color="#FFF" />
-              <Text style={styles.retryButtonText}>Retrying...</Text>
+              <Text style={styles.retryButtonText}>Retrying…</Text>
             </>
           ) : (
             <>

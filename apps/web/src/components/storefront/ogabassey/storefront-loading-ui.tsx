@@ -144,7 +144,7 @@ export function BlogPostRouteLoading() {
               <Skeleton className="h-8 w-3/4 bg-muted/50" shimmer />
               <Skeleton className="h-8 w-1/2 bg-muted/40" shimmer />
               <div className="flex items-center gap-3 pt-2">
-                <Skeleton className="h-10 w-10 rounded-full bg-muted/40" shimmer />
+                <Skeleton className="size-10 rounded-full bg-muted/40" shimmer />
                 <div className="space-y-1.5">
                   <Skeleton className="h-3.5 w-24 bg-muted/40" shimmer />
                   <Skeleton className="h-3 w-32 bg-muted/30" shimmer />

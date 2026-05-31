@@ -133,7 +133,7 @@ export default function CustomerOrdersPage() {
         <div className="container mx-auto max-w-4xl px-4 py-8">
           <Card className="border-destructive/50">
             <CardContent className="p-12 text-center">
-              <AlertCircle className="mx-auto mb-4 h-16 w-16 text-destructive/50" />
+              <AlertCircle className="mx-auto mb-4 size-16 text-destructive/50" />
               <h3 className="mb-2 text-lg font-semibold">Store unavailable</h3>
               <p className="mb-6 text-muted-foreground">
                 We could not load this storefront right now.
@@ -159,7 +159,7 @@ export default function CustomerOrdersPage() {
             href={asRoute(getHref('/account'))}
             className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
           >
-            <ArrowLeft className="h-4 w-4" />
+            <ArrowLeft className="size-4" />
             <span>Back to account</span>
           </Link>
         </div>
@@ -180,18 +180,18 @@ export default function CustomerOrdersPage() {
             aria-live="polite"
           >
             <span className="sr-only">Loading orders</span>
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            <Loader2 className="size-8 animate-spin text-muted-foreground" />
           </div>
         ) : ordersError ? (
           <Card className="border-destructive/50">
             <CardContent className="p-12 text-center">
-              <AlertCircle className="h-16 w-16 mx-auto mb-4 text-destructive/50" />
+              <AlertCircle className="size-16 mx-auto mb-4 text-destructive/50" />
               <h3 className="text-lg font-semibold mb-2">
                 Unable to load orders
               </h3>
               <p className="text-muted-foreground mb-6">{ordersError}</p>
               <Button onClick={() => fetchOrders()} variant="outline">
-                <RefreshCw className="h-4 w-4 mr-2" />
+                <RefreshCw className="size-4 mr-2" />
                 Try Again
               </Button>
             </CardContent>

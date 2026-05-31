@@ -160,7 +160,7 @@ export default function DomainsDashboard() {
 
           {loading ? (
             <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-              Loading domains...
+              Loading domains…
             </Text>
           ) : fetchError ? (
             <Pressable

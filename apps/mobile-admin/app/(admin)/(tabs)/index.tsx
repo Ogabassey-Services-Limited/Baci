@@ -515,7 +515,7 @@ export default function HomeScreen() {
             {isOrdersLoading ? (
               <View style={{ padding: 20, alignItems: 'center' }}>
                 <Text style={{ color: colors.textSecondary }}>
-                  Loading transactions...
+                  Loading transactions…
                 </Text>
               </View>
             ) : (

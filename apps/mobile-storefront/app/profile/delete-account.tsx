@@ -261,7 +261,7 @@ export default function DeleteAccountScreen() {
                     { color: colors.destructiveForeground },
                   ]}
                 >
-                  Deleting account...
+                  Deleting account…
                 </Text>
               </>
             ) : (

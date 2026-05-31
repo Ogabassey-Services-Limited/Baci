@@ -401,20 +401,22 @@ describe('products/[productSlug] page', () => {
     expect(screen.queryByText('mystery-item')).not.toBeInTheDocument();
   });
 
-  it('opts runtime product metadata in with a dynamic marker', async () => {
+  it('keeps product metadata cacheable without request binding', async () => {
     mockGetCachedProduct.mockResolvedValue(uncategorizedProduct);
 
-    render(
-      await ProductPage({
+    await generateMetadata(
+      {
         params: Promise.resolve({
           slug: 'teststore',
           productSlug: 'mystery-item',
         }),
         searchParams: Promise.resolve({}),
-      })
+      },
+      stubParent
     );
 
     expect(mockConnection).not.toHaveBeenCalled();
+    expect(mockGetRequestScopedMerchant).toHaveBeenCalled();
   });
 
   describe('redirect routing mode', () => {
@@ -1022,7 +1024,7 @@ describe('products/[productSlug] page', () => {
         name: /Shop more Products/i,
       })
     ).toHaveAttribute('href', 'https://teststore.usebaci.com/products');
-    expect(mockConnection).not.toHaveBeenCalled();
+    expect(mockConnection).toHaveBeenCalledTimes(1);
     expect(
       screen.getByRole('link', {
         name: /Compare with Samsung Galaxy Z TriFold/i,

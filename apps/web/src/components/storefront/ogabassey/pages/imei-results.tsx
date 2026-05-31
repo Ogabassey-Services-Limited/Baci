@@ -70,7 +70,7 @@ export function OgabasseyImeiResults({
           }`}
         >
           <div className="flex flex-col md:flex-row items-center gap-6">
-            <div className="relative w-28 h-28 shrink-0 bg-[var(--store-surface,#ffffff)] rounded-2xl p-2 shadow-sm border border-[var(--store-border,#f3f4f6)]">
+            <div className="relative size-28 shrink-0 bg-[var(--store-surface,#ffffff)] rounded-2xl p-2 shadow-sm border border-[var(--store-border,#f3f4f6)]">
               {result.deviceImage ? (
                 <Image
                   src={result.deviceImage}

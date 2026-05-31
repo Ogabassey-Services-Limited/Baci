@@ -203,7 +203,7 @@ export function OrderManagerModal({
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 relative shrink-0 border border-gray-100 rounded-md overflow-hidden bg-white">
+            <div className="size-10 relative shrink-0 border border-gray-100 rounded-md overflow-hidden bg-white">
               <Image
                 src="/jumia-logo.png"
                 alt="Jumia Logo"
@@ -223,11 +223,11 @@ export function OrderManagerModal({
 
         {loading ? (
           <div className="flex justify-center p-8">
-            <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+            <Loader2 className="size-8 animate-spin text-orange-500" />
           </div>
         ) : error ? (
           <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
+            <AlertCircle className="size-4" />
             <AlertTitle>Error</AlertTitle>
             <AlertDescription>{error}</AlertDescription>
           </Alert>
@@ -240,7 +240,7 @@ export function OrderManagerModal({
                   key={item.id}
                   className="flex items-center gap-4 p-4 border rounded-lg bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800"
                 >
-                  <div className="h-12 w-12 bg-gray-200 rounded overflow-hidden shrink-0">
+                  <div className="size-12 bg-gray-200 rounded overflow-hidden shrink-0">
                     {item.product.imageUrl && (
                       // biome-ignore lint/performance/noImgElement: External Jumia image
                       <img
@@ -294,9 +294,9 @@ export function OrderManagerModal({
                 variant="secondary"
               >
                 {actionLoading === 'pack' ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="mr-2 size-4 animate-spin" />
                 ) : (
-                  <Package className="mr-2 h-4 w-4" />
+                  <Package className="mr-2 size-4" />
                 )}
                 Pack All
               </Button>
@@ -307,9 +307,9 @@ export function OrderManagerModal({
                 disabled={!!actionLoading}
               >
                 {actionLoading === 'ready_to_ship' ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="mr-2 size-4 animate-spin" />
                 ) : (
-                  <Truck className="mr-2 h-4 w-4" />
+                  <Truck className="mr-2 size-4" />
                 )}
                 Ready to Ship
               </Button>
@@ -320,9 +320,9 @@ export function OrderManagerModal({
                 variant="outline"
               >
                 {actionLoading === 'print_label' ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="mr-2 size-4 animate-spin" />
                 ) : (
-                  <Printer className="mr-2 h-4 w-4" />
+                  <Printer className="mr-2 size-4" />
                 )}
                 Print Label
               </Button>
@@ -331,9 +331,9 @@ export function OrderManagerModal({
                 <AlertDialogTrigger asChild>
                   <Button disabled={!!actionLoading} variant="destructive">
                     {actionLoading === 'cancel' ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      <Loader2 className="mr-2 size-4 animate-spin" />
                     ) : (
-                      <X className="mr-2 h-4 w-4" />
+                      <X className="mr-2 size-4" />
                     )}
                     Cancel
                   </Button>
@@ -363,7 +363,7 @@ export function OrderManagerModal({
 
             {blockedLabelUrl && (
               <Alert>
-                <AlertCircle className="h-4 w-4" />
+                <AlertCircle className="size-4" />
                 <AlertTitle>Popup Blocked</AlertTitle>
                 <AlertDescription>
                   Your browser blocked the label popup.{' '}

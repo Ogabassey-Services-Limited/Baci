@@ -301,14 +301,14 @@ export default function DomainDetailsPage() {
   };
 
   if (loading) {
-    return <div className="p-8 text-center">Loading domain details...</div>;
+    return <div className="p-8 text-center">Loading domain details…</div>;
   }
 
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" onClick={() => router.back()}>
-          <ArrowLeft className="w-4 h-4" />
+          <ArrowLeft className="size-4" />
         </Button>
         <div>
           <h1 className="text-3xl font-bold">{domain}</h1>
@@ -318,7 +318,7 @@ export default function DomainDetailsPage() {
         </div>
         <div className="ml-auto flex gap-2">
           <Button variant="outline" onClick={fetchDomainDetails}>
-            <RefreshCw className="w-4 h-4 mr-2" />
+            <RefreshCw className="size-4 mr-2" />
             Refresh
           </Button>
         </div>
@@ -334,7 +334,7 @@ export default function DomainDetailsPage() {
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-5 h-5 text-green-500" />
+              <CheckCircle2 className="size-5 text-green-500" />
               <span className="text-2xl font-bold capitalize">
                 {domainInfo?.status || 'Active'}
               </span>
@@ -371,7 +371,7 @@ export default function DomainDetailsPage() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Lock
-                  className={`w-5 h-5 ${lockStatus ? 'text-green-500' : 'text-yellow-500'}`}
+                  className={`size-5 ${lockStatus ? 'text-green-500' : 'text-yellow-500'}`}
                 />
                 <span className="font-medium">
                   {lockStatus ? 'Locked' : 'Unlocked'}
@@ -386,15 +386,15 @@ export default function DomainDetailsPage() {
       <Tabs defaultValue="dns" className="space-y-4">
         <TabsList>
           <TabsTrigger value="dns">
-            <Globe className="w-4 h-4 mr-2" />
+            <Globe className="size-4 mr-2" />
             DNS Records
           </TabsTrigger>
           <TabsTrigger value="email">
-            <Mail className="w-4 h-4 mr-2" />
+            <Mail className="size-4 mr-2" />
             Email Forwarding
           </TabsTrigger>
           <TabsTrigger value="settings">
-            <Shield className="w-4 h-4 mr-2" />
+            <Shield className="size-4 mr-2" />
             Settings
           </TabsTrigger>
         </TabsList>
@@ -412,7 +412,7 @@ export default function DomainDetailsPage() {
               <Dialog open={isAddRecordOpen} onOpenChange={setIsAddRecordOpen}>
                 <DialogTrigger asChild>
                   <Button>
-                    <Plus className="w-4 h-4 mr-2" />
+                    <Plus className="size-4 mr-2" />
                     Add Record
                   </Button>
                 </DialogTrigger>
@@ -495,7 +495,7 @@ export default function DomainDetailsPage() {
             </CardHeader>
             <CardContent>
               {loadingDns ? (
-                <div className="text-center py-8">Loading DNS records...</div>
+                <div className="text-center py-8">Loading DNS records…</div>
               ) : (
                 <Table>
                   <TableHeader>
@@ -538,7 +538,7 @@ export default function DomainDetailsPage() {
                               size="icon"
                               onClick={() => handleDeleteDnsRecord(index)}
                             >
-                              <Trash2 className="w-4 h-4 text-destructive" />
+                              <Trash2 className="size-4 text-destructive" />
                             </Button>
                           </TableCell>
                         </TableRow>
@@ -610,7 +610,7 @@ export default function DomainDetailsPage() {
                       <TableCell>{forward.forwardto}</TableCell>
                       <TableCell className="text-right">
                         <Button variant="ghost" size="icon">
-                          <Trash2 className="w-4 h-4 text-destructive" />
+                          <Trash2 className="size-4 text-destructive" />
                         </Button>
                       </TableCell>
                     </TableRow>

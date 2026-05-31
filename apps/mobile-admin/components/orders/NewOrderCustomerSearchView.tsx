@@ -92,7 +92,7 @@ export function NewOrderCustomerSearchView({
             <View style={{ padding: 16 }}>
               {customersQuery.isFetchingNextPage ? (
                 <Text style={{ color: colors.textMuted, textAlign: 'center' }}>
-                  Loading more customers...
+                  Loading more customers…
                 </Text>
               ) : (
                 <Pressable

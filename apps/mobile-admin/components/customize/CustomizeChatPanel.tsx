@@ -87,7 +87,7 @@ export function CustomizeChatPanel({
             <Text
               style={[styles.processingText, { color: colors.textSecondary }]}
             >
-              Thinking...
+              Thinking…
             </Text>
           </View>
         ) : null}

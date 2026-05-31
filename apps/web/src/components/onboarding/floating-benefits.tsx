@@ -308,8 +308,8 @@ export function OnboardingBackground() {
       />
 
       {/* Decorative Nodes - Simplified to static or simple CSS animation */}
-      <div className="absolute top-1/3 left-[15%] w-2 h-2 rounded-full bg-purple-400/50 hidden xl:block animate-pulse duration-4000" />
-      <div className="absolute bottom-1/3 right-[15%] w-3 h-3 rounded-full bg-blue-400/50 hidden xl:block animate-pulse duration-5000" />
+      <div className="absolute top-1/3 left-[15%] size-2 rounded-full bg-purple-400/50 hidden xl:block animate-pulse duration-4000" />
+      <div className="absolute bottom-1/3 right-[15%] size-3 rounded-full bg-blue-400/50 hidden xl:block animate-pulse duration-5000" />
     </div>
   );
 }

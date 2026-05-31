@@ -201,7 +201,7 @@ export function SearchAutocomplete({
     >
       <div className="relative">
         <Search
-          className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+          className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
           aria-hidden="true"
         />
         <Input
@@ -238,10 +238,10 @@ export function SearchAutocomplete({
               setPopularSearches([]);
               inputRef.current?.focus();
             }}
-            className="absolute right-1 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground focus:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm z-20 h-8 w-8 flex items-center justify-center"
+            className="absolute right-1 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground focus:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm z-20 size-8 flex items-center justify-center"
             aria-label="Clear search"
           >
-            <X className="h-4 w-4" />
+            <X className="size-4" />
           </button>
         )}
       </div>
@@ -295,7 +295,7 @@ export function SearchAutocomplete({
                     )}
                   >
                     {product.image_small ? (
-                      <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded bg-gray-100 border border-gray-100">
+                      <div className="relative size-10 shrink-0 overflow-hidden rounded bg-gray-100 border border-gray-100">
                         <Image
                           src={product.image_small}
                           alt=""
@@ -306,7 +306,7 @@ export function SearchAutocomplete({
                         />
                       </div>
                     ) : (
-                      <div className="flex h-10 w-10 items-center justify-center rounded bg-gray-100 text-gray-400">
+                      <div className="flex size-10 items-center justify-center rounded bg-gray-100 text-gray-400">
                         <Search size={16} />
                       </div>
                     )}
@@ -362,10 +362,7 @@ export function SearchAutocomplete({
                       )}
                     >
                       <div className="flex bg-gray-100 rounded-full p-1.5 text-gray-500">
-                        <TrendingUp
-                          className="h-3.5 w-3.5"
-                          aria-hidden="true"
-                        />
+                        <TrendingUp className="size-3.5" aria-hidden="true" />
                       </div>
                       <span className="flex-1 truncate text-sm font-medium text-gray-700">
                         {search.search_query}
@@ -387,7 +384,7 @@ export function SearchAutocomplete({
               className="border-t border-gray-100 bg-gray-50 p-2 text-center text-xs font-medium text-gray-500"
               aria-live="polite"
             >
-              Searching...
+              Searching…
             </div>
           )}
         </div>

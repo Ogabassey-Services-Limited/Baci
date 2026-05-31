@@ -17,7 +17,7 @@ export function UtilitySuccessView({
 }: UtilitySuccessViewProps) {
   return (
     <div className="text-center py-8">
-      <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
+      <div className="size-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
         <Check size={32} />
       </div>
       <h4 className="text-xl font-bold text-gray-900 mb-2">Success!</h4>

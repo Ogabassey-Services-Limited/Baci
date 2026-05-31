@@ -100,13 +100,13 @@ export const LinkSelector = ({ open, onOpenChange }: LinkSelectorProps) => {
               variant="outline"
               type="button"
               aria-label="Remove link"
-              className="flex h-8 w-8 items-center rounded-sm text-red-600 transition-all hover:bg-red-100 dark:hover:bg-red-800"
+              className="flex size-8 items-center rounded-sm text-red-600 transition-all hover:bg-red-100 dark:hover:bg-red-800"
               onClick={() => {
                 editor.chain().focus().unsetLink().run();
                 onOpenChange(false);
               }}
             >
-              <Trash className="h-4 w-4" />
+              <Trash className="size-4" />
             </Button>
           ) : (
             <Button
@@ -114,7 +114,7 @@ export const LinkSelector = ({ open, onOpenChange }: LinkSelectorProps) => {
               variant="outline"
               type="button"
               aria-label="Save link"
-              className="flex h-8 w-8 items-center rounded-sm transition-all"
+              className="flex size-8 items-center rounded-sm transition-all"
               onClick={() => {
                 const url = getUrlFromString(value);
                 if (url) {
@@ -123,7 +123,7 @@ export const LinkSelector = ({ open, onOpenChange }: LinkSelectorProps) => {
                 }
               }}
             >
-              <Check className="h-4 w-4" />
+              <Check className="size-4" />
             </Button>
           )}
         </div>

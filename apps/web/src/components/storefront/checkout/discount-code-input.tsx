@@ -142,7 +142,7 @@ export function DiscountCodeInput({
         <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
           <div className="flex items-center gap-2">
             <div className="p-1.5 bg-green-100 rounded-full">
-              <Check className="h-4 w-4 text-green-600" />
+              <Check className="size-4 text-green-600" />
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -167,10 +167,10 @@ export function DiscountCodeInput({
                   variant="ghost"
                   size="sm"
                   onClick={handleRemove}
-                  className="h-8 w-8 p-0 text-green-600 hover:text-green-700 hover:bg-green-100"
+                  className="size-8 p-0 text-green-600 hover:text-green-700 hover:bg-green-100"
                   aria-label="Remove discount code"
                 >
-                  <X className="h-4 w-4" />
+                  <X className="size-4" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
@@ -187,7 +187,7 @@ export function DiscountCodeInput({
     <div className="space-y-2">
       <div className="flex gap-2">
         <div className="relative flex-1">
-          <Tag className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Tag className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
           <Input
             aria-label="Discount code"
             placeholder="Enter discount code"
@@ -211,7 +211,7 @@ export function DiscountCodeInput({
           disabled={loading || !code.trim()}
           variant="outline"
         >
-          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Apply'}
+          {loading ? <Loader2 className="size-4 animate-spin" /> : 'Apply'}
         </Button>
       </div>
       {error && <p className="text-sm text-red-500">{error}</p>}
