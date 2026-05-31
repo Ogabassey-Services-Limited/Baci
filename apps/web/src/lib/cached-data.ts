@@ -122,6 +122,59 @@ interface LegacyPriceCompatibleProduct {
   base_price?: number | null;
 }
 
+interface CachedCategoryFaqItem {
+  question: string;
+  answer: string;
+}
+
+interface CachedCategorySeo {
+  description: string;
+  faqs: CachedCategoryFaqItem[];
+  features: string[];
+  heading: string;
+}
+
+interface CachedCategoryRecord {
+  description: string | null;
+  id: string;
+  image_url: string | null;
+  is_active: boolean;
+  name: string;
+  parent:
+    | { name: string; slug: string }
+    | Array<{ name: string; slug: string }>
+    | null;
+  parent_id?: string | null;
+  seo_description: string | null;
+  seo_faq: CachedCategoryFaqItem[] | null;
+  seo_features: string[] | null;
+  seo_heading: string | null;
+  slug: string;
+}
+
+export type CachedCategoryPageData =
+  | {
+      category?: null;
+      description: string;
+      fallbackDescription?: string;
+      fallbackName?: string;
+      isCollection: true;
+      isInactiveCategory?: false;
+      name: string;
+      products: unknown[];
+      seo: CachedCategorySeo;
+    }
+  | {
+      category: CachedCategoryRecord | null;
+      fallbackDescription: string;
+      fallbackName: string;
+      isCollection: false;
+      isInactiveCategory: boolean;
+      name?: string;
+      products: unknown[];
+      seo?: null;
+    };
+
 function parsePriceValue(value: unknown): number | null {
   if (typeof value === 'number' && Number.isFinite(value)) {
     return value;
@@ -1526,7 +1579,7 @@ export async function getCachedCategoryPageData(
   merchantId: string,
   categorySlug: string,
   _storeSlug: string
-) {
+): Promise<CachedCategoryPageData> {
   'use cache: remote';
   cacheLife('storefront-page');
   cacheTag('category-page-data', 'products', 'categories');
@@ -1617,7 +1670,9 @@ export async function getCachedCategoryPageData(
     .eq('slug', categorySlug)
     .single();
   const isInactiveCategory = Boolean(categoryRow && !categoryRow.is_active);
-  const category = categoryRow?.is_active ? categoryRow : null;
+  const category: CachedCategoryRecord | null = categoryRow?.is_active
+    ? (categoryRow as unknown as CachedCategoryRecord)
+    : null;
 
   // Fallback: decode the slug to get category name and Title Case it
   const categoryName =
