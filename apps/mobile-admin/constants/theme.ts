@@ -28,6 +28,7 @@ export const DARK_COLORS = {
   // Accent - Baci Gold
   gold: '#F0BF58',
   goldLight: 'rgba(240, 191, 88, 0.15)',
+  textOnGold: '#111827',
   orange: '#F59E0B',
   orangeLight: 'rgba(245, 158, 11, 0.15)',
 
@@ -84,6 +85,7 @@ export const LIGHT_COLORS = {
   // Accent - Baci Gold
   gold: '#D4A03D',
   goldLight: 'rgba(212, 160, 61, 0.12)',
+  textOnGold: '#111827',
   orange: '#EA580C',
   orangeLight: 'rgba(234, 88, 12, 0.1)',
 
