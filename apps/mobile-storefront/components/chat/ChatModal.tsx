@@ -19,7 +19,7 @@ import { ChatSuggestionsRow } from './ChatSuggestionsRow';
 import { CHAT_POWERED_BY_LABEL } from './constants';
 import { styles } from './styles';
 import { TypingIndicator } from './TypingIndicator';
-import { type ChatMessage } from './types';
+import type { ChatMessage } from './types';
 
 interface ChatModalProps {
   visible: boolean;
@@ -115,7 +115,11 @@ export function ChatModal({
       <View
         style={[
           styles.modalContainer,
-          { backgroundColor: santaMode ? '#FFF5F5' : colors.background },
+          {
+            backgroundColor: santaMode ? '#FFF5F5' : colors.background,
+            paddingLeft: insets.left,
+            paddingRight: insets.right,
+          },
         ]}
       >
         {/* Header - safe area protected dynamically for iOS and Android clocks */}

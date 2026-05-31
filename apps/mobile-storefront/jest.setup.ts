@@ -108,22 +108,51 @@ jest.mock('@react-native-vector-icons/feather', () => ({
 jest.mock('react-native-reanimated', () => {
   const React = require('react');
   const { View, Text } = require('react-native');
-  const MockAnimatedView = ({ children, style, ...props }: any) =>
+
+  type MockComponentProps = Record<string, unknown> & {
+    children?: unknown;
+    style?: unknown;
+  };
+
+  const MockAnimatedView = ({
+    children,
+    style,
+    ...props
+  }: MockComponentProps) =>
     React.createElement(View, { style, ...props }, children);
-  const MockAnimatedText = ({ children, style, ...props }: any) =>
+  const MockAnimatedText = ({
+    children,
+    style,
+    ...props
+  }: MockComponentProps) =>
     React.createElement(Text, { style, ...props }, children);
 
   const mock = {
-    useSharedValue: (initVal: any) => ({ value: initVal }),
-    useAnimatedStyle: (fn: any) => fn(),
-    withSpring: (toValue: any) => toValue,
-    withTiming: (toValue: any) => toValue,
-    withRepeat: (anim: any) => anim,
-    withSequence: (...anims: any[]) => anims[0],
+    useSharedValue: (initVal: unknown) => {
+      let currentValue = initVal;
+      return {
+        get value() {
+          return currentValue;
+        },
+        set value(nextValue: unknown) {
+          currentValue = nextValue;
+        },
+        get: () => currentValue,
+        set: (nextValue: unknown) => {
+          currentValue = nextValue;
+        },
+      };
+    },
+    useAnimatedStyle: (fn: () => unknown) => fn(),
+    withSpring: (toValue: unknown) => toValue,
+    withTiming: (toValue: unknown) => toValue,
+    withRepeat: (anim: unknown) => anim,
+    withSequence: (...anims: unknown[]) => anims[0],
     cancelAnimation: jest.fn(),
+    runOnJS: (fn: (...args: unknown[]) => unknown) => fn,
     View: MockAnimatedView,
     Text: MockAnimatedText,
-    createAnimatedComponent: (component: any) => component,
+    createAnimatedComponent: (component: unknown) => component,
     __esModule: true,
   };
 
@@ -135,26 +164,48 @@ jest.mock('react-native-reanimated', () => {
   return mock;
 });
 
-// Mock react-native-worklets
-jest.mock('react-native-worklets', () => ({
-  scheduleOnRN: (fn: (...args: any[]) => any, ...args: any[]) => fn(...args),
-  scheduleOnUI: (fn: (...args: any[]) => any, ...args: any[]) => fn(...args),
-  runOnJS: (fn: (...args: any[]) => any) => fn,
-}));
-
-
 // Mock react-native-gesture-handler
 jest.mock('react-native-gesture-handler', () => {
   const React = require('react');
-  const { Pressable } = require('react-native');
+  const { View } = require('react-native');
+
+  const createGesture = (): Record<string, (...args: unknown[]) => unknown> => {
+    const gesture: Record<string, (...args: unknown[]) => unknown> = {};
+    const chain = () => gesture;
+
+    gesture.activeOffsetX = jest.fn(chain);
+    gesture.maxDistance = jest.fn(chain);
+    gesture.maxPointers = jest.fn(chain);
+    gesture.minDistance = jest.fn(chain);
+    gesture.minPointers = jest.fn(chain);
+    gesture.numberOfTaps = jest.fn(chain);
+    gesture.onEnd = jest.fn(chain);
+    gesture.onStart = jest.fn(chain);
+    gesture.onUpdate = jest.fn(chain);
+
+    return gesture;
+  };
+
   return {
-    Touchable: ({ children, ...props }: any) => React.createElement(Pressable, props, children),
-    GestureDetector: ({ children }: any) => children,
-    usePanGesture: jest.fn(() => ({})),
-    useTapGesture: jest.fn(() => ({})),
-    useSimultaneousGestures: jest.fn((...args: any[]) => ({})),
+    GestureDetector: ({ children }: { children?: unknown }) => children,
+    GestureHandlerRootView: ({
+      children,
+      style,
+    }: {
+      children?: unknown;
+      style?: unknown;
+    }) => React.createElement(View, { style }, children),
+    Gesture: {
+      Pan: jest.fn(createGesture),
+      Race: jest.fn((...gestures: unknown[]) => ({
+        gestures,
+        type: 'race',
+      })),
+      Simultaneous: jest.fn((...gestures: unknown[]) => ({
+        gestures,
+        type: 'simultaneous',
+      })),
+      Tap: jest.fn(createGesture),
+    },
   };
 });
-
-
-

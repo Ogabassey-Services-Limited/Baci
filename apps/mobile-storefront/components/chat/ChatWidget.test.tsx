@@ -22,7 +22,7 @@ jest.mock('./use-draggable-fab', () => ({
     composedGesture: {},
     translateX: { value: 0 },
     translateY: { value: 0 },
-    scale: { value: 1 },
+    scale: { get: () => 1, value: 1 },
     isDragging: false,
     isOverDismissZone: false,
     isOnRight: true,
@@ -225,10 +225,21 @@ describe('ChatWidget', () => {
     expect(toJSON()).toBeNull();
   });
 
-  it('resets chatbot dismissal when returning to home screen', () => {
+  it('preserves chatbot dismissal when already on the home screen', () => {
     mockIsChatDismissed = true;
     mockUsePathname.mockReturnValue('/');
     render(<ChatWidget />);
+
+    expect(mockResetChatDismissal).not.toHaveBeenCalled();
+  });
+
+  it('resets chatbot dismissal after navigating back to home screen', () => {
+    mockIsChatDismissed = true;
+    mockUsePathname.mockReturnValue('/products/iphone-15');
+    const { rerender } = render(<ChatWidget />);
+
+    mockUsePathname.mockReturnValue('/');
+    rerender(<ChatWidget />);
 
     expect(mockResetChatDismissal).toHaveBeenCalled();
   });
