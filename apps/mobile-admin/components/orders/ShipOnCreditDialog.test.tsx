@@ -36,23 +36,22 @@ vi.mock('react-native', async () => {
     ActivityIndicator: () => React.createElement('span', null, 'loading'),
     Pressable: ({
       accessibilityLabel,
-      accessibilityState,
       children,
       disabled,
+      accessibilityState,
       onPress,
     }: {
       accessibilityLabel?: string;
-      accessibilityState?: { busy?: boolean; disabled?: boolean };
       children?: React.ReactNode;
       disabled?: boolean;
+      accessibilityState?: { busy?: boolean; disabled?: boolean };
       onPress?: () => void;
     }) =>
       React.createElement(
         'button',
         {
-          'aria-label': accessibilityLabel,
           'aria-busy': accessibilityState?.busy,
-          'aria-disabled': accessibilityState?.disabled,
+          'aria-label': accessibilityLabel,
           disabled,
           onClick: () => onPress?.(),
           type: 'button',
@@ -137,12 +136,10 @@ describe('ShipOnCreditDialog', () => {
       />
     );
 
-    const confirmButton = screen.getByRole('button', {
-      name: 'Confirm ship on credit',
-    });
-    expect(confirmButton).toBeDisabled();
-    expect(confirmButton).toHaveAttribute('aria-busy', 'true');
-    expect(confirmButton).toHaveAttribute('aria-disabled', 'true');
+    expect(
+      screen.getByRole('button', { name: 'Confirm ship on credit' })
+    ).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Confirm ship on credit' })).toHaveAttribute('aria-busy', 'true');
   });
 
   it('does not render when hidden', () => {

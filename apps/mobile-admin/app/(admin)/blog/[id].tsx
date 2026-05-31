@@ -24,7 +24,7 @@ import { createUploadFile, type RNFormData } from '@/types/upload';
 
 // Route param validation - accepts UUID or 'new' for creating new posts
 const routeParamsSchema = z.object({
-  id: z.union([z.literal('new'), z.uuid()]),
+  id: z.union([z.literal('new'), z.string().uuid()]),
 });
 
 export default function BlogPostDetailScreen() {
