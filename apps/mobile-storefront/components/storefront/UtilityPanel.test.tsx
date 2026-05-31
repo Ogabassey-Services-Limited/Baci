@@ -5,6 +5,7 @@ const mockWithTiming = jest.fn((toValue: number, _config?: object) => toValue);
 
 jest.mock('react-native-reanimated', () => {
   const { View, Text } = jest.requireActual('react-native') as Record<string, unknown>;
+  const ReactInline = jest.requireActual('react') as typeof import('react');
 
   return {
     __esModule: true,
@@ -41,9 +42,9 @@ jest.mock('react-native-reanimated', () => {
       react: (nextIndex: number, prevIndex: number | null) => void,
       deps: unknown[]
     ) => {
-      const lastValue = React.useRef(prepare());
+      const lastValue = ReactInline.useRef(prepare());
 
-      React.useEffect(() => {
+      ReactInline.useEffect(() => {
         const shared = deps[0] as { addListener?: (cb: (v: number) => void) => void };
         if (shared && typeof shared.addListener === 'function') {
           const listener = (newVal: number) => {

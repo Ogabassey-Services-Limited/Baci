@@ -414,7 +414,7 @@ describe('UtilityPurchaseScreen', () => {
 
     render(<UtilityPurchaseScreen />);
 
-    expect(mockBillForm).toHaveBeenLastCalledWith(
+    expect(mockBillForm).toHaveBeenCalledWith(
       expect.objectContaining({
         recentRecipients: [
           expect.objectContaining({

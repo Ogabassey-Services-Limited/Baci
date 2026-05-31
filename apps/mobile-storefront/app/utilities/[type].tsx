@@ -226,7 +226,7 @@ export default function UtilityPurchaseScreen() {
           ref={pagerRef}
           style={{ flex: 1 }}
           initialPage={UTILITY_TYPE_INDEXES[currentType ?? 'airtime']}
-          onPageScroll={pageScrollHandler}
+          onPageScroll={pageScrollHandler as unknown as (event: unknown) => void}
           onPageSelected={handlePageSelected}
         >
           <View key="airtime" style={{ flex: 1 }}>
@@ -237,8 +237,8 @@ export default function UtilityPurchaseScreen() {
               initialProvider={getNetworkProviderId(
                 quickRepeat.repeatDefaults.networkProvider
               )}
-              isRepeatPaymentReady={quickRepeat.isRepeatPaymentReady}
-              recentRecipients={quickRepeat.recentRecipients}
+              isRepeatPaymentReady={currentType === 'airtime' ? quickRepeat.isRepeatPaymentReady : false}
+              recentRecipients={currentType === 'airtime' ? quickRepeat.recentRecipients : []}
               onSelectRecentRecipient={quickRepeat.handleRecipientSelect}
               onSuccess={setSuccessData}
             />
@@ -250,8 +250,8 @@ export default function UtilityPurchaseScreen() {
               initialPhoneNumber={quickRepeat.repeatDefaults.phoneNumber}
               initialPlan={quickRepeat.repeatDefaults.dataPlanCode}
               initialProvider={quickRepeat.repeatDefaults.networkProvider}
-              isRepeatPaymentReady={quickRepeat.isRepeatPaymentReady}
-              recentRecipients={quickRepeat.recentRecipients}
+              isRepeatPaymentReady={currentType === 'data' ? quickRepeat.isRepeatPaymentReady : false}
+              recentRecipients={currentType === 'data' ? quickRepeat.recentRecipients : []}
               onSelectRecentRecipient={quickRepeat.handleRecipientSelect}
               onSuccess={setSuccessData}
             />
@@ -268,8 +268,8 @@ export default function UtilityPurchaseScreen() {
                 quickRepeat.repeatDefaults.customerIdentifier
               }
               initialCustomerName={quickRepeat.repeatDefaults.customerName}
-              isRepeatPaymentReady={quickRepeat.isRepeatPaymentReady}
-              recentRecipients={quickRepeat.recentRecipients}
+              isRepeatPaymentReady={currentType === 'tv' ? quickRepeat.isRepeatPaymentReady : false}
+              recentRecipients={currentType === 'tv' ? quickRepeat.recentRecipients : []}
               onSelectRecentRecipient={quickRepeat.handleRecipientSelect}
               type="tv"
               onSuccess={setSuccessData}
@@ -287,8 +287,8 @@ export default function UtilityPurchaseScreen() {
                 quickRepeat.repeatDefaults.customerIdentifier
               }
               initialCustomerName={quickRepeat.repeatDefaults.customerName}
-              isRepeatPaymentReady={quickRepeat.isRepeatPaymentReady}
-              recentRecipients={quickRepeat.recentRecipients}
+              isRepeatPaymentReady={currentType === 'power' ? quickRepeat.isRepeatPaymentReady : false}
+              recentRecipients={currentType === 'power' ? quickRepeat.recentRecipients : []}
               onSelectRecentRecipient={quickRepeat.handleRecipientSelect}
               type="power"
               onSuccess={setSuccessData}
@@ -306,8 +306,8 @@ export default function UtilityPurchaseScreen() {
                 quickRepeat.repeatDefaults.customerIdentifier
               }
               initialCustomerName={quickRepeat.repeatDefaults.customerName}
-              isRepeatPaymentReady={quickRepeat.isRepeatPaymentReady}
-              recentRecipients={quickRepeat.recentRecipients}
+              isRepeatPaymentReady={currentType === 'gaming' ? quickRepeat.isRepeatPaymentReady : false}
+              recentRecipients={currentType === 'gaming' ? quickRepeat.recentRecipients : []}
               onSelectRecentRecipient={quickRepeat.handleRecipientSelect}
               type="gaming"
               onSuccess={setSuccessData}

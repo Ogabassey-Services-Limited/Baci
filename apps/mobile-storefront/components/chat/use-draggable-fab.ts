@@ -77,13 +77,13 @@ export function useDraggableFab(
   useEffect(() => {
     windowWidthSV.value = windowWidth;
     windowHeightSV.value = windowHeight;
-  }, [windowWidth, windowHeight]);
+  }, [windowWidth, windowHeight, windowWidthSV, windowHeightSV]);
 
   // Track bottom offset dynamically
   const bottomOffsetSV = useSharedValue(bottomOffset);
   useEffect(() => {
     bottomOffsetSV.value = bottomOffset;
-  }, [bottomOffset]);
+  }, [bottomOffset, bottomOffsetSV]);
 
   // Pulse animation loop
   useEffect(() => {
