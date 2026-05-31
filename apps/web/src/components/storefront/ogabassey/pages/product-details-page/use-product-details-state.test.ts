@@ -83,6 +83,7 @@ describe('useProductDetailsState', () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     cleanup();
   });
 

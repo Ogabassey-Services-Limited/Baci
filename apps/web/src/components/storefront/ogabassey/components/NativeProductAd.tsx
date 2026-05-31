@@ -3,23 +3,18 @@
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { ProductGridItem } from './ProductGridItem';
-import type { Product } from '../types';
+import {
+    nativeAdToProduct,
+    readNativeAdImageUrl,
+    readNativeAdRating,
+    readNativeAdString,
+    registerNativePubAdsListener,
+    type NativeAdData,
+    type NativeAdLoadEvent,
+    type NativeSlotRenderEvent,
+} from './native-product-ad-helpers';
 
-/**
- * Native ad data structure returned by GAM
- * These fields match the custom native format in GAM
- */
-export interface NativeAdData {
-    headline: string;
-    image: string;
-    body?: string;
-    price?: string;
-    cta?: string;
-    clickUrl: string;
-    advertiserName?: string;
-    advertiserLogo?: string;
-    starRating?: number;
-}
+export type { NativeAdData } from './native-product-ad-helpers';
 
 interface NativeProductAdProps {
     /** Unique slot ID for this ad position */
@@ -30,101 +25,8 @@ interface NativeProductAdProps {
     className?: string;
 }
 
-// Network code from existing AdUnit
-const _NETWORK_CODE = '/23331099951';
-
 // Track defined slots globally to prevent duplicates
 const definedNativeSlots = new Set<string>();
-
-interface NativeAdFieldReader {
-    get: (field: string) => unknown;
-}
-
-interface NativeAdLoadEvent {
-    slot: googletag.Slot;
-    nativeAd: NativeAdFieldReader;
-}
-
-interface NativeSlotRenderEvent {
-    slot: googletag.Slot;
-    isEmpty?: boolean;
-}
-
-type NativePubAdsServiceWithOptionalRemove = googletag.PubAdsService & {
-    removeEventListener?: (
-        eventType: 'slotNativeAdLoad' | 'slotRenderEnded',
-        listener: (event: unknown) => void
-    ) => void;
-};
-
-function registerNativePubAdsListener(
-    pubads: googletag.PubAdsService,
-    eventType: 'slotNativeAdLoad' | 'slotRenderEnded',
-    listener: (event: unknown) => void
-) {
-    pubads.addEventListener(eventType, listener);
-
-    return () => {
-        const removablePubads = pubads as NativePubAdsServiceWithOptionalRemove;
-        removablePubads.removeEventListener?.(eventType, listener);
-    };
-}
-
-function readNativeAdString(nativeAd: NativeAdFieldReader, field: string) {
-    const value = nativeAd.get(field);
-    return typeof value === 'string' ? value : undefined;
-}
-
-function readNativeAdImageUrl(nativeAd: NativeAdFieldReader, field: string) {
-    const value = nativeAd.get(field);
-    if (typeof value !== 'object' || value === null || !('url' in value)) {
-        return undefined;
-    }
-
-    const { url } = value as { url?: unknown };
-    return typeof url === 'string' ? url : undefined;
-}
-
-function readNativeAdRating(nativeAd: NativeAdFieldReader) {
-    const value = nativeAd.get('rating');
-    if (typeof value === 'number') {
-        return value;
-    }
-
-    if (typeof value === 'string') {
-        const parsed = Number(value);
-        return Number.isFinite(parsed) ? parsed : undefined;
-    }
-
-    return undefined;
-}
-
-/**
- * Converts native ad data to a Product object for ProductGridItem
- */
-function nativeAdToProduct(ad: NativeAdData, index: number): Product {
-    // Parse price string (remove currency symbol and commas)
-    const priceMatch = ad.price?.match(/[\d,]+/);
-    const rawPrice = priceMatch
-        ? Number.parseInt(priceMatch[0].replace(/,/g, ''), 10)
-        : 0;
-
-    return {
-        id: `native-ad-${index}-${Date.now()}`,
-        slug: undefined, // No slug - link goes to advertiser
-        name: ad.headline,
-        price: ad.price || 'Sponsored',
-        rawPrice,
-        image: ad.image,
-        description: ad.body || '',
-        rating: ad.starRating || 4.5,
-        condition: 'New' as const,
-        brand: ad.advertiserName,
-        // Mark as sponsored for click handling
-        _isSponsored: true,
-        _clickUrl: ad.clickUrl,
-    } as Product & { _isSponsored: boolean; _clickUrl: string };
-}
 
 /**
  * NativeProductAd - Fetches native ad from GAM and renders using ProductGridItem

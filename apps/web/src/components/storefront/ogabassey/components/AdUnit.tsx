@@ -5,6 +5,10 @@ import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { AD_CONFIG } from '../config/ads';
 import {
+  registerPubAdsSlotRenderListener,
+  type GoogleSlotRenderEndedEvent,
+} from './ad-unit-gpt-listeners';
+import {
   ensureGoogleAdManagerBoot,
   ensureGoogleTag,
 } from './google-ad-bootstrap';
@@ -23,30 +27,6 @@ const NETWORK_CODE = '/23331099951'; // Updated from screenshot
 
 // Track defined slots globally to prevent duplicates in React StrictMode
 const definedSlots = new Set<string>();
-
-interface GoogleSlotRenderEndedEvent {
-  slot: googletag.Slot;
-  isEmpty: boolean;
-}
-
-type PubAdsServiceWithOptionalRemove = googletag.PubAdsService & {
-  removeEventListener?: (
-    eventType: 'slotRenderEnded',
-    listener: (event: unknown) => void
-  ) => void;
-};
-
-function registerPubAdsSlotRenderListener(
-  pubads: googletag.PubAdsService,
-  listener: (event: unknown) => void
-) {
-  pubads.addEventListener('slotRenderEnded', listener);
-
-  return () => {
-    const removablePubads = pubads as PubAdsServiceWithOptionalRemove;
-    removablePubads.removeEventListener?.('slotRenderEnded', listener);
-  };
-}
 
 export const AdUnit: React.FC<AdUnitProps> = ({
   placementKey,
