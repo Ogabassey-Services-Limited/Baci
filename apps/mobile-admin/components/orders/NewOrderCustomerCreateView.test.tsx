@@ -101,6 +101,7 @@ vi.mock('react-native', async () => {
         'button',
         {
           'aria-busy': accessibilityState?.busy,
+          'aria-disabled': accessibilityState?.disabled,
           disabled,
           onClick: () => onPress?.(),
           type: 'button',
@@ -292,9 +293,12 @@ describe('NewOrderCustomerCreateView', () => {
     });
 
     render(<NewOrderCustomerCreateView controller={harness.snapshot()} />);
+    const saveCustomerButton = screen.getByRole('progressbar').closest('button');
+
     expect(screen.getByRole('progressbar')).toBeInTheDocument();
-    expect(screen.getByRole('progressbar').closest('button')).toBeDisabled();
-    expect(screen.getByRole('progressbar').closest('button')).toHaveAttribute('aria-busy', 'true');
+    expect(saveCustomerButton).toBeDisabled();
+    expect(saveCustomerButton).toHaveAttribute('aria-busy', 'true');
+    expect(saveCustomerButton).toHaveAttribute('aria-disabled', 'true');
     expect(screen.queryByText('Save Customer')).not.toBeInTheDocument();
   });
 
