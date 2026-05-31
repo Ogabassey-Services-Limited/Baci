@@ -29,7 +29,7 @@ const NullableNonnegativeIntegerLikeSchema = z.preprocess(
 );
 
 export const MerchantRowSchema = z.object({
-  id: z.string().uuid(),
+  id: z.uuid(),
   slug: z.string().optional(),
   name: z.string().optional(),
 });
@@ -37,8 +37,8 @@ export const MerchantRowSchema = z.object({
 export type MerchantRow = z.infer<typeof MerchantRowSchema>;
 
 export const CustomerRowSchema = z.object({
-  id: z.string().uuid(),
-  email: z.string().email(),
+  id: z.uuid(),
+  email: z.email(),
   first_name: z.string().nullable().optional(),
   last_name: z.string().nullable().optional(),
   phone: z.string().nullable().optional(),
@@ -48,7 +48,7 @@ export const CustomerRowSchema = z.object({
 export type CustomerRow = z.infer<typeof CustomerRowSchema>;
 
 export const OrderRowSchema = z.object({
-  id: z.string().uuid(),
+  id: z.uuid(),
   order_number: z.string().nullable().optional(),
   total: z.number().optional(),
   payment_status: z.string().optional(),
@@ -128,7 +128,7 @@ const ProductSpecificationRecordSchema = z.record(
 );
 
 export const ProductRowSchema = z.object({
-  id: z.string().uuid(),
+  id: z.uuid(),
   name: z.string(),
   slug: z.string(),
   description: z.string().nullable().optional(),
@@ -210,14 +210,14 @@ export const ProductRowSchema = z.object({
 export type ProductRow = z.infer<typeof ProductRowSchema>;
 
 export const WalletRowSchema = z.object({
-  id: z.string().uuid(),
+  id: z.uuid(),
   available_balance: z.number().default(0),
 });
 
 export type WalletRow = z.infer<typeof WalletRowSchema>;
 
 export const TransactionRowSchema = z.object({
-  id: z.string().uuid(),
+  id: z.uuid(),
   type: z.enum([
     'credit',
     'debit',

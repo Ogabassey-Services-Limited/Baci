@@ -30,7 +30,7 @@ export const OrderItemSchema = z.object({
 });
 
 export const CreateOrderRequestSchema = z.object({
-  customer_email: z.string().email('Invalid email address'),
+  customer_email: z.email('Invalid email address'),
   customer_name: z.string().min(1, 'Name is required'),
   customer_phone: z.string().min(10, 'Valid phone number required'),
   idempotency_key: z.string().trim().min(1).max(128).optional(),
@@ -48,7 +48,7 @@ export const CreateOrderRequestSchema = z.object({
     state: z.string(),
     notes: z.string().optional(),
   }),
-  selected_quote_id: z.string().uuid().optional(),
+  selected_quote_id: z.uuid().optional(),
   shipping_provider: z.string().optional(),
   source: z.string().default('mobile_app'),
   use_wallet_credit: z.boolean().optional(),
