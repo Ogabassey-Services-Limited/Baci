@@ -66,8 +66,10 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
   return (
     <div className="fixed inset-0 z-100">
       {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200"
+      <button
+        type="button"
+        aria-label="Dismiss menu backdrop"
+        className="absolute inset-0 border-0 bg-black/60 p-0 backdrop-blur-xs animate-in fade-in duration-200"
         onClick={onClose}
       />
 
