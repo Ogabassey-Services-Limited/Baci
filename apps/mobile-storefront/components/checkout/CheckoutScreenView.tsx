@@ -1,39 +1,39 @@
 import { Stack } from 'expo-router';
 import React, { useRef } from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
+import { Platform } from 'react-native';
 import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
+import { CheckoutBottomAction } from '@/components/checkout/CheckoutBottomAction';
+import { CheckoutCryptoPaymentModal } from '@/components/checkout/CheckoutCryptoPaymentModal';
+import { CheckoutHeader } from '@/components/checkout/CheckoutHeader';
+import { CheckoutLocationPickers } from '@/components/checkout/CheckoutLocationPickers';
+import { CheckoutStepContent } from '@/components/checkout/CheckoutStepContent';
 import {
   type CheckoutStep,
   CheckoutStepper,
 } from '@/components/checkout/CheckoutStepper';
 import { CryptoSelectionModal } from '@/components/checkout/CryptoSelectionModal';
-import { CheckoutCryptoPaymentModal } from '@/components/checkout/CheckoutCryptoPaymentModal';
-import { CheckoutHeader } from '@/components/checkout/CheckoutHeader';
-import { CheckoutLocationPickers } from '@/components/checkout/CheckoutLocationPickers';
-import { CheckoutStepContent } from '@/components/checkout/CheckoutStepContent';
-import { CheckoutBottomAction } from '@/components/checkout/CheckoutBottomAction';
+import { GadgetPatternBackground } from '@/components/storefront/GadgetPatternBackground';
 import AppKeyboardContainer from '@/components/ui/AppKeyboardContainer';
 import { useColorScheme } from '@/components/useColorScheme';
-import Colors, { BRAND } from '@/constants/Colors';
-import { GadgetPattern } from '@/components/storefront/GadgetPattern';
+import Colors from '@/constants/Colors';
 import { useAuthStatus } from '@/hooks/use-auth-guard';
 import type { MobileCheckoutIdempotencyState } from '@/lib/checkout-order-idempotency';
 import { useCartStore } from '@/stores/cart-store';
 import { checkoutScreenViewStyles as styles } from './CheckoutScreenView.styles';
-import { useCheckoutAddressState } from './use-checkout-address-state';
-import { useCheckoutCtaAnimation } from './use-checkout-cta-animation';
-import { useCheckoutCryptoPayment } from './use-checkout-crypto-payment';
-import { useCheckoutNavigation } from './use-checkout-navigation';
-import { useCheckoutPaymentController } from './use-checkout-payment-controller';
-import { useCheckoutStepActions } from './use-checkout-step-actions';
 import { calculateCheckoutAssuranceFee } from './checkout-order-builders';
 import {
   CHECKOUT_MERCHANT_ID,
   CHECKOUT_MERCHANT_SLUG,
 } from './checkout-screen.constants';
+import { useCheckoutAddressState } from './use-checkout-address-state';
+import { useCheckoutCryptoPayment } from './use-checkout-crypto-payment';
+import { useCheckoutCtaAnimation } from './use-checkout-cta-animation';
+import { useCheckoutNavigation } from './use-checkout-navigation';
+import { useCheckoutPaymentController } from './use-checkout-payment-controller';
+import { useCheckoutStepActions } from './use-checkout-step-actions';
 
 export function CheckoutScreenView() {
   const colorScheme = useColorScheme();
@@ -193,22 +193,10 @@ export function CheckoutScreenView() {
       />
 
       <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-        {/* Base background color layer to ensure reliable absolute rendering */}
-        <View
-          style={[
-            StyleSheet.absoluteFill,
-            { backgroundColor: colors.background },
-          ]}
+        <GadgetPatternBackground
+          colorScheme={colorScheme ?? 'light'}
+          backgroundColor={colors.background}
         />
-
-        {/* Absolute background gadget pattern for premium tech framing */}
-        <View style={[StyleSheet.absoluteFill, { overflow: 'hidden' }]}>
-          <GadgetPattern
-            opacity={isDark ? 0.04 : 0.07}
-            height={1500}
-            color={isDark ? '#ffffff' : BRAND.primary}
-          />
-        </View>
 
         <CheckoutHeader colors={colors} onBack={handleBack} />
 

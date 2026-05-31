@@ -163,6 +163,16 @@ jest.mock('react-native-reanimated', () => {
   };
 });
 
+jest.mock('@/components/storefront/GadgetPattern', () => {
+  const { View } =
+    jest.requireActual<typeof import('react-native')>('react-native');
+  return {
+    GadgetPattern: (props: Record<string, unknown>) => (
+      <View testID="checkout-gadget-pattern" {...props} />
+    ),
+  };
+});
+
 jest.mock('expo-crypto', () => ({
   getRandomBytesAsync: async (length: number) => new Uint8Array(length).fill(7),
   randomUUID: () => mockCryptoRandomUUID(),
@@ -212,7 +222,7 @@ jest.mock('@/hooks/useMerchantPaymentSettings', () => {
 
 jest.mock('@/lib/supabase', () => ({
   calculateCommerce: jest.fn(
-    async (
+    (
       _name: string,
       params: {
         assuranceFee: number;
@@ -222,14 +232,14 @@ jest.mock('@/lib/supabase', () => ({
       }
     ) => {
       const taxAmount = Math.round(params.subtotal * params.taxRate);
-      return {
+      return Promise.resolve({
         taxAmount,
         total:
           params.subtotal +
           params.shippingFee +
           params.assuranceFee +
           taxAmount,
-      };
+      });
     }
   ),
   supabase: {

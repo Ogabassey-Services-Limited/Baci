@@ -5,13 +5,12 @@ import {
   Keyboard,
   Modal,
   Pressable,
-  StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { GadgetPattern } from '@/components/storefront/GadgetPattern';
+import { GadgetPatternBackground } from '@/components/storefront/GadgetPatternBackground';
 import AppKeyboardContainer from '@/components/ui/AppKeyboardContainer';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
@@ -19,7 +18,7 @@ import { ChatSuggestionsRow } from './ChatSuggestionsRow';
 import { CHAT_POWERED_BY_LABEL } from './constants';
 import { styles } from './styles';
 import { TypingIndicator } from './TypingIndicator';
-import { type ChatMessage } from './types';
+import type { ChatMessage } from './types';
 
 interface ChatModalProps {
   visible: boolean;
@@ -191,22 +190,10 @@ export function ChatModal({
         {/* Global Drift-Free Keyboard protection enabled on all platforms */}
         <AppKeyboardContainer style={styles.messagesWrapper} enabled={true}>
           <View style={{ flex: 1, position: 'relative' }}>
-            {/* Solid background base */}
-            <View
-              style={[
-                StyleSheet.absoluteFill,
-                { backgroundColor: santaMode ? '#FFF5F5' : colors.background },
-              ]}
+            <GadgetPatternBackground
+              colorScheme={colorScheme ?? 'light'}
+              backgroundColor={santaMode ? '#FFF5F5' : colors.background}
             />
-
-            {/* Absolute background gadget pattern for premium tech wallpaper */}
-            <View style={[StyleSheet.absoluteFill, { overflow: 'hidden' }]}>
-              <GadgetPattern
-                opacity={colorScheme === 'dark' ? 0.04 : 0.07}
-                height={1500}
-                color={colorScheme === 'dark' ? '#ffffff' : BRAND.primary}
-              />
-            </View>
 
             <FlashList
               ref={flatListRef}

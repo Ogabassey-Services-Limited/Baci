@@ -336,6 +336,80 @@ describe('UtilityPurchaseScreen', () => {
     });
   });
 
+  it('updates selected type, active tab and form when PagerView selects another page', () => {
+    mockUseLocalSearchParams.mockReturnValue({ type: 'airtime' });
+
+    render(<UtilityPurchaseScreen />);
+
+    expect(screen.getByText('Airtime form')).toBeOnTheScreen();
+    expect(
+      screen.getByLabelText('Airtime utility service')
+    ).toHaveAccessibilityState({
+      selected: true,
+    });
+
+    const pager = screen.getByTestId('pager-view');
+
+    fireEvent(pager, 'onPageSelected', {
+      nativeEvent: { position: 1 },
+    });
+
+    expect(screen.getByText('Data form')).toBeOnTheScreen();
+    expect(
+      screen.getByLabelText('Data utility service')
+    ).toHaveAccessibilityState({
+      selected: true,
+    });
+
+    fireEvent(pager, 'onPageSelected', {
+      nativeEvent: { position: 3 },
+    });
+
+    expect(screen.getByText('Bill form power')).toBeOnTheScreen();
+    expect(
+      screen.getByLabelText('Power utility service')
+    ).toHaveAccessibilityState({
+      selected: true,
+    });
+  });
+
+  it('keeps state stable when PagerView selects the same or invalid page index', () => {
+    mockUseLocalSearchParams.mockReturnValue({ type: 'airtime' });
+
+    render(<UtilityPurchaseScreen />);
+
+    expect(screen.getByText('Airtime form')).toBeOnTheScreen();
+    expect(
+      screen.getByLabelText('Airtime utility service')
+    ).toHaveAccessibilityState({
+      selected: true,
+    });
+
+    const pager = screen.getByTestId('pager-view');
+
+    fireEvent(pager, 'onPageSelected', {
+      nativeEvent: { position: 0 },
+    });
+
+    expect(screen.getByText('Airtime form')).toBeOnTheScreen();
+    expect(
+      screen.getByLabelText('Airtime utility service')
+    ).toHaveAccessibilityState({
+      selected: true,
+    });
+
+    fireEvent(pager, 'onPageSelected', {
+      nativeEvent: { position: 99 },
+    });
+
+    expect(screen.getByText('Airtime form')).toBeOnTheScreen();
+    expect(
+      screen.getByLabelText('Airtime utility service')
+    ).toHaveAccessibilityState({
+      selected: true,
+    });
+  });
+
   it('uses the header back button for utility screens', () => {
     render(<UtilityPurchaseScreen />);
 
