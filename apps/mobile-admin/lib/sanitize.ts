@@ -139,7 +139,6 @@ export const customerFormSchema = z.object({
     .max(200)
     .transform((val) => sanitizeCustomerName(val)),
   email: z
-    .string()
     .email('Invalid email format')
     .transform((val) => sanitizeEmail(val))
     .optional()
