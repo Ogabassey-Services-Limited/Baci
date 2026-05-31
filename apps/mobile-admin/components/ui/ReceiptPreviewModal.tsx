@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import WebView from 'react-native-webview';
 import { AppPageSheet } from '@/components/ui/AppPageSheet';

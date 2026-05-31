@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { Fragment, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type Colors from '@/constants/Colors';
@@ -23,32 +23,11 @@ function getInitials(title: string): string {
   return `${parts[0]?.[0] ?? ''}${parts[1]?.[0] ?? ''}`.toUpperCase();
 }
 
-const MOCK_RECIPIENTS: UtilityRepeatRecipient[] = [
-  {
-    id: 'mock-1',
-    title: 'Bassey John',
-    identifierLabel: 'Phone Number',
-    identifier: '09039739318',
-    meta: '₦10,000',
-    defaults: {
-      amount: '10000',
-      phoneNumber: '09039739318',
-      isVerified: true,
-    },
-  },
-  {
-    id: 'mock-2',
-    title: 'Bassey John',
-    identifierLabel: 'Phone Number',
-    identifier: '09169449282',
-    meta: '₦1,000',
-    defaults: {
-      amount: '1000',
-      phoneNumber: '09169449282',
-      isVerified: true,
-    },
-  },
-];
+let MOCK_RECIPIENTS: UtilityRepeatRecipient[] = [];
+if (typeof __DEV__ !== 'undefined' && __DEV__ && process.env.NODE_ENV !== 'test') {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  MOCK_RECIPIENTS = require('./fixtures/recent-recipients.fixtures').MOCK_RECENT_RECIPIENTS;
+}
 
 export function RecentUtilityRecipients({
   colors,
@@ -61,7 +40,11 @@ export function RecentUtilityRecipients({
 
   let activeRecipients = recipients;
   if (recipients.length === 0) {
-    if (typeof __DEV__ !== 'undefined' && __DEV__ && process.env.NODE_ENV !== 'test') {
+    if (
+      typeof __DEV__ !== 'undefined' &&
+      __DEV__ &&
+      process.env.NODE_ENV !== 'test'
+    ) {
       activeRecipients = MOCK_RECIPIENTS;
     } else {
       return null;
@@ -78,9 +61,7 @@ export function RecentUtilityRecipients({
       {visibleRecipients.map((recipient, index) => (
         <Fragment key={recipient.id}>
           {index > 0 ? (
-            <View
-              style={[styles.divider, { borderTopColor: colors.border }]}
-            />
+            <View style={[styles.divider, { borderTopColor: colors.border }]} />
           ) : null}
           <View style={styles.itemWrapper}>
             <Pressable
@@ -99,10 +80,7 @@ export function RecentUtilityRecipients({
                 ]}
               >
                 <View
-                  style={[
-                    styles.avatar,
-                    { backgroundColor: colors.muted },
-                  ]}
+                  style={[styles.avatar, { backgroundColor: colors.muted }]}
                 >
                   <Text style={[styles.avatarText, { color: colors.accent }]}>
                     {getInitials(recipient.title)}
@@ -110,7 +88,10 @@ export function RecentUtilityRecipients({
                 </View>
                 <View style={styles.copy}>
                   <Text
-                    style={[styles.title, { color: colors.text, textTransform: 'uppercase' }]}
+                    style={[
+                      styles.title,
+                      { color: colors.text, textTransform: 'uppercase' },
+                    ]}
                     numberOfLines={1}
                   >
                     {recipient.title}

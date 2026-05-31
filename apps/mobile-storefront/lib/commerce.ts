@@ -14,13 +14,17 @@ export function calculateOrderTotals(
   const shippingFee = Number.isFinite(input.shippingFee ?? 0)
     ? (input.shippingFee ?? 0)
     : 0;
-  const taxRate = Number.isFinite(input.taxRate ?? 0) ? (input.taxRate ?? 0) : 0;
+  const taxRate = Number.isFinite(input.taxRate ?? 0)
+    ? (input.taxRate ?? 0)
+    : 0;
   const assuranceFee = Number.isFinite(input.assuranceFee ?? 0)
     ? (input.assuranceFee ?? 0)
     : 0;
 
   const taxAmount = roundCurrency(subtotal * taxRate);
-  const total = roundCurrency(subtotal + shippingFee + assuranceFee + taxAmount);
+  const total = roundCurrency(
+    subtotal + shippingFee + assuranceFee + taxAmount
+  );
 
   return {
     taxAmount,

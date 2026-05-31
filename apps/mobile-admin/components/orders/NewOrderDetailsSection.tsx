@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { format } from 'date-fns';
 import { useEffect } from 'react';
 import { Pressable, Switch, Text, TextInput, View } from 'react-native';
@@ -210,9 +210,7 @@ export function NewOrderDetailsSection({
             accessibilityRole="switch"
             accessibilityState={{ checked: sameAsCustomer }}
             onValueChange={setSameAsCustomer}
-            thumbColor={
-              sameAsCustomer ? '#fff' : '#f4f3f4'
-            }
+            thumbColor={sameAsCustomer ? '#fff' : '#f4f3f4'}
             trackColor={{ false: colors.border, true: colors.primary }}
             value={sameAsCustomer}
           />

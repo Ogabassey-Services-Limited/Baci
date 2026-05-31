@@ -31,9 +31,7 @@ describe('PaymentProcessingView', () => {
         "We're generating your token now. This usually takes 30-60 seconds, and we'll notify you when it's ready."
       )
     ).toBeOnTheScreen();
-    expect(
-      screen.getByLabelText('Generating utility token')
-    ).toBeOnTheScreen();
+    expect(screen.getByLabelText('Generating utility token')).toBeOnTheScreen();
   });
 
   it('renders non-token utility completion copy', () => {

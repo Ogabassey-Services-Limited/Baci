@@ -219,40 +219,74 @@ export function WalletContent({
           </Text>
 
           {/* Points Conversion & Super Quiz Benefits Info Card */}
-          <View style={[styles.infoCard, { backgroundColor: colors.muted, borderColor: colors.border, marginBottom: SPACING.md }]}>
+          <View
+            style={[
+              styles.infoCard,
+              {
+                backgroundColor: colors.muted,
+                borderColor: colors.border,
+                marginBottom: SPACING.md,
+              },
+            ]}
+          >
             <Text style={[styles.infoCardTitle, { color: colors.text }]}>
               ✨ Loyalty Points Benefits
             </Text>
-            
+
             <View style={styles.infoRow}>
               <Text style={styles.infoEmoji}>💵</Text>
               <Text style={[styles.infoText, { color: colors.textSecondary }]}>
-                <Text style={{ fontWeight: 'bold', color: colors.text }}>Convert to Cash:</Text> 100 points = ₦10. Redeem blocks of 100 points directly into your wallet.
+                <Text style={{ fontWeight: 'bold', color: colors.text }}>
+                  Convert to Cash:
+                </Text>{' '}
+                100 points = ₦10. Redeem blocks of 100 points directly into your
+                wallet.
               </Text>
             </View>
 
             <View style={styles.infoRow}>
               <Text style={styles.infoEmoji}>🏆</Text>
               <Text style={[styles.infoText, { color: colors.textSecondary }]}>
-                <Text style={{ fontWeight: 'bold', color: colors.text }}>Super Quiz Entry:</Text> Use points as exam passes to join high-stake quiz events and win huge prizes!
+                <Text style={{ fontWeight: 'bold', color: colors.text }}>
+                  Super Quiz Entry:
+                </Text>{' '}
+                Use points as exam passes to join high-stake quiz events and win
+                huge prizes!
               </Text>
             </View>
 
             <View style={styles.infoRow}>
               <Text style={styles.infoEmoji}>⚡</Text>
               <Text style={[styles.infoText, { color: colors.textSecondary }]}>
-                <Text style={{ fontWeight: 'bold', color: colors.text }}>Leaderboard Tie-Breaker:</Text> If tied, players with higher loyalty points rank higher on the leaderboard!
+                <Text style={{ fontWeight: 'bold', color: colors.text }}>
+                  Leaderboard Tie-Breaker:
+                </Text>{' '}
+                If tied, players with higher loyalty points rank higher on the
+                leaderboard!
               </Text>
             </View>
 
-            <Text style={[styles.infoSubTitle, { color: colors.text, marginTop: SPACING.xs }]}>
+            <Text
+              style={[
+                styles.infoSubTitle,
+                { color: colors.text, marginTop: SPACING.xs },
+              ]}
+            >
               Tier Rankings:
             </Text>
             <View style={styles.tierRow}>
-              <Text style={[styles.tierBadge, { backgroundColor: '#7C2D12' }]}>BRONZE</Text>
-              <Text style={[styles.tierBadge, { backgroundColor: '#4B5563' }]}>SILVER</Text>
-              <Text style={[styles.tierBadge, { backgroundColor: '#D97706' }]}>GOLD</Text>
-              <Text style={[styles.tierBadge, { backgroundColor: '#4F46E5' }]}>PLATINUM</Text>
+              <Text style={[styles.tierBadge, { backgroundColor: '#7C2D12' }]}>
+                BRONZE
+              </Text>
+              <Text style={[styles.tierBadge, { backgroundColor: '#4B5563' }]}>
+                SILVER
+              </Text>
+              <Text style={[styles.tierBadge, { backgroundColor: '#D97706' }]}>
+                GOLD
+              </Text>
+              <Text style={[styles.tierBadge, { backgroundColor: '#4F46E5' }]}>
+                PLATINUM
+              </Text>
             </View>
           </View>
 

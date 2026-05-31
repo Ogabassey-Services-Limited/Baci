@@ -1,11 +1,8 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { type Href, router } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
 import { SPACING } from '@/constants/Colors';
-import {
-  getHeaderStyles,
-  type ThemeColors,
-} from './header.styles';
+import { getHeaderStyles, type ThemeColors } from './header.styles';
 
 type HeaderStyles = ReturnType<typeof getHeaderStyles>;
 

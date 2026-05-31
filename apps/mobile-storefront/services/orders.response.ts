@@ -56,7 +56,8 @@ export async function parseOrderResponse(
     ...orderResponse.data,
     order: {
       ...orderResponse.data.order,
-      created_at: orderResponse.data.order.created_at ?? new Date().toISOString(),
+      created_at:
+        orderResponse.data.order.created_at ?? new Date().toISOString(),
     },
   };
 }

@@ -1,6 +1,12 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from 'react-native';
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
@@ -170,12 +176,7 @@ export default function BlogPreviewScreen() {
 
   if (isLoading) {
     return (
-      <View
-        style={[
-          styles.centered,
-          { backgroundColor: colors.background },
-        ]}
-      >
+      <View style={[styles.centered, { backgroundColor: colors.background }]}>
         <Stack.Screen options={{ headerShown: false }} />
         <ActivityIndicator color={colors.primary} size="large" />
       </View>
@@ -206,7 +207,11 @@ export default function BlogPreviewScreen() {
 
       {errorMessage || !post ? (
         <View style={styles.emptyState}>
-          <Ionicons name="alert-circle-outline" size={32} color={colors.error} />
+          <Ionicons
+            name="alert-circle-outline"
+            size={32}
+            color={colors.error}
+          />
           <Text selectable style={[styles.emptyTitle, { color: colors.text }]}>
             Preview not available
           </Text>

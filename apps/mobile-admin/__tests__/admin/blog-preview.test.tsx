@@ -169,8 +169,9 @@ describe('BlogPreviewScreen', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText(/Google I\/O 2026 puts Android AI first/i))
-        .toBeInTheDocument();
+      expect(
+        screen.getByText(/Google I\/O 2026 puts Android AI first/i)
+      ).toBeInTheDocument();
     });
 
     expect(mocks.supabaseFrom).toHaveBeenCalledWith('blog_posts');

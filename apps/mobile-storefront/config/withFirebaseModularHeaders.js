@@ -16,8 +16,13 @@ function safePathJoin(projectRoot, ...segments) {
   const targetPath = path.resolve(resolvedRoot, ...segments);
 
   // Ensure the resolved path is within the project root
-  if (!targetPath.startsWith(resolvedRoot + path.sep) && targetPath !== resolvedRoot) {
-    throw new Error(`Path traversal detected: ${targetPath} is outside project root`);
+  if (
+    !targetPath.startsWith(resolvedRoot + path.sep) &&
+    targetPath !== resolvedRoot
+  ) {
+    throw new Error(
+      `Path traversal detected: ${targetPath} is outside project root`
+    );
   }
 
   return targetPath;

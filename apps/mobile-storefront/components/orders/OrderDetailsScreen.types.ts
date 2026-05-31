@@ -44,7 +44,10 @@ export interface RawOrderItem {
   price: number;
   has_assurance?: boolean;
   assurance_fee?: number;
-  products?: { slug?: string; images?: string[] | null } | { slug?: string; images?: string[] | null }[] | null;
+  products?:
+    | { slug?: string; images?: string[] | null }
+    | { slug?: string; images?: string[] | null }[]
+    | null;
 }
 
 export type RawOrderDetails = Omit<OrderDetails, 'items'> & {

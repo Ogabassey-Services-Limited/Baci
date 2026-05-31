@@ -1,11 +1,22 @@
-const UNSAFE_URI_PREFIXES = ['javascript:', 'data:', 'vbscript:', 'blob:'] as const;
+const UNSAFE_URI_PREFIXES = [
+  'javascript:',
+  'data:',
+  'vbscript:',
+  'blob:',
+] as const;
 const MAX_UNSAFE_URI_PREFIX_LENGTH = Math.max(
   ...UNSAFE_URI_PREFIXES.map((prefix) => prefix.length)
 );
 const MAX_STRIP_ITERATIONS = 50;
 
 function isWhitespace(char: string | undefined): boolean {
-  return char === ' ' || char === '\n' || char === '\r' || char === '\t' || char === '\f';
+  return (
+    char === ' ' ||
+    char === '\n' ||
+    char === '\r' ||
+    char === '\t' ||
+    char === '\f'
+  );
 }
 
 function isAsciiControlChar(char: string | undefined): boolean {
@@ -25,7 +36,10 @@ export function stripUnsafeUriPrefix(value: string): string {
 
     let candidate = '';
     let scan = cursor;
-    while (scan < result.length && candidate.length < MAX_UNSAFE_URI_PREFIX_LENGTH) {
+    while (
+      scan < result.length &&
+      candidate.length < MAX_UNSAFE_URI_PREFIX_LENGTH
+    ) {
       if (!isAsciiControlChar(result[scan])) {
         candidate += result[scan].toLowerCase();
       }
@@ -39,14 +53,18 @@ export function stripUnsafeUriPrefix(value: string): string {
 
     let consumedNormalizedChars = 0;
     let removalEnd = cursor;
-    while (removalEnd < result.length && consumedNormalizedChars < matchedPrefix.length) {
+    while (
+      removalEnd < result.length &&
+      consumedNormalizedChars < matchedPrefix.length
+    ) {
       if (!isAsciiControlChar(result[removalEnd])) {
         consumedNormalizedChars++;
       }
       removalEnd++;
     }
 
-    result = `${result.slice(0, cursor)}${result.slice(removalEnd)}`.trimStart();
+    result =
+      `${result.slice(0, cursor)}${result.slice(removalEnd)}`.trimStart();
   }
 
   return result;

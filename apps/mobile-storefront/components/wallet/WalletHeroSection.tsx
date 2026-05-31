@@ -1,6 +1,12 @@
 import { router } from 'expo-router';
 import Ionicons from '@react-native-vector-icons/ionicons';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { BRAND } from '@/constants/Colors';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
@@ -252,7 +258,11 @@ export function WalletHeroSection({
           style={styles.utilityPill}
           onPress={() => router.push('/utilities/power')}
         >
-          <Ionicons name="flash-outline" size={14} color={WALLET_COLORS.white} />
+          <Ionicons
+            name="flash-outline"
+            size={14}
+            color={WALLET_COLORS.white}
+          />
           <Text style={styles.utilityPillText}>Power</Text>
         </Pressable>
 
@@ -272,7 +282,11 @@ export function WalletHeroSection({
           style={styles.utilityPill}
           onPress={() => router.push('/utilities/gaming')}
         >
-          <Ionicons name="game-controller-outline" size={14} color={WALLET_COLORS.white} />
+          <Ionicons
+            name="game-controller-outline"
+            size={14}
+            color={WALLET_COLORS.white}
+          />
           <Text style={styles.utilityPillText}>Gaming</Text>
         </Pressable>
       </ScrollView>

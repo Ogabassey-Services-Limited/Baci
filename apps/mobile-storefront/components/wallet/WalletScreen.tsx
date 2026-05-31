@@ -41,7 +41,9 @@ interface WalletScreenProps {
   presentation?: 'stack' | 'tab';
 }
 
-export function WalletScreen({ presentation = 'stack' }: WalletScreenProps = {}) {
+export function WalletScreen({
+  presentation = 'stack',
+}: WalletScreenProps = {}) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { getScrollContentStyle } = useStorefrontInsets();
@@ -67,14 +69,21 @@ export function WalletScreen({ presentation = 'stack' }: WalletScreenProps = {})
   const createFundingAccountMutation = useCreateWalletFundingAccount();
 
   const [redeemPoints, setRedeemPoints] = useState('');
-  const [showRedeemPanel, setShowRedeemPanel] = useState(routeAction === 'redeem');
+  const [showRedeemPanel, setShowRedeemPanel] = useState(
+    routeAction === 'redeem'
+  );
   const [fundAmount, setFundAmount] = useState(routeRequiredAmount);
   const [showFundPanel, setShowFundPanel] = useState(routeAction === 'fund');
   const [isFundPending, setIsFundPending] = useState(false);
-  const activeMerchantId = pickMerchantId(merchantId, CONFIG.MERCHANT_ID) ?? undefined;
+  const activeMerchantId =
+    pickMerchantId(merchantId, CONFIG.MERCHANT_ID) ?? undefined;
   const activeMerchantSlug = CONFIG.MERCHANT_SLUG?.trim() || undefined;
   const hasMerchantContext = Boolean(activeMerchantId || activeMerchantSlug);
-  useWalletBalanceContractWarning({ merchantId: activeMerchantId, ownerId: customer?.id ?? user?.id ?? '', walletData: data?.wallet });
+  useWalletBalanceContractWarning({
+    merchantId: activeMerchantId,
+    ownerId: customer?.id ?? user?.id ?? '',
+    walletData: data?.wallet,
+  });
 
   useEffect(() => {
     if (routeAction === 'fund') {
@@ -90,7 +99,8 @@ export function WalletScreen({ presentation = 'stack' }: WalletScreenProps = {})
     }
   }, [routeAction, routeRequiredAmount]);
 
-  const handleFundAmountChange = (value: string) => setFundAmount(sanitizeWalletFundAmount(value));
+  const handleFundAmountChange = (value: string) =>
+    setFundAmount(sanitizeWalletFundAmount(value));
 
   const handleCreateFundingAccount = async () => {
     const outcome = await resolveCreateFundingAccountOutcome(
@@ -115,7 +125,10 @@ export function WalletScreen({ presentation = 'stack' }: WalletScreenProps = {})
     }
   };
 
-  const resetFundPanel = () => { setShowFundPanel(false); setFundAmount(''); };
+  const resetFundPanel = () => {
+    setShowFundPanel(false);
+    setFundAmount('');
+  };
 
   const handleFundWallet = async () => {
     const amount = Number(fundAmount);
@@ -184,11 +197,10 @@ export function WalletScreen({ presentation = 'stack' }: WalletScreenProps = {})
 
     if (outcome.status === 'error') {
       log.error('Redemption error:', outcome.alertMessage);
-      trackError(
-        'loyalty_redemption_failed',
-        outcome.telemetryMessage,
-        { points_attempted: outcome.points, customer_id: customer?.id }
-      );
+      trackError('loyalty_redemption_failed', outcome.telemetryMessage, {
+        points_attempted: outcome.points,
+        customer_id: customer?.id,
+      });
       Alert.alert('Error', outcome.alertMessage);
       return;
     }
@@ -208,11 +220,9 @@ export function WalletScreen({ presentation = 'stack' }: WalletScreenProps = {})
       1
     );
 
-    Alert.alert(
-      'Points Redeemed!',
-      outcome.successMessage,
-      [{ text: 'OK', onPress: () => setShowRedeemPanel(false) }]
-    );
+    Alert.alert('Points Redeemed!', outcome.successMessage, [
+      { text: 'OK', onPress: () => setShowRedeemPanel(false) },
+    ]);
 
     setRedeemPoints('');
   };
@@ -240,12 +250,23 @@ export function WalletScreen({ presentation = 'stack' }: WalletScreenProps = {})
   });
 
   if (!user || !hasMerchantContext || isLoading || !data) {
-    return <WalletScreenView colors={colors} loadingMessage={loadingMessage} presentation={presentation} />;
+    return (
+      <WalletScreenView
+        colors={colors}
+        loadingMessage={loadingMessage}
+        presentation={presentation}
+      />
+    );
   }
 
   const { wallet: walletData, transactions } = data;
-  const { earningsBalance, fundingAccount, savingsBalance, showQuickSave, totalBalance } =
-    deriveWalletDisplayData(walletData);
+  const {
+    earningsBalance,
+    fundingAccount,
+    savingsBalance,
+    showQuickSave,
+    totalBalance,
+  } = deriveWalletDisplayData(walletData);
   const handleOpenSavings = () => router.push('/wallet/savings/start');
 
   return (

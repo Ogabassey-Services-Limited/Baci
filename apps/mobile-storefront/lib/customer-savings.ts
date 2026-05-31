@@ -19,9 +19,14 @@ const SAVINGS_AUTHORIZATION_POLL_DELAY_MS = 1200;
 
 export class SavingsAuthorizationStillProcessingError extends Error {
   constructor() {
-    super('Savings card authorization is still processing. Check again shortly.');
+    super(
+      'Savings card authorization is still processing. Check again shortly.'
+    );
     this.name = 'SavingsAuthorizationStillProcessingError';
-    Object.setPrototypeOf(this, SavingsAuthorizationStillProcessingError.prototype);
+    Object.setPrototypeOf(
+      this,
+      SavingsAuthorizationStillProcessingError.prototype
+    );
   }
 }
 

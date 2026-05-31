@@ -344,10 +344,7 @@ describe('usePushNotifications', () => {
     handleNotificationResponse.mockImplementation(
       (
         _response: unknown,
-        navigate: (
-          screen: string,
-          params?: Record<string, string>
-        ) => void
+        navigate: (screen: string, params?: Record<string, string>) => void
       ) => {
         navigate('utility-history', { type: 'power' });
       }
@@ -363,7 +360,9 @@ describe('usePushNotifications', () => {
       mockNotificationResponseCallback?.({});
     });
 
-    expect(mockRouterPush).toHaveBeenCalledWith('/utilities/history?type=power');
+    expect(mockRouterPush).toHaveBeenCalledWith(
+      '/utilities/history?type=power'
+    );
   });
 
   // --- unregister() tests ---

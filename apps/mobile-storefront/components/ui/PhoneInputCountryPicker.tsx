@@ -1,5 +1,12 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
-import { FlatList, Modal, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import Ionicons from '@react-native-vector-icons/ionicons';
+import {
+  FlatList,
+  Modal,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import type Colors from '@/constants/Colors';
 import { BRAND, palette } from '@/constants/Colors';
 import type { Country } from './PhoneInput.countries';
@@ -46,7 +53,9 @@ export function PhoneInputCountryPicker({
           { backgroundColor: isDark ? colors.card : colors.background },
         ]}
       >
-        <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+        <View
+          style={[styles.modalHeader, { borderBottomColor: colors.border }]}
+        >
           <Text
             style={[styles.modalTitle, { color: colors.text }]}
             accessibilityRole="header"
@@ -120,7 +129,9 @@ export function PhoneInputCountryPicker({
               onPress={() => onSelectCountry(item)}
               accessibilityRole="button"
               accessibilityLabel={`${item.name}, ${item.dialCode}`}
-              accessibilityState={{ selected: item.code === selectedCountry.code }}
+              accessibilityState={{
+                selected: item.code === selectedCountry.code,
+              }}
               activeOpacity={0.7}
             >
               <Text
@@ -138,7 +149,10 @@ export function PhoneInputCountryPicker({
                 {item.name}
               </Text>
               <Text
-                style={[styles.countryDialCode, { color: colors.textSecondary }]}
+                style={[
+                  styles.countryDialCode,
+                  { color: colors.textSecondary },
+                ]}
                 accessibilityElementsHidden={true}
                 importantForAccessibility="no"
               >

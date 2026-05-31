@@ -13,9 +13,9 @@ describe('order list filters', () => {
   ];
 
   it('matches active orders correctly', () => {
-    expect(matchesOrderListFilter({ shipping_status: 'pending' }, 'active')).toBe(
-      true
-    );
+    expect(
+      matchesOrderListFilter({ shipping_status: 'pending' }, 'active')
+    ).toBe(true);
     expect(
       matchesOrderListFilter({ shipping_status: 'delivered' }, 'active')
     ).toBe(false);

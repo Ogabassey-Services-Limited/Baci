@@ -1,7 +1,13 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, Text, type TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  Text,
+  type TextInput,
+  View,
+} from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
 import { AuthInput } from '@/components/auth/AuthInput';
 import { LoginSecondaryActions } from '@/components/auth/LoginSecondaryActions';

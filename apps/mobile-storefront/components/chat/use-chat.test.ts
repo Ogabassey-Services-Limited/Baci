@@ -11,14 +11,22 @@ let mockIsChatOpen = false;
 let mockChatInitialMessage: string | null = null;
 
 jest.mock('@/stores/ui-store', () => ({
-  useUIStore: jest.fn((selector: (state: { isChatOpen: typeof mockIsChatOpen; chatInitialMessage: typeof mockChatInitialMessage; clearChatInitialMessage: typeof mockClearChatInitialMessage }) => unknown) => {
-    const state = {
-      isChatOpen: mockIsChatOpen,
-      chatInitialMessage: mockChatInitialMessage,
-      clearChatInitialMessage: mockClearChatInitialMessage,
-    };
-    return selector(state);
-  }),
+  useUIStore: jest.fn(
+    (
+      selector: (state: {
+        isChatOpen: typeof mockIsChatOpen;
+        chatInitialMessage: typeof mockChatInitialMessage;
+        clearChatInitialMessage: typeof mockClearChatInitialMessage;
+      }) => unknown
+    ) => {
+      const state = {
+        isChatOpen: mockIsChatOpen,
+        chatInitialMessage: mockChatInitialMessage,
+        clearChatInitialMessage: mockClearChatInitialMessage,
+      };
+      return selector(state);
+    }
+  ),
 }));
 
 // Attach getState to the mocked useUIStore after jest.mock is set up

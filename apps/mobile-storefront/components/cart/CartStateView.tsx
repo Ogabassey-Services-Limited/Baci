@@ -50,9 +50,7 @@ export default function CartStateView({
             hasError ? 'Retry loading cart' : 'Start shopping'
           }
           accessibilityState={
-            hasError
-              ? { disabled: isRetrying, busy: isRetrying }
-              : undefined
+            hasError ? { disabled: isRetrying, busy: isRetrying } : undefined
           }
           onPress={hasError ? onRetry : onStartShopping}
         >

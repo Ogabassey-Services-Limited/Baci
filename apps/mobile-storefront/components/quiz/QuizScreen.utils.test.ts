@@ -49,19 +49,27 @@ describe('QuizScreen utils', () => {
   });
 
   it('formats start button text for event status', () => {
-    expect(getEventStartButtonText('open', false, 1)).toBe('Use 1 point to start');
-    expect(getEventStartButtonText('open', false, 0)).toBe('Use 0 points to start');
-    expect(getEventStartButtonText('open', false, 2)).toBe('Use 2 points to start');
-    expect(getEventStartButtonText('open', false, -1)).toBe('Use -1 point to start');
+    expect(getEventStartButtonText('open', false, 1)).toBe(
+      'Use 1 point to start'
+    );
+    expect(getEventStartButtonText('open', false, 0)).toBe(
+      'Use 0 points to start'
+    );
+    expect(getEventStartButtonText('open', false, 2)).toBe(
+      'Use 2 points to start'
+    );
+    expect(getEventStartButtonText('open', false, -1)).toBe(
+      'Use -1 point to start'
+    );
     expect(getEventStartButtonText('open', true, 1)).toBe('Starting...');
     expect(getEventStartButtonText('scheduled', false, 1)).toBe('Scheduled');
     expect(getEventStartButtonText('closed', false, 1)).toBe('Closed');
   });
 
   it('normalizes unknown errors to user-facing messages', () => {
-    expect(getQuizErrorMessage(new Error('Start failed'), 'Action failed')).toBe(
-      'Start failed'
-    );
+    expect(
+      getQuizErrorMessage(new Error('Start failed'), 'Action failed')
+    ).toBe('Start failed');
     expect(getQuizErrorMessage('failed', 'Action failed')).toBe(
       'Action failed'
     );

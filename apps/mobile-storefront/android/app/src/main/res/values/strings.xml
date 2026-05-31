@@ -2,8 +2,5 @@
   <string name="app_name">Ogabassey</string>
   <string name="expo_system_ui_user_interface_style" translatable="false">automatic</string>
   <string name="expo_runtime_version">2.0.0</string>
-  <string name="facebook_app_id">354703740472594</string>
-  <string name="facebook_client_token">1530248058ff9f74e7599e43f17be3b2</string>
-  <string name="fb_login_protocol_scheme">fb354703740472594</string>
   <string name="expo_splash_screen_resize_mode" translatable="false">contain</string>
 </resources>

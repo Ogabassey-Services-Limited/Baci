@@ -75,11 +75,13 @@ interface Order {
 
 export function useAnalytics() {
   const pathname = usePathname();
-  const { user, customer, merchantId } = useAuthStore(useShallow((state) => ({
-    user: state.user,
-    customer: state.customer,
-    merchantId: state.merchantId,
-  })));
+  const { user, customer, merchantId } = useAuthStore(
+    useShallow((state) => ({
+      user: state.user,
+      customer: state.customer,
+      merchantId: state.merchantId,
+    }))
+  );
 
   // Set merchant ID for analytics attribution
   useEffect(() => {

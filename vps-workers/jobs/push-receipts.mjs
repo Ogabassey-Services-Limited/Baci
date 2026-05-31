@@ -21,7 +21,9 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!supabaseUrl || !serviceRoleKey) {
-  console.error('[push-receipts] Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
+  console.error(
+    '[push-receipts] Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY'
+  );
   process.exit(1);
 }
 
@@ -45,8 +47,11 @@ if (fetchError) {
 }
 
 if (!pendingTickets || pendingTickets.length === 0) {
-  const { error: cleanupError } = await supabase.rpc('cleanup_old_push_tickets');
-  if (cleanupError) console.error('[push-receipts] Cleanup RPC failed:', cleanupError);
+  const { error: cleanupError } = await supabase.rpc(
+    'cleanup_old_push_tickets'
+  );
+  if (cleanupError)
+    console.error('[push-receipts] Cleanup RPC failed:', cleanupError);
   console.log('[push-receipts] No pending tickets — cleaned up.');
   process.exit(0);
 }
@@ -76,19 +81,29 @@ for (const chunk of chunks) {
           error_type: receipt.details?.error ?? null,
           error_message: receipt.message ?? null,
         });
-        if (receipt.details?.error === 'DeviceNotRegistered' && ticket.push_token) {
+        if (
+          receipt.details?.error === 'DeviceNotRegistered' &&
+          ticket.push_token
+        ) {
           tokensToDeactivate.push(ticket.push_token);
         }
       }
     }
   } catch (err) {
     chunkFailures++;
-    console.error('[push-receipts] Receipt chunk failed:', err, 'chunkSize:', chunk.length);
+    console.error(
+      '[push-receipts] Receipt chunk failed:',
+      err,
+      'chunkSize:',
+      chunk.length
+    );
   }
 }
 
 if (chunkFailures === chunks.length && chunks.length > 0) {
-  console.error('[push-receipts] All receipt chunks failed — aborting without marking tickets');
+  console.error(
+    '[push-receipts] All receipt chunks failed — aborting without marking tickets'
+  );
   process.exit(1);
 }
 
@@ -99,7 +114,10 @@ if (deliveredIds.length > 0) {
     .in('id', deliveredIds);
   if (error) {
     hadWriteError = true;
-    console.error('[push-receipts] Failed to batch-update delivered tickets:', error);
+    console.error(
+      '[push-receipts] Failed to batch-update delivered tickets:',
+      error
+    );
   }
 }
 
@@ -112,13 +130,22 @@ for (let i = 0; i < failedTickets.length; i += BATCH_SIZE) {
     batch.map(async (ft) => {
       const { error } = await supabase
         .from('push_notification_tickets')
-        .update({ status: 'failed', error_type: ft.error_type, error_message: ft.error_message, checked_at: checkedAt })
+        .update({
+          status: 'failed',
+          error_type: ft.error_type,
+          error_message: ft.error_message,
+          checked_at: checkedAt,
+        })
         .eq('id', ft.id);
       if (error) {
         hadWriteError = true;
-        console.error('[push-receipts] Failed to mark ticket failed:', ft.id, error);
+        console.error(
+          '[push-receipts] Failed to mark ticket failed:',
+          ft.id,
+          error
+        );
       }
-    }),
+    })
   );
 }
 
@@ -136,9 +163,12 @@ for (let i = 0; i < tokensToDeactivate.length; i += TOKEN_BATCH) {
 }
 
 const { error: cleanupError } = await supabase.rpc('cleanup_old_push_tickets');
-if (cleanupError) console.error('[push-receipts] Cleanup RPC failed:', cleanupError);
+if (cleanupError)
+  console.error('[push-receipts] Cleanup RPC failed:', cleanupError);
 
-console.log(`[push-receipts] Done — checked=${pendingTickets.length}, delivered=${deliveredIds.length}, failed=${failedTickets.length}, chunkFailures=${chunkFailures}`);
+console.log(
+  `[push-receipts] Done — checked=${pendingTickets.length}, delivered=${deliveredIds.length}, failed=${failedTickets.length}, chunkFailures=${chunkFailures}`
+);
 if (hadWriteError) {
   process.exit(1);
 }

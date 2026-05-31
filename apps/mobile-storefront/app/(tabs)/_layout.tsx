@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { Tabs, router } from 'expo-router';
 import type React from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
@@ -62,7 +62,9 @@ function TabBarIcon({
               },
             ]}
           >
-            <Text style={[styles.badgeText, { color: colors.primaryForeground }]}>
+            <Text
+              style={[styles.badgeText, { color: colors.primaryForeground }]}
+            >
               {badge > 99 ? '99+' : badge}
             </Text>
           </View>
@@ -75,6 +77,10 @@ function TabBarIcon({
 export default function TabLayout() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const safeBottomInset = insets.bottom > 0 ? insets.bottom : 8;
+  // Extra spacing to account for visual spacing/shadows and touch target comfort
+  const EXTRA_TAB_BAR_HEIGHT = 6;
+
   const cartCount = useCartStore((state) => state.itemCount());
   const savedCount = useSavedStore((state) => state.items.length);
   const { user, isInitialized } = useAuthStore(
@@ -110,12 +116,11 @@ export default function TabLayout() {
           backgroundColor: colors.card,
           borderTopWidth: 1,
           borderTopColor: colors.border,
-          height: TAB_BAR_BASE_HEIGHT + (insets.bottom > 0 ? insets.bottom : 8) + 6,
-          paddingBottom: insets.bottom > 0 ? insets.bottom : 8,
+          height:
+            TAB_BAR_BASE_HEIGHT + safeBottomInset + EXTRA_TAB_BAR_HEIGHT,
+          paddingBottom: safeBottomInset,
           paddingTop: 6,
-          ...getTabBarShadowStyle(
-            Platform.OS === 'web' ? 'web' : 'native'
-          ),
+          ...getTabBarShadowStyle(Platform.OS === 'web' ? 'web' : 'native'),
         },
         tabBarItemStyle: {
           height: TAB_BAR_BASE_HEIGHT,

@@ -26,7 +26,9 @@ export function getOrderTrackingUrl(
     ups: `https://www.ups.com/track?tracknum=${encoded}`,
   };
 
-  return shippingProvider ? providerUrls[shippingProvider.toLowerCase()] : undefined;
+  return shippingProvider
+    ? providerUrls[shippingProvider.toLowerCase()]
+    : undefined;
 }
 
 export function mapOrderDetails(data: RawOrderDetails): OrderDetails {

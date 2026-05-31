@@ -194,28 +194,34 @@ async function initializeGatewayAndRoute({
   const timeout = setTimeout(() => controller.abort(), PAYMENT_INIT_TIMEOUT_MS);
   let initResponse: Response;
   try {
-    initResponse = await fetch(`${CHECKOUT_API_BASE_URL}/api/payments/initialize`, {
-      method: 'POST',
-      signal: controller.signal,
-      headers: {
-        'Content-Type': 'application/json',
-        'Idempotency-Key': `payment-init-${orderId}-${gateway}`,
-      },
-      body: JSON.stringify({
-        merchant_id: CHECKOUT_MERCHANT_ID,
-        order_id: orderId,
-        amount: orderResponse.amountDueToGateway,
-        currency: 'NGN',
-        customer_email: customerEmail,
-        customer_name: customerName,
-        customer_phone: customerPhone,
-        gateway,
-        ...(isBankTransfer && { payment_type: 'dva' }),
-      }),
-    });
+    initResponse = await fetch(
+      `${CHECKOUT_API_BASE_URL}/api/payments/initialize`,
+      {
+        method: 'POST',
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json',
+          'Idempotency-Key': `payment-init-${orderId}-${gateway}`,
+        },
+        body: JSON.stringify({
+          merchant_id: CHECKOUT_MERCHANT_ID,
+          order_id: orderId,
+          amount: orderResponse.amountDueToGateway,
+          currency: 'NGN',
+          customer_email: customerEmail,
+          customer_name: customerName,
+          customer_phone: customerPhone,
+          gateway,
+          ...(isBankTransfer && { payment_type: 'dva' }),
+        }),
+      }
+    );
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
-      throw new OrderError('Payment initialization timed out', 'PAYMENT_INIT_TIMEOUT');
+      throw new OrderError(
+        'Payment initialization timed out',
+        'PAYMENT_INIT_TIMEOUT'
+      );
     }
     throw error;
   } finally {

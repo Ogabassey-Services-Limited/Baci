@@ -38,9 +38,9 @@ describe('SubscriptionManagement', () => {
     mocks.platform.OS = 'ios';
     mocks.openURL.mockResolvedValue(undefined);
 
-    await expect(
-      SubscriptionManagement.openNativeManagement()
-    ).resolves.toBe(true);
+    await expect(SubscriptionManagement.openNativeManagement()).resolves.toBe(
+      true
+    );
     expect(mocks.openURL).toHaveBeenCalledWith(
       'https://apps.apple.com/account/subscriptions'
     );
@@ -50,9 +50,9 @@ describe('SubscriptionManagement', () => {
     mocks.platform.OS = 'android';
     mocks.openURL.mockResolvedValue(undefined);
 
-    await expect(
-      SubscriptionManagement.openNativeManagement()
-    ).resolves.toBe(true);
+    await expect(SubscriptionManagement.openNativeManagement()).resolves.toBe(
+      true
+    );
     expect(mocks.openURL).toHaveBeenCalledWith(
       'https://play.google.com/store/account/subscriptions?package=com.ogabassey.baci'
     );
@@ -63,9 +63,9 @@ describe('SubscriptionManagement', () => {
     mocks.openURL.mockRejectedValue(new Error('failed'));
     mocks.openSettings.mockRejectedValue(new Error('fallback failed'));
 
-    await expect(
-      SubscriptionManagement.openNativeManagement()
-    ).resolves.toBe(false);
+    await expect(SubscriptionManagement.openNativeManagement()).resolves.toBe(
+      false
+    );
     expect(mocks.alert).toHaveBeenCalledWith(
       'Unable to Open',
       expect.stringContaining('manage in app store directly.'),

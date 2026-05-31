@@ -50,8 +50,10 @@ export function resolveSelectedCategoryName({
       ? 'All'
       : categoryNames.find(
           (categoryName) =>
-            normalizeSelectedCategorySlug(categoryName, normalizedCategories) ===
-            selectedCategorySlug
+            normalizeSelectedCategorySlug(
+              categoryName,
+              normalizedCategories
+            ) === selectedCategorySlug
         );
 
   return {

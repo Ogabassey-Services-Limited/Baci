@@ -1,4 +1,7 @@
-import { WALLET_TOP_UP_MAX_AMOUNT, WALLET_TOP_UP_MIN_AMOUNT } from '@/lib/wallet-top-up-constants';
+import {
+  WALLET_TOP_UP_MAX_AMOUNT,
+  WALLET_TOP_UP_MIN_AMOUNT,
+} from '@/lib/wallet-top-up-constants';
 import { formatNgnCurrency } from '@/lib/format-ngn-currency';
 import type { WalletDisplayFundingAccount } from './wallet.types';
 
@@ -92,7 +95,9 @@ export async function resolveCreateFundingAccountOutcome(
 ): Promise<WalletCreateFundingAccountOutcome> {
   try {
     const result = await createFundingAccount();
-    const bankName = normalizeRequiredFundingAccountValue(result.account?.bankName);
+    const bankName = normalizeRequiredFundingAccountValue(
+      result.account?.bankName
+    );
     const accountNumber = normalizeRequiredFundingAccountValue(
       result.account?.accountNumber
     );
@@ -111,7 +116,8 @@ export async function resolveCreateFundingAccountOutcome(
           ? error.message
           : 'Please try again in a moment.',
       status: 'error',
-      telemetryMessage: error instanceof Error ? error.message : 'Unknown error',
+      telemetryMessage:
+        error instanceof Error ? error.message : 'Unknown error',
     };
   }
 }
@@ -156,7 +162,8 @@ export async function resolveWalletRedeemPointsOutcome({
           : 'Failed to redeem points. Please try again.',
       points,
       status: 'error',
-      telemetryMessage: error instanceof Error ? error.message : 'Unknown error',
+      telemetryMessage:
+        error instanceof Error ? error.message : 'Unknown error',
     };
   }
 }
@@ -220,12 +227,18 @@ export function parseWalletRedeemPointsInput(
 ): { points: number } | { message: string; title: string } {
   const trimmedPoints = rawPoints.trim();
   if (!/^\d+$/.test(trimmedPoints)) {
-    return { title: 'Invalid Input', message: 'Please enter a valid number of points' };
+    return {
+      title: 'Invalid Input',
+      message: 'Please enter a valid number of points',
+    };
   }
 
   const points = Number(trimmedPoints);
   if (!Number.isSafeInteger(points) || points <= 0) {
-    return { title: 'Invalid Input', message: 'Please enter a valid number of points' };
+    return {
+      title: 'Invalid Input',
+      message: 'Please enter a valid number of points',
+    };
   }
 
   if (points < minimumRedeemablePoints) {
@@ -272,14 +285,24 @@ export function getWalletLoadingMessage({
 }
 
 export function deriveWalletDisplayData(walletData: WalletDataLike) {
-  const earningsBalance = walletData.earnings_balance ?? walletData.balance ?? 0;
+  const earningsBalance =
+    walletData.earnings_balance ?? walletData.balance ?? 0;
   const savingsBalance = walletData.savings_balance ?? 0;
-  const totalBalance = walletData.total_balance ?? earningsBalance + savingsBalance;
+  const totalBalance =
+    walletData.total_balance ?? earningsBalance + savingsBalance;
   const rawFundingAccount = walletData.funding_account;
-  const accountName = normalizeRequiredFundingAccountValue(rawFundingAccount?.account_name);
-  const accountNumber = normalizeRequiredFundingAccountValue(rawFundingAccount?.account_number);
-  const bankName = normalizeRequiredFundingAccountValue(rawFundingAccount?.bank_name);
-  const provider = normalizeRequiredFundingAccountValue(rawFundingAccount?.provider);
+  const accountName = normalizeRequiredFundingAccountValue(
+    rawFundingAccount?.account_name
+  );
+  const accountNumber = normalizeRequiredFundingAccountValue(
+    rawFundingAccount?.account_number
+  );
+  const bankName = normalizeRequiredFundingAccountValue(
+    rawFundingAccount?.bank_name
+  );
+  const provider = normalizeRequiredFundingAccountValue(
+    rawFundingAccount?.provider
+  );
   const fundingAccount: WalletDisplayFundingAccount | null =
     accountName && accountNumber && bankName && provider
       ? {

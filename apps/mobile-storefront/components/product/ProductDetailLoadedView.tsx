@@ -77,21 +77,32 @@ export function ProductDetailLoadedView({
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Stack.Screen options={{ headerShown: false }} />
       <Animated.View
-        style={[styles.header, { height: insets.top + 46 }, headerAnimatedStyle]}
+        style={[
+          styles.header,
+          { height: insets.top + 46 },
+          headerAnimatedStyle,
+        ]}
       >
         <View style={[styles.headerContent, { marginTop: insets.top }]}>
-          <Text style={[styles.headerTitle, { color: colors.text }]} numberOfLines={1}>
+          <Text
+            style={[styles.headerTitle, { color: colors.text }]}
+            numberOfLines={1}
+          >
             {product.name}
           </Text>
         </View>
       </Animated.View>
 
-      <View style={[styles.headerButtons, { top: Math.max(insets.top - 4, 0) }]}>
+      <View
+        style={[styles.headerButtons, { top: Math.max(insets.top - 4, 0) }]}
+      >
         <HeaderIcon
           accessibilityLabel="Go back"
           animatedStyle={backButtonAnimatedStyle}
           icon="arrow-back"
-          onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
+          onPress={() =>
+            router.canGoBack() ? router.back() : router.replace('/')
+          }
         />
         <View style={styles.headerRight}>
           <HeaderIcon

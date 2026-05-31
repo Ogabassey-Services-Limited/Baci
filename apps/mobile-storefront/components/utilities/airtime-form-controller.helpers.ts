@@ -44,7 +44,10 @@ export function validateAirtimePurchaseInput({
     };
   }
 
-  if (numericAmount < MIN_AIRTIME_AMOUNT || numericAmount > MAX_AIRTIME_AMOUNT) {
+  if (
+    numericAmount < MIN_AIRTIME_AMOUNT ||
+    numericAmount > MAX_AIRTIME_AMOUNT
+  ) {
     return {
       title: 'Invalid Amount',
       message: 'Amount must be between ₦50 and ₦50,000.',
@@ -61,11 +64,16 @@ export function validateAirtimePurchaseInput({
   return null;
 }
 
-export function getAirtimeCustomerName(customer: {
-  email?: string | null;
-  first_name?: string | null;
-  last_name?: string | null;
-} | null | undefined): string {
+export function getAirtimeCustomerName(
+  customer:
+    | {
+        email?: string | null;
+        first_name?: string | null;
+        last_name?: string | null;
+      }
+    | null
+    | undefined
+): string {
   return (
     [customer?.first_name, customer?.last_name].filter(Boolean).join(' ') ||
     customer?.email ||

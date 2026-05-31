@@ -78,9 +78,7 @@ describe('WalletHeroSection', () => {
     expect(screen.getByText('2,000 pts')).toBeOnTheScreen();
     expect(screen.getByText('REDEEM')).toBeOnTheScreen();
     expect(screen.getByText('Silver')).toBeOnTheScreen();
-    expect(
-      screen.getByRole('button', { name: 'Add money' })
-    ).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Add money' })).toBeOnTheScreen();
     expect(
       screen.getByRole('button', { name: 'Redeem loyalty points' })
     ).toBeOnTheScreen();
@@ -91,9 +89,7 @@ describe('WalletHeroSection', () => {
     expect(
       screen.getByRole('button', { name: 'Buy Airtime' })
     ).toBeOnTheScreen();
-    expect(
-      screen.getByRole('button', { name: 'Buy Data' })
-    ).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Buy Data' })).toBeOnTheScreen();
   });
 
   it('copies the funding account number and clears feedback after the timeout', async () => {

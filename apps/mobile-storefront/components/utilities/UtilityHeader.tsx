@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import type React from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { utilityPurchaseStyles as styles } from '@/components/utilities/utility-purchase.styles';
@@ -34,6 +34,9 @@ export function UtilityHeader({
   topInset,
   surfaceColor,
 }: UtilityHeaderProps): React.ReactElement {
+  // We apply a +6pt additional spacing to topInset to visually offset the header 
+  // from the safe-area notch and to match the tab bar height offset used elsewhere.
+  // This ensures a balanced top spacing across devices relative to MIN_PADDING_TOP.
   const paddingTop = Math.max(topInset + 6, MIN_PADDING_TOP);
 
   return (

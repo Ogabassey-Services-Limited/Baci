@@ -73,7 +73,8 @@ describe('Product NegotiationModal wrapper', () => {
       })
     );
 
-    const controllerArgs = mockUseNegotiationModalController.mock.calls[0]?.[0] as {
+    const controllerArgs = mockUseNegotiationModalController.mock
+      .calls[0]?.[0] as {
       successMessageFormatter: (value: number) => string;
     };
     expect(controllerArgs.successMessageFormatter(2500000)).toBe(

@@ -66,7 +66,11 @@ export function useUpdateProduct() {
   const queryClient = useQueryClient();
   const { merchant } = useMerchant();
 
-  return useMutation<Product, Error, { id: string; updates: ProductFormValues }>({
+  return useMutation<
+    Product,
+    Error,
+    { id: string; updates: ProductFormValues }
+  >({
     mutationFn: ({
       id,
       updates,

@@ -98,27 +98,27 @@ export function ProductDetailsVariantSection({
                 onPress={() => setSelectedVariant(variant.id)}
                 style={[
                   styles.variantChip,
-	                  {
-	                    borderColor:
-	                      selectedVariant === variant.id
-	                        ? colors.primary
-	                        : colors.border,
-	                  },
-	                  selectedVariant === variant.id && {
-	                    backgroundColor: colors.primaryLowOpacity,
-	                  },
-	                ]}
-	              >
+                  {
+                    borderColor:
+                      selectedVariant === variant.id
+                        ? colors.primary
+                        : colors.border,
+                  },
+                  selectedVariant === variant.id && {
+                    backgroundColor: colors.primaryLowOpacity,
+                  },
+                ]}
+              >
                 <Text
                   style={[
                     styles.variantLabel,
                     {
-	                      color:
-	                        selectedVariant === variant.id
-	                          ? colors.primary
-	                          : colors.text,
-	                    },
-	                  ]}
+                      color:
+                        selectedVariant === variant.id
+                          ? colors.primary
+                          : colors.text,
+                    },
+                  ]}
                 >
                   {variant.name}
                 </Text>

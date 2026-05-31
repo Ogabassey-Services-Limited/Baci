@@ -19,7 +19,9 @@ function getMissingColumnFromPostgrestError(
   if (!error) return null;
 
   const text = [error.message, error.details, error.hint]
-    .filter((part): part is string => typeof part === 'string' && part.length > 0)
+    .filter(
+      (part): part is string => typeof part === 'string' && part.length > 0
+    )
     .join(' ');
 
   if (!text) return null;

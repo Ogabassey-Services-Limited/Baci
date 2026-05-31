@@ -237,7 +237,10 @@ describe('Paywall', () => {
   });
 
   it('shows fallback purchase success when purchase succeeds without immediate pro access', async () => {
-    mocks.purchasePackage.mockResolvedValue({ isPro: false, status: 'success' });
+    mocks.purchasePackage.mockResolvedValue({
+      isPro: false,
+      status: 'success',
+    });
 
     render(<Paywall />);
 
@@ -270,8 +273,10 @@ describe('Paywall', () => {
     await waitFor(() => {
       expect(mocks.purchasePackage).toHaveBeenCalledTimes(1);
     });
-    expect(mocks.alert).toHaveBeenCalledWith('Success', 'You are now a Pro member!', [
-      { text: 'OK', onPress: onClose },
-    ]);
+    expect(mocks.alert).toHaveBeenCalledWith(
+      'Success',
+      'You are now a Pro member!',
+      [{ text: 'OK', onPress: onClose }]
+    );
   });
 });

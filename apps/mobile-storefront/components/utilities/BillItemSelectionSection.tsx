@@ -231,7 +231,7 @@ export function BillItemSelectionSection({
             )}
           </View>
 
-          {(recentRecipients.length > 0 || (typeof __DEV__ !== 'undefined' && __DEV__ && process.env.NODE_ENV !== 'test')) && onSelectRecentRecipient ? (
+          {onSelectRecentRecipient ? (
             <RecentUtilityRecipients
               colors={colors}
               recipients={recentRecipients}

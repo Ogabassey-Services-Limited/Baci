@@ -55,9 +55,13 @@ export function PaymentMethodSelector({
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const isDark = (colorScheme ?? 'light') === 'dark';
-  const warningBackground = isDark ? 'rgba(245, 158, 11, 0.12)' : palette.amber[100];
+  const warningBackground = isDark
+    ? 'rgba(245, 158, 11, 0.12)'
+    : palette.amber[100];
   const warningTextColor = isDark ? colors.text : palette.amber[800];
-  const warningSubtleTextColor = isDark ? colors.textSecondary : palette.amber[800];
+  const warningSubtleTextColor = isDark
+    ? colors.textSecondary
+    : palette.amber[800];
 
   const {
     filteredMethods,
@@ -92,8 +96,11 @@ export function PaymentMethodSelector({
     orderTotal > 0 &&
     selectedTab === 'full' &&
     supportsPartialPayment;
-  const savingsCoversFully = savingsShouldRender && savingsBalance >= orderTotal;
-  const savingsPortion = savingsShouldRender ? Math.min(savingsBalance, orderTotal) : 0;
+  const savingsCoversFully =
+    savingsShouldRender && savingsBalance >= orderTotal;
+  const savingsPortion = savingsShouldRender
+    ? Math.min(savingsBalance, orderTotal)
+    : 0;
   const savingsResidualToGateway = savingsShouldRender
     ? Math.max(orderTotal - savingsBalance, 0)
     : 0;
@@ -107,7 +114,10 @@ export function PaymentMethodSelector({
     ? `Pay with device savings, ${formatPrice(savingsBalance)} available`
     : `Use device savings, ${formatPrice(savingsPortion)} of ${formatPrice(orderTotal)}`;
 
-  const walletEffectiveTotal = Math.max((walletOrderTotal ?? orderTotal) - activeSavingsAmount, 0);
+  const walletEffectiveTotal = Math.max(
+    (walletOrderTotal ?? orderTotal) - activeSavingsAmount,
+    0
+  );
   const walletAttemptAllowed =
     (walletMode === 'orders' || walletMode === 'vtu') &&
     walletEffectiveTotal > 0 &&
@@ -210,16 +220,21 @@ export function PaymentMethodSelector({
         accessibilityLiveRegion="polite"
       >
         {filteredMethods.map((method) => {
-          const savingsSuppressesGateway = savingsCoversFully && savingsIsActive;
+          const savingsSuppressesGateway =
+            savingsCoversFully && savingsIsActive;
           const walletSuppressesGateway = walletCoversFully && walletIsActive;
-          const selectionSuppressed = suppressedSelectedMethods.includes(method.id);
+          const selectionSuppressed = suppressedSelectedMethods.includes(
+            method.id
+          );
           const isSelected =
             selectedMethod === method.id &&
             !walletSuppressesGateway &&
             !savingsSuppressesGateway &&
             !selectionSuppressed;
           const isDisabled = Boolean(
-            method.disabled || walletSuppressesGateway || savingsSuppressesGateway
+            method.disabled ||
+              walletSuppressesGateway ||
+              savingsSuppressesGateway
           );
           return (
             <PaymentMethodOptionRow

@@ -58,14 +58,22 @@ const mockCloseChat = jest.fn();
 let mockIsChatOpen = false;
 
 jest.mock('@/stores/ui-store', () => ({
-  useUIStore: jest.fn((selector: (state: { isChatOpen: typeof mockIsChatOpen; openChat: typeof mockOpenChat; closeChat: typeof mockCloseChat }) => unknown) => {
-    const state = {
-      isChatOpen: mockIsChatOpen,
-      openChat: mockOpenChat,
-      closeChat: mockCloseChat,
-    };
-    return selector(state);
-  }),
+  useUIStore: jest.fn(
+    (
+      selector: (state: {
+        isChatOpen: typeof mockIsChatOpen;
+        openChat: typeof mockOpenChat;
+        closeChat: typeof mockCloseChat;
+      }) => unknown
+    ) => {
+      const state = {
+        isChatOpen: mockIsChatOpen,
+        openChat: mockOpenChat,
+        closeChat: mockCloseChat,
+      };
+      return selector(state);
+    }
+  ),
 }));
 
 // Mock useColorScheme

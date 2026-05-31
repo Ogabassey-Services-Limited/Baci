@@ -140,11 +140,7 @@ export function useProductDetailRouteData() {
     if (selectedImageIndex >= productGalleryImages.length) {
       setSelectedImageIndex(0);
     }
-  }, [
-    productGalleryImages.length,
-    selectedImageIndex,
-    setSelectedImageIndex,
-  ]);
+  }, [productGalleryImages.length, selectedImageIndex, setSelectedImageIndex]);
 
   return {
     displayProduct,

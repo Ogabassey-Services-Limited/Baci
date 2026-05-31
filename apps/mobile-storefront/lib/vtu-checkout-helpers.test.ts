@@ -28,11 +28,11 @@ describe('vtu checkout helpers', () => {
 
   it('clamps wallet amount and rotates keys only for 4xx errors', () => {
     expect(computeVtuWalletAmount(1000, 500)).toBe(500);
-    expect(shouldRotateWalletIdempotencyKeyForError(new HttpError(400, 'bad'))).toBe(
-      true
-    );
-    expect(shouldRotateWalletIdempotencyKeyForError(new HttpError(500, 'bad'))).toBe(
-      false
-    );
+    expect(
+      shouldRotateWalletIdempotencyKeyForError(new HttpError(400, 'bad'))
+    ).toBe(true);
+    expect(
+      shouldRotateWalletIdempotencyKeyForError(new HttpError(500, 'bad'))
+    ).toBe(false);
   });
 });

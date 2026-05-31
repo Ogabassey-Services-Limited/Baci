@@ -6,10 +6,7 @@ function isSmartphoneCategory(categoryName?: string | null): boolean {
   if (!categoryName) return false;
 
   const normalized = categoryName.toLowerCase().trim();
-  if (
-    normalized.includes('headphone') ||
-    normalized.includes('microphone')
-  ) {
+  if (normalized.includes('headphone') || normalized.includes('microphone')) {
     return false;
   }
 

@@ -1,10 +1,5 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
-import {
-  ActivityIndicator,
-  Pressable,
-  Text,
-  View,
-} from 'react-native';
+import Ionicons from '@react-native-vector-icons/ionicons';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
 import type { Review, ReviewStats } from '@/hooks/use-reviews';
@@ -102,7 +97,7 @@ export function ReviewsList({
             {renderStars(
               Math.round(
                 typeof stats.average_rating === 'number' &&
-                Number.isFinite(stats.average_rating)
+                  Number.isFinite(stats.average_rating)
                   ? stats.average_rating
                   : 0
               ),

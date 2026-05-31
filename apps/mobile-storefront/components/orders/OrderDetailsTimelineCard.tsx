@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import {
   CUSTOMER_ORDER_PROGRESS_STEPS,
@@ -40,8 +40,12 @@ export function OrderDetailsTimelineCard({
 }: OrderDetailsTimelineCardProps) {
   return (
     <View style={[styles.card, { backgroundColor: colors.card }]}>
-      <Text style={[styles.sectionTitle, { color: colors.text }]}>Order Status</Text>
-      <View style={[styles.timelineTrack, { backgroundColor: colors.border }]} />
+      <Text style={[styles.sectionTitle, { color: colors.text }]}>
+        Order Status
+      </Text>
+      <View
+        style={[styles.timelineTrack, { backgroundColor: colors.border }]}
+      />
       <View style={styles.timeline}>
         {CUSTOMER_ORDER_PROGRESS_STEPS.map((step) => {
           const progressState = getCustomerOrderProgressState(
@@ -115,11 +119,19 @@ export function OrderDetailsTimelineCard({
           color={statusPalette.accent}
         />
         <View style={styles.timelineSummaryCopy}>
-          <Text style={[styles.timelineSummaryTitle, { color: statusPalette.accent }]}>
+          <Text
+            style={[
+              styles.timelineSummaryTitle,
+              { color: statusPalette.accent },
+            ]}
+          >
             {statusMeta.label}
           </Text>
           <Text
-            style={[styles.timelineSummaryDescription, { color: colors.textSecondary }]}
+            style={[
+              styles.timelineSummaryDescription,
+              { color: colors.textSecondary },
+            ]}
           >
             {statusMeta.description}
           </Text>

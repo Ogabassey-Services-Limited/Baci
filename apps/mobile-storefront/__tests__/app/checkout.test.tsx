@@ -29,7 +29,9 @@ function fillAddressAndContinueToPayment() {
     screen.getByPlaceholderText('john@example.com'),
     'ada@example.com'
   );
-  fireEvent.press(screen.getByRole('button', { name: 'Select pickup station' }));
+  fireEvent.press(
+    screen.getByRole('button', { name: 'Select pickup station' })
+  );
   fireEvent.press(screen.getByRole('button', { name: 'Continue to payment' }));
 }
 
@@ -85,7 +87,9 @@ function triggerAlertButton(
   alertTitle: string,
   buttonIndex: number
 ) {
-  const alertCall = alertMock.mock.calls.find(([title]) => title === alertTitle);
+  const alertCall = alertMock.mock.calls.find(
+    ([title]) => title === alertTitle
+  );
   const button = alertCall?.[2]?.[buttonIndex] as
     | { onPress?: () => void }
     | undefined;
@@ -101,23 +105,19 @@ describe('CheckoutScreen', () => {
     teardownCheckoutTest();
   });
 
-  it(
-    'renders checkout with address step visible by default',
-    async () => {
-      renderCheckoutScreen();
+  it('renders checkout with address step visible by default', async () => {
+    renderCheckoutScreen();
 
-      expect(screen.getByText('Checkout')).toBeOnTheScreen();
-      expect(screen.getByText('Delivery Address')).toBeOnTheScreen();
-      expect(screen.getByLabelText('checkout-step')).toHaveTextContent(
-        'step:address'
-      );
+    expect(screen.getByText('Checkout')).toBeOnTheScreen();
+    expect(screen.getByText('Delivery Address')).toBeOnTheScreen();
+    expect(screen.getByLabelText('checkout-step')).toHaveTextContent(
+      'step:address'
+    );
 
-      await waitFor(() => {
-        expect(mockTrackCheckoutStarted).toHaveBeenCalledTimes(1);
-      });
-    },
-    15_000
-  );
+    await waitFor(() => {
+      expect(mockTrackCheckoutStarted).toHaveBeenCalledTimes(1);
+    });
+  }, 15_000);
 
   it('continues from address to payment when required fields are valid', async () => {
     renderCheckoutScreen();
@@ -225,7 +225,9 @@ describe('CheckoutScreen', () => {
       screen.getByRole('button', { name: 'Mock select Credit Direct' })
     );
     await waitFor(() => {
-      expect(screen.getByText('Selected payment: credit_direct')).toBeOnTheScreen();
+      expect(
+        screen.getByText('Selected payment: credit_direct')
+      ).toBeOnTheScreen();
     });
     fireEvent.press(screen.getByRole('button', { name: 'Continue to review' }));
     await waitFor(() => {
@@ -244,7 +246,9 @@ describe('CheckoutScreen', () => {
     );
     const firstKey = mockCreateOrder.mock.calls[0]?.[0]?.idempotency_key;
 
-    fireEvent.press(screen.getByRole('button', { name: 'Edit payment method' }));
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Edit payment method' })
+    );
     fireEvent.press(screen.getByRole('button', { name: 'Mock select Klump' }));
     await waitFor(() => {
       expect(screen.getByText('Selected payment: klump')).toBeOnTheScreen();
@@ -311,7 +315,9 @@ describe('CheckoutScreen', () => {
       screen.getByRole('button', { name: 'Mock select Credit Direct' })
     );
     await waitFor(() => {
-      expect(screen.getByText('Selected payment: credit_direct')).toBeOnTheScreen();
+      expect(
+        screen.getByText('Selected payment: credit_direct')
+      ).toBeOnTheScreen();
     });
     fireEvent.press(screen.getByRole('button', { name: 'Continue to review' }));
     await waitFor(() => {
@@ -757,7 +763,9 @@ describe('CheckoutScreen', () => {
     });
 
     fireEvent.press(
-      screen.getByRole('button', { name: 'Mock select Bank transfer to wallet' })
+      screen.getByRole('button', {
+        name: 'Mock select Bank transfer to wallet',
+      })
     );
     fireEvent.press(screen.getByRole('button', { name: 'Continue to review' }));
 
@@ -798,7 +806,7 @@ describe('CheckoutScreen', () => {
     });
   });
 
-  it('asks for DVA consent once when checkout needs to create the wallet account', async () => {
+  it('automatically creates the wallet account and retries when checkout needs to create the wallet account without showing a popup', async () => {
     const consentError = createConsentError(
       'WALLET_DVA_CONSENT_REQUIRED',
       'Wallet DVA consent required'
@@ -850,7 +858,9 @@ describe('CheckoutScreen', () => {
     });
 
     fireEvent.press(
-      screen.getByRole('button', { name: 'Mock select Bank transfer to wallet' })
+      screen.getByRole('button', {
+        name: 'Mock select Bank transfer to wallet',
+      })
     );
     fireEvent.press(screen.getByRole('button', { name: 'Continue to review' }));
 
@@ -859,20 +869,6 @@ describe('CheckoutScreen', () => {
     });
 
     fireEvent.press(screen.getByRole('button', { name: /Place order for/i }));
-
-    await waitFor(() => {
-      expect(mockAlert).toHaveBeenCalledWith(
-        'Create wallet account number?',
-        expect.any(String),
-        expect.any(Array),
-        expect.objectContaining({
-          cancelable: true,
-          onDismiss: expect.any(Function),
-        })
-      );
-    });
-
-    triggerAlertButton(mockAlert, 'Create wallet account number?', 1);
 
     await waitFor(() => {
       expect(mockCreateWalletFundingAccount).toHaveBeenCalledWith({
@@ -885,6 +881,8 @@ describe('CheckoutScreen', () => {
         orderId: 'order-1',
       });
     });
+
+    expect(mockAlert).not.toHaveBeenCalled();
   });
 
   it('falls back to legacy bank transfer when wallet intent creation fails before consent', async () => {
@@ -915,7 +913,7 @@ describe('CheckoutScreen', () => {
     });
   });
 
-  it('falls back to legacy bank transfer when wallet account creation fails after consent', async () => {
+  it('falls back to legacy bank transfer when wallet account creation fails', async () => {
     const consentError = createConsentError(
       'WALLET_DVA_CONSENT_REQUIRED',
       'Wallet DVA consent required'
@@ -927,20 +925,6 @@ describe('CheckoutScreen', () => {
     enableAuthenticatedWalletFundedCheckout();
 
     await placeWalletFundedBankTransferOrder();
-
-    await waitFor(() => {
-      expect(mockAlert).toHaveBeenCalledWith(
-        'Create wallet account number?',
-        expect.any(String),
-        expect.any(Array),
-        expect.objectContaining({
-          cancelable: true,
-          onDismiss: expect.any(Function),
-        })
-      );
-    });
-
-    triggerAlertButton(mockAlert, 'Create wallet account number?', 1);
 
     await waitFor(() => {
       expect(mockCreateWalletFundingAccount).toHaveBeenCalledTimes(1);

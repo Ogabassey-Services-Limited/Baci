@@ -34,7 +34,8 @@ export function useProductDetailPurchaseState(
       )
     : null;
   const resolvedVariantPurchaseSelection =
-    routeData.currentVariantSelection ?? routeData.currentVariantDisplaySelection;
+    routeData.currentVariantSelection ??
+    routeData.currentVariantDisplaySelection;
   const selectedVariantCanPurchase =
     routeData.product?.has_variants === true
       ? resolvedVariantPurchaseSelection
@@ -74,7 +75,10 @@ function getConditionOffersForDisplay(routeData: RouteData) {
   if (!routeData.product) return [];
   if (!routeData.usesVariantConditions) return routeData.product.offers ?? [];
 
-  const grouped = new Map<ProductCondition, { price: number; stock_quantity: number }>();
+  const grouped = new Map<
+    ProductCondition,
+    { price: number; stock_quantity: number }
+  >();
   for (const variant of routeData.product.variants ?? []) {
     const condition = normalizeRouteCondition(variant.condition);
     if (!condition) continue;

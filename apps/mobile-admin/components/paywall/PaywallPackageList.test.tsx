@@ -79,7 +79,9 @@ describe('PaywallPackageList', () => {
 
     expect(screen.getByText('SAVE 17%')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /Yearly subscription/i }));
+    fireEvent.click(
+      screen.getByRole('button', { name: /Yearly subscription/i })
+    );
     expect(setSelectedPackage).toHaveBeenCalledWith(annualPackage);
   });
 });

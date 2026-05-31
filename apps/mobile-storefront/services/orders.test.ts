@@ -640,52 +640,49 @@ describe('createOrder — variant_attributes', () => {
     ['CHECKOUT_ORDER_NOT_REUSABLE', 'CHECKOUT_ORDER_NOT_REUSABLE'],
     ['order_not_reusable', 'CHECKOUT_ORDER_NOT_REUSABLE'],
     ['checkout_idempotency_conflict', 'CHECKOUT_IDEMPOTENCY_CONFLICT'],
-  ])(
-    'normalizes checkout conflict code %s from the API',
-    async (apiCode, expectedCode) => {
-      const { createOrder } = require('./orders');
+  ])('normalizes checkout conflict code %s from the API', async (apiCode, expectedCode) => {
+    const { createOrder } = require('./orders');
 
-      mockFetchResponse.ok = false;
-      mockFetchResponse.status = 409;
-      mockFetchJson.mockResolvedValueOnce({
-        code: apiCode,
-        error:
-          'This checkout order can no longer be reused. Refresh checkout and start a new order.',
-      } as never);
+    mockFetchResponse.ok = false;
+    mockFetchResponse.status = 409;
+    mockFetchJson.mockResolvedValueOnce({
+      code: apiCode,
+      error:
+        'This checkout order can no longer be reused. Refresh checkout and start a new order.',
+    } as never);
 
-      await expect(
-        createOrder({
-          customer_email: 'buyer@example.com',
-          customer_name: 'Buyer User',
-          customer_phone: '+2348012345678',
-          idempotency_key: 'mobile-bnpl-key-1',
-          items: [
-            {
-              id: 'prod-bnpl-1',
-              name: 'BNPL Phone',
-              quantity: 1,
-              price: 120000,
-            },
-          ],
-          payment_method: 'credit_direct',
-          shipping_address: {
-            address: '123 St',
-            city: 'Lagos',
-            firstName: 'Buyer',
-            lastName: 'User',
-            state: 'Lagos',
+    await expect(
+      createOrder({
+        customer_email: 'buyer@example.com',
+        customer_name: 'Buyer User',
+        customer_phone: '+2348012345678',
+        idempotency_key: 'mobile-bnpl-key-1',
+        items: [
+          {
+            id: 'prod-bnpl-1',
+            name: 'BNPL Phone',
+            quantity: 1,
+            price: 120000,
           },
-          shipping_fee: 2000,
-          subtotal: 120000,
-        })
-      ).rejects.toMatchObject({
+        ],
+        payment_method: 'credit_direct',
+        shipping_address: {
+          address: '123 St',
+          city: 'Lagos',
+          firstName: 'Buyer',
+          lastName: 'User',
+          state: 'Lagos',
+        },
+        shipping_fee: 2000,
+        subtotal: 120000,
+      })
+    ).rejects.toMatchObject({
+      code: expectedCode,
+      details: expect.objectContaining({
         code: expectedCode,
-        details: expect.objectContaining({
-          code: expectedCode,
-        }),
-      });
-    }
-  );
+      }),
+    });
+  });
 
   it('forwards use_wallet_credit and wallet_amount when both are provided', async () => {
     // Regression: PR A wires the storefront wallet payment-method into checkout.

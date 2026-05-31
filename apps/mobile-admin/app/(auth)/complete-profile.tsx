@@ -426,7 +426,9 @@ export default function CompleteProfileScreen() {
                         backgroundColor: isSelected
                           ? colors.primary
                           : colors.card,
-                        borderColor: isSelected ? colors.primary : colors.border,
+                        borderColor: isSelected
+                          ? colors.primary
+                          : colors.border,
                       },
                     ]}
                   >

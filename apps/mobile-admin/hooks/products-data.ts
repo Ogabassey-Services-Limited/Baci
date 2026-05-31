@@ -1,6 +1,4 @@
-import {
-  MOBILE_ADMIN_PRODUCT_COLUMNS as PRODUCT_COLUMNS,
-} from '@baci/shared';
+import { MOBILE_ADMIN_PRODUCT_COLUMNS as PRODUCT_COLUMNS } from '@baci/shared';
 import { normalizeProductInventory } from '@/lib/product-inventory';
 import type {
   AdminProductSearchFilters,

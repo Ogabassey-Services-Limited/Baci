@@ -5,14 +5,21 @@ import { AnimatedSplash } from './AnimatedSplash';
 
 // Mock Reanimated cleanly
 jest.mock('react-native-reanimated', () => {
-  const { View, Text } = jest.requireActual<typeof import('react-native')>('react-native');
+  const { View, Text } =
+    jest.requireActual<typeof import('react-native')>('react-native');
   const makeSharedValue = (init: number) => {
     let _value = init;
     return {
-      get value() { return _value; },
-      set value(v: number) { _value = v; },
+      get value() {
+        return _value;
+      },
+      set value(v: number) {
+        _value = v;
+      },
       get: () => _value,
-      set: (v: number) => { _value = v; },
+      set: (v: number) => {
+        _value = v;
+      },
     };
   };
 

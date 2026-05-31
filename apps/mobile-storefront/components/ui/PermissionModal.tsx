@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import type React from 'react';
@@ -21,10 +21,7 @@ import Animated, {
   withSpring,
   ZoomIn,
 } from 'react-native-reanimated';
-import Colors, {
-  BRAND,
-  palette,
-} from '@/constants/Colors';
+import Colors, { BRAND, palette } from '@/constants/Colors';
 import { permissionModalStyles as styles } from './PermissionModal.styles';
 
 export type PermissionType = 'notifications' | 'tracking';

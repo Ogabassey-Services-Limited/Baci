@@ -34,7 +34,7 @@ AS $$
     ) AS rank,
     a.id AS attempt_id,
     a.customer_id,
-    COALESCE(NULLIF(pg_catalog.btrim(c.full_name), ''), COALESCE(NULLIF(pg_catalog.btrim(c.first_name || ' ' || c.last_name), ''), 'Anonymous Customer')) AS customer_name,
+    COALESCE(NULLIF(pg_catalog.btrim(c.full_name), ''), COALESCE(pg_catalog.btrim(NULLIF(concat_ws(' ', c.first_name, c.last_name), '')), 'Anonymous Customer')) AS customer_name,
     a.score,
     COALESCE(c.loyalty_points, 0) AS loyalty_points,
     EXTRACT(EPOCH FROM (a.submitted_at - a.started_at)) AS total_time_seconds,

@@ -229,9 +229,7 @@ export function FilterBar({
               <Feather
                 name="grid"
                 size={15}
-                color={
-                  viewMode === 'grid' ? BRAND.primary : palette.gray[400]
-                }
+                color={viewMode === 'grid' ? BRAND.primary : palette.gray[400]}
               />
             </Pressable>
             <Pressable
@@ -245,9 +243,7 @@ export function FilterBar({
               <Feather
                 name="list"
                 size={15}
-                color={
-                  viewMode === 'list' ? BRAND.primary : palette.gray[400]
-                }
+                color={viewMode === 'list' ? BRAND.primary : palette.gray[400]}
               />
             </Pressable>
           </View>

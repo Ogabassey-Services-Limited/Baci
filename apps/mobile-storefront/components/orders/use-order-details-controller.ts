@@ -10,10 +10,7 @@ import { BACI_GOOGLE_REVIEW_URL } from '@/lib/post-purchase-actions';
 import { supabase } from '@/lib/supabase';
 import { isOrderRealtimePayload } from '@/lib/validation';
 import { useAuthStore } from '@/stores/auth-store';
-import {
-  getOrderTrackingUrl,
-  mapOrderDetails,
-} from './order-details.helpers';
+import { getOrderTrackingUrl, mapOrderDetails } from './order-details.helpers';
 import type { OrderDetails, RawOrderDetails } from './OrderDetailsScreen.types';
 import { createLogger } from '@/lib/logger';
 
@@ -225,7 +222,8 @@ export function useOrderDetailsController() {
     handleGoBack,
     handleLeaveGoogleReview: () => Linking.openURL(BACI_GOOGLE_REVIEW_URL),
     handleOpenProduct: (slug: string) => router.push(`/product/${slug}`),
-    handleOpenReceipt: () => order && receiptPreview.openPreviewByOrderId(order.id),
+    handleOpenReceipt: () =>
+      order && receiptPreview.openPreviewByOrderId(order.id),
     handleReturnOrder: () => {
       Alert.alert(
         'Return Order',

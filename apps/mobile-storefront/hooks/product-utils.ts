@@ -12,7 +12,10 @@ import { PRODUCT_DETAIL_SELECT, PRODUCT_SELECT } from './product-select';
 export { fetchAvailableBrands } from './product-brands';
 export { fetchProductsPage } from './product-pages';
 export { PRODUCT_DETAIL_SELECT, PRODUCT_SELECT } from './product-select';
-export { normalizeProductVariants, transformProduct } from './product-transform';
+export {
+  normalizeProductVariants,
+  transformProduct,
+} from './product-transform';
 export type {
   Category,
   ProductsPage,

@@ -1,13 +1,7 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { router, Stack } from 'expo-router';
 import { useState } from 'react';
-import {
-  Alert,
-  Linking,
-  Platform,
-  Pressable,
-  ScrollView,
-} from 'react-native';
+import { Alert, Linking, Platform, Pressable, ScrollView } from 'react-native';
 import { StorefrontScreenShell } from '@/components/storefront/StorefrontScreenShell';
 import { SwapOverviewContent } from '@/components/swap/SwapOverviewContent';
 import {
@@ -65,7 +59,8 @@ export default function SwapScreen() {
     }
 
     try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      const { status } =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
         Alert.alert(
           'Permission Required',

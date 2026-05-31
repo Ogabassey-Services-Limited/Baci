@@ -10,7 +10,9 @@ describe('usePaymentMethodAvailability', () => {
       selectedTab: 'installments',
     });
 
-    const klump = result.filteredMethods.find((method) => method.id === 'klump');
+    const klump = result.filteredMethods.find(
+      (method) => method.id === 'klump'
+    );
     expect(result.isBNPLEligible).toBe(false);
     expect(klump?.disabled).toBe(true);
     expect(klump?.disabledReason).toContain('Minimum order');
@@ -26,7 +28,9 @@ describe('usePaymentMethodAvailability', () => {
       walletSelection: { amount: 10000, use: true },
     });
 
-    const klump = result.filteredMethods.find((method) => method.id === 'klump');
+    const klump = result.filteredMethods.find(
+      (method) => method.id === 'klump'
+    );
     expect(klump?.disabled).toBe(true);
     expect(klump?.disabledReason).toBe(
       'Wallet credit cannot be combined with Klump'
@@ -47,7 +51,9 @@ describe('usePaymentMethodAvailability', () => {
       selectedTab: 'installments',
     });
 
-    const klump = result.filteredMethods.find((method) => method.id === 'klump');
+    const klump = result.filteredMethods.find(
+      (method) => method.id === 'klump'
+    );
     expect(klump?.disabled).toBe(true);
     expect(klump?.disabledReason).toBe(
       'Device savings cannot be combined with Klump'

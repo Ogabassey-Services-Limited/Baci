@@ -3,7 +3,8 @@ export const NEGOTIATION_EVIDENCE_BUCKET = 'negotiation-evidence';
 export const createNegotiationSessionId = () =>
   `mobile-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`}`;
 
-export const isRemoteEvidenceUrl = (value: string) => /^https?:\/\//i.test(value);
+export const isRemoteEvidenceUrl = (value: string) =>
+  /^https?:\/\//i.test(value);
 
 export const extractNegotiationFileExtension = (
   uri: string,

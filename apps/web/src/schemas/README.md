@@ -1,6 +1,8 @@
 # Zod Schema Documentation
 
-This directory contains the centralized, production-grade Zod validation schemas used throughout the Baci e-commerce platform. All schemas are defined in dedicated `.ts` files here and imported where needed across the Next.js and mobile workspaces, keeping our codebase modular, testable, and type-safe.
+This directory contains the centralized, production-grade Zod validation schemas used throughout the Baci e-commerce platform. 
+
+**Target Architecture**: All schemas should be defined in dedicated `.ts` files here and imported where needed across the Next.js and mobile workspaces, keeping our codebase modular, testable, and type-safe. Currently, some legacy or context-specific schemas are still defined inline or in their respective folders (such as `onboarding-form.tsx`, `add-product-form.tsx`, and `src/ai/flows/*`), as detailed in the index below.
 
 ---
 

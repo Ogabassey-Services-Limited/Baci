@@ -106,9 +106,7 @@ describe('mergeColorImagesCaseInsensitive', () => {
     // Assert: the variant casing replaces the legacy casing and the variant
     // images override — no split buckets left behind.
     expect(Object.keys(result)).toEqual(['black']);
-    expect(result.black).toEqual([
-      'https://cdn.example.com/variant-black.jpg',
-    ]);
+    expect(result.black).toEqual(['https://cdn.example.com/variant-black.jpg']);
   });
 
   it('preserves insertion order: legacy entries first (in their original slots), then variant-only entries', () => {

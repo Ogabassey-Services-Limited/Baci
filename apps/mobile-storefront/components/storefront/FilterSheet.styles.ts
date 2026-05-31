@@ -1,5 +1,11 @@
 import { StyleSheet } from 'react-native';
-import { BRAND, palette, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/Colors';
+import {
+  BRAND,
+  palette,
+  RADIUS,
+  SPACING,
+  TYPOGRAPHY,
+} from '@/constants/Colors';
 
 const styles = StyleSheet.create({
   overlay: {

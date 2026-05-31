@@ -50,7 +50,10 @@ export async function initAdTracking(): Promise<void> {
   if (getIsInitialized()) return;
 
   let modules = getAdTrackingModules();
-  if (Platform.OS !== 'web' && (!modules.FBSettings || !modules.TikTokBusiness)) {
+  if (
+    Platform.OS !== 'web' &&
+    (!modules.FBSettings || !modules.TikTokBusiness)
+  ) {
     await loadNativeModules();
     modules = getAdTrackingModules();
   }
@@ -165,7 +168,9 @@ export async function sendServerConversion(
     }
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
-      log.warn(`Server conversion timed out after ${SERVER_CONVERSION_TIMEOUT_MS}ms`);
+      log.warn(
+        `Server conversion timed out after ${SERVER_CONVERSION_TIMEOUT_MS}ms`
+      );
       return;
     }
     log.warn('Server conversion error:', error);

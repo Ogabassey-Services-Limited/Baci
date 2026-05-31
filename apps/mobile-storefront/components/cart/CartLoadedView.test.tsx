@@ -44,7 +44,9 @@ const item: CartItem = {
 const formatPrice = (amount: number) =>
   `₦${new Intl.NumberFormat('en-NG').format(amount)}`;
 
-function renderView(overrides: Partial<ComponentProps<typeof CartLoadedView>> = {}) {
+function renderView(
+  overrides: Partial<ComponentProps<typeof CartLoadedView>> = {}
+) {
   const props: ComponentProps<typeof CartLoadedView> = {
     colors: Colors.light,
     colorScheme: 'light',
@@ -100,7 +102,9 @@ describe('CartLoadedView', () => {
 
     renderView({ onNegotiateTotal });
 
-    fireEvent.press(screen.getByRole('button', { name: 'Negotiate cart total' }));
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Negotiate cart total' })
+    );
 
     expect(onNegotiateTotal).toHaveBeenCalledTimes(1);
   });

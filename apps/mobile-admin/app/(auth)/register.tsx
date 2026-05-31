@@ -274,7 +274,9 @@ export default function RegisterScreen() {
             onBusinessTypeChange={(typeId: BusinessTypeId) =>
               updateForm('businessType', typeId)
             }
-            onCountryChange={(countryCode) => updateForm('country', countryCode)}
+            onCountryChange={(countryCode) =>
+              updateForm('country', countryCode)
+            }
             onLaunchStore={handleRegister}
             onOtherBusinessTypeChange={(text) =>
               updateForm('otherBusinessType', text)

@@ -67,9 +67,7 @@ export function FilterSheetPresets({
             accessibilityLabel={preset.label}
             accessibilityRole="button"
           >
-            <Text
-              style={[styles.presetText, { color: colors.textSecondary }]}
-            >
+            <Text style={[styles.presetText, { color: colors.textSecondary }]}>
               {preset.display}
             </Text>
           </Pressable>

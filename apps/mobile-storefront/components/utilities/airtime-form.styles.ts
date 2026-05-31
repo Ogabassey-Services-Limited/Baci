@@ -22,8 +22,9 @@ export const AIRTIME_FORM_TOKENS = {
   space: {
     xxs: 2,
     xs: SPACING.xs,
-    sm: SPACING.sm,
-    md: SPACING.md,
+    sm: 12, // Standardized to 12px for layout consistency
+    md: SPACING.md, // 16
+    tier20: 20, // New semantic spacing tier for 20px
     lg: SPACING.lg,
     xl: SPACING.xl,
   },
@@ -44,9 +45,9 @@ export const airtimeFormStyles = StyleSheet.create({
   sectionTitle: {
     fontSize: AIRTIME_FORM_TOKENS.fontSize.xl,
     fontWeight: AIRTIME_FORM_TOKENS.fontWeight.semibold,
-    marginBottom: 12,
+    marginBottom: AIRTIME_FORM_TOKENS.space.sm,
   },
-  inputGroup: { marginBottom: 12 },
+  inputGroup: { marginBottom: AIRTIME_FORM_TOKENS.space.sm },
   label: {
     fontSize: AIRTIME_FORM_TOKENS.fontSize.md,
     marginBottom: AIRTIME_FORM_TOKENS.space.sm,
@@ -67,7 +68,7 @@ export const airtimeFormStyles = StyleSheet.create({
   input: {
     height: AIRTIME_FORM_TOKENS.size.inputHeight,
     borderRadius: AIRTIME_FORM_TOKENS.radius.lg,
-    paddingHorizontal: 16,
+    paddingHorizontal: AIRTIME_FORM_TOKENS.space.md,
     fontSize: AIRTIME_FORM_TOKENS.fontSize.xl,
     borderWidth: 1,
   },
@@ -84,7 +85,7 @@ export const airtimeFormStyles = StyleSheet.create({
     fontWeight: AIRTIME_FORM_TOKENS.fontWeight.semibold,
   },
   networkPicker: {
-    marginBottom: 20,
+    marginBottom: AIRTIME_FORM_TOKENS.space.tier20,
   },
   networkPickerHeader: {
     alignItems: 'center',
@@ -115,8 +116,8 @@ export const airtimeFormStyles = StyleSheet.create({
     flexDirection: 'row',
     gap: AIRTIME_FORM_TOKENS.space.md,
     justifyContent: 'space-between',
-    marginBottom: 20,
-    padding: 16,
+    marginBottom: AIRTIME_FORM_TOKENS.space.tier20,
+    padding: AIRTIME_FORM_TOKENS.space.md,
   },
   selectedNetworkCopy: {
     flex: 1,

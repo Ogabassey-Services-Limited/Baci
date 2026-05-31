@@ -34,11 +34,7 @@ export function showBvnVerificationError(error: unknown) {
     return;
   }
 
-  if (
-    error instanceof NetworkError &&
-    !error.isOffline &&
-    !error.isTimeout
-  ) {
+  if (error instanceof NetworkError && !error.isOffline && !error.isTimeout) {
     Alert.alert('Verification Error', error.message);
     return;
   }

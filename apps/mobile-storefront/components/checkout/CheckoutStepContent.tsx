@@ -65,13 +65,17 @@ export function CheckoutStepContent({
           addressState.savedAddresses.isLoadingSavedAddresses
         }
         onAddressSelected={addressState.shipping.handleDeliveryAddressSelect}
-        onAddressTextChanged={addressState.shipping.handleDeliveryAddressTextChange}
+        onAddressTextChanged={
+          addressState.shipping.handleDeliveryAddressTextChange
+        }
         onChangeAccountPassword={addressState.setAccountPassword}
         onOpenCityPicker={() => addressState.shipping.setShowCityPicker(true)}
         onOpenNewAddressEditor={addressState.openNewAddressEditor}
         onOpenStatePicker={() => addressState.shipping.setShowStatePicker(true)}
         onRetryQuotes={addressState.shipping.handleRetryShippingQuotes}
-        onSelectDeliveryMethod={addressState.shipping.handleSelectDeliveryMethod}
+        onSelectDeliveryMethod={
+          addressState.shipping.handleSelectDeliveryMethod
+        }
         onSelectQuote={addressState.shipping.setSelectedQuoteId}
         onToggleContactCollapsed={() =>
           addressState.savedAddresses.setIsContactCollapsed((value) => !value)
@@ -80,9 +84,7 @@ export function CheckoutStepContent({
           addressState.savedAddresses.setIsDeliveryCollapsed((value) => !value)
         }
         onToggleSaveAsDefaultAddress={() =>
-          addressState.savedAddresses.setSaveAsDefaultAddress(
-            (value) => !value
-          )
+          addressState.savedAddresses.setSaveAsDefaultAddress((value) => !value)
         }
         onToggleSaveDetails={() =>
           addressState.setSaveDetails(!addressState.saveDetails)

@@ -13,9 +13,15 @@ const trimmedOptionalString = (message: string) =>
 const optionalOrderIdentifier = z.string().trim().optional();
 const optionalTrackingToken = z.string().trim().optional();
 
-const sanitizedReturnTo = z.preprocess((value) => {
-  return sanitizeWalletReturnTo(value);
-}, z.string().transform((value) => value as WalletReturnHref).optional());
+const sanitizedReturnTo = z.preprocess(
+  (value) => {
+    return sanitizeWalletReturnTo(value);
+  },
+  z
+    .string()
+    .transform((value) => value as WalletReturnHref)
+    .optional()
+);
 
 const optionalPositiveAmount = z.preprocess(
   (value) =>

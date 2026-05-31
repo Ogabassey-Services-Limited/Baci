@@ -180,8 +180,9 @@ describe('useImageZoom', () => {
       useImageZoom(buildParams({ gestureRuntime: { Gesture: factory } }))
     );
 
-    const builders = (factory as unknown as { __builders: MockGestureBuilder[] })
-      .__builders;
+    const builders = (
+      factory as unknown as { __builders: MockGestureBuilder[] }
+    ).__builders;
     expect(builders.length).toBeGreaterThan(0);
 
     const syntheticEvent = {

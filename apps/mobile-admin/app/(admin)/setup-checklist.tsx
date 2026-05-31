@@ -1,4 +1,6 @@
-import Ionicons, { type IoniconsIconName } from "@react-native-vector-icons/ionicons";
+import Ionicons, {
+  type IoniconsIconName,
+} from '@react-native-vector-icons/ionicons';
 import { Stack, useRouter } from 'expo-router';
 import {
   ActivityIndicator,
@@ -90,8 +92,7 @@ export default function SetupChecklistScreen() {
   const renderItem = (item: SetupItem, isNext: boolean) => {
     const priorityColor = getPriorityColors(colors)[item.priority];
     const _iconName =
-      (CATEGORY_ICONS[item.category] as IoniconsIconName) ||
-      'list-outline';
+      (CATEGORY_ICONS[item.category] as IoniconsIconName) || 'list-outline';
 
     return (
       <Pressable

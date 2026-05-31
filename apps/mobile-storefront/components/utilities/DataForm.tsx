@@ -7,7 +7,6 @@ import { useKeyboard } from '@/hooks/use-keyboard';
 import { useUtilityPayment } from '@/hooks/use-utility-payment';
 import type { Biller } from '@/hooks/use-vtu-billers';
 import { useVTUBillers } from '@/hooks/use-vtu-billers';
-import { detectNetwork } from '@/lib/network-utils';
 import { useAuthStore } from '@/stores/auth-store';
 import { BillerList } from './BillerList';
 import { createDataFormPurchaseHandler } from './create-data-form-purchase-handler';
@@ -29,6 +28,7 @@ import { getUtilityFooterOffset } from './get-utility-footer-offset';
 import { RecentUtilityRecipients } from './RecentUtilityRecipients';
 import { UtilityPaymentOptions } from './UtilityPaymentOptions';
 import { useDataBillerInitialization } from './use-data-biller-initialization';
+import { useDataFormBeneficiaryController } from './use-data-form-beneficiary-controller';
 
 export function DataForm({
   initialAmount,
@@ -53,32 +53,42 @@ export function DataForm({
   } = useVTUBillers('data');
   const scrollViewRef = useRef<ScrollView>(null);
 
-  const [selectedProvider, setSelectedProvider] = useState<string | null>(
-    initialProvider ??
-      (initialPhoneNumber ? detectNetwork(initialPhoneNumber) : null)
-  );
-  const [isBeneficiarySelected, setIsBeneficiarySelected] = useState(false);
-  const [phoneNumber, setPhoneNumber] = useState(initialPhoneNumber ?? '');
-  const [selectedPlan, setSelectedPlan] = useState<string | null>(
-    initialPlan ?? null
-  );
-  const [selectedDataBiller, setSelectedDataBiller] = useState<Biller | null>(
-    null
-  );
-  const [isDataPickerExpanded, setIsDataPickerExpanded] = useState(
-    !initialPlan
-  );
   const parsedInitialAmount = Number(initialAmount ?? 0);
-  const [planAmount, setPlanAmount] = useState(
-    Number.isFinite(parsedInitialAmount) ? parsedInitialAmount : 0
-  );
-  // Bug #H18: Guard against double-tap with isSubmitting state (same pattern as AirtimeForm)
+
+  const {
+    phoneNumber,
+    selectedProvider,
+    setSelectedProvider,
+    selectedPlan,
+    setSelectedPlan,
+    selectedDataBiller,
+    setSelectedDataBiller,
+    isDataPickerExpanded,
+    setIsDataPickerExpanded,
+    planAmount,
+    setPlanAmount,
+    handlePhoneChange,
+    handleSelectRecentRecipient,
+    matchingRecipients,
+    canShowBeneficiaries,
+    shouldShowNetworkSection,
+  } = useDataFormBeneficiaryController({
+    initialPhoneNumber,
+    initialProvider,
+    initialPlan,
+    parsedInitialAmount,
+    dataPlans,
+    recentRecipients,
+    onSelectRecentRecipient,
+  });
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isSubmittingRef = useRef(false);
   const shouldScrollToPaymentRef = useRef(isRepeatPaymentReady);
   const wasRepeatPaymentReadyRef = useRef(isRepeatPaymentReady);
   const paymentYRef = useRef<number | null>(null);
   const payment = useUtilityPayment(planAmount);
+
   const footerSpacerHeight =
     DATA_FOOTER_HEIGHT +
     Math.max(insets.bottom, SPACING.md) +
@@ -123,36 +133,12 @@ export function DataForm({
     setSelectedProvider,
   });
 
-  const handlePhoneChange = (text: string) => {
-    setIsBeneficiarySelected(false);
-    const digits = text.replace(/\D/g, '');
-    setPhoneNumber(digits);
-    const detected = detectNetwork(digits);
-    if (detected) {
-      setSelectedProvider(detected);
-      if (dataPlans?.length) {
-        const matchingBiller = dataPlans.find((biller) => {
-          const providerName = inferProviderFromDataBillerName(biller.billerName);
-          return providerName === detected;
-        });
-        if (matchingBiller && selectedDataBiller?.billerId !== matchingBiller.billerId) {
-          setSelectedDataBiller(matchingBiller);
-          setIsDataPickerExpanded(false);
-          const hasDataPackages = (matchingBiller.billItems?.length ?? 0) > 0;
-          setSelectedPlan(hasDataPackages ? null : matchingBiller.billerId);
-          setPlanAmount(0);
-        }
-      }
-    }
-  };
-
   const handleDataBillerSelect = (biller: Biller) => {
     const hasDataPackages = (biller.billItems?.length ?? 0) > 0;
     setSelectedDataBiller(biller);
     setSelectedPlan(hasDataPackages ? null : biller.billerId);
     setSelectedProvider(
       inferProviderFromDataBillerName(biller.billerName) ??
-        detectNetwork(phoneNumber) ??
         selectedProvider
     );
     if (hasDataPackages) {
@@ -183,50 +169,6 @@ export function DataForm({
       setIsSubmitting(next);
     },
   });
-
-  const activeRecipients = recentRecipients;
-  const matchingRecipients = activeRecipients.filter((recipient) => {
-    if (!phoneNumber) return true;
-    const cleanPhone = phoneNumber.replace(/\D/g, '');
-    const cleanRecip = (recipient.identifier ?? '').replace(/\D/g, '');
-    return cleanRecip.includes(cleanPhone) || recipient.title.toLowerCase().includes(phoneNumber.toLowerCase());
-  });
-
-  const handleSelectRecentRecipient = (recipient: typeof recentRecipients[0]) => {
-    setIsBeneficiarySelected(true);
-    const num = recipient.defaults.phoneNumber ?? '';
-    setPhoneNumber(num);
-    const detected = detectNetwork(num);
-    if (detected) {
-      setSelectedProvider(detected);
-      if (dataPlans?.length) {
-        const matchingBiller = dataPlans.find((biller) => {
-          const providerName = inferProviderFromDataBillerName(biller.billerName);
-          return providerName === detected;
-        });
-        if (matchingBiller) {
-          setSelectedDataBiller(matchingBiller);
-          setIsDataPickerExpanded(false);
-        }
-      }
-    }
-    if (onSelectRecentRecipient) {
-      onSelectRecentRecipient(recipient);
-    }
-  };
-
-  const shouldShowBeneficiaryList =
-    !isBeneficiarySelected &&
-    (phoneNumber.length < 5 || matchingRecipients.length > 0);
-
-  const canShowBeneficiaries =
-    (recentRecipients.length > 0 || (typeof __DEV__ !== 'undefined' && __DEV__ && process.env.NODE_ENV !== 'test')) &&
-    onSelectRecentRecipient &&
-    shouldShowBeneficiaryList;
-
-  const shouldShowNetworkSection =
-    isBeneficiarySelected ||
-    (phoneNumber.length >= 5 && matchingRecipients.length === 0);
 
   return (
     <>

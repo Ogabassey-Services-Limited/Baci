@@ -18,7 +18,10 @@ export interface UtilityRouteParams extends RawRouteRepeatParams {
   voucherPin?: string;
 }
 
-export type UtilityRouteSuccessData = Omit<UtilityPurchaseResult, 'voucherPin'> & {
+export type UtilityRouteSuccessData = Omit<
+  UtilityPurchaseResult,
+  'voucherPin'
+> & {
   voucherPin: string | null;
 };
 

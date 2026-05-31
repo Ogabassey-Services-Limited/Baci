@@ -100,7 +100,9 @@ export function ProductGridView({
             disabled={isRetrying}
             accessibilityRole="button"
             accessibilityLabel={
-              isRetrying ? 'Retrying to load products' : 'Retry loading products'
+              isRetrying
+                ? 'Retrying to load products'
+                : 'Retry loading products'
             }
           >
             <Text style={styles.retryButtonText}>

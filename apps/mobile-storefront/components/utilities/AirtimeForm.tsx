@@ -29,12 +29,17 @@ export function AirtimeForm(props: AirtimeFormProps) {
     if (!form.phoneNumber) return true;
     const cleanPhone = form.phoneNumber.replace(/\D/g, '');
     const cleanRecip = (recipient.identifier ?? '').replace(/\D/g, '');
-    return cleanRecip.includes(cleanPhone) || recipient.title.toLowerCase().includes(form.phoneNumber.toLowerCase());
+    return (
+      cleanRecip.includes(cleanPhone) ||
+      recipient.title.toLowerCase().includes(form.phoneNumber.toLowerCase())
+    );
   });
 
-  const handleSelectRecentRecipient = (recipient: typeof recentRecipients[0]) => {
-    form.setIsBeneficiarySelected(true);
+  const handleSelectRecentRecipient = (
+    recipient: (typeof recentRecipients)[0]
+  ) => {
     form.handlePhoneChange(recipient.defaults.phoneNumber ?? '');
+    form.setIsBeneficiarySelected(true);
     if (onSelectRecentRecipient) {
       onSelectRecentRecipient(recipient);
     }
@@ -45,8 +50,8 @@ export function AirtimeForm(props: AirtimeFormProps) {
     (form.phoneNumber.length < 5 || matchingRecipients.length > 0);
 
   const canShowBeneficiaries =
-    (recentRecipients.length > 0 || (typeof __DEV__ !== 'undefined' && __DEV__ && process.env.NODE_ENV !== 'test')) &&
-    onSelectRecentRecipient &&
+    recentRecipients.length > 0 &&
+    Boolean(onSelectRecentRecipient) &&
     shouldShowBeneficiaryList;
 
   const shouldShowNetworkSection =

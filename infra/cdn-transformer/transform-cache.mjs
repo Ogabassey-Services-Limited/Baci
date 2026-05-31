@@ -82,9 +82,11 @@ function writeImageWithTimeout(image, tempPath, timeoutMs) {
   });
 
   return {
-    completion: transform.catch(() => undefined).finally(() => {
-      clearTimeout(timeoutId);
-    }),
+    completion: transform
+      .catch(() => undefined)
+      .finally(() => {
+        clearTimeout(timeoutId);
+      }),
     result: Promise.race([transform, timeout]).finally(() => {
       clearTimeout(timeoutId);
     }),

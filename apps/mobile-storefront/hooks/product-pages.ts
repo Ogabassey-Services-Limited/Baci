@@ -109,8 +109,10 @@ export async function fetchProductsPage(
     );
   }
   if (options.brand) query = query.eq('brand', options.brand);
-  if (options.minPrice !== undefined) query = query.gte('price', options.minPrice);
-  if (options.maxPrice !== undefined) query = query.lte('price', options.maxPrice);
+  if (options.minPrice !== undefined)
+    query = query.gte('price', options.minPrice);
+  if (options.maxPrice !== undefined)
+    query = query.lte('price', options.maxPrice);
   if (options.minRating !== undefined && options.minRating > 0) {
     query = query.gte('average_rating', options.minRating);
   }

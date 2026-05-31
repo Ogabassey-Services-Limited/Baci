@@ -115,10 +115,7 @@ export function TrackOrderTimelineCard({
               </Text>
               {event.timestamp ? (
                 <Text
-                  style={[
-                    styles.timelineTime,
-                    { color: colors.textSecondary },
-                  ]}
+                  style={[styles.timelineTime, { color: colors.textSecondary }]}
                 >
                   {formatTimelineDateTime(event.timestamp)}
                 </Text>

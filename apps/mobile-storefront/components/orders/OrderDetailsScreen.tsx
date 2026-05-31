@@ -1,6 +1,12 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { Stack } from 'expo-router';
-import { Linking, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import {
+  Linking,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { OrderDetailsActionsCard } from '@/components/orders/OrderDetailsActionsCard';
 import { OrderDetailsClosedStateCard } from '@/components/orders/OrderDetailsClosedStateCard';
@@ -28,7 +34,10 @@ import {
   isCustomerOrderClosed,
 } from '@/lib/customer-order-status';
 import { formatNgnCurrency } from '@/lib/format-ngn-currency';
-import { getOrderAssuranceFeeTotal, getOrderSummaryBreakdown } from '@/lib/order-summary';
+import {
+  getOrderAssuranceFeeTotal,
+  getOrderSummaryBreakdown,
+} from '@/lib/order-summary';
 import {
   canLeaveStorefrontGoogleReview,
   canRequestStorefrontOrderReturn,
@@ -88,18 +97,19 @@ export function OrderDetailsScreen() {
   const statusMeta = getCustomerOrderStatusMeta(order.shipping_status);
   const statusPalette = getCustomerOrderStatusPalette(order.shipping_status);
   const isClosedOrder = isCustomerOrderClosed(order.shipping_status);
-  const summaryBreakdown: OrderDetailsSummaryBreakdown = getOrderSummaryBreakdown({
-    subtotal: order.subtotal,
-    shippingFee: order.shipping_fee,
-    taxAmount: order.tax_amount,
-    discountAmount: order.discount_amount,
-    total: order.total,
-    paymentStatus: order.payment_status,
-    assuranceFee: getOrderAssuranceFeeTotal(
-      order.items,
-      insurancePolicy?.premium_amount
-    ),
-  });
+  const summaryBreakdown: OrderDetailsSummaryBreakdown =
+    getOrderSummaryBreakdown({
+      subtotal: order.subtotal,
+      shippingFee: order.shipping_fee,
+      taxAmount: order.tax_amount,
+      discountAmount: order.discount_amount,
+      total: order.total,
+      paymentStatus: order.payment_status,
+      assuranceFee: getOrderAssuranceFeeTotal(
+        order.items,
+        insurancePolicy?.premium_amount
+      ),
+    });
 
   return (
     <>
@@ -164,7 +174,9 @@ export function OrderDetailsScreen() {
             hasAssuranceItems={order.items.some((item) => item.has_assurance)}
             insurancePolicy={insurancePolicy}
             isPaid={order.payment_status === 'paid'}
-            onOpenCertificate={(certificateUrl) => Linking.openURL(certificateUrl)}
+            onOpenCertificate={(certificateUrl) =>
+              Linking.openURL(certificateUrl)
+            }
           />
 
           <OrderDetailsShippingAddressCard
@@ -182,8 +194,12 @@ export function OrderDetailsScreen() {
           />
 
           <OrderDetailsActionsCard
-            canLeaveReview={canLeaveStorefrontGoogleReview(order.shipping_status)}
-            canReturnOrder={canRequestStorefrontOrderReturn(order.shipping_status)}
+            canLeaveReview={canLeaveStorefrontGoogleReview(
+              order.shipping_status
+            )}
+            canReturnOrder={canRequestStorefrontOrderReturn(
+              order.shipping_status
+            )}
             canShowRiderContact={
               canShowStorefrontRiderContact(order.shipping_status) &&
               Boolean(merchantInfo?.rider_phone_number)

@@ -10,7 +10,9 @@ interface TrackOrderScreenHeaderProps {
   colors: ColorsScheme;
 }
 
-export function TrackOrderScreenHeader({ colors }: TrackOrderScreenHeaderProps) {
+export function TrackOrderScreenHeader({
+  colors,
+}: TrackOrderScreenHeaderProps) {
   return (
     <View style={[styles.header, { borderBottomColor: colors.border }]}>
       <Pressable

@@ -58,7 +58,9 @@ export function usePaymentMethodAvailability(
     );
   const hasPayLaterMethods =
     !enabledMethods ||
-    enabledMethods.some((method) => method === 'invoice' || method === 'payforme');
+    enabledMethods.some(
+      (method) => method === 'invoice' || method === 'payforme'
+    );
 
   const filteredMethods = PAYMENT_METHODS.filter(
     (method) => method.tab === selectedTab

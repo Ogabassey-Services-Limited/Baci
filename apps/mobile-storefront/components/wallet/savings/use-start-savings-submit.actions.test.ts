@@ -109,14 +109,12 @@ describe('useStartSavingsSubmit actions', () => {
 
   it('ignores duplicate card authorization requests while one is in flight', async () => {
     let resolveAuthorization:
-      | ((
-          value: {
-            authorization_url: string;
-            gateway: 'paystack';
-            reference: string;
-            success: true;
-          }
-        ) => void)
+      | ((value: {
+          authorization_url: string;
+          gateway: 'paystack';
+          reference: string;
+          success: true;
+        }) => void)
       | undefined;
     mockInitializeSavingsAuthorization.mockReturnValue(
       new Promise((resolve) => {

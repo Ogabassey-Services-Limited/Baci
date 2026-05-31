@@ -30,7 +30,9 @@ describe('checkout-step-helpers', () => {
   });
 
   it('resolves delivery fees by method', () => {
-    expect(getDeliveryMethodFee('airport', baseQuote)).toBe(AIRPORT_DELIVERY_FEE);
+    expect(getDeliveryMethodFee('airport', baseQuote)).toBe(
+      AIRPORT_DELIVERY_FEE
+    );
     expect(getDeliveryMethodFee('pickup_station', baseQuote)).toBe(0);
     expect(getDeliveryMethodFee('door', baseQuote)).toBe(12500);
     expect(getDeliveryMethodFee('door', undefined)).toBe(0);
@@ -53,7 +55,10 @@ describe('checkout-step-helpers', () => {
       'Topship Express • 3 days'
     );
     expect(
-      getDeliveryMethodSummary('door', { ...baseQuote, deliveryRange: '2-4 days' })
+      getDeliveryMethodSummary('door', {
+        ...baseQuote,
+        deliveryRange: '2-4 days',
+      })
     ).toBe('Topship Express • 2-4 days');
     expect(
       getDeliveryMethodSummary('door', {

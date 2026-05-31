@@ -36,7 +36,9 @@ describe('showBvnVerificationError', () => {
       new NetworkError('Too many requests', { statusCode: 429 })
     );
     showBvnVerificationError(
-      new NetworkError('BVN verification is not configured', { statusCode: 503 })
+      new NetworkError('BVN verification is not configured', {
+        statusCode: 503,
+      })
     );
 
     expect(Alert.alert).toHaveBeenNthCalledWith(

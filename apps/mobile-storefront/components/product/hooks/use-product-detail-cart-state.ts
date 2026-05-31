@@ -32,8 +32,7 @@ export function useProductDetailCartState(routeData: RouteData) {
           (item.variant_id || null) ===
             (routeData.effectiveSelectedVariantId || null) &&
           (item.condition || null) === (getConditionDisplay() || null) &&
-          (item.color || null) ===
-            (routeData.effectiveSelectedColor || null) &&
+          (item.color || null) === (routeData.effectiveSelectedColor || null) &&
           (item.storage || null) ===
             (routeData.effectiveSelectedStorage || null)
       )

@@ -36,7 +36,9 @@ export function getDefaultSavedAddress(
     return null;
   }
 
-  return addresses.find((address) => address.is_default) ?? addresses[0] ?? null;
+  return (
+    addresses.find((address) => address.is_default) ?? addresses[0] ?? null
+  );
 }
 
 export function toCheckoutAddressValues(
@@ -86,7 +88,8 @@ export function findMatchingSavedAddress(
           normalizeText(`${address.firstName} ${address.lastName}`) &&
         normalizeCheckoutPhone(savedAddress.phone) ===
           normalizeCheckoutPhone(address.phone) &&
-        normalizeText(savedAddress.address) === normalizeText(address.address) &&
+        normalizeText(savedAddress.address) ===
+          normalizeText(address.address) &&
         normalizeText(savedAddress.city) === normalizeText(address.city) &&
         normalizeText(savedAddress.state) === normalizeText(address.state)
     ) ?? null

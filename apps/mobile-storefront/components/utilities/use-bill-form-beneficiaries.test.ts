@@ -56,7 +56,9 @@ describe('useBillFormBeneficiaries', () => {
     jest.clearAllMocks();
     mockGetBeneficiaries.mockResolvedValue([]);
     mockSaveBeneficiary.mockResolvedValue(undefined);
-    mockFilterBeneficiaries.mockImplementation((beneficiaries) => beneficiaries);
+    mockFilterBeneficiaries.mockImplementation(
+      (beneficiaries) => beneficiaries
+    );
     mockTrackError.mockClear();
   });
 

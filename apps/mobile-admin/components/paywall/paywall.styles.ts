@@ -1,9 +1,6 @@
 import { StyleSheet } from 'react-native';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
-import {
-  DEFAULT_CLOSE_TOP,
-  DEFAULT_HEADER_PADDING,
-} from './paywall.constants';
+import { DEFAULT_CLOSE_TOP, DEFAULT_HEADER_PADDING } from './paywall.constants';
 
 export const paywallStyles = StyleSheet.create({
   container: {

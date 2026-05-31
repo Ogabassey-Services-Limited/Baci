@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { getDateRange, getPreviousPeriodDateRange } from './dashboard-stats-ranges';
+import {
+  getDateRange,
+  getPreviousPeriodDateRange,
+} from './dashboard-stats-ranges';
 
 describe('dashboard stat date ranges', () => {
   beforeEach(() => {

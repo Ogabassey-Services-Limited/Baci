@@ -195,7 +195,9 @@ describe('useProductDetailSelection', () => {
     ['unavailable route condition', 'refurbished', 'used'],
   ];
 
-  it.each(fallbackConditionCases)('falls back to a valid condition for %s', async (_label, routeCondition, expectedCondition) => {
+  it.each(
+    fallbackConditionCases
+  )('falls back to a valid condition for %s', async (_label, routeCondition, expectedCondition) => {
     const { result } = renderHook(() =>
       useProductDetailSelection(
         createHookArgs({

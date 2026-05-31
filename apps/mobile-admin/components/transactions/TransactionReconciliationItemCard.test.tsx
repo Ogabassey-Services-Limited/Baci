@@ -17,26 +17,26 @@ vi.mock('react-native', async () => {
   };
 
   return {
-	    Pressable: ({
-	      accessibilityLabel,
-	      accessibilityRole,
-	      children,
-	      disabled,
+    Pressable: ({
+      accessibilityLabel,
+      accessibilityRole,
+      children,
+      disabled,
       onPress,
     }: NativeProps) =>
       React.createElement(
         'button',
-	        {
-	          'aria-label': accessibilityLabel,
-	          disabled,
-	          onClick: () => {
-	            if (!disabled) {
-	              onPress?.();
-	            }
-	          },
-	          role: accessibilityRole,
-	          type: 'button',
-	        },
+        {
+          'aria-label': accessibilityLabel,
+          disabled,
+          onClick: () => {
+            if (!disabled) {
+              onPress?.();
+            }
+          },
+          role: accessibilityRole,
+          type: 'button',
+        },
         children
       ),
     StyleSheet: { create: <T,>(styles: T) => styles },
@@ -82,7 +82,9 @@ describe('TransactionReconciliationItemCard', () => {
     );
 
     fireEvent.click(
-      screen.getByRole('button', { name: 'Link iPhone 11 Pro 64GB Premium Used' })
+      screen.getByRole('button', {
+        name: 'Link iPhone 11 Pro 64GB Premium Used',
+      })
     );
     expect(onLink).toHaveBeenCalledWith({
       itemId: 'item-1',
@@ -91,94 +93,98 @@ describe('TransactionReconciliationItemCard', () => {
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'Keep item custom' }));
-	    expect(onKeepCustom).toHaveBeenCalledWith('item-1');
-	  });
+    expect(onKeepCustom).toHaveBeenCalledWith('item-1');
+  });
 
-	  it('pluralizes quantities greater than one', () => {
-	    render(
-	      <TransactionReconciliationItemCard
-	        colors={LIGHT_COLORS}
-	        formatCurrency={(amount) => `₦${amount.toLocaleString('en-US')}`}
-	        isMutating={false}
-	        item={{
-	          id: 'item-1',
-	          name: 'Itel Buds Neo 3',
-	          price: 20000,
-	          quantity: 2,
-	        }}
-	        matches={[]}
-	        onKeepCustom={vi.fn()}
-	        onLink={vi.fn()}
-	      />
-	    );
+  it('pluralizes quantities greater than one', () => {
+    render(
+      <TransactionReconciliationItemCard
+        colors={LIGHT_COLORS}
+        formatCurrency={(amount) => `₦${amount.toLocaleString('en-US')}`}
+        isMutating={false}
+        item={{
+          id: 'item-1',
+          name: 'Itel Buds Neo 3',
+          price: 20000,
+          quantity: 2,
+        }}
+        matches={[]}
+        onKeepCustom={vi.fn()}
+        onLink={vi.fn()}
+      />
+    );
 
-	    expect(screen.getByText('2 items')).toBeInTheDocument();
-	  });
+    expect(screen.getByText('2 items')).toBeInTheDocument();
+  });
 
-	  it('disables actions while mutating and prevents callbacks', () => {
-	    const onKeepCustom = vi.fn();
-	    const onLink = vi.fn();
+  it('disables actions while mutating and prevents callbacks', () => {
+    const onKeepCustom = vi.fn();
+    const onLink = vi.fn();
 
-	    render(
-	      <TransactionReconciliationItemCard
-	        colors={LIGHT_COLORS}
-	        formatCurrency={(amount) => `₦${amount.toLocaleString('en-US')}`}
-	        isMutating
-	        item={{
-	          id: 'item-1',
-	          name: 'iPhone 11',
-	          price: 180000,
-	          quantity: 1,
-	        }}
-	        matches={[
-	          {
-	            confidence: 'high',
-	            label: 'iPhone 11',
-	            price: 180000,
-	            productId: 'product-1',
-	            score: 100,
-	            variantId: null,
-	          },
-	        ]}
-	        onKeepCustom={onKeepCustom}
-	        onLink={onLink}
-	      />
-	    );
+    render(
+      <TransactionReconciliationItemCard
+        colors={LIGHT_COLORS}
+        formatCurrency={(amount) => `₦${amount.toLocaleString('en-US')}`}
+        isMutating
+        item={{
+          id: 'item-1',
+          name: 'iPhone 11',
+          price: 180000,
+          quantity: 1,
+        }}
+        matches={[
+          {
+            confidence: 'high',
+            label: 'iPhone 11',
+            price: 180000,
+            productId: 'product-1',
+            score: 100,
+            variantId: null,
+          },
+        ]}
+        onKeepCustom={onKeepCustom}
+        onLink={onLink}
+      />
+    );
 
-	    const linkButton = screen.getByRole('button', { name: 'Link iPhone 11' });
-	    const keepCustomButton = screen.getByRole('button', {
-	      name: 'Keep item custom',
-	    });
+    const linkButton = screen.getByRole('button', { name: 'Link iPhone 11' });
+    const keepCustomButton = screen.getByRole('button', {
+      name: 'Keep item custom',
+    });
 
-	    expect(linkButton).toBeDisabled();
-	    expect(keepCustomButton).toBeDisabled();
+    expect(linkButton).toBeDisabled();
+    expect(keepCustomButton).toBeDisabled();
 
-	    fireEvent.click(linkButton);
-	    fireEvent.click(keepCustomButton);
+    fireEvent.click(linkButton);
+    fireEvent.click(keepCustomButton);
 
-	    expect(onLink).not.toHaveBeenCalled();
-	    expect(onKeepCustom).not.toHaveBeenCalled();
-	  });
+    expect(onLink).not.toHaveBeenCalled();
+    expect(onKeepCustom).not.toHaveBeenCalled();
+  });
 
-	  it('shows fallback text when no close catalog match exists', () => {
-	    render(
-	      <TransactionReconciliationItemCard
-	        colors={LIGHT_COLORS}
-	        formatCurrency={(amount) => `₦${amount.toLocaleString('en-US')}`}
-	        isMutating={false}
-	        item={{
-	          id: 'item-1',
-	          name: 'Itel Buds Neo 3',
-	          price: 20000,
-	          quantity: 1,
-	        }}
-	        matches={[]}
-	        onKeepCustom={vi.fn()}
-	        onLink={vi.fn()}
-	      />
-	    );
+  it('shows fallback text when no close catalog match exists', () => {
+    render(
+      <TransactionReconciliationItemCard
+        colors={LIGHT_COLORS}
+        formatCurrency={(amount) => `₦${amount.toLocaleString('en-US')}`}
+        isMutating={false}
+        item={{
+          id: 'item-1',
+          name: 'Itel Buds Neo 3',
+          price: 20000,
+          quantity: 1,
+        }}
+        matches={[]}
+        onKeepCustom={vi.fn()}
+        onLink={vi.fn()}
+      />
+    );
 
-	    expect(screen.getByText('No close catalog match found.')).toBeInTheDocument();
-	    expect(screen.queryByRole('button', { name: /^Link / })).not.toBeInTheDocument();
-	  });
-	});
+    expect(
+      screen.getByText('No close catalog match found.')
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /^Link / })
+    ).not.toBeInTheDocument();
+  });
+});

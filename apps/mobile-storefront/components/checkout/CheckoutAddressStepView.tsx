@@ -177,7 +177,9 @@ export function CheckoutAddressStepView({
             ? getDeliveryMethodSummary('door', selectedQuote)
             : 'Rates loaded after you enter your address'
         }
-        doorPrice={selectedQuote != null ? formatPrice(selectedQuote.price) : '—'}
+        doorPrice={
+          selectedQuote != null ? formatPrice(selectedQuote.price) : '—'
+        }
         airportFee={AIRPORT_DELIVERY_FEE}
       />
 

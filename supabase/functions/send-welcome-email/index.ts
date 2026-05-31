@@ -53,9 +53,10 @@ Deno.serve(async (req) => {
     }
 
     // Check if email_confirmed_at changed from null to something
-    const wasConfirmed = old_record.email_confirmed_at !== undefined
-      ? old_record.email_confirmed_at !== null
-      : true;
+    const wasConfirmed =
+      old_record.email_confirmed_at !== undefined
+        ? old_record.email_confirmed_at !== null
+        : true;
     const isConfirmed = record.email_confirmed_at !== null;
 
     if (wasConfirmed || !isConfirmed) {

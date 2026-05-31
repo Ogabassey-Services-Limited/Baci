@@ -3,7 +3,10 @@ import {
   PICKUP_STATION_CITY,
   PICKUP_STATION_STATE,
 } from '@/components/checkout/PickupStationCard';
-import type { DeliveryMethod, ShippingQuote } from '@/components/checkout/types';
+import type {
+  DeliveryMethod,
+  ShippingQuote,
+} from '@/components/checkout/types';
 import type { MobileCheckoutOrderItemPayload } from '@/lib/checkout-order-idempotency';
 import type { ShippingAddressInput } from '@/lib/validation';
 import type { CreateOrderRequest } from '@/services/orders';
