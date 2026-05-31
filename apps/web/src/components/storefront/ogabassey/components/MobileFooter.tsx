@@ -66,11 +66,7 @@ export const MobileFooter: React.FC<MobileFooterProps> = ({ storeSlug = '' }) =>
     .join(' ');
 
   return (
-    <nav
-      role="navigation"
-      aria-label="Mobile navigation"
-      className={footerClasses}
-    >
+    <nav aria-label="Mobile navigation" className={footerClasses}>
       {/* Subtle top highlight */}
       <div className="ogabassey-mobile-footer__highlight" />
 
