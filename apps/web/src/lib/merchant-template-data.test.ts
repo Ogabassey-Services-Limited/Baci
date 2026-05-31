@@ -200,6 +200,19 @@ describe('toTemplateMerchantData', () => {
     expect(JSON.stringify(result)).not.toContain('client-id-still-not-needed');
   });
 
+  it('does not create public settings objects for empty or missing allowlisted keys', () => {
+    const result = toTemplateMerchantData({
+      ...BASE_MERCHANT,
+      feature_settings: {
+        custom_settings: {},
+        google_merchant_id: undefined,
+        google_store_widget_enabled: undefined,
+      },
+    } as CachedMerchant);
+
+    expect(result.feature_settings).toBeUndefined();
+  });
+
   it('handles a merchant without optional fields', () => {
     const minimal: CachedMerchant = {
       id: 'min-1',

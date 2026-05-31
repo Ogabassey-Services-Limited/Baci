@@ -117,9 +117,13 @@ function pickPublicCustomSettings(
   const picked: Record<string, unknown> = {};
 
   for (const key of PUBLIC_CUSTOM_SETTING_KEYS) {
+    if (!Object.hasOwn(source, key)) {
+      continue;
+    }
+
     const value = source[key];
 
-    if (isPublicFeatureSettingValue(value)) {
+    if (value !== undefined && isPublicFeatureSettingValue(value)) {
       picked[key] = value;
     }
   }
@@ -141,9 +145,13 @@ function pickPublicFeatureSettings(
   // allowlist so merchant payment/API secrets cannot leak through future
   // feature_settings additions.
   for (const key of PUBLIC_FEATURE_SETTING_KEYS) {
+    if (!Object.hasOwn(source, key)) {
+      continue;
+    }
+
     const value = source[key];
 
-    if (isPublicFeatureSettingValue(value)) {
+    if (value !== undefined && isPublicFeatureSettingValue(value)) {
       picked[key] = value;
     }
   }
