@@ -33,7 +33,7 @@ const RegisteredAddressSchema = z.object({
 export const MerchantSchema = z.object({
   id: z.string(),
   user_id: z.string(),
-  email: z.string().email(),
+  email: z.email(),
   business_name: z.string().nullable(),
   slug: z.string().nullable(),
   logo_url: z.string().nullable(),
@@ -56,7 +56,7 @@ export const MerchantSchema = z.object({
   cac_rc_number: z.string().nullable(),
   tax_identification_number: z.string().nullable(),
   legal_entity_name: z.string().nullable(),
-  support_email: z.string().email().nullable(),
+  support_email: z.email().nullable(),
   support_phone: z.string().nullable(),
   business_address: z.string().nullable(),
   social_media: SocialMediaSchema.nullable(),
