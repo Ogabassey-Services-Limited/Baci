@@ -10,6 +10,7 @@ import Animated, {
   interpolate,
   interpolateColor,
   Extrapolation,
+  type SharedValue,
 } from 'react-native-reanimated';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
@@ -23,7 +24,7 @@ interface UtilityPanelCategoryItemProps {
   variant: 'card' | 'circle' | 'pill';
   isActive: boolean;
   onPress: () => void;
-  activeIndex?: Animated.SharedValue<number>;
+  activeIndex?: SharedValue<number>;
   index?: number;
 }
 

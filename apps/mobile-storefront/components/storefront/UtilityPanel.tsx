@@ -10,6 +10,7 @@ import Animated, {
   withSpring,
   useDerivedValue,
   useAnimatedReaction,
+  type SharedValue,
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 import { useIsFocused } from 'expo-router/react-navigation';
@@ -29,7 +30,7 @@ interface UtilityPanelProps {
   onCategorySelect: (id: string | null) => void;
   selectedCategoryName?: string;
   slug?: string;
-  activeIndex?: Animated.SharedValue<number>;
+  activeIndex?: SharedValue<number>;
 }
 
 // Module-level constants (stable references, no re-creation per render)
