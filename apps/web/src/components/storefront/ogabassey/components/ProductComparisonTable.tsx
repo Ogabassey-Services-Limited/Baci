@@ -245,7 +245,6 @@ export function ProductComparisonTable({
                                                 <div className="relative">
                                                     <Search size={14} className="absolute left-3 top-3 text-gray-400" />
                                                     <input
-                                                        autoFocus
                                                         type="text"
                                                         placeholder="Type to search..."
                                                         className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-red-500/20 focus:border-red-500"

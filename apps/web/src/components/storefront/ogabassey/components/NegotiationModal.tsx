@@ -486,7 +486,6 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
                   }}
                   className="w-full bg-[hsl(var(--card))] pl-4 pr-4 py-3 border border-[hsl(var(--border))] rounded-xl focus:ring-2 focus:ring-[var(--store-primary)] focus:border-[var(--store-primary)] outline-none transition-all text-lg font-bold text-[hsl(var(--card-foreground))] placeholder:font-normal"
                   placeholder="Enter amount..."
-                  autoFocus
                 />
               </div>
               {message ? (
