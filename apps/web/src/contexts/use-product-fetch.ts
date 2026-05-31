@@ -1,12 +1,6 @@
 'use client';
 
-import {
-  type Dispatch,
-  type SetStateAction,
-  useEffect,
-  useEffectEvent,
-  useRef,
-} from 'react';
+import { type Dispatch, type SetStateAction, useEffect, useRef } from 'react';
 import type { ProductsResult } from '@/lib/products-server';
 
 interface PaginationInfo {
@@ -74,7 +68,7 @@ export function useProductFetch<TProduct>({
     stockFilter,
   ].join('|');
 
-  const runFetchProducts = useEffectEvent(async (force = false) => {
+  const fetchProducts = async (force = false) => {
     if (authLoading || !user) {
       if (!authLoading && !user) {
         setProducts([]);
@@ -154,20 +148,16 @@ export function useProductFetch<TProduct>({
       fetchInProgressRef.current = false;
       setIsLoading(false);
     }
-  });
-
-  const fetchProducts = async (force = false) => {
-    await runFetchProducts(force);
   };
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: queryKey intentionally drives refetch while runFetchProducts reads the latest state via useEffectEvent.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: queryKey intentionally drives refetch while fetchProducts reads current render state.
   useEffect(() => {
     if (initialData && isFirstRender.current) {
       isFirstRender.current = false;
       return;
     }
 
-    void runFetchProducts();
+    void fetchProducts();
   }, [initialData, queryKey]);
 
   return { fetchProducts };

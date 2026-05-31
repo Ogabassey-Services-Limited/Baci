@@ -951,7 +951,7 @@ describe('useNotifications', () => {
   });
 
   describe('useNotificationsSafe', () => {
-    it('returns hook result when used within provider', () => {
+    it('returns the notifications hook result', () => {
       // Arrange
       vi.mocked(useMerchant).mockReturnValue({
         merchant: { id: 'merchant-123' },
@@ -964,21 +964,7 @@ describe('useNotifications', () => {
       const { result } = renderHook(() => useNotificationsSafe());
 
       // Assert
-      expect(result.current).not.toBeNull();
-      expect(result.current?.notifications).toEqual([]);
-    });
-
-    it('returns null when used outside provider', () => {
-      // Arrange
-      vi.mocked(useMerchant).mockImplementation(() => {
-        throw new Error('Must be used within provider');
-      });
-
-      // Act
-      const { result } = renderHook(() => useNotificationsSafe());
-
-      // Assert
-      expect(result.current).toBeNull();
+      expect(result.current.notifications).toEqual([]);
     });
   });
 });

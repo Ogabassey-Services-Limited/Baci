@@ -380,13 +380,11 @@ export function useNotifications(): UseNotificationsReturn {
 }
 
 /**
- * Safe version that doesn't throw if used outside provider
+ * Compatibility wrapper for existing callers.
+ *
+ * Hook/provider errors must be handled by React error boundaries rather than
+ * try/catch inside a hook wrapper, which violates the Rules of Hooks.
  */
-export function useNotificationsSafe(): UseNotificationsReturn | null {
-  try {
-    // biome-ignore lint/correctness/useHookAtTopLevel: Safe wrapper for conditional usage
-    return useNotifications();
-  } catch {
-    return null;
-  }
+export function useNotificationsSafe(): UseNotificationsReturn {
+  return useNotifications();
 }
