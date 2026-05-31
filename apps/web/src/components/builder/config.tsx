@@ -73,6 +73,11 @@ import {
   StorefrontForm,
 } from '@/components/storefront/storefront-form';
 
+const VIDEO_IFRAME_SANDBOX =
+  'allow-same-origin allow-scripts allow-presentation allow-popups';
+const MAP_IFRAME_SANDBOX =
+  'allow-same-origin allow-scripts allow-popups allow-forms';
+
 // ==================== TYPE DEFINITIONS ====================
 
 // Common animation fields that can be added to any component
@@ -1890,6 +1895,7 @@ export const builderConfig: Config<
                   className="w-full h-full"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                   allowFullScreen
+                  sandbox={VIDEO_IFRAME_SANDBOX}
                   title={title || 'Embedded video'}
                 />
               ) : (
@@ -1935,6 +1941,7 @@ export const builderConfig: Config<
                 allowFullScreen
                 loading="lazy"
                 referrerPolicy="no-referrer-when-downgrade"
+                sandbox={MAP_IFRAME_SANDBOX}
                 title="Store location map"
               />
             </div>
@@ -2785,6 +2792,7 @@ export const builderConfig: Config<
                         loading="lazy"
                         allowFullScreen
                         referrerPolicy="no-referrer-when-downgrade"
+                        sandbox={MAP_IFRAME_SANDBOX}
                         src={`https://www.google.com/maps/embed/v1/place?key=YOUR_API_KEY&q=${encodeURIComponent(mapAddress)}`}
                       />
                     </div>
