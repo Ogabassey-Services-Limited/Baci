@@ -40,13 +40,23 @@ jest.mock('react-native-reanimated', () => {
       react: (nextIndex: number, prevIndex: number | null) => void,
       deps: unknown[]
     ) => {
-      const shared = deps[0] as any;
-      if (shared && typeof shared.addListener === 'function') {
-        shared.addListener((newVal: number) => {
-          react(Math.round(newVal), null);
-        });
-      }
-      react(prepare(), null);
+      const React = require('react');
+      const lastValue = React.useRef(prepare());
+
+      React.useEffect(() => {
+        const shared = deps[0] as any;
+        if (shared && typeof shared.addListener === 'function') {
+          const listener = (newVal: number) => {
+            const roundedVal = Math.round(newVal);
+            if (roundedVal !== lastValue.current) {
+              const oldVal = lastValue.current;
+              lastValue.current = roundedVal;
+              react(roundedVal, oldVal);
+            }
+          };
+          shared.addListener(listener);
+        }
+      }, [deps, react]);
     },
     runOnJS: (fn: (...args: any[]) => any) => fn,
     withTiming: (toValue: number, config?: object, callback?: (isFinished?: boolean) => void) => {
