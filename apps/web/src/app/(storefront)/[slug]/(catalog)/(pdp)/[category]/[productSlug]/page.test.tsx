@@ -1002,7 +1002,7 @@ describe('[category]/[productSlug] page render', () => {
     });
   });
 
-  it('renders the PDP shell without a page-level metadata marker', async () => {
+  it('keeps the PDP leaf segment request-time without a page-level metadata marker', async () => {
     const ui = await resolveRsc(
       await CategoryProductPage({
         params: Promise.resolve({
@@ -1022,7 +1022,7 @@ describe('[category]/[productSlug] page render', () => {
       throw new Error('Expected the OgaBassey PDP critical shell to render');
     }
 
-    expect(mockConnection).not.toHaveBeenCalled();
+    expect(mockConnection).toHaveBeenCalledTimes(1);
     expect(
       screen.getByRole('heading', {
         level: 1,

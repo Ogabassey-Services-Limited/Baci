@@ -401,7 +401,7 @@ describe('products/[productSlug] page', () => {
     expect(screen.queryByText('mystery-item')).not.toBeInTheDocument();
   });
 
-  it('keeps product metadata cacheable and leaves request binding to the storefront layout', async () => {
+  it('keeps product metadata cacheable without request binding', async () => {
     mockGetCachedProduct.mockResolvedValue(uncategorizedProduct);
 
     await generateMetadata(
@@ -1024,7 +1024,7 @@ describe('products/[productSlug] page', () => {
         name: /Shop more Products/i,
       })
     ).toHaveAttribute('href', 'https://teststore.usebaci.com/products');
-    expect(mockConnection).not.toHaveBeenCalled();
+    expect(mockConnection).toHaveBeenCalledTimes(1);
     expect(
       screen.getByRole('link', {
         name: /Compare with Samsung Galaxy Z TriFold/i,

@@ -3,6 +3,7 @@ import { resolveVariantSelectionParamResolution } from '@baci/shared/lib';
 import type { Metadata, ResolvingMetadata } from 'next';
 import { headers } from 'next/headers';
 import { notFound, permanentRedirect, redirect } from 'next/navigation';
+import { connection } from 'next/server';
 import { StorefrontRouteNotFound } from '@/app/(storefront)/[slug]/storefront-route-not-found';
 import { ProductSemanticSections } from '@/components/storefront/ogabassey/seo/product-semantic-sections';
 import {
@@ -408,6 +409,10 @@ export async function generateMetadata(
 }
 
 export default async function ProductPage({ params, searchParams }: PageProps) {
+  // Keep the PDP leaf segment request-time. A cacheable PDP shell can resume
+  // with Next's metadata boundary in the first host slot on Vercel/Next 16.
+  await connection();
+
   const { slug, productSlug } = await params;
   const resolvedSearchParams = await searchParams;
   const productResult = await getProductCached(slug, productSlug);
