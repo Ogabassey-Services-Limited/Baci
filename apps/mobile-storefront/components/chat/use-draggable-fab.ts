@@ -1,6 +1,6 @@
 import * as Haptics from 'expo-haptics';
-import { useEffect, useState } from 'react';
-import { Dimensions, Platform } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { useWindowDimensions, Platform } from 'react-native';
 import {
   usePanGesture,
   useTapGesture,
@@ -17,6 +17,13 @@ import {
 } from 'react-native-reanimated';
 import { EDGE_MARGIN, FAB_SIZE } from './constants';
 
+// Define completely static, immutable haptic trigger outside the hook
+const triggerHaptic = (style: Haptics.ImpactFeedbackStyle) => {
+  if (Platform.OS === 'ios') {
+    Haptics.impactAsync(style).catch(() => {});
+  }
+};
+
 export function useDraggableFab(
   bottomOffset: number,
   onDismiss?: () => void,
@@ -25,6 +32,28 @@ export function useDraggableFab(
   const [isDragging, setIsDragging] = useState(false);
   const [isOverDismissZone, setIsOverDismissZone] = useState(false);
   const [isOnRight, setIsOnRight] = useState(true);
+
+  // Reusable React Refs for dynamic JS callbacks to avoid worklet re-creation crashes
+  const onDismissRef = useRef(onDismiss);
+  const onPressRef = useRef(onPress);
+
+  useEffect(() => {
+    onDismissRef.current = onDismiss;
+    onPressRef.current = onPress;
+  }, [onDismiss, onPress]);
+
+  // Stable JS thread handlers to safely read the Refs
+  const handleDismissJS = () => {
+    if (onDismissRef.current) {
+      onDismissRef.current();
+    }
+  };
+
+  const handlePressJS = () => {
+    if (onPressRef.current) {
+      onPressRef.current();
+    }
+  };
 
   // Translation values relative to starting styled location
   const translateX = useSharedValue(0);
@@ -40,15 +69,21 @@ export function useDraggableFab(
   const contextX = useSharedValue(0);
   const contextY = useSharedValue(0);
 
-  // Window dimension tracking
-  const { width: windowWidth, height: windowHeight } = Dimensions.get('window');
+  // Track viewport dimensions dynamically
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const windowWidthSV = useSharedValue(windowWidth);
+  const windowHeightSV = useSharedValue(windowHeight);
 
-  // Trigger haptic feedback safely
-  const triggerHaptic = (style: Haptics.ImpactFeedbackStyle) => {
-    if (Platform.OS === 'ios') {
-      Haptics.impactAsync(style).catch(() => {});
-    }
-  };
+  useEffect(() => {
+    windowWidthSV.value = windowWidth;
+    windowHeightSV.value = windowHeight;
+  }, [windowWidth, windowHeight]);
+
+  // Track bottom offset dynamically
+  const bottomOffsetSV = useSharedValue(bottomOffset);
+  useEffect(() => {
+    bottomOffsetSV.value = bottomOffset;
+  }, [bottomOffset]);
 
   // Pulse animation loop
   useEffect(() => {
@@ -89,17 +124,21 @@ export function useDraggableFab(
       translateX.value = contextX.value + event.translationX;
       translateY.value = contextY.value + event.translationY;
 
-      // Absolute coordinates calculation
-      const startX = windowWidth - FAB_SIZE - EDGE_MARGIN;
-      const startY = windowHeight - bottomOffset - FAB_SIZE;
+      // Absolute coordinates calculation using shared values
+      const currentWidth = windowWidthSV.value;
+      const currentHeight = windowHeightSV.value;
+      const currentBottomOffset = bottomOffsetSV.value;
+
+      const startX = currentWidth - FAB_SIZE - EDGE_MARGIN;
+      const startY = currentHeight - currentBottomOffset - FAB_SIZE;
 
       const absoluteX = startX + translateX.value;
       const absoluteY = startY + translateY.value;
 
       const fabCenterX = absoluteX + FAB_SIZE / 2;
       const fabCenterY = absoluteY + FAB_SIZE / 2;
-      const dismissCenterX = windowWidth / 2;
-      const dismissCenterY = windowHeight - 100;
+      const dismissCenterX = currentWidth / 2;
+      const dismissCenterY = currentHeight - 100;
 
       const dx = fabCenterX - dismissCenterX;
       const dy = fabCenterY - dismissCenterY;
@@ -120,8 +159,12 @@ export function useDraggableFab(
     onDeactivate: (event) => {
       runOnJS(setIsDragging)(false);
 
-      const startX = windowWidth - FAB_SIZE - EDGE_MARGIN;
-      const startY = windowHeight - bottomOffset - FAB_SIZE;
+      const currentWidth = windowWidthSV.value;
+      const currentHeight = windowHeightSV.value;
+      const currentBottomOffset = bottomOffsetSV.value;
+
+      const startX = currentWidth - FAB_SIZE - EDGE_MARGIN;
+      const startY = currentHeight - currentBottomOffset - FAB_SIZE;
 
       const absoluteX = startX + translateX.value;
       const absoluteY = startY + translateY.value;
@@ -132,9 +175,7 @@ export function useDraggableFab(
 
       if (isOverDismiss) {
         runOnJS(triggerHaptic)(Haptics.ImpactFeedbackStyle.Medium);
-        if (onDismiss) {
-          runOnJS(onDismiss)();
-        }
+        runOnJS(handleDismissJS)();
         return;
       }
 
@@ -143,12 +184,11 @@ export function useDraggableFab(
       const rightBound = startX;
 
       const snapX = absoluteX + event.velocityX * 0.08;
-      const targetXAbsolute = snapX + FAB_SIZE / 2 < windowWidth / 2 ? leftBound : rightBound;
+      const targetXAbsolute = snapX + FAB_SIZE / 2 < currentWidth / 2 ? leftBound : rightBound;
 
       // Clamp vertical bounds
-      const clampBottom = bottomOffset;
       const minY = 100;
-      const maxY = windowHeight - clampBottom - FAB_SIZE;
+      const maxY = currentHeight - currentBottomOffset - FAB_SIZE;
       let targetYAbsolute = absoluteY + event.velocityY * 0.04;
       targetYAbsolute = Math.max(minY, Math.min(targetYAbsolute, maxY));
 
@@ -170,9 +210,7 @@ export function useDraggableFab(
     onDeactivate: (event) => {
       if (!event.canceled) {
         runOnJS(triggerHaptic)(Haptics.ImpactFeedbackStyle.Medium);
-        if (onPress) {
-          runOnJS(onPress)();
-        }
+        runOnJS(handlePressJS)();
       }
     },
   });
