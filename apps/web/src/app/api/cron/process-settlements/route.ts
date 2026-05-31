@@ -66,6 +66,8 @@ export async function POST(request: Request) {
     // 2. Get settlements that need notifications
     const { data: pendingNotifications, error: notifyError } = await supabase
       .from('merchant_settlements')
+      // PostgREST cannot embed auth.users through merchants here; use the
+      // merchant contact email denormalized on public.merchants instead.
       .select(
         `
         id,
@@ -78,10 +80,7 @@ export async function POST(request: Request) {
         merchants (
           id,
           business_name,
-          users (
-            id,
-            email
-          )
+          email
         )
       `
       )
@@ -125,10 +124,10 @@ export async function POST(request: Request) {
         const merchant = settlement.merchants as unknown as {
           id: string;
           business_name: string;
-          users: { id: string; email: string };
+          email: string | null;
         };
 
-        if (!merchant?.users?.email) continue;
+        if (!merchant?.email) continue;
 
         const key = merchant.id;
         const existing = merchantSettlements.get(key);
@@ -145,7 +144,7 @@ export async function POST(request: Request) {
           merchantSettlements.set(key, {
             merchantId: merchant.id,
             businessName: merchant.business_name,
-            email: merchant.users.email,
+            email: merchant.email,
             settlements: [
               {
                 id: settlement.id,
