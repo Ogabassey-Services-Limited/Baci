@@ -78,6 +78,64 @@ describe('ProductCard', () => {
     expect(container).toBeDefined();
   });
 
+  it('uses explicit SEO image alt text when available', () => {
+    render(
+      <ProductCard
+        product={{
+          ...mockProduct,
+          seo_alt_text: 'Dell Alienware laptop front view',
+        }}
+        onAddToCart={vi.fn()}
+        isAdded={false}
+      />
+    );
+
+    expect(
+      screen.getByRole('img', {
+        name: 'Dell Alienware laptop front view',
+      })
+    ).toBeInTheDocument();
+  });
+
+  it('falls back from blank SEO alt text to image alt text', () => {
+    render(
+      <ProductCard
+        product={{
+          ...mockProduct,
+          seo_alt_text: '   ',
+          image_alt: 'Product retail box and device',
+        }}
+        onAddToCart={vi.fn()}
+        isAdded={false}
+      />
+    );
+
+    expect(
+      screen.getByRole('img', {
+        name: 'Product retail box and device',
+      })
+    ).toBeInTheDocument();
+  });
+
+  it('falls back to a brand-qualified image alt when the name omits the brand', () => {
+    render(
+      <ProductCard
+        product={{
+          ...mockProduct,
+          brand: 'Dell',
+        }}
+        onAddToCart={vi.fn()}
+        isAdded={false}
+      />
+    );
+
+    expect(
+      screen.getByRole('img', {
+        name: 'Dell Test Product',
+      })
+    ).toBeInTheDocument();
+  });
+
   it('links SKU-matrix products to option selection instead of quick-adding', () => {
     const onAddToCart = vi.fn();
 

@@ -69,6 +69,8 @@ export interface Product {
   price: string;
   rawPrice?: number;
   image: string;
+  image_alt?: string | null;
+  seo_alt_text?: string | null;
   description: string;
   rating?: number;
   category?: string; // Backward compatibility (TEXT column - deprecated)

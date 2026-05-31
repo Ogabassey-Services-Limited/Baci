@@ -72,4 +72,15 @@ describe('ReviewCard', () => {
 
     expect(screen.getByText('Verified customer')).toBeInTheDocument();
   });
+
+  it('renders review titles at the product-section heading level', () => {
+    render(<ReviewCard review={baseReview} />);
+
+    expect(
+      screen.getByRole('heading', {
+        level: 3,
+        name: 'Great product',
+      })
+    ).toBeInTheDocument();
+  });
 });

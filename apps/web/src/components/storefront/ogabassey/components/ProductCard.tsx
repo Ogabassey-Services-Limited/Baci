@@ -34,6 +34,24 @@ function stripHtml(html: string): string {
   return result;
 }
 
+function getProductImageAlt(product: Product): string {
+  const explicitAlt =
+    product.seo_alt_text?.trim() || product.image_alt?.trim() || '';
+
+  if (explicitAlt) {
+    return explicitAlt;
+  }
+
+  const name = product.name.trim();
+  const brand = product.brand?.trim();
+
+  if (brand && !name.toLowerCase().includes(brand.toLowerCase())) {
+    return `${brand} ${name}`;
+  }
+
+  return name;
+}
+
 interface ProductCardProps {
   product: Product;
   onAddToCart: (e: React.MouseEvent, product: Product) => void;
@@ -91,6 +109,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   // Build full URL with basePath for proper routing on custom domains
   const productHref = asRoute(`${basePath}${getProductUrl(productForUrl)}`);
   const requiresSelection = requiresOgabasseyProductSelection(product);
+  const productImageAlt = getProductImageAlt(product);
 
   // Image optimization props for Next.js Image component
   // Using exact dimensions from design but allowing responsive sizing
@@ -157,7 +176,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           {/* biome-ignore lint/a11y/useAltText: intentional img usage */}
           <Image
             src={product.image || PLACEHOLDER_IMAGE}
-            alt={product.name}
+            alt={productImageAlt}
             fill
             sizes={imageSizes}
             className="object-cover transition-transform duration-500 md:group-hover:scale-105"
@@ -287,7 +306,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       <div className="w-28 md:w-48 aspect-square bg-gray-50 rounded-xl shrink-0 flex items-center justify-center overflow-hidden z-10 pointer-events-none relative">
         <Image
           src={product.image || PLACEHOLDER_IMAGE}
-          alt={product.name}
+          alt={productImageAlt}
           fill
           sizes="(max-width: 768px) 112px, 192px"
           className="object-cover md:group-hover:scale-110 transition-transform duration-500"

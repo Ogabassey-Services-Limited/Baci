@@ -90,6 +90,7 @@ export function StorefrontProductCard({
   // Extract category (handles both categories join and direct category)
   const productCategory =
     product.categories?.name || product.category || 'General';
+  const productImageAlt = product.images?.[0]?.alt?.trim() || product.name;
 
   const handleAddToCart = () => {
     if (isOutOfStock) return;
@@ -140,7 +141,7 @@ export function StorefrontProductCard({
         >
           <ProductCardImage
             src={product.imageLarge}
-            alt={product.name}
+            alt={productImageAlt}
             data-ai-hint={product.imageHint}
             width={600}
             height={400}

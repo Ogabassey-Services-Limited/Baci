@@ -15,7 +15,9 @@ vi.mock('next/link', () => ({
 }));
 
 vi.mock('@/components/optimized-image', () => ({
-  ProductCardImage: () => <div data-testid="product-image" />,
+  ProductCardImage: ({ alt }: { alt: string }) => (
+    <div data-testid="product-image" role="img" aria-label={alt} />
+  ),
 }));
 
 interface MockCardProps {
@@ -139,6 +141,60 @@ describe('StorefrontProductCard', () => {
     );
 
     expect(screen.getByRole('link')).toHaveAttribute('href', '/product/test');
+  });
+
+  it('uses the primary image alt text when product images include one', () => {
+    render(
+      <StorefrontProductCard
+        product={{
+          ...mockProduct,
+          images: [
+            {
+              url: 'img.jpg',
+              alt: 'Brand product angled view',
+              order: 0,
+            },
+          ],
+        }}
+        staggerClass=""
+        onAddToCart={mockAddToCart}
+        onUpdateQuantity={mockUpdateQuantity}
+        onQuickView={mockQuickView}
+      />
+    );
+
+    expect(
+      screen.getByRole('img', {
+        name: 'Brand product angled view',
+      })
+    ).toBeInTheDocument();
+  });
+
+  it('falls back to the product name when primary image alt text is missing', () => {
+    render(
+      <StorefrontProductCard
+        product={{
+          ...mockProduct,
+          images: [
+            {
+              url: 'img.jpg',
+              alt: '',
+              order: 0,
+            },
+          ],
+        }}
+        staggerClass=""
+        onAddToCart={mockAddToCart}
+        onUpdateQuantity={mockUpdateQuantity}
+        onQuickView={mockQuickView}
+      />
+    );
+
+    expect(
+      screen.getByRole('img', {
+        name: mockProduct.name,
+      })
+    ).toBeInTheDocument();
   });
 
   it('handles empty merchantSlug gracefully', () => {
