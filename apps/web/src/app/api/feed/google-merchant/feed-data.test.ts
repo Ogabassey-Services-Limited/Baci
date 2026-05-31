@@ -439,7 +439,10 @@ describe('getCachedGoogleMerchantFeedData', () => {
         } satisfies ProductsResult),
     }));
 
-    const { getCachedGoogleMerchantFeedData } = await import('./feed-data');
+    const {
+      FEED_PRODUCT_VARIANTS_BATCH_SIZE,
+      getCachedGoogleMerchantFeedData,
+    } = await import('./feed-data');
     const result = await getCachedGoogleMerchantFeedData(
       'merchant-1',
       'ogabassey'
@@ -447,7 +450,9 @@ describe('getCachedGoogleMerchantFeedData', () => {
 
     expect(mockProductsLimit).toHaveBeenCalledTimes(10);
     expect(mockProductsLimit).toHaveBeenLastCalledWith(1000);
-    expect(mockRpc).toHaveBeenCalledTimes(100);
+    expect(mockRpc).toHaveBeenCalledTimes(
+      10_000 / FEED_PRODUCT_VARIANTS_BATCH_SIZE
+    );
     const rpcProductIds = mockRpc.mock.calls.flatMap(([, rpcArgs]) =>
       Array.isArray(rpcArgs?.p_product_ids) ? rpcArgs.p_product_ids : []
     );
@@ -455,7 +460,7 @@ describe('getCachedGoogleMerchantFeedData', () => {
     expect(mockRpc).toHaveBeenNthCalledWith(1, 'get_feed_product_variants', {
       p_merchant_id: 'merchant-1',
       p_product_ids: Array.from(
-        { length: 100 },
+        { length: FEED_PRODUCT_VARIANTS_BATCH_SIZE },
         (_, index) => `product-${index}`
       ),
     });
@@ -487,16 +492,25 @@ describe('getCachedGoogleMerchantFeedData', () => {
       error: null,
     }));
 
-    const { getCachedGoogleMerchantFeedData } = await import('./feed-data');
+    const {
+      FEED_PRODUCT_VARIANTS_BATCH_SIZE,
+      getCachedGoogleMerchantFeedData,
+    } = await import('./feed-data');
     const result = await getCachedGoogleMerchantFeedData(
       'merchant-1',
       'ogabassey'
     );
 
-    expect(mockRpc).toHaveBeenCalledTimes(3);
+    expect(mockRpc).toHaveBeenCalledTimes(5);
     expect(
       mockRpc.mock.calls.map(([, rpcArgs]) => rpcArgs.p_product_ids.length)
-    ).toEqual([100, 100, 1]);
+    ).toEqual([
+      FEED_PRODUCT_VARIANTS_BATCH_SIZE,
+      FEED_PRODUCT_VARIANTS_BATCH_SIZE,
+      FEED_PRODUCT_VARIANTS_BATCH_SIZE,
+      FEED_PRODUCT_VARIANTS_BATCH_SIZE,
+      1,
+    ]);
     expect(result.products[0]?.variants).toEqual([
       {
         id: 'variant-product-0',
@@ -510,7 +524,7 @@ describe('getCachedGoogleMerchantFeedData', () => {
   });
 
   it('limits concurrent variant RPC batches', async () => {
-    const products = Array.from({ length: 501 }, (_, index) => ({
+    const products = Array.from({ length: 101 }, (_, index) => ({
       id: `product-${index}`,
       name: `Phone ${index}`,
       created_at: '2026-01-01T00:00:00.000Z',
@@ -531,6 +545,7 @@ describe('getCachedGoogleMerchantFeedData', () => {
     });
 
     const {
+      FEED_PRODUCT_VARIANTS_BATCH_SIZE,
       FEED_PRODUCT_VARIANTS_MAX_CONCURRENT_BATCHES,
       getCachedGoogleMerchantFeedData,
     } = await import('./feed-data');
@@ -541,30 +556,33 @@ describe('getCachedGoogleMerchantFeedData', () => {
 
     await flushMicrotasks();
 
-    expect(startedBatchSizes).toEqual([100, 100, 100, 100]);
+    expect(FEED_PRODUCT_VARIANTS_MAX_CONCURRENT_BATCHES).toBe(1);
+    expect(startedBatchSizes).toEqual([FEED_PRODUCT_VARIANTS_BATCH_SIZE]);
     expect(deferredRpcResults).toHaveLength(
       FEED_PRODUCT_VARIANTS_MAX_CONCURRENT_BATCHES
     );
 
-    for (const deferred of deferredRpcResults.slice(
-      0,
-      FEED_PRODUCT_VARIANTS_MAX_CONCURRENT_BATCHES
-    )) {
-      deferred.resolve({ data: [], error: null });
-    }
+    deferredRpcResults[0]?.resolve({ data: [], error: null });
 
     await flushMicrotasks();
 
-    expect(startedBatchSizes).toEqual([100, 100, 100, 100, 100, 1]);
+    expect(startedBatchSizes).toEqual([
+      FEED_PRODUCT_VARIANTS_BATCH_SIZE,
+      FEED_PRODUCT_VARIANTS_BATCH_SIZE,
+    ]);
+    deferredRpcResults[1]?.resolve({ data: [], error: null });
 
-    for (const deferred of deferredRpcResults.slice(
-      FEED_PRODUCT_VARIANTS_MAX_CONCURRENT_BATCHES
-    )) {
-      deferred.resolve({ data: [], error: null });
-    }
+    await flushMicrotasks();
+
+    expect(startedBatchSizes).toEqual([
+      FEED_PRODUCT_VARIANTS_BATCH_SIZE,
+      FEED_PRODUCT_VARIANTS_BATCH_SIZE,
+      1,
+    ]);
+    deferredRpcResults[2]?.resolve({ data: [], error: null });
 
     const result = await resultPromise;
-    expect(result.products).toHaveLength(501);
+    expect(result.products).toHaveLength(101);
   });
 
   it('hydrates feed variants from the feed RPC', async () => {

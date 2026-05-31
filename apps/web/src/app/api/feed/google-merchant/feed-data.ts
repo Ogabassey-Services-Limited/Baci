@@ -16,9 +16,11 @@ const MAX_FEED_PRODUCTS = 10_000;
 // Keep PostgREST `in(...)` URL filters under common proxy limits.
 const FEED_PRODUCT_OFFERS_BATCH_SIZE = 250;
 const FEED_IMAGE_MANIFEST_PRODUCT_BATCH_SIZE = 250;
-const FEED_PRODUCT_VARIANTS_BATCH_SIZE = 100;
+export const FEED_PRODUCT_VARIANTS_BATCH_SIZE = 50;
 export const FEED_IMAGE_MANIFEST_MAX_CONCURRENT_BATCHES = 4;
-export const FEED_PRODUCT_VARIANTS_MAX_CONCURRENT_BATCHES = 4;
+// Keep variant hydration serialized: this RPC fans across large tenant catalogs,
+// and concurrent cold-cache calls have hit Postgres statement timeouts in prod.
+export const FEED_PRODUCT_VARIANTS_MAX_CONCURRENT_BATCHES = 1;
 
 export interface GoogleMerchantFeedData {
   custom_domain: string | null;
@@ -27,7 +29,7 @@ export interface GoogleMerchantFeedData {
   imageManifest: ImageManifestMap;
 }
 
-const GOOGLE_MERCHANT_FEED_DATA_CACHE_VERSION = 'variant-feed-data-v4';
+const GOOGLE_MERCHANT_FEED_DATA_CACHE_VERSION = 'variant-feed-data-v5';
 
 interface RawFeedProductRow extends Omit<FeedProduct, 'categories'> {
   categories?:
