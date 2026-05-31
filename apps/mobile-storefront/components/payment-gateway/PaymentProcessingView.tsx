@@ -17,7 +17,9 @@ export function PaymentProcessingView({
   const isVtuPayment = paymentKind === 'vtu';
   const isTokenUtility =
     isVtuPayment &&
-    (utilityType === 'power' || utilityType === 'tv' || utilityType === 'gaming');
+    (utilityType === 'power' ||
+      utilityType === 'tv' ||
+      utilityType === 'gaming');
   const accessibilityLabel = isVtuPayment
     ? isTokenUtility
       ? 'Generating utility token'

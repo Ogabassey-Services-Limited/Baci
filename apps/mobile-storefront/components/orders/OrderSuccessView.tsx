@@ -226,7 +226,10 @@ export function OrderSuccessView({
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Leave a Google Review"
-                style={[styles.reviewButton, { backgroundColor: BRAND.primary }]}
+                style={[
+                  styles.reviewButton,
+                  { backgroundColor: BRAND.primary },
+                ]}
                 onPress={onLeaveGoogleReview}
               >
                 <View style={styles.googleLogoWrap}>

@@ -20,7 +20,11 @@ export function sendOptions(response) {
   response.end();
 }
 
-function buildImageHeaders(fileStat, outputFormat, { varyAccept = false } = {}) {
+function buildImageHeaders(
+  fileStat,
+  outputFormat,
+  { varyAccept = false } = {}
+) {
   const headers = {
     ...buildCorsHeaders(),
     'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
@@ -45,13 +49,24 @@ export async function sendImageHead(
   headerOptions
 ) {
   const fileStat = await stat(filePath);
-  response.writeHead(200, buildImageHeaders(fileStat, outputFormat, headerOptions));
+  response.writeHead(
+    200,
+    buildImageHeaders(fileStat, outputFormat, headerOptions)
+  );
   response.end();
 }
 
-export async function serveFile(response, filePath, outputFormat, headerOptions) {
+export async function serveFile(
+  response,
+  filePath,
+  outputFormat,
+  headerOptions
+) {
   const fileStat = await stat(filePath);
-  response.writeHead(200, buildImageHeaders(fileStat, outputFormat, headerOptions));
+  response.writeHead(
+    200,
+    buildImageHeaders(fileStat, outputFormat, headerOptions)
+  );
 
   const stream = createReadStream(filePath);
   stream.on('error', (error) => {

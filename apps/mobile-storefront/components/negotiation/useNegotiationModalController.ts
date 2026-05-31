@@ -89,7 +89,9 @@ export function useNegotiationModalController({
         setStatus('success');
         setOffer(offerAmount.toString());
         setMessage(successMessageFormatter(offerAmount));
-        triggerHaptic(getNegotiationHapticsModule()?.ImpactFeedbackStyle?.Heavy);
+        triggerHaptic(
+          getNegotiationHapticsModule()?.ImpactFeedbackStyle?.Heavy
+        );
         onAcceptedPrice?.(offerAmount);
         return;
       }
@@ -120,7 +122,9 @@ export function useNegotiationModalController({
         setCounterOffer(proposedCounter);
         setMessage(replyMessage);
         setAttemptCount((previous) => previous + 1);
-        triggerHaptic(getNegotiationHapticsModule()?.ImpactFeedbackStyle?.Medium);
+        triggerHaptic(
+          getNegotiationHapticsModule()?.ImpactFeedbackStyle?.Medium
+        );
       }
     }, 1500);
   };

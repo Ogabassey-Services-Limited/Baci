@@ -16,6 +16,7 @@ const colors = {
   icon: '#111827',
   text: '#111827',
   textSecondary: '#4B5563',
+  card: '#ffffff',
 };
 
 describe('DrawerMenuItems', () => {

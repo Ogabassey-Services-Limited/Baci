@@ -1,4 +1,11 @@
-import { afterAll, beforeEach, describe, expect, it, jest } from '@jest/globals';
+import {
+  afterAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  jest,
+} from '@jest/globals';
 
 const mockFetch = jest.fn<typeof fetch>();
 const mockGetSession = jest.fn(() =>

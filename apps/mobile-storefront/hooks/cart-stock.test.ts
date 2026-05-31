@@ -1,9 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { useCartStore } from '@/stores/cart-store';
-import {
-  checkStock,
-  getTotalRequestedQuantityForStock,
-} from './cart-stock';
+import { checkStock, getTotalRequestedQuantityForStock } from './cart-stock';
 
 const mockNetInfoFetch = jest.fn();
 

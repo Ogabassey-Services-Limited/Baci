@@ -57,7 +57,9 @@ export function TrackOrderDetailsContent({
           </View>
           <View style={[styles.badge, { backgroundColor: badge.bg }]}>
             <Ionicons
-              name={statusMeta.icon as React.ComponentProps<typeof Ionicons>['name']}
+              name={
+                statusMeta.icon as React.ComponentProps<typeof Ionicons>['name']
+              }
               size={14}
               color={badge.color}
             />
@@ -68,9 +70,13 @@ export function TrackOrderDetailsContent({
         </View>
 
         {estimated_delivery && (
-          <View style={[styles.estimatedRow, { borderTopColor: colors.border }]}>
+          <View
+            style={[styles.estimatedRow, { borderTopColor: colors.border }]}
+          >
             <Ionicons name="time-outline" size={16} color={BRAND.primary} />
-            <Text style={[styles.estimatedText, { color: colors.textSecondary }]}>
+            <Text
+              style={[styles.estimatedText, { color: colors.textSecondary }]}
+            >
               Estimated delivery: {estimated_delivery}
             </Text>
           </View>
@@ -81,7 +87,11 @@ export function TrackOrderDetailsContent({
       {shipping_tracking && (
         <ShippingTrackingCard colors={colors} tracking={shipping_tracking} />
       )}
-      <TrackOrderItemsCard colors={colors} items={items} currency={order.currency} />
+      <TrackOrderItemsCard
+        colors={colors}
+        items={items}
+        currency={order.currency}
+      />
       <TrackOrderSummaryCard colors={colors} order={order} />
       <TrackOrderAddressCard
         colors={colors}
@@ -112,7 +122,12 @@ function ShippingTrackingCard({
   };
 
   return (
-    <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+    <View
+      style={[
+        styles.card,
+        { backgroundColor: colors.card, borderColor: colors.border },
+      ]}
+    >
       <Text style={[styles.sectionTitle, { color: colors.text }]}>
         Shipping Tracking
       </Text>
@@ -122,7 +137,9 @@ function ShippingTrackingCard({
           <Text style={[styles.trackingProvider, { color: colors.text }]}>
             {tracking.provider}
           </Text>
-          <Text style={[styles.trackingNumber, { color: colors.textSecondary }]}>
+          <Text
+            style={[styles.trackingNumber, { color: colors.textSecondary }]}
+          >
             {tracking.tracking_number}
           </Text>
         </View>
@@ -158,14 +175,25 @@ function TrackOrderItemsCard({
   items: TrackOrderData['items'];
 }) {
   return (
-    <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+    <View
+      style={[
+        styles.card,
+        { backgroundColor: colors.card, borderColor: colors.border },
+      ]}
+    >
       <Text style={[styles.sectionTitle, { color: colors.text }]}>
         Items ({items.length})
       </Text>
       {items.map((item) => (
-        <View key={item.id} style={[styles.itemRow, { borderBottomColor: colors.border }]}>
+        <View
+          key={item.id}
+          style={[styles.itemRow, { borderBottomColor: colors.border }]}
+        >
           {item.product_image ? (
-            <Image source={{ uri: item.product_image }} style={styles.itemImage} />
+            <Image
+              source={{ uri: item.product_image }}
+              style={styles.itemImage}
+            />
           ) : (
             <View
               style={[
@@ -181,7 +209,10 @@ function TrackOrderItemsCard({
             </View>
           )}
           <View style={styles.itemInfo}>
-            <Text style={[styles.itemName, { color: colors.text }]} numberOfLines={2}>
+            <Text
+              style={[styles.itemName, { color: colors.text }]}
+              numberOfLines={2}
+            >
               {item.product_name}
             </Text>
             <Text style={[styles.itemQty, { color: colors.textSecondary }]}>
@@ -205,14 +236,27 @@ function TrackOrderSummaryCard({
   order: TrackOrderData['order'];
 }) {
   return (
-    <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+    <View
+      style={[
+        styles.card,
+        { backgroundColor: colors.card, borderColor: colors.border },
+      ]}
+    >
       <Text style={[styles.sectionTitle, { color: colors.text }]}>
         Order Summary
       </Text>
-      <SummaryRow label="Subtotal" value={formatTrackOrderPrice(order.subtotal, order.currency)} colors={colors} />
+      <SummaryRow
+        label="Subtotal"
+        value={formatTrackOrderPrice(order.subtotal, order.currency)}
+        colors={colors}
+      />
       <SummaryRow
         label="Shipping"
-        value={order.shipping_cost > 0 ? formatTrackOrderPrice(order.shipping_cost, order.currency) : 'Free'}
+        value={
+          order.shipping_cost > 0
+            ? formatTrackOrderPrice(order.shipping_cost, order.currency)
+            : 'Free'
+        }
         colors={colors}
       />
       {order.discount_amount > 0 && (
@@ -223,7 +267,9 @@ function TrackOrderSummaryCard({
           valueColor="#10B981"
         />
       )}
-      <View style={[styles.summaryDivider, { backgroundColor: colors.border }]} />
+      <View
+        style={[styles.summaryDivider, { backgroundColor: colors.border }]}
+      />
       <View style={styles.summaryRow}>
         <Text style={[styles.totalLabel, { color: colors.text }]}>Total</Text>
         <Text style={[styles.totalValue, { color: colors.text }]}>
@@ -267,7 +313,12 @@ function TrackOrderAddressCard({
   shippingAddress: TrackOrderData['shipping_address'];
 }) {
   return (
-    <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+    <View
+      style={[
+        styles.card,
+        { backgroundColor: colors.card, borderColor: colors.border },
+      ]}
+    >
       <Text style={[styles.sectionTitle, { color: colors.text }]}>
         Shipping Address
       </Text>
@@ -282,7 +333,9 @@ function TrackOrderAddressCard({
           </Text>
           {(shippingAddress.city || shippingAddress.state) && (
             <Text style={[styles.addressText, { color: colors.textSecondary }]}>
-              {[shippingAddress.city, shippingAddress.state].filter(Boolean).join(', ')}
+              {[shippingAddress.city, shippingAddress.state]
+                .filter(Boolean)
+                .join(', ')}
             </Text>
           )}
         </View>

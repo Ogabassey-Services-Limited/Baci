@@ -197,6 +197,8 @@ describe('DataForm', () => {
     const onSuccessMock = jest.fn();
     render(<DataForm onSuccess={onSuccessMock} />);
 
+    fireEvent.changeText(screen.getByLabelText('Phone Number'), '08000000000');
+
     expect(screen.getByText('Phone Number')).toBeOnTheScreen();
     expect(screen.queryByText('Select Provider')).toBeNull();
     expect(screen.getByText('Select Data Bundle')).toBeOnTheScreen();
@@ -253,6 +255,8 @@ describe('DataForm', () => {
     });
     render(<DataForm onSuccess={jest.fn()} />);
 
+    fireEvent.changeText(screen.getByLabelText('Phone Number'), '08031234567');
+
     expect(screen.getByText('Loading providers…')).toBeOnTheScreen();
     expect(screen.queryByText('MTN 1GB Data')).toBeNull();
   });
@@ -266,17 +270,21 @@ describe('DataForm', () => {
     });
     render(<DataForm onSuccess={jest.fn()} />);
 
+    fireEvent.changeText(screen.getByLabelText('Phone Number'), '08031234567');
+
     expect(screen.getByText('No data bundles available')).toBeOnTheScreen();
   });
 
   it('shows error state from the biller fetch', () => {
-    mockUseVTUBillers.mockReturnValueOnce({
+    mockUseVTUBillers.mockReturnValue({
       data: undefined,
       error: new Error('Could not load data bundles.'),
       isError: true,
       isLoading: false,
     });
     render(<DataForm onSuccess={jest.fn()} />);
+
+    fireEvent.changeText(screen.getByLabelText('Phone Number'), '08031234567');
 
     expect(screen.getByText('Could not load data bundles.')).toBeOnTheScreen();
     expect(screen.queryByText('No data bundles available')).toBeNull();
@@ -466,6 +474,7 @@ describe('DataForm', () => {
     });
     render(<DataForm onSuccess={jest.fn()} />);
 
+    fireEvent.changeText(screen.getByLabelText('Phone Number'), '08031234567');
     fireEvent.press(screen.getByText('MTN'));
     fireEvent.press(screen.getByLabelText('MTN 3.5GB Monthly - ₦3,500'));
     expect(screen.getByLabelText('Amount').props.value).toBe('3,500');
@@ -496,8 +505,8 @@ describe('DataForm', () => {
     });
     render(<DataForm onSuccess={onSuccessMock} />);
 
-    fireEvent.press(screen.getByText('MTN 1GB Data'));
     fireEvent.changeText(screen.getByLabelText('Phone Number'), '08031234567');
+    fireEvent.press(screen.getByText('MTN 1GB Data'));
     fireEvent.changeText(screen.getByLabelText('Amount'), '1000');
     fireEvent.press(screen.getByText('Pay ₦1,000'));
 
@@ -540,8 +549,8 @@ describe('DataForm', () => {
     });
     render(<DataForm onSuccess={jest.fn()} />);
 
-    fireEvent.press(screen.getByText('MTN 1GB Data'));
     fireEvent.changeText(screen.getByLabelText('Phone Number'), '08031234567');
+    fireEvent.press(screen.getByText('MTN 1GB Data'));
     fireEvent.changeText(screen.getByLabelText('Amount'), '1000');
     fireEvent.press(screen.getByText('Pay ₦1,000'));
 
@@ -588,8 +597,8 @@ describe('DataForm', () => {
     );
     render(<DataForm onSuccess={onSuccessMock} />);
 
-    fireEvent.press(screen.getByText('MTN 1GB Data'));
     fireEvent.changeText(screen.getByLabelText('Phone Number'), '08031234567');
+    fireEvent.press(screen.getByText('MTN 1GB Data'));
     fireEvent.changeText(screen.getByLabelText('Amount'), '1000');
     fireEvent.press(screen.getByText('Pay ₦1,000'));
 

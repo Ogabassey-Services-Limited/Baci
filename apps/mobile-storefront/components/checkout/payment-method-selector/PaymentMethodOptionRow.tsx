@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { Image } from 'expo-image';
 import { Pressable, Text, View } from 'react-native';
 import Colors from '@/constants/Colors';
@@ -105,7 +105,9 @@ export function PaymentMethodOptionRow({
         ]}
       >
         {isSelected ? (
-          <View style={[styles.radioInner, { backgroundColor: BRAND.primary }]} />
+          <View
+            style={[styles.radioInner, { backgroundColor: BRAND.primary }]}
+          />
         ) : null}
       </View>
     </Pressable>

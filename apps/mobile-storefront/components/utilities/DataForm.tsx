@@ -7,7 +7,6 @@ import { useKeyboard } from '@/hooks/use-keyboard';
 import { useUtilityPayment } from '@/hooks/use-utility-payment';
 import type { Biller } from '@/hooks/use-vtu-billers';
 import { useVTUBillers } from '@/hooks/use-vtu-billers';
-import { detectNetwork } from '@/lib/network-utils';
 import { useAuthStore } from '@/stores/auth-store';
 import { BillerList } from './BillerList';
 import { createDataFormPurchaseHandler } from './create-data-form-purchase-handler';
@@ -29,6 +28,7 @@ import { getUtilityFooterOffset } from './get-utility-footer-offset';
 import { RecentUtilityRecipients } from './RecentUtilityRecipients';
 import { UtilityPaymentOptions } from './UtilityPaymentOptions';
 import { useDataBillerInitialization } from './use-data-biller-initialization';
+import { useDataFormBeneficiaryController } from './use-data-form-beneficiary-controller';
 
 export function DataForm({
   initialAmount,
@@ -53,31 +53,42 @@ export function DataForm({
   } = useVTUBillers('data');
   const scrollViewRef = useRef<ScrollView>(null);
 
-  const [selectedProvider, setSelectedProvider] = useState<string | null>(
-    initialProvider ??
-      (initialPhoneNumber ? detectNetwork(initialPhoneNumber) : null)
-  );
-  const [phoneNumber, setPhoneNumber] = useState(initialPhoneNumber ?? '');
-  const [selectedPlan, setSelectedPlan] = useState<string | null>(
-    initialPlan ?? null
-  );
-  const [selectedDataBiller, setSelectedDataBiller] = useState<Biller | null>(
-    null
-  );
-  const [isDataPickerExpanded, setIsDataPickerExpanded] = useState(
-    !initialPlan
-  );
   const parsedInitialAmount = Number(initialAmount ?? 0);
-  const [planAmount, setPlanAmount] = useState(
-    Number.isFinite(parsedInitialAmount) ? parsedInitialAmount : 0
-  );
-  // Bug #H18: Guard against double-tap with isSubmitting state (same pattern as AirtimeForm)
+
+  const {
+    phoneNumber,
+    selectedProvider,
+    setSelectedProvider,
+    selectedPlan,
+    setSelectedPlan,
+    selectedDataBiller,
+    setSelectedDataBiller,
+    isDataPickerExpanded,
+    setIsDataPickerExpanded,
+    planAmount,
+    setPlanAmount,
+    handlePhoneChange,
+    handleSelectRecentRecipient,
+    matchingRecipients,
+    canShowBeneficiaries,
+    shouldShowNetworkSection,
+  } = useDataFormBeneficiaryController({
+    initialPhoneNumber,
+    initialProvider,
+    initialPlan,
+    parsedInitialAmount,
+    dataPlans,
+    recentRecipients,
+    onSelectRecentRecipient,
+  });
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isSubmittingRef = useRef(false);
   const shouldScrollToPaymentRef = useRef(isRepeatPaymentReady);
   const wasRepeatPaymentReadyRef = useRef(isRepeatPaymentReady);
   const paymentYRef = useRef<number | null>(null);
   const payment = useUtilityPayment(planAmount);
+
   const footerSpacerHeight =
     DATA_FOOTER_HEIGHT +
     Math.max(insets.bottom, SPACING.md) +
@@ -122,26 +133,12 @@ export function DataForm({
     setSelectedProvider,
   });
 
-  const handlePhoneChange = (text: string) => {
-    const digits = text.replace(/\D/g, '');
-    setPhoneNumber(digits);
-    const detected = detectNetwork(digits);
-    const selectedBundleProvider = selectedDataBiller
-      ? inferProviderFromDataBillerName(selectedDataBiller.billerName)
-      : null;
-    if (detected && !selectedBundleProvider) {
-      setSelectedProvider(detected);
-    }
-  };
-
   const handleDataBillerSelect = (biller: Biller) => {
     const hasDataPackages = (biller.billItems?.length ?? 0) > 0;
     setSelectedDataBiller(biller);
     setSelectedPlan(hasDataPackages ? null : biller.billerId);
     setSelectedProvider(
-      inferProviderFromDataBillerName(biller.billerName) ??
-        detectNetwork(phoneNumber) ??
-        selectedProvider
+      inferProviderFromDataBillerName(biller.billerName) ?? selectedProvider
     );
     if (hasDataPackages) {
       setPlanAmount(0);
@@ -194,6 +191,7 @@ export function DataForm({
               backgroundColor: colors.muted,
               color: colors.text,
               borderColor: colors.border,
+              marginBottom: 16,
             },
           ]}
           placeholder="08012345678"
@@ -204,49 +202,53 @@ export function DataForm({
           onChangeText={handlePhoneChange}
         />
 
-        {recentRecipients.length > 0 && onSelectRecentRecipient ? (
+        {canShowBeneficiaries ? (
           <RecentUtilityRecipients
             colors={colors}
-            recipients={recentRecipients}
-            onSelect={onSelectRecentRecipient}
+            recipients={matchingRecipients}
+            onSelect={handleSelectRecentRecipient}
           />
         ) : null}
 
-        <Text
-          style={[
-            dataFormStyles.sectionTitle,
-            { color: colors.text, marginTop: 24 },
-          ]}
-        >
-          Select Data Bundle
-        </Text>
-        <BillerList
-          billers={dataPlans || []}
-          selectedBillerId={selectedDataBiller?.billerId ?? selectedPlan}
-          onSelect={handleDataBillerSelect}
-          isLoading={plansLoading}
-          isCollapsed={!!selectedDataBiller && !isDataPickerExpanded}
-          onChangeSelection={() => setIsDataPickerExpanded(true)}
-          selectedLabel="Data Bundle"
-          emptyMessage="No data bundles available"
-          errorMessage={plansErrorMessage}
-        />
+        {shouldShowNetworkSection ? (
+          <>
+            <Text
+              style={[
+                dataFormStyles.sectionTitle,
+                { color: colors.text, marginTop: 4 },
+              ]}
+            >
+              Select Data Bundle
+            </Text>
+            <BillerList
+              billers={dataPlans || []}
+              selectedBillerId={selectedDataBiller?.billerId ?? selectedPlan}
+              onSelect={handleDataBillerSelect}
+              isLoading={plansLoading}
+              isCollapsed={!!selectedDataBiller && !isDataPickerExpanded}
+              onChangeSelection={() => setIsDataPickerExpanded(true)}
+              selectedLabel="Data Bundle"
+              emptyMessage="No data bundles available"
+              errorMessage={plansErrorMessage}
+            />
 
-        {selectedDataBiller?.billItems?.length ? (
-          <DataPlanSelectionSection
-            billItems={selectedDataBiller.billItems}
-            colors={colors}
-            selectedPlan={selectedPlan}
-            onSelectPlan={handleDataPlanSelect}
-          />
+            {selectedDataBiller?.billItems?.length ? (
+              <DataPlanSelectionSection
+                billItems={selectedDataBiller.billItems}
+                colors={colors}
+                selectedPlan={selectedPlan}
+                onSelectPlan={handleDataPlanSelect}
+              />
+            ) : null}
+
+            <DataAmountInput
+              amount={planAmount}
+              colors={colors}
+              isFixedAmount={isFixedDataPlanAmount}
+              onChangeAmount={setPlanAmount}
+            />
+          </>
         ) : null}
-
-        <DataAmountInput
-          amount={planAmount}
-          colors={colors}
-          isFixedAmount={isFixedDataPlanAmount}
-          onChangeAmount={setPlanAmount}
-        />
 
         <View
           onLayout={(event) => {

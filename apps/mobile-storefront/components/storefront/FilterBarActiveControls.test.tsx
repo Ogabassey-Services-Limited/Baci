@@ -28,12 +28,7 @@ describe('FilterBarActiveControls', () => {
     props: Partial<ComponentProps<typeof FilterBarActiveControls>> &
       Pick<ComponentProps<typeof FilterBarActiveControls>, 'activeFilterType'>
   ) {
-    return render(
-      <FilterBarActiveControls
-        {...defaultProps}
-        {...props}
-      />
-    );
+    return render(<FilterBarActiveControls {...defaultProps} {...props} />);
   }
 
   it('selects a brand from the active brand controls', () => {
@@ -50,7 +45,10 @@ describe('FilterBarActiveControls', () => {
     const onPriceChange = jest.fn();
     renderControls({ activeFilterType: 'price', onPriceChange });
 
-    fireEvent.changeText(screen.getByRole('spinbutton', { name: 'Min' }), '5000');
+    fireEvent.changeText(
+      screen.getByRole('spinbutton', { name: 'Min' }),
+      '5000'
+    );
     fireEvent.changeText(
       screen.getByRole('spinbutton', { name: 'Max' }),
       '125000'

@@ -1,13 +1,6 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
-import {
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
-import {
-  PICKUP_STATION_ADDRESS_LINES,
-} from '@/components/checkout/PickupStationCard';
+import Ionicons from '@react-native-vector-icons/ionicons';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { PICKUP_STATION_ADDRESS_LINES } from '@/components/checkout/PickupStationCard';
 import type { DeliveryMethod } from '@/components/checkout/types';
 import type Colors from '@/constants/Colors';
 import { BRAND, palette, RADIUS, SHADOWS, SPACING } from '@/constants/Colors';
@@ -130,9 +123,7 @@ export function DeliveryMethodCard({
                       {option.price}
                     </Text>
                     <Ionicons
-                      name={
-                        isSelected ? 'checkmark-circle' : 'ellipse-outline'
-                      }
+                      name={isSelected ? 'checkmark-circle' : 'ellipse-outline'}
                       size={20}
                       color={isSelected ? BRAND.primary : colors.textSecondary}
                     />

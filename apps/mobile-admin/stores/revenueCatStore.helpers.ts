@@ -23,7 +23,12 @@ export function isProFromInfo(info: CustomerInfo | null): boolean {
   );
 
   if (activeKeys.length > 0 && __DEV__) {
-    console.log('[RevenueCat] Active Entitlements:', activeKeys, 'Is Pro:', isPro);
+    console.log(
+      '[RevenueCat] Active Entitlements:',
+      activeKeys,
+      'Is Pro:',
+      isPro
+    );
   }
 
   return isPro;

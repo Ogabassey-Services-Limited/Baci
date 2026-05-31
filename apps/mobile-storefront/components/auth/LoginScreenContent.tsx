@@ -42,7 +42,9 @@ interface LoginScreenContentProps {
   setShowPassword: (value: boolean) => void;
   setStep: (value: AuthStep) => void;
   showPassword: boolean;
-  signInWithOtp: (email: string) => Promise<{ error?: string; success: boolean }>;
+  signInWithOtp: (
+    email: string
+  ) => Promise<{ error?: string; success: boolean }>;
   step: AuthStep;
   verifyOtp: (
     email: string,

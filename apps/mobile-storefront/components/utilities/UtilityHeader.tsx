@@ -1,16 +1,15 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import type React from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { utilityPurchaseStyles as styles } from '@/components/utilities/utility-purchase.styles';
 
 type UtilityHeaderIconName = React.ComponentProps<typeof Ionicons>['name'];
 
-const TOP_INSET_OFFSET = 10;
 const MIN_PADDING_TOP = 12;
 const BACK_ICON_NAME: UtilityHeaderIconName = 'chevron-back';
-const BACK_ICON_SIZE = 31;
+const BACK_ICON_SIZE = 22;
 const HISTORY_ICON_NAME: UtilityHeaderIconName = 'document-text-outline';
-const HISTORY_ICON_SIZE = 25;
+const HISTORY_ICON_SIZE = 20;
 
 interface UtilityHeaderProps {
   title: string;
@@ -35,6 +34,11 @@ export function UtilityHeader({
   topInset,
   surfaceColor,
 }: UtilityHeaderProps): React.ReactElement {
+  // We apply a +6pt additional spacing to topInset to visually offset the header
+  // from the safe-area notch and to match the tab bar height offset used elsewhere.
+  // This ensures a balanced top spacing across devices relative to MIN_PADDING_TOP.
+  const paddingTop = Math.max(topInset + 6, MIN_PADDING_TOP);
+
   return (
     <View
       style={[
@@ -42,11 +46,21 @@ export function UtilityHeader({
         {
           backgroundColor: surfaceColor,
           borderBottomColor: dividerColor,
-          paddingTop: Math.max(topInset - TOP_INSET_OFFSET, MIN_PADDING_TOP),
+          paddingTop,
+          paddingBottom: 8,
+          minHeight: paddingTop + 44 + 8,
         },
       ]}
     >
-      <View style={styles.headerSide}>
+      <View
+        style={[
+          styles.headerSide,
+          {
+            top: paddingTop,
+            height: 44,
+          },
+        ]}
+      >
         <Pressable
           style={styles.headerIconButton}
           onPress={onBack}
@@ -63,6 +77,7 @@ export function UtilityHeader({
               name={BACK_ICON_NAME}
               size={BACK_ICON_SIZE}
               color={iconColor}
+              style={{ marginRight: -1.5 }}
             />
           </View>
         </Pressable>
@@ -77,7 +92,15 @@ export function UtilityHeader({
         </Text>
       </View>
 
-      <View style={[styles.headerSide, styles.headerSideRight]}>
+      <View
+        style={[
+          styles.headerSideRight,
+          {
+            top: paddingTop,
+            height: 44,
+          },
+        ]}
+      >
         {onHistory ? (
           <Pressable
             style={styles.headerIconButton}

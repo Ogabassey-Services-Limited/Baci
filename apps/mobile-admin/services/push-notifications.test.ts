@@ -41,9 +41,7 @@ describe('push notification native loading', () => {
     }));
   }
 
-  function createNotificationModule(
-    overrides: Record<string, unknown> = {}
-  ) {
+  function createNotificationModule(overrides: Record<string, unknown> = {}) {
     return {
       AndroidImportance: {
         DEFAULT: 3,

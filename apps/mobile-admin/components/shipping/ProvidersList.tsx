@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { Switch, Text, View } from 'react-native';
 import type { ThemeColors, ThemeShadows } from '@/constants/theme';
 import { styles } from './shipping-styles';

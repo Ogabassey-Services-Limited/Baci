@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { Pressable, Text, View } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
 import type { Domain, DomainAction } from './domain-types';
@@ -8,7 +8,11 @@ interface ActionButtonProps {
   action: DomainAction;
   hint: string;
   iconColor: string;
-  iconName: 'open-outline' | 'shield-checkmark-outline' | 'star-outline' | 'trash-outline';
+  iconName:
+    | 'open-outline'
+    | 'shield-checkmark-outline'
+    | 'star-outline'
+    | 'trash-outline';
   iconTone: string;
   label: string;
   onAction: (action: DomainAction) => void;

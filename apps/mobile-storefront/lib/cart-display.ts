@@ -46,7 +46,9 @@ export function resolveCartItemImageUrl(options: {
   const displayedImageUrl = normalizeImageCandidate(options.displayedImageUrl);
 
   return (
-    (displayedImageUrl === PLACEHOLDER_IMAGE_URL ? undefined : displayedImageUrl) ||
+    (displayedImageUrl === PLACEHOLDER_IMAGE_URL
+      ? undefined
+      : displayedImageUrl) ||
     normalizeImageCandidate(options.variantImageUrl) ||
     options.variantImages?.map(normalizeImageCandidate).find(Boolean) ||
     normalizeImageCandidate(options.fallbackImageUrl) ||

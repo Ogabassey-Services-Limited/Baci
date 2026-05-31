@@ -16,9 +16,8 @@ export const REDEEMABLE_SAVINGS_STATUSES = [
   'completed',
 ] as const satisfies readonly RedeemableSavingsStatus[];
 
-const REDEEMABLE_SAVINGS_STATUS_SET: ReadonlySet<SavingsGoal['status']> = new Set(
-  REDEEMABLE_SAVINGS_STATUSES
-);
+const REDEEMABLE_SAVINGS_STATUS_SET: ReadonlySet<SavingsGoal['status']> =
+  new Set(REDEEMABLE_SAVINGS_STATUSES);
 
 export function isRedeemableSavingsStatus(
   status: SavingsGoal['status']

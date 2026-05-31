@@ -104,7 +104,10 @@ export function createCheckoutShippingHandlers({
           city: watchedCity,
           state: watchedState,
         };
-      } else if (method !== 'pickup_station' && deliveryMethod === 'pickup_station') {
+      } else if (
+        method !== 'pickup_station' &&
+        deliveryMethod === 'pickup_station'
+      ) {
         const saved = savedDoorAddressRef.current;
         if (saved) {
           setValue('address', saved.address, { shouldValidate: false });

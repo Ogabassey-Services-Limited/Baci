@@ -21,11 +21,11 @@ export const styles = StyleSheet.create({
     padding: SPACING.xl,
   },
   tabHeader: {
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'center',
-    paddingHorizontal: SPACING.lg,
+    paddingHorizontal: SPACING.md,
     paddingTop: SPACING.lg,
-    paddingBottom: SPACING.md,
+    paddingBottom: 0,
   },
   tabHeaderTitle: {
     fontSize: TYPOGRAPHY.size.xl,
@@ -139,5 +139,49 @@ export const styles = StyleSheet.create({
   txAmount: {
     fontSize: ACTION_FONT_SIZE,
     fontWeight: TYPOGRAPHY.weight.bold,
+  },
+  infoCard: {
+    padding: SPACING.md,
+    borderRadius: RADIUS.xl,
+    borderWidth: 1,
+    gap: SPACING.sm,
+  },
+  infoCardTitle: {
+    fontSize: TYPOGRAPHY.size.base,
+    fontWeight: TYPOGRAPHY.weight.bold,
+    marginBottom: SPACING.xs,
+  },
+  infoSubTitle: {
+    fontSize: TYPOGRAPHY.size.xs,
+    fontWeight: TYPOGRAPHY.weight.bold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: SPACING.xs,
+  },
+  infoEmoji: {
+    fontSize: TYPOGRAPHY.size.base,
+  },
+  infoText: {
+    flex: 1,
+    fontSize: TYPOGRAPHY.size.xs,
+    lineHeight: 16,
+  },
+  tierRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.xs,
+    marginTop: 4,
+  },
+  tierBadge: {
+    fontSize: 9,
+    fontWeight: TYPOGRAPHY.weight.bold,
+    color: WALLET_COLORS.white,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: RADIUS.full,
   },
 });

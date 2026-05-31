@@ -68,7 +68,9 @@ describe('QuizEventsList', () => {
       />
     );
 
-    expect(screen.getByLabelText('Scheduled Scheduled Quiz').props.accessibilityState).toEqual({
+    expect(
+      screen.getByLabelText('Scheduled Scheduled Quiz').props.accessibilityState
+    ).toEqual({
       disabled: true,
     });
     fireEvent.press(screen.getByLabelText('Scheduled Scheduled Quiz'));

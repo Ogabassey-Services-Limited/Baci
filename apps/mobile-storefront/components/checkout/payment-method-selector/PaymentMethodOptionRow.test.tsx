@@ -43,7 +43,9 @@ describe('PaymentMethodOptionRow', () => {
       />
     );
 
-    fireEvent.press(screen.getByLabelText('Pay with Card. Visa, Mastercard, Verve'));
+    fireEvent.press(
+      screen.getByLabelText('Pay with Card. Visa, Mastercard, Verve')
+    );
     expect(onPress).toHaveBeenCalledWith('paystack');
   });
 
@@ -63,7 +65,9 @@ describe('PaymentMethodOptionRow', () => {
     expect(
       screen.getByLabelText('Pay with Card. Unavailable right now')
     ).toBeTruthy();
-    fireEvent.press(screen.getByLabelText('Pay with Card. Unavailable right now'));
+    fireEvent.press(
+      screen.getByLabelText('Pay with Card. Unavailable right now')
+    );
     expect(onPress).not.toHaveBeenCalled();
   });
 });

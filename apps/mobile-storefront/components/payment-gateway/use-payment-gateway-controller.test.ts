@@ -50,7 +50,9 @@ jest.mock('@/lib/clipboard', () => ({
 jest.mock('@/lib/customer-savings', () => ({
   SavingsAuthorizationStillProcessingError: class SavingsAuthorizationStillProcessingError extends Error {
     constructor() {
-      super('Savings card authorization is still processing. Check again shortly.');
+      super(
+        'Savings card authorization is still processing. Check again shortly.'
+      );
       this.name = 'SavingsAuthorizationStillProcessingError';
     }
   },

@@ -49,9 +49,7 @@ export default function PurchaseUpsellCard({
           disabled: isActionDisabled,
         }}
       >
-        {isLoading ? (
-          <ActivityIndicator color={BRAND.onPrimary} />
-        ) : null}
+        {isLoading ? <ActivityIndicator color={BRAND.onPrimary} /> : null}
         <Text style={styles.primaryButtonText}>
           {isLoading ? 'Creating Account...' : 'Create Account'}
         </Text>

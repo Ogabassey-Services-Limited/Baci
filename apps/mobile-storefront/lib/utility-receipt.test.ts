@@ -38,11 +38,12 @@ jest.mock('react-native', () => {
     NativeModules: {},
     Platform: {
       OS: 'ios',
-      select: <T,>(specifics: {
+      select: <T>(specifics: {
         default?: T;
         ios?: T;
         native?: T;
-      }): T | undefined => specifics.ios ?? specifics.native ?? specifics.default,
+      }): T | undefined =>
+        specifics.ios ?? specifics.native ?? specifics.default,
     },
     Share: {
       share: (...args: unknown[]) => mockShare(...args),

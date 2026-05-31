@@ -101,7 +101,10 @@ export async function throwOrderHttpError(
   }
 
   if (response.status === 401) {
-    throw new OrderError('Session expired. Please sign in again.', 'AUTH_ERROR');
+    throw new OrderError(
+      'Session expired. Please sign in again.',
+      'AUTH_ERROR'
+    );
   }
 
   if (response.status === 404) {

@@ -18,7 +18,9 @@ describe('wallet-screen.helpers', () => {
   });
 
   it('validates wallet top-up amount boundaries', () => {
-    expect(validateWalletTopUpAmount(WALLET_TOP_UP_MIN_AMOUNT - 1)).toContain('between');
+    expect(validateWalletTopUpAmount(WALLET_TOP_UP_MIN_AMOUNT - 1)).toContain(
+      'between'
+    );
     expect(validateWalletTopUpAmount(WALLET_TOP_UP_MIN_AMOUNT)).toBeNull();
     expect(validateWalletTopUpAmount(1_000_000_001)).toContain('between');
   });
@@ -30,7 +32,9 @@ describe('wallet-screen.helpers', () => {
         { email: 'user@x.com' }
       )
     ).toBe('Jane Doe');
-    expect(getWalletCustomerName({ email: 'jane@x.com' }, { email: 'u@x.com' })).toBe('jane@x.com');
+    expect(
+      getWalletCustomerName({ email: 'jane@x.com' }, { email: 'u@x.com' })
+    ).toBe('jane@x.com');
     expect(getWalletCustomerName(null, { email: 'u@x.com' })).toBe('u@x.com');
     expect(getWalletCustomerName(null, null)).toBe('Customer');
   });

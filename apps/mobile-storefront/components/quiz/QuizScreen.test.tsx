@@ -74,7 +74,9 @@ describe('QuizScreen', () => {
   });
 
   it('renders a load error as an accessible alert', async () => {
-    jest.mocked(fetchQuizEvents).mockRejectedValueOnce(new Error('Events offline'));
+    jest
+      .mocked(fetchQuizEvents)
+      .mockRejectedValueOnce(new Error('Events offline'));
 
     render(<QuizScreen integrityTier="device" locale="en-US" />);
 
@@ -108,9 +110,9 @@ describe('QuizScreen', () => {
   });
 
   it('disables start for scheduled quiz events', async () => {
-    jest.mocked(fetchQuizEvents).mockResolvedValueOnce([
-      { ...quizEvent, status: 'scheduled' },
-    ]);
+    jest
+      .mocked(fetchQuizEvents)
+      .mockResolvedValueOnce([{ ...quizEvent, status: 'scheduled' }]);
 
     render(<QuizScreen integrityTier="device" locale="en-US" />);
 
@@ -175,12 +177,10 @@ describe('QuizScreen', () => {
         .accessibilityState
     ).toMatchObject({ disabled: true });
     expect(
-      screen.getByRole('button', { name: 'Answer 4' }).props
-        .accessibilityState
+      screen.getByRole('button', { name: 'Answer 4' }).props.accessibilityState
     ).toMatchObject({ disabled: true, selected: true });
     expect(
-      screen.getByRole('button', { name: 'Answer 3' }).props
-        .accessibilityState
+      screen.getByRole('button', { name: 'Answer 3' }).props.accessibilityState
     ).toMatchObject({ disabled: true });
     expect(submitQuizAnswer).toHaveBeenCalledWith({
       answer: 'b',

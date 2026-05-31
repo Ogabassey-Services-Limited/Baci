@@ -17,7 +17,7 @@ export function DataAmountInput({
   onChangeAmount,
 }: DataAmountInputProps) {
   return (
-    <View style={[dataFormStyles.inputGroup, { marginTop: 16 }]}>
+    <View style={dataFormStyles.inputGroup}>
       <Text style={[dataFormStyles.label, { color: colors.textSecondary }]}>
         {isFixedAmount ? 'Amount' : 'Amount (₦)'}
       </Text>

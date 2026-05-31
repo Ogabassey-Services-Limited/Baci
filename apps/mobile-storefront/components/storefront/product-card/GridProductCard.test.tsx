@@ -191,8 +191,9 @@ describe('GridProductCard', () => {
     renderCard();
 
     const cardStyle = StyleSheet.flatten(
-      screen.getByLabelText(`${baseProduct.name}, ${formatPrice(baseProduct.price)}`).props
-        .style
+      screen.getByLabelText(
+        `${baseProduct.name}, ${formatPrice(baseProduct.price)}`
+      ).props.style
     );
     const cartStyle = StyleSheet.flatten(
       screen.getByLabelText(`Add ${baseProduct.name} to cart`).props.style

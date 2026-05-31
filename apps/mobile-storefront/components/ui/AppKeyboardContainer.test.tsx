@@ -15,7 +15,9 @@ describe('AppKeyboardContainer', () => {
     expect(screen.getByText('Login form')).toBeTruthy();
     expect(container).toHaveProp('automaticOffset', true);
     expect(container).toHaveProp('behavior', 'padding');
-    expect(StyleSheet.flatten(container.props.style)).toMatchObject({ flex: 1 });
+    expect(StyleSheet.flatten(container.props.style)).toMatchObject({
+      flex: 1,
+    });
   });
 
   it('forwards keyboard props and merges container styling', () => {
@@ -42,10 +44,10 @@ describe('AppKeyboardContainer', () => {
   it('keeps base layout when optional style is omitted', () => {
     render(<AppKeyboardContainer />);
 
-    expect(StyleSheet.flatten(screen.getByTestId('keyboard-container').props.style)).toMatchObject(
-      {
-        flex: 1,
-      }
-    );
+    expect(
+      StyleSheet.flatten(screen.getByTestId('keyboard-container').props.style)
+    ).toMatchObject({
+      flex: 1,
+    });
   });
 });

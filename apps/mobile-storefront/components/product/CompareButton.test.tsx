@@ -35,14 +35,16 @@ describe('CompareButton', () => {
   });
 
   it('renders correctly when product is NOT in comparison', () => {
-    (useComparisonStore as unknown as jest.Mock).mockImplementation((selector: unknown) => {
-      const state: MockComparisonState = {
-        canAdd: () => true,
-        isInComparison: () => false,
-        toggleComparison: jest.fn(),
-      };
-      return (selector as (s: MockComparisonState) => unknown)(state);
-    });
+    (useComparisonStore as unknown as jest.Mock).mockImplementation(
+      (selector: unknown) => {
+        const state: MockComparisonState = {
+          canAdd: () => true,
+          isInComparison: () => false,
+          toggleComparison: jest.fn(),
+        };
+        return (selector as (s: MockComparisonState) => unknown)(state);
+      }
+    );
 
     render(<CompareButton product={mockProduct} />);
 
@@ -53,14 +55,16 @@ describe('CompareButton', () => {
   });
 
   it('renders correctly when product IS in comparison', () => {
-    (useComparisonStore as unknown as jest.Mock).mockImplementation((selector: unknown) => {
-      const state: MockComparisonState = {
-        canAdd: () => true,
-        isInComparison: () => true,
-        toggleComparison: jest.fn(),
-      };
-      return (selector as (s: MockComparisonState) => unknown)(state);
-    });
+    (useComparisonStore as unknown as jest.Mock).mockImplementation(
+      (selector: unknown) => {
+        const state: MockComparisonState = {
+          canAdd: () => true,
+          isInComparison: () => true,
+          toggleComparison: jest.fn(),
+        };
+        return (selector as (s: MockComparisonState) => unknown)(state);
+      }
+    );
 
     render(<CompareButton product={mockProduct} />);
 
@@ -72,14 +76,16 @@ describe('CompareButton', () => {
 
   it('calls toggleComparison when pressed', () => {
     const mockToggle = jest.fn();
-    (useComparisonStore as unknown as jest.Mock).mockImplementation((selector: unknown) => {
-      const state: MockComparisonState = {
-        canAdd: () => true,
-        isInComparison: () => false,
-        toggleComparison: mockToggle,
-      };
-      return (selector as (s: MockComparisonState) => unknown)(state);
-    });
+    (useComparisonStore as unknown as jest.Mock).mockImplementation(
+      (selector: unknown) => {
+        const state: MockComparisonState = {
+          canAdd: () => true,
+          isInComparison: () => false,
+          toggleComparison: mockToggle,
+        };
+        return (selector as (s: MockComparisonState) => unknown)(state);
+      }
+    );
 
     render(<CompareButton product={mockProduct} />);
 

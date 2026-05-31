@@ -40,9 +40,8 @@ const mockSetSearchQuery = jest.fn();
 const mockSetSelectedFilter = jest.fn();
 const mockUseAuthState = jest.fn<() => MockAuthState>();
 const mockUseNetworkState = jest.fn();
-const mockUseOrdersListController = jest.fn<
-  () => MockOrdersListControllerResult
->();
+const mockUseOrdersListController =
+  jest.fn<() => MockOrdersListControllerResult>();
 const mockUseRequireAuth = jest.fn();
 const mockStorefrontScreenShell = jest.fn(
   ({ children }: MockStorefrontScreenShellProps) => (

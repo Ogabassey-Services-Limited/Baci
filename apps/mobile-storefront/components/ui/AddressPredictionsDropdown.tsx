@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import type Colors from '@/constants/Colors';
 import { BRAND } from '@/constants/Colors';
@@ -98,7 +98,9 @@ export function AddressPredictionsDropdown({
         <View
           style={[
             styles.footer,
-            { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : colors.muted },
+            {
+              backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : colors.muted,
+            },
           ]}
         >
           <Text style={[styles.footerText, { color: colors.textSecondary }]}>

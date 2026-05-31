@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { Alert, Pressable, StyleSheet, Text } from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
@@ -46,7 +46,9 @@ export function CompareButton({
     <Pressable
       onPress={handlePress}
       accessibilityRole="button"
-      accessibilityLabel={isInComparison ? 'Remove from comparison' : 'Add to comparison'}
+      accessibilityLabel={
+        isInComparison ? 'Remove from comparison' : 'Add to comparison'
+      }
       accessibilityState={{ checked: isInComparison }}
       accessibilityHint="Toggles adding or removing this product from the comparison list"
       style={({ pressed }) => [

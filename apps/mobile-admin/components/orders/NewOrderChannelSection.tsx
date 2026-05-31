@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import type { useNewOrderController } from '@/hooks/useNewOrderController';
 import { CHANNELS } from './new-order.shared';

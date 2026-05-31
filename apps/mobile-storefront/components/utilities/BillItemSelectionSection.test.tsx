@@ -234,7 +234,7 @@ describe('BillItemSelectionSection', () => {
       />
     );
 
-    expect(screen.getByText('Select Beneficiary')).toBeOnTheScreen();
+    expect(screen.getByText('Recent Payments')).toBeOnTheScreen();
     expect(screen.getByText('Meter Number: 43901766923')).toBeOnTheScreen();
 
     await user.press(

@@ -60,7 +60,9 @@ describe('PaymentMethodsScreen', () => {
 
     render(<PaymentMethodsScreen />);
 
-    expect(screen.getByText('Failed to load payment methods')).toBeInTheDocument();
+    expect(
+      screen.getByText('Failed to load payment methods')
+    ).toBeInTheDocument();
     expect(screen.getByText('Failed to fetch')).toBeInTheDocument();
     expect(
       screen.getByLabelText('Retry loading payment methods')
@@ -76,7 +78,9 @@ describe('PaymentMethodsScreen', () => {
 
     render(<PaymentMethodsScreen />);
 
-    expect(screen.getByText('Failed to load payment methods')).toBeInTheDocument();
+    expect(
+      screen.getByText('Failed to load payment methods')
+    ).toBeInTheDocument();
     expect(screen.getByText('Merchant not found')).toBeInTheDocument();
   });
 

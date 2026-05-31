@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type Colors from '@/constants/Colors';
@@ -20,13 +20,7 @@ export function OrderDetailsLoadingState({
       style={[styles.container, { backgroundColor }]}
       edges={['top', 'left', 'right']}
     >
-      <View
-        style={[
-          styles.container,
-          styles.centered,
-          { backgroundColor },
-        ]}
-      >
+      <View style={[styles.container, styles.centered, { backgroundColor }]}>
         <ActivityIndicator size="large" color={BRAND.primary} />
       </View>
     </SafeAreaView>
@@ -49,13 +43,7 @@ export function OrderDetailsErrorState({
       style={[styles.container, { backgroundColor }]}
       edges={['top', 'left', 'right']}
     >
-      <View
-        style={[
-          styles.container,
-          styles.centered,
-          { backgroundColor },
-        ]}
-      >
+      <View style={[styles.container, styles.centered, { backgroundColor }]}>
         <Ionicons
           name="alert-circle-outline"
           size={48}

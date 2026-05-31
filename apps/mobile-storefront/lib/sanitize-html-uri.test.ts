@@ -32,13 +32,17 @@ describe('stripUnsafeUriPrefix', () => {
 
   it('ignores leading whitespace and control-character obfuscation', () => {
     expect(stripUnsafeUriPrefix('  \tjava\tscript:alert(1)')).toBe('alert(1)');
-    expect(stripUnsafeUriPrefix('\ndata\n:text/html,pwn')).toBe('text/html,pwn');
+    expect(stripUnsafeUriPrefix('\ndata\n:text/html,pwn')).toBe(
+      'text/html,pwn'
+    );
     expect(stripUnsafeUriPrefix('java\x00script:alert(1)')).toBe('alert(1)');
     expect(stripUnsafeUriPrefix('java\x1Bscript:alert(1)')).toBe('alert(1)');
   });
 
   it('leaves safe schemes and relative paths unchanged', () => {
-    expect(stripUnsafeUriPrefix('https://example.com')).toBe('https://example.com');
+    expect(stripUnsafeUriPrefix('https://example.com')).toBe(
+      'https://example.com'
+    );
     expect(stripUnsafeUriPrefix('/products/item')).toBe('/products/item');
   });
 });

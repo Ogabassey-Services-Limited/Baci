@@ -1,8 +1,17 @@
 import { stripUnsafeUriPrefix } from './sanitize-html-uri';
 
-const DANGEROUS_BLOCK_TAGS = new Set(['script', 'style', 'iframe', 'object', 'form']);
+const DANGEROUS_BLOCK_TAGS = new Set([
+  'script',
+  'style',
+  'iframe',
+  'object',
+  'form',
+]);
 const DANGEROUS_SINGLE_TAGS = new Set(['embed', 'input']);
-const DANGEROUS_TAGS = new Set([...DANGEROUS_BLOCK_TAGS, ...DANGEROUS_SINGLE_TAGS]);
+const DANGEROUS_TAGS = new Set([
+  ...DANGEROUS_BLOCK_TAGS,
+  ...DANGEROUS_SINGLE_TAGS,
+]);
 const ALLOWED_ATTRIBUTES = new Set([
   'class',
   'style',
@@ -16,7 +25,13 @@ const ALLOWED_ATTRIBUTES = new Set([
 const MAX_SANITIZE_PASSES = 12;
 
 function isWhitespace(char: string | undefined): boolean {
-  return char === ' ' || char === '\n' || char === '\r' || char === '\t' || char === '\f';
+  return (
+    char === ' ' ||
+    char === '\n' ||
+    char === '\r' ||
+    char === '\t' ||
+    char === '\f'
+  );
 }
 
 function isTagNameChar(char: string | undefined): boolean {
@@ -54,7 +69,10 @@ function findTagEnd(input: string, start: number): number {
   return input.length;
 }
 
-function parseDangerousTagAt(input: string, start: number): {
+function parseDangerousTagAt(
+  input: string,
+  start: number
+): {
   isClosing: boolean;
   name: string;
   tagEnd: number;
@@ -118,7 +136,11 @@ function findClosingDangerousTagEnd(
 }
 
 function sanitizeSafeTag(rawTag: string): string {
-  if (rawTag.length < 3 || rawTag[0] !== '<' || rawTag[rawTag.length - 1] !== '>') {
+  if (
+    rawTag.length < 3 ||
+    rawTag[0] !== '<' ||
+    rawTag[rawTag.length - 1] !== '>'
+  ) {
     return rawTag;
   }
 
@@ -142,10 +164,15 @@ function sanitizeSafeTag(rawTag: string): string {
 
   const sanitizedAttributes: string[] = [];
   while (cursor < rawTag.length - 1) {
-    while (cursor < rawTag.length - 1 && isWhitespace(lowerTag[cursor])) cursor++;
+    while (cursor < rawTag.length - 1 && isWhitespace(lowerTag[cursor]))
+      cursor++;
     if (cursor >= rawTag.length - 1) break;
 
-    if (rawTag[cursor] === '/' || rawTag[cursor] === '>' || rawTag[cursor] === '<') {
+    if (
+      rawTag[cursor] === '/' ||
+      rawTag[cursor] === '>' ||
+      rawTag[cursor] === '<'
+    ) {
       break;
     }
 
@@ -168,7 +195,8 @@ function sanitizeSafeTag(rawTag: string): string {
     const attrName = rawTag.slice(attrNameStart, cursor);
     const lowerAttrName = attrName.toLowerCase();
 
-    while (cursor < rawTag.length - 1 && isWhitespace(lowerTag[cursor])) cursor++;
+    while (cursor < rawTag.length - 1 && isWhitespace(lowerTag[cursor]))
+      cursor++;
 
     let hasValue = false;
     let quote: '"' | "'" | '' = '';
@@ -177,7 +205,8 @@ function sanitizeSafeTag(rawTag: string): string {
     if (rawTag[cursor] === '=') {
       hasValue = true;
       cursor++;
-      while (cursor < rawTag.length - 1 && isWhitespace(lowerTag[cursor])) cursor++;
+      while (cursor < rawTag.length - 1 && isWhitespace(lowerTag[cursor]))
+        cursor++;
 
       const maybeQuote = rawTag[cursor];
       if (maybeQuote === '"' || maybeQuote === "'") {
@@ -229,7 +258,8 @@ function sanitizeSafeTag(rawTag: string): string {
   }
 
   const isSelfClosing = rawTag.slice(0, -1).trimEnd().endsWith('/');
-  const attrs = sanitizedAttributes.length > 0 ? ` ${sanitizedAttributes.join(' ')}` : '';
+  const attrs =
+    sanitizedAttributes.length > 0 ? ` ${sanitizedAttributes.join(' ')}` : '';
 
   return isSelfClosing ? `<${name}${attrs}/>` : `<${name}${attrs}>`;
 }
@@ -253,7 +283,11 @@ function sanitizeTags(input: string): string {
         continue;
       }
 
-      cursor = findClosingDangerousTagEnd(lower, dangerous.name, dangerous.tagEnd);
+      cursor = findClosingDangerousTagEnd(
+        lower,
+        dangerous.name,
+        dangerous.tagEnd
+      );
       continue;
     }
 

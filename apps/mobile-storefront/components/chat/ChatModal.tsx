@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import type { RefObject } from 'react';
 import {

@@ -82,9 +82,7 @@ describe('DeleteAccountScreen', () => {
 
     expect(screen.getByText('Delete your account')).toBeOnTheScreen();
     expect(screen.getByText('What will be deleted now')).toBeOnTheScreen();
-    expect(
-      screen.getByText('What we retain for compliance')
-    ).toBeOnTheScreen();
+    expect(screen.getByText('What we retain for compliance')).toBeOnTheScreen();
   });
 
   it('keeps the delete-account title while authentication is loading', () => {

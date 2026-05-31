@@ -2,7 +2,10 @@ import { router } from 'expo-router';
 import type { MutableRefObject } from 'react';
 import { Alert } from 'react-native';
 import type { PaymentMethodType } from '@/components/checkout/PaymentMethodSelector';
-import type { DeliveryMethod, ShippingQuote } from '@/components/checkout/types';
+import type {
+  DeliveryMethod,
+  ShippingQuote,
+} from '@/components/checkout/types';
 
 interface ValidateCheckoutSubmissionParams {
   availablePaymentMethods: PaymentMethodType[];

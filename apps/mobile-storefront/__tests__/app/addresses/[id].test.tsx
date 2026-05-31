@@ -9,8 +9,9 @@ import {
 import { Alert } from 'react-native';
 import AddressFormScreen from '@/app/addresses/[id]';
 
-type TouchableOpacityMockProps =
-  React.ComponentProps<typeof import('react-native').TouchableOpacity>;
+type TouchableOpacityMockProps = React.ComponentProps<
+  typeof import('react-native').TouchableOpacity
+>;
 
 const mockAlert = jest.fn();
 const mockBack = jest.fn();
@@ -194,7 +195,9 @@ describe('AddressFormScreen', () => {
 
     expect(screen.queryByText('Name is required')).toBeNull();
     expect(screen.queryByText('Phone number is required')).toBeNull();
-    expect(screen.queryByText('Enter a valid Nigerian phone number')).toBeNull();
+    expect(
+      screen.queryByText('Enter a valid Nigerian phone number')
+    ).toBeNull();
     expect(screen.queryByText('Address is required')).toBeNull();
     expect(screen.queryByText('City is required')).toBeNull();
 
@@ -229,9 +232,7 @@ describe('AddressFormScreen', () => {
         ],
       });
     });
-    expect(mockToastSuccess).toHaveBeenCalledWith(
-      'Address added successfully'
-    );
+    expect(mockToastSuccess).toHaveBeenCalledWith('Address added successfully');
     act(() => {
       jest.advanceTimersByTime(500);
     });
@@ -276,10 +277,7 @@ describe('AddressFormScreen', () => {
     fireEvent.press(addAddressButton);
 
     await waitFor(() => {
-      expect(mockAlert).toHaveBeenCalledWith(
-        'Error',
-        'Failed to save address'
-      );
+      expect(mockAlert).toHaveBeenCalledWith('Error', 'Failed to save address');
     });
     expect(mockSingle).toHaveBeenCalledTimes(1);
     expect(failedSecondEq).toHaveReturnedWith({

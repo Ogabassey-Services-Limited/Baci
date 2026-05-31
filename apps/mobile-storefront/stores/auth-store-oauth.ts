@@ -104,7 +104,9 @@ export function createOAuthActions(set: AuthStoreSet, get: AuthStoreGet) {
         const AppleAuthentication = await import('expo-apple-authentication');
         const isAvailable = await AppleAuthentication.isAvailableAsync();
         if (!isAvailable) {
-          throw new Error('Apple Authentication is not available on this device');
+          throw new Error(
+            'Apple Authentication is not available on this device'
+          );
         }
 
         const credential = await AppleAuthentication.signInAsync({
@@ -150,13 +152,16 @@ export function createOAuthActions(set: AuthStoreSet, get: AuthStoreGet) {
           await supabase.auth.updateUser({ data: { full_name: fullName } });
           const { merchantId } = get();
           if (merchantId && data.user.email) {
-            const { error: rpcError } = await supabase.rpc('upsert_customer_on_auth', {
-              p_merchant_id: merchantId,
-              p_user_id: data.user.id,
-              p_email: data.user.email,
-              p_full_name: fullName,
-              p_phone: null,
-            });
+            const { error: rpcError } = await supabase.rpc(
+              'upsert_customer_on_auth',
+              {
+                p_merchant_id: merchantId,
+                p_user_id: data.user.id,
+                p_email: data.user.email,
+                p_full_name: fullName,
+                p_phone: null,
+              }
+            );
             if (rpcError) {
               log.warn('Failed to upsert customer after Apple auth:', {
                 merchantId,

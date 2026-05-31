@@ -19,7 +19,9 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!supabaseUrl || !serviceRoleKey) {
-  console.error('[cleanup-push-tokens] Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
+  console.error(
+    '[cleanup-push-tokens] Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY'
+  );
   process.exit(1);
 }
 
@@ -33,14 +35,22 @@ const [staleResult, attemptsResult] = await Promise.all([
 ]);
 
 if (staleResult.error) {
-  console.error('[cleanup-push-tokens] Stale tokens cleanup failed:', staleResult.error);
+  console.error(
+    '[cleanup-push-tokens] Stale tokens cleanup failed:',
+    staleResult.error
+  );
 }
 if (attemptsResult.error) {
-  console.error('[cleanup-push-tokens] Old attempts cleanup failed:', attemptsResult.error);
+  console.error(
+    '[cleanup-push-tokens] Old attempts cleanup failed:',
+    attemptsResult.error
+  );
 }
 
 if (staleResult.error || attemptsResult.error) {
   process.exit(1);
 }
 
-console.log(`[cleanup-push-tokens] Done — cleanedTokens=${staleResult.data ?? 0}, cleanedAttempts=${attemptsResult.data ?? 0}`);
+console.log(
+  `[cleanup-push-tokens] Done — cleanedTokens=${staleResult.data ?? 0}, cleanedAttempts=${attemptsResult.data ?? 0}`
+);

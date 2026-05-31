@@ -48,20 +48,30 @@ describe('CheckoutStepper', () => {
 
   it('calls setStep when pressing a completed pill', () => {
     render(<CheckoutStepper {...baseProps} step="payment" />);
-    fireEvent.press(screen.getByRole('button', { name: /go to delivery step/i }));
+    fireEvent.press(
+      screen.getByRole('button', { name: /go to delivery step/i })
+    );
     expect(baseProps.setStep).toHaveBeenCalledWith('address');
   });
 
   it('does not call setStep when pressing the active pill', () => {
     render(<CheckoutStepper {...baseProps} step="address" />);
-    fireEvent.press(screen.getByRole('button', { name: /go to delivery step/i }));
+    fireEvent.press(
+      screen.getByRole('button', { name: /go to delivery step/i })
+    );
     expect(baseProps.setStep).not.toHaveBeenCalled();
   });
 
   it('renders pills for all three steps', () => {
     render(<CheckoutStepper {...baseProps} step="address" />);
-    expect(screen.getByRole('button', { name: /go to delivery step/i })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /go to payment step/i })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /go to review step/i })).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: /go to delivery step/i })
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: /go to payment step/i })
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: /go to review step/i })
+    ).toBeTruthy();
   });
 });

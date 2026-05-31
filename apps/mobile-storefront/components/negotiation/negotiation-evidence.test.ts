@@ -22,7 +22,10 @@ describe('negotiation evidence helpers', () => {
       )
     ).toBe('jpeg');
     expect(
-      extractNegotiationFileExtension('file:///tmp/proof', 'application/octet-stream')
+      extractNegotiationFileExtension(
+        'file:///tmp/proof',
+        'application/octet-stream'
+      )
     ).toBe('jpg');
   });
 });

@@ -2,7 +2,10 @@ import { router } from 'expo-router';
 import type { MutableRefObject } from 'react';
 import { Alert } from 'react-native';
 import type { PaymentMethodType } from '@/components/checkout/PaymentMethodSelector';
-import type { DeliveryMethod, ShippingQuote } from '@/components/checkout/types';
+import type {
+  DeliveryMethod,
+  ShippingQuote,
+} from '@/components/checkout/types';
 import {
   buildMobileCheckoutOrderFingerprint,
   clearMobileCheckoutIdempotencyKey,
@@ -200,27 +203,33 @@ async function initializeKlumpAndRoute({
   );
   let initResponse: Response;
   try {
-    initResponse = await fetch(`${CHECKOUT_API_BASE_URL}/api/payments/initialize`, {
-      method: 'POST',
-      signal: controller.signal,
-      headers: {
-        'Content-Type': 'application/json',
-        'Idempotency-Key': `payment-init-${orderId}-klump`,
-      },
-      body: JSON.stringify(
-        buildKlumpInitializePayload({
-          customerEmail,
-          customerName,
-          customerPhone,
-          merchantId: CHECKOUT_MERCHANT_ID,
-          orderId,
-          orderTotal,
-        })
-      ),
-    });
+    initResponse = await fetch(
+      `${CHECKOUT_API_BASE_URL}/api/payments/initialize`,
+      {
+        method: 'POST',
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json',
+          'Idempotency-Key': `payment-init-${orderId}-klump`,
+        },
+        body: JSON.stringify(
+          buildKlumpInitializePayload({
+            customerEmail,
+            customerName,
+            customerPhone,
+            merchantId: CHECKOUT_MERCHANT_ID,
+            orderId,
+            orderTotal,
+          })
+        ),
+      }
+    );
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
-      throw new OrderError('Payment initialization timed out', 'PAYMENT_INIT_TIMEOUT');
+      throw new OrderError(
+        'Payment initialization timed out',
+        'PAYMENT_INIT_TIMEOUT'
+      );
     }
     throw error;
   } finally {

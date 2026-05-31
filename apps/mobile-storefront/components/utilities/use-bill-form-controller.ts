@@ -14,9 +14,7 @@ import {
   BILL_TYPE_MAP,
   IDENTIFIER_LABELS,
 } from './bill-form.constants';
-import {
-  parseUtilityAmount,
-} from './bill-form.helpers';
+import { parseUtilityAmount } from './bill-form.helpers';
 import type { BillFormProps } from './bill-form.types';
 import type { BillFormController } from './bill-form-controller.types';
 import { createBillFormPurchaseHandler } from './create-bill-form-purchase-handler';

@@ -41,9 +41,7 @@ describe('AddressFormFields', () => {
     fireEvent.press(
       screen.getByRole('button', { name: 'Use Office address label' })
     );
-    fireEvent.press(
-      screen.getByRole('button', { name: 'Select Abia state' })
-    );
+    fireEvent.press(screen.getByRole('button', { name: 'Select Abia state' }));
     fireEvent.press(
       screen.getByRole('checkbox', { name: 'Set as default address' })
     );
@@ -65,10 +63,7 @@ describe('AddressFormFields', () => {
       />
     );
 
-    fireEvent.changeText(
-      screen.getByLabelText('Full Name'),
-      'Ada Customer'
-    );
+    fireEvent.changeText(screen.getByLabelText('Full Name'), 'Ada Customer');
     fireEvent.changeText(screen.getByLabelText('Phone Number'), '08031234567');
     fireEvent.changeText(
       screen.getByLabelText('Street Address'),
@@ -89,10 +84,6 @@ describe('AddressFormFields', () => {
       '12 Test Avenue'
     );
     expect(onUpdateField).toHaveBeenNthCalledWith(4, 'city', 'Ikeja');
-    expect(onUpdateField).toHaveBeenNthCalledWith(
-      5,
-      'postal_code',
-      '100001'
-    );
+    expect(onUpdateField).toHaveBeenNthCalledWith(5, 'postal_code', '100001');
   });
 });

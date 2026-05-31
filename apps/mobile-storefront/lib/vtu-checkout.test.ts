@@ -7,7 +7,11 @@ import {
   jest,
 } from '@jest/globals';
 import { MOBILE_TO_KUDA_PROVIDER } from '@/lib/network-utils';
-import { HttpError, NetworkError, TimeoutError } from '@/lib/fetch-with-timeout';
+import {
+  HttpError,
+  NetworkError,
+  TimeoutError,
+} from '@/lib/fetch-with-timeout';
 import {
   chargeSavedVtuCard,
   chargeWalletForVtu,
@@ -71,9 +75,9 @@ jest.mock('expo-constants', () => ({
 }));
 
 jest.mock('@/lib/fetch-with-timeout', () => {
-  const actual = jest.requireActual<
-    typeof import('@/lib/fetch-with-timeout')
-  >('@/lib/fetch-with-timeout');
+  const actual = jest.requireActual<typeof import('@/lib/fetch-with-timeout')>(
+    '@/lib/fetch-with-timeout'
+  );
   return {
     ...actual,
     fetchWithTimeout: (...args: unknown[]) => mockFetchWithTimeout(...args),
@@ -309,9 +313,9 @@ describe('vtu-checkout service', () => {
     try {
       const confirmation = expect(
         waitForVtuConfirmation({
-        gateway: 'paystack',
-        maxAttempts: 1,
-        reference: 'VTU-123',
+          gateway: 'paystack',
+          maxAttempts: 1,
+          reference: 'VTU-123',
         })
       ).rejects.toBeInstanceOf(VtuPaymentStillProcessingError);
 

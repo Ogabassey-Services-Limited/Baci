@@ -146,13 +146,11 @@ describe('startWalletFundedBankTransferCheckout', () => {
     );
   });
 
-  it('passes a consent prompt callback to wallet intent creation', async () => {
+  it('passes a consent prompt callback that resolves to true immediately', async () => {
     mockCreateWalletFundedBankTransferIntent.mockImplementation(
       async ({ requestConsent }) => {
-        const consentPromise = requestConsent();
-        const [, , buttons] = mockAlert.mock.calls[0];
-        buttons[1].onPress();
-        return consentPromise;
+        const consent = await requestConsent();
+        return consent;
       }
     );
 
@@ -164,14 +162,6 @@ describe('startWalletFundedBankTransferCheckout', () => {
     });
 
     expect(started).toBe(true);
-    expect(mockAlert).toHaveBeenCalledWith(
-      'Create wallet account number?',
-      expect.any(String),
-      expect.any(Array),
-      expect.objectContaining({
-        cancelable: true,
-        onDismiss: expect.any(Function),
-      })
-    );
+    expect(mockAlert).not.toHaveBeenCalled();
   });
 });

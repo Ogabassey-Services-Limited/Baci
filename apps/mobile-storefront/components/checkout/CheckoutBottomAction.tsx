@@ -81,7 +81,9 @@ export function CheckoutBottomAction({
               : `Continue to ${step === 'address' ? 'payment' : 'review'}`
           }
           accessibilityState={
-            isReview ? { disabled: isProcessing, busy: isProcessing } : undefined
+            isReview
+              ? { disabled: isProcessing, busy: isProcessing }
+              : undefined
           }
         >
           {isReview && isProcessing ? (

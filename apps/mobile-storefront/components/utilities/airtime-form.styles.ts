@@ -22,8 +22,9 @@ export const AIRTIME_FORM_TOKENS = {
   space: {
     xxs: 2,
     xs: SPACING.xs,
-    sm: SPACING.sm,
-    md: SPACING.md,
+    sm: 12, // Standardized to 12px for layout consistency
+    md: SPACING.md, // 16
+    tier20: 20, // New semantic spacing tier for 20px
     lg: SPACING.lg,
     xl: SPACING.xl,
   },
@@ -44,9 +45,9 @@ export const airtimeFormStyles = StyleSheet.create({
   sectionTitle: {
     fontSize: AIRTIME_FORM_TOKENS.fontSize.xl,
     fontWeight: AIRTIME_FORM_TOKENS.fontWeight.semibold,
-    marginBottom: AIRTIME_FORM_TOKENS.space.md,
+    marginBottom: AIRTIME_FORM_TOKENS.space.sm,
   },
-  inputGroup: { marginBottom: AIRTIME_FORM_TOKENS.space.xl },
+  inputGroup: { marginBottom: AIRTIME_FORM_TOKENS.space.sm },
   label: {
     fontSize: AIRTIME_FORM_TOKENS.fontSize.md,
     marginBottom: AIRTIME_FORM_TOKENS.space.sm,
@@ -67,7 +68,7 @@ export const airtimeFormStyles = StyleSheet.create({
   input: {
     height: AIRTIME_FORM_TOKENS.size.inputHeight,
     borderRadius: AIRTIME_FORM_TOKENS.radius.lg,
-    paddingHorizontal: AIRTIME_FORM_TOKENS.space.xl,
+    paddingHorizontal: AIRTIME_FORM_TOKENS.space.md,
     fontSize: AIRTIME_FORM_TOKENS.fontSize.xl,
     borderWidth: 1,
   },
@@ -84,7 +85,7 @@ export const airtimeFormStyles = StyleSheet.create({
     fontWeight: AIRTIME_FORM_TOKENS.fontWeight.semibold,
   },
   networkPicker: {
-    marginBottom: AIRTIME_FORM_TOKENS.space.xl,
+    marginBottom: AIRTIME_FORM_TOKENS.space.tier20,
   },
   networkPickerHeader: {
     alignItems: 'center',
@@ -115,8 +116,8 @@ export const airtimeFormStyles = StyleSheet.create({
     flexDirection: 'row',
     gap: AIRTIME_FORM_TOKENS.space.md,
     justifyContent: 'space-between',
-    marginBottom: AIRTIME_FORM_TOKENS.space.xl,
-    padding: AIRTIME_FORM_TOKENS.space.lg,
+    marginBottom: AIRTIME_FORM_TOKENS.space.tier20,
+    padding: AIRTIME_FORM_TOKENS.space.md,
   },
   selectedNetworkCopy: {
     flex: 1,
@@ -155,5 +156,31 @@ export const airtimeFormStyles = StyleSheet.create({
     color: BRAND.onPrimary,
     fontSize: AIRTIME_FORM_TOKENS.fontSize.xl,
     fontWeight: AIRTIME_FORM_TOKENS.fontWeight.semibold,
+  },
+  unifiedCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 16,
+    marginBottom: AIRTIME_FORM_TOKENS.space.xl,
+  },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  arrowButton: {
+    width: AIRTIME_FORM_TOKENS.size.inputHeight,
+    height: AIRTIME_FORM_TOKENS.size.inputHeight,
+    borderRadius: AIRTIME_FORM_TOKENS.radius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  beneficiarySection: {
+    marginTop: 16,
+  },
+  unifiedCardLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 8,
   },
 });

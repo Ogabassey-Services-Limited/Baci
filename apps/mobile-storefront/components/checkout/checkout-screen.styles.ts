@@ -1,6 +1,6 @@
-import { StyleSheet } from "react-native";
-import { BRAND, palette, RADIUS, SHADOWS, SPACING } from "@/constants/Colors";
-import { checkoutCryptoPaymentStyles } from "./checkout-crypto-payment.styles";
+import { StyleSheet } from 'react-native';
+import { BRAND, palette, RADIUS, SHADOWS, SPACING } from '@/constants/Colors';
+import { checkoutCryptoPaymentStyles } from './checkout-crypto-payment.styles';
 
 const checkoutScreenStyles = StyleSheet.create({
   container: {
@@ -10,8 +10,8 @@ const checkoutScreenStyles = StyleSheet.create({
     flex: 1,
   },
   screenHeader: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: SPACING.md,
     paddingVertical: 10,
     borderBottomWidth: 1,
@@ -19,14 +19,14 @@ const checkoutScreenStyles = StyleSheet.create({
   backBtn: {
     width: 40,
     height: 40,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   screenHeaderTitle: {
     flex: 1,
     fontSize: 18,
-    fontWeight: "700",
-    textAlign: "center",
+    fontWeight: '700',
+    textAlign: 'center',
   },
   screenHeaderSpacer: {
     width: 40,
@@ -43,7 +43,7 @@ const checkoutScreenStyles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 20,
-    fontWeight: "700",
+    fontWeight: '700',
   },
   sectionSubtitle: {
     fontSize: 13,
@@ -53,7 +53,7 @@ const checkoutScreenStyles = StyleSheet.create({
     fontSize: 12,
   },
   bottomAction: {
-    position: "absolute",
+    position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
@@ -64,8 +64,8 @@ const checkoutScreenStyles = StyleSheet.create({
     ...SHADOWS.lg,
   },
   bottomBar: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 12,
   },
   bottomSummary: {
@@ -74,12 +74,12 @@ const checkoutScreenStyles = StyleSheet.create({
   bottomLabel: {
     fontSize: 11,
     color: palette.gray[500],
-    textTransform: "uppercase",
+    textTransform: 'uppercase',
     letterSpacing: 0.4,
   },
   bottomValue: {
     fontSize: 18,
-    fontWeight: "800",
+    fontWeight: '800',
     color: palette.gray[900],
   },
   bottomSubtle: {
@@ -87,58 +87,58 @@ const checkoutScreenStyles = StyleSheet.create({
     marginTop: 2,
   },
   actionButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     gap: 8,
     paddingVertical: 16,
     borderRadius: RADIUS.xl,
     flex: 1,
   },
   actionButtonText: {
-    color: "#FFFFFF",
+    color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: "700",
+    fontWeight: '700',
   },
   processingContainer: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
   },
   pickerOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    justifyContent: "flex-end",
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-end',
   },
   pickerSheet: {
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 16,
-    maxHeight: "70%",
+    maxHeight: '70%',
   },
   pickerHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 12,
   },
   pickerTitle: {
     fontSize: 16,
-    fontWeight: "700",
+    fontWeight: '700',
   },
   pickerItem: {
     minHeight: 48,
     paddingVertical: 12,
     paddingHorizontal: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#F3F4F6",
+    borderBottomColor: '#F3F4F6',
     borderRadius: 12,
-    justifyContent: "center",
+    justifyContent: 'center',
   },
   pickerItemContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     gap: 12,
   },
   pickerItemText: {
@@ -149,8 +149,8 @@ const checkoutScreenStyles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
     marginBottom: 12,
   },
@@ -162,8 +162,8 @@ const checkoutScreenStyles = StyleSheet.create({
     gap: SPACING.sm,
   },
   checkboxRow: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: SPACING.sm,
     paddingVertical: SPACING.xs,
     minHeight: 44,
@@ -173,20 +173,20 @@ const checkoutScreenStyles = StyleSheet.create({
     height: 22,
     borderRadius: 6,
     borderWidth: 2,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   checkboxChecked: {
     backgroundColor: BRAND.primary,
   },
   checkboxLabel: {
     fontSize: 14,
-    fontWeight: "500",
+    fontWeight: '500',
     flex: 1,
   },
   accountInfoBanner: {
-    flexDirection: "row",
-    alignItems: "flex-start",
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     gap: SPACING.sm,
     padding: SPACING.md,
     borderRadius: RADIUS.md,

@@ -33,7 +33,9 @@ describe('DeliveryMethodCard', () => {
 
   it('calls onSelectMethod with "door" when door option is pressed', () => {
     render(<DeliveryMethodCard {...baseProps} selectedMethod="airport" />);
-    fireEvent.press(screen.getByRole('button', { name: /select door delivery/i }));
+    fireEvent.press(
+      screen.getByRole('button', { name: /select door delivery/i })
+    );
     expect(baseProps.onSelectMethod).toHaveBeenCalledWith('door');
   });
 
@@ -56,11 +58,15 @@ describe('DeliveryMethodCard', () => {
   it('shows expanded airport info when airport is selected', () => {
     render(<DeliveryMethodCard {...baseProps} selectedMethod="airport" />);
     expect(screen.getByText('Airport Delivery')).toBeTruthy();
-    expect(screen.getAllByText(/24-48 working hours/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/24-48 working hours/i).length).toBeGreaterThan(
+      0
+    );
   });
 
   it('shows pickup station address lines when pickup_station is selected', () => {
-    render(<DeliveryMethodCard {...baseProps} selectedMethod="pickup_station" />);
+    render(
+      <DeliveryMethodCard {...baseProps} selectedMethod="pickup_station" />
+    );
     expect(screen.getByText('Taiyelolu Towers')).toBeTruthy();
   });
 

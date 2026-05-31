@@ -118,7 +118,7 @@ export function CheckoutPaymentStepView({
           walletFundedBankTransferOptionEnabled
             ? {
                 bank_transfer:
-                  'Transfer to your Bassey wallet account. We apply it to this order automatically.',
+                  'A permanent account number will be created for you which you can use for future purchases. We apply it to this order automatically.',
               }
             : undefined
         }

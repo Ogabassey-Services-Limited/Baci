@@ -30,7 +30,9 @@ function getFirstGrapheme(value: string): string {
 
 export function BillerInitial({ colors, name, style }: BillerInitialProps) {
   const trimmedName = name.trim();
-  const safeInitial = (getFirstGrapheme(trimmedName) || '?').toLocaleUpperCase();
+  const safeInitial = (
+    getFirstGrapheme(trimmedName) || '?'
+  ).toLocaleUpperCase();
   const accessibilityLabel = trimmedName
     ? `Biller: ${trimmedName}`
     : 'Unknown biller';

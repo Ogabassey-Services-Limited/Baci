@@ -17,10 +17,13 @@ export async function clearAndPersistCheckoutCart(clearCart: () => void) {
     );
   } catch (error) {
     if (__DEV__) {
-      console.warn('[checkout-cart-persistence] Failed to persist cleared cart', {
-        error,
-        storageKey,
-      });
+      console.warn(
+        '[checkout-cart-persistence] Failed to persist cleared cart',
+        {
+          error,
+          storageKey,
+        }
+      );
     }
   }
 }

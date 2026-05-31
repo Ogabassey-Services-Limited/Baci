@@ -20,7 +20,9 @@ describe('OrdersListEmptyState', () => {
     );
 
     expect(screen.getByText('No matching orders')).toBeTruthy();
-    fireEvent.press(screen.getByRole('button', { name: /clear order search/i }));
+    fireEvent.press(
+      screen.getByRole('button', { name: /clear order search/i })
+    );
     expect(onClearSearch).toHaveBeenCalledTimes(1);
   });
 

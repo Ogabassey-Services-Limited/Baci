@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { Pressable, Text, View } from 'react-native';
 import type { useNewOrderController } from '@/hooks/useNewOrderController';
 import { formatVatPercentage } from './new-order.shared';

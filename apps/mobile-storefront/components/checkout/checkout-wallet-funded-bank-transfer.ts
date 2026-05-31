@@ -54,34 +54,7 @@ export async function startWalletFundedBankTransferCheckout({
 }
 
 function requestWalletFundingAccountConsent() {
-  return new Promise<boolean>((resolve) => {
-    let settled = false;
-    const settle = (value: boolean) => {
-      if (settled) return;
-      settled = true;
-      resolve(value);
-    };
-
-    Alert.alert(
-      'Create wallet account number?',
-      'To use bank transfer to wallet, Paystack needs your consent to create a reusable virtual account number for your wallet.',
-      [
-        {
-          text: 'Use one-time transfer',
-          style: 'cancel',
-          onPress: () => settle(false),
-        },
-        {
-          text: 'Create account number',
-          onPress: () => settle(true),
-        },
-      ],
-      {
-        cancelable: true,
-        onDismiss: () => settle(false),
-      }
-    );
-  });
+  return Promise.resolve(true);
 }
 
 function routeToWalletFundedBankTransfer({

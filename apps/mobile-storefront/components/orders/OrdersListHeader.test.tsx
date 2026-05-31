@@ -32,7 +32,9 @@ describe('OrdersListHeader', () => {
 
     expect(screen.getByText('All')).toBeTruthy();
     expect(screen.getByText('Active')).toBeTruthy();
-    expect(screen.getByPlaceholderText('Search orders, items, or status')).toBeTruthy();
+    expect(
+      screen.getByPlaceholderText('Search orders, items, or status')
+    ).toBeTruthy();
   });
 
   it('calls onSelectFilter when a chip is pressed', () => {
@@ -50,7 +52,9 @@ describe('OrdersListHeader', () => {
       />
     );
 
-    fireEvent.press(screen.getByRole('button', { name: /filter orders by active/i }));
+    fireEvent.press(
+      screen.getByRole('button', { name: /filter orders by active/i })
+    );
     expect(onSelectFilter).toHaveBeenCalledWith('active');
   });
 
@@ -75,7 +79,9 @@ describe('OrdersListHeader', () => {
     );
     expect(onSearchQueryChange).toHaveBeenCalledWith('playstation');
 
-    fireEvent.press(screen.getByRole('button', { name: /clear order search/i }));
+    fireEvent.press(
+      screen.getByRole('button', { name: /clear order search/i })
+    );
     expect(onSearchQueryChange).toHaveBeenCalledWith('');
     expect(screen.getByText('1 match')).toBeTruthy();
   });

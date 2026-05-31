@@ -490,7 +490,7 @@ describe('WalletScreen', () => {
     expect(shellProps?.edges).toEqual(['top']);
     expect(screen.getByText('Wallet & Loyalty')).toBeOnTheScreen();
     expect(mockGetScrollContentStyle).toHaveBeenCalledWith({
-      includeBottomInset: false,
+      includeBottomInset: true,
       paddingBottom: WALLET_TAB_SCROLL_PADDING_BOTTOM,
     });
   });

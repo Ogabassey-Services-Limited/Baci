@@ -2,7 +2,11 @@ import { EXAM_PASS_POINTS_COST } from '@baci/shared/constants';
 import { Pressable, Text, View } from 'react-native';
 import type { QuizEvent } from '@/services/quiz-types';
 import type { createQuizStyles } from './QuizScreen.styles';
-import { formatPointCount, formatTimeRange, getEventStartButtonText } from './QuizScreen.utils';
+import {
+  formatPointCount,
+  formatTimeRange,
+  getEventStartButtonText,
+} from './QuizScreen.utils';
 
 type QuizStyles = ReturnType<typeof createQuizStyles>;
 

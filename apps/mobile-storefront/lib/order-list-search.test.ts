@@ -53,7 +53,9 @@ describe('filterOrdersBySearchQuery', () => {
       }),
     ];
 
-    expect(filterOrdersBySearchQuery(orders, 'playstation')).toEqual([orders[1]]);
+    expect(filterOrdersBySearchQuery(orders, 'playstation')).toEqual([
+      orders[1],
+    ]);
   });
 
   it('returns original array when query is empty', () => {

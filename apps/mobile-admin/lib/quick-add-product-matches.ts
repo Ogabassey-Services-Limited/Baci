@@ -91,46 +91,46 @@ export function findQuickAddProductMatches(args: {
         quickAddPrice == null
           ? Number.POSITIVE_INFINITY
           : Math.abs(product.price - quickAddPrice);
-	      const isPriceClose =
-	        quickAddPrice != null &&
-	        priceDistance <=
-	          Math.max(PRICE_DISTANCE_FLOOR, quickAddPrice * PRICE_DISTANCE_RATIO);
+      const isPriceClose =
+        quickAddPrice != null &&
+        priceDistance <=
+          Math.max(PRICE_DISTANCE_FLOOR, quickAddPrice * PRICE_DISTANCE_RATIO);
 
-	      if (normalizedProduct === normalizedQuery) {
-	        return {
-	          ...product,
-	          matchReason: MATCH_REASON_EXACT_NAME,
-	          score: EXACT_NAME_SCORE,
-	        };
-	      }
+      if (normalizedProduct === normalizedQuery) {
+        return {
+          ...product,
+          matchReason: MATCH_REASON_EXACT_NAME,
+          score: EXACT_NAME_SCORE,
+        };
+      }
 
-	      if (
-	        product.parent_product_id &&
-	        tokenOverlap >= VARIANT_PRICE_MIN_TOKEN_OVERLAP &&
-	        isPriceClose
-	      ) {
-	        return {
-	          ...product,
-	          matchReason: MATCH_REASON_VARIANT_AND_PRICE,
-	          score:
-	            VARIANT_PRICE_BASE_SCORE -
-	            priceDistance / VARIANT_PRICE_DISTANCE_DIVISOR,
-	        };
-	      }
+      if (
+        product.parent_product_id &&
+        tokenOverlap >= VARIANT_PRICE_MIN_TOKEN_OVERLAP &&
+        isPriceClose
+      ) {
+        return {
+          ...product,
+          matchReason: MATCH_REASON_VARIANT_AND_PRICE,
+          score:
+            VARIANT_PRICE_BASE_SCORE -
+            priceDistance / VARIANT_PRICE_DISTANCE_DIVISOR,
+        };
+      }
 
-	      if (
-	        tokenOverlap >= Math.min(TOKEN_MATCH_MAX_REQUIRED, queryTokens.length)
-	      ) {
-	        return {
-	          ...product,
-	          matchReason: MATCH_REASON_TOKEN_MATCH,
-	          score: TOKEN_MATCH_BASE_SCORE + tokenOverlap,
-	        };
-	      }
+      if (
+        tokenOverlap >= Math.min(TOKEN_MATCH_MAX_REQUIRED, queryTokens.length)
+      ) {
+        return {
+          ...product,
+          matchReason: MATCH_REASON_TOKEN_MATCH,
+          score: TOKEN_MATCH_BASE_SCORE + tokenOverlap,
+        };
+      }
 
       return null;
-	    })
-	    .filter((match): match is QuickAddProductMatch => match !== null)
-	    .sort((a, b) => b.score - a.score)
-	    .slice(0, MAX_QUICK_ADD_MATCH_RESULTS);
-	}
+    })
+    .filter((match): match is QuickAddProductMatch => match !== null)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, MAX_QUICK_ADD_MATCH_RESULTS);
+}

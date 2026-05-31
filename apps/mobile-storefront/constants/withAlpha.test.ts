@@ -18,12 +18,8 @@ describe('withAlpha', () => {
 
   it('replaces alpha on rgb and rgba strings', () => {
     expect(withAlpha('rgb(10, 20, 30)', 0.2)).toBe('rgba(10, 20, 30, 0.2)');
-    expect(withAlpha('rgb(0, 255, 30)', 0.333)).toBe(
-      'rgba(0, 255, 30, 0.333)'
-    );
-    expect(withAlpha(' rgb(10, 20, 30) ', 0.2)).toBe(
-      'rgba(10, 20, 30, 0.2)'
-    );
+    expect(withAlpha('rgb(0, 255, 30)', 0.333)).toBe('rgba(0, 255, 30, 0.333)');
+    expect(withAlpha(' rgb(10, 20, 30) ', 0.2)).toBe('rgba(10, 20, 30, 0.2)');
     expect(withAlpha('rgba(10, 20, 30, 0.9)', 0.6)).toBe(
       'rgba(10, 20, 30, 0.6)'
     );

@@ -137,7 +137,9 @@ export function CostPriceEditorFields({
             { borderColor: colors.border, opacity: pending ? 0.5 : 1 },
           ]}
         >
-          <Text style={[styles.datePickerButtonText, { color: colors.primary }]}>
+          <Text
+            style={[styles.datePickerButtonText, { color: colors.primary }]}
+          >
             Pick date
           </Text>
         </Pressable>
@@ -208,7 +210,10 @@ export function CostPriceEditorFields({
                 ]}
               >
                 <Text
-                  style={[styles.supplierSuggestionText, { color: colors.text }]}
+                  style={[
+                    styles.supplierSuggestionText,
+                    { color: colors.text },
+                  ]}
                 >
                   {option}
                 </Text>

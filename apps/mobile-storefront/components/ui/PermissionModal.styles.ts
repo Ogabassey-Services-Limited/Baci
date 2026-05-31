@@ -1,5 +1,11 @@
 import { StyleSheet } from 'react-native';
-import { BRAND, RADIUS, SHADOWS, SPACING, TYPOGRAPHY } from '@/constants/Colors';
+import {
+  BRAND,
+  RADIUS,
+  SHADOWS,
+  SPACING,
+  TYPOGRAPHY,
+} from '@/constants/Colors';
 
 export const permissionModalStyles = StyleSheet.create({
   overlay: {

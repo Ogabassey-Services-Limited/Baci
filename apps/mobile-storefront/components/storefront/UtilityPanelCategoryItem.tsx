@@ -1,12 +1,7 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import type React from 'react';
 import { useEffect, useRef } from 'react';
-import {
-  Animated,
-  Easing,
-  Platform,
-  TouchableOpacity,
-} from 'react-native';
+import { Animated, Easing, Platform, TouchableOpacity } from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
 import { getUtilityPanelActiveShadowStyle } from './UtilityPanel.shadows';

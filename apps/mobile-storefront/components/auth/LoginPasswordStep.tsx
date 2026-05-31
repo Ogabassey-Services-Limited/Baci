@@ -1,6 +1,13 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import type { RefObject } from 'react';
-import { ActivityIndicator, Alert, Pressable, Text, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import type Colors from '@/constants/Colors';
 import { TextContentTypes } from '@/hooks/use-keyboard';
 import { EmailSchema, getFirstError } from '@/lib/validation';
@@ -24,7 +31,9 @@ interface LoginPasswordStepProps {
   setPasswordError: (value: string | null) => void;
   setStep: (value: AuthStep) => void;
   showPassword: boolean;
-  signInWithOtp: (email: string) => Promise<{ error?: string; success: boolean }>;
+  signInWithOtp: (
+    email: string
+  ) => Promise<{ error?: string; success: boolean }>;
   toggleShowPassword: () => void;
 }
 
@@ -112,7 +121,9 @@ export function LoginPasswordStep({
           />
           <Pressable
             onPress={toggleShowPassword}
-            accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+            accessibilityLabel={
+              showPassword ? 'Hide password' : 'Show password'
+            }
             accessibilityRole="button"
             style={({ pressed }) => [
               loginStepStyles.passwordToggle,

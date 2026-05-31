@@ -1,8 +1,6 @@
 import { Stack } from 'expo-router';
 import React, { useRef } from 'react';
-import {
-  Platform,
-} from 'react-native';
+import { Platform } from 'react-native';
 import {
   SafeAreaView,
   useSafeAreaInsets,

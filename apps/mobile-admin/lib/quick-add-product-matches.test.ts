@@ -52,16 +52,16 @@ describe('findQuickAddProductMatches', () => {
       matchReason: 'variant-and-price',
     });
     expect(matches.map((match) => match.id)).toContain('iphone-11-pro');
-	  });
+  });
 
-	  it('returns no matches when the custom item has no meaningful token overlap', () => {
-	    const customItem = { name: 'Itel Buds Neo 3', price: '20000' };
+  it('returns no matches when the custom item has no meaningful token overlap', () => {
+    const customItem = { name: 'Itel Buds Neo 3', price: '20000' };
 
-	    const matches = findQuickAddProductMatches({
-	      customItem,
-	      products,
-	    });
+    const matches = findQuickAddProductMatches({
+      customItem,
+      products,
+    });
 
-	    expect(matches).toEqual([]);
-	  });
-	});
+    expect(matches).toEqual([]);
+  });
+});

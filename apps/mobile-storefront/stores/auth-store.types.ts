@@ -23,7 +23,9 @@ export interface AuthState {
   _initializationInProgress: boolean;
   initialize: () => Promise<void>;
   cleanup: () => void;
-  signInWithOtp: (email: string) => Promise<{ success: boolean; error?: string }>;
+  signInWithOtp: (
+    email: string
+  ) => Promise<{ success: boolean; error?: string }>;
   verifyOtp: (
     email: string,
     token: string

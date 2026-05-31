@@ -88,8 +88,7 @@ async function trackCommerceFallback(
       action,
       duration_ms: Date.now() - startTime,
       reason:
-        (error as { message?: string })?.message ||
-        'Edge function unavailable',
+        (error as { message?: string })?.message || 'Edge function unavailable',
     });
   } catch (trackErr) {
     log.warn('Failed to track fallback event:', trackErr);
@@ -198,7 +197,7 @@ export async function calculateCommerce(
       if (error instanceof Error) throw error;
       throw new CommerceError(
         (error as { message?: string })?.message ||
-        'Commerce calculation failed',
+          'Commerce calculation failed',
         'COMMERCE_BRAIN_ERROR'
       );
     }

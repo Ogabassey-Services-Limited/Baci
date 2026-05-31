@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import { BRAND, withAlpha } from '@/constants/Colors';
 import { styles } from './imei-check.styles';
@@ -114,7 +114,9 @@ export function ImeiCheckInputSection({
           ]}
         >
           <Ionicons name="alert-circle" size={18} color={colors.error} />
-          <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
+          <Text style={[styles.errorText, { color: colors.error }]}>
+            {error}
+          </Text>
         </View>
       )}
 

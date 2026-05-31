@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { router } from 'expo-router';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import { AppSheetModal } from '@/components/ui/AppSheetModal';

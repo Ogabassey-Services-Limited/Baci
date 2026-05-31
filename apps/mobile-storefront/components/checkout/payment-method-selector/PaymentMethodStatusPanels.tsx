@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { Text, View } from 'react-native';
 import Colors from '@/constants/Colors';
 import { BRAND } from '@/constants/Colors';
@@ -66,19 +66,27 @@ export function PaymentMethodStatusPanels({
                   Buy Now Pay Later
                 </Text>
                 <Text
-                  style={[styles.installmentDesc, { color: colors.textSecondary }]}
+                  style={[
+                    styles.installmentDesc,
+                    { color: colors.textSecondary },
+                  ]}
                 >
                   Split your order into 3-6 installments
                 </Text>
                 <Text
-                  style={[styles.installmentNote, { color: colors.textSecondary }]}
+                  style={[
+                    styles.installmentNote,
+                    { color: colors.textSecondary },
+                  ]}
                 >
                   Interest rates vary. Breakdown shown during Checkout
                 </Text>
               </>
             ) : (
               <>
-                <Text style={[styles.installmentTitle, { color: warningTextColor }]}>
+                <Text
+                  style={[styles.installmentTitle, { color: warningTextColor }]}
+                >
                   {!hasValidTotal || orderTotal < BNPL_MIN_AMOUNT
                     ? 'Minimum Order Required'
                     : 'Maximum Order Exceeded'}
@@ -103,7 +111,9 @@ export function PaymentMethodStatusPanels({
         <View
           style={[
             styles.installmentInfo,
-            { backgroundColor: `${BRAND.primary}${INFO_PANEL_BACKGROUND_OPACITY}` },
+            {
+              backgroundColor: `${BRAND.primary}${INFO_PANEL_BACKGROUND_OPACITY}`,
+            },
           ]}
         >
           <Ionicons name="receipt-outline" size={20} color={BRAND.primary} />
@@ -111,7 +121,9 @@ export function PaymentMethodStatusPanels({
             <Text style={[styles.installmentTitle, { color: colors.text }]}>
               Flexible checkout
             </Text>
-            <Text style={[styles.installmentDesc, { color: colors.textSecondary }]}>
+            <Text
+              style={[styles.installmentDesc, { color: colors.textSecondary }]}
+            >
               Generate an invoice now or prepare a payment request for someone
               else to settle later.
             </Text>
@@ -155,7 +167,9 @@ export function PaymentMethodStatusPanels({
         <View
           style={[
             styles.bankInfo,
-            { backgroundColor: `${BRAND.primary}${INFO_PANEL_BACKGROUND_OPACITY}` },
+            {
+              backgroundColor: `${BRAND.primary}${INFO_PANEL_BACKGROUND_OPACITY}`,
+            },
           ]}
         >
           <Ionicons name="wallet-outline" size={18} color={BRAND.primary} />
@@ -169,7 +183,9 @@ export function PaymentMethodStatusPanels({
         <View
           style={[
             styles.bankInfo,
-            { backgroundColor: `${BRAND.primary}${INFO_PANEL_BACKGROUND_OPACITY}` },
+            {
+              backgroundColor: `${BRAND.primary}${INFO_PANEL_BACKGROUND_OPACITY}`,
+            },
           ]}
         >
           <Ionicons name="calendar-outline" size={18} color={BRAND.primary} />

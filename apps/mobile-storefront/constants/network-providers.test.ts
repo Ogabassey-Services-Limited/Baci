@@ -9,31 +9,31 @@ describe('NETWORK_PROVIDERS', () => {
 
     expect(providers).toEqual(
       expect.arrayContaining([
-      expect.objectContaining({
-        color: '#FFCC00',
-        id: 'mtn',
-        image: expect.anything(),
-        name: 'MTN',
-      }),
-      expect.objectContaining({
-        color: '#FF0000',
-        id: 'airtel',
-        image: expect.anything(),
-        name: 'Airtel',
-      }),
-      expect.objectContaining({
-        color: '#15803D',
-        id: 'glo',
-        image: expect.anything(),
-        name: 'Glo',
-      }),
-      expect.objectContaining({
-        color: '#006400',
-        id: 't2',
-        image: expect.anything(),
-        name: 'T2 (9mobile)',
-      }),
-    ])
+        expect.objectContaining({
+          color: '#FFCC00',
+          id: 'mtn',
+          image: expect.anything(),
+          name: 'MTN',
+        }),
+        expect.objectContaining({
+          color: '#FF0000',
+          id: 'airtel',
+          image: expect.anything(),
+          name: 'Airtel',
+        }),
+        expect.objectContaining({
+          color: '#15803D',
+          id: 'glo',
+          image: expect.anything(),
+          name: 'Glo',
+        }),
+        expect.objectContaining({
+          color: '#006400',
+          id: 't2',
+          image: expect.anything(),
+          name: 'T2 (9mobile)',
+        }),
+      ])
     );
   });
 });

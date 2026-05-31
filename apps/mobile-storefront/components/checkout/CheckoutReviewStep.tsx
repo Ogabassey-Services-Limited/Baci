@@ -165,7 +165,9 @@ export function CheckoutReviewStep({
             <Text style={[styles.orderItemName, { color: colors.text }]}>
               {item.name}
             </Text>
-            <Text style={[styles.orderItemQty, { color: colors.textSecondary }]}>
+            <Text
+              style={[styles.orderItemQty, { color: colors.textSecondary }]}
+            >
               x{item.quantity}
             </Text>
             <Text style={[styles.orderItemPrice, { color: colors.text }]}>

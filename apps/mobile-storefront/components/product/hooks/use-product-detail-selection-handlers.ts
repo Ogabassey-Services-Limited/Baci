@@ -23,7 +23,9 @@ export function useProductDetailSelectionHandlers(routeData: RouteData) {
     });
     const selectedImageColor =
       resolvedSelectionFromImage?.color ??
-      (selectedImage ? routeData.productImageColorMap[selectedImage] : undefined);
+      (selectedImage
+        ? routeData.productImageColorMap[selectedImage]
+        : undefined);
 
     if (
       !selectedImageColor ||
@@ -93,7 +95,10 @@ export function useProductDetailSelectionHandlers(routeData: RouteData) {
     handleSelectImageIndex,
     onSelectAttribute: (axis: string, value: string) => {
       routeData.setHasCustomizedSelection(true);
-      routeData.setSelectedAttributes((current) => ({ ...current, [axis]: value }));
+      routeData.setSelectedAttributes((current) => ({
+        ...current,
+        [axis]: value,
+      }));
       routeData.setSelectedVariant(null);
     },
     onSelectColor: (color: string, imgs?: string[]) => {

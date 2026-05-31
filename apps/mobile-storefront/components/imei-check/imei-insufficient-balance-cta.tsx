@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { Pressable, Text, View } from 'react-native';
 import { BRAND } from '@/constants/Colors';
 import { formatNgnCurrency } from '@/lib/format-ngn-currency';

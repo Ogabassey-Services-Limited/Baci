@@ -7,7 +7,7 @@ const DISABLED_BALANCE_OPACITY = 0.6;
 export const walletHeroStyles = {
   walletHero: {
     marginHorizontal: SPACING.md,
-    marginTop: SPACING.md,
+    marginTop: 0,
     borderRadius: RADIUS['3xl'],
     padding: SPACING.lg,
     backgroundColor: WALLET_COLORS.heroBackground,
@@ -130,71 +130,55 @@ export const walletHeroStyles = {
     width: 1,
     backgroundColor: WALLET_COLORS.heroBorder,
   },
-  loyaltyInlineSection: {
+  utilityPillsDivider: {
     marginTop: SPACING.md,
     borderTopWidth: 1,
     borderTopColor: WALLET_COLORS.heroBorder,
-    paddingTop: SPACING.sm,
-    gap: SPACING.sm,
   },
-  loyaltyInlineHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: SPACING.sm,
-  },
-  loyaltyInlineCopy: {
-    flex: 1,
-    gap: SPACING.xs,
-  },
-  loyaltyInlineLabel: {
+  utilityPillsLabel: {
     color: WALLET_COLORS.mutedText,
-    fontSize: TYPOGRAPHY.size.sm,
-    fontWeight: TYPOGRAPHY.weight.medium,
-  },
-  loyaltyInlineValue: {
-    color: WALLET_COLORS.white,
-    fontSize: TYPOGRAPHY.size.base,
-    fontWeight: TYPOGRAPHY.weight.semibold,
-  },
-  loyaltyTierBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.xs,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: COMPACT_PADDING_Y,
-    borderRadius: RADIUS.full,
-  },
-  loyaltyTierText: {
-    color: WALLET_COLORS.loyaltyTierText,
-    fontSize: TYPOGRAPHY.size.xs,
+    fontSize: 10,
     fontWeight: TYPOGRAPHY.weight.bold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginTop: SPACING.sm,
+    marginBottom: SPACING.sm,
   },
-  loyaltyRedeemInlineRow: {
+  utilityPillsScroll: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     gap: SPACING.sm,
+    paddingBottom: 2,
   },
-  loyaltyRedeemInlineText: {
-    flex: 1,
-    color: WALLET_COLORS.mutedText,
-    fontSize: TYPOGRAPHY.size.xs,
-    fontWeight: TYPOGRAPHY.weight.medium,
-  },
-  loyaltyRedeemInlineButton: {
+  utilityPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.xs,
     borderRadius: RADIUS.full,
-    backgroundColor: BRAND.primary,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: COMPACT_PADDING_Y,
+    backgroundColor: WALLET_COLORS.quickSaveBackground,
+    borderWidth: 1,
+    borderColor: WALLET_COLORS.heroBorder,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: 8,
   },
-  loyaltyRedeemInlineButtonText: {
+  utilityPillText: {
     color: WALLET_COLORS.white,
     fontSize: TYPOGRAPHY.size.xs,
     fontWeight: TYPOGRAPHY.weight.semibold,
+  },
+  loyaltyTierBadgeCompact: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: RADIUS.full,
+    marginTop: 4,
+  },
+  loyaltyTierTextCompact: {
+    color: WALLET_COLORS.loyaltyTierText,
+    fontSize: 9,
+    fontWeight: TYPOGRAPHY.weight.bold,
+    textTransform: 'uppercase',
   },
   primaryActionRow: {
     marginHorizontal: SPACING.md,

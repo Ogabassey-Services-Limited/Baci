@@ -333,7 +333,9 @@ describe('BNPLCheckoutScreen', () => {
   it('loads allowed Credit Direct popup windows in the same WebView', () => {
     render(<BNPLCheckoutScreen />);
 
-    fireEvent.press(screen.getByLabelText('mock-bnpl-open-credit-direct-popup'));
+    fireEvent.press(
+      screen.getByLabelText('mock-bnpl-open-credit-direct-popup')
+    );
 
     expect(screen.getByText(/^webview:/).props.children).toBe(
       'webview:https://checkout.creditdirect.ng/bnpl/session-123'

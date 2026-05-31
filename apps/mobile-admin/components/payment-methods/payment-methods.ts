@@ -21,9 +21,7 @@ export interface PaymentMethod {
   category: PaymentMethodCategory;
 }
 
-const PAYMENT_METHOD_ICON_BY_ID: Partial<
-  Record<string, IoniconsIconName>
-> = {
+const PAYMENT_METHOD_ICON_BY_ID: Partial<Record<string, IoniconsIconName>> = {
   credit_direct: 'time-outline',
   credpal: 'calendar-outline',
   juicyway: 'flash-outline',

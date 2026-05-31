@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { Text, View } from 'react-native';
 import type { ThemeColors } from '@/constants/theme';
 import { withTwentyPercentAlpha } from '@/utils/colors/withTwentyPercentAlpha';
@@ -9,7 +9,9 @@ interface PaywallFeatureListProps {
   colors: ThemeColors;
 }
 
-export default function PaywallFeatureList({ colors }: PaywallFeatureListProps) {
+export default function PaywallFeatureList({
+  colors,
+}: PaywallFeatureListProps) {
   const checkBackgroundColor = withTwentyPercentAlpha(colors.primary);
 
   return (
@@ -29,7 +31,10 @@ export default function PaywallFeatureList({ colors }: PaywallFeatureListProps) 
               {feature.title}
             </Text>
             <Text
-              style={[paywallStyles.featureDesc, { color: colors.textSecondary }]}
+              style={[
+                paywallStyles.featureDesc,
+                { color: colors.textSecondary },
+              ]}
             >
               {feature.desc}
             </Text>

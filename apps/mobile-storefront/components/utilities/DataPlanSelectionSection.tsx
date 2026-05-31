@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type Colors from '@/constants/Colors';
-import { BRAND, SPACING } from '@/constants/Colors';
+import { BRAND } from '@/constants/Colors';
 import type { BillItem } from '@/hooks/use-vtu-billers';
 import {
   flattenDataPlanBillItems,
@@ -90,7 +90,7 @@ export function DataPlanSelectionSection({
 
 const styles = StyleSheet.create({
   container: {
-    marginTop: SPACING.md,
+    marginBottom: 20,
   },
   sectionTitle: {
     fontSize: 16,

@@ -11,27 +11,28 @@ const statusPalette = {
 describe('OrderDetailsClosedStateCard', () => {
   const textSecondaryColor = '#6b7280';
 
-  it.each(['cancelled', 'returned', 'refunded'])(
-    'renders label, description, and colors for %s status',
-    (status) => {
-      const statusMeta = getCustomerOrderStatusMeta(status);
+  it.each([
+    'cancelled',
+    'returned',
+    'refunded',
+  ])('renders label, description, and colors for %s status', (status) => {
+    const statusMeta = getCustomerOrderStatusMeta(status);
 
-      render(
-        <OrderDetailsClosedStateCard
-          statusMeta={statusMeta}
-          statusPalette={statusPalette}
-          textSecondaryColor={textSecondaryColor}
-        />
-      );
+    render(
+      <OrderDetailsClosedStateCard
+        statusMeta={statusMeta}
+        statusPalette={statusPalette}
+        textSecondaryColor={textSecondaryColor}
+      />
+    );
 
-      screen.getByLabelText(`${statusMeta.key} status icon`);
-      const label = screen.getByText(statusMeta.label);
-      const description = screen.getByText(statusMeta.description);
+    screen.getByLabelText(`${statusMeta.key} status icon`);
+    const label = screen.getByText(statusMeta.label);
+    const description = screen.getByText(statusMeta.description);
 
-      expect(label).toHaveStyle({ color: statusPalette.accent });
-      expect(description).toHaveStyle({ color: textSecondaryColor });
-    }
-  );
+    expect(label).toHaveStyle({ color: statusPalette.accent });
+    expect(description).toHaveStyle({ color: textSecondaryColor });
+  });
 
   it('renders gracefully when the description is empty', () => {
     const statusMeta = {

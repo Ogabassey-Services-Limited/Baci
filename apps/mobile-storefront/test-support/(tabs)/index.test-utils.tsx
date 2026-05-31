@@ -43,11 +43,9 @@ type MockProductGridCall = [
   },
 ];
 
-const mockHeader = jest.fn(
-  ({ isScrolled }: { isScrolled?: boolean }) => (
-    <MockText testID="mock-header">Header {String(isScrolled)}</MockText>
-  )
-);
+const mockHeader = jest.fn(({ isScrolled }: { isScrolled?: boolean }) => (
+  <MockText testID="mock-header">Header {String(isScrolled)}</MockText>
+));
 
 function getBlockLoadMoreSignal(
   props: MockBlockRendererProps,
@@ -70,7 +68,9 @@ export const mockBlockRenderer = jest.fn((props: MockBlockRendererProps) => (
         testID="block-renderer"
       >
         <MockText>{block.type}</MockText>
-        <MockText>{String(getBlockLoadMoreSignal(props, block, index))}</MockText>
+        <MockText>
+          {String(getBlockLoadMoreSignal(props, block, index))}
+        </MockText>
         {props.renderAfterBlock?.(block, index)}
       </MockView>
     ))}

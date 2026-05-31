@@ -1,5 +1,5 @@
 import { normalizeCacSearchTerm, parseCacRegistration } from '@baci/shared';
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { useMutation } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';

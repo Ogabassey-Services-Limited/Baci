@@ -733,6 +733,57 @@ describe('Middleware Proxy', () => {
   });
 
   it.each([
+    'https://ogabassey.com/smartphones/samsung-galaxy-z-fold-4',
+    'https://ogabassey.com/products/samsung-galaxy-z-fold-4',
+    'https://ogabassey.com/steam-deck',
+    `https://ogabassey.${ROOT_DOMAIN}/smartphones/samsung-galaxy-z-fold-4`,
+    `https://${ROOT_DOMAIN}/ogabassey/smartphones/samsung-galaxy-z-fold-4`,
+    `https://${ROOT_DOMAIN}/ogabassey/best-under/samsung-galaxy-z-fold-4`,
+  ])('does not CDN-cache streamed storefront HTML for %s', async (url) => {
+    const req = new NextRequest(url);
+    req.headers.set('host', new URL(url).host);
+
+    const res = await proxy(req);
+
+    // PDP document caching can replay a streamed loading shell against Next's
+    // internal metadata boundary, producing production resume mismatches.
+    expect(res.headers.get('Cache-Control')).toBe(
+      'no-cache, no-store, max-age=0, must-revalidate'
+    );
+  });
+
+  it.each([
+    'https://ogabassey.com/smartphones/best-under/under-500k',
+    'https://ogabassey.com/smartphones/compare/iphone-15-vs-samsung-s24',
+    `https://${ROOT_DOMAIN}/ogabassey/smartphones/best-under/under-500k`,
+    `https://${ROOT_DOMAIN}/ogabassey/smartphones/compare/iphone-15-vs-samsung-s24`,
+  ])('keeps SEO listing subroutes cacheable for %s', async (url) => {
+    const req = new NextRequest(url);
+    req.headers.set('host', new URL(url).host);
+
+    const res = await proxy(req);
+
+    expect(res.headers.get('Cache-Control')).toBe(
+      's-maxage=300, stale-while-revalidate=3600'
+    );
+  });
+
+  it.each([
+    `https://${ROOT_DOMAIN}/dashboard/analytics/compare/monthly`,
+    `https://${ROOT_DOMAIN}/dashboard/settings/profile`,
+    `https://${ROOT_DOMAIN}/api/products/123`,
+  ])('does not apply storefront CDN caching to app routes for %s', async (url) => {
+    const req = new NextRequest(url);
+    req.headers.set('host', new URL(url).host);
+
+    const res = await proxy(req);
+
+    expect(res.headers.get('Cache-Control')).toBe(
+      'no-cache, must-revalidate, max-age=0'
+    );
+  });
+
+  it.each([
     '/agent-commerce.json',
     '/agent-trust.json',
     '/.well-known/agent-native-commerce',

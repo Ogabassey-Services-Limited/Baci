@@ -19,7 +19,9 @@ describe('ShippingQuotesRetryCard', () => {
     );
 
     expect(screen.getByText(/oops! rates took a detour/i)).toBeTruthy();
-    expect(screen.getByText(/our delivery partners are a bit slow/i)).toBeTruthy();
+    expect(
+      screen.getByText(/our delivery partners are a bit slow/i)
+    ).toBeTruthy();
     expect(screen.getByText(/refresh rates/i)).toBeTruthy();
   });
 
@@ -33,7 +35,9 @@ describe('ShippingQuotesRetryCard', () => {
       />
     );
 
-    await userEvent.press(screen.getByRole('button', { name: /reload delivery rates/i }));
+    await userEvent.press(
+      screen.getByRole('button', { name: /reload delivery rates/i })
+    );
     expect(onRetryQuotes).toHaveBeenCalledTimes(1);
   });
 
@@ -46,6 +50,8 @@ describe('ShippingQuotesRetryCard', () => {
       />
     );
 
-    expect(screen.getByRole('button', { name: /reload delivery rates/i })).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: /reload delivery rates/i })
+    ).toBeTruthy();
   });
 });

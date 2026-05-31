@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { FlashList } from '@shopify/flash-list';
 import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -192,7 +192,14 @@ export default function DiscountsScreen() {
                   ]}
                   onPress={handleCreateDiscount}
                 >
-                  <Text style={[styles.createButtonText, { color: colors.textOnPrimary }]}>Create Discount</Text>
+                  <Text
+                    style={[
+                      styles.createButtonText,
+                      { color: colors.textOnPrimary },
+                    ]}
+                  >
+                    Create Discount
+                  </Text>
                 </Pressable>
               </View>
             }
@@ -289,7 +296,6 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.full,
   },
   createButtonText: {
-
     fontSize: TYPOGRAPHY.size.md,
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },

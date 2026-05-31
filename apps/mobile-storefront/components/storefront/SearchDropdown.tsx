@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import {
@@ -43,11 +43,16 @@ export function SearchDropdown({
   const router = useRouter();
   const inputRef = useRef<TextInput>(null);
 
-  const { activeQuery, effectiveQuery, isControlled, setInternalQuery, setQuery } =
-    useSearchDropdownState({
-      externalQuery,
-      onExternalQueryChange,
-    });
+  const {
+    activeQuery,
+    effectiveQuery,
+    isControlled,
+    setInternalQuery,
+    setQuery,
+  } = useSearchDropdownState({
+    externalQuery,
+    onExternalQueryChange,
+  });
   const { recentSearches, saveSearch, clearHistory } = useSearchStorage();
   const { products, isLoading } = useProducts({
     search: effectiveQuery.length >= 2 ? effectiveQuery : undefined,

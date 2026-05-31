@@ -59,7 +59,9 @@ function CheckoutFormFieldHarness({
 }
 
 function getInputStyle() {
-  return StyleSheet.flatten(screen.getByPlaceholderText('you@example.com').props.style);
+  return StyleSheet.flatten(
+    screen.getByPlaceholderText('you@example.com').props.style
+  );
 }
 
 describe('CheckoutFormField', () => {

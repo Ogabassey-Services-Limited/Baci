@@ -5,7 +5,7 @@ import {
   type ImeiServiceTierDefinition,
   type ImeiServiceTierKey,
 } from '@baci/shared/imei';
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { Pressable, Text, View } from 'react-native';
 import { BRAND, withAlpha } from '@/constants/Colors';
 import { formatServicePrice } from './format-service-price';

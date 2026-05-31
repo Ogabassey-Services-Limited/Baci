@@ -1,6 +1,13 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import type { RefObject } from 'react';
-import { ActivityIndicator, Alert, Pressable, Text, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import type Colors from '@/constants/Colors';
 import { TextContentTypes } from '@/hooks/use-keyboard';
 import { getFirstError, OtpSchema } from '@/lib/validation';

@@ -238,7 +238,10 @@ export async function fetchQuizEvents(
     );
     events.push(...payload.events);
 
-    if (!payload.pagination?.hasMore || payload.pagination.nextOffset === null) {
+    if (
+      !payload.pagination?.hasMore ||
+      payload.pagination.nextOffset === null
+    ) {
       return events;
     }
     if (payload.pagination.nextOffset <= offset) {

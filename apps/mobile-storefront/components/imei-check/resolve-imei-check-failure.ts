@@ -93,7 +93,10 @@ export function resolveImeiCheckFailure(
   }
 
   if (input.responseStatus === 402) {
-    const required = getNumericFallback(payload.required, input.currentTierPrice);
+    const required = getNumericFallback(
+      payload.required,
+      input.currentTierPrice
+    );
     const balance = getNumericFallback(payload.balance, input.walletBalance);
     const topUpAmount = Math.max(0, required - balance);
 

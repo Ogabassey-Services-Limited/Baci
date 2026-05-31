@@ -3,7 +3,10 @@ import type {
   PaymentMethodType,
   PaymentTab,
 } from '@/components/checkout/PaymentMethodSelector';
-import type { DeliveryMethod, ShippingQuote } from '@/components/checkout/types';
+import type {
+  DeliveryMethod,
+  ShippingQuote,
+} from '@/components/checkout/types';
 import type { MobileCheckoutIdempotencyState } from '@/lib/checkout-order-idempotency';
 import type { ShippingAddressInput } from '@/lib/validation';
 import {
@@ -15,9 +18,7 @@ import {
 } from '@/lib/wallet-payment-helpers';
 import { trackCheckoutStep } from '@/services/analytics';
 import { createOrder } from '@/services/orders';
-import {
-  trackCheckoutRoutePurchaseCompleted,
-} from '@/services/tiktok-checkout-route-tracking';
+import { trackCheckoutRoutePurchaseCompleted } from '@/services/tiktok-checkout-route-tracking';
 import { useCartStore, type CartItem } from '@/stores/cart-store';
 import { submitBnplCheckout } from './checkout-bnpl-submit';
 import {

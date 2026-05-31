@@ -132,7 +132,8 @@ export const fetchShippingQuotes = async ({
     if (signal?.aborted) return;
 
     if (response.ok) {
-      const data: QuoteResponse & { warnings?: string[] } = await response.json();
+      const data: QuoteResponse & { warnings?: string[] } =
+        await response.json();
       const quotes = normalizeShippingQuotes(data.quotes?.all || []);
       setShippingQuotes(quotes);
       setResolvedShippingQuoteContextKey(quoteContextKey);

@@ -106,12 +106,16 @@ describe('api core retry helpers', () => {
     );
 
     await expect(
-      fetchWithRetry('/api/products', {}, {
-        baseDelay: 0,
-        checkNetwork: false,
-        maxDelay: 0,
-        maxRetries: 1,
-      })
+      fetchWithRetry(
+        '/api/products',
+        {},
+        {
+          baseDelay: 0,
+          checkNetwork: false,
+          maxDelay: 0,
+          maxRetries: 1,
+        }
+      )
     ).rejects.toBeInstanceOf(RetryExhaustedError);
     expect(fetchWithTimeout).toHaveBeenCalledTimes(2);
   });

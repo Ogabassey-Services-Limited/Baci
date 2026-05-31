@@ -1,8 +1,6 @@
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import type { UseFormSetValue } from 'react-hook-form';
-import {
-  fetchShippingQuotes,
-} from '@/components/checkout/checkout-shipping.helpers';
+import { fetchShippingQuotes } from '@/components/checkout/checkout-shipping.helpers';
 import {
   getDeliveryMethodFee,
   getShippingProviderForMethod,

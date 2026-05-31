@@ -33,7 +33,10 @@ interface SwapGradeColors {
   warning: string;
 }
 
-export function getSwapGradeColor(grade: string, colors: SwapGradeColors): string {
+export function getSwapGradeColor(
+  grade: string,
+  colors: SwapGradeColors
+): string {
   switch (grade) {
     case 'Excellent':
       return colors.success;

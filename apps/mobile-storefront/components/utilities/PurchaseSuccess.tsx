@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { type Href, useRouter } from 'expo-router';
 import type { ComponentProps } from 'react';
 import { Pressable, Text, View } from 'react-native';
@@ -219,7 +219,9 @@ export function PurchaseSuccess({
         >
           <View style={styles.processingNoticeHeader}>
             <Ionicons name="flash-outline" size={18} color={BRAND.primary} />
-            <Text style={[styles.processingNoticeTitle, { color: colors.text }]}>
+            <Text
+              style={[styles.processingNoticeTitle, { color: colors.text }]}
+            >
               {processingNoticeTitle}
             </Text>
           </View>

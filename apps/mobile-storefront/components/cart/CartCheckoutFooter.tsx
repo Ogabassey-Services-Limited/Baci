@@ -73,8 +73,7 @@ export default function CartCheckoutFooter({
           color={colors.textSecondary}
         />
         <Text style={[styles.bulkHintText, { color: colors.textSecondary }]}>
-          Individual item negotiations take precedence over cart-wide
-          discounts.
+          Individual item negotiations take precedence over cart-wide discounts.
         </Text>
       </View>
       <View style={styles.footerActions}>
@@ -95,9 +94,7 @@ export default function CartCheckoutFooter({
                 name="cash-outline"
                 size={22}
                 color={
-                  hasAcceptedNegotiation
-                    ? colors.textSecondary
-                    : colors.primary
+                  hasAcceptedNegotiation ? colors.textSecondary : colors.primary
                 }
               />
               <Text
