@@ -1,11 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-  DiagnosticCategory,
-  ModuleKind,
-  ScriptTarget,
-  transpileModule,
-} from 'typescript';
-import {
   buildAiRequestScript,
   buildCreateLinkScript,
   buildFormatActionScript,
@@ -14,25 +8,7 @@ import {
   buildInsertVideoScript,
   buildSaveRequestScript,
 } from './blog-editor-commands';
-
-function expectValidJavaScript(source: string) {
-  const diagnostics =
-    transpileModule(source, {
-      compilerOptions: {
-        allowJs: true,
-        module: ModuleKind.ESNext,
-        target: ScriptTarget.ESNext,
-      },
-      fileName: 'blog-editor-command-script.js',
-      reportDiagnostics: true,
-    }).diagnostics ?? [];
-
-  expect(
-    diagnostics
-      .filter((diagnostic) => diagnostic.category === DiagnosticCategory.Error)
-      .map((diagnostic) => diagnostic.messageText)
-  ).toEqual([]);
-}
+import { expectValidJavaScript } from './script-test-utils';
 
 describe('blog-editor-commands', () => {
   it('builds valid save and AI request scripts', () => {

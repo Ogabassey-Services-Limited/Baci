@@ -39,6 +39,7 @@ function runClipboardBridgeInSandbox({
   clearInterval,
   clearTimeout,
   document,
+  MutationObserver,
   navigator,
   setInterval,
   setTimeout,
@@ -47,11 +48,17 @@ function runClipboardBridgeInSandbox({
   clearInterval: ClearTimerFunction;
   clearTimeout: ClearTimerFunction;
   document: unknown;
+  MutationObserver?: unknown;
   navigator: unknown;
   setInterval: TimerFunction;
   setTimeout: TimerFunction;
   window: unknown;
 }) {
+  const windowMutationObserver =
+    typeof window === 'object' && window !== null && 'MutationObserver' in window
+      ? (window as { MutationObserver?: unknown }).MutationObserver
+      : undefined;
+
   new Script(PAYMENT_CLIPBOARD_BRIDGE.script, {
     filename: 'payment-clipboard-bridge.js',
   }).runInContext(
@@ -60,6 +67,7 @@ function runClipboardBridgeInSandbox({
       clearTimeout,
       console,
       document,
+      MutationObserver: MutationObserver ?? windowMutationObserver,
       navigator,
       setInterval,
       setTimeout,
@@ -154,6 +162,7 @@ describe('PAYMENT_CLIPBOARD_BRIDGE', () => {
       clearInterval: jest.fn(),
       clearTimeout: jest.fn(),
       document: documentMock,
+      MutationObserver: MutationObserverMock,
       navigator: navigatorMock,
       setInterval: jest.fn(),
       setTimeout: (callback: () => void) => {

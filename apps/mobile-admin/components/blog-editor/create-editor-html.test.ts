@@ -1,34 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import {
-  DiagnosticCategory,
-  ModuleKind,
-  ScriptTarget,
-  transpileModule,
-} from 'typescript';
 import { DARK_COLORS, LIGHT_COLORS } from '@/constants/theme';
 import {
   buildApplyEditorThemeScript,
   createEditorHtml,
 } from './create-editor-html';
-
-function expectValidJavaScript(source: string) {
-  const diagnostics =
-    transpileModule(source, {
-      compilerOptions: {
-        allowJs: true,
-        module: ModuleKind.ESNext,
-        target: ScriptTarget.ESNext,
-      },
-      fileName: 'editor-theme-script.js',
-      reportDiagnostics: true,
-    }).diagnostics ?? [];
-
-  expect(
-    diagnostics
-      .filter((diagnostic) => diagnostic.category === DiagnosticCategory.Error)
-      .map((diagnostic) => diagnostic.messageText)
-  ).toEqual([]);
-}
+import { expectValidJavaScript } from './script-test-utils';
 
 describe('createEditorHtml', () => {
   it('renders sanitized editor content and placeholder styles', () => {
