@@ -204,3 +204,38 @@ jest.mock('react-native-pager-view', () => {
     default: MockPagerView,
   };
 });
+
+// Mock react-native-mmkv
+jest.mock('react-native-mmkv', () => {
+  return {
+    createMMKV: jest.fn().mockImplementation(() => {
+      const store = new Map<string, string>();
+      return {
+        set: jest.fn((key: string, value: string) => {
+          store.set(key, value);
+        }),
+        getString: jest.fn((key: string) => {
+          return store.get(key) ?? null;
+        }),
+        getNumber: jest.fn((key: string) => {
+          const val = store.get(key);
+          return val ? Number(val) : null;
+        }),
+        getBoolean: jest.fn((key: string) => {
+          const val = store.get(key);
+          return val === 'true';
+        }),
+        remove: jest.fn((key: string) => {
+          store.delete(key);
+        }),
+        clearAll: jest.fn(() => {
+          store.clear();
+        }),
+        getAllKeys: jest.fn(() => {
+          return Array.from(store.keys());
+        }),
+      };
+    }),
+  };
+});
+
