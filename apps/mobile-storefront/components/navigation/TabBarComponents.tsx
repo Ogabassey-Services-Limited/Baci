@@ -6,7 +6,7 @@ import { useTheme } from '@/hooks/useTheme';
 export function TabBarLabel({ focused, label }: { focused: boolean; label: string }) {
   const { colors } = useTheme();
   if (!focused) return null;
-  return <Text style={[styles.tabLabel, { color: colors.text }]}>{label}</Text>;
+  return <Text style={[styles.tabLabel, { color: colors.tabIconSelected }]}>{label}</Text>;
 }
 
 export function TabBarIcon({
@@ -30,7 +30,7 @@ export function TabBarIcon({
         <Ionicons
           name={name}
           size={22}
-          color={focused ? colors.text : colors.tabIconDefault}
+          color={focused ? colors.tabIconSelected : colors.tabIconDefault}
           style={{ opacity: focused ? 1 : 0.6 }}
         />
         {badge !== undefined && badge > 0 && (
