@@ -3,6 +3,7 @@ import { ProductGridSkeleton } from '@/components/ui/Skeleton';
 import { palette } from '@/constants/Colors';
 import { PRODUCT_GRID_LOADING_MORE_LABEL } from '@/constants/product-grid';
 import type { Product } from '@/types/product';
+import { useTheme } from '@/hooks/useTheme';
 import { FilterBar } from './FilterBar';
 import { ProductCard } from './ProductCard';
 import { styles } from './ProductGrid.styles';
@@ -62,9 +63,14 @@ export function ProductGridView({
   uniqueVisibleProducts,
   viewMode,
 }: ProductGridViewProps) {
+  const { colors } = useTheme();
   const headerControls = (
     <>
-      {blockTitle && <Text style={styles.sectionTitle}>{blockTitle}</Text>}
+      {blockTitle && (
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>
+          {blockTitle}
+        </Text>
+      )}
 
       <FilterBar
         categories={categoryNames}

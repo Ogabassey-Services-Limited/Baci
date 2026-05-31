@@ -24,9 +24,15 @@ function getInitials(title: string): string {
 }
 
 let MOCK_RECIPIENTS: UtilityRepeatRecipient[] = [];
-if (typeof __DEV__ !== 'undefined' && __DEV__ && process.env.NODE_ENV !== 'test') {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  MOCK_RECIPIENTS = require('./fixtures/recent-recipients.fixtures').MOCK_RECENT_RECIPIENTS;
+if (
+  typeof __DEV__ !== 'undefined' &&
+  __DEV__ &&
+  process.env.NODE_ENV !== 'test'
+) {
+  /* eslint-disable @typescript-eslint/no-require-imports */
+  MOCK_RECIPIENTS =
+    require('./fixtures/recent-recipients.fixtures').MOCK_RECENT_RECIPIENTS;
+  /* eslint-enable @typescript-eslint/no-require-imports */
 }
 
 export function RecentUtilityRecipients({

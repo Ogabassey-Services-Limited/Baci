@@ -182,6 +182,17 @@ jest.mock('@/hooks/useTheme', () => ({
   }),
 }));
 
+jest.mock('@/lib/templates', () => ({
+  getTemplateConfig: () => ({
+    headerStyle: 'standard',
+    heroVariant: 'standard',
+    categoryStyle: 'pill',
+    cardVariant: 'grid',
+    spacing: 'compact',
+    borderRadius: 'md',
+  }),
+}));
+
 describe('TabLayout', () => {
   beforeEach(() => {
     jest.clearAllMocks();

@@ -1,4 +1,3 @@
-import { Image } from 'expo-image';
 import { Stack } from 'expo-router';
 import {
   Animated,
@@ -6,7 +5,6 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   RefreshControl,
-  StyleSheet,
   View,
 } from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
@@ -22,9 +20,7 @@ import { BRAND } from '@/constants/Colors';
 import { ELITE_BACKDROP_HEIGHT } from '@/constants/layout';
 import type { Block } from '@/types/blocks';
 import { homeScreenStyles as styles } from './home-screen.styles';
-
-const PATTERN_URI =
-  'https://www.transparenttextures.com/patterns/carbon-fibre.png';
+import { GadgetPattern } from '@/components/storefront/GadgetPattern';
 
 interface HomeScreenViewProps {
   backgroundColor: string;
@@ -130,11 +126,7 @@ export function HomeScreenView({
             },
           ]}
         >
-          <Image
-            source={{ uri: PATTERN_URI }}
-            style={[StyleSheet.absoluteFill, { opacity: 0.05 }]}
-            contentFit="cover"
-          />
+          <GadgetPattern opacity={0.25} height={ELITE_BACKDROP_HEIGHT} />
         </View>
       )}
 

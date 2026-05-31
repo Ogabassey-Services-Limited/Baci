@@ -11,6 +11,10 @@ import { useSavedStore } from '@/stores/saved-store';
 import { useAuthStore } from '@/stores/auth-store';
 import { useShallow } from 'zustand/react/shallow';
 import { useTheme } from '@/hooks/useTheme';
+import { GadgetPattern } from '@/components/storefront/GadgetPattern';
+import { CONFIG } from '@/lib/config';
+import { getTemplateConfig } from '@/lib/templates';
+import { BRAND } from '@/constants/Colors';
 
 export function ErrorBoundary({
   error,
@@ -49,7 +53,7 @@ function TabBarIcon({
         <Ionicons
           name={name}
           size={22}
-          color={focused ? colors.tabIconSelected : colors.tabIconDefault}
+          color={focused ? colors.text : colors.tabIconDefault}
           style={{ opacity: focused ? 1 : 0.6 }}
         />
         {badge !== undefined && badge > 0 && (
@@ -75,7 +79,7 @@ function TabBarIcon({
 }
 
 export default function TabLayout() {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const safeBottomInset = insets.bottom > 0 ? insets.bottom : 8;
   // Extra spacing to account for visual spacing/shadows and touch target comfort
@@ -89,6 +93,17 @@ export default function TabLayout() {
       isInitialized: state.isInitialized,
     }))
   );
+
+  const template = getTemplateConfig(CONFIG.BUSINESS_TYPE, CONFIG.TEMPLATE_ID);
+  const isElite = template.headerStyle === 'elite';
+
+  const activeTint = colors.text;
+  const inactiveTint = colors.mutedForeground;
+
+  const eliteBg = isDark ? '#000000' : '#ffffff';
+  const elitePatternColor = isDark ? '#ffffff' : BRAND.primary;
+  const elitePatternOpacity = isDark ? 0.06 : 0.12;
+  const eliteBorderColor = isDark ? '#1f2937' : colors.border;
 
   /**
    * 2026 Best Practice: Layout-level auth gating for tabs.
@@ -109,19 +124,38 @@ export default function TabLayout() {
     <Tabs
       initialRouteName="index"
       screenOptions={{
-        tabBarActiveTintColor: colors.text,
-        tabBarInactiveTintColor: colors.mutedForeground,
+        tabBarActiveTintColor: activeTint,
+        tabBarInactiveTintColor: inactiveTint,
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: colors.card,
+          backgroundColor: isElite ? 'transparent' : colors.card,
           borderTopWidth: 1,
-          borderTopColor: colors.border,
-          height:
-            TAB_BAR_BASE_HEIGHT + safeBottomInset + EXTRA_TAB_BAR_HEIGHT,
+          borderTopColor: isElite ? eliteBorderColor : colors.border,
+          height: TAB_BAR_BASE_HEIGHT + safeBottomInset + EXTRA_TAB_BAR_HEIGHT,
           paddingBottom: safeBottomInset,
           paddingTop: 6,
           ...getTabBarShadowStyle(Platform.OS === 'web' ? 'web' : 'native'),
         },
+        tabBarBackground: isElite
+          ? () => (
+              <View
+                style={{
+                  ...StyleSheet.absoluteFill,
+                  backgroundColor: eliteBg,
+                  overflow: 'hidden',
+                }}
+              >
+                <GadgetPattern
+                  opacity={elitePatternOpacity}
+                  height={
+                    TAB_BAR_BASE_HEIGHT + safeBottomInset + EXTRA_TAB_BAR_HEIGHT
+                  }
+                  variant="tabbar"
+                  color={elitePatternColor}
+                />
+              </View>
+            )
+          : undefined,
         tabBarItemStyle: {
           height: TAB_BAR_BASE_HEIGHT,
         },

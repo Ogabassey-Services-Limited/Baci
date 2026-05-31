@@ -15,6 +15,16 @@ jest.mock('expo-image', () => {
   };
 });
 
+jest.mock('@/components/storefront/GadgetPattern', () => {
+  const { Text } = jest.requireActual(
+    'react-native'
+  ) as typeof import('react-native');
+
+  return {
+    GadgetPattern: () => <Text>Elite texture</Text>,
+  };
+});
+
 jest.mock('expo-router', () => ({
   Stack: {
     Screen: () => null,
