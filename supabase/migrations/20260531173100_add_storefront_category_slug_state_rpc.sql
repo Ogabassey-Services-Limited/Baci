@@ -17,6 +17,7 @@ AS $$
   FROM public.categories AS c
   WHERE c.merchant_id = p_merchant_id
     AND c.slug = p_slug
+  ORDER BY c.id DESC
   LIMIT 1;
 $$;
 
