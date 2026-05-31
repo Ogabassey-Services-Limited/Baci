@@ -7,6 +7,7 @@ import {
   Animated,
   Easing,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   useWindowDimensions,
@@ -81,12 +82,9 @@ export function HomeServiceCards({
   const router = useRouter();
   const { width } = useWindowDimensions();
   const isCompact = width < COMPACT_BREAKPOINT;
-  const rowWidth = Math.max(width - SPACING.md * 2, 0);
-  const cardWidth = Math.max(
-    (rowWidth - CARD_GAP * (SERVICE_SHORTCUTS.length - 1)) /
-      SERVICE_SHORTCUTS.length,
-    0
-  );
+
+  // Horizontal scroll: Scale down slightly so part of the last card (Super Quiz) is visible
+  const cardWidth = isCompact ? 86 : 96;
   const cardHeight = isCompact ? COMPACT_CARD_HEIGHT : CARD_HEIGHT;
   const runnerProgress = useRef(new Animated.Value(0)).current;
 
@@ -110,91 +108,97 @@ export function HomeServiceCards({
   return (
     <View
       style={[
-        styles.container,
+        styles.outerContainer,
         placement === 'aboveUtility'
           ? styles.aboveUtility
           : styles.belowUtility,
-        { width: rowWidth },
       ]}
       testID="home-service-cards"
       accessibilityLabel="Device services"
     >
-      {SERVICE_SHORTCUTS.map((item) => {
-        const runnerColor = withAlpha(
-          item.accent,
-          colorScheme === 'dark' ? 0.94 : 0.86
-        );
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContainer}
+      >
+        {SERVICE_SHORTCUTS.map((item) => {
+          const runnerColor = withAlpha(
+            item.accent,
+            colorScheme === 'dark' ? 0.94 : 0.86
+          );
 
-        return (
-          <View
-            key={item.href.toString()}
-            style={[
-              styles.card,
-              {
-                backgroundColor: colors.card,
-                borderColor: withAlpha(
-                  item.accent,
-                  colorScheme === 'dark' ? 0.48 : 0.38
-                ),
-                width: cardWidth,
-              },
-              isCompact && styles.compactCard,
-            ]}
-          >
-            <HomeServiceCardBorderRunner
-              cardHeight={cardHeight}
-              cardWidth={cardWidth}
-              color={runnerColor}
-              progress={runnerProgress}
-            />
-            <Pressable
-              onPress={() => router.push(item.href)}
-              style={styles.cardPressable}
-              accessibilityRole="button"
-              accessibilityLabel={`${item.title}. ${item.subtitle}`}
+          return (
+            <View
+              key={item.href.toString()}
+              style={[
+                styles.card,
+                {
+                  backgroundColor: colors.card,
+                  borderColor: withAlpha(
+                    item.accent,
+                    colorScheme === 'dark' ? 0.48 : 0.38
+                  ),
+                  width: cardWidth,
+                },
+                isCompact && styles.compactCard,
+              ]}
             >
-              <View style={styles.cardContent}>
-                <Ionicons
-                  name={item.icon}
-                  size={isCompact ? 15 : 16}
-                  color={item.accent}
-                  style={styles.icon}
-                />
-                <Text
-                  numberOfLines={1}
-                  adjustsFontSizeToFit
-                  minimumFontScale={0.78}
-                  style={[
-                    styles.title,
-                    { color: colors.text },
-                    isCompact && styles.compactTitle,
-                  ]}
-                >
-                  {item.title}
-                </Text>
-              </View>
-            </Pressable>
-          </View>
-        );
-      })}
+              <HomeServiceCardBorderRunner
+                cardHeight={cardHeight}
+                cardWidth={cardWidth}
+                color={runnerColor}
+                progress={runnerProgress}
+              />
+              <Pressable
+                onPress={() => router.push(item.href)}
+                style={styles.cardPressable}
+                accessibilityRole="button"
+                accessibilityLabel={`${item.title}. ${item.subtitle}`}
+              >
+                <View style={styles.cardContent}>
+                  <Ionicons
+                    name={item.icon}
+                    size={isCompact ? 15 : 16}
+                    color={item.accent}
+                    style={styles.icon}
+                  />
+                  <Text
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.78}
+                    style={[
+                      styles.title,
+                      { color: colors.text },
+                      isCompact && styles.compactTitle,
+                    ]}
+                  >
+                    {item.title}
+                  </Text>
+                </View>
+              </Pressable>
+            </View>
+          );
+        })}
+      </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    alignSelf: 'center',
+  outerContainer: {
+    width: '100%',
+  },
+  scrollContainer: {
+    paddingHorizontal: SPACING.md,
     flexDirection: 'row',
     gap: CARD_GAP,
   },
   aboveUtility: {
-    // Mirrors the tested design variant where the row tucks into the carousel-to-utility gap.
     marginTop: 8,
     marginBottom: -8,
     transform: [{ translateY: -14 }],
   },
   belowUtility: {
-    // Preserves the last stable below-utility spacing approved on device.
     marginTop: 28,
     marginBottom: -2,
   },
@@ -228,11 +232,12 @@ const styles = StyleSheet.create({
   },
   title: {
     fontFamily: 'Inter_700Bold',
-    fontSize: 11,
-    lineHeight: 13,
+    fontWeight: 'bold',
+    fontSize: 12,
+    lineHeight: 14,
     flexShrink: 1,
   },
   compactTitle: {
-    fontSize: 10,
+    fontSize: 11,
   },
 });

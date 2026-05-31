@@ -2,9 +2,12 @@ import type Ionicons from '@react-native-vector-icons/ionicons';
 // router removed as it was unused.
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Easing, Text, View } from 'react-native';
+import { ActivityIndicator, Text, View } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
+import { CONFIG } from '@/lib/config';
+import { getTemplateConfig } from '@/lib/templates';
 import { type Category, useCategories } from '@/hooks';
 import { usePrefetchBillers } from '@/hooks/use-vtu-billers';
 import { utilityPanelStyles as styles } from './UtilityPanel.styles';
@@ -35,14 +38,26 @@ export function UtilityPanel({
   // Prefetch all bill categories so data is ready when user taps a category
   usePrefetchBillers();
 
+  useEffect(() => {
+    console.log("🚀 Baci Reanimated Utility Bar loaded!");
+  }, []);
+
   // Web-Parity Auto-Rotation Logic (constants at module level for stable references)
+  const template = getTemplateConfig(CONFIG.BUSINESS_TYPE, CONFIG.TEMPLATE_ID);
+  const defaultCategoryId = template.headerStyle === 'elite' ? 'u-airtime' : null;
 
   const [activeUtilityIndex, setActiveUtilityIndex] = useState(0);
-  const [isManualUtility, setIsManualUtility] = useState(false);
-  const promoWordProgress = useRef(new Animated.Value(1)).current;
-  const promoWordTranslateY = promoWordProgress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [4, 0],
+  const [isManualUtility, setIsManualUtility] = useState(() => {
+    return selectedCategoryId ? selectedCategoryId !== defaultCategoryId : false;
+  });
+  const promoWordProgress = useSharedValue(1);
+
+  const animatedPromoStyle = useAnimatedStyle(() => {
+    const translateY = (1 - promoWordProgress.value) * 4;
+    return {
+      opacity: promoWordProgress.value,
+      transform: [{ translateY }],
+    };
   });
 
   // Sync prop change to local index (if external change happens)
@@ -74,13 +89,10 @@ export function UtilityPanel({
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: activeUtilityIndex intentionally restarts the promo text transition when the selected utility changes.
   useEffect(() => {
-    promoWordProgress.setValue(0);
-    Animated.timing(promoWordProgress, {
-      toValue: 1,
+    promoWordProgress.value = 0;
+    promoWordProgress.value = withTiming(1, {
       duration: 260,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    }).start();
+    });
   }, [activeUtilityIndex, promoWordProgress]);
 
   const handlePress = (id: string, index: number) => {
@@ -181,10 +193,7 @@ export function UtilityPanel({
             <Animated.Text
               style={[
                 styles.promoHighlight,
-                {
-                  opacity: promoWordProgress,
-                  transform: [{ translateY: promoWordTranslateY }],
-                },
+                animatedPromoStyle,
               ]}
             >
               {activeUtilityWord}

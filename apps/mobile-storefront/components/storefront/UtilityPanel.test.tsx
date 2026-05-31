@@ -1,6 +1,38 @@
 import { jest } from '@jest/globals';
+
+const mockWithTiming = jest.fn((toValue: number, config?: object) => toValue);
+
+jest.mock('react-native-reanimated', () => {
+  const { View, Text } = jest.requireActual('react-native') as any;
+
+  return {
+    __esModule: true,
+    default: { View, Text },
+    View,
+    Text,
+    cancelAnimation: jest.fn(),
+    useAnimatedStyle: (updater: () => object) => updater(),
+    useSharedValue: (value: number) => ({
+      get value() {
+        return value;
+      },
+      set value(newValue) {
+        value = newValue;
+      },
+    }),
+    withTiming: (toValue: number, config?: object, callback?: Function) => {
+      mockWithTiming(toValue, config);
+      callback?.(true);
+      return toValue;
+    },
+    withSpring: (toValue: number, config?: object, callback?: Function) => {
+      callback?.(true);
+      return toValue;
+    },
+  };
+});
+
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
-import { Animated } from 'react-native';
 import Colors from '@/constants/Colors';
 import { findHostElement } from '@/test-support/find-host-element';
 import { UtilityPanel } from './UtilityPanel';
@@ -26,14 +58,6 @@ const mockUseCategories = jest.fn<() => MockCategoriesResult>(() =>
 );
 const mockUsePrefetchBillers = jest.fn();
 
-function createAnimation() {
-  return {
-    start: (callback?: (result: { finished: boolean }) => void) => {
-      callback?.({ finished: true });
-    },
-  };
-}
-
 jest.mock('@/components/useColorScheme', () => ({
   useColorScheme: () => mockUseColorScheme(),
 }));
@@ -49,30 +73,10 @@ jest.mock('@/hooks/use-vtu-billers', () => ({
 describe('UtilityPanel', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockWithTiming.mockClear();
     jest.useFakeTimers();
     mockUseColorScheme.mockReturnValue('light');
     mockUseCategories.mockReturnValue(createCategoriesResult());
-    jest
-      .spyOn(Animated, 'timing')
-      .mockImplementation(
-        () => createAnimation() as ReturnType<typeof Animated.timing>
-      );
-    jest
-      .spyOn(Animated, 'spring')
-      .mockImplementation(
-        () => createAnimation() as ReturnType<typeof Animated.spring>
-      );
-    jest.spyOn(Animated, 'parallel').mockImplementation(
-      (animations) =>
-        ({
-          start: (callback?: (result: { finished: boolean }) => void) => {
-            for (const animation of animations) {
-              animation.start?.();
-            }
-            callback?.({ finished: true });
-          },
-        }) as ReturnType<typeof Animated.parallel>
-    );
   });
 
   afterEach(() => {
@@ -196,18 +200,16 @@ describe('UtilityPanel', () => {
   });
 
   it('restarts the promo animation when the active utility changes', () => {
-    const timingSpy = jest.spyOn(Animated, 'timing');
-
     render(
       <UtilityPanel selectedCategoryId={null} onCategorySelect={jest.fn()} />
     );
 
-    const initialCallCount = timingSpy.mock.calls.length;
+    const initialCallCount = mockWithTiming.mock.calls.length;
 
     act(() => {
       jest.advanceTimersByTime(2800);
     });
 
-    expect(timingSpy.mock.calls.length).toBeGreaterThan(initialCallCount);
+    expect(mockWithTiming.mock.calls.length).toBeGreaterThan(initialCallCount);
   });
 });

@@ -1,4 +1,21 @@
 import { jest } from '@jest/globals';
+
+jest.mock('react-native-reanimated', () => {
+  const { View, Text } = jest.requireActual('react-native') as any;
+
+  return {
+    __esModule: true,
+    default: { View, Text },
+    View,
+    Text,
+    cancelAnimation: jest.fn(),
+    useAnimatedStyle: (updater: () => object) => updater(),
+    useSharedValue: (value: number) => ({ value }),
+    withTiming: (value: number) => value,
+    withSpring: (value: number) => value,
+  };
+});
+
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import Colors from '@/constants/Colors';
 import { findHostElement } from '@/test-support/find-host-element';

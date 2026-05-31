@@ -195,6 +195,45 @@ async function getPublicProductVariantsByProductIds(productIds: string[]) {
   return variantsByProductId;
 }
 
+interface CachedCategorySeo {
+  description: string;
+  faqs: unknown[];
+  features: unknown[];
+  heading: string;
+}
+
+interface CachedCategoryRecord {
+  description: string | null;
+  id: string;
+  image_url: string | null;
+  is_active: boolean;
+  name: string;
+  parent: { name: string; slug: string } | null;
+  parent_id?: string | null;
+  seo_description: string | null;
+  seo_faq: unknown;
+  seo_features: unknown;
+  seo_heading: string | null;
+  slug: string;
+}
+
+export type CachedCategoryPageData =
+  | {
+      description: string;
+      isCollection: true;
+      name: string;
+      products: unknown[];
+      seo: CachedCategorySeo;
+    }
+  | {
+      category: CachedCategoryRecord | null;
+      fallbackDescription: string;
+      fallbackName: string;
+      isCollection: false;
+      isInactiveCategory: boolean;
+      products: unknown[];
+    };
+
 // Type for merchant data with optional custom_domain
 export interface HeroSlide {
   id: string;
@@ -1526,7 +1565,7 @@ export async function getCachedCategoryPageData(
   merchantId: string,
   categorySlug: string,
   _storeSlug: string
-) {
+): Promise<CachedCategoryPageData> {
   'use cache: remote';
   cacheLife('storefront-page');
   cacheTag('category-page-data', 'products', 'categories');
@@ -1617,7 +1656,9 @@ export async function getCachedCategoryPageData(
     .eq('slug', categorySlug)
     .single();
   const isInactiveCategory = Boolean(categoryRow && !categoryRow.is_active);
-  const category = categoryRow?.is_active ? categoryRow : null;
+  const category: CachedCategoryRecord | null = categoryRow?.is_active
+    ? (categoryRow as CachedCategoryRecord)
+    : null;
 
   // Fallback: decode the slug to get category name and Title Case it
   const categoryName =

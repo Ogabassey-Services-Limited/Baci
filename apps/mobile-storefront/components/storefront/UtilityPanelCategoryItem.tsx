@@ -1,7 +1,8 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import type React from 'react';
-import { useEffect, useRef } from 'react';
-import { Animated, Easing, Platform, TouchableOpacity } from 'react-native';
+import { useEffect } from 'react';
+import { Platform, TouchableOpacity } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
 import { getUtilityPanelActiveShadowStyle } from './UtilityPanel.shadows';
@@ -26,30 +27,31 @@ export function UtilityPanelCategoryItem({
 }: UtilityPanelCategoryItemProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const iconScale = useRef(new Animated.Value(isActive ? 1.05 : 1)).current;
-  const labelOpacity = useRef(new Animated.Value(isActive ? 1 : 0.8)).current;
+  const iconScale = useSharedValue(isActive ? 1.05 : 1);
+  const labelOpacity = useSharedValue(isActive ? 1 : 0.8);
   const activeShadowStyle = getUtilityPanelActiveShadowStyle(
     Platform.OS === 'web' ? 'web' : 'native',
     colors.black
   );
 
   useEffect(() => {
-    Animated.parallel([
-      Animated.spring(iconScale, {
-        toValue: isActive ? 1.05 : 1,
-        damping: 16,
-        stiffness: 180,
-        mass: 1,
-        useNativeDriver: true,
-      }),
-      Animated.timing(labelOpacity, {
-        toValue: isActive ? 1 : 0.8,
-        duration: 220,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-    ]).start();
+    iconScale.value = withSpring(isActive ? 1.05 : 1, {
+      damping: 16,
+      stiffness: 180,
+      mass: 1,
+    });
+    labelOpacity.value = withTiming(isActive ? 1 : 0.8, {
+      duration: 220,
+    });
   }, [isActive, iconScale, labelOpacity]);
+
+  const animatedIconStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: iconScale.value }],
+  }));
+
+  const animatedLabelStyle = useAnimatedStyle(() => ({
+    opacity: labelOpacity.value,
+  }));
 
   if (variant !== 'circle') {
     return null;
@@ -75,7 +77,7 @@ export function UtilityPanelCategoryItem({
             { backgroundColor: colors.card },
           ],
           isActive && activeShadowStyle,
-          { transform: [{ scale: iconScale }] },
+          animatedIconStyle,
         ]}
       >
         <Ionicons
@@ -89,7 +91,7 @@ export function UtilityPanelCategoryItem({
           styles.circleLabel,
           { color: colors.textSecondary },
           isActive && [styles.circleLabelActive, { color: colors.text }],
-          { opacity: labelOpacity },
+          animatedLabelStyle,
         ]}
       >
         {name}

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 import { CatalogListingLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
 import {
@@ -55,7 +56,7 @@ export async function generateMetadata({
   const data = await getCachedCategoryPageData(merchant.id, category, slug);
 
   if (!data.isCollection && data.isInactiveCategory) {
-    return { robots: { index: false, follow: false } };
+    notFound();
   }
 
   const categoryName = resolveCategoryPageName(data, category);

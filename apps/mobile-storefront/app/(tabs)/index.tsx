@@ -207,6 +207,7 @@ export default function HomeScreen() {
 
   const handleCategorySelect = (id: string | null) => {
     if (id?.startsWith('u-')) {
+      setSelectedCategoryId(id);
       // 2026 Best Practice: Route to Guest Utility Flow
       const type = id.replace('u-', '');
       router.push(`/utilities/${type}` as never);
