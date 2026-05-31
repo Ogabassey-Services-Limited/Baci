@@ -128,7 +128,7 @@ export function CryptoPaymentView({
           <Text style={[styles.chainLabel, { color: colors.textSecondary }]}>
             on {chainLabel}
           </Text>
-          {fiatAmount !== null ? (
+          {fiatAmount ? (
             <Text style={[styles.fiatAmount, { color: colors.textSecondary }]}>
               {fiatAmount}
             </Text>
