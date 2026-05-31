@@ -2691,9 +2691,7 @@ function createOgabasseyServer() {
       description:
         'Use this when a customer wants to pay via bank transfer. Generates a dedicated bank account (DVA) for them to transfer money to. REQUIRED: customer email, name, phone, and amount. Do NOT use if customer just wants to browse or hasn\'t decided to buy yet.',
       inputSchema: {
-        customer_email: z
-          .string()
-          .email()
+        customer_email: z.email()
           .describe('Customer email address (REQUIRED)'),
         customer_name: z
           .string()
@@ -2865,9 +2863,7 @@ function createOgabasseyServer() {
       description:
         'Use this when a customer says they have paid, transferred money, or asks about their payment status. Trigger phrases: "I\'ve paid", "I sent it", "I transferred", "check my payment", "did you receive it", "payment done". REQUIRED: customer email. Do NOT use for generating new payment accounts.',
       inputSchema: {
-        customer_email: z
-          .string()
-          .email()
+        customer_email: z.email()
           .describe('Customer email address (REQUIRED)'),
         payment_reference: z
           .string()

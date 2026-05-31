@@ -19,9 +19,9 @@ const initDomainPaymentSchema = z.object({
     .string()
     .min(1)
     .refine((value) => domainRegex.test(value), {
-      message: 'Invalid domain format',
+      error: 'Invalid domain format',
     }),
-  years: z.coerce.number().int().min(1).optional().default(1),
+  years: z.coerce.number().int().min(1).optional().prefault(1),
 });
 
 const nanoidUppercase = customAlphabet(
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
     const parsed = initDomainPaymentSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Invalid input', details: parsed.error.flatten() },
+        { error: 'Invalid input', details: z.flattenError(parsed.error) },
         { status: 400 }
       );
     }

@@ -13,7 +13,7 @@ import { updateDiscountCodeSchema } from '@/schemas/discount-codes';
 const DISCOUNT_CODE_COLUMNS =
   'id, code, description, discount_type, discount_value, minimum_purchase_amount, maximum_discount_amount, usage_limit, usage_limit_per_customer, usage_count, starts_at, expires_at, is_active, applies_to, product_ids, category_ids, created_at, updated_at';
 
-const idParamSchema = z.string().uuid();
+const idParamSchema = z.uuid();
 
 /**
  * PATCH /api/discount-codes/[id]

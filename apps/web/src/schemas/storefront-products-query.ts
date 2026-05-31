@@ -20,7 +20,7 @@ const storefrontBooleanQuerySchema = z.preprocess((value) => {
 }, z.boolean());
 
 export const storefrontProductsQuerySchema = z.object({
-  merchant_id: z.string().uuid().optional(),
+  merchant_id: z.uuid('Invalid uuid').optional(),
   category: z.string().optional(),
   brand: z.string().optional(),
   condition: storefrontConditionFilterSchema.optional(),

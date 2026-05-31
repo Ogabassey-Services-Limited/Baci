@@ -17,7 +17,7 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
-const requestedMerchantSchema = z.string().uuid();
+const requestedMerchantSchema = z.uuid();
 
 function parseRequestedMerchantId(request: Request | NextRequest) {
   const headerValue = request.headers.get('x-baci-merchant-id');

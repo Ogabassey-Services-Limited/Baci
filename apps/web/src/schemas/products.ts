@@ -22,9 +22,9 @@ const productImageSchema = z.object({
     .max(500)
     .default('')
     .transform((val) => sanitizeText(val, 500)),
-  order: z.number().int().min(0).default(0),
-  width: z.number().int().positive().optional(),
-  height: z.number().int().positive().optional(),
+  order: z.int().min(0).default(0),
+  width: z.int().positive().optional(),
+  height: z.int().positive().optional(),
 });
 
 /**
@@ -55,7 +55,7 @@ const productVariantModelSchema = z.enum(['legacy', 'sku_matrix']);
  * Product variant schema
  */
 const productVariantSchema = z.object({
-  id: z.string().uuid().optional(),
+  id: z.uuid().optional(),
   attributes: variantAttributesSchema.optional(),
   condition: normalizedProductConditionSchema.optional().nullable(),
   price_override: z
@@ -70,7 +70,7 @@ const productVariantSchema = z.object({
     .transform((val) => sanitizePrice(val))
     .optional()
     .nullable(),
-  stock_quantity: z.number().int().min(0).optional().default(0),
+  stock_quantity: z.int().min(0).optional().default(0),
   sku: z
     .string()
     .max(50)
@@ -102,7 +102,7 @@ function withSkuMatrixVariantConditionValidation<
 
     if (hasMissingCondition) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message:
           'sku_matrix products require every variant to include a condition.',
         path: ['variants'],
@@ -116,7 +116,7 @@ function withSkuMatrixVariantConditionValidation<
  */
 const fulfillmentDetailsSchema = z.object({
   type: z.enum(['ship', 'pickup', 'digital']).optional(),
-  handling_time: z.number().int().min(0).optional(),
+  handling_time: z.int().min(0).optional(),
   free_shipping: z.boolean().optional(),
   shipping_notes: z
     .string()
@@ -176,9 +176,9 @@ const baseProductFields = {
     .transform((val) => sanitizePrice(val)),
 
   // Inventory
-  stock: z.number().int().min(0).optional().default(0),
+  stock: z.int().min(0).optional().default(0),
   manage_stock: z.boolean().optional().default(true),
-  low_stock_threshold: z.number().int().min(0).optional().default(5),
+  low_stock_threshold: z.int().min(0).optional().default(5),
 
   // Pricing variants
   compare_at_price: z
@@ -350,9 +350,9 @@ export const updateProductSchema = withSkuMatrixVariantConditionValidation(
       .optional(),
 
     // Inventory
-    stock: z.number().int().min(0).optional(),
+    stock: z.int().min(0).optional(),
     manage_stock: z.boolean().optional(),
-    low_stock_threshold: z.number().int().min(0).optional(),
+    low_stock_threshold: z.int().min(0).optional(),
 
     // Pricing variants
     compare_at_price: z

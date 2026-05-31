@@ -24,38 +24,35 @@ export const branchNameSchema = z
   .max(120, 'Branch name must be at most 120 characters');
 
 export const branchIdParamSchema = z.object({
-  id: z.string().uuid('Invalid branch id'),
+  id: z.uuid('Invalid branch id'),
 });
 
-export const requestedMerchantIdSchema = z.string().uuid('Invalid merchant id');
+export const requestedMerchantIdSchema = z.uuid('Invalid merchant id');
 
-export const branchCreateSchema = z
-  .object({
-    name: branchNameSchema,
-    address: optionalCreateText(240),
-    city: optionalCreateText(120),
-    state: optionalCreateText(120),
-    phone: optionalCreateText(32),
-    managerId: z.string().uuid('Invalid branch manager').optional(),
-    isDefault: z.boolean().default(false),
-  })
-  .strict();
+export const branchCreateSchema = z.strictObject({
+  name: branchNameSchema,
+  address: optionalCreateText(240),
+  city: optionalCreateText(120),
+  state: optionalCreateText(120),
+  phone: optionalCreateText(32),
+  managerId: z.uuid('Invalid branch manager').optional(),
+  isDefault: z.boolean().default(false),
+});
 
 export const branchUpdateSchema = z
-  .object({
+  .strictObject({
     name: branchNameSchema.optional(),
     address: optionalUpdateText(240),
     city: optionalUpdateText(120),
     state: optionalUpdateText(120),
     phone: optionalUpdateText(32),
-    managerId: z.string().uuid('Invalid branch manager').nullable().optional(),
+    managerId: z.uuid('Invalid branch manager').nullable().optional(),
     isDefault: z.boolean().optional(),
   })
-  .strict()
   .refine(
     (value) => Object.values(value).some((field) => field !== undefined),
     {
-      message: 'At least one branch field is required',
+      error: 'At least one branch field is required',
     }
   );
 

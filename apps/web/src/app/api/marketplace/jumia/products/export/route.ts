@@ -15,21 +15,21 @@ const VariationSchema = z.object({
   sellerSku: z.string().trim().min(1),
   price: z.number().positive(),
   currency: z.string().default('NGN'),
-  stock: z.number().int().min(0).optional(),
+  stock: z.int().min(0).optional(),
   attributes: z
     .array(z.object({ id: z.string(), value: z.string() }))
     .optional(),
 });
 
 const ExportSchema = z.object({
-  integrationId: z.string().uuid(),
-  merchantId: z.string().uuid().optional(),
+  integrationId: z.uuid(),
+  merchantId: z.uuid().optional(),
   name: z.string().trim().min(1),
   brand: z.object({ code: z.number(), name: z.string() }),
   category: z.object({ code: z.number() }),
   description: z.string().optional(),
   images: z
-    .array(z.object({ url: z.string().url(), primary: z.boolean().optional() }))
+    .array(z.object({ url: z.url(), primary: z.boolean().optional() }))
     .optional(),
   variations: z.array(VariationSchema).min(1),
 });
@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
     const parsed = ExportSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Invalid input', details: parsed.error.flatten() },
+        { error: 'Invalid input', details: z.flattenError(parsed.error) },
         { status: 400 }
       );
     }

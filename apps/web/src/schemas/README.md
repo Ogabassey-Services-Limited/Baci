@@ -57,7 +57,7 @@ const baseFormSchema = z.object({
   businessType: z.string().min(1, 'Please select a business type.'),
   otherBusinessType: z.string().optional(),
   brandPreferences: z.string().optional(),
-  logo: z.any().optional(),
+  logo: z.unknown().optional(),
 });
 ```
 
@@ -126,7 +126,7 @@ const addProductSchema = z.object({
   price: z.coerce.number().min(0, 'Price must be a positive number.'),
   stock: z.coerce.number().int('Stock must be a whole number.'),
   status: z.enum(['draft', 'active']),
-  image: z.any().refine((file) => file, 'Product image is required.'),
+  image: z.unknown().refine((file) => file, 'Product image is required.'),
 });
 ```
 
@@ -547,22 +547,15 @@ The `z.record()` constructor in Zod v4 strictly requires both the **key** and th
 const settingsSchema = z.record(z.string(), z.unknown());
 ```
 
-### 4. Custom Error Handling (Local Overrides vs. Unified Parameter)
-- **Local Overrides:** The traditional `required_error` and `invalid_type_error` options on primitives are fully supported in Zod v4 and remain the standard way to customize field-level form validation messages locally.
-- **Dynamic/Unified Customization:** For advanced dynamic error overrides (like translating messages or conditional mapping based on the issue type), Zod v4 supports a unified `error` callback function parameter.
+### 4. Custom Error Messages
+- Zod v4 removed the `required_error` and `invalid_type_error` constructor options.
+- Use the unified `error` parameter for primitive constructors.
+- Use an `error` callback when required and invalid-type messages need to differ.
 
 ```typescript
-// Traditional Local Customization (Standard for Forms)
 const schema = z.string({
-  required_error: "This field is required",
-  invalid_type_error: "Not a valid string",
-});
-
-// Dynamic Customization via Unified callback
-const dynamicSchema = z.string({
-  error: (issue) => issue.input === undefined 
-    ? "This field is required" 
-    : "Invalid data type",
+  error: (issue) =>
+    issue.input === undefined ? "This field is required" : "Not a valid string",
 });
 ```
 

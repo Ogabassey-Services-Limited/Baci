@@ -1,12 +1,12 @@
 import { z } from 'zod';
 
-const isoDateTime = z.string().datetime({ offset: true });
+const isoDateTime = z.iso.datetime({ offset: true });
 
 export const analyticsQuerySchema = z
   .object({
     endDate: isoDateTime.optional(),
     startDate: isoDateTime.optional(),
-    branchId: z.string().uuid('Invalid branch id').optional(),
+    branchId: z.uuid('Invalid branch id').optional(),
   })
   .superRefine((value, ctx) => {
     if (!value.startDate && !value.endDate) {
@@ -16,14 +16,14 @@ export const analyticsQuerySchema = z
     if (!value.startDate || !value.endDate) {
       if (!value.startDate) {
         ctx.addIssue({
-          code: z.ZodIssueCode.custom,
+          code: 'custom',
           message: 'startDate and endDate must be provided together',
           path: ['startDate'],
         });
       }
       if (!value.endDate) {
         ctx.addIssue({
-          code: z.ZodIssueCode.custom,
+          code: 'custom',
           message: 'startDate and endDate must be provided together',
           path: ['endDate'],
         });
@@ -35,7 +35,7 @@ export const analyticsQuerySchema = z
     const endMs = Date.parse(value.endDate);
     if (Number.isFinite(startMs) && Number.isFinite(endMs) && startMs > endMs) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: 'startDate must be on or before endDate',
         path: ['startDate'],
       });

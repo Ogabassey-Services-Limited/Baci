@@ -68,10 +68,10 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
 
     const GetQuerySchema = z.object({
-      limit: z.coerce.number().int().min(1).max(1000).default(50),
-      offset: z.coerce.number().int().min(0).default(0),
+      limit: z.coerce.number().int().min(1).max(1000).prefault(50),
+      offset: z.coerce.number().int().min(0).prefault(0),
       status: z.string().min(1).optional(),
-      integrationId: z.string().uuid().optional(),
+      integrationId: z.uuid().optional(),
     });
 
     const queryParsed = GetQuerySchema.safeParse({
@@ -85,7 +85,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         {
           error: 'Invalid query parameters',
-          details: queryParsed.error.flatten(),
+          details: z.flattenError(queryParsed.error),
         },
         { status: 400 }
       );
@@ -217,15 +217,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const integrationIdSchema = z
-      .string()
-      .uuid('integrationId must be a valid UUID');
+    const integrationIdSchema = z.uuid('integrationId must be a valid UUID');
     const parsedIntegrationId = integrationIdSchema.safeParse(rawIntegrationId);
     if (!parsedIntegrationId.success) {
       return NextResponse.json(
         {
           error: 'Invalid integrationId',
-          details: parsedIntegrationId.error.flatten(),
+          details: z.flattenError(parsedIntegrationId.error),
         },
         { status: 400 }
       );

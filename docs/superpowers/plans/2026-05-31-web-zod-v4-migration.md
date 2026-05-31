@@ -378,6 +378,7 @@ git commit -m "build: align web schemas on zod v4"
 - [ ] **Step 1: Run the codemod with pnpm, not npx**
 
 Use `pnpm dlx` because this repo forbids npm/yarn tooling for agent work.
+`zod-v3-to-v4@1.21.2` expects a `tsconfig.json` path as its non-interactive argument, so use a temporary scoped tsconfig instead of passing individual source files as positional arguments.
 
 ```bash
 git ls-files \
@@ -393,13 +394,34 @@ xargs -n 100 rg -l "from ['\"]zod|import z from ['\"]zod|import \\{ z \\} from [
   | sort -u \
   > /tmp/web-zod-v4-codemod-files.txt
 
-pnpm dlx zod-v3-to-v4 $(cat /tmp/web-zod-v4-codemod-files.txt)
+cat > apps/web/tsconfig.zod-v4-codemod.json <<'EOF'
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "mcp-server/**/*.ts",
+    "../../packages/shared/src/**/*.ts"
+  ],
+  "exclude": [
+    "src/**/assets/**",
+    "mcp-server/assets/**",
+    "**/*.backup",
+    "**/*.log",
+    ".next",
+    "node_modules"
+  ]
+}
+EOF
+
+pnpm dlx zod-v3-to-v4@1.21.2 apps/web/tsconfig.zod-v4-codemod.json
+rm apps/web/tsconfig.zod-v4-codemod.json
 ```
 
 Expected:
 
 ```text
-Codemod applies standard Zod v4 rewrites only to tracked TypeScript files.
+Codemod applies standard Zod v4 rewrites only to files reachable from the scoped temporary tsconfig.
 ```
 
 - [ ] **Step 2: Review the diff before manual edits**
@@ -421,6 +443,7 @@ Do not accept changes that:
 - rewrite unrelated formatting across large non-schema files
 - change runtime behavior without a schema reason
 - modify apps/web/mcp-server/assets, *.backup, generated output, logs, or built artifacts
+- leave apps/web/tsconfig.zod-v4-codemod.json in the final diff
 ```
 
 - [ ] **Step 4: Record codemod scope**

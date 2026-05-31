@@ -16,7 +16,7 @@ const settlementGrossAmountSchema = z.union([
   z
     .string()
     .regex(/^\+?\d+(?:\.\d+)?$/, {
-      message: 'must be a valid non-negative settlement amount',
+      error: 'must be a valid non-negative settlement amount',
     })
     .transform(Number)
     .pipe(z.number().finite().nonnegative()),
@@ -32,15 +32,13 @@ const settlementArgsSchema = z.object({
       typeof value === 'object' &&
       typeof (value as { rpc?: unknown }).rpc === 'function'
   ),
-  transaction: z
-    .object({
-      amount: settlementGrossAmountSchema,
-      gateway_reference: z.string().nullable().optional(),
-      merchant_id: z.string().trim().min(1),
-      order_id: z.string().trim().min(1),
-      platform_fee: moneyInputSchema.nullish(),
-    })
-    .passthrough(),
+  transaction: z.looseObject({
+    amount: settlementGrossAmountSchema,
+    gateway_reference: z.string().nullable().optional(),
+    merchant_id: z.string().trim().min(1),
+    order_id: z.string().trim().min(1),
+    platform_fee: moneyInputSchema.nullish(),
+  }),
 });
 
 function throwSettlementRpcError(error: unknown): never {
@@ -70,7 +68,7 @@ export function buildSettlementExecutor(args: {
   const parsedArgs = settlementArgsSchema.safeParse(args);
   if (!parsedArgs.success) {
     throw new Error(
-      `invalid_settlement_executor_args: ${JSON.stringify(parsedArgs.error.flatten())}`
+      `invalid_settlement_executor_args: ${JSON.stringify(z.flattenError(parsedArgs.error))}`
     );
   }
   const validatedArgs = parsedArgs.data;

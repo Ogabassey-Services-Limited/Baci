@@ -12,13 +12,9 @@ const agenticPatternListSchema = z.preprocess((value) => {
   return [];
 }, z.array(z.string()));
 
-export const agenticRequestControlsSettingsSchema = z
-  .object({
-    [AGENTIC_AGENT_ALLOWLIST_KEY]: agenticPatternListSchema
-      .optional()
-      .default([]),
-    [AGENTIC_AGENT_DENYLIST_KEY]: agenticPatternListSchema
-      .optional()
-      .default([]),
-  })
-  .passthrough();
+export const agenticRequestControlsSettingsSchema = z.looseObject({
+  [AGENTIC_AGENT_ALLOWLIST_KEY]: agenticPatternListSchema
+    .optional()
+    .default([]),
+  [AGENTIC_AGENT_DENYLIST_KEY]: agenticPatternListSchema.optional().default([]),
+});

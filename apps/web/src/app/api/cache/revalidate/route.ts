@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
   const result = revalidateSchema.safeParse(body);
   if (!result.success) {
     return NextResponse.json(
-      { error: 'Invalid input', details: result.error.flatten() },
+      { error: 'Invalid input', details: z.flattenError(result.error) },
       { status: 400 }
     );
   }

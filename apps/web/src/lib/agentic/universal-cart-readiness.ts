@@ -46,7 +46,7 @@ interface UniversalCartReadinessMerchant {
   slug: string;
 }
 
-const recordSchema = z.object({}).passthrough();
+const recordSchema = z.looseObject({});
 
 function getRecord(value: unknown): Record<string, unknown> | null {
   const parsed = recordSchema.safeParse(value);

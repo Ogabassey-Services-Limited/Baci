@@ -4,23 +4,84 @@
 - `apps/web` Zod changed from `^3.25.76` to `^4.4.3`.
 - `packages/shared` now declares `zod@^4.4.3` because shared source imports Zod and exports shared schemas.
 - `@hookform/resolvers` stayed at `^5.4.0`; it is already above the `5.1.1+` resolver floor for Zod v4.
+- Root `package.json` now declares `zod@^4.4.3` as a dev dependency so the hoisted `@hookform/resolvers` type import of `zod/v4/core` resolves to the same Zod v4 package as `@baci/web`.
 - `openai` was not added or upgraded by this checkpoint. The lockfile still contains `openai@4.104.0` through LangSmith/LangChain/CopilotKit peer paths, and pnpm reports a peer warning because that package declares `zod@^3.23.8`.
 - Current `openai@6.39.1` package metadata declares `zod@^3.25 || ^4.0`, but upgrading OpenAI is intentionally deferred unless the Zod v4 migration hits a hard type/runtime blocker.
 - `pnpm --filter @baci/web list zod --depth 0` reports direct `zod 4.4.3`.
 
 ## Codemod Scope
+- Ran `pnpm dlx zod-v3-to-v4@1.21.2 apps/web/tsconfig.zod-v4-codemod.json` with a temporary scoped tsconfig that included `apps/web/src`, `apps/web/mcp-server`, and `packages/shared/src`.
+- Removed the temporary codemod tsconfig after the codemod completed.
+- Codemod touched web schemas, API route schemas, MCP server schemas, React Hook Form schemas, and shared schema files.
+- Confirmed protected files were not touched: no `apps/web/src/proxy.ts` and no `supabase/migrations/*` changes.
+- Confirmed no `zod/v3` imports remain in the migrated surface.
 
 ## Manual Zod Syntax Fixes
+- Restored a codemod regression in `apps/web/src/schemas/ai-storefront-layout.ts` where the `description` field schema was accidentally moved into `.describe(...)`.
+- Preserved trim-before-format behavior where user-visible validation depends on trimming first:
+  - `apps/web/src/schemas/ucp-cart-request.ts`
+  - `apps/web/src/schemas/jumia/shops.ts`
+  - `apps/web/src/schemas/notifications.ts`
+  - `apps/web/src/app/api/staff/route.ts`
+  - `apps/web/src/schemas/agentic-order-route-params.ts`
+  - `apps/web/src/schemas/wallet-top-up.ts`
+- Replaced generic `z.any()` usage in migrated local schemas with `z.unknown()` or more exact field shapes.
+- Tightened `apps/web/src/app/dashboard/products/add/add-product-form.tsx` media fields to `string` for the primary image and `string | File` for gallery values, then kept empty primary images as `''` to match the `Product` model's required string.
+- Updated Zod error handling test doubles from `.errors` to `.issues`.
+- Preserved the storefront products API/logging contract by making the merchant UUID error explicitly `Invalid uuid`.
+- Updated `apps/web/src/schemas/README.md` to document Zod v4's unified `error` option instead of removed `required_error` / `invalid_type_error`.
 
 ## Defaults Audit
+- Used `.prefault(...)` where a fallback must still pass through `z.coerce`, transforms, trims, or validation constraints before output:
+  - numeric query/page defaults such as Jumia order pagination, domain purchase years, quiz pagination, import jobs, crawler observability, UCP catalog limits, VTU pagination, and wallet transactions.
+  - agentic checkout currency defaults that should still normalize/validate through the currency schema.
+  - monetary order defaults that should still coerce and validate non-negative numbers.
+- Kept `.default(...)` where Zod v4 short-circuiting is the desired behavior and the fallback is already normalized:
+  - booleans, enum defaults, array/object defaults, static strings, and simple numeric constants.
+- Re-ran schema tests after the audit; they caught and verified the trim-before-UUID fixes.
 
 ## React Hook Form Resolver Audit
+- Initial web typecheck exposed a Zod v4 type-brand mismatch because root `node_modules/zod` resolved to v3 while `apps/web` resolved to v4.
+- Adding root `zod@^4.4.3` aligned root and web resolution to `4.4.3`; the `zodResolver(...)` overload errors disappeared.
+- Resolver-heavy component tests passed for product creation, Jumia consignment, merchant bank, dashboard settings, BVN/NIN verification, security settings, and onboarding account validation.
 
 ## Runtime/API Schema Audit
+- Product route test mocks now model Zod v4 `ZodError.issues`.
+- `storefrontProductsQuerySchema` preserves the prior lowercase `Invalid uuid` message for invalid merchant IDs.
+- Audits for removed/deprecated Zod v4 migration hazards found no remaining blocking usage of `required_error`, `invalid_type_error`, `errorMap`, `ZodError.errors`, `ZodError.formErrors`, `ctx.path`, or `z.nativeEnum` in the migrated surface.
+- All `z.record(...)` call sites in the touched surface use explicit key and value schemas.
+- No top-level `z.email()`, `z.url()`, `z.uuid()`, or `z.iso.datetime()` call remains before a later `.trim()` in the migrated surface.
 
 ## Browser QA Evidence
+- Local dev server ran from the isolated worktree at `http://localhost:3002` with ignored env files sourced into the process only and `NEXT_PUBLIC_APP_URL` overridden to localhost.
+- Browser QA:
+  - `/signup`: page loaded; empty `Create Account` submission produced `Signup Failed / Invalid fields` validation feedback without sending real user data.
+  - `/reset-password`: page loaded; empty `Update Password` submission produced password-strength validation feedback.
+  - `/onboarding`: step 1 loaded; empty `Next` submission produced business type, country, and business-name validation messages.
+- API validation on the local dev server:
+  - `GET /api/storefront/products?merchant_id=not-a-uuid` returned `400` with `{"error":"Invalid parameters","details":{"fieldErrors":{"merchant_id":["Invalid uuid"]}}}`.
+- Browser direct navigation to `/api/storefront/products?...` was blocked by the in-app browser client (`ERR_BLOCKED_BY_CLIENT`), so API validation was verified with local dev-server `curl` after Browser page QA.
+- Screenshots saved outside the repo:
+  - `/tmp/baci-zod-v4-browser-qa/signup-validation.png`
+  - `/tmp/baci-zod-v4-browser-qa/reset-password-validation.png`
+  - `/tmp/baci-zod-v4-browser-qa/onboarding-validation.png`
 
 ## Automated Validation
+
+### After Migration
+- `pnpm install --lockfile-only`: passed; existing peer warnings only, including `openai@4.104.0` expecting Zod 3.
+- `pnpm install --frozen-lockfile --prefer-offline`: passed.
+- `cd packages/shared && node ../../node_modules/typescript/bin/tsc --noEmit`: passed.
+- `cd packages/shared && node ../../node_modules/vitest/vitest.mjs run`: passed, 46 files and 395 tests.
+- `cd apps/web && node ../../node_modules/typescript/bin/tsc --noEmit`: passed.
+- `cd apps/web && ./node_modules/@biomejs/cli-darwin-arm64/biome check .`: passed, 3110 files checked.
+- `cd apps/web && node ../../node_modules/vitest/vitest.mjs run src/schemas`: passed, 72 files and 941 tests.
+- Focused MCP/forms suite: passed, 13 files and 81 tests.
+- Focused API suite: passed, 18 files and 249 tests.
+- `cd apps/web && node ../../node_modules/vitest/vitest.mjs run`: passed, 1440 files passed, 1 skipped; 11666 tests passed, 1 todo.
+- `coderabbit review --prompt-only -t uncommitted`: completed with 7 findings; the only major finding was fixed by making the product form primary image contract consistently string-based. Remaining findings were minor/trivial migration-style suggestions and were not applied because they either preserve existing semantics less safely or are out-of-scope cleanup.
+- `git diff --check`: passed.
+- Note: local `node_modules/.bin/biome` and `node_modules/.bin/vitest` wrappers hung in this worktree after reinstall, so final local verification used the same package binaries via explicit `node` or the native Biome binary. The tested commands are recorded above.
 
 ### Baseline Before Migration Edits
 - `pnpm install --frozen-lockfile --prefer-offline`: passed; lockfile was up to date.

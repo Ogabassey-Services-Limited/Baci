@@ -5,8 +5,8 @@ import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 
 const wishlistCreateSchema = z.object({
-  productId: z.string().uuid('Invalid product ID'),
-  merchantId: z.string().uuid('Invalid merchant ID'),
+  productId: z.uuid('Invalid product ID'),
+  merchantId: z.uuid('Invalid merchant ID'),
   sessionToken: z.string().min(16).optional(),
 });
 

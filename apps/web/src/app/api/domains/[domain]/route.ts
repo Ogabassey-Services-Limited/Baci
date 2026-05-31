@@ -141,7 +141,7 @@ export async function POST(
     const parsed = domainActionSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Invalid action', details: parsed.error.flatten() },
+        { error: 'Invalid action', details: z.flattenError(parsed.error) },
         { status: 400 }
       );
     }

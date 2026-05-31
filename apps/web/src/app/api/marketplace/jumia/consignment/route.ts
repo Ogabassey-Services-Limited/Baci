@@ -34,7 +34,7 @@ import { createClient } from '@/lib/supabase/server';
 /* ------------------------------------------------------------------ */
 
 const GetQuerySchema = z.object({
-  integrationId: z.string().uuid('integrationId must be a valid UUID'),
+  integrationId: z.uuid('integrationId must be a valid UUID'),
   sku: z.string().trim().min(1, 'sku is required'),
   businessClientCode: z
     .string()
@@ -44,7 +44,7 @@ const GetQuerySchema = z.object({
 
 const ConsignmentProductSchema = z.object({
   sku: z.string().trim().min(1, 'sku is required'),
-  quantity: z.number().int().positive('quantity must be a positive integer'),
+  quantity: z.int().positive('quantity must be a positive integer'),
   labelCode: z.string().trim().min(1, 'labelCode must not be empty').optional(),
 });
 
@@ -57,11 +57,13 @@ const strictDateString = z
       const d = new Date(`${val}T00:00:00Z`);
       return !Number.isNaN(d.getTime()) && d.toISOString().startsWith(val);
     },
-    { message: 'Invalid calendar date' }
+    {
+      error: 'Invalid calendar date',
+    }
   );
 
 const CreateConsignmentSchema = z.object({
-  integrationId: z.string().uuid('integrationId must be a valid UUID'),
+  integrationId: z.uuid('integrationId must be a valid UUID'),
   businessClientCode: z
     .string()
     .trim()
@@ -74,7 +76,7 @@ const CreateConsignmentSchema = z.object({
 });
 
 const UpdateConsignmentSchema = z.object({
-  integrationId: z.string().uuid('integrationId must be a valid UUID'),
+  integrationId: z.uuid('integrationId must be a valid UUID'),
   purchaseOrderNumber: z
     .string()
     .trim()
@@ -127,7 +129,10 @@ export async function GET(request: NextRequest) {
 
     if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Invalid query parameters', details: parsed.error.flatten() },
+        {
+          error: 'Invalid query parameters',
+          details: z.flattenError(parsed.error),
+        },
         { status: 400 }
       );
     }
@@ -209,7 +214,7 @@ export async function POST(request: NextRequest) {
     const parsed = CreateConsignmentSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Invalid input', details: parsed.error.flatten() },
+        { error: 'Invalid input', details: z.flattenError(parsed.error) },
         { status: 400 }
       );
     }
@@ -301,7 +306,7 @@ export async function PATCH(request: NextRequest) {
     const parsed = UpdateConsignmentSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Invalid input', details: parsed.error.flatten() },
+        { error: 'Invalid input', details: z.flattenError(parsed.error) },
         { status: 400 }
       );
     }
