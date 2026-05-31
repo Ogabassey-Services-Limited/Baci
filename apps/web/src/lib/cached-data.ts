@@ -115,6 +115,30 @@ interface PublicStorefrontProductVariant {
   updated_at?: string | null;
 }
 
+interface StorefrontCategoryParentRow {
+  name: string | null;
+  slug: string | null;
+}
+
+interface StorefrontCategoryRow {
+  id: string;
+  name: string | null;
+  slug: string | null;
+  description: string | null;
+  image_url: string | null;
+  is_active: boolean | null;
+  seo_heading: string | null;
+  seo_description: string | null;
+  seo_features: string[] | null;
+  seo_faq: { answer: string; question: string }[] | null;
+  parent: StorefrontCategoryParentRow | null;
+}
+
+interface StorefrontCategorySlugState {
+  category_id: string;
+  is_active: boolean | null;
+}
+
 interface LegacyPriceCompatibleProduct {
   price?: number | string | null;
   compare_at_price?: number | string | null;
@@ -1661,18 +1685,47 @@ export async function getCachedCategoryPageData(
   }
 
   // 3. Try to find category by slug
-  const { data: categoryRow } = await supabase
+  const categoryQuery = supabase
     .from('categories')
     .select(
       'id, name, slug, description, image_url, is_active, seo_heading, seo_description, seo_features, seo_faq, parent:parent_id(name, slug)'
     )
     .eq('merchant_id', merchantId)
     .eq('slug', categorySlug)
-    .single();
-  const isInactiveCategory = Boolean(categoryRow && !categoryRow.is_active);
-  const category: CachedCategoryRecord | null = categoryRow?.is_active
-    ? (categoryRow as unknown as CachedCategoryRecord)
-    : null;
+    .single() as unknown as Promise<{
+    data: StorefrontCategoryRow | null;
+    error: unknown;
+  }>;
+  const { data: categoryRow } = await categoryQuery;
+  let hiddenCategoryState: StorefrontCategorySlugState | null = null;
+
+  if (!categoryRow) {
+    const { data: categoryStateData, error: categoryStateError } =
+      await supabase.rpc('get_storefront_category_slug_state', {
+        p_merchant_id: merchantId,
+        p_slug: categorySlug,
+      });
+
+    if (categoryStateError) {
+      console.error('Category state query error:', categoryStateError);
+    }
+
+    hiddenCategoryState = Array.isArray(categoryStateData)
+      ? ((categoryStateData[0] as StorefrontCategorySlugState | undefined) ??
+        null)
+      : ((categoryStateData as StorefrontCategorySlugState | null) ?? null);
+  }
+
+  const isInactiveCategory =
+    categoryRow?.is_active === false ||
+    hiddenCategoryState?.is_active === false;
+  const category: CachedCategoryRecord | null =
+    categoryRow && categoryRow.is_active !== false
+      ? ({
+          ...categoryRow,
+          is_active: categoryRow.is_active ?? true,
+        } as CachedCategoryRecord)
+      : null;
 
   // Fallback: decode the slug to get category name and Title Case it
   const categoryName =
