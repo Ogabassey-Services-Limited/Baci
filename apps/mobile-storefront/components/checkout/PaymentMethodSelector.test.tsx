@@ -453,11 +453,7 @@ describe('PaymentMethodSelector', () => {
       expect(onWalletToggle).toHaveBeenCalledWith({ use: true, amount: 1000 });
     });
 
-    it('hides the wallet row when the BNPL tab is selected (installments)', () => {
-      // The BNPL branch in checkout.tsx returns early without spreading
-      // buildWalletOrderFields, so a wallet selection there would be
-      // silently dropped. Hide the toggle so the user never sees a
-      // selection that won't be honored.
+    it('shows the wallet row when the BNPL tab is selected (installments)', () => {
       render(
         <PaymentMethodSelector
           selectedMethod={'credit_direct' as PaymentMethodType}
@@ -471,10 +467,10 @@ describe('PaymentMethodSelector', () => {
         />
       );
 
-      expect(screen.queryByLabelText(/wallet/i)).toBeNull();
+      expect(screen.getByLabelText(/use wallet credit/i)).toBeTruthy();
     });
 
-    it('hides the wallet row when the pay_later tab is selected', () => {
+    it('shows the wallet row when the pay_later tab is selected', () => {
       render(
         <PaymentMethodSelector
           selectedMethod={'invoice' as PaymentMethodType}
@@ -488,7 +484,7 @@ describe('PaymentMethodSelector', () => {
         />
       );
 
-      expect(screen.queryByLabelText(/wallet/i)).toBeNull();
+      expect(screen.getByLabelText(/pay with wallet/i)).toBeTruthy();
     });
 
     it.each([

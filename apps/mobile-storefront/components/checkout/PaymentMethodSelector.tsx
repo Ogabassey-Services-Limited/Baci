@@ -111,7 +111,6 @@ export function PaymentMethodSelector({
   const walletAttemptAllowed =
     (walletMode === 'orders' || walletMode === 'vtu') &&
     walletEffectiveTotal > 0 &&
-    selectedTab === 'full' &&
     supportsPartialPayment;
   const walletCoversTotal = walletBalance >= walletEffectiveTotal;
   const walletFundedBankTransferActive =
@@ -204,20 +203,6 @@ export function PaymentMethodSelector({
         selectedTab={selectedTab}
       />
 
-      <PaymentMethodStatusPanels
-        colors={colors}
-        hasValidTotal={hasValidTotal}
-        isBNPLEligible={isBNPLEligible}
-        orderTotal={orderTotal}
-        selectedMethod={selectedMethod}
-        selectedTab={selectedTab}
-        showInstallmentCalculator={showInstallmentCalculator}
-        warningBackground={warningBackground}
-        warningSubtleTextColor={warningSubtleTextColor}
-        warningTextColor={warningTextColor}
-        walletFundedBankTransferMode={walletFundedBankTransferMode}
-      />
-
       <View
         style={styles.methodsContainer}
         accessibilityRole="radiogroup"
@@ -251,6 +236,20 @@ export function PaymentMethodSelector({
           );
         })}
       </View>
+
+      <PaymentMethodStatusPanels
+        colors={colors}
+        hasValidTotal={hasValidTotal}
+        isBNPLEligible={isBNPLEligible}
+        orderTotal={orderTotal}
+        selectedMethod={selectedMethod}
+        selectedTab={selectedTab}
+        showInstallmentCalculator={showInstallmentCalculator}
+        warningBackground={warningBackground}
+        warningSubtleTextColor={warningSubtleTextColor}
+        warningTextColor={warningTextColor}
+        walletFundedBankTransferMode={walletFundedBankTransferMode}
+      />
     </View>
   );
 }

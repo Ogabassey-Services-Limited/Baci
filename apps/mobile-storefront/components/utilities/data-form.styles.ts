@@ -19,7 +19,7 @@ export const dataFormStyles = StyleSheet.create({
     fontSize: 16,
     borderWidth: 1,
   },
-  inputGroup: { marginBottom: 16 },
+  inputGroup: { marginBottom: 12 },
   label: { fontSize: 14, marginBottom: 8 },
   footer: {
     position: 'absolute',

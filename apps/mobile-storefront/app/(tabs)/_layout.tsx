@@ -110,8 +110,8 @@ export default function TabLayout() {
           backgroundColor: colors.card,
           borderTopWidth: 1,
           borderTopColor: colors.border,
-          height: TAB_BAR_BASE_HEIGHT + insets.bottom,
-          paddingBottom: Math.max(insets.bottom - 4, 8),
+          height: TAB_BAR_BASE_HEIGHT + (insets.bottom > 0 ? insets.bottom : 8) + 6,
+          paddingBottom: insets.bottom > 0 ? insets.bottom : 8,
           paddingTop: 6,
           ...getTabBarShadowStyle(
             Platform.OS === 'web' ? 'web' : 'native'

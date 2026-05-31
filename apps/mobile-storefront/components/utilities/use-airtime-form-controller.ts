@@ -50,6 +50,7 @@ export function useAirtimeFormController({
   const prevIsRepeatPaymentReadyRef = useRef(isRepeatPaymentReady);
   const isSubmittingRef = useRef(false);
   const [selectedProvider, setSelectedProvider] = useState<string | null>(initialProvider ?? (initialPhoneNumber ? resolveAirtimeProvider(initialPhoneNumber) : null));
+  const [isBeneficiarySelected, setIsBeneficiarySelected] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState(initialPhoneNumber ?? '');
   const [amount, setAmount] = useState(initialAmount ?? '');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -67,6 +68,7 @@ export function useAirtimeFormController({
   }, [isRepeatPaymentReady]);
 
   const handlePhoneChange = (text: string) => {
+    setIsBeneficiarySelected(false);
     const digits = sanitizePhoneDigits(text);
     setPhoneNumber(digits);
     setSelectedProvider(resolveAirtimeProvider(digits));
@@ -293,5 +295,7 @@ export function useAirtimeFormController({
     selectedProviderConfig,
     setAmount: updateAmount,
     setIsNetworkPickerExpanded,
+    isBeneficiarySelected,
+    setIsBeneficiarySelected,
   };
 }

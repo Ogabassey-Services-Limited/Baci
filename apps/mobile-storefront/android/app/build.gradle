@@ -89,6 +89,14 @@ android {
 
     namespace 'com.ogabassey.store'
     defaultConfig {
+        def storefrontFacebookAppId = System.getenv("STOREFRONT_FACEBOOK_APP_ID") ?: ""
+        def storefrontFacebookClientToken = System.getenv("STOREFRONT_FACEBOOK_CLIENT_TOKEN") ?: ""
+        if ((storefrontFacebookAppId && !storefrontFacebookClientToken) || (!storefrontFacebookAppId && storefrontFacebookClientToken)) {
+            throw new GradleException("STOREFRONT_FACEBOOK_APP_ID and STOREFRONT_FACEBOOK_CLIENT_TOKEN must be configured together.")
+        }
+        resValue "string", "facebook_app_id", storefrontFacebookAppId
+        resValue "string", "facebook_client_token", storefrontFacebookClientToken
+        resValue "string", "fb_login_protocol_scheme", storefrontFacebookAppId ? "fb" + storefrontFacebookAppId : "fb_local_dev"
         applicationId 'com.ogabassey.store'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion

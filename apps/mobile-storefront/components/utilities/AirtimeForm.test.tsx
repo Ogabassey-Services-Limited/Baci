@@ -165,32 +165,25 @@ describe('AirtimeForm', () => {
     jest.restoreAllMocks();
   });
 
-  it('keeps network provider cards hidden until manual selection', () => {
+  it('keeps network provider cards hidden when phone number is empty', () => {
     render(<AirtimeForm onSuccess={jest.fn()} />);
 
     expect(screen.getByText('Phone Number')).toBeOnTheScreen();
-    expect(screen.getByText('Select Network')).toBeOnTheScreen();
-    expect(screen.getByText('Choose manually')).toBeOnTheScreen();
+    expect(screen.queryByText('Network')).toBeNull();
     expect(screen.queryByText('MTN')).toBeNull();
     expect(screen.queryByText('Airtel')).toBeNull();
-
-    fireEvent.press(screen.getByLabelText('Choose network manually'));
-
-    expect(screen.getByText('MTN')).toBeOnTheScreen();
-    expect(screen.getByText('Airtel')).toBeOnTheScreen();
   });
 
-  it('does not auto-expand network options for unknown phone prefixes', () => {
+  it('auto-expands network options for unknown phone prefixes', () => {
     render(<AirtimeForm onSuccess={jest.fn()} />);
 
     fireEvent.changeText(
       screen.getByPlaceholderText('08012345678'),
-      '08012345678'
+      '08001234567'
     );
 
-    expect(screen.getByText('Choose manually')).toBeOnTheScreen();
-    expect(screen.queryByText('MTN')).toBeNull();
-    expect(screen.queryByText('Airtel')).toBeNull();
+    expect(screen.getByText('MTN')).toBeOnTheScreen();
+    expect(screen.getByText('Airtel')).toBeOnTheScreen();
   });
 
   it('renders recent recipients under the phone number field', async () => {
@@ -242,10 +235,9 @@ describe('AirtimeForm', () => {
 
     expect(screen.queryByText('Network')).toBeNull();
     expect(screen.queryByText('MTN')).toBeNull();
-    expect(screen.getByText('Choose manually')).toBeOnTheScreen();
   });
 
-  it('clears a stale detected network when phone edits become an unknown prefix', async () => {
+  it('clears a stale detected network and auto-expands options when phone edits become an unknown prefix', async () => {
     render(<AirtimeForm onSuccess={jest.fn()} />);
 
     fireEvent.changeText(
@@ -260,12 +252,18 @@ describe('AirtimeForm', () => {
     );
 
     expect(screen.queryByText('Network')).toBeNull();
-    expect(screen.queryByText('MTN')).toBeNull();
-    expect(screen.getByText('Choose manually')).toBeOnTheScreen();
+    expect(screen.getByText('MTN')).toBeOnTheScreen();
+    expect(screen.getByText('Airtel')).toBeOnTheScreen();
   });
 
   it('expands network options from the selected network card', async () => {
-    render(<AirtimeForm initialProvider="mtn" onSuccess={jest.fn()} />);
+    render(
+      <AirtimeForm
+        initialProvider="mtn"
+        initialPhoneNumber="08031234567"
+        onSuccess={jest.fn()}
+      />
+    );
 
     expect(screen.getByText('Network')).toBeOnTheScreen();
     expect(screen.queryByText('Airtel')).toBeNull();

@@ -17,16 +17,31 @@ describe('isStoreCreditCompatiblePayment', () => {
     }
   );
 
-  it('rejects delayed, installment, and unsupported payment paths', () => {
+  it('verifies installment and pay later support for compatible methods', () => {
     expect(
       isStoreCreditCompatiblePayment({
         paymentTab: 'installments',
-        selectedPayment: 'paystack',
+        selectedPayment: 'credpal',
+      })
+    ).toBe(true);
+    expect(
+      isStoreCreditCompatiblePayment({
+        paymentTab: 'pay_later',
+        selectedPayment: 'invoice',
+      })
+    ).toBe(true);
+  });
+
+  it('rejects unsupported payment methods across all tabs', () => {
+    expect(
+      isStoreCreditCompatiblePayment({
+        paymentTab: 'full',
+        selectedPayment: 'pay_on_delivery',
       })
     ).toBe(false);
     expect(
       isStoreCreditCompatiblePayment({
-        paymentTab: 'full',
+        paymentTab: 'installments',
         selectedPayment: 'pay_on_delivery',
       })
     ).toBe(false);

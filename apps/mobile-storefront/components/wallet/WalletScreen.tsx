@@ -218,7 +218,7 @@ export function WalletScreen({ presentation = 'stack' }: WalletScreenProps = {})
   };
 
   const scrollContentStyle = getScrollContentStyle({
-    includeBottomInset: false,
+    includeBottomInset: presentation === 'tab',
     paddingBottom:
       presentation === 'tab' ? WALLET_TAB_SCROLL_PADDING_BOTTOM : SPACING.xl,
   });

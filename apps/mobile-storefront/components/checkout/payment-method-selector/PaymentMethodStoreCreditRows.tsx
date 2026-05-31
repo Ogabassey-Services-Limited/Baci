@@ -114,12 +114,10 @@ export function PaymentMethodStoreCreditRows({
             ]}
           >
             {savingsIsActive ? (
-              <View
-                style={[
-                  styles.radioInner,
-                  styles.storeCreditIndicatorInner,
-                  { borderRadius: savingsCoversFully ? 6 : 2 },
-                ]}
+              <Ionicons
+                name="checkmark"
+                size={14}
+                color={BRAND.primary}
               />
             ) : null}
           </View>
@@ -219,12 +217,10 @@ export function PaymentMethodStoreCreditRows({
             ]}
           >
             {walletIsActive ? (
-              <View
-                style={[
-                  styles.radioInner,
-                  styles.storeCreditIndicatorInner,
-                  { borderRadius: walletCoversFully ? 6 : 2 },
-                ]}
+              <Ionicons
+                name="checkmark"
+                size={14}
+                color={BRAND.primary}
               />
             ) : null}
           </View>

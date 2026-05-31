@@ -1,9 +1,6 @@
-import {
-  getRedeemablePointBalance,
-  VTU_MIN_REDEEMABLE_POINTS,
-} from '@baci/shared/lib';
+import { router } from 'expo-router';
 import Ionicons from '@react-native-vector-icons/ionicons';
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { BRAND } from '@/constants/Colors';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
@@ -56,9 +53,6 @@ export function WalletHeroSection({
   totalBalance,
 }: WalletHeroSectionProps) {
   const { copyToClipboard, feedback: copyFeedback } = useCopyToClipboard();
-  const tierLabel = formatTierLabel(loyaltyTier);
-  const redeemablePoints = getRedeemablePointBalance(loyaltyPoints);
-  const canRedeemPoints = loyaltyPoints >= VTU_MIN_REDEEMABLE_POINTS;
 
   const handleCopyFundingAccount = async () => {
     if (!fundingAccount) {
@@ -70,7 +64,32 @@ export function WalletHeroSection({
   return (
     <Animated.View entering={FadeIn.duration(400)} style={styles.walletHero}>
       <View style={styles.walletHeroHeader}>
-        <Text style={styles.walletHeroTitle}>Wallet</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Text style={styles.walletHeroTitle}>Wallet</Text>
+          <View
+            style={[
+              styles.loyaltyTierBadgeCompact,
+              {
+                backgroundColor: getTierColor(formatTierLabel(loyaltyTier)),
+                marginTop: 0,
+                paddingHorizontal: 8,
+                paddingVertical: 3,
+                gap: 4,
+              },
+            ]}
+          >
+            <Ionicons
+              accessible={false}
+              importantForAccessibility="no"
+              name="star"
+              size={9}
+              color={WALLET_COLORS.loyaltyTierText}
+            />
+            <Text style={[styles.loyaltyTierTextCompact, { fontSize: 9 }]}>
+              {formatTierLabel(loyaltyTier)}
+            </Text>
+          </View>
+        </View>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Add money"
@@ -144,73 +163,119 @@ export function WalletHeroSection({
       <View style={styles.balanceSummaryRow}>
         <View style={styles.balanceSummaryCell}>
           <Text style={styles.balanceSummaryLabel}>Earnings</Text>
-          <Text style={styles.balanceSummaryValue}>
+          <Text
+            style={styles.balanceSummaryValue}
+            numberOfLines={1}
+            adjustsFontSizeToFit={true}
+            minimumFontScale={0.5}
+          >
             {formatNgnCurrency(earningsBalance)}
           </Text>
         </View>
         <View style={styles.balanceSummaryDivider} />
         <View style={styles.balanceSummaryCell}>
           <Text style={styles.balanceSummaryLabel}>Savings</Text>
-          <Text style={styles.balanceSummaryValue}>
+          <Text
+            style={styles.balanceSummaryValue}
+            numberOfLines={1}
+            adjustsFontSizeToFit={true}
+            minimumFontScale={0.5}
+          >
             {formatNgnCurrency(savingsBalance)}
           </Text>
         </View>
-      </View>
-      <View style={styles.loyaltyInlineSection}>
-        <View style={styles.loyaltyInlineHeaderRow}>
-          <View style={styles.loyaltyInlineCopy}>
-            <Text style={styles.loyaltyInlineLabel}>Loyalty Points</Text>
-            <Text style={styles.loyaltyInlineValue}>
-              {loyaltyPoints.toLocaleString()} pts
-            </Text>
-          </View>
+        <View style={styles.balanceSummaryDivider} />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Redeem loyalty points"
+          accessibilityHint="Opens the loyalty redemption panel"
+          style={styles.balanceSummaryCell}
+          onPress={onOpenRedeemPanel}
+        >
+          <Text style={styles.balanceSummaryLabel}>Loyalty</Text>
+          <Text
+            style={styles.balanceSummaryValue}
+            numberOfLines={1}
+            adjustsFontSizeToFit={true}
+            minimumFontScale={0.5}
+          >
+            {loyaltyPoints.toLocaleString()} pts
+          </Text>
           <View
             style={[
-              styles.loyaltyTierBadge,
-              { backgroundColor: getTierColor(tierLabel) },
-            ]}
-          >
-            <Ionicons
-              accessible={false}
-              importantForAccessibility="no"
-              name="star"
-              size={13}
-              color={WALLET_COLORS.loyaltyTierText}
-            />
-            <Text style={styles.loyaltyTierText}>{tierLabel}</Text>
-          </View>
-        </View>
-        <View style={styles.loyaltyRedeemInlineRow}>
-          <Text style={styles.loyaltyRedeemInlineText}>
-            {`${redeemablePoints.toLocaleString()} points redeemable now`}
-          </Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Redeem loyalty points"
-            accessibilityHint="Opens the loyalty redemption panel"
-            accessibilityState={{ disabled: !canRedeemPoints }}
-            disabled={!canRedeemPoints}
-            onPress={onOpenRedeemPanel}
-            style={({ pressed }) => [
-              styles.loyaltyRedeemInlineButton,
-              {
-                opacity: !canRedeemPoints ? 0.5 : pressed ? 0.82 : 1,
-              },
+              styles.loyaltyTierBadgeCompact,
+              { backgroundColor: BRAND.primary },
             ]}
           >
             <Ionicons
               accessible={false}
               importantForAccessibility="no"
               name="gift-outline"
-              size={15}
-              color={WALLET_COLORS.white}
+              size={9}
+              color={WALLET_COLORS.loyaltyTierText}
             />
-            <Text style={styles.loyaltyRedeemInlineButtonText}>
-              Redeem Points
-            </Text>
-          </Pressable>
-        </View>
+            <Text style={styles.loyaltyTierTextCompact}>REDEEM</Text>
+          </View>
+        </Pressable>
       </View>
+
+      <View style={styles.utilityPillsDivider} />
+      <Text style={styles.utilityPillsLabel}>Quick Utilities</Text>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.utilityPillsScroll}
+      >
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Buy Airtime"
+          style={styles.utilityPill}
+          onPress={() => router.push('/utilities/airtime')}
+        >
+          <Ionicons name="call-outline" size={14} color={WALLET_COLORS.white} />
+          <Text style={styles.utilityPillText}>Airtime</Text>
+        </Pressable>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Buy Data"
+          style={styles.utilityPill}
+          onPress={() => router.push('/utilities/data')}
+        >
+          <Ionicons name="wifi" size={14} color={WALLET_COLORS.white} />
+          <Text style={styles.utilityPillText}>Data</Text>
+        </Pressable>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Pay Power Bill"
+          style={styles.utilityPill}
+          onPress={() => router.push('/utilities/power')}
+        >
+          <Ionicons name="flash-outline" size={14} color={WALLET_COLORS.white} />
+          <Text style={styles.utilityPillText}>Power</Text>
+        </Pressable>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Pay TV Bill"
+          style={styles.utilityPill}
+          onPress={() => router.push('/utilities/tv')}
+        >
+          <Ionicons name="tv-outline" size={14} color={WALLET_COLORS.white} />
+          <Text style={styles.utilityPillText}>Cable TV</Text>
+        </Pressable>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Pay Gaming Bill"
+          style={styles.utilityPill}
+          onPress={() => router.push('/utilities/gaming')}
+        >
+          <Ionicons name="game-controller-outline" size={14} color={WALLET_COLORS.white} />
+          <Text style={styles.utilityPillText}>Gaming</Text>
+        </Pressable>
+      </ScrollView>
     </Animated.View>
   );
 }

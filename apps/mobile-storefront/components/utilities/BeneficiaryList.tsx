@@ -36,19 +36,21 @@ interface BeneficiaryListProps {
   beneficiaries: UtilityBeneficiary[];
   colors: typeof Colors.light;
   onSelect: (beneficiary: UtilityBeneficiary) => void;
+  label?: string;
 }
 
 export function BeneficiaryList({
   beneficiaries,
   colors,
   onSelect,
+  label,
 }: BeneficiaryListProps) {
   if (beneficiaries.length === 0) return null;
 
   return (
     <View style={styles.container}>
       <Text style={[styles.label, { color: colors.textSecondary }]}>
-        Select Beneficiary
+        {label ?? 'Select Beneficiary'}
       </Text>
       <View
         style={[

@@ -12,6 +12,8 @@ interface RecentUtilityRecipientsProps {
   colors: typeof Colors.light;
   recipients: UtilityRepeatRecipient[];
   onSelect: (recipient: UtilityRepeatRecipient) => void;
+  embedded?: boolean;
+  label?: string;
 }
 
 function getInitials(title: string): string {
@@ -21,43 +23,69 @@ function getInitials(title: string): string {
   return `${parts[0]?.[0] ?? ''}${parts[1]?.[0] ?? ''}`.toUpperCase();
 }
 
+const MOCK_RECIPIENTS: UtilityRepeatRecipient[] = [
+  {
+    id: 'mock-1',
+    title: 'Bassey John',
+    identifierLabel: 'Phone Number',
+    identifier: '09039739318',
+    meta: '₦10,000',
+    defaults: {
+      amount: '10000',
+      phoneNumber: '09039739318',
+      isVerified: true,
+    },
+  },
+  {
+    id: 'mock-2',
+    title: 'Bassey John',
+    identifierLabel: 'Phone Number',
+    identifier: '09169449282',
+    meta: '₦1,000',
+    defaults: {
+      amount: '1000',
+      phoneNumber: '09169449282',
+      isVerified: true,
+    },
+  },
+];
+
 export function RecentUtilityRecipients({
   colors,
   recipients,
   onSelect,
+  embedded = false,
+  label,
 }: RecentUtilityRecipientsProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
+  let activeRecipients = recipients;
   if (recipients.length === 0) {
-    return null;
+    if (typeof __DEV__ !== 'undefined' && __DEV__ && process.env.NODE_ENV !== 'test') {
+      activeRecipients = MOCK_RECIPIENTS;
+    } else {
+      return null;
+    }
   }
 
   const visibleRecipients = isExpanded
-    ? recipients
-    : recipients.slice(0, PREVIEW_COUNT);
-  const canExpand = recipients.length > PREVIEW_COUNT;
+    ? activeRecipients
+    : activeRecipients.slice(0, PREVIEW_COUNT);
+  const canExpand = activeRecipients.length > PREVIEW_COUNT;
 
-  return (
-    <View style={styles.container}>
-      <Text style={[styles.label, { color: colors.textSecondary }]}>
-        Select Beneficiary
-      </Text>
-      <View
-        style={[
-          styles.list,
-          { backgroundColor: colors.card, borderColor: colors.border },
-        ]}
-      >
-        {visibleRecipients.map((recipient, index) => (
-          <Fragment key={recipient.id}>
-            {index > 0 ? (
-              <View
-                style={[styles.divider, { borderTopColor: colors.border }]}
-              />
-            ) : null}
+  const content = (
+    <>
+      {visibleRecipients.map((recipient, index) => (
+        <Fragment key={recipient.id}>
+          {index > 0 ? (
+            <View
+              style={[styles.divider, { borderTopColor: colors.border }]}
+            />
+          ) : null}
+          <View style={styles.itemWrapper}>
             <Pressable
               style={({ pressed }) => [
-                styles.row,
+                styles.pressable,
                 pressed && { backgroundColor: withAlpha(colors.tint, 0.06) },
               ]}
               onPress={() => onSelect(recipient)}
@@ -66,54 +94,78 @@ export function RecentUtilityRecipients({
             >
               <View
                 style={[
-                  styles.avatar,
-                  { backgroundColor: withAlpha(colors.tint, 0.12) },
+                  styles.row,
+                  embedded && { paddingHorizontal: 0, minHeight: 56 },
                 ]}
               >
-                <Text style={[styles.avatarText, { color: colors.tint }]}>
-                  {getInitials(recipient.title)}
-                </Text>
-              </View>
-              <View style={styles.copy}>
-                <Text
-                  style={[styles.title, { color: colors.text }]}
-                  numberOfLines={1}
+                <View
+                  style={[
+                    styles.avatar,
+                    { backgroundColor: colors.muted },
+                  ]}
                 >
-                  {recipient.title}
-                </Text>
-                <Text
-                  style={[styles.detail, { color: colors.textSecondary }]}
-                  numberOfLines={1}
-                >
-                  {recipient.identifierLabel}: {recipient.identifier}
-                </Text>
+                  <Text style={[styles.avatarText, { color: colors.accent }]}>
+                    {getInitials(recipient.title)}
+                  </Text>
+                </View>
+                <View style={styles.copy}>
+                  <Text
+                    style={[styles.title, { color: colors.text, textTransform: 'uppercase' }]}
+                    numberOfLines={1}
+                  >
+                    {recipient.title}
+                  </Text>
+                  <Text
+                    style={[styles.detail, { color: colors.textSecondary }]}
+                    numberOfLines={1}
+                  >
+                    {recipient.identifierLabel}: {recipient.identifier}
+                  </Text>
+                </View>
+                <Ionicons
+                  name="chevron-forward"
+                  size={16}
+                  color={colors.textSecondary}
+                />
               </View>
-              <Text style={[styles.meta, { color: colors.textSecondary }]}>
-                {recipient.meta}
-              </Text>
-              <Ionicons
-                name="chevron-forward"
-                size={16}
-                color={colors.textSecondary}
-              />
             </Pressable>
-          </Fragment>
-        ))}
-        {canExpand ? (
-          <Pressable
-            style={[styles.seeAll, { borderTopColor: colors.border }]}
-            onPress={() => setIsExpanded((current) => !current)}
-            accessibilityRole="button"
-            accessibilityState={{ expanded: isExpanded }}
-            accessibilityLabel={
-              isExpanded ? 'Show fewer beneficiaries' : 'See all beneficiaries'
-            }
-          >
-            <Text style={[styles.seeAllText, { color: colors.tint }]}>
-              {isExpanded ? 'Show less' : 'See all'}
-            </Text>
-          </Pressable>
-        ) : null}
+          </View>
+        </Fragment>
+      ))}
+      {canExpand ? (
+        <Pressable
+          style={[styles.seeAll, { borderTopColor: colors.border }]}
+          onPress={() => setIsExpanded((current) => !current)}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: isExpanded }}
+          accessibilityLabel={
+            isExpanded ? 'Show fewer beneficiaries' : 'See all beneficiaries'
+          }
+        >
+          <Text style={[styles.seeAllText, { color: colors.tint }]}>
+            {isExpanded ? 'Show less' : 'See all'}
+          </Text>
+        </Pressable>
+      ) : null}
+    </>
+  );
+
+  if (embedded) {
+    return <View>{content}</View>;
+  }
+
+  return (
+    <View style={styles.container}>
+      <Text style={[styles.label, { color: colors.textSecondary }]}>
+        {label ?? 'Select Beneficiary'}
+      </Text>
+      <View
+        style={[
+          styles.list,
+          { backgroundColor: colors.card, borderColor: colors.border },
+        ]}
+      >
+        {content}
       </View>
     </View>
   );
@@ -122,6 +174,7 @@ export function RecentUtilityRecipients({
 const styles = StyleSheet.create({
   container: {
     marginTop: SPACING.sm,
+    marginBottom: 20,
   },
   label: {
     fontSize: 13,
@@ -169,6 +222,7 @@ const styles = StyleSheet.create({
   meta: {
     fontSize: 12,
     fontWeight: '600',
+    marginTop: 2,
   },
   seeAll: {
     alignItems: 'center',
@@ -179,5 +233,11 @@ const styles = StyleSheet.create({
   seeAllText: {
     fontSize: 13,
     fontWeight: '700',
+  },
+  itemWrapper: {
+    width: '100%',
+  },
+  pressable: {
+    width: '100%',
   },
 });

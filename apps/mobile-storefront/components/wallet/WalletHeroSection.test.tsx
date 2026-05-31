@@ -10,6 +10,12 @@ import { setClipboardString } from '@/lib/clipboard';
 import { WalletHeroSection } from './WalletHeroSection';
 
 const mockTriggerHaptic = jest.fn();
+const mockPush = jest.fn();
+jest.mock('expo-router', () => ({
+  router: {
+    push: (...args: unknown[]) => mockPush(...args),
+  },
+}));
 
 jest.mock('react-native-reanimated', () => {
   const { View } = jest.requireActual(
@@ -70,13 +76,23 @@ describe('WalletHeroSection', () => {
     expect(screen.getAllByText('Earnings').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Savings').length).toBeGreaterThan(0);
     expect(screen.getByText('2,000 pts')).toBeOnTheScreen();
+    expect(screen.getByText('REDEEM')).toBeOnTheScreen();
     expect(screen.getByText('Silver')).toBeOnTheScreen();
-    expect(screen.getByText('2,000 points redeemable now')).toBeOnTheScreen();
+    expect(
+      screen.getByRole('button', { name: 'Add money' })
+    ).toBeOnTheScreen();
     expect(
       screen.getByRole('button', { name: 'Redeem loyalty points' })
     ).toBeOnTheScreen();
     expect(
       screen.getByRole('button', { name: 'Copy funding account number' })
+    ).toBeOnTheScreen();
+    expect(screen.getByText('Quick Utilities')).toBeOnTheScreen();
+    expect(
+      screen.getByRole('button', { name: 'Buy Airtime' })
+    ).toBeOnTheScreen();
+    expect(
+      screen.getByRole('button', { name: 'Buy Data' })
     ).toBeOnTheScreen();
   });
 
@@ -131,13 +147,23 @@ describe('WalletHeroSection', () => {
     expect(baseProps.onOpenRedeemPanel).toHaveBeenCalledTimes(1);
   });
 
-  it('disables redemption until enough points are redeemable', () => {
+  it('allows opening redemption panel even with low points to see rankings and conversions', () => {
     render(<WalletHeroSection {...baseProps} loyaltyPoints={50} />);
 
     fireEvent.press(
       screen.getByRole('button', { name: 'Redeem loyalty points' })
     );
 
-    expect(baseProps.onOpenRedeemPanel).not.toHaveBeenCalled();
+    expect(baseProps.onOpenRedeemPanel).toHaveBeenCalledTimes(1);
+  });
+
+  it('navigates to utility purchase screen when a utility pill is pressed', () => {
+    render(<WalletHeroSection {...baseProps} />);
+
+    fireEvent.press(screen.getByRole('button', { name: 'Buy Airtime' }));
+    expect(mockPush).toHaveBeenCalledWith('/utilities/airtime');
+
+    fireEvent.press(screen.getByRole('button', { name: 'Buy Data' }));
+    expect(mockPush).toHaveBeenCalledWith('/utilities/data');
   });
 });

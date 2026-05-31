@@ -183,9 +183,21 @@ export function useCheckoutPaymentController({
         }
       : undefined;
 
+  const baseTotal = step === 'review' ? total : subtotal + deliveryFee + assuranceFee;
+  const activeSavings =
+    storeCreditCompatible && savings.savingsSelection?.use === true
+      ? Math.min(savings.checkoutSavingsBalance, baseTotal)
+      : 0;
+  const baseResidualAfterSavings = Math.max(baseTotal - activeSavings, 0);
+  const activeWallet =
+    storeCreditCompatible && walletSelection?.use === true
+      ? Math.min(walletBalance, baseResidualAfterSavings)
+      : 0;
+  const stepDisplayTotal = Math.max(baseTotal - activeSavings - activeWallet, 0);
+
   return {
     availablePaymentMethods,
-    displayTotal: step === 'review' ? total : subtotal + deliveryFee + assuranceFee,
+    displayTotal: stepDisplayTotal,
     handleSelectPaymentTab,
     klumpDisabledReason: getKlumpDisabledReason(
       paymentSettings,

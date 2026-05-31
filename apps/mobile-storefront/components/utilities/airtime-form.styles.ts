@@ -44,9 +44,9 @@ export const airtimeFormStyles = StyleSheet.create({
   sectionTitle: {
     fontSize: AIRTIME_FORM_TOKENS.fontSize.xl,
     fontWeight: AIRTIME_FORM_TOKENS.fontWeight.semibold,
-    marginBottom: AIRTIME_FORM_TOKENS.space.md,
+    marginBottom: 12,
   },
-  inputGroup: { marginBottom: AIRTIME_FORM_TOKENS.space.xl },
+  inputGroup: { marginBottom: 12 },
   label: {
     fontSize: AIRTIME_FORM_TOKENS.fontSize.md,
     marginBottom: AIRTIME_FORM_TOKENS.space.sm,
@@ -67,7 +67,7 @@ export const airtimeFormStyles = StyleSheet.create({
   input: {
     height: AIRTIME_FORM_TOKENS.size.inputHeight,
     borderRadius: AIRTIME_FORM_TOKENS.radius.lg,
-    paddingHorizontal: AIRTIME_FORM_TOKENS.space.xl,
+    paddingHorizontal: 16,
     fontSize: AIRTIME_FORM_TOKENS.fontSize.xl,
     borderWidth: 1,
   },
@@ -84,7 +84,7 @@ export const airtimeFormStyles = StyleSheet.create({
     fontWeight: AIRTIME_FORM_TOKENS.fontWeight.semibold,
   },
   networkPicker: {
-    marginBottom: AIRTIME_FORM_TOKENS.space.xl,
+    marginBottom: 20,
   },
   networkPickerHeader: {
     alignItems: 'center',
@@ -115,8 +115,8 @@ export const airtimeFormStyles = StyleSheet.create({
     flexDirection: 'row',
     gap: AIRTIME_FORM_TOKENS.space.md,
     justifyContent: 'space-between',
-    marginBottom: AIRTIME_FORM_TOKENS.space.xl,
-    padding: AIRTIME_FORM_TOKENS.space.lg,
+    marginBottom: 20,
+    padding: 16,
   },
   selectedNetworkCopy: {
     flex: 1,
@@ -155,5 +155,31 @@ export const airtimeFormStyles = StyleSheet.create({
     color: BRAND.onPrimary,
     fontSize: AIRTIME_FORM_TOKENS.fontSize.xl,
     fontWeight: AIRTIME_FORM_TOKENS.fontWeight.semibold,
+  },
+  unifiedCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 16,
+    marginBottom: AIRTIME_FORM_TOKENS.space.xl,
+  },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  arrowButton: {
+    width: AIRTIME_FORM_TOKENS.size.inputHeight,
+    height: AIRTIME_FORM_TOKENS.size.inputHeight,
+    borderRadius: AIRTIME_FORM_TOKENS.radius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  beneficiarySection: {
+    marginTop: 16,
+  },
+  unifiedCardLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 8,
   },
 });

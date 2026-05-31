@@ -56,7 +56,7 @@ export function HeaderMinimal({
           <Pressable
             onPress={() => router.push('/cart' as Href)}
             hitSlop={12}
-            style={styles.iconBtn}
+            style={[styles.iconBtn, styles.rightIconBtn]}
             accessibilityLabel={
               itemCount > 0
                 ? `Shopping cart, ${itemCount} ${itemCount === 1 ? 'item' : 'items'}`

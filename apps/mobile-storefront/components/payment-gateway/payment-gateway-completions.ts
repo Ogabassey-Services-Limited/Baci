@@ -1,5 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query';
-import { router } from 'expo-router';
+import { type Href, router } from 'expo-router';
 import {
   SavingsAuthorizationStillProcessingError,
   waitForSavingsAuthorizationConfirmation,
@@ -139,7 +139,7 @@ export function beginSavingsAuthorizationCompletion({
       }
       setPaymentStatus('success');
       scheduleDelayedNavigation(() => {
-        router.replace(returnTo || '/wallet/savings/start');
+        router.replace((returnTo || '/wallet/savings/start') as Href);
       });
     } catch (error) {
       if (!refs.isMountedRef.current) {

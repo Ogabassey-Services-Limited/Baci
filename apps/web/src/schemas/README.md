@@ -1,8 +1,6 @@
 # Zod Schema Documentation
 
-This directory documents all Zod validation schemas used throughout the Baci e-commerce platform.
-
-**Note:** Currently, schemas are defined inline within components. This directory serves as centralized documentation. Future refactoring may extract schemas to dedicated files here.
+This directory contains the centralized, production-grade Zod validation schemas used throughout the Baci e-commerce platform. All schemas are defined in dedicated `.ts` files here and imported where needed across the Next.js and mobile workspaces, keeping our codebase modular, testable, and type-safe.
 
 ---
 
@@ -504,6 +502,66 @@ Use Genkit Dev UI for AI flow schemas:
 npm run genkit:dev
 # Visit: http://localhost:4000
 # Test flows with sample data
+```
+
+---
+
+## Zod v4 Architecture Guidelines
+
+With Baci's migration to **Zod v4**, developers must adhere to the following optimized validation and schema creation patterns:
+
+### 1. Short-Circuiting Defaults vs. Pre-Parsing (`.default()` vs. `.prefault()`)
+In Zod v4, the `.default()` method short-circuits the parsing process if the input is `undefined`. It eagerly returns the default value without running any subsequent validation methods (e.g., `.min()`, `.max()`, or custom transformations). The default value is treated as "valid by definition".
+- **Use `.default()`** when the default value itself is fully trusted and does not need to be parsed or transformed.
+- **Use `.prefault()`** if you need Zod v3-style behavior where the default value is first parsed and validated through subsequent methods before being returned.
+
+```typescript
+// Zod v4 Short-Circuit (Default value is not validated by .min)
+const nameSchema = z.string().min(3).default(""); 
+
+// Zod v4 Pre-Parsed Default (Default value will trigger .min error)
+const strictNameSchema = z.string().min(3).prefault(""); 
+```
+
+### 2. Top-Level Tree-Shakable Functions (Deprecated Chaining)
+Zod v4 promotes format helpers (like `.email()`, `.uuid()`, `.url()`) to top-level functions to dramatically improve tree-shaking and reduce bundle sizes, especially for frontend client bundles.
+- While legacy method-chaining (e.g., `z.string().email()`) remains supported for compatibility, developers are encouraged to use the new top-level functions for newly created schemas.
+
+```typescript
+// Legacy Chained Pattern (Supported but deprecated)
+const legacyEmail = z.string().email("Invalid email");
+
+// Modern Zod v4 Pattern (Optimized for Tree-Shaking)
+const modernEmail = z.email("Invalid email");
+const modernUuid = z.uuid("Invalid UUID");
+const modernUrl = z.url("Invalid URL");
+```
+
+### 3. Unified Key-Value Requirement for Records
+The `z.record()` constructor in Zod v4 strictly requires both the **key** and the **value** schemas to be explicitly defined. This enforces stronger static typing and eliminates ambiguous dictionary types.
+
+```typescript
+// ✅ Correct Zod v4 Record schema
+const settingsSchema = z.record(z.string(), z.unknown());
+```
+
+### 4. Custom Error Handling (Local Overrides vs. Unified Parameter)
+- **Local Overrides:** The traditional `required_error` and `invalid_type_error` options on primitives are fully supported in Zod v4 and remain the standard way to customize field-level form validation messages locally.
+- **Dynamic/Unified Customization:** For advanced dynamic error overrides (like translating messages or conditional mapping based on the issue type), Zod v4 supports a unified `error` callback function parameter.
+
+```typescript
+// Traditional Local Customization (Standard for Forms)
+const schema = z.string({
+  required_error: "This field is required",
+  invalid_type_error: "Not a valid string",
+});
+
+// Dynamic Customization via Unified callback
+const dynamicSchema = z.string({
+  error: (issue) => issue.input === undefined 
+    ? "This field is required" 
+    : "Invalid data type",
+});
 ```
 
 ---

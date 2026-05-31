@@ -57,6 +57,7 @@ export function DataForm({
     initialProvider ??
       (initialPhoneNumber ? detectNetwork(initialPhoneNumber) : null)
   );
+  const [isBeneficiarySelected, setIsBeneficiarySelected] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState(initialPhoneNumber ?? '');
   const [selectedPlan, setSelectedPlan] = useState<string | null>(
     initialPlan ?? null
@@ -123,14 +124,25 @@ export function DataForm({
   });
 
   const handlePhoneChange = (text: string) => {
+    setIsBeneficiarySelected(false);
     const digits = text.replace(/\D/g, '');
     setPhoneNumber(digits);
     const detected = detectNetwork(digits);
-    const selectedBundleProvider = selectedDataBiller
-      ? inferProviderFromDataBillerName(selectedDataBiller.billerName)
-      : null;
-    if (detected && !selectedBundleProvider) {
+    if (detected) {
       setSelectedProvider(detected);
+      if (dataPlans?.length) {
+        const matchingBiller = dataPlans.find((biller) => {
+          const providerName = inferProviderFromDataBillerName(biller.billerName);
+          return providerName === detected;
+        });
+        if (matchingBiller && selectedDataBiller?.billerId !== matchingBiller.billerId) {
+          setSelectedDataBiller(matchingBiller);
+          setIsDataPickerExpanded(false);
+          const hasDataPackages = (matchingBiller.billItems?.length ?? 0) > 0;
+          setSelectedPlan(hasDataPackages ? null : matchingBiller.billerId);
+          setPlanAmount(0);
+        }
+      }
     }
   };
 
@@ -172,6 +184,50 @@ export function DataForm({
     },
   });
 
+  const activeRecipients = recentRecipients;
+  const matchingRecipients = activeRecipients.filter((recipient) => {
+    if (!phoneNumber) return true;
+    const cleanPhone = phoneNumber.replace(/\D/g, '');
+    const cleanRecip = (recipient.identifier ?? '').replace(/\D/g, '');
+    return cleanRecip.includes(cleanPhone) || recipient.title.toLowerCase().includes(phoneNumber.toLowerCase());
+  });
+
+  const handleSelectRecentRecipient = (recipient: typeof recentRecipients[0]) => {
+    setIsBeneficiarySelected(true);
+    const num = recipient.defaults.phoneNumber ?? '';
+    setPhoneNumber(num);
+    const detected = detectNetwork(num);
+    if (detected) {
+      setSelectedProvider(detected);
+      if (dataPlans?.length) {
+        const matchingBiller = dataPlans.find((biller) => {
+          const providerName = inferProviderFromDataBillerName(biller.billerName);
+          return providerName === detected;
+        });
+        if (matchingBiller) {
+          setSelectedDataBiller(matchingBiller);
+          setIsDataPickerExpanded(false);
+        }
+      }
+    }
+    if (onSelectRecentRecipient) {
+      onSelectRecentRecipient(recipient);
+    }
+  };
+
+  const shouldShowBeneficiaryList =
+    !isBeneficiarySelected &&
+    (phoneNumber.length < 5 || matchingRecipients.length > 0);
+
+  const canShowBeneficiaries =
+    (recentRecipients.length > 0 || (typeof __DEV__ !== 'undefined' && __DEV__ && process.env.NODE_ENV !== 'test')) &&
+    onSelectRecentRecipient &&
+    shouldShowBeneficiaryList;
+
+  const shouldShowNetworkSection =
+    isBeneficiarySelected ||
+    (phoneNumber.length >= 5 && matchingRecipients.length === 0);
+
   return (
     <>
       <ScrollView
@@ -194,6 +250,7 @@ export function DataForm({
               backgroundColor: colors.muted,
               color: colors.text,
               borderColor: colors.border,
+              marginBottom: 16,
             },
           ]}
           placeholder="08012345678"
@@ -204,49 +261,53 @@ export function DataForm({
           onChangeText={handlePhoneChange}
         />
 
-        {recentRecipients.length > 0 && onSelectRecentRecipient ? (
+        {canShowBeneficiaries ? (
           <RecentUtilityRecipients
             colors={colors}
-            recipients={recentRecipients}
-            onSelect={onSelectRecentRecipient}
+            recipients={matchingRecipients}
+            onSelect={handleSelectRecentRecipient}
           />
         ) : null}
 
-        <Text
-          style={[
-            dataFormStyles.sectionTitle,
-            { color: colors.text, marginTop: 24 },
-          ]}
-        >
-          Select Data Bundle
-        </Text>
-        <BillerList
-          billers={dataPlans || []}
-          selectedBillerId={selectedDataBiller?.billerId ?? selectedPlan}
-          onSelect={handleDataBillerSelect}
-          isLoading={plansLoading}
-          isCollapsed={!!selectedDataBiller && !isDataPickerExpanded}
-          onChangeSelection={() => setIsDataPickerExpanded(true)}
-          selectedLabel="Data Bundle"
-          emptyMessage="No data bundles available"
-          errorMessage={plansErrorMessage}
-        />
+        {shouldShowNetworkSection ? (
+          <>
+            <Text
+              style={[
+                dataFormStyles.sectionTitle,
+                { color: colors.text, marginTop: 4 },
+              ]}
+            >
+              Select Data Bundle
+            </Text>
+            <BillerList
+              billers={dataPlans || []}
+              selectedBillerId={selectedDataBiller?.billerId ?? selectedPlan}
+              onSelect={handleDataBillerSelect}
+              isLoading={plansLoading}
+              isCollapsed={!!selectedDataBiller && !isDataPickerExpanded}
+              onChangeSelection={() => setIsDataPickerExpanded(true)}
+              selectedLabel="Data Bundle"
+              emptyMessage="No data bundles available"
+              errorMessage={plansErrorMessage}
+            />
 
-        {selectedDataBiller?.billItems?.length ? (
-          <DataPlanSelectionSection
-            billItems={selectedDataBiller.billItems}
-            colors={colors}
-            selectedPlan={selectedPlan}
-            onSelectPlan={handleDataPlanSelect}
-          />
+            {selectedDataBiller?.billItems?.length ? (
+              <DataPlanSelectionSection
+                billItems={selectedDataBiller.billItems}
+                colors={colors}
+                selectedPlan={selectedPlan}
+                onSelectPlan={handleDataPlanSelect}
+              />
+            ) : null}
+
+            <DataAmountInput
+              amount={planAmount}
+              colors={colors}
+              isFixedAmount={isFixedDataPlanAmount}
+              onChangeAmount={setPlanAmount}
+            />
+          </>
         ) : null}
-
-        <DataAmountInput
-          amount={planAmount}
-          colors={colors}
-          isFixedAmount={isFixedDataPlanAmount}
-          onChangeAmount={setPlanAmount}
-        />
 
         <View
           onLayout={(event) => {

@@ -23,13 +23,17 @@ const STORE_CREDIT_COMPATIBLE_PAYMENT_METHODS: ReadonlySet<StoreCreditPaymentMet
   'paystack',
   'korapay',
   'bank_transfer',
+  'credpal',
+  'credit_direct',
+  'klump',
+  'invoice',
+  'payforme',
 ]);
 
 /**
  * isStoreCreditCompatiblePayment returns whether store credit can be combined
- * with the selected payment path. paymentTab must be `full` because
- * installment/pay-later flows create deferred contracts where partially
- * applying internal credit would drift from provider repayment schedules.
+ * with the selected payment path. We allow applying wallet credit/internal credit
+ * to both full, installment, and pay later paths to reduce the principal gateway amount.
  * selectedPayment must be one of the supported checkout methods, and the
  * boolean return value is the shared UI/API guard for wallet and savings
  * payload shaping.
@@ -42,7 +46,8 @@ export function isStoreCreditCompatiblePayment({
   selectedPayment?: StoreCreditPaymentMethod | null;
 }) {
   return (
-    paymentTab === 'full' &&
+    paymentTab != null &&
+    (paymentTab === 'full' || paymentTab === 'installments' || paymentTab === 'pay_later') &&
     selectedPayment != null &&
     STORE_CREDIT_COMPATIBLE_PAYMENT_METHODS.has(selectedPayment)
   );
