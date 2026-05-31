@@ -145,7 +145,9 @@ export function SubscriptionStatusCard({
         </Text>
       </View>
       <View style={[styles.freeCardBadge, { backgroundColor: colors.gold }]}>
-        <Text style={[styles.freeCardBadgeText, { color: colors.background }]}>UPGRADE</Text>
+        <Text style={[styles.freeCardBadgeText, { color: colors.textOnGold }]}>
+          UPGRADE
+        </Text>
       </View>
     </Pressable>
   );
