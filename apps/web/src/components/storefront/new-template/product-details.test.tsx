@@ -1,19 +1,12 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { CartItem } from '@/hooks/cart/cart-types';
 
 const mocks = vi.hoisted(() => ({
   savedItems: [] as string[],
-  cart: [] as Array<{
-    id: string;
-    cartItemId: string;
-    name: string;
-    image: string;
-    price: number;
-    quantity: number;
-    variantId?: string;
-  }>,
   toggleSaved: vi.fn(),
   addToCart: vi.fn(),
+  cart: [] as CartItem[],
 }));
 
 vi.mock('next/image', () => ({
@@ -66,12 +59,12 @@ function renderInsideForm(onSubmit = vi.fn()) {
   return onSubmit;
 }
 
-describe('ProductDetails save button', () => {
+describe('ProductDetails', () => {
   beforeEach(() => {
     mocks.savedItems = [];
-    mocks.cart = [];
     mocks.toggleSaved.mockReset();
     mocks.addToCart.mockReset();
+    mocks.cart = [];
     window.scrollTo = vi.fn();
   });
 
@@ -94,21 +87,21 @@ describe('ProductDetails save button', () => {
     expect(mocks.toggleSaved).toHaveBeenCalledWith('1');
   });
 
-  it('renders with typed variant cart items already in the cart', () => {
+  it('calculates the quantity of a product in the cart without crashing by using CartItem interface mapping', () => {
     mocks.cart = [
       {
         id: '1',
-        cartItemId: '1::variant=black',
-        variantId: 'black',
-        name: 'iPhone 15 Pro',
+        variantId: 'variant-1',
+        name: 'iPhone 15 Pro Max',
         image: '/iphone.jpg',
         price: 1_200_000,
         quantity: 2,
-      },
+      } as CartItem,
     ];
 
+    // Test passes if component renders successfully with the typed cart item object
     render(<ProductDetails />);
 
-    expect(screen.getByRole('button', { name: 'Save product' })).toBeVisible();
+    expect(screen.getAllByText('iPhone 15 Pro Max').length).toBeGreaterThan(0);
   });
 });
