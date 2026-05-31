@@ -131,10 +131,7 @@ export function HomeServiceCards({
             style={[
               styles.card,
               {
-                backgroundColor:
-                  colorScheme === 'dark'
-                    ? withAlpha(item.accent, 0.08)
-                    : withAlpha(item.accent, 0.04),
+                backgroundColor: colors.card,
                 borderColor: withAlpha(
                   item.accent,
                   colorScheme === 'dark' ? 0.48 : 0.38
