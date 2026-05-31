@@ -49,6 +49,7 @@ export const SourceRequestModal: React.FC<SourceRequestModalProps> = ({
       <button
         type="button"
         aria-label="Dismiss source request modal backdrop"
+        tabIndex={-1}
         className="absolute inset-0 border-0 bg-black/60 p-0 backdrop-blur-xs"
         onClick={onClose}
       />

@@ -95,6 +95,7 @@ export function CheckoutIdentityModal({
       <button
         type="button"
         aria-label="Dismiss checkout modal backdrop"
+        tabIndex={-1}
         className="absolute inset-0 border-0 bg-black/50 p-0 backdrop-blur-xs animate-in fade-in duration-200"
         onClick={onClose}
       />

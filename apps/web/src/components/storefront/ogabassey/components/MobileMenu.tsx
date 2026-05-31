@@ -105,6 +105,7 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
         className="absolute inset-0 border-0 bg-black/60 p-0 backdrop-blur-xs animate-in fade-in duration-200"
         onClick={onClose}
         aria-label="Dismiss menu backdrop"
+        tabIndex={-1}
       />
 
       {/* Sidebar */}

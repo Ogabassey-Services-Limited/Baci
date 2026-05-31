@@ -137,6 +137,7 @@ export const CartSidebar: React.FC = () => {
         <button
           type="button"
           aria-label="Dismiss cart backdrop"
+          tabIndex={-1}
           className="absolute inset-0 border-0 bg-black/50 p-0 backdrop-blur-xs transition-opacity"
           onClick={() => setIsCartOpen(false)}
         />

@@ -419,6 +419,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
       <button
         type="button"
         aria-label="Dismiss negotiation modal backdrop"
+        tabIndex={-1}
         data-testid="modal-backdrop"
         className="absolute inset-0 border-0 bg-[hsl(var(--foreground))]/60 p-0 backdrop-blur-sm"
         onClick={onClose}

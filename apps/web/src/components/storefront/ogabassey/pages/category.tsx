@@ -338,6 +338,7 @@ export const OgabasseyV2CategoryPage: React.FC<
           <button
             type="button"
             aria-label="Dismiss filters backdrop"
+            tabIndex={-1}
             className="absolute inset-0 border-0 bg-black/50 p-0 backdrop-blur-xs"
             onClick={() => setIsMobileFilterOpen(false)}
           />

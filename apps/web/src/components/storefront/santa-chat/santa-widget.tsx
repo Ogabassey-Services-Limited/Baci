@@ -46,6 +46,7 @@ export function SantaWidget() {
           <button
             type="button"
             aria-label="Dismiss Santa chat backdrop"
+            tabIndex={-1}
             className="absolute inset-0 border-0 bg-black/30 p-0 backdrop-blur-xs"
             onClick={() => setIsOpen(false)}
           />
