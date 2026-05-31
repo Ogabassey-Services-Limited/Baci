@@ -58,6 +58,12 @@ const mockUseCategories = jest.fn<() => MockCategoriesResult>(() =>
 );
 const mockUsePrefetchBillers = jest.fn();
 
+const mockUseIsFocused = jest.fn(() => true);
+
+jest.mock('expo-router/react-navigation', () => ({
+  useIsFocused: () => mockUseIsFocused(),
+}));
+
 jest.mock('@/components/useColorScheme', () => ({
   useColorScheme: () => mockUseColorScheme(),
 }));

@@ -4,6 +4,7 @@ import type React from 'react';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { useIsFocused } from 'expo-router/react-navigation';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
 import { CONFIG } from '@/lib/config';
@@ -37,6 +38,14 @@ export function UtilityPanel({
 
   // Prefetch all bill categories so data is ready when user taps a category
   usePrefetchBillers();
+
+  const isFocused = useIsFocused();
+
+  useEffect(() => {
+    if (isFocused) {
+      setIsManualUtility(false);
+    }
+  }, [isFocused]);
 
   useEffect(() => {
     console.log("🚀 Baci Reanimated Utility Bar loaded!");
