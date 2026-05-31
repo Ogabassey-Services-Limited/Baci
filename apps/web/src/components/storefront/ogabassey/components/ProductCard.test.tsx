@@ -97,6 +97,45 @@ describe('ProductCard', () => {
     ).toBeInTheDocument();
   });
 
+  it('exposes one accessible product image in grid view', () => {
+    render(
+      <ProductCard
+        product={{
+          ...mockProduct,
+          seo_alt_text: 'Dell Alienware laptop front view',
+        }}
+        onAddToCart={vi.fn()}
+        isAdded={false}
+      />
+    );
+
+    expect(
+      screen.getAllByRole('img', {
+        name: 'Dell Alienware laptop front view',
+      })
+    ).toHaveLength(1);
+  });
+
+  it('exposes one accessible product image in list view', () => {
+    render(
+      <ProductCard
+        product={{
+          ...mockProduct,
+          seo_alt_text: 'Dell Alienware laptop front view',
+        }}
+        onAddToCart={vi.fn()}
+        isAdded={false}
+        viewMode="list"
+      />
+    );
+
+    expect(
+      screen.getAllByRole('img', {
+        name: 'Dell Alienware laptop front view',
+      })
+    ).toHaveLength(1);
+  });
+
   it('falls back from blank SEO alt text to image alt text', () => {
     render(
       <ProductCard
