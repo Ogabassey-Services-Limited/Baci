@@ -2,8 +2,16 @@ import type Ionicons from '@react-native-vector-icons/ionicons';
 // router removed as it was unused.
 import type React from 'react';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Text, View } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { ActivityIndicator, Platform, Text, View } from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+  withSpring,
+  useDerivedValue,
+  useAnimatedReaction,
+} from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 import { useIsFocused } from 'expo-router/react-navigation';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
@@ -11,6 +19,7 @@ import { CONFIG } from '@/lib/config';
 import { getTemplateConfig } from '@/lib/templates';
 import { type Category, useCategories } from '@/hooks';
 import { usePrefetchBillers } from '@/hooks/use-vtu-billers';
+import { getUtilityPanelActiveShadowStyle } from './UtilityPanel.shadows';
 import { utilityPanelStyles as styles } from './UtilityPanel.styles';
 import { UtilityPanelCategoryItem } from './UtilityPanelCategoryItem';
 
@@ -20,6 +29,7 @@ interface UtilityPanelProps {
   onCategorySelect: (id: string | null) => void;
   selectedCategoryName?: string;
   slug?: string;
+  activeIndex?: Animated.SharedValue<number>;
 }
 
 // Module-level constants (stable references, no re-creation per render)
@@ -31,6 +41,7 @@ export function UtilityPanel({
   selectedCategoryId,
   onCategorySelect,
   slug,
+  activeIndex,
 }: UtilityPanelProps) {
   const { data: remoteCategories = [], isLoading, error } = useCategories();
   const colorScheme = useColorScheme();
@@ -69,19 +80,35 @@ export function UtilityPanel({
     };
   });
 
+  const localActiveIndex = useSharedValue(0);
+  const activeIndexVal = activeIndex ?? localActiveIndex;
+  const [containerWidth, setContainerWidth] = useState(0);
+
+  const activeShadowStyle = getUtilityPanelActiveShadowStyle(
+    Platform.OS === 'web' ? 'web' : 'native',
+    colors.black
+  );
+
+  // Sync reaction from activeIndexVal to activeUtilityIndex state
+  useAnimatedReaction(
+    () => Math.round(activeIndexVal.value),
+    (nextIndex, prevIndex) => {
+      if (nextIndex !== prevIndex) {
+        scheduleOnRN(setActiveUtilityIndex, nextIndex);
+      }
+    },
+    [activeIndexVal]
+  );
+
   // Sync prop change to local index (if external change happens)
   useEffect(() => {
     if (selectedCategoryId) {
       const idx = CATEGORY_IDS.indexOf(selectedCategoryId);
       if (idx !== -1) {
-        setActiveUtilityIndex(idx);
-        // 2026 Best Practice: Do NOT mark as manual here!
-        // The parent might have a default selection (e.g. 'Airtime' as first in list),
-        // but that shouldn't stop the "attract loop" rotation.
-        // Rotation should only stop on explicit USER INTERACTION (handlePress).
+        activeIndexVal.value = withSpring(idx, { damping: 16, stiffness: 150 });
       }
     }
-  }, [selectedCategoryId]);
+  }, [selectedCategoryId, activeIndexVal]);
 
   // Auto-rotate effect
   useEffect(() => {
@@ -90,11 +117,16 @@ export function UtilityPanel({
     if (isManualUtility) return;
 
     const interval = setInterval(() => {
-      setActiveUtilityIndex((prev) => (prev + 1) % UTILITY_WORDS.length);
+      const next = (activeUtilityIndex + 1) % UTILITY_WORDS.length;
+      if (next === 0) {
+        activeIndexVal.value = 0; // Instant jump back to 0, no backward sweep!
+      } else {
+        activeIndexVal.value = withTiming(next, { duration: 300 });
+      }
     }, 2800); // Slightly slower for better readability
 
     return () => clearInterval(interval);
-  }, [isManualUtility]);
+  }, [isManualUtility, activeIndexVal, activeUtilityIndex]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: activeUtilityIndex intentionally restarts the promo text transition when the selected utility changes.
   useEffect(() => {
@@ -106,8 +138,7 @@ export function UtilityPanel({
 
   const handlePress = (id: string, index: number) => {
     setIsManualUtility(true);
-    // Optimistically set active index for instant feedback
-    setActiveUtilityIndex(index);
+    activeIndexVal.value = withSpring(index, { damping: 16, stiffness: 150 });
     onCategorySelect(id);
   };
 
@@ -134,6 +165,31 @@ export function UtilityPanel({
     }
     return (remoteCategories || []) as Category[];
   })();
+
+  const derivedTranslateX = useDerivedValue(() => {
+    if (containerWidth === 0) return 0;
+    const padding = 8;
+    const contentWidth = containerWidth - padding * 2;
+    const itemWidth = contentWidth / 5;
+    const iconWidth = 48;
+    const targetX =
+      activeIndexVal.value * itemWidth + padding + (itemWidth - iconWidth) / 2;
+    return withSpring(targetX, {
+      damping: 18,
+      stiffness: 150,
+      mass: 1,
+    });
+  });
+
+  const glidingIndicatorStyle = useAnimatedStyle(() => {
+    if (containerWidth === 0) {
+      return { opacity: 0 };
+    }
+    return {
+      transform: [{ translateX: derivedTranslateX.value }],
+      opacity: 1,
+    };
+  });
 
   if (isLoading && categories.length === 0) {
     return (
@@ -227,6 +283,8 @@ export function UtilityPanel({
                 : activeUtilityIndex === index
             }
             onPress={() => handlePress(category.id, index)}
+            activeIndex={activeIndexVal}
+            index={index}
           />
         ))}
       </View>

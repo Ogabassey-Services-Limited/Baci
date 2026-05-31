@@ -12,14 +12,43 @@ jest.mock('react-native-reanimated', () => {
     Text,
     cancelAnimation: jest.fn(),
     useAnimatedStyle: (updater: () => object) => updater(),
-    useSharedValue: (value: number) => ({
+    useSharedValue: (value: number) => {
+      const listeners: Array<(newValue: number, oldValue: number) => void> = [];
+      return {
+        get value() {
+          return value;
+        },
+        set value(newValue) {
+          const oldValue = value;
+          value = newValue;
+          for (const listener of listeners) {
+            listener(newValue, oldValue);
+          }
+        },
+        addListener(listener: (newValue: number, oldValue: number) => void) {
+          listeners.push(listener);
+        },
+      };
+    },
+    useDerivedValue: (fn: () => number) => ({
       get value() {
-        return value;
-      },
-      set value(newValue) {
-        value = newValue;
+        return fn();
       },
     }),
+    useAnimatedReaction: (
+      prepare: () => number,
+      react: (nextIndex: number, prevIndex: number | null) => void,
+      deps: unknown[]
+    ) => {
+      const shared = deps[0] as any;
+      if (shared && typeof shared.addListener === 'function') {
+        shared.addListener((newVal: number) => {
+          react(Math.round(newVal), null);
+        });
+      }
+      react(prepare(), null);
+    },
+    runOnJS: (fn: (...args: any[]) => any) => fn,
     withTiming: (toValue: number, config?: object, callback?: (isFinished?: boolean) => void) => {
       mockWithTiming(toValue, config);
       callback?.(true);

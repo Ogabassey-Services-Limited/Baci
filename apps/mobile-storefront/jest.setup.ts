@@ -121,6 +121,25 @@ jest.mock('react-native-reanimated', () => {
     withRepeat: (anim: any) => anim,
     withSequence: (...anims: any[]) => anims[0],
     cancelAnimation: jest.fn(),
+    useDerivedValue: (fn: any) => ({
+      get value() {
+        return fn();
+      },
+    }),
+    useEvent: (fn: any) => fn,
+    interpolate: (value: number, inputRange: number[], outputRange: number[]) => {
+      const idx = inputRange.indexOf(value);
+      if (idx !== -1) return outputRange[idx];
+      return outputRange[0];
+    },
+    interpolateColor: (value: number, inputRange: number[], outputRange: string[]) => {
+      const idx = inputRange.indexOf(value);
+      if (idx !== -1) return outputRange[idx];
+      return outputRange[0];
+    },
+    Extrapolation: {
+      CLAMP: 'clamp',
+    },
     View: MockAnimatedView,
     Text: MockAnimatedText,
     createAnimatedComponent: (component: any) => component,
@@ -153,6 +172,24 @@ jest.mock('react-native-gesture-handler', () => {
     usePanGesture: jest.fn(() => ({})),
     useTapGesture: jest.fn(() => ({})),
     useSimultaneousGestures: jest.fn((...args: any[]) => ({})),
+  };
+});
+
+// Mock react-native-pager-view
+jest.mock('react-native-pager-view', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  class MockPagerView extends React.Component {
+    setPage = jest.fn();
+    setPageWithoutAnimation = jest.fn();
+    render() {
+      const { children, ...props } = this.props;
+      return React.createElement(View, { testID: 'pager-view', ...props }, children);
+    }
+  }
+  return {
+    __esModule: true,
+    default: MockPagerView,
   };
 });
 

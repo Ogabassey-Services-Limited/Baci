@@ -2,7 +2,15 @@ import Ionicons from '@react-native-vector-icons/ionicons';
 import type React from 'react';
 import { useEffect } from 'react';
 import { Platform, TouchableOpacity } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+  interpolate,
+  interpolateColor,
+  Extrapolation,
+} from 'react-native-reanimated';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
 import { getUtilityPanelActiveShadowStyle } from './UtilityPanel.shadows';
@@ -15,6 +23,8 @@ interface UtilityPanelCategoryItemProps {
   variant: 'card' | 'circle' | 'pill';
   isActive: boolean;
   onPress: () => void;
+  activeIndex?: Animated.SharedValue<number>;
+  index?: number;
 }
 
 export function UtilityPanelCategoryItem({
@@ -24,6 +34,8 @@ export function UtilityPanelCategoryItem({
   variant,
   isActive,
   onPress,
+  activeIndex,
+  index,
 }: UtilityPanelCategoryItemProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -35,23 +47,52 @@ export function UtilityPanelCategoryItem({
   );
 
   useEffect(() => {
-    iconScale.value = withSpring(isActive ? 1.05 : 1, {
-      damping: 16,
-      stiffness: 180,
-      mass: 1,
-    });
-    labelOpacity.value = withTiming(isActive ? 1 : 0.8, {
-      duration: 220,
-    });
-  }, [isActive, iconScale, labelOpacity]);
+    // Only run discrete spring animations if activeIndex is not driving the continuous flow
+    if (activeIndex === undefined || index === undefined) {
+      iconScale.value = withSpring(isActive ? 1.05 : 1, {
+        damping: 16,
+        stiffness: 180,
+        mass: 1,
+      });
+      labelOpacity.value = withTiming(isActive ? 1 : 0.8, {
+        duration: 220,
+      });
+    }
+  }, [isActive, iconScale, labelOpacity, activeIndex, index]);
 
-  const animatedIconStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: iconScale.value }],
-  }));
+  const animatedIconStyle = useAnimatedStyle(() => {
+    if (activeIndex !== undefined && index !== undefined) {
+      const isCurrentlyActive = Math.round(activeIndex.value) === index;
+      const progress = isCurrentlyActive ? 1 : 0;
 
-  const animatedLabelStyle = useAnimatedStyle(() => ({
-    opacity: labelOpacity.value,
-  }));
+      return {
+        transform: [{ scale: 1 + progress * 0.05 }],
+        backgroundColor: progress === 1 ? colors.card : colors.muted,
+        borderColor: progress === 1 ? BRAND.primary : 'transparent',
+        borderWidth: progress === 1 ? 1 : 0,
+      };
+    }
+
+    return {
+      transform: [{ scale: iconScale.value }],
+      backgroundColor: isActive ? colors.card : colors.muted,
+      borderColor: isActive ? BRAND.primary : 'transparent',
+      borderWidth: isActive ? 1 : 0,
+    };
+  });
+
+  const animatedLabelStyle = useAnimatedStyle(() => {
+    if (activeIndex !== undefined && index !== undefined) {
+      const isCurrentlyActive = Math.round(activeIndex.value) === index;
+      return {
+        opacity: isCurrentlyActive ? 1 : 0.8,
+      };
+    }
+
+    return {
+      opacity: labelOpacity.value,
+    };
+  });
 
   if (variant !== 'circle') {
     return null;
@@ -71,11 +112,6 @@ export function UtilityPanelCategoryItem({
         testID={`utility-category-icon-${id}`}
         style={[
           styles.circleIcon,
-          { backgroundColor: colors.muted },
-          isActive && [
-            styles.circleIconActive,
-            { backgroundColor: colors.card },
-          ],
           isActive && activeShadowStyle,
           animatedIconStyle,
         ]}
