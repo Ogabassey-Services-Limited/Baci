@@ -145,7 +145,7 @@ export function SubscriptionStatusCard({
         </Text>
       </View>
       <View style={[styles.freeCardBadge, { backgroundColor: colors.gold }]}>
-        <Text style={styles.freeCardBadgeText}>UPGRADE</Text>
+        <Text style={[styles.freeCardBadgeText, { color: colors.background }]}>UPGRADE</Text>
       </View>
     </Pressable>
   );
@@ -223,7 +223,6 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.full,
   },
   freeCardBadgeText: {
-    color: '#000000',
     fontSize: 10,
     fontFamily: TYPOGRAPHY.fontFamily.bold,
   },
