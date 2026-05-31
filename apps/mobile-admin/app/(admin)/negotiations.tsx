@@ -75,7 +75,11 @@ export default function NegotiationsScreen() {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      if (typeof channel.unsubscribe === 'function') {
+        void channel.unsubscribe();
+      } else {
+        void supabase.removeChannel(channel);
+      }
     };
   }, []);
 

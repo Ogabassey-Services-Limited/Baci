@@ -105,9 +105,13 @@ export default function AccountScreen() {
 
     channelRef.current = channel;
     return () => {
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
+      if (channelRef.current === channel) {
         channelRef.current = null;
+      }
+      if (typeof channel.unsubscribe === 'function') {
+        void channel.unsubscribe();
+      } else {
+        void supabase.removeChannel(channel);
       }
     };
   }, [safeCustomer?.id]);

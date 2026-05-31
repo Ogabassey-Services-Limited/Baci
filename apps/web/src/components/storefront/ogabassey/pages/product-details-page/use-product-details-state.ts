@@ -314,9 +314,13 @@ export function useProductDetailsState(serverProduct: Product) {
         title: 'Added to cart',
         description: `${serverProduct.name} has been added to your cart.`,
       });
-      setTimeout(() => {
+      const checkoutRedirectTimeoutId = setTimeout(() => {
         router.push(asRoute(basePath ? `${basePath}/checkout` : '/checkout'));
       }, 500);
+
+      return () => {
+        clearTimeout(checkoutRedirectTimeoutId);
+      };
     }
   }, [
     searchParams,

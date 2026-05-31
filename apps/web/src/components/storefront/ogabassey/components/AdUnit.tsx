@@ -24,6 +24,30 @@ const NETWORK_CODE = '/23331099951'; // Updated from screenshot
 // Track defined slots globally to prevent duplicates in React StrictMode
 const definedSlots = new Set<string>();
 
+interface GoogleSlotRenderEndedEvent {
+  slot: googletag.Slot;
+  isEmpty: boolean;
+}
+
+type PubAdsServiceWithOptionalRemove = googletag.PubAdsService & {
+  removeEventListener?: (
+    eventType: 'slotRenderEnded',
+    listener: (event: unknown) => void
+  ) => void;
+};
+
+function registerPubAdsSlotRenderListener(
+  pubads: googletag.PubAdsService,
+  listener: (event: unknown) => void
+) {
+  pubads.addEventListener('slotRenderEnded', listener);
+
+  return () => {
+    const removablePubads = pubads as PubAdsServiceWithOptionalRemove;
+    removablePubads.removeEventListener?.('slotRenderEnded', listener);
+  };
+}
+
 export const AdUnit: React.FC<AdUnitProps> = ({
   placementKey,
   className = '',
@@ -113,6 +137,7 @@ export const AdUnit: React.FC<AdUnitProps> = ({
     const { id, width, height, mobileWidth, mobileHeight } = config;
     const slotPath = `${NETWORK_CODE}/${config.name.replace(/\s+/g, '_')}`; // Construct ad unit path
     const lifecycle = slotLifecycleRef.current;
+    const listenerCleanups: Array<() => void> = [];
 
     // Skip if this slot is already defined (React StrictMode double-render protection)
     if (definedSlots.has(id)) {
@@ -168,13 +193,17 @@ export const AdUnit: React.FC<AdUnitProps> = ({
             googletag.display(id);
 
             // Listen for render events to hide placeholder if needed
-            googletag.pubads().addEventListener(
-              'slotRenderEnded',
-              (event: any) => {
-                if (event.slot === slot) {
-                  setIsAdLoaded(!event.isEmpty);
-                }
+            const slotRenderEndedHandler = (event: unknown) => {
+              const renderEvent = event as GoogleSlotRenderEndedEvent;
+              if (renderEvent.slot === slot) {
+                setIsAdLoaded(!renderEvent.isEmpty);
               }
+            };
+            listenerCleanups.push(
+              registerPubAdsSlotRenderListener(
+                googletag.pubads(),
+                slotRenderEndedHandler
+              )
             );
           }
         });
@@ -182,6 +211,15 @@ export const AdUnit: React.FC<AdUnitProps> = ({
       .catch(() => {
         setIsAdLoaded(false);
       });
+
+    return () => {
+      const googletag = ensureGoogleTag();
+      googletag.cmd.push(() => {
+        for (const cleanup of listenerCleanups) {
+          cleanup();
+        }
+      });
+    };
   }, [config, hasBootDelayElapsed, isActive, shouldLoadSlot]);
 
   useEffect(() => {
