@@ -61,14 +61,17 @@ export function BNPLCheckoutScreen() {
 
   const validatedParams = parseBNPLParams(params);
 
-  const { orderId, gateway, amount, trackingToken } = validatedParams.data || {};
+  const { orderId, gateway, amount, trackingToken } =
+    validatedParams.data || {};
 
-  const { clearPendingLoadTimeout, scheduleLoadTimeout } = createBNPLLoadTimers({
-    loadTimeoutRef,
-    setCheckoutStatus,
-    setErrorMessage,
-    statusRef,
-  });
+  const { clearPendingLoadTimeout, scheduleLoadTimeout } = createBNPLLoadTimers(
+    {
+      loadTimeoutRef,
+      setCheckoutStatus,
+      setErrorMessage,
+      statusRef,
+    }
+  );
 
   useEffect(() => () => clearPendingLoadTimeout(), [clearPendingLoadTimeout]);
 

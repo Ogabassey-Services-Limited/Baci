@@ -22,9 +22,9 @@ interface PermissionState {
 }
 
 const COOL_DOWN_PERIOD_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
-let notificationsModulePromise:
-  | Promise<typeof import('expo-notifications')>
-  | null = null;
+let notificationsModulePromise: Promise<
+  typeof import('expo-notifications')
+> | null = null;
 
 function loadNotifications() {
   notificationsModulePromise ??= import('expo-notifications').catch(

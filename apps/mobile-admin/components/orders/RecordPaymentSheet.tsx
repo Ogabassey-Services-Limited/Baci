@@ -176,7 +176,8 @@ export function RecordPaymentSheet({
           styles.confirmButton,
           {
             backgroundColor: colors.success,
-            opacity: isConfirmDisabled || isSubmitting ? 0.5 : pressed ? 0.7 : 1,
+            opacity:
+              isConfirmDisabled || isSubmitting ? 0.5 : pressed ? 0.7 : 1,
           },
         ]}
       >

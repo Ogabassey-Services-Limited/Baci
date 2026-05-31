@@ -55,12 +55,7 @@ export function useCheckoutAddressState({
     },
     mode: 'onBlur',
   });
-  const {
-    getValues,
-    reset,
-    setValue,
-    watch,
-  } = form;
+  const { getValues, reset, setValue, watch } = form;
   const watchedState = watch('state');
   const watchedCity = watch('city');
   const watchedAddress = watch('address');

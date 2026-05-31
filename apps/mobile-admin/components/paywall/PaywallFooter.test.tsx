@@ -98,19 +98,28 @@ describe('PaywallFooter', () => {
     expect(screen.getByText('Continue with Monthly')).toBeInTheDocument();
     expect(screen.getByText(/Apple ID settings/i)).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /restore previous purchases/i }));
+    fireEvent.click(
+      screen.getByRole('button', { name: /restore previous purchases/i })
+    );
     expect(onRestore).toHaveBeenCalledTimes(1);
 
-    fireEvent.click(screen.getByRole('link', { name: /view terms of service/i }));
+    fireEvent.click(
+      screen.getByRole('link', { name: /view terms of service/i })
+    );
     fireEvent.click(screen.getByRole('link', { name: /view privacy policy/i }));
 
-    expect(mocks.openURL).toHaveBeenNthCalledWith(1, 'https://usebaci.com/terms');
+    expect(mocks.openURL).toHaveBeenNthCalledWith(
+      1,
+      'https://usebaci.com/terms'
+    );
     expect(mocks.openURL).toHaveBeenNthCalledWith(
       2,
       'https://usebaci.com/privacy'
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /subscribe to monthly/i }));
+    fireEvent.click(
+      screen.getByRole('button', { name: /subscribe to monthly/i })
+    );
     expect(onPurchase).toHaveBeenCalledTimes(1);
   });
 

@@ -41,7 +41,9 @@ describe('ShippingQuotesCard', () => {
   it('calls onRetryQuotes when retry pressable is pressed', () => {
     render(<ShippingQuotesCard {...baseProps} shippingQuotes={[]} />);
 
-    fireEvent.press(screen.getByRole('button', { name: /reload delivery rates/i }));
+    fireEvent.press(
+      screen.getByRole('button', { name: /reload delivery rates/i })
+    );
     expect(baseProps.onRetryQuotes).toHaveBeenCalledTimes(1);
   });
 
@@ -64,7 +66,11 @@ describe('ShippingQuotesCard', () => {
     ];
 
     render(
-      <ShippingQuotesCard {...baseProps} shippingQuotes={quotes} selectedQuoteId="" />
+      <ShippingQuotesCard
+        {...baseProps}
+        shippingQuotes={quotes}
+        selectedQuoteId=""
+      />
     );
 
     expect(screen.getByText('Standard Delivery')).toBeTruthy();
@@ -84,7 +90,9 @@ describe('ShippingQuotesCard', () => {
 
     render(<ShippingQuotesCard {...baseProps} shippingQuotes={quotes} />);
 
-    fireEvent.press(screen.getByRole('button', { name: /select standard delivery/i }));
+    fireEvent.press(
+      screen.getByRole('button', { name: /select standard delivery/i })
+    );
     expect(baseProps.onSelectQuote).toHaveBeenCalledWith('q1');
   });
 });

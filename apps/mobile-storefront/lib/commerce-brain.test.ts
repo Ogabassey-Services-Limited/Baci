@@ -162,9 +162,12 @@ describe('commerce-brain', () => {
 
   it('falls back to local order totals when the edge request cannot be sent', async () => {
     mockState.invoke.mockRejectedValue(
-      Object.assign(new Error('Failed to send a request to the Edge Function'), {
-        name: 'FunctionsFetchError',
-      })
+      Object.assign(
+        new Error('Failed to send a request to the Edge Function'),
+        {
+          name: 'FunctionsFetchError',
+        }
+      )
     );
 
     await expect(

@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import type Colors from '@/constants/Colors';
-import { BRAND } from '@/constants/Colors';
+import { BRAND, SPACING } from '@/constants/Colors';
 import { WalletActionsRow } from './WalletActionsRow';
 import { WalletHeroSection } from './WalletHeroSection';
 import {
@@ -212,11 +212,83 @@ export function WalletContent({
           <Text
             style={[
               styles.redeemPanelSubtitle,
-              { color: colors.textSecondary },
+              { color: colors.textSecondary, marginBottom: SPACING.md },
             ]}
           >
             Available: {loyaltyPoints.toLocaleString()} points
           </Text>
+
+          {/* Points Conversion & Super Quiz Benefits Info Card */}
+          <View
+            style={[
+              styles.infoCard,
+              {
+                backgroundColor: colors.muted,
+                borderColor: colors.border,
+                marginBottom: SPACING.md,
+              },
+            ]}
+          >
+            <Text style={[styles.infoCardTitle, { color: colors.text }]}>
+              ✨ Loyalty Points Benefits
+            </Text>
+
+            <View style={styles.infoRow}>
+              <Text style={styles.infoEmoji}>💵</Text>
+              <Text style={[styles.infoText, { color: colors.textSecondary }]}>
+                <Text style={{ fontWeight: 'bold', color: colors.text }}>
+                  Convert to Cash:
+                </Text>{' '}
+                100 points = ₦10. Redeem blocks of 100 points directly into your
+                wallet.
+              </Text>
+            </View>
+
+            <View style={styles.infoRow}>
+              <Text style={styles.infoEmoji}>🏆</Text>
+              <Text style={[styles.infoText, { color: colors.textSecondary }]}>
+                <Text style={{ fontWeight: 'bold', color: colors.text }}>
+                  Super Quiz Entry:
+                </Text>{' '}
+                Use points as exam passes to join high-stake quiz events and win
+                huge prizes!
+              </Text>
+            </View>
+
+            <View style={styles.infoRow}>
+              <Text style={styles.infoEmoji}>⚡</Text>
+              <Text style={[styles.infoText, { color: colors.textSecondary }]}>
+                <Text style={{ fontWeight: 'bold', color: colors.text }}>
+                  Leaderboard Tie-Breaker:
+                </Text>{' '}
+                If tied, players with higher loyalty points rank higher on the
+                leaderboard!
+              </Text>
+            </View>
+
+            <Text
+              style={[
+                styles.infoSubTitle,
+                { color: colors.text, marginTop: SPACING.xs },
+              ]}
+            >
+              Tier Rankings:
+            </Text>
+            <View style={styles.tierRow}>
+              <Text style={[styles.tierBadge, { backgroundColor: '#7C2D12' }]}>
+                BRONZE
+              </Text>
+              <Text style={[styles.tierBadge, { backgroundColor: '#4B5563' }]}>
+                SILVER
+              </Text>
+              <Text style={[styles.tierBadge, { backgroundColor: '#D97706' }]}>
+                GOLD
+              </Text>
+              <Text style={[styles.tierBadge, { backgroundColor: '#4F46E5' }]}>
+                PLATINUM
+              </Text>
+            </View>
+          </View>
 
           <TextInput
             accessibilityLabel="Points to redeem"

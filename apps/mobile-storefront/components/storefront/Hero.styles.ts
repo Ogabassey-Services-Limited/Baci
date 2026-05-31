@@ -28,9 +28,7 @@ export const getHeroStyles = (colors: ThemeColors, isDark: boolean) =>
       overflow: 'hidden',
       position: 'relative',
       backgroundColor: colors.card,
-      ...getEliteHeroCardShadowStyle(
-        Platform.OS === 'web' ? 'web' : 'native'
-      ),
+      ...getEliteHeroCardShadowStyle(Platform.OS === 'web' ? 'web' : 'native'),
     },
     eliteCardContent: {
       flex: 1,

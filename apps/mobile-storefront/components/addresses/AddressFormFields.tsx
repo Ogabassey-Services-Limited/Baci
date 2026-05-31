@@ -1,5 +1,11 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
-import { ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import {
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import Colors from '@/constants/Colors';
 import { TextContentTypes } from '@/hooks/use-keyboard';
 import { addressFormStyles as styles } from './address-form.styles';
@@ -266,9 +272,7 @@ export function AddressFormFields({
             color={form.is_default ? colors.primary : colors.textSecondary}
           />
           <View>
-            <Text
-              style={[styles.defaultToggleText, { color: colors.text }]}
-            >
+            <Text style={[styles.defaultToggleText, { color: colors.text }]}>
               Set as default address
             </Text>
             <Text

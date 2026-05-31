@@ -41,7 +41,9 @@ describe('start savings controller utils', () => {
       true
     );
     expect(
-      isInsufficientWalletError(new Error('wallet is insufficiently configured'))
+      isInsufficientWalletError(
+        new Error('wallet is insufficiently configured')
+      )
     ).toBe(false);
   });
 

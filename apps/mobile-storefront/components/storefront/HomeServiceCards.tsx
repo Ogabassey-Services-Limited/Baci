@@ -1,4 +1,6 @@
-import Ionicons, { type IoniconsIconName } from "@react-native-vector-icons/ionicons";
+import Ionicons, {
+  type IoniconsIconName,
+} from '@react-native-vector-icons/ionicons';
 import { type Href, useRouter } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import {
@@ -129,10 +131,7 @@ export function HomeServiceCards({
             style={[
               styles.card,
               {
-                backgroundColor:
-                  colorScheme === 'dark'
-                    ? withAlpha(item.accent, 0.08)
-                    : withAlpha(item.accent, 0.04),
+                backgroundColor: colors.card,
                 borderColor: withAlpha(
                   item.accent,
                   colorScheme === 'dark' ? 0.48 : 0.38

@@ -35,7 +35,9 @@ function normalizeConditionForCounting(condition: unknown) {
   return normalizeCanonicalProductCondition(trimmed) || trimmed.toLowerCase();
 }
 
-function countAvailableConditions(conditions: readonly unknown[] | null | undefined) {
+function countAvailableConditions(
+  conditions: readonly unknown[] | null | undefined
+) {
   return new Set(
     (conditions || [])
       .map((condition) => normalizeConditionForCounting(condition))

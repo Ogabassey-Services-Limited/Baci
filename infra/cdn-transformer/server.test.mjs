@@ -226,7 +226,11 @@ test('handleImageRequest rejects source paths under symlinked parents outside th
     PUBLIC_ROOT,
     'linked-assets/source.avif'
   );
-  const outsideSourcePath = path.resolve(PUBLIC_ROOT, '..', 'secret/source.avif');
+  const outsideSourcePath = path.resolve(
+    PUBLIC_ROOT,
+    '..',
+    'secret/source.avif'
+  );
   let statCalls = 0;
   let ensureTransformCalls = 0;
 
@@ -265,7 +269,10 @@ test('handleImageRequest rejects source paths under symlinked parents outside th
 });
 
 test('handleImageRequest accepts sources inside a symlinked public root', async () => {
-  const linkedRootSourcePath = path.join(PUBLIC_ROOT, 'core-assets/source.avif');
+  const linkedRootSourcePath = path.join(
+    PUBLIC_ROOT,
+    'core-assets/source.avif'
+  );
   const realPublicRoot = path.resolve(PUBLIC_ROOT, '..', 'release-public');
   const realSourcePath = path.join(realPublicRoot, 'core-assets/source.avif');
   const sourceStat = {

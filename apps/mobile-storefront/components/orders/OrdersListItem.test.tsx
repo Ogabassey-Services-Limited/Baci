@@ -12,7 +12,9 @@ const colors = {
 
 const formatDate = () => '12 May 2026';
 
-function buildOrder(overrides: Partial<OrdersListItemOrder> = {}): OrdersListItemOrder {
+function buildOrder(
+  overrides: Partial<OrdersListItemOrder> = {}
+): OrdersListItemOrder {
   return {
     id: 'order-1',
     shipping_status: 'shipped',
@@ -52,7 +54,9 @@ describe('OrdersListItem', () => {
     expect(screen.getByText('+1 more item')).toBeTruthy();
     expect(screen.getByText(formatNgnCurrency(47000))).toBeTruthy();
 
-    fireEvent.press(screen.getByRole('button', { name: /view details for order order-1/i }));
+    fireEvent.press(
+      screen.getByRole('button', { name: /view details for order order-1/i })
+    );
     expect(onPress).toHaveBeenCalledWith('order-1');
   });
 

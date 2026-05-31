@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { type Href, router } from 'expo-router';
 import type { WebViewNavigation } from 'react-native-webview';
 import {
   isPaymentCancellationRedirect,
@@ -73,7 +73,7 @@ export function createPaymentGatewayEventHandlers({
         setErrorMessage('Payment was cancelled.');
         if (paymentKind === PAYMENT_KINDS.SAVINGS_AUTH) {
           scheduleDelayedNavigation(() => {
-            router.replace(returnTo || '/wallet/savings/start');
+            router.replace((returnTo || '/wallet/savings/start') as Href);
           });
         }
       }

@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { Text, View } from 'react-native';
 import { BRAND, withAlpha } from '@/constants/Colors';
 import { styles } from './imei-check.styles';

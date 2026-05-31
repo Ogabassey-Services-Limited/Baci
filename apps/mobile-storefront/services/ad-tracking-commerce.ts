@@ -1,8 +1,5 @@
 import { buildTikTokCommerceEventParams } from './tiktok-commerce-event-data';
-import {
-  posthogAddToCart,
-  posthogProductViewed,
-} from './ad-tracking-identity';
+import { posthogAddToCart, posthogProductViewed } from './ad-tracking-identity';
 import {
   generateEventIdSync,
   sendClientBackup,

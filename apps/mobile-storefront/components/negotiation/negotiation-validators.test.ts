@@ -27,21 +27,25 @@ describe('validateNegotiationOffer', () => {
     });
   });
 
-  it.each(['', '   ', '0', '-100', '₦₦₦', '9'.repeat(400)])(
-    'rejects invalid offer input: %s',
-    (offer) => {
-      const result = validateNegotiationOffer({
-        currentPrice: 500000,
-        offer,
-      });
+  it.each([
+    '',
+    '   ',
+    '0',
+    '-100',
+    '₦₦₦',
+    '9'.repeat(400),
+  ])('rejects invalid offer input: %s', (offer) => {
+    const result = validateNegotiationOffer({
+      currentPrice: 500000,
+      offer,
+    });
 
-      expect(result).toEqual({
-        message: 'Please enter a valid price.',
-        title: 'Invalid Offer',
-        valid: false,
-      });
-    }
-  );
+    expect(result).toEqual({
+      message: 'Please enter a valid price.',
+      title: 'Invalid Offer',
+      valid: false,
+    });
+  });
 
   it('accepts leading and trailing decimal formats when the value is valid', () => {
     const leadingDecimal = validateNegotiationOffer({

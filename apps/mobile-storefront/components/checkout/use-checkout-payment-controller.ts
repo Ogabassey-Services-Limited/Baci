@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { CheckoutStep } from '@/components/checkout/CheckoutStepper';
-import {
-  getPaymentTabForMethod,
-} from '@/components/checkout/checkout-step-helpers';
+import { getPaymentTabForMethod } from '@/components/checkout/checkout-step-helpers';
 import {
   type PaymentMethodType,
   type PaymentTab,
@@ -179,13 +177,32 @@ export function useCheckoutPaymentController({
     walletSelection?.use === true && storeCreditCompatible
       ? {
           use: true,
-          amount: Math.max(0, Math.min(walletBalance, walletResidualForKlumpGate)),
+          amount: Math.max(
+            0,
+            Math.min(walletBalance, walletResidualForKlumpGate)
+          ),
         }
       : undefined;
 
+  const baseTotal =
+    step === 'review' ? total : subtotal + deliveryFee + assuranceFee;
+  const activeSavings =
+    storeCreditCompatible && savings.savingsSelection?.use === true
+      ? Math.min(savings.checkoutSavingsBalance, baseTotal)
+      : 0;
+  const baseResidualAfterSavings = Math.max(baseTotal - activeSavings, 0);
+  const activeWallet =
+    storeCreditCompatible && walletSelection?.use === true
+      ? Math.min(walletBalance, baseResidualAfterSavings)
+      : 0;
+  const stepDisplayTotal = Math.max(
+    baseTotal - activeSavings - activeWallet,
+    0
+  );
+
   return {
     availablePaymentMethods,
-    displayTotal: step === 'review' ? total : subtotal + deliveryFee + assuranceFee,
+    displayTotal: stepDisplayTotal,
     handleSelectPaymentTab,
     klumpDisabledReason: getKlumpDisabledReason(
       paymentSettings,

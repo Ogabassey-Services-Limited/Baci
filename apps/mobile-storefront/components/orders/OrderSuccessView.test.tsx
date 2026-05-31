@@ -117,7 +117,9 @@ describe('OrderSuccessView', () => {
       />
     );
 
-    fireEvent.press(screen.getByRole('button', { name: 'Allow notifications' }));
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Allow notifications' })
+    );
     fireEvent.press(screen.getByRole('button', { name: 'Not now' }));
 
     expect(onPermissionGrant).toHaveBeenCalledTimes(1);

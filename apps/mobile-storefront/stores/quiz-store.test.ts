@@ -99,9 +99,11 @@ describe('useQuizStore', () => {
     });
 
     await act(async () => {
-      await useQuizStore.getState().startEvent('event-1', 'strong', async () => {
-        throw new Error('Exam pass unavailable');
-      });
+      await useQuizStore
+        .getState()
+        .startEvent('event-1', 'strong', async () => {
+          throw new Error('Exam pass unavailable');
+        });
     });
 
     expect(useQuizStore.getState()).toMatchObject({
@@ -250,7 +252,9 @@ describe('useQuizStore', () => {
   });
 
   it('surfaces null-prototype async failures without throwing from error handling', async () => {
-    const nullPrototypeError = Object.assign(Object.create(null), { code: 'NO_PROTOTYPE' });
+    const nullPrototypeError = Object.assign(Object.create(null), {
+      code: 'NO_PROTOTYPE',
+    });
 
     await act(async () => {
       await useQuizStore.getState().loadEvents(async () => {

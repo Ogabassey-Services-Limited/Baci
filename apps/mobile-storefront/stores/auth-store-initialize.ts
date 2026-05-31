@@ -74,7 +74,10 @@ export function createInitializeAction({
           const {
             data: { session: refreshedSession },
             error: refreshError,
-          } = await initTimeout(supabase.auth.refreshSession(), 'refreshSession');
+          } = await initTimeout(
+            supabase.auth.refreshSession(),
+            'refreshSession'
+          );
           if (get()._initGen !== initGen) return;
           if (refreshError || !refreshedSession) {
             await supabase.auth.signOut({ scope: 'local' }).catch(() => {});

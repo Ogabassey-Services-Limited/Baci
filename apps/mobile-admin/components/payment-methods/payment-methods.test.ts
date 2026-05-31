@@ -106,5 +106,4 @@ describe('mobile admin payment method definitions', () => {
       ).map((method) => method.id)
     ).toEqual(['new_gateway']);
   });
-
 });

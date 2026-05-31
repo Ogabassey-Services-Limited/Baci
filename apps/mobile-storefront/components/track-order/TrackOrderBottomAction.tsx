@@ -10,7 +10,9 @@ interface TrackOrderBottomActionProps {
   colors: ColorsScheme;
 }
 
-export function TrackOrderBottomAction({ colors }: TrackOrderBottomActionProps) {
+export function TrackOrderBottomAction({
+  colors,
+}: TrackOrderBottomActionProps) {
   return (
     <View
       style={[

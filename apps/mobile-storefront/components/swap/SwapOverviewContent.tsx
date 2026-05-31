@@ -1,13 +1,10 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { Pressable, Text, View } from 'react-native';
 import { BRAND } from '@/constants/Colors';
-import {
-  SWAP_ELIGIBLE_DEVICES,
-  SWAP_HOW_IT_WORKS,
-} from '@/lib/swap-utils';
+import { SWAP_ELIGIBLE_DEVICES, SWAP_HOW_IT_WORKS } from '@/lib/swap-utils';
 import { swapScreenStyles as styles } from './swap-screen.styles';
 
-type SwapColors = (typeof import('@/constants/Colors').default)['light'];
+type SwapColors = typeof import('@/constants/Colors').default['light'];
 
 type SwapOverviewContentProps = {
   colors: SwapColors;
@@ -26,7 +23,9 @@ export function SwapOverviewContent({
           <Text style={[styles.headerTitle, { color: colors.text }]}>
             Swap & Trade-in
           </Text>
-          <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
+          <Text
+            style={[styles.headerSubtitle, { color: colors.textSecondary }]}
+          >
             Upgrade to the latest tech for less
           </Text>
         </View>
@@ -62,7 +61,10 @@ export function SwapOverviewContent({
       </Text>
       <View style={styles.stepsContainer}>
         {SWAP_HOW_IT_WORKS.map((step, index) => (
-          <View key={index} style={[styles.stepCard, { backgroundColor: colors.card }]}>
+          <View
+            key={index}
+            style={[styles.stepCard, { backgroundColor: colors.card }]}
+          >
             <View style={styles.stepIconContainer}>
               <Ionicons name={step.icon} size={24} color={BRAND.primary} />
             </View>
@@ -82,7 +84,9 @@ export function SwapOverviewContent({
         </Text>
         {SWAP_ELIGIBLE_DEVICES.map((device, index) => (
           <View key={index} style={styles.eligibleItem}>
-            <View style={[styles.eligibleCheck, { backgroundColor: colors.muted }]}>
+            <View
+              style={[styles.eligibleCheck, { backgroundColor: colors.muted }]}
+            >
               <Ionicons name="checkmark" size={14} color={colors.success} />
             </View>
             <Text style={[styles.eligibleText, { color: colors.text }]}>
@@ -92,7 +96,9 @@ export function SwapOverviewContent({
         ))}
       </View>
 
-      <View style={[styles.sustainabilityCard, { backgroundColor: colors.muted }]}>
+      <View
+        style={[styles.sustainabilityCard, { backgroundColor: colors.muted }]}
+      >
         <View
           style={[
             styles.sustainabilityIcon,
@@ -104,11 +110,15 @@ export function SwapOverviewContent({
         <View style={styles.sustainabilityContent}>
           <View style={styles.sustainabilityHeader}>
             <Ionicons name="sync" size={18} color={colors.success} />
-            <Text style={[styles.sustainabilityTitle, { color: colors.success }]}>
+            <Text
+              style={[styles.sustainabilityTitle, { color: colors.success }]}
+            >
               Trade-in is Recycling
             </Text>
           </View>
-          <Text style={[styles.sustainabilityText, { color: colors.textSecondary }]}>
+          <Text
+            style={[styles.sustainabilityText, { color: colors.textSecondary }]}
+          >
             By swapping your device, you keep e-waste out of landfills. We
             refurbish and re-home your old gadgets, extending their lifecycle.
             It&apos;s a win for your wallet and the planet.

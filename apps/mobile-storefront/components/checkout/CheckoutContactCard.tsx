@@ -1,11 +1,7 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import type { Control, FieldErrors } from 'react-hook-form';
 import { Controller } from 'react-hook-form';
-import {
-  Pressable,
-  Text,
-  View,
-} from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { PhoneInput } from '@/components/ui/PhoneInput';
 import { BRAND } from '@/constants/Colors';
 import type { ShippingAddressInput } from '@/lib/validation';
@@ -141,7 +137,10 @@ export function CheckoutContactCard({
           </View>
 
           <Text
-            style={[styles.label, { color: colors.textSecondary, marginBottom: 8 }]}
+            style={[
+              styles.label,
+              { color: colors.textSecondary, marginBottom: 8 },
+            ]}
           >
             Phone Number
           </Text>
@@ -195,7 +194,10 @@ function ContactSummary({
   contactSummary,
   email,
   phone,
-}: Pick<CheckoutContactCardProps, 'colors' | 'contactSummary' | 'email' | 'phone'>) {
+}: Pick<
+  CheckoutContactCardProps,
+  'colors' | 'contactSummary' | 'email' | 'phone'
+>) {
   return (
     <View
       style={[
@@ -207,8 +209,14 @@ function ContactSummary({
       ]}
     >
       <View style={styles.summaryMetaRow}>
-        <Ionicons name="person-circle-outline" size={16} color={BRAND.primary} />
-        <Text style={[styles.summaryMetaLabel, { color: colors.textSecondary }]}>
+        <Ionicons
+          name="person-circle-outline"
+          size={16}
+          color={BRAND.primary}
+        />
+        <Text
+          style={[styles.summaryMetaLabel, { color: colors.textSecondary }]}
+        >
           Signed in
         </Text>
       </View>

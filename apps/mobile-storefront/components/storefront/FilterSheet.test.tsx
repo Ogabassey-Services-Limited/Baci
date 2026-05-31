@@ -39,13 +39,8 @@ jest.mock('@/components/ui/AppKeyboardContainer', () => {
 
   return {
     __esModule: true,
-    default: ({
-      children,
-      style,
-    }: {
-      children: ReactNode;
-      style?: unknown;
-    }) => React.createElement(View, { style }, children),
+    default: ({ children, style }: { children: ReactNode; style?: unknown }) =>
+      React.createElement(View, { style }, children),
   };
 });
 

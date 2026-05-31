@@ -54,10 +54,7 @@ describe('BillPaymentSection', () => {
       />
     );
 
-    fireEvent.changeText(
-      screen.getByLabelText('Payment amount'),
-      '₦1,2.3a456'
-    );
+    fireEvent.changeText(screen.getByLabelText('Payment amount'), '₦1,2.3a456');
 
     expect(setAmount).toHaveBeenCalledWith('12.34');
     fireEvent.changeText(screen.getByLabelText('Payment amount'), '.');

@@ -40,6 +40,7 @@ export const getHeaderStyles = (colors: ThemeColors) =>
       justifyContent: 'center',
       alignItems: 'center',
       marginRight: 4,
+      marginLeft: -8, // Offset centering so menu icon aligns perfectly with SPACING.md (16px) left margin
     },
     logoContainer: {},
     logoText: {
@@ -156,6 +157,9 @@ export const getHeaderStyles = (colors: ThemeColors) =>
       justifyContent: 'center',
       alignItems: 'center',
       position: 'relative',
+    },
+    rightIconBtn: {
+      marginRight: -8, // Offset centering so far-right icon aligns perfectly with SPACING.md (16px) right margin
     },
     badge: {
       position: 'absolute',

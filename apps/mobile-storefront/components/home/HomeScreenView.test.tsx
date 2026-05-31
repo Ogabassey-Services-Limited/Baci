@@ -15,6 +15,16 @@ jest.mock('expo-image', () => {
   };
 });
 
+jest.mock('@/components/storefront/GadgetPattern', () => {
+  const { Text } = jest.requireActual(
+    'react-native'
+  ) as typeof import('react-native');
+
+  return {
+    GadgetPattern: () => <Text>Elite texture</Text>,
+  };
+});
+
 jest.mock('expo-router', () => ({
   Stack: {
     Screen: () => null,
@@ -227,7 +237,7 @@ describe('HomeScreenView', () => {
     );
 
     expect(screen.getByText('Offline cached content')).toBeTruthy();
-    expect(screen.getByText('Elite texture')).toBeTruthy();
+    expect(screen.getAllByText('Elite texture').length).toBeGreaterThan(0);
   });
 
   it('delegates permission choices and closing the visible search overlay', () => {

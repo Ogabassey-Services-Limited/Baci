@@ -40,7 +40,9 @@ export function CheckoutCryptoPaymentModal({
   onChangeSelection,
   onClosePayment,
 }: CheckoutCryptoPaymentModalProps) {
-  const [copiedCryptoField, setCopiedCryptoField] = useState<string | null>(null);
+  const [copiedCryptoField, setCopiedCryptoField] = useState<string | null>(
+    null
+  );
   const cryptoCopyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(
@@ -128,9 +130,14 @@ export function CheckoutCryptoPaymentModal({
           contentContainerStyle={styles.cryptoContent}
           showsVerticalScrollIndicator={false}
         >
-          <View style={[styles.cryptoAmountCard, { backgroundColor: colors.card }]}>
+          <View
+            style={[styles.cryptoAmountCard, { backgroundColor: colors.card }]}
+          >
             <Text
-              style={[styles.cryptoAmountLabel, { color: colors.textSecondary }]}
+              style={[
+                styles.cryptoAmountLabel,
+                { color: colors.textSecondary },
+              ]}
             >
               Send Exactly
             </Text>
@@ -149,7 +156,9 @@ export function CheckoutCryptoPaymentModal({
             </View>
           </View>
 
-          <View style={[styles.cryptoAddressCard, { backgroundColor: colors.card }]}>
+          <View
+            style={[styles.cryptoAddressCard, { backgroundColor: colors.card }]}
+          >
             <Text style={styles.cryptoFieldLabel}>RECIPIENT ADDRESS</Text>
             <View style={styles.cryptoAddressRow}>
               <Text
@@ -205,14 +214,18 @@ export function CheckoutCryptoPaymentModal({
               ]}
             >
               <Ionicons name="time-outline" size={18} color={BRAND.primary} />
-              <Text style={[styles.cryptoInfoText, { color: colors.textSecondary }]}>
+              <Text
+                style={[styles.cryptoInfoText, { color: colors.textSecondary }]}
+              >
                 Expected confirmation: {cryptoPayment.confirmationTime}
               </Text>
             </View>
           ) : null}
 
           {cryptoPayment.reference ? (
-            <Text style={[styles.cryptoReference, { color: colors.textSecondary }]}>
+            <Text
+              style={[styles.cryptoReference, { color: colors.textSecondary }]}
+            >
               Ref: {cryptoPayment.reference}
             </Text>
           ) : null}
@@ -230,7 +243,9 @@ export function CheckoutCryptoPaymentModal({
           >
             <Text style={styles.cryptoDoneBtnText}>I've Sent the Payment</Text>
           </Pressable>
-          <Text style={[styles.cryptoHelpText, { color: colors.textSecondary }]}>
+          <Text
+            style={[styles.cryptoHelpText, { color: colors.textSecondary }]}
+          >
             Tap above after sending. Your order will be confirmed once the
             payment is detected on the blockchain.
           </Text>

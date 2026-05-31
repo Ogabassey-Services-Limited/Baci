@@ -12,7 +12,9 @@ import {
   SHIPPING_STATUS_CONFIG,
   type ShippingStatus,
 } from '@baci/shared';
-import Ionicons, { type IoniconsIconName } from "@react-native-vector-icons/ionicons";
+import Ionicons, {
+  type IoniconsIconName,
+} from '@react-native-vector-icons/ionicons';
 import { useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { router } from 'expo-router';

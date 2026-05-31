@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { useEffect, useState } from 'react';
 import {
   Modal,
@@ -96,10 +96,7 @@ export function FilterSheet({
           <View style={StyleSheet.absoluteFill} />
         </TouchableWithoutFeedback>
         <AppKeyboardContainer
-          style={[
-            styles.keyboardAvoidingView,
-            { pointerEvents: 'box-none' },
-          ]}
+          style={[styles.keyboardAvoidingView, { pointerEvents: 'box-none' }]}
         >
           <Animated.View
             entering={SlideInDown.duration(300).springify()}

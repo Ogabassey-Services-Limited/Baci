@@ -22,7 +22,11 @@ import {
 } from './orders.schemas';
 
 export { OrderError } from './orders.errors';
-export type { CreateOrderRequest, OrderItem, OrderResponse } from './orders.schemas';
+export type {
+  CreateOrderRequest,
+  OrderItem,
+  OrderResponse,
+} from './orders.schemas';
 
 const log = createLogger('Order');
 

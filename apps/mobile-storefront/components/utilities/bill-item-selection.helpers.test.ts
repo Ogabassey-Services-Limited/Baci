@@ -11,7 +11,9 @@ describe('bill-item-selection.helpers', () => {
     expect(getVerifyErrorMessage(undefined)).toBeUndefined();
     expect(getVerifyErrorMessage(null)).toBeUndefined();
     expect(getVerifyErrorMessage('bad input')).toBe('bad input');
-    expect(getVerifyErrorMessage(new Error('network down'))).toBe('network down');
+    expect(getVerifyErrorMessage(new Error('network down'))).toBe(
+      'network down'
+    );
     expect(
       getVerifyErrorMessage({ message: 'meter not found' } as unknown)
     ).toBe('meter not found');
@@ -90,7 +92,9 @@ describe('bill-item-selection.helpers', () => {
     };
 
     expect(getVisibleBillBeneficiaries([], [])).toEqual([]);
-    expect(getVisibleBillBeneficiaries([beneficiary], [])).toEqual([beneficiary]);
+    expect(getVisibleBillBeneficiaries([beneficiary], [])).toEqual([
+      beneficiary,
+    ]);
   });
 
   it('keeps beneficiaries with missing recipient keys visible', () => {
@@ -128,8 +132,8 @@ describe('bill-item-selection.helpers', () => {
       },
     ];
 
-    expect(getVisibleBillBeneficiaries(beneficiaries, recentRecipients)).toEqual(
-      beneficiaries
-    );
+    expect(
+      getVisibleBillBeneficiaries(beneficiaries, recentRecipients)
+    ).toEqual(beneficiaries);
   });
 });

@@ -75,8 +75,7 @@ export class GlobalErrorBoundary extends Component<Props, State> {
       return this.props.children;
     }
 
-    const colors =
-      Colors[this.state.colorScheme === 'dark' ? 'dark' : 'light'];
+    const colors = Colors[this.state.colorScheme === 'dark' ? 'dark' : 'light'];
 
     return (
       <ErrorFallbackView

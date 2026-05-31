@@ -57,8 +57,9 @@ export function useCheckoutCryptoPayment({
   total,
 }: UseCheckoutCryptoPaymentParams) {
   const [showCryptoSelection, setShowCryptoSelection] = useState(false);
-  const [cryptoPayment, setCryptoPayment] =
-    useState<CryptoPaymentState | null>(null);
+  const [cryptoPayment, setCryptoPayment] = useState<CryptoPaymentState | null>(
+    null
+  );
   const [pendingOrder, setPendingOrder] = useState<PendingCryptoOrder | null>(
     null
   );

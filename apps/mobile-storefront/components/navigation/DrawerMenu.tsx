@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import Constants from 'expo-constants';
 import { router, usePathname } from 'expo-router';
 import { useEffect } from 'react';
@@ -25,15 +25,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useShallow } from 'zustand/react/shallow';
 import { Logo } from '@/components/ui/Logo';
 import { useColorScheme } from '@/components/useColorScheme';
-import Colors, { SPACING } from '@/constants/Colors';
+import Colors, { BRAND, SPACING } from '@/constants/Colors';
 import { getOptionalGestureHandlerRuntime } from '@/lib/optional-gesture-handler';
 import { useAuthStore } from '@/stores/auth-store';
 import { useDrawerStore } from '@/stores/drawer-store';
 import { getDrawerMenuShadowStyles } from './DrawerMenu.shadows';
 import styles from './DrawerMenu.styles';
 import { DrawerMenuItems } from './DrawerMenuItems';
+import { GadgetPattern } from '@/components/storefront/GadgetPattern';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const DRAWER_WIDTH = Math.min(SCREEN_WIDTH * 0.85, 320);
 const ANIMATION_DURATION = 300;
 
@@ -195,13 +196,30 @@ export function DrawerMenu() {
               paddingTop: insets.top,
               width: DRAWER_WIDTH,
               backgroundColor: colors.card,
+              overflow: 'hidden',
             },
             drawerAnimatedStyle,
             { pointerEvents: isOpen ? 'auto' : 'none' },
           ]}
         >
+          <View style={{ ...StyleSheet.absoluteFill, overflow: 'hidden' }}>
+            <GadgetPattern
+              opacity={colorScheme === 'dark' ? 0.04 : 0.08}
+              height={SCREEN_HEIGHT}
+              variant="default"
+              color={colorScheme === 'dark' ? '#ffffff' : BRAND.primary}
+            />
+          </View>
           {/* Header */}
-          <View style={[styles.header, { borderBottomColor: colors.border }]}>
+          <View
+            style={[
+              styles.header,
+              {
+                borderBottomColor: colors.border,
+                backgroundColor: colors.card,
+              },
+            ]}
+          >
             <Logo
               width={120}
               height={24}
@@ -223,6 +241,7 @@ export function DrawerMenu() {
               icon: colors.icon,
               text: colors.text,
               textSecondary: colors.textSecondary,
+              card: colors.card,
             }}
             isAuthenticated={isAuthenticated}
             pathname={pathname}
@@ -240,41 +259,20 @@ export function DrawerMenu() {
               },
             ]}
           >
-            {isAuthenticated ? (
-              <Pressable
-                style={[
-                  styles.authButton,
-                  drawerShadowStyles.authButton,
-                  { backgroundColor: colors.foreground },
-                ]}
-                onPress={handleSignOut}
-                accessibilityLabel="Sign out"
-                accessibilityRole="button"
-              >
-                <Text
-                  style={[styles.authButtonText, { color: colors.background }]}
-                >
-                  Sign Out
-                </Text>
-              </Pressable>
-            ) : (
-              <Pressable
-                style={[
-                  styles.authButton,
-                  drawerShadowStyles.authButton,
-                  { backgroundColor: colors.foreground },
-                ]}
-                onPress={handleSignIn}
-                accessibilityLabel="Login or Register"
-                accessibilityRole="button"
-              >
-                <Text
-                  style={[styles.authButtonText, { color: colors.background }]}
-                >
-                  Login / Register
-                </Text>
-              </Pressable>
-            )}
+            <Pressable
+              style={[
+                styles.authButton,
+                drawerShadowStyles.authButton,
+                { backgroundColor: colors.foreground },
+              ]}
+              onPress={isAuthenticated ? handleSignOut : handleSignIn}
+              accessibilityLabel={isAuthenticated ? 'Sign out' : 'Login or Register'}
+              accessibilityRole="button"
+            >
+              <Text style={[styles.authButtonText, { color: colors.background }]}>
+                {isAuthenticated ? 'Sign Out' : 'Login / Register'}
+              </Text>
+            </Pressable>
             <Text style={[styles.versionText, { color: colors.textSecondary }]}>
               v{appVersion} • &copy; {currentYear} Ogabassey
             </Text>

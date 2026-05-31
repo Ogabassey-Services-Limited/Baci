@@ -99,7 +99,9 @@ export function PaymentMethodTabSelector({
           <Text
             style={[
               styles.tabText,
-              { color: selectedTab === 'pay_later' ? colors.white : colors.text },
+              {
+                color: selectedTab === 'pay_later' ? colors.white : colors.text,
+              },
             ]}
           >
             Pay Later

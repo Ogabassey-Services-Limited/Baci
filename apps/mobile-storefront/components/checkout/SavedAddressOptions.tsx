@@ -1,5 +1,11 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { getAddressLabelIcon } from '@/components/addresses/get-address-label-icon';
 import { BRAND, palette, RADIUS, SPACING } from '@/constants/Colors';
 import type { SavedAddress } from '@/lib/checkout-saved-address';

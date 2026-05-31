@@ -208,6 +208,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 12,
+    marginBottom: 20,
   },
   card: {
     width: '48%',
@@ -267,6 +268,7 @@ const styles = StyleSheet.create({
     gap: 12,
     justifyContent: 'space-between',
     padding: 14,
+    marginBottom: 20,
   },
   selectedCardMain: {
     alignItems: 'center',

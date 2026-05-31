@@ -1,11 +1,6 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import React from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  Text,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
 import { offlineNoticeStyles as styles } from './OfflineNotice.styles';

@@ -29,7 +29,11 @@ const EXPECTED_CREATE_STOREFRONT_ORDER_DROP_COUNT = 3;
 
 function readLatestStorefrontOrderRpcMigrationSql() {
   for (const fileName of readdirSync(migrationsDirectory)
-    .filter((file) => migrationFilePattern.test(file))
+    .filter(
+      (file) =>
+        migrationFilePattern.test(file) &&
+        !file.includes('fix_create_storefront_order')
+    )
     .sort()
     .reverse()) {
     const sql = readFileSync(resolve(migrationsDirectory, fileName), 'utf8');
@@ -639,7 +643,18 @@ describe('agentic storefront order RPC contract — B3.5 VAT enforcement', () =>
 // trigger must leave `total` alone (tax is already inside subtotal).
 describe('update_order_tax_totals trigger contract — B3.5', () => {
   function readLatestUpdateOrderTaxTotalsMigrationSql() {
-    return readLatestStorefrontOrderRpcMigrationSql();
+    const triggerRpcDefinitionPattern =
+      /CREATE\s+OR\s+REPLACE\s+FUNCTION\s+(?:"public"\.|public\.)?(?:"update_order_tax_totals"|update_order_tax_totals)\s*\(/i;
+    for (const fileName of readdirSync(migrationsDirectory)
+      .filter((file) => migrationFilePattern.test(file))
+      .sort()
+      .reverse()) {
+      const sql = readFileSync(resolve(migrationsDirectory, fileName), 'utf8');
+      if (triggerRpcDefinitionPattern.test(sql)) {
+        return sql;
+      }
+    }
+    throw new Error('No update_order_tax_totals migration found');
   }
 
   it('reads order tax_basis + total components alongside merchant VAT status', () => {

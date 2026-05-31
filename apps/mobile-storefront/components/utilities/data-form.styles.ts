@@ -11,7 +11,7 @@ export const DATA_SAVED_CARD_CONFIRMATION_GATEWAY: VtuConfirmationGateway =
 export const dataFormStyles = StyleSheet.create({
   scrollView: { flex: 1 },
   content: { padding: SPACING.md },
-  sectionTitle: { fontSize: 16, fontWeight: '600', marginBottom: 12 },
+  sectionTitle: { fontSize: 16, fontWeight: '600', marginBottom: SPACING.sm },
   input: {
     height: 50,
     borderRadius: 12,
@@ -19,7 +19,7 @@ export const dataFormStyles = StyleSheet.create({
     fontSize: 16,
     borderWidth: 1,
   },
-  inputGroup: { marginBottom: 16 },
+  inputGroup: { marginBottom: SPACING.sm },
   label: { fontSize: 14, marginBottom: 8 },
   footer: {
     position: 'absolute',

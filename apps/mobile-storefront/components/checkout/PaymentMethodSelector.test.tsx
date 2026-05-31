@@ -257,7 +257,7 @@ describe('PaymentMethodSelector', () => {
         methodLabelOverrides={{ bank_transfer: 'Bank transfer to wallet' }}
         methodDescriptionOverrides={{
           bank_transfer:
-            'Transfer to your Bassey wallet account. We apply it to this order automatically.',
+            'A permanent account number will be created for you which you can use for future purchases. We apply it to this order automatically.',
         }}
         walletFundedBankTransferMode
       />
@@ -266,7 +266,7 @@ describe('PaymentMethodSelector', () => {
     expect(screen.getByText('Bank transfer to wallet')).toBeTruthy();
     expect(
       screen.getByText(
-        'Transfer to your Bassey wallet account. We apply it to this order automatically.'
+        'A permanent account number will be created for you which you can use for future purchases. We apply it to this order automatically.'
       )
     ).toBeTruthy();
     expect(
@@ -453,11 +453,7 @@ describe('PaymentMethodSelector', () => {
       expect(onWalletToggle).toHaveBeenCalledWith({ use: true, amount: 1000 });
     });
 
-    it('hides the wallet row when the BNPL tab is selected (installments)', () => {
-      // The BNPL branch in checkout.tsx returns early without spreading
-      // buildWalletOrderFields, so a wallet selection there would be
-      // silently dropped. Hide the toggle so the user never sees a
-      // selection that won't be honored.
+    it('shows the wallet row when the BNPL tab is selected (installments)', () => {
       render(
         <PaymentMethodSelector
           selectedMethod={'credit_direct' as PaymentMethodType}
@@ -471,10 +467,10 @@ describe('PaymentMethodSelector', () => {
         />
       );
 
-      expect(screen.queryByLabelText(/wallet/i)).toBeNull();
+      expect(screen.getByLabelText(/use wallet credit/i)).toBeTruthy();
     });
 
-    it('hides the wallet row when the pay_later tab is selected', () => {
+    it('shows the wallet row when the pay_later tab is selected', () => {
       render(
         <PaymentMethodSelector
           selectedMethod={'invoice' as PaymentMethodType}
@@ -488,7 +484,7 @@ describe('PaymentMethodSelector', () => {
         />
       );
 
-      expect(screen.queryByLabelText(/wallet/i)).toBeNull();
+      expect(screen.getByLabelText(/pay with wallet/i)).toBeTruthy();
     });
 
     it.each([
@@ -551,7 +547,9 @@ describe('PaymentMethodSelector', () => {
       );
 
       expect(screen.queryByLabelText(/use wallet credit/i)).toBeNull();
-      expect(screen.getByText('Wallet balance applies automatically')).toBeTruthy();
+      expect(
+        screen.getByText('Wallet balance applies automatically')
+      ).toBeTruthy();
       expect(
         screen.getByText('₦3,000 available now · transfer shortfall only')
       ).toBeTruthy();

@@ -68,7 +68,9 @@ export function buildBNPLCheckoutUrl({
     trackingToken,
   } = params.data;
   const slug = params.data.merchantSlug || 'ogabassey';
-  const baseUrl = apiBaseUrl.endsWith('/') ? apiBaseUrl.slice(0, -1) : apiBaseUrl;
+  const baseUrl = apiBaseUrl.endsWith('/')
+    ? apiBaseUrl.slice(0, -1)
+    : apiBaseUrl;
 
   if (gateway === 'klump') {
     return buildKlumpAuthorizationUrl({

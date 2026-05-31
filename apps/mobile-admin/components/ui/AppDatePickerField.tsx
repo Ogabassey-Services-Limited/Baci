@@ -69,7 +69,12 @@ export function AppDatePickerField({
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             onPress={onClose}
           >
-            <Text style={[styles.actionText, cancelTextColor && { color: cancelTextColor }]}>
+            <Text
+              style={[
+                styles.actionText,
+                cancelTextColor && { color: cancelTextColor },
+              ]}
+            >
               {cancelLabel}
             </Text>
           </Pressable>
@@ -79,7 +84,12 @@ export function AppDatePickerField({
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             onPress={handleConfirmIOS}
           >
-            <Text style={[styles.actionText, confirmTextColor && { color: confirmTextColor }]}>
+            <Text
+              style={[
+                styles.actionText,
+                confirmTextColor && { color: confirmTextColor },
+              ]}
+            >
               {confirmLabel}
             </Text>
           </Pressable>

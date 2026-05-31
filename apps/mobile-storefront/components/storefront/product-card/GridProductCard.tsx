@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { Image } from 'expo-image';
 import { Platform, Pressable, Text, View } from 'react-native';
 import Animated from 'react-native-reanimated';
@@ -109,11 +109,19 @@ export default function GridProductCard({
 
         {showLocalPlaceholder ? (
           <View
-            style={[styles.gridImage, styles.imagePlaceholder, { backgroundColor: colors.muted }]}
+            style={[
+              styles.gridImage,
+              styles.imagePlaceholder,
+              { backgroundColor: colors.muted },
+            ]}
             accessibilityLabel={`No image available for ${product.name}`}
             testID="grid-product-placeholder"
           >
-            <Ionicons name="image-outline" size={40} color={colors.mutedForeground} />
+            <Ionicons
+              name="image-outline"
+              size={40}
+              color={colors.mutedForeground}
+            />
           </View>
         ) : (
           <Image
@@ -164,15 +172,30 @@ export default function GridProductCard({
                 color={BRAND.secondary}
               />
             ))}
-            <Text style={[styles.ratingTextMini, { color: colors.mutedForeground }]}>({rating})</Text>
+            <Text
+              style={[styles.ratingTextMini, { color: colors.mutedForeground }]}
+            >
+              ({rating})
+            </Text>
           </View>
         ) : (
-          <View style={styles.ratingRowMini} accessible accessibilityLabel="No ratings">
-            <Text style={[styles.ratingTextMini, { color: colors.mutedForeground }]}>No ratings</Text>
+          <View
+            style={styles.ratingRowMini}
+            accessible
+            accessibilityLabel="No ratings"
+          >
+            <Text
+              style={[styles.ratingTextMini, { color: colors.mutedForeground }]}
+            >
+              No ratings
+            </Text>
           </View>
         )}
 
-        <Text style={[styles.gridName, { color: colors.text }]} numberOfLines={2}>
+        <Text
+          style={[styles.gridName, { color: colors.text }]}
+          numberOfLines={2}
+        >
           {product.name}
         </Text>
 

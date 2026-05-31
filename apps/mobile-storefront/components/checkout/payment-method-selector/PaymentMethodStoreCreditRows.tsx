@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { Pressable, Text, View } from 'react-native';
 import Colors from '@/constants/Colors';
 import { BRAND } from '@/constants/Colors';
@@ -95,7 +95,9 @@ export function PaymentMethodStoreCreditRows({
                 { color: savingsIsActive ? BRAND.primary : colors.text },
               ]}
             >
-              {savingsCoversFully ? 'Pay with device savings' : 'Use device savings'}
+              {savingsCoversFully
+                ? 'Pay with device savings'
+                : 'Use device savings'}
             </Text>
             <Text style={[styles.methodDesc, { color: colors.textSecondary }]}>
               {savingsCoversFully
@@ -114,13 +116,7 @@ export function PaymentMethodStoreCreditRows({
             ]}
           >
             {savingsIsActive ? (
-              <View
-                style={[
-                  styles.radioInner,
-                  styles.storeCreditIndicatorInner,
-                  { borderRadius: savingsCoversFully ? 6 : 2 },
-                ]}
-              />
+              <Ionicons name="checkmark" size={14} color={BRAND.primary} />
             ) : null}
           </View>
         </Pressable>
@@ -219,13 +215,7 @@ export function PaymentMethodStoreCreditRows({
             ]}
           >
             {walletIsActive ? (
-              <View
-                style={[
-                  styles.radioInner,
-                  styles.storeCreditIndicatorInner,
-                  { borderRadius: walletCoversFully ? 6 : 2 },
-                ]}
-              />
+              <Ionicons name="checkmark" size={14} color={BRAND.primary} />
             ) : null}
           </View>
         </Pressable>

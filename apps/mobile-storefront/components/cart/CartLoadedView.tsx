@@ -160,7 +160,9 @@ export default function CartLoadedView({
               size={14}
               color={colors.textSecondary}
             />
-            <Text style={[styles.secureBadgeText, { color: colors.textSecondary }]}>
+            <Text
+              style={[styles.secureBadgeText, { color: colors.textSecondary }]}
+            >
               Secure Checkout
             </Text>
           </View>

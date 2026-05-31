@@ -1603,6 +1603,12 @@ export async function POST(request: NextRequest) {
 
       // Notify merchant of new order — fire-and-forget via after() for the same reason.
       after(async () => {
+        if (!shouldSendImmediateOrderNotifications) {
+          // Card/Paystack payments trigger notifyNewOrder from the webhook/payment-verify handler
+          // upon successful payment callback to prevent premature/duplicate notifications.
+          return;
+        }
+
         try {
           const pushResult = await notifyNewOrder(
             merchant_id,

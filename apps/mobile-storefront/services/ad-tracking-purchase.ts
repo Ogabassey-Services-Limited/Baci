@@ -1,8 +1,5 @@
 import { buildTikTokCommerceEventParams } from './tiktok-commerce-event-data';
-import {
-  posthogOrderCompleted,
-  posthogTrack,
-} from './ad-tracking-identity';
+import { posthogOrderCompleted, posthogTrack } from './ad-tracking-identity';
 import {
   generateEventId,
   generateEventIdSync,
@@ -13,10 +10,7 @@ import {
   trackTikTokEvent,
 } from './ad-tracking-runtime';
 import { adTrackingLog as log } from './ad-tracking-state';
-import type {
-  TrackedOrder,
-  TrackedWishlistProduct,
-} from './ad-tracking.types';
+import type { TrackedOrder, TrackedWishlistProduct } from './ad-tracking.types';
 
 export async function trackPurchase(order: TrackedOrder): Promise<void> {
   const eventId = await generateEventId();

@@ -45,7 +45,9 @@ describe('OnboardingContext', () => {
     });
 
     expect(result.current.hasSeenOnboarding).toBe(false);
-    expect(asyncStorageMock.getItem).toHaveBeenCalledWith('baci_has_seen_onboarding');
+    expect(asyncStorageMock.getItem).toHaveBeenCalledWith(
+      'baci_has_seen_onboarding'
+    );
   });
 
   it('sets hasSeenOnboarding to true if storage contains "true"', async () => {
@@ -74,7 +76,10 @@ describe('OnboardingContext', () => {
     await waitFor(() => {
       expect(result.current.hasSeenOnboarding).toBe(true);
     });
-    expect(asyncStorageMock.setItem).toHaveBeenCalledWith('baci_has_seen_onboarding', 'true');
+    expect(asyncStorageMock.setItem).toHaveBeenCalledWith(
+      'baci_has_seen_onboarding',
+      'true'
+    );
   });
 
   it('calls resetOnboarding and updates state & storage', async () => {
@@ -93,12 +98,16 @@ describe('OnboardingContext', () => {
     await waitFor(() => {
       expect(result.current.hasSeenOnboarding).toBe(false);
     });
-    expect(asyncStorageMock.removeItem).toHaveBeenCalledWith('baci_has_seen_onboarding');
+    expect(asyncStorageMock.removeItem).toHaveBeenCalledWith(
+      'baci_has_seen_onboarding'
+    );
   });
 
   it('throws an error if useOnboarding is used outside of OnboardingProvider', () => {
     // Suppress console.error in vitest output for expected error throw
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
 
     expect(() => renderHook(() => useOnboarding())).toThrow(
       'useOnboarding must be used within an OnboardingProvider'

@@ -72,7 +72,8 @@ export async function loadAdTrackingNativeModules(): Promise<AdTrackingNativeMod
     modules.AppEventsLogger =
       fb.AppEventsLogger as unknown as AppEventsLoggerLike;
     modules.AEMReporterIOS = fb.AEMReporterIOS as unknown as AEMReporterIOSLike;
-    modules.TikTokBusiness = (tt.default || tt) as unknown as TikTokBusinessLike;
+    modules.TikTokBusiness = (tt.default ||
+      tt) as unknown as TikTokBusinessLike;
   } catch (error) {
     console.debug(
       '[AdTracking] Native modules ignored or failed to load:',

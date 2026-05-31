@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { Text, View } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
 import type { Domain } from './domain-types';
@@ -38,7 +38,9 @@ export default function DomainOptionsSheetHeader({
         />
       </View>
       <View>
-        <Text style={[domainOptionsSheetStyles.domainName, { color: colors.text }]}>
+        <Text
+          style={[domainOptionsSheetStyles.domainName, { color: colors.text }]}
+        >
           {domain.domain}
         </Text>
         <Text
@@ -47,8 +49,8 @@ export default function DomainOptionsSheetHeader({
             { color: colors.textSecondary },
           ]}
         >
-          {domain.domain_type === 'subdomain' ? 'Store Link' : 'Custom Domain'} •{' '}
-          {domain.status}
+          {domain.domain_type === 'subdomain' ? 'Store Link' : 'Custom Domain'}{' '}
+          • {domain.status}
         </Text>
       </View>
     </View>

@@ -45,11 +45,7 @@ describe('usePermissionBooster native module loading', () => {
     mockRejectNextNotificationsModuleLoad = true;
     const { usePermissionBooster } = await import('./use-permission-booster');
     const { result } = renderHook(() => usePermissionBooster());
-    let permissionResult:
-      | 'granted'
-      | 'denied'
-      | 'soft-ask-needed'
-      | undefined;
+    let permissionResult: 'granted' | 'denied' | 'soft-ask-needed' | undefined;
 
     expect(mockNotificationsModuleLoad).not.toHaveBeenCalled();
 

@@ -28,14 +28,17 @@ describe('getVerdictColors', () => {
     });
   });
 
-  it.each([undefined, null, '', 'SAFE', 'unknown'])(
-    'falls back to caution colors for unexpected verdict input: %s',
-    (value) => {
-      expect(getVerdictColors(value, colors)).toEqual(
-        getVerdictColors('caution', colors)
-      );
-    }
-  );
+  it.each([
+    undefined,
+    null,
+    '',
+    'SAFE',
+    'unknown',
+  ])('falls back to caution colors for unexpected verdict input: %s', (value) => {
+    expect(getVerdictColors(value, colors)).toEqual(
+      getVerdictColors('caution', colors)
+    );
+  });
 
   it('matches verdict palettes snapshot for stable UI tokens', () => {
     expect({

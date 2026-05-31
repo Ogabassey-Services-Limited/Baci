@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { Image } from 'expo-image';
 import { Pressable, Text, View } from 'react-native';
 import Animated from 'react-native-reanimated';
@@ -40,10 +40,18 @@ export default function ListProductCard({
     >
       {showLocalPlaceholder ? (
         <View
-          style={[styles.listImage, styles.imagePlaceholder, { backgroundColor: colors.muted }]}
+          style={[
+            styles.listImage,
+            styles.imagePlaceholder,
+            { backgroundColor: colors.muted },
+          ]}
           testID="list-product-placeholder"
         >
-          <Ionicons name="image-outline" size={32} color={colors.mutedForeground} />
+          <Ionicons
+            name="image-outline"
+            size={32}
+            color={colors.mutedForeground}
+          />
         </View>
       ) : (
         <Image
@@ -59,7 +67,9 @@ export default function ListProductCard({
             <Ionicons
               key={star}
               name={
-                star <= Math.floor(product.rating || 0) ? 'star' : 'star-outline'
+                star <= Math.floor(product.rating || 0)
+                  ? 'star'
+                  : 'star-outline'
               }
               size={10}
               color={BRAND.secondary}
@@ -67,19 +77,22 @@ export default function ListProductCard({
           ))}
         </View>
 
-        <Text style={[styles.listName, { color: colors.text }]} numberOfLines={1}>
+        <Text
+          style={[styles.listName, { color: colors.text }]}
+          numberOfLines={1}
+        >
           {product.name}
         </Text>
 
         {product.description && (
           <Text
-            style={[
-              styles.listDescription,
-              { color: colors.mutedForeground },
-            ]}
+            style={[styles.listDescription, { color: colors.mutedForeground }]}
             numberOfLines={2}
           >
-            {sanitizeDescriptionPlainText(product.description).substring(0, 100)}
+            {sanitizeDescriptionPlainText(product.description).substring(
+              0,
+              100
+            )}
           </Text>
         )}
 
@@ -89,10 +102,7 @@ export default function ListProductCard({
           </Text>
           <Pressable
             onPress={handleAddToCart}
-            style={[
-              styles.listCartBtn,
-              { backgroundColor: colors.text },
-            ]}
+            style={[styles.listCartBtn, { backgroundColor: colors.text }]}
             hitSlop={8}
             accessibilityLabel={`Add ${product.name} to cart`}
             accessibilityRole="button"
@@ -101,7 +111,9 @@ export default function ListProductCard({
               <Ionicons name="cart" size={16} color={colors.background} />
               {cartItemCount > 0 && (
                 <View style={[styles.listBadge, { borderColor: colors.card }]}>
-                  <Text style={[styles.badgeTextMini, { color: BRAND.onPrimary }]}>
+                  <Text
+                    style={[styles.badgeTextMini, { color: BRAND.onPrimary }]}
+                  >
                     {cartItemCount}
                   </Text>
                 </View>

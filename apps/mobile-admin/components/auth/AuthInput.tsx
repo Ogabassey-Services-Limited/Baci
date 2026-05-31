@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import type { ReactNode, Ref } from 'react';
 import {
   TextInput as NativeTextInput,

@@ -182,6 +182,17 @@ jest.mock('@/hooks/useTheme', () => ({
   }),
 }));
 
+jest.mock('@/lib/templates', () => ({
+  getTemplateConfig: () => ({
+    headerStyle: 'standard',
+    heroVariant: 'standard',
+    categoryStyle: 'pill',
+    cardVariant: 'grid',
+    spacing: 'compact',
+    borderRadius: 'md',
+  }),
+}));
+
 describe('TabLayout', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -201,8 +212,12 @@ describe('TabLayout', () => {
     );
 
     expect(tabsRootStyle).toMatchObject({
-      height: TAB_BAR_BASE_HEIGHT + mockSafeAreaInsets.bottom,
-      paddingBottom: Math.max(mockSafeAreaInsets.bottom - 4, 8),
+      height:
+        TAB_BAR_BASE_HEIGHT +
+        (mockSafeAreaInsets.bottom > 0 ? mockSafeAreaInsets.bottom : 8) +
+        6,
+      paddingBottom:
+        mockSafeAreaInsets.bottom > 0 ? mockSafeAreaInsets.bottom : 8,
     });
   });
 

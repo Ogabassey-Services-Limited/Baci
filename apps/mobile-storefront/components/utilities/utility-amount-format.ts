@@ -196,7 +196,10 @@ function normalizeLocaleNumberInput(input: string, locale: string): string {
     normalized = normalized.replace(/\s/g, '');
   }
   if (decimal && decimal !== '.' && !shouldTreatPeriodAsDecimal) {
-    normalized = normalized.replace(new RegExp(escapeRegExp(decimal), 'g'), '.');
+    normalized = normalized.replace(
+      new RegExp(escapeRegExp(decimal), 'g'),
+      '.'
+    );
   }
 
   return /^[-+]?(?:\d+\.?|\d*\.\d+)(?:e[-+]?\d+)?$/i.test(normalized)

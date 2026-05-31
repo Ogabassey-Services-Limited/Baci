@@ -1,4 +1,3 @@
-import { Image } from 'expo-image';
 import { Stack } from 'expo-router';
 import {
   Animated,
@@ -22,9 +21,8 @@ import { BRAND } from '@/constants/Colors';
 import { ELITE_BACKDROP_HEIGHT } from '@/constants/layout';
 import type { Block } from '@/types/blocks';
 import { homeScreenStyles as styles } from './home-screen.styles';
-
-const PATTERN_URI =
-  'https://www.transparenttextures.com/patterns/carbon-fibre.png';
+import { GadgetPattern } from '@/components/storefront/GadgetPattern';
+import { useColorScheme } from '@/components/useColorScheme';
 
 interface HomeScreenViewProps {
   backgroundColor: string;
@@ -89,6 +87,8 @@ export function HomeScreenView({
   selectedCategoryId,
   showPermissionModal,
 }: HomeScreenViewProps) {
+  const colorScheme = useColorScheme();
+
   if (isConfigLoading) {
     return (
       <View style={[styles.container, { backgroundColor }]}>
@@ -115,10 +115,22 @@ export function HomeScreenView({
   };
 
   return (
-    <View style={[styles.container, { backgroundColor }]}>
+    <View style={styles.container}>
       <Stack.Screen options={{ headerShown: false, title: '' }} />
       <SnowEffect />
       <SystemBars style="light" />
+
+      {/* Base background color layer to ensure reliable absolute rendering */}
+      <View style={[StyleSheet.absoluteFill, { backgroundColor }]} />
+
+      {/* Absolute background gadget pattern for premium tech framing */}
+      <View style={[StyleSheet.absoluteFill, { overflow: 'hidden' }]}>
+        <GadgetPattern
+          opacity={colorScheme === 'dark' ? 0.04 : 0.07}
+          height={1500}
+          color={colorScheme === 'dark' ? '#ffffff' : BRAND.primary}
+        />
+      </View>
 
       {isElite && (
         <View
@@ -130,11 +142,7 @@ export function HomeScreenView({
             },
           ]}
         >
-          <Image
-            source={{ uri: PATTERN_URI }}
-            style={[StyleSheet.absoluteFill, { opacity: 0.05 }]}
-            contentFit="cover"
-          />
+          <GadgetPattern opacity={0.25} height={ELITE_BACKDROP_HEIGHT} />
         </View>
       )}
 

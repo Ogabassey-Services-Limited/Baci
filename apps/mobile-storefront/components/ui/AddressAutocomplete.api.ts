@@ -1,7 +1,10 @@
 import Constants from 'expo-constants';
 import * as Crypto from 'expo-crypto';
 import { resolveApiBaseUrl } from '@/lib/api-url';
-import type { PlaceDetails, PlacePrediction } from './AddressAutocomplete.types';
+import type {
+  PlaceDetails,
+  PlacePrediction,
+} from './AddressAutocomplete.types';
 
 const API_BASE_URL = resolveApiBaseUrl(
   process.env.EXPO_PUBLIC_API_URL || Constants.expoConfig?.extra?.apiUrl
@@ -31,7 +34,9 @@ function getPredictionCacheKey(input: string, country?: string): string {
   return `${input.trim().toLowerCase()}|${country?.trim().toUpperCase() ?? ''}`;
 }
 
-function toPredictionResponse(value: unknown): { predictions?: PlacePrediction[] } {
+function toPredictionResponse(value: unknown): {
+  predictions?: PlacePrediction[];
+} {
   return value && typeof value === 'object'
     ? (value as { predictions?: PlacePrediction[] })
     : {};
@@ -97,7 +102,9 @@ export async function fetchPlaceDetails({
       placeId: prediction.placeId,
       sessionToken,
     });
-    const response = await fetch(`${API_BASE_URL}/api/places/details?${params}`);
+    const response = await fetch(
+      `${API_BASE_URL}/api/places/details?${params}`
+    );
 
     if (!response.ok) {
       const errorText = await response.text();

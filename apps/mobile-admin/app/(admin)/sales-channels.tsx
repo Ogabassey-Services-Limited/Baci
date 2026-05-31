@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { Stack, useRouter } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
@@ -50,9 +50,16 @@ export default function SalesChannelsScreen() {
           >
             <View style={styles.channelHeader}>
               <View
-                style={[styles.iconContainer, { backgroundColor: colors.primary }]}
+                style={[
+                  styles.iconContainer,
+                  { backgroundColor: colors.primary },
+                ]}
               >
-                <Text style={[styles.iconText, { color: colors.textOnPrimary }]}>K</Text>
+                <Text
+                  style={[styles.iconText, { color: colors.textOnPrimary }]}
+                >
+                  K
+                </Text>
               </View>
               <View style={styles.channelInfo}>
                 <Text style={[styles.channelTitle, { color: colors.text }]}>
@@ -77,7 +84,11 @@ export default function SalesChannelsScreen() {
               <View
                 style={[styles.iconContainer, { backgroundColor: colors.text }]}
               >
-                <Ionicons name="logo-amazon" size={20} color={colors.background} />
+                <Ionicons
+                  name="logo-amazon"
+                  size={20}
+                  color={colors.background}
+                />
               </View>
               <View style={styles.channelInfo}>
                 <Text style={[styles.channelTitle, { color: colors.text }]}>
@@ -126,7 +137,6 @@ const styles = StyleSheet.create({
     marginRight: SPACING.md,
   },
   iconText: {
-
     fontSize: 20,
     fontWeight: 'bold',
   },

@@ -23,7 +23,9 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!supabaseUrl || !serviceRoleKey) {
-  console.error('[cleanup-import-uploads] Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
+  console.error(
+    '[cleanup-import-uploads] Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY'
+  );
   process.exit(1);
 }
 
@@ -74,7 +76,10 @@ while (true) {
     .in('merchant_id', merchantIds)
     .in('client_upload_id', clientUploadIds);
   if (jobsError) {
-    console.error('[cleanup-import-uploads] Batch job lookup failed:', jobsError);
+    console.error(
+      '[cleanup-import-uploads] Batch job lookup failed:',
+      jobsError
+    );
     process.exit(1);
   }
   const claimedKeys = new Set(
@@ -83,7 +88,10 @@ while (true) {
 
   for (const upload of batch) {
     if (claimedKeys.has(`${upload.merchant_id}:${upload.client_upload_id}`)) {
-      const del = await supabase.from('pending_import_uploads').delete().eq('id', upload.id);
+      const del = await supabase
+        .from('pending_import_uploads')
+        .delete()
+        .eq('id', upload.id);
       if (del.error) {
         console.error('[cleanup-import-uploads] Delete failed:', del.error);
       } else {
@@ -95,11 +103,17 @@ while (true) {
     const storage = supabase.storage.from('migration-imports');
     const removeResult = await storage.remove([upload.storage_path]);
     if (removeResult.error) {
-      console.error('[cleanup-import-uploads] Storage removal failed:', removeResult.error);
+      console.error(
+        '[cleanup-import-uploads] Storage removal failed:',
+        removeResult.error
+      );
       continue;
     }
 
-    const del = await supabase.from('pending_import_uploads').delete().eq('id', upload.id);
+    const del = await supabase
+      .from('pending_import_uploads')
+      .delete()
+      .eq('id', upload.id);
     if (del.error) {
       console.error('[cleanup-import-uploads] Delete failed:', del.error);
     } else {

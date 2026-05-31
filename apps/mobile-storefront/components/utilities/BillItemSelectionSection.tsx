@@ -231,11 +231,12 @@ export function BillItemSelectionSection({
             )}
           </View>
 
-          {recentRecipients.length > 0 && onSelectRecentRecipient ? (
+          {onSelectRecentRecipient ? (
             <RecentUtilityRecipients
               colors={colors}
               recipients={recentRecipients}
               onSelect={onSelectRecentRecipient}
+              label="Recent Payments"
             />
           ) : null}
 
@@ -243,6 +244,7 @@ export function BillItemSelectionSection({
             beneficiaries={visibleBeneficiaries}
             colors={colors}
             onSelect={handleSelectBeneficiary}
+            label="Saved Beneficiaries"
           />
 
           {isRepeatPaymentActive ? (

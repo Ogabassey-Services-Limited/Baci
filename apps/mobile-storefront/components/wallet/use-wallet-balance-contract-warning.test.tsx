@@ -40,11 +40,7 @@ describe('useWalletBalanceContractWarning', () => {
           savings_balance: 0,
           total_balance: 5000,
         },
-        missingFields: [
-          'earnings_balance',
-          'savings_balance',
-          'total_balance',
-        ],
+        missingFields: ['earnings_balance', 'savings_balance', 'total_balance'],
       })
     );
   });

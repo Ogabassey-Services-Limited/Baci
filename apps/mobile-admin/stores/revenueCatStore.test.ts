@@ -92,7 +92,9 @@ describe('useRevenueCatStore', () => {
     const purchasePackage = {
       product: { identifier: 'pro_monthly' },
     } as unknown as PurchasesPackage;
-    const result = await useRevenueCatStore.getState().purchasePackage(purchasePackage);
+    const result = await useRevenueCatStore
+      .getState()
+      .purchasePackage(purchasePackage);
 
     expect(result).toEqual({ status: 'cancelled' });
     expect(useRevenueCatStore.getState().error).toBeNull();
@@ -117,7 +119,9 @@ describe('useRevenueCatStore', () => {
     const purchasePackage = {
       product: { identifier: 'pro_monthly' },
     } as unknown as PurchasesPackage;
-    const result = await useRevenueCatStore.getState().purchasePackage(purchasePackage);
+    const result = await useRevenueCatStore
+      .getState()
+      .purchasePackage(purchasePackage);
 
     expect(result).toEqual({
       error: 'Purchase failed',

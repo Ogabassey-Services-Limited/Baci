@@ -3,12 +3,14 @@ import Ionicons, {
 } from '@react-native-vector-icons/ionicons';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { BRAND } from '@/constants/Colors';
+import { useColorScheme } from '@/components/useColorScheme';
 import styles from './DrawerMenu.styles';
 
 type DrawerMenuItemColors = {
   icon: string;
   text: string;
   textSecondary: string;
+  card: string;
 };
 
 type DrawerMenuItemsProps = {
@@ -49,6 +51,10 @@ export function DrawerMenuItems({
   pathname,
   onNavigate,
 }: DrawerMenuItemsProps) {
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+  const redIconColor = isDark ? '#ff5555' : BRAND.primary;
+
   const isActive = (path: string) =>
     pathname === path || pathname?.startsWith(`${path}/`);
 
@@ -68,7 +74,11 @@ export function DrawerMenuItems({
           return (
             <Pressable
               key={item.path}
-              style={[styles.menuItem, active && styles.menuItemActive]}
+              style={[
+                styles.menuItem,
+                { backgroundColor: colors.card },
+                active && styles.menuItemActive,
+              ]}
               onPress={() => onNavigate(item.path)}
               accessibilityLabel={item.label}
               accessibilityRole="menuitem"
@@ -78,7 +88,8 @@ export function DrawerMenuItems({
                 <Ionicons
                   name={item.icon}
                   size={18}
-                  color={active ? BRAND.primary : colors.icon}
+                  color={redIconColor}
+                  style={{ opacity: active ? 1 : 0.65 }}
                 />
                 <Text
                   style={[

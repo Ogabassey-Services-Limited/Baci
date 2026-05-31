@@ -12,7 +12,9 @@ describe('withTwentyPercentAlpha', () => {
   });
 
   it('converts rgb colors to rgba with 0.2 alpha', () => {
-    expect(withTwentyPercentAlpha('rgb(10, 20, 30)')).toBe('rgba(10, 20, 30, 0.2)');
+    expect(withTwentyPercentAlpha('rgb(10, 20, 30)')).toBe(
+      'rgba(10, 20, 30, 0.2)'
+    );
     expect(withTwentyPercentAlpha('rgba(10, 20, 30, 0.4)')).toBe(
       'rgba(10, 20, 30, 0.2)'
     );

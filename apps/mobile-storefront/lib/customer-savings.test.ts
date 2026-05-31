@@ -237,21 +237,19 @@ describe('customer savings api client', () => {
     });
   });
 
-  it.each(apiErrorCases)(
-    'propagates network failures from $name',
-    async ({ call }) => {
-      mockFetchWithTimeout.mockRejectedValue(new Error('Network unavailable'));
+  it.each(apiErrorCases)('propagates network failures from $name', async ({
+    call,
+  }) => {
+    mockFetchWithTimeout.mockRejectedValue(new Error('Network unavailable'));
 
-      await expect(call()).rejects.toThrow('Network unavailable');
-    }
-  );
+    await expect(call()).rejects.toThrow('Network unavailable');
+  });
 
-  it.each(apiErrorCases)(
-    'throws response errors from $name',
-    async ({ call }) => {
-      mockHttpFailure();
+  it.each(apiErrorCases)('throws response errors from $name', async ({
+    call,
+  }) => {
+    mockHttpFailure();
 
-      await expect(call()).rejects.toThrow('Server says no');
-    }
-  );
+    await expect(call()).rejects.toThrow('Server says no');
+  });
 });

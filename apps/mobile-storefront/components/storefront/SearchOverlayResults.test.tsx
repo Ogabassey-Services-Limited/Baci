@@ -16,9 +16,7 @@ jest.mock('@shopify/flash-list', () => ({
     return (
       <>
         {data.map((item) => (
-          <React.Fragment key={item.id}>
-            {renderItem({ item })}
-          </React.Fragment>
+          <React.Fragment key={item.id}>{renderItem({ item })}</React.Fragment>
         ))}
       </>
     );

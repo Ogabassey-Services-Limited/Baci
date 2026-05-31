@@ -64,7 +64,9 @@ describe('SavedAddressOptions', () => {
     expect(screen.getByText('Ada Lovelace')).toBeTruthy();
     expect(screen.getByText('12 Marina Road')).toBeTruthy();
     expect(screen.getByText('Default')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Use home address' })).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Use home address' })
+    ).toBeTruthy();
     expect(
       screen.getByRole('button', { name: 'Use a saved address' })
     ).toHaveAccessibilityState({ selected: true });
@@ -88,7 +90,9 @@ describe('SavedAddressOptions', () => {
   it('calls onUseSavedAddress with the selected fallback when switching to saved mode', () => {
     render(<SavedAddressOptions {...baseProps} isAddingNewAddress />);
 
-    fireEvent.press(screen.getByRole('button', { name: 'Use a saved address' }));
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Use a saved address' })
+    );
 
     expect(baseProps.onUseSavedAddress).toHaveBeenCalledWith(homeAddress, {
       collapse: false,
@@ -105,7 +109,9 @@ describe('SavedAddressOptions', () => {
       />
     );
 
-    fireEvent.press(screen.getByRole('button', { name: 'Use a saved address' }));
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Use a saved address' })
+    );
 
     expect(baseProps.onUseSavedAddress).toHaveBeenCalledWith(homeAddress, {
       collapse: false,
@@ -124,7 +130,9 @@ describe('SavedAddressOptions', () => {
       />
     );
 
-    fireEvent.press(screen.getByRole('button', { name: 'Use a saved address' }));
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Use a saved address' })
+    );
 
     expect(baseProps.onUseSavedAddress).toHaveBeenCalledWith(officeAddress, {
       collapse: false,

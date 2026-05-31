@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { Pressable, Text, View } from 'react-native';
 import type Colors from '@/constants/Colors';
 import { BRAND, withAlpha } from '@/constants/Colors';
@@ -64,7 +64,12 @@ export function ProductDetailsSummary({
               },
             ]}
           >
-            <Text style={[styles.conditionText, { color: colors.primaryForeground }]}>
+            <Text
+              style={[
+                styles.conditionText,
+                { color: colors.primaryForeground },
+              ]}
+            >
               {product.condition}
             </Text>
           </View>

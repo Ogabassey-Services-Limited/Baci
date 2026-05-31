@@ -55,7 +55,9 @@ describe('AddressAutocomplete', () => {
       expect(screen.queryByText(TEST_PREDICTION.mainText)).toBeTruthy();
 
       fireEvent(input, 'blur');
-      act(() => { jest.advanceTimersByTime(100); });
+      act(() => {
+        jest.advanceTimersByTime(100);
+      });
 
       expect(screen.queryByText(TEST_PREDICTION.mainText)).toBeTruthy();
     });
@@ -68,7 +70,9 @@ describe('AddressAutocomplete', () => {
       expect(screen.queryByText(TEST_PREDICTION.mainText)).toBeTruthy();
 
       fireEvent(input, 'blur');
-      act(() => { jest.advanceTimersByTime(160); });
+      act(() => {
+        jest.advanceTimersByTime(160);
+      });
 
       expect(screen.queryByText(TEST_PREDICTION.mainText)).toBeNull();
     });
@@ -82,11 +86,15 @@ describe('AddressAutocomplete', () => {
 
       // Blur midway, then refocus before the delay expires
       fireEvent(input, 'blur');
-      act(() => { jest.advanceTimersByTime(100); });
+      act(() => {
+        jest.advanceTimersByTime(100);
+      });
       fireEvent(input, 'focus');
 
       // Advance well past the original 150ms — dropdown should stay open
-      act(() => { jest.advanceTimersByTime(200); });
+      act(() => {
+        jest.advanceTimersByTime(200);
+      });
       expect(screen.queryByText(TEST_PREDICTION.mainText)).toBeTruthy();
     });
   });
@@ -112,14 +120,23 @@ describe('AddressAutocomplete', () => {
         width: 375,
       });
       // screenY=400, inputHeight=52 → dropdownBottom = 400+52+280+16 = 748 > 500
-      type MeasureFn = (cb: (x: number, y: number, w: number, h: number) => void) => void;
+      type MeasureFn = (
+        cb: (x: number, y: number, w: number, h: number) => void
+      ) => void;
       const measureSpy = jest
-        .spyOn(View.prototype as { measureInWindow: MeasureFn }, 'measureInWindow')
+        .spyOn(
+          View.prototype as { measureInWindow: MeasureFn },
+          'measureInWindow'
+        )
         .mockImplementation((cb) => cb(0, 400, 375, 52));
 
       render(
         <AddressAutocomplete
-          scrollRef={scrollRef as unknown as React.RefObject<import('react-native').ScrollView | null>}
+          scrollRef={
+            scrollRef as unknown as React.RefObject<
+              import('react-native').ScrollView | null
+            >
+          }
           scrollOffsetRef={scrollOffsetRef as React.RefObject<number>}
         />
       );
@@ -149,14 +166,23 @@ describe('AddressAutocomplete', () => {
       jest.spyOn(Keyboard, 'metrics').mockReturnValue(undefined);
 
       // screenY=50 → dropdownBottom = 50+52+280+16 = 398 which is ≤ 800 (no keyboard)
-      type MeasureFn = (cb: (x: number, y: number, w: number, h: number) => void) => void;
+      type MeasureFn = (
+        cb: (x: number, y: number, w: number, h: number) => void
+      ) => void;
       const measureSpy = jest
-        .spyOn(View.prototype as { measureInWindow: MeasureFn }, 'measureInWindow')
+        .spyOn(
+          View.prototype as { measureInWindow: MeasureFn },
+          'measureInWindow'
+        )
         .mockImplementation((cb) => cb(0, 50, 375, 52));
 
       render(
         <AddressAutocomplete
-          scrollRef={scrollRef as unknown as React.RefObject<import('react-native').ScrollView | null>}
+          scrollRef={
+            scrollRef as unknown as React.RefObject<
+              import('react-native').ScrollView | null
+            >
+          }
           scrollOffsetRef={scrollOffsetRef as React.RefObject<number>}
         />
       );
@@ -188,14 +214,23 @@ describe('AddressAutocomplete', () => {
       });
 
       // screenY=0, inputHeight=0 — view unmounted / not yet laid out
-      type MeasureFn = (cb: (x: number, y: number, w: number, h: number) => void) => void;
+      type MeasureFn = (
+        cb: (x: number, y: number, w: number, h: number) => void
+      ) => void;
       const measureSpy = jest
-        .spyOn(View.prototype as { measureInWindow: MeasureFn }, 'measureInWindow')
+        .spyOn(
+          View.prototype as { measureInWindow: MeasureFn },
+          'measureInWindow'
+        )
         .mockImplementation((cb) => cb(0, 0, 375, 0));
 
       render(
         <AddressAutocomplete
-          scrollRef={scrollRef as unknown as React.RefObject<import('react-native').ScrollView | null>}
+          scrollRef={
+            scrollRef as unknown as React.RefObject<
+              import('react-native').ScrollView | null
+            >
+          }
           scrollOffsetRef={scrollOffsetRef as React.RefObject<number>}
         />
       );

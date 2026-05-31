@@ -33,7 +33,11 @@ vi.mock('react-native', () => ({
     children?: ReactNode;
     onPress?: () => void;
   }) => (
-    <button aria-label={accessibilityLabel} onClick={() => onPress?.()} type="button">
+    <button
+      aria-label={accessibilityLabel}
+      onClick={() => onPress?.()}
+      type="button"
+    >
       {children}
     </button>
   ),
@@ -68,9 +72,13 @@ describe('AppDatePickerField', () => {
     expect(onConfirm).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm date selection' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Confirm date selection' })
+    );
 
-    expect(onConfirm).toHaveBeenCalledWith(new Date('2024-02-03T00:00:00.000Z'));
+    expect(onConfirm).toHaveBeenCalledWith(
+      new Date('2024-02-03T00:00:00.000Z')
+    );
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
@@ -87,9 +95,14 @@ describe('AppDatePickerField', () => {
       />
     );
 
-    mocks.datePickerOnChange?.({ type: 'set' }, new Date('2024-03-04T00:00:00.000Z'));
+    mocks.datePickerOnChange?.(
+      { type: 'set' },
+      new Date('2024-03-04T00:00:00.000Z')
+    );
 
-    expect(onConfirm).toHaveBeenCalledWith(new Date('2024-03-04T00:00:00.000Z'));
+    expect(onConfirm).toHaveBeenCalledWith(
+      new Date('2024-03-04T00:00:00.000Z')
+    );
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 

@@ -1,10 +1,8 @@
 import { prioritizeSmartphoneProducts } from '@baci/shared';
 import { dedupeById } from '@baci/shared/lib';
-import { useIsFocused } from "expo-router/react-navigation";
+import { useIsFocused } from 'expo-router/react-navigation';
 import { useEffect, useRef } from 'react';
-import {
-  PRODUCT_GRID_MAX_PRICE_LIMIT,
-} from '@/constants/product-grid';
+import { PRODUCT_GRID_MAX_PRICE_LIMIT } from '@/constants/product-grid';
 import {
   type Category,
   useCategories,
@@ -197,19 +195,16 @@ export default function ProductGrid({
   });
   const uniqueVisibleProducts = dedupeById(visibleProducts);
   const currentVariant = viewMode === 'list' ? 'list' : variant;
-  const {
-    isRetrying,
-    shouldShowFatalError,
-    shouldShowInitialLoading,
-  } = resolveProductGridRenderFlags({
-    isCategoriesError,
-    isCategoriesFetching,
-    isError,
-    isFetchedAfterMount,
-    isLoading,
-    productsLength: products.length,
-    uniqueVisibleProductsLength: uniqueVisibleProducts.length,
-  });
+  const { isRetrying, shouldShowFatalError, shouldShowInitialLoading } =
+    resolveProductGridRenderFlags({
+      isCategoriesError,
+      isCategoriesFetching,
+      isError,
+      isFetchedAfterMount,
+      isLoading,
+      productsLength: products.length,
+      uniqueVisibleProductsLength: uniqueVisibleProducts.length,
+    });
   const handleRetry = () => {
     void refetch();
 

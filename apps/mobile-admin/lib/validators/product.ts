@@ -202,4 +202,6 @@ export type ProductFormValues = z.infer<typeof ProductSchema>;
 
 // The type the database expects (after transformation)
 // attributes are reduced to a record
-export const ProductDbSchema = ProductSchema.transform(mapProductFormToProductDb);
+export const ProductDbSchema = ProductSchema.transform(
+  mapProductFormToProductDb
+);

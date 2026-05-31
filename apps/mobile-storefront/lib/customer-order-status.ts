@@ -6,10 +6,7 @@ export type CustomerOrderStatusKey =
   | 'cancelled'
   | 'returned';
 
-export type CustomerOrderProgressState =
-  | 'completed'
-  | 'current'
-  | 'upcoming';
+export type CustomerOrderProgressState = 'completed' | 'current' | 'upcoming';
 
 export type CustomerOrderStatusIconName =
   | 'receipt-outline'
@@ -71,7 +68,8 @@ const CUSTOMER_ORDER_STATUS_META: Record<
     key: 'confirmed',
     label: 'Order confirmed',
     shortLabel: 'Confirmed',
-    description: 'The merchant has confirmed your order and is getting it ready.',
+    description:
+      'The merchant has confirmed your order and is getting it ready.',
     icon: 'checkmark-circle-outline',
   },
   shipped: {

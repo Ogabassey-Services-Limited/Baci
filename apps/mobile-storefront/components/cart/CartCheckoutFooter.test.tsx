@@ -38,7 +38,9 @@ describe('CartCheckoutFooter', () => {
       />
     );
 
-    fireEvent.press(screen.getByRole('button', { name: 'Negotiate cart total' }));
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Negotiate cart total' })
+    );
     fireEvent.press(
       screen.getByRole('button', {
         name: `Proceed to checkout, total ${formatPrice(500000)}`,
@@ -86,7 +88,9 @@ describe('CartCheckoutFooter', () => {
       />
     );
 
-    fireEvent.press(screen.getByRole('button', { name: 'Negotiate cart total' }));
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Negotiate cart total' })
+    );
     expect(onNegotiateTotal).toHaveBeenCalledTimes(1);
   });
 });

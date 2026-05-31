@@ -14,7 +14,10 @@ describe('navigateToNotificationTarget', () => {
       screen: 'product',
     });
 
-    expect(router.push).toHaveBeenNthCalledWith(1, '/(admin)/order/order%20123');
+    expect(router.push).toHaveBeenNthCalledWith(
+      1,
+      '/(admin)/order/order%20123'
+    );
     expect(router.push).toHaveBeenNthCalledWith(
       2,
       '/(admin)/product/phone%2Fsku'

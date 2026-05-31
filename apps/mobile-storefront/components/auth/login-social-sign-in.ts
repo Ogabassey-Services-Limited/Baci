@@ -28,7 +28,10 @@ export async function runLoginSocialSignIn({
     }
   } catch (error) {
     log.error(`Unexpected error in handle${provider}SignIn:`, error);
-    Alert.alert('Error', `An unexpected error occurred during ${provider} sign-in`);
+    Alert.alert(
+      'Error',
+      `An unexpected error occurred during ${provider} sign-in`
+    );
   } finally {
     loading(false);
   }

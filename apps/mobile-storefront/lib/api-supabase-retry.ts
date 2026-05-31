@@ -157,7 +157,9 @@ export async function withSupabaseRetry<
   }
 
   if (!lastResult) {
-    throw new Error('api-supabase-retry: retry loop failed to produce a result');
+    throw new Error(
+      'api-supabase-retry: retry loop failed to produce a result'
+    );
   }
 
   return lastResult;

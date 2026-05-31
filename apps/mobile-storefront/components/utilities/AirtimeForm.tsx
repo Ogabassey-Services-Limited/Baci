@@ -23,9 +23,47 @@ export function AirtimeForm(props: AirtimeFormProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const form = useAirtimeFormController(props);
+
+  const activeRecipients = recentRecipients;
+  const matchingRecipients = activeRecipients.filter((recipient) => {
+    if (!form.phoneNumber) return true;
+    const cleanPhone = form.phoneNumber.replace(/\D/g, '');
+    const cleanRecip = (recipient.identifier ?? '').replace(/\D/g, '');
+    return (
+      cleanRecip.includes(cleanPhone) ||
+      recipient.title.toLowerCase().includes(form.phoneNumber.toLowerCase())
+    );
+  });
+
+  const handleSelectRecentRecipient = (
+    recipient: (typeof recentRecipients)[0]
+  ) => {
+    form.handlePhoneChange(recipient.defaults.phoneNumber ?? '');
+    form.setIsBeneficiarySelected(true);
+    if (onSelectRecentRecipient) {
+      onSelectRecentRecipient(recipient);
+    }
+  };
+
+  const shouldShowBeneficiaryList =
+    !form.isBeneficiarySelected &&
+    (form.phoneNumber.length < 5 || matchingRecipients.length > 0);
+
+  const canShowBeneficiaries =
+    recentRecipients.length > 0 &&
+    Boolean(onSelectRecentRecipient) &&
+    shouldShowBeneficiaryList;
+
+  const shouldShowNetworkSection =
+    form.isBeneficiarySelected ||
+    (form.phoneNumber.length >= 5 && matchingRecipients.length === 0);
+
   const shouldShowSelectedNetwork =
     Boolean(form.selectedProvider) && !form.isNetworkPickerExpanded;
-  const shouldShowManualNetworkPicker = form.isNetworkPickerExpanded;
+
+  const shouldShowManualNetworkPicker =
+    form.isNetworkPickerExpanded ||
+    (form.phoneNumber.length >= 4 && !form.selectedProvider);
 
   return (
     <>
@@ -43,33 +81,32 @@ export function AirtimeForm(props: AirtimeFormProps) {
           Phone Number
         </Text>
 
-        <View style={styles.inputGroup}>
-          <TextInput
-            style={[
-              styles.input,
-              {
-                backgroundColor: colors.muted,
-                color: colors.text,
-                borderColor: colors.border,
-              },
-            ]}
-            placeholder="08012345678"
-            placeholderTextColor={colors.placeholder}
-            keyboardType="phone-pad"
-            value={form.phoneNumber}
-            onChangeText={form.handlePhoneChange}
-          />
-        </View>
+        <TextInput
+          style={[
+            styles.input,
+            {
+              backgroundColor: colors.muted,
+              color: colors.text,
+              borderColor: colors.border,
+              marginBottom: 16,
+            },
+          ]}
+          placeholder="08012345678"
+          placeholderTextColor={colors.placeholder}
+          keyboardType="phone-pad"
+          value={form.phoneNumber}
+          onChangeText={form.handlePhoneChange}
+        />
 
-        {recentRecipients.length > 0 && onSelectRecentRecipient ? (
+        {canShowBeneficiaries ? (
           <RecentUtilityRecipients
             colors={colors}
-            recipients={recentRecipients}
-            onSelect={onSelectRecentRecipient}
+            recipients={matchingRecipients}
+            onSelect={handleSelectRecentRecipient}
           />
         ) : null}
 
-        {shouldShowSelectedNetwork ? (
+        {shouldShowNetworkSection && shouldShowSelectedNetwork ? (
           <View
             style={[
               styles.selectedNetworkCard,
@@ -111,35 +148,16 @@ export function AirtimeForm(props: AirtimeFormProps) {
               <Text style={styles.changeButtonText}>Change</Text>
             </Pressable>
           </View>
-        ) : (
+        ) : null}
+
+        {shouldShowNetworkSection && shouldShowManualNetworkPicker ? (
           <View style={styles.networkPicker}>
-            <View style={styles.networkPickerHeader}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                Select Network
-              </Text>
-              {!shouldShowManualNetworkPicker ? (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Choose network manually"
-                  onPress={() => form.setIsNetworkPickerExpanded(true)}
-                  style={[styles.inlineButton, { borderColor: colors.border }]}
-                >
-                  <Text
-                    style={[styles.inlineButtonText, { color: colors.text }]}
-                  >
-                    Choose manually
-                  </Text>
-                </Pressable>
-              ) : null}
-            </View>
-            {shouldShowManualNetworkPicker ? (
-              <ProviderGrid
-                selectedProvider={form.selectedProvider}
-                onSelect={form.handleProviderSelect}
-              />
-            ) : null}
+            <ProviderGrid
+              selectedProvider={form.selectedProvider}
+              onSelect={form.handleProviderSelect}
+            />
           </View>
-        )}
+        ) : null}
 
         <View style={styles.inputGroup}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>

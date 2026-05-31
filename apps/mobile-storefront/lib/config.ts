@@ -38,7 +38,9 @@ function readString(
   fallback: string
 ): string {
   const value = extra[key];
-  return typeof value === 'string' && value.trim().length > 0 ? value : fallback;
+  return typeof value === 'string' && value.trim().length > 0
+    ? value
+    : fallback;
 }
 
 const extra = readExpoExtra();

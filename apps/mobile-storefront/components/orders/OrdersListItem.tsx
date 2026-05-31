@@ -1,5 +1,11 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
-import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  Platform,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import {
   getCustomerOrderStatusMeta,
   getCustomerOrderStatusPalette,
@@ -98,7 +104,9 @@ export function OrdersListItem({
             />
           </View>
           <View style={styles.orderStatusCopy}>
-            <Text style={[styles.statusHeadline, { color: statusPalette.accent }]}>
+            <Text
+              style={[styles.statusHeadline, { color: statusPalette.accent }]}
+            >
               {statusMeta.label}
             </Text>
             <Text style={[styles.orderDate, { color: colors.textSecondary }]}>
@@ -148,7 +156,11 @@ export function OrdersListItem({
         <Text style={[styles.viewDetailsText, { color: statusPalette.accent }]}>
           View order details
         </Text>
-        <Ionicons name="chevron-forward" size={16} color={statusPalette.accent} />
+        <Ionicons
+          name="chevron-forward"
+          size={16}
+          color={statusPalette.accent}
+        />
       </View>
     </TouchableOpacity>
   );

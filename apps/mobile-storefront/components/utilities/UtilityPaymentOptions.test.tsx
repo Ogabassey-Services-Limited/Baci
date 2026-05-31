@@ -156,7 +156,9 @@ describe('UtilityPaymentOptions', () => {
     expect(savedCard.props.accessibilityState).toMatchObject({
       checked: false,
     });
-    expect(lastSelectorProps.current?.suppressedSelectedMethods).toBeUndefined();
+    expect(
+      lastSelectorProps.current?.suppressedSelectedMethods
+    ).toBeUndefined();
 
     fireEvent.press(savedCard);
 

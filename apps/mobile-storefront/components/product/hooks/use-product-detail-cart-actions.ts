@@ -83,7 +83,10 @@ export function useProductDetailCartActions(
   const handleAddToCart = (event?: GestureResponderEvent) => {
     const product = routeData.product;
     if (!product) return;
-    if (product.has_variants && !purchaseState.resolvedVariantPurchaseSelection) {
+    if (
+      product.has_variants &&
+      !purchaseState.resolvedVariantPurchaseSelection
+    ) {
       Alert.alert(
         'Select Variant',
         'Choose an available storage option before adding this item to your cart.'
@@ -130,8 +133,7 @@ export function useProductDetailCartActions(
           routeData.productGalleryImages[0],
         variantImageUrl:
           routeData.currentVariantDisplaySelection?.variant.image,
-        variantImages:
-          routeData.currentVariantDisplaySelection?.variant.images,
+        variantImages: routeData.currentVariantDisplaySelection?.variant.images,
         fallbackImageUrl: product.image,
       }),
       color: routeData.effectiveSelectedColor || undefined,
@@ -153,7 +155,8 @@ export function useProductDetailCartActions(
     event?: GestureResponderEvent
   ) => {
     haptics.light();
-    if (newQuantity > cartState.quantityInCart && event) triggerFlyToCart(event);
+    if (newQuantity > cartState.quantityInCart && event)
+      triggerFlyToCart(event);
     if (cartState.cartItem) {
       if (newQuantity <= 0) cartState.removeItem(cartState.cartItem.id);
       else cartState.updateQuantity(cartState.cartItem.id, newQuantity);

@@ -1,4 +1,4 @@
-import type { IoniconsIconName } from "@react-native-vector-icons/ionicons";
+import type { IoniconsIconName } from '@react-native-vector-icons/ionicons';
 import type {
   SavingsSelection,
   WalletSelection,

@@ -49,7 +49,9 @@ export function createAccountActions(set: AuthStoreSet, get: AuthStoreGet) {
         const { user } = get();
         const usedApple =
           user?.app_metadata?.providers?.includes('apple') ?? false;
-        const { error } = await supabase.rpc('delete_current_storefront_account');
+        const { error } = await supabase.rpc(
+          'delete_current_storefront_account'
+        );
         if (error) {
           return { success: false, error: getDeleteAccountErrorMessage(error) };
         }

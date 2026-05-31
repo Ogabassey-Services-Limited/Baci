@@ -34,8 +34,9 @@ jest.mock('@/hooks/use-wallet', () => ({
 }));
 
 jest.mock('@/stores/auth-store', () => ({
-  useAuthStore: (selector: (state: { session: { access_token: string } }) => unknown) =>
-    selector({ session: { access_token: 'token-123' } }),
+  useAuthStore: (
+    selector: (state: { session: { access_token: string } }) => unknown
+  ) => selector({ session: { access_token: 'token-123' } }),
 }));
 
 function createTestQueryClient() {
@@ -141,21 +142,19 @@ describe('useUtilityPayment', () => {
 
   it('refetches saved cards when the payment form remounts', async () => {
     const client = createTestQueryClient();
-    mockListSavedVtuCards
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([
-        {
-          id: 'card-1',
-          provider: 'paystack',
-          label: 'Access Bank ending 1234',
-          brand: 'visa',
-          bank: 'Access Bank',
-          last4: '1234',
-          exp_month: '08',
-          exp_year: '2030',
-          is_default: true,
-        },
-      ]);
+    mockListSavedVtuCards.mockResolvedValueOnce([]).mockResolvedValueOnce([
+      {
+        id: 'card-1',
+        provider: 'paystack',
+        label: 'Access Bank ending 1234',
+        brand: 'visa',
+        bank: 'Access Bank',
+        last4: '1234',
+        exp_month: '08',
+        exp_year: '2030',
+        is_default: true,
+      },
+    ]);
 
     const first = renderHook(() => useUtilityPayment(), {
       wrapper: createWrapperWithClient(client),

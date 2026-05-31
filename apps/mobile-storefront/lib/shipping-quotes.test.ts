@@ -38,15 +38,30 @@ describe('shipping quote helpers', () => {
   });
 
   it('includes a normalized address segment in the key', () => {
-    const key = buildShippingQuoteContextKey('Lagos', 'Ikeja', items, '  Apt 2B  ');
+    const key = buildShippingQuoteContextKey(
+      'Lagos',
+      'Ikeja',
+      items,
+      '  Apt 2B  '
+    );
     expect(key).toBe(
       'lagos::ikeja::apt 2b::["prod-1","var-1",2,1000]|["prod-2","",1,450]'
     );
   });
 
   it('produces distinct keys for different address values', () => {
-    const key1 = buildShippingQuoteContextKey('Lagos', 'Ikeja', items, 'Apt 2B');
-    const key2 = buildShippingQuoteContextKey('Lagos', 'Ikeja', items, 'Apt 3C');
+    const key1 = buildShippingQuoteContextKey(
+      'Lagos',
+      'Ikeja',
+      items,
+      'Apt 2B'
+    );
+    const key2 = buildShippingQuoteContextKey(
+      'Lagos',
+      'Ikeja',
+      items,
+      'Apt 3C'
+    );
     expect(key1).not.toBe(key2);
   });
 

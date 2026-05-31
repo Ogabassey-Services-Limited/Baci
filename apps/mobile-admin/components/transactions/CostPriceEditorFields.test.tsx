@@ -158,7 +158,9 @@ describe('CostPriceEditorFields', () => {
     fireEvent.change(screen.getByLabelText('Cost price input'), {
       target: { value: '1200' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Select supplier Supplier One' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Select supplier Supplier One' })
+    );
 
     expect(onChangeCostPrice).toHaveBeenCalledWith('1200');
     expect(onChangeSupplier).toHaveBeenCalledWith('Supplier One');

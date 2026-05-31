@@ -48,7 +48,9 @@ describe('useCart stock validation', () => {
       .mockResolvedValue({ data: { manage_stock: true, stock_quantity: 2 } });
     const eq = jest.fn(() => ({ single }));
     const select = jest.fn(() => ({ eq }));
-    const productQuery = { select } as unknown as ReturnType<typeof supabase.from>;
+    const productQuery = { select } as unknown as ReturnType<
+      typeof supabase.from
+    >;
     jest.mocked(supabase.from).mockReturnValue(productQuery);
 
     const firstVoucher = {
@@ -100,9 +102,7 @@ describe('useCart stock validation', () => {
         expect(result.current.isAddingToCart).toBe(false);
       });
       expect(useCartStore.getState().items).toEqual(
-        expect.not.arrayContaining([
-          expect.objectContaining({ price: 220000 }),
-        ])
+        expect.not.arrayContaining([expect.objectContaining({ price: 220000 })])
       );
     } finally {
       unmount();

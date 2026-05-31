@@ -72,7 +72,9 @@ export function mapProductFormToProductDb(data: ProductFormValues) {
   const normalizedParentColor = rest.color?.trim() || null;
   const projectedVariantMedia = has_variants
     ? resolveProductVariantMedia({
-        productColors: normalizedParentColor ? [normalizedParentColor] : undefined,
+        productColors: normalizedParentColor
+          ? [normalizedParentColor]
+          : undefined,
         productImages: rest.images,
         variants: persistedVariants.map((variant) => ({
           attributes: variant.attributes,

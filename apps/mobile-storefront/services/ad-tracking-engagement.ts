@@ -1,7 +1,4 @@
-import {
-  posthogSearch,
-  posthogTrack,
-} from './ad-tracking-identity';
+import { posthogSearch, posthogTrack } from './ad-tracking-identity';
 import {
   generateEventIdSync,
   sendServerConversion,

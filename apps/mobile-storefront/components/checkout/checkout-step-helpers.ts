@@ -1,11 +1,12 @@
-import {
-  PICKUP_STATION_ADDRESS_LINES,
-} from '@/components/checkout/PickupStationCard';
+import { PICKUP_STATION_ADDRESS_LINES } from '@/components/checkout/PickupStationCard';
 import type {
   PaymentMethodType,
   PaymentTab,
 } from '@/components/checkout/PaymentMethodSelector';
-import type { DeliveryMethod, ShippingQuote } from '@/components/checkout/types';
+import type {
+  DeliveryMethod,
+  ShippingQuote,
+} from '@/components/checkout/types';
 
 export const AIRPORT_DELIVERY_FEE = 25000;
 const DEFAULT_CARRIER = 'Topship';

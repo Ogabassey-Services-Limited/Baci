@@ -57,7 +57,9 @@ describe('ProductGridView', () => {
       />
     );
 
-    fireEvent.press(screen.getByRole('button', { name: 'Retry loading products' }));
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Retry loading products' })
+    );
     expect(defaultProps.onRetry).toHaveBeenCalledTimes(1);
   });
 

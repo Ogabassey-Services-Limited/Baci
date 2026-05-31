@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { SafeImage } from '@/components/ui/SafeImage';
 import Colors, { BRAND } from '@/constants/Colors';
@@ -41,11 +41,15 @@ export function SearchDropdownList({
         {recentSearches.length > 0 ? (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>
+              <Text
+                style={[styles.sectionLabel, { color: colors.textSecondary }]}
+              >
                 Recent
               </Text>
               <Pressable onPress={onClearHistory} hitSlop={8}>
-                <Text style={[styles.clearText, { color: colors.textSecondary }]}>
+                <Text
+                  style={[styles.clearText, { color: colors.textSecondary }]}
+                >
                   Clear
                 </Text>
               </Pressable>
@@ -56,7 +60,10 @@ export function SearchDropdownList({
                   key={term}
                   style={[
                     styles.chip,
-                    { backgroundColor: colors.muted, borderColor: colors.border },
+                    {
+                      backgroundColor: colors.muted,
+                      borderColor: colors.border,
+                    },
                   ]}
                   onPress={() => onSuggestionPress(term)}
                   accessibilityLabel={`Search for ${term}`}
@@ -81,20 +88,28 @@ export function SearchDropdownList({
 
         {categories.length > 0 ? (
           <View style={styles.section}>
-            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>
+            <Text
+              style={[styles.sectionLabel, { color: colors.textSecondary }]}
+            >
               Categories
             </Text>
             <View style={styles.categoryList}>
               {categories.slice(0, 5).map((category) => (
                 <Pressable
                   key={category.id}
-                  style={[styles.categoryRow, { borderBottomColor: colors.border }]}
+                  style={[
+                    styles.categoryRow,
+                    { borderBottomColor: colors.border },
+                  ]}
                   onPress={() => onCategoryPress(category.slug)}
                   accessibilityLabel={`Browse ${category.name}`}
                   accessibilityRole="button"
                 >
                   <View
-                    style={[styles.categoryDot, { backgroundColor: BRAND.primary }]}
+                    style={[
+                      styles.categoryDot,
+                      { backgroundColor: BRAND.primary },
+                    ]}
                   />
                   <Text style={[styles.categoryName, { color: colors.text }]}>
                     {category.name}
@@ -158,7 +173,10 @@ export function SearchDropdownList({
             fallbackIconSize={20}
           />
           <View style={styles.resultInfo}>
-            <Text style={[styles.resultName, { color: colors.text }]} numberOfLines={1}>
+            <Text
+              style={[styles.resultName, { color: colors.text }]}
+              numberOfLines={1}
+            >
               {product.name}
             </Text>
             <View style={styles.resultMeta}>
@@ -166,7 +184,9 @@ export function SearchDropdownList({
                 {formatPrice(product.price)}
               </Text>
               {product.brand ? (
-                <Text style={[styles.resultBrand, { color: colors.textSecondary }]}>
+                <Text
+                  style={[styles.resultBrand, { color: colors.textSecondary }]}
+                >
                   {product.brand}
                 </Text>
               ) : null}

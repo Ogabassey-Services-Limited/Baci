@@ -14,7 +14,10 @@ import { getAdminNotificationNavigationTarget } from '@baci/shared';
 import Constants from 'expo-constants';
 import type * as DeviceType from 'expo-device';
 import type * as NotificationsType from 'expo-notifications';
-import { getRuntimePlatform, isRuntimePlatform } from '@/config/runtime-platform';
+import {
+  getRuntimePlatform,
+  isRuntimePlatform,
+} from '@/config/runtime-platform';
 import { supabase } from '@/lib/supabase';
 import { setupAndroidChannels } from './push-notification-channels';
 
