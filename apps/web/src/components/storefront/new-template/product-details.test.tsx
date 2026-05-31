@@ -3,6 +3,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   savedItems: [] as string[],
+  cart: [] as Array<{
+    id: string;
+    cartItemId: string;
+    name: string;
+    image: string;
+    price: number;
+    quantity: number;
+    variantId?: string;
+  }>,
   toggleSaved: vi.fn(),
   addToCart: vi.fn(),
 }));
@@ -23,7 +32,7 @@ vi.mock('next/navigation', () => ({
 vi.mock('@/hooks/use-cart', () => ({
   useCart: vi.fn(() => ({
     addToCart: mocks.addToCart,
-    cart: [],
+    cart: mocks.cart,
   })),
 }));
 
@@ -60,6 +69,7 @@ function renderInsideForm(onSubmit = vi.fn()) {
 describe('ProductDetails save button', () => {
   beforeEach(() => {
     mocks.savedItems = [];
+    mocks.cart = [];
     mocks.toggleSaved.mockReset();
     mocks.addToCart.mockReset();
     window.scrollTo = vi.fn();
@@ -82,5 +92,23 @@ describe('ProductDetails save button', () => {
 
     expect(onSubmit).not.toHaveBeenCalled();
     expect(mocks.toggleSaved).toHaveBeenCalledWith('1');
+  });
+
+  it('renders with typed variant cart items already in the cart', () => {
+    mocks.cart = [
+      {
+        id: '1',
+        cartItemId: '1::variant=black',
+        variantId: 'black',
+        name: 'iPhone 15 Pro',
+        image: '/iphone.jpg',
+        price: 1_200_000,
+        quantity: 2,
+      },
+    ];
+
+    render(<ProductDetails />);
+
+    expect(screen.getByRole('button', { name: 'Save product' })).toBeVisible();
   });
 });

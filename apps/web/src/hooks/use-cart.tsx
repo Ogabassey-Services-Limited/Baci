@@ -37,6 +37,46 @@ const getCartStorageKey = (slug?: string | null, userId?: string | null) => {
 const MERCHANT_SLUG_KEY = 'baci-cart-merchant-slug';
 const DEFAULT_ASSURANCE_RATE = 0.05; // 5%
 
+function getStoredStringValue(
+  item: Record<string, unknown>,
+  key: string
+): string | undefined {
+  const value = item[key];
+  return typeof value === 'string' && value.length > 0 ? value : undefined;
+}
+
+function normalizeStoredCartItem(item: Record<string, unknown>): CartItem {
+  const productId = getStoredStringValue(item, 'id') ?? '';
+  const variantId =
+    getStoredStringValue(item, 'variantId') ??
+    getStoredStringValue(item, 'variant_id');
+  const selectedColor =
+    getStoredStringValue(item, 'selectedColor') ??
+    getStoredStringValue(item, 'variantColor');
+  const selectedStorage =
+    getStoredStringValue(item, 'selectedStorage') ??
+    getStoredStringValue(item, 'variantStorage');
+  const cartItemId =
+    getStoredStringValue(item, 'cartItemId') ??
+    generateCartItemId(productId, variantId ? { variantId } : undefined);
+
+  return {
+    ...item,
+    cartItemId,
+    price:
+      typeof item.price === 'number' && !Number.isNaN(item.price)
+        ? item.price
+        : Number(item.price) || 0,
+    quantity:
+      typeof item.quantity === 'number' && !Number.isNaN(item.quantity)
+        ? item.quantity
+        : Number(item.quantity) || 1,
+    selectedColor,
+    selectedStorage,
+    variantId,
+  } as CartItem;
+}
+
 /**
  * Clear cart from localStorage. Can be called outside React context.
  * Used for logout to prevent cart data leakage between users.
@@ -117,20 +157,7 @@ const getCartFromStorage = (
         const item = i as Record<string, unknown>;
         return typeof item.id === 'string' && typeof item.name === 'string';
       })
-      .map(
-        (i) =>
-          ({
-            ...i,
-            price:
-              typeof i.price === 'number' && !Number.isNaN(i.price)
-                ? i.price
-                : Number(i.price) || 0,
-            quantity:
-              typeof i.quantity === 'number' && !Number.isNaN(i.quantity)
-                ? i.quantity
-                : Number(i.quantity) || 1,
-          }) as CartItem
-      );
+      .map(normalizeStoredCartItem);
   } catch (error) {
     logger.error({
       message: 'Failed to read cart from localStorage',
