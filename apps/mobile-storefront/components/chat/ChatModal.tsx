@@ -4,25 +4,22 @@ import type { RefObject } from 'react';
 import {
   Keyboard,
   Modal,
-  Platform,
   Pressable,
-  SafeAreaView,
+  StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { GadgetPattern } from '@/components/storefront/GadgetPattern';
 import AppKeyboardContainer from '@/components/ui/AppKeyboardContainer';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
-import { useKeyboard } from '@/hooks/use-keyboard';
 import { ChatSuggestionsRow } from './ChatSuggestionsRow';
 import { CHAT_POWERED_BY_LABEL } from './constants';
 import { styles } from './styles';
 import { TypingIndicator } from './TypingIndicator';
 import { type ChatMessage } from './types';
-
-const CHAT_INPUT_KEYBOARD_GAP = 8;
 
 interface ChatModalProps {
   visible: boolean;
@@ -56,11 +53,6 @@ export function ChatModal({
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
-  const { isKeyboardVisible, keyboardHeight } = useKeyboard();
-  const keyboardLift =
-    Platform.OS === 'ios' && isKeyboardVisible
-      ? Math.max(keyboardHeight - insets.bottom, 0) + CHAT_INPUT_KEYBOARD_GAP
-      : 0;
 
   const handleClose = () => {
     Keyboard.dismiss();
@@ -120,15 +112,20 @@ export function ChatModal({
       presentationStyle="fullScreen"
       onRequestClose={handleClose}
     >
-      <SafeAreaView
-        style={[styles.modalContainer, { backgroundColor: colors.background }]}
+      <View
+        style={[
+          styles.modalContainer,
+          { backgroundColor: santaMode ? '#FFF5F5' : colors.background },
+        ]}
       >
+        {/* Header - safe area protected dynamically for iOS and Android clocks */}
         <View
           style={[
             styles.header,
             {
               backgroundColor: santaMode ? BRAND.primary : colors.card,
               borderBottomColor: colors.border,
+              paddingTop: insets.top + 12,
             },
           ]}
         >
@@ -191,39 +188,56 @@ export function ChatModal({
           </Pressable>
         </View>
 
-        <AppKeyboardContainer
-          style={styles.messagesWrapper}
-          enabled={Platform.OS === 'android'}
-        >
-          <FlashList
-            ref={flatListRef}
-            data={messages}
-            renderItem={renderMessage}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={[
-              styles.messagesList,
-              { backgroundColor: santaMode ? '#FFF5F5' : colors.background },
-            ]}
-            showsVerticalScrollIndicator={false}
-            onContentSizeChange={onScrollToBottom}
-            ListFooterComponent={
-              isLoading ? (
-                <View style={styles.loadingContainer}>
-                  <View
-                    style={[
-                      styles.loadingBubble,
-                      {
-                        backgroundColor: colors.card,
-                        borderColor: colors.border,
-                      },
-                    ]}
-                  >
-                    <TypingIndicator />
+        {/* Global Drift-Free Keyboard protection enabled on all platforms */}
+        <AppKeyboardContainer style={styles.messagesWrapper} enabled={true}>
+          <View style={{ flex: 1, position: 'relative' }}>
+            {/* Solid background base */}
+            <View
+              style={[
+                StyleSheet.absoluteFill,
+                { backgroundColor: santaMode ? '#FFF5F5' : colors.background },
+              ]}
+            />
+
+            {/* Absolute background gadget pattern for premium tech wallpaper */}
+            <View style={[StyleSheet.absoluteFill, { overflow: 'hidden' }]}>
+              <GadgetPattern
+                opacity={colorScheme === 'dark' ? 0.04 : 0.07}
+                height={1500}
+                color={colorScheme === 'dark' ? '#ffffff' : BRAND.primary}
+              />
+            </View>
+
+            <FlashList
+              ref={flatListRef}
+              data={messages}
+              renderItem={renderMessage}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={[
+                styles.messagesList,
+                { backgroundColor: 'transparent' },
+              ]}
+              showsVerticalScrollIndicator={false}
+              onContentSizeChange={onScrollToBottom}
+              ListFooterComponent={
+                isLoading ? (
+                  <View style={styles.loadingContainer}>
+                    <View
+                      style={[
+                        styles.loadingBubble,
+                        {
+                          backgroundColor: colors.card,
+                          borderColor: colors.border,
+                        },
+                      ]}
+                    >
+                      <TypingIndicator />
+                    </View>
                   </View>
-                </View>
-              ) : null
-            }
-          />
+                ) : null
+              }
+            />
+          </View>
 
           <View
             style={[
@@ -231,7 +245,7 @@ export function ChatModal({
               {
                 backgroundColor: santaMode ? '#FFF5F5' : colors.background,
                 borderTopColor: colors.border,
-                paddingBottom: keyboardLift || undefined,
+                paddingBottom: insets.bottom > 0 ? insets.bottom : 12,
               },
             ]}
             testID="chat-input-container"
@@ -290,7 +304,7 @@ export function ChatModal({
             </Text>
           </View>
         </AppKeyboardContainer>
-      </SafeAreaView>
+      </View>
     </Modal>
   );
 }

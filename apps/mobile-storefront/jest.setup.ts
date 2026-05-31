@@ -103,3 +103,58 @@ jest.mock('@react-native-vector-icons/feather', () => ({
   __esModule: true,
   default: 'Feather',
 }));
+
+// Mock react-native-reanimated
+jest.mock('react-native-reanimated', () => {
+  const React = require('react');
+  const { View, Text } = require('react-native');
+  const MockAnimatedView = ({ children, style, ...props }: any) =>
+    React.createElement(View, { style, ...props }, children);
+  const MockAnimatedText = ({ children, style, ...props }: any) =>
+    React.createElement(Text, { style, ...props }, children);
+
+  const mock = {
+    useSharedValue: (initVal: any) => ({ value: initVal }),
+    useAnimatedStyle: (fn: any) => fn(),
+    withSpring: (toValue: any) => toValue,
+    withTiming: (toValue: any) => toValue,
+    withRepeat: (anim: any) => anim,
+    withSequence: (...anims: any[]) => anims[0],
+    cancelAnimation: jest.fn(),
+    View: MockAnimatedView,
+    Text: MockAnimatedText,
+    createAnimatedComponent: (component: any) => component,
+    __esModule: true,
+  };
+
+  Object.defineProperty(mock, 'default', {
+    enumerable: true,
+    value: mock,
+  });
+
+  return mock;
+});
+
+// Mock react-native-worklets
+jest.mock('react-native-worklets', () => ({
+  scheduleOnRN: (fn: (...args: any[]) => any, ...args: any[]) => fn(...args),
+  scheduleOnUI: (fn: (...args: any[]) => any, ...args: any[]) => fn(...args),
+  runOnJS: (fn: (...args: any[]) => any) => fn,
+}));
+
+
+// Mock react-native-gesture-handler
+jest.mock('react-native-gesture-handler', () => {
+  const React = require('react');
+  const { Pressable } = require('react-native');
+  return {
+    Touchable: ({ children, ...props }: any) => React.createElement(Pressable, props, children),
+    GestureDetector: ({ children }: any) => children,
+    usePanGesture: jest.fn(() => ({})),
+    useTapGesture: jest.fn(() => ({})),
+    useSimultaneousGestures: jest.fn((...args: any[]) => ({})),
+  };
+});
+
+
+

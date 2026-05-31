@@ -1,6 +1,8 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import type Colors from '@/constants/Colors';
+import { BRAND } from '@/constants/Colors';
+import { GadgetPattern } from '@/components/storefront/GadgetPattern';
 import styles from './styles';
 
 interface CartStateViewProps {
@@ -25,7 +27,19 @@ export default function CartStateView({
     colorScheme === 'dark' ? colors.muted : colors.background;
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={styles.container}>
+      {/* Base background color layer to ensure reliable absolute rendering */}
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.background }]} />
+
+      {/* Absolute background gadget pattern for premium tech framing */}
+      <View style={[StyleSheet.absoluteFill, { overflow: 'hidden' }]}>
+        <GadgetPattern
+          opacity={colorScheme === 'dark' ? 0.04 : 0.07}
+          height={1500}
+          color={colorScheme === 'dark' ? '#ffffff' : BRAND.primary}
+        />
+      </View>
+
       <View style={styles.emptyContainer}>
         <View style={[styles.emptyIconBg, { backgroundColor: surfaceInset }]}>
           <Ionicons

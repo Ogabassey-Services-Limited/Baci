@@ -17,26 +17,15 @@ jest.mock('./use-chat', () => ({
   })),
 }));
 
-const mockPan = {
-  x: { addListener: jest.fn(() => '1'), removeListener: jest.fn() },
-  y: { addListener: jest.fn(() => '2'), removeListener: jest.fn() },
-  setOffset: jest.fn(),
-  setValue: jest.fn(),
-  flattenOffset: jest.fn(),
-};
-
 jest.mock('./use-draggable-fab', () => ({
   useDraggableFab: jest.fn(() => ({
-    pan: mockPan,
-    panResponder: { panHandlers: {} },
-    pulseAnim: {
-      addListener: jest.fn(),
-      removeListener: jest.fn(),
-      setValue: jest.fn(),
-    },
+    composedGesture: {},
+    translateX: { value: 0 },
+    translateY: { value: 0 },
+    scale: { value: 1 },
     isDragging: false,
-    hasMoved: { current: false },
-    isOnRight: { current: true },
+    isOverDismissZone: false,
+    isOnRight: true,
   })),
 }));
 
@@ -55,7 +44,10 @@ jest.mock('./use-proactive-nudge', () => ({
 // Mock UI store
 const mockOpenChat = jest.fn();
 const mockCloseChat = jest.fn();
+const mockDismissChat = jest.fn();
+const mockResetChatDismissal = jest.fn();
 let mockIsChatOpen = false;
+let mockIsChatDismissed = false;
 
 jest.mock('@/stores/ui-store', () => ({
   useUIStore: jest.fn(
@@ -64,12 +56,18 @@ jest.mock('@/stores/ui-store', () => ({
         isChatOpen: typeof mockIsChatOpen;
         openChat: typeof mockOpenChat;
         closeChat: typeof mockCloseChat;
+        isChatDismissed: typeof mockIsChatDismissed;
+        dismissChat: typeof mockDismissChat;
+        resetChatDismissal: typeof mockResetChatDismissal;
       }) => unknown
     ) => {
       const state = {
         isChatOpen: mockIsChatOpen,
         openChat: mockOpenChat,
         closeChat: mockCloseChat,
+        isChatDismissed: mockIsChatDismissed,
+        dismissChat: mockDismissChat,
+        resetChatDismissal: mockResetChatDismissal,
       };
       return selector(state);
     }
@@ -134,8 +132,11 @@ jest.mock('./styles', () => ({
 describe('ChatWidget', () => {
   beforeEach(() => {
     mockIsChatOpen = false;
+    mockIsChatDismissed = false;
     mockOpenChat.mockClear();
     mockCloseChat.mockClear();
+    mockDismissChat.mockClear();
+    mockResetChatDismissal.mockClear();
     mockUsePathname.mockReturnValue('/');
   });
 
@@ -215,5 +216,20 @@ describe('ChatWidget', () => {
     render(<ChatWidget santaMode={false} />);
 
     expect(screen.queryByText('🎅')).toBeNull();
+  });
+
+  it('returns null when chatbot is dismissed', () => {
+    mockIsChatDismissed = true;
+    const { toJSON } = render(<ChatWidget />);
+
+    expect(toJSON()).toBeNull();
+  });
+
+  it('resets chatbot dismissal when returning to home screen', () => {
+    mockIsChatDismissed = true;
+    mockUsePathname.mockReturnValue('/');
+    render(<ChatWidget />);
+
+    expect(mockResetChatDismissal).toHaveBeenCalled();
   });
 });

@@ -1,7 +1,10 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import * as Haptics from 'expo-haptics';
 import { usePathname } from 'expo-router';
-import { Animated, Platform, Pressable, Text, View } from 'react-native';
+import { useEffect } from 'react';
+import { Platform, Text, View, Animated as RNAnimated } from 'react-native';
+import { GestureDetector, Touchable } from 'react-native-gesture-handler';
+import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
@@ -9,7 +12,7 @@ import { getChatWidgetBottomOffset } from '@/constants/layout';
 import { useShallow } from 'zustand/react/shallow';
 import { useUIStore } from '@/stores/ui-store';
 import { ChatModal } from './ChatModal';
-import { HIDDEN_ROUTES } from './constants';
+import { EDGE_MARGIN, HIDDEN_ROUTES } from './constants';
 import { styles } from './styles';
 import type { ChatWidgetProps } from './types';
 import { useChat } from './use-chat';
@@ -29,36 +32,76 @@ export function ChatWidget({
     insets.bottom
   );
 
-  const { isChatOpen, openChat, closeChat } = useUIStore(
+  const {
+    isChatOpen,
+    openChat,
+    closeChat,
+    isChatDismissed,
+    dismissChat,
+    resetChatDismissal,
+  } = useUIStore(
     useShallow((state) => ({
       isChatOpen: state.isChatOpen,
       openChat: state.openChat,
       closeChat: state.closeChat,
+      isChatDismissed: state.isChatDismissed,
+      dismissChat: state.dismissChat,
+      resetChatDismissal: state.resetChatDismissal,
     }))
   );
 
-  const { pan, panResponder, pulseAnim, isDragging, hasMoved, isOnRight } =
-    useDraggableFab(effectiveBottomOffset);
+  // Automatically restore chat widget when user returns to home screen
+  useEffect(() => {
+    if (pathname === '/' || pathname === '/(tabs)' || pathname === '/(tabs)/') {
+      resetChatDismissal();
+    }
+  }, [pathname, resetChatDismissal]);
+
+  const {
+    composedGesture,
+    translateX,
+    translateY,
+    scale,
+    isDragging,
+    isOverDismissZone,
+    isOnRight,
+  } = useDraggableFab(effectiveBottomOffset, dismissChat, handleOpen);
 
   const { proactiveMsg, nudgeFadeAnim, dismissNudge } =
     useProactiveNudge(isChatOpen);
 
   const chat = useChat(santaMode);
 
-  // Check if chat should be hidden on current screen
-  const shouldHide = HIDDEN_ROUTES.some((route) => pathname?.startsWith(route));
+  // Check if chat should be hidden on current screen or if dismissed by user
+  const shouldHide =
+    isChatDismissed ||
+    HIDDEN_ROUTES.some((route) => pathname?.startsWith(route));
 
-  const handleOpen = () => {
-    // Only open if we didn't drag
-    if (hasMoved.current) {
-      hasMoved.current = false;
-      return;
-    }
+  // Reanimated style for the dynamic translation of the FAB container
+  const animatedFabStyle = useAnimatedStyle(() => {
+    return {
+      transform: [
+        { translateX: translateX.value },
+        { translateY: translateY.value },
+      ],
+    };
+  });
+
+  // Reanimated style for the scale pulse of the FAB
+  const animatedIconStyle = useAnimatedStyle(() => {
+    return {
+      transform: [
+        { scale: scale.value },
+      ],
+    };
+  });
+
+  function handleOpen() {
     if (Platform.OS === 'ios') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
     openChat();
-  };
+  }
 
   if (shouldHide) {
     return null;
@@ -66,22 +109,23 @@ export function ChatWidget({
 
   return (
     <>
-      {/* Draggable Floating Action Button */}
+      {/* Draggable Floating Action Button Container (Reanimated) */}
       <Animated.View
         style={[
           styles.fabContainer,
           {
-            transform: [{ translateX: pan.x }, { translateY: pan.y }],
+            right: EDGE_MARGIN,
+            bottom: effectiveBottomOffset,
           },
+          animatedFabStyle,
         ]}
-        {...panResponder.panHandlers}
       >
-        {/* Proactive Nudge - Horizontal thought bubble */}
+        {/* Proactive Nudge - Horizontal thought bubble (RN legacy Animated) */}
         {proactiveMsg && !isChatOpen && !isDragging && (
-          <Animated.View
+          <RNAnimated.View
             style={[
               styles.nudgeContainer,
-              isOnRight.current ? styles.nudgeRight : styles.nudgeLeft,
+              isOnRight ? styles.nudgeRight : styles.nudgeLeft,
               { opacity: nudgeFadeAnim },
             ]}
           >
@@ -97,17 +141,20 @@ export function ChatWidget({
               <Text style={[styles.nudgeText, { color: colors.text }]}>
                 {proactiveMsg}
               </Text>
-              <Pressable style={styles.nudgeClose} onPress={dismissNudge}>
+              <Touchable
+                activeOpacity={0.3}
+                animationDuration={{ in: 0, out: 150 }}
+                style={styles.nudgeClose}
+                onPress={dismissNudge}
+              >
                 <Ionicons name="close" size={10} color={colors.textSecondary} />
-              </Pressable>
+              </Touchable>
             </View>
             {/* Thought bubble tail dots */}
             <View
               style={[
                 styles.nudgeTailContainer,
-                isOnRight.current
-                  ? styles.nudgeTailRight
-                  : styles.nudgeTailLeft,
+                isOnRight ? styles.nudgeTailRight : styles.nudgeTailLeft,
               ]}
             >
               <View
@@ -123,38 +170,37 @@ export function ChatWidget({
                 ]}
               />
             </View>
-          </Animated.View>
+          </RNAnimated.View>
         )}
 
-        <Animated.View
-          style={{
-            transform: [{ scale: isDragging ? 1.1 : pulseAnim }],
-          }}
-        >
-          <Pressable
-            style={[
-              styles.fab,
-              {
-                backgroundColor: santaMode ? BRAND.primary : colors.card,
-                borderColor: isDragging ? BRAND.primary : colors.border,
-                borderWidth: isDragging ? 2 : 1,
-              },
-            ]}
-            onPress={handleOpen}
-            accessibilityRole="button"
-            accessibilityLabel="Open chat assistant. Drag to move."
-            accessibilityHint="Double tap to open chat, or drag to reposition"
-          >
-            {santaMode ? (
-              <Text style={styles.fabEmoji}>🎅</Text>
-            ) : (
-              <Ionicons name="sparkles" size={28} color={BRAND.primary} />
-            )}
-            <View style={styles.aiBadge}>
-              <Text style={styles.aiBadgeText}>AI</Text>
-            </View>
-          </Pressable>
-        </Animated.View>
+        {/* GestureDetector wraps only the FAB itself */}
+        <GestureDetector gesture={composedGesture}>
+          <Animated.View style={animatedIconStyle}>
+            <Animated.View
+              style={[
+                styles.fab,
+                {
+                  backgroundColor: santaMode ? BRAND.primary : colors.card,
+                  borderColor: isDragging ? BRAND.primary : colors.border,
+                  borderWidth: isDragging ? 2 : 1,
+                },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Open chat assistant. Drag to move."
+              accessibilityHint="Double tap to open chat, or drag to reposition"
+              accessible={true}
+            >
+              {santaMode ? (
+                <Text style={styles.fabEmoji}>🎅</Text>
+              ) : (
+                <Ionicons name="sparkles" size={28} color={BRAND.primary} />
+              )}
+              <View style={styles.aiBadge}>
+                <Text style={styles.aiBadgeText}>AI</Text>
+              </View>
+            </Animated.View>
+          </Animated.View>
+        </GestureDetector>
 
         {/* Drag indicator */}
         {isDragging && (
@@ -163,6 +209,36 @@ export function ChatWidget({
           </View>
         )}
       </Animated.View>
+
+      {/* Dynamic Dismiss Zone at bottom center when dragging */}
+      {isDragging && (
+        <View style={styles.dismissZone}>
+          <View
+            style={[
+              styles.dismissCircle,
+              {
+                backgroundColor: isOverDismissZone ? '#FF3B30' : colors.card,
+                borderColor: '#FF3B30',
+                transform: [{ scale: isOverDismissZone ? 1.15 : 1 }],
+              },
+            ]}
+          >
+            <Ionicons
+              name={isOverDismissZone ? 'trash' : 'trash-outline'}
+              size={22}
+              color={isOverDismissZone ? '#FFFFFF' : '#FF3B30'}
+            />
+          </View>
+          <Text
+            style={[
+              styles.dismissText,
+              { color: isOverDismissZone ? '#FF3B30' : colors.textSecondary },
+            ]}
+          >
+            {isOverDismissZone ? 'Release to dismiss' : 'Drag here to dismiss'}
+          </Text>
+        </View>
+      )}
 
       {/* Chat Modal */}
       <ChatModal

@@ -1,6 +1,6 @@
 import { Stack } from 'expo-router';
 import React, { useRef } from 'react';
-import { Platform } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 import {
   SafeAreaView,
   useSafeAreaInsets,
@@ -17,7 +17,8 @@ import { CheckoutStepContent } from '@/components/checkout/CheckoutStepContent';
 import { CheckoutBottomAction } from '@/components/checkout/CheckoutBottomAction';
 import AppKeyboardContainer from '@/components/ui/AppKeyboardContainer';
 import { useColorScheme } from '@/components/useColorScheme';
-import Colors from '@/constants/Colors';
+import Colors, { BRAND } from '@/constants/Colors';
+import { GadgetPattern } from '@/components/storefront/GadgetPattern';
 import { useAuthStatus } from '@/hooks/use-auth-guard';
 import type { MobileCheckoutIdempotencyState } from '@/lib/checkout-order-idempotency';
 import { useCartStore } from '@/stores/cart-store';
@@ -192,13 +193,25 @@ export function CheckoutScreenView() {
       />
 
       <SafeAreaView
-        style={[styles.container, { backgroundColor: colors.background }]}
+        style={styles.container}
         edges={['top', 'left', 'right']}
       >
+        {/* Base background color layer to ensure reliable absolute rendering */}
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.background }]} />
+
+        {/* Absolute background gadget pattern for premium tech framing */}
+        <View style={[StyleSheet.absoluteFill, { overflow: 'hidden' }]}>
+          <GadgetPattern
+            opacity={isDark ? 0.04 : 0.07}
+            height={1500}
+            color={isDark ? '#ffffff' : BRAND.primary}
+          />
+        </View>
+
         <CheckoutHeader colors={colors} onBack={handleBack} />
 
         <AppKeyboardContainer
-          style={[styles.contentShell, { backgroundColor: colors.muted }]}
+          style={[styles.contentShell, { backgroundColor: 'transparent' }]}
         >
           <CheckoutStepper
             step={step}
