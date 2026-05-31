@@ -86,7 +86,7 @@ describe('checkAgentCommerceFeedHealth', () => {
       google_product_count: 2,
       issue_count: 0,
       openai_product_count: 2,
-      shared_product_count: 1,
+      shared_product_count: 2,
       status: 'ok',
     });
     expect(result.issues).toEqual([]);

@@ -65,22 +65,6 @@ function getLatestUpdatedAt(
   return latest?.toISOString() ?? null;
 }
 
-function countSharedProducts({
-  googleProductIds,
-  openAiProductIds,
-}: {
-  googleProductIds: Set<string>;
-  openAiProductIds: Set<string>;
-}) {
-  let sharedCount = 0;
-
-  for (const productId of openAiProductIds) {
-    if (googleProductIds.has(productId)) sharedCount += 1;
-  }
-
-  return sharedCount;
-}
-
 function assertNeverIssueCode(code: never): never {
   throw new Error(`Unexpected feed health issue code: ${code}`);
 }
@@ -97,12 +81,6 @@ export async function checkAgentCommerceFeedHealth({
         merchantId,
         supabase,
       });
-    const openAiProductIds = new Set(
-      openAiProducts.map((product) => product.id)
-    );
-    const googleProductIds = new Set(
-      googleProducts.map((product) => product.id)
-    );
     const staleProductCount = AGENT_COMMERCE_FEED_FRESHNESS.countStaleProducts({
       now,
       products: openAiProducts,
@@ -159,10 +137,9 @@ export async function checkAgentCommerceFeedHealth({
       issues,
       latest_product_updated_at: getLatestUpdatedAt(openAiProducts),
       openai_product_count: openAiProducts.length,
-      shared_product_count: countSharedProducts({
-        googleProductIds,
-        openAiProductIds,
-      }),
+      // The lightweight cron snapshot intentionally uses one active-product
+      // query for both feed surfaces; full feed parity is monitored elsewhere.
+      shared_product_count: openAiProducts.length,
       stale_product_count: staleProductCount,
       status: getStatus(issues),
     };
