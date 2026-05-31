@@ -57,17 +57,16 @@ export function UtilityPanel({
     }
   }, [isFocused]);
 
-  useEffect(() => {
-    console.log("🚀 Baci Reanimated Utility Bar loaded!");
-  }, []);
-
   // Web-Parity Auto-Rotation Logic (constants at module level for stable references)
   const template = getTemplateConfig(CONFIG.BUSINESS_TYPE, CONFIG.TEMPLATE_ID);
-  const defaultCategoryId = template.headerStyle === 'elite' ? 'u-airtime' : null;
+  const defaultCategoryId =
+    template.headerStyle === 'elite' ? 'u-airtime' : null;
 
   const [activeUtilityIndex, setActiveUtilityIndex] = useState(0);
   const [isManualUtility, setIsManualUtility] = useState(() => {
-    return selectedCategoryId ? selectedCategoryId !== defaultCategoryId : false;
+    return selectedCategoryId
+      ? selectedCategoryId !== defaultCategoryId
+      : false;
   });
   const promoWordProgress = useSharedValue(1);
 
@@ -159,8 +158,6 @@ export function UtilityPanel({
     return (remoteCategories || []) as Category[];
   })();
 
-
-
   if (isLoading && categories.length === 0) {
     return (
       <View
@@ -225,12 +222,7 @@ export function UtilityPanel({
         <View style={{ height: 16, justifyContent: 'center' }}>
           <Text style={[styles.promoText, { color: colors.textSecondary }]}>
             We Pay <Text style={styles.promoHighlight}>YOU</Text> When You Buy{' '}
-            <Animated.Text
-              style={[
-                styles.promoHighlight,
-                animatedPromoStyle,
-              ]}
-            >
+            <Animated.Text style={[styles.promoHighlight, animatedPromoStyle]}>
               {activeUtilityWord}
             </Animated.Text>
           </Text>

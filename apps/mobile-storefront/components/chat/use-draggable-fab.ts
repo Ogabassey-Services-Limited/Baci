@@ -15,7 +15,17 @@ import {
   withTiming,
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
-import { EDGE_MARGIN, FAB_SIZE } from './constants';
+import {
+  EDGE_MARGIN,
+  FAB_SIZE,
+  GESTURE_MIN_DISTANCE,
+  GESTURE_MAX_TAP_DISTANCE,
+  DISMISS_RADIUS,
+  DISMISS_BOTTOM_OFFSET,
+  TOP_CLAMP,
+  VELOCITY_PROJECTOR_X,
+  VELOCITY_PROJECTOR_Y,
+} from './constants';
 
 // Define completely static, immutable haptic trigger outside the hook
 const triggerHaptic = (style: Haptics.ImpactFeedbackStyle) => {
@@ -110,7 +120,7 @@ export function useDraggableFab(
 
   // RNGH 3.0 Pan Gesture Definition
   const panGesture = usePanGesture({
-    minDistance: 8,
+    minDistance: GESTURE_MIN_DISTANCE,
     onActivate: () => {
       cancelAnimation(translateX);
       cancelAnimation(translateY);
@@ -138,13 +148,13 @@ export function useDraggableFab(
       const fabCenterX = absoluteX + FAB_SIZE / 2;
       const fabCenterY = absoluteY + FAB_SIZE / 2;
       const dismissCenterX = currentWidth / 2;
-      const dismissCenterY = currentHeight - 100;
+      const dismissCenterY = currentHeight - DISMISS_BOTTOM_OFFSET;
 
       const dx = fabCenterX - dismissCenterX;
       const dy = fabCenterY - dismissCenterY;
       const distance = Math.sqrt(dx * dx + dy * dy);
 
-      const isOver = distance < 80;
+      const isOver = distance < DISMISS_RADIUS;
 
       // Haptic boundary latch logic
       if (isOver && !hapticTriggered.value) {
@@ -183,13 +193,14 @@ export function useDraggableFab(
       const leftBound = EDGE_MARGIN;
       const rightBound = startX;
 
-      const snapX = absoluteX + event.velocityX * 0.08;
-      const targetXAbsolute = snapX + FAB_SIZE / 2 < currentWidth / 2 ? leftBound : rightBound;
+      const snapX = absoluteX + event.velocityX * VELOCITY_PROJECTOR_X;
+      const targetXAbsolute =
+        snapX + FAB_SIZE / 2 < currentWidth / 2 ? leftBound : rightBound;
 
       // Clamp vertical bounds
-      const minY = 100;
+      const minY = TOP_CLAMP;
       const maxY = currentHeight - currentBottomOffset - FAB_SIZE;
-      let targetYAbsolute = absoluteY + event.velocityY * 0.04;
+      let targetYAbsolute = absoluteY + event.velocityY * VELOCITY_PROJECTOR_Y;
       targetYAbsolute = Math.max(minY, Math.min(targetYAbsolute, maxY));
 
       const targetTranslationX = targetXAbsolute - startX;
@@ -199,14 +210,20 @@ export function useDraggableFab(
       scheduleOnRN(setIsOnRight, isRight);
       scheduleOnRN(triggerHaptic, Haptics.ImpactFeedbackStyle.Medium);
 
-      translateX.value = withSpring(targetTranslationX, { damping: 15, stiffness: 120 });
-      translateY.value = withSpring(targetTranslationY, { damping: 15, stiffness: 120 });
+      translateX.value = withSpring(targetTranslationX, {
+        damping: 15,
+        stiffness: 120,
+      });
+      translateY.value = withSpring(targetTranslationY, {
+        damping: 15,
+        stiffness: 120,
+      });
     },
   });
 
   // RNGH 3.0 Tap Gesture Definition
   const tapGesture = useTapGesture({
-    maxDistance: 8,
+    maxDistance: GESTURE_MAX_TAP_DISTANCE,
     onActivate: () => {
       scheduleOnRN(triggerHaptic, Haptics.ImpactFeedbackStyle.Medium);
       scheduleOnRN(handlePressJS);

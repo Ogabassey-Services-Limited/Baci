@@ -3,10 +3,20 @@ import type React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
 
-export function TabBarLabel({ focused, label }: { focused: boolean; label: string }) {
+export function TabBarLabel({
+  focused,
+  label,
+}: {
+  focused: boolean;
+  label: string;
+}) {
   const { colors } = useTheme();
   if (!focused) return null;
-  return <Text style={[styles.tabLabel, { color: colors.tabIconSelected }]}>{label}</Text>;
+  return (
+    <Text style={[styles.tabLabel, { color: colors.tabIconSelected }]}>
+      {label}
+    </Text>
+  );
 }
 
 export function TabBarIcon({

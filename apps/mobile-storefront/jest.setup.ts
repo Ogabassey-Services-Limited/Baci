@@ -127,12 +127,20 @@ jest.mock('react-native-reanimated', () => {
       },
     }),
     useEvent: (fn: any) => fn,
-    interpolate: (value: number, inputRange: number[], outputRange: number[]) => {
+    interpolate: (
+      value: number,
+      inputRange: number[],
+      outputRange: number[]
+    ) => {
       const idx = inputRange.indexOf(value);
       if (idx !== -1) return outputRange[idx];
       return outputRange[0];
     },
-    interpolateColor: (value: number, inputRange: number[], outputRange: string[]) => {
+    interpolateColor: (
+      value: number,
+      inputRange: number[],
+      outputRange: string[]
+    ) => {
       const idx = inputRange.indexOf(value);
       if (idx !== -1) return outputRange[idx];
       return outputRange[0];
@@ -161,13 +169,13 @@ jest.mock('react-native-worklets', () => ({
   runOnJS: (fn: (...args: any[]) => any) => fn,
 }));
 
-
 // Mock react-native-gesture-handler
 jest.mock('react-native-gesture-handler', () => {
   const React = require('react');
   const { Pressable } = require('react-native');
   return {
-    Touchable: ({ children, ...props }: any) => React.createElement(Pressable, props, children),
+    Touchable: ({ children, ...props }: any) =>
+      React.createElement(Pressable, props, children),
     GestureDetector: ({ children }: any) => children,
     usePanGesture: jest.fn(() => ({})),
     useTapGesture: jest.fn(() => ({})),
@@ -184,7 +192,11 @@ jest.mock('react-native-pager-view', () => {
     setPageWithoutAnimation = jest.fn();
     render() {
       const { children, ...props } = this.props;
-      return React.createElement(View, { testID: 'pager-view', ...props }, children);
+      return React.createElement(
+        View,
+        { testID: 'pager-view', ...props },
+        children
+      );
     }
   }
   return {
@@ -192,6 +204,3 @@ jest.mock('react-native-pager-view', () => {
     default: MockPagerView,
   };
 });
-
-
-

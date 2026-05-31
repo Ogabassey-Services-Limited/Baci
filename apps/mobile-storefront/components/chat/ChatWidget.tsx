@@ -90,9 +90,7 @@ export function ChatWidget({
   // Reanimated style for the scale pulse of the FAB
   const animatedIconStyle = useAnimatedStyle(() => {
     return {
-      transform: [
-        { scale: scale.value },
-      ],
+      transform: [{ scale: scale.value }],
     };
   });
 
@@ -189,6 +187,13 @@ export function ChatWidget({
               accessibilityLabel="Open chat assistant. Drag to move."
               accessibilityHint="Double tap to open chat, or drag to reposition"
               accessible={true}
+              onAccessibilityTap={handleOpen}
+              accessibilityActions={[{ name: 'activate' }]}
+              onAccessibilityAction={(event) => {
+                if (event.nativeEvent.actionName === 'activate') {
+                  handleOpen();
+                }
+              }}
             >
               {santaMode ? (
                 <Text style={styles.fabEmoji}>🎅</Text>

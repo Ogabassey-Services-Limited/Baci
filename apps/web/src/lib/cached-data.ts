@@ -1708,10 +1708,11 @@ export async function getCachedCategoryPageData(
       console.error('Category state query error:', categoryStateError);
     }
 
-    hiddenCategoryState = Array.isArray(categoryStateData)
-      ? ((categoryStateData[0] as StorefrontCategorySlugState | undefined) ??
-        null)
-      : ((categoryStateData as StorefrontCategorySlugState | null) ?? null);
+    const stateArray = categoryStateData as
+      | StorefrontCategorySlugState[]
+      | null;
+    hiddenCategoryState =
+      stateArray && stateArray.length > 0 ? stateArray[0] : null;
   }
 
   const isInactiveCategory =

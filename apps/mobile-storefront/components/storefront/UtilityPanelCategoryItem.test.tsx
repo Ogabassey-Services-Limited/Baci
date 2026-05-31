@@ -1,7 +1,10 @@
 import { jest } from '@jest/globals';
 
 jest.mock('react-native-reanimated', () => {
-  const { View, Text } = jest.requireActual('react-native') as Record<string, unknown>;
+  const { View, Text } = jest.requireActual('react-native') as Record<
+    string,
+    unknown
+  >;
 
   return {
     __esModule: true,
@@ -13,12 +16,20 @@ jest.mock('react-native-reanimated', () => {
     useSharedValue: (value: number) => ({ value }),
     withTiming: (value: number) => value,
     withSpring: (value: number) => value,
-    interpolate: (value: number, inputRange: number[], outputRange: number[]) => {
+    interpolate: (
+      value: number,
+      inputRange: number[],
+      outputRange: number[]
+    ) => {
       const idx = inputRange.indexOf(value);
       if (idx !== -1) return outputRange[idx];
       return outputRange[0];
     },
-    interpolateColor: (value: number, inputRange: number[], outputRange: string[]) => {
+    interpolateColor: (
+      value: number,
+      inputRange: number[],
+      outputRange: string[]
+    ) => {
       const idx = inputRange.indexOf(value);
       if (idx !== -1) return outputRange[idx];
       return outputRange[0];

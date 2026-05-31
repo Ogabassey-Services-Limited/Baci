@@ -192,12 +192,14 @@ export function CheckoutScreenView() {
         }}
       />
 
-      <SafeAreaView
-        style={styles.container}
-        edges={['top', 'left', 'right']}
-      >
+      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
         {/* Base background color layer to ensure reliable absolute rendering */}
-        <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.background }]} />
+        <View
+          style={[
+            StyleSheet.absoluteFill,
+            { backgroundColor: colors.background },
+          ]}
+        />
 
         {/* Absolute background gadget pattern for premium tech framing */}
         <View style={[StyleSheet.absoluteFill, { overflow: 'hidden' }]}>

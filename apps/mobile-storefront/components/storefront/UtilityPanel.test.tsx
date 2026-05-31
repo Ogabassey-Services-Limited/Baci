@@ -4,7 +4,10 @@ import * as React from 'react';
 const mockWithTiming = jest.fn((toValue: number, _config?: object) => toValue);
 
 jest.mock('react-native-reanimated', () => {
-  const { View, Text } = jest.requireActual('react-native') as Record<string, unknown>;
+  const { View, Text } = jest.requireActual('react-native') as Record<
+    string,
+    unknown
+  >;
   const ReactInline = jest.requireActual('react') as typeof import('react');
 
   return {
@@ -45,7 +48,9 @@ jest.mock('react-native-reanimated', () => {
       const lastValue = ReactInline.useRef(prepare());
 
       ReactInline.useEffect(() => {
-        const shared = deps[0] as { addListener?: (cb: (v: number) => void) => void };
+        const shared = deps[0] as {
+          addListener?: (cb: (v: number) => void) => void;
+        };
         if (shared && typeof shared.addListener === 'function') {
           const listener = (newVal: number) => {
             const roundedVal = Math.round(newVal);
@@ -60,12 +65,20 @@ jest.mock('react-native-reanimated', () => {
       }, [deps, react]);
     },
     runOnJS: (fn: (...args: unknown[]) => unknown) => fn,
-    withTiming: (toValue: number, config?: object, callback?: (isFinished?: boolean) => void) => {
+    withTiming: (
+      toValue: number,
+      config?: object,
+      callback?: (isFinished?: boolean) => void
+    ) => {
       mockWithTiming(toValue, config);
       callback?.(true);
       return toValue;
     },
-    withSpring: (toValue: number, config?: object, callback?: (isFinished?: boolean) => void) => {
+    withSpring: (
+      toValue: number,
+      config?: object,
+      callback?: (isFinished?: boolean) => void
+    ) => {
       callback?.(true);
       return toValue;
     },
