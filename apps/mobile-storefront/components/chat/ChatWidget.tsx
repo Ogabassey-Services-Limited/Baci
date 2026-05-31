@@ -166,12 +166,12 @@ export function ChatWidget({
                 backgroundColor: santaMode ? BRAND.primary : colors.card,
                 borderColor: isDragging ? BRAND.primary : colors.border,
                 borderWidth: isDragging ? 2 : 1,
+                pointerEvents: 'none',
               },
             ]}
             accessibilityRole="button"
             accessibilityLabel="Open chat assistant. Drag to move."
             accessibilityHint="Double tap to open chat, or drag to reposition"
-            pointerEvents="none"
             onPress={handleOpen}
           >
             {santaMode ? (
