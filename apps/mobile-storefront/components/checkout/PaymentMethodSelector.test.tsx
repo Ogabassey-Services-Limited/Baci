@@ -257,7 +257,7 @@ describe('PaymentMethodSelector', () => {
         methodLabelOverrides={{ bank_transfer: 'Bank transfer to wallet' }}
         methodDescriptionOverrides={{
           bank_transfer:
-            'Transfer to your Bassey wallet account. We apply it to this order automatically.',
+            'A permanent account number will be created for you which you can use for future purchases. We apply it to this order automatically.',
         }}
         walletFundedBankTransferMode
       />
@@ -266,7 +266,7 @@ describe('PaymentMethodSelector', () => {
     expect(screen.getByText('Bank transfer to wallet')).toBeTruthy();
     expect(
       screen.getByText(
-        'Transfer to your Bassey wallet account. We apply it to this order automatically.'
+        'A permanent account number will be created for you which you can use for future purchases. We apply it to this order automatically.'
       )
     ).toBeTruthy();
     expect(
@@ -547,7 +547,9 @@ describe('PaymentMethodSelector', () => {
       );
 
       expect(screen.queryByLabelText(/use wallet credit/i)).toBeNull();
-      expect(screen.getByText('Wallet balance applies automatically')).toBeTruthy();
+      expect(
+        screen.getByText('Wallet balance applies automatically')
+      ).toBeTruthy();
       expect(
         screen.getByText('₦3,000 available now · transfer shortfall only')
       ).toBeTruthy();
