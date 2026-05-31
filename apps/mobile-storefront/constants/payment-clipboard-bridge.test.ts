@@ -1,5 +1,5 @@
 import { describe, expect, it, jest } from '@jest/globals';
-import { createContext, Script } from 'vm';
+import { createContext, Script } from 'node:vm';
 import { PAYMENT_CLIPBOARD_BRIDGE } from '@/constants/payment-clipboard-bridge';
 
 function escapeRegex(value: string) {
