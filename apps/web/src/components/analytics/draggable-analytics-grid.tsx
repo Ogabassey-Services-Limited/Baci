@@ -20,12 +20,12 @@ import {
   Zap,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import {
-  type LayoutItem,
-  Responsive,
-  type ResponsiveLayouts,
-  WidthProvider,
-} from 'react-grid-layout/legacy';
+import RGL from 'react-grid-layout';
+
+type LayoutItem = RGL.Layout;
+type ResponsiveLayouts = RGL.Layouts;
+const { Responsive, WidthProvider } = RGL;
+
 import { AIInsightsPanel } from '@/components/analytics/ai-insights-panel';
 import type { AnalyticsCategory } from '@/components/analytics/analytics-category-nav';
 import {
@@ -168,7 +168,7 @@ export interface AnalyticsData {
   adAnalytics?: AdAnalyticsData;
 }
 
-type Layouts = ResponsiveLayouts<string>;
+type Layouts = ResponsiveLayouts;
 
 interface DraggableAnalyticsGridProps {
   data: AnalyticsData;

@@ -1,4 +1,5 @@
 import { jest } from '@jest/globals';
+import * as React from 'react';
 
 const mockWithTiming = jest.fn((toValue: number, _config?: object) => toValue);
 
@@ -40,11 +41,10 @@ jest.mock('react-native-reanimated', () => {
       react: (nextIndex: number, prevIndex: number | null) => void,
       deps: unknown[]
     ) => {
-      const React = require('react');
       const lastValue = React.useRef(prepare());
 
       React.useEffect(() => {
-        const shared = deps[0] as any;
+        const shared = deps[0] as { addListener?: (cb: (v: number) => void) => void };
         if (shared && typeof shared.addListener === 'function') {
           const listener = (newVal: number) => {
             const roundedVal = Math.round(newVal);
@@ -58,7 +58,7 @@ jest.mock('react-native-reanimated', () => {
         }
       }, [deps, react]);
     },
-    runOnJS: (fn: (...args: any[]) => any) => fn,
+    runOnJS: (fn: (...args: unknown[]) => unknown) => fn,
     withTiming: (toValue: number, config?: object, callback?: (isFinished?: boolean) => void) => {
       mockWithTiming(toValue, config);
       callback?.(true);

@@ -20,10 +20,9 @@ import {
   toUtilityRouteParams,
   type UtilityRouteParamKey,
 } from '@/components/utilities/utility-purchase.route-params';
-import { UtilityTypeTabs, type UtilityType } from '@/components/utilities/UtilityTypeTabs';
+import { UtilityTypeTabs } from '@/components/utilities/UtilityTypeTabs';
 import { useQuickRepeat } from '@/components/utilities/use-quick-repeat';
 import {
-  isBillUtilityType,
   isValidUtilityType,
   UTILITY_TYPE_TITLES,
 } from '@/components/utilities/utility-purchase.config';
@@ -103,12 +102,12 @@ export default function UtilityPurchaseScreen() {
     routeType ? UTILITY_TYPE_INDEXES[routeType] : 0
   );
 
-  const pageScrollHandler = useEvent((event: any) => {
+  const pageScrollHandler = useEvent((event: { position: number; offset: number }) => {
     'worklet';
     activeIndex.value = event.position + event.offset;
   }, ['onPageScroll']);
 
-  const handlePageSelected = (event: any) => {
+  const handlePageSelected = (event: { nativeEvent: { position: number } }) => {
     const newIndex = event.nativeEvent.position;
     const newType = INDEX_TO_UTILITY_TYPE[newIndex];
     if (newType && newType !== selectedType) {

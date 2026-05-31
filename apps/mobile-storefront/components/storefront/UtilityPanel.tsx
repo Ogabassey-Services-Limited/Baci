@@ -2,13 +2,12 @@ import type Ionicons from '@react-native-vector-icons/ionicons';
 // router removed as it was unused.
 import type React from 'react';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Platform, Text, View } from 'react-native';
+import { ActivityIndicator, Text, View } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withTiming,
   withSpring,
-  useDerivedValue,
   useAnimatedReaction,
   type SharedValue,
 } from 'react-native-reanimated';
@@ -20,7 +19,6 @@ import { CONFIG } from '@/lib/config';
 import { getTemplateConfig } from '@/lib/templates';
 import { type Category, useCategories } from '@/hooks';
 import { usePrefetchBillers } from '@/hooks/use-vtu-billers';
-import { getUtilityPanelActiveShadowStyle } from './UtilityPanel.shadows';
 import { utilityPanelStyles as styles } from './UtilityPanel.styles';
 import { UtilityPanelCategoryItem } from './UtilityPanelCategoryItem';
 
@@ -83,12 +81,6 @@ export function UtilityPanel({
 
   const localActiveIndex = useSharedValue(0);
   const activeIndexVal = activeIndex ?? localActiveIndex;
-  const [containerWidth, setContainerWidth] = useState(0);
-
-  const activeShadowStyle = getUtilityPanelActiveShadowStyle(
-    Platform.OS === 'web' ? 'web' : 'native',
-    colors.black
-  );
 
   // Sync reaction from activeIndexVal to activeUtilityIndex state
   useAnimatedReaction(
@@ -167,30 +159,7 @@ export function UtilityPanel({
     return (remoteCategories || []) as Category[];
   })();
 
-  const derivedTranslateX = useDerivedValue(() => {
-    if (containerWidth === 0) return 0;
-    const padding = 8;
-    const contentWidth = containerWidth - padding * 2;
-    const itemWidth = contentWidth / 5;
-    const iconWidth = 48;
-    const targetX =
-      activeIndexVal.value * itemWidth + padding + (itemWidth - iconWidth) / 2;
-    return withSpring(targetX, {
-      damping: 18,
-      stiffness: 150,
-      mass: 1,
-    });
-  });
 
-  const glidingIndicatorStyle = useAnimatedStyle(() => {
-    if (containerWidth === 0) {
-      return { opacity: 0 };
-    }
-    return {
-      transform: [{ translateX: derivedTranslateX.value }],
-      opacity: 1,
-    };
-  });
 
   if (isLoading && categories.length === 0) {
     return (

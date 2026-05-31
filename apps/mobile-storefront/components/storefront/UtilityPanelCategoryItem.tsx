@@ -7,9 +7,6 @@ import Animated, {
   useSharedValue,
   withSpring,
   withTiming,
-  interpolate,
-  interpolateColor,
-  Extrapolation,
   type SharedValue,
 } from 'react-native-reanimated';
 import { useColorScheme } from '@/components/useColorScheme';
