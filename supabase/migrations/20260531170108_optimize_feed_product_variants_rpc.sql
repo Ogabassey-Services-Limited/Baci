@@ -1,13 +1,16 @@
+-- disable-transaction
 -- Keep feed variant hydration index-backed for large merchant catalogs.
 -- The Google Merchant feed and agent trust surfaces rebuild this data on cold
 -- cache misses; avoid reintroducing unbounded scans or concurrent DB fan-out.
-CREATE INDEX IF NOT EXISTS idx_product_variants_feed_lookup
+-- CREATE INDEX CONCURRENTLY must run outside a transaction to avoid blocking
+-- production writes while these feed lookup indexes are built.
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_product_variants_feed_lookup
   ON public.product_variants USING btree (merchant_id, product_id, created_at, id);
 
 COMMENT ON INDEX public.idx_product_variants_feed_lookup IS
   'Supports get_feed_product_variants tenant/product lookup and ordered feed hydration for cold feed cache rebuilds.';
 
-CREATE INDEX IF NOT EXISTS idx_products_feed_active_lookup
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_products_feed_active_lookup
   ON public.products USING btree (merchant_id, id)
   WHERE status = 'active';
 
