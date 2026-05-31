@@ -135,7 +135,6 @@ interface StorefrontCategoryRow {
 }
 
 interface StorefrontCategorySlugState {
-  category_id: string;
   is_active: boolean | null;
 }
 

@@ -612,7 +612,7 @@ describe('cached-data product query projections', () => {
       error: { code: 'PGRST116', message: 'No rows found' },
     });
     harness.mockRpc.mockResolvedValueOnce({
-      data: [{ category_id: 'cat-hidden', is_active: false }],
+      data: [{ is_active: false }],
       error: null,
     });
 
