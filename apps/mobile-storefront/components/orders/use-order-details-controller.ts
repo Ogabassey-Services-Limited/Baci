@@ -6,13 +6,13 @@ import type { OrderDetailsInsurancePolicy } from '@/components/orders/OrderDetai
 import { SUPPORT_WHATSAPP_PHONE } from '@/constants/Support';
 import { useReceiptPreview } from '@/hooks/use-receipt-preview';
 import { useMerchantReceiptInfo } from '@/hooks/use-receipts';
+import { createLogger } from '@/lib/logger';
 import { BACI_GOOGLE_REVIEW_URL } from '@/lib/post-purchase-actions';
 import { supabase } from '@/lib/supabase';
 import { isOrderRealtimePayload } from '@/lib/validation';
 import { useAuthStore } from '@/stores/auth-store';
-import { getOrderTrackingUrl, mapOrderDetails } from './order-details.helpers';
 import type { OrderDetails, RawOrderDetails } from './OrderDetailsScreen.types';
-import { createLogger } from '@/lib/logger';
+import { getOrderTrackingUrl, mapOrderDetails } from './order-details.helpers';
 
 const log = createLogger('OrderDetails');
 
@@ -158,13 +158,9 @@ export function useOrderDetailsController() {
 
     channelRef.current = channel;
     return () => {
-      if (channelRef.current === channel) {
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
         channelRef.current = null;
-      }
-      if (typeof channel.unsubscribe === 'function') {
-        void channel.unsubscribe();
-      } else {
-        void supabase.removeChannel(channel);
       }
     };
   }, [id]);

@@ -61,6 +61,7 @@ export const AdUnit: React.FC<AdUnitProps> = ({
   const adRef = useRef<HTMLDivElement>(null);
   const slotRef = useRef<googletag.Slot | null>(null);
   const isActiveRef = useRef(isActive);
+  const listenerCleanupsRef = useRef<Array<() => void>>([]);
   const slotLifecycleRef = useRef(0);
   const [isAdLoaded, setIsAdLoaded] = useState(false);
   const [shouldLoadSlot, setShouldLoadSlot] = useState(
@@ -137,7 +138,7 @@ export const AdUnit: React.FC<AdUnitProps> = ({
     const { id, width, height, mobileWidth, mobileHeight } = config;
     const slotPath = `${NETWORK_CODE}/${config.name.replace(/\s+/g, '_')}`; // Construct ad unit path
     const lifecycle = slotLifecycleRef.current;
-    const listenerCleanups: Array<() => void> = [];
+    let isDisposed = false;
 
     // Skip if this slot is already defined (React StrictMode double-render protection)
     if (definedSlots.has(id)) {
@@ -147,6 +148,7 @@ export const AdUnit: React.FC<AdUnitProps> = ({
     void ensureGoogleAdManagerBoot()
       .then(() => {
         if (
+          isDisposed ||
           lifecycle !== slotLifecycleRef.current ||
           !isActiveRef.current ||
           definedSlots.has(id)
@@ -158,6 +160,7 @@ export const AdUnit: React.FC<AdUnitProps> = ({
 
         googletag.cmd.push(() => {
           if (
+            isDisposed ||
             lifecycle !== slotLifecycleRef.current ||
             !isActiveRef.current ||
             definedSlots.has(id)
@@ -199,7 +202,7 @@ export const AdUnit: React.FC<AdUnitProps> = ({
                 setIsAdLoaded(!renderEvent.isEmpty);
               }
             };
-            listenerCleanups.push(
+            listenerCleanupsRef.current.push(
               registerPubAdsSlotRenderListener(
                 googletag.pubads(),
                 slotRenderEndedHandler
@@ -213,12 +216,7 @@ export const AdUnit: React.FC<AdUnitProps> = ({
       });
 
     return () => {
-      const googletag = ensureGoogleTag();
-      googletag.cmd.push(() => {
-        for (const cleanup of listenerCleanups) {
-          cleanup();
-        }
-      });
+      isDisposed = true;
     };
   }, [config, hasBootDelayElapsed, isActive, shouldLoadSlot]);
 
@@ -235,6 +233,10 @@ export const AdUnit: React.FC<AdUnitProps> = ({
         const googletag = ensureGoogleTag();
 
         googletag.cmd.push(() => {
+          for (const cleanup of listenerCleanupsRef.current) {
+            cleanup();
+          }
+          listenerCleanupsRef.current = [];
           googletag.destroySlots([slotToDestroy]);
           definedSlots.delete(slotId);
           slotRef.current = null;

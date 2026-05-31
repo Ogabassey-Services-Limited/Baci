@@ -218,13 +218,9 @@ export function useNotifications(): UseNotificationsReturn {
     channelRef.current = channel;
 
     return () => {
-      if (channelRef.current === channel) {
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
         channelRef.current = null;
-      }
-      if (typeof channel.unsubscribe === 'function') {
-        void channel.unsubscribe();
-      } else {
-        void supabase.removeChannel(channel);
       }
     };
   }, [merchant?.id, merchant]);

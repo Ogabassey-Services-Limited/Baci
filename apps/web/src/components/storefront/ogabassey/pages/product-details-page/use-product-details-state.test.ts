@@ -8,12 +8,13 @@ const mockApplyNegotiatedPrice = vi.fn();
 const mockRemoveFromCart = vi.fn();
 const mockShareProductLink = vi.fn().mockResolvedValue(undefined);
 const mockUpdateQuantity = vi.fn();
+const mockRouterPush = vi.fn();
 const mockToast = vi.fn();
 
 const mockUseSearchParams = vi.fn(() => new URLSearchParams());
 
 vi.mock('next/navigation', () => ({
-  useRouter: vi.fn(() => ({ push: vi.fn() })),
+  useRouter: vi.fn(() => ({ push: mockRouterPush })),
   useSearchParams: () => mockUseSearchParams(),
 }));
 
@@ -137,6 +138,22 @@ describe('useProductDetailsState', () => {
 
     await expect(result.current.handleShare()).rejects.toThrow('share failed');
     expect(mockToast).not.toHaveBeenCalled();
+  });
+
+  it('keeps the buy-now checkout redirect scheduled across cart rerenders', () => {
+    vi.useFakeTimers();
+    mockUseSearchParams.mockReturnValue(new URLSearchParams('action=buy'));
+
+    const { rerender } = renderHook(() => useProductDetailsState(baseProduct));
+
+    rerender();
+
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
+
+    expect(mockAddToCart).toHaveBeenCalledOnce();
+    expect(mockRouterPush).toHaveBeenCalledWith('/checkout');
   });
 
   it('lets live selection move away from the seeded route variant', () => {

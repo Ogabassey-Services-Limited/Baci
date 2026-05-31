@@ -153,9 +153,10 @@ export const NativeProductAd: React.FC<NativeProductAdProps> = ({
         let nativeAdLoadHandler: ((event: unknown) => void) | null = null;
         let slotRenderEndedHandler: ((event: unknown) => void) | null = null;
         const listenerCleanups: Array<() => void> = [];
+        let isDisposed = false;
 
         window.googletag.cmd.push(() => {
-            if (definedNativeSlots.has(slotId)) return;
+            if (isDisposed || definedNativeSlots.has(slotId)) return;
 
             // Define slot for Native format
             // @ts-ignore - 'fluid' size type definition mismatch in strict mode
@@ -231,16 +232,19 @@ export const NativeProductAd: React.FC<NativeProductAdProps> = ({
         });
 
         return () => {
-            if (slotRef.current) {
-                window.googletag?.cmd.push(() => {
-                    for (const cleanup of listenerCleanups) {
-                        cleanup();
-                    }
-                    window.googletag.destroySlots([slotRef.current!]);
-                    definedNativeSlots.delete(slotId);
-                    slotRef.current = null;
-                });
-            }
+            isDisposed = true;
+            window.googletag?.cmd.push(() => {
+                for (const cleanup of listenerCleanups) {
+                    cleanup();
+                }
+                listenerCleanups.length = 0;
+                const slotToDestroy = slotRef.current;
+                if (slotToDestroy) {
+                    window.googletag.destroySlots([slotToDestroy]);
+                }
+                definedNativeSlots.delete(slotId);
+                slotRef.current = null;
+            });
         };
     }, [slotId]);
 
