@@ -1,9 +1,34 @@
 import { describe, expect, it } from 'vitest';
+import {
+  DiagnosticCategory,
+  ModuleKind,
+  ScriptTarget,
+  transpileModule,
+} from 'typescript';
 import { DARK_COLORS, LIGHT_COLORS } from '@/constants/theme';
 import {
   buildApplyEditorThemeScript,
   createEditorHtml,
 } from './create-editor-html';
+
+function expectValidJavaScript(source: string) {
+  const diagnostics =
+    transpileModule(source, {
+      compilerOptions: {
+        allowJs: true,
+        module: ModuleKind.ESNext,
+        target: ScriptTarget.ESNext,
+      },
+      fileName: 'editor-theme-script.js',
+      reportDiagnostics: true,
+    }).diagnostics ?? [];
+
+  expect(
+    diagnostics
+      .filter((diagnostic) => diagnostic.category === DiagnosticCategory.Error)
+      .map((diagnostic) => diagnostic.messageText)
+  ).toEqual([]);
+}
 
 describe('createEditorHtml', () => {
   it('renders sanitized editor content and placeholder styles', () => {
@@ -48,7 +73,7 @@ describe('createEditorHtml', () => {
   it('builds a theme update script without rebuilding the document shell', () => {
     const script = buildApplyEditorThemeScript(DARK_COLORS);
 
-    expect(() => new Function(script)).not.toThrow();
+    expectValidJavaScript(script);
     expect(script).toContain('window.__baciApplyEditorTheme');
     expect(script).toContain(DARK_COLORS.background);
     expect(script).toContain(DARK_COLORS.border);
