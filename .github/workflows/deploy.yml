@@ -60,9 +60,10 @@ jobs:
   # in <5s, so unconditional execution costs essentially nothing.
   #
   # Uses Supabase Management API directly (no `supabase db push`, no
-  # SUPABASE_DB_PASSWORD required) — the script registers each migration's
-  # version+name to schema_migrations in the same transaction as the SQL run,
-  # so the registered version always matches the on-disk filename.
+  # SUPABASE_DB_PASSWORD required). Normal migrations are registered in the
+  # same query payload as the SQL run; migrations that opt into
+  # `-- disable-transaction` are split into top-level statements first so
+  # CREATE INDEX CONCURRENTLY can run without blocking production writes.
   db-migrations:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
