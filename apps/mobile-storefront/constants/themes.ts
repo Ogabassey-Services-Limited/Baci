@@ -89,7 +89,7 @@ export const darkTheme = {
   tint: palette.amber[500],
   icon: palette.gray[400], // Improved: better visibility (was gray[500])
   tabIconDefault: palette.gray[400], // Improved: better visibility (was gray[500])
-  tabIconSelected: palette.red[400],
+  tabIconSelected: palette.amber[500],
 
   // Semantic
   price: palette.red[400],
