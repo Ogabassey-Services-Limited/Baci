@@ -11,12 +11,19 @@ describe('useDraggableFab', () => {
     expect(result.current).toHaveProperty('isDragging');
     expect(result.current).toHaveProperty('hasMoved');
     expect(result.current).toHaveProperty('isOnRight');
+    expect(result.current).toHaveProperty('isOverDismissZone');
   });
 
   it('isDragging is initially false', () => {
     const { result } = renderHook(() => useDraggableFab(90));
 
     expect(result.current.isDragging).toBe(false);
+  });
+
+  it('isOverDismissZone is initially false', () => {
+    const { result } = renderHook(() => useDraggableFab(90));
+
+    expect(result.current.isOverDismissZone).toBe(false);
   });
 
   it('hasMoved.current is initially false', () => {

@@ -3,8 +3,10 @@ import { useEffect, useRef, useState } from 'react';
 import { Animated, Dimensions, PanResponder, Platform } from 'react-native';
 import { EDGE_MARGIN, FAB_SIZE } from './constants';
 
-export function useDraggableFab(bottomOffset: number) {
+export function useDraggableFab(bottomOffset: number, onDismiss?: () => void) {
   const [isDragging, setIsDragging] = useState(false);
+  const [isOverDismissZone, setIsOverDismissZone] = useState(false);
+  const isOverDismissZoneRef = useRef(false);
 
   // Use runtime dimensions for initial position (not stale module-level constants)
   const { width: initialW, height: initialH } = Dimensions.get('window');
@@ -55,6 +57,8 @@ export function useDraggableFab(bottomOffset: number) {
       onPanResponderGrant: () => {
         hasMoved.current = false;
         setIsDragging(true);
+        setIsOverDismissZone(false);
+        isOverDismissZoneRef.current = false;
         if (Platform.OS === 'ios') {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         }
@@ -65,31 +69,71 @@ export function useDraggableFab(bottomOffset: number) {
         });
         pan.setValue({ x: 0, y: 0 });
       },
-      onPanResponderMove: (_, gestureState) => {
+      onPanResponderMove: (e, gestureState) => {
         if (Math.abs(gestureState.dx) > 5 || Math.abs(gestureState.dy) > 5) {
           hasMoved.current = true;
         }
         Animated.event([null, { dx: pan.x, dy: pan.y }], {
           useNativeDriver: false,
-        })(_, gestureState);
+        })(e, gestureState);
+
+        // Realtime distance detection to the bottom center Dismiss Zone
+        const { width: screenW, height: screenH } = Dimensions.get('window');
+        const fabCenterX = panXRef.current + FAB_SIZE / 2;
+        const fabCenterY = panYRef.current + FAB_SIZE / 2;
+        
+        // Center of screen bottom (where dismiss zone resides)
+        const dismissCenterX = screenW / 2;
+        const dismissCenterY = screenH - 100;
+
+        const dx = fabCenterX - dismissCenterX;
+        const dy = fabCenterY - dismissCenterY;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        // Hover threshold: 80px
+        const isHovering = distance < 80;
+
+        if (isHovering) {
+          if (!isOverDismissZoneRef.current) {
+            isOverDismissZoneRef.current = true;
+            setIsOverDismissZone(true);
+            if (Platform.OS === 'ios') {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }
+          }
+        } else {
+          if (isOverDismissZoneRef.current) {
+            isOverDismissZoneRef.current = false;
+            setIsOverDismissZone(false);
+          }
+        }
       },
       onPanResponderRelease: () => {
         pan.flattenOffset();
         setIsDragging(false);
 
-        // M29 fix: Read tracked values from refs instead of private _value
+        // Check if released over Dismiss Zone
+        if (isOverDismissZoneRef.current) {
+          if (Platform.OS === 'ios') {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          }
+          setIsOverDismissZone(false);
+          isOverDismissZoneRef.current = false;
+          if (onDismiss) {
+            onDismiss();
+          }
+          return;
+        }
+
         const currentX = panXRef.current;
         const currentY = panYRef.current;
-
-        // Use runtime dimensions instead of stale module-level constants
-        // so snap logic stays correct after orientation changes
         const { width: screenW, height: screenH } = Dimensions.get('window');
 
-        // Snap to nearest edge (left or right)
-        const snapToRight = currentX + FAB_SIZE / 2 > screenW / 2;
-        const targetX = snapToRight
-          ? screenW - FAB_SIZE - EDGE_MARGIN
-          : EDGE_MARGIN;
+        // Clamp FAB inside margins (doesn't hard snap to left/right, stays anywhere)
+        const targetX = Math.min(
+          Math.max(currentX, EDGE_MARGIN),
+          screenW - FAB_SIZE - EDGE_MARGIN
+        );
 
         // M30 fix: Read bottomOffset from ref for fresh value
         const clampBottom = bottomOffsetRef.current;
@@ -149,5 +193,13 @@ export function useDraggableFab(bottomOffset: number) {
     return () => pulse.stop();
   }, [pulseAnim, isDragging]);
 
-  return { pan, panResponder, pulseAnim, isDragging, hasMoved, isOnRight };
+  return {
+    pan,
+    panResponder,
+    pulseAnim,
+    isDragging,
+    isOverDismissZone,
+    hasMoved,
+    isOnRight,
+  };
 }

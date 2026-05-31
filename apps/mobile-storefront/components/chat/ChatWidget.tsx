@@ -1,6 +1,7 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import * as Haptics from 'expo-haptics';
 import { usePathname } from 'expo-router';
+import { useEffect } from 'react';
 import { Animated, Platform, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -29,24 +30,50 @@ export function ChatWidget({
     insets.bottom
   );
 
-  const { isChatOpen, openChat, closeChat } = useUIStore(
+  const {
+    isChatOpen,
+    openChat,
+    closeChat,
+    isChatDismissed,
+    dismissChat,
+    resetChatDismissal,
+  } = useUIStore(
     useShallow((state) => ({
       isChatOpen: state.isChatOpen,
       openChat: state.openChat,
       closeChat: state.closeChat,
+      isChatDismissed: state.isChatDismissed,
+      dismissChat: state.dismissChat,
+      resetChatDismissal: state.resetChatDismissal,
     }))
   );
 
-  const { pan, panResponder, pulseAnim, isDragging, hasMoved, isOnRight } =
-    useDraggableFab(effectiveBottomOffset);
+  // Automatically restore chat widget when user returns to home screen
+  useEffect(() => {
+    if (pathname === '/' || pathname === '/(tabs)' || pathname === '/(tabs)/') {
+      resetChatDismissal();
+    }
+  }, [pathname, resetChatDismissal]);
+
+  const {
+    pan,
+    panResponder,
+    pulseAnim,
+    isDragging,
+    isOverDismissZone,
+    hasMoved,
+    isOnRight,
+  } = useDraggableFab(effectiveBottomOffset, dismissChat);
 
   const { proactiveMsg, nudgeFadeAnim, dismissNudge } =
     useProactiveNudge(isChatOpen);
 
   const chat = useChat(santaMode);
 
-  // Check if chat should be hidden on current screen
-  const shouldHide = HIDDEN_ROUTES.some((route) => pathname?.startsWith(route));
+  // Check if chat should be hidden on current screen or if dismissed by user
+  const shouldHide =
+    isChatDismissed ||
+    HIDDEN_ROUTES.some((route) => pathname?.startsWith(route));
 
   const handleOpen = () => {
     // Only open if we didn't drag
@@ -163,6 +190,36 @@ export function ChatWidget({
           </View>
         )}
       </Animated.View>
+
+      {/* Dynamic Dismiss Zone at bottom center when dragging */}
+      {isDragging && (
+        <View style={styles.dismissZone}>
+          <Animated.View
+            style={[
+              styles.dismissCircle,
+              {
+                backgroundColor: isOverDismissZone ? '#FF3B30' : colors.card,
+                borderColor: isOverDismissZone ? '#FF3B30' : '#FF3B30',
+                transform: [{ scale: isOverDismissZone ? 1.15 : 1 }],
+              },
+            ]}
+          >
+            <Ionicons
+              name={isOverDismissZone ? 'trash' : 'trash-outline'}
+              size={28}
+              color={isOverDismissZone ? '#FFFFFF' : '#FF3B30'}
+            />
+          </Animated.View>
+          <Text
+            style={[
+              styles.dismissText,
+              { color: isOverDismissZone ? '#FF3B30' : colors.textSecondary },
+            ]}
+          >
+            {isOverDismissZone ? 'Release to dismiss' : 'Drag here to dismiss'}
+          </Text>
+        </View>
+      )}
 
       {/* Chat Modal */}
       <ChatModal
