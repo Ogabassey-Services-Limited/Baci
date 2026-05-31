@@ -360,28 +360,28 @@ export function FoodBeverageHome(props: TemplatePageProps) {
                         <div>
                             <h4 className="font-semibold text-white mb-4">Shop</h4>
                             <ul className="space-y-2 text-sm">
-                                <li><a href="#" className="hover:text-store-primary transition-colors">Bakery</a></li>
-                                <li><a href="#" className="hover:text-store-primary transition-colors">Produce</a></li>
-                                <li><a href="#" className="hover:text-store-primary transition-colors">Dairy & Eggs</a></li>
-                                <li><a href="#" className="hover:text-store-primary transition-colors">Beverages</a></li>
+                                <li><span className="transition-colors cursor-default">Bakery</span></li>
+                                <li><span className="transition-colors cursor-default">Produce</span></li>
+                                <li><span className="transition-colors cursor-default">Dairy & Eggs</span></li>
+                                <li><span className="transition-colors cursor-default">Beverages</span></li>
                             </ul>
                         </div>
                         <div>
                             <h4 className="font-semibold text-white mb-4">Company</h4>
                             <ul className="space-y-2 text-sm">
-                                <li><a href="#" className="hover:text-store-primary transition-colors">Our Story</a></li>
-                                <li><a href="#" className="hover:text-store-primary transition-colors">Our Farmers</a></li>
-                                <li><a href="#" className="hover:text-store-primary transition-colors">Sustainability</a></li>
-                                <li><a href="#" className="hover:text-store-primary transition-colors">Recipes</a></li>
+                                <li><span className="transition-colors cursor-default">Our Story</span></li>
+                                <li><span className="transition-colors cursor-default">Our Farmers</span></li>
+                                <li><span className="transition-colors cursor-default">Sustainability</span></li>
+                                <li><span className="transition-colors cursor-default">Recipes</span></li>
                             </ul>
                         </div>
                         <div>
                             <h4 className="font-semibold text-white mb-4">Support</h4>
                             <ul className="space-y-2 text-sm">
-                                <li><a href="#" className="hover:text-store-primary transition-colors">Contact Us</a></li>
-                                <li><a href="#" className="hover:text-store-primary transition-colors">Delivery Info</a></li>
-                                <li><a href="#" className="hover:text-store-primary transition-colors">Returns</a></li>
-                                <li><a href="#" className="hover:text-store-primary transition-colors">FAQs</a></li>
+                                <li><span className="transition-colors cursor-default">Contact Us</span></li>
+                                <li><span className="transition-colors cursor-default">Delivery Info</span></li>
+                                <li><span className="transition-colors cursor-default">Returns</span></li>
+                                <li><span className="transition-colors cursor-default">FAQs</span></li>
                             </ul>
                         </div>
                     </div>

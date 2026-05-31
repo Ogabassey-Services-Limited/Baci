@@ -174,15 +174,13 @@ export const OrderSuccessPage: React.FC = () => {
           <h3 className="font-bold text-gray-900 mb-4 text-lg">
             Loved the experience? 🥺
           </h3>
-          <a
-            href="#"
-            target="_blank"
-            rel="noopener noreferrer"
+          <Link
+            href={getUrl('/reviews')}
             className="bg-white border border-gray-200 text-gray-700 font-bold py-3 px-6 rounded-xl hover:border-gray-300 hover:bg-gray-50 transition-all flex items-center justify-center gap-3 w-full shadow-sm group"
           >
             <GoogleIcon className="size-5 group-hover:scale-110 transition-transform" />
             Leave a Google Review
-          </a>
+          </Link>
         </div>
 
         <p className="text-store-primary font-bold italic mb-8 flex items-center justify-center gap-2">
