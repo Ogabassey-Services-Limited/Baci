@@ -69,3 +69,7 @@
 ## 2024-05-30 - Form Keyboard UX Optimization
 **Learning:** In React Native mobile apps, large forms with multiple text inputs create friction if the user must manually tap the screen to move to the next field.
 **Action:** Enhance form usability by combining `returnKeyType="next"` with `onSubmitEditing={() => nextInputRef.current?.focus()}` on sequential inputs, and `returnKeyType="done"` with `onSubmitEditing={submitForm}` on the final input.
+
+## 2024-05-30 - Submit Button Loading State Visibility
+**Learning:** The `SubmitButton` component visually indicated loading states using React 19's `useFormStatus`, but assistive technologies need the control to remain focusable to announce the busy transition.
+**Action:** Pair `aria-busy={pending}` with `aria-disabled={pending}` for submit buttons in loading states, and block clicks manually instead of applying native `disabled` during pending submissions.
