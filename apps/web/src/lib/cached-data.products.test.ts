@@ -605,4 +605,38 @@ describe('cached-data product query projections', () => {
     expect(harness.mockQueryExecution).not.toHaveBeenCalled();
     expect(harness.mockOr).not.toHaveBeenCalled();
   });
+
+  it('getCachedCategoryPageData detects inactive categories hidden by public RLS', async () => {
+    harness.mockSingle.mockResolvedValueOnce({
+      data: null,
+      error: { code: 'PGRST116', message: 'No rows found' },
+    });
+    harness.mockRpc.mockResolvedValueOnce({
+      data: [{ is_active: false }],
+      error: null,
+    });
+
+    const result = await getCachedCategoryPageData(
+      'merchant-123',
+      'hidden-category',
+      'test-store'
+    );
+
+    expect(harness.mockRpc).toHaveBeenCalledWith(
+      'get_storefront_category_slug_state',
+      {
+        p_merchant_id: 'merchant-123',
+        p_slug: 'hidden-category',
+      }
+    );
+    expect(result).toMatchObject({
+      isCollection: false,
+      category: null,
+      fallbackName: 'Hidden Category',
+      isInactiveCategory: true,
+      products: [],
+    });
+    expect(harness.mockQueryExecution).not.toHaveBeenCalled();
+    expect(harness.mockOr).not.toHaveBeenCalled();
+  });
 });

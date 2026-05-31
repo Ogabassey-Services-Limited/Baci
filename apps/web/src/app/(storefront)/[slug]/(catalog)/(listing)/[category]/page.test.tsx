@@ -912,6 +912,28 @@ describe('category page route', () => {
     ]);
   });
 
+  it('returns notFound metadata for inactive category slugs', async () => {
+    vi.mocked(getCachedCategoryPageData).mockResolvedValueOnce({
+      isCollection: false,
+      category: null,
+      products: [],
+      fallbackName: 'Inactive Category',
+      fallbackDescription: 'Inactive category',
+      isInactiveCategory: true,
+    } as unknown as Awaited<ReturnType<typeof getCachedCategoryPageData>>);
+
+    await expect(
+      generateMetadata({
+        params: Promise.resolve({
+          slug: 'test-store',
+          category: 'inactive-category',
+        }),
+        searchParams: Promise.resolve({ page: '1' }),
+      })
+    ).rejects.toThrow('NEXT_NOT_FOUND');
+    expect(notFound).toHaveBeenCalled();
+  });
+
   it('uses hub faq items for FAQ JSON-LD', async () => {
     const ui = await actualCategoryPageContentModule.CategoryPageContent({
       params: Promise.resolve({ slug: 'test-store', category: 'smartphones' }),

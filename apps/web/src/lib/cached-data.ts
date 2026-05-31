@@ -115,12 +115,88 @@ interface PublicStorefrontProductVariant {
   updated_at?: string | null;
 }
 
+interface StorefrontCategoryParentRow {
+  name: string | null;
+  slug: string | null;
+}
+
+interface StorefrontCategoryRow {
+  id: string;
+  name: string | null;
+  slug: string | null;
+  description: string | null;
+  image_url: string | null;
+  is_active: boolean | null;
+  seo_heading: string | null;
+  seo_description: string | null;
+  seo_features: string[] | null;
+  seo_faq: { answer: string; question: string }[] | null;
+  parent: StorefrontCategoryParentRow | null;
+}
+
+interface StorefrontCategorySlugState {
+  is_active: boolean | null;
+}
+
 interface LegacyPriceCompatibleProduct {
   price?: number | string | null;
   compare_at_price?: number | string | null;
   sale_price?: number | null;
   base_price?: number | null;
 }
+
+interface CachedCategoryFaqItem {
+  question: string;
+  answer: string;
+}
+
+interface CachedCategorySeo {
+  description: string;
+  faqs: CachedCategoryFaqItem[];
+  features: string[];
+  heading: string;
+}
+
+interface CachedCategoryRecord {
+  description: string | null;
+  id: string;
+  image_url: string | null;
+  is_active: boolean;
+  name: string;
+  parent:
+    | { name: string; slug: string }
+    | Array<{ name: string; slug: string }>
+    | null;
+  parent_id?: string | null;
+  seo_description: string | null;
+  seo_faq: CachedCategoryFaqItem[] | null;
+  seo_features: string[] | null;
+  seo_heading: string | null;
+  slug: string;
+}
+
+export type CachedCategoryPageData =
+  | {
+      category?: null;
+      description: string;
+      fallbackDescription?: string;
+      fallbackName?: string;
+      isCollection: true;
+      isInactiveCategory?: false;
+      name: string;
+      products: unknown[];
+      seo: CachedCategorySeo;
+    }
+  | {
+      category: CachedCategoryRecord | null;
+      fallbackDescription: string;
+      fallbackName: string;
+      isCollection: false;
+      isInactiveCategory: boolean;
+      name?: string;
+      products: unknown[];
+      seo?: null;
+    };
 
 function parsePriceValue(value: unknown): number | null {
   if (typeof value === 'number' && Number.isFinite(value)) {
@@ -1647,18 +1723,46 @@ export async function getCachedCategoryPageData(
   }
 
   // 3. Try to find category by slug
-  const { data: categoryRow } = await supabase
+  const categoryQuery = supabase
     .from('categories')
     .select(
       'id, name, slug, description, image_url, is_active, seo_heading, seo_description, seo_features, seo_faq, parent:parent_id(name, slug)'
     )
     .eq('merchant_id', merchantId)
-    .eq('slug', categorySlug)
-    .single();
-  const isInactiveCategory = Boolean(categoryRow && !categoryRow.is_active);
-  const category: CachedCategoryRecord | null = categoryRow?.is_active
-    ? (categoryRow as CachedCategoryRecord)
-    : null;
+    .single() as unknown as Promise<{
+    data: StorefrontCategoryRow | null;
+    error: unknown;
+  }>;
+  const { data: categoryRow } = await categoryQuery;
+  let hiddenCategoryState: StorefrontCategorySlugState | null = null;
+
+  if (!categoryRow) {
+    const { data: categoryStateData, error: categoryStateError } =
+      await supabase.rpc('get_storefront_category_slug_state', {
+        p_merchant_id: merchantId,
+        p_slug: categorySlug,
+      });
+
+    if (categoryStateError) {
+      console.error('Category state query error:', categoryStateError);
+    }
+
+    hiddenCategoryState = Array.isArray(categoryStateData)
+      ? ((categoryStateData[0] as StorefrontCategorySlugState | undefined) ??
+        null)
+      : ((categoryStateData as StorefrontCategorySlugState | null) ?? null);
+  }
+
+  const isInactiveCategory =
+    categoryRow?.is_active === false ||
+    hiddenCategoryState?.is_active === false;
+  const category: CachedCategoryRecord | null =
+    categoryRow && categoryRow.is_active !== false
+      ? ({
+          ...categoryRow,
+          is_active: categoryRow.is_active ?? true,
+        } as CachedCategoryRecord)
+      : null;
 
   // Fallback: decode the slug to get category name and Title Case it
   const categoryName =
