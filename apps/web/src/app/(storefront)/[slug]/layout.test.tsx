@@ -297,7 +297,7 @@ describe('storefront layout metadata', () => {
     mockConnection.mockClear();
   });
 
-  it('uses the merchant domain as metadataBase for custom domains', async () => {
+  it('uses the merchant domain as metadataBase for custom domains without request-binding metadata', async () => {
     vi.mocked(getRequestScopedMerchant).mockResolvedValue(
       baseMerchant as unknown as Awaited<
         ReturnType<typeof getRequestScopedMerchant>
@@ -308,7 +308,7 @@ describe('storefront layout metadata', () => {
       params: Promise.resolve({ slug: 'ogabassey' }),
     });
 
-    expect(mockConnection).toHaveBeenCalledOnce();
+    expect(mockConnection).not.toHaveBeenCalled();
     expect(metadata.metadataBase?.toString()).toBe('https://ogabassey.com/');
   });
 

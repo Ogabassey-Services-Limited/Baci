@@ -72,8 +72,6 @@ export async function generateMetadata({
 }: {
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
-  await connection();
-
   const { slug } = await params;
 
   // Validate identifier format
@@ -81,7 +79,8 @@ export async function generateMetadata({
     return { title: 'Store Not Found' };
   }
 
-  // Fetch merchant data (returns CachedMerchant | null)
+  // Keep metadata cacheable. Request-bound storefront validation belongs in
+  // StorefrontLayoutContent so Next's metadata boundary cannot displace PDP slots.
   const merchant = await getRequestScopedMerchant(slug);
 
   if (!merchant) {
