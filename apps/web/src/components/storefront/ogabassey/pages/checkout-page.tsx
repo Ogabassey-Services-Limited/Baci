@@ -38,6 +38,7 @@ import { AddressAutocomplete } from '@/components/address-autocomplete';
 import { openCredPalCheckout } from '@/lib/credpal';
 import { openCreditDirectCheckout } from '@/lib/credit-direct-client';
 import { asRoute } from '@/lib/routes';
+import type { ShippingQuote } from '@/types/shipping-quote';
 import { toast } from '@/hooks/use-toast';
 import { createClient } from '@/lib/supabase/client';
 import { calculateCommerce } from '@/lib/supabase/client';
@@ -88,17 +89,6 @@ interface SavedAddress {
 interface ShippingLocation {
   city: string;
   state: string;
-}
-
-interface ShippingQuote {
-  id: string;
-  provider: string;
-  serviceTier: string;
-  carrierName: string;
-  displayName: string;
-  price: number;
-  estimatedDays: number;
-  currency: string;
 }
 
 interface QuoteResponse {
@@ -3092,7 +3082,7 @@ export const CheckoutPage: React.FC = () => {
                                           {quote.carrierName.includes('Topship') && <span className="text-[10px] bg-blue-600 text-white px-1.5 py-0.5 rounded font-bold">Best Value</span>}
                                         </div>
                                         <p className="text-xs text-gray-500 mt-0.5">
-                                          Est. Delivery: {(quote as any).deliveryRange || `${quote.estimatedDays} days`}
+                                          Est. Delivery: {quote.deliveryRange || `${quote.estimatedDays} days`}
                                         </p>
                                       </div>
                                     </div>

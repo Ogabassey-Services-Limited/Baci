@@ -61,13 +61,15 @@ describe('handlePlaceOrder', () => {
     shippingQuotes: [
       {
         id: 'q1',
-        provider: 'gigl',
+        provider: 'GIGL',
         serviceTier: 'standard',
         carrierName: 'GIG Logistics',
         displayName: 'Standard',
         price: 2000,
         estimatedDays: 3,
         currency: 'NGN',
+        pickupIncluded: false,
+        insuranceIncluded: false,
       },
     ],
     paymentMethod: 'invoice',
@@ -160,13 +162,15 @@ describe('handlePlaceOrder', () => {
         shippingQuotes: [
           {
             id: 'q-fresh',
-            provider: 'gigl',
+            provider: 'GIGL',
             serviceTier: 'standard',
             carrierName: 'GIG Logistics',
             displayName: 'Standard',
             price: 2000,
             estimatedDays: 3,
             currency: 'NGN',
+            pickupIncluded: false,
+            insuranceIncluded: false,
           },
         ],
       });
@@ -200,13 +204,15 @@ describe('handlePlaceOrder', () => {
         shippingQuotes: [
           {
             id: 'q-fresh',
-            provider: 'gigl',
+            provider: 'GIGL',
             serviceTier: 'standard',
             carrierName: 'GIG Logistics',
             displayName: 'Standard',
             price: 2000,
             estimatedDays: 3,
             currency: 'NGN',
+            pickupIncluded: false,
+            insuranceIncluded: false,
           },
         ],
       });

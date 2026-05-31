@@ -6,25 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { useCurrency } from '@/hooks/use-currency';
 import { apiPost } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
-
-interface ShippingQuote {
-  id: string;
-  provider: 'GIGL' | 'TOPSHIP';
-  serviceTier: string;
-  carrierName: string;
-  displayName: string;
-  estimatedDays: number;
-  minDays?: number;
-  maxDays?: number;
-  price: number;
-  currency: string;
-  pickupIncluded: boolean;
-  insuranceIncluded: boolean;
-  isStationPickup?: boolean;
-  stationName?: string;
-  stationAddress?: string;
-  providerRateId?: string;
-}
+import type { ShippingQuote } from '@/types/shipping-quote';
 
 interface QuotesResponse {
   quotes: {
