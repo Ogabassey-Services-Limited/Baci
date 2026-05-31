@@ -7,7 +7,8 @@ import type {
   MerchantNotificationWithDetails,
   NotificationBroadcastPayload,
 } from '@/types/notifications';
-import { useMerchant } from './use-merchant-client';
+import type { MerchantData } from './merchant/types';
+import { useMerchant, useMerchantSafe } from './use-merchant-client';
 
 interface UseNotificationsReturn {
   // Data
@@ -35,6 +36,12 @@ interface UseNotificationsReturn {
  */
 export function useNotifications(): UseNotificationsReturn {
   const { merchant } = useMerchant();
+  return useNotificationsForMerchant(merchant);
+}
+
+function useNotificationsForMerchant(
+  merchant: MerchantData | null
+): UseNotificationsReturn {
   const [notifications, setNotifications] = useState<
     MerchantNotificationWithDetails[]
   >([]);
@@ -380,11 +387,13 @@ export function useNotifications(): UseNotificationsReturn {
 }
 
 /**
- * Compatibility wrapper for existing callers.
- *
- * Hook/provider errors must be handled by React error boundaries rather than
- * try/catch inside a hook wrapper, which violates the Rules of Hooks.
+ * Compatibility wrapper for optional notification UI.
  */
-export function useNotificationsSafe(): UseNotificationsReturn {
-  return useNotifications();
+export function useNotificationsSafe(): UseNotificationsReturn | null {
+  const merchantContext = useMerchantSafe();
+  const notifications = useNotificationsForMerchant(
+    merchantContext?.merchant ?? null
+  );
+
+  return merchantContext ? notifications : null;
 }

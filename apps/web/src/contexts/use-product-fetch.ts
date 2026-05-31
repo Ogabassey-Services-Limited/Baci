@@ -38,6 +38,8 @@ interface UseProductFetchArgs<TProduct> {
   toast: ToastApi;
 }
 
+type LatestFetchState<TProduct> = UseProductFetchArgs<TProduct>;
+
 export function useProductFetch<TProduct>({
   authLoading,
   user,
@@ -57,6 +59,21 @@ export function useProductFetch<TProduct>({
   const lastFetchParamsRef = useRef('');
   const lastFetchTimeRef = useRef(0);
   const isFirstRender = useRef(true);
+  const latestFetchStateRef = useRef<LatestFetchState<TProduct>>({
+    authLoading,
+    user,
+    initialData,
+    pagination,
+    migrationFilter,
+    searchTerm,
+    statusFilter,
+    stockFilter,
+    setProducts,
+    setPagination,
+    setStats,
+    setIsLoading,
+    toast,
+  });
   const queryKey = [
     authLoading ? 'loading' : 'ready',
     user?.id ?? 'anonymous',
@@ -68,22 +85,69 @@ export function useProductFetch<TProduct>({
     stockFilter,
   ].join('|');
 
+  useEffect(() => {
+    latestFetchStateRef.current = {
+      authLoading,
+      user,
+      initialData,
+      pagination,
+      migrationFilter,
+      searchTerm,
+      statusFilter,
+      stockFilter,
+      setProducts,
+      setPagination,
+      setStats,
+      setIsLoading,
+      toast,
+    };
+  }, [
+    authLoading,
+    user,
+    initialData,
+    pagination,
+    migrationFilter,
+    searchTerm,
+    statusFilter,
+    stockFilter,
+    setProducts,
+    setPagination,
+    setStats,
+    setIsLoading,
+    toast,
+  ]);
+
   const fetchProducts = async (force = false) => {
-    if (authLoading || !user) {
-      if (!authLoading && !user) {
-        setProducts([]);
-        setIsLoading(false);
+    const {
+      authLoading: latestAuthLoading,
+      user: latestUser,
+      pagination: latestPagination,
+      migrationFilter: latestMigrationFilter,
+      searchTerm: latestSearchTerm,
+      statusFilter: latestStatusFilter,
+      stockFilter: latestStockFilter,
+      setProducts: latestSetProducts,
+      setPagination: latestSetPagination,
+      setStats: latestSetStats,
+      setIsLoading: latestSetIsLoading,
+      toast: latestToast,
+    } = latestFetchStateRef.current;
+
+    if (latestAuthLoading || !latestUser) {
+      if (!latestAuthLoading && !latestUser) {
+        latestSetProducts([]);
+        latestSetIsLoading(false);
       }
       return;
     }
 
     const params = new URLSearchParams({
-      page: pagination.page.toString(),
-      limit: pagination.limit.toString(),
-      migration: migrationFilter,
-      search: searchTerm,
-      status: statusFilter,
-      stock: stockFilter,
+      page: latestPagination.page.toString(),
+      limit: latestPagination.limit.toString(),
+      migration: latestMigrationFilter,
+      search: latestSearchTerm,
+      status: latestStatusFilter,
+      stock: latestStockFilter,
     });
     const paramsString = params.toString();
 
@@ -107,7 +171,7 @@ export function useProductFetch<TProduct>({
     lastFetchTimeRef.current = now;
     fetchInProgressRef.current = true;
     lastFetchParamsRef.current = paramsString;
-    setIsLoading(true);
+    latestSetIsLoading(true);
 
     try {
       const response = await fetch(`/api/products?${params}`);
@@ -117,7 +181,7 @@ export function useProductFetch<TProduct>({
             console.warn('Rate limit hit for products fetch; not retrying.');
           }
           fetchInProgressRef.current = false;
-          setIsLoading(false);
+          latestSetIsLoading(false);
           return;
         }
 
@@ -128,9 +192,9 @@ export function useProductFetch<TProduct>({
       }
 
       const data = await response.json();
-      setProducts(data.products || []);
-      setPagination(data.pagination);
-      setStats(
+      latestSetProducts(data.products || []);
+      latestSetPagination(data.pagination);
+      latestSetStats(
         data.stats || {
           inventoryValue: 0,
           outOfStockCount: 0,
@@ -139,14 +203,14 @@ export function useProductFetch<TProduct>({
       );
     } catch (error) {
       console.error('Error fetching products:', error);
-      toast({
+      latestToast({
         title: 'Error',
         description: 'Failed to load products',
         variant: 'destructive',
       });
     } finally {
       fetchInProgressRef.current = false;
-      setIsLoading(false);
+      latestSetIsLoading(false);
     }
   };
 
