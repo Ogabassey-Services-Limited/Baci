@@ -40,7 +40,7 @@ const productVariantSchema = z.object({
   attributes: z.array(variantAttributeSchema).default([]),
   condition: normalizedConditionSchema,
   cost_price: z.number().min(0).optional().default(0),
-  id: z.string().uuid().optional(),
+  id: z.uuid().optional(),
   images: z.array(z.string()).default([]),
   price: z.number().min(0),
   primary_image: z.string().nullable().optional(),
@@ -70,11 +70,7 @@ export const ProductSchema = z
       .optional()
       .transform((val) => (val ? stripHtmlTags(val) : val)),
     // We only care about category_id for the database
-    category_id: z
-      .string()
-      .uuid('Invalid Category ID')
-      .optional()
-      .or(z.literal('')),
+    category_id: z.uuid('Invalid Category ID').optional().or(z.literal('')),
     color: z.string().optional(),
     condition: normalizedConditionSchema.refine(
       (value) => value == null || isEditableCondition(value),
