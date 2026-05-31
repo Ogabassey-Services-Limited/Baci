@@ -4,6 +4,7 @@ import { ArrowLeft, Check, CreditCard, Lock, Truck } from 'lucide-react';
 import Link from 'next/link';
 import type React from 'react';
 import { useEffect, useState } from 'react';
+import type { CartItem } from '@/hooks/cart/cart-types';
 import { useCart } from '@/hooks/use-cart';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { asRoute } from '@/lib/routes';
@@ -271,9 +272,9 @@ export const CheckoutPage: React.FC = () => {
                 </h3>
 
                 <div className="space-y-4 mb-6 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                  {cart.map((item: any) => (
+                  {cart.map((item: CartItem) => (
                     <div
-                      key={item.variant_id || item.id}
+                      key={item.variantId || item.id}
                       className="flex gap-3"
                     >
                       <div className="size-16 bg-gray-50 rounded-lg p-1 shrink-0">

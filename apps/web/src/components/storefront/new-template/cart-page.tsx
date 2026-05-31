@@ -99,7 +99,6 @@ export const CartPage: React.FC = () => {
                           {item.name}
                         </h3>
                         <button type="button"
-
                           onClick={() =>
                             removeFromCart(item.id, item.variantId)
                           }
@@ -127,7 +126,6 @@ export const CartPage: React.FC = () => {
                     <div className="flex items-end justify-between gap-4">
                       <div className="flex items-center bg-gray-100 rounded-lg p-1">
                         <button type="button"
-
                           onClick={() =>
                             updateQuantity(
                               item.id,
@@ -145,7 +143,6 @@ export const CartPage: React.FC = () => {
                           {item.quantity}
                         </span>
                         <button type="button"
-
                           onClick={() =>
                             updateQuantity(
                               item.id,
