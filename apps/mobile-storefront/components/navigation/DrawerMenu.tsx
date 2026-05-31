@@ -211,7 +211,15 @@ export function DrawerMenu() {
             />
           </View>
           {/* Header */}
-          <View style={[styles.header, { borderBottomColor: colors.border }]}>
+          <View
+            style={[
+              styles.header,
+              {
+                borderBottomColor: colors.border,
+                backgroundColor: colors.card,
+              },
+            ]}
+          >
             <Logo
               width={120}
               height={24}
@@ -233,6 +241,7 @@ export function DrawerMenu() {
               icon: colors.icon,
               text: colors.text,
               textSecondary: colors.textSecondary,
+              card: colors.card,
             }}
             isAuthenticated={isAuthenticated}
             pathname={pathname}
@@ -250,41 +259,20 @@ export function DrawerMenu() {
               },
             ]}
           >
-            {isAuthenticated ? (
-              <Pressable
-                style={[
-                  styles.authButton,
-                  drawerShadowStyles.authButton,
-                  { backgroundColor: colors.foreground },
-                ]}
-                onPress={handleSignOut}
-                accessibilityLabel="Sign out"
-                accessibilityRole="button"
-              >
-                <Text
-                  style={[styles.authButtonText, { color: colors.background }]}
-                >
-                  Sign Out
-                </Text>
-              </Pressable>
-            ) : (
-              <Pressable
-                style={[
-                  styles.authButton,
-                  drawerShadowStyles.authButton,
-                  { backgroundColor: colors.foreground },
-                ]}
-                onPress={handleSignIn}
-                accessibilityLabel="Login or Register"
-                accessibilityRole="button"
-              >
-                <Text
-                  style={[styles.authButtonText, { color: colors.background }]}
-                >
-                  Login / Register
-                </Text>
-              </Pressable>
-            )}
+            <Pressable
+              style={[
+                styles.authButton,
+                drawerShadowStyles.authButton,
+                { backgroundColor: colors.foreground },
+              ]}
+              onPress={isAuthenticated ? handleSignOut : handleSignIn}
+              accessibilityLabel={isAuthenticated ? 'Sign out' : 'Login or Register'}
+              accessibilityRole="button"
+            >
+              <Text style={[styles.authButtonText, { color: colors.background }]}>
+                {isAuthenticated ? 'Sign Out' : 'Login / Register'}
+              </Text>
+            </Pressable>
             <Text style={[styles.versionText, { color: colors.textSecondary }]}>
               v{appVersion} • &copy; {currentYear} Ogabassey
             </Text>

@@ -10,6 +10,7 @@ type DrawerMenuItemColors = {
   icon: string;
   text: string;
   textSecondary: string;
+  card: string;
 };
 
 type DrawerMenuItemsProps = {
@@ -73,7 +74,11 @@ export function DrawerMenuItems({
           return (
             <Pressable
               key={item.path}
-              style={[styles.menuItem, active && styles.menuItemActive]}
+              style={[
+                styles.menuItem,
+                { backgroundColor: colors.card },
+                active && styles.menuItemActive,
+              ]}
               onPress={() => onNavigate(item.path)}
               accessibilityLabel={item.label}
               accessibilityRole="menuitem"
