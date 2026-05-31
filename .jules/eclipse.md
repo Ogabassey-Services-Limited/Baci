@@ -54,3 +54,6 @@
 ## 2025-05-18 - [products.tsx active tab text contrast]
 **Learning:** Hardcoding `#000000` for active tab text over `colors.gold` fails to adapt. Using `colors.background` provides optimal contrast because it naturally flips between light (for dark mode gold) and dark (for light mode gold).
 **Action:** Replace hardcoded hex colors on specific themed backgrounds with opposing theme tokens like `colors.background` for active states.
+## 2025-05-31 - Replace hardcoded UPGRADE badge text color
+**Learning:** Hardcoding `#000000` text over a dynamic `colors.gold` background in `SubscriptionStatusCard.tsx` limits contrast control across light/dark themes. The memory states: "When styling text over dynamic theme backgrounds (e.g., active tab states using `colors.gold`), avoid hardcoding hex colors. Use opposing theme tokens like `colors.background` that naturally adapt across light and dark modes to ensure proper contrast."
+**Action:** Replace hardcoded static `#000000` colors inside `StyleSheet.create` with an inline style array passing `colors.background` for elements over `colors.gold` backgrounds to ensure optimal contrast across modes.
