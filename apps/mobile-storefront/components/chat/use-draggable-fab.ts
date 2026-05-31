@@ -3,7 +3,11 @@ import { useEffect, useRef, useState } from 'react';
 import { Animated, Dimensions, PanResponder, Platform } from 'react-native';
 import { EDGE_MARGIN, FAB_SIZE } from './constants';
 
-export function useDraggableFab(bottomOffset: number, onDismiss?: () => void) {
+export function useDraggableFab(
+  bottomOffset: number,
+  onDismiss?: () => void,
+  onPress?: () => void
+) {
   const [isDragging, setIsDragging] = useState(false);
   const [isOverDismissZone, setIsOverDismissZone] = useState(false);
   const isOverDismissZoneRef = useRef(false);
@@ -54,10 +58,9 @@ export function useDraggableFab(bottomOffset: number, onDismiss?: () => void) {
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: (_, gestureState) => {
-        // Only capture if user moved more than 5px
-        return Math.abs(gestureState.dx) > 5 || Math.abs(gestureState.dy) > 5;
-      },
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderTerminationRequest: () => false,
+      onShouldBlockNativeResponder: () => true,
       onPanResponderGrant: () => {
         hasMoved.current = false;
         setIsDragging(true);
@@ -117,6 +120,16 @@ export function useDraggableFab(bottomOffset: number, onDismiss?: () => void) {
       },
       onPanResponderRelease: () => {
         setIsDragging(false);
+
+        // If user tapped without dragging, trigger the onPress callback
+        if (!hasMoved.current) {
+          setIsOverDismissZone(false);
+          isOverDismissZoneRef.current = false;
+          if (onPress) {
+            onPress();
+          }
+          return;
+        }
 
         // Check if released over Dismiss Zone
         if (isOverDismissZoneRef.current) {

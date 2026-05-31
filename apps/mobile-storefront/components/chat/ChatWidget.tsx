@@ -63,7 +63,7 @@ export function ChatWidget({
     isOverDismissZone,
     hasMoved,
     isOnRight,
-  } = useDraggableFab(effectiveBottomOffset, dismissChat);
+  } = useDraggableFab(effectiveBottomOffset, dismissChat, handleOpen);
 
   const { proactiveMsg, nudgeFadeAnim, dismissNudge } =
     useProactiveNudge(isChatOpen);
@@ -75,7 +75,7 @@ export function ChatWidget({
     isChatDismissed ||
     HIDDEN_ROUTES.some((route) => pathname?.startsWith(route));
 
-  const handleOpen = () => {
+  function handleOpen() {
     // Only open if we didn't drag
     if (hasMoved.current) {
       hasMoved.current = false;
@@ -85,7 +85,7 @@ export function ChatWidget({
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
     openChat();
-  };
+  }
 
   if (shouldHide) {
     return null;
@@ -98,7 +98,8 @@ export function ChatWidget({
         style={[
           styles.fabContainer,
           {
-            transform: [{ translateX: pan.x }, { translateY: pan.y }],
+            left: pan.x,
+            top: pan.y,
           },
         ]}
         {...panResponder.panHandlers}
@@ -167,10 +168,11 @@ export function ChatWidget({
                 borderWidth: isDragging ? 2 : 1,
               },
             ]}
-            onPress={handleOpen}
             accessibilityRole="button"
             accessibilityLabel="Open chat assistant. Drag to move."
             accessibilityHint="Double tap to open chat, or drag to reposition"
+            pointerEvents="none"
+            onPress={handleOpen}
           >
             {santaMode ? (
               <Text style={styles.fabEmoji}>🎅</Text>

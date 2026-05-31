@@ -5,8 +5,6 @@ import { FAB_SIZE } from './constants';
 export const styles = StyleSheet.create({
   fabContainer: {
     position: 'absolute',
-    left: 0,
-    top: 0,
     zIndex: 1000,
   },
   fab: {
