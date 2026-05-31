@@ -1,6 +1,7 @@
 'use client';
 
 import { Loader2 } from 'lucide-react';
+import { type MouseEvent, useEffect, useRef } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Button, type ButtonProps } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -37,17 +38,58 @@ export function SubmitButton({
   pendingIcon,
   disabled,
   className,
+  onClick,
   ...props
 }: SubmitButtonProps) {
   const { pending } = useFormStatus();
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
   const isDisabled = pending || disabled;
+  const nativeDisabled = disabled === true && !pending;
+
+  useEffect(() => {
+    if (!pending) {
+      return;
+    }
+
+    const form = buttonRef.current?.form;
+    if (!form) {
+      return;
+    }
+
+    const blockPendingSubmit = (event: SubmitEvent) => {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    };
+
+    form.addEventListener('submit', blockPendingSubmit, true);
+    return () => {
+      form.removeEventListener('submit', blockPendingSubmit, true);
+    };
+  }, [pending]);
+
+  const handleClick = (event: MouseEvent<HTMLButtonElement>) => {
+    if (isDisabled) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+
+    onClick?.(event);
+  };
 
   return (
     <Button
+      ref={buttonRef}
       type="submit"
-      disabled={isDisabled}
-      className={cn(className)}
+      disabled={nativeDisabled}
+      aria-disabled={isDisabled}
+      aria-busy={pending}
+      onClick={handleClick}
+      className={cn(
+        'aria-disabled:cursor-not-allowed aria-disabled:opacity-50',
+        className
+      )}
       {...props}
     >
       {pending ? (
