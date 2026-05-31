@@ -44,7 +44,6 @@ vi.mock('react-native', async () => {
       accessibilityLabel?: string;
       children?: React.ReactNode;
       disabled?: boolean;
-      accessibilityState?: { busy?: boolean; disabled?: boolean };
       onPress?: () => void;
     }) =>
       React.createElement(

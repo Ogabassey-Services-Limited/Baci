@@ -73,7 +73,6 @@ describe('ProductBasicInformationCard', () => {
     errorLight: 'rgba(220, 38, 38, 0.1)',
     gold: '#D4A03D',
     goldLight: 'rgba(212, 160, 61, 0.12)',
-    textOnGold: '#111827',
     info: '#2563EB',
     infoLight: 'rgba(37, 99, 235, 0.1)',
     inputBg: '#F1F5F9',

@@ -10,7 +10,6 @@ describe('storefront metadata cache bot classifier', () => {
     ['AdsBot-Google (+http://www.google.com/adsbot.html)'],
     ['Google-InspectionTool/1.0'],
     ['Twitterbot/1.0'],
-    ['Instagram 350.0.0.29.93 Android'],
   ])('uses the metadata-blocking bucket for %s', (userAgent) => {
     expect(
       STOREFRONT_METADATA_BLOCKING_BOT_USER_AGENT_REGEX.test(userAgent)
@@ -22,6 +21,7 @@ describe('storefront metadata cache bot classifier', () => {
 
   it.each([
     ['Mozilla/5.0 AppleWebKit/537.36 Chrome/125.0 Safari/537.36'],
+    ['Instagram 350.0.0.29.93 Android'],
   ])('uses the streaming bucket for normal browser UA %s', (userAgent) => {
     expect(
       STOREFRONT_METADATA_BLOCKING_BOT_USER_AGENT_REGEX.test(userAgent)

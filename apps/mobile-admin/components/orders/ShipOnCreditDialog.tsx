@@ -68,10 +68,7 @@ export function ShipOnCreditDialog({
         <Pressable
           accessibilityLabel="Confirm ship on credit"
           accessibilityRole="button"
-          accessibilityState={{
-            busy: isSubmitting,
-            disabled: isSubmitting,
-          }}
+          accessibilityState={{ disabled: isSubmitting, busy: isSubmitting }}
           disabled={isSubmitting}
           onPress={onConfirm}
           style={[styles.confirmButton, { backgroundColor: colors.warning }]}
