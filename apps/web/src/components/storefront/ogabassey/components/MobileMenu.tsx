@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import type React from 'react';
+import { useEffect } from 'react';
 
 import { useV2Theme } from '../providers/v2-theme-context';
 import { Logo } from './Logo';
@@ -35,6 +36,22 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
   const router = useRouter();
   const pathname = usePathname();
   const { theme: _theme } = useV2Theme();
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        onClose();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   // Extract store slug from pathname (first segment that's not a known page route)
   // e.g., "/ogabassey/cart" -> "ogabassey", "/cart" -> ""
