@@ -6,16 +6,26 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   View,
 } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  interpolate,
+  interpolateColor,
+  Extrapolation,
+  withSpring,
+  type SharedValue,
+} from 'react-native-reanimated';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, SPACING, withAlpha } from '@/constants/Colors';
 
 type IoniconsName = ComponentProps<typeof Ionicons>['name'];
 
+export type UtilityType = 'airtime' | 'data' | 'tv' | 'power' | 'gaming';
+
 interface UtilityTypeDefinition {
-  type: string;
+  type: UtilityType;
   label: string;
   icon: IoniconsName;
 }
@@ -35,7 +45,7 @@ const TAB_ICON_SIZE = 20;
 const LABEL_FONT_SIZE = 15;
 const TAB_SIDE_INSET = SPACING.md;
 const TAB_ITEM_GAP = SPACING.sm;
-const TAB_MIN_WIDTHS: Record<UtilityType, number> = {
+const TAB_MIN_WIDTHS: Record<string, number> = {
   airtime: 96,
   data: 78,
   tv: 78,
@@ -43,55 +53,67 @@ const TAB_MIN_WIDTHS: Record<UtilityType, number> = {
   gaming: 108,
 };
 
-export type UtilityType = (typeof UTILITY_TYPES)[number]['type'];
-
 interface UtilityTypeTabsProps {
   selectedType: UtilityType;
   onSelect: (type: UtilityType) => void;
+  activeIndex?: SharedValue<number>;
 }
 
 export function UtilityTypeTabs({
   selectedType,
   onSelect,
+  activeIndex,
 }: UtilityTypeTabsProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const scrollRef = useRef<ScrollView>(null);
   const measuredWidthsRef = useRef<Partial<Record<UtilityType, number>>>({});
   const [viewportWidth, setViewportWidth] = useState(0);
-  // Bumped whenever a tab's measured width changes so the scroll effect can
-  // recompute using the latest layout-driven measurements.
   const [measurementVersion, setMeasurementVersion] = useState(0);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: measurementVersion is a deliberate re-run trigger; widths are read via measuredWidthsRef (a ref).
+  // Reanimated UI-thread values for continuous gliding capsule transitions
+  const initialIdx = UTILITY_TYPES.findIndex((item) => item.type === selectedType);
+  const localActiveIndex = useSharedValue(initialIdx !== -1 ? initialIdx : 0);
+  const activeIndexVal = activeIndex ?? localActiveIndex;
+
+  // Pre-seed default layouts to prevent rendering glitches on frame 1
+  const tabWidths = useSharedValue<number[]>([96, 78, 78, 92, 108]);
+  const tabOffsets = useSharedValue<number[]>([
+    TAB_SIDE_INSET,
+    TAB_SIDE_INSET + 96 + TAB_ITEM_GAP,
+    TAB_SIDE_INSET + 96 + TAB_ITEM_GAP + 78 + TAB_ITEM_GAP,
+    TAB_SIDE_INSET + 96 + TAB_ITEM_GAP + 78 + TAB_ITEM_GAP + 78 + TAB_ITEM_GAP,
+    TAB_SIDE_INSET + 96 + TAB_ITEM_GAP + 78 + TAB_ITEM_GAP + 78 + TAB_ITEM_GAP + 92 + TAB_ITEM_GAP,
+  ]);
+
+  // Sync prop index to local active index when in state-fallback mode (e.g. tests)
   useEffect(() => {
-    if (viewportWidth <= 0) {
-      return;
+    if (!activeIndex) {
+      const idx = UTILITY_TYPES.findIndex((item) => item.type === selectedType);
+      if (idx !== -1) {
+        localActiveIndex.value = withSpring(idx, { damping: 18, stiffness: 120 });
+      }
     }
+  }, [selectedType, activeIndex, localActiveIndex]);
+
+  // Centering scroll effect
+  useEffect(() => {
+    if (viewportWidth <= 0) return;
 
     const selectedIndex = UTILITY_TYPES.findIndex(
       (item) => item.type === selectedType
     );
-    if (selectedIndex < 0) {
-      return;
-    }
+    if (selectedIndex < 0) return;
 
     const measuredWidths = measuredWidthsRef.current;
     const selectedWidth = measuredWidths[selectedType];
-    if (selectedWidth === undefined) {
-      // Defer scrolling until the selected tab has reported a layout width;
-      // the effect re-runs once measurementVersion bumps.
-      return;
-    }
+    if (selectedWidth === undefined) return;
 
     let selectedOffset = TAB_SIDE_INSET;
     for (let i = 0; i < selectedIndex; i += 1) {
       const itemType = UTILITY_TYPES[i].type;
       const itemWidth = measuredWidths[itemType];
-      if (itemWidth === undefined) {
-        // Wait until every preceding tab is measured for an accurate offset.
-        return;
-      }
+      if (itemWidth === undefined) return;
       selectedOffset += itemWidth + TAB_ITEM_GAP;
     }
 
@@ -104,18 +126,58 @@ export function UtilityTypeTabs({
     });
   }, [selectedType, viewportWidth, measurementVersion]);
 
-  const handleTabLayout = (type: UtilityType) => (event: LayoutChangeEvent) => {
+  const handleTabLayout = (index: number, type: UtilityType) => (event: LayoutChangeEvent) => {
     const nextWidth = event.nativeEvent.layout.width;
-    if (nextWidth <= 0) {
-      return;
-    }
+    const nextX = event.nativeEvent.layout.x;
+    if (nextWidth <= 0) return;
+
+    // Update shared arrays for continuous indicator morphing
+    const widths = [...tabWidths.value];
+    widths[index] = nextWidth;
+    tabWidths.value = widths;
+
+    const offsets = [...tabOffsets.value];
+    offsets[index] = nextX;
+    tabOffsets.value = offsets;
+
+    // Sync legacy widths trigger for ScrollView centering logic
     const previousWidth = measuredWidthsRef.current[type];
-    if (previousWidth === nextWidth) {
-      return;
+    if (previousWidth !== nextWidth) {
+      measuredWidthsRef.current[type] = nextWidth;
+      setMeasurementVersion((version) => version + 1);
     }
-    measuredWidthsRef.current[type] = nextWidth;
-    setMeasurementVersion((version) => version + 1);
   };
+
+  // Gliding indicator capsule style
+  const indicatorStyle = useAnimatedStyle(() => {
+    const floatIndex = activeIndexVal.value;
+    const inputParts = UTILITY_TYPES.map((_, index) => index);
+    
+    const width = interpolate(
+      floatIndex,
+      inputParts,
+      tabWidths.value,
+      Extrapolation.CLAMP
+    );
+    
+    const translateX = interpolate(
+      floatIndex,
+      inputParts,
+      tabOffsets.value,
+      Extrapolation.CLAMP
+    );
+
+    return {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      height: TAB_MIN_HEIGHT,
+      borderRadius: 999,
+      backgroundColor: BRAND.primary,
+      width,
+      transform: [{ translateX }],
+    };
+  });
 
   return (
     <View
@@ -139,61 +201,22 @@ export function UtilityTypeTabs({
         contentContainerStyle={styles.content}
         testID="utility-type-tabs-scroll"
       >
+        {/* Sliding background capsule frame */}
+        <Animated.View style={indicatorStyle} />
+
         {UTILITY_TYPES.map((item, index) => {
           const isSelected = item.type === selectedType;
-
           return (
-            <View
+            <TabItem
               key={item.type}
-              style={
-                index < UTILITY_TYPES.length - 1 ? styles.tabSpacing : null
-              }
-            >
-              <Pressable
-                accessibilityRole="tab"
-                accessibilityLabel={`${item.label} utility service`}
-                accessibilityState={{ selected: isSelected }}
-                accessibilityHint={`Switch to ${item.label} utility payments`}
-                testID={`utility-tab-${item.type}`}
-                onPress={() => onSelect(item.type)}
-                android_ripple={{
-                  color: isSelected
-                    ? withAlpha(BRAND.onPrimary, 0.14)
-                    : colors.border,
-                }}
-              >
-                <View
-                  onLayout={handleTabLayout(item.type)}
-                  testID={`utility-tab-${item.type}-pill`}
-                  style={[
-                    styles.tab,
-                    {
-                      backgroundColor: isSelected
-                        ? BRAND.primary
-                        : colors.muted,
-                      borderColor: isSelected ? BRAND.primary : colors.border,
-                      minWidth: TAB_MIN_WIDTHS[item.type],
-                    },
-                  ]}
-                >
-                  <Ionicons
-                    name={item.icon}
-                    size={TAB_ICON_SIZE}
-                    color={isSelected ? BRAND.onPrimary : colors.icon}
-                    style={styles.icon}
-                  />
-                  <Text
-                    numberOfLines={1}
-                    style={[
-                      styles.label,
-                      { color: isSelected ? BRAND.onPrimary : colors.text },
-                    ]}
-                  >
-                    {item.label}
-                  </Text>
-                </View>
-              </Pressable>
-            </View>
+              item={item}
+              index={index}
+              colors={colors}
+              isSelected={isSelected}
+              onSelect={onSelect}
+              activeIndexVal={activeIndexVal}
+              onLayout={handleTabLayout(index, item.type)}
+            />
           );
         })}
       </ScrollView>
@@ -201,12 +224,135 @@ export function UtilityTypeTabs({
   );
 }
 
+interface TabItemProps {
+  item: UtilityTypeDefinition;
+  index: number;
+  colors: typeof Colors.light;
+  isSelected: boolean;
+  onSelect: (type: UtilityType) => void;
+  activeIndexVal: SharedValue<number>;
+  onLayout: (event: LayoutChangeEvent) => void;
+}
+
+function TabItem({
+  item,
+  index,
+  colors,
+  isSelected,
+  onSelect,
+  activeIndexVal,
+  onLayout,
+}: TabItemProps) {
+  const animatedTabStyle = useAnimatedStyle(() => {
+    const progress = interpolate(
+      activeIndexVal.value,
+      [index - 1, index, index + 1],
+      [0, 1, 0],
+      Extrapolation.CLAMP
+    );
+
+    const backgroundColor = interpolateColor(
+      progress,
+      [0, 1],
+      [colors.muted, BRAND.primary]
+    );
+
+    const borderColor = interpolateColor(
+      progress,
+      [0, 1],
+      [colors.border, BRAND.primary]
+    );
+
+    return {
+      backgroundColor,
+      borderColor,
+    };
+  });
+
+  const animatedTextStyle = useAnimatedStyle(() => {
+    const progress = interpolate(
+      activeIndexVal.value,
+      [index - 1, index, index + 1],
+      [0, 1, 0],
+      Extrapolation.CLAMP
+    );
+
+    const color = interpolateColor(
+      progress,
+      [0, 1],
+      [colors.text, BRAND.onPrimary]
+    );
+
+    return { color };
+  });
+
+  const animatedIconStyle = useAnimatedStyle(() => {
+    const progress = interpolate(
+      activeIndexVal.value,
+      [index - 1, index, index + 1],
+      [0, 1, 0],
+      Extrapolation.CLAMP
+    );
+
+    const color = interpolateColor(
+      progress,
+      [0, 1],
+      [colors.icon, BRAND.onPrimary]
+    );
+
+    return { color };
+  });
+
+  return (
+    <View style={index < UTILITY_TYPES.length - 1 ? styles.tabSpacing : null}>
+      <Pressable
+        accessibilityRole="tab"
+        accessibilityLabel={`${item.label} utility service`}
+        accessibilityState={{ selected: isSelected }}
+        accessibilityHint={`Switch to ${item.label} utility payments`}
+        testID={`utility-tab-${item.type}`}
+        onPress={() => onSelect(item.type)}
+        android_ripple={{
+          color: isSelected ? withAlpha(BRAND.onPrimary, 0.14) : colors.border,
+        }}
+      >
+        <Animated.View
+          onLayout={onLayout}
+          testID={`utility-tab-${item.type}-pill`}
+          style={[
+            styles.tab,
+            {
+              minWidth: TAB_MIN_WIDTHS[item.type],
+            },
+            animatedTabStyle,
+          ]}
+        >
+          <AnimatedIonicons
+            name={item.icon}
+            size={TAB_ICON_SIZE}
+            style={[styles.icon, animatedIconStyle]}
+          />
+          <Animated.Text
+            numberOfLines={1}
+            style={[styles.label, animatedTextStyle]}
+          >
+            {item.label}
+          </Animated.Text>
+        </Animated.View>
+      </Pressable>
+    </View>
+  );
+}
+
+const AnimatedIonicons = Animated.createAnimatedComponent(Ionicons);
+
 const styles = StyleSheet.create({
   container: {
     borderBottomWidth: StyleSheet.hairlineWidth,
     paddingVertical: SPACING.sm,
   },
   content: {
+    position: 'relative',
     alignItems: 'center',
     paddingHorizontal: TAB_SIDE_INSET,
   },

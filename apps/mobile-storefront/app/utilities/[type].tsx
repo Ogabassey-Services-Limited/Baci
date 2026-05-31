@@ -235,6 +235,7 @@ export default function UtilityPurchaseScreen() {
         <UtilityTypeTabs
           selectedType={currentType}
           onSelect={handleUtilityTypeChange}
+          activeIndex={activeIndex}
         />
         <UtilityPurchasePager
           currentType={currentType}
