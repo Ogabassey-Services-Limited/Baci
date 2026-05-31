@@ -390,6 +390,60 @@ describe('products index page', () => {
     });
   });
 
+  it('preserves focused storefront filters in canonical listing metadata', async () => {
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'test-store' }),
+      searchParams: Promise.resolve({ brand: 'Apple', page: '2' }),
+    });
+
+    expect(metadata.alternates?.canonical).toBe(
+      'https://test-store.usebaci.com/products?brand=Apple&page=2'
+    );
+    expect(metadata.openGraph?.url).toBe(
+      'https://test-store.usebaci.com/products?brand=Apple&page=2'
+    );
+    expect(metadata.robots).toMatchObject({
+      index: true,
+      follow: true,
+    });
+  });
+
+  it('keeps price bounds together in canonical listing metadata', async () => {
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'test-store' }),
+      searchParams: Promise.resolve({
+        minPrice: '100000',
+        maxPrice: '500000',
+      }),
+    });
+
+    expect(metadata.alternates?.canonical).toBe(
+      'https://test-store.usebaci.com/products?minPrice=100000&maxPrice=500000'
+    );
+    expect(metadata.robots).toMatchObject({
+      index: true,
+      follow: true,
+    });
+  });
+
+  it('drops multi-filter params from canonical listing metadata', async () => {
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'test-store' }),
+      searchParams: Promise.resolve({
+        brand: 'Apple',
+        minPrice: '100000',
+      }),
+    });
+
+    expect(metadata.alternates?.canonical).toBe(
+      'https://test-store.usebaci.com/products'
+    );
+    expect(metadata.robots).toMatchObject({
+      index: false,
+      follow: true,
+    });
+  });
+
   it('omits ?page=1 from the first-page canonical URL', async () => {
     const metadata = await generateMetadata({
       params: Promise.resolve({ slug: 'test-store' }),

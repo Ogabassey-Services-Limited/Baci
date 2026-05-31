@@ -915,6 +915,41 @@ describe('category page route', () => {
     ]);
   });
 
+  it('preserves focused storefront filters in category canonical metadata', async () => {
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'test-store', category: 'smartphones' }),
+      searchParams: Promise.resolve({ brand: 'Apple', page: '2' }),
+    });
+
+    expect(metadata.alternates?.canonical).toBe(
+      'https://test-store.usebaci.com/smartphones?brand=Apple&page=2'
+    );
+    expect(metadata.openGraph?.url).toBe(
+      'https://test-store.usebaci.com/smartphones?brand=Apple&page=2'
+    );
+  });
+
+  it('preserves the page marker when long category titles are truncated', async () => {
+    vi.mocked(getCachedCategoryPageData).mockResolvedValueOnce({
+      ...categoryPageData,
+      category: {
+        ...categoryPageData.category,
+        seo_heading:
+          'Shop ultra-premium smartphones with exceptional cameras, long battery life, and creator-grade storage in Lagos',
+      },
+    } as unknown as Awaited<ReturnType<typeof getCachedCategoryPageData>>);
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'test-store', category: 'smartphones' }),
+      searchParams: Promise.resolve({ page: '2' }),
+    });
+
+    expect(typeof metadata.title).toBe('string');
+    expect(metadata.title).toContain('Page 2');
+    expect(metadata.title).toContain('Ogabassey');
+    expect((metadata.title as string).length).toBeLessThanOrEqual(70);
+  });
+
   it('matches the category route 404 behavior for out-of-range metadata pages', async () => {
     await expect(
       generateMetadata({

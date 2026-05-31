@@ -11,6 +11,7 @@ import type { RawDbProduct } from '@/lib/normalize-product';
 import {
   generateMetaDescription,
   generateMetaTitle,
+  getCanonicalStorefrontFilterSearchParams,
   getIndexableRobotsMetadata,
 } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
@@ -86,7 +87,10 @@ export async function generateMetadata({
   );
 
   const baseUrl = buildStoreUrl(merchant);
-  const categoryUrl = `${baseUrl}/${category}`;
+  const canonicalFilterParams =
+    getCanonicalStorefrontFilterSearchParams(resolvedSearchParams);
+  const canonicalFilterQuery = canonicalFilterParams.toString();
+  const categoryUrl = `${baseUrl}/${category}${canonicalFilterQuery ? `?${canonicalFilterQuery}` : ''}`;
   const hubContent = buildCategoryPageHubModel({
     data,
     categorySlug: category,
@@ -102,7 +106,7 @@ export async function generateMetadata({
 
   const titleFragment = hubContent.intro.heading;
   const pageTitleFragment =
-    currentPage > 1 ? `${titleFragment} | Page ${currentPage}` : titleFragment;
+    currentPage > 1 ? `Page ${currentPage} | ${titleFragment}` : titleFragment;
   const title = generateMetaTitle(pageTitleFragment, {
     maxLength: 70,
     suffix: merchant.business_name,

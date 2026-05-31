@@ -6,6 +6,7 @@ import { getRequestScopedMerchant } from '@/lib/cached-data';
 import { getCachedStorefrontProductIndex } from '@/lib/cached-storefront-product-index';
 import {
   generateMetaDescription,
+  getCanonicalStorefrontFilterSearchParams,
   getIndexableRobotsMetadata,
 } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
@@ -61,7 +62,10 @@ export async function generateMetadata({
   }
 
   const baseUrl = buildStoreUrl(merchant);
-  const productsUrl = `${baseUrl}/products`;
+  const canonicalFilterParams =
+    getCanonicalStorefrontFilterSearchParams(resolvedSearchParams);
+  const canonicalFilterQuery = canonicalFilterParams.toString();
+  const productsUrl = `${baseUrl}/products${canonicalFilterQuery ? `?${canonicalFilterQuery}` : ''}`;
   const paginatedProductsUrl = buildStorefrontPageHref(
     productsUrl,
     currentPage

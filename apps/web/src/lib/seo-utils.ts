@@ -1458,12 +1458,24 @@ const STOREFRONT_FILTER_SEARCH_PARAMS: ReadonlyMap<string, string> = new Map([
   ['condition', 'condition'],
   ['displaySize', 'displaySize'],
   ['displayType', 'displayType'],
-  ['maxPrice', 'maxPrice'],
-  ['minPrice', 'minPrice'],
+  ['maxPrice', 'price'],
+  ['minPrice', 'price'],
   ['ram', 'ram'],
   ['simType', 'simType'],
   ['storage', 'storage'],
 ] as const);
+
+const STOREFRONT_CANONICAL_FILTER_QUERY_KEYS = [
+  ['brand', ['brand', 'brands']],
+  ['color', ['color', 'colors']],
+  ['condition', ['condition']],
+  ['displaySize', ['displaySize']],
+  ['displayType', ['displayType']],
+  ['price', ['minPrice', 'maxPrice']],
+  ['ram', ['ram']],
+  ['simType', ['simType']],
+  ['storage', ['storage']],
+] as const satisfies readonly [string, readonly string[]][];
 
 export type StorefrontRobotsSearchParams = Record<
   string,
@@ -1478,14 +1490,14 @@ function hasSearchParamValue(value: string | string[] | undefined): boolean {
   return typeof value === 'string' && value.trim() !== '';
 }
 
-function countActiveStorefrontFilters(
+function getActiveStorefrontFilterKeys(
   searchParams?: StorefrontRobotsSearchParams
-): number {
-  if (!searchParams) {
-    return 0;
-  }
-
+): Set<string> {
   const activeFilters = new Set<string>();
+
+  if (!searchParams) {
+    return activeFilters;
+  }
 
   for (const [key, value] of Object.entries(searchParams)) {
     const canonicalFilterKey = STOREFRONT_FILTER_SEARCH_PARAMS.get(key);
@@ -1495,7 +1507,58 @@ function countActiveStorefrontFilters(
     }
   }
 
-  return activeFilters.size;
+  return activeFilters;
+}
+
+function countActiveStorefrontFilters(
+  searchParams?: StorefrontRobotsSearchParams
+): number {
+  return getActiveStorefrontFilterKeys(searchParams).size;
+}
+
+export function getCanonicalStorefrontFilterSearchParams(
+  searchParams?: StorefrontRobotsSearchParams
+): URLSearchParams {
+  const canonicalParams = new URLSearchParams();
+  const activeFilterKeys = getActiveStorefrontFilterKeys(searchParams);
+
+  if (!searchParams || activeFilterKeys.size !== 1) {
+    return canonicalParams;
+  }
+
+  const [activeFilterKey] = activeFilterKeys;
+  if (!activeFilterKey) {
+    return canonicalParams;
+  }
+
+  const filterQueryKeys = STOREFRONT_CANONICAL_FILTER_QUERY_KEYS.find(
+    ([canonicalFilterKey]) => canonicalFilterKey === activeFilterKey
+  )?.[1];
+
+  if (!filterQueryKeys) {
+    return canonicalParams;
+  }
+
+  for (const queryKey of filterQueryKeys) {
+    const value = searchParams[queryKey];
+
+    if (Array.isArray(value)) {
+      for (const entry of value) {
+        const trimmedEntry = entry.trim();
+        if (trimmedEntry) {
+          canonicalParams.append(queryKey, trimmedEntry);
+        }
+      }
+      continue;
+    }
+
+    const trimmedValue = value?.trim();
+    if (trimmedValue) {
+      canonicalParams.append(queryKey, trimmedValue);
+    }
+  }
+
+  return canonicalParams;
 }
 
 export function getIndexableRobotsMetadata(
