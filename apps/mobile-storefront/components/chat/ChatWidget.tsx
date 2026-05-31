@@ -206,7 +206,7 @@ export function ChatWidget({
           >
             <Ionicons
               name={isOverDismissZone ? 'trash' : 'trash-outline'}
-              size={28}
+              size={22}
               color={isOverDismissZone ? '#FFFFFF' : '#FF3B30'}
             />
           </Animated.View>

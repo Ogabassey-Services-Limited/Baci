@@ -42,6 +42,10 @@ export function useDraggableFab(bottomOffset: number, onDismiss?: () => void) {
     };
   }, [pan.x, pan.y]);
 
+  // Store coordinates at the start of gesture (grant time)
+  const dragStartXRef = useRef(0);
+  const dragStartYRef = useRef(0);
+
   // M30 fix: Use ref for bottomOffset so PanResponder always reads fresh value
   const bottomOffsetRef = useRef(bottomOffset);
   bottomOffsetRef.current = bottomOffset;
@@ -59,28 +63,31 @@ export function useDraggableFab(bottomOffset: number, onDismiss?: () => void) {
         setIsDragging(true);
         setIsOverDismissZone(false);
         isOverDismissZoneRef.current = false;
+
+        // Record starting absolute coordinates of the FAB
+        dragStartXRef.current = panXRef.current;
+        dragStartYRef.current = panYRef.current;
+
         if (Platform.OS === 'ios') {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         }
-        // M29 fix: Read tracked values from refs instead of private _value
-        pan.setOffset({
-          x: panXRef.current,
-          y: panYRef.current,
-        });
-        pan.setValue({ x: 0, y: 0 });
       },
       onPanResponderMove: (e, gestureState) => {
         if (Math.abs(gestureState.dx) > 5 || Math.abs(gestureState.dy) > 5) {
           hasMoved.current = true;
         }
-        Animated.event([null, { dx: pan.x, dy: pan.y }], {
-          useNativeDriver: false,
-        })(e, gestureState);
+
+        // Calculate absolute position based on starting coordinates + delta displacement
+        const absoluteX = dragStartXRef.current + gestureState.dx;
+        const absoluteY = dragStartYRef.current + gestureState.dy;
+
+        // Set the values directly on the animated coordinate system for synchronous updates
+        pan.setValue({ x: absoluteX, y: absoluteY });
 
         // Realtime distance detection to the bottom center Dismiss Zone
         const { width: screenW, height: screenH } = Dimensions.get('window');
-        const fabCenterX = panXRef.current + FAB_SIZE / 2;
-        const fabCenterY = panYRef.current + FAB_SIZE / 2;
+        const fabCenterX = absoluteX + FAB_SIZE / 2;
+        const fabCenterY = absoluteY + FAB_SIZE / 2;
         
         // Center of screen bottom (where dismiss zone resides)
         const dismissCenterX = screenW / 2;
@@ -109,7 +116,6 @@ export function useDraggableFab(bottomOffset: number, onDismiss?: () => void) {
         }
       },
       onPanResponderRelease: () => {
-        pan.flattenOffset();
         setIsDragging(false);
 
         // Check if released over Dismiss Zone
