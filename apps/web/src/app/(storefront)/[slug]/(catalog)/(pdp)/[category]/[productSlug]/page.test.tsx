@@ -413,7 +413,7 @@ vi.mock(
   })
 );
 
-import CategoryProductPage, { generateMetadata } from './page';
+import CategoryProductPage, { dynamic, generateMetadata } from './page';
 
 type ResolveRscOptions = {
   stripSuspense?: boolean;
@@ -652,6 +652,10 @@ describe('[category]/[productSlug] page metadata', () => {
     mockGetCachedLegacyProductRedirectTarget.mockResolvedValue(null);
     mockGetPublishedClusterPosts.mockReset();
     mockGetPublishedClusterPosts.mockResolvedValue([]);
+  });
+
+  it('opts the rendered PDP leaf route out of the Full Route Cache', () => {
+    expect(dynamic).toBe('force-dynamic');
   });
 
   it('keeps product metadata cacheable and leaves request binding to the storefront layout', async () => {

@@ -48,6 +48,12 @@ import { mapDetailedCachedProductToProduct } from './detailed-product-mapper';
 import { mapLegacyCachedProductToProduct } from './legacy-product-mapper';
 import ProductDetailClient from './product-detail-client';
 
+// Next 16's connection() keeps the render request-bound, but production logs
+// showed the PDP Full Route Cache still serving stale resume shells as HIT.
+// This official segment config opts only PDP pages out of that route-level cache
+// while the underlying product/merchant data stays cached through cached-data.ts.
+export const dynamic = 'force-dynamic';
+
 interface PageProps {
   params: Promise<{
     slug: string;

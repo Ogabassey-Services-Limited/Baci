@@ -67,6 +67,12 @@ import {
 } from '@/lib/validation';
 import { OgabasseyPdpSemanticSections } from './ogabassey-pdp-semantic-sections';
 
+// Next 16's connection() keeps the render request-bound, but production logs
+// showed the PDP Full Route Cache still serving stale resume shells as HIT.
+// This official segment config opts only PDP pages out of that route-level cache
+// while the underlying product/merchant data stays cached through cached-data.ts.
+export const dynamic = 'force-dynamic';
+
 /**
  * Converts server-side Product to Ogabassey template format
  */
