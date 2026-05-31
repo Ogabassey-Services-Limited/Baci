@@ -12,7 +12,7 @@
 // error='financial_totals_inconsistent'`. Replay after B3.5 backfill
 // retakes the failed claims and finishes them.
 
-import './dotenv-config';
+import 'dotenv/config';
 
 import { pathToFileURL } from 'node:url';
 import { logger } from '@/lib/logger';
