@@ -13,8 +13,8 @@ import {
   withRepeat,
   withSequence,
   withTiming,
-  runOnJS,
 } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 import { EDGE_MARGIN, FAB_SIZE } from './constants';
 
 // Define completely static, immutable haptic trigger outside the hook
@@ -117,8 +117,8 @@ export function useDraggableFab(
       contextX.value = translateX.value;
       contextY.value = translateY.value;
 
-      runOnJS(setIsDragging)(true);
-      runOnJS(triggerHaptic)(Haptics.ImpactFeedbackStyle.Light);
+      scheduleOnRN(setIsDragging, true);
+      scheduleOnRN(triggerHaptic, Haptics.ImpactFeedbackStyle.Light);
     },
     onUpdate: (event) => {
       translateX.value = contextX.value + event.translationX;
@@ -149,15 +149,15 @@ export function useDraggableFab(
       // Haptic boundary latch logic
       if (isOver && !hapticTriggered.value) {
         hapticTriggered.value = true;
-        runOnJS(setIsOverDismissZone)(true);
-        runOnJS(triggerHaptic)(Haptics.ImpactFeedbackStyle.Light);
+        scheduleOnRN(setIsOverDismissZone, true);
+        scheduleOnRN(triggerHaptic, Haptics.ImpactFeedbackStyle.Light);
       } else if (!isOver && hapticTriggered.value) {
         hapticTriggered.value = false;
-        runOnJS(setIsOverDismissZone)(false);
+        scheduleOnRN(setIsOverDismissZone, false);
       }
     },
     onDeactivate: (event) => {
-      runOnJS(setIsDragging)(false);
+      scheduleOnRN(setIsDragging, false);
 
       const currentWidth = windowWidthSV.value;
       const currentHeight = windowHeightSV.value;
@@ -171,11 +171,11 @@ export function useDraggableFab(
 
       const isOverDismiss = hapticTriggered.value;
       hapticTriggered.value = false;
-      runOnJS(setIsOverDismissZone)(false);
+      scheduleOnRN(setIsOverDismissZone, false);
 
       if (isOverDismiss) {
-        runOnJS(triggerHaptic)(Haptics.ImpactFeedbackStyle.Medium);
-        runOnJS(handleDismissJS)();
+        scheduleOnRN(triggerHaptic, Haptics.ImpactFeedbackStyle.Medium);
+        scheduleOnRN(handleDismissJS);
         return;
       }
 
@@ -196,8 +196,8 @@ export function useDraggableFab(
       const targetTranslationY = targetYAbsolute - startY;
 
       const isRight = targetXAbsolute === rightBound;
-      runOnJS(setIsOnRight)(isRight);
-      runOnJS(triggerHaptic)(Haptics.ImpactFeedbackStyle.Medium);
+      scheduleOnRN(setIsOnRight, isRight);
+      scheduleOnRN(triggerHaptic, Haptics.ImpactFeedbackStyle.Medium);
 
       translateX.value = withSpring(targetTranslationX, { damping: 15, stiffness: 120 });
       translateY.value = withSpring(targetTranslationY, { damping: 15, stiffness: 120 });
@@ -209,8 +209,8 @@ export function useDraggableFab(
     maxDistance: 8,
     onDeactivate: (event) => {
       if (!event.canceled) {
-        runOnJS(triggerHaptic)(Haptics.ImpactFeedbackStyle.Medium);
-        runOnJS(handlePressJS)();
+        scheduleOnRN(triggerHaptic, Haptics.ImpactFeedbackStyle.Medium);
+        scheduleOnRN(handlePressJS);
       }
     },
   });
