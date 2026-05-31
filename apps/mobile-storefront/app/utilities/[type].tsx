@@ -83,6 +83,13 @@ export default function UtilityPurchaseScreen() {
   const [selectedType, setSelectedType] = useState<ValidUtilityType | null>(
     routeType
   );
+  const [visitedTypes, setVisitedTypes] = useState<Record<ValidUtilityType, boolean>>(() => ({
+    airtime: routeType === 'airtime',
+    data: routeType === 'data',
+    tv: routeType === 'tv',
+    power: routeType === 'power',
+    gaming: routeType === 'gaming',
+  }));
   const currentType = selectedType ?? routeType;
   const historyFilter = currentType ?? 'airtime';
   const title = currentType ? UTILITY_TYPE_TITLES[currentType] : 'Utility';
@@ -117,6 +124,12 @@ export default function UtilityPurchaseScreen() {
       setSelectedType(newType);
     }
   };
+
+  useEffect(() => {
+    if (currentType) {
+      setVisitedTypes((prev) => (prev[currentType] ? prev : { ...prev, [currentType]: true }));
+    }
+  }, [currentType]);
 
   useEffect(() => {
     if (routeType) {
@@ -234,117 +247,127 @@ export default function UtilityPurchaseScreen() {
           }
           onPageSelected={handlePageSelected}
         >
-          <View key="airtime" style={{ flex: 1 }}>
-            <AirtimeForm
-              key={`airtime-${quickRepeat.repeatRevision}`}
-              initialAmount={quickRepeat.repeatDefaults.amount}
-              initialPhoneNumber={quickRepeat.repeatDefaults.phoneNumber}
-              initialProvider={getNetworkProviderId(
-                quickRepeat.repeatDefaults.networkProvider
-              )}
-              isRepeatPaymentReady={
-                currentType === 'airtime'
-                  ? quickRepeat.isRepeatPaymentReady
-                  : false
-              }
-              recentRecipients={
-                currentType === 'airtime' ? quickRepeat.recentRecipients : []
-              }
-              onSelectRecentRecipient={quickRepeat.handleRecipientSelect}
-              onSuccess={setSuccessData}
-            />
+          <View key="airtime" collapsable={false} style={{ flex: 1 }}>
+            {visitedTypes.airtime && (
+              <AirtimeForm
+                key={`airtime-${quickRepeat.repeatRevision}`}
+                initialAmount={quickRepeat.repeatDefaults.amount}
+                initialPhoneNumber={quickRepeat.repeatDefaults.phoneNumber}
+                initialProvider={getNetworkProviderId(
+                  quickRepeat.repeatDefaults.networkProvider
+                )}
+                isRepeatPaymentReady={
+                  currentType === 'airtime'
+                    ? quickRepeat.isRepeatPaymentReady
+                    : false
+                }
+                recentRecipients={
+                  currentType === 'airtime' ? quickRepeat.recentRecipients : []
+                }
+                onSelectRecentRecipient={quickRepeat.handleRecipientSelect}
+                onSuccess={setSuccessData}
+              />
+            )}
           </View>
-          <View key="data" style={{ flex: 1 }}>
-            <DataForm
-              key={`data-${quickRepeat.repeatRevision}`}
-              initialAmount={quickRepeat.repeatDefaults.amount}
-              initialPhoneNumber={quickRepeat.repeatDefaults.phoneNumber}
-              initialPlan={quickRepeat.repeatDefaults.dataPlanCode}
-              initialProvider={quickRepeat.repeatDefaults.networkProvider}
-              isRepeatPaymentReady={
-                currentType === 'data'
-                  ? quickRepeat.isRepeatPaymentReady
-                  : false
-              }
-              recentRecipients={
-                currentType === 'data' ? quickRepeat.recentRecipients : []
-              }
-              onSelectRecentRecipient={quickRepeat.handleRecipientSelect}
-              onSuccess={setSuccessData}
-            />
+          <View key="data" collapsable={false} style={{ flex: 1 }}>
+            {visitedTypes.data && (
+              <DataForm
+                key={`data-${quickRepeat.repeatRevision}`}
+                initialAmount={quickRepeat.repeatDefaults.amount}
+                initialPhoneNumber={quickRepeat.repeatDefaults.phoneNumber}
+                initialPlan={quickRepeat.repeatDefaults.dataPlanCode}
+                initialProvider={quickRepeat.repeatDefaults.networkProvider}
+                isRepeatPaymentReady={
+                  currentType === 'data'
+                    ? quickRepeat.isRepeatPaymentReady
+                    : false
+                }
+                recentRecipients={
+                  currentType === 'data' ? quickRepeat.recentRecipients : []
+                }
+                onSelectRecentRecipient={quickRepeat.handleRecipientSelect}
+                onSuccess={setSuccessData}
+              />
+            )}
           </View>
-          <View key="tv" style={{ flex: 1 }}>
-            <BillForm
-              key={`tv-${quickRepeat.repeatRevision}`}
-              initialAmount={quickRepeat.repeatDefaults.amount}
-              initialBillerName={quickRepeat.repeatDefaults.billerName}
-              initialBillItemIdentifier={
-                quickRepeat.repeatDefaults.billItemIdentifier
-              }
-              initialCustomerIdentifier={
-                quickRepeat.repeatDefaults.customerIdentifier
-              }
-              initialCustomerName={quickRepeat.repeatDefaults.customerName}
-              isRepeatPaymentReady={
-                currentType === 'tv' ? quickRepeat.isRepeatPaymentReady : false
-              }
-              recentRecipients={
-                currentType === 'tv' ? quickRepeat.recentRecipients : []
-              }
-              onSelectRecentRecipient={quickRepeat.handleRecipientSelect}
-              type="tv"
-              onSuccess={setSuccessData}
-            />
+          <View key="tv" collapsable={false} style={{ flex: 1 }}>
+            {visitedTypes.tv && (
+              <BillForm
+                key={`tv-${quickRepeat.repeatRevision}`}
+                initialAmount={quickRepeat.repeatDefaults.amount}
+                initialBillerName={quickRepeat.repeatDefaults.billerName}
+                initialBillItemIdentifier={
+                  quickRepeat.repeatDefaults.billItemIdentifier
+                }
+                initialCustomerIdentifier={
+                  quickRepeat.repeatDefaults.customerIdentifier
+                }
+                initialCustomerName={quickRepeat.repeatDefaults.customerName}
+                isRepeatPaymentReady={
+                  currentType === 'tv' ? quickRepeat.isRepeatPaymentReady : false
+                }
+                recentRecipients={
+                  currentType === 'tv' ? quickRepeat.recentRecipients : []
+                }
+                onSelectRecentRecipient={quickRepeat.handleRecipientSelect}
+                type="tv"
+                onSuccess={setSuccessData}
+              />
+            )}
           </View>
-          <View key="power" style={{ flex: 1 }}>
-            <BillForm
-              key={`power-${quickRepeat.repeatRevision}`}
-              initialAmount={quickRepeat.repeatDefaults.amount}
-              initialBillerName={quickRepeat.repeatDefaults.billerName}
-              initialBillItemIdentifier={
-                quickRepeat.repeatDefaults.billItemIdentifier
-              }
-              initialCustomerIdentifier={
-                quickRepeat.repeatDefaults.customerIdentifier
-              }
-              initialCustomerName={quickRepeat.repeatDefaults.customerName}
-              isRepeatPaymentReady={
-                currentType === 'power'
-                  ? quickRepeat.isRepeatPaymentReady
-                  : false
-              }
-              recentRecipients={
-                currentType === 'power' ? quickRepeat.recentRecipients : []
-              }
-              onSelectRecentRecipient={quickRepeat.handleRecipientSelect}
-              type="power"
-              onSuccess={setSuccessData}
-            />
+          <View key="power" collapsable={false} style={{ flex: 1 }}>
+            {visitedTypes.power && (
+              <BillForm
+                key={`power-${quickRepeat.repeatRevision}`}
+                initialAmount={quickRepeat.repeatDefaults.amount}
+                initialBillerName={quickRepeat.repeatDefaults.billerName}
+                initialBillItemIdentifier={
+                  quickRepeat.repeatDefaults.billItemIdentifier
+                }
+                initialCustomerIdentifier={
+                  quickRepeat.repeatDefaults.customerIdentifier
+                }
+                initialCustomerName={quickRepeat.repeatDefaults.customerName}
+                isRepeatPaymentReady={
+                  currentType === 'power'
+                    ? quickRepeat.isRepeatPaymentReady
+                    : false
+                }
+                recentRecipients={
+                  currentType === 'power' ? quickRepeat.recentRecipients : []
+                }
+                onSelectRecentRecipient={quickRepeat.handleRecipientSelect}
+                type="power"
+                onSuccess={setSuccessData}
+              />
+            )}
           </View>
-          <View key="gaming" style={{ flex: 1 }}>
-            <BillForm
-              key={`gaming-${quickRepeat.repeatRevision}`}
-              initialAmount={quickRepeat.repeatDefaults.amount}
-              initialBillerName={quickRepeat.repeatDefaults.billerName}
-              initialBillItemIdentifier={
-                quickRepeat.repeatDefaults.billItemIdentifier
-              }
-              initialCustomerIdentifier={
-                quickRepeat.repeatDefaults.customerIdentifier
-              }
-              initialCustomerName={quickRepeat.repeatDefaults.customerName}
-              isRepeatPaymentReady={
-                currentType === 'gaming'
-                  ? quickRepeat.isRepeatPaymentReady
-                  : false
-              }
-              recentRecipients={
-                currentType === 'gaming' ? quickRepeat.recentRecipients : []
-              }
-              onSelectRecentRecipient={quickRepeat.handleRecipientSelect}
-              type="gaming"
-              onSuccess={setSuccessData}
-            />
+          <View key="gaming" collapsable={false} style={{ flex: 1 }}>
+            {visitedTypes.gaming && (
+              <BillForm
+                key={`gaming-${quickRepeat.repeatRevision}`}
+                initialAmount={quickRepeat.repeatDefaults.amount}
+                initialBillerName={quickRepeat.repeatDefaults.billerName}
+                initialBillItemIdentifier={
+                  quickRepeat.repeatDefaults.billItemIdentifier
+                }
+                initialCustomerIdentifier={
+                  quickRepeat.repeatDefaults.customerIdentifier
+                }
+                initialCustomerName={quickRepeat.repeatDefaults.customerName}
+                isRepeatPaymentReady={
+                  currentType === 'gaming'
+                    ? quickRepeat.isRepeatPaymentReady
+                    : false
+                }
+                recentRecipients={
+                  currentType === 'gaming' ? quickRepeat.recentRecipients : []
+                }
+                onSelectRecentRecipient={quickRepeat.handleRecipientSelect}
+                type="gaming"
+                onSuccess={setSuccessData}
+              />
+            )}
           </View>
         </AnimatedPagerView>
       </AppKeyboardContainer>

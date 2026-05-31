@@ -1690,6 +1690,7 @@ export async function getCachedCategoryPageData(
       'id, name, slug, description, image_url, is_active, seo_heading, seo_description, seo_features, seo_faq, parent:parent_id(name, slug)'
     )
     .eq('merchant_id', merchantId)
+    .eq('slug', categorySlug)
     .single() as unknown as Promise<{
     data: StorefrontCategoryRow | null;
     error: unknown;

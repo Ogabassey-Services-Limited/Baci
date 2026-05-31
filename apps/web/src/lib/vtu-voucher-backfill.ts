@@ -253,45 +253,106 @@ export async function scheduleVoucherPinBackfill({
   }
 
   after(async () => {
-    try {
-      const pin =
-        transaction.status === 'processing'
-          ? await fulfillPendingVtuTransaction({
-              supabase,
-              transactionId,
-            }).then((result) =>
-              result.status === 'successful'
-                ? (result.voucherPin ?? null)
-                : null
-            )
-          : await backfillVtuVoucherPin({
-              billRequestRef: isString(transaction.request_reference)
-                ? transaction.request_reference
-                : null,
-              billResponseReference: isString(transaction.transaction_id)
-                ? transaction.transaction_id
-                : null,
-              metadata: scheduledMetadata,
-              supabase,
-              transactionId,
-            });
+    const isTest = process.env.NODE_ENV === 'test';
+    const maxAttempts = isTest ? 1 : 12;
+    const intervalMs = 15_000;
+    let currentMetadata = scheduledMetadata;
+    let pinResolved = false;
 
-      // Kuda didn't return a pin yet — clear the timestamp so the next mobile
-      // poll can schedule a fresh attempt immediately instead of waiting for
-      // the 15-minute dedupe window.
-      if (!pin) {
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        let currentStatus = transaction.status;
+        let currentRef = transaction.request_reference;
+        let currentTxId = transaction.transaction_id;
+
+        if (attempt > 0) {
+          const { data: currentTx, error: txError } = await supabase
+            .from('vtu_transactions')
+            .select('status, metadata, request_reference, transaction_id, type')
+            .eq('id', transactionId)
+            .single();
+
+          if (txError || !currentTx) {
+            console.error(
+              `VTU backfill loop: transaction ${transactionId} not found or error:`,
+              txError
+            );
+            break;
+          }
+
+          currentStatus = currentTx.status;
+          currentRef = currentTx.request_reference;
+          currentTxId = currentTx.transaction_id;
+          currentMetadata = normalizeMetadata(currentTx.metadata);
+        }
+
+        const currentPin = extractMetadataField(
+          currentMetadata,
+          'voucherPin',
+          isString
+        );
+
+        if (currentPin || currentStatus === 'failed') {
+          console.log(
+            `VTU backfill loop: transaction ${transactionId} resolved early with status ${currentStatus}`
+          );
+          pinResolved = Boolean(currentPin);
+          break;
+        }
+
+        let pin: string | null = null;
+
+        if (currentStatus === 'processing') {
+          const result = await fulfillPendingVtuTransaction({
+            supabase,
+            transactionId,
+          });
+          if (result.status === 'successful') {
+            pin = result.voucherPin ?? null;
+          }
+        } else if (currentStatus === 'successful') {
+          pin =
+            (await backfillVtuVoucherPin({
+              billRequestRef: isString(currentRef) ? currentRef : null,
+              billResponseReference: isString(currentTxId) ? currentTxId : null,
+              metadata: currentMetadata,
+              supabase,
+              transactionId,
+            })) ?? null;
+        }
+
+        if (pin) {
+          console.log(
+            `VTU backfill loop: successfully backfilled voucher pin for transaction ${transactionId}`
+          );
+          pinResolved = true;
+          break;
+        }
+      } catch (error) {
+        console.error(
+          `VTU backfill loop error on attempt ${attempt + 1}:`,
+          error
+        );
+      }
+
+      if (attempt < maxAttempts - 1) {
+        await new Promise((resolve) => setTimeout(resolve, intervalMs));
+      }
+    }
+
+    if (!pinResolved) {
+      try {
         await clearVoucherPinBackfillTimestamp({
-          currentMetadata: scheduledMetadata,
+          currentMetadata,
           supabase,
           transactionId,
         });
+      } catch (clearError) {
+        console.error(
+          'VTU backfill loop: failed to clear backfill timestamp:',
+          clearError
+        );
       }
-    } catch (error) {
-      console.error('Failed to backfill VTU voucher pin from history:', {
-        error,
-        transactionId: transaction.id,
-        transactionReference: transaction.transaction_id,
-      });
     }
   });
 

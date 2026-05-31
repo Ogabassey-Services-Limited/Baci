@@ -20,11 +20,11 @@ import {
   Zap,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import RGL from 'react-grid-layout';
+import type RGL from 'react-grid-layout';
+import { Responsive, WidthProvider } from 'react-grid-layout';
 
 type LayoutItem = RGL.Layout;
 type ResponsiveLayouts = RGL.Layouts;
-const { Responsive, WidthProvider } = RGL;
 
 import { AIInsightsPanel } from '@/components/analytics/ai-insights-panel';
 import type { AnalyticsCategory } from '@/components/analytics/analytics-category-nav';

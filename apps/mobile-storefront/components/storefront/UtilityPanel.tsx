@@ -109,7 +109,8 @@ export function UtilityPanel({
     if (isManualUtility) return;
 
     const interval = setInterval(() => {
-      const next = (activeUtilityIndex + 1) % UTILITY_WORDS.length;
+      const currentVal = Math.round(activeIndexVal.value);
+      const next = (currentVal + 1) % UTILITY_WORDS.length;
       if (next === 0) {
         activeIndexVal.value = 0; // Instant jump back to 0, no backward sweep!
       } else {
@@ -118,7 +119,7 @@ export function UtilityPanel({
     }, 2800); // Slightly slower for better readability
 
     return () => clearInterval(interval);
-  }, [isManualUtility, activeIndexVal, activeUtilityIndex]);
+  }, [isManualUtility, activeIndexVal]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: activeUtilityIndex intentionally restarts the promo text transition when the selected utility changes.
   useEffect(() => {
