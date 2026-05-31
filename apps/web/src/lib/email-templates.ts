@@ -30,6 +30,17 @@ function buildRegistrationLine(data: MerchantRegistrationInfo): string {
   return parts.join(' &middot; ');
 }
 
+function buildEscapedRegistrationLine(data: MerchantRegistrationInfo): string {
+  const parts: string[] = [];
+  if (data.merchantRcNumber) {
+    parts.push(`RC: ${escapeHtml(data.merchantRcNumber)}`);
+  }
+  if (data.merchantTin) {
+    parts.push(`TIN: ${escapeHtml(data.merchantTin)}`);
+  }
+  return parts.join(' &middot; ');
+}
+
 interface OrderConfirmationData extends MerchantRegistrationInfo {
   orderNumber: string;
   customerName: string;
@@ -1370,6 +1381,19 @@ export function generateVtuTokenReceiptEmail(
   data: VtuTokenReceiptData
 ): string {
   const isTokenReady = Boolean(data.voucherPin);
+  const safeMerchantUrl = getSafeHttpUrl(data.merchantUrl) ?? '#';
+  const safeMerchantHref = escapeHtml(safeMerchantUrl);
+  const merchantName = escapeHtml(data.merchantName);
+  const customerName = escapeHtml(data.customerName);
+  const providerLabel = escapeHtml(data.providerLabel);
+  const customerIdentifier = data.customerIdentifier
+    ? escapeHtml(data.customerIdentifier)
+    : null;
+  const contactPhone = data.phone_number ? escapeHtml(data.phone_number) : null;
+  const reference = escapeHtml(data.reference);
+  const voucherPin = data.voucherPin ? escapeHtml(data.voucherPin) : null;
+  const supportEmail = data.supportEmail ? escapeHtml(data.supportEmail) : null;
+  const registrationLine = buildEscapedRegistrationLine(data);
   const typeLabel =
     data.type === 'electricity'
       ? 'Electricity Token'
@@ -1399,7 +1423,7 @@ export function generateVtuTokenReceiptEmail(
         YOUR PREPAID TOKEN PIN
       </div>
       <div style="font-family: 'Courier New', Courier, monospace; font-size: 28px; font-weight: 800; color: #facc15; letter-spacing: 2px; padding: 12px; background: #1e293b; border-radius: 8px; display: inline-block; word-break: break-all; max-width: 100%;">
-        ${data.voucherPin}
+        ${voucherPin}
       </div>
       <p style="margin: 12px 0 0 0; color: #cbd5e1; font-size: 14px; line-height: 1.5;">
         Enter this token directly into your meter or decoder to activate.
@@ -1422,9 +1446,9 @@ export function generateVtuTokenReceiptEmail(
   `;
 
   const detailsRows = [
-    { label: 'Biller / Service', value: data.providerLabel },
+    { label: 'Biller / Service', value: providerLabel },
     { label: 'Product Type', value: typeLabel },
-    data.customerIdentifier
+    customerIdentifier
       ? {
           label:
             data.type === 'electricity'
@@ -1432,13 +1456,11 @@ export function generateVtuTokenReceiptEmail(
               : data.type === 'cable_tv'
                 ? 'Smartcard / Decoder Number'
                 : 'Target Account',
-          value: data.customerIdentifier,
+          value: customerIdentifier,
         }
       : null,
-    data.phone_number
-      ? { label: 'Contact Phone', value: data.phone_number }
-      : null,
-    { label: 'Reference Number', value: data.reference },
+    contactPhone ? { label: 'Contact Phone', value: contactPhone } : null,
+    { label: 'Reference Number', value: reference },
   ].filter((item): item is { label: string; value: string } => item !== null);
 
   const detailsHtml = detailsRows
@@ -1478,7 +1500,7 @@ export function generateVtuTokenReceiptEmail(
               <table border="0" cellpadding="0" cellspacing="0" width="100%">
                 <tr>
                   <td align="left">
-                    <span style="font-size: 20px; font-weight: 800; color: #ffffff; letter-spacing: -0.5px;">${data.merchantName}</span>
+                    <span style="font-size: 20px; font-weight: 800; color: #ffffff; letter-spacing: -0.5px;">${merchantName}</span>
                   </td>
                   <td align="right" style="color: #94a3b8; font-size: 13px;">
                     ${new Date().toLocaleDateString('en-GB')}
@@ -1501,10 +1523,10 @@ export function generateVtuTokenReceiptEmail(
           <tr>
             <td style="padding: 30px 30px 20px 30px;">
               <p style="margin: 0 0 16px 0; font-size: 16px; color: #1e293b; line-height: 1.5;">
-                Hi <strong>${data.customerName}</strong>,
+                Hi <strong>${customerName}</strong>,
               </p>
               <p style="margin: 0 0 24px 0; font-size: 15px; color: #475569; line-height: 1.6;">
-                Thank you for your purchase from <strong>${data.merchantName}</strong>. Your payment was verified successfully and your utility vend request has been fulfilled.
+                Thank you for your purchase from <strong>${merchantName}</strong>. Your payment was verified successfully and your utility vend request has been fulfilled.
               </p>
 
               ${tokenSectionHtml}
@@ -1521,7 +1543,7 @@ export function generateVtuTokenReceiptEmail(
                     <tr>
                       <td style="padding: 16px 0 12px 0; color: #0f172a; font-weight: 700; font-size: 15px;">Total Amount</td>
                       <td style="padding: 16px 0 12px 0; color: ${accentColor}; font-weight: 800; font-size: 18px; text-align: right;">
-                        ${formatEmailMoney(data.amount, data.currency)}
+                        ${escapeHtml(formatEmailMoney(data.amount, data.currency))}
                       </td>
                     </tr>
                   </tbody>
@@ -1535,17 +1557,12 @@ export function generateVtuTokenReceiptEmail(
           <tr>
             <td style="background-color: #f8fafc; padding: 24px 30px; border-top: 1px solid #e2e8f0; text-align: center;">
               <p style="margin: 0 0 6px 0; font-size: 13px; color: #64748b;">
-                Need help? Contact <a href="${data.merchantUrl}" style="color: ${accentColor}; text-decoration: none; font-weight: 600;">${data.merchantName} Support</a>
+                Need help? Contact <a href="${safeMerchantHref}" style="color: ${accentColor}; text-decoration: none; font-weight: 600;">${merchantName} Support</a>
               </p>
-              ${data.supportEmail ? `<p style="margin: 0 0 10px 0; font-size: 12px; color: #94a3b8;">Email: ${data.supportEmail}</p>` : ''}
-              ${(() => {
-                const reg = buildRegistrationLine(data);
-                return reg
-                  ? `<p style="margin: 0 0 10px 0; font-size: 11px; color: #94a3b8;">${reg}</p>`
-                  : '';
-              })()}
+              ${supportEmail ? `<p style="margin: 0 0 10px 0; font-size: 12px; color: #94a3b8;">Email: ${supportEmail}</p>` : ''}
+              ${registrationLine ? `<p style="margin: 0 0 10px 0; font-size: 11px; color: #94a3b8;">${registrationLine}</p>` : ''}
               <p style="margin: 16px 0 0 0; font-size: 11px; color: #94a3b8; letter-spacing: 0.3px;">
-                &copy; ${new Date().getFullYear()} ${data.merchantName}. Powered by <strong>Baci</strong>.
+                &copy; ${new Date().getFullYear()} ${merchantName}. Powered by <strong>Baci</strong>.
               </p>
             </td>
           </tr>

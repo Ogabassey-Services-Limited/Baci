@@ -31,7 +31,7 @@ describe('GadgetPatternBackground', () => {
     jest.clearAllMocks();
   });
 
-  it('uses style.pointerEvents on absolute-fill wrappers and applies the base backgroundColor', () => {
+  it('keeps absolute-fill wrappers non-interactive and applies the base backgroundColor', () => {
     const bgColor = '#ff0000';
     const { toJSON } = render(
       <GadgetPatternBackground colorScheme="light" backgroundColor={bgColor} />
@@ -46,15 +46,13 @@ describe('GadgetPatternBackground', () => {
 
     const layers = Array.isArray(json) ? json : json ? [json] : [];
     expect(layers).toHaveLength(2);
-    expect(layers[0]?.props.pointerEvents).toBeUndefined();
-    expect(layers[1]?.props.pointerEvents).toBeUndefined();
+    expect(layers[0]?.props.pointerEvents).toBe('none');
+    expect(layers[1]?.props.pointerEvents).toBe('none');
     expect(StyleSheet.flatten(layers[0]?.props.style)).toMatchObject({
       backgroundColor: bgColor,
-      pointerEvents: 'none',
     });
     expect(StyleSheet.flatten(layers[1]?.props.style)).toMatchObject({
       overflow: 'hidden',
-      pointerEvents: 'none',
     });
   });
 

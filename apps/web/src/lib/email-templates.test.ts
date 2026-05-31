@@ -11,6 +11,7 @@ import {
   generatePaymentReceiptText,
   generatePaymentReminderEmail,
   generatePaymentReminderText,
+  generateVtuTokenReceiptEmail,
 } from './email-templates';
 
 const baseOrderData = {
@@ -355,6 +356,45 @@ describe('Email Templates', () => {
       expect(output).toContain('$1,234.56');
       expect(output).toContain('$1,244.81');
       expect(output).not.toContain('$1,235');
+    });
+  });
+
+  describe('VTU token receipt email', () => {
+    it('escapes receipt fields and rejects unsafe merchant links', () => {
+      const html = generateVtuTokenReceiptEmail({
+        transactionId: 'tx-1',
+        reference: 'REF-<script>alert(1)</script>',
+        customerName: 'Ada <img src=x onerror=alert(1)>',
+        amount: 2500,
+        type: 'electricity',
+        providerLabel: 'EKEDC <b>bad</b>',
+        customerIdentifier: 'METER-<script>meter()</script>',
+        voucherPin: 'PIN-<script>token()</script>',
+        phone_number: '080<script>phone()</script>',
+        merchantName: 'Shop <script>brand()</script>',
+        merchantUrl: 'javascript:alert(1)',
+        supportEmail: 'help@example.com<script>alert(1)</script>',
+        merchantTin: 'TIN-<script>tin()</script>',
+        merchantRcNumber: 'RC-<script>rc()</script>',
+      });
+
+      expect(html).toContain('Ada \\u003cimg src=x onerror=alert(1)\\u003e');
+      expect(html).toContain('EKEDC \\u003cb\\u003ebad\\u003c/b\\u003e');
+      expect(html).toContain(
+        'METER-\\u003cscript\\u003emeter()\\u003c/script\\u003e'
+      );
+      expect(html).toContain(
+        'PIN-\\u003cscript\\u003etoken()\\u003c/script\\u003e'
+      );
+      expect(html).toContain('href="#"');
+      expect(html).toContain(
+        'RC: RC-\\u003cscript\\u003erc()\\u003c/script\\u003e'
+      );
+      expect(html).toContain(
+        'TIN: TIN-\\u003cscript\\u003etin()\\u003c/script\\u003e'
+      );
+      expect(html).not.toContain('<script>');
+      expect(html).not.toContain('javascript:alert(1)');
     });
   });
 });

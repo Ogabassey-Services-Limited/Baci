@@ -1,4 +1,3 @@
-import type React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { BRAND } from '@/constants/Colors';
 import { GadgetPattern } from './GadgetPattern';
@@ -28,18 +27,14 @@ export function GadgetPatternBackground({
     <>
       {/* Base background color layer to ensure reliable absolute rendering */}
       <View
-        style={[
-          StyleSheet.absoluteFill,
-          { backgroundColor, pointerEvents: 'none' },
-        ]}
+        pointerEvents="none"
+        style={[StyleSheet.absoluteFill, { backgroundColor }]}
       />
 
       {/* Absolute background gadget pattern for premium tech framing */}
       <View
-        style={[
-          StyleSheet.absoluteFill,
-          { overflow: 'hidden', pointerEvents: 'none' },
-        ]}
+        pointerEvents="none"
+        style={[StyleSheet.absoluteFill, { overflow: 'hidden' }]}
       >
         <GadgetPattern
           opacity={patternOpacity}

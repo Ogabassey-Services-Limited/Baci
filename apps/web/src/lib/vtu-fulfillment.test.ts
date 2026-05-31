@@ -11,6 +11,7 @@ const mockPurchaseData = vi.fn();
 const mockCheckTransactionStatus = vi.fn();
 const mockNotifyCustomer = vi.fn();
 const mockPurchaseBill = vi.fn();
+const mockSendEmail = vi.fn();
 
 vi.mock('@/lib/kuda', () => ({
   NetworkProvider: {
@@ -35,12 +36,21 @@ vi.mock('@/lib/expo-push', () => ({
   notifyCustomer: (...args: unknown[]) => mockNotifyCustomer(...args),
 }));
 
+vi.mock('@/lib/zeptomail', () => ({
+  sendEmail: (...args: unknown[]) => mockSendEmail(...args),
+}));
+
 type SupabaseStub = Parameters<
   typeof fulfillPendingVtuTransaction
 >[0]['supabase'];
 
 interface PendingTransactionMockOptions {
-  customerData?: { user_id: string | null } | null;
+  customerData?: {
+    user_id: string | null;
+    email?: string | null;
+    first_name?: string | null;
+    last_name?: string | null;
+  } | null;
   currentTransactionData?: Record<string, unknown> | null;
   existingCustomerCashback?: { balance_after: number } | null;
   existingMerchantCommission?: { id: string } | null;
@@ -49,7 +59,11 @@ interface PendingTransactionMockOptions {
     name: string,
     args?: Record<string, unknown>
   ) => Promise<{ data: unknown; error: unknown }>;
-  merchantData?: { business_name?: string };
+  merchantData?: {
+    business_name?: string;
+    slug?: string | null;
+    support_email?: string | null;
+  };
   claimData?: Record<string, unknown> | null;
   notificationClaimData?: { id: string } | null;
   purchaseUpdateData?: { id: string } | null;
@@ -344,6 +358,8 @@ describe('fulfillPendingVtuTransaction', () => {
       status: 'successful',
     });
     mockNotifyCustomer.mockResolvedValue({ errors: [], failed: 0, sent: 1 });
+    mockSendEmail.mockReset();
+    mockSendEmail.mockResolvedValue({ success: true });
   });
 
   it('returns the existing success payload without repurchasing', async () => {
@@ -389,11 +405,26 @@ describe('fulfillPendingVtuTransaction', () => {
     });
 
     const supabase = {
-      from: vi.fn(() => ({
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({ single }),
-        }),
-      })),
+      from: vi.fn((table: string) => {
+        if (table === 'customers') {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                maybeSingle: vi.fn().mockResolvedValue({
+                  data: null,
+                  error: null,
+                }),
+              }),
+            }),
+          };
+        }
+
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({ single }),
+          }),
+        };
+      }),
       rpc,
     } as unknown as Parameters<
       typeof fulfillPendingVtuTransaction
@@ -552,6 +583,76 @@ describe('fulfillPendingVtuTransaction', () => {
       }),
       'orders'
     );
+  });
+
+  it('sends an email receipt when the generic customer notification was already attempted', async () => {
+    const updatePayloads: unknown[] = [];
+    const supabase = createPendingTransactionSupabaseMock({
+      customerData: {
+        user_id: 'user-1',
+        email: 'buyer@example.com',
+        first_name: 'Ada',
+        last_name: 'Lovelace',
+      },
+      merchantData: {
+        business_name: 'OgaBassey',
+        slug: 'ogabassey',
+        support_email: 'support@oga.test',
+      },
+      transactionRow: {
+        id: 'vtu-1',
+        merchant_id: 'merchant-1',
+        customer_id: 'customer-1',
+        type: 'electricity',
+        network_provider: '',
+        phone_number: '',
+        amount: 1000,
+        request_reference: 'VTU-123',
+        transaction_id: 'kuda-1',
+        status: 'successful',
+        metadata: {
+          customerNotificationAttempted: true,
+          customerEmailNotificationSent: false,
+          voucherPin: 'TOKEN-READY-1234',
+        },
+        error_message: null,
+        merchant_commission: 0,
+        customer_cashback: 0,
+        biller_name: 'EKEDC PREPAID',
+        biller_item_code: 'KUD-ELE-EKED-002',
+        customer_identifier: '43901766923',
+      },
+      updatePayloads,
+    });
+
+    const result = await fulfillPendingVtuTransaction({
+      supabase,
+      transactionId: 'vtu-1',
+    });
+
+    expect(result).toMatchObject({
+      status: 'successful',
+      voucherPin: 'TOKEN-READY-1234',
+    });
+    expect(mockNotifyCustomer).not.toHaveBeenCalled();
+    expect(mockSendEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: 'buyer@example.com',
+        toName: 'Ada Lovelace',
+        subject: 'Your Prepaid Token is Ready - OgaBassey',
+        htmlContent: expect.stringContaining(
+          'href="https://ogabassey.usebaci.com/"'
+        ),
+        textContent: expect.stringContaining('TOKEN-READY-1234'),
+      })
+    );
+    expect(updatePayloads).toContainEqual({
+      metadata: expect.objectContaining({
+        customerEmailNotificationAttempted: true,
+        customerEmailNotificationSent: true,
+        customerNotificationAttempted: true,
+      }),
+    });
   });
 
   it('returns success when successful-transaction metadata cannot be persisted', async () => {

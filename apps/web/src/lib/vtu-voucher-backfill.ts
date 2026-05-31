@@ -241,7 +241,7 @@ export async function scheduleVoucherPinBackfill({
 
   const transactionId = transaction.id;
   const scheduledMetadata = await markVoucherPinBackfillScheduled({
-    consumeAttempt: transaction.status === 'successful',
+    consumeAttempt: true,
     metadata,
     originalMetadata,
     supabase,
@@ -253,91 +253,50 @@ export async function scheduleVoucherPinBackfill({
   }
 
   after(async () => {
-    const isTest = process.env.NODE_ENV === 'test';
-    const maxAttempts = isTest ? 1 : 12;
-    const intervalMs = 15_000;
-    let currentMetadata = scheduledMetadata;
+    const currentMetadata = scheduledMetadata;
     let pinResolved = false;
 
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      try {
-        let currentStatus = transaction.status;
-        let currentRef = transaction.request_reference;
-        let currentTxId = transaction.transaction_id;
+    try {
+      const currentPin = extractMetadataField(
+        currentMetadata,
+        'voucherPin',
+        isString
+      );
 
-        if (attempt > 0) {
-          const { data: currentTx, error: txError } = await supabase
-            .from('vtu_transactions')
-            .select('status, metadata, request_reference, transaction_id, type')
-            .eq('id', transactionId)
-            .single();
-
-          if (txError || !currentTx) {
-            console.error(
-              `VTU backfill loop: transaction ${transactionId} not found or error:`,
-              txError
-            );
-            break;
-          }
-
-          currentStatus = currentTx.status;
-          currentRef = currentTx.request_reference;
-          currentTxId = currentTx.transaction_id;
-          currentMetadata = normalizeMetadata(currentTx.metadata);
-        }
-
-        const currentPin = extractMetadataField(
-          currentMetadata,
-          'voucherPin',
-          isString
-        );
-
-        if (currentPin || currentStatus === 'failed') {
-          console.log(
-            `VTU backfill loop: transaction ${transactionId} resolved early with status ${currentStatus}`
-          );
-          pinResolved = Boolean(currentPin);
-          break;
-        }
-
-        let pin: string | null = null;
-
-        if (currentStatus === 'processing') {
-          const result = await fulfillPendingVtuTransaction({
+      if (currentPin || transaction.status === 'failed') {
+        console.log('VTU voucher-pin backfill resolved before provider poll', {
+          status: transaction.status,
+          transactionId,
+        });
+        pinResolved = Boolean(currentPin);
+      } else if (transaction.status === 'processing') {
+        const result = await fulfillPendingVtuTransaction({
+          supabase,
+          transactionId,
+        });
+        pinResolved =
+          result.status === 'successful' && Boolean(result.voucherPin);
+      } else if (transaction.status === 'successful') {
+        const pin =
+          (await backfillVtuVoucherPin({
+            billRequestRef: isString(transaction.request_reference)
+              ? transaction.request_reference
+              : null,
+            billResponseReference: isString(transaction.transaction_id)
+              ? transaction.transaction_id
+              : null,
+            metadata: currentMetadata,
             supabase,
             transactionId,
-          });
-          if (result.status === 'successful') {
-            pin = result.voucherPin ?? null;
-          }
-        } else if (currentStatus === 'successful') {
-          pin =
-            (await backfillVtuVoucherPin({
-              billRequestRef: isString(currentRef) ? currentRef : null,
-              billResponseReference: isString(currentTxId) ? currentTxId : null,
-              metadata: currentMetadata,
-              supabase,
-              transactionId,
-            })) ?? null;
-        }
+          })) ?? null;
 
-        if (pin) {
-          console.log(
-            `VTU backfill loop: successfully backfilled voucher pin for transaction ${transactionId}`
-          );
-          pinResolved = true;
-          break;
-        }
-      } catch (error) {
-        console.error(
-          `VTU backfill loop error on attempt ${attempt + 1}:`,
-          error
-        );
+        pinResolved = Boolean(pin);
       }
-
-      if (attempt < maxAttempts - 1) {
-        await new Promise((resolve) => setTimeout(resolve, intervalMs));
-      }
+    } catch (error) {
+      console.error('VTU voucher-pin backfill provider poll failed:', {
+        error,
+        transactionId,
+      });
     }
 
     if (!pinResolved) {

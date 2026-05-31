@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { getRootDomain } from '@/env';
 import { notifyCustomer } from '@/lib/expo-push';
 import {
   checkTransactionStatus,
@@ -1038,7 +1039,7 @@ async function notifyVtuCustomerSuccess({
   row: VtuTransactionRow;
   supabase: SupabaseClient;
 }) {
-  if (!row.customer_id || metadata.customerNotificationAttempted === true) {
+  if (!row.customer_id) {
     return { metadataChanged: false };
   }
 
@@ -1064,14 +1065,23 @@ async function notifyVtuCustomerSuccess({
     .eq('id', row.merchant_id)
     .single();
 
-  const claimedNotification = await claimCustomerNotificationAttempt({
-    metadata,
-    row,
-    supabase,
-  });
-  if (!claimedNotification) {
+  const shouldAttemptPush =
+    Boolean(customer.user_id) &&
+    metadata.customerNotificationAttempted !== true;
+  const shouldAttemptEmail =
+    Boolean(customer.email) && metadata.customerEmailNotificationSent !== true;
+
+  if (!shouldAttemptPush && !shouldAttemptEmail) {
     return { metadataChanged: false };
   }
+
+  const claimedNotification = shouldAttemptPush
+    ? await claimCustomerNotificationAttempt({
+        metadata,
+        row,
+        supabase,
+      })
+    : false;
 
   const label = VTU_TYPE_LABELS[row.type];
   const provider = getVtuProviderLabel(row);
@@ -1106,10 +1116,10 @@ async function notifyVtuCustomerSuccess({
         vtuType: row.type,
       };
 
-  let metadataChanged = true;
+  let metadataChanged = claimedNotification;
 
   // 1. Send push notification if user_id exists
-  if (customer.user_id) {
+  if (shouldAttemptPush && customer.user_id && claimedNotification) {
     try {
       const result = await notifyCustomer(
         customer.user_id,
@@ -1137,16 +1147,21 @@ async function notifyVtuCustomerSuccess({
   }
 
   // 2. Send email receipt to customer if email exists
-  if (customer.email) {
+  if (shouldAttemptEmail && customer.email) {
+    metadataChanged =
+      setMetadataValue(metadata, 'customerEmailNotificationAttempted', true) ||
+      metadataChanged;
+
     try {
       const { sendEmail } = await import('@/lib/zeptomail');
       const { generateVtuTokenReceiptEmail, generateVtuTokenReceiptText } =
         await import('@/lib/email-templates');
 
       const merchantName = merchant?.business_name || 'Baci Merchant';
+      const rootDomain = getRootDomain() || 'usebaci.com';
       const merchantUrl = merchant?.slug
-        ? `https://${merchant.slug}.baci.app`
-        : 'https://baci.app';
+        ? `https://${merchant.slug}.${rootDomain}`
+        : `https://${rootDomain}`;
       const customerName = customer.first_name
         ? `${customer.first_name} ${customer.last_name || ''}`.trim()
         : 'Customer';
