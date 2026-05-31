@@ -2,7 +2,9 @@ import Ionicons from '@react-native-vector-icons/ionicons';
 import * as Haptics from 'expo-haptics';
 import { usePathname } from 'expo-router';
 import { useEffect } from 'react';
-import { Animated, Platform, Pressable, Text, View } from 'react-native';
+import { Platform, Text, View, Animated as RNAnimated } from 'react-native';
+import { GestureDetector, Touchable } from 'react-native-gesture-handler';
+import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
@@ -56,12 +58,12 @@ export function ChatWidget({
   }, [pathname, resetChatDismissal]);
 
   const {
-    pan,
-    panResponder,
-    pulseAnim,
+    composedGesture,
+    translateX,
+    translateY,
+    scale,
     isDragging,
     isOverDismissZone,
-    hasMoved,
     isOnRight,
   } = useDraggableFab(effectiveBottomOffset, dismissChat, handleOpen);
 
@@ -75,12 +77,26 @@ export function ChatWidget({
     isChatDismissed ||
     HIDDEN_ROUTES.some((route) => pathname?.startsWith(route));
 
+  // Reanimated style for the dynamic translation of the FAB container
+  const animatedFabStyle = useAnimatedStyle(() => {
+    return {
+      transform: [
+        { translateX: translateX.value },
+        { translateY: translateY.value },
+      ],
+    };
+  });
+
+  // Reanimated style for the scale pulse of the FAB
+  const animatedIconStyle = useAnimatedStyle(() => {
+    return {
+      transform: [
+        { scale: scale.value },
+      ],
+    };
+  });
+
   function handleOpen() {
-    // Only open if we didn't drag
-    if (hasMoved.current) {
-      hasMoved.current = false;
-      return;
-    }
     if (Platform.OS === 'ios') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
@@ -93,23 +109,23 @@ export function ChatWidget({
 
   return (
     <>
-      {/* Draggable Floating Action Button */}
+      {/* Draggable Floating Action Button Container (Reanimated) */}
       <Animated.View
         style={[
           styles.fabContainer,
           {
             right: EDGE_MARGIN,
             bottom: effectiveBottomOffset,
-            transform: [{ translateX: pan.x }, { translateY: pan.y }],
           },
+          animatedFabStyle,
         ]}
       >
-        {/* Proactive Nudge - Horizontal thought bubble */}
+        {/* Proactive Nudge - Horizontal thought bubble (RN legacy Animated) */}
         {proactiveMsg && !isChatOpen && !isDragging && (
-          <Animated.View
+          <RNAnimated.View
             style={[
               styles.nudgeContainer,
-              isOnRight.current ? styles.nudgeRight : styles.nudgeLeft,
+              isOnRight ? styles.nudgeRight : styles.nudgeLeft,
               { opacity: nudgeFadeAnim },
             ]}
           >
@@ -125,17 +141,20 @@ export function ChatWidget({
               <Text style={[styles.nudgeText, { color: colors.text }]}>
                 {proactiveMsg}
               </Text>
-              <Pressable style={styles.nudgeClose} onPress={dismissNudge}>
+              <Touchable
+                activeOpacity={0.3}
+                animationDuration={{ in: 0, out: 150 }}
+                style={styles.nudgeClose}
+                onPress={dismissNudge}
+              >
                 <Ionicons name="close" size={10} color={colors.textSecondary} />
-              </Pressable>
+              </Touchable>
             </View>
             {/* Thought bubble tail dots */}
             <View
               style={[
                 styles.nudgeTailContainer,
-                isOnRight.current
-                  ? styles.nudgeTailRight
-                  : styles.nudgeTailLeft,
+                isOnRight ? styles.nudgeTailRight : styles.nudgeTailLeft,
               ]}
             >
               <View
@@ -151,39 +170,38 @@ export function ChatWidget({
                 ]}
               />
             </View>
-          </Animated.View>
+          </RNAnimated.View>
         )}
 
-        <Animated.View
-          style={{
-            transform: [{ scale: isDragging ? 1.1 : pulseAnim }],
-          }}
-          {...panResponder.panHandlers}
-        >
-          <Pressable
-            style={[
-              styles.fab,
-              {
-                backgroundColor: santaMode ? BRAND.primary : colors.card,
-                borderColor: isDragging ? BRAND.primary : colors.border,
-                borderWidth: isDragging ? 2 : 1,
-              },
-            ]}
-            accessibilityRole="button"
-            accessibilityLabel="Open chat assistant. Drag to move."
-            accessibilityHint="Double tap to open chat, or drag to reposition"
-            onPress={handleOpen}
-          >
-            {santaMode ? (
-              <Text style={styles.fabEmoji}>🎅</Text>
-            ) : (
-              <Ionicons name="sparkles" size={28} color={BRAND.primary} />
-            )}
-            <View style={styles.aiBadge}>
-              <Text style={styles.aiBadgeText}>AI</Text>
-            </View>
-          </Pressable>
-        </Animated.View>
+        {/* GestureDetector wraps only the FAB itself */}
+        <GestureDetector gesture={composedGesture}>
+          <Animated.View style={animatedIconStyle}>
+            <Touchable
+              activeOpacity={0.7}
+              style={[
+                styles.fab,
+                {
+                  backgroundColor: santaMode ? BRAND.primary : colors.card,
+                  borderColor: isDragging ? BRAND.primary : colors.border,
+                  borderWidth: isDragging ? 2 : 1,
+                },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Open chat assistant. Drag to move."
+              accessibilityHint="Double tap to open chat, or drag to reposition"
+              accessible={true}
+            >
+              {santaMode ? (
+                <Text style={styles.fabEmoji}>🎅</Text>
+              ) : (
+                <Ionicons name="sparkles" size={28} color={BRAND.primary} />
+              )}
+              <View style={styles.aiBadge}>
+                <Text style={styles.aiBadgeText}>AI</Text>
+              </View>
+            </Touchable>
+          </Animated.View>
+        </GestureDetector>
 
         {/* Drag indicator */}
         {isDragging && (
@@ -196,12 +214,12 @@ export function ChatWidget({
       {/* Dynamic Dismiss Zone at bottom center when dragging */}
       {isDragging && (
         <View style={styles.dismissZone}>
-          <Animated.View
+          <View
             style={[
               styles.dismissCircle,
               {
                 backgroundColor: isOverDismissZone ? '#FF3B30' : colors.card,
-                borderColor: isOverDismissZone ? '#FF3B30' : '#FF3B30',
+                borderColor: '#FF3B30',
                 transform: [{ scale: isOverDismissZone ? 1.15 : 1 }],
               },
             ]}
@@ -211,7 +229,7 @@ export function ChatWidget({
               size={22}
               color={isOverDismissZone ? '#FFFFFF' : '#FF3B30'}
             />
-          </Animated.View>
+          </View>
           <Text
             style={[
               styles.dismissText,

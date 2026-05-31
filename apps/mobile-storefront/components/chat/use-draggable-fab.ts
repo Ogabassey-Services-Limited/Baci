@@ -1,6 +1,20 @@
 import * as Haptics from 'expo-haptics';
-import { useEffect, useRef, useState } from 'react';
-import { Animated, Dimensions, PanResponder, Platform } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Dimensions, Platform } from 'react-native';
+import {
+  usePanGesture,
+  useTapGesture,
+  useSimultaneousGestures,
+} from 'react-native-gesture-handler';
+import {
+  useSharedValue,
+  withSpring,
+  cancelAnimation,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 import { EDGE_MARGIN, FAB_SIZE } from './constants';
 
 export function useDraggableFab(
@@ -10,238 +24,185 @@ export function useDraggableFab(
 ) {
   const [isDragging, setIsDragging] = useState(false);
   const [isOverDismissZone, setIsOverDismissZone] = useState(false);
-  const isOverDismissZoneRef = useRef(false);
+  const [isOnRight, setIsOnRight] = useState(true);
 
+  // Translation values relative to starting styled location
+  const translateX = useSharedValue(0);
+  const translateY = useSharedValue(0);
 
-  
+  // Pulse animation scale
+  const scale = useSharedValue(1);
 
-  // Draggable FAB translation - starts at (0, 0) relative to its styled layout position
-  const pan = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
+  // Reanimated boolean latch for haptic boundary transitions
+  const hapticTriggered = useSharedValue(false);
 
-  // Track if user moved significantly (to distinguish tap from drag)
-  const hasMoved = useRef(false);
+  // Track coordinates when the gesture begins
+  const contextX = useSharedValue(0);
+  const contextY = useSharedValue(0);
 
-  // Pulse animation for FAB (only when not dragging)
-  const pulseAnim = useRef(new Animated.Value(1)).current;
+  // Window dimension tracking
+  const { width: windowWidth, height: windowHeight } = Dimensions.get('window');
 
-  // Track accumulated translation values via listeners
-  const panXRef = useRef(0);
-  const panYRef = useRef(0);
+  // Trigger haptic feedback safely
+  const triggerHaptic = (style: Haptics.ImpactFeedbackStyle) => {
+    if (Platform.OS === 'ios') {
+      Haptics.impactAsync(style).catch(() => {});
+    }
+  };
 
+  // Pulse animation loop
   useEffect(() => {
-    const xId = pan.x.addListener(({ value }) => {
-      panXRef.current = value;
-    });
-    const yId = pan.y.addListener(({ value }) => {
-      panYRef.current = value;
-    });
+    if (isDragging) {
+      cancelAnimation(scale);
+      scale.value = withTiming(1.1, { duration: 150 });
+      return;
+    }
+
+    cancelAnimation(scale);
+    scale.value = withRepeat(
+      withSequence(
+        withTiming(1.05, { duration: 1000 }),
+        withTiming(1, { duration: 1000 })
+      ),
+      -1,
+      true
+    );
+
     return () => {
-      pan.x.removeListener(xId);
-      pan.y.removeListener(yId);
+      cancelAnimation(scale);
     };
-  }, [pan.x, pan.y]);
+  }, [isDragging, scale]);
 
-  // Store coordinates at the start of gesture (grant time)
-  const dragStartXRef = useRef(0);
-  const dragStartYRef = useRef(0);
+  // RNGH 3.0 Pan Gesture Definition
+  const panGesture = usePanGesture({
+    minDistance: 8,
+    onActivate: () => {
+      cancelAnimation(translateX);
+      cancelAnimation(translateY);
+      contextX.value = translateX.value;
+      contextY.value = translateY.value;
 
-  // M30 fix: Use ref for bottomOffset so PanResponder always reads fresh value
-  const bottomOffsetRef = useRef(bottomOffset);
-  bottomOffsetRef.current = bottomOffset;
-
-  // Pan responder for drag gesture
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onStartShouldSetPanResponderCapture: () => true,
-      onMoveShouldSetPanResponderCapture: () => true,
-      onPanResponderTerminationRequest: () => false,
-      onShouldBlockNativeResponder: () => true,
-      onPanResponderGrant: () => {
-        hasMoved.current = false;
+      scheduleOnRN(() => {
         setIsDragging(true);
-        setIsOverDismissZone(false);
-        isOverDismissZoneRef.current = false;
+        triggerHaptic(Haptics.ImpactFeedbackStyle.Light);
+      });
+    },
+    onUpdate: (event) => {
+      translateX.value = contextX.value + event.translationX;
+      translateY.value = contextY.value + event.translationY;
 
-        // Record starting absolute translation before resetting value to 0
-        dragStartXRef.current = panXRef.current;
-        dragStartYRef.current = panYRef.current;
+      // Absolute coordinates calculation
+      const startX = windowWidth - FAB_SIZE - EDGE_MARGIN;
+      const startY = windowHeight - bottomOffset - FAB_SIZE;
 
-        // Record translation offset and reset value to 0 for delta tracking
-        pan.setOffset({
-          x: panXRef.current,
-          y: panYRef.current,
+      const absoluteX = startX + translateX.value;
+      const absoluteY = startY + translateY.value;
+
+      const fabCenterX = absoluteX + FAB_SIZE / 2;
+      const fabCenterY = absoluteY + FAB_SIZE / 2;
+      const dismissCenterX = windowWidth / 2;
+      const dismissCenterY = windowHeight - 100;
+
+      const dx = fabCenterX - dismissCenterX;
+      const dy = fabCenterY - dismissCenterY;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      const isOver = distance < 80;
+
+      // Haptic boundary latch logic
+      if (isOver && !hapticTriggered.value) {
+        hapticTriggered.value = true;
+        scheduleOnRN(() => {
+          setIsOverDismissZone(true);
+          triggerHaptic(Haptics.ImpactFeedbackStyle.Light);
         });
-        pan.setValue({ x: 0, y: 0 });
-
-        if (Platform.OS === 'ios') {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        }
-      },
-      onPanResponderMove: (e, gestureState) => {
-        if (Math.abs(gestureState.dx) > 5 || Math.abs(gestureState.dy) > 5) {
-          hasMoved.current = true;
-        }
-
-        // Set value directly relative to offset
-        pan.setValue({ x: gestureState.dx, y: gestureState.dy });
-
-        // Calculate absolute position based on start layout + accumulated translation offset + current gesture delta
-        const { width: screenW, height: screenH } = Dimensions.get('window');
-        const currentStartX = screenW - FAB_SIZE - EDGE_MARGIN;
-        const currentStartY = screenH - bottomOffsetRef.current - FAB_SIZE;
-
-        const absoluteX = currentStartX + dragStartXRef.current + gestureState.dx;
-        const absoluteY = currentStartY + dragStartYRef.current + gestureState.dy;
-
-        // Realtime distance detection to the bottom center Dismiss Zone
-        const fabCenterX = absoluteX + FAB_SIZE / 2;
-        const fabCenterY = absoluteY + FAB_SIZE / 2;
-        
-        // Center of screen bottom (where dismiss zone resides)
-        const dismissCenterX = screenW / 2;
-        const dismissCenterY = screenH - 100;
-
-        const dx = fabCenterX - dismissCenterX;
-        const dy = fabCenterY - dismissCenterY;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-
-        // Hover threshold: 80px
-        const isHovering = distance < 80;
-
-        if (isHovering) {
-          if (!isOverDismissZoneRef.current) {
-            isOverDismissZoneRef.current = true;
-            setIsOverDismissZone(true);
-            if (Platform.OS === 'ios') {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            }
-          }
-        } else {
-          if (isOverDismissZoneRef.current) {
-            isOverDismissZoneRef.current = false;
-            setIsOverDismissZone(false);
-          }
-        }
-      },
-      onPanResponderRelease: () => {
+      } else if (!isOver && hapticTriggered.value) {
+        hapticTriggered.value = false;
+        scheduleOnRN(() => {
+          setIsOverDismissZone(false);
+        });
+      }
+    },
+    onDeactivate: (event) => {
+      scheduleOnRN(() => {
         setIsDragging(false);
+      });
 
-        // If user tapped without dragging, trigger the onPress callback
-        if (!hasMoved.current) {
-          pan.flattenOffset();
-          setIsOverDismissZone(false);
-          isOverDismissZoneRef.current = false;
-          if (onPress) {
-            onPress();
-          }
-          return;
-        }
+      const startX = windowWidth - FAB_SIZE - EDGE_MARGIN;
+      const startY = windowHeight - bottomOffset - FAB_SIZE;
 
-        // Check if released over Dismiss Zone
-        if (isOverDismissZoneRef.current) {
-          pan.flattenOffset();
-          if (Platform.OS === 'ios') {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-          }
-          setIsOverDismissZone(false);
-          isOverDismissZoneRef.current = false;
+      const absoluteX = startX + translateX.value;
+      const absoluteY = startY + translateY.value;
+
+      const isOverDismiss = hapticTriggered.value;
+      hapticTriggered.value = false;
+      scheduleOnRN(() => {
+        setIsOverDismissZone(false);
+      });
+
+      if (isOverDismiss) {
+        scheduleOnRN(() => {
+          triggerHaptic(Haptics.ImpactFeedbackStyle.Medium);
           if (onDismiss) {
             onDismiss();
           }
-          return;
-        }
+        });
+        return;
+      }
 
-        // Save translation state by flattening the offset
-        pan.flattenOffset();
+      // Snap to nearest horizontal edge
+      const leftBound = EDGE_MARGIN;
+      const rightBound = startX;
 
-        const currentTranslationX = panXRef.current;
-        const currentTranslationY = panYRef.current;
-        const { width: screenW, height: screenH } = Dimensions.get('window');
+      const snapX = absoluteX + event.velocityX * 0.08;
+      const targetXAbsolute = snapX + FAB_SIZE / 2 < windowWidth / 2 ? leftBound : rightBound;
 
-        // Current start layout coordinates
-        const currentStartX = screenW - FAB_SIZE - EDGE_MARGIN;
-        const currentStartY = screenH - bottomOffsetRef.current - FAB_SIZE;
+      // Clamp vertical bounds
+      const clampBottom = bottomOffset;
+      const minY = 100;
+      const maxY = windowHeight - clampBottom - FAB_SIZE;
+      let targetYAbsolute = absoluteY + event.velocityY * 0.04;
+      targetYAbsolute = Math.max(minY, Math.min(targetYAbsolute, maxY));
 
-        // Current absolute coordinates
-        const currentX = currentStartX + currentTranslationX;
-        const currentY = currentStartY + currentTranslationY;
+      const targetTranslationX = targetXAbsolute - startX;
+      const targetTranslationY = targetYAbsolute - startY;
 
-        // Snaps to edges: left or right nearest horizontal bound
-        const leftBound = EDGE_MARGIN;
-        const rightBound = screenW - FAB_SIZE - EDGE_MARGIN;
-        const targetX = currentX + FAB_SIZE / 2 < screenW / 2 ? leftBound : rightBound;
+      const isRight = targetXAbsolute === rightBound;
+      scheduleOnRN(() => {
+        setIsOnRight(isRight);
+        triggerHaptic(Haptics.ImpactFeedbackStyle.Medium);
+      });
 
-        // Clamp Y inside vertical margins
-        const clampBottom = bottomOffsetRef.current;
-        const minY = 100; // Below status bar
-        const maxY = screenH - clampBottom - FAB_SIZE;
-        const targetY = Math.min(Math.max(currentY, minY), maxY);
+      translateX.value = withSpring(targetTranslationX, { damping: 15, stiffness: 120 });
+      translateY.value = withSpring(targetTranslationY, { damping: 15, stiffness: 120 });
+    },
+  });
 
-        // Convert the target absolute coordinates back to translation values
-        const targetTranslationX = targetX - currentStartX;
-        const targetTranslationY = targetY - currentStartY;
+  // RNGH 3.0 Tap Gesture Definition
+  const tapGesture = useTapGesture({
+    maxDistance: 8,
+    onDeactivate: (event) => {
+      if (!event.canceled) {
+        scheduleOnRN(() => {
+          triggerHaptic(Haptics.ImpactFeedbackStyle.Medium);
+          if (onPress) {
+            onPress();
+          }
+        });
+      }
+    },
+  });
 
-        // Animate translation to snapped position
-        Animated.spring(pan, {
-          toValue: { x: targetTranslationX, y: targetTranslationY },
-          useNativeDriver: false,
-          friction: 7,
-          tension: 40,
-        }).start();
-
-        if (Platform.OS === 'ios') {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        }
-      },
-    })
-  ).current;
-
-  // Track which side the FAB is on (for nudge positioning)
-  const isOnRight = useRef(true);
-
-  useEffect(() => {
-    const listenerId = pan.x.addListener(({ value }) => {
-      const currentWidth = Dimensions.get('window').width;
-      const currentStartX = currentWidth - FAB_SIZE - EDGE_MARGIN;
-      const absoluteX = currentStartX + value;
-      isOnRight.current = absoluteX + FAB_SIZE / 2 > currentWidth / 2;
-    });
-    return () => {
-      pan.x.removeListener(listenerId);
-    };
-  }, [pan.x]);
-
-  // Pulse animation loop (only when not dragging)
-  useEffect(() => {
-    if (isDragging) return;
-
-    const pulse = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.05,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-      ])
-    );
-    pulse.start();
-    return () => pulse.stop();
-  }, [pulseAnim, isDragging]);
+  // Compose simultaneous tap & pan gestures cleanly
+  const composedGesture = useSimultaneousGestures(panGesture, tapGesture);
 
   return {
-    pan,
-    panResponder,
-    pulseAnim,
+    composedGesture,
+    translateX,
+    translateY,
+    scale,
     isDragging,
     isOverDismissZone,
-    hasMoved,
     isOnRight,
   };
 }

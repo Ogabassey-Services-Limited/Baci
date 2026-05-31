@@ -17,27 +17,15 @@ jest.mock('./use-chat', () => ({
   })),
 }));
 
-const mockPan = {
-  x: { addListener: jest.fn(() => '1'), removeListener: jest.fn() },
-  y: { addListener: jest.fn(() => '2'), removeListener: jest.fn() },
-  setOffset: jest.fn(),
-  setValue: jest.fn(),
-  flattenOffset: jest.fn(),
-};
-
 jest.mock('./use-draggable-fab', () => ({
   useDraggableFab: jest.fn(() => ({
-    pan: mockPan,
-    panResponder: { panHandlers: {} },
-    pulseAnim: {
-      addListener: jest.fn(),
-      removeListener: jest.fn(),
-      setValue: jest.fn(),
-    },
+    composedGesture: {},
+    translateX: { value: 0 },
+    translateY: { value: 0 },
+    scale: { value: 1 },
     isDragging: false,
     isOverDismissZone: false,
-    hasMoved: { current: false },
-    isOnRight: { current: true },
+    isOnRight: true,
   })),
 }));
 
