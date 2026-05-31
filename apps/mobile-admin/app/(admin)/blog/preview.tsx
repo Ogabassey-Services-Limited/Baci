@@ -1,3 +1,4 @@
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
@@ -7,12 +8,11 @@ import {
   Text,
   View,
 } from 'react-native';
-import Ionicons from '@react-native-vector-icons/ionicons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import { z } from 'zod';
-import { blogPreviewStyles as styles } from '@/components/blog-preview/blog-preview.styles';
 import { sanitizeEditorHtml } from '@/components/blog-editor/sanitize-editor-html';
+import { blogPreviewStyles as styles } from '@/components/blog-preview/blog-preview.styles';
 import { InvalidRouteScreen } from '@/components/ui/InvalidRouteScreen';
 import SafeImage from '@/components/ui/SafeImage';
 import { useMerchant } from '@/hooks/useMerchant';
@@ -20,7 +20,7 @@ import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
 
 const previewParamsSchema = z.object({
-  id: z.string().uuid(),
+  id: z.uuid(),
 });
 
 const blogPreviewPostSchema = z.object({
