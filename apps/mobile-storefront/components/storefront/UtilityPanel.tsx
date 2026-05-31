@@ -2,13 +2,14 @@ import type Ionicons from '@react-native-vector-icons/ionicons';
 // router removed as it was unused.
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Easing, Text, View } from 'react-native';
+import { ActivityIndicator, Animated, Easing, StyleSheet, Text, View } from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
 import { type Category, useCategories } from '@/hooks';
 import { usePrefetchBillers } from '@/hooks/use-vtu-billers';
 import { utilityPanelStyles as styles } from './UtilityPanel.styles';
 import { UtilityPanelCategoryItem } from './UtilityPanelCategoryItem';
+import { GadgetPattern } from './GadgetPattern';
 
 interface UtilityPanelProps {
   variant?: 'card' | 'circle' | 'pill';
@@ -160,11 +161,20 @@ export function UtilityPanel({
         showContainer
           ? [
               styles.container,
-              { backgroundColor: colors.card, borderColor: colors.border },
+              { backgroundColor: colors.card, borderColor: colors.border, overflow: 'hidden', position: 'relative' },
             ]
           : styles.minimalContainer
       }
     >
+      {showContainer && (
+        <View style={[StyleSheet.absoluteFill, { overflow: 'hidden' }]}>
+          <GadgetPattern
+            opacity={colorScheme === 'dark' ? 0.03 : 0.04}
+            height={160}
+            color={colorScheme === 'dark' ? '#ffffff' : BRAND.primary}
+          />
+        </View>
+      )}
       {/* Dynamic Unified Banner */}
       <View
         accessible
