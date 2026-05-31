@@ -3,7 +3,6 @@ import { resolveVariantSelectionParamResolution } from '@baci/shared/lib';
 import type { Metadata, ResolvingMetadata } from 'next';
 import { headers } from 'next/headers';
 import { notFound, permanentRedirect, redirect } from 'next/navigation';
-import { connection } from 'next/server';
 import { StorefrontRouteNotFound } from '@/app/(storefront)/[slug]/storefront-route-not-found';
 import { ProductSemanticSections } from '@/components/storefront/ogabassey/seo/product-semantic-sections';
 import {
@@ -295,11 +294,6 @@ export async function generateMetadata(
   { params, searchParams }: PageProps,
   __parent: ResolvingMetadata
 ): Promise<Metadata> {
-  // Keep product metadata request-bound with the body tree. If metadata is
-  // prerendered while the page resolves dynamically, Next can resume a product
-  // host slot as its internal metadata boundary.
-  await connection();
-
   const { slug, productSlug } = await params;
   const resolvedSearchParams = await searchParams;
   const productResult = await getProductCached(slug, productSlug);

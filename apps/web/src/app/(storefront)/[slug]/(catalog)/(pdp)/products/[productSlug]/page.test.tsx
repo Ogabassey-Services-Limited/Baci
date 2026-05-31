@@ -401,7 +401,7 @@ describe('products/[productSlug] page', () => {
     expect(screen.queryByText('mystery-item')).not.toBeInTheDocument();
   });
 
-  it('opts product metadata into request-time rendering before lookup', async () => {
+  it('keeps product metadata cacheable and leaves request binding to the storefront layout', async () => {
     mockGetCachedProduct.mockResolvedValue(uncategorizedProduct);
 
     await generateMetadata(
@@ -415,10 +415,8 @@ describe('products/[productSlug] page', () => {
       stubParent
     );
 
-    expect(mockConnection).toHaveBeenCalledTimes(1);
-    expect(mockConnection.mock.invocationCallOrder[0]).toBeLessThan(
-      mockGetRequestScopedMerchant.mock.invocationCallOrder[0]
-    );
+    expect(mockConnection).not.toHaveBeenCalled();
+    expect(mockGetRequestScopedMerchant).toHaveBeenCalled();
   });
 
   describe('redirect routing mode', () => {

@@ -177,7 +177,13 @@ jobs:
         with:
           store-dir: ${{ runner.temp }}/pnpm-store
       - name: Run Tests
-        run: pnpm turbo test --concurrency=3
+        run: |
+          turbo_cache_args=()
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            # PR tokens can read Vercel Remote Cache but may not be allowed to write artifacts.
+            turbo_cache_args+=(--remote-cache-read-only)
+          fi
+          pnpm turbo test --concurrency=3 "${turbo_cache_args[@]}"
 
   quality-misc:
     name: Quality Gate - Misc
