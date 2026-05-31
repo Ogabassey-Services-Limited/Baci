@@ -47,7 +47,7 @@ describe('QuizPage', () => {
     expect(safeJsonLdStringify).toHaveBeenCalledWith(
       expect.objectContaining({
         '@type': 'WebPage',
-        name: 'Ogabassey Prize Quiz',
+        name: 'Ogabassey Super Quiz',
       })
     );
   });

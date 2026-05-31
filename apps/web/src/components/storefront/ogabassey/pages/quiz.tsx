@@ -164,7 +164,7 @@ export function OgabasseyV2Quiz({ merchantSlug }: OgabasseyV2QuizProps) {
           <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
             <div className="max-w-2xl">
               <p className="text-xs font-semibold uppercase text-store-primary">Ogabassey rewards</p>
-              <h1 className="mt-2 text-3xl font-bold tracking-normal text-store-background-text sm:text-4xl">Prize Quiz</h1>
+              <h1 className="mt-2 text-3xl font-bold tracking-normal text-store-background-text sm:text-4xl">Super Quiz</h1>
               <p className="mt-3 text-sm leading-6 text-store-background-text/70">
                 Use {formatPointCount(EXAM_PASS_POINTS_COST)} as your exam pass,
                 answer each timed question, and qualify for prize rewards.
@@ -186,7 +186,7 @@ export function OgabasseyV2Quiz({ merchantSlug }: OgabasseyV2QuizProps) {
           <section className={panel}>
             <h2 className="text-lg font-semibold">Sign in to play</h2>
             <p className="mt-2 text-sm leading-6 text-store-background-text/70">
-              Prize Quiz is available to Ogabassey customers with an active
+              Super Quiz is available to Ogabassey customers with an active
               account and enough loyalty points for an exam pass.
             </p>
             <Link href={asRoute(loginHref)} className={`mt-4 inline-flex items-center justify-center ${primaryButton}`}>Sign in</Link>
