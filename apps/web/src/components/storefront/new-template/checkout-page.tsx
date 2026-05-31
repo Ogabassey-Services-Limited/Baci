@@ -11,6 +11,10 @@ import { asRoute } from '@/lib/routes';
 import { Footer } from './footer';
 import { Navbar } from './navbar';
 
+type CheckoutCartItem = CartItem & {
+  variant_id?: string;
+};
+
 export const CheckoutPage: React.FC = () => {
   const { cart, cartTotal } = useCart();
   const [isClient, setIsClient] = useState(false);
@@ -272,9 +276,14 @@ export const CheckoutPage: React.FC = () => {
                 </h3>
 
                 <div className="space-y-4 mb-6 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                  {cart.map((item: CartItem) => (
+                  {cart.map((item: CheckoutCartItem) => (
                     <div
-                      key={item.variantId || item.id}
+                      key={
+                        item.cartItemId ||
+                        item.variantId ||
+                        item.variant_id ||
+                        item.id
+                      }
                       className="flex gap-3"
                     >
                       <div className="size-16 bg-gray-50 rounded-lg p-1 shrink-0">

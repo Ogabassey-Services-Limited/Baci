@@ -19,6 +19,12 @@ import { asRoute } from '@/lib/routes';
 import { Footer } from './footer';
 import { Navbar } from './navbar';
 
+type CartPageItem = CartItem & {
+  variant_id?: string;
+  variantColor?: string;
+  variantStorage?: string;
+};
+
 export const CartPage: React.FC = () => {
   const { cart, updateQuantity, removeFromCart, cartTotal } = useCart();
   const [isClient, setIsClient] = useState(false);
@@ -79,98 +85,115 @@ export const CartPage: React.FC = () => {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12">
             {/* Cart Items */}
             <div className="lg:col-span-2 space-y-6">
-              {cart.map((item: CartItem) => (
-                <div
-                  key={item.variantId || item.id}
-                  className="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-100 flex gap-4 md:gap-6 group transition-all hover:shadow-md"
-                >
-                  <div className="size-24 md:w-32 md:h-32 bg-gray-50 rounded-xl shrink-0 p-2">
-                    <img
-                      src={item.image}
-                      alt={item.name}
-                      className="w-full h-full object-contain mix-blend-multiply"
-                    />
-                  </div>
+              {cart.map((item: CartPageItem) => {
+                const legacyVariantId = item.variantId ?? item.variant_id;
+                const cartMutationId = item.cartItemId || item.id;
+                const cartMutationVariantId = item.cartItemId
+                  ? undefined
+                  : legacyVariantId;
+                const selectedColor = item.selectedColor ?? item.variantColor;
+                const selectedStorage =
+                  item.selectedStorage ?? item.variantStorage;
 
-                  <div className="flex-1 flex flex-col justify-between">
-                    <div>
-                      <div className="flex justify-between items-start gap-4">
-                        <h3 className="font-bold text-gray-900 text-lg leading-tight mb-1">
-                          {item.name}
-                        </h3>
-                        <button type="button"
-                          onClick={() =>
-                            removeFromCart(item.id, item.variantId)
-                          }
-                          className="text-gray-400 hover:text-red-600 transition-colors p-1"
-                          aria-label="Remove item"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </div>
-
-                      <div className="flex flex-wrap gap-2 text-sm text-gray-500 mb-3">
-                        {item.selectedColor && (
-                          <span className="bg-gray-50 px-2 py-1 rounded-md border border-gray-100">
-                            {item.selectedColor}
-                          </span>
-                        )}
-                        {item.selectedStorage && (
-                          <span className="bg-gray-50 px-2 py-1 rounded-md border border-gray-100">
-                            {item.selectedStorage}
-                          </span>
-                        )}
-                      </div>
+                return (
+                  <div
+                    key={item.cartItemId || legacyVariantId || item.id}
+                    className="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-100 flex gap-4 md:gap-6 group transition-all hover:shadow-md"
+                  >
+                    <div className="size-24 md:w-32 md:h-32 bg-gray-50 rounded-xl shrink-0 p-2">
+                      <img
+                        src={item.image}
+                        alt={item.name}
+                        className="w-full h-full object-contain mix-blend-multiply"
+                      />
                     </div>
 
-                    <div className="flex items-end justify-between gap-4">
-                      <div className="flex items-center bg-gray-100 rounded-lg p-1">
-                        <button type="button"
-                          onClick={() =>
-                            updateQuantity(
-                              item.id,
-                              Math.max(1, item.quantity - 1),
-                              item.variantId
-                            )
-                          }
-                          className="size-8 flex items-center justify-center rounded-md bg-white text-gray-600 shadow-sm hover:text-red-600 disabled:opacity-50"
-                          disabled={item.quantity <= 1}
-                          aria-label="Decrease quantity"
-                        >
-                          <Minus size={14} />
-                        </button>
-                        <span className="w-10 text-center font-bold text-sm text-gray-900">
-                          {item.quantity}
-                        </span>
-                        <button type="button"
-                          onClick={() =>
-                            updateQuantity(
-                              item.id,
-                              item.quantity + 1,
-                              item.variantId
-                            )
-                          }
-                          className="size-8 flex items-center justify-center rounded-md bg-white text-gray-600 shadow-sm hover:text-red-600"
-                          aria-label="Increase quantity"
-                        >
-                          <Plus size={14} />
-                        </button>
+                    <div className="flex-1 flex flex-col justify-between">
+                      <div>
+                        <div className="flex justify-between items-start gap-4">
+                          <h3 className="font-bold text-gray-900 text-lg leading-tight mb-1">
+                            {item.name}
+                          </h3>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              removeFromCart(
+                                cartMutationId,
+                                cartMutationVariantId
+                              )
+                            }
+                            className="text-gray-400 hover:text-red-600 transition-colors p-1"
+                            aria-label="Remove item"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2 text-sm text-gray-500 mb-3">
+                          {selectedColor && (
+                            <span className="bg-gray-50 px-2 py-1 rounded-md border border-gray-100">
+                              {selectedColor}
+                            </span>
+                          )}
+                          {selectedStorage && (
+                            <span className="bg-gray-50 px-2 py-1 rounded-md border border-gray-100">
+                              {selectedStorage}
+                            </span>
+                          )}
+                        </div>
                       </div>
 
-                      <div className="text-right">
-                        <p className="font-bold text-xl text-red-600">
-                          ₦{(item.price * item.quantity).toLocaleString()}
-                        </p>
-                        {item.quantity > 1 && (
-                          <p className="text-xs text-gray-400">
-                            ₦{item.price.toLocaleString()} each
+                      <div className="flex items-end justify-between gap-4">
+                        <div className="flex items-center bg-gray-100 rounded-lg p-1">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              updateQuantity(
+                                cartMutationId,
+                                Math.max(1, item.quantity - 1),
+                                cartMutationVariantId
+                              )
+                            }
+                            className="size-8 flex items-center justify-center rounded-md bg-white text-gray-600 shadow-sm hover:text-red-600 disabled:opacity-50"
+                            disabled={item.quantity <= 1}
+                            aria-label="Decrease quantity"
+                          >
+                            <Minus size={14} />
+                          </button>
+                          <span className="w-10 text-center font-bold text-sm text-gray-900">
+                            {item.quantity}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              updateQuantity(
+                                cartMutationId,
+                                item.quantity + 1,
+                                cartMutationVariantId
+                              )
+                            }
+                            className="size-8 flex items-center justify-center rounded-md bg-white text-gray-600 shadow-sm hover:text-red-600"
+                            aria-label="Increase quantity"
+                          >
+                            <Plus size={14} />
+                          </button>
+                        </div>
+
+                        <div className="text-right">
+                          <p className="font-bold text-xl text-red-600">
+                            ₦{(item.price * item.quantity).toLocaleString()}
                           </p>
-                        )}
+                          {item.quantity > 1 && (
+                            <p className="text-xs text-gray-400">
+                              ₦{item.price.toLocaleString()} each
+                            </p>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Order Summary */}
