@@ -25,6 +25,140 @@ function normalizePremiumFeatures(
     : undefined;
 }
 
+const PUBLIC_FEATURE_SETTING_KEYS = [
+  'about_page_enabled',
+  'auto_blog_enabled',
+  'blog_enabled',
+  'checkout_collect_phone',
+  'checkout_require_account',
+  'checkout_show_order_notes',
+  'contact_page_enabled',
+  'credpal_enabled',
+  'credit_direct_enabled',
+  'credit_direct_max_amount',
+  'credit_direct_min_amount',
+  'discount_codes_enabled',
+  'faq_page_enabled',
+  'free_shipping_threshold',
+  'google_analytics_id',
+  'google_place_id',
+  'google_reviews_enabled',
+  'google_site_verification',
+  'google_store_widget_enabled',
+  'guest_checkout_enabled',
+  'juicyway_enabled',
+  'klump_enabled',
+  'klump_max_amount',
+  'klump_min_amount',
+  'korapay_enabled',
+  'loyalty_enabled',
+  'low_stock_threshold',
+  'order_tracking_enabled',
+  'pay_on_delivery_enabled',
+  'paystack_enabled',
+  'preferred_international_gateway',
+  'preferred_local_gateway',
+  'privacy_page_enabled',
+  'reviews_enabled',
+  'rewards_page_enabled',
+  'shipping_insurance_enabled',
+  'shipping_insurance_min_order_value',
+  'shipping_insurance_opt_in_default',
+  'shipping_providers',
+  'show_recent_purchases',
+  'show_stock_levels',
+  'snapchat_pixel_id',
+  'terms_page_enabled',
+  'tiktok_pixel_id',
+  'twitter_pixel_id',
+  'vtu_airtime_enabled',
+  'vtu_checkout_addon_amounts',
+  'vtu_checkout_addon_enabled',
+  'vtu_data_enabled',
+  'vtu_enabled',
+  'vtu_loyalty_reward_enabled',
+  'vtu_tv_enabled',
+  'wishlist_enabled',
+] as const;
+
+const PUBLIC_CUSTOM_SETTING_KEYS = [
+  'google_merchant_id',
+  'google_store_widget_enabled',
+] as const;
+
+function isPublicFeatureSettingValue(value: unknown) {
+  return (
+    value == null ||
+    typeof value === 'boolean' ||
+    typeof value === 'number' ||
+    typeof value === 'string' ||
+    (Array.isArray(value) &&
+      value.every(
+        (entry) =>
+          typeof entry === 'boolean' ||
+          typeof entry === 'number' ||
+          typeof entry === 'string'
+      ))
+  );
+}
+
+function pickPublicCustomSettings(
+  customSettings: unknown
+): Record<string, unknown> | undefined {
+  if (
+    !customSettings ||
+    typeof customSettings !== 'object' ||
+    Array.isArray(customSettings)
+  ) {
+    return undefined;
+  }
+
+  const source = customSettings as Record<string, unknown>;
+  const picked: Record<string, unknown> = {};
+
+  for (const key of PUBLIC_CUSTOM_SETTING_KEYS) {
+    const value = source[key];
+
+    if (isPublicFeatureSettingValue(value)) {
+      picked[key] = value;
+    }
+  }
+
+  return Object.keys(picked).length > 0 ? picked : undefined;
+}
+
+function pickPublicFeatureSettings(
+  featureSettings: CachedMerchant['feature_settings']
+): MerchantData['feature_settings'] {
+  if (!featureSettings) {
+    return undefined;
+  }
+
+  const source = featureSettings as Record<string, unknown>;
+  const picked: Record<string, unknown> = {};
+
+  // Public storefront state is serialized into the RSC payload. Keep this as an
+  // allowlist so merchant payment/API secrets cannot leak through future
+  // feature_settings additions.
+  for (const key of PUBLIC_FEATURE_SETTING_KEYS) {
+    const value = source[key];
+
+    if (isPublicFeatureSettingValue(value)) {
+      picked[key] = value;
+    }
+  }
+
+  const publicCustomSettings = pickPublicCustomSettings(source.custom_settings);
+
+  if (publicCustomSettings) {
+    picked.custom_settings = publicCustomSettings;
+  }
+
+  return Object.keys(picked).length > 0
+    ? (picked as MerchantData['feature_settings'])
+    : undefined;
+}
+
 export function toTemplateMerchantData(merchant: CachedMerchant): MerchantData {
   return {
     id: merchant.id,
@@ -53,7 +187,7 @@ export function toTemplateMerchantData(merchant: CachedMerchant): MerchantData {
     tax_identification_number: merchant.tax_identification_number,
     trust_profile: merchant.trust_profile,
     is_published: merchant.is_published,
-    feature_settings: merchant.feature_settings,
+    feature_settings: pickPublicFeatureSettings(merchant.feature_settings),
     template_id: merchant.template_id,
     plan_tier: normalizePlanTier(merchant.plan_tier),
     premium_features: normalizePremiumFeatures(merchant.premium_features),

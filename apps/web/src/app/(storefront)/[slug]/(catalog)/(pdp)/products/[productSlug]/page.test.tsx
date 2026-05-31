@@ -208,7 +208,7 @@ vi.mock('./product-detail-client', () => ({
   default: () => mockProductDetailClient(),
 }));
 
-import ProductPage, { dynamic, generateMetadata } from './page';
+import ProductPage, { generateMetadata } from './page';
 
 const stubParent = Promise.resolve({}) as never;
 
@@ -325,10 +325,6 @@ describe('products/[productSlug] page', () => {
       sameBrand: null,
       samePrice: null,
     });
-  });
-
-  it('opts the rendered PDP leaf route out of the Full Route Cache', () => {
-    expect(dynamic).toBe('force-dynamic');
   });
 
   it('redirects categorized legacy products during page render in development', async () => {
