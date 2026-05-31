@@ -19,7 +19,6 @@ import { STOREFRONT_AGENT_ROUTES } from '@/config/storefront-agent-routes';
 import { STOREFRONT_FEED_ROUTES } from '@/config/storefront-feed-routes';
 import {
   getStorefrontMetadataCacheBucket,
-  STOREFRONT_METADATA_BLOCKING_USER_AGENT_TOKEN,
   STOREFRONT_METADATA_CACHE_BUCKET_HEADER,
 } from '@/config/storefront-metadata-cache-bots';
 import {
@@ -90,65 +89,20 @@ function appendVaryHeader(response: NextResponse, value: string): void {
   );
 }
 
-function appendStorefrontMetadataBlockingUserAgentToken(
-  userAgent: string
-): string {
-  if (
-    userAgent
-      .toLowerCase()
-      .includes(STOREFRONT_METADATA_BLOCKING_USER_AGENT_TOKEN.toLowerCase())
-  ) {
-    return userAgent;
-  }
-
-  return userAgent
-    ? `${userAgent} ${STOREFRONT_METADATA_BLOCKING_USER_AGENT_TOKEN}`
-    : STOREFRONT_METADATA_BLOCKING_USER_AGENT_TOKEN;
-}
-
-function buildProxyRequestHeaders(
-  request: NextRequest,
-  options: { blockStreamingMetadata?: boolean } = {}
-): Headers {
+function buildProxyRequestHeaders(request: NextRequest): Headers {
   const headers = new Headers(request.headers);
   for (const header of MERCHANT_CONTEXT_HEADERS) {
     headers.delete(header);
   }
-  const userAgent = request.headers.get('user-agent') ?? '';
-  if (options.blockStreamingMetadata) {
-    // Next's htmlLimitedBots hook is the only stable per-request switch for
-    // blocking streamed metadata. Product/category HTML shells have repeatedly
-    // resumed against metadata slots on Vercel, so storefront documents opt into
-    // blocking metadata before the request reaches the App Router.
-    headers.set(
-      'user-agent',
-      appendStorefrontMetadataBlockingUserAgentToken(userAgent)
-    );
-  }
   headers.set(
     STOREFRONT_METADATA_CACHE_BUCKET_HEADER,
-    options.blockStreamingMetadata
-      ? 'metadata-blocking'
-      : getStorefrontMetadataCacheBucket(userAgent)
+    getStorefrontMetadataCacheBucket(request.headers.get('user-agent') ?? '')
   );
   return headers;
 }
 
 function isPublicMachineReadablePath(pathname: string): boolean {
   return PUBLIC_MACHINE_READABLE_PATHS.has(pathname);
-}
-
-function shouldBlockStorefrontStreamingMetadata(
-  pathname: string,
-  routeType: 'admin' | 'auth' | 'storefront' | 'api'
-): boolean {
-  return (
-    routeType === 'storefront' &&
-    !pathname.startsWith('/_next') &&
-    !pathname.startsWith('/api') &&
-    !STATIC_FILES_REGEX.test(pathname) &&
-    !isPublicMachineReadablePath(pathname)
-  );
 }
 
 // Pre-compiled regex patterns for performance (avoids recompilation on every request)
@@ -1630,13 +1584,7 @@ export async function proxy(request: NextRequest) {
 
       if (isAlreadyRewritten) {
         // Already rewritten, just pass through with headers set
-        const routeType = getRouteType(pathname);
-        const requestHeaders = buildProxyRequestHeaders(request, {
-          blockStreamingMetadata: shouldBlockStorefrontStreamingMetadata(
-            pathname,
-            routeType
-          ),
-        });
+        const requestHeaders = buildProxyRequestHeaders(request);
         requestHeaders.set('x-custom-domain', domain);
         requestHeaders.set('x-merchant-domain', domain);
 
@@ -1646,6 +1594,7 @@ export async function proxy(request: NextRequest) {
           },
         });
 
+        const routeType = getRouteType(pathname);
         const isLocal = isLocalhost(hostname);
         // Custom Domain routes might need CSP too if they map to storefront?
         // But getRouteType logic treats them as storefront usually.
@@ -1723,13 +1672,7 @@ export async function proxy(request: NextRequest) {
       const url = request.nextUrl.clone();
       url.pathname = `/${domain}${pathname}`;
 
-      const routeType = getRouteType(pathname);
-      const requestHeaders = buildProxyRequestHeaders(request, {
-        blockStreamingMetadata: shouldBlockStorefrontStreamingMetadata(
-          pathname,
-          routeType
-        ),
-      });
+      const requestHeaders = buildProxyRequestHeaders(request);
       requestHeaders.set('x-custom-domain', domain);
       requestHeaders.set('x-merchant-domain', domain);
 
@@ -1740,6 +1683,7 @@ export async function proxy(request: NextRequest) {
       });
 
       // Generate route-specific CSP
+      const routeType = getRouteType(pathname);
       const isLocal = isLocalhost(hostname);
 
       return applySecurityHeaders(
@@ -1862,13 +1806,7 @@ export async function proxy(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = `/${subdomain}${pathname}`;
 
-    const routeType = getRouteType(pathname);
-    const requestHeaders = buildProxyRequestHeaders(request, {
-      blockStreamingMetadata: shouldBlockStorefrontStreamingMetadata(
-        pathname,
-        routeType
-      ),
-    });
+    const requestHeaders = buildProxyRequestHeaders(request);
     requestHeaders.set('x-merchant-slug', subdomain as string);
 
     const response = NextResponse.rewrite(url, {
@@ -1877,6 +1815,7 @@ export async function proxy(request: NextRequest) {
       },
     });
 
+    const routeType = getRouteType(pathname);
     const isLocal = isLocalhost(hostname);
 
     return applySecurityHeaders(
