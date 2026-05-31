@@ -1,7 +1,13 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { render, screen } from '@testing-library/react-native';
 import type { ReactNode, RefObject } from 'react';
-import { Modal, Platform, StyleSheet, type TextInput } from 'react-native';
+import {
+  Modal,
+  Platform,
+  StyleSheet,
+  type TextInput,
+  type ViewProps,
+} from 'react-native';
 import { ChatModal } from './ChatModal';
 import type { ChatMessage } from './types';
 
@@ -60,6 +66,19 @@ jest.mock('@/hooks/use-keyboard', () => ({
 }));
 
 jest.mock('react-native-safe-area-context', () => ({
+  SafeAreaProvider: (() => {
+    const React = jest.requireActual('react') as typeof import('react');
+    const { View } =
+      jest.requireActual<typeof import('react-native')>('react-native');
+
+    return ({ children, ...props }: { children?: ReactNode } & ViewProps) => {
+      return React.createElement(
+        View,
+        { ...props, testID: 'chat-safe-area-provider' },
+        children
+      );
+    };
+  })(),
   useSafeAreaInsets: () => mockUseSafeAreaInsets(),
 }));
 
@@ -120,8 +139,13 @@ describe('ChatModal', () => {
     expect(UNSAFE_getByType(Modal).props.presentationStyle).toBe('fullScreen');
   });
 
+  it('creates a safe-area provider inside the modal root', () => {
+    renderChatModal();
+
+    expect(screen.getByTestId('chat-safe-area-provider')).toBeOnTheScreen();
+  });
+
   it('enables cross-platform keyboard avoiding protection on all platforms', () => {
-    // Test iOS
     Object.defineProperty(Platform, 'OS', {
       configurable: true,
       value: 'ios',
@@ -132,7 +156,6 @@ describe('ChatModal', () => {
       true
     );
 
-    // Test Android
     Object.defineProperty(Platform, 'OS', {
       configurable: true,
       value: 'android',

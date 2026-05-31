@@ -5,11 +5,11 @@ import {
   FlatList,
   Modal,
   Pressable,
-  SafeAreaView,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import SafeImage from '@/components/ui/SafeImage';
 import { AppKeyboardContainer } from '@/components/ui/AppKeyboardContainer';
 import { getVirtualizedListProps } from '@/components/ui/virtualized-list-props';
