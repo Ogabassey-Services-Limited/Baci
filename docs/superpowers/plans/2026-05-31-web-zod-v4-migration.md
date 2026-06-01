@@ -25,10 +25,11 @@ Current worktree state:
 ```text
 path: /Users/mac/Baci-app/.worktrees/web-zod-v4-migration
 branch: codex/web-zod-v4-migration
-base: origin/main at 91aab3ff35
+initial base: origin/main at 91aab3ff35
+final verified base before PR push: origin/main at 16b82c616e
 ```
 
-Current package facts:
+Initial package facts before migration:
 
 ```text
 apps/web/package.json:

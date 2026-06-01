@@ -1,5 +1,12 @@
 # Web Zod v4 Migration Audit
 
+## Final Branch State
+- Isolated worktree: `/Users/mac/Baci-app/.worktrees/web-zod-v4-migration`.
+- Branch: `codex/web-zod-v4-migration`.
+- Final verified base before PR push: `origin/main` at `16b82c616e` (`fix(mobile-admin): use zod 4 string formats (#2202)`).
+- Rebase onto the final base completed cleanly after the first draft PR push.
+- Protected-file check after rebase found no `apps/web/src/proxy.ts` or `supabase/migrations/*` changes.
+
 ## Dependency Graph
 - `apps/web` Zod changed from `^3.25.76` to `^4.4.3`.
 - `packages/shared` now declares `zod@^4.4.3` because shared source imports Zod and exports shared schemas.
@@ -67,6 +74,16 @@
   - `/tmp/baci-zod-v4-browser-qa/onboarding-validation.png`
 
 ## Automated Validation
+
+### Post-Rebase Final Verification
+- `pnpm install --frozen-lockfile --prefer-offline`: passed.
+- `cd packages/shared && node ../../node_modules/typescript/bin/tsc --noEmit`: passed.
+- `cd packages/shared && node ../../node_modules/vitest/vitest.mjs run`: passed, 46 files and 395 tests.
+- `cd apps/web && node ../../node_modules/typescript/bin/tsc --noEmit`: passed.
+- `cd apps/web && ./node_modules/@biomejs/cli-darwin-arm64/biome check .`: passed, 3110 files checked.
+- `cd apps/web && node ../../node_modules/vitest/vitest.mjs run`: passed, 1440 files passed, 1 skipped; 11666 tests passed, 1 todo.
+- `git diff --check`: passed.
+- `git diff --name-only origin/main...HEAD | rg '(^|/)proxy\.ts$|^supabase/migrations/' || true`: passed with no protected-file matches.
 
 ### After Migration
 - `pnpm install --lockfile-only`: passed; existing peer warnings only, including `openai@4.104.0` expecting Zod 3.
