@@ -654,18 +654,6 @@ interface ProductSchemaOptions {
   productUrl?: string;
 }
 
-function readSchemaBooleanSetting(
-  settings: unknown,
-  key: string
-): boolean | undefined {
-  if (!settings || typeof settings !== 'object') {
-    return undefined;
-  }
-
-  const value = (settings as Record<string, unknown>)[key];
-  return typeof value === 'boolean' ? value : undefined;
-}
-
 export function buildStorefrontAcceptedPaymentMethods(
   merchant: CheckoutPaymentMerchant | null | undefined
 ): string[] {
@@ -686,22 +674,6 @@ export function buildStorefrontAcceptedPaymentMethods(
 
   if (isPayOnDeliveryCheckoutAvailable(merchant)) {
     methods.add('Pay on delivery');
-  }
-
-  const featureSettings = merchant?.feature_settings;
-
-  if (readSchemaBooleanSetting(featureSettings, 'credpal_enabled') === true) {
-    methods.add('CredPal buy now pay later');
-  }
-
-  if (
-    readSchemaBooleanSetting(featureSettings, 'credit_direct_enabled') === true
-  ) {
-    methods.add('Credit Direct buy now pay later');
-  }
-
-  if (readSchemaBooleanSetting(featureSettings, 'juicyway_enabled') === true) {
-    methods.add('Crypto and stablecoin payment');
   }
 
   return [...methods];

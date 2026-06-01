@@ -70,8 +70,6 @@ describe('buildStorefrontAcceptedPaymentMethods', () => {
       'USSD',
       'Bank transfer',
       'Pay on delivery',
-      'CredPal buy now pay later',
-      'Credit Direct buy now pay later',
     ]);
   });
 
@@ -90,13 +88,17 @@ describe('buildStorefrontAcceptedPaymentMethods', () => {
   it('does not advertise payment methods that need additional checkout eligibility checks', () => {
     const methods = buildStorefrontAcceptedPaymentMethods({
       country: 'NG',
+      paystack_subaccount_code: 'ACCT_test',
       feature_settings: {
+        credit_direct_enabled: true,
+        credpal_enabled: true,
+        juicyway_enabled: true,
         korapay_enabled: true,
         klump_enabled: true,
       },
     });
 
-    expect(methods).toEqual(['Debit and credit card']);
+    expect(methods).toEqual(['Debit and credit card', 'USSD', 'Bank transfer']);
   });
 });
 
