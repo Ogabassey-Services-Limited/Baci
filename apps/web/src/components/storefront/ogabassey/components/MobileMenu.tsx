@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import type React from 'react';
+import { useEffect } from 'react';
 
 import { useV2Theme } from '../providers/v2-theme-context';
 import { Logo } from './Logo';
@@ -35,6 +36,22 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
   const router = useRouter();
   const pathname = usePathname();
   const { theme: _theme } = useV2Theme();
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        onClose();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   // Extract store slug from pathname (first segment that's not a known page route)
   // e.g., "/ogabassey/cart" -> "ogabassey", "/cart" -> ""
@@ -83,12 +100,11 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
   return (
     <div className="fixed inset-0 z-100">
       {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200"
+      <button
+        type="button"
+        className="absolute inset-0 border-0 bg-black/60 p-0 backdrop-blur-xs animate-in fade-in duration-200"
         onClick={onClose}
-        onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}
-        role="button"
-        aria-label="Close menu"
+        aria-label="Dismiss menu backdrop"
         tabIndex={-1}
       />
 
