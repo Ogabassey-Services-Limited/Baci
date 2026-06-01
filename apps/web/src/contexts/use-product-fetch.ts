@@ -1,6 +1,12 @@
 'use client';
 
-import { type Dispatch, type SetStateAction, useEffect, useRef } from 'react';
+import {
+  type Dispatch,
+  type SetStateAction,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+} from 'react';
 import type { ProductsResult } from '@/lib/products-server';
 
 interface PaginationInfo {
@@ -85,7 +91,7 @@ export function useProductFetch<TProduct>({
     stockFilter,
   ].join('|');
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     latestFetchStateRef.current = {
       authLoading,
       user,
