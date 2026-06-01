@@ -42,12 +42,13 @@ export default function NegotiationButton({
 
   return (
     <Pressable
-      style={[
+      style={({ pressed }) => [
         styles.negotiateButton,
         {
           backgroundColor: negotiateSurface,
           borderColor: negotiateBorder,
         },
+        pressed && { opacity: 0.7 },
       ]}
       onPress={() => openItemNegotiation?.(item)}
       accessibilityRole="button"

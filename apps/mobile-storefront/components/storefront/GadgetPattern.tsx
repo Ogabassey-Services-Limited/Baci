@@ -45,25 +45,68 @@ export function GadgetPattern({
           <Circle cx={screenWidth * 0.05} cy={yCenter} r={1.0} fill={color} />
 
           {/* Gap 1 (20%): Rotated Phone Outline */}
-          <G transform={`translate(${screenWidth * 0.2 - 4}, ${yCenter - 6.5}) translate(4, 6.5) rotate(-15) translate(-4, -6.5)`}>
-            <Rect x="0" y="0" width="8" height="13" rx="1.2" {...tabbarStrokeProps} />
+          <G
+            transform={`translate(${screenWidth * 0.2 - 4}, ${yCenter - 6.5}) translate(4, 6.5) rotate(-15) translate(-4, -6.5)`}
+          >
+            <Rect
+              x="0"
+              y="0"
+              width="8"
+              height="13"
+              rx="1.2"
+              {...tabbarStrokeProps}
+            />
             <Circle cx="4" cy="10.5" r="0.6" {...tabbarStrokeProps} />
           </G>
 
           {/* Gap 2 (40%): Rotated Screen Outline */}
-          <G transform={`translate(${screenWidth * 0.4 - 6}, ${yCenter - 4}) translate(6, 4) rotate(10) translate(-6, -4)`}>
-            <Rect x="0" y="0" width="12" height="8" rx="1.2" {...tabbarStrokeProps} />
-            <Line x1="2" y1="4" x2="10" y2="4" {...tabbarStrokeProps} opacity={0.5} />
+          <G
+            transform={`translate(${screenWidth * 0.4 - 6}, ${yCenter - 4}) translate(6, 4) rotate(10) translate(-6, -4)`}
+          >
+            <Rect
+              x="0"
+              y="0"
+              width="12"
+              height="8"
+              rx="1.2"
+              {...tabbarStrokeProps}
+            />
+            <Line
+              x1="2"
+              y1="4"
+              x2="10"
+              y2="4"
+              {...tabbarStrokeProps}
+              opacity={0.5}
+            />
           </G>
 
           {/* Gap 3 (60%): Rotated Chip Square */}
-          <G transform={`translate(${screenWidth * 0.6 - 3}, ${yCenter - 3}) translate(3, 3) rotate(45) translate(-3, -3)`}>
-            <Rect x="0" y="0" width="6" height="6" rx="0.8" {...tabbarStrokeProps} />
+          <G
+            transform={`translate(${screenWidth * 0.6 - 3}, ${yCenter - 3}) translate(3, 3) rotate(45) translate(-3, -3)`}
+          >
+            <Rect
+              x="0"
+              y="0"
+              width="6"
+              height="6"
+              rx="0.8"
+              {...tabbarStrokeProps}
+            />
           </G>
 
           {/* Gap 4 (80%): Rotated Battery/Camera Outline */}
-          <G transform={`translate(${screenWidth * 0.8 - 3}, ${yCenter - 5}) translate(3, 5) rotate(15) translate(-3, -5)`}>
-            <Rect x="0" y="0" width="6" height="10" rx="1" {...tabbarStrokeProps} />
+          <G
+            transform={`translate(${screenWidth * 0.8 - 3}, ${yCenter - 5}) translate(3, 5) rotate(15) translate(-3, -5)`}
+          >
+            <Rect
+              x="0"
+              y="0"
+              width="6"
+              height="10"
+              rx="1"
+              {...tabbarStrokeProps}
+            />
           </G>
 
           {/* Subtle circle at 95% */}
@@ -107,7 +150,15 @@ export function GadgetPattern({
                   {...strokeProps}
                 />
                 <Circle cx="6" cy="16.5" r="1" {...strokeProps} />
-                <Line x1="4.5" y1="2.5" x2="7.5" y2="2.5" {...strokeProps} strokeWidth={1} opacity={0.6} />
+                <Line
+                  x1="4.5"
+                  y1="2.5"
+                  x2="7.5"
+                  y2="2.5"
+                  {...strokeProps}
+                  strokeWidth={1}
+                  opacity={0.6}
+                />
               </G>
               <Path
                 d="M40 10 l5 5 l-5 5"
@@ -126,10 +177,7 @@ export function GadgetPattern({
                   rx="1.5"
                   {...strokeProps}
                 />
-                <Path
-                  d="M0 11 h20 l-2 3 h-16 z"
-                  {...strokeProps}
-                />
+                <Path d="M0 11 h20 l-2 3 h-16 z" {...strokeProps} />
               </G>
               <Circle cx="100" cy="30" r="1.5" fill={color} opacity={0.6} />
 
@@ -172,18 +220,102 @@ export function GadgetPattern({
                   {...strokeProps}
                 />
                 {/* Pins */}
-                <Line x1="1" y1="7" x2="4" y2="7" {...strokeProps} strokeWidth={1} />
-                <Line x1="1" y1="10" x2="4" y2="10" {...strokeProps} strokeWidth={1} />
-                <Line x1="1" y1="13" x2="4" y2="13" {...strokeProps} strokeWidth={1} />
-                <Line x1="16" y1="7" x2="19" y2="7" {...strokeProps} strokeWidth={1} />
-                <Line x1="16" y1="10" x2="19" y2="10" {...strokeProps} strokeWidth={1} />
-                <Line x1="16" y1="13" x2="19" y2="13" {...strokeProps} strokeWidth={1} />
-                <Line x1="7" y1="1" x2="7" y2="4" {...strokeProps} strokeWidth={1} />
-                <Line x1="10" y1="1" x2="10" y2="4" {...strokeProps} strokeWidth={1} />
-                <Line x1="13" y1="1" x2="13" y2="4" {...strokeProps} strokeWidth={1} />
-                <Line x1="7" y1="16" x2="7" y2="19" {...strokeProps} strokeWidth={1} />
-                <Line x1="10" y1="16" x2="10" y2="19" {...strokeProps} strokeWidth={1} />
-                <Line x1="13" y1="16" x2="13" y2="19" {...strokeProps} strokeWidth={1} />
+                <Line
+                  x1="1"
+                  y1="7"
+                  x2="4"
+                  y2="7"
+                  {...strokeProps}
+                  strokeWidth={1}
+                />
+                <Line
+                  x1="1"
+                  y1="10"
+                  x2="4"
+                  y2="10"
+                  {...strokeProps}
+                  strokeWidth={1}
+                />
+                <Line
+                  x1="1"
+                  y1="13"
+                  x2="4"
+                  y2="13"
+                  {...strokeProps}
+                  strokeWidth={1}
+                />
+                <Line
+                  x1="16"
+                  y1="7"
+                  x2="19"
+                  y2="7"
+                  {...strokeProps}
+                  strokeWidth={1}
+                />
+                <Line
+                  x1="16"
+                  y1="10"
+                  x2="19"
+                  y2="10"
+                  {...strokeProps}
+                  strokeWidth={1}
+                />
+                <Line
+                  x1="16"
+                  y1="13"
+                  x2="19"
+                  y2="13"
+                  {...strokeProps}
+                  strokeWidth={1}
+                />
+                <Line
+                  x1="7"
+                  y1="1"
+                  x2="7"
+                  y2="4"
+                  {...strokeProps}
+                  strokeWidth={1}
+                />
+                <Line
+                  x1="10"
+                  y1="1"
+                  x2="10"
+                  y2="4"
+                  {...strokeProps}
+                  strokeWidth={1}
+                />
+                <Line
+                  x1="13"
+                  y1="1"
+                  x2="13"
+                  y2="4"
+                  {...strokeProps}
+                  strokeWidth={1}
+                />
+                <Line
+                  x1="7"
+                  y1="16"
+                  x2="7"
+                  y2="19"
+                  {...strokeProps}
+                  strokeWidth={1}
+                />
+                <Line
+                  x1="10"
+                  y1="16"
+                  x2="10"
+                  y2="19"
+                  {...strokeProps}
+                  strokeWidth={1}
+                />
+                <Line
+                  x1="13"
+                  y1="16"
+                  x2="13"
+                  y2="19"
+                  {...strokeProps}
+                  strokeWidth={1}
+                />
               </G>
 
               {/* Cluster 5 - Bottom Left: Headphones */}
@@ -226,11 +358,7 @@ export function GadgetPattern({
                   {...strokeProps}
                 />
                 {/* D-Pad */}
-                <Path
-                  d="M3 7 h4 M5 5 v4"
-                  {...strokeProps}
-                  strokeWidth={0.8}
-                />
+                <Path d="M3 7 h4 M5 5 v4" {...strokeProps} strokeWidth={0.8} />
                 {/* Buttons */}
                 <Circle cx="12" cy="8" r="0.8" fill={color} />
                 <Circle cx="15" cy="6" r="0.8" fill={color} />

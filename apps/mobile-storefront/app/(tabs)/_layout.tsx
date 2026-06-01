@@ -14,7 +14,10 @@ import { GadgetPattern } from '@/components/storefront/GadgetPattern';
 import { CONFIG } from '@/lib/config';
 import { getTemplateConfig } from '@/lib/templates';
 import { BRAND } from '@/constants/Colors';
-import { TabBarLabel, TabBarIcon } from '@/components/navigation/TabBarComponents';
+import {
+  TabBarLabel,
+  TabBarIcon,
+} from '@/components/navigation/TabBarComponents';
 
 export function ErrorBoundary({
   error,
@@ -25,7 +28,6 @@ export function ErrorBoundary({
 }) {
   return <ErrorFallback error={error} retry={retry} />;
 }
-
 
 export default function TabLayout() {
   const { colors, isDark } = useTheme();
@@ -217,4 +219,3 @@ export default function TabLayout() {
     </Tabs>
   );
 }
-

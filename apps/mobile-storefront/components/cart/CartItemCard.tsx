@@ -65,12 +65,13 @@ export default function CartItemCard({
     >
       <View style={styles.cardTop}>
         <Pressable
-          style={[
+          style={({ pressed }) => [
             styles.imageContainer,
             {
               backgroundColor: surfaceInset,
               borderColor: colors.border,
             },
+            pressed && { opacity: 0.7 },
           ]}
           onPress={() => router.push(`/product/${item.slug}`)}
           accessibilityRole="button"
@@ -175,7 +176,10 @@ export default function CartItemCard({
         </View>
 
         <Pressable
-          style={styles.removeButton}
+          style={({ pressed }) => [
+            styles.removeButton,
+            pressed && { opacity: 0.7 },
+          ]}
           onPress={() => handleRemoveItem(item)}
           hitSlop={12}
           accessibilityRole="button"
@@ -198,7 +202,10 @@ export default function CartItemCard({
           ]}
         >
           <Pressable
-            style={styles.quantityButton}
+            style={({ pressed }) => [
+              styles.quantityButton,
+              pressed && { opacity: 0.7 },
+            ]}
             onPress={() => handleQuantityChange(item, -1)}
             disabled={item.quantity <= 1}
             accessibilityRole="button"
@@ -218,7 +225,10 @@ export default function CartItemCard({
             onChange={(newQuantity) => updateQuantity(item.id, newQuantity)}
           />
           <Pressable
-            style={styles.quantityButton}
+            style={({ pressed }) => [
+              styles.quantityButton,
+              pressed && { opacity: 0.7 },
+            ]}
             onPress={() => handleQuantityChange(item, 1)}
             accessibilityRole="button"
             accessibilityLabel={`Increase quantity for ${item.name}`}
