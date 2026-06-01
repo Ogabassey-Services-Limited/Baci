@@ -40,6 +40,7 @@ jest.mock('@/stores/auth-store', () => {
 });
 
 import { useAuthStore } from '@/stores/auth-store';
+import { supabase } from '@/lib/supabase';
 import { useSignInForm } from './useSignInForm';
 
 function makeUser(id: string): User {
@@ -95,11 +96,16 @@ describe('useSignInForm', () => {
   });
 
   it('sets error when sign-in with invalid credentials fails', async () => {
-    const { supabase } = require('@/lib/supabase');
-    supabase.auth.signInWithPassword.mockResolvedValue({
+    const invalidCredentialsResult = {
       error: { message: 'Invalid login credentials' },
       data: { user: null, session: null },
-    });
+    } as unknown as Awaited<
+      ReturnType<typeof supabase.auth.signInWithPassword>
+    >;
+
+    jest
+      .mocked(supabase.auth.signInWithPassword)
+      .mockResolvedValue(invalidCredentialsResult);
 
     const onSuccess = jest.fn();
     const { result } = renderHook(() => useSignInForm({ onSuccess }));

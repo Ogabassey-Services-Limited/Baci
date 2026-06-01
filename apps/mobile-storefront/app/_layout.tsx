@@ -1,5 +1,6 @@
 import { useFonts } from 'expo-font';
 import '../global.css';
+import SpaceMonoRegular from '../assets/fonts/SpaceMono-Regular.ttf';
 import {
   Inter_400Regular,
   Inter_500Medium,
@@ -39,7 +40,7 @@ SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
+    SpaceMono: SpaceMonoRegular,
     Inter_400Regular,
     Inter_500Medium,
     Inter_600SemiBold,

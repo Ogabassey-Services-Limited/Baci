@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import type { ReactNode } from 'react';
 import Colors from '@/constants/Colors';
 import type { Product } from '@/types/product';
 import { SearchOverlayResults } from './SearchOverlayResults';
@@ -9,9 +10,9 @@ jest.mock('@shopify/flash-list', () => ({
     renderItem,
   }: {
     data: Product[];
-    renderItem: ({ item }: { item: Product }) => unknown;
+    renderItem: ({ item }: { item: Product }) => ReactNode;
   }) => {
-    const React = require('react');
+    const React = jest.requireActual<typeof import('react')>('react');
     return (
       <>
         {data.map((item) => (

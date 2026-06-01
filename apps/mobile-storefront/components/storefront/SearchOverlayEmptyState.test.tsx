@@ -3,7 +3,8 @@ import Colors from '@/constants/Colors';
 import { SearchOverlayEmptyState } from './SearchOverlayEmptyState';
 
 jest.mock('react-native-reanimated', () => {
-  const RN = require('react-native');
+  const RN =
+    jest.requireActual<typeof import('react-native')>('react-native');
   return {
     __esModule: true,
     default: {
