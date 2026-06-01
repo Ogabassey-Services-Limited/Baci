@@ -12,16 +12,19 @@ allowBuilds:
   '4': puppeteer
   '5': msgpackr-extract
   '6': unrs-resolver
-  '@firebase/util': set this to true or false
-  '@scarf/scarf': set this to true or false
-  core-js: set this to true or false
-  esbuild: set this to true or false
-  lefthook: set this to true or false
-  msgpackr-extract: set this to true or false
-  protobufjs: set this to true or false
-  puppeteer: set this to true or false
-  sharp: set this to true or false
-  unrs-resolver: set this to true or false
+  '7': '@firebase/util'
+  '8': '@scarf/scarf'
+  '9': core-js
+  '@firebase/util': true
+  '@scarf/scarf': true
+  core-js: true
+  esbuild: true
+  lefthook: true
+  msgpackr-extract: true
+  protobufjs: true
+  puppeteer: true
+  sharp: true
+  unrs-resolver: true
 
 overrides:
   # Pin to 6.1.6 to mitigate GHSA-737v-mqg7-c878 / CVE-2026-35209: replace the vulnerable transitive deep-merge helper.
