@@ -105,13 +105,14 @@ describe('price-band page metadata', () => {
         })
     );
 
-    const page = await PriceBandPage({
+    const page = PriceBandPage({
       params: Promise.resolve({
         slug: 'ogabassey',
         category: 'smartphones',
         priceBandSlug: 'under-500k',
       }),
     });
+    expect(mockLoadPriceBandPage).not.toHaveBeenCalled();
 
     render(page);
 
@@ -121,6 +122,7 @@ describe('price-band page metadata', () => {
     expect(
       screen.queryByText('Price band page content')
     ).not.toBeInTheDocument();
+    expect(mockLoadPriceBandPage).not.toHaveBeenCalled();
     expect(mockPriceBandPageContent).not.toHaveBeenCalled();
   });
 

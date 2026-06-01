@@ -210,6 +210,8 @@ vi.mock('./product-detail-client', () => ({
 }));
 
 import ProductPage, { generateMetadata } from './page';
+import { resolveProductPage } from './product-page-resolution';
+import { ProductPageRuntime } from './product-page-runtime';
 
 const stubParent = Promise.resolve({}) as never;
 
@@ -299,6 +301,8 @@ describe('products/[productSlug] page', () => {
     vi.stubEnv('NODE_ENV', 'production');
     mockProductDetailClient.mockReset();
     mockProductDetailClient.mockReturnValue(null);
+    mockConnection.mockReset();
+    mockConnection.mockResolvedValue(undefined);
     mockHeaders.mockReset();
     mockHeaders.mockReturnValue(makeHeaders({}));
     mockGenerateProductSchema.mockImplementation(() => ({ offers: {} }));
@@ -328,13 +332,13 @@ describe('products/[productSlug] page', () => {
     });
   });
 
-  it('redirects categorized legacy products during page render in development', async () => {
+  it('redirects categorized legacy products after the request boundary in development', async () => {
     vi.stubEnv('NODE_ENV', 'development');
     mockGetCachedProduct.mockResolvedValue(categorizedProduct);
     mockHeaders.mockReturnValue(makeHeaders({}));
 
     await expect(
-      ProductPage({
+      resolveProductPage({
         params: Promise.resolve({
           slug: 'teststore',
           productSlug: 'iphone-15',
@@ -364,7 +368,7 @@ describe('products/[productSlug] page', () => {
     });
 
     await expect(
-      ProductPage({
+      resolveProductPage({
         params: Promise.resolve({
           slug: 'teststore',
           productSlug: 'iphone-15',
@@ -404,6 +408,8 @@ describe('products/[productSlug] page', () => {
       screen.getByRole('status', { name: 'Loading product page' })
     ).toBeInTheDocument();
     expect(screen.queryByText('mystery-item')).not.toBeInTheDocument();
+    expect(mockConnection).toHaveBeenCalledOnce();
+    expect(mockGetCachedProduct).not.toHaveBeenCalled();
   });
 
   it('keeps product metadata cacheable without request binding', async () => {
@@ -463,12 +469,12 @@ describe('products/[productSlug] page', () => {
       expect(mockPermanentRedirect).not.toHaveBeenCalled();
     });
 
-    it('redirects categorized products during page render in production', async () => {
+    it('redirects categorized products after the request boundary in production', async () => {
       mockGetCachedProduct.mockResolvedValue(categorizedProduct);
       mockHeaders.mockReturnValue(makeHeaders({}));
 
       await expect(
-        ProductPage({
+        resolveProductPage({
           params: Promise.resolve({
             slug: 'teststore',
             productSlug: 'iphone-15',
@@ -486,7 +492,7 @@ describe('products/[productSlug] page', () => {
       mockHeaders.mockReturnValue(makeHeaders({}));
 
       await expect(
-        ProductPage({
+        resolveProductPage({
           params: Promise.resolve({
             slug: 'teststore',
             productSlug: 'iphone-15',
@@ -615,7 +621,7 @@ describe('products/[productSlug] page', () => {
     ]);
 
     await expect(
-      ProductPage({
+      resolveProductPage({
         params: Promise.resolve({
           slug: 'teststore',
           productSlug: 'mystery-item',
@@ -677,7 +683,7 @@ describe('products/[productSlug] page', () => {
     );
 
     await expect(
-      ProductPage({
+      resolveProductPage({
         params: Promise.resolve({
           slug: 'teststore.com',
           productSlug: 'iphone-13-pro-max-6gb-128gb',
@@ -718,24 +724,24 @@ describe('products/[productSlug] page', () => {
     expect(mockPermanentRedirect).not.toHaveBeenCalled();
   });
 
-  it('triggers notFound without rendering a body marker when no legacy redirect target exists', async () => {
+  it('returns a route-not-found resolution when no legacy redirect target exists', async () => {
     mockGetCachedProduct.mockResolvedValue(null);
     mockGetCachedProductWithDetails.mockResolvedValue(null);
     mockGetCachedLegacyProductRedirectTarget.mockResolvedValue(null);
     mockHeaders.mockReturnValue(makeHeaders({}));
 
-    const page = await ProductPage({
-      params: Promise.resolve({
-        slug: 'teststore',
-        productSlug: 'nonexistent',
-      }),
-      searchParams: Promise.resolve({}),
-    });
+    await expect(
+      resolveProductPage({
+        params: Promise.resolve({
+          slug: 'teststore',
+          productSlug: 'nonexistent',
+        }),
+        searchParams: Promise.resolve({}),
+      })
+    ).resolves.toEqual({ kind: 'route-not-found' });
 
-    expect(() => render(page)).toThrow('NEXT_NOT_FOUND');
-
+    expect(mockNotFound).not.toHaveBeenCalled();
     expect(mockPermanentRedirect).not.toHaveBeenCalled();
-    expect(mockNotFound).toHaveBeenCalled();
   });
 
   it('falls back to detailed product lookup and returns noindex metadata when category mismatch is detected', async () => {
@@ -858,15 +864,18 @@ describe('products/[productSlug] page', () => {
       });
       mockGetCachedProduct.mockResolvedValue(uncategorizedProduct);
 
-      render(
-        await ProductPage({
-          params: Promise.resolve({
-            slug: 'teststore',
-            productSlug: 'mystery-item',
-          }),
-          searchParams: Promise.resolve({}),
-        })
-      );
+      const resolution = await resolveProductPage({
+        params: Promise.resolve({
+          slug: 'teststore',
+          productSlug: 'mystery-item',
+        }),
+        searchParams: Promise.resolve({}),
+      });
+      if (resolution.kind !== 'product') {
+        throw new Error('Expected product resolution');
+      }
+
+      render(await ProductPageRuntime(resolution.runtimeProps));
 
       await waitFor(() =>
         expect(mockGenerateProductSchema).toHaveBeenCalledWith(
@@ -886,15 +895,18 @@ describe('products/[productSlug] page', () => {
       mockHeaders.mockReturnValue(makeHeaders({}));
       mockGetProductUrl.mockReturnValue('/products/mystery-item');
 
-      render(
-        await ProductPage({
-          params: Promise.resolve({
-            slug: 'teststore',
-            productSlug: 'mystery-item',
-          }),
-          searchParams: Promise.resolve({}),
-        })
-      );
+      const resolution = await resolveProductPage({
+        params: Promise.resolve({
+          slug: 'teststore',
+          productSlug: 'mystery-item',
+        }),
+        searchParams: Promise.resolve({}),
+      });
+      if (resolution.kind !== 'product') {
+        throw new Error('Expected product resolution');
+      }
+
+      render(await ProductPageRuntime(resolution.runtimeProps));
 
       // getProductUrl should have been called
       await waitFor(() => expect(mockGetProductUrl).toHaveBeenCalled());
@@ -1067,22 +1079,24 @@ describe('products/[productSlug] page', () => {
       samePrice: null,
     });
 
-    render(
-      await ProductPage({
-        params: Promise.resolve({
-          slug: 'teststore',
-          productSlug: 'iphone-17-pro-max',
-        }),
-        searchParams: Promise.resolve({}),
-      })
-    );
+    const resolution = await resolveProductPage({
+      params: Promise.resolve({
+        slug: 'teststore',
+        productSlug: 'iphone-17-pro-max',
+      }),
+      searchParams: Promise.resolve({}),
+    });
+    if (resolution.kind !== 'product') {
+      throw new Error('Expected product resolution');
+    }
+
+    render(await ProductPageRuntime(resolution.runtimeProps));
 
     expect(
       await screen.findByRole('link', {
         name: /Shop more Products/i,
       })
     ).toHaveAttribute('href', 'https://teststore.usebaci.com/products');
-    expect(mockConnection).toHaveBeenCalled();
     expect(
       screen.getByRole('link', {
         name: /Compare with Samsung Galaxy Z TriFold/i,

@@ -61,16 +61,11 @@ export async function generateMetadata(
   };
 }
 
-async function PriceBandPageRuntime({
-  page,
-  resolvedParams,
-}: {
-  page: PriceBandPageModel;
-  resolvedParams: ResolvedPriceBandParams;
-}) {
-  // Keep tenant/domain price-band rendering request-bound while indexability
-  // decisions stay outside the Suspense shell for hard 404 responses.
+async function PriceBandPageRuntime({ params }: PriceBandPageRouteProps) {
+  // Cache Components requires request-bound route params to stay behind
+  // connection() so production can emit a stable static shell first.
   await connection();
+  const { page, resolvedParams } = await loadIndexablePriceBandPage({ params });
   const pathPrefix = await getPriceBandStorefrontPathPrefix(
     resolvedParams.slug,
     page.merchant.slug
@@ -79,12 +74,10 @@ async function PriceBandPageRuntime({
   return <PriceBandPageContent page={{ ...page, pathPrefix }} />;
 }
 
-export default async function PriceBandPage(props: PriceBandPageRouteProps) {
-  const { page, resolvedParams } = await loadIndexablePriceBandPage(props);
-
+export default function PriceBandPage(props: PriceBandPageRouteProps) {
   return (
     <Suspense fallback={<CatalogListingLoading />}>
-      <PriceBandPageRuntime page={page} resolvedParams={resolvedParams} />
+      <PriceBandPageRuntime {...props} />
     </Suspense>
   );
 }
