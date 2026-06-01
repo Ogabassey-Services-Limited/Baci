@@ -178,12 +178,16 @@ jobs:
           store-dir: ${{ runner.temp }}/pnpm-store
       - name: Run Tests
         run: |
-          turbo_cache_args=()
+          turbo_cache_args=("--cache=local:rw")
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            # PR tokens can read Vercel Remote Cache but may not be allowed to write artifacts.
-            turbo_cache_args+=(--remote-cache-read-only)
+            # PR jobs cannot assume Vercel Remote Cache auth is available. Keep
+            # test fan-out local-only so a green package run cannot be cancelled
+            # by Turbo waiting on an unavailable remote cache path.
+            :
+          else
+            turbo_cache_args=("--cache=local:rw,remote:rw")
           fi
-          pnpm turbo test --concurrency=3 "${turbo_cache_args[@]}"
+          pnpm turbo run test --concurrency=3 --log-order=stream "${turbo_cache_args[@]}"
 
   quality-misc:
     name: Quality Gate - Misc
