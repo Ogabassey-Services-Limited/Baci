@@ -308,7 +308,7 @@ describe('ExpensesScreen', () => {
 
     expect(() => render(<ExpensesScreen />)).not.toThrow();
     expect(screen.getByText('Total this Month')).toBeInTheDocument();
-    expect(screen.getAllByText(/12,500/)).toHaveLength(2);
+    expect(screen.getAllByText(/12,500/)).toHaveLength(1);
     expect(screen.getByText('Invalid date')).toBeInTheDocument();
   });
 

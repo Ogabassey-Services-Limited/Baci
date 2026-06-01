@@ -20,12 +20,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import {
-  type Layout,
-  type ResponsiveLayouts,
-  Responsive,
-  WidthProvider,
-} from 'react-grid-layout/legacy';
+import { type Layout, Responsive, WidthProvider } from 'react-grid-layout';
 import { AIInsightsPanel } from '@/components/analytics/ai-insights-panel';
 import type { AnalyticsCategory } from '@/components/analytics/analytics-category-nav';
 import {
@@ -169,9 +164,9 @@ export interface AnalyticsData {
 }
 
 interface Layouts {
-  lg: Layout;
-  md: Layout;
-  [key: string]: Layout;
+  lg: Layout[];
+  md: Layout[];
+  [key: string]: Layout[];
 }
 
 interface DraggableAnalyticsGridProps {
@@ -463,19 +458,8 @@ export function DraggableAnalyticsGrid({
   }, [activeCategory]);
 
   // Save layout change
-  const onLayoutChange = (
-    currentLayout: Layout,
-    allLayouts: ResponsiveLayouts
-  ) => {
-    setLayouts((currentLayouts) => {
-      const nextLayouts: Layouts = { ...currentLayouts };
-      for (const [breakpoint, layout] of Object.entries(allLayouts)) {
-        if (layout) {
-          nextLayouts[breakpoint] = layout;
-        }
-      }
-      return nextLayouts;
-    });
+  const onLayoutChange = (currentLayout: Layout[], allLayouts: Layouts) => {
+    setLayouts(allLayouts);
     if (!isEditMode) return; // Only save if in edit mode (optional, but good for performance)
 
     // Fire-and-forget pattern for saving layout preferences
