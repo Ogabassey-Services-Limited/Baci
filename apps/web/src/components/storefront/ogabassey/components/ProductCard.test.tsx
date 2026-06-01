@@ -67,6 +67,45 @@ describe('ProductCard', () => {
     expect(screen.getByText('Test Product')).toBeDefined();
   });
 
+  it('uses explicit product image alt text in grid cards', () => {
+    render(
+      <ProductCard
+        product={{
+          ...mockProduct,
+          seo_alt_text: 'Angled view of the test product',
+        }}
+        onAddToCart={vi.fn()}
+        isAdded={false}
+      />
+    );
+
+    expect(
+      screen.getByRole('img', {
+        name: 'Angled view of the test product',
+      })
+    ).toBeInTheDocument();
+  });
+
+  it('uses explicit product image alt text in list cards', () => {
+    render(
+      <ProductCard
+        product={{
+          ...mockProduct,
+          image_alt: 'Side view of the test product',
+        }}
+        onAddToCart={vi.fn()}
+        isAdded={false}
+        viewMode="list"
+      />
+    );
+
+    expect(
+      screen.getByRole('img', {
+        name: 'Side view of the test product',
+      })
+    ).toBeInTheDocument();
+  });
+
   it('renders with isAdded state', () => {
     const { container } = render(
       <ProductCard
