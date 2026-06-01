@@ -42,30 +42,6 @@ interface ProductCardProps {
   viewMode?: 'grid' | 'list';
 }
 
-interface ProductCardImageProps {
-  alt: string;
-  className: string;
-  image: string | null | undefined;
-  sizes: string;
-}
-
-function ProductCardImage({
-  alt,
-  className,
-  image,
-  sizes,
-}: ProductCardImageProps) {
-  return (
-    <Image
-      src={image || PLACEHOLDER_IMAGE}
-      alt={alt}
-      fill
-      sizes={sizes}
-      className={className}
-    />
-  );
-}
-
 export const ProductCard: React.FC<ProductCardProps> = ({
   product,
   onAddToCart,
@@ -116,7 +92,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   // Build full URL with basePath for proper routing on custom domains
   const productHref = asRoute(`${basePath}${getProductUrl(productForUrl)}`);
   const requiresSelection = requiresOgabasseyProductSelection(product);
-  const productImageAlt = getProductImageAlt(product);
 
   // Image optimization props for Next.js Image component
   // Using exact dimensions from design but allowing responsive sizing
@@ -177,9 +152,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
         {/* Image Container */}
         <div className="relative aspect-square mb-3 md:mb-4 bg-gray-50 rounded-2xl flex items-center justify-center overflow-hidden z-10 pointer-events-none">
-          <ProductCardImage
-            image={product.image}
-            alt={productImageAlt}
+          {/* Using Next.js Image for LCP/FCP optimization */}
+          {/* NOTE: explicit width/height required for remote images without fill, but here we want fill + object-cover */}
+          {/* We use fill={true} with sizes prop for best performance */}
+          {/* biome-ignore lint/a11y/useAltText: intentional img usage */}
+          <Image
+            src={product.image || PLACEHOLDER_IMAGE}
+            alt={product.name}
+            fill
             sizes={imageSizes}
             className="object-cover transition-transform duration-500 md:group-hover:scale-105"
           />
@@ -306,9 +286,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
       {/* Image (Left Side) */}
       <div className="w-28 md:w-48 aspect-square bg-gray-50 rounded-xl shrink-0 flex items-center justify-center overflow-hidden z-10 pointer-events-none relative">
-        <ProductCardImage
-          image={product.image}
-          alt={productImageAlt}
+        <Image
+          src={product.image || PLACEHOLDER_IMAGE}
+          alt={product.name}
+          fill
           sizes="(max-width: 768px) 112px, 192px"
           className="object-cover md:group-hover:scale-110 transition-transform duration-500"
         />

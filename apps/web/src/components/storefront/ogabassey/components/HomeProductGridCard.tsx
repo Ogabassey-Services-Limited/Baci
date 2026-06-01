@@ -1,6 +1,6 @@
 'use client';
 
-import { getFirstNonBlankString } from '@baci/shared/lib';
+import { getFirstNonBlankString } from '@baci/shared';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useViewportActivation } from '@/components/storefront/use-viewport-activation';
