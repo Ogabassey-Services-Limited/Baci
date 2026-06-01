@@ -117,18 +117,15 @@ export async function generateMetadata({
   };
 }
 
-async function ProductsListingRuntime(props: PageProps) {
-  // Keep tenant/domain listing work request-bound while the page prerenders a
-  // Suspense fallback shell. Cache Components rejects route-level dynamic flags.
+export default async function ProductsPage(props: PageProps) {
+  // Keep catalog listings request-bound. These routes depend on tenant and
+  // host context, and letting Next produce a static shell has caused
+  // production 500s on custom-domain product-index URLs.
   await connection();
 
-  return <ProductsPageContent {...props} />;
-}
-
-export default function ProductsPage(props: PageProps) {
   return (
     <Suspense fallback={<CatalogListingLoading />}>
-      <ProductsListingRuntime {...props} />
+      <ProductsPageContent {...props} />
     </Suspense>
   );
 }

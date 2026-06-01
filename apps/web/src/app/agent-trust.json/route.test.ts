@@ -155,7 +155,7 @@ describe('GET /agent-trust.json', () => {
   });
 
   it('returns public trust readiness for storefront hosts', async () => {
-    const { GET, maxDuration } = await import('./route');
+    const { GET } = await import('./route');
     const response = await GET(
       new Request('https://ogabassey.com/agent-trust.json', {
         headers: { host: 'ogabassey.com' },
@@ -164,11 +164,7 @@ describe('GET /agent-trust.json', () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(maxDuration).toBe(60);
-    expect(response.headers.get('cache-control')).toBe('public, max-age=60');
-    expect(response.headers.get('vercel-cdn-cache-control')).toBe(
-      'public, s-maxage=300, stale-while-revalidate=3600'
-    );
+    expect(response.headers.get('cache-control')).toBe('public, max-age=300');
     expect(body).toMatchObject({
       schema_version: '2026-05-20',
       platform: 'baci',

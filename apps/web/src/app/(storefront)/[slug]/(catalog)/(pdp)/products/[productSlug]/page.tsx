@@ -1,32 +1,304 @@
 import '@/app/(storefront)/storefront-pdp.css';
+import { resolveVariantSelectionParamResolution } from '@baci/shared/lib';
 import type { Metadata, ResolvingMetadata } from 'next';
-import { notFound } from 'next/navigation';
+import { headers } from 'next/headers';
+import { notFound, permanentRedirect, redirect } from 'next/navigation';
 import { connection } from 'next/server';
-import { Suspense } from 'react';
-import { ProductDetailRouteLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
 import { StorefrontRouteNotFound } from '@/app/(storefront)/[slug]/storefront-route-not-found';
-import { getCachedLegacyProductRedirectTarget } from '@/lib/cached-data';
+import { ProductSemanticSections } from '@/components/storefront/ogabassey/seo/product-semantic-sections';
+import { STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM } from '@/config/storefront-metadata-cache-bots';
 import {
+  getCachedCategoryPageData,
+  getCachedLegacyProductRedirectTarget,
+  getCachedProduct,
+  getCachedProductRatingStats,
+  getCachedProductReviews,
+  getCachedProductWithDetails,
+  getRequestScopedMerchant,
+  sanitizeLookupLogValue,
+} from '@/lib/cached-data';
+import type { Product } from '@/lib/products';
+import { asRoute } from '@/lib/routes';
+import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
+import {
+  generateAggregateRating,
+  generateBreadcrumbSchema,
+  generateFAQSchema,
   generateMetaDescription,
   generateMetaTitle,
+  generateProductSchema,
+  generateSlug,
   getIndexableRobotsMetadata,
+  getProductUrl,
   getValidatedProductUrl,
 } from '@/lib/seo-utils';
-import { buildStoreUrl } from '@/lib/store-url';
+import { buildRequestScopedStoreUrl, buildStoreUrl } from '@/lib/store-url';
+import { getPublishedClusterPosts } from '@/lib/storefront-content/get-published-cluster-posts';
+import { buildProductSemanticModel } from '@/lib/storefront-product/build-product-semantic-model';
 import { buildProductPriceSeoCopy } from '@/lib/storefront-product-price-seo';
 import { getStorefrontProductSocialMetadata } from '@/lib/storefront-product-social-metadata';
 import {
   DEFAULT_STORE_NAME,
   DEFAULT_STOREFRONT_SEO_CATEGORY,
 } from '@/lib/storefront-seo-defaults';
-import {
-  getCategorizedRedirectTarget,
-  getInvalidVariantSelectionRedirectTarget,
-  getProductCached,
-  resolveProductPage,
-} from './product-page-resolution';
-import { ProductPageRuntime } from './product-page-runtime';
-import type { PageProps } from './product-page-types';
+import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
+import { isValidMerchantIdentifier } from '@/lib/validation';
+import type { FAQItem } from '@/types/faq';
+import { buildProductRedirectPath } from './build-product-redirect-path';
+import { mapDetailedCachedProductToProduct } from './detailed-product-mapper';
+import { mapLegacyCachedProductToProduct } from './legacy-product-mapper';
+import ProductDetailClient from './product-detail-client';
+
+interface PageProps {
+  params: Promise<{
+    slug: string;
+    productSlug: string;
+  }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}
+
+type ResolvedMerchant = NonNullable<
+  Awaited<ReturnType<typeof getRequestScopedMerchant>>
+>;
+
+interface ProductLookupResult {
+  merchant: ResolvedMerchant;
+  product: Product | null;
+}
+
+interface SemanticInventoryCandidateProduct {
+  slug: string;
+  name: string;
+  brand?: string | null;
+  price: number;
+  condition?: string | null;
+  stock?: number | null;
+  category_slug?: string | null;
+  product_key_specs?: Record<string, unknown> | null;
+}
+
+type ResolvedSearchParams = Awaited<PageProps['searchParams']>;
+
+const LEGACY_SELECTION_PARAM_KEYS = new Set([
+  'selectedoptions',
+  'variant',
+  'variantid',
+  'variant_id',
+]);
+
+function normalizeSearchParamKey(key: string) {
+  return key
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
+}
+
+function appendSearchParamValue(
+  params: URLSearchParams,
+  key: string,
+  value: string | string[] | undefined
+) {
+  if (typeof value === 'string') {
+    params.append(key, value);
+    return;
+  }
+
+  if (!Array.isArray(value)) {
+    return;
+  }
+
+  for (const entry of value) {
+    if (typeof entry === 'string') {
+      params.append(key, entry);
+    }
+  }
+}
+
+function buildRedirectSearchParams(searchParams: ResolvedSearchParams) {
+  const nextParams = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(searchParams)) {
+    if (
+      normalizeSearchParamKey(key) ===
+      STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM
+    ) {
+      // Middleware injects this as an internal cache key only. Never expose it
+      // through public variant-cleanup redirects or crawlable canonical URLs.
+      continue;
+    }
+    appendSearchParamValue(nextParams, key, value);
+  }
+
+  return nextParams;
+}
+
+function buildSelectionSafeRedirectPath(
+  storeSlug: string,
+  product: Product,
+  searchParams: ResolvedSearchParams,
+  recognizedParamKeys: string[]
+) {
+  const targetPath = buildProductRedirectPath(
+    storeSlug,
+    getProductUrl(product)
+  );
+  const nextParams = buildRedirectSearchParams(searchParams);
+  const removableKeys = new Set(
+    recognizedParamKeys.map((key) => normalizeSearchParamKey(key))
+  );
+
+  for (const key of Array.from(nextParams.keys())) {
+    const normalizedKey = normalizeSearchParamKey(key);
+    if (
+      removableKeys.has(normalizedKey) ||
+      LEGACY_SELECTION_PARAM_KEYS.has(normalizedKey)
+    ) {
+      nextParams.delete(key);
+    }
+  }
+
+  const queryString = nextParams.toString();
+  return queryString ? `${targetPath}?${queryString}` : targetPath;
+}
+
+async function getProductCached(
+  storeSlug: string,
+  productSlug: string
+): Promise<ProductLookupResult | null> {
+  if (!isValidMerchantIdentifier(storeSlug)) {
+    return null;
+  }
+
+  const safeStoreSlug = sanitizeLookupLogValue(storeSlug);
+  const merchant = await getRequestScopedMerchant(storeSlug);
+  if (!merchant) {
+    console.warn(
+      'Merchant not found for storefront product route:',
+      safeStoreSlug
+    );
+    return null;
+  }
+  const cachedProduct = await getCachedProduct(merchant.id, productSlug);
+  if (cachedProduct) {
+    return {
+      merchant,
+      product: mapLegacyCachedProductToProduct(cachedProduct, merchant.id),
+    };
+  }
+  const detailedProduct = await getCachedProductWithDetails(
+    merchant.id,
+    productSlug
+  );
+  if (!detailedProduct) {
+    console.warn('Product lookup miss', {
+      merchantId: merchant.id,
+      productSlug,
+    });
+    return { merchant, product: null };
+  }
+
+  return {
+    merchant,
+    product: mapDetailedCachedProductToProduct(detailedProduct, merchant.id),
+  };
+}
+
+// Returns the canonical redirect target if the URL is categorized but lives
+// under /products/, else null. Pure — caller decides whether to throw a real
+// redirect (page component) or emit noindex metadata (generateMetadata).
+function getCategorizedRedirectTarget(
+  storeSlug: string,
+  product: Product
+): string | null {
+  const productPath = getProductUrl(product);
+  if (productPath.startsWith('/products/')) {
+    return null;
+  }
+  return buildProductRedirectPath(storeSlug, productPath);
+}
+
+// Returns the canonical redirect target when the URL's variant params are
+// inconsistent (attribute-only, ambiguous, invalid id, zero-match). Pure —
+// see getCategorizedRedirectTarget above for the rationale.
+function getInvalidVariantSelectionRedirectTarget(
+  storeSlug: string,
+  product: Product,
+  searchParams: ResolvedSearchParams
+): string | null {
+  if (!product.variants || product.variants.length === 0) {
+    return null;
+  }
+
+  const selectionResolution = resolveVariantSelectionParamResolution(
+    product,
+    searchParams
+  );
+
+  if (
+    selectionResolution.type === 'attribute_only' ||
+    selectionResolution.type === 'ambiguous' ||
+    selectionResolution.type === 'invalid_variant_id' ||
+    selectionResolution.type === 'zero_match'
+  ) {
+    return buildSelectionSafeRedirectPath(
+      storeSlug,
+      product,
+      searchParams,
+      selectionResolution.extracted.recognizedParamKeys
+    );
+  }
+
+  return null;
+}
+
+async function getLegacyVariantProductRedirectPath(
+  storeSlug: string,
+  productSlug: string,
+  merchant: ResolvedMerchant
+): Promise<string | null> {
+  const redirectTarget = await getCachedLegacyProductRedirectTarget(
+    merchant.id,
+    productSlug
+  );
+  if (!redirectTarget) {
+    return null;
+  }
+  const productPath = getProductUrl(redirectTarget);
+  return buildProductRedirectPath(storeSlug, productPath);
+}
+
+function buildTrustBulletsFromProfile(
+  trustProfile: Awaited<ReturnType<typeof buildMerchantTrustProfile>>
+): string[] {
+  const bullets: string[] = [];
+  const returnPolicy = trustProfile.returnPolicy;
+  if (returnPolicy?.windowDays != null) {
+    bullets.push(
+      returnPolicy.returnFees === 'free'
+        ? `Free returns within ${returnPolicy.windowDays} days`
+        : `Returns within ${returnPolicy.windowDays} days`
+    );
+  }
+
+  const shippingPolicy = trustProfile.shippingPolicy;
+  const regions = shippingPolicy?.regions ?? [];
+  const regionsText = regions.join(' ').toLowerCase();
+  if (
+    regions.some(
+      (region) => region.toUpperCase() === 'NG' || /nigeria/i.test(region)
+    ) ||
+    /nationwide/.test(shippingPolicy?.summary ?? '') ||
+    /nigeria/.test(regionsText)
+  ) {
+    bullets.push('Ships across Nigeria');
+  }
+
+  if (trustProfile.whatsappNumber) {
+    bullets.push('WhatsApp support available');
+  }
+
+  return bullets;
+}
 
 export async function generateMetadata(
   { params, searchParams }: PageProps,
@@ -145,22 +417,173 @@ export async function generateMetadata(
   };
 }
 
-async function RequestBoundProductPage(props: PageProps) {
-  // Cache Components requires request-bound route params/search params to stay
-  // behind connection() so production can emit a stable static shell first.
+export default async function ProductPage({ params, searchParams }: PageProps) {
+  // Keep the PDP leaf segment request-time. A cacheable PDP shell can resume
+  // with Next's metadata boundary in the first host slot on Vercel/Next 16.
   await connection();
-  const resolution = await resolveProductPage(props);
-  if (resolution.kind === 'route-not-found') {
-    return StorefrontRouteNotFound();
+
+  const { slug, productSlug } = await params;
+  const resolvedSearchParams = await searchParams;
+  const productResult = await getProductCached(slug, productSlug);
+  if (!productResult) {
+    notFound();
+  }
+  const { merchant, product } = productResult;
+  if (!product) {
+    const legacyRedirectPath = await getLegacyVariantProductRedirectPath(
+      slug,
+      productSlug,
+      merchant
+    );
+    if (!legacyRedirectPath) {
+      return <StorefrontRouteNotFound />;
+    }
+    permanentRedirect(asRoute(legacyRedirectPath));
+  }
+  const categorizedTarget = getCategorizedRedirectTarget(slug, product);
+  if (categorizedTarget) {
+    permanentRedirect(asRoute(categorizedTarget));
+  }
+  const invalidVariantTarget = getInvalidVariantSelectionRedirectTarget(
+    slug,
+    product,
+    resolvedSearchParams
+  );
+  if (invalidVariantTarget) {
+    redirect(asRoute(invalidVariantTarget));
+  }
+  const [reviewStats, recentReviews] = await Promise.all([
+    getCachedProductRatingStats(product.id),
+    getCachedProductReviews(product.id, { limit: 10 }),
+  ]);
+  // `product` comes from the request-scoped product cache. Mutating it in place
+  // (as this did previously) would pollute the shared reference for subsequent
+  // renders in the same request or across requests that replay the same cache
+  // entry. Shallow-clone before attaching the per-request review payload.
+  const productWithReviews =
+    recentReviews && recentReviews.length > 0
+      ? {
+          ...product,
+          reviews: recentReviews.map((r) => ({
+            author: r.reviewer_name || 'Anonymous',
+            datePublished: r.created_at,
+            reviewBody: r.review_text || '',
+            reviewRating: r.rating,
+          })),
+        }
+      : product;
+  const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
+  const trustProfile = buildMerchantTrustProfile(merchant, baseUrl);
+  const currency = merchant.payout_currency || 'NGN';
+  const priceSeoCopy = buildProductPriceSeoCopy({
+    product,
+    merchantDisplayName: merchant.business_name || DEFAULT_STORE_NAME,
+    categoryName:
+      product.categories?.name || product.category || 'All Products',
+    currency,
+    country: merchant.country,
+  });
+  const productUrl = getValidatedProductUrl(product, baseUrl, merchant.slug);
+  const productSchema = generateProductSchema(
+    productWithReviews,
+    merchant.business_name || 'Baci Store',
+    currency,
+    merchant.country || 'NG',
+    merchant.logo_url,
+    trustProfile,
+    { productUrl }
+  );
+  if (reviewStats && reviewStats.totalReviews > 0) {
+    const aggregateRating = generateAggregateRating({
+      averageRating: reviewStats.averageRating,
+      reviewCount: reviewStats.totalReviews,
+    });
+    if (aggregateRating) {
+      productSchema.aggregateRating = aggregateRating;
+    }
   }
 
-  return ProductPageRuntime(resolution.runtimeProps);
-}
+  const categorySlug =
+    product.category_slug ||
+    (product.category ? generateSlug(product.category) : 'products');
+  const categoryName =
+    product.categories?.name || product.category || 'All Products';
+  const categoryPageData = await getCachedCategoryPageData(
+    merchant.id,
+    categorySlug,
+    slug
+  );
+  const guidePosts = await getPublishedClusterPosts(merchant.id);
+  const inventoryCandidates = (
+    categoryPageData?.isCollection ? [] : (categoryPageData?.products ?? [])
+  ).map((candidate) => {
+    const productCandidate = candidate as SemanticInventoryCandidateProduct;
 
-export default function ProductPage(props: PageProps) {
+    return {
+      slug: productCandidate.slug,
+      name: productCandidate.name,
+      brand: productCandidate.brand,
+      condition: productCandidate.condition,
+      price: productCandidate.price,
+      stock: productCandidate.stock,
+      category_slug: productCandidate.category_slug,
+      product_key_specs: productCandidate.product_key_specs,
+    };
+  });
+  const semanticModel = buildProductSemanticModel({
+    storeUrl: baseUrl,
+    merchantBusinessName: merchant.business_name || 'Baci Store',
+    categorySlug,
+    categoryName,
+    countryCode: merchant.country,
+    currentProduct: {
+      slug: product.slug || String(product.id),
+      name: product.name,
+      brand: product.brand,
+      condition: product.condition,
+      price: product.price,
+      stock: product.stock,
+      category_slug: product.category_slug ?? categorySlug,
+      product_key_specs: product.product_key_specs,
+    },
+    inventory: inventoryCandidates,
+    guidePosts,
+  });
+  const semanticSectionsModel = {
+    ...semanticModel,
+    trustBullets: [
+      priceSeoCopy.answer,
+      ...buildTrustBulletsFromProfile(trustProfile),
+      ...semanticModel.trustBullets,
+    ],
+  };
+  const categoryUrl = `${baseUrl}/${categorySlug}`;
+  const breadcrumbItems = [
+    { name: merchant.business_name || 'Home', url: baseUrl },
+    { name: categoryName, url: categoryUrl },
+    { name: product.name, url: productUrl },
+  ];
+  const breadcrumbSchema = generateBreadcrumbSchema(breadcrumbItems);
+  const productFaqs = (product as unknown as { faqs?: FAQItem[] }).faqs;
+  const faqSchema =
+    productFaqs && productFaqs.length > 0
+      ? generateFAQSchema(productFaqs)
+      : null;
   return (
-    <Suspense fallback={<ProductDetailRouteLoading />}>
-      <RequestBoundProductPage {...props} />
-    </Suspense>
+    <>
+      <script type="application/ld+json">
+        {safeJsonLdStringify(productSchema)}
+      </script>
+      <script type="application/ld+json">
+        {safeJsonLdStringify(breadcrumbSchema)}
+      </script>
+      {faqSchema && (
+        <script type="application/ld+json">
+          {safeJsonLdStringify(faqSchema)}
+        </script>
+      )}
+      <ProductDetailClient product={product} faqs={productFaqs} />
+      <ProductSemanticSections model={semanticSectionsModel} />
+    </>
   );
 }

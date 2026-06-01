@@ -64,7 +64,7 @@ afterEach(() => {
 
 describe('GET /feeds/agent-products.jsonl', () => {
   it('returns the current agent product feed from a storefront host', async () => {
-    const { GET, maxDuration } = await import('./route');
+    const { GET } = await import('./route');
     const response = await GET(
       new NextRequest('https://ogabassey.com/feeds/agent-products.jsonl', {
         headers: { host: 'ogabassey.com' },
@@ -73,13 +73,8 @@ describe('GET /feeds/agent-products.jsonl', () => {
 
     await expect(response.text()).resolves.toBe('{"id":"current-product-1"}');
     expect(response.status).toBe(200);
-    expect(maxDuration).toBe(60);
     expect(response.headers.get('content-type')).toBe(
       'application/x-ndjson; charset=utf-8'
-    );
-    expect(response.headers.get('cache-control')).toBe('public, max-age=60');
-    expect(response.headers.get('vercel-cdn-cache-control')).toBe(
-      'public, s-maxage=300, stale-while-revalidate=3600'
     );
     expect(mockGetCachedOpenAIFeedData).toHaveBeenCalledWith('merchant-1');
     expect(mockGenerateCurrentOpenAIProductFeed).toHaveBeenCalledWith(

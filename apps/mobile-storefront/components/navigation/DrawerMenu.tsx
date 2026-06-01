@@ -266,14 +266,10 @@ export function DrawerMenu() {
                 { backgroundColor: colors.foreground },
               ]}
               onPress={isAuthenticated ? handleSignOut : handleSignIn}
-              accessibilityLabel={
-                isAuthenticated ? 'Sign out' : 'Login or Register'
-              }
+              accessibilityLabel={isAuthenticated ? 'Sign out' : 'Login or Register'}
               accessibilityRole="button"
             >
-              <Text
-                style={[styles.authButtonText, { color: colors.background }]}
-              >
+              <Text style={[styles.authButtonText, { color: colors.background }]}>
                 {isAuthenticated ? 'Sign Out' : 'Login / Register'}
               </Text>
             </Pressable>

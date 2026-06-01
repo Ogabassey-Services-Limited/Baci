@@ -4,6 +4,7 @@ import { getCachedOpenAIFeedData } from '@/app/api/feed/openai/feed-data';
 import type { Merchant } from '@/app/api/feed/openai/feed-types';
 import { generateOpenAIFeed } from '@/app/api/feed/openai/legacy-feed-generator';
 import { getRootDomain } from '@/env';
+import { CACHE_HEADERS } from '@/lib/cache-headers';
 import { buildRequestBaseUrl } from '@/lib/storefront-host';
 import { resolveStorefrontMerchantFromRequest } from '@/lib/storefront-merchant';
 
@@ -12,11 +13,6 @@ const OPENAI_PRODUCT_FEED_NOT_FOUND_ERROR =
   'OpenAI product feed is only available on storefront hosts';
 const OPENAI_PRODUCT_FEED_LOOKUP_ERROR =
   'Failed to resolve storefront for OpenAI product feed';
-const PUBLIC_OPENAI_FEED_CACHE_HEADERS = {
-  'Cache-Control': 'public, max-age=60',
-  'Vercel-CDN-Cache-Control':
-    'public, s-maxage=300, stale-while-revalidate=3600',
-} as const;
 
 type PublicOpenAIFeedFormat = 'legacy' | 'current';
 type OpenAIFeedMerchant = Pick<
@@ -92,7 +88,7 @@ export async function createPublicOpenAIFeedResponse(
       status: 200,
       headers: {
         'Content-Type': 'application/x-ndjson; charset=utf-8',
-        ...PUBLIC_OPENAI_FEED_CACHE_HEADERS,
+        ...CACHE_HEADERS.SHORT,
       },
     });
   } catch (error) {

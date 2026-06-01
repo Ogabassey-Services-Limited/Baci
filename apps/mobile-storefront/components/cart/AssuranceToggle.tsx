@@ -23,10 +23,7 @@ export default function AssuranceToggle({
 }: AssuranceToggleProps) {
   return (
     <Pressable
-      style={({ pressed }) => [
-        styles.assuranceContainer,
-        pressed && { opacity: 0.7 },
-      ]}
+      style={({ pressed }) => [styles.assuranceContainer, pressed && { opacity: 0.7 }]}
       onPress={() => toggleAssurance(item.id)}
       accessibilityRole="switch"
       accessibilityState={{ checked: !!item.hasAssurance }}

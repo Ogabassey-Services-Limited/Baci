@@ -1,5 +1,5 @@
-import { CatalogListingLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
+import { ProductDetailRouteLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
 
 export default function Loading() {
-  return <CatalogListingLoading />;
+  return <ProductDetailRouteLoading />;
 }
