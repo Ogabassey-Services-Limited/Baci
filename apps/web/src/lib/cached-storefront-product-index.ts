@@ -4,6 +4,7 @@ import {
   normalizeProducts,
   type RawDbProduct,
 } from '@/lib/normalize-product';
+import { buildStorefrontProductListingDescription } from '@/lib/storefront-product-listing-description';
 import { createPublicClient } from '@/lib/supabase/public';
 
 interface StorefrontProductIndexOptions {
@@ -56,7 +57,6 @@ export async function getCachedStorefrontProductIndex(
         merchant_id,
         name,
         slug,
-        description,
         price,
         compare_at_price,
         images,
@@ -95,7 +95,12 @@ export async function getCachedStorefrontProductIndex(
   return {
     errorMessage: null,
     hasError: false,
-    products: normalizeProducts((data || []) as unknown as RawDbProduct[]),
+    products: normalizeProducts(
+      ((data || []) as unknown as RawDbProduct[]).map((product) => ({
+        ...product,
+        description: buildStorefrontProductListingDescription(product),
+      }))
+    ),
     totalCount: count || 0,
     totalPages: Math.ceil((count || 0) / limit),
   };
