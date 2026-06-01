@@ -335,8 +335,11 @@ export const OgabasseyV2CategoryPage: React.FC<
       {/* Mobile Filter Drawer */}
       {isMobileFilterOpen && (
         <div className="fixed inset-0 z-60 flex justify-end">
-          <div
-            className="absolute inset-0 bg-black/50 backdrop-blur-xs"
+          <button
+            type="button"
+            aria-label="Dismiss filters backdrop"
+            tabIndex={-1}
+            className="absolute inset-0 border-0 bg-black/50 p-0 backdrop-blur-xs"
             onClick={() => setIsMobileFilterOpen(false)}
           />
           <div className="relative w-full max-w-xs bg-white h-full shadow-2xl overflow-y-auto animate-in slide-in-from-right duration-300">
