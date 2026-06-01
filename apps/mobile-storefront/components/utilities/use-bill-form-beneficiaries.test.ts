@@ -147,13 +147,23 @@ describe('useBillFormBeneficiaries', () => {
       })
     );
 
-    authenticatedCustomerId = 'customer-B';
-    rerender({});
-    resolveCustomerA([BENEFICIARY]);
+    await act(async () => {
+      authenticatedCustomerId = 'customer-B';
+      rerender({});
+      await Promise.resolve();
+    });
 
     await waitFor(() => {
       expect(result.current).toEqual([customerB]);
     });
+
+    await act(async () => {
+      resolveCustomerA([BENEFICIARY]);
+      await customerAPromise;
+      await Promise.resolve();
+    });
+
+    expect(result.current).toEqual([customerB]);
   });
 
   it('keeps beneficiaries empty when loading stored beneficiaries fails', async () => {
