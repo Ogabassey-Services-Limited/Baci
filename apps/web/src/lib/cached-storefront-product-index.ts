@@ -20,6 +20,19 @@ interface StorefrontProductIndexResult {
   totalPages: number;
 }
 
+function getListingDescriptionCategory(product: RawDbProduct) {
+  const legacyCategory =
+    typeof product.category === 'string' ? product.category.trim() : '';
+  if (legacyCategory) {
+    return legacyCategory;
+  }
+
+  return (
+    product.product_categories?.find((entry) => entry.categories?.name)
+      ?.categories?.name ?? null
+  );
+}
+
 export async function getCachedStorefrontProductIndex(
   merchantId: string,
   options: StorefrontProductIndexOptions
@@ -98,7 +111,10 @@ export async function getCachedStorefrontProductIndex(
     products: normalizeProducts(
       ((data || []) as unknown as RawDbProduct[]).map((product) => ({
         ...product,
-        description: buildStorefrontProductListingDescription(product),
+        description: buildStorefrontProductListingDescription({
+          ...product,
+          category: getListingDescriptionCategory(product),
+        }),
       }))
     ),
     totalCount: count || 0,

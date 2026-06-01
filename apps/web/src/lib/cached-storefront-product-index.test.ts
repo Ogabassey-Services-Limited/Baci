@@ -82,7 +82,15 @@ describe('getCachedStorefrontProductIndex', () => {
         id: 'p1',
         name: 'Alienware 18',
         brand: 'Dell',
-        category: 'Gaming Laptops',
+        category: '',
+        product_categories: [
+          {
+            categories: {
+              name: 'Gaming Laptops',
+              slug: 'gaming-laptops',
+            },
+          },
+        ],
         price: 5900000,
       },
     ];
