@@ -1022,6 +1022,7 @@ Expected categories:
 apps/web/package.json
 packages/shared/package.json
 pnpm-lock.yaml
+.github/workflows/ci.yml
 Zod schema files
 React Hook Form files only where required
 schema/form tests

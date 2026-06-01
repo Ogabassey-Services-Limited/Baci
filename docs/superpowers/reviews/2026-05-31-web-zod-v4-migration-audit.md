@@ -64,6 +64,10 @@
 - No top-level `z.email()`, `z.url()`, `z.uuid()`, or `z.iso.datetime()` call remains before a later `.trim()` in the migrated surface.
 - Added regression coverage for sparse update payloads so omitted discount-code and merchant-feature fields remain absent instead of being filled with create-schema defaults.
 
+## CI Quality Gate Support
+- `.github/workflows/ci.yml` increases only `quality-test.timeout-minutes` from 15 to 30.
+- Reason: on the clean Zod v4 branch, the cold-cache PR test run completed mobile-admin, shared, tiktok-business, and mobile-storefront successfully but hit the 15-minute job timeout before the full `@baci/web` test task could finish. The command remains `pnpm turbo test --concurrency=3`; the change gives the existing full test gate enough wall-clock time instead of narrowing coverage.
+
 ## Browser QA Evidence
 - Local dev server ran from the isolated worktree at `http://localhost:3002` with ignored env files sourced into the process only and `NEXT_PUBLIC_APP_URL` overridden to localhost.
 - Browser QA:
