@@ -280,8 +280,10 @@ export function PaymentTrustBadges() {
             className="flex flex-wrap items-center justify-center gap-4 py-4"
             aria-label="Accepted payment methods"
         >
-            <span className="text-xs text-gray-500 font-medium">Secure payments via</span>
-            <ul className="flex items-center gap-2">
+            <span className="text-xs text-store-background-text/60 font-medium">
+                Secure payments via
+            </span>
+            <ul className="flex items-center gap-2" role="list">
                 <li><PaystackLogo className="size-6" /></li>
                 <li><KorapayLogo className="size-6" /></li>
                 <li><CredPalLogo className="size-6" /></li>
