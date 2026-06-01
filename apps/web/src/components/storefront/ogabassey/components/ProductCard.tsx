@@ -1,6 +1,7 @@
 'use client';
 
 import { ArrowRightLeft, Heart, ShoppingCart, Star } from 'lucide-react';
+import { getFirstNonBlankString } from '@baci/shared/lib';
 // Migrated from temp-source/components/ProductCard.tsx
 import Link from 'next/link';
 import Image from 'next/image';
@@ -34,16 +35,12 @@ function stripHtml(html: string): string {
   return result;
 }
 
-function trimString(value: unknown): string {
-  return typeof value === 'string' ? value.trim() : '';
-}
-
 function getImagePayloadAlt(product: Product): string {
   if (!Array.isArray(product.images)) {
     return '';
   }
 
-  const primaryImageUrl = trimString(product.image);
+  const primaryImageUrl = getFirstNonBlankString(product.image);
 
   for (const image of product.images as unknown[]) {
     if (!image || typeof image !== 'object') {
@@ -51,13 +48,13 @@ function getImagePayloadAlt(product: Product): string {
     }
 
     const candidate = image as Record<string, unknown>;
-    const url = typeof candidate.url === 'string' ? candidate.url.trim() : '';
+    const url = getFirstNonBlankString(candidate.url);
 
     if (primaryImageUrl && url && url !== primaryImageUrl) {
       continue;
     }
 
-    const alt = typeof candidate.alt === 'string' ? candidate.alt.trim() : '';
+    const alt = getFirstNonBlankString(candidate.alt);
     if (alt) {
       return alt;
     }
@@ -68,16 +65,16 @@ function getImagePayloadAlt(product: Product): string {
 
 function getProductImageAlt(product: Product): string {
   const explicitAlt =
-    trimString(product.seo_alt_text) ||
-    trimString(product.image_alt) ||
+    getFirstNonBlankString(product.seo_alt_text) ||
+    getFirstNonBlankString(product.image_alt) ||
     getImagePayloadAlt(product);
 
   if (explicitAlt) {
     return explicitAlt;
   }
 
-  const name = trimString(product.name);
-  const brand = trimString(product.brand);
+  const name = getFirstNonBlankString(product.name);
+  const brand = getFirstNonBlankString(product.brand);
 
   if (brand && !name.toLowerCase().includes(brand.toLowerCase())) {
     return `${brand} ${name}`;

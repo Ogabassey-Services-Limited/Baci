@@ -19,4 +19,10 @@ describe('getFirstNonBlankString', () => {
   it('returns an empty string when every value is blank or missing', () => {
     expect(getFirstNonBlankString(undefined, null, '', '   ')).toBe('');
   });
+
+  it('ignores non-string runtime values', () => {
+    expect(
+      getFirstNonBlankString(undefined, 123, { value: 'skip' }, '  usable  ')
+    ).toBe('usable');
+  });
 });

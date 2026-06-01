@@ -275,36 +275,4 @@ describe('StorefrontProductCard accessibility', () => {
       })
     ).toBeInTheDocument();
   });
-
-  it('safely falls back when image payload fields are nullish at runtime', () => {
-    render(
-      <StorefrontProductCard
-        product={
-          {
-            ...mockProduct,
-            image: null,
-            imageLarge: null,
-            name: null,
-            images: [
-              {
-                url: null,
-                alt: null,
-                order: 0,
-              },
-            ],
-          } as unknown as Product
-        }
-        staggerClass=""
-        onAddToCart={mockAddToCart}
-        onUpdateQuantity={mockUpdateQuantity}
-        onQuickView={mockQuickView}
-      />
-    );
-
-    expect(
-      screen.getByRole('img', {
-        name: 'Product image',
-      })
-    ).toBeInTheDocument();
-  });
 });

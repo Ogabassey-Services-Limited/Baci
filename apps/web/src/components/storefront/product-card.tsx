@@ -1,5 +1,6 @@
 'use client';
 
+import { getFirstNonBlankString } from '@baci/shared/lib';
 import { Eye, Minus, Plus } from 'lucide-react';
 import type { Route } from 'next';
 import Link from 'next/link';
@@ -49,20 +50,16 @@ function buildStorefrontProductHref(
   return `/${merchantSlug}${normalizedPath}` as Route;
 }
 
-function trimString(value: unknown): string {
-  return typeof value === 'string' ? value.trim() : '';
-}
-
 function getImagePayloadUrl(image: unknown): string {
   if (typeof image === 'string') {
-    return trimString(image);
+    return getFirstNonBlankString(image);
   }
 
   if (!image || typeof image !== 'object') {
     return '';
   }
 
-  return trimString((image as { url?: unknown }).url);
+  return getFirstNonBlankString((image as { url?: unknown }).url);
 }
 
 function getImagePayloadAlt(image: unknown): string {
@@ -70,11 +67,14 @@ function getImagePayloadAlt(image: unknown): string {
     return '';
   }
 
-  return trimString((image as { alt?: unknown }).alt);
+  return getFirstNonBlankString((image as { alt?: unknown }).alt);
 }
 
 function getRenderedProductImageAlt(product: Product): string {
-  const renderedImageUrl = trimString(product.imageLarge || product.image);
+  const renderedImageUrl = getFirstNonBlankString(
+    product.imageLarge,
+    product.image
+  );
   const matchingImage = product.images?.find(
     (image) =>
       getImagePayloadUrl(image) === renderedImageUrl &&
@@ -83,7 +83,7 @@ function getRenderedProductImageAlt(product: Product): string {
 
   return (
     getImagePayloadAlt(matchingImage) ||
-    trimString(product.name) ||
+    getFirstNonBlankString(product.name) ||
     'Product image'
   );
 }
@@ -177,7 +177,6 @@ export function StorefrontProductCard({
         <Link
           href={buildStorefrontProductHref(product, merchantSlug)}
           className="block"
-          aria-label={productImageAlt}
         >
           <ProductCardImage
             src={product.imageLarge}
