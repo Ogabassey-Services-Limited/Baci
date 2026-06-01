@@ -674,13 +674,9 @@ export function buildStorefrontAcceptedPaymentMethods(
   if (isPaystackCheckoutAvailable(merchant)) {
     methods.add('Debit and credit card');
     methods.add('USSD');
-    methods.add('Mobile money');
   }
 
-  if (
-    isBankTransferCheckoutAvailable(merchant) ||
-    isKorapayCheckoutAvailable(merchant)
-  ) {
+  if (isBankTransferCheckoutAvailable(merchant)) {
     methods.add('Bank transfer');
   }
 
@@ -702,10 +698,6 @@ export function buildStorefrontAcceptedPaymentMethods(
     readSchemaBooleanSetting(featureSettings, 'credit_direct_enabled') === true
   ) {
     methods.add('Credit Direct buy now pay later');
-  }
-
-  if (readSchemaBooleanSetting(featureSettings, 'klump_enabled') === true) {
-    methods.add('Klump buy now pay later');
   }
 
   if (readSchemaBooleanSetting(featureSettings, 'juicyway_enabled') === true) {

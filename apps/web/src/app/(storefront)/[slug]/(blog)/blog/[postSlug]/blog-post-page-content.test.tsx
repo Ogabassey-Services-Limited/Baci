@@ -181,6 +181,11 @@ const smartphoneGuideBlogPost = {
     slug: 'ogabassey',
     logo_url: null,
     custom_domain: 'ogabassey.com',
+    social_media: {
+      instagram: '@ogabassey',
+      tiktok: 'https://www.tiktok.com/@ogabassey',
+      pinterest: '@ignored-platform',
+    },
   },
   post: {
     id: 'post-1',
@@ -373,6 +378,28 @@ describe('BlogPostPageContent', () => {
           'https://cdn.ogabassey.com/media/merchant-1/blog/post/standard_4x3.webp',
           'https://cdn.ogabassey.com/media/merchant-1/blog/post/square_1x1.webp',
         ],
+      })
+    );
+  });
+
+  it('normalizes publisher social handles before passing blog structured data', async () => {
+    render(
+      await BlogPostPageContent({
+        params: Promise.resolve({
+          slug: 'ogabassey',
+          postSlug: 'best-phones-in-nigeria',
+        }),
+      })
+    );
+
+    expect(mockGenerateBlogPostSchema).toHaveBeenCalledWith(
+      expect.objectContaining({
+        publisher: expect.objectContaining({
+          sameAs: [
+            'https://instagram.com/ogabassey',
+            'https://www.tiktok.com/@ogabassey',
+          ],
+        }),
       })
     );
   });

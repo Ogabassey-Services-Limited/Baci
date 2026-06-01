@@ -68,7 +68,6 @@ describe('buildStorefrontAcceptedPaymentMethods', () => {
     expect(methods).toEqual([
       'Debit and credit card',
       'USSD',
-      'Mobile money',
       'Bank transfer',
       'Pay on delivery',
       'CredPal buy now pay later',
@@ -86,6 +85,18 @@ describe('buildStorefrontAcceptedPaymentMethods', () => {
     });
 
     expect(methods).toEqual([]);
+  });
+
+  it('does not advertise payment methods that need additional checkout eligibility checks', () => {
+    const methods = buildStorefrontAcceptedPaymentMethods({
+      country: 'NG',
+      feature_settings: {
+        korapay_enabled: true,
+        klump_enabled: true,
+      },
+    });
+
+    expect(methods).toEqual(['Debit and credit card']);
   });
 });
 

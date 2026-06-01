@@ -129,6 +129,7 @@ const defaultGetValidatedProductUrl = (
 const mockGetValidatedProductUrl = vi.fn(defaultGetValidatedProductUrl);
 
 vi.mock('@/lib/seo-utils', () => ({
+  buildStorefrontAcceptedPaymentMethods: () => ['Bank transfer'],
   constructCanonicalUrl: (base: string) => base,
   generateAggregateRating: () => null,
   generateBreadcrumbSchema: (items: unknown) =>
@@ -895,7 +896,10 @@ describe('products/[productSlug] page', () => {
         'NG',
         null,
         expect.any(Object),
-        { productUrl: 'https://teststore.usebaci.com/products/mystery-item' }
+        expect.objectContaining({
+          acceptedPaymentMethods: ['Bank transfer'],
+          productUrl: 'https://teststore.usebaci.com/products/mystery-item',
+        })
       );
 
       // Breadcrumb schema should receive the same product URL
@@ -951,7 +955,10 @@ describe('products/[productSlug] page', () => {
         'NG',
         null,
         expect.any(Object),
-        { productUrl }
+        expect.objectContaining({
+          acceptedPaymentMethods: ['Bank transfer'],
+          productUrl,
+        })
       );
       expect(mockGenerateBreadcrumbSchema).toHaveBeenCalledWith(
         expect.arrayContaining([
@@ -1115,9 +1122,10 @@ describe('products/[productSlug] page', () => {
         supportEmail: 'support@test.example',
         supportPhone: '+2348000000000',
       }),
-      {
+      expect.objectContaining({
+        acceptedPaymentMethods: ['Bank transfer'],
         productUrl: 'https://teststore.usebaci.com/products/iphone-17-pro-max',
-      }
+      })
     );
   });
 });

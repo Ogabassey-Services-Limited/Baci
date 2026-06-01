@@ -14,6 +14,7 @@ import {
   generateBlogPostSchema,
   generateBreadcrumbSchema,
 } from '@/lib/seo-utils';
+import { normalizeSocialUrl } from '@/lib/social';
 import { buildStoreUrl } from '@/lib/store-url';
 import { buildInformationalClusterModel } from '@/lib/storefront-content/build-informational-cluster-model';
 import { isDomainIdentifier } from '@/lib/validation';
@@ -29,6 +30,50 @@ import { ViewCounter } from './view-counter';
 
 interface BlogPostPageContentProps {
   params: Promise<{ slug: string; postSlug: string }>;
+}
+
+const BLOG_PUBLISHER_SOCIAL_PLATFORMS = [
+  'instagram',
+  'facebook',
+  'tiktok',
+  'twitter',
+  'youtube',
+  'linkedin',
+  'snapchat',
+] as const;
+
+type BlogPublisherSocialPlatform =
+  (typeof BLOG_PUBLISHER_SOCIAL_PLATFORMS)[number];
+
+function isBlogPublisherSocialPlatform(
+  platform: string
+): platform is BlogPublisherSocialPlatform {
+  return BLOG_PUBLISHER_SOCIAL_PLATFORMS.includes(
+    platform as BlogPublisherSocialPlatform
+  );
+}
+
+function buildBlogPublisherSameAs(
+  socialMedia: Record<string, string | undefined> | null | undefined
+): string[] {
+  if (!socialMedia) {
+    return [];
+  }
+
+  const sameAs = new Set<string>();
+
+  for (const [platform, value] of Object.entries(socialMedia)) {
+    if (!isBlogPublisherSocialPlatform(platform)) {
+      continue;
+    }
+
+    const normalized = normalizeSocialUrl(value, platform);
+    if (normalized) {
+      sameAs.add(normalized);
+    }
+  }
+
+  return [...sameAs];
 }
 
 function getRequestLocale(headersList: Headers): string | undefined {
@@ -111,9 +156,7 @@ async function renderBlogPostContent({
       name: merchant.business_name,
       logo: merchant.logo_url || `${baseUrl}/logo.png`,
       url: baseUrl,
-      sameAs: Object.values(merchant.social_media ?? {}).filter(
-        (url): url is string => typeof url === 'string' && url.trim().length > 0
-      ),
+      sameAs: buildBlogPublisherSameAs(merchant.social_media),
     },
     wordCount: post.word_count,
     keywords: post.keywords,
