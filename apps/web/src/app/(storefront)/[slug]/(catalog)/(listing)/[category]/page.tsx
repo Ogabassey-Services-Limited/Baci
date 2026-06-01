@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 import { CatalogListingLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
 import {
@@ -10,10 +11,15 @@ import type { RawDbProduct } from '@/lib/normalize-product';
 import {
   generateMetaDescription,
   generateMetaTitle,
+  getCanonicalStorefrontFilterSearchParams,
   getIndexableRobotsMetadata,
 } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
-import { STOREFRONT_PRODUCTS_PER_PAGE } from '@/lib/storefront-pagination';
+import {
+  buildStorefrontPageHref,
+  parseStorefrontPageParam,
+  STOREFRONT_PRODUCTS_PER_PAGE,
+} from '@/lib/storefront-pagination';
 import {
   getStorefrontOpenGraphImages,
   getStorefrontTwitterImages,
@@ -31,15 +37,20 @@ interface PageProps {
     slug: string; // Store slug (merchant)
     category: string; // Category slug
   }>;
-  searchParams: Promise<{
-    page?: string;
-  }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
 export async function generateMetadata({
   params,
+  searchParams,
 }: PageProps): Promise<Metadata> {
   const { slug, category } = await params;
+  const resolvedSearchParams = await searchParams;
+  const currentPage = parseStorefrontPageParam(resolvedSearchParams.page);
+
+  if (!currentPage) {
+    notFound();
+  }
 
   // 1. Get Merchant
   const merchant = isDomainIdentifier(slug)
@@ -60,13 +71,26 @@ export async function generateMetadata({
     undefined,
     merchant.country
   );
+  const totalPages = Math.max(
+    1,
+    Math.ceil(normalizedProducts.length / STOREFRONT_PRODUCTS_PER_PAGE)
+  );
+
+  if (currentPage > totalPages) {
+    notFound();
+  }
+
+  const productOffset = (currentPage - 1) * STOREFRONT_PRODUCTS_PER_PAGE;
   const paginatedProducts = normalizedProducts.slice(
-    0,
-    STOREFRONT_PRODUCTS_PER_PAGE
+    productOffset,
+    productOffset + STOREFRONT_PRODUCTS_PER_PAGE
   );
 
   const baseUrl = buildStoreUrl(merchant);
-  const categoryUrl = `${baseUrl}/${category}`;
+  const canonicalFilterParams =
+    getCanonicalStorefrontFilterSearchParams(resolvedSearchParams);
+  const canonicalFilterQuery = canonicalFilterParams.toString();
+  const categoryUrl = `${baseUrl}/${category}${canonicalFilterQuery ? `?${canonicalFilterQuery}` : ''}`;
   const hubContent = buildCategoryPageHubModel({
     data,
     categorySlug: category,
@@ -75,10 +99,15 @@ export async function generateMetadata({
     storeUrl: baseUrl,
     products: normalizedProducts,
   });
-  const paginatedCategoryUrl = categoryUrl;
+  const paginatedCategoryUrl = buildStorefrontPageHref(
+    categoryUrl,
+    currentPage
+  );
 
   const titleFragment = hubContent.intro.heading;
-  const title = generateMetaTitle(titleFragment, {
+  const pageTitleFragment =
+    currentPage > 1 ? `Page ${currentPage} | ${titleFragment}` : titleFragment;
+  const title = generateMetaTitle(pageTitleFragment, {
     maxLength: 70,
     suffix: merchant.business_name,
     fallback: categoryName,
@@ -100,7 +129,7 @@ export async function generateMetadata({
     alternates: {
       canonical: paginatedCategoryUrl,
     },
-    robots: getIndexableRobotsMetadata(),
+    robots: getIndexableRobotsMetadata(resolvedSearchParams),
     openGraph: {
       title,
       description,
