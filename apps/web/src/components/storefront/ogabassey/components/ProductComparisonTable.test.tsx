@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import type { Product } from '../types';
@@ -92,5 +92,20 @@ describe('ProductComparisonTable', () => {
     expect(keySpecs.getByText('512GB')).toBeInTheDocument();
     expect(keySpecs.getByText('Battery')).toBeInTheDocument();
     expect(keySpecs.getByText('5600mAh')).toBeInTheDocument();
+  });
+
+  it('moves focus into comparison search when opening an empty slot', () => {
+    render(
+      <ProductComparisonTable
+        mainProduct={createMainProduct()}
+        storeSlug="ogabassey"
+      />
+    );
+
+    fireEvent.click(
+      screen.getAllByRole('button', { name: /compare similar smartphones/i })[0]
+    );
+
+    expect(screen.getByPlaceholderText('Type to search...')).toHaveFocus();
   });
 });
