@@ -4,11 +4,45 @@
 -- cache misses; avoid reintroducing unbounded scans or concurrent DB fan-out.
 -- CREATE INDEX CONCURRENTLY must run outside a transaction to avoid blocking
 -- production writes while these feed lookup indexes are built.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM pg_class AS idx
+    JOIN pg_namespace AS ns
+      ON ns.oid = idx.relnamespace
+    JOIN pg_index AS index_state
+      ON index_state.indexrelid = idx.oid
+    WHERE ns.nspname = 'public'
+      AND idx.relname = 'idx_product_variants_feed_lookup'
+      AND NOT index_state.indisvalid
+  ) THEN
+    DROP INDEX public.idx_product_variants_feed_lookup;
+  END IF;
+END $$;
+
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_product_variants_feed_lookup
   ON public.product_variants USING btree (merchant_id, product_id, created_at, id);
 
 COMMENT ON INDEX public.idx_product_variants_feed_lookup IS
   'Supports get_feed_product_variants tenant/product lookup and ordered feed hydration for cold feed cache rebuilds.';
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM pg_class AS idx
+    JOIN pg_namespace AS ns
+      ON ns.oid = idx.relnamespace
+    JOIN pg_index AS index_state
+      ON index_state.indexrelid = idx.oid
+    WHERE ns.nspname = 'public'
+      AND idx.relname = 'idx_products_feed_active_lookup'
+      AND NOT index_state.indisvalid
+  ) THEN
+    DROP INDEX public.idx_products_feed_active_lookup;
+  END IF;
+END $$;
 
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_products_feed_active_lookup
   ON public.products USING btree (merchant_id, id)
