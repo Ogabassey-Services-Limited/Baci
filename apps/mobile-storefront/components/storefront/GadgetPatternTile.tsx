@@ -19,7 +19,10 @@ export function GadgetPatternTile({
   tileSize,
 }: GadgetPatternTileProps) {
   return (
-    <G transform={`translate(${col * tileSize}, ${row * tileSize})`}>
+    <G
+      testID={`gadget-pattern-tile-${row}-${col}`}
+      transform={`translate(${col * tileSize}, ${row * tileSize})`}
+    >
       <G transform="translate(20, 20) translate(6, 10) rotate(-15) translate(-6, -10)">
         <Rect x="0" y="0" width="12" height="20" rx="2.5" {...strokeProps} />
         <Circle cx="6" cy="16.5" r="1" {...strokeProps} />
@@ -44,7 +47,14 @@ export function GadgetPatternTile({
         <Rect x="2" y="0" width="16" height="10" rx="1.5" {...strokeProps} />
         <Path d="M0 11 h20 l-2 3 h-16 z" {...strokeProps} />
       </G>
-      <Circle cx="100" cy="30" r="1.5" fill={color} opacity={0.6} />
+      <Circle
+        cx="100"
+        cy="30"
+        fill={color}
+        opacity={0.6}
+        r="1.5"
+        testID={`gadget-pattern-laptop-accent-dot-${row}-${col}`}
+      />
 
       <G transform="translate(15, 65) translate(8, 8) rotate(-15) translate(-8, -8)">
         <Rect
