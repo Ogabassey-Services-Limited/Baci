@@ -13,6 +13,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import { useCustomerAuth } from '@/contexts/customer-auth-context';
+import { BACI_GOOGLE_REVIEW_URL } from '@/lib/post-purchase-actions';
 import { InvoiceModal } from '../components/InvoiceModal';
 import { useV2Order } from '../providers/v2-order-context';
 
@@ -174,13 +175,15 @@ export const OrderSuccessPage: React.FC = () => {
           <h3 className="font-bold text-gray-900 mb-4 text-lg">
             Loved the experience? 🥺
           </h3>
-          <Link
-            href={getUrl('/reviews')}
+          <a
+            href={BACI_GOOGLE_REVIEW_URL}
+            target="_blank"
+            rel="noreferrer"
             className="bg-white border border-gray-200 text-gray-700 font-bold py-3 px-6 rounded-xl hover:border-gray-300 hover:bg-gray-50 transition-all flex items-center justify-center gap-3 w-full shadow-sm group"
           >
             <GoogleIcon className="size-5 group-hover:scale-110 transition-transform" />
             Leave a Google Review
-          </Link>
+          </a>
         </div>
 
         <p className="text-store-primary font-bold italic mb-8 flex items-center justify-center gap-2">
