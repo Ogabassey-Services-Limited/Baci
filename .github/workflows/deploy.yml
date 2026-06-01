@@ -154,7 +154,12 @@ jobs:
 
           async function fetchText(url) {
             const response = await fetch(url, {
-              headers: { 'user-agent': 'baci-deploy-blog-smoke-check' },
+              headers: {
+                accept: 'text/html,application/xhtml+xml',
+                // Verify crawler-visible HTML. Generic fetch clients can receive
+                // Next's pre-render transport, which intentionally has no anchors.
+                'user-agent': 'Googlebot/2.1 (+http://www.google.com/bot.html; baci-deploy-blog-smoke-check)',
+              },
               signal: AbortSignal.timeout(timeoutMs),
             });
 
