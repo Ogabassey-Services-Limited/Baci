@@ -1,5 +1,8 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { connection } from 'next/server';
+import { Suspense } from 'react';
+import { ProductDetailRouteLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
 import { getIndexableRobotsMetadata } from '@/lib/seo-utils';
 import { loadPriceBandPage } from '@/lib/storefront-compare/load-price-band-page';
 import { PriceBandPageContent } from './price-band-page-content';
@@ -36,6 +39,18 @@ export async function generateMetadata({
   };
 }
 
-export default function PriceBandPage(props: PriceBandPageRouteProps) {
+async function PriceBandPageRuntime(props: PriceBandPageRouteProps) {
+  // Keep tenant/domain price-band work request-bound while the route prerenders
+  // a Suspense fallback shell. Cache Components rejects route-level dynamic flags.
+  await connection();
+
   return <PriceBandPageContent {...props} />;
+}
+
+export default function PriceBandPage(props: PriceBandPageRouteProps) {
+  return (
+    <Suspense fallback={<ProductDetailRouteLoading />}>
+      <PriceBandPageRuntime {...props} />
+    </Suspense>
+  );
 }

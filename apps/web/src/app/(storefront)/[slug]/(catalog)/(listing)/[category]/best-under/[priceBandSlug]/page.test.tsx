@@ -1,8 +1,8 @@
 import { render, screen } from '@testing-library/react';
-import { Suspense } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockPriceBandPageContent } = vi.hoisted(() => ({
+const { mockConnection, mockPriceBandPageContent } = vi.hoisted(() => ({
+  mockConnection: vi.fn<() => Promise<void>>(() => Promise.resolve()),
   mockPriceBandPageContent: vi.fn((_props: unknown) => (
     <div>Price band page content</div>
   )),
@@ -15,6 +15,10 @@ const mockNotFound = vi.fn(() => {
 
 vi.mock('next/navigation', () => ({
   notFound: () => mockNotFound(),
+}));
+
+vi.mock('next/server', () => ({
+  connection: () => mockConnection(),
 }));
 
 vi.mock('@/lib/seo-utils', () => ({
@@ -71,6 +75,8 @@ const priceBandPageModel = {
 };
 
 beforeEach(() => {
+  mockConnection.mockReset();
+  mockConnection.mockResolvedValue(undefined);
   mockLoadPriceBandPage.mockReset();
   mockNotFound.mockClear();
   mockPriceBandPageContent.mockReset();
@@ -83,28 +89,30 @@ beforeEach(() => {
 describe('price-band page metadata', () => {
   it('defers price-band first paint to the route loader while route params are pending', async () => {
     const { default: PriceBandPage } = await import('./page');
-    mockPriceBandPageContent.mockImplementation(() => {
-      throw new Promise(() => {
-        // Keep the price-band page content suspended behind the route loader.
-      });
-    });
-
-    render(
-      <Suspense fallback={<div>Route loader fallback</div>}>
-        <PriceBandPage
-          params={Promise.resolve({
-            slug: 'ogabassey',
-            category: 'smartphones',
-            priceBandSlug: 'under-500k',
-          })}
-        />
-      </Suspense>
+    mockConnection.mockImplementationOnce(
+      () =>
+        new Promise(() => {
+          // Keep request-bound price-band work suspended behind the route shell.
+        })
     );
 
-    expect(screen.getByText('Route loader fallback')).toBeInTheDocument();
+    render(
+      <PriceBandPage
+        params={Promise.resolve({
+          slug: 'ogabassey',
+          category: 'smartphones',
+          priceBandSlug: 'under-500k',
+        })}
+      />
+    );
+
+    expect(
+      screen.getByRole('status', { name: 'Loading product page' })
+    ).toBeInTheDocument();
     expect(
       screen.queryByText('Price band page content')
     ).not.toBeInTheDocument();
+    expect(mockPriceBandPageContent).not.toHaveBeenCalled();
   });
 
   it('emits canonical metadata for curated price-band pages', async () => {

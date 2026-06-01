@@ -4,6 +4,8 @@ import type { Metadata, ResolvingMetadata } from 'next';
 import { headers } from 'next/headers';
 import { notFound, permanentRedirect, redirect } from 'next/navigation';
 import { connection } from 'next/server';
+import { Suspense } from 'react';
+import { ProductDetailRouteLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
 import { StorefrontRouteNotFound } from '@/app/(storefront)/[slug]/storefront-route-not-found';
 import { ProductSemanticSections } from '@/components/storefront/ogabassey/seo/product-semantic-sections';
 import { STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM } from '@/config/storefront-metadata-cache-bots';
@@ -417,9 +419,9 @@ export async function generateMetadata(
   };
 }
 
-export default async function ProductPage({ params, searchParams }: PageProps) {
-  // Keep the PDP leaf segment request-time. A cacheable PDP shell can resume
-  // with Next's metadata boundary in the first host slot on Vercel/Next 16.
+export async function ProductPageRuntime({ params, searchParams }: PageProps) {
+  // Keep tenant/domain PDP work request-bound while the route prerenders a
+  // Suspense fallback shell. Cache Components rejects route-level dynamic flags.
   await connection();
 
   const { slug, productSlug } = await params;
@@ -585,5 +587,13 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
       <ProductDetailClient product={product} faqs={productFaqs} />
       <ProductSemanticSections model={semanticSectionsModel} />
     </>
+  );
+}
+
+export default function ProductPage(props: PageProps) {
+  return (
+    <Suspense fallback={<ProductDetailRouteLoading />}>
+      <ProductPageRuntime {...props} />
+    </Suspense>
   );
 }

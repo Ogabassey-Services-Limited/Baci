@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { type ReactNode, Suspense } from 'react';
+import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM } from '@/config/storefront-metadata-cache-bots';
 
@@ -209,7 +209,7 @@ vi.mock('./product-detail-client', () => ({
   default: () => mockProductDetailClient(),
 }));
 
-import ProductPage, { generateMetadata } from './page';
+import ProductPage, { generateMetadata, ProductPageRuntime } from './page';
 
 const stubParent = Promise.resolve({}) as never;
 
@@ -334,7 +334,7 @@ describe('products/[productSlug] page', () => {
     mockHeaders.mockReturnValue(makeHeaders({}));
 
     await expect(
-      ProductPage({
+      ProductPageRuntime({
         params: Promise.resolve({
           slug: 'teststore',
           productSlug: 'iphone-15',
@@ -364,7 +364,7 @@ describe('products/[productSlug] page', () => {
     });
 
     await expect(
-      ProductPage({
+      ProductPageRuntime({
         params: Promise.resolve({
           slug: 'teststore',
           productSlug: 'iphone-15',
@@ -376,8 +376,14 @@ describe('products/[productSlug] page', () => {
     expect(mockPermanentRedirect).toHaveBeenCalledWith('/phones/iphone-15');
   });
 
-  it('defers generic PDP first paint to the route loader while the client page is pending', async () => {
+  it('defers generic PDP first paint to the route loader while the client page is pending', () => {
     mockGetCachedProduct.mockResolvedValue(uncategorizedProduct);
+    mockConnection.mockImplementationOnce(
+      () =>
+        new Promise(() => {
+          // Keep request-bound PDP work suspended behind the route shell.
+        })
+    );
     mockProductDetailClient.mockImplementation(() => {
       throw new Promise(() => {
         // Keep the detail client suspended after route data resolves.
@@ -385,20 +391,18 @@ describe('products/[productSlug] page', () => {
     });
 
     render(
-      <Suspense fallback={<div>Route loader fallback</div>}>
-        {
-          await ProductPage({
-            params: Promise.resolve({
-              slug: 'teststore',
-              productSlug: 'mystery-item',
-            }),
-            searchParams: Promise.resolve({}),
-          })
-        }
-      </Suspense>
+      <ProductPage
+        params={Promise.resolve({
+          slug: 'teststore',
+          productSlug: 'mystery-item',
+        })}
+        searchParams={Promise.resolve({})}
+      />
     );
 
-    expect(screen.getByText('Route loader fallback')).toBeInTheDocument();
+    expect(
+      screen.getByRole('status', { name: 'Loading product page' })
+    ).toBeInTheDocument();
     expect(screen.queryByText('mystery-item')).not.toBeInTheDocument();
   });
 
@@ -464,7 +468,7 @@ describe('products/[productSlug] page', () => {
       mockHeaders.mockReturnValue(makeHeaders({}));
 
       await expect(
-        ProductPage({
+        ProductPageRuntime({
           params: Promise.resolve({
             slug: 'teststore',
             productSlug: 'iphone-15',
@@ -482,7 +486,7 @@ describe('products/[productSlug] page', () => {
       mockHeaders.mockReturnValue(makeHeaders({}));
 
       await expect(
-        ProductPage({
+        ProductPageRuntime({
           params: Promise.resolve({
             slug: 'teststore',
             productSlug: 'iphone-15',
@@ -611,7 +615,7 @@ describe('products/[productSlug] page', () => {
     ]);
 
     await expect(
-      ProductPage({
+      ProductPageRuntime({
         params: Promise.resolve({
           slug: 'teststore',
           productSlug: 'mystery-item',
@@ -673,7 +677,7 @@ describe('products/[productSlug] page', () => {
     );
 
     await expect(
-      ProductPage({
+      ProductPageRuntime({
         params: Promise.resolve({
           slug: 'teststore.com',
           productSlug: 'iphone-13-pro-max-6gb-128gb',
@@ -720,7 +724,7 @@ describe('products/[productSlug] page', () => {
     mockGetCachedLegacyProductRedirectTarget.mockResolvedValue(null);
     mockHeaders.mockReturnValue(makeHeaders({}));
 
-    const page = await ProductPage({
+    const page = await ProductPageRuntime({
       params: Promise.resolve({
         slug: 'teststore',
         productSlug: 'nonexistent',
@@ -854,7 +858,7 @@ describe('products/[productSlug] page', () => {
       });
       mockGetCachedProduct.mockResolvedValue(uncategorizedProduct);
 
-      await ProductPage({
+      await ProductPageRuntime({
         params: Promise.resolve({
           slug: 'teststore',
           productSlug: 'mystery-item',
@@ -878,7 +882,7 @@ describe('products/[productSlug] page', () => {
       mockHeaders.mockReturnValue(makeHeaders({}));
       mockGetProductUrl.mockReturnValue('/products/mystery-item');
 
-      await ProductPage({
+      await ProductPageRuntime({
         params: Promise.resolve({
           slug: 'teststore',
           productSlug: 'mystery-item',
@@ -928,7 +932,7 @@ describe('products/[productSlug] page', () => {
         stubParent
       );
 
-      await ProductPage({
+      await ProductPageRuntime({
         params: Promise.resolve({
           slug: 'teststore',
           productSlug: 'mystery-item',
@@ -1050,7 +1054,7 @@ describe('products/[productSlug] page', () => {
     });
 
     render(
-      await ProductPage({
+      await ProductPageRuntime({
         params: Promise.resolve({
           slug: 'teststore',
           productSlug: 'iphone-17-pro-max',
