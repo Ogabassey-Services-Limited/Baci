@@ -4,10 +4,11 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type Colors from '@/constants/Colors';
 import { RADIUS, SPACING, withAlpha } from '@/constants/Colors';
 import type { UtilityRepeatRecipient } from '@/lib/utility-repeat';
-import { MOCK_RECENT_RECIPIENTS } from './fixtures/recent-recipients.fixtures';
 
 const AVATAR_SIZE = 40;
 const PREVIEW_COUNT = 2;
+type RecentRecipientsFixtureModule =
+  typeof import('./fixtures/recent-recipients.fixtures');
 
 interface RecentUtilityRecipientsProps {
   colors: typeof Colors.light;
@@ -26,10 +27,15 @@ function getInitials(title: string): string {
 
 function shouldUseMockRecipients() {
   return (
-    typeof __DEV__ !== 'undefined' &&
-    __DEV__ &&
-    process.env.NODE_ENV !== 'test'
+    typeof __DEV__ !== 'undefined' && __DEV__ && process.env.NODE_ENV !== 'test'
   );
+}
+
+let mockRecipients: UtilityRepeatRecipient[] = [];
+if (shouldUseMockRecipients()) {
+  const fixtureModule =
+    require('./fixtures/recent-recipients.fixtures') as RecentRecipientsFixtureModule;
+  mockRecipients = fixtureModule.MOCK_RECENT_RECIPIENTS;
 }
 
 export function RecentUtilityRecipients({
@@ -44,7 +50,7 @@ export function RecentUtilityRecipients({
   let activeRecipients = recipients;
   if (recipients.length === 0) {
     if (shouldUseMockRecipients()) {
-      activeRecipients = MOCK_RECENT_RECIPIENTS;
+      activeRecipients = mockRecipients;
     } else {
       return null;
     }
