@@ -195,6 +195,9 @@ importers:
       date-fns:
         specifier: ^4.3.0
         version: 4.3.0
+      dotenv:
+        specifier: ^16.6.1
+        version: 16.6.1
       expo:
         specifier: ^56.0.8
         version: 56.0.8(35982a662fd606eba377d7dcab706b3f)
@@ -285,6 +288,9 @@ importers:
       react-native:
         specifier: 0.85.3
         version: 0.85.3(@babel/core@7.29.0)(@react-native/jest-preset@0.85.3(@babel/core@7.29.0)(react@19.2.3))(@react-native/metro-config@0.85.3(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3)
+      react-native-country-picker-modal:
+        specifier: ^2.0.0
+        version: 2.0.0(@types/react@19.2.14)(react-art@16.13.1(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react-native-web@0.21.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-native@0.85.3(@babel/core@7.29.0)(@react-native/jest-preset@0.85.3(@babel/core@7.29.0)(react@19.2.3))(@react-native/metro-config@0.85.3(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
       react-native-edge-to-edge:
         specifier: ^1.8.1
         version: 1.8.1(patch_hash=a6ffbb4929fe78c76f3b2f26254d97b5c5a05c9702c14b7a702cbfde30541d4e)(react-native@0.85.3(@babel/core@7.29.0)(@react-native/jest-preset@0.85.3(@babel/core@7.29.0)(react@19.2.3))(@react-native/metro-config@0.85.3(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
@@ -352,9 +358,15 @@ importers:
       '@testing-library/dom':
         specifier: ^10.4.1
         version: 10.4.1
+      '@testing-library/jest-dom':
+        specifier: ^6.9.1
+        version: 6.9.1
       '@testing-library/react':
         specifier: ^16.3.2
         version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      '@testing-library/user-event':
+        specifier: ^14.6.1
+        version: 14.6.1(@testing-library/dom@10.4.1)
       '@types/react':
         specifier: 19.2.14
         version: 19.2.14
@@ -439,6 +451,9 @@ importers:
       '@tanstack/query-async-storage-persister':
         specifier: ^5.100.14
         version: 5.100.14
+      '@tanstack/query-persist-client-core':
+        specifier: ^5.100.14
+        version: 5.100.14
       '@tanstack/query-sync-storage-persister':
         specifier: ^5.100.14
         version: 5.100.14
@@ -505,6 +520,9 @@ importers:
       expo-localization:
         specifier: ~56.0.6
         version: 56.0.6(expo@56.0.8)(react@19.2.3)
+      expo-modules-core:
+        specifier: ~56.0.14
+        version: 56.0.14(react-native-worklets@0.8.3(@babel/core@7.29.0)(@react-native/metro-config@0.85.3(@babel/core@7.29.0))(react-native@0.85.3(@babel/core@7.29.0)(@react-native/jest-preset@0.85.3(@babel/core@7.29.0)(react@19.2.3))(@react-native/metro-config@0.85.3(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3))(react-native@0.85.3(@babel/core@7.29.0)(@react-native/jest-preset@0.85.3(@babel/core@7.29.0)(react@19.2.3))(@react-native/metro-config@0.85.3(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
       expo-notifications:
         specifier: ~56.0.15
         version: 56.0.15(expo@56.0.8)(react-native@0.85.3(@babel/core@7.29.0)(@react-native/jest-preset@0.85.3(@babel/core@7.29.0)(react@19.2.3))(@react-native/metro-config@0.85.3(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)(typescript@6.0.3)
@@ -620,9 +638,15 @@ importers:
       '@babel/plugin-transform-dynamic-import':
         specifier: ^7.29.7
         version: 7.29.7(@babel/core@7.29.0)
+      '@jest/globals':
+        specifier: ^29.7.0
+        version: 29.7.0
       '@react-native/metro-config':
         specifier: 0.85.3
         version: 0.85.3(@babel/core@7.29.0)
+      '@tanstack/query-core':
+        specifier: ^5.100.14
+        version: 5.100.14
       '@testing-library/jest-native':
         specifier: ^5.4.3
         version: 5.4.3(react-native@0.85.3(@babel/core@7.29.0)(@react-native/jest-preset@0.85.3(@babel/core@7.29.0)(react@19.2.3))(@react-native/metro-config@0.85.3(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react-test-renderer@19.2.3(react@19.2.3))(react@19.2.3)
@@ -632,6 +656,9 @@ importers:
       '@types/jest':
         specifier: ^29.5.14
         version: 29.5.14
+      '@types/node':
+        specifier: ^20.19.32
+        version: 20.19.41
       '@types/react':
         specifier: 19.2.14
         version: 19.2.14
@@ -764,6 +791,9 @@ importers:
       '@supabase/supabase-js':
         specifier: ^2.106.2
         version: 2.106.2
+      '@tiptap/core':
+        specifier: 3.20.5
+        version: 3.20.5(@tiptap/pm@3.20.5)
       '@tiptap/extension-character-count':
         specifier: ^3.20.0
         version: 3.20.0(@tiptap/extensions@3.20.5(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5))
@@ -827,6 +857,9 @@ importers:
       '@tiptap/html':
         specifier: ^3.23.6
         version: 3.23.6(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5)(happy-dom@20.8.9)
+      '@tiptap/pm':
+        specifier: 3.20.5
+        version: 3.20.5
       '@tiptap/react':
         specifier: ^3.20.0
         version: 3.20.0(@floating-ui/dom@1.7.5)(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5)(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -932,6 +965,9 @@ importers:
       novel:
         specifier: ^1.0.2
         version: 1.0.2(patch_hash=5ec4c401d7f2d2d623fd40bbbc680e8d9630f827d499abe97d0871041e9fe113)(@babel/core@7.29.0)(@babel/template@7.29.7)(@floating-ui/dom@1.7.5)(@tiptap/extension-code-block@3.20.5(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5))(@tiptap/extension-list@3.20.5(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5))(@tiptap/extensions@3.20.5(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5))(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(highlight.js@11.11.1)(immer@11.1.3)(lowlight@3.3.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      prosemirror-view:
+        specifier: ^1.41.7
+        version: 1.41.7
       react:
         specifier: 19.2.3
         version: 19.2.3
@@ -7283,6 +7319,10 @@ packages:
 
   dot-case@3.0.4:
     resolution: {integrity: sha512-Kv5nKlh6yRrdrGvxeJ2e5y2eRUpkUosIW4A2AS38zwSz27zu7ufDwQPi5Jhs3XAlGNetl3bmnGhQsMtkKJnj3w==}
+
+  dotenv@16.6.1:
+    resolution: {integrity: sha512-uBq4egWHTcTt33a72vpSG0z3HnPuIl6NqYcTrKEg2azoEyl2hpW0zqlxysq2pK9HlDIHyHyakeYaYnSAwd8bow==}
+    engines: {node: '>=12'}
 
   dotenv@17.4.2:
     resolution: {integrity: sha512-nI4U3TottKAcAD9LLud4Cb7b2QztQMUEfHbvhTH09bqXTxnSie8WnjPALV/WMCrJZ6UV/qHJ6L03OqO3LcdYZw==}
@@ -20154,6 +20194,8 @@ snapshots:
     dependencies:
       no-case: 3.0.4
       tslib: 2.8.1
+
+  dotenv@16.6.1: {}
 
   dotenv@17.4.2: {}
 
