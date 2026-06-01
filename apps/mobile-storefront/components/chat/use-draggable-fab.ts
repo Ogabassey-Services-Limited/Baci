@@ -12,7 +12,10 @@ import {
 } from 'react-native-reanimated';
 import type { GestureHandlerRuntime } from '@/lib/optional-gesture-handler';
 import { EDGE_MARGIN, FAB_SIZE } from './constants';
-import { getAnchoredFabTranslationX } from './use-draggable-fab-position';
+import {
+  getAnchoredFabTranslationX,
+  getClampedFabTranslationY,
+} from './use-draggable-fab-position';
 
 // Define completely static, immutable haptic trigger outside the hook
 const triggerHaptic = (style: Haptics.ImpactFeedbackStyle) => {
@@ -72,40 +75,52 @@ export function useDraggableFab(
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const windowWidthSV = useSharedValue(windowWidth);
   const windowHeightSV = useSharedValue(windowHeight);
-  const previousWindowWidthRef = useRef(windowWidth);
+  const bottomOffsetSV = useSharedValue(bottomOffset);
+  const previousLayoutRef = useRef({ bottomOffset, windowHeight, windowWidth });
 
   useEffect(() => {
-    const previousWindowWidth = previousWindowWidthRef.current;
+    const previousLayout = previousLayoutRef.current;
 
     windowWidthSV.set(windowWidth);
     windowHeightSV.set(windowHeight);
+    bottomOffsetSV.set(bottomOffset);
 
-    if (previousWindowWidth !== windowWidth && !isDragging) {
+    const hasLayoutChanged =
+      previousLayout.windowWidth !== windowWidth ||
+      previousLayout.windowHeight !== windowHeight ||
+      previousLayout.bottomOffset !== bottomOffset;
+
+    if (hasLayoutChanged && !isDragging) {
       const anchoredTranslationX = getAnchoredFabTranslationX(
         windowWidth,
         isOnRight
       );
+      const clampedTranslationY = getClampedFabTranslationY(
+        windowHeight,
+        bottomOffset,
+        translateY.get()
+      );
       translateX.set(
         withSpring(anchoredTranslationX, { damping: 15, stiffness: 120 })
       );
+      translateY.set(
+        withSpring(clampedTranslationY, { damping: 15, stiffness: 120 })
+      );
     }
 
-    previousWindowWidthRef.current = windowWidth;
+    previousLayoutRef.current = { bottomOffset, windowHeight, windowWidth };
   }, [
+    bottomOffset,
+    bottomOffsetSV,
     isDragging,
     isOnRight,
     translateX,
+    translateY,
     windowHeight,
     windowHeightSV,
     windowWidth,
     windowWidthSV,
   ]);
-
-  // Track bottom offset dynamically
-  const bottomOffsetSV = useSharedValue(bottomOffset);
-  useEffect(() => {
-    bottomOffsetSV.set(bottomOffset);
-  }, [bottomOffset, bottomOffsetSV]);
 
   // Pulse animation loop
   useEffect(() => {
@@ -233,6 +248,13 @@ export function useDraggableFab(
           translateY.set(
             withSpring(targetTranslationY, { damping: 15, stiffness: 120 })
           );
+        })
+        .onFinalize((_event, success) => {
+          if (!success) {
+            hapticTriggered.set(false);
+            runOnJS(setIsDragging)(false);
+            runOnJS(setIsOverDismissZone)(false);
+          }
         })
     : null;
 
