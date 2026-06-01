@@ -319,6 +319,7 @@ jest.mock('react-native-gesture-handler', () => {
     }) => React.createElement(View, { style }, children),
     Gesture: {
       Pan: jest.fn(createGesture),
+      Pinch: jest.fn(createGesture),
       Race: jest.fn((...gestures: unknown[]) => ({
         gestures,
         type: 'race',
