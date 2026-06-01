@@ -212,7 +212,7 @@ jest.mock('@/hooks/useMerchantPaymentSettings', () => {
 
 jest.mock('@/lib/supabase', () => ({
   calculateCommerce: jest.fn(
-    async (
+    (
       _name: string,
       params: {
         assuranceFee: number;
@@ -222,14 +222,14 @@ jest.mock('@/lib/supabase', () => ({
       }
     ) => {
       const taxAmount = Math.round(params.subtotal * params.taxRate);
-      return {
+      return Promise.resolve({
         taxAmount,
         total:
           params.subtotal +
           params.shippingFee +
           params.assuranceFee +
           taxAmount,
-      };
+      });
     }
   ),
   supabase: {
@@ -262,6 +262,17 @@ jest.mock('@/services/analytics', () => ({
   trackCheckoutStep: (...args: unknown[]) => mockTrackCheckoutStep(...args),
   trackError: (...args: unknown[]) => mockTrackError(...args),
   trackOrderCompleted: jest.fn(),
+}));
+
+jest.mock('@/services/tiktok-checkout-route-tracking', () => ({
+  // Checkout screen tests assert step/state transitions; loading native ad SDKs
+  // here makes CI render timing depend on mocked native module initialization.
+  trackCheckoutRoutePaymentInfo: jest.fn(() => Promise.resolve()),
+  trackCheckoutRoutePurchaseCompleted: jest.fn(() => Promise.resolve()),
+  trackCheckoutRouteStarted: jest.fn((...args: unknown[]) => {
+    mockTrackCheckoutStarted(...args);
+    return Promise.resolve();
+  }),
 }));
 
 jest.mock('@/services/orders', () => ({

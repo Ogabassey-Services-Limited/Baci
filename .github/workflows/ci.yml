@@ -147,6 +147,8 @@ jobs:
     needs: [changes]
     if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-24.04
+    # Full web/mobile test fan-out reached ~15 minutes on GitHub-hosted runners.
+    # Keep enough headroom for Turbo summary and Actions post-job cleanup.
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -157,13 +159,16 @@ jobs:
       - uses: ./.github/actions/pnpm-install-cached
       - name: Run Tests
         run: |
-          turbo_cache_args=()
+          turbo_cache_args=("--cache=local:rw")
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             # PR tokens can read Vercel Remote Cache but may not be allowed to write artifacts.
+            # Use --affected to test only impacted files, keeping remote cache read-only.
             turbo_cache_args+=(--remote-cache-read-only)
             turbo_cache_args+=(--affected)
+          else
+            turbo_cache_args=("--cache=local:rw,remote:rw")
           fi
-          pnpm turbo test --concurrency=3 "${turbo_cache_args[@]}"
+          pnpm turbo run test --concurrency=3 --log-order=stream "${turbo_cache_args[@]}"
 
   quality-misc:
     name: Quality Gate - Misc
