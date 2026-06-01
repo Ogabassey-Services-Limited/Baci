@@ -134,8 +134,11 @@ export const CartSidebar: React.FC = () => {
       {/* High Z-Index to cover Mobile Footer (z-40) */}
       <div className="fixed inset-0 z-60 overflow-hidden">
         {/* Backdrop */}
-        <div
-          className="absolute inset-0 bg-black/50 backdrop-blur-xs transition-opacity"
+        <button
+          type="button"
+          aria-label="Dismiss cart backdrop"
+          tabIndex={-1}
+          className="absolute inset-0 border-0 bg-black/50 p-0 backdrop-blur-xs transition-opacity"
           onClick={() => setIsCartOpen(false)}
         />
 

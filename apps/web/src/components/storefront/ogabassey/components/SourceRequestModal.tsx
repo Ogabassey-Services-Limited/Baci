@@ -46,8 +46,11 @@ export const SourceRequestModal: React.FC<SourceRequestModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-100 flex items-center justify-center px-4">
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-xs"
+      <button
+        type="button"
+        aria-label="Dismiss source request modal backdrop"
+        tabIndex={-1}
+        className="absolute inset-0 border-0 bg-black/60 p-0 backdrop-blur-xs"
         onClick={onClose}
       />
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md relative overflow-hidden z-10 animate-in zoom-in-95 duration-200">

@@ -48,6 +48,13 @@ jest.mock('@/components/checkout/CryptoSelectionModal', () => ({
   CryptoSelectionModal: () => null,
 }));
 
+jest.mock('@/components/storefront/PatternedBackground', () => ({
+  PatternedBackground: ({ backgroundColor }: { backgroundColor: string }) => {
+    const { View } = require('react-native');
+    return <View style={{ backgroundColor }} testID="patterned-background" />;
+  },
+}));
+
 jest.mock('@/components/checkout/DeliveryNotesCard', () => ({
   DeliveryNotesCard: ({ children }: { children: unknown }) => {
     const { View } = require('react-native');
