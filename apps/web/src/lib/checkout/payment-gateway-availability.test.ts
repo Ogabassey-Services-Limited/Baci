@@ -40,6 +40,24 @@ describe('payment-gateway-availability', () => {
     expect(isBankTransferCheckoutAvailable(merchant)).toBe(false);
   });
 
+  it('normalizes embedded feature settings arrays before reading payment flags', () => {
+    const merchant = {
+      paystack_subaccount_code: 'ACCT_123',
+      feature_settings: [
+        {
+          korapay_enabled: true,
+          pay_on_delivery_enabled: true,
+          paystack_enabled: false,
+        },
+      ],
+    };
+
+    expect(isPaystackCheckoutAvailable(merchant)).toBe(false);
+    expect(isBankTransferCheckoutAvailable(merchant)).toBe(false);
+    expect(isKorapayCheckoutAvailable(merchant)).toBe(true);
+    expect(isPayOnDeliveryCheckoutAvailable(merchant)).toBe(true);
+  });
+
   it('returns false when no paystack subaccount exists', () => {
     const merchant = {
       paystack_subaccount_code: null,

@@ -17,9 +17,16 @@ function readBooleanSetting(
   settings: unknown,
   key: string
 ): boolean | undefined {
-  if (!settings || typeof settings !== 'object') return undefined;
+  const normalizedSettings = Array.isArray(settings) ? settings[0] : settings;
+  if (
+    !normalizedSettings ||
+    typeof normalizedSettings !== 'object' ||
+    Array.isArray(normalizedSettings)
+  ) {
+    return undefined;
+  }
 
-  const value = (settings as Record<string, unknown>)[key];
+  const value = (normalizedSettings as Record<string, unknown>)[key];
   return typeof value === 'boolean' ? value : undefined;
 }
 
