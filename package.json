@@ -27,7 +27,7 @@
     "lefthook": "^2.1.0",
     "next": "16.2.6",
     "tailwindcss": "^4.2.2",
-    "turbo": "^2.9.14",
+    "turbo": "^2.9.16",
     "typescript": "^5.9.3"
   }
 }
