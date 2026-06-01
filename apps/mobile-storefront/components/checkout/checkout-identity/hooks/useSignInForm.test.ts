@@ -95,7 +95,6 @@ describe('useSignInForm', () => {
   });
 
   it('sets error when sign-in with invalid credentials fails', async () => {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { supabase } = require('@/lib/supabase');
     supabase.auth.signInWithPassword.mockResolvedValue({
       error: { message: 'Invalid login credentials' },
