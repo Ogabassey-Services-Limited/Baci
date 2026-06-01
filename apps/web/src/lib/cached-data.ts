@@ -995,6 +995,7 @@ export async function getCachedProducts(
  * Keep this shape narrow so the LCP image hint is not delayed by rich product joins.
  */
 export interface CachedProductLcpHint {
+  base_price?: number | null;
   brand?: string | null;
   category?: string | null;
   categories?:
@@ -1010,6 +1011,8 @@ export interface CachedProductLcpHint {
       }>
     | null;
   condition?: string | null;
+  compare_at_price?: number | string | null;
+  description?: string | null;
   id: string;
   images?: Array<
     | string
@@ -1019,7 +1022,18 @@ export interface CachedProductLcpHint {
       }
   > | null;
   manage_stock?: boolean | null;
+  max_variant_price?: number | string | null;
+  meta_description?: string | null;
+  meta_title?: string | null;
+  min_variant_price?: number | string | null;
   name: string;
+  offers?: Array<{
+    id: string;
+    condition?: string | null;
+    price?: number | string | null;
+    status?: string | null;
+    stock_quantity?: number | string | null;
+  }> | null;
   price?: number | string | null;
   product_categories?: Array<{
     categories:
@@ -1035,6 +1049,9 @@ export interface CachedProductLcpHint {
         }>
       | null;
   }> | null;
+  canonical_url?: string | null;
+  keywords?: string[] | null;
+  sale_price?: number | null;
   schema_markup?: unknown;
   slug?: string | null;
   stock_quantity?: number | null;
@@ -1070,12 +1087,27 @@ export async function getCachedProductLcpHint(
         name,
         slug,
         price,
+        compare_at_price,
+        min_variant_price,
+        max_variant_price,
         condition,
+        description,
         manage_stock,
         stock_quantity,
         category,
+        meta_title,
+        meta_description,
+        keywords,
+        canonical_url,
         schema_markup,
         images,
+        offers:product_offers (
+          id,
+          condition,
+          price,
+          stock_quantity,
+          status
+        ),
         categories:category_id (
           id,
           name,
@@ -1108,7 +1140,7 @@ export async function getCachedProductLcpHint(
     return null;
   }
 
-  return data as CachedProductLcpHint | null;
+  return data ? withLegacyPriceFields(data as CachedProductLcpHint) : null;
 }
 
 /**

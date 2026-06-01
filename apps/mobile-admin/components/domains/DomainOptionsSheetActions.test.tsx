@@ -34,14 +34,14 @@ vi.mock('@react-native-vector-icons/ionicons', () => ({
     if (name === 'chevron-forward') {
       mocks.chevronCount += 1;
     }
-    return <span>icon</span>;
+    return <span aria-hidden="true" data-icon={name} />;
   },
 
   default: ({ name }: { name?: string }) => {
     if (name === 'chevron-forward') {
       mocks.chevronCount += 1;
     }
-    return <span>icon</span>;
+    return <span aria-hidden="true" data-icon={name} />;
   },
   __esModule: true,
 }));

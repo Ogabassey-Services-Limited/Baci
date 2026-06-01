@@ -97,7 +97,7 @@ describe('cached-data product query projections', () => {
     expect(selectArg).toContain('canonical_url');
   });
 
-  it('getCachedProductLcpHint reads only route and image fields without hydrating variants', async () => {
+  it('getCachedProductLcpHint reads only route, image, and metadata fields without hydrating variants', async () => {
     harness.mockMaybeSingle.mockResolvedValueOnce(singleProductResult);
 
     await getCachedProductLcpHint('merchant-123', 'iphone-16');
@@ -107,22 +107,29 @@ describe('cached-data product query projections', () => {
     const selectArg = String(harness.mockSelect.mock.calls.at(-1)?.[0]);
     expect(selectArg).toContain('brand');
     expect(selectArg).toContain('condition');
+    expect(selectArg).toContain('description');
     expect(selectArg).toContain('id');
     expect(selectArg).toContain('name');
     expect(selectArg).toContain('slug');
     expect(selectArg).toContain('price');
+    expect(selectArg).toContain('compare_at_price');
+    expect(selectArg).toContain('min_variant_price');
+    expect(selectArg).toContain('max_variant_price');
     expect(selectArg).toContain('images');
+    expect(selectArg).toContain('offers:product_offers');
     expect(selectArg).toContain('manage_stock');
+    expect(selectArg).toContain('meta_title');
+    expect(selectArg).toContain('meta_description');
+    expect(selectArg).toContain('keywords');
+    expect(selectArg).toContain('canonical_url');
     expect(selectArg).toContain('schema_markup');
     expect(selectArg).toContain('stock_quantity');
     expect(selectArg).toContain('categories:category_id');
     expect(selectArg).toContain('product_categories');
-    expect(selectArg).not.toContain('description');
     expect(selectArg).not.toContain('specifications');
     expect(selectArg).not.toContain('review_count');
     expect(selectArg).not.toContain('product_variants');
     expect(selectArg).not.toContain('product_key_specs');
-    expect(selectArg).not.toContain('product_offers');
     expect(harness.mockRpc).not.toHaveBeenCalled();
   });
 

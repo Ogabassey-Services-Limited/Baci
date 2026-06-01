@@ -1,6 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockCreatePublicClient = vi.fn();
+const mockNormalizeProducts = vi.fn((products: unknown[]) =>
+  products.map((p: unknown) => ({
+    ...(p as Record<string, unknown>),
+    normalized: true,
+  }))
+);
 
 vi.mock('next/cache', () => ({ cacheLife: vi.fn(), cacheTag: vi.fn() }));
 vi.mock('@/lib/supabase/public', () => ({
@@ -8,12 +14,7 @@ vi.mock('@/lib/supabase/public', () => ({
 }));
 
 vi.mock('@/lib/normalize-product', () => ({
-  normalizeProducts: vi.fn((products: unknown[]) =>
-    products.map((p: unknown) => ({
-      ...(p as Record<string, unknown>),
-      normalized: true,
-    }))
-  ),
+  normalizeProducts: (products: unknown[]) => mockNormalizeProducts(products),
 }));
 
 import { getCachedStorefrontProductIndex } from '@/lib/cached-storefront-product-index';
@@ -43,6 +44,7 @@ function createQueryBuilder(overrides: {
 describe('getCachedStorefrontProductIndex', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockNormalizeProducts.mockClear();
   });
 
   afterEach(() => {
@@ -72,6 +74,85 @@ describe('getCachedStorefrontProductIndex', () => {
     expect(result.errorMessage).toBeNull();
     expect(result.totalCount).toBe(25);
     expect(result.totalPages).toBe(3); // ceil(25/10)
+  });
+
+  it('keeps the product index projection compact and derives schema-safe listing descriptions', async () => {
+    const rawProducts = [
+      {
+        id: 'p1',
+        name: 'Alienware 18',
+        brand: 'Dell',
+        category: '',
+        product_categories: [
+          {
+            categories: {
+              name: 'Gaming Laptops',
+              slug: 'gaming-laptops',
+            },
+          },
+        ],
+        price: 5900000,
+      },
+      {
+        id: 'p2',
+        name: 'Latitude 7450',
+        brand: 'Dell',
+        category: 'Laptops',
+        product_categories: [
+          {
+            categories: {
+              name: 'Business Laptops',
+              slug: 'business-laptops',
+            },
+          },
+        ],
+        price: 2100000,
+      },
+      {
+        id: 'p3',
+        name: '',
+        brand: '',
+        category: '',
+        product_categories: [
+          {
+            categories: {
+              name: '',
+              slug: 'uncategorized',
+            },
+          },
+        ],
+        price: 100000,
+      },
+    ];
+
+    const builder = createQueryBuilder({
+      data: rawProducts,
+      count: 3,
+    });
+    mockCreatePublicClient.mockReturnValue({ from: vi.fn(() => builder) });
+
+    await getCachedStorefrontProductIndex('merchant-1', {
+      page: 1,
+      limit: 10,
+    });
+
+    const lastSelectCall = builder.select.mock.calls.at(-1) as
+      | [unknown]
+      | undefined;
+    const selectArg = String(lastSelectCall?.[0]);
+    expect(selectArg).not.toMatch(/(?:^|[\s,])description\s*(?:,|\n|$)/);
+    expect(selectArg).not.toMatch(/(?:^|[\s,])specifications\s*(?:,|\n|$)/);
+    expect(mockNormalizeProducts).toHaveBeenCalledWith([
+      expect.objectContaining({
+        description: 'Dell Gaming Laptops',
+      }),
+      expect.objectContaining({
+        description: 'Dell Laptops',
+      }),
+      expect.objectContaining({
+        description: null,
+      }),
+    ]);
   });
 
   it('calculates correct offset for page > 1', async () => {
