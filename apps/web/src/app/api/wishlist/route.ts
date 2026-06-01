@@ -106,6 +106,15 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     // CSRF: handled by Origin-based middleware in proxy.ts (guest storefront route)
+
+    const cookieStore = await cookies();
+    const supabase = await createClient(cookieStore);
+
+    // Check for authenticated user first
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
     const parsed = wishlistCreateSchema.safeParse(await request.json());
     if (!parsed.success) {
       return NextResponse.json(
@@ -114,14 +123,6 @@ export async function POST(request: NextRequest) {
       );
     }
     const { productId, merchantId, sessionToken } = parsed.data;
-
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
-
-    // Check for authenticated user first
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
 
     let customerIdentifier: string;
 

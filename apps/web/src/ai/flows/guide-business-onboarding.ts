@@ -54,12 +54,12 @@ const BrandColorsSchema = z.object({
     .describe('An accent color for highlights and calls-to-action.'),
 });
 
-const AI_LOGO_RETRY_CONFIG = Object.freeze({
+const AI_LOGO_RETRY_CONFIG = {
   maxRetries: 0,
   initialDelayMs: 0,
   maxDelayMs: 0,
   backoffMultiplier: 1,
-});
+};
 
 const _GuideBusinessOnboardingOutputSchema = z.object({
   logos: z
