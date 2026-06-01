@@ -86,14 +86,14 @@ vi.mock('@/components/storefront/ogabassey/storefront-chrome-runtime', () => ({
 
 vi.mock('@/components/storefront/ogabassey/storefront-loading-ui', () => ({
   ShellChromeLoading: () => (
-    <div role="status" aria-label="Loading storefront chrome">
+    <output aria-label="Loading storefront chrome">
       shared-shell-fallback
-    </div>
+    </output>
   ),
   CatalogListingLoading: () => (
-    <div role="status" aria-label="Loading product listing">
+    <output aria-label="Loading product listing">
       catalog-route-loading
-    </div>
+    </output>
   ),
 }));
 
