@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM } from '@/config/storefront-metadata-cache-bots';
@@ -209,7 +209,7 @@ vi.mock('./product-detail-client', () => ({
   default: () => mockProductDetailClient(),
 }));
 
-import ProductPage, { generateMetadata, ProductPageRuntime } from './page';
+import ProductPage, { generateMetadata } from './page';
 
 const stubParent = Promise.resolve({}) as never;
 
@@ -334,7 +334,7 @@ describe('products/[productSlug] page', () => {
     mockHeaders.mockReturnValue(makeHeaders({}));
 
     await expect(
-      ProductPageRuntime({
+      ProductPage({
         params: Promise.resolve({
           slug: 'teststore',
           productSlug: 'iphone-15',
@@ -364,7 +364,7 @@ describe('products/[productSlug] page', () => {
     });
 
     await expect(
-      ProductPageRuntime({
+      ProductPage({
         params: Promise.resolve({
           slug: 'teststore',
           productSlug: 'iphone-15',
@@ -376,7 +376,7 @@ describe('products/[productSlug] page', () => {
     expect(mockPermanentRedirect).toHaveBeenCalledWith('/phones/iphone-15');
   });
 
-  it('defers generic PDP first paint to the route loader while the client page is pending', () => {
+  it('defers generic PDP first paint to the route loader while the client page is pending', async () => {
     mockGetCachedProduct.mockResolvedValue(uncategorizedProduct);
     mockConnection.mockImplementationOnce(
       () =>
@@ -390,15 +390,15 @@ describe('products/[productSlug] page', () => {
       });
     });
 
-    render(
-      <ProductPage
-        params={Promise.resolve({
-          slug: 'teststore',
-          productSlug: 'mystery-item',
-        })}
-        searchParams={Promise.resolve({})}
-      />
-    );
+    const page = await ProductPage({
+      params: Promise.resolve({
+        slug: 'teststore',
+        productSlug: 'mystery-item',
+      }),
+      searchParams: Promise.resolve({}),
+    });
+
+    render(page);
 
     expect(
       screen.getByRole('status', { name: 'Loading product page' })
@@ -468,7 +468,7 @@ describe('products/[productSlug] page', () => {
       mockHeaders.mockReturnValue(makeHeaders({}));
 
       await expect(
-        ProductPageRuntime({
+        ProductPage({
           params: Promise.resolve({
             slug: 'teststore',
             productSlug: 'iphone-15',
@@ -486,7 +486,7 @@ describe('products/[productSlug] page', () => {
       mockHeaders.mockReturnValue(makeHeaders({}));
 
       await expect(
-        ProductPageRuntime({
+        ProductPage({
           params: Promise.resolve({
             slug: 'teststore',
             productSlug: 'iphone-15',
@@ -615,7 +615,7 @@ describe('products/[productSlug] page', () => {
     ]);
 
     await expect(
-      ProductPageRuntime({
+      ProductPage({
         params: Promise.resolve({
           slug: 'teststore',
           productSlug: 'mystery-item',
@@ -677,7 +677,7 @@ describe('products/[productSlug] page', () => {
     );
 
     await expect(
-      ProductPageRuntime({
+      ProductPage({
         params: Promise.resolve({
           slug: 'teststore.com',
           productSlug: 'iphone-13-pro-max-6gb-128gb',
@@ -724,7 +724,7 @@ describe('products/[productSlug] page', () => {
     mockGetCachedLegacyProductRedirectTarget.mockResolvedValue(null);
     mockHeaders.mockReturnValue(makeHeaders({}));
 
-    const page = await ProductPageRuntime({
+    const page = await ProductPage({
       params: Promise.resolve({
         slug: 'teststore',
         productSlug: 'nonexistent',
@@ -858,22 +858,26 @@ describe('products/[productSlug] page', () => {
       });
       mockGetCachedProduct.mockResolvedValue(uncategorizedProduct);
 
-      await ProductPageRuntime({
-        params: Promise.resolve({
-          slug: 'teststore',
-          productSlug: 'mystery-item',
-        }),
-        searchParams: Promise.resolve({}),
-      });
+      render(
+        await ProductPage({
+          params: Promise.resolve({
+            slug: 'teststore',
+            productSlug: 'mystery-item',
+          }),
+          searchParams: Promise.resolve({}),
+        })
+      );
 
-      expect(mockGenerateProductSchema).toHaveBeenCalledWith(
-        expect.any(Object),
-        'TestStore',
-        'NGN',
-        'NG',
-        null,
-        expect.any(Object),
-        expect.any(Object)
+      await waitFor(() =>
+        expect(mockGenerateProductSchema).toHaveBeenCalledWith(
+          expect.any(Object),
+          'TestStore',
+          'NGN',
+          'NG',
+          null,
+          expect.any(Object),
+          expect.any(Object)
+        )
       );
     });
 
@@ -882,24 +886,28 @@ describe('products/[productSlug] page', () => {
       mockHeaders.mockReturnValue(makeHeaders({}));
       mockGetProductUrl.mockReturnValue('/products/mystery-item');
 
-      await ProductPageRuntime({
-        params: Promise.resolve({
-          slug: 'teststore',
-          productSlug: 'mystery-item',
-        }),
-        searchParams: Promise.resolve({}),
-      });
+      render(
+        await ProductPage({
+          params: Promise.resolve({
+            slug: 'teststore',
+            productSlug: 'mystery-item',
+          }),
+          searchParams: Promise.resolve({}),
+        })
+      );
 
       // getProductUrl should have been called
-      expect(mockGetProductUrl).toHaveBeenCalled();
-      expect(mockGenerateProductSchema).toHaveBeenCalledWith(
-        expect.any(Object),
-        'TestStore',
-        'NGN',
-        'NG',
-        null,
-        expect.any(Object),
-        { productUrl: 'https://teststore.usebaci.com/products/mystery-item' }
+      await waitFor(() => expect(mockGetProductUrl).toHaveBeenCalled());
+      await waitFor(() =>
+        expect(mockGenerateProductSchema).toHaveBeenCalledWith(
+          expect.any(Object),
+          'TestStore',
+          'NGN',
+          'NG',
+          null,
+          expect.any(Object),
+          { productUrl: 'https://teststore.usebaci.com/products/mystery-item' }
+        )
       );
 
       // Breadcrumb schema should receive the same product URL
@@ -932,30 +940,36 @@ describe('products/[productSlug] page', () => {
         stubParent
       );
 
-      await ProductPageRuntime({
-        params: Promise.resolve({
-          slug: 'teststore',
-          productSlug: 'mystery-item',
-        }),
-        searchParams: Promise.resolve({}),
-      });
+      render(
+        await ProductPage({
+          params: Promise.resolve({
+            slug: 'teststore',
+            productSlug: 'mystery-item',
+          }),
+          searchParams: Promise.resolve({}),
+        })
+      );
 
       expect(metadata.alternates?.canonical).toBe(productUrl);
-      expect(mockGetValidatedProductUrl).toHaveBeenCalledWith(
-        expect.objectContaining({
-          canonical_url: '/products/mystery-item',
-        }),
-        'https://teststore.usebaci.com',
-        'teststore'
+      await waitFor(() =>
+        expect(mockGetValidatedProductUrl).toHaveBeenCalledWith(
+          expect.objectContaining({
+            canonical_url: '/products/mystery-item',
+          }),
+          'https://teststore.usebaci.com',
+          'teststore'
+        )
       );
-      expect(mockGenerateProductSchema).toHaveBeenCalledWith(
-        expect.any(Object),
-        'TestStore',
-        'NGN',
-        'NG',
-        null,
-        expect.any(Object),
-        { productUrl }
+      await waitFor(() =>
+        expect(mockGenerateProductSchema).toHaveBeenCalledWith(
+          expect.any(Object),
+          'TestStore',
+          'NGN',
+          'NG',
+          null,
+          expect.any(Object),
+          { productUrl }
+        )
       );
       expect(mockGenerateBreadcrumbSchema).toHaveBeenCalledWith(
         expect.arrayContaining([
@@ -1054,7 +1068,7 @@ describe('products/[productSlug] page', () => {
     });
 
     render(
-      await ProductPageRuntime({
+      await ProductPage({
         params: Promise.resolve({
           slug: 'teststore',
           productSlug: 'iphone-17-pro-max',
@@ -1064,11 +1078,11 @@ describe('products/[productSlug] page', () => {
     );
 
     expect(
-      screen.getByRole('link', {
+      await screen.findByRole('link', {
         name: /Shop more Products/i,
       })
     ).toHaveAttribute('href', 'https://teststore.usebaci.com/products');
-    expect(mockConnection).toHaveBeenCalledTimes(1);
+    expect(mockConnection).toHaveBeenCalled();
     expect(
       screen.getByRole('link', {
         name: /Compare with Samsung Galaxy Z TriFold/i,

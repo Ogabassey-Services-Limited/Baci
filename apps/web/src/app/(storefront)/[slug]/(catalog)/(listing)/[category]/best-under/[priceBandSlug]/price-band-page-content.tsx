@@ -7,7 +7,8 @@ import { buildPriceBandPageSchemas } from '@/lib/storefront-compare/compare-sche
 import { loadPriceBandPage } from '@/lib/storefront-compare/load-price-band-page';
 
 interface PriceBandPageContentProps {
-  params: Promise<{
+  page?: NonNullable<Awaited<ReturnType<typeof loadPriceBandPage>>>;
+  params?: Promise<{
     slug: string;
     category: string;
     priceBandSlug: string;
@@ -44,14 +45,18 @@ function toProductIndexCardModel(
 }
 
 export async function PriceBandPageContent({
+  page: preloadedPage,
   params,
 }: PriceBandPageContentProps) {
-  const resolvedParams = await params;
-  const page = await loadPriceBandPage({
-    merchantSlug: resolvedParams.slug,
-    categorySlug: resolvedParams.category,
-    priceBandSlug: resolvedParams.priceBandSlug,
-  });
+  let page = preloadedPage;
+  if (!page && params) {
+    const resolvedParams = await params;
+    page = await loadPriceBandPage({
+      merchantSlug: resolvedParams.slug,
+      categorySlug: resolvedParams.category,
+      priceBandSlug: resolvedParams.priceBandSlug,
+    });
+  }
 
   if (!page?.isIndexable) {
     notFound();

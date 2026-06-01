@@ -1,8 +1,13 @@
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockConnection, mockPriceBandPageContent } = vi.hoisted(() => ({
+const {
+  mockConnection,
+  mockGetPriceBandStorefrontPathPrefix,
+  mockPriceBandPageContent,
+} = vi.hoisted(() => ({
   mockConnection: vi.fn<() => Promise<void>>(() => Promise.resolve()),
+  mockGetPriceBandStorefrontPathPrefix: vi.fn(),
   mockPriceBandPageContent: vi.fn((_props: unknown) => (
     <div>Price band page content</div>
   )),
@@ -32,6 +37,8 @@ vi.mock('@/lib/seo-utils', () => ({
 }));
 
 vi.mock('@/lib/storefront-compare/load-price-band-page', () => ({
+  getPriceBandStorefrontPathPrefix: (...args: unknown[]) =>
+    mockGetPriceBandStorefrontPathPrefix(...args),
   loadPriceBandPage: (...args: unknown[]) => mockLoadPriceBandPage(...args),
 }));
 
@@ -77,6 +84,8 @@ const priceBandPageModel = {
 beforeEach(() => {
   mockConnection.mockReset();
   mockConnection.mockResolvedValue(undefined);
+  mockGetPriceBandStorefrontPathPrefix.mockReset();
+  mockGetPriceBandStorefrontPathPrefix.mockResolvedValue('');
   mockLoadPriceBandPage.mockReset();
   mockNotFound.mockClear();
   mockPriceBandPageContent.mockReset();
@@ -96,18 +105,18 @@ describe('price-band page metadata', () => {
         })
     );
 
-    render(
-      <PriceBandPage
-        params={Promise.resolve({
-          slug: 'ogabassey',
-          category: 'smartphones',
-          priceBandSlug: 'under-500k',
-        })}
-      />
-    );
+    const page = await PriceBandPage({
+      params: Promise.resolve({
+        slug: 'ogabassey',
+        category: 'smartphones',
+        priceBandSlug: 'under-500k',
+      }),
+    });
+
+    render(page);
 
     expect(
-      screen.getByRole('status', { name: 'Loading product page' })
+      screen.getByRole('status', { name: 'Loading product listing' })
     ).toBeInTheDocument();
     expect(
       screen.queryByText('Price band page content')
@@ -126,11 +135,16 @@ describe('price-band page metadata', () => {
       }),
     });
 
-    expect(mockLoadPriceBandPage).toHaveBeenCalledWith({
-      merchantSlug: 'ogabassey',
-      categorySlug: 'smartphones',
-      priceBandSlug: 'under-500k',
-    });
+    expect(mockLoadPriceBandPage).toHaveBeenCalledWith(
+      {
+        merchantSlug: 'ogabassey',
+        categorySlug: 'smartphones',
+        priceBandSlug: 'under-500k',
+      },
+      {
+        includeRequestPathPrefix: false,
+      }
+    );
     expect(metadata.title).toBe(priceBandPageModel.metaTitle);
     expect(metadata.description).toBe(priceBandPageModel.metaDescription);
     expect(metadata.alternates?.canonical).toContain(

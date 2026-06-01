@@ -68,6 +68,19 @@ interface ProductLookupResult {
   product: Product | null;
 }
 
+interface ProductPageRuntimeProps {
+  merchant: ResolvedMerchant;
+  product: Product;
+  slug: string;
+}
+
+type ProductPageResolution =
+  | {
+      kind: 'product';
+      runtimeProps: ProductPageRuntimeProps;
+    }
+  | { kind: 'route-not-found' };
+
 interface SemanticInventoryCandidateProduct {
   slug: string;
   name: string;
@@ -419,11 +432,10 @@ export async function generateMetadata(
   };
 }
 
-export async function ProductPageRuntime({ params, searchParams }: PageProps) {
-  // Keep tenant/domain PDP work request-bound while the route prerenders a
-  // Suspense fallback shell. Cache Components rejects route-level dynamic flags.
-  await connection();
-
+async function resolveProductPage(
+  props: PageProps
+): Promise<ProductPageResolution> {
+  const { params, searchParams } = props;
   const { slug, productSlug } = await params;
   const resolvedSearchParams = await searchParams;
   const productResult = await getProductCached(slug, productSlug);
@@ -438,7 +450,7 @@ export async function ProductPageRuntime({ params, searchParams }: PageProps) {
       merchant
     );
     if (!legacyRedirectPath) {
-      return <StorefrontRouteNotFound />;
+      return { kind: 'route-not-found' };
     }
     permanentRedirect(asRoute(legacyRedirectPath));
   }
@@ -454,6 +466,26 @@ export async function ProductPageRuntime({ params, searchParams }: PageProps) {
   if (invalidVariantTarget) {
     redirect(asRoute(invalidVariantTarget));
   }
+
+  return {
+    kind: 'product',
+    runtimeProps: {
+      merchant,
+      product,
+      slug,
+    },
+  };
+}
+
+async function ProductPageRuntime({
+  merchant,
+  product,
+  slug,
+}: ProductPageRuntimeProps) {
+  // Keep tenant/domain PDP rendering request-bound while route-level redirect
+  // decisions stay outside the Suspense shell for real HTTP redirects.
+  await connection();
+
   const [reviewStats, recentReviews] = await Promise.all([
     getCachedProductRatingStats(product.id),
     getCachedProductReviews(product.id, { limit: 10 }),
@@ -590,10 +622,15 @@ export async function ProductPageRuntime({ params, searchParams }: PageProps) {
   );
 }
 
-export default function ProductPage(props: PageProps) {
+export default async function ProductPage(props: PageProps) {
+  const resolution = await resolveProductPage(props);
+  if (resolution.kind === 'route-not-found') {
+    return <StorefrontRouteNotFound />;
+  }
+
   return (
     <Suspense fallback={<ProductDetailRouteLoading />}>
-      <ProductPageRuntime {...props} />
+      <ProductPageRuntime {...resolution.runtimeProps} />
     </Suspense>
   );
 }
