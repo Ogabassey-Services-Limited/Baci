@@ -74,9 +74,9 @@ import {
 } from '@/components/storefront/storefront-form';
 
 const VIDEO_IFRAME_SANDBOX =
-  'allow-same-origin allow-scripts allow-presentation allow-popups';
+  'allow-same-origin allow-scripts allow-presentation allow-popups allow-popups-to-escape-sandbox';
 const MAP_IFRAME_SANDBOX =
-  'allow-same-origin allow-scripts allow-popups allow-forms';
+  'allow-same-origin allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms';
 
 // ==================== TYPE DEFINITIONS ====================
 

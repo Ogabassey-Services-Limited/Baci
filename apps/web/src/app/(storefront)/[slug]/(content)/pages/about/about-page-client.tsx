@@ -47,7 +47,7 @@ interface AboutPageClientProps {
 }
 
 const ABOUT_VIDEO_IFRAME_SANDBOX =
-  'allow-same-origin allow-scripts allow-presentation allow-popups';
+  'allow-same-origin allow-scripts allow-presentation allow-popups allow-popups-to-escape-sandbox';
 
 export function AboutPageClient({
   merchant,

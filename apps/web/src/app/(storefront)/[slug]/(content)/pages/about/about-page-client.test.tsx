@@ -544,7 +544,7 @@ describe('AboutPageClient', () => {
       );
       expect(iframe).toHaveAttribute(
         'sandbox',
-        'allow-same-origin allow-scripts allow-presentation allow-popups'
+        'allow-same-origin allow-scripts allow-presentation allow-popups allow-popups-to-escape-sandbox'
       );
     });
 
