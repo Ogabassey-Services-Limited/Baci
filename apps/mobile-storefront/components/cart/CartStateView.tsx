@@ -1,5 +1,6 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { PatternedBackground } from '@/components/storefront/PatternedBackground';
 import type Colors from '@/constants/Colors';
 import styles from './styles';
 
@@ -25,7 +26,12 @@ export default function CartStateView({
     colorScheme === 'dark' ? colors.muted : colors.background;
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={styles.container}>
+      <PatternedBackground
+        backgroundColor={colors.background}
+        isDark={colorScheme === 'dark'}
+      />
+
       <View style={styles.emptyContainer}>
         <View style={[styles.emptyIconBg, { backgroundColor: surfaceInset }]}>
           <Ionicons
