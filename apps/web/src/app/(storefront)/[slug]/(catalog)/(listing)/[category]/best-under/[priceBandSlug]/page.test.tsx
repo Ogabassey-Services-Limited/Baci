@@ -1,13 +1,8 @@
 import { render, screen } from '@testing-library/react';
+import { Suspense } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const {
-  mockConnection,
-  mockGetPriceBandStorefrontPathPrefix,
-  mockPriceBandPageContent,
-} = vi.hoisted(() => ({
-  mockConnection: vi.fn<() => Promise<void>>(() => Promise.resolve()),
-  mockGetPriceBandStorefrontPathPrefix: vi.fn(),
+const { mockPriceBandPageContent } = vi.hoisted(() => ({
   mockPriceBandPageContent: vi.fn((_props: unknown) => (
     <div>Price band page content</div>
   )),
@@ -22,10 +17,6 @@ vi.mock('next/navigation', () => ({
   notFound: () => mockNotFound(),
 }));
 
-vi.mock('next/server', () => ({
-  connection: () => mockConnection(),
-}));
-
 vi.mock('@/lib/seo-utils', () => ({
   getIndexableRobotsMetadata: () => ({
     index: true,
@@ -37,8 +28,6 @@ vi.mock('@/lib/seo-utils', () => ({
 }));
 
 vi.mock('@/lib/storefront-compare/load-price-band-page', () => ({
-  getPriceBandStorefrontPathPrefix: (...args: unknown[]) =>
-    mockGetPriceBandStorefrontPathPrefix(...args),
   loadPriceBandPage: (...args: unknown[]) => mockLoadPriceBandPage(...args),
 }));
 
@@ -82,10 +71,6 @@ const priceBandPageModel = {
 };
 
 beforeEach(() => {
-  mockConnection.mockReset();
-  mockConnection.mockResolvedValue(undefined);
-  mockGetPriceBandStorefrontPathPrefix.mockReset();
-  mockGetPriceBandStorefrontPathPrefix.mockResolvedValue('');
   mockLoadPriceBandPage.mockReset();
   mockNotFound.mockClear();
   mockPriceBandPageContent.mockReset();
@@ -98,32 +83,28 @@ beforeEach(() => {
 describe('price-band page metadata', () => {
   it('defers price-band first paint to the route loader while route params are pending', async () => {
     const { default: PriceBandPage } = await import('./page');
-    mockConnection.mockImplementationOnce(
-      () =>
-        new Promise(() => {
-          // Keep request-bound price-band work suspended behind the route shell.
-        })
+    mockPriceBandPageContent.mockImplementation(() => {
+      throw new Promise(() => {
+        // Keep the price-band page content suspended behind the route loader.
+      });
+    });
+
+    render(
+      <Suspense fallback={<div>Route loader fallback</div>}>
+        <PriceBandPage
+          params={Promise.resolve({
+            slug: 'ogabassey',
+            category: 'smartphones',
+            priceBandSlug: 'under-500k',
+          })}
+        />
+      </Suspense>
     );
 
-    const page = PriceBandPage({
-      params: Promise.resolve({
-        slug: 'ogabassey',
-        category: 'smartphones',
-        priceBandSlug: 'under-500k',
-      }),
-    });
-    expect(mockLoadPriceBandPage).not.toHaveBeenCalled();
-
-    render(page);
-
-    expect(
-      screen.getByRole('status', { name: 'Loading product listing' })
-    ).toBeInTheDocument();
+    expect(screen.getByText('Route loader fallback')).toBeInTheDocument();
     expect(
       screen.queryByText('Price band page content')
     ).not.toBeInTheDocument();
-    expect(mockLoadPriceBandPage).not.toHaveBeenCalled();
-    expect(mockPriceBandPageContent).not.toHaveBeenCalled();
   });
 
   it('emits canonical metadata for curated price-band pages', async () => {
@@ -137,16 +118,11 @@ describe('price-band page metadata', () => {
       }),
     });
 
-    expect(mockLoadPriceBandPage).toHaveBeenCalledWith(
-      {
-        merchantSlug: 'ogabassey',
-        categorySlug: 'smartphones',
-        priceBandSlug: 'under-500k',
-      },
-      {
-        includeRequestPathPrefix: false,
-      }
-    );
+    expect(mockLoadPriceBandPage).toHaveBeenCalledWith({
+      merchantSlug: 'ogabassey',
+      categorySlug: 'smartphones',
+      priceBandSlug: 'under-500k',
+    });
     expect(metadata.title).toBe(priceBandPageModel.metaTitle);
     expect(metadata.description).toBe(priceBandPageModel.metaDescription);
     expect(metadata.alternates?.canonical).toContain(
