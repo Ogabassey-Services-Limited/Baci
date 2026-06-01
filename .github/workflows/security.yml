@@ -38,6 +38,8 @@ jobs:
         uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
         with:
           token: ''
+          # Next config controls headers, redirects, and rendering behavior, so
+          # root changes must stay in the security-relevant PR scope.
           filters: |
             semgrep_relevant:
               - 'apps/web/src/app/api/**'
@@ -53,6 +55,7 @@ jobs:
               - 'apps/mobile-storefront/stores/**'
               - 'packages/shared/**'
               - 'supabase/migrations/**'
+              - 'next.config.ts'
               - '.github/workflows/**'
               - 'package.json'
               - 'pnpm-lock.yaml'
@@ -106,7 +109,7 @@ jobs:
           mapfile -t changed_files < <(
             git diff --name-only --diff-filter=d "origin/${{ github.event.pull_request.base.ref }}...HEAD" -- \
               '*.js' '*.jsx' '*.ts' '*.tsx' '*.mjs' '*.cjs' '*.sql' '*.yml' '*.yaml' |
-            grep -E '^(apps/web/src/app/api/|apps/web/src/lib/|apps/web/src/schemas/|apps/mobile-admin/(app|hooks|lib)/|apps/mobile-storefront/(app|hooks|lib|services|stores)/|packages/shared/|supabase/migrations/|\.github/workflows/)' ||
+            grep -E '^(next\.config\.ts$|apps/web/src/app/api/|apps/web/src/lib/|apps/web/src/schemas/|apps/mobile-admin/(app|hooks|lib)/|apps/mobile-storefront/(app|hooks|lib|services|stores)/|packages/shared/|supabase/migrations/|\.github/workflows/)' ||
             true
           )
 
@@ -138,6 +141,7 @@ jobs:
             apps/mobile-storefront/stores \
             packages/shared \
             supabase/migrations \
+            next.config.ts \
             .github/workflows
         env:
           SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
