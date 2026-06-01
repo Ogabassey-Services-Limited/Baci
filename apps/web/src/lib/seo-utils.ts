@@ -654,21 +654,33 @@ interface ProductSchemaOptions {
   productUrl?: string;
 }
 
+interface StorefrontPaymentGatewayConfig {
+  korapayConfigured: boolean;
+  paystackConfigured: boolean;
+}
+
 export function buildStorefrontAcceptedPaymentMethods(
-  merchant: CheckoutPaymentMerchant | null | undefined
+  merchant: CheckoutPaymentMerchant | null | undefined,
+  gatewayConfig: StorefrontPaymentGatewayConfig
 ): string[] {
   const methods = new Set<string>();
 
-  if (isPaystackCheckoutAvailable(merchant)) {
+  if (
+    gatewayConfig.paystackConfigured &&
+    isPaystackCheckoutAvailable(merchant)
+  ) {
     methods.add('Debit and credit card');
     methods.add('USSD');
   }
 
-  if (isBankTransferCheckoutAvailable(merchant)) {
+  if (
+    gatewayConfig.paystackConfigured &&
+    isBankTransferCheckoutAvailable(merchant)
+  ) {
     methods.add('Bank transfer');
   }
 
-  if (isKorapayCheckoutAvailable(merchant)) {
+  if (gatewayConfig.korapayConfigured && isKorapayCheckoutAvailable(merchant)) {
     methods.add('Debit and credit card');
   }
 

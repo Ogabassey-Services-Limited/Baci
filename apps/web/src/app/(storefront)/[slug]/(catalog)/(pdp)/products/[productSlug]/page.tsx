@@ -17,6 +17,8 @@ import {
   getRequestScopedMerchant,
   sanitizeLookupLogValue,
 } from '@/lib/cached-data';
+import { isKorapayConfigured } from '@/lib/korapay';
+import { isPaystackConfigured } from '@/lib/paystack';
 import type { Product } from '@/lib/products';
 import { asRoute } from '@/lib/routes';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
@@ -493,7 +495,10 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
     merchant.logo_url,
     trustProfile,
     {
-      acceptedPaymentMethods: buildStorefrontAcceptedPaymentMethods(merchant),
+      acceptedPaymentMethods: buildStorefrontAcceptedPaymentMethods(merchant, {
+        korapayConfigured: isKorapayConfigured(),
+        paystackConfigured: isPaystackConfigured(),
+      }),
       productUrl,
     }
   );

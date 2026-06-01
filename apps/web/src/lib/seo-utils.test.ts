@@ -54,16 +54,22 @@ function makeTrustProfile(
 
 describe('buildStorefrontAcceptedPaymentMethods', () => {
   it('derives only checkout-enabled payment methods for structured data', () => {
-    const methods = buildStorefrontAcceptedPaymentMethods({
-      country: 'NG',
-      paystack_subaccount_code: 'ACCT_test',
-      feature_settings: {
-        credit_direct_enabled: true,
-        credpal_enabled: true,
-        klump_enabled: false,
-        pay_on_delivery_enabled: true,
+    const methods = buildStorefrontAcceptedPaymentMethods(
+      {
+        country: 'NG',
+        paystack_subaccount_code: 'ACCT_test',
+        feature_settings: {
+          credit_direct_enabled: true,
+          credpal_enabled: true,
+          klump_enabled: false,
+          pay_on_delivery_enabled: true,
+        },
       },
-    });
+      {
+        korapayConfigured: true,
+        paystackConfigured: true,
+      }
+    );
 
     expect(methods).toEqual([
       'Debit and credit card',
@@ -74,31 +80,78 @@ describe('buildStorefrontAcceptedPaymentMethods', () => {
   });
 
   it('does not claim Paystack methods when the storefront gate is disabled', () => {
-    const methods = buildStorefrontAcceptedPaymentMethods({
-      country: 'NG',
-      paystack_subaccount_code: 'ACCT_test',
-      feature_settings: {
-        paystack_enabled: false,
+    const methods = buildStorefrontAcceptedPaymentMethods(
+      {
+        country: 'NG',
+        paystack_subaccount_code: 'ACCT_test',
+        feature_settings: {
+          paystack_enabled: false,
+        },
       },
-    });
+      {
+        korapayConfigured: true,
+        paystackConfigured: true,
+      }
+    );
 
     expect(methods).toEqual([]);
   });
 
   it('does not advertise payment methods that need additional checkout eligibility checks', () => {
-    const methods = buildStorefrontAcceptedPaymentMethods({
-      country: 'NG',
-      paystack_subaccount_code: 'ACCT_test',
-      feature_settings: {
-        credit_direct_enabled: true,
-        credpal_enabled: true,
-        juicyway_enabled: true,
-        korapay_enabled: true,
-        klump_enabled: true,
+    const methods = buildStorefrontAcceptedPaymentMethods(
+      {
+        country: 'NG',
+        paystack_subaccount_code: 'ACCT_test',
+        feature_settings: {
+          credit_direct_enabled: true,
+          credpal_enabled: true,
+          juicyway_enabled: true,
+          korapay_enabled: true,
+          klump_enabled: true,
+        },
       },
-    });
+      {
+        korapayConfigured: false,
+        paystackConfigured: true,
+      }
+    );
 
     expect(methods).toEqual(['Debit and credit card', 'USSD', 'Bank transfer']);
+  });
+
+  it('omits Paystack-backed methods when Paystack is not configured', () => {
+    const methods = buildStorefrontAcceptedPaymentMethods(
+      {
+        country: 'NG',
+        paystack_subaccount_code: 'ACCT_test',
+        feature_settings: {
+          korapay_enabled: true,
+        },
+      },
+      {
+        korapayConfigured: true,
+        paystackConfigured: false,
+      }
+    );
+
+    expect(methods).toEqual(['Debit and credit card']);
+  });
+
+  it('omits Korapay cards when Korapay is not configured', () => {
+    const methods = buildStorefrontAcceptedPaymentMethods(
+      {
+        country: 'GH',
+        feature_settings: {
+          korapay_enabled: true,
+        },
+      },
+      {
+        korapayConfigured: false,
+        paystackConfigured: true,
+      }
+    );
+
+    expect(methods).toEqual([]);
   });
 });
 

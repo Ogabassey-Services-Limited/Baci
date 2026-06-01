@@ -37,7 +37,9 @@ import {
   getRequestScopedMerchant,
   sanitizeLookupLogValue,
 } from '@/lib/cached-data';
+import { isKorapayConfigured } from '@/lib/korapay';
 import { normalizeStorefrontCategorySlug } from '@/lib/normalize-storefront-category-slug';
+import { isPaystackConfigured } from '@/lib/paystack';
 import { getEffectiveStock } from '@/lib/product-stock';
 import type { Product } from '@/lib/products';
 import { stripHtmlTags } from '@/lib/sanitize-core';
@@ -948,7 +950,10 @@ async function CategoryProductPageContent({
     merchant?.logo_url,
     trustProfile,
     {
-      acceptedPaymentMethods: buildStorefrontAcceptedPaymentMethods(merchant),
+      acceptedPaymentMethods: buildStorefrontAcceptedPaymentMethods(merchant, {
+        korapayConfigured: isKorapayConfigured(),
+        paystackConfigured: isPaystackConfigured(),
+      }),
       productUrl,
     }
   );
