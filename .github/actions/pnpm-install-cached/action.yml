@@ -46,8 +46,6 @@ runs:
 
     - name: Install Dependencies
       shell: bash
-      env:
-        pnpm_config_verify_store_integrity: 'false'
       run: ${{ inputs.install-command }}
 
     # Cache Save Engine: PR branches are strictly RESTORE-ONLY to prevent cache poisoning & save storage limit (10GB)
@@ -60,4 +58,3 @@ runs:
       with:
         path: ${{ inputs.store-dir }}
         key: ${{ steps.pnpm-store-cache.outputs.cache-primary-key }}
-
