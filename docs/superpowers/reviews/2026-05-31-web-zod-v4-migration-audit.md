@@ -3,8 +3,9 @@
 ## Final Branch State
 - Isolated worktree: `/Users/mac/Baci-app/.worktrees/web-zod-v4-migration`.
 - Branch: `codex/web-zod-v4-migration`.
-- Final verified base before PR push: `origin/main` at `f39994e25f` (`perf(storefront): reduce OgaBassey PDP mobile image payload`).
+- Final verified base before clean PR push: `origin/main` at `f5f809e439` (`fix(web): lighten agentic feed health cron (#2170)`).
 - Rebases onto updated `main` completed cleanly after the first draft PR push. A duplicate local mobile-admin test stabilization commit was skipped after `#2210` landed on `main`, keeping this PR focused on the web Zod migration.
+- The remote PR branch had accumulated merge commits from `main`; the clean branch rebuild intentionally cherry-picked only the real follow-up fix, `fix: preserve sparse zod update payloads`, onto the rebased local branch.
 - Protected-file check after rebase found no `apps/web/src/proxy.ts` or `supabase/migrations/*` changes.
 
 ## Dependency Graph
@@ -45,6 +46,9 @@
   - monetary order defaults that should still coerce and validate non-negative numbers.
 - Kept `.default(...)` where Zod v4 short-circuiting is the desired behavior and the fallback is already normalized:
   - booleans, enum defaults, array/object defaults, static strings, and simple numeric constants.
+- Split sparse update/PATCH schemas away from defaulted create schemas where Zod v4 defaults would otherwise materialize omitted optional fields:
+  - `apps/web/src/schemas/discount-codes.ts`
+  - `apps/web/src/schemas/merchant-features.ts`
 - Re-ran schema tests after the audit; they caught and verified the trim-before-UUID fixes.
 
 ## React Hook Form Resolver Audit
@@ -58,6 +62,7 @@
 - Audits for removed/deprecated Zod v4 migration hazards found no remaining blocking usage of `required_error`, `invalid_type_error`, `errorMap`, `ZodError.errors`, `ZodError.formErrors`, `ctx.path`, or `z.nativeEnum` in the migrated surface.
 - All `z.record(...)` call sites in the touched surface use explicit key and value schemas.
 - No top-level `z.email()`, `z.url()`, `z.uuid()`, or `z.iso.datetime()` call remains before a later `.trim()` in the migrated surface.
+- Added regression coverage for sparse update payloads so omitted discount-code and merchant-feature fields remain absent instead of being filled with create-schema defaults.
 
 ## Browser QA Evidence
 - Local dev server ran from the isolated worktree at `http://localhost:3002` with ignored env files sourced into the process only and `NEXT_PUBLIC_APP_URL` overridden to localhost.
@@ -74,6 +79,17 @@
   - `/tmp/baci-zod-v4-browser-qa/onboarding-validation.png`
 
 ## Automated Validation
+
+### Post-Sparse-Fix Clean Branch Verification
+- After rebasing onto `f5f809e439` and cherry-picking `fix: preserve sparse zod update payloads`, `pnpm install --frozen-lockfile --prefer-offline`: passed.
+- `cd apps/web && node ../../node_modules/typescript/bin/tsc --noEmit`: passed.
+- `cd packages/shared && node ../../node_modules/typescript/bin/tsc --noEmit`: passed.
+- `cd packages/shared && node ../../node_modules/vitest/vitest.mjs run`: passed, 46 files and 395 tests.
+- `cd apps/web && ./node_modules/@biomejs/cli-darwin-arm64/biome check .`: passed, 3114 files checked.
+- `cd apps/web && node ../../node_modules/vitest/vitest.mjs run src/schemas/discount-codes.test.ts src/schemas/merchant-features-patch.test.ts src/app/api/merchant/features/route.test.ts`: passed, 3 files and 25 tests.
+- `git diff --check`: passed.
+- `git diff --name-only origin/main...HEAD | grep -E '(^|/)proxy\.ts$|^supabase/migrations/' || true`: passed with no protected-file matches.
+- `git log --merges --oneline origin/main..HEAD`: passed with no merge commits.
 
 ### Post-Rebase Final Verification
 - `pnpm install --frozen-lockfile --prefer-offline`: passed.

@@ -26,7 +26,7 @@ Current worktree state:
 path: /Users/mac/Baci-app/.worktrees/web-zod-v4-migration
 branch: codex/web-zod-v4-migration
 initial base: origin/main at 91aab3ff35
-final verified base before PR push: origin/main at f39994e25f
+final verified base before clean PR push: origin/main at f5f809e439
 ```
 
 Initial package facts before migration:
@@ -594,6 +594,7 @@ Decision rule:
 Keep .default() when the default value is trusted and already valid, and it is acceptable that Zod v4 returns it without running transforms/refinements.
 Use .prefault() when the old Zod v3 behavior is required: undefined input should first receive the fallback value and then still run trim/coerce/transform/refine/min/max validation.
 Remember that Zod v4 also applies defaults inside optional object fields. Verify any optional nested field defaults still produce the intended output shape.
+For sparse update/PATCH payloads, do not reuse create schemas whose optional fields carry defaults. Split update schemas from create schemas so omitted fields stay omitted instead of being materialized by Zod v4 defaults.
 ```
 
 High-risk defaults to review manually:
