@@ -133,6 +133,7 @@ export function UtilityPanel({
 
   const handlePress = (id: string, index: number) => {
     setIsManualUtility(true);
+    setActiveUtilityIndex(index);
     activeIndexVal.value = withSpring(index, { damping: 16, stiffness: 150 });
     onCategorySelect(id);
   };

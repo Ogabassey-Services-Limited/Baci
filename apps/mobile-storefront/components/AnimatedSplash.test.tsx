@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { render, screen } from '@testing-library/react-native';
+import { act, render, screen } from '@testing-library/react-native';
 import { Text, View } from 'react-native';
 import { AnimatedSplash } from './AnimatedSplash';
 
@@ -37,10 +37,10 @@ jest.mock('react-native-reanimated', () => {
     runOnJS: (fn: (...args: unknown[]) => unknown) => fn,
     useSharedValue: makeSharedValue,
     useAnimatedStyle: () => ({}),
-    withDelay: (delay: number, anim: unknown) => anim,
+    withDelay: (_delay: number, anim: unknown) => anim,
     withRepeat: (anim: unknown) => anim,
     withSequence: (...anims: unknown[]) => anims[0],
-    withTiming: (value: number, config?: unknown, callback?: () => void) => {
+    withTiming: (value: number, _config?: unknown, callback?: () => void) => {
       if (callback) callback();
       return value;
     },
@@ -72,7 +72,7 @@ describe('AnimatedSplash', () => {
     expect(screen.getByText('Buy Now, Pay Later')).toBeTruthy();
   });
 
-  it('triggers onAnimationEnd when isReady becomes true', () => {
+  it('triggers onAnimationEnd when isReady becomes true', async () => {
     const onAnimationEnd = jest.fn();
 
     const { rerender } = render(
@@ -90,7 +90,10 @@ describe('AnimatedSplash', () => {
       </AnimatedSplash>
     );
 
-    // Under worklet emulation callback runs synchronously in withTiming mock
+    await act(async () => {
+      await new Promise<void>((resolve) => queueMicrotask(resolve));
+    });
+
     expect(onAnimationEnd).toHaveBeenCalledTimes(1);
   });
 });

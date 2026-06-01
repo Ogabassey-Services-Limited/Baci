@@ -104,6 +104,10 @@ jest.mock('@react-native-vector-icons/feather', () => ({
   default: 'Feather',
 }));
 
+jest.mock('react-native-worklets', () =>
+  require('react-native-worklets/src/mock')
+);
+
 // Mock react-native-reanimated
 jest.mock('react-native-reanimated', () => {
   const React = require('react');
@@ -198,6 +202,7 @@ jest.mock('react-native-reanimated', () => {
     },
     useAnimatedStyle: (fn: () => unknown) => fn(),
     useDerivedValue: (fn: () => unknown) => ({ value: fn() }),
+    useEvent: (handler: (...args: unknown[]) => unknown) => handler,
     useAnimatedRef: () => ({ current: null }),
     useAnimatedScrollHandler: (handler: unknown) => handler,
     useAnimatedProps: (fn: () => unknown) => fn(),

@@ -49,6 +49,7 @@ export function UtilityPurchasePager({
   return (
     <AnimatedPagerView
       ref={pagerRef}
+      testID="pager-view"
       style={{ flex: 1 }}
       initialPage={initialPage}
       onPageScroll={onPageScroll}
