@@ -1,6 +1,19 @@
 import { jest } from '@jest/globals';
-import { render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen } from '@testing-library/react-native';
+import type { ReactNode } from 'react';
 import { ChatWidget } from './ChatWidget';
+
+const mockGestureRuntime: {
+  Gesture: unknown;
+  GestureDetector: ({ children }: { children?: ReactNode }) => ReactNode;
+} = {
+  Gesture: {},
+  GestureDetector: ({ children }) => children,
+};
+
+jest.mock('@/lib/optional-gesture-handler', () => ({
+  getOptionalGestureHandlerRuntime: jest.fn(() => mockGestureRuntime),
+}));
 
 // Mock the three custom hooks
 jest.mock('./use-chat', () => ({
@@ -138,6 +151,8 @@ describe('ChatWidget', () => {
     mockDismissChat.mockClear();
     mockResetChatDismissal.mockClear();
     mockUsePathname.mockReturnValue('/');
+    mockGestureRuntime.Gesture = {};
+    mockGestureRuntime.GestureDetector = ({ children }) => children;
   });
 
   it('renders the FAB button with the correct accessibility label', () => {
@@ -147,6 +162,20 @@ describe('ChatWidget', () => {
       name: 'Open chat assistant. Drag to move.',
     });
     expect(fab).toBeTruthy();
+  });
+
+  it('opens chat with a press fallback when gestures are unavailable', () => {
+    mockGestureRuntime.Gesture = null;
+
+    render(<ChatWidget />);
+
+    fireEvent.press(
+      screen.getByRole('button', {
+        name: 'Open chat assistant. Drag to move.',
+      })
+    );
+
+    expect(mockOpenChat).toHaveBeenCalledTimes(1);
   });
 
   it('shows the AI badge text on the FAB', () => {

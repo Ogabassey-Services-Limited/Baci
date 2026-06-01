@@ -61,7 +61,6 @@ export function ChatWidget({
   const isHomeRoute =
     pathname === '/' || pathname === '/(tabs)' || pathname === '/(tabs)/';
 
-  // Restore dismissal only after actual navigation back home.
   useEffect(() => {
     const previousPathname = previousPathnameRef.current;
     const wasHomeRoute =
@@ -93,12 +92,10 @@ export function ChatWidget({
 
   const chat = useChat(santaMode);
 
-  // Check if chat should be hidden on current screen or if dismissed by user
   const shouldHide =
     isChatDismissed ||
     HIDDEN_ROUTES.some((route) => pathname?.startsWith(route));
 
-  // Reanimated style for the dynamic translation of the FAB container
   const animatedFabStyle = useAnimatedStyle(() => {
     return {
       transform: [
@@ -108,7 +105,6 @@ export function ChatWidget({
     };
   });
 
-  // Reanimated style for the scale pulse of the FAB
   const animatedIconStyle = useAnimatedStyle(() => {
     return {
       transform: [{ scale: scale.get() }],
@@ -122,13 +118,34 @@ export function ChatWidget({
     openChat();
   }
 
+  const fabStyle = [
+    styles.fab,
+    {
+      backgroundColor: santaMode ? BRAND.primary : colors.card,
+      borderColor: isDragging ? BRAND.primary : colors.border,
+      borderWidth: isDragging ? 2 : 1,
+    },
+  ];
+
+  const fabContent = (
+    <>
+      {santaMode ? (
+        <Text style={styles.fabEmoji}>🎅</Text>
+      ) : (
+        <Ionicons name="sparkles" size={28} color={BRAND.primary} />
+      )}
+      <View style={styles.aiBadge}>
+        <Text style={styles.aiBadgeText}>AI</Text>
+      </View>
+    </>
+  );
+
   if (shouldHide) {
     return null;
   }
 
   return (
     <>
-      {/* Draggable Floating Action Button Container (Reanimated) */}
       <Animated.View
         style={[
           styles.fabContainer,
@@ -139,7 +156,6 @@ export function ChatWidget({
           animatedFabStyle,
         ]}
       >
-        {/* Proactive Nudge - Horizontal thought bubble (RN legacy Animated) */}
         {proactiveMsg && !isChatOpen && !isDragging && (
           <RNAnimated.View
             style={[
@@ -169,7 +185,6 @@ export function ChatWidget({
                 <Ionicons name="close" size={10} color={colors.textSecondary} />
               </Pressable>
             </View>
-            {/* Thought bubble tail dots */}
             <View
               style={[
                 styles.nudgeTailContainer,
@@ -192,45 +207,43 @@ export function ChatWidget({
           </RNAnimated.View>
         )}
 
-        {/* GestureDetector wraps only the FAB itself */}
-        <GestureDetector gesture={composedGesture}>
+        {Gesture && composedGesture ? (
+          <GestureDetector gesture={composedGesture}>
+            <Animated.View style={animatedIconStyle}>
+              <Animated.View
+                style={fabStyle}
+                accessibilityRole="button"
+                accessibilityLabel="Open chat assistant. Drag to move."
+                accessibilityHint="Double tap to open chat, or drag to reposition"
+                accessibilityActions={[
+                  { name: 'activate', label: 'Open chat assistant' },
+                ]}
+                onAccessibilityTap={handleOpen}
+                onAccessibilityAction={(event) => {
+                  if (event.nativeEvent.actionName === 'activate') {
+                    handleOpen();
+                  }
+                }}
+                accessible={true}
+              >
+                {fabContent}
+              </Animated.View>
+            </Animated.View>
+          </GestureDetector>
+        ) : (
           <Animated.View style={animatedIconStyle}>
-            <Animated.View
-              style={[
-                styles.fab,
-                {
-                  backgroundColor: santaMode ? BRAND.primary : colors.card,
-                  borderColor: isDragging ? BRAND.primary : colors.border,
-                  borderWidth: isDragging ? 2 : 1,
-                },
-              ]}
+            <Pressable
+              style={fabStyle}
+              onPress={handleOpen}
               accessibilityRole="button"
               accessibilityLabel="Open chat assistant. Drag to move."
-              accessibilityHint="Double tap to open chat, or drag to reposition"
-              accessibilityActions={[
-                { name: 'activate', label: 'Open chat assistant' },
-              ]}
-              onAccessibilityTap={handleOpen}
-              onAccessibilityAction={(event) => {
-                if (event.nativeEvent.actionName === 'activate') {
-                  handleOpen();
-                }
-              }}
-              accessible={true}
+              accessibilityHint="Double tap to open chat"
             >
-              {santaMode ? (
-                <Text style={styles.fabEmoji}>🎅</Text>
-              ) : (
-                <Ionicons name="sparkles" size={28} color={BRAND.primary} />
-              )}
-              <View style={styles.aiBadge}>
-                <Text style={styles.aiBadgeText}>AI</Text>
-              </View>
-            </Animated.View>
+              {fabContent}
+            </Pressable>
           </Animated.View>
-        </GestureDetector>
+        )}
 
-        {/* Drag indicator */}
         {isDragging && (
           <View style={styles.dragIndicator}>
             <Text style={styles.dragIndicatorText}>Drag to move</Text>
@@ -238,7 +251,6 @@ export function ChatWidget({
         )}
       </Animated.View>
 
-      {/* Dynamic Dismiss Zone at bottom center when dragging */}
       {isDragging && (
         <View style={styles.dismissZone}>
           <View
@@ -268,7 +280,6 @@ export function ChatWidget({
         </View>
       )}
 
-      {/* Chat Modal */}
       <ChatModal
         visible={isChatOpen}
         santaMode={santaMode}

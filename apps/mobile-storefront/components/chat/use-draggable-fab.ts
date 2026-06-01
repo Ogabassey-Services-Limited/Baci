@@ -12,6 +12,7 @@ import {
 } from 'react-native-reanimated';
 import type { GestureHandlerRuntime } from '@/lib/optional-gesture-handler';
 import { EDGE_MARGIN, FAB_SIZE } from './constants';
+import { getAnchoredFabTranslationX } from './use-draggable-fab-position';
 
 // Define completely static, immutable haptic trigger outside the hook
 const triggerHaptic = (style: Haptics.ImpactFeedbackStyle) => {
@@ -71,11 +72,34 @@ export function useDraggableFab(
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const windowWidthSV = useSharedValue(windowWidth);
   const windowHeightSV = useSharedValue(windowHeight);
+  const previousWindowWidthRef = useRef(windowWidth);
 
   useEffect(() => {
+    const previousWindowWidth = previousWindowWidthRef.current;
+
     windowWidthSV.set(windowWidth);
     windowHeightSV.set(windowHeight);
-  }, [windowHeight, windowHeightSV, windowWidth, windowWidthSV]);
+
+    if (previousWindowWidth !== windowWidth && !isDragging) {
+      const anchoredTranslationX = getAnchoredFabTranslationX(
+        windowWidth,
+        isOnRight
+      );
+      translateX.set(
+        withSpring(anchoredTranslationX, { damping: 15, stiffness: 120 })
+      );
+    }
+
+    previousWindowWidthRef.current = windowWidth;
+  }, [
+    isDragging,
+    isOnRight,
+    translateX,
+    windowHeight,
+    windowHeightSV,
+    windowWidth,
+    windowWidthSV,
+  ]);
 
   // Track bottom offset dynamically
   const bottomOffsetSV = useSharedValue(bottomOffset);
