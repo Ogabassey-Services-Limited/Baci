@@ -475,10 +475,15 @@ function isUuidProductRouteValue(value: string) {
   );
 }
 
-function shouldRedirectProductSlugValue(productSlug: string) {
+function shouldRedirectResolvedProductSlugValue(
+  productSlug: string,
+  resolvedSlug: string | null | undefined
+) {
   return (
     !isUuidProductRouteValue(productSlug) &&
-    productSlug !== productSlug.toLowerCase()
+    Boolean(resolvedSlug) &&
+    resolvedSlug !== productSlug &&
+    resolvedSlug?.toLowerCase() === productSlug.toLowerCase()
   );
 }
 
@@ -488,7 +493,12 @@ function parseRouteProductNumber(value: unknown): number | null {
   }
 
   if (typeof value === 'string') {
-    const parsed = Number(value.replace(/,/g, ''));
+    const normalized = value.replace(/,/g, '').trim();
+    if (!normalized) {
+      return null;
+    }
+
+    const parsed = Number(normalized);
     return Number.isFinite(parsed) ? parsed : null;
   }
 
@@ -564,13 +574,10 @@ const getProductForMerchant = async (
 
   // 2b. Case-insensitive fallback: If not found, try lowercasing the productSlug
   // This handles Google index errors like google-pixel-6-8GB-256GB vs google-pixel-6-8gb-256gb
-  let needsValuesRedirect = shouldRedirectProductSlugValue(productSlug);
+  let needsValuesRedirect = false;
   if (!product && productSlug !== productSlug.toLowerCase()) {
     const lowercaseSlug = productSlug.toLowerCase();
     product = await getCachedProductWithDetails(merchant.id, lowercaseSlug);
-    if (product) {
-      needsValuesRedirect = true;
-    }
   }
 
   if (!product) {
@@ -588,6 +595,11 @@ const getProductForMerchant = async (
 
     return null;
   }
+
+  needsValuesRedirect = shouldRedirectResolvedProductSlugValue(
+    productSlug,
+    product.slug
+  );
 
   // 3. Process category data
   interface ProductWithCategory {
@@ -707,7 +719,6 @@ async function getProductRouteControl(
       merchant.id,
       productSlug.toLowerCase()
     );
-    needsValuesRedirect = Boolean(cachedProduct);
   }
 
   if (!cachedProduct) {
@@ -722,6 +733,10 @@ async function getProductRouteControl(
   }
 
   const product = mapCachedProductLcpHintToRouteProduct(cachedProduct);
+  needsValuesRedirect = shouldRedirectResolvedProductSlugValue(
+    productSlug,
+    product.slug
+  );
   const loadProductResult = () =>
     getProduct(storeSlug, categorySlug, productSlug);
 

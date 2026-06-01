@@ -746,6 +746,69 @@ describe('[category]/[productSlug] page metadata', () => {
     });
   });
 
+  it('does not advertise blank LCP hint prices as zero-price products', async () => {
+    mockGetCachedProductLcpHint.mockResolvedValueOnce({
+      id: 'prod-1',
+      name: 'HP Laptop 14-ep0063nia',
+      slug: 'hp-laptop-14-ep0063nia',
+      brand: 'HP',
+      category: 'Laptops',
+      categories: {
+        id: 'cat-1',
+        name: 'Laptops',
+        slug: 'laptops',
+      },
+      manage_stock: false,
+      price: '   ',
+      stock_quantity: 10,
+      images: ['https://cdn.example.com/products/hp-laptop.png'],
+      product_categories: [],
+    });
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: 'teststore',
+        category: 'laptops',
+        productSlug: 'hp-laptop-14-ep0063nia',
+      }),
+      searchParams: Promise.resolve({}),
+    });
+
+    expect(metadata.other ?? {}).not.toHaveProperty('product:price:amount');
+  });
+
+  it('does not noindex UUID PDP metadata when the LCP hint resolves a canonical slug', async () => {
+    mockGetCachedProductLcpHint.mockResolvedValueOnce({
+      id: 'abcdef12-3456-4789-abcd-abcdef123456',
+      name: 'HP Laptop 14-ep0063nia',
+      slug: 'hp-laptop-14-ep0063nia',
+      brand: 'HP',
+      category: 'Laptops',
+      categories: {
+        id: 'cat-1',
+        name: 'Laptops',
+        slug: 'laptops',
+      },
+      manage_stock: false,
+      price: 645_600,
+      stock_quantity: 10,
+      images: ['https://cdn.example.com/products/hp-laptop.png'],
+      product_categories: [],
+    });
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: 'teststore',
+        category: 'laptops',
+        productSlug: 'abcdef12-3456-4789-abcd-abcdef123456',
+      }),
+      searchParams: Promise.resolve({}),
+    });
+
+    expect(metadata.robots).toMatchObject({ index: true, follow: true });
+    expect(mockGetCachedProductWithDetails).not.toHaveBeenCalled();
+  });
+
   it('returns noindex metadata for legacy archived variant slugs (real HTTP 308 happens during page render)', async () => {
     mockGetCachedLegacyProductRedirectTarget.mockResolvedValue({
       id: 'parent-1',
@@ -840,6 +903,24 @@ describe('[category]/[productSlug] page metadata', () => {
       'hp-laptop-14-ep0063nia'
     );
     expect(mockPermanentRedirect).not.toHaveBeenCalled();
+  });
+
+  it('does not noindex metadata when the resolved canonical product slug matches the URL case', async () => {
+    mockGetCachedProductWithDetails.mockResolvedValue({
+      ...categorizedDetailedProduct,
+      slug: 'HP-LAPTOP-14-EP0063NIA',
+    });
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: 'teststore',
+        category: 'laptops',
+        productSlug: 'HP-LAPTOP-14-EP0063NIA',
+      }),
+      searchParams: Promise.resolve({}),
+    });
+
+    expect(metadata.robots).toMatchObject({ index: true, follow: true });
   });
 
   it('strips HTML from category product metadata descriptions', async () => {
