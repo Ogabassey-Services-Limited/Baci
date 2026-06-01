@@ -1,12 +1,13 @@
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import {
-  Animated,
-  Keyboard,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
-} from 'react-native';
+import { Keyboard } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  useSharedValue,
+  useAnimatedScrollHandler,
+  withTiming,
+  runOnJS,
+} from 'react-native-reanimated';
 import { HomeScreenView } from '@/components/home/HomeScreenView';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
@@ -19,7 +20,6 @@ import { useNetworkState } from '@/hooks/use-network-state';
 import { usePermissionBooster } from '@/hooks/use-permission-booster';
 import { CONFIG } from '@/lib/config';
 import { resolveHomeBlocks } from '@/lib/resolve-home-blocks';
-import { resolveScrollHeaderVisibility } from '@/lib/scroll-header-visibility';
 import { getTemplateConfig } from '@/lib/templates';
 
 const HEADER_SOLID_BACKGROUND_OFFSET_PX = 10;
@@ -79,12 +79,11 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(150); // Initial estimate for spacer
   const [isScrolled, setIsScrolled] = useState(false);
-  const isScrolledRef = useRef(false);
-  const headerVisibility = useRef(new Animated.Value(1)).current;
-  const headerScrollState = useRef({
-    isVisible: true,
-    previousOffsetY: 0,
-  });
+  
+  // Reanimated UI-thread values for continuous header folding calculations
+  const headerVisibility = useSharedValue(1);
+  const previousOffsetY = useSharedValue(0);
+  const isScrolledShared = useSharedValue(false);
 
   // 2026 Best Practice: Network state monitoring for offline UX
   // Note: Manual onReconnect refetch removed — onlineManager.setOnline(true)
@@ -95,11 +94,7 @@ export default function HomeScreen() {
   const [searchQuery, setSearchQuery] = useState('');
 
   const handleSearch = () => {
-    headerScrollState.current = {
-      isVisible: true,
-      previousOffsetY: 0,
-    };
-    animateHeaderVisibility(true);
+    headerVisibility.value = withTiming(1, { duration: 180 });
     setSearchVisible(true);
   };
 
@@ -123,14 +118,6 @@ export default function HomeScreen() {
     }
   };
 
-  const animateHeaderVisibility = (isVisible: boolean) => {
-    Animated.timing(headerVisibility, {
-      toValue: isVisible ? 1 : 0,
-      duration: 180,
-      useNativeDriver: true,
-    }).start();
-  };
-
   const handleHeaderLayout = ({
     nativeEvent,
   }: {
@@ -142,68 +129,48 @@ export default function HomeScreen() {
     }
   };
 
-  const handleListScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    if (searchVisible) {
-      return;
-    }
-
-    const currentState = headerScrollState.current;
-    const currentOffsetY = event.nativeEvent.contentOffset.y;
-    const normalizedOffsetY = Math.max(0, currentOffsetY);
-    const currentContentHeight = event.nativeEvent.contentSize.height;
-    const nextIsScrolled =
-      normalizedOffsetY > HEADER_SOLID_BACKGROUND_OFFSET_PX;
-
-    if (nextIsScrolled !== isScrolledRef.current) {
-      isScrolledRef.current = nextIsScrolled;
-      setIsScrolled(nextIsScrolled);
-    }
-
-    if (currentContentHeight < lastLoadMoreContentHeightRef.current) {
-      lastLoadMoreContentHeightRef.current = 0;
-      hasExitedLoadMoreZoneRef.current = true;
-      headerScrollState.current.previousOffsetY = currentOffsetY;
-    }
-
-    const isScrollingDown = currentOffsetY >= currentState.previousOffsetY;
-    const nextState = resolveScrollHeaderVisibility({
-      currentOffsetY,
-      previousOffsetY: currentState.previousOffsetY,
-      isVisible: currentState.isVisible,
-    });
-
-    headerScrollState.current.previousOffsetY = nextState.previousOffsetY;
-
-    if (nextState.isVisible !== currentState.isVisible) {
-      headerScrollState.current.isVisible = nextState.isVisible;
-      animateHeaderVisibility(nextState.isVisible);
-    }
-
-    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
-    const distanceFromBottom =
-      contentSize.height - (contentOffset.y + layoutMeasurement.height);
-    const isNearBottom = distanceFromBottom <= HOME_LOAD_MORE_THRESHOLD_PX;
-
-    if (!isNearBottom) {
-      hasExitedLoadMoreZoneRef.current = true;
-    }
-
-    const hasNewContentHeight =
-      contentSize.height > lastLoadMoreContentHeightRef.current;
-    const canRetryCurrentHeight =
-      hasExitedLoadMoreZoneRef.current &&
-      contentSize.height === lastLoadMoreContentHeightRef.current;
-
-    if (
-      isScrollingDown &&
-      isNearBottom &&
-      (hasNewContentHeight || canRetryCurrentHeight)
-    ) {
-      lastLoadMoreContentHeightRef.current = contentSize.height;
-      hasExitedLoadMoreZoneRef.current = false;
-      setProductGridLoadMoreSignal((current) => current + 1);
-    }
+  const setIsScrolledJS = (nextScrolled: boolean) => {
+    setIsScrolled(nextScrolled);
   };
+
+  const triggerLoadMoreJS = () => {
+    setProductGridLoadMoreSignal((current) => current + 1);
+  };
+
+  // C++ UI Thread scroll handler executing strictly in worklet thread context
+  const handleListScroll = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      'worklet';
+      if (searchVisible) return;
+
+      const currentOffsetY = event.contentOffset.y;
+      const normalizedOffsetY = Math.max(0, currentOffsetY);
+      const prevOffsetY = previousOffsetY.value;
+      previousOffsetY.value = currentOffsetY;
+
+      // Toggle solid background header state dynamically
+      const nextScrolled = normalizedOffsetY > HEADER_SOLID_BACKGROUND_OFFSET_PX;
+      if (nextScrolled !== isScrolledShared.value) {
+        isScrolledShared.value = nextScrolled;
+        runOnJS(setIsScrolledJS)(nextScrolled);
+      }
+
+      // Sliding header collapse transitions
+      if (currentOffsetY <= 0) {
+        headerVisibility.value = withTiming(1, { duration: 180 });
+      } else if (currentOffsetY > prevOffsetY) {
+        headerVisibility.value = withTiming(0, { duration: 180 });
+      } else if (prevOffsetY - currentOffsetY > 15) { // scroll tolerance/hysteresis
+        headerVisibility.value = withTiming(1, { duration: 180 });
+      }
+
+      // Infinite scroll load more detection at screen boundaries
+      const distance = event.contentSize.height - (event.contentOffset.y + event.layoutMeasurement.height);
+      if (distance <= HOME_LOAD_MORE_THRESHOLD_PX && currentOffsetY > prevOffsetY) {
+        runOnJS(triggerLoadMoreJS)();
+      }
+    },
+  });
 
   const handleCategorySelect = (id: string | null) => {
     if (id?.startsWith('u-')) {
@@ -248,8 +215,8 @@ export default function HomeScreen() {
     void productGridDatasetKey;
     lastLoadMoreContentHeightRef.current = 0;
     hasExitedLoadMoreZoneRef.current = true;
-    headerScrollState.current.previousOffsetY = 0;
-  }, [productGridDatasetKey]);
+    previousOffsetY.value = 0;
+  }, [productGridDatasetKey, previousOffsetY]);
 
   const resolvedHeaderHeight = headerHeight > 0 ? headerHeight : 150;
   const isElite = template.headerStyle === 'elite';

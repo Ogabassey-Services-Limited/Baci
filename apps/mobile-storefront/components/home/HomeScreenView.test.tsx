@@ -165,7 +165,7 @@ function createProps() {
     blocks,
     contentBottomPadding: 84,
     hasPageConfig: true,
-    headerVisibility: new Animated.Value(1),
+    headerVisibility: { value: 1 } as any,
     isConfigLoading: false,
     isElite: false,
     isError: false,

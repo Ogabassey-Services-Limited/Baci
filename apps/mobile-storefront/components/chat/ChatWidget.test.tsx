@@ -32,11 +32,7 @@ jest.mock('./use-draggable-fab', () => ({
 jest.mock('./use-proactive-nudge', () => ({
   useProactiveNudge: jest.fn(() => ({
     proactiveMsg: null,
-    nudgeFadeAnim: {
-      addListener: jest.fn(),
-      removeListener: jest.fn(),
-      setValue: jest.fn(),
-    },
+    nudgeFadeAnim: { value: 0 },
     dismissNudge: jest.fn(),
   })),
 }));

@@ -94,6 +94,12 @@ export function ChatWidget({
     };
   });
 
+  const animatedNudgeStyle = useAnimatedStyle(() => {
+    return {
+      opacity: nudgeFadeAnim.value,
+    };
+  });
+
   function handleOpen() {
     if (Platform.OS === 'ios') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -118,13 +124,13 @@ export function ChatWidget({
           animatedFabStyle,
         ]}
       >
-        {/* Proactive Nudge - Horizontal thought bubble (RN legacy Animated) */}
+        {/* Proactive Nudge - Horizontal thought bubble (Reanimated C++ driving) */}
         {proactiveMsg && !isChatOpen && !isDragging && (
-          <RNAnimated.View
+          <Animated.View
             style={[
               styles.nudgeContainer,
               isOnRight ? styles.nudgeRight : styles.nudgeLeft,
-              { opacity: nudgeFadeAnim },
+              animatedNudgeStyle,
             ]}
           >
             <View
@@ -168,7 +174,7 @@ export function ChatWidget({
                 ]}
               />
             </View>
-          </RNAnimated.View>
+          </Animated.View>
         )}
 
         {/* GestureDetector wraps only the FAB itself */}

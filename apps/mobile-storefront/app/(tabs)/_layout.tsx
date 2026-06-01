@@ -19,6 +19,8 @@ import {
   TabBarIcon,
 } from '@/components/navigation/TabBarComponents';
 
+import { CustomTabBar } from '@/components/navigation/CustomTabBar';
+
 export function ErrorBoundary({
   error,
   retry,
@@ -61,7 +63,7 @@ export default function TabLayout() {
    * Intercept tab presses BEFORE the tab screen mounts.
    * Uses router.push (not replace) so login is stacked ON TOP → back works.
    */
-  const createAuthListener = (tabPath: string) => ({
+   const createAuthListener = (tabPath: string) => ({
     tabPress: (e: { preventDefault: () => void }) => {
       if (isInitialized && !user) {
         e.preventDefault();
@@ -74,42 +76,12 @@ export default function TabLayout() {
   return (
     <Tabs
       initialRouteName="index"
+      tabBar={(props) => <CustomTabBar {...props} />}
+      sceneContainerStyle={{ backgroundColor: 'transparent' }}
       screenOptions={{
         tabBarActiveTintColor: activeTint,
         tabBarInactiveTintColor: inactiveTint,
         headerShown: false,
-        tabBarStyle: {
-          backgroundColor: isElite ? 'transparent' : colors.card,
-          borderTopWidth: 1,
-          borderTopColor: isElite ? eliteBorderColor : colors.border,
-          height: TAB_BAR_BASE_HEIGHT + safeBottomInset + EXTRA_TAB_BAR_HEIGHT,
-          paddingBottom: safeBottomInset,
-          paddingTop: 6,
-          ...getTabBarShadowStyle(Platform.OS === 'web' ? 'web' : 'native'),
-        },
-        tabBarBackground: isElite
-          ? () => (
-              <View
-                style={{
-                  ...StyleSheet.absoluteFill,
-                  backgroundColor: eliteBg,
-                  overflow: 'hidden',
-                }}
-              >
-                <GadgetPattern
-                  opacity={elitePatternOpacity}
-                  height={
-                    TAB_BAR_BASE_HEIGHT + safeBottomInset + EXTRA_TAB_BAR_HEIGHT
-                  }
-                  variant="tabbar"
-                  color={elitePatternColor}
-                />
-              </View>
-            )
-          : undefined,
-        tabBarItemStyle: {
-          height: TAB_BAR_BASE_HEIGHT,
-        },
         headerStyle: {
           backgroundColor: colors.background,
         },

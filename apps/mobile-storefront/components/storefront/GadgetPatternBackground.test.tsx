@@ -46,13 +46,13 @@ describe('GadgetPatternBackground', () => {
 
     const layers = Array.isArray(json) ? json : json ? [json] : [];
     expect(layers).toHaveLength(2);
-    expect(layers[0]?.props.pointerEvents).toBe('none');
-    expect(layers[1]?.props.pointerEvents).toBe('none');
     expect(StyleSheet.flatten(layers[0]?.props.style)).toMatchObject({
       backgroundColor: bgColor,
+      pointerEvents: 'none',
     });
     expect(StyleSheet.flatten(layers[1]?.props.style)).toMatchObject({
       overflow: 'hidden',
+      pointerEvents: 'none',
     });
   });
 

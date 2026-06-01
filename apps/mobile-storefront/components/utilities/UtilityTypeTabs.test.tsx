@@ -104,8 +104,8 @@ describe('UtilityTypeTabs', () => {
     // labels do not collapse while longer labels can still grow.
     const powerStyle = getTabStyle('power');
     expect(powerStyle).toMatchObject({
-      backgroundColor: BRAND.primary,
-      borderColor: BRAND.primary,
+      backgroundColor: 'rgba(243, 244, 246, 0)',
+      borderColor: 'rgba(229, 231, 235, 0)',
       borderRadius: 999,
       borderWidth: 1,
       flexDirection: 'row',

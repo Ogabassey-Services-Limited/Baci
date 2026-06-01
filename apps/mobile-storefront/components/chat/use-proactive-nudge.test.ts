@@ -25,11 +25,11 @@ describe('useProactiveNudge', () => {
     expect(result.current.proactiveMsg).toBeNull();
   });
 
-  it('nudgeFadeAnim is an Animated.Value', () => {
+  it('nudgeFadeAnim is a Reanimated Shared Value', () => {
     const { result } = renderHook(() => useProactiveNudge(false));
 
-    expect(typeof result.current.nudgeFadeAnim.addListener).toBe('function');
-    expect(typeof result.current.nudgeFadeAnim.removeListener).toBe('function');
+    expect(result.current.nudgeFadeAnim).toHaveProperty('value');
+    expect(typeof result.current.nudgeFadeAnim.value).toBe('number');
   });
 
   it('dismissNudge is a function', () => {

@@ -143,16 +143,20 @@ export function UtilityTypeTabs({
   const handleTabLayout =
     (index: number, type: UtilityType) => (event: LayoutChangeEvent) => {
       const nextWidth = event.nativeEvent.layout.width;
-      const nextX = event.nativeEvent.layout.x;
       if (nextWidth <= 0) return;
 
-      // Update shared arrays for continuous indicator morphing
+      // Update shared widths array
       const widths = [...tabWidths.value];
       widths[index] = nextWidth;
       tabWidths.value = widths;
 
+      // Mathematically compute exact cumulative offsets to bypass unstable native layout.x coordinates
       const offsets = [...tabOffsets.value];
-      offsets[index] = nextX;
+      let currentOffset = TAB_SIDE_INSET;
+      for (let i = 0; i < UTILITY_TYPES.length; i += 1) {
+        offsets[i] = currentOffset;
+        currentOffset += (widths[i] ?? TAB_MIN_WIDTHS[UTILITY_TYPES[i].type]) + TAB_ITEM_GAP;
+      }
       tabOffsets.value = offsets;
 
       // Sync legacy widths trigger for ScrollView centering logic
@@ -184,13 +188,15 @@ export function UtilityTypeTabs({
 
     return {
       position: 'absolute',
-      top: 0,
+      top: '50%',
+      marginTop: -TAB_MIN_HEIGHT / 2, // Dynamically centers indicator vertically
       left: 0,
       height: TAB_MIN_HEIGHT,
       borderRadius: 999,
       backgroundColor: BRAND.primary,
       width,
       transform: [{ translateX }],
+      zIndex: 1, // Statically layers background behind text/icons
     };
   });
 
@@ -217,7 +223,7 @@ export function UtilityTypeTabs({
         testID="utility-type-tabs-scroll"
       >
         {/* Sliding background capsule frame */}
-        <Animated.View style={indicatorStyle} />
+        <Animated.View style={[indicatorStyle, { pointerEvents: 'none' }]} />
 
         {UTILITY_TYPES.map((item, index) => {
           const isSelected = item.type === selectedType;
@@ -258,6 +264,13 @@ function TabItem({
   activeIndexVal,
   onLayout,
 }: TabItemProps) {
+  // Pre-calculate solid colors for the inactive state and transparent colors for the active state
+  // on the JS thread. This avoids executing the non-worklet withAlpha inside animated styles.
+  const inactiveBg = colors.muted;
+  const activeBg = withAlpha(colors.muted, 0);
+  const inactiveBorder = colors.border;
+  const activeBorder = withAlpha(colors.border, 0);
+
   const animatedTabStyle = useAnimatedStyle(() => {
     const progress = interpolate(
       activeIndexVal.value,
@@ -269,13 +282,13 @@ function TabItem({
     const backgroundColor = interpolateColor(
       progress,
       [0, 1],
-      [colors.muted, BRAND.primary]
+      [inactiveBg, activeBg]
     );
 
     const borderColor = interpolateColor(
       progress,
       [0, 1],
-      [colors.border, BRAND.primary]
+      [inactiveBorder, activeBorder]
     );
 
     return {
@@ -319,7 +332,12 @@ function TabItem({
   });
 
   return (
-    <View style={index < UTILITY_TYPES.length - 1 ? styles.tabSpacing : null}>
+    <View
+      style={[
+        index < UTILITY_TYPES.length - 1 ? styles.tabSpacing : null,
+        { zIndex: 2 }, // Elevates active foreground layer above capsule
+      ]}
+    >
       <Pressable
         accessibilityRole="tab"
         accessibilityLabel={`${item.label} utility service`}
@@ -361,15 +379,20 @@ function TabItem({
 
 const AnimatedIonicons = Animated.createAnimatedComponent(Ionicons);
 
+const TAB_BAR_HEIGHT = 56;
+
 const styles = StyleSheet.create({
   container: {
+    minHeight: TAB_BAR_HEIGHT,
     borderBottomWidth: StyleSheet.hairlineWidth,
     paddingVertical: SPACING.sm,
+    justifyContent: 'center',
   },
   content: {
     position: 'relative',
     alignItems: 'center',
     paddingHorizontal: TAB_SIDE_INSET,
+    minHeight: TAB_MIN_HEIGHT,
   },
   tab: {
     minHeight: TAB_MIN_HEIGHT,

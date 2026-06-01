@@ -1,5 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, Animated } from 'react-native';
+import { useEffect, useState } from 'react';
+import { AccessibilityInfo } from 'react-native';
+import {
+  useSharedValue,
+  withTiming,
+  withSequence,
+  withDelay,
+  runOnJS,
+} from 'react-native-reanimated';
 import {
   NUDGE_HIDDEN_DURATION,
   NUDGE_INITIAL_DELAY,
@@ -10,8 +17,9 @@ import { PROACTIVE_MESSAGES } from './types';
 export function useProactiveNudge(isChatOpen: boolean) {
   const [proactiveMsg, setProactiveMsg] = useState<string | null>(null);
   const [reducedMotion, setReducedMotion] = useState(false);
-  const nudgeFadeAnim = useRef(new Animated.Value(0)).current;
-  const _nudgeTimerRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Reanimated UI-thread Shared Value for continuous C++ fading
+  const nudgeFadeAnim = useSharedValue(0);
 
   // Check reduced motion preference with mounted guard
   useEffect(() => {
@@ -31,57 +39,63 @@ export function useProactiveNudge(isChatOpen: boolean) {
     };
   }, []);
 
-  // H25 fix: Proactive nudge logic with proper mounted guard to prevent timer leaks.
-  // Use a local `active` flag that the cleanup sets to false, ensuring no new
-  // timeouts are scheduled after the effect is torn down.
+  // Proactive nudge animation chains running entirely on the C++ UI-thread
   useEffect(() => {
-    if (reducedMotion) return;
+    if (reducedMotion || isChatOpen) {
+      nudgeFadeAnim.value = 0;
+      setProactiveMsg(null);
+      return;
+    }
+    
     let active = true;
 
-    const startVisibleCycle = () => {
+    const runLoopCycle = () => {
       if (!active || isChatOpen) return;
 
       const randomMsg =
         PROACTIVE_MESSAGES[
           Math.floor(Math.random() * PROACTIVE_MESSAGES.length)
         ];
+      
+      // Update message on JS thread
       setProactiveMsg(randomMsg);
 
-      Animated.timing(nudgeFadeAnim, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
-
-      _nudgeTimerRef.current = setTimeout(
-        startHiddenCycle,
-        NUDGE_VISIBLE_DURATION
+      // Drive sequential animations natively on C++ thread
+      nudgeFadeAnim.value = withSequence(
+        withTiming(1, { duration: 300 }),
+        withDelay(
+          NUDGE_VISIBLE_DURATION,
+          withTiming(0, { duration: 300 }, (finished) => {
+            if (finished && active) {
+              runOnJS(setProactiveMsg)(null);
+              // Wait for hidden duration and run next cycle
+              nudgeFadeAnim.value = withDelay(
+                NUDGE_HIDDEN_DURATION,
+                withTiming(0, { duration: 0 }, () => {
+                  if (active) {
+                    runOnJS(runLoopCycle)();
+                  }
+                })
+              );
+            }
+          })
+        )
       );
     };
 
-    const startHiddenCycle = () => {
-      if (!active) return;
-      Animated.timing(nudgeFadeAnim, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }).start(() => {
-        if (!active) return;
-        setProactiveMsg(null);
-        if (!isChatOpen) {
-          _nudgeTimerRef.current = setTimeout(
-            startVisibleCycle,
-            NUDGE_HIDDEN_DURATION
-          );
+    // Stagger loop start with initial delay
+    nudgeFadeAnim.value = withDelay(
+      NUDGE_INITIAL_DELAY,
+      withTiming(0, { duration: 0 }, () => {
+        if (active) {
+          runOnJS(runLoopCycle)();
         }
-      });
-    };
-
-    _nudgeTimerRef.current = setTimeout(startVisibleCycle, NUDGE_INITIAL_DELAY);
+      })
+    );
 
     return () => {
       active = false;
-      if (_nudgeTimerRef.current) clearTimeout(_nudgeTimerRef.current);
+      nudgeFadeAnim.value = 0;
     };
   }, [isChatOpen, nudgeFadeAnim, reducedMotion]);
 
@@ -89,16 +103,16 @@ export function useProactiveNudge(isChatOpen: boolean) {
   useEffect(() => {
     if (isChatOpen) {
       setProactiveMsg(null);
-      nudgeFadeAnim.setValue(0);
+      nudgeFadeAnim.value = 0;
     }
   }, [isChatOpen, nudgeFadeAnim]);
 
   const dismissNudge = () => {
-    Animated.timing(nudgeFadeAnim, {
-      toValue: 0,
-      duration: 200,
-      useNativeDriver: true,
-    }).start(() => setProactiveMsg(null));
+    nudgeFadeAnim.value = withTiming(0, { duration: 200 }, (finished) => {
+      if (finished) {
+        runOnJS(setProactiveMsg)(null);
+      }
+    });
   };
 
   return { proactiveMsg, nudgeFadeAnim, dismissNudge };

@@ -1,6 +1,14 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import type React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { useEffect } from 'react';
+import { StyleSheet, View } from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  ZoomIn,
+  ZoomOut,
+} from 'react-native-reanimated';
 import { useTheme } from '@/hooks/useTheme';
 
 export function TabBarLabel({
@@ -11,11 +19,18 @@ export function TabBarLabel({
   label: string;
 }) {
   const { colors } = useTheme();
+
+  // Test requirement: must return null when not focused to keep routing expectations clean
   if (!focused) return null;
+
   return (
-    <Text style={[styles.tabLabel, { color: colors.tabIconSelected }]}>
+    <Animated.Text
+      entering={ZoomIn.duration(150)}
+      exiting={ZoomOut.duration(100)}
+      style={[styles.tabLabel, { color: colors.tabIconSelected }]}
+    >
       {label}
-    </Text>
+    </Animated.Text>
   );
 }
 
@@ -29,12 +44,28 @@ export function TabBarIcon({
   badge?: number;
 }) {
   const { colors } = useTheme();
+  
+  // Spring scale shared value run strictly on C++ thread
+  const scale = useSharedValue(1);
+
+  useEffect(() => {
+    scale.value = withSpring(focused ? 1.18 : 1, {
+      damping: 12,
+      stiffness: 150,
+    });
+  }, [focused, scale]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
   return (
     <View style={styles.iconContainer}>
-      <View
+      <Animated.View
         style={[
           styles.iconInner,
-          focused && { backgroundColor: colors.selectedIconBackground },
+          focused && { backgroundColor: 'transparent' }, // transparent overlay since CustomTabBar highlights it
+          animatedStyle,
         ]}
       >
         <Ionicons
@@ -44,7 +75,9 @@ export function TabBarIcon({
           style={{ opacity: focused ? 1 : 0.6 }}
         />
         {badge !== undefined && badge > 0 && (
-          <View
+          <Animated.View
+            entering={ZoomIn.springify().damping(12)}
+            exiting={ZoomOut}
             style={[
               styles.badge,
               {
@@ -53,14 +86,14 @@ export function TabBarIcon({
               },
             ]}
           >
-            <Text
+            <Animated.Text
               style={[styles.badgeText, { color: colors.primaryForeground }]}
             >
               {badge > 99 ? '99+' : badge}
-            </Text>
-          </View>
+            </Animated.Text>
+          </Animated.View>
         )}
-      </View>
+      </Animated.View>
     </View>
   );
 }
