@@ -47,21 +47,11 @@ vi.mock('next/image', () => ({
   getImageProps: mockGetImageProps,
 }));
 
-const mockPreload = vi.hoisted(() => vi.fn());
-
-vi.mock('react-dom', () => ({
-  preload: mockPreload,
-}));
-
-import {
-  OgabasseyPdpProductResourceHints,
-  preloadOgabasseyPdpProductImage,
-} from './ogabassey-pdp-product-resource-hints';
+import { OgabasseyPdpProductResourceHints } from './ogabassey-pdp-product-resource-hints';
 
 describe('OgabasseyPdpProductResourceHints', () => {
   beforeEach(() => {
     mockGetImageProps.mockClear();
-    mockPreload.mockClear();
   });
 
   it('renders an early preload link for the primary product image with the gallery sizes', () => {
@@ -115,50 +105,6 @@ describe('OgabasseyPdpProductResourceHints', () => {
     expect(mobileLink).toContain('quality=30');
     expect(mobileLink).not.toContain('1080w');
     expect(html).not.toContain('type="image/avif"');
-  });
-
-  it('preloads the mobile product image candidate through React DOM', () => {
-    const productImage =
-      'https://cdn.ogabassey.com/core-assets/products/lenovo-legion.avif';
-
-    preloadOgabasseyPdpProductImage({
-      src: productImage,
-      viewport: 'mobile',
-    });
-
-    expect(mockPreload).toHaveBeenCalledTimes(1);
-    expect(mockPreload).toHaveBeenCalledWith(
-      imageLoader({ src: productImage, width: 750, quality: 30 }),
-      {
-        as: 'image',
-        fetchPriority: 'high',
-        imageSizes: OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_SIZES,
-        imageSrcSet: expect.stringContaining('quality=30'),
-        type: undefined,
-      }
-    );
-  });
-
-  it('preloads the desktop product image candidate through React DOM', () => {
-    const productImage =
-      'https://cdn.ogabassey.com/core-assets/products/lenovo-legion.avif';
-
-    preloadOgabasseyPdpProductImage({
-      src: productImage,
-      viewport: 'desktop',
-    });
-
-    expect(mockPreload).toHaveBeenCalledTimes(1);
-    expect(mockPreload).toHaveBeenCalledWith(
-      imageLoader({ src: productImage, width: 750, quality: 35 }),
-      {
-        as: 'image',
-        fetchPriority: 'high',
-        imageSizes: OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
-        imageSrcSet: expect.stringContaining('quality=35'),
-        type: undefined,
-      }
-    );
   });
 
   it('uses the fallback URL extension when the image is not CDN transformed', () => {

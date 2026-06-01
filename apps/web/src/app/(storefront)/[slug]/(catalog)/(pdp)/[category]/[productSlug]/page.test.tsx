@@ -16,7 +16,6 @@ vi.mock('server-only', () => ({}));
 const {
   mockNormalizeStorefrontProductVariants,
   mockOgabasseyPdpProductResourceHints,
-  mockPreloadOgabasseyPdpProductImage,
   mockOgabasseyPdpSemanticSections,
   mockOgabasseyPdpStaticResourceHints,
   mockPreloadOgabasseyPdpStaticResources,
@@ -33,13 +32,6 @@ const {
   mockOgabasseyPdpProductResourceHints: vi.fn<
     (props: { src: string | null | undefined }) => null
   >(() => null),
-  mockPreloadOgabasseyPdpProductImage:
-    vi.fn<
-      (props: {
-        src: string | null | undefined;
-        viewport: 'desktop' | 'mobile';
-      }) => void
-    >(),
   mockOgabasseyPdpSemanticSections: vi.fn<(props: unknown) => void>(),
   mockOgabasseyPdpStaticResourceHints: vi.fn<() => void>(),
   mockPreloadOgabasseyPdpStaticResources: vi.fn<() => void>(),
@@ -206,10 +198,6 @@ vi.mock(
     OgabasseyPdpProductResourceHints: (props: {
       src: string | null | undefined;
     }) => mockOgabasseyPdpProductResourceHints(props),
-    preloadOgabasseyPdpProductImage: (props: {
-      src: string | null | undefined;
-      viewport: 'desktop' | 'mobile';
-    }) => mockPreloadOgabasseyPdpProductImage(props),
   })
 );
 
@@ -998,7 +986,6 @@ describe('[category]/[productSlug] page render', () => {
     mockBuildProductSemanticModel.mockReset();
     mockOgabasseyPdpProductResourceHints.mockReset();
     mockOgabasseyPdpProductResourceHints.mockReturnValue(null);
-    mockPreloadOgabasseyPdpProductImage.mockReset();
     mockOgabasseyPdpSemanticSections.mockReset();
     mockOgabasseyPdpStaticResourceHints.mockReset();
     mockPreloadOgabasseyPdpStaticResources.mockReset();
@@ -1418,10 +1405,6 @@ describe('[category]/[productSlug] page render', () => {
     expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
       src: productImage,
     });
-    expect(mockPreloadOgabasseyPdpProductImage).toHaveBeenCalledWith({
-      src: productImage,
-      viewport: 'desktop',
-    });
   });
 
   it('preloads the OgaBassey PDP product image before full product details resolve', async () => {
@@ -1443,9 +1426,6 @@ describe('[category]/[productSlug] page render', () => {
     mockOgabasseyPdpProductResourceHints.mockImplementationOnce(() => {
       routeEvents.push('product-hints');
       return null;
-    });
-    mockPreloadOgabasseyPdpProductImage.mockImplementationOnce(() => {
-      routeEvents.push('product-preload');
     });
     mockGetCachedProductWithDetails.mockImplementationOnce(() => {
       routeEvents.push('product-details');
@@ -1474,13 +1454,8 @@ describe('[category]/[productSlug] page render', () => {
     expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
       src: earlyProductImage,
     });
-    expect(mockPreloadOgabasseyPdpProductImage).toHaveBeenCalledWith({
-      src: earlyProductImage,
-      viewport: 'desktop',
-    });
     expect(routeEvents).toEqual([
       'lcp-hint',
-      'product-preload',
       'product-details',
       'product-hints',
     ]);
@@ -1491,7 +1466,6 @@ describe('[category]/[productSlug] page render', () => {
     render(await resolveRsc(resolvedPage));
 
     expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledTimes(1);
-    expect(mockPreloadOgabasseyPdpProductImage).toHaveBeenCalledTimes(1);
     expect(mockOgabasseyPdpDeferredDetailIsland).toHaveBeenCalled();
   });
 
@@ -1512,10 +1486,6 @@ describe('[category]/[productSlug] page render', () => {
         resolveProductDetails = resolve;
       })
     );
-    mockHeaders.mockResolvedValueOnce(
-      new Headers({ 'sec-ch-ua-mobile': '?1' })
-    );
-
     const resolvedPage = await resolveRsc(
       CategoryProductPage({
         params: Promise.resolve({
@@ -1533,10 +1503,6 @@ describe('[category]/[productSlug] page render', () => {
 
     expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
       src: earlyProductImage,
-    });
-    expect(mockPreloadOgabasseyPdpProductImage).toHaveBeenCalledWith({
-      src: earlyProductImage,
-      viewport: 'mobile',
     });
     expect(mockOgabasseyProductDetailsPage).not.toHaveBeenCalled();
 
