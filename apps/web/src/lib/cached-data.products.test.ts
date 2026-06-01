@@ -115,6 +115,7 @@ describe('cached-data product query projections', () => {
     expect(selectArg).toContain('min_variant_price');
     expect(selectArg).toContain('max_variant_price');
     expect(selectArg).toContain('images');
+    expect(selectArg).toContain('offers:product_offers');
     expect(selectArg).toContain('manage_stock');
     expect(selectArg).toContain('meta_title');
     expect(selectArg).toContain('meta_description');
@@ -129,7 +130,6 @@ describe('cached-data product query projections', () => {
     expect(selectArg).not.toContain('review_count');
     expect(selectArg).not.toContain('product_variants');
     expect(selectArg).not.toContain('product_key_specs');
-    expect(selectArg).not.toContain('product_offers');
     expect(harness.mockRpc).not.toHaveBeenCalled();
   });
 

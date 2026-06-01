@@ -777,6 +777,102 @@ describe('[category]/[productSlug] page metadata', () => {
     expect(metadata.other ?? {}).not.toHaveProperty('product:price:amount');
   });
 
+  it('parses LCP hint variant range prices from numeric strings', async () => {
+    mockGetCachedProductLcpHint.mockResolvedValueOnce({
+      id: 'prod-1',
+      name: 'HP Laptop 14-ep0063nia',
+      slug: 'hp-laptop-14-ep0063nia',
+      brand: 'HP',
+      category: 'Laptops',
+      categories: {
+        id: 'cat-1',
+        name: 'Laptops',
+        slug: 'laptops',
+      },
+      manage_stock: false,
+      price: null,
+      min_variant_price: '390000.00',
+      max_variant_price: '520000.00',
+      stock_quantity: 10,
+      images: ['https://cdn.example.com/products/hp-laptop.png'],
+      product_categories: [],
+    });
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: 'teststore',
+        category: 'laptops',
+        productSlug: 'hp-laptop-14-ep0063nia',
+      }),
+      searchParams: Promise.resolve({}),
+    });
+
+    expect(metadata.other).toMatchObject({
+      'product:price:amount': '390000',
+      'product:price:currency': 'NGN',
+    });
+    expect(metadata.description).toContain('starts from');
+  });
+
+  it('preserves lower active condition offer prices in LCP hint metadata', async () => {
+    mockGetCachedProductLcpHint.mockResolvedValueOnce({
+      id: 'prod-1',
+      name: 'HP Laptop 14-ep0063nia',
+      slug: 'hp-laptop-14-ep0063nia',
+      brand: 'HP',
+      category: 'Laptops',
+      categories: {
+        id: 'cat-1',
+        name: 'Laptops',
+        slug: 'laptops',
+      },
+      condition: 'new',
+      manage_stock: false,
+      price: 645_600,
+      stock_quantity: 10,
+      images: ['https://cdn.example.com/products/hp-laptop.png'],
+      offers: [
+        {
+          id: 'offer-used',
+          condition: 'used',
+          price: '525000.00',
+          status: 'active',
+          stock_quantity: '3',
+        },
+        {
+          id: 'offer-main-condition',
+          condition: 'new',
+          price: '1',
+          status: 'active',
+          stock_quantity: '1',
+        },
+        {
+          id: 'offer-inactive',
+          condition: 'open_box',
+          price: '300000',
+          status: 'inactive',
+          stock_quantity: '1',
+        },
+      ],
+      product_categories: [],
+    });
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: 'teststore',
+        category: 'laptops',
+        productSlug: 'hp-laptop-14-ep0063nia',
+      }),
+      searchParams: Promise.resolve({}),
+    });
+
+    expect(mockGetCachedProductWithDetails).not.toHaveBeenCalled();
+    expect(metadata.other).toMatchObject({
+      'product:price:amount': '525000',
+      'product:price:currency': 'NGN',
+    });
+  });
+
   it('does not noindex UUID PDP metadata when the LCP hint resolves a canonical slug', async () => {
     mockGetCachedProductLcpHint.mockResolvedValueOnce({
       id: 'abcdef12-3456-4789-abcd-abcdef123456',

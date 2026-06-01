@@ -945,11 +945,18 @@ export interface CachedProductLcpHint {
       }
   > | null;
   manage_stock?: boolean | null;
-  max_variant_price?: number | null;
+  max_variant_price?: number | string | null;
   meta_description?: string | null;
   meta_title?: string | null;
-  min_variant_price?: number | null;
+  min_variant_price?: number | string | null;
   name: string;
+  offers?: Array<{
+    id: string;
+    condition?: string | null;
+    price?: number | string | null;
+    status?: string | null;
+    stock_quantity?: number | string | null;
+  }> | null;
   price?: number | string | null;
   product_categories?: Array<{
     categories:
@@ -1016,6 +1023,13 @@ export async function getCachedProductLcpHint(
         canonical_url,
         schema_markup,
         images,
+        offers:product_offers (
+          id,
+          condition,
+          price,
+          stock_quantity,
+          status
+        ),
         categories:category_id (
           id,
           name,

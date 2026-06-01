@@ -39,7 +39,7 @@ import {
 } from '@/lib/cached-data';
 import { normalizeStorefrontCategorySlug } from '@/lib/normalize-storefront-category-slug';
 import { getEffectiveStock } from '@/lib/product-stock';
-import type { Product } from '@/lib/products';
+import type { Product, ProductCondition } from '@/lib/products';
 import { stripHtmlTags } from '@/lib/sanitize-core';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
@@ -423,6 +423,13 @@ interface LcpRouteProduct {
   meta_title?: string | null;
   min_variant_price?: number | null;
   name: string;
+  offers?: Array<{
+    id: string;
+    condition: ProductCondition;
+    price: number;
+    status?: string | null;
+    stock_quantity: number;
+  }>;
   price?: number | null;
   sale_price?: number | null;
   schema_markup?: unknown;
@@ -505,6 +512,77 @@ function parseRouteProductNumber(value: unknown): number | null {
   return null;
 }
 
+const PRODUCT_CONDITIONS = ['new', 'used', 'open_box', 'refurbished'] as const;
+
+function normalizeRouteProductCondition(
+  value: unknown
+): ProductCondition | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const normalized = value.trim();
+  return PRODUCT_CONDITIONS.includes(
+    normalized as (typeof PRODUCT_CONDITIONS)[number]
+  )
+    ? (normalized as ProductCondition)
+    : null;
+}
+
+function getLcpRouteLegacyPrices(cachedProduct: CachedProductLcpHint) {
+  const price = parseRouteProductNumber(cachedProduct.price);
+  const compareAtPrice = parseRouteProductNumber(
+    cachedProduct.compare_at_price
+  );
+  const hasSale =
+    price !== null && compareAtPrice !== null && compareAtPrice > price;
+
+  return {
+    basePrice: hasSale ? compareAtPrice : (price ?? compareAtPrice),
+    compareAtPrice,
+    price: price ?? compareAtPrice,
+    salePrice: hasSale ? price : null,
+  };
+}
+
+function mapCachedProductLcpOffers(
+  cachedProduct: CachedProductLcpHint
+): LcpRouteProduct['offers'] {
+  if (!Array.isArray(cachedProduct.offers)) {
+    return undefined;
+  }
+
+  const productCondition = normalizeRouteProductCondition(
+    cachedProduct.condition
+  );
+  const offers = cachedProduct.offers.flatMap((offer) => {
+    const condition = normalizeRouteProductCondition(offer?.condition);
+    const price = parseRouteProductNumber(offer?.price);
+
+    if (
+      offer?.status !== 'active' ||
+      !condition ||
+      condition === productCondition ||
+      price === null ||
+      price < 0
+    ) {
+      return [];
+    }
+
+    return [
+      {
+        id: offer.id,
+        condition,
+        price,
+        status: offer.status,
+        stock_quantity: parseRouteProductNumber(offer.stock_quantity) ?? 0,
+      },
+    ];
+  });
+
+  return offers.length > 0 ? offers : undefined;
+}
+
 function mapCachedProductLcpHintToRouteProduct(
   cachedProduct: CachedProductLcpHint
 ): LcpRouteProduct {
@@ -520,28 +598,30 @@ function mapCachedProductLcpHintToRouteProduct(
   const firstImage = cachedProduct.images?.[0];
   const primaryImage =
     typeof firstImage === 'string' ? firstImage : (firstImage?.url ?? '');
+  const legacyPrices = getLcpRouteLegacyPrices(cachedProduct);
 
   return {
-    base_price: cachedProduct.base_price ?? null,
+    base_price: legacyPrices.basePrice,
     brand: cachedProduct.brand,
     canonical_url: cachedProduct.canonical_url,
     categories: primaryCategory,
     category: primaryCategory?.name ?? cachedProduct.category,
     category_slug: primaryCategory?.slug,
     condition: cachedProduct.condition ?? undefined,
-    compare_at_price: parseRouteProductNumber(cachedProduct.compare_at_price),
+    compare_at_price: legacyPrices.compareAtPrice,
     id: cachedProduct.id,
     image: primaryImage,
     imageLarge: primaryImage,
     keywords: cachedProduct.keywords,
     manage_stock: cachedProduct.manage_stock,
-    max_variant_price: cachedProduct.max_variant_price ?? null,
+    max_variant_price: parseRouteProductNumber(cachedProduct.max_variant_price),
     meta_description: cachedProduct.meta_description,
     meta_title: cachedProduct.meta_title,
-    min_variant_price: cachedProduct.min_variant_price ?? null,
+    min_variant_price: parseRouteProductNumber(cachedProduct.min_variant_price),
     name: cachedProduct.name,
-    price: parseRouteProductNumber(cachedProduct.price),
-    sale_price: cachedProduct.sale_price ?? null,
+    offers: mapCachedProductLcpOffers(cachedProduct),
+    price: legacyPrices.price,
+    sale_price: legacyPrices.salePrice,
     schema_markup: cachedProduct.schema_markup,
     slug: cachedProduct.slug ?? cachedProduct.id,
     stock_quantity: cachedProduct.stock_quantity,
