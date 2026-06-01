@@ -30,7 +30,7 @@ export const createNotificationSchema = z
     channels: z.array(z.enum(['in_app', 'banner', 'push'])).min(1, {
       error: 'At least one channel is required',
     }),
-    action_url: z.string().trim().url().optional().nullable(),
+    action_url: z.string().trim().pipe(z.url()).optional().nullable(),
     action_label: z.string().trim().optional().nullable(),
     scheduled_for: z.iso.datetime().optional().nullable(),
     expires_at: z.iso.datetime().optional().nullable(),

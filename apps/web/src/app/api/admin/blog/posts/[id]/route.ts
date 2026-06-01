@@ -117,7 +117,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     if (!validated.success) {
       return NextResponse.json(
-        { error: 'Validation error', details: validated.error.flatten() },
+        { error: 'Validation error', details: z.flattenError(validated.error) },
         { status: 400 }
       );
     }
