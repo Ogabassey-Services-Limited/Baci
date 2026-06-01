@@ -8,7 +8,11 @@ import { type ReactNode, Suspense } from 'react';
 import { StorefrontRouteNotFound } from '@/app/(storefront)/[slug]/storefront-route-not-found';
 import { getStorefrontShellSnapshotBase } from '@/app/(storefront)/[slug]/storefront-shell-snapshot';
 import { OgabasseyPdpProductLcpSkeleton } from '@/app/(storefront)/ogabassey/ogabassey-pdp-product-lcp-skeleton';
-import { OgabasseyPdpProductResourceHints } from '@/app/(storefront)/ogabassey/ogabassey-pdp-product-resource-hints';
+import {
+  OgabasseyPdpProductResourceHints,
+  type ProductImagePreloadViewport,
+  preloadOgabasseyPdpProductImage,
+} from '@/app/(storefront)/ogabassey/ogabassey-pdp-product-resource-hints';
 import { preloadOgabasseyPdpStaticResources } from '@/app/(storefront)/ogabassey/ogabassey-pdp-static-resource-hints';
 import { OgabasseyPdpBelowFoldIsland } from '@/components/storefront/ogabassey/pdp/client-islands';
 import { createCriticalCartProduct } from '@/components/storefront/ogabassey/pdp/critical-cart-product';
@@ -317,6 +321,22 @@ interface PageProps {
 
 function getCategoryProductBasePath(slug: string): '' | `/${string}` {
   return isDomainIdentifier(slug) ? '' : `/${slug}`;
+}
+
+function getProductImagePreloadViewport(
+  requestHeaders: Headers
+): ProductImagePreloadViewport {
+  const mobileClientHint = requestHeaders.get('sec-ch-ua-mobile');
+  if (mobileClientHint) {
+    return mobileClientHint.includes('?1') ? 'mobile' : 'desktop';
+  }
+
+  const userAgent = requestHeaders.get('user-agent') ?? '';
+  return /Android|BlackBerry|iPhone|iPod|Mobile|Opera Mini|IEMobile/i.test(
+    userAgent
+  )
+    ? 'mobile'
+    : 'desktop';
 }
 
 function getRedirectTargetPath(
@@ -1072,6 +1092,12 @@ export default async function CategoryProductPage({
   try {
     if (criticalProduct) {
       preloadOgabasseyPdpStaticResources();
+    }
+    if (primaryProductImage) {
+      preloadOgabasseyPdpProductImage({
+        src: primaryProductImage,
+        viewport: getProductImagePreloadViewport(await headers()),
+      });
     }
   } catch (error) {
     console.warn(
