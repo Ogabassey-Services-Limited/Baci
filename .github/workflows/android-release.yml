@@ -52,7 +52,6 @@ jobs:
       - name: Pre-run cleanup of stale secrets
         run: |
           rm -f "${{ runner.temp }}/release.keystore"
-          rm -f "apps/mobile-admin/google-services.json"
           rm -f "apps/mobile-admin/android/app/google-services.json"
 
       - name: Setup pnpm

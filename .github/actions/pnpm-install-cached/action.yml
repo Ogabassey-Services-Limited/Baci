@@ -44,7 +44,9 @@ runs:
 
     - name: Configure pnpm store directory
       shell: bash
-      run: pnpm config set store-dir "${{ inputs.store-dir }}"
+      run: |
+        pnpm config set store-dir "${{ inputs.store-dir }}"
+        echo "PNPM_STORE_DIR=${{ inputs.store-dir }}" >> "$GITHUB_ENV"
 
     # Split caching for local Turborepo artifacts
     - id: turbo-cache
