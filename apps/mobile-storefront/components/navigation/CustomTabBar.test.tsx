@@ -100,6 +100,42 @@ describe('CustomTabBar', () => {
     expect(screen.queryByRole('tab', { name: 'Explore' })).toBeNull();
   });
 
+  it('hides the floating tab bar while the cart tab owns the checkout CTA', () => {
+    const cartProps: BottomTabBarProps = {
+      ...mockProps,
+      state: {
+        ...mockProps.state,
+        index: 2,
+        routes: [
+          mockProps.state.routes[0],
+          mockProps.state.routes[1],
+          { key: 'cart-key', name: 'cart', params: {} },
+          mockProps.state.routes[2],
+        ],
+        routeNames: ['index', 'saved', 'cart', 'categories'],
+      },
+      descriptors: {
+        ...mockProps.descriptors,
+        'cart-key': {
+          options: {
+            title: 'Cart',
+            tabBarIcon: () => <React.Fragment />,
+            tabBarLabel: () => <React.Fragment />,
+          },
+          navigation:
+            {} as unknown as BottomTabBarProps['descriptors'][string]['navigation'],
+          route:
+            {} as unknown as BottomTabBarProps['descriptors'][string]['route'],
+          render: () => <React.Fragment />,
+        },
+      },
+    };
+
+    const { toJSON } = render(<CustomTabBar {...cartProps} />);
+
+    expect(toJSON()).toBeNull();
+  });
+
   it('navigates to selected tab when pressed', () => {
     render(<CustomTabBar {...mockProps} />);
 

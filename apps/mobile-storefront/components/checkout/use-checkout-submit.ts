@@ -238,8 +238,6 @@ export function useCheckoutSubmit({
             customerEmail,
             customerId: customer?.id,
             isAuthenticated,
-            orderId: order.id,
-            orderNumber,
             saveAsDefaultAddress,
             saveDetails,
             selectedSavedAddressId,

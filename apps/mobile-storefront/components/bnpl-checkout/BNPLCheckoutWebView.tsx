@@ -5,7 +5,10 @@ import type Colors from '@/constants/Colors';
 import { BRAND } from '@/constants/Colors';
 import { WebView, type WebViewNavigation } from 'react-native-webview';
 import { bnplCheckoutScreenStyles as styles } from './BNPLCheckoutScreen.styles';
-import { BNPL_INJECTED_JAVASCRIPT } from './bnpl-checkout.helpers';
+import {
+  BNPL_INJECTED_JAVASCRIPT,
+  buildBNPLDocumentSource,
+} from './bnpl-checkout.helpers';
 
 type ColorsScheme = (typeof Colors)['light'];
 
@@ -46,6 +49,8 @@ export function BNPLCheckoutWebView({
   status,
   webViewRef,
 }: BNPLCheckoutWebViewProps) {
+  const webViewSource = buildBNPLDocumentSource(currentUrl || bnplUrl);
+
   return (
     <>
       {status === 'loading' && (
@@ -78,7 +83,7 @@ export function BNPLCheckoutWebView({
 
       <WebView
         ref={webViewRef}
-        source={{ uri: currentUrl || bnplUrl }}
+        source={webViewSource}
         style={styles.webView}
         onLoadStart={onLoadStart}
         onLoadEnd={onLoadEnd}

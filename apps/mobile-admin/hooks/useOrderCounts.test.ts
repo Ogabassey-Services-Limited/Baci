@@ -17,7 +17,7 @@ const supabaseMock = vi.hoisted(() => {
         return chain;
       };
 
-    for (const method of ['select', 'eq']) {
+    for (const method of ['select', 'eq', 'not', 'or']) {
       chain[method] = passthrough(method);
     }
     chain.then = (
@@ -60,6 +60,10 @@ vi.mock('./useBranchScope', () => ({
 }));
 
 import { fetchOrderCounts } from './useOrderCounts';
+import {
+  HIDDEN_CHECKOUT_PAYMENT_STATUSES,
+  VISIBLE_PENDING_ORDER_FILTER,
+} from './orders/order-list-visibility';
 
 describe('fetchOrderCounts', () => {
   beforeEach(() => {
@@ -130,6 +134,29 @@ describe('fetchOrderCounts', () => {
       { method: 'eq', args: ['merchant_id', 'merchant-1'] },
       { method: 'eq', args: ['merchant_id', 'merchant-1'] },
     ]);
+  });
+
+  it('keeps checkout drop-offs out of every order count', async () => {
+    await fetchOrderCounts('merchant-1', { type: 'all' });
+
+    for (const calls of supabaseMock.chains) {
+      expect(calls).toEqual(
+        expect.arrayContaining([
+          {
+            method: 'not',
+            args: [
+              'payment_status',
+              'in',
+              HIDDEN_CHECKOUT_PAYMENT_STATUSES,
+            ],
+          },
+          {
+            method: 'or',
+            args: [VISIBLE_PENDING_ORDER_FILTER],
+          },
+        ])
+      );
+    }
   });
 
   it('throws query errors while preserving merchant and branch filters', async () => {

@@ -86,11 +86,22 @@ function TabItem({
   );
 }
 
-export function CustomTabBar({
+export function CustomTabBar(props: BottomTabBarProps) {
+  const activeRouteName = props.state.routes[props.state.index]?.name ?? '';
+
+  if (activeRouteName === 'cart') {
+    return null;
+  }
+
+  return <CustomTabBarChrome {...props} activeRouteName={activeRouteName} />;
+}
+
+function CustomTabBarChrome({
   state,
   descriptors,
   navigation,
-}: BottomTabBarProps) {
+  activeRouteName,
+}: BottomTabBarProps & { activeRouteName: string }) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const isDark = colorScheme === 'dark';
@@ -105,7 +116,6 @@ export function CustomTabBar({
 
   const tabWidth = TAB_BAR_CONTENT_WIDTH / visibleRoutes.length;
 
-  const activeRouteName = state.routes[state.index]?.name;
   const activeIdx = visibleRoutes.findIndex((r) => r.name === activeRouteName);
   const targetIdx = activeIdx !== -1 ? activeIdx : 0;
 

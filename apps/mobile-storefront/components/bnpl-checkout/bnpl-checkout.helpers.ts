@@ -9,6 +9,10 @@ export const BNPL_LOAD_TIMEOUT_MESSAGE =
   'Payment page is taking longer than expected. Check your connection and try again.';
 export const BNPL_UNTRUSTED_POPUP_MESSAGE =
   'Payment provider opened an untrusted checkout window.';
+export const BNPL_DOCUMENT_ACCEPT_HEADER =
+  'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8';
+
+const NEXT_DATA_QUERY_PARAMS = new Set(['_rsc']);
 
 export function parseBNPLParams(params: BNPLRouteParams) {
   const result = BNPLParamsSchema.safeParse(params);
@@ -46,6 +50,27 @@ export function extractErrorFromUrl(url: string) {
   } catch {
     return null;
   }
+}
+
+export function sanitizeBNPLDocumentUrl(url: string) {
+  try {
+    const documentUrl = new URL(url);
+    for (const paramName of NEXT_DATA_QUERY_PARAMS) {
+      documentUrl.searchParams.delete(paramName);
+    }
+    return documentUrl.toString();
+  } catch {
+    return url;
+  }
+}
+
+export function buildBNPLDocumentSource(url: string) {
+  return {
+    headers: {
+      Accept: BNPL_DOCUMENT_ACCEPT_HEADER,
+    },
+    uri: sanitizeBNPLDocumentUrl(url),
+  };
 }
 
 export function buildBNPLCheckoutUrl({

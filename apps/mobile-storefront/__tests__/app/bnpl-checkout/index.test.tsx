@@ -65,7 +65,7 @@ jest.mock('react-native-webview', () => ({
     onMessage?: (event: { nativeEvent: { data: string } }) => void;
     onOpenWindow?: (event: { nativeEvent: { targetUrl: string } }) => void;
     setSupportMultipleWindows?: boolean;
-    source: { uri: string };
+    source: { headers?: Record<string, string>; uri: string };
     thirdPartyCookiesEnabled?: boolean;
   }) => {
     const { Pressable, Text, View } =
@@ -76,6 +76,7 @@ jest.mock('react-native-webview', () => ({
     return (
       <View>
         <Text>{`webview:${source.uri}`}</Text>
+        <Text>{`webview-accept:${source.headers?.Accept ?? ''}`}</Text>
         <Text>{`popup-windows:${String(
           javaScriptCanOpenWindowsAutomatically
         )}`}</Text>
@@ -225,6 +226,31 @@ describe('BNPLCheckoutScreen', () => {
       'track-token-123'
     );
     expect(webViewUrl.searchParams.get('merchant_slug')).toBe('ogabassey');
+  });
+
+  it('loads BNPL launcher URLs as HTML documents instead of Next data payloads', () => {
+    mockSearchParams = {
+      amount: '120000',
+      authorizationUrl:
+        'https://usebaci.com/ogabassey/checkout/bnpl?gateway=klump&orderId=order-123&reference=BAC-ABCD12345678&_rsc=flight-payload&trackingToken=track-token-123',
+      customerEmail: 'customer@example.com',
+      customerName: 'Ada Customer',
+      gateway: 'klump',
+      merchantSlug: 'ogabassey',
+      orderId: 'order-123',
+      reference: 'BAC-ABCD12345678',
+      trackingToken: 'track-token-123',
+    };
+
+    render(<BNPLCheckoutScreen />);
+
+    const webViewUrl = new URL(
+      screen.getByText(/^webview:/).props.children.replace('webview:', '')
+    );
+    expect(webViewUrl.searchParams.has('_rsc')).toBe(false);
+    expect(screen.getByText(/^webview-accept:/).props.children).toContain(
+      'text/html'
+    );
   });
 
   it('uses the first value when Android delivers duplicated Klump params', () => {
