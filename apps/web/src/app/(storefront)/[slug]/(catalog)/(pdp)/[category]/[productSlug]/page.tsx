@@ -1,4 +1,3 @@
-import '@/app/(storefront)/storefront-ogabassey-pdp-critical.css';
 import { resolveVariantSelectionParamResolution } from '@baci/shared/lib';
 import type { Metadata, Route } from 'next';
 import { headers } from 'next/headers';
