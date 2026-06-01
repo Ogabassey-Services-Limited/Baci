@@ -106,6 +106,31 @@ describe('ProductCard', () => {
     ).toBeInTheDocument();
   });
 
+  it('marks the placeholder image as decorative when no product image is rendered', () => {
+    const { container } = render(
+      <ProductCard
+        product={{
+          ...mockProduct,
+          image: '',
+          image_alt: 'Actual product image alt',
+          image_payloads: [
+            {
+              url: 'https://example.com/actual-product.jpg',
+              alt: 'Actual product payload alt',
+            },
+          ],
+        }}
+        onAddToCart={vi.fn()}
+        isAdded={false}
+      />
+    );
+
+    const image = container.querySelector('img');
+
+    expect(image).toHaveAttribute('src', expect.stringContaining('placehold.co'));
+    expect(image).toHaveAttribute('alt', '');
+  });
+
   it('renders with isAdded state', () => {
     const { container } = render(
       <ProductCard

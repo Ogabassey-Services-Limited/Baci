@@ -66,6 +66,20 @@ describe('product image alt helpers', () => {
     ).toBe('Merchant provided image alt');
   });
 
+  it('treats the first payload image as primary when explicit image fields are blank', () => {
+    expect(
+      getProductImageAlt(
+        {
+          image: '',
+          image_alt: 'Merchant provided primary alt',
+          images: [{ url: '/fallback.jpg', alt: 'Payload alt' }],
+          name: 'Phone',
+        },
+        { renderedImageUrl: '/fallback.jpg' }
+      )
+    ).toBe('Merchant provided primary alt');
+  });
+
   it('uses URL-matched payload alt for non-primary rendered images', () => {
     expect(
       getProductImageAlt(

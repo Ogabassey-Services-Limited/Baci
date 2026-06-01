@@ -5,7 +5,7 @@ import { ArrowRightLeft, Heart, ShoppingCart, Star } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import React, { useState } from 'react';
-import { getProductImageAlt } from '@baci/shared';
+import { getProductImageAlt, trimString } from '@baci/shared';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { asRoute } from '@/lib/routes';
 import { getProductUrl } from '@/lib/seo-utils';
@@ -98,10 +98,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   const imageSizes = viewMode === 'grid'
     ? '(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw'
     : '(max-width: 768px) 100px, 200px';
-  const productImageSrc = product.image || PLACEHOLDER_IMAGE;
-  const productImageAlt = getProductImageAlt(product, {
-    renderedImageUrl: product.image,
-  });
+  const productImageUrl = trimString(product.image);
+  const productImageSrc = productImageUrl || PLACEHOLDER_IMAGE;
+  const productImageAlt = productImageUrl
+    ? getProductImageAlt(product, {
+        renderedImageUrl: productImageUrl,
+      })
+    : '';
 
   if (viewMode === 'grid') {
     return (

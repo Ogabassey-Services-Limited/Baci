@@ -73,6 +73,23 @@ export function getMatchingImagePayloadAlt(
   return '';
 }
 
+function getFirstImagePayloadUrl(
+  images: readonly unknown[] | null | undefined
+): string {
+  if (!Array.isArray(images)) {
+    return '';
+  }
+
+  for (const image of images) {
+    const imageUrl = getImagePayloadUrl(image);
+    if (imageUrl) {
+      return imageUrl;
+    }
+  }
+
+  return '';
+}
+
 export function deriveProductImageData({
   image,
   images,
@@ -126,11 +143,19 @@ export function getProductImageAlt(
   } = {}
 ): string {
   const explicitRenderedImageUrl = trimString(options.renderedImageUrl);
-  const primaryImageUrl = getFirstNonBlankString(
-    product.imageLarge,
-    product.image
-  );
   const imagePayloads = getProductImagePayloads(product);
+  const explicitPrimaryImageUrls = [
+    trimString(product.imageLarge),
+    trimString(product.image),
+  ].filter(Boolean);
+  const fallbackPrimaryImageUrl =
+    explicitPrimaryImageUrls.length > 0
+      ? ''
+      : getFirstImagePayloadUrl(imagePayloads);
+  const primaryImageUrls = fallbackPrimaryImageUrl
+    ? [...explicitPrimaryImageUrls, fallbackPrimaryImageUrl]
+    : explicitPrimaryImageUrls;
+  const primaryImageUrl = primaryImageUrls[0] || '';
   const renderedImageUrl = explicitRenderedImageUrl || primaryImageUrl;
   const matchingPayloadAlt = getMatchingImagePayloadAlt(
     imagePayloads,
@@ -138,7 +163,7 @@ export function getProductImageAlt(
   );
   const renderedImageIsPrimary =
     !explicitRenderedImageUrl ||
-    (primaryImageUrl && explicitRenderedImageUrl === primaryImageUrl);
+    primaryImageUrls.includes(explicitRenderedImageUrl);
 
   const explicitAlt = renderedImageIsPrimary
     ? getFirstNonBlankString(
