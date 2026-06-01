@@ -1,5 +1,5 @@
 import { render, screen, waitFor } from '@testing-library/react';
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
 import {
@@ -163,8 +163,12 @@ const baseShellSnapshotWithoutCategories = {
   basePath: baseShellSnapshot.basePath,
 };
 
-const { generateMetadata, generateViewport, StorefrontLayoutContent } =
-  await import('./layout');
+const {
+  default: StorefrontLayout,
+  generateMetadata,
+  generateViewport,
+  StorefrontLayoutContent,
+} = await import('./layout');
 
 describe('storefront layout', () => {
   beforeEach(() => {
@@ -244,6 +248,15 @@ describe('storefront layout', () => {
       }),
       undefined
     );
+  });
+
+  it('does not wrap dynamic storefront routes in a fallback-null Suspense shell', () => {
+    const layout = StorefrontLayout({
+      params: Promise.resolve({ slug: 'ogabassey' }),
+      children: <main>Storefront content</main>,
+    }) as ReactElement<{ children: ReactElement }>;
+
+    expect(layout.props.children.type).toBe(StorefrontLayoutContent);
   });
 
   it('calls notFound before route content renders when the shell snapshot is missing', async () => {

@@ -279,7 +279,16 @@ export default function StorefrontLayout(props: {
   loadingFallback?: React.ReactNode;
   params: Promise<{ slug: string }>;
 }) {
+  const hasExplicitLoadingFallback = Object.hasOwn(props, 'loadingFallback');
   const { loadingFallback = null, ...contentProps } = props;
+
+  if (!hasExplicitLoadingFallback) {
+    return (
+      <StorefrontThemeFrame>
+        <StorefrontLayoutContent {...contentProps} />
+      </StorefrontThemeFrame>
+    );
+  }
 
   return (
     <StorefrontThemeFrame>
