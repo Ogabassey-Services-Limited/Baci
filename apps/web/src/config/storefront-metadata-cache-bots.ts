@@ -1,5 +1,7 @@
 export const STOREFRONT_METADATA_CACHE_BUCKET_HEADER =
   'x-baci-metadata-cache-bucket';
+export const STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM =
+  '__baci_metadata_cache_bucket';
 
 // Production PDP traffic hit Next 16 resume mismatches when Vercel replayed a
 // cacheComponents shell with a streamed metadata boundary in the content slot.
