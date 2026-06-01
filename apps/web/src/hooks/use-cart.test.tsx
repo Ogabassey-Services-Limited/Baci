@@ -211,6 +211,40 @@ describe('useCart - Validation', () => {
     });
   });
 
+  it('normalizes legacy variant fields from localStorage', async () => {
+    const initialCart = [
+      {
+        ...mockProduct,
+        id: 'variant-product',
+        price: '100',
+        quantity: '2',
+        variant_id: 'variant-128',
+        variantColor: 'Black',
+        variantStorage: '128GB',
+      },
+    ];
+
+    localStorageMock.setItem('baci-cart-guest', JSON.stringify(initialCart));
+
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+      <CartProvider>{children}</CartProvider>
+    );
+
+    const { result } = renderHook(() => useCart(), { wrapper });
+
+    await waitFor(() => expect(result.current.isHydrated).toBe(true));
+
+    expect(result.current.cart[0]).toMatchObject({
+      cartItemId: 'variant-product::variant=variant-128',
+      id: 'variant-product',
+      price: 100,
+      quantity: 2,
+      selectedColor: 'Black',
+      selectedStorage: '128GB',
+      variantId: 'variant-128',
+    });
+  });
+
   it('stores the default SKU-matrix variant condition for quick add flows', async () => {
     const skuMatrixProduct: AddToCartProduct = {
       ...mockProduct,

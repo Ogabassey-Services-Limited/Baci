@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { render, screen } from '@testing-library/react';
 import type { ComponentType, ReactNode } from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 type TestBranchScope = { type: 'all' } | { type: 'branch'; branchId: string };
 
@@ -199,6 +199,10 @@ describe('ExpensesScreen', () => {
     mocks.branchScope = { type: 'branch', branchId: 'branch-1' };
   });
 
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('filters expenses by selected branch scope', () => {
     render(<ExpensesScreen />);
 
@@ -262,7 +266,7 @@ describe('ExpensesScreen', () => {
           amount: 12_500,
           branch_id: 'branch-1',
           category: 'Inventory',
-          date: new Date().toISOString(),
+          date: '2026-05-05T00:00:00.000Z',
           description: 'Office internet',
           id: 'expense-1',
           receipt_url: null,
@@ -280,13 +284,17 @@ describe('ExpensesScreen', () => {
   });
 
   it('ignores malformed expense dates when calculating the monthly total', () => {
+    vi.useFakeTimers({
+      now: new Date('2026-05-20T12:00:00.000Z'),
+    });
+
     mocks.queryState = {
       data: [
         {
           amount: 12_500,
           branch_id: 'branch-1',
           category: 'Inventory',
-          date: new Date().toISOString(),
+          date: '2026-05-05T00:00:00.000Z',
           description: 'Office internet',
           id: 'expense-1',
           receipt_url: null,

@@ -274,7 +274,7 @@ export const CheckoutPage: React.FC = () => {
                 <div className="space-y-4 mb-6 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
                   {cart.map((item: CartItem) => (
                     <div
-                      key={item.variantId || item.id}
+                      key={item.cartItemId}
                       className="flex gap-3"
                     >
                       <div className="size-16 bg-gray-50 rounded-lg p-1 shrink-0">

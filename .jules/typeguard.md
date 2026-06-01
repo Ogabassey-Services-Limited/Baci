@@ -10,6 +10,6 @@
 ## 2026-05-28 - [Properly Type Webhook Payloads and Edge Function Returns]
 **Learning:** Using `any` for webhook payloads (`record`, `old_record`) or external API responses (`Promise<any>` for gateway verifications) in Supabase Edge Functions defeats strict mode and allows unsafe property access.
 **Action:** Always create explicit interfaces matching the database schema (e.g., `AuthUserRecord` with an index signature `[key: string]: unknown` for safety) for webhook payloads. For API verifications, return exact literal unions (e.g., `'success' | 'failed' | 'pending'`) instead of `Promise<any>`.
-## 2026-06-03 - [Typing Cart Items in React Components]
+## 2026-06-01 - [Typing Cart Items in React Components]
 **Learning:** Using `any` to type cart items in React components (e.g., `cart.map((item: any) => ...)`) breaks type safety and can lead to runtime errors when accessing properties that do not exist or have different names (like `variant_id` vs `variantId`).
 **Action:** Always import and use the `CartItem` interface from `@/hooks/cart/cart-types` to explicitly type cart items in map, filter, and reduce operations to ensure properties are correctly referenced.

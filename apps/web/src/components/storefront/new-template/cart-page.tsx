@@ -9,7 +9,6 @@ import {
   ShoppingBag,
   Trash2,
 } from 'lucide-react';
-import Image from 'next/image';
 import Link from 'next/link';
 import type React from 'react';
 import { useEffect, useState } from 'react';
@@ -43,7 +42,7 @@ export const CartPage: React.FC = () => {
         <div className="flex items-center gap-2 mb-8">
           <Link
             href={asRoute(getHref('/'))}
-            className="flex items-center gap-2 text-gray-500 hover:text-[var(--store-primary)] transition-colors"
+            className="flex items-center gap-2 text-gray-500 hover:text-red-600 transition-colors"
           >
             <ArrowLeft size={20} />
             <span className="font-medium">Continue Shopping</span>
@@ -82,16 +81,14 @@ export const CartPage: React.FC = () => {
             <div className="lg:col-span-2 space-y-6">
               {cart.map((item: CartItem) => (
                 <div
-                  key={item.variantId || item.id}
+                  key={item.cartItemId}
                   className="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-100 flex gap-4 md:gap-6 group transition-all hover:shadow-md"
                 >
-                  <div className="size-24 md:w-32 md:h-32 bg-gray-50 rounded-xl shrink-0 p-2 relative">
-                    <Image
+                  <div className="size-24 md:w-32 md:h-32 bg-gray-50 rounded-xl shrink-0 p-2">
+                    <img
                       src={item.image}
                       alt={item.name}
-                      fill
-                      sizes="(max-width: 768px) 96px, 128px"
-                      className="object-contain mix-blend-multiply"
+                      className="w-full h-full object-contain mix-blend-multiply"
                     />
                   </div>
 
@@ -102,10 +99,8 @@ export const CartPage: React.FC = () => {
                           {item.name}
                         </h3>
                         <button type="button"
-                          onClick={() =>
-                            removeFromCart(item.id, item.variantId)
-                          }
-                          className="text-gray-400 hover:text-[var(--store-primary)] transition-colors p-1"
+                          onClick={() => removeFromCart(item.cartItemId)}
+                          className="text-gray-400 hover:text-red-600 transition-colors p-1"
                           aria-label="Remove item"
                         >
                           <Trash2 size={18} />
@@ -131,12 +126,11 @@ export const CartPage: React.FC = () => {
                         <button type="button"
                           onClick={() =>
                             updateQuantity(
-                              item.id,
+                              item.cartItemId,
                               Math.max(1, item.quantity - 1),
-                              item.variantId
                             )
                           }
-                          className="size-8 flex items-center justify-center rounded-md bg-white text-gray-600 shadow-sm hover:text-[var(--store-primary)] disabled:opacity-50"
+                          className="size-8 flex items-center justify-center rounded-md bg-white text-gray-600 shadow-sm hover:text-red-600 disabled:opacity-50"
                           disabled={item.quantity <= 1}
                           aria-label="Decrease quantity"
                         >
@@ -148,12 +142,11 @@ export const CartPage: React.FC = () => {
                         <button type="button"
                           onClick={() =>
                             updateQuantity(
-                              item.id,
+                              item.cartItemId,
                               item.quantity + 1,
-                              item.variantId
                             )
                           }
-                          className="size-8 flex items-center justify-center rounded-md bg-white text-gray-600 shadow-sm hover:text-[var(--store-primary)]"
+                          className="size-8 flex items-center justify-center rounded-md bg-white text-gray-600 shadow-sm hover:text-red-600"
                           aria-label="Increase quantity"
                         >
                           <Plus size={14} />
@@ -161,7 +154,7 @@ export const CartPage: React.FC = () => {
                       </div>
 
                       <div className="text-right">
-                        <p className="font-bold text-xl text-[var(--store-primary)]">
+                        <p className="font-bold text-xl text-red-600">
                           ₦{(item.price * item.quantity).toLocaleString()}
                         </p>
                         {item.quantity > 1 && (

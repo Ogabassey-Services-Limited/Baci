@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   cart: [
     {
       id: 'product-1',
+      cartItemId: 'product-1::variant=variant-1',
       variantId: 'variant-1',
       name: 'iPhone 15 Pro',
       image: '/iphone.jpg',
@@ -49,6 +50,7 @@ describe('CheckoutPage', () => {
     mocks.cart = [
       {
         id: 'product-1',
+        cartItemId: 'product-1::variant=variant-1',
         variantId: 'variant-1',
         name: 'iPhone 15 Pro',
         image: '/iphone.jpg',

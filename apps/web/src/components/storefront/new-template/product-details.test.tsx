@@ -91,6 +91,7 @@ describe('ProductDetails', () => {
     mocks.cart = [
       {
         id: '1',
+        cartItemId: '1::variant=variant-1',
         variantId: 'variant-1',
         name: 'iPhone 15 Pro Max',
         image: '/iphone.jpg',
