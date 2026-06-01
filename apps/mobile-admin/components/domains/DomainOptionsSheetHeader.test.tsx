@@ -29,14 +29,14 @@ vi.mock('@react-native-vector-icons/ionicons', () => ({
     if (name === 'globe-outline') {
       mocks.iconColor = color ?? '';
     }
-    return <span>icon</span>;
+    return <span aria-hidden="true" data-icon={name} />;
   },
 
   default: ({ color, name }: { color?: string; name?: string }) => {
     if (name === 'globe-outline') {
       mocks.iconColor = color ?? '';
     }
-    return <span>icon</span>;
+    return <span aria-hidden="true" data-icon={name} />;
   },
   __esModule: true,
 }));
