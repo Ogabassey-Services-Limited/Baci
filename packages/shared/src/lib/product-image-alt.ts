@@ -65,15 +65,27 @@ export function getProductImageAlt(
     renderedImageUrl?: unknown;
   } = {}
 ): string {
-  const renderedImageUrl =
-    trimString(options.renderedImageUrl) ||
-    trimString(product.imageLarge) ||
-    trimString(product.image);
-  const explicitAlt = getFirstNonBlankString(
-    product.seo_alt_text,
-    product.image_alt,
-    getMatchingImagePayloadAlt(product.images, renderedImageUrl)
+  const explicitRenderedImageUrl = trimString(options.renderedImageUrl);
+  const primaryImageUrl = getFirstNonBlankString(
+    product.imageLarge,
+    product.image
   );
+  const renderedImageUrl = explicitRenderedImageUrl || primaryImageUrl;
+  const matchingPayloadAlt = getMatchingImagePayloadAlt(
+    product.images,
+    renderedImageUrl
+  );
+  const renderedImageIsPrimary =
+    !explicitRenderedImageUrl ||
+    (primaryImageUrl && explicitRenderedImageUrl === primaryImageUrl);
+
+  const explicitAlt = renderedImageIsPrimary
+    ? getFirstNonBlankString(
+        product.seo_alt_text,
+        product.image_alt,
+        matchingPayloadAlt
+      )
+    : matchingPayloadAlt;
 
   if (explicitAlt) {
     return explicitAlt;

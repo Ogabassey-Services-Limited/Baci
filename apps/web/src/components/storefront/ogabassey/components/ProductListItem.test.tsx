@@ -118,6 +118,7 @@ describe('ProductListItem', () => {
         basePath="/ogabassey"
         product={{
           ...baseProduct,
+          image: '/macbook-silver.jpg',
           image_alt: 'Merchant-provided laptop angle',
         }}
         onAddToCart={vi.fn()}
@@ -130,5 +131,31 @@ describe('ProductListItem', () => {
     expect(
       screen.getByAltText('Merchant-provided laptop angle')
     ).toBeInTheDocument();
+  });
+
+  it('falls back to the product name after selecting a non-primary list image', () => {
+    render(
+      <ProductListItem
+        basePath="/ogabassey"
+        product={{
+          ...baseProduct,
+          image: '/macbook-silver.jpg',
+          image_alt: 'Merchant-provided laptop angle',
+        }}
+        onAddToCart={vi.fn()}
+        isAdded={false}
+        isWishlisted={false}
+        onToggleWishlist={vi.fn()}
+      />
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Select Space Black color' })
+    );
+
+    expect(screen.getByAltText(baseProduct.name)).toHaveAttribute(
+      'src',
+      '/macbook-space-black.jpg'
+    );
   });
 });

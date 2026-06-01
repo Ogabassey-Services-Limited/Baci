@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import type React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Product } from '../types';
@@ -223,6 +223,7 @@ describe('ProductGridItem', () => {
       <ProductGridItem
         product={{
           ...baseProduct,
+          image: '/iphone-black.jpg',
           image_alt: 'Merchant-provided front view',
         }}
         onAddToCart={vi.fn()}
@@ -235,5 +236,28 @@ describe('ProductGridItem', () => {
     expect(
       screen.getByAltText('Merchant-provided front view')
     ).toBeInTheDocument();
+  });
+
+  it('falls back to the product name after selecting a non-primary image', () => {
+    render(
+      <ProductGridItem
+        product={{
+          ...baseProduct,
+          image: '/iphone-black.jpg',
+          image_alt: 'Merchant-provided front view',
+        }}
+        onAddToCart={vi.fn()}
+        isAdded={false}
+        isWishlisted={false}
+        onToggleWishlist={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Select color Gold' }));
+
+    expect(screen.getByAltText(baseProduct.name)).toHaveAttribute(
+      'src',
+      '/iphone-gold.jpg'
+    );
   });
 });
