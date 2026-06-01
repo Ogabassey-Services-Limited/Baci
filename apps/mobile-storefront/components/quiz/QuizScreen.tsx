@@ -132,10 +132,10 @@ export function QuizScreen({
       <View style={styles.header}>
         <View>
           <Text accessibilityRole="header" style={styles.title}>
-            Prize Exam
+            Super Quiz
           </Text>
           <Text style={styles.subtitle}>
-            Use loyalty points to enter and answer for the prize.
+            Use loyalty points to enter and answer for the rewards.
           </Text>
         </View>
         <Image
