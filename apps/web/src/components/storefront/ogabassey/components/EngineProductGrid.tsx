@@ -16,6 +16,7 @@ import {
   getImagePayloadUrl,
   prioritizeSmartphoneProducts,
   trimString,
+  type ProductImageAltPayload,
 } from '@baci/shared';
 import { useCart } from '@/hooks/cart';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
@@ -54,10 +55,11 @@ function toTemplateProducts(storefrontProducts: StorefrontProduct[]): Product[] 
       maximumFractionDigits: 0,
     }).format(product.price);
 
+    const imagePayloads: ProductImageAltPayload[] = product.images ?? [];
     let primaryImage = trimString(product.image);
     let primaryImageAlt = '';
     const images: string[] = [];
-    for (const image of product.images ?? []) {
+    for (const image of imagePayloads) {
       const mappedImage = getImagePayloadUrl(image);
       if (!mappedImage) {
         continue;
@@ -92,6 +94,7 @@ function toTemplateProducts(storefrontProducts: StorefrontProduct[]): Product[] 
       rawPrice: product.price,
       image: primaryImage || images[0] || '',
       ...(primaryImageAlt ? { image_alt: primaryImageAlt } : {}),
+      ...(imagePayloads.length > 0 ? { image_payloads: imagePayloads } : {}),
       description: product.description,
       rating: product.rating ?? 4.5,
       category: categoryObj?.name || product.category || 'General',

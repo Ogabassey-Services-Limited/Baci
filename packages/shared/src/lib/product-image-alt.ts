@@ -1,10 +1,18 @@
 import { getFirstNonBlankString, trimString } from './string-values';
 
+export type ProductImageAltPayload =
+  | string
+  | {
+      alt?: unknown;
+      url?: unknown;
+    };
+
 export interface ProductImageAltSource {
   brand?: unknown;
   image?: unknown;
   imageLarge?: unknown;
   image_alt?: unknown;
+  image_payloads?: readonly ProductImageAltPayload[] | null;
   images?: readonly unknown[] | null;
   name?: unknown;
   seo_alt_text?: unknown;
@@ -58,6 +66,14 @@ export function getMatchingImagePayloadAlt(
   return '';
 }
 
+function getProductImagePayloads(
+  product: ProductImageAltSource
+): readonly unknown[] | null | undefined {
+  return Array.isArray(product.image_payloads)
+    ? product.image_payloads
+    : product.images;
+}
+
 export function getProductImageAlt(
   product: ProductImageAltSource,
   options: {
@@ -70,9 +86,10 @@ export function getProductImageAlt(
     product.imageLarge,
     product.image
   );
+  const imagePayloads = getProductImagePayloads(product);
   const renderedImageUrl = explicitRenderedImageUrl || primaryImageUrl;
   const matchingPayloadAlt = getMatchingImagePayloadAlt(
-    product.images,
+    imagePayloads,
     renderedImageUrl
   );
   const renderedImageIsPrimary =

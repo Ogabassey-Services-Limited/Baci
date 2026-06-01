@@ -62,6 +62,24 @@ describe('product image alt helpers', () => {
     ).toBe('Back view');
   });
 
+  it('uses preserved payloads when rendered images are flattened URLs', () => {
+    expect(
+      getProductImageAlt(
+        {
+          image: '/front.jpg',
+          image_alt: 'Front view',
+          image_payloads: [
+            { url: '/front.jpg', alt: 'Front payload' },
+            { url: '/back.jpg', alt: 'Back view' },
+          ],
+          images: ['/front.jpg', '/back.jpg'],
+          name: 'Phone',
+        },
+        { renderedImageUrl: '/back.jpg' }
+      )
+    ).toBe('Back view');
+  });
+
   it('falls back to name when a non-primary image has no matched alt', () => {
     expect(
       getProductImageAlt(

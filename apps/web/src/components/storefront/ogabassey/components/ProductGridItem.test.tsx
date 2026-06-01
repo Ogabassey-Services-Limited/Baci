@@ -260,4 +260,31 @@ describe('ProductGridItem', () => {
       '/iphone-gold.jpg'
     );
   });
+
+  it('uses preserved payload alt text after selecting a non-primary image', () => {
+    render(
+      <ProductGridItem
+        product={{
+          ...baseProduct,
+          image: '/iphone-black.jpg',
+          image_alt: 'Merchant-provided front view',
+          image_payloads: [
+            { url: '/iphone-black.jpg', alt: 'Black front view' },
+            { url: '/iphone-gold.jpg', alt: 'Gold side angle' },
+          ],
+        }}
+        onAddToCart={vi.fn()}
+        isAdded={false}
+        isWishlisted={false}
+        onToggleWishlist={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Select color Gold' }));
+
+    expect(screen.getByAltText('Gold side angle')).toHaveAttribute(
+      'src',
+      '/iphone-gold.jpg'
+    );
+  });
 });

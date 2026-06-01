@@ -113,6 +113,7 @@ vi.mock('./ProductGridItem', () => ({
       condition?: string;
       has_variants?: boolean;
       image_alt?: string;
+      image_payloads?: readonly unknown[];
       variant_model?: string;
     };
   }) => (
@@ -120,6 +121,7 @@ vi.mock('./ProductGridItem', () => ({
       data-condition={product.condition ?? ''}
       data-has-variants={String(product.has_variants ?? false)}
       data-image-alt={product.image_alt ?? ''}
+      data-image-payload-count={String(product.image_payloads?.length ?? 0)}
       data-variant-model={product.variant_model ?? ''}
     >
       {product.name}
@@ -273,6 +275,10 @@ describe('EngineProductGrid', () => {
     expect(screen.getByRole('article')).toHaveAttribute(
       'data-image-alt',
       'Front view'
+    );
+    expect(screen.getByRole('article')).toHaveAttribute(
+      'data-image-payload-count',
+      '2'
     );
   });
 

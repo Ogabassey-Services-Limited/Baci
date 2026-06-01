@@ -1,4 +1,9 @@
-import { getImagePayloadAlt, getImagePayloadUrl, trimString } from '@baci/shared';
+import {
+  getImagePayloadAlt,
+  getImagePayloadUrl,
+  trimString,
+  type ProductImageAltPayload,
+} from '@baci/shared';
 import type { Product as StorefrontProduct } from '@/lib/products';
 import { OGABASSEY_HOME_PRODUCT_FEED_LIMIT } from './config/products';
 import type { Product as OgabasseyProduct } from './types';
@@ -27,11 +32,12 @@ export function mapStorefrontProductsToOgabasseyProducts(
 ): OgabasseyProduct[] {
   return storefrontProducts.map((product) => {
     const images: string[] = [];
+    const imagePayloads: ProductImageAltPayload[] = product.images ?? [];
     let primaryImage = trimString(product.image);
     let primaryImageAlt = '';
 
-    if (product.images) {
-      for (const image of product.images) {
+    if (imagePayloads.length > 0) {
+      for (const image of imagePayloads) {
         const mappedImage = getImagePayloadUrl(image);
         if (mappedImage) {
           images.push(mappedImage);
@@ -59,6 +65,7 @@ export function mapStorefrontProductsToOgabasseyProducts(
       rawPrice: product.price,
       image: primaryImage || images[0] || '',
       ...(primaryImageAlt ? { image_alt: primaryImageAlt } : {}),
+      ...(imagePayloads.length > 0 ? { image_payloads: imagePayloads } : {}),
       description: product.description,
       rating: product.rating ?? 4.5,
       category: category?.name || product.category || 'General',

@@ -65,6 +65,10 @@ describe('mapStorefrontProductsToOgabasseyProducts', () => {
         rawPrice: 2100000,
         image: '/iphone-black.jpg',
         image_alt: 'Black',
+        image_payloads: [
+          { url: '/iphone-black.jpg', alt: 'Black', order: 0 },
+          { url: '/iphone-gold.jpg', alt: 'Gold', order: 1 },
+        ],
         description: 'Flagship phone',
         rating: 4.9,
         category: 'Smartphones',
