@@ -213,7 +213,7 @@ describe('builderConfig scoped links', () => {
     let iframe = screen.getByTitle('Store location map');
     expect(iframe).toHaveAttribute(
       'src',
-      expect.stringContaining('https://maps.google.com/maps?')
+      expect.stringContaining('https://www.google.com/maps?')
     );
     expect(iframe).toHaveAttribute(
       'src',
@@ -243,7 +243,7 @@ describe('builderConfig scoped links', () => {
     iframe = screen.getByTitle('Business location map');
     expect(iframe).toHaveAttribute(
       'src',
-      expect.stringContaining('https://maps.google.com/maps?')
+      expect.stringContaining('https://www.google.com/maps?')
     );
     expect(iframe).toHaveAttribute(
       'src',

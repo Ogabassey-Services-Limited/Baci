@@ -78,7 +78,7 @@ const VIDEO_IFRAME_SANDBOX =
 const MAP_IFRAME_SANDBOX =
   'allow-same-origin allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms';
 const getGoogleMapsQueryEmbedUrl = (address: string, zoom = 12) =>
-  `https://maps.google.com/maps?q=${encodeURIComponent(address)}&t=&z=${zoom}&ie=UTF8&iwloc=&output=embed`;
+  `https://www.google.com/maps?q=${encodeURIComponent(address)}&t=&z=${zoom}&ie=UTF8&iwloc=&output=embed`;
 
 // ==================== TYPE DEFINITIONS ====================
 
