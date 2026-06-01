@@ -10,6 +10,10 @@ inputs:
     description: 'Path for local Turborepo artifacts'
     required: false
     default: .turbo
+  install-command:
+    description: 'Custom command to execute dependencies installation'
+    required: false
+    default: 'pnpm install --frozen-lockfile --prefer-offline'
 
 runs:
   using: composite
@@ -57,7 +61,7 @@ runs:
       shell: bash
       env:
         pnpm_config_strict_dep_builds: 'false'
-      run: pnpm install --frozen-lockfile --prefer-offline
+      run: ${{ inputs.install-command }}
 
     # Cache Save Engine: PR branches are strictly RESTORE-ONLY to prevent cache poisoning & save storage limit (10GB)
     - name: Save pnpm store cache (main branch only)

@@ -77,7 +77,7 @@ jobs:
           store-dir: ${{ env.PNPM_STORE_DIR }}
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v6
+        uses: gradle/actions/setup-gradle@39fdf500b386709a9a4a769f717dad447ac345b9 # v6
 
       - name: Install dependencies
         uses: ./.github/actions/pnpm-install-cached

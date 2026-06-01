@@ -1140,6 +1140,10 @@ importers:
       react-native:
         specifier: 0.85.3
         version: 0.85.3(@babel/core@7.29.0)(@react-native/jest-preset@0.85.3(@babel/core@7.29.0)(react@19.2.3))(@react-native/metro-config@0.85.3(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3)
+    devDependencies:
+      vitest:
+        specifier: ^4.1.7
+        version: 4.1.7(@opentelemetry/api@1.9.1)(@types/node@25.5.2)(happy-dom@20.8.9)(jsdom@29.1.1)(vite@8.0.14(@types/node@25.5.2)(esbuild@0.25.12)(jiti@2.6.1)(terser@5.47.1)(tsx@4.22.3)(yaml@2.9.0))
 
 packages:
 
