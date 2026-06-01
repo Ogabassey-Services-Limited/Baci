@@ -8,6 +8,10 @@ const renderState = vi.hoisted(() => ({
   staticRendered: false,
 }));
 
+function Text({ children }: { children?: React.ReactNode }) {
+  return <span>{children}</span>;
+}
+
 vi.mock('@react-native-vector-icons/ionicons', () => ({
   Ionicons: ({ name }: { name: string }) => <span>{name}</span>,
 
@@ -31,7 +35,7 @@ vi.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 8, right: 0, bottom: 12, left: 0 }),
 }));
 
-vi.mock('react-native', async () => {
+vi.mock('react-native', () => {
   return {
     Modal: ({
       children,
@@ -91,12 +95,12 @@ describe('AppPageSheet', () => {
   it('renders the shared page-sheet header, content, and footer', () => {
     render(
       <AppPageSheet
-        footer={<div>Footer action</div>}
+        footer={<Text>Footer action</Text>}
         onClose={vi.fn()}
         title="Receipt Preview"
         visible={true}
       >
-        <div>Preview content</div>
+        <Text>Preview content</Text>
       </AppPageSheet>
     );
 
@@ -115,7 +119,7 @@ describe('AppPageSheet', () => {
 
     render(
       <AppPageSheet onClose={onClose} title="Customer Details" visible={true}>
-        <div>Body</div>
+        <Text>Body</Text>
       </AppPageSheet>
     );
 
@@ -132,7 +136,7 @@ describe('AppPageSheet', () => {
         title="Static Sheet"
         visible={true}
       >
-        <div>Static body</div>
+        <Text>Static body</Text>
       </AppPageSheet>
     );
 
@@ -146,7 +150,7 @@ describe('AppPageSheet', () => {
   it('does not render content when not visible', () => {
     render(
       <AppPageSheet onClose={vi.fn()} title="Hidden Sheet" visible={false}>
-        <div>Should not appear</div>
+        <Text>Should not appear</Text>
       </AppPageSheet>
     );
 

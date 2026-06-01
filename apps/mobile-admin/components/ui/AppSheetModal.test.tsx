@@ -9,6 +9,10 @@ const keyboardContainerProps = vi.hoisted(() => ({
   scrollEnabled: true,
 }));
 
+function Text({ children }: { children?: React.ReactNode }) {
+  return <span>{children}</span>;
+}
+
 vi.mock('@/components/ui/AppKeyboardContainer', () => ({
   AppKeyboardContainer: ({
     children,
@@ -42,7 +46,7 @@ vi.mock('@/hooks/useTheme', () => ({
   }),
 }));
 
-vi.mock('react-native', async () => {
+vi.mock('react-native', () => {
   return {
     Modal: ({
       children,
@@ -100,7 +104,7 @@ describe('AppSheetModal', () => {
         onClose={vi.fn()}
         visible={true}
       >
-        <div>Sheet content</div>
+        <Text>Sheet content</Text>
       </AppSheetModal>
     );
 
@@ -120,7 +124,7 @@ describe('AppSheetModal', () => {
         onClose={onClose}
         visible={true}
       >
-        <div>Dismiss me</div>
+        <Text>Dismiss me</Text>
       </AppSheetModal>
     );
 
@@ -139,7 +143,7 @@ describe('AppSheetModal', () => {
         onClose={onClose}
         visible={true}
       >
-        <div>Persistent</div>
+        <Text>Persistent</Text>
       </AppSheetModal>
     );
 
@@ -158,7 +162,7 @@ describe('AppSheetModal', () => {
         scrollEnabled={false}
         visible={true}
       >
-        <div>Configured</div>
+        <Text>Configured</Text>
       </AppSheetModal>
     );
 
