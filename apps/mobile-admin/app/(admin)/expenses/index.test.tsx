@@ -280,6 +280,7 @@ describe('ExpensesScreen', () => {
   });
 
   it('ignores malformed expense dates when calculating the monthly total', () => {
+    vi.useFakeTimers({ now: new Date('2026-05-15T00:00:00.000Z') });
     mocks.queryState = {
       data: [
         {
