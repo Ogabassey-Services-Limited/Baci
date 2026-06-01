@@ -340,10 +340,10 @@ describe('products index page', () => {
     ).toBeInTheDocument();
     expect(screen.queryByText('Route loader fallback')).not.toBeInTheDocument();
     expect(screen.queryByText('Products page content')).not.toBeInTheDocument();
-    expect(mockConnection).not.toHaveBeenCalled();
+    expect(mockConnection).toHaveBeenCalledOnce();
   });
 
-  it('marks runtime metadata with a page-level dynamic marker', async () => {
+  it('keeps product listings request-bound without a page-level metadata marker', async () => {
     render(
       await ProductsPage({
         params: Promise.resolve({ slug: 'test-store' }),
@@ -352,7 +352,7 @@ describe('products index page', () => {
     );
 
     expect(screen.getByText('Products page content')).toBeInTheDocument();
-    expect(mockConnection).not.toHaveBeenCalled();
+    expect(mockConnection).toHaveBeenCalledOnce();
   });
 
   it('uses page-specific product index metadata for paginated listings', async () => {

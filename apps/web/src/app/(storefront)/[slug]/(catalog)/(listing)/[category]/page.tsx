@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { connection } from 'next/server';
 import { Suspense } from 'react';
 import { CatalogListingLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
 import {
@@ -151,7 +152,12 @@ export async function generateMetadata({
   };
 }
 
-export default function CategoryPageRoute(props: PageProps) {
+export default async function CategoryPageRoute(props: PageProps) {
+  // Keep catalog listings request-bound. These routes depend on tenant and
+  // host context, and letting Next produce a static shell has caused
+  // production 500s on custom-domain category URLs.
+  await connection();
+
   return (
     <Suspense fallback={<CatalogListingLoading />}>
       <CategoryPageContent {...props} />
