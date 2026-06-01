@@ -9,6 +9,7 @@ import {
   Suspense,
 } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM } from '@/config/storefront-metadata-cache-bots';
 import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 
 vi.mock('server-only', () => ({}));
@@ -1587,6 +1588,7 @@ describe('[category]/[productSlug] page render', () => {
           productSlug: 'hp-laptop-14-ep0063nia',
         }),
         searchParams: Promise.resolve({
+          [STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM]: 'metadata-blocking',
           utm_source: 'google',
           gclid: 'campaign-click',
         }),
