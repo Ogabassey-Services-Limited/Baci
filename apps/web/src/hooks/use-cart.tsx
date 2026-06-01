@@ -107,6 +107,22 @@ function getStoredStringValue(
   return typeof value === 'string' && value.length > 0 ? value : undefined;
 }
 
+function getStoredVariantAttributes(
+  item: Record<string, unknown>
+): Record<string, string> | undefined {
+  const value = item.variantAttributes;
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return undefined;
+  }
+
+  return Object.fromEntries(
+    Object.entries(value).filter(
+      (entry): entry is [string, string] =>
+        typeof entry[1] === 'string' && entry[1].length > 0
+    )
+  );
+}
+
 function normalizeStoredCartItem(item: Record<string, unknown>): CartItem {
   const productId = getStoredStringValue(item, 'id') ?? '';
   const variantId =
@@ -118,9 +134,25 @@ function normalizeStoredCartItem(item: Record<string, unknown>): CartItem {
   const selectedStorage =
     getStoredStringValue(item, 'selectedStorage') ??
     getStoredStringValue(item, 'variantStorage');
+  const selectedColorValue = getStoredStringValue(item, 'selectedColorValue');
+  const secondaryColor = getStoredStringValue(item, 'secondaryColor');
+  const secondaryColorValue = getStoredStringValue(item, 'secondaryColorValue');
+  const condition = getStoredStringValue(item, 'condition') as
+    | CartItem['condition']
+    | undefined;
+  const variantAttributes = getStoredVariantAttributes(item);
   const cartItemId =
     getStoredStringValue(item, 'cartItemId') ??
-    generateCartItemId(productId, variantId ? { variantId } : undefined);
+    generateCartItemId(productId, {
+      ...variantAttributes,
+      color: selectedColor,
+      colorValue: selectedColorValue,
+      condition,
+      secondaryColor,
+      secondaryColorValue,
+      storage: selectedStorage,
+      variantId,
+    });
 
   return {
     ...item,
@@ -134,7 +166,12 @@ function normalizeStoredCartItem(item: Record<string, unknown>): CartItem {
         ? item.quantity
         : Number(item.quantity) || 1,
     selectedColor,
+    selectedColorValue,
+    secondaryColor,
+    secondaryColorValue,
     selectedStorage,
+    condition,
+    variantAttributes,
     variantId,
   } as CartItem;
 }
