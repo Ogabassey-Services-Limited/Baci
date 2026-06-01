@@ -1,6 +1,6 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { POST } from './route';
 import { NextRequest } from 'next/server';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { POST } from './route';
 
 vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: vi.fn().mockResolvedValue({ valid: true }),
@@ -12,12 +12,10 @@ vi.mock('next/headers', () => ({
 
 vi.mock('@/lib/get-merchant-for-api-request', () => {
   return {
-    getMerchantForApiRequest: vi
-      .fn()
-      .mockResolvedValue({
-        merchantId: 'test-merchant',
-        staffAccess: { isStaff: false },
-      }),
+    getMerchantForApiRequest: vi.fn().mockResolvedValue({
+      merchantId: 'test-merchant',
+      staffAccess: { isStaff: false },
+    }),
   };
 });
 
@@ -86,12 +84,10 @@ describe('POST /api/admin/notifications', () => {
             }
             // It's the `select('id')` query
             return {
-              gte: vi
-                .fn()
-                .mockResolvedValue({
-                  data: null,
-                  error: { message: 'Database error' },
-                }),
+              gte: vi.fn().mockResolvedValue({
+                data: null,
+                error: { message: 'Database error' },
+              }),
             };
           }),
         };
