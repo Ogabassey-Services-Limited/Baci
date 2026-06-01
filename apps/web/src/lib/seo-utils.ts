@@ -4,6 +4,13 @@ import {
   toSchemaItemConditionUri,
 } from '@baci/shared/lib';
 import type { Metadata, Route } from 'next';
+import {
+  type CheckoutPaymentMerchant,
+  isBankTransferCheckoutAvailable,
+  isKorapayCheckoutAvailable,
+  isPayOnDeliveryCheckoutAvailable,
+  isPaystackCheckoutAvailable,
+} from './checkout/payment-gateway-availability';
 import type {
   Product,
   ProductSchemaMarkup,
@@ -643,7 +650,88 @@ function buildMerchantReturnPolicyFromTrustProfile(
 }
 
 interface ProductSchemaOptions {
+  acceptedPaymentMethods?: readonly string[];
   productUrl?: string;
+}
+
+function readSchemaBooleanSetting(
+  settings: unknown,
+  key: string
+): boolean | undefined {
+  if (!settings || typeof settings !== 'object') {
+    return undefined;
+  }
+
+  const value = (settings as Record<string, unknown>)[key];
+  return typeof value === 'boolean' ? value : undefined;
+}
+
+export function buildStorefrontAcceptedPaymentMethods(
+  merchant: CheckoutPaymentMerchant | null | undefined
+): string[] {
+  const methods = new Set<string>();
+
+  if (isPaystackCheckoutAvailable(merchant)) {
+    methods.add('Debit and credit card');
+    methods.add('USSD');
+    methods.add('Mobile money');
+  }
+
+  if (
+    isBankTransferCheckoutAvailable(merchant) ||
+    isKorapayCheckoutAvailable(merchant)
+  ) {
+    methods.add('Bank transfer');
+  }
+
+  if (isKorapayCheckoutAvailable(merchant)) {
+    methods.add('Debit and credit card');
+  }
+
+  if (isPayOnDeliveryCheckoutAvailable(merchant)) {
+    methods.add('Pay on delivery');
+  }
+
+  const featureSettings = merchant?.feature_settings;
+
+  if (readSchemaBooleanSetting(featureSettings, 'credpal_enabled') === true) {
+    methods.add('CredPal buy now pay later');
+  }
+
+  if (
+    readSchemaBooleanSetting(featureSettings, 'credit_direct_enabled') === true
+  ) {
+    methods.add('Credit Direct buy now pay later');
+  }
+
+  if (readSchemaBooleanSetting(featureSettings, 'klump_enabled') === true) {
+    methods.add('Klump buy now pay later');
+  }
+
+  if (readSchemaBooleanSetting(featureSettings, 'juicyway_enabled') === true) {
+    methods.add('Crypto and stablecoin payment');
+  }
+
+  return [...methods];
+}
+
+function normalizeAcceptedPaymentMethods(
+  acceptedPaymentMethods: readonly string[] | undefined
+): string[] | undefined {
+  if (!acceptedPaymentMethods) {
+    return undefined;
+  }
+
+  const methods = [
+    ...new Set(
+      acceptedPaymentMethods
+        .map((method) => method.trim())
+        .filter((method) => method.length > 0)
+        .map((method) => escapeHtml(method))
+    ),
+  ];
+
+  return methods.length > 0 ? methods : undefined;
 }
 
 function parseStructuredDataUrl(url: string | undefined): URL | undefined {
@@ -708,6 +796,9 @@ export function generateProductSchema(
   const safeBrand = product.brand || merchantName;
   const safeMerchantName = merchantName;
   const structuredDataProductUrl = parseStructuredDataUrl(options.productUrl);
+  const acceptedPaymentMethod = normalizeAcceptedPaymentMethods(
+    options.acceptedPaymentMethods
+  );
   const shippingDetails = buildOfferShippingDetails(
     country,
     currency,
@@ -775,6 +866,7 @@ export function generateProductSchema(
               '@type': 'Organization',
               name: safeMerchantName,
             },
+            ...(acceptedPaymentMethod && { acceptedPaymentMethod }),
             priceValidUntil: new Date(Date.now() + THIRTY_DAYS_MS)
               .toISOString()
               .substring(0, 10),
@@ -794,6 +886,7 @@ export function generateProductSchema(
               '@type': 'Organization',
               name: safeMerchantName,
             },
+            ...(acceptedPaymentMethod && { acceptedPaymentMethod }),
             priceValidUntil: new Date(Date.now() + THIRTY_DAYS_MS)
               .toISOString()
               .substring(0, 10),
@@ -1218,6 +1311,7 @@ export function generateProductSchema(
             '@type': 'Organization',
             name: safeMerchantName,
           },
+          ...(acceptedPaymentMethod && { acceptedPaymentMethod }),
           shippingDetails: variantShippingDetails,
           hasMerchantReturnPolicy: variantReturnPolicy,
         },
@@ -2120,16 +2214,33 @@ interface BlogPostSchemaData {
     url?: string;
     jobTitle?: string;
     description?: string;
+    sameAs?: string[];
   };
   publisher: {
     name: string;
     logo: string;
     url: string;
+    sameAs?: string[];
   };
   wordCount?: number;
   keywords?: string[];
   category?: string;
   readingTime?: number;
+}
+
+function normalizeBlogAuthorSameAs(sameAs: string[] | undefined): string[] {
+  if (!sameAs) {
+    return [];
+  }
+
+  return [
+    ...new Set(
+      sameAs
+        .map((url) => sanitizeSchemaUrl(url.trim()))
+        .filter((url) => url.length > 0)
+        .map((url) => escapeHtml(url))
+    ),
+  ];
 }
 
 /**
@@ -2139,6 +2250,8 @@ export function generateBlogPostSchema(
   data: BlogPostSchemaData
 ): Record<string, unknown> {
   // SECURITY FIX: Sanitize all inputs to prevent XSS (consistent with other schema functions)
+  const authorSameAs = normalizeBlogAuthorSameAs(data.author.sameAs);
+  const publisherSameAs = normalizeBlogAuthorSameAs(data.publisher.sameAs);
   const schema: Record<string, unknown> = {
     '@context': 'https://schema.org',
     '@type': 'BlogPosting',
@@ -2157,6 +2270,9 @@ export function generateBlogPostSchema(
       ...(data.author.description && {
         description: escapeHtml(data.author.description),
       }),
+      ...(authorSameAs.length > 0 && {
+        sameAs: authorSameAs,
+      }),
     },
     publisher: {
       '@type': 'Organization',
@@ -2166,6 +2282,9 @@ export function generateBlogPostSchema(
         '@type': 'ImageObject',
         url: escapeHtml(data.publisher.logo),
       },
+      ...(publisherSameAs.length > 0 && {
+        sameAs: publisherSameAs,
+      }),
     },
     mainEntityOfPage: {
       '@type': 'WebPage',

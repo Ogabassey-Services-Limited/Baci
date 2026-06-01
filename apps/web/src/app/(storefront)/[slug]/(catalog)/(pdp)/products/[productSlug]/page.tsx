@@ -21,6 +21,7 @@ import type { Product } from '@/lib/products';
 import { asRoute } from '@/lib/routes';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
+  buildStorefrontAcceptedPaymentMethods,
   generateAggregateRating,
   generateBreadcrumbSchema,
   generateFAQSchema,
@@ -491,7 +492,10 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
     merchant.country || 'NG',
     merchant.logo_url,
     trustProfile,
-    { productUrl }
+    {
+      acceptedPaymentMethods: buildStorefrontAcceptedPaymentMethods(merchant),
+      productUrl,
+    }
   );
   if (reviewStats && reviewStats.totalReviews > 0) {
     const aggregateRating = generateAggregateRating({

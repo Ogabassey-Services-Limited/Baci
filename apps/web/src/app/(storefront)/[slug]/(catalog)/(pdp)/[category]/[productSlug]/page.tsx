@@ -43,6 +43,7 @@ import type { Product } from '@/lib/products';
 import { stripHtmlTags } from '@/lib/sanitize-core';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
+  buildStorefrontAcceptedPaymentMethods,
   generateBreadcrumbSchema,
   generateMetaDescription,
   generateMetaTitle,
@@ -946,7 +947,10 @@ async function CategoryProductPageContent({
     merchant?.country || 'NG',
     merchant?.logo_url,
     trustProfile,
-    { productUrl }
+    {
+      acceptedPaymentMethods: buildStorefrontAcceptedPaymentMethods(merchant),
+      productUrl,
+    }
   );
 
   // Generate breadcrumb schema with category

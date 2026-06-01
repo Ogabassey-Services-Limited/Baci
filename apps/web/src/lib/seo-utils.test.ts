@@ -5,6 +5,7 @@ import type { Product } from './products';
 import { safeJsonLdStringify } from './sanitize-json-ld';
 import {
   buildProductUrl,
+  buildStorefrontAcceptedPaymentMethods,
   generateBlogPostSchema,
   generateBreadcrumbSchema,
   generateCollectionPageSchema,
@@ -51,7 +52,96 @@ function makeTrustProfile(
   };
 }
 
+describe('buildStorefrontAcceptedPaymentMethods', () => {
+  it('derives only checkout-enabled payment methods for structured data', () => {
+    const methods = buildStorefrontAcceptedPaymentMethods({
+      country: 'NG',
+      paystack_subaccount_code: 'ACCT_test',
+      feature_settings: {
+        credit_direct_enabled: true,
+        credpal_enabled: true,
+        klump_enabled: false,
+        pay_on_delivery_enabled: true,
+      },
+    });
+
+    expect(methods).toEqual([
+      'Debit and credit card',
+      'USSD',
+      'Mobile money',
+      'Bank transfer',
+      'Pay on delivery',
+      'CredPal buy now pay later',
+      'Credit Direct buy now pay later',
+    ]);
+  });
+
+  it('does not claim Paystack methods when the storefront gate is disabled', () => {
+    const methods = buildStorefrontAcceptedPaymentMethods({
+      country: 'NG',
+      paystack_subaccount_code: 'ACCT_test',
+      feature_settings: {
+        paystack_enabled: false,
+      },
+    });
+
+    expect(methods).toEqual([]);
+  });
+});
+
 describe('generateProductSchema - ProductGroup for variant products', () => {
+  it('adds configured accepted payment methods to product offers', () => {
+    const schema = generateProductSchema(
+      makeProduct(),
+      'TestStore',
+      'NGN',
+      'NG',
+      undefined,
+      undefined,
+      {
+        acceptedPaymentMethods: [
+          'Bank transfer',
+          'Debit and credit card',
+          'Bank transfer',
+          ' ',
+        ],
+      }
+    );
+
+    expect(schema.offers).toMatchObject({
+      '@type': 'Offer',
+      acceptedPaymentMethod: ['Bank transfer', 'Debit and credit card'],
+    });
+  });
+
+  it('adds configured accepted payment methods to variant offers', () => {
+    const schema = generateProductSchema(
+      makeProduct({
+        variants: [
+          {
+            id: 'v1',
+            product_id: 'test-123',
+            merchant_id: 'm1',
+            attributes: { storage: '128GB' },
+            price_override: 90,
+            stock_quantity: 5,
+          },
+        ],
+      }),
+      'TestStore',
+      'NGN',
+      'NG',
+      undefined,
+      undefined,
+      { acceptedPaymentMethods: ['Pay on delivery'] }
+    );
+
+    const variants = schema.hasVariant as Record<string, unknown>[];
+    const offer = variants[0]?.offers as Record<string, unknown>;
+
+    expect(offer.acceptedPaymentMethod).toEqual(['Pay on delivery']);
+  });
+
   it('outputs @type Product when no variants', () => {
     const product = makeProduct();
     const schema = generateProductSchema(product, 'TestStore', 'USD', 'NG');
@@ -1091,6 +1181,31 @@ describe('generateBlogPostSchema', () => {
 
     expect(schema.image).toEqual([
       'https://cdn.ogabassey.com/media/merchant-1/blog/post/landscape_16x9.webp',
+    ]);
+  });
+
+  it('adds sanitized author and publisher sameAs identity links', () => {
+    const schema = generateBlogPostSchema({
+      ...baseBlogSchemaInput,
+      author: {
+        ...baseBlogSchemaInput.author,
+        sameAs: [
+          'https://www.linkedin.com/in/editor',
+          'javascript:alert(1)',
+          'https://www.linkedin.com/in/editor',
+        ],
+      },
+      publisher: {
+        ...baseBlogSchemaInput.publisher,
+        sameAs: ['https://www.instagram.com/ogabassey/'],
+      },
+    });
+
+    expect((schema.author as Record<string, unknown>).sameAs).toEqual([
+      'https://www.linkedin.com/in/editor',
+    ]);
+    expect((schema.publisher as Record<string, unknown>).sameAs).toEqual([
+      'https://www.instagram.com/ogabassey/',
     ]);
   });
 

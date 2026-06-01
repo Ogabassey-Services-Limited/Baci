@@ -111,6 +111,9 @@ async function renderBlogPostContent({
       name: merchant.business_name,
       logo: merchant.logo_url || `${baseUrl}/logo.png`,
       url: baseUrl,
+      sameAs: Object.values(merchant.social_media ?? {}).filter(
+        (url): url is string => typeof url === 'string' && url.trim().length > 0
+      ),
     },
     wordCount: post.word_count,
     keywords: post.keywords,
