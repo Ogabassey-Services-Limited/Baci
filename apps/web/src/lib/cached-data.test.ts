@@ -332,9 +332,17 @@ describe('getCachedFeatureSettings', () => {
     const result = await getCachedFeatureSettings('merchant-1');
 
     expect(result).toEqual(settings);
-    expect(harness.mockSelect).toHaveBeenCalledWith(
-      'blog_enabled, blog_discover_image_validation_enabled, shipping_insurance_enabled, shipping_insurance_min_order_value, shipping_insurance_opt_in_default'
-    );
+    const projection = String(harness.mockSelect.mock.calls[0]?.[0] ?? '');
+    expect(projection).toContain('blog_enabled');
+    expect(projection).toContain('blog_discover_image_validation_enabled');
+    expect(projection).toContain('shipping_insurance_enabled');
+    expect(projection).toContain('shipping_insurance_min_order_value');
+    expect(projection).toContain('shipping_insurance_opt_in_default');
+    expect(projection).toContain('custom_settings');
+    expect(projection).not.toContain('facebook_capi_token');
+    expect(projection).not.toContain('tiktok_access_token');
+    expect(projection).not.toContain('ga4_api_secret');
+    expect(projection).not.toContain('snapchat_capi_token');
   });
 
   it('throws on Supabase error instead of returning defaults', async () => {
