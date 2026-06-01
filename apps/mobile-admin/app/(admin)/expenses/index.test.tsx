@@ -280,13 +280,21 @@ describe('ExpensesScreen', () => {
   });
 
   it('ignores malformed expense dates when calculating the monthly total', () => {
+    const now = new Date();
+    const currentMonthDate = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      5,
+      12
+    ).toISOString();
+
     mocks.queryState = {
       data: [
         {
           amount: 12_500,
           branch_id: 'branch-1',
           category: 'Inventory',
-          date: '2026-05-05T00:00:00.000Z',
+          date: currentMonthDate,
           description: 'Office internet',
           id: 'expense-1',
           receipt_url: null,
