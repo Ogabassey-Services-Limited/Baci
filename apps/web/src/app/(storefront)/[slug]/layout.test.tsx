@@ -1,5 +1,5 @@
 import { render, screen, waitFor } from '@testing-library/react';
-import type { ReactElement, ReactNode } from 'react';
+import { type ReactElement, type ReactNode, Suspense } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
 import {
@@ -257,6 +257,23 @@ describe('storefront layout', () => {
     }) as ReactElement<{ children: ReactElement }>;
 
     expect(layout.props.children.type).toBe(StorefrontLayoutContent);
+  });
+
+  it('keeps the explicit loading fallback path wrapped in Suspense', () => {
+    const fallback = <div>Loading storefront</div>;
+    const layout = StorefrontLayout({
+      params: Promise.resolve({ slug: 'ogabassey' }),
+      loadingFallback: fallback,
+      children: <main>Storefront content</main>,
+    }) as ReactElement<{ children: ReactElement }>;
+    const suspenseBoundary = layout.props.children as ReactElement<{
+      children: ReactElement;
+      fallback: ReactNode;
+    }>;
+
+    expect(suspenseBoundary.type).toBe(Suspense);
+    expect(suspenseBoundary.props.fallback).toBe(fallback);
+    expect(suspenseBoundary.props.children.type).toBe(StorefrontLayoutContent);
   });
 
   it('calls notFound before route content renders when the shell snapshot is missing', async () => {
