@@ -1,5 +1,5 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
-import { Fragment, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type Colors from '@/constants/Colors';
 import { RADIUS, SPACING, withAlpha } from '@/constants/Colors';
@@ -31,11 +31,11 @@ function shouldUseMockRecipients() {
   );
 }
 
-let mockRecipients: UtilityRepeatRecipient[] = [];
-if (shouldUseMockRecipients()) {
-  const fixtureModule =
-    require('./fixtures/recent-recipients.fixtures') as RecentRecipientsFixtureModule;
-  mockRecipients = fixtureModule.MOCK_RECENT_RECIPIENTS;
+async function loadMockRecipients(): Promise<UtilityRepeatRecipient[]> {
+  const fixtureModule: RecentRecipientsFixtureModule = await import(
+    './fixtures/recent-recipients.fixtures'
+  );
+  return fixtureModule.MOCK_RECENT_RECIPIENTS;
 }
 
 export function RecentUtilityRecipients({
@@ -46,10 +46,32 @@ export function RecentUtilityRecipients({
   label,
 }: RecentUtilityRecipientsProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [mockRecipients, setMockRecipients] = useState<
+    UtilityRepeatRecipient[]
+  >([]);
+  const useMockRecipients =
+    recipients.length === 0 && shouldUseMockRecipients();
+
+  useEffect(() => {
+    if (!useMockRecipients) {
+      return;
+    }
+
+    let isMounted = true;
+    void loadMockRecipients().then((nextRecipients) => {
+      if (isMounted) {
+        setMockRecipients(nextRecipients);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [useMockRecipients]);
 
   let activeRecipients = recipients;
   if (recipients.length === 0) {
-    if (shouldUseMockRecipients()) {
+    if (useMockRecipients && mockRecipients.length > 0) {
       activeRecipients = mockRecipients;
     } else {
       return null;
