@@ -2,7 +2,6 @@ import type { Route } from 'next';
 import type { Product as CartProduct } from '@/lib/products';
 import type { OgabasseyPdpCriticalProduct } from './critical-product';
 import { OgabasseyPdpCriticalCommerceClient } from './critical-commerce.client';
-import styles from './critical-commerce.module.css';
 
 interface OgabasseyPdpCriticalCommerceProps {
   cartHref: Route;
@@ -47,24 +46,20 @@ export function OgabasseyPdpCriticalCommerce({
 
   return (
     <aside
-      className={styles.panel}
       data-ogabassey-pdp-commerce-panel
       aria-label="Purchase options"
     >
-      <div className={styles.facts} data-ogabassey-pdp-commerce-facts>
-        <p
-          className={styles.eyebrow}
-          data-ogabassey-pdp-commerce-eyebrow
-        >
+      <div data-ogabassey-pdp-commerce-facts>
+        <p data-ogabassey-pdp-commerce-eyebrow>
           Ready to buy
         </p>
         {formattedCondition ? (
-          <p className={styles.fact} data-ogabassey-pdp-commerce-fact>
+          <p data-ogabassey-pdp-commerce-fact>
             <span>Condition</span>
             <strong>{formattedCondition}</strong>
           </p>
         ) : null}
-        <p className={styles.fact} data-ogabassey-pdp-commerce-fact>
+        <p data-ogabassey-pdp-commerce-fact>
           <span>Delivery</span>
           <strong>Lagos and nationwide</strong>
         </p>
