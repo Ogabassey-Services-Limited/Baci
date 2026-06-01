@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { connection } from 'next/server';
 import { Suspense } from 'react';
 import { CatalogListingLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
@@ -116,7 +117,12 @@ export async function generateMetadata({
   };
 }
 
-export default function ProductsPage(props: PageProps) {
+export default async function ProductsPage(props: PageProps) {
+  // Keep catalog listings request-bound. These routes depend on tenant and
+  // host context, and letting Next produce a static shell has caused
+  // production 500s on custom-domain product-index URLs.
+  await connection();
+
   return (
     <Suspense fallback={<CatalogListingLoading />}>
       <ProductsPageContent {...props} />
