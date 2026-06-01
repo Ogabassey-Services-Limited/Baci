@@ -1,5 +1,6 @@
-minimumReleaseAge: 10080
+minimumReleaseAge: 0
 trustPolicy: no-downgrade
+
 
 # Workspace linkers & hoisting configurations for React Native/Expo in pnpm v11
 nodeLinker: hoisted
