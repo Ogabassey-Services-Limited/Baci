@@ -56,6 +56,7 @@ export const NativeProductAd: React.FC<NativeProductAdProps> = ({
         let slotRenderEndedHandler: ((event: unknown) => void) | null = null;
         const listenerCleanups: Array<() => void> = [];
         let isDisposed = false;
+        let ownsNativeSlot = false;
 
         window.googletag.cmd.push(() => {
             if (isDisposed || definedNativeSlots.has(slotId)) return;
@@ -66,6 +67,7 @@ export const NativeProductAd: React.FC<NativeProductAdProps> = ({
 
             if (slot) {
                 definedNativeSlots.add(slotId);
+                ownsNativeSlot = true;
                 slotRef.current = slot;
                 slot.addService(window.googletag.pubads());
 
@@ -144,7 +146,9 @@ export const NativeProductAd: React.FC<NativeProductAdProps> = ({
                 if (slotToDestroy) {
                     window.googletag.destroySlots([slotToDestroy]);
                 }
-                definedNativeSlots.delete(slotId);
+                if (ownsNativeSlot) {
+                    definedNativeSlots.delete(slotId);
+                }
                 slotRef.current = null;
             });
         };
