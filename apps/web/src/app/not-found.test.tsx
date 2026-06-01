@@ -18,17 +18,14 @@ vi.mock('next/link', () => ({
   ),
 }));
 
-vi.mock('@/components/logo', () => ({
-  Logo: () => <span>Baci</span>,
-}));
-
 describe('NotFound', () => {
-  it('renders the recovery heading', () => {
+  it('renders the 404 status and page heading', () => {
     render(<NotFound />);
 
+    expect(screen.getByText('404')).toBeInTheDocument();
     expect(
       screen.getByRole('heading', {
-        name: /looks like you've ventured off the map/i,
+        name: /page not found/i,
       })
     ).toBeInTheDocument();
   });
@@ -54,5 +51,13 @@ describe('NotFound', () => {
     expect(
       screen.getByRole('link', { name: /contact support/i })
     ).toHaveAttribute('href', '/contact');
+  });
+
+  it('exposes the labelled section as a region', () => {
+    render(<NotFound />);
+
+    expect(
+      screen.getByRole('region', { name: /page not found/i })
+    ).toBeInTheDocument();
   });
 });
