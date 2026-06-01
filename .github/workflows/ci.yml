@@ -74,6 +74,8 @@ jobs:
               - 'biome.json'
               - '.npmrc'
               - 'pnpm-workspace.yaml'
+            # Root Next config changes affect the web app even when apps/web/**
+            # is untouched; keep them in the web quality-gate filter.
             web:
               - 'apps/web/**'
               - 'apps/mobile-storefront/assets/quiz/**'
@@ -89,6 +91,8 @@ jobs:
               - 'apps/mobile-storefront/stores/**'
               - 'apps/mobile-storefront/package.json'
               - 'packages/shared/**'
+              - 'next.config.ts'
+              - 'next.config.test.ts'
               - '.github/actions/pnpm-install-cached/**'
               - '.github/actions/setup-pnpm-store/**'
               - '.github/workflows/ci.yml'

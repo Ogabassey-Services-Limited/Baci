@@ -12,6 +12,9 @@ on:
     paths:
       - "apps/web/package.json"
       - "pnpm-lock.yaml"
+      # The root config is still a Next config entrypoint in this repo; changes
+      # can alter web rendering and bundle output without touching apps/web/**.
+      - "next.config.ts"
       - "apps/web/next.config.ts"
 
 jobs:
