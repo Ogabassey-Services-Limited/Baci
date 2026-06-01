@@ -3,8 +3,8 @@
 ## Final Branch State
 - Isolated worktree: `/Users/mac/Baci-app/.worktrees/web-zod-v4-migration`.
 - Branch: `codex/web-zod-v4-migration`.
-- Final verified base before PR push: `origin/main` at `16b82c616e` (`fix(mobile-admin): use zod 4 string formats (#2202)`).
-- Rebase onto the final base completed cleanly after the first draft PR push.
+- Final verified base before PR push: `origin/main` at `1528e302bc` (`test(mobile-admin): stabilize expenses monthly total test (#2210)`).
+- Rebases onto updated `main` completed cleanly after the first draft PR push. A duplicate local mobile-admin test stabilization commit was skipped after `#2210` landed on `main`, keeping this PR focused on the web Zod migration.
 - Protected-file check after rebase found no `apps/web/src/proxy.ts` or `supabase/migrations/*` changes.
 
 ## Dependency Graph
@@ -81,7 +81,11 @@
 - `cd packages/shared && node ../../node_modules/vitest/vitest.mjs run`: passed, 46 files and 395 tests.
 - `cd apps/web && node ../../node_modules/typescript/bin/tsc --noEmit`: passed.
 - `cd apps/web && ./node_modules/@biomejs/cli-darwin-arm64/biome check .`: passed, 3110 files checked.
-- `cd apps/web && node ../../node_modules/vitest/vitest.mjs run`: passed, 1440 files passed, 1 skipped; 11666 tests passed, 1 todo.
+- `cd apps/web && node ../../node_modules/vitest/vitest.mjs run --shard=1/4 --maxWorkers=2`: passed, 361 files and 3074 tests.
+- `cd apps/web && node ../../node_modules/vitest/vitest.mjs run --shard=2/4 --maxWorkers=1`: passed, 360 files and 2903 tests.
+- `cd apps/web && node ../../node_modules/vitest/vitest.mjs run --shard=3/4 --maxWorkers=1`: passed, 360 files and 2753 tests.
+- `cd apps/web && node ../../node_modules/vitest/vitest.mjs run --shard=4/4 --maxWorkers=1`: passed, 359 files passed, 1 skipped; 2936 tests passed, 1 todo.
+- Combined web shard coverage: 1440 files passed, 1 skipped; 11666 tests passed, 1 todo.
 - `git diff --check`: passed.
 - `git diff --name-only origin/main...HEAD | rg '(^|/)proxy\.ts$|^supabase/migrations/' || true`: passed with no protected-file matches.
 
