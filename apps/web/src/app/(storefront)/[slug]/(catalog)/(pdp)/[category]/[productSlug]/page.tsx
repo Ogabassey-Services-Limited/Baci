@@ -413,6 +413,7 @@ interface LcpRouteProduct {
   category_slug?: string;
   condition?: string;
   compare_at_price?: number | null;
+  description?: string | null;
   id: string;
   image?: string;
   imageLarge?: string;
@@ -599,6 +600,9 @@ function mapCachedProductLcpHintToRouteProduct(
   const primaryImage =
     typeof firstImage === 'string' ? firstImage : (firstImage?.url ?? '');
   const legacyPrices = getLcpRouteLegacyPrices(cachedProduct);
+  const manageStock = cachedProduct.manage_stock ?? true;
+  const stockQuantity = parseRouteProductNumber(cachedProduct.stock_quantity);
+  const canUseDenormalizedVariantPrices = manageStock === false;
 
   return {
     base_price: legacyPrices.basePrice,
@@ -609,22 +613,27 @@ function mapCachedProductLcpHintToRouteProduct(
     category_slug: primaryCategory?.slug,
     condition: cachedProduct.condition ?? undefined,
     compare_at_price: legacyPrices.compareAtPrice,
+    description: cachedProduct.description,
     id: cachedProduct.id,
     image: primaryImage,
     imageLarge: primaryImage,
     keywords: cachedProduct.keywords,
-    manage_stock: cachedProduct.manage_stock,
-    max_variant_price: parseRouteProductNumber(cachedProduct.max_variant_price),
+    manage_stock: manageStock,
+    max_variant_price: canUseDenormalizedVariantPrices
+      ? parseRouteProductNumber(cachedProduct.max_variant_price)
+      : null,
     meta_description: cachedProduct.meta_description,
     meta_title: cachedProduct.meta_title,
-    min_variant_price: parseRouteProductNumber(cachedProduct.min_variant_price),
+    min_variant_price: canUseDenormalizedVariantPrices
+      ? parseRouteProductNumber(cachedProduct.min_variant_price)
+      : null,
     name: cachedProduct.name,
     offers: mapCachedProductLcpOffers(cachedProduct),
     price: legacyPrices.price,
     sale_price: legacyPrices.salePrice,
     schema_markup: cachedProduct.schema_markup,
     slug: cachedProduct.slug ?? cachedProduct.id,
-    stock_quantity: cachedProduct.stock_quantity,
+    stock_quantity: stockQuantity,
   };
 }
 
@@ -855,7 +864,7 @@ function buildCategoryProductMetadata(
     country: merchant.country,
   });
   const seoDescription = generateMetaDescription(
-    product.meta_description || priceSeoCopy.description,
+    product.meta_description || product.description || priceSeoCopy.description,
     160,
     {
       minLength: 110,
