@@ -12,6 +12,10 @@ const keyboardProps = vi.hoisted(() => ({
   scrollEnabled: true,
 }));
 
+function Text({ children }: { children?: ReactNode }) {
+  return <span>{children}</span>;
+}
+
 vi.mock('@/components/ui/AppKeyboardContainer', () => ({
   AppKeyboardContainer: ({
     align,
@@ -62,10 +66,10 @@ describe('AppFormScreen', () => {
   it('renders the safe-area shell, optional header, and content', () => {
     render(
       <AppFormScreen
-        footer={<div>Footer content</div>}
-        header={<div>Header content</div>}
+        footer={<Text>Footer content</Text>}
+        header={<Text>Header content</Text>}
       >
-        <div>Form content</div>
+        <Text>Form content</Text>
       </AppFormScreen>
     );
 
@@ -86,7 +90,7 @@ describe('AppFormScreen', () => {
         keyboardVerticalOffset={64}
         scrollEnabled={false}
       >
-        <div>Configured content</div>
+        <Text>Configured content</Text>
       </AppFormScreen>
     );
 

@@ -10,7 +10,14 @@ import { enrichMerchantReviewAuthority } from '@/lib/storefront-trust/enrich-mer
 
 const AGENT_TRUST_SCHEMA_VERSION = '2026-05-20';
 const ROOT_DOMAIN = (getRootDomain() || 'usebaci.com').toLowerCase();
-const AGENT_TRUST_CACHE_CONTROL = 'public, max-age=300';
+const AGENT_TRUST_CACHE_CONTROL = 'public, max-age=60';
+const AGENT_TRUST_CDN_CACHE_CONTROL =
+  'public, s-maxage=300, stale-while-revalidate=3600';
+
+// Cold agent-trust misses build feed parity and review signals; keep the
+// machine-readable route within Vercel's documented function-duration config
+// instead of letting crawlers hit the platform's 15s default timeout.
+export const maxDuration = 60;
 
 export async function GET(request: Request) {
   const merchantResolution = await resolveStorefrontMerchantFromRequest({
@@ -64,6 +71,7 @@ export async function GET(request: Request) {
       {
         headers: {
           'Cache-Control': AGENT_TRUST_CACHE_CONTROL,
+          'Vercel-CDN-Cache-Control': AGENT_TRUST_CDN_CACHE_CONTROL,
         },
       }
     );

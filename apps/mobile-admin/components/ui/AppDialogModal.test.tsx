@@ -4,6 +4,10 @@ import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { AppDialogModal } from '@/components/ui/AppDialogModal';
 
+function Text({ children }: { children?: ReactNode }) {
+  return <span>{children}</span>;
+}
+
 vi.mock('@/components/ui/AppKeyboardContainer', () => ({
   AppKeyboardContainer: ({ children }: { children?: ReactNode }) => (
     <section aria-label="dialog-keyboard-shell">{children}</section>
@@ -53,7 +57,7 @@ describe('AppDialogModal', () => {
   it('renders children inside the shared dialog shell when visible', () => {
     render(
       <AppDialogModal onClose={vi.fn()} visible={true}>
-        <div>Dialog content</div>
+        <Text>Dialog content</Text>
       </AppDialogModal>
     );
 
@@ -66,7 +70,7 @@ describe('AppDialogModal', () => {
 
     render(
       <AppDialogModal onClose={onClose} visible={true}>
-        <div>Dismiss me</div>
+        <Text>Dismiss me</Text>
       </AppDialogModal>
     );
 
@@ -84,7 +88,7 @@ describe('AppDialogModal', () => {
         onClose={onClose}
         visible={true}
       >
-        <div>Persistent dialog</div>
+        <Text>Persistent dialog</Text>
       </AppDialogModal>
     );
 
@@ -96,7 +100,7 @@ describe('AppDialogModal', () => {
   it('does not render content when hidden', () => {
     render(
       <AppDialogModal onClose={vi.fn()} visible={false}>
-        <div>Should not appear</div>
+        <Text>Should not appear</Text>
       </AppDialogModal>
     );
 
@@ -109,7 +113,7 @@ describe('AppDialogModal', () => {
 
     render(
       <AppDialogModal keyboardAware onClose={onClose} visible={true}>
-        <div>Keyboard dialog</div>
+        <Text>Keyboard dialog</Text>
       </AppDialogModal>
     );
 
