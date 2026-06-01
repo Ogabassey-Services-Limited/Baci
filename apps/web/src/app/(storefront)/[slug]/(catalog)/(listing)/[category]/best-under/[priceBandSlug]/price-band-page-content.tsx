@@ -6,8 +6,12 @@ import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import { buildPriceBandPageSchemas } from '@/lib/storefront-compare/compare-schema';
 import { loadPriceBandPage } from '@/lib/storefront-compare/load-price-band-page';
 
+type LoadedPriceBandPage = NonNullable<
+  Awaited<ReturnType<typeof loadPriceBandPage>>
+>;
+
 interface PriceBandPageContentProps {
-  page?: NonNullable<Awaited<ReturnType<typeof loadPriceBandPage>>>;
+  page?: LoadedPriceBandPage | null;
   params?: Promise<{
     slug: string;
     category: string;
@@ -16,9 +20,7 @@ interface PriceBandPageContentProps {
 }
 
 function toProductIndexCardModel(
-  product: NonNullable<
-    Awaited<ReturnType<typeof loadPriceBandPage>>
-  >['products'][number]
+  product: LoadedPriceBandPage['products'][number]
 ): NormalizedProduct {
   return {
     id: product.id,
