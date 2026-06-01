@@ -1,13 +1,12 @@
-import { getCachedGoogleMerchantFeedData } from '@/app/api/feed/google-merchant/feed-data';
-import { getCachedOpenAIFeedData } from '@/app/api/feed/openai/feed-data';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { AGENT_COMMERCE_FEED_FRESHNESS } from '@/lib/agent-commerce-feed-freshness';
 import { logger } from '@/lib/logger';
 import type { AgenticAction } from '@/schemas/agentic-action-health';
+import { getAgentCommerceFeedHealthSnapshot } from './agent-commerce-feed-health-snapshot';
 
 export type AgentCommerceFeedHealthStatus = 'attention' | 'monitor' | 'ok';
 
 export type AgentCommerceFeedHealthIssueCode =
-  | 'feed_catalog_drift'
   | 'feed_empty'
   | 'feed_generation_failed'
   | 'feed_stale';
@@ -34,6 +33,7 @@ interface CheckAgentCommerceFeedHealthInput {
   merchantId: string;
   now?: Date;
   slug: string;
+  supabase?: SupabaseClient;
 }
 
 function getStatus(
@@ -65,42 +65,6 @@ function getLatestUpdatedAt(
   return latest?.toISOString() ?? null;
 }
 
-function countCatalogDrift({
-  googleProductIds,
-  openAiProductIds,
-}: {
-  googleProductIds: Set<string>;
-  openAiProductIds: Set<string>;
-}) {
-  let driftCount = 0;
-
-  for (const productId of openAiProductIds) {
-    if (!googleProductIds.has(productId)) driftCount += 1;
-  }
-
-  for (const productId of googleProductIds) {
-    if (!openAiProductIds.has(productId)) driftCount += 1;
-  }
-
-  return driftCount;
-}
-
-function countSharedProducts({
-  googleProductIds,
-  openAiProductIds,
-}: {
-  googleProductIds: Set<string>;
-  openAiProductIds: Set<string>;
-}) {
-  let sharedCount = 0;
-
-  for (const productId of openAiProductIds) {
-    if (googleProductIds.has(productId)) sharedCount += 1;
-  }
-
-  return sharedCount;
-}
-
 function assertNeverIssueCode(code: never): never {
   throw new Error(`Unexpected feed health issue code: ${code}`);
 }
@@ -109,51 +73,30 @@ export async function checkAgentCommerceFeedHealth({
   merchantId,
   now = new Date(),
   slug,
+  supabase,
 }: CheckAgentCommerceFeedHealthInput): Promise<AgentCommerceFeedHealthResult> {
   try {
-    const [openAiFeedData, googleFeedData] = await Promise.all([
-      getCachedOpenAIFeedData(merchantId),
-      getCachedGoogleMerchantFeedData(merchantId, slug),
-    ]);
-    const openAiProductIds = new Set(
-      openAiFeedData.products.map((product) => product.id)
-    );
-    const googleProductIds = new Set(
-      googleFeedData.products.map((product) => product.id)
-    );
-    const catalogDriftCount = countCatalogDrift({
-      googleProductIds,
-      openAiProductIds,
-    });
+    const { googleProducts, openAiProducts } =
+      await getAgentCommerceFeedHealthSnapshot({
+        merchantId,
+        supabase,
+      });
     const staleProductCount = AGENT_COMMERCE_FEED_FRESHNESS.countStaleProducts({
       now,
-      products: openAiFeedData.products,
+      products: openAiProducts,
     });
     const productsMissingTimestamps =
       AGENT_COMMERCE_FEED_FRESHNESS.countProductsMissingTimestamps(
-        openAiFeedData.products
+        openAiProducts
       );
     const hasAcceptableFreshnessCoverage =
       AGENT_COMMERCE_FEED_FRESHNESS.hasCurrentProductCoverage({
         staleProducts: staleProductCount,
-        totalProducts: openAiFeedData.products.length,
+        totalProducts: openAiProducts.length,
       });
     const issues: AgentCommerceFeedHealthIssue[] = [];
 
-    if (catalogDriftCount > 0) {
-      issues.push({
-        code: 'feed_catalog_drift',
-        count: catalogDriftCount,
-        message:
-          'OpenAI and Google Merchant feeds expose different active product sets.',
-        severity: 'attention',
-      });
-    }
-
-    if (
-      openAiFeedData.products.length === 0 &&
-      googleFeedData.products.length === 0
-    ) {
+    if (openAiProducts.length === 0 && googleProducts.length === 0) {
       issues.push({
         code: 'feed_empty',
         count: 1,
@@ -189,15 +132,14 @@ export async function checkAgentCommerceFeedHealth({
     }
 
     return {
-      google_product_count: googleFeedData.products.length,
+      google_product_count: googleProducts.length,
       issue_count: issues.length,
       issues,
-      latest_product_updated_at: getLatestUpdatedAt(openAiFeedData.products),
-      openai_product_count: openAiFeedData.products.length,
-      shared_product_count: countSharedProducts({
-        googleProductIds,
-        openAiProductIds,
-      }),
+      latest_product_updated_at: getLatestUpdatedAt(openAiProducts),
+      openai_product_count: openAiProducts.length,
+      // The lightweight cron snapshot intentionally uses one active-product
+      // query for both feed surfaces; full feed parity is monitored elsewhere.
+      shared_product_count: openAiProducts.length,
       stale_product_count: staleProductCount,
       status: getStatus(issues),
     };
@@ -237,16 +179,6 @@ export function buildAgentCommerceFeedHealthActions(
 ): AgenticAction[] {
   return feeds.issues.map((issue): AgenticAction => {
     switch (issue.code) {
-      case 'feed_catalog_drift':
-        return {
-          code: 'AGENTIC_FEED_CATALOG_DRIFT',
-          count: issue.count,
-          message: issue.message,
-          next_step:
-            'Compare OpenAI and Google Merchant feed product IDs, then refresh or publish any missing products.',
-          next_step_url: '/dashboard/products',
-          severity: issue.severity,
-        };
       case 'feed_empty':
         return {
           code: 'AGENTIC_FEED_EMPTY',
