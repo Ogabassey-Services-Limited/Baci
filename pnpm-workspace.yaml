@@ -1,5 +1,5 @@
 minimumReleaseAge: 0
-trustPolicy: no-downgrade
+# trustPolicy: check
 
 
 # Workspace linkers & hoisting configurations for React Native/Expo in pnpm v11
