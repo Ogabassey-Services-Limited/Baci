@@ -40,7 +40,7 @@ env:
 jobs:
   build-and-deploy:
     name: Build AAB & Upload to Play Store
-    runs-on: ubuntu-24.04
+    runs-on: baci-android
     timeout-minutes: 90
 
     steps:
@@ -76,15 +76,8 @@ jobs:
         with:
           store-dir: ${{ env.PNPM_STORE_DIR }}
 
-      - name: Cache Gradle packages
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-${{ runner.arch }}-mobile-admin-gradle-${{ hashFiles('pnpm-lock.yaml', 'apps/mobile-admin/package.json', 'apps/mobile-admin/android/build.gradle', 'apps/mobile-admin/android/settings.gradle', 'apps/mobile-admin/android/gradle.properties', 'apps/mobile-admin/android/app/build.gradle', 'apps/mobile-admin/android/gradle/wrapper/gradle-wrapper.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ runner.arch }}-mobile-admin-gradle-
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
 
       - name: Install dependencies
         uses: ./.github/actions/pnpm-install-cached
