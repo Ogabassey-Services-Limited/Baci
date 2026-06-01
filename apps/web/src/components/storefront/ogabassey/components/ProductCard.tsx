@@ -34,12 +34,16 @@ function stripHtml(html: string): string {
   return result;
 }
 
+function trimString(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
 function getImagePayloadAlt(product: Product): string {
   if (!Array.isArray(product.images)) {
     return '';
   }
 
-  const primaryImageUrl = product.image.trim();
+  const primaryImageUrl = trimString(product.image);
 
   for (const image of product.images as unknown[]) {
     if (!image || typeof image !== 'object') {
@@ -64,22 +68,22 @@ function getImagePayloadAlt(product: Product): string {
 
 function getProductImageAlt(product: Product): string {
   const explicitAlt =
-    product.seo_alt_text?.trim() ||
-    product.image_alt?.trim() ||
+    trimString(product.seo_alt_text) ||
+    trimString(product.image_alt) ||
     getImagePayloadAlt(product);
 
   if (explicitAlt) {
     return explicitAlt;
   }
 
-  const name = product.name.trim();
-  const brand = product.brand?.trim();
+  const name = trimString(product.name);
+  const brand = trimString(product.brand);
 
   if (brand && !name.toLowerCase().includes(brand.toLowerCase())) {
     return `${brand} ${name}`;
   }
 
-  return name;
+  return name || 'Product image';
 }
 
 interface ProductCardProps {

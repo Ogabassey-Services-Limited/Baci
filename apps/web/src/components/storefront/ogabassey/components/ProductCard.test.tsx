@@ -203,6 +203,36 @@ describe('ProductCard', () => {
     ).toBeInTheDocument();
   });
 
+  it('safely falls back when product image metadata is nullish at runtime', () => {
+    render(
+      <ProductCard
+        product={
+          {
+            ...mockProduct,
+            name: null,
+            image: null,
+            image_alt: null,
+            seo_alt_text: null,
+            images: [
+              {
+                url: null,
+                alt: null,
+              },
+            ],
+          } as unknown as typeof mockProduct
+        }
+        onAddToCart={vi.fn()}
+        isAdded={false}
+      />
+    );
+
+    expect(
+      screen.getByRole('img', {
+        name: 'Product image',
+      })
+    ).toBeInTheDocument();
+  });
+
   it('links SKU-matrix products to option selection instead of quick-adding', () => {
     const onAddToCart = vi.fn();
 

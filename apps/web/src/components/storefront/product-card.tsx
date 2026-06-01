@@ -49,13 +49,43 @@ function buildStorefrontProductHref(
   return `/${merchantSlug}${normalizedPath}` as Route;
 }
 
+function trimString(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function getImagePayloadUrl(image: unknown): string {
+  if (typeof image === 'string') {
+    return trimString(image);
+  }
+
+  if (!image || typeof image !== 'object') {
+    return '';
+  }
+
+  return trimString((image as { url?: unknown }).url);
+}
+
+function getImagePayloadAlt(image: unknown): string {
+  if (!image || typeof image !== 'object') {
+    return '';
+  }
+
+  return trimString((image as { alt?: unknown }).alt);
+}
+
 function getRenderedProductImageAlt(product: Product): string {
-  const renderedImageUrl = (product.imageLarge || product.image || '').trim();
+  const renderedImageUrl = trimString(product.imageLarge || product.image);
   const matchingImage = product.images?.find(
-    (image) => image.url.trim() === renderedImageUrl
+    (image) =>
+      getImagePayloadUrl(image) === renderedImageUrl &&
+      getImagePayloadAlt(image)
   );
 
-  return matchingImage?.alt.trim() || product.name;
+  return (
+    getImagePayloadAlt(matchingImage) ||
+    trimString(product.name) ||
+    'Product image'
+  );
 }
 
 /**
@@ -147,7 +177,7 @@ export function StorefrontProductCard({
         <Link
           href={buildStorefrontProductHref(product, merchantSlug)}
           className="block"
-          aria-label={product.name}
+          aria-label={productImageAlt}
         >
           <ProductCardImage
             src={product.imageLarge}

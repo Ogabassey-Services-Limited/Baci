@@ -106,6 +106,23 @@ describe('HomeProductGridCard', () => {
     expect(screen.getByAltText(baseProduct.name)).toBeInTheDocument();
   });
 
+  it('uses mapped product image alt text for rendered home feed cards', () => {
+    render(
+      <HomeProductGridCard
+        product={{
+          ...baseProduct,
+          image_alt: 'Black titanium iPhone angled product photo',
+        }}
+      />
+    );
+
+    expect(
+      screen.getByRole('img', {
+        name: 'Black titanium iPhone angled product photo',
+      })
+    ).toBeInTheDocument();
+  });
+
   it('renders lazy product images without hidden styles after activation', () => {
     render(<HomeProductGridCard product={baseProduct} deferImageLoading={true} />);
 

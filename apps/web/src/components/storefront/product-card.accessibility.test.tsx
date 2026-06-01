@@ -127,7 +127,7 @@ describe('StorefrontProductCard accessibility', () => {
     ).toBeInTheDocument();
   });
 
-  it('keeps the product image link named by the product', () => {
+  it('keeps the product image link named by the rendered image alt', () => {
     render(
       <StorefrontProductCard
         product={{
@@ -149,7 +149,7 @@ describe('StorefrontProductCard accessibility', () => {
 
     expect(
       screen.getByRole('link', {
-        name: mockProduct.name,
+        name: 'Front view on white background',
       })
     ).toHaveAttribute('href', '/product/test');
     expect(
@@ -189,6 +189,35 @@ describe('StorefrontProductCard accessibility', () => {
     expect(
       screen.getByRole('img', {
         name: 'Rendered large product image',
+      })
+    ).toBeInTheDocument();
+  });
+
+  it('guards legacy image entries before matching rendered alt text', () => {
+    render(
+      <StorefrontProductCard
+        product={{
+          ...mockProduct,
+          images: [
+            'img-large.jpg',
+            null,
+            {
+              url: 'img-large.jpg',
+              alt: 'Legacy-safe product angle',
+              order: 1,
+            },
+          ] as unknown as Product['images'],
+        }}
+        staggerClass=""
+        onAddToCart={mockAddToCart}
+        onUpdateQuantity={mockUpdateQuantity}
+        onQuickView={mockQuickView}
+      />
+    );
+
+    expect(
+      screen.getByRole('img', {
+        name: 'Legacy-safe product angle',
       })
     ).toBeInTheDocument();
   });
@@ -243,6 +272,38 @@ describe('StorefrontProductCard accessibility', () => {
     expect(
       screen.getByRole('img', {
         name: mockProduct.name,
+      })
+    ).toBeInTheDocument();
+  });
+
+  it('safely falls back when image payload fields are nullish at runtime', () => {
+    render(
+      <StorefrontProductCard
+        product={
+          {
+            ...mockProduct,
+            image: null,
+            imageLarge: null,
+            name: null,
+            images: [
+              {
+                url: null,
+                alt: null,
+                order: 0,
+              },
+            ],
+          } as unknown as Product
+        }
+        staggerClass=""
+        onAddToCart={mockAddToCart}
+        onUpdateQuantity={mockUpdateQuantity}
+        onQuickView={mockQuickView}
+      />
+    );
+
+    expect(
+      screen.getByRole('img', {
+        name: 'Product image',
       })
     ).toBeInTheDocument();
   });
