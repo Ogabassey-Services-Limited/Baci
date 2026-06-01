@@ -3,7 +3,7 @@
 ## Final Branch State
 - Isolated worktree: `/Users/mac/Baci-app/.worktrees/web-zod-v4-migration`.
 - Branch: `codex/web-zod-v4-migration`.
-- Final verified base before PR push: `origin/main` at `1528e302bc` (`test(mobile-admin): stabilize expenses monthly total test (#2210)`).
+- Final verified base before PR push: `origin/main` at `f39994e25f` (`perf(storefront): reduce OgaBassey PDP mobile image payload`).
 - Rebases onto updated `main` completed cleanly after the first draft PR push. A duplicate local mobile-admin test stabilization commit was skipped after `#2210` landed on `main`, keeping this PR focused on the web Zod migration.
 - Protected-file check after rebase found no `apps/web/src/proxy.ts` or `supabase/migrations/*` changes.
 
@@ -86,6 +86,7 @@
 - `cd apps/web && node ../../node_modules/vitest/vitest.mjs run --shard=3/4 --maxWorkers=1`: passed, 360 files and 2753 tests.
 - `cd apps/web && node ../../node_modules/vitest/vitest.mjs run --shard=4/4 --maxWorkers=1`: passed, 359 files passed, 1 skipped; 2936 tests passed, 1 todo.
 - Combined web shard coverage: 1440 files passed, 1 skipped; 11666 tests passed, 1 todo.
+- After rebasing onto `f39994e25f`, `pnpm install --frozen-lockfile --prefer-offline`, web typecheck, web Biome, shared typecheck/test, and the added upstream OgaBassey image-focused web tests passed before push.
 - `git diff --check`: passed.
 - `git diff --name-only origin/main...HEAD | rg '(^|/)proxy\.ts$|^supabase/migrations/' || true`: passed with no protected-file matches.
 
