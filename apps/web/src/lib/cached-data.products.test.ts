@@ -107,6 +107,7 @@ describe('cached-data product query projections', () => {
     const selectArg = String(harness.mockSelect.mock.calls.at(-1)?.[0]);
     expect(selectArg).toContain('brand');
     expect(selectArg).toContain('condition');
+    expect(selectArg).toContain('description');
     expect(selectArg).toContain('id');
     expect(selectArg).toContain('name');
     expect(selectArg).toContain('slug');
@@ -125,7 +126,6 @@ describe('cached-data product query projections', () => {
     expect(selectArg).toContain('stock_quantity');
     expect(selectArg).toContain('categories:category_id');
     expect(selectArg).toContain('product_categories');
-    expect(selectArg).not.toMatch(/(?:^|[\s,])description\s*(?:,|\n|$)/);
     expect(selectArg).not.toContain('specifications');
     expect(selectArg).not.toContain('review_count');
     expect(selectArg).not.toContain('product_variants');

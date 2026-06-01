@@ -863,14 +863,17 @@ function buildCategoryProductMetadata(
     currency,
     country: merchant.country,
   });
-  const seoDescription = generateMetaDescription(
-    product.meta_description || product.description || priceSeoCopy.description,
-    160,
-    {
-      minLength: 110,
-      fallback: priceSeoCopy.description,
-    }
-  );
+  const productDescriptionFallback =
+    product.description || priceSeoCopy.description;
+  const seoDescriptionSource =
+    product.meta_description ||
+    (priceSeoCopy.priceText
+      ? priceSeoCopy.description
+      : productDescriptionFallback);
+  const seoDescription = generateMetaDescription(seoDescriptionSource, 160, {
+    minLength: 110,
+    fallback: productDescriptionFallback,
+  });
   const socialMetadata = getStorefrontProductSocialMetadata(
     baseUrl,
     product,

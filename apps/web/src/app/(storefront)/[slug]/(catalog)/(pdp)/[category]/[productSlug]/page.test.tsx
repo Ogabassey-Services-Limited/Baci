@@ -746,6 +746,49 @@ describe('[category]/[productSlug] page metadata', () => {
     });
   });
 
+  it('uses the LCP hint description as the SEO fallback without full hydration', async () => {
+    mockGetCachedProductLcpHint.mockResolvedValueOnce({
+      id: 'prod-1',
+      name: 'HP Laptop 14-ep0063nia',
+      slug: 'hp-laptop-14-ep0063nia',
+      canonical_url: null,
+      brand: 'HP',
+      category: 'Laptops',
+      categories: {
+        id: 'cat-1',
+        name: 'Laptops',
+        slug: 'laptops',
+      },
+      condition: 'new',
+      description:
+        '<p>HP Laptop 14-ep0063nia with reliable warranty and fast delivery.</p>',
+      manage_stock: false,
+      price: null,
+      stock_quantity: 10,
+      meta_description: null,
+      keywords: [],
+      images: ['https://cdn.example.com/products/hp-laptop.png'],
+      schema_markup: null,
+      product_categories: [],
+    });
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: 'teststore',
+        category: 'laptops',
+        productSlug: 'hp-laptop-14-ep0063nia',
+      }),
+      searchParams: Promise.resolve({}),
+    });
+
+    expect(mockGetCachedProductWithDetails).not.toHaveBeenCalled();
+    expect(metadata.description).toBe(
+      'HP Laptop 14-ep0063nia with reliable warranty and fast delivery.'
+    );
+    expect(metadata.openGraph?.description).toBe(metadata.description);
+    expect(metadata.twitter?.description).toBe(metadata.description);
+  });
+
   it('does not advertise blank LCP hint prices as zero-price products', async () => {
     mockGetCachedProductLcpHint.mockResolvedValueOnce({
       id: 'prod-1',

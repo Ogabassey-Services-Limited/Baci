@@ -936,6 +936,7 @@ export interface CachedProductLcpHint {
     | null;
   condition?: string | null;
   compare_at_price?: number | string | null;
+  description?: string | null;
   id: string;
   images?: Array<
     | string
@@ -1014,6 +1015,7 @@ export async function getCachedProductLcpHint(
         min_variant_price,
         max_variant_price,
         condition,
+        description,
         manage_stock,
         stock_quantity,
         category,
