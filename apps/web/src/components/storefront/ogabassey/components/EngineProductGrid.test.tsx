@@ -3,9 +3,16 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Product } from '@/lib/products';
 
-vi.mock('@baci/shared', () => ({
-  prioritizeSmartphoneProducts: vi.fn((products: unknown[]) => products),
-}));
+vi.mock('@baci/shared', async () => {
+  const actual = await vi.importActual<typeof import('@baci/shared')>(
+    '@baci/shared'
+  );
+
+  return {
+    ...actual,
+    prioritizeSmartphoneProducts: vi.fn((products: unknown[]) => products),
+  };
+});
 
 vi.mock('next/link', () => ({
   default: ({
@@ -105,12 +112,14 @@ vi.mock('./ProductGridItem', () => ({
       name: string;
       condition?: string;
       has_variants?: boolean;
+      image_alt?: string;
       variant_model?: string;
     };
   }) => (
     <article
       data-condition={product.condition ?? ''}
       data-has-variants={String(product.has_variants ?? false)}
+      data-image-alt={product.image_alt ?? ''}
       data-variant-model={product.variant_model ?? ''}
     >
       {product.name}
@@ -239,6 +248,31 @@ describe('EngineProductGrid', () => {
     expect(screen.getByRole('article')).toHaveAttribute(
       'data-variant-model',
       'sku_matrix'
+    );
+  });
+
+  it('passes mapped primary image alt text into rendered product cards', () => {
+    render(
+      <EngineProductGrid
+        externalProducts={[
+          createTestProduct({
+            id: 'phone-1',
+            image: '/front.jpg',
+            images: [
+              { url: '/front.jpg', alt: 'Front view', order: 0 },
+              { url: '/back.jpg', alt: 'Back view', order: 1 },
+            ],
+            name: 'iPhone 16',
+            stock: 4,
+          }),
+        ]}
+        categories={[]}
+      />
+    );
+
+    expect(screen.getByRole('article')).toHaveAttribute(
+      'data-image-alt',
+      'Front view'
     );
   });
 

@@ -111,4 +111,24 @@ describe('ProductListItem', () => {
     ).not.toBeInTheDocument();
     expect(onAddToCart).not.toHaveBeenCalled();
   });
+
+  it('uses explicit mapped alt text for the rendered list image', () => {
+    render(
+      <ProductListItem
+        basePath="/ogabassey"
+        product={{
+          ...baseProduct,
+          image_alt: 'Merchant-provided laptop angle',
+        }}
+        onAddToCart={vi.fn()}
+        isAdded={false}
+        isWishlisted={false}
+        onToggleWishlist={vi.fn()}
+      />
+    );
+
+    expect(
+      screen.getByAltText('Merchant-provided laptop angle')
+    ).toBeInTheDocument();
+  });
 });

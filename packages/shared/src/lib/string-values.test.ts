@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { getFirstNonBlankString } from './string-values';
+import { getFirstNonBlankString, trimString } from './string-values';
+
+describe('trimString', () => {
+  it('returns trimmed strings and empty text for non-strings', () => {
+    expect(trimString('  SN-123  ')).toBe('SN-123');
+    expect(trimString(null)).toBe('');
+    expect(trimString(123)).toBe('');
+  });
+});
 
 describe('getFirstNonBlankString', () => {
   it('returns the first trimmed nonblank string', () => {

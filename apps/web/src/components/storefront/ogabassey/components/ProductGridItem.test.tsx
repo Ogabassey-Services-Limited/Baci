@@ -217,4 +217,23 @@ describe('ProductGridItem', () => {
 
     expect(screen.getByAltText(baseProduct.name)).toBeInTheDocument();
   });
+
+  it('uses explicit mapped alt text for the rendered grid image', () => {
+    render(
+      <ProductGridItem
+        product={{
+          ...baseProduct,
+          image_alt: 'Merchant-provided front view',
+        }}
+        onAddToCart={vi.fn()}
+        isAdded={false}
+        isWishlisted={false}
+        onToggleWishlist={vi.fn()}
+      />
+    );
+
+    expect(
+      screen.getByAltText('Merchant-provided front view')
+    ).toBeInTheDocument();
+  });
 });

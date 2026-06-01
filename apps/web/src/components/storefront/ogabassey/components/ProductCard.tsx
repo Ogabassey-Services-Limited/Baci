@@ -1,11 +1,11 @@
 'use client';
 
 import { ArrowRightLeft, Heart, ShoppingCart, Star } from 'lucide-react';
-import { getFirstNonBlankString } from '@baci/shared/lib';
 // Migrated from temp-source/components/ProductCard.tsx
 import Link from 'next/link';
 import Image from 'next/image';
 import React, { useState } from 'react';
+import { getProductImageAlt } from '@baci/shared';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { asRoute } from '@/lib/routes';
 import { getProductUrl } from '@/lib/seo-utils';
@@ -33,54 +33,6 @@ function stripHtml(html: string): string {
     result = result.replace(/<[^>]*>/g, '');
   }
   return result;
-}
-
-function getImagePayloadAlt(product: Product): string {
-  if (!Array.isArray(product.images)) {
-    return '';
-  }
-
-  const primaryImageUrl = getFirstNonBlankString(product.image);
-
-  for (const image of product.images as unknown[]) {
-    if (!image || typeof image !== 'object') {
-      continue;
-    }
-
-    const candidate = image as Record<string, unknown>;
-    const url = getFirstNonBlankString(candidate.url);
-
-    if (primaryImageUrl && url && url !== primaryImageUrl) {
-      continue;
-    }
-
-    const alt = getFirstNonBlankString(candidate.alt);
-    if (alt) {
-      return alt;
-    }
-  }
-
-  return '';
-}
-
-function getProductImageAlt(product: Product): string {
-  const explicitAlt =
-    getFirstNonBlankString(product.seo_alt_text) ||
-    getFirstNonBlankString(product.image_alt) ||
-    getImagePayloadAlt(product);
-
-  if (explicitAlt) {
-    return explicitAlt;
-  }
-
-  const name = getFirstNonBlankString(product.name);
-  const brand = getFirstNonBlankString(product.brand);
-
-  if (brand && !name.toLowerCase().includes(brand.toLowerCase())) {
-    return `${brand} ${name}`;
-  }
-
-  return name || 'Product image';
 }
 
 interface ProductCardProps {

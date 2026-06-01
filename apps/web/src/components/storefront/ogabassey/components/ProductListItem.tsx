@@ -13,6 +13,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import type React from 'react';
 import { useEffect, useState } from 'react';
+import { getProductImageAlt } from '@baci/shared';
 import type { Product } from '../types';
 import { getProductUrl } from '@/lib/seo-utils';
 import { asRoute } from '@/lib/routes';
@@ -61,6 +62,9 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
   // Determine current image with fallback
   const currentImage =
     product.images?.[activeColorIndex] || product.image || PLACEHOLDER_IMAGE;
+  const currentImageAlt = getProductImageAlt(product, {
+    renderedImageUrl: currentImage,
+  });
   const productHref = asRoute(
     `${basePath}${getProductUrl({ ...product, id: String(product.id) })}`
   );
@@ -138,7 +142,7 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
         <div className="relative w-3/4 h-3/4 z-10 transition-all duration-500 md:group-hover:scale-110">
           <Image
             src={currentImage}
-            alt={product.name}
+            alt={currentImageAlt}
             fill
             sizes="(max-width: 768px) 100px, 200px"
             onLoad={() => setIsImageLoaded(true)}

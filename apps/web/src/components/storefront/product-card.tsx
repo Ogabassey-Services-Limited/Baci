@@ -1,6 +1,6 @@
 'use client';
 
-import { getFirstNonBlankString } from '@baci/shared/lib';
+import { getProductImageAlt } from '@baci/shared';
 import { Eye, Minus, Plus } from 'lucide-react';
 import type { Route } from 'next';
 import Link from 'next/link';
@@ -50,44 +50,6 @@ function buildStorefrontProductHref(
   return `/${merchantSlug}${normalizedPath}` as Route;
 }
 
-function getImagePayloadUrl(image: unknown): string {
-  if (typeof image === 'string') {
-    return getFirstNonBlankString(image);
-  }
-
-  if (!image || typeof image !== 'object') {
-    return '';
-  }
-
-  return getFirstNonBlankString((image as { url?: unknown }).url);
-}
-
-function getImagePayloadAlt(image: unknown): string {
-  if (!image || typeof image !== 'object') {
-    return '';
-  }
-
-  return getFirstNonBlankString((image as { alt?: unknown }).alt);
-}
-
-function getRenderedProductImageAlt(product: Product): string {
-  const renderedImageUrl = getFirstNonBlankString(
-    product.imageLarge,
-    product.image
-  );
-  const matchingImage = product.images?.find(
-    (image) =>
-      getImagePayloadUrl(image) === renderedImageUrl &&
-      getImagePayloadAlt(image)
-  );
-
-  return (
-    getImagePayloadAlt(matchingImage) ||
-    getFirstNonBlankString(product.name) ||
-    'Product image'
-  );
-}
-
 /**
  * Product Card for Storefront Grid
  * Relying on React Compiler for automatic memoization and performance optimizations.
@@ -129,7 +91,9 @@ export function StorefrontProductCard({
   // Extract category (handles both categories join and direct category)
   const productCategory =
     product.categories?.name || product.category || 'General';
-  const productImageAlt = getRenderedProductImageAlt(product);
+  const productImageAlt = getProductImageAlt(product, {
+    includeBrandFallback: false,
+  });
 
   const handleAddToCart = () => {
     if (isOutOfStock) return;

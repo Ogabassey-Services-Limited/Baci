@@ -11,7 +11,12 @@ import type { Route } from 'next';
 import Link from 'next/link';
 import React, { useEffect, useState } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { prioritizeSmartphoneProducts } from '@baci/shared';
+import {
+  getImagePayloadAlt,
+  getImagePayloadUrl,
+  prioritizeSmartphoneProducts,
+  trimString,
+} from '@baci/shared';
 import { useCart } from '@/hooks/cart';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import type { Product as StorefrontProduct } from '@/lib/products';
@@ -49,25 +54,22 @@ function toTemplateProducts(storefrontProducts: StorefrontProduct[]): Product[] 
       maximumFractionDigits: 0,
     }).format(product.price);
 
-    let imageAlt = '';
+    let primaryImage = trimString(product.image);
+    let primaryImageAlt = '';
     const images = (product.images ?? []).flatMap((image) => {
-      if (typeof image === 'string') {
-        return image ? [image] : [];
+      const mappedImage = getImagePayloadUrl(image);
+      if (!mappedImage) {
+        return [];
       }
 
-      if (image && typeof image === 'object' && 'url' in image) {
-        if (typeof image.url !== 'string' || !image.url) {
-          return [];
-        }
-
-        if (!imageAlt && 'alt' in image && typeof image.alt === 'string') {
-          imageAlt = image.alt.trim();
-        }
-
-        return [image.url];
+      if (!primaryImage) {
+        primaryImage = mappedImage;
+      }
+      if (mappedImage === primaryImage) {
+        primaryImageAlt ||= getImagePayloadAlt(image);
       }
 
-      return [];
+      return [mappedImage];
     });
 
     const condition = storefrontProductFilters.getStorefrontConditionBadgeLabel({
@@ -87,8 +89,8 @@ function toTemplateProducts(storefrontProducts: StorefrontProduct[]): Product[] 
       name: product.name,
       price: formattedPrice,
       rawPrice: product.price,
-      image: product.image || images[0] || '',
-      image_alt: imageAlt || undefined,
+      image: primaryImage || images[0] || '',
+      ...(primaryImageAlt ? { image_alt: primaryImageAlt } : {}),
       description: product.description,
       rating: product.rating ?? 4.5,
       category: categoryObj?.name || product.category || 'General',
