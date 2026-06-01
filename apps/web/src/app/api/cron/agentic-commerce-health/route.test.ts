@@ -397,6 +397,7 @@ describe('GET /api/cron/agentic-commerce-health', () => {
     expect(checkAgentCommerceFeedHealth).toHaveBeenCalledWith({
       merchantId: 'merchant-1',
       slug: 'ogabassey',
+      supabase,
     });
     expect(checkAgentCommerceTrustHealth).toHaveBeenCalledWith({
       custom_domain: 'ogabassey.com',

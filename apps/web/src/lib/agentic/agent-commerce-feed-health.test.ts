@@ -1,11 +1,8 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('@/app/api/feed/google-merchant/feed-data', () => ({
-  getCachedGoogleMerchantFeedData: vi.fn(),
-}));
-
-vi.mock('@/app/api/feed/openai/feed-data', () => ({
-  getCachedOpenAIFeedData: vi.fn(),
+vi.mock('./agent-commerce-feed-health-snapshot', () => ({
+  getAgentCommerceFeedHealthSnapshot: vi.fn(),
 }));
 
 vi.mock('@/lib/logger', () => ({
@@ -14,10 +11,9 @@ vi.mock('@/lib/logger', () => ({
   },
 }));
 
-import { getCachedGoogleMerchantFeedData } from '@/app/api/feed/google-merchant/feed-data';
-import { getCachedOpenAIFeedData } from '@/app/api/feed/openai/feed-data';
 import { logger } from '@/lib/logger';
 import { checkAgentCommerceFeedHealth } from './agent-commerce-feed-health';
+import { getAgentCommerceFeedHealthSnapshot } from './agent-commerce-feed-health-snapshot';
 import {
   AGENT_COMMERCE_FEED_HEALTH_TEST_NOW,
   googleFeed,
@@ -34,12 +30,10 @@ function runCheck() {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(getCachedOpenAIFeedData).mockResolvedValue(
-    openAiFeed(['product-1', 'product-2'])
-  );
-  vi.mocked(getCachedGoogleMerchantFeedData).mockResolvedValue(
-    googleFeed(['product-1', 'product-2'])
-  );
+  vi.mocked(getAgentCommerceFeedHealthSnapshot).mockResolvedValue({
+    googleProducts: googleFeed(['product-1', 'product-2']).products,
+    openAiProducts: openAiFeed(['product-1', 'product-2']).products,
+  });
 });
 
 describe('checkAgentCommerceFeedHealth', () => {
@@ -56,54 +50,58 @@ describe('checkAgentCommerceFeedHealth', () => {
       stale_product_count: 0,
       status: 'ok',
     });
-    expect(getCachedOpenAIFeedData).toHaveBeenCalledWith('merchant-1');
-    expect(getCachedGoogleMerchantFeedData).toHaveBeenCalledWith(
-      'merchant-1',
-      'ogabassey'
+    expect(getAgentCommerceFeedHealthSnapshot).toHaveBeenCalledWith({
+      merchantId: 'merchant-1',
+      supabase: undefined,
+    });
+  });
+
+  it('passes the provided Supabase client through to the health snapshot query', async () => {
+    const fakeSupabase = { from: vi.fn() } as unknown as SupabaseClient;
+
+    await checkAgentCommerceFeedHealth({
+      merchantId: 'merchant-1',
+      now: AGENT_COMMERCE_FEED_HEALTH_TEST_NOW,
+      slug: 'ogabassey',
+      supabase: fakeSupabase,
+    });
+
+    expect(getAgentCommerceFeedHealthSnapshot).toHaveBeenCalledWith(
+      expect.objectContaining({
+        merchantId: 'merchant-1',
+        supabase: fakeSupabase,
+      })
     );
   });
 
-  it('returns attention when feed product sets drift', async () => {
-    vi.mocked(getCachedGoogleMerchantFeedData).mockResolvedValueOnce(
-      googleFeed(['product-1', 'product-3'])
-    );
+  it('does not report catalog drift from the monitor-only product snapshot', async () => {
+    vi.mocked(getAgentCommerceFeedHealthSnapshot).mockResolvedValueOnce({
+      googleProducts: googleFeed(['product-1', 'product-3']).products,
+      openAiProducts: openAiFeed(['product-1', 'product-2']).products,
+    });
 
     const result = await runCheck();
 
     expect(result).toMatchObject({
       google_product_count: 2,
-      issue_count: 1,
+      issue_count: 0,
       openai_product_count: 2,
-      shared_product_count: 1,
-      status: 'attention',
+      shared_product_count: 2,
+      status: 'ok',
     });
-    expect(result.issues).toEqual([
-      {
-        code: 'feed_catalog_drift',
-        count: 2,
-        message:
-          'OpenAI and Google Merchant feeds expose different active product sets.',
-        severity: 'attention',
-      },
-    ]);
+    expect(result.issues).toEqual([]);
   });
 
   it('returns monitor when agent-visible product timestamps are stale', async () => {
-    vi.mocked(getCachedOpenAIFeedData).mockResolvedValueOnce({
-      products: [
+    vi.mocked(getAgentCommerceFeedHealthSnapshot).mockResolvedValueOnce({
+      googleProducts: googleFeed(['product-1']).products,
+      openAiProducts: [
         {
-          description: 'Stale product',
           id: 'product-1',
-          name: 'Stale product',
-          price: 1000,
-          stock: 5,
           updated_at: '2026-04-01T10:00:00.000Z',
         },
       ],
     });
-    vi.mocked(getCachedGoogleMerchantFeedData).mockResolvedValueOnce(
-      googleFeed(['product-1'])
-    );
 
     const result = await runCheck();
 
@@ -128,16 +126,14 @@ describe('checkAgentCommerceFeedHealth', () => {
       (_, index) => `product-${index + 1}`
     );
     // Two stale products keeps the catalog at the 98% freshness threshold.
-    vi.mocked(getCachedOpenAIFeedData).mockResolvedValueOnce({
-      products: openAiFeed(productIds).products.map((product, index) => ({
+    vi.mocked(getAgentCommerceFeedHealthSnapshot).mockResolvedValueOnce({
+      googleProducts: googleFeed(productIds).products,
+      openAiProducts: openAiFeed(productIds).products.map((product, index) => ({
         ...product,
         updated_at:
           index < 2 ? '2026-04-01T10:00:00.000Z' : '2026-05-22T10:00:00.000Z',
       })),
     });
-    vi.mocked(getCachedGoogleMerchantFeedData).mockResolvedValueOnce(
-      googleFeed(productIds)
-    );
 
     const result = await runCheck();
 
@@ -151,28 +147,18 @@ describe('checkAgentCommerceFeedHealth', () => {
   });
 
   it('treats missing or invalid feed timestamps as stale', async () => {
-    vi.mocked(getCachedOpenAIFeedData).mockResolvedValueOnce({
-      products: [
+    vi.mocked(getAgentCommerceFeedHealthSnapshot).mockResolvedValueOnce({
+      googleProducts: googleFeed(['product-1', 'product-2']).products,
+      openAiProducts: [
         {
-          description: 'Missing timestamp',
           id: 'product-1',
-          name: 'Missing timestamp',
-          price: 1000,
-          stock: 5,
         },
         {
-          description: 'Invalid timestamp',
           id: 'product-2',
-          name: 'Invalid timestamp',
-          price: 1000,
-          stock: 5,
           updated_at: 'not-a-date',
         },
       ],
     });
-    vi.mocked(getCachedGoogleMerchantFeedData).mockResolvedValueOnce(
-      googleFeed(['product-1', 'product-2'])
-    );
 
     const result = await runCheck();
 
@@ -196,15 +182,13 @@ describe('checkAgentCommerceFeedHealth', () => {
       { length: 100 },
       (_, index) => `product-${index + 1}`
     );
-    vi.mocked(getCachedOpenAIFeedData).mockResolvedValueOnce({
-      products: openAiFeed(productIds).products.map((product, index) => ({
+    vi.mocked(getAgentCommerceFeedHealthSnapshot).mockResolvedValueOnce({
+      googleProducts: googleFeed(productIds).products,
+      openAiProducts: openAiFeed(productIds).products.map((product, index) => ({
         ...product,
         updated_at: index === 0 ? undefined : '2026-04-01T10:00:00.000Z',
       })),
     });
-    vi.mocked(getCachedGoogleMerchantFeedData).mockResolvedValueOnce(
-      googleFeed(productIds)
-    );
 
     const result = await runCheck();
 
@@ -226,10 +210,10 @@ describe('checkAgentCommerceFeedHealth', () => {
   });
 
   it('returns monitor when both feed surfaces are empty', async () => {
-    vi.mocked(getCachedOpenAIFeedData).mockResolvedValueOnce(openAiFeed([]));
-    vi.mocked(getCachedGoogleMerchantFeedData).mockResolvedValueOnce(
-      googleFeed([])
-    );
+    vi.mocked(getAgentCommerceFeedHealthSnapshot).mockResolvedValueOnce({
+      googleProducts: [],
+      openAiProducts: [],
+    });
 
     const result = await runCheck();
 
@@ -251,7 +235,7 @@ describe('checkAgentCommerceFeedHealth', () => {
   });
 
   it('returns attention when feed generation fails', async () => {
-    vi.mocked(getCachedOpenAIFeedData).mockRejectedValueOnce(
+    vi.mocked(getAgentCommerceFeedHealthSnapshot).mockRejectedValueOnce(
       new Error('products unavailable')
     );
 
