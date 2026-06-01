@@ -2,6 +2,7 @@ import 'server-only';
 import { getImageProps } from 'next/image';
 import type { ComponentProps, ReactElement } from 'react';
 import { createElement, Fragment } from 'react';
+import { preload } from 'react-dom';
 import {
   OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_MEDIA,
   OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA,
@@ -90,6 +91,20 @@ export function OgabasseyPdpProductResourceHints({
 }: ProductResourceHintInput): ReactElement | null {
   const props = buildProductImagePreloadProps({ src });
   if (!props) return null;
+
+  const mobilePreloadProps = props.find(
+    (propSet) => propSet.media === OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA
+  );
+
+  if (mobilePreloadProps) {
+    preload(mobilePreloadProps.href, {
+      as: mobilePreloadProps.as,
+      fetchPriority: mobilePreloadProps.fetchPriority,
+      imageSizes: mobilePreloadProps.imageSizes,
+      imageSrcSet: mobilePreloadProps.imageSrcSet,
+      type: mobilePreloadProps.type,
+    });
+  }
 
   return createElement(
     Fragment,

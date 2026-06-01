@@ -6,6 +6,7 @@ import { notFound, permanentRedirect, redirect } from 'next/navigation';
 import { connection } from 'next/server';
 import { StorefrontRouteNotFound } from '@/app/(storefront)/[slug]/storefront-route-not-found';
 import { ProductSemanticSections } from '@/components/storefront/ogabassey/seo/product-semantic-sections';
+import { STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM } from '@/config/storefront-metadata-cache-bots';
 import {
   getCachedCategoryPageData,
   getCachedLegacyProductRedirectTarget,
@@ -117,6 +118,14 @@ function buildRedirectSearchParams(searchParams: ResolvedSearchParams) {
   const nextParams = new URLSearchParams();
 
   for (const [key, value] of Object.entries(searchParams)) {
+    if (
+      normalizeSearchParamKey(key) ===
+      STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM
+    ) {
+      // Middleware injects this as an internal cache key only. Never expose it
+      // through public variant-cleanup redirects or crawlable canonical URLs.
+      continue;
+    }
     appendSearchParamValue(nextParams, key, value);
   }
 

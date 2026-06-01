@@ -1,4 +1,3 @@
-import '@/app/(storefront)/storefront-ogabassey-pdp-critical.css';
 import { resolveVariantSelectionParamResolution } from '@baci/shared/lib';
 import type { Metadata, Route } from 'next';
 import { headers } from 'next/headers';
@@ -26,6 +25,7 @@ import {
   mergeVariantAxisOptions,
   normalizeVariantAttributes,
 } from '@/components/storefront/ogabassey/variant-attributes';
+import { STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM } from '@/config/storefront-metadata-cache-bots';
 import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 import {
   type CachedLegacyProductRedirectTarget,
@@ -366,6 +366,9 @@ function shouldRedirectVariantSelectionParams(
 }
 
 const NON_SELECTION_TRACKING_PARAMS = new Set([
+  // Internal middleware-only cache partition key. Treat it like tracking noise
+  // so metadata cache safety cannot disable the PDP early image hint path.
+  STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM,
   'dclid',
   'fbclid',
   'gbraid',
@@ -793,7 +796,7 @@ interface CategoryProductPageContentProps {
 
 type CategoryProductPageCriticalCommerceControlsProps =
   CategoryProductPageContentProps & {
-    basePath: '' | `/${string}`;
+    basePathPromise: Promise<'' | `/${string}`>;
   };
 
 async function getRenderableCategoryProductResult({
@@ -827,16 +830,19 @@ async function getRenderableCategoryProductResult({
 }
 
 async function CategoryProductPageCriticalCommerceControls({
-  basePath,
+  basePathPromise,
   slug,
   searchParams,
   productResultPromise,
 }: Omit<CategoryProductPageCriticalCommerceControlsProps, 'renderMode'>) {
-  const { product } = await getRenderableCategoryProductResult({
-    slug,
-    searchParams,
-    productResultPromise,
-  });
+  const [basePath, { product }] = await Promise.all([
+    basePathPromise,
+    getRenderableCategoryProductResult({
+      slug,
+      searchParams,
+      productResultPromise,
+    }),
+  ]);
   const criticalProduct = buildOgabasseyPdpCriticalProduct(product);
   const cartHref = `${basePath}/cart` as Route;
 
@@ -1082,7 +1088,6 @@ export default async function CategoryProductPage({
   }
 
   productResultPromise = getProductResultPromise();
-  const criticalBasePath = await criticalBasePathPromise;
 
   return (
     <>
@@ -1092,12 +1097,13 @@ export default async function CategoryProductPage({
       {criticalProduct ? (
         <>
           <OgabasseyPdpCriticalShell
-            basePath={criticalBasePath}
+            basePath={getCategoryProductBasePath(slug)}
+            basePathPromise={criticalBasePathPromise}
             product={criticalProduct}
           >
             <Suspense fallback={null}>
               <CategoryProductPageCriticalCommerceControls
-                basePath={criticalBasePath}
+                basePathPromise={criticalBasePathPromise}
                 slug={slug}
                 searchParams={Promise.resolve(resolvedSearchParams)}
                 productResultPromise={productResultPromise}
