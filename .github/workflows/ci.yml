@@ -155,7 +155,9 @@ jobs:
     needs: [changes]
     if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    # Full web/mobile test fan-out reached ~15 minutes on GitHub-hosted runners.
+    # Keep enough headroom for Turbo summary and Actions post-job cleanup.
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
