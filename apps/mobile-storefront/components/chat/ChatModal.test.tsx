@@ -30,6 +30,7 @@ const mockUseSafeAreaInsets = jest.fn(() => ({
   right: 0,
   top: 0,
 }));
+const mockUseSafeAreaInsetsProviderState = jest.fn();
 
 jest.mock('@shopify/flash-list', () => {
   const React = jest.requireActual('react') as typeof import('react');
@@ -65,22 +66,34 @@ jest.mock('@/hooks/use-keyboard', () => ({
   useKeyboard: () => mockUseKeyboard(),
 }));
 
-jest.mock('react-native-safe-area-context', () => ({
-  SafeAreaProvider: (() => {
-    const React = jest.requireActual('react') as typeof import('react');
-    const { View } =
-      jest.requireActual<typeof import('react-native')>('react-native');
+jest.mock('react-native-safe-area-context', () => {
+  const React = jest.requireActual('react') as typeof import('react');
+  const { View } =
+    jest.requireActual<typeof import('react-native')>('react-native');
+  const SafeAreaContext = React.createContext(false);
 
-    return ({ children, ...props }: { children?: ReactNode } & ViewProps) => {
+  return {
+    SafeAreaProvider: ({
+      children,
+      ...props
+    }: { children?: ReactNode } & ViewProps) => {
       return React.createElement(
-        View,
-        { ...props, testID: 'chat-safe-area-provider' },
-        children
+        SafeAreaContext.Provider,
+        { value: true },
+        React.createElement(
+          View,
+          { ...props, testID: 'chat-safe-area-provider' },
+          children
+        )
       );
-    };
-  })(),
-  useSafeAreaInsets: () => mockUseSafeAreaInsets(),
-}));
+    },
+    useSafeAreaInsets: () => {
+      mockUseSafeAreaInsetsProviderState(React.useContext(SafeAreaContext));
+
+      return mockUseSafeAreaInsets();
+    },
+  };
+});
 
 function renderChatModal() {
   const message: ChatMessage = {
@@ -143,6 +156,12 @@ describe('ChatModal', () => {
     renderChatModal();
 
     expect(screen.getByTestId('chat-safe-area-provider')).toBeOnTheScreen();
+  });
+
+  it('reads safe-area insets from content mounted under the modal provider', () => {
+    renderChatModal();
+
+    expect(mockUseSafeAreaInsetsProviderState).toHaveBeenCalledWith(true);
   });
 
   it('enables cross-platform keyboard avoiding protection on all platforms', () => {
