@@ -8,14 +8,15 @@ publicHoistPattern:
   - "*expo*"
   - "*react-native*"
 networkTimeout: 1000000
-strictDepBuilds: false
+strictDepBuilds: true
 
 packages:
   - "apps/*"
   - "packages/*"
 
 # High-performance build script approvals for pnpm v11 (replaces legacy onlyBuiltDependencies)
-# Must be configured as a YAML array of approved package names
+# Must be configured as a YAML mapping of package matchers to booleans
+# (e.g. package matcher strings/globs as keys mapped to true/false values)
 allowBuilds:
   "@firebase/util": true
   "@scarf/scarf": true
