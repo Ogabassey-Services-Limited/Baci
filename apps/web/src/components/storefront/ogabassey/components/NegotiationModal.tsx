@@ -122,6 +122,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
   const isMountedRef = useRef(false);
   const isOpenRef = useRef(isOpen);
   const dialogRef = useRef<HTMLDivElement | null>(null);
+  const offerInputRef = useRef<HTMLInputElement | null>(null);
   const previouslyFocusedElementRef = useRef<HTMLElement | null>(null);
 
   const [supabase] = useState(() => createClient());
@@ -185,6 +186,11 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
         : null;
 
     const frame = window.requestAnimationFrame(() => {
+      if (offerInputRef.current) {
+        offerInputRef.current.focus();
+        return;
+      }
+
       const focusableElements = getFocusableElements();
       if (focusableElements.length > 0) {
         focusableElements[0].focus();
@@ -476,6 +482,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
               </label>
               <div className="relative mb-6">
                 <input
+                  ref={offerInputRef}
                   type="number"
                   value={offer}
                   onChange={(e) => {

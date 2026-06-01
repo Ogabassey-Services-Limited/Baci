@@ -92,6 +92,16 @@ describe('NegotiationModal', () => {
     ).toBeInTheDocument();
   });
 
+  it('moves initial dialog focus to the offer amount input', () => {
+    render(<NegotiationModal {...defaultProps} />);
+
+    act(() => {
+      vi.advanceTimersByTime(16);
+    });
+
+    expect(screen.getByPlaceholderText('Enter amount...')).toHaveFocus();
+  });
+
   it('accepts an offer within the 3% threshold and marks it as AI-reviewed', () => {
     render(<NegotiationModal {...defaultProps} />);
 
