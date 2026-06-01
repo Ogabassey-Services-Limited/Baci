@@ -2,7 +2,6 @@ import 'server-only';
 import { getImageProps } from 'next/image';
 import type { ComponentProps, ReactElement } from 'react';
 import { createElement, Fragment } from 'react';
-import { preload } from 'react-dom';
 import {
   OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_MEDIA,
   OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA,
@@ -29,8 +28,6 @@ type ImagePreloadLinkProps = ComponentProps<'link'> & {
 type ProductResourceHintInput = {
   src: string | null | undefined;
 };
-
-export type ProductImagePreloadViewport = 'desktop' | 'mobile';
 
 function buildProductImagePreloadProps({
   src,
@@ -104,29 +101,4 @@ export function OgabasseyPdpProductResourceHints({
       })
     )
   );
-}
-
-export function preloadOgabasseyPdpProductImage({
-  src,
-  viewport,
-}: ProductResourceHintInput & {
-  viewport: ProductImagePreloadViewport;
-}): void {
-  const props = buildProductImagePreloadProps({ src });
-  if (!props) return;
-
-  const media =
-    viewport === 'mobile'
-      ? OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA
-      : OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_MEDIA;
-  const propSet = props.find((preloadProps) => preloadProps.media === media);
-  if (!propSet) return;
-
-  preload(propSet.href, {
-    as: propSet.as,
-    fetchPriority: propSet.fetchPriority,
-    imageSizes: propSet.imageSizes,
-    imageSrcSet: propSet.imageSrcSet,
-    type: propSet.type,
-  });
 }
