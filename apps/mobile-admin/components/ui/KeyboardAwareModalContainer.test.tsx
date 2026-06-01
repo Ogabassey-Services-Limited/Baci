@@ -9,6 +9,10 @@ const keyboardAvoidingViewProps = vi.hoisted(() => ({
   keyboardVerticalOffset: 0,
 }));
 
+function Text({ children }: { children?: React.ReactNode }) {
+  return <span>{children}</span>;
+}
+
 vi.mock('react-native', async () => {
   const React = await import('react');
 
@@ -64,7 +68,7 @@ describe('KeyboardAwareModalContainer', () => {
   it('renders children inside keyboard-safe wrappers', () => {
     render(
       <KeyboardAwareModalContainer align="center">
-        <div>Keyboard-safe child</div>
+        <Text>Keyboard-safe child</Text>
       </KeyboardAwareModalContainer>
     );
 
@@ -80,7 +84,7 @@ describe('KeyboardAwareModalContainer', () => {
   it('renders without a scroll view when disabled', () => {
     render(
       <KeyboardAwareModalContainer scrollEnabled={false}>
-        <div>Static child</div>
+        <Text>Static child</Text>
       </KeyboardAwareModalContainer>
     );
 
@@ -101,7 +105,7 @@ describe('KeyboardAwareModalContainer', () => {
 
     render(
       <KeyboardAwareModalContainer align="center">
-        <div>Android child</div>
+        <Text>Android child</Text>
       </KeyboardAwareModalContainer>
     );
 
