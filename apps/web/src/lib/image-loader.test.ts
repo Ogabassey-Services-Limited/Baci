@@ -14,6 +14,9 @@ describe('imageLoader', () => {
   });
 
   it('negotiates CDN output formats for OgaBassey image URLs', () => {
+    const urlAvif = 'https://cdn.ogabassey.com/core-assets/products/image.avif';
+    expect(imageLoader({ src: urlAvif, width: 800 })).toContain('format=auto');
+
     const urlJpg = 'https://cdn.ogabassey.com/core-assets/products/image.jpg';
     expect(imageLoader({ src: urlJpg, width: 800 })).toContain('format=auto');
 
