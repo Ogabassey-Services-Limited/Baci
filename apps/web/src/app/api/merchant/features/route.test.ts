@@ -32,9 +32,20 @@ vi.mock('@/lib/csrf', () => ({
 }));
 
 vi.mock('@/schemas/merchant-features', () => ({
+  merchantFeatureSettingsPatchSchema: {
+    safeParse: (data: Record<string, unknown>) => ({ success: true, data }),
+  },
   merchantFeatureSettingsSchema: {
     partial: () => ({
-      safeParse: (data: Record<string, unknown>) => ({ success: true, data }),
+      safeParse: (data: Record<string, unknown>) => ({
+        success: true,
+        data: {
+          ...data,
+          klump_enabled: false,
+          klump_min_amount: 10_000,
+          klump_max_amount: 500_000,
+        },
+      }),
     }),
   },
 }));
@@ -330,6 +341,22 @@ describe('PATCH /api/merchant/features', () => {
     );
     expect(mockRevalidateFeatures).toHaveBeenCalledWith(MERCHANT_ID);
     expect(mockRevalidateMerchant).toHaveBeenCalledWith(MERCHANT_ID);
+  });
+
+  it('keeps sparse PATCH payloads from writing Klump defaults', async () => {
+    const { PATCH } = await import('./route');
+
+    const res = await PATCH(makeRequest('PATCH', { loyalty_enabled: true }));
+
+    expect(res.status).toBe(200);
+    expect(upsertPayload).toMatchObject({
+      merchant_id: MERCHANT_ID,
+      loyalty_enabled: true,
+      rewards_page_enabled: true,
+    });
+    expect(upsertPayload).not.toHaveProperty('klump_enabled');
+    expect(upsertPayload).not.toHaveProperty('klump_min_amount');
+    expect(upsertPayload).not.toHaveProperty('klump_max_amount');
   });
 
   it('updates merchant-scoped Klump installment settings', async () => {

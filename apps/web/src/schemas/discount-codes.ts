@@ -1,28 +1,45 @@
 import { z } from 'zod';
 
-const discountCodeBaseFields = z.object({
+const discountCodeFields = {
   code: z.string().trim().min(1).max(50).toUpperCase(),
   description: z.string().max(500).nullable().optional(),
   discount_type: z.enum(['percentage', 'fixed_amount']),
   discount_value: z.number().positive(),
-  minimum_purchase_amount: z.number().nonnegative().optional().default(0),
+  minimum_purchase_amount: z.number().nonnegative().optional(),
   maximum_discount_amount: z.number().positive().nullable().optional(),
   usage_limit: z.int().positive().nullable().optional(),
-  usage_limit_per_customer: z.int().positive().optional().default(1),
+  usage_limit_per_customer: z.int().positive().optional(),
   starts_at: z.iso.datetime().nullable().optional(),
   expires_at: z.iso.datetime().nullable().optional(),
-  is_active: z.boolean().optional().default(true),
+  is_active: z.boolean().optional(),
   applies_to: z
     .enum(['all', 'specific_products', 'specific_categories'])
-    .optional()
-    .default('all'),
-  product_ids: z.array(z.uuid()).optional().default([]),
-  category_ids: z.array(z.uuid()).optional().default([]),
+    .optional(),
+  product_ids: z.array(z.uuid()).optional(),
+  category_ids: z.array(z.uuid()).optional(),
+};
+
+const discountCodeBaseFields = z.object({
+  ...discountCodeFields,
+  minimum_purchase_amount:
+    discountCodeFields.minimum_purchase_amount.default(0),
+  usage_limit_per_customer:
+    discountCodeFields.usage_limit_per_customer.default(1),
+  is_active: discountCodeFields.is_active.default(true),
+  applies_to: discountCodeFields.applies_to.default('all'),
+  product_ids: discountCodeFields.product_ids.default([]),
+  category_ids: discountCodeFields.category_ids.default([]),
 });
 
-const appliesToRefinement = (
-  data: z.infer<typeof discountCodeBaseFields>
-): boolean => {
+const discountCodeUpdateFields = z.object(discountCodeFields).partial();
+
+type DiscountCodeTargetingInput = {
+  applies_to?: 'all' | 'specific_products' | 'specific_categories';
+  product_ids?: string[];
+  category_ids?: string[];
+};
+
+const appliesToRefinement = (data: DiscountCodeTargetingInput): boolean => {
   if (data.applies_to === 'specific_products') {
     return data.product_ids !== undefined && data.product_ids.length > 0;
   }
@@ -41,7 +58,7 @@ export const createDiscountCodeSchema = discountCodeBaseFields.refine(
   }
 );
 
-export const updateDiscountCodeSchema = discountCodeBaseFields.partial().refine(
+export const updateDiscountCodeSchema = discountCodeUpdateFields.refine(
   (data) => {
     // Only validate applies_to relationship when applies_to is explicitly provided
     if (data.applies_to === 'specific_products') {
