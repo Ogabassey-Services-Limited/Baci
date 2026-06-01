@@ -5,6 +5,13 @@ import {
   teardownCheckoutTest,
 } from '../../__tests__/app/checkout.test-utils';
 
+jest.mock('@/components/storefront/GadgetPattern', () => {
+  const { Text } = jest.requireActual('react-native');
+  return {
+    GadgetPattern: () => <Text>GadgetPattern</Text>,
+  };
+});
+
 describe('CheckoutScreenView', () => {
   beforeEach(() => {
     setupCheckoutTest();
