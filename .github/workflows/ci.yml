@@ -159,11 +159,10 @@ jobs:
       - uses: ./.github/actions/pnpm-install-cached
       - name: Run Tests
         run: |
-          turbo_cache_args=("--cache=local:rw")
+          turbo_cache_args=("--cache=local:rw,remote:r")
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             # PR tokens can read Vercel Remote Cache but may not be allowed to write artifacts.
-            # Use --affected to test only impacted files, keeping remote cache read-only.
-            turbo_cache_args+=(--remote-cache-read-only)
+            # Use --affected to test only impacted files.
             turbo_cache_args+=(--affected)
           else
             turbo_cache_args=("--cache=local:rw,remote:rw")
