@@ -3,9 +3,10 @@ export const STOREFRONT_METADATA_CACHE_BUCKET_HEADER =
 
 // Production PDP traffic hit Next 16 resume mismatches when Vercel replayed a
 // cacheComponents shell with a streamed metadata boundary in the content slot.
-// htmlLimitedBots is global, so intentionally block streaming metadata for all
-// non-empty user agents until that upstream resume path is safe again.
-const STOREFRONT_METADATA_BLOCKING_ALL_USER_AGENTS_PATTERN = '.+';
+// htmlLimitedBots is global, so intentionally block streaming metadata for every
+// request, including missing user-agent headers, until that upstream resume path
+// is safe again.
+const STOREFRONT_METADATA_BLOCKING_ALL_USER_AGENTS_PATTERN = '.*';
 
 // Mirrors Next 16.2's DOM bot branch for PPR metadata rendering. Kept as
 // documentation for the upstream classifier this module intentionally widens.

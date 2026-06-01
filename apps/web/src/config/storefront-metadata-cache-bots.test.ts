@@ -29,10 +29,10 @@ describe('storefront metadata cache bot classifier', () => {
     ).toBe('metadata-blocking');
   });
 
-  it('uses the streaming bucket when the user-agent header is missing', () => {
+  it('uses the metadata-blocking bucket when the user-agent header is missing', () => {
     expect(STOREFRONT_METADATA_BLOCKING_BOT_USER_AGENT_REGEX.test('')).toBe(
-      false
+      true
     );
-    expect(getStorefrontMetadataCacheBucket('')).toBe('streaming');
+    expect(getStorefrontMetadataCacheBucket('')).toBe('metadata-blocking');
   });
 });
