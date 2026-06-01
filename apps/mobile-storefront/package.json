@@ -36,7 +36,6 @@
     "@tanstack/react-query-persist-client": "^5.100.14",
     "@tanstack/query-persist-client-core": "^5.100.14",
     "expo": "^56.0.8",
-    "expo-modules-core": "56.0.12",
     "expo-apple-authentication": "^56.0.4",
     "expo-application": "~56.0.3",
     "expo-auth-session": "~56.0.13",
