@@ -8,6 +8,8 @@ fi
 
 MAX_ATTEMPTS=${MAX_ATTEMPTS:-3}
 BACKOFF_SECONDS=${BACKOFF_SECONDS:-10}
+RETRY_CHILD_CONCURRENCY=${PNPM_RETRY_CHILD_CONCURRENCY:-1}
+RETRY_PACKAGE_IMPORT_METHOD=${PNPM_RETRY_PACKAGE_IMPORT_METHOD:-copy}
 STORE_DIR=${PNPM_STORE_DIR:-}
 
 cleanup_install_artifacts() {
@@ -52,6 +54,13 @@ for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
   echo "pnpm install attempt $attempt/$MAX_ATTEMPTS..."
   log_file=$(mktemp)
 
+  if [ "$attempt" -gt 1 ]; then
+    # pnpm worker/import races can surface as opaque Worker exits on the
+    # self-hosted deploy runner. Retry with conservative import settings.
+    export npm_config_child_concurrency="$RETRY_CHILD_CONCURRENCY"
+    export npm_config_package_import_method="$RETRY_PACKAGE_IMPORT_METHOD"
+  fi
+
   if pnpm install "$@" 2>&1 | tee "$log_file"; then
     rm -f "$log_file"
     echo "pnpm install succeeded on attempt $attempt"
@@ -59,7 +68,7 @@ for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
   fi
 
   should_retry=false
-  if grep -q "ERR_PNPM_ENOENT" "$log_file"; then
+  if grep -Eq "ERR_PNPM_ENOENT|Worker pnpm#[0-9]+ exited with code 1|GET .* error \\(unknown\\)|ECONNRESET|ETIMEDOUT|ERR_PNPM_META_FETCH_FAIL|ERR_PNPM_FETCH" "$log_file"; then
     should_retry=true
   fi
 
