@@ -346,6 +346,21 @@ describe('NegotiationModal', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
+  it('returns focus to the offer input when negotiating again', () => {
+    render(<NegotiationModal {...defaultProps} />);
+
+    submitLowOffer('1000');
+    fireEvent.click(screen.getByText('Negotiate Again'));
+
+    act(() => {
+      vi.advanceTimersByTime(16);
+    });
+
+    expect(
+      screen.getByRole('spinbutton', { name: /your offer/i })
+    ).toHaveFocus();
+  });
+
   it('includes customer_id and unique session_id in the insert payload', async () => {
     render(<NegotiationModal {...defaultProps} />);
 

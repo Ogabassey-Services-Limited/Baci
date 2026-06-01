@@ -185,6 +185,12 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
       document.activeElement instanceof HTMLElement
         ? document.activeElement
         : null;
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen || status !== 'input' || typeof window === 'undefined') {
+      return;
+    }
 
     const frame = window.requestAnimationFrame(() => {
       if (offerInputRef.current) {
@@ -203,7 +209,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
     return () => {
       window.cancelAnimationFrame(frame);
     };
-  }, [isOpen]);
+  }, [isOpen, status]);
 
   useEffect(() => {
     if (!isOpen || typeof document === 'undefined') {
