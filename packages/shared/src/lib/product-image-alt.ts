@@ -18,6 +18,13 @@ export interface ProductImageAltSource {
   seo_alt_text?: unknown;
 }
 
+export interface DerivedProductImageData {
+  image: string;
+  imageAlt: string;
+  imagePayloads: ProductImageAltPayload[];
+  images: string[];
+}
+
 export function getImagePayloadUrl(image: unknown): string {
   if (typeof image === 'string') {
     return trimString(image);
@@ -64,6 +71,43 @@ export function getMatchingImagePayloadAlt(
   }
 
   return '';
+}
+
+export function deriveProductImageData({
+  image,
+  images,
+}: {
+  image?: unknown;
+  images?: readonly ProductImageAltPayload[] | null;
+}): DerivedProductImageData {
+  const imagePayloads = Array.from(images ?? []);
+  const imageUrls: string[] = [];
+  let primaryImage = trimString(image);
+  let primaryImageAlt = '';
+
+  for (const imagePayload of imagePayloads) {
+    const imageUrl = getImagePayloadUrl(imagePayload);
+    if (!imageUrl) {
+      continue;
+    }
+
+    if (!primaryImage) {
+      primaryImage = imageUrl;
+    }
+
+    if (imageUrl === primaryImage) {
+      primaryImageAlt ||= getImagePayloadAlt(imagePayload);
+    }
+
+    imageUrls.push(imageUrl);
+  }
+
+  return {
+    image: primaryImage || imageUrls[0] || '',
+    imageAlt: primaryImageAlt,
+    imagePayloads,
+    images: imageUrls,
+  };
 }
 
 function getProductImagePayloads(

@@ -12,11 +12,8 @@ import Link from 'next/link';
 import React, { useEffect, useState } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import {
-  getImagePayloadAlt,
-  getImagePayloadUrl,
+  deriveProductImageData,
   prioritizeSmartphoneProducts,
-  trimString,
-  type ProductImageAltPayload,
 } from '@baci/shared';
 import { useCart } from '@/hooks/cart';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
@@ -55,25 +52,15 @@ function toTemplateProducts(storefrontProducts: StorefrontProduct[]): Product[] 
       maximumFractionDigits: 0,
     }).format(product.price);
 
-    const imagePayloads: ProductImageAltPayload[] = product.images ?? [];
-    let primaryImage = trimString(product.image);
-    let primaryImageAlt = '';
-    const images: string[] = [];
-    for (const image of imagePayloads) {
-      const mappedImage = getImagePayloadUrl(image);
-      if (!mappedImage) {
-        continue;
-      }
-
-      if (!primaryImage) {
-        primaryImage = mappedImage;
-      }
-      if (mappedImage === primaryImage) {
-        primaryImageAlt ||= getImagePayloadAlt(image);
-      }
-
-      images.push(mappedImage);
-    }
+    const {
+      image,
+      imageAlt,
+      imagePayloads,
+      images,
+    } = deriveProductImageData({
+      image: product.image,
+      images: product.images ?? [],
+    });
 
     const condition = storefrontProductFilters.getStorefrontConditionBadgeLabel({
       available_conditions: product.available_conditions,
@@ -92,8 +79,8 @@ function toTemplateProducts(storefrontProducts: StorefrontProduct[]): Product[] 
       name: product.name,
       price: formattedPrice,
       rawPrice: product.price,
-      image: primaryImage || images[0] || '',
-      ...(primaryImageAlt ? { image_alt: primaryImageAlt } : {}),
+      image,
+      ...(imageAlt ? { image_alt: imageAlt } : {}),
       ...(imagePayloads.length > 0 ? { image_payloads: imagePayloads } : {}),
       description: product.description,
       rating: product.rating ?? 4.5,

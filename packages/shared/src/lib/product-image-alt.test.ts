@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  deriveProductImageData,
   getImagePayloadAlt,
   getImagePayloadUrl,
   getMatchingImagePayloadAlt,
@@ -32,6 +33,26 @@ describe('product image alt helpers', () => {
         '/back.jpg'
       )
     ).toBe('Back view');
+  });
+
+  it('derives primary image data while preserving original image payloads', () => {
+    expect(
+      deriveProductImageData({
+        image: '',
+        images: [
+          { url: '/front.jpg', alt: 'Front view' },
+          { url: '/back.jpg', alt: 'Back view' },
+        ],
+      })
+    ).toEqual({
+      image: '/front.jpg',
+      imageAlt: 'Front view',
+      imagePayloads: [
+        { url: '/front.jpg', alt: 'Front view' },
+        { url: '/back.jpg', alt: 'Back view' },
+      ],
+      images: ['/front.jpg', '/back.jpg'],
+    });
   });
 
   it('prefers explicit product alt text before name fallbacks', () => {
