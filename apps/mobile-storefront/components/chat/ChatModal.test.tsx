@@ -18,6 +18,12 @@ const mockUseKeyboard = jest.fn(() => ({
   withKeyboardDismiss: <T extends (...args: never[]) => unknown>(handler: T) =>
     handler,
 }));
+const mockUseSafeAreaInsets = jest.fn(() => ({
+  bottom: 34,
+  left: 0,
+  right: 0,
+  top: 0,
+}));
 
 jest.mock('@shopify/flash-list', () => {
   const React = jest.requireActual('react') as typeof import('react');
@@ -54,12 +60,7 @@ jest.mock('@/hooks/use-keyboard', () => ({
 }));
 
 jest.mock('react-native-safe-area-context', () => ({
-  useSafeAreaInsets: () => ({
-    bottom: 34,
-    left: 0,
-    right: 0,
-    top: 0,
-  }),
+  useSafeAreaInsets: () => mockUseSafeAreaInsets(),
 }));
 
 function renderChatModal() {
@@ -93,6 +94,12 @@ describe('ChatModal', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUseSafeAreaInsets.mockReturnValue({
+      bottom: 34,
+      left: 0,
+      right: 0,
+      top: 0,
+    });
     Object.defineProperty(Platform, 'OS', {
       configurable: true,
       value: originalPlatformOS,
@@ -159,6 +166,24 @@ describe('ChatModal', () => {
       StyleSheet.flatten(screen.getByTestId('chat-input-container').props.style)
     ).toMatchObject({
       paddingBottom: 34,
+    });
+    expect(screen.getByLabelText('Chat message input')).toBeOnTheScreen();
+  });
+
+  it('falls back to bottom padding when there is no bottom inset', () => {
+    mockUseSafeAreaInsets.mockReturnValue({
+      bottom: 0,
+      left: 0,
+      right: 0,
+      top: 0,
+    });
+
+    renderChatModal();
+
+    expect(
+      StyleSheet.flatten(screen.getByTestId('chat-input-container').props.style)
+    ).toMatchObject({
+      paddingBottom: 12,
     });
     expect(screen.getByLabelText('Chat message input')).toBeOnTheScreen();
   });

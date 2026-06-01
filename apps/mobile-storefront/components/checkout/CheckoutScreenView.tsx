@@ -15,7 +15,7 @@ import {
   CheckoutStepper,
 } from '@/components/checkout/CheckoutStepper';
 import { CryptoSelectionModal } from '@/components/checkout/CryptoSelectionModal';
-import { GadgetPatternBackground } from '@/components/storefront/GadgetPatternBackground';
+import { PatternedBackground } from '@/components/storefront/PatternedBackground';
 import AppKeyboardContainer from '@/components/ui/AppKeyboardContainer';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
@@ -193,9 +193,9 @@ export function CheckoutScreenView() {
       />
 
       <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-        <GadgetPatternBackground
-          colorScheme={colorScheme ?? 'light'}
+        <PatternedBackground
           backgroundColor={colors.background}
+          isDark={isDark}
         />
 
         <CheckoutHeader colors={colors} onBack={handleBack} />

@@ -10,10 +10,11 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { GadgetPatternBackground } from '@/components/storefront/GadgetPatternBackground';
+import { PatternedBackground } from '@/components/storefront/PatternedBackground';
 import AppKeyboardContainer from '@/components/ui/AppKeyboardContainer';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
+import { ChatMessageRow } from './ChatMessageRow';
 import { ChatSuggestionsRow } from './ChatSuggestionsRow';
 import { CHAT_POWERED_BY_LABEL } from './constants';
 import { styles } from './styles';
@@ -59,49 +60,7 @@ export function ChatModal({
   };
 
   const renderMessage = ({ item }: { item: ChatMessage }) => {
-    const isUser = item.role === 'user';
-    return (
-      <View
-        style={[
-          styles.messageContainer,
-          isUser ? styles.userMessageContainer : styles.aiMessageContainer,
-        ]}
-      >
-        {!isUser && (
-          <View
-            style={[
-              styles.avatar,
-              { backgroundColor: santaMode ? BRAND.primary : colors.muted },
-            ]}
-          >
-            <Text style={styles.avatarEmoji}>{santaMode ? '🎅' : '✨'}</Text>
-          </View>
-        )}
-        <View
-          style={[
-            styles.messageBubble,
-            isUser
-              ? [styles.userBubble, { backgroundColor: BRAND.primary }]
-              : [
-                  styles.aiBubble,
-                  {
-                    backgroundColor: colors.card,
-                    borderColor: colors.border,
-                  },
-                ],
-          ]}
-        >
-          <Text
-            style={[
-              styles.messageText,
-              { color: isUser ? '#FFFFFF' : colors.text },
-            ]}
-          >
-            {item.text}
-          </Text>
-        </View>
-      </View>
-    );
+    return <ChatMessageRow item={item} santaMode={santaMode} colors={colors} />;
   };
 
   return (
@@ -114,10 +73,13 @@ export function ChatModal({
       <View
         style={[
           styles.modalContainer,
-          { backgroundColor: santaMode ? '#FFF5F5' : colors.background },
+          {
+            backgroundColor: santaMode ? '#FFF5F5' : colors.background,
+            paddingLeft: insets.left,
+            paddingRight: insets.right,
+          },
         ]}
       >
-        {/* Header - safe area protected dynamically for iOS and Android clocks */}
         <View
           style={[
             styles.header,
@@ -187,12 +149,11 @@ export function ChatModal({
           </Pressable>
         </View>
 
-        {/* Global Drift-Free Keyboard protection enabled on all platforms */}
         <AppKeyboardContainer style={styles.messagesWrapper} enabled={true}>
           <View style={{ flex: 1, position: 'relative' }}>
-            <GadgetPatternBackground
-              colorScheme={colorScheme ?? 'light'}
+            <PatternedBackground
               backgroundColor={santaMode ? '#FFF5F5' : colors.background}
+              isDark={colorScheme === 'dark'}
             />
 
             <FlashList

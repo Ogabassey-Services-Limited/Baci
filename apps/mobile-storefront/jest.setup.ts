@@ -107,50 +107,173 @@ jest.mock('@react-native-vector-icons/feather', () => ({
 // Mock react-native-reanimated
 jest.mock('react-native-reanimated', () => {
   const React = require('react');
-  const { View, Text } = require('react-native');
-  const MockAnimatedView = ({ children, style, ...props }: any) =>
-    React.createElement(View, { style, ...props }, children);
-  const MockAnimatedText = ({ children, style, ...props }: any) =>
-    React.createElement(Text, { style, ...props }, children);
+  const { FlatList, Image, ScrollView, Text, View } = require('react-native');
 
+  type MockComponentProps = Record<string, unknown> & {
+    children?: unknown;
+    style?: unknown;
+  };
+
+  const MockAnimatedView = ({
+    children,
+    style,
+    ...props
+  }: MockComponentProps) =>
+    React.createElement(View, { style, ...props }, children);
+  const MockAnimatedText = ({
+    children,
+    style,
+    ...props
+  }: MockComponentProps) =>
+    React.createElement(Text, { style, ...props }, children);
+  const MockAnimatedScrollView = ({
+    children,
+    style,
+    ...props
+  }: MockComponentProps) =>
+    React.createElement(ScrollView, { style, ...props }, children);
+  const MockAnimatedFlatList = ({
+    children,
+    style,
+    ...props
+  }: MockComponentProps) =>
+    React.createElement(FlatList, { style, ...props }, children);
+  const MockAnimatedImage = ({
+    children,
+    style,
+    ...props
+  }: MockComponentProps) =>
+    React.createElement(Image, { style, ...props }, children);
+  const identityAnimation = (toValue: unknown) => toValue;
+  const createAnimationBuilder = () => {
+    const builder: Record<string, (...args: unknown[]) => unknown> = {};
+    const chain = () => builder;
+
+    builder.delay = jest.fn(chain);
+    builder.duration = jest.fn(chain);
+    builder.easing = jest.fn(chain);
+    builder.springify = jest.fn(chain);
+    builder.damping = jest.fn(chain);
+    builder.stiffness = jest.fn(chain);
+    builder.mass = jest.fn(chain);
+    builder.withCallback = jest.fn(chain);
+    builder.withInitialValues = jest.fn(chain);
+    builder.build = jest.fn(() => ({}));
+
+    return builder;
+  };
+  const interpolate = (
+    value: number,
+    inputRange: number[],
+    outputRange: number[]
+  ) => {
+    if (value <= inputRange[0]) return outputRange[0];
+    const lastIndex = inputRange.length - 1;
+    if (value >= inputRange[lastIndex]) return outputRange[lastIndex];
+
+    const nextIndex = inputRange.findIndex((input) => value <= input);
+    const previousIndex = Math.max(0, nextIndex - 1);
+    const inputSpan = inputRange[nextIndex] - inputRange[previousIndex];
+    const outputSpan = outputRange[nextIndex] - outputRange[previousIndex];
+    const progress =
+      inputSpan === 0 ? 0 : (value - inputRange[previousIndex]) / inputSpan;
+
+    return outputRange[previousIndex] + outputSpan * progress;
+  };
   const mock = {
-    useSharedValue: (initVal: any) => ({ value: initVal }),
-    useAnimatedStyle: (fn: any) => fn(),
-    withSpring: (toValue: any) => toValue,
-    withTiming: (toValue: any) => toValue,
-    withRepeat: (anim: any) => anim,
-    withSequence: (...anims: any[]) => anims[0],
-    cancelAnimation: jest.fn(),
-    useDerivedValue: (fn: any) => ({
-      get value() {
-        return fn();
-      },
-    }),
-    useEvent: (fn: any) => fn,
-    interpolate: (
-      value: number,
-      inputRange: number[],
-      outputRange: number[]
-    ) => {
-      const idx = inputRange.indexOf(value);
-      if (idx !== -1) return outputRange[idx];
-      return outputRange[0];
+    useSharedValue: (initVal: unknown) => {
+      let currentValue = initVal;
+      return {
+        get value() {
+          return currentValue;
+        },
+        set value(nextValue: unknown) {
+          currentValue = nextValue;
+        },
+        get: () => currentValue,
+        set: (nextValue: unknown) => {
+          currentValue = nextValue;
+        },
+      };
     },
+    useAnimatedStyle: (fn: () => unknown) => fn(),
+    useDerivedValue: (fn: () => unknown) => ({ value: fn() }),
+    useAnimatedRef: () => ({ current: null }),
+    useAnimatedScrollHandler: (handler: unknown) => handler,
+    useAnimatedProps: (fn: () => unknown) => fn(),
+    withSpring: identityAnimation,
+    withTiming: identityAnimation,
+    withDelay: (_delayMs: number, animation: unknown) => animation,
+    withRepeat: (anim: unknown) => anim,
+    withSequence: (...anims: unknown[]) => anims[0],
+    withDecay: identityAnimation,
+    cancelAnimation: jest.fn(),
+    runOnJS: (fn: (...args: unknown[]) => unknown) => fn,
+    runOnUI: (fn: (...args: unknown[]) => unknown) => fn,
+    scrollTo: jest.fn(),
+    measure: jest.fn(() => null),
+    interpolate,
     interpolateColor: (
       value: number,
       inputRange: number[],
       outputRange: string[]
-    ) => {
-      const idx = inputRange.indexOf(value);
-      if (idx !== -1) return outputRange[idx];
-      return outputRange[0];
-    },
-    Extrapolation: {
-      CLAMP: 'clamp',
+    ) =>
+      outputRange[inputRange.findIndex((input) => value <= input)] ??
+      outputRange[0],
+    Extrapolate: { CLAMP: 'clamp', EXTEND: 'extend', IDENTITY: 'identity' },
+    Extrapolation: { CLAMP: 'clamp', EXTEND: 'extend', IDENTITY: 'identity' },
+    Easing: {
+      back: jest.fn(() => (value: number) => value),
+      bezier: jest.fn(() => (value: number) => value),
+      bounce: jest.fn((value: number) => value),
+      circle: jest.fn((value: number) => value),
+      cubic: jest.fn((value: number) => value),
+      ease: jest.fn((value: number) => value),
+      elastic: jest.fn(() => (value: number) => value),
+      exp: jest.fn((value: number) => value),
+      in: jest.fn((fn: (value: number) => number) => fn),
+      inOut: jest.fn((fn: (value: number) => number) => fn),
+      linear: jest.fn((value: number) => value),
+      out: jest.fn((fn: (value: number) => number) => fn),
+      poly: jest.fn(() => (value: number) => value),
+      quad: jest.fn((value: number) => value),
+      sin: jest.fn((value: number) => value),
+      steps: jest.fn(() => (value: number) => value),
     },
     View: MockAnimatedView,
     Text: MockAnimatedText,
-    createAnimatedComponent: (component: any) => component,
+    ScrollView: MockAnimatedScrollView,
+    FlatList: MockAnimatedFlatList,
+    Image: MockAnimatedImage,
+    createAnimatedComponent: (component: unknown) => component,
+    FadeIn: createAnimationBuilder(),
+    FadeInDown: createAnimationBuilder(),
+    FadeInLeft: createAnimationBuilder(),
+    FadeInRight: createAnimationBuilder(),
+    FadeInUp: createAnimationBuilder(),
+    FadeOut: createAnimationBuilder(),
+    FadeOutDown: createAnimationBuilder(),
+    FadeOutLeft: createAnimationBuilder(),
+    FadeOutRight: createAnimationBuilder(),
+    FadeOutUp: createAnimationBuilder(),
+    SlideInDown: createAnimationBuilder(),
+    SlideInLeft: createAnimationBuilder(),
+    SlideInRight: createAnimationBuilder(),
+    SlideInUp: createAnimationBuilder(),
+    SlideOutDown: createAnimationBuilder(),
+    SlideOutLeft: createAnimationBuilder(),
+    SlideOutRight: createAnimationBuilder(),
+    SlideOutUp: createAnimationBuilder(),
+    Layout: createAnimationBuilder(),
+    LinearTransition: createAnimationBuilder(),
+    Keyframe: class MockKeyframe {
+      duration() {
+        return this;
+      }
+      delay() {
+        return this;
+      }
+    },
     __esModule: true,
   };
 
@@ -162,45 +285,50 @@ jest.mock('react-native-reanimated', () => {
   return mock;
 });
 
-// Mock react-native-worklets
-jest.mock('react-native-worklets', () => ({
-  scheduleOnRN: (fn: (...args: any[]) => any, ...args: any[]) => fn(...args),
-  scheduleOnUI: (fn: (...args: any[]) => any, ...args: any[]) => fn(...args),
-  runOnJS: (fn: (...args: any[]) => any) => fn,
-}));
-
 // Mock react-native-gesture-handler
 jest.mock('react-native-gesture-handler', () => {
   const React = require('react');
-  const { Pressable } = require('react-native');
-  return {
-    Touchable: ({ children, ...props }: any) =>
-      React.createElement(Pressable, props, children),
-    GestureDetector: ({ children }: any) => children,
-    usePanGesture: jest.fn(() => ({})),
-    useTapGesture: jest.fn(() => ({})),
-    useSimultaneousGestures: jest.fn((...args: any[]) => ({})),
-  };
-});
-
-// Mock react-native-pager-view
-jest.mock('react-native-pager-view', () => {
-  const React = require('react');
   const { View } = require('react-native');
-  class MockPagerView extends React.Component {
-    setPage = jest.fn();
-    setPageWithoutAnimation = jest.fn();
-    render() {
-      const { children, ...props } = this.props;
-      return React.createElement(
-        View,
-        { testID: 'pager-view', ...props },
-        children
-      );
-    }
-  }
+
+  const createGesture = (): Record<string, (...args: unknown[]) => unknown> => {
+    const gesture: Record<string, (...args: unknown[]) => unknown> = {};
+    const chain = () => gesture;
+
+    gesture.activeOffsetX = jest.fn(chain);
+    gesture.maxDistance = jest.fn(chain);
+    gesture.maxPointers = jest.fn(chain);
+    gesture.minDistance = jest.fn(chain);
+    gesture.minPointers = jest.fn(chain);
+    gesture.numberOfTaps = jest.fn(chain);
+    gesture.onEnd = jest.fn(chain);
+    gesture.onFinalize = jest.fn(chain);
+    gesture.onStart = jest.fn(chain);
+    gesture.onUpdate = jest.fn(chain);
+
+    return gesture;
+  };
+
   return {
-    __esModule: true,
-    default: MockPagerView,
+    GestureDetector: ({ children }: { children?: unknown }) => children,
+    GestureHandlerRootView: ({
+      children,
+      style,
+    }: {
+      children?: unknown;
+      style?: unknown;
+    }) => React.createElement(View, { style }, children),
+    Gesture: {
+      Pan: jest.fn(createGesture),
+      Pinch: jest.fn(createGesture),
+      Race: jest.fn((...gestures: unknown[]) => ({
+        gestures,
+        type: 'race',
+      })),
+      Simultaneous: jest.fn((...gestures: unknown[]) => ({
+        gestures,
+        type: 'simultaneous',
+      })),
+      Tap: jest.fn(createGesture),
+    },
   };
 });
