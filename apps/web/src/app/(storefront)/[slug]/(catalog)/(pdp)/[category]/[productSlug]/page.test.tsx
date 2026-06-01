@@ -416,6 +416,7 @@ vi.mock(
 import CategoryProductPage, { generateMetadata } from './page';
 
 type ResolveRscOptions = {
+  pruneSkippedContent?: boolean;
   stripSuspense?: boolean;
   skipContent?: boolean;
 };
@@ -448,15 +449,20 @@ function isServerComponent(type: unknown): type is ServerComponent {
   return typeof type === 'function';
 }
 
+function isAsyncServerComponent(type: unknown): type is ServerComponent {
+  return isServerComponent(type) && type.constructor.name === 'AsyncFunction';
+}
+
 function isDeferredCategoryProductContent(
   type: unknown,
   props: ResolveRscElementProps
 ) {
   return (
-    isServerComponent(type) &&
-    typeof props.slug === 'string' &&
-    isPromiseLike(props.searchParams) &&
-    isPromiseLike(props.productResultPromise)
+    isAsyncServerComponent(type) &&
+    ((typeof props.slug === 'string' &&
+      isPromiseLike(props.searchParams) &&
+      isPromiseLike(props.productResultPromise)) ||
+      isPromiseLike(props.basePathPromise))
   );
 }
 
@@ -497,6 +503,9 @@ async function resolveRsc(
 
     if (isDeferredCategoryProductContent(type, props)) {
       if (options.skipContent) {
+        if (options.pruneSkippedContent) {
+          return null;
+        }
         return element;
       }
     }
@@ -1522,6 +1531,21 @@ describe('[category]/[productSlug] page render', () => {
       'product-details',
       'product-hints',
     ]);
+    render(
+      await resolveRsc(resolvedPage, {
+        pruneSkippedContent: true,
+        skipContent: true,
+      })
+    );
+    expect(
+      screen.getByRole('heading', {
+        level: 1,
+        name: 'HP Laptop 14-ep0063nia',
+      })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('img', { name: 'HP Laptop 14-ep0063nia' })
+    ).toBeInTheDocument();
     expect(mockOgabasseyPdpCriticalCommerce).not.toHaveBeenCalled();
 
     resolveBasePath?.({

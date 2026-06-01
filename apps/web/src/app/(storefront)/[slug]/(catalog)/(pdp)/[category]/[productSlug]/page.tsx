@@ -13,10 +13,7 @@ import { preloadOgabasseyPdpStaticResources } from '@/app/(storefront)/ogabassey
 import { OgabasseyPdpBelowFoldIsland } from '@/components/storefront/ogabassey/pdp/client-islands';
 import { createCriticalCartProduct } from '@/components/storefront/ogabassey/pdp/critical-cart-product';
 import { OgabasseyPdpCriticalCommerce } from '@/components/storefront/ogabassey/pdp/critical-commerce';
-import {
-  buildOgabasseyPdpCriticalProduct,
-  type OgabasseyPdpCriticalProduct,
-} from '@/components/storefront/ogabassey/pdp/critical-product';
+import { buildOgabasseyPdpCriticalProduct } from '@/components/storefront/ogabassey/pdp/critical-product';
 import { OgabasseyPdpCriticalShell } from '@/components/storefront/ogabassey/pdp/critical-shell';
 import { buildOgabasseyProductSpecData } from '@/components/storefront/ogabassey/product-spec-data';
 import {
@@ -796,16 +793,8 @@ interface CategoryProductPageContentProps {
 
 type CategoryProductPageCriticalCommerceControlsProps =
   CategoryProductPageContentProps & {
-    basePath: '' | `/${string}`;
+    basePathPromise: Promise<'' | `/${string}`>;
   };
-
-type CategoryProductPageCriticalShellProps = Omit<
-  CategoryProductPageContentProps,
-  'renderMode'
-> & {
-  basePathPromise: Promise<'' | `/${string}`>;
-  product: OgabasseyPdpCriticalProduct;
-};
 
 async function getRenderableCategoryProductResult({
   slug,
@@ -838,16 +827,19 @@ async function getRenderableCategoryProductResult({
 }
 
 async function CategoryProductPageCriticalCommerceControls({
-  basePath,
+  basePathPromise,
   slug,
   searchParams,
   productResultPromise,
 }: Omit<CategoryProductPageCriticalCommerceControlsProps, 'renderMode'>) {
-  const { product } = await getRenderableCategoryProductResult({
-    slug,
-    searchParams,
-    productResultPromise,
-  });
+  const [basePath, { product }] = await Promise.all([
+    basePathPromise,
+    getRenderableCategoryProductResult({
+      slug,
+      searchParams,
+      productResultPromise,
+    }),
+  ]);
   const criticalProduct = buildOgabasseyPdpCriticalProduct(product);
   const cartHref = `${basePath}/cart` as Route;
 
@@ -860,29 +852,6 @@ async function CategoryProductPageCriticalCommerceControls({
         variantCount: product.variants?.length ?? 0,
       }}
     />
-  );
-}
-
-async function CategoryProductPageCriticalShell({
-  basePathPromise,
-  product,
-  slug,
-  searchParams,
-  productResultPromise,
-}: CategoryProductPageCriticalShellProps) {
-  const criticalBasePath = await basePathPromise;
-
-  return (
-    <OgabasseyPdpCriticalShell basePath={criticalBasePath} product={product}>
-      <Suspense fallback={null}>
-        <CategoryProductPageCriticalCommerceControls
-          basePath={criticalBasePath}
-          slug={slug}
-          searchParams={searchParams}
-          productResultPromise={productResultPromise}
-        />
-      </Suspense>
-    </OgabasseyPdpCriticalShell>
   );
 }
 
@@ -1124,15 +1093,20 @@ export default async function CategoryProductPage({
       ) : null}
       {criticalProduct ? (
         <>
-          <Suspense fallback={null}>
-            <CategoryProductPageCriticalShell
-              basePathPromise={criticalBasePathPromise}
-              product={criticalProduct}
-              slug={slug}
-              searchParams={Promise.resolve(resolvedSearchParams)}
-              productResultPromise={productResultPromise}
-            />
-          </Suspense>
+          <OgabasseyPdpCriticalShell
+            basePath={getCategoryProductBasePath(slug)}
+            basePathPromise={criticalBasePathPromise}
+            product={criticalProduct}
+          >
+            <Suspense fallback={null}>
+              <CategoryProductPageCriticalCommerceControls
+                basePathPromise={criticalBasePathPromise}
+                slug={slug}
+                searchParams={Promise.resolve(resolvedSearchParams)}
+                productResultPromise={productResultPromise}
+              />
+            </Suspense>
+          </OgabasseyPdpCriticalShell>
           <Suspense fallback={null}>
             <CategoryProductPageContent
               renderMode="belowFold"
