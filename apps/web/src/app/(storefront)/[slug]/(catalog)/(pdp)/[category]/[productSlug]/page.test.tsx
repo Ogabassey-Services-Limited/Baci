@@ -416,6 +416,7 @@ vi.mock(
 import CategoryProductPage, { generateMetadata } from './page';
 
 type ResolveRscOptions = {
+  pruneSkippedContent?: boolean;
   stripSuspense?: boolean;
   skipContent?: boolean;
 };
@@ -448,15 +449,20 @@ function isServerComponent(type: unknown): type is ServerComponent {
   return typeof type === 'function';
 }
 
+function isAsyncServerComponent(type: unknown): type is ServerComponent {
+  return isServerComponent(type) && type.constructor.name === 'AsyncFunction';
+}
+
 function isDeferredCategoryProductContent(
   type: unknown,
   props: ResolveRscElementProps
 ) {
   return (
-    isServerComponent(type) &&
-    typeof props.slug === 'string' &&
-    isPromiseLike(props.searchParams) &&
-    isPromiseLike(props.productResultPromise)
+    isAsyncServerComponent(type) &&
+    ((typeof props.slug === 'string' &&
+      isPromiseLike(props.searchParams) &&
+      isPromiseLike(props.productResultPromise)) ||
+      isPromiseLike(props.basePathPromise))
   );
 }
 
@@ -497,6 +503,9 @@ async function resolveRsc(
 
     if (isDeferredCategoryProductContent(type, props)) {
       if (options.skipContent) {
+        if (options.pruneSkippedContent) {
+          return null;
+        }
         return element;
       }
     }
@@ -1469,6 +1478,90 @@ describe('[category]/[productSlug] page render', () => {
     expect(mockOgabasseyPdpDeferredDetailIsland).toHaveBeenCalled();
   });
 
+  it('streams the OgaBassey PDP product image preload before the request base path resolves', async () => {
+    let resolveBasePath: ((value: unknown) => void) | undefined;
+    const routeEvents: string[] = [];
+    const earlyProductImage =
+      'https://cdn.ogabassey.com/core-assets/products/basepath-lenovo-legion.avif';
+    mockGetCachedProductLcpHint.mockImplementationOnce(() => {
+      routeEvents.push('lcp-hint');
+      return Promise.resolve(
+        toLegacyCachedProduct({
+          ...categorizedDetailedProduct,
+          images: [earlyProductImage],
+        })
+      );
+    });
+    mockGetStorefrontShellSnapshotBase.mockImplementationOnce(() => {
+      routeEvents.push('base-path');
+      return new Promise((resolve) => {
+        resolveBasePath = resolve;
+      });
+    });
+    mockGetCachedProductWithDetails.mockImplementationOnce(() => {
+      routeEvents.push('product-details');
+      return Promise.resolve({
+        ...categorizedDetailedProduct,
+        images: [earlyProductImage],
+      });
+    });
+    mockOgabasseyPdpProductResourceHints.mockImplementationOnce(() => {
+      routeEvents.push('product-hints');
+      return null;
+    });
+
+    const resolvedPage = await resolveRsc(
+      CategoryProductPage({
+        params: Promise.resolve({
+          slug: 'teststore',
+          category: 'laptops',
+          productSlug: 'hp-laptop-14-ep0063nia',
+        }),
+        searchParams: Promise.resolve({}),
+      }),
+      { skipContent: true }
+    );
+
+    expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
+      src: earlyProductImage,
+    });
+    expect(routeEvents).toEqual([
+      'lcp-hint',
+      'base-path',
+      'product-details',
+      'product-hints',
+    ]);
+    render(
+      await resolveRsc(resolvedPage, {
+        pruneSkippedContent: true,
+        skipContent: true,
+      })
+    );
+    expect(
+      screen.getByRole('heading', {
+        level: 1,
+        name: 'HP Laptop 14-ep0063nia',
+      })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('img', { name: 'HP Laptop 14-ep0063nia' })
+    ).toBeInTheDocument();
+    expect(mockOgabasseyPdpCriticalCommerce).not.toHaveBeenCalled();
+
+    resolveBasePath?.({
+      merchant: {
+        ...baseMerchant,
+        template_id: OGABASSEY_TEMPLATE_ID,
+      },
+      routingMode: 'path',
+      basePath: '/teststore',
+    });
+
+    render(await resolveRsc(resolvedPage));
+
+    expect(mockOgabasseyPdpCriticalCommerce).toHaveBeenCalled();
+  });
+
   it('preloads the OgaBassey PDP product image without awaiting tracking-only query routes', async () => {
     let resolveProductDetails:
       | ((value: typeof categorizedDetailedProduct) => void)
@@ -1486,7 +1579,6 @@ describe('[category]/[productSlug] page render', () => {
         resolveProductDetails = resolve;
       })
     );
-
     const resolvedPage = await resolveRsc(
       CategoryProductPage({
         params: Promise.resolve({

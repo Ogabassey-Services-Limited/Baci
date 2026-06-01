@@ -793,7 +793,7 @@ interface CategoryProductPageContentProps {
 
 type CategoryProductPageCriticalCommerceControlsProps =
   CategoryProductPageContentProps & {
-    basePath: '' | `/${string}`;
+    basePathPromise: Promise<'' | `/${string}`>;
   };
 
 async function getRenderableCategoryProductResult({
@@ -827,16 +827,19 @@ async function getRenderableCategoryProductResult({
 }
 
 async function CategoryProductPageCriticalCommerceControls({
-  basePath,
+  basePathPromise,
   slug,
   searchParams,
   productResultPromise,
 }: Omit<CategoryProductPageCriticalCommerceControlsProps, 'renderMode'>) {
-  const { product } = await getRenderableCategoryProductResult({
-    slug,
-    searchParams,
-    productResultPromise,
-  });
+  const [basePath, { product }] = await Promise.all([
+    basePathPromise,
+    getRenderableCategoryProductResult({
+      slug,
+      searchParams,
+      productResultPromise,
+    }),
+  ]);
   const criticalProduct = buildOgabasseyPdpCriticalProduct(product);
   const cartHref = `${basePath}/cart` as Route;
 
@@ -1082,7 +1085,6 @@ export default async function CategoryProductPage({
   }
 
   productResultPromise = getProductResultPromise();
-  const criticalBasePath = await criticalBasePathPromise;
 
   return (
     <>
@@ -1092,12 +1094,13 @@ export default async function CategoryProductPage({
       {criticalProduct ? (
         <>
           <OgabasseyPdpCriticalShell
-            basePath={criticalBasePath}
+            basePath={getCategoryProductBasePath(slug)}
+            basePathPromise={criticalBasePathPromise}
             product={criticalProduct}
           >
             <Suspense fallback={null}>
               <CategoryProductPageCriticalCommerceControls
-                basePath={criticalBasePath}
+                basePathPromise={criticalBasePathPromise}
                 slug={slug}
                 searchParams={Promise.resolve(resolvedSearchParams)}
                 productResultPromise={productResultPromise}

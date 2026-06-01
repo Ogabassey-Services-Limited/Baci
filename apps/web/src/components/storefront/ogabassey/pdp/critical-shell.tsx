@@ -1,7 +1,7 @@
 import { getImageProps } from 'next/image';
 import Link from 'next/link';
 import type { Route } from 'next';
-import type { ComponentProps, ReactNode } from 'react';
+import { Suspense, type ComponentProps, type ReactNode } from 'react';
 import {
   OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA,
   OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_SIZES,
@@ -14,7 +14,8 @@ import styles from './critical-shell.module.css';
 import { buildOgabasseyPdpMobileImageSrcSet } from './product-image-source';
 
 interface OgabasseyPdpCriticalShellProps {
-  basePath: string;
+  basePath?: string;
+  basePathPromise?: Promise<string>;
   children?: ReactNode;
   product: OgabasseyPdpCriticalProduct;
 }
@@ -37,6 +38,60 @@ function formatPrice(price: number) {
 function buildPath(basePath: string, path: string): Route {
   const prefix = basePath === '/' ? '' : basePath.replace(/\/$/, '');
   return (`${prefix}${path}` || '/') as Route;
+}
+
+function OgabasseyPdpCriticalBreadcrumbItems({
+  basePath,
+  product,
+}: Pick<OgabasseyPdpCriticalShellProps, 'product'> & {
+  basePath: string;
+}) {
+  return (
+    <>
+      <Link href={buildPath(basePath, '/')} prefetch={false}>
+        Home
+      </Link>
+      <span aria-hidden="true">/</span>
+      <Link
+        href={buildPath(basePath, `/${product.categorySlug}`)}
+        prefetch={false}
+      >
+        {product.categoryName}
+      </Link>
+      <span aria-hidden="true">/</span>
+      <span aria-current="page">{product.name}</span>
+    </>
+  );
+}
+
+function OgabasseyPdpCriticalBreadcrumbFallback({
+  product,
+}: Pick<OgabasseyPdpCriticalShellProps, 'product'>) {
+  return (
+    <>
+      <span>Home</span>
+      <span aria-hidden="true">/</span>
+      <span>{product.categoryName}</span>
+      <span aria-hidden="true">/</span>
+      <span aria-current="page">{product.name}</span>
+    </>
+  );
+}
+
+async function OgabasseyPdpResolvedCriticalBreadcrumbs({
+  basePathPromise,
+  product,
+}: Pick<OgabasseyPdpCriticalShellProps, 'product'> & {
+  basePathPromise: Promise<string>;
+}) {
+  const basePath = await basePathPromise;
+
+  return (
+    <OgabasseyPdpCriticalBreadcrumbItems
+      basePath={basePath}
+      product={product}
+    />
+  );
 }
 
 function getNativeProductImageProps(product: OgabasseyPdpCriticalProduct) {
@@ -72,7 +127,8 @@ function getMobileProductImageSourceProps(product: OgabasseyPdpCriticalProduct) 
 }
 
 export function OgabasseyPdpCriticalShell({
-  basePath,
+  basePath = '',
+  basePathPromise,
   children,
   product,
 }: OgabasseyPdpCriticalShellProps) {
@@ -87,18 +143,23 @@ export function OgabasseyPdpCriticalShell({
           data-ogabassey-pdp-breadcrumbs
           aria-label="Breadcrumb"
         >
-          <Link href={buildPath(basePath, '/')} prefetch={false}>
-            Home
-          </Link>
-          <span aria-hidden="true">/</span>
-          <Link
-            href={buildPath(basePath, `/${product.categorySlug}`)}
-            prefetch={false}
-          >
-            {product.categoryName}
-          </Link>
-          <span aria-hidden="true">/</span>
-          <span aria-current="page">{product.name}</span>
+          {basePathPromise ? (
+            <Suspense
+              fallback={
+                <OgabasseyPdpCriticalBreadcrumbFallback product={product} />
+              }
+            >
+              <OgabasseyPdpResolvedCriticalBreadcrumbs
+                basePathPromise={basePathPromise}
+                product={product}
+              />
+            </Suspense>
+          ) : (
+            <OgabasseyPdpCriticalBreadcrumbItems
+              basePath={basePath}
+              product={product}
+            />
+          )}
         </nav>
         <div className={styles.grid} data-ogabassey-pdp-grid>
           <div className={styles.imageFrame} data-ogabassey-pdp-image-frame>
