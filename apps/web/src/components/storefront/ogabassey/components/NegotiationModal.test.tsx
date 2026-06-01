@@ -85,7 +85,7 @@ describe('NegotiationModal', () => {
   it('shows the offer input form initially', () => {
     render(<NegotiationModal {...defaultProps} />);
     expect(
-      screen.getByPlaceholderText('Enter amount...')
+      screen.getByRole('spinbutton', { name: /your offer/i })
     ).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: 'Submit Offer' })

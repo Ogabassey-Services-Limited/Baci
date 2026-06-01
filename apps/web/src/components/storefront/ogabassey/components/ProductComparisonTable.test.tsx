@@ -106,6 +106,8 @@ describe('ProductComparisonTable', () => {
       screen.getAllByRole('button', { name: /compare similar smartphones/i })[0]
     );
 
-    expect(screen.getByPlaceholderText('Type to search...')).toHaveFocus();
+    expect(
+      screen.getByRole('textbox', { name: /search products/i })
+    ).toHaveFocus();
   });
 });

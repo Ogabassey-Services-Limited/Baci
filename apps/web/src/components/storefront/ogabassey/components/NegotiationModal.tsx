@@ -3,7 +3,7 @@
 // Migrated from temp-source/components/NegotiationModal.tsx
 import { CheckCircle2, HandCoins, Loader2, Upload, X } from 'lucide-react';
 import type React from 'react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 
 interface NegotiationModalProps {
@@ -107,6 +107,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
   itemId,
   merchantId,
 }) => {
+  const offerInputId = useId();
   const [offer, setOffer] = useState('');
   const [status, setStatus] = useState<NegotiationStatus>('input');
   const [message, setMessage] = useState('');
@@ -477,11 +478,15 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
 
           {status === 'input' && (
             <form onSubmit={handleSubmit}>
-              <label className="block text-sm font-medium text-[hsl(var(--card-foreground))] mb-2">
+              <label
+                htmlFor={offerInputId}
+                className="block text-sm font-medium text-[hsl(var(--card-foreground))] mb-2"
+              >
                 Your Offer (₦)
               </label>
               <div className="relative mb-6">
                 <input
+                  id={offerInputId}
                   ref={offerInputRef}
                   type="number"
                   value={offer}

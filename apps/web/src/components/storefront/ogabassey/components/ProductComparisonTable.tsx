@@ -250,12 +250,13 @@ export function ProductComparisonTable({
                                                     <button type="button" onClick={() => setIsSearching(null)} aria-label="Cancel search"><X size={16} /></button>
                                                 </div>
                                                 <div className="relative">
-                                                    <Search size={14} className="absolute left-3 top-3 text-gray-400" />
+                                                    <Search size={14} className="absolute left-3 top-3 text-store-background-text/45" />
                                                     <input
                                                         ref={searchInputRef}
                                                         type="text"
+                                                        aria-label="Search products"
                                                         placeholder="Type to search..."
-                                                        className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-red-500/20 focus:border-red-500"
+                                                        className="w-full pl-9 pr-3 py-2 text-sm border border-store-background-text/15 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-store-primary/20 focus:border-store-primary"
                                                         value={query}
                                                         onChange={(e) => setQuery(e.target.value)}
                                                     />
