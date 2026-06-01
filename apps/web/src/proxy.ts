@@ -1937,6 +1937,31 @@ export async function proxy(request: NextRequest) {
   const routeType = getRouteType(pathname);
   const isLocal = isLocalhost(hostname);
 
+  if (shouldPartitionStorefrontMetadataCache(pathname, hostname, routeType)) {
+    // Root-domain and preview storefront PDPs do not hit the custom-domain or
+    // subdomain rewrite branches above, so apply the same hidden partition key
+    // here instead of relying only on a Vary header that Next/Vercel may replace.
+    const url = request.nextUrl.clone();
+    setStorefrontMetadataCacheBucketSearchParam(url, request);
+
+    const response = NextResponse.rewrite(url, {
+      request: {
+        headers: buildProxyRequestHeaders(request),
+      },
+    });
+
+    return applySecurityHeaders(
+      response,
+      pathname,
+      userAgent,
+      routeType,
+      isLocal,
+      undefined,
+      request,
+      hostname
+    );
+  }
+
   if (shouldForwardStrictCspNonce(routeType)) {
     const { nonce, response } = buildStrictCspResponse(
       request,

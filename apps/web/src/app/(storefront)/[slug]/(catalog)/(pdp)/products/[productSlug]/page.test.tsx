@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { type ReactNode, Suspense } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM } from '@/config/storefront-metadata-cache-bots';
 
 const {
   mockConnection,
@@ -587,6 +588,45 @@ describe('products/[productSlug] page', () => {
 
     expect(metadata.robots).toMatchObject({ index: false, follow: false });
     expect(mockRedirect).not.toHaveBeenCalled();
+  });
+
+  it('strips the internal metadata cache bucket from variant cleanup redirects', async () => {
+    mockGetCachedProduct.mockResolvedValue(null);
+    mockGetCachedProductWithDetails.mockResolvedValue(
+      uncategorizedDetailedProduct
+    );
+    mockNormalizeStorefrontProductVariants.mockReturnValue([
+      {
+        id: 'variant-new-128',
+        attributes: { storage: '128GB', connectivity: 'WiFi' },
+        condition: 'new',
+        stock_quantity: 5,
+      },
+      {
+        id: 'variant-used-128',
+        attributes: { storage: '128GB', connectivity: 'WiFi' },
+        condition: 'used',
+        stock_quantity: 3,
+      },
+    ]);
+
+    await expect(
+      ProductPage({
+        params: Promise.resolve({
+          slug: 'teststore',
+          productSlug: 'mystery-item',
+        }),
+        searchParams: Promise.resolve({
+          [STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM]: 'metadata-blocking',
+          storage: '128GB',
+          utm_source: 'google',
+        }),
+      })
+    ).rejects.toThrow('NEXT_REDIRECT');
+
+    expect(mockRedirect).toHaveBeenCalledWith(
+      '/products/mystery-item?utm_source=google'
+    );
   });
 
   it('returns noindex metadata (not a redirect) for legacy archived variant slugs so the page render issues the real HTTP 308', async () => {

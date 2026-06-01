@@ -763,7 +763,41 @@ describe('Middleware Proxy', () => {
     );
 
     const res = await proxy(req);
+    const rewriteUrl = new URL(
+      res.headers.get('x-middleware-rewrite') as string
+    );
 
+    expect(
+      res.headers.get('x-middleware-request-x-baci-metadata-cache-bucket')
+    ).toBe('metadata-blocking');
+    expect(
+      rewriteUrl.searchParams.get(STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM)
+    ).toBe('metadata-blocking');
+    expect(res.headers.get('Vary')).toBe('x-baci-metadata-cache-bucket');
+  });
+
+  it('applies hidden metadata cache partitioning to root-domain PDP routes', async () => {
+    const req = new NextRequest(
+      `https://${ROOT_DOMAIN}/merchant-demo/products/samsung-galaxy-a37-5g`
+    );
+    req.headers.set('host', ROOT_DOMAIN);
+    req.headers.set(
+      'user-agent',
+      'Mozilla/5.0 AppleWebKit/537.36 Chrome/125.0 Safari/537.36'
+    );
+
+    const res = await proxy(req);
+    const rewriteUrl = new URL(
+      res.headers.get('x-middleware-rewrite') as string
+    );
+
+    expect(rewriteUrl.origin).toBe(`https://${ROOT_DOMAIN}`);
+    expect(rewriteUrl.pathname).toBe(
+      '/merchant-demo/products/samsung-galaxy-a37-5g'
+    );
+    expect(
+      rewriteUrl.searchParams.get(STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM)
+    ).toBe('metadata-blocking');
     expect(
       res.headers.get('x-middleware-request-x-baci-metadata-cache-bucket')
     ).toBe('metadata-blocking');

@@ -26,6 +26,7 @@ import {
   mergeVariantAxisOptions,
   normalizeVariantAttributes,
 } from '@/components/storefront/ogabassey/variant-attributes';
+import { STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM } from '@/config/storefront-metadata-cache-bots';
 import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 import {
   type CachedLegacyProductRedirectTarget,
@@ -366,6 +367,9 @@ function shouldRedirectVariantSelectionParams(
 }
 
 const NON_SELECTION_TRACKING_PARAMS = new Set([
+  // Internal middleware-only cache partition key. Treat it like tracking noise
+  // so metadata cache safety cannot disable the PDP early image hint path.
+  STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM,
   'dclid',
   'fbclid',
   'gbraid',
