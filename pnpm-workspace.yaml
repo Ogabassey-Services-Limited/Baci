@@ -1,3 +1,15 @@
+minimumReleaseAge: 10080
+trustPolicy: no-downgrade
+
+# Workspace linkers & hoisting configurations for React Native/Expo in pnpm v11
+node-linker: hoisted
+shamefully-hoist: true
+public-hoist-pattern:
+  - "*expo*"
+  - "*react-native*"
+network-timeout: 1000000
+strict-dep-builds: false
+
 packages:
   - "apps/*"
   - "packages/*"
