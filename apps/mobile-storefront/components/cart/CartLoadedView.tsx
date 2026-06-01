@@ -1,9 +1,9 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { FlatList, Pressable, Text, View } from 'react-native';
 import { CheckoutIdentityModal } from '@/components/checkout/checkout-identity';
+import { PatternedBackground } from '@/components/storefront/PatternedBackground';
 import type Colors from '@/constants/Colors';
-import { SPACING, palette } from '@/constants/Colors';
-import { GadgetPatternBackground } from '@/components/storefront/GadgetPatternBackground';
+import { palette, SPACING } from '@/constants/Colors';
 import type { CartItem } from '@/stores/cart-store';
 import CartCheckoutFooter from './CartCheckoutFooter';
 import CartItemCard from './CartItemCard';
@@ -96,9 +96,9 @@ export default function CartLoadedView({
 
   return (
     <View style={styles.container}>
-      <GadgetPatternBackground
-        colorScheme={colorScheme}
+      <PatternedBackground
         backgroundColor={colors.background}
+        isDark={isDark}
       />
 
       <View

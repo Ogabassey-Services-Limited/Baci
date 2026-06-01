@@ -74,6 +74,8 @@ jobs:
               - 'biome.json'
               - '.npmrc'
               - 'pnpm-workspace.yaml'
+            # Root Next config changes affect the web app even when apps/web/**
+            # is untouched; keep them in the web quality-gate filter.
             web:
               - 'apps/web/**'
               - 'apps/mobile-storefront/assets/quiz/**'
@@ -89,6 +91,8 @@ jobs:
               - 'apps/mobile-storefront/stores/**'
               - 'apps/mobile-storefront/package.json'
               - 'packages/shared/**'
+              - 'next.config.ts'
+              - 'next.config.test.ts'
               - '.github/actions/pnpm-install-cached/**'
               - '.github/actions/setup-pnpm-store/**'
               - '.github/workflows/ci.yml'
@@ -147,6 +151,8 @@ jobs:
     needs: [changes]
     if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-24.04
+    # Full web/mobile test fan-out reached ~15 minutes on GitHub-hosted runners.
+    # Keep enough headroom for Turbo summary and Actions post-job cleanup.
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -157,13 +163,15 @@ jobs:
       - uses: ./.github/actions/pnpm-install-cached
       - name: Run Tests
         run: |
-          turbo_cache_args=()
+          turbo_cache_args=("--cache=local:rw,remote:r")
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             # PR tokens can read Vercel Remote Cache but may not be allowed to write artifacts.
-            turbo_cache_args+=(--remote-cache-read-only)
+            # Use --affected to test only impacted files.
             turbo_cache_args+=(--affected)
+          else
+            turbo_cache_args=("--cache=local:rw,remote:rw")
           fi
-          pnpm turbo test --concurrency=3 "${turbo_cache_args[@]}"
+          pnpm turbo run test --concurrency=3 --log-order=stream "${turbo_cache_args[@]}"
 
   quality-misc:
     name: Quality Gate - Misc
@@ -271,11 +279,32 @@ jobs:
           persist-credentials: false
       - if: needs.changes.outputs.web == 'true'
         uses: ./.github/actions/pnpm-install-cached
+      - id: next-cache
+        name: Restore Next.js build cache
+        if: needs.changes.outputs.web == 'true'
+        uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        with:
+          path: ${{ github.workspace }}/apps/web/.next/cache
+          key: nextjs-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', 'package.json', 'pnpm-workspace.yaml', 'turbo.json', 'tsconfig*.json', 'apps/web/**/*', 'packages/shared/**/*') }}
+          restore-keys: |
+            nextjs-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
+            nextjs-${{ runner.os }}-
       - if: needs.changes.outputs.web == 'true'
         run: pnpm turbo build --filter=@baci/web
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key' }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || 'placeholder-service-key' }}
+          SUPABASE_JWT_SECRET: ${{ secrets.SUPABASE_JWT_SECRET || 'placeholder-jwt-secret' }}
+      - name: Save Next.js build cache (main branch only)
+        if: >
+          needs.changes.outputs.web == 'true' &&
+          github.ref == 'refs/heads/main' &&
+          github.event_name == 'push' &&
+          steps.next-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        with:
+          path: ${{ github.workspace }}/apps/web/.next/cache
+          key: ${{ steps.next-cache.outputs.cache-primary-key }}
       - if: needs.changes.outputs.web != 'true'
         run: echo "No web changes — skipping build"

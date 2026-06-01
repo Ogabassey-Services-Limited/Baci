@@ -274,6 +274,17 @@ jest.mock('@/services/analytics', () => ({
   trackOrderCompleted: jest.fn(),
 }));
 
+jest.mock('@/services/tiktok-checkout-route-tracking', () => ({
+  // Checkout screen tests assert step/state transitions; loading native ad SDKs
+  // here makes CI render timing depend on mocked native module initialization.
+  trackCheckoutRoutePaymentInfo: jest.fn(() => Promise.resolve()),
+  trackCheckoutRoutePurchaseCompleted: jest.fn(() => Promise.resolve()),
+  trackCheckoutRouteStarted: jest.fn((...args: unknown[]) => {
+    mockTrackCheckoutStarted(...args);
+    return Promise.resolve();
+  }),
+}));
+
 jest.mock('@/services/orders', () => ({
   OrderError: class extends Error {
     code: string;

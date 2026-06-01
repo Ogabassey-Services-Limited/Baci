@@ -5,7 +5,6 @@ import type { Route } from 'next';
 import { useState } from 'react';
 import { useCart } from '@/hooks/cart';
 import type { Product as CartProduct } from '@/lib/products';
-import styles from './critical-commerce.module.css';
 
 interface OgabasseyPdpCriticalCommerceClientProps {
   cartHref: Route;
@@ -47,17 +46,13 @@ export function OgabasseyPdpCriticalCommerceClient({
   }
 
   return (
-    <div className={styles.controls} data-ogabassey-pdp-commerce-controls>
+    <div data-ogabassey-pdp-commerce-controls>
       {variantCount > 1 ? (
-        <p
-          className={styles.selectionHint}
-          data-ogabassey-pdp-commerce-selection-hint
-        >
+        <p data-ogabassey-pdp-commerce-selection-hint>
           Choose options below before checkout.
         </p>
       ) : null}
       <div
-        className={styles.quantity}
         data-ogabassey-pdp-commerce-quantity
         aria-label="Quantity"
       >
@@ -86,7 +81,6 @@ export function OgabasseyPdpCriticalCommerceClient({
         </button>
       </div>
       <button
-        className={styles.primaryAction}
         data-ogabassey-pdp-commerce-primary-action
         disabled={!canAddToCart}
         onClick={handleAddToCart}
@@ -95,7 +89,6 @@ export function OgabasseyPdpCriticalCommerceClient({
         Add to cart
       </button>
       <Link
-        className={styles.secondaryAction}
         data-ogabassey-pdp-commerce-secondary-action
         href={cartHref}
       >

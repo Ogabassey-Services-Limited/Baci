@@ -32,10 +32,14 @@ jobs:
       - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
         id: filter
         with:
+          # Root Next config changes affect the web deployment even when
+          # apps/web/** is untouched; keep them in the web deploy filter.
           filters: |
             web:
               - 'apps/web/**'
               - 'packages/shared/**'
+              - 'next.config.ts'
+              - 'next.config.test.ts'
               - 'package.json'
               - 'pnpm-lock.yaml'
               - 'turbo.json'
@@ -68,6 +72,8 @@ jobs:
   db-migrations:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
+    environment:
+      name: production
     timeout-minutes: 10
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
@@ -112,6 +118,9 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           persist-credentials: false
+      - name: Pre-run cleanup of stale secrets
+        run: |
+          rm -rf .vercel
       - uses: ./.github/actions/pnpm-install-cached
       # Pin vercel CLI + allow esbuild postinstall so pnpm 10's strict
       # ERR_PNPM_IGNORED_BUILDS does not block the dlx tmp install. Bumping
@@ -138,7 +147,12 @@ jobs:
 
           async function fetchText(url) {
             const response = await fetch(url, {
-              headers: { 'user-agent': 'baci-deploy-blog-smoke-check' },
+              headers: {
+                accept: 'text/html,application/xhtml+xml',
+                // Verify crawler-visible HTML. Generic fetch clients can receive
+                // Next's pre-render transport, which intentionally has no anchors.
+                'user-agent': 'Googlebot/2.1 (+http://www.google.com/bot.html; baci-deploy-blog-smoke-check)',
+              },
               signal: AbortSignal.timeout(timeoutMs),
             });
 
@@ -248,3 +262,7 @@ jobs:
         run: |
           echo "Storefront blog smoke check failed after cache recovery attempts."
           exit 1
+      - name: Clean up Vercel secrets
+        if: always()
+        run: |
+          rm -rf .vercel

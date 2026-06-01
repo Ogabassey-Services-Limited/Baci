@@ -1,6 +1,19 @@
 import { jest } from '@jest/globals';
-import { render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen } from '@testing-library/react-native';
+import type { ReactNode } from 'react';
 import { ChatWidget } from './ChatWidget';
+
+const mockGestureRuntime: {
+  Gesture: unknown;
+  GestureDetector: ({ children }: { children?: ReactNode }) => ReactNode;
+} = {
+  Gesture: {},
+  GestureDetector: ({ children }) => children,
+};
+
+jest.mock('@/lib/optional-gesture-handler', () => ({
+  getOptionalGestureHandlerRuntime: jest.fn(() => mockGestureRuntime),
+}));
 
 // Mock the three custom hooks
 jest.mock('./use-chat', () => ({
@@ -22,7 +35,7 @@ jest.mock('./use-draggable-fab', () => ({
     composedGesture: {},
     translateX: { value: 0 },
     translateY: { value: 0 },
-    scale: { value: 1 },
+    scale: { get: () => 1, value: 1 },
     isDragging: false,
     isOverDismissZone: false,
     isOnRight: true,
@@ -32,7 +45,11 @@ jest.mock('./use-draggable-fab', () => ({
 jest.mock('./use-proactive-nudge', () => ({
   useProactiveNudge: jest.fn(() => ({
     proactiveMsg: null,
-    nudgeFadeAnim: { value: 0 },
+    nudgeFadeAnim: {
+      addListener: jest.fn(),
+      removeListener: jest.fn(),
+      setValue: jest.fn(),
+    },
     dismissNudge: jest.fn(),
   })),
 }));
@@ -134,6 +151,8 @@ describe('ChatWidget', () => {
     mockDismissChat.mockClear();
     mockResetChatDismissal.mockClear();
     mockUsePathname.mockReturnValue('/');
+    mockGestureRuntime.Gesture = {};
+    mockGestureRuntime.GestureDetector = ({ children }) => children;
   });
 
   it('renders the FAB button with the correct accessibility label', () => {
@@ -143,6 +162,20 @@ describe('ChatWidget', () => {
       name: 'Open chat assistant. Drag to move.',
     });
     expect(fab).toBeTruthy();
+  });
+
+  it('opens chat with a press fallback when gestures are unavailable', () => {
+    mockGestureRuntime.Gesture = null;
+
+    render(<ChatWidget />);
+
+    fireEvent.press(
+      screen.getByRole('button', {
+        name: 'Open chat assistant. Drag to move.',
+      })
+    );
+
+    expect(mockOpenChat).toHaveBeenCalledTimes(1);
   });
 
   it('shows the AI badge text on the FAB', () => {
@@ -221,10 +254,21 @@ describe('ChatWidget', () => {
     expect(toJSON()).toBeNull();
   });
 
-  it('resets chatbot dismissal when returning to home screen', () => {
+  it('preserves chatbot dismissal when already on the home screen', () => {
     mockIsChatDismissed = true;
     mockUsePathname.mockReturnValue('/');
     render(<ChatWidget />);
+
+    expect(mockResetChatDismissal).not.toHaveBeenCalled();
+  });
+
+  it('resets chatbot dismissal after navigating back to home screen', () => {
+    mockIsChatDismissed = true;
+    mockUsePathname.mockReturnValue('/products/iphone-15');
+    const { rerender } = render(<ChatWidget />);
+
+    mockUsePathname.mockReturnValue('/');
+    rerender(<ChatWidget />);
 
     expect(mockResetChatDismissal).toHaveBeenCalled();
   });

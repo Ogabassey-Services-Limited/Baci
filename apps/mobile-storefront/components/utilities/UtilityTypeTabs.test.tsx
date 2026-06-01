@@ -1,7 +1,7 @@
 import { describe, expect, it, jest } from '@jest/globals';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { ScrollView, StyleSheet } from 'react-native';
-import Colors, { BRAND, SPACING } from '@/constants/Colors';
+import Colors, { SPACING } from '@/constants/Colors';
 import { UtilityTypeTabs } from './UtilityTypeTabs';
 
 let mockColorScheme: 'light' | 'dark' = 'light';

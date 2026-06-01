@@ -41,7 +41,7 @@ interface HomeScreenViewProps {
   isScrolled: boolean;
   onCategorySelect: (id: string | null) => void;
   onHeaderLayout: (event: LayoutChangeEvent) => void;
-  onListScroll: (event: unknown) => void; // Reanimated scroll handler type
+  onListScroll: unknown; // Reanimated scroll handler type
   onPermissionDeny: () => void;
   onPermissionGrant: () => void;
   onRefresh: () => void;
@@ -207,7 +207,7 @@ export function HomeScreenView({
           />
         }
         showsVerticalScrollIndicator={false}
-        onScroll={onListScroll}
+        onScroll={onListScroll as (event: unknown) => void}
         scrollEventThrottle={16}
       >
         <Animated.View

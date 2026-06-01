@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import {
   View,
   Pressable,
@@ -26,7 +26,7 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
 
   // Filter visible routes (ignore options.href === null)
   const visibleRoutes = state.routes.filter((route) => {
-    const { options } = descriptors[route.key];
+    const { options } = descriptors[route.key] as unknown as { options: { href?: string | null } };
     return options.href !== null;
   });
 
@@ -127,15 +127,19 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
               accessibilityLabel={options.title || route.name}
               testID={`custom-tab-item-${route.name}`}
             >
-              {options.tabBarIcon?.({
-                focused: isFocused,
-                color: isFocused ? BRAND.primary : colors.tabIconDefault,
-                size: 22,
-              })}
-              {options.tabBarLabel?.({
-                focused: isFocused,
-                color: isFocused ? BRAND.primary : colors.tabIconDefault,
-              })}
+              {typeof options.tabBarIcon === 'function'
+                ? (options.tabBarIcon as unknown as (props: { focused: boolean; color: string; size: number }) => ReactNode)({
+                    focused: isFocused,
+                    color: isFocused ? BRAND.primary : colors.tabIconDefault,
+                    size: 22,
+                  })
+                : null}
+              {typeof options.tabBarLabel === 'function'
+                ? (options.tabBarLabel as unknown as (props: { focused: boolean; color: string }) => ReactNode)({
+                    focused: isFocused,
+                    color: isFocused ? BRAND.primary : colors.tabIconDefault,
+                  })
+                : null}
             </Pressable>
           );
         })}

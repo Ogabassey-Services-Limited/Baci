@@ -3,10 +3,17 @@
   "futureFlags": {
     "affectedUsingTaskInputs": true
   },
+  "globalDependencies": [
+    ".npmrc",
+    "pnpm-workspace.yaml",
+    "pnpm-lock.yaml",
+    "biome.json",
+    "tsconfig*.json"
+  ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": [".next/**", "dist/**"],
+      "outputs": [".next/**", "!.next/cache/**", "dist/**"],
       "env": [
         "NEXT_PUBLIC_SUPABASE_URL",
         "NEXT_PUBLIC_SUPABASE_ANON_KEY",
@@ -45,16 +52,16 @@
       "persistent": true
     },
     "lint": {
-      "inputs": ["$TURBO_DEFAULT$", "next.config*.ts", "biome.json"]
+      "inputs": ["$TURBO_DEFAULT$", "next.config*.ts", "$TURBO_ROOT$/biome.json"]
     },
     "typecheck": {
-      "inputs": ["$TURBO_DEFAULT$", "next.config*.ts", "tsconfig*.json"]
+      "inputs": ["$TURBO_DEFAULT$", "next.config*.ts", "$TURBO_ROOT$/tsconfig*.json"]
     },
     "test": {
       "inputs": [
         "$TURBO_DEFAULT$",
         "next.config*.ts",
-        "tsconfig*.json",
+        "$TURBO_ROOT$/tsconfig*.json",
         "vitest.config.*",
         "jest.config.*"
       ]

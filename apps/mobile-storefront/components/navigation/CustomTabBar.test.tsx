@@ -33,6 +33,7 @@ describe('CustomTabBar', () => {
     jest.clearAllMocks();
 
     mockProps = {
+      insets: { top: 0, bottom: 0, left: 0, right: 0 },
       state: {
         index: 0,
         routes: [
@@ -43,42 +44,45 @@ describe('CustomTabBar', () => {
         type: 'tab',
         routeNames: ['index', 'saved', 'categories'],
         history: [],
+        key: 'state-key',
+        stale: false,
+        preloadedRouteKeys: [],
       },
       descriptors: {
         'home-key': {
           options: {
             title: 'Home',
-            tabBarIcon: () => null,
-            tabBarLabel: () => null,
+            tabBarIcon: () => <React.Fragment />,
+            tabBarLabel: () => <React.Fragment />,
           },
-          navigation: {} as any,
-          route: {} as any,
-          render: () => null,
+          navigation: {} as unknown as BottomTabBarProps['descriptors'][string]['navigation'],
+          route: {} as unknown as BottomTabBarProps['descriptors'][string]['route'],
+          render: () => <React.Fragment />,
         },
         'saved-key': {
           options: {
             title: 'Saved',
-            tabBarIcon: () => null,
-            tabBarLabel: () => null,
+            tabBarIcon: () => <React.Fragment />,
+            tabBarLabel: () => <React.Fragment />,
           },
-          navigation: {} as any,
-          route: {} as any,
-          render: () => null,
+          navigation: {} as unknown as BottomTabBarProps['descriptors'][string]['navigation'],
+          route: {} as unknown as BottomTabBarProps['descriptors'][string]['route'],
+          render: () => <React.Fragment />,
         },
         'hidden-key': {
           options: {
             href: null,
             title: 'Explore',
-          },
-          navigation: {} as any,
-          route: {} as any,
-          render: () => null,
+          } as unknown as BottomTabBarProps['descriptors'][string]['options'],
+          navigation: {} as unknown as BottomTabBarProps['descriptors'][string]['navigation'],
+          route: {} as unknown as BottomTabBarProps['descriptors'][string]['route'],
+          render: () => <React.Fragment />,
         },
       },
       navigation: {
         emit: jest.fn().mockReturnValue({ defaultPrevented: false }),
         navigate: jest.fn(),
-      } as any,
+      } as unknown as BottomTabBarProps['navigation'],
     };
   });
 
@@ -108,7 +112,7 @@ describe('CustomTabBar', () => {
     const { rerender } = render(<CustomTabBar {...mockProps} />);
 
     // Simulate change in state index
-    mockProps.state.index = 1;
+    (mockProps.state as unknown as { index: number }).index = 1;
     rerender(<CustomTabBar {...mockProps} />);
 
     expect(Haptics.impactAsync).toHaveBeenCalledWith(Haptics.ImpactFeedbackStyle.Light);

@@ -340,10 +340,10 @@ describe('products index page', () => {
     ).toBeInTheDocument();
     expect(screen.queryByText('Route loader fallback')).not.toBeInTheDocument();
     expect(screen.queryByText('Products page content')).not.toBeInTheDocument();
-    expect(mockConnection).not.toHaveBeenCalled();
+    expect(mockConnection).toHaveBeenCalledOnce();
   });
 
-  it('marks runtime metadata with a page-level dynamic marker', async () => {
+  it('keeps product listings request-bound without a page-level metadata marker', async () => {
     render(
       await ProductsPage({
         params: Promise.resolve({ slug: 'test-store' }),
@@ -352,17 +352,20 @@ describe('products index page', () => {
     );
 
     expect(screen.getByText('Products page content')).toBeInTheDocument();
-    expect(mockConnection).not.toHaveBeenCalled();
+    expect(mockConnection).toHaveBeenCalledOnce();
   });
 
-  it('keeps metadata on the canonical product index regardless of pagination', async () => {
+  it('uses page-specific product index metadata for paginated listings', async () => {
     const metadata = await generateMetadata({
       params: Promise.resolve({ slug: 'test-store' }),
       searchParams: Promise.resolve({ page: '2' }),
     });
 
     expect(metadata.alternates?.canonical).toBe(
-      'https://test-store.usebaci.com/products'
+      'https://test-store.usebaci.com/products?page=2'
+    );
+    expect(metadata.openGraph?.url).toBe(
+      'https://test-store.usebaci.com/products?page=2'
     );
     expect(metadata.robots).toMatchObject({
       index: true,
@@ -371,7 +374,7 @@ describe('products index page', () => {
       'max-snippet': -1,
       'max-video-preview': -1,
     });
-    expect(metadata.title).toBe('Products | Ogabassey');
+    expect(metadata.title).toBe('Products | Page 2 | Ogabassey');
     expect(metadata.openGraph?.images).toEqual([
       {
         url: 'https://cdn.example.com/iphone-16.png',
@@ -382,8 +385,62 @@ describe('products index page', () => {
       'https://cdn.example.com/iphone-16.png',
     ]);
     expect(getCachedStorefrontProductIndex).toHaveBeenCalledWith('merchant-1', {
-      page: 1,
+      page: 2,
       limit: 20,
+    });
+  });
+
+  it('drops focused storefront filters from canonical metadata until listing results are filtered', async () => {
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'test-store' }),
+      searchParams: Promise.resolve({ brand: 'Apple', page: '2' }),
+    });
+
+    expect(metadata.alternates?.canonical).toBe(
+      'https://test-store.usebaci.com/products?page=2'
+    );
+    expect(metadata.openGraph?.url).toBe(
+      'https://test-store.usebaci.com/products?page=2'
+    );
+    expect(metadata.robots).toMatchObject({
+      index: false,
+      follow: true,
+    });
+  });
+
+  it('drops price bounds from canonical listing metadata until listing results are filtered', async () => {
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'test-store' }),
+      searchParams: Promise.resolve({
+        minPrice: '100000',
+        maxPrice: '500000',
+      }),
+    });
+
+    expect(metadata.alternates?.canonical).toBe(
+      'https://test-store.usebaci.com/products'
+    );
+    expect(metadata.robots).toMatchObject({
+      index: false,
+      follow: true,
+    });
+  });
+
+  it('drops multi-filter params from canonical listing metadata', async () => {
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'test-store' }),
+      searchParams: Promise.resolve({
+        brand: 'Apple',
+        minPrice: '100000',
+      }),
+    });
+
+    expect(metadata.alternates?.canonical).toBe(
+      'https://test-store.usebaci.com/products'
+    );
+    expect(metadata.robots).toMatchObject({
+      index: false,
+      follow: true,
     });
   });
 
@@ -396,6 +453,15 @@ describe('products index page', () => {
     expect(metadata.alternates?.canonical).toBe(
       'https://test-store.usebaci.com/products'
     );
+  });
+
+  it('matches the product index route 404 behavior for out-of-range metadata pages', async () => {
+    await expect(
+      generateMetadata({
+        params: Promise.resolve({ slug: 'test-store' }),
+        searchParams: Promise.resolve({ page: '3' }),
+      })
+    ).rejects.toThrow('NEXT_NOT_FOUND');
   });
 
   it('falls back to the storefront opengraph image when catalog items have no media', async () => {

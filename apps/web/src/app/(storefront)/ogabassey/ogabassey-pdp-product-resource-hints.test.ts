@@ -47,16 +47,33 @@ vi.mock('next/image', () => ({
   getImageProps: mockGetImageProps,
 }));
 
+const mockPreload = vi.hoisted(() => vi.fn());
+
+vi.mock('react-dom', () => ({
+  preload: mockPreload,
+}));
+
 import { OgabasseyPdpProductResourceHints } from './ogabassey-pdp-product-resource-hints';
 
 describe('OgabasseyPdpProductResourceHints', () => {
   beforeEach(() => {
     mockGetImageProps.mockClear();
+    mockPreload.mockClear();
   });
 
-  it('renders an early preload link for the primary product image with the gallery sizes', () => {
+  it('emits React preload hints and fallback links for the primary product image with the gallery sizes', () => {
     const productImage =
       'https://cdn.ogabassey.com/core-assets/products/lenovo-legion.avif';
+    const mobilePreloadHref = imageLoader({
+      src: productImage,
+      width: 750,
+      quality: 30,
+    });
+    const desktopPreloadHref = imageLoader({
+      src: productImage,
+      width: 750,
+      quality: 35,
+    });
 
     const html = renderToStaticMarkup(
       createElement(OgabasseyPdpProductResourceHints, { src: productImage })
@@ -73,9 +90,8 @@ describe('OgabasseyPdpProductResourceHints', () => {
     expect(html).toContain('rel="preload"');
     expect(html).toContain('as="image"');
     expect(html).toMatch(/fetchpriority="high"/i);
-    expect(html).toContain(
-      `href="${imageLoader({ src: productImage, width: 750, quality: 35 })}"`
-    );
+    expect(html).toContain(`href="${desktopPreloadHref}"`);
+    expect(html).toContain(`href="${mobilePreloadHref}"`);
     expect(html).toContain(
       `media="${OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA}"`
     );
@@ -87,17 +103,32 @@ describe('OgabasseyPdpProductResourceHints', () => {
     );
     expect(html).toContain(`imageSizes="${OGABASSEY_PDP_PRIMARY_IMAGE_SIZES}"`);
     expect(html).toMatch(/imageSrcSet="[^"]*lenovo-legion\.avif/);
-    expect(html).toContain(
-      imageLoader({ src: productImage, width: 750, quality: 35 })
-    );
+    expect(html).toContain(desktopPreloadHref);
+    expect(html).toContain(mobilePreloadHref);
     const mobileLink = html
       .match(/<link[^>]+>/g)
       ?.find((link) =>
         link.includes(`media="${OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA}"`)
       );
     expect(mobileLink).toContain('750w');
+    expect(mobileLink).toContain('quality=30');
     expect(mobileLink).not.toContain('1080w');
-    expect(html).not.toContain('type="image/');
+    expect(html).not.toContain('type="image/avif"');
+    expect(mockPreload).toHaveBeenCalledTimes(1);
+    expect(mockPreload).toHaveBeenCalledWith(
+      mobilePreloadHref,
+      expect.objectContaining({
+        as: 'image',
+        fetchPriority: 'high',
+        imageSizes: OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_SIZES,
+        imageSrcSet: expect.stringContaining('750w'),
+      })
+    );
+    expect(mockPreload).not.toHaveBeenCalledWith(
+      desktopPreloadHref,
+      expect.anything()
+    );
+    expect(mockPreload.mock.calls[0]?.[1]).not.toHaveProperty('media');
   });
 
   it('uses the fallback URL extension when the image is not CDN transformed', () => {
@@ -109,6 +140,10 @@ describe('OgabasseyPdpProductResourceHints', () => {
     );
 
     expect(html).toContain('type="image/png"');
+    expect(mockPreload).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ type: 'image/png' })
+    );
   });
 
   it('skips empty product image URLs', () => {
@@ -118,6 +153,7 @@ describe('OgabasseyPdpProductResourceHints', () => {
 
     expect(html).toBe('');
     expect(mockGetImageProps).not.toHaveBeenCalled();
+    expect(mockPreload).not.toHaveBeenCalled();
   });
 
   it('skips null product image URLs', () => {
@@ -127,6 +163,7 @@ describe('OgabasseyPdpProductResourceHints', () => {
 
     expect(html).toBe('');
     expect(mockGetImageProps).not.toHaveBeenCalled();
+    expect(mockPreload).not.toHaveBeenCalled();
   });
 
   it('skips undefined product image URLs', () => {
@@ -136,5 +173,6 @@ describe('OgabasseyPdpProductResourceHints', () => {
 
     expect(html).toBe('');
     expect(mockGetImageProps).not.toHaveBeenCalled();
+    expect(mockPreload).not.toHaveBeenCalled();
   });
 });

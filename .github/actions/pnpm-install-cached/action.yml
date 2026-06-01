@@ -6,14 +6,10 @@ inputs:
     description: 'Path for pnpm store'
     required: false
     default: ~/.local/share/pnpm/store/v3
-  turbo-cache-dir:
-    description: 'Path for local Turborepo artifacts'
-    required: false
-    default: .turbo
   install-command:
     description: 'Custom command to execute dependencies installation'
     required: false
-    default: 'pnpm install --frozen-lockfile --prefer-offline'
+    default: './.github/scripts/pnpm-install-with-retry.sh --frozen-lockfile --prefer-offline'
 
 runs:
   using: composite
@@ -44,23 +40,12 @@ runs:
 
     - name: Configure pnpm store directory
       shell: bash
-      run: pnpm config set store-dir "${{ inputs.store-dir }}"
-
-    # Split caching for local Turborepo artifacts
-    - id: turbo-cache
-      name: Restore Turborepo cache
-      uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
-      with:
-        path: ${{ inputs.turbo-cache-dir }}
-        key: turbo-${{ runner.os }}-${{ github.ref_name }}-${{ github.sha }}
-        restore-keys: |
-          turbo-${{ runner.os }}-${{ github.ref_name }}-
-          turbo-${{ runner.os }}-main-
+      run: |
+        pnpm config set store-dir "${{ inputs.store-dir }}"
+        echo "PNPM_STORE_DIR=${{ inputs.store-dir }}" >> "$GITHUB_ENV"
 
     - name: Install Dependencies
       shell: bash
-      env:
-        pnpm_config_strict_dep_builds: 'false'
       run: ${{ inputs.install-command }}
 
     # Cache Save Engine: PR branches are strictly RESTORE-ONLY to prevent cache poisoning & save storage limit (10GB)
@@ -73,13 +58,3 @@ runs:
       with:
         path: ${{ inputs.store-dir }}
         key: ${{ steps.pnpm-store-cache.outputs.cache-primary-key }}
-
-    - name: Save Turborepo cache (main branch only)
-      if: >
-        github.ref == 'refs/heads/main' &&
-        github.event_name == 'push' &&
-        steps.turbo-cache.outputs.cache-hit != 'true'
-      uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
-      with:
-        path: ${{ inputs.turbo-cache-dir }}
-        key: ${{ steps.turbo-cache.outputs.cache-primary-key }}

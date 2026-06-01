@@ -6,6 +6,10 @@ const { mockPlatform } = vi.hoisted(() => ({
   mockPlatform: { OS: 'ios' as 'ios' | 'android' },
 }));
 
+function Text({ children }: { children?: React.ReactNode }) {
+  return <span>{children}</span>;
+}
+
 vi.mock('react-native', async () => {
   const React = await import('react');
 
@@ -86,7 +90,7 @@ describe('AppKeyboardContainer', () => {
   it('renders children inside the shared keyboard-safe wrappers', () => {
     render(
       <AppKeyboardContainer align="center">
-        <div>Keyboard-safe child</div>
+        <Text>Keyboard-safe child</Text>
       </AppKeyboardContainer>
     );
 
@@ -102,7 +106,7 @@ describe('AppKeyboardContainer', () => {
   it('applies the shared iOS keyboard behavior contract', () => {
     render(
       <AppKeyboardContainer keyboardVerticalOffset={48}>
-        <div>Contract</div>
+        <Text>Contract</Text>
       </AppKeyboardContainer>
     );
 
@@ -126,7 +130,7 @@ describe('AppKeyboardContainer', () => {
 
     render(
       <AppKeyboardContainer keyboardVerticalOffset={24}>
-        <div>Android contract</div>
+        <Text>Android contract</Text>
       </AppKeyboardContainer>
     );
 
@@ -150,7 +154,7 @@ describe('AppKeyboardContainer', () => {
 
     render(
       <AppKeyboardContainer offsetPreset="compactHeader">
-        <div>Compact header</div>
+        <Text>Compact header</Text>
       </AppKeyboardContainer>
     );
 
@@ -164,7 +168,7 @@ describe('AppKeyboardContainer', () => {
   it('includes safe-area bottom padding in the scroll content style', () => {
     render(
       <AppKeyboardContainer>
-        <div>Inset check</div>
+        <Text>Inset check</Text>
       </AppKeyboardContainer>
     );
 
@@ -184,7 +188,7 @@ describe('AppKeyboardContainer', () => {
   it('top-aligns content when align is start', () => {
     render(
       <AppKeyboardContainer align="start">
-        <div>Top aligned</div>
+        <Text>Top aligned</Text>
       </AppKeyboardContainer>
     );
 
@@ -204,7 +208,7 @@ describe('AppKeyboardContainer', () => {
   it('renders a non-scroll content view when scrolling is disabled', () => {
     render(
       <AppKeyboardContainer scrollEnabled={false}>
-        <div>No scroll</div>
+        <Text>No scroll</Text>
       </AppKeyboardContainer>
     );
 

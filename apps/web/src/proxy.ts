@@ -20,6 +20,7 @@ import { STOREFRONT_FEED_ROUTES } from '@/config/storefront-feed-routes';
 import {
   getStorefrontMetadataCacheBucket,
   STOREFRONT_METADATA_CACHE_BUCKET_HEADER,
+  STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM,
 } from '@/config/storefront-metadata-cache-bots';
 import {
   CLICK_ID_PARAMS,
@@ -99,6 +100,16 @@ function buildProxyRequestHeaders(request: NextRequest): Headers {
     getStorefrontMetadataCacheBucket(request.headers.get('user-agent') ?? '')
   );
   return headers;
+}
+
+function setStorefrontMetadataCacheBucketSearchParam(
+  url: URL,
+  request: NextRequest
+): void {
+  url.searchParams.set(
+    STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM,
+    getStorefrontMetadataCacheBucket(request.headers.get('user-agent') ?? '')
+  );
 }
 
 function isPublicMachineReadablePath(pathname: string): boolean {
@@ -215,6 +226,33 @@ function isStorefrontProductPagePath(
   }
 
   return !NESTED_PRODUCT_SUBROUTE_EXCLUSIONS.has(subrouteSegment);
+}
+
+function shouldPartitionStorefrontMetadataCache(
+  pathname: string,
+  hostname: string | undefined,
+  routeType: 'admin' | 'auth' | 'storefront' | 'api'
+): boolean {
+  if (routeType !== 'storefront') {
+    return false;
+  }
+
+  const contentSegments = getStorefrontContentSegments(
+    pathname,
+    hostname,
+    routeType
+  );
+  const firstSegment = contentSegments[0]?.toLowerCase();
+
+  if (
+    firstSegment &&
+    RESERVED_STOREFRONT_SEGMENTS.has(firstSegment) &&
+    firstSegment !== 'products'
+  ) {
+    return false;
+  }
+
+  return isStorefrontProductPagePath(pathname, hostname, routeType);
 }
 
 // Routes that should not be rewritten (main app routes)
@@ -1671,6 +1709,15 @@ export async function proxy(request: NextRequest) {
       // First visit: Rewrite to /${domain}${pathname} so the storefront [slug] route handles it
       const url = request.nextUrl.clone();
       url.pathname = `/${domain}${pathname}`;
+      const routeType = getRouteType(pathname);
+      // Vercel/Next can overwrite configured HTML Vary for PPR responses; the
+      // internal query param keeps empty-UA streamed shells out of browser cache
+      // buckets without changing the public URL or canonical metadata.
+      if (
+        shouldPartitionStorefrontMetadataCache(pathname, hostname, routeType)
+      ) {
+        setStorefrontMetadataCacheBucketSearchParam(url, request);
+      }
 
       const requestHeaders = buildProxyRequestHeaders(request);
       requestHeaders.set('x-custom-domain', domain);
@@ -1683,7 +1730,6 @@ export async function proxy(request: NextRequest) {
       });
 
       // Generate route-specific CSP
-      const routeType = getRouteType(pathname);
       const isLocal = isLocalhost(hostname);
 
       return applySecurityHeaders(
@@ -1805,6 +1851,10 @@ export async function proxy(request: NextRequest) {
 
     const url = request.nextUrl.clone();
     url.pathname = `/${subdomain}${pathname}`;
+    const routeType = getRouteType(pathname);
+    if (shouldPartitionStorefrontMetadataCache(pathname, hostname, routeType)) {
+      setStorefrontMetadataCacheBucketSearchParam(url, request);
+    }
 
     const requestHeaders = buildProxyRequestHeaders(request);
     requestHeaders.set('x-merchant-slug', subdomain as string);
@@ -1815,7 +1865,6 @@ export async function proxy(request: NextRequest) {
       },
     });
 
-    const routeType = getRouteType(pathname);
     const isLocal = isLocalhost(hostname);
 
     return applySecurityHeaders(
@@ -1887,6 +1936,31 @@ export async function proxy(request: NextRequest) {
   // Standard request - generate route-specific CSP
   const routeType = getRouteType(pathname);
   const isLocal = isLocalhost(hostname);
+
+  if (shouldPartitionStorefrontMetadataCache(pathname, hostname, routeType)) {
+    // Root-domain and preview storefront PDPs do not hit the custom-domain or
+    // subdomain rewrite branches above, so apply the same hidden partition key
+    // here instead of relying only on a Vary header that Next/Vercel may replace.
+    const url = request.nextUrl.clone();
+    setStorefrontMetadataCacheBucketSearchParam(url, request);
+
+    const response = NextResponse.rewrite(url, {
+      request: {
+        headers: buildProxyRequestHeaders(request),
+      },
+    });
+
+    return applySecurityHeaders(
+      response,
+      pathname,
+      userAgent,
+      routeType,
+      isLocal,
+      undefined,
+      request,
+      hostname
+    );
+  }
 
   if (shouldForwardStrictCspNonce(routeType)) {
     const { nonce, response } = buildStrictCspResponse(
@@ -1984,8 +2058,9 @@ function applySecurityHeaders(
   response.headers.set('x-pathname', pathname);
 
   if (routeType === 'storefront') {
-    // Keep this for direct middleware responses; next.config.ts owns the final
-    // HTML Vary because rewritten app responses can replace middleware Vary.
+    // Defense in depth for direct middleware responses. Rewritten PPR HTML can
+    // overwrite Vary later, so product-like rewrites also carry the internal
+    // metadata bucket query param set before Next renders the route.
     appendVaryHeader(response, STOREFRONT_METADATA_CACHE_BUCKET_HEADER);
   }
 
