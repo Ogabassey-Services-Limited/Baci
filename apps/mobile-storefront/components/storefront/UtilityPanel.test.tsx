@@ -1,5 +1,4 @@
 import { jest } from '@jest/globals';
-import * as React from 'react';
 
 const mockWithTiming = jest.fn((toValue: number, _config?: object) => toValue);
 
@@ -17,7 +16,8 @@ jest.mock('react-native-reanimated', () => {
     Text,
     cancelAnimation: jest.fn(),
     useAnimatedStyle: (updater: () => object) => updater(),
-    useSharedValue: (value: number) => {
+    useSharedValue: (initialValue: number) => {
+      let value = initialValue;
       const listeners: Array<(newValue: number, oldValue: number) => void> = [];
       return {
         get value() {
@@ -76,7 +76,7 @@ jest.mock('react-native-reanimated', () => {
     },
     withSpring: (
       toValue: number,
-      config?: object,
+      _config?: object,
       callback?: (isFinished?: boolean) => void
     ) => {
       callback?.(true);
@@ -255,6 +255,50 @@ describe('UtilityPanel', () => {
     });
     expect(screen.getByLabelText('Airtime')).toHaveAccessibilityState({
       selected: false,
+    });
+  });
+
+  it('preserves manual utility selection when the home screen refocuses', () => {
+    const onCategorySelect = jest.fn();
+    const { rerender } = render(
+      <UtilityPanel
+        selectedCategoryId={null}
+        onCategorySelect={onCategorySelect}
+      />
+    );
+
+    fireEvent.press(screen.getByLabelText('Data'));
+
+    rerender(
+      <UtilityPanel
+        selectedCategoryId="u-data"
+        onCategorySelect={onCategorySelect}
+      />
+    );
+
+    mockUseIsFocused.mockReturnValue(false);
+    rerender(
+      <UtilityPanel
+        selectedCategoryId="u-data"
+        onCategorySelect={onCategorySelect}
+      />
+    );
+
+    mockUseIsFocused.mockReturnValue(true);
+    rerender(
+      <UtilityPanel
+        selectedCategoryId="u-data"
+        onCategorySelect={onCategorySelect}
+      />
+    );
+
+    act(() => {
+      jest.advanceTimersByTime(5600);
+    });
+
+    expect(screen.getByText('Data!')).toBeTruthy();
+    expect(screen.getByLabelText('Data')).toHaveAccessibilityState({
+      selected: true,
     });
   });
 

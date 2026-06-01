@@ -1,24 +1,24 @@
 import type Ionicons from '@react-native-vector-icons/ionicons';
+import { useIsFocused } from 'expo-router/react-navigation';
 // router removed as it was unused.
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
 import Animated, {
+  type SharedValue,
+  useAnimatedReaction,
   useAnimatedStyle,
   useSharedValue,
-  withTiming,
   withSpring,
-  useAnimatedReaction,
-  type SharedValue,
+  withTiming,
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
-import { useIsFocused } from 'expo-router/react-navigation';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
-import { CONFIG } from '@/lib/config';
-import { getTemplateConfig } from '@/lib/templates';
 import { type Category, useCategories } from '@/hooks';
 import { usePrefetchBillers } from '@/hooks/use-vtu-billers';
+import { CONFIG } from '@/lib/config';
+import { getTemplateConfig } from '@/lib/templates';
 import { utilityPanelStyles as styles } from './UtilityPanel.styles';
 import { UtilityPanelCategoryItem } from './UtilityPanelCategoryItem';
 
@@ -51,12 +51,6 @@ export function UtilityPanel({
 
   const isFocused = useIsFocused();
 
-  useEffect(() => {
-    if (isFocused) {
-      setIsManualUtility(false);
-    }
-  }, [isFocused]);
-
   // Web-Parity Auto-Rotation Logic (constants at module level for stable references)
   const template = getTemplateConfig(CONFIG.BUSINESS_TYPE, CONFIG.TEMPLATE_ID);
   const defaultCategoryId =
@@ -69,6 +63,14 @@ export function UtilityPanel({
       : false;
   });
   const promoWordProgress = useSharedValue(1);
+
+  useEffect(() => {
+    if (!isFocused) return;
+
+    setIsManualUtility(
+      selectedCategoryId ? selectedCategoryId !== defaultCategoryId : false
+    );
+  }, [isFocused, selectedCategoryId, defaultCategoryId]);
 
   const animatedPromoStyle = useAnimatedStyle(() => {
     const translateY = (1 - promoWordProgress.value) * 4;
