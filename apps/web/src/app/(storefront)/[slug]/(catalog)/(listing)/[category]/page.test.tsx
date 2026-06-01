@@ -159,13 +159,9 @@ vi.mock('@/lib/seo-utils', async (importOriginal) => {
       mockGenerateFAQSchema(...args),
     generateMetaDescription: (description: string) =>
       description.replace(/<[^>]+>/g, '').trim(),
-    getIndexableRobotsMetadata: () => ({
-      index: true,
-      follow: true,
-      'max-image-preview': 'large',
-      'max-snippet': -1,
-      'max-video-preview': -1,
-    }),
+    getIndexableRobotsMetadata: (
+      ...args: Parameters<typeof actual.getIndexableRobotsMetadata>
+    ) => actual.getIndexableRobotsMetadata(...args),
   };
 });
 
@@ -879,7 +875,7 @@ describe('category page route', () => {
     );
   });
 
-  it('keeps metadata on the canonical category listing regardless of pagination', async () => {
+  it('uses page-specific category metadata for paginated listings', async () => {
     const firstPageMetadata = await generateMetadata({
       params: Promise.resolve({ slug: 'test-store', category: 'smartphones' }),
       searchParams: Promise.resolve({ page: '1' }),
@@ -893,22 +889,25 @@ describe('category page route', () => {
       'https://test-store.usebaci.com/smartphones'
     );
     expect(secondPageMetadata.alternates?.canonical).toBe(
-      'https://test-store.usebaci.com/smartphones'
+      'https://test-store.usebaci.com/smartphones?page=2'
     );
     expect(typeof secondPageMetadata.title).toBe('string');
     expect(secondPageMetadata.title).toContain('Smartphones');
-    expect(secondPageMetadata.title).not.toContain('Page 2');
+    expect(secondPageMetadata.title).toContain('Page 2');
     expect(secondPageMetadata.title).toContain('Ogabassey');
     expect((secondPageMetadata.title as string).length).toBeLessThanOrEqual(70);
     expect(secondPageMetadata.title).not.toContain('| Ogabassey | Ogabassey');
+    expect(secondPageMetadata.openGraph?.url).toBe(
+      'https://test-store.usebaci.com/smartphones?page=2'
+    );
     expect(secondPageMetadata.openGraph?.images).toEqual([
       {
-        url: 'https://cdn.example.com/product-1.png',
+        url: 'https://cdn.example.com/product-21.png',
         alt: 'Smartphones',
       },
     ]);
     expect(secondPageMetadata.twitter?.images).toEqual([
-      'https://cdn.example.com/product-1.png',
+      'https://cdn.example.com/product-21.png',
     ]);
   });
 
@@ -932,6 +931,57 @@ describe('category page route', () => {
       })
     ).rejects.toThrow('NEXT_NOT_FOUND');
     expect(notFound).toHaveBeenCalled();
+  });
+
+  it('drops focused storefront filters from category canonical metadata until listing results are filtered', async () => {
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'test-store', category: 'smartphones' }),
+      searchParams: Promise.resolve({ brand: 'Apple', page: '2' }),
+    });
+
+    expect(metadata.alternates?.canonical).toBe(
+      'https://test-store.usebaci.com/smartphones?page=2'
+    );
+    expect(metadata.openGraph?.url).toBe(
+      'https://test-store.usebaci.com/smartphones?page=2'
+    );
+    expect(metadata.robots).toMatchObject({
+      index: false,
+      follow: true,
+    });
+  });
+
+  it('preserves the page marker when long category titles are truncated', async () => {
+    vi.mocked(getCachedCategoryPageData).mockResolvedValueOnce({
+      ...categoryPageData,
+      category: {
+        ...categoryPageData.category,
+        seo_heading:
+          'Shop ultra-premium smartphones with exceptional cameras, long battery life, and creator-grade storage in Lagos',
+      },
+    } as unknown as Awaited<ReturnType<typeof getCachedCategoryPageData>>);
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'test-store', category: 'smartphones' }),
+      searchParams: Promise.resolve({ page: '2' }),
+    });
+
+    expect(typeof metadata.title).toBe('string');
+    expect(metadata.title).toContain('Page 2');
+    expect(metadata.title).toContain('Ogabassey');
+    expect((metadata.title as string).length).toBeLessThanOrEqual(70);
+  });
+
+  it('matches the category route 404 behavior for out-of-range metadata pages', async () => {
+    await expect(
+      generateMetadata({
+        params: Promise.resolve({
+          slug: 'test-store',
+          category: 'smartphones',
+        }),
+        searchParams: Promise.resolve({ page: '3' }),
+      })
+    ).rejects.toThrow('NEXT_NOT_FOUND');
   });
 
   it('uses hub faq items for FAQ JSON-LD', async () => {

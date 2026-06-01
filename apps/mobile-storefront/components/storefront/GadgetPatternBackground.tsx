@@ -27,14 +27,18 @@ export function GadgetPatternBackground({
     <>
       {/* Base background color layer to ensure reliable absolute rendering */}
       <View
-        pointerEvents="none"
-        style={[StyleSheet.absoluteFill, { backgroundColor }]}
+        style={[
+          StyleSheet.absoluteFill,
+          { backgroundColor, pointerEvents: 'none' },
+        ]}
       />
 
       {/* Absolute background gadget pattern for premium tech framing */}
       <View
-        pointerEvents="none"
-        style={[StyleSheet.absoluteFill, { overflow: 'hidden' }]}
+        style={[
+          StyleSheet.absoluteFill,
+          { overflow: 'hidden', pointerEvents: 'none' },
+        ]}
       >
         <GadgetPattern
           opacity={patternOpacity}

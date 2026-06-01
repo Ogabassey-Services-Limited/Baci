@@ -32,9 +32,7 @@ interface PageProps {
     slug: string;
     category: string;
   }>;
-  searchParams: Promise<{
-    page?: string;
-  }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
 function toCollectionSchemaProduct(
