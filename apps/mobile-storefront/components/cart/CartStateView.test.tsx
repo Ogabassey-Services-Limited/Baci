@@ -2,6 +2,13 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import Colors from '@/constants/Colors';
 import CartStateView from './CartStateView';
 
+jest.mock('@/components/storefront/GadgetPattern', () => {
+  const { Text } = jest.requireActual('react-native');
+  return {
+    GadgetPattern: () => <Text>GadgetPattern</Text>,
+  };
+});
+
 describe('CartStateView', () => {
   it('renders the unavailable state and invokes retry', () => {
     const onRetry = jest.fn();
