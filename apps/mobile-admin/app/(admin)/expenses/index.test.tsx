@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { render, screen } from '@testing-library/react';
 import type { ComponentType, ReactNode } from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 type TestBranchScope = { type: 'all' } | { type: 'branch'; branchId: string };
 
@@ -199,6 +199,10 @@ describe('ExpensesScreen', () => {
     mocks.branchScope = { type: 'branch', branchId: 'branch-1' };
   });
 
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('filters expenses by selected branch scope', () => {
     render(<ExpensesScreen />);
 
@@ -280,6 +284,10 @@ describe('ExpensesScreen', () => {
   });
 
   it('ignores malformed expense dates when calculating the monthly total', () => {
+    vi.useFakeTimers({
+      now: new Date('2026-05-20T12:00:00.000Z'),
+    });
+
     mocks.queryState = {
       data: [
         {
@@ -308,7 +316,7 @@ describe('ExpensesScreen', () => {
 
     expect(() => render(<ExpensesScreen />)).not.toThrow();
     expect(screen.getByText('Total this Month')).toBeInTheDocument();
-    expect(screen.getAllByText(/12,500/)).toHaveLength(1);
+    expect(screen.getAllByText(/12,500/)).toHaveLength(2);
     expect(screen.getByText('Invalid date')).toBeInTheDocument();
   });
 

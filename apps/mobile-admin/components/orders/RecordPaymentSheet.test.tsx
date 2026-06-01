@@ -49,7 +49,12 @@ vi.mock('react-native', async () => {
       accessibilityLabel?: string;
       children?: React.ReactNode;
       disabled?: boolean;
-      accessibilityState?: { busy?: boolean; disabled?: boolean; checked?: boolean; selected?: boolean };
+      accessibilityState?: {
+        busy?: boolean;
+        disabled?: boolean;
+        checked?: boolean;
+        selected?: boolean;
+      };
       onPress?: () => void;
     }) =>
       React.createElement(
@@ -215,7 +220,9 @@ describe('RecordPaymentSheet', () => {
     );
 
     expect(screen.getByText('loading')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Confirm payment' })).toHaveAttribute('aria-busy', 'true');
+    expect(
+      screen.getByRole('button', { name: 'Confirm payment' })
+    ).toHaveAttribute('aria-busy', 'true');
     expect(
       screen.getByRole('button', { name: 'Confirm payment' })
     ).toBeDisabled();

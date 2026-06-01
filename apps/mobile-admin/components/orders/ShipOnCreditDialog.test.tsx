@@ -139,7 +139,9 @@ describe('ShipOnCreditDialog', () => {
     expect(
       screen.getByRole('button', { name: 'Confirm ship on credit' })
     ).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Confirm ship on credit' })).toHaveAttribute('aria-busy', 'true');
+    expect(
+      screen.getByRole('button', { name: 'Confirm ship on credit' })
+    ).toHaveAttribute('aria-busy', 'true');
   });
 
   it('does not render when hidden', () => {

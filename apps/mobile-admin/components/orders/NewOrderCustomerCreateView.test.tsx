@@ -294,7 +294,10 @@ describe('NewOrderCustomerCreateView', () => {
     render(<NewOrderCustomerCreateView controller={harness.snapshot()} />);
     expect(screen.getByRole('progressbar')).toBeInTheDocument();
     expect(screen.getByRole('progressbar').closest('button')).toBeDisabled();
-    expect(screen.getByRole('progressbar').closest('button')).toHaveAttribute('aria-busy', 'true');
+    expect(screen.getByRole('progressbar').closest('button')).toHaveAttribute(
+      'aria-busy',
+      'true'
+    );
     expect(screen.queryByText('Save Customer')).not.toBeInTheDocument();
   });
 
