@@ -55,8 +55,10 @@ describe('CustomTabBar', () => {
             tabBarIcon: () => <React.Fragment />,
             tabBarLabel: () => <React.Fragment />,
           },
-          navigation: {} as unknown as BottomTabBarProps['descriptors'][string]['navigation'],
-          route: {} as unknown as BottomTabBarProps['descriptors'][string]['route'],
+          navigation:
+            {} as unknown as BottomTabBarProps['descriptors'][string]['navigation'],
+          route:
+            {} as unknown as BottomTabBarProps['descriptors'][string]['route'],
           render: () => <React.Fragment />,
         },
         'saved-key': {
@@ -65,8 +67,10 @@ describe('CustomTabBar', () => {
             tabBarIcon: () => <React.Fragment />,
             tabBarLabel: () => <React.Fragment />,
           },
-          navigation: {} as unknown as BottomTabBarProps['descriptors'][string]['navigation'],
-          route: {} as unknown as BottomTabBarProps['descriptors'][string]['route'],
+          navigation:
+            {} as unknown as BottomTabBarProps['descriptors'][string]['navigation'],
+          route:
+            {} as unknown as BottomTabBarProps['descriptors'][string]['route'],
           render: () => <React.Fragment />,
         },
         'hidden-key': {
@@ -74,8 +78,10 @@ describe('CustomTabBar', () => {
             href: null,
             title: 'Explore',
           } as unknown as BottomTabBarProps['descriptors'][string]['options'],
-          navigation: {} as unknown as BottomTabBarProps['descriptors'][string]['navigation'],
-          route: {} as unknown as BottomTabBarProps['descriptors'][string]['route'],
+          navigation:
+            {} as unknown as BottomTabBarProps['descriptors'][string]['navigation'],
+          route:
+            {} as unknown as BottomTabBarProps['descriptors'][string]['route'],
           render: () => <React.Fragment />,
         },
       },
@@ -89,15 +95,15 @@ describe('CustomTabBar', () => {
   it('renders visible tab items and ignores hidden routes', () => {
     render(<CustomTabBar {...mockProps} />);
 
-    expect(screen.getByTestId('custom-tab-item-index')).toBeOnTheScreen();
-    expect(screen.getByTestId('custom-tab-item-saved')).toBeOnTheScreen();
-    expect(screen.queryByTestId('custom-tab-item-categories')).toBeNull();
+    expect(screen.getByRole('tab', { name: 'Home' })).toBeOnTheScreen();
+    expect(screen.getByRole('tab', { name: 'Saved' })).toBeOnTheScreen();
+    expect(screen.queryByRole('tab', { name: 'Explore' })).toBeNull();
   });
 
   it('navigates to selected tab when pressed', () => {
     render(<CustomTabBar {...mockProps} />);
 
-    fireEvent.press(screen.getByTestId('custom-tab-item-saved'));
+    fireEvent.press(screen.getByRole('tab', { name: 'Saved' }));
 
     expect(mockProps.navigation.emit).toHaveBeenCalledWith({
       type: 'tabPress',
@@ -107,14 +113,39 @@ describe('CustomTabBar', () => {
     expect(mockProps.navigation.navigate).toHaveBeenCalledWith('saved', {});
   });
 
+  it('does not navigate when tab press is prevented', () => {
+    jest
+      .mocked(mockProps.navigation.emit)
+      .mockReturnValue({ defaultPrevented: true } as never);
+
+    render(<CustomTabBar {...mockProps} />);
+
+    fireEvent(screen.getByRole('tab', { name: 'Saved' }), 'pressIn');
+    fireEvent.press(screen.getByRole('tab', { name: 'Saved' }));
+
+    expect(mockProps.navigation.emit).toHaveBeenCalledWith({
+      type: 'tabPress',
+      target: 'saved-key',
+      canPreventDefault: true,
+    });
+    expect(mockProps.navigation.navigate).not.toHaveBeenCalled();
+  });
+
   it('triggers haptics on index change when platform is not web', () => {
+    const originalOS = Platform.OS;
     Platform.OS = 'ios';
-    const { rerender } = render(<CustomTabBar {...mockProps} />);
+    try {
+      const { rerender } = render(<CustomTabBar {...mockProps} />);
 
-    // Simulate change in state index
-    (mockProps.state as unknown as { index: number }).index = 1;
-    rerender(<CustomTabBar {...mockProps} />);
+      // Simulate change in state index
+      (mockProps.state as unknown as { index: number }).index = 1;
+      rerender(<CustomTabBar {...mockProps} />);
 
-    expect(Haptics.impactAsync).toHaveBeenCalledWith(Haptics.ImpactFeedbackStyle.Light);
+      expect(Haptics.impactAsync).toHaveBeenCalledWith(
+        Haptics.ImpactFeedbackStyle.Light
+      );
+    } finally {
+      Platform.OS = originalOS;
+    }
   });
 });

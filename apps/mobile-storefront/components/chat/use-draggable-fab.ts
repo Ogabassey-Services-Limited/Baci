@@ -15,7 +15,17 @@ import {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import { EDGE_MARGIN, FAB_SIZE } from './constants';
+import {
+  DISMISS_BOTTOM_OFFSET,
+  DISMISS_RADIUS,
+  EDGE_MARGIN,
+  FAB_SIZE,
+  GESTURE_MAX_TAP_DISTANCE,
+  GESTURE_MIN_DISTANCE,
+  TOP_CLAMP,
+  VELOCITY_PROJECTOR_X,
+  VELOCITY_PROJECTOR_Y,
+} from './constants';
 import {
   getAnchoredFabTranslationX,
   getClampedFabTranslationY,
@@ -133,7 +143,7 @@ export function useDraggableFab(
   }, [isDragging, scale]);
 
   const panGesture = usePanGesture({
-    minDistance: 8,
+    minDistance: GESTURE_MIN_DISTANCE,
     onBegin: () => {
       'worklet';
       cancelAnimation(translateX);
@@ -163,13 +173,13 @@ export function useDraggableFab(
       const fabCenterX = absoluteX + FAB_SIZE / 2;
       const fabCenterY = absoluteY + FAB_SIZE / 2;
       const dismissCenterX = currentWidth / 2;
-      const dismissCenterY = currentHeight - 100;
+      const dismissCenterY = currentHeight - DISMISS_BOTTOM_OFFSET;
 
       const dx = fabCenterX - dismissCenterX;
       const dy = fabCenterY - dismissCenterY;
       const distance = Math.sqrt(dx * dx + dy * dy);
 
-      const isOver = distance < 80;
+      const isOver = distance < DISMISS_RADIUS;
 
       // Haptic boundary latch logic
       if (isOver && !hapticTriggered.get()) {
@@ -212,14 +222,15 @@ export function useDraggableFab(
       const leftBound = EDGE_MARGIN;
       const rightBound = startX;
 
-      const snapX = absoluteX + event.velocityX * 0.08;
+      const snapX = absoluteX + event.velocityX * VELOCITY_PROJECTOR_X;
       const targetXAbsolute =
         snapX + FAB_SIZE / 2 < currentWidth / 2 ? leftBound : rightBound;
 
       // Clamp vertical bounds
-      const minY = 100;
+      const minY = TOP_CLAMP;
       const maxY = currentHeight - currentBottomOffset - FAB_SIZE;
-      let targetYAbsolute = absoluteY + event.velocityY * 0.04;
+      let targetYAbsolute =
+        absoluteY + event.velocityY * VELOCITY_PROJECTOR_Y;
       targetYAbsolute = Math.max(minY, Math.min(targetYAbsolute, maxY));
 
       const targetTranslationX = targetXAbsolute - startX;
@@ -245,7 +256,7 @@ export function useDraggableFab(
   });
 
   const tapGesture = useTapGesture({
-    maxDistance: 8,
+    maxDistance: GESTURE_MAX_TAP_DISTANCE,
     onActivate: () => {
       'worklet';
       runOnJS(triggerHaptic)(Haptics.ImpactFeedbackStyle.Medium);

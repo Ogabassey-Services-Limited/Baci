@@ -6,10 +6,11 @@ import {
   View,
 } from 'react-native';
 import Animated, {
-  useAnimatedStyle,
-  interpolate,
   Extrapolation,
+  interpolate,
+  type ScrollHandlerProcessed,
   type SharedValue,
+  useAnimatedStyle,
 } from 'react-native-reanimated';
 import { SystemBars } from 'react-native-edge-to-edge';
 import { OfflineNotice } from '@/components/OfflineNotice';
@@ -41,7 +42,7 @@ interface HomeScreenViewProps {
   isScrolled: boolean;
   onCategorySelect: (id: string | null) => void;
   onHeaderLayout: (event: LayoutChangeEvent) => void;
-  onListScroll: unknown; // Reanimated scroll handler type
+  onListScroll: ScrollHandlerProcessed<Record<string, unknown>>;
   onPermissionDeny: () => void;
   onPermissionGrant: () => void;
   onRefresh: () => void;
@@ -207,7 +208,7 @@ export function HomeScreenView({
           />
         }
         showsVerticalScrollIndicator={false}
-        onScroll={onListScroll as (event: unknown) => void}
+        onScroll={onListScroll}
         scrollEventThrottle={16}
       >
         <Animated.View

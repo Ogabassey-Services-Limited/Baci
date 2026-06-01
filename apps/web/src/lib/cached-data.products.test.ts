@@ -535,7 +535,7 @@ describe('cached-data product query projections', () => {
     expect(result.products).toEqual(productQueryResult.data);
   });
 
-  it('getCachedCategoryPageData does not use loose fallback for active canonical categories with no products', async () => {
+  it('getCachedCategoryPageData uses loose fallback for active canonical categories with no relation products', async () => {
     harness.mockSingle.mockResolvedValueOnce({
       data: {
         id: 'cat-empty',
@@ -553,12 +553,24 @@ describe('cached-data product query projections', () => {
       error: null,
     });
 
+    const fallbackProducts = [
+      {
+        id: 'legacy-empty-category-product',
+        name: 'Empty Category Legacy Match',
+      },
+    ];
     harness.mockListResult.data = [{ id: 'cat-empty' }];
     harness.mockQueryExecution
       .mockImplementationOnce(() => Promise.resolve(harness.mockListResult))
       .mockImplementationOnce(() =>
         Promise.resolve({
           data: [],
+          error: null,
+        })
+      )
+      .mockImplementationOnce(() =>
+        Promise.resolve({
+          data: fallbackProducts,
           error: null,
         })
       );
@@ -569,12 +581,15 @@ describe('cached-data product query projections', () => {
       'test-store'
     );
 
-    expect(harness.mockOr).toHaveBeenCalledTimes(1);
+    expect(harness.mockOr).toHaveBeenCalledTimes(2);
     expect(harness.mockOr).toHaveBeenCalledWith(
       'id.eq.cat-empty,parent_id.eq.cat-empty'
     );
-    expect(harness.mockQueryExecution).toHaveBeenCalledTimes(2);
-    expect(result.products).toEqual([]);
+    expect(harness.mockOr).toHaveBeenCalledWith(
+      'category.ilike.%Empty Category%,brand.ilike.%Empty Category%,name.ilike.%Empty Category%'
+    );
+    expect(harness.mockQueryExecution).toHaveBeenCalledTimes(3);
+    expect(result.products).toEqual(fallbackProducts);
   });
 
   it('getCachedCategoryPageData marks inactive categories without loose fallback products', async () => {

@@ -192,24 +192,49 @@ jest.mock('react-native-reanimated', () => {
   };
   const mock = {
     useSharedValue: (initVal: unknown) => {
-      let currentValue = initVal;
-      return {
-        get value() {
-          return currentValue;
-        },
-        set value(nextValue: unknown) {
-          currentValue = nextValue;
-        },
-        get: () => currentValue,
-        set: (nextValue: unknown) => {
-          currentValue = nextValue;
-        },
+      const sharedValueRef = React.useRef(null) as {
+        current: {
+          value: unknown;
+          get: () => unknown;
+          set: (nextValue: unknown) => void;
+        } | null;
       };
+
+      if (!sharedValueRef.current) {
+        let currentValue = initVal;
+        sharedValueRef.current = {
+          get value() {
+            return currentValue;
+          },
+          set value(nextValue: unknown) {
+            currentValue = nextValue;
+          },
+          get: () => currentValue,
+          set: (nextValue: unknown) => {
+            currentValue = nextValue;
+          },
+        };
+      }
+
+      return sharedValueRef.current;
     },
     useAnimatedStyle: (fn: () => unknown) => fn(),
     useDerivedValue: (fn: () => unknown) => ({ value: fn() }),
     useAnimatedRef: () => ({ current: null }),
-    useAnimatedScrollHandler: (handler: unknown) => handler,
+    useAnimatedScrollHandler: (handler: unknown) => {
+      if (
+        handler &&
+        typeof handler === 'object' &&
+        'onScroll' in handler &&
+        typeof handler.onScroll === 'function'
+      ) {
+        const onScroll = handler.onScroll as (...args: unknown[]) => unknown;
+        return (payload: { nativeEvent?: unknown }) =>
+          onScroll(payload?.nativeEvent ?? payload);
+      }
+
+      return handler;
+    },
     useAnimatedProps: (fn: () => unknown) => fn(),
     withSpring: animationWithCallback,
     withTiming: animationWithCallback,
@@ -299,9 +324,17 @@ jest.mock('react-native-reanimated', () => {
 
 // Mock react-native-worklets
 jest.mock('react-native-worklets', () => ({
-  scheduleOnRN: (fn: (...args: any[]) => any, ...args: any[]) => fn(...args),
-  scheduleOnUI: (fn: (...args: any[]) => any, ...args: any[]) => fn(...args),
-  runOnJS: (fn: (...args: any[]) => any) => fn,
+  scheduleOnRN: <TArgs extends unknown[], TResult>(
+    fn: (...args: TArgs) => TResult,
+    ...args: TArgs
+  ) => fn(...args),
+  scheduleOnUI: <TArgs extends unknown[], TResult>(
+    fn: (...args: TArgs) => TResult,
+    ...args: TArgs
+  ) => fn(...args),
+  runOnJS: <TArgs extends unknown[], TResult>(
+    fn: (...args: TArgs) => TResult
+  ) => fn,
 }));
 
 // Mock react-native-gesture-handler
@@ -333,15 +366,18 @@ jest.mock('react-native-gesture-handler', () => {
   });
 
   return {
-    Touchable: ({ children, ...props }: any) =>
+    Touchable: ({
+      children,
+      ...props
+    }: React.ComponentProps<typeof Pressable>) =>
       React.createElement(Pressable, props, children),
-    GestureDetector: ({ children }: { children?: unknown }) => children,
+    GestureDetector: ({ children }: { children?: React.ReactNode }) => children,
     GestureHandlerRootView: ({
       children,
       style,
     }: {
-      children?: unknown;
-      style?: unknown;
+      children?: React.ReactNode;
+      style?: import('react-native').StyleProp<import('react-native').ViewStyle>;
     }) => React.createElement(View, { style }, children),
     Gesture: {
       Pan: jest.fn(createGesture),
@@ -366,28 +402,6 @@ jest.mock('react-native-gesture-handler', () => {
     useTapGesture: jest.fn((config: unknown) =>
       createHookGesture('tap', config)
     ),
-  };
-});
-
-// Mock react-native-pager-view
-jest.mock('react-native-pager-view', () => {
-  const React = require('react');
-  const { View } = require('react-native');
-  class MockPagerView extends React.Component {
-    setPage = jest.fn();
-    setPageWithoutAnimation = jest.fn();
-    render() {
-      const { children, ...props } = this.props as any;
-      return React.createElement(
-        View,
-        { testID: 'pager-view', ...props },
-        children
-      );
-    }
-  }
-  return {
-    __esModule: true,
-    default: MockPagerView,
   };
 });
 

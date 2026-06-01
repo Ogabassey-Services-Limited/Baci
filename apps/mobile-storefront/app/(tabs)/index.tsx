@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Keyboard } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -36,8 +36,6 @@ export default function HomeScreen() {
     template.headerStyle === 'elite' ? 'u-airtime' : null
   );
   const [productGridLoadMoreSignal, setProductGridLoadMoreSignal] = useState(0);
-  const lastLoadMoreContentHeightRef = useRef(0);
-  const hasExitedLoadMoreZoneRef = useRef(true);
 
   const { requestPermission, triggerSystemPrompt, markDenied } =
     usePermissionBooster();
@@ -79,11 +77,13 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(150); // Initial estimate for spacer
   const [isScrolled, setIsScrolled] = useState(false);
-  
+
   // Reanimated UI-thread values for continuous header folding calculations
   const headerVisibility = useSharedValue(1);
   const previousOffsetY = useSharedValue(0);
   const isScrolledShared = useSharedValue(false);
+  const lastLoadMoreContentHeight = useSharedValue(0);
+  const hasExitedLoadMoreZone = useSharedValue(true);
 
   // 2026 Best Practice: Network state monitoring for offline UX
   // Note: Manual onReconnect refetch removed — onlineManager.setOnline(true)
@@ -110,8 +110,9 @@ export default function HomeScreen() {
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      lastLoadMoreContentHeightRef.current = 0;
-      hasExitedLoadMoreZoneRef.current = true;
+      lastLoadMoreContentHeight.value = 0;
+      hasExitedLoadMoreZone.value = true;
+      previousOffsetY.value = 0;
       await refetch();
     } finally {
       setRefreshing(false);
@@ -149,7 +150,8 @@ export default function HomeScreen() {
       previousOffsetY.value = currentOffsetY;
 
       // Toggle solid background header state dynamically
-      const nextScrolled = normalizedOffsetY > HEADER_SOLID_BACKGROUND_OFFSET_PX;
+      const nextScrolled =
+        normalizedOffsetY > HEADER_SOLID_BACKGROUND_OFFSET_PX;
       if (nextScrolled !== isScrolledShared.value) {
         isScrolledShared.value = nextScrolled;
         runOnJS(setIsScrolledJS)(nextScrolled);
@@ -160,13 +162,26 @@ export default function HomeScreen() {
         headerVisibility.value = withTiming(1, { duration: 180 });
       } else if (currentOffsetY > prevOffsetY) {
         headerVisibility.value = withTiming(0, { duration: 180 });
-      } else if (prevOffsetY - currentOffsetY > 15) { // scroll tolerance/hysteresis
+      } else if (prevOffsetY - currentOffsetY > 15) {
+        // scroll tolerance/hysteresis
         headerVisibility.value = withTiming(1, { duration: 180 });
       }
 
       // Infinite scroll load more detection at screen boundaries
-      const distance = event.contentSize.height - (event.contentOffset.y + event.layoutMeasurement.height);
-      if (distance <= HOME_LOAD_MORE_THRESHOLD_PX && currentOffsetY > prevOffsetY) {
+      const distance =
+        event.contentSize.height -
+        (event.contentOffset.y + event.layoutMeasurement.height);
+      const isInLoadMoreZone = distance <= HOME_LOAD_MORE_THRESHOLD_PX;
+      if (!isInLoadMoreZone) {
+        hasExitedLoadMoreZone.value = true;
+      } else if (
+        (currentOffsetY > prevOffsetY &&
+          (hasExitedLoadMoreZone.value ||
+            event.contentSize.height > lastLoadMoreContentHeight.value + 1)) ||
+        event.contentSize.height < lastLoadMoreContentHeight.value - 1
+      ) {
+        hasExitedLoadMoreZone.value = false;
+        lastLoadMoreContentHeight.value = event.contentSize.height;
         runOnJS(triggerLoadMoreJS)();
       }
     },
@@ -213,10 +228,15 @@ export default function HomeScreen() {
 
   useEffect(() => {
     void productGridDatasetKey;
-    lastLoadMoreContentHeightRef.current = 0;
-    hasExitedLoadMoreZoneRef.current = true;
+    lastLoadMoreContentHeight.value = 0;
+    hasExitedLoadMoreZone.value = true;
     previousOffsetY.value = 0;
-  }, [productGridDatasetKey, previousOffsetY]);
+  }, [
+    hasExitedLoadMoreZone,
+    lastLoadMoreContentHeight,
+    previousOffsetY,
+    productGridDatasetKey,
+  ]);
 
   const resolvedHeaderHeight = headerHeight > 0 ? headerHeight : 150;
   const isElite = template.headerStyle === 'elite';

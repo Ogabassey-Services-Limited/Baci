@@ -97,6 +97,10 @@ jest.mock('expo-router', () => ({
   },
 }));
 
+jest.mock('expo-router/react-navigation', () => ({
+  useIsFocused: () => true,
+}));
+
 jest.mock('@/components/storefront/StorefrontScreenShell', () => ({
   StorefrontScreenShell: ({
     children,

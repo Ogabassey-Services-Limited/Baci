@@ -1828,7 +1828,7 @@ export async function getCachedCategoryPageData(
     productsError = err;
   }
 
-  if (!category?.id && !isInactiveCategory) {
+  if (products.length === 0 && !isInactiveCategory) {
     // Legacy fallback for category URLs that predate canonical category rows.
     const sanitizedCategoryName = categoryName.replace(/[,().]/g, '');
     const { data: productData, error: err } = await supabase

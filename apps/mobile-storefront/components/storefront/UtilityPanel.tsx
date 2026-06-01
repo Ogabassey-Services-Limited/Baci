@@ -51,16 +51,19 @@ export function UtilityPanel({
 
   const isFocused = useIsFocused();
 
-  useEffect(() => {
-    if (isFocused) {
-      setIsManualUtility(false);
-    }
-  }, [isFocused]);
-
   // Web-Parity Auto-Rotation Logic (constants at module level for stable references)
   const template = getTemplateConfig(CONFIG.BUSINESS_TYPE, CONFIG.TEMPLATE_ID);
   const defaultCategoryId =
     template.headerStyle === 'elite' ? 'u-airtime' : null;
+
+  useEffect(() => {
+    if (
+      isFocused &&
+      (selectedCategoryId === null || selectedCategoryId === defaultCategoryId)
+    ) {
+      setIsManualUtility(false);
+    }
+  }, [defaultCategoryId, isFocused, selectedCategoryId]);
 
   const [activeUtilityIndex, setActiveUtilityIndex] = useState(0);
   const [isManualUtility, setIsManualUtility] = useState(() => {

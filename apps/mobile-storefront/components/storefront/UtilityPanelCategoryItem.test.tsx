@@ -41,7 +41,8 @@ jest.mock('react-native-reanimated', () => {
 });
 
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import Colors from '@/constants/Colors';
+import type { SharedValue } from 'react-native-reanimated';
+import Colors, { BRAND } from '@/constants/Colors';
 import { findHostElement } from '@/test-support/find-host-element';
 import { UtilityPanelCategoryItem } from './UtilityPanelCategoryItem';
 
@@ -87,5 +88,56 @@ describe('UtilityPanelCategoryItem', () => {
     );
 
     expect(screen.queryByLabelText('Data')).toBeNull();
+  });
+
+  it('uses activeIndex to render active utility styling', () => {
+    const onPress = jest.fn();
+
+    render(
+      <UtilityPanelCategoryItem
+        id="u-airtime"
+        name="Airtime"
+        iconName="call-outline"
+        variant="circle"
+        isActive={false}
+        activeIndex={{ value: 0 } as SharedValue<number>}
+        index={0}
+        onPress={onPress}
+      />
+    );
+
+    expect(
+      findHostElement(screen.getByTestId('utility-category-icon-u-airtime'))
+    ).toHaveStyle({
+      backgroundColor: Colors.light.card,
+      borderColor: BRAND.primary,
+      borderWidth: 1,
+    });
+
+    fireEvent.press(screen.getByRole('button', { name: 'Airtime' }));
+    expect(onPress).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses activeIndex to render inactive utility styling', () => {
+    render(
+      <UtilityPanelCategoryItem
+        id="u-airtime"
+        name="Airtime"
+        iconName="call-outline"
+        variant="circle"
+        isActive
+        activeIndex={{ value: 1 } as SharedValue<number>}
+        index={0}
+        onPress={jest.fn()}
+      />
+    );
+
+    expect(
+      findHostElement(screen.getByTestId('utility-category-icon-u-airtime'))
+    ).toHaveStyle({
+      backgroundColor: Colors.light.muted,
+      borderColor: 'transparent',
+      borderWidth: 0,
+    });
   });
 });

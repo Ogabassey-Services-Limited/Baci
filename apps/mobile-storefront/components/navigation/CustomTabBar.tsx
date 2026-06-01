@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import {
   View,
   Pressable,
@@ -97,29 +97,29 @@ export function CustomTabBar({
 
   // Filter visible routes (ignore options.href === null and categories)
   const visibleRoutes = state.routes.filter((route) => {
-    const { options } = descriptors[route.key] as unknown as { options: CustomTabOptions };
+    const { options } = descriptors[route.key] as unknown as {
+      options: CustomTabOptions;
+    };
     return options.href !== null && route.name !== 'categories';
   });
 
   const tabWidth = TAB_BAR_CONTENT_WIDTH / visibleRoutes.length;
 
   const activeRouteName = state.routes[state.index]?.name;
-  const activeIdx = visibleRoutes.findIndex(
-    (r) => r.name === activeRouteName
-  );
+  const activeIdx = visibleRoutes.findIndex((r) => r.name === activeRouteName);
   const targetIdx = activeIdx !== -1 ? activeIdx : 0;
 
-  const lastTargetIdxRef = useRef(targetIdx);
   const animIndex = useSharedValue(targetIdx);
+  const targetIndex = useSharedValue(targetIdx);
   const capsuleScale = useSharedValue(1);
 
   useEffect(() => {
     // Sync animated index if state updates independently (e.g. swipes, hardware back buttons)
-    if (targetIdx === lastTargetIdxRef.current) {
+    if (targetIdx === targetIndex.value) {
       return;
     }
 
-    lastTargetIdxRef.current = targetIdx;
+    targetIndex.value = targetIdx;
     animIndex.value = withSpring(targetIdx, {
       damping: 11,
       stiffness: 145,
@@ -140,12 +140,12 @@ export function CustomTabBar({
     if (Platform.OS !== 'web') {
       void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
-  }, [targetIdx, animIndex, capsuleScale]);
+  }, [targetIdx, animIndex, capsuleScale, targetIndex]);
 
   // GPU-Driven Liquid squash-and-stretch dynamic active indicator
   const capsuleStyle = useAnimatedStyle(() => {
     const currentPos = animIndex.value;
-    const target = lastTargetIdxRef.current;
+    const target = targetIndex.value;
     const distance = Math.abs(target - currentPos);
 
     // Liquid Water squash-and-stretch: stretch horizontally & compress vertically in mid-transit
@@ -229,7 +229,7 @@ export function CustomTabBar({
           // Instant slide and capsule magnify pop starting at 0ms on finger touch (onPressIn)
           const handlePressIn = () => {
             if (!isFocused) {
-              lastTargetIdxRef.current = index;
+              targetIndex.value = index;
               animIndex.value = withSpring(index, {
                 damping: 11,
                 stiffness: 145,
@@ -263,6 +263,20 @@ export function CustomTabBar({
               target: route.key,
               canPreventDefault: true,
             });
+
+            if (event.defaultPrevented) {
+              targetIndex.value = targetIdx;
+              animIndex.value = withSpring(targetIdx, {
+                damping: 11,
+                stiffness: 145,
+                mass: 0.8,
+              });
+              capsuleScale.value = withSpring(1.0, {
+                damping: 12,
+                stiffness: 140,
+              });
+              return;
+            }
 
             if (!isFocused && !event.defaultPrevented) {
               navigation.navigate(route.name, route.params);

@@ -1,14 +1,16 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { type Href, Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import type PagerView from 'react-native-pager-view';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StorefrontScreenShell } from '@/components/storefront/StorefrontScreenShell';
 import AppKeyboardContainer from '@/components/ui/AppKeyboardContainer';
 import { useColorScheme } from '@/components/useColorScheme';
 import { InvalidUtilityServiceView } from '@/components/utilities/InvalidUtilityServiceView';
 import { UtilityHeader } from '@/components/utilities/UtilityHeader';
-import { UtilityPurchasePager } from '@/components/utilities/UtilityPurchasePager';
+import {
+  type UtilityPurchasePagerHandle,
+  UtilityPurchasePager,
+} from '@/components/utilities/UtilityPurchasePager';
 import { UtilityPurchaseSuccessView } from '@/components/utilities/UtilityPurchaseSuccessView';
 import { UtilityTypeTabs } from '@/components/utilities/UtilityTypeTabs';
 import { useQuickRepeat } from '@/components/utilities/use-quick-repeat';
@@ -98,7 +100,7 @@ export default function UtilityPurchaseScreen() {
   const successCashbackAmount = resolvedSuccessData?.cashback?.amount ?? 0;
   const successReference = resolvedSuccessData?.reference;
 
-  const pagerRef = useRef<PagerView>(null);
+  const pagerRef = useRef<UtilityPurchasePagerHandle | null>(null);
 
   const handlePageSelected = (event: { nativeEvent: { position: number } }) => {
     const newIndex = event.nativeEvent.position;

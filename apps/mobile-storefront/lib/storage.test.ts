@@ -186,3 +186,71 @@ describe('storage batching helpers', () => {
     );
   });
 });
+
+describe('storage MMKV migration', () => {
+  const originalNodeEnv = process.env.NODE_ENV;
+
+  afterEach(() => {
+    process.env.NODE_ENV = originalNodeEnv;
+    jest.resetModules();
+    jest.dontMock('react-native');
+    jest.dontMock('react-native-mmkv');
+  });
+
+  it('migrates legacy AsyncStorage state into MMKV during startup', async () => {
+    const getMany = jest.fn().mockResolvedValue({
+      'cart-storage': '{"state":{"items":[{"id":"cart-1"}]}}',
+      'comparison-storage': null,
+      'saved-storage': null,
+      search_history: null,
+    });
+    const mmkvSet = jest.fn();
+    const mmkvGetString = jest.fn(() => null);
+
+    process.env.NODE_ENV = 'production';
+    jest.resetModules();
+    jest.doMock('@react-native-async-storage/async-storage', () => ({
+      getItem: jest.fn(),
+      setItem: jest.fn(),
+      removeItem: jest.fn(),
+      getMany,
+      removeMany: jest.fn(),
+      multiGet: jest.fn(),
+      multiRemove: jest.fn(),
+    }));
+    jest.doMock('react-native', () => ({
+      Platform: { OS: 'ios' },
+    }));
+    jest.doMock('react-native-mmkv', () => ({
+      createMMKV: jest.fn(() => ({
+        getString: mmkvGetString,
+        remove: jest.fn(),
+        set: mmkvSet,
+      })),
+    }));
+    jest.doMock('./logger', () => ({
+      createLogger: jest.fn(() => ({
+        debug: jest.fn(),
+        info: jest.fn(),
+        warn: jest.fn(),
+        error: jest.fn(),
+      })),
+    }));
+
+    const storage = jest.requireActual<typeof import('./storage')>('./storage');
+
+    await storage.waitForStorageReady();
+
+    expect(getMany).toHaveBeenCalledWith([
+      'cart-storage',
+      'saved-storage',
+      'comparison-storage',
+      'search_history',
+    ]);
+    expect(mmkvSet).toHaveBeenCalledWith(
+      'cart-storage',
+      '{"state":{"items":[{"id":"cart-1"}]}}'
+    );
+    expect(storage.isStorageReady()).toBe(true);
+  });
+});

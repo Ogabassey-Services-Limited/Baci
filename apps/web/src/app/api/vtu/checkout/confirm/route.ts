@@ -264,14 +264,14 @@ export async function POST(request: NextRequest) {
             .single();
 
           if (vtuTx && !vtuTxError) {
-            const metadata = normalizeMetadata(vtuTx.metadata);
+            const txMetadata = normalizeMetadata(vtuTx.metadata);
             const voucherPin = extractMetadataField(
-              metadata,
+              txMetadata,
               'voucherPin',
               isString
             );
             await scheduleVoucherPinBackfill({
-              metadata,
+              metadata: txMetadata,
               originalMetadata: vtuTx.metadata,
               supabase,
               transaction: vtuTx,

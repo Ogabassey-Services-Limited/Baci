@@ -20,7 +20,10 @@ try {
     });
   }
 } catch (error) {
-  log.warn('Failed to initialize MMKV, falling back to AsyncStorage/memory:', error);
+  log.warn(
+    'Failed to initialize MMKV, falling back to AsyncStorage/memory:',
+    error
+  );
 }
 
 /**
@@ -38,14 +41,10 @@ type StorageEntry = [string, string | null];
 
 const batchStorage = AsyncStorage as AsyncStorageBatchExtensions;
 
-export async function getStorageEntries(
+async function getAsyncStorageEntries(
   keys: readonly string[]
 ): Promise<[string, string | null][]> {
   if (keys.length === 0) return [];
-
-  if (mmkvStorage) {
-    return keys.map((key) => [key, mmkvStorage!.getString(key) ?? null]);
-  }
 
   if (typeof batchStorage.getMany === 'function') {
     const record = await batchStorage.getMany([...keys]);
@@ -65,6 +64,18 @@ export async function getStorageEntries(
       ]
     )
   );
+}
+
+export async function getStorageEntries(
+  keys: readonly string[]
+): Promise<[string, string | null][]> {
+  if (keys.length === 0) return [];
+
+  if (mmkvStorage) {
+    return keys.map((key) => [key, mmkvStorage!.getString(key) ?? null]);
+  }
+
+  return getAsyncStorageEntries(keys);
 }
 
 export async function removeStorageItems(
@@ -100,7 +111,16 @@ export const asyncStorage = {
   getItem: async (name: string): Promise<string | null> => {
     try {
       if (mmkvStorage) {
-        return mmkvStorage.getString(name) ?? null;
+        const value = mmkvStorage.getString(name) ?? null;
+        if (value !== null) {
+          return value;
+        }
+
+        const legacyValue = await AsyncStorage.getItem(name);
+        if (legacyValue !== null) {
+          mmkvStorage.set(name, legacyValue);
+        }
+        return legacyValue;
       }
       return await AsyncStorage.getItem(name);
     } catch (error) {
@@ -196,14 +216,14 @@ export const syncStorage = {
  * Check if storage has been initialized
  */
 export function isStorageReady(): boolean {
-  return mmkvStorage ? true : isStorageInitialized;
+  return isStorageInitialized;
 }
 
 /**
  * Wait for storage initialization to complete
  */
 export async function waitForStorageReady(): Promise<void> {
-  if (mmkvStorage || isStorageInitialized) return;
+  if (isStorageInitialized) return;
   if (initializationPromise) {
     await initializationPromise;
     return;
@@ -218,11 +238,6 @@ export async function waitForStorageReady(): Promise<void> {
  * Initialize storage by loading persisted data into memory cache
  */
 export function initializeStorage(keys: readonly string[]): Promise<void> {
-  if (mmkvStorage) {
-    isStorageInitialized = true;
-    return Promise.resolve();
-  }
-
   if (initializationPromise) {
     log.debug('Initialization already in progress, waiting...');
     return initializationPromise;
@@ -236,11 +251,19 @@ export function initializeStorage(keys: readonly string[]): Promise<void> {
   initializationPromise = (async () => {
     try {
       log.debug('Initializing with keys:', keys);
-      const pairs = await getStorageEntries(keys);
+      const pairs = await getAsyncStorageEntries(keys);
       for (const [key, value] of pairs) {
         if (value !== null) {
-          memoryCache[key] = value;
-          log.debug(`Loaded "${key}" from AsyncStorage`);
+          if (mmkvStorage) {
+            const existingValue = mmkvStorage.getString(key) ?? null;
+            if (existingValue === null) {
+              mmkvStorage.set(key, value);
+              log.debug(`Migrated "${key}" from AsyncStorage to MMKV`);
+            }
+          } else {
+            memoryCache[key] = value;
+            log.debug(`Loaded "${key}" from AsyncStorage`);
+          }
         }
       }
       isStorageInitialized = true;

@@ -6,6 +6,7 @@
 
 import type { Href } from 'expo-router';
 import { router } from 'expo-router';
+import { useIsFocused } from 'expo-router/react-navigation';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -50,6 +51,7 @@ export default function AccountScreen() {
   const signOut = useAuthStore((state) => state.signOut);
   const { data: merchant } = useMerchant();
   const { isInitialized, user: authUser } = useAuthStatus();
+  const isFocused = useIsFocused();
   const safeCustomer = customer ?? null;
   const userMeta = session?.user?.user_metadata;
   const effectiveCustomer: Customer | null =
@@ -82,7 +84,7 @@ export default function AccountScreen() {
   }, [safeCustomer?.loyalty_points]);
 
   useEffect(() => {
-    if (!safeCustomer?.id) {
+    if (!(isFocused && safeCustomer?.id)) {
       return;
     }
 
@@ -113,7 +115,7 @@ export default function AccountScreen() {
       isMounted = false;
       void supabase.removeChannel(channel);
     };
-  }, [safeCustomer?.id]);
+  }, [isFocused, safeCustomer?.id]);
 
   if (!isInitialized) {
     return (

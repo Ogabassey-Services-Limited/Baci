@@ -5,6 +5,7 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react-native';
+import { Dimensions } from 'react-native';
 import UtilityPurchaseScreen from '@/app/utilities/[type]';
 import type {
   UtilityHistoryFilter,
@@ -106,6 +107,15 @@ function createHistoryTransaction(
     type: 'electricity',
     ...overrides,
   };
+}
+
+function selectUtilityPagerPage(position: number) {
+  const pager = screen.getByTestId('utility-purchase-pager');
+  const pageWidth = Dimensions.get('window').width;
+
+  fireEvent(pager, 'onMomentumScrollEnd', {
+    nativeEvent: { contentOffset: { x: position * pageWidth, y: 0 } },
+  });
 }
 
 jest.mock('expo-router', () => ({
@@ -340,7 +350,7 @@ describe('UtilityPurchaseScreen', () => {
     });
   });
 
-  it('updates selected type, active tab and form when PagerView selects another page', () => {
+  it('updates selected type, active tab and form when the pager selects another page', () => {
     mockUseLocalSearchParams.mockReturnValue({ type: 'airtime' });
 
     render(<UtilityPurchaseScreen />);
@@ -352,11 +362,7 @@ describe('UtilityPurchaseScreen', () => {
       selected: true,
     });
 
-    const pager = screen.getByTestId('pager-view');
-
-    fireEvent(pager, 'onPageSelected', {
-      nativeEvent: { position: 1 },
-    });
+    selectUtilityPagerPage(1);
 
     expect(screen.getByText('Data form')).toBeOnTheScreen();
     expect(
@@ -365,9 +371,7 @@ describe('UtilityPurchaseScreen', () => {
       selected: true,
     });
 
-    fireEvent(pager, 'onPageSelected', {
-      nativeEvent: { position: 3 },
-    });
+    selectUtilityPagerPage(3);
 
     expect(screen.getByText('Bill form power')).toBeOnTheScreen();
     expect(
@@ -382,11 +386,7 @@ describe('UtilityPurchaseScreen', () => {
 
     render(<UtilityPurchaseScreen />);
 
-    const pager = screen.getByTestId('pager-view');
-
-    fireEvent(pager, 'onPageSelected', {
-      nativeEvent: { position: 2 },
-    });
+    selectUtilityPagerPage(2);
 
     expect(screen.getByText('Bill form tv')).toBeOnTheScreen();
     expect(
@@ -397,7 +397,7 @@ describe('UtilityPurchaseScreen', () => {
     expect(screen.queryByTestId('utility-type-tabs-indicator')).toBeNull();
   });
 
-  it('keeps state stable when PagerView selects the same or invalid page index', () => {
+  it('keeps state stable when the pager selects the same or invalid page index', () => {
     mockUseLocalSearchParams.mockReturnValue({ type: 'airtime' });
 
     render(<UtilityPurchaseScreen />);
@@ -409,11 +409,7 @@ describe('UtilityPurchaseScreen', () => {
       selected: true,
     });
 
-    const pager = screen.getByTestId('pager-view');
-
-    fireEvent(pager, 'onPageSelected', {
-      nativeEvent: { position: 0 },
-    });
+    selectUtilityPagerPage(0);
 
     expect(screen.getByText('Airtime form')).toBeOnTheScreen();
     expect(
@@ -422,9 +418,7 @@ describe('UtilityPurchaseScreen', () => {
       selected: true,
     });
 
-    fireEvent(pager, 'onPageSelected', {
-      nativeEvent: { position: 99 },
-    });
+    selectUtilityPagerPage(99);
 
     expect(screen.getByText('Airtime form')).toBeOnTheScreen();
     expect(

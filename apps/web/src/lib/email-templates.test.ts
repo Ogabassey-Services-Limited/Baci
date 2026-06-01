@@ -12,6 +12,7 @@ import {
   generatePaymentReminderEmail,
   generatePaymentReminderText,
   generateVtuTokenReceiptEmail,
+  generateVtuTokenReceiptText,
 } from './email-templates';
 
 const baseOrderData = {
@@ -395,6 +396,66 @@ describe('Email Templates', () => {
       );
       expect(html).not.toContain('<script>');
       expect(html).not.toContain('javascript:alert(1)');
+    });
+
+    it('does not label token-based receipts without a PIN as directly active', () => {
+      const payload = {
+        transactionId: 'tx-1',
+        reference: 'REF-123',
+        customerName: 'Ada',
+        amount: 2500,
+        type: 'electricity' as const,
+        providerLabel: 'EKEDC',
+        customerIdentifier: '43901766923',
+        voucherPin: null,
+        phone_number: '08012345678',
+        merchantName: 'Shop',
+        merchantUrl: 'https://shop.example.com',
+      };
+
+      const html = generateVtuTokenReceiptEmail(payload);
+      const text = generateVtuTokenReceiptText(payload);
+
+      expect(html).toContain('TOKEN FULFILLMENT IN PROGRESS');
+      expect(html).toContain('Payment Received');
+      expect(html).not.toContain('Directly Successful &amp; Active');
+      expect(html).not.toContain('No PIN entry required');
+      expect(text).toContain('Token fulfillment is still in progress');
+      expect(text).not.toContain('No PIN entry required');
+    });
+
+    it('escapes direct-success receipt fields in HTML and text variants', () => {
+      const payload = {
+        transactionId: 'tx-1',
+        reference: 'REF-<script>alert(1)</script>',
+        customerName: 'Ada <img src=x onerror=alert(1)>',
+        amount: 2500,
+        type: 'airtime' as const,
+        providerLabel: 'MTN <b>bad</b>',
+        customerIdentifier: '080<script>target()</script>',
+        voucherPin: null,
+        phone_number: '080<script>phone()</script>',
+        merchantName: 'Shop <script>brand()</script>',
+        merchantUrl: 'javascript:alert(1)',
+        supportEmail: 'help@example.com<script>alert(1)</script>',
+        merchantTin: 'TIN-<script>tin()</script>',
+        merchantRcNumber: 'RC-<script>rc()</script>',
+      };
+
+      const html = generateVtuTokenReceiptEmail(payload);
+      const text = generateVtuTokenReceiptText(payload);
+      const output = `${html}\n${text}`;
+
+      expect(html).toContain('Directly Successful & Active');
+      expect(html).toContain('href="#"');
+      expect(output).toContain(
+        'RC: RC-\\u003cscript\\u003erc()\\u003c/script\\u003e'
+      );
+      expect(output).toContain(
+        'TIN: TIN-\\u003cscript\\u003etin()\\u003c/script\\u003e'
+      );
+      expect(output).not.toContain('<script>');
+      expect(output).not.toContain('javascript:alert(1)');
     });
   });
 });

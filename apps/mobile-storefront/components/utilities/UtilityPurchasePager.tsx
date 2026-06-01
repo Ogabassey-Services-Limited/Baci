@@ -1,7 +1,11 @@
-import type { RefObject } from 'react';
-import { View } from 'react-native';
-import PagerView from 'react-native-pager-view';
-import Animated from 'react-native-reanimated';
+import { useEffect, useRef, type MutableRefObject } from 'react';
+import {
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+  ScrollView,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 import { AirtimeForm } from '@/components/utilities/AirtimeForm';
 import { BillForm } from '@/components/utilities/BillForm';
 import { DataForm } from '@/components/utilities/DataForm';
@@ -15,7 +19,9 @@ import type {
   UtilityRepeatRecipient,
 } from '@/lib/utility-repeat';
 
-const AnimatedPagerView = Animated.createAnimatedComponent(PagerView);
+export type UtilityPurchasePagerHandle = {
+  setPage: (index: number) => void;
+};
 
 type QuickRepeatState = {
   handleRecipientSelect: (recipient: UtilityRepeatRecipient) => void;
@@ -28,10 +34,10 @@ type QuickRepeatState = {
 type UtilityPurchasePagerProps = {
   currentType: ValidUtilityType;
   initialPage: number;
-  onPageScroll?: (event: unknown) => void;
+  onPageScroll?: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
   onPageSelected: (event: { nativeEvent: { position: number } }) => void;
   onSuccess: (result: UtilityPurchaseResult) => void;
-  pagerRef: RefObject<PagerView | null>;
+  pagerRef: MutableRefObject<UtilityPurchasePagerHandle | null>;
   quickRepeat: QuickRepeatState;
   visitedTypes: Record<ValidUtilityType, boolean>;
 };
@@ -46,15 +52,80 @@ export function UtilityPurchasePager({
   quickRepeat,
   visitedTypes,
 }: UtilityPurchasePagerProps) {
+  const { width: pageWidth } = useWindowDimensions();
+  const scrollRef = useRef<ScrollView>(null);
+
+  useEffect(() => {
+    const handle = {
+      setPage: (index: number) => {
+        if (pageWidth <= 0) {
+          return;
+        }
+
+        scrollRef.current?.scrollTo({
+          animated: true,
+          x: index * pageWidth,
+          y: 0,
+        });
+      },
+    };
+
+    pagerRef.current = handle;
+
+    return () => {
+      if (pagerRef.current === handle) {
+        pagerRef.current = null;
+      }
+    };
+  }, [pageWidth, pagerRef]);
+
+  useEffect(() => {
+    if (pageWidth <= 0) {
+      return;
+    }
+
+    scrollRef.current?.scrollTo({
+      animated: false,
+      x: initialPage * pageWidth,
+      y: 0,
+    });
+  }, [initialPage, pageWidth]);
+
+  const handleScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (pageWidth <= 0) {
+      return;
+    }
+
+    const nextPosition = Math.round(
+      event.nativeEvent.contentOffset.x / pageWidth
+    );
+
+    onPageSelected({ nativeEvent: { position: nextPosition } });
+  };
+
+  const pageStyle = { width: pageWidth };
+
   return (
-    <AnimatedPagerView
-      ref={pagerRef}
+    <ScrollView
+      ref={scrollRef}
+      bounces={false}
+      decelerationRate="fast"
+      disableIntervalMomentum
+      horizontal
+      keyboardShouldPersistTaps="handled"
+      overScrollMode="never"
+      scrollEventThrottle={16}
+      showsHorizontalScrollIndicator={false}
+      snapToAlignment="start"
+      snapToInterval={pageWidth > 0 ? pageWidth : undefined}
+      contentOffset={{ x: initialPage * pageWidth, y: 0 }}
       style={{ flex: 1 }}
-      initialPage={initialPage}
-      onPageScroll={onPageScroll}
-      onPageSelected={onPageSelected}
+      testID="utility-purchase-pager"
+      onMomentumScrollEnd={handleScrollEnd}
+      onScroll={onPageScroll}
+      onScrollEndDrag={handleScrollEnd}
     >
-      <View key="airtime" collapsable={false} style={{ flex: 1 }}>
+      <View key="airtime" collapsable={false} style={[{ flex: 1 }, pageStyle]}>
         {visitedTypes.airtime && (
           <AirtimeForm
             key={`airtime-${quickRepeat.repeatRevision}`}
@@ -76,7 +147,7 @@ export function UtilityPurchasePager({
           />
         )}
       </View>
-      <View key="data" collapsable={false} style={{ flex: 1 }}>
+      <View key="data" collapsable={false} style={[{ flex: 1 }, pageStyle]}>
         {visitedTypes.data && (
           <DataForm
             key={`data-${quickRepeat.repeatRevision}`}
@@ -95,7 +166,7 @@ export function UtilityPurchasePager({
           />
         )}
       </View>
-      <View key="tv" collapsable={false} style={{ flex: 1 }}>
+      <View key="tv" collapsable={false} style={[{ flex: 1 }, pageStyle]}>
         {visitedTypes.tv && (
           <BillForm
             key={`tv-${quickRepeat.repeatRevision}`}
@@ -120,7 +191,7 @@ export function UtilityPurchasePager({
           />
         )}
       </View>
-      <View key="power" collapsable={false} style={{ flex: 1 }}>
+      <View key="power" collapsable={false} style={[{ flex: 1 }, pageStyle]}>
         {visitedTypes.power && (
           <BillForm
             key={`power-${quickRepeat.repeatRevision}`}
@@ -145,7 +216,7 @@ export function UtilityPurchasePager({
           />
         )}
       </View>
-      <View key="gaming" collapsable={false} style={{ flex: 1 }}>
+      <View key="gaming" collapsable={false} style={[{ flex: 1 }, pageStyle]}>
         {visitedTypes.gaming && (
           <BillForm
             key={`gaming-${quickRepeat.repeatRevision}`}
@@ -172,6 +243,6 @@ export function UtilityPurchasePager({
           />
         )}
       </View>
-    </AnimatedPagerView>
+    </ScrollView>
   );
 }

@@ -1026,6 +1026,46 @@ async function claimCustomerNotificationAttempt({
   return true;
 }
 
+async function claimCustomerEmailNotificationAttempt({
+  metadata,
+  row,
+  supabase,
+}: {
+  metadata: Record<string, unknown>;
+  row: VtuTransactionRow;
+  supabase: SupabaseClient;
+}) {
+  if (
+    metadata.customerEmailNotificationAttempted === true ||
+    metadata.customerEmailNotificationSent === true
+  ) {
+    return false;
+  }
+
+  const { data, error } = await supabase.rpc(
+    'claim_vtu_customer_email_notification_attempt',
+    {
+      p_transaction_id: row.id,
+    }
+  );
+
+  if (error) {
+    console.error('Failed to claim VTU customer email notification attempt:', {
+      error: error.message,
+      transactionId: row.id,
+    });
+    return false;
+  }
+
+  const claimedMetadata = readMetadataRecord(data);
+  if (Object.keys(claimedMetadata).length === 0) {
+    return false;
+  }
+
+  setMetadataValue(metadata, 'customerEmailNotificationAttempted', true);
+  return true;
+}
+
 async function notifyVtuCustomerSuccess({
   cashbackAmount,
   customerWalletCredited,
@@ -1059,17 +1099,27 @@ async function notifyVtuCustomerSuccess({
     return { metadataChanged: false };
   }
 
-  const { data: merchant } = await supabase
+  const { data: merchant, error: merchantError } = await supabase
     .from('merchants')
     .select('business_name, slug, support_email')
     .eq('id', row.merchant_id)
     .single();
 
+  if (merchantError) {
+    console.error('Failed to resolve VTU merchant notification context:', {
+      error: merchantError.message,
+      merchantId: row.merchant_id,
+      transactionId: row.id,
+    });
+  }
+
   const shouldAttemptPush =
     Boolean(customer.user_id) &&
     metadata.customerNotificationAttempted !== true;
   const shouldAttemptEmail =
-    Boolean(customer.email) && metadata.customerEmailNotificationSent !== true;
+    Boolean(customer.email) &&
+    metadata.customerEmailNotificationAttempted !== true &&
+    metadata.customerEmailNotificationSent !== true;
 
   if (!shouldAttemptPush && !shouldAttemptEmail) {
     return { metadataChanged: false };
@@ -1077,6 +1127,13 @@ async function notifyVtuCustomerSuccess({
 
   const claimedNotification = shouldAttemptPush
     ? await claimCustomerNotificationAttempt({
+        metadata,
+        row,
+        supabase,
+      })
+    : false;
+  const claimedEmail = shouldAttemptEmail
+    ? await claimCustomerEmailNotificationAttempt({
         metadata,
         row,
         supabase,
@@ -1116,7 +1173,7 @@ async function notifyVtuCustomerSuccess({
         vtuType: row.type,
       };
 
-  let metadataChanged = claimedNotification;
+  let metadataChanged = claimedNotification || claimedEmail;
 
   // 1. Send push notification if user_id exists
   if (shouldAttemptPush && customer.user_id && claimedNotification) {
@@ -1147,11 +1204,7 @@ async function notifyVtuCustomerSuccess({
   }
 
   // 2. Send email receipt to customer if email exists
-  if (shouldAttemptEmail && customer.email) {
-    metadataChanged =
-      setMetadataValue(metadata, 'customerEmailNotificationAttempted', true) ||
-      metadataChanged;
-
+  if (shouldAttemptEmail && customer.email && claimedEmail) {
     try {
       const { sendEmail } = await import('@/lib/zeptomail');
       const { generateVtuTokenReceiptEmail, generateVtuTokenReceiptText } =

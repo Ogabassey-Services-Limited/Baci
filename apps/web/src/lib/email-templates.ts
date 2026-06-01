@@ -23,13 +23,6 @@ function getSafeHttpUrl(value?: string): string | undefined {
   return sanitizeUrl(value) || undefined;
 }
 
-function buildRegistrationLine(data: MerchantRegistrationInfo): string {
-  const parts: string[] = [];
-  if (data.merchantRcNumber) parts.push(`RC: ${data.merchantRcNumber}`);
-  if (data.merchantTin) parts.push(`TIN: ${data.merchantTin}`);
-  return parts.join(' &middot; ');
-}
-
 function buildEscapedRegistrationLine(data: MerchantRegistrationInfo): string {
   const parts: string[] = [];
   if (data.merchantRcNumber) {
@@ -221,7 +214,7 @@ export function generateOrderConfirmationEmail(
                 Questions? Reply to this email or contact us at <a href="${data.merchantUrl}" style="color: #ca8a04; text-decoration: none;">${data.merchantName}</a>
               </p>
               ${(() => {
-                const reg = buildRegistrationLine(data);
+                const reg = buildEscapedRegistrationLine(data);
                 return reg
                   ? `<p style="margin: 8px 0 0 0; font-size: 12px; color: #94a3b8;">${reg}</p>`
                   : '';
@@ -452,7 +445,7 @@ export function generatePaymentReminderEmail(
         Thank you for shopping with <strong>${data.merchantName}</strong>
       </p>
       ${(() => {
-        const reg = buildRegistrationLine(data);
+        const reg = buildEscapedRegistrationLine(data);
         return reg
           ? `<p style="margin: 0 0 8px 0; font-size: 12px; color: #9ca3af;">${reg}</p>`
           : '';
@@ -624,7 +617,7 @@ export function generatePaymentReceiptEmail(data: PaymentReceiptData): string {
         Thank you for shopping with <strong>${data.merchantName}</strong>
       </p>
       ${(() => {
-        const reg = buildRegistrationLine(data);
+        const reg = buildEscapedRegistrationLine(data);
         return reg
           ? `<p style="margin: 0 0 8px 0; font-size: 12px; color: #9ca3af;">${reg}</p>`
           : '';
@@ -855,7 +848,7 @@ export function generateOrderShippedEmail(data: OrderShippedData): string {
       </p>
       ${supportEmailHtml}
       ${(() => {
-        const reg = buildRegistrationLine(data);
+        const reg = buildEscapedRegistrationLine(data);
         return reg
           ? `<p style="margin: 0 0 8px 0; font-size: 12px; color: #9ca3af;">${reg}</p>`
           : '';
@@ -1058,7 +1051,7 @@ export function generateOrderDeliveredEmail(data: OrderDeliveredData): string {
       </p>
       ${data.supportEmail ? `<p style="margin: 0 0 8px 0; font-size: 13px; color: #9ca3af;">Questions? Contact us at ${data.supportEmail}</p>` : ''}
       ${(() => {
-        const reg = buildRegistrationLine(data);
+        const reg = buildEscapedRegistrationLine(data);
         return reg
           ? `<p style="margin: 0 0 8px 0; font-size: 12px; color: #9ca3af;">${reg}</p>`
           : '';
@@ -1278,7 +1271,7 @@ export function generateOrderCancellationEmail(
       </p>
       ${data.supportEmail ? `<p style="margin: 0 0 8px 0; font-size: 13px; color: #9ca3af;">Contact: ${data.supportEmail}</p>` : ''}
       ${(() => {
-        const reg = buildRegistrationLine(data);
+        const reg = buildEscapedRegistrationLine(data);
         return reg
           ? `<p style="margin: 0 0 8px 0; font-size: 12px; color: #9ca3af;">${reg}</p>`
           : '';
@@ -1381,6 +1374,10 @@ export function generateVtuTokenReceiptEmail(
   data: VtuTokenReceiptData
 ): string {
   const isTokenReady = Boolean(data.voucherPin);
+  const expectsToken =
+    data.type === 'electricity' ||
+    data.type === 'cable_tv' ||
+    data.type === 'betting';
   const safeMerchantUrl = getSafeHttpUrl(data.merchantUrl) ?? '#';
   const safeMerchantHref = escapeHtml(safeMerchantUrl);
   const merchantName = escapeHtml(data.merchantName);
@@ -1405,7 +1402,7 @@ export function generateVtuTokenReceiptEmail(
             ? 'Airtime Top-up'
             : 'Data Top-up';
 
-  const accentColor = isTokenReady ? '#ca8a04' : '#10b981'; // Gold for token, Emerald for direct success
+  const accentColor = isTokenReady || expectsToken ? '#ca8a04' : '#10b981';
   const iconEmoji =
     data.type === 'electricity'
       ? '⚡'
@@ -1415,8 +1412,9 @@ export function generateVtuTokenReceiptEmail(
           ? '🎮'
           : '📱';
 
-  const tokenSectionHtml = isTokenReady
-    ? `
+  const tokenSectionHtml = (() => {
+    if (isTokenReady) {
+      return `
     <!-- Token Pin Card -->
     <div style="background-color: #0f172a; border-radius: 12px; padding: 24px; text-align: center; margin-bottom: 28px; border: 2px dashed #ca8a04; box-shadow: 0 4px 10px rgba(0,0,0,0.15);">
       <div style="font-size: 12px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 10px;">
@@ -1429,8 +1427,27 @@ export function generateVtuTokenReceiptEmail(
         Enter this token directly into your meter or decoder to activate.
       </p>
     </div>
-  `
-    : `
+  `;
+    }
+
+    if (expectsToken) {
+      return `
+    <!-- Token Pending Card -->
+    <div style="background-color: #fffbeb; border-radius: 12px; padding: 24px; text-align: center; margin-bottom: 28px; border: 1px solid #fde68a;">
+      <div style="font-size: 12px; font-weight: 700; color: #92400e; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 10px;">
+        TOKEN FULFILLMENT IN PROGRESS
+      </div>
+      <div style="font-size: 22px; font-weight: 800; color: #b45309; letter-spacing: 0.5px;">
+        Payment Received
+      </div>
+      <p style="margin: 8px 0 0 0; color: #92400e; font-size: 14px; line-height: 1.5;">
+        Your payment was successful. We are still retrieving the service token and will update this receipt once it is available.
+      </p>
+    </div>
+  `;
+    }
+
+    return `
     <!-- Direct Success Card -->
     <div style="background-color: #f0fdf4; border-radius: 12px; padding: 24px; text-align: center; margin-bottom: 28px; border: 1px solid #bbf7d0;">
       <div style="font-size: 12px; font-weight: 700; color: #166534; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 10px;">
@@ -1444,6 +1461,7 @@ export function generateVtuTokenReceiptEmail(
       </p>
     </div>
   `;
+  })();
 
   const detailsRows = [
     { label: 'Biller / Service', value: providerLabel },
@@ -1582,6 +1600,10 @@ export function generateVtuTokenReceiptEmail(
  */
 export function generateVtuTokenReceiptText(data: VtuTokenReceiptData): string {
   const isTokenReady = Boolean(data.voucherPin);
+  const expectsToken =
+    data.type === 'electricity' ||
+    data.type === 'cable_tv' ||
+    data.type === 'betting';
   const typeLabel =
     data.type === 'electricity'
       ? 'Electricity Token'
@@ -1595,7 +1617,9 @@ export function generateVtuTokenReceiptText(data: VtuTokenReceiptData): string {
 
   const tokenLine = isTokenReady
     ? `YOUR PREPAID TOKEN PIN: ${data.voucherPin}\n(Enter this token directly into your meter or decoder to activate.)\n`
-    : `Status: Successful (Directly credited to your account. No PIN entry required.)\n`;
+    : expectsToken
+      ? 'Status: Payment received. Token fulfillment is still in progress and will be updated once available.\n'
+      : `Status: Successful (Directly credited to your account. No PIN entry required.)\n`;
 
   const customerIdLabel =
     data.type === 'electricity'
@@ -1603,22 +1627,34 @@ export function generateVtuTokenReceiptText(data: VtuTokenReceiptData): string {
       : data.type === 'cable_tv'
         ? 'Smartcard / Decoder Number'
         : 'Target Account';
+  const customerName = escapeHtml(data.customerName);
+  const merchantName = escapeHtml(data.merchantName);
+  const providerLabel = escapeHtml(data.providerLabel);
+  const customerIdentifier = data.customerIdentifier
+    ? escapeHtml(data.customerIdentifier)
+    : null;
+  const contactPhone = data.phone_number ? escapeHtml(data.phone_number) : null;
+  const reference = escapeHtml(data.reference);
+  const voucherPin = data.voucherPin ? escapeHtml(data.voucherPin) : null;
+  const safeTokenLine = voucherPin
+    ? `YOUR PREPAID TOKEN PIN: ${voucherPin}\n(Enter this token directly into your meter or decoder to activate.)\n`
+    : tokenLine;
 
   return `
 ${typeLabel} Confirmation!
 
-Hi ${data.customerName},
+Hi ${customerName},
 
-Thank you for your purchase from ${data.merchantName}. Your payment has been verified and fulfilled.
+Thank you for your purchase from ${merchantName}. Your payment has been verified and fulfilled.
 
-${tokenLine}
+${safeTokenLine}
 TRANSACTION DETAILS:
-- Biller/Service: ${data.providerLabel}
+- Biller/Service: ${providerLabel}
 - Product: ${typeLabel}
-${data.customerIdentifier ? `- ${customerIdLabel}: ${data.customerIdentifier}\n` : ''}${data.phone_number ? `- Contact Phone: ${data.phone_number}\n` : ''}- Total Amount: ${formatEmailMoney(data.amount, data.currency)}
-- Reference Number: ${data.reference}
+${customerIdentifier ? `- ${customerIdLabel}: ${customerIdentifier}\n` : ''}${contactPhone ? `- Contact Phone: ${contactPhone}\n` : ''}- Total Amount: ${formatEmailMoney(data.amount, data.currency)}
+- Reference Number: ${reference}
 
-If you have any questions, please contact ${data.merchantName} directly.
+If you have any questions, please contact ${merchantName} directly.
 
 ---
 Powered by Baci — AI E-commerce Platform

@@ -71,7 +71,7 @@ export default function TabLayout() {
         },
         headerTintColor: colors.text,
         headerShadowVisible: false,
-        lazy: false,
+        lazy: true,
         freezeOnBlur: true,
         tabBarHideOnKeyboard: true,
         tabBarShowLabel: true, // Needed for our custom label component

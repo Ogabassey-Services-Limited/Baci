@@ -7,6 +7,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 import Animated, {
+  cancelAnimation,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
@@ -46,6 +47,7 @@ export function Skeleton({
       false // Handle sequences within repeating structure
     );
     return () => {
+      cancelAnimation(opacityValue);
       opacityValue.value = 0.3;
     };
   }, [opacityValue]);
@@ -68,6 +70,7 @@ export function Skeleton({
       ]}
       accessibilityRole="progressbar"
       accessibilityLabel="Loading content"
+      accessible
     />
   );
 }

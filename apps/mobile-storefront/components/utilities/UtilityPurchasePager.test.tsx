@@ -1,9 +1,12 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import React from 'react';
-import type PagerView from 'react-native-pager-view';
+import { Dimensions } from 'react-native';
 import type { UtilityRepeatRecipient } from '@/lib/utility-repeat';
-import { UtilityPurchasePager } from './UtilityPurchasePager';
+import {
+  type UtilityPurchasePagerHandle,
+  UtilityPurchasePager,
+} from './UtilityPurchasePager';
 
 type MockBillFormProps = {
   isRepeatPaymentReady?: boolean;
@@ -72,7 +75,7 @@ function renderPager(overrides = {}) {
     onPageScroll: jest.fn(),
     onPageSelected: jest.fn(),
     onSuccess: jest.fn(),
-    pagerRef: React.createRef<PagerView>(),
+    pagerRef: React.createRef<UtilityPurchasePagerHandle>(),
     quickRepeat: {
       handleRecipientSelect: jest.fn(),
       isRepeatPaymentReady: true,
@@ -111,8 +114,11 @@ describe('UtilityPurchasePager', () => {
     expect(screen.getByText('Airtime form')).toBeOnTheScreen();
     expect(screen.queryByText('Data form')).not.toBeOnTheScreen();
 
-    fireEvent(screen.getByTestId('pager-view'), 'onPageSelected', {
-      nativeEvent: { position: 1 },
+    const pager = screen.getByTestId('utility-purchase-pager');
+    const pageWidth = Dimensions.get('window').width;
+
+    fireEvent(pager, 'onMomentumScrollEnd', {
+      nativeEvent: { contentOffset: { x: pageWidth, y: 0 } },
     });
 
     expect(onPageSelected).toHaveBeenCalledWith({
