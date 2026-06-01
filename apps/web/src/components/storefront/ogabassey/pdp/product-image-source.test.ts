@@ -10,10 +10,10 @@ describe('buildOgabasseyPdpMobileImageSrcSet', () => {
     const srcSet = buildOgabasseyPdpMobileImageSrcSet(src);
 
     expect(srcSet).toContain(
-      `${imageLoader({ src, width: 750, quality: 35 })} 750w`
+      `${imageLoader({ src, width: 750, quality: 30 })} 750w`
     );
     expect(srcSet).toContain(
-      `${imageLoader({ src, width: 640, quality: 35 })} 640w`
+      `${imageLoader({ src, width: 640, quality: 30 })} 640w`
     );
     expect(srcSet).not.toContain('828w');
     expect(srcSet).not.toContain('1080w');
@@ -25,10 +25,10 @@ describe('buildOgabasseyPdpMobileImageSrcSet', () => {
     const srcSet = buildOgabasseyPdpMobileImageSrcSet(src);
 
     expect(srcSet).toContain(
-      `${imageLoader({ src, width: 750, quality: 35 })} 750w`
+      `${imageLoader({ src, width: 750, quality: 30 })} 750w`
     );
     expect(srcSet).toContain(
-      `${imageLoader({ src, width: 640, quality: 35 })} 640w`
+      `${imageLoader({ src, width: 640, quality: 30 })} 640w`
     );
     expect(srcSet).not.toContain('828w');
     expect(srcSet).not.toContain('1080w');
