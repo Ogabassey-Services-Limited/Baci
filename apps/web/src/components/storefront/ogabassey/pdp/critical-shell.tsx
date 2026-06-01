@@ -87,9 +87,14 @@ export function OgabasseyPdpCriticalShell({
           data-ogabassey-pdp-breadcrumbs
           aria-label="Breadcrumb"
         >
-          <Link href={buildPath(basePath, '/')}>Home</Link>
+          <Link href={buildPath(basePath, '/')} prefetch={false}>
+            Home
+          </Link>
           <span aria-hidden="true">/</span>
-          <Link href={buildPath(basePath, `/${product.categorySlug}`)}>
+          <Link
+            href={buildPath(basePath, `/${product.categorySlug}`)}
+            prefetch={false}
+          >
             {product.categoryName}
           </Link>
           <span aria-hidden="true">/</span>

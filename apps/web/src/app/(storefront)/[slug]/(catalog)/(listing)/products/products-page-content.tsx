@@ -26,7 +26,7 @@ import { ProductIndexCard } from './product-index-card';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ page?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
 function getStorefrontPathPrefix(
