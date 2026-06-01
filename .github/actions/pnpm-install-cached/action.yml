@@ -13,7 +13,7 @@ inputs:
   install-command:
     description: 'Custom command to execute dependencies installation'
     required: false
-    default: 'pnpm install --frozen-lockfile --prefer-offline'
+    default: './.github/scripts/pnpm-install-with-retry.sh --frozen-lockfile --prefer-offline'
 
 runs:
   using: composite
@@ -59,8 +59,6 @@ runs:
 
     - name: Install Dependencies
       shell: bash
-      env:
-        pnpm_config_strict_dep_builds: 'false'
       run: ${{ inputs.install-command }}
 
     # Cache Save Engine: PR branches are strictly RESTORE-ONLY to prevent cache poisoning & save storage limit (10GB)

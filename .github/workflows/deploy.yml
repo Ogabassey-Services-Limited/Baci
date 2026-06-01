@@ -68,6 +68,8 @@ jobs:
   db-migrations:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
+    environment:
+      name: production
     timeout-minutes: 10
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
@@ -112,6 +114,9 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           persist-credentials: false
+      - name: Pre-run cleanup of stale secrets
+        run: |
+          rm -rf .vercel
       - uses: ./.github/actions/pnpm-install-cached
       # Pin vercel CLI + allow esbuild postinstall so pnpm 10's strict
       # ERR_PNPM_IGNORED_BUILDS does not block the dlx tmp install. Bumping
@@ -248,3 +253,7 @@ jobs:
         run: |
           echo "Storefront blog smoke check failed after cache recovery attempts."
           exit 1
+      - name: Clean up Vercel secrets
+        if: always()
+        run: |
+          rm -rf .vercel
