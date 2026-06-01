@@ -327,6 +327,11 @@ jest.mock('react-native-gesture-handler', () => {
     return gesture;
   };
 
+  const createHookGesture = (type: string, config: unknown) => ({
+    config,
+    type,
+  });
+
   return {
     Touchable: ({ children, ...props }: any) =>
       React.createElement(Pressable, props, children),
@@ -351,6 +356,16 @@ jest.mock('react-native-gesture-handler', () => {
       })),
       Tap: jest.fn(createGesture),
     },
+    usePanGesture: jest.fn((config: unknown) =>
+      createHookGesture('pan', config)
+    ),
+    useSimultaneousGestures: jest.fn((...gestures: unknown[]) => ({
+      gestures,
+      type: 'simultaneous',
+    })),
+    useTapGesture: jest.fn((config: unknown) =>
+      createHookGesture('tap', config)
+    ),
   };
 });
 
@@ -409,4 +424,3 @@ jest.mock('react-native-mmkv', () => {
     }),
   };
 });
-

@@ -4,10 +4,9 @@
  * Includes real-time loyalty points sync
  */
 
-import type { RealtimeChannel } from '@supabase/supabase-js';
 import type { Href } from 'expo-router';
 import { router } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -31,6 +30,13 @@ import { useAuthStatus } from '@/hooks/use-auth-guard';
 import { useStorefrontInsets } from '@/hooks/use-storefront-insets';
 import { supabase } from '@/lib/supabase';
 import { type Customer, useAuthStore } from '@/stores/auth-store';
+
+let accountLoyaltyChannelSequence = 0;
+
+function createAccountLoyaltyChannelName(customerId: string) {
+  accountLoyaltyChannelSequence += 1;
+  return `account-loyalty-${customerId}-${accountLoyaltyChannelSequence}`;
+}
 
 export default function AccountScreen() {
   const colorScheme = useColorScheme();
@@ -65,7 +71,6 @@ export default function AccountScreen() {
   const [loyaltyPoints, setLoyaltyPoints] = useState<number | undefined>(
     safeCustomer?.loyalty_points
   );
-  const channelRef = useRef<RealtimeChannel | null>(null);
   const { getScrollContentStyle } = useStorefrontInsets();
   const menuSections = getAccountMenuSections({
     canDeleteAccount: Boolean(authUser),
@@ -81,8 +86,9 @@ export default function AccountScreen() {
       return;
     }
 
+    let isMounted = true;
     const channel = supabase
-      .channel(`account-loyalty-${safeCustomer.id}`)
+      .channel(createAccountLoyaltyChannelName(safeCustomer.id))
       .on(
         'postgres_changes',
         {
@@ -92,7 +98,7 @@ export default function AccountScreen() {
           filter: `id=eq.${safeCustomer.id}`,
         },
         (payload) => {
-          if (payload.new && 'loyalty_points' in payload.new) {
+          if (isMounted && payload.new && 'loyalty_points' in payload.new) {
             setLoyaltyPoints(payload.new.loyalty_points as number);
           }
         }
@@ -103,12 +109,9 @@ export default function AccountScreen() {
         }
       });
 
-    channelRef.current = channel;
     return () => {
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
-      }
+      isMounted = false;
+      void supabase.removeChannel(channel);
     };
   }, [safeCustomer?.id]);
 

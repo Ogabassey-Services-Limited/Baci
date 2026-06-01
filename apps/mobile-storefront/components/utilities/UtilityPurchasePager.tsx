@@ -28,7 +28,7 @@ type QuickRepeatState = {
 type UtilityPurchasePagerProps = {
   currentType: ValidUtilityType;
   initialPage: number;
-  onPageScroll: (event: unknown) => void;
+  onPageScroll?: (event: unknown) => void;
   onPageSelected: (event: { nativeEvent: { position: number } }) => void;
   onSuccess: (result: UtilityPurchaseResult) => void;
   pagerRef: RefObject<PagerView | null>;

@@ -2,7 +2,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { type Href, Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import type PagerView from 'react-native-pager-view';
-import { useEvent, useSharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StorefrontScreenShell } from '@/components/storefront/StorefrontScreenShell';
 import AppKeyboardContainer from '@/components/ui/AppKeyboardContainer';
@@ -101,22 +100,14 @@ export default function UtilityPurchaseScreen() {
 
   const pagerRef = useRef<PagerView>(null);
 
-  const activeIndex = useSharedValue(
-    routeType ? UTILITY_TYPE_INDEXES[routeType] : 0
-  );
-
-  const pageScrollHandler = useEvent(
-    (event: { position: number; offset: number }) => {
-      'worklet';
-      activeIndex.value = event.position + event.offset;
-    },
-    ['onPageScroll']
-  );
-
   const handlePageSelected = (event: { nativeEvent: { position: number } }) => {
     const newIndex = event.nativeEvent.position;
     const newType = INDEX_TO_UTILITY_TYPE[newIndex];
-    if (newType && newType !== selectedType) {
+    if (!newType) {
+      return;
+    }
+
+    if (newType !== selectedType) {
       setSelectedType(newType);
     }
   };
@@ -231,18 +222,14 @@ export default function UtilityPurchaseScreen() {
         topInset={insets.top}
         surfaceColor={colors.background}
       />
-      <AppKeyboardContainer style={styles.container}>
+      <AppKeyboardContainer enabled={false} style={styles.container}>
         <UtilityTypeTabs
           selectedType={currentType}
           onSelect={handleUtilityTypeChange}
-          activeIndex={activeIndex}
         />
         <UtilityPurchasePager
           currentType={currentType}
           initialPage={UTILITY_TYPE_INDEXES[currentType]}
-          onPageScroll={
-            pageScrollHandler as unknown as (event: unknown) => void
-          }
           onPageSelected={handlePageSelected}
           onSuccess={setSuccessData}
           pagerRef={pagerRef}

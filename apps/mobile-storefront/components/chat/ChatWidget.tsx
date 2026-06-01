@@ -2,20 +2,14 @@ import Ionicons from '@react-native-vector-icons/ionicons';
 import * as Haptics from 'expo-haptics';
 import { usePathname } from 'expo-router';
 import { useEffect, useRef } from 'react';
-import {
-  Platform,
-  Pressable,
-  Text,
-  View,
-} from 'react-native';
-import { Touchable } from 'react-native-gesture-handler';
+import { Platform, Pressable, Text, View } from 'react-native';
+import { GestureDetector, Touchable } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useShallow } from 'zustand/react/shallow';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
 import { getChatWidgetBottomOffset } from '@/constants/layout';
-import { getOptionalGestureHandlerRuntime } from '@/lib/optional-gesture-handler';
 import { useUIStore } from '@/stores/ui-store';
 import { ChatModal } from './ChatModal';
 import { EDGE_MARGIN, HIDDEN_ROUTES } from './constants';
@@ -33,7 +27,6 @@ export function ChatWidget({
   const colors = Colors[colorScheme ?? 'light'];
   const pathname = usePathname();
   const previousPathnameRef = useRef<string | null>(null);
-  const { Gesture, GestureDetector } = getOptionalGestureHandlerRuntime();
   const insets = useSafeAreaInsets();
   const effectiveBottomOffset = getChatWidgetBottomOffset(
     bottomOffset,
@@ -215,27 +208,25 @@ export function ChatWidget({
           </Animated.View>
         )}
 
-        {Gesture && composedGesture ? (
+        {composedGesture ? (
           <GestureDetector gesture={composedGesture}>
-            <Animated.View style={animatedIconStyle}>
-              <Animated.View
-                style={fabStyle}
-                accessibilityRole="button"
-                accessibilityLabel="Open chat assistant. Drag to move."
-                accessibilityHint="Double tap to open chat, or drag to reposition"
-                accessibilityActions={[
-                  { name: 'activate', label: 'Open chat assistant' },
-                ]}
-                onAccessibilityTap={handleOpen}
-                onAccessibilityAction={(event) => {
-                  if (event.nativeEvent.actionName === 'activate') {
-                    handleOpen();
-                  }
-                }}
-                accessible={true}
-              >
-                {fabContent}
-              </Animated.View>
+            <Animated.View
+              style={animatedIconStyle}
+              accessibilityRole="button"
+              accessibilityLabel="Open chat assistant. Drag to move."
+              accessibilityHint="Double tap to open chat, or drag to reposition"
+              accessibilityActions={[
+                { name: 'activate', label: 'Open chat assistant' },
+              ]}
+              onAccessibilityTap={handleOpen}
+              onAccessibilityAction={(event) => {
+                if (event.nativeEvent.actionName === 'activate') {
+                  handleOpen();
+                }
+              }}
+              accessible={true}
+            >
+              <Animated.View style={fabStyle}>{fabContent}</Animated.View>
             </Animated.View>
           </GestureDetector>
         ) : (

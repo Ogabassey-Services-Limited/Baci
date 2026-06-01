@@ -1,110 +1,263 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useRef } from 'react';
 import {
   View,
   Pressable,
   StyleSheet,
-  type LayoutChangeEvent,
   Platform,
+  Dimensions,
+  UIManager,
+  type ViewStyle,
 } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
-  interpolate,
-  Extrapolation,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { useTheme } from '@/hooks/useTheme';
-import { BRAND } from '@/constants/Colors';
+import { BlurView } from 'expo-blur';
+import { useColorScheme } from '@/components/useColorScheme';
+import Colors, { BRAND } from '@/constants/Colors';
 import { getTabBarShadowStyle } from '@/components/navigation/TabBar.shadows';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 
-const ACTIVE_PILL_HEIGHT = 38;
+// Safe check to verify if native expo-blur is compiled into the running binary.
+// This prevents "Unimplemented component: <ViewManagerAdapter_ExpoBlurView>" crash
+// when running on a dev client that hasn't been rebuilt/linked yet.
+const HAS_EXPO_BLUR = UIManager.hasViewManagerConfig('ExpoBlurView');
+const BlurContainer = HAS_EXPO_BLUR ? BlurView : View;
 
-export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
-  const { colors, isDark } = useTheme();
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const CAPSULE_WIDTH = 36;
+const CAPSULE_HEIGHT = 36;
 
-  // Filter visible routes (ignore options.href === null)
+// Horizontal spacing: left/right margins (16 * 2 = 32) + container paddingHorizontal (8 * 2 = 16) = 48
+const TAB_BAR_CONTENT_WIDTH = SCREEN_WIDTH - 48;
+
+// Strict typing for custom Expo Router navigation options
+interface CustomTabOptions {
+  href?: string | null;
+  title?: string;
+  tabBarIcon?: (props: {
+    focused: boolean;
+    color: string;
+    size: number;
+  }) => React.ReactNode;
+  tabBarLabel?: (props: { focused: boolean; color: string }) => React.ReactNode;
+}
+
+// Sub-component for each tab item - kept static and vector-sharp to prevent icon pixelation
+function TabItem({
+  route,
+  isFocused,
+  options,
+  colors,
+  onPress,
+  onPressIn,
+}: {
+  route: { name: string; key: string };
+  isFocused: boolean;
+  options: CustomTabOptions;
+  colors: { tabIconDefault: string };
+  onPress: () => void;
+  onPressIn: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      onPressIn={onPressIn}
+      style={styles.tabItem}
+      accessibilityRole="tab"
+      accessibilityState={{ selected: isFocused }}
+      accessibilityLabel={options.title || route.name}
+      testID={`custom-tab-item-${route.name}`}
+    >
+      <View style={styles.tabItemContent}>
+        {options.tabBarIcon?.({
+          focused: isFocused,
+          color: isFocused ? BRAND.primary : colors.tabIconDefault,
+          size: 22,
+        })}
+        {options.tabBarLabel?.({
+          focused: isFocused,
+          color: isFocused ? BRAND.primary : colors.tabIconDefault,
+        })}
+      </View>
+    </Pressable>
+  );
+}
+
+export function CustomTabBar({
+  state,
+  descriptors,
+  navigation,
+}: BottomTabBarProps) {
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
+  const isDark = colorScheme === 'dark';
+
+  // Filter visible routes (ignore options.href === null and categories)
   const visibleRoutes = state.routes.filter((route) => {
-    const { options } = descriptors[route.key] as unknown as { options: { href?: string | null } };
-    return options.href !== null;
+    const { options } = descriptors[route.key] as unknown as { options: CustomTabOptions };
+    return options.href !== null && route.name !== 'categories';
   });
 
-  const tabWidths = useSharedValue<number[]>(new Array(visibleRoutes.length).fill(72));
-  const tabOffsets = useSharedValue<number[]>(new Array(visibleRoutes.length).fill(0));
-  
-  const animIndex = useSharedValue(state.index);
+  const tabWidth = TAB_BAR_CONTENT_WIDTH / visibleRoutes.length;
+
+  const activeRouteName = state.routes[state.index]?.name;
+  const activeIdx = visibleRoutes.findIndex(
+    (r) => r.name === activeRouteName
+  );
+  const targetIdx = activeIdx !== -1 ? activeIdx : 0;
+
+  const lastTargetIdxRef = useRef(targetIdx);
+  const animIndex = useSharedValue(targetIdx);
+  const capsuleScale = useSharedValue(1);
 
   useEffect(() => {
-    animIndex.value = withSpring(state.index, { damping: 16, stiffness: 130 });
-    
-    // Tactile haptic tick triggers exactly once on tab index transition
+    // Sync animated index if state updates independently (e.g. swipes, hardware back buttons)
+    if (targetIdx === lastTargetIdxRef.current) {
+      return;
+    }
+
+    lastTargetIdxRef.current = targetIdx;
+    animIndex.value = withSpring(targetIdx, {
+      damping: 11,
+      stiffness: 145,
+      mass: 0.8,
+    });
+
+    // Apple Liquid Glass: Lens scale-up magnification pulse on landing
+    capsuleScale.value = withSpring(
+      1.15,
+      { damping: 9, stiffness: 220 },
+      (finished) => {
+        if (finished) {
+          capsuleScale.value = withSpring(1.0, { damping: 12, stiffness: 140 });
+        }
+      }
+    );
+
     if (Platform.OS !== 'web') {
       void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
-  }, [state.index, animIndex]);
+  }, [targetIdx, animIndex, capsuleScale]);
 
-  const handleTabLayout = (index: number) => (event: LayoutChangeEvent) => {
-    const { width, x } = event.nativeEvent.layout;
-    
-    const widths = [...tabWidths.value];
-    widths[index] = width;
-    tabWidths.value = widths;
-
-    const offsets = [...tabOffsets.value];
-    offsets[index] = x;
-    tabOffsets.value = offsets;
-  };
-
-  // GPU-Driven Elastic Sliding Bubble Style using scaleX to avoid layout engine thrashing
+  // GPU-Driven Liquid squash-and-stretch dynamic active indicator
   const capsuleStyle = useAnimatedStyle(() => {
-    const widths = tabWidths.value;
-    const offsets = tabOffsets.value;
-    const activeIdx = state.index;
+    const currentPos = animIndex.value;
+    const target = lastTargetIdxRef.current;
+    const distance = Math.abs(target - currentPos);
 
-    const currentX = withSpring(offsets[activeIdx] ?? 0, { damping: 16, stiffness: 130 });
-    const currentWidth = widths[activeIdx] ?? 72;
+    // Liquid Water squash-and-stretch: stretch horizontally & compress vertically in mid-transit
+    // When practically at rest (distance < 0.005), force exact 1:1 scale ratios to guarantee a perfect 3D glass circle shape (no sub-pixel float deviations)
+    const isAtRest = distance < 0.005;
+    const stretchX = isAtRest ? 1 : 1 + Math.min(distance * 0.38, 0.3); // Stretches up to 1.3x
+    const shrinkY = isAtRest ? 1 : 1 - Math.min(distance * 0.12, 0.1); // Contracts down to 0.9x to preserve visual mass/volume
 
-    // Calculate moving delta to stretch the capsule dynamically during transition
-    const travelDelta = Math.abs(animIndex.value - activeIdx);
+    // Center capsule inside equal-width tab item
+    const centerOffset = (tabWidth - CAPSULE_WIDTH) / 2;
+    const translateX = currentPos * tabWidth + centerOffset + 8; // Center shift offset (+8px)
 
     return {
       position: 'absolute',
-      width: currentWidth,
-      height: ACTIVE_PILL_HEIGHT,
-      borderRadius: 999,
-      // Premium brand-aligned visual theme blending in light/dark
-      backgroundColor: isDark ? 'rgba(220, 38, 38, 0.15)' : 'rgba(220, 38, 38, 0.06)',
-      borderColor: isDark ? 'rgba(220, 38, 38, 0.35)' : 'rgba(220, 38, 38, 0.15)',
-      borderWidth: 1,
+      width: CAPSULE_WIDTH,
+      height: CAPSULE_HEIGHT,
+      // Perfectly center vertically behind the active tab icon container.
+      // - paddingTop of tabItemContent = 8px.
+      // - height of TabBarIcon container = 32px.
+      // - 22px vector icon is centered inside the 32px height container.
+      // - Therefore, icon center is mathematically at y = 8 + (32 / 2) = 24px.
+      // - Since the capsule height is 36px, setting top to 6px places the capsule center at exactly y = 6 + (36 / 2) = 24px.
+      // - This perfect center alignment also separates the capsule border from the container's top border to prevent overlapping line glitches/white dashes.
+      top: 6,
+      borderRadius: CAPSULE_WIDTH / 2, // Perfect circle shape
+      // Apple 3D Liquid Glass Red Sphere: glossy brand-red backing & refraction borders
+      backgroundColor: isDark
+        ? 'rgba(220, 38, 38, 0.18)'
+        : 'rgba(220, 38, 38, 0.08)',
+      borderColor: isDark
+        ? 'rgba(220, 38, 38, 0.45)'
+        : 'rgba(220, 38, 38, 0.28)',
+      borderWidth: 1, // Whole number border width avoids sub-pixel anti-aliasing border artifacts (e.g. white dashes)
+
+      // Floating physical shadow colored by the brand red glow
+      shadowColor: BRAND.primary,
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: isDark ? 0.38 : 0.14,
+      shadowRadius: 5,
+      elevation: 2,
+
       transform: [
-        { translateX: currentX },
-        { scaleX: interpolate(travelDelta, [0, 0.5, 1], [1, 1.25, 1], Extrapolation.CLAMP) }
-      ],
+        { translateX },
+        { scaleX: stretchX * capsuleScale.value },
+        { scaleY: shrinkY * capsuleScale.value },
+      ] as ViewStyle['transform'],
       zIndex: 1,
     };
   });
 
   return (
     <View style={styles.outerContainer} testID="custom-tab-bar-wrapper">
-      <View
-        testID="custom-tab-bar"
+      <BlurContainer
+        intensity={Platform.OS === 'ios' ? 70 : 85} // Premium dynamic iOS-first glass blur intensity
+        tint={isDark ? 'dark' : 'light'}
         style={[
           styles.tabBarContainer,
           {
-            backgroundColor: isDark ? 'rgba(24, 24, 27, 0.88)' : 'rgba(255, 255, 255, 0.92)',
-            borderColor: isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.08)',
+            backgroundColor: isDark
+              ? HAS_EXPO_BLUR
+                ? 'rgba(24, 24, 27, 0.68)' // Deep rich dark translucent backing
+                : 'rgba(24, 24, 27, 0.92)' // Safe dark solid backing fallback
+              : HAS_EXPO_BLUR
+                ? 'rgba(255, 255, 255, 0.72)' // Elegant light translucent backing
+                : 'rgba(255, 255, 255, 0.95)', // Safe light solid backing fallback
+            borderColor: isDark
+              ? 'rgba(255, 255, 255, 0.15)'
+              : 'rgba(0, 0, 0, 0.08)',
           },
         ]}
+        testID="custom-tab-bar"
       >
-        {/* Sliding background active capsule */}
+        {/* Sliding background active 3D red glass circle indicator */}
         <Animated.View style={capsuleStyle} testID="custom-tab-bar-capsule" />
 
         {visibleRoutes.map((route, index: number) => {
           const { options } = descriptors[route.key];
-          const isFocused = state.index === index;
+          const customOptions = options as CustomTabOptions;
+          const isFocused = activeRouteName === route.name;
 
-          const onPress = () => {
+          // Instant slide and capsule magnify pop starting at 0ms on finger touch (onPressIn)
+          const handlePressIn = () => {
+            if (!isFocused) {
+              lastTargetIdxRef.current = index;
+              animIndex.value = withSpring(index, {
+                damping: 11,
+                stiffness: 145,
+                mass: 0.8,
+              });
+
+              // Touch-slide magnifying glass pulse
+              capsuleScale.value = withSpring(
+                1.15,
+                { damping: 9, stiffness: 220 },
+                (finished) => {
+                  if (finished) {
+                    capsuleScale.value = withSpring(1.0, {
+                      damping: 12,
+                      stiffness: 140,
+                    });
+                  }
+                }
+              );
+
+              if (Platform.OS !== 'web') {
+                void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }
+            }
+          };
+
+          // Heavy navigation state swap runs on finger release (onPress)
+          const handlePress = () => {
             const event = navigation.emit({
               type: 'tabPress',
               target: route.key,
@@ -117,33 +270,18 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
           };
 
           return (
-            <Pressable
+            <TabItem
               key={route.key}
-              onLayout={handleTabLayout(index)}
-              onPress={onPress}
-              style={styles.tabItem}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: isFocused }}
-              accessibilityLabel={options.title || route.name}
-              testID={`custom-tab-item-${route.name}`}
-            >
-              {typeof options.tabBarIcon === 'function'
-                ? (options.tabBarIcon as unknown as (props: { focused: boolean; color: string; size: number }) => ReactNode)({
-                    focused: isFocused,
-                    color: isFocused ? BRAND.primary : colors.tabIconDefault,
-                    size: 22,
-                  })
-                : null}
-              {typeof options.tabBarLabel === 'function'
-                ? (options.tabBarLabel as unknown as (props: { focused: boolean; color: string }) => ReactNode)({
-                    focused: isFocused,
-                    color: isFocused ? BRAND.primary : colors.tabIconDefault,
-                  })
-                : null}
-            </Pressable>
+              route={route}
+              isFocused={isFocused}
+              options={customOptions}
+              colors={colors}
+              onPress={handlePress}
+              onPressIn={handlePressIn}
+            />
           );
         })}
-      </View>
+      </BlurContainer>
     </View>
   );
 }
@@ -156,6 +294,8 @@ const styles = StyleSheet.create({
     right: 16,
     zIndex: 100,
     backgroundColor: 'transparent',
+    borderRadius: 999, // Matches capsule radius for high-fidelity shadow casting
+    ...getTabBarShadowStyle('native'), // Shifted shadow here to bypass overflow:hidden clipping on BlurView
   },
   tabBarContainer: {
     flexDirection: 'row',
@@ -166,13 +306,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     position: 'relative',
-    ...getTabBarShadowStyle('native'),
+    overflow: 'hidden', // Enforces perfect clipping of the backdrop BlurView inside the pill
   },
   tabItem: {
     flex: 1,
     height: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
     zIndex: 2,
+  },
+  tabItemContent: {
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    paddingTop: 8,
+    height: '100%',
+    width: '100%',
   },
 });

@@ -2,6 +2,16 @@ import { renderHook } from '@testing-library/react-native';
 import { useDraggableFab } from './use-draggable-fab';
 
 describe('useDraggableFab', () => {
+  type MockGesture = {
+    config: Record<string, unknown>;
+    type: string;
+  };
+
+  type MockComposedGesture = {
+    gestures: MockGesture[];
+    type: string;
+  };
+
   it('returns the expected properties', () => {
     const { result } = renderHook(() => useDraggableFab(90));
 
@@ -44,5 +54,22 @@ describe('useDraggableFab', () => {
     const { result } = renderHook(() => useDraggableFab(90));
 
     expect(result.current.isOnRight).toBe(true);
+  });
+
+  it('composes pan and tap gestures with the Gesture Handler 3 hook API', () => {
+    const { result } = renderHook(() => useDraggableFab(90));
+    const composedGesture = result.current
+      .composedGesture as unknown as MockComposedGesture;
+    const [panGesture, tapGesture] = composedGesture.gestures;
+
+    expect(composedGesture.type).toBe('simultaneous');
+    expect(panGesture).toMatchObject({
+      config: { minDistance: 8 },
+      type: 'pan',
+    });
+    expect(tapGesture).toMatchObject({
+      config: { maxDistance: 8 },
+      type: 'tap',
+    });
   });
 });

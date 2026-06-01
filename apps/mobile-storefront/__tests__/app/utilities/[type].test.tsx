@@ -282,6 +282,10 @@ describe('UtilityPurchaseScreen', () => {
     expect(
       screen.getByTestId('keyboard-container').props.keyboardVerticalOffset
     ).toBeUndefined();
+    expect(screen.getByTestId('keyboard-container')).toHaveProp(
+      'enabled',
+      false
+    );
     expect(screen.getByText('Electricity')).toBeOnTheScreen();
     fireEvent.press(screen.getByLabelText('View utility history'));
     expect(mockPush).toHaveBeenCalledWith('/utilities/history?type=power');
@@ -371,6 +375,26 @@ describe('UtilityPurchaseScreen', () => {
     ).toHaveAccessibilityState({
       selected: true,
     });
+  });
+
+  it('does not render a separate utility tab indicator that can drift after swiping', () => {
+    mockUseLocalSearchParams.mockReturnValue({ type: 'airtime' });
+
+    render(<UtilityPurchaseScreen />);
+
+    const pager = screen.getByTestId('pager-view');
+
+    fireEvent(pager, 'onPageSelected', {
+      nativeEvent: { position: 2 },
+    });
+
+    expect(screen.getByText('Bill form tv')).toBeOnTheScreen();
+    expect(
+      screen.getByLabelText('TV utility service')
+    ).toHaveAccessibilityState({
+      selected: true,
+    });
+    expect(screen.queryByTestId('utility-type-tabs-indicator')).toBeNull();
   });
 
   it('keeps state stable when PagerView selects the same or invalid page index', () => {

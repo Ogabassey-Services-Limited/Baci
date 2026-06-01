@@ -3,20 +3,13 @@ import type { ComponentProps } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import {
   type LayoutChangeEvent,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
+  Text,
   View,
 } from 'react-native';
-import Animated, {
-  Extrapolation,
-  interpolate,
-  interpolateColor,
-  type SharedValue,
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-} from 'react-native-reanimated';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, SPACING, withAlpha } from '@/constants/Colors';
 
@@ -39,30 +32,28 @@ const UTILITY_TYPES = [
 ] as const satisfies readonly UtilityTypeDefinition[];
 
 const TAB_MIN_HEIGHT = 40;
-const TAB_HORIZONTAL_PADDING = 16;
+const TAB_HORIZONTAL_PADDING = 20;
 const TAB_ICON_MARGIN_END = 8;
 const TAB_ICON_SIZE = 20;
 const LABEL_FONT_SIZE = 15;
 const TAB_SIDE_INSET = SPACING.md;
 const TAB_ITEM_GAP = SPACING.sm;
 const TAB_MIN_WIDTHS: Record<string, number> = {
-  airtime: 96,
-  data: 78,
-  tv: 78,
-  power: 92,
-  gaming: 108,
+  airtime: 104,
+  data: 88,
+  tv: 88,
+  power: 100,
+  gaming: 116,
 };
 
 interface UtilityTypeTabsProps {
   selectedType: UtilityType;
   onSelect: (type: UtilityType) => void;
-  activeIndex?: SharedValue<number>;
 }
 
 export function UtilityTypeTabs({
   selectedType,
   onSelect,
-  activeIndex,
 }: UtilityTypeTabsProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -70,44 +61,6 @@ export function UtilityTypeTabs({
   const measuredWidthsRef = useRef<Partial<Record<UtilityType, number>>>({});
   const [viewportWidth, setViewportWidth] = useState(0);
   const [measurementVersion, setMeasurementVersion] = useState(0);
-
-  // Reanimated UI-thread values for continuous gliding capsule transitions
-  const initialIdx = UTILITY_TYPES.findIndex(
-    (item) => item.type === selectedType
-  );
-  const localActiveIndex = useSharedValue(initialIdx !== -1 ? initialIdx : 0);
-  const activeIndexVal = activeIndex ?? localActiveIndex;
-
-  // Pre-seed default layouts to prevent rendering glitches on frame 1
-  const tabWidths = useSharedValue<number[]>([96, 78, 78, 92, 108]);
-  const tabOffsets = useSharedValue<number[]>([
-    TAB_SIDE_INSET,
-    TAB_SIDE_INSET + 96 + TAB_ITEM_GAP,
-    TAB_SIDE_INSET + 96 + TAB_ITEM_GAP + 78 + TAB_ITEM_GAP,
-    TAB_SIDE_INSET + 96 + TAB_ITEM_GAP + 78 + TAB_ITEM_GAP + 78 + TAB_ITEM_GAP,
-    TAB_SIDE_INSET +
-      96 +
-      TAB_ITEM_GAP +
-      78 +
-      TAB_ITEM_GAP +
-      78 +
-      TAB_ITEM_GAP +
-      92 +
-      TAB_ITEM_GAP,
-  ]);
-
-  // Sync prop index to local active index when in state-fallback mode (e.g. tests)
-  useEffect(() => {
-    if (!activeIndex) {
-      const idx = UTILITY_TYPES.findIndex((item) => item.type === selectedType);
-      if (idx !== -1) {
-        localActiveIndex.value = withSpring(idx, {
-          damping: 18,
-          stiffness: 120,
-        });
-      }
-    }
-  }, [selectedType, activeIndex, localActiveIndex]);
 
   // Centering scroll effect
   useEffect(() => {
@@ -145,60 +98,12 @@ export function UtilityTypeTabs({
       const nextWidth = event.nativeEvent.layout.width;
       if (nextWidth <= 0) return;
 
-      // Update shared widths array
-      const widths = [...tabWidths.value];
-      widths[index] = nextWidth;
-      tabWidths.value = widths;
-
-      // Mathematically compute exact cumulative offsets to bypass unstable native layout.x coordinates
-      const offsets = [...tabOffsets.value];
-      let currentOffset = TAB_SIDE_INSET;
-      for (let i = 0; i < UTILITY_TYPES.length; i += 1) {
-        offsets[i] = currentOffset;
-        currentOffset += (widths[i] ?? TAB_MIN_WIDTHS[UTILITY_TYPES[i].type]) + TAB_ITEM_GAP;
-      }
-      tabOffsets.value = offsets;
-
-      // Sync legacy widths trigger for ScrollView centering logic
       const previousWidth = measuredWidthsRef.current[type];
       if (previousWidth !== nextWidth) {
         measuredWidthsRef.current[type] = nextWidth;
         setMeasurementVersion((version) => version + 1);
       }
     };
-
-  // Gliding indicator capsule style
-  const indicatorStyle = useAnimatedStyle(() => {
-    const floatIndex = activeIndexVal.value;
-    const inputParts = UTILITY_TYPES.map((_, index) => index);
-
-    const width = interpolate(
-      floatIndex,
-      inputParts,
-      tabWidths.value,
-      Extrapolation.CLAMP
-    );
-
-    const translateX = interpolate(
-      floatIndex,
-      inputParts,
-      tabOffsets.value,
-      Extrapolation.CLAMP
-    );
-
-    return {
-      position: 'absolute',
-      top: '50%',
-      marginTop: -TAB_MIN_HEIGHT / 2, // Dynamically centers indicator vertically
-      left: 0,
-      height: TAB_MIN_HEIGHT,
-      borderRadius: 999,
-      backgroundColor: BRAND.primary,
-      width,
-      transform: [{ translateX }],
-      zIndex: 1, // Statically layers background behind text/icons
-    };
-  });
 
   return (
     <View
@@ -222,24 +127,22 @@ export function UtilityTypeTabs({
         contentContainerStyle={styles.content}
         testID="utility-type-tabs-scroll"
       >
-        {/* Sliding background capsule frame */}
-        <Animated.View style={[indicatorStyle, { pointerEvents: 'none' }]} />
-
-        {UTILITY_TYPES.map((item, index) => {
-          const isSelected = item.type === selectedType;
-          return (
-            <TabItem
-              key={item.type}
-              item={item}
-              index={index}
-              colors={colors}
-              isSelected={isSelected}
-              onSelect={onSelect}
-              activeIndexVal={activeIndexVal}
-              onLayout={handleTabLayout(index, item.type)}
-            />
-          );
-        })}
+        <View style={styles.track} testID="utility-type-tabs-track">
+          {UTILITY_TYPES.map((item, index) => {
+            const isSelected = item.type === selectedType;
+            return (
+              <TabItem
+                key={item.type}
+                item={item}
+                index={index}
+                colors={colors}
+                isSelected={isSelected}
+                onSelect={onSelect}
+                onLayout={handleTabLayout(index, item.type)}
+              />
+            );
+          })}
+        </View>
       </ScrollView>
     </View>
   );
@@ -251,7 +154,6 @@ interface TabItemProps {
   colors: typeof Colors.light;
   isSelected: boolean;
   onSelect: (type: UtilityType) => void;
-  activeIndexVal: SharedValue<number>;
   onLayout: (event: LayoutChangeEvent) => void;
 }
 
@@ -261,83 +163,13 @@ function TabItem({
   colors,
   isSelected,
   onSelect,
-  activeIndexVal,
   onLayout,
 }: TabItemProps) {
-  // Pre-calculate solid colors for the inactive state and transparent colors for the active state
-  // on the JS thread. This avoids executing the non-worklet withAlpha inside animated styles.
-  const inactiveBg = colors.muted;
-  const activeBg = withAlpha(colors.muted, 0);
-  const inactiveBorder = colors.border;
-  const activeBorder = withAlpha(colors.border, 0);
-
-  const animatedTabStyle = useAnimatedStyle(() => {
-    const progress = interpolate(
-      activeIndexVal.value,
-      [index - 1, index, index + 1],
-      [0, 1, 0],
-      Extrapolation.CLAMP
-    );
-
-    const backgroundColor = interpolateColor(
-      progress,
-      [0, 1],
-      [inactiveBg, activeBg]
-    );
-
-    const borderColor = interpolateColor(
-      progress,
-      [0, 1],
-      [inactiveBorder, activeBorder]
-    );
-
-    return {
-      backgroundColor,
-      borderColor,
-    };
-  });
-
-  const animatedTextStyle = useAnimatedStyle(() => {
-    const progress = interpolate(
-      activeIndexVal.value,
-      [index - 1, index, index + 1],
-      [0, 1, 0],
-      Extrapolation.CLAMP
-    );
-
-    const color = interpolateColor(
-      progress,
-      [0, 1],
-      [colors.text, BRAND.onPrimary]
-    );
-
-    return { color };
-  });
-
-  const animatedIconStyle = useAnimatedStyle(() => {
-    const progress = interpolate(
-      activeIndexVal.value,
-      [index - 1, index, index + 1],
-      [0, 1, 0],
-      Extrapolation.CLAMP
-    );
-
-    const color = interpolateColor(
-      progress,
-      [0, 1],
-      [colors.icon, BRAND.onPrimary]
-    );
-
-    return { color };
-  });
+  const foregroundColor = isSelected ? BRAND.primary : colors.text;
+  const iconColor = isSelected ? BRAND.primary : colors.icon;
 
   return (
-    <View
-      style={[
-        index < UTILITY_TYPES.length - 1 ? styles.tabSpacing : null,
-        { zIndex: 2 }, // Elevates active foreground layer above capsule
-      ]}
-    >
+    <View style={[index < UTILITY_TYPES.length - 1 ? styles.tabSpacing : null]}>
       <Pressable
         accessibilityRole="tab"
         accessibilityLabel={`${item.label} utility service`}
@@ -349,53 +181,62 @@ function TabItem({
           color: isSelected ? withAlpha(BRAND.onPrimary, 0.14) : colors.border,
         }}
       >
-        <Animated.View
+        <View
           onLayout={onLayout}
           testID={`utility-tab-${item.type}-pill`}
           style={[
             styles.tab,
             {
+              backgroundColor: isSelected
+                ? withAlpha(BRAND.primary, 0.18)
+                : colors.muted,
+              borderColor: isSelected
+                ? withAlpha(BRAND.primary, 0.55)
+                : colors.border,
               minWidth: TAB_MIN_WIDTHS[item.type],
             },
-            animatedTabStyle,
           ]}
         >
-          <AnimatedIonicons
+          <Ionicons
+            color={iconColor}
             name={item.icon}
             size={TAB_ICON_SIZE}
-            style={[styles.icon, animatedIconStyle]}
+            style={styles.icon}
           />
-          <Animated.Text
+          <Text
             numberOfLines={1}
-            style={[styles.label, animatedTextStyle]}
+            style={[styles.label, { color: foregroundColor }]}
           >
             {item.label}
-          </Animated.Text>
-        </Animated.View>
+          </Text>
+        </View>
       </Pressable>
     </View>
   );
 }
 
-const AnimatedIonicons = Animated.createAnimatedComponent(Ionicons);
-
 const TAB_BAR_HEIGHT = 56;
 
 const styles = StyleSheet.create({
   container: {
-    minHeight: TAB_BAR_HEIGHT,
+    height: TAB_BAR_HEIGHT,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    paddingVertical: SPACING.sm,
     justifyContent: 'center',
+    backgroundColor: 'transparent',
   },
   content: {
+    alignItems: 'center',
+    height: TAB_MIN_HEIGHT,
+  },
+  track: {
     position: 'relative',
+    flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: TAB_SIDE_INSET,
-    minHeight: TAB_MIN_HEIGHT,
+    height: TAB_MIN_HEIGHT, // Hardcoded vertical height ensures no vertical layout drift
   },
   tab: {
-    minHeight: TAB_MIN_HEIGHT,
+    height: TAB_MIN_HEIGHT, // Enforce exact height to match active track
     borderRadius: 999,
     borderWidth: 1,
     paddingHorizontal: TAB_HORIZONTAL_PADDING,
@@ -409,9 +250,13 @@ const styles = StyleSheet.create({
   },
   icon: {
     marginRight: TAB_ICON_MARGIN_END,
+    // Add micro vertical shift to mathematically center vector-bounding box with the font baseline
+    marginTop: Platform.OS === 'ios' ? -1 : 0,
   },
   label: {
     fontSize: LABEL_FONT_SIZE,
-    fontWeight: '700',
+    fontWeight: '600', // Clean premium typography weight
+    lineHeight: 18, // Explicit line height guarantees vertical centering and prevents text overlap
+    includeFontPadding: false, // Prevents default android system font padding drifts
   },
 });
