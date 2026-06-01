@@ -1,5 +1,5 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type Colors from '@/constants/Colors';
 import { RADIUS, SPACING, withAlpha } from '@/constants/Colors';
@@ -7,8 +7,6 @@ import type { UtilityRepeatRecipient } from '@/lib/utility-repeat';
 
 const AVATAR_SIZE = 40;
 const PREVIEW_COUNT = 2;
-type RecentRecipientsFixtureModule =
-  typeof import('./fixtures/recent-recipients.fixtures');
 
 interface RecentUtilityRecipientsProps {
   colors: typeof Colors.light;
@@ -25,17 +23,16 @@ function getInitials(title: string): string {
   return `${parts[0]?.[0] ?? ''}${parts[1]?.[0] ?? ''}`.toUpperCase();
 }
 
-function shouldUseMockRecipients() {
-  return (
-    typeof __DEV__ !== 'undefined' && __DEV__ && process.env.NODE_ENV !== 'test'
-  );
-}
-
-async function loadMockRecipients(): Promise<UtilityRepeatRecipient[]> {
-  const fixtureModule: RecentRecipientsFixtureModule = await import(
-    './fixtures/recent-recipients.fixtures'
-  );
-  return fixtureModule.MOCK_RECENT_RECIPIENTS;
+let MOCK_RECIPIENTS: UtilityRepeatRecipient[] = [];
+if (
+  typeof __DEV__ !== 'undefined' &&
+  __DEV__ &&
+  process.env.NODE_ENV !== 'test'
+) {
+  /* eslint-disable @typescript-eslint/no-require-imports */
+  MOCK_RECIPIENTS =
+    require('./fixtures/recent-recipients.fixtures').MOCK_RECENT_RECIPIENTS;
+  /* eslint-enable @typescript-eslint/no-require-imports */
 }
 
 export function RecentUtilityRecipients({
@@ -46,33 +43,15 @@ export function RecentUtilityRecipients({
   label,
 }: RecentUtilityRecipientsProps) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [mockRecipients, setMockRecipients] = useState<
-    UtilityRepeatRecipient[]
-  >([]);
-  const useMockRecipients =
-    recipients.length === 0 && shouldUseMockRecipients();
-
-  useEffect(() => {
-    if (!useMockRecipients) {
-      return;
-    }
-
-    let isMounted = true;
-    void loadMockRecipients().then((nextRecipients) => {
-      if (isMounted) {
-        setMockRecipients(nextRecipients);
-      }
-    });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [useMockRecipients]);
 
   let activeRecipients = recipients;
   if (recipients.length === 0) {
-    if (useMockRecipients && mockRecipients.length > 0) {
-      activeRecipients = mockRecipients;
+    if (
+      typeof __DEV__ !== 'undefined' &&
+      __DEV__ &&
+      process.env.NODE_ENV !== 'test'
+    ) {
+      activeRecipients = MOCK_RECIPIENTS;
     } else {
       return null;
     }

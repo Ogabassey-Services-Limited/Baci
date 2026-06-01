@@ -35,6 +35,7 @@ export function isClipboardAvailable(): boolean {
   try {
     // For synchronous check in dev env, require is still a valid escape hatch
     // until Metro fully disables it for native modules.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const Clipboard = require('expo-clipboard');
     return !!(
       Clipboard &&

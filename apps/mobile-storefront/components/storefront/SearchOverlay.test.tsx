@@ -6,8 +6,8 @@ jest.mock('expo-router', () => ({
 }));
 
 jest.mock('react-native-reanimated', () => {
-  const RN =
-    jest.requireActual<typeof import('react-native')>('react-native');
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const RN = require('react-native');
   return {
     __esModule: true,
     default: {
