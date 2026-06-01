@@ -44,6 +44,8 @@ jobs:
               - '.github/workflows/deploy.yml'
               - '.github/scripts/deploy-with-retry.sh'
               - '.github/scripts/pnpm-install-with-retry.sh'
+              - '.npmrc'
+              - 'pnpm-workspace.yaml'
             migrations:
               - 'supabase/migrations/**'
               - '.github/workflows/deploy.yml'
@@ -97,7 +99,6 @@ jobs:
       url: https://ogabassey.com
     permissions:
       contents: read
-      id-token: write
     timeout-minutes: 150
     env:
       BLOG_SMOKE_BASE_URL: ${{ vars.BLOG_SMOKE_BASE_URL || 'https://ogabassey.com' }}

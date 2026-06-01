@@ -48,6 +48,8 @@ jobs:
               - 'turbo.json'
               - 'tsconfig*.json'
               - 'biome.json'
+              - '.npmrc'
+              - 'pnpm-workspace.yaml'
             mobile_storefront:
               - 'apps/mobile-storefront/assets/quiz/**'
               - 'apps/mobile-storefront/app/**'
@@ -70,6 +72,8 @@ jobs:
               - 'turbo.json'
               - 'tsconfig*.json'
               - 'biome.json'
+              - '.npmrc'
+              - 'pnpm-workspace.yaml'
             web:
               - 'apps/web/**'
               - 'apps/mobile-storefront/assets/quiz/**'
@@ -93,6 +97,8 @@ jobs:
               - 'turbo.json'
               - 'tsconfig*.json'
               - 'biome.json'
+              - '.npmrc'
+              - 'pnpm-workspace.yaml'
 
   quality-lint:
     name: Quality Gate - Lint

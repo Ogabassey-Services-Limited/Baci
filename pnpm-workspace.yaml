@@ -5,18 +5,8 @@ packages:
 # High-performance build script approvals for pnpm v11 (replaces legacy onlyBuiltDependencies)
 # Must be configured as a YAML array of approved package names
 allowBuilds:
-  '0': esbuild
-  '1': sharp
-  '2': protobufjs
-  '3': lefthook
-  '4': puppeteer
-  '5': msgpackr-extract
-  '6': unrs-resolver
-  '7': '@firebase/util'
-  '8': '@scarf/scarf'
-  '9': core-js
-  '@firebase/util': true
-  '@scarf/scarf': true
+  "@firebase/util": true
+  "@scarf/scarf": true
   core-js: true
   esbuild: true
   lefthook: true
@@ -88,8 +78,8 @@ overrides:
   tinyrainbow: "3.1.0"
   # Pin to 8.5.10 to mitigate GHSA-qx2v-qp2m-jg93 in CSS stringify output.
   postcss: "8.5.10"
-  # Preserve the existing legacy uuid guard for pre-7 consumers while keeping Expo xcode@3.0.1 on its CommonJS-compatible uuid@7.0.3 resolution.
-  "uuid@<7": "14.0.0"
+  # Preserve the existing legacy uuid guard for pre-7 consumers while keeping Expo xcode@3.0.1 on its CommonJS-compatible uuid@11.1.1 resolution (preventing ESM require crashes).
+  "uuid@<7": "11.1.1"
   # Pin older uuid consumers to 11.1.1 to mitigate GHSA-w5hq-g745-h8pq while staying on a CommonJS-compatible patched release.
   "uuid@>=7 <11.1.1": "11.1.1"
   "uuid@>=11 <11.1.1": "11.1.1"
