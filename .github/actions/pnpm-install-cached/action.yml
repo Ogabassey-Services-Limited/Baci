@@ -1,115 +1,60 @@
-name: pnpm install with validated cache
-description: Restore and validate the pnpm store cache, install dependencies, and persist the refreshed store.
+name: pnpm install with incremental cache
+description: Restore and save pnpm dependency and Turborepo caches with PR security boundaries.
 
 inputs:
   store-dir:
-    description: Absolute path to the pnpm store directory.
-    required: true
-  install-command:
-    description: Command used to install dependencies.
+    description: 'Path for pnpm store'
     required: false
-    default: pnpm install --frozen-lockfile
-
-outputs:
-  cache_hit:
-    description: Whether the exact pnpm store cache key was restored.
-    value: ${{ steps.pnpm-store-cache.outputs.cache-hit }}
-  cache_valid:
-    description: Whether the restored pnpm store matches the current lockfile hash.
-    value: ${{ steps.pnpm-store-validation.outputs.cache_valid }}
-  install_outcome:
-    description: Outcome of the first dependency install attempt.
-    value: ${{ steps.pnpm-install.outputs.outcome }}
-  lockfile_hash:
-    description: SHA-256 hash of pnpm-lock.yaml.
-    value: ${{ steps.pnpm-store-validation.outputs.lockfile_hash }}
+    default: ~/.local/share/pnpm/store/v3
+  install-command:
+    description: 'Custom command to execute dependencies installation'
+    required: false
+    default: './.github/scripts/pnpm-install-with-retry.sh --frozen-lockfile --prefer-offline'
 
 runs:
   using: composite
   steps:
+    - name: Clean stale pnpm setup directory
+      shell: bash
+      run: rm -rf ~/setup-pnpm 2>/dev/null || true
+
+    - name: Install pnpm
+      uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+      with:
+        version: "11.5.0"
+
+    - name: Setup Node.js
+      uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+      with:
+        node-version: "24"
+
+    # Strict split caching for pnpm content-addressable store
     - id: pnpm-store-cache
       name: Restore pnpm store cache
-      uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+      uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
       with:
         path: ${{ inputs.store-dir }}
-        key: ${{ runner.os }}-${{ runner.arch }}-${{ github.job }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
+        key: v1-${{ runner.os }}-${{ runner.arch }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
         restore-keys: |
-          ${{ runner.os }}-${{ runner.arch }}-${{ github.job }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
-          ${{ runner.os }}-${{ runner.arch }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}-
-          ${{ runner.os }}-${{ runner.arch }}-pnpm-store-
+          v1-${{ runner.os }}-${{ runner.arch }}-pnpm-store-
 
-    - id: pnpm-store-validation
-      name: Validate pnpm store cache metadata
+    - name: Configure pnpm store directory
       shell: bash
       run: |
-        set -euo pipefail
-        lockfile_hash="$(sha256sum pnpm-lock.yaml | cut -d ' ' -f1)"
-        marker_file="${{ inputs.store-dir }}/.pnpm-lock-hash"
-        cache_valid="false"
+        pnpm config set store-dir "${{ inputs.store-dir }}"
+        echo "PNPM_STORE_DIR=${{ inputs.store-dir }}" >> "$GITHUB_ENV"
 
-        if [[ -f "${marker_file}" ]] && [[ "$(cat "${marker_file}")" == "${lockfile_hash}" ]]; then
-          cache_valid="true"
-        fi
-
-        echo "lockfile_hash=${lockfile_hash}" >> "$GITHUB_OUTPUT"
-        echo "cache_valid=${cache_valid}" >> "$GITHUB_OUTPUT"
-
-    - if: ${{ steps.pnpm-store-validation.outputs.cache_valid == 'true' }}
-      uses: ./.github/actions/setup-pnpm-store
-      with:
-        store-dir: ${{ inputs.store-dir }}
-
-    - if: ${{ steps.pnpm-store-validation.outputs.cache_valid != 'true' }}
-      uses: ./.github/actions/setup-pnpm-store
-      with:
-        store-dir: ${{ inputs.store-dir }}
-        reset: 'true'
-
-    - id: pnpm-install
-      name: Install dependencies
+    - name: Install Dependencies
       shell: bash
-      run: |
-        set +e
-        ${{ inputs.install-command }}
-        install_exit=$?
-
-        if [[ "${install_exit}" -eq 0 ]]; then
-          echo "outcome=success" >> "$GITHUB_OUTPUT"
-          exit 0
-        fi
-
-        echo "outcome=failure" >> "$GITHUB_OUTPUT"
-        exit 0
-
-    - if: ${{ steps.pnpm-install.outputs.outcome == 'failure' }}
-      uses: ./.github/actions/setup-pnpm-store
-      with:
-        store-dir: ${{ inputs.store-dir }}
-        reset: 'true'
-
-    - if: ${{ steps.pnpm-install.outputs.outcome == 'failure' }}
-      name: Clear partial workspace install state
-      shell: bash
-      run: |
-        find . -mindepth 1 \( -type d -name node_modules -o -type d -name .pnpm \) -prune -exec rm -rf '{}' +
-
-    - if: ${{ steps.pnpm-install.outputs.outcome == 'failure' }}
-      name: Retry dependency install with clean pnpm store
-      shell: bash
-      env:
-        npm_config_child_concurrency: '1'
-        npm_config_package_import_method: copy
       run: ${{ inputs.install-command }}
 
-    - name: Record pnpm store lockfile hash
-      shell: bash
-      run: |
-        lockfile_hash='${{ steps.pnpm-store-validation.outputs.lockfile_hash }}'
-        printf '%s' "$lockfile_hash" > "${{ inputs.store-dir }}/.pnpm-lock-hash"
-
-    - if: ${{ steps.pnpm-store-cache.outputs.cache-hit != 'true' }}
-      name: Save pnpm store cache
-      uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+    # Cache Save Engine: PR branches are strictly RESTORE-ONLY to prevent cache poisoning & save storage limit (10GB)
+    - name: Save pnpm store cache (main branch only)
+      if: >
+        github.ref == 'refs/heads/main' &&
+        github.event_name == 'push' &&
+        steps.pnpm-store-cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
       with:
         path: ${{ inputs.store-dir }}
         key: ${{ steps.pnpm-store-cache.outputs.cache-primary-key }}

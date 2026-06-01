@@ -596,10 +596,10 @@ describe('category page route', () => {
     ).toBeInTheDocument();
     expect(screen.queryByText('Route loader fallback')).not.toBeInTheDocument();
     expect(screen.queryByText('Category page content')).not.toBeInTheDocument();
-    expect(mockConnection).not.toHaveBeenCalled();
+    expect(mockConnection).toHaveBeenCalledOnce();
   });
 
-  it('renders category content without a page-level metadata marker', async () => {
+  it('keeps category listings request-bound without a page-level metadata marker', async () => {
     const ui = await CategoryPageRoute({
       params: Promise.resolve({
         slug: 'test-store',
@@ -611,7 +611,7 @@ describe('category page route', () => {
     render(ui);
 
     expect(screen.getByText('Category page content')).toBeInTheDocument();
-    expect(mockConnection).not.toHaveBeenCalled();
+    expect(mockConnection).toHaveBeenCalledOnce();
   });
 
   it('renders curated smartphone hub content when merchant-authored SEO is absent', async () => {

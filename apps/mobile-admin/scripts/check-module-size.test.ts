@@ -2,6 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { afterEach, describe, expect, it } from 'vitest';
 
 const SCRIPT_PATH = path.join(__dirname, 'check-module-size.mjs');
 const tempDirs = new Set<string>();
