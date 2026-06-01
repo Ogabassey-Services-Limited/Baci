@@ -5,6 +5,8 @@ import { FAB_SIZE } from './constants';
 export const styles = StyleSheet.create({
   fabContainer: {
     position: 'absolute',
+    left: 0,
+    top: 0,
     zIndex: 1000,
   },
   fab: {
@@ -259,34 +261,5 @@ export const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 10,
     marginTop: SPACING.xs,
-  },
-  dismissZone: {
-    position: 'absolute',
-    bottom: 40,
-    alignSelf: 'center',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 999,
-  },
-  dismissCircle: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    borderWidth: 1.5,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  dismissText: {
-    fontSize: 11,
-    fontWeight: '600',
-    marginTop: 6,
-    textShadowColor: 'rgba(0, 0, 0, 0.15)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
   },
 });

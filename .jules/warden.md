@@ -14,6 +14,3 @@
 ## 2026-05-24 - Missing Query Scoping in Transaction Updates
 **Learning:** When performing updates on resources like transactions, even if the user has been authenticated and the transaction has been fetched using a gateway reference, the subsequent `.update()` call using the record's ID must still explicitly include `.eq('merchant_id', merchantId)`. Relying solely on the ID or prior fetched data creates a vulnerability if an attacker can manipulate IDs or references.
 **Action:** Always append `.eq('merchant_id', merchantId)` to all database mutations (`.update()`, `.delete()`, `.upsert()`) to ensure multi-tenant isolation, regardless of whether the target record's ID was obtained securely.
-## 2024-05-18 - Overfetching via Implicit select(*) in Supabase Mutations
-**Learning:** In Supabase/PostgREST, calling `.select()` without arguments on an `.insert()`, `.update()`, or `.upsert()` query defaults to fetching all columns (`select("*")`), violating the project rule to NEVER use `select("*")`. This can inadvertently overfetch data and increase payload sizes.
-**Action:** Always explicitly specify required columns when chaining `.select()` after mutations (e.g., `.select("id, product_id, merchant_id, customer_email, created_at")`).

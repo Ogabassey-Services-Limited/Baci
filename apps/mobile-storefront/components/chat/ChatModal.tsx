@@ -4,22 +4,25 @@ import type { RefObject } from 'react';
 import {
   Keyboard,
   Modal,
+  Platform,
   Pressable,
+  SafeAreaView,
   Text,
   TextInput,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { PatternedBackground } from '@/components/storefront/PatternedBackground';
 import AppKeyboardContainer from '@/components/ui/AppKeyboardContainer';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
-import { ChatMessageRow } from './ChatMessageRow';
+import { useKeyboard } from '@/hooks/use-keyboard';
 import { ChatSuggestionsRow } from './ChatSuggestionsRow';
 import { CHAT_POWERED_BY_LABEL } from './constants';
 import { styles } from './styles';
 import { TypingIndicator } from './TypingIndicator';
-import type { ChatMessage } from './types';
+import { type ChatMessage } from './types';
+
+const CHAT_INPUT_KEYBOARD_GAP = 8;
 
 interface ChatModalProps {
   visible: boolean;
@@ -53,6 +56,11 @@ export function ChatModal({
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
+  const { isKeyboardVisible, keyboardHeight } = useKeyboard();
+  const keyboardLift =
+    Platform.OS === 'ios' && isKeyboardVisible
+      ? Math.max(keyboardHeight - insets.bottom, 0) + CHAT_INPUT_KEYBOARD_GAP
+      : 0;
 
   const handleClose = () => {
     Keyboard.dismiss();
@@ -60,7 +68,49 @@ export function ChatModal({
   };
 
   const renderMessage = ({ item }: { item: ChatMessage }) => {
-    return <ChatMessageRow item={item} santaMode={santaMode} colors={colors} />;
+    const isUser = item.role === 'user';
+    return (
+      <View
+        style={[
+          styles.messageContainer,
+          isUser ? styles.userMessageContainer : styles.aiMessageContainer,
+        ]}
+      >
+        {!isUser && (
+          <View
+            style={[
+              styles.avatar,
+              { backgroundColor: santaMode ? BRAND.primary : colors.muted },
+            ]}
+          >
+            <Text style={styles.avatarEmoji}>{santaMode ? '🎅' : '✨'}</Text>
+          </View>
+        )}
+        <View
+          style={[
+            styles.messageBubble,
+            isUser
+              ? [styles.userBubble, { backgroundColor: BRAND.primary }]
+              : [
+                  styles.aiBubble,
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: colors.border,
+                  },
+                ],
+          ]}
+        >
+          <Text
+            style={[
+              styles.messageText,
+              { color: isUser ? '#FFFFFF' : colors.text },
+            ]}
+          >
+            {item.text}
+          </Text>
+        </View>
+      </View>
+    );
   };
 
   return (
@@ -70,15 +120,8 @@ export function ChatModal({
       presentationStyle="fullScreen"
       onRequestClose={handleClose}
     >
-      <View
-        style={[
-          styles.modalContainer,
-          {
-            backgroundColor: santaMode ? '#FFF5F5' : colors.background,
-            paddingLeft: insets.left,
-            paddingRight: insets.right,
-          },
-        ]}
+      <SafeAreaView
+        style={[styles.modalContainer, { backgroundColor: colors.background }]}
       >
         <View
           style={[
@@ -86,7 +129,6 @@ export function ChatModal({
             {
               backgroundColor: santaMode ? BRAND.primary : colors.card,
               borderBottomColor: colors.border,
-              paddingTop: insets.top + 12,
             },
           ]}
         >
@@ -149,43 +191,39 @@ export function ChatModal({
           </Pressable>
         </View>
 
-        <AppKeyboardContainer style={styles.messagesWrapper} enabled={true}>
-          <View style={{ flex: 1, position: 'relative' }}>
-            <PatternedBackground
-              backgroundColor={santaMode ? '#FFF5F5' : colors.background}
-              isDark={colorScheme === 'dark'}
-            />
-
-            <FlashList
-              ref={flatListRef}
-              data={messages}
-              renderItem={renderMessage}
-              keyExtractor={(item) => item.id}
-              contentContainerStyle={[
-                styles.messagesList,
-                { backgroundColor: 'transparent' },
-              ]}
-              showsVerticalScrollIndicator={false}
-              onContentSizeChange={onScrollToBottom}
-              ListFooterComponent={
-                isLoading ? (
-                  <View style={styles.loadingContainer}>
-                    <View
-                      style={[
-                        styles.loadingBubble,
-                        {
-                          backgroundColor: colors.card,
-                          borderColor: colors.border,
-                        },
-                      ]}
-                    >
-                      <TypingIndicator />
-                    </View>
+        <AppKeyboardContainer
+          style={styles.messagesWrapper}
+          enabled={Platform.OS === 'android'}
+        >
+          <FlashList
+            ref={flatListRef}
+            data={messages}
+            renderItem={renderMessage}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={[
+              styles.messagesList,
+              { backgroundColor: santaMode ? '#FFF5F5' : colors.background },
+            ]}
+            showsVerticalScrollIndicator={false}
+            onContentSizeChange={onScrollToBottom}
+            ListFooterComponent={
+              isLoading ? (
+                <View style={styles.loadingContainer}>
+                  <View
+                    style={[
+                      styles.loadingBubble,
+                      {
+                        backgroundColor: colors.card,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                  >
+                    <TypingIndicator />
                   </View>
-                ) : null
-              }
-            />
-          </View>
+                </View>
+              ) : null
+            }
+          />
 
           <View
             style={[
@@ -193,7 +231,7 @@ export function ChatModal({
               {
                 backgroundColor: santaMode ? '#FFF5F5' : colors.background,
                 borderTopColor: colors.border,
-                paddingBottom: insets.bottom > 0 ? insets.bottom : 12,
+                paddingBottom: keyboardLift || undefined,
               },
             ]}
             testID="chat-input-container"
@@ -252,7 +290,7 @@ export function ChatModal({
             </Text>
           </View>
         </AppKeyboardContainer>
-      </View>
+      </SafeAreaView>
     </Modal>
   );
 }

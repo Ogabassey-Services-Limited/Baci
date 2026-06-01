@@ -5,17 +5,16 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
-import { CheckoutBottomAction } from '@/components/checkout/CheckoutBottomAction';
-import { CheckoutCryptoPaymentModal } from '@/components/checkout/CheckoutCryptoPaymentModal';
-import { CheckoutHeader } from '@/components/checkout/CheckoutHeader';
-import { CheckoutLocationPickers } from '@/components/checkout/CheckoutLocationPickers';
-import { CheckoutStepContent } from '@/components/checkout/CheckoutStepContent';
 import {
   type CheckoutStep,
   CheckoutStepper,
 } from '@/components/checkout/CheckoutStepper';
 import { CryptoSelectionModal } from '@/components/checkout/CryptoSelectionModal';
-import { PatternedBackground } from '@/components/storefront/PatternedBackground';
+import { CheckoutCryptoPaymentModal } from '@/components/checkout/CheckoutCryptoPaymentModal';
+import { CheckoutHeader } from '@/components/checkout/CheckoutHeader';
+import { CheckoutLocationPickers } from '@/components/checkout/CheckoutLocationPickers';
+import { CheckoutStepContent } from '@/components/checkout/CheckoutStepContent';
+import { CheckoutBottomAction } from '@/components/checkout/CheckoutBottomAction';
 import AppKeyboardContainer from '@/components/ui/AppKeyboardContainer';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
@@ -23,17 +22,17 @@ import { useAuthStatus } from '@/hooks/use-auth-guard';
 import type { MobileCheckoutIdempotencyState } from '@/lib/checkout-order-idempotency';
 import { useCartStore } from '@/stores/cart-store';
 import { checkoutScreenViewStyles as styles } from './CheckoutScreenView.styles';
+import { useCheckoutAddressState } from './use-checkout-address-state';
+import { useCheckoutCtaAnimation } from './use-checkout-cta-animation';
+import { useCheckoutCryptoPayment } from './use-checkout-crypto-payment';
+import { useCheckoutNavigation } from './use-checkout-navigation';
+import { useCheckoutPaymentController } from './use-checkout-payment-controller';
+import { useCheckoutStepActions } from './use-checkout-step-actions';
 import { calculateCheckoutAssuranceFee } from './checkout-order-builders';
 import {
   CHECKOUT_MERCHANT_ID,
   CHECKOUT_MERCHANT_SLUG,
 } from './checkout-screen.constants';
-import { useCheckoutAddressState } from './use-checkout-address-state';
-import { useCheckoutCryptoPayment } from './use-checkout-crypto-payment';
-import { useCheckoutCtaAnimation } from './use-checkout-cta-animation';
-import { useCheckoutNavigation } from './use-checkout-navigation';
-import { useCheckoutPaymentController } from './use-checkout-payment-controller';
-import { useCheckoutStepActions } from './use-checkout-step-actions';
 
 export function CheckoutScreenView() {
   const colorScheme = useColorScheme();
@@ -192,16 +191,14 @@ export function CheckoutScreenView() {
         }}
       />
 
-      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-        <PatternedBackground
-          backgroundColor={colors.background}
-          isDark={isDark}
-        />
-
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: colors.background }]}
+        edges={['top', 'left', 'right']}
+      >
         <CheckoutHeader colors={colors} onBack={handleBack} />
 
         <AppKeyboardContainer
-          style={[styles.contentShell, { backgroundColor: 'transparent' }]}
+          style={[styles.contentShell, { backgroundColor: colors.muted }]}
         >
           <CheckoutStepper
             step={step}

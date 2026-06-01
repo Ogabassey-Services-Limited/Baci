@@ -93,7 +93,7 @@ describe('/quiz screen', () => {
     render(<QuizRoute />);
 
     expect(
-      await screen.findByRole('header', { name: 'Super Quiz' })
+      await screen.findByRole('header', { name: 'Prize Exam' })
     ).toBeOnTheScreen();
     expect(
       screen.getByRole('button', {

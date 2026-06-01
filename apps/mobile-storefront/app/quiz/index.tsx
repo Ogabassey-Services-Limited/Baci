@@ -5,7 +5,7 @@ import { StorefrontScreenShell } from '@/components/storefront/StorefrontScreenS
 export default function QuizRoute() {
   return (
     <>
-      <Stack.Screen options={{ title: 'Super Quiz' }} />
+      <Stack.Screen options={{ title: 'Prize Quiz' }} />
       <StorefrontScreenShell>
         <QuizScreen />
       </StorefrontScreenShell>

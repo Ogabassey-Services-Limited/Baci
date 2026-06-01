@@ -73,6 +73,3 @@
 ## 2024-05-30 - Submit Button Loading State Visibility
 **Learning:** The `SubmitButton` component visually indicated loading states using React 19's `useFormStatus`, but assistive technologies need the control to remain focusable to announce the busy transition.
 **Action:** Pair `aria-busy={pending}` with `aria-disabled={pending}` for submit buttons in loading states, and block clicks manually instead of applying native `disabled` during pending submissions.
-## 2026-06-01 - Mobile Action Button States
-**Learning:** Submit buttons in React Native that become disabled during loading states must implement `accessibilityState={{ disabled: true, busy: true }}`. Otherwise, screen readers will only announce them as "button" (or "disabled button") without conveying that a background process is active.
-**Action:** When creating or updating actionable buttons that show loading indicators or disable during submission, ensure `accessibilityState` explicitly includes `busy: isSubmitting` and matches the `disabled` state.

@@ -10,10 +10,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Load environment variables from .env.local (2 levels up)
-dotenv.config({
-    path: path.resolve(__dirname, '../../.env.local'),
-    quiet: true,
-});
+dotenv.config({ path: path.resolve(__dirname, '../../.env.local') });
 
 // Initialize Supabase admin client
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;

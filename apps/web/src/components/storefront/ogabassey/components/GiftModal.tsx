@@ -108,11 +108,8 @@ export const GiftModal: React.FC<GiftModalProps> = ({ isOpen, onClose }) => {
 
   return (
     <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
-      <button
-        type="button"
-        aria-label="Dismiss gift modal backdrop"
-        tabIndex={-1}
-        className="absolute inset-0 border-0 bg-black/60 p-0 backdrop-blur-xs"
+      <div
+        className="absolute inset-0 bg-black/60 backdrop-blur-xs"
         onClick={onClose}
       />
       <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl relative z-10 flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">

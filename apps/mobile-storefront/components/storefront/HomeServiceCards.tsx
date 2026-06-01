@@ -59,7 +59,7 @@ const SERVICE_SHORTCUTS: ServiceShortcut[] = [
     accent: palette.emerald[500],
   },
   {
-    title: 'Super Quiz',
+    title: 'Prize Quiz',
     subtitle: 'Play for rewards',
     href: '/quiz',
     icon: 'trophy-outline',

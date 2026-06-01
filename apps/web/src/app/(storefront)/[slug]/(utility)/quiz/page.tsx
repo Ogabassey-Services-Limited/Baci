@@ -11,11 +11,11 @@ import {
   isValidMerchantIdentifier,
 } from '@/lib/validation';
 
-const QUIZ_DESCRIPTION = 'Play the Ogabassey Super Quiz with loyalty points.';
+const QUIZ_DESCRIPTION = 'Play the Ogabassey Prize Quiz with loyalty points.';
 
 export const metadata: Metadata = {
   description: QUIZ_DESCRIPTION,
-  title: 'Super Quiz | Ogabassey',
+  title: 'Prize Quiz | Ogabassey',
 };
 
 export default async function QuizPage({
@@ -42,11 +42,11 @@ export default async function QuizPage({
     '@context': 'https://schema.org',
     '@type': 'WebPage',
     description: QUIZ_DESCRIPTION,
-    name: 'Ogabassey Super Quiz',
+    name: 'Ogabassey Prize Quiz',
   };
 
   return (
-    <section aria-label="Super Quiz">
+    <section aria-label="Prize Quiz">
       <script type="application/ld+json">{safeJsonLdStringify(jsonLd)}</script>
       <OgabasseyV2Quiz merchantSlug={merchant.slug} />
     </section>

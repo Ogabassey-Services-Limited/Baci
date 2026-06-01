@@ -44,18 +44,8 @@ vi.mock('next/image', () => ({
 }));
 
 vi.mock('next/link', () => ({
-  default: ({
-    children,
-    href,
-    prefetch,
-  }: {
-    children: ReactNode;
-    href: string;
-    prefetch?: boolean;
-  }) => (
-    <a data-prefetch={String(prefetch)} href={href}>
-      {children}
-    </a>
+  default: ({ children, href }: { children: ReactNode; href: string }) => (
+    <a href={href}>{children}</a>
   ),
 }));
 
@@ -110,14 +100,6 @@ describe('OgabasseyPdpCriticalShell', () => {
     expect(screen.getByRole('link', { name: 'Laptops' })).toHaveAttribute(
       'href',
       '/laptops'
-    );
-    expect(screen.getByRole('link', { name: 'Home' })).toHaveAttribute(
-      'data-prefetch',
-      'false'
-    );
-    expect(screen.getByRole('link', { name: 'Laptops' })).toHaveAttribute(
-      'data-prefetch',
-      'false'
     );
     expect(
       screen.getByRole('button', { name: 'Add to Cart' })

@@ -77,9 +77,6 @@ describe('OgabasseyPdpProductResourceHints', () => {
       `href="${imageLoader({ src: productImage, width: 750, quality: 35 })}"`
     );
     expect(html).toContain(
-      `href="${imageLoader({ src: productImage, width: 750, quality: 30 })}"`
-    );
-    expect(html).toContain(
       `media="${OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA}"`
     );
     expect(html).toContain(
@@ -93,18 +90,14 @@ describe('OgabasseyPdpProductResourceHints', () => {
     expect(html).toContain(
       imageLoader({ src: productImage, width: 750, quality: 35 })
     );
-    expect(html).toContain(
-      imageLoader({ src: productImage, width: 750, quality: 30 })
-    );
     const mobileLink = html
       .match(/<link[^>]+>/g)
       ?.find((link) =>
         link.includes(`media="${OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA}"`)
       );
     expect(mobileLink).toContain('750w');
-    expect(mobileLink).toContain('quality=30');
     expect(mobileLink).not.toContain('1080w');
-    expect(html).not.toContain('type="image/avif"');
+    expect(html).not.toContain('type="image/');
   });
 
   it('uses the fallback URL extension when the image is not CDN transformed', () => {

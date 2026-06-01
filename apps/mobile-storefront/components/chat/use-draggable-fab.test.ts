@@ -5,12 +5,11 @@ describe('useDraggableFab', () => {
   it('returns the expected properties', () => {
     const { result } = renderHook(() => useDraggableFab(90));
 
-    expect(result.current).toHaveProperty('composedGesture');
-    expect(result.current).toHaveProperty('translateX');
-    expect(result.current).toHaveProperty('translateY');
-    expect(result.current).toHaveProperty('scale');
+    expect(result.current).toHaveProperty('pan');
+    expect(result.current).toHaveProperty('panResponder');
+    expect(result.current).toHaveProperty('pulseAnim');
     expect(result.current).toHaveProperty('isDragging');
-    expect(result.current).toHaveProperty('isOverDismissZone');
+    expect(result.current).toHaveProperty('hasMoved');
     expect(result.current).toHaveProperty('isOnRight');
   });
 
@@ -20,29 +19,45 @@ describe('useDraggableFab', () => {
     expect(result.current.isDragging).toBe(false);
   });
 
-  it('isOverDismissZone is initially false', () => {
+  it('hasMoved.current is initially false', () => {
     const { result } = renderHook(() => useDraggableFab(90));
 
-    expect(result.current.isOverDismissZone).toBe(false);
+    expect(result.current.hasMoved.current).toBe(false);
   });
 
-  it('exposes a positive numeric scale shared value', () => {
+  it('panResponder has panHandlers property', () => {
     const { result } = renderHook(() => useDraggableFab(90));
 
-    expect(typeof result.current.scale.value).toBe('number');
-    expect(result.current.scale.value).toBeGreaterThan(0);
+    expect(result.current.panResponder).toHaveProperty('panHandlers');
   });
 
-  it('translateX and translateY start at 0', () => {
+  it('pan is an Animated.ValueXY instance with x and y', () => {
     const { result } = renderHook(() => useDraggableFab(90));
 
-    expect(result.current.translateX.value).toBe(0);
-    expect(result.current.translateY.value).toBe(0);
+    expect(result.current.pan).toHaveProperty('x');
+    expect(result.current.pan).toHaveProperty('y');
   });
 
-  it('isOnRight is initially true', () => {
+  it('pulseAnim is an Animated.Value', () => {
     const { result } = renderHook(() => useDraggableFab(90));
 
-    expect(result.current.isOnRight).toBe(true);
+    // Animated.Value has addListener and removeListener
+    expect(typeof result.current.pulseAnim.addListener).toBe('function');
+    expect(typeof result.current.pulseAnim.removeListener).toBe('function');
+  });
+
+  it('isOnRight.current is initially true (FAB starts on right side)', () => {
+    const { result } = renderHook(() => useDraggableFab(90));
+
+    expect(result.current.isOnRight.current).toBe(true);
+  });
+
+  it('works with different bottomOffset values', () => {
+    const { result: result0 } = renderHook(() => useDraggableFab(0));
+    const { result: result120 } = renderHook(() => useDraggableFab(120));
+
+    // Both should initialize without errors
+    expect(result0.current.isDragging).toBe(false);
+    expect(result120.current.isDragging).toBe(false);
   });
 });

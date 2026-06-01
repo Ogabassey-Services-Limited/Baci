@@ -170,10 +170,6 @@ export function RecordPaymentSheet({
       <Pressable
         accessibilityLabel="Confirm payment"
         accessibilityRole="button"
-        accessibilityState={{
-          disabled: isConfirmDisabled || isSubmitting,
-          busy: isSubmitting,
-        }}
         disabled={isConfirmDisabled || isSubmitting}
         onPress={onConfirm}
         style={({ pressed }) => [

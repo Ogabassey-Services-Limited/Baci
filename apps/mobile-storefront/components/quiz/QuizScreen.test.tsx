@@ -93,7 +93,7 @@ describe('QuizScreen', () => {
   it('renders fetched quiz events', async () => {
     render(<QuizScreen integrityTier="device" locale="en-US" />);
 
-    expect(await screen.findByText('Super Quiz')).toBeTruthy();
+    expect(await screen.findByText('Prize Exam')).toBeTruthy();
     expect(
       screen.getByText('Use 1 loyalty point as your exam pass.')
     ).toBeTruthy();

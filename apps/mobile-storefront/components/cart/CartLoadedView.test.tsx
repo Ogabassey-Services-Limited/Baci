@@ -10,13 +10,6 @@ jest.mock('@/components/ui/SafeImage', () => ({
   },
 }));
 
-jest.mock('@/components/storefront/GadgetPattern', () => {
-  const { Text } = jest.requireActual('react-native');
-  return {
-    GadgetPattern: () => <Text>GadgetPattern</Text>,
-  };
-});
-
 jest.mock('@/components/checkout/checkout-identity', () => ({
   CheckoutIdentityModal: function MockCheckoutIdentityModal() {
     return null;

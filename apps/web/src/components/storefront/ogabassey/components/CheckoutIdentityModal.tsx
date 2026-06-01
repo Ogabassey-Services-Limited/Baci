@@ -91,15 +91,11 @@ export function CheckoutIdentityModal({
   };
 
   return (
-    <div className="fixed inset-0 z-100 flex items-end justify-center sm:items-center">
-      <button
-        type="button"
-        aria-label="Dismiss checkout modal backdrop"
-        tabIndex={-1}
-        className="absolute inset-0 border-0 bg-black/50 p-0 backdrop-blur-xs animate-in fade-in duration-200"
-        onClick={onClose}
-      />
-      <div className="relative z-10 w-full max-w-md overflow-hidden rounded-t-2xl bg-white shadow-2xl animate-in slide-in-from-bottom-4 duration-300 sm:rounded-2xl sm:zoom-in-95">
+    <div
+      className="fixed inset-0 z-100 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-xs animate-in fade-in duration-200"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300">
 
         {/* Header */}
         <div className="bg-gray-50 px-6 py-4 flex items-center justify-between border-b border-gray-100">

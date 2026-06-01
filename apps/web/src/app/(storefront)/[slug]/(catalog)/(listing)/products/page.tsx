@@ -6,15 +6,10 @@ import { getRequestScopedMerchant } from '@/lib/cached-data';
 import { getCachedStorefrontProductIndex } from '@/lib/cached-storefront-product-index';
 import {
   generateMetaDescription,
-  getCanonicalStorefrontFilterSearchParams,
   getIndexableRobotsMetadata,
 } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
-import {
-  buildStorefrontPageHref,
-  parseStorefrontPageParam,
-  STOREFRONT_PRODUCTS_PER_PAGE,
-} from '@/lib/storefront-pagination';
+import { STOREFRONT_PRODUCTS_PER_PAGE } from '@/lib/storefront-pagination';
 import {
   getStorefrontOpenGraphImages,
   getStorefrontTwitterImages,
@@ -24,20 +19,13 @@ import { ProductsPageContent } from './products-page-content';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
+  searchParams: Promise<{ page?: string }>;
 }
 
 export async function generateMetadata({
   params,
-  searchParams,
 }: PageProps): Promise<Metadata> {
   const { slug } = await params;
-  const resolvedSearchParams = await searchParams;
-  const currentPage = parseStorefrontPageParam(resolvedSearchParams.page);
-
-  if (!currentPage) {
-    notFound();
-  }
 
   if (!isValidMerchantIdentifier(slug)) {
     notFound();
@@ -52,28 +40,13 @@ export async function generateMetadata({
   }
 
   const productIndex = await getCachedStorefrontProductIndex(merchant.id, {
-    page: currentPage,
+    page: 1,
     limit: STOREFRONT_PRODUCTS_PER_PAGE,
   });
-  const totalPages = Math.max(1, productIndex.totalPages || 1);
-
-  if (!productIndex.hasError && currentPage > totalPages) {
-    notFound();
-  }
 
   const baseUrl = buildStoreUrl(merchant);
-  const canonicalFilterParams =
-    getCanonicalStorefrontFilterSearchParams(resolvedSearchParams);
-  const canonicalFilterQuery = canonicalFilterParams.toString();
-  const productsUrl = `${baseUrl}/products${canonicalFilterQuery ? `?${canonicalFilterQuery}` : ''}`;
-  const paginatedProductsUrl = buildStorefrontPageHref(
-    productsUrl,
-    currentPage
-  );
-  const title =
-    currentPage > 1
-      ? `Products | Page ${currentPage} | ${merchant.business_name}`
-      : `Products | ${merchant.business_name}`;
+  const productsUrl = `${baseUrl}/products`;
+  const title = `Products | ${merchant.business_name}`;
   const description = generateMetaDescription(
     merchant.site_description || '',
     160,
@@ -92,13 +65,13 @@ export async function generateMetadata({
     title,
     description,
     alternates: {
-      canonical: paginatedProductsUrl,
+      canonical: productsUrl,
     },
-    robots: getIndexableRobotsMetadata(resolvedSearchParams),
+    robots: getIndexableRobotsMetadata(),
     openGraph: {
       title,
       description,
-      url: paginatedProductsUrl,
+      url: productsUrl,
       type: 'website',
       siteName: merchant.business_name,
       images: getStorefrontOpenGraphImages(

@@ -8,12 +8,9 @@ import { create } from 'zustand';
 interface UIState {
   isChatOpen: boolean;
   chatInitialMessage: string | null;
-  isChatDismissed: boolean;
   openChat: (initialMessage?: string) => void;
   closeChat: () => void;
   clearChatInitialMessage: () => void;
-  dismissChat: () => void;
-  resetChatDismissal: () => void;
 
   // Negotiation Modal State
   isNegotiationModalOpen: boolean;
@@ -35,7 +32,6 @@ interface UIState {
 export const useUIStore = create<UIState>((set) => ({
   isChatOpen: false,
   chatInitialMessage: null,
-  isChatDismissed: false,
   openChat: (initialMessage) =>
     set({
       isChatOpen: true,
@@ -47,8 +43,6 @@ export const useUIStore = create<UIState>((set) => ({
       chatInitialMessage: null,
     }),
   clearChatInitialMessage: () => set({ chatInitialMessage: null }),
-  dismissChat: () => set({ isChatDismissed: true }),
-  resetChatDismissal: () => set({ isChatDismissed: false }),
 
   isNegotiationModalOpen: false,
   negotiationContext: null,

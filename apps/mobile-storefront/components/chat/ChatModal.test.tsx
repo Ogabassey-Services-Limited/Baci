@@ -18,12 +18,6 @@ const mockUseKeyboard = jest.fn(() => ({
   withKeyboardDismiss: <T extends (...args: never[]) => unknown>(handler: T) =>
     handler,
 }));
-const mockUseSafeAreaInsets = jest.fn(() => ({
-  bottom: 34,
-  left: 0,
-  right: 0,
-  top: 0,
-}));
 
 jest.mock('@shopify/flash-list', () => {
   const React = jest.requireActual('react') as typeof import('react');
@@ -51,16 +45,17 @@ jest.mock('@/components/useColorScheme', () => ({
   useColorScheme: () => 'dark',
 }));
 
-jest.mock('@/components/storefront/GadgetPattern', () => ({
-  GadgetPattern: 'GadgetPattern',
-}));
-
 jest.mock('@/hooks/use-keyboard', () => ({
   useKeyboard: () => mockUseKeyboard(),
 }));
 
 jest.mock('react-native-safe-area-context', () => ({
-  useSafeAreaInsets: () => mockUseSafeAreaInsets(),
+  useSafeAreaInsets: () => ({
+    bottom: 34,
+    left: 0,
+    right: 0,
+    top: 0,
+  }),
 }));
 
 function renderChatModal() {
@@ -94,12 +89,6 @@ describe('ChatModal', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockUseSafeAreaInsets.mockReturnValue({
-      bottom: 34,
-      left: 0,
-      right: 0,
-      top: 0,
-    });
     Object.defineProperty(Platform, 'OS', {
       configurable: true,
       value: originalPlatformOS,
@@ -120,71 +109,52 @@ describe('ChatModal', () => {
     expect(UNSAFE_getByType(Modal).props.presentationStyle).toBe('fullScreen');
   });
 
-  it('enables cross-platform keyboard avoiding protection on all platforms', () => {
-    // Test iOS
-    Object.defineProperty(Platform, 'OS', {
-      configurable: true,
-      value: 'ios',
+  it('lifts the chat input above the iOS keyboard', () => {
+    mockUseKeyboard.mockReturnValue({
+      dismissKeyboard: jest.fn(),
+      isKeyboardVisible: true,
+      keyboardHeight: 300,
+      withKeyboardDismiss: <T extends (...args: never[]) => unknown>(
+        handler: T
+      ) => handler,
     });
-    const { rerender } = renderChatModal();
+
+    renderChatModal();
+
+    expect(
+      StyleSheet.flatten(screen.getByTestId('chat-input-container').props.style)
+    ).toMatchObject({
+      paddingBottom: 274,
+    });
     expect(screen.getByTestId('keyboard-container')).toHaveProp(
       'enabled',
-      true
+      false
     );
+    expect(screen.getByLabelText('Chat message input')).toBeOnTheScreen();
+  });
 
-    // Test Android
+  it('keeps shared keyboard avoidance enabled on Android', () => {
     Object.defineProperty(Platform, 'OS', {
       configurable: true,
       value: 'android',
     });
-    rerender(
-      <ChatModal
-        visible={true}
-        santaMode={false}
-        messages={[]}
-        input=""
-        isLoading={false}
-        flatListRef={{ current: null }}
-        inputRef={{ current: null } as RefObject<TextInput | null>}
-        onClose={jest.fn()}
-        onSend={jest.fn()}
-        onChangeInput={jest.fn()}
-        onSuggestionPress={jest.fn()}
-        onScrollToBottom={jest.fn()}
-      />
-    );
+
+    renderChatModal();
+
     expect(screen.getByTestId('keyboard-container')).toHaveProp(
       'enabled',
       true
     );
-  });
-
-  it('keeps input container spaced off the home safe area boundary when keyboard is closed', () => {
-    renderChatModal();
-
-    expect(
-      StyleSheet.flatten(screen.getByTestId('chat-input-container').props.style)
-    ).toMatchObject({
-      paddingBottom: 34,
-    });
     expect(screen.getByLabelText('Chat message input')).toBeOnTheScreen();
   });
 
-  it('falls back to bottom padding when there is no bottom inset', () => {
-    mockUseSafeAreaInsets.mockReturnValue({
-      bottom: 0,
-      left: 0,
-      right: 0,
-      top: 0,
-    });
-
+  it('does not add keyboard padding when the keyboard is hidden', () => {
     renderChatModal();
 
     expect(
       StyleSheet.flatten(screen.getByTestId('chat-input-container').props.style)
-    ).toMatchObject({
-      paddingBottom: 12,
-    });
+        .paddingBottom
+    ).toBeUndefined();
     expect(screen.getByLabelText('Chat message input')).toBeOnTheScreen();
   });
 });

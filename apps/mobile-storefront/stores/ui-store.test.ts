@@ -6,7 +6,6 @@ function resetStore() {
   useUIStore.setState({
     isChatOpen: false,
     chatInitialMessage: null,
-    isChatDismissed: false,
     isNegotiationModalOpen: false,
     negotiationContext: null,
   });
@@ -151,31 +150,6 @@ describe('useUIStore', () => {
       });
 
       expect(useUIStore.getState().chatInitialMessage).toBeNull();
-    });
-  });
-
-  describe('chatbot dismissal', () => {
-    it('isChatDismissed is initially false', () => {
-      expect(useUIStore.getState().isChatDismissed).toBe(false);
-    });
-
-    it('dismissChat sets isChatDismissed to true', () => {
-      act(() => {
-        useUIStore.getState().dismissChat();
-      });
-      expect(useUIStore.getState().isChatDismissed).toBe(true);
-    });
-
-    it('resetChatDismissal sets isChatDismissed to false', () => {
-      act(() => {
-        useUIStore.getState().dismissChat();
-      });
-      expect(useUIStore.getState().isChatDismissed).toBe(true);
-
-      act(() => {
-        useUIStore.getState().resetChatDismissal();
-      });
-      expect(useUIStore.getState().isChatDismissed).toBe(false);
     });
   });
 

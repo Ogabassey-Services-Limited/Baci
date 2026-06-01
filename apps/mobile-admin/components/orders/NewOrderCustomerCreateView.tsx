@@ -140,10 +140,6 @@ export function NewOrderCustomerCreateView({
       <Pressable
         accessibilityLabel="Save customer"
         accessibilityRole="button"
-        accessibilityState={{
-          disabled: createCustomerMutation.isPending,
-          busy: createCustomerMutation.isPending,
-        }}
         disabled={createCustomerMutation.isPending}
         onPress={handleCreateCustomer}
         style={[

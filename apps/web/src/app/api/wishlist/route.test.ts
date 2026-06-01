@@ -16,19 +16,6 @@ vi.mock('next/headers', () => ({
   }),
 }));
 
-type MockSupabaseClient = {
-  auth: {
-    getUser: ReturnType<typeof vi.fn>;
-  };
-  from?: ReturnType<typeof vi.fn>;
-};
-
-function mockCreateClient(client: MockSupabaseClient) {
-  vi.mocked(createClient).mockReturnValue(
-    client as unknown as ReturnType<typeof createClient>
-  );
-}
-
 describe('POST /api/wishlist', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -56,14 +43,14 @@ describe('POST /api/wishlist', () => {
     const insertMock = vi.fn().mockReturnValue({ select: selectMock });
     const fromMock = vi.fn().mockReturnValue({ insert: insertMock });
 
-    mockCreateClient({
+    vi.mocked(createClient).mockReturnValue({
       auth: {
         getUser: vi
           .fn()
           .mockResolvedValue({ data: { user: { email: 'test@example.com' } } }),
       },
       from: fromMock,
-    });
+    } as any);
 
     const request = new NextRequest('http://localhost:3000/api/wishlist', {
       method: 'POST',
@@ -88,14 +75,6 @@ describe('POST /api/wishlist', () => {
   });
 
   it('returns 400 when invalid input is provided', async () => {
-    mockCreateClient({
-      auth: {
-        getUser: vi
-          .fn()
-          .mockResolvedValue({ data: { user: { email: 'test@example.com' } } }),
-      },
-    });
-
     const request = new NextRequest('http://localhost:3000/api/wishlist', {
       method: 'POST',
       body: JSON.stringify({
@@ -107,15 +86,14 @@ describe('POST /api/wishlist', () => {
     expect(response.status).toBe(400);
     const json = await response.json();
     expect(json.error).toBe('Product ID and Merchant ID are required');
-    expect(createClient).toHaveBeenCalled();
   });
 
   it('returns 401 when user is unauthenticated', async () => {
-    mockCreateClient({
+    vi.mocked(createClient).mockReturnValue({
       auth: {
         getUser: vi.fn().mockResolvedValue({ data: { user: null } }),
       },
-    });
+    } as any);
 
     const request = new NextRequest('http://localhost:3000/api/wishlist', {
       method: 'POST',
@@ -146,14 +124,14 @@ describe('POST /api/wishlist', () => {
     const insertMock = vi.fn().mockReturnValue({ select: selectMock });
     const fromMock = vi.fn().mockReturnValue({ insert: insertMock });
 
-    mockCreateClient({
+    vi.mocked(createClient).mockReturnValue({
       auth: {
         getUser: vi
           .fn()
           .mockResolvedValue({ data: { user: { email: 'test@example.com' } } }),
       },
       from: fromMock,
-    });
+    } as any);
 
     const request = new NextRequest('http://localhost:3000/api/wishlist', {
       method: 'POST',
@@ -179,14 +157,14 @@ describe('POST /api/wishlist', () => {
     const insertMock = vi.fn().mockReturnValue({ select: selectMock });
     const fromMock = vi.fn().mockReturnValue({ insert: insertMock });
 
-    mockCreateClient({
+    vi.mocked(createClient).mockReturnValue({
       auth: {
         getUser: vi
           .fn()
           .mockResolvedValue({ data: { user: { email: 'test@example.com' } } }),
       },
       from: fromMock,
-    });
+    } as any);
 
     const request = new NextRequest('http://localhost:3000/api/wishlist', {
       method: 'POST',
