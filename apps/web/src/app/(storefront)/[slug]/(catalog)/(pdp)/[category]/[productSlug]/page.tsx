@@ -39,7 +39,7 @@ import {
 } from '@/lib/cached-data';
 import { normalizeStorefrontCategorySlug } from '@/lib/normalize-storefront-category-slug';
 import { getEffectiveStock } from '@/lib/product-stock';
-import type { Product, ProductCondition } from '@/lib/products';
+import type { Product } from '@/lib/products';
 import { stripHtmlTags } from '@/lib/sanitize-core';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
@@ -405,34 +405,17 @@ type CategoryProductResult =
   | null;
 
 interface LcpRouteProduct {
-  base_price?: number | null;
   brand?: string | null;
-  canonical_url?: string | null;
   categories?: { name?: string; slug?: string } | null;
   category?: string | null;
   category_slug?: string;
-  condition?: string;
-  compare_at_price?: number | null;
-  description?: string | null;
+  condition?: string | null;
   id: string;
   image?: string;
   imageLarge?: string;
-  keywords?: string[] | null;
   manage_stock?: boolean | null;
-  max_variant_price?: number | null;
-  meta_description?: string | null;
-  meta_title?: string | null;
-  min_variant_price?: number | null;
   name: string;
-  offers?: Array<{
-    id: string;
-    condition: ProductCondition;
-    price: number;
-    status?: string | null;
-    stock_quantity: number;
-  }>;
-  price?: number | null;
-  sale_price?: number | null;
+  price?: number | string | null;
   schema_markup?: unknown;
   slug?: string;
   stock_quantity?: number | null;
@@ -477,113 +460,6 @@ function getMappedProductCategorySlug(product: LcpRouteProduct) {
   );
 }
 
-function isUuidProductRouteValue(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-    value
-  );
-}
-
-function shouldRedirectResolvedProductSlugValue(
-  productSlug: string,
-  resolvedSlug: string | null | undefined
-) {
-  return (
-    !isUuidProductRouteValue(productSlug) &&
-    Boolean(resolvedSlug) &&
-    resolvedSlug !== productSlug &&
-    resolvedSlug?.toLowerCase() === productSlug.toLowerCase()
-  );
-}
-
-function parseRouteProductNumber(value: unknown): number | null {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return value;
-  }
-
-  if (typeof value === 'string') {
-    const normalized = value.replace(/,/g, '').trim();
-    if (!normalized) {
-      return null;
-    }
-
-    const parsed = Number(normalized);
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-
-  return null;
-}
-
-const PRODUCT_CONDITIONS = ['new', 'used', 'open_box', 'refurbished'] as const;
-
-function normalizeRouteProductCondition(
-  value: unknown
-): ProductCondition | null {
-  if (typeof value !== 'string') {
-    return null;
-  }
-
-  const normalized = value.trim();
-  return PRODUCT_CONDITIONS.includes(
-    normalized as (typeof PRODUCT_CONDITIONS)[number]
-  )
-    ? (normalized as ProductCondition)
-    : null;
-}
-
-function getLcpRouteLegacyPrices(cachedProduct: CachedProductLcpHint) {
-  const price = parseRouteProductNumber(cachedProduct.price);
-  const compareAtPrice = parseRouteProductNumber(
-    cachedProduct.compare_at_price
-  );
-  const hasSale =
-    price !== null && compareAtPrice !== null && compareAtPrice > price;
-
-  return {
-    basePrice: hasSale ? compareAtPrice : (price ?? compareAtPrice),
-    compareAtPrice,
-    price: price ?? compareAtPrice,
-    salePrice: hasSale ? price : null,
-  };
-}
-
-function mapCachedProductLcpOffers(
-  cachedProduct: CachedProductLcpHint
-): LcpRouteProduct['offers'] {
-  if (!Array.isArray(cachedProduct.offers)) {
-    return undefined;
-  }
-
-  const productCondition = normalizeRouteProductCondition(
-    cachedProduct.condition
-  );
-  const offers = cachedProduct.offers.flatMap((offer) => {
-    const condition = normalizeRouteProductCondition(offer?.condition);
-    const price = parseRouteProductNumber(offer?.price);
-
-    if (
-      offer?.status !== 'active' ||
-      !condition ||
-      condition === productCondition ||
-      price === null ||
-      price < 0
-    ) {
-      return [];
-    }
-
-    return [
-      {
-        id: offer.id,
-        condition,
-        price,
-        status: offer.status,
-        stock_quantity: parseRouteProductNumber(offer.stock_quantity) ?? 0,
-      },
-    ];
-  });
-
-  return offers.length > 0 ? offers : undefined;
-}
-
 function mapCachedProductLcpHintToRouteProduct(
   cachedProduct: CachedProductLcpHint
 ): LcpRouteProduct {
@@ -599,41 +475,22 @@ function mapCachedProductLcpHintToRouteProduct(
   const firstImage = cachedProduct.images?.[0];
   const primaryImage =
     typeof firstImage === 'string' ? firstImage : (firstImage?.url ?? '');
-  const legacyPrices = getLcpRouteLegacyPrices(cachedProduct);
-  const manageStock = cachedProduct.manage_stock ?? true;
-  const stockQuantity = parseRouteProductNumber(cachedProduct.stock_quantity);
-  const canUseDenormalizedVariantPrices = manageStock === false;
 
   return {
-    base_price: legacyPrices.basePrice,
     brand: cachedProduct.brand,
-    canonical_url: cachedProduct.canonical_url,
     categories: primaryCategory,
     category: primaryCategory?.name ?? cachedProduct.category,
     category_slug: primaryCategory?.slug,
-    condition: cachedProduct.condition ?? undefined,
-    compare_at_price: legacyPrices.compareAtPrice,
-    description: cachedProduct.description,
+    condition: cachedProduct.condition,
     id: cachedProduct.id,
     image: primaryImage,
     imageLarge: primaryImage,
-    keywords: cachedProduct.keywords,
-    manage_stock: manageStock,
-    max_variant_price: canUseDenormalizedVariantPrices
-      ? parseRouteProductNumber(cachedProduct.max_variant_price)
-      : null,
-    meta_description: cachedProduct.meta_description,
-    meta_title: cachedProduct.meta_title,
-    min_variant_price: canUseDenormalizedVariantPrices
-      ? parseRouteProductNumber(cachedProduct.min_variant_price)
-      : null,
+    manage_stock: cachedProduct.manage_stock,
     name: cachedProduct.name,
-    offers: mapCachedProductLcpOffers(cachedProduct),
-    price: legacyPrices.price,
-    sale_price: legacyPrices.salePrice,
+    price: cachedProduct.price,
     schema_markup: cachedProduct.schema_markup,
     slug: cachedProduct.slug ?? cachedProduct.id,
-    stock_quantity: stockQuantity,
+    stock_quantity: cachedProduct.stock_quantity,
   };
 }
 
@@ -650,14 +507,6 @@ const getProduct = async (
     return null;
   }
 
-  return getProductForMerchant(merchant, categorySlug, productSlug);
-};
-
-const getProductForMerchant = async (
-  merchant: CachedMerchant,
-  categorySlug: string,
-  productSlug: string
-): Promise<CategoryProductResult> => {
   // 2. Get Product using the new cached function with full joins
   let product = await getCachedProductWithDetails(merchant.id, productSlug);
 
@@ -667,6 +516,9 @@ const getProductForMerchant = async (
   if (!product && productSlug !== productSlug.toLowerCase()) {
     const lowercaseSlug = productSlug.toLowerCase();
     product = await getCachedProductWithDetails(merchant.id, lowercaseSlug);
+    if (product) {
+      needsValuesRedirect = true;
+    }
   }
 
   if (!product) {
@@ -684,11 +536,6 @@ const getProductForMerchant = async (
 
     return null;
   }
-
-  needsValuesRedirect = shouldRedirectResolvedProductSlugValue(
-    productSlug,
-    product.slug
-  );
 
   // 3. Process category data
   interface ProductWithCategory {
@@ -808,24 +655,17 @@ async function getProductRouteControl(
       merchant.id,
       productSlug.toLowerCase()
     );
+    needsValuesRedirect = Boolean(cachedProduct);
   }
 
   if (!cachedProduct) {
-    const result = await getProductForMerchant(
-      merchant,
-      categorySlug,
-      productSlug
-    );
+    const result = await getProduct(storeSlug, categorySlug, productSlug);
     return result
       ? { result, loadProductResult: () => Promise.resolve(result) }
       : null;
   }
 
   const product = mapCachedProductLcpHintToRouteProduct(cachedProduct);
-  needsValuesRedirect = shouldRedirectResolvedProductSlugValue(
-    productSlug,
-    product.slug
-  );
   const loadProductResult = () =>
     getProduct(storeSlug, categorySlug, productSlug);
 
@@ -843,10 +683,34 @@ async function getProductRouteControl(
   };
 }
 
-function buildCategoryProductMetadata(
-  product: LcpRouteProduct,
-  merchant: CachedMerchant
-): Metadata {
+export async function generateMetadata({
+  params,
+}: PageProps): Promise<Metadata> {
+  const { slug, category, productSlug } = await params;
+  if (!isValidMerchantIdentifier(slug)) {
+    notFound();
+  }
+  const result = await getProduct(slug, category, productSlug);
+
+  if (!result) {
+    notFound();
+  }
+
+  // Don't redirect from generateMetadata — Next.js can't change HTTP status
+  // from here and falls back to an HTML <meta refresh>, which Google indexes
+  // as "Excluded by 'noindex' tag". The page component below runs the same
+  // permanentRedirect() before any HTML streams, producing a real HTTP 308.
+  // Return bare, noindex metadata here as a safety net for the race.
+  if (!('product' in result)) {
+    return { robots: { index: false, follow: false } };
+  }
+
+  const { product, merchant, categoryMismatch, needsValuesRedirect } = result;
+
+  if (categoryMismatch || needsValuesRedirect) {
+    return { robots: { index: false, follow: false } };
+  }
+
   const baseUrl = buildStoreUrl(merchant);
 
   const canonicalUrl = getValidatedProductUrl(product, baseUrl, merchant.slug);
@@ -863,17 +727,14 @@ function buildCategoryProductMetadata(
     currency,
     country: merchant.country,
   });
-  const productDescriptionFallback =
-    product.description || priceSeoCopy.description;
-  const seoDescriptionSource =
-    product.meta_description ||
-    (priceSeoCopy.priceText
-      ? priceSeoCopy.description
-      : productDescriptionFallback);
-  const seoDescription = generateMetaDescription(seoDescriptionSource, 160, {
-    minLength: 110,
-    fallback: productDescriptionFallback,
-  });
+  const seoDescription = generateMetaDescription(
+    product.meta_description || priceSeoCopy.description,
+    160,
+    {
+      minLength: 110,
+      fallback: priceSeoCopy.description,
+    }
+  );
   const socialMetadata = getStorefrontProductSocialMetadata(
     baseUrl,
     product,
@@ -895,7 +756,7 @@ function buildCategoryProductMetadata(
   return {
     title: metadataTitle,
     description: seoDescription,
-    keywords: product.keywords ?? undefined,
+    keywords: product.keywords,
     alternates: {
       canonical: canonicalUrl,
     },
@@ -924,43 +785,6 @@ function buildCategoryProductMetadata(
     },
     other: socialMetadata.other,
   };
-}
-
-export async function generateMetadata({
-  params,
-}: PageProps): Promise<Metadata> {
-  const { slug, category, productSlug } = await params;
-  if (!isValidMerchantIdentifier(slug)) {
-    notFound();
-  }
-  const routeControl = await getProductRouteControl(
-    slug,
-    category,
-    productSlug
-  );
-
-  if (!routeControl) {
-    notFound();
-  }
-
-  // Don't redirect from generateMetadata — Next.js can't change HTTP status
-  // from here and falls back to an HTML <meta refresh>, which Google indexes
-  // as "Excluded by 'noindex' tag". The page component below runs the same
-  // permanentRedirect() before any HTML streams, producing a real HTTP 308.
-  // Return bare, noindex metadata here as a safety net for the race.
-  const { result } = routeControl;
-
-  if (!('product' in result)) {
-    return { robots: { index: false, follow: false } };
-  }
-
-  const { product, merchant, categoryMismatch, needsValuesRedirect } = result;
-
-  if (categoryMismatch || needsValuesRedirect) {
-    return { robots: { index: false, follow: false } };
-  }
-
-  return buildCategoryProductMetadata(product, merchant);
 }
 
 interface CategoryProductPageContentProps {

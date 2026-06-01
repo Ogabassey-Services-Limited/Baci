@@ -165,6 +165,7 @@ export function FilterSheet({
                       accessibilityHint="Enter the minimum price for filtering products"
                       accessibilityLabelledBy="minPriceLabel"
                       // BUG-5-005: focus price input on open
+                      // eslint-disable-next-line jsx-a11y/no-autofocus
                       autoFocus
                     />
                   </View>

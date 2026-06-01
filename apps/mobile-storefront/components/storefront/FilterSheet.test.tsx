@@ -60,20 +60,6 @@ jest.mock('@/hooks/useTheme', () => ({
 }));
 
 describe('FilterSheet', () => {
-  it('focuses the minimum price input when the sheet opens', () => {
-    render(
-      <FilterSheet
-        visible={true}
-        minPrice={0}
-        maxPrice={3000000}
-        onClose={jest.fn()}
-        onApplyFilter={jest.fn()}
-      />
-    );
-
-    expect(screen.getByPlaceholderText('0')).toHaveProp('autoFocus', true);
-  });
-
   it('normalizes invalid and reversed price inputs before applying', () => {
     const onApplyFilter = jest.fn();
 

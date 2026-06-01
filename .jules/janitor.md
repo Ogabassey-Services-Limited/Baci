@@ -17,3 +17,7 @@
 ## 2025-02-26 - Restored proper explicit types for React Native Animated styles
 **Learning:** You cannot just cast `react-native-reanimated`'s `AnimatedStyle<ViewStyle>` output to `Record<string, unknown>` or `{ opacity?: number }` in test helpers since they return strict shapes like `ViewStyle & Partial<CSSAnimationProperties>`. Typecasting via `any` inside tests is an allowed workaround if it's the only way to inspect nested transform properties reliably.
 **Action:** Retain `// eslint-disable-next-line @typescript-eslint/no-explicit-any` for complex Reanimated test helpers, avoiding deep interface extraction for properties like `transform[0].translateY`.
+
+## 2025-02-26 - Do not remove `autoFocus` property when cleaning up `eslint-disable` comments
+**Learning:** You should only target the specific `eslint-disable` comment and not the properties or lines following it.
+**Action:** When cleaning up obsolete `eslint-disable` comments such as `eslint-disable-next-line jsx-a11y/no-autofocus`, simply delete the comment line while keeping the actual property (e.g. `autoFocus`) intact.
