@@ -241,7 +241,7 @@ export async function scheduleVoucherPinBackfill({
 
   const transactionId = transaction.id;
   const scheduledMetadata = await markVoucherPinBackfillScheduled({
-    consumeAttempt: true,
+    consumeAttempt: transaction.status === 'successful',
     metadata,
     originalMetadata,
     supabase,

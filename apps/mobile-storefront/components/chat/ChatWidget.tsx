@@ -1,15 +1,15 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import * as Haptics from 'expo-haptics';
 import { usePathname } from 'expo-router';
-import { useEffect } from 'react';
-import { Platform, Text, View, Animated as RNAnimated } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { Platform, Animated as RNAnimated, Text, View } from 'react-native';
 import { GestureDetector, Touchable } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useShallow } from 'zustand/react/shallow';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
 import { getChatWidgetBottomOffset } from '@/constants/layout';
-import { useShallow } from 'zustand/react/shallow';
 import { useUIStore } from '@/stores/ui-store';
 import { ChatModal } from './ChatModal';
 import { EDGE_MARGIN, HIDDEN_ROUTES } from './constants';
@@ -18,6 +18,10 @@ import type { ChatWidgetProps } from './types';
 import { useChat } from './use-chat';
 import { useDraggableFab } from './use-draggable-fab';
 import { useProactiveNudge } from './use-proactive-nudge';
+
+function isHomePathname(pathname: string | null | undefined) {
+  return pathname === '/' || pathname === '/(tabs)' || pathname === '/(tabs)/';
+}
 
 export function ChatWidget({
   santaMode = false,
@@ -49,12 +53,15 @@ export function ChatWidget({
       resetChatDismissal: state.resetChatDismissal,
     }))
   );
+  const previousPathnameRef = useRef(pathname);
 
-  // Automatically restore chat widget when user returns to home screen
+  // Restore only after navigating back home, not after dismissing while already home.
   useEffect(() => {
-    if (pathname === '/' || pathname === '/(tabs)' || pathname === '/(tabs)/') {
+    const previousPathname = previousPathnameRef.current;
+    if (isHomePathname(pathname) && !isHomePathname(previousPathname)) {
       resetChatDismissal();
     }
+    previousPathnameRef.current = pathname;
   }, [pathname, resetChatDismissal]);
 
   const {

@@ -225,10 +225,23 @@ describe('ChatWidget', () => {
     expect(toJSON()).toBeNull();
   });
 
-  it('resets chatbot dismissal when returning to home screen', () => {
+  it('does not reset chatbot dismissal on initial home render', () => {
     mockIsChatDismissed = true;
     mockUsePathname.mockReturnValue('/');
     render(<ChatWidget />);
+
+    expect(mockResetChatDismissal).not.toHaveBeenCalled();
+  });
+
+  it('resets chatbot dismissal when navigating back to home screen', () => {
+    mockIsChatDismissed = true;
+    mockUsePathname.mockReturnValue('/products/1');
+    const { rerender } = render(<ChatWidget />);
+
+    expect(mockResetChatDismissal).not.toHaveBeenCalled();
+
+    mockUsePathname.mockReturnValue('/');
+    rerender(<ChatWidget />);
 
     expect(mockResetChatDismissal).toHaveBeenCalled();
   });
