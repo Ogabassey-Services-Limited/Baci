@@ -9,13 +9,13 @@ import {
   View,
 } from 'react-native';
 import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
+  Extrapolation,
   interpolate,
   interpolateColor,
-  Extrapolation,
-  withSpring,
   type SharedValue,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
 } from 'react-native-reanimated';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, SPACING, withAlpha } from '@/constants/Colors';
@@ -72,7 +72,9 @@ export function UtilityTypeTabs({
   const [measurementVersion, setMeasurementVersion] = useState(0);
 
   // Reanimated UI-thread values for continuous gliding capsule transitions
-  const initialIdx = UTILITY_TYPES.findIndex((item) => item.type === selectedType);
+  const initialIdx = UTILITY_TYPES.findIndex(
+    (item) => item.type === selectedType
+  );
   const localActiveIndex = useSharedValue(initialIdx !== -1 ? initialIdx : 0);
   const activeIndexVal = activeIndex ?? localActiveIndex;
 
@@ -83,7 +85,15 @@ export function UtilityTypeTabs({
     TAB_SIDE_INSET + 96 + TAB_ITEM_GAP,
     TAB_SIDE_INSET + 96 + TAB_ITEM_GAP + 78 + TAB_ITEM_GAP,
     TAB_SIDE_INSET + 96 + TAB_ITEM_GAP + 78 + TAB_ITEM_GAP + 78 + TAB_ITEM_GAP,
-    TAB_SIDE_INSET + 96 + TAB_ITEM_GAP + 78 + TAB_ITEM_GAP + 78 + TAB_ITEM_GAP + 92 + TAB_ITEM_GAP,
+    TAB_SIDE_INSET +
+      96 +
+      TAB_ITEM_GAP +
+      78 +
+      TAB_ITEM_GAP +
+      78 +
+      TAB_ITEM_GAP +
+      92 +
+      TAB_ITEM_GAP,
   ]);
 
   // Sync prop index to local active index when in state-fallback mode (e.g. tests)
@@ -91,13 +101,17 @@ export function UtilityTypeTabs({
     if (!activeIndex) {
       const idx = UTILITY_TYPES.findIndex((item) => item.type === selectedType);
       if (idx !== -1) {
-        localActiveIndex.value = withSpring(idx, { damping: 18, stiffness: 120 });
+        localActiveIndex.value = withSpring(idx, {
+          damping: 18,
+          stiffness: 120,
+        });
       }
     }
   }, [selectedType, activeIndex, localActiveIndex]);
 
   // Centering scroll effect
   useEffect(() => {
+    void measurementVersion;
     if (viewportWidth <= 0) return;
 
     const selectedIndex = UTILITY_TYPES.findIndex(
@@ -126,40 +140,41 @@ export function UtilityTypeTabs({
     });
   }, [selectedType, viewportWidth, measurementVersion]);
 
-  const handleTabLayout = (index: number, type: UtilityType) => (event: LayoutChangeEvent) => {
-    const nextWidth = event.nativeEvent.layout.width;
-    const nextX = event.nativeEvent.layout.x;
-    if (nextWidth <= 0) return;
+  const handleTabLayout =
+    (index: number, type: UtilityType) => (event: LayoutChangeEvent) => {
+      const nextWidth = event.nativeEvent.layout.width;
+      const nextX = event.nativeEvent.layout.x;
+      if (nextWidth <= 0) return;
 
-    // Update shared arrays for continuous indicator morphing
-    const widths = [...tabWidths.value];
-    widths[index] = nextWidth;
-    tabWidths.value = widths;
+      // Update shared arrays for continuous indicator morphing
+      const widths = [...tabWidths.value];
+      widths[index] = nextWidth;
+      tabWidths.value = widths;
 
-    const offsets = [...tabOffsets.value];
-    offsets[index] = nextX;
-    tabOffsets.value = offsets;
+      const offsets = [...tabOffsets.value];
+      offsets[index] = nextX;
+      tabOffsets.value = offsets;
 
-    // Sync legacy widths trigger for ScrollView centering logic
-    const previousWidth = measuredWidthsRef.current[type];
-    if (previousWidth !== nextWidth) {
-      measuredWidthsRef.current[type] = nextWidth;
-      setMeasurementVersion((version) => version + 1);
-    }
-  };
+      // Sync legacy widths trigger for ScrollView centering logic
+      const previousWidth = measuredWidthsRef.current[type];
+      if (previousWidth !== nextWidth) {
+        measuredWidthsRef.current[type] = nextWidth;
+        setMeasurementVersion((version) => version + 1);
+      }
+    };
 
   // Gliding indicator capsule style
   const indicatorStyle = useAnimatedStyle(() => {
     const floatIndex = activeIndexVal.value;
     const inputParts = UTILITY_TYPES.map((_, index) => index);
-    
+
     const width = interpolate(
       floatIndex,
       inputParts,
       tabWidths.value,
       Extrapolation.CLAMP
     );
-    
+
     const translateX = interpolate(
       floatIndex,
       inputParts,
