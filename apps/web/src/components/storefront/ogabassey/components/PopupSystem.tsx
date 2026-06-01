@@ -82,8 +82,11 @@ export const PopupSystem: React.FC = () => {
       {/* --- 1. NEWSLETTER POPUP (Centered Overlay) --- */}
       {showNewsletter && (
         <div className="fixed inset-0 z-70 flex items-center justify-center px-4 animate-in fade-in duration-300">
-          <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-xs"
+          <button
+            type="button"
+            aria-label="Dismiss newsletter popup backdrop"
+            tabIndex={-1}
+            className="absolute inset-0 border-0 bg-black/60 p-0 backdrop-blur-xs"
             onClick={handleCloseNewsletter}
           />
           <div className="bg-[#1a1a1a] rounded-2xl shadow-2xl max-w-md w-full relative overflow-hidden z-10 animate-in zoom-in-95 duration-300 border border-white/10">
