@@ -62,7 +62,7 @@ afterEach(() => {
 
 describe('GET /feeds/openai.jsonl', () => {
   it('returns the legacy OpenAI feed from a storefront host without an API URL', async () => {
-    const { GET } = await import('./route');
+    const { GET, maxDuration } = await import('./route');
     const response = await GET(
       new NextRequest('https://ogabassey.com/feeds/openai.jsonl', {
         headers: { host: 'ogabassey.com' },
@@ -71,8 +71,13 @@ describe('GET /feeds/openai.jsonl', () => {
 
     await expect(response.text()).resolves.toBe('{"id":"product-1"}');
     expect(response.status).toBe(200);
+    expect(maxDuration).toBe(60);
     expect(response.headers.get('content-type')).toBe(
       'application/x-ndjson; charset=utf-8'
+    );
+    expect(response.headers.get('cache-control')).toBe('public, max-age=60');
+    expect(response.headers.get('vercel-cdn-cache-control')).toBe(
+      'public, s-maxage=300, stale-while-revalidate=3600'
     );
     expect(mockResolveStorefrontMerchantFromRequest).toHaveBeenCalledWith(
       expect.objectContaining({
