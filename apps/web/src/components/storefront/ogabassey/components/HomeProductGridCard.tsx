@@ -1,6 +1,6 @@
 'use client';
 
-import { getFirstNonBlankString } from '@baci/shared';
+import { getProductImageAlt } from '@baci/shared';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useViewportActivation } from '@/components/storefront/use-viewport-activation';
@@ -16,17 +16,6 @@ interface HomeProductGridCardProps {
 
 const PLACEHOLDER_IMAGE =
   'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400"%3E%3Crect fill="%23f3f4f6" width="400" height="400"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="48" fill="%239ca3af"%3ENo Image%3C/text%3E%3C/svg%3E';
-
-function getProductImageAlt(product: Product): string {
-  return (
-    getFirstNonBlankString(
-      product.image_alt,
-      product.seo_alt_text,
-      product.name
-    ) ||
-    'Product image'
-  );
-}
 
 export function HomeProductGridCard({
   product,
@@ -44,7 +33,9 @@ export function HomeProductGridCard({
     `${basePath}${getProductUrl({ ...product, id: String(product.id) })}`
   );
   const productImage = product.image || product.images?.[0] || PLACEHOLDER_IMAGE;
-  const productImageAlt = getProductImageAlt(product);
+  const productImageAlt = getProductImageAlt(product, {
+    renderedImageUrl: productImage,
+  });
 
   return (
     <div className="bg-white border border-gray-100 rounded-2xl p-3 md:p-4 shadow-sm transition-all duration-300 flex flex-col h-full relative content-auto [contain-intrinsic-size:auto_360px]">

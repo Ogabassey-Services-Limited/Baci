@@ -56,10 +56,11 @@ function toTemplateProducts(storefrontProducts: StorefrontProduct[]): Product[] 
 
     let primaryImage = trimString(product.image);
     let primaryImageAlt = '';
-    const images = (product.images ?? []).flatMap((image) => {
+    const images: string[] = [];
+    for (const image of product.images ?? []) {
       const mappedImage = getImagePayloadUrl(image);
       if (!mappedImage) {
-        return [];
+        continue;
       }
 
       if (!primaryImage) {
@@ -69,8 +70,8 @@ function toTemplateProducts(storefrontProducts: StorefrontProduct[]): Product[] 
         primaryImageAlt ||= getImagePayloadAlt(image);
       }
 
-      return [mappedImage];
-    });
+      images.push(mappedImage);
+    }
 
     const condition = storefrontProductFilters.getStorefrontConditionBadgeLabel({
       available_conditions: product.available_conditions,
