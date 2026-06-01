@@ -33,6 +33,15 @@ function getListingDescriptionCategory(product: RawDbProduct) {
   );
 }
 
+function getListingDescription(product: RawDbProduct) {
+  return (
+    buildStorefrontProductListingDescription({
+      ...product,
+      category: getListingDescriptionCategory(product),
+    }) || null
+  );
+}
+
 export async function getCachedStorefrontProductIndex(
   merchantId: string,
   options: StorefrontProductIndexOptions
@@ -111,10 +120,7 @@ export async function getCachedStorefrontProductIndex(
     products: normalizeProducts(
       ((data || []) as unknown as RawDbProduct[]).map((product) => ({
         ...product,
-        description: buildStorefrontProductListingDescription({
-          ...product,
-          category: getListingDescriptionCategory(product),
-        }),
+        description: getListingDescription(product),
       }))
     ),
     totalCount: count || 0,

@@ -93,11 +93,41 @@ describe('getCachedStorefrontProductIndex', () => {
         ],
         price: 5900000,
       },
+      {
+        id: 'p2',
+        name: 'Latitude 7450',
+        brand: 'Dell',
+        category: 'Laptops',
+        product_categories: [
+          {
+            categories: {
+              name: 'Business Laptops',
+              slug: 'business-laptops',
+            },
+          },
+        ],
+        price: 2100000,
+      },
+      {
+        id: 'p3',
+        name: '',
+        brand: '',
+        category: '',
+        product_categories: [
+          {
+            categories: {
+              name: '',
+              slug: 'uncategorized',
+            },
+          },
+        ],
+        price: 100000,
+      },
     ];
 
     const builder = createQueryBuilder({
       data: rawProducts,
-      count: 1,
+      count: 3,
     });
     mockCreatePublicClient.mockReturnValue({ from: vi.fn(() => builder) });
 
@@ -115,6 +145,12 @@ describe('getCachedStorefrontProductIndex', () => {
     expect(mockNormalizeProducts).toHaveBeenCalledWith([
       expect.objectContaining({
         description: 'Dell Gaming Laptops',
+      }),
+      expect.objectContaining({
+        description: 'Dell Laptops',
+      }),
+      expect.objectContaining({
+        description: null,
       }),
     ]);
   });
