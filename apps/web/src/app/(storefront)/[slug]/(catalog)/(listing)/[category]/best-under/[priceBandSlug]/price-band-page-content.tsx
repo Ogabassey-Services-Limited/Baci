@@ -6,8 +6,13 @@ import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import { buildPriceBandPageSchemas } from '@/lib/storefront-compare/compare-schema';
 import { loadPriceBandPage } from '@/lib/storefront-compare/load-price-band-page';
 
+type LoadedPriceBandPage = NonNullable<
+  Awaited<ReturnType<typeof loadPriceBandPage>>
+>;
+
 interface PriceBandPageContentProps {
-  params: Promise<{
+  page?: LoadedPriceBandPage | null;
+  params?: Promise<{
     slug: string;
     category: string;
     priceBandSlug: string;
@@ -15,9 +20,7 @@ interface PriceBandPageContentProps {
 }
 
 function toProductIndexCardModel(
-  product: NonNullable<
-    Awaited<ReturnType<typeof loadPriceBandPage>>
-  >['products'][number]
+  product: LoadedPriceBandPage['products'][number]
 ): NormalizedProduct {
   return {
     id: product.id,
@@ -44,14 +47,18 @@ function toProductIndexCardModel(
 }
 
 export async function PriceBandPageContent({
+  page: preloadedPage,
   params,
 }: PriceBandPageContentProps) {
-  const resolvedParams = await params;
-  const page = await loadPriceBandPage({
-    merchantSlug: resolvedParams.slug,
-    categorySlug: resolvedParams.category,
-    priceBandSlug: resolvedParams.priceBandSlug,
-  });
+  let page = preloadedPage;
+  if (!page && params) {
+    const resolvedParams = await params;
+    page = await loadPriceBandPage({
+      merchantSlug: resolvedParams.slug,
+      categorySlug: resolvedParams.category,
+      priceBandSlug: resolvedParams.priceBandSlug,
+    });
+  }
 
   if (!page?.isIndexable) {
     notFound();

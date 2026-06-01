@@ -56,7 +56,7 @@ function isWithinBand(
   return price <= ceiling && (floor ? price > floor : true);
 }
 
-async function getStorefrontPathPrefix(
+export async function getPriceBandStorefrontPathPrefix(
   routeIdentifier: string,
   merchantSlug: string
 ) {
@@ -77,11 +77,16 @@ function getSupportedClusterCategory(
     : null;
 }
 
-export async function loadPriceBandPage(args: {
-  merchantSlug: string;
-  categorySlug: string;
-  priceBandSlug: string;
-}) {
+export async function loadPriceBandPage(
+  args: {
+    merchantSlug: string;
+    categorySlug: string;
+    priceBandSlug: string;
+  },
+  options: { includeRequestPathPrefix?: boolean } = {}
+) {
+  const includeRequestPathPrefix = options.includeRequestPathPrefix ?? true;
+
   const merchant = await getMerchantByIdentifier(args.merchantSlug);
 
   if (!merchant) {
@@ -189,7 +194,9 @@ export async function loadPriceBandPage(args: {
         })
       : [],
     isIndexable: bandCandidate.isIndexable,
-    pathPrefix: await getStorefrontPathPrefix(args.merchantSlug, merchant.slug),
+    pathPrefix: includeRequestPathPrefix
+      ? await getPriceBandStorefrontPathPrefix(args.merchantSlug, merchant.slug)
+      : '',
     payoutCurrency,
   };
 }
