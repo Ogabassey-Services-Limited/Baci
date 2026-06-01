@@ -15,15 +15,15 @@ import { type InviteStaffData, InviteStaffSchema } from './schema';
 // Valid staff statuses
 type StaffStatus = 'pending' | 'active' | 'suspended' | 'removed';
 
-const VALID_STATUSES: readonly StaffStatus[] = Object.freeze([
+const VALID_STATUSES: StaffStatus[] = [
   'pending',
   'active',
   'suspended',
   'removed',
-]);
+];
 
 // Valid staff roles for runtime validation
-const VALID_ROLES: readonly StaffRole[] = Object.freeze([
+const VALID_ROLES: StaffRole[] = [
   'admin',
   'manager',
   'sales_rep',
@@ -32,7 +32,7 @@ const VALID_ROLES: readonly StaffRole[] = Object.freeze([
   'customer_service',
   'marketing',
   'fulfillment',
-]);
+];
 
 // InviteStaffSchema imported from ./schema.ts
 

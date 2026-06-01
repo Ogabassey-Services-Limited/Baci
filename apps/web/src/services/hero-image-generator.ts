@@ -7,7 +7,7 @@ import { logger } from '@/lib/logger';
 import { createClient } from '@/lib/supabase/server';
 
 // Style mapping based on business category
-const CATEGORY_STYLES: Readonly<Record<string, string>> = Object.freeze({
+const CATEGORY_STYLES: Record<string, string> = {
   fashion: 'elegant',
   electronics: 'tech',
   'hair-extensions': 'luxury',
@@ -16,52 +16,51 @@ const CATEGORY_STYLES: Readonly<Record<string, string>> = Object.freeze({
   handmade: 'vibrant',
   'food-beverage': 'organic',
   other: 'modern',
-});
+};
 
 // Image generation prompts per category
-const CATEGORY_PROMPTS: Readonly<Record<string, readonly string[]>> =
-  Object.freeze({
-    fashion: Object.freeze([
-      'Professional fashion boutique interior with elegant clothing displays, soft lighting, modern aesthetic, high-end retail environment',
-      'Fashion runway editorial style photo, stylish models, contemporary design, vibrant colors, professional photography',
-      'Minimalist fashion store with curated clothing collection, clean lines, sophisticated ambiance, luxury retail',
-    ]),
-    electronics: Object.freeze([
-      'Modern tech workspace with sleek gadgets, futuristic aesthetic, clean desk setup, premium electronics',
-      'High-tech gadgets flat lay, modern devices, minimalist composition, professional product photography',
-      'Contemporary electronics store interior, digital displays, cutting-edge technology, vibrant blue lighting',
-    ]),
-    'hair-extensions': Object.freeze([
-      'Luxury hair salon interior with glamorous styling stations, elegant mirrors, premium beauty environment',
-      'Professional hair bundles display, various textures and colors, luxury presentation, high-quality photography',
-      'Elegant beauty salon aesthetic, sophisticated hair styling area, luxurious atmosphere, modern design',
-    ]),
-    'home-goods': Object.freeze([
-      'Beautiful modern living room interior, minimalist decor, cozy atmosphere, natural lighting, elegant furniture',
-      'Styled home decor shelf with curated accessories, plants, candles, warm aesthetic, professional interior design',
-      'Contemporary bedroom with elegant furnishings, soft textiles, calming color palette, sophisticated design',
-    ]),
-    'health-beauty': Object.freeze([
-      'Spa wellness aesthetic with skincare products, natural ingredients, serene atmosphere, organic beauty',
-      'Skincare flat lay with elegant bottles and jars, clean background, professional product photography',
-      'Beauty products arrangement on marble surface, soft lighting, luxurious presentation, organic aesthetic',
-    ]),
-    handmade: Object.freeze([
-      'Artisan workshop with handcrafted items, creative workspace, authentic craftsmanship, warm natural lighting',
-      'Handmade crafts display on wooden surface, artisanal products, rustic aesthetic, vibrant colors',
-      'Craft materials flat lay with natural textures, colorful threads, artistic composition, authentic handmade feel',
-    ]),
-    'food-beverage': Object.freeze([
-      'Beautifully plated gourmet food on elegant table setting, professional food photography, vibrant colors',
-      'Fresh organic ingredients spread on wooden surface, farmers market aesthetic, natural lighting',
-      'Cozy cafe interior with artisanal coffee, warm atmosphere, rustic decor, inviting ambiance',
-    ]),
-    other: Object.freeze([
-      'Modern minimalist retail store interior, clean design, professional lighting, contemporary aesthetic',
-      'Product display shelf with curated items, organized presentation, professional commercial photography',
-      'Contemporary business storefront, elegant design, welcoming atmosphere, professional environment',
-    ]),
-  });
+const CATEGORY_PROMPTS: Record<string, string[]> = {
+  fashion: [
+    'Professional fashion boutique interior with elegant clothing displays, soft lighting, modern aesthetic, high-end retail environment',
+    'Fashion runway editorial style photo, stylish models, contemporary design, vibrant colors, professional photography',
+    'Minimalist fashion store with curated clothing collection, clean lines, sophisticated ambiance, luxury retail',
+  ],
+  electronics: [
+    'Modern tech workspace with sleek gadgets, futuristic aesthetic, clean desk setup, premium electronics',
+    'High-tech gadgets flat lay, modern devices, minimalist composition, professional product photography',
+    'Contemporary electronics store interior, digital displays, cutting-edge technology, vibrant blue lighting',
+  ],
+  'hair-extensions': [
+    'Luxury hair salon interior with glamorous styling stations, elegant mirrors, premium beauty environment',
+    'Professional hair bundles display, various textures and colors, luxury presentation, high-quality photography',
+    'Elegant beauty salon aesthetic, sophisticated hair styling area, luxurious atmosphere, modern design',
+  ],
+  'home-goods': [
+    'Beautiful modern living room interior, minimalist decor, cozy atmosphere, natural lighting, elegant furniture',
+    'Styled home decor shelf with curated accessories, plants, candles, warm aesthetic, professional interior design',
+    'Contemporary bedroom with elegant furnishings, soft textiles, calming color palette, sophisticated design',
+  ],
+  'health-beauty': [
+    'Spa wellness aesthetic with skincare products, natural ingredients, serene atmosphere, organic beauty',
+    'Skincare flat lay with elegant bottles and jars, clean background, professional product photography',
+    'Beauty products arrangement on marble surface, soft lighting, luxurious presentation, organic aesthetic',
+  ],
+  handmade: [
+    'Artisan workshop with handcrafted items, creative workspace, authentic craftsmanship, warm natural lighting',
+    'Handmade crafts display on wooden surface, artisanal products, rustic aesthetic, vibrant colors',
+    'Craft materials flat lay with natural textures, colorful threads, artistic composition, authentic handmade feel',
+  ],
+  'food-beverage': [
+    'Beautifully plated gourmet food on elegant table setting, professional food photography, vibrant colors',
+    'Fresh organic ingredients spread on wooden surface, farmers market aesthetic, natural lighting',
+    'Cozy cafe interior with artisanal coffee, warm atmosphere, rustic decor, inviting ambiance',
+  ],
+  other: [
+    'Modern minimalist retail store interior, clean design, professional lighting, contemporary aesthetic',
+    'Product display shelf with curated items, organized presentation, professional commercial photography',
+    'Contemporary business storefront, elegant design, welcoming atmosphere, professional environment',
+  ],
+};
 
 /**
  * Generate a batch of hero images for a specific category
