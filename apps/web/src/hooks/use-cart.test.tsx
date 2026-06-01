@@ -282,6 +282,62 @@ describe('useCart - Validation', () => {
     ]);
   });
 
+  it('uses variantAttributes when legacy cart lines do not have selected option fields', async () => {
+    const initialCart = [
+      {
+        ...mockProduct,
+        id: 'variant-product',
+        quantity: 1,
+        variant_id: 'variant-128',
+        variantAttributes: {
+          color: 'Black',
+          storage: '128GB',
+        },
+      },
+      {
+        ...mockProduct,
+        id: 'variant-product',
+        quantity: 1,
+        variant_id: 'variant-128',
+        variantAttributes: {
+          color: 'Blue',
+          storage: '128GB',
+        },
+      },
+    ];
+
+    localStorageMock.setItem('baci-cart-guest', JSON.stringify(initialCart));
+
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+      <CartProvider>{children}</CartProvider>
+    );
+
+    const { result } = renderHook(() => useCart(), { wrapper });
+
+    await waitFor(() => expect(result.current.isHydrated).toBe(true));
+
+    expect(
+      result.current.cart.map((item) => ({
+        cartItemId: item.cartItemId,
+        selectedColor: item.selectedColor,
+        selectedStorage: item.selectedStorage,
+      }))
+    ).toEqual([
+      {
+        cartItemId:
+          'variant-product::variant=variant-128::color=Black::storage=128GB',
+        selectedColor: 'Black',
+        selectedStorage: '128GB',
+      },
+      {
+        cartItemId:
+          'variant-product::variant=variant-128::color=Blue::storage=128GB',
+        selectedColor: 'Blue',
+        selectedStorage: '128GB',
+      },
+    ]);
+  });
+
   it('stores the default SKU-matrix variant condition for quick add flows', async () => {
     const skuMatrixProduct: AddToCartProduct = {
       ...mockProduct,

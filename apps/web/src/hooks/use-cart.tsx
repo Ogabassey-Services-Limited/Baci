@@ -128,19 +128,27 @@ function normalizeStoredCartItem(item: Record<string, unknown>): CartItem {
   const variantId =
     getStoredStringValue(item, 'variantId') ??
     getStoredStringValue(item, 'variant_id');
+  const variantAttributes = getStoredVariantAttributes(item);
   const selectedColor =
     getStoredStringValue(item, 'selectedColor') ??
-    getStoredStringValue(item, 'variantColor');
+    getStoredStringValue(item, 'variantColor') ??
+    variantAttributes?.color;
   const selectedStorage =
     getStoredStringValue(item, 'selectedStorage') ??
-    getStoredStringValue(item, 'variantStorage');
-  const selectedColorValue = getStoredStringValue(item, 'selectedColorValue');
-  const secondaryColor = getStoredStringValue(item, 'secondaryColor');
-  const secondaryColorValue = getStoredStringValue(item, 'secondaryColorValue');
+    getStoredStringValue(item, 'variantStorage') ??
+    variantAttributes?.storage;
+  const selectedColorValue =
+    getStoredStringValue(item, 'selectedColorValue') ??
+    variantAttributes?.colorValue;
+  const secondaryColor =
+    getStoredStringValue(item, 'secondaryColor') ??
+    variantAttributes?.secondaryColor;
+  const secondaryColorValue =
+    getStoredStringValue(item, 'secondaryColorValue') ??
+    variantAttributes?.secondaryColorValue;
   const condition = getStoredStringValue(item, 'condition') as
     | CartItem['condition']
     | undefined;
-  const variantAttributes = getStoredVariantAttributes(item);
   const cartItemId =
     getStoredStringValue(item, 'cartItemId') ??
     generateCartItemId(productId, {
