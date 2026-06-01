@@ -20,12 +20,27 @@ describe('getAnchoredFabTranslationX', () => {
   });
 
   it('clamps a dragged FAB above the new bottom bound after height changes', () => {
-    expect(getClampedFabTranslationY(500, 90, 240)).toBe(0);
+    const previousStartY = 700 - 90 - FAB_SIZE;
+
+    expect(getClampedFabTranslationY(previousStartY, 500, 90, 240)).toBe(0);
   });
 
   it('clamps a dragged FAB below the minimum top bound after height changes', () => {
-    const startY = 500 - 90 - FAB_SIZE;
+    const previousStartY = 500 - 90 - FAB_SIZE;
+    const nextStartY = 500 - 90 - FAB_SIZE;
 
-    expect(getClampedFabTranslationY(500, 90, -400)).toBe(100 - startY);
+    expect(getClampedFabTranslationY(previousStartY, 500, 90, -400)).toBe(
+      100 - nextStartY
+    );
+  });
+
+  it('preserves absolute Y when only the bottom offset changes', () => {
+    const previousStartY = 700 - 90 - FAB_SIZE;
+    const nextStartY = 700 - 130 - FAB_SIZE;
+    const currentTranslationY = -120;
+
+    expect(
+      getClampedFabTranslationY(previousStartY, 700, 130, currentTranslationY)
+    ).toBe(previousStartY + currentTranslationY - nextStartY);
   });
 });

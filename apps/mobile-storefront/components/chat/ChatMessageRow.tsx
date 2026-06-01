@@ -32,6 +32,9 @@ export function ChatMessageRow({
     >
       {!isUser && (
         <View
+          accessible={false}
+          accessibilityElementsHidden={true}
+          importantForAccessibility="no-hide-descendants"
           style={[
             styles.avatar,
             { backgroundColor: santaMode ? BRAND.primary : colors.muted },

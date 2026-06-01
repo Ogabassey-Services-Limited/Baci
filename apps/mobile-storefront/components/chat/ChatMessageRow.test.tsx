@@ -19,12 +19,12 @@ const baseMessage: ChatMessage = {
 
 describe('ChatMessageRow', () => {
   it('renders the AI avatar for assistant messages', () => {
-    render(
+    const { UNSAFE_getByProps } = render(
       <ChatMessageRow item={baseMessage} santaMode={false} colors={colors} />
     );
 
     expect(screen.getByText('How can I help?')).toBeOnTheScreen();
-    expect(screen.getByText('✨')).toBeOnTheScreen();
+    expect(UNSAFE_getByProps({ children: '✨' })).toBeTruthy();
   });
 
   it('renders user messages without the AI avatar', () => {
@@ -40,11 +40,25 @@ describe('ChatMessageRow', () => {
     expect(screen.queryByText('✨')).toBeNull();
   });
 
-  it('uses the Santa avatar in santa mode', () => {
+  it('keeps user messages avatar-free in santa mode', () => {
     render(
+      <ChatMessageRow
+        item={{ ...baseMessage, role: 'user', text: 'Show me phones' }}
+        santaMode={true}
+        colors={colors}
+      />
+    );
+
+    expect(screen.getByText('Show me phones')).toBeOnTheScreen();
+    expect(screen.queryByText('✨')).toBeNull();
+    expect(screen.queryByText('🎅')).toBeNull();
+  });
+
+  it('uses the Santa avatar in santa mode', () => {
+    const { UNSAFE_getByProps } = render(
       <ChatMessageRow item={baseMessage} santaMode={true} colors={colors} />
     );
 
-    expect(screen.getByText('🎅')).toBeOnTheScreen();
+    expect(UNSAFE_getByProps({ children: '🎅' })).toBeTruthy();
   });
 });

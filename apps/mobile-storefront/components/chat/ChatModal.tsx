@@ -5,13 +5,12 @@ import {
   Keyboard,
   Modal,
   Pressable,
-  StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { GadgetPattern } from '@/components/storefront/GadgetPattern';
+import { PatternedBackground } from '@/components/storefront/PatternedBackground';
 import AppKeyboardContainer from '@/components/ui/AppKeyboardContainer';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
@@ -152,20 +151,10 @@ export function ChatModal({
 
         <AppKeyboardContainer style={styles.messagesWrapper} enabled={true}>
           <View style={{ flex: 1, position: 'relative' }}>
-            <View
-              style={[
-                StyleSheet.absoluteFill,
-                { backgroundColor: santaMode ? '#FFF5F5' : colors.background },
-              ]}
+            <PatternedBackground
+              backgroundColor={santaMode ? '#FFF5F5' : colors.background}
+              isDark={colorScheme === 'dark'}
             />
-
-            <View style={[StyleSheet.absoluteFill, { overflow: 'hidden' }]}>
-              <GadgetPattern
-                opacity={colorScheme === 'dark' ? 0.04 : 0.07}
-                height={1500}
-                color={colorScheme === 'dark' ? '#ffffff' : BRAND.primary}
-              />
-            </View>
 
             <FlashList
               ref={flatListRef}

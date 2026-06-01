@@ -96,6 +96,7 @@ export function useDraggableFab(
         isOnRight
       );
       const clampedTranslationY = getClampedFabTranslationY(
+        previousLayout.windowHeight - previousLayout.bottomOffset - FAB_SIZE,
         windowHeight,
         bottomOffset,
         translateY.get()

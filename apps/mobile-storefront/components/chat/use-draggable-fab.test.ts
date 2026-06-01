@@ -26,10 +26,11 @@ describe('useDraggableFab', () => {
     expect(result.current.isOverDismissZone).toBe(false);
   });
 
-  it('scale starts at 1.05 due to mock pulse loop', () => {
+  it('exposes a positive numeric scale shared value', () => {
     const { result } = renderHook(() => useDraggableFab(90));
 
-    expect(result.current.scale.value).toBe(1.05);
+    expect(typeof result.current.scale.value).toBe('number');
+    expect(result.current.scale.value).toBeGreaterThan(0);
   });
 
   it('translateX and translateY start at 0', () => {

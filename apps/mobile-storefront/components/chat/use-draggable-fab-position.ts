@@ -14,14 +14,15 @@ export function getAnchoredFabTranslationX(
 }
 
 export function getClampedFabTranslationY(
-  windowHeight: number,
-  bottomOffset: number,
+  previousStartY: number,
+  nextWindowHeight: number,
+  nextBottomOffset: number,
   currentTranslationY: number
 ) {
-  const startY = windowHeight - bottomOffset - FAB_SIZE;
-  const maxY = windowHeight - bottomOffset - FAB_SIZE;
-  const absoluteY = startY + currentTranslationY;
+  const nextStartY = nextWindowHeight - nextBottomOffset - FAB_SIZE;
+  const maxY = nextWindowHeight - nextBottomOffset - FAB_SIZE;
+  const absoluteY = previousStartY + currentTranslationY;
   const clampedAbsoluteY = Math.max(FAB_MIN_Y, Math.min(absoluteY, maxY));
 
-  return clampedAbsoluteY - startY;
+  return clampedAbsoluteY - nextStartY;
 }
