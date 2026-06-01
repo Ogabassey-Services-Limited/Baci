@@ -1482,6 +1482,10 @@ export type StorefrontRobotsSearchParams = Record<
   string | string[] | undefined
 >;
 
+interface StorefrontFilterMetadataOptions {
+  filtersAffectResults?: boolean;
+}
+
 function hasSearchParamValue(value: string | string[] | undefined): boolean {
   if (Array.isArray(value)) {
     return value.some((entry) => entry.trim() !== '');
@@ -1517,12 +1521,17 @@ function countActiveStorefrontFilters(
 }
 
 export function getCanonicalStorefrontFilterSearchParams(
-  searchParams?: StorefrontRobotsSearchParams
+  searchParams?: StorefrontRobotsSearchParams,
+  options: StorefrontFilterMetadataOptions = {}
 ): URLSearchParams {
   const canonicalParams = new URLSearchParams();
   const activeFilterKeys = getActiveStorefrontFilterKeys(searchParams);
 
-  if (!searchParams || activeFilterKeys.size !== 1) {
+  if (
+    !searchParams ||
+    !options.filtersAffectResults ||
+    activeFilterKeys.size !== 1
+  ) {
     return canonicalParams;
   }
 
@@ -1562,9 +1571,13 @@ export function getCanonicalStorefrontFilterSearchParams(
 }
 
 export function getIndexableRobotsMetadata(
-  searchParams?: StorefrontRobotsSearchParams
+  searchParams?: StorefrontRobotsSearchParams,
+  options: StorefrontFilterMetadataOptions = {}
 ): Metadata['robots'] {
-  const isIndexable = countActiveStorefrontFilters(searchParams) <= 1;
+  const activeFilterCount = countActiveStorefrontFilters(searchParams);
+  const isIndexable =
+    activeFilterCount === 0 ||
+    (options.filtersAffectResults === true && activeFilterCount <= 1);
 
   return {
     index: isIndexable,

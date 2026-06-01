@@ -695,8 +695,22 @@ describe('getIndexableRobotsMetadata', () => {
     });
   });
 
-  it('keeps focused single-filter listing URLs indexable', () => {
+  it('keeps focused single-filter listing URLs indexable when filters affect results', () => {
     expect(getIndexableRobotsMetadata({ brand: 'Dell' })).toMatchObject({
+      index: false,
+      follow: true,
+      googleBot: {
+        index: false,
+        follow: true,
+      },
+    });
+
+    expect(
+      getIndexableRobotsMetadata(
+        { brand: 'Dell' },
+        { filtersAffectResults: true }
+      )
+    ).toMatchObject({
       index: true,
       follow: true,
       googleBot: {
@@ -708,10 +722,13 @@ describe('getIndexableRobotsMetadata', () => {
 
   it('deduplicates legacy singular and plural keys for the same listing filter', () => {
     expect(
-      getIndexableRobotsMetadata({
-        brand: 'Dell',
-        brands: 'Dell',
-      })
+      getIndexableRobotsMetadata(
+        {
+          brand: 'Dell',
+          brands: 'Dell',
+        },
+        { filtersAffectResults: true }
+      )
     ).toMatchObject({
       index: true,
       follow: true,
@@ -724,10 +741,13 @@ describe('getIndexableRobotsMetadata', () => {
 
   it('treats price bounds as one listing filter', () => {
     expect(
-      getIndexableRobotsMetadata({
-        minPrice: '100000',
-        maxPrice: '500000',
-      })
+      getIndexableRobotsMetadata(
+        {
+          minPrice: '100000',
+          maxPrice: '500000',
+        },
+        { filtersAffectResults: true }
+      )
     ).toMatchObject({
       index: true,
       follow: true,
@@ -758,17 +778,29 @@ describe('getIndexableRobotsMetadata', () => {
 describe('getCanonicalStorefrontFilterSearchParams', () => {
   it('preserves a focused single listing filter in canonical query params', () => {
     expect(
-      getCanonicalStorefrontFilterSearchParams({ brand: 'Dell' }).toString()
+      getCanonicalStorefrontFilterSearchParams(
+        { brand: 'Dell' },
+        { filtersAffectResults: true }
+      ).toString()
     ).toBe('brand=Dell');
   });
 
   it('keeps price range bounds together as one canonical listing filter', () => {
     expect(
-      getCanonicalStorefrontFilterSearchParams({
-        minPrice: '100000',
-        maxPrice: '500000',
-      }).toString()
+      getCanonicalStorefrontFilterSearchParams(
+        {
+          minPrice: '100000',
+          maxPrice: '500000',
+        },
+        { filtersAffectResults: true }
+      ).toString()
     ).toBe('minPrice=100000&maxPrice=500000');
+  });
+
+  it('drops canonical filter params until filters affect listing results', () => {
+    expect(
+      getCanonicalStorefrontFilterSearchParams({ brand: 'Dell' }).toString()
+    ).toBe('');
   });
 
   it('drops canonical filter params for multi-filter listing URLs', () => {

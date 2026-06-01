@@ -159,13 +159,9 @@ vi.mock('@/lib/seo-utils', async (importOriginal) => {
       mockGenerateFAQSchema(...args),
     generateMetaDescription: (description: string) =>
       description.replace(/<[^>]+>/g, '').trim(),
-    getIndexableRobotsMetadata: () => ({
-      index: true,
-      follow: true,
-      'max-image-preview': 'large',
-      'max-snippet': -1,
-      'max-video-preview': -1,
-    }),
+    getIndexableRobotsMetadata: (
+      ...args: Parameters<typeof actual.getIndexableRobotsMetadata>
+    ) => actual.getIndexableRobotsMetadata(...args),
   };
 });
 
@@ -915,18 +911,22 @@ describe('category page route', () => {
     ]);
   });
 
-  it('preserves focused storefront filters in category canonical metadata', async () => {
+  it('drops focused storefront filters from category canonical metadata until listing results are filtered', async () => {
     const metadata = await generateMetadata({
       params: Promise.resolve({ slug: 'test-store', category: 'smartphones' }),
       searchParams: Promise.resolve({ brand: 'Apple', page: '2' }),
     });
 
     expect(metadata.alternates?.canonical).toBe(
-      'https://test-store.usebaci.com/smartphones?brand=Apple&page=2'
+      'https://test-store.usebaci.com/smartphones?page=2'
     );
     expect(metadata.openGraph?.url).toBe(
-      'https://test-store.usebaci.com/smartphones?brand=Apple&page=2'
+      'https://test-store.usebaci.com/smartphones?page=2'
     );
+    expect(metadata.robots).toMatchObject({
+      index: false,
+      follow: true,
+    });
   });
 
   it('preserves the page marker when long category titles are truncated', async () => {
