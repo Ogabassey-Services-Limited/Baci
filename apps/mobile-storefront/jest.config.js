@@ -8,6 +8,9 @@ const reactTestRendererPath = require.resolve('react-test-renderer');
 const config = {
   preset: 'jest-expo',
   testPathIgnorePatterns: ['/node_modules/', '\\.test-utils\\.(t|j)sx?$'],
+  // React Native native-module mocks can leave idle handles after every suite
+  // has passed in CI; exit explicitly so GitHub does not cancel a green run.
+  forceExit: process.env.CI === 'true',
   transformIgnorePatterns: [
     'node_modules/(?!((jest-)?react-native|@react-native(-community)?|@react-native-vector-icons/.*)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@shopify/flash-list|@supabase/.*|zustand|nativewind)',
   ],

@@ -35,7 +35,7 @@ describe('next.config OgaBassey resource headers', () => {
       getStorefrontMetadataCacheBucket(
         'Mozilla/5.0 AppleWebKit/537.36 Chrome/125.0 Safari/537.36'
       )
-    ).toBe('streaming');
+    ).toBe('metadata-blocking');
   });
 
   it('preconnects the OgaBassey CDN on the production custom domain', async () => {
