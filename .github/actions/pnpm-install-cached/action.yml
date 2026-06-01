@@ -6,10 +6,6 @@ inputs:
     description: 'Path for pnpm store'
     required: false
     default: ~/.local/share/pnpm/store/v3
-  turbo-cache-dir:
-    description: 'Path for local Turborepo artifacts'
-    required: false
-    default: .turbo
   install-command:
     description: 'Custom command to execute dependencies installation'
     required: false
@@ -48,19 +44,10 @@ runs:
         pnpm config set store-dir "${{ inputs.store-dir }}"
         echo "PNPM_STORE_DIR=${{ inputs.store-dir }}" >> "$GITHUB_ENV"
 
-    # Split caching for local Turborepo artifacts
-    - id: turbo-cache
-      name: Restore Turborepo cache
-      uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
-      with:
-        path: ${{ inputs.turbo-cache-dir }}
-        key: turbo-${{ runner.os }}-${{ github.ref_name }}-${{ github.sha }}
-        restore-keys: |
-          turbo-${{ runner.os }}-${{ github.ref_name }}-
-          turbo-${{ runner.os }}-main-
-
     - name: Install Dependencies
       shell: bash
+      env:
+        pnpm_config_verify_store_integrity: 'false'
       run: ${{ inputs.install-command }}
 
     # Cache Save Engine: PR branches are strictly RESTORE-ONLY to prevent cache poisoning & save storage limit (10GB)
@@ -74,12 +61,3 @@ runs:
         path: ${{ inputs.store-dir }}
         key: ${{ steps.pnpm-store-cache.outputs.cache-primary-key }}
 
-    - name: Save Turborepo cache (main branch only)
-      if: >
-        github.ref == 'refs/heads/main' &&
-        github.event_name == 'push' &&
-        steps.turbo-cache.outputs.cache-hit != 'true'
-      uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
-      with:
-        path: ${{ inputs.turbo-cache-dir }}
-        key: ${{ steps.turbo-cache.outputs.cache-primary-key }}
