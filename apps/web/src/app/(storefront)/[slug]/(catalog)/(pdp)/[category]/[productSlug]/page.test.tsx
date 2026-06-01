@@ -658,6 +658,8 @@ describe('[category]/[productSlug] page metadata', () => {
     mockGetRequestScopedMerchant.mockResolvedValue(baseMerchant);
     mockGetCachedProduct.mockReset();
     mockDefaultCachedProductLookup();
+    mockGetCachedProductLcpHint.mockReset();
+    mockGetCachedProductLcpHint.mockResolvedValue(null);
     mockGetCachedProductWithDetails.mockResolvedValue(null);
     mockGetCachedLegacyProductRedirectTarget.mockResolvedValue(null);
     mockGetPublishedClusterPosts.mockReset();
@@ -680,6 +682,68 @@ describe('[category]/[productSlug] page metadata', () => {
 
     expect(mockConnection).not.toHaveBeenCalled();
     expect(mockGetRequestScopedMerchant).toHaveBeenCalled();
+  });
+
+  it('builds metadata from the LCP hint without hydrating full product details', async () => {
+    mockGetCachedProductLcpHint.mockResolvedValueOnce({
+      id: 'prod-1',
+      name: 'HP Laptop 14-ep0063nia',
+      slug: 'hp-laptop-14-ep0063nia',
+      canonical_url: null,
+      brand: 'HP',
+      category: 'Laptops',
+      categories: {
+        id: 'cat-1',
+        name: 'Laptops',
+        slug: 'laptops',
+      },
+      condition: 'new',
+      manage_stock: false,
+      price: 645_600,
+      base_price: 645_600,
+      sale_price: null,
+      stock_quantity: 10,
+      meta_title: 'HP Laptop 14 Price',
+      meta_description:
+        '<p>Shop the HP Laptop 14-ep0063nia with warranty and delivery.</p>',
+      keywords: ['hp laptop', 'laptop price in nigeria'],
+      images: ['https://cdn.example.com/products/hp-laptop.png'],
+      schema_markup: null,
+      product_categories: [],
+    });
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: 'teststore',
+        category: 'laptops',
+        productSlug: 'hp-laptop-14-ep0063nia',
+      }),
+      searchParams: Promise.resolve({}),
+    });
+
+    expect(mockGetCachedProductWithDetails).not.toHaveBeenCalled();
+    expect(metadata.title).toBe('HP Laptop 14 Price | TestStore');
+    expect(metadata.description).toBe(
+      'Shop the HP Laptop 14-ep0063nia with warranty and delivery.'
+    );
+    expect(metadata.keywords).toEqual(['hp laptop', 'laptop price in nigeria']);
+    expect(metadata.alternates?.canonical).toBe(
+      'https://teststore.usebaci.com/laptops/hp-laptop-14-ep0063nia'
+    );
+    expect(metadata.openGraph?.images).toEqual([
+      {
+        url: 'https://cdn.example.com/products/hp-laptop.png',
+        alt: 'HP Laptop 14-ep0063nia',
+      },
+    ]);
+    expect(metadata.twitter?.images).toEqual([
+      'https://cdn.example.com/products/hp-laptop.png',
+    ]);
+    expect(metadata.other).toMatchObject({
+      'product:price:amount': '645600',
+      'product:price:currency': 'NGN',
+      'product:availability': 'in stock',
+    });
   });
 
   it('returns noindex metadata for legacy archived variant slugs (real HTTP 308 happens during page render)', async () => {

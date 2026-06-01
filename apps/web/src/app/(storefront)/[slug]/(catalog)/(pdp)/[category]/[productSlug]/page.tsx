@@ -405,17 +405,26 @@ type CategoryProductResult =
   | null;
 
 interface LcpRouteProduct {
+  base_price?: number | null;
   brand?: string | null;
+  canonical_url?: string | null;
   categories?: { name?: string; slug?: string } | null;
   category?: string | null;
   category_slug?: string;
-  condition?: string | null;
+  condition?: string;
+  compare_at_price?: number | null;
   id: string;
   image?: string;
   imageLarge?: string;
+  keywords?: string[] | null;
   manage_stock?: boolean | null;
+  max_variant_price?: number | null;
+  meta_description?: string | null;
+  meta_title?: string | null;
+  min_variant_price?: number | null;
   name: string;
-  price?: number | string | null;
+  price?: number | null;
+  sale_price?: number | null;
   schema_markup?: unknown;
   slug?: string;
   stock_quantity?: number | null;
@@ -460,6 +469,32 @@ function getMappedProductCategorySlug(product: LcpRouteProduct) {
   );
 }
 
+function isUuidProductRouteValue(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+    value
+  );
+}
+
+function shouldRedirectProductSlugValue(productSlug: string) {
+  return (
+    !isUuidProductRouteValue(productSlug) &&
+    productSlug !== productSlug.toLowerCase()
+  );
+}
+
+function parseRouteProductNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const parsed = Number(value.replace(/,/g, ''));
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+}
+
 function mapCachedProductLcpHintToRouteProduct(
   cachedProduct: CachedProductLcpHint
 ): LcpRouteProduct {
@@ -477,17 +512,26 @@ function mapCachedProductLcpHintToRouteProduct(
     typeof firstImage === 'string' ? firstImage : (firstImage?.url ?? '');
 
   return {
+    base_price: cachedProduct.base_price ?? null,
     brand: cachedProduct.brand,
+    canonical_url: cachedProduct.canonical_url,
     categories: primaryCategory,
     category: primaryCategory?.name ?? cachedProduct.category,
     category_slug: primaryCategory?.slug,
-    condition: cachedProduct.condition,
+    condition: cachedProduct.condition ?? undefined,
+    compare_at_price: parseRouteProductNumber(cachedProduct.compare_at_price),
     id: cachedProduct.id,
     image: primaryImage,
     imageLarge: primaryImage,
+    keywords: cachedProduct.keywords,
     manage_stock: cachedProduct.manage_stock,
+    max_variant_price: cachedProduct.max_variant_price ?? null,
+    meta_description: cachedProduct.meta_description,
+    meta_title: cachedProduct.meta_title,
+    min_variant_price: cachedProduct.min_variant_price ?? null,
     name: cachedProduct.name,
-    price: cachedProduct.price,
+    price: parseRouteProductNumber(cachedProduct.price),
+    sale_price: cachedProduct.sale_price ?? null,
     schema_markup: cachedProduct.schema_markup,
     slug: cachedProduct.slug ?? cachedProduct.id,
     stock_quantity: cachedProduct.stock_quantity,
@@ -507,12 +551,20 @@ const getProduct = async (
     return null;
   }
 
+  return getProductForMerchant(merchant, categorySlug, productSlug);
+};
+
+const getProductForMerchant = async (
+  merchant: CachedMerchant,
+  categorySlug: string,
+  productSlug: string
+): Promise<CategoryProductResult> => {
   // 2. Get Product using the new cached function with full joins
   let product = await getCachedProductWithDetails(merchant.id, productSlug);
 
   // 2b. Case-insensitive fallback: If not found, try lowercasing the productSlug
   // This handles Google index errors like google-pixel-6-8GB-256GB vs google-pixel-6-8gb-256gb
-  let needsValuesRedirect = false;
+  let needsValuesRedirect = shouldRedirectProductSlugValue(productSlug);
   if (!product && productSlug !== productSlug.toLowerCase()) {
     const lowercaseSlug = productSlug.toLowerCase();
     product = await getCachedProductWithDetails(merchant.id, lowercaseSlug);
@@ -659,7 +711,11 @@ async function getProductRouteControl(
   }
 
   if (!cachedProduct) {
-    const result = await getProduct(storeSlug, categorySlug, productSlug);
+    const result = await getProductForMerchant(
+      merchant,
+      categorySlug,
+      productSlug
+    );
     return result
       ? { result, loadProductResult: () => Promise.resolve(result) }
       : null;
@@ -683,34 +739,10 @@ async function getProductRouteControl(
   };
 }
 
-export async function generateMetadata({
-  params,
-}: PageProps): Promise<Metadata> {
-  const { slug, category, productSlug } = await params;
-  if (!isValidMerchantIdentifier(slug)) {
-    notFound();
-  }
-  const result = await getProduct(slug, category, productSlug);
-
-  if (!result) {
-    notFound();
-  }
-
-  // Don't redirect from generateMetadata — Next.js can't change HTTP status
-  // from here and falls back to an HTML <meta refresh>, which Google indexes
-  // as "Excluded by 'noindex' tag". The page component below runs the same
-  // permanentRedirect() before any HTML streams, producing a real HTTP 308.
-  // Return bare, noindex metadata here as a safety net for the race.
-  if (!('product' in result)) {
-    return { robots: { index: false, follow: false } };
-  }
-
-  const { product, merchant, categoryMismatch, needsValuesRedirect } = result;
-
-  if (categoryMismatch || needsValuesRedirect) {
-    return { robots: { index: false, follow: false } };
-  }
-
+function buildCategoryProductMetadata(
+  product: LcpRouteProduct,
+  merchant: CachedMerchant
+): Metadata {
   const baseUrl = buildStoreUrl(merchant);
 
   const canonicalUrl = getValidatedProductUrl(product, baseUrl, merchant.slug);
@@ -756,7 +788,7 @@ export async function generateMetadata({
   return {
     title: metadataTitle,
     description: seoDescription,
-    keywords: product.keywords,
+    keywords: product.keywords ?? undefined,
     alternates: {
       canonical: canonicalUrl,
     },
@@ -785,6 +817,43 @@ export async function generateMetadata({
     },
     other: socialMetadata.other,
   };
+}
+
+export async function generateMetadata({
+  params,
+}: PageProps): Promise<Metadata> {
+  const { slug, category, productSlug } = await params;
+  if (!isValidMerchantIdentifier(slug)) {
+    notFound();
+  }
+  const routeControl = await getProductRouteControl(
+    slug,
+    category,
+    productSlug
+  );
+
+  if (!routeControl) {
+    notFound();
+  }
+
+  // Don't redirect from generateMetadata — Next.js can't change HTTP status
+  // from here and falls back to an HTML <meta refresh>, which Google indexes
+  // as "Excluded by 'noindex' tag". The page component below runs the same
+  // permanentRedirect() before any HTML streams, producing a real HTTP 308.
+  // Return bare, noindex metadata here as a safety net for the race.
+  const { result } = routeControl;
+
+  if (!('product' in result)) {
+    return { robots: { index: false, follow: false } };
+  }
+
+  const { product, merchant, categoryMismatch, needsValuesRedirect } = result;
+
+  if (categoryMismatch || needsValuesRedirect) {
+    return { robots: { index: false, follow: false } };
+  }
+
+  return buildCategoryProductMetadata(product, merchant);
 }
 
 interface CategoryProductPageContentProps {
