@@ -466,8 +466,11 @@ export const ProductDetails: React.FC = () => {
       {/* --- SELECTION REQUIRED MODAL --- */}
       {isSelectionModalOpen && (
         <div className="fixed inset-0 z-80 flex items-end md:items-center justify-center px-0 md:px-4">
-          <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-xs"
+          <button
+            type="button"
+            aria-label="Dismiss selection modal backdrop"
+            tabIndex={-1}
+            className="absolute inset-0 border-0 bg-black/60 p-0 backdrop-blur-xs"
             onClick={() => setIsSelectionModalOpen(false)}
           />
           <div className="bg-white w-full md:max-w-md md:rounded-2xl rounded-t-2xl shadow-2xl relative z-10 animate-in slide-in-from-bottom-10 duration-300">
