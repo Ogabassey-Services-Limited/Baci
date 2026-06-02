@@ -32,7 +32,7 @@ export function Skeleton({
 }: SkeletonProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  
+
   // Reanimated Shared Value for loading shimmers
   const opacityValue = useSharedValue(0.3);
 
