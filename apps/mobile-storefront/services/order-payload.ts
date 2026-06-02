@@ -1,4 +1,5 @@
 import type { CreateOrderRequest } from './orders';
+import { getInitialPaymentStatus } from './payment-status';
 
 type BuildMobileOrderPayloadOptions = {
   merchantId: string;
@@ -37,10 +38,7 @@ export function buildMobileOrderPayload(
     payment_method: validatedRequest.payment_method,
     selected_quote_id: validatedRequest.selected_quote_id ?? null,
     shipping_provider: validatedRequest.shipping_provider ?? null,
-    payment_status:
-      validatedRequest.payment_method === 'pay_on_delivery'
-        ? 'pending'
-        : 'unpaid',
+    payment_status: getInitialPaymentStatus(validatedRequest.payment_method),
     shipping_status: 'pending',
     shipping_address: {
       firstName: validatedRequest.shipping_address.firstName,

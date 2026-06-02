@@ -23,16 +23,13 @@ describe('applyOrderListVisibilityFilter', () => {
     expect(calls).toEqual([
       {
         method: 'not',
-        args: [
-          'payment_status',
-          'in',
-          HIDDEN_CHECKOUT_PAYMENT_STATUSES,
-        ],
+        args: ['payment_status', 'in', HIDDEN_CHECKOUT_PAYMENT_STATUSES],
       },
       {
         method: 'or',
         args: [VISIBLE_PENDING_ORDER_FILTER],
       },
     ]);
+    expect(VISIBLE_PENDING_ORDER_FILTER).toContain('payment_status.neq.pending');
   });
 });

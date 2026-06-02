@@ -12,6 +12,7 @@ import Colors from '@/constants/Colors';
 import { usePermissionBooster } from '@/hooks/use-permission-booster';
 import { BACI_GOOGLE_REVIEW_URL } from '@/lib/post-purchase-actions';
 import { scheduleLocalNotification } from '@/services/push-notifications';
+import { SERVER_CONFIRMED_ORDER_NOTIFICATION_METHODS } from '@/services/payment-status';
 import { useAuthStore } from '@/stores/auth-store';
 
 export default function OrderSuccessScreen() {
@@ -33,7 +34,13 @@ export default function OrderSuccessScreen() {
   const [showPermissionModal, setShowPermissionModal] = useState(false);
 
   useEffect(() => {
+    const isServerConfirmedNotificationMethod =
+      SERVER_CONFIRMED_ORDER_NOTIFICATION_METHODS.has(paymentMethod);
     if (orderNotificationScheduledRef.current || !orderId) {
+      return;
+    }
+
+    if (isServerConfirmedNotificationMethod) {
       return;
     }
 
@@ -52,7 +59,7 @@ export default function OrderSuccessScreen() {
       orderNotificationScheduledRef.current = false;
       console.warn('Failed to schedule order received notification', error);
     });
-  }, [orderId, orderNumber]);
+  }, [orderId, orderNumber, paymentMethod]);
 
   useEffect(() => {
     // Check for notification permissions (Soft Ask)

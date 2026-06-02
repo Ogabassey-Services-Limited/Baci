@@ -92,6 +92,24 @@ describe('OrderSuccessScreen', () => {
     });
   });
 
+  it.each(['invoice', 'payforme', 'pay_on_delivery'])(
+    'does not schedule a duplicate local order notification for server-confirmed %s success screens',
+    async (paymentMethod) => {
+      mockSearchParams = {
+        orderId: 'order-1',
+        orderNumber: 'BAC-001',
+        paymentMethod,
+        trackingToken: 'tracking-token',
+      };
+
+      render(<OrderSuccessScreen />);
+
+      await waitFor(() => {
+        expect(mockScheduleLocalNotification).not.toHaveBeenCalled();
+      });
+    }
+  );
+
   it('falls back to orderId when orderNumber is blank', async () => {
     mockSearchParams = {
       orderId: 'order-1',

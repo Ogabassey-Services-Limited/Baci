@@ -26,11 +26,31 @@ jest.mock('@/hooks/useTheme', () => ({
   }),
 }));
 
+const mockUseKeyboard = jest.fn(() => ({
+  dismissKeyboard: jest.fn(),
+  isKeyboardVisible: false,
+  keyboardHeight: 0,
+  withKeyboardDismiss: <T extends (...args: never[]) => unknown>(handler: T) =>
+    handler,
+}));
+
+jest.mock('@/hooks/use-keyboard', () => ({
+  useKeyboard: () => mockUseKeyboard(),
+}));
+
 describe('CustomTabBar', () => {
   let mockProps: BottomTabBarProps;
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUseKeyboard.mockReturnValue({
+      dismissKeyboard: jest.fn(),
+      isKeyboardVisible: false,
+      keyboardHeight: 0,
+      withKeyboardDismiss: <T extends (...args: never[]) => unknown>(
+        handler: T
+      ) => handler,
+    });
 
     mockProps = {
       insets: { top: 0, bottom: 0, left: 0, right: 0 },
@@ -132,6 +152,21 @@ describe('CustomTabBar', () => {
     };
 
     const { toJSON } = render(<CustomTabBar {...cartProps} />);
+
+    expect(toJSON()).toBeNull();
+  });
+
+  it('hides the floating tab bar while the keyboard is visible', () => {
+    mockUseKeyboard.mockReturnValue({
+      dismissKeyboard: jest.fn(),
+      isKeyboardVisible: true,
+      keyboardHeight: 320,
+      withKeyboardDismiss: <T extends (...args: never[]) => unknown>(
+        handler: T
+      ) => handler,
+    });
+
+    const { toJSON } = render(<CustomTabBar {...mockProps} />);
 
     expect(toJSON()).toBeNull();
   });

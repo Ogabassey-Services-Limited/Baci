@@ -33,8 +33,8 @@ const supabaseMock = vi.hoisted(() => {
     for (const method of [
       'select',
       'eq',
-      'or',
       'not',
+      'or',
       'gte',
       'lte',
       'order',
@@ -232,11 +232,7 @@ describe('fetchOrders', () => {
       expect.arrayContaining([
         {
           method: 'not',
-          args: [
-            'payment_status',
-            'in',
-            HIDDEN_CHECKOUT_PAYMENT_STATUSES,
-          ],
+          args: ['payment_status', 'in', HIDDEN_CHECKOUT_PAYMENT_STATUSES],
         },
         {
           method: 'or',

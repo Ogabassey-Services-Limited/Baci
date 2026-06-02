@@ -10,7 +10,12 @@ export interface FailedOrder {
   customer_email: string;
   customer_phone: string;
   total: number;
-  payment_status: 'bnpl_pending' | 'failed' | 'pending' | 'expired';
+  payment_status:
+    | 'bnpl_pending'
+    | 'failed'
+    | 'pending'
+    | 'expired'
+    | 'unpaid';
   payment_method: string;
   created_at: string;
   gateway_response?: Record<string, unknown> | null;
@@ -25,6 +30,7 @@ const VALID_PAYMENT_STATUSES: ReadonlySet<FailedOrderPaymentStatus> = new Set([
   'failed',
   'pending',
   'expired',
+  'unpaid',
 ]);
 
 const toPaymentStatus = (status: string): FailedOrderPaymentStatus => {
@@ -71,6 +77,7 @@ export function useFailedOrders() {
       // - bnpl_pending: BNPL started but not completed
       // - expired: DVA/payment link expired without payment
       // - pending older than 30min: likely abandoned bank transfer
+      // - unpaid older than 30min: likely abandoned online checkout
       const { data, error } = await supabase
         .from('orders')
         .select(`
@@ -92,7 +99,7 @@ export function useFailedOrders() {
         `)
         .eq('merchant_id', merchantId)
         .or(
-          `payment_status.in.(bnpl_pending,failed,expired),and(payment_status.eq.pending,created_at.lt.${staleCutoff})`
+          `payment_status.in.(bnpl_pending,failed,expired),and(payment_status.eq.pending,created_at.lt.${staleCutoff}),and(payment_status.eq.unpaid,created_at.lt.${staleCutoff})`
         )
         .order('created_at', { ascending: false });
 

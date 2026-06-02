@@ -170,7 +170,7 @@ describe('finalizeCheckoutPayment', () => {
     expect(runPostOrderSideEffects).toHaveBeenCalledTimes(1);
   });
 
-  it('initializes gateway payments with an idempotency key before routing without order-success side effects', async () => {
+  it('initializes gateway payments with an idempotency key before routing and post-order side effects', async () => {
     const setIsProcessing = jest.fn();
     const runPostOrderSideEffects = jest.fn();
     const isOrderInFlight = { current: true };
@@ -218,7 +218,7 @@ describe('finalizeCheckoutPayment', () => {
         reference: 'pay-ref',
       }),
     });
-    expect(runPostOrderSideEffects).not.toHaveBeenCalled();
+    expect(runPostOrderSideEffects).toHaveBeenCalledTimes(1);
   });
 
   it('uses the wallet-funded bank transfer flow when it can start', async () => {

@@ -3,12 +3,12 @@ import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { useEffect } from 'react';
 import {
-  Dimensions,
   Platform,
   StyleSheet,
   UIManager,
   View,
   type ViewStyle,
+  useWindowDimensions,
 } from 'react-native';
 import Animated, {
   useAnimatedStyle,
@@ -26,10 +26,8 @@ import {
 const HAS_EXPO_BLUR = UIManager.hasViewManagerConfig('ExpoBlurView');
 const BlurContainer = HAS_EXPO_BLUR ? BlurView : View;
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CAPSULE_WIDTH = 36;
 const CAPSULE_HEIGHT = 36;
-const TAB_BAR_CONTENT_WIDTH = SCREEN_WIDTH - 48;
 
 export function CustomTabBarChrome({
   state,
@@ -37,6 +35,7 @@ export function CustomTabBarChrome({
   navigation,
   activeRouteName,
 }: BottomTabBarProps & { activeRouteName: string }) {
+  const { width: screenWidth } = useWindowDimensions();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const isDark = colorScheme === 'dark';
@@ -48,7 +47,8 @@ export function CustomTabBarChrome({
     return options.href !== null && route.name !== 'categories';
   });
 
-  const tabWidth = TAB_BAR_CONTENT_WIDTH / visibleRoutes.length;
+  const tabBarContentWidth = screenWidth - 48;
+  const tabWidth = tabBarContentWidth / visibleRoutes.length;
   const activeIdx = visibleRoutes.findIndex((r) => r.name === activeRouteName);
   const targetIdx = activeIdx !== -1 ? activeIdx : 0;
 

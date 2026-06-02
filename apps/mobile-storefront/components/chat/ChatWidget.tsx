@@ -88,7 +88,6 @@ export function ChatWidget({
     isChatDismissed ||
     HIDDEN_ROUTES.some((route) => pathname?.startsWith(route));
 
-  // Reanimated style for the dynamic translation of the FAB container
   const animatedFabStyle = useAnimatedStyle(() => {
     return {
       transform: [
@@ -98,7 +97,6 @@ export function ChatWidget({
     };
   });
 
-  // Reanimated style for the scale pulse of the FAB
   const animatedIconStyle = useAnimatedStyle(() => {
     return {
       transform: [{ scale: scale.value }],
@@ -146,7 +144,6 @@ export function ChatWidget({
 
   return (
     <>
-      {/* Draggable Floating Action Button Container (Reanimated) */}
       <Animated.View
         style={[
           styles.fabContainer,
@@ -180,6 +177,8 @@ export function ChatWidget({
               <Touchable
                 activeOpacity={0.3}
                 animationDuration={{ in: 0, out: 150 }}
+                accessibilityLabel="Dismiss chat suggestion"
+                accessibilityRole="button"
                 style={styles.nudgeClose}
                 onPress={dismissNudge}
               >
