@@ -22,8 +22,8 @@ export const JumiaFeedItem = z.object({
   status: z.string().min(1),
   productSid: z.string().min(1),
   sellerSKU: z.string().min(1),
-  createdAt: z.string().datetime({ offset: true }),
-  updatedAt: z.string().datetime({ offset: true }),
+  createdAt: z.iso.datetime({ offset: true }),
+  updatedAt: z.iso.datetime({ offset: true }),
   errorMessage: z.string().optional(),
   errors: JumiaFeedItemError.optional(),
 });
@@ -34,21 +34,21 @@ export const JumiaFeedDetailsResponseSchema = z
     status: z.string().min(1),
     feedType: z.string().min(1),
     feedSource: z.string().min(1),
-    total: z.number().int().nonnegative(),
-    completed: z.number().int().nonnegative(),
-    failed: z.number().int().nonnegative(),
+    total: z.int().nonnegative(),
+    completed: z.int().nonnegative(),
+    failed: z.int().nonnegative(),
     createdBy: z.object({
       sid: z.string().min(1),
       name: z.string().min(1),
-      email: z.string().email(),
+      email: z.email(),
     }),
-    reportUrl: z.string().url().nullable().optional(),
+    reportUrl: z.url().nullable().optional(),
     errorMessage: z.string().optional(),
     feedItems: z.array(JumiaFeedItem),
   })
   .refine((d) => d.total >= d.completed + d.failed, {
-    message: 'total must be >= completed + failed',
     path: ['total'],
+    error: 'total must be >= completed + failed',
   });
 
 // ── Inferred types ──

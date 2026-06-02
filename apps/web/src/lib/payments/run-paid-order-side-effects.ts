@@ -29,12 +29,10 @@ const merchantDetailsSchema = z.object({
   tax_identification_number: nullableStringSchema,
   website_url: nullableStringSchema,
 });
-const supabaseErrorSchema = z
-  .object({
-    code: z.string().optional(),
-    message: z.string().optional(),
-  })
-  .passthrough();
+const supabaseErrorSchema = z.looseObject({
+  code: z.string().optional(),
+  message: z.string().optional(),
+});
 const SIDE_EFFECT_PAYMENT_STATUSES = new Set<RichPaidOrder['payment_status']>([
   'paid',
   'pending',

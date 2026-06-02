@@ -30,7 +30,7 @@ export const getProductDetailsSchema = z.object({
 
 export const createVirtualAccountSchema = z.object({
   amount: z.number().describe('Total amount to pay in Naira'),
-  customerEmail: z.string().email().describe('Customer email address'),
+  customerEmail: z.email().describe('Customer email address'),
   customerName: z.string().describe('Customer full name'),
   customerPhone: z.string().optional().describe('Customer phone number'),
   items: z

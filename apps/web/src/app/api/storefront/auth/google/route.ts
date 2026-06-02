@@ -1,12 +1,12 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import z from 'zod';
-import { getAppUrl } from '@/env';
 import { createClient } from '@/lib/supabase/server';
+import { resolveTrustedStorefrontRedirectUrl } from '../oauth-redirect';
 
 const googleAuthSchema = z.object({
   merchantSlug: z.string().min(1, 'Merchant slug is required'),
-  redirectUrl: z.string().url().optional(),
+  redirectUrl: z.string().trim().min(1).optional(),
 });
 
 /**
@@ -41,7 +41,7 @@ export async function POST(request: Request) {
     // First, try by slug (standard lookup)
     const slugResult = await supabase
       .from('merchants')
-      .select('id, slug, business_name, is_published')
+      .select('id, slug, business_name, is_published, custom_domain')
       .eq('slug', merchantSlug)
       .single();
 
@@ -51,7 +51,7 @@ export async function POST(request: Request) {
       // Fallback: try by custom_domain (for custom domain access like ogabassey.com)
       const domainResult = await supabase
         .from('merchants')
-        .select('id, slug, business_name, is_published')
+        .select('id, slug, business_name, is_published, custom_domain')
         .eq('custom_domain', merchantSlug.toLowerCase())
         .single();
 
@@ -70,11 +70,22 @@ export async function POST(request: Request) {
       );
     }
 
+    const trustedRedirectUrl = resolveTrustedStorefrontRedirectUrl(
+      redirectUrl,
+      merchant
+    );
+    if (!trustedRedirectUrl) {
+      return NextResponse.json(
+        { error: 'Invalid redirectUrl', code: 'INVALID_REDIRECT_URL' },
+        { status: 400 }
+      );
+    }
+
     // Initiate Google OAuth
     const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: redirectUrl || `${getAppUrl()}/account`,
+        redirectTo: trustedRedirectUrl,
         queryParams: {
           access_type: 'offline',
           prompt: 'consent',

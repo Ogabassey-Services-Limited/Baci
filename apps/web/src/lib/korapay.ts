@@ -73,8 +73,8 @@ export type PayoutStatus = (typeof PAYOUT_STATUSES)[number];
 const PaymentInitResponseSchema = z
   .object({
     reference: z.string(),
-    checkout_url: z.string().url().optional(),
-    authorization_url: z.string().url().optional(),
+    checkout_url: z.url().optional(),
+    authorization_url: z.url().optional(),
   })
   .refine(
     (value) =>
@@ -93,7 +93,7 @@ const PaymentVerificationSchema = z.object({
   status: z.enum(PAYMENT_STATUSES),
   customer: z.object({
     name: z.string(),
-    email: z.string().email(),
+    email: z.email(),
   }),
   paid_at: z.string(),
   created_at: z.string(),

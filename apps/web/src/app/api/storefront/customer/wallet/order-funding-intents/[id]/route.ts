@@ -24,7 +24,7 @@ type RouteContext = {
 };
 
 const routeParamsSchema = z.object({
-  id: z.string().uuid('Intent id must be a valid UUID'),
+  id: z.uuid('Intent id must be a valid UUID'),
 });
 
 function formatIntent(

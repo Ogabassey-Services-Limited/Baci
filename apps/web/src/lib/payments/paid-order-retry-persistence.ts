@@ -14,11 +14,9 @@ const paidOrderSideEffectRetrySchema = z.object({
   error: z.unknown(),
   orderId: nonEmptyStringSchema,
   reference: nonEmptyStringSchema,
-  transaction: z
-    .object({
-      id: nonEmptyStringSchema,
-    })
-    .passthrough(),
+  transaction: z.looseObject({
+    id: nonEmptyStringSchema,
+  }),
 });
 
 export function parseRetryInput(input: {

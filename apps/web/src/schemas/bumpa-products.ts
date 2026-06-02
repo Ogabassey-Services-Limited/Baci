@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-const urlSchema = z.string().url();
+const urlSchema = z.url();
 
 const optionalUrl = z
   .string()
@@ -8,7 +8,7 @@ const optionalUrl = z
   .optional()
   .default('')
   .refine((value) => value === '' || urlSchema.safeParse(value).success, {
-    message: 'Must be a valid URL',
+    error: 'Must be a valid URL',
   });
 
 const optionalUrlList = z
@@ -26,7 +26,7 @@ const optionalUrlList = z
             part.trim() === '' || urlSchema.safeParse(part.trim()).success
         ),
     {
-      message: 'Must contain only valid URLs',
+      error: 'Must contain only valid URLs',
     }
   );
 

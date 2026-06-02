@@ -16,12 +16,12 @@ export const optionalNonEmptyString = z.preprocess(
 
 export const optionalMerchantId = z.preprocess(
   preprocessTrimToUndefined,
-  z.string().uuid('Merchant id must be a valid UUID').optional()
+  z.uuid('Merchant id must be a valid UUID').optional()
 );
 
 export const optionalUuid = z.preprocess(
   preprocessTrimToUndefined,
-  z.string().uuid('Must be a valid UUID').optional()
+  z.uuid('Must be a valid UUID').optional()
 );
 
 function makeMerchantIdentifierRefinement(message: string) {
@@ -31,7 +31,7 @@ function makeMerchantIdentifierRefinement(message: string) {
   ) => {
     if (!data.merchantId && !data.merchantSlug) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message,
         path: ['merchantSlug'],
       });

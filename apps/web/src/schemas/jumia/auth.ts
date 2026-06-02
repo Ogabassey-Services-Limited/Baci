@@ -11,7 +11,7 @@ import { z } from 'zod';
 const numericOrString = z
   .union([z.number(), z.string().regex(/^\d+$/)])
   .transform(Number)
-  .pipe(z.number().int().positive());
+  .pipe(z.int().positive());
 
 export const JumiaTokenResponseSchema = z.object({
   access_token: z.string().trim().min(1),

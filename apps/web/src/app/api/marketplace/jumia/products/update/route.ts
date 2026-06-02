@@ -89,8 +89,8 @@ function resolveSalePrice(
 }
 
 const UpdateSchema = z.object({
-  productId: z.string().uuid(),
-  integrationId: z.string().uuid(),
+  productId: z.uuid(),
+  integrationId: z.uuid(),
   overrides: z
     .object({
       jumia_price: z.number().positive().optional(),
@@ -99,7 +99,7 @@ const UpdateSchema = z.object({
         .string()
         .regex(isoDateRegex, 'Must be YYYY-MM-DD or ISO 8601 datetime')
         .refine(isValidCalendarDate, {
-          message: 'Calendar-invalid date (e.g. Feb 31)',
+          error: 'Calendar-invalid date (e.g. Feb 31)',
         })
         .nullable()
         .optional(),
@@ -107,7 +107,7 @@ const UpdateSchema = z.object({
         .string()
         .regex(isoDateRegex, 'Must be YYYY-MM-DD or ISO 8601 datetime')
         .refine(isValidCalendarDate, {
-          message: 'Calendar-invalid date (e.g. Feb 31)',
+          error: 'Calendar-invalid date (e.g. Feb 31)',
         })
         .nullable()
         .optional(),
@@ -122,7 +122,7 @@ const UpdateSchema = z.object({
         return true;
       },
       {
-        message:
+        error:
           'Both jumia_sale_start and jumia_sale_end must be provided together',
       }
     )
@@ -133,7 +133,9 @@ const UpdateSchema = z.object({
         }
         return true;
       },
-      { message: 'jumia_sale_start must be before jumia_sale_end' }
+      {
+        error: 'jumia_sale_start must be before jumia_sale_end',
+      }
     ),
 });
 
@@ -168,7 +170,7 @@ export async function POST(request: NextRequest) {
     const parsed = UpdateSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Invalid input', details: parsed.error.flatten() },
+        { error: 'Invalid input', details: z.flattenError(parsed.error) },
         { status: 400 }
       );
     }

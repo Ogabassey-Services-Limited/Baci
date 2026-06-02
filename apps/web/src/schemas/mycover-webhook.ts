@@ -12,7 +12,7 @@ export const myCoverWebhookSchema = z.object({
       reference: z.string().optional(),
       customer: z
         .object({
-          email: z.string().email().optional(),
+          email: z.email().optional(),
           phone: z.string().optional(),
           first_name: z.string().optional(),
           last_name: z.string().optional(),

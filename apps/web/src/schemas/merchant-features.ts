@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const merchantFeatureSettingsSchema = z.object({
+const merchantFeatureSettingsFields = {
   loyalty_enabled: z.boolean(),
   reviews_enabled: z.boolean(),
   wishlist_enabled: z.boolean(),
@@ -16,9 +16,9 @@ export const merchantFeatureSettingsSchema = z.object({
   credit_direct_public_key: z.string().nullable(),
   credit_direct_min_amount: z.number(),
   credit_direct_max_amount: z.number(),
-  klump_enabled: z.boolean().default(false),
-  klump_min_amount: z.number().default(10_000),
-  klump_max_amount: z.number().default(500_000),
+  klump_enabled: z.boolean(),
+  klump_min_amount: z.number(),
+  klump_max_amount: z.number(),
   preferred_local_gateway: z.enum(['paystack', 'korapay']),
   preferred_international_gateway: z.enum(['paystack', 'korapay']),
   // Shipping
@@ -76,7 +76,20 @@ export const merchantFeatureSettingsSchema = z.object({
   vtu_customer_cashback_rate: z.number(),
   // Custom
   custom_settings: z.record(z.string(), z.unknown()),
+};
+
+export const merchantFeatureSettingsSchema = z.object({
+  ...merchantFeatureSettingsFields,
+  klump_enabled: merchantFeatureSettingsFields.klump_enabled.default(false),
+  klump_min_amount:
+    merchantFeatureSettingsFields.klump_min_amount.default(10_000),
+  klump_max_amount:
+    merchantFeatureSettingsFields.klump_max_amount.default(500_000),
 });
+
+export const merchantFeatureSettingsPatchSchema = z
+  .object(merchantFeatureSettingsFields)
+  .partial();
 
 export type MerchantFeatureSettingsInput = z.infer<
   typeof merchantFeatureSettingsSchema

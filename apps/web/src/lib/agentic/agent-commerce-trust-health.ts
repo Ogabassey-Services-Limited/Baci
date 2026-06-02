@@ -45,7 +45,7 @@ const trustDocumentSchema = z.object({
     checks: z
       .array(
         z.object({
-          affectedProductCount: z.number().int().nonnegative().optional(),
+          affectedProductCount: z.int().nonnegative().optional(),
           affectedProductIds: z.array(z.string()).optional(),
           id: z.string().min(1),
           message: z.string().min(1),

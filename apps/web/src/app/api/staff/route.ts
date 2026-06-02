@@ -47,7 +47,7 @@ const inviteStaffSchema = z.object({
   role: z.enum(STAFF_ROLE_VALUES),
 });
 
-const requestedMerchantSchema = z.string().uuid();
+const requestedMerchantSchema = z.uuid();
 
 function parseRequestedMerchantId(request: Request | NextRequest) {
   const headerValue = request.headers.get('x-baci-merchant-id');

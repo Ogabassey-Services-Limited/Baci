@@ -38,7 +38,7 @@ export const JumiaPackV2ResponseSchema = z
       .optional(),
   })
   .refine((data) => data.success || data.error, {
-    message: 'Response must contain success or error',
+    error: 'Response must contain success or error',
   });
 
 // ── Ready to Ship ──
@@ -59,7 +59,7 @@ export const JumiaReadyToShipResponseSchema = z
       .optional(),
   })
   .refine((data) => data.success || data.error, {
-    message: 'Response must contain success or error',
+    error: 'Response must contain success or error',
   });
 
 // ── Cancel ──
@@ -96,7 +96,7 @@ export const JumiaCancelResponseSchema = z
       .optional(),
   })
   .refine((data) => data.success || data.error, {
-    message: 'Response must contain success or error',
+    error: 'Response must contain success or error',
   });
 
 // ── Print Labels ──
@@ -109,7 +109,7 @@ export const JumiaPrintLabelsResponseSchema = z
           z.object({
             orderItems: z.string(),
             trackingNumber: z.string(),
-            label: z.string().url(),
+            label: z.url(),
           })
         ),
         total: z.number(),
@@ -123,7 +123,7 @@ export const JumiaPrintLabelsResponseSchema = z
       .optional(),
   })
   .refine((data) => data.success || data.error, {
-    message: 'Response must contain success or error',
+    error: 'Response must contain success or error',
   });
 
 // ── Inferred types ──

@@ -3,9 +3,9 @@ import { sanitizeHtml } from '@/lib/sanitize';
 
 const featuredImageVariantsSchema = z
   .object({
-    square_1x1: z.string().url().optional(),
-    standard_4x3: z.string().url().optional(),
-    landscape_16x9: z.string().url().optional(),
+    square_1x1: z.url().optional(),
+    standard_4x3: z.url().optional(),
+    landscape_16x9: z.url().optional(),
   })
   .strict();
 
@@ -29,7 +29,7 @@ export const blogPostSchema = z.object({
     .optional(),
   content: z.string().min(1, 'Content cannot be empty').optional(),
   excerpt: z.string().max(300, 'Excerpt is too long').optional().nullable(),
-  featured_image_url: z.string().url().optional().nullable().or(z.literal('')),
+  featured_image_url: z.url().optional().nullable().or(z.literal('')),
   featured_image_width: featuredImageDimensionSchema,
   featured_image_height: featuredImageDimensionSchema,
   featured_image_variants: featuredImageVariantsSchema.optional(),
@@ -43,12 +43,12 @@ export const blogPostSchema = z.object({
     .max(100)
     .optional(),
   author_title: z.string().max(100).optional().nullable(),
-  author_image_url: z.string().url().optional().nullable().or(z.literal('')),
+  author_image_url: z.url().optional().nullable().or(z.literal('')),
   author_bio: z.string().max(500).optional().nullable(),
   // Note: 'scheduled' exists in the DB enum but has no cron job to publish.
   // Only accept statuses that are immediately actionable.
   status: z.enum(['draft', 'published', 'archived']).optional(),
-  published_at: z.string().datetime({ offset: true }).nullable().optional(),
+  published_at: z.iso.datetime({ offset: true }).nullable().optional(),
   seo_title: z
     .string()
     .max(70, 'SEO title must be 70 characters or less')
@@ -79,7 +79,7 @@ export const createPostSchema = z.object({
     .regex(/^[a-z0-9-]+$/, 'Slug must be lowercase alphanumeric with hyphens'),
   content: z.string().min(1, 'Content is required'),
   excerpt: z.string().max(300).optional(),
-  featured_image_url: z.string().url().optional().nullable(),
+  featured_image_url: z.url().optional().nullable(),
   featured_image_width: featuredImageDimensionSchema,
   featured_image_height: featuredImageDimensionSchema,
   featured_image_variants: featuredImageVariantsSchema.optional(),
@@ -89,7 +89,7 @@ export const createPostSchema = z.object({
   keywords: z.array(z.string()).optional(),
   author_name: z.string().min(1, 'Author name is required').max(100),
   author_title: z.string().max(100).optional(),
-  author_image_url: z.string().url().optional().nullable(),
+  author_image_url: z.url().optional().nullable(),
   author_bio: z.string().max(500).optional(),
   status: z.enum(['draft', 'published', 'archived']).optional(),
   seo_title: z.string().max(70).optional(),
