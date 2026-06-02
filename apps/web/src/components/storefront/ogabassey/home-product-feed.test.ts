@@ -36,6 +36,7 @@ describe('mapStorefrontProductsToOgabasseyProducts', () => {
         slug: 'iphone-17-pro-max',
         description: 'Flagship phone',
         price: 2100000,
+        image: '/iphone-black.jpg',
         rating: 4.9,
         category: 'Smartphones',
         category_id: 'cat-1',
@@ -62,7 +63,12 @@ describe('mapStorefrontProductsToOgabasseyProducts', () => {
         name: 'iPhone 17 Pro Max',
         price: '₦2,100,000',
         rawPrice: 2100000,
-        image: '/default.jpg',
+        image: '/iphone-black.jpg',
+        image_alt: 'Black',
+        image_payloads: [
+          { url: '/iphone-black.jpg', alt: 'Black', order: 0 },
+          { url: '/iphone-gold.jpg', alt: 'Gold', order: 1 },
+        ],
         description: 'Flagship phone',
         rating: 4.9,
         category: 'Smartphones',
@@ -94,9 +100,29 @@ describe('mapStorefrontProductsToOgabasseyProducts', () => {
         category: 'General',
         condition: 'New & Used',
         image: '/galaxy.jpg',
+        image_alt: 'Galaxy',
         has_condition_offers: true,
       })
     );
+  });
+
+  it('does not assign alt text from a different image payload', () => {
+    const result = mapStorefrontProductsToOgabasseyProducts([
+      createStorefrontProduct({
+        image: '/front.jpg',
+        images: [
+          '/front.jpg',
+          { url: '/back.jpg', alt: 'Back view', order: 1 },
+        ] as unknown as StorefrontProduct['images'],
+      }),
+    ]);
+
+    expect(result[0]).toEqual(
+      expect.objectContaining({
+        image: '/front.jpg',
+      })
+    );
+    expect(result[0]).not.toHaveProperty('image_alt');
   });
 });
 

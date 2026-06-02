@@ -1,5 +1,6 @@
 // Migrated from temp-source/types.ts
 import type React from 'react';
+import type { ProductImageAltPayload } from '@baci/shared';
 
 /**
  * Product condition enum - shared across the application
@@ -69,6 +70,9 @@ export interface Product {
   price: string;
   rawPrice?: number;
   image: string;
+  image_alt?: string | null;
+  image_payloads?: readonly ProductImageAltPayload[] | null;
+  seo_alt_text?: string | null;
   description: string;
   rating?: number;
   category?: string; // Backward compatibility (TEXT column - deprecated)
