@@ -434,22 +434,17 @@ describe('BNPLCheckoutScreen', () => {
     expect(screen.getByRole('button', { name: 'Try Again' })).toBeTruthy();
   });
 
-  it('allows equivalent custom domain document redirects without replacing the WebView source', () => {
+  it('blocks merchant custom-domain document redirects from untrusted route params', () => {
     render(<BNPLCheckoutScreen />);
-    const initialWebViewUrl = screen.getByText(/^webview:/).props.children;
 
     fireEvent.press(
       screen.getByLabelText('mock-bnpl-start-custom-domain-redirect')
     );
 
-    expect(screen.getByText(/^webview:/).props.children).toBe(
-      initialWebViewUrl
-    );
     expect(
-      screen.queryByText(
-        'Payment provider opened an untrusted checkout window.'
-      )
-    ).toBeNull();
+      screen.getByText('Payment provider opened an untrusted checkout window.')
+    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Try Again' })).toBeTruthy();
   });
 
   it('ignores blank provider popup targets without showing the untrusted checkout error', () => {
@@ -535,23 +530,25 @@ describe('BNPLCheckoutScreen', () => {
     expect(screen.getByRole('button', { name: 'Try Again' })).toBeTruthy();
   });
 
-  it('allows top-frame redirect from usebaci.com to merchant custom domain ogabassey.com', () => {
+  it('blocks top-frame redirects to route-param merchant custom domains', () => {
     const { UNSAFE_getByType } = render(<BNPLCheckoutScreen />);
     const webView = UNSAFE_getByType(WebView);
 
     const redirectUrl =
       'https://ogabassey.com/checkout/bnpl?gateway=credit_direct&orderId=order-123&merchant_slug=ogabassey&email=customer%40example.com&customerName=Ada+Customer&customerPhone=%2B2348012345678&token=track-token-123';
 
-    const result = webView.props.onShouldStartLoadWithRequest({
-      isTopFrame: true,
-      url: redirectUrl,
+    let result = true;
+    act(() => {
+      result = webView.props.onShouldStartLoadWithRequest({
+        isTopFrame: true,
+        url: redirectUrl,
+      });
     });
 
-    expect(result).toBe(true);
+    expect(result).toBe(false);
     expect(
-      screen.queryByText(
-        'Payment provider opened an untrusted checkout window.'
-      )
-    ).toBeNull();
+      screen.getByText('Payment provider opened an untrusted checkout window.')
+    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Try Again' })).toBeTruthy();
   });
 });
