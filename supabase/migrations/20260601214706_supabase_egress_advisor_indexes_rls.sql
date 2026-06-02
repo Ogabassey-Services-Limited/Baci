@@ -288,9 +288,11 @@ CREATE POLICY vtu_idempotency_keys_service_role_all
   USING (true)
   WITH CHECK (true);
 
--- 4. Public buckets do not require a broad storage.objects SELECT policy for
--- public object URL delivery. Removing it prevents public listing via Storage API.
-DROP POLICY IF EXISTS "Public can view media files" ON storage.objects;
+-- 4. Keep the media bucket SELECT policy in place. Supabase Storage list()
+-- requires SELECT on storage.objects, and /api/media lists merchant media with
+-- the authenticated anon-key client. Public object URL delivery does not require
+-- this policy, but dropping it would break the merchant media library until a
+-- separately scoped replacement policy is shipped.
 
 -- 5. Function search_path hardening. Logic is unchanged.
 CREATE OR REPLACE FUNCTION public.enforce_blog_post_products_merchant_consistency()
@@ -347,7 +349,7 @@ STABLE
 SET search_path = ''
 AS $function$
   SELECT CASE
-    WHEN (auth.jwt() ->> 'agentic_merchant_id') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+    WHEN (auth.jwt() ->> 'agentic_merchant_id') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
       THEN (auth.jwt() ->> 'agentic_merchant_id')::uuid
     ELSE NULL
   END

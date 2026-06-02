@@ -205,6 +205,7 @@ export interface HeroSlide {
 }
 
 export interface MerchantFeatureSettings {
+  agentic_checkout_enabled?: boolean;
   blog_enabled?: boolean;
   blog_discover_image_validation_enabled?: boolean;
   shipping_insurance_enabled?: boolean;
@@ -215,6 +216,7 @@ export interface MerchantFeatureSettings {
 
 const MERCHANT_PUBLIC_FEATURE_SETTINGS_SELECT: string = `
   about_page_enabled,
+  agentic_checkout_enabled,
   auto_blog_enabled,
   blog_enabled,
   blog_discover_image_validation_enabled,
