@@ -2,7 +2,6 @@ import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Alert } from 'react-native';
 import type { WebView, WebViewNavigation } from 'react-native-webview';
-import { isAllowedBnplPopupUrl, isTrustedBnplReturnUrl } from '@/lib/bnpl-url';
 import { useCartStore } from '@/stores/cart-store';
 import type {
   BNPLShouldStartLoadRequest,
@@ -13,13 +12,15 @@ import type {
 import {
   BNPL_UNTRUSTED_POPUP_MESSAGE,
   buildBNPLCheckoutUrl,
-  extractErrorFromUrl,
-  extractReferenceFromUrl,
   getBNPLGatewayName,
   parseBNPLParams,
   resolveBNPLDocumentNavigation,
-  sanitizeBNPLDocumentUrl,
 } from './bnpl-checkout.helpers';
+import {
+  resolveBNPLNavigationUrlEffect,
+  resolveBNPLPopupTargetAction,
+  shouldHandleBNPLNavigationMessage,
+} from './bnpl-checkout-controller-actions';
 import {
   createBNPLWebViewMessageHandler,
   logBNPLCheckoutDebug,
@@ -115,26 +116,19 @@ export function useBNPLCheckoutController({
   };
 
   const handleNavigationUrl = (url: string) => {
-    if (url.includes('/order-success') || url.includes('success=true')) {
-      clearPendingLoadTimeout();
-      setCheckoutStatus('success');
+    const effect = resolveBNPLNavigationUrlEffect(url);
+    if (!effect) {
+      return;
+    }
+
+    clearPendingLoadTimeout();
+    setCheckoutStatus(effect.status);
+    if (effect.status === 'success') {
       clearCart();
-      replaceWithOrderSuccess(extractReferenceFromUrl(url));
+      replaceWithOrderSuccess(effect.reference);
+      return;
     }
-
-    if (url.includes('/checkout') && url.includes('cancelled=true')) {
-      clearPendingLoadTimeout();
-      setCheckoutStatus('error');
-      setErrorMessage('Payment was cancelled.');
-    }
-
-    if (url.includes('error=') || url.includes('/checkout?error')) {
-      clearPendingLoadTimeout();
-      setCheckoutStatus('error');
-      setErrorMessage(
-        extractErrorFromUrl(url) || 'Payment failed. Please try again.'
-      );
-    }
+    setErrorMessage(effect.errorMessage);
   };
 
   const handleNavigationChange = (navState: WebViewNavigation) => {
@@ -159,13 +153,13 @@ export function useBNPLCheckoutController({
   const handleWebViewMessage = createBNPLWebViewMessageHandler({
     onNavigationMessage: (url) => {
       if (
-        !isTrustedBnplReturnUrl(url, apiBaseUrl, merchantSlug, merchantDomain)
-      ) {
-        logBNPLCheckoutDebug('ignored untrusted navigation message', {
+        !shouldHandleBNPLNavigationMessage({
+          apiBaseUrl,
           merchantDomain,
           merchantSlug,
           url,
-        });
+        })
+      ) {
         return;
       }
 
@@ -202,33 +196,23 @@ export function useBNPLCheckoutController({
   };
 
   const handleOpenWindow = (event: WebViewOpenWindowEventLike) => {
-    const targetUrl = event.nativeEvent.targetUrl;
-    const sanitizedTargetUrl = targetUrl
-      ? sanitizeBNPLDocumentUrl(targetUrl)
-      : '';
-
-    if (
-      !sanitizedTargetUrl ||
-      sanitizedTargetUrl === 'about:blank' ||
-      sanitizedTargetUrl.startsWith('about:blank#')
-    ) {
+    const action = resolveBNPLPopupTargetAction({
+      apiBaseUrl,
+      merchantDomain,
+      merchantSlug,
+      targetUrl: event.nativeEvent.targetUrl,
+    });
+    if (action.type === 'ignore') {
       return;
     }
 
-    if (
-      !isAllowedBnplPopupUrl(
-        sanitizedTargetUrl,
-        apiBaseUrl,
-        merchantSlug,
-        merchantDomain
-      )
-    ) {
+    if (action.type === 'untrusted') {
       clearPendingLoadTimeout();
       setCheckoutStatus('error');
       setErrorMessage(BNPL_UNTRUSTED_POPUP_MESSAGE);
       if (typeof __DEV__ !== 'undefined' && __DEV__) {
         console.warn('[BNPLCheckout] Ignored untrusted auxiliary window', {
-          targetUrl: sanitizedTargetUrl,
+          targetUrl: action.targetUrl,
         });
       }
       return;
@@ -237,7 +221,7 @@ export function useBNPLCheckoutController({
     setErrorMessage(null);
     scheduleLoadTimeout();
     setCheckoutStatus('loading');
-    setCurrentUrl(sanitizedTargetUrl);
+    setCurrentUrl(action.targetUrl);
   };
 
   const handleShouldStartLoadWithRequest = (
