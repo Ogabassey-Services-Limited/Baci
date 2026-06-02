@@ -367,8 +367,8 @@ importers:
         specifier: 0.8.3
         version: 0.8.3(@babel/core@7.29.0)(@react-native/metro-config@0.85.3(@babel/core@7.29.0))(react-native@0.85.3(@babel/core@7.29.0)(@react-native/jest-preset@0.85.3(@babel/core@7.29.0)(react@19.2.3))(@react-native/metro-config@0.85.3(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
       zod:
-        specifier: ^4.3.6
-        version: 4.3.6
+        specifier: ^4.4.3
+        version: 4.4.3
       zustand:
         specifier: ^5.0.14
         version: 5.0.14(@types/react@19.2.14)(immer@11.1.3)(react@19.2.3)(use-sync-external-store@1.6.0(react@19.2.3))
@@ -662,8 +662,8 @@ importers:
         specifier: ^4.2.2
         version: 4.2.2
       zod:
-        specifier: ^4.3.6
-        version: 4.3.6
+        specifier: ^4.4.3
+        version: 4.4.3
       zustand:
         specifier: ^5.0.14
         version: 5.0.14(@types/react@19.2.14)(immer@11.1.3)(react@19.2.3)(use-sync-external-store@1.6.0(react@19.2.3))
@@ -13275,9 +13275,6 @@ packages:
   zod@3.25.76:
     resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
 
-  zod@4.3.6:
-    resolution: {integrity: sha512-rftlrkhHZOcjDwkGlnUtZZkvaPHCsDATp4pGpuOOMDaTdDDXF91wuVDJoWoPsKX/3YPQ5fHuF3STjcYyKr+Qhg==}
-
   zod@4.4.3:
     resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
 
@@ -14810,7 +14807,7 @@ snapshots:
       ws: 8.20.1
       zod: 3.25.76
     optionalDependencies:
-      expo-router: 56.2.8(7a706eb7f53b2672ad7099202a9a6a62)
+      expo-router: 56.2.8(c4d801a8b676584702148a60cb2a7a94)
       react-native: 0.85.3(@babel/core@7.29.0)(@react-native/jest-preset@0.85.3(@babel/core@7.29.0)(react@19.2.3))(@react-native/metro-config@0.85.3(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3)
     transitivePeerDependencies:
       - '@expo/dom-webview'
@@ -15088,7 +15085,7 @@ snapshots:
       react: 19.2.3
     optionalDependencies:
       '@expo/metro-runtime': 56.0.13(@expo/log-box@56.0.12)(expo@56.0.8)(react-dom@19.2.3(react@19.2.3))(react-native@0.85.3(@babel/core@7.29.0)(@react-native/jest-preset@0.85.3(@babel/core@7.29.0)(react@19.2.3))(@react-native/metro-config@0.85.3(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
-      expo-router: 56.2.8(7a706eb7f53b2672ad7099202a9a6a62)
+      expo-router: 56.2.8(c4d801a8b676584702148a60cb2a7a94)
       react-dom: 19.2.3(react@19.2.3)
     transitivePeerDependencies:
       - supports-color
@@ -28120,8 +28117,6 @@ snapshots:
       zod: 4.4.3
 
   zod@3.25.76: {}
-
-  zod@4.3.6: {}
 
   zod@4.4.3: {}
 
