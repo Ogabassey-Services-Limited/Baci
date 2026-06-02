@@ -1,7 +1,6 @@
 import type { Href } from 'expo-router';
 import { router } from 'expo-router';
 import { useIsFocused } from 'expo-router/react-navigation';
-import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -21,35 +20,10 @@ import { StorefrontScreenShell } from '@/components/storefront/StorefrontScreenS
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import { useMerchant } from '@/hooks';
+import { useAccountLoyaltyPoints } from '@/hooks/use-account-loyalty-points';
 import { useAuthStatus } from '@/hooks/use-auth-guard';
 import { useStorefrontInsets } from '@/hooks/use-storefront-insets';
-import { supabase } from '@/lib/supabase';
 import { type Customer, useAuthStore } from '@/stores/auth-store';
-
-type AccountLoyaltyChannel = ReturnType<typeof supabase.channel>;
-
-const ACCOUNT_LOYALTY_CHANNEL_PREFIX = 'account-loyalty';
-
-function createAccountLoyaltyChannelName(customerId: string) {
-  return `${ACCOUNT_LOYALTY_CHANNEL_PREFIX}-${customerId}`;
-}
-
-function isAccountLoyaltyChannel(
-  channel: AccountLoyaltyChannel,
-  channelName: string
-) {
-  return channel.topic === channelName || channel.topic === `realtime:${channelName}`;
-}
-
-async function removeExistingAccountLoyaltyChannels(channelName: string) {
-  const existingChannels = supabase
-    .getChannels()
-    .filter((channel) => isAccountLoyaltyChannel(channel, channelName));
-
-  await Promise.all(
-    existingChannels.map((channel) => supabase.removeChannel(channel))
-  );
-}
 
 export default function AccountScreen() {
   const colorScheme = useColorScheme();
@@ -82,91 +56,12 @@ export default function AccountScreen() {
               : undefined,
         }
       : null);
-  const [loyaltyPoints, setLoyaltyPoints] = useState<number | undefined>(
-    safeCustomer?.loyalty_points
-  );
+  const loyaltyPoints = useAccountLoyaltyPoints(safeCustomer, isFocused);
   const { getScrollContentStyle } = useStorefrontInsets();
   const menuSections = getAccountMenuSections({
     canDeleteAccount: Boolean(authUser),
     hasCustomerProfile: Boolean(safeCustomer),
   });
-
-  useEffect(() => {
-    setLoyaltyPoints(safeCustomer?.loyalty_points);
-  }, [safeCustomer?.loyalty_points]);
-
-  useEffect(() => {
-    if (!(isFocused && safeCustomer?.id)) {
-      return;
-    }
-
-    let isMounted = true;
-    let channel: AccountLoyaltyChannel | null = null;
-
-    const refreshLoyaltyPoints = async () => {
-      const { data, error } = await supabase
-        .from('customers')
-        .select('loyalty_points')
-        .eq('id', safeCustomer.id)
-        .maybeSingle();
-
-      if (error) {
-        console.error('Failed to refresh loyalty points:', error);
-        return;
-      }
-
-      if (isMounted && typeof data?.loyalty_points === 'number') {
-        setLoyaltyPoints(data.loyalty_points);
-      }
-    };
-
-    const subscribeToLoyaltyUpdates = async () => {
-      const channelName = createAccountLoyaltyChannelName(safeCustomer.id);
-
-      try {
-        await removeExistingAccountLoyaltyChannels(channelName);
-      } catch (err) {
-        console.error('Realtime channel cleanup error:', err);
-      }
-
-      if (!isMounted) {
-        return;
-      }
-
-      channel = supabase
-        .channel(channelName)
-        .on(
-          'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'customers',
-            filter: `id=eq.${safeCustomer.id}`,
-          },
-          (payload) => {
-            if (isMounted && payload.new && 'loyalty_points' in payload.new) {
-              setLoyaltyPoints(payload.new.loyalty_points as number);
-            }
-          }
-        )
-        .subscribe((_status, err) => {
-          if (err) {
-            console.error('Realtime subscription error:', err);
-          }
-        });
-
-      await refreshLoyaltyPoints();
-    };
-
-    void subscribeToLoyaltyUpdates();
-
-    return () => {
-      isMounted = false;
-      if (channel) {
-        void supabase.removeChannel(channel);
-      }
-    };
-  }, [isFocused, safeCustomer?.id]);
 
   if (!isInitialized) {
     return (
