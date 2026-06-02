@@ -79,9 +79,38 @@ export const CartPage: React.FC = () => {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12">
             {/* Cart Items */}
             <div className="lg:col-span-2 space-y-6">
-              {cart.map((item: CartItem) => (
-                <div
-                  key={item.cartItemId}
+              {cart.map((item: CartItem) => {
+                const cartControlId = item.cartItemId || item.id;
+                const cartControlVariantId = item.cartItemId
+                  ? undefined
+                  : item.variantId;
+                const cartLineKey =
+                  item.cartItemId ||
+                  `${item.id}${item.variantId ? `::variant=${item.variantId}` : ''}`;
+                const updateCartQuantity = (quantity: number) => {
+                  if (cartControlVariantId) {
+                    updateQuantity(
+                      cartControlId,
+                      quantity,
+                      cartControlVariantId
+                    );
+                    return;
+                  }
+
+                  updateQuantity(cartControlId, quantity);
+                };
+                const removeCartItem = () => {
+                  if (cartControlVariantId) {
+                    removeFromCart(cartControlId, cartControlVariantId);
+                    return;
+                  }
+
+                  removeFromCart(cartControlId);
+                };
+
+                return (
+                  <div
+                  key={cartLineKey}
                   className="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-100 flex gap-4 md:gap-6 group transition-all hover:shadow-md"
                 >
                   <div className="size-24 md:w-32 md:h-32 bg-gray-50 rounded-xl shrink-0 p-2">
@@ -99,7 +128,7 @@ export const CartPage: React.FC = () => {
                           {item.name}
                         </h3>
                         <button type="button"
-                          onClick={() => removeFromCart(item.cartItemId)}
+                          onClick={removeCartItem}
                           className="text-gray-400 hover:text-red-600 transition-colors p-1"
                           aria-label="Remove item"
                         >
@@ -125,9 +154,8 @@ export const CartPage: React.FC = () => {
                       <div className="flex items-center bg-gray-100 rounded-lg p-1">
                         <button type="button"
                           onClick={() =>
-                            updateQuantity(
-                              item.cartItemId,
-                              Math.max(1, item.quantity - 1),
+                            updateCartQuantity(
+                              Math.max(1, item.quantity - 1)
                             )
                           }
                           className="size-8 flex items-center justify-center rounded-md bg-white text-gray-600 shadow-sm hover:text-red-600 disabled:opacity-50"
@@ -141,10 +169,7 @@ export const CartPage: React.FC = () => {
                         </span>
                         <button type="button"
                           onClick={() =>
-                            updateQuantity(
-                              item.cartItemId,
-                              item.quantity + 1,
-                            )
+                            updateCartQuantity(item.quantity + 1)
                           }
                           className="size-8 flex items-center justify-center rounded-md bg-white text-gray-600 shadow-sm hover:text-red-600"
                           aria-label="Increase quantity"
@@ -165,8 +190,9 @@ export const CartPage: React.FC = () => {
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                  </div>
+                );
+              })}
             </div>
 
             {/* Order Summary */}
