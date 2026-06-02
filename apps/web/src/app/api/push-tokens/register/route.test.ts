@@ -17,6 +17,19 @@ vi.mock('next/headers', () => ({
 // Supabase mock
 const USER_ID = 'user-111';
 const MERCHANT_ID = 'merchant-222';
+const REQUESTED_MERCHANT_ID = 'merchant-requested-333';
+
+function createMerchantContext(merchantId: string) {
+  return {
+    merchantId,
+    staffAccess: {
+      isStaff: false,
+      isOwner: true,
+      role: null,
+      permissions: { full_access: { all: true } },
+    },
+  };
+}
 
 let mockUser: { id: string } | null = { id: USER_ID };
 let mockAuthError: { message: string } | null = null;
@@ -93,12 +106,13 @@ vi.mock('@/lib/supabase/server', () => ({
 
 vi.mock('@/lib/get-merchant-for-api-request', () => ({
   getMerchantForApiRequest: vi.fn(() =>
-    Promise.resolve({ merchantId: MERCHANT_ID })
+    Promise.resolve(createMerchantContext(MERCHANT_ID))
   ),
 }));
 
 // ── Import after mocks ───────────────────────────────────────────────────────
 
+import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import { DELETE, POST } from './route';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -119,6 +133,9 @@ function makeRequest(
 describe('POST /api/push-tokens/register', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(getMerchantForApiRequest).mockResolvedValue(
+      createMerchantContext(MERCHANT_ID)
+    );
     mockUser = { id: USER_ID };
     mockAuthError = null;
     selectResult = {
@@ -283,6 +300,31 @@ describe('POST /api/push-tokens/register', () => {
     );
   });
 
+  it('uses the requested merchant id when inserting a storefront push token', async () => {
+    vi.mocked(getMerchantForApiRequest).mockResolvedValueOnce(
+      createMerchantContext(REQUESTED_MERCHANT_ID)
+    );
+
+    const res = await POST(
+      makeRequest({
+        token: 'ExponentPushToken[requested-merchant-device]',
+        platform: 'android',
+        app_type: 'storefront',
+        merchant_id: REQUESTED_MERCHANT_ID,
+      })
+    );
+
+    expect(res.status).toBe(200);
+    expect(getMerchantForApiRequest).toHaveBeenCalledWith(
+      mockSupabase,
+      USER_ID,
+      { requestedMerchantId: REQUESTED_MERCHANT_ID }
+    );
+    expect(insertCalls[0]).toEqual(
+      expect.objectContaining({ merchant_id: REQUESTED_MERCHANT_ID })
+    );
+  });
+
   it('passes app_type through to update when user_id matches', async () => {
     selectResult = {
       data: { id: 'existing-token-id', user_id: USER_ID },
@@ -300,6 +342,35 @@ describe('POST /api/push-tokens/register', () => {
     expect(updateCalls.length).toBe(1);
     expect(updateCalls[0].payload).toEqual(
       expect.objectContaining({ app_type: 'storefront' })
+    );
+  });
+
+  it('uses the requested merchant id when updating an existing storefront token', async () => {
+    vi.mocked(getMerchantForApiRequest).mockResolvedValueOnce(
+      createMerchantContext(REQUESTED_MERCHANT_ID)
+    );
+    selectResult = {
+      data: { id: 'existing-token-id', user_id: USER_ID },
+      error: null,
+    };
+
+    const res = await POST(
+      makeRequest({
+        token: 'ExponentPushToken[requested-merchant-device]',
+        platform: 'ios',
+        app_type: 'storefront',
+        merchant_id: REQUESTED_MERCHANT_ID,
+      })
+    );
+
+    expect(res.status).toBe(200);
+    expect(getMerchantForApiRequest).toHaveBeenCalledWith(
+      mockSupabase,
+      USER_ID,
+      { requestedMerchantId: REQUESTED_MERCHANT_ID }
+    );
+    expect(updateCalls[0].payload).toEqual(
+      expect.objectContaining({ merchant_id: REQUESTED_MERCHANT_ID })
     );
   });
 });

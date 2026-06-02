@@ -22,14 +22,14 @@ export const publicProductComparableSurfaceSchema = z.object({
   image: z.string(),
   name: z.string().min(1),
   price: z.number(),
-  url: z.string().url(),
+  url: z.url(),
 });
 
 export const publicProductCurrentFeedItemSchema = z.object({
   id: z.string().min(1),
   media: z.array(z.object({ url: z.string() })),
   title: z.string().min(1),
-  url: z.string().url(),
+  url: z.url(),
   variants: z
     .array(
       z.object({
@@ -42,11 +42,11 @@ export const publicProductCurrentFeedItemSchema = z.object({
 
 export const publicProductGoogleFeedItemSchema = z.object({
   availability: publicProductAvailabilitySchema,
-  canonical_link: z.string().url().optional(),
+  canonical_link: z.url().optional(),
   id: z.string().min(1),
   image_link: z.string(),
   item_group_id: z.string().min(1).optional(),
-  link: z.string().url(),
+  link: z.url(),
   price: z.string(),
   sale_price: z.string().optional(),
   title: z.string().min(1),
@@ -68,13 +68,13 @@ export const publicProductGoogleFeedEnvelopeSchema = z.object({
 const publicProductPdpPresentationShape = {
   image: z.union([z.string(), z.array(z.string()).min(1)]),
   name: z.string().min(1),
-  url: z.string().url(),
+  url: z.url(),
 };
 
 const publicProductPdpOfferSchema = z.object({
   availability: z.string(),
   price: z.union([z.number(), z.string()]),
-  url: z.string().url().optional(),
+  url: z.url().optional(),
 });
 
 export const publicProductPdpSchema = z.discriminatedUnion('@type', [

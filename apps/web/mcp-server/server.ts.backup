@@ -3994,7 +3994,7 @@ function createOgabasseyServer() {
       inputSchema: {
         full_name: z.string().min(2).max(100).describe('Recipient full name'),
         phone: z.string().min(10).max(15).describe('Phone number'),
-        email: z.string().email().optional().describe('Email address'),
+        email: z.email().optional().describe('Email address'),
         address: z.string().min(5).max(200).describe('Street address'),
         city: z.string().min(2).max(100).describe('City'),
         state: z.string().min(2).max(50).describe('State'),

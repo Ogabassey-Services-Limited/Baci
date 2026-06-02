@@ -21,52 +21,46 @@ import { toNumber } from '@/lib/payments/paid-order-side-effect-utils';
 import { sendEmail } from '@/lib/zeptomail';
 
 const nullableStringSchema = z.string().nullable();
-const merchantDetailsSchema = z
-  .object({
-    business_name: nullableStringSchema,
-    cac_rc_number: nullableStringSchema,
-    email: nullableStringSchema,
-    email_sender_name: nullableStringSchema,
-    slug: nullableStringSchema,
-    support_email: nullableStringSchema,
-    tax_identification_number: nullableStringSchema,
-    website_url: nullableStringSchema,
-  })
-  .strict();
+const merchantDetailsSchema = z.strictObject({
+  business_name: nullableStringSchema,
+  cac_rc_number: nullableStringSchema,
+  email: nullableStringSchema,
+  email_sender_name: nullableStringSchema,
+  slug: nullableStringSchema,
+  support_email: nullableStringSchema,
+  tax_identification_number: nullableStringSchema,
+  website_url: nullableStringSchema,
+});
 
-const richOrderEmailSchema = z
-  .object({
-    customer_email: z.string().email().nullish(),
-    customer_id: z.string().nullish(),
-    customer_name: z.string().nullish(),
-    customer_phone: z.string().nullish(),
-    id: z.string().min(1),
-    merchant_id: z.string().min(1),
-    order_items: z
-      .array(
-        z
-          .object({
-            name: nullableStringSchema,
-            price: z.union([z.number(), z.string(), z.null()]),
-            quantity: z.number().nullable(),
-            variant_name: nullableStringSchema,
-          })
-          .strict()
-      )
-      .nullish(),
-    order_number: z.string().nullish(),
-    shipping_address: z
-      .object({
-        address: nullableStringSchema.optional(),
-        city: nullableStringSchema.optional(),
-        state: nullableStringSchema.optional(),
+const richOrderEmailSchema = z.looseObject({
+  customer_email: z.email().nullish(),
+  customer_id: z.string().nullish(),
+  customer_name: z.string().nullish(),
+  customer_phone: z.string().nullish(),
+  id: z.string().min(1),
+  merchant_id: z.string().min(1),
+  order_items: z
+    .array(
+      z.strictObject({
+        name: nullableStringSchema,
+        price: z.union([z.number(), z.string(), z.null()]),
+        quantity: z.number().nullable(),
+        variant_name: nullableStringSchema,
       })
-      .nullish(),
-    shipping_fee: z.union([z.number(), z.string()]),
-    subtotal: z.union([z.number(), z.string()]),
-    total: z.union([z.number(), z.string()]),
-  })
-  .passthrough();
+    )
+    .nullish(),
+  order_number: z.string().nullish(),
+  shipping_address: z
+    .object({
+      address: nullableStringSchema.optional(),
+      city: nullableStringSchema.optional(),
+      state: nullableStringSchema.optional(),
+    })
+    .nullish(),
+  shipping_fee: z.union([z.number(), z.string()]),
+  subtotal: z.union([z.number(), z.string()]),
+  total: z.union([z.number(), z.string()]),
+});
 
 function validateMerchantDetails(merchantDetails: MerchantDetails) {
   const parsed = merchantDetailsSchema.safeParse(merchantDetails);

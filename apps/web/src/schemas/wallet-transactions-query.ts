@@ -10,7 +10,7 @@ const walletTransactionTypeSchema = z.enum([
 ]);
 
 const positiveIntegerQueryParam = (defaultValue: number) =>
-  z.coerce.number().int().min(1).default(defaultValue);
+  z.coerce.number().int().min(1).prefault(defaultValue);
 
 export const walletTransactionsQuerySchema = z.object({
   page: positiveIntegerQueryParam(1),

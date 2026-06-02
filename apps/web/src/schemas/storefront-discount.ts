@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const storefrontDiscountValidateSchema = z.object({
-  merchant_id: z.string().uuid(),
+  merchant_id: z.uuid(),
   code: z.string().trim().min(1),
   cart_total: z.number().nonnegative(),
 });
@@ -11,7 +11,7 @@ export type StorefrontDiscountValidateInput = z.infer<
 >;
 
 export const storefrontDiscountCodeRowSchema = z.object({
-  id: z.string().uuid(),
+  id: z.uuid(),
   code: z.string(),
   discount_type: z.enum(['percentage', 'fixed_amount']),
   discount_value: z.coerce.number(),

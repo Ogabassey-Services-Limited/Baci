@@ -9,20 +9,20 @@ const UCP_CARTS_PATH = '/api/agentic/carts';
 
 const ucpMcpItemSchema = z.object({
   id: z.string().trim().min(1, 'Item id is required'),
-  quantity: z.number().int().positive().max(20),
+  quantity: z.int().positive().max(20),
 });
 
 export const searchUcpCatalogInputSchema = {
   cursor: z.string().trim().min(1).optional(),
   filters: z.record(z.string(), z.unknown()).optional(),
-  limit: z.number().int().positive().max(50).optional().default(20),
+  limit: z.int().positive().max(50).optional().default(20),
   query: z.string().trim().min(1).optional(),
-} satisfies Record<string, z.ZodTypeAny>;
+} satisfies Record<string, z.ZodType>;
 
 export const lookupUcpCatalogItemsInputSchema = {
   filters: z.record(z.string(), z.unknown()).optional(),
   ids: z.array(z.string().trim().min(1)).min(1).max(50),
-} satisfies Record<string, z.ZodTypeAny>;
+} satisfies Record<string, z.ZodType>;
 
 export const createUcpCartInputSchema = {
   buyer: z.record(z.string(), z.unknown()).optional(),
@@ -30,11 +30,11 @@ export const createUcpCartInputSchema = {
   idempotency_key: z.string().trim().min(8).max(128).optional(),
   items: z.array(ucpMcpItemSchema).min(1).max(50),
   shipping_address: z.record(z.string(), z.unknown()).nullable().optional(),
-} satisfies Record<string, z.ZodTypeAny>;
+} satisfies Record<string, z.ZodType>;
 
 export const getUcpCartInputSchema = {
   cart_id: z.string().trim().min(1, 'Cart id is required'),
-} satisfies Record<string, z.ZodTypeAny>;
+} satisfies Record<string, z.ZodType>;
 
 export const updateUcpCartInputSchema = {
   buyer: z.record(z.string(), z.unknown()).optional(),
@@ -43,12 +43,12 @@ export const updateUcpCartInputSchema = {
   idempotency_key: z.string().trim().min(8).max(128).optional(),
   items: z.array(ucpMcpItemSchema).min(1).max(50).optional(),
   shipping_address: z.record(z.string(), z.unknown()).nullable().optional(),
-} satisfies Record<string, z.ZodTypeAny>;
+} satisfies Record<string, z.ZodType>;
 
 export const convertUcpCartToCheckoutInputSchema = {
   cart_id: z.string().trim().min(1, 'Cart id is required'),
   idempotency_key: z.string().trim().min(8).max(128).optional(),
-} satisfies Record<string, z.ZodTypeAny>;
+} satisfies Record<string, z.ZodType>;
 
 export const cancelUcpCartInputSchema = convertUcpCartToCheckoutInputSchema;
 

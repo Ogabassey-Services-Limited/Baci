@@ -24,9 +24,8 @@ const optionalHttpUrlSchema = z.preprocess(
     return trimmedValue === '' ? undefined : trimmedValue;
   },
   z
-    .string()
     .url({
-      message: 'Invalid URL',
+      error: 'Invalid URL',
     })
     .max(2048)
     .refine(
@@ -36,12 +35,12 @@ const optionalHttpUrlSchema = z.preprocess(
         return protocol === 'http:' || protocol === 'https:';
       },
       {
-        message: 'URL must use http or https',
+        error: 'URL must use http or https',
       }
     )
     .transform((value) => sanitizeUrl(value))
     .refine((value) => value.length > 0, {
-      message: 'Invalid URL',
+      error: 'Invalid URL',
     })
     .optional()
 );
@@ -64,11 +63,8 @@ const optionalVoucherTokenSchema = z.preprocess((value) => {
 
 const orderCreateSchemaBase = z
   .object({
-    merchant_id: z.string().uuid(),
-    customer_email: z
-      .string()
-      .email()
-      .transform((val) => sanitizeEmail(val)),
+    merchant_id: z.uuid(),
+    customer_email: z.email().transform((val) => sanitizeEmail(val)),
     customer_name: z
       .string()
       .min(1)
@@ -92,7 +88,7 @@ const orderCreateSchemaBase = z
               .string()
               .optional()
               .transform((val) => (val ? sanitizeText(val) : val)),
-            quantity: z.number().int().positive(),
+            quantity: z.int().positive(),
             price: z.number().nonnegative(),
             negotiatedPrice: z.number().nonnegative().optional(),
             value: z.number().nonnegative().optional(),
@@ -131,7 +127,7 @@ const orderCreateSchemaBase = z
             voucher_token: optionalVoucherTokenSchema,
           })
           .refine((data) => data.product_id || data.productId || data.id, {
-            message:
+            error:
               'At least one product identifier (product_id, productId, or id) is required',
           })
           .refine(
@@ -140,8 +136,7 @@ const orderCreateSchemaBase = z
               !data.image_url ||
               data.imageUrl === data.image_url,
             {
-              message:
-                'imageUrl and image_url must match when both are provided',
+              error: 'imageUrl and image_url must match when both are provided',
             }
           )
           .refine(
@@ -150,7 +145,7 @@ const orderCreateSchemaBase = z
               !data.voucher_token ||
               data.voucherToken === data.voucher_token,
             {
-              message:
+              error:
                 'voucherToken and voucher_token must match when both are provided',
             }
           )
@@ -160,16 +155,16 @@ const orderCreateSchemaBase = z
               !data.voucher_award_id ||
               data.voucherAwardId === data.voucher_award_id,
             {
-              message:
+              error:
                 'voucherAwardId and voucher_award_id must match when both are provided',
             }
           )
       )
       .min(1),
     subtotal: z.coerce.number().nonnegative(),
-    shipping_fee: z.coerce.number().nonnegative().default(0),
-    discount_amount: z.coerce.number().nonnegative().default(0),
-    tax_amount: z.coerce.number().nonnegative().default(0),
+    shipping_fee: z.coerce.number().nonnegative().prefault(0),
+    discount_amount: z.coerce.number().nonnegative().prefault(0),
+    tax_amount: z.coerce.number().nonnegative().prefault(0),
     // B3.5 (Δ-39): tax_basis and gift_wrapping_fee are RPC params with
     // sensible defaults (exclusive / 0). The Zod schema mirrors the
     // RPC defaults so legacy callers that omit them keep working;
@@ -178,7 +173,7 @@ const orderCreateSchemaBase = z
     // client's locally-computed total — the API checks parity against
     // the server-recomputed `orders.total` and rejects mismatches.
     tax_basis: z.enum(['exclusive', 'inclusive']).default('exclusive'),
-    gift_wrapping_fee: z.coerce.number().nonnegative().default(0),
+    gift_wrapping_fee: z.coerce.number().nonnegative().prefault(0),
     // Use a non-coercing schema for parity-check fields. `z.coerce` runs
     // `Number(value)`, and `Number(null)` is `0` — so a client sending
     // `expected_total: null` would silently become `0`, and the RPC's
@@ -219,22 +214,20 @@ const orderCreateSchemaBase = z
       .optional()
       .transform((val) => (val ? sanitizeText(val) : val)),
     ad_tracking: z
-      .object({
+      .looseObject({
         fbp: z.string().optional(),
         fbc: z.string().optional(),
         userIp: z.string().optional(),
         userAgent: z.string().optional(),
         limitedDataUse: z.boolean().optional(),
       })
-      // Opaque tracking fields may be forwarded to third-party analytics.
-      .passthrough()
       .optional(),
     use_wallet_credit: z.boolean().default(false),
     wallet_amount: z.number().default(0),
     use_savings_credit: z.boolean().default(false),
-    savings_goal_id: z.string().uuid().optional(),
+    savings_goal_id: z.uuid().optional(),
     savings_amount: z.number().positive().optional(),
-    user_id: z.string().uuid().optional(),
+    user_id: z.uuid().optional(),
     // Shipping metadata.
     //
     // B3 (plan §5 B3): pickup/airport flows send `shipping_provider:
@@ -242,7 +235,7 @@ const orderCreateSchemaBase = z
     // would trip the RPC's `shipping_quote_required` guard. The schemas
     // accept both undefined and null; the route normalizes `?? null`
     // before passing to the RPC.
-    selected_quote_id: z.string().uuid().nullable().optional(),
+    selected_quote_id: z.uuid().nullable().optional(),
     // B3 review fix: mirror reuseCheckoutOrderSchema.shipping_provider —
     // sanitize at the validation boundary so both order-create AND
     // order-reuse paths persist the same normalized provider string.
@@ -267,7 +260,7 @@ const orderCreateSchemaBase = z
 
     if (!data.savings_goal_id) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: 'Savings goal id is required when using savings credit',
         path: ['savings_goal_id'],
       });
@@ -275,7 +268,7 @@ const orderCreateSchemaBase = z
 
     if (data.savings_amount == null) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: 'Savings amount is required when using savings credit',
         path: ['savings_amount'],
       });
@@ -298,15 +291,15 @@ export const orderCreateSchema = z.preprocess((input) => {
 export type OrderCreateInput = z.infer<typeof orderCreateSchema>;
 
 export const reuseCheckoutOrderSchema = z.object({
-  order_id: z.string().uuid(),
-  merchant_id: z.string().uuid(),
+  order_id: z.uuid(),
+  merchant_id: z.uuid(),
   tracking_token: z.preprocess(
     (value) => (typeof value === 'string' ? sanitizeText(value, 128) : value),
     z.string().min(1)
   ),
   customer_email: z.preprocess(
     (value) => (typeof value === 'string' ? sanitizeEmail(value) : value),
-    z.string().email()
+    z.email()
   ),
   payment_method: z.preprocess(
     (value) => (typeof value === 'string' ? sanitizeText(value) : value),
@@ -314,7 +307,7 @@ export const reuseCheckoutOrderSchema = z.object({
   ),
   // B3 (plan §5 B3): accept null so pickup/airport reuse flows can
   // signal "no third-party shipping provider" cleanly.
-  selected_quote_id: z.string().uuid().nullable().optional(),
+  selected_quote_id: z.uuid().nullable().optional(),
   shipping_provider: z
     .string()
     .nullable()
@@ -325,7 +318,7 @@ export const reuseCheckoutOrderSchema = z.object({
 export type ReuseCheckoutOrderInput = z.infer<typeof reuseCheckoutOrderSchema>;
 
 export const orderIdParamsSchema = z.object({
-  id: z.string().uuid(),
+  id: z.uuid(),
 });
 
 export const recordPaymentSchema = z.object({

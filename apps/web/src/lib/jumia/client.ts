@@ -197,13 +197,13 @@ export class JumiaClient {
     schema?: undefined,
     body?: unknown
   ): Promise<unknown>;
-  async request<TSchema extends z.ZodTypeAny>(
+  async request<TSchema extends z.ZodType>(
     method: JumiaRequestMethod,
     path: string,
     schema: TSchema,
     body?: unknown
   ): Promise<z.infer<TSchema>>;
-  async request<TSchema extends z.ZodTypeAny>(
+  async request<TSchema extends z.ZodType>(
     method: JumiaRequestMethod,
     path: string,
     schema?: TSchema,

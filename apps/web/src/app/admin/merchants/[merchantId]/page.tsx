@@ -21,7 +21,7 @@ type MerchantUsersPageProps = {
   }>;
 };
 
-const merchantEmailSchema = z.string().email();
+const merchantEmailSchema = z.email();
 
 function getMailtoHref(email: string | null): string | null {
   const result = merchantEmailSchema.safeParse(email);

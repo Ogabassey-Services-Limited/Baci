@@ -49,7 +49,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       return NextResponse.json(
         {
           error: 'Invalid route parameters',
-          details: parsedParams.error.flatten(),
+          details: z.flattenError(parsedParams.error),
         },
         { status: 400 }
       );
@@ -106,7 +106,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json(
         {
           error: 'Invalid route parameters',
-          details: parsedParams.error.flatten(),
+          details: z.flattenError(parsedParams.error),
         },
         { status: 400 }
       );
@@ -117,7 +117,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     if (!validated.success) {
       return NextResponse.json(
-        { error: 'Validation error', details: validated.error.flatten() },
+        { error: 'Validation error', details: z.flattenError(validated.error) },
         { status: 400 }
       );
     }
@@ -319,7 +319,7 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
       return NextResponse.json(
         {
           error: 'Invalid route parameters',
-          details: parsedParams.error.flatten(),
+          details: z.flattenError(parsedParams.error),
         },
         { status: 400 }
       );

@@ -40,9 +40,7 @@ export type CancelAgenticCheckoutSessionInput = z.input<
 
 const createAgenticCheckoutSessionMcpItemSchema = z.object({
   id: z.string().trim().min(1, 'Item id is required'),
-  quantity: z
-    .number()
-    .int()
+  quantity: z.int()
     .positive('Quantity must be a positive integer')
     .max(20, 'Quantity must be 20 or less'),
 });
@@ -57,7 +55,7 @@ export const createAgenticCheckoutSessionMcpInputSchema = {
   idempotency_key: z.string().trim().min(8).max(128).optional(),
   items: z.array(createAgenticCheckoutSessionMcpItemSchema).min(1).max(50),
   shipping_address: agenticFulfillmentAddressSchema.nullable().optional(),
-} satisfies Record<string, z.ZodTypeAny>;
+} satisfies Record<string, z.ZodType>;
 
 export const updateAgenticCheckoutSessionMcpInputSchema = {
   fulfillment_option_id: z.string().trim().min(1).nullable().optional(),
@@ -69,7 +67,7 @@ export const updateAgenticCheckoutSessionMcpInputSchema = {
     .optional(),
   session_id: z.string().trim().min(1, 'Checkout session id is required'),
   shipping_address: agenticFulfillmentAddressSchema.nullable().optional(),
-} satisfies Record<string, z.ZodTypeAny>;
+} satisfies Record<string, z.ZodType>;
 
 export const completeAgenticCheckoutSessionInputSchema =
   agenticCheckoutCompleteSchema.extend({

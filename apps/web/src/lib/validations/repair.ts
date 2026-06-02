@@ -6,7 +6,7 @@ export const repairBookingSchema = z
       .string()
       .min(2, 'Name must be at least 2 characters')
       .max(100, 'Name must be less than 100 characters'),
-    customerEmail: z.string().email('Please enter a valid email address'),
+    customerEmail: z.email({ error: 'Please enter a valid email address' }),
     customerPhone: z
       .string()
       .min(10, 'Phone number must be at least 10 digits')

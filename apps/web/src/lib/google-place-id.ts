@@ -10,7 +10,7 @@ export const googlePlaceIdSchema = z
     value.startsWith('places/') ? value.slice('places/'.length) : value
   )
   .refine((value) => GOOGLE_PLACE_ID_PATTERN.test(value), {
-    message: 'Invalid Place ID format',
+    error: 'Invalid Place ID format',
   });
 
 export function normalizeGooglePlaceId(

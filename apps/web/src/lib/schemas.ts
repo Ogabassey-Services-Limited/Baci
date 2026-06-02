@@ -6,9 +6,9 @@ import z from 'zod';
  * This schema automatically transforms it into a single object or null.
  */
 export const FeatureSettingsSchema = z
-  .any()
+  .unknown()
   .transform((val) => {
     if (Array.isArray(val)) return val[0] || null;
     return val;
   })
-  .pipe(z.record(z.string(), z.any()).nullable());
+  .pipe(z.record(z.string(), z.unknown()).nullable());

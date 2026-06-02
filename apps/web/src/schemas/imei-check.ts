@@ -12,7 +12,7 @@ export const imeiCheckSchema = z.object({
     .refine(
       (value): value is ImeiServiceTierKey => isImeiServiceTierKey(value),
       {
-        message: 'Invalid service tier',
+        error: 'Invalid service tier',
       }
     ),
 });
