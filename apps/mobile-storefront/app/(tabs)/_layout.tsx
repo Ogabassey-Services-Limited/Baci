@@ -1,18 +1,16 @@
-import { Tabs, router } from 'expo-router';
-import type React from 'react';
+import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+import { router, Tabs } from 'expo-router';
+import { useShallow } from 'zustand/react/shallow';
 import { ErrorFallback } from '@/components/ErrorBoundary';
+import { CustomTabBar } from '@/components/navigation/CustomTabBar';
+import {
+  TabBarIcon,
+  TabBarLabel,
+} from '@/components/navigation/TabBarComponents';
+import { useTheme } from '@/hooks/useTheme';
+import { useAuthStore } from '@/stores/auth-store';
 import { useCartStore } from '@/stores/cart-store';
 import { useSavedStore } from '@/stores/saved-store';
-import { useAuthStore } from '@/stores/auth-store';
-import { useShallow } from 'zustand/react/shallow';
-import { useTheme } from '@/hooks/useTheme';
-import {
-  TabBarLabel,
-  TabBarIcon,
-} from '@/components/navigation/TabBarComponents';
-import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-
-import { CustomTabBar } from '@/components/navigation/CustomTabBar';
 
 export function ErrorBoundary({
   error,
@@ -44,7 +42,7 @@ export default function TabLayout() {
    * Intercept tab presses BEFORE the tab screen mounts.
    * Uses router.push (not replace) so login is stacked ON TOP → back works.
    */
-   const createAuthListener = (tabPath: string) => ({
+  const createAuthListener = (tabPath: string) => ({
     tabPress: (e: { preventDefault: () => void }) => {
       if (isInitialized && !user) {
         e.preventDefault();
@@ -57,7 +55,9 @@ export default function TabLayout() {
   return (
     <Tabs
       initialRouteName="index"
-      tabBar={(props) => <CustomTabBar {...(props as unknown as BottomTabBarProps)} />}
+      tabBar={(props) => (
+        <CustomTabBar {...(props as unknown as BottomTabBarProps)} />
+      )}
       screenOptions={{
         tabBarActiveTintColor: activeTint,
         tabBarInactiveTintColor: inactiveTint,

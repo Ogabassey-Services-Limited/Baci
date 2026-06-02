@@ -77,6 +77,8 @@ describe('cached-data product query projections', () => {
   const standaloneQuantityColumnPattern = /(?:^|[\s,])quantity\s*(?:,|\n|$)/;
   const standaloneTrackQuantityColumnPattern =
     /(?:^|[\s,])track_quantity\s*(?:,|\n|$)/;
+  const standaloneDescriptionColumnPattern =
+    /(?:^|[\s,])description\s*(?:,|\n|$)/;
 
   it('getCachedProduct uses explicit column select without product_variants', async () => {
     harness.mockMaybeSingle.mockResolvedValueOnce(singleProductResult);
@@ -97,7 +99,7 @@ describe('cached-data product query projections', () => {
     expect(selectArg).toContain('canonical_url');
   });
 
-  it('getCachedProductLcpHint reads only route, image, and metadata fields without hydrating variants', async () => {
+  it('getCachedProductLcpHint reads only route and image fields without hydrating variants', async () => {
     harness.mockMaybeSingle.mockResolvedValueOnce(singleProductResult);
 
     await getCachedProductLcpHint('merchant-123', 'iphone-16');
@@ -107,29 +109,22 @@ describe('cached-data product query projections', () => {
     const selectArg = String(harness.mockSelect.mock.calls.at(-1)?.[0]);
     expect(selectArg).toContain('brand');
     expect(selectArg).toContain('condition');
-    expect(selectArg).toContain('description');
     expect(selectArg).toContain('id');
     expect(selectArg).toContain('name');
     expect(selectArg).toContain('slug');
     expect(selectArg).toContain('price');
-    expect(selectArg).toContain('compare_at_price');
-    expect(selectArg).toContain('min_variant_price');
-    expect(selectArg).toContain('max_variant_price');
     expect(selectArg).toContain('images');
-    expect(selectArg).toContain('offers:product_offers');
     expect(selectArg).toContain('manage_stock');
-    expect(selectArg).toContain('meta_title');
-    expect(selectArg).toContain('meta_description');
-    expect(selectArg).toContain('keywords');
-    expect(selectArg).toContain('canonical_url');
     expect(selectArg).toContain('schema_markup');
     expect(selectArg).toContain('stock_quantity');
     expect(selectArg).toContain('categories:category_id');
     expect(selectArg).toContain('product_categories');
+    expect(selectArg).not.toMatch(standaloneDescriptionColumnPattern);
     expect(selectArg).not.toContain('specifications');
     expect(selectArg).not.toContain('review_count');
     expect(selectArg).not.toContain('product_variants');
     expect(selectArg).not.toContain('product_key_specs');
+    expect(selectArg).not.toContain('product_offers');
     expect(harness.mockRpc).not.toHaveBeenCalled();
   });
 
@@ -535,7 +530,7 @@ describe('cached-data product query projections', () => {
     expect(result.products).toEqual(productQueryResult.data);
   });
 
-  it('getCachedCategoryPageData uses loose fallback for active canonical categories with no relation products', async () => {
+  it('getCachedCategoryPageData does not use loose fallback for active canonical categories with no products', async () => {
     harness.mockSingle.mockResolvedValueOnce({
       data: {
         id: 'cat-empty',
@@ -553,24 +548,12 @@ describe('cached-data product query projections', () => {
       error: null,
     });
 
-    const fallbackProducts = [
-      {
-        id: 'legacy-empty-category-product',
-        name: 'Empty Category Legacy Match',
-      },
-    ];
     harness.mockListResult.data = [{ id: 'cat-empty' }];
     harness.mockQueryExecution
       .mockImplementationOnce(() => Promise.resolve(harness.mockListResult))
       .mockImplementationOnce(() =>
         Promise.resolve({
           data: [],
-          error: null,
-        })
-      )
-      .mockImplementationOnce(() =>
-        Promise.resolve({
-          data: fallbackProducts,
           error: null,
         })
       );
@@ -581,15 +564,12 @@ describe('cached-data product query projections', () => {
       'test-store'
     );
 
-    expect(harness.mockOr).toHaveBeenCalledTimes(2);
+    expect(harness.mockOr).toHaveBeenCalledTimes(1);
     expect(harness.mockOr).toHaveBeenCalledWith(
       'id.eq.cat-empty,parent_id.eq.cat-empty'
     );
-    expect(harness.mockOr).toHaveBeenCalledWith(
-      'category.ilike.%Empty Category%,brand.ilike.%Empty Category%,name.ilike.%Empty Category%'
-    );
-    expect(harness.mockQueryExecution).toHaveBeenCalledTimes(3);
-    expect(result.products).toEqual(fallbackProducts);
+    expect(harness.mockQueryExecution).toHaveBeenCalledTimes(2);
+    expect(result.products).toEqual([]);
   });
 
   it('getCachedCategoryPageData marks inactive categories without loose fallback products', async () => {

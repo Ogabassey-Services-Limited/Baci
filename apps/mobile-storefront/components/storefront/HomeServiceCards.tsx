@@ -68,8 +68,8 @@ const SERVICE_SHORTCUTS: ServiceShortcut[] = [
   },
 ];
 
-const CARD_HEIGHT = 42;
-const COMPACT_CARD_HEIGHT = 38;
+const CARD_HEIGHT = 36;
+const COMPACT_CARD_HEIGHT = 34;
 const COMPACT_BREAKPOINT = 360;
 const CARD_GAP = SPACING.sm;
 const BORDER_RUNNER_DURATION = 6570;
@@ -84,7 +84,7 @@ export function HomeServiceCards({
   const isCompact = width < COMPACT_BREAKPOINT;
 
   // Horizontal scroll: Scale down slightly so part of the last card (Super Quiz) is visible
-  const cardWidth = isCompact ? 98 : 114;
+  const cardWidth = isCompact ? 86 : 96;
   const cardHeight = isCompact ? COMPACT_CARD_HEIGHT : CARD_HEIGHT;
   const runnerProgress = useRef(new Animated.Value(0)).current;
 
@@ -139,7 +139,6 @@ export function HomeServiceCards({
                     colorScheme === 'dark' ? 0.48 : 0.38
                   ),
                   width: cardWidth,
-                  height: cardHeight,
                 },
                 isCompact && styles.compactCard,
               ]}
@@ -159,7 +158,7 @@ export function HomeServiceCards({
                 <View style={styles.cardContent}>
                   <Ionicons
                     name={item.icon}
-                    size={isCompact ? 16 : 18}
+                    size={isCompact ? 15 : 16}
                     color={item.accent}
                     style={styles.icon}
                   />
@@ -204,6 +203,7 @@ const styles = StyleSheet.create({
     marginBottom: -2,
   },
   card: {
+    height: CARD_HEIGHT,
     flexDirection: 'row',
     gap: 6,
     borderWidth: 1,
@@ -233,11 +233,11 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: 'Inter_700Bold',
     fontWeight: 'bold',
-    fontSize: 13,
-    lineHeight: 15,
+    fontSize: 12,
+    lineHeight: 14,
     flexShrink: 1,
   },
   compactTitle: {
-    fontSize: 12,
+    fontSize: 11,
   },
 });

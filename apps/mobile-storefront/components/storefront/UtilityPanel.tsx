@@ -1,24 +1,24 @@
 import type Ionicons from '@react-native-vector-icons/ionicons';
+import { useIsFocused } from 'expo-router/react-navigation';
 // router removed as it was unused.
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
 import Animated, {
+  type SharedValue,
+  useAnimatedReaction,
   useAnimatedStyle,
   useSharedValue,
-  withTiming,
   withSpring,
-  useAnimatedReaction,
-  type SharedValue,
+  withTiming,
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
-import { useIsFocused } from 'expo-router/react-navigation';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
-import { CONFIG } from '@/lib/config';
-import { getTemplateConfig } from '@/lib/templates';
 import { type Category, useCategories } from '@/hooks';
 import { usePrefetchBillers } from '@/hooks/use-vtu-billers';
+import { CONFIG } from '@/lib/config';
+import { getTemplateConfig } from '@/lib/templates';
 import { utilityPanelStyles as styles } from './UtilityPanel.styles';
 import { UtilityPanelCategoryItem } from './UtilityPanelCategoryItem';
 
@@ -56,15 +56,6 @@ export function UtilityPanel({
   const defaultCategoryId =
     template.headerStyle === 'elite' ? 'u-airtime' : null;
 
-  useEffect(() => {
-    if (
-      isFocused &&
-      (selectedCategoryId === null || selectedCategoryId === defaultCategoryId)
-    ) {
-      setIsManualUtility(false);
-    }
-  }, [defaultCategoryId, isFocused, selectedCategoryId]);
-
   const [activeUtilityIndex, setActiveUtilityIndex] = useState(0);
   const [isManualUtility, setIsManualUtility] = useState(() => {
     return selectedCategoryId
@@ -72,6 +63,14 @@ export function UtilityPanel({
       : false;
   });
   const promoWordProgress = useSharedValue(1);
+
+  useEffect(() => {
+    if (!isFocused) return;
+
+    setIsManualUtility(
+      selectedCategoryId ? selectedCategoryId !== defaultCategoryId : false
+    );
+  }, [isFocused, selectedCategoryId, defaultCategoryId]);
 
   const animatedPromoStyle = useAnimatedStyle(() => {
     const translateY = (1 - promoWordProgress.value) * 4;
@@ -134,6 +133,7 @@ export function UtilityPanel({
 
   const handlePress = (id: string, index: number) => {
     setIsManualUtility(true);
+    setActiveUtilityIndex(index);
     activeIndexVal.value = withSpring(index, { damping: 16, stiffness: 150 });
     onCategorySelect(id);
   };
@@ -249,8 +249,8 @@ export function UtilityPanel({
                 : activeUtilityIndex === index
             }
             onPress={() => handlePress(category.id, index)}
-            activeIndex={activeIndexVal}
-            index={index}
+            activeIndex={isUtility ? activeIndexVal : undefined}
+            index={isUtility ? index : undefined}
           />
         ))}
       </View>

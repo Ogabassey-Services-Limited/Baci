@@ -1,12 +1,9 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import React from 'react';
-import { Dimensions } from 'react-native';
+import type PagerView from 'react-native-pager-view';
 import type { UtilityRepeatRecipient } from '@/lib/utility-repeat';
-import {
-  type UtilityPurchasePagerHandle,
-  UtilityPurchasePager,
-} from './UtilityPurchasePager';
+import { UtilityPurchasePager } from './UtilityPurchasePager';
 
 type MockBillFormProps = {
   isRepeatPaymentReady?: boolean;
@@ -75,7 +72,7 @@ function renderPager(overrides = {}) {
     onPageScroll: jest.fn(),
     onPageSelected: jest.fn(),
     onSuccess: jest.fn(),
-    pagerRef: React.createRef<UtilityPurchasePagerHandle>(),
+    pagerRef: React.createRef<PagerView>(),
     quickRepeat: {
       handleRecipientSelect: jest.fn(),
       isRepeatPaymentReady: true,
@@ -114,11 +111,8 @@ describe('UtilityPurchasePager', () => {
     expect(screen.getByText('Airtime form')).toBeOnTheScreen();
     expect(screen.queryByText('Data form')).not.toBeOnTheScreen();
 
-    const pager = screen.getByTestId('utility-purchase-pager');
-    const pageWidth = Dimensions.get('window').width;
-
-    fireEvent(pager, 'onMomentumScrollEnd', {
-      nativeEvent: { contentOffset: { x: pageWidth, y: 0 } },
+    fireEvent(screen.getByTestId('pager-view'), 'onPageSelected', {
+      nativeEvent: { position: 1 },
     });
 
     expect(onPageSelected).toHaveBeenCalledWith({
@@ -146,27 +140,5 @@ describe('UtilityPurchasePager', () => {
       isRepeatPaymentReady: false,
       recentRecipients: [],
     });
-  });
-
-  it('renders an empty pager without mounting unvisited forms', () => {
-    renderPager({
-      visitedTypes: {
-        airtime: false,
-        data: false,
-        gaming: false,
-        power: false,
-        tv: false,
-      },
-    });
-
-    expect(screen.queryByText('Airtime form')).not.toBeOnTheScreen();
-    expect(screen.queryByText('Data form')).not.toBeOnTheScreen();
-    expect(screen.queryByText(/Bill form/)).not.toBeOnTheScreen();
-    expect(screen.getByTestId('utility-purchase-pager')).toBeOnTheScreen();
-  });
-
-  it('does not crash when the imperative pager ref is unavailable', () => {
-    expect(() => renderPager({ pagerRef: null })).not.toThrow();
-    expect(screen.getByText('Airtime form')).toBeOnTheScreen();
   });
 });

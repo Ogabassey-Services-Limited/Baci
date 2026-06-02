@@ -64,8 +64,8 @@ interface PendingTransactionMockOptions {
     slug?: string | null;
     support_email?: string | null;
   };
-  emailClaimData?: { id: string } | null;
   claimData?: Record<string, unknown> | null;
+  emailClaimData?: { id: string } | null;
   notificationClaimData?: { id: string } | null;
   purchaseUpdateData?: { id: string } | null;
   purchaseUpdateErrors?: Array<{ message: string } | null>;
@@ -153,8 +153,8 @@ function createPendingTransactionSupabaseMock({
   transactionRow,
   rpcImpl,
   merchantData = { business_name: 'OgaBassey' },
-  emailClaimData = { id: 'vtu-1' },
   claimData = { id: 'vtu-1' },
+  emailClaimData = { id: 'vtu-1' },
   notificationClaimData = { id: 'vtu-1' },
   purchaseUpdateData = { id: 'vtu-1' },
   purchaseUpdateErrors,
@@ -349,38 +349,22 @@ function createPendingTransactionSupabaseMock({
                 typeof transactionRow.metadata === 'object'
                   ? (transactionRow.metadata as Record<string, unknown>)
                   : {}),
-                customerEmailNotificationAttempted: true,
+                [String(args?.p_attempt_key)]: true,
               }
             : null,
           error: null,
         });
       }
 
-      if (name === 'claim_vtu_customer_email_metadata_flag') {
-        const attemptKey =
-          typeof args?.p_attempt_key === 'string'
-            ? args.p_attempt_key
-            : 'customerEmailNotificationAttempted';
-        const sentKey =
-          typeof args?.p_sent_key === 'string'
-            ? args.p_sent_key
-            : 'customerEmailNotificationSent';
-        const existingMetadata =
-          transactionRow.metadata && typeof transactionRow.metadata === 'object'
-            ? (transactionRow.metadata as Record<string, unknown>)
-            : {};
-        const alreadyClaimed =
-          existingMetadata[attemptKey] === true ||
-          existingMetadata[sentKey] === true;
-
+      if (name === 'clear_vtu_customer_email_notification_attempt') {
         return Promise.resolve({
-          data:
-            emailClaimData && !alreadyClaimed
-              ? {
-                  ...existingMetadata,
-                  [attemptKey]: true,
-                }
-              : null,
+          data: {
+            ...(transactionRow.metadata &&
+            typeof transactionRow.metadata === 'object'
+              ? (transactionRow.metadata as Record<string, unknown>)
+              : {}),
+            [String(args?.p_attempt_key)]: false,
+          },
           error: null,
         });
       }
@@ -692,72 +676,28 @@ describe('fulfillPendingVtuTransaction', () => {
         textContent: expect.stringContaining('TOKEN-READY-1234'),
       })
     );
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'claim_vtu_customer_email_notification_attempt',
+      {
+        p_attempt_key: 'customerTokenEmailNotificationAttempted',
+        p_sent_key: 'customerTokenEmailNotificationSent',
+        p_transaction_id: 'vtu-1',
+      }
+    );
     expect(updatePayloads).toContainEqual({
       metadata: expect.objectContaining({
-        customerEmailNotificationAttempted: true,
-        customerEmailNotificationSent: true,
         customerNotificationAttempted: true,
+        customerTokenEmailNotificationAttempted: true,
+        customerTokenEmailNotificationSent: true,
       }),
     });
   });
 
-  it('does not send an email receipt when another worker already claimed it', async () => {
-    const supabase = createPendingTransactionSupabaseMock({
-      customerData: {
-        user_id: 'user-1',
-        email: 'buyer@example.com',
-        first_name: 'Ada',
-        last_name: 'Lovelace',
-      },
-      emailClaimData: null,
-      merchantData: {
-        business_name: 'OgaBassey',
-        slug: 'ogabassey',
-        support_email: 'support@oga.test',
-      },
-      transactionRow: {
-        id: 'vtu-1',
-        merchant_id: 'merchant-1',
-        customer_id: 'customer-1',
-        type: 'electricity',
-        network_provider: '',
-        phone_number: '',
-        amount: 1000,
-        request_reference: 'VTU-123',
-        transaction_id: 'kuda-1',
-        status: 'successful',
-        metadata: {
-          customerNotificationAttempted: true,
-          customerEmailNotificationSent: false,
-          voucherPin: 'TOKEN-READY-1234',
-        },
-        error_message: null,
-        merchant_commission: 0,
-        customer_cashback: 0,
-        biller_name: 'EKEDC PREPAID',
-        biller_item_code: 'KUD-ELE-EKED-002',
-        customer_identifier: '43901766923',
-      },
-    });
-
-    const result = await fulfillPendingVtuTransaction({
-      supabase,
-      transactionId: 'vtu-1',
-    });
-
-    expect(result).toMatchObject({
-      status: 'successful',
-      voucherPin: 'TOKEN-READY-1234',
-    });
-    expect(mockSendEmail).not.toHaveBeenCalled();
-  });
-
-  it('keeps fulfillment successful when the claimed email receipt fails to send', async () => {
+  it('sends token-ready email after an earlier receipt email for token-backed utilities', async () => {
     const updatePayloads: unknown[] = [];
-    mockSendEmail.mockRejectedValue(new Error('zeptomail unavailable'));
     const supabase = createPendingTransactionSupabaseMock({
       customerData: {
-        user_id: 'user-1',
+        user_id: null,
         email: 'buyer@example.com',
         first_name: 'Ada',
         last_name: 'Lovelace',
@@ -779,8 +719,8 @@ describe('fulfillPendingVtuTransaction', () => {
         transaction_id: 'kuda-1',
         status: 'successful',
         metadata: {
-          customerNotificationAttempted: true,
-          customerEmailNotificationSent: false,
+          customerEmailNotificationSent: true,
+          customerReceiptEmailNotificationSent: true,
           voucherPin: 'TOKEN-READY-1234',
         },
         error_message: null,
@@ -793,21 +733,23 @@ describe('fulfillPendingVtuTransaction', () => {
       updatePayloads,
     });
 
-    const result = await fulfillPendingVtuTransaction({
+    await fulfillPendingVtuTransaction({
       supabase,
       transactionId: 'vtu-1',
     });
 
-    expect(result).toMatchObject({
-      status: 'successful',
-      voucherPin: 'TOKEN-READY-1234',
-    });
-    expect(mockNotifyCustomer).not.toHaveBeenCalled();
+    expect(mockSendEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        subject: 'Your Prepaid Token is Ready - OgaBassey',
+        textContent: expect.stringContaining('TOKEN-READY-1234'),
+        to: 'buyer@example.com',
+      })
+    );
     expect(updatePayloads).toContainEqual({
       metadata: expect.objectContaining({
-        customerEmailNotificationAttempted: true,
-        customerEmailNotificationSent: false,
-        customerNotificationAttempted: true,
+        customerReceiptEmailNotificationSent: true,
+        customerTokenEmailNotificationAttempted: true,
+        customerTokenEmailNotificationSent: true,
       }),
     });
   });
@@ -869,24 +811,172 @@ describe('fulfillPendingVtuTransaction', () => {
       })
     );
     expect(supabase.rpc).toHaveBeenCalledWith(
-      'claim_vtu_customer_email_metadata_flag',
+      'claim_vtu_customer_email_notification_attempt',
       {
-        p_attempt_key: 'customerPendingTokenEmailNotificationAttempted',
-        p_sent_key: 'customerPendingTokenEmailNotificationSent',
+        p_attempt_key: 'customerReceiptEmailNotificationAttempted',
+        p_sent_key: 'customerReceiptEmailNotificationSent',
         p_transaction_id: 'vtu-1',
       }
     );
     expect(updatePayloads).not.toContainEqual({
       metadata: expect.objectContaining({
-        customerEmailNotificationAttempted: expect.any(Boolean),
+        customerTokenEmailNotificationAttempted: expect.any(Boolean),
       }),
     });
     expect(updatePayloads).toContainEqual({
       metadata: expect.objectContaining({
-        customerPendingTokenEmailNotificationAttempted: true,
-        customerPendingTokenEmailNotificationSent: true,
+        customerReceiptEmailNotificationAttempted: true,
+        customerReceiptEmailNotificationSent: true,
       }),
     });
+  });
+
+  it('skips duplicate pending-token receipt emails when the legacy pending sent flag is present', async () => {
+    const supabase = createPendingTransactionSupabaseMock({
+      customerData: {
+        user_id: null,
+        email: 'buyer@example.com',
+        first_name: 'Ada',
+        last_name: 'Lovelace',
+      },
+      transactionRow: {
+        id: 'vtu-1',
+        merchant_id: 'merchant-1',
+        customer_id: 'customer-1',
+        type: 'electricity',
+        network_provider: '',
+        phone_number: '',
+        amount: 1000,
+        request_reference: 'VTU-123',
+        transaction_id: 'kuda-1',
+        status: 'successful',
+        metadata: {
+          customerPendingTokenEmailNotificationSent: true,
+        },
+        error_message: null,
+        merchant_commission: 0,
+        customer_cashback: 0,
+        biller_name: 'EKEDC PREPAID',
+        biller_item_code: 'KUD-ELE-EKED-002',
+        customer_identifier: '43901766923',
+      },
+    });
+
+    await fulfillPendingVtuTransaction({
+      supabase,
+      transactionId: 'vtu-1',
+    });
+
+    expect(mockSendEmail).not.toHaveBeenCalled();
+    expect(supabase.rpc).not.toHaveBeenCalledWith(
+      'claim_vtu_customer_email_notification_attempt',
+      expect.objectContaining({
+        p_attempt_key: 'customerReceiptEmailNotificationAttempted',
+        p_sent_key: 'customerReceiptEmailNotificationSent',
+      })
+    );
+  });
+
+  it('durably clears a claimed token email attempt when email delivery fails', async () => {
+    const updatePayloads: unknown[] = [];
+    mockSendEmail.mockResolvedValueOnce({ success: false });
+    const supabase = createPendingTransactionSupabaseMock({
+      customerData: {
+        user_id: null,
+        email: 'buyer@example.com',
+        first_name: 'Ada',
+        last_name: 'Lovelace',
+      },
+      merchantData: {
+        business_name: 'OgaBassey',
+        slug: 'ogabassey',
+      },
+      transactionRow: {
+        id: 'vtu-1',
+        merchant_id: 'merchant-1',
+        customer_id: 'customer-1',
+        type: 'electricity',
+        network_provider: '',
+        phone_number: '',
+        amount: 1000,
+        request_reference: 'VTU-123',
+        transaction_id: 'kuda-1',
+        status: 'successful',
+        metadata: {
+          voucherPin: 'TOKEN-READY-1234',
+        },
+        error_message: null,
+        merchant_commission: 0,
+        customer_cashback: 0,
+        biller_name: 'EKEDC PREPAID',
+        biller_item_code: 'KUD-ELE-EKED-002',
+        customer_identifier: '43901766923',
+      },
+      updateErrors: {
+        successMetadata: { message: 'final metadata write failed' },
+      },
+      updatePayloads,
+    });
+
+    await fulfillPendingVtuTransaction({
+      supabase,
+      transactionId: 'vtu-1',
+    });
+
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'clear_vtu_customer_email_notification_attempt',
+      {
+        p_attempt_key: 'customerTokenEmailNotificationAttempted',
+        p_sent_key: 'customerTokenEmailNotificationSent',
+        p_transaction_id: 'vtu-1',
+      }
+    );
+    expect(updatePayloads).toContainEqual({
+      metadata: expect.objectContaining({
+        customerTokenEmailNotificationAttempted: false,
+        customerTokenEmailNotificationSent: false,
+      }),
+    });
+  });
+
+  it('skips email send when another fulfillment path already claimed delivery', async () => {
+    const supabase = createPendingTransactionSupabaseMock({
+      customerData: {
+        user_id: null,
+        email: 'buyer@example.com',
+        first_name: 'Ada',
+        last_name: 'Lovelace',
+      },
+      emailClaimData: null,
+      transactionRow: {
+        id: 'vtu-1',
+        merchant_id: 'merchant-1',
+        customer_id: 'customer-1',
+        type: 'electricity',
+        network_provider: '',
+        phone_number: '',
+        amount: 1000,
+        request_reference: 'VTU-123',
+        transaction_id: 'kuda-1',
+        status: 'successful',
+        metadata: {
+          voucherPin: 'TOKEN-READY-1234',
+        },
+        error_message: null,
+        merchant_commission: 0,
+        customer_cashback: 0,
+        biller_name: 'EKEDC PREPAID',
+        biller_item_code: 'KUD-ELE-EKED-002',
+        customer_identifier: '43901766923',
+      },
+    });
+
+    await fulfillPendingVtuTransaction({
+      supabase,
+      transactionId: 'vtu-1',
+    });
+
+    expect(mockSendEmail).not.toHaveBeenCalled();
   });
 
   it('returns success when successful-transaction metadata cannot be persisted', async () => {

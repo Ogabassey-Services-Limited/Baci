@@ -1,5 +1,4 @@
 import { jest } from '@jest/globals';
-import * as React from 'react';
 
 const mockWithTiming = jest.fn((toValue: number, _config?: object) => toValue);
 
@@ -17,7 +16,8 @@ jest.mock('react-native-reanimated', () => {
     Text,
     cancelAnimation: jest.fn(),
     useAnimatedStyle: (updater: () => object) => updater(),
-    useSharedValue: (value: number) => {
+    useSharedValue: (initialValue: number) => {
+      let value = initialValue;
       const listeners: Array<(newValue: number, oldValue: number) => void> = [];
       return {
         get value() {
@@ -76,7 +76,7 @@ jest.mock('react-native-reanimated', () => {
     },
     withSpring: (
       toValue: number,
-      config?: object,
+      _config?: object,
       callback?: (isFinished?: boolean) => void
     ) => {
       callback?.(true);
@@ -255,6 +255,91 @@ describe('UtilityPanel', () => {
     });
     expect(screen.getByLabelText('Airtime')).toHaveAccessibilityState({
       selected: false,
+    });
+  });
+
+  it('uses selected state instead of utility auto-rotation for remote circle categories', () => {
+    mockUseCategories.mockReturnValue(
+      createCategoriesResult({
+        data: [
+          {
+            icon: 'phone-portrait-outline',
+            id: 'phones',
+            name: 'Phones',
+            slug: 'phones',
+          },
+          {
+            icon: 'laptop-outline',
+            id: 'laptops',
+            name: 'Laptops',
+            slug: 'laptops',
+          },
+        ],
+      })
+    );
+
+    render(
+      <UtilityPanel
+        slug="electronics"
+        selectedCategoryId="laptops"
+        onCategorySelect={jest.fn()}
+      />
+    );
+
+    const phonesButton = screen.getByRole('button', { name: 'Phones' });
+    const laptopsButton = screen.getByRole('button', { name: 'Laptops' });
+
+    expect(phonesButton).toHaveAccessibilityState({ selected: false });
+    expect(laptopsButton).toHaveAccessibilityState({ selected: true });
+    expect(findHostElement(phonesButton.children[0])).toHaveStyle({
+      backgroundColor: Colors.light.muted,
+    });
+    expect(findHostElement(laptopsButton.children[0])).toHaveStyle({
+      backgroundColor: Colors.light.card,
+    });
+  });
+
+  it('preserves manual utility selection when the home screen refocuses', () => {
+    const onCategorySelect = jest.fn();
+    const { rerender } = render(
+      <UtilityPanel
+        selectedCategoryId={null}
+        onCategorySelect={onCategorySelect}
+      />
+    );
+
+    fireEvent.press(screen.getByLabelText('Data'));
+
+    rerender(
+      <UtilityPanel
+        selectedCategoryId="u-data"
+        onCategorySelect={onCategorySelect}
+      />
+    );
+
+    mockUseIsFocused.mockReturnValue(false);
+    rerender(
+      <UtilityPanel
+        selectedCategoryId="u-data"
+        onCategorySelect={onCategorySelect}
+      />
+    );
+
+    mockUseIsFocused.mockReturnValue(true);
+    rerender(
+      <UtilityPanel
+        selectedCategoryId="u-data"
+        onCategorySelect={onCategorySelect}
+      />
+    );
+
+    act(() => {
+      jest.advanceTimersByTime(5600);
+    });
+
+    expect(screen.getByText('Data!')).toBeTruthy();
+    expect(screen.getByLabelText('Data')).toHaveAccessibilityState({
+      selected: true,
     });
   });
 
