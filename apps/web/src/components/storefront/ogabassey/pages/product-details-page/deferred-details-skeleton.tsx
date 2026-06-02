@@ -1,12 +1,12 @@
 interface DeferredDetailsSkeletonProps {
-  role?: string;
+  announce?: boolean;
   'aria-live'?: 'polite' | 'assertive' | 'off';
   'aria-busy'?: boolean;
   'aria-label'?: string;
 }
 
 export function DeferredDetailsSkeleton({
-  role = 'status',
+  announce = true,
   'aria-live': ariaLive = 'polite',
   'aria-busy': ariaBusy = true,
   'aria-label': ariaLabel = 'Loading product details...',
@@ -15,7 +15,7 @@ export function DeferredDetailsSkeleton({
     <div
       className="mt-12 min-h-[1200px] [content-visibility:auto] [contain-intrinsic-size:1400px_2200px] w-full"
       data-testid="deferred-product-details-placeholder"
-      role={role || undefined}
+      role={announce ? 'status' : undefined}
       aria-live={ariaLive || undefined}
       aria-busy={ariaBusy}
       aria-label={ariaLabel || undefined}
@@ -29,4 +29,3 @@ export function DeferredDetailsSkeleton({
     </div>
   );
 }
-

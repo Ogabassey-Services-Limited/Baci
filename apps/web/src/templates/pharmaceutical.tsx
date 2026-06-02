@@ -331,28 +331,28 @@ export function PharmaceuticalHome(props: TemplatePageProps) {
                         <div>
                             <h4 className="font-semibold text-white mb-4">Shop</h4>
                             <ul className="space-y-2 text-sm">
-                                <li><a href="#" className="hover:text-blue-400 transition-colors">Prescription Medications</a></li>
-                                <li><a href="#" className="hover:text-blue-400 transition-colors">OTC Products</a></li>
-                                <li><a href="#" className="hover:text-blue-400 transition-colors">Vitamins & Supplements</a></li>
-                                <li><a href="#" className="hover:text-blue-400 transition-colors">Personal Care</a></li>
+                                <li><span className="transition-colors cursor-default">Prescription Medications</span></li>
+                                <li><span className="transition-colors cursor-default">OTC Products</span></li>
+                                <li><span className="transition-colors cursor-default">Vitamins & Supplements</span></li>
+                                <li><span className="transition-colors cursor-default">Personal Care</span></li>
                             </ul>
                         </div>
                         <div>
                             <h4 className="font-semibold text-white mb-4">Support</h4>
                             <ul className="space-y-2 text-sm">
-                                <li><a href="#" className="hover:text-blue-400 transition-colors">Contact Pharmacist</a></li>
-                                <li><a href="#" className="hover:text-blue-400 transition-colors">Upload Prescription</a></li>
-                                <li><a href="#" className="hover:text-blue-400 transition-colors">Track Order</a></li>
-                                <li><a href="#" className="hover:text-blue-400 transition-colors">FAQs</a></li>
+                                <li><span className="transition-colors cursor-default">Contact Pharmacist</span></li>
+                                <li><span className="transition-colors cursor-default">Upload Prescription</span></li>
+                                <li><span className="transition-colors cursor-default">Track Order</span></li>
+                                <li><span className="transition-colors cursor-default">FAQs</span></li>
                             </ul>
                         </div>
                         <div>
                             <h4 className="font-semibold text-white mb-4">Legal</h4>
                             <ul className="space-y-2 text-sm">
-                                <li><a href="#" className="hover:text-blue-400 transition-colors">Privacy Policy</a></li>
-                                <li><a href="#" className="hover:text-blue-400 transition-colors">HIPAA Compliance</a></li>
-                                <li><a href="#" className="hover:text-blue-400 transition-colors">Terms of Service</a></li>
-                                <li><a href="#" className="hover:text-blue-400 transition-colors">Licensing Information</a></li>
+                                <li><span className="transition-colors cursor-default">Privacy Policy</span></li>
+                                <li><span className="transition-colors cursor-default">HIPAA Compliance</span></li>
+                                <li><span className="transition-colors cursor-default">Terms of Service</span></li>
+                                <li><span className="transition-colors cursor-default">Licensing Information</span></li>
                             </ul>
                         </div>
                     </div>

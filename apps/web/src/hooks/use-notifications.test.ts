@@ -25,9 +25,15 @@ vi.mock('@/hooks/use-merchant-client', () => ({
     error: null,
     refetch: vi.fn(),
   })),
+  useMerchantSafe: vi.fn(() => ({
+    merchant: { id: 'merchant-123' },
+    loading: false,
+    error: null,
+    refetch: vi.fn(),
+  })),
 }));
 
-import { useMerchant } from '@/hooks/use-merchant-client';
+import { useMerchant, useMerchantSafe } from '@/hooks/use-merchant-client';
 // Import after mocks are set up
 import { createClient } from '@/lib/supabase/client';
 import { useNotifications, useNotificationsSafe } from './use-notifications';
@@ -45,6 +51,12 @@ beforeEach(() => {
     mockSupabase as unknown as ReturnType<typeof createClient>
   );
   vi.mocked(useMerchant).mockReturnValue({
+    merchant: { id: 'merchant-123' },
+    loading: false,
+    error: null,
+    refetch: vi.fn(),
+  } as any);
+  vi.mocked(useMerchantSafe).mockReturnValue({
     merchant: { id: 'merchant-123' },
     loading: false,
     error: null,
@@ -951,9 +963,9 @@ describe('useNotifications', () => {
   });
 
   describe('useNotificationsSafe', () => {
-    it('returns hook result when used within provider', () => {
+    it('returns the notifications hook result', () => {
       // Arrange
-      vi.mocked(useMerchant).mockReturnValue({
+      vi.mocked(useMerchantSafe).mockReturnValue({
         merchant: { id: 'merchant-123' },
         loading: false,
         error: null,
@@ -964,21 +976,21 @@ describe('useNotifications', () => {
       const { result } = renderHook(() => useNotificationsSafe());
 
       // Assert
-      expect(result.current).not.toBeNull();
       expect(result.current?.notifications).toEqual([]);
     });
 
-    it('returns null when used outside provider', () => {
+    it('returns null outside MerchantProvider without throwing', () => {
       // Arrange
-      vi.mocked(useMerchant).mockImplementation(() => {
-        throw new Error('Must be used within provider');
-      });
+      vi.mocked(useMerchantSafe).mockReturnValue(null);
+      const fetchSpy = vi.fn();
+      global.fetch = fetchSpy;
 
       // Act
       const { result } = renderHook(() => useNotificationsSafe());
 
       // Assert
       expect(result.current).toBeNull();
+      expect(fetchSpy).not.toHaveBeenCalled();
     });
   });
 });

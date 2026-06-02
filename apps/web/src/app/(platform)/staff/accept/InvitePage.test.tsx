@@ -19,10 +19,9 @@ vi.mock('next/link', () => ({
 describe('InvitePage', () => {
   it('renders the invitation details correctly', () => {
     render(
-      // biome-ignore lint/a11y/useValidAriaRole: role is a component prop, not an ARIA role
       <InvitePage
         merchantName="OgaBassey Store"
-        role="Admin"
+        staffRole="Admin"
         inviteEmail="invitee@example.com"
         token="token-abc-123"
       />
@@ -38,10 +37,9 @@ describe('InvitePage', () => {
 
   it('renders sign in and sign up links with correct token-aware redirects', () => {
     render(
-      // biome-ignore lint/a11y/useValidAriaRole: role is a component prop, not an ARIA role
       <InvitePage
         merchantName="OgaBassey Store"
-        role="Admin"
+        staffRole="Admin"
         inviteEmail="invitee@example.com"
         token="token-abc-123"
       />

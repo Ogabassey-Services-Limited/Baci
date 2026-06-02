@@ -47,11 +47,17 @@ export const LinkSelector = ({ open, onOpenChange }: LinkSelectorProps) => {
 
   // Focus the input when the popover opens
   useEffect(() => {
-    if (open) {
-      setTimeout(() => {
-        inputRef.current?.focus();
-      }, 100);
+    if (!open) {
+      return;
     }
+
+    const timeoutId = window.setTimeout(() => {
+      inputRef.current?.focus();
+    }, 100);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
   }, [open]);
 
   if (!editor) return null;
