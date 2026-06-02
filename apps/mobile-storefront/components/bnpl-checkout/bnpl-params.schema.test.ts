@@ -15,6 +15,18 @@ describe('BNPLParamsSchema', () => {
     expect(result.success).toBe(true);
   });
 
+  it('strips untrusted merchantDomain route params from parsed data', () => {
+    const result = BNPLParamsSchema.safeParse({
+      gateway: 'credit_direct',
+      merchantDomain: 'evil.example',
+      merchantSlug: 'ogabassey',
+      orderId: 'order-123',
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.data).not.toHaveProperty('merchantDomain');
+  });
+
   it('rejects invalid gateway values', () => {
     const result = BNPLParamsSchema.safeParse({
       gateway: 'paystack',

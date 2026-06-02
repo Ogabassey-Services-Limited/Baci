@@ -26,6 +26,8 @@ interface BuildKlumpBnplRouteParamsInput {
   customerPhone: string;
   orderId: string;
   reference: string;
+  merchantDomain?: string;
+  merchantSlug?: string;
   trackingToken?: string | null;
 }
 
@@ -92,6 +94,8 @@ export function buildKlumpBnplRouteParams({
   customerPhone,
   orderId,
   reference,
+  merchantDomain,
+  merchantSlug,
   trackingToken,
 }: BuildKlumpBnplRouteParamsInput) {
   return {
@@ -103,6 +107,8 @@ export function buildKlumpBnplRouteParams({
     gateway: 'klump',
     orderId,
     reference,
+    ...(merchantSlug ? { merchantSlug } : {}),
+    ...(merchantDomain ? { merchantDomain } : {}),
     ...(trackingToken ? { trackingToken } : {}),
   } as const;
 }
