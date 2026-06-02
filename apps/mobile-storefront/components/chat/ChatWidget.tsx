@@ -3,13 +3,13 @@ import * as Haptics from 'expo-haptics';
 import { usePathname } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { Platform, Pressable, Text, View } from 'react-native';
-import { GestureDetector, Touchable } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useShallow } from 'zustand/react/shallow';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
 import { getChatWidgetBottomOffset } from '@/constants/layout';
+import { getOptionalGestureHandlerRuntime } from '@/lib/optional-gesture-handler';
 import { useUIStore } from '@/stores/ui-store';
 import { ChatModal } from './ChatModal';
 import { EDGE_MARGIN, HIDDEN_ROUTES } from './constants';
@@ -28,6 +28,7 @@ export function ChatWidget({
   const pathname = usePathname();
   const previousPathnameRef = useRef<string | null>(null);
   const insets = useSafeAreaInsets();
+  const { GestureDetector } = getOptionalGestureHandlerRuntime();
   const effectiveBottomOffset = getChatWidgetBottomOffset(
     bottomOffset,
     insets.bottom
@@ -174,16 +175,14 @@ export function ChatWidget({
               <Text style={[styles.nudgeText, { color: colors.text }]}>
                 {proactiveMsg}
               </Text>
-              <Touchable
-                activeOpacity={0.3}
-                animationDuration={{ in: 0, out: 150 }}
+              <Pressable
                 accessibilityLabel="Dismiss chat suggestion"
                 accessibilityRole="button"
                 style={styles.nudgeClose}
                 onPress={dismissNudge}
               >
                 <Ionicons name="close" size={10} color={colors.textSecondary} />
-              </Touchable>
+              </Pressable>
             </View>
             <View
               style={[

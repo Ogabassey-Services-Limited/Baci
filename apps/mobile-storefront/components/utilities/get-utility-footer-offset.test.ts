@@ -11,14 +11,14 @@ describe('getUtilityFooterOffset', () => {
     ).toBe(0);
   });
 
-  it('does not add a second keyboard offset when the keyboard is visible', () => {
+  it('keeps the footer above the keyboard without double-counting the bottom inset', () => {
     expect(
       getUtilityFooterOffset({
         bottomInset: 34,
         isKeyboardVisible: true,
         keyboardHeight: 320,
       })
-    ).toBe(0);
+    ).toBe(286);
   });
 
   it('keeps the footer at the container bottom when keyboard height is zero', () => {

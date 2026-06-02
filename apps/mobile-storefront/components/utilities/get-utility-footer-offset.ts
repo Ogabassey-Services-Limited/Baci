@@ -4,8 +4,14 @@ interface UtilityFooterOffsetParams {
   keyboardHeight: number;
 }
 
-export function getUtilityFooterOffset(_params: UtilityFooterOffsetParams) {
-  // Utility payment CTAs stay anchored to the screen bottom. The keyboard
-  // overlays them instead of lifting them into the form content.
-  return 0;
+export function getUtilityFooterOffset({
+  bottomInset,
+  isKeyboardVisible,
+  keyboardHeight,
+}: UtilityFooterOffsetParams) {
+  if (!isKeyboardVisible || keyboardHeight <= 0) {
+    return 0;
+  }
+
+  return Math.max(keyboardHeight - Math.max(bottomInset, 0), 0);
 }

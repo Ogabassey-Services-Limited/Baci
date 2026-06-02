@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   applyOrderListVisibilityFilter,
+  HIDDEN_CHECKOUT_PAYMENT_STATUS_VALUES,
   HIDDEN_CHECKOUT_PAYMENT_STATUSES,
+  ONLINE_CHECKOUT_PAYMENT_METHODS,
   VISIBLE_PENDING_ORDER_FILTER,
 } from './order-list-visibility';
 
@@ -30,6 +32,12 @@ describe('applyOrderListVisibilityFilter', () => {
         args: [VISIBLE_PENDING_ORDER_FILTER],
       },
     ]);
-    expect(VISIBLE_PENDING_ORDER_FILTER).toContain('payment_status.neq.pending');
+    expect(HIDDEN_CHECKOUT_PAYMENT_STATUS_VALUES).not.toContain('unpaid');
+    expect(VISIBLE_PENDING_ORDER_FILTER).toContain(
+      'payment_status.not.in.(pending,unpaid)'
+    );
+    expect(VISIBLE_PENDING_ORDER_FILTER).toContain(
+      `payment_method.not.in.${ONLINE_CHECKOUT_PAYMENT_METHODS}`
+    );
   });
 });

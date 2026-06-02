@@ -187,7 +187,7 @@ export default function RootLayout() {
         isReady={isInitialized && isStorageReady}
         onAnimationEnd={() => setShowSplash(false)}
       >
-        <RootLayoutNav persistenceEnabled={false} />
+        {isStorageReady ? <RootLayoutNav persistenceEnabled={false} /> : null}
       </AnimatedSplash>
     );
   }

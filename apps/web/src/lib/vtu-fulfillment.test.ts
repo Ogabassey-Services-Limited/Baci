@@ -776,9 +776,68 @@ describe('fulfillPendingVtuTransaction', () => {
     expect(mockNotifyCustomer).not.toHaveBeenCalled();
     expect(updatePayloads).toContainEqual({
       metadata: expect.objectContaining({
-        customerEmailNotificationAttempted: true,
+        customerEmailNotificationAttempted: false,
         customerEmailNotificationSent: false,
         customerNotificationAttempted: true,
+      }),
+    });
+  });
+
+  it('defers token-based email receipts until the voucher PIN is available', async () => {
+    const updatePayloads: unknown[] = [];
+    const supabase = createPendingTransactionSupabaseMock({
+      customerData: {
+        user_id: 'user-1',
+        email: 'buyer@example.com',
+        first_name: 'Ada',
+        last_name: 'Lovelace',
+      },
+      merchantData: {
+        business_name: 'OgaBassey',
+        slug: 'ogabassey',
+        support_email: 'support@oga.test',
+      },
+      transactionRow: {
+        id: 'vtu-1',
+        merchant_id: 'merchant-1',
+        customer_id: 'customer-1',
+        type: 'electricity',
+        network_provider: '',
+        phone_number: '',
+        amount: 1000,
+        request_reference: 'VTU-123',
+        transaction_id: 'kuda-1',
+        status: 'successful',
+        metadata: {
+          customerNotificationAttempted: true,
+        },
+        error_message: null,
+        merchant_commission: 0,
+        customer_cashback: 0,
+        biller_name: 'EKEDC PREPAID',
+        biller_item_code: 'KUD-ELE-EKED-002',
+        customer_identifier: '43901766923',
+      },
+      updatePayloads,
+    });
+
+    const result = await fulfillPendingVtuTransaction({
+      supabase,
+      transactionId: 'vtu-1',
+    });
+
+    expect(result).toMatchObject({
+      status: 'successful',
+    });
+    expect(result).not.toHaveProperty('voucherPin');
+    expect(mockSendEmail).not.toHaveBeenCalled();
+    expect(supabase.rpc).not.toHaveBeenCalledWith(
+      'claim_vtu_customer_email_notification_attempt',
+      { p_transaction_id: 'vtu-1' }
+    );
+    expect(updatePayloads).not.toContainEqual({
+      metadata: expect.objectContaining({
+        customerEmailNotificationAttempted: expect.any(Boolean),
       }),
     });
   });

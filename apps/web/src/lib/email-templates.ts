@@ -1378,6 +1378,7 @@ export function generateVtuTokenReceiptEmail(
     data.type === 'electricity' ||
     data.type === 'cable_tv' ||
     data.type === 'betting';
+  const isTokenPending = expectsToken && !isTokenReady;
   const safeMerchantUrl = getSafeHttpUrl(data.merchantUrl) ?? '#';
   const safeMerchantHref = escapeHtml(safeMerchantUrl);
   const merchantName = escapeHtml(data.merchantName);
@@ -1491,6 +1492,17 @@ export function generateVtuTokenReceiptEmail(
   `
     )
     .join('');
+  const headerTitle = isTokenReady
+    ? 'Token Delivery'
+    : isTokenPending
+      ? 'Token Pending'
+      : 'Receipt Confirmation';
+  const headerSubtitle = isTokenPending
+    ? 'Your payment was received and token fulfillment is still in progress'
+    : `Your ${typeLabel.toLowerCase()} is ready`;
+  const introHtml = isTokenPending
+    ? `Thank you for your purchase from <strong>${merchantName}</strong>. Your payment was successful and we're still retrieving the service token.`
+    : `Thank you for your purchase from <strong>${merchantName}</strong>. Your payment was verified successfully and your utility vend request has been fulfilled.`;
 
   return `
 <!DOCTYPE html>
@@ -1528,9 +1540,9 @@ export function generateVtuTokenReceiptEmail(
                   <td colspan="2" style="padding-top: 24px;">
                     <div style="font-size: 32px; margin-bottom: 8px;">${iconEmoji}</div>
                     <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 700; line-height: 1.2;">
-                      ${isTokenReady ? 'Token Delivery' : 'Receipt Confirmation'}
+                      ${headerTitle}
                     </h1>
-                    <p style="margin: 6px 0 0 0; color: #94a3b8; font-size: 15px;">Your ${typeLabel.toLowerCase()} is ready</p>
+                    <p style="margin: 6px 0 0 0; color: #94a3b8; font-size: 15px;">${headerSubtitle}</p>
                   </td>
                 </tr>
               </table>
@@ -1544,7 +1556,7 @@ export function generateVtuTokenReceiptEmail(
                 Hi <strong>${customerName}</strong>,
               </p>
               <p style="margin: 0 0 24px 0; font-size: 15px; color: #475569; line-height: 1.6;">
-                Thank you for your purchase from <strong>${merchantName}</strong>. Your payment was verified successfully and your utility vend request has been fulfilled.
+                ${introHtml}
               </p>
 
               ${tokenSectionHtml}
@@ -1604,6 +1616,7 @@ export function generateVtuTokenReceiptText(data: VtuTokenReceiptData): string {
     data.type === 'electricity' ||
     data.type === 'cable_tv' ||
     data.type === 'betting';
+  const isTokenPending = expectsToken && !isTokenReady;
   const typeLabel =
     data.type === 'electricity'
       ? 'Electricity Token'
@@ -1639,13 +1652,19 @@ export function generateVtuTokenReceiptText(data: VtuTokenReceiptData): string {
   const safeTokenLine = voucherPin
     ? `YOUR PREPAID TOKEN PIN: ${voucherPin}\n(Enter this token directly into your meter or decoder to activate.)\n`
     : tokenLine;
+  const heading = isTokenPending
+    ? `${typeLabel} Payment Received`
+    : `${typeLabel} Confirmation!`;
+  const introText = isTokenPending
+    ? `Thank you for your purchase from ${merchantName}. Your payment was successful and we're still retrieving the service token.`
+    : `Thank you for your purchase from ${merchantName}. Your payment has been verified and fulfilled.`;
 
   return `
-${typeLabel} Confirmation!
+${heading}
 
 Hi ${customerName},
 
-Thank you for your purchase from ${merchantName}. Your payment has been verified and fulfilled.
+${introText}
 
 ${safeTokenLine}
 TRANSACTION DETAILS:

@@ -418,9 +418,14 @@ describe('Email Templates', () => {
 
       expect(html).toContain('TOKEN FULFILLMENT IN PROGRESS');
       expect(html).toContain('Payment Received');
+      expect(html).toContain('token fulfillment is still in progress');
       expect(html).not.toContain('Directly Successful &amp; Active');
       expect(html).not.toContain('No PIN entry required');
+      expect(html).not.toContain('is ready');
+      expect(html).not.toContain('vend request has been fulfilled');
       expect(text).toContain('Token fulfillment is still in progress');
+      expect(text).toContain("we're still retrieving the service token");
+      expect(text).not.toContain('verified and fulfilled');
       expect(text).not.toContain('No PIN entry required');
     });
 

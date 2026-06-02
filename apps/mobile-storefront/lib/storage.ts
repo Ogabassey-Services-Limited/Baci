@@ -66,6 +66,22 @@ async function getAsyncStorageEntries(
   );
 }
 
+async function removeAsyncStorageItems(keys: readonly string[]): Promise<void> {
+  if (keys.length === 0) return;
+
+  if (typeof batchStorage.removeMany === 'function') {
+    await batchStorage.removeMany([...keys]);
+    return;
+  }
+
+  if (typeof batchStorage.multiRemove === 'function') {
+    await batchStorage.multiRemove([...keys]);
+    return;
+  }
+
+  await Promise.all(keys.map((key) => AsyncStorage.removeItem(key)));
+}
+
 export async function getStorageEntries(
   keys: readonly string[]
 ): Promise<[string, string | null][]> {
@@ -87,20 +103,11 @@ export async function removeStorageItems(
     for (const key of keys) {
       mmkvStorage.remove(key);
     }
+    await removeAsyncStorageItems(keys);
     return;
   }
 
-  if (typeof batchStorage.removeMany === 'function') {
-    await batchStorage.removeMany([...keys]);
-    return;
-  }
-
-  if (typeof batchStorage.multiRemove === 'function') {
-    await batchStorage.multiRemove([...keys]);
-    return;
-  }
-
-  await Promise.all(keys.map((key) => AsyncStorage.removeItem(key)));
+  await removeAsyncStorageItems(keys);
 }
 
 /**
@@ -119,6 +126,7 @@ export const asyncStorage = {
         const legacyValue = await AsyncStorage.getItem(name);
         if (legacyValue !== null) {
           mmkvStorage.set(name, legacyValue);
+          await AsyncStorage.removeItem(name);
         }
         return legacyValue;
       }
@@ -143,7 +151,6 @@ export const asyncStorage = {
     try {
       if (mmkvStorage) {
         mmkvStorage.remove(name);
-        return;
       }
       await AsyncStorage.removeItem(name);
     } catch (error) {
@@ -202,6 +209,9 @@ export const syncStorage = {
   removeItem: (name: string): void => {
     if (mmkvStorage) {
       mmkvStorage.remove(name);
+      AsyncStorage.removeItem(name).catch((error) =>
+        log.warn('Failed to remove legacy item:', name, error)
+      );
       return;
     }
 
@@ -252,6 +262,7 @@ export function initializeStorage(keys: readonly string[]): Promise<void> {
     try {
       log.debug('Initializing with keys:', keys);
       const pairs = await getAsyncStorageEntries(keys);
+      const migratedKeys: string[] = [];
       for (const [key, value] of pairs) {
         if (value !== null) {
           if (mmkvStorage) {
@@ -260,11 +271,16 @@ export function initializeStorage(keys: readonly string[]): Promise<void> {
               mmkvStorage.set(key, value);
               log.debug(`Migrated "${key}" from AsyncStorage to MMKV`);
             }
+            migratedKeys.push(key);
           } else {
             memoryCache[key] = value;
             log.debug(`Loaded "${key}" from AsyncStorage`);
           }
         }
+      }
+      if (mmkvStorage && migratedKeys.length > 0) {
+        await removeAsyncStorageItems(migratedKeys);
+        log.debug('Removed migrated legacy AsyncStorage keys');
       }
       isStorageInitialized = true;
       log.debug('Initialization complete');

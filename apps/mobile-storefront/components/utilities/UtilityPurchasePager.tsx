@@ -37,7 +37,7 @@ type UtilityPurchasePagerProps = {
   onPageScroll?: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
   onPageSelected: (event: { nativeEvent: { position: number } }) => void;
   onSuccess: (result: UtilityPurchaseResult) => void;
-  pagerRef: MutableRefObject<UtilityPurchasePagerHandle | null>;
+  pagerRef?: MutableRefObject<UtilityPurchasePagerHandle | null> | null;
   quickRepeat: QuickRepeatState;
   visitedTypes: Record<ValidUtilityType, boolean>;
 };
@@ -69,6 +69,10 @@ export function UtilityPurchasePager({
         });
       },
     };
+
+    if (!pagerRef) {
+      return;
+    }
 
     pagerRef.current = handle;
 

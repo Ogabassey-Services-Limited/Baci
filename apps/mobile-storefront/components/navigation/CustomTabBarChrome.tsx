@@ -198,7 +198,7 @@ export function CustomTabBarChrome({
               return;
             }
 
-            if (!isFocused && !event.defaultPrevented) {
+            if (!isFocused) {
               navigation.navigate(route.name, route.params);
             }
           };

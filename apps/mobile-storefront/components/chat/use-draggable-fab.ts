@@ -2,11 +2,6 @@ import * as Haptics from 'expo-haptics';
 import { useEffect, useRef, useState } from 'react';
 import { Platform, useWindowDimensions } from 'react-native';
 import {
-  usePanGesture,
-  useSimultaneousGestures,
-  useTapGesture,
-} from 'react-native-gesture-handler';
-import {
   cancelAnimation,
   runOnJS,
   useSharedValue,
@@ -15,6 +10,7 @@ import {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
+import { getOptionalGestureHandlerRuntime } from '@/lib/optional-gesture-handler';
 import {
   DISMISS_BOTTOM_OFFSET,
   DISMISS_RADIUS,
@@ -50,6 +46,8 @@ export function useDraggableFab(
   const [isOnRight, setIsOnRight] = useState(true);
   const handleDismissJS = onDismiss ?? noop;
   const handlePressJS = onPress ?? noop;
+  const { usePanGesture, useSimultaneousGestures, useTapGesture } =
+    getOptionalGestureHandlerRuntime();
 
   // Translation values relative to starting styled location
   const translateX = useSharedValue(0);

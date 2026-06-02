@@ -111,6 +111,7 @@ vi.mock('@tanstack/react-query', () => ({
 }));
 
 import { useFailedOrders } from './useFailedOrders';
+import { ONLINE_CHECKOUT_PAYMENT_METHODS } from './orders/order-list-visibility';
 
 describe('useFailedOrders', () => {
   beforeEach(() => {
@@ -120,7 +121,7 @@ describe('useFailedOrders', () => {
     supabaseMock.reset();
   });
 
-  it('routes stale unpaid checkout initiations into customer follow-up', async () => {
+  it('routes stale unpaid online checkout initiations into customer follow-up', async () => {
     const query = useFailedOrders() as unknown as {
       queryFn: () => Promise<Array<{ payment_status: string }>>;
     };
@@ -132,7 +133,7 @@ describe('useFailedOrders', () => {
         {
           method: 'or',
           args: [
-            'payment_status.in.(bnpl_pending,failed,expired),and(payment_status.eq.pending,created_at.lt.2026-06-02T01:30:00.000Z),and(payment_status.eq.unpaid,created_at.lt.2026-06-02T01:30:00.000Z)',
+            `payment_status.in.(bnpl_pending,failed,expired),and(payment_status.eq.pending,created_at.lt.2026-06-02T01:30:00.000Z,payment_method.in.${ONLINE_CHECKOUT_PAYMENT_METHODS}),and(payment_status.eq.unpaid,created_at.lt.2026-06-02T01:30:00.000Z,payment_method.in.${ONLINE_CHECKOUT_PAYMENT_METHODS})`,
           ],
         },
       ])

@@ -44,10 +44,15 @@ describe('app bootstrap safety', () => {
       path.resolve(__dirname, '../../components/navigation/DrawerMenu.tsx'),
       'utf-8'
     );
+    const chatWidgetSource = readFileSync(
+      path.resolve(__dirname, '../../components/chat/ChatWidget.tsx'),
+      'utf-8'
+    );
 
     expect(rootLayoutNavSource).toContain(
       "from '@/lib/optional-gesture-handler'"
     );
     expect(drawerMenuSource).toContain("from '@/lib/optional-gesture-handler'");
+    expect(chatWidgetSource).toContain("from '@/lib/optional-gesture-handler'");
   });
 });

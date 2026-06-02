@@ -103,6 +103,23 @@ export default function AccountScreen() {
     let isMounted = true;
     let channel: AccountLoyaltyChannel | null = null;
 
+    const refreshLoyaltyPoints = async () => {
+      const { data, error } = await supabase
+        .from('customers')
+        .select('loyalty_points')
+        .eq('id', safeCustomer.id)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Failed to refresh loyalty points:', error);
+        return;
+      }
+
+      if (isMounted && typeof data?.loyalty_points === 'number') {
+        setLoyaltyPoints(data.loyalty_points);
+      }
+    };
+
     const subscribeToLoyaltyUpdates = async () => {
       const channelName = createAccountLoyaltyChannelName(safeCustomer.id);
 
@@ -137,6 +154,8 @@ export default function AccountScreen() {
             console.error('Realtime subscription error:', err);
           }
         });
+
+      await refreshLoyaltyPoints();
     };
 
     void subscribeToLoyaltyUpdates();

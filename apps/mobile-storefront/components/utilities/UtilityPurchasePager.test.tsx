@@ -147,4 +147,26 @@ describe('UtilityPurchasePager', () => {
       recentRecipients: [],
     });
   });
+
+  it('renders an empty pager without mounting unvisited forms', () => {
+    renderPager({
+      visitedTypes: {
+        airtime: false,
+        data: false,
+        gaming: false,
+        power: false,
+        tv: false,
+      },
+    });
+
+    expect(screen.queryByText('Airtime form')).not.toBeOnTheScreen();
+    expect(screen.queryByText('Data form')).not.toBeOnTheScreen();
+    expect(screen.queryByText(/Bill form/)).not.toBeOnTheScreen();
+    expect(screen.getByTestId('utility-purchase-pager')).toBeOnTheScreen();
+  });
+
+  it('does not crash when the imperative pager ref is unavailable', () => {
+    expect(() => renderPager({ pagerRef: null })).not.toThrow();
+    expect(screen.getByText('Airtime form')).toBeOnTheScreen();
+  });
 });

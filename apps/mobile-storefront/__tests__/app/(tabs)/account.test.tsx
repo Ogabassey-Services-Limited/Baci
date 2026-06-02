@@ -49,6 +49,10 @@ const mockSupabaseChannel = jest.fn((topic: string) =>
   getMockRealtimeChannel(topic)
 );
 const mockGetChannels = jest.fn(() => Array.from(mockRealtimeChannels.values()));
+const mockCustomerMaybeSingle = jest.fn(async () => ({
+  data: { loyalty_points: 25 },
+  error: null,
+}));
 let mockCustomer: MockCustomer | null = null;
 let mockSession: MockSession | null = {
   user: {
@@ -133,6 +137,13 @@ jest.mock('@/components/profile/account-menu', () => ({
 jest.mock('@/lib/supabase', () => ({
   supabase: {
     channel: (topic: string) => mockSupabaseChannel(topic),
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          maybeSingle: mockCustomerMaybeSingle,
+        }),
+      }),
+    }),
     getChannels: () => mockGetChannels(),
     removeChannel: (channel: MockRealtimeChannel) => mockRemoveChannel(channel),
   },
@@ -150,13 +161,17 @@ jest.mock('@/components/profile/MenuSection', () => ({
 }));
 
 jest.mock('@/components/profile/ProfileHeader', () => ({
-  ProfileHeader: () => {
+  ProfileHeader: ({ loyaltyPoints }: { loyaltyPoints?: number }) => {
     const React = jest.requireActual('react') as typeof import('react');
-    const { View } = jest.requireActual(
+    const { Text, View } = jest.requireActual(
       'react-native'
     ) as typeof import('react-native');
 
-    return React.createElement(View, { testID: 'profile-header' });
+    return React.createElement(
+      View,
+      { testID: 'profile-header' },
+      React.createElement(Text, null, `loyalty:${loyaltyPoints ?? 'none'}`)
+    );
   },
 }));
 
@@ -198,6 +213,10 @@ describe('AccountScreen', () => {
       },
     };
     mockRealtimeChannels.clear();
+    mockCustomerMaybeSingle.mockResolvedValue({
+      data: { loyalty_points: 25 },
+      error: null,
+    });
     mockGetScrollContentStyle.mockImplementation(
       (options?: MockScrollStyleOptions) => ({
         paddingTop: 20,
@@ -305,5 +324,18 @@ describe('AccountScreen', () => {
     expect(secondTopic).toBe(firstTopic);
     expect(mockGetChannels).toHaveBeenCalled();
     expect(mockRemoveChannel).toHaveBeenCalledTimes(1);
+  });
+
+  it('refreshes loyalty points when the account screen is focused', async () => {
+    mockCustomer = {
+      id: 'customer-1',
+      email: 'customer@example.com',
+      loyalty_points: 10,
+    };
+
+    render(<AccountScreen />);
+
+    await waitFor(() => expect(mockCustomerMaybeSingle).toHaveBeenCalledTimes(1));
+    expect(screen.getByText('loyalty:25')).toBeTruthy();
   });
 });

@@ -41,7 +41,7 @@ describe('useStorefrontInsets', () => {
       padding: STOREFRONT_INSET_DEFAULTS.listPadding,
       gap: STOREFRONT_INSET_DEFAULTS.listGap,
       paddingBottom:
-        STOREFRONT_INSET_DEFAULTS.listPadding + DEFAULT_INSETS.bottom,
+        STOREFRONT_INSET_DEFAULTS.listPaddingBottom + DEFAULT_INSETS.bottom,
     });
   });
 
@@ -77,7 +77,7 @@ describe('useStorefrontInsets', () => {
       padding: STOREFRONT_INSET_DEFAULTS.listPadding,
       paddingTop: SPACING.lg,
       paddingBottom:
-        STOREFRONT_INSET_DEFAULTS.listPadding + DEFAULT_INSETS.bottom,
+        STOREFRONT_INSET_DEFAULTS.listPaddingBottom + DEFAULT_INSETS.bottom,
     });
   });
 
@@ -98,7 +98,7 @@ describe('useStorefrontInsets', () => {
     expect(result.current.getListContentStyle()).toEqual({
       gap: STOREFRONT_INSET_DEFAULTS.listGap,
       padding: STOREFRONT_INSET_DEFAULTS.listPadding,
-      paddingBottom: STOREFRONT_INSET_DEFAULTS.listPadding,
+      paddingBottom: STOREFRONT_INSET_DEFAULTS.listPaddingBottom,
     });
   });
 });

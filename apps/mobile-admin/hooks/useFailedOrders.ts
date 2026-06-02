@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import { ONLINE_CHECKOUT_PAYMENT_METHODS } from './orders/order-list-visibility';
 import { useMerchant } from './useMerchant';
 
 export interface FailedOrder {
@@ -76,8 +77,7 @@ export function useFailedOrders() {
       // - failed: payment attempt failed (card declined, etc.)
       // - bnpl_pending: BNPL started but not completed
       // - expired: DVA/payment link expired without payment
-      // - pending older than 30min: likely abandoned bank transfer
-      // - unpaid older than 30min: likely abandoned online checkout
+      // - pending/unpaid online checkout older than 30min: likely abandoned online checkout
       const { data, error } = await supabase
         .from('orders')
         .select(`
@@ -99,7 +99,7 @@ export function useFailedOrders() {
         `)
         .eq('merchant_id', merchantId)
         .or(
-          `payment_status.in.(bnpl_pending,failed,expired),and(payment_status.eq.pending,created_at.lt.${staleCutoff}),and(payment_status.eq.unpaid,created_at.lt.${staleCutoff})`
+          `payment_status.in.(bnpl_pending,failed,expired),and(payment_status.eq.pending,created_at.lt.${staleCutoff},payment_method.in.${ONLINE_CHECKOUT_PAYMENT_METHODS}),and(payment_status.eq.unpaid,created_at.lt.${staleCutoff},payment_method.in.${ONLINE_CHECKOUT_PAYMENT_METHODS})`
         )
         .order('created_at', { ascending: false });
 

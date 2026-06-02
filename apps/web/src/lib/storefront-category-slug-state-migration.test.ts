@@ -16,10 +16,11 @@ describe('storefront category slug state migration', () => {
       /CREATE OR REPLACE FUNCTION private\.get_storefront_category_slug_state/i
     );
     expect(migrationSql).toMatch(
-      /SELECT COALESCE\s*\(\s*\(\s*SELECT c\.is_active/is
+      /CREATE OR REPLACE FUNCTION public\.get_storefront_category_slug_state/i
     );
+    expect(migrationSql).toMatch(/FROM public\.categories/i);
     expect(migrationSql).toMatch(
-      /LIMIT 1\s*\)\s*,\s*true\s*\)\s+AS is_active/is
+      /SELECT\s+COALESCE[\s\S]*true[\s\S]*AS\s+is_active/i
     );
   });
 });

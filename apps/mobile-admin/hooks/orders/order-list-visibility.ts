@@ -4,7 +4,6 @@ type OrderListVisibilityQuery<TQuery> = {
 };
 
 export const HIDDEN_CHECKOUT_PAYMENT_STATUS_VALUES = [
-  'unpaid',
   'bnpl_pending',
   'failed',
   'expired',
@@ -24,7 +23,7 @@ export const HIDDEN_CHECKOUT_PAYMENT_STATUSES = `(${HIDDEN_CHECKOUT_PAYMENT_STAT
 export const ONLINE_CHECKOUT_PAYMENT_METHODS = `(${ONLINE_CHECKOUT_PAYMENT_METHOD_VALUES.join(',')})`;
 
 export const VISIBLE_PENDING_ORDER_FILTER = [
-  'payment_status.neq.pending',
+  'payment_status.not.in.(pending,unpaid)',
   'payment_method.is.null',
   `payment_method.not.in.${ONLINE_CHECKOUT_PAYMENT_METHODS}`,
 ].join(',');

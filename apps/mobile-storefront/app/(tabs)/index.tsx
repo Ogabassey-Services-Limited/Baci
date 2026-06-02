@@ -145,7 +145,7 @@ export default function HomeScreen() {
   const handleListScroll = useAnimatedScrollHandler({
     onScroll: (event) => {
       'worklet';
-      if (searchVisibleShared.get()) return;
+      if (searchVisibleShared.value) return;
 
       const currentOffsetY = event.contentOffset.y;
       const normalizedOffsetY = Math.max(0, currentOffsetY);

@@ -21,6 +21,7 @@ export function useProactiveNudge(isChatOpen: boolean) {
   
   // Reanimated UI-thread Shared Value for continuous C++ fading
   const nudgeFadeAnim = useSharedValue(0);
+  const loopGeneration = useSharedValue(0);
   const nudgeFadeAnimRef = useRef(nudgeFadeAnim);
 
   // Check reduced motion preference with mounted guard
@@ -44,6 +45,7 @@ export function useProactiveNudge(isChatOpen: boolean) {
   // Proactive nudge animation chains running entirely on the C++ UI-thread
   useEffect(() => {
     const fadeAnim = nudgeFadeAnimRef.current;
+    loopGeneration.value += 1;
 
     if (reducedMotion || isChatOpen) {
       cancelAnimation(fadeAnim);
@@ -51,11 +53,11 @@ export function useProactiveNudge(isChatOpen: boolean) {
       setProactiveMsg(null);
       return;
     }
-    
-    let active = true;
+
+    const loopId = loopGeneration.value;
 
     const runLoopCycle = () => {
-      if (!active || isChatOpen) return;
+      if (loopGeneration.value !== loopId || isChatOpen) return;
 
       const randomMsg =
         PROACTIVE_MESSAGES[
@@ -71,13 +73,13 @@ export function useProactiveNudge(isChatOpen: boolean) {
         withDelay(
           NUDGE_VISIBLE_DURATION,
           withTiming(0, { duration: 300 }, (finished) => {
-            if (finished && active) {
+            if (finished && loopGeneration.value === loopId) {
               runOnJS(setProactiveMsg)(null);
               // Wait for hidden duration and run next cycle
               fadeAnim.value = withDelay(
                 NUDGE_HIDDEN_DURATION,
                 withTiming(0, { duration: 0 }, () => {
-                  if (active) {
+                  if (loopGeneration.value === loopId) {
                     runOnJS(runLoopCycle)();
                   }
                 })
@@ -92,18 +94,18 @@ export function useProactiveNudge(isChatOpen: boolean) {
     fadeAnim.value = withDelay(
       NUDGE_INITIAL_DELAY,
       withTiming(0, { duration: 0 }, () => {
-        if (active) {
+        if (loopGeneration.value === loopId) {
           runOnJS(runLoopCycle)();
         }
       })
     );
 
     return () => {
-      active = false;
+      loopGeneration.value += 1;
       cancelAnimation(fadeAnim);
       fadeAnim.value = 0;
     };
-  }, [isChatOpen, reducedMotion]);
+  }, [isChatOpen, loopGeneration, reducedMotion]);
 
   // Immediately hide proactive message when chat opens
   useEffect(() => {

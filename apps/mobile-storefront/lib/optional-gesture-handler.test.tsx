@@ -8,11 +8,17 @@ describe('getOptionalGestureHandlerRuntime', () => {
       const Gesture = { Tap: jest.fn() };
       const GestureDetector = jest.fn(() => null);
       const GestureHandlerRootView = jest.fn(() => null);
+      const usePanGesture = jest.fn();
+      const useSimultaneousGestures = jest.fn();
+      const useTapGesture = jest.fn();
 
       jest.doMock('react-native-gesture-handler', () => ({
         Gesture,
         GestureDetector,
         GestureHandlerRootView,
+        usePanGesture,
+        useSimultaneousGestures,
+        useTapGesture,
       }));
 
       const { getOptionalGestureHandlerRuntime } =
@@ -23,6 +29,9 @@ describe('getOptionalGestureHandlerRuntime', () => {
       expect(runtime.Gesture).toBe(Gesture);
       expect(runtime.GestureDetector).toBe(GestureDetector);
       expect(runtime.GestureHandlerRootView).toBe(GestureHandlerRootView);
+      expect(runtime.usePanGesture).toBe(usePanGesture);
+      expect(runtime.useSimultaneousGestures).toBe(useSimultaneousGestures);
+      expect(runtime.useTapGesture).toBe(useTapGesture);
     });
   });
 
@@ -57,6 +66,14 @@ describe('getOptionalGestureHandlerRuntime', () => {
       expect(runtime.Gesture).toBeNull();
       expect(typeof runtime.GestureDetector).toBe('function');
       expect(typeof runtime.GestureHandlerRootView).toBe('function');
+      expect(runtime.usePanGesture({})).toBeNull();
+      expect(runtime.useTapGesture({})).toBeNull();
+      expect(
+        (runtime.useSimultaneousGestures as (...gestures: unknown[]) => unknown)(
+          null,
+          null
+        )
+      ).toBeNull();
       expect(React.isValidElement(fallbackGestureDetector)).toBe(true);
       expect(React.isValidElement(fallbackRootView)).toBe(true);
 

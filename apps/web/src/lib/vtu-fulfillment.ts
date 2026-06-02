@@ -1062,7 +1062,6 @@ async function claimCustomerEmailNotificationAttempt({
     return false;
   }
 
-  setMetadataValue(metadata, 'customerEmailNotificationAttempted', true);
   return true;
 }
 
@@ -1113,11 +1112,18 @@ async function notifyVtuCustomerSuccess({
     });
   }
 
+  const label = VTU_TYPE_LABELS[row.type];
+  const provider = getVtuProviderLabel(row);
+  const voucherPin = getVoucherPinFromMetadata(metadata);
+  const expectsToken = canResolveBillVoucherPin(row.type);
+  const isTokenReady = expectsToken && Boolean(voucherPin);
+  const isTokenPending = expectsToken && !isTokenReady;
   const shouldAttemptPush =
     Boolean(customer.user_id) &&
     metadata.customerNotificationAttempted !== true;
   const shouldAttemptEmail =
     Boolean(customer.email) &&
+    !isTokenPending &&
     metadata.customerEmailNotificationAttempted !== true &&
     metadata.customerEmailNotificationSent !== true;
 
@@ -1140,11 +1146,6 @@ async function notifyVtuCustomerSuccess({
       })
     : false;
 
-  const label = VTU_TYPE_LABELS[row.type];
-  const provider = getVtuProviderLabel(row);
-  const voucherPin = getVoucherPinFromMetadata(metadata);
-  const isTokenReady =
-    canResolveBillVoucherPin(row.type) && Boolean(voucherPin);
   const baseBody = `Your ${provider} ${label.toLowerCase()} purchase of ${formatNaira(Number(row.amount) || 0)} was successful.`;
   const cashbackBody =
     cashbackAmount > 0 && customerWalletCredited
@@ -1272,6 +1273,12 @@ async function notifyVtuCustomerSuccess({
       metadataChanged =
         setMetadataValue(
           metadata,
+          'customerEmailNotificationAttempted',
+          emailResult.success
+        ) || metadataChanged;
+      metadataChanged =
+        setMetadataValue(
+          metadata,
           'customerEmailNotificationSent',
           emailResult.success
         ) || metadataChanged;
@@ -1281,6 +1288,12 @@ async function notifyVtuCustomerSuccess({
           emailError instanceof Error ? emailError.message : String(emailError),
         transactionId: row.id,
       });
+      metadataChanged =
+        setMetadataValue(
+          metadata,
+          'customerEmailNotificationAttempted',
+          false
+        ) || metadataChanged;
       metadataChanged =
         setMetadataValue(metadata, 'customerEmailNotificationSent', false) ||
         metadataChanged;
