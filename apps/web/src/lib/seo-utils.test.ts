@@ -203,6 +203,31 @@ describe('generateProductSchema - ProductGroup for variant products', () => {
     });
   });
 
+  it('preserves accepted payment method text for JSON-LD serialization', () => {
+    const schema = generateProductSchema(
+      makeProduct(),
+      'TestStore',
+      'NGN',
+      'NG',
+      undefined,
+      undefined,
+      {
+        acceptedPaymentMethods: ['Pay by B&O card & wallet'],
+      }
+    );
+
+    const offers = schema.offers as Record<string, unknown>;
+    expect(offers.acceptedPaymentMethod).toEqual(['Pay by B&O card & wallet']);
+
+    const parsed = JSON.parse(safeJsonLdStringify(schema)) as Record<
+      string,
+      unknown
+    >;
+    expect(
+      (parsed.offers as Record<string, unknown>).acceptedPaymentMethod
+    ).toEqual(['Pay by B&O card & wallet']);
+  });
+
   it('adds configured accepted payment methods to variant offers', () => {
     const schema = generateProductSchema(
       makeProduct({
@@ -1296,6 +1321,35 @@ describe('generateBlogPostSchema', () => {
     expect((schema.publisher as Record<string, unknown>).sameAs).toEqual([
       'https://www.instagram.com/ogabassey/',
     ]);
+  });
+
+  it('preserves ampersands in blog sameAs URLs until JSON-LD serialization', () => {
+    const sameAsUrl = 'https://www.linkedin.com/in/editor?ref=a&source=b';
+    const schema = generateBlogPostSchema({
+      ...baseBlogSchemaInput,
+      author: {
+        ...baseBlogSchemaInput.author,
+        sameAs: [sameAsUrl],
+      },
+      publisher: {
+        ...baseBlogSchemaInput.publisher,
+        sameAs: [sameAsUrl],
+      },
+    });
+
+    expect((schema.author as Record<string, unknown>).sameAs).toEqual([
+      sameAsUrl,
+    ]);
+    expect((schema.publisher as Record<string, unknown>).sameAs).toEqual([
+      sameAsUrl,
+    ]);
+
+    const parsed = JSON.parse(safeJsonLdStringify(schema)) as Record<
+      string,
+      Record<string, unknown>
+    >;
+    expect(parsed.author.sameAs).toEqual([sameAsUrl]);
+    expect(parsed.publisher.sameAs).toEqual([sameAsUrl]);
   });
 
   it('ignores non-string and unsafe blog sameAs entries without crashing', () => {

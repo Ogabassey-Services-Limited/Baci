@@ -707,7 +707,6 @@ function normalizeAcceptedPaymentMethods(
       acceptedPaymentMethods
         .map((method) => method.trim())
         .filter((method) => method.length > 0)
-        .map((method) => escapeHtml(method))
     ),
   ];
 
@@ -2221,7 +2220,6 @@ function normalizeBlogAuthorSameAs(
         .filter((url): url is string => typeof url === 'string')
         .map((url) => sanitizeSchemaUrl(url.trim()))
         .filter((url) => url.length > 0)
-        .map((url) => escapeHtml(url))
     ),
   ];
 }
