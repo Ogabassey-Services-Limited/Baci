@@ -45,8 +45,7 @@ vi.mock('@/components/products/jumia-sync-settings', () => ({
 vi.mock('next/image', () => ({
   default: ({ fill: _fill, ...props }: Record<string, unknown>) => (
     // biome-ignore lint/performance/noImgElement: next/image test mock
-    // biome-ignore lint/a11y/useAltText: test mock
-    <img {...props} />
+    <img {...props} alt={typeof props.alt === 'string' ? props.alt : ''} />
   ),
 }));
 

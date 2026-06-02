@@ -14,7 +14,7 @@ vi.mock('@/lib/sanitize', () => ({
 // ProductComparisonTable has its own hooks/network calls — stub it out
 vi.mock('../../components/ProductComparisonTable', () => ({
   ProductComparisonTable: () => (
-    <table role="table" aria-label="Comparison Table">
+    <table aria-label="Comparison Table">
       <tbody>
         <tr>
           <td>Comparison Table</td>

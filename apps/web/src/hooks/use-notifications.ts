@@ -7,7 +7,8 @@ import type {
   MerchantNotificationWithDetails,
   NotificationBroadcastPayload,
 } from '@/types/notifications';
-import { useMerchant } from './use-merchant-client';
+import type { MerchantData } from './merchant/types';
+import { useMerchant, useMerchantSafe } from './use-merchant-client';
 
 interface UseNotificationsReturn {
   // Data
@@ -35,6 +36,12 @@ interface UseNotificationsReturn {
  */
 export function useNotifications(): UseNotificationsReturn {
   const { merchant } = useMerchant();
+  return useNotificationsForMerchant(merchant);
+}
+
+function useNotificationsForMerchant(
+  merchant: MerchantData | null
+): UseNotificationsReturn {
   const [notifications, setNotifications] = useState<
     MerchantNotificationWithDetails[]
   >([]);
@@ -380,13 +387,13 @@ export function useNotifications(): UseNotificationsReturn {
 }
 
 /**
- * Safe version that doesn't throw if used outside provider
+ * Compatibility wrapper for optional notification UI.
  */
 export function useNotificationsSafe(): UseNotificationsReturn | null {
-  try {
-    // biome-ignore lint/correctness/useHookAtTopLevel: Safe wrapper for conditional usage
-    return useNotifications();
-  } catch {
-    return null;
-  }
+  const merchantContext = useMerchantSafe();
+  const notifications = useNotificationsForMerchant(
+    merchantContext?.merchant ?? null
+  );
+
+  return merchantContext ? notifications : null;
 }

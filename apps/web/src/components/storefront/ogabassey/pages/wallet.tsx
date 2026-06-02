@@ -107,10 +107,10 @@ export function OgabasseyV2Wallet() {
                 <CreditCard size={18} className="text-gray-400" />
                 Saved Cards
               </h3>
-              <div
+              <button
+                type="button"
                 onClick={handleAddCard}
-                className="flex flex-col items-center justify-center py-8 text-center bg-gray-50 rounded-xl border border-dashed border-gray-200 cursor-pointer hover:bg-gray-100 transition-colors"
-                role="button"
+                className="flex w-full flex-col items-center justify-center py-8 text-center bg-gray-50 rounded-xl border border-dashed border-gray-200 cursor-pointer hover:bg-gray-100 transition-colors"
               >
                 <div className="size-12 bg-white rounded-full flex items-center justify-center shadow-sm mb-3">
                   <Plus size={24} className="text-gray-400" />
@@ -121,7 +121,7 @@ export function OgabasseyV2Wallet() {
                 <p className="text-xs text-gray-400 mt-1">
                   For faster checkout
                 </p>
-              </div>
+              </button>
             </div>
           </div>
 

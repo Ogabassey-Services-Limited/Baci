@@ -12,17 +12,11 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('@react-native-vector-icons/ionicons', () => ({
   Ionicons: ({ name }: { name: string }) => (
-    <span
-      aria-label={name === 'person-add-outline' ? 'add person' : name}
-      role="img"
-    />
+    <span aria-hidden="true" data-icon={name} />
   ),
 
   default: ({ name }: { name: string }) => (
-    <span
-      aria-label={name === 'person-add-outline' ? 'add person' : name}
-      role="img"
-    />
+    <span aria-hidden="true" data-icon={name} />
   ),
   __esModule: true,
 }));
@@ -58,7 +52,7 @@ const account = {
 
 describe('StaffAccountsTabContent', () => {
   it('renders the empty staff account state', () => {
-    render(
+    const { container } = render(
       <StaffAccountsTabContent
         accounts={[]}
         colors={LIGHT_COLORS}
@@ -69,7 +63,7 @@ describe('StaffAccountsTabContent', () => {
 
     expect(screen.getByText('No Staff Accounts Yet')).toBeInTheDocument();
     expect(
-      screen.getByRole('img', { name: /add person/i })
+      container.querySelector('[data-icon="person-add-outline"]')
     ).toBeInTheDocument();
   });
 

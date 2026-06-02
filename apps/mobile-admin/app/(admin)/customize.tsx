@@ -75,6 +75,13 @@ export default function CustomizeScreen() {
       }
       scrollTimeoutRef.current = null;
     }, 100);
+
+    return () => {
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+        scrollTimeoutRef.current = null;
+      }
+    };
   }, [messages.length]);
 
   useEffect(() => {

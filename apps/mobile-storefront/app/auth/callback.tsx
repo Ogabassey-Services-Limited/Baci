@@ -24,14 +24,26 @@ export default function AuthCallback() {
 
   useEffect(() => {
     log.debug('AuthCallback route reached. returnTo:', returnTo);
+    let cancelled = false;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
     async function checkSessionAndRedirect() {
       // Give the auth store a moment to process the session from the URL tokens
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      await new Promise<void>((resolve) => {
+        timeoutId = setTimeout(resolve, 500);
+      });
+
+      if (cancelled) {
+        return;
+      }
 
       const {
         data: { session },
       } = await supabase.auth.getSession();
+
+      if (cancelled) {
+        return;
+      }
 
       if (session) {
         log.info('Session found, redirecting. User:', session.user?.email);
@@ -50,6 +62,13 @@ export default function AuthCallback() {
     }
 
     checkSessionAndRedirect();
+
+    return () => {
+      cancelled = true;
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
   }, [returnTo]);
 
   return (

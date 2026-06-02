@@ -5,12 +5,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mockLoginClient = vi.hoisted(() =>
   vi.fn((props: { defaultEmail: string; redirectTo: string }) => (
     <div>
-      <div aria-label="email" role="status">
-        email:{props.defaultEmail}
-      </div>
-      <div aria-label="redirect" role="status">
-        redirect:{props.redirectTo}
-      </div>
+      <output aria-label="email">email:{props.defaultEmail}</output>
+      <output aria-label="redirect">redirect:{props.redirectTo}</output>
     </div>
   ))
 );
