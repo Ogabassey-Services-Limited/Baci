@@ -32,15 +32,6 @@ export async function PATCH(
       );
     }
 
-    const { id } = await params;
-
-    if (!idParamSchema.safeParse(id).success) {
-      return NextResponse.json(
-        { error: 'Invalid discount code ID' },
-        { status: 400 }
-      );
-    }
-
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
@@ -50,6 +41,15 @@ export async function PATCH(
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { id } = await params;
+
+    if (!idParamSchema.safeParse(id).success) {
+      return NextResponse.json(
+        { error: 'Invalid discount code ID' },
+        { status: 400 }
+      );
     }
 
     const merchantContext = await getMerchantForApiRequest(supabase, user.id);
@@ -156,15 +156,6 @@ export async function DELETE(
       );
     }
 
-    const { id } = await params;
-
-    if (!idParamSchema.safeParse(id).success) {
-      return NextResponse.json(
-        { error: 'Invalid discount code ID' },
-        { status: 400 }
-      );
-    }
-
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
@@ -174,6 +165,15 @@ export async function DELETE(
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { id } = await params;
+
+    if (!idParamSchema.safeParse(id).success) {
+      return NextResponse.json(
+        { error: 'Invalid discount code ID' },
+        { status: 400 }
+      );
     }
 
     const merchantContext = await getMerchantForApiRequest(supabase, user.id);

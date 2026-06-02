@@ -165,7 +165,7 @@ export const customerSchema = z.object({
 
 **Usage in API Routes**:
 ```typescript
-import { sanitizeSearchQuery, sanitizeLikePattern } from '@/lib/sanitize';
+import { sanitizeSearchQuery, sanitizeLikePattern } from '@/lib/sanitize-core';
 
 const search = sanitizeSearchQuery(searchRaw);
 const pattern = sanitizeLikePattern(search);

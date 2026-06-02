@@ -109,7 +109,10 @@ export async function POST(request: NextRequest) {
     const parsed = wishlistCreateSchema.safeParse(await request.json());
     if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Product ID and Merchant ID are required' },
+        {
+          error:
+            'Product ID and Merchant ID are required and must be valid UUIDs',
+        },
         { status: 400 }
       );
     }

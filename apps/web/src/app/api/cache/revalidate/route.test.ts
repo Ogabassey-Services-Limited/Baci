@@ -186,7 +186,7 @@ describe('POST /api/cache/revalidate', () => {
 
       expect(res.status).toBe(400);
       expect(json.error).toBe('Invalid input');
-      expect(json.details).toBeDefined();
+      expect(json.code).toBe('INVALID_INPUT');
     });
 
     it('returns 400 when targets is missing', async () => {
@@ -197,6 +197,7 @@ describe('POST /api/cache/revalidate', () => {
 
       expect(res.status).toBe(400);
       expect(json.error).toBe('Invalid input');
+      expect(json.code).toBe('INVALID_INPUT');
     });
 
     it('returns 400 when targets contains invalid value', async () => {
@@ -207,6 +208,7 @@ describe('POST /api/cache/revalidate', () => {
 
       expect(res.status).toBe(400);
       expect(json.error).toBe('Invalid input');
+      expect(json.code).toBe('INVALID_INPUT');
     });
 
     it('accepts all valid target types', async () => {

@@ -85,7 +85,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         {
           error: 'Invalid query parameters',
-          details: z.flattenError(queryParsed.error),
+          code: 'invalid_query_parameters',
         },
         { status: 400 }
       );
@@ -223,7 +223,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error: 'Invalid integrationId',
-          details: z.flattenError(parsedIntegrationId.error),
+          code: 'invalid_integration_id',
         },
         { status: 400 }
       );

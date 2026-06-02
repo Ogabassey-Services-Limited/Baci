@@ -31,21 +31,37 @@ vi.mock('@/lib/csrf', () => ({
   ),
 }));
 
+const merchantFeatureSchemaMocks = vi.hoisted(() => ({
+  patchSafeParse: vi.fn(),
+  replacementSafeParse: vi.fn(),
+}));
+
+function resetMerchantFeatureSchemaMocks() {
+  merchantFeatureSchemaMocks.patchSafeParse.mockImplementation(
+    (data: Record<string, unknown>) => ({ success: true as const, data })
+  );
+  merchantFeatureSchemaMocks.replacementSafeParse.mockImplementation(
+    (data: Record<string, unknown>) => ({
+      success: true as const,
+      data: {
+        ...data,
+        klump_enabled: false,
+        klump_min_amount: 10_000,
+        klump_max_amount: 500_000,
+      },
+    })
+  );
+}
+
 vi.mock('@/schemas/merchant-features', () => ({
   merchantFeatureSettingsPatchSchema: {
-    safeParse: (data: Record<string, unknown>) => ({ success: true, data }),
+    safeParse: (data: Record<string, unknown>) =>
+      merchantFeatureSchemaMocks.patchSafeParse(data),
   },
   merchantFeatureSettingsSchema: {
     partial: () => ({
-      safeParse: (data: Record<string, unknown>) => ({
-        success: true,
-        data: {
-          ...data,
-          klump_enabled: false,
-          klump_min_amount: 10_000,
-          klump_max_amount: 500_000,
-        },
-      }),
+      safeParse: (data: Record<string, unknown>) =>
+        merchantFeatureSchemaMocks.replacementSafeParse(data),
     }),
   },
 }));
@@ -146,6 +162,10 @@ function makeRequest(
 }
 
 // ---- Tests ----
+
+beforeEach(() => {
+  resetMerchantFeatureSchemaMocks();
+});
 
 describe('GET /api/merchant/features', () => {
   beforeEach(() => {
@@ -328,6 +348,26 @@ describe('PATCH /api/merchant/features', () => {
     expect(json.error).toBe('Permission denied');
   });
 
+  it('returns 400 when PATCH payload validation fails', async () => {
+    const { PATCH } = await import('./route');
+    merchantFeatureSchemaMocks.patchSafeParse.mockReturnValueOnce({
+      success: false,
+      error: {
+        flatten: () => ({
+          fieldErrors: { loyalty_enabled: ['Expected boolean'] },
+        }),
+      },
+    });
+
+    const res = await PATCH(makeRequest('PATCH', { loyalty_enabled: 'yes' }));
+    const json = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(json.error).toBe('Invalid input');
+    expect(json.details).toEqual({ loyalty_enabled: ['Expected boolean'] });
+    expect(upsertPayload).toBeNull();
+  });
+
   it('updates settings and invalidates feature and merchant caches', async () => {
     const { PATCH } = await import('./route');
 
@@ -425,6 +465,26 @@ describe('PUT /api/merchant/features', () => {
     expect(res.headers.get('Cache-Control')).toBe(
       'private, no-store, no-cache, max-age=0, must-revalidate'
     );
+  });
+
+  it('returns 400 when PUT payload validation fails', async () => {
+    const { PUT } = await import('./route');
+    merchantFeatureSchemaMocks.patchSafeParse.mockReturnValueOnce({
+      success: false,
+      error: {
+        flatten: () => ({
+          fieldErrors: { reviews_enabled: ['Expected boolean'] },
+        }),
+      },
+    });
+
+    const res = await PUT(makeRequest('PUT', { reviews_enabled: 'yes' }));
+    const json = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(json.error).toBe('Invalid input');
+    expect(json.details).toEqual({ reviews_enabled: ['Expected boolean'] });
+    expect(upsertPayload).toBeNull();
   });
 
   it('replaces settings and invalidates feature and merchant caches', async () => {

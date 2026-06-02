@@ -6,8 +6,31 @@ import { createClient } from '@/lib/supabase/server';
 
 const googleAuthSchema = z.object({
   merchantSlug: z.string().min(1, 'Merchant slug is required'),
-  redirectUrl: z.url().optional(),
+  redirectUrl: z.string().trim().min(1).optional(),
 });
+
+function resolveTrustedAppRedirectUrl(redirectUrl?: string) {
+  const appUrl = getAppUrl();
+  const appOrigin = new URL(appUrl).origin;
+
+  if (!redirectUrl) {
+    return new URL('/account', appOrigin).toString();
+  }
+
+  try {
+    const parsed = redirectUrl.startsWith('/')
+      ? new URL(redirectUrl, appOrigin)
+      : new URL(redirectUrl);
+
+    if (parsed.origin !== appOrigin) {
+      return null;
+    }
+
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Customer OAuth Authentication - Google Sign-In
@@ -29,6 +52,13 @@ export async function POST(request: Request) {
     }
 
     const { merchantSlug, redirectUrl } = validation.data;
+    const trustedRedirectUrl = resolveTrustedAppRedirectUrl(redirectUrl);
+    if (!trustedRedirectUrl) {
+      return NextResponse.json(
+        { error: 'Invalid redirectUrl', code: 'INVALID_REDIRECT_URL' },
+        { status: 400 }
+      );
+    }
 
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
@@ -74,7 +104,7 @@ export async function POST(request: Request) {
     const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: redirectUrl || `${getAppUrl()}/account`,
+        redirectTo: trustedRedirectUrl,
         queryParams: {
           access_type: 'offline',
           prompt: 'consent',
