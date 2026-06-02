@@ -20,6 +20,7 @@ import {
   getStorefrontSeoDescription,
   getStorefrontSeoTitle,
 } from './seo-helpers';
+import { StorefrontLayoutLoadingFallback } from './storefront-layout-loading-fallback';
 import {
   getStorefrontShellSnapshot,
   getStorefrontShellSnapshotBase,
@@ -279,7 +280,10 @@ export default function StorefrontLayout(props: {
   loadingFallback?: React.ReactNode;
   params: Promise<{ slug: string }>;
 }) {
-  const { loadingFallback = null, ...contentProps } = props;
+  const {
+    loadingFallback = <StorefrontLayoutLoadingFallback />,
+    ...contentProps
+  } = props;
 
   return (
     <StorefrontThemeFrame>

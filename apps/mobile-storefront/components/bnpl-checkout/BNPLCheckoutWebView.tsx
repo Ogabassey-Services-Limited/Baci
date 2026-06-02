@@ -1,13 +1,23 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
-import { type RefObject } from 'react';
+import { type ComponentProps, type RefObject } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
 import type Colors from '@/constants/Colors';
 import { BRAND } from '@/constants/Colors';
 import { WebView, type WebViewNavigation } from 'react-native-webview';
 import { bnplCheckoutScreenStyles as styles } from './BNPLCheckoutScreen.styles';
-import { BNPL_INJECTED_JAVASCRIPT } from './bnpl-checkout.helpers';
+import {
+  BNPL_INJECTED_JAVASCRIPT,
+  buildBNPLDocumentSource,
+} from './bnpl-checkout.helpers';
 
 type ColorsScheme = (typeof Colors)['light'];
+type WebViewProps = ComponentProps<typeof WebView>;
+export type BNPLShouldStartLoadRequest = Parameters<
+  NonNullable<WebViewProps['onShouldStartLoadWithRequest']>
+>[0];
+export type BNPLWebViewHttpErrorEvent = Parameters<
+  NonNullable<WebViewProps['onHttpError']>
+>[0];
 
 export type WebViewOpenWindowEventLike = {
   nativeEvent: {
@@ -15,18 +25,29 @@ export type WebViewOpenWindowEventLike = {
   };
 };
 
+export interface BNPLWebViewLoadError {
+  code?: number;
+  description?: string;
+  domain?: string;
+  url?: string;
+}
+
 interface BNPLCheckoutWebViewProps {
   amount?: string;
   bnplUrl: string;
   colors: ColorsScheme;
   currentUrl: string;
   gatewayName: string;
-  onError: (description?: string) => void;
+  onError: (error: BNPLWebViewLoadError) => void;
+  onHttpError: (event: BNPLWebViewHttpErrorEvent) => void;
   onLoadEnd: () => void;
   onLoadStart: () => void;
   onMessage: (event: { nativeEvent: { data: string } }) => void;
   onNavigationStateChange: (navState: WebViewNavigation) => void;
   onOpenWindow: (event: WebViewOpenWindowEventLike) => void;
+  onShouldStartLoadWithRequest: (
+    request: BNPLShouldStartLoadRequest
+  ) => boolean;
   status: string;
   webViewRef: RefObject<WebView | null>;
 }
@@ -38,14 +59,18 @@ export function BNPLCheckoutWebView({
   currentUrl,
   gatewayName,
   onError,
+  onHttpError,
   onLoadEnd,
   onLoadStart,
   onMessage,
   onNavigationStateChange,
   onOpenWindow,
+  onShouldStartLoadWithRequest,
   status,
   webViewRef,
 }: BNPLCheckoutWebViewProps) {
+  const webViewSource = buildBNPLDocumentSource(currentUrl || bnplUrl);
+
   return (
     <>
       {status === 'loading' && (
@@ -78,11 +103,12 @@ export function BNPLCheckoutWebView({
 
       <WebView
         ref={webViewRef}
-        source={{ uri: currentUrl || bnplUrl }}
+        source={webViewSource}
         style={styles.webView}
         onLoadStart={onLoadStart}
         onLoadEnd={onLoadEnd}
         onNavigationStateChange={onNavigationStateChange}
+        onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
         onMessage={onMessage}
         onOpenWindow={onOpenWindow}
         injectedJavaScript={BNPL_INJECTED_JAVASCRIPT}
@@ -96,8 +122,10 @@ export function BNPLCheckoutWebView({
         mixedContentMode="never"
         allowsInlineMediaPlayback={true}
         onError={(syntheticEvent) => {
-          onError(syntheticEvent.nativeEvent.description);
+          const { code, description, domain, url } = syntheticEvent.nativeEvent;
+          onError({ code, description, domain, url });
         }}
+        onHttpError={onHttpError}
         renderLoading={() => (
           <View style={styles.webViewLoading}>
             <ActivityIndicator size="large" color={BRAND.primary} />

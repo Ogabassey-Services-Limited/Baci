@@ -16,7 +16,10 @@ import {
 import { useCartStore } from '@/stores/cart-store';
 import { bnplCheckoutScreenStyles as styles } from './BNPLCheckoutScreen.styles';
 import {
+  type BNPLShouldStartLoadRequest,
   BNPLCheckoutWebView,
+  type BNPLWebViewHttpErrorEvent,
+  type BNPLWebViewLoadError,
   type WebViewOpenWindowEventLike,
 } from './BNPLCheckoutWebView';
 import {
@@ -26,11 +29,23 @@ import {
   extractReferenceFromUrl,
   getBNPLGatewayName,
   parseBNPLParams,
+  resolveBNPLDocumentNavigation,
+  sanitizeBNPLDocumentUrl,
 } from './bnpl-checkout.helpers';
 import { createBNPLLoadTimers } from './bnpl-checkout-timers';
 
 const API_BASE_URL = resolveApiBaseUrl(process.env.EXPO_PUBLIC_API_URL);
 type BNPLCheckoutStatus = 'loading' | 'ready' | 'success' | 'error';
+
+function logBNPLCheckoutDebug(eventName: string, details: unknown) {
+  if (
+    typeof __DEV__ !== 'undefined' &&
+    __DEV__ &&
+    process.env.NODE_ENV !== 'test'
+  ) {
+    console.info(`[BNPLCheckout] ${eventName}`, details);
+  }
+}
 
 export function BNPLCheckoutScreen() {
   const colorScheme = useColorScheme();
@@ -61,7 +76,7 @@ export function BNPLCheckoutScreen() {
 
   const validatedParams = parseBNPLParams(params);
 
-  const { orderId, gateway, amount, trackingToken } =
+  const { orderId, gateway, amount, trackingToken, merchantSlug } =
     validatedParams.data || {};
 
   const { clearPendingLoadTimeout, scheduleLoadTimeout } = createBNPLLoadTimers(
@@ -97,9 +112,7 @@ export function BNPLCheckoutScreen() {
     );
   }
 
-  const handleNavigationChange = (navState: WebViewNavigation) => {
-    const { url } = navState;
-
+  const handleNavigationUrl = (url: string) => {
     if (url.includes('/order-success') || url.includes('success=true')) {
       clearPendingLoadTimeout();
       setCheckoutStatus('success');
@@ -136,13 +149,29 @@ export function BNPLCheckoutScreen() {
     }
   };
 
+  const handleNavigationChange = (navState: WebViewNavigation) => {
+    handleNavigationUrl(navState.url);
+  };
+
   const handleWebViewMessage = (event: { nativeEvent: { data: string } }) => {
     try {
-      const data = JSON.parse(event.nativeEvent.data);
+      const data = JSON.parse(event.nativeEvent.data) as unknown;
+      if (!data || typeof data !== 'object') {
+        logBNPLCheckoutDebug('ignored primitive webview message', {
+          data: event.nativeEvent.data,
+        });
+        return;
+      }
+      const payload = data as Record<string, unknown>;
 
-      if (data.type === 'navigation' && typeof data.url === 'string') {
-        handleNavigationChange({ url: data.url } as WebViewNavigation);
-      } else if (data.type === 'bnpl_success') {
+      if (payload.type === 'navigation' && typeof payload.url === 'string') {
+        handleNavigationUrl(payload.url);
+      } else if (
+        payload.type === 'bnpl_log' ||
+        payload.type === 'bnpl_error_log'
+      ) {
+        logBNPLCheckoutDebug('webview message', payload);
+      } else if (payload.type === 'bnpl_success') {
         clearPendingLoadTimeout();
         setCheckoutStatus('success');
         clearCart();
@@ -151,21 +180,30 @@ export function BNPLCheckoutScreen() {
             pathname: '/order-success',
             params: {
               orderId,
-              reference: data.reference,
+              reference:
+                typeof payload.reference === 'string'
+                  ? payload.reference
+                  : undefined,
               paymentMethod: gateway,
               ...(trackingToken && { trackingToken }),
             },
           });
         }, 1000);
-      } else if (data.type === 'bnpl_error') {
+      } else if (payload.type === 'bnpl_error') {
         clearPendingLoadTimeout();
         setCheckoutStatus('error');
-        setErrorMessage(data.message || 'Payment failed.');
-      } else if (data.type === 'bnpl_close') {
+        setErrorMessage(
+          typeof payload.message === 'string'
+            ? payload.message
+            : 'Payment failed.'
+        );
+      } else if (payload.type === 'bnpl_close') {
         handleClose();
       }
     } catch {
-      // Ignore non-JSON messages
+      logBNPLCheckoutDebug('ignored non-json webview message', {
+        data: event.nativeEvent.data,
+      });
     }
   };
 
@@ -214,18 +252,87 @@ export function BNPLCheckoutScreen() {
 
   const handleOpenWindow = (event: WebViewOpenWindowEventLike) => {
     const targetUrl = event.nativeEvent.targetUrl;
+    const sanitizedTargetUrl = targetUrl
+      ? sanitizeBNPLDocumentUrl(targetUrl)
+      : '';
 
-    if (!targetUrl || !isAllowedBnplPopupUrl(targetUrl, API_BASE_URL)) {
-      clearPendingLoadTimeout();
-      setCheckoutStatus('error');
-      setErrorMessage(BNPL_UNTRUSTED_POPUP_MESSAGE);
+    if (
+      !sanitizedTargetUrl ||
+      sanitizedTargetUrl === 'about:blank' ||
+      sanitizedTargetUrl.startsWith('about:blank#')
+    ) {
+      return;
+    }
+
+    if (
+      !isAllowedBnplPopupUrl(sanitizedTargetUrl, API_BASE_URL, merchantSlug)
+    ) {
+      if (typeof __DEV__ !== 'undefined' && __DEV__) {
+        console.warn('[BNPLCheckout] Ignored untrusted auxiliary window', {
+          targetUrl: sanitizedTargetUrl,
+        });
+      }
       return;
     }
 
     setErrorMessage(null);
     scheduleLoadTimeout();
     setCheckoutStatus('loading');
-    setCurrentUrl(targetUrl);
+    setCurrentUrl(sanitizedTargetUrl);
+  };
+
+  const handleShouldStartLoadWithRequest = (
+    request: BNPLShouldStartLoadRequest
+  ) => {
+    const currentDocumentUrl = currentUrl || bnplUrl;
+    const decision = resolveBNPLDocumentNavigation({
+      apiBaseUrl: API_BASE_URL,
+      currentDocumentUrl,
+      isTopFrame: request.isTopFrame,
+      requestUrl: request.url,
+      merchantSlug,
+    });
+    logBNPLCheckoutDebug('document navigation decision', {
+      currentDocumentUrl,
+      decision,
+      isTopFrame: request.isTopFrame,
+      mainDocumentURL: request.mainDocumentURL,
+      merchantSlug,
+      navigationType: request.navigationType,
+      requestUrl: request.url,
+    });
+    if (decision.shouldStart) {
+      return true;
+    }
+
+    if (decision.reason === 'untrusted') {
+      clearPendingLoadTimeout();
+      setCheckoutStatus('error');
+      setErrorMessage(BNPL_UNTRUSTED_POPUP_MESSAGE);
+      return false;
+    }
+
+    setErrorMessage(null);
+    scheduleLoadTimeout();
+    setCheckoutStatus('loading');
+    setCurrentUrl(decision.nextUrl);
+    return false;
+  };
+
+  const handleWebViewError = (error: BNPLWebViewLoadError) => {
+    logBNPLCheckoutDebug('native load error', error);
+    clearPendingLoadTimeout();
+    setCheckoutStatus('error');
+    setErrorMessage(error.description || 'Failed to load payment page');
+  };
+
+  const handleWebViewHttpError = (event: BNPLWebViewHttpErrorEvent) => {
+    const { description, statusCode, url } = event.nativeEvent;
+    logBNPLCheckoutDebug('http error', {
+      description,
+      statusCode,
+      url,
+    });
   };
 
   const gatewayName = getBNPLGatewayName(gateway);
@@ -276,16 +383,14 @@ export function BNPLCheckoutScreen() {
         colors={colors}
         currentUrl={currentUrl}
         gatewayName={gatewayName}
-        onError={(description) => {
-          clearPendingLoadTimeout();
-          setCheckoutStatus('error');
-          setErrorMessage(description || 'Failed to load payment page');
-        }}
+        onError={handleWebViewError}
+        onHttpError={handleWebViewHttpError}
         onLoadEnd={handleLoadEnd}
         onLoadStart={handleLoadStart}
         onMessage={handleWebViewMessage}
         onNavigationStateChange={handleNavigationChange}
         onOpenWindow={handleOpenWindow}
+        onShouldStartLoadWithRequest={handleShouldStartLoadWithRequest}
         status={status}
         webViewRef={webViewRef}
       />
