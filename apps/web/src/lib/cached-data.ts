@@ -205,6 +205,7 @@ export interface HeroSlide {
 }
 
 export interface MerchantFeatureSettings {
+  agentic_checkout_enabled?: boolean;
   blog_enabled?: boolean;
   blog_discover_image_validation_enabled?: boolean;
   shipping_insurance_enabled?: boolean;
@@ -212,6 +213,69 @@ export interface MerchantFeatureSettings {
   shipping_insurance_opt_in_default?: boolean;
   [key: string]: unknown;
 }
+
+const MERCHANT_PUBLIC_FEATURE_SETTINGS_SELECT: string = `
+  about_page_enabled,
+  agentic_checkout_enabled,
+  auto_blog_enabled,
+  blog_enabled,
+  blog_discover_image_validation_enabled,
+  checkout_collect_phone,
+  checkout_require_account,
+  checkout_show_order_notes,
+  contact_page_enabled,
+  credpal_enabled,
+  credit_direct_enabled,
+  credit_direct_max_amount,
+  credit_direct_min_amount,
+  custom_settings,
+  discount_codes_enabled,
+  faq_page_enabled,
+  free_shipping_threshold,
+  google_analytics_id,
+  google_place_id,
+  google_reviews_enabled,
+  guest_checkout_enabled,
+  juicyway_enabled,
+  klump_enabled,
+  klump_max_amount,
+  klump_min_amount,
+  korapay_enabled,
+  loyalty_enabled,
+  low_stock_threshold,
+  order_tracking_enabled,
+  pay_on_delivery_enabled,
+  paystack_enabled,
+  preferred_international_gateway,
+  preferred_local_gateway,
+  privacy_page_enabled,
+  reviews_enabled,
+  rewards_page_enabled,
+  shipping_insurance_enabled,
+  shipping_insurance_min_order_value,
+  shipping_insurance_opt_in_default,
+  shipping_providers,
+  show_recent_purchases,
+  show_stock_levels,
+  snapchat_pixel_id,
+  terms_page_enabled,
+  tiktok_pixel_id,
+  twitter_pixel_id,
+  vtu_airtime_enabled,
+  vtu_checkout_addon_amounts,
+  vtu_checkout_addon_enabled,
+  vtu_data_enabled,
+  vtu_electricity_enabled,
+  vtu_enabled,
+  vtu_loyalty_reward_enabled,
+  vtu_tv_enabled,
+  wallet_order_auto_debit_enabled,
+  wallet_paystack_dva_enabled,
+  customer_device_savings_enabled,
+  customer_device_savings_auto_debit_enabled,
+  customer_device_savings_break_fee_enabled,
+  wishlist_enabled
+`;
 
 export interface CachedMerchant {
   id: string;
@@ -409,7 +473,6 @@ export async function getCachedMerchant(
         favicon_apple_touch_url,
         vat_registration_status,
         vat_rate,
-        feature_settings:merchant_feature_settings(*),
         published_config,
         pages,
         about_page,
@@ -437,15 +500,13 @@ export async function getCachedMerchant(
     );
   }
 
+  let normalizedSettings: MerchantFeatureSettings | null = null;
+
   if (!data) {
     const safeSlug = sanitizeLookupLogValue(slug);
     console.warn('No merchant data found for slug:', safeSlug);
   } else {
-    // Normalize feature_settings from array to object (Edge Compatibility Pattern)
-    const settings = data.feature_settings;
-    if (Array.isArray(settings)) {
-      data.feature_settings = settings[0];
-    }
+    normalizedSettings = await getCachedFeatureSettings(data.id);
 
     const safeSlug = String(slug || '')
       .replace(/[\r\n]/g, '')
@@ -482,9 +543,7 @@ export async function getCachedMerchant(
           ...data,
           custom_domain: primaryDomain.domain,
         }),
-        feature_settings: data.feature_settings as unknown as
-          | MerchantFeatureSettings
-          | undefined,
+        feature_settings: normalizedSettings ?? undefined,
       };
       return result;
     }
@@ -493,9 +552,7 @@ export async function getCachedMerchant(
   if (data) {
     const result: CachedMerchant = {
       ...normalizeCachedMerchantEntity(data),
-      feature_settings: data.feature_settings as unknown as
-        | MerchantFeatureSettings
-        | undefined,
+      feature_settings: normalizedSettings ?? undefined,
     };
     return result;
   }
@@ -515,7 +572,7 @@ export async function getCachedMerchantByDomain(
   cacheTag('merchants', 'domains', `domain-${domain.toLowerCase()}`);
 
   const normalizedDomain = domain.toLowerCase();
-  // Use Service Role to allow lookup of unpublished merchants (for "Coming Soon" page)
+  // Use Service Role to allow lookup of unpublished merchants (for "Coming Soon" page).
   const supabase = getServiceRoleSupabaseClient();
 
   // First, find the merchant_id from the domains table
@@ -582,7 +639,6 @@ export async function getCachedMerchantByDomain(
         favicon_apple_touch_url,
         vat_registration_status,
         vat_rate,
-        feature_settings:merchant_feature_settings(*),
         published_config,
         pages,
         about_page,
@@ -606,14 +662,7 @@ export async function getCachedMerchantByDomain(
     );
   }
 
-  // Normalize feature_settings from array to object (Edge Compatibility Pattern)
-  const settings = data.feature_settings;
-  let normalizedSettings: MerchantFeatureSettings | undefined;
-  if (Array.isArray(settings)) {
-    normalizedSettings = settings[0] as MerchantFeatureSettings | undefined;
-  } else {
-    normalizedSettings = settings as MerchantFeatureSettings | undefined;
-  }
+  const normalizedSettings = await getCachedFeatureSettings(data.id);
 
   console.log('Successfully fetched merchant by domain', {
     domain: normalizedDomain,
@@ -642,7 +691,7 @@ export async function getCachedMerchantByDomain(
       ...data,
       custom_domain: domainData.domain,
     }),
-    feature_settings: normalizedSettings,
+    feature_settings: normalizedSettings ?? undefined,
   };
   return result;
 }
@@ -1928,10 +1977,13 @@ export async function getCachedPlatformAnalytics(
 
 /**
  * Cached merchant feature settings.
- * Uses service role to bypass RLS since settings are public-facing configuration.
+ * Uses a server-only service-role query with an explicit public-safe column allowlist because
+ * this table also stores private integration credentials.
  * Uses 'products' cacheLife profile (revalidate 5min)
  */
-export async function getCachedFeatureSettings(merchantId: string) {
+export async function getCachedFeatureSettings(
+  merchantId: string
+): Promise<MerchantFeatureSettings | null> {
   'use cache: remote';
   cacheLife('products');
   cacheTag(`features-${merchantId}`);
@@ -1941,9 +1993,7 @@ export async function getCachedFeatureSettings(merchantId: string) {
 
     const { data, error } = await supabase
       .from('merchant_feature_settings')
-      .select(
-        'blog_enabled, blog_discover_image_validation_enabled, shipping_insurance_enabled, shipping_insurance_min_order_value, shipping_insurance_opt_in_default'
-      )
+      .select(MERCHANT_PUBLIC_FEATURE_SETTINGS_SELECT)
       .eq('merchant_id', merchantId)
       .maybeSingle();
 
@@ -1957,7 +2007,7 @@ export async function getCachedFeatureSettings(merchantId: string) {
       return null;
     }
 
-    return data;
+    return data as unknown as MerchantFeatureSettings;
   } catch (error) {
     console.error('Error fetching feature settings:', error);
     // Rethrow so remote cache skips caching this failure
