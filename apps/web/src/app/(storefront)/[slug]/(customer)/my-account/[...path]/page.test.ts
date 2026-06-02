@@ -79,4 +79,26 @@ describe('MyAccountCatchAllRedirectPage', () => {
 
     expect(mockRedirect).toHaveBeenCalledWith('/demo-store/account/settings');
   });
+
+  it('preserves search params on legacy account deep links', async () => {
+    mockGetStorefrontShellSnapshotBase.mockResolvedValueOnce({
+      basePath: '',
+      merchant: { slug: 'ogabassey' },
+      routingMode: 'domain',
+    });
+
+    await expect(
+      MyAccountCatchAllRedirectPage({
+        params: Promise.resolve({
+          slug: 'ogabassey.com',
+          path: ['login'],
+        }),
+        searchParams: Promise.resolve({ redirect: '/checkout' }),
+      })
+    ).rejects.toThrow('NEXT_REDIRECT:/account/login?redirect=%2Fcheckout');
+
+    expect(mockRedirect).toHaveBeenCalledWith(
+      '/account/login?redirect=%2Fcheckout'
+    );
+  });
 });

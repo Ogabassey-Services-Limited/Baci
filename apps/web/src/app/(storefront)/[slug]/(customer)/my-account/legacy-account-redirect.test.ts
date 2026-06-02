@@ -51,4 +51,24 @@ describe('resolveLegacyAccountRedirectPath', () => {
       })
     ).resolves.toBe('/demo-store/account/orders/order%20123');
   });
+
+  it('preserves legacy account query strings and repeated keys', async () => {
+    mockGetStorefrontShellSnapshotBase.mockResolvedValueOnce(null);
+    mockIsDomainIdentifier.mockReturnValueOnce(false);
+
+    await expect(
+      resolveLegacyAccountRedirectPath({
+        slug: 'demo-store',
+        segments: ['login'],
+        searchParams: {
+          empty: '',
+          redirect: '/checkout',
+          step: ['cart', 'payment'],
+          ignored: undefined,
+        },
+      })
+    ).resolves.toBe(
+      '/demo-store/account/login?empty=&redirect=%2Fcheckout&step=cart&step=payment'
+    );
+  });
 });
