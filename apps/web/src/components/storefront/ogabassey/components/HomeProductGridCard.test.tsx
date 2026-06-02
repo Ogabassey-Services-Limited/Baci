@@ -147,4 +147,23 @@ describe('HomeProductGridCard', () => {
     expect(image).not.toHaveClass('hidden');
     expect(image).not.toHaveStyle({ opacity: '0' });
   });
+
+  it('renders blank-image home placeholders as decorative images', () => {
+    const { container } = render(
+      <HomeProductGridCard
+        product={{
+          ...baseProduct,
+          image: '   ',
+          images: ['  '],
+          image_alt: 'Should not describe a placeholder',
+        }}
+      />
+    );
+
+    const image = container.querySelector('img');
+
+    expect(image).toHaveAttribute('alt', '');
+    expect(image?.getAttribute('src')).toContain('data:image/svg+xml');
+  });
+
 });

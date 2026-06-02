@@ -152,7 +152,6 @@ function normalizeStoredCartItem(item: Record<string, unknown>): CartItem {
   const cartItemId =
     getStoredStringValue(item, 'cartItemId') ??
     generateCartItemId(productId, {
-      ...variantAttributes,
       color: selectedColor,
       colorValue: selectedColorValue,
       condition,

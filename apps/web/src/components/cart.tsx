@@ -41,7 +41,7 @@ export function Cart() {
             <div className="px-6">
               <AnimatePresence mode="popLayout">
                 {cart.map((item) => {
-                  const cartControlId = item.cartItemId || item.id;
+                  const cartControlId = item.cartItemId;
 
                   return (
                     <motion.div

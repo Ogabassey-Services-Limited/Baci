@@ -287,4 +287,27 @@ describe('ProductGridItem', () => {
       '/iphone-gold.jpg'
     );
   });
+
+  it('renders blank-image grid placeholders as decorative images', () => {
+    const { container } = render(
+      <ProductGridItem
+        product={{
+          ...baseProduct,
+          image: '   ',
+          images: ['  '],
+          image_alt: 'Should not describe a placeholder',
+        }}
+        onAddToCart={vi.fn()}
+        isAdded={false}
+        isWishlisted={false}
+        onToggleWishlist={vi.fn()}
+      />
+    );
+
+    const image = container.querySelector('img');
+
+    expect(image).toHaveAttribute('alt', '');
+    expect(image?.getAttribute('src')).toContain('data:image/svg+xml');
+  });
+
 });

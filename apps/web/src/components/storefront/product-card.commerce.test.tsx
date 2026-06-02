@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Product } from '@/lib/products';
@@ -204,5 +204,37 @@ describe('StorefrontProductCard commerce states', () => {
     );
 
     expect(screen.getByText(/low stock/i)).toBeInTheDocument();
+  });
+
+  it('updates normalized variant cart rows by cart item id', () => {
+    render(
+      <StorefrontProductCard
+        product={mockProduct}
+        cartItem={{
+          ...mockProduct,
+          cartItemId: 'p1::variant=v1',
+          quantity: 2,
+          variantId: 'v1',
+        }}
+        staggerClass=""
+        onAddToCart={mockAddToCart}
+        onUpdateQuantity={mockUpdateQuantity}
+        onQuickView={mockQuickView}
+      />
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Increase quantity of Test Product' })
+    );
+    fireEvent.change(screen.getByLabelText('Quantity for Test Product'), {
+      target: { value: '4' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Decrease quantity of Test Product' })
+    );
+
+    expect(mockUpdateQuantity).toHaveBeenNthCalledWith(1, 'p1::variant=v1', 3);
+    expect(mockUpdateQuantity).toHaveBeenNthCalledWith(2, 'p1::variant=v1', 4);
+    expect(mockUpdateQuantity).toHaveBeenNthCalledWith(3, 'p1::variant=v1', 1);
   });
 });

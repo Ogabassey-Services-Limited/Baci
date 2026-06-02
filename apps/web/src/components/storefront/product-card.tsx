@@ -106,9 +106,11 @@ export function StorefrontProductCard({
     onQuickView(product);
   };
 
+  const cartControlId = cartItem?.cartItemId ?? product.id;
+
   const handleDecreaseQuantity = () => {
     if (cartItem && cartItem.quantity > 0) {
-      onUpdateQuantity(product.id, cartItem.quantity - 1);
+      onUpdateQuantity(cartControlId, cartItem.quantity - 1);
     }
   };
 
@@ -119,7 +121,7 @@ export function StorefrontProductCard({
         ? product.stock
         : Number.POSITIVE_INFINITY;
       if (cartItem.quantity >= maxQty) return;
-      onUpdateQuantity(product.id, cartItem.quantity + 1);
+      onUpdateQuantity(cartControlId, cartItem.quantity + 1);
     }
   };
 
@@ -129,7 +131,7 @@ export function StorefrontProductCard({
     if (product.manage_stock) {
       value = Math.min(value, product.stock);
     }
-    onUpdateQuantity(product.id, value);
+    onUpdateQuantity(cartControlId, value);
   };
 
   return (

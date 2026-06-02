@@ -191,4 +191,28 @@ describe('ProductListItem', () => {
       '/macbook-space-black.jpg'
     );
   });
+
+  it('renders blank-image list placeholders as decorative images', () => {
+    const { container } = render(
+      <ProductListItem
+        basePath="/ogabassey"
+        product={{
+          ...baseProduct,
+          image: '   ',
+          images: ['  '],
+          image_alt: 'Should not describe a placeholder',
+        }}
+        onAddToCart={vi.fn()}
+        isAdded={false}
+        isWishlisted={false}
+        onToggleWishlist={vi.fn()}
+      />
+    );
+
+    const image = container.querySelector('img');
+
+    expect(image).toHaveAttribute('alt', '');
+    expect(image?.getAttribute('src')).toContain('data:image/svg+xml');
+  });
+
 });

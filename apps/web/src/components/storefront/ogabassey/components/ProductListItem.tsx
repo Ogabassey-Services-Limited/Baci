@@ -18,6 +18,7 @@ import type { Product } from '../types';
 import { getProductUrl } from '@/lib/seo-utils';
 import { asRoute } from '@/lib/routes';
 import { requiresOgabasseyProductSelection } from '../product-selection';
+import { resolveProductImageSource } from './product-image-source';
 
 /**
  * Safely strips HTML tags from a string using iterative approach
@@ -60,11 +61,15 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
     'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400"%3E%3Crect fill="%23f3f4f6" width="400" height="400"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="48" fill="%239ca3af"%3ENo Image%3C/text%3E%3C/svg%3E';
 
   // Determine current image with fallback
-  const currentImage =
-    product.images?.[activeColorIndex] || product.image || PLACEHOLDER_IMAGE;
-  const currentImageAlt = getProductImageAlt(product, {
-    renderedImageUrl: currentImage,
-  });
+  const currentImage = resolveProductImageSource(
+    [product.images?.[activeColorIndex], product.image],
+    PLACEHOLDER_IMAGE
+  );
+  const currentImageAlt = currentImage.isPlaceholder
+    ? ''
+    : getProductImageAlt(product, {
+        renderedImageUrl: currentImage.src,
+      });
   const productHref = asRoute(
     `${basePath}${getProductUrl({ ...product, id: String(product.id) })}`
   );
@@ -73,7 +78,7 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
   // Reset loading state when image source changes
   useEffect(() => {
     setIsImageLoaded(false);
-  }, [currentImage]);
+  }, [currentImage.src]);
 
   const handlePrevColor = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -141,7 +146,7 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
 
         <div className="relative w-3/4 h-3/4 z-10 transition-all duration-500 md:group-hover:scale-110">
           <Image
-            src={currentImage}
+            src={currentImage.src}
             alt={currentImageAlt}
             fill
             sizes="(max-width: 768px) 100px, 200px"

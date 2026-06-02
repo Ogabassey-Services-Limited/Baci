@@ -338,6 +338,47 @@ describe('useCart - Validation', () => {
     ]);
   });
 
+  it('matches addToCart ids when legacy nested attributes include extra axes', async () => {
+    const initialCart = [
+      {
+        ...mockProduct,
+        id: 'iphone-15',
+        quantity: 1,
+        condition: 'open_box',
+        variant_id: 'iphone15-openbox-128-black-esim',
+        variantAttributes: {
+          color: 'Black',
+          ram: '8GB',
+          sim_type: 'eSIM Only',
+          storage: '128GB',
+        },
+      },
+    ];
+
+    localStorageMock.setItem('baci-cart-guest', JSON.stringify(initialCart));
+
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+      <CartProvider>{children}</CartProvider>
+    );
+
+    const { result } = renderHook(() => useCart(), { wrapper });
+
+    await waitFor(() => expect(result.current.isHydrated).toBe(true));
+
+    expect(result.current.cart[0]).toMatchObject({
+      cartItemId:
+        'iphone-15::variant=iphone15-openbox-128-black-esim::color=Black::condition=open_box::storage=128GB',
+      selectedColor: 'Black',
+      selectedStorage: '128GB',
+      variantAttributes: {
+        color: 'Black',
+        ram: '8GB',
+        sim_type: 'eSIM Only',
+        storage: '128GB',
+      },
+    });
+  });
+
   it('stores the default SKU-matrix variant condition for quick add flows', async () => {
     const skuMatrixProduct: AddToCartProduct = {
       ...mockProduct,
