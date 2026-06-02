@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import type React from 'react';
+import { WebView } from 'react-native-webview';
 import BNPLCheckoutScreen from '@/app/bnpl-checkout';
 
 const mockClearCart = jest.fn();
@@ -12,6 +13,7 @@ let mockSearchParams: Record<string, string | string[]> = {
   customerPhone: '+2348012345678',
   gateway: 'credit_direct',
   merchantSlug: 'ogabassey',
+  merchantDomain: 'ogabassey.com',
   orderId: 'order-123',
   trackingToken: 'track-token-123',
 };
@@ -52,6 +54,7 @@ jest.mock('react-native-webview', () => ({
     onError,
     onLoadStart,
     onMessage,
+    onNavigationStateChange,
     onOpenWindow,
     onShouldStartLoadWithRequest,
     setSupportMultipleWindows,
@@ -64,6 +67,7 @@ jest.mock('react-native-webview', () => ({
     }) => void;
     onLoadStart?: () => void;
     onMessage?: (event: { nativeEvent: { data: string } }) => void;
+    onNavigationStateChange?: (event: { url: string }) => void;
     onOpenWindow?: (event: { nativeEvent: { targetUrl: string } }) => void;
     onShouldStartLoadWithRequest?: (event: {
       isTopFrame?: boolean;
@@ -120,25 +124,31 @@ jest.mock('react-native-webview', () => ({
           <Text>start-untrusted-top-frame</Text>
         </Pressable>
         <Pressable
+          accessibilityLabel="mock-bnpl-start-custom-domain-redirect"
+          onPress={() =>
+            onShouldStartLoadWithRequest?.({
+              isTopFrame: true,
+              url: 'https://ogabassey.com/checkout/bnpl?gateway=credit_direct&orderId=order-123&email=customer%40example.com&customerName=Ada+Customer&customerPhone=%2B2348012345678&token=track-token-123',
+            })
+          }
+        >
+          <Text>start-custom-domain-redirect</Text>
+        </Pressable>
+        <Pressable
           accessibilityLabel="mock-bnpl-load-start"
           onPress={() => onLoadStart?.()}
         >
           <Text>load-start</Text>
         </Pressable>
         <Pressable
-          accessibilityLabel="mock-bnpl-navigation-message"
+          accessibilityLabel="mock-bnpl-native-success-navigation"
           onPress={() =>
-            onMessage?.({
-              nativeEvent: {
-                data: JSON.stringify({
-                  type: 'navigation',
-                  url: 'https://usebaci.com/order-success?reference=cd-ref',
-                }),
-              },
+            onNavigationStateChange?.({
+              url: 'https://usebaci.com/order-success?reference=cd-ref',
             })
           }
         >
-          <Text>navigation-message</Text>
+          <Text>native-success-navigation</Text>
         </Pressable>
         <Pressable
           accessibilityLabel="mock-bnpl-success-message"
@@ -198,6 +208,7 @@ describe('BNPLCheckoutScreen', () => {
       customerPhone: '+2348012345678',
       gateway: 'credit_direct',
       merchantSlug: 'ogabassey',
+      merchantDomain: 'ogabassey.com',
       orderId: 'order-123',
       trackingToken: 'track-token-123',
     };
@@ -229,6 +240,7 @@ describe('BNPLCheckoutScreen', () => {
       customerName: 'Ada Customer',
       gateway: 'klump',
       merchantSlug: 'ogabassey',
+      merchantDomain: 'ogabassey.com',
       orderId: 'order-123',
       reference: 'BAC-ABCD12345678',
       trackingToken: 'track-token-123',
@@ -259,6 +271,7 @@ describe('BNPLCheckoutScreen', () => {
       customerName: 'Ada Customer',
       gateway: 'klump',
       merchantSlug: 'ogabassey',
+      merchantDomain: 'ogabassey.com',
       orderId: 'order-123',
       reference: 'BAC-ABCD12345678',
       trackingToken: 'track-token-123',
@@ -286,6 +299,7 @@ describe('BNPLCheckoutScreen', () => {
       customerName: 'Ada Customer',
       gateway: ['klump', 'credit_direct'],
       merchantSlug: 'ogabassey',
+      merchantDomain: 'ogabassey.com',
       orderId: 'order-123',
       reference: 'BAC-ABCD12345678',
       trackingToken: 'track-token-123',
@@ -316,6 +330,7 @@ describe('BNPLCheckoutScreen', () => {
       customerPhone: '+2348012345678',
       gateway: 'klump',
       merchantSlug: 'ogabassey',
+      merchantDomain: 'ogabassey.com',
       orderId: 'order-123',
       reference: 'BAC-ABCD12345678',
       trackingToken: 'track-token-123',
@@ -347,6 +362,7 @@ describe('BNPLCheckoutScreen', () => {
       customerPhone: '+2348012345678',
       gateway: 'klump',
       merchantSlug: 'ogabassey',
+      merchantDomain: 'ogabassey.com',
       orderId: 'order-123',
       reference: 'BAC-ABCD12345678',
       trackingToken: 'track-token-123',
@@ -390,19 +406,18 @@ describe('BNPLCheckoutScreen', () => {
     );
   });
 
-  it('ignores untrusted auxiliary popup windows without failing checkout', () => {
+  it('surfaces untrusted auxiliary popup windows as retryable checkout errors', () => {
     const consoleWarnSpy = jest
       .spyOn(console, 'warn')
       .mockImplementation(() => undefined);
     render(<BNPLCheckoutScreen />);
-    const initialWebViewUrl = screen.getByText(/^webview:/).props.children;
 
     fireEvent.press(screen.getByLabelText('mock-bnpl-open-untrusted-popup'));
 
     expect(
-      screen.queryByText('Payment provider opened an untrusted checkout window.')
-    ).toBeNull();
-    expect(screen.getByText(/^webview:/).props.children).toBe(initialWebViewUrl);
+      screen.getByText('Payment provider opened an untrusted checkout window.')
+    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Try Again' })).toBeTruthy();
     consoleWarnSpy.mockRestore();
   });
 
@@ -411,6 +426,19 @@ describe('BNPLCheckoutScreen', () => {
 
     fireEvent.press(
       screen.getByLabelText('mock-bnpl-start-untrusted-top-frame')
+    );
+
+    expect(
+      screen.getByText('Payment provider opened an untrusted checkout window.')
+    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Try Again' })).toBeTruthy();
+  });
+
+  it('blocks merchant custom-domain document redirects from untrusted route params', () => {
+    render(<BNPLCheckoutScreen />);
+
+    fireEvent.press(
+      screen.getByLabelText('mock-bnpl-start-custom-domain-redirect')
     );
 
     expect(
@@ -429,7 +457,9 @@ describe('BNPLCheckoutScreen', () => {
       initialWebViewUrl
     );
     expect(
-      screen.queryByText('Payment provider opened an untrusted checkout window.')
+      screen.queryByText(
+        'Payment provider opened an untrusted checkout window.'
+      )
     ).toBeNull();
   });
 
@@ -451,11 +481,13 @@ describe('BNPLCheckoutScreen', () => {
     expect(screen.getByRole('button', { name: 'Try Again' })).toBeTruthy();
   });
 
-  it('routes bridged BNPL success navigation to the native order success screen', () => {
+  it('routes native BNPL success navigation to the native order success screen', () => {
     jest.useFakeTimers();
     render(<BNPLCheckoutScreen />);
 
-    fireEvent.press(screen.getByLabelText('mock-bnpl-navigation-message'));
+    fireEvent.press(
+      screen.getByLabelText('mock-bnpl-native-success-navigation')
+    );
 
     expect(mockClearCart).toHaveBeenCalledTimes(1);
 
@@ -474,27 +506,19 @@ describe('BNPLCheckoutScreen', () => {
     });
   });
 
-  it('preserves tracking token when routing BNPL success callbacks', () => {
+  it('ignores raw BNPL success messages because they do not prove navigation source', () => {
     jest.useFakeTimers();
     render(<BNPLCheckoutScreen />);
 
     fireEvent.press(screen.getByLabelText('mock-bnpl-success-message'));
 
-    expect(mockClearCart).toHaveBeenCalledTimes(1);
+    expect(mockClearCart).not.toHaveBeenCalled();
 
     act(() => {
       jest.runOnlyPendingTimers();
     });
 
-    expect(router.replace).toHaveBeenCalledWith({
-      pathname: '/order-success',
-      params: {
-        orderId: 'order-123',
-        paymentMethod: 'credit_direct',
-        reference: 'bnpl-ref-123',
-        trackingToken: 'track-token-123',
-      },
-    });
+    expect(router.replace).not.toHaveBeenCalled();
   });
 
   it('preserves WebView errors through immediate follow-up load events', () => {
@@ -503,6 +527,28 @@ describe('BNPLCheckoutScreen', () => {
     fireEvent.press(screen.getByLabelText('mock-bnpl-error-then-load-start'));
 
     expect(screen.getByText('Provider connection failed')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Try Again' })).toBeTruthy();
+  });
+
+  it('blocks top-frame redirects to route-param merchant custom domains', () => {
+    const { UNSAFE_getByType } = render(<BNPLCheckoutScreen />);
+    const webView = UNSAFE_getByType(WebView);
+
+    const redirectUrl =
+      'https://ogabassey.com/checkout/bnpl?gateway=credit_direct&orderId=order-123&merchant_slug=ogabassey&email=customer%40example.com&customerName=Ada+Customer&customerPhone=%2B2348012345678&token=track-token-123';
+
+    let result = true;
+    act(() => {
+      result = webView.props.onShouldStartLoadWithRequest({
+        isTopFrame: true,
+        url: redirectUrl,
+      });
+    });
+
+    expect(result).toBe(false);
+    expect(
+      screen.getByText('Payment provider opened an untrusted checkout window.')
+    ).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Try Again' })).toBeTruthy();
   });
 });
