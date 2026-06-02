@@ -12,6 +12,7 @@ import {
 import Link from 'next/link';
 import type React from 'react';
 import { useEffect, useState } from 'react';
+import type { CartItem } from '@/hooks/cart/cart-types';
 import { useCart } from '@/hooks/use-cart';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { asRoute } from '@/lib/routes';
@@ -78,9 +79,38 @@ export const CartPage: React.FC = () => {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12">
             {/* Cart Items */}
             <div className="lg:col-span-2 space-y-6">
-              {cart.map((item: any) => (
-                <div
-                  key={item.variant_id || item.id}
+              {cart.map((item: CartItem) => {
+                const cartControlId = item.cartItemId || item.id;
+                const cartControlVariantId = item.cartItemId
+                  ? undefined
+                  : item.variantId;
+                const cartLineKey =
+                  item.cartItemId ||
+                  `${item.id}${item.variantId ? `::variant=${item.variantId}` : ''}`;
+                const updateCartQuantity = (quantity: number) => {
+                  if (cartControlVariantId) {
+                    updateQuantity(
+                      cartControlId,
+                      quantity,
+                      cartControlVariantId
+                    );
+                    return;
+                  }
+
+                  updateQuantity(cartControlId, quantity);
+                };
+                const removeCartItem = () => {
+                  if (cartControlVariantId) {
+                    removeFromCart(cartControlId, cartControlVariantId);
+                    return;
+                  }
+
+                  removeFromCart(cartControlId);
+                };
+
+                return (
+                  <div
+                  key={cartLineKey}
                   className="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-100 flex gap-4 md:gap-6 group transition-all hover:shadow-md"
                 >
                   <div className="size-24 md:w-32 md:h-32 bg-gray-50 rounded-xl shrink-0 p-2">
@@ -98,9 +128,7 @@ export const CartPage: React.FC = () => {
                           {item.name}
                         </h3>
                         <button type="button"
-                          onClick={() =>
-                            removeFromCart(item.id, item.variant_id)
-                          }
+                          onClick={removeCartItem}
                           className="text-gray-400 hover:text-red-600 transition-colors p-1"
                           aria-label="Remove item"
                         >
@@ -109,14 +137,14 @@ export const CartPage: React.FC = () => {
                       </div>
 
                       <div className="flex flex-wrap gap-2 text-sm text-gray-500 mb-3">
-                        {item.variantColor && (
+                        {item.selectedColor && (
                           <span className="bg-gray-50 px-2 py-1 rounded-md border border-gray-100">
-                            {item.variantColor}
+                            {item.selectedColor}
                           </span>
                         )}
-                        {item.variantStorage && (
+                        {item.selectedStorage && (
                           <span className="bg-gray-50 px-2 py-1 rounded-md border border-gray-100">
-                            {item.variantStorage}
+                            {item.selectedStorage}
                           </span>
                         )}
                       </div>
@@ -126,10 +154,8 @@ export const CartPage: React.FC = () => {
                       <div className="flex items-center bg-gray-100 rounded-lg p-1">
                         <button type="button"
                           onClick={() =>
-                            updateQuantity(
-                              item.id,
-                              Math.max(1, item.quantity - 1),
-                              item.variant_id
+                            updateCartQuantity(
+                              Math.max(1, item.quantity - 1)
                             )
                           }
                           className="size-8 flex items-center justify-center rounded-md bg-white text-gray-600 shadow-sm hover:text-red-600 disabled:opacity-50"
@@ -143,11 +169,7 @@ export const CartPage: React.FC = () => {
                         </span>
                         <button type="button"
                           onClick={() =>
-                            updateQuantity(
-                              item.id,
-                              item.quantity + 1,
-                              item.variant_id
-                            )
+                            updateCartQuantity(item.quantity + 1)
                           }
                           className="size-8 flex items-center justify-center rounded-md bg-white text-gray-600 shadow-sm hover:text-red-600"
                           aria-label="Increase quantity"
@@ -168,8 +190,9 @@ export const CartPage: React.FC = () => {
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                  </div>
+                );
+              })}
             </div>
 
             {/* Order Summary */}
