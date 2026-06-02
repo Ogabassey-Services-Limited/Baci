@@ -54,8 +54,8 @@ const updateConsignmentSchema = z
       return true;
     },
     {
-      message: 'Estimated arrival must be on or after the departure date.',
       path: ['estimatedArrivalDate'],
+      error: 'Estimated arrival must be on or after the departure date.',
     }
   );
 

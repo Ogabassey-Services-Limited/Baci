@@ -14,7 +14,7 @@ const AUTOCOMPLETE_SEARCH_COLUMNS = [
 ] as const;
 const AutocompleteQuerySchema = z.object({
   q: z.string().trim().min(1),
-  merchant_id: z.string().uuid(),
+  merchant_id: z.uuid(),
   limit: z.preprocess(
     (value) =>
       value === undefined || value === null || value === '' ? 10 : value,
@@ -88,7 +88,7 @@ export async function GET(request: NextRequest) {
 
   const parsedParams = AutocompleteQuerySchema.safeParse(rawParams);
   if (!parsedParams.success) {
-    const fieldErrors = parsedParams.error.flatten().fieldErrors;
+    const fieldErrors = z.flattenError(parsedParams.error).fieldErrors;
     if (fieldErrors.q || (fieldErrors.merchant_id && !rawParams.merchant_id)) {
       return NextResponse.json(
         { error: 'Missing query or merchant_id parameter' },

@@ -35,7 +35,7 @@ export const bumpaOrderRowSchema = z
 
     if (!hasCustomerName && !hasCustomerEmail && !hasCustomerPhone) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         path: ['Customer Name'],
         message: 'Customer name, email, or phone is required',
       });

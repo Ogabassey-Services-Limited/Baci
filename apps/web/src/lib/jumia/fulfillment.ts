@@ -87,7 +87,7 @@ async function orderItemsAction<T>(
   client: JumiaClient,
   method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH',
   path: string,
-  schema: z.ZodSchema<T>,
+  schema: z.ZodType<T>,
   orderItemIds: string[],
   fnName: string
 ): Promise<T> {

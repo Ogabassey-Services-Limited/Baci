@@ -16,23 +16,19 @@ export interface StorefrontLayoutPromptInput {
 const PROMPT_INPUT_MAX_LENGTH = 200;
 const ERROR_BODY_MAX_LENGTH = 500;
 
-export const rawOllamaStorefrontLayoutSchema = z
-  .object({
-    theme: z.unknown().optional(),
-    sections: z
-      .array(
-        z
-          .object({
-            type: z.string().trim().min(1),
-            props: z.record(z.string(), z.unknown()).default({}),
-          })
-          .passthrough()
-      )
-      .min(1)
-      .max(12),
-    designRationale: z.unknown().optional(),
-  })
-  .passthrough();
+export const rawOllamaStorefrontLayoutSchema = z.looseObject({
+  theme: z.unknown().optional(),
+  sections: z
+    .array(
+      z.looseObject({
+        type: z.string().trim().min(1),
+        props: z.record(z.string(), z.unknown()).default({}),
+      })
+    )
+    .min(1)
+    .max(12),
+  designRationale: z.unknown().optional(),
+});
 
 export type RawOllamaStorefrontLayout = z.infer<
   typeof rawOllamaStorefrontLayoutSchema

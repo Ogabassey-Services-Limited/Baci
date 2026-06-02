@@ -33,7 +33,7 @@ const googleReviewAuthoritySettingsSchema = z
       !normalizeGooglePlaceId(value.google_place_id)
     ) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: 'Enter a valid Google Place ID.',
         path: ['google_place_id'],
       });

@@ -16,7 +16,7 @@ import { ORDER_COLUMNS } from '@/lib/order-queries';
 import { createClient } from '@/lib/supabase/server';
 
 const paramsSchema = z.object({
-  id: z.string().uuid(),
+  id: z.uuid(),
 });
 
 interface OrderItem {
@@ -74,7 +74,7 @@ export async function GET(
     const parsed = paramsSchema.safeParse(await params);
     if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Invalid order ID', details: parsed.error.flatten() },
+        { error: 'Invalid order ID', details: z.flattenError(parsed.error) },
         { status: 400 }
       );
     }

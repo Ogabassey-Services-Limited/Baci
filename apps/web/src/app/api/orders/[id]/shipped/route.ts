@@ -20,20 +20,18 @@ const optionalTrimmedStringSchema = z.preprocess(
   z.string().trim().optional()
 );
 
-const shippedEmailRequestBodySchema = z
-  .object({
-    tracking_number: optionalTrimmedStringSchema,
-    courier_name: optionalTrimmedStringSchema,
-    estimated_delivery: optionalTrimmedStringSchema,
-  })
-  .strict();
+const shippedEmailRequestBodySchema = z.strictObject({
+  tracking_number: optionalTrimmedStringSchema,
+  courier_name: optionalTrimmedStringSchema,
+  estimated_delivery: optionalTrimmedStringSchema,
+});
 
 const shippedOrderSchema = z.object({
   id: z.string().min(1),
   customer_id: z.string().nullable().optional(),
   order_number: z.string().nullable(),
   customer_name: z.string().min(1),
-  customer_email: z.string().email(),
+  customer_email: z.email(),
   customer_phone: z.string().nullable(),
   shipping_status: z.string().min(1),
   shipping_provider: z.string().nullable(),
@@ -112,7 +110,7 @@ export async function POST(
         return NextResponse.json(
           {
             error: 'Invalid request body',
-            details: parsedBody.error.flatten(),
+            details: z.flattenError(parsedBody.error),
           },
           { status: 400 }
         );
@@ -174,7 +172,7 @@ export async function POST(
       logger.error({
         message: 'Invalid order payload for shipped email',
         orderId: id,
-        error: parsedOrder.error.flatten(),
+        error: z.flattenError(parsedOrder.error),
       });
       return NextResponse.json(
         { error: 'Invalid order payload' },

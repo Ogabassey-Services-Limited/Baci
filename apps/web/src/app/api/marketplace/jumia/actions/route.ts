@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
     const parsed = ActionSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Invalid input', details: parsed.error.flatten() },
+        { error: 'Invalid input', details: z.flattenError(parsed.error) },
         { status: 400 }
       );
     }

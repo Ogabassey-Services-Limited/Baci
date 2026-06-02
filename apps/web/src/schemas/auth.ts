@@ -1,13 +1,13 @@
 import z from 'zod';
 
 export const loginSchema = z.object({
-  email: z.string().email('Please enter a valid email address'),
+  email: z.email({ error: 'Please enter a valid email address' }),
   password: z.string().min(1, 'Password is required'),
 });
 
 export const signupSchema = z
   .object({
-    email: z.string().email('Please enter a valid email address'),
+    email: z.email({ error: 'Please enter a valid email address' }),
     password: z.string().min(8, 'Password must be at least 8 characters'),
     confirmPassword: z.string(),
   })
@@ -17,13 +17,13 @@ export const signupSchema = z
   });
 
 export const forgotPasswordSchema = z.object({
-  email: z.string().email('Please enter a valid email address'),
+  email: z.email({ error: 'Please enter a valid email address' }),
 });
 
 export type SignupValues = z.infer<typeof signupSchema>;
 
 export const verifyCodeSchema = z.object({
-  email: z.string().email('Please enter a valid email address'),
+  email: z.email({ error: 'Please enter a valid email address' }),
   token: z.string().regex(/^\d{6}$/, 'Verification code must be 6 digits'),
   merchantSlug: z.string().min(1, 'Merchant slug is required'),
 });

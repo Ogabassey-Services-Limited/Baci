@@ -16,8 +16,8 @@ const RegisterTokenSchema = z.object({
   token: z.string().min(1, 'Push token is required'),
   platform: z.enum(['ios', 'android']),
   device_name: z.string().optional(),
-  merchant_id: z.string().uuid().optional(),
   app_type: z.enum(['admin', 'storefront']).default('admin'),
+  merchant_id: z.string().trim().min(1).optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -41,22 +41,17 @@ export async function POST(request: NextRequest) {
 
     if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Invalid request body', details: parsed.error.flatten() },
+        { error: 'Invalid request body', code: 'INVALID_REQUEST_BODY' },
         { status: 400 }
       );
     }
 
-    const { token, platform, device_name, merchant_id, app_type } = parsed.data;
+    const { token, platform, device_name, app_type, merchant_id } = parsed.data;
 
-    // Get merchant - either from request or find user's merchant (owner or staff)
-    let resolvedMerchantId = merchant_id;
-
-    if (!resolvedMerchantId) {
-      const merchantContext = await getMerchantForApiRequest(supabase, user.id);
-      if (merchantContext) {
-        resolvedMerchantId = merchantContext.merchantId;
-      }
-    }
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id, {
+      requestedMerchantId: merchant_id,
+    });
+    const resolvedMerchantId = merchantContext?.merchantId;
 
     if (!resolvedMerchantId) {
       return NextResponse.json(

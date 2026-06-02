@@ -186,7 +186,10 @@ describe('POST /api/cache/revalidate', () => {
 
       expect(res.status).toBe(400);
       expect(json.error).toBe('Invalid input');
-      expect(json.details).toBeDefined();
+      expect(json.code).toBe('INVALID_INPUT');
+      expect(json.details.fieldErrors.targets).toContain(
+        'At least one target is required'
+      );
     });
 
     it('returns 400 when targets is missing', async () => {
@@ -197,6 +200,10 @@ describe('POST /api/cache/revalidate', () => {
 
       expect(res.status).toBe(400);
       expect(json.error).toBe('Invalid input');
+      expect(json.code).toBe('INVALID_INPUT');
+      expect(json.details.fieldErrors.targets).toContain(
+        'Invalid input: expected array, received undefined'
+      );
     });
 
     it('returns 400 when targets contains invalid value', async () => {
@@ -207,6 +214,10 @@ describe('POST /api/cache/revalidate', () => {
 
       expect(res.status).toBe(400);
       expect(json.error).toBe('Invalid input');
+      expect(json.code).toBe('INVALID_INPUT');
+      expect(json.details.fieldErrors.targets).toContain(
+        'Invalid option: expected one of "products"|"categories"|"merchant"|"blog"|"reviews"|"features"|"pages"|"all"'
+      );
     });
 
     it('accepts all valid target types', async () => {

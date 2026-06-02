@@ -6,9 +6,9 @@ import { logger } from '@/lib/logger';
 import { notifyNegotiationRequest } from '@/lib/negotiation-notifications';
 
 const sharedFields = {
-  merchantId: z.string().uuid(),
+  merchantId: z.uuid(),
   offeredPrice: z.number().positive(),
-  negotiationId: z.string().uuid(),
+  negotiationId: z.uuid(),
 };
 
 const bodySchema = z.discriminatedUnion('negotiationType', [
@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
 
   if (!parsed.success) {
     return NextResponse.json(
-      { error: 'Invalid request', details: parsed.error.flatten() },
+      { error: 'Invalid request', details: z.flattenError(parsed.error) },
       { status: 400 }
     );
   }

@@ -25,7 +25,7 @@ export const NigerianPhoneSchema = z
       return patterns.some((pattern) => pattern.test(cleaned));
     },
     {
-      message: 'Please enter a valid Nigerian phone number (e.g., 08012345678)',
+      error: 'Please enter a valid Nigerian phone number (e.g., 08012345678)',
     }
   );
 

@@ -5,18 +5,13 @@ export const aiJobTypeSchema = z.enum([
   'storefront_layout_generation',
 ]);
 
-export const storefrontLayoutJobInputSchema = z
-  .object({
-    pageSlug: z.string().trim().min(1).default('home'),
-    businessName: z.string().trim().min(1).max(120),
-    businessType: z.string().trim().min(1).max(80),
-    brandColors: z.record(z.string(), z.unknown()).nullable(),
-    createdPageConfigUpdatedAt: z
-      .string()
-      .datetime({ offset: true })
-      .nullable(),
-  })
-  .strict();
+export const storefrontLayoutJobInputSchema = z.strictObject({
+  pageSlug: z.string().trim().min(1).default('home'),
+  businessName: z.string().trim().min(1).max(120),
+  businessType: z.string().trim().min(1).max(80),
+  brandColors: z.record(z.string(), z.unknown()).nullable(),
+  createdPageConfigUpdatedAt: z.iso.datetime({ offset: true }).nullable(),
+});
 
 export const createAiJobSchema = z.discriminatedUnion('type', [
   z.object({
@@ -29,11 +24,9 @@ export const createAiJobSchema = z.discriminatedUnion('type', [
   }),
 ]);
 
-export const applyAiDraftSchema = z
-  .object({
-    force: z.boolean().optional().default(false),
-  })
-  .strict();
+export const applyAiDraftSchema = z.strictObject({
+  force: z.boolean().optional().default(false),
+});
 
 export type AiJobType = z.infer<typeof aiJobTypeSchema>;
 export type CreateAiJobInput = z.infer<typeof createAiJobSchema>;

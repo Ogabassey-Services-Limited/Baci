@@ -7,7 +7,6 @@ import { z } from 'zod';
 /** Reusable integer count field (non-negative). */
 const countField = (label: string) =>
   z
-    .number()
     .int(`${label} must be an integer`)
     .nonnegative(`${label} cannot be negative`);
 
@@ -59,9 +58,11 @@ export const consignmentFormSchema = z.object({
   shippingDate: z
     .string()
     .min(1, 'Shipping date is required.')
-    .refine(isValidCalendarDate, { message: 'Invalid date.' })
+    .refine(isValidCalendarDate, {
+      error: 'Invalid date.',
+    })
     .refine((v) => v >= getLocalYYYYMMDD(), {
-      message: 'Shipping date cannot be in the past.',
+      error: 'Shipping date cannot be in the past.',
     }),
   comment: z.string(),
   products: z

@@ -203,14 +203,14 @@ export async function GET(
     const parsed = z
       .object({
         token: z.string().min(1).optional(),
-        email: z.string().email().optional(),
+        email: z.email().optional(),
         merchant_slug: z.string().min(1).optional(),
       })
       .safeParse({ token, email, merchant_slug: merchantSlug });
 
     if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Invalid request', details: parsed.error.flatten() },
+        { error: 'Invalid request', details: z.flattenError(parsed.error) },
         { status: 400 }
       );
     }
