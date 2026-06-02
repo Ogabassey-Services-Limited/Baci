@@ -1,16 +1,55 @@
-import { renderHook } from '@testing-library/react-native';
+import { jest } from '@jest/globals';
+import { act, renderHook } from '@testing-library/react-native';
 import { useDraggableFab } from './use-draggable-fab';
 
-describe('useDraggableFab', () => {
-  type MockGesture = {
-    config: Record<string, unknown>;
-    type: string;
-  };
+type PanEvent = {
+  translationX: number;
+  translationY: number;
+  velocityX: number;
+  velocityY: number;
+};
 
-  type MockComposedGesture = {
-    gestures: MockGesture[];
-    type: string;
-  };
+type PanGestureConfig = {
+  onBegin: () => void;
+  onDeactivate: (event: PanEvent) => void;
+  onFinalize: () => void;
+  onUpdate: (event: PanEvent) => void;
+};
+
+type TapGestureConfig = {
+  onActivate: () => void;
+};
+
+let mockPanGestureConfig: PanGestureConfig | null = null;
+let mockTapGestureConfig: TapGestureConfig | null = null;
+
+jest.mock('expo-haptics', () => ({
+  ImpactFeedbackStyle: {
+    Light: 'Light',
+    Medium: 'Medium',
+  },
+  impactAsync: jest.fn(() => Promise.resolve()),
+}));
+
+jest.mock('@/lib/optional-gesture-handler', () => ({
+  getOptionalGestureHandlerRuntime: () => ({
+    usePanGesture: jest.fn((config: PanGestureConfig) => {
+      mockPanGestureConfig = config;
+      return { gesture: 'pan' };
+    }),
+    useSimultaneousGestures: jest.fn(() => ({ gesture: 'simultaneous' })),
+    useTapGesture: jest.fn((config: TapGestureConfig) => {
+      mockTapGestureConfig = config;
+      return { gesture: 'tap' };
+    }),
+  }),
+}));
+
+describe('useDraggableFab', () => {
+  beforeEach(() => {
+    mockPanGestureConfig = null;
+    mockTapGestureConfig = null;
+  });
 
   it('returns the expected properties', () => {
     const { result } = renderHook(() => useDraggableFab(90));
@@ -56,20 +95,43 @@ describe('useDraggableFab', () => {
     expect(result.current.isOnRight).toBe(true);
   });
 
-  it('composes pan and tap gestures with the Gesture Handler 3 hook API', () => {
+  it('updates drag state and translations from pan gesture callbacks', () => {
     const { result } = renderHook(() => useDraggableFab(90));
-    const composedGesture = result.current
-      .composedGesture as unknown as MockComposedGesture;
-    const [panGesture, tapGesture] = composedGesture.gestures;
 
-    expect(composedGesture.type).toBe('simultaneous');
-    expect(panGesture).toMatchObject({
-      config: { minDistance: 8 },
-      type: 'pan',
+    expect(mockPanGestureConfig).toBeTruthy();
+
+    act(() => {
+      mockPanGestureConfig?.onBegin();
     });
-    expect(tapGesture).toMatchObject({
-      config: { maxDistance: 8 },
-      type: 'tap',
+    expect(result.current.isDragging).toBe(true);
+
+    act(() => {
+      mockPanGestureConfig?.onUpdate({
+        translationX: -40,
+        translationY: 24,
+        velocityX: 0,
+        velocityY: 0,
+      });
     });
+    expect(result.current.translateX.value).toBe(-40);
+    expect(result.current.translateY.value).toBe(24);
+
+    act(() => {
+      mockPanGestureConfig?.onFinalize();
+    });
+    expect(result.current.isDragging).toBe(false);
+  });
+
+  it('invokes onPress from the tap gesture callback', () => {
+    const onPress = jest.fn();
+    renderHook(() => useDraggableFab(90, undefined, onPress));
+
+    expect(mockTapGestureConfig).toBeTruthy();
+
+    act(() => {
+      mockTapGestureConfig?.onActivate();
+    });
+
+    expect(onPress).toHaveBeenCalledTimes(1);
   });
 });

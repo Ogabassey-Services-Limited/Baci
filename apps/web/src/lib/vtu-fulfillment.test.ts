@@ -356,6 +356,35 @@ function createPendingTransactionSupabaseMock({
         });
       }
 
+      if (name === 'claim_vtu_customer_email_metadata_flag') {
+        const attemptKey =
+          typeof args?.p_attempt_key === 'string'
+            ? args.p_attempt_key
+            : 'customerEmailNotificationAttempted';
+        const sentKey =
+          typeof args?.p_sent_key === 'string'
+            ? args.p_sent_key
+            : 'customerEmailNotificationSent';
+        const existingMetadata =
+          transactionRow.metadata && typeof transactionRow.metadata === 'object'
+            ? (transactionRow.metadata as Record<string, unknown>)
+            : {};
+        const alreadyClaimed =
+          existingMetadata[attemptKey] === true ||
+          existingMetadata[sentKey] === true;
+
+        return Promise.resolve({
+          data:
+            emailClaimData && !alreadyClaimed
+              ? {
+                  ...existingMetadata,
+                  [attemptKey]: true,
+                }
+              : null,
+          error: null,
+        });
+      }
+
       return rpcImpl
         ? rpcImpl(name, args)
         : Promise.resolve({ data: null, error: null });
@@ -776,14 +805,14 @@ describe('fulfillPendingVtuTransaction', () => {
     expect(mockNotifyCustomer).not.toHaveBeenCalled();
     expect(updatePayloads).toContainEqual({
       metadata: expect.objectContaining({
-        customerEmailNotificationAttempted: false,
+        customerEmailNotificationAttempted: true,
         customerEmailNotificationSent: false,
         customerNotificationAttempted: true,
       }),
     });
   });
 
-  it('defers token-based email receipts until the voucher PIN is available', async () => {
+  it('sends pending-token email receipts without consuming the token-ready email claim', async () => {
     const updatePayloads: unknown[] = [];
     const supabase = createPendingTransactionSupabaseMock({
       customerData: {
@@ -830,14 +859,32 @@ describe('fulfillPendingVtuTransaction', () => {
       status: 'successful',
     });
     expect(result).not.toHaveProperty('voucherPin');
-    expect(mockSendEmail).not.toHaveBeenCalled();
-    expect(supabase.rpc).not.toHaveBeenCalledWith(
-      'claim_vtu_customer_email_notification_attempt',
-      { p_transaction_id: 'vtu-1' }
+    expect(mockSendEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        subject: 'Receipt for Electricity Purchase - OgaBassey',
+        textContent: expect.stringContaining(
+          'Token fulfillment is still in progress'
+        ),
+        to: 'buyer@example.com',
+      })
+    );
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'claim_vtu_customer_email_metadata_flag',
+      {
+        p_attempt_key: 'customerPendingTokenEmailNotificationAttempted',
+        p_sent_key: 'customerPendingTokenEmailNotificationSent',
+        p_transaction_id: 'vtu-1',
+      }
     );
     expect(updatePayloads).not.toContainEqual({
       metadata: expect.objectContaining({
         customerEmailNotificationAttempted: expect.any(Boolean),
+      }),
+    });
+    expect(updatePayloads).toContainEqual({
+      metadata: expect.objectContaining({
+        customerPendingTokenEmailNotificationAttempted: true,
+        customerPendingTokenEmailNotificationSent: true,
       }),
     });
   });

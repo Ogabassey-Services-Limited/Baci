@@ -103,6 +103,30 @@ interface VtuTransactionRow {
   type: 'airtime' | 'data' | 'electricity' | 'cable_tv' | 'betting';
 }
 
+type EmailNotificationAttemptKey =
+  | 'customerEmailNotificationAttempted'
+  | 'customerPendingTokenEmailNotificationAttempted';
+
+type EmailNotificationSentKey =
+  | 'customerEmailNotificationSent'
+  | 'customerPendingTokenEmailNotificationSent';
+
+const TOKEN_READY_EMAIL_KEYS = {
+  attempted: 'customerEmailNotificationAttempted',
+  sent: 'customerEmailNotificationSent',
+} as const satisfies {
+  attempted: EmailNotificationAttemptKey;
+  sent: EmailNotificationSentKey;
+};
+
+const TOKEN_PENDING_EMAIL_KEYS = {
+  attempted: 'customerPendingTokenEmailNotificationAttempted',
+  sent: 'customerPendingTokenEmailNotificationSent',
+} as const satisfies {
+  attempted: EmailNotificationAttemptKey;
+  sent: EmailNotificationSentKey;
+};
+
 interface CreditWalletResult {
   new_balance: unknown;
 }
@@ -1027,24 +1051,27 @@ async function claimCustomerNotificationAttempt({
 }
 
 async function claimCustomerEmailNotificationAttempt({
+  attemptedKey,
   metadata,
   row,
+  sentKey,
   supabase,
 }: {
+  attemptedKey: EmailNotificationAttemptKey;
   metadata: Record<string, unknown>;
   row: VtuTransactionRow;
+  sentKey: EmailNotificationSentKey;
   supabase: SupabaseClient;
 }) {
-  if (
-    metadata.customerEmailNotificationAttempted === true ||
-    metadata.customerEmailNotificationSent === true
-  ) {
+  if (metadata[attemptedKey] === true || metadata[sentKey] === true) {
     return false;
   }
 
   const { data, error } = await supabase.rpc(
-    'claim_vtu_customer_email_notification_attempt',
+    'claim_vtu_customer_email_metadata_flag',
     {
+      p_attempt_key: attemptedKey,
+      p_sent_key: sentKey,
       p_transaction_id: row.id,
     }
   );
@@ -1062,6 +1089,7 @@ async function claimCustomerEmailNotificationAttempt({
     return false;
   }
 
+  setMetadataValue(metadata, attemptedKey, true);
   return true;
 }
 
@@ -1118,14 +1146,16 @@ async function notifyVtuCustomerSuccess({
   const expectsToken = canResolveBillVoucherPin(row.type);
   const isTokenReady = expectsToken && Boolean(voucherPin);
   const isTokenPending = expectsToken && !isTokenReady;
+  const emailKeys = isTokenPending
+    ? TOKEN_PENDING_EMAIL_KEYS
+    : TOKEN_READY_EMAIL_KEYS;
   const shouldAttemptPush =
     Boolean(customer.user_id) &&
     metadata.customerNotificationAttempted !== true;
   const shouldAttemptEmail =
     Boolean(customer.email) &&
-    !isTokenPending &&
-    metadata.customerEmailNotificationAttempted !== true &&
-    metadata.customerEmailNotificationSent !== true;
+    metadata[emailKeys.attempted] !== true &&
+    metadata[emailKeys.sent] !== true;
 
   if (!shouldAttemptPush && !shouldAttemptEmail) {
     return { metadataChanged: false };
@@ -1140,8 +1170,10 @@ async function notifyVtuCustomerSuccess({
     : false;
   const claimedEmail = shouldAttemptEmail
     ? await claimCustomerEmailNotificationAttempt({
+        attemptedKey: emailKeys.attempted,
         metadata,
         row,
+        sentKey: emailKeys.sent,
         supabase,
       })
     : false;
@@ -1271,17 +1303,11 @@ async function notifyVtuCustomerSuccess({
       });
 
       metadataChanged =
-        setMetadataValue(
-          metadata,
-          'customerEmailNotificationAttempted',
-          emailResult.success
-        ) || metadataChanged;
+        setMetadataValue(metadata, emailKeys.attempted, true) ||
+        metadataChanged;
       metadataChanged =
-        setMetadataValue(
-          metadata,
-          'customerEmailNotificationSent',
-          emailResult.success
-        ) || metadataChanged;
+        setMetadataValue(metadata, emailKeys.sent, emailResult.success) ||
+        metadataChanged;
     } catch (emailError) {
       console.error('Failed to send VTU customer email receipt:', {
         error:
@@ -1289,14 +1315,10 @@ async function notifyVtuCustomerSuccess({
         transactionId: row.id,
       });
       metadataChanged =
-        setMetadataValue(
-          metadata,
-          'customerEmailNotificationAttempted',
-          false
-        ) || metadataChanged;
-      metadataChanged =
-        setMetadataValue(metadata, 'customerEmailNotificationSent', false) ||
+        setMetadataValue(metadata, emailKeys.attempted, true) ||
         metadataChanged;
+      metadataChanged =
+        setMetadataValue(metadata, emailKeys.sent, false) || metadataChanged;
     }
   }
 
