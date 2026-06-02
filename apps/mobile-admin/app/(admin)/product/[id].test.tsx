@@ -13,6 +13,10 @@ const mocks = vi.hoisted(() => ({
   useProduct: vi.fn(),
 }));
 
+function Text({ children }: { children?: ReactNode }) {
+  return <span>{children}</span>;
+}
+
 vi.mock('expo-router', async () => {
   const React = await import('react');
 
@@ -43,9 +47,13 @@ vi.mock('expo-router', async () => {
 });
 
 vi.mock('@react-native-vector-icons/ionicons', () => ({
-  Ionicons: () => <span>icon</span>,
+  Ionicons: ({ name }: { name?: string }) => (
+    <span aria-hidden="true" data-icon={name} />
+  ),
 
-  default: () => <span>icon</span>,
+  default: ({ name }: { name?: string }) => (
+    <span aria-hidden="true" data-icon={name} />
+  ),
   __esModule: true,
 }));
 
@@ -57,7 +65,7 @@ vi.mock('react-native-safe-area-context', () => ({
 }));
 
 vi.mock('react-native', () => ({
-  ActivityIndicator: () => <span>loading</span>,
+  ActivityIndicator: () => <output aria-label="loading" />,
   Alert: { alert: vi.fn() },
   FlatList: ({
     ListEmptyComponent,
@@ -152,12 +160,16 @@ vi.mock('@/components/product/ProductBasicInformationCard', () => ({
     hideColorField?: boolean;
   }) => {
     mocks.basicInformationCardProps.push({ hideColorField });
-    return <span>hide-color-field:{String(hideColorField)}</span>;
+    return <Text>{`hide-color-field:${String(hideColorField)}`}</Text>;
   },
 }));
 
 vi.mock('@/components/ui/InvalidRouteScreen', () => ({
-  InvalidRouteScreen: () => <div>invalid route</div>,
+  InvalidRouteScreen: () => (
+    <div>
+      <Text>invalid route</Text>
+    </div>
+  ),
 }));
 
 vi.mock('@/components/ui/KeyboardAwareModalContainer', () => ({
@@ -167,11 +179,19 @@ vi.mock('@/components/ui/KeyboardAwareModalContainer', () => ({
 }));
 
 vi.mock('@/components/ui/SafeImage', () => ({
-  default: () => <div>safe-image</div>,
+  default: () => (
+    <div>
+      <Text>safe-image</Text>
+    </div>
+  ),
 }));
 
 vi.mock('@/components/product/VariantConditionEditor', () => ({
-  VariantConditionEditor: () => <div>variant-condition-editor</div>,
+  VariantConditionEditor: () => (
+    <div>
+      <Text>variant-condition-editor</Text>
+    </div>
+  ),
 }));
 
 vi.mock('@/hooks/useMerchant', () => ({

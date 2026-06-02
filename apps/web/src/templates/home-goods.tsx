@@ -200,28 +200,28 @@ export function HomeGoodsHome(props: TemplatePageProps) {
                             <div>
                                 <h4 className="font-medium text-white mb-4">Shop</h4>
                                 <ul className="space-y-2 text-sm">
-                                    <li><a href="#" className="hover:text-amber-400 transition-colors">Living Room</a></li>
-                                    <li><a href="#" className="hover:text-amber-400 transition-colors">Bedroom</a></li>
-                                    <li><a href="#" className="hover:text-amber-400 transition-colors">Dining</a></li>
-                                    <li><a href="#" className="hover:text-amber-400 transition-colors">All Products</a></li>
+                                    <li><span className="transition-colors cursor-default">Living Room</span></li>
+                                    <li><span className="transition-colors cursor-default">Bedroom</span></li>
+                                    <li><span className="transition-colors cursor-default">Dining</span></li>
+                                    <li><span className="transition-colors cursor-default">All Products</span></li>
                                 </ul>
                             </div>
                             <div>
                                 <h4 className="font-medium text-white mb-4">Support</h4>
                                 <ul className="space-y-2 text-sm">
-                                    <li><a href="#" className="hover:text-amber-400 transition-colors">Contact Us</a></li>
-                                    <li><a href="#" className="hover:text-amber-400 transition-colors">Delivery Info</a></li>
-                                    <li><a href="#" className="hover:text-amber-400 transition-colors">Returns</a></li>
-                                    <li><a href="#" className="hover:text-amber-400 transition-colors">FAQ</a></li>
+                                    <li><span className="transition-colors cursor-default">Contact Us</span></li>
+                                    <li><span className="transition-colors cursor-default">Delivery Info</span></li>
+                                    <li><span className="transition-colors cursor-default">Returns</span></li>
+                                    <li><span className="transition-colors cursor-default">FAQ</span></li>
                                 </ul>
                             </div>
                             <div>
                                 <h4 className="font-medium text-white mb-4">Company</h4>
                                 <ul className="space-y-2 text-sm">
-                                    <li><a href="#" className="hover:text-amber-400 transition-colors">About Us</a></li>
-                                    <li><a href="#" className="hover:text-amber-400 transition-colors">Sustainability</a></li>
-                                    <li><a href="#" className="hover:text-amber-400 transition-colors">Blog</a></li>
-                                    <li><a href="#" className="hover:text-amber-400 transition-colors">Careers</a></li>
+                                    <li><span className="transition-colors cursor-default">About Us</span></li>
+                                    <li><span className="transition-colors cursor-default">Sustainability</span></li>
+                                    <li><span className="transition-colors cursor-default">Blog</span></li>
+                                    <li><span className="transition-colors cursor-default">Careers</span></li>
                                 </ul>
                             </div>
                         </div>

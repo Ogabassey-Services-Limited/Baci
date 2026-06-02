@@ -15,9 +15,9 @@ vi.mock('@/components/ui/AppDialogModal', () => ({
     visible: boolean;
   }) =>
     visible ? (
-      <div aria-label={accessibilityLabel} role="dialog">
+      <dialog aria-label={accessibilityLabel} open>
         {children}
-      </div>
+      </dialog>
     ) : null,
 }));
 

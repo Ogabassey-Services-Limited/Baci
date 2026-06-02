@@ -278,14 +278,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
               {/* Payment Link Message */}
               <div className="mb-8 p-4 bg-red-50/50 rounded-xl border border-red-100 inline-block">
                 <p className="text-sm text-gray-800 font-medium">
-                  Click on{' '}
-                  <a
-                    href="#"
-                    className="text-red-600 underline font-bold hover:text-red-700 decoration-2 underline-offset-4"
-                  >
-                    this link
-                  </a>{' '}
-                  to complete payment.
+                  Complete payment from the checkout payment option.
                 </p>
               </div>
 
