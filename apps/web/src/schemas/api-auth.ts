@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const userAccessSchema = z.object({
-  merchant_id: z.string().uuid(),
+  merchant_id: z.uuid(),
   role: z.string().min(1),
   is_owner: z.boolean(),
   is_staff: z.boolean(),

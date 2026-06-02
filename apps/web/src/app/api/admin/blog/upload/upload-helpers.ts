@@ -50,7 +50,7 @@ const deleteBodySchema = z
         ? value.variantPaths.length > 0
         : Object.values(value.variantPaths ?? {}).length > 0),
     {
-      message: 'No path provided',
+      error: 'No path provided',
     }
   );
 

@@ -7,7 +7,7 @@ import {
 
 export const agenticCheckoutItemSchema = z.object({
   id: z.string().trim().min(1, 'Item id is required'),
-  quantity: z.number().int().positive('Quantity must be a positive integer'),
+  quantity: z.int().positive('Quantity must be a positive integer'),
 });
 
 export const agenticCheckoutItemsSchema = z
@@ -16,7 +16,7 @@ export const agenticCheckoutItemsSchema = z
 
 export const agenticFulfillmentAddressSchema = z.object({
   name: z.string().trim().min(1).optional(),
-  email: z.string().email().optional(),
+  email: z.email().optional(),
   phone: z.string().trim().min(7).optional(),
   address: z.string().trim().min(1).optional(),
   city: z.string().trim().min(1).optional(),
@@ -24,7 +24,7 @@ export const agenticFulfillmentAddressSchema = z.object({
   country: z.string().trim().min(1).optional(),
   country_code: z.string().trim().min(2).max(3).optional(),
   postal_code: z.string().trim().min(1).optional(),
-  station_id: z.number().int().nonnegative().optional(),
+  station_id: z.int().nonnegative().optional(),
 });
 
 const checkoutSessionBaseSchema = z.object({
@@ -36,7 +36,7 @@ const checkoutSessionBaseSchema = z.object({
     .length(3, 'Currency must be a 3-letter ISO code')
     .transform((value) => value.toUpperCase())
     .optional()
-    .default('NGN'),
+    .prefault('NGN'),
 });
 
 const checkoutSessionCartSchema = z.object({
@@ -47,7 +47,7 @@ const checkoutSessionCartSchema = z.object({
     .length(3, 'Currency must be a 3-letter ISO code')
     .transform((value) => value.toUpperCase())
     .optional()
-    .default('NGN'),
+    .prefault('NGN'),
 });
 
 export const checkoutSessionSchema = z.preprocess(
@@ -58,7 +58,6 @@ export const checkoutSessionSchema = z.preprocess(
 const createAgenticCheckoutSessionItemSchema = agenticCheckoutItemSchema.extend(
   {
     quantity: z
-      .number()
       .int()
       .positive('Quantity must be a positive integer')
       .max(20, 'Quantity must be 20 or less'),
@@ -104,28 +103,28 @@ export const getAgenticCheckoutSessionInputSchema =
 export const updateAgenticCheckoutSessionInputSchema = z.preprocess(
   normalizeCheckoutAcpAliases,
   agenticCheckoutSessionIdInputSchema
-    .merge(agenticCheckoutIdempotencyInputSchema)
-    .merge(agenticCheckoutUpdateFieldsSchema)
+    .extend(agenticCheckoutIdempotencyInputSchema.shape)
+    .extend(agenticCheckoutUpdateFieldsSchema.shape)
     .refine(hasAgenticCheckoutUpdateField, {
       message: agenticCheckoutUpdateRequiredMessage,
     })
 );
 
 export const cancelAgenticCheckoutSessionInputSchema =
-  agenticCheckoutSessionIdInputSchema.merge(
-    agenticCheckoutIdempotencyInputSchema
+  agenticCheckoutSessionIdInputSchema.extend(
+    agenticCheckoutIdempotencyInputSchema.shape
   );
 
 export const agenticCheckoutBuyerSchema = z.object({
-  email: z.string().email(),
+  email: z.email(),
   first_name: z.string().trim().min(1),
   last_name: z.string().trim().min(1),
   phone_number: z.string().trim().min(7),
 });
 
 const humanConfirmationSchema = z.object({
-  amount: z.number().int().nonnegative(),
-  confirmed_at: z.string().datetime(),
+  amount: z.int().nonnegative(),
+  confirmed_at: z.iso.datetime(),
   currency: z.string().trim().length(3).transform(toUppercaseCurrency),
   session_id: z.string().trim().min(1),
   signature: z.string().trim().min(32),
@@ -134,9 +133,9 @@ const humanConfirmationSchema = z.object({
 
 const paymentMandateSchema = z.object({
   currency: z.string().trim().length(3).transform(toUppercaseCurrency),
-  expires_at: z.string().datetime(),
+  expires_at: z.iso.datetime(),
   mandate_id: z.string().trim().min(1),
-  max_amount: z.number().int().nonnegative(),
+  max_amount: z.int().nonnegative(),
   session_id: z.string().trim().min(1).optional(),
   signature: z.string().trim().min(32),
   type: z.literal('payment_mandate'),
@@ -146,25 +145,21 @@ const paymentMandateSchema = z.object({
 // manifest-advertised method name (`paystack_bank_transfer`) as an alias, and
 // normalizes the parsed value to the canonical `paystack` so downstream code
 // can keep its `provider === 'paystack'` checks unchanged.
-const paystackPaymentDataSchema = z
-  .object({
-    billing_address: agenticFulfillmentAddressSchema.optional(),
-    provider: z
-      .union([
-        z.literal(AGENTIC_PAYMENT_PROVIDER_PAYSTACK),
-        z.literal(AGENTIC_PAYMENT_METHOD_PAYSTACK_BANK_TRANSFER),
-      ])
-      .transform(() => AGENTIC_PAYMENT_PROVIDER_PAYSTACK),
-    token: z.string().trim().min(1),
-  })
-  .strict();
+const paystackPaymentDataSchema = z.strictObject({
+  billing_address: agenticFulfillmentAddressSchema.optional(),
+  provider: z
+    .union([
+      z.literal(AGENTIC_PAYMENT_PROVIDER_PAYSTACK),
+      z.literal(AGENTIC_PAYMENT_METHOD_PAYSTACK_BANK_TRANSFER),
+    ])
+    .transform(() => AGENTIC_PAYMENT_PROVIDER_PAYSTACK),
+  token: z.string().trim().min(1),
+});
 
-const payOnDeliveryPaymentDataSchema = z
-  .object({
-    billing_address: agenticFulfillmentAddressSchema.optional(),
-    provider: z.literal(AGENTIC_PAYMENT_PROVIDER_PAY_ON_DELIVERY),
-  })
-  .strict();
+const payOnDeliveryPaymentDataSchema = z.strictObject({
+  billing_address: agenticFulfillmentAddressSchema.optional(),
+  provider: z.literal(AGENTIC_PAYMENT_PROVIDER_PAY_ON_DELIVERY),
+});
 
 export const agenticPaymentDataSchema = z.union([
   paystackPaymentDataSchema,

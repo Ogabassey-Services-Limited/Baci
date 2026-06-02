@@ -78,15 +78,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const integrationIdSchema = z
-      .string()
-      .uuid('integrationId must be a valid UUID');
+    const integrationIdSchema = z.uuid('integrationId must be a valid UUID');
     const parsedIntegrationId = integrationIdSchema.safeParse(rawIntegrationId);
     if (!parsedIntegrationId.success) {
       return NextResponse.json(
         {
           error: 'Invalid integrationId',
-          details: parsedIntegrationId.error.flatten(),
+          details: z.flattenError(parsedIntegrationId.error),
         },
         { status: 400 }
       );

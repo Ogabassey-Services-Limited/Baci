@@ -26,7 +26,7 @@ export const createCustomerSchema = z.object({
   email: z
     .string()
     .transform((val) => sanitizeEmail(val))
-    .pipe(z.union([z.literal(''), z.string().email()]))
+    .pipe(z.union([z.literal(''), z.email()]))
     .optional()
     .nullable(),
   phone: z
@@ -76,7 +76,7 @@ export const updateCustomerSchema = z.object({
   email: z
     .string()
     .transform((val) => sanitizeEmail(val))
-    .pipe(z.union([z.literal(''), z.string().email()]))
+    .pipe(z.union([z.literal(''), z.email()]))
     .optional()
     .nullable(),
   phone: z

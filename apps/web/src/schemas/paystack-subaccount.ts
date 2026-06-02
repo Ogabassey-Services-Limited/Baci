@@ -37,7 +37,7 @@ export const paystackSubaccountSchema = paystackSubaccountSourceSchema
     if (isOfflineBank) {
       if (!/^[A-Za-z0-9][A-Za-z0-9 -]{5,33}$/.test(data.account_number)) {
         ctx.addIssue({
-          code: z.ZodIssueCode.custom,
+          code: 'custom',
           message:
             'Account number must be 6 to 34 characters and may include letters, digits, spaces, and hyphens',
           path: ['account_number'],
@@ -46,7 +46,7 @@ export const paystackSubaccountSchema = paystackSubaccountSourceSchema
     } else {
       if (!/^\d{10}$/.test(data.account_number)) {
         ctx.addIssue({
-          code: z.ZodIssueCode.custom,
+          code: 'custom',
           message: 'Account number must be exactly 10 digits',
           path: ['account_number'],
         });
@@ -54,7 +54,7 @@ export const paystackSubaccountSchema = paystackSubaccountSourceSchema
 
       if (!data.bank_code) {
         ctx.addIssue({
-          code: z.ZodIssueCode.custom,
+          code: 'custom',
           message: 'Bank code is required',
           path: ['bank_code'],
         });
@@ -66,7 +66,7 @@ export const paystackSubaccountSchema = paystackSubaccountSourceSchema
       data.business_name.trim().length < 2
     ) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: 'Business name must be at least 2 characters',
         path: ['business_name'],
       });

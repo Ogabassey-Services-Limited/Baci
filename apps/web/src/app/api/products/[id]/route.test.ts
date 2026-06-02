@@ -91,15 +91,15 @@ vi.mock('@/schemas/products', () => ({
         return {
           success: false,
           error: {
-            errors: [{ path: ['price'], message: 'Must be positive' }],
+            issues: [{ path: ['price'], message: 'Must be positive' }],
           },
         };
       }
       return { success: true, data };
     },
   },
-  formatZodErrors: (error: { errors: { path: string[]; message: string }[] }) =>
-    error.errors.map((e) => ({ field: e.path.join('.'), message: e.message })),
+  formatZodErrors: (error: { issues: { path: string[]; message: string }[] }) =>
+    error.issues.map((e) => ({ field: e.path.join('.'), message: e.message })),
 }));
 
 // Supabase mock

@@ -8,7 +8,7 @@ import {
 import { notifyNegotiationResponse } from '@/lib/negotiation-notifications';
 
 const bodySchema = z.object({
-  negotiationId: z.string().uuid(),
+  negotiationId: z.uuid(),
 });
 
 export async function POST(request: NextRequest) {
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
 
   if (!parsed.success) {
     return NextResponse.json(
-      { error: 'Invalid request', details: parsed.error.flatten() },
+      { error: 'Invalid request', details: z.flattenError(parsed.error) },
       { status: 400 }
     );
   }

@@ -1,8 +1,8 @@
 import { z } from 'zod';
 
 export const subscribeSchema = z.object({
-  email: z.string().email('Invalid email address'),
-  merchantId: z.string().uuid('Invalid merchant ID').optional(),
+  email: z.email('Invalid email address'),
+  merchantId: z.uuid('Invalid merchant ID').optional(),
   source: z
     .enum(['widget', 'footer', 'checkout', 'popup'])
     .optional()
@@ -10,8 +10,8 @@ export const subscribeSchema = z.object({
 });
 
 export const unsubscribeSchema = z.object({
-  email: z.string().email('Invalid email address'),
-  merchantId: z.string().uuid('Invalid merchant ID').optional(),
+  email: z.email('Invalid email address'),
+  merchantId: z.uuid('Invalid merchant ID').optional(),
 });
 
 export type SubscribeInput = z.infer<typeof subscribeSchema>;

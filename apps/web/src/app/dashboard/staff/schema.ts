@@ -1,7 +1,7 @@
 import z from 'zod';
 
 export const InviteStaffSchema = z.object({
-  email: z.string().email('Invalid email address'),
+  email: z.email({ error: 'Invalid email address' }),
   name: z.string(),
   role: z.enum([
     'admin',

@@ -8,13 +8,13 @@ import { z } from 'zod';
 // ── Brands ──
 
 export const JumiaBrandSchema = z.object({
-  code: z.number().int(),
+  code: z.int(),
   name: z.string(),
 });
 
 const JumiaPageMetadataSchema = z.object({
-  current: z.number().int(),
-  totalOfPages: z.number().int(),
+  current: z.int(),
+  totalOfPages: z.int(),
 });
 
 export const JumiaBrandsResponseSchema = z.object({
@@ -38,13 +38,13 @@ export const JumiaAttributeSchema = z.object({
 
 export const JumiaSalePriceSchema = z.object({
   value: z.number().nonnegative(),
-  startAt: z.string().datetime({ offset: true }),
-  endAt: z.string().datetime({ offset: true }),
+  startAt: z.iso.datetime({ offset: true }),
+  endAt: z.iso.datetime({ offset: true }),
 });
 
 export const JumiaGlobalPriceSchema = z.object({
   value: z.number().nonnegative(),
-  updateAt: z.string().datetime({ offset: true }),
+  updateAt: z.iso.datetime({ offset: true }),
   salePrice: JumiaSalePriceSchema.nullable().optional(),
 });
 
@@ -70,18 +70,18 @@ export const JumiaProductSchema = z.object({
   parentSku: z.string().min(1),
   shop: z.object({ id: z.string() }),
   brand: JumiaBrandSchema,
-  category: z.object({ code: z.number().int(), name: z.string() }),
+  category: z.object({ code: z.int(), name: z.string() }),
   images: z.array(
     z.object({
-      url: z.string().url(),
-      originalUrl: z.string().url(),
+      url: z.url(),
+      originalUrl: z.url(),
       primary: z.boolean(),
     })
   ),
   attributeSetId: z.string(),
   attributes: z.array(JumiaAttributeSchema),
-  createdAt: z.string().datetime({ offset: true }),
-  updatedAt: z.string().datetime({ offset: true }),
+  createdAt: z.iso.datetime({ offset: true }),
+  updatedAt: z.iso.datetime({ offset: true }),
   variations: z.array(JumiaVariationSchema),
 });
 
@@ -94,7 +94,7 @@ export const JumiaProductsResponseSchema = z.object({
 // ── Categories ──
 
 export const JumiaCategorySchema = z.object({
-  code: z.number().int(),
+  code: z.int(),
   name: z.string().min(1),
   completePath: z.string().min(1),
   attributeSet: z.object({
@@ -151,8 +151,8 @@ export const JumiaStockResponseSchema = z.object({
     z.object({
       id: z.string(),
       sellerSku: z.string(),
-      globalStock: z.number().int().nonnegative(),
-      lastStockUpdatedAt: z.string().datetime({ offset: true }),
+      globalStock: z.int().nonnegative(),
+      lastStockUpdatedAt: z.iso.datetime({ offset: true }),
     })
   ),
   nextToken: z.string().nullable(),

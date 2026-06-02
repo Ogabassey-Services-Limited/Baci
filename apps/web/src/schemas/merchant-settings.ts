@@ -97,7 +97,7 @@ export const updateMerchantSettingsSchema = z
       .nullable(),
   })
   .refine((value) => Object.keys(value).length > 0, {
-    message: 'At least one merchant setting must be provided',
+    error: 'At least one merchant setting must be provided',
   });
 
 export function formatMerchantSettingsErrors(

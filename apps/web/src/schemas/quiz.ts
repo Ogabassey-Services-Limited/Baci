@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
-const quizUuidSchema = z.string().uuid();
-const quizIsoDatetimeSchema = z.string().datetime({ offset: true });
+const quizUuidSchema = z.uuid();
+const quizIsoDatetimeSchema = z.iso.datetime({ offset: true });
 const quizIntegrityTierSchema = z.enum(['basic', 'device', 'strong']);
 const quizDifficultySchema = z.enum(['easy', 'standard', 'hard']);
 const merchantQuizPublicationModeSchema = z.enum(['draft', 'active']);
@@ -13,18 +13,18 @@ const quizPrizeConditionSchema = z
 
 export const quizEventsQuerySchema = z
   .object({
-    limit: z.coerce.number().int().min(1).max(50).default(20),
+    limit: z.coerce.number().int().min(1).max(50).prefault(20),
     merchantId: quizUuidSchema.optional(),
     merchantSlug: z.string().trim().min(1).max(120).optional(),
-    offset: z.coerce.number().int().min(0).default(0),
+    offset: z.coerce.number().int().min(0).prefault(0),
   })
   .refine((value) => value.merchantId || value.merchantSlug, {
-    message: 'merchantId or merchantSlug is required',
     path: ['merchantId'],
+    error: 'merchantId or merchantSlug is required',
   })
   .refine((value) => !(value.merchantId && value.merchantSlug), {
-    message: 'provide either merchantId or merchantSlug, not both',
     path: ['merchantId'],
+    error: 'provide either merchantId or merchantSlug, not both',
   });
 
 export const startQuizAttemptSchema = z.object({
@@ -60,8 +60,8 @@ export const merchantQuizGenerationRequestSchema = z.object({
   prizeProductId: quizUuidSchema,
   prizeVariantId: quizUuidSchema.optional(),
   publicationMode: merchantQuizPublicationModeSchema.default('draft'),
-  questionCountPerTopic: z.coerce.number().int().min(1).max(5).default(1),
-  timeLimitSeconds: z.coerce.number().int().min(5).max(60).default(30),
+  questionCountPerTopic: z.coerce.number().int().min(1).max(5).prefault(1),
+  timeLimitSeconds: z.coerce.number().int().min(5).max(60).prefault(30),
   title: z.string().trim().min(3).max(120),
   topics: z.array(quizTopicSchema).min(1).max(10),
 });
@@ -96,7 +96,7 @@ export const generatedQuizQuestionSchema =
   generatedQuizQuestionBaseSchema.superRefine((value, context) => {
     if (!value.options.some((option) => option.id === value.correctOptionId)) {
       context.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: 'correctOptionId must match one of the option ids',
         path: ['correctOptionId'],
       });
@@ -175,11 +175,11 @@ export const quizOptionResponseSchema = z.object({
 
 export const quizQuestionResponseSchema = z.object({
   id: quizNonEmptyIdSchema,
-  index: z.number().int().positive(),
+  index: z.int().positive(),
   options: z.array(quizOptionResponseSchema).min(1),
   prompt: z.string().min(1),
-  timeLimitSeconds: z.number().int().positive(),
-  total: z.number().int().positive(),
+  timeLimitSeconds: z.int().positive(),
+  total: z.int().positive(),
 });
 
 export const quizEventResponseSchema = z.object({
@@ -194,7 +194,7 @@ export const quizEventResponseSchema = z.object({
       variantId: quizUuidSchema.nullable(),
     })
     .optional(),
-  questionCount: z.number().int().positive(),
+  questionCount: z.int().positive(),
   startsAt: quizIsoDatetimeSchema.nullable(),
   status: z.enum(['open', 'scheduled', 'closed']),
   title: z.string().min(1),
@@ -205,9 +205,9 @@ export const quizEventsResponseSchema = z.object({
   pagination: z
     .object({
       hasMore: z.boolean(),
-      limit: z.number().int().positive(),
-      nextOffset: z.number().int().nonnegative().nullable(),
-      offset: z.number().int().nonnegative(),
+      limit: z.int().positive(),
+      nextOffset: z.int().nonnegative().nullable(),
+      offset: z.int().nonnegative(),
     })
     .optional(),
 });
@@ -215,15 +215,15 @@ export const quizEventsResponseSchema = z.object({
 export const quizAttemptResponseSchema = z.object({
   attemptId: quizNonEmptyIdSchema,
   eventId: quizNonEmptyIdSchema,
-  examPassPointsSpent: z.number().int().positive(),
+  examPassPointsSpent: z.int().positive(),
   question: quizQuestionResponseSchema,
-  remainingLoyaltyPoints: z.number().int().nonnegative(),
+  remainingLoyaltyPoints: z.int().nonnegative(),
 });
 
 export const quizResultResponseSchema = z
   .object({
     attemptId: quizNonEmptyIdSchema,
-    correctAnswers: z.number().int().nonnegative(),
+    correctAnswers: z.int().nonnegative(),
     prizeClaim: z
       .object({
         awardId: quizUuidSchema,
@@ -237,19 +237,19 @@ export const quizResultResponseSchema = z
     prizeEligible: z.boolean(),
     question: quizQuestionResponseSchema.optional(),
     status: z.enum(['completed', 'in_progress']),
-    totalQuestions: z.number().int().positive(),
+    totalQuestions: z.int().positive(),
   })
   .superRefine((value, context) => {
     if (value.status === 'in_progress' && !value.question) {
       context.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: 'In-progress quiz responses must include the next question',
         path: ['question'],
       });
     }
     if (value.correctAnswers > value.totalQuestions) {
       context.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: 'correctAnswers cannot exceed totalQuestions',
         path: ['correctAnswers'],
       });

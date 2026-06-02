@@ -2,9 +2,9 @@ import { z } from 'zod';
 
 export const reorderSuggestionActionSchema = z
   .object({
-    suggestionId: z.string().uuid(),
+    suggestionId: z.uuid(),
     action: z.enum(['accept', 'reject', 'ordered']),
-    orderedQuantity: z.number().int().positive().optional(),
+    orderedQuantity: z.int().positive().optional(),
   })
   .refine(
     (data) => {
@@ -14,7 +14,7 @@ export const reorderSuggestionActionSchema = z
       return true;
     },
     {
-      message: "orderedQuantity is required when action is 'ordered'",
       path: ['orderedQuantity'],
+      error: "orderedQuantity is required when action is 'ordered'",
     }
   );

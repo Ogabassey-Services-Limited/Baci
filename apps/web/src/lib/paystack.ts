@@ -81,14 +81,14 @@ const SubaccountResponseSchema = z.object({
 });
 
 const PaymentInitResponseSchema = z.object({
-  authorization_url: z.string().url(),
+  authorization_url: z.url(),
   access_code: z.string(),
   reference: z.string(),
 });
 
 const CustomerSchema = z.object({
   id: z.number(),
-  email: z.string().email(),
+  email: z.email(),
   customer_code: z.string(),
   first_name: z.string().nullable(),
   last_name: z.string().nullable(),
@@ -152,7 +152,7 @@ const ChargeAuthorizationResponseSchema = z.object({
   reference: z.string(),
   gateway_response: z.string().nullable(),
   message: z.string().nullable(),
-  authorization_url: z.string().url().optional(),
+  authorization_url: z.url().optional(),
   access_code: z.string().optional(),
   paused: z.boolean().optional(),
   authorization: AuthorizationSchema.nullable().optional(),

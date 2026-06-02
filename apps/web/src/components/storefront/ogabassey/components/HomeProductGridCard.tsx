@@ -1,11 +1,13 @@
 'use client';
 
+import { getProductImageAlt } from '@baci/shared';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useViewportActivation } from '@/components/storefront/use-viewport-activation';
 import { getProductUrl } from '@/lib/seo-utils';
 import { asRoute } from '@/lib/routes';
 import type { Product } from '../types';
+import { resolveProductImageSource } from './product-image-source';
 
 interface HomeProductGridCardProps {
   product: Product;
@@ -31,7 +33,15 @@ export function HomeProductGridCard({
   const productHref = asRoute(
     `${basePath}${getProductUrl({ ...product, id: String(product.id) })}`
   );
-  const productImage = product.image || product.images?.[0] || PLACEHOLDER_IMAGE;
+  const productImage = resolveProductImageSource(
+    [product.image, product.images?.[0]],
+    PLACEHOLDER_IMAGE
+  );
+  const productImageAlt = productImage.isPlaceholder
+    ? ''
+    : getProductImageAlt(product, {
+        renderedImageUrl: productImage.src,
+      });
 
   return (
     <div className="bg-white border border-gray-100 rounded-2xl p-3 md:p-4 shadow-sm transition-all duration-300 flex flex-col h-full relative content-auto [contain-intrinsic-size:auto_360px]">
@@ -63,8 +73,8 @@ export function HomeProductGridCard({
 
         {shouldRenderImage ? (
           <Image
-            src={productImage}
-            alt={product.name}
+            src={productImage.src}
+            alt={productImageAlt}
             fill
             sizes="(max-width: 480px) 40vw, (max-width: 768px) 33vw, (max-width: 1200px) 25vw, 20vw"
             loading="lazy"

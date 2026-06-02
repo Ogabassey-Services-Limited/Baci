@@ -25,8 +25,8 @@ const purchaseSchemaBase = z.object({
   customerName: z.string().min(1).optional(),
   customerPhone: z.string().min(1).optional(),
   // Common optional fields
-  customerId: z.string().uuid().optional(),
-  orderId: z.string().uuid().optional(),
+  customerId: z.uuid().optional(),
+  orderId: z.uuid().optional(),
   source: z
     .enum(['checkout', 'loyalty_reward', 'direct', 'gift', 'storefront_modal'])
     .default('direct'),
@@ -47,7 +47,7 @@ function applyPurchaseRequirements(
   if (data.type === 'airtime' || data.type === 'data') {
     if (!data.phoneNumber) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: 'phoneNumber is required for airtime/data',
         path: ['phoneNumber'],
       });
@@ -55,7 +55,7 @@ function applyPurchaseRequirements(
 
     if (!data.networkProvider) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: 'networkProvider is required for airtime/data',
         path: ['networkProvider'],
       });
@@ -64,7 +64,7 @@ function applyPurchaseRequirements(
 
   if (data.type === 'data' && !data.dataPlanCode) {
     ctx.addIssue({
-      code: z.ZodIssueCode.custom,
+      code: 'custom',
       message: 'dataPlanCode is required for data purchases',
       path: ['dataPlanCode'],
     });
@@ -77,7 +77,7 @@ function applyPurchaseRequirements(
   ) {
     if (!data.billItemIdentifier) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: 'billItemIdentifier is required for bill payments',
         path: ['billItemIdentifier'],
       });
@@ -85,7 +85,7 @@ function applyPurchaseRequirements(
 
     if (!data.customerIdentifier) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: 'customerIdentifier is required for bill payments',
         path: ['customerIdentifier'],
       });
@@ -94,7 +94,7 @@ function applyPurchaseRequirements(
 
   if (data.walletAmount !== undefined && data.walletAmount > data.amount) {
     ctx.addIssue({
-      code: z.ZodIssueCode.custom,
+      code: 'custom',
       message: 'walletAmount cannot exceed amount',
       path: ['walletAmount'],
     });
@@ -113,7 +113,7 @@ function applyPurchaseRequirements(
     data.source !== 'checkout'
   ) {
     ctx.addIssue({
-      code: z.ZodIssueCode.custom,
+      code: 'custom',
       message: 'walletAmount is only valid for checkout-sourced purchases',
       path: ['walletAmount'],
     });
@@ -140,7 +140,7 @@ export const billersQuerySchema = z.object({
 export const historyQuerySchema = z.object({
   merchantSlug: z.string().min(1, 'Merchant slug is required'),
   type: billTypeEnum.optional(),
-  limit: z.coerce.number().int().min(1).max(50).default(20),
+  limit: z.coerce.number().int().min(1).max(50).prefault(20),
 });
 
 export const vtuCheckoutGatewayEnum = z.enum([
@@ -168,7 +168,7 @@ export const vtuSavedPaymentMethodsQuerySchema = z.object({
 export const vtuSavedCardChargeSchema = purchaseSchemaBase
   .extend({
     gateway: vtuCheckoutGatewayEnum,
-    savedPaymentMethodId: z.string().uuid('Saved payment method id is invalid'),
+    savedPaymentMethodId: z.uuid('Saved payment method id is invalid'),
   })
   .superRefine(applyPurchaseRequirements);
 

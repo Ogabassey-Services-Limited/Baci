@@ -40,79 +40,108 @@ export function Cart() {
           {cart.length > 0 ? (
             <div className="px-6">
               <AnimatePresence mode="popLayout">
-                {cart.map((item) => (
-                  <motion.div
-                    key={item.id}
-                    className="flex items-start gap-4 py-4 border-b"
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -20 }}
-                    transition={{ duration: 0.2 }}
-                    layout
-                  >
-                    <Image
-                      src={item.image}
-                      alt={item.name}
-                      width={64}
-                      height={64}
-                      className="rounded-md object-cover"
-                    />
-                    <div className="flex-1 space-y-2">
-                      <p className="font-semibold">{item.name}</p>
-                      <div className="flex items-center gap-2">
-                        <QuantityButton
-                          type="minus"
-                          onClick={() =>
-                            updateQuantity(item.id, item.quantity - 1)
-                          }
-                          disabled={item.quantity <= 1}
-                          className="size-11 min-w-[44px] min-h-[44px]"
-                        />
-                        <Input
-                          type="number"
-                          min="1"
-                          value={item.quantity}
-                          onChange={(e) =>
-                            updateQuantity(
-                              item.id,
-                              Number.parseInt(e.target.value, 10)
-                            )
-                          }
-                          className="w-14 h-11 text-center remove-arrow"
-                          aria-label={`Quantity for ${item.name}`}
-                        />
-                        <QuantityButton
-                          type="plus"
-                          onClick={() =>
-                            updateQuantity(item.id, item.quantity + 1)
-                          }
-                          className="size-11 min-w-[44px] min-h-[44px]"
-                        />
+                {cart.map((item) => {
+                  const cartControlId = item.cartItemId || item.id;
+                  const cartControlVariantId = item.cartItemId
+                    ? undefined
+                    : item.variantId;
+                  const cartLineKey =
+                    item.cartItemId ||
+                    `${item.id}${item.variantId ? `::variant=${item.variantId}` : ''}`;
+                  const updateCartQuantity = (quantity: number) => {
+                    if (cartControlVariantId) {
+                      updateQuantity(
+                        cartControlId,
+                        quantity,
+                        cartControlVariantId
+                      );
+                      return;
+                    }
+
+                    updateQuantity(cartControlId, quantity);
+                  };
+                  const removeCartItem = () => {
+                    if (cartControlVariantId) {
+                      removeFromCart(cartControlId, cartControlVariantId);
+                      return;
+                    }
+
+                    removeFromCart(cartControlId);
+                  };
+
+                  return (
+                    <motion.div
+                      key={cartLineKey}
+                      className="flex items-start gap-4 py-4 border-b"
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -20 }}
+                      transition={{ duration: 0.2 }}
+                      layout
+                    >
+                      <Image
+                        src={item.image}
+                        alt={item.name}
+                        width={64}
+                        height={64}
+                        className="rounded-md object-cover"
+                      />
+                      <div className="flex-1 space-y-2">
+                        <p className="font-semibold">{item.name}</p>
+                        <div className="flex items-center gap-2">
+                          <QuantityButton
+                            type="minus"
+                            onClick={() =>
+                              updateCartQuantity(item.quantity - 1)
+                            }
+                            disabled={item.quantity <= 1}
+                            className="size-11 min-w-[44px] min-h-[44px]"
+                          />
+                          <Input
+                            type="number"
+                            min="1"
+                            value={item.quantity}
+                            onChange={(e) =>
+                              updateCartQuantity(
+                                Number.parseInt(e.target.value, 10)
+                              )
+                            }
+                            className="w-14 h-11 text-center remove-arrow"
+                            aria-label={`Quantity for ${item.name}`}
+                          />
+                          <QuantityButton
+                            type="plus"
+                            onClick={() =>
+                              updateCartQuantity(item.quantity + 1)
+                            }
+                            className="size-11 min-w-[44px] min-h-[44px]"
+                          />
+                        </div>
                       </div>
-                    </div>
-                    <div className="text-right">
-                      <motion.p
-                        key={item.price * item.quantity}
-                        className="font-semibold"
-                        initial={{ scale: 1.1 }}
-                        animate={{ scale: 1 }}
-                        transition={{ duration: 0.2 }}
-                      >
-                        {formatCurrency(item.price * item.quantity)}
-                      </motion.p>
-                      <motion.button
-                        type="button"
-                        className="text-xs min-h-[44px] px-2 text-red-500 hover:text-red-600 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm"
-                        onClick={() => removeFromCart(item.id)}
-                        aria-label={`Remove ${item.name} from cart`}
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                      >
-                        Remove
-                      </motion.button>
-                    </div>
-                  </motion.div>
-                ))}
+                      <div className="text-right">
+                        <motion.p
+                          key={item.price * item.quantity}
+                          className="font-semibold"
+                          initial={{ scale: 1.1 }}
+                          animate={{ scale: 1 }}
+                          transition={{ duration: 0.2 }}
+                        >
+                          {formatCurrency(item.price * item.quantity)}
+                        </motion.p>
+                        <motion.button
+                          type="button"
+                          className="text-xs min-h-[44px] px-2 text-red-500 hover:text-red-600 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm"
+                          onClick={removeCartItem}
+                          aria-label={`Remove ${item.name} from cart`}
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                        >
+                          Remove
+                        </motion.button>
+                      </div>
+                    </motion.div>
+                  );
+                })}
               </AnimatePresence>
             </div>
           ) : (
