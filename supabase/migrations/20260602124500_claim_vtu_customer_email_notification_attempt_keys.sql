@@ -46,3 +46,14 @@ FROM PUBLIC;
 
 GRANT EXECUTE ON FUNCTION public.claim_vtu_customer_email_notification_attempt(uuid, text, text)
 TO service_role;
+
+UPDATE public.vtu_transactions
+SET metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object(
+  'customerTokenEmailNotificationAttempted', true,
+  'customerTokenEmailNotificationSent', true
+)
+WHERE type IN ('electricity', 'cable_tv', 'betting')
+  AND COALESCE(metadata ->> 'customerEmailNotificationSent', 'false') = 'true'
+  AND NULLIF(BTRIM(COALESCE(metadata ->> 'voucherPin', '')), '') IS NOT NULL
+  AND COALESCE(metadata ->> 'customerTokenEmailNotificationSent', 'false') <> 'true';
+

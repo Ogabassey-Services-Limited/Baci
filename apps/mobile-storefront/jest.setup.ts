@@ -105,7 +105,7 @@ jest.mock('@react-native-vector-icons/feather', () => ({
 }));
 
 jest.mock('react-native-worklets', () =>
-  require('react-native-worklets/src/mock')
+  require('react-native-worklets/lib/module/mock')
 );
 
 // Mock react-native-reanimated
@@ -326,21 +326,6 @@ jest.mock('react-native-reanimated', () => {
 
   return mock;
 });
-
-// Mock react-native-worklets
-jest.mock('react-native-worklets', () => ({
-  scheduleOnRN: <TArgs extends unknown[], TResult>(
-    fn: (...args: TArgs) => TResult,
-    ...args: TArgs
-  ) => fn(...args),
-  scheduleOnUI: <TArgs extends unknown[], TResult>(
-    fn: (...args: TArgs) => TResult,
-    ...args: TArgs
-  ) => fn(...args),
-  runOnJS: <TArgs extends unknown[], TResult>(
-    fn: (...args: TArgs) => TResult
-  ) => fn,
-}));
 
 // Mock react-native-gesture-handler
 jest.mock('react-native-gesture-handler', () => {
