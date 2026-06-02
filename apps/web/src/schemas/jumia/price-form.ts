@@ -22,7 +22,7 @@ export const jumiaPriceSchema = z
 
     if (data.saleStart && Number.isNaN(startMs)) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: 'Invalid sale start date',
         path: ['saleStart'],
       });
@@ -31,7 +31,7 @@ export const jumiaPriceSchema = z
 
     if (data.saleEnd && Number.isNaN(endMs)) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: 'Invalid sale end date',
         path: ['saleEnd'],
       });
@@ -40,7 +40,7 @@ export const jumiaPriceSchema = z
 
     if (!Number.isNaN(startMs) && !Number.isNaN(endMs) && endMs < startMs) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: 'Sale end must be on or after sale start',
         path: ['saleEnd'],
       });

@@ -1,21 +1,19 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import type React from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { CartItem } from '@/hooks/cart/cart-types';
+
+const cartMocks = vi.hoisted(() => ({
+  getCart: vi.fn(),
+  removeFromCart: vi.fn(),
+  updateQuantity: vi.fn(),
+}));
 
 vi.mock('@/hooks/use-cart', () => ({
   useCart: () => ({
-    cart: [
-      {
-        id: 'product-1',
-        variant_id: 'variant-1',
-        name: 'iPhone 15 Pro',
-        image: '/iphone.jpg',
-        price: 1_200_000,
-        quantity: 2,
-      },
-    ],
-    updateQuantity: vi.fn(),
-    removeFromCart: vi.fn(),
+    cart: cartMocks.getCart(),
+    updateQuantity: cartMocks.updateQuantity,
+    removeFromCart: cartMocks.removeFromCart,
     cartTotal: 2_400_000,
   }),
 }));
@@ -41,7 +39,28 @@ vi.mock('./navbar', () => ({ Navbar: () => null }));
 
 import { CartPage } from './cart-page';
 
+function makeCartItem(overrides: Partial<CartItem> = {}): CartItem {
+  return {
+    id: 'product-1',
+    cartItemId: 'product-1::variant=variant-1',
+    variantId: 'variant-1',
+    name: 'iPhone 15 Pro',
+    image: '/iphone.jpg',
+    price: 1_200_000,
+    quantity: 2,
+    selectedColor: 'Black',
+    selectedStorage: '256GB',
+    ...overrides,
+  } as CartItem;
+}
+
 describe('CartPage', () => {
+  beforeEach(() => {
+    cartMocks.getCart.mockReturnValue([makeCartItem()]);
+    cartMocks.removeFromCart.mockReset();
+    cartMocks.updateQuantity.mockReset();
+  });
+
   it('renders the remove / decrease / increase icon buttons with type="button" so they never submit a parent form', () => {
     render(<CartPage />);
 
@@ -58,5 +77,57 @@ describe('CartPage', () => {
     expect(removeBtn).toHaveAttribute('type', 'button');
     expect(decreaseBtn).toHaveAttribute('type', 'button');
     expect(increaseBtn).toHaveAttribute('type', 'button');
+  });
+
+  it('uses cart item ids for cart mutations and renders normalized variant labels', () => {
+    render(<CartPage />);
+
+    expect(screen.getByText('Black')).toBeInTheDocument();
+    expect(screen.getByText('256GB')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove item' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Decrease quantity' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Increase quantity' }));
+
+    expect(cartMocks.removeFromCart).toHaveBeenCalledWith(
+      'product-1::variant=variant-1'
+    );
+    expect(cartMocks.updateQuantity).toHaveBeenNthCalledWith(
+      1,
+      'product-1::variant=variant-1',
+      1
+    );
+    expect(cartMocks.updateQuantity).toHaveBeenNthCalledWith(
+      2,
+      'product-1::variant=variant-1',
+      3
+    );
+  });
+
+  it('falls back to product and variant ids for legacy cart rows without cartItemId', () => {
+    cartMocks.getCart.mockReturnValue([makeCartItem({ cartItemId: undefined })]);
+
+    render(<CartPage />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove item' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Decrease quantity' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Increase quantity' }));
+
+    expect(cartMocks.removeFromCart).toHaveBeenCalledWith(
+      'product-1',
+      'variant-1'
+    );
+    expect(cartMocks.updateQuantity).toHaveBeenNthCalledWith(
+      1,
+      'product-1',
+      1,
+      'variant-1'
+    );
+    expect(cartMocks.updateQuantity).toHaveBeenNthCalledWith(
+      2,
+      'product-1',
+      3,
+      'variant-1'
+    );
   });
 });

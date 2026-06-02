@@ -1,13 +1,13 @@
 import 'server-only';
 import { getImageProps } from 'next/image';
-import type { ComponentProps, ReactElement } from 'react';
-import { createElement, Fragment } from 'react';
+import type { ComponentProps } from 'react';
 import { preload } from 'react-dom';
 import {
   OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_MEDIA,
   OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA,
   OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_QUALITY,
   OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_SIZES,
+  OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_WIDTHS,
   OGABASSEY_PDP_PRIMARY_IMAGE_PRELOAD_FALLBACK_WIDTH,
   OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY,
   OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
@@ -22,7 +22,7 @@ type ImagePreloadLinkProps = ComponentProps<'link'> & {
   href: string;
   imageSizes: string;
   imageSrcSet: string;
-  media?: string;
+  media: string;
   rel: 'preload';
 };
 
@@ -32,8 +32,8 @@ type ProductResourceHintInput = {
 
 function buildProductImagePreloadProps({
   src,
-}: ProductResourceHintInput): ImagePreloadLinkProps[] | null {
-  if (!src) return null;
+}: ProductResourceHintInput): ImagePreloadLinkProps[] {
+  if (!src) return [];
 
   const {
     props: { srcSet, sizes },
@@ -46,74 +46,76 @@ function buildProductImagePreloadProps({
     src,
   });
 
-  const mobilePreloadSrc = imageLoader({
-    quality: OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_QUALITY,
-    src,
-    width: OGABASSEY_PDP_PRIMARY_IMAGE_PRELOAD_FALLBACK_WIDTH,
-  });
-  const desktopPreloadSrc = imageLoader({
+  const preloadHref = imageLoader({
     quality: OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY,
     src,
     width: OGABASSEY_PDP_PRIMARY_IMAGE_PRELOAD_FALLBACK_WIDTH,
   });
-  const imageSizes = sizes ?? OGABASSEY_PDP_PRIMARY_IMAGE_SIZES;
-  const imageSrcSet =
+  const desktopImageSizes = sizes ?? OGABASSEY_PDP_PRIMARY_IMAGE_SIZES;
+  const desktopImageSrcSet =
     srcSet ??
-    `${desktopPreloadSrc} ${OGABASSEY_PDP_PRIMARY_IMAGE_PRELOAD_FALLBACK_WIDTH}w`;
+    `${preloadHref} ${OGABASSEY_PDP_PRIMARY_IMAGE_PRELOAD_FALLBACK_WIDTH}w`;
 
-  const mobileProps: ImagePreloadLinkProps = {
-    as: 'image',
-    fetchPriority: 'high',
-    href: mobilePreloadSrc,
-    imageSizes: OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_SIZES,
-    imageSrcSet: buildOgabasseyPdpMobileImageSrcSet(src),
-    media: OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA,
-    rel: 'preload',
-    type: getOgabasseyImagePreloadType(mobilePreloadSrc),
-  };
+  const mobilePreloadWidth =
+    OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_WIDTHS[
+      OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_WIDTHS.length - 1
+    ] ?? OGABASSEY_PDP_PRIMARY_IMAGE_PRELOAD_FALLBACK_WIDTH;
+  const mobilePreloadHref = imageLoader({
+    quality: OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_QUALITY,
+    src,
+    width: mobilePreloadWidth,
+  });
 
-  const desktopProps: ImagePreloadLinkProps = {
-    as: 'image',
-    fetchPriority: 'high',
-    href: desktopPreloadSrc,
-    imageSizes,
-    imageSrcSet,
-    media: OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_MEDIA,
-    rel: 'preload',
-    type: getOgabasseyImagePreloadType(desktopPreloadSrc),
-  };
+  return [
+    {
+      as: 'image',
+      fetchPriority: 'high',
+      href: mobilePreloadHref,
+      imageSizes: OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_SIZES,
+      imageSrcSet: buildOgabasseyPdpMobileImageSrcSet(src),
+      media: OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA,
+      rel: 'preload',
+      type: getOgabasseyImagePreloadType(mobilePreloadHref),
+    },
+    {
+      as: 'image',
+      fetchPriority: 'high',
+      href: preloadHref,
+      imageSizes: desktopImageSizes,
+      imageSrcSet: desktopImageSrcSet,
+      media: OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_MEDIA,
+      rel: 'preload',
+      type: getOgabasseyImagePreloadType(preloadHref),
+    },
+  ];
+}
 
-  return [mobileProps, desktopProps];
+export function preloadOgabasseyPdpProductResources({
+  src,
+}: ProductResourceHintInput): void {
+  const props = buildProductImagePreloadProps({ src });
+  if (!props.length) return;
+
+  // Keep PDP image hints out of the page body. Next/Vercel resume can drift
+  // when rendered <link> nodes precede the first critical-shell host node.
+  // React 19.2.3 forwards media/imageSrcSet/imageSizes on preload(), so keep
+  // the mobile hint aligned to the critical <picture> source while preserving
+  // the desktop fallback image preload.
+  for (const preloadProps of props) {
+    preload(preloadProps.href, {
+      as: preloadProps.as,
+      fetchPriority: preloadProps.fetchPriority,
+      imageSizes: preloadProps.imageSizes,
+      imageSrcSet: preloadProps.imageSrcSet,
+      media: preloadProps.media,
+      type: preloadProps.type,
+    });
+  }
 }
 
 export function OgabasseyPdpProductResourceHints({
   src,
-}: ProductResourceHintInput): ReactElement | null {
-  const props = buildProductImagePreloadProps({ src });
-  if (!props) return null;
-
-  const mobilePreloadProps = props.find(
-    (propSet) => propSet.media === OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA
-  );
-
-  if (mobilePreloadProps) {
-    preload(mobilePreloadProps.href, {
-      as: mobilePreloadProps.as,
-      fetchPriority: mobilePreloadProps.fetchPriority,
-      imageSizes: mobilePreloadProps.imageSizes,
-      imageSrcSet: mobilePreloadProps.imageSrcSet,
-      type: mobilePreloadProps.type,
-    });
-  }
-
-  return createElement(
-    Fragment,
-    null,
-    props.map((propSet) =>
-      createElement('link', {
-        ...propSet,
-        key: propSet.media,
-      })
-    )
-  );
+}: ProductResourceHintInput): null {
+  preloadOgabasseyPdpProductResources({ src });
+  return null;
 }

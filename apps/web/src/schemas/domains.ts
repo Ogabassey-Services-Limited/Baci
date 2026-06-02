@@ -7,7 +7,7 @@ export const createDomainSchema = z.object({
     .string()
     .min(1)
     .refine((value) => domainRegex.test(value), {
-      message: 'Invalid domain format',
+      error: 'Invalid domain format',
     }),
   isPrimary: z.boolean().optional().default(false),
 });

@@ -5,8 +5,8 @@ import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 
 const wishlistCreateSchema = z.object({
-  productId: z.string().uuid('Invalid product ID'),
-  merchantId: z.string().uuid('Invalid merchant ID'),
+  productId: z.uuid('Invalid product ID'),
+  merchantId: z.uuid('Invalid merchant ID'),
   sessionToken: z.string().min(16).optional(),
 });
 
@@ -109,7 +109,10 @@ export async function POST(request: NextRequest) {
     const parsed = wishlistCreateSchema.safeParse(await request.json());
     if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Product ID and Merchant ID are required' },
+        {
+          error:
+            'Product ID and Merchant ID are required and must be valid UUIDs',
+        },
         { status: 400 }
       );
     }
@@ -149,7 +152,7 @@ export async function POST(request: NextRequest) {
         product_id: productId,
         merchant_id: merchantId,
       })
-      .select()
+      .select('id, product_id, merchant_id, customer_email, created_at')
       .single();
 
     if (error) {

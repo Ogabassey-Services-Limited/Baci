@@ -11,7 +11,7 @@ import { isValidUuid } from '@/lib/sanitize-core';
  */
 const AddressSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
-  email: z.string().email().optional(),
+  email: z.email().optional(),
   phone: z.string().min(10, 'Phone must be at least 10 digits'),
   address: z.string().min(5, 'Address must be at least 5 characters'),
   city: z.string().min(2, 'City must be at least 2 characters'),

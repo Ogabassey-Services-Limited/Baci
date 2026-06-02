@@ -24,12 +24,10 @@ export type KlumpWebhookParseResult =
       success: false;
     };
 
-const KlumpWebhookSchema = z
-  .object({
-    data: z.record(z.string(), z.unknown()).optional(),
-    event: z.string().optional(),
-  })
-  .passthrough();
+const KlumpWebhookSchema = z.looseObject({
+  data: z.record(z.string(), z.unknown()).optional(),
+  event: z.string().optional(),
+});
 
 const KLUMP_SUCCESS_EVENTS = new Set([
   'klump.payment.success',

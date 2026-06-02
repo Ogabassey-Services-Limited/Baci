@@ -10,11 +10,11 @@ import {
 
 const RevalidateSchema = z
   .object({
-    merchant_id: z.string().uuid().optional(),
+    merchant_id: z.uuid().optional(),
     identifier: z.string().min(1).optional(),
   })
   .refine((data) => data.merchant_id || data.identifier, {
-    message: 'merchant_id or identifier is required',
+    error: 'merchant_id or identifier is required',
   });
 
 /**

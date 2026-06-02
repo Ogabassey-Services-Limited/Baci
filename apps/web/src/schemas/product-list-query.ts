@@ -43,7 +43,7 @@ const positiveIntegerSchema = (defaultValue: number, maxValue: number) =>
     }
 
     return value;
-  }, z.number().int().positive().max(maxValue));
+  }, z.int().positive().max(maxValue));
 
 export const productListQuerySchema = z.object({
   page: positiveIntegerSchema(1, MAX_PAGE),

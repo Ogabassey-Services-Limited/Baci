@@ -1,8 +1,8 @@
 import { z } from 'zod';
 
-const variantIdSchema = z
-  .string()
-  .uuid({ message: 'variantId/variant_id must be a UUID' });
+const variantIdSchema = z.uuid({
+  error: 'variantId/variant_id must be a UUID',
+});
 
 const cartItemSchema = z
   .object({
@@ -21,7 +21,7 @@ const cartItemSchema = z
       item.variantId !== item.variant_id
     ) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: 'conflicting variantId and variant_id',
         path: ['variant_id'],
       });

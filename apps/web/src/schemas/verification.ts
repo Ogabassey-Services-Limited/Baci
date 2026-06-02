@@ -27,7 +27,7 @@ export const taxIdVerifySchema = z.object({
     .string()
     .transform((value) => normalizeTaxIdentificationNumber(value))
     .refine((value) => isValidTaxIdentificationNumber(value), {
-      message: 'TIN must be 10 to 15 digits',
+      error: 'TIN must be 10 to 15 digits',
     }),
   legalEntityName: optionalBusinessNameSchema,
 });
@@ -45,7 +45,9 @@ const dateOfBirthSchema = z
         date.getUTCDate() === d
       );
     },
-    { message: 'Invalid calendar date' }
+    {
+      error: 'Invalid calendar date',
+    }
   );
 
 export const bvnVerifySchema = z.object({

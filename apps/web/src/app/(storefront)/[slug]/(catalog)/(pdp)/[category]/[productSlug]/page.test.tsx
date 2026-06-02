@@ -199,6 +199,9 @@ vi.mock(
     OgabasseyPdpProductResourceHints: (props: {
       src: string | null | undefined;
     }) => mockOgabasseyPdpProductResourceHints(props),
+    preloadOgabasseyPdpProductResources: (props: {
+      src: string | null | undefined;
+    }) => mockOgabasseyPdpProductResourceHints(props),
   })
 );
 
@@ -1825,8 +1828,8 @@ describe('[category]/[productSlug] page render', () => {
     });
     expect(routeEvents).toEqual([
       'lcp-hint',
-      'product-details',
       'product-hints',
+      'product-details',
     ]);
     expect(mockPreloadOgabasseyPdpStaticResources).toHaveBeenCalledTimes(1);
     expect(mockOgabasseyProductDetailsPage).not.toHaveBeenCalled();
@@ -1888,8 +1891,8 @@ describe('[category]/[productSlug] page render', () => {
     expect(routeEvents).toEqual([
       'lcp-hint',
       'base-path',
-      'product-details',
       'product-hints',
+      'product-details',
     ]);
     render(
       await resolveRsc(resolvedPage, {

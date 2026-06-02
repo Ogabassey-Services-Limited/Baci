@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
     }
     const parsed = z
       .object({
-        orderId: z.string().uuid(),
+        orderId: z.uuid(),
         paymentRef: z.string().min(1),
         gateway: z.string().optional(),
         tracking_token: z.string().optional(),
@@ -35,7 +35,10 @@ export async function POST(request: NextRequest) {
 
     if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Invalid request data', details: parsed.error.flatten() },
+        {
+          error: 'Invalid request data',
+          details: z.flattenError(parsed.error),
+        },
         { status: 400 }
       );
     }

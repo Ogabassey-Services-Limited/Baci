@@ -56,7 +56,7 @@ export async function PATCH(request: NextRequest) {
 
     if (!parseResult.success) {
       return NextResponse.json(
-        { error: 'Invalid input', details: parseResult.error.flatten() },
+        { error: 'Invalid input', details: z.flattenError(parseResult.error) },
         { status: 400 }
       );
     }

@@ -11,7 +11,10 @@ import type { Route } from 'next';
 import Link from 'next/link';
 import React, { useEffect, useState } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { prioritizeSmartphoneProducts } from '@baci/shared';
+import {
+  deriveProductImageData,
+  prioritizeSmartphoneProducts,
+} from '@baci/shared';
 import { useCart } from '@/hooks/cart';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import type { Product as StorefrontProduct } from '@/lib/products';
@@ -49,16 +52,14 @@ function toTemplateProducts(storefrontProducts: StorefrontProduct[]): Product[] 
       maximumFractionDigits: 0,
     }).format(product.price);
 
-    const images = (product.images ?? []).flatMap((image) => {
-      if (typeof image === 'string') {
-        return image ? [image] : [];
-      }
-
-      if (image && typeof image === 'object' && 'url' in image) {
-        return typeof image.url === 'string' && image.url ? [image.url] : [];
-      }
-
-      return [];
+    const {
+      image,
+      imageAlt,
+      imagePayloads,
+      images,
+    } = deriveProductImageData({
+      image: product.image,
+      images: product.images ?? [],
     });
 
     const condition = storefrontProductFilters.getStorefrontConditionBadgeLabel({
@@ -78,7 +79,9 @@ function toTemplateProducts(storefrontProducts: StorefrontProduct[]): Product[] 
       name: product.name,
       price: formattedPrice,
       rawPrice: product.price,
-      image: product.image || images[0] || '',
+      image,
+      ...(imageAlt ? { image_alt: imageAlt } : {}),
+      ...(imagePayloads.length > 0 ? { image_payloads: imagePayloads } : {}),
       description: product.description,
       rating: product.rating ?? 4.5,
       category: categoryObj?.name || product.category || 'General',

@@ -1,28 +1,21 @@
 import { z } from 'zod';
 
-const builderComponentSchema = z
-  .object({
-    type: z.string().trim().min(1),
-    props: z.record(z.string(), z.unknown()).default({}),
-  })
-  .passthrough();
+const builderComponentSchema = z.looseObject({
+  type: z.string().trim().min(1),
+  props: z.record(z.string(), z.unknown()).default({}),
+});
 
-const builderRootSchema = z
-  .object({
-    title: z.string().optional(),
-  })
-  .passthrough();
+const builderRootSchema = z.looseObject({
+  title: z.string().optional(),
+});
 
-export const builderConfigSchema = z
-  .object({
-    content: z.array(builderComponentSchema).default([]),
-    root: builderRootSchema.default({ title: 'Home' }),
-    zones: z.record(z.string(), z.unknown()).default({}),
-  })
-  .passthrough();
+export const builderConfigSchema = z.looseObject({
+  content: z.array(builderComponentSchema).default([]),
+  root: builderRootSchema.default({ title: 'Home' }),
+  zones: z.record(z.string(), z.unknown()).default({}),
+});
 
-export const builderExpectedLastUpdatedSchema = z
-  .string()
+export const builderExpectedLastUpdatedSchema = z.iso
   .datetime({ offset: true })
   .nullable()
   .optional();
@@ -49,7 +42,7 @@ export const builderPublishSchema = z.object({
 
 export const builderLoadQuerySchema = z.object({
   slug: z.string().trim().min(1).optional().default('home'),
-  aiDraftJobId: z.string().uuid().optional(),
+  aiDraftJobId: z.uuid().optional(),
 });
 
 export type BuilderCreateInput = z.infer<typeof builderCreateSchema>;

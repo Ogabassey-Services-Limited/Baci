@@ -115,7 +115,7 @@ const supabase = createClient();
 
 ```typescript
 const schema = z.object({
-  email: z.string().email(),
+  email: z.email(),
   name: z.string().min(1),
 });
 

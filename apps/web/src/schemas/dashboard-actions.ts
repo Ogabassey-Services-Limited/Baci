@@ -6,5 +6,5 @@ export const dashboardMerchantActionArgsSchema = z.object({
 
 export const dashboardRecentSalesArgsSchema =
   dashboardMerchantActionArgsSchema.extend({
-    limit: z.number().int().min(1).max(50).default(5),
+    limit: z.int().min(1).max(50).default(5),
   });

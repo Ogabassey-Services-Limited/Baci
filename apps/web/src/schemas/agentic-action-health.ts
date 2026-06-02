@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-const nonnegativeCountSchema = z.number().int().nonnegative();
+const nonnegativeCountSchema = z.int().nonnegative();
 
 export const agenticActionSeveritySchema = z.enum([
   'attention',
@@ -28,40 +28,36 @@ export const agenticActionCheckoutSessionRecordSchema = z.object({
   payment_state: z.string().trim().min(1),
   session_id: z.string().trim().min(1),
   status: z.string().trim().min(1),
-  updated_at: z.string().datetime({ offset: true }),
+  updated_at: z.iso.datetime({ offset: true }),
 });
 
-export const agenticActionCheckoutSessionsSchema = z
-  .object({
-    claiming_payment_count: nonnegativeCountSchema.optional(),
-    order_finalizing_count: nonnegativeCountSchema.optional(),
-    payment_pending_count: nonnegativeCountSchema.optional(),
-    payment_setup_failed_count: nonnegativeCountSchema.optional(),
-    records: z.array(agenticActionCheckoutSessionRecordSchema).optional(),
-    recent_count: nonnegativeCountSchema.optional(),
-    stale_payment_pending_count: nonnegativeCountSchema.optional(),
-  })
-  .passthrough();
+export const agenticActionCheckoutSessionsSchema = z.looseObject({
+  claiming_payment_count: nonnegativeCountSchema.optional(),
+  order_finalizing_count: nonnegativeCountSchema.optional(),
+  payment_pending_count: nonnegativeCountSchema.optional(),
+  payment_setup_failed_count: nonnegativeCountSchema.optional(),
+  records: z.array(agenticActionCheckoutSessionRecordSchema).optional(),
+  recent_count: nonnegativeCountSchema.optional(),
+  stale_payment_pending_count: nonnegativeCountSchema.optional(),
+});
 
 export const agenticActionIdempotencyRecordSchema = z.object({
-  created_at: z.string().datetime({ offset: true }),
-  expires_at: z.string().datetime({ offset: true }),
+  created_at: z.iso.datetime({ offset: true }),
+  expires_at: z.iso.datetime({ offset: true }),
   route: z.string().trim().min(1),
   state: agenticActionIdempotencyStateSchema,
-  status_code: z.number().int().nullable(),
-  updated_at: z.string().datetime({ offset: true }),
+  status_code: z.int().nullable(),
+  updated_at: z.iso.datetime({ offset: true }),
 });
 
-export const agenticActionIdempotencySchema = z
-  .object({
-    active_in_progress_count: nonnegativeCountSchema.optional(),
-    in_progress_count: nonnegativeCountSchema.optional(),
-    recent_count: nonnegativeCountSchema.optional(),
-    records: z.array(agenticActionIdempotencyRecordSchema).optional(),
-    stale_in_progress_count: nonnegativeCountSchema.optional(),
-    terminal_error_count: nonnegativeCountSchema.optional(),
-  })
-  .passthrough();
+export const agenticActionIdempotencySchema = z.looseObject({
+  active_in_progress_count: nonnegativeCountSchema.optional(),
+  in_progress_count: nonnegativeCountSchema.optional(),
+  recent_count: nonnegativeCountSchema.optional(),
+  records: z.array(agenticActionIdempotencyRecordSchema).optional(),
+  stale_in_progress_count: nonnegativeCountSchema.optional(),
+  terminal_error_count: nonnegativeCountSchema.optional(),
+});
 
 export const agenticActionRequestControlsSchema = z.object({
   allowlist_count: nonnegativeCountSchema,
@@ -73,29 +69,25 @@ export const agenticActionRequestControlsSchema = z.object({
 export const agenticActionRequestRecordSchema = z.object({
   agent_id: z.string().trim().min(1).nullable().optional(),
   api_version: z.string().trim().min(1).nullable(),
-  created_at: z.string().datetime({ offset: true }),
-  expires_at: z.string().datetime({ offset: true }),
+  created_at: z.iso.datetime({ offset: true }),
+  expires_at: z.iso.datetime({ offset: true }),
   route: z.string().trim().min(1).nullable(),
-  status_code: z.number().int().min(100).max(599).nullable().optional(),
+  status_code: z.int().min(100).max(599).nullable().optional(),
 });
 
-export const agenticActionRequestsSchema = z
-  .object({
-    recent_count: nonnegativeCountSchema.optional(),
-    records: z.array(agenticActionRequestRecordSchema).optional(),
-  })
-  .passthrough();
+export const agenticActionRequestsSchema = z.looseObject({
+  recent_count: nonnegativeCountSchema.optional(),
+  records: z.array(agenticActionRequestRecordSchema).optional(),
+});
 
-export const agenticActionHealthPayloadSchema = z
-  .object({
-    actions: z.array(agenticActionSchema),
-    checkout_sessions: agenticActionCheckoutSessionsSchema.optional(),
-    generated_at: z.string().datetime().optional(),
-    idempotency: agenticActionIdempotencySchema.optional(),
-    request_controls: agenticActionRequestControlsSchema.optional(),
-    requests: agenticActionRequestsSchema.optional(),
-  })
-  .passthrough();
+export const agenticActionHealthPayloadSchema = z.looseObject({
+  actions: z.array(agenticActionSchema),
+  checkout_sessions: agenticActionCheckoutSessionsSchema.optional(),
+  generated_at: z.iso.datetime().optional(),
+  idempotency: agenticActionIdempotencySchema.optional(),
+  request_controls: agenticActionRequestControlsSchema.optional(),
+  requests: agenticActionRequestsSchema.optional(),
+});
 
 export type AgenticAction = z.infer<typeof agenticActionSchema>;
 export type AgenticActionCheckoutSessionRecord = z.infer<

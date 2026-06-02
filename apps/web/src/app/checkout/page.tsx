@@ -69,7 +69,7 @@ const shippingSchema = z.object({
   lastName: z
     .string()
     .min(2, { message: 'Last name must be at least 2 characters.' }),
-  email: z.string().email({ message: 'Please enter a valid email address.' }),
+  email: z.email({ error: 'Please enter a valid email address.' }),
   phone: z.string().refine(isValidPhoneNumber, {
     message: 'Please enter a valid phone number.',
   }),
@@ -82,7 +82,7 @@ type ShippingFormValues = z.infer<typeof shippingSchema>;
 
 // OTP Auth schema for customer authentication
 const otpAuthSchema = z.object({
-  email: z.string().email({ message: 'Please enter a valid email address.' }),
+  email: z.email({ error: 'Please enter a valid email address.' }),
 });
 
 type OtpAuthFormValues = z.infer<typeof otpAuthSchema>;

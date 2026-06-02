@@ -25,21 +25,17 @@ const httpsUrlSchema = z
   .trim()
   .url()
   .refine((value) => value.startsWith('https://'), {
-    message: 'Expected an HTTPS URL',
+    error: 'Expected an HTTPS URL',
   });
 
-const basePropsSchema = z
-  .object({
-    id: z.string().trim().min(1).max(80),
-  })
-  .strict();
+const basePropsSchema = z.strictObject({
+  id: z.string().trim().min(1).max(80),
+});
 
-const linkSchema = z
-  .object({
-    label: shortTextSchema,
-    url: safeHrefSchema,
-  })
-  .strict();
+const linkSchema = z.strictObject({
+  label: shortTextSchema,
+  url: safeHrefSchema,
+});
 
 const iconNameSchema = z
   .enum([
@@ -63,17 +59,16 @@ const headerComponentSchema = z.object({
     sticky: z.boolean().default(true),
     navigationLinks: z.array(linkSchema).min(1).max(6).optional(),
     ctaButton: z
-      .object({
+      .strictObject({
         show: z.boolean().default(false),
         text: optionalShortTextSchema,
         url: safeHrefSchema.optional(),
       })
-      .strict()
       .refine(
         (value) => !value.show || (Boolean(value.text) && Boolean(value.url)),
         {
-          message: 'CTA button text and url are required when show is true',
           path: ['text'],
+          error: 'CTA button text and url are required when show is true',
         }
       )
       .optional(),
@@ -102,13 +97,11 @@ const heroComponentSchema = z.object({
   }),
 });
 
-const featureItemSchema = z
-  .object({
-    title: shortTextSchema,
-    description: mediumTextSchema,
-    icon: iconNameSchema,
-  })
-  .strict();
+const featureItemSchema = z.strictObject({
+  title: shortTextSchema,
+  description: mediumTextSchema,
+  icon: iconNameSchema,
+});
 
 const featuresComponentSchema = z.object({
   type: z.literal('Features'),
@@ -124,8 +117,8 @@ const productGridComponentSchema = z.object({
   type: z.literal('ProductGrid'),
   props: basePropsSchema.extend({
     title: optionalShortTextSchema,
-    columns: z.number().int().min(1).max(4).default(3),
-    limit: z.number().int().min(4).max(12).default(8),
+    columns: z.int().min(1).max(4).default(3),
+    limit: z.int().min(4).max(12).default(8),
     category: z.string().trim().max(80).optional(),
     sortBy: z
       .enum(['newest', 'price-low', 'price-high', 'name'])
@@ -153,15 +146,13 @@ const newsletterComponentSchema = z.object({
   }),
 });
 
-const socialLinksSchema = z
-  .object({
-    facebook: httpsUrlSchema.optional(),
-    instagram: httpsUrlSchema.optional(),
-    twitter: httpsUrlSchema.optional(),
-    linkedin: httpsUrlSchema.optional(),
-    youtube: httpsUrlSchema.optional(),
-  })
-  .strict();
+const socialLinksSchema = z.strictObject({
+  facebook: httpsUrlSchema.optional(),
+  instagram: httpsUrlSchema.optional(),
+  twitter: httpsUrlSchema.optional(),
+  linkedin: httpsUrlSchema.optional(),
+  youtube: httpsUrlSchema.optional(),
+});
 
 const footerPropsSchema = basePropsSchema
   .extend({
@@ -176,8 +167,8 @@ const footerPropsSchema = basePropsSchema
       !value.showQuickLinks ||
       (Array.isArray(value.quickLinks) && value.quickLinks.length > 0),
     {
-      message: 'quickLinks is required when showQuickLinks is true',
       path: ['quickLinks'],
+      error: 'quickLinks is required when showQuickLinks is true',
     }
   );
 
@@ -196,21 +187,17 @@ export const aiStorefrontComponentSchema = z.discriminatedUnion('type', [
   footerComponentSchema,
 ]);
 
-export const aiStorefrontThemeSchema = z
-  .object({
-    primary: hexColorSchema.optional(),
-    accent: hexColorSchema.optional(),
-    background: hexColorSchema.optional(),
-  })
-  .strict();
+export const aiStorefrontThemeSchema = z.strictObject({
+  primary: hexColorSchema.optional(),
+  accent: hexColorSchema.optional(),
+  background: hexColorSchema.optional(),
+});
 
-export const aiStorefrontLayoutSchema = z
-  .object({
-    theme: aiStorefrontThemeSchema.optional(),
-    sections: z.array(aiStorefrontComponentSchema).min(4).max(9),
-    designRationale: z.string().trim().max(500).optional(),
-  })
-  .strict();
+export const aiStorefrontLayoutSchema = z.strictObject({
+  theme: aiStorefrontThemeSchema.optional(),
+  sections: z.array(aiStorefrontComponentSchema).min(4).max(9),
+  designRationale: z.string().trim().max(500).optional(),
+});
 
 export type AiStorefrontComponent = z.infer<typeof aiStorefrontComponentSchema>;
 export type AiStorefrontLayout = z.infer<typeof aiStorefrontLayoutSchema>;

@@ -7,7 +7,9 @@
 
 import { z } from 'zod';
 
-export const uuidSchema = z.string().uuid({ message: 'expected a UUID' });
+export const uuidSchema = z.uuid({
+  error: 'expected a UUID',
+});
 
 // Cancel list arrives as a comma-separated string (`a,b,c`). Empty
 // string is allowed and resolves to `[]` — the script supports the no-

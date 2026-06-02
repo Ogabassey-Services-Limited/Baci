@@ -16,11 +16,13 @@ const walletTopUpMerchantIdSchema = z
   .string()
   .trim()
   .min(1, 'Merchant id cannot be empty')
-  .uuid('Merchant id must be a valid UUID')
+  .pipe(z.uuid('Merchant id must be a valid UUID'))
   .optional();
 
 const walletTopUpAmountSchema = z.coerce
-  .number({ message: 'Amount must be a valid number' })
+  .number({
+    error: 'Amount must be a valid number',
+  })
   .finite('Amount cannot be Infinity or NaN')
   .min(
     WALLET_TOP_UP_MIN_AMOUNT,
@@ -37,7 +39,7 @@ function requireMerchantIdentifier(
 ) {
   if (!data.merchantId && !data.merchantSlug) {
     ctx.addIssue({
-      code: z.ZodIssueCode.custom,
+      code: 'custom',
       message: 'Merchant slug or id is required',
       path: ['merchantSlug'],
     });

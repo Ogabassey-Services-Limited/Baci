@@ -10,13 +10,13 @@ import { createClient } from '@/lib/supabase/server';
 
 // Validation schema
 const NegotiationSchema = z.object({
-  productId: z.string().uuid(),
-  merchantId: z.string().uuid(),
+  productId: z.uuid(),
+  merchantId: z.uuid(),
   offeredPrice: z.number().positive(),
-  customerEmail: z.string().email().optional(),
+  customerEmail: z.email().optional(),
   customerPhone: z.string().optional(),
   attemptNumber: z.number().min(1).max(3).default(1),
-  evidenceUrl: z.string().url().optional(),
+  evidenceUrl: z.url().optional(),
   evidenceNote: z.string().max(500).optional(),
 });
 

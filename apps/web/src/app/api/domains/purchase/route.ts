@@ -23,7 +23,7 @@ const ContactInfoInputSchema = z.object({
   lastname: z.string().optional(),
   fullname: z.string().optional(),
   companyname: z.string().optional(),
-  email: z.string().email().optional(),
+  email: z.email().optional(),
   address1: z.string().optional(),
   address2: z.string().optional(),
   city: z.string().optional(),
@@ -40,7 +40,7 @@ const PurchaseRequestSchema = z.object({
     .min(1)
     .regex(DOMAIN_REGEX, 'Invalid domain format')
     .transform((value) => value.toLowerCase()),
-  years: z.coerce.number().int().min(1).max(10).default(1),
+  years: z.coerce.number().int().min(1).max(10).prefault(1),
   contactInfo: ContactInfoInputSchema.optional(),
   paymentReference: z.string().trim().min(1).optional(),
 });
@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error: 'Invalid request payload',
-          details: parsedRequest.error.flatten(),
+          details: z.flattenError(parsedRequest.error),
         },
         { status: 400 }
       );

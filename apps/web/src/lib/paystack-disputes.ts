@@ -29,7 +29,7 @@ const DisputeSchema = z.object({
   customer: z.object({
     id: z.number(),
     customer_code: z.string(),
-    email: z.string().email(),
+    email: z.email(),
   }),
   bin: z.string().nullable(),
   last4: z.string().nullable(),

@@ -111,7 +111,7 @@ import { cn } from '@/lib/utils';
 // Zod schema for form validation
 const formSchema = z.object({
   name: z.string().min(1, 'Name is required'),
-  email: z.string().email('Invalid email'),
+  email: z.email({ error: 'Invalid email' }),
   amount: z.coerce.number().min(0, 'Must be positive'),
 });
 
