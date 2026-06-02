@@ -3,15 +3,10 @@ import { getImageProps } from 'next/image';
 import type { ComponentProps } from 'react';
 import { preload } from 'react-dom';
 import {
-  OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_MEDIA,
-  OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA,
-  OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_QUALITY,
-  OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_SIZES,
   OGABASSEY_PDP_PRIMARY_IMAGE_PRELOAD_FALLBACK_WIDTH,
   OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY,
   OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
 } from '@/components/storefront/ogabassey/config/product-media';
-import { buildOgabasseyPdpMobileImageSrcSet } from '@/components/storefront/ogabassey/pdp/product-image-source';
 import imageLoader from '@/lib/image-loader';
 import { getOgabasseyImagePreloadType } from './ogabassey-image-preload-type';
 
@@ -21,7 +16,6 @@ type ImagePreloadLinkProps = ComponentProps<'link'> & {
   href: string;
   imageSizes: string;
   imageSrcSet: string;
-  media?: string;
   rel: 'preload';
 };
 
@@ -31,7 +25,7 @@ type ProductResourceHintInput = {
 
 function buildProductImagePreloadProps({
   src,
-}: ProductResourceHintInput): ImagePreloadLinkProps[] | null {
+}: ProductResourceHintInput): ImagePreloadLinkProps | null {
   if (!src) return null;
 
   const {
@@ -45,12 +39,7 @@ function buildProductImagePreloadProps({
     src,
   });
 
-  const mobilePreloadSrc = imageLoader({
-    quality: OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_QUALITY,
-    src,
-    width: OGABASSEY_PDP_PRIMARY_IMAGE_PRELOAD_FALLBACK_WIDTH,
-  });
-  const desktopPreloadSrc = imageLoader({
+  const preloadHref = imageLoader({
     quality: OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY,
     src,
     width: OGABASSEY_PDP_PRIMARY_IMAGE_PRELOAD_FALLBACK_WIDTH,
@@ -58,31 +47,17 @@ function buildProductImagePreloadProps({
   const imageSizes = sizes ?? OGABASSEY_PDP_PRIMARY_IMAGE_SIZES;
   const imageSrcSet =
     srcSet ??
-    `${desktopPreloadSrc} ${OGABASSEY_PDP_PRIMARY_IMAGE_PRELOAD_FALLBACK_WIDTH}w`;
+    `${preloadHref} ${OGABASSEY_PDP_PRIMARY_IMAGE_PRELOAD_FALLBACK_WIDTH}w`;
 
-  const mobileProps: ImagePreloadLinkProps = {
+  return {
     as: 'image',
     fetchPriority: 'high',
-    href: mobilePreloadSrc,
-    imageSizes: OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_SIZES,
-    imageSrcSet: buildOgabasseyPdpMobileImageSrcSet(src),
-    media: OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA,
-    rel: 'preload',
-    type: getOgabasseyImagePreloadType(mobilePreloadSrc),
-  };
-
-  const desktopProps: ImagePreloadLinkProps = {
-    as: 'image',
-    fetchPriority: 'high',
-    href: desktopPreloadSrc,
+    href: preloadHref,
     imageSizes,
     imageSrcSet,
-    media: OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_MEDIA,
     rel: 'preload',
-    type: getOgabasseyImagePreloadType(desktopPreloadSrc),
+    type: getOgabasseyImagePreloadType(preloadHref),
   };
-
-  return [mobileProps, desktopProps];
 }
 
 export function preloadOgabasseyPdpProductResources({
@@ -91,19 +66,17 @@ export function preloadOgabasseyPdpProductResources({
   const props = buildProductImagePreloadProps({ src });
   if (!props) return;
 
-  for (const propSet of props) {
-    // Keep PDP image hints out of the page body. Next/Vercel resume can drift
-    // when rendered <link> nodes precede the first critical-shell host node,
-    // while React preload() still emits discoverable head hints.
-    preload(propSet.href, {
-      as: propSet.as,
-      fetchPriority: propSet.fetchPriority,
-      imageSizes: propSet.imageSizes,
-      imageSrcSet: propSet.imageSrcSet,
-      media: propSet.media,
-      type: propSet.type,
-    });
-  }
+  // Keep PDP image hints out of the page body. Next/Vercel resume can drift
+  // when rendered <link> nodes precede the first critical-shell host node.
+  // React preload() does not support media, so use one responsive srcset/sizes
+  // hint and let the browser choose the matching candidate.
+  preload(props.href, {
+    as: props.as,
+    fetchPriority: props.fetchPriority,
+    imageSizes: props.imageSizes,
+    imageSrcSet: props.imageSrcSet,
+    type: props.type,
+  });
 }
 
 export function OgabasseyPdpProductResourceHints({

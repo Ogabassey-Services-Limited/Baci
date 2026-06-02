@@ -1,12 +1,7 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_MEDIA,
-  OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA,
-  OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_SIZES,
-  OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
-} from '@/components/storefront/ogabassey/config/product-media';
+import { OGABASSEY_PDP_PRIMARY_IMAGE_SIZES } from '@/components/storefront/ogabassey/config/product-media';
 import imageLoader from '@/lib/image-loader';
 
 vi.mock('server-only', () => ({}));
@@ -53,10 +48,7 @@ vi.mock('react-dom', () => ({
   preload: mockPreload,
 }));
 
-import {
-  OgabasseyPdpProductResourceHints,
-  preloadOgabasseyPdpProductResources,
-} from './ogabassey-pdp-product-resource-hints';
+import { OgabasseyPdpProductResourceHints } from './ogabassey-pdp-product-resource-hints';
 
 describe('OgabasseyPdpProductResourceHints', () => {
   beforeEach(() => {
@@ -64,15 +56,10 @@ describe('OgabasseyPdpProductResourceHints', () => {
     mockPreload.mockClear();
   });
 
-  it('emits head-only React preload hints for the primary product image with the gallery sizes', () => {
+  it('emits one head-only responsive React preload hint for the primary product image', () => {
     const productImage =
       'https://cdn.ogabassey.com/core-assets/products/lenovo-legion.avif';
-    const mobilePreloadHref = imageLoader({
-      src: productImage,
-      width: 750,
-      quality: 30,
-    });
-    const desktopPreloadHref = imageLoader({
+    const preloadHref = imageLoader({
       src: productImage,
       width: 750,
       quality: 35,
@@ -91,35 +78,17 @@ describe('OgabasseyPdpProductResourceHints', () => {
       })
     );
     expect(html).toBe('');
-    expect(mockPreload).toHaveBeenCalledTimes(2);
+    expect(mockPreload).toHaveBeenCalledTimes(1);
     expect(mockPreload).toHaveBeenCalledWith(
-      mobilePreloadHref,
-      expect.objectContaining({
-        as: 'image',
-        fetchPriority: 'high',
-        imageSizes: OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_SIZES,
-        media: OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA,
-        imageSrcSet: expect.stringContaining('750w'),
-      })
-    );
-    expect(mockPreload).toHaveBeenCalledWith(
-      desktopPreloadHref,
+      preloadHref,
       expect.objectContaining({
         as: 'image',
         fetchPriority: 'high',
         imageSizes: OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
         imageSrcSet: expect.stringContaining('lenovo-legion.avif'),
-        media: OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_MEDIA,
       })
     );
-    expect(mockPreload.mock.calls[0]?.[1]).toHaveProperty(
-      'media',
-      OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA
-    );
-    expect(mockPreload.mock.calls[1]?.[1]).toHaveProperty(
-      'media',
-      OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_MEDIA
-    );
+    expect(mockPreload.mock.calls[0]?.[1]).not.toHaveProperty('media');
   });
 
   it('uses the fallback URL extension when the image is not CDN transformed', () => {
@@ -134,41 +103,6 @@ describe('OgabasseyPdpProductResourceHints', () => {
     expect(mockPreload).toHaveBeenCalledWith(
       expect.any(String),
       expect.objectContaining({ type: 'image/png' })
-    );
-  });
-
-  it('keeps transformed CDN mobile and desktop preloads distinct by image source metadata', () => {
-    const transformedProductImage =
-      'https://cdn.ogabassey.com/image/width=750,quality=35,format=auto/core-assets/products/lenovo-legion.avif';
-
-    preloadOgabasseyPdpProductResources({ src: transformedProductImage });
-
-    expect(mockPreload).toHaveBeenCalledTimes(2);
-
-    const [mobileHref, mobileOptions] = mockPreload.mock.calls[0] ?? [];
-    const [desktopHref, desktopOptions] = mockPreload.mock.calls[1] ?? [];
-
-    expect(mobileHref).toBe(transformedProductImage);
-    expect(desktopHref).toBe(transformedProductImage);
-    expect(mobileOptions).toEqual(
-      expect.objectContaining({
-        imageSizes: OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_SIZES,
-        imageSrcSet: expect.stringContaining('256w'),
-        media: OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA,
-      })
-    );
-    expect(desktopOptions).toEqual(
-      expect.objectContaining({
-        imageSizes: OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
-        imageSrcSet: expect.stringContaining('1920w'),
-        media: OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_MEDIA,
-      })
-    );
-    expect(mobileOptions).not.toEqual(
-      expect.objectContaining({
-        imageSizes: desktopOptions?.imageSizes,
-        imageSrcSet: desktopOptions?.imageSrcSet,
-      })
     );
   });
 
