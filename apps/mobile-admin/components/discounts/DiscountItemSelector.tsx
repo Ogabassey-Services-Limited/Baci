@@ -5,13 +5,13 @@ import {
   FlatList,
   Modal,
   Pressable,
-  SafeAreaView,
   Text,
   TextInput,
   View,
 } from 'react-native';
-import SafeImage from '@/components/ui/SafeImage';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { AppKeyboardContainer } from '@/components/ui/AppKeyboardContainer';
+import SafeImage from '@/components/ui/SafeImage';
 import { getVirtualizedListProps } from '@/components/ui/virtualized-list-props';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
@@ -140,145 +140,147 @@ export function DiscountItemSelector({
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
-      <AppKeyboardContainer
-        align="start"
-        scrollEnabled={false}
-        style={styles.container}
-      >
-        <SafeAreaView
-          style={[styles.container, { backgroundColor: colors.background }]}
+      <SafeAreaProvider>
+        <AppKeyboardContainer
+          align="start"
+          scrollEnabled={false}
+          style={styles.container}
         >
-          <View style={[styles.header, { borderBottomColor: colors.border }]}>
-            <Pressable
-              onPress={onClose}
-              style={styles.closeBtn}
-              accessible={true}
-              accessibilityRole="button"
-              accessibilityLabel="Close"
-            >
-              <Ionicons name="close" size={24} color={colors.text} />
-            </Pressable>
-            <Text style={[styles.title, { color: colors.text }]}>
-              Select {type === 'product' ? 'Products' : 'Categories'}
-            </Text>
-            <Pressable
-              onPress={handleSave}
-              style={styles.saveBtn}
-              accessible={true}
-              accessibilityRole="button"
-              accessibilityLabel="Done"
-            >
-              <Text style={[styles.saveText, { color: colors.primary }]}>
-                Done
-              </Text>
-            </Pressable>
-          </View>
-
-          <View
-            style={[
-              styles.searchContainer,
-              { backgroundColor: colors.backgroundLight },
-            ]}
+          <SafeAreaView
+            style={[styles.container, { backgroundColor: colors.background }]}
           >
-            <Ionicons name="search" size={20} color={colors.textMuted} />
-            <TextInput
-              style={[styles.searchInput, { color: colors.text }]}
-              placeholder="Search..."
-              placeholderTextColor={colors.textMuted}
-              value={search}
-              onChangeText={(text) => {
-                setSearch(text);
-                // Debounce could be added here
-              }}
-              onSubmitEditing={() => {
-                void handleFetchItems(search);
-              }}
-            />
-          </View>
+            <View style={[styles.header, { borderBottomColor: colors.border }]}>
+              <Pressable
+                onPress={onClose}
+                style={styles.closeBtn}
+                accessible={true}
+                accessibilityRole="button"
+                accessibilityLabel="Close"
+              >
+                <Ionicons name="close" size={24} color={colors.text} />
+              </Pressable>
+              <Text style={[styles.title, { color: colors.text }]}>
+                Select {type === 'product' ? 'Products' : 'Categories'}
+              </Text>
+              <Pressable
+                onPress={handleSave}
+                style={styles.saveBtn}
+                accessible={true}
+                accessibilityRole="button"
+                accessibilityLabel="Done"
+              >
+                <Text style={[styles.saveText, { color: colors.primary }]}>
+                  Done
+                </Text>
+              </Pressable>
+            </View>
 
-          {_fetchError && !loading ? (
             <View
               style={[
-                styles.errorBanner,
-                { backgroundColor: colors.errorLight },
+                styles.searchContainer,
+                { backgroundColor: colors.backgroundLight },
               ]}
             >
-              <Ionicons name="alert-circle" size={18} color={colors.error} />
-              <Text style={[styles.errorText, { color: colors.error }]}>
-                {_fetchError}
-              </Text>
+              <Ionicons name="search" size={20} color={colors.textMuted} />
+              <TextInput
+                style={[styles.searchInput, { color: colors.text }]}
+                placeholder="Search..."
+                placeholderTextColor={colors.textMuted}
+                value={search}
+                onChangeText={(text) => {
+                  setSearch(text);
+                  // Debounce could be added here
+                }}
+                onSubmitEditing={() => {
+                  void handleFetchItems(search);
+                }}
+              />
             </View>
-          ) : null}
 
-          {loading ? (
-            <ActivityIndicator
-              size="large"
-              color={colors.primary}
-              style={styles.loader}
-            />
-          ) : (
-            <FlatList
-              data={items}
-              keyExtractor={(item) => item.id}
-              keyboardDismissMode="on-drag"
-              keyboardShouldPersistTaps="handled"
-              contentContainerStyle={styles.list}
-              {...getVirtualizedListProps()}
-              renderItem={({ item }) => {
-                const isSelected = selectedIds.has(item.id);
-                return (
-                  <Pressable
-                    style={[
-                      styles.itemRow,
-                      { borderBottomColor: colors.border },
-                    ]}
-                    onPress={() => toggleSelection(item.id)}
-                    accessible={true}
-                    accessibilityRole="checkbox"
-                    accessibilityLabel={`${item.name}`}
-                    accessibilityState={{ checked: isSelected }}
-                  >
-                    {item.images && item.images.length > 0 && (
-                      <SafeImage
-                        source={{ uri: item.images[0] }}
-                        style={[
-                          styles.itemImage,
-                          { backgroundColor: colors.inputBg },
-                        ]}
-                        contentFit="cover"
-                        transition={200}
-                      />
-                    )}
-                    <View style={styles.itemInfo}>
-                      <Text style={[styles.itemName, { color: colors.text }]}>
-                        {item.name}
-                      </Text>
-                      {item.description ? (
-                        <Text
+            {_fetchError && !loading ? (
+              <View
+                style={[
+                  styles.errorBanner,
+                  { backgroundColor: colors.errorLight },
+                ]}
+              >
+                <Ionicons name="alert-circle" size={18} color={colors.error} />
+                <Text style={[styles.errorText, { color: colors.error }]}>
+                  {_fetchError}
+                </Text>
+              </View>
+            ) : null}
+
+            {loading ? (
+              <ActivityIndicator
+                size="large"
+                color={colors.primary}
+                style={styles.loader}
+              />
+            ) : (
+              <FlatList
+                data={items}
+                keyExtractor={(item) => item.id}
+                keyboardDismissMode="on-drag"
+                keyboardShouldPersistTaps="handled"
+                contentContainerStyle={styles.list}
+                {...getVirtualizedListProps()}
+                renderItem={({ item }) => {
+                  const isSelected = selectedIds.has(item.id);
+                  return (
+                    <Pressable
+                      style={[
+                        styles.itemRow,
+                        { borderBottomColor: colors.border },
+                      ]}
+                      onPress={() => toggleSelection(item.id)}
+                      accessible={true}
+                      accessibilityRole="checkbox"
+                      accessibilityLabel={`${item.name}`}
+                      accessibilityState={{ checked: isSelected }}
+                    >
+                      {item.images && item.images.length > 0 && (
+                        <SafeImage
+                          source={{ uri: item.images[0] }}
                           style={[
-                            styles.itemDesc,
-                            { color: colors.textSecondary },
+                            styles.itemImage,
+                            { backgroundColor: colors.inputBg },
                           ]}
-                          numberOfLines={2}
-                        >
-                          {stripHtmlTags(item.description)}
+                          contentFit="cover"
+                          transition={200}
+                        />
+                      )}
+                      <View style={styles.itemInfo}>
+                        <Text style={[styles.itemName, { color: colors.text }]}>
+                          {item.name}
                         </Text>
-                      ) : null}
-                    </View>
-                    {isSelected && (
-                      <Ionicons
-                        name="checkmark-circle"
-                        size={24}
-                        color={colors.primary}
-                      />
-                    )}
-                  </Pressable>
-                );
-              }}
-            />
-          )}
-        </SafeAreaView>
-      </AppKeyboardContainer>
+                        {item.description ? (
+                          <Text
+                            style={[
+                              styles.itemDesc,
+                              { color: colors.textSecondary },
+                            ]}
+                            numberOfLines={2}
+                          >
+                            {stripHtmlTags(item.description)}
+                          </Text>
+                        ) : null}
+                      </View>
+                      {isSelected && (
+                        <Ionicons
+                          name="checkmark-circle"
+                          size={24}
+                          color={colors.primary}
+                        />
+                      )}
+                    </Pressable>
+                  );
+                }}
+              />
+            )}
+          </SafeAreaView>
+        </AppKeyboardContainer>
+      </SafeAreaProvider>
     </Modal>
   );
 }
