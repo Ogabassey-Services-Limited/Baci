@@ -4,6 +4,7 @@ import {
   getUnmaskedValue,
   normalizeKlumpPhone,
   toCurrencyAmount,
+  toKlumpIntegerAmount,
 } from '@/lib/klump-utils';
 
 describe('klump-utils', () => {
@@ -23,7 +24,17 @@ describe('klump-utils', () => {
     expect(toCurrencyAmount('invalid')).toBe(0);
   });
 
-  it('balances Klump items to the order total', () => {
+  it('normalizes Klump amounts to positive integers', () => {
+    expect(toKlumpIntegerAmount('58088.5')).toBe(58089);
+    expect(toKlumpIntegerAmount('invalid')).toBe(0);
+    expect(toKlumpIntegerAmount('0')).toBe(0);
+    expect(toKlumpIntegerAmount('-123')).toBe(0);
+    expect(toKlumpIntegerAmount('')).toBe(0);
+    expect(toKlumpIntegerAmount(null)).toBe(0);
+    expect(toKlumpIntegerAmount(undefined)).toBe(0);
+  });
+
+  it('balances Klump items to the rounded order total with integer prices', () => {
     expect(
       buildKlumpItems({
         id: 'order-1',
@@ -40,7 +51,84 @@ describe('klump-utils', () => {
     ).toEqual([
       { name: 'Capsule', quantity: 1, unit_price: 51_500 },
       { name: 'Delivery', quantity: 1, unit_price: 2726 },
-      { name: 'Taxes and fees', quantity: 1, unit_price: 3862.5 },
+      { name: 'Taxes and fees', quantity: 1, unit_price: 3863 },
     ]);
+  });
+
+  it('collapses fractional multi-quantity lines when needed to keep Klump prices integer', () => {
+    expect(
+      buildKlumpItems({
+        id: 'order-1',
+        total: 100.98,
+        items: [
+          {
+            name: 'Installment item',
+            price: 33.66,
+            quantity: 3,
+          },
+        ],
+      })
+    ).toEqual([{ name: 'Installment item', quantity: 1, unit_price: 101 }]);
+  });
+
+  it('keeps rounded Klump items from exceeding the charged amount', () => {
+    expect(
+      buildKlumpItems({
+        id: 'order-1',
+        total: 101,
+        items: [
+          {
+            name: 'First item',
+            price: 50.6,
+            quantity: 1,
+          },
+          {
+            name: 'Second item',
+            price: 50.6,
+            quantity: 1,
+          },
+        ],
+      })
+    ).toEqual([
+      { name: 'First item', quantity: 1, unit_price: 51 },
+      { name: 'Second item', quantity: 1, unit_price: 50 },
+    ]);
+  });
+
+  it('omits zero-value rounded lines and uses the final adjustment for the payable amount', () => {
+    expect(
+      buildKlumpItems({
+        id: 'order-1',
+        total: 1,
+        items: [
+          {
+            name: 'Tiny item',
+            price: 0.4,
+            quantity: 1,
+          },
+        ],
+      })
+    ).toEqual([{ name: 'Taxes and fees', quantity: 1, unit_price: 1 }]);
+  });
+
+  it('drops rounded one-naira lines when they would exceed the Klump amount', () => {
+    expect(
+      buildKlumpItems({
+        id: 'order-1',
+        total: 1,
+        items: [
+          {
+            name: 'First tiny item',
+            price: 0.6,
+            quantity: 1,
+          },
+          {
+            name: 'Second tiny item',
+            price: 0.6,
+            quantity: 1,
+          },
+        ],
+      })
+    ).toEqual([{ name: 'First tiny item', quantity: 1, unit_price: 1 }]);
   });
 });

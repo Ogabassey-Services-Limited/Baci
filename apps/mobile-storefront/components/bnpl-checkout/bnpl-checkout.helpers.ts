@@ -111,7 +111,51 @@ export function buildBNPLCheckoutUrl({
 export const BNPL_INJECTED_JAVASCRIPT = `
   (function() {
     const postDebugMessage = function(payload) {
-      window.ReactNativeWebView?.postMessage(JSON.stringify(payload));
+      try {
+        window.ReactNativeWebView?.postMessage(JSON.stringify(payload));
+      } catch (_error) {
+        // Ignore diagnostics failures so checkout scripts keep running.
+      }
+    };
+
+    const providerHostnames = [
+      'useklump.com',
+      'creditdirect.ng',
+      'credpal.com',
+      'lendastack.io',
+      'mono.co'
+    ];
+
+    const isProviderOrigin = function(origin) {
+      if (typeof origin !== 'string') return false;
+
+      try {
+        const parsedOrigin = new URL(origin);
+        return providerHostnames.some(function(hostname) {
+          return parsedOrigin.hostname === hostname || parsedOrigin.hostname.endsWith('.' + hostname);
+        });
+      } catch (_error) {
+        return false;
+      }
+    };
+
+    const getMessageSummary = function(data) {
+      if (!data || typeof data !== 'object') {
+        return { payloadType: typeof data };
+      }
+
+      const summary = { payloadType: 'object' };
+      ['type', 'status', 'name', 'gateway'].forEach(function(key) {
+        if (typeof data[key] === 'string') summary[key] = data[key];
+      });
+
+      if (data.data && typeof data.data === 'object') {
+        ['type', 'status', 'name', 'gateway'].forEach(function(key) {
+          if (typeof data.data[key] === 'string') summary[key] = data.data[key];
+        });
+      }
+
+      return summary;
     };
 
     const originalLog = console.log;
@@ -127,6 +171,20 @@ export const BNPL_INJECTED_JAVASCRIPT = `
     };
 
     window.addEventListener('error', function(event) {
+      const target = event.target;
+      if (target && target !== window) {
+        const source = target.src || target.href || '';
+        if (source) {
+          postDebugMessage({
+            type: 'bnpl_error_log',
+            message: 'WebView resource failed to load',
+            source: source,
+            url: window.location.href
+          });
+        }
+        return;
+      }
+
       postDebugMessage({
         type: 'bnpl_error_log',
         message: event.message || 'Unhandled WebView error',
@@ -147,6 +205,16 @@ export const BNPL_INJECTED_JAVASCRIPT = `
 
     const allowedMessageTypes = new Set(['checkoutStatus', 'paymentResult', 'bnpl_log', 'bnpl_error_log', 'navigation']);
     window.addEventListener('message', function(event) {
+      if (isProviderOrigin(event.origin)) {
+        postDebugMessage({
+          type: 'bnpl_log',
+          message: 'Provider postMessage received',
+          source: event.origin,
+          summary: getMessageSummary(event.data),
+          url: window.location.href
+        });
+      }
+
       if (event.origin !== window.location.origin) return;
       const payload = event.data;
       if (!payload || typeof payload !== 'object' || !allowedMessageTypes.has(payload.type)) return;
@@ -160,11 +228,27 @@ export const BNPL_INJECTED_JAVASCRIPT = `
     const originalPushState = history.pushState;
     history.pushState = function() {
       originalPushState.apply(history, arguments);
-      window.ReactNativeWebView?.postMessage(JSON.stringify({
+      postDebugMessage({
         type: 'navigation',
         url: window.location.href
-      }));
+      });
     };
+
+    const originalReplaceState = history.replaceState;
+    history.replaceState = function() {
+      originalReplaceState.apply(history, arguments);
+      postDebugMessage({
+        type: 'navigation',
+        url: window.location.href
+      });
+    };
+
+    window.addEventListener('hashchange', function() {
+      postDebugMessage({
+        type: 'navigation',
+        url: window.location.href
+      });
+    });
   })();
   true;
 `;
