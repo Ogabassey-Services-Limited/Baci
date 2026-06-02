@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_MEDIA,
+  OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA,
   OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_SIZES,
   OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
 } from '@/components/storefront/ogabassey/config/product-media';
@@ -94,6 +95,7 @@ describe('OgabasseyPdpProductResourceHints', () => {
         as: 'image',
         fetchPriority: 'high',
         imageSizes: OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_SIZES,
+        media: OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA,
         imageSrcSet: expect.stringContaining('750w'),
       })
     );
@@ -107,7 +109,10 @@ describe('OgabasseyPdpProductResourceHints', () => {
         media: OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_MEDIA,
       })
     );
-    expect(mockPreload.mock.calls[0]?.[1]).not.toHaveProperty('media');
+    expect(mockPreload.mock.calls[0]?.[1]).toHaveProperty(
+      'media',
+      OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA
+    );
     expect(mockPreload.mock.calls[1]?.[1]).toHaveProperty(
       'media',
       OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_MEDIA

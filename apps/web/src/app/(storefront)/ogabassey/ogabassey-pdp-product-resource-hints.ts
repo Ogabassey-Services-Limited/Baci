@@ -100,9 +100,7 @@ export function OgabasseyPdpProductResourceHints({
       fetchPriority: propSet.fetchPriority,
       imageSizes: propSet.imageSizes,
       imageSrcSet: propSet.imageSrcSet,
-      ...(propSet.media === OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_MEDIA
-        ? { media: propSet.media }
-        : {}),
+      media: propSet.media,
       type: propSet.type,
     });
   }
