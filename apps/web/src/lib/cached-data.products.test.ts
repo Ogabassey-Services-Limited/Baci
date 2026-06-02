@@ -77,6 +77,8 @@ describe('cached-data product query projections', () => {
   const standaloneQuantityColumnPattern = /(?:^|[\s,])quantity\s*(?:,|\n|$)/;
   const standaloneTrackQuantityColumnPattern =
     /(?:^|[\s,])track_quantity\s*(?:,|\n|$)/;
+  const standaloneDescriptionColumnPattern =
+    /(?:^|[\s,])description\s*(?:,|\n|$)/;
 
   it('getCachedProduct uses explicit column select without product_variants', async () => {
     harness.mockMaybeSingle.mockResolvedValueOnce(singleProductResult);
@@ -117,7 +119,7 @@ describe('cached-data product query projections', () => {
     expect(selectArg).toContain('stock_quantity');
     expect(selectArg).toContain('categories:category_id');
     expect(selectArg).toContain('product_categories');
-    expect(selectArg).not.toContain('description');
+    expect(selectArg).not.toMatch(standaloneDescriptionColumnPattern);
     expect(selectArg).not.toContain('specifications');
     expect(selectArg).not.toContain('review_count');
     expect(selectArg).not.toContain('product_variants');
