@@ -167,4 +167,92 @@ describe('Cart', () => {
       'product-1::variant=variant-128'
     );
   });
+
+  it('renders the empty cart state and polite live region', () => {
+    mockUseCart.mockReturnValue({
+      cart: [],
+      cartCount: 0,
+      cartTotal: 0,
+      removeFromCart: mockRemoveFromCart,
+      updateQuantity: mockUpdateQuantity,
+    });
+
+    render(<Cart />);
+
+    expect(screen.getByText('Your cart is empty')).toBeInTheDocument();
+    expect(
+      screen.getByText('Add some products to get started!')
+    ).toBeInTheDocument();
+    expect(screen.getByText('Cart is empty')).toHaveAttribute(
+      'aria-live',
+      'polite'
+    );
+    expect(
+      screen.queryByRole('link', { name: 'Proceed to Checkout' })
+    ).not.toBeInTheDocument();
+  });
+
+  it('renders multiple cart lines with distinct ids and the cart total', () => {
+    mockUseCart.mockReturnValue({
+      cart: [
+        makeCartItem({ quantity: 1 }),
+        makeCartItem({
+          id: 'product-2',
+          cartItemId: 'product-2::variant=variant-256',
+          name: 'Second Variant',
+          price: 50,
+          quantity: 3,
+          variantId: 'variant-256',
+        }),
+      ],
+      cartCount: 4,
+      cartTotal: 250,
+      removeFromCart: mockRemoveFromCart,
+      updateQuantity: mockUpdateQuantity,
+    });
+
+    render(<Cart />);
+
+    expect(screen.getByText('Legacy Variant')).toBeInTheDocument();
+    expect(screen.getByText('Second Variant')).toBeInTheDocument();
+    expect(screen.getByText('Subtotal')).toBeInTheDocument();
+    expect(screen.getByText('₦250')).toBeInTheDocument();
+    expect(
+      screen.getByText('Cart updated. 4 items in cart. Subtotal is ₦250.')
+    ).toHaveAttribute('aria-live', 'polite');
+
+    fireEvent.change(screen.getByLabelText('Quantity for Second Variant'), {
+      target: { value: '2' },
+    });
+
+    expect(mockUpdateQuantity).toHaveBeenCalledWith(
+      'product-2::variant=variant-256',
+      2
+    );
+  });
+
+  it('increments by cartItemId and disables decrement at quantity one', () => {
+    mockUseCart.mockReturnValue({
+      cart: [makeCartItem({ quantity: 1 })],
+      cartCount: 1,
+      cartTotal: 100,
+      removeFromCart: mockRemoveFromCart,
+      updateQuantity: mockUpdateQuantity,
+    });
+
+    render(<Cart />);
+
+    const decrementButton = screen.getByRole('button', { name: 'minus' });
+    expect(decrementButton).toBeDisabled();
+
+    fireEvent.click(decrementButton);
+    expect(mockUpdateQuantity).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'plus' }));
+
+    expect(mockUpdateQuantity).toHaveBeenCalledWith(
+      'product-1::variant=variant-128',
+      2
+    );
+  });
 });
