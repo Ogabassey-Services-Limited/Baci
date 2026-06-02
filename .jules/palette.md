@@ -76,3 +76,7 @@
 ## 2026-06-01 - Mobile Action Button States
 **Learning:** Submit buttons in React Native that become disabled during loading states must implement `accessibilityState={{ disabled: true, busy: true }}`. Otherwise, screen readers will only announce them as "button" (or "disabled button") without conveying that a background process is active.
 **Action:** When creating or updating actionable buttons that show loading indicators or disable during submission, ensure `accessibilityState` explicitly includes `busy: isSubmitting` and matches the `disabled` state.
+## 2026-06-02 - Add accessibilityState to mobile toggle buttons
+**Learning:** Toggle buttons (like favorite hearts or saved items) in React Native require `accessibilityState={{ checked: booleanState }}` to accurately announce their toggled state to screen readers. Relying only on dynamic `accessibilityLabel` changes is less standard than providing the explicit state.
+**Action:** Always add `accessibilityState={{ checked: booleanState }}` to any `Pressable` functioning as a two-state toggle switch.
+
