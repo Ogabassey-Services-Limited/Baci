@@ -74,7 +74,7 @@ function SavedItemCard({
             transition={200}
             cachePolicy="memory-disk"
           />
-          {discountPercentage && (
+          {discountPercentage !== null && discountPercentage > 0 ? (
             <View
               style={[
                 styles.discountBadge,
@@ -90,7 +90,7 @@ function SavedItemCard({
                 -{discountPercentage}%
               </Text>
             </View>
-          )}
+          ) : null}
         </View>
 
         <View style={styles.infoContainer}>
