@@ -58,6 +58,6 @@
 **Learning:** Hardcoding `#000000` text over a dynamic `colors.gold` background in `SubscriptionStatusCard.tsx` limits contrast control across light/dark themes. The memory states: "When styling text over dynamic theme backgrounds (e.g., active tab states using `colors.gold`), avoid hardcoding hex colors. Use opposing theme tokens like `colors.background` that naturally adapt across light and dark modes to ensure proper contrast."
 **Action:** Replace hardcoded static `#000000` colors inside `StyleSheet.create` with an inline style array passing `colors.background` for elements over `colors.gold` backgrounds to ensure optimal contrast across modes.
 
-## $(date +%Y-%m-%d) - Replace Hardcoded Brand Colors with Dynamic Tokens in Login
+## 2026-06-02 - Replace Hardcoded Brand Colors with Dynamic Tokens in Login
 **Learning:** Hardcoded brand colors like `BRAND.navy` and `BRAND.yellow` inside React Native component styles break dark mode readability because they do not adapt to theme changes. Using static colors for UI elements meant for different states (like backgrounds and texts) can lead to invisible or poorly contrasted elements.
 **Action:** Replace hardcoded static brand colors with dynamic, semantic theme tokens from `useTheme()` (such as `colors.text`, `colors.gold`, `colors.textOnGold`, `colors.warning`, and `colors.warningLight`) via inline style arrays where needed. Ensure accessibility states are also updated to accurately reflect UI changes.

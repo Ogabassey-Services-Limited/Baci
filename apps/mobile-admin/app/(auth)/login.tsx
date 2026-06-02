@@ -185,7 +185,9 @@ export default function LoginScreen() {
             accessibilityLabel="Forgot password? Reset your password"
             accessibilityState={{ disabled: isAnyLoading }}
           >
-            <Text style={[styles.forgotPasswordText, { color: colors.gold }]}>Forgot Password?</Text>
+            <Text style={[styles.forgotPasswordText, { color: colors.gold }]}>
+              Forgot Password?
+            </Text>
           </Pressable>
 
           <Pressable
@@ -205,7 +207,9 @@ export default function LoginScreen() {
             {isPasswordLoading ? (
               <ActivityIndicator color={colors.textOnGold} />
             ) : (
-              <Text style={[styles.loginButtonText, { color: colors.textOnGold }]}>
+              <Text
+                style={[styles.loginButtonText, { color: colors.textOnGold }]}
+              >
                 Sign In
               </Text>
             )}
