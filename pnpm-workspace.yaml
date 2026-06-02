@@ -14,6 +14,7 @@ strictDepBuilds: true
 packages:
   - "apps/*"
   - "packages/*"
+  - "apps/web/mcp-server/widgets"
 
 # High-performance build script approvals for pnpm v11 (replaces legacy onlyBuiltDependencies)
 # Must be configured as a YAML mapping of package matchers to booleans
