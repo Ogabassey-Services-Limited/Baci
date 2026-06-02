@@ -1,9 +1,9 @@
+-- disable-transaction
 -- Keep feed variant hydration index-backed for large merchant catalogs.
 -- The Google Merchant feed and agent trust surfaces rebuild this data on cold
 -- cache misses; avoid reintroducing unbounded scans or concurrent DB fan-out.
--- Supabase CLI applies migration files through pgx ExecBatch, which is
--- implicitly transactional, so this migration intentionally avoids CREATE
--- INDEX CONCURRENTLY to remain compatible with local reset/staging deploys.
+-- Production deploys split this marked migration into top-level statements
+-- so PostgreSQL can build these large-table indexes without blocking writes.
 DO $$
 BEGIN
   IF EXISTS (
@@ -21,7 +21,7 @@ BEGIN
   END IF;
 END $$;
 
-CREATE INDEX IF NOT EXISTS idx_product_variants_feed_lookup
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_product_variants_feed_lookup
   ON public.product_variants USING btree (merchant_id, product_id, created_at, id);
 
 COMMENT ON INDEX public.idx_product_variants_feed_lookup IS
@@ -44,7 +44,7 @@ BEGIN
   END IF;
 END $$;
 
-CREATE INDEX IF NOT EXISTS idx_products_feed_active_lookup
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_products_feed_active_lookup
   ON public.products USING btree (merchant_id, id)
   WHERE status = 'active';
 
