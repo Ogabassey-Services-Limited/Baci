@@ -6,6 +6,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import type React from 'react';
 import { useEffect, useState } from 'react';
+import { getProductImageAlt } from '@baci/shared';
 import type { Product } from '../types';
 import { useViewportActivation } from '@/components/storefront/use-viewport-activation';
 import { getProductUrl } from '@/lib/seo-utils';
@@ -99,6 +100,9 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
   // Determine current image: use the specific color image if available, otherwise fallback to main image or placeholder
   const currentImage =
     product.images?.[activeColorIndex] || product.image || PLACEHOLDER_IMAGE;
+  const currentImageAlt = getProductImageAlt(product, {
+    renderedImageUrl: currentImage,
+  });
   const teaserDescription = stripHtml(product.description || '')
     .replace(/What is the .*? Price in Nigeria\??/i, '')
     .trim();
@@ -163,7 +167,7 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
         {shouldRenderImage && (
           <Image
             src={currentImage}
-            alt={product.name}
+            alt={currentImageAlt}
             fill
             sizes="(max-width: 480px) 40vw, (max-width: 768px) 33vw, (max-width: 1200px) 25vw, 20vw"
             loading="lazy"

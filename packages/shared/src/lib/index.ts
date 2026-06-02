@@ -4,6 +4,7 @@ export * from './kuda-data-plan-bill-items';
 export * from './kuda-electricity-bill-items';
 export * from './product-condition';
 export * from './product-default-variant';
+export * from './product-image-alt';
 export * from './product-inventory';
 export * from './product-search';
 export * from './product-selection-params';

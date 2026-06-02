@@ -1,5 +1,6 @@
 'use client';
 
+import { getProductImageAlt } from '@baci/shared';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useViewportActivation } from '@/components/storefront/use-viewport-activation';
@@ -32,6 +33,9 @@ export function HomeProductGridCard({
     `${basePath}${getProductUrl({ ...product, id: String(product.id) })}`
   );
   const productImage = product.image || product.images?.[0] || PLACEHOLDER_IMAGE;
+  const productImageAlt = getProductImageAlt(product, {
+    renderedImageUrl: productImage,
+  });
 
   return (
     <div className="bg-white border border-gray-100 rounded-2xl p-3 md:p-4 shadow-sm transition-all duration-300 flex flex-col h-full relative content-auto [contain-intrinsic-size:auto_360px]">
@@ -64,7 +68,7 @@ export function HomeProductGridCard({
         {shouldRenderImage ? (
           <Image
             src={productImage}
-            alt={product.name}
+            alt={productImageAlt}
             fill
             sizes="(max-width: 480px) 40vw, (max-width: 768px) 33vw, (max-width: 1200px) 25vw, 20vw"
             loading="lazy"

@@ -111,4 +111,84 @@ describe('ProductListItem', () => {
     ).not.toBeInTheDocument();
     expect(onAddToCart).not.toHaveBeenCalled();
   });
+
+  it('uses explicit mapped alt text for the rendered list image', () => {
+    render(
+      <ProductListItem
+        basePath="/ogabassey"
+        product={{
+          ...baseProduct,
+          image: '/macbook-silver.jpg',
+          image_alt: 'Merchant-provided laptop angle',
+        }}
+        onAddToCart={vi.fn()}
+        isAdded={false}
+        isWishlisted={false}
+        onToggleWishlist={vi.fn()}
+      />
+    );
+
+    expect(
+      screen.getByAltText('Merchant-provided laptop angle')
+    ).toBeInTheDocument();
+  });
+
+  it('falls back to the product name after selecting a non-primary list image', () => {
+    render(
+      <ProductListItem
+        basePath="/ogabassey"
+        product={{
+          ...baseProduct,
+          image: '/macbook-silver.jpg',
+          image_alt: 'Merchant-provided laptop angle',
+        }}
+        onAddToCart={vi.fn()}
+        isAdded={false}
+        isWishlisted={false}
+        onToggleWishlist={vi.fn()}
+      />
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Select Space Black color' })
+    );
+
+    expect(screen.getByAltText(baseProduct.name)).toHaveAttribute(
+      'src',
+      '/macbook-space-black.jpg'
+    );
+  });
+
+  it('uses preserved payload alt text after selecting a non-primary list image', () => {
+    render(
+      <ProductListItem
+        basePath="/ogabassey"
+        product={{
+          ...baseProduct,
+          image: '/macbook-silver.jpg',
+          image_alt: 'Merchant-provided laptop angle',
+          image_payloads: [
+            { url: '/macbook-silver.jpg', alt: 'Silver laptop lid' },
+            {
+              url: '/macbook-space-black.jpg',
+              alt: 'Space Black keyboard angle',
+            },
+          ],
+        }}
+        onAddToCart={vi.fn()}
+        isAdded={false}
+        isWishlisted={false}
+        onToggleWishlist={vi.fn()}
+      />
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Select Space Black color' })
+    );
+
+    expect(screen.getByAltText('Space Black keyboard angle')).toHaveAttribute(
+      'src',
+      '/macbook-space-black.jpg'
+    );
+  });
 });

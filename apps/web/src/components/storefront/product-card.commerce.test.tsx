@@ -1,9 +1,9 @@
 import { render, screen } from '@testing-library/react';
+import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Product } from '@/lib/products';
 import { StorefrontProductCard } from './product-card';
 
-// Mock dependencies
 vi.mock('next/link', () => ({
   default: ({
     children,
@@ -73,7 +73,6 @@ vi.mock('@/lib/seo-utils', () => ({
   getProductUrl: () => '/product/test',
 }));
 
-// Basic product mock
 const mockProduct: Product = {
   id: 'p1',
   name: 'Test Product',
@@ -90,7 +89,7 @@ const mockProduct: Product = {
   mpn: 'MPN',
 };
 
-describe('StorefrontProductCard', () => {
+describe('StorefrontProductCard commerce states', () => {
   const mockAddToCart = vi.fn();
   const mockUpdateQuantity = vi.fn();
   const mockQuickView = vi.fn();
@@ -101,10 +100,15 @@ describe('StorefrontProductCard', () => {
     mockQuickView.mockReset();
   });
 
-  it('renders product name and price', () => {
+  it('renders discount badge and original price when on sale', () => {
+    const saleProduct = {
+      ...mockProduct,
+      compare_at_price: 125,
+    };
+
     render(
       <StorefrontProductCard
-        product={mockProduct}
+        product={saleProduct}
         staggerClass=""
         onAddToCart={mockAddToCart}
         onUpdateQuantity={mockUpdateQuantity}
@@ -112,32 +116,43 @@ describe('StorefrontProductCard', () => {
       />
     );
 
-    expect(screen.getByText('Test Product')).toBeInTheDocument();
+    expect(screen.getByText('$125')).toBeInTheDocument();
+    expect(screen.getByText('-20%')).toBeInTheDocument();
+    expect(screen.getByText(/original price/i)).toBeInTheDocument();
+    expect(screen.getByText(/current price/i)).toBeInTheDocument();
+  });
+
+  it('does not render discount badge when compare_at_price equals price', () => {
+    const noDiscountProduct = {
+      ...mockProduct,
+      compare_at_price: 100,
+    };
+
+    render(
+      <StorefrontProductCard
+        product={noDiscountProduct}
+        staggerClass=""
+        onAddToCart={mockAddToCart}
+        onUpdateQuantity={mockUpdateQuantity}
+        onQuickView={mockQuickView}
+      />
+    );
+
     expect(screen.getByText('$100')).toBeInTheDocument();
+    expect(screen.queryByText(/-\d+%/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/original price/i)).not.toBeInTheDocument();
   });
 
-  it('prefixes product links with the storefront merchant slug', () => {
+  it('does not render discount badge when discount rounds to 0%', () => {
+    const tinyDiscountProduct = {
+      ...mockProduct,
+      price: 9999,
+      compare_at_price: 10000,
+    };
+
     render(
       <StorefrontProductCard
-        product={mockProduct}
-        staggerClass=""
-        merchantSlug="test-store"
-        onAddToCart={mockAddToCart}
-        onUpdateQuantity={mockUpdateQuantity}
-        onQuickView={mockQuickView}
-      />
-    );
-
-    expect(screen.getByRole('link')).toHaveAttribute(
-      'href',
-      '/test-store/product/test'
-    );
-  });
-
-  it('generates product links when merchantSlug is not provided', () => {
-    render(
-      <StorefrontProductCard
-        product={mockProduct}
+        product={tinyDiscountProduct}
         staggerClass=""
         onAddToCart={mockAddToCart}
         onUpdateQuantity={mockUpdateQuantity}
@@ -145,21 +160,49 @@ describe('StorefrontProductCard', () => {
       />
     );
 
-    expect(screen.getByRole('link')).toHaveAttribute('href', '/product/test');
+    expect(screen.queryByText(/-\d+%/)).not.toBeInTheDocument();
+    expect(screen.getByText('$9999')).toBeInTheDocument();
   });
 
-  it('handles empty merchantSlug gracefully', () => {
+  it('shows out-of-stock state and disables add-to-cart when stock is 0', () => {
+    const outOfStockProduct = {
+      ...mockProduct,
+      stock: 0,
+      manage_stock: true,
+    };
+
     render(
       <StorefrontProductCard
-        product={mockProduct}
+        product={outOfStockProduct}
         staggerClass=""
-        merchantSlug=""
         onAddToCart={mockAddToCart}
         onUpdateQuantity={mockUpdateQuantity}
         onQuickView={mockQuickView}
       />
     );
 
-    expect(screen.getByRole('link')).toHaveAttribute('href', '/product/test');
+    const addButton = screen.getByRole('button', { name: /out of stock/i });
+    expect(addButton).toBeDisabled();
+  });
+
+  it('shows low-stock indicator at threshold', () => {
+    const lowStockProduct = {
+      ...mockProduct,
+      stock: 3,
+      manage_stock: true,
+      low_stock_threshold: 5,
+    };
+
+    render(
+      <StorefrontProductCard
+        product={lowStockProduct}
+        staggerClass=""
+        onAddToCart={mockAddToCart}
+        onUpdateQuantity={mockUpdateQuantity}
+        onQuickView={mockQuickView}
+      />
+    );
+
+    expect(screen.getByText(/low stock/i)).toBeInTheDocument();
   });
 });

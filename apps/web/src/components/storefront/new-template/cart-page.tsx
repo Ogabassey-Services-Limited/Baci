@@ -12,6 +12,7 @@ import {
 import Link from 'next/link';
 import type React from 'react';
 import { useEffect, useState } from 'react';
+import type { CartItem } from '@/hooks/cart/cart-types';
 import { useCart } from '@/hooks/use-cart';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { asRoute } from '@/lib/routes';
@@ -78,9 +79,9 @@ export const CartPage: React.FC = () => {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12">
             {/* Cart Items */}
             <div className="lg:col-span-2 space-y-6">
-              {cart.map((item: any) => (
+              {cart.map((item: CartItem) => (
                 <div
-                  key={item.variant_id || item.id}
+                  key={item.cartItemId}
                   className="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-100 flex gap-4 md:gap-6 group transition-all hover:shadow-md"
                 >
                   <div className="size-24 md:w-32 md:h-32 bg-gray-50 rounded-xl shrink-0 p-2">
@@ -98,9 +99,7 @@ export const CartPage: React.FC = () => {
                           {item.name}
                         </h3>
                         <button type="button"
-                          onClick={() =>
-                            removeFromCart(item.id, item.variant_id)
-                          }
+                          onClick={() => removeFromCart(item.cartItemId)}
                           className="text-gray-400 hover:text-red-600 transition-colors p-1"
                           aria-label="Remove item"
                         >
@@ -109,14 +108,14 @@ export const CartPage: React.FC = () => {
                       </div>
 
                       <div className="flex flex-wrap gap-2 text-sm text-gray-500 mb-3">
-                        {item.variantColor && (
+                        {item.selectedColor && (
                           <span className="bg-gray-50 px-2 py-1 rounded-md border border-gray-100">
-                            {item.variantColor}
+                            {item.selectedColor}
                           </span>
                         )}
-                        {item.variantStorage && (
+                        {item.selectedStorage && (
                           <span className="bg-gray-50 px-2 py-1 rounded-md border border-gray-100">
-                            {item.variantStorage}
+                            {item.selectedStorage}
                           </span>
                         )}
                       </div>
@@ -127,9 +126,8 @@ export const CartPage: React.FC = () => {
                         <button type="button"
                           onClick={() =>
                             updateQuantity(
-                              item.id,
+                              item.cartItemId,
                               Math.max(1, item.quantity - 1),
-                              item.variant_id
                             )
                           }
                           className="size-8 flex items-center justify-center rounded-md bg-white text-gray-600 shadow-sm hover:text-red-600 disabled:opacity-50"
@@ -144,9 +142,8 @@ export const CartPage: React.FC = () => {
                         <button type="button"
                           onClick={() =>
                             updateQuantity(
-                              item.id,
+                              item.cartItemId,
                               item.quantity + 1,
-                              item.variant_id
                             )
                           }
                           className="size-8 flex items-center justify-center rounded-md bg-white text-gray-600 shadow-sm hover:text-red-600"

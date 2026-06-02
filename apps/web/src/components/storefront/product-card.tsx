@@ -1,5 +1,6 @@
 'use client';
 
+import { getProductImageAlt } from '@baci/shared';
 import { Eye, Minus, Plus } from 'lucide-react';
 import type { Route } from 'next';
 import Link from 'next/link';
@@ -90,6 +91,9 @@ export function StorefrontProductCard({
   // Extract category (handles both categories join and direct category)
   const productCategory =
     product.categories?.name || product.category || 'General';
+  const productImageAlt = getProductImageAlt(product, {
+    includeBrandFallback: false,
+  });
 
   const handleAddToCart = () => {
     if (isOutOfStock) return;
@@ -140,7 +144,7 @@ export function StorefrontProductCard({
         >
           <ProductCardImage
             src={product.imageLarge}
-            alt={product.name}
+            alt={productImageAlt}
             data-ai-hint={product.imageHint}
             width={600}
             height={400}
