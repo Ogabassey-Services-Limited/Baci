@@ -44,7 +44,7 @@ export function TabBarIcon({
   badge?: number;
 }) {
   const { colors } = useTheme();
-  
+
   // Spring scale shared value run strictly on C++ thread
   const scale = useSharedValue(1);
 

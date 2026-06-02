@@ -335,6 +335,7 @@ function getMockValidatedProductUrl(
 }
 
 vi.mock('@/lib/seo-utils', () => ({
+  buildStorefrontAcceptedPaymentMethods: () => ['Bank transfer'],
   constructCanonicalUrl: (base: string) => base,
   generateBreadcrumbSchema: (items: unknown) =>
     mockGenerateBreadcrumbSchema(items),
@@ -2575,10 +2576,11 @@ describe('[category]/[productSlug] page render', () => {
         supportEmail: 'support@test.example',
         supportPhone: '+2348000000000',
       }),
-      {
+      expect.objectContaining({
+        acceptedPaymentMethods: ['Bank transfer'],
         productUrl:
           'https://teststore.usebaci.com/smartphones/samsung-galaxy-z-trifold',
-      }
+      })
     );
   });
 
@@ -2631,7 +2633,10 @@ describe('[category]/[productSlug] page render', () => {
       'NG',
       null,
       expect.any(Object),
-      { productUrl: expectedCanonicalUrl }
+      expect.objectContaining({
+        acceptedPaymentMethods: ['Bank transfer'],
+        productUrl: expectedCanonicalUrl,
+      })
     );
     expect(mockGenerateBreadcrumbSchema).toHaveBeenCalledWith(
       expect.arrayContaining([
@@ -2691,7 +2696,10 @@ describe('[category]/[productSlug] page render', () => {
       'NG',
       null,
       expect.any(Object),
-      { productUrl: expectedCanonicalUrl }
+      expect.objectContaining({
+        acceptedPaymentMethods: ['Bank transfer'],
+        productUrl: expectedCanonicalUrl,
+      })
     );
     expect(mockGenerateBreadcrumbSchema).toHaveBeenCalledWith(
       expect.arrayContaining([

@@ -2,11 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo } from 'react-native';
 import {
   cancelAnimation,
-  useSharedValue,
-  withTiming,
-  withSequence,
-  withDelay,
   runOnJS,
+  useSharedValue,
+  withDelay,
+  withSequence,
+  withTiming,
 } from 'react-native-reanimated';
 import {
   NUDGE_HIDDEN_DURATION,
@@ -18,7 +18,7 @@ import { PROACTIVE_MESSAGES } from './types';
 export function useProactiveNudge(isChatOpen: boolean) {
   const [proactiveMsg, setProactiveMsg] = useState<string | null>(null);
   const [reducedMotion, setReducedMotion] = useState(false);
-  
+
   // Reanimated UI-thread Shared Value for continuous C++ fading
   const nudgeFadeAnim = useSharedValue(0);
   const loopGeneration = useSharedValue(0);
@@ -63,7 +63,7 @@ export function useProactiveNudge(isChatOpen: boolean) {
         PROACTIVE_MESSAGES[
           Math.floor(Math.random() * PROACTIVE_MESSAGES.length)
         ];
-      
+
       // Update message on JS thread
       setProactiveMsg(randomMsg);
 
