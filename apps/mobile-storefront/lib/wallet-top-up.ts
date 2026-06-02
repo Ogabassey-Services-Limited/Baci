@@ -9,8 +9,8 @@ const API_URL = EXPO_PUBLIC_API_URL;
 const WalletTopUpGatewaySchema = z.enum(['paystack', 'korapay']);
 
 const WalletTopUpInitializeResponseSchema = z.object({
-  authorization_url: z.string().url(),
-  checkout_url: z.string().url().optional(),
+  authorization_url: z.url(),
+  checkout_url: z.url().optional(),
   gateway: WalletTopUpGatewaySchema,
   reference: z.string(),
   success: z.literal(true),
