@@ -8,11 +8,11 @@ import type { ViewStyle } from 'react-native';
 import { Dimensions } from 'react-native';
 import {
   type AnimatedStyle,
-  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
 } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 import { SPRING_CONFIG } from '@/constants/Colors';
 import type { GestureHandlerRuntime } from '@/lib/optional-gesture-handler';
 
@@ -146,12 +146,12 @@ export function useImageZoom({
               (translateX.get() > threshold || velocity > 500) &&
               currentIndex > 0
             ) {
-              runOnJS(goToPrevious)();
+              scheduleOnRN(goToPrevious);
             } else if (
               (translateX.get() < -threshold || velocity < -500) &&
               currentIndex < totalImages - 1
             ) {
-              runOnJS(goToNext)();
+              scheduleOnRN(goToNext);
             }
 
             // Reset position after swipe attempt
@@ -226,7 +226,7 @@ export function useImageZoom({
         .numberOfTaps(1)
         .onEnd(() => {
           if (scale.get() <= 1.1) {
-            runOnJS(onClose)();
+            scheduleOnRN(onClose);
           }
         })
     : null;

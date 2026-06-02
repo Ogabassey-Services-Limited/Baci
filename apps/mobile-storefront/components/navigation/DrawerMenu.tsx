@@ -16,11 +16,11 @@ import {
 import Animated, {
   Easing,
   interpolate,
-  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useShallow } from 'zustand/react/shallow';
 import { Logo } from '@/components/ui/Logo';
@@ -112,7 +112,7 @@ export function DrawerMenu() {
           if (event.translationX < -80 || event.velocityX < -500) {
             translateX.set(withTiming(-DRAWER_WIDTH, { duration: 200 }));
             backdropOpacity.set(withTiming(0, { duration: 200 }));
-            runOnJS(closeDrawer)();
+            scheduleOnRN(closeDrawer);
           } else {
             translateX.set(withTiming(0, { duration: 200 }));
             backdropOpacity.set(withTiming(1, { duration: 200 }));
@@ -266,10 +266,14 @@ export function DrawerMenu() {
                 { backgroundColor: colors.foreground },
               ]}
               onPress={isAuthenticated ? handleSignOut : handleSignIn}
-              accessibilityLabel={isAuthenticated ? 'Sign out' : 'Login or Register'}
+              accessibilityLabel={
+                isAuthenticated ? 'Sign out' : 'Login or Register'
+              }
               accessibilityRole="button"
             >
-              <Text style={[styles.authButtonText, { color: colors.background }]}>
+              <Text
+                style={[styles.authButtonText, { color: colors.background }]}
+              >
                 {isAuthenticated ? 'Sign Out' : 'Login / Register'}
               </Text>
             </Pressable>

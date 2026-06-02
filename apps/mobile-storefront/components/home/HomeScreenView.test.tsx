@@ -1,8 +1,7 @@
 import { describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import type React from 'react';
-import { Animated } from 'react-native';
 import type { Block } from '@/types/blocks';
+import type { SharedValue } from 'react-native-reanimated';
 import { HomeScreenView } from './HomeScreenView';
 
 jest.mock('expo-image', () => {
@@ -165,7 +164,7 @@ function createProps() {
     blocks,
     contentBottomPadding: 84,
     hasPageConfig: true,
-    headerVisibility: new Animated.Value(1),
+    headerVisibility: { value: 1 } as unknown as SharedValue<number>,
     isConfigLoading: false,
     isElite: false,
     isError: false,

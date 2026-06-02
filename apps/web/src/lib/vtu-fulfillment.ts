@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { getRootDomain } from '@/env';
 import { notifyCustomer } from '@/lib/expo-push';
 import {
   checkTransactionStatus,
@@ -101,6 +102,30 @@ interface VtuTransactionRow {
   transaction_id: string | null;
   type: 'airtime' | 'data' | 'electricity' | 'cable_tv' | 'betting';
 }
+
+type EmailNotificationAttemptKey =
+  | 'customerEmailNotificationAttempted'
+  | 'customerPendingTokenEmailNotificationAttempted';
+
+type EmailNotificationSentKey =
+  | 'customerEmailNotificationSent'
+  | 'customerPendingTokenEmailNotificationSent';
+
+const TOKEN_READY_EMAIL_KEYS = {
+  attempted: 'customerEmailNotificationAttempted',
+  sent: 'customerEmailNotificationSent',
+} as const satisfies {
+  attempted: EmailNotificationAttemptKey;
+  sent: EmailNotificationSentKey;
+};
+
+const TOKEN_PENDING_EMAIL_KEYS = {
+  attempted: 'customerPendingTokenEmailNotificationAttempted',
+  sent: 'customerPendingTokenEmailNotificationSent',
+} as const satisfies {
+  attempted: EmailNotificationAttemptKey;
+  sent: EmailNotificationSentKey;
+};
 
 interface CreditWalletResult {
   new_balance: unknown;
@@ -1025,6 +1050,49 @@ async function claimCustomerNotificationAttempt({
   return true;
 }
 
+async function claimCustomerEmailNotificationAttempt({
+  attemptedKey,
+  metadata,
+  row,
+  sentKey,
+  supabase,
+}: {
+  attemptedKey: EmailNotificationAttemptKey;
+  metadata: Record<string, unknown>;
+  row: VtuTransactionRow;
+  sentKey: EmailNotificationSentKey;
+  supabase: SupabaseClient;
+}) {
+  if (metadata[attemptedKey] === true || metadata[sentKey] === true) {
+    return false;
+  }
+
+  const { data, error } = await supabase.rpc(
+    'claim_vtu_customer_email_metadata_flag',
+    {
+      p_attempt_key: attemptedKey,
+      p_sent_key: sentKey,
+      p_transaction_id: row.id,
+    }
+  );
+
+  if (error) {
+    console.error('Failed to claim VTU customer email notification attempt:', {
+      error: error.message,
+      transactionId: row.id,
+    });
+    return false;
+  }
+
+  const claimedMetadata = readMetadataRecord(data);
+  if (Object.keys(claimedMetadata).length === 0) {
+    return false;
+  }
+
+  setMetadataValue(metadata, attemptedKey, true);
+  return true;
+}
+
 async function notifyVtuCustomerSuccess({
   cashbackAmount,
   customerWalletCredited,
@@ -1038,17 +1106,17 @@ async function notifyVtuCustomerSuccess({
   row: VtuTransactionRow;
   supabase: SupabaseClient;
 }) {
-  if (!row.customer_id || metadata.customerNotificationAttempted === true) {
+  if (!row.customer_id) {
     return { metadataChanged: false };
   }
 
   const { data: customer, error } = await supabase
     .from('customers')
-    .select('user_id')
+    .select('user_id, email, first_name, last_name')
     .eq('id', row.customer_id)
     .maybeSingle();
 
-  if (error || !customer?.user_id) {
+  if (error || (!customer?.user_id && !customer?.email)) {
     if (error) {
       console.error('Failed to resolve VTU customer notification user:', {
         error: error.message,
@@ -1058,20 +1126,58 @@ async function notifyVtuCustomerSuccess({
     return { metadataChanged: false };
   }
 
-  const claimedNotification = await claimCustomerNotificationAttempt({
-    metadata,
-    row,
-    supabase,
-  });
-  if (!claimedNotification) {
-    return { metadataChanged: false };
+  const { data: merchant, error: merchantError } = await supabase
+    .from('merchants')
+    .select('business_name, slug, support_email')
+    .eq('id', row.merchant_id)
+    .single();
+
+  if (merchantError) {
+    console.error('Failed to resolve VTU merchant notification context:', {
+      error: merchantError.message,
+      merchantId: row.merchant_id,
+      transactionId: row.id,
+    });
   }
 
   const label = VTU_TYPE_LABELS[row.type];
   const provider = getVtuProviderLabel(row);
   const voucherPin = getVoucherPinFromMetadata(metadata);
-  const isTokenReady =
-    canResolveBillVoucherPin(row.type) && Boolean(voucherPin);
+  const expectsToken = canResolveBillVoucherPin(row.type);
+  const isTokenReady = expectsToken && Boolean(voucherPin);
+  const isTokenPending = expectsToken && !isTokenReady;
+  const emailKeys = isTokenPending
+    ? TOKEN_PENDING_EMAIL_KEYS
+    : TOKEN_READY_EMAIL_KEYS;
+  const shouldAttemptPush =
+    Boolean(customer.user_id) &&
+    metadata.customerNotificationAttempted !== true;
+  const shouldAttemptEmail =
+    Boolean(customer.email) &&
+    metadata[emailKeys.attempted] !== true &&
+    metadata[emailKeys.sent] !== true;
+
+  if (!shouldAttemptPush && !shouldAttemptEmail) {
+    return { metadataChanged: false };
+  }
+
+  const claimedNotification = shouldAttemptPush
+    ? await claimCustomerNotificationAttempt({
+        metadata,
+        row,
+        supabase,
+      })
+    : false;
+  const claimedEmail = shouldAttemptEmail
+    ? await claimCustomerEmailNotificationAttempt({
+        attemptedKey: emailKeys.attempted,
+        metadata,
+        row,
+        sentKey: emailKeys.sent,
+        supabase,
+      })
+    : false;
+
   const baseBody = `Your ${provider} ${label.toLowerCase()} purchase of ${formatNaira(Number(row.amount) || 0)} was successful.`;
   const cashbackBody =
     cashbackAmount > 0 && customerWalletCredited
@@ -1100,31 +1206,123 @@ async function notifyVtuCustomerSuccess({
         vtuType: row.type,
       };
 
-  let metadataChanged = true;
+  let metadataChanged = claimedNotification || claimedEmail;
 
-  try {
-    const result = await notifyCustomer(
-      customer.user_id,
-      title,
-      body,
-      payload,
-      'orders'
-    );
+  // 1. Send push notification if user_id exists
+  if (shouldAttemptPush && customer.user_id && claimedNotification) {
+    try {
+      const result = await notifyCustomer(
+        customer.user_id,
+        title,
+        body,
+        payload,
+        'orders'
+      );
 
-    metadataChanged =
-      setMetadataValue(metadata, 'customerNotificationSent', result.sent > 0) ||
-      metadataChanged;
-    return { metadataChanged };
-  } catch (error) {
-    console.error('Failed to send VTU success notification:', {
-      error: error instanceof Error ? error.message : String(error),
-      transactionId: row.id,
-    });
-    metadataChanged =
-      setMetadataValue(metadata, 'customerNotificationSent', false) ||
-      metadataChanged;
-    return { metadataChanged };
+      metadataChanged =
+        setMetadataValue(
+          metadata,
+          'customerNotificationSent',
+          result.sent > 0
+        ) || metadataChanged;
+    } catch (error) {
+      console.error('Failed to send VTU success notification:', {
+        error: error instanceof Error ? error.message : String(error),
+        transactionId: row.id,
+      });
+      metadataChanged =
+        setMetadataValue(metadata, 'customerNotificationSent', false) ||
+        metadataChanged;
+    }
   }
+
+  // 2. Send email receipt to customer if email exists
+  if (shouldAttemptEmail && customer.email && claimedEmail) {
+    try {
+      const { sendEmail } = await import('@/lib/zeptomail');
+      const { generateVtuTokenReceiptEmail, generateVtuTokenReceiptText } =
+        await import('@/lib/email-templates');
+
+      const merchantName = merchant?.business_name || 'Baci Merchant';
+      const rootDomain = getRootDomain() || 'usebaci.com';
+      const merchantUrl = merchant?.slug
+        ? `https://${merchant.slug}.${rootDomain}`
+        : `https://${rootDomain}`;
+      const customerName = customer.first_name
+        ? `${customer.first_name} ${customer.last_name || ''}`.trim()
+        : 'Customer';
+
+      const emailHtml = generateVtuTokenReceiptEmail({
+        transactionId: row.id,
+        reference: row.request_reference,
+        customerName,
+        amount: Number(row.amount) || 0,
+        type: row.type,
+        providerLabel: provider,
+        customerIdentifier: row.customer_identifier ?? null,
+        voucherPin: voucherPin ?? null,
+        phone_number: row.phone_number ?? null,
+        merchantName,
+        merchantUrl,
+        supportEmail: merchant?.support_email ?? undefined,
+      });
+
+      const emailText = generateVtuTokenReceiptText({
+        transactionId: row.id,
+        reference: row.request_reference,
+        customerName,
+        amount: Number(row.amount) || 0,
+        type: row.type,
+        providerLabel: provider,
+        customerIdentifier: row.customer_identifier ?? null,
+        voucherPin: voucherPin ?? null,
+        phone_number: row.phone_number ?? null,
+        merchantName,
+        merchantUrl,
+        supportEmail: merchant?.support_email ?? undefined,
+      });
+
+      const emailResult = await sendEmail({
+        to: customer.email,
+        toName: customerName,
+        subject: isTokenReady
+          ? `Your Prepaid Token is Ready - ${merchantName}`
+          : `Receipt for ${label} Purchase - ${merchantName}`,
+        htmlContent: emailHtml,
+        textContent: emailText,
+        emailType: 'orders',
+        fromName: merchantName,
+        auditContext: {
+          merchantId: row.merchant_id,
+          customerId: row.customer_id,
+          metadata: {
+            vtuTransactionId: row.id,
+            vtuType: row.type,
+          },
+        },
+      });
+
+      metadataChanged =
+        setMetadataValue(metadata, emailKeys.attempted, true) ||
+        metadataChanged;
+      metadataChanged =
+        setMetadataValue(metadata, emailKeys.sent, emailResult.success) ||
+        metadataChanged;
+    } catch (emailError) {
+      console.error('Failed to send VTU customer email receipt:', {
+        error:
+          emailError instanceof Error ? emailError.message : String(emailError),
+        transactionId: row.id,
+      });
+      metadataChanged =
+        setMetadataValue(metadata, emailKeys.attempted, true) ||
+        metadataChanged;
+      metadataChanged =
+        setMetadataValue(metadata, emailKeys.sent, false) || metadataChanged;
+    }
+  }
+
+  return { metadataChanged };
 }
 
 export async function backfillVtuVoucherPin({

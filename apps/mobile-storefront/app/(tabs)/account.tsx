@@ -1,13 +1,6 @@
-/**
- * Account Screen
- * User profile, orders, saved items, settings
- * Includes real-time loyalty points sync
- */
-
-import type { RealtimeChannel } from '@supabase/supabase-js';
 import type { Href } from 'expo-router';
 import { router } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useIsFocused } from 'expo-router/react-navigation';
 import {
   ActivityIndicator,
   Alert,
@@ -27,9 +20,9 @@ import { StorefrontScreenShell } from '@/components/storefront/StorefrontScreenS
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import { useMerchant } from '@/hooks';
+import { useAccountLoyaltyPoints } from '@/hooks/use-account-loyalty-points';
 import { useAuthStatus } from '@/hooks/use-auth-guard';
 import { useStorefrontInsets } from '@/hooks/use-storefront-insets';
-import { supabase } from '@/lib/supabase';
 import { type Customer, useAuthStore } from '@/stores/auth-store';
 
 export default function AccountScreen() {
@@ -44,6 +37,7 @@ export default function AccountScreen() {
   const signOut = useAuthStore((state) => state.signOut);
   const { data: merchant } = useMerchant();
   const { isInitialized, user: authUser } = useAuthStatus();
+  const isFocused = useIsFocused();
   const safeCustomer = customer ?? null;
   const userMeta = session?.user?.user_metadata;
   const effectiveCustomer: Customer | null =
@@ -62,55 +56,12 @@ export default function AccountScreen() {
               : undefined,
         }
       : null);
-  const [loyaltyPoints, setLoyaltyPoints] = useState<number | undefined>(
-    safeCustomer?.loyalty_points
-  );
-  const channelRef = useRef<RealtimeChannel | null>(null);
+  const loyaltyPoints = useAccountLoyaltyPoints(safeCustomer, isFocused);
   const { getScrollContentStyle } = useStorefrontInsets();
   const menuSections = getAccountMenuSections({
     canDeleteAccount: Boolean(authUser),
     hasCustomerProfile: Boolean(safeCustomer),
   });
-
-  useEffect(() => {
-    setLoyaltyPoints(safeCustomer?.loyalty_points);
-  }, [safeCustomer?.loyalty_points]);
-
-  useEffect(() => {
-    if (!safeCustomer?.id) {
-      return;
-    }
-
-    const channel = supabase
-      .channel(`account-loyalty-${safeCustomer.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'customers',
-          filter: `id=eq.${safeCustomer.id}`,
-        },
-        (payload) => {
-          if (payload.new && 'loyalty_points' in payload.new) {
-            setLoyaltyPoints(payload.new.loyalty_points as number);
-          }
-        }
-      )
-      .subscribe((_status, err) => {
-        if (err) {
-          console.error('Realtime subscription error:', err);
-        }
-      });
-
-    channelRef.current = channel;
-    return () => {
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
-      }
-    };
-  }, [safeCustomer?.id]);
 
   if (!isInitialized) {
     return (

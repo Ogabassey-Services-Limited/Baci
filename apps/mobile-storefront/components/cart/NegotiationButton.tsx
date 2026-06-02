@@ -2,6 +2,7 @@ import Ionicons from '@react-native-vector-icons/ionicons';
 import { Pressable, Text, View } from 'react-native';
 import type Colors from '@/constants/Colors';
 import type { CartItem } from '@/stores/cart-store';
+import { CART_PRESS_FEEDBACK_STYLE } from './cart-press-feedback';
 import styles from './styles';
 
 interface NegotiationButtonProps {
@@ -42,12 +43,13 @@ export default function NegotiationButton({
 
   return (
     <Pressable
-      style={[
+      style={({ pressed }) => [
         styles.negotiateButton,
         {
           backgroundColor: negotiateSurface,
           borderColor: negotiateBorder,
         },
+        pressed && CART_PRESS_FEEDBACK_STYLE,
       ]}
       onPress={() => openItemNegotiation?.(item)}
       accessibilityRole="button"
