@@ -1,17 +1,19 @@
-/**
- * Skeleton Loading Components
- * 2026 Best Practice: Show content shapes while loading for perceived instant loading
- */
-
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import {
-  Animated,
   type DimensionValue,
   type StyleProp,
   StyleSheet,
   View,
   type ViewStyle,
 } from 'react-native';
+import Animated, {
+  cancelAnimation,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 
@@ -30,31 +32,29 @@ export function Skeleton({
 }: SkeletonProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const animatedValue = useRef(new Animated.Value(0)).current;
+  
+  // Reanimated Shared Value for loading shimmers
+  const opacityValue = useSharedValue(0.3);
 
   useEffect(() => {
-    const animation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(animatedValue, {
-          toValue: 1,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(animatedValue, {
-          toValue: 0,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-      ])
+    // Pure Reanimated infinite loop driving opacity pulses natively on C++ thread
+    opacityValue.value = withRepeat(
+      withSequence(
+        withTiming(0.7, { duration: 1000 }),
+        withTiming(0.3, { duration: 1000 })
+      ),
+      -1, // Infinitely loop
+      false // Handle sequences within repeating structure
     );
-    animation.start();
-    return () => animation.stop();
-  }, [animatedValue]);
+    return () => {
+      cancelAnimation(opacityValue);
+      opacityValue.value = 0.3;
+    };
+  }, [opacityValue]);
 
-  const opacity = animatedValue.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.3, 0.7],
-  });
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacityValue.value,
+  }));
 
   return (
     <Animated.View
@@ -64,12 +64,13 @@ export function Skeleton({
           height,
           borderRadius,
           backgroundColor: colors.border,
-          opacity,
         },
         style,
+        animatedStyle,
       ]}
       accessibilityRole="progressbar"
       accessibilityLabel="Loading content"
+      accessible
     />
   );
 }
@@ -101,7 +102,7 @@ export function ProductGridSkeleton({ count = 4 }: { count?: number }) {
     <View style={styles.grid}>
       {Array.from({ length: count }).map((_, index) => (
         <View
-          key={index}
+          key={`grid-skeleton-item-${index}`}
           style={[
             styles.gridItem,
             index % 2 === 0 ? styles.gridLeft : styles.gridRight,

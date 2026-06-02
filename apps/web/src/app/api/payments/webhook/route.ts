@@ -46,6 +46,12 @@ import { isValidUuid, sanitizeForLog } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { fulfillPendingVtuTransaction } from '@/lib/vtu-fulfillment';
+import {
+  extractMetadataField,
+  isString,
+  normalizeMetadata,
+  scheduleVoucherPinBackfill,
+} from '@/lib/vtu-voucher-backfill';
 import { sendEmail } from '@/lib/zeptomail';
 import { referenceSchema } from '@/schemas/payments';
 
@@ -1389,14 +1395,48 @@ export async function POST(request: NextRequest) {
       metadata?.transaction_type === 'vtu_purchase' &&
       typeof metadata.vtu_transaction_id === 'string'
     ) {
+      const vtuTransactionId = metadata.vtu_transaction_id;
       const fulfillment = await fulfillPendingVtuTransaction({
         supabase,
-        transactionId: metadata.vtu_transaction_id,
+        transactionId: vtuTransactionId,
       });
 
-      if (fulfillment.status !== 'successful') {
+      if (fulfillment.status === 'processing') {
+        after(async () => {
+          try {
+            const { data: vtuTx, error: vtuTxError } = await supabase
+              .from('vtu_transactions')
+              .select(
+                'id, created_at, type, status, amount, network_provider, phone_number, biller_name, biller_item_code, customer_identifier, customer_name, request_reference, transaction_id, error_message, customer_cashback, metadata'
+              )
+              .eq('id', vtuTransactionId)
+              .single();
+
+            if (vtuTx && !vtuTxError) {
+              const txMetadata = normalizeMetadata(vtuTx.metadata);
+              const voucherPin = extractMetadataField(
+                txMetadata,
+                'voucherPin',
+                isString
+              );
+              await scheduleVoucherPinBackfill({
+                metadata: txMetadata,
+                originalMetadata: vtuTx.metadata,
+                supabase,
+                transaction: vtuTx,
+                voucherPin,
+              });
+            }
+          } catch (err) {
+            console.error(
+              'Failed to trigger background backfill in webhook/route.ts:',
+              err
+            );
+          }
+        });
+      } else if (fulfillment.status !== 'successful') {
         console.error('VTU fulfillment failed after payment', {
-          transactionId: metadata.vtu_transaction_id,
+          transactionId: vtuTransactionId,
           status: fulfillment.status,
           reference: fulfillment.reference,
         });
@@ -1406,7 +1446,9 @@ export async function POST(request: NextRequest) {
         message:
           fulfillment.status === 'successful'
             ? 'VTU payment fulfilled'
-            : 'VTU fulfillment failed — requires manual review',
+            : fulfillment.status === 'processing'
+              ? 'VTU payment pending fulfillment'
+              : 'VTU fulfillment failed — requires manual review',
       });
     }
 

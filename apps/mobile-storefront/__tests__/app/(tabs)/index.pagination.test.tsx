@@ -35,6 +35,59 @@ describe('HomeScreen pagination', () => {
     });
   });
 
+  it('does not emit load-more signals while the search overlay is visible', () => {
+    render(<HomeScreen />);
+
+    fireEvent.press(screen.getByTestId('mock-header-search'));
+    fireEvent.scroll(screen.getByTestId('home-scroll-view'), {
+      nativeEvent: {
+        contentOffset: { x: 0, y: 1100 },
+        contentSize: { width: 375, height: 1600 },
+        layoutMeasurement: { width: 375, height: 300 },
+      },
+    });
+
+    const productGridCalls = getProductGridCalls();
+    expect(productGridCalls[productGridCalls.length - 1]?.[0]).toMatchObject({
+      productGridLoadMoreSignal: 0,
+    });
+  });
+
+  it('emits only one load-more signal while staying near the bottom at the same content height', () => {
+    render(<HomeScreen />);
+
+    const scrollView = screen.getByTestId('home-scroll-view');
+
+    fireEvent.scroll(scrollView, {
+      nativeEvent: {
+        contentOffset: { x: 0, y: 1100 },
+        contentSize: { width: 375, height: 1600 },
+        layoutMeasurement: { width: 375, height: 300 },
+      },
+    });
+
+    fireEvent.scroll(scrollView, {
+      nativeEvent: {
+        contentOffset: { x: 0, y: 1120 },
+        contentSize: { width: 375, height: 1600 },
+        layoutMeasurement: { width: 375, height: 300 },
+      },
+    });
+
+    fireEvent.scroll(scrollView, {
+      nativeEvent: {
+        contentOffset: { x: 0, y: 1140 },
+        contentSize: { width: 375, height: 1600 },
+        layoutMeasurement: { width: 375, height: 300 },
+      },
+    });
+
+    const productGridCalls = getProductGridCalls();
+    expect(productGridCalls[productGridCalls.length - 1]?.[0]).toMatchObject({
+      productGridLoadMoreSignal: 1,
+    });
+  });
+
   it('does not emit another load-more signal when the user scrolls upward near the bottom', () => {
     render(<HomeScreen />);
 

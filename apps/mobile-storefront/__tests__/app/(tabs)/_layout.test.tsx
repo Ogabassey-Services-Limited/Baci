@@ -10,7 +10,6 @@ import {
   type ViewStyle,
 } from 'react-native';
 import TabLayout from '@/app/(tabs)/_layout';
-import { TAB_BAR_BASE_HEIGHT } from '@/constants/layout';
 
 const MockText = Text;
 const MockView = View;
@@ -54,8 +53,14 @@ type MockTabsScreenProps = {
 type MockTabsProps = {
   children?: React.ReactNode;
   screenOptions?: {
+    headerStyle?: ViewStyle;
+    headerTintColor?: string;
+    tabBarActiveTintColor?: string;
+    tabBarInactiveTintColor?: string;
     tabBarStyle?: ViewStyle;
+    lazy?: boolean;
   };
+  tabBar?: (props: unknown) => React.ReactNode;
 };
 
 const mockTabsScreen = jest.fn(({ name, options }: MockTabsScreenProps) => (
@@ -76,15 +81,24 @@ const mockTabsScreen = jest.fn(({ name, options }: MockTabsScreenProps) => (
     })}
   </MockView>
 ));
-const mockTabs = jest.fn(({ children, screenOptions }: MockTabsProps) => (
-  <MockView
-    testID="tabs-root"
-    accessibilityLabel="tabs root"
-    style={screenOptions?.tabBarStyle}
-  >
-    {children}
-  </MockView>
-));
+const mockTabs = jest.fn(
+  ({ children, screenOptions, tabBar }: MockTabsProps) => (
+    <MockView
+      testID="tabs-root"
+      accessibilityLabel="tabs root"
+      style={screenOptions?.tabBarStyle}
+    >
+      {children}
+      {tabBar?.({})}
+    </MockView>
+  )
+);
+
+jest.mock('@/components/navigation/CustomTabBar', () => ({
+  CustomTabBar: () => (
+    <MockView testID="custom-tab-bar" accessibilityLabel="custom tab bar" />
+  ),
+}));
 
 jest.mock('@react-native-vector-icons/ionicons', () => {
   const { Text: MockIconText } =
@@ -204,21 +218,15 @@ describe('TabLayout', () => {
     expect(screen.getByLabelText('tabs root')).toBeOnTheScreen();
   });
 
-  it('keeps bottom tab sizing based on safe-area insets without offsetting the top edge', () => {
+  it('delegates bottom tab sizing to the custom tab bar without offsetting the tabs root', () => {
     render(<TabLayout />);
 
     const tabsRootStyle = StyleSheet.flatten(
       screen.getByLabelText('tabs root').props.style
     );
 
-    expect(tabsRootStyle).toMatchObject({
-      height:
-        TAB_BAR_BASE_HEIGHT +
-        (mockSafeAreaInsets.bottom > 0 ? mockSafeAreaInsets.bottom : 8) +
-        6,
-      paddingBottom:
-        mockSafeAreaInsets.bottom > 0 ? mockSafeAreaInsets.bottom : 8,
-    });
+    expect(tabsRootStyle).toBeUndefined();
+    expect(screen.getByLabelText('custom tab bar')).toBeOnTheScreen();
   });
 
   it('explicitly keeps the cart tab header hidden', () => {
@@ -232,18 +240,25 @@ describe('TabLayout', () => {
   it('uses theme colors for the tab chrome while preserving badge contrast', () => {
     render(<TabLayout />);
 
-    const tabsRootStyle = StyleSheet.flatten(
-      screen.getByLabelText('tabs root').props.style
-    );
+    const tabsProps = mockTabs.mock.calls.at(-1)?.[0];
     const cartBadgeText = screen.getByText('2');
     const cartBadgeTextStyle = StyleSheet.flatten(cartBadgeText.props.style);
+    const cartBadge = screen.UNSAFE_getAllByType(View).find((node) => {
+      const style = StyleSheet.flatten(node.props.style);
+      return style?.backgroundColor === mockThemeColors.primary;
+    });
     const cartBadgeStyle = StyleSheet.flatten(
-      cartBadgeText.parent?.parent?.props.style
+      cartBadge?.props.style as StyleProp<ViewStyle>
     );
 
-    expect(tabsRootStyle).toMatchObject({
-      backgroundColor: mockThemeColors.card,
-      borderTopColor: mockThemeColors.border,
+    expect(tabsProps?.screenOptions).toMatchObject({
+      headerStyle: {
+        backgroundColor: mockThemeColors.background,
+      },
+      headerTintColor: mockThemeColors.text,
+      tabBarActiveTintColor: mockThemeColors.text,
+      tabBarInactiveTintColor: mockThemeColors.mutedForeground,
+      lazy: true,
     });
     expect(cartBadgeStyle).toMatchObject({
       backgroundColor: mockThemeColors.primary,

@@ -15,8 +15,8 @@ import { RootLayoutNav } from '@/components/navigation/RootLayoutNav';
 import { usePushNotifications } from '@/hooks/use-push-notifications';
 import { offlineQueue } from '@/lib/offline-queue';
 import { DEFAULT_SYNC_STORAGE_KEYS, initializeStorage } from '@/lib/storage';
-import { initAnalytics } from '@/services/analytics';
 import { initAdTracking } from '@/services/ad-tracking';
+import { initAnalytics } from '@/services/analytics';
 import { type CreateOrderRequest, createOrder } from '@/services/orders';
 import { useAuthStore } from '@/stores/auth-store';
 
@@ -187,9 +187,13 @@ export default function RootLayout() {
         isReady={isInitialized && isStorageReady}
         onAnimationEnd={() => setShowSplash(false)}
       >
-        <RootLayoutNav persistenceEnabled={false} />
+        {isStorageReady ? <RootLayoutNav persistenceEnabled={false} /> : null}
       </AnimatedSplash>
     );
+  }
+
+  if (!isStorageReady) {
+    return null;
   }
 
   return <RootLayoutNav persistenceEnabled />;

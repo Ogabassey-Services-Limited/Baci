@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { ALL_BRANCH_SCOPE, type BranchScope } from '@/schemas/branch';
 import { useBranchScope } from '../useBranchScope';
 import { useMerchant } from '../useMerchant';
+import { applyOrderListVisibilityFilter } from './order-list-visibility';
 import type { OrdersPage, OrderWithCount } from './order-types';
 
 const PAGE_SIZE = 20;
@@ -29,6 +30,8 @@ export async function fetchOrders(
     .eq('merchant_id', merchantId)
     .order('created_at', { ascending: false })
     .range(cursor, cursor + PAGE_SIZE - 1);
+
+  query = applyOrderListVisibilityFilter(query);
 
   if (scope.type === 'branch') {
     query = query.eq('branch_id', scope.branchId);

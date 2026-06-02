@@ -109,7 +109,6 @@ export async function setupNotificationChannels() {
       importance: Notifications.AndroidImportance.MAX,
       vibrationPattern: [0, 250, 250, 250],
       lightColor: '#DC2626',
-      sound: 'default',
       enableVibrate: true,
       showBadge: true,
     });
@@ -120,7 +119,6 @@ export async function setupNotificationChannels() {
       importance: Notifications.AndroidImportance.HIGH,
       vibrationPattern: [0, 250, 250, 250],
       lightColor: '#10B981',
-      sound: 'default',
       enableVibrate: true,
       showBadge: true,
     });
@@ -130,7 +128,6 @@ export async function setupNotificationChannels() {
       name: 'Stock Alerts',
       importance: Notifications.AndroidImportance.DEFAULT,
       lightColor: '#F59E0B',
-      sound: 'default',
       showBadge: true,
     });
 
@@ -250,7 +247,6 @@ export async function scheduleLocalNotification(
       title,
       body,
       data,
-      sound: 'default',
       ...(Platform.OS === 'android' && { channelId }),
     },
     trigger: null, // Immediate

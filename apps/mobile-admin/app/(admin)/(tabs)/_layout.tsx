@@ -62,7 +62,6 @@ export default function TabLayout() {
           name="orders"
           options={{
             title: 'Orders',
-            tabBarBadge: failedCount > 0 ? failedCount : undefined,
             tabBarIcon: ({ color, focused }) => (
               <View
                 style={
@@ -105,6 +104,8 @@ export default function TabLayout() {
           name="customers"
           options={{
             title: 'Customers',
+            // Follow-up checkout drop-offs belong with customer outreach, not Orders.
+            tabBarBadge: failedCount > 0 ? failedCount : undefined,
             tabBarIcon: ({ color, focused }) => (
               <View
                 style={

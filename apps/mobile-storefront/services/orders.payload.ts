@@ -1,4 +1,5 @@
 import type { CreateOrderRequest } from './orders.schemas';
+import { getInitialPaymentStatus } from './payment-status';
 
 interface BuildOrderPayloadInput {
   merchantId: string;
@@ -39,8 +40,7 @@ export function buildOrderPayload({
     payment_method: request.payment_method,
     selected_quote_id: request.selected_quote_id ?? null,
     shipping_provider: request.shipping_provider ?? null,
-    payment_status:
-      request.payment_method === 'pay_on_delivery' ? 'pending' : 'unpaid',
+    payment_status: getInitialPaymentStatus(request.payment_method),
     shipping_status: 'pending',
     shipping_address: {
       firstName: request.shipping_address.firstName,

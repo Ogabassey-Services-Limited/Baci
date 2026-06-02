@@ -170,7 +170,7 @@ describe('finalizeCheckoutPayment', () => {
     expect(runPostOrderSideEffects).toHaveBeenCalledTimes(1);
   });
 
-  it('initializes gateway payments with an idempotency key before routing', async () => {
+  it('initializes gateway payments with an idempotency key before routing and post-order side effects', async () => {
     const setIsProcessing = jest.fn();
     const runPostOrderSideEffects = jest.fn();
     const isOrderInFlight = { current: true };

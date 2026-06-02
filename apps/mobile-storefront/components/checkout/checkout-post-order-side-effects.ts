@@ -5,7 +5,6 @@ import {
 import { supabase } from '@/lib/supabase';
 import type { ShippingAddressInput } from '@/lib/validation';
 import { trackError } from '@/services/analytics';
-import { scheduleLocalNotification } from '@/services/push-notifications';
 import { CHECKOUT_MERCHANT_ID } from './checkout-screen.constants';
 
 interface RunPostOrderSideEffectsParams {
@@ -14,8 +13,6 @@ interface RunPostOrderSideEffectsParams {
   customerEmail: string;
   customerId?: string;
   isAuthenticated: boolean;
-  orderId: string;
-  orderNumber: string;
   saveAsDefaultAddress: boolean;
   saveDetails: boolean;
   selectedSavedAddressId: string | null;
@@ -27,8 +24,6 @@ export async function runCheckoutPostOrderSideEffects({
   customerEmail,
   customerId,
   isAuthenticated,
-  orderId,
-  orderNumber,
   saveAsDefaultAddress,
   saveDetails,
   selectedSavedAddressId,
@@ -40,13 +35,6 @@ export async function runCheckoutPostOrderSideEffects({
       selectedSavedAddressId,
     });
   }
-
-  await scheduleLocalNotification(
-    'Order Received! 📦',
-    `Your order #${orderNumber} is being processed. We'll notify you when it ships.`,
-    { type: 'order_update', orderNumber, orderId },
-    1
-  );
 
   if (!isAuthenticated && saveDetails && accountPassword.length >= 6) {
     try {
