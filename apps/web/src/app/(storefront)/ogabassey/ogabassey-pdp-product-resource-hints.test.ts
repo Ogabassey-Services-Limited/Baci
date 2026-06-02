@@ -53,7 +53,10 @@ vi.mock('react-dom', () => ({
   preload: mockPreload,
 }));
 
-import { OgabasseyPdpProductResourceHints } from './ogabassey-pdp-product-resource-hints';
+import {
+  OgabasseyPdpProductResourceHints,
+  preloadOgabasseyPdpProductResources,
+} from './ogabassey-pdp-product-resource-hints';
 
 describe('OgabasseyPdpProductResourceHints', () => {
   beforeEach(() => {
@@ -131,6 +134,41 @@ describe('OgabasseyPdpProductResourceHints', () => {
     expect(mockPreload).toHaveBeenCalledWith(
       expect.any(String),
       expect.objectContaining({ type: 'image/png' })
+    );
+  });
+
+  it('keeps transformed CDN mobile and desktop preloads distinct by image source metadata', () => {
+    const transformedProductImage =
+      'https://cdn.ogabassey.com/image/width=750,quality=35,format=auto/core-assets/products/lenovo-legion.avif';
+
+    preloadOgabasseyPdpProductResources({ src: transformedProductImage });
+
+    expect(mockPreload).toHaveBeenCalledTimes(2);
+
+    const [mobileHref, mobileOptions] = mockPreload.mock.calls[0] ?? [];
+    const [desktopHref, desktopOptions] = mockPreload.mock.calls[1] ?? [];
+
+    expect(mobileHref).toBe(transformedProductImage);
+    expect(desktopHref).toBe(transformedProductImage);
+    expect(mobileOptions).toEqual(
+      expect.objectContaining({
+        imageSizes: OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_SIZES,
+        imageSrcSet: expect.stringContaining('256w'),
+        media: OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA,
+      })
+    );
+    expect(desktopOptions).toEqual(
+      expect.objectContaining({
+        imageSizes: OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
+        imageSrcSet: expect.stringContaining('1920w'),
+        media: OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_MEDIA,
+      })
+    );
+    expect(mobileOptions).not.toEqual(
+      expect.objectContaining({
+        imageSizes: desktopOptions?.imageSizes,
+        imageSrcSet: desktopOptions?.imageSrcSet,
+      })
     );
   });
 

@@ -85,11 +85,11 @@ function buildProductImagePreloadProps({
   return [mobileProps, desktopProps];
 }
 
-export function OgabasseyPdpProductResourceHints({
+export function preloadOgabasseyPdpProductResources({
   src,
-}: ProductResourceHintInput): null {
+}: ProductResourceHintInput): void {
   const props = buildProductImagePreloadProps({ src });
-  if (!props) return null;
+  if (!props) return;
 
   for (const propSet of props) {
     // Keep PDP image hints out of the page body. Next/Vercel resume can drift
@@ -104,6 +104,11 @@ export function OgabasseyPdpProductResourceHints({
       type: propSet.type,
     });
   }
+}
 
+export function OgabasseyPdpProductResourceHints({
+  src,
+}: ProductResourceHintInput): null {
+  preloadOgabasseyPdpProductResources({ src });
   return null;
 }
