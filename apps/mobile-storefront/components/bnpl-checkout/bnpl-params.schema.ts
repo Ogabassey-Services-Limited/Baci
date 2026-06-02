@@ -11,7 +11,6 @@ export const BNPLParamsSchema = z.object({
   customerName: z.string().optional(),
   customerPhone: z.string().optional(),
   merchantSlug: z.string().optional(),
-  merchantDomain: z.string().optional(),
   reference: z.string().optional(),
   trackingToken: z.string().optional(),
 });

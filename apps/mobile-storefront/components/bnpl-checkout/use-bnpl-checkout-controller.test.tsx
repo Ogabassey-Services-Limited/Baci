@@ -75,11 +75,10 @@ describe('useBNPLCheckoutController', () => {
     expect(jest.getTimerCount()).toBe(0);
   });
 
-  it('handles trusted SPA success navigation messages from the WebView', () => {
+  it('handles trusted app-host SPA success navigation messages from the WebView', () => {
     jest.useFakeTimers();
     mockRouteParams = {
       gateway: 'credit_direct',
-      merchantDomain: 'ogabassey.com',
       merchantSlug: 'ogabassey',
       orderId: 'order-123',
       trackingToken: 'track-token-123',
@@ -91,7 +90,7 @@ describe('useBNPLCheckoutController', () => {
         nativeEvent: {
           data: JSON.stringify({
             type: 'navigation',
-            url: 'https://ogabassey.com/order-success?reference=BAC-123',
+            url: 'https://usebaci.com/ogabassey/order-success?reference=BAC-123',
           }),
         },
       });
@@ -115,7 +114,7 @@ describe('useBNPLCheckoutController', () => {
     });
   });
 
-  it('ignores untrusted SPA success navigation messages from the WebView', () => {
+  it('does not trust merchantDomain route params for SPA success navigation messages', () => {
     mockRouteParams = {
       gateway: 'credit_direct',
       merchantDomain: 'ogabassey.com',
@@ -129,7 +128,7 @@ describe('useBNPLCheckoutController', () => {
         nativeEvent: {
           data: JSON.stringify({
             type: 'navigation',
-            url: 'https://evil.example/order-success?reference=forged',
+            url: 'https://ogabassey.com/order-success?reference=forged',
           }),
         },
       });

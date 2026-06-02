@@ -62,14 +62,8 @@ export function useBNPLCheckoutController({
   };
 
   const validatedParams = parseBNPLParams(params);
-  const {
-    orderId,
-    gateway,
-    amount,
-    trackingToken,
-    merchantSlug,
-    merchantDomain,
-  } = validatedParams.data || {};
+  const { orderId, gateway, amount, trackingToken, merchantSlug } =
+    validatedParams.data || {};
 
   const { clearPendingLoadTimeout, scheduleLoadTimeout } = createBNPLLoadTimers(
     {
@@ -155,7 +149,6 @@ export function useBNPLCheckoutController({
       if (
         !shouldHandleBNPLNavigationMessage({
           apiBaseUrl,
-          merchantDomain,
           merchantSlug,
           url,
         })
@@ -198,7 +191,6 @@ export function useBNPLCheckoutController({
   const handleOpenWindow = (event: WebViewOpenWindowEventLike) => {
     const action = resolveBNPLPopupTargetAction({
       apiBaseUrl,
-      merchantDomain,
       merchantSlug,
       targetUrl: event.nativeEvent.targetUrl,
     });
@@ -234,7 +226,6 @@ export function useBNPLCheckoutController({
       isTopFrame: request.isTopFrame,
       requestUrl: request.url,
       merchantSlug,
-      merchantDomain,
     });
     logBNPLCheckoutDebug('document navigation decision', {
       currentDocumentUrl,
@@ -242,7 +233,6 @@ export function useBNPLCheckoutController({
       isTopFrame: request.isTopFrame,
       mainDocumentURL: request.mainDocumentURL,
       merchantSlug,
-      merchantDomain,
       navigationType: request.navigationType,
       requestUrl: request.url,
     });
