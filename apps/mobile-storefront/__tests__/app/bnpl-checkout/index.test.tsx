@@ -53,6 +53,7 @@ jest.mock('react-native-webview', () => ({
     onError,
     onLoadStart,
     onMessage,
+    onNavigationStateChange,
     onOpenWindow,
     onShouldStartLoadWithRequest,
     setSupportMultipleWindows,
@@ -65,6 +66,7 @@ jest.mock('react-native-webview', () => ({
     }) => void;
     onLoadStart?: () => void;
     onMessage?: (event: { nativeEvent: { data: string } }) => void;
+    onNavigationStateChange?: (event: { url: string }) => void;
     onOpenWindow?: (event: { nativeEvent: { targetUrl: string } }) => void;
     onShouldStartLoadWithRequest?: (event: {
       isTopFrame?: boolean;
@@ -138,19 +140,14 @@ jest.mock('react-native-webview', () => ({
           <Text>load-start</Text>
         </Pressable>
         <Pressable
-          accessibilityLabel="mock-bnpl-navigation-message"
+          accessibilityLabel="mock-bnpl-native-success-navigation"
           onPress={() =>
-            onMessage?.({
-              nativeEvent: {
-                data: JSON.stringify({
-                  type: 'navigation',
-                  url: 'https://usebaci.com/order-success?reference=cd-ref',
-                }),
-              },
+            onNavigationStateChange?.({
+              url: 'https://usebaci.com/order-success?reference=cd-ref',
             })
           }
         >
-          <Text>navigation-message</Text>
+          <Text>native-success-navigation</Text>
         </Pressable>
         <Pressable
           accessibilityLabel="mock-bnpl-success-message"
@@ -402,23 +399,18 @@ describe('BNPLCheckoutScreen', () => {
     );
   });
 
-  it('ignores untrusted auxiliary popup windows without failing checkout', () => {
+  it('surfaces untrusted auxiliary popup windows as retryable checkout errors', () => {
     const consoleWarnSpy = jest
       .spyOn(console, 'warn')
       .mockImplementation(() => undefined);
     render(<BNPLCheckoutScreen />);
-    const initialWebViewUrl = screen.getByText(/^webview:/).props.children;
 
     fireEvent.press(screen.getByLabelText('mock-bnpl-open-untrusted-popup'));
 
     expect(
-      screen.queryByText(
-        'Payment provider opened an untrusted checkout window.'
-      )
-    ).toBeNull();
-    expect(screen.getByText(/^webview:/).props.children).toBe(
-      initialWebViewUrl
-    );
+      screen.getByText('Payment provider opened an untrusted checkout window.')
+    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Try Again' })).toBeTruthy();
     consoleWarnSpy.mockRestore();
   });
 
@@ -487,11 +479,13 @@ describe('BNPLCheckoutScreen', () => {
     expect(screen.getByRole('button', { name: 'Try Again' })).toBeTruthy();
   });
 
-  it('routes bridged BNPL success navigation to the native order success screen', () => {
+  it('routes native BNPL success navigation to the native order success screen', () => {
     jest.useFakeTimers();
     render(<BNPLCheckoutScreen />);
 
-    fireEvent.press(screen.getByLabelText('mock-bnpl-navigation-message'));
+    fireEvent.press(
+      screen.getByLabelText('mock-bnpl-native-success-navigation')
+    );
 
     expect(mockClearCart).toHaveBeenCalledTimes(1);
 
@@ -510,27 +504,19 @@ describe('BNPLCheckoutScreen', () => {
     });
   });
 
-  it('preserves tracking token when routing BNPL success callbacks', () => {
+  it('ignores raw BNPL success messages because they do not prove navigation source', () => {
     jest.useFakeTimers();
     render(<BNPLCheckoutScreen />);
 
     fireEvent.press(screen.getByLabelText('mock-bnpl-success-message'));
 
-    expect(mockClearCart).toHaveBeenCalledTimes(1);
+    expect(mockClearCart).not.toHaveBeenCalled();
 
     act(() => {
       jest.runOnlyPendingTimers();
     });
 
-    expect(router.replace).toHaveBeenCalledWith({
-      pathname: '/order-success',
-      params: {
-        orderId: 'order-123',
-        paymentMethod: 'credit_direct',
-        reference: 'bnpl-ref-123',
-        trackingToken: 'track-token-123',
-      },
-    });
+    expect(router.replace).not.toHaveBeenCalled();
   });
 
   it('preserves WebView errors through immediate follow-up load events', () => {

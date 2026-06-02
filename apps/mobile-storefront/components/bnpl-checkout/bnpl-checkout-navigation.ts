@@ -107,10 +107,8 @@ export function areBNPLCheckoutUrlsEquivalent(
     const pathA = normalizePath(parsedA.pathname, merchantSlug);
     const pathB = normalizePath(parsedB.pathname, merchantSlug);
 
-    const isBnplPathA =
-      pathA === 'checkout/bnpl' || pathA.endsWith('/checkout/bnpl');
-    const isBnplPathB =
-      pathB === 'checkout/bnpl' || pathB.endsWith('/checkout/bnpl');
+    const isBnplPathA = pathA === 'checkout/bnpl';
+    const isBnplPathB = pathB === 'checkout/bnpl';
 
     if (!isBnplPathA || !isBnplPathB) {
       return false;

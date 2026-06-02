@@ -58,6 +58,8 @@ export function BNPLCheckoutScreen() {
           headerShown: true,
           headerLeft: () => (
             <Pressable
+              accessibilityLabel="Close checkout"
+              accessibilityRole="button"
               onPress={checkout.handleClose}
               style={styles.closeButton}
             >

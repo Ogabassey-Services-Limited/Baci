@@ -76,7 +76,15 @@ export function useBNPLCheckoutController() {
     }
   );
 
-  useEffect(() => () => clearPendingLoadTimeout(), [clearPendingLoadTimeout]);
+  useEffect(
+    () => () => {
+      if (loadTimeoutRef.current) {
+        clearTimeout(loadTimeoutRef.current);
+        loadTimeoutRef.current = null;
+      }
+    },
+    []
+  );
 
   const bnplUrl = buildBNPLCheckoutUrl({
     apiBaseUrl: API_BASE_URL,
@@ -144,15 +152,7 @@ export function useBNPLCheckoutController() {
     );
   };
 
-  const handleWebViewMessage = createBNPLWebViewMessageHandler({
-    clearCart,
-    clearPendingLoadTimeout,
-    handleClose,
-    handleNavigationUrl,
-    replaceWithOrderSuccess,
-    setCheckoutStatus,
-    setErrorMessage,
-  });
+  const handleWebViewMessage = createBNPLWebViewMessageHandler();
 
   const handleRetry = () => {
     clearPendingLoadTimeout();
@@ -199,6 +199,9 @@ export function useBNPLCheckoutController() {
     if (
       !isAllowedBnplPopupUrl(sanitizedTargetUrl, API_BASE_URL, merchantSlug)
     ) {
+      clearPendingLoadTimeout();
+      setCheckoutStatus('error');
+      setErrorMessage(BNPL_UNTRUSTED_POPUP_MESSAGE);
       if (typeof __DEV__ !== 'undefined' && __DEV__) {
         console.warn('[BNPLCheckout] Ignored untrusted auxiliary window', {
           targetUrl: sanitizedTargetUrl,

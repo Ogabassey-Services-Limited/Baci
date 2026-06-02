@@ -191,6 +191,15 @@ describe('areBNPLCheckoutUrlsEquivalent', () => {
     expect(areBNPLCheckoutUrlsEquivalent(urlA, urlB, 'ogabassey')).toBe(false);
   });
 
+  it('does not treat another merchant BNPL path as the current merchant document', () => {
+    const urlA =
+      'https://usebaci.com/other-merchant/checkout/bnpl?gateway=credit_direct&orderId=order-123';
+    const urlB =
+      'https://usebaci.com/ogabassey/checkout/bnpl?gateway=credit_direct&orderId=order-123';
+
+    expect(areBNPLCheckoutUrlsEquivalent(urlA, urlB, 'ogabassey')).toBe(false);
+  });
+
   it('returns false for invalid URL formats', () => {
     expect(
       areBNPLCheckoutUrlsEquivalent('not-a-url', 'https://usebaci.com')
