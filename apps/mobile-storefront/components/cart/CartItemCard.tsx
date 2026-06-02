@@ -3,12 +3,14 @@ import { router } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
 import { SafeImage } from '@/components/ui/SafeImage';
 import { DEFAULT_ASSURANCE_RATE } from '@/constants/assurance';
-import Colors, { BRAND } from '@/constants/Colors';
+import type Colors from '@/constants/Colors';
+import { BRAND } from '@/constants/Colors';
 import { PLACEHOLDER_IMAGE_URL } from '@/constants/Images';
 import { resolveColorSwatchValue } from '@/lib/cart-display';
 import type { CartItem } from '@/stores/cart-store';
 import AssuranceToggle from './AssuranceToggle';
 import CartQuantityInput from './CartQuantityInput';
+import { CART_PRESS_FEEDBACK_STYLE } from './cart-press-feedback';
 import NegotiationButton from './NegotiationButton';
 import styles from './styles';
 
@@ -65,12 +67,13 @@ export default function CartItemCard({
     >
       <View style={styles.cardTop}>
         <Pressable
-          style={[
+          style={({ pressed }) => [
             styles.imageContainer,
             {
               backgroundColor: surfaceInset,
               borderColor: colors.border,
             },
+            pressed && CART_PRESS_FEEDBACK_STYLE,
           ]}
           onPress={() => router.push(`/product/${item.slug}`)}
           accessibilityRole="button"
@@ -175,7 +178,10 @@ export default function CartItemCard({
         </View>
 
         <Pressable
-          style={styles.removeButton}
+          style={({ pressed }) => [
+            styles.removeButton,
+            pressed && CART_PRESS_FEEDBACK_STYLE,
+          ]}
           onPress={() => handleRemoveItem(item)}
           hitSlop={12}
           accessibilityRole="button"
@@ -198,7 +204,10 @@ export default function CartItemCard({
           ]}
         >
           <Pressable
-            style={styles.quantityButton}
+            style={({ pressed }) => [
+              styles.quantityButton,
+              pressed && CART_PRESS_FEEDBACK_STYLE,
+            ]}
             onPress={() => handleQuantityChange(item, -1)}
             disabled={item.quantity <= 1}
             accessibilityRole="button"
@@ -218,7 +227,10 @@ export default function CartItemCard({
             onChange={(newQuantity) => updateQuantity(item.id, newQuantity)}
           />
           <Pressable
-            style={styles.quantityButton}
+            style={({ pressed }) => [
+              styles.quantityButton,
+              pressed && CART_PRESS_FEEDBACK_STYLE,
+            ]}
             onPress={() => handleQuantityChange(item, 1)}
             accessibilityRole="button"
             accessibilityLabel={`Increase quantity for ${item.name}`}
