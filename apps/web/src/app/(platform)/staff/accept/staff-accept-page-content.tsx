@@ -87,7 +87,7 @@ export async function StaffAcceptPageContent({
     return (
       <InvitePage
         merchantName={merchantName}
-        role={invitation.role}
+        staffRole={invitation.role}
         inviteEmail={inviteEmail}
         token={result.data.token}
       />

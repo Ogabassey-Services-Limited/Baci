@@ -35,6 +35,7 @@ vi.mock('../components/InvoiceModal', () => ({
 
 import { useSearchParams } from 'next/navigation';
 import { useCustomerAuth } from '@/contexts/customer-auth-context';
+import { BACI_GOOGLE_REVIEW_URL } from '@/lib/post-purchase-actions';
 import { OrderSuccessPage } from './order-success-page';
 
 function setSearchParams(params: Record<string, string>) {
@@ -61,6 +62,17 @@ describe('OrderSuccessPage', () => {
     render(<OrderSuccessPage />);
     expect(screen.getByText('Order Successful!')).toBeTruthy();
     expect(screen.getByText('Order #abc-123')).toBeTruthy();
+  });
+
+  it('links the Google review CTA to the external review destination', () => {
+    setSearchParams({ orderId: 'review-1', type: 'standard' });
+    render(<OrderSuccessPage />);
+
+    const reviewLink = screen.getByRole('link', {
+      name: /leave a google review/i,
+    });
+    expect(reviewLink).toHaveAttribute('href', BACI_GOOGLE_REVIEW_URL);
+    expect(reviewLink).toHaveAttribute('target', '_blank');
   });
 
   it('renders invoice title for invoice type', () => {

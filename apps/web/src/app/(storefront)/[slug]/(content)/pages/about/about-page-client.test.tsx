@@ -542,6 +542,10 @@ describe('AboutPageClient', () => {
         'src',
         expect.stringContaining('embed/dQw4w9WgXcQ')
       );
+      expect(iframe).toHaveAttribute(
+        'sandbox',
+        'allow-same-origin allow-scripts allow-presentation allow-popups allow-popups-to-escape-sandbox'
+      );
     });
 
     it('does not render the video section when video_url is absent', () => {

@@ -49,9 +49,8 @@ vi.mock('./consignment/update-consignment-form', () => ({
 
 vi.mock('next/image', () => ({
   default: (props: Record<string, unknown>) => (
-    // biome-ignore lint/a11y/useAltText: test mock passes alt through props
     // biome-ignore lint/performance/noImgElement: test mock for next/image
-    <img {...props} />
+    <img {...props} alt={typeof props.alt === 'string' ? props.alt : ''} />
   ),
 }));
 

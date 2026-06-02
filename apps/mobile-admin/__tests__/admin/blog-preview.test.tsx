@@ -82,7 +82,11 @@ vi.mock('@/components/ui/SafeImage', () => ({
 
 vi.mock('react-native-webview', () => ({
   WebView: ({ source }: { source?: { html?: string } }) => (
-    <iframe data-source-html={source?.html ?? ''} title="article-preview" />
+    <iframe
+      data-source-html={source?.html ?? ''}
+      sandbox=""
+      title="article-preview"
+    />
   ),
 }));
 
@@ -164,7 +168,7 @@ describe('BlogPreviewScreen', () => {
   it('renders a merchant-scoped mobile article preview with the featured image', async () => {
     const { eqId, eqMerchant, select } = setupPreviewFetch();
 
-    await act(async () => {
+    act(() => {
       render(<BlogPreviewScreen />);
     });
 
@@ -190,6 +194,7 @@ describe('BlogPreviewScreen', () => {
       'data-source-html',
       expect.stringContaining('Gemini is moving deeper into Android.')
     );
+    expect(screen.getByTitle('article-preview')).toHaveAttribute('sandbox', '');
     expect(screen.getByText('Draft preview')).toBeInTheDocument();
   });
 });
