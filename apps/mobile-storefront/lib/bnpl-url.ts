@@ -182,11 +182,10 @@ function isBaciReturnOrigin(
     }
 
     // Trust custom domains and subdomains based on merchant slug
-    if (merchantSlug) {
+    if (merchantSlug && targetUrl.protocol === 'https:') {
       const cleanSlug = merchantSlug.trim().toLowerCase();
       const targetHost = targetUrl.hostname.toLowerCase();
-      const isMerchantDomainSlug =
-        MERCHANT_DOMAIN_SLUG_PATTERN.test(cleanSlug);
+      const isMerchantDomainSlug = MERCHANT_DOMAIN_SLUG_PATTERN.test(cleanSlug);
 
       if (
         (isMerchantDomainSlug &&

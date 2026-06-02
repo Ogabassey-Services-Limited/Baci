@@ -120,6 +120,13 @@ describe('bnpl-url', () => {
     ).toBe(false);
     expect(
       isAllowedBnplPopupUrl(
+        'http://merchant.example.com/order-success',
+        'https://usebaci.com',
+        'merchant.example.com'
+      )
+    ).toBe(false);
+    expect(
+      isAllowedBnplPopupUrl(
         'https://ogabassey.com/order-success',
         'https://usebaci.com',
         'ogabassey'
@@ -132,6 +139,13 @@ describe('bnpl-url', () => {
         'ogabassey'
       )
     ).toBe(true);
+    expect(
+      isAllowedBnplPopupUrl(
+        'http://ogabassey.com/order-success',
+        'https://usebaci.com',
+        'ogabassey'
+      )
+    ).toBe(false);
     expect(
       isAllowedBnplPopupUrl(
         'https://ogabassey.com/order-success',

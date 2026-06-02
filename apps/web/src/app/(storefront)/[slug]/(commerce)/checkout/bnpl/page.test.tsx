@@ -75,4 +75,22 @@ describe('BNPL checkout page', () => {
       screen.getByRole('heading', { name: /secure checkout/i })
     ).toBeInTheDocument();
   });
+
+  it('calls notFound when a domain-like storefront identifier is unmapped', async () => {
+    vi.mocked(isDomainIdentifier).mockReturnValueOnce(true);
+    vi.mocked(getCachedMerchantByDomain).mockResolvedValueOnce(null);
+
+    await expect(
+      BnplCheckoutPage({
+        params: Promise.resolve({ slug: 'missing.example.com' }),
+      })
+    ).rejects.toThrow('not found');
+
+    expect(isDomainIdentifier).toHaveBeenCalledWith('missing.example.com');
+    expect(getCachedMerchantByDomain).toHaveBeenCalledWith(
+      'missing.example.com'
+    );
+    expect(getCachedMerchant).not.toHaveBeenCalled();
+    expect(notFound).toHaveBeenCalledTimes(1);
+  });
 });
