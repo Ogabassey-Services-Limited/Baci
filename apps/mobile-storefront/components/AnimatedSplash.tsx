@@ -4,7 +4,6 @@ import { Image } from 'expo-image';
 import Animated, {
   cancelAnimation,
   Easing,
-  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
@@ -12,6 +11,7 @@ import Animated, {
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 import { BRAND, palette, withAlpha } from '@/constants/Colors';
 
 import iconImage from '../assets/images/icon.png';
@@ -88,7 +88,7 @@ export function AnimatedSplash({
           () => {
             if (hasExited.get() === 0) {
               hasExited.set(1);
-              runOnJS(onAnimationEnd)();
+              scheduleOnRN(onAnimationEnd);
             }
           }
         )

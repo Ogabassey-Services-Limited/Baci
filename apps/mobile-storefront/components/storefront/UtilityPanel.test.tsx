@@ -1,6 +1,91 @@
 import { jest } from '@jest/globals';
+import * as React from 'react';
+
+const mockWithTiming = jest.fn((toValue: number, _config?: object) => toValue);
+
+jest.mock('react-native-reanimated', () => {
+  const { View, Text } = jest.requireActual('react-native') as Record<
+    string,
+    unknown
+  >;
+  const ReactInline = jest.requireActual('react') as typeof import('react');
+
+  return {
+    __esModule: true,
+    default: { View, Text },
+    View,
+    Text,
+    cancelAnimation: jest.fn(),
+    useAnimatedStyle: (updater: () => object) => updater(),
+    useSharedValue: (value: number) => {
+      const listeners: Array<(newValue: number, oldValue: number) => void> = [];
+      return {
+        get value() {
+          return value;
+        },
+        set value(newValue) {
+          const oldValue = value;
+          value = newValue;
+          for (const listener of listeners) {
+            listener(newValue, oldValue);
+          }
+        },
+        addListener(listener: (newValue: number, oldValue: number) => void) {
+          listeners.push(listener);
+        },
+      };
+    },
+    useDerivedValue: (fn: () => number) => ({
+      get value() {
+        return fn();
+      },
+    }),
+    useAnimatedReaction: (
+      prepare: () => number,
+      react: (nextIndex: number, prevIndex: number | null) => void,
+      deps: unknown[]
+    ) => {
+      const lastValue = ReactInline.useRef(prepare());
+
+      ReactInline.useEffect(() => {
+        const shared = deps[0] as {
+          addListener?: (cb: (v: number) => void) => void;
+        };
+        if (shared && typeof shared.addListener === 'function') {
+          const listener = (newVal: number) => {
+            const roundedVal = Math.round(newVal);
+            if (roundedVal !== lastValue.current) {
+              const oldVal = lastValue.current;
+              lastValue.current = roundedVal;
+              react(roundedVal, oldVal);
+            }
+          };
+          shared.addListener(listener);
+        }
+      }, [deps, react]);
+    },
+    runOnJS: (fn: (...args: unknown[]) => unknown) => fn,
+    withTiming: (
+      toValue: number,
+      config?: object,
+      callback?: (isFinished?: boolean) => void
+    ) => {
+      mockWithTiming(toValue, config);
+      callback?.(true);
+      return toValue;
+    },
+    withSpring: (
+      toValue: number,
+      config?: object,
+      callback?: (isFinished?: boolean) => void
+    ) => {
+      callback?.(true);
+      return toValue;
+    },
+  };
+});
+
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
-import { Animated } from 'react-native';
 import Colors from '@/constants/Colors';
 import { findHostElement } from '@/test-support/find-host-element';
 import { UtilityPanel } from './UtilityPanel';
@@ -26,13 +111,11 @@ const mockUseCategories = jest.fn<() => MockCategoriesResult>(() =>
 );
 const mockUsePrefetchBillers = jest.fn();
 
-function createAnimation() {
-  return {
-    start: (callback?: (result: { finished: boolean }) => void) => {
-      callback?.({ finished: true });
-    },
-  };
-}
+const mockUseIsFocused = jest.fn(() => true);
+
+jest.mock('expo-router/react-navigation', () => ({
+  useIsFocused: () => mockUseIsFocused(),
+}));
 
 jest.mock('@/components/useColorScheme', () => ({
   useColorScheme: () => mockUseColorScheme(),
@@ -49,30 +132,10 @@ jest.mock('@/hooks/use-vtu-billers', () => ({
 describe('UtilityPanel', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockWithTiming.mockClear();
     jest.useFakeTimers();
     mockUseColorScheme.mockReturnValue('light');
     mockUseCategories.mockReturnValue(createCategoriesResult());
-    jest
-      .spyOn(Animated, 'timing')
-      .mockImplementation(
-        () => createAnimation() as ReturnType<typeof Animated.timing>
-      );
-    jest
-      .spyOn(Animated, 'spring')
-      .mockImplementation(
-        () => createAnimation() as ReturnType<typeof Animated.spring>
-      );
-    jest.spyOn(Animated, 'parallel').mockImplementation(
-      (animations) =>
-        ({
-          start: (callback?: (result: { finished: boolean }) => void) => {
-            for (const animation of animations) {
-              animation.start?.();
-            }
-            callback?.({ finished: true });
-          },
-        }) as ReturnType<typeof Animated.parallel>
-    );
   });
 
   afterEach(() => {
@@ -196,18 +259,16 @@ describe('UtilityPanel', () => {
   });
 
   it('restarts the promo animation when the active utility changes', () => {
-    const timingSpy = jest.spyOn(Animated, 'timing');
-
     render(
       <UtilityPanel selectedCategoryId={null} onCategorySelect={jest.fn()} />
     );
 
-    const initialCallCount = timingSpy.mock.calls.length;
+    const initialCallCount = mockWithTiming.mock.calls.length;
 
     act(() => {
       jest.advanceTimersByTime(2800);
     });
 
-    expect(timingSpy.mock.calls.length).toBeGreaterThan(initialCallCount);
+    expect(mockWithTiming.mock.calls.length).toBeGreaterThan(initialCallCount);
   });
 });

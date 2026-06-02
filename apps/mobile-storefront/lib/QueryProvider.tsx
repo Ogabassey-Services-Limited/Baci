@@ -10,7 +10,7 @@
 import {
   persistQueryClientRestore,
   persistQueryClientSubscribe,
-} from '@tanstack/query-persist-client-core';
+} from '@tanstack/react-query-persist-client';
 import {
   IsRestoringProvider,
   type Query,

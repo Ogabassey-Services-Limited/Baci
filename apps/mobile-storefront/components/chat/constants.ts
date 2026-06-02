@@ -54,3 +54,12 @@ export { CHAT_WIDGET_DEFAULT_BOTTOM_OFFSET };
 export const NUDGE_VISIBLE_DURATION = 10000; // 10 seconds
 export const NUDGE_HIDDEN_DURATION = 30000; // 30 seconds
 export const NUDGE_INITIAL_DELAY = 5000; // 5 seconds
+
+// Drag & snapping constants for use-draggable-fab
+export const GESTURE_MIN_DISTANCE = 8;
+export const GESTURE_MAX_TAP_DISTANCE = 8;
+export const DISMISS_RADIUS = 80;
+export const DISMISS_BOTTOM_OFFSET = 100;
+export const TOP_CLAMP = 100;
+export const VELOCITY_PROJECTOR_X = 0.08;
+export const VELOCITY_PROJECTOR_Y = 0.04;

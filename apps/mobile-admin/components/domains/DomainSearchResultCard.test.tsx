@@ -5,9 +5,13 @@ import { describe, expect, it, vi } from 'vitest';
 import { DomainSearchResultCard } from './DomainSearchResultCard';
 
 vi.mock('@react-native-vector-icons/ionicons', () => ({
-  Ionicons: () => <span>icon</span>,
+  Ionicons: ({ name }: { name?: string }) => (
+    <span aria-hidden="true" data-icon={name} />
+  ),
 
-  default: () => <span>icon</span>,
+  default: ({ name }: { name?: string }) => (
+    <span aria-hidden="true" data-icon={name} />
+  ),
   __esModule: true,
 }));
 
@@ -29,7 +33,7 @@ vi.mock('@/hooks/useTheme', () => ({
 }));
 
 vi.mock('react-native', () => ({
-  ActivityIndicator: () => <span>loading</span>,
+  ActivityIndicator: () => <output aria-label="loading" />,
   Pressable: ({
     accessibilityLabel,
     children,
@@ -169,7 +173,7 @@ describe('DomainSearchResultCard', () => {
       />
     );
 
-    expect(screen.getByText('loading')).toBeInTheDocument();
+    expect(screen.getByLabelText('loading')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Buy baci.com' })).toBeDisabled();
   });
 });

@@ -36,17 +36,15 @@ vi.mock('react-native', () => ({
     children?: ReactNode;
     onPress?: (event: { stopPropagation: () => void }) => void;
   }) => (
-    <div
+    <button
       aria-label={accessibilityLabel}
       onClick={(event) =>
         onPress?.({ stopPropagation: () => event.stopPropagation() })
       }
-      onKeyDown={() => undefined}
-      role="button"
-      tabIndex={0}
+      type="button"
     >
       {children}
-    </div>
+    </button>
   ),
   StyleSheet: {
     create: (styles: Record<string, unknown>) => styles,
@@ -61,12 +59,7 @@ describe('OrderReportDateMenu', () => {
     const onParentPress = vi.fn();
 
     render(
-      <div
-        onClick={onParentPress}
-        onKeyDown={() => undefined}
-        role="button"
-        tabIndex={0}
-      >
+      <button onClick={onParentPress} type="button">
         <OrderReportDateMenu
           dateRangeLabel="Last 7 Days"
           onCustomRangeSelect={vi.fn()}
@@ -74,7 +67,7 @@ describe('OrderReportDateMenu', () => {
           onToggleDropdown={onToggleDropdown}
           showDropdown={false}
         />
-      </div>
+      </button>
     );
 
     expect(screen.getByText('Summary for:')).toBeInTheDocument();

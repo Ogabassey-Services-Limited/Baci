@@ -163,6 +163,16 @@ jest.mock('react-native-reanimated', () => {
   };
 });
 
+jest.mock('@/components/storefront/GadgetPattern', () => {
+  const { View } =
+    jest.requireActual<typeof import('react-native')>('react-native');
+  return {
+    GadgetPattern: (props: Record<string, unknown>) => (
+      <View testID="checkout-gadget-pattern" {...props} />
+    ),
+  };
+});
+
 jest.mock('expo-crypto', () => ({
   getRandomBytesAsync: async (length: number) => new Uint8Array(length).fill(7),
   randomUUID: () => mockCryptoRandomUUID(),
@@ -310,6 +320,7 @@ jest.mock('@/services/push-notifications', () => ({
 const CheckoutScreen = require('@/app/checkout').default as React.ComponentType;
 
 export function setupCheckoutTest() {
+  jest.useRealTimers();
   jest.clearAllMocks();
   mockCryptoUuidCounter = 0;
   mockCryptoRandomUUID.mockImplementation(
@@ -376,6 +387,7 @@ export function teardownCheckoutTest() {
   resetMockPaymentSettings();
   global.fetch = originalFetch;
   jest.restoreAllMocks();
+  jest.useRealTimers();
 }
 
 export function renderCheckoutScreen() {

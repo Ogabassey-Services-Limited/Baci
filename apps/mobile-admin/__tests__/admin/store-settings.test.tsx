@@ -38,6 +38,10 @@ function createMutationMock() {
   });
 }
 
+function Text({ children }: { children?: React.ReactNode }) {
+  return <span>{children}</span>;
+}
+
 vi.mock('@tanstack/react-query', () => ({
   useMutation: createMutationMock(),
   useQueryClient: () => ({
@@ -65,16 +69,14 @@ vi.mock('@/components/store-settings/StoreSettingsDetailsCard', () => ({
     onOpenCountryPicker: () => void;
   }) => (
     <div>
-      <span>Business: {businessName}</span>
-      <span>Country: {countryLabel}</span>
-      <span>Currency: {currency}</span>
+      <Text>{`Business: ${businessName}`}</Text>
+      <Text>{`Country: ${countryLabel}`}</Text>
+      <Text>{`Currency: ${currency}`}</Text>
       <button
         aria-label="Open country picker"
         onClick={onOpenCountryPicker}
         type="button"
-      >
-        Open country picker
-      </button>
+      />
     </div>
   ),
 }));
@@ -90,15 +92,13 @@ vi.mock('@/components/store-settings/StoreSubscriptionCard', () => ({
     planLabel: string;
   }) => (
     <div>
-      <span>Plan: {planLabel}</span>
-      <span>Manage label: {manageSubscriptionLabel}</span>
+      <Text>{`Plan: ${planLabel}`}</Text>
+      <Text>{`Manage label: ${manageSubscriptionLabel}`}</Text>
       <button
         aria-label={manageSubscriptionLabel}
         onClick={onManageSubscription}
         type="button"
-      >
-        Manage subscription
-      </button>
+      />
     </div>
   ),
 }));
@@ -125,26 +125,22 @@ vi.mock('@/components/ui/CountryPickerModal', () => ({
             onSelect({ code: 'GH', currency: 'GHS', name: 'Ghana' })
           }
           type="button"
-        >
-          Choose Ghana
-        </button>
+        />
         <button
           aria-label="Close country picker"
           onClick={onClose}
           type="button"
-        >
-          Close
-        </button>
+        />
       </div>
     ) : null,
 }));
 
 vi.mock('@/components/ui/LogoPicker', () => ({
-  LogoPicker: () => <div>Logo picker</div>,
+  LogoPicker: () => <div />,
 }));
 
 vi.mock('@/components/ui/ScreenSkeleton', () => ({
-  ScreenSkeleton: () => <div>Loading skeleton</div>,
+  ScreenSkeleton: () => <div />,
 }));
 
 vi.mock('@/components/ui/StatusModal', () => ({
@@ -157,11 +153,13 @@ vi.mock('@/components/ui/StatusModal', () => ({
   }) =>
     status.visible ? (
       <div>
-        <span>{status.title}</span>
-        <span>{status.message}</span>
-        <button aria-label="Close status modal" onClick={onClose} type="button">
-          Close
-        </button>
+        <Text>{status.title}</Text>
+        <Text>{status.message}</Text>
+        <button
+          aria-label="Close status modal"
+          onClick={onClose}
+          type="button"
+        />
       </div>
     ) : null,
 }));
@@ -214,9 +212,13 @@ vi.mock('@/utils/SubscriptionManagement', () => ({
 }));
 
 vi.mock('@react-native-vector-icons/ionicons', () => ({
-  Ionicons: () => <span>icon</span>,
+  Ionicons: ({ name }: { name?: string }) => (
+    <span aria-hidden="true" data-icon={name} />
+  ),
 
-  default: () => <span>icon</span>,
+  default: ({ name }: { name?: string }) => (
+    <span aria-hidden="true" data-icon={name} />
+  ),
   __esModule: true,
 }));
 
@@ -256,7 +258,7 @@ vi.mock('react-native-edge-to-edge', () => ({
 }));
 
 vi.mock('react-native', () => ({
-  ActivityIndicator: () => <span>loading</span>,
+  ActivityIndicator: () => <output aria-label="loading" />,
   Platform: { OS: 'ios' },
   Pressable: ({
     accessibilityLabel,

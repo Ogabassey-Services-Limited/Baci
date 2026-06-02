@@ -4,11 +4,11 @@ import { useEffect, useRef, useState } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   Easing,
-  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { palette } from '@/constants/Colors';
 import { getConnectivityBannerShadowStyle } from './ConnectivityBanner.shadows';
@@ -61,7 +61,7 @@ export function ConnectivityBanner() {
       );
       opacity.set(
         withTiming(0, { duration: 200 }, () => {
-          runOnJS(setBannerState)('hidden');
+          scheduleOnRN(setBannerState, 'hidden');
         })
       );
     };

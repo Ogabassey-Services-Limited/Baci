@@ -21,7 +21,7 @@ vi.mock('@/components/ui/AppPageSheet', () => ({
     visible: boolean;
   }) =>
     visible ? (
-      <div role="dialog">
+      <dialog open>
         <span>{title}</span>
         <button
           aria-label={closeLabel}
@@ -30,7 +30,7 @@ vi.mock('@/components/ui/AppPageSheet', () => ({
         />
         {children}
         {footer}
-      </div>
+      </dialog>
     ) : null,
 }));
 

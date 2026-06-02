@@ -1,0 +1,165 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { getCachedCategoryPageData } from '@/lib/cached-data';
+import {
+  buildCachedDataTestHarness,
+  type CachedDataTestHarness,
+  resetMockCreateClient,
+} from '@/lib/cached-data.test-utils';
+
+vi.mock('@/env', () => ({
+  getSupabaseUrl: vi.fn(() => 'https://test.supabase.co'),
+  getSupabaseAnonKey: vi.fn(() => 'test-anon-key'),
+  getSupabaseServiceRoleKey: vi.fn(() => 'test-service-role-key'),
+}));
+
+vi.mock('next/cache', () => ({ cacheLife: vi.fn(), cacheTag: vi.fn() }));
+vi.mock('react', () => ({ cache: vi.fn((fn) => fn) }));
+vi.mock('@supabase/supabase-js', async () => {
+  const { getMockCreateClient } = await import('@/lib/cached-data.test-utils');
+  return {
+    createClient: (...args: unknown[]) => {
+      const createClient = getMockCreateClient();
+      if (!createClient) {
+        return {
+          from: () => ({
+            select: () => ({
+              eq: () => ({
+                maybeSingle: vi.fn(),
+                single: vi.fn(),
+                eq: vi.fn(),
+              }),
+            }),
+          }),
+          auth: { getUser: vi.fn() },
+        };
+      }
+      return createClient(...args);
+    },
+  };
+});
+
+let harness: CachedDataTestHarness;
+
+beforeEach(() => {
+  harness = buildCachedDataTestHarness();
+});
+
+afterEach(() => {
+  resetMockCreateClient();
+  vi.restoreAllMocks();
+});
+
+describe('getCachedCategoryPageData category routing and fallback logic', () => {
+  it('Scenario 1: bypasses legacy fallback product queries and returns isInactiveCategory=true when get_storefront_category_slug_state RPC returns inactive slug state', async () => {
+    // categories.single returns PGRST116 (not found)
+    harness.mockSingle.mockResolvedValueOnce({
+      data: null,
+      error: { code: 'PGRST116', message: 'No rows found' },
+    });
+    // RPC get_storefront_category_slug_state returns is_active: false
+    harness.mockRpc.mockResolvedValueOnce({
+      data: [{ is_active: false }],
+      error: null,
+    });
+
+    const result = await getCachedCategoryPageData(
+      'merchant-123',
+      'inactive-slug',
+      'test-store'
+    );
+
+    // Assert RPC was called to inspect inactive state
+    expect(harness.mockRpc).toHaveBeenCalledWith(
+      'get_storefront_category_slug_state',
+      {
+        p_merchant_id: 'merchant-123',
+        p_slug: 'inactive-slug',
+      }
+    );
+
+    // Ensure the products table query was NOT executed
+    expect(harness.mockFrom).not.toHaveBeenCalledWith('products');
+
+    // Assert final result structure matches expected bypass state
+    expect(result).toEqual({
+      isCollection: false,
+      category: null,
+      products: [],
+      fallbackName: 'Inactive Slug',
+      fallbackDescription: 'Browse our collection of Inactive Slug products.',
+      isInactiveCategory: true,
+    });
+  });
+
+  it('Scenario 2: uses the legacy loose fallback search when canonical category exists but scoped query returns zero products', async () => {
+    // 1. categories.single returns a valid active category
+    harness.mockSingle.mockResolvedValueOnce({
+      data: {
+        id: 'cat-active-123',
+        name: 'Active Category',
+        slug: 'active-category',
+        description: 'Standard active category',
+        image_url: null,
+        is_active: true,
+        seo_heading: null,
+        seo_description: null,
+        seo_features: null,
+        seo_faq: null,
+        parent: null,
+      },
+      error: null,
+    });
+
+    // categories scope query mock (returns its own ID)
+    harness.mockListResult.data = [{ id: 'cat-active-123' }];
+
+    // Mock scoped products query to return empty array
+    const emptyScopedProductsResult = { data: [], error: null };
+    const legacyFallbackProducts = [
+      {
+        id: 'legacy-product-1',
+        name: 'Active Category Legacy Product',
+      },
+    ];
+    harness.mockQueryExecution
+      .mockImplementationOnce(() => Promise.resolve(harness.mockListResult)) // scope query execution
+      .mockImplementationOnce(() => Promise.resolve(emptyScopedProductsResult)) // products query execution
+      .mockImplementationOnce(() =>
+        Promise.resolve({ data: legacyFallbackProducts, error: null })
+      ); // legacy fallback query execution
+
+    const result = await getCachedCategoryPageData(
+      'merchant-123',
+      'active-category',
+      'test-store'
+    );
+
+    // Verify it scoped products by categories in list
+    expect(harness.mockIn).toHaveBeenCalledWith(
+      'product_categories.category_id',
+      ['cat-active-123']
+    );
+
+    // Ensure it first scoped categories, then ran the legacy fallback ilike query.
+    expect(harness.mockOr).toHaveBeenCalledTimes(2);
+    expect(harness.mockOr).toHaveBeenCalledWith(
+      'id.eq.cat-active-123,parent_id.eq.cat-active-123'
+    );
+    expect(harness.mockOr).toHaveBeenCalledWith(
+      'category.ilike.%Active Category%,brand.ilike.%Active Category%,name.ilike.%Active Category%'
+    );
+
+    // Verify output returned the category correctly and used legacy products
+    expect(result).toEqual({
+      isCollection: false,
+      category: expect.objectContaining({
+        id: 'cat-active-123',
+        name: 'Active Category',
+      }),
+      products: legacyFallbackProducts,
+      fallbackName: 'Active Category',
+      fallbackDescription: 'Standard active category',
+      isInactiveCategory: false,
+    });
+  });
+});

@@ -96,9 +96,7 @@ describe('StorefrontMerchantProvider', () => {
       >
         <Suspense
           fallback={
-            <div role="status" aria-label="Loading storefront chrome">
-              chrome
-            </div>
+            <output aria-label="Loading storefront chrome">chrome</output>
           }
         >
           <SuspendedChrome />
