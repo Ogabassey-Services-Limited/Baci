@@ -848,6 +848,17 @@ describe('POST /api/orders/[id]/record-payment', () => {
     });
     mockGetMerchantIdForApiUser.mockResolvedValue(mockMerchantId);
 
+    const mockOrderUpdateMerchantEq = vi.fn().mockResolvedValue({
+      data: mockOrder,
+      error: null,
+    });
+    const mockOrderUpdateIdEq = vi.fn().mockReturnValue({
+      eq: mockOrderUpdateMerchantEq,
+    });
+    const mockOrderUpdate = vi.fn().mockReturnValue({
+      eq: mockOrderUpdateIdEq,
+    });
+
     let callCount = 0;
     const mockFrom = vi.fn((_table: string) => {
       callCount++;
@@ -899,14 +910,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
       }
       // Fifth call: order update
       return {
-        update: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            eq: vi.fn().mockResolvedValue({
-              data: mockOrder,
-              error: null,
-            }),
-          }),
-        }),
+        update: mockOrderUpdate,
       };
     });
     mockSupabaseClient.from = mockFrom;
@@ -935,6 +939,11 @@ describe('POST /api/orders/[id]/record-payment', () => {
         shipping_status: 'processing',
       },
     });
+    expect(mockOrderUpdateIdEq).toHaveBeenCalledWith('id', mockOrderId);
+    expect(mockOrderUpdateMerchantEq).toHaveBeenCalledWith(
+      'merchant_id',
+      mockMerchantId
+    );
   });
 
   it('does not update shipping_status if already shipped', async () => {
