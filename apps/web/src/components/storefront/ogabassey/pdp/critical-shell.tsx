@@ -1,7 +1,7 @@
 import { getImageProps } from 'next/image';
 import Link from 'next/link';
 import type { Route } from 'next';
-import type { ComponentProps, ReactNode } from 'react';
+import { Suspense, type ComponentProps, type ReactNode } from 'react';
 import {
   OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA,
   OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_SIZES,
@@ -10,11 +10,11 @@ import {
 } from '@/components/storefront/ogabassey/config/product-media';
 import imageLoader from '@/lib/image-loader';
 import type { OgabasseyPdpCriticalProduct } from './critical-product';
-import styles from './critical-shell.module.css';
 import { buildOgabasseyPdpMobileImageSrcSet } from './product-image-source';
 
 interface OgabasseyPdpCriticalShellProps {
-  basePath: string;
+  basePath?: string;
+  basePathPromise?: Promise<string>;
   children?: ReactNode;
   product: OgabasseyPdpCriticalProduct;
 }
@@ -39,10 +39,63 @@ function buildPath(basePath: string, path: string): Route {
   return (`${prefix}${path}` || '/') as Route;
 }
 
+function OgabasseyPdpCriticalBreadcrumbItems({
+  basePath,
+  product,
+}: Pick<OgabasseyPdpCriticalShellProps, 'product'> & {
+  basePath: string;
+}) {
+  return (
+    <>
+      <Link href={buildPath(basePath, '/')} prefetch={false}>
+        Home
+      </Link>
+      <span aria-hidden="true">/</span>
+      <Link
+        href={buildPath(basePath, `/${product.categorySlug}`)}
+        prefetch={false}
+      >
+        {product.categoryName}
+      </Link>
+      <span aria-hidden="true">/</span>
+      <span aria-current="page">{product.name}</span>
+    </>
+  );
+}
+
+function OgabasseyPdpCriticalBreadcrumbFallback({
+  product,
+}: Pick<OgabasseyPdpCriticalShellProps, 'product'>) {
+  return (
+    <>
+      <span>Home</span>
+      <span aria-hidden="true">/</span>
+      <span>{product.categoryName}</span>
+      <span aria-hidden="true">/</span>
+      <span aria-current="page">{product.name}</span>
+    </>
+  );
+}
+
+async function OgabasseyPdpResolvedCriticalBreadcrumbs({
+  basePathPromise,
+  product,
+}: Pick<OgabasseyPdpCriticalShellProps, 'product'> & {
+  basePathPromise: Promise<string>;
+}) {
+  const basePath = await basePathPromise;
+
+  return (
+    <OgabasseyPdpCriticalBreadcrumbItems
+      basePath={basePath}
+      product={product}
+    />
+  );
+}
+
 function getNativeProductImageProps(product: OgabasseyPdpCriticalProduct) {
   const { props } = getImageProps({
     alt: product.name,
-    className: styles.image,
     decoding: 'sync',
     fetchPriority: 'high',
     fill: true,
@@ -72,7 +125,8 @@ function getMobileProductImageSourceProps(product: OgabasseyPdpCriticalProduct) 
 }
 
 export function OgabasseyPdpCriticalShell({
-  basePath,
+  basePath = '',
+  basePathPromise,
   children,
   product,
 }: OgabasseyPdpCriticalShellProps) {
@@ -80,67 +134,56 @@ export function OgabasseyPdpCriticalShell({
   const mobileSourceProps = getMobileProductImageSourceProps(product);
 
   return (
-    <section className={styles.shell} data-ogabassey-pdp-critical-shell>
-      <div className={styles.inner} data-ogabassey-pdp-critical-inner>
-        <nav
-          className={styles.breadcrumbs}
-          data-ogabassey-pdp-breadcrumbs
-          aria-label="Breadcrumb"
-        >
-          <Link href={buildPath(basePath, '/')} prefetch={false}>
-            Home
-          </Link>
-          <span aria-hidden="true">/</span>
-          <Link
-            href={buildPath(basePath, `/${product.categorySlug}`)}
-            prefetch={false}
-          >
-            {product.categoryName}
-          </Link>
-          <span aria-hidden="true">/</span>
-          <span aria-current="page">{product.name}</span>
+    <section data-ogabassey-pdp-critical-shell>
+      <div data-ogabassey-pdp-critical-inner>
+        <nav data-ogabassey-pdp-breadcrumbs aria-label="Breadcrumb">
+          {basePathPromise ? (
+            <Suspense
+              fallback={
+                <OgabasseyPdpCriticalBreadcrumbFallback product={product} />
+              }
+            >
+              <OgabasseyPdpResolvedCriticalBreadcrumbs
+                basePathPromise={basePathPromise}
+                product={product}
+              />
+            </Suspense>
+          ) : (
+            <OgabasseyPdpCriticalBreadcrumbItems
+              basePath={basePath}
+              product={product}
+            />
+          )}
         </nav>
-        <div className={styles.grid} data-ogabassey-pdp-grid>
-          <div className={styles.imageFrame} data-ogabassey-pdp-image-frame>
+        <div data-ogabassey-pdp-grid>
+          <div data-ogabassey-pdp-image-frame>
             <picture data-ogabassey-pdp-picture>
               <source {...mobileSourceProps} />
               {/* biome-ignore lint/performance/noImgElement: Server-generated native img avoids passing a loader function through the RSC payload. */}
-              <img {...productImageProps} />
+              <img
+                {...productImageProps}
+                alt={product.name}
+                data-ogabassey-pdp-image="true"
+              />
             </picture>
-            <span className={styles.condition} data-ogabassey-pdp-condition>
+            <span data-ogabassey-pdp-condition>
               {product.condition}
             </span>
           </div>
-          <div className={styles.summary} data-ogabassey-pdp-summary>
-            <p className={styles.brand} data-ogabassey-pdp-brand>
-              {product.brand}
-            </p>
-            <h1 className={styles.title} data-ogabassey-pdp-title>
-              {product.name}
-            </h1>
-            <div className={styles.ratingRow} data-ogabassey-pdp-rating-row>
-              <span
-                className={styles.stars}
-                data-ogabassey-pdp-stars
-                aria-hidden="true"
-              >
+          <div data-ogabassey-pdp-summary>
+            <p data-ogabassey-pdp-brand>{product.brand}</p>
+            <h1 data-ogabassey-pdp-title>{product.name}</h1>
+            <div data-ogabassey-pdp-rating-row>
+              <span data-ogabassey-pdp-stars aria-hidden="true">
                 ★★★★★
               </span>
-              <span
-                className={styles.reviewCount}
-                data-ogabassey-pdp-review-count
-              >
+              <span data-ogabassey-pdp-review-count>
                 {product.reviewCount} Reviews
               </span>
             </div>
-            <div className={styles.price} data-ogabassey-pdp-price>
-              {formatPrice(product.price)}
-            </div>
+            <div data-ogabassey-pdp-price>{formatPrice(product.price)}</div>
           </div>
-          <div
-            className={styles.commerceSlot}
-            data-ogabassey-pdp-commerce-slot
-          >
+          <div data-ogabassey-pdp-commerce-slot>
             {children}
           </div>
         </div>

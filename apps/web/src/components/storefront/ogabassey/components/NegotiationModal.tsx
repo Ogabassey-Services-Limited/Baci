@@ -3,7 +3,7 @@
 // Migrated from temp-source/components/NegotiationModal.tsx
 import { CheckCircle2, HandCoins, Loader2, Upload, X } from 'lucide-react';
 import type React from 'react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 
 interface NegotiationModalProps {
@@ -107,6 +107,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
   itemId,
   merchantId,
 }) => {
+  const offerInputId = useId();
   const [offer, setOffer] = useState('');
   const [status, setStatus] = useState<NegotiationStatus>('input');
   const [message, setMessage] = useState('');
@@ -122,6 +123,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
   const isMountedRef = useRef(false);
   const isOpenRef = useRef(isOpen);
   const dialogRef = useRef<HTMLDivElement | null>(null);
+  const offerInputRef = useRef<HTMLInputElement | null>(null);
   const previouslyFocusedElementRef = useRef<HTMLElement | null>(null);
 
   const [supabase] = useState(() => createClient());
@@ -183,8 +185,19 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
       document.activeElement instanceof HTMLElement
         ? document.activeElement
         : null;
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen || status !== 'input' || typeof window === 'undefined') {
+      return;
+    }
 
     const frame = window.requestAnimationFrame(() => {
+      if (offerInputRef.current) {
+        offerInputRef.current.focus();
+        return;
+      }
+
       const focusableElements = getFocusableElements();
       if (focusableElements.length > 0) {
         focusableElements[0].focus();
@@ -196,7 +209,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
     return () => {
       window.cancelAnimationFrame(frame);
     };
-  }, [isOpen]);
+  }, [isOpen, status]);
 
   useEffect(() => {
     if (!isOpen || typeof document === 'undefined') {
@@ -471,11 +484,16 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
 
           {status === 'input' && (
             <form onSubmit={handleSubmit}>
-              <label className="block text-sm font-medium text-[hsl(var(--card-foreground))] mb-2">
+              <label
+                htmlFor={offerInputId}
+                className="block text-sm font-medium text-[hsl(var(--card-foreground))] mb-2"
+              >
                 Your Offer (₦)
               </label>
               <div className="relative mb-6">
                 <input
+                  id={offerInputId}
+                  ref={offerInputRef}
                   type="number"
                   value={offer}
                   onChange={(e) => {
@@ -486,7 +504,6 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
                   }}
                   className="w-full bg-[hsl(var(--card))] pl-4 pr-4 py-3 border border-[hsl(var(--border))] rounded-xl focus:ring-2 focus:ring-[var(--store-primary)] focus:border-[var(--store-primary)] outline-none transition-all text-lg font-bold text-[hsl(var(--card-foreground))] placeholder:font-normal"
                   placeholder="Enter amount..."
-                  autoFocus
                 />
               </div>
               {message ? (

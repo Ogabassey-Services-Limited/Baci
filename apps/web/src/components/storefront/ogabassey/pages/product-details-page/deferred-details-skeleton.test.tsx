@@ -30,7 +30,7 @@ describe('DeferredDetailsSkeleton', () => {
   it('verifies the component\'s passive fallback semantics', () => {
     const { container } = render(
       <DeferredDetailsSkeleton
-        role=""
+        announce={false}
         aria-live="off"
         aria-label=""
       />

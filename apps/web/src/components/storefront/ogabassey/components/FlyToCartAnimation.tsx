@@ -27,6 +27,7 @@ export const FlyToCartAnimation: React.FC<FlyToCartAnimationProps> = ({
 
     useEffect(() => {
         if (!startRect || !mounted) return;
+        let completionTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
         const target = document.getElementById(targetId);
         if (!target) {
@@ -75,12 +76,17 @@ export const FlyToCartAnimation: React.FC<FlyToCartAnimationProps> = ({
             }));
 
             // Cleanup after transition
-            setTimeout(() => {
+            completionTimeoutId = setTimeout(() => {
                 onComplete();
             }, 800);
         });
 
-        return () => cancelAnimationFrame(frameId);
+        return () => {
+            cancelAnimationFrame(frameId);
+            if (completionTimeoutId) {
+                clearTimeout(completionTimeoutId);
+            }
+        };
 
     }, [startRect, targetId, onComplete, mounted]);
 

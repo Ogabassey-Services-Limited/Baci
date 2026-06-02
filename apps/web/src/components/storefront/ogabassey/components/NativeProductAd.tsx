@@ -3,23 +3,18 @@
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { ProductGridItem } from './ProductGridItem';
-import type { Product } from '../types';
+import {
+    nativeAdToProduct,
+    readNativeAdImageUrl,
+    readNativeAdRating,
+    readNativeAdString,
+    registerNativePubAdsListener,
+    type NativeAdData,
+    type NativeAdLoadEvent,
+    type NativeSlotRenderEvent,
+} from './native-product-ad-helpers';
 
-/**
- * Native ad data structure returned by GAM
- * These fields match the custom native format in GAM
- */
-export interface NativeAdData {
-    headline: string;
-    image: string;
-    body?: string;
-    price?: string;
-    cta?: string;
-    clickUrl: string;
-    advertiserName?: string;
-    advertiserLogo?: string;
-    starRating?: number;
-}
+export type { NativeAdData } from './native-product-ad-helpers';
 
 interface NativeProductAdProps {
     /** Unique slot ID for this ad position */
@@ -30,38 +25,8 @@ interface NativeProductAdProps {
     className?: string;
 }
 
-// Network code from existing AdUnit
-const _NETWORK_CODE = '/23331099951';
-
 // Track defined slots globally to prevent duplicates
 const definedNativeSlots = new Set<string>();
-
-/**
- * Converts native ad data to a Product object for ProductGridItem
- */
-function nativeAdToProduct(ad: NativeAdData, index: number): Product {
-    // Parse price string (remove currency symbol and commas)
-    const priceMatch = ad.price?.match(/[\d,]+/);
-    const rawPrice = priceMatch
-        ? Number.parseInt(priceMatch[0].replace(/,/g, ''), 10)
-        : 0;
-
-    return {
-        id: `native-ad-${index}-${Date.now()}`,
-        slug: undefined, // No slug - link goes to advertiser
-        name: ad.headline,
-        price: ad.price || 'Sponsored',
-        rawPrice,
-        image: ad.image,
-        description: ad.body || '',
-        rating: ad.starRating || 4.5,
-        condition: 'New' as const,
-        brand: ad.advertiserName,
-        // Mark as sponsored for click handling
-        _isSponsored: true,
-        _clickUrl: ad.clickUrl,
-    } as Product & { _isSponsored: boolean; _clickUrl: string };
-}
 
 /**
  * NativeProductAd - Fetches native ad from GAM and renders using ProductGridItem
@@ -87,9 +52,14 @@ export const NativeProductAd: React.FC<NativeProductAdProps> = ({
         if (definedNativeSlots.has(slotId)) return;
 
         window.googletag = window.googletag || { cmd: [] };
+        let nativeAdLoadHandler: ((event: unknown) => void) | null = null;
+        let slotRenderEndedHandler: ((event: unknown) => void) | null = null;
+        const listenerCleanups: Array<() => void> = [];
+        let isDisposed = false;
+        let ownsNativeSlot = false;
 
         window.googletag.cmd.push(() => {
-            if (definedNativeSlots.has(slotId)) return;
+            if (isDisposed || definedNativeSlots.has(slotId)) return;
 
             // Define slot for Native format
             // @ts-ignore - 'fluid' size type definition mismatch in strict mode
@@ -97,38 +67,65 @@ export const NativeProductAd: React.FC<NativeProductAdProps> = ({
 
             if (slot) {
                 definedNativeSlots.add(slotId);
+                ownsNativeSlot = true;
                 slotRef.current = slot;
                 slot.addService(window.googletag.pubads());
 
                 // CRITICAL: Listen for native ad load event to get the DATA, not the HTML
-                // biome-ignore lint/suspicious/noExplicitAny: GPT event type
-                window.googletag.pubads().addEventListener('slotNativeAdLoad', (event: any) => {
-                    if (event.slot === slot) {
-                        const nativeAd = event.nativeAd;
+                nativeAdLoadHandler = (event: unknown) => {
+                    const nativeEvent = event as NativeAdLoadEvent;
+                    if (nativeEvent.slot === slot) {
+                        const { nativeAd } = nativeEvent;
                         // Map GPT Native Ad fields to our structure
                         // Note: Keys depend on your specific GAM Native Ad configuration (vars)
                         setAdData({
-                            headline: nativeAd.get('headline') || nativeAd.get('name') || 'Sponsored Product',
-                            image: nativeAd.get('image')?.url || nativeAd.get('main_image')?.url || '',
-                            body: nativeAd.get('body') || nativeAd.get('description'),
-                            price: nativeAd.get('price'),
-                            cta: nativeAd.get('cta') || 'View',
-                            clickUrl: nativeAd.get('clickUrl') || '#',
-                            advertiserName: nativeAd.get('advertiser'),
-                            starRating: Number(nativeAd.get('rating')) || 5,
+                            headline:
+                                readNativeAdString(nativeAd, 'headline') ||
+                                readNativeAdString(nativeAd, 'name') ||
+                                'Sponsored Product',
+                            image:
+                                readNativeAdImageUrl(nativeAd, 'image') ||
+                                readNativeAdImageUrl(nativeAd, 'main_image') ||
+                                '',
+                            body:
+                                readNativeAdString(nativeAd, 'body') ||
+                                readNativeAdString(nativeAd, 'description'),
+                            price: readNativeAdString(nativeAd, 'price'),
+                            cta: readNativeAdString(nativeAd, 'cta') || 'View',
+                            clickUrl:
+                                readNativeAdString(nativeAd, 'clickUrl') || '#',
+                            advertiserName: readNativeAdString(
+                                nativeAd,
+                                'advertiser'
+                            ),
+                            starRating: readNativeAdRating(nativeAd) || 5,
                         });
                         setIsLoading(false);
                     }
-                });
+                };
+                listenerCleanups.push(
+                    registerNativePubAdsListener(
+                        window.googletag.pubads(),
+                        'slotNativeAdLoad',
+                        nativeAdLoadHandler
+                    )
+                );
 
                 // Handle render failure
-                // biome-ignore lint/suspicious/noExplicitAny: GPT event type
-                window.googletag.pubads().addEventListener('slotRenderEnded', (event: any) => {
-                    if (event.slot === slot && event.isEmpty) {
+                slotRenderEndedHandler = (event: unknown) => {
+                    const renderEvent = event as NativeSlotRenderEvent;
+                    if (renderEvent.slot === slot && renderEvent.isEmpty) {
                         setHasError(true);
                         setIsLoading(false);
                     }
-                });
+                };
+                listenerCleanups.push(
+                    registerNativePubAdsListener(
+                        window.googletag.pubads(),
+                        'slotRenderEnded',
+                        slotRenderEndedHandler
+                    )
+                );
 
                 window.googletag.enableServices();
                 window.googletag.display(slotId);
@@ -139,12 +136,21 @@ export const NativeProductAd: React.FC<NativeProductAdProps> = ({
         });
 
         return () => {
-            if (slotRef.current) {
-                window.googletag?.cmd.push(() => {
-                    window.googletag.destroySlots([slotRef.current!]);
+            isDisposed = true;
+            window.googletag?.cmd.push(() => {
+                for (const cleanup of listenerCleanups) {
+                    cleanup();
+                }
+                listenerCleanups.length = 0;
+                const slotToDestroy = slotRef.current;
+                if (slotToDestroy) {
+                    window.googletag.destroySlots([slotToDestroy]);
+                }
+                if (ownsNativeSlot) {
                     definedNativeSlots.delete(slotId);
-                });
-            }
+                }
+                slotRef.current = null;
+            });
         };
     }, [slotId]);
 
@@ -257,4 +263,3 @@ export const NativeProductAdStatic: React.FC<{
         </div>
     );
 };
-

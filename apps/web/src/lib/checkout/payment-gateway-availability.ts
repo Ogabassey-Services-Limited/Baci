@@ -13,13 +13,29 @@ export interface LaunchPaymentRequirement {
   completed: boolean;
 }
 
+const KORAPAY_CHECKOUT_CURRENCIES = new Set([
+  'NGN',
+  'KES',
+  'GHS',
+  'ZAR',
+  'XAF',
+  'XOF',
+]);
+
 function readBooleanSetting(
   settings: unknown,
   key: string
 ): boolean | undefined {
-  if (!settings || typeof settings !== 'object') return undefined;
+  const normalizedSettings = Array.isArray(settings) ? settings[0] : settings;
+  if (
+    !normalizedSettings ||
+    typeof normalizedSettings !== 'object' ||
+    Array.isArray(normalizedSettings)
+  ) {
+    return undefined;
+  }
 
-  const value = (settings as Record<string, unknown>)[key];
+  const value = (normalizedSettings as Record<string, unknown>)[key];
   return typeof value === 'boolean' ? value : undefined;
 }
 
@@ -58,10 +74,23 @@ export function isPaystackCheckoutAvailable(
   return Boolean(merchant.paystack_subaccount_code?.trim());
 }
 
+export function isKorapayCheckoutCurrencySupported(
+  currency: string | null | undefined
+): boolean {
+  const normalizedCurrency = currency?.trim().toUpperCase();
+  return Boolean(
+    normalizedCurrency && KORAPAY_CHECKOUT_CURRENCIES.has(normalizedCurrency)
+  );
+}
+
 export function isKorapayCheckoutAvailable(
-  merchant: CheckoutPaymentMerchant | null | undefined
+  merchant: CheckoutPaymentMerchant | null | undefined,
+  currency?: string | null
 ): boolean {
   if (!merchant) return false;
+  if (currency != null && !isKorapayCheckoutCurrencySupported(currency)) {
+    return false;
+  }
   return readKorapayEnabled(merchant.feature_settings) === true;
 }
 

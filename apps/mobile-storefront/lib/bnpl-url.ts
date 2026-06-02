@@ -7,6 +7,7 @@ const BNPL_PROVIDER_POPUP_ORIGINS = new Set([
   'https://cdl.test.lendastack.io',
   'https://checkout.creditdirect.ng',
   'https://checkout.credpal.com',
+  'https://connect.mono.co',
   'https://corporate-loans.obs.sa-brazil-1.myhuaweicloud.com',
 ]);
 

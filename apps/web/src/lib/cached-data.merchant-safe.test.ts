@@ -152,7 +152,10 @@ describe('cached-data merchant safety helpers', () => {
       await expect(getMerchantSafe('test-store')).resolves.toEqual(
         mockMerchant
       );
-      expect(harness.mockMaybeSingle).toHaveBeenCalledTimes(2);
+      const merchantTableLookups = harness.mockFrom.mock.calls.filter(
+        ([table]) => table === 'merchants'
+      );
+      expect(merchantTableLookups).toHaveLength(2);
     });
 
     it('returns null after both attempts fail', async () => {
@@ -273,7 +276,9 @@ describe('cached-data merchant safety helpers', () => {
         .mockImplementation(() => undefined);
       harness.mockMaybeSingle
         .mockRejectedValueOnce(new Error('First failure'))
-        .mockRejectedValueOnce(new Error('Second failure'));
+        .mockRejectedValueOnce(new Error('Second failure'))
+        .mockRejectedValueOnce(new Error('Third failure'))
+        .mockRejectedValueOnce(new Error('Fourth failure'));
       harness.mockSingle.mockResolvedValue({
         data: null,
         error: { code: 'PGRST116' },

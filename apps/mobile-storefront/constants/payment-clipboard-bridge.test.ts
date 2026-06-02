@@ -1,4 +1,5 @@
 import { describe, expect, it, jest } from '@jest/globals';
+import { createContext, Script } from 'node:vm';
 import { PAYMENT_CLIPBOARD_BRIDGE } from '@/constants/payment-clipboard-bridge';
 
 function escapeRegex(value: string) {
@@ -30,6 +31,51 @@ function expectBridgeMessageTypesToBeReferenced({
   );
 }
 
+type TimerCallback = (...args: unknown[]) => void;
+type TimerFunction = (callback: TimerCallback, delay?: number) => unknown;
+type ClearTimerFunction = (handle?: unknown) => void;
+
+function runClipboardBridgeInSandbox({
+  clearInterval,
+  clearTimeout,
+  document,
+  MutationObserver,
+  navigator,
+  setInterval,
+  setTimeout,
+  window,
+}: {
+  clearInterval: ClearTimerFunction;
+  clearTimeout: ClearTimerFunction;
+  document: unknown;
+  MutationObserver?: unknown;
+  navigator: unknown;
+  setInterval: TimerFunction;
+  setTimeout: TimerFunction;
+  window: unknown;
+}) {
+  const windowMutationObserver =
+    typeof window === 'object' && window !== null && 'MutationObserver' in window
+      ? (window as { MutationObserver?: unknown }).MutationObserver
+      : undefined;
+
+  new Script(PAYMENT_CLIPBOARD_BRIDGE.script, {
+    filename: 'payment-clipboard-bridge.js',
+  }).runInContext(
+    createContext({
+      clearInterval,
+      clearTimeout,
+      console,
+      document,
+      MutationObserver: MutationObserver ?? windowMutationObserver,
+      navigator,
+      setInterval,
+      setTimeout,
+      window,
+    })
+  );
+}
+
 describe('PAYMENT_CLIPBOARD_BRIDGE', () => {
   // These implementation-detail assertions are deliberate: the injected script
   // is a contract between gateway web pages and the native WebView handler.
@@ -56,7 +102,9 @@ describe('PAYMENT_CLIPBOARD_BRIDGE', () => {
 
   it('is syntactically valid executable JavaScript', () => {
     expect(() => {
-      new Function(PAYMENT_CLIPBOARD_BRIDGE.script);
+      new Script(PAYMENT_CLIPBOARD_BRIDGE.script, {
+        filename: 'payment-clipboard-bridge.js',
+      });
     }).not.toThrow();
   });
 
@@ -110,29 +158,19 @@ describe('PAYMENT_CLIPBOARD_BRIDGE', () => {
       },
       getSelection: jest.fn(() => ({ toString: () => '' })),
     };
-    const runBridge = new Function(
-      'window',
-      'document',
-      'navigator',
-      'MutationObserver',
-      'setTimeout',
-      'setInterval',
-      'clearInterval',
-      PAYMENT_CLIPBOARD_BRIDGE.script
-    );
-
-    runBridge(
-      windowMock,
-      documentMock,
-      navigatorMock,
-      MutationObserverMock,
-      (callback: () => void) => {
+    runClipboardBridgeInSandbox({
+      clearInterval: jest.fn(),
+      clearTimeout: jest.fn(),
+      document: documentMock,
+      MutationObserver: MutationObserverMock,
+      navigator: navigatorMock,
+      setInterval: jest.fn(),
+      setTimeout: (callback: () => void) => {
         callback();
         return 1;
       },
-      jest.fn(),
-      jest.fn()
-    );
+      window: windowMock,
+    });
 
     documentMock.body.innerText = 'Account number: 2222222222';
     expect(mutationObservers).toHaveLength(1);
@@ -183,26 +221,15 @@ describe('PAYMENT_CLIPBOARD_BRIDGE', () => {
       },
       getSelection: jest.fn(() => ({ toString: () => '' })),
     };
-    const runBridge = new Function(
-      'window',
-      'document',
-      'navigator',
-      'MutationObserver',
-      'setTimeout',
-      'setInterval',
-      'clearInterval',
-      PAYMENT_CLIPBOARD_BRIDGE.script
-    );
-
-    runBridge(
-      windowMock,
-      documentMock,
-      navigatorMock,
-      undefined,
-      jest.fn(),
-      jest.fn(),
-      jest.fn()
-    );
+    runClipboardBridgeInSandbox({
+      clearInterval: jest.fn(),
+      clearTimeout: jest.fn(),
+      document: documentMock,
+      navigator: navigatorMock,
+      setInterval: jest.fn(),
+      setTimeout: jest.fn(),
+      window: windowMock,
+    });
 
     if (typeof navigatorMock.clipboard.writeText !== 'function') {
       throw new Error('Expected bridge to install clipboard.writeText');
@@ -274,26 +301,15 @@ describe('PAYMENT_CLIPBOARD_BRIDGE', () => {
       },
       getSelection: jest.fn(() => ({ toString: () => '' })),
     };
-    const runBridge = new Function(
-      'window',
-      'document',
-      'navigator',
-      'MutationObserver',
-      'setTimeout',
-      'setInterval',
-      'clearInterval',
-      PAYMENT_CLIPBOARD_BRIDGE.script
-    );
-
-    runBridge(
-      windowMock,
-      documentMock,
-      { clipboard: {} },
-      undefined,
-      jest.fn(),
-      jest.fn(),
-      jest.fn()
-    );
+    runClipboardBridgeInSandbox({
+      clearInterval: jest.fn(),
+      clearTimeout: jest.fn(),
+      document: documentMock,
+      navigator: { clipboard: {} },
+      setInterval: jest.fn(),
+      setTimeout: jest.fn(),
+      window: windowMock,
+    });
 
     expect(documentMock.querySelector).not.toHaveBeenCalled();
     expect(domContentLoadedListener).not.toBeNull();
@@ -344,29 +360,18 @@ describe('PAYMENT_CLIPBOARD_BRIDGE', () => {
       },
       getSelection: jest.fn(() => ({ toString: () => '' })),
     };
-    const runBridge = new Function(
-      'window',
-      'document',
-      'navigator',
-      'MutationObserver',
-      'setTimeout',
-      'setInterval',
-      'clearInterval',
-      PAYMENT_CLIPBOARD_BRIDGE.script
-    );
-
-    runBridge(
-      windowMock,
-      documentMock,
-      { clipboard: {} },
-      undefined,
-      (callback: () => void) => {
+    runClipboardBridgeInSandbox({
+      clearInterval: jest.fn(),
+      clearTimeout: jest.fn(),
+      document: documentMock,
+      navigator: { clipboard: {} },
+      setInterval: jest.fn(() => 2),
+      setTimeout: (callback: () => void) => {
         callback();
         return 1;
       },
-      jest.fn(() => 2),
-      jest.fn()
-    );
+      window: windowMock,
+    });
 
     expect(observers).toHaveLength(1);
     expect(typeof windowMock.__baciClipboardBridgeUninstall).toBe('function');

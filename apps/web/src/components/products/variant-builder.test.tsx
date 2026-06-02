@@ -23,13 +23,13 @@ vi.mock('next/image', () => ({
     src,
     width,
   }: NextImageMockProps) => (
-    <span
-      aria-label={alt}
+    // biome-ignore lint/performance/noImgElement: this test mocks next/image with its native output semantics.
+    <img
+      alt={alt}
       className={className}
       data-height={height}
       data-src={typeof src === 'string' ? src : src.src}
       data-width={width}
-      role="img"
     />
   ),
 }));

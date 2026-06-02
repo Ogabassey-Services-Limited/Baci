@@ -56,7 +56,7 @@ export function useStorefrontInsets() {
     const paddingBottomBase =
       typeof options.paddingBottom === 'number'
         ? options.paddingBottom
-        : (options.padding ?? STOREFRONT_INSET_DEFAULTS.listPadding);
+        : (options.padding ?? STOREFRONT_INSET_DEFAULTS.listPaddingBottom);
     contentStyle.paddingBottom = paddingBottomBase + bottomInset;
 
     return contentStyle;

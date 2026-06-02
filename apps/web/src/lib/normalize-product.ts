@@ -32,7 +32,7 @@ export interface RawDbProduct {
   id: string;
   name: string;
   slug?: string;
-  description?: string;
+  description?: string | null;
   images?: (string | { url?: string; alt?: string; order?: number })[];
   categories?:
     | { id?: string; name: string; slug: string }

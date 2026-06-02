@@ -1,10 +1,22 @@
 import type Ionicons from '@react-native-vector-icons/ionicons';
 // router removed as it was unused.
 import type React from 'react';
-import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Easing, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Text, View } from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+  withSpring,
+  useAnimatedReaction,
+  type SharedValue,
+} from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
+import { useIsFocused } from 'expo-router/react-navigation';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
+import { CONFIG } from '@/lib/config';
+import { getTemplateConfig } from '@/lib/templates';
 import { type Category, useCategories } from '@/hooks';
 import { usePrefetchBillers } from '@/hooks/use-vtu-billers';
 import { utilityPanelStyles as styles } from './UtilityPanel.styles';
@@ -16,6 +28,7 @@ interface UtilityPanelProps {
   onCategorySelect: (id: string | null) => void;
   selectedCategoryName?: string;
   slug?: string;
+  activeIndex?: SharedValue<number>;
 }
 
 // Module-level constants (stable references, no re-creation per render)
@@ -27,6 +40,7 @@ export function UtilityPanel({
   selectedCategoryId,
   onCategorySelect,
   slug,
+  activeIndex,
 }: UtilityPanelProps) {
   const { data: remoteCategories = [], isLoading, error } = useCategories();
   const colorScheme = useColorScheme();
@@ -35,29 +49,61 @@ export function UtilityPanel({
   // Prefetch all bill categories so data is ready when user taps a category
   usePrefetchBillers();
 
+  const isFocused = useIsFocused();
+
   // Web-Parity Auto-Rotation Logic (constants at module level for stable references)
+  const template = getTemplateConfig(CONFIG.BUSINESS_TYPE, CONFIG.TEMPLATE_ID);
+  const defaultCategoryId =
+    template.headerStyle === 'elite' ? 'u-airtime' : null;
+
+  useEffect(() => {
+    if (
+      isFocused &&
+      (selectedCategoryId === null || selectedCategoryId === defaultCategoryId)
+    ) {
+      setIsManualUtility(false);
+    }
+  }, [defaultCategoryId, isFocused, selectedCategoryId]);
 
   const [activeUtilityIndex, setActiveUtilityIndex] = useState(0);
-  const [isManualUtility, setIsManualUtility] = useState(false);
-  const promoWordProgress = useRef(new Animated.Value(1)).current;
-  const promoWordTranslateY = promoWordProgress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [4, 0],
+  const [isManualUtility, setIsManualUtility] = useState(() => {
+    return selectedCategoryId
+      ? selectedCategoryId !== defaultCategoryId
+      : false;
   });
+  const promoWordProgress = useSharedValue(1);
+
+  const animatedPromoStyle = useAnimatedStyle(() => {
+    const translateY = (1 - promoWordProgress.value) * 4;
+    return {
+      opacity: promoWordProgress.value,
+      transform: [{ translateY }],
+    };
+  });
+
+  const localActiveIndex = useSharedValue(0);
+  const activeIndexVal = activeIndex ?? localActiveIndex;
+
+  // Sync reaction from activeIndexVal to activeUtilityIndex state
+  useAnimatedReaction(
+    () => Math.round(activeIndexVal.value),
+    (nextIndex, prevIndex) => {
+      if (nextIndex !== prevIndex) {
+        scheduleOnRN(setActiveUtilityIndex, nextIndex);
+      }
+    },
+    [activeIndexVal]
+  );
 
   // Sync prop change to local index (if external change happens)
   useEffect(() => {
     if (selectedCategoryId) {
       const idx = CATEGORY_IDS.indexOf(selectedCategoryId);
       if (idx !== -1) {
-        setActiveUtilityIndex(idx);
-        // 2026 Best Practice: Do NOT mark as manual here!
-        // The parent might have a default selection (e.g. 'Airtime' as first in list),
-        // but that shouldn't stop the "attract loop" rotation.
-        // Rotation should only stop on explicit USER INTERACTION (handlePress).
+        activeIndexVal.value = withSpring(idx, { damping: 16, stiffness: 150 });
       }
     }
-  }, [selectedCategoryId]);
+  }, [selectedCategoryId, activeIndexVal]);
 
   // Auto-rotate effect
   useEffect(() => {
@@ -66,27 +112,29 @@ export function UtilityPanel({
     if (isManualUtility) return;
 
     const interval = setInterval(() => {
-      setActiveUtilityIndex((prev) => (prev + 1) % UTILITY_WORDS.length);
+      const currentVal = Math.round(activeIndexVal.value);
+      const next = (currentVal + 1) % UTILITY_WORDS.length;
+      if (next === 0) {
+        activeIndexVal.value = 0; // Instant jump back to 0, no backward sweep!
+      } else {
+        activeIndexVal.value = withTiming(next, { duration: 300 });
+      }
     }, 2800); // Slightly slower for better readability
 
     return () => clearInterval(interval);
-  }, [isManualUtility]);
+  }, [isManualUtility, activeIndexVal]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: activeUtilityIndex intentionally restarts the promo text transition when the selected utility changes.
   useEffect(() => {
-    promoWordProgress.setValue(0);
-    Animated.timing(promoWordProgress, {
-      toValue: 1,
+    promoWordProgress.value = 0;
+    promoWordProgress.value = withTiming(1, {
       duration: 260,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    }).start();
+    });
   }, [activeUtilityIndex, promoWordProgress]);
 
   const handlePress = (id: string, index: number) => {
     setIsManualUtility(true);
-    // Optimistically set active index for instant feedback
-    setActiveUtilityIndex(index);
+    activeIndexVal.value = withSpring(index, { damping: 16, stiffness: 150 });
     onCategorySelect(id);
   };
 
@@ -178,15 +226,7 @@ export function UtilityPanel({
         <View style={{ height: 16, justifyContent: 'center' }}>
           <Text style={[styles.promoText, { color: colors.textSecondary }]}>
             We Pay <Text style={styles.promoHighlight}>YOU</Text> When You Buy{' '}
-            <Animated.Text
-              style={[
-                styles.promoHighlight,
-                {
-                  opacity: promoWordProgress,
-                  transform: [{ translateY: promoWordTranslateY }],
-                },
-              ]}
-            >
+            <Animated.Text style={[styles.promoHighlight, animatedPromoStyle]}>
               {activeUtilityWord}
             </Animated.Text>
           </Text>
@@ -209,6 +249,8 @@ export function UtilityPanel({
                 : activeUtilityIndex === index
             }
             onPress={() => handlePress(category.id, index)}
+            activeIndex={activeIndexVal}
+            index={index}
           />
         ))}
       </View>

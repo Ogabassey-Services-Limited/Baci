@@ -145,6 +145,16 @@ jest.mock('react-native-reanimated', () => {
   }: MockComponentProps) =>
     React.createElement(Image, { style, ...props }, children);
   const identityAnimation = (toValue: unknown) => toValue;
+  const animationWithCallback = (
+    toValue: unknown,
+    config?: unknown,
+    callback?: (finished: boolean) => void
+  ) => {
+    if (typeof callback === 'function') {
+      setTimeout(() => callback(true), 0);
+    }
+    return toValue;
+  };
   const createAnimationBuilder = () => {
     const builder: Record<string, (...args: unknown[]) => unknown> = {};
     const chain = () => builder;
@@ -182,27 +192,52 @@ jest.mock('react-native-reanimated', () => {
   };
   const mock = {
     useSharedValue: (initVal: unknown) => {
-      let currentValue = initVal;
-      return {
-        get value() {
-          return currentValue;
-        },
-        set value(nextValue: unknown) {
-          currentValue = nextValue;
-        },
-        get: () => currentValue,
-        set: (nextValue: unknown) => {
-          currentValue = nextValue;
-        },
+      const sharedValueRef = React.useRef(null) as {
+        current: {
+          value: unknown;
+          get: () => unknown;
+          set: (nextValue: unknown) => void;
+        } | null;
       };
+
+      if (!sharedValueRef.current) {
+        let currentValue = initVal;
+        sharedValueRef.current = {
+          get value() {
+            return currentValue;
+          },
+          set value(nextValue: unknown) {
+            currentValue = nextValue;
+          },
+          get: () => currentValue,
+          set: (nextValue: unknown) => {
+            currentValue = nextValue;
+          },
+        };
+      }
+
+      return sharedValueRef.current;
     },
     useAnimatedStyle: (fn: () => unknown) => fn(),
     useDerivedValue: (fn: () => unknown) => ({ value: fn() }),
     useAnimatedRef: () => ({ current: null }),
-    useAnimatedScrollHandler: (handler: unknown) => handler,
+    useAnimatedScrollHandler: (handler: unknown) => {
+      if (
+        handler &&
+        typeof handler === 'object' &&
+        'onScroll' in handler &&
+        typeof handler.onScroll === 'function'
+      ) {
+        const onScroll = handler.onScroll as (...args: unknown[]) => unknown;
+        return (payload: { nativeEvent?: unknown }) =>
+          onScroll(payload?.nativeEvent ?? payload);
+      }
+
+      return handler;
+    },
     useAnimatedProps: (fn: () => unknown) => fn(),
-    withSpring: identityAnimation,
-    withTiming: identityAnimation,
+    withSpring: animationWithCallback,
+    withTiming: animationWithCallback,
     withDelay: (_delayMs: number, animation: unknown) => animation,
     withRepeat: (anim: unknown) => anim,
     withSequence: (...anims: unknown[]) => anims[0],
@@ -264,6 +299,8 @@ jest.mock('react-native-reanimated', () => {
     SlideOutLeft: createAnimationBuilder(),
     SlideOutRight: createAnimationBuilder(),
     SlideOutUp: createAnimationBuilder(),
+    ZoomIn: createAnimationBuilder(),
+    ZoomOut: createAnimationBuilder(),
     Layout: createAnimationBuilder(),
     LinearTransition: createAnimationBuilder(),
     Keyframe: class MockKeyframe {
@@ -285,10 +322,25 @@ jest.mock('react-native-reanimated', () => {
   return mock;
 });
 
+// Mock react-native-worklets
+jest.mock('react-native-worklets', () => ({
+  scheduleOnRN: <TArgs extends unknown[], TResult>(
+    fn: (...args: TArgs) => TResult,
+    ...args: TArgs
+  ) => fn(...args),
+  scheduleOnUI: <TArgs extends unknown[], TResult>(
+    fn: (...args: TArgs) => TResult,
+    ...args: TArgs
+  ) => fn(...args),
+  runOnJS: <TArgs extends unknown[], TResult>(
+    fn: (...args: TArgs) => TResult
+  ) => fn,
+}));
+
 // Mock react-native-gesture-handler
 jest.mock('react-native-gesture-handler', () => {
   const React = require('react');
-  const { View } = require('react-native');
+  const { Pressable, View } = require('react-native');
 
   const createGesture = (): Record<string, (...args: unknown[]) => unknown> => {
     const gesture: Record<string, (...args: unknown[]) => unknown> = {};
@@ -308,14 +360,24 @@ jest.mock('react-native-gesture-handler', () => {
     return gesture;
   };
 
+  const createHookGesture = (type: string, config: unknown) => ({
+    config,
+    type,
+  });
+
   return {
-    GestureDetector: ({ children }: { children?: unknown }) => children,
+    Touchable: ({
+      children,
+      ...props
+    }: React.ComponentProps<typeof Pressable>) =>
+      React.createElement(Pressable, props, children),
+    GestureDetector: ({ children }: { children?: React.ReactNode }) => children,
     GestureHandlerRootView: ({
       children,
       style,
     }: {
-      children?: unknown;
-      style?: unknown;
+      children?: React.ReactNode;
+      style?: import('react-native').StyleProp<import('react-native').ViewStyle>;
     }) => React.createElement(View, { style }, children),
     Gesture: {
       Pan: jest.fn(createGesture),
@@ -330,5 +392,49 @@ jest.mock('react-native-gesture-handler', () => {
       })),
       Tap: jest.fn(createGesture),
     },
+    usePanGesture: jest.fn((config: unknown) =>
+      createHookGesture('pan', config)
+    ),
+    useSimultaneousGestures: jest.fn((...gestures: unknown[]) => ({
+      gestures,
+      type: 'simultaneous',
+    })),
+    useTapGesture: jest.fn((config: unknown) =>
+      createHookGesture('tap', config)
+    ),
+  };
+});
+
+// Mock react-native-mmkv
+jest.mock('react-native-mmkv', () => {
+  return {
+    createMMKV: jest.fn().mockImplementation(() => {
+      const store = new Map<string, string>();
+      return {
+        set: jest.fn((key: string, value: string) => {
+          store.set(key, value);
+        }),
+        getString: jest.fn((key: string) => {
+          return store.get(key) ?? null;
+        }),
+        getNumber: jest.fn((key: string) => {
+          const val = store.get(key);
+          return val ? Number(val) : null;
+        }),
+        getBoolean: jest.fn((key: string) => {
+          const val = store.get(key);
+          return val === 'true';
+        }),
+        remove: jest.fn((key: string) => {
+          store.delete(key);
+        }),
+        clearAll: jest.fn(() => {
+          store.clear();
+        }),
+        getAllKeys: jest.fn(() => {
+          return Array.from(store.keys());
+        }),
+      };
+    }),
   };
 });

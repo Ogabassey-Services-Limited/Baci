@@ -109,7 +109,7 @@ export function ReviewCard({ review, className }: ReviewCardProps) {
           </div>
 
           {review.title && (
-            <h4 className="font-semibold text-lg mb-1">{review.title}</h4>
+            <h3 className="font-semibold text-lg mb-1">{review.title}</h3>
           )}
 
           <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">

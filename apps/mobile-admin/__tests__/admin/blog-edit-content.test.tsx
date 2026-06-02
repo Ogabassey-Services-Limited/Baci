@@ -131,7 +131,11 @@ vi.mock('react-native', () => ({
 
 vi.mock('react-native-webview', () => ({
   WebView: ({ source }: { source?: { html?: string } }) => (
-    <iframe data-source-html={source?.html ?? ''} title="blog-editor-webview" />
+    <iframe
+      data-source-html={source?.html ?? ''}
+      sandbox=""
+      title="blog-editor-webview"
+    />
   ),
 }));
 
@@ -162,6 +166,10 @@ describe('EditContentScreen', () => {
     expect(screen.getByTitle('blog-editor-webview')).toHaveAttribute(
       'data-source-html',
       expect.stringContaining('<p>Hello</p>')
+    );
+    expect(screen.getByTitle('blog-editor-webview')).toHaveAttribute(
+      'sandbox',
+      ''
     );
   });
 
