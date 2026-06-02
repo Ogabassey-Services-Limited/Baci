@@ -249,8 +249,8 @@ export function UtilityPanel({
                 : activeUtilityIndex === index
             }
             onPress={() => handlePress(category.id, index)}
-            activeIndex={activeIndexVal}
-            index={index}
+            activeIndex={isUtility ? activeIndexVal : undefined}
+            index={isUtility ? index : undefined}
           />
         ))}
       </View>

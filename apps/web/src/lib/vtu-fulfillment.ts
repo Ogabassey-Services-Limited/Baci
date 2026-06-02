@@ -1136,6 +1136,45 @@ async function claimCustomerEmailNotificationAttempt({
   return true;
 }
 
+async function clearCustomerEmailNotificationAttempt({
+  metadata,
+  row,
+  state,
+  supabase,
+}: {
+  metadata: Record<string, unknown>;
+  row: VtuTransactionRow;
+  state: CustomerEmailNotificationState;
+  supabase: SupabaseClient;
+}) {
+  const { data, error } = await supabase.rpc(
+    'clear_vtu_customer_email_notification_attempt',
+    {
+      p_attempt_key: state.attemptedKey,
+      p_sent_key: state.sentKey,
+      p_transaction_id: row.id,
+    }
+  );
+
+  if (error) {
+    console.error('Failed to clear VTU customer email notification attempt:', {
+      error: error.message,
+      transactionId: row.id,
+    });
+    return false;
+  }
+
+  const clearedMetadata = readMetadataRecord(data);
+  if (Object.keys(clearedMetadata).length === 0) {
+    return false;
+  }
+
+  for (const [key, value] of Object.entries(clearedMetadata)) {
+    setMetadataValue(metadata, key, value);
+  }
+  return true;
+}
+
 async function notifyVtuCustomerSuccess({
   cashbackAmount,
   customerWalletCredited,
@@ -1340,6 +1379,15 @@ async function notifyVtuCustomerSuccess({
           sent: emailResult.success,
           state: emailNotificationState,
         }) || metadataChanged;
+      if (!emailResult.success && claimedEmailNotification) {
+        metadataChanged =
+          (await clearCustomerEmailNotificationAttempt({
+            metadata,
+            row,
+            state: emailNotificationState,
+            supabase,
+          })) || metadataChanged;
+      }
     } catch (emailError) {
       console.error('Failed to send VTU customer email receipt:', {
         error:
@@ -1352,6 +1400,15 @@ async function notifyVtuCustomerSuccess({
           sent: false,
           state: emailNotificationState,
         }) || metadataChanged;
+      if (claimedEmailNotification) {
+        metadataChanged =
+          (await clearCustomerEmailNotificationAttempt({
+            metadata,
+            row,
+            state: emailNotificationState,
+            supabase,
+          })) || metadataChanged;
+      }
     }
   }
 

@@ -1,12 +1,28 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+const { mockAfterCallbacks } = vi.hoisted(() => ({
+  mockAfterCallbacks: [] as Array<() => unknown | Promise<unknown>>,
+}));
+
 const mockAuthenticateApiRequest = vi.fn();
 const mockVerifyPaystackTransaction = vi.fn();
 const mockUpsertPaystackAuthorization = vi.fn();
 const mockFulfillPendingVtuTransaction = vi.fn();
 const mockResolveVtuCustomer = vi.fn();
+const mockScheduleVoucherPinBackfill = vi.fn();
 const mockFrom = vi.fn();
+
+vi.mock('next/server', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('next/server')>();
+
+  return {
+    ...actual,
+    after: (callback: () => unknown | Promise<unknown>) => {
+      mockAfterCallbacks.push(callback);
+    },
+  };
+});
 
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: (...args: unknown[]) =>
@@ -40,6 +56,29 @@ vi.mock('@/lib/vtu-fulfillment', () => ({
 
 vi.mock('@/lib/vtu-pending-transaction', () => ({
   resolveVtuCustomer: (...args: unknown[]) => mockResolveVtuCustomer(...args),
+}));
+
+vi.mock('@/lib/vtu-voucher-backfill', () => ({
+  extractMetadataField: <T>(
+    metadata: unknown,
+    key: string,
+    validator: (value: unknown) => value is T
+  ) =>
+    typeof metadata === 'object' &&
+    metadata !== null &&
+    !Array.isArray(metadata) &&
+    validator((metadata as Record<string, unknown>)[key])
+      ? (metadata as Record<string, unknown>)[key]
+      : null,
+  isString: (value: unknown): value is string => typeof value === 'string',
+  normalizeMetadata: (metadata: unknown) =>
+    typeof metadata === 'object' &&
+    metadata !== null &&
+    !Array.isArray(metadata)
+      ? (metadata as Record<string, unknown>)
+      : {},
+  scheduleVoucherPinBackfill: (...args: unknown[]) =>
+    mockScheduleVoucherPinBackfill(...args),
 }));
 
 vi.mock('@/lib/supabase/admin', () => ({
@@ -78,14 +117,37 @@ type PaymentUpdateResult = {
   error: unknown;
 };
 
+const defaultVtuTransaction = {
+  id: 'vtu-1',
+  created_at: '2026-06-02T00:00:00.000Z',
+  type: 'electricity',
+  status: 'successful',
+  amount: 1000,
+  network_provider: '',
+  phone_number: '',
+  biller_name: 'EKEDC PREPAID',
+  biller_item_code: 'KUD-ELE-EKED-002',
+  customer_identifier: '43901766923',
+  customer_name: null,
+  request_reference: 'VTU-123',
+  transaction_id: 'kuda-1',
+  error_message: null,
+  customer_cashback: 0,
+  metadata: {},
+};
+
 function createMockFrom({
   transactionError = null,
   transactionData = defaultPaymentTransaction,
   updateResult = { data: { id: 'txn-1' }, error: null },
+  vtuTransactionData = defaultVtuTransaction,
+  vtuTransactionError = null,
 }: {
   transactionError?: unknown;
   transactionData?: PaymentTransaction | null;
   updateResult?: PaymentUpdateResult;
+  vtuTransactionData?: typeof defaultVtuTransaction | null;
+  vtuTransactionError?: unknown;
 } = {}) {
   return (table: string) => {
     if (table === 'merchants') {
@@ -123,6 +185,19 @@ function createMockFrom({
       };
     }
 
+    if (table === 'vtu_transactions') {
+      return {
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({
+              data: vtuTransactionData,
+              error: vtuTransactionError,
+            }),
+          }),
+        }),
+      };
+    }
+
     throw new Error(`Unexpected table in checkout confirm test: ${table}`);
   };
 }
@@ -130,6 +205,7 @@ function createMockFrom({
 describe('POST /api/vtu/checkout/confirm', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockAfterCallbacks.length = 0;
     mockAuthenticateApiRequest.mockResolvedValue({
       user: { id: 'user-1', email: 'customer@example.com' },
       error: null,
@@ -164,6 +240,7 @@ describe('POST /api/vtu/checkout/confirm', () => {
       },
       reference: 'VTU-123',
     });
+    mockScheduleVoucherPinBackfill.mockResolvedValue(true);
     mockResolveVtuCustomer.mockResolvedValue({ id: 'customer-1' });
     mockFrom.mockImplementation(createMockFrom());
   });
@@ -210,6 +287,40 @@ describe('POST /api/vtu/checkout/confirm', () => {
       supabase: expect.any(Object),
       transactionId: 'vtu-1',
     });
+  });
+
+  it('schedules token backfill for successful token-backed purchases without an immediate voucher pin', async () => {
+    mockFulfillPendingVtuTransaction.mockResolvedValue({
+      status: 'successful',
+      amount: 1000,
+      reference: 'VTU-123',
+    });
+
+    const response = await POST(
+      makeRequest({
+        merchantSlug: 'ogabassey',
+        gateway: 'paystack',
+        reference: 'VTU-123',
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockAfterCallbacks).toHaveLength(1);
+
+    await mockAfterCallbacks[0]?.();
+
+    expect(mockScheduleVoucherPinBackfill).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: {},
+        originalMetadata: {},
+        transaction: expect.objectContaining({
+          id: 'vtu-1',
+          status: 'successful',
+          type: 'electricity',
+        }),
+        voucherPin: null,
+      })
+    );
   });
 
   // Phase B.7 regression-pin: when initialize records a hybrid

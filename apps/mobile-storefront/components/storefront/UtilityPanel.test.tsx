@@ -258,6 +258,47 @@ describe('UtilityPanel', () => {
     });
   });
 
+  it('uses selected state instead of utility auto-rotation for remote circle categories', () => {
+    mockUseCategories.mockReturnValue(
+      createCategoriesResult({
+        data: [
+          {
+            icon: 'phone-portrait-outline',
+            id: 'phones',
+            name: 'Phones',
+            slug: 'phones',
+          },
+          {
+            icon: 'laptop-outline',
+            id: 'laptops',
+            name: 'Laptops',
+            slug: 'laptops',
+          },
+        ],
+      })
+    );
+
+    render(
+      <UtilityPanel
+        slug="electronics"
+        selectedCategoryId="laptops"
+        onCategorySelect={jest.fn()}
+      />
+    );
+
+    const phonesButton = screen.getByRole('button', { name: 'Phones' });
+    const laptopsButton = screen.getByRole('button', { name: 'Laptops' });
+
+    expect(phonesButton).toHaveAccessibilityState({ selected: false });
+    expect(laptopsButton).toHaveAccessibilityState({ selected: true });
+    expect(findHostElement(phonesButton.children[0])).toHaveStyle({
+      backgroundColor: Colors.light.muted,
+    });
+    expect(findHostElement(laptopsButton.children[0])).toHaveStyle({
+      backgroundColor: Colors.light.card,
+    });
+  });
+
   it('preserves manual utility selection when the home screen refocuses', () => {
     const onCategorySelect = jest.fn();
     const { rerender } = render(

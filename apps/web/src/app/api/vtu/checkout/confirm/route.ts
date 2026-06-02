@@ -252,7 +252,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (fulfillment.status === 'processing') {
+    const shouldScheduleVoucherBackfill =
+      fulfillment.status === 'processing' ||
+      (fulfillment.status === 'successful' && !fulfillment.voucherPin);
+
+    if (shouldScheduleVoucherBackfill) {
       after(async () => {
         try {
           const { data: vtuTx, error: vtuTxError } = await supabase
@@ -285,7 +289,9 @@ export async function POST(request: NextRequest) {
           );
         }
       });
+    }
 
+    if (fulfillment.status === 'processing') {
       return NextResponse.json(
         { reference: fulfillment.reference, status: 'processing' },
         { status: 202 }

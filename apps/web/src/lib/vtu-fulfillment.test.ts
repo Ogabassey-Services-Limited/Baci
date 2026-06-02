@@ -356,6 +356,19 @@ function createPendingTransactionSupabaseMock({
         });
       }
 
+      if (name === 'clear_vtu_customer_email_notification_attempt') {
+        return Promise.resolve({
+          data: {
+            ...(transactionRow.metadata &&
+            typeof transactionRow.metadata === 'object'
+              ? (transactionRow.metadata as Record<string, unknown>)
+              : {}),
+            [String(args?.p_attempt_key)]: false,
+          },
+          error: null,
+        });
+      }
+
       return rpcImpl
         ? rpcImpl(name, args)
         : Promise.resolve({ data: null, error: null });
@@ -737,6 +750,68 @@ describe('fulfillPendingVtuTransaction', () => {
         customerReceiptEmailNotificationSent: true,
         customerTokenEmailNotificationAttempted: true,
         customerTokenEmailNotificationSent: true,
+      }),
+    });
+  });
+
+  it('durably clears a claimed token email attempt when email delivery fails', async () => {
+    const updatePayloads: unknown[] = [];
+    mockSendEmail.mockResolvedValueOnce({ success: false });
+    const supabase = createPendingTransactionSupabaseMock({
+      customerData: {
+        user_id: null,
+        email: 'buyer@example.com',
+        first_name: 'Ada',
+        last_name: 'Lovelace',
+      },
+      merchantData: {
+        business_name: 'OgaBassey',
+        slug: 'ogabassey',
+      },
+      transactionRow: {
+        id: 'vtu-1',
+        merchant_id: 'merchant-1',
+        customer_id: 'customer-1',
+        type: 'electricity',
+        network_provider: '',
+        phone_number: '',
+        amount: 1000,
+        request_reference: 'VTU-123',
+        transaction_id: 'kuda-1',
+        status: 'successful',
+        metadata: {
+          voucherPin: 'TOKEN-READY-1234',
+        },
+        error_message: null,
+        merchant_commission: 0,
+        customer_cashback: 0,
+        biller_name: 'EKEDC PREPAID',
+        biller_item_code: 'KUD-ELE-EKED-002',
+        customer_identifier: '43901766923',
+      },
+      updateErrors: {
+        successMetadata: { message: 'final metadata write failed' },
+      },
+      updatePayloads,
+    });
+
+    await fulfillPendingVtuTransaction({
+      supabase,
+      transactionId: 'vtu-1',
+    });
+
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'clear_vtu_customer_email_notification_attempt',
+      {
+        p_attempt_key: 'customerTokenEmailNotificationAttempted',
+        p_sent_key: 'customerTokenEmailNotificationSent',
+        p_transaction_id: 'vtu-1',
+      }
+    );
+    expect(updatePayloads).toContainEqual({
+      metadata: expect.objectContaining({
+        customerTokenEmailNotificationAttempted: false,
+        customerTokenEmailNotificationSent: false,
       }),
     });
   });
