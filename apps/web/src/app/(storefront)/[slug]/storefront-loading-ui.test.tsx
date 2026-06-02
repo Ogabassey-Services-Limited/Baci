@@ -28,6 +28,33 @@ describe('storefront-loading-ui', () => {
     ).toBeInTheDocument();
   });
 
+  it('can preserve the mobile LCP hero image in the shell fallback', () => {
+    const { container } = render(
+      <ShellChromeLoading
+        mobileHeroImage={{
+          alt: 'OgaBassey storefront hero',
+          avifSrc: '/hero-mobile.avif',
+          fallbackSrc: '/hero-mobile.jpg',
+        }}
+      />
+    );
+
+    const image = screen.getByRole('img', {
+      name: 'OgaBassey storefront hero',
+    });
+    expect(image).toHaveAttribute('fetchpriority', 'high');
+    expect(image).toHaveAttribute('loading', 'eager');
+    expect(image).toHaveAttribute('decoding', 'sync');
+    expect(image).toHaveAttribute('width', '960');
+    expect(image).toHaveAttribute('height', '540');
+
+    const sources = container.querySelectorAll('source');
+    expect(sources[0]).toHaveAttribute('srcset', '/hero-mobile.avif');
+    expect(sources[0]).toHaveAttribute('type', 'image/avif');
+    expect(sources[1]).toHaveAttribute('srcset', '/hero-mobile.jpg');
+    expect(sources[1]).toHaveAttribute('type', 'image/jpeg');
+  });
+
   it('renders the shared route loading primitives', () => {
     render(
       <>

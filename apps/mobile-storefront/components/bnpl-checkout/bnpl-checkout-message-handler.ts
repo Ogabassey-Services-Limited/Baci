@@ -10,7 +10,13 @@ export function logBNPLCheckoutDebug(eventName: string, details: unknown) {
   }
 }
 
-export function createBNPLWebViewMessageHandler() {
+interface BNPLWebViewMessageHandlerOptions {
+  onNavigationMessage?: (url: string) => void;
+}
+
+export function createBNPLWebViewMessageHandler(
+  options: BNPLWebViewMessageHandlerOptions = {}
+) {
   return (event: BNPLWebViewMessageEvent) => {
     try {
       const data = JSON.parse(event.nativeEvent.data) as unknown;
@@ -26,6 +32,7 @@ export function createBNPLWebViewMessageHandler() {
         logBNPLCheckoutDebug('diagnostic navigation message', {
           url: payload.url,
         });
+        options.onNavigationMessage?.(payload.url);
       } else if (
         payload.type === 'bnpl_log' ||
         payload.type === 'bnpl_error_log' ||

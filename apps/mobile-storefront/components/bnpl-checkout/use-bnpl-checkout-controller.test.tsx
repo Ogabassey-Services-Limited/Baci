@@ -7,12 +7,11 @@ import {
   jest,
 } from '@jest/globals';
 import { act, renderHook } from '@testing-library/react-native';
+import { router } from 'expo-router';
 import { BNPL_UNTRUSTED_POPUP_MESSAGE } from './bnpl-checkout.helpers';
 import { useBNPLCheckoutController } from './use-bnpl-checkout-controller';
 
 const mockClearCart = jest.fn();
-const mockRouterBack = jest.fn();
-const mockRouterReplace = jest.fn();
 let mockRouteParams: Record<string, string> = {
   gateway: 'credit_direct',
   orderId: 'order-123',
@@ -28,8 +27,8 @@ const renderControllerHook = () =>
 
 jest.mock('expo-router', () => ({
   router: {
-    back: mockRouterBack,
-    replace: mockRouterReplace,
+    back: jest.fn(),
+    replace: jest.fn(),
   },
   useLocalSearchParams: () => mockRouteParams,
 }));
@@ -74,6 +73,71 @@ describe('useBNPLCheckoutController', () => {
 
     unmount();
     expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it('handles trusted SPA success navigation messages from the WebView', () => {
+    jest.useFakeTimers();
+    mockRouteParams = {
+      gateway: 'credit_direct',
+      merchantDomain: 'ogabassey.com',
+      merchantSlug: 'ogabassey',
+      orderId: 'order-123',
+      trackingToken: 'track-token-123',
+    };
+    const { result } = renderControllerHook();
+
+    act(() => {
+      result.current.handleWebViewMessage({
+        nativeEvent: {
+          data: JSON.stringify({
+            type: 'navigation',
+            url: 'https://ogabassey.com/order-success?reference=BAC-123',
+          }),
+        },
+      });
+    });
+
+    expect(result.current.status).toBe('success');
+    expect(mockClearCart).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      jest.advanceTimersByTime(1000);
+    });
+
+    expect(router.replace).toHaveBeenCalledWith({
+      pathname: '/order-success',
+      params: {
+        orderId: 'order-123',
+        paymentMethod: 'credit_direct',
+        reference: 'BAC-123',
+        trackingToken: 'track-token-123',
+      },
+    });
+  });
+
+  it('ignores untrusted SPA success navigation messages from the WebView', () => {
+    mockRouteParams = {
+      gateway: 'credit_direct',
+      merchantDomain: 'ogabassey.com',
+      merchantSlug: 'ogabassey',
+      orderId: 'order-123',
+    };
+    const { result } = renderControllerHook();
+
+    act(() => {
+      result.current.handleWebViewMessage({
+        nativeEvent: {
+          data: JSON.stringify({
+            type: 'navigation',
+            url: 'https://evil.example/order-success?reference=forged',
+          }),
+        },
+      });
+    });
+
+    expect(result.current.status).toBe('loading');
+    expect(mockClearCart).not.toHaveBeenCalled();
+    expect(router.replace).not.toHaveBeenCalled();
   });
 
   it('surfaces untrusted auxiliary windows as checkout errors', () => {

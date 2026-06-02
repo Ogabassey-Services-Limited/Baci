@@ -3,6 +3,7 @@ import {
   buildKlumpAuthorizationUrl,
   getAuthorizationSearchParams,
   isAllowedBnplPopupUrl,
+  isTrustedBnplReturnUrl,
   normalizeBNPLRouteParams,
 } from '@/lib/bnpl-url';
 
@@ -56,6 +57,40 @@ describe('bnpl-url', () => {
     expect(url.searchParams.get('trackingToken')).toBe('track-token-123');
     expect(url.searchParams.get('email')).toBe('customer@example.com');
     expect(url.searchParams.get('customerPhone')).toBe('+2348012345678');
+  });
+
+  it('trusts only Baci and merchant return URLs for checkout completion messages', () => {
+    expect(
+      isTrustedBnplReturnUrl(
+        'https://ogabassey.usebaci.com/order-success?reference=BAC-123',
+        'https://usebaci.com',
+        'ogabassey'
+      )
+    ).toBe(true);
+    expect(
+      isTrustedBnplReturnUrl(
+        'https://ogabassey.com/order-success?reference=BAC-123',
+        'https://usebaci.com',
+        'ogabassey',
+        'ogabassey.com'
+      )
+    ).toBe(true);
+    expect(
+      isTrustedBnplReturnUrl(
+        'https://checkout.creditdirect.ng/order-success?reference=BAC-123',
+        'https://usebaci.com',
+        'ogabassey',
+        'ogabassey.com'
+      )
+    ).toBe(false);
+    expect(
+      isTrustedBnplReturnUrl(
+        'https://evil.example/order-success?reference=forged',
+        'https://usebaci.com',
+        'ogabassey',
+        'ogabassey.com'
+      )
+    ).toBe(false);
   });
 
   it('allows provider and Baci return popup URLs only', () => {

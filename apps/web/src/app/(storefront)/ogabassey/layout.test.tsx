@@ -102,6 +102,9 @@ describe('OgabasseyLayout', () => {
     expect(
       fallback.getByRole('status', { name: /loading storefront chrome/i })
     ).toBeInTheDocument();
+    expect(
+      fallback.getByRole('img', { name: /ogabassey storefront hero/i })
+    ).toHaveAttribute('fetchpriority', 'high');
     fallback.unmount();
     await expect(props?.params).resolves.toEqual({
       slug: OGABASSEY_TEMPLATE_ID,

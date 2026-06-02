@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Alert } from 'react-native';
 import type { WebView, WebViewNavigation } from 'react-native-webview';
-import { isAllowedBnplPopupUrl } from '@/lib/bnpl-url';
+import { isAllowedBnplPopupUrl, isTrustedBnplReturnUrl } from '@/lib/bnpl-url';
 import { useCartStore } from '@/stores/cart-store';
 import type {
   BNPLShouldStartLoadRequest,
@@ -156,7 +156,22 @@ export function useBNPLCheckoutController({
     );
   };
 
-  const handleWebViewMessage = createBNPLWebViewMessageHandler();
+  const handleWebViewMessage = createBNPLWebViewMessageHandler({
+    onNavigationMessage: (url) => {
+      if (
+        !isTrustedBnplReturnUrl(url, apiBaseUrl, merchantSlug, merchantDomain)
+      ) {
+        logBNPLCheckoutDebug('ignored untrusted navigation message', {
+          merchantDomain,
+          merchantSlug,
+          url,
+        });
+        return;
+      }
+
+      handleNavigationUrl(url);
+    },
+  });
 
   const handleRetry = () => {
     clearPendingLoadTimeout();

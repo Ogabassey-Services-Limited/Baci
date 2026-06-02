@@ -6,6 +6,19 @@ import {
   StorefrontPageSkeleton,
 } from '@/components/ui/skeletons';
 
+interface ShellChromeLoadingMobileHeroImage {
+  alt: string;
+  avifSrc: string;
+  fallbackSrc: string;
+}
+
+interface ShellChromeLoadingProps {
+  mobileHeroImage?: ShellChromeLoadingMobileHeroImage;
+}
+
+const transparentPixelSrc =
+  'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
+
 function LoadingStatus({
   label,
   children,
@@ -20,10 +33,36 @@ function LoadingStatus({
   );
 }
 
-export function ShellChromeLoading() {
+export function ShellChromeLoading({
+  mobileHeroImage,
+}: ShellChromeLoadingProps = {}) {
   return (
     <LoadingStatus label="Loading storefront chrome">
       <div className="storefront-shell-loading">
+        {mobileHeroImage ? (
+          <picture className="storefront-shell-loading__mobile-hero md:hidden">
+            <source
+              media="(max-width: 767px)"
+              srcSet={mobileHeroImage.avifSrc}
+              type="image/avif"
+            />
+            <source
+              media="(max-width: 767px)"
+              srcSet={mobileHeroImage.fallbackSrc}
+              type="image/jpeg"
+            />
+            <img
+              alt={mobileHeroImage.alt}
+              className="storefront-shell-loading__mobile-hero-image"
+              decoding="sync"
+              fetchPriority="high"
+              height={540}
+              loading="eager"
+              src={transparentPixelSrc}
+              width={960}
+            />
+          </picture>
+        ) : null}
         <div className="storefront-shell-loading__bar" />
       </div>
     </LoadingStatus>

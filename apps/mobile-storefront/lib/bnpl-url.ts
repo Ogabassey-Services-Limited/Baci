@@ -229,6 +229,30 @@ function isBaciReturnOrigin(
   return false;
 }
 
+export function isTrustedBnplReturnUrl(
+  targetUrl: string,
+  baseUrl: string,
+  merchantSlug?: string,
+  merchantDomain?: string
+) {
+  try {
+    const parsedTargetUrl = new URL(targetUrl);
+
+    if (!['https:', 'http:'].includes(parsedTargetUrl.protocol)) {
+      return false;
+    }
+
+    return isBaciReturnOrigin(
+      parsedTargetUrl,
+      baseUrl,
+      merchantSlug,
+      merchantDomain
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function isAllowedBnplPopupUrl(
   targetUrl: string,
   baseUrl: string,

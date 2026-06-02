@@ -42,19 +42,20 @@ describe('createBNPLWebViewMessageHandler', () => {
     );
   });
 
-  it('logs navigation messages without treating them as verified redirects', () => {
+  it('logs navigation messages and delegates URL handling to the controller', () => {
     process.env.NODE_ENV = 'development';
     (globalThis as typeof globalThis & { __DEV__?: boolean }).__DEV__ = true;
     const info = jest
       .spyOn(console, 'info')
       .mockImplementation(() => undefined);
-    const handler = createBNPLWebViewMessageHandler();
+    const onNavigationMessage = jest.fn();
+    const handler = createBNPLWebViewMessageHandler({ onNavigationMessage });
 
     handler({
       nativeEvent: {
         data: JSON.stringify({
           type: 'navigation',
-          url: 'https://evil.example/order-success?reference=forged',
+          url: 'https://ogabassey.usebaci.com/order-success?reference=BAC-123',
         }),
       },
     });
@@ -62,8 +63,11 @@ describe('createBNPLWebViewMessageHandler', () => {
     expect(info).toHaveBeenCalledWith(
       '[BNPLCheckout] diagnostic navigation message',
       {
-        url: 'https://evil.example/order-success?reference=forged',
+        url: 'https://ogabassey.usebaci.com/order-success?reference=BAC-123',
       }
+    );
+    expect(onNavigationMessage).toHaveBeenCalledWith(
+      'https://ogabassey.usebaci.com/order-success?reference=BAC-123'
     );
   });
 
