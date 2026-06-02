@@ -23,9 +23,13 @@ vi.mock('@/lib/validation', () => ({
   isDomainIdentifier: vi.fn(() => false),
 }));
 
+const { suspendedBnplLauncherPromise } = vi.hoisted(() => ({
+  suspendedBnplLauncherPromise: new Promise<never>(() => undefined),
+}));
+
 vi.mock('@/components/storefront/ogabassey/pages/bnpl-launcher', () => ({
   BnplLauncher: () => {
-    throw new Promise(() => undefined);
+    throw suspendedBnplLauncherPromise;
   },
 }));
 
