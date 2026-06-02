@@ -11,9 +11,11 @@
 #   2. Skips the file if the version is already in
 #      supabase_migrations.schema_migrations.
 #   3. Otherwise sends a single Management API request that runs the
-#      migration SQL AND registers a row in schema_migrations. The Management
-#      API wraps each request in a transaction, so partial application is
-#      impossible. The registered version matches the filename — no drift.
+#      migration SQL AND registers a row in schema_migrations. Normal migrations
+#      are sent as one query payload so partial application is impossible. Files
+#      that start with `-- disable-transaction` are intentionally split into
+#      top-level statements first so operations like CREATE INDEX CONCURRENTLY
+#      can run outside a multi-statement transaction payload.
 #
 # `statements` in schema_migrations is left as ARRAY[]::text[]. The CLI's
 # `migration list` only consults version + name; round-tripping the migration
@@ -43,9 +45,176 @@ api_query() {
     "$API"
 }
 
-applied_versions="$(jq -n '{query: "SELECT version FROM supabase_migrations.schema_migrations ORDER BY version"}' \
-  | api_query \
-  | jq -r '.[].version')"
+api_query_payload() {
+  local body="$1"
+  api_query <<<"$body" > /dev/null
+}
+
+split_sql_statements() {
+  node - "$1" <<'NODE'
+const fs = require('node:fs');
+
+const sql = fs.readFileSync(process.argv[2], 'utf8');
+const statements = [];
+let start = 0;
+let i = 0;
+let singleQuote = false;
+let escapeStringQuote = false;
+let doubleQuote = false;
+let lineComment = false;
+let blockCommentDepth = 0;
+let dollarQuoteTag = null;
+
+const isDollarTagCharacter = (char) => /[A-Za-z0-9_]/.test(char);
+const isIdentifierCharacter = (char) => /[A-Za-z0-9_$]/.test(char);
+const isEscapeStringPrefix = (quoteIndex) => {
+  const previous = sql[quoteIndex - 1];
+  if (previous !== 'E' && previous !== 'e') {
+    return false;
+  }
+
+  const beforePrevious = sql[quoteIndex - 2];
+  return !beforePrevious || !isIdentifierCharacter(beforePrevious);
+};
+
+while (i < sql.length) {
+  const char = sql[i];
+  const next = sql[i + 1];
+
+  if (lineComment) {
+    if (char === '\n') {
+      lineComment = false;
+    }
+    i += 1;
+    continue;
+  }
+
+  if (blockCommentDepth > 0) {
+    if (char === '/' && next === '*') {
+      blockCommentDepth += 1;
+      i += 2;
+      continue;
+    }
+    if (char === '*' && next === '/') {
+      blockCommentDepth -= 1;
+      i += 2;
+      continue;
+    }
+    i += 1;
+    continue;
+  }
+
+  if (dollarQuoteTag) {
+    if (sql.startsWith(dollarQuoteTag, i)) {
+      i += dollarQuoteTag.length;
+      dollarQuoteTag = null;
+      continue;
+    }
+    i += 1;
+    continue;
+  }
+
+  if (singleQuote) {
+    if (escapeStringQuote && char === '\\') {
+      i += 2;
+      continue;
+    }
+    if (char === "'" && next === "'") {
+      i += 2;
+      continue;
+    }
+    if (char === "'") {
+      singleQuote = false;
+      escapeStringQuote = false;
+    }
+    i += 1;
+    continue;
+  }
+
+  if (doubleQuote) {
+    if (char === '"' && next === '"') {
+      i += 2;
+      continue;
+    }
+    if (char === '"') {
+      doubleQuote = false;
+    }
+    i += 1;
+    continue;
+  }
+
+  if (char === '-' && next === '-') {
+    lineComment = true;
+    i += 2;
+    continue;
+  }
+
+  if (char === '/' && next === '*') {
+    blockCommentDepth = 1;
+    i += 2;
+    continue;
+  }
+
+  if (char === "'") {
+    singleQuote = true;
+    escapeStringQuote = isEscapeStringPrefix(i);
+    i += 1;
+    continue;
+  }
+
+  if (char === '"') {
+    doubleQuote = true;
+    i += 1;
+    continue;
+  }
+
+  if (char === '$') {
+    let end = i + 1;
+    while (end < sql.length && isDollarTagCharacter(sql[end])) {
+      end += 1;
+    }
+    if (sql[end] === '$') {
+      dollarQuoteTag = sql.slice(i, end + 1);
+      i = end + 1;
+      continue;
+    }
+  }
+
+  if (char === ';') {
+    const statement = sql.slice(start, i + 1).trim();
+    if (statement.replace(/--.*$/gm, '').trim()) {
+      statements.push(statement);
+    }
+    start = i + 1;
+  }
+
+  i += 1;
+}
+
+const trailing = sql.slice(start).trim();
+if (trailing.replace(/--.*$/gm, '').trim()) {
+  statements.push(trailing);
+}
+
+for (const statement of statements) {
+  console.log(JSON.stringify(statement));
+}
+NODE
+}
+
+build_register_migration_query() {
+  jq -nr \
+    --arg version "$1" \
+    --arg name "$2" \
+    '"INSERT INTO supabase_migrations.schema_migrations(version, name, statements) VALUES ("
+     + "'"'"'" + ($version | gsub("'"'"'"; "'"'"''"'"'")) + "'"'"', "
+     + "'"'"'" + ($name | gsub("'"'"'"; "'"'"''"'"'")) + "'"'"', "
+     + "ARRAY[]::text[]);"'
+}
+
+applied_versions_body="$(jq -n '{query: "SELECT version FROM supabase_migrations.schema_migrations ORDER BY version"}')"
+applied_versions_response="$(api_query <<<"$applied_versions_body")"
+applied_versions="$(jq -r '.[].version' <<<"$applied_versions_response")"
 
 applied_count_remote=$(printf '%s' "$applied_versions" | grep -c . || true)
 echo "Applied versions on remote: ${applied_count_remote}"
@@ -59,8 +228,7 @@ if [ "${#files[@]}" -eq 0 ]; then
   exit 0
 fi
 
-IFS=$'\n' sorted_files=($(printf '%s\n' "${files[@]}" | sort))
-unset IFS
+mapfile -t sorted_files < <(printf '%s\n' "${files[@]}" | sort)
 
 applied_count=0
 skipped_count=0
@@ -78,6 +246,33 @@ for file in "${sorted_files[@]}"; do
 
   echo "→ applying:        $version  ${name}"
 
+  if head -n 1 "$file" | grep -qx -- '-- disable-transaction'; then
+    echo "  non-transactional migration marker detected"
+
+    # CREATE INDEX CONCURRENTLY fails inside a multi-statement transaction
+    # payload. Keep these marker migrations idempotent; if a later statement
+    # fails, the history row is not written and the next deploy can resume.
+    statement_count=0
+    while IFS= read -r statement_json; do
+      statement_count=$((statement_count + 1))
+      body="$(jq -n --argjson query "$statement_json" '{query: $query}')"
+      api_query_payload "$body"
+    done < <(split_sql_statements "$file")
+
+    if [ "$statement_count" -eq 0 ]; then
+      echo "::error::non-transactional migration $file did not contain executable SQL"
+      exit 1
+    fi
+
+    body="$(jq -n \
+      --arg query "$(build_register_migration_query "$version" "$name")" \
+      '{query: $query}')"
+    api_query_payload "$body"
+    echo "✓ applied:         $version  ${name}"
+    applied_count=$((applied_count + 1))
+    continue
+  fi
+
   # The migration SQL goes in untouched (jq --rawfile reads it verbatim and
   # JSON-encodes for transport). The INSERT registers the same version+name
   # we parsed from the filename, so the row matches the file 1:1.
@@ -88,21 +283,17 @@ for file in "${sorted_files[@]}"; do
   # single quotes and double any embedded single quote per SQL spec.
   body="$(jq -n \
     --rawfile sql "$file" \
-    --arg version "$version" \
-    --arg name "$name" \
+    --arg registration "$(build_register_migration_query "$version" "$name")" \
     '{
        query: (
          $sql
          + "\n"
-         + "INSERT INTO supabase_migrations.schema_migrations(version, name, statements) VALUES ("
-         + "'"'"'" + ($version | gsub("'"'"'"; "'"'"''"'"'")) + "'"'"', "
-         + "'"'"'" + ($name | gsub("'"'"'"; "'"'"''"'"'")) + "'"'"', "
-         + "ARRAY[]::text[]);"
+         + $registration
        )
      }'
   )"
 
-  printf '%s' "$body" | api_query > /dev/null
+  api_query_payload "$body"
   echo "✓ applied:         $version  ${name}"
   applied_count=$((applied_count + 1))
 done
