@@ -82,6 +82,7 @@ export default function HomeScreen() {
   const headerVisibility = useSharedValue(1);
   const previousOffsetY = useSharedValue(0);
   const isScrolledShared = useSharedValue(false);
+  const searchVisibleShared = useSharedValue(false);
   const lastLoadMoreContentHeight = useSharedValue(0);
   const hasExitedLoadMoreZone = useSharedValue(true);
 
@@ -94,11 +95,13 @@ export default function HomeScreen() {
   const [searchQuery, setSearchQuery] = useState('');
 
   const handleSearch = () => {
+    searchVisibleShared.set(true);
     headerVisibility.value = withTiming(1, { duration: 180 });
     setSearchVisible(true);
   };
 
   const handleSearchCancel = () => {
+    searchVisibleShared.set(false);
     setSearchVisible(false);
     setSearchQuery('');
   };
@@ -142,7 +145,7 @@ export default function HomeScreen() {
   const handleListScroll = useAnimatedScrollHandler({
     onScroll: (event) => {
       'worklet';
-      if (searchVisible) return;
+      if (searchVisibleShared.get()) return;
 
       const currentOffsetY = event.contentOffset.y;
       const normalizedOffsetY = Math.max(0, currentOffsetY);

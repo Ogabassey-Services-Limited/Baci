@@ -1,9 +1,3 @@
-/**
- * Account Screen
- * User profile, orders, saved items, settings
- * Includes real-time loyalty points sync
- */
-
 import type { Href } from 'expo-router';
 import { router } from 'expo-router';
 import { useIsFocused } from 'expo-router/react-navigation';
@@ -32,11 +26,29 @@ import { useStorefrontInsets } from '@/hooks/use-storefront-insets';
 import { supabase } from '@/lib/supabase';
 import { type Customer, useAuthStore } from '@/stores/auth-store';
 
-let accountLoyaltyChannelSequence = 0;
+type AccountLoyaltyChannel = ReturnType<typeof supabase.channel>;
+
+const ACCOUNT_LOYALTY_CHANNEL_PREFIX = 'account-loyalty';
 
 function createAccountLoyaltyChannelName(customerId: string) {
-  accountLoyaltyChannelSequence += 1;
-  return `account-loyalty-${customerId}-${accountLoyaltyChannelSequence}`;
+  return `${ACCOUNT_LOYALTY_CHANNEL_PREFIX}-${customerId}`;
+}
+
+function isAccountLoyaltyChannel(
+  channel: AccountLoyaltyChannel,
+  channelName: string
+) {
+  return channel.topic === channelName || channel.topic === `realtime:${channelName}`;
+}
+
+async function removeExistingAccountLoyaltyChannels(channelName: string) {
+  const existingChannels = supabase
+    .getChannels()
+    .filter((channel) => isAccountLoyaltyChannel(channel, channelName));
+
+  await Promise.all(
+    existingChannels.map((channel) => supabase.removeChannel(channel))
+  );
 }
 
 export default function AccountScreen() {
@@ -89,31 +101,51 @@ export default function AccountScreen() {
     }
 
     let isMounted = true;
-    const channel = supabase
-      .channel(createAccountLoyaltyChannelName(safeCustomer.id))
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'customers',
-          filter: `id=eq.${safeCustomer.id}`,
-        },
-        (payload) => {
-          if (isMounted && payload.new && 'loyalty_points' in payload.new) {
-            setLoyaltyPoints(payload.new.loyalty_points as number);
+    let channel: AccountLoyaltyChannel | null = null;
+
+    const subscribeToLoyaltyUpdates = async () => {
+      const channelName = createAccountLoyaltyChannelName(safeCustomer.id);
+
+      try {
+        await removeExistingAccountLoyaltyChannels(channelName);
+      } catch (err) {
+        console.error('Realtime channel cleanup error:', err);
+      }
+
+      if (!isMounted) {
+        return;
+      }
+
+      channel = supabase
+        .channel(channelName)
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'customers',
+            filter: `id=eq.${safeCustomer.id}`,
+          },
+          (payload) => {
+            if (isMounted && payload.new && 'loyalty_points' in payload.new) {
+              setLoyaltyPoints(payload.new.loyalty_points as number);
+            }
           }
-        }
-      )
-      .subscribe((_status, err) => {
-        if (err) {
-          console.error('Realtime subscription error:', err);
-        }
-      });
+        )
+        .subscribe((_status, err) => {
+          if (err) {
+            console.error('Realtime subscription error:', err);
+          }
+        });
+    };
+
+    void subscribeToLoyaltyUpdates();
 
     return () => {
       isMounted = false;
-      void supabase.removeChannel(channel);
+      if (channel) {
+        void supabase.removeChannel(channel);
+      }
     };
   }, [isFocused, safeCustomer?.id]);
 

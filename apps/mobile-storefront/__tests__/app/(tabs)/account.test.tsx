@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { render, screen } from '@testing-library/react-native';
+import { render, screen, waitFor } from '@testing-library/react-native';
 import { View } from 'react-native';
 import AccountScreen from '@/app/(tabs)/account';
 
@@ -40,12 +40,15 @@ const mockUseAuthStatus = jest.fn();
 const mockGetAccountMenuSections = jest.fn();
 const mockRouterReplace = jest.fn();
 const mockRouterPush = jest.fn();
-const mockRemoveChannel = jest.fn(
-  async (_channel: MockRealtimeChannel) => 'ok'
-);
+const mockRemoveChannel = jest.fn(async (channel: MockRealtimeChannel) => {
+  mockRealtimeChannels.delete(channel.topic);
+  channel.subscribed = false;
+  return 'ok';
+});
 const mockSupabaseChannel = jest.fn((topic: string) =>
   getMockRealtimeChannel(topic)
 );
+const mockGetChannels = jest.fn(() => Array.from(mockRealtimeChannels.values()));
 let mockCustomer: MockCustomer | null = null;
 let mockSession: MockSession | null = {
   user: {
@@ -130,6 +133,7 @@ jest.mock('@/components/profile/account-menu', () => ({
 jest.mock('@/lib/supabase', () => ({
   supabase: {
     channel: (topic: string) => mockSupabaseChannel(topic),
+    getChannels: () => mockGetChannels(),
     removeChannel: (channel: MockRealtimeChannel) => mockRemoveChannel(channel),
   },
 }));
@@ -280,7 +284,7 @@ describe('AccountScreen', () => {
     expect(screen.queryByText('Hidden Section')).toBeNull();
   });
 
-  it('creates a fresh loyalty realtime channel across quick remounts', () => {
+  it('reuses a stable loyalty realtime channel after quick remount cleanup', async () => {
     mockCustomer = {
       id: 'customer-1',
       email: 'customer@example.com',
@@ -288,17 +292,18 @@ describe('AccountScreen', () => {
     };
 
     const firstRender = render(<AccountScreen />);
+    await waitFor(() => expect(mockSupabaseChannel).toHaveBeenCalledTimes(1));
     firstRender.unmount();
 
     expect(() => render(<AccountScreen />)).not.toThrow();
-    expect(mockSupabaseChannel).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(mockSupabaseChannel).toHaveBeenCalledTimes(2));
 
     const firstTopic = mockSupabaseChannel.mock.calls[0]?.[0];
     const secondTopic = mockSupabaseChannel.mock.calls[1]?.[0];
 
-    expect(firstTopic).toMatch(/^account-loyalty-customer-1-\d+$/);
-    expect(secondTopic).toMatch(/^account-loyalty-customer-1-\d+$/);
-    expect(secondTopic).not.toBe(firstTopic);
+    expect(firstTopic).toBe('account-loyalty-customer-1');
+    expect(secondTopic).toBe(firstTopic);
+    expect(mockGetChannels).toHaveBeenCalled();
     expect(mockRemoveChannel).toHaveBeenCalledTimes(1);
   });
 });
