@@ -17,6 +17,9 @@ interface LoginSecondaryActionsProps {
     card: string;
     text: string;
     textMuted: string;
+    gold: string;
+    warning: string;
+    warningLight: string;
   };
   isAnyLoading: boolean;
   isAppleLoading: boolean;
@@ -130,6 +133,7 @@ export function LoginSecondaryActions({
           <Text
             style={[
               loginStyles.signUpLink,
+              { color: colors.gold },
               isAnyLoading && loginStyles.signUpLinkDisabled,
             ]}
           >
@@ -140,7 +144,13 @@ export function LoginSecondaryActions({
 
       {__DEV__ && onResetOnboarding ? (
         <Pressable
-          style={styles.devResetButton}
+          style={[
+            styles.devResetButton,
+            {
+              backgroundColor: colors.warningLight,
+              borderColor: colors.warning,
+            },
+          ]}
           onPress={async () => {
             try {
               await onResetOnboarding();
@@ -159,8 +169,10 @@ export function LoginSecondaryActions({
             }
           }}
         >
-          <Ionicons name="refresh-outline" size={20} color="#D97706" />
-          <Text style={styles.devResetText}>Reset Onboarding (Dev)</Text>
+          <Ionicons name="refresh-outline" size={20} color={colors.warning} />
+          <Text style={[styles.devResetText, { color: colors.warning }]}>
+            Reset Onboarding (Dev)
+          </Text>
         </Pressable>
       ) : null}
     </>
@@ -177,11 +189,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     gap: 8,
     marginTop: SPACING.xl,
-    backgroundColor: '#FEF3C7',
-    borderColor: '#F59E0B',
   },
   devResetText: {
-    color: '#D97706',
     fontWeight: '600',
   },
 });

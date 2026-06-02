@@ -16,7 +16,6 @@ import { PasswordVisibilityToggle } from '@/components/auth/PasswordVisibilityTo
 import { BaciLogo } from '@/components/BaciLogo';
 import { AppFormScreen } from '@/components/ui/AppFormScreen';
 import { isRuntimePlatform } from '@/config/runtime-platform';
-import { BRAND } from '@/constants/brand';
 import { useOnboarding } from '@/context/OnboardingContext';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
@@ -101,7 +100,7 @@ export default function LoginScreen() {
         {/* Baci Branding */}
         <View style={styles.header}>
           <BaciLogo size={80} borderRadius={20} />
-          <Text style={[styles.title, { color: BRAND.navy }]}>Baci</Text>
+          <Text style={[styles.title, { color: colors.text }]}>Baci</Text>
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
             Manage your store on the go
           </Text>
@@ -186,13 +185,15 @@ export default function LoginScreen() {
             accessibilityLabel="Forgot password? Reset your password"
             accessibilityState={{ disabled: isAnyLoading }}
           >
-            <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+            <Text style={[styles.forgotPasswordText, { color: colors.gold }]}>
+              Forgot Password?
+            </Text>
           </Pressable>
 
           <Pressable
             style={[
               styles.loginButton,
-              { backgroundColor: BRAND.yellow },
+              { backgroundColor: colors.gold },
               isAnyLoading && styles.loginButtonDisabled,
             ]}
             onPress={handleLogin}
@@ -201,12 +202,14 @@ export default function LoginScreen() {
             accessibilityLabel={
               isPasswordLoading ? 'Signing in' : 'Sign in to your account'
             }
-            accessibilityState={{ disabled: isAnyLoading }}
+            accessibilityState={{ disabled: isAnyLoading, busy: isAnyLoading }}
           >
             {isPasswordLoading ? (
-              <ActivityIndicator color={BRAND.navy} />
+              <ActivityIndicator color={colors.textOnGold} />
             ) : (
-              <Text style={[styles.loginButtonText, { color: BRAND.navy }]}>
+              <Text
+                style={[styles.loginButtonText, { color: colors.textOnGold }]}
+              >
                 Sign In
               </Text>
             )}
@@ -218,6 +221,9 @@ export default function LoginScreen() {
               card: colors.card,
               text: colors.text,
               textMuted: colors.textMuted,
+              gold: colors.gold,
+              warning: colors.warning,
+              warningLight: colors.warningLight,
             }}
             isAnyLoading={isAnyLoading}
             isAppleLoading={isAppleLoading}
