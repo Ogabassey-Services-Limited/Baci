@@ -524,7 +524,7 @@ describe('getCachedGoogleMerchantFeedData', () => {
   });
 
   it('limits concurrent variant RPC batches', async () => {
-    const products = Array.from({ length: 101 }, (_, index) => ({
+    const products = Array.from({ length: 251 }, (_, index) => ({
       id: `product-${index}`,
       name: `Phone ${index}`,
       created_at: '2026-01-01T00:00:00.000Z',
@@ -556,8 +556,13 @@ describe('getCachedGoogleMerchantFeedData', () => {
 
     await flushMicrotasks();
 
-    expect(FEED_PRODUCT_VARIANTS_MAX_CONCURRENT_BATCHES).toBe(1);
-    expect(startedBatchSizes).toEqual([FEED_PRODUCT_VARIANTS_BATCH_SIZE]);
+    expect(FEED_PRODUCT_VARIANTS_MAX_CONCURRENT_BATCHES).toBe(4);
+    expect(startedBatchSizes).toEqual([
+      FEED_PRODUCT_VARIANTS_BATCH_SIZE,
+      FEED_PRODUCT_VARIANTS_BATCH_SIZE,
+      FEED_PRODUCT_VARIANTS_BATCH_SIZE,
+      FEED_PRODUCT_VARIANTS_BATCH_SIZE,
+    ]);
     expect(deferredRpcResults).toHaveLength(
       FEED_PRODUCT_VARIANTS_MAX_CONCURRENT_BATCHES
     );
@@ -569,20 +574,29 @@ describe('getCachedGoogleMerchantFeedData', () => {
     expect(startedBatchSizes).toEqual([
       FEED_PRODUCT_VARIANTS_BATCH_SIZE,
       FEED_PRODUCT_VARIANTS_BATCH_SIZE,
+      FEED_PRODUCT_VARIANTS_BATCH_SIZE,
+      FEED_PRODUCT_VARIANTS_BATCH_SIZE,
     ]);
-    deferredRpcResults[1]?.resolve({ data: [], error: null });
+
+    for (const deferred of deferredRpcResults.slice(1, 4)) {
+      deferred.resolve({ data: [], error: null });
+    }
 
     await flushMicrotasks();
 
     expect(startedBatchSizes).toEqual([
       FEED_PRODUCT_VARIANTS_BATCH_SIZE,
       FEED_PRODUCT_VARIANTS_BATCH_SIZE,
+      FEED_PRODUCT_VARIANTS_BATCH_SIZE,
+      FEED_PRODUCT_VARIANTS_BATCH_SIZE,
+      FEED_PRODUCT_VARIANTS_BATCH_SIZE,
       1,
     ]);
-    deferredRpcResults[2]?.resolve({ data: [], error: null });
+    deferredRpcResults[4]?.resolve({ data: [], error: null });
+    deferredRpcResults[5]?.resolve({ data: [], error: null });
 
     const result = await resultPromise;
-    expect(result.products).toHaveLength(101);
+    expect(result.products).toHaveLength(251);
   });
 
   it('hydrates feed variants from the feed RPC', async () => {

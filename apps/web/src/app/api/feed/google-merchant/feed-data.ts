@@ -18,9 +18,10 @@ const FEED_PRODUCT_OFFERS_BATCH_SIZE = 250;
 const FEED_IMAGE_MANIFEST_PRODUCT_BATCH_SIZE = 250;
 export const FEED_PRODUCT_VARIANTS_BATCH_SIZE = 50;
 export const FEED_IMAGE_MANIFEST_MAX_CONCURRENT_BATCHES = 4;
-// Keep variant hydration serialized: this RPC fans across large tenant catalogs,
-// and concurrent cold-cache calls have hit Postgres statement timeouts in prod.
-export const FEED_PRODUCT_VARIANTS_MAX_CONCURRENT_BATCHES = 1;
+// Keep variant hydration bounded: the smaller RPC batches reduce DB work per
+// call, while limited parallelism prevents cold public feeds from serializing
+// up to 200 round trips for max-size merchant catalogs.
+export const FEED_PRODUCT_VARIANTS_MAX_CONCURRENT_BATCHES = 4;
 
 export interface GoogleMerchantFeedData {
   custom_domain: string | null;
