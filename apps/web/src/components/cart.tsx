@@ -41,11 +41,37 @@ export function Cart() {
             <div className="px-6">
               <AnimatePresence mode="popLayout">
                 {cart.map((item) => {
-                  const cartControlId = item.cartItemId;
+                  const cartControlId = item.cartItemId || item.id;
+                  const cartControlVariantId = item.cartItemId
+                    ? undefined
+                    : item.variantId;
+                  const cartLineKey =
+                    item.cartItemId ||
+                    `${item.id}${item.variantId ? `::variant=${item.variantId}` : ''}`;
+                  const updateCartQuantity = (quantity: number) => {
+                    if (cartControlVariantId) {
+                      updateQuantity(
+                        cartControlId,
+                        quantity,
+                        cartControlVariantId
+                      );
+                      return;
+                    }
+
+                    updateQuantity(cartControlId, quantity);
+                  };
+                  const removeCartItem = () => {
+                    if (cartControlVariantId) {
+                      removeFromCart(cartControlId, cartControlVariantId);
+                      return;
+                    }
+
+                    removeFromCart(cartControlId);
+                  };
 
                   return (
                     <motion.div
-                      key={cartControlId}
+                      key={cartLineKey}
                       className="flex items-start gap-4 py-4 border-b"
                       initial={{ opacity: 0, x: 20 }}
                       animate={{ opacity: 1, x: 0 }}
@@ -66,7 +92,7 @@ export function Cart() {
                           <QuantityButton
                             type="minus"
                             onClick={() =>
-                              updateQuantity(cartControlId, item.quantity - 1)
+                              updateCartQuantity(item.quantity - 1)
                             }
                             disabled={item.quantity <= 1}
                             className="size-11 min-w-[44px] min-h-[44px]"
@@ -76,8 +102,7 @@ export function Cart() {
                             min="1"
                             value={item.quantity}
                             onChange={(e) =>
-                              updateQuantity(
-                                cartControlId,
+                              updateCartQuantity(
                                 Number.parseInt(e.target.value, 10)
                               )
                             }
@@ -87,7 +112,7 @@ export function Cart() {
                           <QuantityButton
                             type="plus"
                             onClick={() =>
-                              updateQuantity(cartControlId, item.quantity + 1)
+                              updateCartQuantity(item.quantity + 1)
                             }
                             className="size-11 min-w-[44px] min-h-[44px]"
                           />
@@ -106,7 +131,7 @@ export function Cart() {
                         <motion.button
                           type="button"
                           className="text-xs min-h-[44px] px-2 text-red-500 hover:text-red-600 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm"
-                          onClick={() => removeFromCart(cartControlId)}
+                          onClick={removeCartItem}
                           aria-label={`Remove ${item.name} from cart`}
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}

@@ -168,6 +168,32 @@ describe('Cart', () => {
     );
   });
 
+  it('falls back to product and variant ids for legacy cart lines without cartItemId', () => {
+    mockUseCart.mockReturnValue({
+      cart: [makeCartItem({ cartItemId: undefined })],
+      cartCount: 2,
+      cartTotal: 200,
+      removeFromCart: mockRemoveFromCart,
+      updateQuantity: mockUpdateQuantity,
+    });
+
+    render(<Cart />);
+
+    fireEvent.change(screen.getByLabelText('Quantity for Legacy Variant'), {
+      target: { value: '4' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Remove Legacy Variant from cart' })
+    );
+
+    expect(mockUpdateQuantity).toHaveBeenCalledWith(
+      'product-1',
+      4,
+      'variant-128'
+    );
+    expect(mockRemoveFromCart).toHaveBeenCalledWith('product-1', 'variant-128');
+  });
+
   it('renders the empty cart state and polite live region', () => {
     mockUseCart.mockReturnValue({
       cart: [],
