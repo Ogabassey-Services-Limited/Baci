@@ -58,6 +58,7 @@ export function UtilityPaymentMethodSelector({
         className="space-y-2"
         onKeyDown={handleKeyDown}
         role="radiogroup"
+        tabIndex={-1}
       >
         {(walletLoading || canUseWallet) && (
           <button

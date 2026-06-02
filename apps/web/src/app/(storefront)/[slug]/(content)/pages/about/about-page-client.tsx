@@ -46,6 +46,9 @@ interface AboutPageClientProps {
   legacyContent?: string;
 }
 
+const ABOUT_VIDEO_IFRAME_SANDBOX =
+  'allow-same-origin allow-scripts allow-presentation allow-popups allow-popups-to-escape-sandbox';
+
 export function AboutPageClient({
   merchant,
   aboutPage,
@@ -367,6 +370,7 @@ export function AboutPageClient({
                               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                               allowFullScreen
                               loading="lazy"
+                              sandbox={ABOUT_VIDEO_IFRAME_SANDBOX}
                             />
                           </div>
                         </section>

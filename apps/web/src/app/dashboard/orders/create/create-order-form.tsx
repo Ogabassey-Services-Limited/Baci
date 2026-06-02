@@ -201,6 +201,8 @@ export function CreateOrderForm() {
                             <Button
                               variant="outline"
                               role="combobox"
+                              aria-controls="create-order-customer-listbox"
+                              aria-expanded={customerPopoverOpen}
                               className={cn(
                                 'w-full justify-between',
                                 !field.value && 'text-muted-foreground'
@@ -219,7 +221,7 @@ export function CreateOrderForm() {
                               value={customerSearch}
                               onValueChange={setCustomerSearch}
                             />
-                            <CommandList>
+                            <CommandList id="create-order-customer-listbox">
                               <CommandEmpty>No customer found.</CommandEmpty>
                               <CommandGroup>
                                 {filteredCustomers.map((customer) => (

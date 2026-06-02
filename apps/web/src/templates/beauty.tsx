@@ -250,9 +250,9 @@ export function BeautyHome(props: TemplatePageProps) {
                                     <p className="text-sm text-gray-600 text-center">
                                         {ingredient.benefit}
                                     </p>
-                                    <a href="#" className="block mt-4 text-center text-rose-600 text-sm font-medium hover:text-rose-700">
+                                    <span className="block mt-4 text-center text-rose-600 text-sm font-medium cursor-default">
                                         Learn More →
-                                    </a>
+                                    </span>
                                 </div>
                             );
                         })}
@@ -350,28 +350,28 @@ export function BeautyHome(props: TemplatePageProps) {
                         <div>
                             <h4 className="font-semibold text-white mb-4">Shop</h4>
                             <ul className="space-y-2 text-sm">
-                                <li><a href="#" className="hover:text-rose-400 transition-colors">All Products</a></li>
-                                <li><a href="#" className="hover:text-rose-400 transition-colors">Bestsellers</a></li>
-                                <li><a href="#" className="hover:text-rose-400 transition-colors">New Arrivals</a></li>
-                                <li><a href="#" className="hover:text-rose-400 transition-colors">Gift Sets</a></li>
+                                <li><span className="transition-colors cursor-default">All Products</span></li>
+                                <li><span className="transition-colors cursor-default">Bestsellers</span></li>
+                                <li><span className="transition-colors cursor-default">New Arrivals</span></li>
+                                <li><span className="transition-colors cursor-default">Gift Sets</span></li>
                             </ul>
                         </div>
                         <div>
                             <h4 className="font-semibold text-white mb-4">Learn</h4>
                             <ul className="space-y-2 text-sm">
-                                <li><a href="#" className="hover:text-rose-400 transition-colors">Skin Quiz</a></li>
-                                <li><a href="#" className="hover:text-rose-400 transition-colors">Ingredients</a></li>
-                                <li><a href="#" className="hover:text-rose-400 transition-colors">Skincare Tips</a></li>
-                                <li><a href="#" className="hover:text-rose-400 transition-colors">FAQs</a></li>
+                                <li><span className="transition-colors cursor-default">Skin Quiz</span></li>
+                                <li><span className="transition-colors cursor-default">Ingredients</span></li>
+                                <li><span className="transition-colors cursor-default">Skincare Tips</span></li>
+                                <li><span className="transition-colors cursor-default">FAQs</span></li>
                             </ul>
                         </div>
                         <div>
                             <h4 className="font-semibold text-white mb-4">About</h4>
                             <ul className="space-y-2 text-sm">
-                                <li><a href="#" className="hover:text-rose-400 transition-colors">Our Story</a></li>
-                                <li><a href="#" className="hover:text-rose-400 transition-colors">Clean Beauty</a></li>
-                                <li><a href="#" className="hover:text-rose-400 transition-colors">Sustainability</a></li>
-                                <li><a href="#" className="hover:text-rose-400 transition-colors">Contact</a></li>
+                                <li><span className="transition-colors cursor-default">Our Story</span></li>
+                                <li><span className="transition-colors cursor-default">Clean Beauty</span></li>
+                                <li><span className="transition-colors cursor-default">Sustainability</span></li>
+                                <li><span className="transition-colors cursor-default">Contact</span></li>
                             </ul>
                         </div>
                     </div>

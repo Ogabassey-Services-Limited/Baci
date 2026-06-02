@@ -66,9 +66,15 @@ function setStaffState(
   };
 }
 
+function Text({ children }: { children?: React.ReactNode }) {
+  return <span>{children}</span>;
+}
+
 vi.mock('@/components/staff/StaffSummaryCards', () => ({
   StaffSummaryCards: ({ stats }: { stats: { total: number } }) => (
-    <div>summary:{stats.total}</div>
+    <div>
+      <Text>{`summary:${stats.total}`}</Text>
+    </div>
   ),
 }));
 
@@ -87,22 +93,18 @@ vi.mock('@/components/staff/StaffListSection', () => ({
     staff?: Array<{ id: string }>;
   }) => (
     <div>
-      {hasError ? <span>error:{errorMessage}</span> : null}
+      {hasError ? <Text>{`error:${errorMessage}`}</Text> : null}
       <button
         aria-label="Open invite from list"
         onClick={onInvitePress}
         type="button"
-      >
-        Invite from list
-      </button>
+      />
       {staff?.[0] ? (
         <button
           aria-label="Open first staff member"
           onClick={() => onMemberPress(staff[0])}
           type="button"
-        >
-          Open first staff member
-        </button>
+        />
       ) : null}
     </div>
   ),
@@ -122,26 +124,30 @@ vi.mock('@/components/staff/InviteStaffSheet', () => ({
   }) =>
     visible ? (
       <div>
-        <span>invite-sheet</span>
-        {isPending ? <span>invite-pending</span> : null}
+        <Text>invite-sheet</Text>
+        {isPending ? <Text>invite-pending</Text> : null}
         <button
           aria-label="Submit invite"
           disabled={isPending}
           onClick={() => onSubmit()}
           type="button"
-        >
-          Submit invite
-        </button>
-        <button aria-label="Close invite sheet" onClick={onClose} type="button">
-          Close invite sheet
-        </button>
+        />
+        <button
+          aria-label="Close invite sheet"
+          onClick={onClose}
+          type="button"
+        />
       </div>
     ) : null,
 }));
 
 vi.mock('@/components/staff/StaffRoleSheet', () => ({
   StaffRoleSheet: ({ visible }: { visible: boolean }) =>
-    visible ? <div>role-sheet</div> : null,
+    visible ? (
+      <div>
+        <Text>role-sheet</Text>
+      </div>
+    ) : null,
 }));
 
 vi.mock('@/hooks/useStaff', () => ({
@@ -214,9 +220,13 @@ vi.mock('expo-router', async () => {
 });
 
 vi.mock('@react-native-vector-icons/ionicons', () => ({
-  Ionicons: () => <span>icon</span>,
+  Ionicons: ({ name }: { name?: string }) => (
+    <span aria-hidden="true" data-icon={name} />
+  ),
 
-  default: () => <span>icon</span>,
+  default: ({ name }: { name?: string }) => (
+    <span aria-hidden="true" data-icon={name} />
+  ),
   __esModule: true,
 }));
 

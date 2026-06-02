@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Search, Plus, X, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -44,6 +44,7 @@ export function ProductComparisonTable({
     const [query, setQuery] = useState('');
     const [results, setResults] = useState<SearchResultProduct[]>([]);
     const [loading, setLoading] = useState(false);
+    const searchInputRef = useRef<HTMLInputElement>(null);
     const merchantContext = useMerchantSafe();
     const basePath = merchantContext?.basePath || (storeSlug ? `/${storeSlug}` : '');
 
@@ -55,6 +56,12 @@ export function ProductComparisonTable({
 
     // Maximum 2 comparison slots + 1 main product = 3 columns
     const MAX_SLOTS = 2;
+
+    useEffect(() => {
+        if (isSearching !== null) {
+            searchInputRef.current?.focus();
+        }
+    }, [isSearching]);
 
     // Search products API - filtered to SAME CATEGORY only (Koray SEO: no cross-category comparisons)
     useEffect(() => {
@@ -243,12 +250,13 @@ export function ProductComparisonTable({
                                                     <button type="button" onClick={() => setIsSearching(null)} aria-label="Cancel search"><X size={16} /></button>
                                                 </div>
                                                 <div className="relative">
-                                                    <Search size={14} className="absolute left-3 top-3 text-gray-400" />
+                                                    <Search size={14} className="absolute left-3 top-3 text-store-background-text/45" />
                                                     <input
-                                                        autoFocus
+                                                        ref={searchInputRef}
                                                         type="text"
+                                                        aria-label="Search products"
                                                         placeholder="Type to search..."
-                                                        className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-red-500/20 focus:border-red-500"
+                                                        className="w-full pl-9 pr-3 py-2 text-sm border border-store-background-text/15 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-store-primary/20 focus:border-store-primary"
                                                         value={query}
                                                         onChange={(e) => setQuery(e.target.value)}
                                                     />

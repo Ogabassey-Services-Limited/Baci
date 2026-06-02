@@ -17,26 +17,30 @@ vi.mock('@/components/ui/AppSheetModal', () => ({
     visible: boolean;
   }) =>
     visible ? (
-      <div aria-label={accessibilityLabel} role="dialog">
+      <dialog aria-label={accessibilityLabel} open>
         <button
           aria-label="Close sheet"
           onClick={() => onClose?.()}
           type="button"
         />
         {children}
-      </div>
+      </dialog>
     ) : null,
 }));
 
 vi.mock('@react-native-vector-icons/ionicons', () => ({
-  Ionicons: ({ name }: { name: string }) => <span>{name}</span>,
+  Ionicons: ({ name }: { name: string }) => (
+    <span aria-hidden="true" data-icon={name} />
+  ),
 
-  default: ({ name }: { name: string }) => <span>{name}</span>,
+  default: ({ name }: { name: string }) => (
+    <span aria-hidden="true" data-icon={name} />
+  ),
   __esModule: true,
 }));
 
 vi.mock('react-native', () => ({
-  ActivityIndicator: () => <span>loading</span>,
+  ActivityIndicator: () => <output aria-label="loading" />,
   Animated: {
     Value: class {
       constructor(public value: number) {}
@@ -238,7 +242,7 @@ describe('InviteStaffSheet', () => {
       />
     );
 
-    expect(screen.getByText('loading')).toBeInTheDocument();
+    expect(screen.getByLabelText('loading')).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: 'Send invitation' })
     ).toBeDisabled();
