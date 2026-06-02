@@ -3,11 +3,7 @@ import type { ReactNode } from 'react';
 import StorefrontLayout, {
   generateViewport,
 } from '@/app/(storefront)/[slug]/layout';
-import { StorefrontLayoutLoadingFallback } from '@/app/(storefront)/[slug]/storefront-layout-loading-fallback';
-import {
-  HERO_MOBILE_LCP_FALLBACK_SRC,
-  HERO_MOBILE_LCP_SRC,
-} from '@/components/storefront/ogabassey/components/hero-data';
+import { ShellChromeLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
 import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
 import { buildStoreUrl } from '@/lib/store-url';
@@ -108,15 +104,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default function OgabasseyLayout({ children }: { children: ReactNode }) {
   return (
     <StorefrontLayout
-      loadingFallback={
-        <StorefrontLayoutLoadingFallback
-          mobileHeroImage={{
-            alt: 'OgaBassey storefront hero',
-            avifSrc: HERO_MOBILE_LCP_SRC,
-            fallbackSrc: HERO_MOBILE_LCP_FALLBACK_SRC,
-          }}
-        />
-      }
+      loadingFallback={<ShellChromeLoading />}
       params={OGABASSEY_PARAMS}
     >
       {children}

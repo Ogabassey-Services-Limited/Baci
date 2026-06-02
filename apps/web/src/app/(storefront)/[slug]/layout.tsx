@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { connection } from 'next/server';
 import type React from 'react';
 import { Suspense } from 'react';
+import { ShellChromeLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
 import { DeferredPageViewTracker } from '@/components/storefront/deferred-page-view-tracker';
 import { OgabasseyStorefrontLayout } from '@/components/storefront/ogabassey/storefront-layout';
 import { StoreNotPublished } from '@/components/storefront/store-not-published';
@@ -20,7 +21,6 @@ import {
   getStorefrontSeoDescription,
   getStorefrontSeoTitle,
 } from './seo-helpers';
-import { StorefrontLayoutLoadingFallback } from './storefront-layout-loading-fallback';
 import {
   getStorefrontShellSnapshot,
   getStorefrontShellSnapshotBase,
@@ -280,10 +280,10 @@ export default function StorefrontLayout(props: {
   loadingFallback?: React.ReactNode;
   params: Promise<{ slug: string }>;
 }) {
-  const {
-    loadingFallback = <StorefrontLayoutLoadingFallback />,
-    ...contentProps
-  } = props;
+  // Keep a non-null shell around the request-bound tenant lookup. A null
+  // fallback hides child route fallbacks and can make Cache Components report
+  // that dynamic storefront routes did not produce a static shell.
+  const { loadingFallback = <ShellChromeLoading />, ...contentProps } = props;
 
   return (
     <StorefrontThemeFrame>

@@ -23,8 +23,8 @@ function LoadingStatus({
 export function ShellChromeLoading() {
   return (
     <LoadingStatus label="Loading storefront chrome">
-      <div className="px-4 py-3 sm:px-6 lg:px-8">
-        <Skeleton className="h-10 w-full rounded-full bg-white/10" shimmer />
+      <div className="storefront-shell-loading">
+        <div className="storefront-shell-loading__bar" />
       </div>
     </LoadingStatus>
   );

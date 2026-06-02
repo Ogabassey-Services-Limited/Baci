@@ -163,10 +163,12 @@ const baseShellSnapshotWithoutCategories = {
   basePath: baseShellSnapshot.basePath,
 };
 
-const layoutModule = await import('./layout');
-const StorefrontLayout = layoutModule.default;
-const { generateMetadata, generateViewport, StorefrontLayoutContent } =
-  layoutModule;
+const {
+  default: StorefrontLayout,
+  generateMetadata,
+  generateViewport,
+  StorefrontLayoutContent,
+} = await import('./layout');
 
 describe('storefront layout', () => {
   beforeEach(() => {
@@ -223,33 +225,6 @@ describe('storefront layout', () => {
     expect(screen.getByText('Storefront content')).toBeInTheDocument();
   });
 
-  it('renders the default storefront shell fallback while tenant shell data is pending', async () => {
-    const deferredSnapshotBase =
-      createDeferred<typeof baseShellSnapshotWithoutCategories>();
-
-    vi.mocked(getStorefrontShellSnapshotBase).mockReturnValue(
-      deferredSnapshotBase.promise
-    );
-    vi.mocked(getStorefrontShellSnapshot).mockResolvedValue(baseShellSnapshot);
-
-    let unmount: () => void = () => undefined;
-
-    await act(() => {
-      ({ unmount } = render(
-        <StorefrontLayout params={Promise.resolve({ slug: 'ogabassey' })}>
-          <main>Storefront content</main>
-        </StorefrontLayout>
-      ));
-    });
-
-    expect(
-      screen.getByRole('status', { name: /loading storefront shell/i })
-    ).toBeInTheDocument();
-    expect(screen.queryByText('Storefront content')).not.toBeInTheDocument();
-
-    unmount();
-  });
-
   it('keeps generic storefront layouts from owning OgaBassey home hero preloads', async () => {
     vi.mocked(getStorefrontShellSnapshotBase).mockResolvedValue(
       baseShellSnapshotWithoutCategories
@@ -273,6 +248,58 @@ describe('storefront layout', () => {
       }),
       undefined
     );
+  });
+
+  it('keeps a visible root shell fallback while request-bound tenant data resolves', async () => {
+    vi.mocked(getStorefrontShellSnapshotBase).mockReturnValue(
+      createDeferred<typeof baseShellSnapshotWithoutCategories>().promise
+    );
+
+    let unmount: () => void = () => undefined;
+
+    await act(() => {
+      ({ unmount } = render(
+        <StorefrontLayout params={Promise.resolve({ slug: 'ogabassey' })}>
+          <main>Storefront content</main>
+        </StorefrontLayout>
+      ));
+    });
+
+    expect(
+      screen.getByRole('status', { name: /loading storefront chrome/i })
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Storefront content')).not.toBeInTheDocument();
+
+    unmount();
+  });
+
+  it('keeps explicit layout loading fallbacks overridable', async () => {
+    const fallback = <div>Loading route shell</div>;
+
+    vi.mocked(getStorefrontShellSnapshotBase).mockReturnValue(
+      createDeferred<typeof baseShellSnapshotWithoutCategories>().promise
+    );
+
+    let unmount: () => void = () => undefined;
+
+    await act(() => {
+      ({ unmount } = render(
+        <StorefrontLayout
+          params={Promise.resolve({ slug: 'ogabassey' })}
+          loadingFallback={fallback}
+        >
+          <main>Storefront content</main>
+        </StorefrontLayout>
+      ));
+    });
+
+    expect(screen.getByText('Loading route shell')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('status', { name: /loading storefront chrome/i })
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText('Storefront content')).not.toBeInTheDocument();
+
+    unmount();
   });
 
   it('calls notFound before route content renders when the shell snapshot is missing', async () => {
