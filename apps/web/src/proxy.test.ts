@@ -667,7 +667,7 @@ describe('Middleware Proxy', () => {
     );
   });
 
-  it('sets the metadata-blocking cache bucket for normal custom-domain browsers', async () => {
+  it('keeps normal custom-domain browsers in the streaming metadata bucket', async () => {
     const req = new NextRequest(
       'https://ogabassey.com/smartphones/samsung-galaxy-a37-5g'
     );
@@ -688,10 +688,10 @@ describe('Middleware Proxy', () => {
     );
     expect(
       rewriteUrl.searchParams.get(STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM)
-    ).toBe('metadata-blocking');
+    ).toBe('streaming');
     expect(
       res.headers.get('x-middleware-request-x-baci-metadata-cache-bucket')
-    ).toBe('metadata-blocking');
+    ).toBe('streaming');
     expect(res.headers.get('Vary')).toBe('x-baci-metadata-cache-bucket');
   });
 
@@ -752,7 +752,7 @@ describe('Middleware Proxy', () => {
     expect(res.headers.get('Vary')).toBe('x-baci-metadata-cache-bucket');
   });
 
-  it('applies metadata cache partitioning to merchant subdomains', async () => {
+  it('applies streaming cache partitioning to merchant subdomain browsers', async () => {
     const req = new NextRequest(
       `https://ogabassey.${ROOT_DOMAIN}/smartphones/samsung-galaxy-a37-5g`
     );
@@ -769,14 +769,14 @@ describe('Middleware Proxy', () => {
 
     expect(
       res.headers.get('x-middleware-request-x-baci-metadata-cache-bucket')
-    ).toBe('metadata-blocking');
+    ).toBe('streaming');
     expect(
       rewriteUrl.searchParams.get(STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM)
-    ).toBe('metadata-blocking');
+    ).toBe('streaming');
     expect(res.headers.get('Vary')).toBe('x-baci-metadata-cache-bucket');
   });
 
-  it('applies hidden metadata cache partitioning to root-domain PDP routes', async () => {
+  it('applies hidden streaming cache partitioning to root-domain PDP browser routes', async () => {
     const req = new NextRequest(
       `https://${ROOT_DOMAIN}/merchant-demo/products/samsung-galaxy-a37-5g`
     );
@@ -797,10 +797,10 @@ describe('Middleware Proxy', () => {
     );
     expect(
       rewriteUrl.searchParams.get(STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM)
-    ).toBe('metadata-blocking');
+    ).toBe('streaming');
     expect(
       res.headers.get('x-middleware-request-x-baci-metadata-cache-bucket')
-    ).toBe('metadata-blocking');
+    ).toBe('streaming');
     expect(res.headers.get('Vary')).toBe('x-baci-metadata-cache-bucket');
   });
 
