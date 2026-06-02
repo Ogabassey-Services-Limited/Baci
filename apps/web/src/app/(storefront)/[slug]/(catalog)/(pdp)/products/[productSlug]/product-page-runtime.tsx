@@ -5,8 +5,11 @@ import {
   getCachedProductRatingStats,
   getCachedProductReviews,
 } from '@/lib/cached-data';
+import { isKorapayConfigured } from '@/lib/korapay';
+import { isPaystackConfigured } from '@/lib/paystack';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
+  buildStorefrontAcceptedPaymentMethods,
   generateAggregateRating,
   generateBreadcrumbSchema,
   generateFAQSchema,
@@ -117,7 +120,14 @@ export async function ProductPageRuntime({
     merchant.country || 'NG',
     merchant.logo_url,
     trustProfile,
-    { productUrl }
+    {
+      acceptedPaymentMethods: buildStorefrontAcceptedPaymentMethods(merchant, {
+        korapayConfigured: isKorapayConfigured(),
+        paystackConfigured: isPaystackConfigured(),
+        currency,
+      }),
+      productUrl,
+    }
   );
   if (reviewStats && reviewStats.totalReviews > 0) {
     const aggregateRating = generateAggregateRating({

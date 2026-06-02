@@ -3,6 +3,7 @@ import {
   hasLaunchablePaymentMethod,
   isBankTransferCheckoutAvailable,
   isKorapayCheckoutAvailable,
+  isKorapayCheckoutCurrencySupported,
   isPayOnDeliveryCheckoutAvailable,
   isPaystackCheckoutAvailable,
 } from '@/lib/checkout/payment-gateway-availability';
@@ -38,6 +39,24 @@ describe('payment-gateway-availability', () => {
 
     expect(isPaystackCheckoutAvailable(merchant)).toBe(false);
     expect(isBankTransferCheckoutAvailable(merchant)).toBe(false);
+  });
+
+  it('normalizes embedded feature settings arrays before reading payment flags', () => {
+    const merchant = {
+      paystack_subaccount_code: 'ACCT_123',
+      feature_settings: [
+        {
+          korapay_enabled: true,
+          pay_on_delivery_enabled: true,
+          paystack_enabled: false,
+        },
+      ],
+    };
+
+    expect(isPaystackCheckoutAvailable(merchant)).toBe(false);
+    expect(isBankTransferCheckoutAvailable(merchant)).toBe(false);
+    expect(isKorapayCheckoutAvailable(merchant)).toBe(true);
+    expect(isPayOnDeliveryCheckoutAvailable(merchant)).toBe(true);
   });
 
   it('returns false when no paystack subaccount exists', () => {
@@ -103,6 +122,23 @@ describe('payment-gateway-availability', () => {
         feature_settings: { korapay_enabled: true },
       })
     ).toBe(true);
+  });
+
+  it('returns false for Korapay when the checkout currency is unsupported', () => {
+    expect(
+      isKorapayCheckoutAvailable(
+        {
+          feature_settings: { korapay_enabled: true },
+        },
+        'INR'
+      )
+    ).toBe(false);
+  });
+
+  it('accepts Korapay checkout currencies case-insensitively', () => {
+    expect(isKorapayCheckoutCurrencySupported(' ghs ')).toBe(true);
+    expect(isKorapayCheckoutCurrencySupported('INR')).toBe(false);
+    expect(isKorapayCheckoutCurrencySupported(null)).toBe(false);
   });
 
   it('returns false for Korapay when explicitly disabled', () => {

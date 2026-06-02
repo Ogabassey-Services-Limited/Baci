@@ -97,6 +97,9 @@ const mockGenerateBreadcrumbSchema = vi.fn((_items: unknown) => ({}));
 const mockGenerateProductSchema = vi.fn((..._args: unknown[]) => ({
   offers: {} as Record<string, unknown>,
 }));
+const mockBuildStorefrontAcceptedPaymentMethods = vi.fn<
+  (...args: unknown[]) => string[]
+>(() => ['Bank transfer']);
 type ProductUrlInput = {
   id: string;
   slug?: string;
@@ -129,6 +132,8 @@ const defaultGetValidatedProductUrl = (
 const mockGetValidatedProductUrl = vi.fn(defaultGetValidatedProductUrl);
 
 vi.mock('@/lib/seo-utils', () => ({
+  buildStorefrontAcceptedPaymentMethods: (...args: unknown[]) =>
+    mockBuildStorefrontAcceptedPaymentMethods(...args),
   constructCanonicalUrl: (base: string) => base,
   generateAggregateRating: () => null,
   generateBreadcrumbSchema: (items: unknown) =>
@@ -158,6 +163,14 @@ vi.mock('@/lib/seo-utils', () => ({
     baseUrl: string,
     merchantSlug?: string | null
   ) => mockGetValidatedProductUrl(product, baseUrl, merchantSlug),
+}));
+
+vi.mock('@/lib/korapay', () => ({
+  isKorapayConfigured: () => true,
+}));
+
+vi.mock('@/lib/paystack', () => ({
+  isPaystackConfigured: () => true,
 }));
 
 vi.mock('@/lib/store-url', () => ({
@@ -306,6 +319,10 @@ describe('products/[productSlug] page', () => {
     mockHeaders.mockReset();
     mockHeaders.mockReturnValue(makeHeaders({}));
     mockGenerateProductSchema.mockImplementation(() => ({ offers: {} }));
+    mockBuildStorefrontAcceptedPaymentMethods.mockReset();
+    mockBuildStorefrontAcceptedPaymentMethods.mockReturnValue([
+      'Bank transfer',
+    ]);
     mockGetProductUrl.mockImplementation(defaultGetProductUrl);
     mockGetValidatedProductUrl.mockImplementation(
       defaultGetValidatedProductUrl
@@ -888,6 +905,14 @@ describe('products/[productSlug] page', () => {
           expect.any(Object)
         )
       );
+      expect(mockBuildStorefrontAcceptedPaymentMethods).toHaveBeenCalledWith(
+        expect.objectContaining({ payout_currency: null }),
+        {
+          korapayConfigured: true,
+          paystackConfigured: true,
+          currency: 'NGN',
+        }
+      );
     });
 
     it('passes getProductUrl output into JSON-LD and breadcrumb URLs on fallback legacy pages', async () => {
@@ -918,7 +943,10 @@ describe('products/[productSlug] page', () => {
           'NG',
           null,
           expect.any(Object),
-          { productUrl: 'https://teststore.usebaci.com/products/mystery-item' }
+          expect.objectContaining({
+            acceptedPaymentMethods: ['Bank transfer'],
+            productUrl: 'https://teststore.usebaci.com/products/mystery-item',
+          })
         )
       );
 
@@ -980,7 +1008,10 @@ describe('products/[productSlug] page', () => {
           'NG',
           null,
           expect.any(Object),
-          { productUrl }
+          expect.objectContaining({
+            acceptedPaymentMethods: ['Bank transfer'],
+            productUrl,
+          })
         )
       );
       expect(mockGenerateBreadcrumbSchema).toHaveBeenCalledWith(
@@ -1147,9 +1178,10 @@ describe('products/[productSlug] page', () => {
         supportEmail: 'support@test.example',
         supportPhone: '+2348000000000',
       }),
-      {
+      expect.objectContaining({
+        acceptedPaymentMethods: ['Bank transfer'],
         productUrl: 'https://teststore.usebaci.com/products/iphone-17-pro-max',
-      }
+      })
     );
   });
 });
