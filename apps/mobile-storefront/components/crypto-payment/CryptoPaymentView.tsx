@@ -128,11 +128,11 @@ export function CryptoPaymentView({
           <Text style={[styles.chainLabel, { color: colors.textSecondary }]}>
             on {chainLabel}
           </Text>
-          {fiatAmount && (
+          {fiatAmount ? (
             <Text style={[styles.fiatAmount, { color: colors.textSecondary }]}>
               {fiatAmount}
             </Text>
-          )}
+          ) : null}
         </View>
 
         <View style={[styles.addressCard, { backgroundColor: colors.card }]}>

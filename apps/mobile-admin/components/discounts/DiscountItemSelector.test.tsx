@@ -75,6 +75,9 @@ vi.mock('@react-native-vector-icons/ionicons', () => ({
 }));
 
 vi.mock('react-native-safe-area-context', () => ({
+  SafeAreaProvider: ({ children }: { children?: ReactNode }) => (
+    <section aria-label="discount-safe-area-provider">{children}</section>
+  ),
   SafeAreaView: ({ children }: { children?: ReactNode }) => (
     <section>{children}</section>
   ),
@@ -214,6 +217,22 @@ describe('DiscountItemSelector', () => {
     expect(mocks.listProps.maxToRenderPerBatch).toBe(10);
     expect(mocks.listProps.windowSize).toBe(5);
     expect(mocks.listProps.removeClippedSubviews).toBe(false);
+  });
+
+  it('creates a safe-area provider inside the modal root', () => {
+    render(
+      <DiscountItemSelector
+        initialIds={[]}
+        onClose={vi.fn()}
+        onSelect={vi.fn()}
+        type="product"
+        visible={true}
+      />
+    );
+
+    expect(
+      screen.getByLabelText('discount-safe-area-provider')
+    ).toBeInTheDocument();
   });
 
   it('enables clipped subviews for Android via shared list props', () => {
