@@ -107,6 +107,23 @@ function getStoredStringValue(
   return typeof value === 'string' && value.length > 0 ? value : undefined;
 }
 
+function getStoredNumberValue(
+  item: Record<string, unknown>,
+  key: string,
+  fallback: number
+): number {
+  const value = item[key];
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : fallback;
+  }
+  if (typeof value === 'string' && value.trim().length > 0) {
+    const parsedValue = Number(value);
+    return Number.isFinite(parsedValue) ? parsedValue : fallback;
+  }
+
+  return fallback;
+}
+
 function getStoredVariantAttributes(
   item: Record<string, unknown>
 ): Record<string, string> | undefined {
@@ -164,14 +181,8 @@ function normalizeStoredCartItem(item: Record<string, unknown>): CartItem {
   return {
     ...item,
     cartItemId,
-    price:
-      typeof item.price === 'number' && !Number.isNaN(item.price)
-        ? item.price
-        : Number(item.price) || 0,
-    quantity:
-      typeof item.quantity === 'number' && !Number.isNaN(item.quantity)
-        ? item.quantity
-        : Number(item.quantity) || 1,
+    price: getStoredNumberValue(item, 'price', 0),
+    quantity: getStoredNumberValue(item, 'quantity', 1),
     selectedColor,
     selectedColorValue,
     secondaryColor,

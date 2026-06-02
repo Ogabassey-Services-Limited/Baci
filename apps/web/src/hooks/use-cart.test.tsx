@@ -246,6 +246,44 @@ describe('useCart - Validation', () => {
     });
   });
 
+  it('preserves explicit zero values when normalizing stored numeric fields', async () => {
+    const initialCart = [
+      {
+        ...mockProduct,
+        id: 'free-sample',
+        price: '0',
+        quantity: '0',
+      },
+      {
+        ...mockProduct,
+        id: 'invalid-numbers',
+        price: 'not-a-price',
+        quantity: 'not-a-quantity',
+      },
+    ];
+
+    localStorageMock.setItem('baci-cart-guest', JSON.stringify(initialCart));
+
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+      <CartProvider>{children}</CartProvider>
+    );
+
+    const { result } = renderHook(() => useCart(), { wrapper });
+
+    await waitFor(() => expect(result.current.isHydrated).toBe(true));
+
+    expect(
+      result.current.cart.map((item) => ({
+        id: item.id,
+        price: item.price,
+        quantity: item.quantity,
+      }))
+    ).toEqual([
+      { id: 'free-sample', price: 0, quantity: 0 },
+      { id: 'invalid-numbers', price: 0, quantity: 1 },
+    ]);
+  });
+
   it('backfills unique cart item ids for legacy lines with different options', async () => {
     const initialCart = [
       {
