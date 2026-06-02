@@ -3,13 +3,11 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BNPLCheckoutStatusView } from '@/components/bnpl-checkout/BNPLCheckoutStatusView';
+import { CHECKOUT_MERCHANT_DOMAIN } from '@/components/checkout/checkout-screen.constants';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import { resolveApiBaseUrl } from '@/lib/api-url';
-import {
-  normalizeBNPLRouteParams,
-  type BNPLRouteParams,
-} from '@/lib/bnpl-url';
+import { type BNPLRouteParams, normalizeBNPLRouteParams } from '@/lib/bnpl-url';
 import { bnplCheckoutScreenStyles as styles } from './BNPLCheckoutScreen.styles';
 import { BNPLCheckoutWebView } from './BNPLCheckoutWebView';
 import { useBNPLCheckoutController } from './use-bnpl-checkout-controller';
@@ -23,6 +21,7 @@ export function BNPLCheckoutScreen() {
   const params = normalizeBNPLRouteParams(rawParams);
   const checkout = useBNPLCheckoutController({
     apiBaseUrl: API_BASE_URL,
+    merchantDomain: CHECKOUT_MERCHANT_DOMAIN,
     params,
   });
 
@@ -70,7 +69,12 @@ export function BNPLCheckoutScreen() {
           title: checkout.gatewayName,
           headerShown: true,
           headerLeft: () => (
-            <Pressable onPress={checkout.handleClose} style={styles.closeButton}>
+            <Pressable
+              accessibilityLabel="Close checkout"
+              accessibilityRole="button"
+              onPress={checkout.handleClose}
+              style={styles.closeButton}
+            >
               <Ionicons name="close" size={24} color={colors.text} />
             </Pressable>
           ),
@@ -83,9 +87,8 @@ export function BNPLCheckoutScreen() {
         colors={colors}
         currentUrl={checkout.currentUrl}
         gatewayName={checkout.gatewayName}
-        onError={(description) => {
-          checkout.handleLoadError(description);
-        }}
+        onError={checkout.handleWebViewError}
+        onHttpError={checkout.handleWebViewHttpError}
         onLoadEnd={checkout.handleLoadEnd}
         onLoadStart={checkout.handleLoadStart}
         onMessage={checkout.handleWebViewMessage}

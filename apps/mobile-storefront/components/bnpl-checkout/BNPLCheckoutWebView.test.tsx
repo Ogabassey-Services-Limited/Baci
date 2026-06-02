@@ -18,11 +18,13 @@ function createProps(
 ): BNPLCheckoutWebViewProps {
   return {
     amount: '1000',
-    bnplUrl: 'https://usebaci.com/ogabassey/checkout/bnpl?gateway=credit_direct',
+    bnplUrl:
+      'https://usebaci.com/ogabassey/checkout/bnpl?gateway=credit_direct',
     colors: Colors.light,
     currentUrl: '',
     gatewayName: 'Credit Direct',
     onError: jest.fn(),
+    onHttpError: jest.fn(),
     onLoadEnd: jest.fn(),
     onLoadStart: jest.fn(),
     onMessage: jest.fn(),
@@ -40,13 +42,53 @@ describe('BNPLCheckoutWebView', () => {
     const onShouldStartLoadWithRequest = jest.fn(() => true);
 
     render(
-      <BNPLCheckoutWebView
-        {...createProps({ onShouldStartLoadWithRequest })}
-      />
+      <BNPLCheckoutWebView {...createProps({ onShouldStartLoadWithRequest })} />
     );
 
     expect(mockWebView).toHaveBeenCalledWith(
       expect.objectContaining({ onShouldStartLoadWithRequest })
     );
+  });
+
+  it('passes native HTTP errors to the checkout screen', () => {
+    const onHttpError = jest.fn();
+
+    render(<BNPLCheckoutWebView {...createProps({ onHttpError })} />);
+
+    expect(mockWebView).toHaveBeenCalledWith(
+      expect.objectContaining({ onHttpError })
+    );
+  });
+
+  it('normalizes native load errors before forwarding them', () => {
+    const onError = jest.fn();
+
+    render(<BNPLCheckoutWebView {...createProps({ onError })} />);
+    const webViewProps =
+      mockWebView.mock.calls[mockWebView.mock.calls.length - 1]?.[0];
+    const nativeEvent = {
+      code: -1003,
+      description: 'A server with the specified hostname could not be found.',
+      didFailProvisionalNavigation: true,
+      domain: 'NSURLErrorDomain',
+      loading: false,
+      title: '',
+      url: 'https://ogabassey.com/checkout/bnpl',
+    };
+
+    (
+      webViewProps?.onError as (event: {
+        nativeEvent: typeof nativeEvent;
+      }) => void
+    )({
+      nativeEvent,
+    });
+
+    expect(onError).toHaveBeenCalledWith({
+      code: -1003,
+      description: 'A server with the specified hostname could not be found.',
+      domain: 'NSURLErrorDomain',
+      url: 'https://ogabassey.com/checkout/bnpl',
+    });
   });
 });
