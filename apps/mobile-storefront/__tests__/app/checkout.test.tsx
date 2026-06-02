@@ -3,8 +3,8 @@ import {
   getPaymentInitializeCalls,
   mockAlert,
   mockCreateOrder,
-  mockCreateWalletFundingAccount,
   mockCreateOrderWalletFundingIntent,
+  mockCreateWalletFundingAccount,
   mockListSavingsGoals,
   mockPaymentSettings,
   mockRouterPush,
@@ -80,20 +80,6 @@ function createConsentError(code: string, message: string) {
   const error = new Error(message) as Error & { code: string };
   error.code = code;
   return error;
-}
-
-function triggerAlertButton(
-  alertMock: typeof mockAlert,
-  alertTitle: string,
-  buttonIndex: number
-) {
-  const alertCall = alertMock.mock.calls.find(
-    ([title]) => title === alertTitle
-  );
-  const button = alertCall?.[2]?.[buttonIndex] as
-    | { onPress?: () => void }
-    | undefined;
-  button?.onPress?.();
 }
 
 describe('CheckoutScreen', () => {
@@ -529,10 +515,14 @@ describe('CheckoutScreen', () => {
     });
 
     fireEvent.press(
-      screen.getByRole('button', { name: 'Mock use checkout savings' })
+      await screen.findByRole('button', {
+        name: 'Mock use checkout savings',
+      })
     );
     fireEvent.press(
-      screen.getByRole('button', { name: 'Mock remove checkout savings' })
+      await screen.findByRole('button', {
+        name: 'Mock remove checkout savings',
+      })
     );
     fireEvent.press(screen.getByRole('button', { name: 'Continue to review' }));
 
@@ -640,7 +630,9 @@ describe('CheckoutScreen', () => {
     });
 
     fireEvent.press(
-      screen.getByRole('button', { name: 'Mock use checkout savings' })
+      await screen.findByRole('button', {
+        name: 'Mock use checkout savings',
+      })
     );
     fireEvent.press(screen.getByRole('button', { name: 'Continue to review' }));
 

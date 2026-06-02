@@ -1,13 +1,17 @@
 import { Stack } from 'expo-router';
 import {
-  Animated,
   type LayoutChangeEvent,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
   RefreshControl,
   StyleSheet,
   View,
 } from 'react-native';
+import Animated, {
+  Extrapolation,
+  interpolate,
+  type ScrollHandlerProcessed,
+  type SharedValue,
+  useAnimatedStyle,
+} from 'react-native-reanimated';
 import { SystemBars } from 'react-native-edge-to-edge';
 import { OfflineNotice } from '@/components/OfflineNotice';
 import { BlockRenderer } from '@/components/storefront/BlockRenderer';
@@ -30,7 +34,7 @@ interface HomeScreenViewProps {
   blocks: Block[];
   contentBottomPadding: number;
   hasPageConfig: boolean;
-  headerVisibility: Animated.Value;
+  headerVisibility: SharedValue<number>;
   isConfigLoading: boolean;
   isElite: boolean;
   isError: boolean;
@@ -38,7 +42,7 @@ interface HomeScreenViewProps {
   isScrolled: boolean;
   onCategorySelect: (id: string | null) => void;
   onHeaderLayout: (event: LayoutChangeEvent) => void;
-  onListScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
+  onListScroll: ScrollHandlerProcessed<Record<string, unknown>>;
   onPermissionDeny: () => void;
   onPermissionGrant: () => void;
   onRefresh: () => void;
@@ -89,6 +93,22 @@ export function HomeScreenView({
 }: HomeScreenViewProps) {
   const colorScheme = useColorScheme();
 
+  const headerOverlayAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      opacity: headerVisibility.value,
+      transform: [
+        {
+          translateY: interpolate(
+            headerVisibility.value,
+            [0, 1],
+            [-resolvedHeaderHeight, 0],
+            Extrapolation.CLAMP
+          ),
+        },
+      ],
+    };
+  });
+
   if (isConfigLoading) {
     return (
       <View style={[styles.container, { backgroundColor }]}>
@@ -98,21 +118,6 @@ export function HomeScreenView({
       </View>
     );
   }
-
-  const headerOverlayAnimatedStyle = {
-    opacity: headerVisibility.interpolate({
-      inputRange: [0, 1],
-      outputRange: [0, 1],
-    }),
-    transform: [
-      {
-        translateY: headerVisibility.interpolate({
-          inputRange: [0, 1],
-          outputRange: [-resolvedHeaderHeight, 0],
-        }),
-      },
-    ],
-  };
 
   return (
     <View style={styles.container}>

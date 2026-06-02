@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { Suspense } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CATEGORY_HUB_DEFAULTS } from '@/config/category-hub-defaults';
@@ -572,14 +572,14 @@ describe('category page route', () => {
     ]);
   });
 
-  it('keeps the route shell stable and shows the catalog skeleton while category content is suspended', async () => {
+  it('keeps the route shell stable and shows the catalog skeleton while category content is suspended', () => {
     mockCategoryPageContent.mockImplementation(() => {
       throw new Promise(() => {
         // Keep the category page content suspended behind the page fallback.
       });
     });
 
-    const ui = await CategoryPageRoute({
+    const ui = CategoryPageRoute({
       params: Promise.resolve({
         slug: 'test-store',
         category: 'smartphones',
@@ -596,11 +596,11 @@ describe('category page route', () => {
     ).toBeInTheDocument();
     expect(screen.queryByText('Route loader fallback')).not.toBeInTheDocument();
     expect(screen.queryByText('Category page content')).not.toBeInTheDocument();
-    expect(mockConnection).not.toHaveBeenCalled();
+    expect(mockConnection).toHaveBeenCalledOnce();
   });
 
-  it('renders category content without a page-level metadata marker', async () => {
-    const ui = await CategoryPageRoute({
+  it('keeps category listings request-bound behind a static-shell fallback', async () => {
+    const ui = CategoryPageRoute({
       params: Promise.resolve({
         slug: 'test-store',
         category: 'smartphones',
@@ -610,8 +610,10 @@ describe('category page route', () => {
 
     render(ui);
 
-    expect(screen.getByText('Category page content')).toBeInTheDocument();
-    expect(mockConnection).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole('status', { name: 'Loading product listing' })
+    ).toBeInTheDocument();
+    await waitFor(() => expect(mockConnection).toHaveBeenCalledOnce());
   });
 
   it('renders curated smartphone hub content when merchant-authored SEO is absent', async () => {
@@ -909,6 +911,28 @@ describe('category page route', () => {
     expect(secondPageMetadata.twitter?.images).toEqual([
       'https://cdn.example.com/product-21.png',
     ]);
+  });
+
+  it('returns notFound metadata for inactive category slugs', async () => {
+    vi.mocked(getCachedCategoryPageData).mockResolvedValueOnce({
+      isCollection: false,
+      category: null,
+      products: [],
+      fallbackName: 'Inactive Category',
+      fallbackDescription: 'Inactive category',
+      isInactiveCategory: true,
+    } as unknown as Awaited<ReturnType<typeof getCachedCategoryPageData>>);
+
+    await expect(
+      generateMetadata({
+        params: Promise.resolve({
+          slug: 'test-store',
+          category: 'inactive-category',
+        }),
+        searchParams: Promise.resolve({ page: '1' }),
+      })
+    ).rejects.toThrow('NEXT_NOT_FOUND');
+    expect(notFound).toHaveBeenCalled();
   });
 
   it('drops focused storefront filters from category canonical metadata until listing results are filtered', async () => {

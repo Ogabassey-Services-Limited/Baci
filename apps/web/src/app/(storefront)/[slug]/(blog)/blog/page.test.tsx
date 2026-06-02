@@ -13,7 +13,6 @@ const mockNotFound = vi.fn(() => {
 });
 
 const mockBuildBlogClusterCollections = vi.fn();
-const mockConnection = vi.hoisted(() => vi.fn());
 
 interface MockDefaultBlogUiProps {
   blogSchema: {
@@ -21,7 +20,7 @@ interface MockDefaultBlogUiProps {
   };
   categories: string[];
   merchant: { business_name: string };
-  posts: unknown[];
+  posts: Array<{ slug: string; title: string }>;
   totalPosts: number;
 }
 
@@ -31,10 +30,6 @@ vi.mock('@/lib/cached-data', () => ({
 
 vi.mock('next/navigation', () => ({
   notFound: () => mockNotFound(),
-}));
-
-vi.mock('next/server', () => ({
-  connection: () => mockConnection(),
 }));
 
 vi.mock('@/lib/routes', () => ({
@@ -172,7 +167,6 @@ describe('blog page metadata', () => {
     mockDefaultBlogUi.mockImplementation((props: MockDefaultBlogUiProps) => (
       <div>{props.merchant.business_name} blog</div>
     ));
-    mockConnection.mockReset();
   });
 
   it('includes social images for the blog listing metadata', async () => {
@@ -284,13 +278,17 @@ describe('blog page metadata', () => {
     expect(metadata.openGraph?.url).toBe('https://test-store.usebaci.com/blog');
   });
 
-  it('shows the blog listing fallback while request-time listing UI is pending', async () => {
-    const pending = new Promise(() => {
-      // Keep request-time metadata and listing UI suspended behind their boundaries.
-    });
-    mockDefaultBlogUi.mockImplementation(() => {
-      throw pending;
-    });
+  it('renders crawlable blog links in the route HTML instead of a Suspense shell', async () => {
+    mockDefaultBlogUi.mockImplementation((props: MockDefaultBlogUiProps) => (
+      <section>
+        <h1>{props.merchant.business_name} blog</h1>
+        {props.posts.map((post) => (
+          <a key={post.slug} href={`/blog/${post.slug}`}>
+            {post.title}
+          </a>
+        ))}
+      </section>
+    ));
 
     render(
       await BlogPage({
@@ -300,10 +298,15 @@ describe('blog page metadata', () => {
     );
 
     expect(
-      screen.getByRole('status', { name: /loading blog posts/i })
-    ).toBeInTheDocument();
-    expect(screen.queryByText('Ogabassey blog')).not.toBeInTheDocument();
-    expect(mockConnection).not.toHaveBeenCalled();
+      screen.queryByRole('status', { name: /loading blog posts/i })
+    ).not.toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: 'First Post' })).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          href: expect.stringContaining('/blog/first-post'),
+        }),
+      ])
+    );
   });
 
   it('renders guide collections after the blog listing', async () => {

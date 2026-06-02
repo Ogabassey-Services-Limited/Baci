@@ -1,3 +1,4 @@
+import '@/app/(storefront)/storefront-pdp.css';
 import type { ReactNode } from 'react';
 import type { Product } from '@/lib/products';
 import { DefaultProductDetailClient } from './default-product-detail-client';

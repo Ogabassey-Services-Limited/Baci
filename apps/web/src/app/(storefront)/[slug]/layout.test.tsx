@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
@@ -163,8 +163,12 @@ const baseShellSnapshotWithoutCategories = {
   basePath: baseShellSnapshot.basePath,
 };
 
-const { generateMetadata, generateViewport, StorefrontLayoutContent } =
-  await import('./layout');
+const {
+  default: StorefrontLayout,
+  generateMetadata,
+  generateViewport,
+  StorefrontLayoutContent,
+} = await import('./layout');
 
 describe('storefront layout', () => {
   beforeEach(() => {
@@ -244,6 +248,58 @@ describe('storefront layout', () => {
       }),
       undefined
     );
+  });
+
+  it('keeps a visible root shell fallback while request-bound tenant data resolves', async () => {
+    vi.mocked(getStorefrontShellSnapshotBase).mockReturnValue(
+      createDeferred<typeof baseShellSnapshotWithoutCategories>().promise
+    );
+
+    let unmount: () => void = () => undefined;
+
+    await act(() => {
+      ({ unmount } = render(
+        <StorefrontLayout params={Promise.resolve({ slug: 'ogabassey' })}>
+          <main>Storefront content</main>
+        </StorefrontLayout>
+      ));
+    });
+
+    expect(
+      screen.getByRole('status', { name: /loading storefront chrome/i })
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Storefront content')).not.toBeInTheDocument();
+
+    unmount();
+  });
+
+  it('keeps explicit layout loading fallbacks overridable', async () => {
+    const fallback = <div>Loading route shell</div>;
+
+    vi.mocked(getStorefrontShellSnapshotBase).mockReturnValue(
+      createDeferred<typeof baseShellSnapshotWithoutCategories>().promise
+    );
+
+    let unmount: () => void = () => undefined;
+
+    await act(() => {
+      ({ unmount } = render(
+        <StorefrontLayout
+          params={Promise.resolve({ slug: 'ogabassey' })}
+          loadingFallback={fallback}
+        >
+          <main>Storefront content</main>
+        </StorefrontLayout>
+      ));
+    });
+
+    expect(screen.getByText('Loading route shell')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('status', { name: /loading storefront chrome/i })
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText('Storefront content')).not.toBeInTheDocument();
+
+    unmount();
   });
 
   it('calls notFound before route content renders when the shell snapshot is missing', async () => {

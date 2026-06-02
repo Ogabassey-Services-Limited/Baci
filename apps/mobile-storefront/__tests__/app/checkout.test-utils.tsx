@@ -163,6 +163,16 @@ jest.mock('react-native-reanimated', () => {
   };
 });
 
+jest.mock('@/components/storefront/GadgetPattern', () => {
+  const { View } =
+    jest.requireActual<typeof import('react-native')>('react-native');
+  return {
+    GadgetPattern: (props: Record<string, unknown>) => (
+      <View testID="checkout-gadget-pattern" {...props} />
+    ),
+  };
+});
+
 jest.mock('expo-crypto', () => ({
   getRandomBytesAsync: async (length: number) => new Uint8Array(length).fill(7),
   randomUUID: () => mockCryptoRandomUUID(),
@@ -212,7 +222,7 @@ jest.mock('@/hooks/useMerchantPaymentSettings', () => {
 
 jest.mock('@/lib/supabase', () => ({
   calculateCommerce: jest.fn(
-    async (
+    (
       _name: string,
       params: {
         assuranceFee: number;
@@ -222,14 +232,14 @@ jest.mock('@/lib/supabase', () => ({
       }
     ) => {
       const taxAmount = Math.round(params.subtotal * params.taxRate);
-      return {
+      return Promise.resolve({
         taxAmount,
         total:
           params.subtotal +
           params.shippingFee +
           params.assuranceFee +
           taxAmount,
-      };
+      });
     }
   ),
   supabase: {
@@ -262,6 +272,17 @@ jest.mock('@/services/analytics', () => ({
   trackCheckoutStep: (...args: unknown[]) => mockTrackCheckoutStep(...args),
   trackError: (...args: unknown[]) => mockTrackError(...args),
   trackOrderCompleted: jest.fn(),
+}));
+
+jest.mock('@/services/tiktok-checkout-route-tracking', () => ({
+  // Checkout screen tests assert step/state transitions; loading native ad SDKs
+  // here makes CI render timing depend on mocked native module initialization.
+  trackCheckoutRoutePaymentInfo: jest.fn(() => Promise.resolve()),
+  trackCheckoutRoutePurchaseCompleted: jest.fn(() => Promise.resolve()),
+  trackCheckoutRouteStarted: jest.fn((...args: unknown[]) => {
+    mockTrackCheckoutStarted(...args);
+    return Promise.resolve();
+  }),
 }));
 
 jest.mock('@/services/orders', () => ({
@@ -299,6 +320,7 @@ jest.mock('@/services/push-notifications', () => ({
 const CheckoutScreen = require('@/app/checkout').default as React.ComponentType;
 
 export function setupCheckoutTest() {
+  jest.useRealTimers();
   jest.clearAllMocks();
   mockCryptoUuidCounter = 0;
   mockCryptoRandomUUID.mockImplementation(
@@ -365,6 +387,7 @@ export function teardownCheckoutTest() {
   resetMockPaymentSettings();
   global.fetch = originalFetch;
   jest.restoreAllMocks();
+  jest.useRealTimers();
 }
 
 export function renderCheckoutScreen() {

@@ -1,6 +1,4 @@
 import type { Metadata } from 'next';
-import { Suspense } from 'react';
-import { BlogListingFallback } from '@/app/(storefront)/[slug]/(blog)/blog/BlogListingFallback';
 import { getCachedBlogListing } from '@/lib/cached-data';
 import { generateMetaDescription } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
@@ -74,10 +72,8 @@ export async function generateMetadata({
   };
 }
 
-export default function BlogPage(props: BlogPageProps) {
-  return (
-    <Suspense fallback={<BlogListingFallback />}>
-      <BlogPageContent {...props} />
-    </Suspense>
-  );
+export default async function BlogPage(props: BlogPageProps) {
+  // Keep article links in the first HTML response. The deploy smoke check and
+  // crawlers parse raw /blog HTML, so a route-level Suspense shell hides posts.
+  return <>{await BlogPageContent(props)}</>;
 }

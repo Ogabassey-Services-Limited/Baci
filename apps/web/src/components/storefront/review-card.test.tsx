@@ -32,6 +32,14 @@ describe('ReviewCard', () => {
     expect(screen.getByText('Jane Buyer')).toBeInTheDocument();
   });
 
+  it('renders the review title as a third-level heading', () => {
+    render(<ReviewCard review={baseReview} />);
+
+    expect(
+      screen.getByRole('heading', { level: 3, name: 'Great product' })
+    ).toBeInTheDocument();
+  });
+
   it('falls back to the email username when customer name is absent', () => {
     render(
       <ReviewCard

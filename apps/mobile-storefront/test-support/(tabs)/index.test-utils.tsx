@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, jest } from '@jest/globals';
 import type { Href } from 'expo-router';
 import type React from 'react';
-import { Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import type { MobileTemplateConfig } from '@/lib/templates';
 
 export function createTemplateConfig(
@@ -43,9 +43,22 @@ type MockProductGridCall = [
   },
 ];
 
-const mockHeader = jest.fn(({ isScrolled }: { isScrolled?: boolean }) => (
-  <MockText testID="mock-header">Header {String(isScrolled)}</MockText>
-));
+const mockHeader = jest.fn(
+  ({
+    isScrolled,
+    onSearchPress,
+  }: {
+    isScrolled?: boolean;
+    onSearchPress?: () => void;
+  }) => (
+    <>
+      <MockText testID="mock-header">Header {String(isScrolled)}</MockText>
+      <Pressable testID="mock-header-search" onPress={onSearchPress}>
+        <MockText>Search</MockText>
+      </Pressable>
+    </>
+  )
+);
 
 function getBlockLoadMoreSignal(
   props: MockBlockRendererProps,
