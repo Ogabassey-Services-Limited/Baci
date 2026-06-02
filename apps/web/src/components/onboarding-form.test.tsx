@@ -141,11 +141,7 @@ vi.mock('@/components/ui/button', () => ({
 
 vi.mock('@/components/ui/progress', () => ({
   Progress: (props: { value: number; 'aria-label'?: string }) => (
-    <div
-      role="progressbar"
-      aria-valuenow={props.value}
-      aria-label={props['aria-label']}
-    />
+    <progress aria-label={props['aria-label']} max={100} value={props.value} />
   ),
 }));
 

@@ -2,18 +2,27 @@ import { jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 import { ChatWidget } from './ChatWidget';
+import { useDraggableFab } from './use-draggable-fab';
 
-const mockGestureRuntime: {
-  Gesture: unknown;
-  GestureDetector: ({ children }: { children?: ReactNode }) => ReactNode;
-} = {
-  Gesture: {},
-  GestureDetector: ({ children }) => children,
-};
+jest.mock('react-native-gesture-handler', () => {
+  const { Pressable, View } =
+    jest.requireActual<typeof import('react-native')>('react-native');
 
-jest.mock('@/lib/optional-gesture-handler', () => ({
-  getOptionalGestureHandlerRuntime: jest.fn(() => mockGestureRuntime),
-}));
+  return {
+    GestureDetector: ({
+      children,
+      gesture,
+    }: {
+      children?: ReactNode;
+      gesture?: unknown;
+    }) => (
+      <View testID="gesture-detector" accessibilityLabel={String(!!gesture)}>
+        {children}
+      </View>
+    ),
+    Touchable: Pressable,
+  };
+});
 
 // Mock the three custom hooks
 jest.mock('./use-chat', () => ({
@@ -143,6 +152,10 @@ jest.mock('./styles', () => ({
 }));
 
 describe('ChatWidget', () => {
+  const mockUseDraggableFab = useDraggableFab as jest.MockedFunction<
+    typeof useDraggableFab
+  >;
+
   beforeEach(() => {
     mockIsChatOpen = false;
     mockIsChatDismissed = false;
@@ -151,8 +164,6 @@ describe('ChatWidget', () => {
     mockDismissChat.mockClear();
     mockResetChatDismissal.mockClear();
     mockUsePathname.mockReturnValue('/');
-    mockGestureRuntime.Gesture = {};
-    mockGestureRuntime.GestureDetector = ({ children }) => children;
   });
 
   it('renders the FAB button with the correct accessibility label', () => {
@@ -164,15 +175,28 @@ describe('ChatWidget', () => {
     expect(fab).toBeTruthy();
   });
 
-  it('opens chat with a press fallback when gestures are unavailable', () => {
-    mockGestureRuntime.Gesture = null;
-
+  it('passes the draggable FAB gesture into GestureDetector', () => {
     render(<ChatWidget />);
 
-    fireEvent.press(
+    expect(mockUseDraggableFab).toHaveBeenCalledWith(
+      124,
+      mockDismissChat,
+      expect.any(Function)
+    );
+    expect(screen.getByTestId('gesture-detector')).toHaveProp(
+      'accessibilityLabel',
+      'true'
+    );
+  });
+
+  it('opens chat from the accessibility activation path', () => {
+    render(<ChatWidget />);
+
+    fireEvent(
       screen.getByRole('button', {
         name: 'Open chat assistant. Drag to move.',
-      })
+      }),
+      'accessibilityTap'
     );
 
     expect(mockOpenChat).toHaveBeenCalledTimes(1);

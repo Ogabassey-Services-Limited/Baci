@@ -61,7 +61,13 @@ vi.mock('@/components/ui/command', () => ({
     onSelect: () => void;
     value: string;
   }) => (
-    <button type="button" role="option" aria-label={value} onClick={onSelect}>
+    <button
+      type="button"
+      role="option"
+      aria-label={value}
+      aria-selected={false}
+      onClick={onSelect}
+    >
       {children}
     </button>
   ),

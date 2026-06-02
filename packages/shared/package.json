@@ -20,8 +20,13 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
+  "dependencies": {},
+  "peerDependencies": {
+    "zod": "^3.0.0 || ^4.0.0"
+  },
   "devDependencies": {
     "typescript": "^5.9.3",
-    "vitest": "^4.1.7"
+    "vitest": "^4.1.7",
+    "zod": "^3.25.76"
   }
 }

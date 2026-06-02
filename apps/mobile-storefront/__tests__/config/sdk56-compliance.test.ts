@@ -95,16 +95,19 @@ describe('SDK 56 compliance', () => {
     expect(configSource).not.toContain("deploymentTarget: '15.1'");
   });
 
-  it('configures the SDK 56 splash plugin with an Android drawable source', () => {
+  it('configures the SDK 56 splash plugin without a static splash image', () => {
     const configSource = readFileSync(
       path.join(ROOT, 'app.config.ts'),
       'utf-8'
     );
 
     expect(configSource).toContain("'expo-splash-screen'");
-    expect(configSource).toContain("image: './assets/images/splash-icon.png'");
-    expect(configSource).toContain("resizeMode: 'contain'");
     expect(configSource).toContain("backgroundColor: '#000000'");
+    expect(configSource).not.toContain(
+      "image: './assets/images/splash-icon.png'"
+    );
+    expect(configSource).not.toContain("resizeMode: 'contain'");
+    expect(configSource).toContain("'./config/withNoSplashImage.js'");
   });
 
   it('gradle.properties does not contain newArchEnabled', () => {

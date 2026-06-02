@@ -123,9 +123,9 @@ export const OgabasseyFooter: React.FC<FooterProps> = ({ storeSlug, logo }) => {
                   </Link>
                 </li>
                 <li>
-                  <a href="#" className="hover:text-primary">
+                  <span className="cursor-default text-gray-500">
                     Careers
-                  </a>
+                  </span>
                 </li>
                 <li>
                   <Link href={asRoute(getUrl('/blog'))} className="hover:text-primary">

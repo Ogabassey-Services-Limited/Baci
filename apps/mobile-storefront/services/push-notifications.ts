@@ -110,14 +110,12 @@ async function setupAndroidChannels(): Promise<void> {
     importance: Notifications.AndroidImportance.HIGH,
     vibrationPattern: [0, 250, 250, 250],
     lightColor: '#DC2626',
-    sound: 'default',
   });
 
   await Notifications.setNotificationChannelAsync('promotions', {
     name: 'Deals & Promotions',
     description: 'Special offers and discounts',
     importance: Notifications.AndroidImportance.DEFAULT,
-    sound: 'default',
   });
 
   await Notifications.setNotificationChannelAsync('general', {
@@ -217,7 +215,6 @@ export async function scheduleLocalNotification(
       title,
       body,
       data,
-      sound: 'default',
     },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,

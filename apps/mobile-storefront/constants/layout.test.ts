@@ -1,6 +1,7 @@
 import { describe, expect, it } from '@jest/globals';
 import {
   CHAT_WIDGET_DEFAULT_BOTTOM_OFFSET,
+  CHAT_WIDGET_FAB_SIZE,
   CONTENT_OVERLAY_GAP,
   getChatWidgetBottomOffset,
   getHomeContentBottomPadding,
@@ -9,7 +10,12 @@ import {
 
 describe('getHomeContentBottomPadding', () => {
   it('returns chat widget clearance when the widget is enabled', () => {
-    expect(getHomeContentBottomPadding(34, true)).toBe(175);
+    expect(getHomeContentBottomPadding(34, true)).toBe(
+      CHAT_WIDGET_DEFAULT_BOTTOM_OFFSET +
+        34 +
+        CHAT_WIDGET_FAB_SIZE +
+        CONTENT_OVERLAY_GAP
+    );
   });
 
   it('falls back to tab bar clearance when the widget is disabled', () => {

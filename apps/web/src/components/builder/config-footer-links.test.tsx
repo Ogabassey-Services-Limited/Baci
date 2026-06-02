@@ -194,4 +194,64 @@ describe('builderConfig scoped links', () => {
       '/style-store/contact'
     );
   });
+
+  it('renders map embeds with accessible titles and real query URLs', () => {
+    const renderMap = builderConfig.components.Map.render as (
+      props: Record<string, unknown>
+    ) => ReactNode;
+    const renderContactSection = builderConfig.components.ContactSection
+      .render as (props: Record<string, unknown>) => ReactNode;
+
+    const { rerender } = render(
+      renderMap({
+        address: 'Lagos, Nigeria',
+        zoom: 14,
+        height: '300px',
+      })
+    );
+
+    let iframe = screen.getByTitle('Store location map');
+    expect(iframe).toHaveAttribute(
+      'src',
+      expect.stringContaining('https://www.google.com/maps?')
+    );
+    expect(iframe).toHaveAttribute(
+      'src',
+      expect.stringContaining('q=Lagos%2C%20Nigeria')
+    );
+    expect(iframe).not.toHaveAttribute(
+      'src',
+      expect.stringContaining('YOUR_API_KEY')
+    );
+
+    rerender(
+      renderContactSection({
+        title: 'Visit us',
+        subtitle: 'Find our showroom',
+        showMap: true,
+        mapAddress: 'Ikeja City Mall',
+        contactInfo: [],
+        showForm: false,
+        layout: 'stacked',
+        animationType: 'fade-in',
+        animationDuration: 'normal',
+        animationDelay: 0,
+        animationTrigger: 'immediate',
+      })
+    );
+
+    iframe = screen.getByTitle('Business location map');
+    expect(iframe).toHaveAttribute(
+      'src',
+      expect.stringContaining('https://www.google.com/maps?')
+    );
+    expect(iframe).toHaveAttribute(
+      'src',
+      expect.stringContaining('q=Ikeja%20City%20Mall')
+    );
+    expect(iframe).not.toHaveAttribute(
+      'src',
+      expect.stringContaining('YOUR_API_KEY')
+    );
+  });
 });

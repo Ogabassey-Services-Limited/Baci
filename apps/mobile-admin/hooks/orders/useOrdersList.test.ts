@@ -33,6 +33,7 @@ const supabaseMock = vi.hoisted(() => {
     for (const method of [
       'select',
       'eq',
+      'not',
       'or',
       'gte',
       'lte',
@@ -106,6 +107,10 @@ vi.mock('@tanstack/react-query', async () => {
 });
 
 import { fetchOrders, useOrders } from './useOrdersList';
+import {
+  HIDDEN_CHECKOUT_PAYMENT_STATUSES,
+  VISIBLE_PENDING_ORDER_FILTER,
+} from './order-list-visibility';
 
 describe('fetchOrders', () => {
   beforeEach(() => {
@@ -218,6 +223,23 @@ describe('fetchOrders', () => {
     expect(
       supabaseMock.chainCalls.filter((call) => call.method === 'lte')
     ).toHaveLength(1);
+  });
+
+  it('keeps checkout drop-offs out of the admin orders list', async () => {
+    await fetchOrders('merchant-1', 0, {}, { type: 'all' });
+
+    expect(supabaseMock.chainCalls).toEqual(
+      expect.arrayContaining([
+        {
+          method: 'not',
+          args: ['payment_status', 'in', HIDDEN_CHECKOUT_PAYMENT_STATUSES],
+        },
+        {
+          method: 'or',
+          args: [VISIBLE_PENDING_ORDER_FILTER],
+        },
+      ])
+    );
   });
 
   it('configures the useOrders infinite query with branch-scope cache keys', async () => {

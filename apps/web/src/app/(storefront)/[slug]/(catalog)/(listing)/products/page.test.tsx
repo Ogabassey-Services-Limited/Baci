@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import type React from 'react';
 import { Suspense } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -319,14 +319,14 @@ describe('products index page', () => {
     expect(notFound).not.toHaveBeenCalled();
   });
 
-  it('renders the catalog skeleton while products content is suspended', async () => {
+  it('renders the catalog skeleton while products content is suspended', () => {
     mockProductsPageContent.mockImplementation(() => {
       throw new Promise(() => {
         // Keep the page content suspended behind the page fallback.
       });
     });
 
-    const ui = await ProductsPage({
+    const ui = ProductsPage({
       params: Promise.resolve({ slug: 'test-store' }),
       searchParams: Promise.resolve({}),
     });
@@ -340,19 +340,21 @@ describe('products index page', () => {
     ).toBeInTheDocument();
     expect(screen.queryByText('Route loader fallback')).not.toBeInTheDocument();
     expect(screen.queryByText('Products page content')).not.toBeInTheDocument();
-    expect(mockConnection).not.toHaveBeenCalled();
+    expect(mockConnection).toHaveBeenCalledOnce();
   });
 
-  it('marks runtime metadata with a page-level dynamic marker', async () => {
+  it('keeps product listings request-bound behind a static-shell fallback', async () => {
     render(
-      await ProductsPage({
+      ProductsPage({
         params: Promise.resolve({ slug: 'test-store' }),
         searchParams: Promise.resolve({}),
       })
     );
 
-    expect(screen.getByText('Products page content')).toBeInTheDocument();
-    expect(mockConnection).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole('status', { name: 'Loading product listing' })
+    ).toBeInTheDocument();
+    await waitFor(() => expect(mockConnection).toHaveBeenCalledOnce());
   });
 
   it('uses page-specific product index metadata for paginated listings', async () => {

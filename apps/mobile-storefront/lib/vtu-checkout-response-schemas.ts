@@ -5,8 +5,8 @@ export const ConfirmationGatewayEnum = z.enum(['paystack', 'korapay']);
 
 export const InitCheckoutResponseSchema = z.object({
   success: z.literal(true),
-  authorization_url: z.string().url(),
-  checkout_url: z.string().url().optional(),
+  authorization_url: z.url(),
+  checkout_url: z.url().optional(),
   gateway: ConfirmationGatewayEnum,
   reference: z.string(),
   vtu_reference: z.string(),
@@ -64,7 +64,7 @@ export const ChargeSavedCardSuccessSchema = z.object({
 export const ChargeSavedCardGatewaySchema = z.object({
   success: z.literal(true),
   requires_authorization: z.literal(true),
-  authorization_url: z.string().url(),
+  authorization_url: z.url(),
   gateway: z.literal('paystack'),
   reference: z.string(),
 });

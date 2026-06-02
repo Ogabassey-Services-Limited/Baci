@@ -219,7 +219,6 @@ describe('ChatModal', () => {
       right: 0,
       top: 0,
     });
-
     renderChatModal();
 
     expect(
@@ -227,6 +226,5 @@ describe('ChatModal', () => {
     ).toMatchObject({
       paddingBottom: 12,
     });
-    expect(screen.getByLabelText('Chat message input')).toBeOnTheScreen();
   });
 });

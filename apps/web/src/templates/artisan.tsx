@@ -381,28 +381,28 @@ export function HandmadeHome(props: TemplatePageProps) {
             <div>
               <h4 className="font-semibold text-white mb-4">Shop</h4>
               <ul className="space-y-2 text-sm">
-                <li><a href="#" className="hover:text-[#C4785E] transition-colors">All Products</a></li>
-                <li><a href="#" className="hover:text-[#C4785E] transition-colors">Ceramics</a></li>
-                <li><a href="#" className="hover:text-[#C4785E] transition-colors">Textiles</a></li>
-                <li><a href="#" className="hover:text-[#C4785E] transition-colors">Jewelry</a></li>
+                <li><span className="transition-colors cursor-default">All Products</span></li>
+                <li><span className="transition-colors cursor-default">Ceramics</span></li>
+                <li><span className="transition-colors cursor-default">Textiles</span></li>
+                <li><span className="transition-colors cursor-default">Jewelry</span></li>
               </ul>
             </div>
             <div>
               <h4 className="font-semibold text-white mb-4">About</h4>
               <ul className="space-y-2 text-sm">
-                <li><a href="#" className="hover:text-[#C4785E] transition-colors">Our Story</a></li>
-                <li><a href="#" className="hover:text-[#C4785E] transition-colors">Materials</a></li>
-                <li><a href="#" className="hover:text-[#C4785E] transition-colors">Custom Orders</a></li>
-                <li><a href="#" className="hover:text-[#C4785E] transition-colors">Care Guide</a></li>
+                <li><span className="transition-colors cursor-default">Our Story</span></li>
+                <li><span className="transition-colors cursor-default">Materials</span></li>
+                <li><span className="transition-colors cursor-default">Custom Orders</span></li>
+                <li><span className="transition-colors cursor-default">Care Guide</span></li>
               </ul>
             </div>
             <div>
               <h4 className="font-semibold text-white mb-4">Connect</h4>
               <ul className="space-y-2 text-sm">
-                <li><a href="#" className="hover:text-[#C4785E] transition-colors">Contact</a></li>
-                <li><a href="#" className="hover:text-[#C4785E] transition-colors">Instagram</a></li>
-                <li><a href="#" className="hover:text-[#C4785E] transition-colors">Pinterest</a></li>
-                <li><a href="#" className="hover:text-[#C4785E] transition-colors">Newsletter</a></li>
+                <li><span className="transition-colors cursor-default">Contact</span></li>
+                <li><span className="transition-colors cursor-default">Instagram</span></li>
+                <li><span className="transition-colors cursor-default">Pinterest</span></li>
+                <li><span className="transition-colors cursor-default">Newsletter</span></li>
               </ul>
             </div>
           </div>

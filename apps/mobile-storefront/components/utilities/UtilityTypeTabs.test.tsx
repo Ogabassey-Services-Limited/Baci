@@ -1,7 +1,7 @@
 import { describe, expect, it, jest } from '@jest/globals';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { ScrollView, StyleSheet } from 'react-native';
-import Colors, { BRAND, SPACING } from '@/constants/Colors';
+import Colors, { BRAND, SPACING, withAlpha } from '@/constants/Colors';
 import { UtilityTypeTabs } from './UtilityTypeTabs';
 
 let mockColorScheme: 'light' | 'dark' = 'light';
@@ -104,8 +104,8 @@ describe('UtilityTypeTabs', () => {
     // labels do not collapse while longer labels can still grow.
     const powerStyle = getTabStyle('power');
     expect(powerStyle).toMatchObject({
-      backgroundColor: BRAND.primary,
-      borderColor: BRAND.primary,
+      backgroundColor: withAlpha(BRAND.primary, 0.18),
+      borderColor: withAlpha(BRAND.primary, 0.55),
       borderRadius: 999,
       borderWidth: 1,
       flexDirection: 'row',
@@ -129,8 +129,16 @@ describe('UtilityTypeTabs', () => {
       )
     ).toMatchObject({
       alignItems: 'center',
+    });
+    expect(
+      StyleSheet.flatten(
+        screen.getByTestId('utility-type-tabs-track').props.style
+      )
+    ).toMatchObject({
+      flexDirection: 'row',
       paddingHorizontal: SPACING.md,
     });
+    expect(screen.queryByTestId('utility-type-tabs-indicator')).toBeNull();
   });
 
   it('calls onSelect when a submenu is pressed', () => {

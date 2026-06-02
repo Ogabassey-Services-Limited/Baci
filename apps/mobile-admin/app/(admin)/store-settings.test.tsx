@@ -46,6 +46,10 @@ const mocks = vi.hoisted(() => ({
   },
 }));
 
+function Text({ children }: { children?: ReactNode }) {
+  return <span>{children}</span>;
+}
+
 vi.mock('expo-router', async () => {
   const React = await import('react');
   return {
@@ -123,12 +127,20 @@ vi.mock('@/components/store-settings/StoreSubscriptionCard', () => ({
     mocks.subscriptionCardProps.manageSubscriptionLabel =
       manageSubscriptionLabel;
     mocks.subscriptionCardProps.planLabel = planLabel;
-    return <div>subscription-card</div>;
+    return (
+      <div>
+        <Text>subscription-card</Text>
+      </div>
+    );
   },
 }));
 
 vi.mock('@/components/store-settings/StoreSettingsDetailsCard', () => ({
-  StoreSettingsDetailsCard: () => <div>details-card</div>,
+  StoreSettingsDetailsCard: () => (
+    <div>
+      <Text>details-card</Text>
+    </div>
+  ),
 }));
 
 vi.mock('@/components/ui/CountryPickerModal', () => ({
@@ -136,11 +148,15 @@ vi.mock('@/components/ui/CountryPickerModal', () => ({
 }));
 
 vi.mock('@/components/ui/LogoPicker', () => ({
-  LogoPicker: () => <div>logo-picker</div>,
+  LogoPicker: () => <div />,
 }));
 
 vi.mock('@/components/ui/ScreenSkeleton', () => ({
-  ScreenSkeleton: () => <div>loading</div>,
+  ScreenSkeleton: () => (
+    <div>
+      <Text>loading</Text>
+    </div>
+  ),
 }));
 
 vi.mock('@/components/ui/StatusModal', () => ({
@@ -162,7 +178,7 @@ vi.mock('react-native-edge-to-edge', () => ({
 }));
 
 vi.mock('react-native', () => ({
-  ActivityIndicator: () => <span>loading</span>,
+  ActivityIndicator: () => <output aria-label="loading" />,
   Pressable: ({ children }: { children?: ReactNode }) => (
     <button type="button">{children}</button>
   ),
@@ -174,9 +190,13 @@ vi.mock('react-native', () => ({
 }));
 
 vi.mock('@react-native-vector-icons/ionicons', () => ({
-  Ionicons: () => <span>icon</span>,
+  Ionicons: ({ name }: { name?: string }) => (
+    <span aria-hidden="true" data-icon={name} />
+  ),
 
-  default: () => <span>icon</span>,
+  default: ({ name }: { name?: string }) => (
+    <span aria-hidden="true" data-icon={name} />
+  ),
   __esModule: true,
 }));
 

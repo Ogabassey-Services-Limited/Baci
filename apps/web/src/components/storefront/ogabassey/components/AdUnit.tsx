@@ -5,6 +5,10 @@ import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { AD_CONFIG } from '../config/ads';
 import {
+  registerPubAdsSlotRenderListener,
+  type GoogleSlotRenderEndedEvent,
+} from './ad-unit-gpt-listeners';
+import {
   ensureGoogleAdManagerBoot,
   ensureGoogleTag,
 } from './google-ad-bootstrap';
@@ -37,6 +41,7 @@ export const AdUnit: React.FC<AdUnitProps> = ({
   const adRef = useRef<HTMLDivElement>(null);
   const slotRef = useRef<googletag.Slot | null>(null);
   const isActiveRef = useRef(isActive);
+  const listenerCleanupsRef = useRef<Array<() => void>>([]);
   const slotLifecycleRef = useRef(0);
   const [isAdLoaded, setIsAdLoaded] = useState(false);
   const [shouldLoadSlot, setShouldLoadSlot] = useState(
@@ -113,6 +118,7 @@ export const AdUnit: React.FC<AdUnitProps> = ({
     const { id, width, height, mobileWidth, mobileHeight } = config;
     const slotPath = `${NETWORK_CODE}/${config.name.replace(/\s+/g, '_')}`; // Construct ad unit path
     const lifecycle = slotLifecycleRef.current;
+    let isDisposed = false;
 
     // Skip if this slot is already defined (React StrictMode double-render protection)
     if (definedSlots.has(id)) {
@@ -122,6 +128,7 @@ export const AdUnit: React.FC<AdUnitProps> = ({
     void ensureGoogleAdManagerBoot()
       .then(() => {
         if (
+          isDisposed ||
           lifecycle !== slotLifecycleRef.current ||
           !isActiveRef.current ||
           definedSlots.has(id)
@@ -133,6 +140,7 @@ export const AdUnit: React.FC<AdUnitProps> = ({
 
         googletag.cmd.push(() => {
           if (
+            isDisposed ||
             lifecycle !== slotLifecycleRef.current ||
             !isActiveRef.current ||
             definedSlots.has(id)
@@ -168,13 +176,17 @@ export const AdUnit: React.FC<AdUnitProps> = ({
             googletag.display(id);
 
             // Listen for render events to hide placeholder if needed
-            googletag.pubads().addEventListener(
-              'slotRenderEnded',
-              (event: any) => {
-                if (event.slot === slot) {
-                  setIsAdLoaded(!event.isEmpty);
-                }
+            const slotRenderEndedHandler = (event: unknown) => {
+              const renderEvent = event as GoogleSlotRenderEndedEvent;
+              if (renderEvent.slot === slot) {
+                setIsAdLoaded(!renderEvent.isEmpty);
               }
+            };
+            listenerCleanupsRef.current.push(
+              registerPubAdsSlotRenderListener(
+                googletag.pubads(),
+                slotRenderEndedHandler
+              )
             );
           }
         });
@@ -182,6 +194,10 @@ export const AdUnit: React.FC<AdUnitProps> = ({
       .catch(() => {
         setIsAdLoaded(false);
       });
+
+    return () => {
+      isDisposed = true;
+    };
   }, [config, hasBootDelayElapsed, isActive, shouldLoadSlot]);
 
   useEffect(() => {
@@ -197,6 +213,10 @@ export const AdUnit: React.FC<AdUnitProps> = ({
         const googletag = ensureGoogleTag();
 
         googletag.cmd.push(() => {
+          for (const cleanup of listenerCleanupsRef.current) {
+            cleanup();
+          }
+          listenerCleanupsRef.current = [];
           googletag.destroySlots([slotToDestroy]);
           definedSlots.delete(slotId);
           slotRef.current = null;

@@ -54,6 +54,10 @@ function createMutationMock() {
   });
 }
 
+function Text({ children }: { children?: ReactNode }) {
+  return <span>{children}</span>;
+}
+
 async function invokeAlertButton(title: string, buttonIndex = 0) {
   await waitFor(() => {
     expect(
@@ -153,14 +157,14 @@ vi.mock('@/components/expenses/ExpenseFormFields', () => ({
           onClick={props.onOpenCategorySheet}
           type="button"
         >
-          Select category
+          <Text>Select category</Text>
         </button>
         <button
           aria-label="Add expense receipt"
           onClick={props.onReceiptPress}
           type="button"
         >
-          Add receipt
+          <Text>Add receipt</Text>
         </button>
       </>
     );
@@ -169,7 +173,11 @@ vi.mock('@/components/expenses/ExpenseFormFields', () => ({
 
 vi.mock('@/components/expenses/ExpenseCategorySheet', () => ({
   ExpenseCategorySheet: ({ visible }: { visible: boolean }) =>
-    visible ? <div>Category sheet</div> : null,
+    visible ? (
+      <div>
+        <Text>Category sheet</Text>
+      </div>
+    ) : null,
 }));
 
 vi.mock('@/lib/supabase', () => ({
@@ -218,14 +226,18 @@ vi.mock('expo-router', async () => {
 });
 
 vi.mock('@react-native-vector-icons/ionicons', () => ({
-  Ionicons: () => <span>icon</span>,
+  Ionicons: ({ name }: { name?: string }) => (
+    <span aria-hidden="true" data-icon={name} />
+  ),
 
-  default: () => <span>icon</span>,
+  default: ({ name }: { name?: string }) => (
+    <span aria-hidden="true" data-icon={name} />
+  ),
   __esModule: true,
 }));
 
 vi.mock('react-native', () => ({
-  ActivityIndicator: () => <span>loading</span>,
+  ActivityIndicator: () => <output aria-label="loading" />,
   Alert: { alert: mocks.alert },
   Pressable: ({
     accessibilityLabel,

@@ -111,9 +111,10 @@ export function OgabasseyPdpProductLcpSkeleton({
             className="relative flex aspect-square items-center justify-center overflow-hidden rounded-2xl border border-border/40 bg-muted/5"
             style={imageFrameStyle}
           >
-            {/* biome-ignore lint/performance/noImgElement lint/a11y/useAltText: Native HTML img used synchronously inside server-rendered skeleton to ensure instant painting */}
+            {/* biome-ignore lint/performance/noImgElement: Native HTML img used synchronously inside server-rendered skeleton to ensure instant painting */}
             <img
               {...nativeImgProps}
+              alt={productImageAlt}
               className="object-cover w-full h-full absolute inset-0"
               style={imageStyle}
               fetchPriority="high"

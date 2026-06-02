@@ -85,11 +85,21 @@ describe('NegotiationModal', () => {
   it('shows the offer input form initially', () => {
     render(<NegotiationModal {...defaultProps} />);
     expect(
-      screen.getByPlaceholderText('Enter amount...')
+      screen.getByRole('spinbutton', { name: /your offer/i })
     ).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: 'Submit Offer' })
     ).toBeInTheDocument();
+  });
+
+  it('moves initial dialog focus to the offer amount input', () => {
+    render(<NegotiationModal {...defaultProps} />);
+
+    act(() => {
+      vi.advanceTimersByTime(16);
+    });
+
+    expect(screen.getByPlaceholderText('Enter amount...')).toHaveFocus();
   });
 
   it('accepts an offer within the 3% threshold and marks it as AI-reviewed', () => {
@@ -334,6 +344,21 @@ describe('NegotiationModal', () => {
       screen.getByPlaceholderText('Enter amount...')
     ).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('returns focus to the offer input when negotiating again', () => {
+    render(<NegotiationModal {...defaultProps} />);
+
+    submitLowOffer('1000');
+    fireEvent.click(screen.getByText('Negotiate Again'));
+
+    act(() => {
+      vi.advanceTimersByTime(16);
+    });
+
+    expect(
+      screen.getByRole('spinbutton', { name: /your offer/i })
+    ).toHaveFocus();
   });
 
   it('includes customer_id and unique session_id in the insert payload', async () => {

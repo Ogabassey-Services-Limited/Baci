@@ -44,6 +44,7 @@
     "@tanstack/react-query": "^5.100.14",
     "@tanstack/react-query-persist-client": "^5.100.14",
     "date-fns": "^4.3.0",
+    "dotenv": "^16.6.1",
     "expo": "^56.0.8",
     "expo-apple-authentication": "~56.0.4",
     "expo-auth-session": "~56.0.13",
@@ -79,6 +80,7 @@
     "react-native-google-places-autocomplete": "^2.6.4",
     "react-native-mmkv": "^4.3.1",
     "react-native-nitro-modules": "^0.35.9",
+    "react-native-country-picker-modal": "^2.0.0",
     "react-native-phone-number-input": "^2.1.0",
     "react-native-purchases": "^10.2.0",
     "react-native-reanimated": "4.4.0",
@@ -88,7 +90,7 @@
     "react-native-web": "~0.21.2",
     "react-native-webview": "^13.16.1",
     "react-native-worklets": "0.9.1",
-    "zod": "^4.3.6",
+    "zod": "^4.4.3",
     "zustand": "^5.0.14"
   },
   "devDependencies": {
@@ -99,6 +101,8 @@
     "@react-native/metro-config": "0.85.3",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/react": "^16.3.2",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/user-event": "^14.6.1",
     "@types/react": "^19.2.15",
     "@vitejs/plugin-react": "^6.0.2",
     "babel-plugin-react-compiler": "^1.0.0",

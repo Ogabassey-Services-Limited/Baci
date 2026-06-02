@@ -4,6 +4,7 @@ import {
   buildApplyEditorThemeScript,
   createEditorHtml,
 } from './create-editor-html';
+import { expectValidJavaScript } from './script-test-utils';
 
 describe('createEditorHtml', () => {
   it('renders sanitized editor content and placeholder styles', () => {
@@ -48,7 +49,7 @@ describe('createEditorHtml', () => {
   it('builds a theme update script without rebuilding the document shell', () => {
     const script = buildApplyEditorThemeScript(DARK_COLORS);
 
-    expect(() => new Function(script)).not.toThrow();
+    expectValidJavaScript(script);
     expect(script).toContain('window.__baciApplyEditorTheme');
     expect(script).toContain(DARK_COLORS.background);
     expect(script).toContain(DARK_COLORS.border);
