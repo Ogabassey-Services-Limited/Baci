@@ -19,20 +19,18 @@ export const BranchSchema = z.object({
   updated_at: z.iso.datetime({ offset: true }).nullish(),
 });
 
-export const CreateBranchSchema = z
-  .object({
-    name: z.string().trim().min(2).max(120),
-    address: optionalText(240),
-    city: optionalText(120),
-    state: optionalText(120),
-    phone: optionalText(32),
-    managerId: z.uuid().optional(),
-    isDefault: z.boolean().default(false),
-  })
-  .strict();
+export const CreateBranchSchema = z.strictObject({
+  name: z.string().trim().min(2).max(120),
+  address: optionalText(240),
+  city: optionalText(120),
+  state: optionalText(120),
+  phone: optionalText(32),
+  managerId: z.uuid().optional(),
+  isDefault: z.boolean().default(false),
+});
 
 export const UpdateBranchSchema = z
-  .object({
+  .strictObject({
     name: z.string().trim().min(2).max(120).optional(),
     address: optionalNullableText(240),
     city: optionalNullableText(120),
@@ -41,7 +39,6 @@ export const UpdateBranchSchema = z
     managerId: z.uuid().nullable().optional(),
     isDefault: z.boolean().optional(),
   })
-  .strict()
   .refine((value) => Object.values(value).some((item) => item !== undefined), {
     message: 'At least one branch field is required',
   });
