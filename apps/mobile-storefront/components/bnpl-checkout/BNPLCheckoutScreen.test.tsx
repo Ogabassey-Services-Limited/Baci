@@ -1,22 +1,47 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { render, screen } from '@testing-library/react-native';
+import type { ReactElement, ReactNode } from 'react';
 import { BNPLCheckoutScreen } from '@/components/bnpl-checkout/BNPLCheckoutScreen';
 
 const mockClearCart = jest.fn();
+const mockRouterBack = jest.fn();
+const mockRouterReplace = jest.fn();
+let mockRouteParams: Record<string, string> = {};
+let mockStackOptions:
+  | {
+      headerLeft?: () => ReactNode;
+    }
+  | undefined;
+let mockWebViewProps: Record<string, unknown> | undefined;
+const mockControllerOverride = jest.fn();
 
 jest.mock('expo-router', () => ({
   Stack: {
-    Screen: () => null,
+    Screen: ({ options }: { options?: { headerLeft?: () => ReactNode } }) => {
+      mockStackOptions = options;
+      return null;
+    },
   },
   router: {
-    back: jest.fn(),
-    replace: jest.fn(),
+    back: mockRouterBack,
+    replace: mockRouterReplace,
   },
-  useLocalSearchParams: () => ({}),
+  useLocalSearchParams: () => mockRouteParams,
 }));
 
 jest.mock('react-native-webview', () => ({
   WebView: () => null,
+}));
+
+jest.mock('./BNPLCheckoutWebView', () => ({
+  BNPLCheckoutWebView: (props: Record<string, unknown>) => {
+    mockWebViewProps = props;
+    return null;
+  },
+}));
+
+jest.mock('./use-bnpl-checkout-controller', () => ({
+  useBNPLCheckoutController: (input: unknown) => mockControllerOverride(input),
 }));
 
 jest.mock('@/components/useColorScheme', () => ({
@@ -32,9 +57,48 @@ jest.mock('@/stores/cart-store', () => ({
     selector({ clearCart: mockClearCart }),
 }));
 
+function createCheckoutControllerMock(
+  overrides: Record<string, unknown> = {}
+): Record<string, unknown> {
+  return {
+    amount: '25000',
+    bnplUrl: 'https://usebaci.com/api/checkout/bnpl/order-123',
+    currentUrl: 'https://usebaci.com/api/checkout/bnpl/order-123',
+    errorMessage: null,
+    gatewayName: 'Credit Direct',
+    handleClose: jest.fn(),
+    handleLoadEnd: jest.fn(),
+    handleLoadStart: jest.fn(),
+    handleNavigationChange: jest.fn(),
+    handleOpenWindow: jest.fn(),
+    handleRetry: jest.fn(),
+    handleShouldStartLoadWithRequest: jest.fn(),
+    handleWebViewError: jest.fn(),
+    handleWebViewHttpError: jest.fn(),
+    handleWebViewMessage: jest.fn(),
+    status: 'ready',
+    validatedParams: { isValid: true },
+    webViewRef: { current: null },
+    ...overrides,
+  };
+}
+
 describe('BNPLCheckoutScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockControllerOverride.mockReset();
+    mockControllerOverride.mockReturnValue(
+      createCheckoutControllerMock({
+        status: 'error',
+        validatedParams: {
+          error: 'Missing checkout parameters',
+          isValid: false,
+        },
+      })
+    );
+    mockRouteParams = {};
+    mockStackOptions = undefined;
+    mockWebViewProps = undefined;
   });
 
   it('renders invalid checkout state for missing required params', () => {
@@ -42,5 +106,55 @@ describe('BNPLCheckoutScreen', () => {
 
     expect(screen.getByText('Invalid Checkout')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Go back' })).toBeTruthy();
+  });
+
+  it('labels the icon-only close button for assistive technology', () => {
+    mockRouteParams = {
+      gateway: 'credit_direct',
+      orderId: 'order-123',
+    };
+    mockControllerOverride.mockReturnValueOnce(createCheckoutControllerMock());
+
+    render(<BNPLCheckoutScreen />);
+    const HeaderLeft = mockStackOptions?.headerLeft;
+    expect(HeaderLeft).toBeDefined();
+    if (!HeaderLeft) {
+      throw new Error('Expected the BNPL header left renderer to be set');
+    }
+
+    render(HeaderLeft() as ReactElement);
+
+    expect(screen.getByRole('button', { name: 'Close checkout' })).toBeTruthy();
+  });
+
+  it('forwards WebView success and error handlers unchanged', () => {
+    mockRouteParams = {
+      gateway: 'credit_direct',
+      orderId: 'order-123',
+    };
+    const handleNavigationChange = jest.fn();
+    const handleShouldStartLoadWithRequest = jest.fn();
+    const handleWebViewError = jest.fn();
+    const handleWebViewHttpError = jest.fn();
+
+    mockControllerOverride.mockReturnValueOnce(
+      createCheckoutControllerMock({
+        handleNavigationChange,
+        handleShouldStartLoadWithRequest,
+        handleWebViewError,
+        handleWebViewHttpError,
+      })
+    );
+
+    render(<BNPLCheckoutScreen />);
+
+    expect(mockWebViewProps?.onNavigationStateChange).toBe(
+      handleNavigationChange
+    );
+    expect(mockWebViewProps?.onShouldStartLoadWithRequest).toBe(
+      handleShouldStartLoadWithRequest
+    );
+    expect(mockWebViewProps?.onError).toBe(handleWebViewError);
+    expect(mockWebViewProps?.onHttpError).toBe(handleWebViewHttpError);
   });
 });

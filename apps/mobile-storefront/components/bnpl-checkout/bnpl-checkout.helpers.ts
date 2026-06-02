@@ -1,8 +1,7 @@
 import { BNPLParamsSchema } from '@/components/bnpl-checkout/bnpl-params.schema';
 import {
-  buildKlumpAuthorizationUrl,
-  isAllowedBnplPopupUrl,
   type BNPLRouteParams,
+  buildKlumpAuthorizationUrl,
 } from '@/lib/bnpl-url';
 
 export const BNPL_LOAD_TIMEOUT_MS = 45_000;
@@ -10,10 +9,14 @@ export const BNPL_LOAD_TIMEOUT_MESSAGE =
   'Payment page is taking longer than expected. Check your connection and try again.';
 export const BNPL_UNTRUSTED_POPUP_MESSAGE =
   'Payment provider opened an untrusted checkout window.';
-export const BNPL_DOCUMENT_ACCEPT_HEADER =
-  'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8';
 
-const NEXT_DATA_QUERY_PARAMS = new Set(['_rsc']);
+export {
+  areBNPLCheckoutUrlsEquivalent,
+  BNPL_DOCUMENT_ACCEPT_HEADER,
+  buildBNPLDocumentSource,
+  resolveBNPLDocumentNavigation,
+  sanitizeBNPLDocumentUrl,
+} from './bnpl-checkout-navigation';
 
 export function parseBNPLParams(params: BNPLRouteParams) {
   const result = BNPLParamsSchema.safeParse(params);
@@ -51,124 +54,6 @@ export function extractErrorFromUrl(url: string) {
   } catch {
     return null;
   }
-}
-
-export function sanitizeBNPLDocumentUrl(url: string) {
-  try {
-    const documentUrl = new URL(url);
-    for (const paramName of NEXT_DATA_QUERY_PARAMS) {
-      documentUrl.searchParams.delete(paramName);
-    }
-    return documentUrl.toString();
-  } catch {
-    return url;
-  }
-}
-
-export function buildBNPLDocumentSource(url: string) {
-  return {
-    headers: {
-      Accept: BNPL_DOCUMENT_ACCEPT_HEADER,
-    },
-    uri: sanitizeBNPLDocumentUrl(url),
-  };
-}
-
-function isBlankProviderPopupUrl(url: string) {
-  return url === 'about:blank' || url.startsWith('about:blank#');
-}
-
-function isBaciDocumentNavigation(url: string, apiBaseUrl: string) {
-  try {
-    const requestUrl = new URL(url);
-    const baseUrl = new URL(apiBaseUrl);
-
-    return (
-      requestUrl.protocol === baseUrl.protocol &&
-      (requestUrl.hostname === baseUrl.hostname ||
-        (baseUrl.hostname === 'usebaci.com' &&
-          requestUrl.hostname.endsWith('.usebaci.com')))
-    );
-  } catch {
-    return false;
-  }
-}
-
-type BNPLDocumentNavigationDecision =
-  | {
-      nextUrl?: string;
-      reason: 'allowed';
-      shouldStart: true;
-    }
-  | {
-      nextUrl: string;
-      reason: 'rewrite' | 'untrusted';
-      shouldStart: false;
-    };
-
-export function resolveBNPLDocumentNavigation({
-  apiBaseUrl,
-  currentDocumentUrl,
-  isTopFrame,
-  requestUrl,
-}: {
-  apiBaseUrl: string;
-  currentDocumentUrl: string;
-  isTopFrame?: boolean;
-  requestUrl: string;
-}): BNPLDocumentNavigationDecision {
-  if (!requestUrl || isBlankProviderPopupUrl(requestUrl)) {
-    return {
-      reason: 'allowed' as const,
-      shouldStart: true,
-    };
-  }
-
-  if (isTopFrame === false) {
-    return {
-      reason: 'allowed' as const,
-      shouldStart: true,
-    };
-  }
-
-  const nextUrl = sanitizeBNPLDocumentUrl(requestUrl);
-  const isAllowedCheckoutUrl = isAllowedBnplPopupUrl(nextUrl, apiBaseUrl);
-  if (isTopFrame === true && !isAllowedCheckoutUrl) {
-    return {
-      nextUrl,
-      reason: 'untrusted' as const,
-      shouldStart: false,
-    };
-  }
-
-  if (!isBaciDocumentNavigation(nextUrl, apiBaseUrl)) {
-    return {
-      reason: 'allowed' as const,
-      shouldStart: true,
-    };
-  }
-
-  if (!isAllowedCheckoutUrl) {
-    return {
-      nextUrl,
-      reason: 'untrusted' as const,
-      shouldStart: false,
-    };
-  }
-
-  if (nextUrl === currentDocumentUrl && nextUrl === requestUrl) {
-    return {
-      nextUrl,
-      reason: 'allowed' as const,
-      shouldStart: true,
-    };
-  }
-
-  return {
-    nextUrl,
-    reason: 'rewrite' as const,
-    shouldStart: false,
-  };
 }
 
 export function buildBNPLCheckoutUrl({
@@ -225,28 +110,51 @@ export function buildBNPLCheckoutUrl({
 
 export const BNPL_INJECTED_JAVASCRIPT = `
   (function() {
+    const postDebugMessage = function(payload) {
+      window.ReactNativeWebView?.postMessage(JSON.stringify(payload));
+    };
+
     const originalLog = console.log;
     console.log = function(...args) {
       originalLog.apply(console, args);
       const message = args.join(' ');
       if (message.includes('Credit Direct') || message.includes('CredPal') || message.includes('Klump')) {
-        window.ReactNativeWebView?.postMessage(JSON.stringify({
+        postDebugMessage({
           type: 'bnpl_log',
           message: message
-        }));
+        });
       }
     };
 
-    const allowedMessageTypes = new Set(['checkoutStatus', 'paymentResult', 'bnpl_log', 'navigation']);
+    window.addEventListener('error', function(event) {
+      postDebugMessage({
+        type: 'bnpl_error_log',
+        message: event.message || 'Unhandled WebView error',
+        source: event.filename || window.location.href,
+        line: String(event.lineno || ''),
+        column: String(event.colno || '')
+      });
+    });
+
+    window.addEventListener('unhandledrejection', function(event) {
+      const reason = event.reason;
+      postDebugMessage({
+        type: 'bnpl_error_log',
+        message: reason instanceof Error ? reason.message : String(reason || 'Unhandled WebView rejection'),
+        source: window.location.href
+      });
+    });
+
+    const allowedMessageTypes = new Set(['checkoutStatus', 'paymentResult', 'bnpl_log', 'bnpl_error_log', 'navigation']);
     window.addEventListener('message', function(event) {
       if (event.origin !== window.location.origin) return;
       const payload = event.data;
       if (!payload || typeof payload !== 'object' || !allowedMessageTypes.has(payload.type)) return;
       const sanitized = { type: payload.type };
-      ['status', 'reference', 'orderId', 'message', 'gateway', 'url'].forEach(function(key) {
+      ['status', 'reference', 'orderId', 'message', 'gateway', 'url', 'source', 'line', 'column'].forEach(function(key) {
         if (typeof payload[key] === 'string') sanitized[key] = payload[key];
       });
-      window.ReactNativeWebView?.postMessage(JSON.stringify(sanitized));
+      postDebugMessage(sanitized);
     });
 
     const originalPushState = history.pushState;
