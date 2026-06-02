@@ -2,13 +2,7 @@ import Ionicons from '@react-native-vector-icons/ionicons';
 import * as Haptics from 'expo-haptics';
 import { usePathname } from 'expo-router';
 import { useEffect, useRef } from 'react';
-import {
-  Platform,
-  Pressable,
-  Animated as RNAnimated,
-  Text,
-  View,
-} from 'react-native';
+import { Platform, Pressable, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useShallow } from 'zustand/react/shallow';
@@ -33,8 +27,8 @@ export function ChatWidget({
   const colors = Colors[colorScheme ?? 'light'];
   const pathname = usePathname();
   const previousPathnameRef = useRef<string | null>(null);
-  const { Gesture, GestureDetector } = getOptionalGestureHandlerRuntime();
   const insets = useSafeAreaInsets();
+  const { GestureDetector } = getOptionalGestureHandlerRuntime();
   const effectiveBottomOffset = getChatWidgetBottomOffset(
     bottomOffset,
     insets.bottom
@@ -83,15 +77,14 @@ export function ChatWidget({
     isDragging,
     isOverDismissZone,
     isOnRight,
-  } = useDraggableFab(effectiveBottomOffset, dismissChat, handleOpen, {
-    Gesture,
-  });
+  } = useDraggableFab(effectiveBottomOffset, dismissChat, handleOpen);
 
   const { proactiveMsg, nudgeFadeAnim, dismissNudge } =
     useProactiveNudge(isChatOpen);
 
   const chat = useChat(santaMode);
 
+  // Check if chat should be hidden on current screen or if dismissed by user
   const shouldHide =
     isChatDismissed ||
     HIDDEN_ROUTES.some((route) => pathname?.startsWith(route));
@@ -107,7 +100,13 @@ export function ChatWidget({
 
   const animatedIconStyle = useAnimatedStyle(() => {
     return {
-      transform: [{ scale: scale.get() }],
+      transform: [{ scale: scale.value }],
+    };
+  });
+
+  const animatedNudgeStyle = useAnimatedStyle(() => {
+    return {
+      opacity: nudgeFadeAnim.value,
     };
   });
 
@@ -157,11 +156,11 @@ export function ChatWidget({
         ]}
       >
         {proactiveMsg && !isChatOpen && !isDragging && (
-          <RNAnimated.View
+          <Animated.View
             style={[
               styles.nudgeContainer,
               isOnRight ? styles.nudgeRight : styles.nudgeLeft,
-              { opacity: nudgeFadeAnim },
+              animatedNudgeStyle,
             ]}
           >
             <View
@@ -177,10 +176,10 @@ export function ChatWidget({
                 {proactiveMsg}
               </Text>
               <Pressable
+                accessibilityLabel="Dismiss chat suggestion"
+                accessibilityRole="button"
                 style={styles.nudgeClose}
                 onPress={dismissNudge}
-                accessibilityRole="button"
-                accessibilityLabel="Dismiss chat suggestion"
               >
                 <Ionicons name="close" size={10} color={colors.textSecondary} />
               </Pressable>
@@ -204,30 +203,28 @@ export function ChatWidget({
                 ]}
               />
             </View>
-          </RNAnimated.View>
+          </Animated.View>
         )}
 
-        {Gesture && composedGesture ? (
+        {composedGesture ? (
           <GestureDetector gesture={composedGesture}>
-            <Animated.View style={animatedIconStyle}>
-              <Animated.View
-                style={fabStyle}
-                accessibilityRole="button"
-                accessibilityLabel="Open chat assistant. Drag to move."
-                accessibilityHint="Double tap to open chat, or drag to reposition"
-                accessibilityActions={[
-                  { name: 'activate', label: 'Open chat assistant' },
-                ]}
-                onAccessibilityTap={handleOpen}
-                onAccessibilityAction={(event) => {
-                  if (event.nativeEvent.actionName === 'activate') {
-                    handleOpen();
-                  }
-                }}
-                accessible={true}
-              >
-                {fabContent}
-              </Animated.View>
+            <Animated.View
+              style={animatedIconStyle}
+              accessibilityRole="button"
+              accessibilityLabel="Open chat assistant. Drag to move."
+              accessibilityHint="Double tap to open chat, or drag to reposition"
+              accessibilityActions={[
+                { name: 'activate', label: 'Open chat assistant' },
+              ]}
+              onAccessibilityTap={handleOpen}
+              onAccessibilityAction={(event) => {
+                if (event.nativeEvent.actionName === 'activate') {
+                  handleOpen();
+                }
+              }}
+              accessible={true}
+            >
+              <Animated.View style={fabStyle}>{fabContent}</Animated.View>
             </Animated.View>
           </GestureDetector>
         ) : (
@@ -251,6 +248,7 @@ export function ChatWidget({
         )}
       </Animated.View>
 
+      {/* Dynamic Dismiss Zone at bottom center when dragging */}
       {isDragging && (
         <View style={styles.dismissZone}>
           <View
@@ -280,6 +278,7 @@ export function ChatWidget({
         </View>
       )}
 
+      {/* Chat Modal */}
       <ChatModal
         visible={isChatOpen}
         santaMode={santaMode}

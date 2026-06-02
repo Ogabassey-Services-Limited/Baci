@@ -11,18 +11,20 @@ function BnplCheckoutFallback() {
   return (
     <div
       aria-label="Loading BNPL checkout"
-      className="min-h-screen bg-white flex flex-col items-center justify-center p-4"
+      className="flex min-h-screen flex-col items-center justify-center bg-store-background p-4 text-store-background-text"
       role="status"
     >
       <div className="text-center">
         <div aria-hidden="true" className="relative size-20 mx-auto mb-6">
-          <div className="absolute inset-0 border-4 border-gray-100 rounded-full" />
-          <div className="absolute inset-0 border-4 border-store-primary rounded-full border-t-transparent animate-spin" />
+          <div className="absolute inset-0 rounded-full border-4 border-store-background-text/10" />
+          <div className="absolute inset-0 animate-spin rounded-full border-4 border-store-primary border-t-transparent" />
         </div>
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">
+        <h1 className="mb-2 text-2xl font-bold text-store-background-text">
           Secure Checkout
         </h1>
-        <p className="text-gray-500">Launching payment gateway...</p>
+        <p className="text-store-background-text/70">
+          Launching payment gateway...
+        </p>
       </div>
     </div>
   );

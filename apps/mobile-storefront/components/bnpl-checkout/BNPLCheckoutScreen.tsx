@@ -1,21 +1,34 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
-import { Stack } from 'expo-router';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BNPLCheckoutStatusView } from '@/components/bnpl-checkout/BNPLCheckoutStatusView';
+import { useColorScheme } from '@/components/useColorScheme';
+import Colors from '@/constants/Colors';
+import { resolveApiBaseUrl } from '@/lib/api-url';
+import { type BNPLRouteParams, normalizeBNPLRouteParams } from '@/lib/bnpl-url';
 import { bnplCheckoutScreenStyles as styles } from './BNPLCheckoutScreen.styles';
 import { BNPLCheckoutWebView } from './BNPLCheckoutWebView';
-import { useBNPLCheckoutController } from './useBNPLCheckoutController';
+import { useBNPLCheckoutController } from './use-bnpl-checkout-controller';
+
+const API_BASE_URL = resolveApiBaseUrl(process.env.EXPO_PUBLIC_API_URL);
 
 export function BNPLCheckoutScreen() {
-  const checkout = useBNPLCheckoutController();
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
+  const rawParams = useLocalSearchParams<BNPLRouteParams>();
+  const params = normalizeBNPLRouteParams(rawParams);
+  const checkout = useBNPLCheckoutController({
+    apiBaseUrl: API_BASE_URL,
+    params,
+  });
 
   if (!checkout.validatedParams.isValid) {
     return (
       <BNPLCheckoutStatusView
-        colors={checkout.colors}
+        colors={colors}
         message={checkout.validatedParams.error}
-        onBack={checkout.handleBack}
+        onBack={() => router.back()}
         variant="invalid"
       />
     );
@@ -24,7 +37,7 @@ export function BNPLCheckoutScreen() {
   if (checkout.status === 'success') {
     return (
       <BNPLCheckoutStatusView
-        colors={checkout.colors}
+        colors={colors}
         gatewayName={checkout.gatewayName}
         variant="success"
       />
@@ -34,10 +47,10 @@ export function BNPLCheckoutScreen() {
   if (checkout.status === 'error') {
     return (
       <BNPLCheckoutStatusView
-        colors={checkout.colors}
+        colors={colors}
         gatewayName={checkout.gatewayName}
         message={checkout.errorMessage}
-        onBack={checkout.handleBack}
+        onBack={() => router.back()}
         onRetry={checkout.handleRetry}
         variant="error"
       />
@@ -46,10 +59,7 @@ export function BNPLCheckoutScreen() {
 
   return (
     <SafeAreaView
-      style={[
-        styles.container,
-        { backgroundColor: checkout.colors.background },
-      ]}
+      style={[styles.container, { backgroundColor: colors.background }]}
       edges={['top']}
     >
       <Stack.Screen
@@ -63,7 +73,7 @@ export function BNPLCheckoutScreen() {
               onPress={checkout.handleClose}
               style={styles.closeButton}
             >
-              <Ionicons name="close" size={24} color={checkout.colors.text} />
+              <Ionicons name="close" size={24} color={colors.text} />
             </Pressable>
           ),
         }}
@@ -72,7 +82,7 @@ export function BNPLCheckoutScreen() {
       <BNPLCheckoutWebView
         amount={checkout.amount}
         bnplUrl={checkout.bnplUrl}
-        colors={checkout.colors}
+        colors={colors}
         currentUrl={checkout.currentUrl}
         gatewayName={checkout.gatewayName}
         onError={checkout.handleWebViewError}

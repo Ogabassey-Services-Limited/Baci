@@ -1,20 +1,18 @@
 import { Tabs, router } from 'expo-router';
 import type React from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ErrorFallback } from '@/components/ErrorBoundary';
-import { getTabBarShadowStyle } from '@/components/navigation/TabBar.shadows';
-import { TAB_BAR_BASE_HEIGHT } from '@/constants/layout';
 import { useCartStore } from '@/stores/cart-store';
 import { useSavedStore } from '@/stores/saved-store';
 import { useAuthStore } from '@/stores/auth-store';
 import { useShallow } from 'zustand/react/shallow';
 import { useTheme } from '@/hooks/useTheme';
-import { GadgetPattern } from '@/components/storefront/GadgetPattern';
-import { CONFIG } from '@/lib/config';
-import { getTemplateConfig } from '@/lib/templates';
-import { BRAND } from '@/constants/Colors';
-import { TabBarLabel, TabBarIcon } from '@/components/navigation/TabBarComponents';
+import {
+  TabBarLabel,
+  TabBarIcon,
+} from '@/components/navigation/TabBarComponents';
+import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+
+import { CustomTabBar } from '@/components/navigation/CustomTabBar';
 
 export function ErrorBoundary({
   error,
@@ -26,13 +24,8 @@ export function ErrorBoundary({
   return <ErrorFallback error={error} retry={retry} />;
 }
 
-
 export default function TabLayout() {
-  const { colors, isDark } = useTheme();
-  const insets = useSafeAreaInsets();
-  const safeBottomInset = insets.bottom > 0 ? insets.bottom : 8;
-  // Extra spacing to account for visual spacing/shadows and touch target comfort
-  const EXTRA_TAB_BAR_HEIGHT = 6;
+  const { colors } = useTheme();
 
   const cartCount = useCartStore((state) => state.itemCount());
   const savedCount = useSavedStore((state) => state.items.length);
@@ -43,23 +36,15 @@ export default function TabLayout() {
     }))
   );
 
-  const template = getTemplateConfig(CONFIG.BUSINESS_TYPE, CONFIG.TEMPLATE_ID);
-  const isElite = template.headerStyle === 'elite';
-
   const activeTint = colors.text;
   const inactiveTint = colors.mutedForeground;
-
-  const eliteBg = isDark ? '#000000' : '#ffffff';
-  const elitePatternColor = isDark ? '#ffffff' : BRAND.primary;
-  const elitePatternOpacity = isDark ? 0.06 : 0.12;
-  const eliteBorderColor = isDark ? '#1f2937' : colors.border;
 
   /**
    * 2026 Best Practice: Layout-level auth gating for tabs.
    * Intercept tab presses BEFORE the tab screen mounts.
    * Uses router.push (not replace) so login is stacked ON TOP → back works.
    */
-  const createAuthListener = (tabPath: string) => ({
+   const createAuthListener = (tabPath: string) => ({
     tabPress: (e: { preventDefault: () => void }) => {
       if (isInitialized && !user) {
         e.preventDefault();
@@ -72,42 +57,11 @@ export default function TabLayout() {
   return (
     <Tabs
       initialRouteName="index"
+      tabBar={(props) => <CustomTabBar {...(props as unknown as BottomTabBarProps)} />}
       screenOptions={{
         tabBarActiveTintColor: activeTint,
         tabBarInactiveTintColor: inactiveTint,
         headerShown: false,
-        tabBarStyle: {
-          backgroundColor: isElite ? 'transparent' : colors.card,
-          borderTopWidth: 1,
-          borderTopColor: isElite ? eliteBorderColor : colors.border,
-          height: TAB_BAR_BASE_HEIGHT + safeBottomInset + EXTRA_TAB_BAR_HEIGHT,
-          paddingBottom: safeBottomInset,
-          paddingTop: 6,
-          ...getTabBarShadowStyle(Platform.OS === 'web' ? 'web' : 'native'),
-        },
-        tabBarBackground: isElite
-          ? () => (
-              <View
-                style={{
-                  ...StyleSheet.absoluteFill,
-                  backgroundColor: eliteBg,
-                  overflow: 'hidden',
-                }}
-              >
-                <GadgetPattern
-                  opacity={elitePatternOpacity}
-                  height={
-                    TAB_BAR_BASE_HEIGHT + safeBottomInset + EXTRA_TAB_BAR_HEIGHT
-                  }
-                  variant="tabbar"
-                  color={elitePatternColor}
-                />
-              </View>
-            )
-          : undefined,
-        tabBarItemStyle: {
-          height: TAB_BAR_BASE_HEIGHT,
-        },
         headerStyle: {
           backgroundColor: colors.background,
         },
@@ -118,6 +72,7 @@ export default function TabLayout() {
         headerTintColor: colors.text,
         headerShadowVisible: false,
         lazy: true,
+        freezeOnBlur: true,
         tabBarHideOnKeyboard: true,
         tabBarShowLabel: true, // Needed for our custom label component
       }}
@@ -217,4 +172,3 @@ export default function TabLayout() {
     </Tabs>
   );
 }
-

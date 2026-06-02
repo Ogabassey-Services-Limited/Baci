@@ -1,4 +1,3 @@
-import type React from 'react';
 import { useWindowDimensions } from 'react-native';
 import Svg, { Circle, G, Line, Path, Rect } from 'react-native-svg';
 
@@ -9,6 +8,21 @@ interface GadgetPatternProps {
   color?: string;
 }
 
+const CHIP_PIN_LINES = [
+  { x1: '1', y1: '7', x2: '4', y2: '7' },
+  { x1: '1', y1: '10', x2: '4', y2: '10' },
+  { x1: '1', y1: '13', x2: '4', y2: '13' },
+  { x1: '16', y1: '7', x2: '19', y2: '7' },
+  { x1: '16', y1: '10', x2: '19', y2: '10' },
+  { x1: '16', y1: '13', x2: '19', y2: '13' },
+  { x1: '7', y1: '1', x2: '7', y2: '4' },
+  { x1: '10', y1: '1', x2: '10', y2: '4' },
+  { x1: '13', y1: '1', x2: '13', y2: '4' },
+  { x1: '7', y1: '16', x2: '7', y2: '19' },
+  { x1: '10', y1: '16', x2: '10', y2: '19' },
+  { x1: '13', y1: '16', x2: '13', y2: '19' },
+] as const;
+
 export function GadgetPattern({
   opacity = 0.05,
   height = 260,
@@ -17,16 +31,12 @@ export function GadgetPattern({
 }: GadgetPatternProps) {
   const { width: screenWidth } = useWindowDimensions();
 
-  // Explicit stroke properties passed directly to each leaf primitive to bypass react-native-svg inheritance bugs
   const strokeProps = {
     stroke: color,
     strokeWidth: 1.5,
   };
 
   if (variant === 'tabbar') {
-    // Custom row that places elements EXACTLY in the gaps between the 5 tabs:
-    // Tab 1: [0 - 20%], Tab 2: [20% - 40%], Tab 3: [40% - 60%], Tab 4: [60% - 80%], Tab 5: [80% - 100%]
-    // Gaps are at ~20%, ~40%, ~60%, ~80%
     const yCenter = height / 2;
 
     const tabbarStrokeProps = {
@@ -41,42 +51,77 @@ export function GadgetPattern({
         height={height}
       >
         <G fill="none" opacity={opacity}>
-          {/* Subtle circle at 5% */}
           <Circle cx={screenWidth * 0.05} cy={yCenter} r={1.0} fill={color} />
 
-          {/* Gap 1 (20%): Rotated Phone Outline */}
-          <G transform={`translate(${screenWidth * 0.2 - 4}, ${yCenter - 6.5}) translate(4, 6.5) rotate(-15) translate(-4, -6.5)`}>
-            <Rect x="0" y="0" width="8" height="13" rx="1.2" {...tabbarStrokeProps} />
+          <G
+            transform={`translate(${screenWidth * 0.2 - 4}, ${yCenter - 6.5}) translate(4, 6.5) rotate(-15) translate(-4, -6.5)`}
+          >
+            <Rect
+              x="0"
+              y="0"
+              width="8"
+              height="13"
+              rx="1.2"
+              {...tabbarStrokeProps}
+            />
             <Circle cx="4" cy="10.5" r="0.6" {...tabbarStrokeProps} />
           </G>
 
-          {/* Gap 2 (40%): Rotated Screen Outline */}
-          <G transform={`translate(${screenWidth * 0.4 - 6}, ${yCenter - 4}) translate(6, 4) rotate(10) translate(-6, -4)`}>
-            <Rect x="0" y="0" width="12" height="8" rx="1.2" {...tabbarStrokeProps} />
-            <Line x1="2" y1="4" x2="10" y2="4" {...tabbarStrokeProps} opacity={0.5} />
+          <G
+            transform={`translate(${screenWidth * 0.4 - 6}, ${yCenter - 4}) translate(6, 4) rotate(10) translate(-6, -4)`}
+          >
+            <Rect
+              x="0"
+              y="0"
+              width="12"
+              height="8"
+              rx="1.2"
+              {...tabbarStrokeProps}
+            />
+            <Line
+              x1="2"
+              y1="4"
+              x2="10"
+              y2="4"
+              {...tabbarStrokeProps}
+              opacity={0.5}
+            />
           </G>
 
-          {/* Gap 3 (60%): Rotated Chip Square */}
-          <G transform={`translate(${screenWidth * 0.6 - 3}, ${yCenter - 3}) translate(3, 3) rotate(45) translate(-3, -3)`}>
-            <Rect x="0" y="0" width="6" height="6" rx="0.8" {...tabbarStrokeProps} />
+          <G
+            transform={`translate(${screenWidth * 0.6 - 3}, ${yCenter - 3}) translate(3, 3) rotate(45) translate(-3, -3)`}
+          >
+            <Rect
+              x="0"
+              y="0"
+              width="6"
+              height="6"
+              rx="0.8"
+              {...tabbarStrokeProps}
+            />
           </G>
 
-          {/* Gap 4 (80%): Rotated Battery/Camera Outline */}
-          <G transform={`translate(${screenWidth * 0.8 - 3}, ${yCenter - 5}) translate(3, 5) rotate(15) translate(-3, -5)`}>
-            <Rect x="0" y="0" width="6" height="10" rx="1" {...tabbarStrokeProps} />
+          <G
+            transform={`translate(${screenWidth * 0.8 - 3}, ${yCenter - 5}) translate(3, 5) rotate(15) translate(-3, -5)`}
+          >
+            <Rect
+              x="0"
+              y="0"
+              width="6"
+              height="10"
+              rx="1"
+              {...tabbarStrokeProps}
+            />
           </G>
 
-          {/* Subtle circle at 95% */}
           <Circle cx={screenWidth * 0.95} cy={yCenter} r={1.0} fill={color} />
         </G>
       </Svg>
     );
   }
 
-  // Define the base tile size matching the original pattern
   const tileSize = 150;
 
-  // Calculate columns and rows required to fully cover the Elite backdrop area
   const cols = Math.ceil(screenWidth / tileSize);
   const rows = Math.ceil(height / tileSize);
 
@@ -107,7 +152,15 @@ export function GadgetPattern({
                   {...strokeProps}
                 />
                 <Circle cx="6" cy="16.5" r="1" {...strokeProps} />
-                <Line x1="4.5" y1="2.5" x2="7.5" y2="2.5" {...strokeProps} strokeWidth={1} opacity={0.6} />
+                <Line
+                  x1="4.5"
+                  y1="2.5"
+                  x2="7.5"
+                  y2="2.5"
+                  {...strokeProps}
+                  strokeWidth={1}
+                  opacity={0.6}
+                />
               </G>
               <Path
                 d="M40 10 l5 5 l-5 5"
@@ -126,10 +179,7 @@ export function GadgetPattern({
                   rx="1.5"
                   {...strokeProps}
                 />
-                <Path
-                  d="M0 11 h20 l-2 3 h-16 z"
-                  {...strokeProps}
-                />
+                <Path d="M0 11 h20 l-2 3 h-16 z" {...strokeProps} />
               </G>
               <Circle cx="100" cy="30" r="1.5" fill={color} opacity={0.6} />
 
@@ -171,19 +221,14 @@ export function GadgetPattern({
                   rx="1.5"
                   {...strokeProps}
                 />
-                {/* Pins */}
-                <Line x1="1" y1="7" x2="4" y2="7" {...strokeProps} strokeWidth={1} />
-                <Line x1="1" y1="10" x2="4" y2="10" {...strokeProps} strokeWidth={1} />
-                <Line x1="1" y1="13" x2="4" y2="13" {...strokeProps} strokeWidth={1} />
-                <Line x1="16" y1="7" x2="19" y2="7" {...strokeProps} strokeWidth={1} />
-                <Line x1="16" y1="10" x2="19" y2="10" {...strokeProps} strokeWidth={1} />
-                <Line x1="16" y1="13" x2="19" y2="13" {...strokeProps} strokeWidth={1} />
-                <Line x1="7" y1="1" x2="7" y2="4" {...strokeProps} strokeWidth={1} />
-                <Line x1="10" y1="1" x2="10" y2="4" {...strokeProps} strokeWidth={1} />
-                <Line x1="13" y1="1" x2="13" y2="4" {...strokeProps} strokeWidth={1} />
-                <Line x1="7" y1="16" x2="7" y2="19" {...strokeProps} strokeWidth={1} />
-                <Line x1="10" y1="16" x2="10" y2="19" {...strokeProps} strokeWidth={1} />
-                <Line x1="13" y1="16" x2="13" y2="19" {...strokeProps} strokeWidth={1} />
+                {CHIP_PIN_LINES.map((pin) => (
+                  <Line
+                    key={`chip-pin-${pin.x1}-${pin.y1}-${pin.x2}-${pin.y2}`}
+                    {...pin}
+                    {...strokeProps}
+                    strokeWidth={1}
+                  />
+                ))}
               </G>
 
               {/* Cluster 5 - Bottom Left: Headphones */}
@@ -226,11 +271,7 @@ export function GadgetPattern({
                   {...strokeProps}
                 />
                 {/* D-Pad */}
-                <Path
-                  d="M3 7 h4 M5 5 v4"
-                  {...strokeProps}
-                  strokeWidth={0.8}
-                />
+                <Path d="M3 7 h4 M5 5 v4" {...strokeProps} strokeWidth={0.8} />
                 {/* Buttons */}
                 <Circle cx="12" cy="8" r="0.8" fill={color} />
                 <Circle cx="15" cy="6" r="0.8" fill={color} />

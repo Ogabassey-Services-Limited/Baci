@@ -106,6 +106,14 @@ describe('bnpl-url', () => {
     ).toBe(false);
     expect(
       isAllowedBnplPopupUrl(
+        'https://merchant.example.com/order-success',
+        'https://usebaci.com',
+        'merchant',
+        'merchant.example.com'
+      )
+    ).toBe(true);
+    expect(
+      isAllowedBnplPopupUrl(
         'https://attackmerchant.example.com/order-success',
         'https://usebaci.com',
         'merchant.example.com'
@@ -129,42 +137,55 @@ describe('bnpl-url', () => {
       isAllowedBnplPopupUrl(
         'https://ogabassey.com/order-success',
         'https://usebaci.com',
-        'ogabassey'
+        'ogabassey',
+        'ogabassey.com'
       )
     ).toBe(true);
     expect(
       isAllowedBnplPopupUrl(
         'https://www.ogabassey.com/order-success',
         'https://usebaci.com',
-        'ogabassey'
+        'ogabassey',
+        'ogabassey.com'
       )
     ).toBe(true);
     expect(
       isAllowedBnplPopupUrl(
         'http://ogabassey.com/order-success',
         'https://usebaci.com',
+        'ogabassey',
+        'ogabassey.com'
+      )
+    ).toBe(false);
+    expect(
+      isAllowedBnplPopupUrl(
+        'https://ogabassey.com/order-success',
+        'https://usebaci.com',
+        '',
+        'ogabassey.com'
+      )
+    ).toBe(true);
+    expect(
+      isAllowedBnplPopupUrl(
+        'https://ogabassey.com/order-success',
+        'https://usebaci.com',
+        'ogabassey$',
+        'ogabassey.com'
+      )
+    ).toBe(true);
+    expect(
+      isAllowedBnplPopupUrl(
+        'https://ogabassey.com/order-success',
+        'https://usebaci.com',
         'ogabassey'
-      )
-    ).toBe(false);
-    expect(
-      isAllowedBnplPopupUrl(
-        'https://ogabassey.com/order-success',
-        'https://usebaci.com',
-        ''
-      )
-    ).toBe(false);
-    expect(
-      isAllowedBnplPopupUrl(
-        'https://ogabassey.com/order-success',
-        'https://usebaci.com',
-        'ogabassey$'
       )
     ).toBe(false);
     expect(
       isAllowedBnplPopupUrl(
         'https://evil.com/order-success',
         'https://usebaci.com',
-        'com'
+        'com',
+        'ogabassey.com'
       )
     ).toBe(false);
   });

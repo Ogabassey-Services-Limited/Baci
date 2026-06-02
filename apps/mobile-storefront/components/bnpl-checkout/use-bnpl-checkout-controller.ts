@@ -1,15 +1,8 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Alert } from 'react-native';
 import type { WebView, WebViewNavigation } from 'react-native-webview';
-import { useColorScheme } from '@/components/useColorScheme';
-import Colors from '@/constants/Colors';
-import { resolveApiBaseUrl } from '@/lib/api-url';
-import {
-  type BNPLRouteParams,
-  isAllowedBnplPopupUrl,
-  normalizeBNPLRouteParams,
-} from '@/lib/bnpl-url';
+import { isAllowedBnplPopupUrl } from '@/lib/bnpl-url';
 import { useCartStore } from '@/stores/cart-store';
 import type {
   BNPLShouldStartLoadRequest,
@@ -33,14 +26,18 @@ import {
 } from './bnpl-checkout-message-handler';
 import { createBNPLLoadTimers } from './bnpl-checkout-timers';
 
-const API_BASE_URL = resolveApiBaseUrl(process.env.EXPO_PUBLIC_API_URL);
+type BNPLCheckoutParams = Parameters<typeof parseBNPLParams>[0];
 export type BNPLCheckoutStatus = 'loading' | 'ready' | 'success' | 'error';
 
-export function useBNPLCheckoutController() {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
-  const rawParams = useLocalSearchParams<BNPLRouteParams>();
-  const params = normalizeBNPLRouteParams(rawParams);
+type BNPLCheckoutControllerInput = {
+  apiBaseUrl: string;
+  params: BNPLCheckoutParams;
+};
+
+export function useBNPLCheckoutController({
+  apiBaseUrl,
+  params,
+}: BNPLCheckoutControllerInput) {
   const webViewRef = useRef<WebView>(null);
   const loadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clearCart = useCartStore((state) => state.clearCart);
@@ -64,8 +61,14 @@ export function useBNPLCheckoutController() {
   };
 
   const validatedParams = parseBNPLParams(params);
-  const { orderId, gateway, amount, trackingToken, merchantSlug } =
-    validatedParams.data || {};
+  const {
+    orderId,
+    gateway,
+    amount,
+    trackingToken,
+    merchantSlug,
+    merchantDomain,
+  } = validatedParams.data || {};
 
   const { clearPendingLoadTimeout, scheduleLoadTimeout } = createBNPLLoadTimers(
     {
@@ -87,7 +90,7 @@ export function useBNPLCheckoutController() {
   );
 
   const bnplUrl = buildBNPLCheckoutUrl({
-    apiBaseUrl: API_BASE_URL,
+    apiBaseUrl,
     params: validatedParams,
   });
 
@@ -128,8 +131,9 @@ export function useBNPLCheckoutController() {
     if (url.includes('error=') || url.includes('/checkout?error')) {
       clearPendingLoadTimeout();
       setCheckoutStatus('error');
-      const errorParam = extractErrorFromUrl(url);
-      setErrorMessage(errorParam || 'Payment failed. Please try again.');
+      setErrorMessage(
+        extractErrorFromUrl(url) || 'Payment failed. Please try again.'
+      );
     }
   };
 
@@ -197,7 +201,12 @@ export function useBNPLCheckoutController() {
     }
 
     if (
-      !isAllowedBnplPopupUrl(sanitizedTargetUrl, API_BASE_URL, merchantSlug)
+      !isAllowedBnplPopupUrl(
+        sanitizedTargetUrl,
+        apiBaseUrl,
+        merchantSlug,
+        merchantDomain
+      )
     ) {
       clearPendingLoadTimeout();
       setCheckoutStatus('error');
@@ -221,11 +230,12 @@ export function useBNPLCheckoutController() {
   ) => {
     const currentDocumentUrl = currentUrl || bnplUrl;
     const decision = resolveBNPLDocumentNavigation({
-      apiBaseUrl: API_BASE_URL,
+      apiBaseUrl,
       currentDocumentUrl,
       isTopFrame: request.isTopFrame,
       requestUrl: request.url,
       merchantSlug,
+      merchantDomain,
     });
     logBNPLCheckoutDebug('document navigation decision', {
       currentDocumentUrl,
@@ -233,6 +243,7 @@ export function useBNPLCheckoutController() {
       isTopFrame: request.isTopFrame,
       mainDocumentURL: request.mainDocumentURL,
       merchantSlug,
+      merchantDomain,
       navigationType: request.navigationType,
       requestUrl: request.url,
     });
@@ -269,11 +280,9 @@ export function useBNPLCheckoutController() {
   return {
     amount,
     bnplUrl,
-    colors,
     currentUrl,
     errorMessage,
     gatewayName: getBNPLGatewayName(gateway),
-    handleBack: () => router.back(),
     handleClose,
     handleLoadEnd,
     handleLoadStart,

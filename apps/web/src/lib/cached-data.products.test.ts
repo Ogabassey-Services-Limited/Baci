@@ -492,6 +492,7 @@ describe('cached-data product query projections', () => {
         slug: 'smartphones',
         description: 'Phones',
         image_url: null,
+        is_active: true,
         seo_heading: null,
         seo_description: null,
         seo_features: null,
@@ -526,10 +527,138 @@ describe('cached-data product query projections', () => {
       'product_categories.category_id',
       ['cat-smartphones', 'cat-iphone']
     );
+    expect(harness.mockEq).toHaveBeenCalledWith('is_active', true);
     expect(harness.mockLimit).not.toHaveBeenCalled();
     const selectArg = String(harness.mockSelect.mock.calls.at(-1)?.[0]);
     expect(selectArg).toContain('product_key_specs (');
     expect(selectArg).not.toMatch(/,\s*product_key_specs\s*,/);
     expect(result.products).toEqual(productQueryResult.data);
+  });
+
+  it('getCachedCategoryPageData uses loose fallback for active canonical categories with no relation products', async () => {
+    harness.mockSingle.mockResolvedValueOnce({
+      data: {
+        id: 'cat-empty',
+        name: 'Empty Category',
+        slug: 'empty-category',
+        description: 'No products yet',
+        image_url: null,
+        is_active: true,
+        seo_heading: null,
+        seo_description: null,
+        seo_features: null,
+        seo_faq: null,
+        parent: null,
+      },
+      error: null,
+    });
+
+    const fallbackProducts = [
+      {
+        id: 'legacy-empty-category-product',
+        name: 'Empty Category Legacy Match',
+      },
+    ];
+    harness.mockListResult.data = [{ id: 'cat-empty' }];
+    harness.mockQueryExecution
+      .mockImplementationOnce(() => Promise.resolve(harness.mockListResult))
+      .mockImplementationOnce(() =>
+        Promise.resolve({
+          data: [],
+          error: null,
+        })
+      )
+      .mockImplementationOnce(() =>
+        Promise.resolve({
+          data: fallbackProducts,
+          error: null,
+        })
+      );
+
+    const result = await getCachedCategoryPageData(
+      'merchant-123',
+      'empty-category',
+      'test-store'
+    );
+
+    expect(harness.mockOr).toHaveBeenCalledTimes(2);
+    expect(harness.mockOr).toHaveBeenCalledWith(
+      'id.eq.cat-empty,parent_id.eq.cat-empty'
+    );
+    expect(harness.mockOr).toHaveBeenCalledWith(
+      'category.ilike.%Empty Category%,brand.ilike.%Empty Category%,name.ilike.%Empty Category%'
+    );
+    expect(harness.mockQueryExecution).toHaveBeenCalledTimes(3);
+    expect(result.products).toEqual(fallbackProducts);
+  });
+
+  it('getCachedCategoryPageData marks inactive categories without loose fallback products', async () => {
+    harness.mockSingle.mockResolvedValueOnce({
+      data: {
+        id: 'cat-stale',
+        name: 'Stale Category',
+        slug: 'stale-category',
+        description: 'Old category',
+        image_url: null,
+        is_active: false,
+        seo_heading: null,
+        seo_description: null,
+        seo_features: null,
+        seo_faq: null,
+        parent: null,
+      },
+      error: null,
+    });
+
+    const result = await getCachedCategoryPageData(
+      'merchant-123',
+      'stale-category',
+      'test-store'
+    );
+
+    expect(result).toMatchObject({
+      isCollection: false,
+      category: null,
+      fallbackName: 'Stale Category',
+      fallbackDescription: 'Old category',
+      isInactiveCategory: true,
+      products: [],
+    });
+    expect(harness.mockQueryExecution).not.toHaveBeenCalled();
+    expect(harness.mockOr).not.toHaveBeenCalled();
+  });
+
+  it('getCachedCategoryPageData detects inactive categories hidden by public RLS', async () => {
+    harness.mockSingle.mockResolvedValueOnce({
+      data: null,
+      error: { code: 'PGRST116', message: 'No rows found' },
+    });
+    harness.mockRpc.mockResolvedValueOnce({
+      data: [{ is_active: false }],
+      error: null,
+    });
+
+    const result = await getCachedCategoryPageData(
+      'merchant-123',
+      'hidden-category',
+      'test-store'
+    );
+
+    expect(harness.mockRpc).toHaveBeenCalledWith(
+      'get_storefront_category_slug_state',
+      {
+        p_merchant_id: 'merchant-123',
+        p_slug: 'hidden-category',
+      }
+    );
+    expect(result).toMatchObject({
+      isCollection: false,
+      category: null,
+      fallbackName: 'Hidden Category',
+      isInactiveCategory: true,
+      products: [],
+    });
+    expect(harness.mockQueryExecution).not.toHaveBeenCalled();
+    expect(harness.mockOr).not.toHaveBeenCalled();
   });
 });

@@ -5,6 +5,7 @@ import {
 } from '@/lib/branch-scope-query';
 import { supabase } from '@/lib/supabase';
 import { ALL_BRANCH_SCOPE, type BranchScope } from '@/schemas/branch';
+import { applyOrderListVisibilityFilter } from './orders/order-list-visibility';
 import { useBranchScope } from './useBranchScope';
 import { useMerchant } from './useMerchant';
 
@@ -46,7 +47,7 @@ export async function fetchOrderCounts(
       query = query.eq('shipping_status', status);
     }
 
-    return applyOrderBranchScope(query, scope);
+    return applyOrderBranchScope(applyOrderListVisibilityFilter(query), scope);
   };
 
   const results = await Promise.all(

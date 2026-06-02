@@ -1,7 +1,9 @@
 import path from 'node:path';
+
 if (process.env.NODE_ENV !== 'test') {
   require('dotenv').config({ path: path.resolve(__dirname, '.env') });
 }
+
 import type { TikTokBusinessPlugin } from '@baci/tiktok-business';
 import type { ConfigContext, ExpoConfig } from 'expo/config';
 
@@ -229,8 +231,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     [
       'expo-splash-screen',
       {
-        image: './assets/images/splash-icon.png',
-        resizeMode: 'contain',
         backgroundColor: '#000000',
       },
     ],
@@ -294,6 +294,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   extra: {
     merchantId: '6b5cb8a4-5575-456c-b936-8cdfae30db74',
     merchantSlug: 'ogabassey',
+    merchantDomain: process.env.EXPO_PUBLIC_MERCHANT_DOMAIN,
     businessType: 'electronics',
     templateId: 'default',
     supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,

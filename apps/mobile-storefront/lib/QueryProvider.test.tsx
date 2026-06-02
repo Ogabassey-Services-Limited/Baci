@@ -9,7 +9,7 @@ import { Text } from 'react-native';
 const mockRestore = jest.fn().mockResolvedValue(undefined);
 const mockSubscribe = jest.fn().mockReturnValue(jest.fn());
 
-jest.mock('@tanstack/query-persist-client-core', () => ({
+jest.mock('@tanstack/react-query-persist-client', () => ({
   persistQueryClientRestore: (...args: unknown[]) => mockRestore(...args),
   persistQueryClientSubscribe: (...args: unknown[]) => mockSubscribe(...args),
 }));

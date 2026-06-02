@@ -103,6 +103,7 @@ function FailedOrderItem({
     failed: 'Payment Failed',
     pending: 'Abandoned Transfer',
     expired: 'Payment Expired',
+    unpaid: 'Checkout Drop-off',
   };
 
   const gatewayMessage =
@@ -155,6 +156,7 @@ function FailedOrderItem({
             {
               color:
                 item.payment_status === 'pending' ||
+                item.payment_status === 'unpaid' ||
                 item.payment_status === 'expired'
                   ? colors.warning
                   : colors.error,

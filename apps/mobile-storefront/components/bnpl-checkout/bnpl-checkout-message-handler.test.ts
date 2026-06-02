@@ -66,6 +66,46 @@ describe('createBNPLWebViewMessageHandler', () => {
       }
     );
   });
+
+  it('logs and ignores primitive JSON messages', () => {
+    process.env.NODE_ENV = 'development';
+    (globalThis as typeof globalThis & { __DEV__?: boolean }).__DEV__ = true;
+    const info = jest
+      .spyOn(console, 'info')
+      .mockImplementation(() => undefined);
+    const handler = createBNPLWebViewMessageHandler();
+
+    handler({
+      nativeEvent: {
+        data: JSON.stringify(true),
+      },
+    });
+
+    expect(info).toHaveBeenCalledWith(
+      '[BNPLCheckout] ignored primitive webview message',
+      { data: 'true' }
+    );
+  });
+
+  it('logs and ignores non-JSON messages', () => {
+    process.env.NODE_ENV = 'development';
+    (globalThis as typeof globalThis & { __DEV__?: boolean }).__DEV__ = true;
+    const info = jest
+      .spyOn(console, 'info')
+      .mockImplementation(() => undefined);
+    const handler = createBNPLWebViewMessageHandler();
+
+    handler({
+      nativeEvent: {
+        data: 'not-a-json',
+      },
+    });
+
+    expect(info).toHaveBeenCalledWith(
+      '[BNPLCheckout] ignored non-json webview message',
+      { data: 'not-a-json' }
+    );
+  });
 });
 
 describe('logBNPLCheckoutDebug', () => {

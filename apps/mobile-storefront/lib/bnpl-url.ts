@@ -160,10 +160,39 @@ export function buildKlumpAuthorizationUrl({
   return parsedUrl.toString();
 }
 
+export function normalizeBNPLMerchantDomain(domain?: string | null) {
+  const candidate = domain?.trim().toLowerCase();
+  if (!candidate) return undefined;
+
+  const withoutProtocol = candidate
+    .replace(/^https?:\/\//, '')
+    .replace(/\/$/, '');
+  if (!MERCHANT_DOMAIN_SLUG_PATTERN.test(withoutProtocol)) {
+    return undefined;
+  }
+
+  return withoutProtocol;
+}
+
+export function isTrustedBNPLMerchantDomainHost(
+  targetHostname: string,
+  merchantDomain?: string | null
+) {
+  const normalizedDomain = normalizeBNPLMerchantDomain(merchantDomain);
+  if (!normalizedDomain) return false;
+
+  const normalizedHost = targetHostname.trim().toLowerCase();
+  return (
+    normalizedHost === normalizedDomain ||
+    normalizedHost === `www.${normalizedDomain}`
+  );
+}
+
 function isBaciReturnOrigin(
   targetUrl: URL,
   baseUrl: string,
-  merchantSlug?: string
+  merchantSlug?: string,
+  merchantDomain?: string
 ) {
   try {
     const base = new URL(baseUrl);
@@ -181,19 +210,15 @@ function isBaciReturnOrigin(
       return true;
     }
 
-    // Trust custom domains and subdomains based on merchant slug
-    if (merchantSlug && targetUrl.protocol === 'https:') {
-      const cleanSlug = merchantSlug.trim().toLowerCase();
+    if (targetUrl.protocol === 'https:') {
       const targetHost = targetUrl.hostname.toLowerCase();
-      const isMerchantDomainSlug = MERCHANT_DOMAIN_SLUG_PATTERN.test(cleanSlug);
 
-      if (
-        (isMerchantDomainSlug &&
-          (targetHost === cleanSlug || targetHost === `www.${cleanSlug}`)) ||
-        (cleanSlug === 'ogabassey' &&
-          (targetHost === 'ogabassey.com' ||
-            targetHost === 'www.ogabassey.com'))
-      ) {
+      if (isTrustedBNPLMerchantDomainHost(targetHost, merchantDomain)) {
+        return true;
+      }
+
+      // Some routes identify custom-domain storefronts by domain rather than slug.
+      if (isTrustedBNPLMerchantDomainHost(targetHost, merchantSlug)) {
         return true;
       }
     }
@@ -207,7 +232,8 @@ function isBaciReturnOrigin(
 export function isAllowedBnplPopupUrl(
   targetUrl: string,
   baseUrl: string,
-  merchantSlug?: string
+  merchantSlug?: string,
+  merchantDomain?: string
 ) {
   try {
     const parsedTargetUrl = new URL(targetUrl);
@@ -218,7 +244,7 @@ export function isAllowedBnplPopupUrl(
 
     return (
       BNPL_PROVIDER_POPUP_ORIGINS.has(parsedTargetUrl.origin) ||
-      isBaciReturnOrigin(parsedTargetUrl, baseUrl, merchantSlug)
+      isBaciReturnOrigin(parsedTargetUrl, baseUrl, merchantSlug, merchantDomain)
     );
   } catch {
     return false;

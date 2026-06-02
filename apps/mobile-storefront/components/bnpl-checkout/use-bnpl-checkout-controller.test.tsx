@@ -8,7 +8,7 @@ import {
 } from '@jest/globals';
 import { act, renderHook } from '@testing-library/react-native';
 import { BNPL_UNTRUSTED_POPUP_MESSAGE } from './bnpl-checkout.helpers';
-import { useBNPLCheckoutController } from './useBNPLCheckoutController';
+import { useBNPLCheckoutController } from './use-bnpl-checkout-controller';
 
 const mockClearCart = jest.fn();
 const mockRouterBack = jest.fn();
@@ -17,6 +17,14 @@ let mockRouteParams: Record<string, string> = {
   gateway: 'credit_direct',
   orderId: 'order-123',
 };
+
+const renderControllerHook = () =>
+  renderHook(() =>
+    useBNPLCheckoutController({
+      apiBaseUrl: 'https://usebaci.com',
+      params: mockRouteParams,
+    })
+  );
 
 jest.mock('expo-router', () => ({
   router: {
@@ -54,9 +62,7 @@ describe('useBNPLCheckoutController', () => {
 
   it('keeps the pending load timeout through rerenders and clears it on unmount', () => {
     jest.useFakeTimers();
-    const { result, rerender, unmount } = renderHook(() =>
-      useBNPLCheckoutController()
-    );
+    const { result, rerender, unmount } = renderControllerHook();
 
     act(() => {
       result.current.handleLoadStart();
@@ -72,7 +78,7 @@ describe('useBNPLCheckoutController', () => {
 
   it('surfaces untrusted auxiliary windows as checkout errors', () => {
     jest.spyOn(console, 'warn').mockImplementation(() => undefined);
-    const { result } = renderHook(() => useBNPLCheckoutController());
+    const { result } = renderControllerHook();
 
     act(() => {
       result.current.handleOpenWindow({

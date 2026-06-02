@@ -93,7 +93,27 @@ describe('bnpl-checkout helpers', () => {
     });
   });
 
-  it('allows custom domain matches when merchantSlug is provided', () => {
+  it('allows custom domain matches when merchantDomain is provided', () => {
+    expect(
+      resolveBNPLDocumentNavigation({
+        apiBaseUrl: 'https://usebaci.com',
+        currentDocumentUrl:
+          'https://usebaci.com/ogabassey/checkout/bnpl?gateway=credit_direct&orderId=order-1',
+        isTopFrame: true,
+        requestUrl:
+          'https://ogabassey.com/checkout/bnpl?gateway=credit_direct&orderId=order-1',
+        merchantSlug: 'ogabassey',
+        merchantDomain: 'ogabassey.com',
+      })
+    ).toEqual({
+      nextUrl:
+        'https://ogabassey.com/checkout/bnpl?gateway=credit_direct&orderId=order-1',
+      reason: 'allowed',
+      shouldStart: true,
+    });
+  });
+
+  it('blocks custom domain matches when no merchantDomain is provided', () => {
     expect(
       resolveBNPLDocumentNavigation({
         apiBaseUrl: 'https://usebaci.com',
@@ -107,8 +127,8 @@ describe('bnpl-checkout helpers', () => {
     ).toEqual({
       nextUrl:
         'https://ogabassey.com/checkout/bnpl?gateway=credit_direct&orderId=order-1',
-      reason: 'allowed',
-      shouldStart: true,
+      reason: 'untrusted',
+      shouldStart: false,
     });
   });
 });
@@ -137,6 +157,15 @@ describe('areBNPLCheckoutUrlsEquivalent', () => {
       'https://usebaci.com/ogabassey/checkout/bnpl?gateway=credit_direct&merchant_slug=ogabassey&orderId=order-123&token=track-123';
 
     expect(areBNPLCheckoutUrlsEquivalent(urlA, urlB, 'ogabassey')).toBe(true);
+  });
+
+  it('does not treat a different merchant context as the current checkout document', () => {
+    const urlA =
+      'https://ogabassey.com/checkout/bnpl?gateway=credit_direct&merchant_slug=other-store&orderId=order-123&token=track-123';
+    const urlB =
+      'https://usebaci.com/ogabassey/checkout/bnpl?gateway=credit_direct&merchant_slug=ogabassey&orderId=order-123&token=track-123';
+
+    expect(areBNPLCheckoutUrlsEquivalent(urlA, urlB, 'ogabassey')).toBe(false);
   });
 
   it('returns false if meaningful parameters do not match', () => {

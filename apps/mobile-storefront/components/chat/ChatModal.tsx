@@ -80,6 +80,7 @@ export function ChatModal({
           },
         ]}
       >
+        {/* Header - safe area protected dynamically for iOS and Android clocks */}
         <View
           style={[
             styles.header,
@@ -149,6 +150,7 @@ export function ChatModal({
           </Pressable>
         </View>
 
+        {/* Global Drift-Free Keyboard protection enabled on all platforms */}
         <AppKeyboardContainer style={styles.messagesWrapper} enabled={true}>
           <View style={{ flex: 1, position: 'relative' }}>
             <PatternedBackground

@@ -1,4 +1,7 @@
-import { isAllowedBnplPopupUrl } from '@/lib/bnpl-url';
+import {
+  isAllowedBnplPopupUrl,
+  isTrustedBNPLMerchantDomainHost,
+} from '@/lib/bnpl-url';
 
 export const BNPL_DOCUMENT_ACCEPT_HEADER =
   'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8';
@@ -34,7 +37,8 @@ function isBlankProviderPopupUrl(url: string) {
 function isBaciDocumentNavigation(
   url: string,
   apiBaseUrl: string,
-  merchantSlug?: string
+  merchantSlug?: string,
+  merchantDomain?: string
 ) {
   try {
     const requestUrl = new URL(url);
@@ -49,18 +53,11 @@ function isBaciDocumentNavigation(
       return true;
     }
 
-    // Treat merchant custom domains as Baci document navigations
-    if (merchantSlug) {
-      const cleanSlug = merchantSlug.toLowerCase();
+    if (requestUrl.protocol === 'https:') {
       const requestHost = requestUrl.hostname.toLowerCase();
-
       if (
-        requestHost === cleanSlug ||
-        requestHost === `www.${cleanSlug}` ||
-        requestHost.endsWith(`.${cleanSlug}`) ||
-        (cleanSlug === 'ogabassey' &&
-          (requestHost === 'ogabassey.com' ||
-            requestHost === 'www.ogabassey.com'))
+        isTrustedBNPLMerchantDomainHost(requestHost, merchantDomain) ||
+        isTrustedBNPLMerchantDomainHost(requestHost, merchantSlug)
       ) {
         return true;
       }
@@ -125,6 +122,27 @@ export function areBNPLCheckoutUrlsEquivalent(
       return false;
     }
 
+    const getMerchantContextParam = (params: URLSearchParams) =>
+      (params.get('merchant_slug') || params.get('slug'))?.trim().toLowerCase();
+    const expectedMerchantSlug = merchantSlug?.trim().toLowerCase();
+    const merchantContextA = getMerchantContextParam(parsedA.searchParams);
+    const merchantContextB = getMerchantContextParam(parsedB.searchParams);
+    const merchantContextValues = [merchantContextA, merchantContextB].filter(
+      Boolean
+    );
+
+    if (expectedMerchantSlug) {
+      if (
+        merchantContextValues.some(
+          (context) => context !== expectedMerchantSlug
+        )
+      ) {
+        return false;
+      }
+    } else if (merchantContextA !== merchantContextB) {
+      return false;
+    }
+
     const getComparableSearchParamEntries = (params: URLSearchParams) =>
       Array.from(params.entries())
         .filter(
@@ -157,12 +175,14 @@ export function resolveBNPLDocumentNavigation({
   isTopFrame,
   requestUrl,
   merchantSlug,
+  merchantDomain,
 }: {
   apiBaseUrl: string;
   currentDocumentUrl: string;
   isTopFrame?: boolean;
   requestUrl: string;
   merchantSlug?: string;
+  merchantDomain?: string;
 }): BNPLDocumentNavigationDecision {
   if (!requestUrl || isBlankProviderPopupUrl(requestUrl)) {
     return {
@@ -182,7 +202,8 @@ export function resolveBNPLDocumentNavigation({
   const isAllowedCheckoutUrl = isAllowedBnplPopupUrl(
     nextUrl,
     apiBaseUrl,
-    merchantSlug
+    merchantSlug,
+    merchantDomain
   );
   if (isTopFrame === true && !isAllowedCheckoutUrl) {
     return {
@@ -192,7 +213,9 @@ export function resolveBNPLDocumentNavigation({
     };
   }
 
-  if (!isBaciDocumentNavigation(nextUrl, apiBaseUrl, merchantSlug)) {
+  if (
+    !isBaciDocumentNavigation(nextUrl, apiBaseUrl, merchantSlug, merchantDomain)
+  ) {
     return {
       reason: 'allowed' as const,
       shouldStart: true,

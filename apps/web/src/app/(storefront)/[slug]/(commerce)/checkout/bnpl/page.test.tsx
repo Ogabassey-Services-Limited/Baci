@@ -45,6 +45,9 @@ describe('BNPL checkout page', () => {
       screen.getByRole('heading', { name: /secure checkout/i })
     ).toBeInTheDocument();
     expect(screen.getByText(/launching payment gateway/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole('status', { name: /loading bnpl checkout/i })
+    ).toBeVisible();
   });
 
   it('calls notFound when the merchant is missing', async () => {
