@@ -660,14 +660,23 @@ interface StorefrontPaymentGatewayConfig {
   currency?: string | null;
 }
 
+function isPaystackStructuredDataCurrencyAvailable(
+  currency: string | null | undefined
+): boolean {
+  return currency?.trim().toUpperCase() === 'NGN';
+}
+
 export function buildStorefrontAcceptedPaymentMethods(
   merchant: CheckoutPaymentMerchant | null | undefined,
   gatewayConfig: StorefrontPaymentGatewayConfig
 ): string[] {
   const methods = new Set<string>();
+  const paystackStructuredDataAvailable =
+    gatewayConfig.paystackConfigured &&
+    isPaystackStructuredDataCurrencyAvailable(gatewayConfig.currency);
 
   if (
-    gatewayConfig.paystackConfigured &&
+    paystackStructuredDataAvailable &&
     isPaystackCheckoutAvailable(merchant)
   ) {
     methods.add('Debit and credit card');
@@ -675,7 +684,7 @@ export function buildStorefrontAcceptedPaymentMethods(
   }
 
   if (
-    gatewayConfig.paystackConfigured &&
+    paystackStructuredDataAvailable &&
     isBankTransferCheckoutAvailable(merchant)
   ) {
     methods.add('Bank transfer');

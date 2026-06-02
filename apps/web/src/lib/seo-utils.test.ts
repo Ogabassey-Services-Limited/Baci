@@ -141,6 +141,22 @@ describe('buildStorefrontAcceptedPaymentMethods', () => {
     expect(methods).toEqual(['Debit and credit card']);
   });
 
+  it('omits Paystack-backed methods when the offer currency is not NGN', () => {
+    const methods = buildStorefrontAcceptedPaymentMethods(
+      {
+        country: 'NG',
+        paystack_subaccount_code: 'ACCT_test',
+      },
+      {
+        korapayConfigured: false,
+        paystackConfigured: true,
+        currency: 'GHS',
+      }
+    );
+
+    expect(methods).toEqual([]);
+  });
+
   it('omits Korapay cards when Korapay is not configured', () => {
     const methods = buildStorefrontAcceptedPaymentMethods(
       {
