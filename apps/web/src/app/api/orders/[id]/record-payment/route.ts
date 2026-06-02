@@ -536,7 +536,8 @@ export async function POST(
       const { error: updateError } = await supabase
         .from('orders')
         .update(updates)
-        .eq('id', id);
+        .eq('id', id)
+        .eq('merchant_id', merchantId);
 
       if (updateError) {
         logger.error({

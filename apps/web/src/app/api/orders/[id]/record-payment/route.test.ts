@@ -900,9 +900,11 @@ describe('POST /api/orders/[id]/record-payment', () => {
       // Fifth call: order update
       return {
         update: vi.fn().mockReturnValue({
-          eq: vi.fn().mockResolvedValue({
-            data: mockOrder,
-            error: null,
+          eq: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({
+              data: mockOrder,
+              error: null,
+            }),
           }),
         }),
       };
