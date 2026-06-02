@@ -3,7 +3,7 @@
  * Registers Expo push notification tokens for merchant mobile app
  *
  * POST /api/push-tokens/register
- * Body: { token: string, platform: 'ios' | 'android', device_name?: string }
+ * Body: { token: string, platform: 'ios' | 'android', device_name?: string, merchant_id?: string }
  */
 
 import { cookies } from 'next/headers';
@@ -17,6 +17,7 @@ const RegisterTokenSchema = z.object({
   platform: z.enum(['ios', 'android']),
   device_name: z.string().optional(),
   app_type: z.enum(['admin', 'storefront']).default('admin'),
+  merchant_id: z.string().trim().min(1).optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -45,9 +46,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { token, platform, device_name, app_type } = parsed.data;
+    const { token, platform, device_name, app_type, merchant_id } = parsed.data;
 
-    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id, {
+      requestedMerchantId: merchant_id,
+    });
     const resolvedMerchantId = merchantContext?.merchantId;
 
     if (!resolvedMerchantId) {
