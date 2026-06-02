@@ -53,6 +53,7 @@ jest.mock('react-native-webview', () => ({
     onLoadStart,
     onMessage,
     onOpenWindow,
+    onShouldStartLoadWithRequest,
     setSupportMultipleWindows,
     source,
     thirdPartyCookiesEnabled,
@@ -64,6 +65,10 @@ jest.mock('react-native-webview', () => ({
     onLoadStart?: () => void;
     onMessage?: (event: { nativeEvent: { data: string } }) => void;
     onOpenWindow?: (event: { nativeEvent: { targetUrl: string } }) => void;
+    onShouldStartLoadWithRequest?: (event: {
+      isTopFrame?: boolean;
+      url: string;
+    }) => boolean;
     setSupportMultipleWindows?: boolean;
     source: { headers?: Record<string, string>; uri: string };
     thirdPartyCookiesEnabled?: boolean;
@@ -96,6 +101,23 @@ jest.mock('react-native-webview', () => ({
           onPress={() => openWindow('https://evil.example/phish')}
         >
           <Text>open-untrusted-popup</Text>
+        </Pressable>
+        <Pressable
+          accessibilityLabel="mock-bnpl-open-blank-popup"
+          onPress={() => openWindow('about:blank#provider-popup')}
+        >
+          <Text>open-blank-popup</Text>
+        </Pressable>
+        <Pressable
+          accessibilityLabel="mock-bnpl-start-untrusted-top-frame"
+          onPress={() =>
+            onShouldStartLoadWithRequest?.({
+              isTopFrame: true,
+              url: 'https://evil.example/phish',
+            })
+          }
+        >
+          <Text>start-untrusted-top-frame</Text>
         </Pressable>
         <Pressable
           accessibilityLabel="mock-bnpl-load-start"
@@ -368,15 +390,47 @@ describe('BNPLCheckoutScreen', () => {
     );
   });
 
-  it('blocks untrusted popup windows from replacing the checkout WebView', () => {
+  it('ignores untrusted auxiliary popup windows without failing checkout', () => {
+    const consoleWarnSpy = jest
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
     render(<BNPLCheckoutScreen />);
+    const initialWebViewUrl = screen.getByText(/^webview:/).props.children;
 
     fireEvent.press(screen.getByLabelText('mock-bnpl-open-untrusted-popup'));
+
+    expect(
+      screen.queryByText('Payment provider opened an untrusted checkout window.')
+    ).toBeNull();
+    expect(screen.getByText(/^webview:/).props.children).toBe(initialWebViewUrl);
+    consoleWarnSpy.mockRestore();
+  });
+
+  it('blocks untrusted top-frame navigations from replacing checkout', () => {
+    render(<BNPLCheckoutScreen />);
+
+    fireEvent.press(
+      screen.getByLabelText('mock-bnpl-start-untrusted-top-frame')
+    );
 
     expect(
       screen.getByText('Payment provider opened an untrusted checkout window.')
     ).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Try Again' })).toBeTruthy();
+  });
+
+  it('ignores blank provider popup targets without showing the untrusted checkout error', () => {
+    render(<BNPLCheckoutScreen />);
+
+    const initialWebViewUrl = screen.getByText(/^webview:/).props.children;
+    fireEvent.press(screen.getByLabelText('mock-bnpl-open-blank-popup'));
+
+    expect(screen.getByText(/^webview:/).props.children).toBe(
+      initialWebViewUrl
+    );
+    expect(
+      screen.queryByText('Payment provider opened an untrusted checkout window.')
+    ).toBeNull();
   });
 
   it('shows a retryable error when the BNPL checkout page stalls while loading', () => {

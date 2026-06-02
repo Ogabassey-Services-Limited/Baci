@@ -1,5 +1,5 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
-import { type RefObject } from 'react';
+import { type ComponentProps, type RefObject } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
 import type Colors from '@/constants/Colors';
 import { BRAND } from '@/constants/Colors';
@@ -11,6 +11,10 @@ import {
 } from './bnpl-checkout.helpers';
 
 type ColorsScheme = (typeof Colors)['light'];
+type WebViewProps = ComponentProps<typeof WebView>;
+export type BNPLShouldStartLoadRequest = Parameters<
+  NonNullable<WebViewProps['onShouldStartLoadWithRequest']>
+>[0];
 
 export type WebViewOpenWindowEventLike = {
   nativeEvent: {
@@ -30,6 +34,9 @@ interface BNPLCheckoutWebViewProps {
   onMessage: (event: { nativeEvent: { data: string } }) => void;
   onNavigationStateChange: (navState: WebViewNavigation) => void;
   onOpenWindow: (event: WebViewOpenWindowEventLike) => void;
+  onShouldStartLoadWithRequest: (
+    request: BNPLShouldStartLoadRequest
+  ) => boolean;
   status: string;
   webViewRef: RefObject<WebView | null>;
 }
@@ -46,6 +53,7 @@ export function BNPLCheckoutWebView({
   onMessage,
   onNavigationStateChange,
   onOpenWindow,
+  onShouldStartLoadWithRequest,
   status,
   webViewRef,
 }: BNPLCheckoutWebViewProps) {
@@ -88,6 +96,7 @@ export function BNPLCheckoutWebView({
         onLoadStart={onLoadStart}
         onLoadEnd={onLoadEnd}
         onNavigationStateChange={onNavigationStateChange}
+        onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
         onMessage={onMessage}
         onOpenWindow={onOpenWindow}
         injectedJavaScript={BNPL_INJECTED_JAVASCRIPT}

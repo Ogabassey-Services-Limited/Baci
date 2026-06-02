@@ -16,6 +16,7 @@ import {
 import { useCartStore } from '@/stores/cart-store';
 import { bnplCheckoutScreenStyles as styles } from './BNPLCheckoutScreen.styles';
 import {
+  type BNPLShouldStartLoadRequest,
   BNPLCheckoutWebView,
   type WebViewOpenWindowEventLike,
 } from './BNPLCheckoutWebView';
@@ -26,6 +27,8 @@ import {
   extractReferenceFromUrl,
   getBNPLGatewayName,
   parseBNPLParams,
+  resolveBNPLDocumentNavigation,
+  sanitizeBNPLDocumentUrl,
 } from './bnpl-checkout.helpers';
 import { createBNPLLoadTimers } from './bnpl-checkout-timers';
 
@@ -214,18 +217,60 @@ export function BNPLCheckoutScreen() {
 
   const handleOpenWindow = (event: WebViewOpenWindowEventLike) => {
     const targetUrl = event.nativeEvent.targetUrl;
+    const sanitizedTargetUrl = targetUrl
+      ? sanitizeBNPLDocumentUrl(targetUrl)
+      : '';
 
-    if (!targetUrl || !isAllowedBnplPopupUrl(targetUrl, API_BASE_URL)) {
-      clearPendingLoadTimeout();
-      setCheckoutStatus('error');
-      setErrorMessage(BNPL_UNTRUSTED_POPUP_MESSAGE);
+    if (
+      !sanitizedTargetUrl ||
+      sanitizedTargetUrl === 'about:blank' ||
+      sanitizedTargetUrl.startsWith('about:blank#')
+    ) {
+      return;
+    }
+
+    if (
+      !isAllowedBnplPopupUrl(sanitizedTargetUrl, API_BASE_URL)
+    ) {
+      if (typeof __DEV__ !== 'undefined' && __DEV__) {
+        console.warn('[BNPLCheckout] Ignored untrusted auxiliary window', {
+          targetUrl: sanitizedTargetUrl,
+        });
+      }
       return;
     }
 
     setErrorMessage(null);
     scheduleLoadTimeout();
     setCheckoutStatus('loading');
-    setCurrentUrl(targetUrl);
+    setCurrentUrl(sanitizedTargetUrl);
+  };
+
+  const handleShouldStartLoadWithRequest = (
+    request: BNPLShouldStartLoadRequest
+  ) => {
+    const decision = resolveBNPLDocumentNavigation({
+      apiBaseUrl: API_BASE_URL,
+      currentDocumentUrl: currentUrl || bnplUrl,
+      isTopFrame: request.isTopFrame,
+      requestUrl: request.url,
+    });
+    if (decision.shouldStart) {
+      return true;
+    }
+
+    if (decision.reason === 'untrusted') {
+      clearPendingLoadTimeout();
+      setCheckoutStatus('error');
+      setErrorMessage(BNPL_UNTRUSTED_POPUP_MESSAGE);
+      return false;
+    }
+
+    setErrorMessage(null);
+    scheduleLoadTimeout();
+    setCheckoutStatus('loading');
+    setCurrentUrl(decision.nextUrl);
+    return false;
   };
 
   const gatewayName = getBNPLGatewayName(gateway);
@@ -286,6 +331,7 @@ export function BNPLCheckoutScreen() {
         onMessage={handleWebViewMessage}
         onNavigationStateChange={handleNavigationChange}
         onOpenWindow={handleOpenWindow}
+        onShouldStartLoadWithRequest={handleShouldStartLoadWithRequest}
         status={status}
         webViewRef={webViewRef}
       />
