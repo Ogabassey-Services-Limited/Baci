@@ -320,6 +320,7 @@ jest.mock('@/services/push-notifications', () => ({
 const CheckoutScreen = require('@/app/checkout').default as React.ComponentType;
 
 export function setupCheckoutTest() {
+  jest.useRealTimers();
   jest.clearAllMocks();
   mockCryptoUuidCounter = 0;
   mockCryptoRandomUUID.mockImplementation(
@@ -386,6 +387,7 @@ export function teardownCheckoutTest() {
   resetMockPaymentSettings();
   global.fetch = originalFetch;
   jest.restoreAllMocks();
+  jest.useRealTimers();
 }
 
 export function renderCheckoutScreen() {
