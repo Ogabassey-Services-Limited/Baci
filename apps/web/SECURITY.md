@@ -158,7 +158,7 @@ await apiPost('/api/orders', orderData);
 ```typescript
 export const customerSchema = z.object({
   firstName: z.string().min(1).max(100).transform((val) => sanitizeText(val)),
-  email: z.string().email().transform((val) => sanitizeEmail(val)),
+  email: z.email().transform((val) => sanitizeEmail(val)),
   // ...
 });
 ```

@@ -16,7 +16,7 @@ const RegisterTokenSchema = z.object({
   token: z.string().min(1, 'Push token is required'),
   platform: z.enum(['ios', 'android']),
   device_name: z.string().optional(),
-  merchant_id: z.string().uuid().optional(),
+  merchant_id: z.uuid().optional(),
   app_type: z.enum(['admin', 'storefront']).default('admin'),
 });
 

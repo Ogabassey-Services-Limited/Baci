@@ -97,11 +97,11 @@ const OrderItemSchema = z.object({
 });
 
 const PaymentInitRequestSchema = z.object({
-  merchant_id: z.string().uuid(),
-  order_id: z.string().uuid(),
+  merchant_id: z.uuid(),
+  order_id: z.uuid(),
   amount: z.number().positive(),
   currency: z.string().default('NGN'),
-  customer_email: z.string().email(),
+  customer_email: z.email(),
   customer_name: z.string().min(1),
   customer_phone: z.string().min(1, 'Phone number is required'),
   gateway: z.enum(PAYMENT_GATEWAYS).optional(),

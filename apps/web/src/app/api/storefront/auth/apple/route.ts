@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 
 const appleAuthSchema = z.object({
   merchantSlug: z.string().min(1, 'Merchant slug is required'),
-  redirectUrl: z.string().url().optional(),
+  redirectUrl: z.url().optional(),
 });
 
 /**

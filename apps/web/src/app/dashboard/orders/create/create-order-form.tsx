@@ -73,7 +73,7 @@ const orderItemSchema = z.object({
 
 const createOrderSchema = z.object({
   customerName: z.string().min(2, { message: 'Customer name is required.' }),
-  customerEmail: z.string().email({ message: 'A valid email is required.' }),
+  customerEmail: z.email({ error: 'A valid email is required.' }),
   orderDate: z.date(),
   salesChannel: z
     .string()

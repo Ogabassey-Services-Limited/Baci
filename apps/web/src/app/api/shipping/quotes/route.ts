@@ -31,7 +31,7 @@ const QuoteRequestSchema = z.object({
   // Receiver info (required)
   receiver: z.object({
     name: z.string().min(1),
-    email: z.string().email().optional(),
+    email: z.email().optional(),
     phone: z.string().optional(), // Optional for quote calculation, required for actual booking
     address: z.string().min(1),
     city: z.string().min(1),
@@ -45,7 +45,7 @@ const QuoteRequestSchema = z.object({
   sender: z
     .object({
       name: z.string().min(1),
-      email: z.string().email().optional(),
+      email: z.email().optional(),
       phone: z.string().min(1),
       address: z.string().min(1),
       city: z.string().min(1),

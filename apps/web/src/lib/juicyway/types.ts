@@ -69,7 +69,7 @@ export const BillingAddressSchema = z.object({
 export const CustomerSchema = z.object({
   first_name: z.string().min(1),
   last_name: z.string().min(1),
-  email: z.string().email(),
+  email: z.email(),
   phone_number: z.string().regex(/^\+\d{10,15}$/),
   billing_address: BillingAddressSchema,
   type: z.enum(['individual', 'business']).optional(),
@@ -97,13 +97,13 @@ export const PaymentSessionResponseSchema = z.object({
   description: z.string().optional(),
   reference: z.string().optional(),
   mode: z.enum(['test', 'live']).optional(),
-  checkout_url: z.string().url().optional(),
+  checkout_url: z.url().optional(),
   date: z.string().optional(),
   auth_type: z.enum(JUICYWAY_AUTH_TYPES).optional(),
   expires_at: z.string().optional(),
   links: z
     .object({
-      redirect_url: z.string().url().optional(),
+      redirect_url: z.url().optional(),
     })
     .optional(),
   message: z.string().optional(),

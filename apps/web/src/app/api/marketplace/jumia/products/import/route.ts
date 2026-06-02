@@ -11,8 +11,8 @@ import { logger } from '@/lib/logger';
 import { sanitizeText, stripHtmlTags } from '@/lib/sanitize-core';
 
 const ImportSchema = z.object({
-  integrationId: z.string().uuid(),
-  merchantId: z.string().uuid().optional(),
+  integrationId: z.uuid(),
+  merchantId: z.uuid().optional(),
 });
 
 type MappingRow = {

@@ -527,11 +527,11 @@ const strictNameSchema = z.string().min(3).prefault("");
 
 ### 2. Top-Level Tree-Shakable Functions (Deprecated Chaining)
 Zod v4 promotes format helpers (like `.email()`, `.uuid()`, `.url()`) to top-level functions to dramatically improve tree-shaking and reduce bundle sizes, especially for frontend client bundles.
-- While legacy method-chaining (e.g., `z.string().email()`) remains supported for compatibility, developers are encouraged to use the new top-level functions for newly created schemas.
+- While legacy method-chaining (e.g., `z.email()`) remains supported for compatibility, developers are encouraged to use the new top-level functions for newly created schemas.
 
 ```typescript
 // Legacy Chained Pattern (Supported but deprecated)
-const legacyEmail = z.string().email("Invalid email");
+const legacyEmail = z.email({ error: "Invalid email" });
 
 // Modern Zod v4 Pattern (Optimized for Tree-Shaking)
 const modernEmail = z.email("Invalid email");
