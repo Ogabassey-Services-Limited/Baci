@@ -3,6 +3,7 @@ import {
   buildKlumpAuthorizationUrl,
   getAuthorizationSearchParams,
   isAllowedBnplPopupUrl,
+  isTrustedBnplReturnUrl,
   normalizeBNPLRouteParams,
 } from '@/lib/bnpl-url';
 
@@ -58,6 +59,47 @@ describe('bnpl-url', () => {
     expect(url.searchParams.get('customerPhone')).toBe('+2348012345678');
   });
 
+  it('trusts only Baci and merchant return URLs for checkout completion messages', () => {
+    expect(
+      isTrustedBnplReturnUrl(
+        'https://ogabassey.usebaci.com/order-success?reference=BAC-123',
+        'https://usebaci.com',
+        'ogabassey'
+      )
+    ).toBe(true);
+    expect(
+      isTrustedBnplReturnUrl(
+        'https://ogabassey.com/order-success?reference=BAC-123',
+        'https://usebaci.com',
+        'ogabassey',
+        'ogabassey.com'
+      )
+    ).toBe(true);
+    expect(
+      isTrustedBnplReturnUrl(
+        'https://checkout.creditdirect.ng/order-success?reference=BAC-123',
+        'https://usebaci.com',
+        'ogabassey',
+        'ogabassey.com'
+      )
+    ).toBe(false);
+    expect(
+      isTrustedBnplReturnUrl(
+        'https://evil.example/order-success?reference=forged',
+        'https://usebaci.com',
+        'ogabassey',
+        'ogabassey.com'
+      )
+    ).toBe(false);
+    expect(
+      isTrustedBnplReturnUrl(
+        'https://evil.example/order-success?reference=forged',
+        'https://usebaci.com',
+        'evil.example'
+      )
+    ).toBe(false);
+  });
+
   it('allows provider and Baci return popup URLs only', () => {
     expect(
       isAllowedBnplPopupUrl(
@@ -79,6 +121,127 @@ describe('bnpl-url', () => {
     ).toBe(true);
     expect(
       isAllowedBnplPopupUrl('https://evil.example/phish', 'https://usebaci.com')
+    ).toBe(false);
+  });
+
+  it('allows only safe merchant custom-domain return popup URLs', () => {
+    expect(
+      isAllowedBnplPopupUrl(
+        'https://merchant.example.com/order-success',
+        'https://usebaci.com',
+        'merchant',
+        'merchant.example.com'
+      )
+    ).toBe(true);
+    expect(
+      isAllowedBnplPopupUrl(
+        'https://www.merchant.example.com/order-success',
+        'https://usebaci.com',
+        'merchant',
+        'merchant.example.com'
+      )
+    ).toBe(true);
+    expect(
+      isAllowedBnplPopupUrl(
+        'https://checkout.merchant.example.com/order-success',
+        'https://usebaci.com',
+        'merchant',
+        'merchant.example.com'
+      )
+    ).toBe(false);
+    expect(
+      isAllowedBnplPopupUrl(
+        'https://merchant.example.com/order-success',
+        'https://usebaci.com',
+        'merchant',
+        'merchant.example.com'
+      )
+    ).toBe(true);
+    expect(
+      isAllowedBnplPopupUrl(
+        'https://attackmerchant.example.com/order-success',
+        'https://usebaci.com',
+        'merchant',
+        'merchant.example.com'
+      )
+    ).toBe(false);
+    expect(
+      isAllowedBnplPopupUrl(
+        'https://merchant.example.com.evil.test/order-success',
+        'https://usebaci.com',
+        'merchant',
+        'merchant.example.com'
+      )
+    ).toBe(false);
+    expect(
+      isAllowedBnplPopupUrl(
+        'http://merchant.example.com/order-success',
+        'https://usebaci.com',
+        'merchant',
+        'merchant.example.com'
+      )
+    ).toBe(false);
+    expect(
+      isAllowedBnplPopupUrl(
+        'https://ogabassey.com/order-success',
+        'https://usebaci.com',
+        'ogabassey',
+        'ogabassey.com'
+      )
+    ).toBe(true);
+    expect(
+      isAllowedBnplPopupUrl(
+        'https://www.ogabassey.com/order-success',
+        'https://usebaci.com',
+        'ogabassey',
+        'ogabassey.com'
+      )
+    ).toBe(true);
+    expect(
+      isAllowedBnplPopupUrl(
+        'http://ogabassey.com/order-success',
+        'https://usebaci.com',
+        'ogabassey',
+        'ogabassey.com'
+      )
+    ).toBe(false);
+    expect(
+      isAllowedBnplPopupUrl(
+        'https://ogabassey.com/order-success',
+        'https://usebaci.com',
+        '',
+        'ogabassey.com'
+      )
+    ).toBe(true);
+    expect(
+      isAllowedBnplPopupUrl(
+        'https://ogabassey.com/order-success',
+        'https://usebaci.com',
+        'ogabassey$',
+        'ogabassey.com'
+      )
+    ).toBe(true);
+    expect(
+      isAllowedBnplPopupUrl(
+        'https://ogabassey.com/order-success',
+        'https://usebaci.com',
+        'ogabassey'
+      )
+    ).toBe(false);
+    expect(
+      isAllowedBnplPopupUrl(
+        'https://evil.example/order-success',
+        'https://usebaci.com',
+        'evil.example'
+      )
+    ).toBe(false);
+    expect(
+      isAllowedBnplPopupUrl(
+        'https://evil.com/order-success',
+        'https://usebaci.com',
+        'com',
+        'ogabassey.com'
+      )
     ).toBe(false);
   });
 });
