@@ -73,6 +73,13 @@ import {
   StorefrontForm,
 } from '@/components/storefront/storefront-form';
 
+const VIDEO_IFRAME_SANDBOX =
+  'allow-same-origin allow-scripts allow-presentation allow-popups allow-popups-to-escape-sandbox';
+const MAP_IFRAME_SANDBOX =
+  'allow-same-origin allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms';
+const getGoogleMapsQueryEmbedUrl = (address: string, zoom = 12) =>
+  `https://www.google.com/maps?q=${encodeURIComponent(address)}&t=&z=${zoom}&ie=UTF8&iwloc=&output=embed`;
+
 // ==================== TYPE DEFINITIONS ====================
 
 // Common animation fields that can be added to any component
@@ -1890,6 +1897,7 @@ export const builderConfig: Config<
                   className="w-full h-full"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                   allowFullScreen
+                  sandbox={VIDEO_IFRAME_SANDBOX}
                   title={title || 'Embedded video'}
                 />
               ) : (
@@ -1921,7 +1929,7 @@ export const builderConfig: Config<
         height: '450px',
       },
       render: ({ address, zoom, height }) => {
-        const mapUrl = `https://maps.google.com/maps?q=${encodeURIComponent(address)}&t=&z=${zoom}&ie=UTF8&iwloc=&output=embed`;
+        const mapUrl = getGoogleMapsQueryEmbedUrl(address, zoom);
 
         return (
           <section className="py-8 container px-4 md:px-6">
@@ -1935,6 +1943,7 @@ export const builderConfig: Config<
                 allowFullScreen
                 loading="lazy"
                 referrerPolicy="no-referrer-when-downgrade"
+                sandbox={MAP_IFRAME_SANDBOX}
                 title="Store location map"
               />
             </div>
@@ -2785,7 +2794,8 @@ export const builderConfig: Config<
                         loading="lazy"
                         allowFullScreen
                         referrerPolicy="no-referrer-when-downgrade"
-                        src={`https://www.google.com/maps/embed/v1/place?key=YOUR_API_KEY&q=${encodeURIComponent(mapAddress)}`}
+                        sandbox={MAP_IFRAME_SANDBOX}
+                        src={getGoogleMapsQueryEmbedUrl(mapAddress)}
                       />
                     </div>
                   )}

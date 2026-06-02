@@ -24,10 +24,10 @@ vi.mock('./client-page', () => ({
     initialOrders?: Array<{ orderNumber: string }>;
     initialOrdersError?: string | null;
   }) => (
-    <div role="status">
+    <output>
       orders:{initialOrders?.length ?? 0}
       {initialOrdersError ? ` error:${initialOrdersError}` : ''}
-    </div>
+    </output>
   ),
 }));
 

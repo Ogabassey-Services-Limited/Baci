@@ -58,6 +58,7 @@ vi.mock('react-native-webview', () => {
           </button>
           <iframe
             data-mount-id={String(mountId.current)}
+            sandbox=""
             src={source?.uri}
             style={{ color: DARK_COLORS.text }}
             title="store-preview"
@@ -83,6 +84,7 @@ describe('CustomizePreviewPane', () => {
       'src',
       'https://example.com?preview=true'
     );
+    expect(screen.getByTitle('store-preview')).toHaveAttribute('sandbox', '');
   });
 
   it('remounts the preview when the preview key changes', () => {

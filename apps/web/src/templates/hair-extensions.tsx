@@ -375,28 +375,28 @@ export function HairExtensionsHome(props: TemplatePageProps) {
                         <div>
                             <h4 className="font-semibold text-white mb-4">Shop</h4>
                             <ul className="space-y-2 text-sm">
-                                <li><a href="#" className="hover:text-[#B76E79] transition-colors">Bundles</a></li>
-                                <li><a href="#" className="hover:text-[#B76E79] transition-colors">Closures</a></li>
-                                <li><a href="#" className="hover:text-[#B76E79] transition-colors">Frontals</a></li>
-                                <li><a href="#" className="hover:text-[#B76E79] transition-colors">Wigs</a></li>
+                                <li><span className="transition-colors cursor-default">Bundles</span></li>
+                                <li><span className="transition-colors cursor-default">Closures</span></li>
+                                <li><span className="transition-colors cursor-default">Frontals</span></li>
+                                <li><span className="transition-colors cursor-default">Wigs</span></li>
                             </ul>
                         </div>
                         <div>
                             <h4 className="font-semibold text-white mb-4">Help</h4>
                             <ul className="space-y-2 text-sm">
-                                <li><a href="#" className="hover:text-[#B76E79] transition-colors">Length Guide</a></li>
-                                <li><a href="#" className="hover:text-[#B76E79] transition-colors">Color Matching</a></li>
-                                <li><a href="#" className="hover:text-[#B76E79] transition-colors">Care Instructions</a></li>
-                                <li><a href="#" className="hover:text-[#B76E79] transition-colors">FAQs</a></li>
+                                <li><span className="transition-colors cursor-default">Length Guide</span></li>
+                                <li><span className="transition-colors cursor-default">Color Matching</span></li>
+                                <li><span className="transition-colors cursor-default">Care Instructions</span></li>
+                                <li><span className="transition-colors cursor-default">FAQs</span></li>
                             </ul>
                         </div>
                         <div>
                             <h4 className="font-semibold text-white mb-4">Contact</h4>
                             <ul className="space-y-2 text-sm">
-                                <li><a href="#" className="hover:text-[#B76E79] transition-colors">Live Chat</a></li>
-                                <li><a href="#" className="hover:text-[#B76E79] transition-colors">Email Us</a></li>
-                                <li><a href="#" className="hover:text-[#B76E79] transition-colors">Instagram</a></li>
-                                <li><a href="#" className="hover:text-[#B76E79] transition-colors">TikTok</a></li>
+                                <li><span className="transition-colors cursor-default">Live Chat</span></li>
+                                <li><span className="transition-colors cursor-default">Email Us</span></li>
+                                <li><span className="transition-colors cursor-default">Instagram</span></li>
+                                <li><span className="transition-colors cursor-default">TikTok</span></li>
                             </ul>
                         </div>
                     </div>

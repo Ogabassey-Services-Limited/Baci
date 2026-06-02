@@ -32,6 +32,8 @@ interface CategorySelectorProps {
   onSelect: (code: number, name: string) => void;
 }
 
+const CATEGORY_LISTBOX_ID = 'jumia-category-selector-listbox';
+
 export function JumiaCategorySelector({
   merchantId,
   value,
@@ -151,6 +153,7 @@ export function JumiaCategorySelector({
         <Button
           variant="outline"
           role="combobox"
+          aria-controls={CATEGORY_LISTBOX_ID}
           aria-expanded={open}
           className="w-full justify-between"
         >
@@ -166,7 +169,7 @@ export function JumiaCategorySelector({
       <PopoverContent className="w-[400px] p-0" align="start">
         <Command>
           <CommandInput placeholder="Search Jumia category..." />
-          <CommandList>
+          <CommandList id={CATEGORY_LISTBOX_ID}>
             <CommandEmpty>
               {error ? (
                 <div className="p-4 text-sm text-center">

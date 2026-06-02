@@ -46,17 +46,15 @@ vi.mock('react-native', () => ({
     children?: ReactNode;
     onPress?: (event: { stopPropagation: () => void }) => void;
   }) => (
-    <div
+    <button
       aria-label={accessibilityLabel}
       onClick={(event) =>
         onPress?.({ stopPropagation: () => event.stopPropagation() })
       }
-      onKeyDown={() => undefined}
-      role="button"
-      tabIndex={0}
+      type="button"
     >
       {children}
-    </div>
+    </button>
   ),
   ScrollView: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
   StyleSheet: {

@@ -250,9 +250,13 @@ export default function OnboardingForm() {
       // Server action succeeded - redirect directly to dashboard
       // The server already verified the session and created the merchant
       // No need to re-check client-side which can have cookie timing issues
-      setTimeout(() => {
+      const redirectTimeoutId = window.setTimeout(() => {
         window.location.href = '/dashboard';
       }, 3000); // 3s delay for animation cycle and DB propagation
+
+      return () => {
+        window.clearTimeout(redirectTimeoutId);
+      };
     } else if (submissionState.message) {
       const fieldErrors = submissionState.errors?.fieldErrors;
       if (fieldErrors) {

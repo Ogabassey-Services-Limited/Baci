@@ -34,15 +34,9 @@ vi.mock('react-native', () => ({
     children?: ReactNode;
     onPress?: () => void;
   }) => (
-    <div
-      aria-label={accessibilityLabel}
-      onClick={onPress}
-      onKeyDown={() => undefined}
-      role="button"
-      tabIndex={0}
-    >
+    <button aria-label={accessibilityLabel} onClick={onPress} type="button">
       {children}
-    </div>
+    </button>
   ),
   StyleSheet: {
     create: (styles: Record<string, unknown>) => styles,

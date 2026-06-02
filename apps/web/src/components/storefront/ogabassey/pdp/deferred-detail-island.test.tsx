@@ -8,7 +8,7 @@ const mockDeferredDetailClient = vi.hoisted(() => vi.fn());
 vi.mock('./deferred-detail-island.client', () => ({
   OgabasseyPdpDeferredDetailClient: (props: { product: Product }) => {
     mockDeferredDetailClient(props);
-    return <div aria-label="Deferred product detail client" role="region" />;
+    return <section aria-label="Deferred product detail client" />;
   },
 }));
 
