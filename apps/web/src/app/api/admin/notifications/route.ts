@@ -485,7 +485,17 @@ async function getSegmentMerchantIds(
       throw new Error(`Unknown segment "${segment}" requested`);
   }
 
-  const { data } = await query;
+  const { data, error } = await query;
+
+  if (error) {
+    logger.error({
+      message: 'Error fetching segment merchants',
+      error,
+      segment,
+    });
+    throw new Error(`Failed to fetch merchants for segment "${segment}"`);
+  }
+
   return (data || []).map((m: { id: string }) => m.id);
 }
 
