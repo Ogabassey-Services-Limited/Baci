@@ -298,6 +298,12 @@ export async function POST(request: NextRequest) {
       ? new Date(data.scheduled_for)
       : null;
     const shouldSendImmediately = !scheduledFor || scheduledFor <= new Date();
+    const immediateSegmentMerchantIds =
+      shouldSendImmediately &&
+      data.target_type === 'segment' &&
+      data.target_segment
+        ? await getSegmentMerchantIds(supabase, data.target_segment)
+        : null;
 
     // Create the notification
     const { data: notification, error: createError } = await supabase
@@ -399,10 +405,7 @@ export async function POST(request: NextRequest) {
         broadcastMerchantIds = data.target_merchant_ids ?? [];
       } else if (data.target_type === 'segment' && data.target_segment) {
         // Get merchants in segment and send
-        const segmentMerchants = await getSegmentMerchantIds(
-          supabase,
-          data.target_segment
-        );
+        const segmentMerchants = immediateSegmentMerchantIds ?? [];
         if (segmentMerchants.length > 0) {
           const { data: count, error: rpcError } = await supabase.rpc(
             'send_notification_to_merchants',

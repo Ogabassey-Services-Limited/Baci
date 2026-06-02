@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   mockGetUser: vi.fn(),
   mockLoggerError: vi.fn(),
   mockLoggerWarn: vi.fn(),
+  mockNotificationInsert: vi.fn(),
   mockNotifyMerchant: vi.fn(),
   mockRemoveChannel: vi.fn(),
   mockRpc: vi.fn(),
@@ -83,7 +84,7 @@ function createRequest() {
 
 function createNotificationInsertQuery() {
   return {
-    insert: vi.fn(() => ({
+    insert: mocks.mockNotificationInsert.mockImplementation(() => ({
       select: vi.fn(() => ({
         single: vi.fn().mockResolvedValue({ data: notification, error: null }),
       })),
@@ -151,6 +152,11 @@ describe('POST /api/admin/notifications', () => {
       merchantId: 'merchant-admin',
       staffAccess: { isStaff: false },
     });
+    mocks.mockNotificationInsert.mockImplementation(() => ({
+      select: vi.fn(() => ({
+        single: vi.fn().mockResolvedValue({ data: notification, error: null }),
+      })),
+    }));
     mocks.mockRpc.mockResolvedValue({ data: 1, error: null });
     mocks.mockChannel.mockReturnValue({ send: mocks.mockChannelSend });
     mocks.mockChannelSend.mockResolvedValue('ok');
@@ -167,6 +173,7 @@ describe('POST /api/admin/notifications', () => {
 
     expect(response.status).toBe(500);
     expect(body).toEqual({ error: 'Failed to create notification' });
+    expect(mocks.mockNotificationInsert).not.toHaveBeenCalled();
     expect(mocks.mockRpc).not.toHaveBeenCalled();
     expect(mocks.mockChannel).not.toHaveBeenCalled();
     expect(mocks.mockLoggerError).toHaveBeenCalledWith(
