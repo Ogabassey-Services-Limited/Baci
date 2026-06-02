@@ -831,6 +831,52 @@ describe('fulfillPendingVtuTransaction', () => {
     });
   });
 
+  it('skips duplicate pending-token receipt emails when the legacy pending sent flag is present', async () => {
+    const supabase = createPendingTransactionSupabaseMock({
+      customerData: {
+        user_id: null,
+        email: 'buyer@example.com',
+        first_name: 'Ada',
+        last_name: 'Lovelace',
+      },
+      transactionRow: {
+        id: 'vtu-1',
+        merchant_id: 'merchant-1',
+        customer_id: 'customer-1',
+        type: 'electricity',
+        network_provider: '',
+        phone_number: '',
+        amount: 1000,
+        request_reference: 'VTU-123',
+        transaction_id: 'kuda-1',
+        status: 'successful',
+        metadata: {
+          customerPendingTokenEmailNotificationSent: true,
+        },
+        error_message: null,
+        merchant_commission: 0,
+        customer_cashback: 0,
+        biller_name: 'EKEDC PREPAID',
+        biller_item_code: 'KUD-ELE-EKED-002',
+        customer_identifier: '43901766923',
+      },
+    });
+
+    await fulfillPendingVtuTransaction({
+      supabase,
+      transactionId: 'vtu-1',
+    });
+
+    expect(mockSendEmail).not.toHaveBeenCalled();
+    expect(supabase.rpc).not.toHaveBeenCalledWith(
+      'claim_vtu_customer_email_notification_attempt',
+      expect.objectContaining({
+        p_attempt_key: 'customerReceiptEmailNotificationAttempted',
+        p_sent_key: 'customerReceiptEmailNotificationSent',
+      })
+    );
+  });
+
   it('durably clears a claimed token email attempt when email delivery fails', async () => {
     const updatePayloads: unknown[] = [];
     mockSendEmail.mockResolvedValueOnce({ success: false });

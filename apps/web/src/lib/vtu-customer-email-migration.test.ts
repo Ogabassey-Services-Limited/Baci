@@ -28,4 +28,14 @@ describe('VTU customer email notification migration', () => {
     expect(sql).toContain("metadata ->> 'voucherPin'");
     expect(sql).toContain('customerTokenEmailNotificationSent');
   });
+
+  it('migrates legacy pending-token receipt metadata to the receipt sent flag', () => {
+    const sql = readFileSync(migrationPath, 'utf8');
+
+    expect(sql).toContain(
+      "metadata ->> 'customerPendingTokenEmailNotificationSent'"
+    );
+    expect(sql).toContain("'customerReceiptEmailNotificationAttempted', true");
+    expect(sql).toContain("'customerReceiptEmailNotificationSent', true");
+  });
 });

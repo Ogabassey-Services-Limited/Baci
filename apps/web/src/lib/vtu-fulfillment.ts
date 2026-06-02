@@ -184,11 +184,14 @@ const CUSTOMER_TOKEN_EMAIL_ATTEMPTED_KEY =
   'customerTokenEmailNotificationAttempted';
 const CUSTOMER_TOKEN_EMAIL_SENT_KEY = 'customerTokenEmailNotificationSent';
 const LEGACY_CUSTOMER_EMAIL_SENT_KEY = 'customerEmailNotificationSent';
+const LEGACY_CUSTOMER_PENDING_TOKEN_EMAIL_SENT_KEY =
+  'customerPendingTokenEmailNotificationSent';
 
 interface CustomerEmailNotificationState {
   attemptedKey: string;
-  legacySentKey?: string;
+  legacySentKeys?: readonly string[];
   sentKey: string;
+  sentWriteKeys?: readonly string[];
 }
 
 function getCustomerEmailNotificationState({
@@ -207,8 +210,12 @@ function getCustomerEmailNotificationState({
 
   return {
     attemptedKey: CUSTOMER_RECEIPT_EMAIL_ATTEMPTED_KEY,
-    legacySentKey: LEGACY_CUSTOMER_EMAIL_SENT_KEY,
+    legacySentKeys: [
+      LEGACY_CUSTOMER_EMAIL_SENT_KEY,
+      LEGACY_CUSTOMER_PENDING_TOKEN_EMAIL_SENT_KEY,
+    ],
     sentKey: CUSTOMER_RECEIPT_EMAIL_SENT_KEY,
+    sentWriteKeys: [LEGACY_CUSTOMER_EMAIL_SENT_KEY],
   };
 }
 
@@ -218,7 +225,7 @@ function isCustomerEmailNotificationSent(
 ) {
   return (
     metadata[state.sentKey] === true ||
-    (state.legacySentKey ? metadata[state.legacySentKey] === true : false)
+    (state.legacySentKeys?.some((key) => metadata[key] === true) ?? false)
   );
 }
 
@@ -232,8 +239,8 @@ function setCustomerEmailNotificationResult({
   state: CustomerEmailNotificationState;
 }) {
   let changed = setMetadataValue(metadata, state.sentKey, sent);
-  if (state.legacySentKey) {
-    changed = setMetadataValue(metadata, state.legacySentKey, sent) || changed;
+  for (const writeKey of state.sentWriteKeys ?? []) {
+    changed = setMetadataValue(metadata, writeKey, sent) || changed;
   }
   if (!sent) {
     changed = setMetadataValue(metadata, state.attemptedKey, false) || changed;

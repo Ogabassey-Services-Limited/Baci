@@ -57,3 +57,11 @@ WHERE type IN ('electricity', 'cable_tv', 'betting')
   AND NULLIF(BTRIM(COALESCE(metadata ->> 'voucherPin', '')), '') IS NOT NULL
   AND COALESCE(metadata ->> 'customerTokenEmailNotificationSent', 'false') <> 'true';
 
+UPDATE public.vtu_transactions
+SET metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object(
+  'customerReceiptEmailNotificationAttempted', true,
+  'customerReceiptEmailNotificationSent', true
+)
+WHERE type IN ('electricity', 'cable_tv', 'betting')
+  AND COALESCE(metadata ->> 'customerPendingTokenEmailNotificationSent', 'false') = 'true'
+  AND COALESCE(metadata ->> 'customerReceiptEmailNotificationSent', 'false') <> 'true';
