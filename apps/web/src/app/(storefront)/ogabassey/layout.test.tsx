@@ -98,11 +98,14 @@ describe('OgabasseyLayout', () => {
 
     const props = mockStorefrontLayout.mock.calls[0]?.[0];
     expect(props?.loadingFallback).toBeDefined();
-    const { unmount } = render(props?.loadingFallback as ReactNode);
+    const fallback = render(props?.loadingFallback as ReactNode);
     expect(
-      screen.getByRole('img', { name: /ogabassey storefront hero/i })
+      fallback.getByRole('status', { name: /loading storefront chrome/i })
     ).toBeInTheDocument();
-    unmount();
+    expect(
+      fallback.getByRole('img', { name: /ogabassey storefront hero/i })
+    ).toHaveAttribute('fetchpriority', 'high');
+    fallback.unmount();
     await expect(props?.params).resolves.toEqual({
       slug: OGABASSEY_TEMPLATE_ID,
     });

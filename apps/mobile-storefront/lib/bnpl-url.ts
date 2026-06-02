@@ -9,7 +9,15 @@ const BNPL_PROVIDER_POPUP_ORIGINS = new Set([
   'https://checkout.credpal.com',
   'https://connect.mono.co',
   'https://corporate-loans.obs.sa-brazil-1.myhuaweicloud.com',
+  'https://checkout.useklump.com',
+  'https://checkout-v2.useklump.com',
+  'https://directdebit.useklump.com',
+  'https://api.useklump.com',
+  'https://js.useklump.com',
+  'https://asset.useklump.com',
 ]);
+const MERCHANT_DOMAIN_SLUG_PATTERN =
+  /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
 
 function getFirstRouteParam(value: string | string[] | undefined) {
   if (Array.isArray(value)) {
@@ -152,7 +160,39 @@ export function buildKlumpAuthorizationUrl({
   return parsedUrl.toString();
 }
 
-function isBaciReturnOrigin(targetUrl: URL, baseUrl: string) {
+export function normalizeBNPLMerchantDomain(domain?: string | null) {
+  const candidate = domain?.trim().toLowerCase();
+  if (!candidate) return undefined;
+
+  const withoutProtocol = candidate
+    .replace(/^https?:\/\//, '')
+    .replace(/\/$/, '');
+  if (!MERCHANT_DOMAIN_SLUG_PATTERN.test(withoutProtocol)) {
+    return undefined;
+  }
+
+  return withoutProtocol;
+}
+
+export function isTrustedBNPLMerchantDomainHost(
+  targetHostname: string,
+  merchantDomain?: string | null
+) {
+  const normalizedDomain = normalizeBNPLMerchantDomain(merchantDomain);
+  if (!normalizedDomain) return false;
+
+  const normalizedHost = targetHostname.trim().toLowerCase();
+  return (
+    normalizedHost === normalizedDomain ||
+    normalizedHost === `www.${normalizedDomain}`
+  );
+}
+
+function isBaciReturnOrigin(
+  targetUrl: URL,
+  baseUrl: string,
+  merchantDomain?: string
+) {
   try {
     const base = new URL(baseUrl);
 
@@ -168,6 +208,14 @@ function isBaciReturnOrigin(targetUrl: URL, baseUrl: string) {
     ) {
       return true;
     }
+
+    if (targetUrl.protocol === 'https:') {
+      const targetHost = targetUrl.hostname.toLowerCase();
+
+      if (isTrustedBNPLMerchantDomainHost(targetHost, merchantDomain)) {
+        return true;
+      }
+    }
   } catch {
     return false;
   }
@@ -175,7 +223,31 @@ function isBaciReturnOrigin(targetUrl: URL, baseUrl: string) {
   return false;
 }
 
-export function isAllowedBnplPopupUrl(targetUrl: string, baseUrl: string) {
+export function isTrustedBnplReturnUrl(
+  targetUrl: string,
+  baseUrl: string,
+  _merchantSlug?: string,
+  merchantDomain?: string
+) {
+  try {
+    const parsedTargetUrl = new URL(targetUrl);
+
+    if (!['https:', 'http:'].includes(parsedTargetUrl.protocol)) {
+      return false;
+    }
+
+    return isBaciReturnOrigin(parsedTargetUrl, baseUrl, merchantDomain);
+  } catch {
+    return false;
+  }
+}
+
+export function isAllowedBnplPopupUrl(
+  targetUrl: string,
+  baseUrl: string,
+  _merchantSlug?: string,
+  merchantDomain?: string
+) {
   try {
     const parsedTargetUrl = new URL(targetUrl);
 
@@ -185,7 +257,7 @@ export function isAllowedBnplPopupUrl(targetUrl: string, baseUrl: string) {
 
     return (
       BNPL_PROVIDER_POPUP_ORIGINS.has(parsedTargetUrl.origin) ||
-      isBaciReturnOrigin(parsedTargetUrl, baseUrl)
+      isBaciReturnOrigin(parsedTargetUrl, baseUrl, merchantDomain)
     );
   } catch {
     return false;

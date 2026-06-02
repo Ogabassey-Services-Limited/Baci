@@ -81,6 +81,8 @@ describe('klump checkout helpers', () => {
         customerPhone: '08012345678',
         orderId: 'order-123',
         reference: 'BAC-ABCD12345678',
+        merchantDomain: 'ogabassey.com',
+        merchantSlug: 'ogabassey',
         trackingToken: 'track-token-123',
       })
     ).toEqual({
@@ -93,6 +95,8 @@ describe('klump checkout helpers', () => {
       gateway: 'klump',
       orderId: 'order-123',
       reference: 'BAC-ABCD12345678',
+      merchantDomain: 'ogabassey.com',
+      merchantSlug: 'ogabassey',
       trackingToken: 'track-token-123',
     });
   });
