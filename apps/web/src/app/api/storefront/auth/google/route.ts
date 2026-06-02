@@ -1,36 +1,13 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import z from 'zod';
-import { getAppUrl } from '@/env';
 import { createClient } from '@/lib/supabase/server';
+import { resolveTrustedStorefrontRedirectUrl } from '../oauth-redirect';
 
 const googleAuthSchema = z.object({
   merchantSlug: z.string().min(1, 'Merchant slug is required'),
   redirectUrl: z.string().trim().min(1).optional(),
 });
-
-function resolveTrustedAppRedirectUrl(redirectUrl?: string) {
-  const appUrl = getAppUrl();
-  const appOrigin = new URL(appUrl).origin;
-
-  if (!redirectUrl) {
-    return new URL('/account', appOrigin).toString();
-  }
-
-  try {
-    const parsed = redirectUrl.startsWith('/')
-      ? new URL(redirectUrl, appOrigin)
-      : new URL(redirectUrl);
-
-    if (parsed.origin !== appOrigin) {
-      return null;
-    }
-
-    return parsed.toString();
-  } catch {
-    return null;
-  }
-}
 
 /**
  * Customer OAuth Authentication - Google Sign-In
@@ -52,13 +29,6 @@ export async function POST(request: Request) {
     }
 
     const { merchantSlug, redirectUrl } = validation.data;
-    const trustedRedirectUrl = resolveTrustedAppRedirectUrl(redirectUrl);
-    if (!trustedRedirectUrl) {
-      return NextResponse.json(
-        { error: 'Invalid redirectUrl', code: 'INVALID_REDIRECT_URL' },
-        { status: 400 }
-      );
-    }
 
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
@@ -71,7 +41,7 @@ export async function POST(request: Request) {
     // First, try by slug (standard lookup)
     const slugResult = await supabase
       .from('merchants')
-      .select('id, slug, business_name, is_published')
+      .select('id, slug, business_name, is_published, custom_domain')
       .eq('slug', merchantSlug)
       .single();
 
@@ -81,7 +51,7 @@ export async function POST(request: Request) {
       // Fallback: try by custom_domain (for custom domain access like ogabassey.com)
       const domainResult = await supabase
         .from('merchants')
-        .select('id, slug, business_name, is_published')
+        .select('id, slug, business_name, is_published, custom_domain')
         .eq('custom_domain', merchantSlug.toLowerCase())
         .single();
 
@@ -97,6 +67,17 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: 'Store is not available' },
         { status: 403 }
+      );
+    }
+
+    const trustedRedirectUrl = resolveTrustedStorefrontRedirectUrl(
+      redirectUrl,
+      merchant
+    );
+    if (!trustedRedirectUrl) {
+      return NextResponse.json(
+        { error: 'Invalid redirectUrl', code: 'INVALID_REDIRECT_URL' },
+        { status: 400 }
       );
     }
 

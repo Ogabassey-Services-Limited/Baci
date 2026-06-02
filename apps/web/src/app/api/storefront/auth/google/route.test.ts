@@ -8,6 +8,7 @@ const oauthRouteMocks = vi.hoisted(() => ({
       business_name: 'Baci Store',
       id: 'merchant-1',
       is_published: true,
+      custom_domain: 'ogabassey.com',
       slug: 'ogabassey',
     },
     error: null,
@@ -16,6 +17,7 @@ const oauthRouteMocks = vi.hoisted(() => ({
 
 vi.mock('@/env', () => ({
   getAppUrl: () => 'https://usebaci.com',
+  getRootDomain: () => 'usebaci.com',
 }));
 
 vi.mock('next/headers', () => ({
@@ -76,6 +78,50 @@ describe('POST /api/storefront/auth/google', () => {
       error: 'Invalid redirectUrl',
     });
     expect(oauthRouteMocks.signInWithOAuth).not.toHaveBeenCalled();
+  });
+
+  it('allows merchant subdomain redirect URLs after merchant verification', async () => {
+    const { POST } = await import('./route');
+
+    const response = await POST(
+      makeRequest({
+        merchantSlug: 'ogabassey',
+        redirectUrl: 'https://ogabassey.usebaci.com/account/callback',
+      })
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.success).toBe(true);
+    expect(oauthRouteMocks.signInWithOAuth).toHaveBeenCalledWith(
+      expect.objectContaining({
+        options: expect.objectContaining({
+          redirectTo: 'https://ogabassey.usebaci.com/account/callback',
+        }),
+      })
+    );
+  });
+
+  it('allows merchant custom-domain redirect URLs after merchant verification', async () => {
+    const { POST } = await import('./route');
+
+    const response = await POST(
+      makeRequest({
+        merchantSlug: 'ogabassey',
+        redirectUrl: 'https://ogabassey.com/account/callback',
+      })
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.success).toBe(true);
+    expect(oauthRouteMocks.signInWithOAuth).toHaveBeenCalledWith(
+      expect.objectContaining({
+        options: expect.objectContaining({
+          redirectTo: 'https://ogabassey.com/account/callback',
+        }),
+      })
+    );
   });
 
   it('normalizes relative redirect URLs to the configured app origin', async () => {
