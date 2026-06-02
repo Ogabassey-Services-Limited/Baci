@@ -61,18 +61,18 @@ describe('OgabasseyPdpProductResourceHints', () => {
     mockPreload.mockClear();
   });
 
-  it('emits React preload hints and fallback links for the primary product image with the gallery sizes', () => {
+  it('emits media-scoped head-only React preload hints for the primary product image', () => {
     const productImage =
       'https://cdn.ogabassey.com/core-assets/products/lenovo-legion.avif';
-    const mobilePreloadHref = imageLoader({
-      src: productImage,
-      width: 750,
-      quality: 30,
-    });
     const desktopPreloadHref = imageLoader({
       src: productImage,
       width: 750,
       quality: 35,
+    });
+    const mobilePreloadHref = imageLoader({
+      src: productImage,
+      width: 750,
+      quality: 30,
     });
 
     const html = renderToStaticMarkup(
@@ -87,48 +87,44 @@ describe('OgabasseyPdpProductResourceHints', () => {
         src: productImage,
       })
     );
-    expect(html).toContain('rel="preload"');
-    expect(html).toContain('as="image"');
-    expect(html).toMatch(/fetchpriority="high"/i);
-    expect(html).toContain(`href="${desktopPreloadHref}"`);
-    expect(html).toContain(`href="${mobilePreloadHref}"`);
-    expect(html).toContain(
-      `media="${OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA}"`
+    expect(html).toBe('');
+    expect(mockPreload).toHaveBeenCalledTimes(2);
+
+    const mobilePreload = mockPreload.mock.calls.find(
+      ([, options]) =>
+        (options as Record<string, unknown>).media ===
+        OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA
     );
-    expect(html).toContain(
-      `media="${OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_MEDIA}"`
+    const desktopPreload = mockPreload.mock.calls.find(
+      ([, options]) =>
+        (options as Record<string, unknown>).media ===
+        OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_MEDIA
     );
-    expect(html).toContain(
-      `imageSizes="${OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_SIZES}"`
-    );
-    expect(html).toContain(`imageSizes="${OGABASSEY_PDP_PRIMARY_IMAGE_SIZES}"`);
-    expect(html).toMatch(/imageSrcSet="[^"]*lenovo-legion\.avif/);
-    expect(html).toContain(desktopPreloadHref);
-    expect(html).toContain(mobilePreloadHref);
-    const mobileLink = html
-      .match(/<link[^>]+>/g)
-      ?.find((link) =>
-        link.includes(`media="${OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA}"`)
-      );
-    expect(mobileLink).toContain('750w');
-    expect(mobileLink).toContain('quality=30');
-    expect(mobileLink).not.toContain('1080w');
-    expect(html).not.toContain('type="image/avif"');
-    expect(mockPreload).toHaveBeenCalledTimes(1);
-    expect(mockPreload).toHaveBeenCalledWith(
+
+    expect(mobilePreload).toEqual([
       mobilePreloadHref,
       expect.objectContaining({
         as: 'image',
         fetchPriority: 'high',
         imageSizes: OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_SIZES,
-        imageSrcSet: expect.stringContaining('750w'),
-      })
-    );
-    expect(mockPreload).not.toHaveBeenCalledWith(
+        imageSrcSet: expect.stringContaining('quality=30'),
+        media: OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA,
+      }),
+    ]);
+    expect(
+      (mobilePreload?.[1] as { imageSrcSet: string }).imageSrcSet
+    ).not.toContain('quality=35');
+
+    expect(desktopPreload).toEqual([
       desktopPreloadHref,
-      expect.anything()
-    );
-    expect(mockPreload.mock.calls[0]?.[1]).not.toHaveProperty('media');
+      expect.objectContaining({
+        as: 'image',
+        fetchPriority: 'high',
+        imageSizes: OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
+        imageSrcSet: expect.stringContaining('quality=35'),
+        media: OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_MEDIA,
+      }),
+    ]);
   });
 
   it('uses the fallback URL extension when the image is not CDN transformed', () => {
@@ -139,7 +135,7 @@ describe('OgabasseyPdpProductResourceHints', () => {
       createElement(OgabasseyPdpProductResourceHints, { src: productImage })
     );
 
-    expect(html).toContain('type="image/png"');
+    expect(html).toBe('');
     expect(mockPreload).toHaveBeenCalledWith(
       expect.any(String),
       expect.objectContaining({ type: 'image/png' })

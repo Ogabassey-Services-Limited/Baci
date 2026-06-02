@@ -5,6 +5,7 @@ import { ArrowRightLeft, Heart, ShoppingCart, Star } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import React, { useState } from 'react';
+import { getProductImageAlt, trimString } from '@baci/shared';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { asRoute } from '@/lib/routes';
 import { getProductUrl } from '@/lib/seo-utils';
@@ -97,6 +98,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   const imageSizes = viewMode === 'grid'
     ? '(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw'
     : '(max-width: 768px) 100px, 200px';
+  const productImageUrl = trimString(product.image);
+  const productImageSrc = productImageUrl || PLACEHOLDER_IMAGE;
+  const productImageAlt = productImageUrl
+    ? getProductImageAlt(product, {
+        renderedImageUrl: productImageUrl,
+      })
+    : '';
 
   if (viewMode === 'grid') {
     return (
@@ -156,8 +164,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           {/* We use fill={true} with sizes prop for best performance */}
           {/* biome-ignore lint/a11y/useAltText: intentional img usage */}
           <Image
-            src={product.image || PLACEHOLDER_IMAGE}
-            alt={product.name}
+            src={productImageSrc}
+            alt={productImageAlt}
             fill
             sizes={imageSizes}
             className="object-cover transition-transform duration-500 md:group-hover:scale-105"
@@ -286,8 +294,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       {/* Image (Left Side) */}
       <div className="w-28 md:w-48 aspect-square bg-gray-50 rounded-xl shrink-0 flex items-center justify-center overflow-hidden z-10 pointer-events-none relative">
         <Image
-          src={product.image || PLACEHOLDER_IMAGE}
-          alt={product.name}
+          src={productImageSrc}
+          alt={productImageAlt}
           fill
           sizes="(max-width: 768px) 112px, 192px"
           className="object-cover md:group-hover:scale-110 transition-transform duration-500"
