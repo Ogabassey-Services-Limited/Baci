@@ -152,7 +152,7 @@ export async function POST(request: NextRequest) {
         product_id: productId,
         merchant_id: merchantId,
       })
-      .select()
+      .select('id, product_id, merchant_id, customer_email, created_at')
       .single();
 
     if (error) {
