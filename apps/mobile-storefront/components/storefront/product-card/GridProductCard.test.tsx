@@ -138,6 +138,23 @@ describe('GridProductCard', () => {
     expect(screen.queryByText('New')).toBeNull();
   });
 
+  it('announces wishlist checked state for saved and unsaved modes', () => {
+    const unsaved = renderCard({ isSaved: false });
+
+    expect(
+      screen.getByLabelText(`Save ${baseProduct.name} for later`).props
+        .accessibilityState
+    ).toEqual({ checked: false });
+
+    unsaved.unmount();
+    renderCard({ isSaved: true });
+
+    expect(
+      screen.getByLabelText(`Remove ${baseProduct.name} from saved items`).props
+        .accessibilityState
+    ).toEqual({ checked: true });
+  });
+
   it('wires press handlers for the card, wishlist, and add-to-cart actions', () => {
     const handlePress = jest.fn();
     const handleWishlistPress = jest.fn();

@@ -75,6 +75,7 @@ export default function GridProductCard({
               : `Save ${product.name} for later`
           }
           accessibilityRole="button"
+          accessibilityState={{ checked: isSaved }}
         >
           <Animated.View
             testID="grid-wishlist-surface"

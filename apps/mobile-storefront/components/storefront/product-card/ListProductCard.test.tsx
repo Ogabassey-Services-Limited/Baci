@@ -150,9 +150,13 @@ describe('ListProductCard', () => {
     expect(screen.queryByText('3')).toBeNull();
   });
 
-  it('toggles wishlist icon state for saved and unsaved modes', () => {
+  it('toggles wishlist icon and accessibility state for saved and unsaved modes', () => {
     const { rerender } = renderCard({ isSaved: true });
     expect(screen.getByTestId('icon-heart')).toBeTruthy();
+    expect(
+      screen.getByLabelText(`Remove ${baseProduct.name} from saved items`).props
+        .accessibilityState
+    ).toEqual({ checked: true });
 
     rerender(
       <ListProductCard
@@ -174,6 +178,10 @@ describe('ListProductCard', () => {
     );
 
     expect(screen.getByTestId('icon-heart-outline')).toBeTruthy();
+    expect(
+      screen.getByLabelText(`Save ${baseProduct.name} for later`).props
+        .accessibilityState
+    ).toEqual({ checked: false });
   });
 
   it('exposes accessibility labels and wires press handlers', () => {

@@ -136,6 +136,7 @@ export default function ListProductCard({
             : `Save ${product.name} for later`
         }
         accessibilityRole="button"
+        accessibilityState={{ checked: isSaved }}
       >
         <Ionicons
           name={isSaved ? 'heart' : 'heart-outline'}
