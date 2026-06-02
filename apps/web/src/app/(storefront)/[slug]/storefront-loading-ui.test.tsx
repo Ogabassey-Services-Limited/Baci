@@ -47,6 +47,7 @@ describe('storefront-loading-ui', () => {
     expect(image).toHaveAttribute('decoding', 'sync');
     expect(image).toHaveAttribute('width', '960');
     expect(image).toHaveAttribute('height', '540');
+    expect(image).toHaveClass('h-full', 'w-full', 'object-contain');
 
     const sources = container.querySelectorAll('source');
     expect(sources[0]).toHaveAttribute('srcset', '/hero-mobile.avif');

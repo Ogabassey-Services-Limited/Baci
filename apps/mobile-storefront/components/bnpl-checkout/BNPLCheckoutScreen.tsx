@@ -3,6 +3,7 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BNPLCheckoutStatusView } from '@/components/bnpl-checkout/BNPLCheckoutStatusView';
+import { CHECKOUT_MERCHANT_DOMAIN } from '@/components/checkout/checkout-screen.constants';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import { resolveApiBaseUrl } from '@/lib/api-url';
@@ -20,6 +21,7 @@ export function BNPLCheckoutScreen() {
   const params = normalizeBNPLRouteParams(rawParams);
   const checkout = useBNPLCheckoutController({
     apiBaseUrl: API_BASE_URL,
+    merchantDomain: CHECKOUT_MERCHANT_DOMAIN,
     params,
   });
 

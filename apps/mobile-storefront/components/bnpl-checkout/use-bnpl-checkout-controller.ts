@@ -32,11 +32,13 @@ export type BNPLCheckoutStatus = 'loading' | 'ready' | 'success' | 'error';
 
 type BNPLCheckoutControllerInput = {
   apiBaseUrl: string;
+  merchantDomain?: string;
   params: BNPLCheckoutParams;
 };
 
 export function useBNPLCheckoutController({
   apiBaseUrl,
+  merchantDomain,
   params,
 }: BNPLCheckoutControllerInput) {
   const webViewRef = useRef<WebView>(null);
@@ -149,6 +151,7 @@ export function useBNPLCheckoutController({
       if (
         !shouldHandleBNPLNavigationMessage({
           apiBaseUrl,
+          merchantDomain,
           merchantSlug,
           url,
         })
@@ -191,6 +194,7 @@ export function useBNPLCheckoutController({
   const handleOpenWindow = (event: WebViewOpenWindowEventLike) => {
     const action = resolveBNPLPopupTargetAction({
       apiBaseUrl,
+      merchantDomain,
       merchantSlug,
       targetUrl: event.nativeEvent.targetUrl,
     });
@@ -225,6 +229,7 @@ export function useBNPLCheckoutController({
       currentDocumentUrl,
       isTopFrame: request.isTopFrame,
       requestUrl: request.url,
+      merchantDomain,
       merchantSlug,
     });
     logBNPLCheckoutDebug('document navigation decision', {
@@ -232,6 +237,7 @@ export function useBNPLCheckoutController({
       decision,
       isTopFrame: request.isTopFrame,
       mainDocumentURL: request.mainDocumentURL,
+      merchantDomain,
       merchantSlug,
       navigationType: request.navigationType,
       requestUrl: request.url,

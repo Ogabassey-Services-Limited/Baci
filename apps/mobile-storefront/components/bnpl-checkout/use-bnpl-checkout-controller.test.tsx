@@ -17,10 +17,11 @@ let mockRouteParams: Record<string, string> = {
   orderId: 'order-123',
 };
 
-const renderControllerHook = () =>
+const renderControllerHook = (merchantDomain?: string) =>
   renderHook(() =>
     useBNPLCheckoutController({
       apiBaseUrl: 'https://usebaci.com',
+      merchantDomain,
       params: mockRouteParams,
     })
   );
@@ -137,6 +138,71 @@ describe('useBNPLCheckoutController', () => {
     expect(result.current.status).toBe('loading');
     expect(mockClearCart).not.toHaveBeenCalled();
     expect(router.replace).not.toHaveBeenCalled();
+  });
+
+  it('trusts configured merchant domains for SPA success navigation messages', () => {
+    jest.useFakeTimers();
+    mockRouteParams = {
+      gateway: 'credit_direct',
+      merchantSlug: 'ogabassey',
+      orderId: 'order-123',
+      trackingToken: 'track-token-123',
+    };
+    const { result } = renderControllerHook('ogabassey.com');
+
+    act(() => {
+      result.current.handleWebViewMessage({
+        nativeEvent: {
+          data: JSON.stringify({
+            type: 'navigation',
+            url: 'https://ogabassey.com/order-success?reference=BAC-456',
+          }),
+        },
+      });
+    });
+
+    expect(result.current.status).toBe('success');
+    expect(mockClearCart).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      jest.advanceTimersByTime(1000);
+    });
+
+    expect(router.replace).toHaveBeenCalledWith({
+      pathname: '/order-success',
+      params: {
+        orderId: 'order-123',
+        paymentMethod: 'credit_direct',
+        reference: 'BAC-456',
+        trackingToken: 'track-token-123',
+      },
+    });
+  });
+
+  it('allows configured merchant domains for top-frame checkout document redirects', () => {
+    mockRouteParams = {
+      gateway: 'credit_direct',
+      merchantSlug: 'ogabassey',
+      orderId: 'order-123',
+    };
+    const { result } = renderControllerHook('ogabassey.com');
+
+    let shouldStart = false;
+    act(() => {
+      shouldStart = result.current.handleShouldStartLoadWithRequest({
+        canGoBack: false,
+        canGoForward: false,
+        isTopFrame: true,
+        loading: true,
+        lockIdentifier: 1,
+        navigationType: 'other',
+        title: 'BNPL checkout',
+        url: 'https://ogabassey.com/checkout/bnpl?gateway=credit_direct&orderId=order-123',
+      });
+    });
+
+    expect(shouldStart).toBe(true);
+    expect(result.current.errorMessage).toBeNull();
   });
 
   it('surfaces untrusted auxiliary windows as checkout errors', () => {
