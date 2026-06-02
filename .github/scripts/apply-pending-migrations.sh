@@ -59,12 +59,23 @@ const statements = [];
 let start = 0;
 let i = 0;
 let singleQuote = false;
+let escapeStringQuote = false;
 let doubleQuote = false;
 let lineComment = false;
 let blockCommentDepth = 0;
 let dollarQuoteTag = null;
 
 const isDollarTagCharacter = (char) => /[A-Za-z0-9_]/.test(char);
+const isIdentifierCharacter = (char) => /[A-Za-z0-9_$]/.test(char);
+const isEscapeStringPrefix = (quoteIndex) => {
+  const previous = sql[quoteIndex - 1];
+  if (previous !== 'E' && previous !== 'e') {
+    return false;
+  }
+
+  const beforePrevious = sql[quoteIndex - 2];
+  return !beforePrevious || !isIdentifierCharacter(beforePrevious);
+};
 
 while (i < sql.length) {
   const char = sql[i];
@@ -104,12 +115,17 @@ while (i < sql.length) {
   }
 
   if (singleQuote) {
+    if (escapeStringQuote && char === '\\') {
+      i += 2;
+      continue;
+    }
     if (char === "'" && next === "'") {
       i += 2;
       continue;
     }
     if (char === "'") {
       singleQuote = false;
+      escapeStringQuote = false;
     }
     i += 1;
     continue;
@@ -141,6 +157,7 @@ while (i < sql.length) {
 
   if (char === "'") {
     singleQuote = true;
+    escapeStringQuote = isEscapeStringPrefix(i);
     i += 1;
     continue;
   }

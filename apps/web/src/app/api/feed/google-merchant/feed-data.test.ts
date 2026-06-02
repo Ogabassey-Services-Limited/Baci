@@ -417,6 +417,7 @@ describe('getCachedGoogleMerchantFeedData', () => {
   });
 
   it('caps product pagination at the variant RPC product-id limit', async () => {
+    const TOTAL_PRODUCTS_FOR_VARIANT_CAP = 10_000;
     const fullPage = Array.from({ length: 1000 }, (_, index) => ({
       id: `product-${index}`,
       name: `Phone ${index}`,
@@ -451,12 +452,14 @@ describe('getCachedGoogleMerchantFeedData', () => {
     expect(mockProductsLimit).toHaveBeenCalledTimes(10);
     expect(mockProductsLimit).toHaveBeenLastCalledWith(1000);
     expect(mockRpc).toHaveBeenCalledTimes(
-      10_000 / FEED_PRODUCT_VARIANTS_BATCH_SIZE
+      Math.ceil(
+        TOTAL_PRODUCTS_FOR_VARIANT_CAP / FEED_PRODUCT_VARIANTS_BATCH_SIZE
+      )
     );
     const rpcProductIds = mockRpc.mock.calls.flatMap(([, rpcArgs]) =>
       Array.isArray(rpcArgs?.p_product_ids) ? rpcArgs.p_product_ids : []
     );
-    expect(rpcProductIds).toHaveLength(10_000);
+    expect(rpcProductIds).toHaveLength(TOTAL_PRODUCTS_FOR_VARIANT_CAP);
     expect(mockRpc).toHaveBeenNthCalledWith(1, 'get_feed_product_variants', {
       p_merchant_id: 'merchant-1',
       p_product_ids: Array.from(
@@ -464,7 +467,7 @@ describe('getCachedGoogleMerchantFeedData', () => {
         (_, index) => `product-${index}`
       ),
     });
-    expect(result.products).toHaveLength(10_000);
+    expect(result.products).toHaveLength(TOTAL_PRODUCTS_FOR_VARIANT_CAP);
   });
 
   it('batches variant RPC product IDs to avoid PostgREST result truncation', async () => {
