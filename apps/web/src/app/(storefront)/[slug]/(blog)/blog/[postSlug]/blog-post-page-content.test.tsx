@@ -404,6 +404,37 @@ describe('BlogPostPageContent', () => {
     );
   });
 
+  it('ignores non-string publisher social JSON values before structured data', async () => {
+    mockGetCachedBlogPost.mockResolvedValue({
+      ...smartphoneGuideBlogPost,
+      merchant: {
+        ...smartphoneGuideBlogPost.merchant,
+        social_media: {
+          instagram: null,
+          tiktok: 'https://www.tiktok.com/@ogabassey',
+          youtube: 123,
+        },
+      },
+    });
+
+    render(
+      await BlogPostPageContent({
+        params: Promise.resolve({
+          slug: 'ogabassey',
+          postSlug: 'best-phones-in-nigeria',
+        }),
+      })
+    );
+
+    expect(mockGenerateBlogPostSchema).toHaveBeenCalledWith(
+      expect.objectContaining({
+        publisher: expect.objectContaining({
+          sameAs: ['https://www.tiktok.com/@ogabassey'],
+        }),
+      })
+    );
+  });
+
   it('does not emit generic fallback image markup for imageless posts', async () => {
     render(
       await BlogPostPageContent({

@@ -1298,6 +1298,32 @@ describe('generateBlogPostSchema', () => {
     ]);
   });
 
+  it('ignores non-string and unsafe blog sameAs entries without crashing', () => {
+    const schema = generateBlogPostSchema({
+      ...baseBlogSchemaInput,
+      author: {
+        ...baseBlogSchemaInput.author,
+        sameAs: [
+          ' https://www.linkedin.com/in/editor ',
+          null,
+          42,
+          'javascript:alert(1)',
+        ],
+      },
+      publisher: {
+        ...baseBlogSchemaInput.publisher,
+        sameAs: [undefined, 'https://www.instagram.com/ogabassey/'],
+      },
+    });
+
+    expect((schema.author as Record<string, unknown>).sameAs).toEqual([
+      'https://www.linkedin.com/in/editor',
+    ]);
+    expect((schema.publisher as Record<string, unknown>).sameAs).toEqual([
+      'https://www.instagram.com/ogabassey/',
+    ]);
+  });
+
   it('omits image markup when no representative image is supplied', () => {
     const schema = generateBlogPostSchema(baseBlogSchemaInput);
 

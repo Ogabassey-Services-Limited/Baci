@@ -54,7 +54,7 @@ function isBlogPublisherSocialPlatform(
 }
 
 function buildBlogPublisherSameAs(
-  socialMedia: Record<string, string | undefined> | null | undefined
+  socialMedia: Record<string, unknown> | null | undefined
 ): string[] {
   if (!socialMedia) {
     return [];
@@ -64,6 +64,10 @@ function buildBlogPublisherSameAs(
 
   for (const [platform, value] of Object.entries(socialMedia)) {
     if (!isBlogPublisherSocialPlatform(platform)) {
+      continue;
+    }
+
+    if (typeof value !== 'string') {
       continue;
     }
 

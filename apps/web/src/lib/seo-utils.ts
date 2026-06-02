@@ -2194,13 +2194,13 @@ interface BlogPostSchemaData {
     url?: string;
     jobTitle?: string;
     description?: string;
-    sameAs?: string[];
+    sameAs?: readonly unknown[];
   };
   publisher: {
     name: string;
     logo: string;
     url: string;
-    sameAs?: string[];
+    sameAs?: readonly unknown[];
   };
   wordCount?: number;
   keywords?: string[];
@@ -2208,7 +2208,9 @@ interface BlogPostSchemaData {
   readingTime?: number;
 }
 
-function normalizeBlogAuthorSameAs(sameAs: string[] | undefined): string[] {
+function normalizeBlogAuthorSameAs(
+  sameAs: readonly unknown[] | undefined
+): string[] {
   if (!sameAs) {
     return [];
   }
@@ -2216,6 +2218,7 @@ function normalizeBlogAuthorSameAs(sameAs: string[] | undefined): string[] {
   return [
     ...new Set(
       sameAs
+        .filter((url): url is string => typeof url === 'string')
         .map((url) => sanitizeSchemaUrl(url.trim()))
         .filter((url) => url.length > 0)
         .map((url) => escapeHtml(url))
