@@ -73,6 +73,9 @@ describe('LoginSecondaryActions', () => {
           card: '#fff',
           text: '#111',
           textMuted: '#666',
+          gold: '#D4A03D',
+          warning: '#CA8A04',
+          warningLight: '#FEF3C7',
         }}
         isAnyLoading={false}
         isAppleLoading={false}
@@ -100,6 +103,9 @@ describe('LoginSecondaryActions', () => {
           card: '#fff',
           text: '#111',
           textMuted: '#666',
+          gold: '#D4A03D',
+          warning: '#CA8A04',
+          warningLight: '#FEF3C7',
         }}
         isAnyLoading={false}
         isAppleLoading={false}
@@ -127,6 +133,9 @@ describe('LoginSecondaryActions', () => {
           card: '#fff',
           text: '#111',
           textMuted: '#666',
+          gold: '#D4A03D',
+          warning: '#CA8A04',
+          warningLight: '#FEF3C7',
         }}
         isAnyLoading={false}
         isAppleLoading={false}
@@ -156,6 +165,9 @@ describe('LoginSecondaryActions', () => {
           card: '#fff',
           text: '#111',
           textMuted: '#666',
+          gold: '#D4A03D',
+          warning: '#CA8A04',
+          warningLight: '#FEF3C7',
         }}
         isAnyLoading={false}
         isAppleLoading={false}
@@ -182,6 +194,9 @@ describe('LoginSecondaryActions', () => {
           card: '#fff',
           text: '#111',
           textMuted: '#666',
+          gold: '#D4A03D',
+          warning: '#CA8A04',
+          warningLight: '#FEF3C7',
         }}
         isAnyLoading={true}
         isAppleLoading={true}
