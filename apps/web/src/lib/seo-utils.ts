@@ -4,6 +4,13 @@ import {
   toSchemaItemConditionUri,
 } from '@baci/shared/lib';
 import type { Metadata, Route } from 'next';
+import {
+  type CheckoutPaymentMerchant,
+  isBankTransferCheckoutAvailable,
+  isKorapayCheckoutAvailable,
+  isPayOnDeliveryCheckoutAvailable,
+  isPaystackCheckoutAvailable,
+} from './checkout/payment-gateway-availability';
 import type {
   Product,
   ProductSchemaMarkup,
@@ -643,7 +650,76 @@ function buildMerchantReturnPolicyFromTrustProfile(
 }
 
 interface ProductSchemaOptions {
+  acceptedPaymentMethods?: readonly string[];
   productUrl?: string;
+}
+
+interface StorefrontPaymentGatewayConfig {
+  korapayConfigured: boolean;
+  paystackConfigured: boolean;
+  currency?: string | null;
+}
+
+function isPaystackStructuredDataCurrencyAvailable(
+  currency: string | null | undefined
+): boolean {
+  return currency?.trim().toUpperCase() === 'NGN';
+}
+
+export function buildStorefrontAcceptedPaymentMethods(
+  merchant: CheckoutPaymentMerchant | null | undefined,
+  gatewayConfig: StorefrontPaymentGatewayConfig
+): string[] {
+  const methods = new Set<string>();
+  const paystackStructuredDataAvailable =
+    gatewayConfig.paystackConfigured &&
+    isPaystackStructuredDataCurrencyAvailable(gatewayConfig.currency);
+
+  if (
+    paystackStructuredDataAvailable &&
+    isPaystackCheckoutAvailable(merchant)
+  ) {
+    methods.add('Debit and credit card');
+    methods.add('USSD');
+  }
+
+  if (
+    paystackStructuredDataAvailable &&
+    isBankTransferCheckoutAvailable(merchant)
+  ) {
+    methods.add('Bank transfer');
+  }
+
+  if (
+    gatewayConfig.korapayConfigured &&
+    isKorapayCheckoutAvailable(merchant, gatewayConfig.currency)
+  ) {
+    methods.add('Debit and credit card');
+  }
+
+  if (isPayOnDeliveryCheckoutAvailable(merchant)) {
+    methods.add('Pay on delivery');
+  }
+
+  return [...methods];
+}
+
+function normalizeAcceptedPaymentMethods(
+  acceptedPaymentMethods: readonly string[] | undefined
+): string[] | undefined {
+  if (!acceptedPaymentMethods) {
+    return undefined;
+  }
+
+  const methods = [
+    ...new Set(
+      acceptedPaymentMethods
+        .map((method) => method.trim())
+        .filter((method) => method.length > 0)
+    ),
+  ];
+
+  return methods.length > 0 ? methods : undefined;
 }
 
 function parseStructuredDataUrl(url: string | undefined): URL | undefined {
@@ -708,6 +784,9 @@ export function generateProductSchema(
   const safeBrand = product.brand || merchantName;
   const safeMerchantName = merchantName;
   const structuredDataProductUrl = parseStructuredDataUrl(options.productUrl);
+  const acceptedPaymentMethod = normalizeAcceptedPaymentMethods(
+    options.acceptedPaymentMethods
+  );
   const shippingDetails = buildOfferShippingDetails(
     country,
     currency,
@@ -775,6 +854,7 @@ export function generateProductSchema(
               '@type': 'Organization',
               name: safeMerchantName,
             },
+            ...(acceptedPaymentMethod && { acceptedPaymentMethod }),
             priceValidUntil: new Date(Date.now() + THIRTY_DAYS_MS)
               .toISOString()
               .substring(0, 10),
@@ -794,6 +874,7 @@ export function generateProductSchema(
               '@type': 'Organization',
               name: safeMerchantName,
             },
+            ...(acceptedPaymentMethod && { acceptedPaymentMethod }),
             priceValidUntil: new Date(Date.now() + THIRTY_DAYS_MS)
               .toISOString()
               .substring(0, 10),
@@ -1218,6 +1299,7 @@ export function generateProductSchema(
             '@type': 'Organization',
             name: safeMerchantName,
           },
+          ...(acceptedPaymentMethod && { acceptedPaymentMethod }),
           shippingDetails: variantShippingDetails,
           hasMerchantReturnPolicy: variantReturnPolicy,
         },
@@ -2120,16 +2202,35 @@ interface BlogPostSchemaData {
     url?: string;
     jobTitle?: string;
     description?: string;
+    sameAs?: readonly unknown[];
   };
   publisher: {
     name: string;
     logo: string;
     url: string;
+    sameAs?: readonly unknown[];
   };
   wordCount?: number;
   keywords?: string[];
   category?: string;
   readingTime?: number;
+}
+
+function normalizeBlogAuthorSameAs(
+  sameAs: readonly unknown[] | undefined
+): string[] {
+  if (!sameAs) {
+    return [];
+  }
+
+  return [
+    ...new Set(
+      sameAs
+        .filter((url): url is string => typeof url === 'string')
+        .map((url) => sanitizeSchemaUrl(url.trim()))
+        .filter((url) => url.length > 0)
+    ),
+  ];
 }
 
 /**
@@ -2139,6 +2240,8 @@ export function generateBlogPostSchema(
   data: BlogPostSchemaData
 ): Record<string, unknown> {
   // SECURITY FIX: Sanitize all inputs to prevent XSS (consistent with other schema functions)
+  const authorSameAs = normalizeBlogAuthorSameAs(data.author.sameAs);
+  const publisherSameAs = normalizeBlogAuthorSameAs(data.publisher.sameAs);
   const schema: Record<string, unknown> = {
     '@context': 'https://schema.org',
     '@type': 'BlogPosting',
@@ -2157,6 +2260,9 @@ export function generateBlogPostSchema(
       ...(data.author.description && {
         description: escapeHtml(data.author.description),
       }),
+      ...(authorSameAs.length > 0 && {
+        sameAs: authorSameAs,
+      }),
     },
     publisher: {
       '@type': 'Organization',
@@ -2166,6 +2272,9 @@ export function generateBlogPostSchema(
         '@type': 'ImageObject',
         url: escapeHtml(data.publisher.logo),
       },
+      ...(publisherSameAs.length > 0 && {
+        sameAs: publisherSameAs,
+      }),
     },
     mainEntityOfPage: {
       '@type': 'WebPage',

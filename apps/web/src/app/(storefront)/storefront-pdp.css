@@ -33,4 +33,14 @@
 @source "../../components/storefront/ogabassey/components/ProductComparisonTable.tsx";
 @source "../../components/storefront/ogabassey/components/ProductVideo.tsx";
 @source "../../components/storefront/brand-products.tsx";
+@source "../../components/storefront/breadcrumbs.tsx";
+@source "../../components/storefront/deferred-sticky-add-to-cart.tsx";
 @source "../../components/storefront/price-range-products.tsx";
+@source "../../components/themed/**/*.tsx";
+@source "../../components/ui/alert.tsx";
+@source "../../components/ui/badge.tsx";
+@source "../../components/ui/button.tsx";
+@source "../../components/ui/input.tsx";
+@source "../../components/ui/label.tsx";
+@source "../../components/ui/skeleton.tsx";
+@source "../../components/ui/skeletons.tsx";

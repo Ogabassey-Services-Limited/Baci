@@ -754,6 +754,83 @@ describe('fulfillPendingVtuTransaction', () => {
     });
   });
 
+  it('sends pending-token email receipts without consuming the token-ready email claim', async () => {
+    const updatePayloads: unknown[] = [];
+    const supabase = createPendingTransactionSupabaseMock({
+      customerData: {
+        user_id: 'user-1',
+        email: 'buyer@example.com',
+        first_name: 'Ada',
+        last_name: 'Lovelace',
+      },
+      merchantData: {
+        business_name: 'OgaBassey',
+        slug: 'ogabassey',
+        support_email: 'support@oga.test',
+      },
+      transactionRow: {
+        id: 'vtu-1',
+        merchant_id: 'merchant-1',
+        customer_id: 'customer-1',
+        type: 'electricity',
+        network_provider: '',
+        phone_number: '',
+        amount: 1000,
+        request_reference: 'VTU-123',
+        transaction_id: 'kuda-1',
+        status: 'successful',
+        metadata: {
+          customerNotificationAttempted: true,
+        },
+        error_message: null,
+        merchant_commission: 0,
+        customer_cashback: 0,
+        biller_name: 'EKEDC PREPAID',
+        biller_item_code: 'KUD-ELE-EKED-002',
+        customer_identifier: '43901766923',
+      },
+      updatePayloads,
+    });
+
+    const result = await fulfillPendingVtuTransaction({
+      supabase,
+      transactionId: 'vtu-1',
+    });
+
+    expect(result).toMatchObject({
+      status: 'successful',
+    });
+    expect(result).not.toHaveProperty('voucherPin');
+    expect(mockSendEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        subject: 'Receipt for Electricity Purchase - OgaBassey',
+        textContent: expect.stringContaining(
+          'Token fulfillment is still in progress'
+        ),
+        to: 'buyer@example.com',
+      })
+    );
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'claim_vtu_customer_email_notification_attempt',
+      {
+        p_attempt_key: 'customerReceiptEmailNotificationAttempted',
+        p_sent_key: 'customerReceiptEmailNotificationSent',
+        p_transaction_id: 'vtu-1',
+      }
+    );
+    expect(updatePayloads).not.toContainEqual({
+      metadata: expect.objectContaining({
+        customerTokenEmailNotificationAttempted: expect.any(Boolean),
+      }),
+    });
+    expect(updatePayloads).toContainEqual({
+      metadata: expect.objectContaining({
+        customerReceiptEmailNotificationAttempted: true,
+        customerReceiptEmailNotificationSent: true,
+      }),
+    });
+  });
+
   it('durably clears a claimed token email attempt when email delivery fails', async () => {
     const updatePayloads: unknown[] = [];
     mockSendEmail.mockResolvedValueOnce({ success: false });

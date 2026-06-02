@@ -1,20 +1,34 @@
 /**
  * Storage utility for Zustand persistence
- * Uses AsyncStorage for Expo Go compatibility
- *
- * Note: MMKV requires native modules (NitroModules) which aren't
- * available in Expo Go. Use a development build for MMKV performance.
+ * Uses MMKV for high-performance synchronous native storage when available,
+ * with a seamless backward-compatible fallback to AsyncStorage for Web/SSR and Expo Go.
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
+import { createMMKV } from 'react-native-mmkv';
 import { createLogger } from './logger';
 
 const log = createLogger('Storage');
 
+// Safe instantiation of high-performance MMKV storage (native only, guarded against Web/SSR/Go failures)
+let mmkvStorage: ReturnType<typeof createMMKV> | null = null;
+try {
+  if (Platform.OS !== 'web' && process.env.NODE_ENV !== 'test') {
+    mmkvStorage = createMMKV({
+      id: 'baci-storefront-storage',
+    });
+  }
+} catch (error) {
+  log.warn(
+    'Failed to initialize MMKV, falling back to AsyncStorage/memory:',
+    error
+  );
+}
+
 /**
  * Batch storage helpers
- * Uses v3 getMany/removeMany when available, falls back to batch v2 calls.
+ * Uses MMKV when available, otherwise delegates to AsyncStorage v3.
  */
 type AsyncStorageBatchExtensions = typeof AsyncStorage & {
   getMany?: (keys: string[]) => Promise<Record<string, string | null>>;
@@ -27,7 +41,7 @@ type StorageEntry = [string, string | null];
 
 const batchStorage = AsyncStorage as AsyncStorageBatchExtensions;
 
-export async function getStorageEntries(
+async function getAsyncStorageEntries(
   keys: readonly string[]
 ): Promise<[string, string | null][]> {
   if (keys.length === 0) return [];
@@ -39,7 +53,6 @@ export async function getStorageEntries(
 
   if (typeof batchStorage.multiGet === 'function') {
     const entries = await batchStorage.multiGet([...keys]);
-    // React Native types expose multiGet results as readonly; normalize for callers.
     return entries.map(([key, value]): StorageEntry => [key, value]);
   }
 
@@ -53,9 +66,7 @@ export async function getStorageEntries(
   );
 }
 
-export async function removeStorageItems(
-  keys: readonly string[]
-): Promise<void> {
+async function removeAsyncStorageItems(keys: readonly string[]): Promise<void> {
   if (keys.length === 0) return;
 
   if (typeof batchStorage.removeMany === 'function') {
@@ -71,13 +82,54 @@ export async function removeStorageItems(
   await Promise.all(keys.map((key) => AsyncStorage.removeItem(key)));
 }
 
+export async function getStorageEntries(
+  keys: readonly string[]
+): Promise<[string, string | null][]> {
+  if (keys.length === 0) return [];
+
+  if (mmkvStorage) {
+    return keys.map((key) => [key, mmkvStorage!.getString(key) ?? null]);
+  }
+
+  return getAsyncStorageEntries(keys);
+}
+
+export async function removeStorageItems(
+  keys: readonly string[]
+): Promise<void> {
+  if (keys.length === 0) return;
+
+  if (mmkvStorage) {
+    for (const key of keys) {
+      mmkvStorage.remove(key);
+    }
+    await removeAsyncStorageItems(keys);
+    return;
+  }
+
+  await removeAsyncStorageItems(keys);
+}
+
 /**
- * AsyncStorage-based storage adapter for Zustand persist middleware
- * Fully compatible with Expo Go
+ * MMKV-backed storage adapter for Zustand persist middleware
+ * Fully fallback-safe for Expo Go / Web SSR contexts
  */
 export const asyncStorage = {
   getItem: async (name: string): Promise<string | null> => {
     try {
+      if (mmkvStorage) {
+        const value = mmkvStorage.getString(name) ?? null;
+        if (value !== null) {
+          return value;
+        }
+
+        const legacyValue = await AsyncStorage.getItem(name);
+        if (legacyValue !== null) {
+          mmkvStorage.set(name, legacyValue);
+          await AsyncStorage.removeItem(name);
+        }
+        return legacyValue;
+      }
       return await AsyncStorage.getItem(name);
     } catch (error) {
       log.warn('Failed to get item:', name, error);
@@ -86,6 +138,10 @@ export const asyncStorage = {
   },
   setItem: async (name: string, value: string): Promise<void> => {
     try {
+      if (mmkvStorage) {
+        mmkvStorage.set(name, value);
+        return;
+      }
       await AsyncStorage.setItem(name, value);
     } catch (error) {
       log.warn('Failed to set item:', name, error);
@@ -93,6 +149,9 @@ export const asyncStorage = {
   },
   removeItem: async (name: string): Promise<void> => {
     try {
+      if (mmkvStorage) {
+        mmkvStorage.remove(name);
+      }
       await AsyncStorage.removeItem(name);
     } catch (error) {
       log.warn('Failed to remove item:', name, error);
@@ -102,9 +161,7 @@ export const asyncStorage = {
 
 /**
  * Sync storage adapter (for compatibility with existing code)
- * Uses a simple in-memory cache with AsyncStorage backup
- *
- * BUG-4-007 FIX: Added initialization tracking to prevent race conditions with Zustand stores
+ * Backed by native MMKV, falls back to in-memory cache with AsyncStorage persistence
  */
 const memoryCache: Record<string, string> = {};
 let isStorageInitialized = false;
@@ -122,7 +179,10 @@ function isServerWebRender(): boolean {
 
 export const syncStorage = {
   getItem: (name: string): string | null => {
-    // BUG-4-007 FIX: Warn if accessed before initialization to help debug race conditions
+    if (mmkvStorage) {
+      return mmkvStorage.getString(name) ?? null;
+    }
+
     if (
       !isStorageInitialized &&
       !initializationPromise &&
@@ -133,17 +193,28 @@ export const syncStorage = {
           'Ensure initializeStorage() is called and awaited in _layout.tsx before Zustand stores are accessed.'
       );
     }
-    // Return from memory cache (sync)
     return memoryCache[name] ?? null;
   },
   setItem: (name: string, value: string): void => {
+    if (mmkvStorage) {
+      mmkvStorage.set(name, value);
+      return;
+    }
+
     memoryCache[name] = value;
-    // Also persist to AsyncStorage (async, fire and forget)
     AsyncStorage.setItem(name, value).catch((error) =>
       log.warn('Failed to persist item:', name, error)
     );
   },
   removeItem: (name: string): void => {
+    if (mmkvStorage) {
+      mmkvStorage.remove(name);
+      AsyncStorage.removeItem(name).catch((error) =>
+        log.warn('Failed to remove legacy item:', name, error)
+      );
+      return;
+    }
+
     delete memoryCache[name];
     AsyncStorage.removeItem(name).catch((error) =>
       log.warn('Failed to remove item:', name, error)
@@ -160,7 +231,6 @@ export function isStorageReady(): boolean {
 
 /**
  * Wait for storage initialization to complete
- * Useful for components that need to ensure data is loaded
  */
 export async function waitForStorageReady(): Promise<void> {
   if (isStorageInitialized) return;
@@ -168,8 +238,6 @@ export async function waitForStorageReady(): Promise<void> {
     await initializationPromise;
     return;
   }
-  // If no initialization in progress, wait a bit and check again
-  // This handles edge cases where the check happens between promise start and assignment
   await new Promise((resolve) => setTimeout(resolve, 100));
   if (initializationPromise) {
     await initializationPromise;
@@ -178,12 +246,8 @@ export async function waitForStorageReady(): Promise<void> {
 
 /**
  * Initialize storage by loading persisted data into memory cache
- * Call this at app startup before accessing stores
- *
- * 2026 Critical Fix: Added deduplication to prevent multiple concurrent initializations
  */
 export function initializeStorage(keys: readonly string[]): Promise<void> {
-  // Prevent multiple concurrent initializations
   if (initializationPromise) {
     log.debug('Initialization already in progress, waiting...');
     return initializationPromise;
@@ -197,18 +261,31 @@ export function initializeStorage(keys: readonly string[]): Promise<void> {
   initializationPromise = (async () => {
     try {
       log.debug('Initializing with keys:', keys);
-      const pairs = await getStorageEntries(keys);
+      const pairs = await getAsyncStorageEntries(keys);
+      const migratedKeys: string[] = [];
       for (const [key, value] of pairs) {
         if (value !== null) {
-          memoryCache[key] = value;
-          log.debug(`Loaded "${key}" from AsyncStorage`);
+          if (mmkvStorage) {
+            const existingValue = mmkvStorage.getString(key) ?? null;
+            if (existingValue === null) {
+              mmkvStorage.set(key, value);
+              log.debug(`Migrated "${key}" from AsyncStorage to MMKV`);
+            }
+            migratedKeys.push(key);
+          } else {
+            memoryCache[key] = value;
+            log.debug(`Loaded "${key}" from AsyncStorage`);
+          }
         }
+      }
+      if (mmkvStorage && migratedKeys.length > 0) {
+        await removeAsyncStorageItems(migratedKeys);
+        log.debug('Removed migrated legacy AsyncStorage keys');
       }
       isStorageInitialized = true;
       log.debug('Initialization complete');
     } catch (error) {
       log.warn('Failed to initialize:', error);
-      // Still mark as initialized to prevent blocking the app
       isStorageInitialized = true;
     } finally {
       initializationPromise = null;
@@ -218,7 +295,6 @@ export function initializeStorage(keys: readonly string[]): Promise<void> {
   return initializationPromise;
 }
 
-// Expo evaluates web routes on the server, where AsyncStorage accesses window.localStorage.
 if (!isServerWebRender()) {
   void initializeStorage(DEFAULT_SYNC_STORAGE_KEYS);
 }

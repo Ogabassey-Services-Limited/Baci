@@ -82,8 +82,8 @@ export const SavingsGoalActionResponseSchema = z.object({
 });
 
 export const SavingsAuthorizationResponseSchema = z.object({
-  authorization_url: z.string().url(),
-  checkout_url: z.string().url(),
+  authorization_url: z.url(),
+  checkout_url: z.url(),
   gateway: PaymentProviderSchema,
   reference: z.string(),
   success: z.literal(true),

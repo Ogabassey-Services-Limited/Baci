@@ -70,11 +70,11 @@ vi.mock('next/dynamic', () => {
     }
   ) {
     return (
-      <div role="region" aria-label="Deferred product details sections">
-        <div role="region" aria-label="Deferred ad slot" />
+      <section aria-label="Deferred product details sections">
+        <section aria-label="Deferred ad slot" />
         <ProductDetailsTabsMock {...props} />
-        <div role="region" aria-label="Deferred merchandising sections" />
-      </div>
+        <section aria-label="Deferred merchandising sections" />
+      </section>
     );
   }
 
@@ -225,8 +225,8 @@ vi.mock('./product-details-page/deferred-product-details-sections-loader', () =>
     };
 
     return shouldRenderDeferredShellChildren ? (
-      <div role="region" aria-label="Deferred product details sections">
-        <div role="region" aria-label="Deferred ad slot" />
+      <section aria-label="Deferred product details sections">
+        <section aria-label="Deferred ad slot" />
         <button role="tab" onClick={() => handleTabChange('description')}>
           Description
         </button>
@@ -242,8 +242,8 @@ vi.mock('./product-details-page/deferred-product-details-sections-loader', () =>
             Description
           </div>
         )}
-        <div role="region" aria-label="Deferred merchandising sections" />
-      </div>
+        <section aria-label="Deferred merchandising sections" />
+      </section>
     ) : (
       <div data-testid="deferred-product-details-placeholder" />
     );

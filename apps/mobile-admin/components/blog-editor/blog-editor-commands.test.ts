@@ -8,6 +8,7 @@ import {
   buildInsertVideoScript,
   buildSaveRequestScript,
 } from './blog-editor-commands';
+import { expectValidJavaScript } from './script-test-utils';
 
 describe('blog-editor-commands', () => {
   it('builds valid save and AI request scripts', () => {
@@ -17,8 +18,8 @@ describe('blog-editor-commands', () => {
     expect(saveScript).toContain('type: "save"');
     expect(saveScript).toContain('type: "save_error"');
     expect(aiScript).toContain('type: "ai_request"');
-    expect(() => new Function(saveScript)).not.toThrow();
-    expect(() => new Function(aiScript)).not.toThrow();
+    expectValidJavaScript(saveScript);
+    expectValidJavaScript(aiScript);
   });
 
   it('escapes injected link and image values', () => {
@@ -29,8 +30,8 @@ describe('blog-editor-commands', () => {
 
     expect(linkScript).toContain(`"https://baci.com?q='test'"`);
     expect(imageScript).toContain(`"https://cdn.usebaci.com/x'.png"`);
-    expect(() => new Function(linkScript)).not.toThrow();
-    expect(() => new Function(imageScript)).not.toThrow();
+    expectValidJavaScript(linkScript);
+    expectValidJavaScript(imageScript);
   });
 
   it('builds format and table scripts as valid JavaScript', () => {
@@ -41,8 +42,8 @@ describe('blog-editor-commands', () => {
     expect(tableScript).toContain('const rows = 3;');
     expect(tableScript).toContain('const cols = 4;');
     expect(tableScript).toContain("document.execCommand('insertHTML'");
-    expect(() => new Function(formatScript)).not.toThrow();
-    expect(() => new Function(tableScript)).not.toThrow();
+    expectValidJavaScript(formatScript);
+    expectValidJavaScript(tableScript);
   });
 
   it('extracts video ids from supported YouTube URL formats', () => {

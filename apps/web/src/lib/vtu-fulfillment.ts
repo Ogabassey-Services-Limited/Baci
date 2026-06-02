@@ -1208,11 +1208,19 @@ async function notifyVtuCustomerSuccess({
     return { metadataChanged: false };
   }
 
-  const { data: merchant } = await supabase
+  const { data: merchant, error: merchantError } = await supabase
     .from('merchants')
     .select('business_name, slug, support_email')
     .eq('id', row.merchant_id)
     .single();
+
+  if (merchantError) {
+    console.error('Failed to resolve VTU merchant notification context:', {
+      error: merchantError.message,
+      merchantId: row.merchant_id,
+      transactionId: row.id,
+    });
+  }
 
   const shouldAttemptPush =
     Boolean(customer.user_id) &&

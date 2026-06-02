@@ -1,4 +1,3 @@
-import '@/app/(storefront)/storefront-ogabassey-pdp-critical.css';
 import { resolveVariantSelectionParamResolution } from '@baci/shared/lib';
 import type { Metadata, Route } from 'next';
 import { headers } from 'next/headers';
@@ -26,6 +25,7 @@ import {
   mergeVariantAxisOptions,
   normalizeVariantAttributes,
 } from '@/components/storefront/ogabassey/variant-attributes';
+import { STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM } from '@/config/storefront-metadata-cache-bots';
 import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 import {
   type CachedLegacyProductRedirectTarget,
@@ -37,12 +37,15 @@ import {
   getRequestScopedMerchant,
   sanitizeLookupLogValue,
 } from '@/lib/cached-data';
+import { isKorapayConfigured } from '@/lib/korapay';
 import { normalizeStorefrontCategorySlug } from '@/lib/normalize-storefront-category-slug';
+import { isPaystackConfigured } from '@/lib/paystack';
 import { getEffectiveStock } from '@/lib/product-stock';
-import type { Product } from '@/lib/products';
+import type { Product, ProductCondition } from '@/lib/products';
 import { stripHtmlTags } from '@/lib/sanitize-core';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
+  buildStorefrontAcceptedPaymentMethods,
   generateBreadcrumbSchema,
   generateMetaDescription,
   generateMetaTitle,
@@ -366,6 +369,9 @@ function shouldRedirectVariantSelectionParams(
 }
 
 const NON_SELECTION_TRACKING_PARAMS = new Set([
+  // Internal middleware-only cache partition key. Treat it like tracking noise
+  // so metadata cache safety cannot disable the PDP early image hint path.
+  STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM,
   'dclid',
   'fbclid',
   'gbraid',
@@ -402,17 +408,34 @@ type CategoryProductResult =
   | null;
 
 interface LcpRouteProduct {
+  base_price?: number | null;
   brand?: string | null;
+  canonical_url?: string | null;
   categories?: { name?: string; slug?: string } | null;
   category?: string | null;
   category_slug?: string;
-  condition?: string | null;
+  condition?: string;
+  compare_at_price?: number | null;
+  description?: string | null;
   id: string;
   image?: string;
   imageLarge?: string;
+  keywords?: string[] | null;
   manage_stock?: boolean | null;
+  max_variant_price?: number | null;
+  meta_description?: string | null;
+  meta_title?: string | null;
+  min_variant_price?: number | null;
   name: string;
-  price?: number | string | null;
+  offers?: Array<{
+    id: string;
+    condition: ProductCondition;
+    price: number;
+    status?: string | null;
+    stock_quantity: number;
+  }>;
+  price?: number | null;
+  sale_price?: number | null;
   schema_markup?: unknown;
   slug?: string;
   stock_quantity?: number | null;
@@ -457,6 +480,113 @@ function getMappedProductCategorySlug(product: LcpRouteProduct) {
   );
 }
 
+function isUuidProductRouteValue(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+    value
+  );
+}
+
+function shouldRedirectResolvedProductSlugValue(
+  productSlug: string,
+  resolvedSlug: string | null | undefined
+) {
+  return (
+    !isUuidProductRouteValue(productSlug) &&
+    Boolean(resolvedSlug) &&
+    resolvedSlug !== productSlug &&
+    resolvedSlug?.toLowerCase() === productSlug.toLowerCase()
+  );
+}
+
+function parseRouteProductNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const normalized = value.replace(/,/g, '').trim();
+    if (!normalized) {
+      return null;
+    }
+
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+}
+
+const PRODUCT_CONDITIONS = ['new', 'used', 'open_box', 'refurbished'] as const;
+
+function normalizeRouteProductCondition(
+  value: unknown
+): ProductCondition | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const normalized = value.trim();
+  return PRODUCT_CONDITIONS.includes(
+    normalized as (typeof PRODUCT_CONDITIONS)[number]
+  )
+    ? (normalized as ProductCondition)
+    : null;
+}
+
+function getLcpRouteLegacyPrices(cachedProduct: CachedProductLcpHint) {
+  const price = parseRouteProductNumber(cachedProduct.price);
+  const compareAtPrice = parseRouteProductNumber(
+    cachedProduct.compare_at_price
+  );
+  const hasSale =
+    price !== null && compareAtPrice !== null && compareAtPrice > price;
+
+  return {
+    basePrice: hasSale ? compareAtPrice : (price ?? compareAtPrice),
+    compareAtPrice,
+    price: price ?? compareAtPrice,
+    salePrice: hasSale ? price : null,
+  };
+}
+
+function mapCachedProductLcpOffers(
+  cachedProduct: CachedProductLcpHint
+): LcpRouteProduct['offers'] {
+  if (!Array.isArray(cachedProduct.offers)) {
+    return undefined;
+  }
+
+  const productCondition = normalizeRouteProductCondition(
+    cachedProduct.condition
+  );
+  const offers = cachedProduct.offers.flatMap((offer) => {
+    const condition = normalizeRouteProductCondition(offer?.condition);
+    const price = parseRouteProductNumber(offer?.price);
+
+    if (
+      offer?.status !== 'active' ||
+      !condition ||
+      condition === productCondition ||
+      price === null ||
+      price < 0
+    ) {
+      return [];
+    }
+
+    return [
+      {
+        id: offer.id,
+        condition,
+        price,
+        status: offer.status,
+        stock_quantity: parseRouteProductNumber(offer.stock_quantity) ?? 0,
+      },
+    ];
+  });
+
+  return offers.length > 0 ? offers : undefined;
+}
+
 function mapCachedProductLcpHintToRouteProduct(
   cachedProduct: CachedProductLcpHint
 ): LcpRouteProduct {
@@ -472,22 +602,41 @@ function mapCachedProductLcpHintToRouteProduct(
   const firstImage = cachedProduct.images?.[0];
   const primaryImage =
     typeof firstImage === 'string' ? firstImage : (firstImage?.url ?? '');
+  const legacyPrices = getLcpRouteLegacyPrices(cachedProduct);
+  const manageStock = cachedProduct.manage_stock ?? true;
+  const stockQuantity = parseRouteProductNumber(cachedProduct.stock_quantity);
+  const canUseDenormalizedVariantPrices = manageStock === false;
 
   return {
+    base_price: legacyPrices.basePrice,
     brand: cachedProduct.brand,
+    canonical_url: cachedProduct.canonical_url,
     categories: primaryCategory,
     category: primaryCategory?.name ?? cachedProduct.category,
     category_slug: primaryCategory?.slug,
-    condition: cachedProduct.condition,
+    condition: cachedProduct.condition ?? undefined,
+    compare_at_price: legacyPrices.compareAtPrice,
+    description: cachedProduct.description,
     id: cachedProduct.id,
     image: primaryImage,
     imageLarge: primaryImage,
-    manage_stock: cachedProduct.manage_stock,
+    keywords: cachedProduct.keywords,
+    manage_stock: manageStock,
+    max_variant_price: canUseDenormalizedVariantPrices
+      ? parseRouteProductNumber(cachedProduct.max_variant_price)
+      : null,
+    meta_description: cachedProduct.meta_description,
+    meta_title: cachedProduct.meta_title,
+    min_variant_price: canUseDenormalizedVariantPrices
+      ? parseRouteProductNumber(cachedProduct.min_variant_price)
+      : null,
     name: cachedProduct.name,
-    price: cachedProduct.price,
+    offers: mapCachedProductLcpOffers(cachedProduct),
+    price: legacyPrices.price,
+    sale_price: legacyPrices.salePrice,
     schema_markup: cachedProduct.schema_markup,
     slug: cachedProduct.slug ?? cachedProduct.id,
-    stock_quantity: cachedProduct.stock_quantity,
+    stock_quantity: stockQuantity,
   };
 }
 
@@ -504,6 +653,14 @@ const getProduct = async (
     return null;
   }
 
+  return getProductForMerchant(merchant, categorySlug, productSlug);
+};
+
+const getProductForMerchant = async (
+  merchant: CachedMerchant,
+  categorySlug: string,
+  productSlug: string
+): Promise<CategoryProductResult> => {
   // 2. Get Product using the new cached function with full joins
   let product = await getCachedProductWithDetails(merchant.id, productSlug);
 
@@ -513,9 +670,6 @@ const getProduct = async (
   if (!product && productSlug !== productSlug.toLowerCase()) {
     const lowercaseSlug = productSlug.toLowerCase();
     product = await getCachedProductWithDetails(merchant.id, lowercaseSlug);
-    if (product) {
-      needsValuesRedirect = true;
-    }
   }
 
   if (!product) {
@@ -533,6 +687,11 @@ const getProduct = async (
 
     return null;
   }
+
+  needsValuesRedirect = shouldRedirectResolvedProductSlugValue(
+    productSlug,
+    product.slug
+  );
 
   // 3. Process category data
   interface ProductWithCategory {
@@ -652,17 +811,24 @@ async function getProductRouteControl(
       merchant.id,
       productSlug.toLowerCase()
     );
-    needsValuesRedirect = Boolean(cachedProduct);
   }
 
   if (!cachedProduct) {
-    const result = await getProduct(storeSlug, categorySlug, productSlug);
+    const result = await getProductForMerchant(
+      merchant,
+      categorySlug,
+      productSlug
+    );
     return result
       ? { result, loadProductResult: () => Promise.resolve(result) }
       : null;
   }
 
   const product = mapCachedProductLcpHintToRouteProduct(cachedProduct);
+  needsValuesRedirect = shouldRedirectResolvedProductSlugValue(
+    productSlug,
+    product.slug
+  );
   const loadProductResult = () =>
     getProduct(storeSlug, categorySlug, productSlug);
 
@@ -680,34 +846,10 @@ async function getProductRouteControl(
   };
 }
 
-export async function generateMetadata({
-  params,
-}: PageProps): Promise<Metadata> {
-  const { slug, category, productSlug } = await params;
-  if (!isValidMerchantIdentifier(slug)) {
-    notFound();
-  }
-  const result = await getProduct(slug, category, productSlug);
-
-  if (!result) {
-    notFound();
-  }
-
-  // Don't redirect from generateMetadata — Next.js can't change HTTP status
-  // from here and falls back to an HTML <meta refresh>, which Google indexes
-  // as "Excluded by 'noindex' tag". The page component below runs the same
-  // permanentRedirect() before any HTML streams, producing a real HTTP 308.
-  // Return bare, noindex metadata here as a safety net for the race.
-  if (!('product' in result)) {
-    return { robots: { index: false, follow: false } };
-  }
-
-  const { product, merchant, categoryMismatch, needsValuesRedirect } = result;
-
-  if (categoryMismatch || needsValuesRedirect) {
-    return { robots: { index: false, follow: false } };
-  }
-
+function buildCategoryProductMetadata(
+  product: LcpRouteProduct,
+  merchant: CachedMerchant
+): Metadata {
   const baseUrl = buildStoreUrl(merchant);
 
   const canonicalUrl = getValidatedProductUrl(product, baseUrl, merchant.slug);
@@ -724,14 +866,17 @@ export async function generateMetadata({
     currency,
     country: merchant.country,
   });
-  const seoDescription = generateMetaDescription(
-    product.meta_description || priceSeoCopy.description,
-    160,
-    {
-      minLength: 110,
-      fallback: priceSeoCopy.description,
-    }
-  );
+  const productDescriptionFallback =
+    product.description || priceSeoCopy.description;
+  const seoDescriptionSource =
+    product.meta_description ||
+    (priceSeoCopy.priceText
+      ? priceSeoCopy.description
+      : productDescriptionFallback);
+  const seoDescription = generateMetaDescription(seoDescriptionSource, 160, {
+    minLength: 110,
+    fallback: productDescriptionFallback,
+  });
   const socialMetadata = getStorefrontProductSocialMetadata(
     baseUrl,
     product,
@@ -753,7 +898,7 @@ export async function generateMetadata({
   return {
     title: metadataTitle,
     description: seoDescription,
-    keywords: product.keywords,
+    keywords: product.keywords ?? undefined,
     alternates: {
       canonical: canonicalUrl,
     },
@@ -784,6 +929,43 @@ export async function generateMetadata({
   };
 }
 
+export async function generateMetadata({
+  params,
+}: PageProps): Promise<Metadata> {
+  const { slug, category, productSlug } = await params;
+  if (!isValidMerchantIdentifier(slug)) {
+    notFound();
+  }
+  const routeControl = await getProductRouteControl(
+    slug,
+    category,
+    productSlug
+  );
+
+  if (!routeControl) {
+    notFound();
+  }
+
+  // Don't redirect from generateMetadata — Next.js can't change HTTP status
+  // from here and falls back to an HTML <meta refresh>, which Google indexes
+  // as "Excluded by 'noindex' tag". The page component below runs the same
+  // permanentRedirect() before any HTML streams, producing a real HTTP 308.
+  // Return bare, noindex metadata here as a safety net for the race.
+  const { result } = routeControl;
+
+  if (!('product' in result)) {
+    return { robots: { index: false, follow: false } };
+  }
+
+  const { product, merchant, categoryMismatch, needsValuesRedirect } = result;
+
+  if (categoryMismatch || needsValuesRedirect) {
+    return { robots: { index: false, follow: false } };
+  }
+
+  return buildCategoryProductMetadata(product, merchant);
+}
+
 interface CategoryProductPageContentProps {
   renderMode?: 'full' | 'belowFold';
   slug: string;
@@ -793,7 +975,7 @@ interface CategoryProductPageContentProps {
 
 type CategoryProductPageCriticalCommerceControlsProps =
   CategoryProductPageContentProps & {
-    basePath: '' | `/${string}`;
+    basePathPromise: Promise<'' | `/${string}`>;
   };
 
 async function getRenderableCategoryProductResult({
@@ -827,16 +1009,19 @@ async function getRenderableCategoryProductResult({
 }
 
 async function CategoryProductPageCriticalCommerceControls({
-  basePath,
+  basePathPromise,
   slug,
   searchParams,
   productResultPromise,
 }: Omit<CategoryProductPageCriticalCommerceControlsProps, 'renderMode'>) {
-  const { product } = await getRenderableCategoryProductResult({
-    slug,
-    searchParams,
-    productResultPromise,
-  });
+  const [basePath, { product }] = await Promise.all([
+    basePathPromise,
+    getRenderableCategoryProductResult({
+      slug,
+      searchParams,
+      productResultPromise,
+    }),
+  ]);
   const criticalProduct = buildOgabasseyPdpCriticalProduct(product);
   const cartHref = `${basePath}/cart` as Route;
 
@@ -940,7 +1125,14 @@ async function CategoryProductPageContent({
     merchant?.country || 'NG',
     merchant?.logo_url,
     trustProfile,
-    { productUrl }
+    {
+      acceptedPaymentMethods: buildStorefrontAcceptedPaymentMethods(merchant, {
+        korapayConfigured: isKorapayConfigured(),
+        paystackConfigured: isPaystackConfigured(),
+        currency,
+      }),
+      productUrl,
+    }
   );
 
   // Generate breadcrumb schema with category
@@ -1082,7 +1274,6 @@ export default async function CategoryProductPage({
   }
 
   productResultPromise = getProductResultPromise();
-  const criticalBasePath = await criticalBasePathPromise;
 
   return (
     <>
@@ -1092,12 +1283,13 @@ export default async function CategoryProductPage({
       {criticalProduct ? (
         <>
           <OgabasseyPdpCriticalShell
-            basePath={criticalBasePath}
+            basePath={getCategoryProductBasePath(slug)}
+            basePathPromise={criticalBasePathPromise}
             product={criticalProduct}
           >
             <Suspense fallback={null}>
               <CategoryProductPageCriticalCommerceControls
-                basePath={criticalBasePath}
+                basePathPromise={criticalBasePathPromise}
                 slug={slug}
                 searchParams={Promise.resolve(resolvedSearchParams)}
                 productResultPromise={productResultPromise}

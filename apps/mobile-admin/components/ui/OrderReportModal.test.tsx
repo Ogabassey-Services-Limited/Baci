@@ -10,9 +10,13 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('@react-native-vector-icons/ionicons', () => ({
-  Ionicons: ({ name }: { name: string }) => <span>{name}</span>,
+  Ionicons: ({ name }: { name: string }) => (
+    <span aria-hidden="true" data-icon={name} />
+  ),
 
-  default: ({ name }: { name: string }) => <span>{name}</span>,
+  default: ({ name }: { name: string }) => (
+    <span aria-hidden="true" data-icon={name} />
+  ),
   __esModule: true,
 }));
 
@@ -50,7 +54,7 @@ vi.mock('@/utils/format', () => ({
 }));
 
 vi.mock('react-native', () => ({
-  ActivityIndicator: () => <span>loading</span>,
+  ActivityIndicator: () => <output aria-label="loading" />,
   Dimensions: {
     get: () => ({ height: 800, width: 400 }),
   },
@@ -67,17 +71,15 @@ vi.mock('react-native', () => ({
     children?: ReactNode;
     onPress?: (event: { stopPropagation: () => void }) => void;
   }) => (
-    <div
+    <button
       aria-label={accessibilityLabel}
-      onKeyDown={() => undefined}
       onClick={(event) =>
         onPress?.({ stopPropagation: () => event.stopPropagation() })
       }
-      role="button"
-      tabIndex={0}
+      type="button"
     >
       {children}
-    </div>
+    </button>
   ),
   StyleSheet: {
     create: (styles: Record<string, unknown>) => styles,

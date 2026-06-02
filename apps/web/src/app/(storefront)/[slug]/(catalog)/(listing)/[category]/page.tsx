@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { connection } from 'next/server';
 import { Suspense } from 'react';
 import { CatalogListingLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
 import {
@@ -155,10 +156,18 @@ export async function generateMetadata({
   };
 }
 
+async function CategoryListingRuntime(props: PageProps) {
+  // Keep tenant/domain listing work request-bound while the page prerenders a
+  // Suspense fallback shell. Cache Components rejects route-level dynamic flags.
+  await connection();
+
+  return <CategoryPageContent {...props} />;
+}
+
 export default function CategoryPageRoute(props: PageProps) {
   return (
     <Suspense fallback={<CatalogListingLoading />}>
-      <CategoryPageContent {...props} />
+      <CategoryListingRuntime {...props} />
     </Suspense>
   );
 }

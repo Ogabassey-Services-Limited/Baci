@@ -1,13 +1,11 @@
 import bundleAnalyzer from '@next/bundle-analyzer';
 import type { NextConfig } from 'next';
+import { STOREFRONT_METADATA_BLOCKING_BOT_USER_AGENT_REGEX } from './apps/web/src/config/storefront-metadata-cache-bots';
 
 const withBundleAnalyzer = bundleAnalyzer({
   enabled: process.env.ANALYZE === 'true',
   openAnalyzer: false,
 });
-
-const HTML_LIMITED_BOTS =
-  /[\w-]+-Google|Google-[\w-]+|Chrome-Lighthouse|Slurp|DuckDuckBot|baiduspider|yandex|sogou|bitlybot|tumblr|vkShare|quora link preview|redditbot|ia_archiver|Bingbot|BingPreview|applebot|facebookexternalhit|facebookcatalog|Twitterbot|LinkedInBot|Slackbot|Discordbot|WhatsApp|SkypeUriPreview|Yeti|googleweblight|AhrefsBot|AhrefsSiteAudit/i;
 
 const nextConfig: NextConfig = {
   // Enable React Compiler for automatic memoization (Next.js 16 stable)
@@ -153,9 +151,10 @@ const nextConfig: NextConfig = {
   // Enable typed routes for compile-time validation of Link hrefs
   typedRoutes: true,
 
-  // Ahrefs Site Audit expects metadata inside the initial <head>; include the
-  // default Next.js HTML-limited bots plus Ahrefs' crawlers.
-  htmlLimitedBots: HTML_LIMITED_BOTS,
+  // Keep this exact matcher in sync with proxy cache bucketing. If Next streams
+  // metadata for a UA that the proxy buckets as metadata-blocking, Vercel can
+  // replay a cached shell into the wrong route slot and trigger resume mismatch.
+  htmlLimitedBots: STOREFRONT_METADATA_BLOCKING_BOT_USER_AGENT_REGEX,
 
   // Security headers
   headers() {

@@ -23,13 +23,6 @@ function getSafeHttpUrl(value?: string): string | undefined {
   return sanitizeUrl(value) || undefined;
 }
 
-function buildRegistrationLine(data: MerchantRegistrationInfo): string {
-  const parts: string[] = [];
-  if (data.merchantRcNumber) parts.push(`RC: ${data.merchantRcNumber}`);
-  if (data.merchantTin) parts.push(`TIN: ${data.merchantTin}`);
-  return parts.join(' &middot; ');
-}
-
 function buildEscapedRegistrationLine(data: MerchantRegistrationInfo): string {
   const parts: string[] = [];
   if (data.merchantRcNumber) {
@@ -102,13 +95,13 @@ export function generateOrderConfirmationEmail(
   </style>
 </head>
 <body style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f1f5f9; -webkit-font-smoothing: antialiased;">
-  
+
   <!-- Main Container -->
   <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f1f5f9; padding: 40px 0;">
     <tr>
       <td align="center">
         <table border="0" cellpadding="0" cellspacing="0" width="600" class="container" style="background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);">
-          
+
           <!-- Header -->
           <tr>
             <td style="background-color: #0f172a; padding: 40px 40px;">
@@ -190,7 +183,7 @@ export function generateOrderConfirmationEmail(
                     <p style="margin: 0; font-size: 15px; color: #334155; line-height: 1.5; font-weight: 600;">${data.customerName}</p>
                     <p style="margin: 4px 0 0 0; font-size: 14px; color: #64748b; line-height: 1.5;">${data.shippingAddress.phone}</p>
                   </td>
-                  
+
                   <!-- Shipping -->
                   <td valign="top" class="columns" width="48%" style="padding-left: 2%;">
                     <h3 style="margin: 0 0 12px 0; font-size: 14px; text-transform: uppercase; color: #94a3b8; letter-spacing: 0.5px;">Shipping Info</h3>
@@ -221,7 +214,7 @@ export function generateOrderConfirmationEmail(
                 Questions? Reply to this email or contact us at <a href="${data.merchantUrl}" style="color: #ca8a04; text-decoration: none;">${data.merchantName}</a>
               </p>
               ${(() => {
-                const reg = buildRegistrationLine(data);
+                const reg = buildEscapedRegistrationLine(data);
                 return reg
                   ? `<p style="margin: 8px 0 0 0; font-size: 12px; color: #94a3b8;">${reg}</p>`
                   : '';
@@ -373,7 +366,7 @@ export function generatePaymentReminderEmail(
 </head>
 <body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f4f8; line-height: 1.6;">
   <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
-    
+
     <!-- Header with Gradient -->
     <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 30px; text-align: center;">
       <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 700; letter-spacing: -0.5px;">
@@ -389,9 +382,9 @@ export function generatePaymentReminderEmail(
       <p style="color: #374151; font-size: 16px; margin: 0 0 24px 0;">
         Hi <strong>${data.customerName}</strong>,
       </p>
-      
+
       <p style="color: #6b7280; font-size: 15px; margin: 0 0 24px 0;">
-        We noticed your order <strong>#${data.orderNumber}</strong> is awaiting payment. 
+        We noticed your order <strong>#${data.orderNumber}</strong> is awaiting payment.
         Don't miss out on your items—complete your purchase with just one click!
       </p>
 
@@ -452,7 +445,7 @@ export function generatePaymentReminderEmail(
         Thank you for shopping with <strong>${data.merchantName}</strong>
       </p>
       ${(() => {
-        const reg = buildRegistrationLine(data);
+        const reg = buildEscapedRegistrationLine(data);
         return reg
           ? `<p style="margin: 0 0 8px 0; font-size: 12px; color: #9ca3af;">${reg}</p>`
           : '';
@@ -552,7 +545,7 @@ export function generatePaymentReceiptEmail(data: PaymentReceiptData): string {
 </head>
 <body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f4f8; line-height: 1.6;">
   <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
-    
+
     <!-- Header with Green Gradient for Success -->
     <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 40px 30px; text-align: center;">
       <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 700; letter-spacing: -0.5px;">
@@ -568,7 +561,7 @@ export function generatePaymentReceiptEmail(data: PaymentReceiptData): string {
       <p style="color: #374151; font-size: 16px; margin: 0 0 24px 0;">
         Hi <strong>${data.customerName}</strong>,
       </p>
-      
+
       <p style="color: #6b7280; font-size: 15px; margin: 0 0 24px 0;">
         We have successfully received a payment of <strong>${formatEmailMoney(data.amountPaidNow, data.currency)}</strong> for your order <strong>#${data.orderNumber}</strong>.
       </p>
@@ -578,7 +571,7 @@ export function generatePaymentReceiptEmail(data: PaymentReceiptData): string {
         <div style="background: #1a1a2e; padding: 14px 16px;">
           <span style="color: #fff; font-weight: 600; font-size: 14px;">Order Status: ${data.balanceDue <= 0 ? 'Fully Paid' : 'Partially Paid'}</span>
         </div>
-        
+
         <div style="padding: 20px;">
           <table style="width: 100%;">
             <tr>
@@ -624,7 +617,7 @@ export function generatePaymentReceiptEmail(data: PaymentReceiptData): string {
         Thank you for shopping with <strong>${data.merchantName}</strong>
       </p>
       ${(() => {
-        const reg = buildRegistrationLine(data);
+        const reg = buildEscapedRegistrationLine(data);
         return reg
           ? `<p style="margin: 0 0 8px 0; font-size: 12px; color: #9ca3af;">${reg}</p>`
           : '';
@@ -646,7 +639,7 @@ export function generatePaymentReceiptEmail(data: PaymentReceiptData): string {
 export function generatePaymentReceiptText(data: PaymentReceiptData): string {
   return `
 Payment Receipt - Order #${data.orderNumber}
-    
+
 Hi ${data.customerName},
 
 We have received a payment of ${formatEmailMoney(data.amountPaidNow, data.currency)} for your order.
@@ -788,9 +781,9 @@ export function generateOrderShippedEmail(data: OrderShippedData): string {
   </style>
 </head>
 <body style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f1f5f9; -webkit-font-smoothing: antialiased;">
-  
+
   <div style="max-width: 600px; margin: 40px auto; background: #fff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
-    
+
     <!-- Header - Green/Success Theme -->
     <div style="background: linear-gradient(135deg, #059669 0%, #047857 100%); padding: 40px 30px; text-align: center;">
       <div style="font-size: 48px; margin-bottom: 16px;">🚚</div>
@@ -855,7 +848,7 @@ export function generateOrderShippedEmail(data: OrderShippedData): string {
       </p>
       ${supportEmailHtml}
       ${(() => {
-        const reg = buildRegistrationLine(data);
+        const reg = buildEscapedRegistrationLine(data);
         return reg
           ? `<p style="margin: 0 0 8px 0; font-size: 12px; color: #9ca3af;">${reg}</p>`
           : '';
@@ -1004,9 +997,9 @@ export function generateOrderDeliveredEmail(data: OrderDeliveredData): string {
   </style>
 </head>
 <body style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f1f5f9; -webkit-font-smoothing: antialiased;">
-  
+
   <div style="max-width: 600px; margin: 40px auto; background: #fff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
-    
+
     <!-- Header - Celebration Theme -->
     <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 40px 30px; text-align: center;">
       <div style="font-size: 56px; margin-bottom: 16px;">🎉</div>
@@ -1058,7 +1051,7 @@ export function generateOrderDeliveredEmail(data: OrderDeliveredData): string {
       </p>
       ${data.supportEmail ? `<p style="margin: 0 0 8px 0; font-size: 13px; color: #9ca3af;">Questions? Contact us at ${data.supportEmail}</p>` : ''}
       ${(() => {
-        const reg = buildRegistrationLine(data);
+        const reg = buildEscapedRegistrationLine(data);
         return reg
           ? `<p style="margin: 0 0 8px 0; font-size: 12px; color: #9ca3af;">${reg}</p>`
           : '';
@@ -1216,9 +1209,9 @@ export function generateOrderCancellationEmail(
   </style>
 </head>
 <body style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f1f5f9; -webkit-font-smoothing: antialiased;">
-  
+
   <div style="max-width: 600px; margin: 40px auto; background: #fff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
-    
+
     <!-- Header - Muted/Cancelled Theme -->
     <div style="background: linear-gradient(135deg, #64748b 0%, #475569 100%); padding: 40px 30px; text-align: center;">
       <div style="font-size: 48px; margin-bottom: 16px;">❌</div>
@@ -1278,7 +1271,7 @@ export function generateOrderCancellationEmail(
       </p>
       ${data.supportEmail ? `<p style="margin: 0 0 8px 0; font-size: 13px; color: #9ca3af;">Contact: ${data.supportEmail}</p>` : ''}
       ${(() => {
-        const reg = buildRegistrationLine(data);
+        const reg = buildEscapedRegistrationLine(data);
         return reg
           ? `<p style="margin: 0 0 8px 0; font-size: 12px; color: #9ca3af;">${reg}</p>`
           : '';
@@ -1381,6 +1374,11 @@ export function generateVtuTokenReceiptEmail(
   data: VtuTokenReceiptData
 ): string {
   const isTokenReady = Boolean(data.voucherPin);
+  const expectsToken =
+    data.type === 'electricity' ||
+    data.type === 'cable_tv' ||
+    data.type === 'betting';
+  const isTokenPending = expectsToken && !isTokenReady;
   const safeMerchantUrl = getSafeHttpUrl(data.merchantUrl) ?? '#';
   const safeMerchantHref = escapeHtml(safeMerchantUrl);
   const merchantName = escapeHtml(data.merchantName);
@@ -1405,7 +1403,7 @@ export function generateVtuTokenReceiptEmail(
             ? 'Airtime Top-up'
             : 'Data Top-up';
 
-  const accentColor = isTokenReady ? '#ca8a04' : '#10b981'; // Gold for token, Emerald for direct success
+  const accentColor = isTokenReady || expectsToken ? '#ca8a04' : '#10b981';
   const iconEmoji =
     data.type === 'electricity'
       ? '⚡'
@@ -1415,8 +1413,9 @@ export function generateVtuTokenReceiptEmail(
           ? '🎮'
           : '📱';
 
-  const tokenSectionHtml = isTokenReady
-    ? `
+  const tokenSectionHtml = (() => {
+    if (isTokenReady) {
+      return `
     <!-- Token Pin Card -->
     <div style="background-color: #0f172a; border-radius: 12px; padding: 24px; text-align: center; margin-bottom: 28px; border: 2px dashed #ca8a04; box-shadow: 0 4px 10px rgba(0,0,0,0.15);">
       <div style="font-size: 12px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 10px;">
@@ -1429,8 +1428,27 @@ export function generateVtuTokenReceiptEmail(
         Enter this token directly into your meter or decoder to activate.
       </p>
     </div>
-  `
-    : `
+  `;
+    }
+
+    if (expectsToken) {
+      return `
+    <!-- Token Pending Card -->
+    <div style="background-color: #fffbeb; border-radius: 12px; padding: 24px; text-align: center; margin-bottom: 28px; border: 1px solid #fde68a;">
+      <div style="font-size: 12px; font-weight: 700; color: #92400e; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 10px;">
+        TOKEN FULFILLMENT IN PROGRESS
+      </div>
+      <div style="font-size: 22px; font-weight: 800; color: #b45309; letter-spacing: 0.5px;">
+        Payment Received
+      </div>
+      <p style="margin: 8px 0 0 0; color: #92400e; font-size: 14px; line-height: 1.5;">
+        Your payment was successful. We are still retrieving the service token and will update this receipt once it is available.
+      </p>
+    </div>
+  `;
+    }
+
+    return `
     <!-- Direct Success Card -->
     <div style="background-color: #f0fdf4; border-radius: 12px; padding: 24px; text-align: center; margin-bottom: 28px; border: 1px solid #bbf7d0;">
       <div style="font-size: 12px; font-weight: 700; color: #166534; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 10px;">
@@ -1444,6 +1462,7 @@ export function generateVtuTokenReceiptEmail(
       </p>
     </div>
   `;
+  })();
 
   const detailsRows = [
     { label: 'Biller / Service', value: providerLabel },
@@ -1473,6 +1492,17 @@ export function generateVtuTokenReceiptEmail(
   `
     )
     .join('');
+  const headerTitle = isTokenReady
+    ? 'Token Delivery'
+    : isTokenPending
+      ? 'Token Pending'
+      : 'Receipt Confirmation';
+  const headerSubtitle = isTokenPending
+    ? 'Your payment was received and token fulfillment is still in progress'
+    : `Your ${typeLabel.toLowerCase()} is ready`;
+  const introHtml = isTokenPending
+    ? `Thank you for your purchase from <strong>${merchantName}</strong>. Your payment was successful and we're still retrieving the service token.`
+    : `Thank you for your purchase from <strong>${merchantName}</strong>. Your payment was verified successfully and your utility vend request has been fulfilled.`;
 
   return `
 <!DOCTYPE html>
@@ -1488,12 +1518,12 @@ export function generateVtuTokenReceiptEmail(
   </style>
 </head>
 <body style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f1f5f9; -webkit-font-smoothing: antialiased;">
-  
+
   <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f1f5f9; padding: 40px 0;">
     <tr>
       <td align="center">
         <table border="0" cellpadding="0" cellspacing="0" width="550" class="container" style="background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.05);">
-          
+
           <!-- Banner / Header -->
           <tr>
             <td style="background-color: #0f172a; padding: 36px 30px; border-bottom: 4px solid ${accentColor};">
@@ -1510,9 +1540,9 @@ export function generateVtuTokenReceiptEmail(
                   <td colspan="2" style="padding-top: 24px;">
                     <div style="font-size: 32px; margin-bottom: 8px;">${iconEmoji}</div>
                     <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 700; line-height: 1.2;">
-                      ${isTokenReady ? 'Token Delivery' : 'Receipt Confirmation'}
+                      ${headerTitle}
                     </h1>
-                    <p style="margin: 6px 0 0 0; color: #94a3b8; font-size: 15px;">Your ${typeLabel.toLowerCase()} is ready</p>
+                    <p style="margin: 6px 0 0 0; color: #94a3b8; font-size: 15px;">${headerSubtitle}</p>
                   </td>
                 </tr>
               </table>
@@ -1526,7 +1556,7 @@ export function generateVtuTokenReceiptEmail(
                 Hi <strong>${customerName}</strong>,
               </p>
               <p style="margin: 0 0 24px 0; font-size: 15px; color: #475569; line-height: 1.6;">
-                Thank you for your purchase from <strong>${merchantName}</strong>. Your payment was verified successfully and your utility vend request has been fulfilled.
+                ${introHtml}
               </p>
 
               ${tokenSectionHtml}
@@ -1535,7 +1565,7 @@ export function generateVtuTokenReceiptEmail(
               <h3 style="margin: 0 0 12px 0; font-size: 13px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.8px;">
                 Transaction Details
               </h3>
-              
+
               <div style="background-color: #f8fafc; border-radius: 8px; padding: 8px 16px; border: 1px solid #e2e8f0; margin-bottom: 24px;">
                 <table border="0" cellpadding="0" cellspacing="0" width="100%">
                   <tbody>
@@ -1582,6 +1612,11 @@ export function generateVtuTokenReceiptEmail(
  */
 export function generateVtuTokenReceiptText(data: VtuTokenReceiptData): string {
   const isTokenReady = Boolean(data.voucherPin);
+  const expectsToken =
+    data.type === 'electricity' ||
+    data.type === 'cable_tv' ||
+    data.type === 'betting';
+  const isTokenPending = expectsToken && !isTokenReady;
   const typeLabel =
     data.type === 'electricity'
       ? 'Electricity Token'
@@ -1595,7 +1630,9 @@ export function generateVtuTokenReceiptText(data: VtuTokenReceiptData): string {
 
   const tokenLine = isTokenReady
     ? `YOUR PREPAID TOKEN PIN: ${data.voucherPin}\n(Enter this token directly into your meter or decoder to activate.)\n`
-    : `Status: Successful (Directly credited to your account. No PIN entry required.)\n`;
+    : expectsToken
+      ? 'Status: Payment received. Token fulfillment is still in progress and will be updated once available.\n'
+      : `Status: Successful (Directly credited to your account. No PIN entry required.)\n`;
 
   const customerIdLabel =
     data.type === 'electricity'
@@ -1603,22 +1640,40 @@ export function generateVtuTokenReceiptText(data: VtuTokenReceiptData): string {
       : data.type === 'cable_tv'
         ? 'Smartcard / Decoder Number'
         : 'Target Account';
+  const customerName = escapeHtml(data.customerName);
+  const merchantName = escapeHtml(data.merchantName);
+  const providerLabel = escapeHtml(data.providerLabel);
+  const customerIdentifier = data.customerIdentifier
+    ? escapeHtml(data.customerIdentifier)
+    : null;
+  const contactPhone = data.phone_number ? escapeHtml(data.phone_number) : null;
+  const reference = escapeHtml(data.reference);
+  const voucherPin = data.voucherPin ? escapeHtml(data.voucherPin) : null;
+  const safeTokenLine = voucherPin
+    ? `YOUR PREPAID TOKEN PIN: ${voucherPin}\n(Enter this token directly into your meter or decoder to activate.)\n`
+    : tokenLine;
+  const heading = isTokenPending
+    ? `${typeLabel} Payment Received`
+    : `${typeLabel} Confirmation!`;
+  const introText = isTokenPending
+    ? `Thank you for your purchase from ${merchantName}. Your payment was successful and we're still retrieving the service token.`
+    : `Thank you for your purchase from ${merchantName}. Your payment has been verified and fulfilled.`;
 
   return `
-${typeLabel} Confirmation!
+${heading}
 
-Hi ${data.customerName},
+Hi ${customerName},
 
-Thank you for your purchase from ${data.merchantName}. Your payment has been verified and fulfilled.
+${introText}
 
-${tokenLine}
+${safeTokenLine}
 TRANSACTION DETAILS:
-- Biller/Service: ${data.providerLabel}
+- Biller/Service: ${providerLabel}
 - Product: ${typeLabel}
-${data.customerIdentifier ? `- ${customerIdLabel}: ${data.customerIdentifier}\n` : ''}${data.phone_number ? `- Contact Phone: ${data.phone_number}\n` : ''}- Total Amount: ${formatEmailMoney(data.amount, data.currency)}
-- Reference Number: ${data.reference}
+${customerIdentifier ? `- ${customerIdLabel}: ${customerIdentifier}\n` : ''}${contactPhone ? `- Contact Phone: ${contactPhone}\n` : ''}- Total Amount: ${formatEmailMoney(data.amount, data.currency)}
+- Reference Number: ${reference}
 
-If you have any questions, please contact ${data.merchantName} directly.
+If you have any questions, please contact ${merchantName} directly.
 
 ---
 Powered by Baci — AI E-commerce Platform

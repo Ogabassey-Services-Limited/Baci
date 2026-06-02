@@ -13,14 +13,14 @@ import {
 import { calculateCommerce, supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/auth-store';
 import {
+  getRedeemPointValidationError,
+  redemptionBalanceSnapshotKey,
+} from './loyalty-redemption-utils';
+import {
   type WalletQueryData,
   type WalletQueryKey,
   walletKeys,
 } from './wallet-query';
-import {
-  getRedeemPointValidationError,
-  redemptionBalanceSnapshotKey,
-} from './loyalty-redemption-utils';
 
 const RedeemLoyaltyRpcResponseSchema = z.discriminatedUnion('success', [
   z

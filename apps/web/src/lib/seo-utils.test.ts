@@ -5,6 +5,7 @@ import type { Product } from './products';
 import { safeJsonLdStringify } from './sanitize-json-ld';
 import {
   buildProductUrl,
+  buildStorefrontAcceptedPaymentMethods,
   generateBlogPostSchema,
   generateBreadcrumbSchema,
   generateCollectionPageSchema,
@@ -51,7 +52,226 @@ function makeTrustProfile(
   };
 }
 
+describe('buildStorefrontAcceptedPaymentMethods', () => {
+  it('derives only checkout-enabled payment methods for structured data', () => {
+    const methods = buildStorefrontAcceptedPaymentMethods(
+      {
+        country: 'NG',
+        paystack_subaccount_code: 'ACCT_test',
+        feature_settings: {
+          credit_direct_enabled: true,
+          credpal_enabled: true,
+          klump_enabled: false,
+          pay_on_delivery_enabled: true,
+        },
+      },
+      {
+        korapayConfigured: true,
+        paystackConfigured: true,
+        currency: 'NGN',
+      }
+    );
+
+    expect(methods).toEqual([
+      'Debit and credit card',
+      'USSD',
+      'Bank transfer',
+      'Pay on delivery',
+    ]);
+  });
+
+  it('does not claim Paystack methods when the storefront gate is disabled', () => {
+    const methods = buildStorefrontAcceptedPaymentMethods(
+      {
+        country: 'NG',
+        paystack_subaccount_code: 'ACCT_test',
+        feature_settings: {
+          paystack_enabled: false,
+        },
+      },
+      {
+        korapayConfigured: true,
+        paystackConfigured: true,
+        currency: 'NGN',
+      }
+    );
+
+    expect(methods).toEqual([]);
+  });
+
+  it('does not advertise payment methods that need additional checkout eligibility checks', () => {
+    const methods = buildStorefrontAcceptedPaymentMethods(
+      {
+        country: 'NG',
+        paystack_subaccount_code: 'ACCT_test',
+        feature_settings: {
+          credit_direct_enabled: true,
+          credpal_enabled: true,
+          juicyway_enabled: true,
+          korapay_enabled: true,
+          klump_enabled: true,
+        },
+      },
+      {
+        korapayConfigured: false,
+        paystackConfigured: true,
+        currency: 'NGN',
+      }
+    );
+
+    expect(methods).toEqual(['Debit and credit card', 'USSD', 'Bank transfer']);
+  });
+
+  it('omits Paystack-backed methods when Paystack is not configured', () => {
+    const methods = buildStorefrontAcceptedPaymentMethods(
+      {
+        country: 'NG',
+        paystack_subaccount_code: 'ACCT_test',
+        feature_settings: {
+          korapay_enabled: true,
+        },
+      },
+      {
+        korapayConfigured: true,
+        paystackConfigured: false,
+        currency: 'GHS',
+      }
+    );
+
+    expect(methods).toEqual(['Debit and credit card']);
+  });
+
+  it('omits Paystack-backed methods when the offer currency is not NGN', () => {
+    const methods = buildStorefrontAcceptedPaymentMethods(
+      {
+        country: 'NG',
+        paystack_subaccount_code: 'ACCT_test',
+      },
+      {
+        korapayConfigured: false,
+        paystackConfigured: true,
+        currency: 'GHS',
+      }
+    );
+
+    expect(methods).toEqual([]);
+  });
+
+  it('omits Korapay cards when Korapay is not configured', () => {
+    const methods = buildStorefrontAcceptedPaymentMethods(
+      {
+        country: 'GH',
+        feature_settings: {
+          korapay_enabled: true,
+        },
+      },
+      {
+        korapayConfigured: false,
+        paystackConfigured: true,
+        currency: 'GHS',
+      }
+    );
+
+    expect(methods).toEqual([]);
+  });
+
+  it('omits Korapay cards when the storefront currency is unsupported', () => {
+    const methods = buildStorefrontAcceptedPaymentMethods(
+      {
+        country: 'IN',
+        feature_settings: {
+          korapay_enabled: true,
+        },
+      },
+      {
+        korapayConfigured: true,
+        paystackConfigured: false,
+        currency: 'INR',
+      }
+    );
+
+    expect(methods).toEqual([]);
+  });
+});
+
 describe('generateProductSchema - ProductGroup for variant products', () => {
+  it('adds configured accepted payment methods to product offers', () => {
+    const schema = generateProductSchema(
+      makeProduct(),
+      'TestStore',
+      'NGN',
+      'NG',
+      undefined,
+      undefined,
+      {
+        acceptedPaymentMethods: [
+          'Bank transfer',
+          'Debit and credit card',
+          'Bank transfer',
+          ' ',
+        ],
+      }
+    );
+
+    expect(schema.offers).toMatchObject({
+      '@type': 'Offer',
+      acceptedPaymentMethod: ['Bank transfer', 'Debit and credit card'],
+    });
+  });
+
+  it('preserves accepted payment method text for JSON-LD serialization', () => {
+    const schema = generateProductSchema(
+      makeProduct(),
+      'TestStore',
+      'NGN',
+      'NG',
+      undefined,
+      undefined,
+      {
+        acceptedPaymentMethods: ['Pay by B&O card & wallet'],
+      }
+    );
+
+    const offers = schema.offers as Record<string, unknown>;
+    expect(offers.acceptedPaymentMethod).toEqual(['Pay by B&O card & wallet']);
+
+    const parsed = JSON.parse(safeJsonLdStringify(schema)) as Record<
+      string,
+      unknown
+    >;
+    expect(
+      (parsed.offers as Record<string, unknown>).acceptedPaymentMethod
+    ).toEqual(['Pay by B&O card & wallet']);
+  });
+
+  it('adds configured accepted payment methods to variant offers', () => {
+    const schema = generateProductSchema(
+      makeProduct({
+        variants: [
+          {
+            id: 'v1',
+            product_id: 'test-123',
+            merchant_id: 'm1',
+            attributes: { storage: '128GB' },
+            price_override: 90,
+            stock_quantity: 5,
+          },
+        ],
+      }),
+      'TestStore',
+      'NGN',
+      'NG',
+      undefined,
+      undefined,
+      { acceptedPaymentMethods: ['Pay on delivery'] }
+    );
+
+    const variants = schema.hasVariant as Record<string, unknown>[];
+    const offer = variants[0]?.offers as Record<string, unknown>;
+
+    expect(offer.acceptedPaymentMethod).toEqual(['Pay on delivery']);
+  });
+
   it('outputs @type Product when no variants', () => {
     const product = makeProduct();
     const schema = generateProductSchema(product, 'TestStore', 'USD', 'NG');
@@ -1091,6 +1311,86 @@ describe('generateBlogPostSchema', () => {
 
     expect(schema.image).toEqual([
       'https://cdn.ogabassey.com/media/merchant-1/blog/post/landscape_16x9.webp',
+    ]);
+  });
+
+  it('adds sanitized author and publisher sameAs identity links', () => {
+    const schema = generateBlogPostSchema({
+      ...baseBlogSchemaInput,
+      author: {
+        ...baseBlogSchemaInput.author,
+        sameAs: [
+          'https://www.linkedin.com/in/editor',
+          'javascript:alert(1)',
+          'https://www.linkedin.com/in/editor',
+        ],
+      },
+      publisher: {
+        ...baseBlogSchemaInput.publisher,
+        sameAs: ['https://www.instagram.com/ogabassey/'],
+      },
+    });
+
+    expect((schema.author as Record<string, unknown>).sameAs).toEqual([
+      'https://www.linkedin.com/in/editor',
+    ]);
+    expect((schema.publisher as Record<string, unknown>).sameAs).toEqual([
+      'https://www.instagram.com/ogabassey/',
+    ]);
+  });
+
+  it('preserves ampersands in blog sameAs URLs until JSON-LD serialization', () => {
+    const sameAsUrl = 'https://www.linkedin.com/in/editor?ref=a&source=b';
+    const schema = generateBlogPostSchema({
+      ...baseBlogSchemaInput,
+      author: {
+        ...baseBlogSchemaInput.author,
+        sameAs: [sameAsUrl],
+      },
+      publisher: {
+        ...baseBlogSchemaInput.publisher,
+        sameAs: [sameAsUrl],
+      },
+    });
+
+    expect((schema.author as Record<string, unknown>).sameAs).toEqual([
+      sameAsUrl,
+    ]);
+    expect((schema.publisher as Record<string, unknown>).sameAs).toEqual([
+      sameAsUrl,
+    ]);
+
+    const parsed = JSON.parse(safeJsonLdStringify(schema)) as Record<
+      string,
+      Record<string, unknown>
+    >;
+    expect(parsed.author.sameAs).toEqual([sameAsUrl]);
+    expect(parsed.publisher.sameAs).toEqual([sameAsUrl]);
+  });
+
+  it('ignores non-string and unsafe blog sameAs entries without crashing', () => {
+    const schema = generateBlogPostSchema({
+      ...baseBlogSchemaInput,
+      author: {
+        ...baseBlogSchemaInput.author,
+        sameAs: [
+          ' https://www.linkedin.com/in/editor ',
+          null,
+          42,
+          'javascript:alert(1)',
+        ],
+      },
+      publisher: {
+        ...baseBlogSchemaInput.publisher,
+        sameAs: [undefined, 'https://www.instagram.com/ogabassey/'],
+      },
+    });
+
+    expect((schema.author as Record<string, unknown>).sameAs).toEqual([
+      'https://www.linkedin.com/in/editor',
+    ]);
+    expect((schema.publisher as Record<string, unknown>).sameAs).toEqual([
+      'https://www.instagram.com/ogabassey/',
     ]);
   });
 

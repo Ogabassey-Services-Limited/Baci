@@ -4,15 +4,14 @@ interface UtilityFooterOffsetParams {
   keyboardHeight: number;
 }
 
-const KEYBOARD_FOOTER_GAP = 8;
-
 export function getUtilityFooterOffset({
+  bottomInset,
   isKeyboardVisible,
   keyboardHeight,
 }: UtilityFooterOffsetParams) {
-  if (!isKeyboardVisible) {
+  if (!isKeyboardVisible || keyboardHeight <= 0) {
     return 0;
   }
 
-  return Math.max(keyboardHeight + KEYBOARD_FOOTER_GAP, 0);
+  return Math.max(keyboardHeight - Math.max(bottomInset, 0), 0);
 }

@@ -4,6 +4,7 @@ import {
   normalizeProducts,
   type RawDbProduct,
 } from '@/lib/normalize-product';
+import { buildStorefrontProductListingDescription } from '@/lib/storefront-product-listing-description';
 import { createPublicClient } from '@/lib/supabase/public';
 
 interface StorefrontProductIndexOptions {
@@ -17,6 +18,28 @@ interface StorefrontProductIndexResult {
   products: NormalizedProduct[];
   totalCount: number;
   totalPages: number;
+}
+
+function getListingDescriptionCategory(product: RawDbProduct) {
+  const legacyCategory =
+    typeof product.category === 'string' ? product.category.trim() : '';
+  if (legacyCategory) {
+    return legacyCategory;
+  }
+
+  return (
+    product.product_categories?.find((entry) => entry.categories?.name)
+      ?.categories?.name ?? null
+  );
+}
+
+function getListingDescription(product: RawDbProduct) {
+  return (
+    buildStorefrontProductListingDescription({
+      ...product,
+      category: getListingDescriptionCategory(product),
+    }) || null
+  );
 }
 
 export async function getCachedStorefrontProductIndex(
@@ -56,7 +79,6 @@ export async function getCachedStorefrontProductIndex(
         merchant_id,
         name,
         slug,
-        description,
         price,
         compare_at_price,
         images,
@@ -95,7 +117,12 @@ export async function getCachedStorefrontProductIndex(
   return {
     errorMessage: null,
     hasError: false,
-    products: normalizeProducts((data || []) as unknown as RawDbProduct[]),
+    products: normalizeProducts(
+      ((data || []) as unknown as RawDbProduct[]).map((product) => ({
+        ...product,
+        description: getListingDescription(product),
+      }))
+    ),
     totalCount: count || 0,
     totalPages: Math.ceil((count || 0) / limit),
   };

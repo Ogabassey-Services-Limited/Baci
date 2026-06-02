@@ -3,6 +3,11 @@ import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
+  failedOrders: [] as Array<{ id: string }>,
+  screens: [] as Array<{
+    name: string;
+    options?: Record<string, unknown>;
+  }>,
   tabsProps: null as null | Record<string, unknown>,
 }));
 
@@ -58,13 +63,22 @@ vi.mock('expo-router', async () => {
     return React.createElement('div', { 'data-testid': 'tabs-root' }, children);
   };
 
-  Tabs.Screen = () => null;
+  Tabs.Screen = ({
+    name,
+    options,
+  }: {
+    name: string;
+    options?: Record<string, unknown>;
+  }) => {
+    mocks.screens.push({ name, options });
+    return null;
+  };
 
   return { Tabs };
 });
 
 vi.mock('@/hooks/useFailedOrders', () => ({
-  useFailedOrders: () => ({ data: [] }),
+  useFailedOrders: () => ({ data: mocks.failedOrders }),
 }));
 
 vi.mock('@/hooks/useTheme', () => ({
@@ -83,6 +97,8 @@ import TabLayout from '@/app/(admin)/(tabs)/_layout';
 
 describe('TabLayout', () => {
   beforeEach(() => {
+    mocks.failedOrders = [];
+    mocks.screens = [];
     mocks.tabsProps = null;
   });
 
@@ -109,5 +125,19 @@ describe('TabLayout', () => {
     const shellStyle =
       getByTestId('tab-shell').getAttribute('data-style') ?? '';
     expect(shellStyle).not.toContain('marginBottom');
+  });
+
+  it('places follow-up badges on Customers instead of Orders', () => {
+    mocks.failedOrders = [{ id: 'dropoff-1' }, { id: 'dropoff-2' }];
+
+    render(<TabLayout />);
+
+    const ordersScreen = mocks.screens.find((screen) => screen.name === 'orders');
+    const customersScreen = mocks.screens.find(
+      (screen) => screen.name === 'customers'
+    );
+
+    expect(ordersScreen?.options?.tabBarBadge).toBeUndefined();
+    expect(customersScreen?.options?.tabBarBadge).toBe(2);
   });
 });

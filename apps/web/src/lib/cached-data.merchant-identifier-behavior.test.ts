@@ -317,6 +317,42 @@ describe('cached-data getMerchantByIdentifier behavior', () => {
         )
       ).toBe(true);
     });
+
+    it('uses an allowlisted public-safe feature-settings projection for merchant lookups', async () => {
+      harness.mockMaybeSingle.mockResolvedValueOnce({
+        data: mockMerchant,
+        error: null,
+      });
+      harness.mockSingle.mockResolvedValueOnce({
+        data: null,
+        error: { code: 'PGRST116' },
+      });
+
+      await getMerchantByIdentifier('test-store');
+
+      const merchantProjection = harness.mockSelect.mock.calls
+        .map(([projection]) => String(projection))
+        .find(
+          (projection) =>
+            projection.includes('business_name') &&
+            projection.includes('published_config')
+        );
+      const featureSettingsProjection = harness.mockSelect.mock.calls
+        .map(([projection]) => String(projection))
+        .find((projection) => projection.includes('blog_enabled'));
+
+      expect(merchantProjection).toBeDefined();
+      expect(merchantProjection).not.toContain('merchant_feature_settings');
+      expect(featureSettingsProjection).toBeDefined();
+      expect(featureSettingsProjection).toContain('blog_enabled');
+      expect(featureSettingsProjection).toContain('shipping_insurance_enabled');
+      expect(featureSettingsProjection).toContain('custom_settings');
+      expect(merchantProjection).not.toContain('merchant_feature_settings(*)');
+      expect(featureSettingsProjection).not.toContain('facebook_capi_token');
+      expect(featureSettingsProjection).not.toContain('tiktok_access_token');
+      expect(featureSettingsProjection).not.toContain('ga4_api_secret');
+      expect(featureSettingsProjection).not.toContain('snapchat_capi_token');
+    });
   });
 
   describe('edge cases and boundary conditions', () => {

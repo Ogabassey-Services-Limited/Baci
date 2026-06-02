@@ -26,6 +26,8 @@ export interface JumiaBrandItem {
 
 type FetchStatus = 'idle' | 'loading' | 'success' | 'error';
 
+const BRAND_LISTBOX_ID = 'jumia-brand-selector-listbox';
+
 interface BrandSelectorProps {
   merchantId: string;
   value?: JumiaBrandItem | null;
@@ -118,6 +120,7 @@ export function JumiaBrandSelector({
         <Button
           variant="outline"
           role="combobox"
+          aria-controls={BRAND_LISTBOX_ID}
           aria-expanded={open}
           className="w-full justify-between"
         >
@@ -128,7 +131,7 @@ export function JumiaBrandSelector({
       <PopoverContent className="w-[300px] p-0" align="start">
         <Command>
           <CommandInput placeholder="Search brand..." />
-          <CommandList>
+          <CommandList id={BRAND_LISTBOX_ID}>
             {fetchStatus === 'error' && (
               <CommandEmpty>
                 <div className="p-4 text-sm text-center">
