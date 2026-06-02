@@ -45,6 +45,11 @@ api_query() {
     "$API"
 }
 
+api_query_payload() {
+  local body="$1"
+  api_query <<<"$body" > /dev/null
+}
+
 split_sql_statements() {
   node - "$1" <<'NODE'
 const fs = require('node:fs');
@@ -190,9 +195,9 @@ build_register_migration_query() {
      + "ARRAY[]::text[]);"'
 }
 
-applied_versions="$(jq -n '{query: "SELECT version FROM supabase_migrations.schema_migrations ORDER BY version"}' \
-  | api_query \
-  | jq -r '.[].version')"
+applied_versions_body="$(jq -n '{query: "SELECT version FROM supabase_migrations.schema_migrations ORDER BY version"}')"
+applied_versions_response="$(api_query <<<"$applied_versions_body")"
+applied_versions="$(jq -r '.[].version' <<<"$applied_versions_response")"
 
 applied_count_remote=$(printf '%s' "$applied_versions" | grep -c . || true)
 echo "Applied versions on remote: ${applied_count_remote}"
@@ -234,7 +239,7 @@ for file in "${sorted_files[@]}"; do
     while IFS= read -r statement_json; do
       statement_count=$((statement_count + 1))
       body="$(jq -n --argjson query "$statement_json" '{query: $query}')"
-      printf '%s' "$body" | api_query > /dev/null
+      api_query_payload "$body"
     done < <(split_sql_statements "$file")
 
     if [ "$statement_count" -eq 0 ]; then
@@ -245,7 +250,7 @@ for file in "${sorted_files[@]}"; do
     body="$(jq -n \
       --arg query "$(build_register_migration_query "$version" "$name")" \
       '{query: $query}')"
-    printf '%s' "$body" | api_query > /dev/null
+    api_query_payload "$body"
     echo "✓ applied:         $version  ${name}"
     applied_count=$((applied_count + 1))
     continue
@@ -271,7 +276,7 @@ for file in "${sorted_files[@]}"; do
      }'
   )"
 
-  printf '%s' "$body" | api_query > /dev/null
+  api_query_payload "$body"
   echo "✓ applied:         $version  ${name}"
   applied_count=$((applied_count + 1))
 done
