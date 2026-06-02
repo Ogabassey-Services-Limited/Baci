@@ -130,6 +130,23 @@ describe('bnpl-checkout helpers', () => {
       reason: 'untrusted',
       shouldStart: false,
     });
+
+    expect(
+      resolveBNPLDocumentNavigation({
+        apiBaseUrl: 'https://usebaci.com',
+        currentDocumentUrl:
+          'https://usebaci.com/ogabassey/checkout/bnpl?gateway=credit_direct&orderId=order-1',
+        isTopFrame: true,
+        requestUrl:
+          'https://evil.example/checkout/bnpl?gateway=credit_direct&orderId=order-1',
+        merchantSlug: 'evil.example',
+      })
+    ).toEqual({
+      nextUrl:
+        'https://evil.example/checkout/bnpl?gateway=credit_direct&orderId=order-1',
+      reason: 'untrusted',
+      shouldStart: false,
+    });
   });
 });
 

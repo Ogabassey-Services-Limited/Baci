@@ -191,7 +191,6 @@ export function isTrustedBNPLMerchantDomainHost(
 function isBaciReturnOrigin(
   targetUrl: URL,
   baseUrl: string,
-  merchantSlug?: string,
   merchantDomain?: string
 ) {
   try {
@@ -216,11 +215,6 @@ function isBaciReturnOrigin(
       if (isTrustedBNPLMerchantDomainHost(targetHost, merchantDomain)) {
         return true;
       }
-
-      // Some routes identify custom-domain storefronts by domain rather than slug.
-      if (isTrustedBNPLMerchantDomainHost(targetHost, merchantSlug)) {
-        return true;
-      }
     }
   } catch {
     return false;
@@ -232,7 +226,7 @@ function isBaciReturnOrigin(
 export function isTrustedBnplReturnUrl(
   targetUrl: string,
   baseUrl: string,
-  merchantSlug?: string,
+  _merchantSlug?: string,
   merchantDomain?: string
 ) {
   try {
@@ -242,12 +236,7 @@ export function isTrustedBnplReturnUrl(
       return false;
     }
 
-    return isBaciReturnOrigin(
-      parsedTargetUrl,
-      baseUrl,
-      merchantSlug,
-      merchantDomain
-    );
+    return isBaciReturnOrigin(parsedTargetUrl, baseUrl, merchantDomain);
   } catch {
     return false;
   }
@@ -256,7 +245,7 @@ export function isTrustedBnplReturnUrl(
 export function isAllowedBnplPopupUrl(
   targetUrl: string,
   baseUrl: string,
-  merchantSlug?: string,
+  _merchantSlug?: string,
   merchantDomain?: string
 ) {
   try {
@@ -268,7 +257,7 @@ export function isAllowedBnplPopupUrl(
 
     return (
       BNPL_PROVIDER_POPUP_ORIGINS.has(parsedTargetUrl.origin) ||
-      isBaciReturnOrigin(parsedTargetUrl, baseUrl, merchantSlug, merchantDomain)
+      isBaciReturnOrigin(parsedTargetUrl, baseUrl, merchantDomain)
     );
   } catch {
     return false;

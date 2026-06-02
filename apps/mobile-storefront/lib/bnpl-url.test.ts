@@ -91,6 +91,13 @@ describe('bnpl-url', () => {
         'ogabassey.com'
       )
     ).toBe(false);
+    expect(
+      isTrustedBnplReturnUrl(
+        'https://evil.example/order-success?reference=forged',
+        'https://usebaci.com',
+        'evil.example'
+      )
+    ).toBe(false);
   });
 
   it('allows provider and Baci return popup URLs only', () => {
@@ -122,6 +129,7 @@ describe('bnpl-url', () => {
       isAllowedBnplPopupUrl(
         'https://merchant.example.com/order-success',
         'https://usebaci.com',
+        'merchant',
         'merchant.example.com'
       )
     ).toBe(true);
@@ -129,6 +137,7 @@ describe('bnpl-url', () => {
       isAllowedBnplPopupUrl(
         'https://www.merchant.example.com/order-success',
         'https://usebaci.com',
+        'merchant',
         'merchant.example.com'
       )
     ).toBe(true);
@@ -136,6 +145,7 @@ describe('bnpl-url', () => {
       isAllowedBnplPopupUrl(
         'https://checkout.merchant.example.com/order-success',
         'https://usebaci.com',
+        'merchant',
         'merchant.example.com'
       )
     ).toBe(false);
@@ -151,6 +161,7 @@ describe('bnpl-url', () => {
       isAllowedBnplPopupUrl(
         'https://attackmerchant.example.com/order-success',
         'https://usebaci.com',
+        'merchant',
         'merchant.example.com'
       )
     ).toBe(false);
@@ -158,6 +169,7 @@ describe('bnpl-url', () => {
       isAllowedBnplPopupUrl(
         'https://merchant.example.com.evil.test/order-success',
         'https://usebaci.com',
+        'merchant',
         'merchant.example.com'
       )
     ).toBe(false);
@@ -165,6 +177,7 @@ describe('bnpl-url', () => {
       isAllowedBnplPopupUrl(
         'http://merchant.example.com/order-success',
         'https://usebaci.com',
+        'merchant',
         'merchant.example.com'
       )
     ).toBe(false);
@@ -213,6 +226,13 @@ describe('bnpl-url', () => {
         'https://ogabassey.com/order-success',
         'https://usebaci.com',
         'ogabassey'
+      )
+    ).toBe(false);
+    expect(
+      isAllowedBnplPopupUrl(
+        'https://evil.example/order-success',
+        'https://usebaci.com',
+        'evil.example'
       )
     ).toBe(false);
     expect(

@@ -37,7 +37,6 @@ function isBlankProviderPopupUrl(url: string) {
 function isBaciDocumentNavigation(
   url: string,
   apiBaseUrl: string,
-  merchantSlug?: string,
   merchantDomain?: string
 ) {
   try {
@@ -55,10 +54,7 @@ function isBaciDocumentNavigation(
 
     if (requestUrl.protocol === 'https:') {
       const requestHost = requestUrl.hostname.toLowerCase();
-      if (
-        isTrustedBNPLMerchantDomainHost(requestHost, merchantDomain) ||
-        isTrustedBNPLMerchantDomainHost(requestHost, merchantSlug)
-      ) {
+      if (isTrustedBNPLMerchantDomainHost(requestHost, merchantDomain)) {
         return true;
       }
     }
@@ -213,9 +209,7 @@ export function resolveBNPLDocumentNavigation({
     };
   }
 
-  if (
-    !isBaciDocumentNavigation(nextUrl, apiBaseUrl, merchantSlug, merchantDomain)
-  ) {
+  if (!isBaciDocumentNavigation(nextUrl, apiBaseUrl, merchantDomain)) {
     return {
       reason: 'allowed' as const,
       shouldStart: true,
