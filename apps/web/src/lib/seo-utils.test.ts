@@ -68,6 +68,7 @@ describe('buildStorefrontAcceptedPaymentMethods', () => {
       {
         korapayConfigured: true,
         paystackConfigured: true,
+        currency: 'NGN',
       }
     );
 
@@ -91,6 +92,7 @@ describe('buildStorefrontAcceptedPaymentMethods', () => {
       {
         korapayConfigured: true,
         paystackConfigured: true,
+        currency: 'NGN',
       }
     );
 
@@ -113,6 +115,7 @@ describe('buildStorefrontAcceptedPaymentMethods', () => {
       {
         korapayConfigured: false,
         paystackConfigured: true,
+        currency: 'NGN',
       }
     );
 
@@ -131,6 +134,7 @@ describe('buildStorefrontAcceptedPaymentMethods', () => {
       {
         korapayConfigured: true,
         paystackConfigured: false,
+        currency: 'GHS',
       }
     );
 
@@ -148,6 +152,25 @@ describe('buildStorefrontAcceptedPaymentMethods', () => {
       {
         korapayConfigured: false,
         paystackConfigured: true,
+        currency: 'GHS',
+      }
+    );
+
+    expect(methods).toEqual([]);
+  });
+
+  it('omits Korapay cards when the storefront currency is unsupported', () => {
+    const methods = buildStorefrontAcceptedPaymentMethods(
+      {
+        country: 'IN',
+        feature_settings: {
+          korapay_enabled: true,
+        },
+      },
+      {
+        korapayConfigured: true,
+        paystackConfigured: false,
+        currency: 'INR',
       }
     );
 

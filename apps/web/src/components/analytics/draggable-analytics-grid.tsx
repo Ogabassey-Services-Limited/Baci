@@ -21,11 +21,12 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import {
-  type LayoutItem,
+  type Layout,
   Responsive,
   type ResponsiveLayouts,
   WidthProvider,
 } from 'react-grid-layout/legacy';
+
 import { AIInsightsPanel } from '@/components/analytics/ai-insights-panel';
 import type { AnalyticsCategory } from '@/components/analytics/analytics-category-nav';
 import {
@@ -168,7 +169,7 @@ export interface AnalyticsData {
   adAnalytics?: AdAnalyticsData;
 }
 
-type Layouts = ResponsiveLayouts<string>;
+type Layouts = ResponsiveLayouts;
 
 interface DraggableAnalyticsGridProps {
   data: AnalyticsData;
@@ -459,10 +460,7 @@ export function DraggableAnalyticsGrid({
   }, [activeCategory]);
 
   // Save layout change
-  const onLayoutChange = (
-    currentLayout: readonly LayoutItem[],
-    allLayouts: Layouts
-  ) => {
+  const onLayoutChange = (currentLayout: Layout, allLayouts: Layouts) => {
     setLayouts(allLayouts);
     if (!isEditMode) return; // Only save if in edit mode (optional, but good for performance)
 

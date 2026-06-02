@@ -1,7 +1,14 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import type React from 'react';
-import { useEffect, useRef } from 'react';
-import { Animated, Easing, Platform, TouchableOpacity } from 'react-native';
+import { useEffect } from 'react';
+import { Platform, TouchableOpacity } from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+  type SharedValue,
+} from 'react-native-reanimated';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
 import { getUtilityPanelActiveShadowStyle } from './UtilityPanel.shadows';
@@ -14,6 +21,8 @@ interface UtilityPanelCategoryItemProps {
   variant: 'card' | 'circle' | 'pill';
   isActive: boolean;
   onPress: () => void;
+  activeIndex?: SharedValue<number>;
+  index?: number;
 }
 
 export function UtilityPanelCategoryItem({
@@ -23,33 +32,65 @@ export function UtilityPanelCategoryItem({
   variant,
   isActive,
   onPress,
+  activeIndex,
+  index,
 }: UtilityPanelCategoryItemProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const iconScale = useRef(new Animated.Value(isActive ? 1.05 : 1)).current;
-  const labelOpacity = useRef(new Animated.Value(isActive ? 1 : 0.8)).current;
+  const iconScale = useSharedValue(isActive ? 1.05 : 1);
+  const labelOpacity = useSharedValue(isActive ? 1 : 0.8);
   const activeShadowStyle = getUtilityPanelActiveShadowStyle(
     Platform.OS === 'web' ? 'web' : 'native',
     colors.black
   );
 
   useEffect(() => {
-    Animated.parallel([
-      Animated.spring(iconScale, {
-        toValue: isActive ? 1.05 : 1,
+    // Only run discrete spring animations if activeIndex is not driving the continuous flow
+    if (activeIndex === undefined || index === undefined) {
+      iconScale.value = withSpring(isActive ? 1.05 : 1, {
         damping: 16,
         stiffness: 180,
         mass: 1,
-        useNativeDriver: true,
-      }),
-      Animated.timing(labelOpacity, {
-        toValue: isActive ? 1 : 0.8,
+      });
+      labelOpacity.value = withTiming(isActive ? 1 : 0.8, {
         duration: 220,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [isActive, iconScale, labelOpacity]);
+      });
+    }
+  }, [isActive, iconScale, labelOpacity, activeIndex, index]);
+
+  const animatedIconStyle = useAnimatedStyle(() => {
+    if (activeIndex !== undefined && index !== undefined) {
+      const isCurrentlyActive = Math.round(activeIndex.value) === index;
+      const progress = isCurrentlyActive ? 1 : 0;
+
+      return {
+        transform: [{ scale: 1 + progress * 0.05 }],
+        backgroundColor: progress === 1 ? colors.card : colors.muted,
+        borderColor: progress === 1 ? BRAND.primary : 'transparent',
+        borderWidth: progress === 1 ? 1 : 0,
+      };
+    }
+
+    return {
+      transform: [{ scale: iconScale.value }],
+      backgroundColor: isActive ? colors.card : colors.muted,
+      borderColor: isActive ? BRAND.primary : 'transparent',
+      borderWidth: isActive ? 1 : 0,
+    };
+  });
+
+  const animatedLabelStyle = useAnimatedStyle(() => {
+    if (activeIndex !== undefined && index !== undefined) {
+      const isCurrentlyActive = Math.round(activeIndex.value) === index;
+      return {
+        opacity: isCurrentlyActive ? 1 : 0.8,
+      };
+    }
+
+    return {
+      opacity: labelOpacity.value,
+    };
+  });
 
   if (variant !== 'circle') {
     return null;
@@ -69,13 +110,8 @@ export function UtilityPanelCategoryItem({
         testID={`utility-category-icon-${id}`}
         style={[
           styles.circleIcon,
-          { backgroundColor: colors.muted },
-          isActive && [
-            styles.circleIconActive,
-            { backgroundColor: colors.card },
-          ],
           isActive && activeShadowStyle,
-          { transform: [{ scale: iconScale }] },
+          animatedIconStyle,
         ]}
       >
         <Ionicons
@@ -89,7 +125,7 @@ export function UtilityPanelCategoryItem({
           styles.circleLabel,
           { color: colors.textSecondary },
           isActive && [styles.circleLabelActive, { color: colors.text }],
-          { opacity: labelOpacity },
+          animatedLabelStyle,
         ]}
       >
         {name}

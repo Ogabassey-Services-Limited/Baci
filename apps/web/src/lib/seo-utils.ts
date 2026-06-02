@@ -657,6 +657,7 @@ interface ProductSchemaOptions {
 interface StorefrontPaymentGatewayConfig {
   korapayConfigured: boolean;
   paystackConfigured: boolean;
+  currency?: string | null;
 }
 
 export function buildStorefrontAcceptedPaymentMethods(
@@ -680,7 +681,10 @@ export function buildStorefrontAcceptedPaymentMethods(
     methods.add('Bank transfer');
   }
 
-  if (gatewayConfig.korapayConfigured && isKorapayCheckoutAvailable(merchant)) {
+  if (
+    gatewayConfig.korapayConfigured &&
+    isKorapayCheckoutAvailable(merchant, gatewayConfig.currency)
+  ) {
     methods.add('Debit and credit card');
   }
 

@@ -15,10 +15,16 @@ import {
 
 describe('storefront-loading-ui', () => {
   it('renders the shell chrome loading fallback', () => {
-    render(<ShellChromeLoading />);
+    const { container } = render(<ShellChromeLoading />);
 
     expect(
       screen.getByRole('status', { name: 'Loading storefront chrome' })
+    ).toBeInTheDocument();
+    expect(
+      container.querySelector('.storefront-shell-loading')
+    ).toBeInTheDocument();
+    expect(
+      container.querySelector('.storefront-shell-loading__bar')
     ).toBeInTheDocument();
   });
 

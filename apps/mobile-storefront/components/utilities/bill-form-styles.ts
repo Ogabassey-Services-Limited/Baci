@@ -4,7 +4,7 @@ import { BILL_FORM_TOKENS } from './bill-form.tokens';
 
 export const billFormStyles = StyleSheet.create({
   scrollView: { flex: 1 },
-  content: { padding: SPACING.md },
+  content: { paddingHorizontal: SPACING.md, paddingTop: SPACING.lg, paddingBottom: SPACING.md },
   amountSection: { marginTop: SPACING.lg },
   selectionLevel: { marginTop: SPACING.lg },
   identifierTitle: { marginTop: SPACING.lg },

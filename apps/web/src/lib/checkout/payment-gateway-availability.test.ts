@@ -3,6 +3,7 @@ import {
   hasLaunchablePaymentMethod,
   isBankTransferCheckoutAvailable,
   isKorapayCheckoutAvailable,
+  isKorapayCheckoutCurrencySupported,
   isPayOnDeliveryCheckoutAvailable,
   isPaystackCheckoutAvailable,
 } from '@/lib/checkout/payment-gateway-availability';
@@ -121,6 +122,23 @@ describe('payment-gateway-availability', () => {
         feature_settings: { korapay_enabled: true },
       })
     ).toBe(true);
+  });
+
+  it('returns false for Korapay when the checkout currency is unsupported', () => {
+    expect(
+      isKorapayCheckoutAvailable(
+        {
+          feature_settings: { korapay_enabled: true },
+        },
+        'INR'
+      )
+    ).toBe(false);
+  });
+
+  it('accepts Korapay checkout currencies case-insensitively', () => {
+    expect(isKorapayCheckoutCurrencySupported(' ghs ')).toBe(true);
+    expect(isKorapayCheckoutCurrencySupported('INR')).toBe(false);
+    expect(isKorapayCheckoutCurrencySupported(null)).toBe(false);
   });
 
   it('returns false for Korapay when explicitly disabled', () => {

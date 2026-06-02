@@ -5,6 +5,7 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react-native';
+import { Dimensions } from 'react-native';
 import UtilityPurchaseScreen from '@/app/utilities/[type]';
 import type {
   UtilityHistoryFilter,
@@ -106,6 +107,15 @@ function createHistoryTransaction(
     type: 'electricity',
     ...overrides,
   };
+}
+
+function selectUtilityPagerPage(position: number) {
+  const pager = screen.getByTestId('utility-purchase-pager');
+  const pageWidth = Dimensions.get('window').width;
+
+  fireEvent(pager, 'onMomentumScrollEnd', {
+    nativeEvent: { contentOffset: { x: position * pageWidth, y: 0 } },
+  });
 }
 
 jest.mock('expo-router', () => ({
@@ -282,6 +292,10 @@ describe('UtilityPurchaseScreen', () => {
     expect(
       screen.getByTestId('keyboard-container').props.keyboardVerticalOffset
     ).toBeUndefined();
+    expect(screen.getByTestId('keyboard-container')).toHaveProp(
+      'enabled',
+      false
+    );
     expect(screen.getByText('Electricity')).toBeOnTheScreen();
     fireEvent.press(screen.getByLabelText('View utility history'));
     expect(mockPush).toHaveBeenCalledWith('/utilities/history?type=power');
@@ -328,6 +342,84 @@ describe('UtilityPurchaseScreen', () => {
 
     expect(mockReplace).not.toHaveBeenCalledWith('/utilities/airtime');
     expect(screen.getAllByRole('tab')).toHaveLength(EXPECTED_UTILITY_TAB_COUNT);
+    expect(screen.getByText('Airtime form')).toBeOnTheScreen();
+    expect(
+      screen.getByLabelText('Airtime utility service')
+    ).toHaveAccessibilityState({
+      selected: true,
+    });
+  });
+
+  it('updates selected type, active tab and form when the pager selects another page', () => {
+    mockUseLocalSearchParams.mockReturnValue({ type: 'airtime' });
+
+    render(<UtilityPurchaseScreen />);
+
+    expect(screen.getByText('Airtime form')).toBeOnTheScreen();
+    expect(
+      screen.getByLabelText('Airtime utility service')
+    ).toHaveAccessibilityState({
+      selected: true,
+    });
+
+    selectUtilityPagerPage(1);
+
+    expect(screen.getByText('Data form')).toBeOnTheScreen();
+    expect(
+      screen.getByLabelText('Data utility service')
+    ).toHaveAccessibilityState({
+      selected: true,
+    });
+
+    selectUtilityPagerPage(3);
+
+    expect(screen.getByText('Bill form power')).toBeOnTheScreen();
+    expect(
+      screen.getByLabelText('Power utility service')
+    ).toHaveAccessibilityState({
+      selected: true,
+    });
+  });
+
+  it('does not render a separate utility tab indicator that can drift after swiping', () => {
+    mockUseLocalSearchParams.mockReturnValue({ type: 'airtime' });
+
+    render(<UtilityPurchaseScreen />);
+
+    selectUtilityPagerPage(2);
+
+    expect(screen.getByText('Bill form tv')).toBeOnTheScreen();
+    expect(
+      screen.getByLabelText('TV utility service')
+    ).toHaveAccessibilityState({
+      selected: true,
+    });
+    expect(screen.queryByTestId('utility-type-tabs-indicator')).toBeNull();
+  });
+
+  it('keeps state stable when the pager selects the same or invalid page index', () => {
+    mockUseLocalSearchParams.mockReturnValue({ type: 'airtime' });
+
+    render(<UtilityPurchaseScreen />);
+
+    expect(screen.getByText('Airtime form')).toBeOnTheScreen();
+    expect(
+      screen.getByLabelText('Airtime utility service')
+    ).toHaveAccessibilityState({
+      selected: true,
+    });
+
+    selectUtilityPagerPage(0);
+
+    expect(screen.getByText('Airtime form')).toBeOnTheScreen();
+    expect(
+      screen.getByLabelText('Airtime utility service')
+    ).toHaveAccessibilityState({
+      selected: true,
+    });
+
+    selectUtilityPagerPage(99);
+
     expect(screen.getByText('Airtime form')).toBeOnTheScreen();
     expect(
       screen.getByLabelText('Airtime utility service')
@@ -414,7 +506,7 @@ describe('UtilityPurchaseScreen', () => {
 
     render(<UtilityPurchaseScreen />);
 
-    expect(mockBillForm).toHaveBeenLastCalledWith(
+    expect(mockBillForm).toHaveBeenCalledWith(
       expect.objectContaining({
         recentRecipients: [
           expect.objectContaining({

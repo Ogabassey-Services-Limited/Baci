@@ -66,6 +66,10 @@ export async function generateMetadata({
 
   const data = await getCachedCategoryPageData(merchant.id, category, slug);
 
+  if (!data.isCollection && data.isInactiveCategory) {
+    notFound();
+  }
+
   const categoryName = resolveCategoryPageName(data, category);
   const normalizedProducts = normalizeCategoryPageProducts(
     data.products as unknown as RawDbProduct[],
@@ -152,15 +156,18 @@ export async function generateMetadata({
   };
 }
 
-export default async function CategoryPageRoute(props: PageProps) {
-  // Keep catalog listings request-bound. These routes depend on tenant and
-  // host context, and letting Next produce a static shell has caused
-  // production 500s on custom-domain category URLs.
+async function CategoryListingRuntime(props: PageProps) {
+  // Keep tenant/domain listing work request-bound while the page prerenders a
+  // Suspense fallback shell. Cache Components rejects route-level dynamic flags.
   await connection();
 
+  return <CategoryPageContent {...props} />;
+}
+
+export default function CategoryPageRoute(props: PageProps) {
   return (
     <Suspense fallback={<CatalogListingLoading />}>
-      <CategoryPageContent {...props} />
+      <CategoryListingRuntime {...props} />
     </Suspense>
   );
 }

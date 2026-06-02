@@ -41,7 +41,11 @@ export const AIRTIME_FORM_TOKENS = {
 // borderColor/backgroundColor dynamically from the active theme at render time.
 export const airtimeFormStyles = StyleSheet.create({
   scrollView: { flex: 1 },
-  content: { padding: AIRTIME_FORM_TOKENS.space.md },
+  content: {
+    paddingHorizontal: AIRTIME_FORM_TOKENS.space.md,
+    paddingTop: AIRTIME_FORM_TOKENS.space.lg,
+    paddingBottom: AIRTIME_FORM_TOKENS.space.md,
+  },
   sectionTitle: {
     fontSize: AIRTIME_FORM_TOKENS.fontSize.xl,
     fontWeight: AIRTIME_FORM_TOKENS.fontWeight.semibold,

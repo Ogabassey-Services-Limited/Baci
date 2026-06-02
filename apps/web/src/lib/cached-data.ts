@@ -115,12 +115,88 @@ interface PublicStorefrontProductVariant {
   updated_at?: string | null;
 }
 
+interface StorefrontCategoryParentRow {
+  name: string | null;
+  slug: string | null;
+}
+
+interface StorefrontCategoryRow {
+  id: string;
+  name: string | null;
+  slug: string | null;
+  description: string | null;
+  image_url: string | null;
+  is_active: boolean | null;
+  seo_heading: string | null;
+  seo_description: string | null;
+  seo_features: string[] | null;
+  seo_faq: { answer: string; question: string }[] | null;
+  parent: StorefrontCategoryParentRow | null;
+}
+
+interface StorefrontCategorySlugState {
+  is_active: boolean | null;
+}
+
 interface LegacyPriceCompatibleProduct {
   price?: number | string | null;
   compare_at_price?: number | string | null;
   sale_price?: number | null;
   base_price?: number | null;
 }
+
+interface CachedCategoryFaqItem {
+  question: string;
+  answer: string;
+}
+
+interface CachedCategorySeo {
+  description: string;
+  faqs: CachedCategoryFaqItem[];
+  features: string[];
+  heading: string;
+}
+
+interface CachedCategoryRecord {
+  description: string | null;
+  id: string;
+  image_url: string | null;
+  is_active: boolean;
+  name: string;
+  parent:
+    | { name: string; slug: string }
+    | Array<{ name: string; slug: string }>
+    | null;
+  parent_id?: string | null;
+  seo_description: string | null;
+  seo_faq: CachedCategoryFaqItem[] | null;
+  seo_features: string[] | null;
+  seo_heading: string | null;
+  slug: string;
+}
+
+export type CachedCategoryPageData =
+  | {
+      category?: null;
+      description: string;
+      fallbackDescription?: string;
+      fallbackName?: string;
+      isCollection: true;
+      isInactiveCategory?: false;
+      name: string;
+      products: unknown[];
+      seo: CachedCategorySeo;
+    }
+  | {
+      category: CachedCategoryRecord | null;
+      fallbackDescription: string;
+      fallbackName: string;
+      isCollection: false;
+      isInactiveCategory: boolean;
+      name?: string;
+      products: unknown[];
+      seo?: null;
+    };
 
 function parsePriceValue(value: unknown): number | null {
   if (typeof value === 'number' && Number.isFinite(value)) {
@@ -205,6 +281,7 @@ export interface HeroSlide {
 }
 
 export interface MerchantFeatureSettings {
+  agentic_checkout_enabled?: boolean;
   blog_enabled?: boolean;
   blog_discover_image_validation_enabled?: boolean;
   shipping_insurance_enabled?: boolean;
@@ -212,6 +289,69 @@ export interface MerchantFeatureSettings {
   shipping_insurance_opt_in_default?: boolean;
   [key: string]: unknown;
 }
+
+const MERCHANT_PUBLIC_FEATURE_SETTINGS_SELECT: string = `
+  about_page_enabled,
+  agentic_checkout_enabled,
+  auto_blog_enabled,
+  blog_enabled,
+  blog_discover_image_validation_enabled,
+  checkout_collect_phone,
+  checkout_require_account,
+  checkout_show_order_notes,
+  contact_page_enabled,
+  credpal_enabled,
+  credit_direct_enabled,
+  credit_direct_max_amount,
+  credit_direct_min_amount,
+  custom_settings,
+  discount_codes_enabled,
+  faq_page_enabled,
+  free_shipping_threshold,
+  google_analytics_id,
+  google_place_id,
+  google_reviews_enabled,
+  guest_checkout_enabled,
+  juicyway_enabled,
+  klump_enabled,
+  klump_max_amount,
+  klump_min_amount,
+  korapay_enabled,
+  loyalty_enabled,
+  low_stock_threshold,
+  order_tracking_enabled,
+  pay_on_delivery_enabled,
+  paystack_enabled,
+  preferred_international_gateway,
+  preferred_local_gateway,
+  privacy_page_enabled,
+  reviews_enabled,
+  rewards_page_enabled,
+  shipping_insurance_enabled,
+  shipping_insurance_min_order_value,
+  shipping_insurance_opt_in_default,
+  shipping_providers,
+  show_recent_purchases,
+  show_stock_levels,
+  snapchat_pixel_id,
+  terms_page_enabled,
+  tiktok_pixel_id,
+  twitter_pixel_id,
+  vtu_airtime_enabled,
+  vtu_checkout_addon_amounts,
+  vtu_checkout_addon_enabled,
+  vtu_data_enabled,
+  vtu_electricity_enabled,
+  vtu_enabled,
+  vtu_loyalty_reward_enabled,
+  vtu_tv_enabled,
+  wallet_order_auto_debit_enabled,
+  wallet_paystack_dva_enabled,
+  customer_device_savings_enabled,
+  customer_device_savings_auto_debit_enabled,
+  customer_device_savings_break_fee_enabled,
+  wishlist_enabled
+`;
 
 export interface CachedMerchant {
   id: string;
@@ -409,7 +549,6 @@ export async function getCachedMerchant(
         favicon_apple_touch_url,
         vat_registration_status,
         vat_rate,
-        feature_settings:merchant_feature_settings(*),
         published_config,
         pages,
         about_page,
@@ -437,15 +576,13 @@ export async function getCachedMerchant(
     );
   }
 
+  let normalizedSettings: MerchantFeatureSettings | null = null;
+
   if (!data) {
     const safeSlug = sanitizeLookupLogValue(slug);
     console.warn('No merchant data found for slug:', safeSlug);
   } else {
-    // Normalize feature_settings from array to object (Edge Compatibility Pattern)
-    const settings = data.feature_settings;
-    if (Array.isArray(settings)) {
-      data.feature_settings = settings[0];
-    }
+    normalizedSettings = await getCachedFeatureSettings(data.id);
 
     const safeSlug = String(slug || '')
       .replace(/[\r\n]/g, '')
@@ -482,9 +619,7 @@ export async function getCachedMerchant(
           ...data,
           custom_domain: primaryDomain.domain,
         }),
-        feature_settings: data.feature_settings as unknown as
-          | MerchantFeatureSettings
-          | undefined,
+        feature_settings: normalizedSettings ?? undefined,
       };
       return result;
     }
@@ -493,9 +628,7 @@ export async function getCachedMerchant(
   if (data) {
     const result: CachedMerchant = {
       ...normalizeCachedMerchantEntity(data),
-      feature_settings: data.feature_settings as unknown as
-        | MerchantFeatureSettings
-        | undefined,
+      feature_settings: normalizedSettings ?? undefined,
     };
     return result;
   }
@@ -515,7 +648,7 @@ export async function getCachedMerchantByDomain(
   cacheTag('merchants', 'domains', `domain-${domain.toLowerCase()}`);
 
   const normalizedDomain = domain.toLowerCase();
-  // Use Service Role to allow lookup of unpublished merchants (for "Coming Soon" page)
+  // Use Service Role to allow lookup of unpublished merchants (for "Coming Soon" page).
   const supabase = getServiceRoleSupabaseClient();
 
   // First, find the merchant_id from the domains table
@@ -582,7 +715,6 @@ export async function getCachedMerchantByDomain(
         favicon_apple_touch_url,
         vat_registration_status,
         vat_rate,
-        feature_settings:merchant_feature_settings(*),
         published_config,
         pages,
         about_page,
@@ -606,14 +738,7 @@ export async function getCachedMerchantByDomain(
     );
   }
 
-  // Normalize feature_settings from array to object (Edge Compatibility Pattern)
-  const settings = data.feature_settings;
-  let normalizedSettings: MerchantFeatureSettings | undefined;
-  if (Array.isArray(settings)) {
-    normalizedSettings = settings[0] as MerchantFeatureSettings | undefined;
-  } else {
-    normalizedSettings = settings as MerchantFeatureSettings | undefined;
-  }
+  const normalizedSettings = await getCachedFeatureSettings(data.id);
 
   console.log('Successfully fetched merchant by domain', {
     domain: normalizedDomain,
@@ -642,7 +767,7 @@ export async function getCachedMerchantByDomain(
       ...data,
       custom_domain: domainData.domain,
     }),
-    feature_settings: normalizedSettings,
+    feature_settings: normalizedSettings ?? undefined,
   };
   return result;
 }
@@ -919,6 +1044,7 @@ export async function getCachedProducts(
  * Keep this shape narrow so the LCP image hint is not delayed by rich product joins.
  */
 export interface CachedProductLcpHint {
+  base_price?: number | null;
   brand?: string | null;
   category?: string | null;
   categories?:
@@ -934,6 +1060,8 @@ export interface CachedProductLcpHint {
       }>
     | null;
   condition?: string | null;
+  compare_at_price?: number | string | null;
+  description?: string | null;
   id: string;
   images?: Array<
     | string
@@ -943,7 +1071,18 @@ export interface CachedProductLcpHint {
       }
   > | null;
   manage_stock?: boolean | null;
+  max_variant_price?: number | string | null;
+  meta_description?: string | null;
+  meta_title?: string | null;
+  min_variant_price?: number | string | null;
   name: string;
+  offers?: Array<{
+    id: string;
+    condition?: string | null;
+    price?: number | string | null;
+    status?: string | null;
+    stock_quantity?: number | string | null;
+  }> | null;
   price?: number | string | null;
   product_categories?: Array<{
     categories:
@@ -959,6 +1098,9 @@ export interface CachedProductLcpHint {
         }>
       | null;
   }> | null;
+  canonical_url?: string | null;
+  keywords?: string[] | null;
+  sale_price?: number | null;
   schema_markup?: unknown;
   slug?: string | null;
   stock_quantity?: number | null;
@@ -994,12 +1136,27 @@ export async function getCachedProductLcpHint(
         name,
         slug,
         price,
+        compare_at_price,
+        min_variant_price,
+        max_variant_price,
         condition,
+        description,
         manage_stock,
         stock_quantity,
         category,
+        meta_title,
+        meta_description,
+        keywords,
+        canonical_url,
         schema_markup,
         images,
+        offers:product_offers (
+          id,
+          condition,
+          price,
+          stock_quantity,
+          status
+        ),
         categories:category_id (
           id,
           name,
@@ -1032,7 +1189,7 @@ export async function getCachedProductLcpHint(
     return null;
   }
 
-  return data as CachedProductLcpHint | null;
+  return data ? withLegacyPriceFields(data as CachedProductLcpHint) : null;
 }
 
 /**
@@ -1526,7 +1683,7 @@ export async function getCachedCategoryPageData(
   merchantId: string,
   categorySlug: string,
   _storeSlug: string
-) {
+): Promise<CachedCategoryPageData> {
   'use cache: remote';
   cacheLife('storefront-page');
   cacheTag('category-page-data', 'products', 'categories');
@@ -1608,24 +1765,58 @@ export async function getCachedCategoryPageData(
   }
 
   // 3. Try to find category by slug
-  const { data: category } = await supabase
+  const categoryQuery = supabase
     .from('categories')
     .select(
-      'id, name, slug, description, image_url, seo_heading, seo_description, seo_features, seo_faq, parent:parent_id(name, slug)'
+      'id, name, slug, description, image_url, is_active, seo_heading, seo_description, seo_features, seo_faq, parent:parent_id(name, slug)'
     )
     .eq('merchant_id', merchantId)
     .eq('slug', categorySlug)
-    .single();
+    .single() as unknown as Promise<{
+    data: StorefrontCategoryRow | null;
+    error: unknown;
+  }>;
+  const { data: categoryRow } = await categoryQuery;
+  let hiddenCategoryState: StorefrontCategorySlugState | null = null;
+
+  if (!categoryRow) {
+    const { data: categoryStateData, error: categoryStateError } =
+      await supabase.rpc('get_storefront_category_slug_state', {
+        p_merchant_id: merchantId,
+        p_slug: categorySlug,
+      });
+
+    if (categoryStateError) {
+      console.error('Category state query error:', categoryStateError);
+    }
+
+    const stateArray = categoryStateData as
+      | StorefrontCategorySlugState[]
+      | null;
+    hiddenCategoryState =
+      stateArray && stateArray.length > 0 ? stateArray[0] : null;
+  }
+
+  const isInactiveCategory =
+    categoryRow?.is_active === false ||
+    hiddenCategoryState?.is_active === false;
+  const category: CachedCategoryRecord | null =
+    categoryRow && categoryRow.is_active !== false
+      ? ({
+          ...categoryRow,
+          is_active: categoryRow.is_active ?? true,
+        } as CachedCategoryRecord)
+      : null;
 
   // Fallback: decode the slug to get category name and Title Case it
   const categoryName =
-    category?.name ||
+    categoryRow?.name ||
     decodeURIComponent(categorySlug)
       .replace(/-/g, ' ')
       .replace(/\b\w/g, (l) => l.toUpperCase());
 
   const categoryDescription =
-    category?.description ||
+    categoryRow?.description ||
     `Browse our collection of ${categoryName} products.`;
 
   // Note: We need CATEGORY_SEO_DEFAULTS here.
@@ -1649,6 +1840,7 @@ export async function getCachedCategoryPageData(
       .from('categories')
       .select('id')
       .eq('merchant_id', merchantId)
+      .eq('is_active', true)
       .or(`id.eq.${category.id},parent_id.eq.${category.id}`);
 
     const categoryIds = Array.from(
@@ -1685,8 +1877,8 @@ export async function getCachedCategoryPageData(
     productsError = err;
   }
 
-  if (!category?.id || products.length === 0) {
-    // Fallback
+  if (products.length === 0 && !isInactiveCategory) {
+    // Legacy fallback for category URLs that predate canonical category rows.
     const sanitizedCategoryName = categoryName.replace(/[,().]/g, '');
     const { data: productData, error: err } = await supabase
       .from('products')
@@ -1726,6 +1918,7 @@ export async function getCachedCategoryPageData(
     products: products || [],
     fallbackName: categoryName,
     fallbackDescription: categoryDescription,
+    isInactiveCategory,
   };
 }
 
@@ -1896,10 +2089,13 @@ export async function getCachedPlatformAnalytics(
 
 /**
  * Cached merchant feature settings.
- * Uses service role to bypass RLS since settings are public-facing configuration.
+ * Uses a server-only service-role query with an explicit public-safe column allowlist because
+ * this table also stores private integration credentials.
  * Uses 'products' cacheLife profile (revalidate 5min)
  */
-export async function getCachedFeatureSettings(merchantId: string) {
+export async function getCachedFeatureSettings(
+  merchantId: string
+): Promise<MerchantFeatureSettings | null> {
   'use cache: remote';
   cacheLife('products');
   cacheTag(`features-${merchantId}`);
@@ -1909,9 +2105,7 @@ export async function getCachedFeatureSettings(merchantId: string) {
 
     const { data, error } = await supabase
       .from('merchant_feature_settings')
-      .select(
-        'blog_enabled, blog_discover_image_validation_enabled, shipping_insurance_enabled, shipping_insurance_min_order_value, shipping_insurance_opt_in_default'
-      )
+      .select(MERCHANT_PUBLIC_FEATURE_SETTINGS_SELECT)
       .eq('merchant_id', merchantId)
       .maybeSingle();
 
@@ -1925,7 +2119,7 @@ export async function getCachedFeatureSettings(merchantId: string) {
       return null;
     }
 
-    return data;
+    return data as unknown as MerchantFeatureSettings;
   } catch (error) {
     console.error('Error fetching feature settings:', error);
     // Rethrow so remote cache skips caching this failure
