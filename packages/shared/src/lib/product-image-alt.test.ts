@@ -55,6 +55,20 @@ describe('product image alt helpers', () => {
     });
   });
 
+  it('ignores malformed string image payload collections instead of splitting URLs into characters', () => {
+    expect(
+      deriveProductImageData({
+        image: '/fallback.jpg',
+        images: 'https://cdn.example.com/front.jpg' as never,
+      })
+    ).toEqual({
+      image: '/fallback.jpg',
+      imageAlt: '',
+      imagePayloads: [],
+      images: [],
+    });
+  });
+
   it('prefers explicit product alt text before name fallbacks', () => {
     expect(
       getProductImageAlt({

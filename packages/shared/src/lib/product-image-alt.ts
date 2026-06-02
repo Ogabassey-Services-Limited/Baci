@@ -97,7 +97,7 @@ export function deriveProductImageData({
   image?: unknown;
   images?: readonly ProductImageAltPayload[] | null;
 }): DerivedProductImageData {
-  const imagePayloads = Array.from(images ?? []);
+  const imagePayloads = Array.isArray(images) ? images : [];
   const imageUrls: string[] = [];
   let primaryImage = trimString(image);
   let primaryImageAlt = '';
