@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('./agent-commerce-feed-health-snapshot', () => ({
-  getAgentCommerceFeedHealthSnapshot: vi.fn(),
+vi.mock('@/app/api/feed/google-merchant/feed-data', () => ({
+  getCachedGoogleMerchantFeedData: vi.fn(),
+}));
+
+vi.mock('@/app/api/feed/openai/feed-data', () => ({
+  getCachedOpenAIFeedData: vi.fn(),
 }));
 
 vi.mock('@/lib/logger', () => ({
@@ -10,13 +14,14 @@ vi.mock('@/lib/logger', () => ({
   },
 }));
 
+import { getCachedGoogleMerchantFeedData } from '@/app/api/feed/google-merchant/feed-data';
+import { getCachedOpenAIFeedData } from '@/app/api/feed/openai/feed-data';
 import {
   type AgentCommerceFeedHealthResult,
   buildAgentCommerceFeedHealthActions,
   checkAgentCommerceFeedHealth,
   getAgentCommerceFeedStatusReason,
 } from './agent-commerce-feed-health';
-import { getAgentCommerceFeedHealthSnapshot } from './agent-commerce-feed-health-snapshot';
 import {
   AGENT_COMMERCE_FEED_HEALTH_TEST_NOW,
   googleFeed,
@@ -33,30 +38,42 @@ function runCheck() {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(getAgentCommerceFeedHealthSnapshot).mockResolvedValue({
-    googleProducts: googleFeed(['product-1', 'product-2']).products,
-    openAiProducts: openAiFeed(['product-1', 'product-2']).products,
-  });
+  vi.mocked(getCachedOpenAIFeedData).mockResolvedValue(
+    openAiFeed(['product-1', 'product-2'])
+  );
+  vi.mocked(getCachedGoogleMerchantFeedData).mockResolvedValue(
+    googleFeed(['product-1', 'product-2'])
+  );
 });
 
 describe('buildAgentCommerceFeedHealthActions', () => {
-  it('does not emit drift actions from monitor-only product snapshots', async () => {
-    vi.mocked(getAgentCommerceFeedHealthSnapshot).mockResolvedValueOnce({
-      googleProducts: googleFeed(['product-1', 'product-3']).products,
-      openAiProducts: openAiFeed(['product-1', 'product-2']).products,
-    });
+  it('maps feed issues into cron health actions', async () => {
+    vi.mocked(getCachedGoogleMerchantFeedData).mockResolvedValueOnce(
+      googleFeed(['product-1', 'product-3'])
+    );
 
     const result = await runCheck();
     const actions = buildAgentCommerceFeedHealthActions(result);
 
-    expect(actions).toEqual([]);
+    expect(actions).toEqual([
+      {
+        code: 'AGENTIC_FEED_CATALOG_DRIFT',
+        count: 2,
+        message:
+          'OpenAI and Google Merchant feeds expose different active product sets.',
+        next_step:
+          'Compare OpenAI and Google Merchant feed product IDs, then refresh or publish any missing products.',
+        next_step_url: '/dashboard/products',
+        severity: 'attention',
+      },
+    ]);
   });
 
   it('maps empty feeds into a monitor action', async () => {
-    vi.mocked(getAgentCommerceFeedHealthSnapshot).mockResolvedValueOnce({
-      googleProducts: [],
-      openAiProducts: [],
-    });
+    vi.mocked(getCachedOpenAIFeedData).mockResolvedValueOnce(openAiFeed([]));
+    vi.mocked(getCachedGoogleMerchantFeedData).mockResolvedValueOnce(
+      googleFeed([])
+    );
 
     const result = await runCheck();
     const actions = buildAgentCommerceFeedHealthActions(result);
@@ -71,7 +88,7 @@ describe('buildAgentCommerceFeedHealthActions', () => {
   });
 
   it('maps feed generation failures into an attention action', async () => {
-    vi.mocked(getAgentCommerceFeedHealthSnapshot).mockRejectedValueOnce(
+    vi.mocked(getCachedOpenAIFeedData).mockRejectedValueOnce(
       new Error('products unavailable')
     );
 
@@ -88,15 +105,21 @@ describe('buildAgentCommerceFeedHealthActions', () => {
   });
 
   it('maps stale products into a monitor action', async () => {
-    vi.mocked(getAgentCommerceFeedHealthSnapshot).mockResolvedValueOnce({
-      googleProducts: googleFeed(['product-1']).products,
-      openAiProducts: [
+    vi.mocked(getCachedOpenAIFeedData).mockResolvedValueOnce({
+      products: [
         {
+          description: 'Stale product',
           id: 'product-1',
+          name: 'Stale product',
+          price: 1000,
+          stock: 5,
           updated_at: '2026-04-01T10:00:00.000Z',
         },
       ],
     });
+    vi.mocked(getCachedGoogleMerchantFeedData).mockResolvedValueOnce(
+      googleFeed(['product-1'])
+    );
 
     const result = await runCheck();
     const actions = buildAgentCommerceFeedHealthActions(result);
@@ -121,7 +144,7 @@ describe('getAgentCommerceFeedStatusReason', () => {
   });
 
   it('returns the first attention feed reason', async () => {
-    vi.mocked(getAgentCommerceFeedHealthSnapshot).mockRejectedValueOnce(
+    vi.mocked(getCachedOpenAIFeedData).mockRejectedValueOnce(
       new Error('products unavailable')
     );
 
@@ -132,11 +155,17 @@ describe('getAgentCommerceFeedStatusReason', () => {
     );
   });
 
-  it('returns generation failure as the attention feed reason', () => {
+  it('returns the first attention feed reason when multiple attention issues exist', () => {
     const result: AgentCommerceFeedHealthResult = {
       google_product_count: 2,
-      issue_count: 1,
+      issue_count: 2,
       issues: [
+        {
+          code: 'feed_catalog_drift',
+          count: 2,
+          message: 'Catalog drift',
+          severity: 'attention',
+        },
         {
           code: 'feed_generation_failed',
           count: 1,
@@ -152,7 +181,7 @@ describe('getAgentCommerceFeedStatusReason', () => {
     };
 
     expect(getAgentCommerceFeedStatusReason(result, 'fallback')).toBe(
-      'agent_commerce_feed_generation_failed'
+      'agent_commerce_feed_catalog_drift'
     );
   });
 });

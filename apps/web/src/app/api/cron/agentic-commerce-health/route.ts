@@ -202,7 +202,6 @@ async function buildMerchantHealthResult({
         checkAgentCommerceFeedHealth({
           merchantId: merchant.id,
           slug,
-          supabase,
         }),
         checkAgentCommerceCrawlerHealth(supabase, merchant.id),
         checkAgentCommerceTrustHealth({
