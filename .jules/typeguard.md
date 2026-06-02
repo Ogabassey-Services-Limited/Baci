@@ -1,16 +1,24 @@
 ## 2025-05-17 - [Typeguard: Strict Typing for Storefront Orders and Wallet]
+
 **Learning:** Returning transformed database records directly from an API endpoint breaks strict typing for consumers expecting a standard model (e.g., `Order`). Explicit anonymous `any` casting in React state loops (`useState<any[]>`, `item: any`) masks these mismatches and risks downstream errors.
 **Action:** Always create a specific shared DTO interface (e.g., `StorefrontTransformedOrder`, `StorefrontWallet`) in `packages/shared/src/types/storefront.ts` that explicitly matches the API payload. Map state types and array loops exactly to these definitions to ensure correct inferences and type safety.
+
 ## 2024-05-18 - Replacing `as any` in Novel/Tiptap Extensions
+
 **Learning:** Tiptap types can be complex and are often missing properties like `view` and command extensions (`toggleTaskList`, `setYoutubeVideo`) when accessed through Novel's basic `useEditor` hook. Relying on `(editor as any)` creates widespread type blindness, but asserting to `unknown` triggers errors when passed to expected parameters like `EditorView`.
 **Action:** Always create a targeted `TiptapEditor` interface and a secure `getTiptap()` downcasting function that correctly imports `EditorView` from `@tiptap/pm/view`. Apply this type guard rather than indiscriminately using `as any` to safely invoke nested chained commands.
+
 ## 2026-05-24 - [Properly Type EditorView in Novel Editor]
+
 **Learning:** The tiptap/novel editor callbacks (like `handleImagePaste` and `handleImageDrop`) pass the editor instance view to user functions. Previously this was typed with `any` causing type safety violations. The correct type for this is `EditorView` from the underlying `prosemirror-view` package which novel relies on.
 **Action:** When working with novel/tiptap custom extensions and callbacks, explicitly import `import type { EditorView } from '@tiptap/pm/view'` and use it to replace `any` in function signatures.
+
 ## 2026-05-28 - [Properly Type Webhook Payloads and Edge Function Returns]
+
 **Learning:** Using `any` for webhook payloads (`record`, `old_record`) or external API responses (`Promise<any>` for gateway verifications) in Supabase Edge Functions defeats strict mode and allows unsafe property access.
 **Action:** Always create explicit interfaces matching the database schema (e.g., `AuthUserRecord` with an index signature `[key: string]: unknown` for safety) for webhook payloads. For API verifications, return exact literal unions (e.g., `'success' | 'failed' | 'pending'`) instead of `Promise<any>`.
 
 ## 2026-06-01 - [Typing Cart Items in React Components]
+
 **Learning:** Using `any` to type cart items in React components (e.g., `cart.map((item: any) => ...)`) breaks type safety and can lead to runtime errors when accessing properties that do not exist or have different names (like `variant_id` vs `variantId`).
 **Action:** Always import and use the `CartItem` interface from `@/hooks/cart/cart-types` to explicitly type cart items in map, filter, and reduce operations to ensure properties are correctly referenced.
