@@ -31,11 +31,17 @@ describe('next.config OgaBassey resource headers', () => {
     expect(getStorefrontMetadataCacheBucket('Googlebot/2.1')).toBe(
       'metadata-blocking'
     );
+    expect(getStorefrontMetadataCacheBucket('Twitterbot/1.0')).toBe(
+      'metadata-blocking'
+    );
     expect(
       getStorefrontMetadataCacheBucket(
         'Mozilla/5.0 AppleWebKit/537.36 Chrome/125.0 Safari/537.36'
       )
-    ).toBe('metadata-blocking');
+    ).toBe('streaming');
+    expect(
+      getStorefrontMetadataCacheBucket('Instagram 350.0.0.29.93 Android')
+    ).toBe('streaming');
   });
 
   it('preconnects the OgaBassey CDN on the production custom domain', async () => {
