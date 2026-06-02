@@ -3,7 +3,6 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_MEDIA,
-  OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA,
   OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_SIZES,
   OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
 } from '@/components/storefront/ogabassey/config/product-media';
@@ -61,7 +60,7 @@ describe('OgabasseyPdpProductResourceHints', () => {
     mockPreload.mockClear();
   });
 
-  it('emits React preload hints and fallback links for the primary product image with the gallery sizes', () => {
+  it('emits head-only React preload hints for the primary product image with the gallery sizes', () => {
     const productImage =
       'https://cdn.ogabassey.com/core-assets/products/lenovo-legion.avif';
     const mobilePreloadHref = imageLoader({
@@ -87,34 +86,8 @@ describe('OgabasseyPdpProductResourceHints', () => {
         src: productImage,
       })
     );
-    expect(html).toContain('rel="preload"');
-    expect(html).toContain('as="image"');
-    expect(html).toMatch(/fetchpriority="high"/i);
-    expect(html).toContain(`href="${desktopPreloadHref}"`);
-    expect(html).toContain(`href="${mobilePreloadHref}"`);
-    expect(html).toContain(
-      `media="${OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA}"`
-    );
-    expect(html).toContain(
-      `media="${OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_MEDIA}"`
-    );
-    expect(html).toContain(
-      `imageSizes="${OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_SIZES}"`
-    );
-    expect(html).toContain(`imageSizes="${OGABASSEY_PDP_PRIMARY_IMAGE_SIZES}"`);
-    expect(html).toMatch(/imageSrcSet="[^"]*lenovo-legion\.avif/);
-    expect(html).toContain(desktopPreloadHref);
-    expect(html).toContain(mobilePreloadHref);
-    const mobileLink = html
-      .match(/<link[^>]+>/g)
-      ?.find((link) =>
-        link.includes(`media="${OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_MEDIA}"`)
-      );
-    expect(mobileLink).toContain('750w');
-    expect(mobileLink).toContain('quality=30');
-    expect(mobileLink).not.toContain('1080w');
-    expect(html).not.toContain('type="image/avif"');
-    expect(mockPreload).toHaveBeenCalledTimes(1);
+    expect(html).toBe('');
+    expect(mockPreload).toHaveBeenCalledTimes(2);
     expect(mockPreload).toHaveBeenCalledWith(
       mobilePreloadHref,
       expect.objectContaining({
@@ -124,11 +97,21 @@ describe('OgabasseyPdpProductResourceHints', () => {
         imageSrcSet: expect.stringContaining('750w'),
       })
     );
-    expect(mockPreload).not.toHaveBeenCalledWith(
+    expect(mockPreload).toHaveBeenCalledWith(
       desktopPreloadHref,
-      expect.anything()
+      expect.objectContaining({
+        as: 'image',
+        fetchPriority: 'high',
+        imageSizes: OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
+        imageSrcSet: expect.stringContaining('lenovo-legion.avif'),
+        media: OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_MEDIA,
+      })
     );
     expect(mockPreload.mock.calls[0]?.[1]).not.toHaveProperty('media');
+    expect(mockPreload.mock.calls[1]?.[1]).toHaveProperty(
+      'media',
+      OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_MEDIA
+    );
   });
 
   it('uses the fallback URL extension when the image is not CDN transformed', () => {
@@ -139,7 +122,7 @@ describe('OgabasseyPdpProductResourceHints', () => {
       createElement(OgabasseyPdpProductResourceHints, { src: productImage })
     );
 
-    expect(html).toContain('type="image/png"');
+    expect(html).toBe('');
     expect(mockPreload).toHaveBeenCalledWith(
       expect.any(String),
       expect.objectContaining({ type: 'image/png' })
