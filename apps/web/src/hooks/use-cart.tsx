@@ -99,6 +99,101 @@ const generateCartItemId = (
   return parts.join('::');
 };
 
+function getStoredStringValue(
+  item: Record<string, unknown>,
+  key: string
+): string | undefined {
+  const value = item[key];
+  return typeof value === 'string' && value.length > 0 ? value : undefined;
+}
+
+function getStoredNumberValue(
+  item: Record<string, unknown>,
+  key: string,
+  fallback: number
+): number {
+  const value = item[key];
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : fallback;
+  }
+  if (typeof value === 'string' && value.trim().length > 0) {
+    const parsedValue = Number(value);
+    return Number.isFinite(parsedValue) ? parsedValue : fallback;
+  }
+
+  return fallback;
+}
+
+function getStoredVariantAttributes(
+  item: Record<string, unknown>
+): Record<string, string> | undefined {
+  const value = item.variantAttributes;
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return undefined;
+  }
+
+  return Object.fromEntries(
+    Object.entries(value).filter(
+      (entry): entry is [string, string] =>
+        typeof entry[1] === 'string' && entry[1].length > 0
+    )
+  );
+}
+
+function normalizeStoredCartItem(item: Record<string, unknown>): CartItem {
+  const productId = getStoredStringValue(item, 'id') ?? '';
+  const variantId =
+    getStoredStringValue(item, 'variantId') ??
+    getStoredStringValue(item, 'variant_id');
+  const variantAttributes = getStoredVariantAttributes(item);
+  const selectedColor =
+    getStoredStringValue(item, 'selectedColor') ??
+    getStoredStringValue(item, 'variantColor') ??
+    variantAttributes?.color;
+  const selectedStorage =
+    getStoredStringValue(item, 'selectedStorage') ??
+    getStoredStringValue(item, 'variantStorage') ??
+    variantAttributes?.storage;
+  const selectedColorValue =
+    getStoredStringValue(item, 'selectedColorValue') ??
+    variantAttributes?.colorValue;
+  const secondaryColor =
+    getStoredStringValue(item, 'secondaryColor') ??
+    variantAttributes?.secondaryColor;
+  const secondaryColorValue =
+    getStoredStringValue(item, 'secondaryColorValue') ??
+    variantAttributes?.secondaryColorValue;
+  const condition = getStoredStringValue(item, 'condition') as
+    | CartItem['condition']
+    | undefined;
+  const cartItemId =
+    getStoredStringValue(item, 'cartItemId') ??
+    generateCartItemId(productId, {
+      color: selectedColor,
+      colorValue: selectedColorValue,
+      condition,
+      secondaryColor,
+      secondaryColorValue,
+      storage: selectedStorage,
+      variantId,
+    });
+
+  return {
+    ...item,
+    cartItemId,
+    price: getStoredNumberValue(item, 'price', 0),
+    quantity: getStoredNumberValue(item, 'quantity', 1),
+    selectedColor,
+    selectedColorValue,
+    secondaryColor,
+    secondaryColorValue,
+    selectedStorage,
+    condition,
+    variantAttributes,
+    variantId,
+  } as CartItem;
+}
+
 const getCartFromStorage = (
   slug?: string | null,
   userId?: string | null
@@ -117,20 +212,7 @@ const getCartFromStorage = (
         const item = i as Record<string, unknown>;
         return typeof item.id === 'string' && typeof item.name === 'string';
       })
-      .map(
-        (i) =>
-          ({
-            ...i,
-            price:
-              typeof i.price === 'number' && !Number.isNaN(i.price)
-                ? i.price
-                : Number(i.price) || 0,
-            quantity:
-              typeof i.quantity === 'number' && !Number.isNaN(i.quantity)
-                ? i.quantity
-                : Number(i.quantity) || 1,
-          }) as CartItem
-      );
+      .map(normalizeStoredCartItem);
   } catch (error) {
     logger.error({
       message: 'Failed to read cart from localStorage',

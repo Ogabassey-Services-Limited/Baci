@@ -1,8 +1,10 @@
-export function getFirstNonBlankString(
-  ...values: Array<string | null | undefined>
-): string {
+export function trimString(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+export function getFirstNonBlankString(...values: unknown[]): string {
   for (const value of values) {
-    const trimmed = value?.trim();
+    const trimmed = trimString(value);
     if (trimmed) {
       return trimmed;
     }

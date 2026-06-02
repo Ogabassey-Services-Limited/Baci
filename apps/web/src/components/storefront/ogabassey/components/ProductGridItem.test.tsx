@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import type React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Product } from '../types';
@@ -217,4 +217,97 @@ describe('ProductGridItem', () => {
 
     expect(screen.getByAltText(baseProduct.name)).toBeInTheDocument();
   });
+
+  it('uses explicit mapped alt text for the rendered grid image', () => {
+    render(
+      <ProductGridItem
+        product={{
+          ...baseProduct,
+          image: '/iphone-black.jpg',
+          image_alt: 'Merchant-provided front view',
+        }}
+        onAddToCart={vi.fn()}
+        isAdded={false}
+        isWishlisted={false}
+        onToggleWishlist={vi.fn()}
+      />
+    );
+
+    expect(
+      screen.getByAltText('Merchant-provided front view')
+    ).toBeInTheDocument();
+  });
+
+  it('falls back to the product name after selecting a non-primary image', () => {
+    render(
+      <ProductGridItem
+        product={{
+          ...baseProduct,
+          image: '/iphone-black.jpg',
+          image_alt: 'Merchant-provided front view',
+        }}
+        onAddToCart={vi.fn()}
+        isAdded={false}
+        isWishlisted={false}
+        onToggleWishlist={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Select color Gold' }));
+
+    expect(screen.getByAltText(baseProduct.name)).toHaveAttribute(
+      'src',
+      '/iphone-gold.jpg'
+    );
+  });
+
+  it('uses preserved payload alt text after selecting a non-primary image', () => {
+    render(
+      <ProductGridItem
+        product={{
+          ...baseProduct,
+          image: '/iphone-black.jpg',
+          image_alt: 'Merchant-provided front view',
+          image_payloads: [
+            { url: '/iphone-black.jpg', alt: 'Black front view' },
+            { url: '/iphone-gold.jpg', alt: 'Gold side angle' },
+          ],
+        }}
+        onAddToCart={vi.fn()}
+        isAdded={false}
+        isWishlisted={false}
+        onToggleWishlist={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Select color Gold' }));
+
+    expect(screen.getByAltText('Gold side angle')).toHaveAttribute(
+      'src',
+      '/iphone-gold.jpg'
+    );
+  });
+
+  it('renders blank-image grid placeholders as decorative images', () => {
+    const { container } = render(
+      <ProductGridItem
+        product={{
+          ...baseProduct,
+          image: '   ',
+          images: ['  '],
+          image_alt: 'Should not describe a placeholder',
+        }}
+        onAddToCart={vi.fn()}
+        isAdded={false}
+        isWishlisted={false}
+        onToggleWishlist={vi.fn()}
+      />
+    );
+
+    const image = container.querySelector('img');
+
+    expect(image).toHaveAttribute('alt', '');
+    expect(image?.getAttribute('src')).toContain('data:image/svg+xml');
+  });
+
 });
