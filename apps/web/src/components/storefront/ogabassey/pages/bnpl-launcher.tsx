@@ -100,9 +100,19 @@ function readPendingOrderSnapshot(orderId: string | null) {
     }
 }
 
-function hasPendingKlumpRedirect() {
+function hasPendingKlumpRedirect(expectedRedirectUrl: string) {
     try {
-        return Boolean(window.localStorage.getItem(KLUMP_REDIRECT_URL_KEY));
+        const storedRedirectUrl = window.localStorage.getItem(KLUMP_REDIRECT_URL_KEY);
+        if (!storedRedirectUrl) {
+            return false;
+        }
+
+        if (storedRedirectUrl === expectedRedirectUrl) {
+            return true;
+        }
+
+        window.localStorage.removeItem(KLUMP_REDIRECT_URL_KEY);
+        return false;
     } catch {
         return false;
     }
@@ -455,6 +465,8 @@ export function BnplLauncher({ merchantSlug = 'ogabassey' }: BnplLauncherProps) 
                     }
                     klumpSuccessRedirectRef.current = false;
 
+                    const klumpRedirectUrl = buildCurrentPathRedirectUrl(callbackQuery);
+
                     new KlumpCheckout({
                         publicKey,
                         data: {
@@ -465,7 +477,7 @@ export function BnplLauncher({ merchantSlug = 'ogabassey' }: BnplLauncherProps) 
                             ...(last_name ? { last_name } : {}),
                             ...(phone ? { phone } : {}),
                             merchant_reference: klumpReference,
-                            redirect_url: buildCurrentPathRedirectUrl(callbackQuery),
+                            redirect_url: klumpRedirectUrl,
                             items: buildKlumpItems(order),
                             meta_data: {
                                 order_id: order.id,
@@ -476,7 +488,7 @@ export function BnplLauncher({ merchantSlug = 'ogabassey' }: BnplLauncherProps) 
                             window.setTimeout(() => {
                                 if (
                                     klumpSuccessRedirectRef.current ||
-                                    hasPendingKlumpRedirect() ||
+                                    hasPendingKlumpRedirect(klumpRedirectUrl) ||
                                     document.getElementById('klump_checkout')
                                 ) {
                                     return;

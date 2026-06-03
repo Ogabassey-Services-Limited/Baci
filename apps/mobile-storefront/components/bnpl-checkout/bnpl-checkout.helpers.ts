@@ -192,7 +192,7 @@ export const BNPL_INJECTED_JAVASCRIPT = `
         line: String(event.lineno || ''),
         column: String(event.colno || '')
       });
-    });
+    }, true);
 
     window.addEventListener('unhandledrejection', function(event) {
       const reason = event.reason;

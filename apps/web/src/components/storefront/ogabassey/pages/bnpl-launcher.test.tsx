@@ -503,6 +503,40 @@ describe('BnplLauncher', () => {
     });
   });
 
+  it('marks Klump checkout cancelled when the stored SDK redirect belongs to a previous checkout', async () => {
+    mockSearchParams.mockReturnValue(
+      new URLSearchParams({
+        orderId: 'order-1',
+        gateway: 'klump',
+        merchant_slug: 'test-store',
+        reference: 'BAC-ABCD12345678',
+        trackingToken: 'tok-123',
+      })
+    );
+    vi.stubEnv('NEXT_PUBLIC_KLUMP_PUBLIC_KEY', 'klp_pk_test_123');
+    window.localStorage.setItem(
+      KLUMP_REDIRECT_URL_KEY,
+      'https://ogabassey.com/checkout/bnpl?gateway=klump&orderId=old-order&klump_callback=1'
+    );
+
+    render(<BnplLauncher />);
+
+    await waitFor(() => {
+      expect(mockKlumpConstructor).toHaveBeenCalled();
+    });
+
+    const config = mockKlumpConstructor.mock.calls[0][0] as {
+      onClose?: () => void;
+    };
+    config.onClose?.();
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Payment cancelled. Please try again.')
+      ).toBeInTheDocument();
+    });
+  });
+
   it('uses the Klump global binding when the SDK does not attach itself to window', async () => {
     mockSearchParams.mockReturnValue(
       new URLSearchParams({

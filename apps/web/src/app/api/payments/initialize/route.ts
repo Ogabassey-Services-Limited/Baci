@@ -27,6 +27,7 @@ import {
   type JuicywayCryptoChain,
   type JuicywayStablecoin,
 } from '@/lib/juicyway';
+import { toKlumpIntegerAmount } from '@/lib/klump-utils';
 import {
   type Currency,
   calculatePlatformFee as calculateKorapayFee,
@@ -1043,6 +1044,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const klumpChargeAmount =
+      gateway === 'klump' ? toKlumpIntegerAmount(data.amount) : null;
+
     if (gateway === 'klump') {
       if (!gatewaySettings.klump_enabled) {
         return createErrorResponse(
@@ -1069,8 +1073,9 @@ export async function POST(request: NextRequest) {
       }
 
       if (
-        data.amount < gatewaySettings.klump_min_amount ||
-        data.amount > gatewaySettings.klump_max_amount
+        klumpChargeAmount === null ||
+        klumpChargeAmount < gatewaySettings.klump_min_amount ||
+        klumpChargeAmount > gatewaySettings.klump_max_amount
       ) {
         return createErrorResponse(
           'Order total is outside the merchant Klump amount range',
@@ -1231,6 +1236,14 @@ export async function POST(request: NextRequest) {
           break;
         }
         case 'klump': {
+          if (klumpChargeAmount === null) {
+            return createErrorResponse(
+              'Invalid Klump payment amount',
+              'INVALID_AMOUNT',
+              400
+            );
+          }
+
           // Klump still uses the Baci BNPL launcher, but it needs the BAC
           // reference in the URL so the launcher can record Klump's provider id
           // before any success page is shown.
@@ -1253,7 +1266,7 @@ export async function POST(request: NextRequest) {
             checkout_url: launcherUrl,
             reference,
             platformFee: 0,
-            merchantAmount: data.amount,
+            merchantAmount: klumpChargeAmount,
           };
           break;
         }
@@ -1290,7 +1303,7 @@ export async function POST(request: NextRequest) {
       {
         p_merchant_id: merchantId,
         p_order_id: data.order_id,
-        p_amount: data.amount,
+        p_amount: klumpChargeAmount ?? data.amount,
         p_currency: validCurrency,
         p_gateway: gateway,
         p_reference: paymentResult.reference,
