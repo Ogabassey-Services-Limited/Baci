@@ -1,14 +1,7 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import type React from 'react';
-import { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-  ZoomIn,
-  ZoomOut,
-} from 'react-native-reanimated';
+import Animated, { ZoomIn, ZoomOut } from 'react-native-reanimated';
 import { useTheme } from '@/hooks/useTheme';
 
 export function TabBarLabel({
@@ -24,11 +17,7 @@ export function TabBarLabel({
   if (!focused) return null;
 
   return (
-    <Animated.Text
-      entering={ZoomIn.duration(150)}
-      exiting={ZoomOut.duration(100)}
-      style={[styles.tabLabel, { color: colors.tabIconSelected }]}
-    >
+    <Animated.Text style={[styles.tabLabel, { color: colors.tabIconSelected }]}>
       {label}
     </Animated.Text>
   );
@@ -45,29 +34,9 @@ export function TabBarIcon({
 }) {
   const { colors } = useTheme();
 
-  // Spring scale shared value run strictly on C++ thread
-  const scale = useSharedValue(1);
-
-  useEffect(() => {
-    scale.value = withSpring(focused ? 1.18 : 1, {
-      damping: 12,
-      stiffness: 150,
-    });
-  }, [focused, scale]);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
   return (
     <View style={styles.iconContainer}>
-      <Animated.View
-        style={[
-          styles.iconInner,
-          focused && { backgroundColor: 'transparent' }, // transparent overlay since CustomTabBar highlights it
-          animatedStyle,
-        ]}
-      >
+      <Animated.View testID="tab-bar-icon-inner" style={styles.iconInner}>
         <Ionicons
           name={name}
           size={22}

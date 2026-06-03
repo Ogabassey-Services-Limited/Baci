@@ -1,7 +1,7 @@
 {
   "platformBranches": [
     {
-      "path": "app/(tabs)/cart.tsx",
+      "path": "app/cart.tsx",
       "justification": "Reviewed existing cart haptics and list virtualization platform behavior."
     },
     {

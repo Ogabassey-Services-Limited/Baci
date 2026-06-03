@@ -1,7 +1,7 @@
 import { describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import type { Block } from '@/types/blocks';
 import type { SharedValue } from 'react-native-reanimated';
+import type { Block } from '@/types/blocks';
 import { HomeScreenView } from './HomeScreenView';
 
 jest.mock('expo-image', () => {
@@ -20,7 +20,9 @@ jest.mock('@/components/storefront/GadgetPattern', () => {
   ) as typeof import('react-native');
 
   return {
-    GadgetPattern: () => <Text>Elite texture</Text>,
+    GadgetPattern: ({ color }: { color?: string }) => (
+      <Text>{color ? `Gadget pattern ${color}` : 'Elite texture'}</Text>
+    ),
   };
 });
 
@@ -145,9 +147,15 @@ jest.mock('@/components/ui/Skeleton', () => {
   };
 });
 
-jest.mock('@/components/ui/SnowEffect', () => ({
-  SnowEffect: () => null,
-}));
+jest.mock('@/components/ui/SnowEffect', () => {
+  const { Text } = jest.requireActual(
+    'react-native'
+  ) as typeof import('react-native');
+
+  return {
+    SnowEffect: () => <Text>Snow effect</Text>,
+  };
+});
 
 const blocks: Block[] = [
   { type: 'CategoryRail', props: { id: 'categories' } },
@@ -180,6 +188,7 @@ function createProps() {
     onSearchCancel: jest.fn(),
     onSearchQueryChange: jest.fn(),
     onSearchSubmit: jest.fn(),
+    primaryColor: '#0ea5e9',
     primaryProductGridIndex: 1,
     productGridLoadMoreSignal: 2,
     refreshing: false,
@@ -187,6 +196,7 @@ function createProps() {
     searchQuery: '',
     searchVisible: false,
     selectedCategoryId: null,
+    shouldRenderDecorations: true,
     showPermissionModal: false,
   };
 }
@@ -224,6 +234,12 @@ describe('HomeScreenView', () => {
     expect(onRefresh).toHaveBeenCalledTimes(1);
   });
 
+  it('uses the active merchant theme color for decorative and refresh affordances', () => {
+    render(<HomeScreenView {...createProps()} primaryColor="#22c55e" />);
+
+    expect(screen.getByText('Gadget pattern #22c55e')).toBeTruthy();
+  });
+
   it('renders the online error notice for an unsuccessful page request', () => {
     render(<HomeScreenView {...createProps()} isError={true} />);
 
@@ -237,6 +253,20 @@ describe('HomeScreenView', () => {
 
     expect(screen.getByText('Offline cached content')).toBeTruthy();
     expect(screen.getAllByText('Elite texture').length).toBeGreaterThan(0);
+  });
+
+  it('keeps heavy decorative layers deferred while rendering the elite backdrop immediately', () => {
+    render(
+      <HomeScreenView
+        {...createProps()}
+        isElite={true}
+        shouldRenderDecorations={false}
+      />
+    );
+
+    expect(screen.getByText('Block CategoryRail')).toBeTruthy();
+    expect(screen.getByText('Elite texture')).toBeTruthy();
+    expect(screen.queryByText('Snow effect')).toBeNull();
   });
 
   it('delegates permission choices and closing the visible search overlay', () => {

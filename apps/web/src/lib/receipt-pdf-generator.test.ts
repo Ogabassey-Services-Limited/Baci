@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   generateReceiptBlob,
   generateReceiptPDF,
+  resolveReceiptLogoDataUri,
 } from '@/lib/receipt-pdf-generator';
 
 const baseMerchant = {
@@ -55,6 +56,7 @@ function getPdfText(
 
 describe('generateReceiptBlob', () => {
   afterEach(() => {
+    vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
 
@@ -119,6 +121,55 @@ describe('generateReceiptBlob', () => {
     expect(pdfText).toContain('Unpaid Customer');
     expect(pdfText).toContain('Item');
     expect(pdfText).toContain('Line Total');
+  });
+
+  it('can render a paid order as an invoice document when requested', () => {
+    const order = {
+      ...baseOrder,
+      items: [
+        {
+          product_name: 'MacBook Pro',
+          quantity: 1,
+          price: 150000,
+        },
+      ],
+      transactions: [],
+    };
+    const pdfText = generateReceiptPDF(order, baseMerchant, {
+      documentKind: 'invoice',
+    })
+      .output()
+      .replaceAll(String.fromCharCode(0), '');
+
+    expect(pdfText).toContain('INVOICE');
+    expect(pdfText).not.toContain('RECEIPT');
+  });
+
+  it('prints a compliance note when the invoice XML artifact has been generated', () => {
+    const order = {
+      ...baseOrder,
+      payment_status: 'unpaid' as const,
+      amount_paid: 0,
+      balance: 150000,
+      items: [
+        {
+          product_name: 'MacBook Pro',
+          quantity: 1,
+          price: 150000,
+        },
+      ],
+      transactions: [],
+    };
+    const pdfText = generateReceiptPDF(order, baseMerchant, {
+      complianceNote:
+        'This invoice complies with Peppol BIS Billing 3.0 through a generated UBL XML invoice artifact created from this order.',
+      documentKind: 'invoice',
+    })
+      .output()
+      .replaceAll(String.fromCharCode(0), '');
+
+    expect(pdfText).toContain('Peppol BIS Billing 3.0');
+    expect(pdfText).toContain('generated UBL XML invoice artifact');
   });
 
   it('handles long names and multiple items without failing', () => {
@@ -301,5 +352,101 @@ describe('generateReceiptBlob', () => {
     expect(output).toContain('Total');
     expect(output).not.toContain('Amount Paid');
     expect(output).not.toContain('Balance Due');
+  });
+
+  it('resolves safe HTTPS receipt logos as data URIs', async () => {
+    const fetchMock = vi.fn(() =>
+      Promise.resolve(
+        new Response(Uint8Array.from([1, 2, 3]), {
+          headers: { 'content-type': 'image/png' },
+          status: 200,
+        })
+      )
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      resolveReceiptLogoDataUri({
+        ...baseMerchant,
+        logo_url: 'https://res.cloudinary.com/demo/image/upload/logo.png',
+      })
+    ).resolves.toBe('data:image/png;base64,AQID');
+    expect(fetchMock).toHaveBeenCalledWith(expect.any(URL), {
+      redirect: 'error',
+      signal: expect.any(AbortSignal),
+    });
+  });
+
+  it('rejects receipt logo redirects', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve(
+          new Response(null, {
+            headers: { location: 'https://127.0.0.1/logo.png' },
+            status: 302,
+          })
+        )
+      )
+    );
+
+    await expect(
+      resolveReceiptLogoDataUri({
+        ...baseMerchant,
+        logo_url: 'https://res.cloudinary.com/demo/image/upload/logo.png',
+      })
+    ).resolves.toBeNull();
+  });
+
+  it('rejects non-HTTPS or internal receipt logo URLs', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      resolveReceiptLogoDataUri({
+        ...baseMerchant,
+        logo_url: 'http://res.cloudinary.com/demo/logo.png',
+      })
+    ).resolves.toBeNull();
+    await expect(
+      resolveReceiptLogoDataUri({
+        ...baseMerchant,
+        logo_url: 'https://127.0.0.1/logo.png',
+      })
+    ).resolves.toBeNull();
+    await expect(
+      resolveReceiptLogoDataUri({
+        ...baseMerchant,
+        logo_url: 'https://localhost/logo.png',
+      })
+    ).resolves.toBeNull();
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects oversized receipt logos before reading the body', async () => {
+    const arrayBuffer = vi.fn(async () => Uint8Array.from([1, 2, 3]).buffer);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve({
+          arrayBuffer,
+          body: null,
+          headers: new Headers({
+            'content-length': '2000001',
+            'content-type': 'image/png',
+          }),
+          ok: true,
+        } as unknown as Response)
+      )
+    );
+
+    await expect(
+      resolveReceiptLogoDataUri({
+        ...baseMerchant,
+        logo_url: 'https://res.cloudinary.com/demo/image/upload/logo.png',
+      })
+    ).resolves.toBeNull();
+    expect(arrayBuffer).not.toHaveBeenCalled();
   });
 });

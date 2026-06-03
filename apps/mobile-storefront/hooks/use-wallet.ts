@@ -18,12 +18,37 @@ export { walletKeys } from './wallet-query';
 // ============================================
 
 const SAVINGS_INVALIDATION_DEBOUNCE_MS = 250;
+const WALLET_STRICT_STALE_TIME_MS = 30_000;
+const WALLET_STRICT_GC_TIME_MS = 5 * 60_000;
+const WALLET_DISPLAY_STALE_TIME_MS = 2 * 60_000;
+const WALLET_DISPLAY_GC_TIME_MS = 30 * 60_000;
+
+interface UseWalletOptions {
+  cachePolicy?: 'strict' | 'display';
+}
+
+function resolveWalletCachePolicy(
+  cachePolicy: UseWalletOptions['cachePolicy']
+) {
+  if (cachePolicy === 'display') {
+    return {
+      gcTime: WALLET_DISPLAY_GC_TIME_MS,
+      staleTime: WALLET_DISPLAY_STALE_TIME_MS,
+    };
+  }
+
+  return {
+    gcTime: WALLET_STRICT_GC_TIME_MS,
+    staleTime: WALLET_STRICT_STALE_TIME_MS,
+  };
+}
 
 /**
  * Main wallet data hook with React Query
  */
-export function useWallet() {
+export function useWallet(options: UseWalletOptions = {}) {
   const queryClient = useQueryClient();
+  const cachePolicy = resolveWalletCachePolicy(options.cachePolicy);
   const { customer, merchantId, user } = useAuthStore(
     useShallow((state) => ({
       customer: state.customer,
@@ -50,8 +75,8 @@ export function useWallet() {
     queryFn: () =>
       fetchWalletData(customer?.id ?? null, activeMerchantId, user?.id ?? null),
     enabled: !!walletOwnerId && !!activeMerchantId,
-    staleTime: 30_000, // Consider fresh for 30 seconds
-    gcTime: 5 * 60_000, // Keep in cache for 5 minutes
+    staleTime: cachePolicy.staleTime,
+    gcTime: cachePolicy.gcTime,
   });
 
   // Real-time sync

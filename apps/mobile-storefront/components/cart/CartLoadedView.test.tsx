@@ -1,3 +1,4 @@
+import { describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import type { ComponentProps } from 'react';
 import Colors from '@/constants/Colors';
@@ -11,7 +12,8 @@ jest.mock('@/components/ui/SafeImage', () => ({
 }));
 
 jest.mock('@/components/storefront/GadgetPattern', () => {
-  const { Text } = jest.requireActual('react-native');
+  const { Text } =
+    jest.requireActual<typeof import('react-native')>('react-native');
   return {
     GadgetPattern: () => <Text>GadgetPattern</Text>,
   };
@@ -24,7 +26,8 @@ jest.mock('@/components/checkout/checkout-identity', () => ({
 }));
 
 jest.mock('react-native-reanimated', () => {
-  const { View } = jest.requireActual('react-native');
+  const { View } =
+    jest.requireActual<typeof import('react-native')>('react-native');
 
   return {
     __esModule: true,
@@ -62,6 +65,7 @@ function renderView(
     grandTotal: item.price,
     handleCheckout: jest.fn(),
     handleClearCart: jest.fn(),
+    handleReturnHome: jest.fn(),
     handleQuantityChange: jest.fn(),
     handleRemoveItem: jest.fn(),
     insetsTop: 16,
@@ -69,6 +73,7 @@ function renderView(
     itemCount: 1,
     items: [item],
     onBulkNegotiate: jest.fn(),
+    onCheckoutPressIn: jest.fn(),
     onCloseIdentityModal: jest.fn(),
     onCloseNegotiateWarning: jest.fn(),
     onNegotiateItem: jest.fn(),
@@ -102,6 +107,16 @@ describe('CartLoadedView', () => {
 
     expect(handleClearCart).toHaveBeenCalledTimes(1);
     expect(handleCheckout).toHaveBeenCalledTimes(1);
+  });
+
+  it('delegates the cart header back action', () => {
+    const handleReturnHome = jest.fn();
+
+    renderView({ handleReturnHome });
+
+    fireEvent.press(screen.getByRole('button', { name: 'Back to home' }));
+
+    expect(handleReturnHome).toHaveBeenCalledTimes(1);
   });
 
   it('delegates total negotiation from the footer action', () => {

@@ -63,6 +63,15 @@ export function renderRootStackScreens({
       }}
     />,
     <Stack.Screen
+      key="cart"
+      name="cart"
+      options={{
+        headerShown: false,
+        animation: 'slide_from_right',
+        gestureEnabled: true,
+      }}
+    />,
+    <Stack.Screen
       key="order-success"
       name="order-success"
       options={{

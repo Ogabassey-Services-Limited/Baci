@@ -4,8 +4,8 @@ import { useEffect, useState } from 'react';
 import { Alert } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
 import { useColorScheme } from '@/components/useColorScheme';
-import { WalletScreenView } from '@/components/wallet/WalletScreenView';
 import { useWalletBalanceContractWarning } from '@/components/wallet/use-wallet-balance-contract-warning';
+import { WalletScreenView } from '@/components/wallet/WalletScreenView';
 import { WALLET_TAB_SCROLL_PADDING_BOTTOM } from '@/components/wallet/wallet-tab.constants';
 import Colors, { SPACING } from '@/constants/Colors';
 import { useRequireAuth } from '@/hooks/use-auth-guard';
@@ -36,11 +36,9 @@ import {
 } from './wallet-screen.helpers';
 
 const log = createLogger('Wallet');
-
 interface WalletScreenProps {
   presentation?: 'stack' | 'tab';
 }
-
 export function WalletScreen({
   presentation = 'stack',
 }: WalletScreenProps = {}) {
@@ -55,7 +53,6 @@ export function WalletScreen({
   const routeAction = Array.isArray(action) ? action[0] : action;
   const routeRequiredAmount = normalizeWalletFundAmountParam(requiredAmount);
   const walletReturnTo = sanitizeWalletReturnTo(returnTo);
-
   const { isLoading: authLoading, redirectTo } = useRequireAuth();
   const { customer, merchantId, user } = useAuthStore(
     useShallow((state) => ({
@@ -64,10 +61,11 @@ export function WalletScreen({
       user: state.user,
     }))
   );
-  const { data, isError, isLoading, refetch, isRefetching } = useWallet();
+  const { data, isError, isLoading, refetch, isRefetching } = useWallet({
+    cachePolicy: 'display',
+  });
   const redeemMutation = useRedeemPoints();
   const createFundingAccountMutation = useCreateWalletFundingAccount();
-
   const [redeemPoints, setRedeemPoints] = useState('');
   const [showRedeemPanel, setShowRedeemPanel] = useState(
     routeAction === 'redeem'
@@ -84,7 +82,6 @@ export function WalletScreen({
     ownerId: customer?.id ?? user?.id ?? '',
     walletData: data?.wallet,
   });
-
   useEffect(() => {
     if (routeAction === 'fund') {
       setShowFundPanel(true);
@@ -98,10 +95,8 @@ export function WalletScreen({
       setShowRedeemPanel(true);
     }
   }, [routeAction, routeRequiredAmount]);
-
   const handleFundAmountChange = (value: string) =>
     setFundAmount(sanitizeWalletFundAmount(value));
-
   const handleCreateFundingAccount = async () => {
     const outcome = await resolveCreateFundingAccountOutcome(
       createFundingAccountMutation.mutateAsync
@@ -119,17 +114,14 @@ export function WalletScreen({
       Alert.alert('Unable to create account number', outcome.alertMessage);
       return;
     }
-
     if (outcome.accountSummary) {
       Alert.alert('Account Ready', outcome.accountSummary);
     }
   };
-
   const resetFundPanel = () => {
     setShowFundPanel(false);
     setFundAmount('');
   };
-
   const handleFundWallet = async () => {
     const amount = Number(fundAmount);
     const amountValidationError = validateWalletTopUpAmount(amount);
@@ -137,7 +129,6 @@ export function WalletScreen({
       Alert.alert('Invalid Amount', amountValidationError);
       return;
     }
-
     setIsFundPending(true);
     try {
       const customerName = getWalletCustomerName(customer, user);
@@ -183,7 +174,6 @@ export function WalletScreen({
       setIsFundPending(false);
     }
   };
-
   const handleRedeemPoints = async () => {
     const outcome = await resolveWalletRedeemPointsOutcome({
       minimumRedeemablePoints: VTU_MIN_REDEEMABLE_POINTS,
@@ -194,7 +184,6 @@ export function WalletScreen({
       Alert.alert(outcome.title, outcome.message);
       return;
     }
-
     if (outcome.status === 'error') {
       log.error('Redemption error:', outcome.alertMessage);
       trackError('loyalty_redemption_failed', outcome.telemetryMessage, {
@@ -204,7 +193,6 @@ export function WalletScreen({
       Alert.alert('Error', outcome.alertMessage);
       return;
     }
-
     trackEvent('loyalty_redeemed', {
       points_redeemed: outcome.points,
       wallet_credit: outcome.result.walletCredit,
@@ -212,21 +200,17 @@ export function WalletScreen({
       conversion_rate: outcome.result.conversionRate,
       customer_id: customer?.id,
     });
-
     await scheduleLocalNotification(
       'Points Redeemed! 🎁',
       outcome.successMessage,
       { type: 'loyalty_redemption', points: outcome.points },
       1
     );
-
     Alert.alert('Points Redeemed!', outcome.successMessage, [
       { text: 'OK', onPress: () => setShowRedeemPanel(false) },
     ]);
-
     setRedeemPoints('');
   };
-
   const scrollContentStyle = getScrollContentStyle({
     includeBottomInset: presentation === 'tab',
     paddingBottom:
@@ -236,11 +220,9 @@ export function WalletScreen({
   if (authLoading) {
     return <WalletScreenView colors={colors} presentation={presentation} />;
   }
-
   if (redirectTo) {
     return <Redirect href={redirectTo} />;
   }
-
   const loadingMessage = getWalletLoadingMessage({
     hasMerchantContext,
     hasWalletData: Boolean(data),
@@ -248,7 +230,6 @@ export function WalletScreen({
     isLoading,
     user,
   });
-
   if (!user || !hasMerchantContext || isLoading || !data) {
     return (
       <WalletScreenView
@@ -258,7 +239,6 @@ export function WalletScreen({
       />
     );
   }
-
   const { wallet: walletData, transactions } = data;
   const {
     earningsBalance,

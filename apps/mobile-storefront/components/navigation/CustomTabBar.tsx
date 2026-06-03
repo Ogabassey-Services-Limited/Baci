@@ -2,7 +2,14 @@ import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useKeyboard } from '@/hooks/use-keyboard';
 import { CustomTabBarChrome } from './CustomTabBarChrome';
 
-export function CustomTabBar(props: BottomTabBarProps) {
+type CustomTabBarProps = BottomTabBarProps & {
+  preloadProtectedTabs?: boolean;
+};
+
+export function CustomTabBar({
+  preloadProtectedTabs = false,
+  ...props
+}: CustomTabBarProps) {
   const activeRouteName = props.state.routes[props.state.index]?.name ?? '';
   const { isKeyboardVisible } = useKeyboard();
 
@@ -10,5 +17,11 @@ export function CustomTabBar(props: BottomTabBarProps) {
     return null;
   }
 
-  return <CustomTabBarChrome {...props} activeRouteName={activeRouteName} />;
+  return (
+    <CustomTabBarChrome
+      {...props}
+      activeRouteName={activeRouteName}
+      preloadProtectedTabs={preloadProtectedTabs}
+    />
+  );
 }

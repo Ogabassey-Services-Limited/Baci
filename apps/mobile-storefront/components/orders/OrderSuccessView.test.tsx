@@ -62,12 +62,29 @@ function createProps() {
 
 describe('OrderSuccessView', () => {
   it('renders invoice messaging and a fallback delivery timeline', () => {
-    render(<OrderSuccessView {...createProps()} paymentMethod="invoice" />);
+    const onViewDocument = jest.fn();
+
+    render(
+      <OrderSuccessView
+        {...createProps()}
+        onViewDocument={onViewDocument}
+        paymentMethod="invoice"
+      />
+    );
 
     expect(screen.getByText('Invoice ready')).toBeTruthy();
+    expect(screen.getByText('Invoice Created')).toBeTruthy();
+    expect(screen.queryByText('Order Placed!')).toBeNull();
     expect(screen.getByText('Delivery Timeline')).toBeTruthy();
     expect(screen.getByText('Shared after order confirmation')).toBeTruthy();
+    expect(screen.getByText('Invoice')).toBeTruthy();
+    expect(screen.getByText('View / Download Invoice')).toBeTruthy();
     expect(screen.queryByText('Payment Ref')).toBeNull();
+
+    fireEvent.press(
+      screen.getByRole('button', { name: 'View / Download Invoice' })
+    );
+    expect(onViewDocument).toHaveBeenCalledTimes(1);
   });
 
   it('renders order details and delegates accessible post-purchase actions', () => {
@@ -89,6 +106,7 @@ describe('OrderSuccessView', () => {
     );
 
     expect(screen.getByText('Payment request ready')).toBeTruthy();
+    expect(screen.getByText('Payment Request Created')).toBeTruthy();
     expect(screen.getByText('#BAC-100')).toBeTruthy();
     expect(screen.getByText('Estimated Delivery')).toBeTruthy();
     expect(screen.getByText('pay-ref')).toBeTruthy();
@@ -102,6 +120,47 @@ describe('OrderSuccessView', () => {
     expect(onLeaveGoogleReview).toHaveBeenCalledTimes(1);
     expect(onContinueShopping).toHaveBeenCalledTimes(1);
     expect(onViewOrders).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders a receipt action for confirmed orders when a document handler exists', () => {
+    const onViewDocument = jest.fn();
+
+    render(
+      <OrderSuccessView
+        {...createProps()}
+        onViewDocument={onViewDocument}
+        paymentMethod="paystack"
+      />
+    );
+
+    expect(screen.getByText('Order Confirmed')).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'View Receipt' }));
+
+    expect(onViewDocument).toHaveBeenCalledTimes(1);
+  });
+
+  it('disables the document action while preparing a document', () => {
+    // Arrange
+    const onViewDocument = jest.fn();
+    render(
+      <OrderSuccessView
+        {...createProps()}
+        isDocumentLoading={true}
+        onViewDocument={onViewDocument}
+        paymentMethod="paystack"
+      />
+    );
+
+    // Act
+    const documentButton = screen.getByRole('button', { name: 'View Receipt' });
+    fireEvent.press(documentButton);
+
+    // Assert
+    expect(screen.getByText('Preparing document...')).toBeTruthy();
+    expect(documentButton.props.accessibilityState).toEqual({
+      disabled: true,
+    });
+    expect(onViewDocument).not.toHaveBeenCalled();
   });
 
   it('delegates notification permission decisions from the visible modal', () => {

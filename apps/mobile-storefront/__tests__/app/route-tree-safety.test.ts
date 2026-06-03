@@ -27,11 +27,12 @@ const EXPO_ROUTER_SPECIAL_FILES = new Set([
 ]);
 const EXPLICIT_STATIC_ROUTES = new Set([
   '(tabs)/account.tsx',
-  '(tabs)/cart.tsx',
+  '(tabs)/cart-tab.tsx',
   '(tabs)/categories.tsx',
   '(tabs)/saved.tsx',
   '(tabs)/wallet.tsx',
   'auth/callback.tsx',
+  'cart.tsx',
   'auth/login.tsx',
   'checkout.tsx',
   'notifications.tsx',

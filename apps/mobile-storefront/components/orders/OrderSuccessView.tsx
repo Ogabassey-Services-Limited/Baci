@@ -6,44 +6,13 @@ import { GoogleLogo } from '@/components/icons/GoogleLogo';
 import { SuccessIcon } from '@/components/icons/SuccessIcon';
 import { PermissionModal } from '@/components/ui/PermissionModal';
 import Colors, { BRAND } from '@/constants/Colors';
+import type { OrderSuccessViewProps } from './OrderSuccessView.types';
 import { orderSuccessStyles as styles } from './order-success.styles';
-
-interface OrderSuccessViewProps {
-  colors: typeof Colors.light;
-  deliveryEstimate?: string;
-  isDark: boolean;
-  onContinueShopping: () => void;
-  onLeaveGoogleReview: () => void;
-  onPermissionDeny: () => void;
-  onPermissionGrant: () => void;
-  onViewOrders: () => void;
-  orderNumber?: string;
-  paymentMethod?: string;
-  reference?: string;
-  showPermissionModal: boolean;
-}
-
-function getSuccessTone(paymentMethod?: string) {
-  if (paymentMethod === 'invoice') {
-    return {
-      eyebrow: 'Invoice ready',
-      subtitle:
-        "We've prepared your invoice. Once payment is made, we'll confirm the order and start processing it.",
-    };
-  }
-  if (paymentMethod === 'payforme') {
-    return {
-      eyebrow: 'Payment request ready',
-      subtitle:
-        "We've saved this order for later payment. Once it is settled, we'll confirm it and begin processing.",
-    };
-  }
-  return {
-    eyebrow: 'Order confirmed',
-    subtitle:
-      "Thanks for your order. We'll send a confirmation email and keep you updated as it moves.",
-  };
-}
+import {
+  getOrderSuccessDeliveryLabel,
+  getOrderSuccessTone,
+  resolveOrderSuccessDeliveryEstimate,
+} from './order-success-content';
 
 export function OrderSuccessView({
   colors,
@@ -53,15 +22,17 @@ export function OrderSuccessView({
   onLeaveGoogleReview,
   onPermissionDeny,
   onPermissionGrant,
+  onViewDocument,
   onViewOrders,
   orderNumber,
   paymentMethod,
   reference,
+  isDocumentLoading = false,
   showPermissionModal,
 }: OrderSuccessViewProps) {
   const resolvedDeliveryEstimate =
-    deliveryEstimate?.trim() || 'Shared after order confirmation';
-  const successTone = getSuccessTone(paymentMethod);
+    resolveOrderSuccessDeliveryEstimate(deliveryEstimate);
+  const successTone = getOrderSuccessTone(paymentMethod);
 
   return (
     <>
@@ -92,7 +63,7 @@ export function OrderSuccessView({
               <Text style={styles.eyebrowText}>{successTone.eyebrow}</Text>
             </View>
             <Text style={[styles.title, { color: colors.text }]}>
-              Order Placed!
+              {successTone.title}
             </Text>
             <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
               {successTone.subtitle}
@@ -126,10 +97,7 @@ export function OrderSuccessView({
                 <Text
                   style={[styles.orderLabel, { color: colors.textSecondary }]}
                 >
-                  {resolvedDeliveryEstimate ===
-                  'Shared after order confirmation'
-                    ? 'Delivery Timeline'
-                    : 'Estimated Delivery'}
+                  {getOrderSuccessDeliveryLabel(deliveryEstimate)}
                 </Text>
                 <Text style={[styles.orderValue, { color: colors.text }]}>
                   {resolvedDeliveryEstimate}
@@ -180,7 +148,7 @@ export function OrderSuccessView({
                 </View>
                 <View style={styles.nextStepBody}>
                   <Text style={[styles.nextStepTitle, { color: colors.text }]}>
-                    Receipt
+                    {successTone.nextDocumentTitle}
                   </Text>
                   <Text
                     style={[
@@ -188,8 +156,7 @@ export function OrderSuccessView({
                       { color: colors.textSecondary },
                     ]}
                   >
-                    Your receipt will be available for download after your order
-                    has been shipped.
+                    {successTone.nextDocumentText}
                   </Text>
                 </View>
               </View>
@@ -223,6 +190,33 @@ export function OrderSuccessView({
               </View>
             </View>
             <View style={styles.actions}>
+              {onViewDocument ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={successTone.documentLabel}
+                  accessibilityState={{ disabled: isDocumentLoading }}
+                  disabled={isDocumentLoading}
+                  style={[
+                    styles.documentButton,
+                    {
+                      backgroundColor: BRAND.primary,
+                      opacity: isDocumentLoading ? 0.72 : 1,
+                    },
+                  ]}
+                  onPress={onViewDocument}
+                >
+                  <Ionicons
+                    name="document-text-outline"
+                    size={18}
+                    color={Colors.light.white}
+                  />
+                  <Text style={styles.documentButtonText}>
+                    {isDocumentLoading
+                      ? 'Preparing document...'
+                      : successTone.documentLabel}
+                  </Text>
+                </Pressable>
+              ) : null}
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Leave a Google Review"

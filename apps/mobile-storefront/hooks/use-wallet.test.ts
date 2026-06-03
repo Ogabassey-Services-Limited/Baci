@@ -764,6 +764,55 @@ describe('useWallet', () => {
     unmount();
     queryClient.clear();
   });
+
+  it('keeps display wallet cache fresh across quick wallet-screen returns', () => {
+    const { tableCalls } = setupWalletTableMocks();
+    const queryClient = createTestClient();
+    queryClient.setQueryData<WalletQueryData>(
+      walletKeys.data({ merchantId: 'merchant-1', ownerId: 'customer-1' }),
+      {
+        wallet: { balance: 3210, loyalty_points: 400 },
+        transactions: [],
+      },
+      { updatedAt: Date.now() - 45_000 }
+    );
+
+    const { result, unmount } = renderHook(
+      () => useWallet({ cachePolicy: 'display' }),
+      {
+        wrapper: createWrapper(queryClient),
+      }
+    );
+
+    expect(result.current.data?.wallet.balance).toBe(3210);
+    expect(tableCalls).toEqual([]);
+
+    unmount();
+    queryClient.clear();
+  });
+
+  it('keeps the default wallet cache strict for balance-sensitive consumers', async () => {
+    const { tableCalls } = setupWalletTableMocks();
+    const queryClient = createTestClient();
+    queryClient.setQueryData<WalletQueryData>(
+      walletKeys.data({ merchantId: 'merchant-1', ownerId: 'customer-1' }),
+      {
+        wallet: { balance: 3210, loyalty_points: 400 },
+        transactions: [],
+      },
+      { updatedAt: Date.now() - 45_000 }
+    );
+
+    const { result, unmount } = renderHook(() => useWallet(), {
+      wrapper: createWrapper(queryClient),
+    });
+
+    expect(result.current.data?.wallet.balance).toBe(3210);
+    await waitFor(() => expect(tableCalls).toContain('customers'));
+
+    unmount();
+    queryClient.clear();
+  });
 });
 
 beforeAll(() => {
