@@ -137,9 +137,13 @@ function createQuery<T>(result: T) {
   const query = {
     select: vi.fn(() => query),
     eq: vi.fn(() => query),
+    or: vi.fn(() => query),
     limit: vi.fn().mockResolvedValue(result),
-    order: vi.fn().mockResolvedValue(result),
+    order: vi.fn(() => query),
     single: vi.fn().mockResolvedValue(result),
+    // biome-ignore lint/suspicious/noThenProperty: Supabase query builders are awaitable.
+    then: (resolve: (value: T) => void) =>
+      Promise.resolve(result).then(resolve),
   };
 
   return query;
@@ -262,6 +266,69 @@ describe('GET /api/orders/[id]/invoice', () => {
         taxSubtotals: expect.any(Array),
       })
     );
+  });
+
+  it('falls back to merchant bank details when no order payment account exists', async () => {
+    vi.mocked(createClient).mockReturnValue(
+      createSupabaseMock({
+        order: {
+          ...orderResult,
+          data: {
+            ...(orderResult.data as Record<string, unknown>),
+            merchants: {
+              ...((orderResult.data as Record<string, unknown>)
+                .merchants as Record<string, unknown>),
+              bank_account_name: 'Merchant Settlement',
+              bank_account_number: '9988776655',
+              bank_name: 'Fallback Bank',
+            },
+          },
+        },
+        paymentAccounts: { data: [], error: null },
+      }) as unknown as ReturnType<typeof createClient>
+    );
+
+    const response = await GET(
+      new NextRequest(`http://localhost/api/orders/${ORDER_ID}/invoice`),
+      { params: Promise.resolve({ id: ORDER_ID }) }
+    );
+
+    expect(response.status).toBe(200);
+    expect(generateReceiptBlob).toHaveBeenCalledWith(
+      expect.objectContaining({
+        virtual_account: null,
+      }),
+      expect.objectContaining({
+        bank_account_name: 'Merchant Settlement',
+        bank_account_number: '9988776655',
+        bank_name: 'Fallback Bank',
+      }),
+      expect.any(Object)
+    );
+  });
+
+  it('returns 500 when the order payment account lookup fails', async () => {
+    vi.mocked(createClient).mockReturnValue(
+      createSupabaseMock({
+        paymentAccounts: {
+          data: null,
+          error: { message: 'database unavailable' },
+        },
+      }) as unknown as ReturnType<typeof createClient>
+    );
+
+    const response = await GET(
+      new NextRequest(`http://localhost/api/orders/${ORDER_ID}/invoice`),
+      { params: Promise.resolve({ id: ORDER_ID }) }
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({
+      error: 'Failed to load invoice payment account',
+      code: 'PAYMENT_ACCOUNT_LOOKUP_FAILED',
+    });
+    expect(generateReceiptBlob).not.toHaveBeenCalled();
   });
 
   it('attaches order-level IMEI details to the first item when no device item exists', async () => {
@@ -412,6 +479,10 @@ describe('GET /api/orders/[id]/invoice', () => {
     );
 
     expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Invalid order ID',
+      code: 'INVALID_ID',
+    });
     expect(generateReceiptBlob).not.toHaveBeenCalled();
   });
 

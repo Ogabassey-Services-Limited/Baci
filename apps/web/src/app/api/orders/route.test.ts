@@ -3012,14 +3012,28 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
       }),
       expect.objectContaining({
         complianceNote: undefined,
-        documentDate: expect.any(Date),
         documentKind: 'invoice',
-        dueDate: expect.any(Date),
         invoiceNotes: undefined,
         logoDataUri: 'data:image/png;base64,AA==',
         paymentTerms: undefined,
         taxSubtotals: expect.any(Array),
       })
+    );
+    const lastReceiptBlobCall = mockGenerateReceiptBlob.mock.calls.at(
+      -1
+    ) as unknown as [
+      unknown,
+      unknown,
+      {
+        documentDate: Date;
+        dueDate: Date;
+      },
+    ];
+    const pdfOptions = lastReceiptBlobCall[2];
+    expect(pdfOptions.documentDate).toBeInstanceOf(Date);
+    expect(pdfOptions.dueDate).toBeInstanceOf(Date);
+    expect(pdfOptions.dueDate.getTime()).toBe(
+      pdfOptions.documentDate.getTime() + 14 * 24 * 60 * 60 * 1000
     );
 
     // Assert the auto-generated DVA was persisted in the order_payment_accounts table

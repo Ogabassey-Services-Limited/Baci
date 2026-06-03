@@ -1,3 +1,4 @@
+import { normalizeReceiptFulfillmentDetails } from '@baci/shared';
 import type { CustomerInfo } from '@/lib/invoice-generator';
 import type { StorefrontAccountDocumentItemRow } from '@/lib/storefront-account-document-bundle.types';
 import type { StorefrontOrderItem } from '@/types/storefront-order';
@@ -86,7 +87,9 @@ export function buildOrderItems(
       product_name: item.name,
       quantity: item.quantity,
       price,
-      fulfillment_details: item.fulfillment_details ?? item.fulfillment_data,
+      fulfillment_details:
+        normalizeReceiptFulfillmentDetails(item.fulfillment_details) ??
+        normalizeReceiptFulfillmentDetails(item.fulfillment_data),
     };
   });
 }

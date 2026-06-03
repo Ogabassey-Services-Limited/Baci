@@ -126,4 +126,31 @@ describe('buildStorefrontAccountDocumentBundle fulfillment fallbacks', () => {
     expect(result.invoiceData.items[0]?.name).toBe('Test Product');
     expect(result.invoiceData.items[0]?.description).toBeUndefined();
   });
+
+  it('falls back to raw fulfillment data when normalized details are empty', () => {
+    const result = buildStorefrontAccountDocumentBundle(
+      createBundleInput([
+        {
+          id: 'item-1',
+          product_id: 'product-1',
+          variant_id: null,
+          variant_name: null,
+          name: 'iPhone 16',
+          quantity: 1,
+          price: 100000,
+          fulfillment_data: {
+            imei: 'RAW-IMEI',
+          },
+          fulfillment_details: {},
+        },
+      ])
+    );
+
+    expect(result.invoiceData.items[0]?.description).toContain(
+      'IMEI: RAW-IMEI'
+    );
+    expect(result.invoiceData.items[0]?.description).not.toContain(
+      'DETAILS-IMEI'
+    );
+  });
 });

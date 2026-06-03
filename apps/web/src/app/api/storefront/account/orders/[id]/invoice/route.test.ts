@@ -30,6 +30,12 @@ vi.mock('@/lib/peppol-ubl-invoice', () => ({
     'This invoice complies with Peppol BIS Billing 3.0 through a generated UBL XML invoice artifact created from this order.',
 }));
 
+vi.mock('@/lib/logger', () => ({
+  logger: {
+    warn: vi.fn(),
+  },
+}));
+
 vi.mock('@/lib/storefront-account-document-data', async () => {
   const actual = await vi.importActual<
     typeof import('@/lib/storefront-account-document-data')
@@ -42,6 +48,7 @@ vi.mock('@/lib/storefront-account-document-data', async () => {
 });
 
 import { authenticateApiRequest } from '@/lib/api-auth';
+import { logger } from '@/lib/logger';
 import { checkRateLimit } from '@/lib/rate-limiter';
 import { generateReceiptBlob } from '@/lib/receipt-pdf-generator';
 import {
@@ -275,6 +282,44 @@ describe('GET /api/storefront/account/orders/[id]/invoice', () => {
     );
     expect(contentDisposition).not.toContain('\r');
     expect(contentDisposition).not.toContain('\n');
+  });
+
+  it('keeps generating the branded PDF when Peppol XML generation fails', async () => {
+    vi.mocked(authenticateApiRequest).mockResolvedValue(
+      createAuthenticatedAuthResult()
+    );
+    vi.mocked(getStorefrontAccountDocumentData).mockResolvedValue(
+      createDocumentData('ORD-1001')
+    );
+    mockGeneratePeppolInvoiceXml.mockImplementationOnce(() => {
+      throw new Error('missing buyer endpoint');
+    });
+    vi.mocked(generateReceiptBlob).mockReturnValue(new Blob(['invoice']));
+
+    const response = await GET(
+      new NextRequest(
+        'http://localhost/api/storefront/account/orders/cfa945fc-9bf4-4485-857c-4d4374adf31f/invoice?merchantSlug=ogabassey'
+      ),
+      {
+        params: Promise.resolve({
+          id: 'cfa945fc-9bf4-4485-857c-4d4374adf31f',
+        }),
+      }
+    );
+
+    expect(response.status).toBe(200);
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Generated branded invoice PDF without Peppol UBL note',
+      })
+    );
+    expect(generateReceiptBlob).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.any(Object),
+      expect.objectContaining({
+        complianceNote: undefined,
+      })
+    );
   });
 
   it('maps document access errors to API responses', async () => {

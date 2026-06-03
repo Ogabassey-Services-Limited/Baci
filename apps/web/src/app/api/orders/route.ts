@@ -419,16 +419,17 @@ function buildImmediatePeppolInvoiceData(input: {
         vatCategoryCode === 'O' ? 'Seller is not VAT registered' : undefined,
     },
   ];
+  const issueDate = new Date(
+    typeof input.order.created_at === 'string'
+      ? input.order.created_at
+      : Date.now()
+  );
 
   return {
     invoice_number: input.orderNumber,
     invoice_type_code: '380',
-    issue_date: new Date(
-      typeof input.order.created_at === 'string'
-        ? input.order.created_at
-        : Date.now()
-    ),
-    due_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+    issue_date: issueDate,
+    due_date: new Date(issueDate.getTime() + 14 * 24 * 60 * 60 * 1000),
     currency,
     buyer_reference: input.customerEmail || input.customerName,
     merchant: {

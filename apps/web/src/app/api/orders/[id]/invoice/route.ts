@@ -89,7 +89,7 @@ export async function GET(
     const parsed = paramsSchema.safeParse(await params);
     if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Invalid order ID', details: parsed.error.flatten() },
+        { error: 'Invalid order ID', code: 'INVALID_ID' },
         { status: 400 }
       );
     }
@@ -322,8 +322,13 @@ export async function GET(
 
     const { data: paymentAccounts, error: paymentAccountError } = await supabase
       .from('order_payment_accounts')
-      .select('account_number, bank_name, account_name')
+      .select(
+        'account_number, bank_name, account_name, provider, created_at, expires_at'
+      )
       .eq('order_id', orderId)
+      .eq('provider', 'paystack')
+      .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
+      .order('created_at', { ascending: false })
       .limit(1);
 
     if (paymentAccountError) {
@@ -331,6 +336,13 @@ export async function GET(
         'Error fetching order_payment_accounts for invoice:',
         orderId,
         paymentAccountError
+      );
+      return NextResponse.json(
+        {
+          error: 'Failed to load invoice payment account',
+          code: 'PAYMENT_ACCOUNT_LOOKUP_FAILED',
+        },
+        { status: 500 }
       );
     }
 
