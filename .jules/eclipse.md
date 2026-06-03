@@ -61,3 +61,7 @@
 ## 2026-06-02 - Replace Hardcoded Brand Colors with Dynamic Tokens in Login
 **Learning:** Hardcoded brand colors like `BRAND.navy` and `BRAND.yellow` inside React Native component styles break dark mode readability because they do not adapt to theme changes. Using static colors for UI elements meant for different states (like backgrounds and texts) can lead to invisible or poorly contrasted elements.
 **Action:** Replace hardcoded static brand colors with dynamic, semantic theme tokens from `useTheme()` (such as `colors.text`, `colors.gold`, `colors.textOnGold`, `colors.warning`, and `colors.warningLight`) via inline style arrays where needed. Ensure accessibility states are also updated to accurately reflect UI changes.
+
+## 2026-06-03 - Replace Hardcoded Hex/Rgba values with Theme Tokens
+**Learning:** Hardcoding `rgba(0,0,0,0.05)` directly inside `StyleSheet.create` and generating manual rgba via a custom `hexToRgba` utility function ignores dark mode support entirely and fails to tap into the monorepo's established React Native theme tokens.
+**Action:** Remove hardcoded rgba colors from `StyleSheet.create` and delete manual `hexToRgba` utility functions. Instead, apply the correct dynamic token (e.g., `colors.border`, `colors.primaryLight`) directly from the `useTheme()` hook via inline styles or directly as values in components (like `Ionicons`). Always replace hardcoded shadows with theme hooks (e.g., `shadows.md`).
