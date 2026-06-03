@@ -447,7 +447,7 @@ export async function PATCH(request: NextRequest) {
           .from('merchant_feature_settings')
           .update(settingsPayload)
           .eq('merchant_id', access.merchantId)
-          .select()
+          .select(MERCHANT_FEATURE_SELECT_FIELDS.join(', '))
           .single()
       : await auth.supabase
           .from('merchant_feature_settings')
@@ -456,7 +456,7 @@ export async function PATCH(request: NextRequest) {
             merchant_id: access.merchantId,
             ...settingsPayload,
           })
-          .select()
+          .select(MERCHANT_FEATURE_SELECT_FIELDS.join(', '))
           .single();
 
     const { data: settings, error } =
@@ -465,7 +465,7 @@ export async function PATCH(request: NextRequest) {
             .from('merchant_feature_settings')
             .update(settingsPayload)
             .eq('merchant_id', access.merchantId)
-            .select()
+            .select(MERCHANT_FEATURE_SELECT_FIELDS.join(', '))
             .single()
         : writeResult;
 
@@ -551,7 +551,7 @@ export async function PUT(request: NextRequest) {
       .upsert(completeSettings, {
         onConflict: 'merchant_id',
       })
-      .select()
+      .select(MERCHANT_FEATURE_SELECT_FIELDS.join(', '))
       .single();
 
     if (error) {

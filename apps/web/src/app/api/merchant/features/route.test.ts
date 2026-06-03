@@ -134,10 +134,13 @@ function createMockSupabase() {
             }
             insertPayload = payload;
             return {
-              select: vi.fn().mockReturnValue({
-                single: vi.fn(() =>
-                  Promise.resolve({ data: insertData, error: insertError })
-                ),
+              select: vi.fn((columns: string) => {
+                selectColumns = columns;
+                return {
+                  single: vi.fn(() =>
+                    Promise.resolve({ data: insertData, error: insertError })
+                  ),
+                };
               }),
             };
           }),
@@ -145,10 +148,13 @@ function createMockSupabase() {
             updatePayload = payload;
             return {
               eq: vi.fn().mockReturnValue({
-                select: vi.fn().mockReturnValue({
-                  single: vi.fn(() =>
-                    Promise.resolve({ data: updateData, error: updateError })
-                  ),
+                select: vi.fn((columns: string) => {
+                  selectColumns = columns;
+                  return {
+                    single: vi.fn(() =>
+                      Promise.resolve({ data: updateData, error: updateError })
+                    ),
+                  };
                 }),
               }),
             };
@@ -156,10 +162,13 @@ function createMockSupabase() {
           upsert: vi.fn((payload: unknown) => {
             upsertPayload = payload;
             return {
-              select: vi.fn().mockReturnValue({
-                single: vi.fn(() =>
-                  Promise.resolve({ data: upsertData, error: upsertError })
-                ),
+              select: vi.fn((columns: string) => {
+                selectColumns = columns;
+                return {
+                  single: vi.fn(() =>
+                    Promise.resolve({ data: upsertData, error: upsertError })
+                  ),
+                };
               }),
             };
           }),
@@ -431,6 +440,8 @@ describe('PATCH /api/merchant/features', () => {
     expect(res.headers.get('Cache-Control')).toBe(
       'private, no-store, no-cache, max-age=0, must-revalidate'
     );
+    expect(selectColumns).toContain('shipping_providers');
+    expect(selectColumns).toContain('custom_settings');
     expect(mockRevalidateFeatures).toHaveBeenCalledWith(MERCHANT_ID);
     expect(mockRevalidateMerchant).toHaveBeenCalledWith(MERCHANT_ID);
   });
@@ -473,6 +484,8 @@ describe('PATCH /api/merchant/features', () => {
       klump_enabled: false,
       vtu_customer_cashback_enabled: false,
     });
+    expect(selectColumns).toContain('shipping_providers');
+    expect(selectColumns).toContain('custom_settings');
     expect(updatePayload).toBeNull();
   });
 
@@ -503,6 +516,8 @@ describe('PATCH /api/merchant/features', () => {
       loyalty_enabled: true,
       rewards_page_enabled: true,
     });
+    expect(selectColumns).toContain('shipping_providers');
+    expect(selectColumns).toContain('custom_settings');
     expect(updatePayload).not.toHaveProperty('shipping_providers');
   });
 
@@ -610,6 +625,8 @@ describe('PUT /api/merchant/features', () => {
       klump_min_amount: 10000,
       klump_max_amount: 500000,
     });
+    expect(selectColumns).toContain('shipping_providers');
+    expect(selectColumns).toContain('custom_settings');
     expect(upsertPayload).not.toHaveProperty('offline_conversions_enabled');
     expect(mockRevalidateFeatures).toHaveBeenCalledWith(MERCHANT_ID);
     expect(mockRevalidateMerchant).toHaveBeenCalledWith(MERCHANT_ID);

@@ -145,7 +145,7 @@ describe('/api/shipping/track/[trackingNumber] method boundary', () => {
     });
   });
 
-  it('returns 500 and skips order updates when the shipment snapshot write fails', async () => {
+  it('returns live tracking data and skips order updates when snapshot persistence is denied', async () => {
     mockShipmentLookup({
       carrier_name: 'DHL',
       estimated_delivery_days: 3,
@@ -165,16 +165,26 @@ describe('/api/shipping/track/[trackingNumber] method boundary', () => {
       provider: 'dhl',
       status: 'in_transit',
     });
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
 
-    const response = await makePostRequest();
-    const body = await response.json();
+    try {
+      const response = await makePostRequest();
+      const body = await response.json();
 
-    expect(response.status).toBe(500);
-    expect(body).toEqual({ error: 'Failed to track shipment' });
-    expect(mockOrderStatusUpdate).not.toHaveBeenCalled();
+      expect(response.status).toBe(200);
+      expect(body).toMatchObject({
+        status: 'in_transit',
+        trackingNumber: 'TRACK123',
+      });
+      expect(mockOrderStatusUpdate).not.toHaveBeenCalled();
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
   });
 
-  it('returns 500 when order shipping status persistence fails', async () => {
+  it('returns live tracking data when order shipping status persistence is denied', async () => {
     mockShipmentLookup({
       carrier_name: 'DHL',
       estimated_delivery_days: 3,
@@ -194,16 +204,26 @@ describe('/api/shipping/track/[trackingNumber] method boundary', () => {
       provider: 'dhl',
       status: 'in_transit',
     });
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
 
-    const response = await makePostRequest();
-    const body = await response.json();
+    try {
+      const response = await makePostRequest();
+      const body = await response.json();
 
-    expect(response.status).toBe(500);
-    expect(body).toEqual({ error: 'Failed to track shipment' });
-    expect(mockShipmentStatusUpdate).toHaveBeenCalled();
-    expect(mockOrderStatusUpdate).toHaveBeenCalledWith({
-      shipping_status: 'shipped',
-    });
+      expect(response.status).toBe(200);
+      expect(body).toMatchObject({
+        status: 'in_transit',
+        trackingNumber: 'TRACK123',
+      });
+      expect(mockShipmentStatusUpdate).toHaveBeenCalled();
+      expect(mockOrderStatusUpdate).toHaveBeenCalledWith({
+        shipping_status: 'shipped',
+      });
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
   });
 
   it('returns 404 when the carrier reports the shipment is not found', async () => {

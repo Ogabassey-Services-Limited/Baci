@@ -179,7 +179,9 @@ async function persistTrackingResult({
       error: shipmentUpdateError,
       shipmentId: shipment.id,
     });
-    throw new Error('Failed to persist shipment tracking snapshot');
+    // Customer tracking should return the live carrier result even when RLS
+    // denies opportunistic snapshot persistence for the request-scoped client.
+    return;
   }
 
   const { error: orderUpdateError } = await supabase
@@ -195,7 +197,6 @@ async function persistTrackingResult({
       error: orderUpdateError,
       orderId: shipment.order_id,
     });
-    throw new Error('Failed to persist order shipping status');
   }
 }
 
