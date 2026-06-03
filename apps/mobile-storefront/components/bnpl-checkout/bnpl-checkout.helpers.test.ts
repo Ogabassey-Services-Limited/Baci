@@ -1,6 +1,7 @@
 import { describe, expect, it } from '@jest/globals';
 import {
   areBNPLCheckoutUrlsEquivalent,
+  BNPL_INJECTED_JAVASCRIPT,
   buildBNPLDocumentSource,
   resolveBNPLDocumentNavigation,
   sanitizeBNPLDocumentUrl,
@@ -147,6 +148,14 @@ describe('bnpl-checkout helpers', () => {
       reason: 'untrusted',
       shouldStart: false,
     });
+  });
+});
+
+describe('BNPL_INJECTED_JAVASCRIPT', () => {
+  it('captures resource error events so failed provider scripts are reported', () => {
+    expect(BNPL_INJECTED_JAVASCRIPT).toMatch(
+      /window\.addEventListener\('error',\s*function\(event\)[\s\S]*}, true\);/
+    );
   });
 });
 

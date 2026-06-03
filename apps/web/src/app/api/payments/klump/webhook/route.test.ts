@@ -125,13 +125,17 @@ function createSupabaseMock({
     data: { id: 'transaction-123' },
     error: null,
   },
+  merchantAmount = null,
   platformFee = null,
   settlementResult = { data: null, error: null },
+  transactionAmount = '50000',
   transactionStatus = 'pending',
 }: {
+  merchantAmount?: number | string | null;
   orderUpdateResult?: { data: unknown; error: unknown };
   platformFee?: number | string | null;
   settlementResult?: { data: unknown; error: unknown };
+  transactionAmount?: number | string | null;
   transactionStatus?: string;
   transactionUpdateResult?: { data: unknown; error: unknown };
 } = {}) {
@@ -142,10 +146,11 @@ function createSupabaseMock({
           select: vi.fn(() =>
             makeQueryChain({
               data: {
-                amount: '50000',
+                amount: transactionAmount,
                 currency: 'NGN',
                 gateway_reference: 'BAC-ABCD12345678',
                 id: 'transaction-123',
+                merchant_amount: merchantAmount,
                 merchant_id: 'merchant-123',
                 metadata: {},
                 order_id: 'order-123',
@@ -368,6 +373,40 @@ describe('POST /api/payments/klump/webhook', () => {
         p_merchant_id: 'merchant-123',
         p_source_id: 'order-123',
         p_source_type: 'order',
+      })
+    );
+  });
+
+  it('validates rounded Klump payments against merchant_amount when the stored order total is fractional', async () => {
+    const payload = {
+      ...successfulPayload,
+      data: {
+        ...successfulPayload.data,
+        amount: 58_089,
+      },
+    };
+    mocks.createAdminClient.mockReturnValue(
+      createSupabaseMock({
+        merchantAmount: 58_089,
+        transactionAmount: '58088.5',
+      })
+    );
+    mockVerifiedKlumpTransaction({ amount: 58_089 });
+    const rawBody = JSON.stringify(payload);
+
+    const response = await POST(
+      createRequest(payload, signPayload(rawBody, 'klump-secret'))
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({
+      message: 'Klump payment processed successfully',
+      success: true,
+    });
+    expect(mocks.recordMerchantSettlement).toHaveBeenCalledWith(
+      expect.objectContaining({
+        p_gross_amount: 58_089,
       })
     );
   });

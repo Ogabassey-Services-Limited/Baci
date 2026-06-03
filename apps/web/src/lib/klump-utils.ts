@@ -58,18 +58,49 @@ export function toCurrencyAmount(value: number | string | null | undefined) {
   return Math.round(amount * 100) / 100;
 }
 
+export function toKlumpIntegerAmount(
+  value: number | string | null | undefined
+) {
+  const amount = Number(value);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return 0;
+  }
+
+  // Klump requires integer NGN amounts; ceiling avoids settling an order after a fractional underpayment.
+  return Math.ceil(amount);
+}
+
 export function buildKlumpItems(order: BnplOrder) {
-  const items = order.items.map((item) => {
-    const quantity = Math.max(1, Number(item.quantity) || 1);
-    return {
-      name: item.product_name || item.name || 'Order item',
-      quantity,
-      unit_price: toCurrencyAmount(item.price),
-    };
+  const items = order.items.flatMap((item) => {
+    const quantity = Math.max(1, Math.round(Number(item.quantity) || 1));
+    const unitPrice = toKlumpIntegerAmount(item.price);
+    const roundedLineTotal = toKlumpIntegerAmount(
+      Number(item.price) * quantity
+    );
+    const canRepresentQuantity = unitPrice * quantity === roundedLineTotal;
+    if (unitPrice === 0) {
+      return roundedLineTotal > 0
+        ? [
+            {
+              name: item.product_name || item.name || 'Order item',
+              quantity: 1,
+              unit_price: roundedLineTotal,
+            },
+          ]
+        : [];
+    }
+
+    return [
+      {
+        name: item.product_name || item.name || 'Order item',
+        quantity: canRepresentQuantity ? quantity : 1,
+        unit_price: canRepresentQuantity ? unitPrice : roundedLineTotal,
+      },
+    ];
   });
   const itemsTotal = () =>
     items.reduce((total, item) => total + item.unit_price * item.quantity, 0);
-  const shippingFee = toCurrencyAmount(
+  const shippingFee = toKlumpIntegerAmount(
     order.shipping_cost ?? order.shipping_fee
   );
 
@@ -81,9 +112,35 @@ export function buildKlumpItems(order: BnplOrder) {
     });
   }
 
-  const adjustment = toCurrencyAmount(
-    toCurrencyAmount(order.total) - itemsTotal()
-  );
+  const targetTotal = toKlumpIntegerAmount(order.total);
+  let excess = itemsTotal() - targetTotal;
+  for (let index = items.length - 1; index >= 0 && excess > 0; index -= 1) {
+    const item = items[index];
+    if (!item) continue;
+
+    const lineTotal = item.unit_price * item.quantity;
+    const reduction = Math.min(lineTotal - 1, excess);
+    if (reduction <= 0) continue;
+
+    item.quantity = 1;
+    item.unit_price = lineTotal - reduction;
+    excess -= reduction;
+  }
+
+  for (let index = items.length - 1; index >= 0 && excess > 0; index -= 1) {
+    const item = items[index];
+    if (!item) continue;
+
+    const lineTotal = item.unit_price * item.quantity;
+    const reduction = Math.min(lineTotal, excess);
+    if (reduction <= 0) continue;
+
+    item.quantity = 1;
+    item.unit_price = lineTotal - reduction;
+    excess -= reduction;
+  }
+
+  const adjustment = targetTotal - itemsTotal();
   if (adjustment > 0) {
     items.push({
       name: 'Taxes and fees',
@@ -92,5 +149,5 @@ export function buildKlumpItems(order: BnplOrder) {
     });
   }
 
-  return items;
+  return items.filter((item) => item.quantity > 0 && item.unit_price > 0);
 }
