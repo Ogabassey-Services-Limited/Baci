@@ -5,7 +5,9 @@ const PEPPOL_CUSTOMIZATION_ID =
   'urn:cen.eu:en16931:2017#compliant#urn:fdc:peppol.eu:2017:poacc:billing:3.0';
 const PEPPOL_PROFILE_ID = 'urn:fdc:peppol.eu:2017:poacc:billing:01:1.0';
 const DEFAULT_BUYER_REFERENCE = 'BACI-CUSTOMER';
+const EMAIL_EAS_SCHEME_ID = 'EM';
 const NIGERIA_TAX_ID_EAS_SCHEME_ID = '0244';
+const EMAIL_ENDPOINT_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export const PEPPOL_BIS_BILLING_COMPLIANCE_NOTE =
   'This invoice complies with Peppol BIS Billing 3.0 through a generated UBL XML invoice artifact created from this order.';
@@ -124,11 +126,24 @@ function customerEndpoint(data: InvoiceData) {
     return null;
   }
 
-  return endpointId({
+  const explicitEndpoint = endpointId({
     endpointId: data.customer.endpoint_id,
     schemeId: data.customer.endpoint_scheme_id,
     taxId: data.customer.tax_id,
   });
+  if (explicitEndpoint) {
+    return explicitEndpoint;
+  }
+
+  const normalizedEmail = normalizeText(data.customer.email).toLowerCase();
+  if (EMAIL_ENDPOINT_PATTERN.test(normalizedEmail)) {
+    return {
+      id: normalizedEmail,
+      schemeId: EMAIL_EAS_SCHEME_ID,
+    };
+  }
+
+  return null;
 }
 
 function supplierParty(data: InvoiceData) {

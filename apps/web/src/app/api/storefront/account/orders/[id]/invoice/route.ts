@@ -95,10 +95,20 @@ export async function GET(
     const logoDataUri = await resolveReceiptLogoDataUri(data.receiptMerchant);
     const receiptOrder = {
       ...data.receiptOrder,
-      items: data.receiptOrder.items.map((item, index) => ({
-        ...item,
-        description: data.invoiceData.items[index]?.description,
-      })),
+      items: data.receiptOrder.items.map((item, index) => {
+        const invoiceItem = data.invoiceData.items[index];
+
+        return {
+          ...item,
+          description: invoiceItem?.description,
+          line_extension_amount: invoiceItem?.line_extension_amount,
+          sellers_item_id: invoiceItem?.sellers_item_id,
+          unit_code: invoiceItem?.unit_code,
+          vat_amount: invoiceItem?.vat_amount,
+          vat_category_code: invoiceItem?.vat_category_code,
+          vat_rate: invoiceItem?.vat_rate,
+        };
+      }),
     };
     const blob = generateReceiptBlob(receiptOrder, data.receiptMerchant, {
       complianceNote,
@@ -107,8 +117,10 @@ export async function GET(
       dueDate: data.invoiceData.due_date,
       firsCsid: data.invoiceData.firs_csid,
       firsIrn: data.invoiceData.firs_irn,
+      invoiceNotes: data.invoiceData.notes,
       logoDataUri,
       paymentTerms: data.invoiceData.payment_terms,
+      taxSubtotals: data.invoiceData.tax_subtotals,
     });
 
     return new NextResponse(blob, {

@@ -28,8 +28,16 @@ interface GenerateReceiptPdfOptions {
   dueDate?: Date | string | null;
   firsCsid?: string | null;
   firsIrn?: string | null;
+  invoiceNotes?: string | null;
   logoDataUri?: string | null;
   paymentTerms?: string | null;
+  taxSubtotals?: Array<{
+    exemption_reason?: string | null;
+    taxable_amount: number;
+    tax_amount: number;
+    vat_category_code: string;
+    vat_rate: number;
+  }>;
 }
 
 function getBrandPrimaryRgb(merchant: ReceiptMerchant) {
@@ -106,6 +114,38 @@ function getReceiptItemDescription(item: ReceiptOrder['items'][number]) {
 
   const description = candidate.trim();
   return description.length > 0 ? description : null;
+}
+
+function getReceiptItemLineTotal(item: ReceiptOrder['items'][number]) {
+  return typeof item.line_extension_amount === 'number' &&
+    Number.isFinite(item.line_extension_amount)
+    ? item.line_extension_amount
+    : item.quantity * item.price;
+}
+
+function getReceiptItemTaxLabel(
+  item: ReceiptOrder['items'][number],
+  currency: string
+) {
+  const lines: string[] = [];
+
+  if (typeof item.vat_rate === 'number' && Number.isFinite(item.vat_rate)) {
+    lines.push(`VAT: ${item.vat_rate.toFixed(2)}%`);
+  }
+
+  if (typeof item.vat_amount === 'number' && Number.isFinite(item.vat_amount)) {
+    lines.push(formatReceiptCurrency(item.vat_amount, currency));
+  }
+
+  return lines.length > 0 ? lines.join('\n') : '-';
+}
+
+function getReceiptItemDetailLines(item: ReceiptOrder['items'][number]) {
+  return [
+    item.sellers_item_id ? `SKU: ${item.sellers_item_id}` : null,
+    item.unit_code ? `Unit: ${item.unit_code}` : null,
+    getReceiptItemDescription(item),
+  ].filter(Boolean) as string[];
 }
 
 function formatOptionalReceiptDate(value: Date | string | null | undefined) {
@@ -256,6 +296,23 @@ export function generateReceiptPDF(
   const displayDueDate = formatOptionalReceiptDate(options.dueDate);
   const firsIrn = options.firsIrn?.trim();
   const firsCsid = options.firsCsid?.trim();
+  const invoiceNotes = options.invoiceNotes?.trim();
+  const taxSubtotals = options.taxSubtotals?.filter(
+    (subtotal) =>
+      Number.isFinite(subtotal.taxable_amount) &&
+      Number.isFinite(subtotal.tax_amount) &&
+      Number.isFinite(subtotal.vat_rate) &&
+      Boolean(subtotal.vat_category_code.trim())
+  );
+  const hasLineTaxDetail =
+    isInvoice &&
+    (order.items || []).some(
+      (item) =>
+        (typeof item.vat_rate === 'number' && Number.isFinite(item.vat_rate)) ||
+        (typeof item.vat_amount === 'number' &&
+          Number.isFinite(item.vat_amount)) ||
+        Boolean(item.unit_code || item.sellers_item_id)
+    );
   const brandPrimaryRgb = getBrandPrimaryRgb(merchant);
   let y = margin;
 
@@ -338,20 +395,37 @@ export function generateReceiptPDF(
 
   autoTable(doc, {
     startY: y,
-    head: [['Item', 'Qty', 'Unit Price', 'Line Total']],
+    head: [
+      hasLineTaxDetail
+        ? ['Item', 'Qty', 'Unit Price', 'VAT', 'Line Total']
+        : ['Item', 'Qty', 'Unit Price', 'Line Total'],
+    ],
     body: (order.items || []).map((item) => {
       const variantName = getReceiptItemVariantName(item);
       const itemName = variantName
         ? `${item.product_name || item.name || 'Item'} (${variantName})`
         : item.product_name || item.name || 'Item';
-      const description = getReceiptItemDescription(item);
-
-      return [
-        description ? `${itemName}\n${description}` : itemName,
+      const itemDetails = getReceiptItemDetailLines(item);
+      const itemLabel =
+        itemDetails.length > 0
+          ? `${itemName}\n${itemDetails.join('\n')}`
+          : itemName;
+      const commonColumns = [
+        itemLabel,
         String(item.quantity),
         formatReceiptCurrency(item.price, currency),
-        formatReceiptCurrency(item.quantity * item.price, currency),
       ];
+
+      return hasLineTaxDetail
+        ? [
+            ...commonColumns,
+            getReceiptItemTaxLabel(item, currency),
+            formatReceiptCurrency(getReceiptItemLineTotal(item), currency),
+          ]
+        : [
+            ...commonColumns,
+            formatReceiptCurrency(getReceiptItemLineTotal(item), currency),
+          ];
     }),
     styles: {
       fontSize: 10,
@@ -420,6 +494,36 @@ export function generateReceiptPDF(
     if (order.balance > 0) {
       writeSummaryRow('Balance Due', formatSummaryAmount(order.balance), true);
     }
+  }
+
+  if (isInvoice && taxSubtotals && taxSubtotals.length > 0) {
+    y += 4;
+    ensureSpace(28);
+    doc.setFont('helvetica', 'bold');
+    doc.text('VAT Breakdown', margin, y);
+    y += 4;
+    autoTable(doc, {
+      startY: y,
+      head: [['Category', 'Rate', 'Taxable Amount', 'Tax Amount']],
+      body: taxSubtotals.map((subtotal) => [
+        subtotal.exemption_reason
+          ? `${subtotal.vat_category_code}\n${subtotal.exemption_reason}`
+          : subtotal.vat_category_code,
+        `${subtotal.vat_rate.toFixed(2)}%`,
+        formatReceiptCurrency(subtotal.taxable_amount, currency),
+        formatReceiptCurrency(subtotal.tax_amount, currency),
+      ]),
+      styles: {
+        fontSize: 9,
+        cellPadding: 3,
+      },
+      headStyles: {
+        fillColor: [31, 41, 55],
+        textColor: [255, 255, 255],
+      },
+      pageBreak: 'auto',
+    });
+    y = (doc.lastAutoTable?.finalY || y) + 8;
   }
 
   if (order.transactions && order.transactions.length > 0) {
@@ -493,6 +597,21 @@ export function generateReceiptPDF(
     y = writeWrappedTextLines({
       doc,
       lines: bankLines,
+      x: margin,
+      y,
+      maxWidth: contentWidth,
+    });
+  }
+
+  if (isInvoice && invoiceNotes) {
+    ensureSpace(20);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Invoice Notes', margin, y);
+    y += 6;
+    doc.setFont('helvetica', 'normal');
+    y = writeWrappedTextLines({
+      doc,
+      lines: [invoiceNotes],
       x: margin,
       y,
       maxWidth: contentWidth,

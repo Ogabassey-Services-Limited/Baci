@@ -71,6 +71,12 @@ export interface ReceiptOrder {
     description?: string | null;
     quantity: number;
     price: number;
+    line_extension_amount?: number;
+    unit_code?: string | null;
+    vat_category_code?: string | null;
+    vat_rate?: number | null;
+    vat_amount?: number | null;
+    sellers_item_id?: string | null;
     /**
      * @deprecated Keep fulfillment identifiers in `fulfillment_details`.
      * These flat fields are read only for legacy order snapshots.

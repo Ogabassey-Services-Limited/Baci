@@ -1769,8 +1769,24 @@ export async function POST(request: NextRequest) {
 
                 const logoDataUri =
                   await resolveReceiptLogoDataUri(receiptMerchant);
+                const invoiceReceiptOrder: ReceiptOrder = {
+                  ...receiptOrder,
+                  items: receiptOrder.items.map((item, index) => {
+                    const invoiceItem = peppolInvoiceData.items[index];
+
+                    return {
+                      ...item,
+                      line_extension_amount: invoiceItem?.line_extension_amount,
+                      sellers_item_id: invoiceItem?.sellers_item_id,
+                      unit_code: invoiceItem?.unit_code,
+                      vat_amount: invoiceItem?.vat_amount,
+                      vat_category_code: invoiceItem?.vat_category_code,
+                      vat_rate: invoiceItem?.vat_rate,
+                    };
+                  }),
+                };
                 const pdfBlob = generateReceiptBlob(
-                  receiptOrder,
+                  invoiceReceiptOrder,
                   receiptMerchant,
                   {
                     complianceNote: peppolInvoiceXml
@@ -1781,8 +1797,10 @@ export async function POST(request: NextRequest) {
                     dueDate: peppolInvoiceData.due_date,
                     firsCsid: peppolInvoiceData.firs_csid,
                     firsIrn: peppolInvoiceData.firs_irn,
+                    invoiceNotes: peppolInvoiceData.notes,
                     logoDataUri,
                     paymentTerms: peppolInvoiceData.payment_terms,
+                    taxSubtotals: peppolInvoiceData.tax_subtotals,
                   }
                 );
                 const arrayBuffer = await pdfBlob.arrayBuffer();

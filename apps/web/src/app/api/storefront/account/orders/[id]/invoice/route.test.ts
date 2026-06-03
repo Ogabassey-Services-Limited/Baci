@@ -84,9 +84,24 @@ function createDocumentData(
       payment_terms: 'Net 14',
       firs_irn: 'IRN-2026-001',
       firs_csid: 'CSID-2026-001',
+      notes: 'Invoice note',
       items: [
         {
           description: 'IMEI: 123456789012345',
+          line_extension_amount: 100000,
+          sellers_item_id: 'SELLER-IPHONE-15',
+          unit_code: 'EA',
+          vat_amount: 7500,
+          vat_category_code: 'S',
+          vat_rate: 7.5,
+        },
+      ],
+      tax_subtotals: [
+        {
+          taxable_amount: 100000,
+          tax_amount: 7500,
+          vat_category_code: 'S',
+          vat_rate: 7.5,
         },
       ],
     } as StorefrontAccountDocumentData['invoiceData'],
@@ -225,6 +240,12 @@ describe('GET /api/storefront/account/orders/[id]/invoice', () => {
         items: [
           expect.objectContaining({
             description: 'IMEI: 123456789012345',
+            line_extension_amount: 100000,
+            sellers_item_id: 'SELLER-IPHONE-15',
+            unit_code: 'EA',
+            vat_amount: 7500,
+            vat_category_code: 'S',
+            vat_rate: 7.5,
           }),
         ],
       }),
@@ -236,8 +257,17 @@ describe('GET /api/storefront/account/orders/[id]/invoice', () => {
         dueDate: new Date('2026-04-15T00:00:00.000Z'),
         firsCsid: 'CSID-2026-001',
         firsIrn: 'IRN-2026-001',
+        invoiceNotes: 'Invoice note',
         logoDataUri: 'data:image/png;base64,AA==',
         paymentTerms: 'Net 14',
+        taxSubtotals: [
+          {
+            taxable_amount: 100000,
+            tax_amount: 7500,
+            vat_category_code: 'S',
+            vat_rate: 7.5,
+          },
+        ],
       }
     );
     expect(contentDisposition).toContain(

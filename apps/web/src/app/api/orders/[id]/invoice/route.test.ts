@@ -41,6 +41,7 @@ const orderResult: QueryResult = {
     invoice_issue_date: '2026-04-01T00:00:00.000Z',
     payment_due_date: '2026-04-15T00:00:00.000Z',
     payment_terms: 'Net 14',
+    invoice_note: 'Merchant invoice note',
     firs_irn: 'IRN-2026-001',
     firs_csid: 'CSID-2026-001',
     firs_qr_code: null,
@@ -114,7 +115,7 @@ const orderItemsResult: QueryResult = {
       vat_category_code: 'S',
       vat_rate: 7.5,
       vat_amount: 0,
-      sellers_item_id: null,
+      sellers_item_id: 'SELLER-IPHONE-15',
       product_id: 'product-phone',
     },
   ],
@@ -234,6 +235,12 @@ describe('GET /api/orders/[id]/invoice', () => {
           expect.objectContaining({
             product_name: 'iPhone 15 Pro',
             description: expect.stringContaining('IMEI: IMEI-123'),
+            line_extension_amount: 490000,
+            sellers_item_id: 'SELLER-IPHONE-15',
+            unit_code: 'EA',
+            vat_amount: 0,
+            vat_category_code: 'S',
+            vat_rate: 7.5,
           }),
         ]),
         virtual_account: expect.objectContaining({
@@ -249,8 +256,10 @@ describe('GET /api/orders/[id]/invoice', () => {
         dueDate: new Date('2026-04-15T00:00:00.000Z'),
         firsCsid: 'CSID-2026-001',
         firsIrn: 'IRN-2026-001',
+        invoiceNotes: 'Merchant invoice note',
         logoDataUri: 'data:image/png;base64,AA==',
         paymentTerms: 'Net 14',
+        taxSubtotals: expect.any(Array),
       })
     );
   });

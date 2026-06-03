@@ -3015,8 +3015,10 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
         documentDate: expect.any(Date),
         documentKind: 'invoice',
         dueDate: expect.any(Date),
+        invoiceNotes: undefined,
         logoDataUri: 'data:image/png;base64,AA==',
         paymentTerms: undefined,
+        taxSubtotals: expect.any(Array),
       })
     );
 

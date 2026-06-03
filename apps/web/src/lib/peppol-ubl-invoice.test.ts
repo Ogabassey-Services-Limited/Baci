@@ -231,13 +231,42 @@ describe('generatePeppolInvoiceXml', () => {
     ).toThrow('at least one invoice line is required');
   });
 
+  it('uses customer email as a Peppol endpoint fallback when tax ID is unavailable', () => {
+    const xml = generatePeppolInvoiceXml(
+      createInvoiceData({
+        customer: {
+          name: 'Akinola Ogunniran',
+          email: 'akin@example.com',
+        },
+      })
+    );
+
+    expect(xml).toContain(
+      '<cbc:EndpointID schemeID="EM">akin@example.com</cbc:EndpointID>'
+    );
+  });
+
+  it('lowercases customer email before using it as a Peppol endpoint', () => {
+    const xml = generatePeppolInvoiceXml(
+      createInvoiceData({
+        customer: {
+          name: 'Akinola Ogunniran',
+          email: 'AKIN@EXAMPLE.COM',
+        },
+      })
+    );
+
+    expect(xml).toContain(
+      '<cbc:EndpointID schemeID="EM">akin@example.com</cbc:EndpointID>'
+    );
+  });
+
   it('throws before claiming compliance when endpoint or payment account data is missing', () => {
     expect(() =>
       generatePeppolInvoiceXml(
         createInvoiceData({
           customer: {
             name: 'Akinola Ogunniran',
-            email: 'akin@example.com',
           },
         })
       )

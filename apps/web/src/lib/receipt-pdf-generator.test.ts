@@ -153,8 +153,14 @@ describe('generateReceiptBlob', () => {
         {
           product_name: 'iPhone 15 Pro',
           description: 'IMEI: 123456789012345 | S/N: SN-001',
+          line_extension_amount: 120000,
           quantity: 1,
           price: 150000,
+          sellers_item_id: 'SKU-IPHONE-15',
+          unit_code: 'EA',
+          vat_amount: 9000,
+          vat_category_code: 'S',
+          vat_rate: 7.5,
         },
       ],
       transactions: [],
@@ -165,7 +171,16 @@ describe('generateReceiptBlob', () => {
       dueDate: new Date('2026-06-15T00:00:00.000Z'),
       firsCsid: 'CSID-001',
       firsIrn: 'IRN-2026-001',
+      invoiceNotes: 'Legal invoice note for the customer.',
       paymentTerms: 'Net 14',
+      taxSubtotals: [
+        {
+          taxable_amount: 120000,
+          tax_amount: 9000,
+          vat_category_code: 'S',
+          vat_rate: 7.5,
+        },
+      ],
     });
 
     expect(pdfText).toContain('1 Jun 2026');
@@ -175,6 +190,13 @@ describe('generateReceiptBlob', () => {
     expect(pdfText).toContain('FIRS References');
     expect(pdfText).toContain('FIRS IRN: IRN-2026-001');
     expect(pdfText).toContain('FIRS CSID: CSID-001');
+    expect(pdfText).toContain('Invoice Notes');
+    expect(pdfText).toContain('Legal invoice note for the customer.');
+    expect(pdfText).toContain('VAT Breakdown');
+    expect(pdfText).toContain('VAT: 7.50%');
+    expect(pdfText).toContain('SKU: SKU-IPHONE-15');
+    expect(pdfText).toContain('Unit: EA');
+    expect(pdfText).toContain('120,000');
     expect(pdfText).toContain('IMEI: 123456789012345');
     expect(pdfText).toContain('S/N: SN-001');
   });

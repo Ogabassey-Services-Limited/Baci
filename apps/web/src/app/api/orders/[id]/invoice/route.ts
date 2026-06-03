@@ -482,8 +482,14 @@ export async function GET(
       items: items.map((item) => ({
         product_name: item.name || 'Item',
         description: item.description,
+        line_extension_amount: item.line_extension_amount,
         quantity: item.quantity,
         price: Number(item.price),
+        sellers_item_id: item.sellers_item_id,
+        unit_code: item.unit_code,
+        vat_amount: item.vat_amount,
+        vat_category_code: item.vat_category_code,
+        vat_rate: item.vat_rate,
       })),
       transactions: [],
     };
@@ -526,8 +532,10 @@ export async function GET(
       dueDate: invoiceData.due_date,
       firsCsid: invoiceData.firs_csid,
       firsIrn: invoiceData.firs_irn,
+      invoiceNotes: invoiceData.notes,
       logoDataUri,
       paymentTerms: invoiceData.payment_terms,
+      taxSubtotals: invoiceData.tax_subtotals,
     });
 
     // Return the PDF as a response
