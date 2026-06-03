@@ -31,6 +31,7 @@ export function AdminFloatingTabBarItem({
   label,
   onPress,
   onPressIn,
+  onPressOut,
   options,
   routeName,
 }: {
@@ -40,6 +41,7 @@ export function AdminFloatingTabBarItem({
   label: string;
   onPress: () => void;
   onPressIn: () => void;
+  onPressOut?: () => void;
   options: AdminFloatingTabOptions;
   routeName: string;
 }) {
@@ -56,6 +58,7 @@ export function AdminFloatingTabBarItem({
       hitSlop={TAB_HIT_SLOP}
       onPress={onPress}
       onPressIn={onPressIn}
+      onPressOut={onPressOut}
       style={styles.tabItem}
       testID={`admin-floating-tab-${routeName}`}
     >

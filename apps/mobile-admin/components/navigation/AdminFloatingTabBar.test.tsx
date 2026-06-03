@@ -79,6 +79,7 @@ vi.mock('react-native', () => {
       children,
       onPress,
       onPressIn,
+      onPressOut,
       testID,
     }: {
       accessibilityLabel?: string;
@@ -88,6 +89,7 @@ vi.mock('react-native', () => {
       hitSlop?: unknown;
       onPress?: () => void;
       onPressIn?: () => void;
+      onPressOut?: () => void;
       style?: unknown;
       testID?: string;
     }) => (
@@ -96,6 +98,7 @@ vi.mock('react-native', () => {
         data-testid={testID}
         onClick={() => onPress?.()}
         onMouseDown={() => onPressIn?.()}
+        onMouseUp={() => onPressOut?.()}
         type="button"
       >
         {children}
@@ -230,5 +233,18 @@ describe('AdminFloatingTabBar', () => {
     });
     expect(props.navigation.dispatch).toHaveBeenCalledTimes(1);
     expect(globalThis.requestAnimationFrame).not.toHaveBeenCalled();
+  });
+
+  it('clears the press-in marker on press-out before a later tap', () => {
+    const props = createProps();
+
+    render(<AdminFloatingTabBar {...props} />);
+
+    const ordersTab = screen.getByLabelText('Orders');
+    fireEvent.mouseDown(ordersTab);
+    fireEvent.mouseUp(ordersTab);
+    fireEvent.click(ordersTab);
+
+    expect(props.navigation.dispatch).toHaveBeenCalledTimes(2);
   });
 });

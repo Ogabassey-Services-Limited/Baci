@@ -13,6 +13,7 @@ vi.mock('react-native', () => ({
     children,
     onPress,
     onPressIn,
+    onPressOut,
     testID,
   }: {
     accessibilityLabel?: string;
@@ -21,6 +22,7 @@ vi.mock('react-native', () => ({
     children?: ReactNode;
     onPress?: () => void;
     onPressIn?: () => void;
+    onPressOut?: () => void;
     testID?: string;
   }) => (
     <button
@@ -30,6 +32,7 @@ vi.mock('react-native', () => ({
       data-testid={testID}
       onClick={() => onPress?.()}
       onMouseDown={() => onPressIn?.()}
+      onMouseUp={() => onPressOut?.()}
       type="button"
     >
       {children}
@@ -66,6 +69,7 @@ describe('AdminFloatingTabBarItem', () => {
         label="Customers"
         onPress={vi.fn()}
         onPressIn={vi.fn()}
+        onPressOut={vi.fn()}
         options={{
           tabBarIcon: ({ color, focused, size }) => (
             <span
@@ -96,6 +100,7 @@ describe('AdminFloatingTabBarItem', () => {
   it('fires press-in and press handlers separately', () => {
     const onPress = vi.fn();
     const onPressIn = vi.fn();
+    const onPressOut = vi.fn();
 
     render(
       <AdminFloatingTabBarItem
@@ -104,6 +109,7 @@ describe('AdminFloatingTabBarItem', () => {
         label="Orders"
         onPress={onPress}
         onPressIn={onPressIn}
+        onPressOut={onPressOut}
         options={{}}
         routeName="orders"
       />
@@ -111,9 +117,11 @@ describe('AdminFloatingTabBarItem', () => {
 
     const tab = screen.getByLabelText('Orders');
     fireEvent.mouseDown(tab);
+    fireEvent.mouseUp(tab);
     fireEvent.click(tab);
 
     expect(onPressIn).toHaveBeenCalledTimes(1);
+    expect(onPressOut).toHaveBeenCalledTimes(1);
     expect(onPress).toHaveBeenCalledTimes(1);
   });
 });

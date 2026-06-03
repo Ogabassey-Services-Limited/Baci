@@ -13,6 +13,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/hooks/useTheme';
+import { withHexAlpha } from './AdminFloatingTabBar.colors';
 import { PRIMARY_ADMIN_TAB_ROUTE_NAMES } from './AdminFloatingTabBar.routes';
 import type { AdminFloatingTabOptions } from './AdminFloatingTabBarItem';
 import { AdminFloatingTabBarItem } from './AdminFloatingTabBarItem';
@@ -26,19 +27,6 @@ const CAPSULE_WIDTH = 42;
 const CAPSULE_HEIGHT = 38;
 
 type TabRoute = BottomTabBarProps['state']['routes'][number];
-
-function withAlpha(hexColor: string, alpha: number) {
-  if (!hexColor.startsWith('#') || hexColor.length !== 7) {
-    return hexColor;
-  }
-
-  const normalizedAlpha = Math.max(0, Math.min(1, alpha));
-  const alphaHex = Math.round(normalizedAlpha * 255)
-    .toString(16)
-    .padStart(2, '0');
-
-  return `${hexColor}${alphaHex}`;
-}
 
 function createJumpToTabAction(name: string, params: TabRoute['params']) {
   return {
@@ -86,7 +74,7 @@ export function AdminFloatingTabBar({
   const capsuleBackgroundColor = isDark
     ? colors.primaryLight
     : colors.goldLight;
-  const capsuleBorderColor = withAlpha(
+  const capsuleBorderColor = withHexAlpha(
     isDark ? colors.primary : colors.gold,
     0.32
   );
@@ -245,6 +233,12 @@ export function AdminFloatingTabBar({
             commitTabSelection(!isFocused);
           };
 
+          const handlePressOut = () => {
+            if (pressInHandledRouteKeyRef.current === route.key) {
+              pressInHandledRouteKeyRef.current = null;
+            }
+          };
+
           return (
             <AdminFloatingTabBarItem
               badge={options.tabBarBadge}
@@ -254,6 +248,7 @@ export function AdminFloatingTabBar({
               label={label}
               onPress={handlePress}
               onPressIn={handlePressIn}
+              onPressOut={handlePressOut}
               options={options}
               routeName={route.name}
             />
