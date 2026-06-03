@@ -39,10 +39,11 @@ export function DomainEmptyState({
         </Text>
 
         <Pressable
-          style={[
+          style={({ pressed }) => [
             styles.buyButton,
             shadows.md,
             { backgroundColor: colors.primary },
+            pressed && { opacity: 0.7 },
           ]}
           onPress={onBuyDomain}
           accessibilityRole="button"
@@ -59,7 +60,10 @@ export function DomainEmptyState({
         </Pressable>
 
         <Pressable
-          style={styles.connectLink}
+          style={({ pressed }) => [
+            styles.connectLink,
+            pressed && { opacity: 0.7 },
+          ]}
           onPress={onConnectDomain}
           accessibilityRole="button"
           accessibilityLabel="I already own a domain"
