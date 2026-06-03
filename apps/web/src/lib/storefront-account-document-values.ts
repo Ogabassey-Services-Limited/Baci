@@ -78,6 +78,10 @@ export function buildOrderItems(
       throw new Error(`Invalid order item price for item ${item.id}`);
     }
 
+    const fulfillmentDetails =
+      normalizeReceiptFulfillmentDetails(item.fulfillment_details) ??
+      normalizeReceiptFulfillmentDetails(item.fulfillment_data);
+
     return {
       id: item.id,
       product_id: item.product_id || '',
@@ -87,9 +91,9 @@ export function buildOrderItems(
       product_name: item.name,
       quantity: item.quantity,
       price,
-      fulfillment_details:
-        normalizeReceiptFulfillmentDetails(item.fulfillment_details) ??
-        normalizeReceiptFulfillmentDetails(item.fulfillment_data),
+      ...(fulfillmentDetails
+        ? { fulfillment_details: fulfillmentDetails }
+        : {}),
     };
   });
 }
