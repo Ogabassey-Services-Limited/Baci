@@ -83,7 +83,16 @@ jobs:
           pnpm-bin-dir: ${{ steps.setup_pnpm.outputs.bin_dest }}
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@39fdf500b386709a9a4a769f717dad447ac345b9 # v6
+        uses: gradle/actions/setup-gradle@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e # v6.1.0
+        with:
+          cache-provider: basic
+
+      - name: Reset Gradle 9 compiled DSL caches
+        run: |
+          GRADLE_CACHE_HOME="${GRADLE_USER_HOME:-$HOME/.gradle}/caches/9.3.1"
+          rm -rf "$GRADLE_CACHE_HOME/groovy-dsl" \
+                 "$GRADLE_CACHE_HOME/kotlin-dsl" \
+                 "$GRADLE_CACHE_HOME/dependencies-accessors"
 
       - name: Install dependencies
         uses: ./.github/actions/pnpm-install-cached
@@ -202,7 +211,7 @@ jobs:
           STOREFRONT_FACEBOOK_APP_ID: ${{ secrets.STOREFRONT_FACEBOOK_APP_ID }}
           STOREFRONT_FACEBOOK_CLIENT_TOKEN: ${{ secrets.STOREFRONT_FACEBOOK_CLIENT_TOKEN }}
         run: |
-          GRADLE_ARGS="app:bundleRelease -x lint -x lintVitalAnalyzeRelease -x test --configure-on-demand --build-cache --max-workers=2 --no-daemon"
+          GRADLE_ARGS="app:bundleRelease -x lint -x lintVitalAnalyzeRelease -x test --configure-on-demand --build-cache --max-workers=2 --no-daemon --stacktrace"
           # shellcheck disable=SC2086
           ./gradlew $GRADLE_ARGS
 
