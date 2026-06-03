@@ -22,7 +22,7 @@ const log = createLogger('StartupStorefrontPrefetch');
 
 let startupStorefrontDataPrefetchPromise: Promise<void> | null = null;
 
-async function fetchStartupCategories(): Promise<Category[]> {
+export async function fetchStartupCategories(): Promise<Category[]> {
   const { data, error } = await withSupabaseRetry(
     async () =>
       await supabase
@@ -42,7 +42,7 @@ async function fetchStartupCategories(): Promise<Category[]> {
   return (data as Category[]) || [];
 }
 
-async function fetchStartupPageConfig(): Promise<PageConfig | null> {
+export async function fetchStartupPageConfig(): Promise<PageConfig | null> {
   const { data, error } = await withSupabaseRetry(
     async () =>
       await supabase
