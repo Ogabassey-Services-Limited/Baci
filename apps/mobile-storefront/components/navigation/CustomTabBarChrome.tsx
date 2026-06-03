@@ -1,14 +1,15 @@
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+import { TabActions } from '@react-navigation/native';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Platform,
   StyleSheet,
   UIManager,
+  useWindowDimensions,
   View,
   type ViewStyle,
-  useWindowDimensions,
 } from 'react-native';
 import Animated, {
   useAnimatedStyle,
@@ -18,14 +19,11 @@ import Animated, {
 import { getTabBarShadowStyle } from '@/components/navigation/TabBar.shadows';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
-import {
-  CustomTabBarItem,
-  type CustomTabOptions,
-} from './CustomTabBarItem';
+import { CustomTabBarItem, type CustomTabOptions } from './CustomTabBarItem';
+import { useWarmTabScreens } from './useWarmTabScreens';
 
 const HAS_EXPO_BLUR = UIManager.hasViewManagerConfig('ExpoBlurView');
 const BlurContainer = HAS_EXPO_BLUR ? BlurView : View;
-
 const CAPSULE_WIDTH = 36;
 const CAPSULE_HEIGHT = 36;
 
@@ -34,7 +32,11 @@ export function CustomTabBarChrome({
   descriptors,
   navigation,
   activeRouteName,
-}: BottomTabBarProps & { activeRouteName: string }) {
+  preloadProtectedTabs,
+}: BottomTabBarProps & {
+  activeRouteName: string;
+  preloadProtectedTabs: boolean;
+}) {
   const { width: screenWidth } = useWindowDimensions();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -47,41 +49,40 @@ export function CustomTabBarChrome({
     return options.href !== null && route.name !== 'categories';
   });
 
-  const tabBarContentWidth = screenWidth - 48;
-  const tabWidth = tabBarContentWidth / visibleRoutes.length;
+  const tabBarContentWidth = Math.max(screenWidth - 48, visibleRoutes.length);
+  const tabWidth =
+    visibleRoutes.length > 0 ? tabBarContentWidth / visibleRoutes.length : 0;
   const activeIdx = visibleRoutes.findIndex((r) => r.name === activeRouteName);
-  const targetIdx = activeIdx !== -1 ? activeIdx : 0;
-
-  const animIndex = useSharedValue(targetIdx);
-  const targetIndex = useSharedValue(targetIdx);
+  const safeActiveIdx = activeIdx !== -1 ? activeIdx : 0;
+  const pressInHandledRouteKeyRef = useRef<string | null>(null);
+  const [optimisticRouteName, setOptimisticRouteName] =
+    useState(activeRouteName);
+  const animIndex = useSharedValue(safeActiveIdx);
+  const targetIndex = useSharedValue(safeActiveIdx);
   const capsuleScale = useSharedValue(1);
 
   useEffect(() => {
-    if (targetIdx === targetIndex.value) {
+    setOptimisticRouteName(activeRouteName);
+
+    if (safeActiveIdx === targetIndex.value) {
       return;
     }
 
-    targetIndex.value = targetIdx;
-    animIndex.value = withSpring(targetIdx, {
+    targetIndex.value = safeActiveIdx;
+    animIndex.value = withSpring(safeActiveIdx, {
       damping: 11,
       stiffness: 145,
       mass: 0.8,
     });
+    capsuleScale.value = withSpring(1, { damping: 12, stiffness: 140 });
+  }, [activeRouteName, animIndex, capsuleScale, safeActiveIdx, targetIndex]);
 
-    capsuleScale.value = withSpring(
-      1.15,
-      { damping: 9, stiffness: 220 },
-      (finished) => {
-        if (finished) {
-          capsuleScale.value = withSpring(1.0, { damping: 12, stiffness: 140 });
-        }
-      }
-    );
-
-    if (Platform.OS !== 'web') {
-      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-  }, [targetIdx, animIndex, capsuleScale, targetIndex]);
+  useWarmTabScreens({
+    activeRouteName,
+    navigation,
+    preloadProtectedTabs,
+    routes: visibleRoutes,
+  });
 
   const capsuleStyle = useAnimatedStyle(() => {
     const currentPos = animIndex.value;
@@ -147,37 +148,51 @@ export function CustomTabBarChrome({
         {visibleRoutes.map((route, index: number) => {
           const { options } = descriptors[route.key];
           const customOptions = options as CustomTabOptions;
-          const isFocused = activeRouteName === route.name;
+          const isActiveRoute = activeRouteName === route.name;
+          const isFocused = optimisticRouteName === route.name;
 
-          const handlePressIn = () => {
-            if (!isFocused) {
-              targetIndex.value = index;
-              animIndex.value = withSpring(index, {
-                damping: 11,
-                stiffness: 145,
-                mass: 0.8,
-              });
+          const moveCapsule = (shouldPulse: boolean) => {
+            targetIndex.value = index;
+            animIndex.value = withSpring(index, {
+              damping: 11,
+              stiffness: 145,
+              mass: 0.8,
+            });
 
-              capsuleScale.value = withSpring(
-                1.15,
-                { damping: 9, stiffness: 220 },
-                (finished) => {
-                  if (finished) {
-                    capsuleScale.value = withSpring(1.0, {
-                      damping: 12,
-                      stiffness: 140,
-                    });
-                  }
+            capsuleScale.value = withSpring(
+              shouldPulse ? 1.15 : 1,
+              { damping: 9, stiffness: 220 },
+              (finished) => {
+                if (finished && shouldPulse) {
+                  capsuleScale.value = withSpring(1, {
+                    damping: 12,
+                    stiffness: 140,
+                  });
                 }
-              );
-
-              if (Platform.OS !== 'web') {
-                void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               }
-            }
+            );
           };
 
-          const handlePress = () => {
+          const resetSelection = () => {
+            setOptimisticRouteName(activeRouteName);
+            targetIndex.value = safeActiveIdx;
+            animIndex.value = withSpring(safeActiveIdx, {
+              damping: 11,
+              stiffness: 145,
+              mass: 0.8,
+            });
+            capsuleScale.value = withSpring(1, {
+              damping: 12,
+              stiffness: 140,
+            });
+          };
+
+          const commitTabSelection = (shouldTriggerFeedback: boolean) => {
+            if (!isActiveRoute) {
+              setOptimisticRouteName(route.name);
+              moveCapsule(shouldTriggerFeedback);
+            }
+
             const event = navigation.emit({
               type: 'tabPress',
               target: route.key,
@@ -185,21 +200,45 @@ export function CustomTabBarChrome({
             });
 
             if (event.defaultPrevented) {
-              targetIndex.value = targetIdx;
-              animIndex.value = withSpring(targetIdx, {
-                damping: 11,
-                stiffness: 145,
-                mass: 0.8,
-              });
-              capsuleScale.value = withSpring(1.0, {
-                damping: 12,
-                stiffness: 140,
-              });
+              resetSelection();
               return;
             }
 
-            if (!isFocused) {
-              navigation.navigate(route.name, route.params);
+            if (!isActiveRoute) {
+              navigation.dispatch({
+                ...TabActions.jumpTo(route.name, route.params),
+                target: state.key,
+              });
+            }
+
+            if (
+              shouldTriggerFeedback &&
+              !isActiveRoute &&
+              Platform.OS !== 'web'
+            ) {
+              void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }
+          };
+
+          const handlePressIn = () => {
+            if (!isActiveRoute) {
+              commitTabSelection(true);
+              pressInHandledRouteKeyRef.current = route.key;
+            }
+          };
+
+          const handlePress = () => {
+            if (pressInHandledRouteKeyRef.current === route.key) {
+              pressInHandledRouteKeyRef.current = null;
+              return;
+            }
+
+            commitTabSelection(!isActiveRoute);
+          };
+
+          const handlePressOut = () => {
+            if (pressInHandledRouteKeyRef.current === route.key) {
+              pressInHandledRouteKeyRef.current = null;
             }
           };
 
@@ -212,6 +251,7 @@ export function CustomTabBarChrome({
               colors={colors}
               onPress={handlePress}
               onPressIn={handlePressIn}
+              onPressOut={handlePressOut}
             />
           );
         })}

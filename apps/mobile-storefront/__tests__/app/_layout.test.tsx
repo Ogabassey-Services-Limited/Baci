@@ -14,6 +14,7 @@ const mockInitializeStorage = jest.fn<() => Promise<void>>();
 const mockInitializeAuth = jest.fn<() => Promise<void>>();
 const mockCleanup = jest.fn();
 const mockRegisterPushNotifications = jest.fn();
+const mockPrefetchStartupStorefrontData = jest.fn<() => Promise<void>>();
 
 jest.mock('../../global.css', () => ({}));
 
@@ -72,6 +73,10 @@ jest.mock('@/lib/storage', () => ({
   initializeStorage: () => mockInitializeStorage(),
 }));
 
+jest.mock('@/lib/startup-storefront-prefetch', () => ({
+  prefetchStartupStorefrontData: () => mockPrefetchStartupStorefrontData(),
+}));
+
 jest.mock('@/services/analytics', () => ({
   initAnalytics: jest.fn(() => Promise.resolve()),
 }));
@@ -100,6 +105,7 @@ describe('RootLayout storage boot gate', () => {
     jest.clearAllMocks();
     jest.useFakeTimers();
     mockInitializeAuth.mockResolvedValue(undefined);
+    mockPrefetchStartupStorefrontData.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -111,6 +117,7 @@ describe('RootLayout storage boot gate', () => {
 
     render(<RootLayout />);
 
+    expect(mockPrefetchStartupStorefrontData).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId('animated-splash')).toBeOnTheScreen();
     expect(screen.queryByTestId('root-layout-nav')).toBeNull();
 

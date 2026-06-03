@@ -1,3 +1,4 @@
+import { describe, expect, it, jest } from '@jest/globals';
 import { isValidElement } from 'react';
 
 // expo-router's `Stack.Screen` is a register-only component (returns null
@@ -91,5 +92,21 @@ describe('renderRootStackScreens', () => {
       }
     ).props;
     expect(props.options.contentStyle?.backgroundColor).toBe('#FAFAFA');
+  });
+
+  it('registers cart as a gesture-enabled root stack screen', () => {
+    const cartScreen = screens.find((child) => {
+      const props = child.props as { name?: string };
+      return props.name === 'cart';
+    });
+
+    expect(cartScreen).toBeDefined();
+    const cartOptions = (
+      cartScreen as unknown as {
+        props: { options: { gestureEnabled?: boolean; headerShown?: boolean } };
+      }
+    ).props.options;
+    expect(cartOptions.headerShown).toBe(false);
+    expect(cartOptions.gestureEnabled).toBe(true);
   });
 });

@@ -40,7 +40,7 @@ export const serviceStyles = StyleSheet.create({
   },
   tierCard: {
     width: '48.8%',
-    minHeight: 124,
+    minHeight: 122,
     padding: SPACING.sm,
     borderRadius: RADIUS.lg,
     borderWidth: 1.5,

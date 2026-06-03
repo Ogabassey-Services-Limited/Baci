@@ -2,11 +2,11 @@ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { render, screen } from '@testing-library/react-native';
 import type React from 'react';
 import {
+  type StyleProp,
   StyleSheet,
   Text,
-  View,
-  type StyleProp,
   type TextStyle,
+  View,
   type ViewStyle,
 } from 'react-native';
 import TabLayout from '@/app/(tabs)/_layout';
@@ -43,8 +43,12 @@ type MockTabBarLabelOptions = {
   position: 'below-icon' | 'beside-icon';
 };
 type MockTabsScreenProps = {
+  listeners?: {
+    tabPress?: (event: { preventDefault: () => void }) => void;
+  };
   name: string;
   options?: {
+    freezeOnBlur?: boolean;
     headerShown?: boolean;
     tabBarIcon?: (options: MockTabBarIconOptions) => React.ReactNode;
     tabBarLabel?: (options: MockTabBarLabelOptions) => React.ReactNode;
@@ -52,7 +56,9 @@ type MockTabsScreenProps = {
 };
 type MockTabsProps = {
   children?: React.ReactNode;
+  detachInactiveScreens?: boolean;
   screenOptions?: {
+    freezeOnBlur?: boolean;
     headerStyle?: ViewStyle;
     headerTintColor?: string;
     tabBarActiveTintColor?: string;
@@ -93,6 +99,7 @@ const mockTabs = jest.fn(
     </MockView>
   )
 );
+const mockRouterPush = jest.fn();
 
 jest.mock('@/components/navigation/CustomTabBar', () => ({
   CustomTabBar: () => (
@@ -152,7 +159,7 @@ jest.mock('expo-router', () => {
   return {
     Tabs,
     router: {
-      push: jest.fn(),
+      push: (...args: unknown[]) => mockRouterPush(...args),
     },
   };
 });
@@ -229,18 +236,30 @@ describe('TabLayout', () => {
     expect(screen.getByLabelText('custom tab bar')).toBeOnTheScreen();
   });
 
-  it('explicitly keeps the cart tab header hidden', () => {
+  it('uses the cart tab as a stack-route launcher with its header hidden', () => {
     render(<TabLayout />);
 
+    const cartTabProps = mockTabsScreen.mock.calls.find(
+      ([props]) => props.name === 'cart-tab'
+    )?.[0];
+    const event = { preventDefault: jest.fn() };
+
+    cartTabProps?.listeners?.tabPress?.(event);
+
     expect(
-      screen.getByLabelText('cart screen header hidden')
+      screen.getByLabelText('cart-tab screen header hidden')
     ).toBeOnTheScreen();
+    expect(event.preventDefault).toHaveBeenCalledTimes(1);
+    expect(mockRouterPush).toHaveBeenCalledWith('/cart');
   });
 
   it('uses theme colors for the tab chrome while preserving badge contrast', () => {
     render(<TabLayout />);
 
     const tabsProps = mockTabs.mock.calls.at(-1)?.[0];
+    const homeScreenProps = mockTabsScreen.mock.calls.find(
+      ([props]) => props.name === 'index'
+    )?.[0];
     const cartBadgeText = screen.getByText('2');
     const cartBadgeTextStyle = StyleSheet.flatten(cartBadgeText.props.style);
     const cartBadge = screen.UNSAFE_getAllByType(View).find((node) => {
@@ -252,6 +271,7 @@ describe('TabLayout', () => {
     );
 
     expect(tabsProps?.screenOptions).toMatchObject({
+      freezeOnBlur: false,
       headerStyle: {
         backgroundColor: mockThemeColors.background,
       },
@@ -260,6 +280,8 @@ describe('TabLayout', () => {
       tabBarInactiveTintColor: mockThemeColors.mutedForeground,
       lazy: true,
     });
+    expect(tabsProps?.detachInactiveScreens).toBe(false);
+    expect(homeScreenProps?.options?.freezeOnBlur).toBe(true);
     expect(cartBadgeStyle).toMatchObject({
       backgroundColor: mockThemeColors.primary,
       borderColor: mockThemeColors.card,

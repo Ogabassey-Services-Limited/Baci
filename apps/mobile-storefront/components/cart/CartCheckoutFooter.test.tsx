@@ -1,9 +1,11 @@
+import { describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import Colors from '@/constants/Colors';
 import CartCheckoutFooter from './CartCheckoutFooter';
 
 jest.mock('react-native-reanimated', () => {
-  const { View } = jest.requireActual('react-native');
+  const { View } =
+    jest.requireActual<typeof import('react-native')>('react-native');
 
   return {
     __esModule: true,
@@ -33,6 +35,7 @@ describe('CartCheckoutFooter', () => {
         grandTotal={500000}
         hasAcceptedNegotiation={false}
         onCheckout={onCheckout}
+        onCheckoutPressIn={jest.fn()}
         onNegotiateTotal={onNegotiateTotal}
         surfaceInset={Colors.light.background}
       />
@@ -61,6 +64,7 @@ describe('CartCheckoutFooter', () => {
         grandTotal={500000}
         hasAcceptedNegotiation={false}
         onCheckout={jest.fn()}
+        onCheckoutPressIn={jest.fn()}
         onNegotiateTotal={jest.fn()}
         surfaceInset={Colors.light.background}
       />
@@ -83,6 +87,7 @@ describe('CartCheckoutFooter', () => {
         grandTotal={500000}
         hasAcceptedNegotiation
         onCheckout={jest.fn()}
+        onCheckoutPressIn={jest.fn()}
         onNegotiateTotal={onNegotiateTotal}
         surfaceInset={Colors.light.background}
       />
@@ -92,5 +97,33 @@ describe('CartCheckoutFooter', () => {
       screen.getByRole('button', { name: 'Negotiate cart total' })
     );
     expect(onNegotiateTotal).toHaveBeenCalledTimes(1);
+  });
+
+  it('warms checkout when the checkout action receives press-in', () => {
+    const onCheckoutPressIn = jest.fn();
+
+    render(
+      <CartCheckoutFooter
+        checkoutDotColor="#fff"
+        colors={Colors.light}
+        enableNegotiationModal
+        formatPrice={formatPrice}
+        grandTotal={500000}
+        hasAcceptedNegotiation={false}
+        onCheckout={jest.fn()}
+        onCheckoutPressIn={onCheckoutPressIn}
+        onNegotiateTotal={jest.fn()}
+        surfaceInset={Colors.light.background}
+      />
+    );
+
+    fireEvent(
+      screen.getByRole('button', {
+        name: `Proceed to checkout, total ${formatPrice(500000)}`,
+      }),
+      'pressIn'
+    );
+
+    expect(onCheckoutPressIn).toHaveBeenCalledTimes(1);
   });
 });

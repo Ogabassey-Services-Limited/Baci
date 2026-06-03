@@ -1,4 +1,3 @@
-import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Alert, Platform } from 'react-native';
@@ -6,9 +5,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useShallow } from 'zustand/react/shallow';
 import CartLoadedView from '@/components/cart/CartLoadedView';
 import CartStateView from '@/components/cart/CartStateView';
+import { unavailableCartActions } from '@/components/cart/unavailable-cart-actions';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import { useAuthStatus } from '@/hooks/use-auth-guard';
+import { useHaptics } from '@/hooks/use-haptics';
 import { isValidCartStore } from '@/lib/cart-validation';
 import { CONFIG } from '@/lib/config';
 import { getTemplateConfig } from '@/lib/templates';
@@ -19,6 +20,7 @@ export default function CartScreen() {
   const insets = useSafeAreaInsets();
   const colorScheme = (useColorScheme() ?? 'light') as 'light' | 'dark';
   const colors = Colors[colorScheme];
+  const { light: triggerHaptic } = useHaptics();
   const [isIdentityModalOpen, setIsIdentityModalOpen] = useState(false);
   const [showNegotiateWarning, setShowNegotiateWarning] = useState(false);
   const [pendingNegotiateItem, setPendingNegotiateItem] =
@@ -63,34 +65,20 @@ export default function CartScreen() {
     });
   }, [isCartStoreValid, cartStoreSnapshot]);
 
-  const reportUnavailableCartAction = (action: string) => {
-    console.error(
-      `[CartScreen] Attempted cart action while unavailable: ${action}`
-    );
-  };
-
   const items = hasCartLoadError ? [] : cartStore.items;
   const itemCount = hasCartLoadError ? 0 : cartStore.itemCount();
   const subtotal = hasCartLoadError ? 0 : cartStore.subtotal();
   const updateQuantity = hasCartLoadError
-    ? (itemId: string, quantity: number) => {
-        reportUnavailableCartAction(`updateQuantity(${itemId}, ${quantity})`);
-      }
+    ? unavailableCartActions.updateQuantity
     : cartStore.updateQuantity;
   const removeItem = hasCartLoadError
-    ? (itemId: string) => {
-        reportUnavailableCartAction(`removeItem(${itemId})`);
-      }
+    ? unavailableCartActions.removeItem
     : cartStore.removeItem;
   const clearCart = hasCartLoadError
-    ? () => {
-        reportUnavailableCartAction('clearCart()');
-      }
+    ? unavailableCartActions.clearCart
     : cartStore.clearCart;
   const toggleAssurance = hasCartLoadError
-    ? (itemId: string) => {
-        reportUnavailableCartAction(`toggleAssurance(${itemId})`);
-      }
+    ? unavailableCartActions.toggleAssurance
     : cartStore.toggleAssurance;
   const { isAuthenticated } = useAuthStatus();
   const { openNegotiation } = useUIStore(
@@ -100,11 +88,11 @@ export default function CartScreen() {
     getTemplateConfig(CONFIG.BUSINESS_TYPE, CONFIG.TEMPLATE_ID).features
       ?.negotiationModal ?? true;
 
-  const triggerHaptic = () => {
-    if (Platform.OS === 'ios') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+  useEffect(() => {
+    if (!hasCartLoadError && items.length > 0) {
+      router.prefetch('/checkout');
     }
-  };
+  }, [hasCartLoadError, items.length]);
 
   const handleQuantityChange = (item: CartItem, delta: number) => {
     if (pendingOperations.current.has(item.id)) return;
@@ -144,6 +132,16 @@ export default function CartScreen() {
     } else {
       setIsIdentityModalOpen(true);
     }
+  };
+
+  const handleReturnHome = () => {
+    triggerHaptic();
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+
+    router.replace('/');
   };
 
   const actuallyOpenItemNegotiation = (item: CartItem) => {
@@ -265,6 +263,7 @@ export default function CartScreen() {
           { text: 'Clear', style: 'destructive', onPress: clearCart },
         ]);
       }}
+      handleReturnHome={handleReturnHome}
       handleQuantityChange={handleQuantityChange}
       handleRemoveItem={handleRemoveItem}
       insetsTop={insets.top}
@@ -277,6 +276,7 @@ export default function CartScreen() {
         setShowNegotiateWarning(false);
         setPendingNegotiateItem(null);
       }}
+      onCheckoutPressIn={() => router.prefetch('/checkout')}
       onNegotiateItem={actuallyOpenItemNegotiation}
       onNegotiateTotal={() => {
         triggerHaptic();

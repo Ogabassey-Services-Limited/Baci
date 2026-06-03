@@ -55,4 +55,26 @@ describe('app bootstrap safety', () => {
     expect(drawerMenuSource).toContain("from '@/lib/optional-gesture-handler'");
     expect(chatWidgetSource).toContain("from '@/lib/optional-gesture-handler'");
   });
+
+  it('starts storefront query prefetch before storage hydration work', () => {
+    const rootLayoutSource = readFileSync(
+      path.resolve(__dirname, '../../app/_layout.tsx'),
+      'utf-8'
+    );
+
+    expect(rootLayoutSource).toContain(
+      "import { prefetchStartupStorefrontData } from '@/lib/startup-storefront-prefetch';"
+    );
+    expect(rootLayoutSource).toContain('void prefetchStartupStorefrontData();');
+    expect(rootLayoutSource).toContain(
+      'await initializeStorage(DEFAULT_SYNC_STORAGE_KEYS);'
+    );
+    expect(
+      rootLayoutSource.indexOf('void prefetchStartupStorefrontData();')
+    ).toBeLessThan(
+      rootLayoutSource.indexOf(
+        'await initializeStorage(DEFAULT_SYNC_STORAGE_KEYS);'
+      )
+    );
+  });
 });

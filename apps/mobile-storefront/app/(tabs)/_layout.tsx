@@ -36,6 +36,7 @@ export default function TabLayout() {
 
   const activeTint = colors.text;
   const inactiveTint = colors.mutedForeground;
+  const shouldPreloadProtectedTabs = isInitialized && Boolean(user);
 
   /**
    * 2026 Best Practice: Layout-level auth gating for tabs.
@@ -55,8 +56,12 @@ export default function TabLayout() {
   return (
     <Tabs
       initialRouteName="index"
+      detachInactiveScreens={false}
       tabBar={(props) => (
-        <CustomTabBar {...(props as unknown as BottomTabBarProps)} />
+        <CustomTabBar
+          {...(props as unknown as BottomTabBarProps)}
+          preloadProtectedTabs={shouldPreloadProtectedTabs}
+        />
       )}
       screenOptions={{
         tabBarActiveTintColor: activeTint,
@@ -72,7 +77,7 @@ export default function TabLayout() {
         headerTintColor: colors.text,
         headerShadowVisible: false,
         lazy: true,
-        freezeOnBlur: true,
+        freezeOnBlur: false,
         tabBarHideOnKeyboard: true,
         tabBarShowLabel: true, // Needed for our custom label component
       }}
@@ -82,6 +87,7 @@ export default function TabLayout() {
         options={{
           title: 'Home',
           headerShown: false,
+          freezeOnBlur: true,
           tabBarIcon: ({ focused }) => (
             <TabBarIcon
               name={focused ? 'home' : 'home-outline'}
@@ -111,7 +117,7 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="cart"
+        name="cart-tab"
         options={{
           title: 'Cart',
           headerShown: false,
@@ -125,6 +131,12 @@ export default function TabLayout() {
           tabBarLabel: ({ focused }) => (
             <TabBarLabel focused={focused} label="Cart" />
           ),
+        }}
+        listeners={{
+          tabPress: (e) => {
+            e.preventDefault();
+            router.push('/cart');
+          },
         }}
       />
       <Tabs.Screen
