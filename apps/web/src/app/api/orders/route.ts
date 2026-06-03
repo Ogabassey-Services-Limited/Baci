@@ -141,6 +141,23 @@ type EmailOrderItem = {
   price?: number;
 };
 
+type ImmediateInvoiceItem = {
+  id?: string | null;
+  product_id?: string | null;
+  productId?: string | null;
+  productName?: string | null;
+  product_name?: string | null;
+  name?: string | null;
+  variant_id?: string | null;
+  variantId?: string | null;
+  variant_name?: string | null;
+  variantAttributes?: Record<string, string> | null;
+  variant_attributes?: Record<string, string> | null;
+  negotiatedPrice?: number | null;
+  price: number;
+  quantity: number;
+};
+
 type QuizVoucherItemCandidate = {
   voucherAwardId?: unknown;
   voucherToken?: unknown;
@@ -178,11 +195,11 @@ function getQuizVoucherToken(item: QuizVoucherItemCandidate): string | null {
   return null;
 }
 
-function getOrderItemProductId(item: OrderCreateItem): string | undefined {
-  return item.product_id || item.productId || item.id;
+function getOrderItemProductId(item: ImmediateInvoiceItem): string | undefined {
+  return item.product_id || item.productId || item.id || undefined;
 }
 
-function getOrderItemVariantId(item: OrderCreateItem): string | null {
+function getOrderItemVariantId(item: ImmediateInvoiceItem): string | null {
   return item.variantId || item.variant_id || null;
 }
 
@@ -190,16 +207,24 @@ function getOrderItemCondition(item: OrderCreateItem): string | null {
   return item.condition || null;
 }
 
-function getOrderItemBaseName(item: OrderCreateItem): string {
-  return item.name || item.productName || 'Product';
+function getOrderItemBaseName(item: ImmediateInvoiceItem): string {
+  return item.name || item.product_name || item.productName || 'Product';
 }
 
-function getOrderItemVariantLabel(item: OrderCreateItem): string | null {
+function getOrderItemVariantLabel(item: ImmediateInvoiceItem): string | null {
+  if (item.variant_name) {
+    return item.variant_name;
+  }
+
   const label = formatVariantAttributesLabel(
-    item.variantAttributes || item.variant_attributes
+    item.variantAttributes || item.variant_attributes || undefined
   );
 
   return label || null;
+}
+
+function getOrderItemPrice(item: ImmediateInvoiceItem): number {
+  return item.negotiatedPrice ?? item.price;
 }
 
 function getOrderFulfillmentDetails(
@@ -265,17 +290,27 @@ function buildImmediateInvoiceMerchant(merchant: {
 }
 
 function buildImmediateInvoiceShippingAddress(
-  shippingAddress: OrderCreateInput['shipping_address']
+  shippingAddress: unknown
 ): ReceiptOrder['shipping_address'] {
-  if (!shippingAddress) {
+  if (
+    !shippingAddress ||
+    typeof shippingAddress !== 'object' ||
+    Array.isArray(shippingAddress)
+  ) {
     return null;
   }
 
+  const address = shippingAddress as Record<string, unknown>;
   return {
-    address_line1: shippingAddress.address,
-    city: shippingAddress.city,
-    state: shippingAddress.state,
-    country: 'NG',
+    address_line1:
+      typeof address.address_line1 === 'string'
+        ? address.address_line1
+        : typeof address.address === 'string'
+          ? address.address
+          : '',
+    city: typeof address.city === 'string' ? address.city : '',
+    state: typeof address.state === 'string' ? address.state : '',
+    country: typeof address.country === 'string' ? address.country : 'NG',
   };
 }
 
@@ -308,7 +343,7 @@ function buildImmediatePeppolInvoiceData(input: {
   customerEmail: string;
   customerName: string;
   customerPhone?: string;
-  items: OrderCreateInput['items'];
+  items: ImmediateInvoiceItem[];
   merchant: {
     business_name: string;
     cac_rc_number?: string | null;
@@ -327,8 +362,11 @@ function buildImmediatePeppolInvoiceData(input: {
   orderShippingFee: number;
   orderSubtotal: number;
   orderTotal: number;
-  shippingAddress: OrderCreateInput['shipping_address'];
+  shippingAddress: unknown;
 }): InvoiceData {
+  const invoiceShippingAddress = buildImmediateInvoiceShippingAddress(
+    input.shippingAddress
+  );
   const taxAmount = Number(input.order.tax_amount || 0);
   const discountAmount = Number(input.order.discount_amount || 0);
   const currency =
@@ -342,15 +380,13 @@ function buildImmediatePeppolInvoiceData(input: {
   const vatRate =
     vatCategoryCode === 'S' ? (input.merchant.vat_rate ?? 7.5) : 0;
   const lineExtensionTotal = input.items.reduce(
-    (total, item) =>
-      total + item.quantity * (item.negotiatedPrice ?? item.price),
+    (total, item) => total + item.quantity * getOrderItemPrice(item),
     0
   );
   let allocatedTaxAmount = 0;
 
   const invoiceItems: InvoiceLineItem[] = input.items.map((item, index) => {
-    const lineExtensionAmount =
-      item.quantity * (item.negotiatedPrice ?? item.price);
+    const lineExtensionAmount = item.quantity * getOrderItemPrice(item);
     const vatAmount = allocateLineTax({
       index,
       itemCount: input.items.length,
@@ -368,7 +404,7 @@ function buildImmediatePeppolInvoiceData(input: {
       description: getOrderItemVariantLabel(item) || undefined,
       quantity: item.quantity,
       unit_code: 'EA',
-      price: item.negotiatedPrice ?? item.price,
+      price: getOrderItemPrice(item),
       line_extension_amount: lineExtensionAmount,
       vat_category_code: vatCategoryCode,
       vat_rate: vatRate,
@@ -391,6 +427,7 @@ function buildImmediatePeppolInvoiceData(input: {
   ];
 
   return {
+    order_id: typeof input.order.id === 'string' ? input.order.id : undefined,
     invoice_number: input.orderNumber,
     invoice_type_code: '380',
     issue_date: new Date(
@@ -400,7 +437,8 @@ function buildImmediatePeppolInvoiceData(input: {
     ),
     due_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
     currency,
-    buyer_reference: input.customerEmail || input.customerName,
+    buyer_reference:
+      typeof input.order.id === 'string' ? input.order.id : undefined,
     merchant: {
       business_name: input.merchant.business_name,
       legal_entity_name: input.merchant.legal_entity_name || undefined,
@@ -416,15 +454,19 @@ function buildImmediatePeppolInvoiceData(input: {
       logo_url: input.merchant.logo_url || undefined,
     },
     customer: {
+      id:
+        typeof input.order.customer_id === 'string'
+          ? input.order.customer_id
+          : undefined,
       name: input.customerName,
       email: input.customerEmail || undefined,
       phone: input.customerPhone || undefined,
-      address: input.shippingAddress
+      address: invoiceShippingAddress
         ? {
-            street: input.shippingAddress.address,
-            city: input.shippingAddress.city,
-            state: input.shippingAddress.state,
-            country: 'NG',
+            street: invoiceShippingAddress.address_line1,
+            city: invoiceShippingAddress.city,
+            state: invoiceShippingAddress.state,
+            country: invoiceShippingAddress.country,
           }
         : undefined,
     },
@@ -1642,54 +1684,143 @@ export async function POST(request: NextRequest) {
                 const fulfillment = getOrderFulfillmentDetails(
                   order as Record<string, unknown>
                 );
-                const amountPaid = Number(order.amount_paid || 0);
+                backgroundSupabase ??= createAdminClient();
+                const {
+                  data: persistedDocumentOrder,
+                  error: persistedDocumentOrderError,
+                } = await backgroundSupabase
+                  .from('orders')
+                  .select(ORDER_WITH_ITEMS_QUERY)
+                  .eq('id', order.id)
+                  .maybeSingle();
+
+                if (persistedDocumentOrderError) {
+                  logger.warn({
+                    message:
+                      'Failed to fetch persisted order for immediate invoice document; falling back to normalized order payload',
+                    orderId: order.id,
+                    error: persistedDocumentOrderError,
+                  });
+                }
+
+                const documentOrder = (persistedDocumentOrder ??
+                  order) as Record<string, unknown>;
+                const persistedItems = Array.isArray(documentOrder.order_items)
+                  ? documentOrder.order_items
+                      .filter(
+                        (item): item is Record<string, unknown> =>
+                          !!item &&
+                          typeof item === 'object' &&
+                          !Array.isArray(item)
+                      )
+                      .map((item) => ({
+                        id: typeof item.id === 'string' ? item.id : undefined,
+                        product_id:
+                          typeof item.product_id === 'string'
+                            ? item.product_id
+                            : undefined,
+                        name: typeof item.name === 'string' ? item.name : null,
+                        variant_name:
+                          typeof item.variant_name === 'string'
+                            ? item.variant_name
+                            : null,
+                        quantity: Number(item.quantity || 0),
+                        price: Number(item.price || 0),
+                      }))
+                  : [];
+                const documentItems: ImmediateInvoiceItem[] =
+                  persistedItems.length > 0
+                    ? persistedItems
+                    : orderItemsPayload.map((item, index) => {
+                        const requestItem = items[index];
+                        return {
+                          product_id: item.product_id,
+                          variant_id: item.variant_id,
+                          variant_attributes: item.variant_attributes,
+                          product_name: requestItem
+                            ? getOrderItemBaseName(requestItem)
+                            : 'Product',
+                          variant_name: requestItem
+                            ? getOrderItemVariantLabel(requestItem)
+                            : null,
+                          quantity: item.quantity,
+                          price: item.price,
+                        };
+                      });
+                const documentTotal = Number(documentOrder.total ?? orderTotal);
+                const documentSubtotal = Number(
+                  documentOrder.subtotal ?? orderSubtotal
+                );
+                const documentShippingFee = Number(
+                  documentOrder.shipping_fee ?? orderShippingFee
+                );
+                const amountPaid = Number(documentOrder.amount_paid || 0);
+                const documentCustomerName =
+                  typeof documentOrder.customer_name === 'string'
+                    ? documentOrder.customer_name
+                    : customer_name;
+                const documentCustomerEmail =
+                  typeof documentOrder.customer_email === 'string'
+                    ? documentOrder.customer_email
+                    : customer_email;
+                const documentCustomerPhone =
+                  typeof documentOrder.customer_phone === 'string'
+                    ? documentOrder.customer_phone
+                    : customer_phone;
                 const receiptOrder: ReceiptOrder = {
                   order_number: orderNum,
                   created_at: String(
-                    order.created_at || new Date().toISOString()
+                    documentOrder.created_at || new Date().toISOString()
                   ),
-                  currency: order.currency || 'NGN',
-                  total: orderTotal,
-                  subtotal: orderSubtotal,
-                  shipping_fee: orderShippingFee,
-                  tax_amount: Number(order.tax_amount || 0),
-                  discount_amount: Number(order.discount_amount || 0),
+                  currency:
+                    typeof documentOrder.currency === 'string'
+                      ? documentOrder.currency
+                      : 'NGN',
+                  total: documentTotal,
+                  subtotal: documentSubtotal,
+                  shipping_fee: documentShippingFee,
+                  tax_amount: Number(documentOrder.tax_amount || 0),
+                  discount_amount: Number(documentOrder.discount_amount || 0),
                   amount_paid: amountPaid,
-                  balance: Math.max(orderTotal - amountPaid, 0),
-                  payment_status: order.payment_status || payment_status,
+                  balance: Math.max(documentTotal - amountPaid, 0),
+                  payment_status:
+                    typeof documentOrder.payment_status === 'string'
+                      ? documentOrder.payment_status
+                      : payment_status,
                   payment_method,
-                  is_credit_order: Boolean(
-                    (order as Record<string, unknown>).is_credit_order
+                  is_credit_order: Boolean(documentOrder.is_credit_order),
+                  customer_name: documentCustomerName,
+                  customer_email: documentCustomerEmail,
+                  customer_phone: documentCustomerPhone || null,
+                  shipping_address: buildImmediateInvoiceShippingAddress(
+                    documentOrder.shipping_address ?? shipping_address
                   ),
-                  customer_name,
-                  customer_email,
-                  customer_phone: customer_phone || null,
-                  shipping_address:
-                    buildImmediateInvoiceShippingAddress(shipping_address),
                   virtual_account: invoiceVirtualAccount,
-                  fulfillment_details: fulfillment,
-                  items: items.map((item) => ({
+                  fulfillment_details:
+                    getOrderFulfillmentDetails(documentOrder) || fulfillment,
+                  items: documentItems.map((item) => ({
                     product_name: getOrderItemBaseName(item),
                     variant_name: getOrderItemVariantLabel(item) || undefined,
                     quantity: item.quantity,
-                    price: item.negotiatedPrice ?? item.price,
+                    price: getOrderItemPrice(item),
                   })),
                   transactions: [],
                 };
                 const receiptMerchant = buildImmediateInvoiceMerchant(merchant);
                 const peppolInvoiceData = buildImmediatePeppolInvoiceData({
-                  customerEmail: customer_email,
-                  customerName: customer_name,
-                  customerPhone: customer_phone,
-                  items,
+                  customerEmail: documentCustomerEmail,
+                  customerName: documentCustomerName,
+                  customerPhone: documentCustomerPhone,
+                  items: documentItems,
                   merchant,
                   notes,
-                  order: order as Record<string, unknown>,
+                  order: documentOrder,
                   orderNumber: orderNum,
-                  orderShippingFee,
-                  orderSubtotal,
-                  orderTotal,
-                  shippingAddress: shipping_address,
+                  orderShippingFee: documentShippingFee,
+                  orderSubtotal: documentSubtotal,
+                  orderTotal: documentTotal,
+                  shippingAddress:
+                    documentOrder.shipping_address ?? shipping_address,
                 });
                 let peppolInvoiceXml: string | null = null;
 

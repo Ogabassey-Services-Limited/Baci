@@ -151,6 +151,54 @@ describe('generatePeppolInvoiceXml', () => {
     ).toThrow('at least one invoice line is required');
   });
 
+  it('uses non-PII references and default country fallbacks', () => {
+    const xml = generatePeppolInvoiceXml(
+      createInvoiceData({
+        buyer_reference: undefined,
+        customer: {
+          email: 'akin@example.com',
+          id: 'customer-1',
+          name: 'Akinola Ogunniran',
+          address: {
+            country: undefined,
+          },
+        },
+        due_date: undefined,
+        order_id: 'order-1',
+        payment_terms: undefined,
+      })
+    );
+
+    expect(xml).toContain('<cbc:BuyerReference>order-1</cbc:BuyerReference>');
+    expect(xml).not.toContain('akin@example.com</cbc:BuyerReference>');
+    expect(xml).not.toContain('Akinola Ogunniran</cbc:BuyerReference>');
+    expect(xml).toContain('<cbc:DueDate>2026-06-13</cbc:DueDate>');
+    expect(xml).toContain(
+      '<cbc:IdentificationCode>NG</cbc:IdentificationCode>'
+    );
+  });
+
+  it('falls back to a stable default buyer reference without customer identifiers', () => {
+    const xml = generatePeppolInvoiceXml(
+      createInvoiceData({
+        buyer_reference: undefined,
+        customer: {
+          email: 'akin@example.com',
+          name: 'Akinola Ogunniran',
+        },
+        due_date: undefined,
+        order_id: undefined,
+        payment_terms: undefined,
+      })
+    );
+
+    expect(xml).toContain(
+      '<cbc:BuyerReference>BACI-CUSTOMER</cbc:BuyerReference>'
+    );
+    expect(xml).not.toContain('akin@example.com</cbc:BuyerReference>');
+    expect(xml).not.toContain('Akinola Ogunniran</cbc:BuyerReference>');
+  });
+
   it('returns an XML blob', () => {
     const blob = generatePeppolInvoiceXmlBlob(createInvoiceData());
 

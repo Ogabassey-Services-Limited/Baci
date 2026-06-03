@@ -2853,15 +2853,54 @@ describe('POST /api/orders — B3.5 VAT RPC error mapping', () => {
 describe('POST /api/orders — invoice payment method email attachment', () => {
   function createBackgroundSupabaseMock({
     accountError = null,
+    persistedOrder = {
+      ...baseOrderRow,
+      amount_paid: 0,
+      created_at: '2026-06-03T00:00:00.000Z',
+      currency: 'NGN',
+      customer_email: 'customer@example.com',
+      customer_name: 'Test Customer',
+      customer_phone: '08012345678',
+      order_items: [
+        {
+          id: 'saved-line-1',
+          name: 'Saved Canonical Phone',
+          price: 1800,
+          product_id: 'p-1',
+          quantity: 2,
+          variant_name: '256GB',
+        },
+      ],
+      payment_status: 'unpaid',
+      shipping_address: {
+        address_line1: 'Persisted Street',
+        city: 'Ikeja',
+        country: 'NG',
+        state: 'Lagos',
+      },
+      subtotal: 3600,
+      total: 3600,
+    },
     reminderError = null,
   }: {
     accountError?: unknown;
+    persistedOrder?: unknown;
     reminderError?: unknown;
   } = {}) {
     const accountInsert = vi.fn().mockResolvedValue({ error: accountError });
     const reminderInsert = vi.fn().mockResolvedValue({ error: reminderError });
+    const orderMaybeSingle = vi.fn().mockResolvedValue({
+      data: persistedOrder,
+      error: null,
+    });
+    const orderEq = vi.fn(() => ({ maybeSingle: orderMaybeSingle }));
+    const orderSelect = vi.fn(() => ({ eq: orderEq }));
     const backgroundSupabase = {
       from: vi.fn((table: string) => {
+        if (table === 'orders') {
+          return { select: orderSelect };
+        }
+
         if (table === 'order_payment_accounts') {
           return { insert: accountInsert };
         }
@@ -2876,7 +2915,14 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
       }),
     };
 
-    return { accountInsert, backgroundSupabase, reminderInsert };
+    return {
+      accountInsert,
+      backgroundSupabase,
+      orderEq,
+      orderMaybeSingle,
+      orderSelect,
+      reminderInsert,
+    };
   }
 
   beforeEach(() => {
@@ -3002,8 +3048,20 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
     );
     expect(mockGenerateReceiptBlob).toHaveBeenCalledWith(
       expect.objectContaining({
+        items: [
+          expect.objectContaining({
+            price: 1800,
+            product_name: 'Saved Canonical Phone',
+            quantity: 2,
+            variant_name: '256GB',
+          }),
+        ],
         order_number: 'ORD-123',
         payment_status: 'unpaid',
+        shipping_address: expect.objectContaining({
+          address_line1: 'Persisted Street',
+        }),
+        total: 3600,
         virtual_account: expect.objectContaining({
           account_number: '1234567890',
           bank_name: 'Wema Bank',
@@ -3024,6 +3082,7 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
     expect(backgroundSupabase.from).toHaveBeenCalledWith(
       'order_payment_accounts'
     );
+    expect(backgroundSupabase.from).toHaveBeenCalledWith('orders');
     expect(backgroundSupabase.from).toHaveBeenCalledWith('order_reminders');
     expect(supabase.from).not.toHaveBeenCalledWith('order_payment_accounts');
   });

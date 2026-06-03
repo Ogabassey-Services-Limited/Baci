@@ -96,7 +96,7 @@ describe('useWarmTabScreens', () => {
     cancelFrameSpy.mockRestore();
   });
 
-  it('preloads protected tabs only when auth is ready', () => {
+  it('preloads protected tabs when preloadProtectedTabs is true', () => {
     const { frameCallbacks, requestFrameSpy, cancelFrameSpy } =
       mockFrameScheduler();
     const navigation = {

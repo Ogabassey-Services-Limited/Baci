@@ -233,4 +233,19 @@ describe('prefetchStartupStorefrontData', () => {
     expect(mockPrefetchQuery).toHaveBeenCalledTimes(4);
     expect(mockPrefetchInfiniteQuery).toHaveBeenCalledTimes(2);
   });
+
+  it('catches synchronous prefetch scheduling failures', async () => {
+    const { prefetchStartupStorefrontData } = loadModule();
+    const error = new Error('query client unavailable');
+    mockPrefetchQuery.mockImplementationOnce(() => {
+      throw error;
+    });
+
+    await expect(prefetchStartupStorefrontData()).resolves.toBeUndefined();
+
+    expect(mockWarn).toHaveBeenCalledWith(
+      'Startup storefront prefetch failed before scheduling',
+      { error }
+    );
+  });
 });

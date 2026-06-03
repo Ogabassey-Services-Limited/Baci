@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { renderHook } from '@testing-library/react-native';
+import { renderHook, waitFor } from '@testing-library/react-native';
 import { createElement, type ReactNode } from 'react';
 import { useMerchant } from '@/hooks/use-merchant';
 import type { PageConfig } from '@/lib/validation/page-config-schema';
@@ -80,6 +80,86 @@ describe('usePageConfig', () => {
 
     expect(result.current.data).toEqual(cachedConfig);
     expect(mockFrom).not.toHaveBeenCalled();
+
+    queryClient.clear();
+  });
+
+  it('surfaces query errors from the page config request', async () => {
+    const queryClient = createQueryClient();
+    const error = new Error('page config unavailable');
+    mockFrom.mockReturnValueOnce({
+      select: jest.fn(() => ({
+        eq: jest.fn(() => ({
+          eq: jest.fn(() => ({
+            eq: jest.fn(() => ({
+              maybeSingle: jest.fn(async () => ({ data: null, error })),
+            })),
+          })),
+        })),
+      })),
+    });
+
+    const { result } = renderHook(() => usePageConfig('home'), {
+      wrapper: createWrapper(queryClient),
+    });
+
+    await waitFor(() => {
+      expect(result.current.error).toBe(error);
+    });
+    expect(result.current.data).toBeUndefined();
+
+    queryClient.clear();
+  });
+
+  it('returns null for invalid published page config payloads', async () => {
+    const queryClient = createQueryClient();
+    mockFrom.mockReturnValueOnce({
+      select: jest.fn(() => ({
+        eq: jest.fn(() => ({
+          eq: jest.fn(() => ({
+            eq: jest.fn(() => ({
+              maybeSingle: jest.fn(async () => ({
+                data: { published_config: { content: [], root: null } },
+                error: null,
+              })),
+            })),
+          })),
+        })),
+      })),
+    });
+
+    const { result } = renderHook(() => usePageConfig('home'), {
+      wrapper: createWrapper(queryClient),
+    });
+
+    await waitFor(() => {
+      expect(result.current.data).toBeNull();
+    });
+
+    queryClient.clear();
+  });
+
+  it('returns null when no published config is present', async () => {
+    const queryClient = createQueryClient();
+    mockFrom.mockReturnValueOnce({
+      select: jest.fn(() => ({
+        eq: jest.fn(() => ({
+          eq: jest.fn(() => ({
+            eq: jest.fn(() => ({
+              maybeSingle: jest.fn(async () => ({ data: {}, error: null })),
+            })),
+          })),
+        })),
+      })),
+    });
+
+    const { result } = renderHook(() => usePageConfig('home'), {
+      wrapper: createWrapper(queryClient),
+    });
+
+    await waitFor(() => {
+      expect(result.current.data).toBeNull();
+    });
 
     queryClient.clear();
   });

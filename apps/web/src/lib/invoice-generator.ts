@@ -106,6 +106,7 @@ export interface MerchantInfo {
 }
 
 export interface CustomerInfo {
+  id?: string;
   name: string;
   email?: string;
   phone?: string;
@@ -120,6 +121,7 @@ export interface CustomerInfo {
 }
 
 export interface InvoiceData {
+  order_id?: string;
   // Document identifiers (BT-1 to BT-3)
   invoice_number: string;
   invoice_type_code: string;

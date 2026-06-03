@@ -105,47 +105,55 @@ export async function fetchStartupPageConfig(): Promise<PageConfig | null> {
 }
 
 export function prefetchStartupStorefrontData(): Promise<void> {
-  if (!CONSTANT_MERCHANT_ID) {
-    return Promise.resolve();
-  }
+  try {
+    if (!CONSTANT_MERCHANT_ID) {
+      return Promise.resolve();
+    }
 
-  if (startupStorefrontDataPrefetchPromise) {
-    return startupStorefrontDataPrefetchPromise;
-  }
+    if (startupStorefrontDataPrefetchPromise) {
+      return startupStorefrontDataPrefetchPromise;
+    }
 
-  startupStorefrontDataPrefetchPromise = Promise.allSettled([
-    queryClient.prefetchQuery({
-      queryKey: ['categories', CONSTANT_MERCHANT_ID],
-      queryFn: fetchStartupCategories,
-      staleTime: CATEGORIES_STALE_TIME_MS,
-    }),
-    queryClient.prefetchQuery({
-      queryKey: ['page_config', STARTUP_HOME_PAGE_SLUG, CONSTANT_MERCHANT_ID],
-      queryFn: fetchStartupPageConfig,
-      staleTime: PAGE_CONFIG_STALE_TIME_MS,
-    }),
-    queryClient.prefetchInfiniteQuery({
-      queryKey: [
-        'products',
-        CONSTANT_MERCHANT_ID,
-        STARTUP_HOME_PRODUCTS_OPTIONS,
-      ],
-      queryFn: ({ pageParam = 0 }) =>
-        fetchProductsPage(
+    startupStorefrontDataPrefetchPromise = Promise.allSettled([
+      queryClient.prefetchQuery({
+        queryKey: ['categories', CONSTANT_MERCHANT_ID],
+        queryFn: fetchStartupCategories,
+        staleTime: CATEGORIES_STALE_TIME_MS,
+      }),
+      queryClient.prefetchQuery({
+        queryKey: ['page_config', STARTUP_HOME_PAGE_SLUG, CONSTANT_MERCHANT_ID],
+        queryFn: fetchStartupPageConfig,
+        staleTime: PAGE_CONFIG_STALE_TIME_MS,
+      }),
+      queryClient.prefetchInfiniteQuery({
+        queryKey: [
+          'products',
           CONSTANT_MERCHANT_ID,
           STARTUP_HOME_PRODUCTS_OPTIONS,
-          Number(pageParam)
-        ),
-      getNextPageParam: (lastPage: ProductsPage) => lastPage.nextOffset,
-      initialPageParam: 0,
-      staleTime: PRODUCTS_STALE_TIME_MS,
-    }),
-  ]).then((results) => {
-    if (results.some((result) => result.status === 'rejected')) {
-      startupStorefrontDataPrefetchPromise = null;
-    }
-    return undefined;
-  });
+        ],
+        queryFn: ({ pageParam = 0 }) =>
+          fetchProductsPage(
+            CONSTANT_MERCHANT_ID,
+            STARTUP_HOME_PRODUCTS_OPTIONS,
+            Number(pageParam)
+          ),
+        getNextPageParam: (lastPage: ProductsPage) => lastPage.nextOffset,
+        initialPageParam: 0,
+        staleTime: PRODUCTS_STALE_TIME_MS,
+      }),
+    ]).then((results) => {
+      if (results.some((result) => result.status === 'rejected')) {
+        startupStorefrontDataPrefetchPromise = null;
+      }
+      return undefined;
+    });
 
-  return startupStorefrontDataPrefetchPromise;
+    return startupStorefrontDataPrefetchPromise;
+  } catch (error) {
+    startupStorefrontDataPrefetchPromise = null;
+    log.warn('Startup storefront prefetch failed before scheduling', {
+      error,
+    });
+    return Promise.resolve();
+  }
 }

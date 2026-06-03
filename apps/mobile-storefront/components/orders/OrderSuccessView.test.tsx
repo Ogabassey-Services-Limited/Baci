@@ -139,6 +139,28 @@ describe('OrderSuccessView', () => {
     expect(onViewDocument).toHaveBeenCalledTimes(1);
   });
 
+  it('disables the document action while preparing a document', () => {
+    const onViewDocument = jest.fn();
+
+    render(
+      <OrderSuccessView
+        {...createProps()}
+        isDocumentLoading={true}
+        onViewDocument={onViewDocument}
+        paymentMethod="paystack"
+      />
+    );
+
+    const documentButton = screen.getByRole('button', { name: 'View Receipt' });
+    expect(screen.getByText('Preparing document...')).toBeTruthy();
+    expect(documentButton.props.accessibilityState).toEqual({
+      disabled: true,
+    });
+
+    fireEvent.press(documentButton);
+    expect(onViewDocument).not.toHaveBeenCalled();
+  });
+
   it('delegates notification permission decisions from the visible modal', () => {
     const onPermissionDeny = jest.fn();
     const onPermissionGrant = jest.fn();

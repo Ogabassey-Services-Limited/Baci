@@ -2,7 +2,7 @@ import { jest } from '@jest/globals';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook } from '@testing-library/react-native';
 import { createElement, type ReactNode } from 'react';
-import { usePrefetchBillers } from '@/hooks/use-vtu-billers';
+import { usePrefetchBillers, vtuBillerKeys } from '@/hooks/use-vtu-billers';
 import { fetchWithRetry } from '@/lib/api';
 
 jest.mock('@/lib/api', () => ({
@@ -116,6 +116,31 @@ describe('usePrefetchBillers', () => {
 
     expect(mockFetchWithRetry).not.toHaveBeenCalled();
 
+    queryClient.clear();
+    requestFrameSpy.mockRestore();
+    cancelFrameSpy.mockRestore();
+  });
+
+  it('keeps staggered prefetch scheduling when a biller fetch rejects', async () => {
+    const { frameCallbacks, requestFrameSpy, cancelFrameSpy } =
+      mockFrameScheduler();
+    const queryClient = createQueryClient();
+    mockFetchWithRetry.mockRejectedValue(new Error('network unavailable'));
+
+    const { unmount } = renderHook(() => usePrefetchBillers(), {
+      wrapper: createWrapper(queryClient),
+    });
+
+    flushFrames(frameCallbacks);
+    jest.advanceTimersByTime(1450);
+    await Promise.resolve();
+
+    expect(mockFetchWithRetry).toHaveBeenCalledTimes(4);
+    expect(
+      queryClient.getQueryData(vtuBillerKeys.byType('data'))
+    ).toBeUndefined();
+
+    unmount();
     queryClient.clear();
     requestFrameSpy.mockRestore();
     cancelFrameSpy.mockRestore();

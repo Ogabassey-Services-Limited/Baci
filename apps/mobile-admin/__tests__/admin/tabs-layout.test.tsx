@@ -1,4 +1,5 @@
-import { render } from '@testing-library/react';
+import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+import { render, screen } from '@testing-library/react';
 import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -102,6 +103,8 @@ vi.mock('@/hooks/useTheme', () => ({
 
 import TabLayout from '@/app/(admin)/(tabs)/_layout';
 
+type TabBarRenderer = (props: BottomTabBarProps) => React.ReactNode;
+
 describe('TabLayout', () => {
   beforeEach(() => {
     mocks.failedOrders = [];
@@ -125,6 +128,25 @@ describe('TabLayout', () => {
     expect(mocks.tabsProps?.detachInactiveScreens).toBe(false);
     expect(mocks.tabsProps?.initialRouteName).toBe('index');
     expect(typeof mocks.tabsProps?.tabBar).toBe('function');
+    const tabBar = mocks.tabsProps?.tabBar as TabBarRenderer;
+    render(
+      tabBar({
+        descriptors: {},
+        insets: { bottom: 0, left: 0, right: 0, top: 0 },
+        navigation: {} as BottomTabBarProps['navigation'],
+        state: {
+          history: [],
+          index: 0,
+          key: 'tabs-key',
+          preloadedRouteKeys: [],
+          routeNames: [],
+          routes: [],
+          stale: false,
+          type: 'tab',
+        },
+      })
+    );
+    expect(screen.getByTestId('admin-floating-tab-bar-mock')).toBeTruthy();
     expect(screenOptions.freezeOnBlur).toBe(false);
     expect(screenOptions.lazy).toBe(true);
     expect(screenOptions.tabBarHideOnKeyboard).toBe(true);

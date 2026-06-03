@@ -355,13 +355,36 @@ describe('generateReceiptBlob', () => {
   });
 
   it('resolves safe HTTPS receipt logos as data URIs', async () => {
+    const fetchMock = vi.fn(() =>
+      Promise.resolve(
+        new Response(Uint8Array.from([1, 2, 3]), {
+          headers: { 'content-type': 'image/png' },
+          status: 200,
+        })
+      )
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      resolveReceiptLogoDataUri({
+        ...baseMerchant,
+        logo_url: 'https://res.cloudinary.com/demo/image/upload/logo.png',
+      })
+    ).resolves.toBe('data:image/png;base64,AQID');
+    expect(fetchMock).toHaveBeenCalledWith(expect.any(URL), {
+      redirect: 'error',
+      signal: expect.any(AbortSignal),
+    });
+  });
+
+  it('rejects receipt logo redirects', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(() =>
         Promise.resolve(
-          new Response(Uint8Array.from([1, 2, 3]), {
-            headers: { 'content-type': 'image/png' },
-            status: 200,
+          new Response(null, {
+            headers: { location: 'https://127.0.0.1/logo.png' },
+            status: 302,
           })
         )
       )
@@ -372,7 +395,7 @@ describe('generateReceiptBlob', () => {
         ...baseMerchant,
         logo_url: 'https://res.cloudinary.com/demo/image/upload/logo.png',
       })
-    ).resolves.toBe('data:image/png;base64,AQID');
+    ).resolves.toBeNull();
   });
 
   it('rejects non-HTTPS or internal receipt logo URLs', async () => {

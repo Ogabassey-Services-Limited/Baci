@@ -5,6 +5,12 @@ const PEPPOL_CUSTOMIZATION_ID =
   'urn:cen.eu:en16931:2017#compliant#urn:fdc:peppol.eu:2017:poacc:billing:3.0';
 const PEPPOL_PROFILE_ID = 'urn:fdc:peppol.eu:2017:poacc:billing:01:1.0';
 const DEFAULT_BUYER_REFERENCE = 'BACI-CUSTOMER';
+const FALLBACK_COUNTRY_CODE = 'NG';
+const DEFAULT_COUNTRY_CODE = normalizeConfiguredCountry(
+  process.env.DEFAULT_COUNTRY
+);
+const DEFAULT_PAYMENT_DAYS = 14;
+const DAY_IN_MS = 24 * 60 * 60 * 1000;
 
 export const PEPPOL_BIS_BILLING_COMPLIANCE_NOTE =
   'This invoice complies with Peppol BIS Billing 3.0 through a generated UBL XML invoice artifact created from this order.';
@@ -33,9 +39,18 @@ function formatAmount(value: number) {
   return value.toFixed(2);
 }
 
+function normalizeConfiguredCountry(value: string | undefined) {
+  const normalized = value?.trim().toUpperCase();
+  return normalized && normalized.length === 2
+    ? normalized
+    : FALLBACK_COUNTRY_CODE;
+}
+
 function normalizeCountry(value: string | undefined) {
   const normalized = value?.trim().toUpperCase();
-  return normalized && normalized.length === 2 ? normalized : 'NG';
+  return normalized && normalized.length === 2
+    ? normalized
+    : DEFAULT_COUNTRY_CODE;
 }
 
 function normalizeVatCategory(item: InvoiceLineItem) {
@@ -222,14 +237,14 @@ export function generatePeppolInvoiceXml(data: InvoiceData) {
   const buyerReference =
     data.buyer_reference ||
     data.purchase_order_reference ||
-    data.customer.email ||
-    data.customer.name ||
+    data.order_id ||
+    data.customer.id ||
     DEFAULT_BUYER_REFERENCE;
   const dueDate =
     data.due_date ||
     (data.payment_terms
       ? null
-      : new Date(data.issue_date.getTime() + 14 * 24 * 60 * 60 * 1000));
+      : new Date(data.issue_date.getTime() + DEFAULT_PAYMENT_DAYS * DAY_IN_MS));
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"

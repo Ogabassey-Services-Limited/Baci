@@ -252,10 +252,14 @@ export async function resolveReceiptLogoDataUri(merchant: ReceiptMerchant) {
     const timeout = setTimeout(() => controller.abort(), LOGO_FETCH_TIMEOUT_MS);
     let response: Response;
     try {
-      response = await fetch(parsedUrl, { signal: controller.signal });
+      response = await fetch(parsedUrl, {
+        redirect: 'error',
+        signal: controller.signal,
+      });
     } finally {
       clearTimeout(timeout);
     }
+    if (response.status >= 300 && response.status < 400) return null;
     if (!response.ok) return null;
 
     const contentType = response.headers.get('content-type') || '';

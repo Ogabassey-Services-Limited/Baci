@@ -1,5 +1,4 @@
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import * as Haptics from 'expo-haptics';
 import { useEffect, useRef } from 'react';
 import {
   StyleSheet,
@@ -12,6 +11,7 @@ import Animated, {
   useSharedValue,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { triggerLightHaptic } from '@/components/ui/haptics';
 import { useTheme } from '@/hooks/useTheme';
 import { withHexAlpha } from './AdminFloatingTabBar.colors';
 import { PRIMARY_ADMIN_TAB_ROUTE_NAMES } from './AdminFloatingTabBar.routes';
@@ -187,9 +187,7 @@ export function AdminFloatingTabBar({
                 capsuleScale
               );
 
-              if (process.env.EXPO_OS === 'ios') {
-                void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              }
+              triggerLightHaptic();
             }
 
             const event = navigation.emit({
