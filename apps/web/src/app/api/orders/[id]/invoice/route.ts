@@ -16,7 +16,10 @@ import type {
 } from '@/lib/invoice-generator';
 import { deriveTaxSubtotalsFromInvoiceItems } from '@/lib/invoice-tax-subtotals';
 import { ORDER_COLUMNS } from '@/lib/order-queries';
-import { generatePeppolInvoiceXml } from '@/lib/peppol-ubl-invoice';
+import {
+  generatePeppolInvoiceXml,
+  PEPPOL_BIS_BILLING_COMPLIANCE_NOTE,
+} from '@/lib/peppol-ubl-invoice';
 import {
   generateReceiptBlob,
   resolveReceiptLogoDataUri,
@@ -268,23 +271,9 @@ export async function GET(
 
     const orderTaxAmount = Number(order.tax_amount || 0);
     const lineExtensionAmounts = typedOrderItems.map((item) =>
-      Number(item.line_extension_amount || item.quantity * Number(item.price))
+      Number(item.line_extension_amount ?? item.quantity * Number(item.price))
     );
-    const lineExtensionTotal = lineExtensionAmounts.reduce(
-      (sum, amount) => sum + amount,
-      0
-    );
-    let allocatedVatAmount = 0;
-
-    // Build invoice line items
-    const items: InvoiceLineItem[] = typedOrderItems.map((item, index) => {
-      const desc = appendReceiptFulfillmentDescription({
-        description: item.item_description || undefined,
-        fulfillment,
-        hasDeviceItem,
-        index,
-        itemName: item.name || '',
-      });
+    const lineVatMetadata = typedOrderItems.map((item) => {
       const explicitVatCategoryCode = item.vat_category_code?.trim();
       const shouldUseStoredSubtotalVat =
         !explicitVatCategoryCode &&
@@ -311,25 +300,56 @@ export async function GET(
             : shouldDefaultStandardVat
               ? merchant.vat_rate || 7.5
               : undefined;
+
+      return { vatCategoryCode, vatRate };
+    });
+    const taxableLineExtensionTotal = lineExtensionAmounts.reduce(
+      (sum, amount, index) => {
+        const vatRate = lineVatMetadata[index]?.vatRate;
+        return typeof vatRate === 'number' && vatRate > 0 ? sum + amount : sum;
+      },
+      0
+    );
+    const lastTaxableLineIndex = lineVatMetadata.reduce(
+      (lastIndex, metadata, index) =>
+        typeof metadata.vatRate === 'number' && metadata.vatRate > 0
+          ? index
+          : lastIndex,
+      -1
+    );
+    let allocatedVatAmount = 0;
+
+    // Build invoice line items
+    const items: InvoiceLineItem[] = typedOrderItems.map((item, index) => {
+      const desc = appendReceiptFulfillmentDescription({
+        description: item.item_description || undefined,
+        fulfillment,
+        hasDeviceItem,
+        index,
+        itemName: item.name || '',
+      });
+      const { vatCategoryCode, vatRate } = lineVatMetadata[index] ?? {};
       const lineExtensionAmount = lineExtensionAmounts[index] ?? 0;
+      const hasPositiveVatRate =
+        typeof vatRate === 'number' && Number.isFinite(vatRate) && vatRate > 0;
       const shouldAllocateOrderVat =
         orderTaxAmount > 0 &&
-        vatCategoryCode != null &&
+        hasPositiveVatRate &&
         (typeof item.vat_amount !== 'number' ||
           !Number.isFinite(item.vat_amount) ||
           item.vat_amount === 0) &&
-        lineExtensionTotal > 0;
+        taxableLineExtensionTotal > 0;
       const vatAmount =
         typeof item.vat_amount === 'number' &&
         Number.isFinite(item.vat_amount) &&
         !(item.vat_amount === 0 && shouldAllocateOrderVat)
           ? item.vat_amount
           : shouldAllocateOrderVat
-            ? index === typedOrderItems.length - 1
+            ? index === lastTaxableLineIndex
               ? Number((orderTaxAmount - allocatedVatAmount).toFixed(2))
               : Number(
                   (
-                    (lineExtensionAmount / lineExtensionTotal) *
+                    (lineExtensionAmount / taxableLineExtensionTotal) *
                     orderTaxAmount
                   ).toFixed(2)
                 )
@@ -618,8 +638,10 @@ export async function GET(
       social_media: merchant.social_media,
       pages: merchant.pages,
     };
+    let complianceNote: string | undefined;
     try {
       generatePeppolInvoiceXml(invoiceData);
+      complianceNote = PEPPOL_BIS_BILLING_COMPLIANCE_NOTE;
     } catch (peppolError) {
       console.error('Failed to generate Peppol UBL invoice XML:', peppolError);
     }
@@ -640,6 +662,7 @@ export async function GET(
 
     const pdfBlob = generateReceiptBlob(receiptOrder, receiptMerchant, {
       buyerReference: invoiceData.buyer_reference,
+      complianceNote,
       documentDate: invoiceData.issue_date,
       documentKind: 'invoice',
       dueDate: invoiceData.due_date,
