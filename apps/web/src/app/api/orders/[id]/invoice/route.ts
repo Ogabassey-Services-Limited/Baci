@@ -521,6 +521,7 @@ export async function GET(
       support_email: merchant.support_email,
       support_phone: merchant.support_phone,
       business_address: merchant.business_address,
+      registered_address: merchant.registered_address,
       cac_rc_number: merchant.cac_rc_number,
       tax_identification_number: merchant.tax_identification_number,
       legal_entity_name: merchant.legal_entity_name,
@@ -543,6 +544,7 @@ export async function GET(
     // Generate the branded PDF
     const logoDataUri = await resolveReceiptLogoDataUri(receiptMerchant);
     const pdfBlob = generateReceiptBlob(receiptOrder, receiptMerchant, {
+      buyerReference: invoiceData.buyer_reference,
       documentDate: invoiceData.issue_date,
       documentKind: 'invoice',
       dueDate: invoiceData.due_date,

@@ -87,6 +87,7 @@ function createDocumentData(
     invoiceData: {
       invoice_number: orderNumber,
       invoice_type_code: '380',
+      buyer_reference: 'BUYER-REF-001',
       issue_date: new Date('2026-04-01T00:00:00.000Z'),
       due_date: new Date('2026-04-15T00:00:00.000Z'),
       payment_terms: 'Net 14',
@@ -122,7 +123,11 @@ function createDocumentData(
         },
       ],
     } as StorefrontAccountDocumentData['receiptOrder'],
-    receiptMerchant: {} as StorefrontAccountDocumentData['receiptMerchant'],
+    receiptMerchant: {
+      registered_address: {
+        street: '99 Registered Road',
+      },
+    } as StorefrontAccountDocumentData['receiptMerchant'],
   } as StorefrontAccountDocumentData;
 }
 
@@ -257,8 +262,13 @@ describe('GET /api/storefront/account/orders/[id]/invoice', () => {
           }),
         ],
       }),
-      expect.any(Object),
+      expect.objectContaining({
+        registered_address: expect.objectContaining({
+          street: '99 Registered Road',
+        }),
+      }),
       {
+        buyerReference: 'BUYER-REF-001',
         documentDate: new Date('2026-04-01T00:00:00.000Z'),
         documentKind: 'invoice',
         dueDate: new Date('2026-04-15T00:00:00.000Z'),

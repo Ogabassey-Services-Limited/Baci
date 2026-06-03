@@ -41,6 +41,7 @@ const orderResult: QueryResult = {
     invoice_issue_date: '2026-04-01T00:00:00.000Z',
     payment_due_date: '2026-04-15T00:00:00.000Z',
     payment_terms: 'Net 14',
+    buyer_reference: 'BUYER-REF-001',
     invoice_note: 'Merchant invoice note',
     firs_irn: 'IRN-2026-001',
     firs_csid: 'CSID-2026-001',
@@ -68,7 +69,13 @@ const orderResult: QueryResult = {
       cac_rc_number: null,
       vat_registration_status: 'registered',
       vat_rate: 7.5,
-      registered_address: null,
+      registered_address: {
+        street: '99 Registered Road',
+        city: 'Ikeja',
+        state: 'Lagos',
+        postal_code: '100001',
+        country: 'NG',
+      },
       email: 'merchant@example.com',
       phone: '08000000000',
       business_address: '12 Allen Avenue',
@@ -252,8 +259,14 @@ describe('GET /api/orders/[id]/invoice', () => {
           bank_name: 'Wema Bank',
         }),
       }),
-      expect.objectContaining({ business_name: 'Test Merchant' }),
       expect.objectContaining({
+        business_name: 'Test Merchant',
+        registered_address: expect.objectContaining({
+          street: '99 Registered Road',
+        }),
+      }),
+      expect.objectContaining({
+        buyerReference: 'BUYER-REF-001',
         documentDate: new Date('2026-04-01T00:00:00.000Z'),
         documentKind: 'invoice',
         dueDate: new Date('2026-04-15T00:00:00.000Z'),

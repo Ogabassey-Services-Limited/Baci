@@ -97,12 +97,15 @@ export function buildStorefrontAccountDocumentBundle({
   );
   const singleTaxSubtotal = taxRows.length === 1 ? taxRows[0] : null;
   const lineVatCategoryCode =
-    singleTaxSubtotal?.vat_category_code || (taxRows.length === 0 ? 'S' : null);
+    singleTaxSubtotal?.vat_category_code ||
+    (taxRows.length === 0 ? (taxAmount > 0 ? 'S' : 'O') : null);
   const lineVatRate =
     singleTaxSubtotal != null
       ? asNumber(singleTaxSubtotal.vat_rate)
       : taxRows.length === 0
-        ? invoiceVatRate
+        ? taxAmount > 0
+          ? invoiceVatRate
+          : 0
         : null;
   let allocatedVatAmount = 0;
 

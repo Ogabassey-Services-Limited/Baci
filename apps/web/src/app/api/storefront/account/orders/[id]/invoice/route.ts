@@ -105,6 +105,7 @@ export async function GET(
       }),
     };
     const blob = generateReceiptBlob(receiptOrder, data.receiptMerchant, {
+      buyerReference: data.invoiceData.buyer_reference,
       documentDate: data.invoiceData.issue_date,
       documentKind: 'invoice',
       dueDate: data.invoiceData.due_date,

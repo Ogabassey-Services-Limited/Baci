@@ -6,6 +6,13 @@ export interface ReceiptMerchant {
   support_email: string | null;
   support_phone: string | null;
   business_address: string | null;
+  registered_address?: {
+    street?: string | null;
+    city?: string | null;
+    state?: string | null;
+    postal_code?: string | null;
+    country?: string | null;
+  } | null;
   cac_rc_number: string | null;
   tax_identification_number: string | null;
   legal_entity_name: string | null;

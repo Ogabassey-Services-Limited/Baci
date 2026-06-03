@@ -232,6 +232,7 @@ function buildImmediateInvoiceMerchant(merchant: {
   logo_url?: string | null;
   pages?: unknown;
   phone?: string | null;
+  registered_address?: unknown;
   social_media?: unknown;
   support_email?: string | null;
   support_phone?: string | null;
@@ -247,6 +248,9 @@ function buildImmediateInvoiceMerchant(merchant: {
     support_email: merchant.support_email || null,
     support_phone: merchant.support_phone || null,
     business_address: merchant.business_address || null,
+    registered_address: toReceiptRecord<ReceiptMerchant['registered_address']>(
+      merchant.registered_address
+    ),
     cac_rc_number: merchant.cac_rc_number || null,
     tax_identification_number: merchant.tax_identification_number || null,
     legal_entity_name: merchant.legal_entity_name || null,
@@ -1644,7 +1648,7 @@ export async function POST(request: NextRequest) {
                 });
 
                 if (dvaResult.success) {
-                  invoiceVirtualAccount = {
+                  const generatedVirtualAccount = {
                     account_number: dvaResult.data.account_number,
                     bank_name: dvaResult.data.bank_name,
                     account_name: dvaResult.data.account_name,
@@ -1672,6 +1676,7 @@ export async function POST(request: NextRequest) {
                       error: insertError,
                     });
                   } else {
+                    invoiceVirtualAccount = generatedVirtualAccount;
                     logger.info({
                       message: 'Stored auto-generated invoice DVA successfully',
                       orderId: order.id,
@@ -1790,6 +1795,7 @@ export async function POST(request: NextRequest) {
                   invoiceReceiptOrder,
                   receiptMerchant,
                   {
+                    buyerReference: peppolInvoiceData.buyer_reference,
                     complianceNote: peppolInvoiceXml
                       ? PEPPOL_BIS_BILLING_COMPLIANCE_NOTE
                       : undefined,

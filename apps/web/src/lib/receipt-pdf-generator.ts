@@ -22,6 +22,7 @@ interface JsPDFWithAutoTable extends jsPDF {
 }
 
 interface GenerateReceiptPdfOptions {
+  buyerReference?: string | null;
   complianceNote?: string;
   documentDate?: Date | string | null;
   documentKind?: 'invoice' | 'receipt';
@@ -157,6 +158,30 @@ function formatOptionalReceiptDate(value: Date | string | null | undefined) {
   }
 
   return formatReceiptDate(value);
+}
+
+function getMerchantAddressLine(
+  merchant: ReceiptMerchant,
+  documentKind: 'invoice' | 'receipt'
+) {
+  if (documentKind === 'invoice' && merchant.registered_address) {
+    const address = merchant.registered_address;
+    const registeredAddressLine = [
+      address.street,
+      address.city,
+      address.state,
+      address.postal_code,
+      address.country,
+    ]
+      .filter(Boolean)
+      .join(', ');
+
+    if (registeredAddressLine) {
+      return registeredAddressLine;
+    }
+  }
+
+  return merchant.business_address;
 }
 
 function getLogoImageFormat(dataUri: string) {
@@ -392,7 +417,7 @@ export function generateReceiptPDF(
   y = writeWrappedTextLines({
     doc,
     lines: [
-      merchant.business_address,
+      getMerchantAddressLine(merchant, documentKind),
       merchant.support_phone || merchant.phone,
       merchant.support_email || merchant.email,
       merchant.tax_identification_number
@@ -582,7 +607,10 @@ export function generateReceiptPDF(
     y = (doc.lastAutoTable?.finalY || y) + 8;
   }
 
-  if (isInvoice && (displayDueDate || options.paymentTerms)) {
+  if (
+    isInvoice &&
+    (displayDueDate || options.paymentTerms || options.buyerReference)
+  ) {
     ensureSpace(22);
     doc.setFont('helvetica', 'bold');
     doc.text('Invoice Terms', margin, y);
@@ -591,6 +619,9 @@ export function generateReceiptPDF(
     y = writeWrappedTextLines({
       doc,
       lines: [
+        options.buyerReference
+          ? `Buyer Reference: ${options.buyerReference}`
+          : null,
         displayDueDate ? `Due Date: ${displayDueDate}` : null,
         options.paymentTerms ? `Payment Terms: ${options.paymentTerms}` : null,
       ],

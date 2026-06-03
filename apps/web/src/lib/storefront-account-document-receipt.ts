@@ -39,6 +39,9 @@ export function buildReceiptMerchant(
     support_email: merchant.support_email,
     support_phone: merchant.support_phone,
     business_address: merchant.business_address,
+    registered_address: asRecord(
+      merchant.registered_address
+    ) as ReceiptMerchant['registered_address'],
     cac_rc_number: merchant.cac_rc_number,
     tax_identification_number: merchant.tax_identification_number,
     legal_entity_name: merchant.legal_entity_name,

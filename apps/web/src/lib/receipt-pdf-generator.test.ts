@@ -168,7 +168,7 @@ describe('generateReceiptBlob', () => {
     expect(pdfText).toContain('CREDIT NOTE');
   });
 
-  it('renders invoice issue date, due date, payment terms, and line descriptions', () => {
+  it('renders invoice issue date, due date, buyer reference, seller address, and line descriptions', () => {
     const order = {
       ...baseOrder,
       items: [
@@ -187,27 +187,43 @@ describe('generateReceiptBlob', () => {
       ],
       transactions: [],
     };
-    const pdfText = getPdfText(order, baseMerchant, {
-      documentDate: new Date('2026-06-01T00:00:00.000Z'),
-      documentKind: 'invoice',
-      dueDate: new Date('2026-06-15T00:00:00.000Z'),
-      firsCsid: 'CSID-001',
-      firsIrn: 'IRN-2026-001',
-      invoiceNotes: 'Legal invoice note for the customer.',
-      paymentTerms: 'Net 14',
-      taxSubtotals: [
-        {
-          taxable_amount: 120000,
-          tax_amount: 9000,
-          vat_category_code: 'S',
-          vat_rate: 7.5,
+    const pdfText = getPdfText(
+      order,
+      {
+        ...baseMerchant,
+        registered_address: {
+          street: '99 Registered Road',
+          city: 'Ikeja',
+          state: 'Lagos',
+          postal_code: '100001',
+          country: 'NG',
         },
-      ],
-    });
+      },
+      {
+        buyerReference: 'BUYER-REF-001',
+        documentDate: new Date('2026-06-01T00:00:00.000Z'),
+        documentKind: 'invoice',
+        dueDate: new Date('2026-06-15T00:00:00.000Z'),
+        firsCsid: 'CSID-001',
+        firsIrn: 'IRN-2026-001',
+        invoiceNotes: 'Legal invoice note for the customer.',
+        paymentTerms: 'Net 14',
+        taxSubtotals: [
+          {
+            taxable_amount: 120000,
+            tax_amount: 9000,
+            vat_category_code: 'S',
+            vat_rate: 7.5,
+          },
+        ],
+      }
+    );
 
     expect(pdfText).toContain('1 Jun 2026');
     expect(pdfText).toContain('Invoice Terms');
+    expect(pdfText).toContain('Buyer Reference: BUYER-REF-001');
     expect(pdfText).toContain('Due Date: 15 Jun 2026');
+    expect(pdfText).toContain('99 Registered Road');
     expect(pdfText).toContain('Payment Terms: Net 14');
     expect(pdfText).toContain('FIRS References');
     expect(pdfText).toContain('FIRS IRN: IRN-2026-001');

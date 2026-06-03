@@ -210,7 +210,17 @@ describe('buildStorefrontAccountDocumentBundle', () => {
         firs_qr_code: null,
         payment_terms: null,
       },
-      itemRows: [],
+      itemRows: [
+        {
+          id: 'item-zero',
+          product_id: 'prod-zero',
+          variant_id: null,
+          variant_name: null,
+          name: 'Untaxed item',
+          quantity: 1,
+          price: 0,
+        },
+      ],
       transactions: [],
       paymentAccount: null,
       taxRows: [],
@@ -223,7 +233,14 @@ describe('buildStorefrontAccountDocumentBundle', () => {
     expect(result.order.receipt_eligible).toBe(false);
     expect(result.order.currency).toBe('NGN');
     expect(result.receiptOrder.customer_name).toBe('Customer');
-    expect(result.invoiceData.items).toEqual([]);
+    expect(result.invoiceData.items).toEqual([
+      expect.objectContaining({
+        name: 'Untaxed item',
+        vat_category_code: 'O',
+        vat_rate: 0,
+        vat_amount: 0,
+      }),
+    ]);
     expect(result.invoiceData.tax_exclusive_amount).toBe(0);
     expect(result.invoiceData.tax_inclusive_amount).toBe(0);
     expect(result.invoiceData.tax_subtotals).toEqual([

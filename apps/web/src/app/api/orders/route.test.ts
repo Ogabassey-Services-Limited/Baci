@@ -3141,6 +3141,13 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
         ]),
       })
     );
+    expect(mockGenerateReceiptBlob).toHaveBeenCalledWith(
+      expect.objectContaining({
+        virtual_account: null,
+      }),
+      expect.any(Object),
+      expect.any(Object)
+    );
     expect(logger.error).toHaveBeenCalledWith(
       expect.objectContaining({
         message: 'Failed to store auto-generated invoice DVA',
