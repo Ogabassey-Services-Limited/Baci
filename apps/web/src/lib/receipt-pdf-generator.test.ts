@@ -121,6 +121,55 @@ describe('generateReceiptBlob', () => {
     expect(pdfText).toContain('Line Total');
   });
 
+  it('can render a paid order as an invoice document when requested', () => {
+    const order = {
+      ...baseOrder,
+      items: [
+        {
+          product_name: 'MacBook Pro',
+          quantity: 1,
+          price: 150000,
+        },
+      ],
+      transactions: [],
+    };
+    const pdfText = generateReceiptPDF(order, baseMerchant, {
+      documentKind: 'invoice',
+    })
+      .output()
+      .replaceAll(String.fromCharCode(0), '');
+
+    expect(pdfText).toContain('INVOICE');
+    expect(pdfText).not.toContain('RECEIPT');
+  });
+
+  it('prints a compliance note when the invoice XML artifact has been generated', () => {
+    const order = {
+      ...baseOrder,
+      payment_status: 'unpaid' as const,
+      amount_paid: 0,
+      balance: 150000,
+      items: [
+        {
+          product_name: 'MacBook Pro',
+          quantity: 1,
+          price: 150000,
+        },
+      ],
+      transactions: [],
+    };
+    const pdfText = generateReceiptPDF(order, baseMerchant, {
+      complianceNote:
+        'This invoice complies with Peppol BIS Billing 3.0 through a generated UBL XML invoice artifact created from this order.',
+      documentKind: 'invoice',
+    })
+      .output()
+      .replaceAll(String.fromCharCode(0), '');
+
+    expect(pdfText).toContain('Peppol BIS Billing 3.0');
+    expect(pdfText).toContain('generated UBL XML invoice artifact');
+  });
+
   it('handles long names and multiple items without failing', () => {
     const order = {
       ...baseOrder,

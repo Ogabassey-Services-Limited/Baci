@@ -2,21 +2,30 @@ import {
   appendReceiptFulfillmentDescription,
   isDeviceReceiptItemName,
   normalizeReceiptFulfillmentDetails,
+  type ReceiptMerchant,
+  type ReceiptOrder,
 } from '@baci/shared';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import {
-  generateInvoiceBlob,
-  type InvoiceData,
-  type InvoiceLineItem,
-  type TaxSubtotal,
+import type {
+  InvoiceData,
+  InvoiceLineItem,
+  TaxSubtotal,
 } from '@/lib/invoice-generator';
 import { ORDER_COLUMNS } from '@/lib/order-queries';
+import {
+  generatePeppolInvoiceXml,
+  PEPPOL_BIS_BILLING_COMPLIANCE_NOTE,
+} from '@/lib/peppol-ubl-invoice';
+import {
+  generateReceiptBlob,
+  resolveReceiptLogoDataUri,
+} from '@/lib/receipt-pdf-generator';
 import { createClient } from '@/lib/supabase/server';
 
 const paramsSchema = z.object({
-  id: z.uuid(),
+  id: z.string().uuid(),
 });
 
 interface OrderItem {
@@ -41,6 +50,12 @@ interface TaxSubtotalRow {
   taxable_amount: number;
   tax_amount: number;
   exemption_reason: string | null;
+}
+
+interface PaymentAccountRow {
+  account_number: string;
+  bank_name: string | null;
+  account_name: string | null;
 }
 
 interface RegisteredAddress {
@@ -74,7 +89,7 @@ export async function GET(
     const parsed = paramsSchema.safeParse(await params);
     if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Invalid order ID', details: z.flattenError(parsed.error) },
+        { error: 'Invalid order ID', details: parsed.error.flatten() },
         { status: 400 }
       );
     }
@@ -97,7 +112,7 @@ export async function GET(
       .from('orders')
       .select(
         `
-        ${ORDER_COLUMNS}, invoice_type_code, invoice_issue_date, tax_point_date, payment_due_date, buyer_reference, purchase_order_reference, tax_exclusive_amount, tax_inclusive_amount, invoice_note, firs_irn, firs_csid, firs_qr_code, payment_terms,
+        ${ORDER_COLUMNS}, invoice_type_code, invoice_issue_date, tax_point_date, payment_due_date, buyer_reference, purchase_order_reference, tax_exclusive_amount, tax_inclusive_amount, invoice_note, firs_irn, firs_csid, firs_qr_code, payment_terms, is_credit_order,
         merchants!inner (
           id,
           user_id,
@@ -108,9 +123,19 @@ export async function GET(
           vat_registration_status,
           vat_rate,
           registered_address,
+          email,
+          phone,
+          business_address,
           support_email,
           support_phone,
-          logo_url
+          logo_url,
+          brand_colors,
+          bank_code,
+          bank_account_number,
+          bank_name,
+          bank_account_name,
+          social_media,
+          pages
         )
       `
       )
@@ -133,9 +158,19 @@ export async function GET(
       vat_registration_status: string | null;
       vat_rate: number | null;
       registered_address: RegisteredAddress | null;
+      email: string | null;
+      phone: string | null;
+      business_address: string | null;
       support_email: string | null;
       support_phone: string | null;
       logo_url: string | null;
+      brand_colors: ReceiptMerchant['brand_colors'] | null;
+      bank_code: string | null;
+      bank_account_number: string | null;
+      bank_name: string | null;
+      bank_account_name: string | null;
+      social_media: ReceiptMerchant['social_media'] | null;
+      pages: ReceiptMerchant['pages'] | null;
     };
 
     // Normalize: Supabase may return an object or array depending on join
@@ -285,6 +320,24 @@ export async function GET(
       });
     }
 
+    const { data: paymentAccounts, error: paymentAccountError } = await supabase
+      .from('order_payment_accounts')
+      .select('account_number, bank_name, account_name')
+      .eq('order_id', orderId)
+      .limit(1);
+
+    if (paymentAccountError) {
+      console.error(
+        'Error fetching order_payment_accounts for invoice:',
+        orderId,
+        paymentAccountError
+      );
+    }
+
+    const paymentAccount = (
+      Array.isArray(paymentAccounts) ? paymentAccounts[0] : null
+    ) as PaymentAccountRow | null;
+
     // Parse shipping address
     const shippingAddr = order.shipping_address as ShippingAddress | null;
     const customerAddress = shippingAddr
@@ -374,8 +427,84 @@ export async function GET(
       firs_qr_code: order.firs_qr_code || undefined,
     };
 
-    // Generate the PDF
-    const pdfBlob = generateInvoiceBlob(invoiceData);
+    const receiptOrder: ReceiptOrder = {
+      order_number: invoiceData.invoice_number,
+      created_at: String(order.created_at),
+      currency: invoiceData.currency,
+      total: invoiceData.total,
+      subtotal: invoiceData.subtotal,
+      shipping_fee: invoiceData.shipping_fee,
+      tax_amount: invoiceData.tax_amount,
+      discount_amount: invoiceData.discount_amount,
+      amount_paid: Number(order.amount_paid || 0),
+      balance: Math.max(invoiceData.total - Number(order.amount_paid || 0), 0),
+      payment_status: order.payment_status || 'unpaid',
+      payment_method: order.payment_method || null,
+      is_credit_order: Boolean(order.is_credit_order),
+      customer_name: invoiceData.customer.name,
+      customer_email: invoiceData.customer.email || '',
+      customer_phone: invoiceData.customer.phone || null,
+      shipping_address: shippingAddr
+        ? {
+            address_line1: shippingAddr.address || shippingAddr.street,
+            city: shippingAddr.city,
+            state: shippingAddr.state,
+            postal_code: shippingAddr.postal_code,
+            country: shippingAddr.country || 'NG',
+          }
+        : null,
+      virtual_account: paymentAccount
+        ? {
+            account_number: paymentAccount.account_number,
+            bank_name: paymentAccount.bank_name || '',
+            account_name: paymentAccount.account_name || '',
+          }
+        : null,
+      fulfillment_details: fulfillment,
+      items: typedOrderItems.map((item) => ({
+        product_name: item.name || 'Item',
+        quantity: item.quantity,
+        price: Number(item.price),
+      })),
+      transactions: [],
+    };
+    const receiptMerchant: ReceiptMerchant = {
+      business_name: merchant.business_name,
+      logo_url: merchant.logo_url,
+      email: merchant.email || '',
+      phone: merchant.phone,
+      support_email: merchant.support_email,
+      support_phone: merchant.support_phone,
+      business_address: merchant.business_address,
+      cac_rc_number: merchant.cac_rc_number,
+      tax_identification_number: merchant.tax_identification_number,
+      legal_entity_name: merchant.legal_entity_name,
+      brand_colors: merchant.brand_colors || undefined,
+      vat_registration_status: merchant.vat_registration_status,
+      vat_rate: merchant.vat_rate,
+      bank_code: merchant.bank_code,
+      bank_account_number: merchant.bank_account_number,
+      bank_name: merchant.bank_name,
+      bank_account_name: merchant.bank_account_name,
+      social_media: merchant.social_media,
+      pages: merchant.pages,
+    };
+    let complianceNote: string | undefined;
+
+    try {
+      generatePeppolInvoiceXml(invoiceData);
+      complianceNote = PEPPOL_BIS_BILLING_COMPLIANCE_NOTE;
+    } catch (peppolError) {
+      console.error('Failed to generate Peppol UBL invoice XML:', peppolError);
+    }
+
+    // Generate the branded PDF
+    const logoDataUri = await resolveReceiptLogoDataUri(receiptMerchant);
+    const pdfBlob = generateReceiptBlob(receiptOrder, receiptMerchant, {
+      complianceNote,
+      documentKind: 'invoice',
+      logoDataUri,
+    });
 
     // Return the PDF as a response
     const pdfArrayBuffer = await pdfBlob.arrayBuffer();
