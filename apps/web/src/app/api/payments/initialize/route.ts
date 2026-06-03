@@ -1046,8 +1046,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const klumpChargeAmount =
-      gateway === 'klump' ? toKlumpIntegerAmount(snapshotTotal) : null;
+    const klumpChargeAmount = toKlumpIntegerAmount(snapshotTotal);
 
     if (gateway === 'klump') {
       if (!gatewaySettings.klump_enabled) {
@@ -1075,7 +1074,6 @@ export async function POST(request: NextRequest) {
       }
 
       if (
-        klumpChargeAmount === null ||
         klumpChargeAmount < gatewaySettings.klump_min_amount ||
         klumpChargeAmount > gatewaySettings.klump_max_amount
       ) {
@@ -1238,14 +1236,6 @@ export async function POST(request: NextRequest) {
           break;
         }
         case 'klump': {
-          if (klumpChargeAmount === null) {
-            return createErrorResponse(
-              'Invalid Klump payment amount',
-              'INVALID_AMOUNT',
-              400
-            );
-          }
-
           // Klump still uses the Baci BNPL launcher, but it needs the BAC
           // reference in the URL so the launcher can record Klump's provider id
           // before any success page is shown.
