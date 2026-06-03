@@ -42,6 +42,10 @@ export interface BlogPostBodyProps {
   }>;
 }
 
+const EMPTY_RELATED_PRODUCTS: NonNullable<
+  BlogPostBodyProps['relatedProducts']
+> = [];
+
 export async function BlogPostBody({
   basePath,
   baseUrl,
@@ -50,7 +54,7 @@ export async function BlogPostBody({
   merchantSlug,
   post,
   postUrl,
-  relatedProducts = [],
+  relatedProducts = EMPTY_RELATED_PRODUCTS,
   relatedPosts,
 }: BlogPostBodyProps) {
   const { isJson, legacyHtml, renderedContent } = await resolveBlogPostContent(
