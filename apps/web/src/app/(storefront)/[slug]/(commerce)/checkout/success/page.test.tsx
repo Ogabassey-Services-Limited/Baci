@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import CheckoutSuccessPage from '@/app/(storefront)/[slug]/(commerce)/checkout/success/page';
@@ -7,6 +7,7 @@ const mockPush = vi.fn();
 const mockSearchParams = vi.fn();
 const mockClearCart = vi.fn();
 const mockFetch = vi.fn();
+const mockFetchWithCsrf = vi.fn();
 const mockUseMerchantSafe = vi.fn();
 
 vi.mock('next/navigation', () => ({
@@ -54,6 +55,10 @@ vi.mock('@/hooks/use-merchant-client', () => ({
   useMerchantSafe: () => mockUseMerchantSafe(),
 }));
 
+vi.mock('@/lib/api-client', () => ({
+  fetchWithCsrf: (...args: unknown[]) => mockFetchWithCsrf(...args),
+}));
+
 vi.mock(
   '@/components/storefront/ogabassey/pages/checkout/pending-checkout-order',
   () => ({
@@ -78,6 +83,7 @@ describe('checkout success page', () => {
       merchant: { business_name: 'Test Store', slug: 'test-store' },
     });
     mockFetch.mockReturnValue(new Promise(() => undefined));
+    mockFetchWithCsrf.mockReturnValue(new Promise(() => undefined));
     global.fetch = mockFetch as unknown as typeof fetch;
   });
 
@@ -96,6 +102,100 @@ describe('checkout success page', () => {
     expect(
       screen.getByRole('link', { name: /contact our support team/i })
     ).toHaveAttribute('href', '/test-store/contact');
+  });
+
+  it('verifies payment references with a JSON POST instead of a side-effecting GET', async () => {
+    mockFetchWithCsrf.mockResolvedValue({
+      json: async () => ({
+        orderNumber: 'ORD-2001',
+        status: 'success',
+        success: true,
+      }),
+    });
+
+    render(<CheckoutSuccessPage />);
+
+    await waitFor(() =>
+      expect(mockFetchWithCsrf).toHaveBeenCalledWith('/api/payments/verify', {
+        body: JSON.stringify({ reference: 'txn-ref-123' }),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+      })
+    );
+    expect(mockClearCart).toHaveBeenCalled();
+  });
+
+  it('keeps the cart intact when payment verification does not succeed', async () => {
+    mockFetchWithCsrf.mockResolvedValue({
+      json: async () => ({
+        orderNumber: 'ORD-2001',
+        status: 'pending',
+        success: false,
+      }),
+    });
+
+    render(<CheckoutSuccessPage />);
+
+    await waitFor(() =>
+      expect(mockFetchWithCsrf).toHaveBeenCalledWith('/api/payments/verify', {
+        body: JSON.stringify({ reference: 'txn-ref-123' }),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+      })
+    );
+    expect(mockClearCart).not.toHaveBeenCalled();
+    expect(
+      screen.queryByRole('heading', { name: /order received/i })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: /payment unsuccessful/i })
+    ).not.toBeInTheDocument();
+  });
+
+  it('keeps the cart intact when payment verification fetch rejects', async () => {
+    mockFetchWithCsrf.mockRejectedValue(new Error('network failed'));
+
+    render(<CheckoutSuccessPage />);
+
+    await waitFor(() => expect(mockFetchWithCsrf).toHaveBeenCalled());
+    expect(mockClearCart).not.toHaveBeenCalled();
+    expect(
+      screen.queryByRole('heading', { name: /order received/i })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: /payment unsuccessful/i })
+    ).not.toBeInTheDocument();
+  });
+
+  it('keeps the cart intact and redirects after failed payment verification', async () => {
+    const redirectTimerSpy = vi.spyOn(globalThis, 'setTimeout');
+    mockFetchWithCsrf.mockResolvedValue({
+      json: async () => ({
+        status: 'failed',
+        success: false,
+      }),
+    });
+
+    try {
+      render(<CheckoutSuccessPage />);
+
+      expect(
+        await screen.findByRole('heading', { name: /payment unsuccessful/i })
+      ).toBeInTheDocument();
+      expect(mockClearCart).not.toHaveBeenCalled();
+
+      const redirectCallback = redirectTimerSpy.mock.calls.find(
+        ([, delay]) => delay === 4000
+      )?.[0];
+
+      expect(redirectCallback).toEqual(expect.any(Function));
+      if (typeof redirectCallback === 'function') {
+        act(() => redirectCallback());
+      }
+      expect(mockPush).toHaveBeenCalledWith('/test-store/checkout');
+    } finally {
+      redirectTimerSpy.mockRestore();
+    }
   });
 
   it('fetches invoice order details with merchant slug and tracking token', async () => {

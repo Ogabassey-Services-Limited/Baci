@@ -146,6 +146,7 @@ const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 // GET /api/shipping/locations - Get Nigerian locations
 // =============================================================================
 
+// react-doctor-disable-next-line react-doctor/nextjs-no-side-effect-in-get-handler -- Process-local Topship response cache only; no user, order, or database state is mutated by GET.
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);

@@ -11,7 +11,7 @@ import { extractVerifiedGatewayFeeNgn } from '@/lib/payments/verified-gateway-fe
 import { verifyTransaction as verifyPaystackPayment } from '@/lib/paystack';
 import { createServiceClient } from '@/lib/supabase/service';
 import { sendEmail } from '@/lib/zeptomail';
-import { referenceSchema } from '@/schemas/payments';
+import { referenceSchema, verifyPaymentBodySchema } from '@/schemas/payments';
 
 type ShippingAddress = {
   address?: string;
@@ -79,8 +79,7 @@ async function verifyGatewayPayment(
   };
 }
 
-export async function GET(request: NextRequest) {
-  const reference = new URL(request.url).searchParams.get('reference') ?? '';
+async function verifyPaymentReference(reference: string) {
   const parsedReference = referenceSchema.safeParse(reference);
 
   if (!parsedReference.success) {
@@ -506,4 +505,35 @@ export async function GET(request: NextRequest) {
       order.order_number ||
       transaction.gateway_reference.slice(0, 8).toUpperCase(),
   });
+}
+
+export function GET() {
+  return NextResponse.json(
+    { error: 'Method not allowed. Use POST to verify a payment.' },
+    { headers: { Allow: 'POST' }, status: 405 }
+  );
+}
+
+export async function POST(request: NextRequest) {
+  const contentType = request.headers.get('content-type') ?? '';
+  if (!contentType.toLowerCase().includes('application/json')) {
+    return NextResponse.json(
+      { error: 'Expected application/json request body' },
+      { status: 415 }
+    );
+  }
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+
+  const parsedBody = verifyPaymentBodySchema.safeParse(body);
+  if (!parsedBody.success) {
+    return NextResponse.json({ error: 'Invalid reference' }, { status: 400 });
+  }
+
+  return verifyPaymentReference(parsedBody.data.reference);
 }

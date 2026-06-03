@@ -60,12 +60,8 @@ describe('GET /api/storefront/customer/wallet email fallback', () => {
     });
   });
 
-  it('links a guest customer by email and returns loyalty points', async () => {
+  it('returns loyalty points for an email fallback customer without mutating on GET', async () => {
     let customerLookupCount = 0;
-    const linkCustomerEq = vi.fn().mockReturnThis();
-    const linkCustomerByUserId = vi.fn().mockReturnValue({
-      eq: linkCustomerEq,
-    });
 
     mockFrom.mockImplementation((table: string) => {
       if (table === 'merchants') return singleQuery({ id: 'merchant-1' });
@@ -80,7 +76,7 @@ describe('GET /api/storefront/customer/wallet email fallback', () => {
             loyalty_points: 500,
           });
         }
-        return { update: linkCustomerByUserId };
+        throw new Error('GET must not write customer links');
       }
       if (table === 'customer_savings_goals') {
         return savingsQuery([]);
@@ -103,7 +99,6 @@ describe('GET /api/storefront/customer/wallet email fallback', () => {
       loyaltyPoints: 500,
       requiresFundingAccountConsent: true,
     });
-    expect(linkCustomerByUserId).toHaveBeenCalledWith({ user_id: 'user-1' });
-    expect(linkCustomerEq).toHaveBeenCalledWith('id', 'customer-1');
+    expect(mockFrom).toHaveBeenCalledWith('customers');
   });
 });

@@ -1,13 +1,13 @@
-import type { HTMLAttributes } from 'react';
+import { createElement, type HTMLAttributes } from 'react';
 import { sanitizeHtml } from '@/lib/sanitize';
 
+type SafeHtmlTag = 'code' | 'div' | 'span';
+
 type SafeHtmlProps = {
+  as?: SafeHtmlTag;
   html: string;
   headingLevelOffset?: number;
-} & Omit<
-  HTMLAttributes<HTMLDivElement>,
-  'dangerouslySetInnerHTML' | 'children'
->;
+} & Omit<HTMLAttributes<HTMLElement>, 'dangerouslySetInnerHTML' | 'children'>;
 
 /**
  * Renders sanitized HTML content safely.
@@ -23,18 +23,22 @@ type SafeHtmlProps = {
  * <SafeHtml html={content} className="prose" data-testid="blog-body" />
  * ```
  */
-export function SafeHtml({ html, headingLevelOffset, ...rest }: SafeHtmlProps) {
+export function SafeHtml({
+  as = 'div',
+  html,
+  headingLevelOffset,
+  ...rest
+}: SafeHtmlProps) {
   if (!html) {
-    return <div {...rest} />;
+    return createElement(as, rest);
   }
-  return (
-    <div
-      {...rest}
-      // nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
-      // biome-ignore lint/security/noDangerouslySetInnerHtml: Content sanitized via sanitizeHtml() allowlist — this is the ONLY place dangerouslySetInnerHTML should be used for HTML content
-      dangerouslySetInnerHTML={{
-        __html: sanitizeHtml(html, { headingLevelOffset }),
-      }}
-    />
-  );
+
+  return createElement(as, {
+    ...rest,
+    // nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
+    // react-doctor-disable-next-line react-doctor/no-danger -- Central allowlist sanitizer boundary; callers must use SafeHtml instead of raw dangerouslySetInnerHTML.
+    dangerouslySetInnerHTML: {
+      __html: sanitizeHtml(html, { headingLevelOffset }),
+    },
+  });
 }

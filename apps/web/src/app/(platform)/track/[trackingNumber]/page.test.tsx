@@ -3,18 +3,21 @@ import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import TrackingPage from '@/app/(platform)/track/[trackingNumber]/page';
 
+const mockFetchWithCsrf = vi.fn();
+
 vi.mock('next/link', () => ({
   default: ({ children, href }: { children: ReactNode; href: string }) => (
     <a href={href}>{children}</a>
   ),
 }));
 
-describe('TrackingPage', () => {
-  const fetchMock = vi.fn<typeof fetch>();
+vi.mock('@/lib/api-client', () => ({
+  fetchWithCsrf: (...args: unknown[]) => mockFetchWithCsrf(...args),
+}));
 
+describe('TrackingPage', () => {
   beforeEach(() => {
-    fetchMock.mockReset();
-    vi.stubGlobal('fetch', fetchMock);
+    mockFetchWithCsrf.mockReset();
   });
 
   afterEach(() => {
@@ -38,7 +41,7 @@ describe('TrackingPage', () => {
   });
 
   it('displays tracking data when the shipping API resolves', async () => {
-    fetchMock.mockResolvedValueOnce({
+    mockFetchWithCsrf.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
         trackingNumber: 'TRACK123',
@@ -80,11 +83,16 @@ describe('TrackingPage', () => {
     expect(screen.getByText('TRACK123')).toBeInTheDocument();
     expect(screen.getByText('Package in transit')).toBeInTheDocument();
     expect(screen.getByText(/Delivering to Ikeja, Lagos/)).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledWith('/api/shipping/track/TRACK123');
+    expect(mockFetchWithCsrf).toHaveBeenCalledWith(
+      '/api/shipping/track/TRACK123',
+      {
+        method: 'POST',
+      }
+    );
   });
 
   it('displays tracking errors returned by the shipping API', async () => {
-    fetchMock.mockResolvedValueOnce({
+    mockFetchWithCsrf.mockResolvedValueOnce({
       ok: false,
       json: async () => ({ error: 'Tracking number not found' }),
     } as Response);
@@ -97,6 +105,11 @@ describe('TrackingPage', () => {
       await screen.findByRole('heading', { name: 'Tracking Not Found' })
     ).toBeInTheDocument();
     expect(screen.getByText('Tracking number not found')).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledWith('/api/shipping/track/INVALID');
+    expect(mockFetchWithCsrf).toHaveBeenCalledWith(
+      '/api/shipping/track/INVALID',
+      {
+        method: 'POST',
+      }
+    );
   });
 });
