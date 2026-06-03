@@ -16,7 +16,8 @@
     "format": "biome format --write .",
     "typecheck": "turbo typecheck",
     "test": "turbo test",
-    "knip": "knip --no-exit-code"
+    "knip": "knip --no-exit-code",
+    "react-doctor": "pnpm dlx react-doctor@0.2.16"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.11",
