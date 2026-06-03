@@ -3,9 +3,10 @@ description: Restore and save pnpm dependency and Turborepo caches with PR secur
 
 inputs:
   store-dir:
-    description: 'Path for pnpm store'
+    description: 'Base path for pnpm store; pnpm appends its current store version'
     required: false
-    default: ~/.local/share/pnpm/store/v3
+    # Keep the default workspace-relative so actions/cache archives checkout-local paths.
+    default: .pnpm-store
   install-command:
     description: 'Custom command to execute dependencies installation'
     required: false
@@ -45,9 +46,9 @@ runs:
       uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
       with:
         path: ${{ inputs.store-dir }}
-        key: v1-${{ runner.os }}-${{ runner.arch }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
+        key: v2-${{ runner.os }}-${{ runner.arch }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
         restore-keys: |
-          v1-${{ runner.os }}-${{ runner.arch }}-pnpm-store-
+          v2-${{ runner.os }}-${{ runner.arch }}-pnpm-store-
 
     - name: Configure pnpm store directory
       shell: bash
