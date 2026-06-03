@@ -9,12 +9,43 @@ import { shippingService } from '@/lib/shipping';
 import type {
   NormalizedShipmentStatus,
   ShippingProviderCode,
+  TrackingResult,
 } from '@/lib/shipping/types';
 import { createClient } from '@/lib/supabase/server';
 
 // =============================================================================
 // POST /api/shipping/track/[trackingNumber] - Fetch current shipment tracking
 // =============================================================================
+
+type SupabaseServerClient = ReturnType<typeof createClient>;
+
+type ShipmentLookupResult = {
+  carrier_name: string | null;
+  estimated_delivery_days: number | null;
+  id: string;
+  order_id: string;
+  provider: string | null;
+  receiver_address?: {
+    city?: string | null;
+    state?: string | null;
+  } | null;
+};
+
+const ORDER_STATUS_BY_SHIPMENT_STATUS: Record<
+  NormalizedShipmentStatus,
+  string
+> = {
+  pending: 'pending',
+  booked: 'shipped',
+  pickup_scheduled: 'shipped',
+  picked_up: 'shipped',
+  in_transit: 'shipped',
+  out_for_delivery: 'shipped',
+  delivered: 'delivered',
+  cancelled: 'cancelled',
+  failed: 'failed',
+  returned: 'returned',
+};
 
 export function GET() {
   return NextResponse.json(
@@ -49,8 +80,7 @@ export async function POST(
       .eq('tracking_number', trackingNumber)
       .single();
 
-    // biome-ignore lint/suspicious/noExplicitAny: External API response
-    let trackingResult: any;
+    let trackingResult: TrackingResult;
 
     if (shipment?.provider) {
       // Track with known provider
@@ -63,6 +93,14 @@ export async function POST(
       trackingResult = await shippingService.trackShipment(trackingNumber);
     }
 
+    if (shipment) {
+      await persistTrackingResult({
+        shipment: shipment as ShipmentLookupResult,
+        supabase,
+        trackingResult,
+      });
+    }
+
     return NextResponse.json({
       trackingNumber,
       carrier: trackingResult.carrierName,
@@ -71,8 +109,7 @@ export async function POST(
       statusLabel: getStatusLabel(trackingResult.status),
       estimatedDelivery: trackingResult.estimatedDelivery?.toISOString(),
       actualDelivery: trackingResult.actualDelivery?.toISOString(),
-      // biome-ignore lint/suspicious/noExplicitAny: External API response is loosely typed
-      events: trackingResult.events.map((e: any) => ({
+      events: trackingResult.events.map((e) => ({
         status: e.status,
         description: e.description,
         location: e.location,
@@ -113,6 +150,50 @@ export async function POST(
 // =============================================================================
 // HELPERS
 // =============================================================================
+
+async function persistTrackingResult({
+  shipment,
+  supabase,
+  trackingResult,
+}: {
+  shipment: ShipmentLookupResult;
+  supabase: SupabaseServerClient;
+  trackingResult: TrackingResult;
+}) {
+  const { error: shipmentUpdateError } = await supabase
+    .from('shipments')
+    .update({
+      status: trackingResult.status,
+      current_location: trackingResult.events[0]?.location,
+      estimated_delivery_at: trackingResult.estimatedDelivery?.toISOString(),
+      delivered_at: trackingResult.actualDelivery?.toISOString(),
+      tracking_events: trackingResult.events,
+      last_tracked_at: new Date().toISOString(),
+    })
+    .eq('id', shipment.id);
+
+  if (shipmentUpdateError) {
+    console.error('Error updating shipment tracking snapshot:', {
+      error: shipmentUpdateError,
+      shipmentId: shipment.id,
+    });
+  }
+
+  const { error: orderUpdateError } = await supabase
+    .from('orders')
+    .update({
+      shipping_status:
+        ORDER_STATUS_BY_SHIPMENT_STATUS[trackingResult.status] || 'processing',
+    })
+    .eq('id', shipment.order_id);
+
+  if (orderUpdateError) {
+    console.error('Error updating order shipping status from tracking:', {
+      error: orderUpdateError,
+      orderId: shipment.order_id,
+    });
+  }
+}
 
 function getStatusLabel(status: NormalizedShipmentStatus): string {
   const labels: Record<NormalizedShipmentStatus, string> = {

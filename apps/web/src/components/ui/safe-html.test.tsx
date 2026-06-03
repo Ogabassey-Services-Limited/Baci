@@ -22,6 +22,13 @@ describe('SafeHtml', () => {
     expect(div.getAttribute('onclick')).toBeNull();
   });
 
+  it('strips inline style attributes', () => {
+    render(
+      <SafeHtml html='<p style="background:url(javascript:alert(1))">Styled</p>' />
+    );
+    expect(screen.getByText('Styled')).not.toHaveAttribute('style');
+  });
+
   it('strips iframe tags', () => {
     const { container } = render(
       <SafeHtml html='<p>Content</p><iframe src="https://evil.example.com"></iframe>' />

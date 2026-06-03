@@ -3,6 +3,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockFrom = vi.fn();
 const mockTrackShipment = vi.fn();
+const mockOrderStatusEq = vi.fn();
+const mockOrderStatusUpdate = vi.fn();
+const mockShipmentStatusEq = vi.fn();
+const mockShipmentStatusUpdate = vi.fn();
 
 vi.mock('next/headers', () => ({
   cookies: vi.fn(async () => new Map()),
@@ -30,9 +34,29 @@ function makePostRequest(trackingNumber = 'TRACK123') {
 }
 
 function mockShipmentLookup(data: unknown) {
+  let shipmentTableCallCount = 0;
+
+  mockOrderStatusEq.mockResolvedValue({ error: null });
+  mockOrderStatusUpdate.mockReturnValue({ eq: mockOrderStatusEq });
+  mockShipmentStatusEq.mockResolvedValue({ error: null });
+  mockShipmentStatusUpdate.mockReturnValue({ eq: mockShipmentStatusEq });
+
   mockFrom.mockImplementation((table: string) => {
+    if (table === 'orders') {
+      return {
+        update: mockOrderStatusUpdate,
+      };
+    }
+
     if (table !== 'shipments') {
       throw new Error(`Unexpected table write/read: ${table}`);
+    }
+
+    shipmentTableCallCount += 1;
+    if (shipmentTableCallCount > 1) {
+      return {
+        update: mockShipmentStatusUpdate,
+      };
     }
 
     return {
@@ -69,7 +93,7 @@ describe('/api/shipping/track/[trackingNumber] method boundary', () => {
     expect(mockTrackShipment).not.toHaveBeenCalled();
   });
 
-  it('returns live tracking data without mutating shipment or order rows', async () => {
+  it('returns live tracking data and persists the refreshed shipment and order statuses', async () => {
     mockShipmentLookup({
       carrier_name: 'DHL',
       estimated_delivery_days: 3,
@@ -99,7 +123,21 @@ describe('/api/shipping/track/[trackingNumber] method boundary', () => {
 
     expect(response.status).toBe(200);
     expect(mockTrackShipment).toHaveBeenCalledWith('TRACK123', 'dhl');
-    expect(mockFrom).toHaveBeenCalledTimes(1);
+    expect(mockFrom).toHaveBeenCalledWith('shipments');
+    expect(mockFrom).toHaveBeenCalledWith('orders');
+    expect(mockShipmentStatusUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        current_location: 'Lagos',
+        estimated_delivery_at: '2026-05-12T10:00:00.000Z',
+        status: 'in_transit',
+        tracking_events: expect.any(Array),
+      })
+    );
+    expect(mockShipmentStatusEq).toHaveBeenCalledWith('id', 'shipment-1');
+    expect(mockOrderStatusUpdate).toHaveBeenCalledWith({
+      shipping_status: 'shipped',
+    });
+    expect(mockOrderStatusEq).toHaveBeenCalledWith('id', 'order-1');
     expect(body).toMatchObject({
       shipment: { id: 'shipment-1', orderId: 'order-1' },
       status: 'in_transit',
