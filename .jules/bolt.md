@@ -36,3 +36,6 @@
 ## 2025-05-30 - Keep admin entity detail caches tenant-scoped and short-lived
 **Learning:** Admin entity details such as products and orders are mutable operational data, not static configuration. Their React Query keys must include tenant context and their freshness windows must stay short enough to avoid stale inventory edits.
 **Action:** Include the merchant id in detail query keys and prefer short `staleTime` values (for example, 30 seconds) unless the data has real-time invalidation or optimistic concurrency controls.
+## 2026-06-03 - Replaced .select() with specific column selection in features API
+**Learning:** Returning all columns by default via `.select()` (or `.select('*')`) on database mutations (POST/PATCH/PUT) causes unnecessary data overfetching in response payloads.
+**Action:** When updating or inserting records using Supabase, always supply explicit column names to `.select()`, for example: `.select(MERCHANT_FEATURE_SELECT_FIELDS.join(', '))`, to minimize database query planning overhead and JSON payload size.
