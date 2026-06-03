@@ -16,6 +16,7 @@ import {
   computeCanonicalOrderSubtotal,
   isCanonicalOrderSubtotalUuidError,
 } from '@/lib/checkout/canonical-order-subtotal';
+import { DEFAULT_ASSURANCE_RATE } from '@/lib/checkout/constants';
 import { computeExpectedTotalDiscount } from '@/lib/checkout/expected-total-discount';
 import {
   buildOrderIdempotencyPayload,
@@ -102,7 +103,7 @@ function getSavingsRedemptionIdempotencyKey({
 }
 
 /** Server-authoritative assurance rate — never trust the client value. */
-const SERVER_ASSURANCE_RATE = 0.05;
+const SERVER_ASSURANCE_RATE = DEFAULT_ASSURANCE_RATE;
 // Imported from @/lib/feature-flags
 
 type EmailOrderItem = {

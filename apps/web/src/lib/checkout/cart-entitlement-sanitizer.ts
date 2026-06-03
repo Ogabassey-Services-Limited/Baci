@@ -1,4 +1,5 @@
 import type { CartItem } from '@/hooks/cart';
+import { DEFAULT_ASSURANCE_RATE } from '@/lib/checkout/constants';
 
 /**
  * Strips negotiation-related fields from cart items if the merchant is not entitled to price negotiation.
@@ -39,7 +40,7 @@ export function calculateCartTotal(
           : 0;
       const itemTotal = price * quantity;
       const assuranceCost = item.hasAssurance
-        ? itemTotal * (item.assuranceRate ?? 0.05)
+        ? itemTotal * (item.assuranceRate ?? DEFAULT_ASSURANCE_RATE)
         : 0;
       return total + itemTotal + assuranceCost;
     }, 0);

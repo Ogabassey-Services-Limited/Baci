@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { CartItem } from '@/hooks/cart';
 import {
   calculateCartTotal,
@@ -67,6 +67,51 @@ describe('cart-entitlement-sanitizer', () => {
       // Total = 3680.
       const total = calculateCartTotal(mockCart, true);
       expect(total).toBe(3680);
+    });
+
+    it('should treat invalid prices as 0 while preserving valid item totals', () => {
+      const cartWithInvalidPrice: CartItem[] = [
+        {
+          ...mockCart[0],
+          price: Number.NaN,
+          negotiatedPrice: undefined,
+        },
+        mockCart[1],
+      ];
+
+      expect(calculateCartTotal(cartWithInvalidPrice, false)).toBe(2000);
+    });
+
+    it('should normalize missing quantities to 0', () => {
+      const cartWithMissingQuantity: CartItem[] = [
+        {
+          ...mockCart[0],
+          quantity: undefined as unknown as number,
+        },
+        mockCart[1],
+      ];
+
+      expect(calculateCartTotal(cartWithMissingQuantity, false)).toBe(2000);
+    });
+
+    it('should return 0 for an empty cart', () => {
+      expect(calculateCartTotal([], false)).toBe(0);
+    });
+
+    it('should return 0 when cart total calculation throws', () => {
+      const consoleSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => undefined);
+
+      try {
+        expect(calculateCartTotal(null as unknown as CartItem[], false)).toBe(
+          0
+        );
+        expect(consoleSpy).toHaveBeenCalled();
+        expect(consoleSpy.mock.calls[0]?.[1]).toEqual(expect.any(TypeError));
+      } finally {
+        consoleSpy.mockRestore();
+      }
     });
   });
 });

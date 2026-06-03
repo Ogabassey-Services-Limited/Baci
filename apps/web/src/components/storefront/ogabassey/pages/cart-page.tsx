@@ -37,6 +37,7 @@ import { useEffect, useState } from 'react';
 import { type CartItem, useCart } from '@/hooks/cart';
 import { useAuthSafe } from '@/contexts/auth-context';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
+import { DEFAULT_ASSURANCE_RATE } from '@/lib/checkout/constants';
 import { getStorefrontProductHref } from '@/lib/storefront-product-href';
 import { AdUnit } from '../components/AdUnit';
 import { EmptyState } from '../components/empty-state';
@@ -220,7 +221,9 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
                       : 0;
                 const itemQuantity = (typeof item.quantity === 'number' && !isNaN(item.quantity)) ? item.quantity : 0;
                 const itemTotal = priceToUse * itemQuantity;
-                const assuranceCost = item.hasAssurance ? itemTotal * 0.05 : 0;
+                const assuranceCost = item.hasAssurance
+                  ? itemTotal * (item.assuranceRate ?? DEFAULT_ASSURANCE_RATE)
+                  : 0;
 
                 return (
                   <div

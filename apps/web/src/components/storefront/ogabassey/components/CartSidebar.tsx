@@ -19,6 +19,7 @@ import { useState, useEffect } from 'react';
 import { type CartItem, useCart } from '@/hooks/cart';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { analytics } from '@/lib/analytics';
+import { DEFAULT_ASSURANCE_RATE } from '@/lib/checkout/constants';
 import { asRoute } from '@/lib/routes';
 import { getStorefrontProductHref } from '@/lib/storefront-product-href';
 import { AdUnit } from './AdUnit';
@@ -195,7 +196,9 @@ export const CartSidebar: React.FC = () => {
                         ? item.negotiatedPrice
                         : item.price;
                     const itemTotal = priceToUse * item.quantity;
-                    const assuranceCost = itemTotal * 0.05;
+                    const assuranceCost =
+                      itemTotal *
+                      (item.assuranceRate ?? DEFAULT_ASSURANCE_RATE);
 
                     return (
                       <div
