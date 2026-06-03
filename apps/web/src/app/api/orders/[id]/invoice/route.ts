@@ -106,7 +106,9 @@ export async function GET(
     }
     const orderId = parsed.data.id;
 
-    // Fetch order with all related data, scoped to authenticated user
+    // Fetch order with all related data. `orders.merchant_id` stores the
+    // merchant UUID, not the auth user UUID, so the explicit tenant scope is
+    // enforced through the inner merchant ownership filter below.
     const { data: order, error: orderError } = await supabase
       .from('orders')
       .select(

@@ -413,12 +413,13 @@ export const ProductDetails: React.FC = () => {
                   {/* Add to Cart & Negotiate */}
                   <div className="flex-1 flex gap-3">
                     {hasPriceNegotiation && (
-                      <button type="button"
+                      <button
+                        type="button"
                         onClick={() => setIsNegotiationOpen(true)}
-                        className="px-4 py-3.5 rounded-xl border-2 border-gray-200 text-gray-700 font-bold hover:border-gray-300 hover:bg-gray-50 transition-all flex flex-col items-center justify-center leading-none gap-1 min-w-[100px]"
+                        className="px-4 py-3.5 rounded-xl border-2 border-store-primary/20 text-store-primary font-bold hover:border-store-primary/40 hover:bg-store-primary/5 transition-all flex flex-col items-center justify-center leading-none gap-1 min-w-[100px]"
                       >
                         <div className="flex items-center gap-1.5">
-                          <HandCoins size={18} className="text-red-600" />
+                          <HandCoins size={18} className="text-store-primary" />
                           <span>Negotiate</span>
                         </div>
                       </button>
