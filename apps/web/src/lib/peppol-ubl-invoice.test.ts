@@ -140,6 +140,46 @@ describe('generatePeppolInvoiceXml', () => {
     );
   });
 
+  it('emits prepaid amounts and leaves only the outstanding balance payable', () => {
+    const xml = generatePeppolInvoiceXml(
+      createInvoiceData({
+        amount_paid: 125000,
+      })
+    );
+
+    expect(xml).toContain(
+      '<cbc:PrepaidAmount currencyID="NGN">125000.00</cbc:PrepaidAmount>'
+    );
+    expect(xml).toContain(
+      '<cbc:PayableAmount currencyID="NGN">417500.00</cbc:PayableAmount>'
+    );
+  });
+
+  it.each([
+    ['overpayment', 999999, '542500.00', '0.00'],
+    ['zero payment', 0, null, '542500.00'],
+    ['full payment', 542500, '542500.00', '0.00'],
+    ['negative payment', -1000, null, '542500.00'],
+  ])('normalizes prepaid totals for %s', (_scenario, amountPaid, expectedPrepaid, expectedPayable) => {
+    const xml = generatePeppolInvoiceXml(
+      createInvoiceData({
+        amount_paid: amountPaid,
+      })
+    );
+
+    if (expectedPrepaid) {
+      expect(xml).toContain(
+        `<cbc:PrepaidAmount currencyID="NGN">${expectedPrepaid}</cbc:PrepaidAmount>`
+      );
+    } else {
+      expect(xml).not.toContain('<cbc:PrepaidAmount');
+    }
+
+    expect(xml).toContain(
+      `<cbc:PayableAmount currencyID="NGN">${expectedPayable}</cbc:PayableAmount>`
+    );
+  });
+
   it('escapes unsafe invoice text', () => {
     const xml = generatePeppolInvoiceXml(
       createInvoiceData({

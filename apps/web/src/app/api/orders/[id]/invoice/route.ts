@@ -349,6 +349,7 @@ export async function GET(
           country: shippingAddr.country || 'NG',
         }
       : undefined;
+    const amountPaid = Number(order.amount_paid || 0);
 
     // Build the invoice data structure
     const invoiceData: InvoiceData = {
@@ -416,6 +417,7 @@ export async function GET(
       shipping_fee: Number(order.shipping_fee || 0),
       discount_amount: Number(order.discount_amount || 0),
       total: Number(order.total || 0),
+      amount_paid: amountPaid,
 
       // Additional info
       notes: order.invoice_note || order.notes || undefined,
@@ -452,8 +454,8 @@ export async function GET(
       shipping_fee: invoiceData.shipping_fee,
       tax_amount: invoiceData.tax_amount,
       discount_amount: invoiceData.discount_amount,
-      amount_paid: Number(order.amount_paid || 0),
-      balance: Math.max(invoiceData.total - Number(order.amount_paid || 0), 0),
+      amount_paid: amountPaid,
+      balance: Math.max(invoiceData.total - amountPaid, 0),
       payment_status: order.payment_status || 'unpaid',
       payment_method: order.payment_method || null,
       is_credit_order: Boolean(order.is_credit_order),
@@ -522,6 +524,8 @@ export async function GET(
       documentDate: invoiceData.issue_date,
       documentKind: 'invoice',
       dueDate: invoiceData.due_date,
+      firsCsid: invoiceData.firs_csid,
+      firsIrn: invoiceData.firs_irn,
       logoDataUri,
       paymentTerms: invoiceData.payment_terms,
     });

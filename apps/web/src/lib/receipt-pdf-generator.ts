@@ -26,6 +26,8 @@ interface GenerateReceiptPdfOptions {
   documentDate?: Date | string | null;
   documentKind?: 'invoice' | 'receipt';
   dueDate?: Date | string | null;
+  firsCsid?: string | null;
+  firsIrn?: string | null;
   logoDataUri?: string | null;
   paymentTerms?: string | null;
 }
@@ -252,6 +254,8 @@ export function generateReceiptPDF(
     formatOptionalReceiptDate(options.documentDate) ||
     formatReceiptDate(order.created_at);
   const displayDueDate = formatOptionalReceiptDate(options.dueDate);
+  const firsIrn = options.firsIrn?.trim();
+  const firsCsid = options.firsCsid?.trim();
   const brandPrimaryRgb = getBrandPrimaryRgb(merchant);
   let y = margin;
 
@@ -489,6 +493,27 @@ export function generateReceiptPDF(
     y = writeWrappedTextLines({
       doc,
       lines: bankLines,
+      x: margin,
+      y,
+      maxWidth: contentWidth,
+    });
+  }
+
+  if (isInvoice && (firsIrn || firsCsid)) {
+    ensureSpace(24);
+    y += 5;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(17, 24, 39);
+    doc.text('FIRS References', margin, y);
+    y += 6;
+    doc.setFont('helvetica', 'normal');
+    y = writeWrappedTextLines({
+      doc,
+      lines: [
+        firsIrn ? `FIRS IRN: ${firsIrn}` : null,
+        firsCsid ? `FIRS CSID: ${firsCsid}` : null,
+      ],
       x: margin,
       y,
       maxWidth: contentWidth,

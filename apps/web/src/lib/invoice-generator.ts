@@ -156,6 +156,7 @@ export interface InvoiceData {
   shipping_fee: number;
   discount_amount: number;
   total: number;
+  amount_paid?: number;
 
   // Additional info
   notes?: string;

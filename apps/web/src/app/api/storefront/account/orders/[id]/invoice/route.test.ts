@@ -82,6 +82,8 @@ function createDocumentData(
       issue_date: new Date('2026-04-01T00:00:00.000Z'),
       due_date: new Date('2026-04-15T00:00:00.000Z'),
       payment_terms: 'Net 14',
+      firs_irn: 'IRN-2026-001',
+      firs_csid: 'CSID-2026-001',
       items: [
         {
           description: 'IMEI: 123456789012345',
@@ -232,6 +234,8 @@ describe('GET /api/storefront/account/orders/[id]/invoice', () => {
         documentDate: new Date('2026-04-01T00:00:00.000Z'),
         documentKind: 'invoice',
         dueDate: new Date('2026-04-15T00:00:00.000Z'),
+        firsCsid: 'CSID-2026-001',
+        firsIrn: 'IRN-2026-001',
         logoDataUri: 'data:image/png;base64,AA==',
         paymentTerms: 'Net 14',
       }

@@ -85,6 +85,9 @@ export interface StorefrontAccountDocumentItemRow {
   name: string;
   quantity: number | null;
   price: MoneyValue;
+  /** Raw fulfillment data selected from order_items.fulfillment_data. */
+  fulfillment_data?: ReceiptOrder['fulfillment_details'] | null;
+  /** Normalized or legacy fulfillment details used before falling back to raw data. */
   fulfillment_details?: ReceiptOrder['fulfillment_details'] | null;
 }
 

@@ -467,6 +467,7 @@ function buildImmediatePeppolInvoiceData(input: {
     shipping_fee: input.orderShippingFee,
     discount_amount: discountAmount,
     total: input.orderTotal,
+    amount_paid: Number(input.order.amount_paid || 0),
     notes: input.notes,
     payment_account: paymentAccount
       ? {
@@ -475,6 +476,14 @@ function buildImmediatePeppolInvoiceData(input: {
           bank_name: paymentAccount.bank_name || undefined,
         }
       : undefined,
+    firs_irn:
+      typeof input.order.firs_irn === 'string'
+        ? input.order.firs_irn
+        : undefined,
+    firs_csid:
+      typeof input.order.firs_csid === 'string'
+        ? input.order.firs_csid
+        : undefined,
   };
 }
 
@@ -1770,6 +1779,8 @@ export async function POST(request: NextRequest) {
                     documentDate: peppolInvoiceData.issue_date,
                     documentKind: 'invoice',
                     dueDate: peppolInvoiceData.due_date,
+                    firsCsid: peppolInvoiceData.firs_csid,
+                    firsIrn: peppolInvoiceData.firs_irn,
                     logoDataUri,
                     paymentTerms: peppolInvoiceData.payment_terms,
                   }

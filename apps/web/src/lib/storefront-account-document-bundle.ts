@@ -301,6 +301,7 @@ export function buildStorefrontAccountDocumentBundle({
     shipping_fee: shippingFee,
     discount_amount: discountAmount,
     total,
+    amount_paid: amountPaid,
     notes: order.invoice_note || order.notes || undefined,
     payment_terms: order.payment_terms || undefined,
     payment_account: paymentAccount

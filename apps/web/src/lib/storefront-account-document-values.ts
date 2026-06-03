@@ -86,6 +86,7 @@ export function buildOrderItems(
       product_name: item.name,
       quantity: item.quantity,
       price,
+      fulfillment_details: item.fulfillment_details ?? item.fulfillment_data,
     };
   });
 }

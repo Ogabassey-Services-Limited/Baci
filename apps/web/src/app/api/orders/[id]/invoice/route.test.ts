@@ -41,6 +41,9 @@ const orderResult: QueryResult = {
     invoice_issue_date: '2026-04-01T00:00:00.000Z',
     payment_due_date: '2026-04-15T00:00:00.000Z',
     payment_terms: 'Net 14',
+    firs_irn: 'IRN-2026-001',
+    firs_csid: 'CSID-2026-001',
+    firs_qr_code: null,
     subtotal: 500000,
     tax_amount: 0,
     shipping_fee: 0,
@@ -244,6 +247,8 @@ describe('GET /api/orders/[id]/invoice', () => {
         documentDate: new Date('2026-04-01T00:00:00.000Z'),
         documentKind: 'invoice',
         dueDate: new Date('2026-04-15T00:00:00.000Z'),
+        firsCsid: 'CSID-2026-001',
+        firsIrn: 'IRN-2026-001',
         logoDataUri: 'data:image/png;base64,AA==',
         paymentTerms: 'Net 14',
       })

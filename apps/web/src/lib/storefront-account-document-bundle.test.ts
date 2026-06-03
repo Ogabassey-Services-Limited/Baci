@@ -76,8 +76,8 @@ describe('buildStorefrontAccountDocumentBundle', () => {
         tax_exclusive_amount: 100000,
         tax_inclusive_amount: 110000,
         invoice_note: null,
-        firs_irn: null,
-        firs_csid: null,
+        firs_irn: 'IRN-2026-001',
+        firs_csid: 'CSID-2026-001',
         firs_qr_code: null,
         payment_terms: null,
       },
@@ -90,6 +90,10 @@ describe('buildStorefrontAccountDocumentBundle', () => {
           name: 'iPhone 16',
           quantity: 1,
           price: 100000,
+          fulfillment_data: {
+            imei: 'IMEI-123',
+            serial_number: 'SN-456',
+          },
         },
       ],
       transactions: [
@@ -116,8 +120,14 @@ describe('buildStorefrontAccountDocumentBundle', () => {
     expect(result.order.receipt_eligible).toBe(true);
     expect(result.order.customer_name).toBe('Oga Bassey');
     expect(result.invoiceData.items[0]?.name).toBe('iPhone 16 (Blue / 128GB)');
+    expect(result.invoiceData.items[0]?.description).toContain(
+      'IMEI: IMEI-123'
+    );
+    expect(result.invoiceData.items[0]?.description).toContain('S/N: SN-456');
     expect(result.invoiceData.items[0]?.vat_amount).toBe(5000);
     expect(result.invoiceData.items[0]?.vat_category_code).toBe('S');
+    expect(result.invoiceData.amount_paid).toBe(110000);
+    expect(result.invoiceData.firs_irn).toBe('IRN-2026-001');
     expect(result.order.transactions?.[0]?.id).toBe('tx-1');
     expect(result.receiptOrder.virtual_account?.account_number).toBe(
       '1234567890'

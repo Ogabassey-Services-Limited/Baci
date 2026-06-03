@@ -163,6 +163,8 @@ describe('generateReceiptBlob', () => {
       documentDate: new Date('2026-06-01T00:00:00.000Z'),
       documentKind: 'invoice',
       dueDate: new Date('2026-06-15T00:00:00.000Z'),
+      firsCsid: 'CSID-001',
+      firsIrn: 'IRN-2026-001',
       paymentTerms: 'Net 14',
     });
 
@@ -170,6 +172,9 @@ describe('generateReceiptBlob', () => {
     expect(pdfText).toContain('Invoice Terms');
     expect(pdfText).toContain('Due Date: 15 Jun 2026');
     expect(pdfText).toContain('Payment Terms: Net 14');
+    expect(pdfText).toContain('FIRS References');
+    expect(pdfText).toContain('FIRS IRN: IRN-2026-001');
+    expect(pdfText).toContain('FIRS CSID: CSID-001');
     expect(pdfText).toContain('IMEI: 123456789012345');
     expect(pdfText).toContain('S/N: SN-001');
   });

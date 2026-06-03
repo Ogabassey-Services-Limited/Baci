@@ -1,0 +1,129 @@
+import { describe, expect, it } from 'vitest';
+import { buildStorefrontAccountDocumentBundle } from '@/lib/storefront-account-document-bundle';
+
+type BundleInput = Parameters<typeof buildStorefrontAccountDocumentBundle>[0];
+
+function createBundleInput(itemRows: BundleInput['itemRows']): BundleInput {
+  return {
+    merchant: {
+      business_name: 'Ogabassey',
+      logo_url: null,
+      email: null,
+      phone: null,
+      support_email: null,
+      support_phone: null,
+      business_address: null,
+      cac_rc_number: null,
+      tax_identification_number: null,
+      legal_entity_name: null,
+      brand_colors: null,
+      vat_registration_status: null,
+      vat_rate: 0,
+      bank_code: null,
+      bank_account_number: null,
+      bank_name: null,
+      bank_account_name: null,
+      social_media: null,
+      pages: null,
+      registered_address: null,
+    },
+    customer: {
+      first_name: 'Ada',
+      last_name: 'Customer',
+      email: 'ada@example.com',
+      phone: null,
+    },
+    order: {
+      id: 'order-1',
+      order_number: 'ORD-1001',
+      created_at: '2026-03-22T10:00:00.000Z',
+      updated_at: null,
+      payment_status: 'paid',
+      shipping_status: 'shipped',
+      currency: 'NGN',
+      total: 100000,
+      subtotal: 100000,
+      shipping_fee: 0,
+      tax_amount: 0,
+      discount_amount: 0,
+      amount_paid: 100000,
+      shipping_address: null,
+      customer_name: null,
+      customer_email: null,
+      customer_phone: null,
+      payment_method: 'card',
+      is_credit_order: false,
+      tracking_number: null,
+      shipping_provider: null,
+      notes: null,
+      invoice_type_code: null,
+      invoice_issue_date: null,
+      tax_point_date: null,
+      payment_due_date: null,
+      buyer_reference: null,
+      purchase_order_reference: null,
+      tax_exclusive_amount: null,
+      tax_inclusive_amount: null,
+      invoice_note: null,
+      firs_irn: null,
+      firs_csid: null,
+      firs_qr_code: null,
+      payment_terms: null,
+    },
+    itemRows,
+    transactions: [],
+    paymentAccount: null,
+    taxRows: [],
+    paymentStatus: 'paid',
+    shippingStatus: 'shipped',
+    currentDocumentKind: 'receipt',
+  };
+}
+
+describe('buildStorefrontAccountDocumentBundle fulfillment fallbacks', () => {
+  it('prefers normalized fulfillment details over raw fulfillment data', () => {
+    const result = buildStorefrontAccountDocumentBundle(
+      createBundleInput([
+        {
+          id: 'item-1',
+          product_id: 'product-1',
+          variant_id: null,
+          variant_name: null,
+          name: 'iPhone 16',
+          quantity: 1,
+          price: 100000,
+          fulfillment_data: {
+            imei: 'RAW-IMEI',
+          },
+          fulfillment_details: {
+            imei: 'DETAILS-IMEI',
+          },
+        },
+      ])
+    );
+
+    expect(result.invoiceData.items[0]?.description).toContain(
+      'IMEI: DETAILS-IMEI'
+    );
+    expect(result.invoiceData.items[0]?.description).not.toContain('RAW-IMEI');
+  });
+
+  it('keeps invoice items valid when no line fulfillment data exists', () => {
+    const result = buildStorefrontAccountDocumentBundle(
+      createBundleInput([
+        {
+          id: 'item-1',
+          product_id: 'product-1',
+          variant_id: null,
+          variant_name: null,
+          name: 'Test Product',
+          quantity: 1,
+          price: 100000,
+        },
+      ])
+    );
+
+    expect(result.invoiceData.items[0]?.name).toBe('Test Product');
+    expect(result.invoiceData.items[0]?.description).toBeUndefined();
+  });
+});

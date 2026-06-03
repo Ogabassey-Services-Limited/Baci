@@ -276,14 +276,31 @@ function documentLevelAllowanceCharges(data: InvoiceData) {
   return charges.join('\n');
 }
 
+function getPrepaidAmount(data: InvoiceData) {
+  const amountPaid =
+    typeof data.amount_paid === 'number' && Number.isFinite(data.amount_paid)
+      ? data.amount_paid
+      : 0;
+
+  if (amountPaid <= 0) {
+    return 0;
+  }
+
+  return Math.min(amountPaid, Math.max(data.total, 0));
+}
+
 function legalMonetaryTotal(data: InvoiceData) {
+  const prepaidAmount = getPrepaidAmount(data);
+  const payableAmount = Math.max(data.total - prepaidAmount, 0);
+
   return `<cac:LegalMonetaryTotal>
 ${element('cbc:LineExtensionAmount', formatAmount(data.subtotal), ` currencyID="${escapeXml(data.currency)}"`)}
 ${element('cbc:TaxExclusiveAmount', formatAmount(data.tax_exclusive_amount), ` currencyID="${escapeXml(data.currency)}"`)}
 ${element('cbc:TaxInclusiveAmount', formatAmount(data.tax_inclusive_amount), ` currencyID="${escapeXml(data.currency)}"`)}
 ${data.discount_amount > 0 ? element('cbc:AllowanceTotalAmount', formatAmount(data.discount_amount), ` currencyID="${escapeXml(data.currency)}"`) : ''}
 ${data.shipping_fee > 0 ? element('cbc:ChargeTotalAmount', formatAmount(data.shipping_fee), ` currencyID="${escapeXml(data.currency)}"`) : ''}
-${element('cbc:PayableAmount', formatAmount(data.total), ` currencyID="${escapeXml(data.currency)}"`)}
+${prepaidAmount > 0 ? element('cbc:PrepaidAmount', formatAmount(prepaidAmount), ` currencyID="${escapeXml(data.currency)}"`) : ''}
+${element('cbc:PayableAmount', formatAmount(payableAmount), ` currencyID="${escapeXml(data.currency)}"`)}
 </cac:LegalMonetaryTotal>`;
 }
 

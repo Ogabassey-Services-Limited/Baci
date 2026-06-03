@@ -135,7 +135,7 @@ export async function getStorefrontAccountDocumentData({
       supabase
         .from('order_items')
         .select(
-          'id, product_id, variant_id, variant_name, name, quantity, price'
+          'id, product_id, variant_id, variant_name, name, quantity, price, fulfillment_data'
         )
         .eq('order_id', orderId),
       supabase
