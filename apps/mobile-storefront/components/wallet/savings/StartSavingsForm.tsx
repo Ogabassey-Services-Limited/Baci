@@ -39,11 +39,16 @@ export function StartSavingsForm({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Continue savings setup"
+        accessibilityState={{
+          disabled: controller.isSubmitting,
+          busy: controller.isSubmitting,
+        }}
         onPress={controller.handleContinue}
         disabled={controller.isSubmitting}
-        style={[
+        style={({ pressed }) => [
           styles.primaryButton,
           controller.isSubmitting ? styles.buttonDisabled : null,
+          pressed && !controller.isSubmitting && { opacity: 0.7 },
         ]}
       >
         <Text style={styles.primaryButtonText}>Continue</Text>

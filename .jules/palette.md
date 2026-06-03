@@ -80,3 +80,6 @@
 **Learning:** Toggle buttons (like favorite hearts or saved items) in React Native require `accessibilityState={{ checked: booleanState }}` to accurately announce their toggled state to screen readers. Relying only on dynamic `accessibilityLabel` changes is less standard than providing the explicit state.
 **Action:** Always add `accessibilityState={{ checked: booleanState }}` to any `Pressable` functioning as a two-state toggle switch.
 
+## 2024-06-03 - Submit button accessibilityState and Pressable feedback
+**Learning:** Actionable buttons in React Native (`Pressable`) that are bound to an `isSubmitting` or `isPending` state often disable correctly but fail to announce to screen readers that a background process is active. Additionally, many of these buttons miss visual feedback upon press.
+**Action:** Always ensure that disabled primary action buttons implement `accessibilityState={{ disabled: isSubmitting, busy: isSubmitting }}` and utilize the `({ pressed }) => [...]` style array to provide visual feedback (like `opacity: 0.7`) to the user.

@@ -168,7 +168,11 @@ export function WalletContent({
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Cancel wallet top-up"
-              style={[styles.cancelBtn, { borderColor: colors.border }]}
+              style={({ pressed }) => [
+                styles.cancelBtn,
+                { borderColor: colors.border },
+                pressed && { opacity: 0.7 },
+              ]}
               onPress={onResetFund}
             >
               <Text style={[styles.cancelBtnText, { color: colors.text }]}>
@@ -178,12 +182,17 @@ export function WalletContent({
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Confirm wallet top-up"
-              style={[
+              accessibilityState={{
+                disabled: isFundPending,
+                busy: isFundPending,
+              }}
+              style={({ pressed }) => [
                 styles.confirmBtn,
                 {
                   backgroundColor: BRAND.primary,
                   opacity: isFundPending ? 0.5 : 1,
                 },
+                pressed && !isFundPending && { opacity: 0.7 },
               ]}
               onPress={onConfirmFund}
               disabled={isFundPending}
@@ -311,7 +320,11 @@ export function WalletContent({
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Cancel redeem points"
-              style={[styles.cancelBtn, { borderColor: colors.border }]}
+              style={({ pressed }) => [
+                styles.cancelBtn,
+                { borderColor: colors.border },
+                pressed && { opacity: 0.7 },
+              ]}
               onPress={onResetRedeem}
             >
               <Text style={[styles.cancelBtnText, { color: colors.text }]}>
@@ -321,12 +334,17 @@ export function WalletContent({
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Confirm redeem points"
-              style={[
+              accessibilityState={{
+                disabled: isRedeemPending,
+                busy: isRedeemPending,
+              }}
+              style={({ pressed }) => [
                 styles.confirmBtn,
                 {
                   backgroundColor: BRAND.primary,
                   opacity: isRedeemPending ? 0.5 : 1,
                 },
+                pressed && !isRedeemPending && { opacity: 0.7 },
               ]}
               onPress={onConfirmRedeem}
               disabled={isRedeemPending}
