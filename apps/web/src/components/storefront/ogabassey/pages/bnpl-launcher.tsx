@@ -437,6 +437,13 @@ export function BnplLauncher({ merchantSlug = 'ogabassey' }: BnplLauncherProps) 
                         );
                     }
 
+                    const klumpAmount = toKlumpIntegerAmount(order.total);
+                    if (klumpAmount <= 0) {
+                        setStatus('error');
+                        setErrorMessage('Invalid order total for Klump checkout.');
+                        return;
+                    }
+
                     await loadKlumpSdk();
                     const KlumpCheckout = getKlumpConstructor();
                     if (!KlumpCheckout) {
@@ -464,12 +471,6 @@ export function BnplLauncher({ merchantSlug = 'ogabassey' }: BnplLauncherProps) 
                     const phone = normalizeKlumpPhone(
                         checkoutCustomerPhone
                     );
-                    const klumpAmount = toKlumpIntegerAmount(order.total);
-                    if (klumpAmount <= 0) {
-                        setStatus('error');
-                        setErrorMessage('Invalid order total for Klump checkout.');
-                        return;
-                    }
 
                     if (
                         !tryStartPaymentLaunch(

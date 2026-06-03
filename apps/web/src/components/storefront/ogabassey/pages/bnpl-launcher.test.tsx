@@ -471,6 +471,8 @@ describe('BnplLauncher', () => {
       })
     );
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const appendScriptSpy = vi.spyOn(document.head, 'appendChild');
+    window.Klump = undefined;
 
     try {
       render(<BnplLauncher />);
@@ -479,8 +481,10 @@ describe('BnplLauncher', () => {
         await screen.findByText('Invalid order total for Klump checkout.')
       ).toBeInTheDocument();
       expect(mockKlumpConstructor).not.toHaveBeenCalled();
+      expect(appendScriptSpy).not.toHaveBeenCalled();
       expect(errorSpy).not.toHaveBeenCalled();
     } finally {
+      appendScriptSpy.mockRestore();
       errorSpy.mockRestore();
     }
   });
