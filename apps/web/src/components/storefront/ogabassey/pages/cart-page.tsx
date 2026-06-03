@@ -43,6 +43,7 @@ import { EmptyState } from '../components/empty-state';
 import { NegotiationModal } from '../components/NegotiationModal';
 import { CheckoutIdentityModal } from '../components/CheckoutIdentityModal';
 import { hasPriceNegotiationEntitlement } from '@/lib/feature-flags';
+import { sanitizeCartItems, calculateCartTotal } from '@/lib/checkout/cart-entitlement-sanitizer';
 
 interface NegotiationState {
   isOpen: boolean;
@@ -65,7 +66,6 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
     applyNegotiatedPrice,
     applyCartWideNegotiation,
     toggleAssurance,
-    cartTotal,
     merchantSlug,
   } = useCart();
 
@@ -85,41 +85,9 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
 
   const hasPriceNegotiation = hasPriceNegotiationEntitlement(merchant?.plan_tier, merchant?.slug);
 
-  const displayCart = cart.map((item) => {
-    if (!hasPriceNegotiation) {
-      return {
-        ...item,
-        negotiatedPrice: undefined,
-        negotiationStatus: undefined,
-        cartDiscount: undefined,
-      };
-    }
-    return item;
-  });
+  const displayCart = sanitizeCartItems(cart, hasPriceNegotiation);
 
-  const displayCartTotal = (() => {
-    try {
-      return displayCart.reduce((total, item) => {
-        const rawPrice = item.negotiatedPrice ?? item.price;
-        const price =
-          typeof rawPrice === 'number' && !Number.isNaN(rawPrice)
-            ? rawPrice
-            : 0;
-        const quantity =
-          typeof item.quantity === 'number' && !Number.isNaN(item.quantity)
-            ? item.quantity
-            : 0;
-        const itemTotal = price * quantity;
-        const assuranceCost = item.hasAssurance
-          ? itemTotal * (item.assuranceRate ?? 0.05)
-          : 0;
-        return total + itemTotal + assuranceCost;
-      }, 0);
-    } catch (e) {
-      console.error('Error calculating displayCartTotal:', e);
-      return 0;
-    }
-  })();
+  const displayCartTotal = calculateCartTotal(cart, hasPriceNegotiation);
 
   const [negotiationState, setNegotiationState] =
     useState<NegotiationState | null>(null);

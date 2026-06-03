@@ -44,6 +44,7 @@ import { createClient } from '@/lib/supabase/client';
 import { calculateCommerce } from '@/lib/supabase/client';
 import { buildCheckoutOrderItems } from '@/lib/checkout/build-order-items';
 import { hasPriceNegotiationEntitlement } from '@/lib/feature-flags';
+import { sanitizeCartItems, calculateCartTotal } from '@/lib/checkout/cart-entitlement-sanitizer';
 import {
   isBankTransferCheckoutAvailable,
   isKorapayCheckoutAvailable,
@@ -108,47 +109,15 @@ interface InferredCheckoutAddressLocation {
 const MANUAL_ADDRESS_LOCATION_DEBOUNCE_MS = 500;
 
 export const CheckoutPage: React.FC = () => {
-  const { cart, cartTotal, clearCart, isHydrated } = useCart();
+  const { cart, clearCart, isHydrated } = useCart();
   const merchantContext = useMerchantSafe();
   const merchant = merchantContext?.merchant;
 
   const hasPriceNegotiation = hasPriceNegotiationEntitlement(merchant?.plan_tier, merchant?.slug);
 
-  const checkoutCart = cart.map((item) => {
-    if (!hasPriceNegotiation) {
-      return {
-        ...item,
-        negotiatedPrice: undefined,
-        negotiationStatus: undefined,
-        cartDiscount: undefined,
-      };
-    }
-    return item;
-  });
+  const checkoutCart = sanitizeCartItems(cart, hasPriceNegotiation);
 
-  const checkoutCartTotal = (() => {
-    try {
-      return checkoutCart.reduce((total, item) => {
-        const rawPrice = item.negotiatedPrice ?? item.price;
-        const price =
-          typeof rawPrice === 'number' && !Number.isNaN(rawPrice)
-            ? rawPrice
-            : 0;
-        const quantity =
-          typeof item.quantity === 'number' && !Number.isNaN(item.quantity)
-            ? item.quantity
-            : 0;
-        const itemTotal = price * quantity;
-        const assuranceCost = item.hasAssurance
-          ? itemTotal * (item.assuranceRate ?? 0.05)
-          : 0;
-        return total + itemTotal + assuranceCost;
-      }, 0);
-    } catch (e) {
-      console.error('Error calculating checkoutCartTotal:', e);
-      return 0;
-    }
-  })();
+  const checkoutCartTotal = calculateCartTotal(cart, hasPriceNegotiation);
 
   const itemSubtotal = checkoutCart.reduce((sum, item) => {
     const rawPrice = item.negotiatedPrice ?? item.price;
