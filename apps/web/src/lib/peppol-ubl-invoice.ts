@@ -1,3 +1,4 @@
+import { encodeXML } from 'entities';
 import type { InvoiceData, InvoiceLineItem } from '@/lib/invoice-generator';
 
 const PEPPOL_CUSTOMIZATION_ID =
@@ -9,12 +10,7 @@ export const PEPPOL_BIS_BILLING_COMPLIANCE_NOTE =
   'This invoice complies with Peppol BIS Billing 3.0 through a generated UBL XML invoice artifact created from this order.';
 
 function escapeXml(value: string | number) {
-  return String(value)
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&apos;');
+  return encodeXML(String(value));
 }
 
 function isValidDate(value: Date) {

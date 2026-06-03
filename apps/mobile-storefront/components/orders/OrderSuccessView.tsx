@@ -6,61 +6,13 @@ import { GoogleLogo } from '@/components/icons/GoogleLogo';
 import { SuccessIcon } from '@/components/icons/SuccessIcon';
 import { PermissionModal } from '@/components/ui/PermissionModal';
 import Colors, { BRAND } from '@/constants/Colors';
+import type { OrderSuccessViewProps } from './OrderSuccessView.types';
 import { orderSuccessStyles as styles } from './order-success.styles';
-
-interface OrderSuccessViewProps {
-  colors: typeof Colors.light;
-  deliveryEstimate?: string;
-  isDark: boolean;
-  onContinueShopping: () => void;
-  onLeaveGoogleReview: () => void;
-  onPermissionDeny: () => void;
-  onPermissionGrant: () => void;
-  onViewDocument?: () => void;
-  onViewOrders: () => void;
-  orderNumber?: string;
-  paymentMethod?: string;
-  reference?: string;
-  isDocumentLoading?: boolean;
-  showPermissionModal: boolean;
-}
-
-function getSuccessTone(paymentMethod?: string) {
-  if (paymentMethod === 'invoice') {
-    return {
-      eyebrow: 'Invoice ready',
-      title: 'Invoice Created',
-      subtitle:
-        "We've prepared your invoice. Once payment is made, we'll confirm the order and start processing it.",
-      documentLabel: 'View / Download Invoice',
-      nextDocumentTitle: 'Invoice',
-      nextDocumentText:
-        'Your branded invoice is ready now. You can view it and share it as a PDF.',
-    };
-  }
-  if (paymentMethod === 'payforme') {
-    return {
-      eyebrow: 'Payment request ready',
-      title: 'Payment Request Created',
-      subtitle:
-        "We've saved this order for later payment. Once it is settled, we'll confirm it and begin processing.",
-      documentLabel: 'View / Download Invoice',
-      nextDocumentTitle: 'Invoice',
-      nextDocumentText:
-        'The invoice remains available while this payment request is pending.',
-    };
-  }
-  return {
-    eyebrow: 'Order confirmed',
-    title: 'Order Confirmed',
-    subtitle:
-      "Thanks for your order. We'll send a confirmation email and keep you updated as it moves.",
-    documentLabel: 'View Receipt',
-    nextDocumentTitle: 'Receipt',
-    nextDocumentText:
-      'Your receipt is ready to preview and share once the order record is available.',
-  };
-}
+import {
+  getOrderSuccessDeliveryLabel,
+  getOrderSuccessTone,
+  resolveOrderSuccessDeliveryEstimate,
+} from './order-success-content';
 
 export function OrderSuccessView({
   colors,
@@ -79,8 +31,8 @@ export function OrderSuccessView({
   showPermissionModal,
 }: OrderSuccessViewProps) {
   const resolvedDeliveryEstimate =
-    deliveryEstimate?.trim() || 'Shared after order confirmation';
-  const successTone = getSuccessTone(paymentMethod);
+    resolveOrderSuccessDeliveryEstimate(deliveryEstimate);
+  const successTone = getOrderSuccessTone(paymentMethod);
 
   return (
     <>
@@ -145,10 +97,7 @@ export function OrderSuccessView({
                 <Text
                   style={[styles.orderLabel, { color: colors.textSecondary }]}
                 >
-                  {resolvedDeliveryEstimate ===
-                  'Shared after order confirmation'
-                    ? 'Delivery Timeline'
-                    : 'Estimated Delivery'}
+                  {getOrderSuccessDeliveryLabel(deliveryEstimate)}
                 </Text>
                 <Text style={[styles.orderValue, { color: colors.text }]}>
                   {resolvedDeliveryEstimate}

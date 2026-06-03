@@ -953,6 +953,9 @@ importers:
       embla-carousel-react:
         specifier: ^8.6.0
         version: 8.6.0(react@19.2.3)
+      entities:
+        specifier: ^8.0.0
+        version: 8.0.0
       expo-server-sdk:
         specifier: ^6.1.0
         version: 6.1.0

@@ -13,6 +13,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/hooks/useTheme';
+import { PRIMARY_ADMIN_TAB_ROUTE_NAMES } from './AdminFloatingTabBar.routes';
 import type { AdminFloatingTabOptions } from './AdminFloatingTabBarItem';
 import { AdminFloatingTabBarItem } from './AdminFloatingTabBarItem';
 import { animateAdminFloatingTabIndicator } from './AdminFloatingTabBarLiquidIndicator';
@@ -23,13 +24,6 @@ const BAR_HORIZONTAL_PADDING = 8;
 const BAR_HEIGHT = 62;
 const CAPSULE_WIDTH = 42;
 const CAPSULE_HEIGHT = 38;
-const PRIMARY_TAB_ROUTE_NAMES = new Set([
-  'index',
-  'orders',
-  'products',
-  'customers',
-  'menu',
-]);
 
 type TabRoute = BottomTabBarProps['state']['routes'][number];
 
@@ -68,7 +62,7 @@ export function AdminFloatingTabBar({
       options: AdminFloatingTabOptions;
     };
     return (
-      PRIMARY_TAB_ROUTE_NAMES.has(route.name) &&
+      PRIMARY_ADMIN_TAB_ROUTE_NAMES.has(route.name) &&
       descriptor.options.href !== null
     );
   });
