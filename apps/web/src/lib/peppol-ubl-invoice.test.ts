@@ -263,6 +263,38 @@ describe('generatePeppolInvoiceXml', () => {
     );
   });
 
+  it('derives zero-rated tax subtotals from line metadata', () => {
+    const xml = generatePeppolInvoiceXml(
+      createInvoiceData({
+        tax_subtotals: [],
+        tax_amount: 0,
+        tax_exclusive_amount: 500000,
+        tax_inclusive_amount: 500000,
+        total: 500000,
+        shipping_fee: 0,
+        items: [
+          {
+            line_id: 1,
+            name: 'Zero-rated device',
+            quantity: 1,
+            unit_code: 'EA',
+            price: 500000,
+            line_extension_amount: 500000,
+            vat_category_code: 'Z',
+            vat_rate: 0,
+            vat_amount: 0,
+          },
+        ],
+      })
+    );
+
+    expect(xml).toContain('<cac:TaxSubtotal>');
+    expect(xml).toContain('<cbc:ID>Z</cbc:ID>');
+    expect(xml).not.toContain(
+      '<cbc:TaxExemptionReason>Outside scope of VAT</cbc:TaxExemptionReason>'
+    );
+  });
+
   it('rejects credit-note type codes until a UBL CreditNote generator is available', () => {
     expect(() =>
       generatePeppolInvoiceXml(

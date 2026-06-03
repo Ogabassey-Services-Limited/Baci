@@ -278,6 +278,7 @@ describe('GET /api/storefront/account/orders/[id]/invoice', () => {
         invoiceNotes: 'Invoice note',
         logoDataUri: 'data:image/png;base64,AA==',
         paymentTerms: 'Net 14',
+        complianceNote: expect.stringContaining('Peppol BIS Billing 3.0'),
         taxSubtotals: [
           {
             taxable_amount: 100000,

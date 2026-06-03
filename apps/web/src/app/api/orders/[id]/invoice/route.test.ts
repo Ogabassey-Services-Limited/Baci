@@ -144,6 +144,7 @@ function createQuery<T>(result: T) {
   const query = {
     select: vi.fn(() => query),
     eq: vi.fn(() => query),
+    gte: vi.fn(() => query),
     or: vi.fn(() => query),
     limit: vi.fn().mockResolvedValue(result),
     order: vi.fn(() => query),
@@ -277,11 +278,56 @@ describe('GET /api/orders/[id]/invoice', () => {
         logoDataUri: 'data:image/png;base64,AA==',
         paymentTerms: 'Net 14',
         taxSubtotals: expect.any(Array),
+        complianceNote: expect.stringContaining('Peppol BIS Billing 3.0'),
       })
     );
-    expect(
-      vi.mocked(generateReceiptBlob).mock.calls[0]?.[2]
-    ).not.toHaveProperty('complianceNote');
+  });
+
+  it('preserves zero-rated line tax categories when subtotals are missing', async () => {
+    vi.mocked(createClient).mockReturnValue(
+      createSupabaseMock({
+        items: {
+          data: [
+            {
+              id: 'item-zero-rated',
+              line_id: 1,
+              name: 'Zero-rated accessory',
+              item_description: null,
+              quantity: 1,
+              price: 10000,
+              unit_code: 'EA',
+              line_extension_amount: 10000,
+              vat_category_code: 'Z',
+              vat_rate: 0,
+              vat_amount: 0,
+              sellers_item_id: null,
+              product_id: 'product-zero-rated',
+            },
+          ],
+          error: null,
+        },
+      }) as unknown as ReturnType<typeof createClient>
+    );
+
+    const response = await GET(
+      new NextRequest(`http://localhost/api/orders/${ORDER_ID}/invoice`),
+      { params: Promise.resolve({ id: ORDER_ID }) }
+    );
+
+    expect(response.status).toBe(200);
+    expect(vi.mocked(generatePeppolInvoiceXml).mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({
+        tax_subtotals: [
+          {
+            vat_category_code: 'Z',
+            vat_rate: 0,
+            taxable_amount: 10000,
+            tax_amount: 0,
+            exemption_reason: undefined,
+          },
+        ],
+      })
+    );
   });
 
   it('falls back to merchant bank details when no order payment account exists', async () => {

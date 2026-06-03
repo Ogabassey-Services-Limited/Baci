@@ -14,6 +14,12 @@ export interface StorefrontOrderItem {
   product_name?: string;
   quantity: number;
   price: number;
+  line_extension_amount?: number;
+  unit_code?: string | null;
+  vat_category_code?: string | null;
+  vat_rate?: number | null;
+  vat_amount?: number | null;
+  sellers_item_id?: string | null;
   /**
    * API returns `product_images` array in some branches.
    * Components might expect `product_image` or `image`.

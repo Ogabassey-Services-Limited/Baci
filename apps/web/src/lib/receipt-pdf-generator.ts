@@ -367,8 +367,7 @@ export function generateReceiptPDF(
       (item) =>
         (typeof item.vat_rate === 'number' && Number.isFinite(item.vat_rate)) ||
         (typeof item.vat_amount === 'number' &&
-          Number.isFinite(item.vat_amount)) ||
-        Boolean(item.unit_code || item.sellers_item_id)
+          Number.isFinite(item.vat_amount))
     );
   const brandPrimaryRgb = getBrandPrimaryRgb(merchant);
   let y = margin;

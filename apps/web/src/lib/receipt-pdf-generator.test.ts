@@ -266,6 +266,29 @@ describe('generateReceiptBlob', () => {
     expect(pdfText).toContain('generated UBL XML invoice artifact');
   });
 
+  it('does not show a VAT percentage when only SKU and unit metadata exist', () => {
+    const order = {
+      ...baseOrder,
+      items: [
+        {
+          product_name: 'MacBook Pro',
+          quantity: 1,
+          price: 150000,
+          sellers_item_id: 'SKU-MBP',
+          unit_code: 'EA',
+        },
+      ],
+      transactions: [],
+    };
+    const pdfText = getPdfText(order, baseMerchant, {
+      documentKind: 'invoice',
+    });
+
+    expect(pdfText).toContain('SKU: SKU-MBP');
+    expect(pdfText).toContain('Unit: EA');
+    expect(pdfText).not.toContain('VAT: 0.00%');
+  });
+
   it('handles long names and multiple items without failing', () => {
     const order = {
       ...baseOrder,

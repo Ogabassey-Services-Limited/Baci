@@ -1,4 +1,5 @@
 import type { InvoiceData, InvoiceLineItem } from '@/lib/invoice-generator';
+import { deriveTaxSubtotalsFromInvoiceItems } from '@/lib/invoice-tax-subtotals';
 import { escapeXml } from '@/lib/xml-utils';
 
 const PEPPOL_CUSTOMIZATION_ID =
@@ -363,6 +364,16 @@ function withDefaultTaxSubtotals(data: InvoiceData): InvoiceData {
     return data;
   }
 
+  const derivedLineTaxSubtotals = deriveTaxSubtotalsFromInvoiceItems(
+    data.items
+  );
+  if (derivedLineTaxSubtotals.length > 0) {
+    return {
+      ...data,
+      tax_subtotals: derivedLineTaxSubtotals,
+    };
+  }
+
   const taxAmount =
     typeof data.tax_amount === 'number' && Number.isFinite(data.tax_amount)
       ? data.tax_amount
@@ -379,6 +390,13 @@ function withDefaultTaxSubtotals(data: InvoiceData): InvoiceData {
     Number.isFinite(data.merchant.vat_rate)
       ? data.merchant.vat_rate
       : 0;
+
+  if (
+    taxAmount === 0 &&
+    data.merchant?.vat_registration_status === 'registered'
+  ) {
+    return data;
+  }
 
   return {
     ...data,

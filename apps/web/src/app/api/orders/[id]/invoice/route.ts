@@ -13,8 +13,12 @@ import type {
   InvoiceLineItem,
   TaxSubtotal,
 } from '@/lib/invoice-generator';
+import { deriveTaxSubtotalsFromInvoiceItems } from '@/lib/invoice-tax-subtotals';
 import { ORDER_COLUMNS } from '@/lib/order-queries';
-import { generatePeppolInvoiceXml } from '@/lib/peppol-ubl-invoice';
+import {
+  generatePeppolInvoiceXml,
+  PEPPOL_BIS_BILLING_COMPLIANCE_NOTE,
+} from '@/lib/peppol-ubl-invoice';
 import {
   generateReceiptBlob,
   resolveReceiptLogoDataUri,
@@ -260,6 +264,8 @@ export async function GET(
       isDeviceReceiptItemName(item.name || '')
     );
 
+    const orderTaxAmount = Number(order.tax_amount || 0);
+
     // Build invoice line items
     const items: InvoiceLineItem[] = typedOrderItems.map((item, index) => {
       const desc = appendReceiptFulfillmentDescription({
@@ -269,6 +275,25 @@ export async function GET(
         index,
         itemName: item.name || '',
       });
+      const explicitVatCategoryCode = item.vat_category_code?.trim();
+      const shouldDefaultStandardVat =
+        !explicitVatCategoryCode &&
+        merchant.vat_registration_status === 'registered' &&
+        orderTaxAmount > 0;
+      const vatCategoryCode =
+        explicitVatCategoryCode || (shouldDefaultStandardVat ? 'S' : undefined);
+      const vatRate =
+        typeof item.vat_rate === 'number' && Number.isFinite(item.vat_rate)
+          ? item.vat_rate
+          : shouldDefaultStandardVat
+            ? merchant.vat_rate || 7.5
+            : undefined;
+      const vatAmount =
+        typeof item.vat_amount === 'number' && Number.isFinite(item.vat_amount)
+          ? item.vat_amount
+          : vatCategoryCode
+            ? 0
+            : undefined;
 
       return {
         line_id: item.line_id || index + 1,
@@ -280,9 +305,9 @@ export async function GET(
         price: Number(item.price),
         line_extension_amount:
           item.line_extension_amount || item.quantity * Number(item.price),
-        vat_category_code: item.vat_category_code || 'S',
-        vat_rate: item.vat_rate || merchant.vat_rate || 7.5,
-        vat_amount: item.vat_amount || 0,
+        vat_category_code: vatCategoryCode,
+        vat_rate: vatRate,
+        vat_amount: vatAmount,
         sellers_item_id: item.sellers_item_id || undefined,
       };
     });
@@ -296,10 +321,18 @@ export async function GET(
       exemption_reason: st.exemption_reason || undefined,
     }));
 
-    // If no tax subtotals exist, create a default one
+    const derivedLineTaxSubtotals = deriveTaxSubtotalsFromInvoiceItems(items);
     if (
       invoiceTaxSubtotals.length === 0 &&
-      merchant.vat_registration_status === 'registered'
+      derivedLineTaxSubtotals.length > 0
+    ) {
+      invoiceTaxSubtotals.push(...derivedLineTaxSubtotals);
+    }
+
+    if (
+      invoiceTaxSubtotals.length === 0 &&
+      merchant.vat_registration_status === 'registered' &&
+      orderTaxAmount > 0
     ) {
       const taxableAmount = items.reduce(
         (sum, item) => sum + item.line_extension_amount,
@@ -316,7 +349,10 @@ export async function GET(
         tax_amount: taxAmount,
       });
     }
-    if (invoiceTaxSubtotals.length === 0) {
+    if (
+      invoiceTaxSubtotals.length === 0 &&
+      merchant.vat_registration_status !== 'registered'
+    ) {
       invoiceTaxSubtotals.push({
         vat_category_code: 'O',
         vat_rate: 0,
@@ -328,6 +364,9 @@ export async function GET(
       });
     }
 
+    const paymentAccountCreatedAfter = new Date(
+      Date.now() - 90 * 60 * 1000
+    ).toISOString();
     const { data: paymentAccounts, error: paymentAccountError } = await supabase
       .from('order_payment_accounts')
       .select(
@@ -335,6 +374,7 @@ export async function GET(
       )
       .eq('order_id', orderId)
       .eq('provider', 'paystack')
+      .gte('created_at', paymentAccountCreatedAfter)
       .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
       .order('created_at', { ascending: false })
       .limit(1);
@@ -535,8 +575,9 @@ export async function GET(
       social_media: merchant.social_media,
       pages: merchant.pages,
     };
+    let peppolInvoiceXml: string | null = null;
     try {
-      generatePeppolInvoiceXml(invoiceData);
+      peppolInvoiceXml = generatePeppolInvoiceXml(invoiceData);
     } catch (peppolError) {
       console.error('Failed to generate Peppol UBL invoice XML:', peppolError);
     }
@@ -545,6 +586,9 @@ export async function GET(
     const logoDataUri = await resolveReceiptLogoDataUri(receiptMerchant);
     const pdfBlob = generateReceiptBlob(receiptOrder, receiptMerchant, {
       buyerReference: invoiceData.buyer_reference,
+      ...(peppolInvoiceXml
+        ? { complianceNote: PEPPOL_BIS_BILLING_COMPLIANCE_NOTE }
+        : {}),
       documentDate: invoiceData.issue_date,
       documentKind: 'invoice',
       dueDate: invoiceData.due_date,

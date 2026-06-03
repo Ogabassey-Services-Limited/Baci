@@ -10,6 +10,7 @@ import type {
   InvoiceLineItem,
   TaxSubtotal,
 } from '@/lib/invoice-generator';
+import { deriveTaxSubtotalsFromInvoiceItems } from '@/lib/invoice-tax-subtotals';
 import type {
   StorefrontAccountDocumentCustomerRow,
   StorefrontAccountDocumentItemRow,
@@ -90,23 +91,39 @@ export function buildStorefrontAccountDocumentBundle({
     asString(order.customer_phone) || customer.phone || null;
   const receiptEligible = currentDocumentKind === 'receipt';
   const registeredAddress = asRecord(merchant.registered_address);
+  const sellerIsVatRegistered =
+    merchant.vat_registration_status === 'registered';
   const invoiceVatRate = merchant.vat_rate ?? 7.5;
   const lineExtensionTotal = orderItems.reduce(
-    (totalAmount, item) => totalAmount + item.quantity * item.price,
+    (totalAmount, item) =>
+      totalAmount +
+      (typeof item.line_extension_amount === 'number' &&
+      Number.isFinite(item.line_extension_amount)
+        ? item.line_extension_amount
+        : item.quantity * item.price),
     0
   );
   const singleTaxSubtotal = taxRows.length === 1 ? taxRows[0] : null;
-  const lineVatCategoryCode =
+  const fallbackLineVatCategoryCode =
     singleTaxSubtotal?.vat_category_code ||
-    (taxRows.length === 0 ? (taxAmount > 0 ? 'S' : 'O') : null);
-  const lineVatRate =
+    (taxRows.length === 0 && taxAmount > 0 && sellerIsVatRegistered
+      ? 'S'
+      : taxRows.length === 0 && !sellerIsVatRegistered
+        ? 'O'
+        : null);
+  const fallbackLineVatRate =
     singleTaxSubtotal != null
       ? asNumber(singleTaxSubtotal.vat_rate)
-      : taxRows.length === 0
-        ? taxAmount > 0
-          ? invoiceVatRate
-          : 0
-        : null;
+      : taxRows.length === 0 && taxAmount > 0 && sellerIsVatRegistered
+        ? invoiceVatRate
+        : taxRows.length === 0 && !sellerIsVatRegistered
+          ? 0
+          : null;
+  const shouldAllocateFallbackVat =
+    fallbackLineVatCategoryCode != null &&
+    fallbackLineVatRate != null &&
+    taxAmount > 0 &&
+    lineExtensionTotal > 0;
   let allocatedVatAmount = 0;
 
   const receiptMerchant: ReceiptMerchant = buildReceiptMerchant(merchant);
@@ -137,21 +154,45 @@ export function buildStorefrontAccountDocumentBundle({
     order.fulfillment_details
   );
   const invoiceItems: InvoiceLineItem[] = orderItems.map((item, index) => {
-    const lineExtensionAmount = item.quantity * item.price;
+    const lineExtensionAmount =
+      typeof item.line_extension_amount === 'number' &&
+      Number.isFinite(item.line_extension_amount)
+        ? item.line_extension_amount
+        : item.quantity * item.price;
+    const explicitVatCategoryCode = item.vat_category_code?.trim();
+    const explicitVatRate =
+      typeof item.vat_rate === 'number' && Number.isFinite(item.vat_rate)
+        ? item.vat_rate
+        : null;
+    const explicitVatAmount =
+      typeof item.vat_amount === 'number' && Number.isFinite(item.vat_amount)
+        ? item.vat_amount
+        : null;
+    const lineVatCategoryCode =
+      explicitVatCategoryCode || fallbackLineVatCategoryCode;
+    const lineVatRate = explicitVatRate ?? fallbackLineVatRate;
     const vatAmount =
-      lineVatCategoryCode &&
-      lineVatRate != null &&
-      taxAmount > 0 &&
-      lineExtensionTotal > 0
+      explicitVatAmount ??
+      (shouldAllocateFallbackVat && !explicitVatCategoryCode
         ? index === orderItems.length - 1
           ? roundCurrency(taxAmount - allocatedVatAmount)
           : roundCurrency(
               (lineExtensionAmount / lineExtensionTotal) * taxAmount
             )
-        : null;
+        : lineVatCategoryCode && lineVatRate != null
+          ? 0
+          : null);
 
-    if (vatAmount != null) {
+    if (
+      explicitVatAmount == null &&
+      shouldAllocateFallbackVat &&
+      !explicitVatCategoryCode &&
+      vatAmount != null
+    ) {
       allocatedVatAmount += vatAmount;
+    }
+    if (explicitVatAmount != null) {
+      allocatedVatAmount += explicitVatAmount;
     }
 
     const itemName = item.variant_name
@@ -173,9 +214,10 @@ export function buildStorefrontAccountDocumentBundle({
         itemName,
       }),
       quantity: item.quantity,
-      unit_code: 'EA',
+      unit_code: item.unit_code || 'EA',
       price: item.price,
       line_extension_amount: lineExtensionAmount,
+      sellers_item_id: item.sellers_item_id || undefined,
       ...(lineVatCategoryCode && lineVatRate != null
         ? {
             vat_category_code: lineVatCategoryCode,
@@ -194,7 +236,12 @@ export function buildStorefrontAccountDocumentBundle({
     exemption_reason: subtotalRow.exemption_reason || undefined,
   }));
 
-  if (taxSubtotals.length === 0 && taxAmount > 0) {
+  const derivedLineTaxSubtotals =
+    deriveTaxSubtotalsFromInvoiceItems(invoiceItems);
+  if (taxSubtotals.length === 0 && derivedLineTaxSubtotals.length > 0) {
+    taxSubtotals.push(...derivedLineTaxSubtotals);
+  }
+  if (taxSubtotals.length === 0 && taxAmount > 0 && sellerIsVatRegistered) {
     taxSubtotals.push({
       vat_category_code: 'S',
       vat_rate: invoiceVatRate,
@@ -202,13 +249,13 @@ export function buildStorefrontAccountDocumentBundle({
       tax_amount: taxAmount,
     });
   }
-  if (taxSubtotals.length === 0) {
+  if (taxSubtotals.length === 0 && !sellerIsVatRegistered) {
     taxSubtotals.push({
       vat_category_code: 'O',
       vat_rate: 0,
       taxable_amount: subtotal,
       tax_amount: 0,
-      exemption_reason: 'Outside scope of VAT',
+      exemption_reason: 'Seller is not VAT registered',
     });
   }
 
