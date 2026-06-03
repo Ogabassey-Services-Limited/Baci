@@ -242,7 +242,8 @@ describe('GET /api/merchant/features', () => {
 
   it('returns read-only default settings with VTU customer cashback disabled by default', async () => {
     const { GET } = await import('./route');
-    settingsError = { code: 'PGRST116', message: 'No rows found' };
+    settingsData = null;
+    settingsError = null;
     throwOnInsert = true;
 
     const response = await GET(makeRequest('GET'));
@@ -312,9 +313,10 @@ describe('GET /api/merchant/features', () => {
     expect(json.id).toBe('settings-1');
   });
 
-  it('keeps GET read-only when no settings exist (PGRST116)', async () => {
+  it('keeps GET read-only when no settings exist', async () => {
     const { GET } = await import('./route');
-    settingsError = { code: 'PGRST116', message: 'No rows found' };
+    settingsData = null;
+    settingsError = null;
     throwOnInsert = true;
 
     const res = await GET(makeRequest('GET'));

@@ -221,8 +221,13 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
                       : 0;
                 const itemQuantity = (typeof item.quantity === 'number' && !isNaN(item.quantity)) ? item.quantity : 0;
                 const itemTotal = priceToUse * itemQuantity;
+                const assuranceRate =
+                  item.assuranceRate ?? DEFAULT_ASSURANCE_RATE;
+                const assuranceRateLabel = `${Number(
+                  (assuranceRate * 100).toFixed(2)
+                )}%`;
                 const assuranceCost = item.hasAssurance
-                  ? itemTotal * (item.assuranceRate ?? DEFAULT_ASSURANCE_RATE)
+                  ? itemTotal * assuranceRate
                   : 0;
 
                 return (
@@ -395,7 +400,7 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
                                   </span>
                                 </>
                               ) : (
-                                `${merchantSlug === 'ogabassey' ? 'Device Protection' : 'Safety & Shipping Coverage'} (+5%)`
+                                `${merchantSlug === 'ogabassey' ? 'Device Protection' : 'Safety & Shipping Coverage'} (+${assuranceRateLabel})`
                               )}
                             </p>
                           </div>

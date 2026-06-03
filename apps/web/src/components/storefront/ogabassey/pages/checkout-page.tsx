@@ -116,6 +116,12 @@ export const CheckoutPage: React.FC = () => {
   const hasPriceNegotiation = hasPriceNegotiationEntitlement(merchant?.plan_tier, merchant?.slug);
 
   const checkoutCart = sanitizeCartItems(cart, hasPriceNegotiation);
+  const quoteItemsFingerprint = checkoutCart
+    .map(
+      ({ id, negotiatedPrice, price, quantity }) =>
+        `${id}:${quantity}:${negotiatedPrice ?? price}`
+    )
+    .join('|');
 
   const checkoutCartTotal = calculateCartTotal(cart, hasPriceNegotiation);
 
@@ -373,10 +379,40 @@ export const CheckoutPage: React.FC = () => {
   // which would silently break if either type ever gained an optional
   // `cartItemId` field. Active cart wins when populated; otherwise fall back
   // to the resumed order's items.
+  const hasCheckoutCartItems = checkoutCart.length > 0;
   const displayItems: CheckoutItem[] =
-    checkoutCart.length > 0
+    hasCheckoutCartItems
       ? checkoutCart.map((item) => ({ kind: 'cart' as const, ...item }))
       : (resumedOrder?.items ?? []).map((item) => ({ kind: 'resumed' as const, ...item }));
+  const resumedOrderCartItems: CartItem[] =
+    !hasCheckoutCartItems && resumedOrder
+      ? resumedOrder.items.map((item) => ({
+          brand: '',
+          cartItemId: item.id,
+          description: '',
+          gtin: '',
+          id: item.product_id || item.id,
+          image: item.image_url || '',
+          imageHint: item.product_name,
+          imageLarge: item.image_url || '',
+          manage_stock: false,
+          mpn: '',
+          name: item.product_name,
+          price: item.price,
+          quantity: item.quantity,
+          status: 'active' as const,
+          stock: item.quantity,
+        }))
+      : [];
+  const mobileSummaryCart = hasCheckoutCartItems
+    ? checkoutCart
+    : resumedOrderCartItems;
+  const effectiveItemSubtotal = hasCheckoutCartItems
+    ? itemSubtotal
+    : resumedOrder?.subtotal || 0;
+  const effectiveCheckoutCartTotal = hasCheckoutCartItems
+    ? checkoutCartTotal
+    : resumedOrder?.subtotal || checkoutCartTotal;
 
   const autoTriggerRef = useRef(false);
   // Double-submit protection: prevents race conditions from rapid clicks
@@ -889,7 +925,8 @@ export const CheckoutPage: React.FC = () => {
     newAddressState,
     newAddressCity,
     // Trigger if we switch back to a saved address
-    addresses
+    addresses,
+    quoteItemsFingerprint,
   ]);
 
 
@@ -1007,7 +1044,7 @@ export const CheckoutPage: React.FC = () => {
           : 0 // Fallback: 0 if loading or no quote selected
         : airportType === 'delivery' ? 25000 : 20000; // Airport Delivery: ₦25,000, Airport Pickup: ₦20,000
 
-  const total = checkoutCartTotal + deliveryCost + giftWrappingCost + (orderTotals?.taxAmount ?? 0);
+  const total = effectiveCheckoutCartTotal + deliveryCost + giftWrappingCost + (orderTotals?.taxAmount ?? 0);
 
   // Wallet credit calculation (2025: can't redeem more than order total)
   const walletAmountUsed = payWithWallet ? Math.min(walletBalance, total) : 0;
@@ -1022,7 +1059,7 @@ export const CheckoutPage: React.FC = () => {
     const fetchTotals = async () => {
       try {
         const result = await calculateCommerce('calculate_order', {
-          subtotal: itemSubtotal,
+          subtotal: effectiveItemSubtotal,
           shippingFee: deliveryCost,
           taxRate,
         });
@@ -1032,7 +1069,7 @@ export const CheckoutPage: React.FC = () => {
       }
     };
     fetchTotals();
-  }, [itemSubtotal, deliveryCost, taxRate]);
+  }, [effectiveItemSubtotal, deliveryCost, taxRate]);
 
   // Handler for direct payment execution (CredPal/Credit Direct)
   const executeDirectPayment = async () => {
@@ -2558,10 +2595,10 @@ export const CheckoutPage: React.FC = () => {
         {/* MOBILE ORDER SUMMARY (Collapsible) */}
         {/* MOBILE ORDER SUMMARY (Collapsible) */}
         <MobileOrderSummary
-          cart={checkoutCart.length > 0 ? checkoutCart : (resumedOrder?.items as any[]) || []}
-          cartTotal={checkoutCartTotal > 0 ? checkoutCartTotal : resumedOrder?.subtotal || 0}
+          cart={mobileSummaryCart}
+          cartTotal={effectiveCheckoutCartTotal}
           deliveryCost={deliveryCost || resumedOrder?.shipping_cost || 0}
-          deliveryMethod={deliveryMethod as any}
+          deliveryMethod={deliveryMethod}
           giftWrappingCost={giftWrappingCost}
           walletBalance={walletBalance}
           payWithWallet={payWithWallet}
@@ -3244,7 +3281,7 @@ export const CheckoutPage: React.FC = () => {
               <div className="space-y-3 mb-6">
                 <div className="flex justify-between text-gray-600 text-sm">
                   <span>Subtotal</span>
-                  <span>₦{checkoutCartTotal.toLocaleString()}</span>
+                  <span>₦{effectiveCheckoutCartTotal.toLocaleString()}</span>
                 </div>
                 {orderTotals && (
                   <div className="flex justify-between text-gray-600 text-sm">

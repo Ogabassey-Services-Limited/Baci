@@ -106,6 +106,7 @@ describe('checkout success page', () => {
 
   it('verifies payment references with a JSON POST instead of a side-effecting GET', async () => {
     mockFetchWithCsrf.mockResolvedValue({
+      ok: true,
       json: async () => ({
         orderNumber: 'ORD-2001',
         status: 'success',
@@ -127,6 +128,7 @@ describe('checkout success page', () => {
 
   it('keeps the cart intact when payment verification does not succeed', async () => {
     mockFetchWithCsrf.mockResolvedValue({
+      ok: true,
       json: async () => ({
         orderNumber: 'ORD-2001',
         status: 'pending',
@@ -170,6 +172,7 @@ describe('checkout success page', () => {
   it('keeps the cart intact and redirects after failed payment verification', async () => {
     const redirectTimerSpy = vi.spyOn(globalThis, 'setTimeout');
     mockFetchWithCsrf.mockResolvedValue({
+      ok: true,
       json: async () => ({
         status: 'failed',
         success: false,
@@ -193,6 +196,33 @@ describe('checkout success page', () => {
         act(() => redirectCallback());
       }
       expect(mockPush).toHaveBeenCalledWith('/test-store/checkout');
+    } finally {
+      redirectTimerSpy.mockRestore();
+    }
+  });
+
+  it('treats non-2xx verification responses as failed instead of pending', async () => {
+    const redirectTimerSpy = vi.spyOn(globalThis, 'setTimeout');
+    mockFetchWithCsrf.mockResolvedValue({
+      ok: false,
+      json: async () => ({
+        error: 'Invalid CSRF token',
+      }),
+    });
+
+    try {
+      render(<CheckoutSuccessPage />);
+
+      expect(
+        await screen.findByRole('heading', { name: /payment unsuccessful/i })
+      ).toBeInTheDocument();
+      expect(mockClearCart).not.toHaveBeenCalled();
+
+      const redirectCallback = redirectTimerSpy.mock.calls.find(
+        ([, delay]) => delay === 4000
+      )?.[0];
+
+      expect(redirectCallback).toEqual(expect.any(Function));
     } finally {
       redirectTimerSpy.mockRestore();
     }

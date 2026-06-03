@@ -186,12 +186,15 @@ export function buildStorefrontAccountDocumentBundle({
       typeof item.vat_amount === 'number' && Number.isFinite(item.vat_amount)
         ? item.vat_amount
         : null;
+    const shouldUseExplicitVatAmount =
+      explicitVatAmount != null &&
+      !(explicitVatAmount === 0 && shouldAllocateFallbackVat);
     const lineVatCategoryCode =
       explicitVatCategoryCode || fallbackLineVatCategoryCode;
     const lineVatRate = explicitVatRate ?? fallbackLineVatRate;
-    const vatAmount =
-      explicitVatAmount ??
-      (shouldAllocateFallbackVat && !explicitVatCategoryCode
+    const vatAmount = shouldUseExplicitVatAmount
+      ? explicitVatAmount
+      : shouldAllocateFallbackVat
         ? index === orderItems.length - 1
           ? roundCurrency(taxAmount - allocatedVatAmount)
           : roundCurrency(
@@ -199,17 +202,16 @@ export function buildStorefrontAccountDocumentBundle({
             )
         : lineVatCategoryCode && lineVatRate != null
           ? 0
-          : null);
+          : null;
 
     if (
-      explicitVatAmount == null &&
+      !shouldUseExplicitVatAmount &&
       shouldAllocateFallbackVat &&
-      !explicitVatCategoryCode &&
       vatAmount != null
     ) {
       allocatedVatAmount += vatAmount;
     }
-    if (explicitVatAmount != null) {
+    if (shouldUseExplicitVatAmount) {
       allocatedVatAmount += explicitVatAmount;
     }
 
@@ -256,7 +258,12 @@ export function buildStorefrontAccountDocumentBundle({
 
   const derivedLineTaxSubtotals =
     deriveTaxSubtotalsFromInvoiceItems(invoiceItems);
-  if (taxSubtotals.length === 0 && derivedLineTaxSubtotals.length > 0) {
+  if (
+    taxSubtotals.length === 0 &&
+    derivedLineTaxSubtotals.length > 0 &&
+    (taxAmount === 0 ||
+      derivedLineTaxSubtotals.some((subtotal) => subtotal.tax_amount > 0))
+  ) {
     taxSubtotals.push(...derivedLineTaxSubtotals);
   }
   if (taxSubtotals.length === 0 && taxAmount > 0 && sellerIsVatRegistered) {

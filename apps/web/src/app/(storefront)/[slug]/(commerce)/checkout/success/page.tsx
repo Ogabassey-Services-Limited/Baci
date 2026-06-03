@@ -148,7 +148,13 @@ function CheckoutSuccessContent() {
         });
         const data = await response.json();
 
-        if (data.success && data.status === 'success') {
+        if (!response.ok) {
+          console.error('Payment verification failed:', data);
+          setStatus('failed');
+          timerHandle.current = setTimeout(() => {
+            router.push(asRoute(getHref('/checkout')));
+          }, 4000);
+        } else if (data.success && data.status === 'success') {
           clearCart();
           setStatus('success');
           setOrderNumber(

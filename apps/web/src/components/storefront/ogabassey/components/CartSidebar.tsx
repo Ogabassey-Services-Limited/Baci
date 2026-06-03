@@ -196,9 +196,13 @@ export const CartSidebar: React.FC = () => {
                         ? item.negotiatedPrice
                         : item.price;
                     const itemTotal = priceToUse * item.quantity;
+                    const assuranceRate =
+                      item.assuranceRate ?? DEFAULT_ASSURANCE_RATE;
+                    const assuranceRateLabel = `${Number(
+                      (assuranceRate * 100).toFixed(2)
+                    )}%`;
                     const assuranceCost =
-                      itemTotal *
-                      (item.assuranceRate ?? DEFAULT_ASSURANCE_RATE);
+                      itemTotal * assuranceRate;
 
                     return (
                       <div
@@ -404,7 +408,7 @@ export const CartSidebar: React.FC = () => {
                                         )}
                                       </>
                                     ) : (
-                                      `${merchant?.slug === 'ogabassey' ? 'Device Protection' : 'Safety & Shipping Coverage'} (+5%)`
+                                      `${merchant?.slug === 'ogabassey' ? 'Device Protection' : 'Safety & Shipping Coverage'} (+${assuranceRateLabel})`
                                     )}
                                   </p>
                                 </div>

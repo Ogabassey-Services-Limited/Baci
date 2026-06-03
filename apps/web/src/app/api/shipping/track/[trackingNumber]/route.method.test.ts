@@ -24,9 +24,15 @@ vi.mock('@/lib/shipping', () => ({
 
 import { GET, POST } from './route';
 
+const CSRF_HEADERS = {
+  Cookie: 'csrf-token=test-csrf-token',
+  'x-csrf-token': 'test-csrf-token',
+};
+
 function makePostRequest(trackingNumber = 'TRACK123') {
   return POST(
     new NextRequest(`http://localhost/api/shipping/track/${trackingNumber}`, {
+      headers: CSRF_HEADERS,
       method: 'POST',
     }),
     { params: Promise.resolve({ trackingNumber }) }
@@ -89,6 +95,21 @@ describe('/api/shipping/track/[trackingNumber] method boundary', () => {
 
     expect(response.status).toBe(400);
     expect(body.error).toBe('Tracking number required');
+    expect(mockFrom).not.toHaveBeenCalled();
+    expect(mockTrackShipment).not.toHaveBeenCalled();
+  });
+
+  it('returns 403 when CSRF validation fails before refreshing tracking', async () => {
+    const response = await POST(
+      new NextRequest('http://localhost/api/shipping/track/TRACK123', {
+        method: 'POST',
+      }),
+      { params: Promise.resolve({ trackingNumber: 'TRACK123' }) }
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(body.error).toBe('Invalid CSRF token');
     expect(mockFrom).not.toHaveBeenCalled();
     expect(mockTrackShipment).not.toHaveBeenCalled();
   });

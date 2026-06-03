@@ -18,4 +18,16 @@ describe('trackingParamsSchema', () => {
 
     expect(result.success).toBe(false);
   });
+
+  it('rejects a missing tracking number', () => {
+    const result = trackingParamsSchema.safeParse({});
+
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects a non-string tracking number', () => {
+    const result = trackingParamsSchema.safeParse({ trackingNumber: 12345 });
+
+    expect(result.success).toBe(false);
+  });
 });

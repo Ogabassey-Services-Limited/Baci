@@ -332,11 +332,13 @@ function buildImmediatePeppolInvoiceData(input: {
       : 'O';
   const vatRate =
     vatCategoryCode === 'S' ? (input.merchant.vat_rate ?? 7.5) : 0;
-  const lineExtensionTotal = input.items.reduce(
-    (total, item) =>
-      total + item.quantity * (item.negotiatedPrice ?? item.price),
-    0
-  );
+  const lineExtensionTotal = input.items.reduce((total, item) => {
+    const itemBaseTotal = item.quantity * (item.negotiatedPrice ?? item.price);
+    const itemAssuranceFee = item.has_assurance
+      ? roundCurrency(itemBaseTotal * SERVER_ASSURANCE_RATE)
+      : 0;
+    return total + itemBaseTotal + itemAssuranceFee;
+  }, 0);
   const hasDeviceItem = input.items.some((item) =>
     isDeviceReceiptItemName(getOrderItemBaseName(item))
   );
@@ -355,8 +357,11 @@ function buildImmediatePeppolInvoiceData(input: {
   let allocatedTaxAmount = 0;
 
   const invoiceItems: InvoiceLineItem[] = input.items.map((item, index) => {
-    const lineExtensionAmount =
-      item.quantity * (item.negotiatedPrice ?? item.price);
+    const itemBaseTotal = item.quantity * (item.negotiatedPrice ?? item.price);
+    const itemAssuranceFee = item.has_assurance
+      ? roundCurrency(itemBaseTotal * SERVER_ASSURANCE_RATE)
+      : 0;
+    const lineExtensionAmount = itemBaseTotal + itemAssuranceFee;
     const vatAmount = allocateLineTax({
       index,
       itemCount: input.items.length,
@@ -374,12 +379,15 @@ function buildImmediatePeppolInvoiceData(input: {
       index,
       itemName: getOrderItemBaseName(item),
     });
+    const description = itemAssuranceFee
+      ? `${itemDescription ? `${itemDescription} ` : ''}Includes device assurance fee (${currency} ${itemAssuranceFee.toFixed(2)}).`
+      : itemDescription;
 
     return {
       line_id: index + 1,
       product_id: getOrderItemProductId(item),
       name: getOrderItemBaseName(item),
-      description: itemDescription,
+      description,
       quantity: item.quantity,
       unit_code: 'EA',
       price: item.negotiatedPrice ?? item.price,
@@ -835,7 +843,7 @@ export async function POST(request: NextRequest) {
       const itemPrice = item.negotiatedPrice ?? item.price;
       // SECURITY: Recompute assurance_fee server-side — never trust client values (quantity-aware)
       const assuranceFee = hasAssurance
-        ? itemPrice * item.quantity * SERVER_ASSURANCE_RATE
+        ? roundCurrency(itemPrice * item.quantity * SERVER_ASSURANCE_RATE)
         : 0;
       const voucherAwardId = verifiedQuizVoucherAwardIdsByIndex.get(index);
 
@@ -1790,6 +1798,7 @@ export async function POST(request: NextRequest) {
 
                     return {
                       ...item,
+                      description: invoiceItem?.description ?? item.description,
                       line_extension_amount: invoiceItem?.line_extension_amount,
                       sellers_item_id: invoiceItem?.sellers_item_id,
                       unit_code: invoiceItem?.unit_code,

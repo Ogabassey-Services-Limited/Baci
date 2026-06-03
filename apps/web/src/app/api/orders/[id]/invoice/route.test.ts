@@ -422,6 +422,69 @@ describe('GET /api/orders/[id]/invoice', () => {
     );
   });
 
+  it('allocates positive order tax when stored line VAT is missing or zero', async () => {
+    vi.mocked(createClient).mockReturnValue(
+      createSupabaseMock({
+        order: {
+          data: {
+            ...(orderResult.data as Record<string, unknown>),
+            subtotal: 10000,
+            tax_amount: 750,
+            total: 10750,
+          },
+          error: null,
+        },
+        items: {
+          data: [
+            {
+              id: 'item-taxable',
+              line_id: 1,
+              name: 'Taxable accessory',
+              item_description: null,
+              quantity: 1,
+              price: 10000,
+              unit_code: 'EA',
+              line_extension_amount: 10000,
+              vat_category_code: 'S',
+              vat_rate: 7.5,
+              vat_amount: 0,
+              sellers_item_id: null,
+              product_id: 'product-taxable',
+            },
+          ],
+          error: null,
+        },
+      }) as unknown as ReturnType<typeof createClient>
+    );
+
+    const response = await GET(
+      new NextRequest(`http://localhost/api/orders/${ORDER_ID}/invoice`),
+      { params: Promise.resolve({ id: ORDER_ID }) }
+    );
+
+    expect(response.status).toBe(200);
+    expect(vi.mocked(generatePeppolInvoiceXml).mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({
+        items: [
+          expect.objectContaining({
+            vat_category_code: 'S',
+            vat_rate: 7.5,
+            vat_amount: 750,
+          }),
+        ],
+        tax_subtotals: [
+          {
+            vat_category_code: 'S',
+            vat_rate: 7.5,
+            taxable_amount: 10000,
+            tax_amount: 750,
+            exemption_reason: undefined,
+          },
+        ],
+      })
+    );
+  });
+
   it('falls back to merchant bank details when no order payment account exists', async () => {
     vi.mocked(createClient).mockReturnValue(
       createSupabaseMock({

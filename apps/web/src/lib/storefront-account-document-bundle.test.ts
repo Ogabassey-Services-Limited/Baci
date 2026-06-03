@@ -90,6 +90,9 @@ describe('buildStorefrontAccountDocumentBundle', () => {
           name: 'iPhone 16',
           quantity: 1,
           price: 100000,
+          vat_category_code: 'S',
+          vat_rate: 7.5,
+          vat_amount: 0,
           fulfillment_data: {
             imei: 'IMEI-123',
             serial_number: 'SN-456',

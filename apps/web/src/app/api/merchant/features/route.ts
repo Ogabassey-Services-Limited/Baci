@@ -344,9 +344,9 @@ export async function GET(request: NextRequest) {
       .from('merchant_feature_settings')
       .select(MERCHANT_FEATURE_SELECT_FIELDS.join(', '))
       .eq('merchant_id', access.merchantId)
-      .single();
+      .maybeSingle();
 
-    if (error && error.code === 'PGRST116') {
+    if (!error && !settings) {
       return jsonNoStore({
         merchant_id: access.merchantId,
         ...DEFAULT_SETTINGS,

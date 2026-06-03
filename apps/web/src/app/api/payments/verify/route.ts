@@ -1,4 +1,5 @@
 import { after, type NextRequest, NextResponse } from 'next/server';
+import { checkCsrfProtection } from '@/lib/csrf';
 import {
   generateOrderConfirmationEmail,
   generateOrderConfirmationText,
@@ -515,6 +516,14 @@ export function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const csrf = await checkCsrfProtection(request);
+  if (!csrf.valid) {
+    return (
+      csrf.response ??
+      NextResponse.json({ error: 'Invalid CSRF token' }, { status: 403 })
+    );
+  }
+
   const contentType = request.headers.get('content-type') ?? '';
   if (!contentType.toLowerCase().includes('application/json')) {
     return NextResponse.json(

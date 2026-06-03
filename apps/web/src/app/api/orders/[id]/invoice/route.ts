@@ -265,6 +265,14 @@ export async function GET(
       taxSubtotals.length === 1 ? taxSubtotals[0] : null;
 
     const orderTaxAmount = Number(order.tax_amount || 0);
+    const lineExtensionAmounts = typedOrderItems.map((item) =>
+      Number(item.line_extension_amount || item.quantity * Number(item.price))
+    );
+    const lineExtensionTotal = lineExtensionAmounts.reduce(
+      (sum, amount) => sum + amount,
+      0
+    );
+    let allocatedVatAmount = 0;
 
     // Build invoice line items
     const items: InvoiceLineItem[] = typedOrderItems.map((item, index) => {
@@ -301,12 +309,35 @@ export async function GET(
             : shouldDefaultStandardVat
               ? merchant.vat_rate || 7.5
               : undefined;
+      const lineExtensionAmount = lineExtensionAmounts[index] ?? 0;
+      const shouldAllocateOrderVat =
+        orderTaxAmount > 0 &&
+        vatCategoryCode != null &&
+        (typeof item.vat_amount !== 'number' ||
+          !Number.isFinite(item.vat_amount) ||
+          item.vat_amount === 0) &&
+        lineExtensionTotal > 0;
       const vatAmount =
-        typeof item.vat_amount === 'number' && Number.isFinite(item.vat_amount)
+        typeof item.vat_amount === 'number' &&
+        Number.isFinite(item.vat_amount) &&
+        !(item.vat_amount === 0 && shouldAllocateOrderVat)
           ? item.vat_amount
-          : vatCategoryCode
-            ? 0
-            : undefined;
+          : shouldAllocateOrderVat
+            ? index === typedOrderItems.length - 1
+              ? Number((orderTaxAmount - allocatedVatAmount).toFixed(2))
+              : Number(
+                  (
+                    (lineExtensionAmount / lineExtensionTotal) *
+                    orderTaxAmount
+                  ).toFixed(2)
+                )
+            : vatCategoryCode
+              ? 0
+              : undefined;
+
+      if (shouldAllocateOrderVat && vatAmount != null) {
+        allocatedVatAmount += vatAmount;
+      }
 
       return {
         line_id: item.line_id || index + 1,
@@ -316,8 +347,7 @@ export async function GET(
         quantity: item.quantity,
         unit_code: item.unit_code || 'EA',
         price: Number(item.price),
-        line_extension_amount:
-          item.line_extension_amount || item.quantity * Number(item.price),
+        line_extension_amount: lineExtensionAmount,
         vat_category_code: vatCategoryCode,
         vat_rate: vatRate,
         vat_amount: vatAmount,
@@ -337,7 +367,9 @@ export async function GET(
     const derivedLineTaxSubtotals = deriveTaxSubtotalsFromInvoiceItems(items);
     if (
       invoiceTaxSubtotals.length === 0 &&
-      derivedLineTaxSubtotals.length > 0
+      derivedLineTaxSubtotals.length > 0 &&
+      (orderTaxAmount === 0 ||
+        derivedLineTaxSubtotals.some((subtotal) => subtotal.tax_amount > 0))
     ) {
       invoiceTaxSubtotals.push(...derivedLineTaxSubtotals);
     }
@@ -351,15 +383,11 @@ export async function GET(
         (sum, item) => sum + item.line_extension_amount,
         0
       );
-      const taxAmount = items.reduce(
-        (sum, item) => sum + (item.vat_amount ?? 0),
-        0
-      );
       invoiceTaxSubtotals.push({
         vat_category_code: 'S',
         vat_rate: merchant.vat_rate || 7.5,
         taxable_amount: taxableAmount,
-        tax_amount: taxAmount,
+        tax_amount: orderTaxAmount,
       });
     }
     if (

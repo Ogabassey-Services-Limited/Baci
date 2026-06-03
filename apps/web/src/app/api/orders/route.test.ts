@@ -1730,13 +1730,13 @@ describe('POST /api/orders — B3.5 client/server total parity', () => {
           {
             product_id: 'p-1',
             quantity: 2,
-            price: 500000,
+            price: 333.33,
             name: 'Widget',
             has_assurance: true,
           },
         ],
-        expected_total: 1000000,
-        client_total: 1000000,
+        expected_total: 666.66,
+        client_total: 666.66,
       }),
     });
     await POST(request);
@@ -1747,9 +1747,9 @@ describe('POST /api/orders — B3.5 client/server total parity', () => {
           expect.objectContaining({
             product_id: 'p-1',
             quantity: 2,
-            price: 500000,
+            price: 333.33,
             has_assurance: true,
-            assurance_fee: 50000, // (500000 * 2) * 0.05
+            assurance_fee: 33.33, // (333.33 * 2) * 0.05 rounded to 2 decimals
           }),
         ],
       })
@@ -3019,6 +3019,12 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
       method: 'POST',
       body: JSON.stringify({
         ...baseOrderPayload,
+        items: [
+          {
+            ...baseOrderPayload.items[0],
+            has_assurance: true,
+          },
+        ],
         payment_method: 'invoice',
       }),
     });
@@ -3091,6 +3097,16 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
       },
     ];
     const pdfOptions = lastReceiptBlobCall[2];
+    const receiptOrder = lastReceiptBlobCall[0] as {
+      items?: Array<{
+        description?: string;
+        line_extension_amount?: number;
+      }>;
+    };
+    expect(receiptOrder.items?.[0]).toMatchObject({
+      description: expect.stringContaining('Includes device assurance fee'),
+      line_extension_amount: 1050,
+    });
     expect(pdfOptions.documentDate).toBeInstanceOf(Date);
     expect(pdfOptions.dueDate).toBeInstanceOf(Date);
     expect(pdfOptions.dueDate.getTime()).toBe(

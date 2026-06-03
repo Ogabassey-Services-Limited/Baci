@@ -167,5 +167,10 @@ describe('CartPage', () => {
 
     // Should display original subtotal (25000) instead of negotiated (20000)
     expect(screen.getAllByText('₦25,000')[0]).toBeInTheDocument();
+    expect(screen.queryByText('₦20,000')).not.toBeInTheDocument();
+    expect(screen.queryByText(/matched @/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /^negotiate$/i })
+    ).not.toBeInTheDocument();
   });
 });

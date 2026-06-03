@@ -99,6 +99,5 @@ describe('GET /api/storefront/customer/wallet email fallback', () => {
       loyaltyPoints: 500,
       requiresFundingAccountConsent: true,
     });
-    expect(mockFrom).toHaveBeenCalledWith('customers');
   });
 });

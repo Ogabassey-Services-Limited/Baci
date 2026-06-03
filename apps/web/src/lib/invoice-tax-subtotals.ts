@@ -1,10 +1,14 @@
 import type { InvoiceLineItem, TaxSubtotal } from '@/lib/invoice-generator';
 
+type TaxSubtotalLineItem = Omit<InvoiceLineItem, 'line_extension_amount'> & {
+  line_extension_amount?: number;
+};
+
 function finiteNumber(value: unknown) {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
-function lineTaxableAmount(item: InvoiceLineItem) {
+function lineTaxableAmount(item: TaxSubtotalLineItem) {
   const lineExtensionAmount = finiteNumber(item.line_extension_amount);
   if (lineExtensionAmount != null) return lineExtensionAmount;
 
@@ -19,7 +23,7 @@ function exemptionReasonForCategory(vatCategoryCode: string) {
 }
 
 export function deriveTaxSubtotalsFromInvoiceItems(
-  items: InvoiceLineItem[]
+  items: TaxSubtotalLineItem[]
 ): TaxSubtotal[] {
   const subtotals = new Map<string, TaxSubtotal>();
 

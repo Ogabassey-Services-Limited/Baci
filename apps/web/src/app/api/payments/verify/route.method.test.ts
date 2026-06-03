@@ -2,6 +2,11 @@ import { NextRequest } from 'next/server';
 import { describe, expect, it } from 'vitest';
 import { GET, POST } from './route';
 
+const CSRF_HEADERS = {
+  Cookie: 'csrf-token=test-csrf-token',
+  'x-csrf-token': 'test-csrf-token',
+};
+
 describe('/api/payments/verify method boundary', () => {
   it('rejects GET so verification cannot be triggered by prefetch or forged navigation', async () => {
     const response = await GET();
@@ -16,7 +21,7 @@ describe('/api/payments/verify method boundary', () => {
     const response = await POST(
       new NextRequest('http://localhost:3000/api/payments/verify', {
         body: 'reference=txn-ref-123',
-        headers: { 'Content-Type': 'text/plain' },
+        headers: { ...CSRF_HEADERS, 'Content-Type': 'text/plain' },
         method: 'POST',
       })
     );
@@ -30,7 +35,7 @@ describe('/api/payments/verify method boundary', () => {
     const response = await POST(
       new NextRequest('http://localhost:3000/api/payments/verify', {
         body: '{not-json',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...CSRF_HEADERS, 'Content-Type': 'application/json' },
         method: 'POST',
       })
     );
@@ -44,7 +49,7 @@ describe('/api/payments/verify method boundary', () => {
     const response = await POST(
       new NextRequest('http://localhost:3000/api/payments/verify', {
         body: JSON.stringify({ reference: '' }),
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...CSRF_HEADERS, 'Content-Type': 'application/json' },
         method: 'POST',
       })
     );
@@ -52,5 +57,19 @@ describe('/api/payments/verify method boundary', () => {
 
     expect(response.status).toBe(400);
     expect(body.error).toBe('Invalid reference');
+  });
+
+  it('rejects POST requests that fail CSRF validation before body parsing', async () => {
+    const response = await POST(
+      new NextRequest('http://localhost:3000/api/payments/verify', {
+        body: JSON.stringify({ reference: 'txn-ref-123' }),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+      })
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(body.error).toBe('Invalid CSRF token');
   });
 });

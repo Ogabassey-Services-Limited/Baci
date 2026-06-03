@@ -5,6 +5,7 @@
 
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { shippingService } from '@/lib/shipping';
 import type {
   NormalizedShipmentStatus,
@@ -56,7 +57,7 @@ export function GET() {
 }
 
 export async function POST(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ trackingNumber: string }> }
 ) {
   try {
@@ -70,6 +71,14 @@ export async function POST(
     }
 
     const { trackingNumber } = parsedParams.data;
+    const csrf = await checkCsrfProtection(request);
+    if (!csrf.valid) {
+      return (
+        csrf.response ??
+        NextResponse.json({ error: 'Invalid CSRF token' }, { status: 403 })
+      );
+    }
+
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 

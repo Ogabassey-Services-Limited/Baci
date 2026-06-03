@@ -28,24 +28,19 @@ export function calculateCartTotal(
   cart: CartItem[],
   hasPriceNegotiation: boolean
 ): number {
-  try {
-    const sanitizedCart = sanitizeCartItems(cart, hasPriceNegotiation);
-    return sanitizedCart.reduce((total, item) => {
-      const rawPrice = item.negotiatedPrice ?? item.price;
-      const price =
-        typeof rawPrice === 'number' && !Number.isNaN(rawPrice) ? rawPrice : 0;
-      const quantity =
-        typeof item.quantity === 'number' && !Number.isNaN(item.quantity)
-          ? item.quantity
-          : 0;
-      const itemTotal = price * quantity;
-      const assuranceCost = item.hasAssurance
-        ? itemTotal * (item.assuranceRate ?? DEFAULT_ASSURANCE_RATE)
+  const sanitizedCart = sanitizeCartItems(cart, hasPriceNegotiation);
+  return sanitizedCart.reduce((total, item) => {
+    const rawPrice = item.negotiatedPrice ?? item.price;
+    const price =
+      typeof rawPrice === 'number' && !Number.isNaN(rawPrice) ? rawPrice : 0;
+    const quantity =
+      typeof item.quantity === 'number' && !Number.isNaN(item.quantity)
+        ? item.quantity
         : 0;
-      return total + itemTotal + assuranceCost;
-    }, 0);
-  } catch (e) {
-    console.error('Error calculating cart total:', e);
-    return 0;
-  }
+    const itemTotal = price * quantity;
+    const assuranceCost = item.hasAssurance
+      ? itemTotal * (item.assuranceRate ?? DEFAULT_ASSURANCE_RATE)
+      : 0;
+    return total + itemTotal + assuranceCost;
+  }, 0);
 }

@@ -71,4 +71,55 @@ describe('deriveTaxSubtotalsFromInvoiceItems', () => {
       ])
     ).toEqual([]);
   });
+
+  it('falls back to quantity multiplied by price when line extension amount is absent', () => {
+    expect(
+      deriveTaxSubtotalsFromInvoiceItems([
+        {
+          line_id: 1,
+          name: 'Standard fallback item',
+          quantity: 3,
+          unit_code: 'EA',
+          price: 400,
+          vat_category_code: 'S',
+          vat_rate: 7.5,
+          vat_amount: 90,
+        },
+      ])
+    ).toEqual([
+      {
+        vat_category_code: 'S',
+        vat_rate: 7.5,
+        taxable_amount: 1200,
+        tax_amount: 90,
+        exemption_reason: undefined,
+      },
+    ]);
+  });
+
+  it('sets the exemption reason for outside-scope VAT category lines', () => {
+    expect(
+      deriveTaxSubtotalsFromInvoiceItems([
+        {
+          line_id: 1,
+          name: 'Outside scope item',
+          quantity: 1,
+          unit_code: 'EA',
+          price: 1000,
+          line_extension_amount: 1000,
+          vat_category_code: 'O',
+          vat_rate: 0,
+          vat_amount: 0,
+        },
+      ])
+    ).toEqual([
+      {
+        vat_category_code: 'O',
+        vat_rate: 0,
+        taxable_amount: 1000,
+        tax_amount: 0,
+        exemption_reason: 'Outside scope of VAT',
+      },
+    ]);
+  });
 });
