@@ -127,13 +127,6 @@ export async function GET(request: NextRequest) {
 
       if (customerByEmail) {
         customer = customerByEmail;
-
-        if (!customerByEmail.user_id) {
-          void supabase
-            .from('customers')
-            .update({ user_id: auth.user.id })
-            .eq('id', customerByEmail.id);
-        }
       }
     }
 

@@ -202,6 +202,7 @@ export async function POST(request: NextRequest) {
 /**
  * GET: Check current Jumia connection status
  */
+// react-doctor-disable-next-line react-doctor/nextjs-no-side-effect-in-get-handler -- Mobile OAuth handoff opens a GET URL; one-time ticket redemption is UUID-validated, pending-only, and expiry-gated before redirect.
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);

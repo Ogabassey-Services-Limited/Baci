@@ -205,15 +205,16 @@ describe('GET /api/merchant/features', () => {
     expect(selectColumns).not.toContain('offline_conversions_enabled');
   });
 
-  it('creates default settings with VTU customer cashback disabled by default', async () => {
+  it('returns read-only default settings with VTU customer cashback disabled by default', async () => {
     const { GET } = await import('./route');
     settingsError = { code: 'PGRST116', message: 'No rows found' };
-    insertData = { id: 'new-settings', merchant_id: MERCHANT_ID };
 
     const response = await GET(makeRequest('GET'));
+    const data = await response.json();
 
     expect(response.status).toBe(200);
-    expect(insertPayload).toMatchObject({
+    expect(data).toMatchObject({
+      merchant_id: MERCHANT_ID,
       agentic_checkout_enabled: true,
       klump_enabled: false,
       klump_min_amount: 10000,
@@ -221,7 +222,8 @@ describe('GET /api/merchant/features', () => {
       vtu_customer_cashback_enabled: false,
       vtu_customer_cashback_rate: 50,
     });
-    expect(insertPayload).not.toHaveProperty('offline_conversions_enabled');
+    expect(data).not.toHaveProperty('offline_conversions_enabled');
+    expect(insertPayload).toBeNull();
   });
 
   it('returns 401 when not authenticated', async () => {

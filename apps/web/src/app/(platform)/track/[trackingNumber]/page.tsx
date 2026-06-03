@@ -35,7 +35,8 @@ function TrackingPageContent({ params }: TrackingPageProps) {
     const fetchTracking = async () => {
       try {
         const response = await fetch(
-          `/api/shipping/track/${encodeURIComponent(trackingNumber)}`
+          `/api/shipping/track/${encodeURIComponent(trackingNumber)}`,
+          { method: 'POST' }
         );
         const data = await response.json();
 

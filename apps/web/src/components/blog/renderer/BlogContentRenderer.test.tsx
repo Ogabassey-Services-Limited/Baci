@@ -9,10 +9,23 @@ import { describe, expect, it, vi } from 'vitest';
 // SafeHtml: render its `html` prop as plain text inside a div so we can
 // assert on the content that would have been sanitised and injected.
 vi.mock('@/components/ui/safe-html', () => ({
-  SafeHtml: ({ html, className }: { html: string; className?: string }) => (
-    <div data-testid="safe-html" data-classname={className ?? ''}>
+  SafeHtml: ({
+    as: Tag = 'div',
+    html,
+    className,
+  }: {
+    as?: 'code' | 'div' | 'span';
+    className?: string;
+    headingLevelOffset?: number;
+    html: string;
+  }) => (
+    <Tag
+      className={className}
+      data-testid="safe-html"
+      data-classname={className ?? ''}
+    >
       {html}
-    </div>
+    </Tag>
   ),
 }));
 

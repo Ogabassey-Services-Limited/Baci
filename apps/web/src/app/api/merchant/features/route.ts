@@ -329,34 +329,22 @@ export async function GET(request: NextRequest) {
       return jsonNoStore({ error: 'Permission denied' }, { status: 403 });
     }
 
-    // Get or create settings
-    let { data: settings, error } = await auth.supabase
+    // GET must remain read-only. If no persisted settings row exists, return
+    // response-only defaults; PATCH/PUT own persistence when the merchant edits.
+    const { data: settings, error } = await auth.supabase
       .from('merchant_feature_settings')
       .select(MERCHANT_FEATURE_SELECT_FIELDS.join(', '))
       .eq('merchant_id', access.merchantId)
       .single();
 
     if (error && error.code === 'PGRST116') {
-      // No settings exist, create with defaults
-      const { data: newSettings, error: createError } = await auth.supabase
-        .from('merchant_feature_settings')
-        .insert({
-          merchant_id: access.merchantId,
-          ...DEFAULT_SETTINGS,
-        })
-        .select()
-        .single();
+      return jsonNoStore({
+        merchant_id: access.merchantId,
+        ...DEFAULT_SETTINGS,
+      });
+    }
 
-      if (createError) {
-        console.error('Error creating feature settings:', createError);
-        return jsonNoStore(
-          { error: 'Failed to create settings' },
-          { status: 500 }
-        );
-      }
-
-      settings = newSettings;
-    } else if (error) {
+    if (error) {
       console.error('Error fetching feature settings:', error);
       return jsonNoStore(
         { error: 'Failed to fetch settings' },

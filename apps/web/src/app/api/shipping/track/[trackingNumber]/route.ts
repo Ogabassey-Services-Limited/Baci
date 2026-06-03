@@ -13,10 +13,17 @@ import type {
 import { createClient } from '@/lib/supabase/server';
 
 // =============================================================================
-// GET /api/shipping/track/[trackingNumber] - Track a shipment
+// POST /api/shipping/track/[trackingNumber] - Fetch current shipment tracking
 // =============================================================================
 
-export async function GET(
+export function GET() {
+  return NextResponse.json(
+    { error: 'Method not allowed. Use POST to refresh shipment tracking.' },
+    { headers: { Allow: 'POST' }, status: 405 }
+  );
+}
+
+export async function POST(
   _request: NextRequest,
   { params }: { params: Promise<{ trackingNumber: string }> }
 ) {
@@ -54,45 +61,6 @@ export async function GET(
     } else {
       // Try all providers
       trackingResult = await shippingService.trackShipment(trackingNumber);
-    }
-
-    // Update shipment status in database if found
-    if (shipment) {
-      await supabase
-        .from('shipments')
-        .update({
-          status: trackingResult.status,
-          current_location: trackingResult.events?.[0]?.location,
-          estimated_delivery_at:
-            trackingResult.estimatedDelivery?.toISOString(),
-          delivered_at: trackingResult.actualDelivery?.toISOString(),
-          tracking_events: trackingResult.events,
-          last_tracked_at: new Date().toISOString(),
-        })
-        .eq('id', shipment.id);
-
-      // Update order shipping status
-      const orderStatusMap: Record<NormalizedShipmentStatus, string> = {
-        pending: 'pending',
-        booked: 'shipped',
-        pickup_scheduled: 'shipped',
-        picked_up: 'shipped',
-        in_transit: 'shipped',
-        out_for_delivery: 'shipped',
-        delivered: 'delivered',
-        cancelled: 'cancelled',
-        failed: 'failed',
-        returned: 'returned',
-      };
-
-      await supabase
-        .from('orders')
-        .update({
-          shipping_status:
-            orderStatusMap[trackingResult.status as NormalizedShipmentStatus] ||
-            'processing',
-        })
-        .eq('id', shipment.order_id);
     }
 
     return NextResponse.json({

@@ -98,6 +98,27 @@ describe('checkout success page', () => {
     ).toHaveAttribute('href', '/test-store/contact');
   });
 
+  it('verifies payment references with a JSON POST instead of a side-effecting GET', async () => {
+    mockFetch.mockResolvedValue({
+      json: async () => ({
+        orderNumber: 'ORD-2001',
+        status: 'success',
+        success: true,
+      }),
+    });
+
+    render(<CheckoutSuccessPage />);
+
+    await waitFor(() =>
+      expect(mockFetch).toHaveBeenCalledWith('/api/payments/verify', {
+        body: JSON.stringify({ reference: 'txn-ref-123' }),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+      })
+    );
+    expect(mockClearCart).toHaveBeenCalled();
+  });
+
   it('fetches invoice order details with merchant slug and tracking token', async () => {
     mockSearchParams.mockReturnValue(
       new URLSearchParams({

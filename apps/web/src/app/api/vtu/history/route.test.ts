@@ -285,7 +285,7 @@ describe('GET /api/vtu/history', () => {
     expect(transactionEqCalls).toContainEqual(['merchant_id', 'merchant-1']);
     expect(transactionEqCalls).toContainEqual(['customer_id', 'customer-1']);
     expect(transactionEqCalls).toContainEqual(['type', 'electricity']);
-    expect(mockCustomerUpdateEq).toHaveBeenCalledWith('id', 'customer-1');
+    expect(mockCustomerUpdateEq).not.toHaveBeenCalled();
   });
 
   it('logs and falls back when a transaction amount is not finite', async () => {

@@ -80,7 +80,9 @@ describe('TrackingPage', () => {
     expect(screen.getByText('TRACK123')).toBeInTheDocument();
     expect(screen.getByText('Package in transit')).toBeInTheDocument();
     expect(screen.getByText(/Delivering to Ikeja, Lagos/)).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledWith('/api/shipping/track/TRACK123');
+    expect(fetchMock).toHaveBeenCalledWith('/api/shipping/track/TRACK123', {
+      method: 'POST',
+    });
   });
 
   it('displays tracking errors returned by the shipping API', async () => {
@@ -97,6 +99,8 @@ describe('TrackingPage', () => {
       await screen.findByRole('heading', { name: 'Tracking Not Found' })
     ).toBeInTheDocument();
     expect(screen.getByText('Tracking number not found')).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledWith('/api/shipping/track/INVALID');
+    expect(fetchMock).toHaveBeenCalledWith('/api/shipping/track/INVALID', {
+      method: 'POST',
+    });
   });
 });

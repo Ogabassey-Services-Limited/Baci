@@ -10,6 +10,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
  * Sends push notifications for new low stock alerts that haven't been notified yet.
  * Called by the VPS web-cron wrapper every 6 hours. Keep CRON_SECRET gating intact.
  */
+// react-doctor-disable-next-line react-doctor/nextjs-no-side-effect-in-get-handler -- VPS cron invokes this GET with a bearer CRON_SECRET; browser CSRF cannot supply the required Authorization header.
 export async function GET(request: NextRequest) {
   const cronSecret = getCronSecret();
   if (!cronSecret) {

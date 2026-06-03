@@ -140,9 +140,11 @@ function CheckoutSuccessContent() {
       setIsVerifying(true);
 
       try {
-        const response = await fetch(
-          `/api/payments/verify?reference=${reference}`
-        );
+        const response = await fetch('/api/payments/verify', {
+          body: JSON.stringify({ reference }),
+          headers: { 'Content-Type': 'application/json' },
+          method: 'POST',
+        });
         const data = await response.json();
 
         if (data.success && data.status === 'success') {
