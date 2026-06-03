@@ -115,6 +115,18 @@ describe('bnpl-url', () => {
     ).toBe(true);
     expect(
       isAllowedBnplPopupUrl(
+        'https://connect.withmono.com/widget/session-123',
+        'https://usebaci.com'
+      )
+    ).toBe(true);
+    expect(
+      isAllowedBnplPopupUrl(
+        'https://store.useklump.com/checkout/session-123',
+        'https://usebaci.com'
+      )
+    ).toBe(true);
+    expect(
+      isAllowedBnplPopupUrl(
         'https://ogabassey.usebaci.com/order-success',
         'https://usebaci.com'
       )

@@ -86,6 +86,18 @@ describe('bnpl-checkout helpers', () => {
         apiBaseUrl: 'https://usebaci.com',
         currentDocumentUrl:
           'https://usebaci.com/ogabassey/checkout/bnpl?gateway=credit_direct&orderId=order-1',
+        isTopFrame: true,
+        requestUrl: 'https://connect.withmono.com/widget/session-123',
+      })
+    ).toEqual({
+      reason: 'allowed',
+      shouldStart: true,
+    });
+    expect(
+      resolveBNPLDocumentNavigation({
+        apiBaseUrl: 'https://usebaci.com',
+        currentDocumentUrl:
+          'https://usebaci.com/ogabassey/checkout/bnpl?gateway=credit_direct&orderId=order-1',
         requestUrl: 'https://checkout.creditdirect.ng/bnpl/#/session',
       })
     ).toEqual({
