@@ -5,7 +5,6 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import { SystemBars } from 'react-native-edge-to-edge';
 import Animated, {
   Extrapolation,
   interpolate,
@@ -13,6 +12,7 @@ import Animated, {
   type SharedValue,
   useAnimatedStyle,
 } from 'react-native-reanimated';
+import { SystemBars } from 'react-native-edge-to-edge';
 import { OfflineNotice } from '@/components/OfflineNotice';
 import { BlockRenderer } from '@/components/storefront/BlockRenderer';
 import { GadgetPattern } from '@/components/storefront/GadgetPattern';

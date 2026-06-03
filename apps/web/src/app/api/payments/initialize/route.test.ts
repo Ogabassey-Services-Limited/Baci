@@ -335,6 +335,23 @@ describe('POST /api/payments/initialize', () => {
       expect(res.status).toBe(400);
       expect(json.code).toBe('AMOUNT_EXCEEDS_TOTAL');
     });
+
+    it('rejects non-Klump request amounts slightly above the stored total before gateway initialization', async () => {
+      enableKorapayForTest();
+      mockInitializeKorapay.mockResolvedValue({
+        authorization_url: 'https://korapay.com/checkout/abc',
+        checkout_url: 'https://korapay.com/checkout/abc',
+      });
+
+      const res = await POST(
+        makeRequest({ ...validBody, amount: 5000.009, gateway: 'korapay' })
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(json.code).toBe('AMOUNT_EXCEEDS_TOTAL');
+      expect(mockInitializeKorapay).not.toHaveBeenCalled();
+    });
   });
 
   describe('merchant lookup', () => {
@@ -712,7 +729,7 @@ describe('POST /api/payments/initialize', () => {
       });
     });
 
-    it('stores the rounded Klump amount used by the checkout widget', async () => {
+    it('keeps the order total as the RPC amount and stores the rounded Klump charge amount', async () => {
       rpcResult = {
         data: [
           {
@@ -745,7 +762,89 @@ describe('POST /api/payments/initialize', () => {
         (call) => call.name === 'create_payment_transaction'
       );
       expect(transactionCall?.args).toMatchObject({
-        p_amount: 58_089,
+        p_amount: 58_088.5,
+        p_gateway: 'klump',
+        p_merchant_amount: 58_089,
+        p_platform_fee: 0,
+        p_reference: 'BAC-ABCD12345678',
+      });
+    });
+
+    it('rounds the stored order total for Klump when the request amount is within tolerance', async () => {
+      rpcResult = {
+        data: [
+          {
+            merchant_id: MERCHANT_ID,
+            total: 58_088.5,
+            tracking_token: 'track-token-123',
+          },
+        ],
+        error: null,
+      };
+      featureSettingsResult = {
+        data: {
+          klump_enabled: true,
+          klump_min_amount: 10_000,
+          klump_max_amount: 500_000,
+          korapay_enabled: true,
+          paystack_enabled: true,
+          preferred_international_gateway: 'korapay',
+          preferred_local_gateway: 'paystack',
+        },
+        error: null,
+      };
+
+      const res = await POST(
+        makeRequest({ ...validBody, amount: 58_088.491, gateway: 'klump' })
+      );
+
+      expect(res.status).toBe(200);
+      const transactionCall = rpcCalls.find(
+        (call) => call.name === 'create_payment_transaction'
+      );
+      expect(transactionCall?.args).toMatchObject({
+        p_amount: 58_088.5,
+        p_gateway: 'klump',
+        p_merchant_amount: 58_089,
+        p_platform_fee: 0,
+        p_reference: 'BAC-ABCD12345678',
+      });
+    });
+
+    it('allows a Klump request amount slightly above the stored total within tolerance', async () => {
+      rpcResult = {
+        data: [
+          {
+            merchant_id: MERCHANT_ID,
+            total: 58_088.5,
+            tracking_token: 'track-token-123',
+          },
+        ],
+        error: null,
+      };
+      featureSettingsResult = {
+        data: {
+          klump_enabled: true,
+          klump_min_amount: 10_000,
+          klump_max_amount: 500_000,
+          korapay_enabled: true,
+          paystack_enabled: true,
+          preferred_international_gateway: 'korapay',
+          preferred_local_gateway: 'paystack',
+        },
+        error: null,
+      };
+
+      const res = await POST(
+        makeRequest({ ...validBody, amount: 58_088.509, gateway: 'klump' })
+      );
+
+      expect(res.status).toBe(200);
+      const transactionCall = rpcCalls.find(
+        (call) => call.name === 'create_payment_transaction'
+      );
+      expect(transactionCall?.args).toMatchObject({
+        p_amount: 58_088.5,
         p_gateway: 'klump',
         p_merchant_amount: 58_089,
         p_platform_fee: 0,

@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 
 // Zod schema for email validation (2026 best practice: use Zod instead of custom validation)
 const SendCodeSchema = z.object({
-  email: z.string().email('Invalid email format').max(254, 'Email too long'),
+  email: z.email({ error: 'Invalid email format' }).max(254, 'Email too long'),
   merchantSlug: z.string().min(1, 'Merchant slug is required'),
 });
 

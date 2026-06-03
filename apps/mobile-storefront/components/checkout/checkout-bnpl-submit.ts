@@ -25,14 +25,15 @@ import type {
 import { createOrder, OrderError, type OrderResponse } from '@/services/orders';
 import type { CartItem } from '@/stores/cart-store';
 import {
-  CHECKOUT_API_BASE_URL,
-  CHECKOUT_MERCHANT_ID,
-  CHECKOUT_MERCHANT_SLUG,
-} from './checkout-screen.constants';
-import {
   buildCheckoutOrderRequest,
   type CheckoutSnapshot,
 } from './checkout-order-builders';
+import {
+  CHECKOUT_API_BASE_URL,
+  CHECKOUT_MERCHANT_DOMAIN,
+  CHECKOUT_MERCHANT_ID,
+  CHECKOUT_MERCHANT_SLUG,
+} from './checkout-screen.constants';
 
 const BNPL_PAYMENT_INIT_TIMEOUT_MS = 10_000;
 
@@ -172,6 +173,9 @@ export async function submitBnplCheckout({
       customerName,
       customerPhone,
       merchantSlug: CHECKOUT_MERCHANT_SLUG,
+      ...(CHECKOUT_MERCHANT_DOMAIN && {
+        merchantDomain: CHECKOUT_MERCHANT_DOMAIN,
+      }),
       ...(orderResponse.order.tracking_token && {
         trackingToken: orderResponse.order.tracking_token,
       }),
@@ -260,6 +264,10 @@ async function initializeKlumpAndRoute({
       customerPhone,
       orderId,
       reference: initData.reference,
+      merchantSlug: CHECKOUT_MERCHANT_SLUG,
+      ...(CHECKOUT_MERCHANT_DOMAIN && {
+        merchantDomain: CHECKOUT_MERCHANT_DOMAIN,
+      }),
       trackingToken,
     }),
   });

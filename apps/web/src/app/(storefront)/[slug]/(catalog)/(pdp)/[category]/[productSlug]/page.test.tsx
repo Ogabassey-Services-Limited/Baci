@@ -199,6 +199,9 @@ vi.mock(
     OgabasseyPdpProductResourceHints: (props: {
       src: string | null | undefined;
     }) => mockOgabasseyPdpProductResourceHints(props),
+    preloadOgabasseyPdpProductResources: (props: {
+      src: string | null | undefined;
+    }) => mockOgabasseyPdpProductResourceHints(props),
   })
 );
 
@@ -335,6 +338,7 @@ function getMockValidatedProductUrl(
 }
 
 vi.mock('@/lib/seo-utils', () => ({
+  buildStorefrontAcceptedPaymentMethods: () => ['Bank transfer'],
   constructCanonicalUrl: (base: string) => base,
   generateBreadcrumbSchema: (items: unknown) =>
     mockGenerateBreadcrumbSchema(items),
@@ -746,7 +750,7 @@ describe('[category]/[productSlug] page metadata', () => {
     });
   });
 
-  it('uses the LCP hint description as the SEO fallback without full hydration', async () => {
+  it('uses generated SEO fallback copy when the compact LCP hint omits rich descriptions', async () => {
     mockGetCachedProductLcpHint.mockResolvedValueOnce({
       id: 'prod-1',
       name: 'HP Laptop 14-ep0063nia',
@@ -760,8 +764,6 @@ describe('[category]/[productSlug] page metadata', () => {
         slug: 'laptops',
       },
       condition: 'new',
-      description:
-        '<p>HP Laptop 14-ep0063nia with reliable warranty and fast delivery.</p>',
       manage_stock: false,
       price: null,
       stock_quantity: 10,
@@ -782,9 +784,10 @@ describe('[category]/[productSlug] page metadata', () => {
     });
 
     expect(mockGetCachedProductWithDetails).not.toHaveBeenCalled();
-    expect(metadata.description).toBe(
-      'HP Laptop 14-ep0063nia with reliable warranty and fast delivery.'
+    expect(metadata.description).toContain(
+      'Check HP Laptop 14-ep0063nia price in Nigeria on TestStore'
     );
+    expect(metadata.description).toContain('payment options');
     expect(metadata.openGraph?.description).toBe(metadata.description);
     expect(metadata.twitter?.description).toBe(metadata.description);
   });
@@ -931,7 +934,7 @@ describe('[category]/[productSlug] page metadata', () => {
     });
   });
 
-  it('preserves lower active condition offer prices in LCP hint metadata', async () => {
+  it('does not use condition offer joins in compact LCP hint metadata', async () => {
     mockGetCachedProductLcpHint.mockResolvedValueOnce({
       id: 'prod-1',
       name: 'HP Laptop 14-ep0063nia',
@@ -985,7 +988,7 @@ describe('[category]/[productSlug] page metadata', () => {
 
     expect(mockGetCachedProductWithDetails).not.toHaveBeenCalled();
     expect(metadata.other).toMatchObject({
-      'product:price:amount': '525000',
+      'product:price:amount': '645600',
       'product:price:currency': 'NGN',
     });
   });
@@ -1824,8 +1827,8 @@ describe('[category]/[productSlug] page render', () => {
     });
     expect(routeEvents).toEqual([
       'lcp-hint',
-      'product-details',
       'product-hints',
+      'product-details',
     ]);
     expect(mockPreloadOgabasseyPdpStaticResources).toHaveBeenCalledTimes(1);
     expect(mockOgabasseyProductDetailsPage).not.toHaveBeenCalled();
@@ -1887,8 +1890,8 @@ describe('[category]/[productSlug] page render', () => {
     expect(routeEvents).toEqual([
       'lcp-hint',
       'base-path',
-      'product-details',
       'product-hints',
+      'product-details',
     ]);
     render(
       await resolveRsc(resolvedPage, {
@@ -2575,10 +2578,11 @@ describe('[category]/[productSlug] page render', () => {
         supportEmail: 'support@test.example',
         supportPhone: '+2348000000000',
       }),
-      {
+      expect.objectContaining({
+        acceptedPaymentMethods: ['Bank transfer'],
         productUrl:
           'https://teststore.usebaci.com/smartphones/samsung-galaxy-z-trifold',
-      }
+      })
     );
   });
 
@@ -2631,7 +2635,10 @@ describe('[category]/[productSlug] page render', () => {
       'NG',
       null,
       expect.any(Object),
-      { productUrl: expectedCanonicalUrl }
+      expect.objectContaining({
+        acceptedPaymentMethods: ['Bank transfer'],
+        productUrl: expectedCanonicalUrl,
+      })
     );
     expect(mockGenerateBreadcrumbSchema).toHaveBeenCalledWith(
       expect.arrayContaining([
@@ -2691,7 +2698,10 @@ describe('[category]/[productSlug] page render', () => {
       'NG',
       null,
       expect.any(Object),
-      { productUrl: expectedCanonicalUrl }
+      expect.objectContaining({
+        acceptedPaymentMethods: ['Bank transfer'],
+        productUrl: expectedCanonicalUrl,
+      })
     );
     expect(mockGenerateBreadcrumbSchema).toHaveBeenCalledWith(
       expect.arrayContaining([

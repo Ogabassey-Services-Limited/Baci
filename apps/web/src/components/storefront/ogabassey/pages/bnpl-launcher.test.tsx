@@ -437,6 +437,58 @@ describe('BnplLauncher', () => {
     });
   });
 
+  it('shows a Klump invalid-total error without using the generic launch error path', async () => {
+    mockSearchParams.mockReturnValue(
+      new URLSearchParams({
+        orderId: 'order-1',
+        gateway: 'klump',
+        merchant_slug: 'test-store',
+        reference: 'BAC-ABCD12345678',
+        trackingToken: 'tok-123',
+      })
+    );
+    vi.stubEnv('NEXT_PUBLIC_KLUMP_PUBLIC_KEY', 'klp_pk_test_123');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          id: 'order-1',
+          tracking_token: 'track-order-token',
+          total: 'not-a-number',
+          customer_email: 'customer@example.com',
+          customer_phone: '08012345678',
+          customer_name: 'John Doe',
+          items: [
+            {
+              product_id: 'product-1',
+              name: 'Capsule',
+              price: 1000,
+              quantity: 1,
+            },
+          ],
+        }),
+      })
+    );
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const appendScriptSpy = vi.spyOn(document.head, 'appendChild');
+    window.Klump = undefined;
+
+    try {
+      render(<BnplLauncher />);
+
+      expect(
+        await screen.findByText('Invalid order total for Klump checkout.')
+      ).toBeInTheDocument();
+      expect(mockKlumpConstructor).not.toHaveBeenCalled();
+      expect(appendScriptSpy).not.toHaveBeenCalled();
+      expect(errorSpy).not.toHaveBeenCalled();
+    } finally {
+      appendScriptSpy.mockRestore();
+      errorSpy.mockRestore();
+    }
+  });
+
   it('does not mark Klump checkout cancelled when success redirect is pending', async () => {
     mockSearchParams.mockReturnValue(
       new URLSearchParams({
@@ -501,6 +553,9 @@ describe('BnplLauncher', () => {
         screen.queryByText('Payment cancelled. Please try again.')
       ).not.toBeInTheDocument();
     });
+    await waitFor(() => {
+      expect(window.localStorage.getItem(KLUMP_REDIRECT_URL_KEY)).toBeNull();
+    });
   });
 
   it('marks Klump checkout cancelled when the stored SDK redirect belongs to a previous checkout', async () => {
@@ -535,6 +590,40 @@ describe('BnplLauncher', () => {
         screen.getByText('Payment cancelled. Please try again.')
       ).toBeInTheDocument();
     });
+  });
+
+  it('clears a stale matching Klump redirect before a new checkout cancellation', async () => {
+    mockSearchParams.mockReturnValue(
+      new URLSearchParams({
+        orderId: 'order-1',
+        gateway: 'klump',
+        merchant_slug: 'test-store',
+        reference: 'BAC-ABCD12345678',
+        trackingToken: 'tok-123',
+      })
+    );
+    vi.stubEnv('NEXT_PUBLIC_KLUMP_PUBLIC_KEY', 'klp_pk_test_123');
+    const staleRedirectUrl =
+      'http://localhost:3000/checkout/bnpl?gateway=klump&klump_callback=1&merchant_slug=test-store&orderId=order-1&reference=BAC-ABCD12345678&type=klump&trackingToken=tok-123';
+    window.localStorage.setItem(KLUMP_REDIRECT_URL_KEY, staleRedirectUrl);
+
+    render(<BnplLauncher />);
+
+    await waitFor(() => {
+      expect(mockKlumpConstructor).toHaveBeenCalled();
+    });
+
+    const config = mockKlumpConstructor.mock.calls[0][0] as {
+      onClose?: () => void;
+    };
+    config.onClose?.();
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Payment cancelled. Please try again.')
+      ).toBeInTheDocument();
+    });
+    expect(window.localStorage.getItem(KLUMP_REDIRECT_URL_KEY)).toBeNull();
   });
 
   it('uses the Klump global binding when the SDK does not attach itself to window', async () => {

@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
     const parsed = _jumiaConnectSchema.safeParse(rawBody);
     if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Invalid input', details: parsed.error.flatten() },
+        { error: 'Invalid input', details: z.flattenError(parsed.error) },
         { status: 400 }
       );
     }
@@ -217,7 +217,7 @@ export async function GET(request: NextRequest) {
       connectionType === 'oauth' &&
       searchParams.get('platform') === 'mobile'
     ) {
-      const ticketParsed = z.string().uuid().safeParse(ticket);
+      const ticketParsed = z.uuid().safeParse(ticket);
       if (!ticketParsed.success) {
         return NextResponse.redirect(
           createJumiaMobileReturnUrl({ error: 'invalid_ticket' })

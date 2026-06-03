@@ -75,7 +75,9 @@ export function resetMockCreateClient() {
 export function buildCachedDataTestHarness(): CachedDataTestHarness {
   vi.clearAllMocks();
 
-  const mockMaybeSingle = vi.fn();
+  const mockMaybeSingle = vi
+    .fn()
+    .mockResolvedValue({ data: null, error: null });
   const mockListResult: MockListResult = { data: [], error: null };
   const mockIn = vi.fn();
   const mockLimit = vi.fn();

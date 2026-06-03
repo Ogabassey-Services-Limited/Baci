@@ -66,7 +66,8 @@ export function toKlumpIntegerAmount(
     return 0;
   }
 
-  return Math.round(amount);
+  // Klump requires integer NGN amounts; ceiling avoids settling an order after a fractional underpayment.
+  return Math.ceil(amount);
 }
 
 export function buildKlumpItems(order: BnplOrder) {

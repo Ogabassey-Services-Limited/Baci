@@ -48,7 +48,7 @@ interface ManifestHealthMerchant {
   slug: string;
 }
 
-const recordSchema = z.object({}).passthrough();
+const recordSchema = z.looseObject({});
 const stringArraySchema = z.array(z.string());
 
 function getRecord(value: unknown): Record<string, unknown> | null {

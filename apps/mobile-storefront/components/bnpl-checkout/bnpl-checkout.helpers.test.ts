@@ -86,6 +86,18 @@ describe('bnpl-checkout helpers', () => {
         apiBaseUrl: 'https://usebaci.com',
         currentDocumentUrl:
           'https://usebaci.com/ogabassey/checkout/bnpl?gateway=credit_direct&orderId=order-1',
+        isTopFrame: true,
+        requestUrl: 'https://connect.withmono.com/widget/session-123',
+      })
+    ).toEqual({
+      reason: 'allowed',
+      shouldStart: true,
+    });
+    expect(
+      resolveBNPLDocumentNavigation({
+        apiBaseUrl: 'https://usebaci.com',
+        currentDocumentUrl:
+          'https://usebaci.com/ogabassey/checkout/bnpl?gateway=credit_direct&orderId=order-1',
         requestUrl: 'https://checkout.creditdirect.ng/bnpl/#/session',
       })
     ).toEqual({
@@ -94,7 +106,27 @@ describe('bnpl-checkout helpers', () => {
     });
   });
 
-  it('allows custom domain matches when merchantSlug is provided', () => {
+  it('allows custom domain matches when merchantDomain is provided', () => {
+    expect(
+      resolveBNPLDocumentNavigation({
+        apiBaseUrl: 'https://usebaci.com',
+        currentDocumentUrl:
+          'https://usebaci.com/ogabassey/checkout/bnpl?gateway=credit_direct&orderId=order-1',
+        isTopFrame: true,
+        requestUrl:
+          'https://ogabassey.com/checkout/bnpl?gateway=credit_direct&orderId=order-1',
+        merchantSlug: 'ogabassey',
+        merchantDomain: 'ogabassey.com',
+      })
+    ).toEqual({
+      nextUrl:
+        'https://ogabassey.com/checkout/bnpl?gateway=credit_direct&orderId=order-1',
+      reason: 'allowed',
+      shouldStart: true,
+    });
+  });
+
+  it('blocks custom domain matches when no merchantDomain is provided', () => {
     expect(
       resolveBNPLDocumentNavigation({
         apiBaseUrl: 'https://usebaci.com',
@@ -108,18 +140,34 @@ describe('bnpl-checkout helpers', () => {
     ).toEqual({
       nextUrl:
         'https://ogabassey.com/checkout/bnpl?gateway=credit_direct&orderId=order-1',
-      reason: 'allowed',
-      shouldStart: true,
+      reason: 'untrusted',
+      shouldStart: false,
+    });
+
+    expect(
+      resolveBNPLDocumentNavigation({
+        apiBaseUrl: 'https://usebaci.com',
+        currentDocumentUrl:
+          'https://usebaci.com/ogabassey/checkout/bnpl?gateway=credit_direct&orderId=order-1',
+        isTopFrame: true,
+        requestUrl:
+          'https://evil.example/checkout/bnpl?gateway=credit_direct&orderId=order-1',
+        merchantSlug: 'evil.example',
+      })
+    ).toEqual({
+      nextUrl:
+        'https://evil.example/checkout/bnpl?gateway=credit_direct&orderId=order-1',
+      reason: 'untrusted',
+      shouldStart: false,
     });
   });
 });
 
 describe('BNPL_INJECTED_JAVASCRIPT', () => {
   it('captures resource error events so failed provider scripts are reported', () => {
-    expect(BNPL_INJECTED_JAVASCRIPT).toContain(
-      "window.addEventListener('error', function(event)"
+    expect(BNPL_INJECTED_JAVASCRIPT).toMatch(
+      /window\.addEventListener\('error',\s*function\(event\)[\s\S]*}, true\);/
     );
-    expect(BNPL_INJECTED_JAVASCRIPT).toContain('}, true);');
   });
 });
 
@@ -147,6 +195,15 @@ describe('areBNPLCheckoutUrlsEquivalent', () => {
       'https://usebaci.com/ogabassey/checkout/bnpl?gateway=credit_direct&merchant_slug=ogabassey&orderId=order-123&token=track-123';
 
     expect(areBNPLCheckoutUrlsEquivalent(urlA, urlB, 'ogabassey')).toBe(true);
+  });
+
+  it('does not treat a different merchant context as the current checkout document', () => {
+    const urlA =
+      'https://ogabassey.com/checkout/bnpl?gateway=credit_direct&merchant_slug=other-store&orderId=order-123&token=track-123';
+    const urlB =
+      'https://usebaci.com/ogabassey/checkout/bnpl?gateway=credit_direct&merchant_slug=ogabassey&orderId=order-123&token=track-123';
+
+    expect(areBNPLCheckoutUrlsEquivalent(urlA, urlB, 'ogabassey')).toBe(false);
   });
 
   it('returns false if meaningful parameters do not match', () => {
@@ -198,6 +255,15 @@ describe('areBNPLCheckoutUrlsEquivalent', () => {
       'https://ogabassey.com/products/gadget?gateway=credit_direct&orderId=order-123';
     const urlB =
       'https://usebaci.com/ogabassey/products/gadget?gateway=credit_direct&orderId=order-123';
+    expect(areBNPLCheckoutUrlsEquivalent(urlA, urlB, 'ogabassey')).toBe(false);
+  });
+
+  it('does not treat another merchant BNPL path as the current merchant document', () => {
+    const urlA =
+      'https://usebaci.com/other-merchant/checkout/bnpl?gateway=credit_direct&orderId=order-123';
+    const urlB =
+      'https://usebaci.com/ogabassey/checkout/bnpl?gateway=credit_direct&orderId=order-123';
+
     expect(areBNPLCheckoutUrlsEquivalent(urlA, urlB, 'ogabassey')).toBe(false);
   });
 

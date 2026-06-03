@@ -21,21 +21,6 @@ jest.mock('react-native-gesture-handler', () => {
       </View>
     ),
     Touchable: Pressable,
-    Gesture: {
-      Simultaneous: jest.fn((...args) => args),
-    },
-    usePanGesture: jest.fn((config: unknown) => ({
-      config,
-      type: 'pan',
-    })),
-    useTapGesture: jest.fn((config: unknown) => ({
-      config,
-      type: 'tap',
-    })),
-    useSimultaneousGestures: jest.fn((...gestures: unknown[]) => ({
-      gestures,
-      type: 'simultaneous',
-    })),
   };
 });
 
@@ -56,8 +41,7 @@ jest.mock('./use-chat', () => ({
 
 jest.mock('./use-draggable-fab', () => ({
   useDraggableFab: jest.fn(() => ({
-    panGesture: {},
-    tapGesture: {},
+    composedGesture: {},
     translateX: { value: 0 },
     translateY: { value: 0 },
     scale: { get: () => 1, value: 1 },
@@ -74,7 +58,6 @@ jest.mock('./use-proactive-nudge', () => ({
       addListener: jest.fn(),
       removeListener: jest.fn(),
       setValue: jest.fn(),
-      value: 0,
     },
     dismissNudge: jest.fn(),
   })),

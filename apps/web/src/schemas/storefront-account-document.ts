@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const storefrontAccountDocumentParamsSchema = z.object({
-  id: z.string().uuid(),
+  id: z.uuid(),
 });
 
 export const storefrontAccountDocumentQuerySchema = z.object({

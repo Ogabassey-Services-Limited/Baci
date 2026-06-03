@@ -13,31 +13,27 @@ import {
 import { calculateCommerce, supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/auth-store';
 import {
+  getRedeemPointValidationError,
+  redemptionBalanceSnapshotKey,
+} from './loyalty-redemption-utils';
+import {
   type WalletQueryData,
   type WalletQueryKey,
   walletKeys,
 } from './wallet-query';
-import {
-  getRedeemPointValidationError,
-  redemptionBalanceSnapshotKey,
-} from './loyalty-redemption-utils';
 
 const RedeemLoyaltyRpcResponseSchema = z.discriminatedUnion('success', [
-  z
-    .object({
-      success: z.literal(true),
-      wallet_credited: z.number().finite(),
-      points_deducted: z.number().finite(),
-      new_points_balance: z.number().finite(),
-      new_wallet_balance: z.number().finite(),
-    })
-    .strict(),
-  z
-    .object({
-      success: z.literal(false),
-      error: z.string().optional(),
-    })
-    .strict(),
+  z.strictObject({
+    success: z.literal(true),
+    wallet_credited: z.number().finite(),
+    points_deducted: z.number().finite(),
+    new_points_balance: z.number().finite(),
+    new_wallet_balance: z.number().finite(),
+  }),
+  z.strictObject({
+    success: z.literal(false),
+    error: z.string().optional(),
+  }),
 ]);
 
 export function useRedeemPoints() {

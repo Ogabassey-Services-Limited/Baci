@@ -6,5 +6,5 @@ export const agenticOrderRouteParamsSchema = z.object({
     .trim()
     .min(1, 'Order id is required')
     .max(255, 'Order id is too long')
-    .uuid('Order id must be a UUID'),
+    .pipe(z.uuid('Order id must be a UUID')),
 });

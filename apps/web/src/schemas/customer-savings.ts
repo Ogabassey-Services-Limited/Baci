@@ -41,12 +41,16 @@ const preferredDebitTimeSchema = z
   .optional();
 
 const amountSchema = z.coerce
-  .number({ message: 'Amount must be a valid number' })
+  .number({
+    error: 'Amount must be a valid number',
+  })
   .finite('Amount cannot be Infinity or NaN')
   .positive('Amount must be greater than zero');
 
 const nonNegativeAmountSchema = z.coerce
-  .number({ message: 'Amount must be a valid number' })
+  .number({
+    error: 'Amount must be a valid number',
+  })
   .finite('Amount cannot be Infinity or NaN')
   .min(0, 'Amount cannot be negative');
 
@@ -74,7 +78,7 @@ export const customerSavingsCreateGoalSchema = merchantIdentifierObjectSchema
     maturityDate: isoDateSchema,
     nonWithdrawableAccepted: z.literal(true),
     preferredDebitTime: preferredDebitTimeSchema,
-    productId: z.string().uuid('Product id must be a valid UUID'),
+    productId: z.uuid('Product id must be a valid UUID'),
     savedPaymentMethodId: optionalUuid,
     sourceMode: z.enum(['manual', 'auto_debit']),
     startDate: isoDateSchema,
@@ -89,7 +93,7 @@ export const customerSavingsCreateGoalSchema = merchantIdentifierObjectSchema
     if (data.sourceMode === 'auto_debit') {
       if (!data.savedPaymentMethodId) {
         ctx.addIssue({
-          code: z.ZodIssueCode.custom,
+          code: 'custom',
           message: 'Saved payment method is required for auto debit',
           path: ['savedPaymentMethodId'],
         });
@@ -97,7 +101,7 @@ export const customerSavingsCreateGoalSchema = merchantIdentifierObjectSchema
 
       if (data.autoDebitAuthorized !== true) {
         ctx.addIssue({
-          code: z.ZodIssueCode.custom,
+          code: 'custom',
           message: 'Auto-debit consent is required',
           path: ['autoDebitAuthorized'],
         });
@@ -106,7 +110,7 @@ export const customerSavingsCreateGoalSchema = merchantIdentifierObjectSchema
 
     if (data.maturityDate < data.startDate) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: 'Maturity date cannot be before start date',
         path: ['maturityDate'],
       });
@@ -114,7 +118,7 @@ export const customerSavingsCreateGoalSchema = merchantIdentifierObjectSchema
 
     if (data.initialContributionAmount > data.targetAmount) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: 'Initial contribution cannot exceed target amount',
         path: ['initialContributionAmount'],
       });
@@ -126,7 +130,7 @@ export const customerSavingsManualContributionSchema =
     .extend({
       amount: amountSchema,
       description: optionalNonEmptyString,
-      goalId: z.string().uuid('Goal id must be a valid UUID'),
+      goalId: z.uuid('Goal id must be a valid UUID'),
       idempotencyKey: z.preprocess(
         (value) => (typeof value === 'string' ? value : ''),
         z.string().trim().min(1, 'idempotencyKey is required')
@@ -136,7 +140,7 @@ export const customerSavingsManualContributionSchema =
 
 export const customerSavingsGoalActionSchema = merchantIdentifierObjectSchema
   .extend({
-    goalId: z.string().uuid('Goal id must be a valid UUID'),
+    goalId: z.uuid('Goal id must be a valid UUID'),
   })
   .superRefine(requireMerchantIdentifier);
 

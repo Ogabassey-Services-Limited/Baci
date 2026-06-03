@@ -15,7 +15,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 
 const bodySchema = z.object({
   code: z.string().min(1).max(2048),
-  ticketId: z.string().uuid(),
+  ticketId: z.uuid(),
 });
 
 /**
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
     const parsed = bodySchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Invalid input', details: parsed.error.flatten() },
+        { error: 'Invalid input', details: z.flattenError(parsed.error) },
         { status: 400 }
       );
     }

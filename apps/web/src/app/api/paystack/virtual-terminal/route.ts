@@ -23,8 +23,8 @@ import { createClient } from '@/lib/supabase/server';
 
 const CreateTerminalSchema = z.object({
   name: z.string().min(2, 'Account name must be at least 2 characters'),
-  staffId: z.string().uuid().optional(), // Optional staff assignment
-  branchId: z.string().uuid().optional(), // Optional branch assignment
+  staffId: z.uuid().optional(), // Optional staff assignment
+  branchId: z.uuid().optional(), // Optional branch assignment
   destinations: z
     .array(
       z.object({

@@ -5,28 +5,25 @@ import { constantTimeEqual } from '@/lib/constant-time-equal';
 
 const QUIZ_VOUCHER_TOKEN_VERSION = 'qv1';
 
-const quizVoucherTokenPayloadSchema = z
-  .object({
-    awardId: z.string().uuid(),
-    condition: z
-      .string()
-      .trim()
-      .min(1)
-      .max(64)
-      .nullable()
-      .optional()
-      .transform((value) => value ?? null),
-    expiresAt: z.string().datetime({ offset: true }),
-    productId: z.string().uuid(),
-    userId: z.string().uuid(),
-    variantId: z
-      .string()
-      .uuid()
-      .nullable()
-      .optional()
-      .transform((value) => value ?? null),
-  })
-  .strict();
+const quizVoucherTokenPayloadSchema = z.strictObject({
+  awardId: z.uuid(),
+  condition: z
+    .string()
+    .trim()
+    .min(1)
+    .max(64)
+    .nullable()
+    .optional()
+    .transform((value) => value ?? null),
+  expiresAt: z.iso.datetime({ offset: true }),
+  productId: z.uuid(),
+  userId: z.uuid(),
+  variantId: z
+    .uuid()
+    .nullable()
+    .optional()
+    .transform((value) => value ?? null),
+});
 
 export type QuizVoucherTokenPayload = z.infer<
   typeof quizVoucherTokenPayloadSchema

@@ -239,8 +239,8 @@ const serverSchema = z
     // Monnify (Identity verification)
     MONNIFY_API_KEY: z.string().optional(),
     MONNIFY_SECRET_KEY: z.string().optional(),
-    MONNIFY_BASE_URL: z.string().url().default('https://api.monnify.com'),
-    CAC_API_URL: z.string().url().default(DEFAULT_CAC_API_URL),
+    MONNIFY_BASE_URL: z.url().default('https://api.monnify.com'),
+    CAC_API_URL: z.url().default(DEFAULT_CAC_API_URL),
     CAC_TIN_API_BASE_URL: z
       .string()
       .url()

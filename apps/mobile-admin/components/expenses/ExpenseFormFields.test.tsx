@@ -20,14 +20,18 @@ vi.mock('@/hooks/useTheme', () => ({
 
 vi.mock('@/components/ui/SafeImage', () => ({
   default: ({ source }: { source?: { uri?: string } }) => (
-    <div aria-label="Receipt preview" data-src={source?.uri} role="img" />
+    <img alt="Receipt preview" data-src={source?.uri} />
   ),
 }));
 
 vi.mock('@react-native-vector-icons/ionicons', () => ({
-  Ionicons: () => <span>icon</span>,
+  Ionicons: ({ name }: { name: string }) => (
+    <span aria-hidden="true" data-icon={name} />
+  ),
 
-  default: () => <span>icon</span>,
+  default: ({ name }: { name: string }) => (
+    <span aria-hidden="true" data-icon={name} />
+  ),
   __esModule: true,
 }));
 

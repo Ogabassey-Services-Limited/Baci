@@ -160,7 +160,11 @@ export function OgabasseyPdpCriticalShell({
             <picture data-ogabassey-pdp-picture>
               <source {...mobileSourceProps} />
               {/* biome-ignore lint/performance/noImgElement: Server-generated native img avoids passing a loader function through the RSC payload. */}
-              <img {...productImageProps} data-ogabassey-pdp-image="true" />
+              <img
+                {...productImageProps}
+                alt={product.name}
+                data-ogabassey-pdp-image="true"
+              />
             </picture>
             <span data-ogabassey-pdp-condition>
               {product.condition}

@@ -7,7 +7,7 @@ import { type ReactNode, Suspense } from 'react';
 import { StorefrontRouteNotFound } from '@/app/(storefront)/[slug]/storefront-route-not-found';
 import { getStorefrontShellSnapshotBase } from '@/app/(storefront)/[slug]/storefront-shell-snapshot';
 import { OgabasseyPdpProductLcpSkeleton } from '@/app/(storefront)/ogabassey/ogabassey-pdp-product-lcp-skeleton';
-import { OgabasseyPdpProductResourceHints } from '@/app/(storefront)/ogabassey/ogabassey-pdp-product-resource-hints';
+import { preloadOgabasseyPdpProductResources } from '@/app/(storefront)/ogabassey/ogabassey-pdp-product-resource-hints';
 import { preloadOgabasseyPdpStaticResources } from '@/app/(storefront)/ogabassey/ogabassey-pdp-static-resource-hints';
 import { OgabasseyPdpBelowFoldIsland } from '@/components/storefront/ogabassey/pdp/client-islands';
 import { createCriticalCartProduct } from '@/components/storefront/ogabassey/pdp/critical-cart-product';
@@ -37,12 +37,15 @@ import {
   getRequestScopedMerchant,
   sanitizeLookupLogValue,
 } from '@/lib/cached-data';
+import { isKorapayConfigured } from '@/lib/korapay';
 import { normalizeStorefrontCategorySlug } from '@/lib/normalize-storefront-category-slug';
+import { isPaystackConfigured } from '@/lib/paystack';
 import { getEffectiveStock } from '@/lib/product-stock';
 import type { Product, ProductCondition } from '@/lib/products';
 import { stripHtmlTags } from '@/lib/sanitize-core';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
+  buildStorefrontAcceptedPaymentMethods,
   generateBreadcrumbSchema,
   generateMetaDescription,
   generateMetaTitle,
@@ -513,23 +516,6 @@ function parseRouteProductNumber(value: unknown): number | null {
   return null;
 }
 
-const PRODUCT_CONDITIONS = ['new', 'used', 'open_box', 'refurbished'] as const;
-
-function normalizeRouteProductCondition(
-  value: unknown
-): ProductCondition | null {
-  if (typeof value !== 'string') {
-    return null;
-  }
-
-  const normalized = value.trim();
-  return PRODUCT_CONDITIONS.includes(
-    normalized as (typeof PRODUCT_CONDITIONS)[number]
-  )
-    ? (normalized as ProductCondition)
-    : null;
-}
-
 function getLcpRouteLegacyPrices(cachedProduct: CachedProductLcpHint) {
   const price = parseRouteProductNumber(cachedProduct.price);
   const compareAtPrice = parseRouteProductNumber(
@@ -544,44 +530,6 @@ function getLcpRouteLegacyPrices(cachedProduct: CachedProductLcpHint) {
     price: price ?? compareAtPrice,
     salePrice: hasSale ? price : null,
   };
-}
-
-function mapCachedProductLcpOffers(
-  cachedProduct: CachedProductLcpHint
-): LcpRouteProduct['offers'] {
-  if (!Array.isArray(cachedProduct.offers)) {
-    return undefined;
-  }
-
-  const productCondition = normalizeRouteProductCondition(
-    cachedProduct.condition
-  );
-  const offers = cachedProduct.offers.flatMap((offer) => {
-    const condition = normalizeRouteProductCondition(offer?.condition);
-    const price = parseRouteProductNumber(offer?.price);
-
-    if (
-      offer?.status !== 'active' ||
-      !condition ||
-      condition === productCondition ||
-      price === null ||
-      price < 0
-    ) {
-      return [];
-    }
-
-    return [
-      {
-        id: offer.id,
-        condition,
-        price,
-        status: offer.status,
-        stock_quantity: parseRouteProductNumber(offer.stock_quantity) ?? 0,
-      },
-    ];
-  });
-
-  return offers.length > 0 ? offers : undefined;
 }
 
 function mapCachedProductLcpHintToRouteProduct(
@@ -613,11 +561,10 @@ function mapCachedProductLcpHintToRouteProduct(
     category_slug: primaryCategory?.slug,
     condition: cachedProduct.condition ?? undefined,
     compare_at_price: legacyPrices.compareAtPrice,
-    description: cachedProduct.description,
     id: cachedProduct.id,
+    keywords: cachedProduct.keywords,
     image: primaryImage,
     imageLarge: primaryImage,
-    keywords: cachedProduct.keywords,
     manage_stock: manageStock,
     max_variant_price: canUseDenormalizedVariantPrices
       ? parseRouteProductNumber(cachedProduct.max_variant_price)
@@ -628,7 +575,6 @@ function mapCachedProductLcpHintToRouteProduct(
       ? parseRouteProductNumber(cachedProduct.min_variant_price)
       : null,
     name: cachedProduct.name,
-    offers: mapCachedProductLcpOffers(cachedProduct),
     price: legacyPrices.price,
     sale_price: legacyPrices.salePrice,
     schema_markup: cachedProduct.schema_markup,
@@ -1122,7 +1068,14 @@ async function CategoryProductPageContent({
     merchant?.country || 'NG',
     merchant?.logo_url,
     trustProfile,
-    { productUrl }
+    {
+      acceptedPaymentMethods: buildStorefrontAcceptedPaymentMethods(merchant, {
+        korapayConfigured: isKorapayConfigured(),
+        paystackConfigured: isPaystackConfigured(),
+        currency,
+      }),
+      productUrl,
+    }
   );
 
   // Generate breadcrumb schema with category
@@ -1252,6 +1205,10 @@ export default async function CategoryProductPage({
     : Promise.resolve<'' | `/${string}`>('');
 
   try {
+    if (primaryProductImage) {
+      preloadOgabasseyPdpProductResources({ src: primaryProductImage });
+    }
+
     if (criticalProduct) {
       preloadOgabasseyPdpStaticResources();
     }
@@ -1267,9 +1224,6 @@ export default async function CategoryProductPage({
 
   return (
     <>
-      {primaryProductImage ? (
-        <OgabasseyPdpProductResourceHints src={primaryProductImage} />
-      ) : null}
       {criticalProduct ? (
         <>
           <OgabasseyPdpCriticalShell

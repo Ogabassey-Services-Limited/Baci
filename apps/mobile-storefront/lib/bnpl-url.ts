@@ -8,10 +8,12 @@ const BNPL_PROVIDER_POPUP_ORIGINS = new Set([
   'https://checkout.creditdirect.ng',
   'https://checkout.credpal.com',
   'https://connect.mono.co',
+  'https://connect.withmono.com',
   'https://corporate-loans.obs.sa-brazil-1.myhuaweicloud.com',
   'https://checkout.useklump.com',
   'https://checkout-v2.useklump.com',
   'https://directdebit.useklump.com',
+  'https://store.useklump.com',
   'https://api.useklump.com',
   'https://js.useklump.com',
   'https://asset.useklump.com',
@@ -160,10 +162,38 @@ export function buildKlumpAuthorizationUrl({
   return parsedUrl.toString();
 }
 
+export function normalizeBNPLMerchantDomain(domain?: string | null) {
+  const candidate = domain?.trim().toLowerCase();
+  if (!candidate) return undefined;
+
+  const withoutProtocol = candidate
+    .replace(/^https?:\/\//, '')
+    .replace(/\/$/, '');
+  if (!MERCHANT_DOMAIN_SLUG_PATTERN.test(withoutProtocol)) {
+    return undefined;
+  }
+
+  return withoutProtocol;
+}
+
+export function isTrustedBNPLMerchantDomainHost(
+  targetHostname: string,
+  merchantDomain?: string | null
+) {
+  const normalizedDomain = normalizeBNPLMerchantDomain(merchantDomain);
+  if (!normalizedDomain) return false;
+
+  const normalizedHost = targetHostname.trim().toLowerCase();
+  return (
+    normalizedHost === normalizedDomain ||
+    normalizedHost === `www.${normalizedDomain}`
+  );
+}
+
 function isBaciReturnOrigin(
   targetUrl: URL,
   baseUrl: string,
-  merchantSlug?: string
+  merchantDomain?: string
 ) {
   try {
     const base = new URL(baseUrl);
@@ -181,22 +211,10 @@ function isBaciReturnOrigin(
       return true;
     }
 
-    // Trust custom domains and subdomains based on merchant slug
-    if (merchantSlug) {
-      const cleanSlug = merchantSlug.trim().toLowerCase();
+    if (targetUrl.protocol === 'https:') {
       const targetHost = targetUrl.hostname.toLowerCase();
-      if (targetUrl.protocol !== 'https:') {
-        return false;
-      }
-      const isMerchantDomainSlug = MERCHANT_DOMAIN_SLUG_PATTERN.test(cleanSlug);
 
-      if (
-        (isMerchantDomainSlug &&
-          (targetHost === cleanSlug || targetHost === `www.${cleanSlug}`)) ||
-        (cleanSlug === 'ogabassey' &&
-          (targetHost === 'ogabassey.com' ||
-            targetHost === 'www.ogabassey.com'))
-      ) {
+      if (isTrustedBNPLMerchantDomainHost(targetHost, merchantDomain)) {
         return true;
       }
     }
@@ -207,10 +225,30 @@ function isBaciReturnOrigin(
   return false;
 }
 
+export function isTrustedBnplReturnUrl(
+  targetUrl: string,
+  baseUrl: string,
+  _merchantSlug?: string,
+  merchantDomain?: string
+) {
+  try {
+    const parsedTargetUrl = new URL(targetUrl);
+
+    if (!['https:', 'http:'].includes(parsedTargetUrl.protocol)) {
+      return false;
+    }
+
+    return isBaciReturnOrigin(parsedTargetUrl, baseUrl, merchantDomain);
+  } catch {
+    return false;
+  }
+}
+
 export function isAllowedBnplPopupUrl(
   targetUrl: string,
   baseUrl: string,
-  merchantSlug?: string
+  _merchantSlug?: string,
+  merchantDomain?: string
 ) {
   try {
     const parsedTargetUrl = new URL(targetUrl);
@@ -221,7 +259,7 @@ export function isAllowedBnplPopupUrl(
 
     return (
       BNPL_PROVIDER_POPUP_ORIGINS.has(parsedTargetUrl.origin) ||
-      isBaciReturnOrigin(parsedTargetUrl, baseUrl, merchantSlug)
+      isBaciReturnOrigin(parsedTargetUrl, baseUrl, merchantDomain)
     );
   } catch {
     return false;

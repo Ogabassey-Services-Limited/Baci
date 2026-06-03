@@ -85,6 +85,7 @@ export function useProductDetailsState(serverProduct: Product) {
     useCart();
   const { toast } = useToast();
   const { isSaved, toggleSaved } = useV2Saved();
+  const checkoutRedirectTimeoutRef = useRef<number | null>(null);
 
   const basePath = merchantContext?.basePath || '';
   const merchantName =
@@ -259,6 +260,15 @@ export function useProductDetailsState(serverProduct: Product) {
     currentVariantSelection ?? currentVariantDisplaySelection;
 
   useEffect(() => {
+    return () => {
+      if (checkoutRedirectTimeoutRef.current !== null) {
+        window.clearTimeout(checkoutRedirectTimeoutRef.current);
+        checkoutRedirectTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     const action = searchParams.get('action');
     if (action === 'buy' && !buyActionHandled.current) {
       buyActionHandled.current = true;
@@ -314,7 +324,11 @@ export function useProductDetailsState(serverProduct: Product) {
         title: 'Added to cart',
         description: `${serverProduct.name} has been added to your cart.`,
       });
-      setTimeout(() => {
+      if (checkoutRedirectTimeoutRef.current !== null) {
+        window.clearTimeout(checkoutRedirectTimeoutRef.current);
+      }
+      checkoutRedirectTimeoutRef.current = window.setTimeout(() => {
+        checkoutRedirectTimeoutRef.current = null;
         router.push(asRoute(basePath ? `${basePath}/checkout` : '/checkout'));
       }, 500);
     }

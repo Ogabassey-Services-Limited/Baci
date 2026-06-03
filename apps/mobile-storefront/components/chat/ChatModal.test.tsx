@@ -1,7 +1,13 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { render, screen } from '@testing-library/react-native';
 import type { ReactNode, RefObject } from 'react';
-import { Platform, StyleSheet, type TextInput } from 'react-native';
+import {
+  Modal,
+  Platform,
+  StyleSheet,
+  type TextInput,
+  type ViewProps,
+} from 'react-native';
 import { ChatModal } from './ChatModal';
 import type { ChatMessage } from './types';
 
@@ -24,6 +30,7 @@ const mockUseSafeAreaInsets = jest.fn(() => ({
   right: 0,
   top: 0,
 }));
+const mockUseSafeAreaInsetsProviderState = jest.fn();
 
 jest.mock('@shopify/flash-list', () => {
   const React = jest.requireActual('react') as typeof import('react');
@@ -59,9 +66,34 @@ jest.mock('@/hooks/use-keyboard', () => ({
   useKeyboard: () => mockUseKeyboard(),
 }));
 
-jest.mock('react-native-safe-area-context', () => ({
-  useSafeAreaInsets: () => mockUseSafeAreaInsets(),
-}));
+jest.mock('react-native-safe-area-context', () => {
+  const React = jest.requireActual('react') as typeof import('react');
+  const { View } =
+    jest.requireActual<typeof import('react-native')>('react-native');
+  const SafeAreaContext = React.createContext(false);
+
+  return {
+    SafeAreaProvider: ({
+      children,
+      ...props
+    }: { children?: ReactNode } & ViewProps) => {
+      return React.createElement(
+        SafeAreaContext.Provider,
+        { value: true },
+        React.createElement(
+          View,
+          { ...props, testID: 'chat-safe-area-provider' },
+          children
+        )
+      );
+    },
+    useSafeAreaInsets: () => {
+      mockUseSafeAreaInsetsProviderState(React.useContext(SafeAreaContext));
+
+      return mockUseSafeAreaInsets();
+    },
+  };
+});
 
 function renderChatModal() {
   const message: ChatMessage = {
@@ -114,51 +146,25 @@ describe('ChatModal', () => {
     });
   });
 
-  it('renders a full-screen absolute positioned container for overlay routing', () => {
-    renderChatModal();
+  it('uses a full-screen modal so keyboard avoidance has the full viewport', () => {
+    const { UNSAFE_getByType } = renderChatModal();
 
-    const modalContainer = screen.getByTestId('chat-modal-container', {
-      includeHiddenElements: true,
-    });
-    expect(StyleSheet.flatten(modalContainer.props.style)).toMatchObject({
-      pointerEvents: 'auto',
-    });
-    expect(modalContainer).toHaveProp('accessibilityElementsHidden', false);
-    expect(modalContainer).toHaveProp('accessibilityViewIsModal', true);
-    expect(modalContainer).toHaveProp('importantForAccessibility', 'auto');
+    expect(UNSAFE_getByType(Modal).props.presentationStyle).toBe('fullScreen');
   });
 
-  it('removes the hidden modal from the accessibility tree', () => {
-    render(
-      <ChatModal
-        visible={false}
-        santaMode={false}
-        messages={[]}
-        input=""
-        isLoading={false}
-        flatListRef={{ current: null }}
-        inputRef={{ current: null } as RefObject<TextInput | null>}
-        onClose={jest.fn()}
-        onSend={jest.fn()}
-        onChangeInput={jest.fn()}
-        onSuggestionPress={jest.fn()}
-        onScrollToBottom={jest.fn()}
-      />
-    );
+  it('creates a safe-area provider inside the modal root', () => {
+    renderChatModal();
 
-    const modalContainer = screen.getByTestId('chat-modal-container', {
-      includeHiddenElements: true,
-    });
-    expect(modalContainer).toHaveProp('accessibilityElementsHidden', true);
-    expect(modalContainer).toHaveProp('accessibilityViewIsModal', false);
-    expect(modalContainer).toHaveProp(
-      'importantForAccessibility',
-      'no-hide-descendants'
-    );
+    expect(screen.getByTestId('chat-safe-area-provider')).toBeOnTheScreen();
+  });
+
+  it('reads safe-area insets from content mounted under the modal provider', () => {
+    renderChatModal();
+
+    expect(mockUseSafeAreaInsetsProviderState).toHaveBeenCalledWith(true);
   });
 
   it('enables cross-platform keyboard avoiding protection on all platforms', () => {
-    // Test iOS
     Object.defineProperty(Platform, 'OS', {
       configurable: true,
       value: 'ios',
@@ -169,7 +175,6 @@ describe('ChatModal', () => {
       true
     );
 
-    // Test Android
     Object.defineProperty(Platform, 'OS', {
       configurable: true,
       value: 'android',

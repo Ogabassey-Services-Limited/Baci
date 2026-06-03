@@ -13,15 +13,15 @@ const { brandProductsSpy, priceRangeProductsSpy } = vi.hoisted(() => ({
 vi.mock('next/dynamic', () => ({
   default: () =>
     function DynamicAdUnit(props: { placementKey: string }) {
-      return <div role="region" aria-label={`Ad Unit ${props.placementKey}`} />;
+      return <section aria-label={`Ad Unit ${props.placementKey}`} />;
     },
 }));
 
 vi.mock('../../components/ProductVideo', () => ({
   ProductVideo: ({ title }: { title: string }) => (
-    <div role="region" aria-label="Product video">
+    <section aria-label="Product video">
       {title}
-    </div>
+    </section>
   ),
 }));
 
@@ -33,9 +33,9 @@ vi.mock('./product-details-tabs', () => ({
     storeSlug: string;
     productData: { name: string };
   }) => (
-    <div role="region" aria-label="Product details tabs">
+    <section aria-label="Product details tabs">
       {`${storeSlug}:${productData.name}`}
-    </div>
+    </section>
   ),
 }));
 
@@ -43,7 +43,7 @@ vi.mock('@/components/storefront/brand-products', () => ({
   BrandProducts: (props: { product?: { id?: string }; maxProducts: number }) => {
     brandProductsSpy(props);
     return (
-      <div role="region" aria-label="Brand products">{`${props.product?.id ?? 'none'}:${props.maxProducts}`}</div>
+      <section aria-label="Brand products">{`${props.product?.id ?? 'none'}:${props.maxProducts}`}</section>
     );
   },
 }));
@@ -55,7 +55,7 @@ vi.mock('@/components/storefront/price-range-products', () => ({
   }) => {
     priceRangeProductsSpy(props);
     return (
-      <div role="region" aria-label="Price range products">{`${props.product?.id ?? 'none'}:${props.maxProducts}`}</div>
+      <section aria-label="Price range products">{`${props.product?.id ?? 'none'}:${props.maxProducts}`}</section>
     );
   },
 }));

@@ -9,7 +9,7 @@ import {
   revalidateMerchant,
 } from '@/lib/cache-revalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
-import { merchantFeatureSettingsSchema } from '@/schemas/merchant-features';
+import { merchantFeatureSettingsPatchSchema } from '@/schemas/merchant-features';
 
 /**
  * Merchant Feature Settings API
@@ -405,9 +405,7 @@ export async function PATCH(request: NextRequest) {
       return jsonNoStore({ error: 'Invalid JSON body' }, { status: 400 });
     }
 
-    const parsedUpdates = merchantFeatureSettingsSchema
-      .partial()
-      .safeParse(updates);
+    const parsedUpdates = merchantFeatureSettingsPatchSchema.safeParse(updates);
     if (!parsedUpdates.success) {
       return jsonNoStore(
         {
@@ -493,9 +491,8 @@ export async function PUT(request: NextRequest) {
       return jsonNoStore({ error: 'Invalid JSON body' }, { status: 400 });
     }
 
-    const parsedSettings = merchantFeatureSettingsSchema
-      .partial()
-      .safeParse(newSettings);
+    const parsedSettings =
+      merchantFeatureSettingsPatchSchema.safeParse(newSettings);
     if (!parsedSettings.success) {
       return jsonNoStore(
         {

@@ -17,7 +17,7 @@ import {
   updateAgenticCheckoutSession,
 } from './agentic-checkout-client';
 
-async function listToolInputSchema(inputSchema: Record<string, z.ZodTypeAny>) {
+async function listToolInputSchema(inputSchema: Record<string, z.ZodType>) {
   const server = new McpServer({ name: 'schema-test-server', version: '1.0.0' });
   const client = new Client({ name: 'schema-test-client', version: '1.0.0' });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();

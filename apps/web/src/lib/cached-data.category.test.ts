@@ -91,7 +91,7 @@ describe('getCachedCategoryPageData category routing and fallback logic', () => 
     });
   });
 
-  it('Scenario 2: uses the legacy loose fallback search when canonical category exists but scoped query returns zero products', async () => {
+  it('Scenario 2: returns category with empty products without executing the legacy loose fallback search when canonical category exists but scoped query returns zero products', async () => {
     // 1. categories.single returns a valid active category
     harness.mockSingle.mockResolvedValueOnce({
       data: {
@@ -115,18 +115,9 @@ describe('getCachedCategoryPageData category routing and fallback logic', () => 
 
     // Mock scoped products query to return empty array
     const emptyScopedProductsResult = { data: [], error: null };
-    const legacyFallbackProducts = [
-      {
-        id: 'legacy-product-1',
-        name: 'Active Category Legacy Product',
-      },
-    ];
     harness.mockQueryExecution
       .mockImplementationOnce(() => Promise.resolve(harness.mockListResult)) // scope query execution
-      .mockImplementationOnce(() => Promise.resolve(emptyScopedProductsResult)) // products query execution
-      .mockImplementationOnce(() =>
-        Promise.resolve({ data: legacyFallbackProducts, error: null })
-      ); // legacy fallback query execution
+      .mockImplementationOnce(() => Promise.resolve(emptyScopedProductsResult)); // products query execution
 
     const result = await getCachedCategoryPageData(
       'merchant-123',
@@ -140,23 +131,20 @@ describe('getCachedCategoryPageData category routing and fallback logic', () => 
       ['cat-active-123']
     );
 
-    // Ensure it first scoped categories, then ran the legacy fallback ilike query.
-    expect(harness.mockOr).toHaveBeenCalledTimes(2);
+    // Ensure it did NOT run the legacy fallback ilike queries on products
+    expect(harness.mockOr).toHaveBeenCalledOnce();
     expect(harness.mockOr).toHaveBeenCalledWith(
       'id.eq.cat-active-123,parent_id.eq.cat-active-123'
     );
-    expect(harness.mockOr).toHaveBeenCalledWith(
-      'category.ilike.%Active Category%,brand.ilike.%Active Category%,name.ilike.%Active Category%'
-    );
 
-    // Verify output returned the category correctly and used legacy products
+    // Verify output returned the category correctly and products are empty
     expect(result).toEqual({
       isCollection: false,
       category: expect.objectContaining({
         id: 'cat-active-123',
         name: 'Active Category',
       }),
-      products: legacyFallbackProducts,
+      products: [],
       fallbackName: 'Active Category',
       fallbackDescription: 'Standard active category',
       isInactiveCategory: false,

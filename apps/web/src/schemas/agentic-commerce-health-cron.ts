@@ -16,7 +16,7 @@ const merchantSlugListSchema = z.array(z.string()).transform((values, ctx) => {
       const parsed = merchantSlugTokenSchema.safeParse(rawToken);
       if (!parsed.success) {
         ctx.addIssue({
-          code: z.ZodIssueCode.custom,
+          code: 'custom',
           message: 'Invalid merchant slug',
         });
         return z.NEVER;

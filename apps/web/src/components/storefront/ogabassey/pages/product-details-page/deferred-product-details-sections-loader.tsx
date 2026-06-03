@@ -19,7 +19,7 @@ const DeferredProductDetailsSections = dynamic(
   {
     loading: () => (
       <DeferredDetailsSkeleton
-        role=""
+        announce={false}
         aria-live="off"
         aria-busy={false}
         aria-label=""
@@ -55,7 +55,7 @@ export function DeferredProductDetailsSectionsLoader(
         />
       ) : (
         <DeferredDetailsSkeleton
-          role=""
+          announce={false}
           aria-live="off"
           aria-busy={false}
           aria-label=""
@@ -64,4 +64,3 @@ export function DeferredProductDetailsSectionsLoader(
     </div>
   );
 }
-

@@ -195,5 +195,9 @@ export default function RootLayout() {
     );
   }
 
+  if (!isStorageReady) {
+    return null;
+  }
+
   return <RootLayoutNav persistenceEnabled />;
 }

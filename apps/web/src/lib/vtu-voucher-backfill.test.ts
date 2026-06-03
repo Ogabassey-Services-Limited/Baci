@@ -255,7 +255,7 @@ describe('vtu-voucher-backfill', () => {
     );
   });
 
-  it('defers processing transactions to one fulfillment reconciliation without consuming a no-token attempt', async () => {
+  it('defers processing transactions to one fulfillment reconciliation without consuming a no-pin attempt', async () => {
     const updateQuery = createUpdateQueryMock();
     const { supabase, update } = createSupabaseMock(updateQuery);
     mocks.fulfillPendingVtuTransaction.mockResolvedValue({

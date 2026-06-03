@@ -10,17 +10,23 @@ import { useEffect } from 'react';
 export function CsrfInitializer() {
   useEffect(() => {
     let cancelled = false;
+    let retryTimeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    const waitForRetry = () =>
+      new Promise<void>((resolve) => {
+        retryTimeoutId = setTimeout(resolve, 1000);
+      });
 
     async function initCsrf(retries = 1) {
       try {
         const response = await fetch('/api/csrf');
         if (!response.ok && retries > 0 && !cancelled) {
-          await new Promise((r) => setTimeout(r, 1000));
+          await waitForRetry();
           if (!cancelled) return initCsrf(retries - 1);
         }
       } catch {
         if (retries > 0 && !cancelled) {
-          await new Promise((r) => setTimeout(r, 1000));
+          await waitForRetry();
           if (!cancelled) return initCsrf(retries - 1);
         }
       }
@@ -30,6 +36,9 @@ export function CsrfInitializer() {
 
     return () => {
       cancelled = true;
+      if (retryTimeoutId) {
+        clearTimeout(retryTimeoutId);
+      }
     };
   }, []);
 

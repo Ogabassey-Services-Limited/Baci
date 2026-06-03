@@ -134,6 +134,10 @@ vi.mock('@/hooks/useUpdateTransactionCostPrice', () => ({
   useUpdateTransactionCostPrice: mocks.useUpdateTransactionCostPrice,
 }));
 
+function Text({ children }: { children?: React.ReactNode }) {
+  return <span>{children}</span>;
+}
+
 vi.mock('@/components/transactions/TransactionsSummary', () => ({
   TransactionsSummary: ({
     activeTab,
@@ -152,18 +156,18 @@ vi.mock('@/components/transactions/TransactionsSummary', () => ({
         type="button"
         onClick={() => onTabChange?.('paid')}
       >
-        Paid transactions tab
+        <Text>Paid transactions tab</Text>
       </button>
       <button
         aria-pressed={activeTab === 'missing-costs'}
         type="button"
         onClick={() => onTabChange?.('missing-costs')}
       >
-        Missing costs tab
+        <Text>Missing costs tab</Text>
       </button>
-      <span>{estimatedProfitLabel}</span>
-      <span>{summary.transactions} transactions</span>
-      <span>{summary.missingCosts} missing costs</span>
+      <Text>{estimatedProfitLabel}</Text>
+      <Text>{`${summary.transactions} transactions`}</Text>
+      <Text>{`${summary.missingCosts} missing costs`}</Text>
     </div>
   ),
 }));
@@ -203,10 +207,10 @@ vi.mock('@/components/transactions/TransactionOrderCard', () => ({
   }) => (
     <div>
       <button type="button" onClick={() => onOpenEditor(order, order.items[0])}>
-        Edit {order.orderNumber}
+        <Text>{`Edit ${order.orderNumber}`}</Text>
       </button>
       {order.items.map((item) => (
-        <span key={item.id}>{item.name}</span>
+        <Text key={item.id}>{item.name}</Text>
       ))}
     </div>
   ),
@@ -253,12 +257,12 @@ vi.mock('@/components/transactions/CostPriceEditorModal', () => ({
           value={supplierInput ?? ''}
           onChange={(event) => onChangeSupplier?.(event.target.value)}
         />
-        {saveError ? <span>{saveError}</span> : null}
+        {saveError ? <Text>{saveError}</Text> : null}
         <button type="button" onClick={onSave}>
-          Save cost price
+          <Text>Save cost price</Text>
         </button>
         <button type="button" onClick={onClose}>
-          Close editor
+          <Text>Close editor</Text>
         </button>
       </div>
     ) : null,

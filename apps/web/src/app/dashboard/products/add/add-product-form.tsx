@@ -82,8 +82,8 @@ const addProductSchema = z.object({
     .optional(),
 
   // Media
-  image: z.any().optional(), // Primary image
-  images: z.array(z.any()).optional(), // Gallery images
+  image: z.string().optional(), // Primary image
+  images: z.array(z.union([z.string(), z.instanceof(File)])).optional(), // Gallery images
 
   // Condition
   condition: z.enum(['new', 'used']).default('new'),
@@ -186,7 +186,7 @@ export default function AddProductForm({
       weight_unit:
         (initialData?.weight_unit as 'kg' | 'lb' | 'g' | 'oz') || 'kg',
       dimensions: initialData?.dimensions || { unit: 'cm' },
-      image: initialData?.image || null,
+      image: initialData?.image || '',
       images: initialData?.images?.map((img) => img.url) || [],
       condition: (initialData?.condition as 'new' | 'used') || 'new',
       condition_detail: initialData?.condition_detail || '',
@@ -305,7 +305,7 @@ export default function AddProductForm({
     if (newColorTags.length > 0 && colorImages[newColorTags[0]]) {
       form.setValue('image', colorImages[newColorTags[0]]);
     } else {
-      form.setValue('image', null);
+      form.setValue('image', '');
     }
   };
 
@@ -585,6 +585,7 @@ export default function AddProductForm({
       usesVariants && data.infinite_stock
         ? variants.map((variant) => ({ ...variant, stock_quantity: 0 }))
         : variants;
+    const primaryImage = enhancedImage ?? '';
 
     const productData: Product = {
       id: initialData?.id || `prod_${Date.now()}`,
@@ -617,8 +618,8 @@ export default function AddProductForm({
       weight_unit: data.weight_unit,
       dimensions: data.dimensions,
 
-      image: enhancedImage,
-      imageLarge: enhancedImage,
+      image: primaryImage,
+      imageLarge: primaryImage,
       imageHint: data.name,
       images: processedImages.map((url, index) => ({
         url,

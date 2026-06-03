@@ -21,7 +21,7 @@ concurrency:
 
 jobs:
   smoke:
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, Linux, X64, baci-deploy]
     timeout-minutes: 5
     env:
       MCP_HEALTH_URL: ${{ vars.MCP_HEALTH_URL || 'https://mcp.ogabassey.com/health' }}

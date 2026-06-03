@@ -58,16 +58,14 @@ export function buildFinalizeWalletParams({
   };
 }
 
-const finalizerResultSchema = z
-  .object({
-    debited_amount: z.union([z.number(), z.string()]).nullable().optional(),
-    excess_amount: z.union([z.number(), z.string()]).nullable().optional(),
-    funded_amount: z.union([z.number(), z.string()]).nullable().optional(),
-    order_id: z.string().nullable().optional(),
-    order_paid: z.boolean().nullable().optional(),
-    order_payment_transaction_id: z.string().nullable().optional(),
-  })
-  .passthrough();
+const finalizerResultSchema = z.looseObject({
+  debited_amount: z.union([z.number(), z.string()]).nullable().optional(),
+  excess_amount: z.union([z.number(), z.string()]).nullable().optional(),
+  funded_amount: z.union([z.number(), z.string()]).nullable().optional(),
+  order_id: z.string().nullable().optional(),
+  order_paid: z.boolean().nullable().optional(),
+  order_payment_transaction_id: z.string().nullable().optional(),
+});
 
 export type ProcessWalletFundedOrderPaymentResult =
   | { kind: 'none' }

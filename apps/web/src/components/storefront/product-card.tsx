@@ -1,5 +1,6 @@
 'use client';
 
+import { getProductImageAlt } from '@baci/shared';
 import { Eye, Minus, Plus } from 'lucide-react';
 import type { Route } from 'next';
 import Link from 'next/link';
@@ -90,6 +91,9 @@ export function StorefrontProductCard({
   // Extract category (handles both categories join and direct category)
   const productCategory =
     product.categories?.name || product.category || 'General';
+  const productImageAlt = getProductImageAlt(product, {
+    includeBrandFallback: false,
+  });
 
   const handleAddToCart = () => {
     if (isOutOfStock) return;
@@ -102,9 +106,11 @@ export function StorefrontProductCard({
     onQuickView(product);
   };
 
+  const cartControlId = cartItem?.cartItemId ?? product.id;
+
   const handleDecreaseQuantity = () => {
     if (cartItem && cartItem.quantity > 0) {
-      onUpdateQuantity(product.id, cartItem.quantity - 1);
+      onUpdateQuantity(cartControlId, cartItem.quantity - 1);
     }
   };
 
@@ -115,7 +121,7 @@ export function StorefrontProductCard({
         ? product.stock
         : Number.POSITIVE_INFINITY;
       if (cartItem.quantity >= maxQty) return;
-      onUpdateQuantity(product.id, cartItem.quantity + 1);
+      onUpdateQuantity(cartControlId, cartItem.quantity + 1);
     }
   };
 
@@ -125,7 +131,7 @@ export function StorefrontProductCard({
     if (product.manage_stock) {
       value = Math.min(value, product.stock);
     }
-    onUpdateQuantity(product.id, value);
+    onUpdateQuantity(cartControlId, value);
   };
 
   return (
@@ -140,7 +146,7 @@ export function StorefrontProductCard({
         >
           <ProductCardImage
             src={product.imageLarge}
-            alt={product.name}
+            alt={productImageAlt}
             data-ai-hint={product.imageHint}
             width={600}
             height={400}

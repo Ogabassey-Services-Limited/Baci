@@ -8,10 +8,9 @@ import { sanitizeEmail, sanitizeText } from '@/lib/sanitize-core';
  * Text fields are sanitized to prevent XSS.
  */
 export const reviewSubmissionSchema = z.object({
-  productId: z.string().uuid('Invalid product ID'),
-  merchantId: z.string().uuid('Invalid merchant ID'),
+  productId: z.uuid('Invalid product ID'),
+  merchantId: z.uuid('Invalid merchant ID'),
   customerEmail: z
-    .string()
     .email('Invalid email format')
     .max(254, 'Email too long')
     .transform(sanitizeEmail),
@@ -22,7 +21,6 @@ export const reviewSubmissionSchema = z.object({
     .nullable()
     .transform((val) => (val ? sanitizeText(val, 100) : val)),
   rating: z
-    .number()
     .int('Rating must be an integer')
     .min(1, 'Rating must be at least 1')
     .max(5, 'Rating must be at most 5'),

@@ -1,5 +1,4 @@
 import { StyleSheet } from 'react-native';
-import { BRAND } from '@/constants/brand';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 
 export const styles = StyleSheet.create({
@@ -62,7 +61,6 @@ export const styles = StyleSheet.create({
     marginTop: SPACING.sm,
   },
   forgotPasswordText: {
-    color: BRAND.yellow,
     fontFamily: TYPOGRAPHY.fontFamily.medium,
     fontSize: TYPOGRAPHY.size.sm,
   },
@@ -80,7 +78,6 @@ export const styles = StyleSheet.create({
   signUpLink: {
     fontSize: TYPOGRAPHY.size.md,
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-    color: BRAND.yellow,
   },
   signUpLinkDisabled: {
     opacity: 0.5,

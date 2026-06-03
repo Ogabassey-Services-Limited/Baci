@@ -12,7 +12,7 @@ const config = {
   // has passed in CI; exit explicitly so GitHub does not cancel a green run.
   forceExit: process.env.CI === 'true',
   transformIgnorePatterns: [
-    'node_modules/(?!((jest-)?react-native|@react-native(-community)?|@react-native-vector-icons/.*)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@shopify/flash-list|@supabase/.*|zustand|nativewind)',
+    'node_modules/(?!((jest-)?react-native|@react-native(-community)?|@react-native-vector-icons/.*)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@shopify/flash-list|@supabase/.*|react-native-worklets|zustand|nativewind)',
   ],
   // setupFiles runs before the jest-expo preset setup (before test code scope)
   setupFiles: ['<rootDir>/__mocks__/expo-winter-setup.js'],

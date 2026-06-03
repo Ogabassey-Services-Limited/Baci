@@ -1,3 +1,4 @@
+import { deriveProductImageData } from '@baci/shared';
 import type { Product as StorefrontProduct } from '@/lib/products';
 import { OGABASSEY_HOME_PRODUCT_FEED_LIMIT } from './config/products';
 import type { Product as OgabasseyProduct } from './types';
@@ -21,35 +22,19 @@ const mapCondition = (condition?: string): ConditionLabel => {
   return CONDITION_LABELS[condition || ''] || 'New';
 };
 
-const mapImage = (image: unknown): string => {
-  if (!image) return '';
-  if (typeof image === 'string') return image;
-  if (
-    typeof image === 'object' &&
-    image !== null &&
-    'url' in image &&
-    typeof image.url === 'string'
-  ) {
-    return image.url;
-  }
-
-  return '';
-};
-
 export function mapStorefrontProductsToOgabasseyProducts(
   storefrontProducts: StorefrontProduct[]
 ): OgabasseyProduct[] {
   return storefrontProducts.map((product) => {
-    const images: string[] = [];
-
-    if (product.images) {
-      for (const image of product.images) {
-        const mappedImage = mapImage(image);
-        if (mappedImage) {
-          images.push(mappedImage);
-        }
-      }
-    }
+    const {
+      image,
+      imageAlt,
+      imagePayloads,
+      images,
+    } = deriveProductImageData({
+      image: product.image,
+      images: product.images ?? [],
+    });
 
     const category =
       Array.isArray(product.categories) ? product.categories[0] : product.categories;
@@ -63,7 +48,9 @@ export function mapStorefrontProductsToOgabasseyProducts(
       name: product.name,
       price: NGN_PRICE_FORMATTER.format(product.price),
       rawPrice: product.price,
-      image: product.image || images[0] || '',
+      image,
+      ...(imageAlt ? { image_alt: imageAlt } : {}),
+      ...(imagePayloads.length > 0 ? { image_payloads: imagePayloads } : {}),
       description: product.description,
       rating: product.rating ?? 4.5,
       category: category?.name || product.category || 'General',

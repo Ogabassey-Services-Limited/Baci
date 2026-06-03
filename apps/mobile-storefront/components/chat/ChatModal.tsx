@@ -1,23 +1,18 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { FlashList, type FlashListRef } from '@shopify/flash-list';
-import { type RefObject, useEffect, useRef } from 'react';
+import type { RefObject } from 'react';
 import {
-  BackHandler,
   Keyboard,
-  Platform,
+  Modal,
   Pressable,
   Text,
   TextInput,
-  useWindowDimensions,
   View,
 } from 'react-native';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-  withTiming,
-} from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  SafeAreaProvider,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
 import { PatternedBackground } from '@/components/storefront/PatternedBackground';
 import AppKeyboardContainer from '@/components/ui/AppKeyboardContainer';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -46,6 +41,33 @@ interface ChatModalProps {
 
 export function ChatModal({
   visible,
+  onClose,
+  ...contentProps
+}: ChatModalProps) {
+  const handleClose = () => {
+    Keyboard.dismiss();
+    onClose();
+  };
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="fullScreen"
+      onRequestClose={handleClose}
+    >
+      <SafeAreaProvider style={styles.modalContainer}>
+        <ChatModalContent {...contentProps} onClose={handleClose} />
+      </SafeAreaProvider>
+    </Modal>
+  );
+}
+
+type ChatModalContentProps = Omit<ChatModalProps, 'visible' | 'onClose'> & {
+  onClose: () => void;
+};
+
+function ChatModalContent({
   santaMode,
   messages,
   input,
@@ -57,86 +79,26 @@ export function ChatModal({
   onChangeInput,
   onSuggestionPress,
   onScrollToBottom,
-}: ChatModalProps) {
+}: ChatModalContentProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
-
-  const { height: screenHeight } = useWindowDimensions();
-  const translateY = useSharedValue(screenHeight);
-  const onCloseRef = useRef(onClose);
-
-  useEffect(() => {
-    onCloseRef.current = onClose;
-  }, [onClose]);
-
-  useEffect(() => {
-    if (visible) {
-      translateY.value = withSpring(0, {
-        damping: 22,
-        stiffness: 220,
-        mass: 0.6,
-      });
-    } else {
-      translateY.value = withTiming(screenHeight, { duration: 250 });
-    }
-  }, [visible, screenHeight, translateY]);
-
-  const animatedModalStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ translateY: translateY.value }],
-      opacity: translateY.value >= screenHeight ? 0 : 1,
-    };
-  });
-
-  const handleClose = () => {
-    Keyboard.dismiss();
-    onCloseRef.current();
-  };
-
-  useEffect(() => {
-    if (!visible || Platform.OS !== 'android') {
-      return;
-    }
-
-    const backAction = () => {
-      Keyboard.dismiss();
-      onCloseRef.current();
-      return true;
-    };
-
-    const backHandler = BackHandler.addEventListener(
-      'hardwareBackPress',
-      backAction
-    );
-
-    return () => {
-      backHandler.remove();
-    };
-  }, [visible]);
 
   const renderMessage = ({ item }: { item: ChatMessage }) => {
     return <ChatMessageRow item={item} santaMode={santaMode} colors={colors} />;
   };
 
   return (
-    <Animated.View
+    <View
       style={[
         styles.modalContainer,
-        animatedModalStyle,
         {
           backgroundColor: santaMode ? '#FFF5F5' : colors.background,
           paddingLeft: insets.left,
           paddingRight: insets.right,
-          pointerEvents: visible ? 'auto' : 'none',
         },
       ]}
-      accessibilityElementsHidden={!visible}
-      accessibilityViewIsModal={visible}
-      importantForAccessibility={visible ? 'auto' : 'no-hide-descendants'}
-      testID="chat-modal-container"
     >
-      {/* Header - safe area protected dynamically for iOS and Android clocks */}
       <View
         style={[
           styles.header,
@@ -194,7 +156,7 @@ export function ChatModal({
                 : colors.muted,
             },
           ]}
-          onPress={handleClose}
+          onPress={onClose}
           accessibilityRole="button"
           accessibilityLabel="Close chat"
         >
@@ -206,7 +168,6 @@ export function ChatModal({
         </Pressable>
       </View>
 
-      {/* Global Drift-Free Keyboard protection enabled on all platforms */}
       <AppKeyboardContainer style={styles.messagesWrapper} enabled={true}>
         <View style={{ flex: 1, position: 'relative' }}>
           <PatternedBackground
@@ -310,6 +271,6 @@ export function ChatModal({
           </Text>
         </View>
       </AppKeyboardContainer>
-    </Animated.View>
+    </View>
   );
 }

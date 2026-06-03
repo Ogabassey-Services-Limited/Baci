@@ -1,360 +1,59 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
-import { Alert, Pressable } from 'react-native';
+import { Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { WebView, type WebViewNavigation } from 'react-native-webview';
 import { BNPLCheckoutStatusView } from '@/components/bnpl-checkout/BNPLCheckoutStatusView';
+import { CHECKOUT_MERCHANT_DOMAIN } from '@/components/checkout/checkout-screen.constants';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import { resolveApiBaseUrl } from '@/lib/api-url';
-import {
-  isAllowedBnplPopupUrl,
-  normalizeBNPLRouteParams,
-  type BNPLRouteParams,
-} from '@/lib/bnpl-url';
-import { useCartStore } from '@/stores/cart-store';
+import { type BNPLRouteParams, normalizeBNPLRouteParams } from '@/lib/bnpl-url';
 import { bnplCheckoutScreenStyles as styles } from './BNPLCheckoutScreen.styles';
-import {
-  type BNPLShouldStartLoadRequest,
-  BNPLCheckoutWebView,
-  type BNPLWebViewHttpErrorEvent,
-  type BNPLWebViewLoadError,
-  type WebViewOpenWindowEventLike,
-} from './BNPLCheckoutWebView';
-import {
-  BNPL_UNTRUSTED_POPUP_MESSAGE,
-  buildBNPLCheckoutUrl,
-  extractErrorFromUrl,
-  extractReferenceFromUrl,
-  getBNPLGatewayName,
-  parseBNPLParams,
-  resolveBNPLDocumentNavigation,
-  sanitizeBNPLDocumentUrl,
-} from './bnpl-checkout.helpers';
-import { createBNPLLoadTimers } from './bnpl-checkout-timers';
+import { BNPLCheckoutWebView } from './BNPLCheckoutWebView';
+import { useBNPLCheckoutController } from './use-bnpl-checkout-controller';
 
 const API_BASE_URL = resolveApiBaseUrl(process.env.EXPO_PUBLIC_API_URL);
-type BNPLCheckoutStatus = 'loading' | 'ready' | 'success' | 'error';
-
-function logBNPLCheckoutDebug(eventName: string, details: unknown) {
-  if (
-    typeof __DEV__ !== 'undefined' &&
-    __DEV__ &&
-    process.env.NODE_ENV !== 'test'
-  ) {
-    console.info(`[BNPLCheckout] ${eventName}`, details);
-  }
-}
 
 export function BNPLCheckoutScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const rawParams = useLocalSearchParams<BNPLRouteParams>();
   const params = normalizeBNPLRouteParams(rawParams);
-  const webViewRef = useRef<WebView>(null);
-  const loadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const clearCart = useCartStore((state) => state.clearCart);
-
-  const [status, setStatusState] = useState<BNPLCheckoutStatus>('loading');
-  const [currentUrl, setCurrentUrl] = useState('');
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const statusRef = useRef<BNPLCheckoutStatus>('loading');
-
-  const setCheckoutStatus = (
-    nextStatus:
-      | BNPLCheckoutStatus
-      | ((currentStatus: BNPLCheckoutStatus) => BNPLCheckoutStatus)
-  ) => {
-    const resolvedStatus =
-      typeof nextStatus === 'function'
-        ? nextStatus(statusRef.current)
-        : nextStatus;
-    statusRef.current = resolvedStatus;
-    setStatusState(resolvedStatus);
-  };
-
-  const validatedParams = parseBNPLParams(params);
-
-  const { orderId, gateway, amount, trackingToken, merchantSlug } =
-    validatedParams.data || {};
-
-  const { clearPendingLoadTimeout, scheduleLoadTimeout } = createBNPLLoadTimers(
-    {
-      loadTimeoutRef,
-      setCheckoutStatus,
-      setErrorMessage,
-      statusRef,
-    }
-  );
-
-  useEffect(() => () => clearPendingLoadTimeout(), [clearPendingLoadTimeout]);
-
-  const bnplUrl = buildBNPLCheckoutUrl({
+  const checkout = useBNPLCheckoutController({
     apiBaseUrl: API_BASE_URL,
-    params: validatedParams,
+    merchantDomain: CHECKOUT_MERCHANT_DOMAIN,
+    params,
   });
 
-  useEffect(() => {
-    if (bnplUrl) {
-      setCurrentUrl(bnplUrl);
-    }
-  }, [bnplUrl]);
-
-  if (!validatedParams.isValid) {
+  if (!checkout.validatedParams.isValid) {
     return (
       <BNPLCheckoutStatusView
         colors={colors}
-        message={validatedParams.error}
+        message={checkout.validatedParams.error}
         onBack={() => router.back()}
         variant="invalid"
       />
     );
   }
 
-  const handleNavigationUrl = (url: string) => {
-    if (url.includes('/order-success') || url.includes('success=true')) {
-      clearPendingLoadTimeout();
-      setCheckoutStatus('success');
-      clearCart();
-
-      const reference = extractReferenceFromUrl(url);
-
-      setTimeout(() => {
-        router.replace({
-          pathname: '/order-success',
-          params: {
-            orderId,
-            reference: reference || undefined,
-            paymentMethod: gateway,
-            ...(trackingToken && { trackingToken }),
-          },
-        });
-      }, 1000);
-    }
-
-    // Check for cancellation
-    if (url.includes('/checkout') && url.includes('cancelled=true')) {
-      clearPendingLoadTimeout();
-      setCheckoutStatus('error');
-      setErrorMessage('Payment was cancelled.');
-    }
-
-    // Check for error
-    if (url.includes('error=') || url.includes('/checkout?error')) {
-      clearPendingLoadTimeout();
-      setCheckoutStatus('error');
-      const errorParam = extractErrorFromUrl(url);
-      setErrorMessage(errorParam || 'Payment failed. Please try again.');
-    }
-  };
-
-  const handleNavigationChange = (navState: WebViewNavigation) => {
-    handleNavigationUrl(navState.url);
-  };
-
-  const handleWebViewMessage = (event: { nativeEvent: { data: string } }) => {
-    try {
-      const data = JSON.parse(event.nativeEvent.data) as unknown;
-      if (!data || typeof data !== 'object') {
-        logBNPLCheckoutDebug('ignored primitive webview message', {
-          data: event.nativeEvent.data,
-        });
-        return;
-      }
-      const payload = data as Record<string, unknown>;
-
-      if (payload.type === 'navigation' && typeof payload.url === 'string') {
-        handleNavigationUrl(payload.url);
-      } else if (
-        payload.type === 'bnpl_log' ||
-        payload.type === 'bnpl_error_log'
-      ) {
-        logBNPLCheckoutDebug('webview message', payload);
-      } else if (payload.type === 'bnpl_success') {
-        clearPendingLoadTimeout();
-        setCheckoutStatus('success');
-        clearCart();
-        setTimeout(() => {
-          router.replace({
-            pathname: '/order-success',
-            params: {
-              orderId,
-              reference:
-                typeof payload.reference === 'string'
-                  ? payload.reference
-                  : undefined,
-              paymentMethod: gateway,
-              ...(trackingToken && { trackingToken }),
-            },
-          });
-        }, 1000);
-      } else if (payload.type === 'bnpl_error') {
-        clearPendingLoadTimeout();
-        setCheckoutStatus('error');
-        setErrorMessage(
-          typeof payload.message === 'string'
-            ? payload.message
-            : 'Payment failed.'
-        );
-      } else if (payload.type === 'bnpl_close') {
-        handleClose();
-      }
-    } catch {
-      logBNPLCheckoutDebug('ignored non-json webview message', {
-        data: event.nativeEvent.data,
-      });
-    }
-  };
-
-  const handleClose = () => {
-    Alert.alert(
-      'Cancel Payment?',
-      'Are you sure you want to cancel this payment?',
-      [
-        { text: 'Continue Payment', style: 'cancel' },
-        {
-          text: 'Cancel',
-          style: 'destructive',
-          onPress: () => router.back(),
-        },
-      ]
-    );
-  };
-
-  const handleRetry = () => {
-    clearPendingLoadTimeout();
-    setCheckoutStatus('loading');
-    setErrorMessage(null);
-    setCurrentUrl(bnplUrl);
-    if ((currentUrl || bnplUrl) === bnplUrl) {
-      webViewRef.current?.reload();
-    }
-  };
-
-  const handleLoadStart = () => {
-    if (statusRef.current === 'error' || statusRef.current === 'success') {
-      return;
-    }
-    setErrorMessage(null);
-    scheduleLoadTimeout();
-    setCheckoutStatus('loading');
-  };
-
-  const handleLoadEnd = () => {
-    clearPendingLoadTimeout();
-    setCheckoutStatus((currentStatus) =>
-      currentStatus === 'error' || currentStatus === 'success'
-        ? currentStatus
-        : 'ready'
-    );
-  };
-
-  const handleOpenWindow = (event: WebViewOpenWindowEventLike) => {
-    const targetUrl = event.nativeEvent.targetUrl;
-    const sanitizedTargetUrl = targetUrl
-      ? sanitizeBNPLDocumentUrl(targetUrl)
-      : '';
-
-    if (
-      !sanitizedTargetUrl ||
-      sanitizedTargetUrl === 'about:blank' ||
-      sanitizedTargetUrl.startsWith('about:blank#')
-    ) {
-      return;
-    }
-
-    if (
-      !isAllowedBnplPopupUrl(sanitizedTargetUrl, API_BASE_URL, merchantSlug)
-    ) {
-      if (typeof __DEV__ !== 'undefined' && __DEV__) {
-        console.warn('[BNPLCheckout] Ignored untrusted auxiliary window', {
-          targetUrl: sanitizedTargetUrl,
-        });
-      }
-      return;
-    }
-
-    setErrorMessage(null);
-    scheduleLoadTimeout();
-    setCheckoutStatus('loading');
-    setCurrentUrl(sanitizedTargetUrl);
-  };
-
-  const handleShouldStartLoadWithRequest = (
-    request: BNPLShouldStartLoadRequest
-  ) => {
-    const currentDocumentUrl = currentUrl || bnplUrl;
-    const decision = resolveBNPLDocumentNavigation({
-      apiBaseUrl: API_BASE_URL,
-      currentDocumentUrl,
-      isTopFrame: request.isTopFrame,
-      requestUrl: request.url,
-      merchantSlug,
-    });
-    logBNPLCheckoutDebug('document navigation decision', {
-      currentDocumentUrl,
-      decision,
-      isTopFrame: request.isTopFrame,
-      mainDocumentURL: request.mainDocumentURL,
-      merchantSlug,
-      navigationType: request.navigationType,
-      requestUrl: request.url,
-    });
-    if (decision.shouldStart) {
-      return true;
-    }
-
-    if (decision.reason === 'untrusted') {
-      clearPendingLoadTimeout();
-      setCheckoutStatus('error');
-      setErrorMessage(BNPL_UNTRUSTED_POPUP_MESSAGE);
-      return false;
-    }
-
-    setErrorMessage(null);
-    scheduleLoadTimeout();
-    setCheckoutStatus('loading');
-    setCurrentUrl(decision.nextUrl);
-    return false;
-  };
-
-  const handleWebViewError = (error: BNPLWebViewLoadError) => {
-    logBNPLCheckoutDebug('native load error', error);
-    clearPendingLoadTimeout();
-    setCheckoutStatus('error');
-    setErrorMessage(error.description || 'Failed to load payment page');
-  };
-
-  const handleWebViewHttpError = (event: BNPLWebViewHttpErrorEvent) => {
-    const { description, statusCode, url } = event.nativeEvent;
-    logBNPLCheckoutDebug('http error', {
-      description,
-      statusCode,
-      url,
-    });
-  };
-
-  const gatewayName = getBNPLGatewayName(gateway);
-
-  if (status === 'success') {
+  if (checkout.status === 'success') {
     return (
       <BNPLCheckoutStatusView
         colors={colors}
-        gatewayName={gatewayName}
+        gatewayName={checkout.gatewayName}
         variant="success"
       />
     );
   }
 
-  if (status === 'error') {
+  if (checkout.status === 'error') {
     return (
       <BNPLCheckoutStatusView
         colors={colors}
-        gatewayName={gatewayName}
-        message={errorMessage}
+        gatewayName={checkout.gatewayName}
+        message={checkout.errorMessage}
         onBack={() => router.back()}
-        onRetry={handleRetry}
+        onRetry={checkout.handleRetry}
         variant="error"
       />
     );
@@ -367,10 +66,15 @@ export function BNPLCheckoutScreen() {
     >
       <Stack.Screen
         options={{
-          title: gatewayName,
+          title: checkout.gatewayName,
           headerShown: true,
           headerLeft: () => (
-            <Pressable onPress={handleClose} style={styles.closeButton}>
+            <Pressable
+              accessibilityLabel="Close checkout"
+              accessibilityRole="button"
+              onPress={checkout.handleClose}
+              style={styles.closeButton}
+            >
               <Ionicons name="close" size={24} color={colors.text} />
             </Pressable>
           ),
@@ -378,21 +82,21 @@ export function BNPLCheckoutScreen() {
       />
 
       <BNPLCheckoutWebView
-        amount={amount}
-        bnplUrl={bnplUrl}
+        amount={checkout.amount}
+        bnplUrl={checkout.bnplUrl}
         colors={colors}
-        currentUrl={currentUrl}
-        gatewayName={gatewayName}
-        onError={handleWebViewError}
-        onHttpError={handleWebViewHttpError}
-        onLoadEnd={handleLoadEnd}
-        onLoadStart={handleLoadStart}
-        onMessage={handleWebViewMessage}
-        onNavigationStateChange={handleNavigationChange}
-        onOpenWindow={handleOpenWindow}
-        onShouldStartLoadWithRequest={handleShouldStartLoadWithRequest}
-        status={status}
-        webViewRef={webViewRef}
+        currentUrl={checkout.currentUrl}
+        gatewayName={checkout.gatewayName}
+        onError={checkout.handleWebViewError}
+        onHttpError={checkout.handleWebViewHttpError}
+        onLoadEnd={checkout.handleLoadEnd}
+        onLoadStart={checkout.handleLoadStart}
+        onMessage={checkout.handleWebViewMessage}
+        onNavigationStateChange={checkout.handleNavigationChange}
+        onOpenWindow={checkout.handleOpenWindow}
+        onShouldStartLoadWithRequest={checkout.handleShouldStartLoadWithRequest}
+        status={checkout.status}
+        webViewRef={checkout.webViewRef}
       />
     </SafeAreaView>
   );

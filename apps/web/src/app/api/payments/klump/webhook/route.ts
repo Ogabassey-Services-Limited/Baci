@@ -4,7 +4,10 @@ import {
   type KlumpPaidOrder,
   notifyKlumpPaidOrder,
 } from '@/lib/klump-payment-notifications';
-import { verifyKlumpWebhookTransaction } from '@/lib/klump-transaction-verification';
+import {
+  getKlumpExpectedPaymentAmount,
+  verifyKlumpWebhookTransaction,
+} from '@/lib/klump-transaction-verification';
 import {
   amountsMatch,
   currenciesMatch,
@@ -25,6 +28,7 @@ interface TransactionRecord {
   currency: string | null;
   gateway_reference: string | null;
   id: string;
+  merchant_amount: number | string | null;
   merchant_id: string;
   metadata: JsonRecord | null;
   order_id: string | null;
@@ -165,7 +169,7 @@ export async function POST(request: NextRequest) {
   const { data: transaction, error: transactionError } = await supabase
     .from('transactions')
     .select(
-      'id, merchant_id, order_id, amount, currency, gateway_reference, status, platform_fee, metadata'
+      'id, merchant_id, order_id, amount, merchant_amount, currency, gateway_reference, status, platform_fee, metadata'
     )
     .eq('gateway', 'klump')
     .eq('gateway_reference', referenceResult.data)
@@ -180,7 +184,9 @@ export async function POST(request: NextRequest) {
     return errorResponse('Transaction not found', 404);
   }
 
-  if (!amountsMatch(transaction.amount, details.amount)) {
+  const expectedPaymentAmount = getKlumpExpectedPaymentAmount(transaction);
+
+  if (!amountsMatch(expectedPaymentAmount, details.amount)) {
     return errorResponse('Payment amount mismatch', 400);
   }
 
@@ -280,7 +286,12 @@ export async function POST(request: NextRequest) {
     order = updatedOrder;
   }
 
-  const grossAmount = Number(transaction.amount) || details.amount;
+  const expectedPaymentAmountNumber = Number(expectedPaymentAmount);
+  const grossAmount =
+    Number.isFinite(expectedPaymentAmountNumber) &&
+    expectedPaymentAmountNumber > 0
+      ? expectedPaymentAmountNumber
+      : details.amount;
   const platformFee = getKlumpPlatformFee(
     transaction.platform_fee,
     grossAmount

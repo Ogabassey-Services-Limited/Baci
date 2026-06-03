@@ -98,11 +98,11 @@ const OrderItemSchema = z.object({
 });
 
 const PaymentInitRequestSchema = z.object({
-  merchant_id: z.string().uuid(),
-  order_id: z.string().uuid(),
+  merchant_id: z.uuid(),
+  order_id: z.uuid(),
   amount: z.number().positive(),
   currency: z.string().default('NGN'),
-  customer_email: z.string().email(),
+  customer_email: z.email(),
   customer_name: z.string().min(1),
   customer_phone: z.string().min(1, 'Phone number is required'),
   gateway: z.enum(PAYMENT_GATEWAYS).optional(),
@@ -964,7 +964,9 @@ export async function POST(request: NextRequest) {
         400
       );
     }
-    if (data.amount > snapshotTotal) {
+    const hasToleratedKlumpAmount =
+      data.gateway === 'klump' && amountsMatch(data.amount, snapshotTotal);
+    if (data.amount > snapshotTotal && !hasToleratedKlumpAmount) {
       return createErrorResponse(
         'Amount exceeds order total',
         'AMOUNT_EXCEEDS_TOTAL',
@@ -1044,8 +1046,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const klumpChargeAmount =
-      gateway === 'klump' ? toKlumpIntegerAmount(data.amount) : null;
+    const klumpChargeAmount = toKlumpIntegerAmount(snapshotTotal);
 
     if (gateway === 'klump') {
       if (!gatewaySettings.klump_enabled) {
@@ -1073,7 +1074,6 @@ export async function POST(request: NextRequest) {
       }
 
       if (
-        klumpChargeAmount === null ||
         klumpChargeAmount < gatewaySettings.klump_min_amount ||
         klumpChargeAmount > gatewaySettings.klump_max_amount
       ) {
@@ -1236,14 +1236,6 @@ export async function POST(request: NextRequest) {
           break;
         }
         case 'klump': {
-          if (klumpChargeAmount === null) {
-            return createErrorResponse(
-              'Invalid Klump payment amount',
-              'INVALID_AMOUNT',
-              400
-            );
-          }
-
           // Klump still uses the Baci BNPL launcher, but it needs the BAC
           // reference in the URL so the launcher can record Klump's provider id
           // before any success page is shown.
@@ -1303,7 +1295,7 @@ export async function POST(request: NextRequest) {
       {
         p_merchant_id: merchantId,
         p_order_id: data.order_id,
-        p_amount: klumpChargeAmount ?? data.amount,
+        p_amount: gateway === 'klump' ? snapshotTotal : data.amount, // Klump keeps decimal total; p_merchant_amount stores rounded integer.
         p_currency: validCurrency,
         p_gateway: gateway,
         p_reference: paymentResult.reference,

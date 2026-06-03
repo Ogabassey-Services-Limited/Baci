@@ -10,7 +10,7 @@ import {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import { usePanGesture, useTapGesture } from 'react-native-gesture-handler';
+import { getOptionalGestureHandlerRuntime } from '@/lib/optional-gesture-handler';
 import {
   DISMISS_BOTTOM_OFFSET,
   DISMISS_RADIUS,
@@ -46,6 +46,8 @@ export function useDraggableFab(
   const [isOnRight, setIsOnRight] = useState(true);
   const handleDismissJS = onDismiss ?? noop;
   const handlePressJS = onPress ?? noop;
+  const { usePanGesture, useSimultaneousGestures, useTapGesture } =
+    getOptionalGestureHandlerRuntime();
 
   // Translation values relative to starting styled location
   const translateX = useSharedValue(0);
@@ -71,9 +73,9 @@ export function useDraggableFab(
   useEffect(() => {
     const previousLayout = previousLayoutRef.current;
 
-    windowWidthSV.value = windowWidth;
-    windowHeightSV.value = windowHeight;
-    bottomOffsetSV.value = bottomOffset;
+    windowWidthSV.set(windowWidth);
+    windowHeightSV.set(windowHeight);
+    bottomOffsetSV.set(bottomOffset);
 
     const hasLayoutChanged =
       previousLayout.windowWidth !== windowWidth ||
@@ -89,18 +91,14 @@ export function useDraggableFab(
         previousLayout.windowHeight - previousLayout.bottomOffset - FAB_SIZE,
         windowHeight,
         bottomOffset,
-        translateY.value
+        translateY.get()
       );
-      translateX.value =
-        withSpring(anchoredTranslationX, {
-          damping: 15,
-          stiffness: 120,
-        });
-      translateY.value =
-        withSpring(clampedTranslationY, {
-          damping: 15,
-          stiffness: 120,
-        });
+      translateX.set(
+        withSpring(anchoredTranslationX, { damping: 15, stiffness: 120 })
+      );
+      translateY.set(
+        withSpring(clampedTranslationY, { damping: 15, stiffness: 120 })
+      );
     }
 
     previousLayoutRef.current = { bottomOffset, windowHeight, windowWidth };
@@ -121,12 +119,12 @@ export function useDraggableFab(
   useEffect(() => {
     if (isDragging) {
       cancelAnimation(scale);
-      scale.value = withTiming(1.1, { duration: 150 });
+      scale.set(withTiming(1.1, { duration: 150 }));
       return;
     }
 
     cancelAnimation(scale);
-    scale.value =
+    scale.set(
       withRepeat(
         withSequence(
           withTiming(1.05, { duration: 1000 }),
@@ -134,62 +132,41 @@ export function useDraggableFab(
         ),
         -1,
         true
-      );
+      )
+    );
 
     return () => {
       cancelAnimation(scale);
     };
   }, [isDragging, scale]);
 
-  // 1. RNGH v3 Hook-Based Tap Definition
-  const tapGesture = useTapGesture({
-    maxDistance: GESTURE_MAX_TAP_DISTANCE,
-    numberOfTaps: 1,
-    onBegin: () => {
-      'worklet';
-      console.log('[FAB TAP] begin');
-    },
-    onActivate: () => {
-      'worklet';
-      console.log('[FAB TAP] activate');
-      runOnJS(triggerHaptic)(Haptics.ImpactFeedbackStyle.Medium);
-      runOnJS(handlePressJS)();
-    },
-    onFinalize: () => {
-      'worklet';
-      console.log('[FAB TAP] finalize');
-    },
-  });
-
-  // 2. RNGH v3 Hook-Based Pan Definition
   const panGesture = usePanGesture({
     minDistance: GESTURE_MIN_DISTANCE,
-    simultaneousWith: tapGesture, // Declarative RNGH v3 relation
-    onActivate: () => {
+    onBegin: () => {
       'worklet';
       cancelAnimation(translateX);
       cancelAnimation(translateY);
-      contextX.value = translateX.value;
-      contextY.value = translateY.value;
+      contextX.set(translateX.get());
+      contextY.set(translateY.get());
 
       runOnJS(setIsDragging)(true);
       runOnJS(triggerHaptic)(Haptics.ImpactFeedbackStyle.Light);
     },
     onUpdate: (event) => {
       'worklet';
-      translateX.value = contextX.value + event.translationX;
-      translateY.value = contextY.value + event.translationY;
+      translateX.set(contextX.get() + event.translationX);
+      translateY.set(contextY.get() + event.translationY);
 
       // Absolute coordinates calculation using shared values
-      const currentWidth = windowWidthSV.value;
-      const currentHeight = windowHeightSV.value;
-      const currentBottomOffset = bottomOffsetSV.value;
+      const currentWidth = windowWidthSV.get();
+      const currentHeight = windowHeightSV.get();
+      const currentBottomOffset = bottomOffsetSV.get();
 
       const startX = currentWidth - FAB_SIZE - EDGE_MARGIN;
       const startY = currentHeight - currentBottomOffset - FAB_SIZE;
 
-      const absoluteX = startX + translateX.value;
-      const absoluteY = startY + translateY.value;
+      const absoluteX = startX + translateX.get();
+      const absoluteY = startY + translateY.get();
 
       const fabCenterX = absoluteX + FAB_SIZE / 2;
       const fabCenterY = absoluteY + FAB_SIZE / 2;
@@ -203,12 +180,12 @@ export function useDraggableFab(
       const isOver = distance < DISMISS_RADIUS;
 
       // Haptic boundary latch logic
-      if (isOver && !hapticTriggered.value) {
-        hapticTriggered.value = true;
+      if (isOver && !hapticTriggered.get()) {
+        hapticTriggered.set(true);
         runOnJS(setIsOverDismissZone)(true);
         runOnJS(triggerHaptic)(Haptics.ImpactFeedbackStyle.Light);
-      } else if (!isOver && hapticTriggered.value) {
-        hapticTriggered.value = false;
+      } else if (!isOver && hapticTriggered.get()) {
+        hapticTriggered.set(false);
         runOnJS(setIsOverDismissZone)(false);
       }
     },
@@ -216,23 +193,23 @@ export function useDraggableFab(
       'worklet';
       runOnJS(setIsDragging)(false);
 
-      const currentWidth = windowWidthSV.value;
-      const currentHeight = windowHeightSV.value;
-      const currentBottomOffset = bottomOffsetSV.value;
+      const currentWidth = windowWidthSV.get();
+      const currentHeight = windowHeightSV.get();
+      const currentBottomOffset = bottomOffsetSV.get();
 
       const startX = currentWidth - FAB_SIZE - EDGE_MARGIN;
       const startY = currentHeight - currentBottomOffset - FAB_SIZE;
 
-      const absoluteX = startX + translateX.value;
-      const absoluteY = startY + translateY.value;
+      const absoluteX = startX + translateX.get();
+      const absoluteY = startY + translateY.get();
 
-      const isOverDismiss = hapticTriggered.value;
-      hapticTriggered.value = false;
+      const isOverDismiss = hapticTriggered.get();
+      hapticTriggered.set(false);
       runOnJS(setIsOverDismissZone)(false);
 
       if (isOverDismiss) {
-        translateX.value = withSpring(0, { damping: 15, stiffness: 120 });
-        translateY.value = withSpring(0, { damping: 15, stiffness: 120 });
+        translateX.set(withSpring(0, { damping: 15, stiffness: 120 }));
+        translateY.set(withSpring(0, { damping: 15, stiffness: 120 }));
         runOnJS(setIsOnRight)(true);
         runOnJS(triggerHaptic)(Haptics.ImpactFeedbackStyle.Medium);
         runOnJS(handleDismissJS)();
@@ -261,20 +238,34 @@ export function useDraggableFab(
       runOnJS(setIsOnRight)(isRight);
       runOnJS(triggerHaptic)(Haptics.ImpactFeedbackStyle.Medium);
 
-      translateX.value = withSpring(targetTranslationX, { damping: 15, stiffness: 120 });
-      translateY.value = withSpring(targetTranslationY, { damping: 15, stiffness: 120 });
+      translateX.set(
+        withSpring(targetTranslationX, { damping: 15, stiffness: 120 })
+      );
+      translateY.set(
+        withSpring(targetTranslationY, { damping: 15, stiffness: 120 })
+      );
     },
     onFinalize: () => {
       'worklet';
-      hapticTriggered.value = false;
+      hapticTriggered.set(false);
       runOnJS(setIsDragging)(false);
       runOnJS(setIsOverDismissZone)(false);
     },
   });
 
+  const tapGesture = useTapGesture({
+    maxDistance: GESTURE_MAX_TAP_DISTANCE,
+    onActivate: () => {
+      'worklet';
+      runOnJS(triggerHaptic)(Haptics.ImpactFeedbackStyle.Medium);
+      runOnJS(handlePressJS)();
+    },
+  });
+
+  const composedGesture = useSimultaneousGestures(panGesture, tapGesture);
+
   return {
-    panGesture,
-    tapGesture,
+    composedGesture,
     translateX,
     translateY,
     scale,

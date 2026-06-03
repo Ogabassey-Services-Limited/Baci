@@ -104,6 +104,10 @@ jest.mock('@react-native-vector-icons/feather', () => ({
   default: 'Feather',
 }));
 
+jest.mock('react-native-worklets', () =>
+  require('react-native-worklets/lib/module/mock')
+);
+
 // Mock react-native-reanimated
 jest.mock('react-native-reanimated', () => {
   const React = require('react');
@@ -147,7 +151,7 @@ jest.mock('react-native-reanimated', () => {
   const identityAnimation = (toValue: unknown) => toValue;
   const animationWithCallback = (
     toValue: unknown,
-    config?: unknown,
+    _config?: unknown,
     callback?: (finished: boolean) => void
   ) => {
     if (typeof callback === 'function') {
@@ -220,6 +224,7 @@ jest.mock('react-native-reanimated', () => {
     },
     useAnimatedStyle: (fn: () => unknown) => fn(),
     useDerivedValue: (fn: () => unknown) => ({ value: fn() }),
+    useEvent: (handler: (...args: unknown[]) => unknown) => handler,
     useAnimatedRef: () => ({ current: null }),
     useAnimatedScrollHandler: (handler: unknown) => {
       if (
@@ -322,21 +327,6 @@ jest.mock('react-native-reanimated', () => {
   return mock;
 });
 
-// Mock react-native-worklets
-jest.mock('react-native-worklets', () => ({
-  scheduleOnRN: <TArgs extends unknown[], TResult>(
-    fn: (...args: TArgs) => TResult,
-    ...args: TArgs
-  ) => fn(...args),
-  scheduleOnUI: <TArgs extends unknown[], TResult>(
-    fn: (...args: TArgs) => TResult,
-    ...args: TArgs
-  ) => fn(...args),
-  runOnJS: <TArgs extends unknown[], TResult>(
-    fn: (...args: TArgs) => TResult
-  ) => fn,
-}));
-
 // Mock react-native-gesture-handler
 jest.mock('react-native-gesture-handler', () => {
   const React = require('react');
@@ -377,7 +367,9 @@ jest.mock('react-native-gesture-handler', () => {
       style,
     }: {
       children?: React.ReactNode;
-      style?: import('react-native').StyleProp<import('react-native').ViewStyle>;
+      style?: import('react-native').StyleProp<
+        import('react-native').ViewStyle
+      >;
     }) => React.createElement(View, { style }, children),
     Gesture: {
       Pan: jest.fn(createGesture),

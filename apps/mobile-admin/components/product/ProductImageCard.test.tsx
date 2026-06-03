@@ -8,7 +8,7 @@ import { ProductImageCard } from './ProductImageCard';
 vi.mock('@/components/ui/SafeImage', () => ({
   __esModule: true,
   default: ({ source }: { source: { uri: string } }) => (
-    <div aria-label="Product preview" data-src={source.uri} role="img" />
+    <img alt="Product preview" data-src={source.uri} />
   ),
 }));
 

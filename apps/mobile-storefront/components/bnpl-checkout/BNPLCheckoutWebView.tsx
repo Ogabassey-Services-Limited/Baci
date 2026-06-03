@@ -1,9 +1,9 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
-import { type ComponentProps, type RefObject } from 'react';
+import type { ComponentProps, RefObject } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
+import { WebView, type WebViewNavigation } from 'react-native-webview';
 import type Colors from '@/constants/Colors';
 import { BRAND } from '@/constants/Colors';
-import { WebView, type WebViewNavigation } from 'react-native-webview';
 import { bnplCheckoutScreenStyles as styles } from './BNPLCheckoutScreen.styles';
 import {
   BNPL_INJECTED_JAVASCRIPT,
