@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { CartItem } from '@/hooks/cart';
-import { calculateCartTotal, sanitizeCartItems } from './cart-entitlement-sanitizer';
+import {
+  calculateCartTotal,
+  sanitizeCartItems,
+} from './cart-entitlement-sanitizer';
 
 describe('cart-entitlement-sanitizer', () => {
   const mockCart: CartItem[] = [

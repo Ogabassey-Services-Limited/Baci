@@ -32,9 +32,7 @@ export function calculateCartTotal(
     return sanitizedCart.reduce((total, item) => {
       const rawPrice = item.negotiatedPrice ?? item.price;
       const price =
-        typeof rawPrice === 'number' && !Number.isNaN(rawPrice)
-          ? rawPrice
-          : 0;
+        typeof rawPrice === 'number' && !Number.isNaN(rawPrice) ? rawPrice : 0;
       const quantity =
         typeof item.quantity === 'number' && !Number.isNaN(item.quantity)
           ? item.quantity
