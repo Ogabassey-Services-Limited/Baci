@@ -1326,7 +1326,7 @@ describe('CheckoutPage', () => {
 
   it('invokes calculateCommerce with subtotal excluding assurance and sends quantity-multiplied assurance to /api/orders', async () => {
     vi.mocked(hasPriceNegotiationEntitlement).mockReturnValue(true);
-    
+
     // Set up cart with a negotiated price + assurance + quantity > 1
     const mockCart = [
       {
@@ -1405,7 +1405,7 @@ describe('CheckoutPage', () => {
       const orderCall = fetchMock.mock.calls.find(([url]) => String(url) === '/api/orders');
       expect(orderCall).toBeDefined();
       const body = JSON.parse(orderCall![1]!.body as string);
-      
+
       // Items assurance fee should be quantity multiplied
       expect(body.items).toEqual([
         expect.objectContaining({
@@ -1507,7 +1507,7 @@ describe('CheckoutPage', () => {
       const orderCall = fetchMock.mock.calls.find(([url]) => String(url) === '/api/orders');
       expect(orderCall).toBeDefined();
       const body = JSON.parse(orderCall![1]!.body as string);
-      
+
       // Items price should be baseline (5000), not negotiated (4000)
       expect(body.items).toEqual([
         expect.objectContaining({
