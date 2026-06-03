@@ -712,7 +712,7 @@ describe('POST /api/payments/initialize', () => {
       });
     });
 
-    it('stores the rounded Klump amount used by the checkout widget', async () => {
+    it('keeps the order total as the RPC amount and stores the rounded Klump charge amount', async () => {
       rpcResult = {
         data: [
           {
@@ -745,7 +745,7 @@ describe('POST /api/payments/initialize', () => {
         (call) => call.name === 'create_payment_transaction'
       );
       expect(transactionCall?.args).toMatchObject({
-        p_amount: 58_089,
+        p_amount: 58_088.5,
         p_gateway: 'klump',
         p_merchant_amount: 58_089,
         p_platform_fee: 0,
@@ -786,7 +786,7 @@ describe('POST /api/payments/initialize', () => {
         (call) => call.name === 'create_payment_transaction'
       );
       expect(transactionCall?.args).toMatchObject({
-        p_amount: 58_089,
+        p_amount: 58_088.5,
         p_gateway: 'klump',
         p_merchant_amount: 58_089,
         p_platform_fee: 0,

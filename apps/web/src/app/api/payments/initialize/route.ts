@@ -1303,7 +1303,7 @@ export async function POST(request: NextRequest) {
       {
         p_merchant_id: merchantId,
         p_order_id: data.order_id,
-        p_amount: klumpChargeAmount ?? data.amount,
+        p_amount: gateway === 'klump' ? snapshotTotal : data.amount,
         p_currency: validCurrency,
         p_gateway: gateway,
         p_reference: paymentResult.reference,

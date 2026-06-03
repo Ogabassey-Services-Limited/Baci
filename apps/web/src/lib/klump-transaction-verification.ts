@@ -19,6 +19,7 @@ interface KlumpVerifiedTransactionDetails {
 interface KlumpTransactionRecord {
   amount: number | string | null;
   currency: string | null;
+  merchant_amount?: number | string | null;
 }
 
 const KLUMP_SUCCESS_STATUSES = new Set([
@@ -30,6 +31,20 @@ const KLUMP_SUCCESS_STATUSES = new Set([
 const KLUMP_TRANSACTION_VERIFICATION_BASE_URL =
   'https://api.useklump.com/v1/transactions';
 const KLUMP_TRANSACTION_VERIFICATION_TIMEOUT_MS = 10_000;
+
+export function getKlumpExpectedPaymentAmount(
+  transaction: Pick<KlumpTransactionRecord, 'amount' | 'merchant_amount'>
+) {
+  const merchantAmount = transaction.merchant_amount;
+  if (
+    merchantAmount != null &&
+    !(typeof merchantAmount === 'string' && merchantAmount.trim() === '')
+  ) {
+    return merchantAmount;
+  }
+
+  return transaction.amount;
+}
 
 function asRecord(value: unknown): JsonRecord {
   return value && typeof value === 'object' && !Array.isArray(value)
@@ -249,7 +264,12 @@ export async function verifyKlumpWebhookTransaction({
     };
   }
 
-  if (!amountsMatch(transaction.amount, verification.details.amount)) {
+  if (
+    !amountsMatch(
+      getKlumpExpectedPaymentAmount(transaction),
+      verification.details.amount
+    )
+  ) {
     return {
       error: 'Verified payment amount mismatch',
       status: 400,
