@@ -73,7 +73,7 @@ export function buildCheckoutOrderItems(
         : {}),
       has_assurance: item.hasAssurance || false,
       assurance_fee: item.hasAssurance
-        ? checkoutPrice * (item.assuranceRate || 0.05)
+        ? checkoutPrice * item.quantity * (item.assuranceRate || 0.05)
         : 0,
     };
   });

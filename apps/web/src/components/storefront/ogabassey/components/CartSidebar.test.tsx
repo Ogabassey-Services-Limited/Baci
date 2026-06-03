@@ -11,6 +11,10 @@ vi.mock('@/env', () => ({
   getRootDomain: () => 'localhost',
 }));
 
+vi.mock('@/lib/feature-flags', () => ({
+  hasPriceNegotiationEntitlement: vi.fn(() => true),
+}));
+
 let mockMerchant: { id: string; slug: string } | null = { id: 'merchant-abc', slug: 'test-store' };
 
 vi.mock('@/hooks/use-merchant-client', () => ({
@@ -27,28 +31,32 @@ const mockApplyNegotiatedPrice = vi.fn();
 const mockApplyCartWideNegotiation = vi.fn();
 const mockToggleAssurance = vi.fn();
 
+let mockCartItems = [
+  {
+    id: 'p1',
+    cartItemId: 'ci-1',
+    name: 'Test Shoe',
+    price: 15000,
+    quantity: 1,
+    image: '/shoe.jpg',
+    category: 'shoes',
+    brand: 'TestBrand',
+    negotiatedPrice: 10000,
+    negotiationStatus: 'accepted' as const,
+  },
+];
+
 vi.mock('@/hooks/cart', () => ({
   useCart: () => ({
     isCartOpen: true,
     setIsCartOpen: mockSetIsCartOpen,
-    cart: [
-      {
-        id: 'p1',
-        cartItemId: 'ci-1',
-        name: 'Test Shoe',
-        price: 15000,
-        quantity: 1,
-        image: '/shoe.jpg',
-        category: 'shoes',
-        brand: 'TestBrand',
-      },
-    ],
+    cart: mockCartItems,
     removeFromCart: mockRemoveFromCart,
     updateQuantity: mockUpdateQuantity,
     applyNegotiatedPrice: mockApplyNegotiatedPrice,
     applyCartWideNegotiation: mockApplyCartWideNegotiation,
     toggleAssurance: mockToggleAssurance,
-    cartTotal: 15000,
+    cartTotal: 10000,
   }),
 }));
 
@@ -99,6 +107,7 @@ vi.mock('@/lib/supabase/client', () => ({
 
 // ── Import after mocks ──────────────────────────────────────────────────────
 
+import { hasPriceNegotiationEntitlement } from '@/lib/feature-flags';
 import { CartSidebar } from './CartSidebar';
 
 // ── Tests ────────────────────────────────────────────────────────────────────
@@ -152,5 +161,18 @@ describe('CartSidebar', () => {
     const negotiateBtn = screen.getByRole('button', { name: /negotiate total amount/i });
     fireEvent.click(negotiateBtn);
     expect(screen.queryByPlaceholderText('Enter amount...')).not.toBeInTheDocument();
+  });
+
+  it('hides negotiation controls and ignores negotiated price when not entitled', () => {
+    vi.mocked(hasPriceNegotiationEntitlement).mockReturnValue(false);
+    render(<CartSidebar />);
+
+    // Should not render Negotiate Total Amount button
+    expect(
+      screen.queryByRole('button', { name: /negotiate total amount/i })
+    ).not.toBeInTheDocument();
+
+    // Should display original subtotal (15000) instead of negotiated (10000)
+    expect(screen.getAllByText('₦15,000')[0]).toBeInTheDocument();
   });
 });

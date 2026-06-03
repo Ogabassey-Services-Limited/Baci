@@ -26,7 +26,7 @@ import {
   generateOrderConfirmationText,
 } from '@/lib/email-templates';
 import { notifyNewOrder, notifyPaymentReceived } from '@/lib/expo-push';
-import { FEATURES, isPlanTier, planHasFeature } from '@/lib/feature-flags';
+import { hasPriceNegotiationEntitlement } from '@/lib/feature-flags';
 import { formatVariantAttributesLabel } from '@/lib/format-variant-attributes-label';
 import { detectPrivacyRegion } from '@/lib/geo-privacy';
 import {
@@ -103,28 +103,7 @@ function getSavingsRedemptionIdempotencyKey({
 
 /** Server-authoritative assurance rate — never trust the client value. */
 const SERVER_ASSURANCE_RATE = 0.05;
-const LEGACY_NEGOTIATION_SLUGS = new Set(['ogabassey', 'demo-premium']);
-
-function hasPriceNegotiationEntitlement(
-  planTier: string | null | undefined,
-  merchantSlug: string | null | undefined
-): boolean {
-  if (isPlanTier(planTier)) {
-    return planHasFeature(planTier, FEATURES.PRICE_NEGOTIATION);
-  }
-
-  // If plan_tier is present but malformed, fail closed.
-  if (planTier != null) {
-    return false;
-  }
-
-  // Maintain legacy storefront entitlement fallback until all
-  // merchants are backfilled with an explicit `plan_tier`.
-  return (
-    typeof merchantSlug === 'string' &&
-    LEGACY_NEGOTIATION_SLUGS.has(merchantSlug.toLowerCase())
-  );
-}
+// Imported from @/lib/feature-flags
 
 type EmailOrderItem = {
   name?: string;
@@ -558,8 +537,10 @@ export async function POST(request: NextRequest) {
     const orderItemsPayload = items.map((item, index) => {
       const hasAssurance = item.has_assurance || false;
       const itemPrice = item.negotiatedPrice ?? item.price;
-      // SECURITY: Recompute assurance_fee server-side — never trust client values
-      const assuranceFee = hasAssurance ? itemPrice * SERVER_ASSURANCE_RATE : 0;
+      // SECURITY: Recompute assurance_fee server-side — never trust client values (quantity-aware)
+      const assuranceFee = hasAssurance
+        ? itemPrice * item.quantity * SERVER_ASSURANCE_RATE
+        : 0;
       const voucherAwardId = verifiedQuizVoucherAwardIdsByIndex.get(index);
 
       return {

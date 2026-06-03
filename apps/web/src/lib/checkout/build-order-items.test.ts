@@ -146,4 +146,28 @@ describe('buildCheckoutOrderItems', () => {
     expect(item).not.toHaveProperty('voucher_award_id');
     expect(item).not.toHaveProperty('voucher_token');
   });
+
+  it('multiplies assurance_fee by quantity when quantity > 1', () => {
+    const items = buildCheckoutOrderItems([
+      {
+        id: 'prod_1',
+        name: 'Galaxy S22 Ultra',
+        quantity: 2,
+        price: 500000,
+        hasAssurance: true,
+        assuranceRate: 0.05,
+      },
+    ]);
+
+    expect(items).toEqual([
+      expect.objectContaining({
+        product_id: 'prod_1',
+        price: 500000,
+        value: 1000000,
+        quantity: 2,
+        has_assurance: true,
+        assurance_fee: 50000,
+      }),
+    ]);
+  });
 });

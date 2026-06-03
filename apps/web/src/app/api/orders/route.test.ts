@@ -1684,6 +1684,66 @@ describe('POST /api/orders — B3.5 client/server total parity', () => {
     expect(response.status).toBe(400);
     expect(body.details).toContain('order_total_mismatch');
   });
+
+  it('server-computes quantity-aware assurance_fee and forwards it to the RPC', async () => {
+    const rpcSpy = vi.fn().mockResolvedValue({
+      data: [
+        {
+          id: 'order-id',
+          order_number: 'ORD-123',
+          total: 1000000,
+          subtotal: 1000000,
+          shipping_fee: 0,
+          customer_id: CUSTOMER_ID,
+        },
+      ],
+      error: null,
+    });
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation((() => {
+      const sb = buildMockSupabase();
+      sb.rpc = ((name: string, args: Record<string, unknown>) => {
+        if (name === 'create_storefront_order') {
+          return rpcSpy(args);
+        }
+        return Promise.resolve({ data: null, error: null });
+      }) as typeof sb.rpc;
+      return sb;
+    }) as unknown as never);
+
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...baseOrderPayload,
+        items: [
+          {
+            product_id: 'p-1',
+            quantity: 2,
+            price: 500000,
+            name: 'Widget',
+            has_assurance: true,
+          },
+        ],
+        expected_total: 1000000,
+        client_total: 1000000,
+      }),
+    });
+    await POST(request);
+
+    expect(rpcSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        p_items: [
+          expect.objectContaining({
+            product_id: 'p-1',
+            quantity: 2,
+            price: 500000,
+            has_assurance: true,
+            assurance_fee: 50000, // (500000 * 2) * 0.05
+          }),
+        ],
+      })
+    );
+  });
 });
 
 describe('POST /api/orders — B3.5 VAT RPC error mapping', () => {
