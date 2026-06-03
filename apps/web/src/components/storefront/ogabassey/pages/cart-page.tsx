@@ -37,11 +37,14 @@ import { useEffect, useState } from 'react';
 import { type CartItem, useCart } from '@/hooks/cart';
 import { useAuthSafe } from '@/contexts/auth-context';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
+import { DEFAULT_ASSURANCE_RATE } from '@/lib/checkout/constants';
 import { getStorefrontProductHref } from '@/lib/storefront-product-href';
 import { AdUnit } from '../components/AdUnit';
 import { EmptyState } from '../components/empty-state';
 import { NegotiationModal } from '../components/NegotiationModal';
 import { CheckoutIdentityModal } from '../components/CheckoutIdentityModal';
+import { hasPriceNegotiationEntitlement } from '@/lib/feature-flags';
+import { sanitizeCartItems, calculateCartTotal } from '@/lib/checkout/cart-entitlement-sanitizer';
 
 interface NegotiationState {
   isOpen: boolean;
@@ -64,7 +67,6 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
     applyNegotiatedPrice,
     applyCartWideNegotiation,
     toggleAssurance,
-    cartTotal,
     merchantSlug,
   } = useCart();
 
@@ -81,6 +83,12 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
       : vatEnabled
         ? vatRate / 100
         : 0;
+
+  const hasPriceNegotiation = hasPriceNegotiationEntitlement(merchant?.plan_tier, merchant?.slug);
+
+  const displayCart = sanitizeCartItems(cart, hasPriceNegotiation);
+
+  const displayCartTotal = calculateCartTotal(cart, hasPriceNegotiation);
 
   const [negotiationState, setNegotiationState] =
     useState<NegotiationState | null>(null);
@@ -128,10 +136,10 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
 
   const openItemNegotiation = (item: CartItem) => {
     // Check if any item already has individual negotiation
-    const hasAnyIndividualNegotiation = cart.some(i => i.negotiatedPrice != null);
+    const hasAnyIndividualNegotiation = displayCart.some(i => i.negotiatedPrice != null);
 
     // Check if cart-wide discount is active (would need to check cartDiscount in items)
-    const hasBulkDiscount = cart.some((item) => (item.cartDiscount ?? 0) > 0);
+    const hasBulkDiscount = displayCart.some((item) => (item.cartDiscount ?? 0) > 0);
 
     if (hasBulkDiscount) {
       // Bulk mode is active, show error
@@ -153,7 +161,7 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
     setNegotiationState({
       isOpen: true,
       type: 'total',
-      currentPrice: cartTotal,
+      currentPrice: displayCartTotal,
       name: 'Entire Cart',
     });
   };
@@ -178,7 +186,7 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
             <ShoppingCart className="text-store-primary fill-red-600" />
             Cart{' '}
             <span className="text-gray-400 text-lg font-medium">
-              ({cart.length})
+              ({displayCart.length})
             </span>
           </h1>
           <Link
@@ -189,7 +197,7 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
           </Link>
         </div>
 
-        {cart.length === 0 ? (
+        {displayCart.length === 0 ? (
           <div className="flex-1 flex items-center justify-center pb-32 md:pb-0">
             <EmptyState
               variant="cart"
@@ -203,7 +211,7 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
             {/* Cart Items List */}
             <div className="lg:col-span-8 space-y-4">
-              {cart.map((item, index) => {
+              {displayCart.map((item, index) => {
                 const productHref = getStorefrontProductHref(item, basePath);
                 const priceToUse =
                   (typeof item.negotiatedPrice === 'number' && !isNaN(item.negotiatedPrice))
@@ -213,7 +221,9 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
                       : 0;
                 const itemQuantity = (typeof item.quantity === 'number' && !isNaN(item.quantity)) ? item.quantity : 0;
                 const itemTotal = priceToUse * itemQuantity;
-                const assuranceCost = item.hasAssurance ? itemTotal * 0.05 : 0;
+                const assuranceCost = item.hasAssurance
+                  ? itemTotal * (item.assuranceRate ?? DEFAULT_ASSURANCE_RATE)
+                  : 0;
 
                 return (
                   <div
@@ -393,25 +403,27 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
                       )}
 
                       {/* Negotiate Button */}
-                      <div className="flex items-center gap-2">
-                        {item.negotiationStatus === 'accepted' ? (
-                          <div className="flex items-center gap-1.5 text-xs font-bold text-green-600 bg-green-50 px-3 py-1.5 rounded-lg border border-green-100">
-                            <Check size={12} strokeWidth={3} />
-                            <span>
-                              Matched @ ₦
-                              {(item.negotiatedPrice || 0).toLocaleString()}
-                            </span>
-                          </div>
-                        ) : (
-                          <button type="button"
-                            onClick={() => openItemNegotiation(item)}
-                            className="flex items-center gap-1.5 text-xs font-bold text-store-primary md:hover:bg-store-primary/5 px-2 py-1.5 rounded-lg transition-colors border border-red-100 md:hover:border-store-primary/40 active:bg-store-primary/5 active:scale-95"
-                          >
-                            <AppNegotiateIcon size={14} />
-                            <span>Negotiate</span>
-                          </button>
-                        )}
-                      </div>
+                      {hasPriceNegotiation && (
+                        <div className="flex items-center gap-2">
+                          {item.negotiationStatus === 'accepted' ? (
+                            <div className="flex items-center gap-1.5 text-xs font-bold text-green-600 bg-green-50 px-3 py-1.5 rounded-lg border border-green-100">
+                              <Check size={12} strokeWidth={3} />
+                              <span>
+                                Matched @ ₦
+                                {(item.negotiatedPrice || 0).toLocaleString()}
+                              </span>
+                            </div>
+                          ) : (
+                            <button type="button"
+                              onClick={() => openItemNegotiation(item)}
+                              className="flex items-center gap-1.5 text-xs font-bold text-store-primary md:hover:bg-store-primary/5 px-2 py-1.5 rounded-lg transition-colors border border-red-100 md:hover:border-store-primary/40 active:bg-store-primary/5 active:scale-95"
+                            >
+                              <AppNegotiateIcon size={14} />
+                              <span>Negotiate</span>
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -426,13 +438,15 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sticky top-24">
 
                 <div className="space-y-3">
-                  <button type="button"
-                    onClick={openTotalNegotiation}
-                    className="w-full bg-gray-100 md:hover:bg-gray-200 text-gray-900 font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-colors border border-gray-200 active:scale-[0.98] active:bg-gray-200"
-                  >
-                    <AppNegotiateIcon size={18} className="text-store-primary" />
-                    Negotiate Total
-                  </button>
+                  {hasPriceNegotiation && (
+                    <button type="button"
+                      onClick={openTotalNegotiation}
+                      className="w-full bg-gray-100 md:hover:bg-gray-200 text-gray-900 font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-colors border border-gray-200 active:scale-[0.98] active:bg-gray-200"
+                    >
+                      <AppNegotiateIcon size={18} className="text-store-primary" />
+                      Negotiate Total
+                    </button>
+                  )}
 
                   <button type="button"
                     onClick={handleCheckoutClick}
@@ -440,7 +454,7 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
                   >
                     Proceed to Checkout
                     <span className="opacity-50 mx-1">•</span>
-                    <span>₦{(cartTotal || 0).toLocaleString()}</span>
+                    <span>₦{(displayCartTotal || 0).toLocaleString()}</span>
                     <ArrowRight
                       size={20}
                       className="animate-slide-right ml-1"
@@ -482,18 +496,20 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
       />
 
       {/* Mobile Sticky Footer - Only visible on mobile when cart has items */}
-      {cart.length > 0 && (
+      {displayCart.length > 0 && (
         <div className="fixed bottom-24 left-0 right-0 bg-white border-t border-gray-200 p-3 flex items-center gap-2 shadow-[0_-4px_16px_rgba(0,0,0,0.08)] md:hidden z-40">
           {/* Negotiate Icon Button */}
-          <button type="button"
-            onClick={openTotalNegotiation}
-            className="h-14 px-3 flex flex-col items-center justify-center bg-gray-100 hover:bg-gray-200 active:bg-gray-200 rounded-xl border border-gray-200 transition-colors shrink-0"
-            aria-label="Bulk Negotiate"
-            title="Bulk Negotiate"
-          >
-            <AppNegotiateIcon size={24} className="text-store-primary" />
-            <span className="text-[10px] font-bold text-gray-600 mt-0.5">Negotiate</span>
-          </button>
+          {hasPriceNegotiation && (
+            <button type="button"
+              onClick={openTotalNegotiation}
+              className="h-14 px-3 flex flex-col items-center justify-center bg-gray-100 hover:bg-gray-200 active:bg-gray-200 rounded-xl border border-gray-200 transition-colors shrink-0"
+              aria-label="Bulk Negotiate"
+              title="Bulk Negotiate"
+            >
+              <AppNegotiateIcon size={24} className="text-store-primary" />
+              <span className="text-[10px] font-bold text-gray-600 mt-0.5">Negotiate</span>
+            </button>
+          )}
 
           {/* Checkout Button */}
           <button type="button"
@@ -502,7 +518,7 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
           >
             <span>Checkout</span>
             <span className="opacity-50 mx-1">•</span>
-            <span>₦{(cartTotal || 0).toLocaleString()}</span>
+            <span>₦{(displayCartTotal || 0).toLocaleString()}</span>
             <ArrowRight size={18} className="animate-slide-right ml-1" />
           </button>
         </div>

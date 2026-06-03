@@ -19,6 +19,7 @@ import { useState, useEffect } from 'react';
 import { type CartItem, useCart } from '@/hooks/cart';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { analytics } from '@/lib/analytics';
+import { DEFAULT_ASSURANCE_RATE } from '@/lib/checkout/constants';
 import { asRoute } from '@/lib/routes';
 import { getStorefrontProductHref } from '@/lib/storefront-product-href';
 import { AdUnit } from './AdUnit';
@@ -26,6 +27,8 @@ import { AdUnit } from './AdUnit';
 import { EmptyState } from './empty-state';
 import Image from 'next/image';
 import { NegotiationModal } from './NegotiationModal';
+import { hasPriceNegotiationEntitlement } from '@/lib/feature-flags';
+import { sanitizeCartItems, calculateCartTotal } from '@/lib/checkout/cart-entitlement-sanitizer';
 
 // Helper type to manage modal state more cleanly
 interface NegotiationState {
@@ -46,7 +49,6 @@ export const CartSidebar: React.FC = () => {
     applyNegotiatedPrice,
     applyCartWideNegotiation,
     toggleAssurance,
-    cartTotal,
   } = useCart();
 
   const [negotiationState, setNegotiationState] =
@@ -61,6 +63,12 @@ export const CartSidebar: React.FC = () => {
       ? (merchant.vat_rate ?? 7.5) / 100
       : 0;
 
+  const hasPriceNegotiation = hasPriceNegotiationEntitlement(merchant?.plan_tier, merchant?.slug);
+
+  const displayCart = sanitizeCartItems(cart, hasPriceNegotiation);
+
+  const displayCartTotal = calculateCartTotal(cart, hasPriceNegotiation);
+
   const getHref = (path: string) =>
     path.startsWith('http') ? path : `${basePath || ''}${path === '/' ? '' : path}`;
 
@@ -71,9 +79,9 @@ export const CartSidebar: React.FC = () => {
 
   // Track ViewCart event when sidebar opens
   useEffect(() => {
-    if (isCartOpen && cart.length > 0) {
+    if (isCartOpen && displayCart.length > 0) {
       // Map cart items to Product structure expected by analytics
-      const analyticsProducts = cart.map((item) => ({
+      const analyticsProducts = displayCart.map((item) => ({
         product: {
           id: item.id,
           name: item.name,
@@ -124,7 +132,7 @@ export const CartSidebar: React.FC = () => {
     setNegotiationState({
       isOpen: true,
       type: 'total',
-      currentPrice: cartTotal,
+      currentPrice: displayCartTotal,
       name: 'Entire Cart',
     });
   };
@@ -151,7 +159,7 @@ export const CartSidebar: React.FC = () => {
                 <ShoppingBag className="text-red-600" />
                 Your Cart
                 <span className="text-sm font-medium text-gray-500 ml-2">
-                  ({cart.length} items)
+                  ({displayCart.length} items)
                 </span>
               </h2>
               <button type="button"
@@ -165,9 +173,9 @@ export const CartSidebar: React.FC = () => {
 
             {/* Cart Items List */}
             <div
-              className={`flex-1 overflow-y-auto p-6 ${cart.length === 0 ? 'flex flex-col' : 'space-y-6'}`}
+              className={`flex-1 overflow-y-auto p-6 ${displayCart.length === 0 ? 'flex flex-col' : 'space-y-6'}`}
             >
-              {cart.length === 0 ? (
+              {displayCart.length === 0 ? (
                 <div className="flex-1 flex items-center justify-center">
                   <EmptyState
                     variant="cart"
@@ -179,7 +187,7 @@ export const CartSidebar: React.FC = () => {
                 </div>
               ) : (
                 <>
-                  {cart.map((item) => {
+                  {displayCart.map((item) => {
                     const productHref = asRoute(
                       getStorefrontProductHref(item, basePath || '')
                     );
@@ -188,7 +196,9 @@ export const CartSidebar: React.FC = () => {
                         ? item.negotiatedPrice
                         : item.price;
                     const itemTotal = priceToUse * item.quantity;
-                    const assuranceCost = itemTotal * 0.05;
+                    const assuranceCost =
+                      itemTotal *
+                      (item.assuranceRate ?? DEFAULT_ASSURANCE_RATE);
 
                     return (
                       <div
@@ -310,22 +320,24 @@ export const CartSidebar: React.FC = () => {
                               </div>
 
                               {/* Negotiation - Bottom Left */}
-                              {item.negotiationStatus === 'accepted' ? (
-                                <div className="flex items-center gap-1 text-[10px] font-bold text-green-600 bg-green-50 px-1.5 py-0.5 rounded-md w-fit border border-green-100">
-                                  <Check size={10} strokeWidth={3} />
-                                  <span>
-                                    Matched @ ₦
-                                    {item.negotiatedPrice?.toLocaleString()}
-                                  </span>
-                                </div>
-                              ) : (
-                                <button type="button"
-                                  onClick={() => openItemNegotiation(item)}
-                                  className="flex items-center gap-1.5 text-[10px] font-bold text-red-600 hover:text-red-700 transition-colors"
-                                >
-                                  <HandCoins size={14} />
-                                  <span>Negotiate</span>
-                                </button>
+                              {hasPriceNegotiation && (
+                                item.negotiationStatus === 'accepted' ? (
+                                  <div className="flex items-center gap-1 text-[10px] font-bold text-green-600 bg-green-50 px-1.5 py-0.5 rounded-md w-fit border border-green-100">
+                                    <Check size={10} strokeWidth={3} />
+                                    <span>
+                                      Matched @ ₦
+                                      {item.negotiatedPrice?.toLocaleString()}
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <button type="button"
+                                    onClick={() => openItemNegotiation(item)}
+                                    className="flex items-center gap-1.5 text-[10px] font-bold text-red-600 hover:text-red-700 transition-colors"
+                                  >
+                                    <HandCoins size={14} />
+                                    <span>Negotiate</span>
+                                  </button>
+                                )
                               )}
                             </div>
 
@@ -413,12 +425,12 @@ export const CartSidebar: React.FC = () => {
             </div>
 
             {/* Footer / Checkout */}
-            {cart.length > 0 && (
+            {displayCart.length > 0 && (
               <div className="border-t border-gray-100 bg-gray-50 p-6 space-y-4 shrink-0">
                 <div className="space-y-2">
                   <div className="flex justify-between text-gray-600">
                     <span>Subtotal</span>
-                    <span>₦{cartTotal.toLocaleString()}</span>
+                    <span>₦{displayCartTotal.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between text-gray-600">
                     <span>Shipping</span>
@@ -428,18 +440,20 @@ export const CartSidebar: React.FC = () => {
                   </div>
                   <div className="flex justify-between text-xl font-bold text-gray-900 pt-2 border-t border-gray-200">
                     <span>Total</span>
-                    <span>₦{cartTotal.toLocaleString()}</span>
+                    <span>₦{displayCartTotal.toLocaleString()}</span>
                   </div>
                 </div>
 
                 {/* Negotiate Total Button */}
-                <button type="button"
-                  onClick={openTotalNegotiation}
-                  className="w-full bg-gray-100 hover:bg-gray-200 text-gray-900 font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-colors border border-gray-200"
-                >
-                  <Calculator size={18} className="text-red-600" />
-                  Negotiate Total Amount
-                </button>
+                {hasPriceNegotiation && (
+                  <button type="button"
+                    onClick={openTotalNegotiation}
+                    className="w-full bg-gray-100 hover:bg-gray-200 text-gray-900 font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-colors border border-gray-200"
+                  >
+                    <Calculator size={18} className="text-red-600" />
+                    Negotiate Total Amount
+                  </button>
+                )}
 
                 <button type="button"
                   onClick={async () => {

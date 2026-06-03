@@ -11,6 +11,10 @@ vi.mock('@/env', () => ({
   getRootDomain: () => 'localhost',
 }));
 
+vi.mock('@/lib/feature-flags', () => ({
+  hasPriceNegotiationEntitlement: vi.fn(() => true),
+}));
+
 let mockMerchant: { id: string; slug: string } | null = {
   id: 'merchant-abc',
   slug: 'test-store',
@@ -30,26 +34,30 @@ vi.mock('@/contexts/auth-context', () => ({
 const mockApplyNegotiatedPrice = vi.fn();
 const mockApplyCartWideNegotiation = vi.fn();
 
+let mockCartItems = [
+  {
+    id: 'p1',
+    cartItemId: 'ci-1',
+    name: 'Test Gadget',
+    price: 25000,
+    quantity: 1,
+    image: '/gadget.jpg',
+    category: 'electronics',
+    brand: 'Brand',
+    negotiatedPrice: 20000,
+    negotiationStatus: 'accepted' as const,
+  },
+];
+
 vi.mock('@/hooks/cart', () => ({
   useCart: () => ({
-    cart: [
-      {
-        id: 'p1',
-        cartItemId: 'ci-1',
-        name: 'Test Gadget',
-        price: 25000,
-        quantity: 1,
-        image: '/gadget.jpg',
-        category: 'electronics',
-        brand: 'Brand',
-      },
-    ],
+    cart: mockCartItems,
     removeFromCart: vi.fn(),
     updateQuantity: vi.fn(),
     applyNegotiatedPrice: mockApplyNegotiatedPrice,
     applyCartWideNegotiation: mockApplyCartWideNegotiation,
     toggleAssurance: vi.fn(),
-    cartTotal: 25000,
+    cartTotal: 20000,
     merchantSlug: 'test-store',
   }),
 }));
@@ -97,6 +105,7 @@ vi.mock('@/lib/supabase/client', () => ({
 
 // ── Import after mocks ──────────────────────────────────────────────────────
 
+import { hasPriceNegotiationEntitlement } from '@/lib/feature-flags';
 import { CartPage } from './cart-page';
 
 // ── Tests ────────────────────────────────────────────────────────────────────
@@ -145,5 +154,18 @@ describe('CartPage', () => {
     expect(
       screen.queryByPlaceholderText('Enter amount...')
     ).not.toBeInTheDocument();
+  });
+
+  it('hides negotiation controls and ignores negotiated price when not entitled', () => {
+    vi.mocked(hasPriceNegotiationEntitlement).mockReturnValue(false);
+    render(<CartPage />);
+
+    // Should not render Negotiate Total button
+    expect(
+      screen.queryByRole('button', { name: /negotiate total/i })
+    ).not.toBeInTheDocument();
+
+    // Should display original subtotal (25000) instead of negotiated (20000)
+    expect(screen.getAllByText('₦25,000')[0]).toBeInTheDocument();
   });
 });

@@ -1,3 +1,5 @@
+import { DEFAULT_ASSURANCE_RATE } from '@/lib/checkout/constants';
+
 type CheckoutOrderItemCondition = 'new' | 'used' | 'open_box' | 'refurbished';
 
 export interface CheckoutOrderItemInput {
@@ -73,7 +75,9 @@ export function buildCheckoutOrderItems(
         : {}),
       has_assurance: item.hasAssurance || false,
       assurance_fee: item.hasAssurance
-        ? checkoutPrice * (item.assuranceRate || 0.05)
+        ? checkoutPrice *
+          item.quantity *
+          (item.assuranceRate ?? DEFAULT_ASSURANCE_RATE)
         : 0,
     };
   });

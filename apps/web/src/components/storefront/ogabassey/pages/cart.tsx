@@ -18,6 +18,7 @@ import type React from 'react';
 import { useEffect, useState } from 'react';
 import { type CartItem, useCart } from '@/hooks/cart';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
+import { DEFAULT_ASSURANCE_RATE } from '@/lib/checkout/constants';
 import { asRoute } from '@/lib/routes';
 import { getStorefrontProductHref } from '@/lib/storefront-product-href';
 import { AdUnit } from '../components/AdUnit';
@@ -145,7 +146,9 @@ export const OgabasseyV2CartPage: React.FC<OgabasseyV2CartPageProps> = ({
                     ? item.negotiatedPrice
                     : item.price;
                 const itemTotal = priceToUse * item.quantity;
-                const assuranceCost = item.hasAssurance ? itemTotal * 0.05 : 0;
+                const assuranceCost = item.hasAssurance
+                  ? itemTotal * (item.assuranceRate ?? DEFAULT_ASSURANCE_RATE)
+                  : 0;
 
                 return (
                   <div

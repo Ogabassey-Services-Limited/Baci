@@ -1,0 +1,1 @@
+export const DEFAULT_ASSURANCE_RATE = 0.05;

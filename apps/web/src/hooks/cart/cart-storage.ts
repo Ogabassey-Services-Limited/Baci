@@ -4,7 +4,7 @@ import type { AddToCartOptions, CartItem } from './cart-types';
 const CART_STORAGE_KEY = 'baci-cart';
 const GUEST_CART_SUFFIX = 'guest';
 
-export const DEFAULT_ASSURANCE_RATE = 0.05;
+export { DEFAULT_ASSURANCE_RATE } from '@/lib/checkout/constants';
 export const DEFAULT_DEFERRED_VALIDATION_TIMEOUT_MS = 2500;
 const MERCHANT_SLUG_KEY = 'baci-cart-merchant-slug';
 
