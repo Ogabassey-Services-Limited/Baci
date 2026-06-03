@@ -66,6 +66,18 @@ function buildCurrentPathRedirectUrl(callbackQuery: URLSearchParams) {
     return `${window.location.origin}${window.location.pathname}?${callbackQuery.toString()}`;
 }
 
+function clearPendingKlumpRedirect() {
+    try {
+        window.localStorage.removeItem(KLUMP_REDIRECT_URL_KEY);
+    } catch {
+        // Ignore storage access failures.
+    }
+}
+
+function clearPendingKlumpRedirectSoon() {
+    window.setTimeout(clearPendingKlumpRedirect, 0);
+}
+
 function readPendingOrderSnapshot(orderId: string | null) {
     if (!orderId || typeof window === 'undefined') {
         return null;
@@ -108,10 +120,11 @@ function hasPendingKlumpRedirect(expectedRedirectUrl: string) {
         }
 
         if (storedRedirectUrl === expectedRedirectUrl) {
+            clearPendingKlumpRedirectSoon();
             return true;
         }
 
-        window.localStorage.removeItem(KLUMP_REDIRECT_URL_KEY);
+        clearPendingKlumpRedirect();
         return false;
     } catch {
         return false;
@@ -463,6 +476,7 @@ export function BnplLauncher({ merchantSlug = 'ogabassey' }: BnplLauncherProps) 
                     ) {
                         return;
                     }
+                    clearPendingKlumpRedirect();
                     klumpSuccessRedirectRef.current = false;
 
                     const klumpRedirectUrl = buildCurrentPathRedirectUrl(callbackQuery);

@@ -1045,7 +1045,7 @@ export async function POST(request: NextRequest) {
     }
 
     const klumpChargeAmount =
-      gateway === 'klump' ? toKlumpIntegerAmount(data.amount) : null;
+      gateway === 'klump' ? toKlumpIntegerAmount(snapshotTotal) : null;
 
     if (gateway === 'klump') {
       if (!gatewaySettings.klump_enabled) {
