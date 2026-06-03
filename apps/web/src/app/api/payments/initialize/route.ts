@@ -27,6 +27,7 @@ import {
   type JuicywayCryptoChain,
   type JuicywayStablecoin,
 } from '@/lib/juicyway';
+import { toKlumpIntegerAmount } from '@/lib/klump-utils';
 import {
   type Currency,
   calculatePlatformFee as calculateKorapayFee,
@@ -963,7 +964,9 @@ export async function POST(request: NextRequest) {
         400
       );
     }
-    if (data.amount > snapshotTotal) {
+    const hasToleratedKlumpAmount =
+      data.gateway === 'klump' && amountsMatch(data.amount, snapshotTotal);
+    if (data.amount > snapshotTotal && !hasToleratedKlumpAmount) {
       return createErrorResponse(
         'Amount exceeds order total',
         'AMOUNT_EXCEEDS_TOTAL',
@@ -1043,6 +1046,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const klumpChargeAmount = toKlumpIntegerAmount(snapshotTotal);
+
     if (gateway === 'klump') {
       if (!gatewaySettings.klump_enabled) {
         return createErrorResponse(
@@ -1069,8 +1074,8 @@ export async function POST(request: NextRequest) {
       }
 
       if (
-        data.amount < gatewaySettings.klump_min_amount ||
-        data.amount > gatewaySettings.klump_max_amount
+        klumpChargeAmount < gatewaySettings.klump_min_amount ||
+        klumpChargeAmount > gatewaySettings.klump_max_amount
       ) {
         return createErrorResponse(
           'Order total is outside the merchant Klump amount range',
@@ -1253,7 +1258,7 @@ export async function POST(request: NextRequest) {
             checkout_url: launcherUrl,
             reference,
             platformFee: 0,
-            merchantAmount: data.amount,
+            merchantAmount: klumpChargeAmount,
           };
           break;
         }
@@ -1290,7 +1295,7 @@ export async function POST(request: NextRequest) {
       {
         p_merchant_id: merchantId,
         p_order_id: data.order_id,
-        p_amount: data.amount,
+        p_amount: gateway === 'klump' ? snapshotTotal : data.amount, // Klump keeps decimal total; p_merchant_amount stores rounded integer.
         p_currency: validCurrency,
         p_gateway: gateway,
         p_reference: paymentResult.reference,

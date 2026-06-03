@@ -107,4 +107,36 @@ describe('verifyKlumpWebhookTransaction', () => {
       success: false,
     });
   });
+
+  it('uses merchant_amount as the expected Klump charge amount when present', async () => {
+    const fetchSpy = vi.fn(async () =>
+      Response.json({
+        data: {
+          amount: 58089,
+          currency: 'NGN',
+          id: 'klump-txn-123',
+          is_live: true,
+          merchant_reference: 'BAC-ABCD12345678',
+          status: 'successful',
+        },
+      })
+    );
+
+    const result = await verifyKlumpWebhookTransaction({
+      details: {
+        ...webhookDetails,
+        amount: 58089,
+      },
+      fetcher: fetchSpy,
+      reference: 'BAC-ABCD12345678',
+      secretKey: 'klump-secret',
+      transaction: {
+        amount: '58088.5',
+        currency: 'NGN',
+        merchant_amount: 58089,
+      },
+    });
+
+    expect(result).toEqual({ success: true });
+  });
 });

@@ -1,6 +1,7 @@
 import { describe, expect, it } from '@jest/globals';
 import {
   areBNPLCheckoutUrlsEquivalent,
+  BNPL_INJECTED_JAVASCRIPT,
   buildBNPLDocumentSource,
   resolveBNPLDocumentNavigation,
   sanitizeBNPLDocumentUrl,
@@ -85,6 +86,18 @@ describe('bnpl-checkout helpers', () => {
         apiBaseUrl: 'https://usebaci.com',
         currentDocumentUrl:
           'https://usebaci.com/ogabassey/checkout/bnpl?gateway=credit_direct&orderId=order-1',
+        isTopFrame: true,
+        requestUrl: 'https://connect.withmono.com/widget/session-123',
+      })
+    ).toEqual({
+      reason: 'allowed',
+      shouldStart: true,
+    });
+    expect(
+      resolveBNPLDocumentNavigation({
+        apiBaseUrl: 'https://usebaci.com',
+        currentDocumentUrl:
+          'https://usebaci.com/ogabassey/checkout/bnpl?gateway=credit_direct&orderId=order-1',
         requestUrl: 'https://checkout.creditdirect.ng/bnpl/#/session',
       })
     ).toEqual({
@@ -147,6 +160,14 @@ describe('bnpl-checkout helpers', () => {
       reason: 'untrusted',
       shouldStart: false,
     });
+  });
+});
+
+describe('BNPL_INJECTED_JAVASCRIPT', () => {
+  it('captures resource error events so failed provider scripts are reported', () => {
+    expect(BNPL_INJECTED_JAVASCRIPT).toMatch(
+      /window\.addEventListener\('error',\s*function\(event\)[\s\S]*}, true\);/
+    );
   });
 });
 
