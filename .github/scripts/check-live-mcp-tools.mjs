@@ -9,13 +9,6 @@ const FETCH_RETRY_DELAY_MS = 2000;
 const DEFAULT_REQUIRED_TOOLS = [
   'add_to_cart',
   'browse_categories',
-  'cancel_agentic_checkout_session',
-  'check_order',
-  'check_payment_status',
-  'complete_agentic_checkout_session',
-  'create_agentic_checkout_session',
-  'generate_payment_account',
-  'get_agentic_checkout_session',
   'get_brands',
   'get_product',
   'get_product_variants',
@@ -23,7 +16,6 @@ const DEFAULT_REQUIRED_TOOLS = [
   'get_shipping_quote',
   'get_store_info',
   'search_products',
-  'update_agentic_checkout_session',
 ];
 export const DEFAULT_REQUIRED_TOOL_SCHEMA_CONTRACTS = {
   create_agentic_checkout_session: {
