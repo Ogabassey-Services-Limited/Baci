@@ -1,8 +1,16 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { authenticateApiRequest } from '@/lib/api-auth';
 import { buildPdfContentDisposition } from '@/lib/download-filename';
-import { generateInvoiceBlob } from '@/lib/invoice-generator';
+import { logger } from '@/lib/logger';
+import {
+  generatePeppolInvoiceXml,
+  PEPPOL_BIS_BILLING_COMPLIANCE_NOTE,
+} from '@/lib/peppol-ubl-invoice';
 import { checkRateLimit } from '@/lib/rate-limiter';
+import {
+  generateReceiptBlob,
+  resolveReceiptLogoDataUri,
+} from '@/lib/receipt-pdf-generator';
 import {
   getStorefrontAccountDocumentData,
   StorefrontAccountDocumentError,
@@ -71,7 +79,25 @@ export async function GET(
       merchantSlug: parsedQuery.data.merchantSlug,
       orderId: parsedParams.data.id,
     });
-    const blob = generateInvoiceBlob(data.invoiceData);
+    let complianceNote: string | undefined;
+
+    try {
+      generatePeppolInvoiceXml(data.invoiceData);
+      complianceNote = PEPPOL_BIS_BILLING_COMPLIANCE_NOTE;
+    } catch (error) {
+      logger.warn({
+        message: 'Generated branded invoice PDF without Peppol UBL note',
+        orderId: parsedParams.data.id,
+        error,
+      });
+    }
+
+    const logoDataUri = await resolveReceiptLogoDataUri(data.receiptMerchant);
+    const blob = generateReceiptBlob(data.receiptOrder, data.receiptMerchant, {
+      complianceNote,
+      documentKind: 'invoice',
+      logoDataUri,
+    });
 
     return new NextResponse(blob, {
       headers: {

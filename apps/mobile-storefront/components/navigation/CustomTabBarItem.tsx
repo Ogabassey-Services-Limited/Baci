@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import { BRAND } from '@/constants/Colors';
 
 export interface CustomTabOptions {
   href?: string | null;
@@ -20,33 +19,37 @@ export function CustomTabBarItem({
   colors,
   onPress,
   onPressIn,
+  onPressOut,
 }: {
   route: { name: string; key: string };
   isFocused: boolean;
   options: CustomTabOptions;
-  colors: { tabIconDefault: string };
+  colors: { tabIconDefault: string; tabIconSelected: string };
   onPress: () => void;
   onPressIn: () => void;
+  onPressOut?: () => void;
 }) {
   return (
     <Pressable
       onPress={onPress}
       onPressIn={onPressIn}
+      onPressOut={onPressOut}
       style={styles.tabItem}
       accessibilityRole="tab"
       accessibilityState={{ selected: isFocused }}
       accessibilityLabel={options.title || route.name}
       testID={`custom-tab-item-${route.name}`}
+      unstable_pressDelay={0}
     >
       <View style={styles.tabItemContent}>
         {options.tabBarIcon?.({
           focused: isFocused,
-          color: isFocused ? BRAND.primary : colors.tabIconDefault,
+          color: isFocused ? colors.tabIconSelected : colors.tabIconDefault,
           size: 22,
         })}
         {options.tabBarLabel?.({
           focused: isFocused,
-          color: isFocused ? BRAND.primary : colors.tabIconDefault,
+          color: isFocused ? colors.tabIconSelected : colors.tabIconDefault,
         })}
       </View>
     </Pressable>
@@ -62,7 +65,7 @@ const styles = StyleSheet.create({
   tabItemContent: {
     alignItems: 'center',
     justifyContent: 'flex-start',
-    paddingTop: 8,
+    paddingTop: 6,
     height: '100%',
     width: '100%',
   },

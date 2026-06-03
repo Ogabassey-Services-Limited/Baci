@@ -1,8 +1,8 @@
 import {
-  appendReceiptFulfillmentDescription,
-  isDeviceReceiptItemName,
   normalizeReceiptFulfillmentDetails,
   type ReceiptFulfillmentDetails,
+  type ReceiptMerchant,
+  type ReceiptOrder,
 } from '@baci/shared';
 import { cookies } from 'next/headers';
 import { after, type NextRequest, NextResponse } from 'next/server';
@@ -33,14 +33,18 @@ import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
-import {
-  generateInvoiceBlob,
-  type InvoiceLineItem,
-  type TaxSubtotal,
+import type {
+  InvoiceData,
+  InvoiceLineItem,
+  TaxSubtotal,
 } from '@/lib/invoice-generator';
 import { logger } from '@/lib/logger';
 import { ORDER_WITH_ITEMS_QUERY } from '@/lib/order-queries';
 import { generatePaymentAccount } from '@/lib/paystack';
+import {
+  generatePeppolInvoiceXml,
+  PEPPOL_BIS_BILLING_COMPLIANCE_NOTE,
+} from '@/lib/peppol-ubl-invoice';
 import {
   enforcePrizeProductionGuard,
   QuizProductionNotApprovedError,
@@ -48,6 +52,10 @@ import {
 import { createQuizRpcServerProof } from '@/lib/quiz-proof';
 import { verifyQuizVoucherToken } from '@/lib/quiz-voucher-token';
 import { getClientIdentifier } from '@/lib/rate-limit';
+import {
+  generateReceiptBlob,
+  resolveReceiptLogoDataUri,
+} from '@/lib/receipt-pdf-generator';
 import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
@@ -133,6 +141,23 @@ type EmailOrderItem = {
   price?: number;
 };
 
+type ImmediateInvoiceItem = {
+  id?: string | null;
+  product_id?: string | null;
+  productId?: string | null;
+  productName?: string | null;
+  product_name?: string | null;
+  name?: string | null;
+  variant_id?: string | null;
+  variantId?: string | null;
+  variant_name?: string | null;
+  variantAttributes?: Record<string, string> | null;
+  variant_attributes?: Record<string, string> | null;
+  negotiatedPrice?: number | null;
+  price: number;
+  quantity: number;
+};
+
 type QuizVoucherItemCandidate = {
   voucherAwardId?: unknown;
   voucherToken?: unknown;
@@ -170,11 +195,11 @@ function getQuizVoucherToken(item: QuizVoucherItemCandidate): string | null {
   return null;
 }
 
-function getOrderItemProductId(item: OrderCreateItem): string | undefined {
-  return item.product_id || item.productId || item.id;
+function getOrderItemProductId(item: ImmediateInvoiceItem): string | undefined {
+  return item.product_id || item.productId || item.id || undefined;
 }
 
-function getOrderItemVariantId(item: OrderCreateItem): string | null {
+function getOrderItemVariantId(item: ImmediateInvoiceItem): string | null {
   return item.variantId || item.variant_id || null;
 }
 
@@ -182,19 +207,280 @@ function getOrderItemCondition(item: OrderCreateItem): string | null {
   return item.condition || null;
 }
 
-function getOrderItemDisplayName(item: OrderCreateItem): string {
-  const baseName = item.name || item.productName || 'Product';
-  const variantLabel = formatVariantAttributesLabel(
-    item.variantAttributes || item.variant_attributes
+function getOrderItemBaseName(item: ImmediateInvoiceItem): string {
+  return item.name || item.product_name || item.productName || 'Product';
+}
+
+function getOrderItemVariantLabel(item: ImmediateInvoiceItem): string | null {
+  if (item.variant_name) {
+    return item.variant_name;
+  }
+
+  const label = formatVariantAttributesLabel(
+    item.variantAttributes || item.variant_attributes || undefined
   );
 
-  return variantLabel ? `${baseName} (${variantLabel})` : baseName;
+  return label || null;
+}
+
+function getOrderItemPrice(item: ImmediateInvoiceItem): number {
+  return item.negotiatedPrice ?? item.price;
 }
 
 function getOrderFulfillmentDetails(
   order: Record<string, unknown>
 ): ReceiptFulfillmentDetails | null {
   return normalizeReceiptFulfillmentDetails(order.fulfillment_details);
+}
+
+function toReceiptRecord<T>(value: unknown): T | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return undefined;
+  }
+
+  return value as T;
+}
+
+function buildImmediateInvoiceMerchant(merchant: {
+  bank_account_name?: string | null;
+  bank_account_number?: string | null;
+  bank_code?: string | null;
+  bank_name?: string | null;
+  brand_colors?: unknown;
+  business_address?: string | null;
+  business_name?: string | null;
+  cac_rc_number?: string | null;
+  email?: string | null;
+  legal_entity_name?: string | null;
+  logo_url?: string | null;
+  pages?: unknown;
+  phone?: string | null;
+  social_media?: unknown;
+  support_email?: string | null;
+  support_phone?: string | null;
+  tax_identification_number?: string | null;
+  vat_rate?: number | null;
+  vat_registration_status?: string | null;
+}): ReceiptMerchant {
+  return {
+    business_name: merchant.business_name || null,
+    logo_url: merchant.logo_url || null,
+    email: merchant.email || merchant.support_email || '',
+    phone: merchant.phone || null,
+    support_email: merchant.support_email || null,
+    support_phone: merchant.support_phone || null,
+    business_address: merchant.business_address || null,
+    cac_rc_number: merchant.cac_rc_number || null,
+    tax_identification_number: merchant.tax_identification_number || null,
+    legal_entity_name: merchant.legal_entity_name || null,
+    brand_colors: toReceiptRecord<ReceiptMerchant['brand_colors']>(
+      merchant.brand_colors
+    ),
+    vat_registration_status: merchant.vat_registration_status || null,
+    vat_rate: merchant.vat_rate ?? null,
+    bank_code: merchant.bank_code || null,
+    bank_account_number: merchant.bank_account_number || null,
+    bank_name: merchant.bank_name || null,
+    bank_account_name: merchant.bank_account_name || null,
+    social_media: toReceiptRecord<ReceiptMerchant['social_media']>(
+      merchant.social_media
+    ),
+    pages: toReceiptRecord<ReceiptMerchant['pages']>(merchant.pages),
+  };
+}
+
+function buildImmediateInvoiceShippingAddress(
+  shippingAddress: unknown
+): ReceiptOrder['shipping_address'] {
+  if (
+    !shippingAddress ||
+    typeof shippingAddress !== 'object' ||
+    Array.isArray(shippingAddress)
+  ) {
+    return null;
+  }
+
+  const address = shippingAddress as Record<string, unknown>;
+  return {
+    address_line1:
+      typeof address.address_line1 === 'string'
+        ? address.address_line1
+        : typeof address.address === 'string'
+          ? address.address
+          : '',
+    city: typeof address.city === 'string' ? address.city : '',
+    state: typeof address.state === 'string' ? address.state : '',
+    country: typeof address.country === 'string' ? address.country : 'NG',
+  };
+}
+
+function roundCurrency(value: number) {
+  return Math.round(value * 100) / 100;
+}
+
+function allocateLineTax(input: {
+  index: number;
+  itemCount: number;
+  lineExtensionAmount: number;
+  lineExtensionTotal: number;
+  taxAmount: number;
+  allocatedTaxAmount: number;
+}) {
+  if (input.taxAmount <= 0 || input.lineExtensionTotal <= 0) {
+    return 0;
+  }
+
+  if (input.index === input.itemCount - 1) {
+    return roundCurrency(input.taxAmount - input.allocatedTaxAmount);
+  }
+
+  return roundCurrency(
+    (input.lineExtensionAmount / input.lineExtensionTotal) * input.taxAmount
+  );
+}
+
+function buildImmediatePeppolInvoiceData(input: {
+  customerEmail: string;
+  customerName: string;
+  customerPhone?: string;
+  items: ImmediateInvoiceItem[];
+  merchant: {
+    business_name: string;
+    cac_rc_number?: string | null;
+    legal_entity_name?: string | null;
+    logo_url?: string | null;
+    registered_address?: InvoiceData['merchant']['registered_address'] | null;
+    support_email?: string | null;
+    support_phone?: string | null;
+    tax_identification_number?: string | null;
+    vat_rate?: number | null;
+    vat_registration_status?: string | null;
+  };
+  notes?: string;
+  order: Record<string, unknown>;
+  orderNumber: string;
+  orderShippingFee: number;
+  orderSubtotal: number;
+  orderTotal: number;
+  shippingAddress: unknown;
+}): InvoiceData {
+  const invoiceShippingAddress = buildImmediateInvoiceShippingAddress(
+    input.shippingAddress
+  );
+  const taxAmount = Number(input.order.tax_amount || 0);
+  const discountAmount = Number(input.order.discount_amount || 0);
+  const currency =
+    typeof input.order.currency === 'string' && input.order.currency
+      ? input.order.currency
+      : 'NGN';
+  const vatCategoryCode =
+    input.merchant.vat_registration_status === 'registered' || taxAmount > 0
+      ? 'S'
+      : 'O';
+  const vatRate =
+    vatCategoryCode === 'S' ? (input.merchant.vat_rate ?? 7.5) : 0;
+  const lineExtensionTotal = input.items.reduce(
+    (total, item) => total + item.quantity * getOrderItemPrice(item),
+    0
+  );
+  let allocatedTaxAmount = 0;
+
+  const invoiceItems: InvoiceLineItem[] = input.items.map((item, index) => {
+    const lineExtensionAmount = item.quantity * getOrderItemPrice(item);
+    const vatAmount = allocateLineTax({
+      index,
+      itemCount: input.items.length,
+      lineExtensionAmount,
+      lineExtensionTotal,
+      taxAmount,
+      allocatedTaxAmount,
+    });
+    allocatedTaxAmount += vatAmount;
+
+    return {
+      line_id: index + 1,
+      product_id: getOrderItemProductId(item),
+      name: getOrderItemBaseName(item),
+      description: getOrderItemVariantLabel(item) || undefined,
+      quantity: item.quantity,
+      unit_code: 'EA',
+      price: getOrderItemPrice(item),
+      line_extension_amount: lineExtensionAmount,
+      vat_category_code: vatCategoryCode,
+      vat_rate: vatRate,
+      vat_amount: vatAmount,
+    };
+  });
+  const taxExclusiveAmount = Math.max(
+    0,
+    input.orderSubtotal + input.orderShippingFee - discountAmount
+  );
+  const taxSubtotals: TaxSubtotal[] = [
+    {
+      vat_category_code: vatCategoryCode,
+      vat_rate: vatRate,
+      taxable_amount: taxExclusiveAmount,
+      tax_amount: taxAmount,
+      exemption_reason:
+        vatCategoryCode === 'O' ? 'Seller is not VAT registered' : undefined,
+    },
+  ];
+
+  return {
+    order_id: typeof input.order.id === 'string' ? input.order.id : undefined,
+    invoice_number: input.orderNumber,
+    invoice_type_code: '380',
+    issue_date: new Date(
+      typeof input.order.created_at === 'string'
+        ? input.order.created_at
+        : Date.now()
+    ),
+    due_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+    currency,
+    buyer_reference:
+      typeof input.order.id === 'string' ? input.order.id : undefined,
+    merchant: {
+      business_name: input.merchant.business_name,
+      legal_entity_name: input.merchant.legal_entity_name || undefined,
+      tax_identification_number:
+        input.merchant.tax_identification_number || undefined,
+      cac_rc_number: input.merchant.cac_rc_number || undefined,
+      vat_registration_status:
+        input.merchant.vat_registration_status || 'not_registered',
+      vat_rate: input.merchant.vat_rate ?? vatRate,
+      registered_address: input.merchant.registered_address || undefined,
+      support_email: input.merchant.support_email || undefined,
+      support_phone: input.merchant.support_phone || undefined,
+      logo_url: input.merchant.logo_url || undefined,
+    },
+    customer: {
+      id:
+        typeof input.order.customer_id === 'string'
+          ? input.order.customer_id
+          : undefined,
+      name: input.customerName,
+      email: input.customerEmail || undefined,
+      phone: input.customerPhone || undefined,
+      address: invoiceShippingAddress
+        ? {
+            street: invoiceShippingAddress.address_line1,
+            city: invoiceShippingAddress.city,
+            state: invoiceShippingAddress.state,
+            country: invoiceShippingAddress.country,
+          }
+        : undefined,
+    },
+    items: invoiceItems,
+    tax_subtotals: taxSubtotals,
+    subtotal: input.orderSubtotal,
+    tax_exclusive_amount: taxExclusiveAmount,
+    tax_amount: taxAmount,
+    tax_inclusive_amount: taxExclusiveAmount + taxAmount,
+    shipping_fee: input.orderShippingFee,
+    discount_amount: discountAmount,
+    total: input.orderTotal,
+    notes: input.notes,
+  };
 }
 
 function invalidQuizVoucherTokenResponse() {
@@ -539,7 +825,7 @@ export async function POST(request: NextRequest) {
     const { data: merchant, error: merchantFetchError } = await supabase
       .from('merchants')
       .select(
-        'id, phone, rider_phone_number, business_name, business_address, slug, support_email, email_sender_name, email, tax_identification_number, cac_rc_number, plan_tier, vat_registration_status, vat_rate, registered_address, support_phone, logo_url, legal_entity_name'
+        'id, phone, rider_phone_number, business_name, business_address, slug, support_email, email_sender_name, email, tax_identification_number, cac_rc_number, plan_tier, vat_registration_status, vat_rate, registered_address, support_phone, logo_url, legal_entity_name, brand_colors, bank_code, bank_account_number, bank_name, bank_account_name, social_media, pages'
       )
       .eq('id', merchant_id)
       .single();
@@ -1342,6 +1628,8 @@ export async function POST(request: NextRequest) {
                   .split(' ');
                 const firstName = nameParts[0] || 'Customer';
                 const lastName = nameParts.slice(1).join(' ') || 'User';
+                let invoiceVirtualAccount: ReceiptOrder['virtual_account'] =
+                  null;
                 const dvaResult = await generatePaymentAccount({
                   email: customer_email || `${order.id}@orders.usebaci.com`,
                   firstName,
@@ -1351,6 +1639,12 @@ export async function POST(request: NextRequest) {
                 });
 
                 if (dvaResult.success) {
+                  invoiceVirtualAccount = {
+                    account_number: dvaResult.data.account_number,
+                    bank_name: dvaResult.data.bank_name,
+                    account_name: dvaResult.data.account_name,
+                  };
+
                   // System-owned DVA/reminder records are written after the
                   // validated order exists; customers do not own these tables
                   // through RLS, so the server-only admin client is scoped to
@@ -1390,114 +1684,183 @@ export async function POST(request: NextRequest) {
                 const fulfillment = getOrderFulfillmentDetails(
                   order as Record<string, unknown>
                 );
-                const invoiceItemNames = items.map(getOrderItemDisplayName);
-                const invoiceHasDeviceItem = invoiceItemNames.some((name) =>
-                  isDeviceReceiptItemName(name)
-                );
+                backgroundSupabase ??= createAdminClient();
+                const {
+                  data: persistedDocumentOrder,
+                  error: persistedDocumentOrderError,
+                } = await backgroundSupabase
+                  .from('orders')
+                  .select(ORDER_WITH_ITEMS_QUERY)
+                  .eq('id', order.id)
+                  .maybeSingle();
 
-                const invoiceItems: InvoiceLineItem[] = items.map(
-                  (item, index) => {
-                    const name =
-                      invoiceItemNames[index] ?? getOrderItemDisplayName(item);
-                    const price = item.negotiatedPrice ?? item.price;
-                    const quantity = item.quantity;
-                    const description = appendReceiptFulfillmentDescription({
-                      fulfillment,
-                      hasDeviceItem: invoiceHasDeviceItem,
-                      index,
-                      itemName: name,
-                    });
-
-                    return {
-                      line_id: index + 1,
-                      product_id: getOrderItemProductId(item),
-                      name,
-                      description,
-                      quantity,
-                      unit_code: 'EA',
-                      price,
-                      line_extension_amount: quantity * price,
-                      vat_category_code: 'S',
-                      vat_rate: merchant.vat_rate || 7.5,
-                      vat_amount: 0,
-                    };
-                  }
-                );
-
-                const invoiceTaxSubtotals: TaxSubtotal[] = [];
-
-                // If no tax subtotals exist, create a default one
-                if (
-                  invoiceTaxSubtotals.length === 0 &&
-                  merchant.vat_registration_status === 'registered'
-                ) {
-                  invoiceTaxSubtotals.push({
-                    vat_category_code: 'S',
-                    vat_rate: merchant.vat_rate || 7.5,
-                    taxable_amount: orderSubtotal,
-                    tax_amount: Number(order.tax_amount || 0),
-                    exemption_reason: undefined,
+                if (persistedDocumentOrderError) {
+                  logger.warn({
+                    message:
+                      'Failed to fetch persisted order for immediate invoice document; falling back to normalized order payload',
+                    orderId: order.id,
+                    error: persistedDocumentOrderError,
                   });
                 }
 
-                const shippingAddr = shipping_address as {
-                  address?: string;
-                  city?: string;
-                  state?: string;
-                  postal_code?: string;
-                  country?: string;
-                } | null;
-                const customerAddress = shippingAddr
-                  ? {
-                      street: shippingAddr.address,
-                      city: shippingAddr.city,
-                      state: shippingAddr.state,
-                      postal_code: shippingAddr.postal_code,
-                      country: shippingAddr.country || 'NG',
-                    }
-                  : undefined;
-
-                const invoiceData = {
-                  invoice_number: orderNum,
-                  invoice_type_code: '380',
-                  issue_date: new Date(order.created_at || Date.now()),
-                  due_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // Default 14 days payment terms
-                  currency: order.currency || 'NGN',
-                  merchant: {
-                    business_name: merchant.business_name,
-                    legal_entity_name: merchant.legal_entity_name || undefined,
-                    tax_identification_number:
-                      merchant.tax_identification_number || undefined,
-                    cac_rc_number: merchant.cac_rc_number || undefined,
-                    vat_registration_status:
-                      merchant.vat_registration_status || 'not_registered',
-                    vat_rate: merchant.vat_rate || 7.5,
-                    registered_address:
-                      merchant.registered_address || undefined,
-                    support_email: merchant.support_email || undefined,
-                    support_phone: merchant.support_phone || undefined,
-                    logo_url: merchant.logo_url || undefined,
-                  },
-                  customer: {
-                    name: customer_name,
-                    email: customer_email || undefined,
-                    phone: customer_phone || undefined,
-                    address: customerAddress,
-                  },
-                  items: invoiceItems,
-                  tax_subtotals: invoiceTaxSubtotals,
-                  subtotal: orderSubtotal,
-                  tax_exclusive_amount: orderSubtotal,
-                  tax_amount: Number(order.tax_amount || 0),
-                  tax_inclusive_amount:
-                    orderSubtotal + Number(order.tax_amount || 0),
-                  shipping_fee: orderShippingFee,
-                  discount_amount: Number(order.discount_amount || 0),
-                  total: orderTotal,
-                  notes: notes || undefined,
+                const documentOrder = (persistedDocumentOrder ??
+                  order) as Record<string, unknown>;
+                const persistedItems = Array.isArray(documentOrder.order_items)
+                  ? documentOrder.order_items
+                      .filter(
+                        (item): item is Record<string, unknown> =>
+                          !!item &&
+                          typeof item === 'object' &&
+                          !Array.isArray(item)
+                      )
+                      .map((item) => ({
+                        id: typeof item.id === 'string' ? item.id : undefined,
+                        product_id:
+                          typeof item.product_id === 'string'
+                            ? item.product_id
+                            : undefined,
+                        name: typeof item.name === 'string' ? item.name : null,
+                        variant_name:
+                          typeof item.variant_name === 'string'
+                            ? item.variant_name
+                            : null,
+                        quantity: Number(item.quantity || 0),
+                        price: Number(item.price || 0),
+                      }))
+                  : [];
+                const documentItems: ImmediateInvoiceItem[] =
+                  persistedItems.length > 0
+                    ? persistedItems
+                    : orderItemsPayload.map((item, index) => {
+                        const requestItem = items[index];
+                        return {
+                          product_id: item.product_id,
+                          variant_id: item.variant_id,
+                          variant_attributes: item.variant_attributes,
+                          product_name: requestItem
+                            ? getOrderItemBaseName(requestItem)
+                            : 'Product',
+                          variant_name: requestItem
+                            ? getOrderItemVariantLabel(requestItem)
+                            : null,
+                          quantity: item.quantity,
+                          price: item.price,
+                        };
+                      });
+                const documentTotal = Number(documentOrder.total ?? orderTotal);
+                const documentSubtotal = Number(
+                  documentOrder.subtotal ?? orderSubtotal
+                );
+                const documentShippingFee = Number(
+                  documentOrder.shipping_fee ?? orderShippingFee
+                );
+                const amountPaid = Number(documentOrder.amount_paid || 0);
+                const documentCustomerName =
+                  typeof documentOrder.customer_name === 'string'
+                    ? documentOrder.customer_name
+                    : customer_name;
+                const documentCustomerEmail =
+                  typeof documentOrder.customer_email === 'string'
+                    ? documentOrder.customer_email
+                    : customer_email;
+                const documentCustomerPhone =
+                  typeof documentOrder.customer_phone === 'string'
+                    ? documentOrder.customer_phone
+                    : customer_phone;
+                const receiptOrder: ReceiptOrder = {
+                  order_number: orderNum,
+                  created_at: String(
+                    documentOrder.created_at || new Date().toISOString()
+                  ),
+                  currency:
+                    typeof documentOrder.currency === 'string'
+                      ? documentOrder.currency
+                      : 'NGN',
+                  total: documentTotal,
+                  subtotal: documentSubtotal,
+                  shipping_fee: documentShippingFee,
+                  tax_amount: Number(documentOrder.tax_amount || 0),
+                  discount_amount: Number(documentOrder.discount_amount || 0),
+                  amount_paid: amountPaid,
+                  balance: Math.max(documentTotal - amountPaid, 0),
+                  payment_status:
+                    typeof documentOrder.payment_status === 'string'
+                      ? documentOrder.payment_status
+                      : payment_status,
+                  payment_method,
+                  is_credit_order: Boolean(documentOrder.is_credit_order),
+                  customer_name: documentCustomerName,
+                  customer_email: documentCustomerEmail,
+                  customer_phone: documentCustomerPhone || null,
+                  shipping_address: buildImmediateInvoiceShippingAddress(
+                    documentOrder.shipping_address ?? shipping_address
+                  ),
+                  virtual_account: invoiceVirtualAccount,
+                  fulfillment_details:
+                    getOrderFulfillmentDetails(documentOrder) || fulfillment,
+                  items: documentItems.map((item) => ({
+                    product_name: getOrderItemBaseName(item),
+                    variant_name: getOrderItemVariantLabel(item) || undefined,
+                    quantity: item.quantity,
+                    price: getOrderItemPrice(item),
+                  })),
+                  transactions: [],
                 };
+                const receiptMerchant = buildImmediateInvoiceMerchant(merchant);
+                const peppolInvoiceData = buildImmediatePeppolInvoiceData({
+                  customerEmail: documentCustomerEmail,
+                  customerName: documentCustomerName,
+                  customerPhone: documentCustomerPhone,
+                  items: documentItems,
+                  merchant,
+                  notes,
+                  order: documentOrder,
+                  orderNumber: orderNum,
+                  orderShippingFee: documentShippingFee,
+                  orderSubtotal: documentSubtotal,
+                  orderTotal: documentTotal,
+                  shippingAddress:
+                    documentOrder.shipping_address ?? shipping_address,
+                });
+                let peppolInvoiceXml: string | null = null;
 
-                const pdfBlob = generateInvoiceBlob(invoiceData);
+                try {
+                  peppolInvoiceXml =
+                    generatePeppolInvoiceXml(peppolInvoiceData);
+                } catch (peppolError) {
+                  logger.error({
+                    message: 'Failed to generate Peppol UBL invoice XML',
+                    orderId: order.id,
+                    orderNumber: orderNum,
+                    error: peppolError,
+                  });
+                }
+
+                let logoDataUri: string | null = null;
+                try {
+                  logoDataUri =
+                    await resolveReceiptLogoDataUri(receiptMerchant);
+                } catch (logoError) {
+                  logger.warn({
+                    message:
+                      'Failed to resolve invoice logo; using fallback PDF branding',
+                    orderId: order.id,
+                    orderNumber: orderNum,
+                    error: logoError,
+                  });
+                }
+
+                const pdfBlob = generateReceiptBlob(
+                  receiptOrder,
+                  receiptMerchant,
+                  {
+                    complianceNote: peppolInvoiceXml
+                      ? PEPPOL_BIS_BILLING_COMPLIANCE_NOTE
+                      : undefined,
+                    documentKind: 'invoice',
+                    logoDataUri,
+                  }
+                );
                 const arrayBuffer = await pdfBlob.arrayBuffer();
                 const base64Content =
                   Buffer.from(arrayBuffer).toString('base64');
@@ -1509,6 +1872,16 @@ export async function POST(request: NextRequest) {
                     mime_type: 'application/pdf',
                   },
                 ];
+
+                if (peppolInvoiceXml) {
+                  attachments.push({
+                    name: `invoice-${orderNum}.xml`,
+                    content: Buffer.from(peppolInvoiceXml, 'utf8').toString(
+                      'base64'
+                    ),
+                    mime_type: 'application/xml',
+                  });
+                }
 
                 // Log standard initial reminder row in order_reminders
                 backgroundSupabase ??= createAdminClient();
@@ -1537,7 +1910,7 @@ export async function POST(request: NextRequest) {
 
                 logger.info({
                   message:
-                    'Generated and logged initial invoice PDF and reminder log',
+                    'Generated branded invoice PDF and logged initial reminder',
                   orderId: order.id,
                   orderNumber: orderNum,
                 });

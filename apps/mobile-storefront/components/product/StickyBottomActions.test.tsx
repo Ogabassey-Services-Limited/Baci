@@ -4,10 +4,12 @@ import { StyleSheet } from 'react-native';
 import Colors from '@/constants/Colors';
 import { StickyBottomActions } from './StickyBottomActions';
 
+const mockPrefetch = jest.fn();
 const mockPush = jest.fn();
 
 jest.mock('expo-router', () => ({
   router: {
+    prefetch: (...args: unknown[]) => mockPrefetch(...args),
     push: (...args: unknown[]) => mockPush(...args),
   },
 }));
@@ -125,8 +127,12 @@ describe('StickyBottomActions', () => {
       <StickyBottomActions {...defaultProps} quantityInCart={1} localQty="1" />
     );
 
-    fireEvent.press(screen.getByRole('button', { name: 'View Cart' }));
+    const viewCartButton = screen.getByRole('button', { name: 'View Cart' });
 
+    fireEvent(viewCartButton, 'pressIn');
+    fireEvent.press(viewCartButton);
+
+    expect(mockPrefetch).toHaveBeenCalledWith('/cart');
     expect(mockPush).toHaveBeenCalledWith('/cart');
   });
 

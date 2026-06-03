@@ -1,7 +1,6 @@
 import { prioritizeSmartphoneProducts } from '@baci/shared';
 import { dedupeById } from '@baci/shared/lib';
-import { useIsFocused } from 'expo-router/react-navigation';
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { PRODUCT_GRID_MAX_PRICE_LIMIT } from '@/constants/product-grid';
 import {
   type Category,
@@ -83,8 +82,6 @@ export default function ProductGrid({
   const fetchLimit = shouldPrioritizeSmartphones
     ? displayLimit * 4
     : displayLimit;
-  const isFocused = useIsFocused();
-  const hasFocusedOnceRef = useRef(false);
 
   const {
     products,
@@ -155,19 +152,6 @@ export default function ProductGrid({
     selectedCategorySlug,
     selectedCondition,
   });
-
-  useEffect(() => {
-    if (!isFocused) {
-      return;
-    }
-
-    if (!hasFocusedOnceRef.current) {
-      hasFocusedOnceRef.current = true;
-      return;
-    }
-
-    void refetch();
-  }, [isFocused, refetch]);
 
   useEffect(() => {
     if (selectedBrand !== 'All' && !brands.includes(selectedBrand)) {

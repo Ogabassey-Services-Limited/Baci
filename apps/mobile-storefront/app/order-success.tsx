@@ -7,12 +7,14 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Alert, Linking } from 'react-native';
 import { OrderSuccessView } from '@/components/orders/OrderSuccessView';
+import { ReceiptPreviewModal } from '@/components/receipts/ReceiptPreviewModal';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import { usePermissionBooster } from '@/hooks/use-permission-booster';
+import { useReceiptPreview } from '@/hooks/use-receipt-preview';
 import { BACI_GOOGLE_REVIEW_URL } from '@/lib/post-purchase-actions';
-import { scheduleLocalNotification } from '@/services/push-notifications';
 import { SERVER_CONFIRMED_ORDER_NOTIFICATION_METHODS } from '@/services/payment-status';
+import { scheduleLocalNotification } from '@/services/push-notifications';
 import { useAuthStore } from '@/stores/auth-store';
 
 export default function OrderSuccessScreen() {
@@ -28,6 +30,7 @@ export default function OrderSuccessScreen() {
   } = useLocalSearchParams<Record<string, string>>();
   const customer = useAuthStore((s) => s.customer);
   const orderNotificationScheduledRef = useRef(false);
+  const receiptPreview = useReceiptPreview();
 
   const { requestPermission, triggerSystemPrompt, markDenied } =
     usePermissionBooster();
@@ -112,20 +115,36 @@ export default function OrderSuccessScreen() {
     }
   };
 
+  const handleViewDocument = orderId
+    ? () => {
+        receiptPreview.openPreviewByOrderId(orderId);
+      }
+    : undefined;
+
   return (
-    <OrderSuccessView
-      colors={colors}
-      deliveryEstimate={deliveryEstimate}
-      isDark={colorScheme === 'dark'}
-      onContinueShopping={handleContinueShopping}
-      onLeaveGoogleReview={handleLeaveGoogleReview}
-      onPermissionDeny={handlePermissionDeny}
-      onPermissionGrant={handlePermissionGrant}
-      onViewOrders={handleViewOrders}
-      orderNumber={orderNumber}
-      paymentMethod={paymentMethod}
-      reference={reference}
-      showPermissionModal={showPermissionModal}
-    />
+    <>
+      <OrderSuccessView
+        colors={colors}
+        deliveryEstimate={deliveryEstimate}
+        isDark={colorScheme === 'dark'}
+        isDocumentLoading={receiptPreview.isLoading}
+        onContinueShopping={handleContinueShopping}
+        onLeaveGoogleReview={handleLeaveGoogleReview}
+        onPermissionDeny={handlePermissionDeny}
+        onPermissionGrant={handlePermissionGrant}
+        onViewDocument={handleViewDocument}
+        onViewOrders={handleViewOrders}
+        orderNumber={orderNumber}
+        paymentMethod={paymentMethod}
+        reference={reference}
+        showPermissionModal={showPermissionModal}
+      />
+      <ReceiptPreviewModal
+        visible={receiptPreview.isOpen}
+        html={receiptPreview.html}
+        isPaid={receiptPreview.isPaid}
+        onClose={receiptPreview.closePreview}
+      />
+    </>
   );
 }

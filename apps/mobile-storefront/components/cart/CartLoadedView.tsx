@@ -18,6 +18,7 @@ interface CartLoadedViewProps {
   grandTotal: number;
   handleCheckout: () => void;
   handleClearCart: () => void;
+  handleReturnHome: () => void;
   handleQuantityChange: (item: CartItem, delta: number) => void;
   handleRemoveItem: (item: CartItem) => void;
   insetsTop: number;
@@ -26,6 +27,7 @@ interface CartLoadedViewProps {
   items: CartItem[];
   onCloseIdentityModal: () => void;
   onCloseNegotiateWarning: () => void;
+  onCheckoutPressIn: () => void;
   onBulkNegotiate: () => void;
   onNegotiateItem: (item: CartItem) => void;
   onNegotiateTotal: () => void;
@@ -59,6 +61,7 @@ export default function CartLoadedView({
   grandTotal,
   handleCheckout,
   handleClearCart,
+  handleReturnHome,
   handleQuantityChange,
   handleRemoveItem,
   insetsTop,
@@ -67,6 +70,7 @@ export default function CartLoadedView({
   items,
   onCloseIdentityModal,
   onCloseNegotiateWarning,
+  onCheckoutPressIn,
   onBulkNegotiate,
   onNegotiateItem,
   onNegotiateTotal,
@@ -112,6 +116,18 @@ export default function CartLoadedView({
         ]}
       >
         <View style={styles.headerLeft}>
+          <Pressable
+            onPress={handleReturnHome}
+            hitSlop={12}
+            style={[
+              styles.backButton,
+              { backgroundColor: surfaceInset, borderColor: colors.border },
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel="Back to home"
+          >
+            <Ionicons name="arrow-back" size={18} color={colors.text} />
+          </Pressable>
           <Ionicons name="cart" size={24} color={colors.primary} />
           <Text style={[styles.headerTitle, { color: colors.text }]}>Cart</Text>
           <Text style={[styles.headerCount, { color: colors.textSecondary }]}>
@@ -183,6 +199,7 @@ export default function CartLoadedView({
         grandTotal={grandTotal}
         hasAcceptedNegotiation={hasAcceptedNegotiation}
         onCheckout={handleCheckout}
+        onCheckoutPressIn={onCheckoutPressIn}
         onNegotiateTotal={onNegotiateTotal}
         surfaceInset={surfaceInset}
       />

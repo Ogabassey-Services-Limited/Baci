@@ -1,13 +1,13 @@
-import { router } from 'expo-router';
+import { router, useIsFocused } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Keyboard } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  useSharedValue,
-  useAnimatedScrollHandler,
-  withTiming,
   runOnJS,
+  useAnimatedScrollHandler,
+  useSharedValue,
+  withTiming,
 } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HomeScreenView } from '@/components/home/HomeScreenView';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
@@ -16,6 +16,7 @@ import {
   HOME_LOAD_MORE_THRESHOLD_PX,
 } from '@/constants/layout';
 import { usePageConfig } from '@/hooks';
+import { useDeferredFocusRender } from '@/hooks/use-deferred-focus-render';
 import { useNetworkState } from '@/hooks/use-network-state';
 import { usePermissionBooster } from '@/hooks/use-permission-booster';
 import { CONFIG } from '@/lib/config';
@@ -28,6 +29,7 @@ export default function HomeScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
+  const isFocused = useIsFocused();
 
   const template = getTemplateConfig(CONFIG.BUSINESS_TYPE, CONFIG.TEMPLATE_ID);
   const isChatWidgetEnabled = template.features?.chatWidget ?? true;
@@ -40,6 +42,7 @@ export default function HomeScreen() {
   const { requestPermission, triggerSystemPrompt, markDenied } =
     usePermissionBooster();
   const [showPermissionModal, setShowPermissionModal] = useState(false);
+  const shouldRenderDecorations = useDeferredFocusRender(isFocused);
 
   useEffect(() => {
     // Check for tracking permissions (Soft Ask) - ATT
@@ -271,6 +274,7 @@ export default function HomeScreen() {
       onSearchCancel={handleSearchCancel}
       onSearchQueryChange={setSearchQuery}
       onSearchSubmit={handleSearchSubmit}
+      primaryColor={colors.primary}
       primaryProductGridIndex={primaryProductGridIndex}
       productGridLoadMoreSignal={productGridLoadMoreSignal}
       refreshing={refreshing}
@@ -278,6 +282,7 @@ export default function HomeScreen() {
       searchQuery={searchQuery}
       searchVisible={searchVisible}
       selectedCategoryId={selectedCategoryId}
+      shouldRenderDecorations={shouldRenderDecorations}
       showPermissionModal={showPermissionModal}
     />
   );

@@ -1,7 +1,11 @@
 import { cookies } from 'next/headers';
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { generateInvoiceBlob } from '@/lib/invoice-generator';
+import { generatePeppolInvoiceXml } from '@/lib/peppol-ubl-invoice';
+import {
+  generateReceiptBlob,
+  resolveReceiptLogoDataUri,
+} from '@/lib/receipt-pdf-generator';
 import { createClient } from '@/lib/supabase/server';
 import { GET } from './route';
 
@@ -13,8 +17,15 @@ vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(),
 }));
 
-vi.mock('@/lib/invoice-generator', () => ({
-  generateInvoiceBlob: vi.fn(),
+vi.mock('@/lib/peppol-ubl-invoice', () => ({
+  generatePeppolInvoiceXml: vi.fn(() => '<Invoice />'),
+  PEPPOL_BIS_BILLING_COMPLIANCE_NOTE:
+    'This invoice complies with Peppol BIS Billing 3.0 through a generated UBL XML invoice artifact created from this order.',
+}));
+
+vi.mock('@/lib/receipt-pdf-generator', () => ({
+  generateReceiptBlob: vi.fn(),
+  resolveReceiptLogoDataUri: vi.fn(() => Promise.resolve(null)),
 }));
 
 const ORDER_ID = 'cfa945fc-9bf4-4485-857c-4d4374adf31f';
@@ -51,9 +62,19 @@ const orderResult: QueryResult = {
       vat_registration_status: 'registered',
       vat_rate: 7.5,
       registered_address: null,
+      email: 'merchant@example.com',
+      phone: '08000000000',
+      business_address: '12 Allen Avenue',
       support_email: null,
       support_phone: null,
       logo_url: null,
+      brand_colors: null,
+      bank_code: null,
+      bank_account_number: null,
+      bank_name: null,
+      bank_account_name: null,
+      social_media: null,
+      pages: null,
     },
   },
   error: null,
@@ -94,14 +115,32 @@ const orderItemsResult: QueryResult = {
   error: null,
 };
 const taxSubtotalsResult: QueryResult = { data: [], error: null };
+const paymentAccountsResult: QueryResult = {
+  data: [
+    {
+      account_number: '1234567890',
+      bank_name: 'Wema Bank',
+      account_name: 'OgaBassey-Test',
+    },
+  ],
+  error: null,
+};
 
-function createQuery<T>(result: T) {
-  const query = {
-    select: vi.fn(() => query),
-    eq: vi.fn(() => query),
-    order: vi.fn().mockResolvedValue(result),
-    single: vi.fn().mockResolvedValue(result),
-  };
+type SupabaseQueryMock = Record<
+  'select' | 'eq' | 'limit' | 'order' | 'single',
+  ReturnType<typeof vi.fn>
+>;
+
+function createQuery<T>(result: T, options: { chainOrder?: boolean } = {}) {
+  const query = {} as SupabaseQueryMock;
+
+  query.select = vi.fn(() => query);
+  query.eq = vi.fn(() => query);
+  query.limit = vi.fn().mockResolvedValue(result);
+  query.order = options.chainOrder
+    ? vi.fn(() => query)
+    : vi.fn().mockResolvedValue(result);
+  query.single = vi.fn().mockResolvedValue(result);
 
   return query;
 }
@@ -109,20 +148,26 @@ function createQuery<T>(result: T) {
 function createSupabaseMock({
   items = orderItemsResult,
   order = orderResult,
+  paymentAccounts = paymentAccountsResult,
   taxSubtotals = taxSubtotalsResult,
   user = { id: 'user-1' },
 }: {
   items?: QueryResult;
   order?: QueryResult;
+  paymentAccounts?: QueryResult;
   taxSubtotals?: QueryResult;
   user?: { id: string } | null;
 } = {}) {
   const orderQuery = createQuery(order);
   const itemsQuery = createQuery(items);
+  const paymentAccountsQuery = createQuery(paymentAccounts, {
+    chainOrder: true,
+  });
   const taxQuery = createQuery(taxSubtotals);
   const from = vi.fn((table: string) => {
     if (table === 'orders') return orderQuery;
     if (table === 'order_items') return itemsQuery;
+    if (table === 'order_payment_accounts') return paymentAccountsQuery;
     if (table === 'order_tax_subtotals') return taxQuery;
     return createQuery({ data: null, error: null });
   });
@@ -150,7 +195,8 @@ function createOrderResultWithFulfillment(
 }
 
 function getGeneratedInvoiceItems() {
-  const invoiceData = vi.mocked(generateInvoiceBlob).mock.calls[0]?.[0] as {
+  const invoiceData = vi.mocked(generatePeppolInvoiceXml).mock
+    .calls[0]?.[0] as {
     items: Array<{ description?: string }>;
   };
 
@@ -161,7 +207,11 @@ describe('GET /api/orders/[id]/invoice', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(cookies).mockResolvedValue({ get: vi.fn() } as never);
-    vi.mocked(generateInvoiceBlob).mockReturnValue(new Blob(['invoice']));
+    vi.mocked(generatePeppolInvoiceXml).mockReturnValue('<Invoice />');
+    vi.mocked(generateReceiptBlob).mockReturnValue(new Blob(['invoice']));
+    vi.mocked(resolveReceiptLogoDataUri).mockResolvedValue(
+      'data:image/png;base64,AA=='
+    );
     vi.mocked(createClient).mockReturnValue(
       createSupabaseMock() as unknown as ReturnType<typeof createClient>
     );
@@ -180,6 +230,21 @@ describe('GET /api/orders/[id]/invoice', () => {
     expect(invoiceItems[0]?.description).toBeUndefined();
     expect(invoiceItems[1]?.description).toContain('IMEI: IMEI-123');
     expect(invoiceItems[1]?.description).toContain('S/N: SN-456');
+    expect(generateReceiptBlob).toHaveBeenCalledWith(
+      expect.objectContaining({
+        order_number: 'ORD-1001',
+        virtual_account: expect.objectContaining({
+          account_number: '1234567890',
+          bank_name: 'Wema Bank',
+        }),
+      }),
+      expect.objectContaining({ business_name: 'Test Merchant' }),
+      expect.objectContaining({
+        complianceNote: expect.stringContaining('Peppol BIS Billing 3.0'),
+        documentKind: 'invoice',
+        logoDataUri: 'data:image/png;base64,AA==',
+      })
+    );
   });
 
   it('attaches order-level IMEI details to the first item when no device item exists', async () => {
@@ -320,7 +385,7 @@ describe('GET /api/orders/[id]/invoice', () => {
     );
 
     expect(response.status).toBe(401);
-    expect(generateInvoiceBlob).not.toHaveBeenCalled();
+    expect(generateReceiptBlob).not.toHaveBeenCalled();
   });
 
   it('returns 400 when the order id is invalid', async () => {
@@ -330,7 +395,7 @@ describe('GET /api/orders/[id]/invoice', () => {
     );
 
     expect(response.status).toBe(400);
-    expect(generateInvoiceBlob).not.toHaveBeenCalled();
+    expect(generateReceiptBlob).not.toHaveBeenCalled();
   });
 
   it('returns 404 when the order lookup does not find a merchant-owned order', async () => {
@@ -349,7 +414,7 @@ describe('GET /api/orders/[id]/invoice', () => {
     );
 
     expect(response.status).toBe(404);
-    expect(generateInvoiceBlob).not.toHaveBeenCalled();
+    expect(generateReceiptBlob).not.toHaveBeenCalled();
   });
 
   it('returns 500 when order items cannot be loaded', async () => {
@@ -368,6 +433,6 @@ describe('GET /api/orders/[id]/invoice', () => {
     );
 
     expect(response.status).toBe(500);
-    expect(generateInvoiceBlob).not.toHaveBeenCalled();
+    expect(generateReceiptBlob).not.toHaveBeenCalled();
   });
 });

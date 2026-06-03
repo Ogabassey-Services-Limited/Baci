@@ -7,6 +7,9 @@ const mockScheduleLocalNotification =
 const mockRequestPermission = jest.fn(async () => 'granted');
 const mockTriggerSystemPrompt = jest.fn();
 const mockMarkDenied = jest.fn();
+const mockOpenPreviewByOrderId = jest.fn();
+const mockClosePreview = jest.fn();
+const mockOrderSuccessView = jest.fn();
 let mockSearchParams: Record<string, string> = {
   orderId: 'order-1',
   orderNumber: 'BAC-001',
@@ -23,10 +26,19 @@ jest.mock('expo-router', () => ({
 }));
 
 jest.mock('@/components/orders/OrderSuccessView', () => ({
-  OrderSuccessView: () => {
+  OrderSuccessView: (props: { onViewDocument?: () => void }) => {
     const { View } =
       jest.requireActual<typeof import('react-native')>('react-native');
+    mockOrderSuccessView(props);
     return <View testID="order-success-view" />;
+  },
+}));
+
+jest.mock('@/components/receipts/ReceiptPreviewModal', () => ({
+  ReceiptPreviewModal: ({ visible }: { visible: boolean }) => {
+    const { View } =
+      jest.requireActual<typeof import('react-native')>('react-native');
+    return visible ? <View testID="receipt-preview-modal" /> : null;
   },
 }));
 
@@ -39,6 +51,17 @@ jest.mock('@/hooks/use-permission-booster', () => ({
     markDenied: mockMarkDenied,
     requestPermission: mockRequestPermission,
     triggerSystemPrompt: mockTriggerSystemPrompt,
+  }),
+}));
+
+jest.mock('@/hooks/use-receipt-preview', () => ({
+  useReceiptPreview: () => ({
+    closePreview: mockClosePreview,
+    html: '',
+    isLoading: false,
+    isOpen: false,
+    isPaid: false,
+    openPreviewByOrderId: mockOpenPreviewByOrderId,
   }),
 }));
 
@@ -56,6 +79,7 @@ describe('OrderSuccessScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockScheduleLocalNotification.mockResolvedValue(undefined);
+    mockOrderSuccessView.mockClear();
     mockSearchParams = {
       orderId: 'order-1',
       orderNumber: 'BAC-001',
@@ -92,23 +116,24 @@ describe('OrderSuccessScreen', () => {
     });
   });
 
-  it.each(['invoice', 'payforme', 'pay_on_delivery'])(
-    'does not schedule a duplicate local order notification for server-confirmed %s success screens',
-    async (paymentMethod) => {
-      mockSearchParams = {
-        orderId: 'order-1',
-        orderNumber: 'BAC-001',
-        paymentMethod,
-        trackingToken: 'tracking-token',
-      };
+  it.each([
+    'invoice',
+    'payforme',
+    'pay_on_delivery',
+  ])('does not schedule a duplicate local order notification for server-confirmed %s success screens', async (paymentMethod) => {
+    mockSearchParams = {
+      orderId: 'order-1',
+      orderNumber: 'BAC-001',
+      paymentMethod,
+      trackingToken: 'tracking-token',
+    };
 
-      render(<OrderSuccessScreen />);
+    render(<OrderSuccessScreen />);
 
-      await waitFor(() => {
-        expect(mockScheduleLocalNotification).not.toHaveBeenCalled();
-      });
-    }
-  );
+    await waitFor(() => {
+      expect(mockScheduleLocalNotification).not.toHaveBeenCalled();
+    });
+  });
 
   it('falls back to orderId when orderNumber is blank', async () => {
     mockSearchParams = {
@@ -147,5 +172,17 @@ describe('OrderSuccessScreen', () => {
     await waitFor(() => {
       expect(mockScheduleLocalNotification).toHaveBeenCalledTimes(1);
     });
+  });
+
+  it('passes a document preview handler when the order id is available', () => {
+    render(<OrderSuccessScreen />);
+
+    const latestProps = mockOrderSuccessView.mock.calls.at(-1)?.[0] as
+      | { onViewDocument?: () => void }
+      | undefined;
+
+    latestProps?.onViewDocument?.();
+
+    expect(mockOpenPreviewByOrderId).toHaveBeenCalledWith('order-1');
   });
 });

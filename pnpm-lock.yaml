@@ -953,6 +953,9 @@ importers:
       embla-carousel-react:
         specifier: ^8.6.0
         version: 8.6.0(react@19.2.3)
+      entities:
+        specifier: ^8.0.0
+        version: 8.0.0
       expo-server-sdk:
         specifier: ^6.1.0
         version: 6.1.0
@@ -14838,7 +14841,7 @@ snapshots:
       ws: 8.20.1
       zod: 3.25.76
     optionalDependencies:
-      expo-router: 56.2.8(c4d801a8b676584702148a60cb2a7a94)
+      expo-router: 56.2.8(7a706eb7f53b2672ad7099202a9a6a62)
       react-native: 0.85.3(@babel/core@7.29.0)(@react-native/jest-preset@0.85.3(@babel/core@7.29.0)(react@19.2.3))(@react-native/metro-config@0.85.3(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3)
     transitivePeerDependencies:
       - '@expo/dom-webview'
@@ -15116,7 +15119,7 @@ snapshots:
       react: 19.2.3
     optionalDependencies:
       '@expo/metro-runtime': 56.0.13(@expo/log-box@56.0.12)(expo@56.0.8)(react-dom@19.2.3(react@19.2.3))(react-native@0.85.3(@babel/core@7.29.0)(@react-native/jest-preset@0.85.3(@babel/core@7.29.0)(react@19.2.3))(@react-native/metro-config@0.85.3(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
-      expo-router: 56.2.8(c4d801a8b676584702148a60cb2a7a94)
+      expo-router: 56.2.8(7a706eb7f53b2672ad7099202a9a6a62)
       react-dom: 19.2.3(react@19.2.3)
     transitivePeerDependencies:
       - supports-color

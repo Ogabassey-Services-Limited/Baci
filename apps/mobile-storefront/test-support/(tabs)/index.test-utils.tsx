@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, jest } from '@jest/globals';
+import { afterAll, afterEach, beforeEach, jest } from '@jest/globals';
 import type { Href } from 'expo-router';
 import type React from 'react';
 import { Pressable, Text, View } from 'react-native';
@@ -20,6 +20,7 @@ export function createTemplateConfig(
 
 export const mockUsePageConfig = jest.fn();
 export const mockUseColorScheme = jest.fn(() => 'dark');
+export const mockUseIsFocused = jest.fn(() => true);
 export const mockRequestPermission = jest.fn(async () => 'granted');
 export const mockGetTemplateConfig = jest.fn(
   (_businessType?: string, _manualTemplateId?: string) => createTemplateConfig()
@@ -27,6 +28,15 @@ export const mockGetTemplateConfig = jest.fn(
 export const mockRouterPush = jest.fn<(href: Href) => void>();
 const MockText = Text;
 const MockView = View;
+const idleGlobal = globalThis as unknown as {
+  cancelIdleCallback?: (handle: number) => void;
+  requestIdleCallback?: (
+    callback: IdleRequestCallback,
+    options?: IdleRequestOptions
+  ) => number;
+};
+const originalCancelIdleCallback = idleGlobal.cancelIdleCallback;
+const originalRequestIdleCallback = idleGlobal.requestIdleCallback;
 type MockBlock = { props?: { id?: string }; type: string };
 
 type MockBlockRendererProps = {
@@ -98,6 +108,7 @@ jest.mock('expo-router', () => ({
   router: {
     push: mockRouterPush,
   },
+  useIsFocused: () => mockUseIsFocused(),
   useRouter: () => ({
     push: mockRouterPush,
   }),
@@ -221,7 +232,18 @@ export function setupHomeScreenTestState() {
     jest.useFakeTimers();
     jest.clearAllMocks();
     mockHeader.mockClear();
+    idleGlobal.requestIdleCallback = jest.fn(
+      (callback: IdleRequestCallback) => {
+        callback({
+          didTimeout: false,
+          timeRemaining: () => 50,
+        });
+        return 1;
+      }
+    );
+    idleGlobal.cancelIdleCallback = jest.fn();
     mockUseColorScheme.mockReturnValue('dark');
+    mockUseIsFocused.mockReturnValue(true);
     mockRequestPermission.mockResolvedValue('granted');
     mockGetTemplateConfig.mockReturnValue(createTemplateConfig());
     mockUsePageConfig.mockReturnValue({
@@ -241,6 +263,11 @@ export function setupHomeScreenTestState() {
   afterEach(() => {
     jest.runOnlyPendingTimers();
     jest.useRealTimers();
+  });
+
+  afterAll(() => {
+    idleGlobal.requestIdleCallback = originalRequestIdleCallback;
+    idleGlobal.cancelIdleCallback = originalCancelIdleCallback;
   });
 }
 

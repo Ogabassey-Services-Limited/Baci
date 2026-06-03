@@ -135,6 +135,21 @@ export const orderSuccessStyles = StyleSheet.create({
     flexDirection: 'row',
     gap: 10,
   },
+  documentButton: {
+    paddingVertical: 14,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: BRAND.primary,
+    flexDirection: 'row',
+    gap: 10,
+  },
+  documentButtonText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: Colors.light.white,
+  },
   googleLogoWrap: {
     backgroundColor: Colors.light.white,
     borderRadius: 12,

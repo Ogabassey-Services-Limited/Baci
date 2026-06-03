@@ -20,6 +20,7 @@ interface CartCheckoutFooterProps {
   grandTotal: number;
   hasAcceptedNegotiation: boolean;
   onCheckout: () => void;
+  onCheckoutPressIn: () => void;
   onNegotiateTotal: () => void;
   surfaceInset: string;
 }
@@ -32,6 +33,7 @@ export default function CartCheckoutFooter({
   grandTotal,
   hasAcceptedNegotiation,
   onCheckout,
+  onCheckoutPressIn,
   onNegotiateTotal,
   surfaceInset,
 }: CartCheckoutFooterProps) {
@@ -111,6 +113,7 @@ export default function CartCheckoutFooter({
         )}
         <Pressable
           style={styles.checkoutButtonContainer}
+          onPressIn={onCheckoutPressIn}
           onPress={onCheckout}
           accessibilityRole="button"
           accessibilityLabel={`Proceed to checkout, total ${formatPrice(grandTotal)}`}

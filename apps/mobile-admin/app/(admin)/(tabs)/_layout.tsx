@@ -1,7 +1,8 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
+import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Tabs } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { AdminFloatingTabBar } from '@/components/navigation/AdminFloatingTabBar';
 import { useFailedOrders } from '@/hooks/useFailedOrders';
 import { useTheme } from '@/hooks/useTheme';
 
@@ -11,7 +12,6 @@ export default function TabLayout() {
   }
   const { colors } = useTheme();
   const { data: failedOrders } = useFailedOrders();
-  const insets = useSafeAreaInsets();
   const failedCount = failedOrders?.length ?? 0;
 
   return (
@@ -20,41 +20,31 @@ export default function TabLayout() {
       style={[styles.shell, { backgroundColor: colors.card }]}
     >
       <Tabs
+        detachInactiveScreens={false}
+        initialRouteName="index"
+        tabBar={(props) => (
+          <AdminFloatingTabBar {...(props as unknown as BottomTabBarProps)} />
+        )}
         screenOptions={{
+          freezeOnBlur: false,
           headerShown: false,
+          lazy: true,
           tabBarActiveTintColor: colors.primary,
+          tabBarHideOnKeyboard: true,
           tabBarInactiveTintColor: colors.textSecondary,
-          tabBarStyle: {
-            borderTopWidth: 1,
-            borderTopColor: colors.border,
-            backgroundColor: colors.card,
-            height: 58 + insets.bottom,
-            paddingBottom: Math.max(insets.bottom, 10),
-            paddingTop: 8,
-          },
-          tabBarItemStyle: {
-            height: 50,
-          },
+          tabBarShowLabel: true,
         }}
       >
         <Tabs.Screen
           name="index"
           options={{
             title: 'Home',
-            tabBarIcon: ({ color, focused }) => (
-              <View
-                style={
-                  focused
-                    ? [styles.activeIcon, { backgroundColor: colors.goldLight }]
-                    : undefined
-                }
-              >
-                <Ionicons
-                  name={focused ? 'home' : 'home-outline'}
-                  size={24}
-                  color={color}
-                />
-              </View>
+            tabBarIcon: ({ color, focused, size }) => (
+              <Ionicons
+                color={color}
+                name={focused ? 'home' : 'home-outline'}
+                size={size}
+              />
             ),
           }}
         />
@@ -62,20 +52,12 @@ export default function TabLayout() {
           name="orders"
           options={{
             title: 'Orders',
-            tabBarIcon: ({ color, focused }) => (
-              <View
-                style={
-                  focused
-                    ? [styles.activeIcon, { backgroundColor: colors.goldLight }]
-                    : undefined
-                }
-              >
-                <Ionicons
-                  name={focused ? 'receipt' : 'receipt-outline'}
-                  size={24}
-                  color={color}
-                />
-              </View>
+            tabBarIcon: ({ color, focused, size }) => (
+              <Ionicons
+                color={color}
+                name={focused ? 'receipt' : 'receipt-outline'}
+                size={size}
+              />
             ),
           }}
         />
@@ -83,20 +65,12 @@ export default function TabLayout() {
           name="products"
           options={{
             title: 'Products',
-            tabBarIcon: ({ color, focused }) => (
-              <View
-                style={
-                  focused
-                    ? [styles.activeIcon, { backgroundColor: colors.goldLight }]
-                    : undefined
-                }
-              >
-                <Ionicons
-                  name={focused ? 'cube' : 'cube-outline'}
-                  size={24}
-                  color={color}
-                />
-              </View>
+            tabBarIcon: ({ color, focused, size }) => (
+              <Ionicons
+                color={color}
+                name={focused ? 'cube' : 'cube-outline'}
+                size={size}
+              />
             ),
           }}
         />
@@ -106,20 +80,12 @@ export default function TabLayout() {
             title: 'Customers',
             // Follow-up checkout drop-offs belong with customer outreach, not Orders.
             tabBarBadge: failedCount > 0 ? failedCount : undefined,
-            tabBarIcon: ({ color, focused }) => (
-              <View
-                style={
-                  focused
-                    ? [styles.activeIcon, { backgroundColor: colors.goldLight }]
-                    : undefined
-                }
-              >
-                <Ionicons
-                  name={focused ? 'people' : 'people-outline'}
-                  size={24}
-                  color={color}
-                />
-              </View>
+            tabBarIcon: ({ color, focused, size }) => (
+              <Ionicons
+                color={color}
+                name={focused ? 'people' : 'people-outline'}
+                size={size}
+              />
             ),
           }}
         />
@@ -127,20 +93,12 @@ export default function TabLayout() {
           name="menu"
           options={{
             title: 'Menu',
-            tabBarIcon: ({ color, focused }) => (
-              <View
-                style={
-                  focused
-                    ? [styles.activeIcon, { backgroundColor: colors.goldLight }]
-                    : undefined
-                }
-              >
-                <Ionicons
-                  name={focused ? 'menu' : 'menu-outline'}
-                  size={24}
-                  color={color}
-                />
-              </View>
+            tabBarIcon: ({ color, focused, size }) => (
+              <Ionicons
+                color={color}
+                name={focused ? 'menu' : 'menu-outline'}
+                size={size}
+              />
             ),
           }}
         />
@@ -155,13 +113,5 @@ export default function TabLayout() {
 const styles = StyleSheet.create({
   shell: {
     flex: 1,
-  },
-  activeIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: -4,
   },
 });

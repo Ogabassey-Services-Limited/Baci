@@ -1,4 +1,5 @@
-import { render } from '@testing-library/react';
+import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+import { render, screen } from '@testing-library/react';
 import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -45,9 +46,16 @@ vi.mock('@react-native-vector-icons/ionicons', () => ({
   __esModule: true,
 }));
 
-vi.mock('react-native-safe-area-context', () => ({
-  useSafeAreaInsets: () => ({ top: 59, right: 0, bottom: 34, left: 0 }),
-}));
+vi.mock('@/components/navigation/AdminFloatingTabBar', async () => {
+  const React = await import('react');
+
+  return {
+    AdminFloatingTabBar: () =>
+      React.createElement('div', {
+        'data-testid': 'admin-floating-tab-bar-mock',
+      }),
+  };
+});
 
 vi.mock('expo-router', async () => {
   const React = await import('react');
@@ -95,6 +103,8 @@ vi.mock('@/hooks/useTheme', () => ({
 
 import TabLayout from '@/app/(admin)/(tabs)/_layout';
 
+type TabBarRenderer = (props: BottomTabBarProps) => React.ReactNode;
+
 describe('TabLayout', () => {
   beforeEach(() => {
     mocks.failedOrders = [];
@@ -102,25 +112,45 @@ describe('TabLayout', () => {
     mocks.tabsProps = null;
   });
 
-  it('uses bottom safe-area inset without negative shell offsets', () => {
+  it('keeps admin tabs retained and delegates rendering to the floating bar', () => {
     const { getByTestId } = render(<TabLayout />);
 
     expect(getByTestId('tabs-root')).toBeTruthy();
 
     const screenOptions = mocks.tabsProps?.screenOptions as {
-      tabBarStyle: {
-        height: number;
-        paddingBottom: number;
-        paddingTop: number;
-      };
-      tabBarItemStyle: { height: number };
+      freezeOnBlur: boolean;
+      lazy: boolean;
+      tabBarHideOnKeyboard: boolean;
+      tabBarShowLabel: boolean;
     };
     expect(screenOptions).toBeDefined();
 
-    expect(screenOptions.tabBarStyle.height).toBe(92);
-    expect(screenOptions.tabBarStyle.paddingBottom).toBe(34);
-    expect(screenOptions.tabBarStyle.paddingTop).toBe(8);
-    expect(screenOptions.tabBarItemStyle.height).toBe(50);
+    expect(mocks.tabsProps?.detachInactiveScreens).toBe(false);
+    expect(mocks.tabsProps?.initialRouteName).toBe('index');
+    expect(typeof mocks.tabsProps?.tabBar).toBe('function');
+    const tabBar = mocks.tabsProps?.tabBar as TabBarRenderer;
+    render(
+      tabBar({
+        descriptors: {},
+        insets: { bottom: 0, left: 0, right: 0, top: 0 },
+        navigation: {} as BottomTabBarProps['navigation'],
+        state: {
+          history: [],
+          index: 0,
+          key: 'tabs-key',
+          preloadedRouteKeys: [],
+          routeNames: [],
+          routes: [],
+          stale: false,
+          type: 'tab',
+        },
+      })
+    );
+    expect(screen.getByTestId('admin-floating-tab-bar-mock')).toBeTruthy();
+    expect(screenOptions.freezeOnBlur).toBe(false);
+    expect(screenOptions.lazy).toBe(true);
+    expect(screenOptions.tabBarHideOnKeyboard).toBe(true);
+    expect(screenOptions.tabBarShowLabel).toBe(true);
 
     const shellStyle =
       getByTestId('tab-shell').getAttribute('data-style') ?? '';
@@ -132,7 +162,9 @@ describe('TabLayout', () => {
 
     render(<TabLayout />);
 
-    const ordersScreen = mocks.screens.find((screen) => screen.name === 'orders');
+    const ordersScreen = mocks.screens.find(
+      (screen) => screen.name === 'orders'
+    );
     const customersScreen = mocks.screens.find(
       (screen) => screen.name === 'customers'
     );
