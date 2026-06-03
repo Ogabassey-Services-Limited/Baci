@@ -29,6 +29,34 @@ describe('SafeHtml', () => {
     expect(screen.getByText('Styled')).not.toHaveAttribute('style');
   });
 
+  it('renders sanitized HTML inside the requested code wrapper', () => {
+    const { container } = render(
+      <SafeHtml
+        as="code"
+        className="language-js"
+        html='<span class="hljs-keyword" style="color:red">const</span>'
+      />
+    );
+
+    const code = container.querySelector('code');
+    expect(code).toBeInTheDocument();
+    expect(code).toHaveClass('language-js');
+    const span = code?.querySelector('span');
+    expect(span).toHaveClass('hljs-keyword');
+    expect(span).toHaveTextContent('const');
+    expect(span).not.toHaveAttribute('style');
+  });
+
+  it('renders sanitized HTML inside the requested span wrapper', () => {
+    const { container } = render(
+      <SafeHtml as="span" html='<code class="language-ts">type X = 1</code>' />
+    );
+
+    const wrapper = container.querySelector('span');
+    expect(wrapper).toBeInTheDocument();
+    expect(wrapper?.querySelector('code')).toHaveClass('language-ts');
+  });
+
   it('strips iframe tags', () => {
     const { container } = render(
       <SafeHtml html='<p>Content</p><iframe src="https://evil.example.com"></iframe>' />

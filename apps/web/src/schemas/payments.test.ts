@@ -9,6 +9,15 @@ describe('payment schemas', () => {
       expect(result.success).toBe(true);
     });
 
+    it('trims surrounding whitespace before validating a reference', () => {
+      const result = referenceSchema.safeParse('  BAC-REF-123  ');
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data).toBe('BAC-REF-123');
+      }
+    });
+
     it('accepts a 100-character payment reference', () => {
       const reference = 'A'.repeat(100);
 
@@ -54,6 +63,17 @@ describe('payment schemas', () => {
       });
 
       expect(result.success).toBe(true);
+    });
+
+    it('trims surrounding whitespace in the request body reference', () => {
+      const result = verifyPaymentBodySchema.safeParse({
+        reference: '  BAC-REF-123  ',
+      });
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.reference).toBe('BAC-REF-123');
+      }
     });
 
     it('rejects an empty reference body', () => {

@@ -137,6 +137,15 @@ function withNoStore(response: NextResponse) {
   return response;
 }
 
+function isUniqueViolation(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    error.code === '23505'
+  );
+}
+
 // Columns selected when reading merchant feature settings.
 // Typed against MerchantFeatureSettings so any drift between the SELECT list
 // and the interface is caught at compile time.
@@ -410,21 +419,55 @@ export async function PATCH(request: NextRequest) {
       sanitizedUpdates.rewards_page_enabled = sanitizedUpdates.loyalty_enabled;
     }
 
-    // Upsert settings
-    const { data: settings, error } = await auth.supabase
-      .from('merchant_feature_settings')
-      .upsert(
-        {
-          merchant_id: access.merchantId,
-          ...sanitizedUpdates,
-          updated_at: new Date().toISOString(),
-        },
-        {
-          onConflict: 'merchant_id',
-        }
-      )
-      .select()
-      .single();
+    const settingsPayload = {
+      ...sanitizedUpdates,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { data: existingSettings, error: existingSettingsError } =
+      await auth.supabase
+        .from('merchant_feature_settings')
+        .select('merchant_id')
+        .eq('merchant_id', access.merchantId)
+        .maybeSingle();
+
+    if (existingSettingsError) {
+      console.error(
+        'Error checking existing feature settings:',
+        existingSettingsError
+      );
+      return jsonNoStore(
+        { error: 'Failed to update settings' },
+        { status: 500 }
+      );
+    }
+
+    const writeResult = existingSettings
+      ? await auth.supabase
+          .from('merchant_feature_settings')
+          .update(settingsPayload)
+          .eq('merchant_id', access.merchantId)
+          .select()
+          .single()
+      : await auth.supabase
+          .from('merchant_feature_settings')
+          .insert({
+            ...DEFAULT_SETTINGS,
+            merchant_id: access.merchantId,
+            ...settingsPayload,
+          })
+          .select()
+          .single();
+
+    const { data: settings, error } =
+      !existingSettings && isUniqueViolation(writeResult.error)
+        ? await auth.supabase
+            .from('merchant_feature_settings')
+            .update(settingsPayload)
+            .eq('merchant_id', access.merchantId)
+            .select()
+            .single()
+        : writeResult;
 
     if (error) {
       console.error('Error updating feature settings:', error);

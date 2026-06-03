@@ -104,7 +104,11 @@ let upsertPayload: unknown = null;
 let insertData: unknown = null;
 let insertError: unknown = null;
 let insertPayload: unknown = null;
+let updateData: unknown = null;
+let updateError: unknown = null;
+let updatePayload: unknown = null;
 let selectColumns: string | null = null;
+let throwOnInsert = false;
 
 function createMockSupabase() {
   return {
@@ -118,16 +122,34 @@ function createMockSupabase() {
                 single: vi.fn(() =>
                   Promise.resolve({ data: settingsData, error: settingsError })
                 ),
+                maybeSingle: vi.fn(() =>
+                  Promise.resolve({ data: settingsData, error: settingsError })
+                ),
               }),
             };
           }),
           insert: vi.fn((payload: unknown) => {
+            if (throwOnInsert) {
+              throw new Error('GET must not persist default settings');
+            }
             insertPayload = payload;
             return {
               select: vi.fn().mockReturnValue({
                 single: vi.fn(() =>
                   Promise.resolve({ data: insertData, error: insertError })
                 ),
+              }),
+            };
+          }),
+          update: vi.fn((payload: unknown) => {
+            updatePayload = payload;
+            return {
+              eq: vi.fn().mockReturnValue({
+                select: vi.fn().mockReturnValue({
+                  single: vi.fn(() =>
+                    Promise.resolve({ data: updateData, error: updateError })
+                  ),
+                }),
               }),
             };
           }),
@@ -182,8 +204,12 @@ describe('GET /api/merchant/features', () => {
     insertData = null;
     insertError = null;
     insertPayload = null;
+    updateData = null;
+    updateError = null;
+    updatePayload = null;
     upsertPayload = null;
     selectColumns = null;
+    throwOnInsert = false;
     csrfValid = true;
   });
 
@@ -208,6 +234,7 @@ describe('GET /api/merchant/features', () => {
   it('returns read-only default settings with VTU customer cashback disabled by default', async () => {
     const { GET } = await import('./route');
     settingsError = { code: 'PGRST116', message: 'No rows found' };
+    throwOnInsert = true;
 
     const response = await GET(makeRequest('GET'));
     const data = await response.json();
@@ -223,7 +250,6 @@ describe('GET /api/merchant/features', () => {
       vtu_customer_cashback_rate: 50,
     });
     expect(data).not.toHaveProperty('offline_conversions_enabled');
-    expect(insertPayload).toBeNull();
   });
 
   it('returns 401 when not authenticated', async () => {
@@ -277,14 +303,19 @@ describe('GET /api/merchant/features', () => {
     expect(json.id).toBe('settings-1');
   });
 
-  it('creates default settings when none exist (PGRST116)', async () => {
+  it('keeps GET read-only when no settings exist (PGRST116)', async () => {
     const { GET } = await import('./route');
     settingsError = { code: 'PGRST116', message: 'No rows found' };
-    insertData = { id: 'new-settings', merchant_id: MERCHANT_ID };
+    throwOnInsert = true;
 
     const res = await GET(makeRequest('GET'));
+    const json = await res.json();
 
     expect(res.status).toBe(200);
+    expect(json).toMatchObject({
+      merchant_id: MERCHANT_ID,
+      shipping_providers: ['gigl', 'topship'],
+    });
   });
 
   it('returns 500 when DB error occurs', async () => {
@@ -306,6 +337,22 @@ describe('PATCH /api/merchant/features', () => {
     authResult = { user: { id: 'user-1' }, supabase: mockSupa };
     accessResult = { merchantId: MERCHANT_ID, role: 'owner' };
     hasSettingsEdit = true;
+    settingsData = { merchant_id: MERCHANT_ID };
+    settingsError = null;
+    insertData = {
+      id: 'settings-1',
+      merchant_id: MERCHANT_ID,
+      loyalty_enabled: true,
+    };
+    insertError = null;
+    insertPayload = null;
+    updateData = {
+      id: 'settings-1',
+      merchant_id: MERCHANT_ID,
+      loyalty_enabled: true,
+    };
+    updateError = null;
+    updatePayload = null;
     upsertData = {
       id: 'settings-1',
       merchant_id: MERCHANT_ID,
@@ -313,6 +360,7 @@ describe('PATCH /api/merchant/features', () => {
     };
     upsertError = null;
     upsertPayload = null;
+    throwOnInsert = false;
     csrfValid = true;
   });
 
@@ -368,6 +416,8 @@ describe('PATCH /api/merchant/features', () => {
     expect(json.error).toBe('Invalid input');
     expect(json.details).toEqual({ loyalty_enabled: ['Expected boolean'] });
     expect(upsertPayload).toBeNull();
+    expect(insertPayload).toBeNull();
+    expect(updatePayload).toBeNull();
   });
 
   it('updates settings and invalidates feature and merchant caches', async () => {
@@ -385,20 +435,75 @@ describe('PATCH /api/merchant/features', () => {
     expect(mockRevalidateMerchant).toHaveBeenCalledWith(MERCHANT_ID);
   });
 
-  it('keeps sparse PATCH payloads from writing Klump defaults', async () => {
+  it('does not reset existing Klump settings on sparse PATCH payloads', async () => {
     const { PATCH } = await import('./route');
 
     const res = await PATCH(makeRequest('PATCH', { loyalty_enabled: true }));
 
     expect(res.status).toBe(200);
-    expect(upsertPayload).toMatchObject({
-      merchant_id: MERCHANT_ID,
+    expect(updatePayload).toMatchObject({
       loyalty_enabled: true,
       rewards_page_enabled: true,
     });
-    expect(upsertPayload).not.toHaveProperty('klump_enabled');
-    expect(upsertPayload).not.toHaveProperty('klump_min_amount');
-    expect(upsertPayload).not.toHaveProperty('klump_max_amount');
+    expect(updatePayload).not.toHaveProperty('klump_enabled');
+    expect(updatePayload).not.toHaveProperty('klump_min_amount');
+    expect(updatePayload).not.toHaveProperty('klump_max_amount');
+  });
+
+  it('seeds API defaults when the first PATCH creates a settings row', async () => {
+    const { PATCH } = await import('./route');
+    settingsData = null;
+    insertData = {
+      id: 'settings-1',
+      merchant_id: MERCHANT_ID,
+      custom_settings: { integrationCardsCollapsed: true },
+    };
+
+    const res = await PATCH(
+      makeRequest('PATCH', {
+        custom_settings: { integrationCardsCollapsed: true },
+      })
+    );
+
+    expect(res.status).toBe(200);
+    expect(insertPayload).toMatchObject({
+      merchant_id: MERCHANT_ID,
+      custom_settings: { integrationCardsCollapsed: true },
+      shipping_providers: ['gigl', 'topship'],
+      klump_enabled: false,
+      vtu_customer_cashback_enabled: false,
+    });
+    expect(updatePayload).toBeNull();
+  });
+
+  it('retries sparse PATCH as an update if a concurrent first insert wins', async () => {
+    const { PATCH } = await import('./route');
+    settingsData = null;
+    insertError = {
+      code: '23505',
+      message: 'duplicate key value violates unique constraint',
+    };
+    updateData = {
+      id: 'settings-1',
+      merchant_id: MERCHANT_ID,
+      loyalty_enabled: true,
+      rewards_page_enabled: true,
+    };
+
+    const res = await PATCH(makeRequest('PATCH', { loyalty_enabled: true }));
+
+    expect(res.status).toBe(200);
+    expect(insertPayload).toMatchObject({
+      merchant_id: MERCHANT_ID,
+      loyalty_enabled: true,
+      rewards_page_enabled: true,
+      shipping_providers: ['gigl', 'topship'],
+    });
+    expect(updatePayload).toMatchObject({
+      loyalty_enabled: true,
+      rewards_page_enabled: true,
+    });
+    expect(updatePayload).not.toHaveProperty('shipping_providers');
   });
 
   it('updates merchant-scoped Klump installment settings', async () => {
@@ -413,8 +518,7 @@ describe('PATCH /api/merchant/features', () => {
     );
 
     expect(res.status).toBe(200);
-    expect(upsertPayload).toMatchObject({
-      merchant_id: MERCHANT_ID,
+    expect(updatePayload).toMatchObject({
       klump_enabled: true,
       klump_min_amount: 2500,
       klump_max_amount: 750000,
@@ -424,6 +528,7 @@ describe('PATCH /api/merchant/features', () => {
   it('returns 500 when upsert fails', async () => {
     const { PATCH } = await import('./route');
     upsertError = { message: 'DB error' };
+    updateError = { message: 'DB error' };
 
     const res = await PATCH(makeRequest('PATCH', { loyalty_enabled: true }));
     const json = await res.json();

@@ -12,6 +12,7 @@ import type {
   TrackingResult,
 } from '@/lib/shipping/types';
 import { createClient } from '@/lib/supabase/server';
+import { trackingParamsSchema } from '@/schemas/shipping-tracking';
 
 // =============================================================================
 // POST /api/shipping/track/[trackingNumber] - Fetch current shipment tracking
@@ -59,15 +60,16 @@ export async function POST(
   { params }: { params: Promise<{ trackingNumber: string }> }
 ) {
   try {
-    const { trackingNumber } = await params;
+    const parsedParams = trackingParamsSchema.safeParse(await params);
 
-    if (!trackingNumber) {
+    if (!parsedParams.success) {
       return NextResponse.json(
         { error: 'Tracking number required' },
         { status: 400 }
       );
     }
 
+    const { trackingNumber } = parsedParams.data;
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
@@ -177,6 +179,7 @@ async function persistTrackingResult({
       error: shipmentUpdateError,
       shipmentId: shipment.id,
     });
+    throw new Error('Failed to persist shipment tracking snapshot');
   }
 
   const { error: orderUpdateError } = await supabase
@@ -192,6 +195,7 @@ async function persistTrackingResult({
       error: orderUpdateError,
       orderId: shipment.order_id,
     });
+    throw new Error('Failed to persist order shipping status');
   }
 }
 

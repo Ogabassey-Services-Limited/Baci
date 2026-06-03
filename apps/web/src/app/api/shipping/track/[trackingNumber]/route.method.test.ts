@@ -145,6 +145,67 @@ describe('/api/shipping/track/[trackingNumber] method boundary', () => {
     });
   });
 
+  it('returns 500 and skips order updates when the shipment snapshot write fails', async () => {
+    mockShipmentLookup({
+      carrier_name: 'DHL',
+      estimated_delivery_days: 3,
+      id: 'shipment-1',
+      order_id: 'order-1',
+      provider: 'dhl',
+      receiver_address: { city: 'Ikeja', state: 'Lagos' },
+    });
+    mockShipmentStatusEq.mockResolvedValueOnce({
+      error: { message: 'shipment write failed' },
+    });
+    mockTrackShipment.mockResolvedValue({
+      actualDelivery: undefined,
+      carrierName: 'DHL',
+      estimatedDelivery: new Date('2026-05-12T10:00:00Z'),
+      events: [],
+      provider: 'dhl',
+      status: 'in_transit',
+    });
+
+    const response = await makePostRequest();
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({ error: 'Failed to track shipment' });
+    expect(mockOrderStatusUpdate).not.toHaveBeenCalled();
+  });
+
+  it('returns 500 when order shipping status persistence fails', async () => {
+    mockShipmentLookup({
+      carrier_name: 'DHL',
+      estimated_delivery_days: 3,
+      id: 'shipment-1',
+      order_id: 'order-1',
+      provider: 'dhl',
+      receiver_address: { city: 'Ikeja', state: 'Lagos' },
+    });
+    mockOrderStatusEq.mockResolvedValueOnce({
+      error: { message: 'order write failed' },
+    });
+    mockTrackShipment.mockResolvedValue({
+      actualDelivery: undefined,
+      carrierName: 'DHL',
+      estimatedDelivery: new Date('2026-05-12T10:00:00Z'),
+      events: [],
+      provider: 'dhl',
+      status: 'in_transit',
+    });
+
+    const response = await makePostRequest();
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({ error: 'Failed to track shipment' });
+    expect(mockShipmentStatusUpdate).toHaveBeenCalled();
+    expect(mockOrderStatusUpdate).toHaveBeenCalledWith({
+      shipping_status: 'shipped',
+    });
+  });
+
   it('returns 404 when the carrier reports the shipment is not found', async () => {
     mockShipmentLookup(null);
     mockTrackShipment.mockRejectedValue(new Error('Shipment not found'));

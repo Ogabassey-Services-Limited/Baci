@@ -23,6 +23,7 @@ import { AdUnit } from '@/components/storefront/ogabassey/components/AdUnit';
 import { CHECKOUT_PENDING_ORDER_STORAGE_KEY } from '@/components/storefront/ogabassey/pages/checkout/pending-checkout-order';
 import { useCart } from '@/hooks/cart';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
+import { fetchWithCsrf } from '@/lib/api-client';
 import { BACI_GOOGLE_REVIEW_URL } from '@/lib/post-purchase-actions';
 import { asRoute } from '@/lib/routes';
 
@@ -140,7 +141,7 @@ function CheckoutSuccessContent() {
       setIsVerifying(true);
 
       try {
-        const response = await fetch('/api/payments/verify', {
+        const response = await fetchWithCsrf('/api/payments/verify', {
           body: JSON.stringify({ reference }),
           headers: { 'Content-Type': 'application/json' },
           method: 'POST',

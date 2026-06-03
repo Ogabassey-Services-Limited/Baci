@@ -56,6 +56,17 @@ describe('sanitize', () => {
     expect(output).toContain('rel="noopener noreferrer"');
   });
 
+  it('preserves lowlight code span classes while stripping active attributes', () => {
+    const output = sanitizeHtml(
+      '<code class="language-js"><span class="hljs-keyword" style="color:red" onclick="alert(1)">const</span></code>'
+    );
+
+    expect(output).toContain('<code class="language-js">');
+    expect(output).toContain('<span class="hljs-keyword">const</span>');
+    expect(output).not.toContain('style=');
+    expect(output).not.toContain('onclick=');
+  });
+
   it('preserves semantic figure and figcaption markup', () => {
     const output = sanitizeHtml(
       '<figure><img src="https://example.com/photo.jpg" alt="Camera"><figcaption>Camera sample</figcaption></figure>'

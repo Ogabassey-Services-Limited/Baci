@@ -691,6 +691,22 @@ describe('resolveVtuCustomer', () => {
     expect(customerUpdate).not.toHaveBeenCalled();
   });
 
+  it('returns null when user email is missing and user_id lookup fails', async () => {
+    const { customerUpdate, supabase } = createResolveCustomerSupabase({});
+
+    const customer = await resolveVtuCustomer({
+      merchantId: 'merchant-1',
+      supabase,
+      user: {
+        email: undefined,
+        id: 'user-1',
+      } as Parameters<typeof resolveVtuCustomer>[0]['user'],
+    });
+
+    expect(customer).toBeNull();
+    expect(customerUpdate).not.toHaveBeenCalled();
+  });
+
   it('still returns the email-matched customer when the opportunistic link update fails', async () => {
     const { customerUpdate, supabase } = createResolveCustomerSupabase({
       byEmail: {
