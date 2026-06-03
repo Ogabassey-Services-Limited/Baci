@@ -335,6 +335,23 @@ describe('POST /api/payments/initialize', () => {
       expect(res.status).toBe(400);
       expect(json.code).toBe('AMOUNT_EXCEEDS_TOTAL');
     });
+
+    it('rejects non-Klump request amounts slightly above the stored total before gateway initialization', async () => {
+      enableKorapayForTest();
+      mockInitializeKorapay.mockResolvedValue({
+        authorization_url: 'https://korapay.com/checkout/abc',
+        checkout_url: 'https://korapay.com/checkout/abc',
+      });
+
+      const res = await POST(
+        makeRequest({ ...validBody, amount: 5000.009, gateway: 'korapay' })
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(json.code).toBe('AMOUNT_EXCEEDS_TOTAL');
+      expect(mockInitializeKorapay).not.toHaveBeenCalled();
+    });
   });
 
   describe('merchant lookup', () => {
