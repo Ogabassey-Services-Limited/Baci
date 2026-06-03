@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   generateReceiptBlob,
   generateReceiptPDF,
+  resolveReceiptLogoDataUri,
 } from '@/lib/receipt-pdf-generator';
 
 const baseMerchant = {
@@ -46,9 +47,10 @@ const baseOrder = {
 
 function getPdfText(
   order: Parameters<typeof generateReceiptBlob>[0],
-  merchant: Parameters<typeof generateReceiptBlob>[1]
+  merchant: Parameters<typeof generateReceiptBlob>[1],
+  options?: Parameters<typeof generateReceiptPDF>[2]
 ) {
-  return generateReceiptPDF(order, merchant)
+  return generateReceiptPDF(order, merchant, options)
     .output()
     .replaceAll(String.fromCharCode(0), '');
 }
@@ -56,6 +58,7 @@ function getPdfText(
 describe('generateReceiptBlob', () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   it('returns a non-empty PDF blob', () => {
@@ -141,6 +144,34 @@ describe('generateReceiptBlob', () => {
 
     expect(pdfText).toContain('INVOICE');
     expect(pdfText).not.toContain('RECEIPT');
+  });
+
+  it('renders invoice issue date, due date, payment terms, and line descriptions', () => {
+    const order = {
+      ...baseOrder,
+      items: [
+        {
+          product_name: 'iPhone 15 Pro',
+          description: 'IMEI: 123456789012345 | S/N: SN-001',
+          quantity: 1,
+          price: 150000,
+        },
+      ],
+      transactions: [],
+    };
+    const pdfText = getPdfText(order, baseMerchant, {
+      documentDate: new Date('2026-06-01T00:00:00.000Z'),
+      documentKind: 'invoice',
+      dueDate: new Date('2026-06-15T00:00:00.000Z'),
+      paymentTerms: 'Net 14',
+    });
+
+    expect(pdfText).toContain('1 Jun 2026');
+    expect(pdfText).toContain('Invoice Terms');
+    expect(pdfText).toContain('Due Date: 15 Jun 2026');
+    expect(pdfText).toContain('Payment Terms: Net 14');
+    expect(pdfText).toContain('IMEI: 123456789012345');
+    expect(pdfText).toContain('S/N: SN-001');
   });
 
   it('prints a compliance note when the invoice XML artifact has been generated', () => {
@@ -350,5 +381,69 @@ describe('generateReceiptBlob', () => {
     expect(output).toContain('Total');
     expect(output).not.toContain('Amount Paid');
     expect(output).not.toContain('Balance Due');
+  });
+
+  it('does not fetch untrusted merchant logo URLs', async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', fetchSpy);
+
+    await expect(
+      resolveReceiptLogoDataUri({
+        ...baseMerchant,
+        logo_url: 'https://169.254.169.254/latest/meta-data',
+      })
+    ).resolves.toBeNull();
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('fetches only capped trusted media logo URLs', async () => {
+    const fetchSpy = vi.fn().mockResolvedValue(
+      new Response(new Uint8Array([1, 2, 3]), {
+        headers: {
+          'content-length': '3',
+          'content-type': 'image/png',
+        },
+        status: 200,
+      })
+    );
+    vi.stubGlobal('fetch', fetchSpy);
+
+    await expect(
+      resolveReceiptLogoDataUri({
+        ...baseMerchant,
+        logo_url: 'https://cdn.ogabassey.com/media/merchant/logo.png',
+      })
+    ).resolves.toBe('data:image/png;base64,AQID');
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      expect.any(URL),
+      expect.objectContaining({
+        redirect: 'error',
+        signal: expect.any(AbortSignal),
+      })
+    );
+  });
+
+  it('rejects oversized trusted media logos before reading the body', async () => {
+    const arrayBuffer = vi.fn();
+    const fetchSpy = vi.fn().mockResolvedValue({
+      ok: true,
+      headers: new Headers({
+        'content-length': String(512 * 1024),
+        'content-type': 'image/png',
+      }),
+      arrayBuffer,
+    });
+    vi.stubGlobal('fetch', fetchSpy);
+
+    await expect(
+      resolveReceiptLogoDataUri({
+        ...baseMerchant,
+        logo_url: 'https://cdn.ogabassey.com/media/merchant/large-logo.png',
+      })
+    ).resolves.toBeNull();
+
+    expect(arrayBuffer).not.toHaveBeenCalled();
   });
 });

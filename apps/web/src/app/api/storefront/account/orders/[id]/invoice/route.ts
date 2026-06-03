@@ -93,10 +93,20 @@ export async function GET(
     }
 
     const logoDataUri = await resolveReceiptLogoDataUri(data.receiptMerchant);
-    const blob = generateReceiptBlob(data.receiptOrder, data.receiptMerchant, {
+    const receiptOrder = {
+      ...data.receiptOrder,
+      items: data.receiptOrder.items.map((item, index) => ({
+        ...item,
+        description: data.invoiceData.items[index]?.description,
+      })),
+    };
+    const blob = generateReceiptBlob(receiptOrder, data.receiptMerchant, {
       complianceNote,
+      documentDate: data.invoiceData.issue_date,
       documentKind: 'invoice',
+      dueDate: data.invoiceData.due_date,
       logoDataUri,
+      paymentTerms: data.invoiceData.payment_terms,
     });
 
     return new NextResponse(blob, {

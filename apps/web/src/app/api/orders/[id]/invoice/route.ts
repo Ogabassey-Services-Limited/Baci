@@ -420,6 +420,22 @@ export async function GET(
       // Additional info
       notes: order.invoice_note || order.notes || undefined,
       payment_terms: order.payment_terms || undefined,
+      payment_account: paymentAccount
+        ? {
+            account_number: paymentAccount.account_number,
+            account_name: paymentAccount.account_name || undefined,
+            bank_name: paymentAccount.bank_name || undefined,
+          }
+        : merchant.bank_account_number
+          ? {
+              account_number: merchant.bank_account_number,
+              account_name:
+                merchant.bank_account_name ||
+                merchant.legal_entity_name ||
+                merchant.business_name,
+              bank_name: merchant.bank_name || undefined,
+            }
+          : undefined,
 
       // FIRS specific
       firs_irn: order.firs_irn || undefined,
@@ -461,8 +477,9 @@ export async function GET(
           }
         : null,
       fulfillment_details: fulfillment,
-      items: typedOrderItems.map((item) => ({
+      items: items.map((item) => ({
         product_name: item.name || 'Item',
+        description: item.description,
         quantity: item.quantity,
         price: Number(item.price),
       })),
@@ -502,8 +519,11 @@ export async function GET(
     const logoDataUri = await resolveReceiptLogoDataUri(receiptMerchant);
     const pdfBlob = generateReceiptBlob(receiptOrder, receiptMerchant, {
       complianceNote,
+      documentDate: invoiceData.issue_date,
       documentKind: 'invoice',
+      dueDate: invoiceData.due_date,
       logoDataUri,
+      paymentTerms: invoiceData.payment_terms,
     });
 
     // Return the PDF as a response

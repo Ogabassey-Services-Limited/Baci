@@ -79,8 +79,24 @@ function createDocumentData(
     },
     invoiceData: {
       invoice_number: orderNumber,
+      issue_date: new Date('2026-04-01T00:00:00.000Z'),
+      due_date: new Date('2026-04-15T00:00:00.000Z'),
+      payment_terms: 'Net 14',
+      items: [
+        {
+          description: 'IMEI: 123456789012345',
+        },
+      ],
     } as StorefrontAccountDocumentData['invoiceData'],
-    receiptOrder: {} as StorefrontAccountDocumentData['receiptOrder'],
+    receiptOrder: {
+      items: [
+        {
+          product_name: 'iPhone 15 Pro',
+          quantity: 1,
+          price: 100000,
+        },
+      ],
+    } as StorefrontAccountDocumentData['receiptOrder'],
     receiptMerchant: {} as StorefrontAccountDocumentData['receiptMerchant'],
   } as StorefrontAccountDocumentData;
 }
@@ -203,12 +219,21 @@ describe('GET /api/storefront/account/orders/[id]/invoice', () => {
     expect(response.status).toBe(200);
     expect(response.headers.get('content-type')).toBe('application/pdf');
     expect(generateReceiptBlob).toHaveBeenCalledWith(
-      expect.any(Object),
+      expect.objectContaining({
+        items: [
+          expect.objectContaining({
+            description: 'IMEI: 123456789012345',
+          }),
+        ],
+      }),
       expect.any(Object),
       {
         complianceNote: expect.stringContaining('Peppol BIS Billing 3.0'),
+        documentDate: new Date('2026-04-01T00:00:00.000Z'),
         documentKind: 'invoice',
+        dueDate: new Date('2026-04-15T00:00:00.000Z'),
         logoDataUri: 'data:image/png;base64,AA==',
+        paymentTerms: 'Net 14',
       }
     );
     expect(contentDisposition).toContain(

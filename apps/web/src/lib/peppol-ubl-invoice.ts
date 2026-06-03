@@ -5,6 +5,7 @@ const PEPPOL_CUSTOMIZATION_ID =
   'urn:cen.eu:en16931:2017#compliant#urn:fdc:peppol.eu:2017:poacc:billing:3.0';
 const PEPPOL_PROFILE_ID = 'urn:fdc:peppol.eu:2017:poacc:billing:01:1.0';
 const DEFAULT_BUYER_REFERENCE = 'BACI-CUSTOMER';
+const NIGERIA_TAX_ID_EAS_SCHEME_ID = '0244';
 
 export const PEPPOL_BIS_BILLING_COMPLIANCE_NOTE =
   'This invoice complies with Peppol BIS Billing 3.0 through a generated UBL XML invoice artifact created from this order.';
@@ -44,6 +45,10 @@ function normalizeVatRate(item: InvoiceLineItem) {
     : 0;
 }
 
+function normalizeText(value: unknown) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
 function element(name: string, value: string | number, attributes = '') {
   return `<${name}${attributes}>${escapeXml(String(value))}</${name}>`;
 }
@@ -72,13 +77,69 @@ ${optionalElement('cbc:CountrySubentity', address?.state)}
 </cac:PostalAddress>`;
 }
 
+function endpointId({
+  endpointId: explicitEndpointId,
+  schemeId: explicitSchemeId,
+  taxId,
+}: {
+  endpointId?: string;
+  schemeId?: string;
+  taxId?: string;
+}) {
+  const normalizedExplicitEndpointId = normalizeText(explicitEndpointId);
+  const normalizedExplicitSchemeId = normalizeText(explicitSchemeId);
+
+  if (normalizedExplicitEndpointId && normalizedExplicitSchemeId) {
+    return {
+      id: normalizedExplicitEndpointId,
+      schemeId: normalizedExplicitSchemeId,
+    };
+  }
+
+  const normalizedTaxId = normalizeText(taxId);
+  if (normalizedTaxId) {
+    return {
+      id: normalizedTaxId,
+      schemeId: NIGERIA_TAX_ID_EAS_SCHEME_ID,
+    };
+  }
+
+  return null;
+}
+
+function supplierEndpoint(data: InvoiceData) {
+  if (!data.merchant) {
+    return null;
+  }
+
+  return endpointId({
+    endpointId: data.merchant.endpoint_id,
+    schemeId: data.merchant.endpoint_scheme_id,
+    taxId: data.merchant.tax_identification_number,
+  });
+}
+
+function customerEndpoint(data: InvoiceData) {
+  if (!data.customer) {
+    return null;
+  }
+
+  return endpointId({
+    endpointId: data.customer.endpoint_id,
+    schemeId: data.customer.endpoint_scheme_id,
+    taxId: data.customer.tax_id,
+  });
+}
+
 function supplierParty(data: InvoiceData) {
   const merchant = data.merchant;
   const registrationName =
     merchant.legal_entity_name || merchant.business_name || 'Seller';
+  const endpoint = supplierEndpoint(data);
 
   return `<cac:AccountingSupplierParty>
 <cac:Party>
+${endpoint ? element('cbc:EndpointID', endpoint.id, ` schemeID="${escapeXml(endpoint.schemeId)}"`) : ''}
 <cac:PartyName>${element('cbc:Name', registrationName)}</cac:PartyName>
 ${partyAddress(merchant.registered_address)}
 ${
@@ -103,9 +164,11 @@ ${optionalElement('cbc:ElectronicMail', merchant.support_email)}
 
 function customerParty(data: InvoiceData) {
   const customer = data.customer;
+  const endpoint = customerEndpoint(data);
 
   return `<cac:AccountingCustomerParty>
 <cac:Party>
+${endpoint ? element('cbc:EndpointID', endpoint.id, ` schemeID="${escapeXml(endpoint.schemeId)}"`) : ''}
 <cac:PartyName>${element('cbc:Name', customer.name)}</cac:PartyName>
 ${partyAddress(customer.address)}
 ${
@@ -147,6 +210,72 @@ ${taxSubtotalXml}
 </cac:TaxTotal>`;
 }
 
+function documentLevelAllowanceCharge({
+  amount,
+  chargeIndicator,
+  currency,
+  reason,
+  vatCategoryCode,
+  vatRate,
+}: {
+  amount: number;
+  chargeIndicator: boolean;
+  currency: string;
+  reason: string;
+  vatCategoryCode: string;
+  vatRate: number;
+}) {
+  return `<cac:AllowanceCharge>
+${element('cbc:ChargeIndicator', chargeIndicator ? 'true' : 'false')}
+${element('cbc:AllowanceChargeReason', reason)}
+${element('cbc:Amount', formatAmount(amount), ` currencyID="${escapeXml(currency)}"`)}
+<cac:TaxCategory>
+${element('cbc:ID', vatCategoryCode)}
+${element('cbc:Percent', formatAmount(vatRate))}
+<cac:TaxScheme>${element('cbc:ID', 'VAT')}</cac:TaxScheme>
+</cac:TaxCategory>
+</cac:AllowanceCharge>`;
+}
+
+function documentLevelAllowanceCharges(data: InvoiceData) {
+  const primaryTaxSubtotal = data.tax_subtotals[0];
+  const vatCategoryCode = primaryTaxSubtotal?.vat_category_code || 'O';
+  const vatRate =
+    typeof primaryTaxSubtotal?.vat_rate === 'number' &&
+    Number.isFinite(primaryTaxSubtotal.vat_rate)
+      ? primaryTaxSubtotal.vat_rate
+      : 0;
+  const charges = [];
+
+  if (data.discount_amount > 0) {
+    charges.push(
+      documentLevelAllowanceCharge({
+        amount: data.discount_amount,
+        chargeIndicator: false,
+        currency: data.currency,
+        reason: 'Discount',
+        vatCategoryCode,
+        vatRate,
+      })
+    );
+  }
+
+  if (data.shipping_fee > 0) {
+    charges.push(
+      documentLevelAllowanceCharge({
+        amount: data.shipping_fee,
+        chargeIndicator: true,
+        currency: data.currency,
+        reason: 'Shipping',
+        vatCategoryCode,
+        vatRate,
+      })
+    );
+  }
+
+  return charges.join('\n');
+}
+
 function legalMonetaryTotal(data: InvoiceData) {
   return `<cac:LegalMonetaryTotal>
 ${element('cbc:LineExtensionAmount', formatAmount(data.subtotal), ` currencyID="${escapeXml(data.currency)}"`)}
@@ -156,6 +285,23 @@ ${data.discount_amount > 0 ? element('cbc:AllowanceTotalAmount', formatAmount(da
 ${data.shipping_fee > 0 ? element('cbc:ChargeTotalAmount', formatAmount(data.shipping_fee), ` currencyID="${escapeXml(data.currency)}"`) : ''}
 ${element('cbc:PayableAmount', formatAmount(data.total), ` currencyID="${escapeXml(data.currency)}"`)}
 </cac:LegalMonetaryTotal>`;
+}
+
+function paymentMeans(data: InvoiceData) {
+  const accountNumber = normalizeText(data.payment_account?.account_number);
+  if (!accountNumber) {
+    return '';
+  }
+
+  const accountName = normalizeText(data.payment_account?.account_name);
+
+  return `<cac:PaymentMeans>
+${element('cbc:PaymentMeansCode', '30')}
+<cac:PayeeFinancialAccount>
+${element('cbc:ID', accountNumber)}
+${accountName ? element('cbc:Name', accountName) : ''}
+</cac:PayeeFinancialAccount>
+</cac:PaymentMeans>`;
 }
 
 function invoiceLine(data: InvoiceData, item: InvoiceLineItem) {
@@ -183,22 +329,35 @@ ${element('cbc:Percent', formatAmount(vatRate))}
 function validatePeppolInvoiceData(data: InvoiceData) {
   const errors: string[] = [];
 
-  if (!data.invoice_number.trim()) errors.push('invoice_number is required');
+  if (!normalizeText(data.invoice_number))
+    errors.push('invoice_number is required');
   if (!isValidDate(data.issue_date)) errors.push('issue_date is required');
-  if (!data.invoice_type_code.trim())
+  if (!normalizeText(data.invoice_type_code))
     errors.push('invoice_type_code is required');
   if (!/^[A-Z]{3}$/.test(data.currency))
     errors.push('currency must be an ISO 4217 code');
-  if (!data.merchant.business_name.trim())
+  if (!normalizeText(data.merchant?.business_name))
     errors.push('merchant.business_name is required');
-  if (!data.customer.name.trim()) errors.push('customer.name is required');
-  if (data.items.length === 0)
+  if (!normalizeText(data.customer?.name))
+    errors.push('customer.name is required');
+  if (!supplierEndpoint(data)) {
+    errors.push(
+      'merchant.endpoint_id or merchant.tax_identification_number is required'
+    );
+  }
+  if (!customerEndpoint(data)) {
+    errors.push('customer.endpoint_id or customer.tax_id is required');
+  }
+  if (!normalizeText(data.payment_account?.account_number)) {
+    errors.push('payment_account.account_number is required');
+  }
+  if (!Array.isArray(data.items) || data.items.length === 0)
     errors.push('at least one invoice line is required');
-  if (data.tax_subtotals.length === 0)
+  if (!Array.isArray(data.tax_subtotals) || data.tax_subtotals.length === 0)
     errors.push('at least one tax subtotal is required');
 
-  for (const item of data.items) {
-    if (!item.name.trim())
+  for (const item of Array.isArray(data.items) ? data.items : []) {
+    if (!normalizeText(item.name))
       errors.push(`invoice line ${item.line_id} name is required`);
     if (item.quantity <= 0)
       errors.push(`invoice line ${item.line_id} quantity must be positive`);
@@ -244,8 +403,9 @@ ${element('cbc:BuyerReference', buyerReference)}
 ${data.purchase_order_reference ? `<cac:OrderReference>${element('cbc:ID', data.purchase_order_reference)}</cac:OrderReference>` : ''}
 ${supplierParty(data)}
 ${customerParty(data)}
-<cac:PaymentMeans>${element('cbc:PaymentMeansCode', '30')}</cac:PaymentMeans>
+${paymentMeans(data)}
 ${data.payment_terms ? `<cac:PaymentTerms>${element('cbc:Note', data.payment_terms)}</cac:PaymentTerms>` : ''}
+${documentLevelAllowanceCharges(data)}
 ${taxTotal(data)}
 ${legalMonetaryTotal(data)}
 ${data.items.map((item) => invoiceLine(data, item)).join('\n')}

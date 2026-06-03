@@ -37,6 +37,7 @@ function createInvoiceData(overrides: Partial<InvoiceData> = {}): InvoiceData {
       name: 'Akinola Ogunniran',
       email: 'akin@example.com',
       phone: '+2348098765432',
+      tax_id: 'BUYER-TIN-987654',
       address: {
         street: '8 Marina Road',
         city: 'Lagos Island',
@@ -77,6 +78,11 @@ function createInvoiceData(overrides: Partial<InvoiceData> = {}): InvoiceData {
     total: 542500,
     notes: 'Thank you for shopping with us.',
     payment_terms: 'Due on receipt',
+    payment_account: {
+      account_number: '1234567890',
+      account_name: 'Ogabassey Limited',
+      bank_name: 'Wema Bank',
+    },
     ...overrides,
   };
 }
@@ -98,9 +104,40 @@ describe('generatePeppolInvoiceXml', () => {
       '<cbc:DocumentCurrencyCode>NGN</cbc:DocumentCurrencyCode>'
     );
     expect(xml).toContain('<cac:AccountingSupplierParty>');
+    expect(xml).toContain(
+      '<cbc:EndpointID schemeID="0244">TIN-123456</cbc:EndpointID>'
+    );
     expect(xml).toContain('<cac:AccountingCustomerParty>');
+    expect(xml).toContain(
+      '<cbc:EndpointID schemeID="0244">BUYER-TIN-987654</cbc:EndpointID>'
+    );
+    expect(xml).toContain('<cbc:PaymentMeansCode>30</cbc:PaymentMeansCode>');
+    expect(xml).toContain('<cbc:ID>1234567890</cbc:ID>');
+    expect(xml).toContain('<cbc:Name>Ogabassey Limited</cbc:Name>');
+    expect(xml).toContain('<cac:AllowanceCharge>');
+    expect(xml).toContain('<cbc:ChargeIndicator>true</cbc:ChargeIndicator>');
+    expect(xml).toContain(
+      '<cbc:AllowanceChargeReason>Shipping</cbc:AllowanceChargeReason>'
+    );
     expect(xml).toContain('<cac:LegalMonetaryTotal>');
     expect(xml).toContain('<cac:InvoiceLine>');
+  });
+
+  it('emits document-level allowance entries for discounts', () => {
+    const xml = generatePeppolInvoiceXml(
+      createInvoiceData({
+        discount_amount: 1000,
+        total: 541500,
+      })
+    );
+
+    expect(xml).toContain('<cbc:ChargeIndicator>false</cbc:ChargeIndicator>');
+    expect(xml).toContain(
+      '<cbc:AllowanceChargeReason>Discount</cbc:AllowanceChargeReason>'
+    );
+    expect(xml).toContain(
+      '<cbc:AllowanceTotalAmount currencyID="NGN">1000.00</cbc:AllowanceTotalAmount>'
+    );
   });
 
   it('escapes unsafe invoice text', () => {
@@ -108,6 +145,7 @@ describe('generatePeppolInvoiceXml', () => {
       createInvoiceData({
         customer: {
           name: `Akin & Sons <Buyer> "VIP" 'Customer'`,
+          tax_id: 'BUYER-TIN-987654',
         },
         items: [
           {
@@ -151,6 +189,41 @@ describe('generatePeppolInvoiceXml', () => {
     expect(() =>
       generatePeppolInvoiceXml(createInvoiceData({ items: [] }))
     ).toThrow('at least one invoice line is required');
+  });
+
+  it('throws before claiming compliance when endpoint or payment account data is missing', () => {
+    expect(() =>
+      generatePeppolInvoiceXml(
+        createInvoiceData({
+          customer: {
+            name: 'Akinola Ogunniran',
+            email: 'akin@example.com',
+          },
+        })
+      )
+    ).toThrow('customer.endpoint_id or customer.tax_id is required');
+
+    expect(() =>
+      generatePeppolInvoiceXml(
+        createInvoiceData({
+          payment_account: undefined,
+        })
+      )
+    ).toThrow('payment_account.account_number is required');
+  });
+
+  it('fails validation cleanly for sparse runtime rows', () => {
+    const sparseData = {
+      ...createInvoiceData(),
+      merchant: {
+        ...createInvoiceData().merchant,
+        business_name: null,
+      },
+    } as unknown as InvoiceData;
+
+    expect(() => generatePeppolInvoiceXml(sparseData)).toThrow(
+      'merchant.business_name is required'
+    );
   });
 
   it('returns an XML blob', () => {

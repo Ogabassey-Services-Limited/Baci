@@ -1,10 +1,19 @@
 import type { ReceiptMerchant, ReceiptOrder } from '@baci/shared';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { DEFAULT_MEDIA_CDN_ORIGIN } from '@/config/cdn';
 import {
   formatReceiptCurrency,
   formatReceiptDate,
 } from '@/lib/receipt-pdf-formatters';
+
+const MAX_LOGO_BYTES = 256 * 1024;
+const MAX_LOGO_DATA_URI_LENGTH = MAX_LOGO_BYTES * 2;
+const LOGO_FETCH_TIMEOUT_MS = 5000;
+const SUPABASE_HOST_SUFFIX = '.supabase.co';
+const SUPABASE_PUBLIC_MEDIA_PREFIX = '/storage/v1/object/public/media/';
+const MEDIA_CDN_PUBLIC_PREFIX = '/media/';
+const TRUSTED_MEDIA_CDN_HOSTNAME = new URL(DEFAULT_MEDIA_CDN_ORIGIN).hostname;
 
 interface JsPDFWithAutoTable extends jsPDF {
   lastAutoTable?: {
@@ -14,8 +23,11 @@ interface JsPDFWithAutoTable extends jsPDF {
 
 interface GenerateReceiptPdfOptions {
   complianceNote?: string;
+  documentDate?: Date | string | null;
   documentKind?: 'invoice' | 'receipt';
+  dueDate?: Date | string | null;
   logoDataUri?: string | null;
+  paymentTerms?: string | null;
 }
 
 function getBrandPrimaryRgb(merchant: ReceiptMerchant) {
@@ -84,6 +96,26 @@ function getReceiptItemVariantName(item: ReceiptOrder['items'][number]) {
   return variantName.length > 0 ? variantName : null;
 }
 
+function getReceiptItemDescription(item: ReceiptOrder['items'][number]) {
+  const candidate = item.description;
+  if (typeof candidate !== 'string') {
+    return null;
+  }
+
+  const description = candidate.trim();
+  return description.length > 0 ? description : null;
+}
+
+function formatOptionalReceiptDate(value: Date | string | null | undefined) {
+  if (!value) return null;
+
+  if (value instanceof Date) {
+    return formatReceiptDate(value.toISOString());
+  }
+
+  return formatReceiptDate(value);
+}
+
 function getLogoImageFormat(dataUri: string) {
   if (dataUri.startsWith('data:image/png;')) return 'PNG';
   if (dataUri.startsWith('data:image/jpeg;')) return 'JPEG';
@@ -135,12 +167,31 @@ function isSupportedLogoContentType(contentType: string) {
   );
 }
 
+function isTrustedLogoUrl(parsedUrl: URL) {
+  if (parsedUrl.protocol !== 'https:') {
+    return false;
+  }
+
+  const hostname = parsedUrl.hostname.toLowerCase();
+  if (
+    hostname === TRUSTED_MEDIA_CDN_HOSTNAME &&
+    parsedUrl.pathname.startsWith(MEDIA_CDN_PUBLIC_PREFIX)
+  ) {
+    return true;
+  }
+
+  return (
+    hostname.endsWith(SUPABASE_HOST_SUFFIX) &&
+    parsedUrl.pathname.startsWith(SUPABASE_PUBLIC_MEDIA_PREFIX)
+  );
+}
+
 export async function resolveReceiptLogoDataUri(merchant: ReceiptMerchant) {
   const logoUrl = merchant.logo_url?.trim();
   if (!logoUrl) return null;
 
   if (logoUrl.startsWith('data:image/')) {
-    return logoUrl;
+    return logoUrl.length <= MAX_LOGO_DATA_URI_LENGTH ? logoUrl : null;
   }
 
   let parsedUrl: URL;
@@ -150,22 +201,35 @@ export async function resolveReceiptLogoDataUri(merchant: ReceiptMerchant) {
     return null;
   }
 
-  if (parsedUrl.protocol !== 'https:' && parsedUrl.protocol !== 'http:') {
+  if (!isTrustedLogoUrl(parsedUrl)) {
     return null;
   }
 
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), LOGO_FETCH_TIMEOUT_MS);
+
   try {
-    const response = await fetch(parsedUrl);
+    const response = await fetch(parsedUrl, {
+      redirect: 'error',
+      signal: controller.signal,
+    });
     if (!response.ok) return null;
 
     const contentType = response.headers.get('content-type') || '';
     if (!isSupportedLogoContentType(contentType)) return null;
 
+    const contentLength = Number(response.headers.get('content-length') || 0);
+    if (contentLength > MAX_LOGO_BYTES) return null;
+
     const imageBytes = await response.arrayBuffer();
+    if (imageBytes.byteLength > MAX_LOGO_BYTES) return null;
+
     const base64 = Buffer.from(imageBytes).toString('base64');
     return `data:${contentType.split(';')[0]};base64,${base64}`;
   } catch {
     return null;
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
@@ -184,6 +248,10 @@ export function generateReceiptPDF(
   const isPaid = order.payment_status === 'paid';
   const documentKind = options.documentKind ?? (isPaid ? 'receipt' : 'invoice');
   const isInvoice = documentKind === 'invoice';
+  const displayDocumentDate =
+    formatOptionalReceiptDate(options.documentDate) ||
+    formatReceiptDate(order.created_at);
+  const displayDueDate = formatOptionalReceiptDate(options.dueDate);
   const brandPrimaryRgb = getBrandPrimaryRgb(merchant);
   let y = margin;
 
@@ -197,14 +265,9 @@ export function generateReceiptPDF(
   doc.text(`#${order.order_number}`, pageWidth - margin - 8, y + 10, {
     align: 'right',
   });
-  doc.text(
-    formatReceiptDate(order.created_at),
-    pageWidth - margin - 8,
-    y + 17,
-    {
-      align: 'right',
-    }
-  );
+  doc.text(displayDocumentDate, pageWidth - margin - 8, y + 17, {
+    align: 'right',
+  });
   y += 34;
 
   doc.setTextColor(17, 24, 39);
@@ -274,11 +337,13 @@ export function generateReceiptPDF(
     head: [['Item', 'Qty', 'Unit Price', 'Line Total']],
     body: (order.items || []).map((item) => {
       const variantName = getReceiptItemVariantName(item);
+      const itemName = variantName
+        ? `${item.product_name || item.name || 'Item'} (${variantName})`
+        : item.product_name || item.name || 'Item';
+      const description = getReceiptItemDescription(item);
 
       return [
-        variantName
-          ? `${item.product_name || item.name || 'Item'} (${variantName})`
-          : item.product_name || item.name || 'Item',
+        description ? `${itemName}\n${description}` : itemName,
         String(item.quantity),
         formatReceiptCurrency(item.price, currency),
         formatReceiptCurrency(item.quantity * item.price, currency),
@@ -375,6 +440,24 @@ export function generateReceiptPDF(
       pageBreak: 'auto',
     });
     y = (doc.lastAutoTable?.finalY || y) + 8;
+  }
+
+  if (isInvoice && (displayDueDate || options.paymentTerms)) {
+    ensureSpace(22);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Invoice Terms', margin, y);
+    y += 6;
+    doc.setFont('helvetica', 'normal');
+    y = writeWrappedTextLines({
+      doc,
+      lines: [
+        displayDueDate ? `Due Date: ${displayDueDate}` : null,
+        options.paymentTerms ? `Payment Terms: ${options.paymentTerms}` : null,
+      ],
+      x: margin,
+      y,
+      maxWidth: contentWidth,
+    });
   }
 
   if (

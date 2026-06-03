@@ -68,6 +68,7 @@ export interface ReceiptOrder {
     product_name: string;
     name?: string;
     variant_name?: string;
+    description?: string | null;
     quantity: number;
     price: number;
     /**

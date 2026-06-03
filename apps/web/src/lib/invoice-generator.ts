@@ -90,6 +90,8 @@ export interface MerchantInfo {
   business_name: string;
   legal_entity_name?: string;
   tax_identification_number?: string;
+  endpoint_id?: string;
+  endpoint_scheme_id?: string;
   cac_rc_number?: string;
   vat_registration_status: string;
   vat_rate: number;
@@ -109,6 +111,8 @@ export interface CustomerInfo {
   name: string;
   email?: string;
   phone?: string;
+  endpoint_id?: string;
+  endpoint_scheme_id?: string;
   address?: {
     street?: string;
     city?: string;
@@ -156,6 +160,11 @@ export interface InvoiceData {
   // Additional info
   notes?: string;
   payment_terms?: string;
+  payment_account?: {
+    account_number: string;
+    account_name?: string;
+    bank_name?: string;
+  };
 
   // FIRS specific (Phase 2)
   firs_irn?: string;

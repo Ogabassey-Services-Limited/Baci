@@ -1,4 +1,10 @@
-import type { ReceiptMerchant, ReceiptOrder } from '@baci/shared';
+import {
+  appendReceiptFulfillmentDescription,
+  isDeviceReceiptItemName,
+  normalizeReceiptFulfillmentDetails,
+  type ReceiptMerchant,
+  type ReceiptOrder,
+} from '@baci/shared';
 import type {
   InvoiceData,
   InvoiceLineItem,
@@ -121,6 +127,12 @@ export function buildStorefrontAccountDocumentBundle({
     customerPhone,
   });
 
+  const hasDeviceItem = orderItems.some((item) =>
+    isDeviceReceiptItemName(item.product_name || item.name || '')
+  );
+  const orderFulfillment = normalizeReceiptFulfillmentDetails(
+    order.fulfillment_details
+  );
   const invoiceItems: InvoiceLineItem[] = orderItems.map((item, index) => {
     const lineExtensionAmount = item.quantity * item.price;
     const vatAmount =
@@ -139,12 +151,24 @@ export function buildStorefrontAccountDocumentBundle({
       allocatedVatAmount += vatAmount;
     }
 
+    const itemName = item.variant_name
+      ? `${item.product_name || item.name} (${item.variant_name})`
+      : item.product_name || item.name;
+    const fulfillment =
+      normalizeReceiptFulfillmentDetails(item.fulfillment_details) ||
+      orderFulfillment;
+
     return {
       line_id: index + 1,
       product_id: item.product_id || undefined,
-      name: item.variant_name
-        ? `${item.product_name || item.name} (${item.variant_name})`
-        : item.product_name || item.name,
+      name: itemName,
+      description: appendReceiptFulfillmentDescription({
+        description: undefined,
+        fulfillment,
+        hasDeviceItem,
+        index,
+        itemName,
+      }),
       quantity: item.quantity,
       unit_code: 'EA',
       price: item.price,
@@ -279,6 +303,22 @@ export function buildStorefrontAccountDocumentBundle({
     total,
     notes: order.invoice_note || order.notes || undefined,
     payment_terms: order.payment_terms || undefined,
+    payment_account: paymentAccount
+      ? {
+          account_number: paymentAccount.account_number,
+          account_name: paymentAccount.account_name || undefined,
+          bank_name: paymentAccount.bank_name || undefined,
+        }
+      : merchant.bank_account_number
+        ? {
+            account_number: merchant.bank_account_number,
+            account_name:
+              merchant.bank_account_name ||
+              merchant.legal_entity_name ||
+              merchant.business_name,
+            bank_name: merchant.bank_name || undefined,
+          }
+        : undefined,
     firs_irn: order.firs_irn || undefined,
     firs_csid: order.firs_csid || undefined,
     firs_qr_code: order.firs_qr_code || undefined,

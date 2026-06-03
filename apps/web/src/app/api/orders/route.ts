@@ -1,4 +1,6 @@
 import {
+  appendReceiptFulfillmentDescription,
+  isDeviceReceiptItemName,
   normalizeReceiptFulfillmentDetails,
   type ReceiptFulfillmentDetails,
   type ReceiptMerchant,
@@ -308,8 +310,12 @@ function buildImmediatePeppolInvoiceData(input: {
   customerEmail: string;
   customerName: string;
   customerPhone?: string;
+  fulfillment: ReceiptFulfillmentDetails | null;
   items: OrderCreateInput['items'];
   merchant: {
+    bank_account_name?: string | null;
+    bank_account_number?: string | null;
+    bank_name?: string | null;
     business_name: string;
     cac_rc_number?: string | null;
     legal_entity_name?: string | null;
@@ -327,6 +333,7 @@ function buildImmediatePeppolInvoiceData(input: {
   orderShippingFee: number;
   orderSubtotal: number;
   orderTotal: number;
+  paymentAccount: ReceiptOrder['virtual_account'];
   shippingAddress: OrderCreateInput['shipping_address'];
 }): InvoiceData {
   const taxAmount = Number(input.order.tax_amount || 0);
@@ -346,6 +353,21 @@ function buildImmediatePeppolInvoiceData(input: {
       total + item.quantity * (item.negotiatedPrice ?? item.price),
     0
   );
+  const hasDeviceItem = input.items.some((item) =>
+    isDeviceReceiptItemName(getOrderItemBaseName(item))
+  );
+  const paymentAccount =
+    input.paymentAccount ||
+    (input.merchant.bank_account_number
+      ? {
+          account_number: input.merchant.bank_account_number,
+          account_name:
+            input.merchant.bank_account_name ||
+            input.merchant.business_name ||
+            undefined,
+          bank_name: input.merchant.bank_name || undefined,
+        }
+      : null);
   let allocatedTaxAmount = 0;
 
   const invoiceItems: InvoiceLineItem[] = input.items.map((item, index) => {
@@ -361,11 +383,19 @@ function buildImmediatePeppolInvoiceData(input: {
     });
     allocatedTaxAmount += vatAmount;
 
+    const itemDescription = appendReceiptFulfillmentDescription({
+      description: getOrderItemVariantLabel(item) || undefined,
+      fulfillment: input.fulfillment,
+      hasDeviceItem,
+      index,
+      itemName: getOrderItemBaseName(item),
+    });
+
     return {
       line_id: index + 1,
       product_id: getOrderItemProductId(item),
       name: getOrderItemBaseName(item),
-      description: getOrderItemVariantLabel(item) || undefined,
+      description: itemDescription,
       quantity: item.quantity,
       unit_code: 'EA',
       price: item.negotiatedPrice ?? item.price,
@@ -438,6 +468,13 @@ function buildImmediatePeppolInvoiceData(input: {
     discount_amount: discountAmount,
     total: input.orderTotal,
     notes: input.notes,
+    payment_account: paymentAccount
+      ? {
+          account_number: paymentAccount.account_number,
+          account_name: paymentAccount.account_name || undefined,
+          bank_name: paymentAccount.bank_name || undefined,
+        }
+      : undefined,
   };
 }
 
@@ -1642,6 +1679,9 @@ export async function POST(request: NextRequest) {
                 const fulfillment = getOrderFulfillmentDetails(
                   order as Record<string, unknown>
                 );
+                const hasDeviceItem = items.some((item) =>
+                  isDeviceReceiptItemName(getOrderItemBaseName(item))
+                );
                 const amountPaid = Number(order.amount_paid || 0);
                 const receiptOrder: ReceiptOrder = {
                   order_number: orderNum,
@@ -1668,12 +1708,23 @@ export async function POST(request: NextRequest) {
                     buildImmediateInvoiceShippingAddress(shipping_address),
                   virtual_account: invoiceVirtualAccount,
                   fulfillment_details: fulfillment,
-                  items: items.map((item) => ({
-                    product_name: getOrderItemBaseName(item),
-                    variant_name: getOrderItemVariantLabel(item) || undefined,
-                    quantity: item.quantity,
-                    price: item.negotiatedPrice ?? item.price,
-                  })),
+                  items: items.map((item, index) => {
+                    const variantName = getOrderItemVariantLabel(item);
+
+                    return {
+                      product_name: getOrderItemBaseName(item),
+                      variant_name: variantName || undefined,
+                      description: appendReceiptFulfillmentDescription({
+                        description: undefined,
+                        fulfillment,
+                        hasDeviceItem,
+                        index,
+                        itemName: getOrderItemBaseName(item),
+                      }),
+                      quantity: item.quantity,
+                      price: item.negotiatedPrice ?? item.price,
+                    };
+                  }),
                   transactions: [],
                 };
                 const receiptMerchant = buildImmediateInvoiceMerchant(merchant);
@@ -1681,6 +1732,7 @@ export async function POST(request: NextRequest) {
                   customerEmail: customer_email,
                   customerName: customer_name,
                   customerPhone: customer_phone,
+                  fulfillment,
                   items,
                   merchant,
                   notes,
@@ -1689,6 +1741,7 @@ export async function POST(request: NextRequest) {
                   orderShippingFee,
                   orderSubtotal,
                   orderTotal,
+                  paymentAccount: invoiceVirtualAccount,
                   shippingAddress: shipping_address,
                 });
                 let peppolInvoiceXml: string | null = null;
@@ -1714,8 +1767,11 @@ export async function POST(request: NextRequest) {
                     complianceNote: peppolInvoiceXml
                       ? PEPPOL_BIS_BILLING_COMPLIANCE_NOTE
                       : undefined,
+                    documentDate: peppolInvoiceData.issue_date,
                     documentKind: 'invoice',
+                    dueDate: peppolInvoiceData.due_date,
                     logoDataUri,
+                    paymentTerms: peppolInvoiceData.payment_terms,
                   }
                 );
                 const arrayBuffer = await pdfBlob.arrayBuffer();

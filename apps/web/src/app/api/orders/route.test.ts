@@ -2970,23 +2970,20 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
       timeout: 1000,
     });
 
-    // Assert sendEmail was called with the invoice attachment
+    // Assert sendEmail was called with the branded invoice attachment. The
+    // checkout payload does not currently collect a buyer Peppol endpoint, so
+    // XML/compliance text is intentionally withheld for this fixture.
     expect(mockSendEmail).toHaveBeenCalledWith(
       expect.objectContaining({
         to: 'customer@example.com',
         subject: expect.stringContaining('Invoice Generated'),
-        attachments: expect.arrayContaining([
+        attachments: [
           expect.objectContaining({
             name: expect.stringMatching(/^invoice-ORD-.*\.pdf$/),
             mime_type: 'application/pdf',
             content: expect.any(String), // base64 string
           }),
-          expect.objectContaining({
-            name: expect.stringMatching(/^invoice-ORD-.*\.xml$/),
-            mime_type: 'application/xml',
-            content: expect.any(String),
-          }),
-        ]),
+        ],
       })
     );
 
@@ -3014,9 +3011,12 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
         vat_registration_status: 'registered',
       }),
       expect.objectContaining({
-        complianceNote: expect.stringContaining('Peppol BIS Billing 3.0'),
+        complianceNote: undefined,
+        documentDate: expect.any(Date),
         documentKind: 'invoice',
+        dueDate: expect.any(Date),
         logoDataUri: 'data:image/png;base64,AA==',
+        paymentTerms: undefined,
       })
     );
 

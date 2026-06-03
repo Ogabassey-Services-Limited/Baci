@@ -38,6 +38,9 @@ const orderResult: QueryResult = {
     id: ORDER_ID,
     order_number: 'ORD-1001',
     created_at: '2026-03-22T10:00:00.000Z',
+    invoice_issue_date: '2026-04-01T00:00:00.000Z',
+    payment_due_date: '2026-04-15T00:00:00.000Z',
+    payment_terms: 'Net 14',
     subtotal: 500000,
     tax_amount: 0,
     shipping_fee: 0,
@@ -224,6 +227,12 @@ describe('GET /api/orders/[id]/invoice', () => {
     expect(generateReceiptBlob).toHaveBeenCalledWith(
       expect.objectContaining({
         order_number: 'ORD-1001',
+        items: expect.arrayContaining([
+          expect.objectContaining({
+            product_name: 'iPhone 15 Pro',
+            description: expect.stringContaining('IMEI: IMEI-123'),
+          }),
+        ]),
         virtual_account: expect.objectContaining({
           account_number: '1234567890',
           bank_name: 'Wema Bank',
@@ -232,8 +241,11 @@ describe('GET /api/orders/[id]/invoice', () => {
       expect.objectContaining({ business_name: 'Test Merchant' }),
       expect.objectContaining({
         complianceNote: expect.stringContaining('Peppol BIS Billing 3.0'),
+        documentDate: new Date('2026-04-01T00:00:00.000Z'),
         documentKind: 'invoice',
+        dueDate: new Date('2026-04-15T00:00:00.000Z'),
         logoDataUri: 'data:image/png;base64,AA==',
+        paymentTerms: 'Net 14',
       })
     );
   });
