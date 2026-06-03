@@ -11,10 +11,6 @@
       "lineCount": 345
     },
     {
-      "path": "components/wallet/WalletContent.tsx",
-      "lineCount": 346
-    },
-    {
       "path": "components/wallet/savings/use-start-savings-controller.ts",
       "lineCount": 301
     },

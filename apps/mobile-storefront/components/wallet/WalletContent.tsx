@@ -1,8 +1,6 @@
 import { VTU_MIN_REDEEMABLE_POINTS } from '@baci/shared/lib';
 import type { StyleProp, ViewStyle } from 'react-native';
 import {
-  ActivityIndicator,
-  Pressable,
   RefreshControl,
   ScrollView,
   Text,
@@ -14,11 +12,11 @@ import type Colors from '@/constants/Colors';
 import { BRAND, SPACING } from '@/constants/Colors';
 import { WalletActionsRow } from './WalletActionsRow';
 import { WalletHeroSection } from './WalletHeroSection';
+import { WalletPanelActionButtons } from './WalletPanelActionButtons';
 import {
   type WalletTransaction,
   WalletTransactionHistory,
 } from './WalletTransactionHistory';
-import { WALLET_COLORS } from './wallet.colors';
 import { styles } from './wallet.styles';
 import type { WalletDisplayFundingAccount } from './wallet.types';
 
@@ -164,37 +162,15 @@ export function WalletContent({
             placeholderTextColor={colors.placeholder}
           />
 
-          <View style={styles.redeemPanelActions}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Cancel wallet top-up"
-              style={[styles.cancelBtn, { borderColor: colors.border }]}
-              onPress={onResetFund}
-            >
-              <Text style={[styles.cancelBtnText, { color: colors.text }]}>
-                Cancel
-              </Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Confirm wallet top-up"
-              style={[
-                styles.confirmBtn,
-                {
-                  backgroundColor: BRAND.primary,
-                  opacity: isFundPending ? 0.5 : 1,
-                },
-              ]}
-              onPress={onConfirmFund}
-              disabled={isFundPending}
-            >
-              {isFundPending ? (
-                <ActivityIndicator size="small" color={WALLET_COLORS.white} />
-              ) : (
-                <Text style={styles.confirmBtnText}>Continue</Text>
-              )}
-            </Pressable>
-          </View>
+          <WalletPanelActionButtons
+            cancelAccessibilityLabel="Cancel wallet top-up"
+            confirmAccessibilityLabel="Confirm wallet top-up"
+            confirmText="Continue"
+            colors={colors}
+            isPending={isFundPending}
+            onCancel={onResetFund}
+            onConfirm={onConfirmFund}
+          />
         </Animated.View>
       ) : null}
 
@@ -307,37 +283,15 @@ export function WalletContent({
             placeholderTextColor={colors.placeholder}
           />
 
-          <View style={styles.redeemPanelActions}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Cancel redeem points"
-              style={[styles.cancelBtn, { borderColor: colors.border }]}
-              onPress={onResetRedeem}
-            >
-              <Text style={[styles.cancelBtnText, { color: colors.text }]}>
-                Cancel
-              </Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Confirm redeem points"
-              style={[
-                styles.confirmBtn,
-                {
-                  backgroundColor: BRAND.primary,
-                  opacity: isRedeemPending ? 0.5 : 1,
-                },
-              ]}
-              onPress={onConfirmRedeem}
-              disabled={isRedeemPending}
-            >
-              {isRedeemPending ? (
-                <ActivityIndicator size="small" color={WALLET_COLORS.white} />
-              ) : (
-                <Text style={styles.confirmBtnText}>Redeem</Text>
-              )}
-            </Pressable>
-          </View>
+          <WalletPanelActionButtons
+            cancelAccessibilityLabel="Cancel redeem points"
+            confirmAccessibilityLabel="Confirm redeem points"
+            confirmText="Redeem"
+            colors={colors}
+            isPending={isRedeemPending}
+            onCancel={onResetRedeem}
+            onConfirm={onConfirmRedeem}
+          />
         </Animated.View>
       ) : null}
       <WalletTransactionHistory colors={colors} transactions={transactions} />

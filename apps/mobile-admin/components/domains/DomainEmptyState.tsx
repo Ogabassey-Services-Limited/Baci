@@ -3,28 +3,6 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
 
-/** Convert a hex color to rgba with the given opacity (0–1). */
-function hexToRgba(hex: string, opacity: number): string {
-  const cleaned = hex.replace('#', '');
-  if (cleaned.length !== 6 && cleaned.length !== 3) {
-    return `rgba(0,0,0,${opacity})`;
-  }
-  const full =
-    cleaned.length === 3
-      ? cleaned
-          .split('')
-          .map((c) => c + c)
-          .join('')
-      : cleaned;
-  const r = Number.parseInt(full.substring(0, 2), 16);
-  const g = Number.parseInt(full.substring(2, 4), 16);
-  const b = Number.parseInt(full.substring(4, 6), 16);
-  if (Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(b)) {
-    return `rgba(0,0,0,${opacity})`;
-  }
-  return `rgba(${r},${g},${b},${opacity})`;
-}
-
 interface DomainEmptyStateProps {
   onBuyDomain: () => void;
   onConnectDomain: () => void;
@@ -34,15 +12,20 @@ export function DomainEmptyState({
   onBuyDomain,
   onConnectDomain,
 }: DomainEmptyStateProps) {
-  const { colors } = useTheme();
+  const { colors, shadows } = useTheme();
 
   return (
     <View style={styles.promoContainer}>
-      <View style={[styles.promoCard, { backgroundColor: colors.card }]}>
+      <View
+        style={[
+          styles.promoCard,
+          { backgroundColor: colors.card, borderColor: colors.border },
+        ]}
+      >
         <View
           style={[
             styles.promoIconCircle,
-            { backgroundColor: hexToRgba(colors.primary, 0.15) },
+            { backgroundColor: colors.primaryLight },
           ]}
         >
           <Ionicons name="rocket" size={32} color={colors.primary} />
@@ -56,17 +39,31 @@ export function DomainEmptyState({
         </Text>
 
         <Pressable
-          style={[styles.buyButton, { backgroundColor: colors.primary }]}
+          style={({ pressed }) => [
+            styles.buyButton,
+            shadows.md,
+            { backgroundColor: colors.primary },
+            pressed && { opacity: 0.7 },
+          ]}
           onPress={onBuyDomain}
           accessibilityRole="button"
           accessibilityLabel="Get a custom domain"
         >
-          <Text style={styles.buyButtonText}>Get a Custom Domain</Text>
-          <Ionicons name="arrow-forward" size={18} color="#FFF" />
+          <Text style={[styles.buyButtonText, { color: colors.textOnPrimary }]}>
+            Get a Custom Domain
+          </Text>
+          <Ionicons
+            name="arrow-forward"
+            size={18}
+            color={colors.textOnPrimary}
+          />
         </Pressable>
 
         <Pressable
-          style={styles.connectLink}
+          style={({ pressed }) => [
+            styles.connectLink,
+            pressed && { opacity: 0.7 },
+          ]}
           onPress={onConnectDomain}
           accessibilityRole="button"
           accessibilityLabel="I already own a domain"
@@ -90,7 +87,6 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.xl,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.05)',
   },
   promoIconCircle: {
     width: 64,
@@ -123,14 +119,8 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.full,
     width: '100%',
     marginBottom: SPACING.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
   },
   buyButtonText: {
-    color: '#FFF',
     fontFamily: TYPOGRAPHY.fontFamily.bold,
     fontSize: TYPOGRAPHY.size.md,
     marginRight: 8,
