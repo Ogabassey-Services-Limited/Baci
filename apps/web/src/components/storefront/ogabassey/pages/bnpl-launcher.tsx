@@ -466,7 +466,9 @@ export function BnplLauncher({ merchantSlug = 'ogabassey' }: BnplLauncherProps) 
                     );
                     const klumpAmount = toKlumpIntegerAmount(order.total);
                     if (klumpAmount <= 0) {
-                        throw new Error('Invalid order total for Klump checkout.');
+                        setStatus('error');
+                        setErrorMessage('Invalid order total for Klump checkout.');
+                        return;
                     }
 
                     if (

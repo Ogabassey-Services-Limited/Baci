@@ -437,6 +437,54 @@ describe('BnplLauncher', () => {
     });
   });
 
+  it('shows a Klump invalid-total error without using the generic launch error path', async () => {
+    mockSearchParams.mockReturnValue(
+      new URLSearchParams({
+        orderId: 'order-1',
+        gateway: 'klump',
+        merchant_slug: 'test-store',
+        reference: 'BAC-ABCD12345678',
+        trackingToken: 'tok-123',
+      })
+    );
+    vi.stubEnv('NEXT_PUBLIC_KLUMP_PUBLIC_KEY', 'klp_pk_test_123');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          id: 'order-1',
+          tracking_token: 'track-order-token',
+          total: 'not-a-number',
+          customer_email: 'customer@example.com',
+          customer_phone: '08012345678',
+          customer_name: 'John Doe',
+          items: [
+            {
+              product_id: 'product-1',
+              name: 'Capsule',
+              price: 1000,
+              quantity: 1,
+            },
+          ],
+        }),
+      })
+    );
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    try {
+      render(<BnplLauncher />);
+
+      expect(
+        await screen.findByText('Invalid order total for Klump checkout.')
+      ).toBeInTheDocument();
+      expect(mockKlumpConstructor).not.toHaveBeenCalled();
+      expect(errorSpy).not.toHaveBeenCalled();
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
   it('does not mark Klump checkout cancelled when success redirect is pending', async () => {
     mockSearchParams.mockReturnValue(
       new URLSearchParams({
