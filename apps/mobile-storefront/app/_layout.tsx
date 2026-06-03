@@ -9,7 +9,6 @@ import {
 } from '@expo-google-fonts/inter';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useRef, useState } from 'react';
-import spaceMonoFont from '../assets/fonts/SpaceMono-Regular.ttf';
 import { AnimatedSplash } from '@/components/AnimatedSplash';
 import { ErrorFallback } from '@/components/ErrorBoundary';
 import { RootLayoutNav } from '@/components/navigation/RootLayoutNav';
@@ -40,7 +39,8 @@ SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({
-    SpaceMono: spaceMonoFont,
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
     Inter_400Regular,
     Inter_500Medium,
     Inter_600SemiBold,
