@@ -274,6 +274,7 @@ export default function HomeScreen() {
       onSearchCancel={handleSearchCancel}
       onSearchQueryChange={setSearchQuery}
       onSearchSubmit={handleSearchSubmit}
+      primaryColor={colors.primary}
       primaryProductGridIndex={primaryProductGridIndex}
       productGridLoadMoreSignal={productGridLoadMoreSignal}
       refreshing={refreshing}

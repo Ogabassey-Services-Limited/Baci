@@ -169,7 +169,7 @@ export function useBNPLCheckoutController({
     setErrorMessage(null);
     setCurrentUrl(bnplUrl);
     const shouldReloadCurrentCheckout =
-      !currentUrl || currentUrl === bnplUrl;
+      Boolean(bnplUrl) && currentUrl === bnplUrl;
     if (shouldReloadCurrentCheckout) {
       webViewRef.current?.reload();
     }

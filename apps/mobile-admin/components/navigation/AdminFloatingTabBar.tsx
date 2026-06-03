@@ -232,9 +232,11 @@ export function AdminFloatingTabBar({
           };
 
           const handlePressOut = () => {
-            if (pressInHandledRouteKeyRef.current === route.key) {
-              pressInHandledRouteKeyRef.current = null;
-            }
+            globalThis.setTimeout(() => {
+              if (pressInHandledRouteKeyRef.current === route.key) {
+                pressInHandledRouteKeyRef.current = null;
+              }
+            }, 0);
           };
 
           return (

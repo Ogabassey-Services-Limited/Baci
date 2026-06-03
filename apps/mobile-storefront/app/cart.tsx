@@ -136,6 +136,11 @@ export default function CartScreen() {
 
   const handleReturnHome = () => {
     triggerHaptic();
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+
     router.replace('/');
   };
 

@@ -25,6 +25,20 @@ describe('triggerLightHaptic', () => {
     );
   });
 
+  it('swallows rejected optional haptics feedback on iOS', async () => {
+    vi.stubEnv('EXPO_OS', 'ios');
+    vi.mocked(Haptics.impactAsync).mockRejectedValueOnce(
+      new Error('haptics unavailable')
+    );
+
+    expect(() => triggerLightHaptic()).not.toThrow();
+    await Promise.resolve();
+
+    expect(Haptics.impactAsync).toHaveBeenCalledWith(
+      Haptics.ImpactFeedbackStyle.Light
+    );
+  });
+
   it('skips haptics outside iOS', () => {
     vi.stubEnv('EXPO_OS', 'android');
 

@@ -5,6 +5,7 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
+import { SystemBars } from 'react-native-edge-to-edge';
 import Animated, {
   Extrapolation,
   interpolate,
@@ -12,7 +13,6 @@ import Animated, {
   type SharedValue,
   useAnimatedStyle,
 } from 'react-native-reanimated';
-import { SystemBars } from 'react-native-edge-to-edge';
 import { OfflineNotice } from '@/components/OfflineNotice';
 import { BlockRenderer } from '@/components/storefront/BlockRenderer';
 import { GadgetPattern } from '@/components/storefront/GadgetPattern';
@@ -23,7 +23,6 @@ import { PermissionModal } from '@/components/ui/PermissionModal';
 import { HeroSkeleton, ProductGridSkeleton } from '@/components/ui/Skeleton';
 import { SnowEffect } from '@/components/ui/SnowEffect';
 import { useColorScheme } from '@/components/useColorScheme';
-import { BRAND } from '@/constants/Colors';
 import { ELITE_BACKDROP_HEIGHT } from '@/constants/layout';
 import type { Block } from '@/types/blocks';
 import { homeScreenStyles as styles } from './home-screen.styles';
@@ -50,6 +49,7 @@ interface HomeScreenViewProps {
   onSearchCancel: () => void;
   onSearchQueryChange: (query: string) => void;
   onSearchSubmit: () => void;
+  primaryColor: string;
   primaryProductGridIndex: number;
   productGridLoadMoreSignal: number;
   refreshing: boolean;
@@ -83,6 +83,7 @@ export function HomeScreenView({
   onSearchCancel,
   onSearchQueryChange,
   onSearchSubmit,
+  primaryColor,
   primaryProductGridIndex,
   productGridLoadMoreSignal,
   refreshing,
@@ -135,7 +136,7 @@ export function HomeScreenView({
           <GadgetPattern
             opacity={colorScheme === 'dark' ? 0.04 : 0.07}
             height={1500}
-            color={colorScheme === 'dark' ? '#ffffff' : BRAND.primary}
+            color={colorScheme === 'dark' ? '#ffffff' : primaryColor}
           />
         </View>
       )}
@@ -205,8 +206,8 @@ export function HomeScreenView({
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={BRAND.primary}
-            colors={[BRAND.primary]}
+            tintColor={primaryColor}
+            colors={[primaryColor]}
             progressViewOffset={resolvedHeaderHeight}
           />
         }

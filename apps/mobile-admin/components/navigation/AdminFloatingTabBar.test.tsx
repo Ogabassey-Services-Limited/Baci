@@ -76,6 +76,7 @@ vi.mock('react-native', () => {
     },
     Pressable: ({
       accessibilityLabel,
+      accessibilityRole,
       children,
       onPress,
       onPressIn,
@@ -99,6 +100,7 @@ vi.mock('react-native', () => {
         onClick={() => onPress?.()}
         onMouseDown={() => onPressIn?.()}
         onMouseUp={() => onPressOut?.()}
+        role={accessibilityRole === 'tab' ? 'tab' : undefined}
         type="button"
       >
         {children}
@@ -198,13 +200,13 @@ describe('AdminFloatingTabBar', () => {
   it('renders visible tabs and hides href-null routes', () => {
     render(<AdminFloatingTabBar {...createProps()} />);
 
-    expect(screen.getByLabelText('Home')).toBeTruthy();
-    expect(screen.getByLabelText('Orders')).toBeTruthy();
-    expect(screen.getByLabelText('Products')).toBeTruthy();
-    expect(screen.getByLabelText('Customers')).toBeTruthy();
-    expect(screen.getByLabelText('Menu')).toBeTruthy();
-    expect(screen.queryByLabelText('Inventory')).toBeNull();
-    expect(screen.queryByLabelText('settings')).toBeNull();
+    expect(screen.getByRole('tab', { name: 'Home' })).toBeTruthy();
+    expect(screen.getByRole('tab', { name: 'Orders' })).toBeTruthy();
+    expect(screen.getByRole('tab', { name: 'Products' })).toBeTruthy();
+    expect(screen.getByRole('tab', { name: 'Customers' })).toBeTruthy();
+    expect(screen.getByRole('tab', { name: 'Menu' })).toBeTruthy();
+    expect(screen.queryByRole('tab', { name: 'Inventory' })).toBeNull();
+    expect(screen.queryByRole('tab', { name: 'settings' })).toBeNull();
     expect(screen.getByText('2')).toBeTruthy();
     expect(navigationMocks.useWarmAdminTabScreens).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -222,7 +224,7 @@ describe('AdminFloatingTabBar', () => {
 
     render(<AdminFloatingTabBar {...props} />);
 
-    const ordersTab = screen.getByLabelText('Orders');
+    const ordersTab = screen.getByRole('tab', { name: 'Orders' });
     fireEvent.mouseDown(ordersTab);
     fireEvent.click(ordersTab);
 
@@ -235,16 +237,16 @@ describe('AdminFloatingTabBar', () => {
     expect(globalThis.requestAnimationFrame).not.toHaveBeenCalled();
   });
 
-  it('clears the press-in marker on press-out before a later tap', () => {
+  it('keeps the press-in marker through press-out so press can consume it', () => {
     const props = createProps();
 
     render(<AdminFloatingTabBar {...props} />);
 
-    const ordersTab = screen.getByLabelText('Orders');
+    const ordersTab = screen.getByRole('tab', { name: 'Orders' });
     fireEvent.mouseDown(ordersTab);
     fireEvent.mouseUp(ordersTab);
     fireEvent.click(ordersTab);
 
-    expect(props.navigation.dispatch).toHaveBeenCalledTimes(2);
+    expect(props.navigation.dispatch).toHaveBeenCalledTimes(1);
   });
 });

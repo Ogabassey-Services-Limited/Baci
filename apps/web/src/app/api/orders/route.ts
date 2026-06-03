@@ -1836,8 +1836,20 @@ export async function POST(request: NextRequest) {
                   });
                 }
 
-                const logoDataUri =
-                  await resolveReceiptLogoDataUri(receiptMerchant);
+                let logoDataUri: string | null = null;
+                try {
+                  logoDataUri =
+                    await resolveReceiptLogoDataUri(receiptMerchant);
+                } catch (logoError) {
+                  logger.warn({
+                    message:
+                      'Failed to resolve invoice logo; using fallback PDF branding',
+                    orderId: order.id,
+                    orderNumber: orderNum,
+                    error: logoError,
+                  });
+                }
+
                 const pdfBlob = generateReceiptBlob(
                   receiptOrder,
                   receiptMerchant,

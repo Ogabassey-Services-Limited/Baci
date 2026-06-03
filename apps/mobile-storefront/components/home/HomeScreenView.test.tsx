@@ -20,7 +20,9 @@ jest.mock('@/components/storefront/GadgetPattern', () => {
   ) as typeof import('react-native');
 
   return {
-    GadgetPattern: () => <Text>Elite texture</Text>,
+    GadgetPattern: ({ color }: { color?: string }) => (
+      <Text>{color ? `Gadget pattern ${color}` : 'Elite texture'}</Text>
+    ),
   };
 });
 
@@ -186,6 +188,7 @@ function createProps() {
     onSearchCancel: jest.fn(),
     onSearchQueryChange: jest.fn(),
     onSearchSubmit: jest.fn(),
+    primaryColor: '#0ea5e9',
     primaryProductGridIndex: 1,
     productGridLoadMoreSignal: 2,
     refreshing: false,
@@ -229,6 +232,12 @@ describe('HomeScreenView', () => {
 
     fireEvent(screen.getByTestId('home-scroll-view'), 'refresh');
     expect(onRefresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses the active merchant theme color for decorative and refresh affordances', () => {
+    render(<HomeScreenView {...createProps()} primaryColor="#22c55e" />);
+
+    expect(screen.getByText('Gadget pattern #22c55e')).toBeTruthy();
   });
 
   it('renders the online error notice for an unsuccessful page request', () => {

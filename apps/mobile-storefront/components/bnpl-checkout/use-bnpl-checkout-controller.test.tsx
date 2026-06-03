@@ -76,6 +76,31 @@ describe('useBNPLCheckoutController', () => {
     expect(jest.getTimerCount()).toBe(0);
   });
 
+  it('reloads the active checkout document when retrying the same BNPL URL', () => {
+    const { result } = renderControllerHook();
+    const reload = jest.fn();
+
+    act(() => {
+      Object.assign(result.current.webViewRef, { current: { reload } });
+      result.current.handleRetry();
+    });
+
+    expect(reload).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not reload an unmounted checkout source when retrying invalid params', () => {
+    mockRouteParams = {};
+    const { result } = renderControllerHook();
+    const reload = jest.fn();
+
+    act(() => {
+      Object.assign(result.current.webViewRef, { current: { reload } });
+      result.current.handleRetry();
+    });
+
+    expect(reload).not.toHaveBeenCalled();
+  });
+
   it('handles trusted app-host SPA success navigation messages from the WebView', () => {
     jest.useFakeTimers();
     mockRouteParams = {

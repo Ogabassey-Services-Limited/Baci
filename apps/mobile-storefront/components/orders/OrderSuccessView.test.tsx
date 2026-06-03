@@ -140,8 +140,8 @@ describe('OrderSuccessView', () => {
   });
 
   it('disables the document action while preparing a document', () => {
+    // Arrange
     const onViewDocument = jest.fn();
-
     render(
       <OrderSuccessView
         {...createProps()}
@@ -151,13 +151,15 @@ describe('OrderSuccessView', () => {
       />
     );
 
+    // Act
     const documentButton = screen.getByRole('button', { name: 'View Receipt' });
+    fireEvent.press(documentButton);
+
+    // Assert
     expect(screen.getByText('Preparing document...')).toBeTruthy();
     expect(documentButton.props.accessibilityState).toEqual({
       disabled: true,
     });
-
-    fireEvent.press(documentButton);
     expect(onViewDocument).not.toHaveBeenCalled();
   });
 

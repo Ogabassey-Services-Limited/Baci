@@ -18,6 +18,8 @@ const mockUseColorScheme = jest.fn(() => 'dark');
 const mockRouterPrefetch = jest.fn();
 const mockRouterPush = jest.fn();
 const mockRouterReplace = jest.fn();
+const mockRouterBack = jest.fn();
+const mockRouterCanGoBack = jest.fn(() => false);
 const buildAuthStatus = (
   overrides: Partial<MockAuthStatus> = {}
 ): MockAuthStatus => ({
@@ -33,6 +35,8 @@ const mockUseAuthStatus = jest.fn((): MockAuthStatus => buildAuthStatus());
 
 jest.mock('expo-router', () => ({
   router: {
+    back: (...args: unknown[]) => mockRouterBack(...args),
+    canGoBack: () => mockRouterCanGoBack(),
     prefetch: (...args: unknown[]) => mockRouterPrefetch(...args),
     push: (...args: unknown[]) => mockRouterPush(...args),
     replace: (...args: unknown[]) => mockRouterReplace(...args),
@@ -156,6 +160,7 @@ describe('CartScreen theming', () => {
     jest.clearAllMocks();
     mockUseColorScheme.mockReturnValue('dark');
     mockUseAuthStatus.mockReturnValue(buildAuthStatus());
+    mockRouterCanGoBack.mockReturnValue(false);
     mockCartState = createMockCartState();
   });
 
@@ -209,6 +214,7 @@ describe('CartScreen state', () => {
     jest.clearAllMocks();
     mockUseColorScheme.mockReturnValue('dark');
     mockUseAuthStatus.mockReturnValue(buildAuthStatus());
+    mockRouterCanGoBack.mockReturnValue(false);
     mockCartState = createMockCartState();
   });
 
@@ -275,11 +281,24 @@ describe('CartScreen state', () => {
     expect(mockRouterPush).toHaveBeenCalledWith('/checkout');
   });
 
-  it('routes the cart header back action to home', () => {
+  it('falls back to home replacement when the cart header has no back stack', () => {
     render(<CartScreen />);
 
     fireEvent.press(screen.getByRole('button', { name: 'Back to home' }));
 
+    expect(mockRouterCanGoBack).toHaveBeenCalledTimes(1);
+    expect(mockRouterBack).not.toHaveBeenCalled();
     expect(mockRouterReplace).toHaveBeenCalledWith('/');
+  });
+
+  it('preserves deep navigation history when the cart header can go back', () => {
+    mockRouterCanGoBack.mockReturnValue(true);
+
+    render(<CartScreen />);
+
+    fireEvent.press(screen.getByRole('button', { name: 'Back to home' }));
+
+    expect(mockRouterBack).toHaveBeenCalledTimes(1);
+    expect(mockRouterReplace).not.toHaveBeenCalledWith('/');
   });
 });
