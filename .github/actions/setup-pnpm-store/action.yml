@@ -9,6 +9,10 @@ inputs:
     description: Whether to remove the store directory before configuring pnpm.
     required: false
     default: 'false'
+  pnpm-bin-dir:
+    description: Directory containing the pnpm executable, typically pnpm/action-setup's bin_dest output.
+    required: false
+    default: ''
 
 runs:
   using: composite
@@ -24,4 +28,18 @@ runs:
 
     - name: Configure pnpm store directory
       shell: bash
-      run: pnpm config set store-dir "${{ inputs.store-dir }}"
+      env:
+        STORE_DIR: ${{ inputs.store-dir }}
+        PNPM_BIN_DIR: ${{ inputs.pnpm-bin-dir }}
+      run: |
+        PNPM_CMD="pnpm"
+        if [ -n "$PNPM_BIN_DIR" ]; then
+          PNPM_CMD="$PNPM_BIN_DIR/pnpm"
+        fi
+
+        if ! command -v "$PNPM_CMD" >/dev/null 2>&1; then
+          echo "::error::Unable to find pnpm executable at '$PNPM_CMD'"
+          exit 1
+        fi
+
+        "$PNPM_CMD" config set store-dir "$STORE_DIR"
