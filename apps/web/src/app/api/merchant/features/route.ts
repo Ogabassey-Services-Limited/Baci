@@ -344,7 +344,7 @@ export async function GET(request: NextRequest) {
           merchant_id: access.merchantId,
           ...DEFAULT_SETTINGS,
         })
-        .select()
+        .select(MERCHANT_FEATURE_SELECT_FIELDS.join(', '))
         .single();
 
       if (createError) {
@@ -435,7 +435,7 @@ export async function PATCH(request: NextRequest) {
           onConflict: 'merchant_id',
         }
       )
-      .select()
+      .select(MERCHANT_FEATURE_SELECT_FIELDS.join(', '))
       .single();
 
     if (error) {
@@ -520,7 +520,7 @@ export async function PUT(request: NextRequest) {
       .upsert(completeSettings, {
         onConflict: 'merchant_id',
       })
-      .select()
+      .select(MERCHANT_FEATURE_SELECT_FIELDS.join(', '))
       .single();
 
     if (error) {
