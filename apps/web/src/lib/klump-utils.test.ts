@@ -25,6 +25,8 @@ describe('klump-utils', () => {
   });
 
   it('normalizes Klump amounts to positive integers', () => {
+    expect(toKlumpIntegerAmount('58088')).toBe(58088);
+    expect(toKlumpIntegerAmount('58088.49')).toBe(58089);
     expect(toKlumpIntegerAmount('58088.5')).toBe(58089);
     expect(toKlumpIntegerAmount('invalid')).toBe(0);
     expect(toKlumpIntegerAmount('0')).toBe(0);
@@ -103,12 +105,28 @@ describe('klump-utils', () => {
         items: [
           {
             name: 'Tiny item',
-            price: 0.4,
+            price: 0,
             quantity: 1,
           },
         ],
       })
     ).toEqual([{ name: 'Taxes and fees', quantity: 1, unit_price: 1 }]);
+  });
+
+  it('rounds positive fractional Klump item prices up to the payable amount', () => {
+    expect(
+      buildKlumpItems({
+        id: 'order-1',
+        total: 1,
+        items: [
+          {
+            name: 'Fractional item',
+            price: 0.4,
+            quantity: 1,
+          },
+        ],
+      })
+    ).toEqual([{ name: 'Fractional item', quantity: 1, unit_price: 1 }]);
   });
 
   it('drops rounded one-naira lines when they would exceed the Klump amount', () => {
