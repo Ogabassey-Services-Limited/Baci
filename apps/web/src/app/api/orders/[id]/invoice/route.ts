@@ -15,10 +15,7 @@ import type {
 } from '@/lib/invoice-generator';
 import { deriveTaxSubtotalsFromInvoiceItems } from '@/lib/invoice-tax-subtotals';
 import { ORDER_COLUMNS } from '@/lib/order-queries';
-import {
-  generatePeppolInvoiceXml,
-  PEPPOL_BIS_BILLING_COMPLIANCE_NOTE,
-} from '@/lib/peppol-ubl-invoice';
+import { generatePeppolInvoiceXml } from '@/lib/peppol-ubl-invoice';
 import {
   generateReceiptBlob,
   resolveReceiptLogoDataUri,
@@ -263,6 +260,8 @@ export async function GET(
     const hasDeviceItem = typedOrderItems.some((item) =>
       isDeviceReceiptItemName(item.name || '')
     );
+    const singleFetchedTaxSubtotal =
+      taxSubtotals.length === 1 ? taxSubtotals[0] : null;
 
     const orderTaxAmount = Number(order.tax_amount || 0);
 
@@ -276,18 +275,31 @@ export async function GET(
         itemName: item.name || '',
       });
       const explicitVatCategoryCode = item.vat_category_code?.trim();
+      const shouldUseStoredSubtotalVat =
+        !explicitVatCategoryCode &&
+        singleFetchedTaxSubtotal != null &&
+        Boolean(singleFetchedTaxSubtotal.vat_category_code.trim()) &&
+        Number.isFinite(singleFetchedTaxSubtotal.vat_rate);
       const shouldDefaultStandardVat =
         !explicitVatCategoryCode &&
+        !shouldUseStoredSubtotalVat &&
         merchant.vat_registration_status === 'registered' &&
         orderTaxAmount > 0;
       const vatCategoryCode =
-        explicitVatCategoryCode || (shouldDefaultStandardVat ? 'S' : undefined);
+        explicitVatCategoryCode ||
+        (shouldUseStoredSubtotalVat
+          ? singleFetchedTaxSubtotal.vat_category_code
+          : shouldDefaultStandardVat
+            ? 'S'
+            : undefined);
       const vatRate =
         typeof item.vat_rate === 'number' && Number.isFinite(item.vat_rate)
           ? item.vat_rate
-          : shouldDefaultStandardVat
-            ? merchant.vat_rate || 7.5
-            : undefined;
+          : shouldUseStoredSubtotalVat
+            ? singleFetchedTaxSubtotal.vat_rate
+            : shouldDefaultStandardVat
+              ? merchant.vat_rate || 7.5
+              : undefined;
       const vatAmount =
         typeof item.vat_amount === 'number' && Number.isFinite(item.vat_amount)
           ? item.vat_amount
@@ -575,9 +587,8 @@ export async function GET(
       social_media: merchant.social_media,
       pages: merchant.pages,
     };
-    let peppolInvoiceXml: string | null = null;
     try {
-      peppolInvoiceXml = generatePeppolInvoiceXml(invoiceData);
+      generatePeppolInvoiceXml(invoiceData);
     } catch (peppolError) {
       console.error('Failed to generate Peppol UBL invoice XML:', peppolError);
     }
@@ -586,9 +597,6 @@ export async function GET(
     const logoDataUri = await resolveReceiptLogoDataUri(receiptMerchant);
     const pdfBlob = generateReceiptBlob(receiptOrder, receiptMerchant, {
       buyerReference: invoiceData.buyer_reference,
-      ...(peppolInvoiceXml
-        ? { complianceNote: PEPPOL_BIS_BILLING_COMPLIANCE_NOTE }
-        : {}),
       documentDate: invoiceData.issue_date,
       documentKind: 'invoice',
       dueDate: invoiceData.due_date,

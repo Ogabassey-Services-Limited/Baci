@@ -58,6 +58,19 @@ function roundCurrency(value: number) {
   return Math.round(value * 100) / 100;
 }
 
+function alignSingleZeroTaxSubtotalWithDocumentTotal(
+  subtotals: TaxSubtotal[],
+  taxExclusiveAmount: number
+) {
+  const subtotal = subtotals.length === 1 ? subtotals[0] : null;
+
+  if (subtotal?.tax_amount !== 0) {
+    return;
+  }
+
+  subtotal.taxable_amount = taxExclusiveAmount;
+}
+
 export function buildStorefrontAccountDocumentBundle({
   merchant,
   customer,
@@ -78,6 +91,11 @@ export function buildStorefrontAccountDocumentBundle({
   const discountAmount = asNumber(order.discount_amount);
   const amountPaid = asNumber(order.amount_paid);
   const balance = Math.max(0, total - amountPaid);
+  const taxInclusiveAmount = resolveMoneyValue(
+    order.tax_inclusive_amount,
+    total
+  );
+  const preTaxTotal = Math.max(0, taxInclusiveAmount - taxAmount);
   const shippingAddress = normalizeShippingAddress(order.shipping_address);
   const orderItems = buildOrderItems(itemRows);
   const fallbackName = [customer.first_name, customer.last_name]
@@ -258,6 +276,9 @@ export function buildStorefrontAccountDocumentBundle({
       exemption_reason: 'Seller is not VAT registered',
     });
   }
+  if (taxRows.length === 0) {
+    alignSingleZeroTaxSubtotalWithDocumentTotal(taxSubtotals, preTaxTotal);
+  }
 
   const orderDetail: StorefrontOrder = {
     id: order.id,
@@ -300,12 +321,6 @@ export function buildStorefrontAccountDocumentBundle({
     })),
     virtual_account: receiptOrder.virtual_account || null,
   };
-
-  const taxInclusiveAmount = resolveMoneyValue(
-    order.tax_inclusive_amount,
-    total
-  );
-  const preTaxTotal = Math.max(0, taxInclusiveAmount - taxAmount);
 
   const invoiceData: InvoiceData = {
     invoice_number: order.order_number,

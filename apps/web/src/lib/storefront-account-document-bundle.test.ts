@@ -364,6 +364,104 @@ describe('buildStorefrontAccountDocumentBundle', () => {
     ]);
   });
 
+  it('includes shipping and discounts in synthesized non-VAT taxable totals', () => {
+    const result = buildStorefrontAccountDocumentBundle({
+      merchant: {
+        business_name: 'Ogabassey',
+        logo_url: null,
+        email: null,
+        phone: null,
+        support_email: null,
+        support_phone: null,
+        business_address: null,
+        cac_rc_number: null,
+        tax_identification_number: null,
+        legal_entity_name: null,
+        brand_colors: null,
+        vat_registration_status: null,
+        vat_rate: 0,
+        bank_code: null,
+        bank_account_number: null,
+        bank_name: null,
+        bank_account_name: null,
+        social_media: null,
+        pages: null,
+        registered_address: null,
+      },
+      customer: {
+        first_name: 'Oga',
+        last_name: 'Bassey',
+        email: 'customer@example.com',
+        phone: null,
+      },
+      order: {
+        id: 'order-non-vat-shipping',
+        order_number: 'ORD-NON-VAT',
+        created_at: '2026-03-22T10:00:00.000Z',
+        updated_at: null,
+        payment_status: 'unpaid',
+        shipping_status: 'processing',
+        currency: 'NGN',
+        total: 104000,
+        subtotal: 100000,
+        shipping_fee: 5000,
+        tax_amount: 0,
+        discount_amount: 1000,
+        amount_paid: 0,
+        shipping_address: null,
+        customer_name: null,
+        customer_email: null,
+        customer_phone: null,
+        payment_method: 'invoice',
+        is_credit_order: false,
+        tracking_number: null,
+        shipping_provider: null,
+        notes: null,
+        invoice_type_code: null,
+        invoice_issue_date: null,
+        tax_point_date: null,
+        payment_due_date: null,
+        buyer_reference: null,
+        purchase_order_reference: null,
+        tax_exclusive_amount: null,
+        tax_inclusive_amount: null,
+        invoice_note: null,
+        firs_irn: null,
+        firs_csid: null,
+        firs_qr_code: null,
+        payment_terms: null,
+      },
+      itemRows: [
+        {
+          id: 'item-non-vat',
+          product_id: 'prod-non-vat',
+          variant_id: null,
+          variant_name: null,
+          name: 'Non-VAT item',
+          quantity: 1,
+          price: 100000,
+        },
+      ],
+      transactions: [],
+      paymentAccount: null,
+      taxRows: [],
+      paymentStatus: 'unpaid',
+      shippingStatus: 'processing',
+      currentDocumentKind: 'invoice',
+    });
+
+    expect(result.invoiceData.tax_exclusive_amount).toBe(104000);
+    expect(result.invoiceData.tax_subtotals).toEqual([
+      {
+        vat_category_code: 'O',
+        vat_rate: 0,
+        taxable_amount: 104000,
+        tax_amount: 0,
+        exemption_reason: 'Outside scope of VAT',
+      },
+    ]);
+  });
+
   it('omits blanket line VAT metadata when multiple tax buckets are present', () => {
     const result = buildStorefrontAccountDocumentBundle({
       merchant: {

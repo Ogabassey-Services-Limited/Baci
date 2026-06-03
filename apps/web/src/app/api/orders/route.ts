@@ -1697,7 +1697,14 @@ export async function POST(request: NextRequest) {
                 const hasDeviceItem = items.some((item) =>
                   isDeviceReceiptItemName(getOrderItemBaseName(item))
                 );
-                const amountPaid = Number(order.amount_paid || 0);
+                const amountPaid = Math.max(
+                  Number(order.amount_paid || 0),
+                  savingsAmountUsed + walletAmountUsed
+                );
+                const invoiceOrder = {
+                  ...(order as Record<string, unknown>),
+                  amount_paid: amountPaid,
+                };
                 const receiptOrder: ReceiptOrder = {
                   order_number: orderNum,
                   created_at: String(
@@ -1751,7 +1758,7 @@ export async function POST(request: NextRequest) {
                   items,
                   merchant,
                   notes,
-                  order: order as Record<string, unknown>,
+                  order: invoiceOrder,
                   orderNumber: orderNum,
                   orderShippingFee,
                   orderSubtotal,

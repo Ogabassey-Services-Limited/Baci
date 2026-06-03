@@ -278,9 +278,11 @@ describe('GET /api/orders/[id]/invoice', () => {
         logoDataUri: 'data:image/png;base64,AA==',
         paymentTerms: 'Net 14',
         taxSubtotals: expect.any(Array),
-        complianceNote: expect.stringContaining('Peppol BIS Billing 3.0'),
       })
     );
+    expect(
+      vi.mocked(generateReceiptBlob).mock.calls[0]?.[2]
+    ).not.toHaveProperty('complianceNote');
   });
 
   it('preserves zero-rated line tax categories when subtotals are missing', async () => {
@@ -324,6 +326,72 @@ describe('GET /api/orders/[id]/invoice', () => {
             taxable_amount: 10000,
             tax_amount: 0,
             exemption_reason: undefined,
+          },
+        ],
+      })
+    );
+  });
+
+  it('uses a stored zero-tax subtotal as line VAT metadata when item rows are sparse', async () => {
+    vi.mocked(createClient).mockReturnValue(
+      createSupabaseMock({
+        items: {
+          data: [
+            {
+              id: 'item-exempt',
+              line_id: 1,
+              name: 'Exempt accessory',
+              item_description: null,
+              quantity: 1,
+              price: 10000,
+              unit_code: 'EA',
+              line_extension_amount: 10000,
+              vat_category_code: null,
+              vat_rate: null,
+              vat_amount: null,
+              sellers_item_id: null,
+              product_id: 'product-exempt',
+            },
+          ],
+          error: null,
+        },
+        taxSubtotals: {
+          data: [
+            {
+              vat_category_code: 'E',
+              vat_rate: 0,
+              taxable_amount: 10000,
+              tax_amount: 0,
+              exemption_reason: 'VAT exempt',
+            },
+          ],
+          error: null,
+        },
+      }) as unknown as ReturnType<typeof createClient>
+    );
+
+    const response = await GET(
+      new NextRequest(`http://localhost/api/orders/${ORDER_ID}/invoice`),
+      { params: Promise.resolve({ id: ORDER_ID }) }
+    );
+
+    expect(response.status).toBe(200);
+    expect(vi.mocked(generatePeppolInvoiceXml).mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({
+        items: [
+          expect.objectContaining({
+            vat_category_code: 'E',
+            vat_rate: 0,
+            vat_amount: 0,
+          }),
+        ],
+        tax_subtotals: [
+          {
+            vat_category_code: 'E',
+            vat_rate: 0,
+            taxable_amount: 10000,
+            tax_amount: 0,
+            exemption_reason: 'VAT exempt',
           },
         ],
       })

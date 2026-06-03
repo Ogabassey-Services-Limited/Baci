@@ -2,10 +2,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { authenticateApiRequest } from '@/lib/api-auth';
 import { buildPdfContentDisposition } from '@/lib/download-filename';
 import { logger } from '@/lib/logger';
-import {
-  generatePeppolInvoiceXml,
-  PEPPOL_BIS_BILLING_COMPLIANCE_NOTE,
-} from '@/lib/peppol-ubl-invoice';
+import { generatePeppolInvoiceXml } from '@/lib/peppol-ubl-invoice';
 import { checkRateLimit } from '@/lib/rate-limiter';
 import {
   generateReceiptBlob,
@@ -79,9 +76,8 @@ export async function GET(
       merchantSlug: parsedQuery.data.merchantSlug,
       orderId: parsedParams.data.id,
     });
-    let peppolInvoiceXml: string | null = null;
     try {
-      peppolInvoiceXml = generatePeppolInvoiceXml(data.invoiceData);
+      generatePeppolInvoiceXml(data.invoiceData);
     } catch (error) {
       logger.warn({
         message: 'Generated branded invoice PDF without Peppol UBL validation',
@@ -110,9 +106,6 @@ export async function GET(
     };
     const blob = generateReceiptBlob(receiptOrder, data.receiptMerchant, {
       buyerReference: data.invoiceData.buyer_reference,
-      ...(peppolInvoiceXml
-        ? { complianceNote: PEPPOL_BIS_BILLING_COMPLIANCE_NOTE }
-        : {}),
       documentDate: data.invoiceData.issue_date,
       documentKind: 'invoice',
       dueDate: data.invoiceData.due_date,
