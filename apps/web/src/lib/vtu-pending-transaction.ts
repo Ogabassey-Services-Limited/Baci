@@ -7,6 +7,7 @@ import {
 import { resolveKudaDataPlanForPurchase } from '@/lib/kuda-data-plans';
 import { normalizeVtuNetworkProvider } from '@/lib/normalize-vtu-network-provider';
 import { calculateCommerce } from '@/lib/supabase/client';
+import { resolveVtuProvider } from '@/lib/vtu-commission-rates';
 import { COMMISSION_CATEGORY_MAP, type PurchaseInput } from '@/schemas/vtu';
 
 export const VTU_TYPE_LABELS: Record<PurchaseInput['type'], string> = {
@@ -255,6 +256,24 @@ export async function preparePendingVtuTransaction({
     ? normalizedNetworkProvider
     : (input.billerName ?? 'DEFAULT');
 
+  let resolvedProvider =
+    input.provider ||
+    resolveVtuProvider(
+      commissionProvider,
+      COMMISSION_CATEGORY_MAP[purchaseType]
+    );
+
+  if (
+    resolvedProvider === 'monnify' &&
+    (purchaseType === 'electricity' ||
+      purchaseType === 'cable_tv' ||
+      purchaseType === 'betting')
+  ) {
+    if (!input.billerCode || !input.productCode) {
+      resolvedProvider = 'kuda';
+    }
+  }
+
   const commissions = await calculateCommerce('calculate_vtu', {
     amount: purchaseAmount,
     provider: commissionProvider,
@@ -300,6 +319,11 @@ export async function preparePendingVtuTransaction({
       customer_identifier: input.customerIdentifier ?? null,
       customer_name: input.customerName?.trim() || null,
       metadata: {
+        provider: resolvedProvider,
+        validationReference: input.validationReference || undefined,
+        billerCode: input.billerCode || undefined,
+        productCode: input.productCode || undefined,
+        requireValidationRef: input.requireValidationRef || undefined,
         dataPlanCode: resolvedDataPlan?.itemCode ?? input.dataPlanCode,
         ...(resolvedDataPlan &&
         resolvedDataPlan.originalDataPlanCode !== resolvedDataPlan.itemCode

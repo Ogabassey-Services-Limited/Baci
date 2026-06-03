@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { checkCsrfProtection } from '@/lib/csrf';
-import { verifyBillCustomer } from '@/lib/kuda-bills';
+import { verifyBillCustomer as verifyKudaCustomer } from '@/lib/kuda-bills';
+import { verifyBillCustomer as verifyMonnifyCustomer } from '@/lib/monnify-bills';
 import { verifySchema } from '@/schemas/vtu';
 
 /**
@@ -33,10 +34,25 @@ export async function POST(request: Request) {
       );
     }
 
-    const result = await verifyBillCustomer(
-      parsed.data.billItemIdentifier,
-      parsed.data.customerIdentifier
-    );
+    const {
+      provider,
+      billerCode,
+      productCode,
+      customerIdentifier,
+      billItemIdentifier,
+    } = parsed.data;
+
+    const result =
+      provider === 'monnify'
+        ? await verifyMonnifyCustomer(
+            billerCode ?? '',
+            productCode ?? '',
+            customerIdentifier
+          )
+        : await verifyKudaCustomer(
+            billItemIdentifier ?? '',
+            customerIdentifier
+          );
 
     return NextResponse.json(result);
   } catch (error) {

@@ -32,16 +32,62 @@ const VTU_COMMISSION_CATEGORY_ALIASES: Record<string, VtuCommissionCategory> = {
   ISP: 'INTERNET',
 };
 
-const createCommissionRates = (
-  rates: Record<string, VtuCommissionRate>
-): Readonly<Record<string, Readonly<VtuCommissionRate>>> =>
-  Object.freeze(
-    Object.fromEntries(
-      Object.entries(rates).map(([key, rate]) => [key, Object.freeze(rate)])
-    ) as Record<string, Readonly<VtuCommissionRate>>
-  );
+export const KUDA_VTU_RATES: Record<string, VtuCommissionRate> = {
+  MTN_AIRTIME: { rate: 0.03 },
+  AIRTEL_AIRTIME: { rate: 0.03 },
+  GLO_AIRTIME: { rate: 0.04 },
+  '9MOBILE_AIRTIME': { rate: 0.05 },
+  MTN_DATA: { rate: 0.03 },
+  AIRTEL_DATA: { rate: 0.03 },
+  GLO_DATA: { rate: 0.04 },
+  '9MOBILE_DATA': { rate: 0.05 },
+  BEDC_ELECTRICITY: { rate: 0.012 },
+  IKEDC_ELECTRICITY: { rate: 0.008 },
+  AEDC_ELECTRICITY: { rate: 0.012 },
+  EKEDC_ELECTRICITY: { rate: 0.01, cap: 4000 },
+  EEDC_ELECTRICITY: { rate: 0.012, cap: 2500 },
+  IBEDC_ELECTRICITY: { rate: 0.01 },
+  JEDC_ELECTRICITY: { rate: 0.01 },
+  KAEDCO_ELECTRICITY: { rate: 0.012 },
+  KEDCO_ELECTRICITY: { rate: 0.01 },
+  PHEDC_ELECTRICITY: { rate: 0.012 },
+  ABA_ELECTRICITY: { rate: 0.012, cap: 2500 },
+  YEDC_ELECTRICITY: { rate: 0.01 },
+  DSTV_CABLE: { rate: 0.016 },
+  GOTV_CABLE: { rate: 0.016 },
+  STARTIMES_CABLE: { rate: 0.012 },
+  SHOWMAX_CABLE: { rate: 0.02 },
+  SPORTYBET_BETTING: { rate: 0.005, cap: 800 },
+  BET9JA_BETTING: { rate: 0.003 },
+  NAIRABET_BETTING: { rate: 0.002 },
+  '1XBET_BETTING': { rate: 0.002 },
+  BETWAY_BETTING: { rate: 0.002 },
+  BETKING_BETTING: { rate: 0.005, cap: 800 },
+  MERRYBET_BETTING: { rate: 0.001 },
+  BANGBET_BETTING: { rate: 0.004 },
+  BETLAND_BETTING: { rate: 0.001 },
+  NAIJABET_BETTING: { rate: 0.001 },
+  MSPORT_BETTING: { rate: 0.005, cap: 800 },
+  JAMB_UTME_EDUCATION: { rate: 0.024 },
+  JAMB_DE_EDUCATION: { rate: 0.024 },
+  LUMOS_SOLAR: { rate: 0.004, cap: 500 },
+  PRIVIDA_SOLAR: { rate: 0.004, cap: 500 },
+  SWITCH_SOLAR_SOLAR: { rate: 0.004, cap: 500 },
+  GREENLIGHT_SOLAR: { rate: 0.004, cap: 500 },
+  LASG_COWRY_TRANSPORT: { rate: 0.008 },
+  SPECTRANET_INTERNET: { rate: 0.02 },
+  SMILE_INTERNET: { rate: 0.02 },
+  SWIFT_INTERNET: { rate: 0.006 },
+  IPNX_INTERNET: { rate: 0.002 },
+  HALLBET_BETTING: { rate: 0.0016 },
+  FOOTBALL_COM_BETTING: { rate: 0.005, cap: 800 },
+  SUREBET_BETTING: { rate: 0.008 },
+  MLOTTO_BETTING: { rate: 0.002 },
+  BETBABA_BETTING: { rate: 0.0016 },
+  ACCESSBET_BETTING: { rate: 0.004, cap: 1000 },
+};
 
-export const VTU_COMMISSION_RATES = createCommissionRates({
+export const MONNIFY_VTU_RATES: Record<string, VtuCommissionRate> = {
   MTN_AIRTIME: { rate: 0.03 },
   AIRTEL_AIRTIME: { rate: 0.03 },
   GLO_AIRTIME: { rate: 0.05 },
@@ -78,31 +124,76 @@ export const VTU_COMMISSION_RATES = createCommissionRates({
   ILOT_BETTING: { rate: 0.007 },
   MSPORT_BETTING: { rate: 0.001 },
   BETPAWA_BETTING: { rate: 0.007 },
-  // Education
-  JAMB_UTME_EDUCATION: { rate: 0.024 },
-  JAMB_DE_EDUCATION: { rate: 0.024 },
-  // Solar
-  LUMOS_SOLAR: { rate: 0.004, cap: 500 },
-  PRIVIDA_SOLAR: { rate: 0.004, cap: 500 },
-  SWITCH_SOLAR_SOLAR: { rate: 0.004, cap: 500 },
-  GREENLIGHT_SOLAR: { rate: 0.004, cap: 500 },
-  // Transport
-  LASG_COWRY_TRANSPORT: { rate: 0.008 },
-  // Internet
-  SPECTRANET_INTERNET: { rate: 0.02 },
-  SMILE_INTERNET: { rate: 0.02 },
-  SWIFT_INTERNET: { rate: 0.006 },
-  IPNX_INTERNET: { rate: 0.002 },
-  // Additional Cable/Betting from Kuda
-  SHOWMAX_CABLE: { rate: 0.02 },
-  HALLBET_BETTING: { rate: 0.0016 },
-  FOOTBALL_COM_BETTING: { rate: 0.005, cap: 800 },
-  SUREBET_BETTING: { rate: 0.008 },
-  MLOTTO_BETTING: { rate: 0.002 },
-  BETBABA_BETTING: { rate: 0.0016 },
-  ACCESSBET_BETTING: { rate: 0.004, cap: 1000 },
-  DEFAULT: { rate: 0.02 },
-});
+};
+
+function determineRoutingAndRates() {
+  const routing: Record<string, 'kuda' | 'monnify'> = {};
+  const rates: Record<string, VtuCommissionRate> = {};
+
+  const allKeys = new Set([
+    ...Object.keys(KUDA_VTU_RATES),
+    ...Object.keys(MONNIFY_VTU_RATES),
+  ]);
+
+  for (const key of allKeys) {
+    const kudaRate = KUDA_VTU_RATES[key];
+    const monnifyRate = MONNIFY_VTU_RATES[key];
+
+    if (!kudaRate) {
+      routing[key] = 'monnify';
+      rates[key] = monnifyRate;
+    } else if (!monnifyRate) {
+      routing[key] = 'kuda';
+      rates[key] = kudaRate;
+    } else if (monnifyRate.rate > kudaRate.rate) {
+      // Compare rates: higher rate wins. Ties (or higher) go to Monnify.
+      routing[key] = 'monnify';
+      rates[key] = monnifyRate;
+    } else if (kudaRate.rate > monnifyRate.rate) {
+      routing[key] = 'kuda';
+      rates[key] = kudaRate;
+    } else {
+      // Equal rate. Compare caps: uncapped is better than capped.
+      const monnifyCapped = monnifyRate.cap !== undefined;
+      const kudaCapped = kudaRate.cap !== undefined;
+
+      if (monnifyCapped && !kudaCapped) {
+        routing[key] = 'kuda';
+        rates[key] = kudaRate;
+      } else if (!monnifyCapped && kudaCapped) {
+        routing[key] = 'monnify';
+        rates[key] = monnifyRate;
+      } else if (monnifyCapped && kudaCapped) {
+        // Both capped. Compare caps: higher cap is better. If equal, Monnify wins.
+        const monnifyCap = monnifyRate.cap ?? 0;
+        const kudaCap = kudaRate.cap ?? 0;
+        if (monnifyCap > kudaCap) {
+          routing[key] = 'monnify';
+          rates[key] = monnifyRate;
+        } else if (kudaCap > monnifyCap) {
+          routing[key] = 'kuda';
+          rates[key] = kudaRate;
+        } else {
+          routing[key] = 'monnify';
+          rates[key] = monnifyRate;
+        }
+      } else {
+        // Both uncapped: tie goes to Monnify.
+        routing[key] = 'monnify';
+        rates[key] = monnifyRate;
+      }
+    }
+  }
+
+  rates.DEFAULT = { rate: 0.02 };
+
+  return { routing, rates };
+}
+
+const computed = determineRoutingAndRates();
+
+export const VTU_PROVIDER_ROUTING = computed.routing;
+export const VTU_COMMISSION_RATES = computed.rates;
 
 const VTU_COMMISSION_PROVIDER_ALIASES = {
   AIRTIME: [
@@ -252,4 +343,17 @@ export function getVtuCommissionRate(
     VTU_COMMISSION_RATES.DEFAULT;
 
   return { ...rate };
+}
+
+export function resolveVtuProvider(
+  provider: unknown,
+  category: unknown = 'AIRTIME'
+): 'kuda' | 'monnify' {
+  const normalizedCategory = normalizeVtuCommissionCategory(category);
+  const providerKey = resolveProviderRateKey(provider, normalizedCategory);
+  const key = `${providerKey}_${normalizedCategory}`;
+
+  return (
+    VTU_PROVIDER_ROUTING[key] ?? VTU_PROVIDER_ROUTING[providerKey] ?? 'kuda'
+  );
 }

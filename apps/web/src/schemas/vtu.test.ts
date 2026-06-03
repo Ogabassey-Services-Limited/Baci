@@ -225,6 +225,51 @@ describe('purchaseSchema', () => {
     });
   });
 
+  describe('Monnify checkout rules', () => {
+    it('parses valid monnify purchase with billerCode, productCode, customerIdentifier', () => {
+      const validMonnify = {
+        merchantSlug: 'test-merchant',
+        amount: 1000,
+        type: 'electricity' as const,
+        provider: 'monnify' as const,
+        billerCode: 'biller1',
+        productCode: 'product1',
+        customerIdentifier: 'cust1',
+      };
+      const result = purchaseSchema.safeParse(validMonnify);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.provider).toBe('monnify');
+      }
+    });
+
+    it('rejects monnify purchase if billerCode is missing', () => {
+      const invalidMonnify = {
+        merchantSlug: 'test-merchant',
+        amount: 1000,
+        type: 'electricity' as const,
+        provider: 'monnify' as const,
+        productCode: 'product1',
+        customerIdentifier: 'cust1',
+      };
+      const result = purchaseSchema.safeParse(invalidMonnify);
+      expect(result.success).toBe(false);
+    });
+
+    it('rejects monnify purchase if productCode is missing', () => {
+      const invalidMonnify = {
+        merchantSlug: 'test-merchant',
+        amount: 1000,
+        type: 'electricity' as const,
+        provider: 'monnify' as const,
+        billerCode: 'biller1',
+        customerIdentifier: 'cust1',
+      };
+      const result = purchaseSchema.safeParse(invalidMonnify);
+      expect(result.success).toBe(false);
+    });
+  });
+
   describe('amount validation', () => {
     it('rejects amount below minimum (49)', () => {
       const belowMin = {
@@ -467,6 +512,57 @@ describe('verifySchema', () => {
 
     const result = verifySchema.safeParse(missingCustomer);
     expect(result.success).toBe(false);
+  });
+
+  describe('Monnify provider verification rules', () => {
+    it('parses valid monnify input with provider, billerCode, productCode, customerIdentifier', () => {
+      const validInput = {
+        provider: 'monnify' as const,
+        billerCode: 'biller1',
+        productCode: 'product1',
+        customerIdentifier: 'cust1',
+      };
+      const result = verifySchema.safeParse(validInput);
+      expect(result.success).toBe(true);
+    });
+
+    it('rejects monnify input if billerCode is missing', () => {
+      const invalidInput = {
+        provider: 'monnify' as const,
+        productCode: 'product1',
+        customerIdentifier: 'cust1',
+      };
+      const result = verifySchema.safeParse(invalidInput);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.issues[0].message).toContain(
+          'billerCode is required'
+        );
+      }
+    });
+
+    it('rejects monnify input if productCode is missing', () => {
+      const invalidInput = {
+        provider: 'monnify' as const,
+        billerCode: 'biller1',
+        customerIdentifier: 'cust1',
+      };
+      const result = verifySchema.safeParse(invalidInput);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.issues[0].message).toContain(
+          'productCode is required'
+        );
+      }
+    });
+
+    it('rejects kuda (default) input if billItemIdentifier is missing', () => {
+      const invalidInput = {
+        customerIdentifier: 'cust1',
+      };
+      const result = verifySchema.safeParse(invalidInput);
+      expect(result.success).toBe(false);
+    });
   });
 });
 

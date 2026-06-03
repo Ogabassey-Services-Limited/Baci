@@ -1,6 +1,71 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { getBillersByCategory } from '@/lib/kuda-bills';
+import {
+  getBillerProducts as getMonnifyBillerProducts,
+  getBillers as getMonnifyBillers,
+} from '@/lib/monnify-bills';
 import { billersQuerySchema } from '@/schemas/vtu';
+
+interface NormalizedBillItem {
+  itemCode: string;
+  itemName: string;
+  amount: number;
+  itemCurrencySymbol: string;
+  isAmountFixed: boolean;
+  itemFee: number;
+  provider: 'kuda' | 'monnify';
+  billerCode?: string;
+  productCode?: string;
+}
+
+interface NormalizedBiller {
+  billerId: string;
+  billerName: string;
+  billerType: string;
+  categoryId: string;
+  categoryName: string;
+  provider: 'kuda' | 'monnify';
+  billerCode?: string;
+  billItems?: NormalizedBillItem[];
+}
+
+interface RawKudaBillItem {
+  itemCode: string;
+  itemName: string;
+  amount: number;
+  itemCurrencySymbol: string;
+  isAmountFixed: boolean;
+  itemFee: number;
+}
+
+interface RawKudaBiller {
+  billerId: string;
+  billerName: string;
+  billerType: string;
+  categoryId: string;
+  categoryName: string;
+  billItems?: RawKudaBillItem[];
+}
+
+interface RawMonnifyBiller {
+  billerCode: string;
+  name: string;
+  billerCategoryCode?: string;
+}
+
+interface RawMonnifyProduct {
+  productCode: string;
+  name: string;
+  amount?: number;
+  isAmountFixed?: boolean;
+  fee?: number;
+}
+
+const BACI_TO_MONNIFY_CATEGORY: Record<string, string> = {
+  electricity: 'UTILITY_PAYMENT',
+  cable_tv: 'TV_SUBSCRIPTION',
+  betting: 'LOTTERY_AND_BETTING',
+};
 
 /**
  * GET /api/vtu/billers?type=electricity
@@ -24,14 +89,104 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const billers = await getBillersByCategory(parsed.data.type);
+    const type = parsed.data.type;
+
+    let kudaError: Error | null = null;
+    let kudaBillers: NormalizedBiller[] = [];
+    try {
+      const rawKuda = (await getBillersByCategory(type)) as RawKudaBiller[];
+      kudaBillers = rawKuda.map((biller) => ({
+        billerId: biller.billerId,
+        billerName: biller.billerName,
+        billerType: biller.billerType,
+        categoryId: biller.categoryId,
+        categoryName: biller.categoryName,
+        provider: 'kuda',
+        billItems: biller.billItems?.map((item) => ({
+          itemCode: item.itemCode,
+          itemName: item.itemName,
+          amount: item.amount,
+          itemCurrencySymbol: item.itemCurrencySymbol,
+          isAmountFixed: item.isAmountFixed,
+          itemFee: item.itemFee,
+          provider: 'kuda',
+        })),
+      }));
+    } catch (err) {
+      kudaError = err instanceof Error ? err : new Error(String(err));
+      console.error('Failed to fetch Kuda billers:', err);
+    }
+
+    let monnifyError: Error | null = null;
+    let monnifyBillers: NormalizedBiller[] = [];
+    const monnifyCategory = BACI_TO_MONNIFY_CATEGORY[type];
+    if (monnifyCategory) {
+      try {
+        const rawBillers = (await getMonnifyBillers(
+          monnifyCategory
+        )) as RawMonnifyBiller[];
+        if (Array.isArray(rawBillers)) {
+          monnifyBillers = await Promise.all(
+            rawBillers.map(async (biller) => {
+              let billItems: NormalizedBillItem[] = [];
+              try {
+                const rawProducts = (await getMonnifyBillerProducts(
+                  biller.billerCode
+                )) as RawMonnifyProduct[];
+                if (Array.isArray(rawProducts)) {
+                  billItems = rawProducts.map((prod) => ({
+                    itemCode: prod.productCode,
+                    itemName: prod.name,
+                    amount: prod.amount || 0,
+                    itemCurrencySymbol: 'NGN',
+                    isAmountFixed: prod.isAmountFixed ?? false,
+                    itemFee: prod.fee || 0,
+                    provider: 'monnify',
+                    billerCode: biller.billerCode,
+                    productCode: prod.productCode,
+                  }));
+                }
+              } catch (prodError) {
+                console.error(
+                  `Failed to fetch Monnify products for ${biller.billerCode}:`,
+                  prodError
+                );
+              }
+
+              return {
+                billerId: biller.billerCode,
+                billerName: biller.name,
+                billerType: type,
+                categoryId: biller.billerCategoryCode || monnifyCategory,
+                categoryName: type,
+                provider: 'monnify',
+                billerCode: biller.billerCode,
+                billItems,
+              };
+            })
+          );
+        }
+      } catch (err) {
+        monnifyError = err instanceof Error ? err : new Error(String(err));
+        console.error('Failed to fetch Monnify billers:', err);
+      }
+    }
+
+    const mergedBillers = [...kudaBillers, ...monnifyBillers];
+
+    if (mergedBillers.length === 0) {
+      if (kudaError) {
+        throw kudaError;
+      }
+      if (monnifyError) {
+        throw monnifyError;
+      }
+    }
 
     return NextResponse.json(
-      { billers },
+      { billers: mergedBillers },
       {
         headers: {
-          // Kuda can add or change nested bill items; keep this fresh without hammering the upstream API.
-          // `public, s-maxage=...` lets Vercel/CDN cache the response, not just the browser.
           'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
         },
       }

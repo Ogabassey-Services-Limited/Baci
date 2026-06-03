@@ -286,6 +286,48 @@ describe('preparePendingVtuTransaction', () => {
     );
   });
 
+  it('persists Monnify checkout provider fields in transaction metadata', async () => {
+    const { insert, supabase } = createMockSupabase();
+
+    await preparePendingVtuTransaction({
+      supabase,
+      user: {
+        id: 'user-1',
+        email: 'customer@example.com',
+      } as unknown as Parameters<
+        typeof preparePendingVtuTransaction
+      >[0]['user'],
+      input: {
+        merchantSlug: 'ogabassey',
+        type: 'electricity',
+        amount: 2000,
+        provider: 'monnify' as const,
+        billerCode: 'biller1',
+        productCode: 'product1',
+        validationReference: 'val-ref-123',
+        requireValidationRef: true,
+        customerIdentifier: '43901766923',
+        source: 'checkout',
+      } as unknown as Parameters<
+        typeof preparePendingVtuTransaction
+      >[0]['input'],
+      source: 'checkout',
+      requireCustomer: true,
+    });
+
+    expect(insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          provider: 'monnify',
+          validationReference: 'val-ref-123',
+          billerCode: 'biller1',
+          productCode: 'product1',
+          requireValidationRef: true,
+        }),
+      })
+    );
+  });
+
   it('stores the real buyer phone on non-telco VTU rows and keeps the meter as customer_identifier', async () => {
     const { insert, supabase } = createMockSupabase();
 

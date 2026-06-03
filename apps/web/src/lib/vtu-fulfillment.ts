@@ -2,14 +2,18 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { getRootDomain } from '@/env';
 import { notifyCustomer } from '@/lib/expo-push';
 import {
-  checkTransactionStatus,
   formatPhoneNumber,
   isValidPhoneNumber,
+  checkTransactionStatus as kudaCheckTransactionStatus,
   type PurchaseResult,
   purchaseAirtime,
   purchaseData,
 } from '@/lib/kuda';
 import { purchaseBill } from '@/lib/kuda-bills';
+import {
+  checkTransactionStatus as monnifyCheckTransactionStatus,
+  purchaseBill as monnifyPurchaseBill,
+} from '@/lib/monnify-bills';
 import { normalizeVtuNetworkProvider } from '@/lib/normalize-vtu-network-provider';
 import { awardVtuAirtimeLoyaltyPoints } from '@/lib/vtu-loyalty-points-award';
 import { VTU_TYPE_LABELS } from '@/lib/vtu-pending-transaction';
@@ -1430,6 +1434,18 @@ async function notifyVtuCustomerSuccess({
   return { metadataChanged };
 }
 
+function getProviderCheckTransactionStatus(
+  metadata: Record<string, unknown> | null | undefined
+) {
+  const provider = metadata?.provider;
+  if (provider === 'monnify') {
+    return (responseRef?: string, requestRef?: string) => {
+      return monnifyCheckTransactionStatus(requestRef || responseRef || '');
+    };
+  }
+  return kudaCheckTransactionStatus;
+}
+
 export async function backfillVtuVoucherPin({
   billResponseReference,
   billRequestRef,
@@ -1453,11 +1469,12 @@ export async function backfillVtuVoucherPin({
   }
 
   try {
-    const status = await checkTransactionStatus(
+    const checkStatus = getProviderCheckTransactionStatus(metadata);
+    const status = await checkStatus(
       billResponseReference ?? undefined,
       billRequestRef ?? undefined
     );
-    const voucherPin = normalizeVoucherPin(status.pin);
+    const voucherPin = status ? normalizeVoucherPin(status.pin) : undefined;
     if (!voucherPin) {
       return undefined;
     }
@@ -1582,7 +1599,8 @@ async function reconcileFailedVtuRetry({
   { action: 'retry' } | { action: 'return'; result: FulfilledVtuResult }
 > {
   try {
-    const providerStatus = await checkTransactionStatus(
+    const checkStatus = getProviderCheckTransactionStatus(row.metadata);
+    const providerStatus = await checkStatus(
       row.transaction_id ?? undefined,
       row.request_reference || undefined
     );
@@ -1840,7 +1858,8 @@ async function reconcileProcessingVtuTransaction({
   supabase: SupabaseClient;
 }): Promise<FulfilledVtuResult> {
   try {
-    const providerStatus = await checkTransactionStatus(
+    const checkStatus = getProviderCheckTransactionStatus(row.metadata);
+    const providerStatus = await checkStatus(
       row.transaction_id ?? undefined,
       row.request_reference || undefined
     );
@@ -2014,6 +2033,55 @@ function executeVtuPurchase(
   merchantName: string
 ): Promise<PurchaseResult> {
   const customerFirstName = getCustomerFirstName(row, merchantName);
+
+  if (row.metadata?.provider === 'monnify') {
+    const billerCode =
+      typeof row.metadata?.billerCode === 'string'
+        ? row.metadata.billerCode
+        : '';
+    const productCode =
+      typeof row.metadata?.productCode === 'string'
+        ? row.metadata.productCode
+        : '';
+    const validationReference =
+      typeof row.metadata?.validationReference === 'string'
+        ? row.metadata.validationReference
+        : undefined;
+
+    const requireValidationRef = row.metadata?.requireValidationRef === true;
+
+    if (!billerCode || !productCode || !row.customer_identifier) {
+      return Promise.resolve({
+        amount: row.amount,
+        message:
+          'Missing Monnify billerCode, productCode, or customer identifier',
+        reference: row.request_reference,
+        status: 'failed',
+        success: false,
+      });
+    }
+
+    if (requireValidationRef && !validationReference) {
+      return Promise.resolve({
+        amount: row.amount,
+        message: 'Missing Monnify validation reference',
+        reference: row.request_reference,
+        status: 'failed',
+        success: false,
+      });
+    }
+
+    return monnifyPurchaseBill(
+      billerCode,
+      productCode,
+      row.customer_identifier,
+      row.amount,
+      customerFirstName,
+      row.request_reference,
+      getCustomerPhoneForBill(row),
+      validationReference
+    );
+  }
 
   if (row.type === 'airtime') {
     const normalized = normalizeVtuProviderOrError(row);
