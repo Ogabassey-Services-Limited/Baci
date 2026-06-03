@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type Colors from '@/constants/Colors';
 import { RADIUS, SPACING, withAlpha } from '@/constants/Colors';
 import type { UtilityRepeatRecipient } from '@/lib/utility-repeat';
+import { MOCK_RECENT_RECIPIENTS } from './fixtures/recent-recipients.fixtures';
 
 const AVATAR_SIZE = 40;
 const PREVIEW_COUNT = 2;
@@ -23,18 +24,6 @@ function getInitials(title: string): string {
   return `${parts[0]?.[0] ?? ''}${parts[1]?.[0] ?? ''}`.toUpperCase();
 }
 
-let MOCK_RECIPIENTS: UtilityRepeatRecipient[] = [];
-if (
-  typeof __DEV__ !== 'undefined' &&
-  __DEV__ &&
-  process.env.NODE_ENV !== 'test'
-) {
-  /* eslint-disable @typescript-eslint/no-require-imports */
-  MOCK_RECIPIENTS =
-    require('./fixtures/recent-recipients.fixtures').MOCK_RECENT_RECIPIENTS;
-  /* eslint-enable @typescript-eslint/no-require-imports */
-}
-
 export function RecentUtilityRecipients({
   colors,
   recipients,
@@ -51,7 +40,7 @@ export function RecentUtilityRecipients({
       __DEV__ &&
       process.env.NODE_ENV !== 'test'
     ) {
-      activeRecipients = MOCK_RECIPIENTS;
+      activeRecipients = MOCK_RECENT_RECIPIENTS;
     } else {
       return null;
     }

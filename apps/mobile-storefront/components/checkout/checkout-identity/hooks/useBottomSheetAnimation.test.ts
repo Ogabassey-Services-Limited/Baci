@@ -31,12 +31,12 @@ const mockReducedMotionEnabled = jest.fn(() => false);
 
 jest.mock('react-native-reanimated', () => {
   // We need useRef from React to persist shared values across rerenders.
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { useRef } = require('react');
+
+  const { useRef } = jest.requireActual<typeof import('react')>('react');
 
   function useSharedValue(init: number) {
     // Persist the mutable box across renders, mirroring Reanimated's native ref.
-    const ref = useRef(null);
+    const ref = useRef<{ value: number } | null>(null);
     if (ref.current === null) {
       ref.current = { value: init };
     }
@@ -85,14 +85,43 @@ jest.mock('react-native-reanimated', () => {
 // Helpers
 // ---------------------------------------------------------------------------
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper accessing mocked animated style
-function backdropOpacity(style: any) {
-  return style.opacity as number;
+function getStyleRecord(style: unknown): Record<string, unknown> {
+  if (typeof style !== 'object' || style === null) {
+    throw new TypeError('Expected animated style to be an object');
+  }
+
+  return style as Record<string, unknown>;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper accessing mocked animated style
-function sheetTranslateY(style: any) {
-  return style.transform[0].translateY as number;
+function backdropOpacity(style: unknown) {
+  const styleRecord = getStyleRecord(style);
+
+  if (typeof styleRecord.opacity !== 'number') {
+    throw new TypeError('Expected backdrop opacity to be a number');
+  }
+
+  return styleRecord.opacity;
+}
+
+function sheetTranslateY(style: unknown) {
+  const styleRecord = getStyleRecord(style);
+
+  if (!Array.isArray(styleRecord.transform)) {
+    throw new TypeError('Expected sheet transform to be an array');
+  }
+
+  const [firstTransform] = styleRecord.transform;
+
+  if (
+    typeof firstTransform !== 'object' ||
+    firstTransform === null ||
+    !('translateY' in firstTransform) ||
+    typeof firstTransform.translateY !== 'number'
+  ) {
+    throw new TypeError('Expected sheet translateY to be a number');
+  }
+
+  return firstTransform.translateY;
 }
 
 // ---------------------------------------------------------------------------

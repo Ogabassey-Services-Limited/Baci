@@ -1,5 +1,6 @@
-import type { User } from '@supabase/supabase-js';
+import type { AuthError, User } from '@supabase/supabase-js';
 import { act, renderHook, waitFor } from '@testing-library/react-native';
+import { supabase } from '@/lib/supabase';
 import { create as mockCreate } from 'zustand';
 
 const mockRouterPush = jest.fn();
@@ -95,10 +96,8 @@ describe('useSignInForm', () => {
   });
 
   it('sets error when sign-in with invalid credentials fails', async () => {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { supabase } = require('@/lib/supabase');
-    supabase.auth.signInWithPassword.mockResolvedValue({
-      error: { message: 'Invalid login credentials' },
+    jest.mocked(supabase.auth.signInWithPassword).mockResolvedValue({
+      error: { message: 'Invalid login credentials' } as AuthError,
       data: { user: null, session: null },
     });
 
