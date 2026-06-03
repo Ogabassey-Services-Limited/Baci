@@ -234,6 +234,12 @@ describe('GET /api/orders/[id]/invoice', () => {
     );
 
     expect(response.status).toBe(200);
+    expect(response.headers.get('Content-Disposition')).toContain(
+      'filename="invoice-ORD-1001.pdf"'
+    );
+    expect(response.headers.get('Content-Disposition')).toContain(
+      "filename*=UTF-8''invoice-ORD-1001.pdf"
+    );
 
     const invoiceItems = getGeneratedInvoiceItems();
 
@@ -283,6 +289,24 @@ describe('GET /api/orders/[id]/invoice', () => {
     expect(
       vi.mocked(generateReceiptBlob).mock.calls[0]?.[2]
     ).not.toHaveProperty('complianceNote');
+  });
+
+  it('generates the invoice with fallback branding when logo resolution fails', async () => {
+    vi.mocked(resolveReceiptLogoDataUri).mockRejectedValueOnce(
+      new Error('logo fetch failed')
+    );
+
+    const response = await GET(
+      new NextRequest(`http://localhost/api/orders/${ORDER_ID}/invoice`),
+      { params: Promise.resolve({ id: ORDER_ID }) }
+    );
+
+    expect(response.status).toBe(200);
+    expect(generateReceiptBlob).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.any(Object),
+      expect.objectContaining({ logoDataUri: null })
+    );
   });
 
   it('preserves zero-rated line tax categories when subtotals are missing', async () => {
@@ -622,6 +646,22 @@ describe('GET /api/orders/[id]/invoice', () => {
     const response = await GET(
       new NextRequest(`http://localhost/api/orders/${ORDER_ID}/invoice`),
       { params: Promise.resolve({ id: ORDER_ID }) }
+    );
+
+    expect(response.status).toBe(401);
+    expect(generateReceiptBlob).not.toHaveBeenCalled();
+  });
+
+  it('authenticates before validating malformed order ids', async () => {
+    vi.mocked(createClient).mockReturnValue(
+      createSupabaseMock({ user: null }) as unknown as ReturnType<
+        typeof createClient
+      >
+    );
+
+    const response = await GET(
+      new NextRequest('http://localhost/api/orders/not-a-uuid/invoice'),
+      { params: Promise.resolve({ id: 'not-a-uuid' }) }
     );
 
     expect(response.status).toBe(401);

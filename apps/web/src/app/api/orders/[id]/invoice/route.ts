@@ -8,6 +8,7 @@ import {
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { buildPdfContentDisposition } from '@/lib/download-filename';
 import type {
   InvoiceData,
   InvoiceLineItem,
@@ -84,6 +85,18 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const cookieStore = await cookies();
+    const supabase = createClient(cookieStore);
+
+    // Verify authentication before validating route params or touching data.
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const parsed = paramsSchema.safeParse(await params);
     if (!parsed.success) {
       return NextResponse.json(
@@ -92,18 +105,6 @@ export async function GET(
       );
     }
     const orderId = parsed.data.id;
-
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
-
-    // Verify authentication
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
 
     // Fetch order with all related data, scoped to authenticated user
     const { data: order, error: orderError } = await supabase
@@ -594,7 +595,19 @@ export async function GET(
     }
 
     // Generate the branded PDF
-    const logoDataUri = await resolveReceiptLogoDataUri(receiptMerchant);
+    let logoDataUri: string | null = null;
+    try {
+      logoDataUri = await resolveReceiptLogoDataUri(receiptMerchant);
+    } catch (logoError) {
+      console.warn(
+        'Failed to resolve invoice logo; using fallback PDF branding',
+        {
+          orderId,
+          error: logoError,
+        }
+      );
+    }
+
     const pdfBlob = generateReceiptBlob(receiptOrder, receiptMerchant, {
       buyerReference: invoiceData.buyer_reference,
       documentDate: invoiceData.issue_date,
@@ -616,7 +629,10 @@ export async function GET(
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="invoice-${invoiceData.invoice_number}.pdf"`,
+        'Content-Disposition': buildPdfContentDisposition(
+          'invoice',
+          invoiceData.invoice_number
+        ),
         'Cache-Control': 'no-cache',
       },
     });

@@ -390,7 +390,8 @@ export function buildStorefrontAccountDocumentBundle({
             account_name:
               merchant.bank_account_name ||
               merchant.legal_entity_name ||
-              merchant.business_name,
+              merchant.business_name ||
+              undefined,
             bank_name: merchant.bank_name || undefined,
           }
         : undefined,

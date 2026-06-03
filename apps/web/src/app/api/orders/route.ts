@@ -1641,15 +1641,22 @@ export async function POST(request: NextRequest) {
                   // through RLS, so the server-only admin client is scoped to
                   // this post-response side effect and order.id.
                   backgroundSupabase ??= createAdminClient();
+                  const dvaExpiresAt = new Date(
+                    Date.now() + 90 * 60 * 1000
+                  ).toISOString();
                   const { error: insertError } = await backgroundSupabase
                     .from('order_payment_accounts')
-                    .insert({
-                      order_id: order.id,
-                      account_number: dvaResult.data.account_number,
-                      bank_name: dvaResult.data.bank_name,
-                      account_name: dvaResult.data.account_name,
-                      provider: 'paystack',
-                    });
+                    .upsert(
+                      {
+                        order_id: order.id,
+                        account_number: dvaResult.data.account_number,
+                        bank_name: dvaResult.data.bank_name,
+                        account_name: dvaResult.data.account_name,
+                        provider: 'paystack',
+                        expires_at: dvaExpiresAt,
+                      },
+                      { onConflict: 'order_id,provider' }
+                    );
 
                   if (insertError) {
                     logger.error({
@@ -1762,8 +1769,20 @@ export async function POST(request: NextRequest) {
                   });
                 }
 
-                const logoDataUri =
-                  await resolveReceiptLogoDataUri(receiptMerchant);
+                let logoDataUri: string | null = null;
+                try {
+                  logoDataUri =
+                    await resolveReceiptLogoDataUri(receiptMerchant);
+                } catch (logoError) {
+                  logger.warn({
+                    message:
+                      'Failed to resolve invoice logo; using fallback PDF branding',
+                    orderId: order.id,
+                    orderNumber: orderNum,
+                    error: logoError,
+                  });
+                }
+
                 const invoiceReceiptOrder: ReceiptOrder = {
                   ...receiptOrder,
                   items: receiptOrder.items.map((item, index) => {

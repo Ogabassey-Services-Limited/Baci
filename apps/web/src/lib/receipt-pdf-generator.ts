@@ -254,6 +254,38 @@ function isTrustedLogoUrl(parsedUrl: URL) {
   );
 }
 
+function mergeLogoChunks(chunks: Uint8Array[], totalBytes: number) {
+  const bytes = new Uint8Array(totalBytes);
+  let offset = 0;
+
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+
+  return bytes;
+}
+
+function encodeLogoBytesToBase64(bytes: Uint8Array) {
+  const alphabet =
+    'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  let encoded = '';
+
+  for (let index = 0; index < bytes.length; index += 3) {
+    const first = bytes[index] ?? 0;
+    const second = bytes[index + 1] ?? 0;
+    const third = bytes[index + 2] ?? 0;
+    const triplet = (first << 16) | (second << 8) | third;
+
+    encoded += alphabet[(triplet >> 18) & 63];
+    encoded += alphabet[(triplet >> 12) & 63];
+    encoded += index + 1 < bytes.length ? alphabet[(triplet >> 6) & 63] : '=';
+    encoded += index + 2 < bytes.length ? alphabet[triplet & 63] : '=';
+  }
+
+  return encoded;
+}
+
 async function readLogoBytes(response: Response) {
   const reader = response.body?.getReader();
   if (!reader) return null;
@@ -279,7 +311,7 @@ async function readLogoBytes(response: Response) {
     reader.releaseLock();
   }
 
-  return Buffer.concat(chunks, totalBytes);
+  return mergeLogoChunks(chunks, totalBytes);
 }
 
 export async function resolveReceiptLogoDataUri(merchant: ReceiptMerchant) {
@@ -320,7 +352,7 @@ export async function resolveReceiptLogoDataUri(merchant: ReceiptMerchant) {
     const imageBytes = await readLogoBytes(response);
     if (!imageBytes) return null;
 
-    const base64 = imageBytes.toString('base64');
+    const base64 = encodeLogoBytesToBase64(imageBytes);
     return `data:${contentType.split(';')[0]};base64,${base64}`;
   } catch {
     return null;

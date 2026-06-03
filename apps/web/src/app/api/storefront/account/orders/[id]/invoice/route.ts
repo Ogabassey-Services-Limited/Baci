@@ -86,7 +86,18 @@ export async function GET(
       });
     }
 
-    const logoDataUri = await resolveReceiptLogoDataUri(data.receiptMerchant);
+    let logoDataUri: string | null = null;
+    try {
+      logoDataUri = await resolveReceiptLogoDataUri(data.receiptMerchant);
+    } catch (logoError) {
+      logger.warn({
+        message:
+          'Failed to resolve storefront invoice logo; using fallback PDF branding',
+        orderId: parsedParams.data.id,
+        error: logoError,
+      });
+    }
+
     const receiptOrder = {
       ...data.receiptOrder,
       items: data.receiptOrder.items.map((item, index) => {

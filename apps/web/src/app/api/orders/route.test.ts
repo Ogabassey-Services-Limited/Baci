@@ -2918,12 +2918,12 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
     accountError?: unknown;
     reminderError?: unknown;
   } = {}) {
-    const accountInsert = vi.fn().mockResolvedValue({ error: accountError });
+    const accountUpsert = vi.fn().mockResolvedValue({ error: accountError });
     const reminderInsert = vi.fn().mockResolvedValue({ error: reminderError });
     const backgroundSupabase = {
       from: vi.fn((table: string) => {
         if (table === 'order_payment_accounts') {
-          return { insert: accountInsert };
+          return { upsert: accountUpsert };
         }
 
         if (table === 'order_reminders') {
@@ -2936,7 +2936,7 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
       }),
     };
 
-    return { accountInsert, backgroundSupabase, reminderInsert };
+    return { accountUpsert, backgroundSupabase, reminderInsert };
   }
 
   beforeEach(() => {
@@ -2959,7 +2959,8 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
 
   it('generates a branded PDF invoice and attaches it to the confirmation email when payment method is invoice', async () => {
     const supabase = buildMockSupabase();
-    const { backgroundSupabase } = createBackgroundSupabaseMock();
+    const { accountUpsert, backgroundSupabase } =
+      createBackgroundSupabaseMock();
     mockCreateAdminClient.mockReturnValue(backgroundSupabase);
 
     supabase.from = vi.fn((_table: string) => {
@@ -3096,17 +3097,128 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
       pdfOptions.documentDate.getTime() + 14 * 24 * 60 * 60 * 1000
     );
 
-    // Assert the auto-generated DVA was persisted in the order_payment_accounts table
+    // Assert the auto-generated DVA was persisted with the shared upsert/expiry contract.
     expect(backgroundSupabase.from).toHaveBeenCalledWith(
       'order_payment_accounts'
     );
+    expect(accountUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        order_id: 'order-id',
+        account_number: '1234567890',
+        bank_name: 'Wema Bank',
+        account_name: 'OgaBassey-Test',
+        provider: 'paystack',
+        expires_at: expect.any(String),
+      }),
+      { onConflict: 'order_id,provider' }
+    );
+    expect(
+      Date.parse(
+        (accountUpsert.mock.calls[0]?.[0] as { expires_at: string }).expires_at
+      )
+    ).toBeGreaterThan(Date.now());
     expect(backgroundSupabase.from).toHaveBeenCalledWith('order_reminders');
     expect(supabase.from).not.toHaveBeenCalledWith('order_payment_accounts');
   });
 
+  it('sends the invoice email with fallback branding when logo resolution fails', async () => {
+    const supabase = buildMockSupabase();
+    const { backgroundSupabase } = createBackgroundSupabaseMock();
+    mockCreateAdminClient.mockReturnValue(backgroundSupabase);
+    mockResolveReceiptLogoDataUri.mockRejectedValueOnce(
+      new Error('logo fetch failed')
+    );
+
+    supabase.from = vi.fn((_table: string) => ({
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({
+        data: {
+          id: MERCHANT_ID,
+          business_name: 'Test Merchant',
+          country: 'NG',
+          slug: 'test-merchant',
+          support_email: 'support@example.com',
+          email_sender_name: 'Test Store',
+          email: 'merchant@example.com',
+          vat_registration_status: 'registered',
+          vat_rate: 7.5,
+        },
+        error: null,
+      }),
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: {
+          id: MERCHANT_ID,
+          business_name: 'Test Merchant',
+          country: 'NG',
+          slug: 'test-merchant',
+          support_email: 'support@example.com',
+          email_sender_name: 'Test Store',
+          email: 'merchant@example.com',
+          vat_registration_status: 'registered',
+          vat_rate: 7.5,
+        },
+        error: null,
+      }),
+      in: vi.fn().mockReturnThis(),
+      returns: vi.fn().mockResolvedValue({ data: [], error: null }),
+      insert: vi.fn().mockResolvedValue({ error: null }),
+      update: vi.fn().mockReturnThis(),
+      // biome-ignore lint/suspicious/noThenProperty: simulated thenable mock
+      then: (resolve: any) => Promise.resolve().then(resolve),
+    })) as any;
+
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () => supabase as unknown as never
+    );
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      user: null,
+      error: null,
+      supabase: supabase as unknown as never,
+    });
+
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...baseOrderPayload,
+        payment_method: 'invoice',
+      }),
+    });
+
+    const response = await POST(request);
+    expect(response.status).toBe(201);
+
+    await vi.waitFor(() => expect(mockSendEmail).toHaveBeenCalled(), {
+      timeout: 1000,
+    });
+
+    expect(mockGenerateReceiptBlob).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({
+        documentKind: 'invoice',
+        logoDataUri: null,
+      })
+    );
+    expect(mockSendEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        attachments: expect.arrayContaining([
+          expect.objectContaining({ mime_type: 'application/pdf' }),
+        ]),
+      })
+    );
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Failed to resolve invoice logo; using fallback PDF branding',
+        orderId: 'order-id',
+      })
+    );
+  });
+
   it('still sends the invoice email when background DVA persistence fails', async () => {
     const supabase = buildMockSupabase();
-    const { accountInsert, backgroundSupabase, reminderInsert } =
+    const { accountUpsert, backgroundSupabase, reminderInsert } =
       createBackgroundSupabaseMock({
         accountError: { message: 'insert failed' },
         reminderError: { message: 'reminder failed' },
@@ -3178,11 +3290,13 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
     });
 
     expect(mockGeneratePaymentAccount).toHaveBeenCalled();
-    expect(accountInsert).toHaveBeenCalledWith(
+    expect(accountUpsert).toHaveBeenCalledWith(
       expect.objectContaining({
         order_id: 'order-id',
         account_number: '1234567890',
-      })
+        expires_at: expect.any(String),
+      }),
+      { onConflict: 'order_id,provider' }
     );
     expect(reminderInsert).toHaveBeenCalledWith(
       expect.objectContaining({
