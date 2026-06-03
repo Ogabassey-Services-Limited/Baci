@@ -14,10 +14,7 @@ import type {
   TaxSubtotal,
 } from '@/lib/invoice-generator';
 import { ORDER_COLUMNS } from '@/lib/order-queries';
-import {
-  generatePeppolInvoiceXml,
-  PEPPOL_BIS_BILLING_COMPLIANCE_NOTE,
-} from '@/lib/peppol-ubl-invoice';
+import { generatePeppolInvoiceXml } from '@/lib/peppol-ubl-invoice';
 import {
   generateReceiptBlob,
   resolveReceiptLogoDataUri,
@@ -319,6 +316,17 @@ export async function GET(
         tax_amount: taxAmount,
       });
     }
+    if (invoiceTaxSubtotals.length === 0) {
+      invoiceTaxSubtotals.push({
+        vat_category_code: 'O',
+        vat_rate: 0,
+        taxable_amount: Number(
+          order.tax_exclusive_amount || order.subtotal || 0
+        ),
+        tax_amount: 0,
+        exemption_reason: 'Outside scope of VAT',
+      });
+    }
 
     const { data: paymentAccounts, error: paymentAccountError } = await supabase
       .from('order_payment_accounts')
@@ -526,11 +534,8 @@ export async function GET(
       social_media: merchant.social_media,
       pages: merchant.pages,
     };
-    let complianceNote: string | undefined;
-
     try {
       generatePeppolInvoiceXml(invoiceData);
-      complianceNote = PEPPOL_BIS_BILLING_COMPLIANCE_NOTE;
     } catch (peppolError) {
       console.error('Failed to generate Peppol UBL invoice XML:', peppolError);
     }
@@ -538,12 +543,12 @@ export async function GET(
     // Generate the branded PDF
     const logoDataUri = await resolveReceiptLogoDataUri(receiptMerchant);
     const pdfBlob = generateReceiptBlob(receiptOrder, receiptMerchant, {
-      complianceNote,
       documentDate: invoiceData.issue_date,
       documentKind: 'invoice',
       dueDate: invoiceData.due_date,
       firsCsid: invoiceData.firs_csid,
       firsIrn: invoiceData.firs_irn,
+      invoiceTypeCode: invoiceData.invoice_type_code,
       invoiceNotes: invoiceData.notes,
       logoDataUri,
       paymentTerms: invoiceData.payment_terms,

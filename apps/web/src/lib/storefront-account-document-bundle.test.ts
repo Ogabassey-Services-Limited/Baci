@@ -226,6 +226,15 @@ describe('buildStorefrontAccountDocumentBundle', () => {
     expect(result.invoiceData.items).toEqual([]);
     expect(result.invoiceData.tax_exclusive_amount).toBe(0);
     expect(result.invoiceData.tax_inclusive_amount).toBe(0);
+    expect(result.invoiceData.tax_subtotals).toEqual([
+      {
+        vat_category_code: 'O',
+        vat_rate: 0,
+        taxable_amount: 0,
+        tax_amount: 0,
+        exemption_reason: 'Outside scope of VAT',
+      },
+    ]);
     expect(result.invoiceData.merchant.vat_rate).toBe(0);
     expect(result.invoiceData.customer.address?.street).toBe('Pickup');
   });

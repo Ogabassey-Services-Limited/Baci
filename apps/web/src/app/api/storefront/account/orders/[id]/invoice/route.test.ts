@@ -86,6 +86,7 @@ function createDocumentData(
     },
     invoiceData: {
       invoice_number: orderNumber,
+      invoice_type_code: '380',
       issue_date: new Date('2026-04-01T00:00:00.000Z'),
       due_date: new Date('2026-04-15T00:00:00.000Z'),
       payment_terms: 'Net 14',
@@ -258,12 +259,12 @@ describe('GET /api/storefront/account/orders/[id]/invoice', () => {
       }),
       expect.any(Object),
       {
-        complianceNote: expect.stringContaining('Peppol BIS Billing 3.0'),
         documentDate: new Date('2026-04-01T00:00:00.000Z'),
         documentKind: 'invoice',
         dueDate: new Date('2026-04-15T00:00:00.000Z'),
         firsCsid: 'CSID-2026-001',
         firsIrn: 'IRN-2026-001',
+        invoiceTypeCode: '380',
         invoiceNotes: 'Invoice note',
         logoDataUri: 'data:image/png;base64,AA==',
         paymentTerms: 'Net 14',
@@ -310,16 +311,12 @@ describe('GET /api/storefront/account/orders/[id]/invoice', () => {
     expect(response.status).toBe(200);
     expect(logger.warn).toHaveBeenCalledWith(
       expect.objectContaining({
-        message: 'Generated branded invoice PDF without Peppol UBL note',
+        message: 'Generated branded invoice PDF without Peppol UBL validation',
       })
     );
-    expect(generateReceiptBlob).toHaveBeenCalledWith(
-      expect.any(Object),
-      expect.any(Object),
-      expect.objectContaining({
-        complianceNote: undefined,
-      })
-    );
+    expect(
+      vi.mocked(generateReceiptBlob).mock.calls[0]?.[2]
+    ).not.toHaveProperty('complianceNote');
   });
 
   it('maps document access errors to API responses', async () => {

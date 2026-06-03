@@ -146,6 +146,28 @@ describe('generateReceiptBlob', () => {
     expect(pdfText).not.toContain('RECEIPT');
   });
 
+  it('renders stored credit notes with the credit note label', () => {
+    const order = {
+      ...baseOrder,
+      items: [
+        {
+          product_name: 'Refunded item',
+          quantity: 1,
+          price: 150000,
+        },
+      ],
+      transactions: [],
+    };
+    const pdfText = generateReceiptPDF(order, baseMerchant, {
+      documentKind: 'invoice',
+      invoiceTypeCode: '381',
+    })
+      .output()
+      .replaceAll(String.fromCharCode(0), '');
+
+    expect(pdfText).toContain('CREDIT NOTE');
+  });
+
   it('renders invoice issue date, due date, payment terms, and line descriptions', () => {
     const order = {
       ...baseOrder,
@@ -472,5 +494,24 @@ describe('generateReceiptBlob', () => {
     ).resolves.toBeNull();
 
     expect(arrayBuffer).not.toHaveBeenCalled();
+  });
+
+  it('stops streaming trusted media logos after the byte cap', async () => {
+    const fetchSpy = vi.fn().mockResolvedValue(
+      new Response(new Uint8Array(300 * 1024), {
+        headers: {
+          'content-type': 'image/png',
+        },
+        status: 200,
+      })
+    );
+    vi.stubGlobal('fetch', fetchSpy);
+
+    await expect(
+      resolveReceiptLogoDataUri({
+        ...baseMerchant,
+        logo_url: 'https://cdn.ogabassey.com/media/merchant/large-logo.png',
+      })
+    ).resolves.toBeNull();
   });
 });

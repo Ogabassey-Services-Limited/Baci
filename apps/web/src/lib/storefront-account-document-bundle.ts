@@ -199,6 +199,15 @@ export function buildStorefrontAccountDocumentBundle({
       tax_amount: taxAmount,
     });
   }
+  if (taxSubtotals.length === 0) {
+    taxSubtotals.push({
+      vat_category_code: 'O',
+      vat_rate: 0,
+      taxable_amount: subtotal,
+      tax_amount: 0,
+      exemption_reason: 'Outside scope of VAT',
+    });
+  }
 
   const orderDetail: StorefrontOrder = {
     id: order.id,

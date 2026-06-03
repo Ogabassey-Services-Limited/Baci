@@ -254,18 +254,21 @@ describe('GET /api/orders/[id]/invoice', () => {
       }),
       expect.objectContaining({ business_name: 'Test Merchant' }),
       expect.objectContaining({
-        complianceNote: expect.stringContaining('Peppol BIS Billing 3.0'),
         documentDate: new Date('2026-04-01T00:00:00.000Z'),
         documentKind: 'invoice',
         dueDate: new Date('2026-04-15T00:00:00.000Z'),
         firsCsid: 'CSID-2026-001',
         firsIrn: 'IRN-2026-001',
+        invoiceTypeCode: '380',
         invoiceNotes: 'Merchant invoice note',
         logoDataUri: 'data:image/png;base64,AA==',
         paymentTerms: 'Net 14',
         taxSubtotals: expect.any(Array),
       })
     );
+    expect(
+      vi.mocked(generateReceiptBlob).mock.calls[0]?.[2]
+    ).not.toHaveProperty('complianceNote');
   });
 
   it('falls back to merchant bank details when no order payment account exists', async () => {
@@ -304,6 +307,32 @@ describe('GET /api/orders/[id]/invoice', () => {
         bank_name: 'Fallback Bank',
       }),
       expect.any(Object)
+    );
+  });
+
+  it('passes stored credit-note type codes into the branded renderer', async () => {
+    vi.mocked(createClient).mockReturnValue(
+      createSupabaseMock({
+        order: {
+          ...orderResult,
+          data: {
+            ...(orderResult.data as Record<string, unknown>),
+            invoice_type_code: '381',
+          },
+        },
+      }) as unknown as ReturnType<typeof createClient>
+    );
+
+    const response = await GET(
+      new NextRequest(`http://localhost/api/orders/${ORDER_ID}/invoice`),
+      { params: Promise.resolve({ id: ORDER_ID }) }
+    );
+
+    expect(response.status).toBe(200);
+    expect(vi.mocked(generateReceiptBlob).mock.calls[0]?.[2]).toEqual(
+      expect.objectContaining({
+        invoiceTypeCode: '381',
+      })
     );
   });
 

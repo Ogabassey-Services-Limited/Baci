@@ -1798,6 +1798,7 @@ export async function POST(request: NextRequest) {
                     dueDate: peppolInvoiceData.due_date,
                     firsCsid: peppolInvoiceData.firs_csid,
                     firsIrn: peppolInvoiceData.firs_irn,
+                    invoiceTypeCode: peppolInvoiceData.invoice_type_code,
                     invoiceNotes: peppolInvoiceData.notes,
                     logoDataUri,
                     paymentTerms: peppolInvoiceData.payment_terms,

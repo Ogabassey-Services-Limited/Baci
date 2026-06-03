@@ -358,6 +358,49 @@ ${element('cbc:Percent', formatAmount(vatRate))}
 </cac:InvoiceLine>`;
 }
 
+function withDefaultTaxSubtotals(data: InvoiceData): InvoiceData {
+  if (Array.isArray(data.tax_subtotals) && data.tax_subtotals.length > 0) {
+    return data;
+  }
+
+  const taxAmount =
+    typeof data.tax_amount === 'number' && Number.isFinite(data.tax_amount)
+      ? data.tax_amount
+      : 0;
+  const taxableAmount =
+    typeof data.tax_exclusive_amount === 'number' &&
+    Number.isFinite(data.tax_exclusive_amount)
+      ? data.tax_exclusive_amount
+      : typeof data.subtotal === 'number' && Number.isFinite(data.subtotal)
+        ? data.subtotal
+        : 0;
+  const merchantVatRate =
+    typeof data.merchant?.vat_rate === 'number' &&
+    Number.isFinite(data.merchant.vat_rate)
+      ? data.merchant.vat_rate
+      : 0;
+
+  return {
+    ...data,
+    tax_subtotals: [
+      taxAmount > 0
+        ? {
+            vat_category_code: 'S',
+            vat_rate: merchantVatRate,
+            taxable_amount: taxableAmount,
+            tax_amount: taxAmount,
+          }
+        : {
+            vat_category_code: 'O',
+            vat_rate: 0,
+            taxable_amount: taxableAmount,
+            tax_amount: 0,
+            exemption_reason: 'Outside scope of VAT',
+          },
+    ],
+  };
+}
+
 function validatePeppolInvoiceData(data: InvoiceData) {
   const errors: string[] = [];
 
@@ -366,6 +409,9 @@ function validatePeppolInvoiceData(data: InvoiceData) {
   if (!isValidDate(data.issue_date)) errors.push('issue_date is required');
   if (!normalizeText(data.invoice_type_code))
     errors.push('invoice_type_code is required');
+  if (normalizeText(data.invoice_type_code) === '381') {
+    errors.push('credit note UBL generation is not supported');
+  }
   if (!/^[A-Z]{3}$/.test(data.currency))
     errors.push('currency must be an ISO 4217 code');
   if (!normalizeText(data.merchant?.business_name))
@@ -404,19 +450,22 @@ function validatePeppolInvoiceData(data: InvoiceData) {
 }
 
 export function generatePeppolInvoiceXml(data: InvoiceData) {
-  validatePeppolInvoiceData(data);
+  const normalizedData = withDefaultTaxSubtotals(data);
+  validatePeppolInvoiceData(normalizedData);
 
   const buyerReference =
-    data.buyer_reference ||
-    data.purchase_order_reference ||
-    data.customer.email ||
-    data.customer.name ||
+    normalizedData.buyer_reference ||
+    normalizedData.purchase_order_reference ||
+    normalizedData.customer.email ||
+    normalizedData.customer.name ||
     DEFAULT_BUYER_REFERENCE;
   const dueDate =
-    data.due_date ||
-    (data.payment_terms
+    normalizedData.due_date ||
+    (normalizedData.payment_terms
       ? null
-      : new Date(data.issue_date.getTime() + 14 * 24 * 60 * 60 * 1000));
+      : new Date(
+          normalizedData.issue_date.getTime() + 14 * 24 * 60 * 60 * 1000
+        ));
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"
@@ -424,23 +473,23 @@ export function generatePeppolInvoiceXml(data: InvoiceData) {
   xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
 ${element('cbc:CustomizationID', PEPPOL_CUSTOMIZATION_ID)}
 ${element('cbc:ProfileID', PEPPOL_PROFILE_ID)}
-${element('cbc:ID', data.invoice_number)}
-${element('cbc:IssueDate', formatDate(data.issue_date))}
+${element('cbc:ID', normalizedData.invoice_number)}
+${element('cbc:IssueDate', formatDate(normalizedData.issue_date))}
 ${dueDate ? element('cbc:DueDate', formatDate(dueDate)) : ''}
-${element('cbc:InvoiceTypeCode', data.invoice_type_code)}
-${optionalElement('cbc:Note', data.notes)}
-${data.tax_point_date ? element('cbc:TaxPointDate', formatDate(data.tax_point_date)) : ''}
-${element('cbc:DocumentCurrencyCode', data.currency)}
+${element('cbc:InvoiceTypeCode', normalizedData.invoice_type_code)}
+${optionalElement('cbc:Note', normalizedData.notes)}
+${normalizedData.tax_point_date ? element('cbc:TaxPointDate', formatDate(normalizedData.tax_point_date)) : ''}
+${element('cbc:DocumentCurrencyCode', normalizedData.currency)}
 ${element('cbc:BuyerReference', buyerReference)}
-${data.purchase_order_reference ? `<cac:OrderReference>${element('cbc:ID', data.purchase_order_reference)}</cac:OrderReference>` : ''}
-${supplierParty(data)}
-${customerParty(data)}
-${paymentMeans(data)}
-${data.payment_terms ? `<cac:PaymentTerms>${element('cbc:Note', data.payment_terms)}</cac:PaymentTerms>` : ''}
-${documentLevelAllowanceCharges(data)}
-${taxTotal(data)}
-${legalMonetaryTotal(data)}
-${data.items.map((item) => invoiceLine(data, item)).join('\n')}
+${normalizedData.purchase_order_reference ? `<cac:OrderReference>${element('cbc:ID', normalizedData.purchase_order_reference)}</cac:OrderReference>` : ''}
+${supplierParty(normalizedData)}
+${customerParty(normalizedData)}
+${paymentMeans(normalizedData)}
+${normalizedData.payment_terms ? `<cac:PaymentTerms>${element('cbc:Note', normalizedData.payment_terms)}</cac:PaymentTerms>` : ''}
+${documentLevelAllowanceCharges(normalizedData)}
+${taxTotal(normalizedData)}
+${legalMonetaryTotal(normalizedData)}
+${normalizedData.items.map((item) => invoiceLine(normalizedData, item)).join('\n')}
 </Invoice>`;
 }
 

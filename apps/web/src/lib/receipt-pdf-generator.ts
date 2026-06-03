@@ -25,6 +25,7 @@ interface GenerateReceiptPdfOptions {
   complianceNote?: string;
   documentDate?: Date | string | null;
   documentKind?: 'invoice' | 'receipt';
+  invoiceTypeCode?: string | null;
   dueDate?: Date | string | null;
   firsCsid?: string | null;
   firsIrn?: string | null;
@@ -228,6 +229,34 @@ function isTrustedLogoUrl(parsedUrl: URL) {
   );
 }
 
+async function readLogoBytes(response: Response) {
+  const reader = response.body?.getReader();
+  if (!reader) return null;
+
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+
+      totalBytes += value.byteLength;
+      if (totalBytes > MAX_LOGO_BYTES) {
+        await reader.cancel();
+        return null;
+      }
+
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  return Buffer.concat(chunks, totalBytes);
+}
+
 export async function resolveReceiptLogoDataUri(merchant: ReceiptMerchant) {
   const logoUrl = merchant.logo_url?.trim();
   if (!logoUrl) return null;
@@ -263,10 +292,10 @@ export async function resolveReceiptLogoDataUri(merchant: ReceiptMerchant) {
     const contentLength = Number(response.headers.get('content-length') || 0);
     if (contentLength > MAX_LOGO_BYTES) return null;
 
-    const imageBytes = await response.arrayBuffer();
-    if (imageBytes.byteLength > MAX_LOGO_BYTES) return null;
+    const imageBytes = await readLogoBytes(response);
+    if (!imageBytes) return null;
 
-    const base64 = Buffer.from(imageBytes).toString('base64');
+    const base64 = imageBytes.toString('base64');
     return `data:${contentType.split(';')[0]};base64,${base64}`;
   } catch {
     return null;
@@ -290,6 +319,9 @@ export function generateReceiptPDF(
   const isPaid = order.payment_status === 'paid';
   const documentKind = options.documentKind ?? (isPaid ? 'receipt' : 'invoice');
   const isInvoice = documentKind === 'invoice';
+  const documentLabel = isInvoice
+    ? getInvoiceDocumentLabel(options.invoiceTypeCode)
+    : 'RECEIPT';
   const displayDocumentDate =
     formatOptionalReceiptDate(options.documentDate) ||
     formatReceiptDate(order.created_at);
@@ -321,7 +353,7 @@ export function generateReceiptPDF(
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(18);
-  doc.text(isInvoice ? 'INVOICE' : 'RECEIPT', margin + 8, y + 10);
+  doc.text(documentLabel, margin + 8, y + 10);
   doc.setFontSize(10);
   doc.text(`#${order.order_number}`, pageWidth - margin - 8, y + 10, {
     align: 'right',
@@ -659,6 +691,23 @@ export function generateReceiptPDF(
   }
 
   return doc;
+}
+
+function getInvoiceDocumentLabel(invoiceTypeCode: string | null | undefined) {
+  switch (invoiceTypeCode) {
+    case '381':
+      return 'CREDIT NOTE';
+    case '383':
+      return 'DEBIT NOTE';
+    case '384':
+      return 'CORRECTED INVOICE';
+    case '386':
+      return 'PREPAYMENT INVOICE';
+    case '389':
+      return 'SELF-BILLED INVOICE';
+    default:
+      return 'INVOICE';
+  }
 }
 
 export function generateReceiptBlob(

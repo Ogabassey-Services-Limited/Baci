@@ -2,10 +2,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { authenticateApiRequest } from '@/lib/api-auth';
 import { buildPdfContentDisposition } from '@/lib/download-filename';
 import { logger } from '@/lib/logger';
-import {
-  generatePeppolInvoiceXml,
-  PEPPOL_BIS_BILLING_COMPLIANCE_NOTE,
-} from '@/lib/peppol-ubl-invoice';
+import { generatePeppolInvoiceXml } from '@/lib/peppol-ubl-invoice';
 import { checkRateLimit } from '@/lib/rate-limiter';
 import {
   generateReceiptBlob,
@@ -79,14 +76,11 @@ export async function GET(
       merchantSlug: parsedQuery.data.merchantSlug,
       orderId: parsedParams.data.id,
     });
-    let complianceNote: string | undefined;
-
     try {
       generatePeppolInvoiceXml(data.invoiceData);
-      complianceNote = PEPPOL_BIS_BILLING_COMPLIANCE_NOTE;
     } catch (error) {
       logger.warn({
-        message: 'Generated branded invoice PDF without Peppol UBL note',
+        message: 'Generated branded invoice PDF without Peppol UBL validation',
         orderId: parsedParams.data.id,
         error,
       });
@@ -111,12 +105,12 @@ export async function GET(
       }),
     };
     const blob = generateReceiptBlob(receiptOrder, data.receiptMerchant, {
-      complianceNote,
       documentDate: data.invoiceData.issue_date,
       documentKind: 'invoice',
       dueDate: data.invoiceData.due_date,
       firsCsid: data.invoiceData.firs_csid,
       firsIrn: data.invoiceData.firs_irn,
+      invoiceTypeCode: data.invoiceData.invoice_type_code,
       invoiceNotes: data.invoiceData.notes,
       logoDataUri,
       paymentTerms: data.invoiceData.payment_terms,
