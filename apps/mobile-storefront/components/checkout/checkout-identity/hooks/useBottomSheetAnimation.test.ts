@@ -31,7 +31,7 @@ const mockReducedMotionEnabled = jest.fn(() => false);
 
 jest.mock('react-native-reanimated', () => {
   // We need useRef from React to persist shared values across rerenders.
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
+
   const { useRef } = require('react');
 
   function useSharedValue(init: number) {
@@ -85,12 +85,10 @@ jest.mock('react-native-reanimated', () => {
 // Helpers
 // ---------------------------------------------------------------------------
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper accessing mocked animated style
 function backdropOpacity(style: any) {
   return style.opacity as number;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper accessing mocked animated style
 function sheetTranslateY(style: any) {
   return style.transform[0].translateY as number;
 }

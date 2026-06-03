@@ -11,7 +11,7 @@ jest.mock('@shopify/flash-list', () => ({
     data: Product[];
     renderItem: ({ item }: { item: Product }) => unknown;
   }) => {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
+
     const React = require('react');
     return (
       <>

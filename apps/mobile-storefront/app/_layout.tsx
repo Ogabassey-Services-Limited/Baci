@@ -39,7 +39,7 @@ SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
+
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
     Inter_400Regular,
     Inter_500Medium,

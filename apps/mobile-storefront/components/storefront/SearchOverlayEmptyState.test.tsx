@@ -3,7 +3,7 @@ import Colors from '@/constants/Colors';
 import { SearchOverlayEmptyState } from './SearchOverlayEmptyState';
 
 jest.mock('react-native-reanimated', () => {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
+
   const RN = require('react-native');
   return {
     __esModule: true,

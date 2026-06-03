@@ -13,9 +13,9 @@ import {
 
 // Mock the Svg-heavy GadgetPattern to keep the unit test pure and stable
 jest.mock('./GadgetPattern', () => {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
+
   const React = require('react');
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
+
   const { View } = require('react-native');
   return {
     GadgetPattern: jest.fn((props: Record<string, unknown>) =>
