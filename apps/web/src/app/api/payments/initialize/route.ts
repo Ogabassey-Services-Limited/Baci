@@ -964,7 +964,10 @@ export async function POST(request: NextRequest) {
         400
       );
     }
-    if (data.amount > snapshotTotal) {
+    if (
+      data.amount > snapshotTotal &&
+      !amountsMatch(data.amount, snapshotTotal)
+    ) {
       return createErrorResponse(
         'Amount exceeds order total',
         'AMOUNT_EXCEEDS_TOTAL',
