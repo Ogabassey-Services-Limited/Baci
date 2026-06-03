@@ -1,3 +1,4 @@
+import type { LucideIcon } from 'lucide-react';
 import {
   BarChart,
   Globe,
@@ -17,46 +18,59 @@ export const metadata: Metadata = {
     'Explore the powerful features that make Baci the best AI e-commerce builder.',
 };
 
-export default function FeaturesPage() {
-  const features = [
-    {
-      icon: <Zap className="size-8 text-yellow-500" />,
-      title: 'AI-Powered Generation',
-      description:
-        'Generate your entire store structure, copy, and branding in seconds. Our AI understands your niche and builds a tailored experience.',
-    },
-    {
-      icon: <Palette className="size-8 text-purple-500" />,
-      title: 'Smart Theming',
-      description:
-        'Upload your logo and watch as our system extracts your brand colors and applies them intelligently across your entire storefront.',
-    },
-    {
-      icon: <ShoppingBag className="size-8 text-blue-500" />,
-      title: 'Inventory Management',
-      description:
-        'Track stock, manage variants, and get low-stock alerts. Simple enough for beginners, powerful enough for pros.',
-    },
-    {
-      icon: <BarChart className="size-8 text-green-500" />,
-      title: 'Real-time Analytics',
-      description:
-        'Know exactly how your store is performing. Track visitors, sales, and conversion rates with our built-in dashboard.',
-    },
-    {
-      icon: <Smartphone className="size-8 text-pink-500" />,
-      title: 'Mobile First',
-      description:
-        'Every store built on Baci is fully responsive and optimized for mobile shoppers, ensuring you never miss a sale.',
-    },
-    {
-      icon: <Globe className="size-8 text-cyan-500" />,
-      title: 'Custom Domains',
-      description:
-        'Connect your own domain name to build trust, or get started instantly with a free baci.shop subdomain.',
-    },
-  ];
+type FeatureCard = {
+  Icon: LucideIcon;
+  iconClassName: string;
+  title: string;
+  description: string;
+};
 
+const FEATURE_CARDS: readonly FeatureCard[] = [
+  {
+    Icon: Zap,
+    iconClassName: 'size-8 text-yellow-500',
+    title: 'AI-Powered Generation',
+    description:
+      'Generate your entire store structure, copy, and branding in seconds. Our AI understands your niche and builds a tailored experience.',
+  },
+  {
+    Icon: Palette,
+    iconClassName: 'size-8 text-purple-500',
+    title: 'Smart Theming',
+    description:
+      'Upload your logo and watch as our system extracts your brand colors and applies them intelligently across your entire storefront.',
+  },
+  {
+    Icon: ShoppingBag,
+    iconClassName: 'size-8 text-blue-500',
+    title: 'Inventory Management',
+    description:
+      'Track stock, manage variants, and get low-stock alerts. Simple enough for beginners, powerful enough for pros.',
+  },
+  {
+    Icon: BarChart,
+    iconClassName: 'size-8 text-green-500',
+    title: 'Real-time Analytics',
+    description:
+      'Know exactly how your store is performing. Track visitors, sales, and conversion rates with our built-in dashboard.',
+  },
+  {
+    Icon: Smartphone,
+    iconClassName: 'size-8 text-pink-500',
+    title: 'Mobile First',
+    description:
+      'Every store built on Baci is fully responsive and optimized for mobile shoppers, ensuring you never miss a sale.',
+  },
+  {
+    Icon: Globe,
+    iconClassName: 'size-8 text-cyan-500',
+    title: 'Custom Domains',
+    description:
+      'Connect your own domain name to build trust, or get started instantly with a free baci.shop subdomain.',
+  },
+];
+
+export default function FeaturesPage() {
   return (
     <AppBody>
       <div className="flex flex-col min-h-screen bg-background font-sans selection:bg-accent/30">
@@ -73,14 +87,13 @@ export default function FeaturesPage() {
             </div>
 
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {features.map((feature, i) => (
+              {FEATURE_CARDS.map((feature) => (
                 <div
-                  // biome-ignore lint/suspicious/noArrayIndexKey: List is static
-                  key={i}
+                  key={feature.title}
                   className="p-8 rounded-2xl border border-border bg-card hover:shadow-lg transition-shadow"
                 >
                   <div className="mb-6 p-3 bg-accent/5 w-fit rounded-xl">
-                    {feature.icon}
+                    <feature.Icon className={feature.iconClassName} />
                   </div>
                   <h3 className="text-xl font-bold mb-3">{feature.title}</h3>
                   <p className="text-muted-foreground leading-relaxed">

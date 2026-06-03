@@ -4,7 +4,22 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { PasswordInput } from '@/components/ui/password-input';
+import { getUnknownErrorMessage } from '@/lib/get-unknown-error-message';
 import { createClient } from '@/lib/supabase/client';
+
+async function updatePassword(password: string) {
+  const supabase = createClient();
+
+  try {
+    const { error } = await supabase.auth.updateUser({
+      password,
+    });
+
+    return error?.message ?? null;
+  } catch (error: unknown) {
+    return getUnknownErrorMessage(error);
+  }
+}
 
 export default function UpdatePasswordPage() {
   const [password, setPassword] = useState('');
@@ -12,36 +27,26 @@ export default function UpdatePasswordPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const router = useRouter();
-  const supabase = createClient();
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
-    try {
-      const { error } = await supabase.auth.updateUser({
-        password: password,
-      });
+    const errorMessage = await updatePassword(password);
 
-      if (error) {
-        throw error;
-      }
-
-      setSuccess(true);
-      // Optional: Redirect after a few seconds
-      setTimeout(() => {
-        router.push('/login');
-      }, 3000);
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError('An unknown error occurred');
-      }
-    } finally {
+    if (errorMessage) {
+      setError(errorMessage);
       setLoading(false);
+      return;
     }
+
+    setSuccess(true);
+    setLoading(false);
+    // Optional: Redirect after a few seconds
+    setTimeout(() => {
+      router.push('/login');
+    }, 3000);
   };
 
   if (success) {
@@ -131,7 +136,7 @@ export default function UpdatePasswordPage() {
             <button
               type="submit"
               disabled={loading}
-              className="group relative flex w-full justify-center rounded-md bg-[#23255d] px-3 py-3 text-sm font-semibold text-white hover:bg-[#23255d]/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#23255d] disabled:opacity-70 transition-all shadow-md"
+              className="group relative flex w-full justify-center rounded-md bg-[#23255d] p-3 text-sm font-semibold text-white hover:bg-[#23255d]/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#23255d] disabled:opacity-70 transition-all shadow-md"
             >
               {loading ? 'Updating...' : 'Update Password'}
             </button>

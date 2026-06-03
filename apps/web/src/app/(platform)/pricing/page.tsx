@@ -11,70 +11,72 @@ export const metadata: Metadata = {
   description: 'Simple, transparent pricing for your online store.',
 };
 
-export default function PricingPage() {
-  const plans: {
-    name: string;
-    price: string;
-    period?: string;
-    description: string;
-    features: string[];
-    cta: string;
-    href: Route;
-    variant: 'default' | 'outline';
-    popular?: boolean;
-  }[] = [
-    {
-      name: 'Free',
-      price: '₦0',
-      description: 'Perfect for testing ideas and small hobby shops.',
-      features: [
-        '1 Store',
-        '10 Products Max',
-        'Basic Storefront',
-        'Baci Subdomain',
-        'Standard Support',
-      ],
-      cta: 'Start Free',
-      href: '/onboarding' as Route,
-      variant: 'outline',
-    },
-    {
-      name: 'Pro',
-      price: '₦5,000',
-      period: '/month',
-      description: 'For growing businesses that need more power.',
-      features: [
-        'Unlimited Products',
-        'Custom Domain',
-        'Advanced Analytics',
-        'Priority Support',
-        'Marketing Tools',
-        'No Transaction Fees',
-      ],
-      cta: 'Get Started',
-      href: '/onboarding?plan=pro' as Route,
-      variant: 'default',
-      popular: true,
-    },
-    {
-      name: 'Premium',
-      price: '₦15,000',
-      period: '/month',
-      description: 'For scaling enterprises and high-volume sellers.',
-      features: [
-        'Everything in Pro',
-        'Multiple Staff Accounts',
-        'Advanced Report Builder',
-        'Dedicated Account Manager',
-        'API Access',
-        'Wholesale Features',
-      ],
-      cta: 'Contact Sales',
-      href: '/contact' as Route,
-      variant: 'outline',
-    },
-  ];
+type PricingPlan = {
+  name: string;
+  price: string;
+  period?: string;
+  description: string;
+  features: readonly string[];
+  cta: string;
+  href: Route;
+  variant: 'default' | 'outline';
+  popular?: boolean;
+};
 
+const PRICING_PLANS: readonly PricingPlan[] = [
+  {
+    name: 'Free',
+    price: '₦0',
+    description: 'Perfect for testing ideas and small hobby shops.',
+    features: [
+      '1 Store',
+      '10 Products Max',
+      'Basic Storefront',
+      'Baci Subdomain',
+      'Standard Support',
+    ],
+    cta: 'Start Free',
+    href: '/onboarding' as Route,
+    variant: 'outline',
+  },
+  {
+    name: 'Pro',
+    price: '₦5,000',
+    period: '/month',
+    description: 'For growing businesses that need more power.',
+    features: [
+      'Unlimited Products',
+      'Custom Domain',
+      'Advanced Analytics',
+      'Priority Support',
+      'Marketing Tools',
+      'No Transaction Fees',
+    ],
+    cta: 'Get Started',
+    href: '/onboarding?plan=pro' as Route,
+    variant: 'default',
+    popular: true,
+  },
+  {
+    name: 'Premium',
+    price: '₦15,000',
+    period: '/month',
+    description: 'For scaling enterprises and high-volume sellers.',
+    features: [
+      'Everything in Pro',
+      'Multiple Staff Accounts',
+      'Advanced Report Builder',
+      'Dedicated Account Manager',
+      'API Access',
+      'Wholesale Features',
+    ],
+    cta: 'Contact Sales',
+    href: '/contact' as Route,
+    variant: 'outline',
+  },
+];
+
+export default function PricingPage() {
   return (
     <AppBody>
       <div className="flex flex-col min-h-screen bg-background font-sans selection:bg-accent/30">
@@ -95,7 +97,7 @@ export default function PricingPage() {
             </div>
 
             <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-              {plans.map((plan) => (
+              {PRICING_PLANS.map((plan) => (
                 <div
                   key={plan.name}
                   className={`relative p-8 rounded-2xl border ${
