@@ -1,4 +1,5 @@
 import type { InvoiceData, InvoiceLineItem } from '@/lib/invoice-generator';
+import { escapeXml } from '@/lib/xml-utils';
 
 const PEPPOL_CUSTOMIZATION_ID =
   'urn:cen.eu:en16931:2017#compliant#urn:fdc:peppol.eu:2017:poacc:billing:3.0';
@@ -7,15 +8,6 @@ const DEFAULT_BUYER_REFERENCE = 'BACI-CUSTOMER';
 
 export const PEPPOL_BIS_BILLING_COMPLIANCE_NOTE =
   'This invoice complies with Peppol BIS Billing 3.0 through a generated UBL XML invoice artifact created from this order.';
-
-function escapeXml(value: string | number) {
-  return String(value)
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&apos;');
-}
 
 function isValidDate(value: Date) {
   return value instanceof Date && !Number.isNaN(value.getTime());
@@ -53,7 +45,7 @@ function normalizeVatRate(item: InvoiceLineItem) {
 }
 
 function element(name: string, value: string | number, attributes = '') {
-  return `<${name}${attributes}>${escapeXml(value)}</${name}>`;
+  return `<${name}${attributes}>${escapeXml(String(value))}</${name}>`;
 }
 
 function optionalElement(

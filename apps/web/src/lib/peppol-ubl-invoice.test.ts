@@ -107,12 +107,12 @@ describe('generatePeppolInvoiceXml', () => {
     const xml = generatePeppolInvoiceXml(
       createInvoiceData({
         customer: {
-          name: 'Akin & Sons <Buyer>',
+          name: `Akin & Sons <Buyer> "VIP" 'Customer'`,
         },
         items: [
           {
             line_id: 1,
-            name: 'Phone & Case <Bundle>',
+            name: `Phone & Case <Bundle> "Deal" 'Pack'`,
             quantity: 1,
             unit_code: 'EA',
             price: 1000,
@@ -139,8 +139,12 @@ describe('generatePeppolInvoiceXml', () => {
       })
     );
 
-    expect(xml).toContain('Akin &amp; Sons &lt;Buyer&gt;');
-    expect(xml).toContain('Phone &amp; Case &lt;Bundle&gt;');
+    expect(xml).toContain(
+      'Akin &amp; Sons &lt;Buyer&gt; &quot;VIP&quot; &apos;Customer&apos;'
+    );
+    expect(xml).toContain(
+      'Phone &amp; Case &lt;Bundle&gt; &quot;Deal&quot; &apos;Pack&apos;'
+    );
   });
 
   it('throws before claiming compliance when required invoice data is missing', () => {
