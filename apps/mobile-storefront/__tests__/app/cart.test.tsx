@@ -1,6 +1,7 @@
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
-import CartScreen from '@/app/(tabs)/cart';
+import CartScreen from '@/app/cart';
 import Colors from '@/constants/Colors';
 
 type MockAuthStatus = {
@@ -14,7 +15,9 @@ type MockAuthStatus = {
 
 const mockOpenNegotiation = jest.fn();
 const mockUseColorScheme = jest.fn(() => 'dark');
+const mockRouterPrefetch = jest.fn();
 const mockRouterPush = jest.fn();
+const mockRouterReplace = jest.fn();
 const buildAuthStatus = (
   overrides: Partial<MockAuthStatus> = {}
 ): MockAuthStatus => ({
@@ -30,7 +33,9 @@ const mockUseAuthStatus = jest.fn((): MockAuthStatus => buildAuthStatus());
 
 jest.mock('expo-router', () => ({
   router: {
+    prefetch: (...args: unknown[]) => mockRouterPrefetch(...args),
     push: (...args: unknown[]) => mockRouterPush(...args),
+    replace: (...args: unknown[]) => mockRouterReplace(...args),
   },
 }));
 
@@ -44,7 +49,8 @@ jest.mock('zustand/react/shallow', () => ({
 }));
 
 jest.mock('react-native-reanimated', () => {
-  const { View } = jest.requireActual('react-native');
+  const { View } =
+    jest.requireActual<typeof import('react-native')>('react-native');
 
   const makeSharedValue = (value: number) => {
     let current = value;
@@ -74,7 +80,8 @@ jest.mock('@/components/useColorScheme', () => ({
 }));
 
 jest.mock('@/components/checkout/checkout-identity', () => {
-  const { Text: MockText } = jest.requireActual('react-native');
+  const { Text: MockText } =
+    jest.requireActual<typeof import('react-native')>('react-native');
 
   return {
     CheckoutIdentityModal: ({ isOpen }: { isOpen: boolean }) => {
@@ -240,6 +247,8 @@ describe('CartScreen state', () => {
   it('opens guest identity modal for guests and routes signed-in users straight to checkout', () => {
     const { rerender } = render(<CartScreen />);
 
+    expect(mockRouterPrefetch).toHaveBeenCalledWith('/checkout');
+
     fireEvent.press(
       screen.getByRole('button', { name: /Proceed to checkout, total/i })
     );
@@ -256,10 +265,21 @@ describe('CartScreen state', () => {
     );
 
     rerender(<CartScreen />);
-    fireEvent.press(
-      screen.getByRole('button', { name: /Proceed to checkout, total/i })
-    );
+    const checkoutButton = screen.getByRole('button', {
+      name: /Proceed to checkout, total/i,
+    });
+    fireEvent(checkoutButton, 'pressIn');
+    fireEvent.press(checkoutButton);
 
+    expect(mockRouterPrefetch).toHaveBeenCalledWith('/checkout');
     expect(mockRouterPush).toHaveBeenCalledWith('/checkout');
+  });
+
+  it('routes the cart header back action to home', () => {
+    render(<CartScreen />);
+
+    fireEvent.press(screen.getByRole('button', { name: 'Back to home' }));
+
+    expect(mockRouterReplace).toHaveBeenCalledWith('/');
   });
 });

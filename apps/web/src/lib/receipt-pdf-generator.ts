@@ -1,3 +1,4 @@
+import { isIP } from 'node:net';
 import type { ReceiptMerchant, ReceiptOrder } from '@baci/shared';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -11,6 +12,15 @@ interface JsPDFWithAutoTable extends jsPDF {
     finalY: number;
   };
 }
+
+interface GenerateReceiptPdfOptions {
+  complianceNote?: string;
+  documentKind?: 'invoice' | 'receipt';
+  logoDataUri?: string | null;
+}
+
+const LOGO_FETCH_TIMEOUT_MS = 5000;
+const MAX_LOGO_BYTES = 2_000_000;
 
 function getBrandPrimaryRgb(merchant: ReceiptMerchant) {
   const brandPrimary = merchant.brand_colors?.primary || '#111827';
@@ -78,9 +88,193 @@ function getReceiptItemVariantName(item: ReceiptOrder['items'][number]) {
   return variantName.length > 0 ? variantName : null;
 }
 
+function getLogoImageFormat(dataUri: string) {
+  if (dataUri.startsWith('data:image/png;')) return 'PNG';
+  if (dataUri.startsWith('data:image/jpeg;')) return 'JPEG';
+  if (dataUri.startsWith('data:image/jpg;')) return 'JPEG';
+  if (dataUri.startsWith('data:image/webp;')) return 'WEBP';
+  return null;
+}
+
+function drawMerchantLogo(input: {
+  doc: jsPDF;
+  logoDataUri: string | null | undefined;
+  x: number;
+  y: number;
+  maxWidth: number;
+  maxHeight: number;
+}) {
+  if (!input.logoDataUri) {
+    return false;
+  }
+
+  const format = getLogoImageFormat(input.logoDataUri);
+  if (!format) {
+    return false;
+  }
+
+  try {
+    input.doc.addImage(
+      input.logoDataUri,
+      format,
+      input.x,
+      input.y,
+      input.maxWidth,
+      input.maxHeight,
+      undefined,
+      'FAST'
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function isSupportedLogoContentType(contentType: string) {
+  return (
+    contentType.startsWith('image/png') ||
+    contentType.startsWith('image/jpeg') ||
+    contentType.startsWith('image/jpg') ||
+    contentType.startsWith('image/webp')
+  );
+}
+
+function isPrivateIpv4(hostname: string) {
+  const parts = hostname.split('.').map((part) => Number.parseInt(part, 10));
+  if (parts.length !== 4 || parts.some((part) => Number.isNaN(part))) {
+    return false;
+  }
+
+  const [first, second] = parts;
+  if (first === undefined || second === undefined) {
+    return false;
+  }
+
+  return (
+    first === 0 ||
+    first === 10 ||
+    first === 127 ||
+    (first === 100 && second >= 64 && second <= 127) ||
+    (first === 169 && second === 254) ||
+    (first === 172 && second >= 16 && second <= 31) ||
+    (first === 192 && second === 168)
+  );
+}
+
+function isPrivateIpv6(hostname: string) {
+  const normalizedHostname = hostname.toLowerCase();
+  return (
+    normalizedHostname === '::1' ||
+    normalizedHostname.startsWith('fc') ||
+    normalizedHostname.startsWith('fd') ||
+    normalizedHostname.startsWith('fe80:')
+  );
+}
+
+function isDisallowedLogoHostname(hostname: string) {
+  const normalizedHostname = hostname.toLowerCase();
+
+  if (
+    normalizedHostname === 'localhost' ||
+    normalizedHostname.endsWith('.localhost') ||
+    normalizedHostname.endsWith('.local') ||
+    normalizedHostname.endsWith('.internal')
+  ) {
+    return true;
+  }
+
+  const ipVersion = isIP(normalizedHostname);
+  if (ipVersion === 4) return isPrivateIpv4(normalizedHostname);
+  if (ipVersion === 6) return isPrivateIpv6(normalizedHostname);
+
+  return false;
+}
+
+async function readArrayBufferWithLimit(response: Response) {
+  const contentLength = Number(response.headers.get('content-length'));
+  if (Number.isFinite(contentLength) && contentLength > MAX_LOGO_BYTES) {
+    return null;
+  }
+
+  const reader = response.body?.getReader();
+  if (!reader) {
+    const imageBytes = await response.arrayBuffer();
+    return imageBytes.byteLength <= MAX_LOGO_BYTES ? imageBytes : null;
+  }
+
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (!value) continue;
+
+    totalBytes += value.byteLength;
+    if (totalBytes > MAX_LOGO_BYTES) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+
+  const imageBytes = Buffer.concat(chunks, totalBytes);
+  return imageBytes.buffer.slice(
+    imageBytes.byteOffset,
+    imageBytes.byteOffset + imageBytes.byteLength
+  );
+}
+
+export async function resolveReceiptLogoDataUri(merchant: ReceiptMerchant) {
+  const logoUrl = merchant.logo_url?.trim();
+  if (!logoUrl) return null;
+
+  if (logoUrl.startsWith('data:image/')) {
+    return logoUrl;
+  }
+
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(logoUrl);
+  } catch {
+    return null;
+  }
+
+  if (
+    parsedUrl.protocol !== 'https:' ||
+    isDisallowedLogoHostname(parsedUrl.hostname)
+  ) {
+    return null;
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), LOGO_FETCH_TIMEOUT_MS);
+    let response: Response;
+    try {
+      response = await fetch(parsedUrl, { signal: controller.signal });
+    } finally {
+      clearTimeout(timeout);
+    }
+    if (!response.ok) return null;
+
+    const contentType = response.headers.get('content-type') || '';
+    if (!isSupportedLogoContentType(contentType)) return null;
+
+    const imageBytes = await readArrayBufferWithLimit(response);
+    if (!imageBytes) return null;
+
+    const base64 = Buffer.from(imageBytes).toString('base64');
+    return `data:${contentType.split(';')[0]};base64,${base64}`;
+  } catch {
+    return null;
+  }
+}
+
 export function generateReceiptPDF(
   order: ReceiptOrder,
-  merchant: ReceiptMerchant
+  merchant: ReceiptMerchant,
+  options: GenerateReceiptPdfOptions = {}
 ) {
   const doc = new jsPDF() as JsPDFWithAutoTable;
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -90,6 +284,8 @@ export function generateReceiptPDF(
   const columnWidth = (contentWidth - columnGap) / 2;
   const currency = order.currency || 'NGN';
   const isPaid = order.payment_status === 'paid';
+  const documentKind = options.documentKind ?? (isPaid ? 'receipt' : 'invoice');
+  const isInvoice = documentKind === 'invoice';
   const brandPrimaryRgb = getBrandPrimaryRgb(merchant);
   let y = margin;
 
@@ -98,7 +294,7 @@ export function generateReceiptPDF(
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(18);
-  doc.text(isPaid ? 'RECEIPT' : 'INVOICE', margin + 8, y + 10);
+  doc.text(isInvoice ? 'INVOICE' : 'RECEIPT', margin + 8, y + 10);
   doc.setFontSize(10);
   doc.text(`#${order.order_number}`, pageWidth - margin - 8, y + 10, {
     align: 'right',
@@ -115,6 +311,19 @@ export function generateReceiptPDF(
 
   doc.setTextColor(17, 24, 39);
   doc.setFontSize(15);
+  const logoDrawn = drawMerchantLogo({
+    doc,
+    logoDataUri: options.logoDataUri,
+    x: margin,
+    y,
+    maxWidth: 34,
+    maxHeight: 16,
+  });
+
+  if (logoDrawn) {
+    y += 20;
+  }
+
   y = writeWrappedTextLines({
     doc,
     lines: [merchant.legal_entity_name || merchant.business_name || 'Store'],
@@ -239,7 +448,7 @@ export function generateReceiptPDF(
 
   writeSummaryRow('Total', formatSummaryAmount(order.total), true);
 
-  if (!isPaid || order.amount_paid > 0) {
+  if (isInvoice || order.amount_paid > 0) {
     writeSummaryRow('Amount Paid', formatSummaryAmount(order.amount_paid));
     if (order.balance > 0) {
       writeSummaryRow('Balance Due', formatSummaryAmount(order.balance), true);
@@ -270,7 +479,11 @@ export function generateReceiptPDF(
     y = (doc.lastAutoTable?.finalY || y) + 8;
   }
 
-  if (!isPaid && (order.virtual_account || merchant.bank_account_number)) {
+  if (
+    isInvoice &&
+    order.balance > 0 &&
+    (order.virtual_account || merchant.bank_account_number)
+  ) {
     ensureSpace(24);
     doc.setFont('helvetica', 'bold');
     doc.text('Payment Instructions', margin, y);
@@ -301,12 +514,32 @@ export function generateReceiptPDF(
     });
   }
 
+  if (isInvoice && options.complianceNote) {
+    ensureSpace(18);
+    y += 5;
+    doc.setDrawColor(229, 231, 235);
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 6;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(75, 85, 99);
+    y = writeWrappedTextLines({
+      doc,
+      lines: [options.complianceNote],
+      x: margin,
+      y,
+      maxWidth: contentWidth,
+      lineHeight: 4,
+    });
+  }
+
   return doc;
 }
 
 export function generateReceiptBlob(
   order: ReceiptOrder,
-  merchant: ReceiptMerchant
+  merchant: ReceiptMerchant,
+  options?: GenerateReceiptPdfOptions
 ) {
-  return generateReceiptPDF(order, merchant).output('blob');
+  return generateReceiptPDF(order, merchant, options).output('blob');
 }

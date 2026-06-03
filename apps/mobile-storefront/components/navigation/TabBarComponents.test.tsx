@@ -1,12 +1,14 @@
-import React from 'react';
+import { describe, expect, it, jest } from '@jest/globals';
 import { render, screen } from '@testing-library/react-native';
-import { TabBarLabel, TabBarIcon } from './TabBarComponents';
+import { StyleSheet } from 'react-native';
+import { TabBarIcon, TabBarLabel } from './TabBarComponents';
 
 jest.mock('@/hooks/useTheme', () => ({
   useTheme: () => ({
     colors: {
       text: '#000000',
       tabIconDefault: '#cccccc',
+      tabIconSelected: '#ff0000',
       selectedIconBackground: '#eeeeee',
       primary: '#ff0000',
       card: '#ffffff',
@@ -31,6 +33,19 @@ describe('TabBarIcon', () => {
   it('renders icon with standard styles', () => {
     const { toJSON } = render(<TabBarIcon name="home" focused={false} />);
     expect(toJSON()).not.toBeNull();
+  });
+
+  it('leaves focused icon highlight to the moving tab capsule', () => {
+    render(<TabBarIcon name="home" focused={true} />);
+
+    const iconInnerStyle = StyleSheet.flatten(
+      screen.getByTestId('tab-bar-icon-inner').props.style
+    );
+
+    expect(iconInnerStyle.backgroundColor).toBeUndefined();
+    expect(iconInnerStyle.borderColor).toBeUndefined();
+    expect(iconInnerStyle.borderWidth).toBeUndefined();
+    expect(iconInnerStyle.transform).toBeUndefined();
   });
 
   it('renders badge number when badge is provided', () => {

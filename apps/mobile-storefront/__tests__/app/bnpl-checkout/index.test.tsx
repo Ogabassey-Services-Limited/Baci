@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import type React from 'react';
+import { WebView } from 'react-native-webview';
 import BNPLCheckoutScreen from '@/app/bnpl-checkout';
 
 const mockClearCart = jest.fn();
@@ -118,6 +119,17 @@ jest.mock('react-native-webview', () => ({
           }
         >
           <Text>start-untrusted-top-frame</Text>
+        </Pressable>
+        <Pressable
+          accessibilityLabel="mock-bnpl-start-custom-domain-redirect"
+          onPress={() =>
+            onShouldStartLoadWithRequest?.({
+              isTopFrame: true,
+              url: 'https://ogabassey.com/checkout/bnpl?gateway=credit_direct&orderId=order-123&email=customer%40example.com&customerName=Ada+Customer&customerPhone=%2B2348012345678&token=track-token-123',
+            })
+          }
+        >
+          <Text>start-custom-domain-redirect</Text>
         </Pressable>
         <Pressable
           accessibilityLabel="mock-bnpl-load-start"
@@ -400,9 +412,13 @@ describe('BNPLCheckoutScreen', () => {
     fireEvent.press(screen.getByLabelText('mock-bnpl-open-untrusted-popup'));
 
     expect(
-      screen.queryByText('Payment provider opened an untrusted checkout window.')
+      screen.queryByText(
+        'Payment provider opened an untrusted checkout window.'
+      )
     ).toBeNull();
-    expect(screen.getByText(/^webview:/).props.children).toBe(initialWebViewUrl);
+    expect(screen.getByText(/^webview:/).props.children).toBe(
+      initialWebViewUrl
+    );
     consoleWarnSpy.mockRestore();
   });
 
@@ -419,6 +435,24 @@ describe('BNPLCheckoutScreen', () => {
     expect(screen.getByRole('button', { name: 'Try Again' })).toBeTruthy();
   });
 
+  it('allows equivalent custom domain document redirects without replacing the WebView source', () => {
+    render(<BNPLCheckoutScreen />);
+    const initialWebViewUrl = screen.getByText(/^webview:/).props.children;
+
+    fireEvent.press(
+      screen.getByLabelText('mock-bnpl-start-custom-domain-redirect')
+    );
+
+    expect(screen.getByText(/^webview:/).props.children).toBe(
+      initialWebViewUrl
+    );
+    expect(
+      screen.queryByText(
+        'Payment provider opened an untrusted checkout window.'
+      )
+    ).toBeNull();
+  });
+
   it('ignores blank provider popup targets without showing the untrusted checkout error', () => {
     render(<BNPLCheckoutScreen />);
 
@@ -429,7 +463,9 @@ describe('BNPLCheckoutScreen', () => {
       initialWebViewUrl
     );
     expect(
-      screen.queryByText('Payment provider opened an untrusted checkout window.')
+      screen.queryByText(
+        'Payment provider opened an untrusted checkout window.'
+      )
     ).toBeNull();
   });
 
@@ -504,5 +540,25 @@ describe('BNPLCheckoutScreen', () => {
 
     expect(screen.getByText('Provider connection failed')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Try Again' })).toBeTruthy();
+  });
+
+  it('allows top-frame redirect from usebaci.com to merchant custom domain ogabassey.com', () => {
+    const { UNSAFE_getByType } = render(<BNPLCheckoutScreen />);
+    const webView = UNSAFE_getByType(WebView);
+
+    const redirectUrl =
+      'https://ogabassey.com/checkout/bnpl?gateway=credit_direct&orderId=order-123&merchant_slug=ogabassey&email=customer%40example.com&customerName=Ada+Customer&customerPhone=%2B2348012345678&token=track-token-123';
+
+    const result = webView.props.onShouldStartLoadWithRequest({
+      isTopFrame: true,
+      url: redirectUrl,
+    });
+
+    expect(result).toBe(true);
+    expect(
+      screen.queryByText(
+        'Payment provider opened an untrusted checkout window.'
+      )
+    ).toBeNull();
   });
 });

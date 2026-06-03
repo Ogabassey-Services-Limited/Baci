@@ -3,16 +3,31 @@ import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AuthResult } from '@/lib/api-auth';
 
+const { mockGeneratePeppolInvoiceXml, mockResolveReceiptLogoDataUri } =
+  vi.hoisted(() => ({
+    mockGeneratePeppolInvoiceXml: vi.fn(() => '<Invoice />'),
+    mockResolveReceiptLogoDataUri: vi.fn(
+      (): Promise<string | null> => Promise.resolve(null)
+    ),
+  }));
+
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: vi.fn(),
 }));
 
-vi.mock('@/lib/invoice-generator', () => ({
-  generateInvoiceBlob: vi.fn(),
+vi.mock('@/lib/receipt-pdf-generator', () => ({
+  generateReceiptBlob: vi.fn(),
+  resolveReceiptLogoDataUri: mockResolveReceiptLogoDataUri,
 }));
 
 vi.mock('@/lib/rate-limiter', () => ({
   checkRateLimit: vi.fn(),
+}));
+
+vi.mock('@/lib/peppol-ubl-invoice', () => ({
+  generatePeppolInvoiceXml: mockGeneratePeppolInvoiceXml,
+  PEPPOL_BIS_BILLING_COMPLIANCE_NOTE:
+    'This invoice complies with Peppol BIS Billing 3.0 through a generated UBL XML invoice artifact created from this order.',
 }));
 
 vi.mock('@/lib/storefront-account-document-data', async () => {
@@ -27,8 +42,8 @@ vi.mock('@/lib/storefront-account-document-data', async () => {
 });
 
 import { authenticateApiRequest } from '@/lib/api-auth';
-import { generateInvoiceBlob } from '@/lib/invoice-generator';
 import { checkRateLimit } from '@/lib/rate-limiter';
+import { generateReceiptBlob } from '@/lib/receipt-pdf-generator';
 import {
   getStorefrontAccountDocumentData,
   StorefrontAccountDocumentError,
@@ -74,6 +89,10 @@ describe('GET /api/storefront/account/orders/[id]/invoice', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(checkRateLimit).mockResolvedValue(true);
+    mockGeneratePeppolInvoiceXml.mockReturnValue('<Invoice />');
+    mockResolveReceiptLogoDataUri.mockResolvedValue(
+      'data:image/png;base64,AA=='
+    );
   });
 
   it('returns 401 when the customer is not authenticated', async () => {
@@ -166,7 +185,7 @@ describe('GET /api/storefront/account/orders/[id]/invoice', () => {
     vi.mocked(getStorefrontAccountDocumentData).mockResolvedValue(
       createDocumentData('ORD-1001\r\nSet-Cookie: evil')
     );
-    vi.mocked(generateInvoiceBlob).mockReturnValue(new Blob(['invoice']));
+    vi.mocked(generateReceiptBlob).mockReturnValue(new Blob(['invoice']));
 
     const response = await GET(
       new NextRequest(
@@ -183,6 +202,15 @@ describe('GET /api/storefront/account/orders/[id]/invoice', () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get('content-type')).toBe('application/pdf');
+    expect(generateReceiptBlob).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.any(Object),
+      {
+        complianceNote: expect.stringContaining('Peppol BIS Billing 3.0'),
+        documentKind: 'invoice',
+        logoDataUri: 'data:image/png;base64,AA==',
+      }
+    );
     expect(contentDisposition).toContain(
       'invoice-ORD-1001-Set-Cookie-evil.pdf'
     );

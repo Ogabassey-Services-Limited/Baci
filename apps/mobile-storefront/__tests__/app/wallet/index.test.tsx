@@ -147,7 +147,7 @@ jest.mock('@/hooks/use-storefront-insets', () => ({
 jest.mock('@/hooks/use-wallet', () => ({
   useCreateWalletFundingAccount: () => mockUseCreateWalletFundingAccount(),
   useRedeemPoints: () => mockUseRedeemPoints(),
-  useWallet: () => mockUseWallet(),
+  useWallet: (...args: unknown[]) => mockUseWallet(...args),
 }));
 
 jest.mock('@/lib/config', () => ({
@@ -364,6 +364,12 @@ describe('WalletScreen', () => {
     expect(walletContentProps?.totalBalance).toBe(125000);
     expect(walletContentProps?.loyaltyPoints).toBe(2000);
     expect(walletContentProps?.transactions).toHaveLength(1);
+  });
+
+  it('uses the display wallet cache policy for the wallet screen', () => {
+    render(<WalletScreen />);
+
+    expect(mockUseWallet).toHaveBeenCalledWith({ cachePolicy: 'display' });
   });
 
   it('logs when wallet balance API fields fall back locally', () => {

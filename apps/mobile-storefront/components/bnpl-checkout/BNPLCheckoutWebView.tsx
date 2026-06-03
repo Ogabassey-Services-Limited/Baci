@@ -15,6 +15,9 @@ type WebViewProps = ComponentProps<typeof WebView>;
 export type BNPLShouldStartLoadRequest = Parameters<
   NonNullable<WebViewProps['onShouldStartLoadWithRequest']>
 >[0];
+export type BNPLWebViewHttpErrorEvent = Parameters<
+  NonNullable<WebViewProps['onHttpError']>
+>[0];
 
 export type WebViewOpenWindowEventLike = {
   nativeEvent: {
@@ -22,13 +25,21 @@ export type WebViewOpenWindowEventLike = {
   };
 };
 
+export interface BNPLWebViewLoadError {
+  code?: number;
+  description?: string;
+  domain?: string;
+  url?: string;
+}
+
 interface BNPLCheckoutWebViewProps {
   amount?: string;
   bnplUrl: string;
   colors: ColorsScheme;
   currentUrl: string;
   gatewayName: string;
-  onError: (description?: string) => void;
+  onError: (error: BNPLWebViewLoadError) => void;
+  onHttpError: (event: BNPLWebViewHttpErrorEvent) => void;
   onLoadEnd: () => void;
   onLoadStart: () => void;
   onMessage: (event: { nativeEvent: { data: string } }) => void;
@@ -48,6 +59,7 @@ export function BNPLCheckoutWebView({
   currentUrl,
   gatewayName,
   onError,
+  onHttpError,
   onLoadEnd,
   onLoadStart,
   onMessage,
@@ -110,8 +122,10 @@ export function BNPLCheckoutWebView({
         mixedContentMode="never"
         allowsInlineMediaPlayback={true}
         onError={(syntheticEvent) => {
-          onError(syntheticEvent.nativeEvent.description);
+          const { code, description, domain, url } = syntheticEvent.nativeEvent;
+          onError({ code, description, domain, url });
         }}
+        onHttpError={onHttpError}
         renderLoading={() => (
           <View style={styles.webViewLoading}>
             <ActivityIndicator size="large" color={BRAND.primary} />

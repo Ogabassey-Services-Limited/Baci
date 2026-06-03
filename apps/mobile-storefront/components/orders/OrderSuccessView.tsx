@@ -16,10 +16,12 @@ interface OrderSuccessViewProps {
   onLeaveGoogleReview: () => void;
   onPermissionDeny: () => void;
   onPermissionGrant: () => void;
+  onViewDocument?: () => void;
   onViewOrders: () => void;
   orderNumber?: string;
   paymentMethod?: string;
   reference?: string;
+  isDocumentLoading?: boolean;
   showPermissionModal: boolean;
 }
 
@@ -27,21 +29,36 @@ function getSuccessTone(paymentMethod?: string) {
   if (paymentMethod === 'invoice') {
     return {
       eyebrow: 'Invoice ready',
+      title: 'Invoice Created',
       subtitle:
         "We've prepared your invoice. Once payment is made, we'll confirm the order and start processing it.",
+      documentLabel: 'View / Download Invoice',
+      nextDocumentTitle: 'Invoice',
+      nextDocumentText:
+        'Your branded invoice is ready now. You can view it and share it as a PDF.',
     };
   }
   if (paymentMethod === 'payforme') {
     return {
       eyebrow: 'Payment request ready',
+      title: 'Payment Request Created',
       subtitle:
         "We've saved this order for later payment. Once it is settled, we'll confirm it and begin processing.",
+      documentLabel: 'View / Download Invoice',
+      nextDocumentTitle: 'Invoice',
+      nextDocumentText:
+        'The invoice remains available while this payment request is pending.',
     };
   }
   return {
     eyebrow: 'Order confirmed',
+    title: 'Order Confirmed',
     subtitle:
       "Thanks for your order. We'll send a confirmation email and keep you updated as it moves.",
+    documentLabel: 'View Receipt',
+    nextDocumentTitle: 'Receipt',
+    nextDocumentText:
+      'Your receipt is ready to preview and share once the order record is available.',
   };
 }
 
@@ -53,10 +70,12 @@ export function OrderSuccessView({
   onLeaveGoogleReview,
   onPermissionDeny,
   onPermissionGrant,
+  onViewDocument,
   onViewOrders,
   orderNumber,
   paymentMethod,
   reference,
+  isDocumentLoading = false,
   showPermissionModal,
 }: OrderSuccessViewProps) {
   const resolvedDeliveryEstimate =
@@ -92,7 +111,7 @@ export function OrderSuccessView({
               <Text style={styles.eyebrowText}>{successTone.eyebrow}</Text>
             </View>
             <Text style={[styles.title, { color: colors.text }]}>
-              Order Placed!
+              {successTone.title}
             </Text>
             <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
               {successTone.subtitle}
@@ -180,7 +199,7 @@ export function OrderSuccessView({
                 </View>
                 <View style={styles.nextStepBody}>
                   <Text style={[styles.nextStepTitle, { color: colors.text }]}>
-                    Receipt
+                    {successTone.nextDocumentTitle}
                   </Text>
                   <Text
                     style={[
@@ -188,8 +207,7 @@ export function OrderSuccessView({
                       { color: colors.textSecondary },
                     ]}
                   >
-                    Your receipt will be available for download after your order
-                    has been shipped.
+                    {successTone.nextDocumentText}
                   </Text>
                 </View>
               </View>
@@ -223,6 +241,33 @@ export function OrderSuccessView({
               </View>
             </View>
             <View style={styles.actions}>
+              {onViewDocument ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={successTone.documentLabel}
+                  accessibilityState={{ disabled: isDocumentLoading }}
+                  disabled={isDocumentLoading}
+                  style={[
+                    styles.documentButton,
+                    {
+                      backgroundColor: BRAND.primary,
+                      opacity: isDocumentLoading ? 0.72 : 1,
+                    },
+                  ]}
+                  onPress={onViewDocument}
+                >
+                  <Ionicons
+                    name="document-text-outline"
+                    size={18}
+                    color={Colors.light.white}
+                  />
+                  <Text style={styles.documentButtonText}>
+                    {isDocumentLoading
+                      ? 'Preparing document...'
+                      : successTone.documentLabel}
+                  </Text>
+                </Pressable>
+              ) : null}
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Leave a Google Review"

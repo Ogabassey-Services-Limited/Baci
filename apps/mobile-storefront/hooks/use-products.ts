@@ -35,7 +35,8 @@ export function useProducts(options: UseProductsOptions = {}) {
     getNextPageParam: (lastPage) => lastPage.nextOffset,
     initialPageParam: 0,
     staleTime: 1000 * 60 * 2,
-    refetchOnMount: 'always',
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
     placeholderData: options.search ? undefined : keepPreviousData,
     enabled: !!merchantId && options.enabled !== false,
   });

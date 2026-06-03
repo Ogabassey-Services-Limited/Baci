@@ -16,6 +16,7 @@ import {
     buildKlumpItems,
     getUnmaskedValue,
     normalizeKlumpPhone,
+    toKlumpIntegerAmount,
     toCurrencyAmount,
     type BnplOrder,
 } from '@/lib/klump-utils';
@@ -32,6 +33,7 @@ const KLUMP_TRANSACTION_ID_KEYS = [
     'txRef',
     'id',
 ] as const;
+export const KLUMP_REDIRECT_URL_KEY = 'klump_redirect_url';
 
 interface SearchParamReader {
     get: (name: string) => string | null;
@@ -98,6 +100,24 @@ function readPendingOrderSnapshot(orderId: string | null) {
     }
 }
 
+function hasPendingKlumpRedirect(expectedRedirectUrl: string) {
+    try {
+        const storedRedirectUrl = window.localStorage.getItem(KLUMP_REDIRECT_URL_KEY);
+        if (!storedRedirectUrl) {
+            return false;
+        }
+
+        if (storedRedirectUrl === expectedRedirectUrl) {
+            return true;
+        }
+
+        window.localStorage.removeItem(KLUMP_REDIRECT_URL_KEY);
+        return false;
+    } catch {
+        return false;
+    }
+}
+
 interface BnplLauncherProps {
     merchantSlug?: string;
 }
@@ -143,6 +163,7 @@ export function BnplLauncher({ merchantSlug = 'ogabassey' }: BnplLauncherProps) 
     );
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const paymentLaunchKeyRef = useRef<string | null>(null);
+    const klumpSuccessRedirectRef = useRef(false);
 
     const tryStartPaymentLaunch = (key: string) => {
         if (paymentLaunchKeyRef.current === key) {
@@ -430,6 +451,10 @@ export function BnplLauncher({ merchantSlug = 'ogabassey' }: BnplLauncherProps) 
                     const phone = normalizeKlumpPhone(
                         checkoutCustomerPhone
                     );
+                    const klumpAmount = toKlumpIntegerAmount(order.total);
+                    if (klumpAmount <= 0) {
+                        throw new Error('Invalid order total for Klump checkout.');
+                    }
 
                     if (
                         !tryStartPaymentLaunch(
@@ -438,18 +463,21 @@ export function BnplLauncher({ merchantSlug = 'ogabassey' }: BnplLauncherProps) 
                     ) {
                         return;
                     }
+                    klumpSuccessRedirectRef.current = false;
+
+                    const klumpRedirectUrl = buildCurrentPathRedirectUrl(callbackQuery);
 
                     new KlumpCheckout({
                         publicKey,
                         data: {
-                            amount: Number(order.total) || 0,
+                            amount: klumpAmount,
                             currency: 'NGN',
                             ...(checkoutCustomerEmail ? { email: checkoutCustomerEmail } : {}),
                             ...(first_name ? { first_name } : {}),
                             ...(last_name ? { last_name } : {}),
                             ...(phone ? { phone } : {}),
                             merchant_reference: klumpReference,
-                            redirect_url: buildCurrentPathRedirectUrl(callbackQuery),
+                            redirect_url: klumpRedirectUrl,
                             items: buildKlumpItems(order),
                             meta_data: {
                                 order_id: order.id,
@@ -458,7 +486,11 @@ export function BnplLauncher({ merchantSlug = 'ogabassey' }: BnplLauncherProps) 
                         },
                         onClose: () => {
                             window.setTimeout(() => {
-                                if (document.getElementById('klump_checkout')) {
+                                if (
+                                    klumpSuccessRedirectRef.current ||
+                                    hasPendingKlumpRedirect(klumpRedirectUrl) ||
+                                    document.getElementById('klump_checkout')
+                                ) {
                                     return;
                                 }
 
@@ -469,7 +501,9 @@ export function BnplLauncher({ merchantSlug = 'ogabassey' }: BnplLauncherProps) 
                         },
                         onLoad: () => undefined,
                         onOpen: () => undefined,
-                        onSuccess: () => undefined,
+                        onSuccess: () => {
+                            klumpSuccessRedirectRef.current = true;
+                        },
                         onError: (error) => {
                             clearPaymentLaunch();
                             setStatus('error');

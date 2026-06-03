@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetKlumpSdkLoadForTests } from '@/lib/klump-sdk';
-import { BnplLauncher } from './bnpl-launcher';
+import { BnplLauncher, KLUMP_REDIRECT_URL_KEY } from './bnpl-launcher';
 import { CHECKOUT_PENDING_ORDER_STORAGE_KEY } from './checkout/pending-checkout-order';
 
 const mockPush = vi.fn();
@@ -43,6 +43,7 @@ describe('BnplLauncher', () => {
     vi.clearAllMocks();
     window.history.replaceState({}, '', '/checkout/bnpl');
     window.sessionStorage.clear();
+    window.localStorage.clear();
     document
       .querySelectorAll('script[src="https://js.useklump.com/klump.js"]')
       .forEach((script) => script.remove());
@@ -409,12 +410,12 @@ describe('BnplLauncher', () => {
     expect(config.publicKey).toBe('klp_pk_test_123');
     expect(config.onLoad).toEqual(expect.any(Function));
     expect(config.onSuccess).toEqual(expect.any(Function));
-    expect(config.data.amount).toBe(58088.5);
+    expect(config.data.amount).toBe(58089);
     expect(config.data.email).toBe('customer@example.com');
     expect(config.data.items).toEqual([
       { name: 'Capsule', quantity: 1, unit_price: 51500 },
       { name: 'Delivery', quantity: 1, unit_price: 2726 },
-      { name: 'Taxes and fees', quantity: 1, unit_price: 3862.5 },
+      { name: 'Taxes and fees', quantity: 1, unit_price: 3863 },
     ]);
     expect(config.data.merchant_reference).toBe('BAC-ABCD12345678');
     expect(config.data.phone).toBe('08012345678');
@@ -433,6 +434,106 @@ describe('BnplLauncher', () => {
       expect(
         screen.queryByText('Payment cancelled. Please try again.')
       ).not.toBeInTheDocument();
+    });
+  });
+
+  it('does not mark Klump checkout cancelled when success redirect is pending', async () => {
+    mockSearchParams.mockReturnValue(
+      new URLSearchParams({
+        orderId: 'order-1',
+        gateway: 'klump',
+        merchant_slug: 'test-store',
+        reference: 'BAC-ABCD12345678',
+        trackingToken: 'tok-123',
+      })
+    );
+    vi.stubEnv('NEXT_PUBLIC_KLUMP_PUBLIC_KEY', 'klp_pk_test_123');
+
+    render(<BnplLauncher />);
+
+    await waitFor(() => {
+      expect(mockKlumpConstructor).toHaveBeenCalled();
+    });
+
+    const config = mockKlumpConstructor.mock.calls[0][0] as {
+      data: { redirect_url: string };
+      onClose?: () => void;
+      onSuccess?: () => void;
+    };
+    config.onSuccess?.();
+    window.localStorage.setItem(KLUMP_REDIRECT_URL_KEY, config.data.redirect_url);
+    config.onClose?.();
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText('Payment cancelled. Please try again.')
+      ).not.toBeInTheDocument();
+    });
+  });
+
+  it('does not mark Klump checkout cancelled when the SDK redirect key is pending', async () => {
+    mockSearchParams.mockReturnValue(
+      new URLSearchParams({
+        orderId: 'order-1',
+        gateway: 'klump',
+        merchant_slug: 'test-store',
+        reference: 'BAC-ABCD12345678',
+        trackingToken: 'tok-123',
+      })
+    );
+    vi.stubEnv('NEXT_PUBLIC_KLUMP_PUBLIC_KEY', 'klp_pk_test_123');
+
+    render(<BnplLauncher />);
+
+    await waitFor(() => {
+      expect(mockKlumpConstructor).toHaveBeenCalled();
+    });
+
+    const config = mockKlumpConstructor.mock.calls[0][0] as {
+      data: { redirect_url: string };
+      onClose?: () => void;
+    };
+    window.localStorage.setItem(KLUMP_REDIRECT_URL_KEY, config.data.redirect_url);
+    config.onClose?.();
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText('Payment cancelled. Please try again.')
+      ).not.toBeInTheDocument();
+    });
+  });
+
+  it('marks Klump checkout cancelled when the stored SDK redirect belongs to a previous checkout', async () => {
+    mockSearchParams.mockReturnValue(
+      new URLSearchParams({
+        orderId: 'order-1',
+        gateway: 'klump',
+        merchant_slug: 'test-store',
+        reference: 'BAC-ABCD12345678',
+        trackingToken: 'tok-123',
+      })
+    );
+    vi.stubEnv('NEXT_PUBLIC_KLUMP_PUBLIC_KEY', 'klp_pk_test_123');
+    window.localStorage.setItem(
+      KLUMP_REDIRECT_URL_KEY,
+      'https://ogabassey.com/checkout/bnpl?gateway=klump&orderId=old-order&klump_callback=1'
+    );
+
+    render(<BnplLauncher />);
+
+    await waitFor(() => {
+      expect(mockKlumpConstructor).toHaveBeenCalled();
+    });
+
+    const config = mockKlumpConstructor.mock.calls[0][0] as {
+      onClose?: () => void;
+    };
+    config.onClose?.();
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Payment cancelled. Please try again.')
+      ).toBeInTheDocument();
     });
   });
 

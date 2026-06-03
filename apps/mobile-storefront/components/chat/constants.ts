@@ -57,7 +57,7 @@ export const NUDGE_INITIAL_DELAY = 5000; // 5 seconds
 
 // Drag & snapping constants for use-draggable-fab
 export const GESTURE_MIN_DISTANCE = 8;
-export const GESTURE_MAX_TAP_DISTANCE = 8;
+export const GESTURE_MAX_TAP_DISTANCE = 14;
 export const DISMISS_RADIUS = 80;
 export const DISMISS_BOTTOM_OFFSET = 100;
 export const TOP_CLAMP = 100;

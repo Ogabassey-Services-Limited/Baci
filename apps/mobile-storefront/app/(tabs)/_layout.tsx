@@ -1,18 +1,16 @@
-import { Tabs, router } from 'expo-router';
-import type React from 'react';
+import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+import { router, Tabs } from 'expo-router';
+import { useShallow } from 'zustand/react/shallow';
 import { ErrorFallback } from '@/components/ErrorBoundary';
+import { CustomTabBar } from '@/components/navigation/CustomTabBar';
+import {
+  TabBarIcon,
+  TabBarLabel,
+} from '@/components/navigation/TabBarComponents';
+import { useTheme } from '@/hooks/useTheme';
+import { useAuthStore } from '@/stores/auth-store';
 import { useCartStore } from '@/stores/cart-store';
 import { useSavedStore } from '@/stores/saved-store';
-import { useAuthStore } from '@/stores/auth-store';
-import { useShallow } from 'zustand/react/shallow';
-import { useTheme } from '@/hooks/useTheme';
-import {
-  TabBarLabel,
-  TabBarIcon,
-} from '@/components/navigation/TabBarComponents';
-import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-
-import { CustomTabBar } from '@/components/navigation/CustomTabBar';
 
 export function ErrorBoundary({
   error,
@@ -38,13 +36,14 @@ export default function TabLayout() {
 
   const activeTint = colors.text;
   const inactiveTint = colors.mutedForeground;
+  const shouldPreloadProtectedTabs = isInitialized && Boolean(user);
 
   /**
    * 2026 Best Practice: Layout-level auth gating for tabs.
    * Intercept tab presses BEFORE the tab screen mounts.
    * Uses router.push (not replace) so login is stacked ON TOP → back works.
    */
-   const createAuthListener = (tabPath: string) => ({
+  const createAuthListener = (tabPath: string) => ({
     tabPress: (e: { preventDefault: () => void }) => {
       if (isInitialized && !user) {
         e.preventDefault();
@@ -57,7 +56,13 @@ export default function TabLayout() {
   return (
     <Tabs
       initialRouteName="index"
-      tabBar={(props) => <CustomTabBar {...(props as unknown as BottomTabBarProps)} />}
+      detachInactiveScreens={false}
+      tabBar={(props) => (
+        <CustomTabBar
+          {...(props as unknown as BottomTabBarProps)}
+          preloadProtectedTabs={shouldPreloadProtectedTabs}
+        />
+      )}
       screenOptions={{
         tabBarActiveTintColor: activeTint,
         tabBarInactiveTintColor: inactiveTint,
@@ -72,7 +77,7 @@ export default function TabLayout() {
         headerTintColor: colors.text,
         headerShadowVisible: false,
         lazy: true,
-        freezeOnBlur: true,
+        freezeOnBlur: false,
         tabBarHideOnKeyboard: true,
         tabBarShowLabel: true, // Needed for our custom label component
       }}
@@ -82,6 +87,7 @@ export default function TabLayout() {
         options={{
           title: 'Home',
           headerShown: false,
+          freezeOnBlur: true,
           tabBarIcon: ({ focused }) => (
             <TabBarIcon
               name={focused ? 'home' : 'home-outline'}
@@ -111,7 +117,7 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="cart"
+        name="cart-tab"
         options={{
           title: 'Cart',
           headerShown: false,
@@ -125,6 +131,12 @@ export default function TabLayout() {
           tabBarLabel: ({ focused }) => (
             <TabBarLabel focused={focused} label="Cart" />
           ),
+        }}
+        listeners={{
+          tabPress: (e) => {
+            e.preventDefault();
+            router.push('/cart');
+          },
         }}
       />
       <Tabs.Screen

@@ -29,11 +29,56 @@ export const vtuBillerKeys = {
 
 /** All bill types that can be prefetched */
 const PREFETCH_TYPES = ALL_BILL_TYPES;
+const BILLER_PREFETCH_START_DELAY_MS = 700;
+const BILLER_PREFETCH_STAGGER_MS = 250;
 
 function withBillItemsForType(type: BillType, billers: Biller[]): Biller[] {
   return type === 'electricity'
     ? withKudaElectricityBillItems(billers)
     : billers;
+}
+
+function scheduleDeferredBillerPrefetch(callback: () => void, index: number) {
+  const frameIds: number[] = [];
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  let cancelled = false;
+
+  const run = () => {
+    if (cancelled) {
+      return;
+    }
+
+    timeoutId = setTimeout(
+      callback,
+      BILLER_PREFETCH_START_DELAY_MS + index * BILLER_PREFETCH_STAGGER_MS
+    );
+  };
+
+  if (typeof globalThis.requestAnimationFrame !== 'function') {
+    run();
+    return () => {
+      cancelled = true;
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }
+
+  const firstFrame = globalThis.requestAnimationFrame(() => {
+    const secondFrame = globalThis.requestAnimationFrame(run);
+    frameIds.push(secondFrame);
+  });
+  frameIds.push(firstFrame);
+
+  return () => {
+    cancelled = true;
+    frameIds.forEach((frameId) => {
+      globalThis.cancelAnimationFrame?.(frameId);
+    });
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  };
 }
 
 /** Shared fetch function used by both useQuery and prefetch */
@@ -110,13 +155,21 @@ export function usePrefetchBillers() {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    for (const type of PREFETCH_TYPES) {
-      queryClient.prefetchQuery({
-        queryKey: vtuBillerKeys.byType(type),
-        queryFn: () => fetchBillers(type),
-        staleTime: BILLER_STALE_TIME,
-        gcTime: BILLER_GC_TIME,
+    const cancelPrefetchTasks = PREFETCH_TYPES.map((type, index) =>
+      scheduleDeferredBillerPrefetch(() => {
+        queryClient.prefetchQuery({
+          queryKey: vtuBillerKeys.byType(type),
+          queryFn: () => fetchBillers(type),
+          staleTime: BILLER_STALE_TIME,
+          gcTime: BILLER_GC_TIME,
+        });
+      }, index)
+    );
+
+    return () => {
+      cancelPrefetchTasks.forEach((cancelPrefetchTask) => {
+        cancelPrefetchTask();
       });
-    }
+    };
   }, [queryClient]);
 }

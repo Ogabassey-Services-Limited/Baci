@@ -102,9 +102,17 @@ export default function CartScreen() {
 
   const triggerHaptic = () => {
     if (Platform.OS === 'ios') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {
+        // Haptic feedback is optional and must never block cart actions.
+      });
     }
   };
+
+  useEffect(() => {
+    if (!hasCartLoadError && items.length > 0) {
+      router.prefetch('/checkout');
+    }
+  }, [hasCartLoadError, items.length]);
 
   const handleQuantityChange = (item: CartItem, delta: number) => {
     if (pendingOperations.current.has(item.id)) return;
@@ -144,6 +152,11 @@ export default function CartScreen() {
     } else {
       setIsIdentityModalOpen(true);
     }
+  };
+
+  const handleReturnHome = () => {
+    triggerHaptic();
+    router.replace('/');
   };
 
   const actuallyOpenItemNegotiation = (item: CartItem) => {
@@ -265,6 +278,7 @@ export default function CartScreen() {
           { text: 'Clear', style: 'destructive', onPress: clearCart },
         ]);
       }}
+      handleReturnHome={handleReturnHome}
       handleQuantityChange={handleQuantityChange}
       handleRemoveItem={handleRemoveItem}
       insetsTop={insets.top}
@@ -277,6 +291,7 @@ export default function CartScreen() {
         setShowNegotiateWarning(false);
         setPendingNegotiateItem(null);
       }}
+      onCheckoutPressIn={() => router.prefetch('/checkout')}
       onNegotiateItem={actuallyOpenItemNegotiation}
       onNegotiateTotal={() => {
         triggerHaptic();

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { render, screen } from '@testing-library/react-native';
 import type { ReactNode, RefObject } from 'react';
-import { Modal, Platform, StyleSheet, type TextInput } from 'react-native';
+import { Platform, StyleSheet, type TextInput } from 'react-native';
 import { ChatModal } from './ChatModal';
 import type { ChatMessage } from './types';
 
@@ -114,10 +114,47 @@ describe('ChatModal', () => {
     });
   });
 
-  it('uses a full-screen modal so keyboard avoidance has the full viewport', () => {
-    const { UNSAFE_getByType } = renderChatModal();
+  it('renders a full-screen absolute positioned container for overlay routing', () => {
+    renderChatModal();
 
-    expect(UNSAFE_getByType(Modal).props.presentationStyle).toBe('fullScreen');
+    const modalContainer = screen.getByTestId('chat-modal-container', {
+      includeHiddenElements: true,
+    });
+    expect(StyleSheet.flatten(modalContainer.props.style)).toMatchObject({
+      pointerEvents: 'auto',
+    });
+    expect(modalContainer).toHaveProp('accessibilityElementsHidden', false);
+    expect(modalContainer).toHaveProp('accessibilityViewIsModal', true);
+    expect(modalContainer).toHaveProp('importantForAccessibility', 'auto');
+  });
+
+  it('removes the hidden modal from the accessibility tree', () => {
+    render(
+      <ChatModal
+        visible={false}
+        santaMode={false}
+        messages={[]}
+        input=""
+        isLoading={false}
+        flatListRef={{ current: null }}
+        inputRef={{ current: null } as RefObject<TextInput | null>}
+        onClose={jest.fn()}
+        onSend={jest.fn()}
+        onChangeInput={jest.fn()}
+        onSuggestionPress={jest.fn()}
+        onScrollToBottom={jest.fn()}
+      />
+    );
+
+    const modalContainer = screen.getByTestId('chat-modal-container', {
+      includeHiddenElements: true,
+    });
+    expect(modalContainer).toHaveProp('accessibilityElementsHidden', true);
+    expect(modalContainer).toHaveProp('accessibilityViewIsModal', false);
+    expect(modalContainer).toHaveProp(
+      'importantForAccessibility',
+      'no-hide-descendants'
+    );
   });
 
   it('enables cross-platform keyboard avoiding protection on all platforms', () => {

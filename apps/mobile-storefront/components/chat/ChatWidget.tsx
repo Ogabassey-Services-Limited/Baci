@@ -24,11 +24,12 @@ export function ChatWidget({
   bottomOffset = 90,
 }: ChatWidgetProps) {
   const colorScheme = useColorScheme();
+  const { GestureDetector, useSimultaneousGestures } =
+    getOptionalGestureHandlerRuntime();
   const colors = Colors[colorScheme ?? 'light'];
   const pathname = usePathname();
   const previousPathnameRef = useRef<string | null>(null);
   const insets = useSafeAreaInsets();
-  const { GestureDetector } = getOptionalGestureHandlerRuntime();
   const effectiveBottomOffset = getChatWidgetBottomOffset(
     bottomOffset,
     insets.bottom
@@ -70,7 +71,8 @@ export function ChatWidget({
   }, [isHomeRoute, pathname, resetChatDismissal]);
 
   const {
-    composedGesture,
+    panGesture,
+    tapGesture,
     translateX,
     translateY,
     scale,
@@ -78,6 +80,8 @@ export function ChatWidget({
     isOverDismissZone,
     isOnRight,
   } = useDraggableFab(effectiveBottomOffset, dismissChat, handleOpen);
+
+  const composedGesture = useSimultaneousGestures(panGesture, tapGesture);
 
   const { proactiveMsg, nudgeFadeAnim, dismissNudge } =
     useProactiveNudge(isChatOpen);
@@ -206,40 +210,26 @@ export function ChatWidget({
           </Animated.View>
         )}
 
-        {composedGesture ? (
-          <GestureDetector gesture={composedGesture}>
-            <Animated.View
-              style={animatedIconStyle}
-              accessibilityRole="button"
-              accessibilityLabel="Open chat assistant. Drag to move."
-              accessibilityHint="Double tap to open chat, or drag to reposition"
-              accessibilityActions={[
-                { name: 'activate', label: 'Open chat assistant' },
-              ]}
-              onAccessibilityTap={handleOpen}
-              onAccessibilityAction={(event) => {
-                if (event.nativeEvent.actionName === 'activate') {
-                  handleOpen();
-                }
-              }}
-              accessible={true}
-            >
-              <Animated.View style={fabStyle}>{fabContent}</Animated.View>
-            </Animated.View>
-          </GestureDetector>
-        ) : (
-          <Animated.View style={animatedIconStyle}>
-            <Pressable
-              style={fabStyle}
-              onPress={handleOpen}
-              accessibilityRole="button"
-              accessibilityLabel="Open chat assistant. Drag to move."
-              accessibilityHint="Double tap to open chat"
-            >
-              {fabContent}
-            </Pressable>
+        <GestureDetector gesture={composedGesture}>
+          <Animated.View
+            style={animatedIconStyle}
+            accessibilityRole="button"
+            accessibilityLabel="Open chat assistant. Drag to move."
+            accessibilityHint="Double tap to open chat, or drag to reposition"
+            accessibilityActions={[
+              { name: 'activate', label: 'Open chat assistant' },
+            ]}
+            onAccessibilityTap={handleOpen}
+            onAccessibilityAction={(event) => {
+              if (event.nativeEvent.actionName === 'activate') {
+                handleOpen();
+              }
+            }}
+            accessible={true}
+          >
+            <Animated.View style={fabStyle}>{fabContent}</Animated.View>
           </Animated.View>
-        )}
+        </GestureDetector>
 
         {isDragging && (
           <View style={styles.dragIndicator}>

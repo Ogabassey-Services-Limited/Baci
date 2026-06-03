@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
@@ -163,8 +163,10 @@ const baseShellSnapshotWithoutCategories = {
   basePath: baseShellSnapshot.basePath,
 };
 
+const layoutModule = await import('./layout');
+const StorefrontLayout = layoutModule.default;
 const { generateMetadata, generateViewport, StorefrontLayoutContent } =
-  await import('./layout');
+  layoutModule;
 
 describe('storefront layout', () => {
   beforeEach(() => {
@@ -219,6 +221,33 @@ describe('storefront layout', () => {
     );
     expect(themeProviderRenders).toBe(0);
     expect(screen.getByText('Storefront content')).toBeInTheDocument();
+  });
+
+  it('renders the default storefront shell fallback while tenant shell data is pending', async () => {
+    const deferredSnapshotBase =
+      createDeferred<typeof baseShellSnapshotWithoutCategories>();
+
+    vi.mocked(getStorefrontShellSnapshotBase).mockReturnValue(
+      deferredSnapshotBase.promise
+    );
+    vi.mocked(getStorefrontShellSnapshot).mockResolvedValue(baseShellSnapshot);
+
+    let unmount: () => void = () => undefined;
+
+    await act(() => {
+      ({ unmount } = render(
+        <StorefrontLayout params={Promise.resolve({ slug: 'ogabassey' })}>
+          <main>Storefront content</main>
+        </StorefrontLayout>
+      ));
+    });
+
+    expect(
+      screen.getByRole('status', { name: /loading storefront shell/i })
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Storefront content')).not.toBeInTheDocument();
+
+    unmount();
   });
 
   it('keeps generic storefront layouts from owning OgaBassey home hero preloads', async () => {

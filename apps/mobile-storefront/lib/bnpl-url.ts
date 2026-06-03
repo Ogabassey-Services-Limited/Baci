@@ -9,7 +9,15 @@ const BNPL_PROVIDER_POPUP_ORIGINS = new Set([
   'https://checkout.credpal.com',
   'https://connect.mono.co',
   'https://corporate-loans.obs.sa-brazil-1.myhuaweicloud.com',
+  'https://checkout.useklump.com',
+  'https://checkout-v2.useklump.com',
+  'https://directdebit.useklump.com',
+  'https://api.useklump.com',
+  'https://js.useklump.com',
+  'https://asset.useklump.com',
 ]);
+const MERCHANT_DOMAIN_SLUG_PATTERN =
+  /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
 
 function getFirstRouteParam(value: string | string[] | undefined) {
   if (Array.isArray(value)) {
@@ -152,7 +160,11 @@ export function buildKlumpAuthorizationUrl({
   return parsedUrl.toString();
 }
 
-function isBaciReturnOrigin(targetUrl: URL, baseUrl: string) {
+function isBaciReturnOrigin(
+  targetUrl: URL,
+  baseUrl: string,
+  merchantSlug?: string
+) {
   try {
     const base = new URL(baseUrl);
 
@@ -168,6 +180,26 @@ function isBaciReturnOrigin(targetUrl: URL, baseUrl: string) {
     ) {
       return true;
     }
+
+    // Trust custom domains and subdomains based on merchant slug
+    if (merchantSlug) {
+      const cleanSlug = merchantSlug.trim().toLowerCase();
+      const targetHost = targetUrl.hostname.toLowerCase();
+      if (targetUrl.protocol !== 'https:') {
+        return false;
+      }
+      const isMerchantDomainSlug = MERCHANT_DOMAIN_SLUG_PATTERN.test(cleanSlug);
+
+      if (
+        (isMerchantDomainSlug &&
+          (targetHost === cleanSlug || targetHost === `www.${cleanSlug}`)) ||
+        (cleanSlug === 'ogabassey' &&
+          (targetHost === 'ogabassey.com' ||
+            targetHost === 'www.ogabassey.com'))
+      ) {
+        return true;
+      }
+    }
   } catch {
     return false;
   }
@@ -175,7 +207,11 @@ function isBaciReturnOrigin(targetUrl: URL, baseUrl: string) {
   return false;
 }
 
-export function isAllowedBnplPopupUrl(targetUrl: string, baseUrl: string) {
+export function isAllowedBnplPopupUrl(
+  targetUrl: string,
+  baseUrl: string,
+  merchantSlug?: string
+) {
   try {
     const parsedTargetUrl = new URL(targetUrl);
 
@@ -185,7 +221,7 @@ export function isAllowedBnplPopupUrl(targetUrl: string, baseUrl: string) {
 
     return (
       BNPL_PROVIDER_POPUP_ORIGINS.has(parsedTargetUrl.origin) ||
-      isBaciReturnOrigin(parsedTargetUrl, baseUrl)
+      isBaciReturnOrigin(parsedTargetUrl, baseUrl, merchantSlug)
     );
   } catch {
     return false;

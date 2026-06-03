@@ -14,6 +14,8 @@ const {
   mockSendEmail,
   mockAfter,
   mockGeneratePaymentAccount,
+  mockGenerateReceiptBlob,
+  mockResolveReceiptLogoDataUri,
   mockCreateAdminClient,
 } = vi.hoisted(() => ({
   MockQuizProductionNotApprovedError: class MockQuizProductionNotApprovedError extends Error {
@@ -45,11 +47,20 @@ const {
       },
     })
   ),
+  mockGenerateReceiptBlob: vi.fn(() => new Blob(['branded-invoice'])),
+  mockResolveReceiptLogoDataUri: vi.fn(
+    (): Promise<string | null> => Promise.resolve(null)
+  ),
   mockCreateAdminClient: vi.fn(),
 }));
 
 vi.mock('@/lib/paystack', () => ({
   generatePaymentAccount: mockGeneratePaymentAccount,
+}));
+
+vi.mock('@/lib/receipt-pdf-generator', () => ({
+  generateReceiptBlob: mockGenerateReceiptBlob,
+  resolveReceiptLogoDataUri: mockResolveReceiptLogoDataUri,
 }));
 
 vi.mock('@/lib/supabase/admin', () => ({
@@ -2880,9 +2891,13 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
       },
     });
     mockSendEmail.mockResolvedValue({ success: true });
+    mockGenerateReceiptBlob.mockReturnValue(new Blob(['branded-invoice']));
+    mockResolveReceiptLogoDataUri.mockResolvedValue(
+      'data:image/png;base64,AA=='
+    );
   });
 
-  it('generates a Peppol BIS 3.0 PDF invoice and attaches it to the confirmation email when payment method is invoice', async () => {
+  it('generates a branded PDF invoice and attaches it to the confirmation email when payment method is invoice', async () => {
     const supabase = buildMockSupabase();
     const { backgroundSupabase } = createBackgroundSupabaseMock();
     mockCreateAdminClient.mockReturnValue(backgroundSupabase);
@@ -2966,6 +2981,11 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
             mime_type: 'application/pdf',
             content: expect.any(String), // base64 string
           }),
+          expect.objectContaining({
+            name: expect.stringMatching(/^invoice-ORD-.*\.xml$/),
+            mime_type: 'application/xml',
+            content: expect.any(String),
+          }),
         ]),
       })
     );
@@ -2978,6 +2998,25 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
         lastName: 'Customer',
         phone: '08012345678',
         orderId: 'order-id',
+      })
+    );
+    expect(mockGenerateReceiptBlob).toHaveBeenCalledWith(
+      expect.objectContaining({
+        order_number: 'ORD-123',
+        payment_status: 'unpaid',
+        virtual_account: expect.objectContaining({
+          account_number: '1234567890',
+          bank_name: 'Wema Bank',
+        }),
+      }),
+      expect.objectContaining({
+        business_name: 'Test Merchant',
+        vat_registration_status: 'registered',
+      }),
+      expect.objectContaining({
+        complianceNote: expect.stringContaining('Peppol BIS Billing 3.0'),
+        documentKind: 'invoice',
+        logoDataUri: 'data:image/png;base64,AA==',
       })
     );
 

@@ -712,6 +712,47 @@ describe('POST /api/payments/initialize', () => {
       });
     });
 
+    it('stores the rounded Klump amount used by the checkout widget', async () => {
+      rpcResult = {
+        data: [
+          {
+            merchant_id: MERCHANT_ID,
+            total: 58_088.5,
+            tracking_token: 'track-token-123',
+          },
+        ],
+        error: null,
+      };
+      featureSettingsResult = {
+        data: {
+          klump_enabled: true,
+          klump_min_amount: 10_000,
+          klump_max_amount: 500_000,
+          korapay_enabled: true,
+          paystack_enabled: true,
+          preferred_international_gateway: 'korapay',
+          preferred_local_gateway: 'paystack',
+        },
+        error: null,
+      };
+
+      const res = await POST(
+        makeRequest({ ...validBody, amount: 58_088.5, gateway: 'klump' })
+      );
+
+      expect(res.status).toBe(200);
+      const transactionCall = rpcCalls.find(
+        (call) => call.name === 'create_payment_transaction'
+      );
+      expect(transactionCall?.args).toMatchObject({
+        p_amount: 58_089,
+        p_gateway: 'klump',
+        p_merchant_amount: 58_089,
+        p_platform_fee: 0,
+        p_reference: 'BAC-ABCD12345678',
+      });
+    });
+
     it('keeps Klump launcher URLs slugless on custom domain checkouts', async () => {
       rpcResult = {
         data: [

@@ -14,9 +14,10 @@ import { ErrorFallback } from '@/components/ErrorBoundary';
 import { RootLayoutNav } from '@/components/navigation/RootLayoutNav';
 import { usePushNotifications } from '@/hooks/use-push-notifications';
 import { offlineQueue } from '@/lib/offline-queue';
+import { prefetchStartupStorefrontData } from '@/lib/startup-storefront-prefetch';
 import { DEFAULT_SYNC_STORAGE_KEYS, initializeStorage } from '@/lib/storage';
-import { initAnalytics } from '@/services/analytics';
 import { initAdTracking } from '@/services/ad-tracking';
+import { initAnalytics } from '@/services/analytics';
 import { type CreateOrderRequest, createOrder } from '@/services/orders';
 import { useAuthStore } from '@/stores/auth-store';
 
@@ -80,6 +81,8 @@ export default function RootLayout() {
 
   useEffect(() => {
     const initializeApp = async () => {
+      void prefetchStartupStorefrontData();
+
       await initializeStorage(DEFAULT_SYNC_STORAGE_KEYS);
       setIsStorageReady(true);
 

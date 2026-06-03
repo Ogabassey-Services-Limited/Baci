@@ -119,6 +119,75 @@ describe('useProducts', () => {
     });
   });
 
+  it('does not refetch fresh product pages on remount', async () => {
+    mockFetchProductsPage.mockResolvedValue({
+      products: [
+        createProduct('prod-1', 'First iPhone'),
+        createProduct('prod-2', 'Pixel 8'),
+      ],
+      nextOffset: null,
+      total: 2,
+    });
+    const queryClient = createQueryClient();
+    const wrapper = createWrapper(queryClient);
+
+    const firstRender = renderHook(() => useProducts({ limit: 3 }), {
+      wrapper,
+    });
+
+    await waitFor(() => {
+      expect(firstRender.result.current.products).toHaveLength(2);
+    });
+
+    firstRender.unmount();
+
+    const secondRender = renderHook(() => useProducts({ limit: 3 }), {
+      wrapper,
+    });
+
+    await waitFor(() => {
+      expect(secondRender.result.current.products).toHaveLength(2);
+    });
+
+    expect(mockFetchProductsPage).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not refetch stale cached product pages on remount', async () => {
+    mockFetchProductsPage.mockResolvedValue({
+      products: [
+        createProduct('prod-1', 'First iPhone'),
+        createProduct('prod-2', 'Pixel 8'),
+      ],
+      nextOffset: null,
+      total: 2,
+    });
+    const queryClient = createQueryClient();
+    const wrapper = createWrapper(queryClient);
+
+    const firstRender = renderHook(() => useProducts({ limit: 3 }), {
+      wrapper,
+    });
+
+    await waitFor(() => {
+      expect(firstRender.result.current.products).toHaveLength(2);
+    });
+
+    firstRender.unmount();
+    await queryClient.invalidateQueries({
+      queryKey: ['products', 'merchant-1'],
+    });
+
+    const secondRender = renderHook(() => useProducts({ limit: 3 }), {
+      wrapper,
+    });
+
+    await waitFor(() => {
+      expect(secondRender.result.current.products).toHaveLength(2);
+    });
+
+    expect(mockFetchProductsPage).toHaveBeenCalledTimes(1);
+  });
+
   it('surfaces fetch errors and exposes an empty product list', async () => {
     mockFetchProductsPage.mockRejectedValueOnce(new Error('network down'));
     const queryClient = createQueryClient();

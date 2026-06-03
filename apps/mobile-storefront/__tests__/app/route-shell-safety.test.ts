@@ -50,11 +50,12 @@ const EXPO_ROUTER_SPECIAL_FILES = new Set([
 
 const EXPLICIT_STATIC_ROUTES = new Set([
   '(tabs)/account.tsx',
-  '(tabs)/cart.tsx',
+  '(tabs)/cart-tab.tsx',
   '(tabs)/categories.tsx',
   '(tabs)/saved.tsx',
   '(tabs)/wallet.tsx',
   'auth/callback.tsx',
+  'cart.tsx',
   'auth/login.tsx',
   'checkout.tsx',
   'notifications.tsx',
@@ -70,13 +71,14 @@ const EXPLICIT_STATIC_ROUTES = new Set([
 // Decreasing baseline: every route listed here currently does not render
 // StorefrontScreenShell. As routes migrate, this list must shrink.
 const SHELL_EXEMPT_ROUTES = new Set([
-  '(tabs)/cart.tsx',
+  '(tabs)/cart-tab.tsx',
   '(tabs)/index.tsx',
   '(tabs)/wallet.tsx',
   'addresses/[id].tsx',
   'auth/login.tsx',
   'bank-transfer/index.tsx',
   'bnpl-checkout/index.tsx',
+  'cart.tsx',
   'checkout.tsx',
   'compare/index.tsx',
   'crypto-payment/index.tsx',
@@ -175,7 +177,7 @@ function routeUsesStorefrontScreenShell(routeModule: RouteModule) {
   }
 
   const shellDelegate = SHELL_DELEGATE_MODULES.get(routeModule.normalizedPath);
-  if (!shellDelegate || !shellDelegate.routeJsxPattern.test(routeSource)) {
+  if (!shellDelegate?.routeJsxPattern.test(routeSource)) {
     return false;
   }
 
