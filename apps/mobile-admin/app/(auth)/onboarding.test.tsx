@@ -176,6 +176,17 @@ describe('OnboardingScreen', () => {
     expect(mocks.setNavigationBarStyle).toHaveBeenCalledWith('light');
   });
 
+  it('reapplies light navigation bar buttons when the color scheme changes', () => {
+    const { rerender } = render(<OnboardingScreen />);
+
+    expect(mocks.setNavigationBarStyle).toHaveBeenLastCalledWith('light');
+
+    mocks.colorScheme = 'dark';
+    rerender(<OnboardingScreen />);
+
+    expect(mocks.setNavigationBarStyle).toHaveBeenLastCalledWith('light');
+  });
+
   it('uses compact footer padding when bottom inset is present', () => {
     mocks.insets = { bottom: 34, left: 0, right: 0, top: 0 };
     render(<OnboardingScreen />);

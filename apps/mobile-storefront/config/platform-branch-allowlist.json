@@ -157,6 +157,10 @@
       "justification": "Reviewed Android-only navigation bar button style override for dark home-screen system-bar content."
     },
     {
+      "path": "components/home/useHomeNavigationBarStyle.ts",
+      "justification": "Reviewed Android-only navigation bar button style override extracted from HomeScreenView for API 36 edge-to-edge system bars."
+    },
+    {
       "path": "components/storefront/UtilityPanelCategoryItem.tsx",
       "justification": "Reviewed web box-shadow selection for the active utility icon while preserving native shadow styling."
     },

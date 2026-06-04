@@ -178,6 +178,14 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         backgroundColor: '#f0bf58',
       },
     ],
+    [
+      'expo-navigation-bar',
+      {
+        enforceContrast: false,
+        hidden: false,
+        style: 'dark',
+      },
+    ],
     'expo-secure-store',
     [
       'expo-notifications',
@@ -220,6 +228,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     'expo-sharing',
     '@react-native-vector-icons/ionicons',
     '@react-native-vector-icons/fontawesome',
+    './config/withAndroidSystemBars.js',
     './config/withAndroidGradleFixes.js',
     [
       './plugins/with-ios-release-hardening',

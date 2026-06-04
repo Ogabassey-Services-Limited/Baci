@@ -1,10 +1,6 @@
-import * as NavigationBar from 'expo-navigation-bar';
 import { Stack } from 'expo-router';
-import { NavigationContext } from '@react-navigation/native';
-import { useContext, useEffect, useRef, useState } from 'react';
 import {
   type LayoutChangeEvent,
-  Platform,
   RefreshControl,
   StatusBar,
   StyleSheet,
@@ -30,6 +26,7 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { ELITE_BACKDROP_HEIGHT } from '@/constants/layout';
 import type { Block } from '@/types/blocks';
 import { homeScreenStyles as styles } from './home-screen.styles';
+import { useHomeNavigationBarStyle } from './useHomeNavigationBarStyle';
 
 interface HomeScreenViewProps {
   backgroundColor: string;
@@ -99,55 +96,7 @@ export function HomeScreenView({
   showPermissionModal,
 }: HomeScreenViewProps) {
   const colorScheme = useColorScheme();
-  const colorSchemeRef = useRef(colorScheme);
-  const navigation = useContext(NavigationContext);
-  const [isFocused, setIsFocused] = useState(
-    () => navigation?.isFocused() ?? true
-  );
-
-  useEffect(() => {
-    colorSchemeRef.current = colorScheme;
-  }, [colorScheme]);
-
-  useEffect(() => {
-    if (!navigation) {
-      setIsFocused(true);
-      return;
-    }
-
-    setIsFocused(navigation.isFocused());
-    const unsubscribeFocus = navigation.addListener('focus', () => {
-      setIsFocused(true);
-    });
-    const unsubscribeBlur = navigation.addListener('blur', () => {
-      setIsFocused(false);
-    });
-
-    return () => {
-      unsubscribeFocus();
-      unsubscribeBlur();
-    };
-  }, [navigation]);
-
-  useEffect(() => {
-    if (Platform.OS !== 'android') {
-      return;
-    }
-
-    const restoreRootNavigationBarStyle = () => {
-      void NavigationBar.setStyle(
-        colorSchemeRef.current === 'dark' ? 'light' : 'dark'
-      );
-    };
-
-    if (!isFocused) {
-      restoreRootNavigationBarStyle();
-      return;
-    }
-
-    void NavigationBar.setStyle('light');
-    return restoreRootNavigationBarStyle;
-  }, [isFocused]);
+  useHomeNavigationBarStyle(colorScheme);
 
   const headerOverlayAnimatedStyle = useAnimatedStyle(() => {
     return {

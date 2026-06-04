@@ -12,15 +12,16 @@ import {
   StatusBar,
   StyleSheet,
   Text,
-  type ViewToken,
   useColorScheme,
   useWindowDimensions,
   View,
+  type ViewToken,
 } from 'react-native';
 import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
+import { isRuntimePlatform } from '@/config/runtime-platform';
 import {
   DARK_COLORS,
   RADIUS,
@@ -28,7 +29,6 @@ import {
   SPACING,
   TYPOGRAPHY,
 } from '@/constants/theme';
-import { isRuntimePlatform } from '@/config/runtime-platform';
 import { useOnboarding } from '@/context/OnboardingContext';
 
 // Define types for slides
@@ -89,7 +89,6 @@ export default function OnboardingScreen() {
   const router = useRouter();
   const { completeOnboarding } = useOnboarding();
   const colorScheme = useColorScheme();
-  const colorSchemeRef = useRef(colorScheme);
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const scrollX = useRef(new Animated.Value(0)).current;
@@ -107,21 +106,15 @@ export default function OnboardingScreen() {
   }, [currentIndex]);
 
   useEffect(() => {
-    colorSchemeRef.current = colorScheme;
-  }, [colorScheme]);
-
-  useEffect(() => {
     if (!isRuntimePlatform('android')) {
       return;
     }
 
     void NavigationBar.setStyle('light');
     return () => {
-      void NavigationBar.setStyle(
-        colorSchemeRef.current === 'dark' ? 'light' : 'dark'
-      );
+      void NavigationBar.setStyle(colorScheme === 'dark' ? 'light' : 'dark');
     };
-  }, []);
+  }, [colorScheme]);
 
   // Auto-swipe interval (3.5 seconds)
   const AUTO_SWIPE_INTERVAL = 3500;

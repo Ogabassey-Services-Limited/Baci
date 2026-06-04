@@ -236,6 +236,14 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         backgroundColor: '#000000',
       },
     ],
+    [
+      'expo-navigation-bar',
+      {
+        enforceContrast: false,
+        hidden: false,
+        style: 'dark',
+      },
+    ],
     'expo-font',
     'expo-image',
     'expo-secure-store',
@@ -279,6 +287,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     './config/withObjCLinkerFlag.js',
     './config/withNoSplashImage.js',
     './config/withAdaptiveAndroidManifest.js',
+    './config/withAndroidSystemBars.js',
     './config/withAndroidGradleFixes.js',
     'expo-localization',
     'expo-apple-authentication',

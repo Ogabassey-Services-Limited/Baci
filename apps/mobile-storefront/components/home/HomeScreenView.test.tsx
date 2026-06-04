@@ -1,13 +1,21 @@
-import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  jest,
+} from '@jest/globals';
 import { NavigationContext } from '@react-navigation/native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
-import { Platform } from 'react-native';
 import type { ComponentProps } from 'react';
+import { Platform } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
 import type { Block } from '@/types/blocks';
 import { HomeScreenView } from './HomeScreenView';
 
 const mockSetNavigationBarStyle = jest.fn();
+let mockColorScheme: 'dark' | 'light' = 'light';
 const originalPlatformOS = Platform.OS;
 type NavigationContextValue = NonNullable<
   ComponentProps<typeof NavigationContext.Provider>['value']
@@ -23,6 +31,10 @@ function setPlatformOS(os: typeof Platform.OS) {
 
 jest.mock('expo-navigation-bar', () => ({
   setStyle: (...args: unknown[]) => mockSetNavigationBarStyle(...args),
+}));
+
+jest.mock('@/components/useColorScheme', () => ({
+  useColorScheme: () => mockColorScheme,
 }));
 
 jest.mock('expo-image', () => {
@@ -252,6 +264,7 @@ function createNavigationMock(initialFocused = true) {
 describe('HomeScreenView', () => {
   beforeEach(() => {
     mockSetNavigationBarStyle.mockClear();
+    mockColorScheme = 'light';
     setPlatformOS(originalPlatformOS);
   });
 
@@ -369,6 +382,28 @@ describe('HomeScreenView', () => {
     expect(mockSetNavigationBarStyle).toHaveBeenLastCalledWith('dark');
 
     emit('focus');
+
+    expect(mockSetNavigationBarStyle).toHaveBeenLastCalledWith('light');
+  });
+
+  it('reapplies light Home navigation bar buttons when the color scheme changes', () => {
+    setPlatformOS('android');
+    const { navigation } = createNavigationMock(true);
+
+    const { rerender } = render(
+      <NavigationContext.Provider value={navigation}>
+        <HomeScreenView {...createProps()} />
+      </NavigationContext.Provider>
+    );
+
+    expect(mockSetNavigationBarStyle).toHaveBeenLastCalledWith('light');
+
+    mockColorScheme = 'dark';
+    rerender(
+      <NavigationContext.Provider value={navigation}>
+        <HomeScreenView {...createProps()} />
+      </NavigationContext.Provider>
+    );
 
     expect(mockSetNavigationBarStyle).toHaveBeenLastCalledWith('light');
   });
