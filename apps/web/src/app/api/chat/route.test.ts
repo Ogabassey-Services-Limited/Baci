@@ -90,8 +90,8 @@ vi.mock('@/lib/llm-chat', () => ({
   }),
 }));
 
-vi.mock('@/lib/ollama-chat', () => ({
-  createOllamaChatResponse: vi.fn(() => {
+vi.mock('@/lib/ollama-agentic-chat', () => ({
+  createOllamaAgenticChatResponse: vi.fn(() => {
     if (ollamaError) {
       return Promise.reject(ollamaError);
     }
@@ -155,7 +155,7 @@ vi.mock('@/lib/sanitize', () => ({
 import { generateText } from 'ai';
 import { getAiChatModel } from '@/env';
 import { createLlmChatResponse } from '@/lib/llm-chat';
-import { createOllamaChatResponse } from '@/lib/ollama-chat';
+import { createOllamaAgenticChatResponse } from '@/lib/ollama-agentic-chat';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { POST } from './route';
 
@@ -296,10 +296,19 @@ describe('POST /api/chat', () => {
     // Assert
     expect(response.status).toBe(200);
     expect(await response.text()).toBe('Gemma response');
-    expect(createOllamaChatResponse).toHaveBeenCalledWith(
+    expect(createOllamaAgenticChatResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         baseUrl: 'https://ollama.example.com',
         model: 'gemma4:e4b',
+        tools: expect.arrayContaining([
+          expect.objectContaining({
+            function: expect.objectContaining({ name: 'searchProducts' }),
+          }),
+          expect.objectContaining({
+            function: expect.objectContaining({ name: 'addToCart' }),
+          }),
+        ]),
+        executeToolCall: expect.any(Function),
         messages: expect.arrayContaining([
           expect.objectContaining({
             role: 'system',
@@ -333,7 +342,7 @@ describe('POST /api/chat', () => {
     expect(response.status).toBe(200);
     expect(await response.text()).toBe('AI response');
     expect(createLlmChatResponse).not.toHaveBeenCalled();
-    expect(createOllamaChatResponse).not.toHaveBeenCalled();
+    expect(createOllamaAgenticChatResponse).not.toHaveBeenCalled();
     expect(generateText).toHaveBeenCalledOnce();
   });
 
@@ -356,8 +365,8 @@ describe('POST /api/chat', () => {
     // Assert
     expect(response.status).toBe(200);
     expect(text).toBe('AI response');
-    expect(createOllamaChatResponse).toHaveBeenCalledOnce();
-    expect(createOllamaChatResponse).toHaveBeenCalledWith(
+    expect(createOllamaAgenticChatResponse).toHaveBeenCalledOnce();
+    expect(createOllamaAgenticChatResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         timeoutMs: 60_000,
       })
@@ -396,7 +405,7 @@ describe('POST /api/chat', () => {
     );
     expect(response.headers.get('x-baci-chat-fallback')).toBe('static');
     expect(text).toContain('AI assistant is temporarily busy');
-    expect(createOllamaChatResponse).toHaveBeenCalledOnce();
+    expect(createOllamaAgenticChatResponse).toHaveBeenCalledOnce();
     expect(generateText).toHaveBeenCalledOnce();
     expect(warnSpy).toHaveBeenCalledWith(
       '[Agentic Chat] Ollama request failed; falling back to Gemini:',
@@ -427,7 +436,7 @@ describe('POST /api/chat', () => {
     // Assert
     expect(response.status).toBe(500);
     expect(json.error).toBe('Internal server error');
-    expect(createOllamaChatResponse).not.toHaveBeenCalled();
+    expect(createOllamaAgenticChatResponse).not.toHaveBeenCalled();
     expect(generateText).not.toHaveBeenCalled();
   });
 
@@ -450,7 +459,7 @@ describe('POST /api/chat', () => {
     // Assert
     expect(response.status).toBe(499);
     expect(json.error).toBe('Client Closed Request');
-    expect(createOllamaChatResponse).toHaveBeenCalledOnce();
+    expect(createOllamaAgenticChatResponse).toHaveBeenCalledOnce();
     expect(generateText).not.toHaveBeenCalled();
     expect(warnSpy).not.toHaveBeenCalled();
   });
@@ -475,7 +484,7 @@ describe('POST /api/chat', () => {
     // Assert
     expect(response.status).toBe(200);
     expect(text).toBe('AI response');
-    expect(createOllamaChatResponse).toHaveBeenCalledOnce();
+    expect(createOllamaAgenticChatResponse).toHaveBeenCalledOnce();
     expect(generateText).toHaveBeenCalledOnce();
     expect(warnSpy).toHaveBeenCalledWith(
       '[Agentic Chat] Ollama request failed; falling back to Gemini:',
@@ -504,7 +513,7 @@ describe('POST /api/chat', () => {
     // Assert
     expect(response.status).toBe(200);
     expect(text).toBe('AI response');
-    expect(createOllamaChatResponse).toHaveBeenCalledOnce();
+    expect(createOllamaAgenticChatResponse).toHaveBeenCalledOnce();
     expect(generateText).toHaveBeenCalledOnce();
     expect(warnSpy).toHaveBeenCalledWith(
       '[Agentic Chat] Ollama request failed; falling back to Gemini:',
@@ -531,7 +540,7 @@ describe('POST /api/chat', () => {
     // Assert
     expect(response.status).toBe(200);
     expect(text).toBe('AI response');
-    expect(createOllamaChatResponse).toHaveBeenCalledOnce();
+    expect(createOllamaAgenticChatResponse).toHaveBeenCalledOnce();
     expect(generateText).toHaveBeenCalledOnce();
     expect(warnSpy).toHaveBeenCalledWith(
       '[Agentic Chat] Ollama request failed; falling back to Gemini:',
@@ -553,7 +562,7 @@ describe('POST /api/chat', () => {
 
     // Assert
     expect(response.status).toBe(200);
-    expect(createOllamaChatResponse).toHaveBeenCalledWith(
+    expect(createOllamaAgenticChatResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         basicAuth: 'user:password',
       })
@@ -713,7 +722,7 @@ describe('POST /api/chat', () => {
         ]),
       })
     );
-    expect(createOllamaChatResponse).not.toHaveBeenCalled();
+    expect(createOllamaAgenticChatResponse).not.toHaveBeenCalled();
     expect(generateText).not.toHaveBeenCalled();
   });
 
@@ -731,7 +740,7 @@ describe('POST /api/chat', () => {
     expect(response.status).toBe(200);
     expect(await response.text()).toBe('LLM response');
     expect(createLlmChatResponse).toHaveBeenCalledOnce();
-    expect(createOllamaChatResponse).not.toHaveBeenCalled();
+    expect(createOllamaAgenticChatResponse).not.toHaveBeenCalled();
   });
 
   it('uses Ollama when explicitly configured even if the LLM server is present', async () => {
@@ -749,7 +758,7 @@ describe('POST /api/chat', () => {
     expect(response.status).toBe(200);
     expect(await response.text()).toBe('Gemma response');
     expect(createLlmChatResponse).not.toHaveBeenCalled();
-    expect(createOllamaChatResponse).toHaveBeenCalledOnce();
+    expect(createOllamaAgenticChatResponse).toHaveBeenCalledOnce();
     expect(generateText).not.toHaveBeenCalled();
   });
 
@@ -892,7 +901,7 @@ describe('POST /api/chat', () => {
     expect(response.status).toBe(200);
     expect(await response.text()).toBe('AI response');
     expect(createLlmChatResponse).toHaveBeenCalledOnce();
-    expect(createOllamaChatResponse).not.toHaveBeenCalled();
+    expect(createOllamaAgenticChatResponse).not.toHaveBeenCalled();
     expect(generateText).toHaveBeenCalledOnce();
   });
 });
