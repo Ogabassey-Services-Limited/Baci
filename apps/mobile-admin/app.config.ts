@@ -1,4 +1,5 @@
-import 'dotenv/config';
+import './config/app-config-env';
+
 import type { TikTokBusinessPlugin } from '@baci/tiktok-business';
 import type { ConfigContext, ExpoConfig } from 'expo/config';
 

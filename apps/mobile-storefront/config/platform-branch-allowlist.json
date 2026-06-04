@@ -113,6 +113,10 @@
       "justification": "Reviewed Android-only navigation bar button style restoration for edge-to-edge system bars."
     },
     {
+      "path": "components/navigation/NavigationBarStyleProvider.tsx",
+      "justification": "Reviewed Android-only navigation bar button style coordination for focused edge-to-edge screen overrides."
+    },
+    {
       "path": "components/orders/OrdersListItem.tsx",
       "justification": "Reviewed status-colored CSS box-shadow on web while preserving native order-card shadow styling."
     },
