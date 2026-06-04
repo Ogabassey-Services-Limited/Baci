@@ -69,7 +69,7 @@ describe('PaymentMethodSelector', () => {
     expect(screen.getByText('Generate Invoice')).toBeTruthy();
     expect(screen.getByText('Pay for Me')).toBeTruthy();
 
-    fireEvent.press(screen.getByLabelText('Pay later'));
+    fireEvent.press(screen.getByLabelText('Pay Later'));
     expect(onSelectTab).toHaveBeenCalledWith('pay_later');
   });
 
@@ -85,8 +85,8 @@ describe('PaymentMethodSelector', () => {
       />
     );
 
-    expect(screen.queryByLabelText('Pay in installments')).toBeNull();
-    expect(screen.getByLabelText('Pay later')).toBeTruthy();
+    expect(screen.queryByLabelText('Pay in Installments')).toBeNull();
+    expect(screen.getByLabelText('Pay Later')).toBeTruthy();
   });
 
   it('keeps the installments tab visible when Klump is the only enabled BNPL provider', () => {
@@ -101,7 +101,7 @@ describe('PaymentMethodSelector', () => {
       />
     );
 
-    expect(screen.getByLabelText('Pay in installments')).toBeTruthy();
+    expect(screen.getByLabelText('Pay in Installments')).toBeTruthy();
     expect(screen.getByText('Klump')).toBeTruthy();
   });
 
@@ -627,7 +627,7 @@ describe('PaymentMethodSelector', () => {
 
       expect(textStyles.textAlign).toBe('center');
 
-      const tabElement = screen.getByRole('tab', { name: 'Pay in full' });
+      const tabElement = screen.getByRole('tab', { name: 'Full Payment' });
       const tabStyles = StyleSheet.flatten(tabElement.props.style);
 
       expect(tabStyles.paddingHorizontal).toBeGreaterThanOrEqual(4);

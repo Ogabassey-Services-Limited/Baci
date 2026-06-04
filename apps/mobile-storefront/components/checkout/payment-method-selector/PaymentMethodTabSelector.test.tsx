@@ -34,9 +34,9 @@ describe('PaymentMethodTabSelector', () => {
     expect(installmentsText).toBeTruthy();
     expect(fullPaymentText.props.children).toBe('Pay in\nFull');
     expect(installmentsText.props.children).toBe('Pay in\nInstallments');
-    expect(screen.getByRole('tab', { name: 'Pay in full' })).toBeTruthy();
+    expect(screen.getByRole('tab', { name: 'Pay in Full' })).toBeTruthy();
     expect(
-      screen.getByRole('tab', { name: 'Pay in installments' })
+      screen.getByRole('tab', { name: 'Pay in Installments' })
     ).toBeTruthy();
     expect(fullPaymentText.props.numberOfLines).toBe(2);
     expect(fullPaymentText.props.adjustsFontSizeToFit).toBe(true);
@@ -49,7 +49,7 @@ describe('PaymentMethodTabSelector', () => {
       <PaymentMethodTabSelector {...baseProps} onSelectTab={onSelectTab} />
     );
 
-    fireEvent.press(screen.getByRole('tab', { name: 'Pay later' }));
+    fireEvent.press(screen.getByRole('tab', { name: 'Pay Later' }));
 
     expect(onSelectTab).toHaveBeenCalledWith('pay_later');
   });
