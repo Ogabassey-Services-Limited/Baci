@@ -51,6 +51,7 @@ export function NewOrderQuickAddDialog({
           }
           placeholder="Item Name (e.g. Red Cake, Delivery)"
           placeholderTextColor={colors.textMuted}
+          returnKeyType="next"
           style={[
             styles.dialogInput,
             { backgroundColor: colors.inputBg, color: colors.text },
@@ -67,6 +68,7 @@ export function NewOrderQuickAddDialog({
           }}
           placeholder="Amount (0.00)"
           placeholderTextColor={colors.textMuted}
+          returnKeyType="done"
           style={[
             styles.dialogInput,
             { backgroundColor: colors.inputBg, color: colors.text },

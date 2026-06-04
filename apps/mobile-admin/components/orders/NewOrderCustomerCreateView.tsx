@@ -62,6 +62,7 @@ export function NewOrderCustomerCreateView({
             }
             placeholder="First Name"
             placeholderTextColor={colors.textMuted}
+            returnKeyType="next"
             style={[
               styles.sheetInput,
               { backgroundColor: colors.inputBg, color: colors.text, flex: 1 },
@@ -74,6 +75,7 @@ export function NewOrderCustomerCreateView({
             }
             placeholder="Last Name"
             placeholderTextColor={colors.textMuted}
+            returnKeyType="next"
             style={[
               styles.sheetInput,
               { backgroundColor: colors.inputBg, color: colors.text, flex: 1 },
@@ -121,6 +123,7 @@ export function NewOrderCustomerCreateView({
           }
           placeholder="Email Address (Optional)"
           placeholderTextColor={colors.textMuted}
+          returnKeyType="done"
           style={[
             styles.sheetInput,
             { backgroundColor: colors.inputBg, color: colors.text },
