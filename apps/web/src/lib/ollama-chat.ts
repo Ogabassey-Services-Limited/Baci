@@ -1,8 +1,28 @@
 import { buildOllamaBasicAuthHeader } from '@/lib/ollama-auth';
 
-interface OllamaChatMessage {
-  role: 'system' | 'user' | 'assistant';
-  content: string;
+export interface OllamaToolCall {
+  type?: 'function';
+  function: {
+    index?: number;
+    name: string;
+    arguments?: unknown;
+  };
+}
+
+export interface OllamaChatMessage {
+  role: 'system' | 'user' | 'assistant' | 'tool';
+  content?: string;
+  tool_calls?: OllamaToolCall[];
+  tool_name?: string;
+}
+
+export interface OllamaChatTool {
+  type: 'function';
+  function: {
+    name: string;
+    description: string;
+    parameters: Record<string, unknown>;
+  };
 }
 
 interface CreateOllamaChatResponseOptions {
