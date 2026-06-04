@@ -493,6 +493,47 @@ describe('GET /api/vtu/billers', () => {
     });
   });
 
+  it('returns a representative Monnify product error when Kuda fallback succeeds', async () => {
+    const { GET } = await import('./route');
+    mockGetBillersByCategory.mockResolvedValue([
+      {
+        billerId: 'kuda-biller-1',
+        billerName: 'Ikeja Electric (Kuda)',
+        billerType: 'electricity',
+        categoryId: 'cat-1',
+        categoryName: 'Electricity',
+        billItems: [],
+      },
+    ]);
+    mockMonnifyGetBillers.mockResolvedValue([
+      {
+        billerCode: 'IKEDC',
+        description: 'Ikeja Electricity Distribution Company',
+        name: 'Ikeja Electricity Distribution Company',
+        billerCategoryCode: 'ELECTRICITY',
+      },
+    ]);
+    mockMonnifyGetBillerProducts.mockRejectedValue(
+      new Error('Monnify products unavailable')
+    );
+
+    const response = await GET(
+      makeRequest({ type: 'electricity', includeMonnify: 'true' })
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.billers).toEqual([
+      expect.objectContaining({
+        billerId: 'kuda-biller-1',
+        provider: 'kuda',
+      }),
+    ]);
+    expect(data.monnifyError).toContain(
+      'Failed to fetch Monnify products for IKEDC'
+    );
+  });
+
   it('limits concurrent Monnify product lookups for large categories', async () => {
     const { GET } = await import('./route');
     let activeProductLookups = 0;
@@ -514,7 +555,7 @@ describe('GET /api/vtu/billers', () => {
           maxActiveProductLookups,
           activeProductLookups
         );
-        await new Promise((resolve) => setTimeout(resolve, 1));
+        await Promise.resolve();
         activeProductLookups -= 1;
         return [
           {
@@ -621,6 +662,7 @@ describe('GET /api/vtu/billers', () => {
     expect(response.status).toBe(200);
     expect(data.billers).toHaveLength(1);
     expect(data.billers[0].provider).toBe('kuda');
+    expect(data.monnifyError).toBe('Monnify API down');
   });
 
   it('rejects malformed Kuda biller payloads instead of accepting type assertions', async () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BillPaymentForm } from './BillPaymentForm';
 
@@ -17,12 +17,27 @@ vi.mock('@/lib/utils', () => ({
 const mockFetch = vi.fn();
 global.fetch = mockFetch;
 
+interface MockFetchResponse {
+  json: () => Promise<unknown>;
+  ok: boolean;
+  statusText?: string;
+}
+
+function createDeferred<T>() {
+  let resolve: (value: T) => void = () => undefined;
+  const promise = new Promise<T>((promiseResolve) => {
+    resolve = promiseResolve;
+  });
+
+  return { promise, resolve };
+}
+
 describe('BillPaymentForm', () => {
   const mockOnSubmit = vi.fn();
 
   beforeEach(() => {
     mockOnSubmit.mockClear();
-    mockFetch.mockClear();
+    mockFetch.mockReset();
   });
 
   it('shows loading state initially ("Loading providers…")', async () => {
@@ -427,6 +442,126 @@ describe('BillPaymentForm', () => {
       expect(screen.getByText('John Doe')).toBeInTheDocument();
       expect(screen.getByText('Customer verified')).toBeInTheDocument();
     });
+  });
+
+  it('shows verification errors from non-OK responses without unlocking payment', async () => {
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            billers: [
+              {
+                billerId: 'DSTV',
+                billerName: 'DStv',
+                billerType: 'cable',
+                categoryId: '1',
+                categoryName: 'CableTv',
+              },
+            ],
+          }),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        statusText: 'Bad Request',
+        json: () =>
+          Promise.resolve({
+            error: 'Invalid smart card number',
+          }),
+      });
+
+    render(
+      <BillPaymentForm
+        type="tv"
+        loading={false}
+        onSubmit={mockOnSubmit}
+      />
+    );
+
+    fireEvent.click(await screen.findByText('DStv'));
+    fireEvent.change(screen.getByPlaceholderText('Enter smart card number'), {
+      target: { value: '1234567890' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Verify/i }));
+
+    expect(
+      await screen.findByText('Invalid smart card number')
+    ).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText('0.00')).not.toBeInTheDocument();
+    expect(mockOnSubmit).not.toHaveBeenCalled();
+  });
+
+  it('ignores stale verification responses after the customer identifier changes', async () => {
+    const firstVerification = createDeferred<MockFetchResponse>();
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            billers: [
+              {
+                billerId: 'DSTV',
+                billerName: 'DStv',
+                billerType: 'cable',
+                categoryId: '1',
+                categoryName: 'CableTv',
+              },
+            ],
+          }),
+      })
+      .mockReturnValueOnce(firstVerification.promise)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            verified: true,
+            customerName: 'Fresh Customer',
+          }),
+      });
+
+    render(
+      <BillPaymentForm
+        type="tv"
+        loading={false}
+        onSubmit={mockOnSubmit}
+      />
+    );
+
+    fireEvent.click(await screen.findByText('DStv'));
+    const customerIdInput = screen.getByPlaceholderText(
+      'Enter smart card number'
+    );
+    fireEvent.change(customerIdInput, {
+      target: { value: '1111111111' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Verify/i }));
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+
+    fireEvent.change(customerIdInput, {
+      target: { value: '2222222222' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Verify/i }));
+
+    expect(await screen.findByText('Fresh Customer')).toBeInTheDocument();
+
+    await act(async () => {
+      firstVerification.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            verified: true,
+            customerName: 'Stale Customer',
+          }),
+      });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(screen.getByText('Fresh Customer')).toBeInTheDocument();
+    expect(screen.queryByText('Stale Customer')).not.toBeInTheDocument();
   });
 
   it('submit button appears after successful verification', async () => {

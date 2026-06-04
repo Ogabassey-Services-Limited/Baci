@@ -652,6 +652,94 @@ describe('preparePendingVtuTransaction', () => {
         ).rejects.toThrow('Required Kuda fields are missing');
       });
 
+      it('prices explicit Kuda bill payments with the Kuda bill item key', async () => {
+        const { insert, supabase } = createMockSupabase();
+        await preparePendingVtuTransaction({
+          supabase,
+          user: {
+            id: 'user-1',
+            email: 'customer@example.com',
+          } as unknown as Parameters<
+            typeof preparePendingVtuTransaction
+          >[0]['user'],
+          input: {
+            merchantSlug: 'ogabassey',
+            type: 'electricity',
+            amount: 2000,
+            provider: 'kuda',
+            billItemIdentifier: 'kuda-bedc-prepaid',
+            billerCode: 'BEDC',
+            productCode: 'BEDC-PREPAID',
+            customerIdentifier: '12345678',
+            source: 'checkout',
+          } as unknown as Parameters<
+            typeof preparePendingVtuTransaction
+          >[0]['input'],
+          source: 'checkout',
+        });
+
+        expect(insert).toHaveBeenCalledWith(
+          expect.objectContaining({
+            metadata: expect.objectContaining({
+              provider: 'kuda',
+            }),
+          })
+        );
+        expect(mockCalculateCommerce).toHaveBeenLastCalledWith(
+          'calculate_vtu',
+          expect.objectContaining({
+            category: 'ELECTRICITY',
+            provider: 'kuda-bedc-prepaid',
+            providerSource: 'kuda',
+          })
+        );
+      });
+
+      it('prices explicit Monnify bill payments with the Monnify biller key', async () => {
+        const { insert, supabase } = createMockSupabase();
+        await preparePendingVtuTransaction({
+          supabase,
+          user: {
+            id: 'user-1',
+            email: 'customer@example.com',
+          } as unknown as Parameters<
+            typeof preparePendingVtuTransaction
+          >[0]['user'],
+          input: {
+            merchantSlug: 'ogabassey',
+            type: 'electricity',
+            amount: 2000,
+            provider: 'monnify',
+            billItemIdentifier: 'kuda-bedc-prepaid',
+            billerCode: 'BEDC',
+            productCode: 'BEDC-PREPAID',
+            customerIdentifier: '12345678',
+            source: 'checkout',
+          } as unknown as Parameters<
+            typeof preparePendingVtuTransaction
+          >[0]['input'],
+          source: 'checkout',
+        });
+
+        expect(insert).toHaveBeenCalledWith(
+          expect.objectContaining({
+            metadata: expect.objectContaining({
+              billerCode: 'BEDC',
+              productCode: 'BEDC-PREPAID',
+              provider: 'monnify',
+            }),
+          })
+        );
+        expect(mockCalculateCommerce).toHaveBeenLastCalledWith(
+          'calculate_vtu',
+          expect.objectContaining({
+            category: 'ELECTRICITY',
+            provider: 'BEDC',
+            providerSource: 'monnify',
+          })
+        );
+      });
+
       it('routes to Kuda when provider is omitted and only Kuda fields are present (even if routing prefers Monnify)', async () => {
         const { insert, supabase } = createMockSupabase();
         await preparePendingVtuTransaction({
@@ -758,7 +846,7 @@ describe('preparePendingVtuTransaction', () => {
           'calculate_vtu',
           expect.objectContaining({
             category: 'CABLE',
-            provider: 'DSTV',
+            provider: 'dstv-compact',
             providerSource: 'kuda',
           })
         );
