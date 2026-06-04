@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { View } from 'react-native';
+import { useWindowDimensions, View } from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { palette } from '@/constants/Colors';
 import { formatPrice } from '@/stores/cart-store';
@@ -55,6 +55,10 @@ export function PaymentMethodSelector({
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const isDark = (colorScheme ?? 'light') === 'dark';
+  const { height, width } = useWindowDimensions();
+  const hasMeasuredWindow = width > 0 && height > 0;
+  const isCompactPaymentLayout =
+    hasMeasuredWindow && (width < 390 || (width > height && height < 520));
   const warningBackground = isDark
     ? 'rgba(245, 158, 11, 0.12)'
     : palette.amber[100];
@@ -207,6 +211,7 @@ export function PaymentMethodSelector({
 
       <PaymentMethodTabSelector
         colors={colors}
+        compact={isCompactPaymentLayout}
         hasBNPLMethods={hasBNPLMethods}
         hasPayLaterMethods={hasPayLaterMethods}
         onSelectTab={onSelectTab}

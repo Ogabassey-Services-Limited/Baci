@@ -1,6 +1,5 @@
 import { Pressable, Text, View } from 'react-native';
-import Colors from '@/constants/Colors';
-import { BRAND } from '@/constants/Colors';
+import Colors, { BRAND } from '@/constants/Colors';
 import { paymentMethodSelectorStyles as styles } from './styles';
 import type { PaymentTab } from './types';
 
@@ -8,14 +7,36 @@ type ThemeColors = (typeof Colors)['light'];
 
 interface PaymentMethodTabSelectorProps {
   colors: ThemeColors;
+  compact?: boolean;
   hasBNPLMethods: boolean;
   hasPayLaterMethods: boolean;
   onSelectTab: (tab: PaymentTab) => void;
   selectedTab: PaymentTab;
 }
 
+const COMPACT_TAB_LABELS: Record<PaymentTab, string> = {
+  full: 'Pay in\nFull',
+  installments: 'Pay in\nInstallments',
+  pay_later: 'Pay Later',
+};
+
+const TAB_LABELS: Record<PaymentTab, string> = {
+  full: 'Full Payment',
+  installments: 'Pay in Installments',
+  pay_later: 'Pay Later',
+};
+
+function getTabLabel(tab: PaymentTab, compact: boolean): string {
+  return compact ? COMPACT_TAB_LABELS[tab] : TAB_LABELS[tab];
+}
+
+function getAccessibleTabLabel(tab: PaymentTab, compact: boolean): string {
+  return getTabLabel(tab, compact).replace(/\s+/g, ' ');
+}
+
 export function PaymentMethodTabSelector({
   colors,
+  compact = false,
   hasBNPLMethods,
   hasPayLaterMethods,
   onSelectTab,
@@ -34,6 +55,7 @@ export function PaymentMethodTabSelector({
       <Pressable
         style={[
           styles.tab,
+          compact && styles.compactTab,
           selectedTab === 'full' && [
             styles.activeTab,
             { backgroundColor: BRAND.primary },
@@ -42,15 +64,19 @@ export function PaymentMethodTabSelector({
         onPress={() => onSelectTab('full')}
         accessibilityRole="tab"
         accessibilityState={{ selected: selectedTab === 'full' }}
-        accessibilityLabel="Full Payment"
+        accessibilityLabel={getAccessibleTabLabel('full', compact)}
       >
         <Text
+          adjustsFontSizeToFit
+          minimumFontScale={0.82}
+          numberOfLines={compact ? 2 : 1}
           style={[
             styles.tabText,
+            compact && styles.compactTabText,
             { color: selectedTab === 'full' ? colors.white : colors.text },
           ]}
         >
-          Full Payment
+          {getTabLabel('full', compact)}
         </Text>
       </Pressable>
 
@@ -58,6 +84,7 @@ export function PaymentMethodTabSelector({
         <Pressable
           style={[
             styles.tab,
+            compact && styles.compactTab,
             selectedTab === 'installments' && [
               styles.activeTab,
               { backgroundColor: BRAND.primary },
@@ -66,18 +93,22 @@ export function PaymentMethodTabSelector({
           onPress={() => onSelectTab('installments')}
           accessibilityRole="tab"
           accessibilityState={{ selected: selectedTab === 'installments' }}
-          accessibilityLabel="Pay in installments"
+          accessibilityLabel={getAccessibleTabLabel('installments', compact)}
         >
           <Text
+            adjustsFontSizeToFit
+            minimumFontScale={0.82}
+            numberOfLines={compact ? 2 : 1}
             style={[
               styles.tabText,
+              compact && styles.compactTabText,
               {
                 color:
                   selectedTab === 'installments' ? colors.white : colors.text,
               },
             ]}
           >
-            Pay in Installments
+            {getTabLabel('installments', compact)}
           </Text>
         </Pressable>
       ) : null}
@@ -86,6 +117,7 @@ export function PaymentMethodTabSelector({
         <Pressable
           style={[
             styles.tab,
+            compact && styles.compactTab,
             selectedTab === 'pay_later' && [
               styles.activeTab,
               { backgroundColor: BRAND.primary },
@@ -94,17 +126,21 @@ export function PaymentMethodTabSelector({
           onPress={() => onSelectTab('pay_later')}
           accessibilityRole="tab"
           accessibilityState={{ selected: selectedTab === 'pay_later' }}
-          accessibilityLabel="Pay later"
+          accessibilityLabel={getAccessibleTabLabel('pay_later', compact)}
         >
           <Text
+            adjustsFontSizeToFit
+            minimumFontScale={0.82}
+            numberOfLines={compact ? 2 : 1}
             style={[
               styles.tabText,
+              compact && styles.compactTabText,
               {
                 color: selectedTab === 'pay_later' ? colors.white : colors.text,
               },
             ]}
           >
-            Pay Later
+            {getTabLabel('pay_later', compact)}
           </Text>
         </Pressable>
       ) : null}
