@@ -53,12 +53,15 @@ function findAncestorWithWidth(instance: ReactTestInstance, width: number) {
 }
 
 describe('HomeServiceCards', () => {
+  let animationStop: jest.Mock;
+
   beforeEach(() => {
     jest.clearAllMocks();
+    animationStop = jest.fn();
     jest.spyOn(Animated, 'loop').mockReturnValue({
       reset: jest.fn(),
       start: jest.fn(),
-      stop: jest.fn(),
+      stop: animationStop,
     } as unknown as ReturnType<typeof Animated.loop>);
   });
 
@@ -82,6 +85,14 @@ describe('HomeServiceCards', () => {
     render(<HomeServiceCards />);
 
     expect(Animated.loop).toHaveBeenCalledTimes(1);
+  });
+
+  it('stops the moving outline animation on unmount', () => {
+    const { unmount } = render(<HomeServiceCards />);
+
+    unmount();
+
+    expect(animationStop).toHaveBeenCalledTimes(1);
   });
 
   it('keeps the full-size shortcut dimensions from the mobile visual baseline', () => {
