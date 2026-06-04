@@ -1,13 +1,22 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as NavigationBar from 'expo-navigation-bar';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View, StatusBar } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import {
+  Alert,
+  Pressable,
+  StatusBar,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { RegisterAccountStep } from '@/components/auth/register/RegisterAccountStep';
 import { RegisterBusinessStep } from '@/components/auth/register/RegisterBusinessStep';
 import { getStyles } from '@/components/auth/register/register.styles';
 import { AppFormScreen } from '@/components/ui/AppFormScreen';
 import type { BusinessTypeId } from '@/constants/business-types';
+import { isRuntimePlatform } from '@/config/runtime-platform';
 import { useRegistration } from '@/hooks/useRegistration';
 import { useTheme } from '@/hooks/useTheme';
 import type { NetworkError } from '@/lib/api-client';
@@ -18,10 +27,11 @@ import {
 import { getEmailError } from '@/lib/sanitize';
 
 export default function RegisterScreen() {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const styles = getStyles(colors);
   const router = useRouter();
   const { register, isLoading } = useRegistration();
+  const isDarkRef = useRef(isDark);
   const [step, setStep] = useState(1);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -52,6 +62,21 @@ export default function RegisterScreen() {
     },
   });
   const [confirmError, setConfirmError] = useState<string | null>(null);
+
+  useEffect(() => {
+    isDarkRef.current = isDark;
+  }, [isDark]);
+
+  useEffect(() => {
+    if (!isRuntimePlatform('android')) {
+      return;
+    }
+
+    void NavigationBar.setStyle('light');
+    return () => {
+      void NavigationBar.setStyle(isDarkRef.current ? 'light' : 'dark');
+    };
+  }, []);
 
   const updateForm = <K extends keyof typeof formData>(
     key: K,

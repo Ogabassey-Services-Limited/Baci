@@ -199,7 +199,7 @@ vi.mock('react-native-safe-area-context', () => ({
 }));
 
 vi.mock('react-native', () => ({
-    StatusBar: () => null,    
+    StatusBar: () => null,
   Alert: { alert: mocks.alert },
   Linking: mocks.linking,
   Pressable: ({

@@ -6,7 +6,7 @@ import { LIGHT_COLORS } from '@/constants/theme';
 import { AdminFloatingTabBarItem } from './AdminFloatingTabBarItem';
 
 vi.mock('react-native', () => ({
-    StatusBar: () => null,    
+    StatusBar: () => null,
   Pressable: ({
     accessibilityLabel,
     accessibilityRole,

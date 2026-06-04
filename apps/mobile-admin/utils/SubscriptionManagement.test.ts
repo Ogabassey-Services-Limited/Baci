@@ -9,7 +9,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('react-native', () => ({
-    StatusBar: () => null,    
+    StatusBar: () => null,
   Alert: { alert: mocks.alert },
   Linking: {
     openSettings: mocks.openSettings,

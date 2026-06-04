@@ -119,7 +119,7 @@ vi.mock('@tanstack/react-query', async () => {
 vi.mock('react-native', async () => {
   const React = await import('react');
   return {
-    StatusBar: () => null,    
+    StatusBar: () => null,
     ActivityIndicator: () => null,
     Alert: mocks.Alert,
     FlatList: ({

@@ -30,7 +30,7 @@ vi.mock('@/utils/format', () => ({
 }));
 
 vi.mock('react-native', () => ({
-    StatusBar: () => null,    
+    StatusBar: () => null,
   StyleSheet: {
     create: (styles: Record<string, unknown>) => styles,
   },

@@ -10,7 +10,7 @@ const { mockAlert, mockUpdateMerchantSettings } = vi.hoisted(() => ({
 }));
 
 vi.mock('react-native', () => ({
-    StatusBar: () => null,    
+    StatusBar: () => null,
   Alert: {
     alert: mockAlert,
   },

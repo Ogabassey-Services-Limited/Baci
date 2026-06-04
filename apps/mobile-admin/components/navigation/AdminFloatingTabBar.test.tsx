@@ -71,7 +71,7 @@ vi.mock('react-native-reanimated', () => {
 
 vi.mock('react-native', () => {
   return {
-    StatusBar: () => null,    
+    StatusBar: () => null,
     Platform: {
       OS: 'web',
     },

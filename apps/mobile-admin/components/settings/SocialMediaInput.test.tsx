@@ -7,7 +7,7 @@ vi.mock('react-native', async () => {
   const React = await import('react');
 
   return {
-    StatusBar: () => null,    
+    StatusBar: () => null,
     StyleSheet: {
       create: (styles: Record<string, unknown>) => styles,
     },

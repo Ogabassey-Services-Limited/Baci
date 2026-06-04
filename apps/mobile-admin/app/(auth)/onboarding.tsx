@@ -2,16 +2,21 @@ import Ionicons, {
   type IoniconsIconName,
 } from '@react-native-vector-icons/ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as NavigationBar from 'expo-navigation-bar';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Animated,
+import {
+  Animated,
   FlatList,
   Pressable,
+  StatusBar,
   StyleSheet,
   Text,
+  type ViewToken,
+  useColorScheme,
   useWindowDimensions,
   View,
-  type ViewToken, StatusBar } from 'react-native';
+} from 'react-native';
 import {
   SafeAreaView,
   useSafeAreaInsets,
@@ -23,6 +28,7 @@ import {
   SPACING,
   TYPOGRAPHY,
 } from '@/constants/theme';
+import { isRuntimePlatform } from '@/config/runtime-platform';
 import { useOnboarding } from '@/context/OnboardingContext';
 
 // Define types for slides
@@ -82,6 +88,8 @@ const SLIDES: OnboardingSlide[] = [
 export default function OnboardingScreen() {
   const router = useRouter();
   const { completeOnboarding } = useOnboarding();
+  const colorScheme = useColorScheme();
+  const colorSchemeRef = useRef(colorScheme);
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const scrollX = useRef(new Animated.Value(0)).current;
@@ -97,6 +105,23 @@ export default function OnboardingScreen() {
   useEffect(() => {
     currentIndexRef.current = currentIndex;
   }, [currentIndex]);
+
+  useEffect(() => {
+    colorSchemeRef.current = colorScheme;
+  }, [colorScheme]);
+
+  useEffect(() => {
+    if (!isRuntimePlatform('android')) {
+      return;
+    }
+
+    void NavigationBar.setStyle('light');
+    return () => {
+      void NavigationBar.setStyle(
+        colorSchemeRef.current === 'dark' ? 'light' : 'dark'
+      );
+    };
+  }, []);
 
   // Auto-swipe interval (3.5 seconds)
   const AUTO_SWIPE_INTERVAL = 3500;

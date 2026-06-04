@@ -35,7 +35,7 @@ vi.mock('@/components/ui/AppPageSheet', () => ({
 }));
 
 vi.mock('react-native', () => ({
-    StatusBar: () => null,    
+    StatusBar: () => null,
   Pressable: ({
     accessibilityLabel,
     accessibilityRole,

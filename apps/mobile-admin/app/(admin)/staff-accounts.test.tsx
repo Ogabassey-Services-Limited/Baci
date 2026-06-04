@@ -131,7 +131,7 @@ vi.mock('@/components/ui/AppSheetModal', () => ({
 }));
 
 vi.mock('react-native', () => ({
-    StatusBar: () => null,    
+    StatusBar: () => null,
   ActivityIndicator: () => <span>loading</span>,
   Alert: {
     alert: (...args: unknown[]) => mocks.alert(...args),

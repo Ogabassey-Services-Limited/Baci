@@ -21,7 +21,7 @@ vi.mock('@react-native-vector-icons/ionicons', async () => {
 vi.mock('react-native', async () => {
   const React = await import('react');
   return {
-    StatusBar: () => null,    
+    StatusBar: () => null,
     Pressable: ({
       accessibilityLabel,
       accessibilityRole,

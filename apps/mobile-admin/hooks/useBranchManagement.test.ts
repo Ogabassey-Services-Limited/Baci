@@ -12,7 +12,7 @@ const branchScopeMocks = vi.hoisted(() => ({
 }));
 
 vi.mock('react-native', () => ({
-    StatusBar: () => null,    
+    StatusBar: () => null,
   Alert: {
     alert: alertMock,
   },

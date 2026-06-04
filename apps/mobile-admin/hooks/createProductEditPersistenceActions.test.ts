@@ -4,7 +4,7 @@ import { createInitialProductEditFormData } from '@/components/product/product-e
 import { createProductEditPersistenceActions } from './createProductEditPersistenceActions';
 
 vi.mock('react-native', () => ({
-    StatusBar: () => null,    
+    StatusBar: () => null,
   Alert: { alert: vi.fn() },
 }));
 

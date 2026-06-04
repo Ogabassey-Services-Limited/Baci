@@ -34,7 +34,7 @@ vi.mock('expo-image-picker', () => ({
 }));
 
 vi.mock('react-native', () => ({
-    StatusBar: () => null,    
+    StatusBar: () => null,
   Alert: {
     alert: mocks.alert,
   },

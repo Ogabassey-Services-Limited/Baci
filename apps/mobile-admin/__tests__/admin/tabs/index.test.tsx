@@ -11,7 +11,7 @@ vi.mock('react-native', async () => {
   const React = await import('react');
 
   return {
-    StatusBar: () => null,    
+    StatusBar: () => null,
     Alert: { alert: vi.fn() },
     Pressable: ({ children }: { children?: React.ReactNode }) =>
       React.createElement('button', null, children),

@@ -48,7 +48,7 @@ vi.mock('@/hooks/useTheme', () => ({
 
 vi.mock('react-native', () => {
   return {
-    StatusBar: () => null,    
+    StatusBar: () => null,
     Modal: ({
       children,
       visible,

@@ -142,7 +142,7 @@ index 0cff3bc458d8f7a4951f7f72cf3e317e6efd576f..0568598e9e8405662374ce50dc1445b2
  internal fun Window.enableEdgeToEdge() {
    WindowCompat.setDecorFitsSystemWindows(this, false)
  
-@@ -113,25 +89,16 @@ internal fun Window.enableEdgeToEdge() {
+@@ -113,25 +89,20 @@ internal fun Window.enableEdgeToEdge() {
      isNavigationBarContrastEnforced = true
    }
  
@@ -161,14 +161,18 @@ index 0cff3bc458d8f7a4951f7f72cf3e317e6efd576f..0568598e9e8405662374ce50dc1445b2
    }
  
 -  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-+  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
++  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
      attributes.layoutInDisplayCutoutMode =
 -        when {
 -          Build.VERSION.SDK_INT >= Build.VERSION_CODES.R ->
 -              WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
 -          else -> WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
 -        }
-+        WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
++        when {
++          Build.VERSION.SDK_INT >= Build.VERSION_CODES.R ->
++              WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
++          else -> WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
++        }
    }
  }
  
