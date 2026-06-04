@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { authenticateApiRequest } from '@/lib/api-auth';
 import { buildPdfContentDisposition } from '@/lib/download-filename';
+import { mergeReceiptItemsWithInvoiceMetadata } from '@/lib/invoice-receipt-item-metadata';
 import { logger } from '@/lib/logger';
 import { generatePeppolInvoiceXml } from '@/lib/peppol-ubl-invoice';
 import { checkRateLimit } from '@/lib/rate-limiter';
@@ -100,20 +101,10 @@ export async function GET(
 
     const receiptOrder = {
       ...data.receiptOrder,
-      items: data.receiptOrder.items.map((item, index) => {
-        const invoiceItem = data.invoiceData.items[index];
-
-        return {
-          ...item,
-          description: invoiceItem?.description,
-          line_extension_amount: invoiceItem?.line_extension_amount,
-          sellers_item_id: invoiceItem?.sellers_item_id,
-          unit_code: invoiceItem?.unit_code,
-          vat_amount: invoiceItem?.vat_amount,
-          vat_category_code: invoiceItem?.vat_category_code,
-          vat_rate: invoiceItem?.vat_rate,
-        };
-      }),
+      items: mergeReceiptItemsWithInvoiceMetadata(
+        data.receiptOrder.items,
+        data.invoiceData.items
+      ),
     };
     const blob = generateReceiptBlob(receiptOrder, data.receiptMerchant, {
       buyerReference: data.invoiceData.buyer_reference,

@@ -92,10 +92,20 @@ export function buildReceiptOrder(input: BuildReceiptOrderInput): ReceiptOrder {
           input.order.fulfillment_details
         ) as ReceiptOrder['fulfillment_details'])
       : null,
-    items: input.orderItems.map((item) => ({
+    items: input.orderItems.map((item, index) => ({
+      line_id: index + 1,
+      product_id: item.product_id || null,
       product_name: item.product_name || item.name,
+      variant_id: item.variant_id || null,
+      variant_name: item.variant_name,
       quantity: item.quantity,
       price: item.price,
+      line_extension_amount: item.line_extension_amount,
+      unit_code: item.unit_code || null,
+      vat_category_code: item.vat_category_code || null,
+      vat_rate: item.vat_rate ?? null,
+      vat_amount: item.vat_amount ?? null,
+      sellers_item_id: item.sellers_item_id || null,
       imei: item.imei,
       serial_number: item.serial_number,
       serialNumber: item.serialNumber,

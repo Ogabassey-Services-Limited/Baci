@@ -72,8 +72,11 @@ export interface ReceiptOrder {
   } | null;
   fulfillment_details?: ReceiptFulfillmentDetails | null;
   items: Array<{
+    line_id?: number;
+    product_id?: string | null;
     product_name: string;
     name?: string;
+    variant_id?: string | null;
     variant_name?: string;
     description?: string | null;
     quantity: number;

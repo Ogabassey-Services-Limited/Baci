@@ -41,6 +41,7 @@ import type {
   InvoiceLineItem,
   TaxSubtotal,
 } from '@/lib/invoice-generator';
+import { mergeReceiptItemsWithInvoiceMetadata } from '@/lib/invoice-receipt-item-metadata';
 import { logger } from '@/lib/logger';
 import { ORDER_WITH_ITEMS_QUERY } from '@/lib/order-queries';
 import { generatePaymentAccount } from '@/lib/paystack';
@@ -1981,7 +1982,10 @@ export async function POST(request: NextRequest) {
                     const variantName = getOrderItemVariantLabel(item);
 
                     return {
+                      line_id: index + 1,
+                      product_id: item.product_id || null,
                       product_name: getOrderItemBaseName(item),
+                      variant_id: item.variant_id || null,
                       variant_name: variantName || undefined,
                       description: appendReceiptFulfillmentDescription({
                         description: undefined,
@@ -2043,20 +2047,10 @@ export async function POST(request: NextRequest) {
 
                 const invoiceReceiptOrder: ReceiptOrder = {
                   ...receiptOrder,
-                  items: receiptOrder.items.map((item, index) => {
-                    const invoiceItem = peppolInvoiceData.items[index];
-
-                    return {
-                      ...item,
-                      description: invoiceItem?.description ?? item.description,
-                      line_extension_amount: invoiceItem?.line_extension_amount,
-                      sellers_item_id: invoiceItem?.sellers_item_id,
-                      unit_code: invoiceItem?.unit_code,
-                      vat_amount: invoiceItem?.vat_amount,
-                      vat_category_code: invoiceItem?.vat_category_code,
-                      vat_rate: invoiceItem?.vat_rate,
-                    };
-                  }),
+                  items: mergeReceiptItemsWithInvoiceMetadata(
+                    receiptOrder.items,
+                    peppolInvoiceData.items
+                  ),
                 };
                 const pdfBlob = generateReceiptBlob(
                   invoiceReceiptOrder,
@@ -2138,7 +2132,6 @@ export async function POST(request: NextRequest) {
                   orderId: order.id,
                   error: err,
                 });
-                return;
               }
             }
 

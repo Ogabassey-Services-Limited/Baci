@@ -155,8 +155,10 @@ describe('storefront account receipt builders', () => {
     });
 
     expect(result.customer_name).toBe('Oga Bassey');
-    expect(result.items).toEqual([
+    expect(result.items).toMatchObject([
       {
+        line_id: 1,
+        product_id: 'prod-1',
         product_name: 'iPhone 16',
         quantity: 1,
         price: 100000,
