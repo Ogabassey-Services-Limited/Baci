@@ -14,6 +14,14 @@ export interface VtuCommissionRate {
   cap?: number;
 }
 
+type VtuProvider = 'kuda' | 'monnify';
+type VtuCommissionRateMap = Record<string, VtuCommissionRate>;
+type VtuProviderRoutingMap = Record<string, VtuProvider>;
+type ReadonlyVtuCommissionRateMap = Readonly<
+  Record<string, Readonly<VtuCommissionRate>>
+>;
+type ReadonlyVtuProviderRoutingMap = Readonly<Record<string, VtuProvider>>;
+
 const VTU_COMMISSION_CATEGORY_ALIASES: Record<string, VtuCommissionCategory> = {
   AIRTIME: 'AIRTIME',
   BETTING: 'BETTING',
@@ -131,11 +139,14 @@ export function determineRoutingAndRates({
   kudaRates = KUDA_VTU_RATES,
   monnifyRates = MONNIFY_VTU_RATES,
 }: {
-  kudaRates?: Record<string, VtuCommissionRate>;
-  monnifyRates?: Record<string, VtuCommissionRate>;
-} = {}) {
-  const routing: Record<string, 'kuda' | 'monnify'> = {};
-  const rates: Record<string, VtuCommissionRate> = {};
+  kudaRates?: VtuCommissionRateMap;
+  monnifyRates?: VtuCommissionRateMap;
+} = {}): {
+  routing: ReadonlyVtuProviderRoutingMap;
+  rates: ReadonlyVtuCommissionRateMap;
+} {
+  const routing: VtuProviderRoutingMap = {};
+  const rates: VtuCommissionRateMap = {};
 
   const allKeys = new Set([
     ...Object.keys(kudaRates),
@@ -146,55 +157,63 @@ export function determineRoutingAndRates({
     const kudaRate = kudaRates[key];
     const monnifyRate = monnifyRates[key];
 
-    if (!kudaRate) {
+    if (!kudaRate && monnifyRate) {
       routing[key] = 'monnify';
-      rates[key] = monnifyRate;
-    } else if (!monnifyRate) {
+      rates[key] = { ...monnifyRate };
+    } else if (kudaRate && !monnifyRate) {
       routing[key] = 'kuda';
-      rates[key] = kudaRate;
-    } else if (monnifyRate.rate > kudaRate.rate) {
+      rates[key] = { ...kudaRate };
+    } else if (kudaRate && monnifyRate && monnifyRate.rate > kudaRate.rate) {
       // Compare rates: higher rate wins. Ties (or higher) go to Monnify.
       routing[key] = 'monnify';
-      rates[key] = monnifyRate;
-    } else if (kudaRate.rate > monnifyRate.rate) {
+      rates[key] = { ...monnifyRate };
+    } else if (kudaRate && monnifyRate && kudaRate.rate > monnifyRate.rate) {
       routing[key] = 'kuda';
-      rates[key] = kudaRate;
+      rates[key] = { ...kudaRate };
     } else {
+      if (!kudaRate || !monnifyRate) {
+        continue;
+      }
+
       // Equal rate. Compare caps: uncapped is better than capped.
       const monnifyCapped = monnifyRate.cap !== undefined;
       const kudaCapped = kudaRate.cap !== undefined;
 
       if (monnifyCapped && !kudaCapped) {
         routing[key] = 'kuda';
-        rates[key] = kudaRate;
+        rates[key] = { ...kudaRate };
       } else if (!monnifyCapped && kudaCapped) {
         routing[key] = 'monnify';
-        rates[key] = monnifyRate;
+        rates[key] = { ...monnifyRate };
       } else if (monnifyCapped && kudaCapped) {
         // Both capped. Compare caps: higher cap is better. If equal, Monnify wins.
         const monnifyCap = monnifyRate.cap ?? 0;
         const kudaCap = kudaRate.cap ?? 0;
         if (monnifyCap > kudaCap) {
           routing[key] = 'monnify';
-          rates[key] = monnifyRate;
+          rates[key] = { ...monnifyRate };
         } else if (kudaCap > monnifyCap) {
           routing[key] = 'kuda';
-          rates[key] = kudaRate;
+          rates[key] = { ...kudaRate };
         } else {
           routing[key] = 'monnify';
-          rates[key] = monnifyRate;
+          rates[key] = { ...monnifyRate };
         }
       } else {
         // Both uncapped: tie goes to Monnify.
         routing[key] = 'monnify';
-        rates[key] = monnifyRate;
+        rates[key] = { ...monnifyRate };
       }
     }
   }
 
   rates.DEFAULT = { rate: 0.02 };
 
-  return { routing, rates };
+  for (const rate of Object.values(rates)) {
+    Object.freeze(rate);
+  }
+
+  return { routing: Object.freeze(routing), rates: Object.freeze(rates) };
 }
 
 const computed = determineRoutingAndRates();

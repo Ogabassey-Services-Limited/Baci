@@ -260,6 +260,10 @@ export type VerifyInput = z.infer<typeof verifySchema>;
 
 export const billersQuerySchema = z.object({
   type: billTypeEnum,
+  includeMonnify: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((value) => value === 'true'),
 });
 
 export const historyQuerySchema = z.object({

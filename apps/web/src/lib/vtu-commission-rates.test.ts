@@ -4,6 +4,7 @@ import {
   getVtuCommissionRate,
   normalizeVtuCommissionCategory,
   VTU_COMMISSION_RATES,
+  VTU_PROVIDER_ROUTING,
 } from '@/lib/vtu-commission-rates';
 
 describe('vtu commission rates', () => {
@@ -108,6 +109,12 @@ describe('vtu commission rates', () => {
     expect(getVtuCommissionRate(provider, category)).toEqual({ rate: 0.02 });
   });
 
+  it('freezes the exported routing and commission maps', () => {
+    expect(Object.isFrozen(VTU_PROVIDER_ROUTING)).toBe(true);
+    expect(Object.isFrozen(VTU_COMMISSION_RATES)).toBe(true);
+    expect(Object.isFrozen(VTU_COMMISSION_RATES.DEFAULT)).toBe(true);
+  });
+
   describe('determineRoutingAndRates custom matrix logic', () => {
     it('selects provider with higher rate', () => {
       const { routing, rates } = determineRoutingAndRates({
@@ -184,6 +191,8 @@ describe('vtu commission rates', () => {
         monnifyRates: {},
       });
       expect(rates.DEFAULT).toEqual({ rate: 0.02 });
+      expect(Object.isFrozen(rates)).toBe(true);
+      expect(Object.isFrozen(rates.DEFAULT)).toBe(true);
     });
   });
 });

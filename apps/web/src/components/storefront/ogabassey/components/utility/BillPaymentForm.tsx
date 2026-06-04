@@ -96,7 +96,7 @@ export function BillPaymentForm({
 
     const controller = new AbortController();
     const billType = TAB_TO_BILL_TYPE[type];
-    fetch(`/api/vtu/billers?type=${billType}`, {
+    fetch(`/api/vtu/billers?type=${billType}&includeMonnify=true`, {
       cache: 'no-store',
       signal: controller.signal,
     })
@@ -194,7 +194,10 @@ export function BillPaymentForm({
 
   const handleVerify = async () => {
     if (!selectedBiller || !selectedBillItemIdentifier || !customerId) return;
-    if (selectedProvider === 'monnify' && (!selectedBillerCode || !selectedProductCode)) {
+    if (
+      selectedProvider === 'monnify' &&
+      (!selectedBillerCode || !selectedProductCode)
+    ) {
       setVerification({
         verified: false,
         message: 'Selected bill product is missing Monnify details',
@@ -234,13 +237,33 @@ export function BillPaymentForm({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedBiller || !selectedBillItemIdentifier || !verification?.verified || !amount) return;
+    if (
+      !selectedBiller ||
+      !selectedBillItemIdentifier ||
+      !verification?.verified ||
+      !amount
+    ) {
+      return;
+    }
     if (
       selectedProvider === 'monnify' &&
-      (!selectedBillerCode ||
-        !selectedProductCode ||
-        (verification.requireValidationRef && !verification.validationReference))
+      (!selectedBillerCode || !selectedProductCode)
     ) {
+      setVerification({
+        verified: false,
+        message: 'Selected bill product is missing Monnify details',
+      });
+      return;
+    }
+    if (
+      selectedProvider === 'monnify' &&
+      verification.requireValidationRef &&
+      !verification.validationReference
+    ) {
+      setVerification({
+        verified: false,
+        message: 'Please verify this bill again before paying.',
+      });
       return;
     }
     onSubmit({

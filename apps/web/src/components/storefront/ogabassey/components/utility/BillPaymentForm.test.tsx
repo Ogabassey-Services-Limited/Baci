@@ -66,6 +66,10 @@ describe('BillPaymentForm', () => {
     await waitFor(() => {
       expect(screen.getByText('DStv')).toBeInTheDocument();
     });
+    expect(mockFetch).toHaveBeenCalledWith(
+      '/api/vtu/billers?type=cable_tv&includeMonnify=true',
+      expect.objectContaining({ cache: 'no-store' })
+    );
   });
 
   it('shows provider label based on type (TV Subscription, Electricity, Betting Top-up)', async () => {
@@ -637,5 +641,73 @@ describe('BillPaymentForm', () => {
       type: 'electricity',
       validationReference: 'VAL-MON-123',
     });
+  });
+
+  it('shows feedback instead of silently returning when Monnify validation reference is missing', async () => {
+    const user = userEvent.setup();
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            billers: [
+              {
+                billerId: 'IKEDC',
+                billerName: 'Ikeja Electric',
+                billerType: 'electricity',
+                categoryId: 'UTILITY_PAYMENT',
+                categoryName: 'electricity',
+                provider: 'monnify',
+                billerCode: 'IKEDC',
+                billItems: [
+                  {
+                    itemCode: 'IKEDC-PREPAID',
+                    itemName: 'Prepaid',
+                    amount: 0,
+                    itemCurrencySymbol: 'NGN',
+                    isAmountFixed: false,
+                    itemFee: 0,
+                    provider: 'monnify',
+                    billerCode: 'IKEDC',
+                    productCode: 'IKEDC-PREPAID',
+                  },
+                ],
+              },
+            ],
+          }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            verified: true,
+            customerName: 'Jane Meter',
+            requireValidationRef: true,
+          }),
+      });
+
+    render(
+      <BillPaymentForm
+        type="power"
+        loading={false}
+        onSubmit={mockOnSubmit}
+      />
+    );
+
+    await user.click(await screen.findByText('Ikeja Electric'));
+    await user.type(
+      await screen.findByPlaceholderText('Enter meter number'),
+      '1234567890'
+    );
+    await user.click(screen.getByRole('button', { name: /Verify/i }));
+
+    await screen.findByText('Customer verified');
+    await user.type(screen.getByPlaceholderText('0.00'), '5000');
+    await user.click(screen.getByRole('button', { name: /Pay ₦5,000/i }));
+
+    expect(mockOnSubmit).not.toHaveBeenCalled();
+    expect(
+      await screen.findByText('Please verify this bill again before paying.')
+    ).toBeInTheDocument();
   });
 });

@@ -110,6 +110,33 @@ describe('GET /api/vtu/billers', () => {
     }));
     expect(data.billers).toEqual(expected);
     expect(mockGetBillersByCategory).toHaveBeenCalledWith('electricity');
+    expect(mockMonnifyGetBillers).not.toHaveBeenCalled();
+  });
+
+  it('keeps Monnify billers out of default mobile-compatible responses', async () => {
+    const { GET } = await import('./route');
+
+    mockMonnifyGetBillers.mockResolvedValue([
+      {
+        billerCode: 'IKEDC',
+        description: 'Ikeja Electricity Distribution Company',
+        name: 'Ikeja Electricity Distribution Company',
+        billerCategoryCode: 'ELECTRICITY',
+      },
+    ]);
+
+    const request = makeRequest({ type: 'electricity' });
+    const response = await GET(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.billers).toHaveLength(mockBillers.length);
+    expect(
+      data.billers.every(
+        (biller: { provider: string }) => biller.provider === 'kuda'
+      )
+    ).toBe(true);
+    expect(mockMonnifyGetBillers).not.toHaveBeenCalled();
   });
 
   it('preserves nested Kuda bill items so the storefront can select leaf products', async () => {
@@ -241,7 +268,10 @@ describe('GET /api/vtu/billers', () => {
       new Error('Kuda API unavailable')
     );
 
-    const request = makeRequest({ type: 'electricity' });
+    const request = makeRequest({
+      type: 'electricity',
+      includeMonnify: 'true',
+    });
     const response = await GET(request);
     const data = await response.json();
 
@@ -335,7 +365,10 @@ describe('GET /api/vtu/billers', () => {
       },
     ]);
 
-    const request = makeRequest({ type: 'electricity' });
+    const request = makeRequest({
+      type: 'electricity',
+      includeMonnify: 'true',
+    });
     const response = await GET(request);
     const data = await response.json();
 
@@ -392,13 +425,13 @@ describe('GET /api/vtu/billers', () => {
   it('uses documented Monnify bill category codes for supported categories only', async () => {
     const { GET } = await import('./route');
 
-    await GET(makeRequest({ type: 'electricity' }));
+    await GET(makeRequest({ type: 'electricity', includeMonnify: 'true' }));
     expect(mockMonnifyGetBillers).toHaveBeenLastCalledWith('ELECTRICITY');
 
-    await GET(makeRequest({ type: 'cable_tv' }));
+    await GET(makeRequest({ type: 'cable_tv', includeMonnify: 'true' }));
     expect(mockMonnifyGetBillers).toHaveBeenLastCalledWith('CABLE_TV');
 
-    await GET(makeRequest({ type: 'betting' }));
+    await GET(makeRequest({ type: 'betting', includeMonnify: 'true' }));
     expect(mockMonnifyGetBillers).toHaveBeenCalledTimes(2);
   });
 
@@ -436,7 +469,10 @@ describe('GET /api/vtu/billers', () => {
       )
     );
 
-    const request = makeRequest({ type: 'electricity' });
+    const request = makeRequest({
+      type: 'electricity',
+      includeMonnify: 'true',
+    });
     const response = await GET(request);
     const data = await response.json();
 
@@ -484,7 +520,9 @@ describe('GET /api/vtu/billers', () => {
       }
     );
 
-    const response = await GET(makeRequest({ type: 'electricity' }));
+    const response = await GET(
+      makeRequest({ type: 'electricity', includeMonnify: 'true' })
+    );
     const data = await response.json();
 
     expect(response.status).toBe(200);
@@ -508,7 +546,10 @@ describe('GET /api/vtu/billers', () => {
 
     mockMonnifyGetBillers.mockRejectedValue(new Error('Monnify API down'));
 
-    const request = makeRequest({ type: 'electricity' });
+    const request = makeRequest({
+      type: 'electricity',
+      includeMonnify: 'true',
+    });
     const response = await GET(request);
     const data = await response.json();
 
@@ -541,7 +582,10 @@ describe('GET /api/vtu/billers', () => {
     ]);
     mockMonnifyGetBillers.mockResolvedValue([]);
 
-    const request = makeRequest({ type: 'electricity' });
+    const request = makeRequest({
+      type: 'electricity',
+      includeMonnify: 'true',
+    });
     const response = await GET(request);
     const data = await response.json();
 
@@ -573,7 +617,10 @@ describe('GET /api/vtu/billers', () => {
       },
     ]);
 
-    const request = makeRequest({ type: 'electricity' });
+    const request = makeRequest({
+      type: 'electricity',
+      includeMonnify: 'true',
+    });
     const response = await GET(request);
     const data = await response.json();
 

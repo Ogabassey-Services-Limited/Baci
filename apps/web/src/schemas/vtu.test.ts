@@ -610,6 +610,21 @@ describe('billersQuerySchema', () => {
     const validQuery = { type: 'airtime' as const };
     const result = billersQuerySchema.safeParse(validQuery);
     expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.includeMonnify).toBe(false);
+    }
+  });
+
+  it('parses the Monnify opt-in query flag', () => {
+    const result = billersQuerySchema.safeParse({
+      type: 'electricity',
+      includeMonnify: 'true',
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.includeMonnify).toBe(true);
+    }
   });
 
   it('accepts all valid bill types', () => {

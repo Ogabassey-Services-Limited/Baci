@@ -150,6 +150,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const parsed = billersQuerySchema.safeParse({
       type: searchParams.get('type'),
+      includeMonnify: searchParams.get('includeMonnify') ?? undefined,
     });
 
     if (!parsed.success) {
@@ -163,6 +164,7 @@ export async function GET(request: NextRequest) {
     }
 
     const type = parsed.data.type;
+    const includeMonnify = parsed.data.includeMonnify;
 
     let kudaError: Error | null = null;
     let kudaBillers: NormalizedBiller[] = [];
@@ -189,7 +191,9 @@ export async function GET(request: NextRequest) {
 
     let monnifyError: Error | null = null;
     let monnifyBillers: NormalizedBiller[] = [];
-    const monnifyCategory = getMonnifyCategoryCode(type);
+    const monnifyCategory = includeMonnify
+      ? getMonnifyCategoryCode(type)
+      : undefined;
     if (monnifyCategory) {
       try {
         const rawBillers = await getMonnifyBillers(monnifyCategory);
@@ -256,11 +260,12 @@ export async function GET(request: NextRequest) {
     const mergedBillers = [...kudaBillers, ...monnifyBillers];
 
     if (mergedBillers.length === 0) {
-      if (kudaError) {
-        throw kudaError;
-      }
-      if (monnifyError) {
-        throw monnifyError;
+      const providerError = kudaError ?? monnifyError;
+      if (providerError) {
+        return NextResponse.json(
+          { error: `Failed to fetch billers: ${providerError.message}` },
+          { status: 500 }
+        );
       }
     }
 
