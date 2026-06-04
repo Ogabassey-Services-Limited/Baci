@@ -80,8 +80,7 @@ vi.mock('react-native', async () => {
       return undefined;
     }
 
-    return {
-    StatusBar: () => null,     ...(style as React.CSSProperties) };
+    return style as React.CSSProperties;
   };
 
   const hostProps = (props: HostProps) => ({
@@ -93,6 +92,7 @@ vi.mock('react-native', async () => {
     ActivityIndicator: () =>
       React.createElement('div', { role: 'progressbar' }),
     Alert: { alert: vi.fn() },
+    StatusBar: () => null,
     Pressable: ({ children, onPress, ...rest }: HostProps) =>
       React.createElement(
         'button',

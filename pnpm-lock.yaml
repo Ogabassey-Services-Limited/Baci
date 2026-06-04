@@ -127,13 +127,13 @@ patchedDependencies:
   '@react-native/gradle-plugin@0.85.3': c1b594a16e682d621b6a960926f8ce13fc92edfb397884cfe7fcb0518996a784
   lottie-react-native@7.3.8: cd9d83823cc2d1edf6ca8e47fb7c6bea5dd902b0b7188b2a6fb4302920e07cd7
   novel@1.0.2: 5ec4c401d7f2d2d623fd40bbbc680e8d9630f827d499abe97d0871041e9fe113
-  react-native: 732d00da3f31102e0c5434742958d97fad59317c9e6d157dabb2a28497647475
   react-native-mmkv@4.3.1: e8c08c441cf95f6e1d5a652a4f1e0c87fd9686773657d2bfee28ef7825ee07e2
   react-native-nitro-modules@0.35.9: 4389d08533b644ae94941500e6ef507bc1bcdf985e85a341b3b7cc193cb9f242
   react-native-phone-number-input@2.1.0: 71a74490981d221fea39af4c70a4475f1771909ebc246e8af30487833c2fe51e
   react-native-purchases@10.2.0: 06f1d4ab0bd318b0b73ac1f31c5080f10536452a747c9306bc56a1d31c575643
   react-native-safe-area-context@5.8.0: 022d5666269cc6cf57103809a9f2731abf75f568e475b7fadf03dea4bea7595b
   react-native-webview@13.16.1: 34b7961d6df97ee992e0d52e66df88c9b5de85d32572f999bb6654aaa8080199
+  react-native@0.85.3: 732d00da3f31102e0c5434742958d97fad59317c9e6d157dabb2a28497647475
 
 importers:
 
@@ -554,6 +554,9 @@ importers:
       expo-localization:
         specifier: ~56.0.6
         version: 56.0.6(expo@56.0.8)(react@19.2.3)
+      expo-navigation-bar:
+        specifier: ~56.0.3
+        version: 56.0.3(expo@56.0.8)(react-native@0.85.3(patch_hash=732d00da3f31102e0c5434742958d97fad59317c9e6d157dabb2a28497647475)(@babel/core@7.29.0)(@react-native/jest-preset@0.85.3(@babel/core@7.29.0)(react@19.2.3))(@react-native/metro-config@0.85.3(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
       expo-notifications:
         specifier: ~56.0.15
         version: 56.0.15(expo@56.0.8)(react-native@0.85.3(patch_hash=732d00da3f31102e0c5434742958d97fad59317c9e6d157dabb2a28497647475)(@babel/core@7.29.0)(@react-native/jest-preset@0.85.3(@babel/core@7.29.0)(react@19.2.3))(@react-native/metro-config@0.85.3(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)(typescript@6.0.3)
@@ -7975,6 +7978,13 @@ packages:
   expo-modules-jsi@56.0.7:
     resolution: {integrity: sha512-iBAj4Xeh/8HT201VVxFlmf+VBfmtQV1ZUoJdLQQENm0+j9gnD2QswZLJyNo3CmNNXl46esJeLR5lpGpYZts/zA==}
     peerDependencies:
+      react-native: '*'
+
+  expo-navigation-bar@56.0.3:
+    resolution: {integrity: sha512-7k8jyJojMs59gIsAPOFk/gCz1BTFy5S0Qf3i2uUW1f2CFoWcQSSyR4VnsmppBkzIKrBzZjcuFmdsZmYO+GZ4og==}
+    peerDependencies:
+      expo: '*'
+      react: '*'
       react-native: '*'
 
   expo-notifications@56.0.15:
@@ -21079,6 +21089,15 @@ snapshots:
   expo-modules-jsi@56.0.7(react-native@0.85.3(patch_hash=732d00da3f31102e0c5434742958d97fad59317c9e6d157dabb2a28497647475)(@babel/core@7.29.0)(@react-native/jest-preset@0.85.3(@babel/core@7.29.0)(react@19.2.3))(@react-native/metro-config@0.85.3(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3)):
     dependencies:
       react-native: 0.85.3(patch_hash=732d00da3f31102e0c5434742958d97fad59317c9e6d157dabb2a28497647475)(@babel/core@7.29.0)(@react-native/jest-preset@0.85.3(@babel/core@7.29.0)(react@19.2.3))(@react-native/metro-config@0.85.3(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3)
+
+  expo-navigation-bar@56.0.3(expo@56.0.8)(react-native@0.85.3(patch_hash=732d00da3f31102e0c5434742958d97fad59317c9e6d157dabb2a28497647475)(@babel/core@7.29.0)(@react-native/jest-preset@0.85.3(@babel/core@7.29.0)(react@19.2.3))(@react-native/metro-config@0.85.3(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3):
+    dependencies:
+      debug: 4.4.3
+      expo: 56.0.8(a3b366a89b6be24092229047cd08aaee)
+      react: 19.2.3
+      react-native: 0.85.3(patch_hash=732d00da3f31102e0c5434742958d97fad59317c9e6d157dabb2a28497647475)(@babel/core@7.29.0)(@react-native/jest-preset@0.85.3(@babel/core@7.29.0)(react@19.2.3))(@react-native/metro-config@0.85.3(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3)
+    transitivePeerDependencies:
+      - supports-color
 
   expo-notifications@56.0.15(expo@56.0.8)(react-native@0.85.3(patch_hash=732d00da3f31102e0c5434742958d97fad59317c9e6d157dabb2a28497647475)(@babel/core@7.29.0)(@react-native/jest-preset@0.85.3(@babel/core@7.29.0)(react@19.2.3))(@react-native/metro-config@0.85.3(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)(typescript@6.0.3):
     dependencies:

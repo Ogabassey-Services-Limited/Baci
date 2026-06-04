@@ -13,6 +13,7 @@ const mockGetTemplateConfig = getTemplateConfig as jest.MockedFunction<
 const MockText = Text;
 const MockView = View;
 const mockUseAuthGuard = jest.fn();
+const mockSetNavigationBarStyle = jest.fn();
 const renderMockQueryProvider = ({
   children,
   persistenceEnabled,
@@ -49,6 +50,10 @@ jest.mock('expo-router', () => {
 
   return { Stack };
 });
+
+jest.mock('expo-navigation-bar', () => ({
+  setStyle: (...args: unknown[]) => mockSetNavigationBarStyle(...args),
+}));
 
 jest.mock('react-native-gesture-handler', () => ({
   GestureHandlerRootView: ({ children }: { children?: React.ReactNode }) => {

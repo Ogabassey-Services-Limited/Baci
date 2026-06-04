@@ -4,6 +4,12 @@ import type { SharedValue } from 'react-native-reanimated';
 import type { Block } from '@/types/blocks';
 import { HomeScreenView } from './HomeScreenView';
 
+const mockSetNavigationBarStyle = jest.fn();
+
+jest.mock('expo-navigation-bar', () => ({
+  setStyle: (...args: unknown[]) => mockSetNavigationBarStyle(...args),
+}));
+
 jest.mock('expo-image', () => {
   const { Text } = jest.requireActual(
     'react-native'

@@ -1,6 +1,9 @@
+import * as NavigationBar from 'expo-navigation-bar';
 import { Stack } from 'expo-router';
+import { useEffect, useRef } from 'react';
 import {
   type LayoutChangeEvent,
+  Platform,
   RefreshControl,
   StatusBar,
   StyleSheet,
@@ -95,6 +98,24 @@ export function HomeScreenView({
   showPermissionModal,
 }: HomeScreenViewProps) {
   const colorScheme = useColorScheme();
+  const colorSchemeRef = useRef(colorScheme);
+
+  useEffect(() => {
+    colorSchemeRef.current = colorScheme;
+  }, [colorScheme]);
+
+  useEffect(() => {
+    if (Platform.OS !== 'android') {
+      return;
+    }
+
+    void NavigationBar.setStyle('light');
+    return () => {
+      void NavigationBar.setStyle(
+        colorSchemeRef.current === 'dark' ? 'light' : 'dark'
+      );
+    };
+  }, []);
 
   const headerOverlayAnimatedStyle = useAnimatedStyle(() => {
     return {
