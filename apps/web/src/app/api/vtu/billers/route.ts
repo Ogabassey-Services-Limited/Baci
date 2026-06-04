@@ -12,6 +12,7 @@ import {
 import { billersQuerySchema } from '@/schemas/vtu';
 
 const MONNIFY_PRODUCT_LOOKUP_CONCURRENCY = 4;
+const MONNIFY_BILLER_DISCOVERY_BUDGET_MS = 3_500;
 
 interface NormalizedBillItem {
   itemCode: string;
@@ -195,10 +196,28 @@ export async function GET(request: NextRequest) {
       ? getMonnifyCategoryCode(type)
       : undefined;
     if (monnifyCategory) {
+      const monnifyDiscoveryController = new AbortController();
+      let monnifyDiscoveryTimedOut = false;
+      let monnifyDiscoveryTimeoutId: ReturnType<typeof setTimeout> | undefined;
       try {
-        const rawBillers = await getMonnifyBillers(monnifyCategory);
-        const validatedBillers = z.array(billerSchema).safeParse(rawBillers);
-        if (validatedBillers.success) {
+        const monnifyDiscoveryTimeout = new Promise<NormalizedBiller[]>(
+          (resolve) => {
+            monnifyDiscoveryTimeoutId = setTimeout(() => {
+              monnifyDiscoveryTimedOut = true;
+              monnifyDiscoveryController.abort();
+              resolve([]);
+            }, MONNIFY_BILLER_DISCOVERY_BUDGET_MS);
+          }
+        );
+        const monnifyDiscovery = (async () => {
+          const rawBillers = await getMonnifyBillers(monnifyCategory, {
+            signal: monnifyDiscoveryController.signal,
+          });
+          const validatedBillers = z.array(billerSchema).safeParse(rawBillers);
+          if (!validatedBillers.success) {
+            throw new Error('Monnify biller payload failed validation');
+          }
+
           const normalizedMonnifyBillers = await mapWithConcurrency(
             validatedBillers.data,
             MONNIFY_PRODUCT_LOOKUP_CONCURRENCY,
@@ -206,7 +225,8 @@ export async function GET(request: NextRequest) {
               let billItems: NormalizedBillItem[] = [];
               try {
                 const rawProducts = await getMonnifyBillerProducts(
-                  biller.billerCode
+                  biller.billerCode,
+                  { signal: monnifyDiscoveryController.signal }
                 );
                 const validatedProducts = z
                   .array(billerProductSchema)
@@ -245,15 +265,32 @@ export async function GET(request: NextRequest) {
               };
             }
           );
-          monnifyBillers = normalizedMonnifyBillers.filter(
+          return normalizedMonnifyBillers.filter(
             (biller) => biller.billItems && biller.billItems.length > 0
           );
-        } else {
-          throw new Error('Monnify biller payload failed validation');
+        })();
+
+        monnifyBillers = await Promise.race([
+          monnifyDiscovery,
+          monnifyDiscoveryTimeout,
+        ]);
+
+        if (monnifyDiscoveryTimedOut) {
+          monnifyError = new Error(
+            'Monnify biller discovery exceeded route budget'
+          );
+          console.error('Monnify biller discovery exceeded route budget:', {
+            type,
+            monnifyCategory,
+          });
         }
       } catch (err) {
         monnifyError = err instanceof Error ? err : new Error(String(err));
         console.error('Failed to fetch Monnify billers:', err);
+      } finally {
+        if (monnifyDiscoveryTimeoutId) {
+          clearTimeout(monnifyDiscoveryTimeoutId);
+        }
       }
     }
 

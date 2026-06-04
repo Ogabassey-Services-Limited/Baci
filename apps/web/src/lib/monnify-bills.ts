@@ -92,6 +92,10 @@ interface MonnifyRequestOptions extends RequestInit {
   timeoutMs?: number;
 }
 
+interface MonnifyDiscoveryOptions {
+  signal?: AbortSignal;
+}
+
 // Helper for making authenticated requests to Monnify VAS APIs with a timeout
 async function monnifyRequest<T = unknown>(
   endpoint: string,
@@ -104,11 +108,17 @@ async function monnifyRequest<T = unknown>(
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  const callerSignal = requestOptions.signal;
+  const abortFromCaller = () => {
+    controller.abort();
+  };
 
-  if (requestOptions.signal) {
-    requestOptions.signal.addEventListener('abort', () => {
-      controller.abort();
-    });
+  if (callerSignal) {
+    if (callerSignal.aborted) {
+      abortFromCaller();
+    } else {
+      callerSignal.addEventListener('abort', abortFromCaller, { once: true });
+    }
   }
 
   const headers = {
@@ -143,13 +153,20 @@ async function monnifyRequest<T = unknown>(
     throw error;
   } finally {
     clearTimeout(timeoutId);
+    callerSignal?.removeEventListener('abort', abortFromCaller);
   }
 }
 
-export async function getBillerCategories(): Promise<BillerCategory[]> {
+export async function getBillerCategories(
+  options: MonnifyDiscoveryOptions = {}
+): Promise<BillerCategory[]> {
   const envelope = await monnifyRequest(
     '/api/v1/vas/bills-payment/biller-categories',
-    { method: 'GET', timeoutMs: MONNIFY_DISCOVERY_TIMEOUT_MS }
+    {
+      method: 'GET',
+      timeoutMs: MONNIFY_DISCOVERY_TIMEOUT_MS,
+      signal: options.signal,
+    }
   );
   const parsed = monnifyEnvelopeSchema(z.array(billerCategorySchema)).parse(
     envelope
@@ -158,10 +175,17 @@ export async function getBillerCategories(): Promise<BillerCategory[]> {
   return parsed.responseBody ?? [];
 }
 
-export async function getBillers(categoryCode: string): Promise<Biller[]> {
+export async function getBillers(
+  categoryCode: string,
+  options: MonnifyDiscoveryOptions = {}
+): Promise<Biller[]> {
   const envelope = await monnifyRequest(
     `/api/v1/vas/bills-payment/billers?categoryCode=${encodeURIComponent(categoryCode)}`,
-    { method: 'GET', timeoutMs: MONNIFY_DISCOVERY_TIMEOUT_MS }
+    {
+      method: 'GET',
+      timeoutMs: MONNIFY_DISCOVERY_TIMEOUT_MS,
+      signal: options.signal,
+    }
   );
   const parsed = monnifyEnvelopeSchema(z.array(billerSchema)).parse(envelope);
   assertMonnifyBusinessSuccess(parsed, 'Monnify biller lookup');
@@ -169,11 +193,16 @@ export async function getBillers(categoryCode: string): Promise<Biller[]> {
 }
 
 export async function getBillerProducts(
-  billerCode: string
+  billerCode: string,
+  options: MonnifyDiscoveryOptions = {}
 ): Promise<BillerProduct[]> {
   const envelope = await monnifyRequest(
     `/api/v1/vas/bills-payment/biller-products?billerCode=${encodeURIComponent(billerCode)}`,
-    { method: 'GET', timeoutMs: MONNIFY_DISCOVERY_TIMEOUT_MS }
+    {
+      method: 'GET',
+      timeoutMs: MONNIFY_DISCOVERY_TIMEOUT_MS,
+      signal: options.signal,
+    }
   );
   const parsed = monnifyEnvelopeSchema(z.array(billerProductSchema)).parse(
     envelope

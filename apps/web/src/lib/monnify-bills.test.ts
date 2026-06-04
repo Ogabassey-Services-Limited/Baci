@@ -109,6 +109,33 @@ describe('Monnify Bills Client', () => {
       ]);
     });
 
+    it('removes caller abort listeners after discovery requests settle', async () => {
+      const controller = new AbortController();
+      const addListener = vi.spyOn(controller.signal, 'addEventListener');
+      const removeListener = vi.spyOn(controller.signal, 'removeEventListener');
+      const mockEnvelope = {
+        requestSuccessful: true,
+        responseCode: '0',
+        responseMessage: 'success',
+        responseBody: [],
+      };
+
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue(mockEnvelope),
+      });
+
+      await getBillerProducts('IKEDC', { signal: controller.signal });
+
+      expect(addListener).toHaveBeenCalledWith('abort', expect.any(Function), {
+        once: true,
+      });
+      expect(removeListener).toHaveBeenCalledWith(
+        'abort',
+        addListener.mock.calls[0]?.[1]
+      );
+    });
+
     it('throws on HTTP OK Monnify discovery business failure', async () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
