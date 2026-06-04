@@ -6,12 +6,14 @@ jest.mock('dotenv/config', () => ({}));
 
 const originalEnv = process.env;
 
-function loadAppConfigWithFacebookEnv(env: {
+function loadAppConfigWithEnv(env: {
+  EXPO_PUBLIC_MERCHANT_DOMAIN?: string;
   STOREFRONT_FACEBOOK_APP_ID?: string;
   STOREFRONT_FACEBOOK_CLIENT_TOKEN?: string;
 }) {
   jest.resetModules();
   process.env = { ...originalEnv };
+  delete process.env.EXPO_PUBLIC_MERCHANT_DOMAIN;
   delete process.env.STOREFRONT_FACEBOOK_APP_ID;
   delete process.env.STOREFRONT_FACEBOOK_CLIENT_TOKEN;
 
@@ -41,7 +43,7 @@ function findFacebookPlugin(config: ExpoConfig) {
   );
 }
 
-describe('Facebook SDK Expo config', () => {
+describe('Expo app config (Facebook SDK and merchant domain)', () => {
   afterEach(() => {
     process.env = originalEnv;
     jest.resetModules();
@@ -49,7 +51,7 @@ describe('Facebook SDK Expo config', () => {
 
   it('fails fast when both Facebook SDK credentials are absent from the environment', () => {
     expect(() => {
-      const appConfig = loadAppConfigWithFacebookEnv({});
+      const appConfig = loadAppConfigWithEnv({});
       renderConfig(appConfig);
     }).toThrow(
       /Missing required Facebook credentials: STOREFRONT_FACEBOOK_APP_ID, STOREFRONT_FACEBOOK_CLIENT_TOKEN\./
@@ -57,7 +59,7 @@ describe('Facebook SDK Expo config', () => {
   });
 
   it('injects the Facebook SDK plugin when both credentials are configured', () => {
-    const appConfig = loadAppConfigWithFacebookEnv({
+    const appConfig = loadAppConfigWithEnv({
       STOREFRONT_FACEBOOK_APP_ID: '123456789',
       STOREFRONT_FACEBOOK_CLIENT_TOKEN: 'client-token',
     });
@@ -78,9 +80,44 @@ describe('Facebook SDK Expo config', () => {
     expect(config.extra?.facebookClientToken).toBe('client-token');
   });
 
+  it('defaults the storefront merchant domain for production BNPL returns', () => {
+    const appConfig = loadAppConfigWithEnv({
+      STOREFRONT_FACEBOOK_APP_ID: '123456789',
+      STOREFRONT_FACEBOOK_CLIENT_TOKEN: 'client-token',
+    });
+    const config = renderConfig(appConfig);
+
+    expect(config.extra?.merchantDomain).toBe('ogabassey.com');
+  });
+
+  it('trims the configured storefront merchant domain', () => {
+    const appConfig = loadAppConfigWithEnv({
+      EXPO_PUBLIC_MERCHANT_DOMAIN: '  shop.example.com  ',
+      STOREFRONT_FACEBOOK_APP_ID: '123456789',
+      STOREFRONT_FACEBOOK_CLIENT_TOKEN: 'client-token',
+    });
+    const config = renderConfig(appConfig);
+
+    expect(config.extra?.merchantDomain).toBe('shop.example.com');
+  });
+
+  it.each(['', '   '])(
+    'falls back to the default merchant domain when the configured value is %p',
+    (merchantDomain) => {
+      const appConfig = loadAppConfigWithEnv({
+        EXPO_PUBLIC_MERCHANT_DOMAIN: merchantDomain,
+        STOREFRONT_FACEBOOK_APP_ID: '123456789',
+        STOREFRONT_FACEBOOK_CLIENT_TOKEN: 'client-token',
+      });
+      const config = renderConfig(appConfig);
+
+      expect(config.extra?.merchantDomain).toBe('ogabassey.com');
+    }
+  );
+
   it('fails fast when Facebook SDK credentials are only partially configured', () => {
     expect(() =>
-      loadAppConfigWithFacebookEnv({
+      loadAppConfigWithEnv({
         STOREFRONT_FACEBOOK_APP_ID: '123456789',
       })
     ).toThrow(
@@ -88,7 +125,7 @@ describe('Facebook SDK Expo config', () => {
     );
 
     expect(() =>
-      loadAppConfigWithFacebookEnv({
+      loadAppConfigWithEnv({
         STOREFRONT_FACEBOOK_CLIENT_TOKEN: 'client-token',
       })
     ).toThrow(
@@ -97,7 +134,7 @@ describe('Facebook SDK Expo config', () => {
   });
 
   it('declares SKAdNetwork identifiers for TikTok and Facebook campaign attribution', () => {
-    const appConfig = loadAppConfigWithFacebookEnv({
+    const appConfig = loadAppConfigWithEnv({
       STOREFRONT_FACEBOOK_APP_ID: '123456789',
       STOREFRONT_FACEBOOK_CLIENT_TOKEN: 'client-token',
     });
@@ -120,7 +157,7 @@ describe('Facebook SDK Expo config', () => {
   });
 
   it('allows Android to adapt orientation and resizability on large screens', () => {
-    const appConfig = loadAppConfigWithFacebookEnv({
+    const appConfig = loadAppConfigWithEnv({
       STOREFRONT_FACEBOOK_APP_ID: '123456789',
       STOREFRONT_FACEBOOK_CLIENT_TOKEN: 'client-token',
     });
