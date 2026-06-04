@@ -11,6 +11,8 @@ export interface Biller {
   billerType: string;
   categoryId: string;
   categoryName: string;
+  provider?: 'kuda' | 'monnify';
+  billerCode?: string;
   billerIconUrl?: string;
   billItems?: BillItem[];
 }

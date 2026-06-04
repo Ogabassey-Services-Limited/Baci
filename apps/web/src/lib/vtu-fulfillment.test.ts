@@ -12,6 +12,8 @@ const mockCheckTransactionStatus = vi.fn();
 const mockNotifyCustomer = vi.fn();
 const mockPurchaseBill = vi.fn();
 const mockSendEmail = vi.fn();
+const mockMonnifyPurchaseBill = vi.fn();
+const mockMonnifyCheckTransactionStatus = vi.fn();
 
 vi.mock('@/lib/kuda', () => ({
   NetworkProvider: {
@@ -30,6 +32,12 @@ vi.mock('@/lib/kuda', () => ({
 
 vi.mock('@/lib/kuda-bills', () => ({
   purchaseBill: (...args: unknown[]) => mockPurchaseBill(...args),
+}));
+
+vi.mock('@/lib/monnify-bills', () => ({
+  purchaseBill: (...args: unknown[]) => mockMonnifyPurchaseBill(...args),
+  checkTransactionStatus: (...args: unknown[]) =>
+    mockMonnifyCheckTransactionStatus(...args),
 }));
 
 vi.mock('@/lib/expo-push', () => ({
@@ -390,6 +398,8 @@ describe('fulfillPendingVtuTransaction', () => {
     mockNotifyCustomer.mockResolvedValue({ errors: [], failed: 0, sent: 1 });
     mockSendEmail.mockReset();
     mockSendEmail.mockResolvedValue({ success: true });
+    mockMonnifyPurchaseBill.mockReset();
+    mockMonnifyCheckTransactionStatus.mockReset();
   });
 
   it('returns the existing success payload without repurchasing', async () => {
@@ -1967,6 +1977,307 @@ describe('fulfillPendingVtuTransaction', () => {
         status: 'processing',
         transaction_id: 'kuda-bill-1',
       })
+    );
+  });
+
+  it('routes to Monnify provider client for bill vending when metadata.provider is monnify', async () => {
+    mockMonnifyPurchaseBill.mockResolvedValue({
+      success: true,
+      reference: 'VTU-123',
+      message: 'Transaction Completed Successfully',
+      transactionId: 'monnify-bill-1',
+      amount: 1000,
+      status: 'successful',
+    });
+
+    const supabase = createPendingTransactionSupabaseMock({
+      transactionRow: {
+        id: 'vtu-1',
+        merchant_id: 'merchant-1',
+        customer_id: null,
+        type: 'electricity',
+        network_provider: '',
+        phone_number: '08146978921',
+        amount: 1000,
+        request_reference: 'VTU-123',
+        transaction_id: null,
+        status: 'pending',
+        metadata: {
+          provider: 'monnify',
+          billerCode: 'biller1',
+          productCode: 'product1',
+        },
+        error_message: null,
+        merchant_commission: 0,
+        customer_cashback: 0,
+        biller_name: 'EKEDC',
+        biller_item_code: null,
+        customer_identifier: '43901766923',
+      },
+    });
+
+    const result = await fulfillPendingVtuTransaction({
+      supabase,
+      transactionId: 'vtu-1',
+    });
+
+    expect(mockMonnifyPurchaseBill).toHaveBeenCalledWith(
+      'biller1',
+      'product1',
+      '43901766923',
+      1000,
+      'OgaBassey',
+      'VTU-123',
+      '08146978921',
+      undefined
+    );
+    expect(mockPurchaseBill).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      amount: 1000,
+      reference: 'VTU-123',
+      status: 'successful',
+    });
+  });
+
+  it('routes to Monnify status requery and reconciles status successfully when metadata.provider is monnify', async () => {
+    mockMonnifyCheckTransactionStatus.mockResolvedValue({
+      status: 'successful',
+      message: 'success',
+      pin: 'token-1234',
+    });
+
+    const supabase = createPendingTransactionSupabaseMock({
+      transactionRow: {
+        id: 'vtu-1',
+        merchant_id: 'merchant-1',
+        customer_id: null,
+        type: 'electricity',
+        network_provider: '',
+        phone_number: '08146978921',
+        amount: 1000,
+        request_reference: 'VTU-123',
+        transaction_id: 'monnify-bill-1',
+        status: 'processing',
+        metadata: {
+          provider: 'monnify',
+          billerCode: 'biller1',
+          productCode: 'product1',
+        },
+        error_message: null,
+        merchant_commission: 0,
+        customer_cashback: 0,
+        biller_name: 'EKEDC',
+        biller_item_code: null,
+        customer_identifier: '43901766923',
+      },
+    });
+
+    const result = await fulfillPendingVtuTransaction({
+      supabase,
+      transactionId: 'vtu-1',
+    });
+
+    expect(mockMonnifyCheckTransactionStatus).toHaveBeenCalledWith(
+      'monnify-bill-1'
+    );
+    expect(mockCheckTransactionStatus).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      status: 'successful',
+      voucherPin: 'token-1234',
+    });
+  });
+
+  it('Monnify initial vend timeout/network error returns processing status', async () => {
+    mockMonnifyPurchaseBill.mockResolvedValue({
+      success: true,
+      status: 'pending',
+      message: 'Connection timed out',
+      transactionId: 'monnify-bill-2',
+      amount: 1000,
+    });
+
+    const supabase = createPendingTransactionSupabaseMock({
+      transactionRow: {
+        id: 'vtu-1',
+        merchant_id: 'merchant-1',
+        customer_id: null,
+        type: 'electricity',
+        network_provider: '',
+        phone_number: '08146978921',
+        amount: 1000,
+        request_reference: 'VTU-123',
+        transaction_id: null,
+        status: 'pending',
+        metadata: {
+          provider: 'monnify',
+          billerCode: 'biller1',
+          productCode: 'product1',
+        },
+        error_message: null,
+        merchant_commission: 0,
+        customer_cashback: 0,
+        biller_name: 'EKEDC',
+        biller_item_code: null,
+        customer_identifier: '43901766923',
+      },
+    });
+
+    const result = await fulfillPendingVtuTransaction({
+      supabase,
+      transactionId: 'vtu-1',
+    });
+
+    expect(result).toMatchObject({
+      status: 'processing',
+    });
+  });
+
+  it('restores Monnify transient vend failures without transaction reference to retryable pending', async () => {
+    const transientError = new Error('Transient vend outcome: timeout');
+    transientError.name = 'MonnifyTransientVendError';
+    mockMonnifyPurchaseBill.mockRejectedValue(transientError);
+
+    const updatePayloads: unknown[] = [];
+    const supabase = createPendingTransactionSupabaseMock({
+      updatePayloads,
+      transactionRow: {
+        id: 'vtu-1',
+        merchant_id: 'merchant-1',
+        customer_id: null,
+        type: 'electricity',
+        network_provider: '',
+        phone_number: '08146978921',
+        amount: 1000,
+        request_reference: 'VTU-123',
+        transaction_id: null,
+        status: 'pending',
+        metadata: {
+          provider: 'monnify',
+          billerCode: 'biller1',
+          productCode: 'product1',
+        },
+        error_message: null,
+        merchant_commission: 0,
+        customer_cashback: 0,
+        biller_name: 'EKEDC',
+        biller_item_code: null,
+        customer_identifier: '43901766923',
+      },
+    });
+
+    const result = await fulfillPendingVtuTransaction({
+      supabase,
+      transactionId: 'vtu-1',
+    });
+
+    expect(result).toMatchObject({
+      status: 'processing',
+    });
+    expect(updatePayloads).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          error_message: 'Transient vend outcome: timeout',
+          status: 'pending',
+          transaction_id: null,
+          metadata: expect.objectContaining({
+            monnifyTransientVendError: 'Transient vend outcome: timeout',
+          }),
+        }),
+      ])
+    );
+  });
+
+  it('Monnify transient status error keeps row in processing status', async () => {
+    mockMonnifyCheckTransactionStatus.mockRejectedValue(
+      new Error('Transient database error')
+    );
+
+    const supabase = createPendingTransactionSupabaseMock({
+      transactionRow: {
+        id: 'vtu-1',
+        merchant_id: 'merchant-1',
+        customer_id: null,
+        type: 'electricity',
+        network_provider: '',
+        phone_number: '08146978921',
+        amount: 1000,
+        request_reference: 'VTU-123',
+        transaction_id: 'monnify-bill-1',
+        status: 'processing',
+        metadata: {
+          provider: 'monnify',
+          billerCode: 'biller1',
+          productCode: 'product1',
+        },
+        error_message: null,
+        merchant_commission: 0,
+        customer_cashback: 0,
+        biller_name: 'EKEDC',
+        biller_item_code: null,
+        customer_identifier: '43901766923',
+      },
+    });
+
+    const result = await fulfillPendingVtuTransaction({
+      supabase,
+      transactionId: 'vtu-1',
+    });
+
+    expect(result).toMatchObject({
+      status: 'processing',
+    });
+  });
+
+  it('Monnify terminal failure triggers wallet refund-safe failed path', async () => {
+    mockMonnifyPurchaseBill.mockResolvedValue({
+      success: false,
+      status: 'failed',
+      message: 'Explicit user failure',
+      transactionId: 'monnify-bill-3',
+      amount: 1000,
+    });
+
+    const rpcImpl = vi.fn().mockResolvedValue({ data: null, error: null });
+
+    const supabase = createPendingTransactionSupabaseMock({
+      transactionRow: {
+        id: 'vtu-1',
+        merchant_id: 'merchant-1',
+        customer_id: 'customer-1',
+        type: 'electricity',
+        network_provider: '',
+        phone_number: '08146978921',
+        amount: 1000,
+        request_reference: 'VTU-123',
+        transaction_id: null,
+        status: 'pending',
+        source: 'checkout',
+        metadata: {
+          provider: 'monnify',
+          billerCode: 'biller1',
+          productCode: 'product1',
+        },
+        error_message: null,
+        merchant_commission: 0,
+        customer_cashback: 0,
+        biller_name: 'EKEDC',
+        biller_item_code: null,
+        customer_identifier: '43901766923',
+      },
+      rpcImpl,
+    });
+
+    const result = await fulfillPendingVtuTransaction({
+      supabase,
+      transactionId: 'vtu-1',
+    });
+
+    expect(result).toMatchObject({
+      status: 'failed',
+    });
+    expect(rpcImpl).toHaveBeenCalledWith(
+      'refund_customer_wallet_for_vtu',
+      expect.any(Object)
     );
   });
 

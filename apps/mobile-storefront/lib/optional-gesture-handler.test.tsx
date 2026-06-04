@@ -69,10 +69,9 @@ describe('getOptionalGestureHandlerRuntime', () => {
       expect(runtime.usePanGesture({})).toBeNull();
       expect(runtime.useTapGesture({})).toBeNull();
       expect(
-        (runtime.useSimultaneousGestures as (...gestures: unknown[]) => unknown)(
-          null,
-          null
-        )
+        (
+          runtime.useSimultaneousGestures as (...gestures: unknown[]) => unknown
+        )(null, null)
       ).toBeNull();
       expect(React.isValidElement(fallbackGestureDetector)).toBe(true);
       expect(React.isValidElement(fallbackRootView)).toBe(true);

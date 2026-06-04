@@ -63,22 +63,23 @@ describe('buildMobileOrderPayload', () => {
     ]);
   });
 
-  it.each(['invoice', 'payforme', 'pay_on_delivery'])(
-    'marks %s orders as pending so they remain actionable orders',
-    (paymentMethod) => {
-      const payload = buildMobileOrderPayload(
-        baseRequest({ payment_method: paymentMethod }),
-        { merchantId: 'merchant-1' }
-      );
+  it.each([
+    'invoice',
+    'payforme',
+    'pay_on_delivery',
+  ])('marks %s orders as pending so they remain actionable orders', (paymentMethod) => {
+    const payload = buildMobileOrderPayload(
+      baseRequest({ payment_method: paymentMethod }),
+      { merchantId: 'merchant-1' }
+    );
 
-      expect(payload).toEqual(
-        expect.objectContaining({
-          payment_method: paymentMethod,
-          payment_status: 'pending',
-        })
-      );
-    }
-  );
+    expect(payload).toEqual(
+      expect.objectContaining({
+        payment_method: paymentMethod,
+        payment_status: 'pending',
+      })
+    );
+  });
 
   it('forwards only fully formed wallet and savings intents', () => {
     const payload = buildMobileOrderPayload(

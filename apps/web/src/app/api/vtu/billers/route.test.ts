@@ -16,22 +16,34 @@ interface Biller {
   billerType: string;
   categoryId: string;
   categoryName: string;
-  billItems?: Array<{
-    itemCode: string;
-    itemName: string;
-    amount: number;
-    itemCurrencySymbol: string;
-    isAmountFixed: boolean;
-    itemFee: number;
-  }>;
+  billItems?: BillItem[];
+}
+
+interface BillItem {
+  itemCode: string;
+  itemName: string;
+  amount: number;
+  itemCurrencySymbol: string;
+  isAmountFixed: boolean;
+  itemFee: number;
+  billItems?: BillItem[];
 }
 
 let mockBillers: Biller[] = [];
 let mockGetBillersByCategory = vi.fn();
+let mockMonnifyGetBillers = vi.fn();
+let mockMonnifyGetBillerProducts = vi.fn();
 
 vi.mock('@/lib/kuda-bills', () => ({
   getBillersByCategory: (...args: unknown[]) =>
     mockGetBillersByCategory(...args),
+}));
+
+vi.mock('@/lib/monnify-bills', () => ({
+  getBillerCategories: vi.fn(),
+  getBillers: (...args: unknown[]) => mockMonnifyGetBillers(...args),
+  getBillerProducts: (...args: unknown[]) =>
+    mockMonnifyGetBillerProducts(...args),
 }));
 
 // ---- Helpers ----
@@ -76,6 +88,8 @@ describe('GET /api/vtu/billers', () => {
       },
     ];
     mockGetBillersByCategory = vi.fn().mockResolvedValue(mockBillers);
+    mockMonnifyGetBillers = vi.fn().mockResolvedValue([]);
+    mockMonnifyGetBillerProducts = vi.fn().mockResolvedValue([]);
   });
 
   it('returns billers for valid type (electricity)', async () => {
@@ -86,8 +100,102 @@ describe('GET /api/vtu/billers', () => {
     const data = await response.json();
 
     expect(response.status).toBe(200);
-    expect(data.billers).toEqual(mockBillers);
+    const expected = mockBillers.map((b) => ({
+      ...b,
+      provider: 'kuda',
+      billItems: b.billItems?.map((item) => ({
+        ...item,
+        provider: 'kuda',
+      })),
+    }));
+    expect(data.billers).toEqual(expected);
     expect(mockGetBillersByCategory).toHaveBeenCalledWith('electricity');
+    expect(mockMonnifyGetBillers).not.toHaveBeenCalled();
+  });
+
+  it('keeps Monnify billers out of default mobile-compatible responses', async () => {
+    const { GET } = await import('./route');
+
+    mockMonnifyGetBillers.mockResolvedValue([
+      {
+        billerCode: 'IKEDC',
+        description: 'Ikeja Electricity Distribution Company',
+        name: 'Ikeja Electricity Distribution Company',
+        billerCategoryCode: 'ELECTRICITY',
+      },
+    ]);
+
+    const request = makeRequest({ type: 'electricity' });
+    const response = await GET(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.billers).toHaveLength(mockBillers.length);
+    expect(
+      data.billers.every(
+        (biller: { provider: string }) => biller.provider === 'kuda'
+      )
+    ).toBe(true);
+    expect(mockMonnifyGetBillers).not.toHaveBeenCalled();
+  });
+
+  it('preserves nested Kuda bill items so the storefront can select leaf products', async () => {
+    const { GET } = await import('./route');
+    mockGetBillersByCategory.mockResolvedValue([
+      {
+        billerId: 'ekedc',
+        billerName: 'Eko Electricity',
+        billerType: 'electricity',
+        categoryId: 'electricity',
+        categoryName: 'Electricity',
+        billItems: [
+          {
+            itemCode: 'prepaid',
+            itemName: 'Prepaid',
+            amount: 0,
+            itemCurrencySymbol: 'NGN',
+            isAmountFixed: false,
+            itemFee: 0,
+            billItems: [
+              {
+                itemCode: 'residential-prepaid',
+                itemName: 'Residential Prepaid',
+                amount: 0,
+                itemCurrencySymbol: 'NGN',
+                isAmountFixed: false,
+                itemFee: 0,
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+
+    const request = makeRequest({ type: 'electricity' });
+    const response = await GET(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.billers[0].billItems[0]).toEqual({
+      itemCode: 'prepaid',
+      itemName: 'Prepaid',
+      amount: 0,
+      itemCurrencySymbol: 'NGN',
+      isAmountFixed: false,
+      itemFee: 0,
+      provider: 'kuda',
+      billItems: [
+        {
+          itemCode: 'residential-prepaid',
+          itemName: 'Residential Prepaid',
+          amount: 0,
+          itemCurrencySymbol: 'NGN',
+          isAmountFixed: false,
+          itemFee: 0,
+          provider: 'kuda',
+        },
+      ],
+    });
   });
 
   it('returns billers for valid type (airtime)', async () => {
@@ -108,7 +216,11 @@ describe('GET /api/vtu/billers', () => {
     const data = await response.json();
 
     expect(response.status).toBe(200);
-    expect(data.billers).toEqual(airtimeBillers);
+    const expected = airtimeBillers.map((b) => ({
+      ...b,
+      provider: 'kuda',
+    }));
+    expect(data.billers).toEqual(expected);
     expect(mockGetBillersByCategory).toHaveBeenCalledWith('airtime');
   });
 
@@ -156,7 +268,10 @@ describe('GET /api/vtu/billers', () => {
       new Error('Kuda API unavailable')
     );
 
-    const request = makeRequest({ type: 'electricity' });
+    const request = makeRequest({
+      type: 'electricity',
+      includeMonnify: 'true',
+    });
     const response = await GET(request);
     const data = await response.json();
 
@@ -205,5 +320,419 @@ describe('GET /api/vtu/billers', () => {
       expect(response.status).toBe(200);
       expect(mockGetBillersByCategory).toHaveBeenCalledWith(type);
     }
+  });
+
+  it('aggregates both Kuda and Monnify billers for electricity', async () => {
+    const { GET } = await import('./route');
+
+    mockGetBillersByCategory.mockResolvedValue([
+      {
+        billerId: 'kuda-biller-1',
+        billerName: 'Ikeja Electric (Kuda)',
+        billerType: 'electricity',
+        categoryId: 'cat-1',
+        categoryName: 'Electricity',
+        billItems: [
+          {
+            itemCode: 'kuda-item-1',
+            itemName: 'Prepaid (Kuda)',
+            amount: 0,
+            itemCurrencySymbol: 'NGN',
+            isAmountFixed: false,
+            itemFee: 0,
+          },
+        ],
+      },
+    ]);
+
+    mockMonnifyGetBillers.mockResolvedValue([
+      {
+        billerCode: 'IKEDC',
+        description: 'Ikeja Electricity Distribution Company',
+        name: 'Ikeja Electricity Distribution Company',
+        billerCategoryCode: 'ELECTRICITY',
+      },
+    ]);
+
+    mockMonnifyGetBillerProducts.mockResolvedValue([
+      {
+        productCode: 'IKEDC-PREPAID',
+        name: 'Ikeja Electric prepaid (Monnify)',
+        billerCode: 'IKEDC',
+        fee: 100,
+        amount: 0,
+        isAmountFixed: false,
+      },
+    ]);
+
+    const request = makeRequest({
+      type: 'electricity',
+      includeMonnify: 'true',
+    });
+    const response = await GET(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+
+    interface TestBillItem {
+      itemCode: string;
+      itemName: string;
+      provider: string;
+      billerCode?: string;
+      productCode?: string;
+    }
+
+    interface TestBiller {
+      billerId: string;
+      billerName: string;
+      provider: string;
+      billerCode?: string;
+      billItems: TestBillItem[];
+    }
+
+    const billers = data.billers as TestBiller[];
+    expect(Array.isArray(billers)).toBe(true);
+
+    for (const biller of billers) {
+      expect(biller.provider).toBeDefined();
+      expect(typeof biller.provider).toBe('string');
+      for (const item of biller.billItems) {
+        expect(item.provider).toBeDefined();
+        expect(typeof item.provider).toBe('string');
+        if (item.provider === 'monnify') {
+          expect(item.billerCode).toBeDefined();
+          expect(item.productCode).toBeDefined();
+        }
+      }
+    }
+
+    const providers = billers.map((b) => b.provider);
+    expect(providers).toContain('kuda');
+    expect(providers).toContain('monnify');
+    expect(mockMonnifyGetBillers).toHaveBeenCalledWith(
+      'ELECTRICITY',
+      expect.objectContaining({ signal: expect.any(Object) })
+    );
+
+    const kudaBiller = billers.find((b) => b.provider === 'kuda');
+    expect(kudaBiller).toBeDefined();
+    expect(kudaBiller?.billItems[0]?.provider).toBe('kuda');
+
+    const monnifyBiller = billers.find((b) => b.provider === 'monnify');
+    expect(monnifyBiller).toBeDefined();
+    expect(monnifyBiller?.billerCode).toBe('IKEDC');
+    expect(monnifyBiller?.billItems[0]?.provider).toBe('monnify');
+    expect(monnifyBiller?.billItems[0]?.productCode).toBe('IKEDC-PREPAID');
+  });
+
+  it('uses documented Monnify bill category codes for supported categories only', async () => {
+    const { GET } = await import('./route');
+
+    await GET(makeRequest({ type: 'electricity', includeMonnify: 'true' }));
+    expect(mockMonnifyGetBillers).toHaveBeenLastCalledWith(
+      'ELECTRICITY',
+      expect.objectContaining({ signal: expect.any(Object) })
+    );
+
+    await GET(makeRequest({ type: 'cable_tv', includeMonnify: 'true' }));
+    expect(mockMonnifyGetBillers).toHaveBeenLastCalledWith(
+      'CABLE_TV',
+      expect.objectContaining({ signal: expect.any(Object) })
+    );
+
+    await GET(makeRequest({ type: 'betting', includeMonnify: 'true' }));
+    expect(mockMonnifyGetBillers).toHaveBeenCalledTimes(2);
+  });
+
+  it('omits Monnify billers that have no usable products', async () => {
+    const { GET } = await import('./route');
+    mockGetBillersByCategory.mockResolvedValue([]);
+    mockMonnifyGetBillers.mockResolvedValue([
+      {
+        billerCode: 'IKEDC',
+        description: 'Ikeja Electricity Distribution Company',
+        name: 'Ikeja Electricity Distribution Company',
+        billerCategoryCode: 'ELECTRICITY',
+      },
+      {
+        billerCode: 'EKEDC',
+        description: 'Eko Electricity Distribution Company',
+        name: 'Eko Electricity Distribution Company',
+        billerCategoryCode: 'ELECTRICITY',
+      },
+    ]);
+    mockMonnifyGetBillerProducts.mockImplementation((billerCode: string) =>
+      Promise.resolve(
+        billerCode === 'EKEDC'
+          ? [
+              {
+                productCode: 'EKEDC-PREPAID',
+                name: 'Eko Electric prepaid',
+                billerCode: 'EKEDC',
+                fee: 100,
+                amount: 0,
+                isAmountFixed: false,
+              },
+            ]
+          : []
+      )
+    );
+
+    const request = makeRequest({
+      type: 'electricity',
+      includeMonnify: 'true',
+    });
+    const response = await GET(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.billers).toHaveLength(1);
+    expect(data.billers[0]).toMatchObject({
+      billerCode: 'EKEDC',
+      provider: 'monnify',
+    });
+  });
+
+  it('returns a representative Monnify product error when Kuda fallback succeeds', async () => {
+    const { GET } = await import('./route');
+    mockGetBillersByCategory.mockResolvedValue([
+      {
+        billerId: 'kuda-biller-1',
+        billerName: 'Ikeja Electric (Kuda)',
+        billerType: 'electricity',
+        categoryId: 'cat-1',
+        categoryName: 'Electricity',
+        billItems: [],
+      },
+    ]);
+    mockMonnifyGetBillers.mockResolvedValue([
+      {
+        billerCode: 'IKEDC',
+        description: 'Ikeja Electricity Distribution Company',
+        name: 'Ikeja Electricity Distribution Company',
+        billerCategoryCode: 'ELECTRICITY',
+      },
+    ]);
+    mockMonnifyGetBillerProducts.mockRejectedValue(
+      new Error('Monnify products unavailable')
+    );
+
+    const response = await GET(
+      makeRequest({ type: 'electricity', includeMonnify: 'true' })
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.billers).toEqual([
+      expect.objectContaining({
+        billerId: 'kuda-biller-1',
+        provider: 'kuda',
+      }),
+    ]);
+    expect(data.monnifyError).toContain(
+      'Failed to fetch Monnify products for IKEDC'
+    );
+  });
+
+  it('limits concurrent Monnify product lookups for large categories', async () => {
+    const { GET } = await import('./route');
+    let activeProductLookups = 0;
+    let maxActiveProductLookups = 0;
+
+    mockGetBillersByCategory.mockResolvedValue([]);
+    mockMonnifyGetBillers.mockResolvedValue(
+      Array.from({ length: 8 }, (_, index) => ({
+        billerCode: `BILLER-${index}`,
+        description: `Biller ${index}`,
+        name: `Biller ${index}`,
+        billerCategoryCode: 'ELECTRICITY',
+      }))
+    );
+    mockMonnifyGetBillerProducts.mockImplementation(
+      async (billerCode: string) => {
+        activeProductLookups += 1;
+        maxActiveProductLookups = Math.max(
+          maxActiveProductLookups,
+          activeProductLookups
+        );
+        await Promise.resolve();
+        activeProductLookups -= 1;
+        return [
+          {
+            productCode: `${billerCode}-PRODUCT`,
+            name: `${billerCode} product`,
+            billerCode,
+            fee: 0,
+            amount: 0,
+            isAmountFixed: false,
+          },
+        ];
+      }
+    );
+
+    const response = await GET(
+      makeRequest({ type: 'electricity', includeMonnify: 'true' })
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.billers).toHaveLength(8);
+    expect(maxActiveProductLookups).toBeLessThanOrEqual(4);
+  });
+
+  it('returns Kuda billers when Monnify product discovery exceeds the route budget', async () => {
+    vi.useFakeTimers();
+    try {
+      const { GET } = await import('./route');
+
+      mockGetBillersByCategory.mockResolvedValue([
+        {
+          billerId: 'kuda-biller-1',
+          billerName: 'Ikeja Electric (Kuda)',
+          billerType: 'electricity',
+          categoryId: 'cat-1',
+          categoryName: 'Electricity',
+          billItems: [],
+        },
+      ]);
+      mockMonnifyGetBillers.mockResolvedValue([
+        {
+          billerCode: 'IKEDC',
+          description: 'Ikeja Electricity Distribution Company',
+          name: 'Ikeja Electricity Distribution Company',
+          billerCategoryCode: 'ELECTRICITY',
+        },
+      ]);
+      mockMonnifyGetBillerProducts.mockReturnValue(
+        new Promise<never>(() => {
+          // Keep Monnify pending until the route-level discovery budget fires.
+        })
+      );
+
+      const responsePromise = GET(
+        makeRequest({ type: 'electricity', includeMonnify: 'true' })
+      );
+
+      await Promise.resolve();
+      await Promise.resolve();
+      await vi.advanceTimersByTimeAsync(3500);
+
+      const response = await responsePromise;
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.billers).toEqual([
+        expect.objectContaining({
+          billerId: 'kuda-biller-1',
+          provider: 'kuda',
+        }),
+      ]);
+      expect(mockMonnifyGetBillerProducts).toHaveBeenCalledWith(
+        'IKEDC',
+        expect.objectContaining({ signal: expect.any(Object) })
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('falls back gracefully if Monnify throws', async () => {
+    const { GET } = await import('./route');
+
+    mockGetBillersByCategory.mockResolvedValue([
+      {
+        billerId: 'kuda-biller-1',
+        billerName: 'Ikeja Electric (Kuda)',
+        billerType: 'electricity',
+        categoryId: 'cat-1',
+        categoryName: 'Electricity',
+        billItems: [],
+      },
+    ]);
+
+    mockMonnifyGetBillers.mockRejectedValue(new Error('Monnify API down'));
+
+    const request = makeRequest({
+      type: 'electricity',
+      includeMonnify: 'true',
+    });
+    const response = await GET(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.billers).toHaveLength(1);
+    expect(data.billers[0].provider).toBe('kuda');
+    expect(data.monnifyError).toBe('Monnify API down');
+  });
+
+  it('rejects malformed Kuda biller payloads instead of accepting type assertions', async () => {
+    const { GET } = await import('./route');
+
+    mockGetBillersByCategory.mockResolvedValue([
+      {
+        billerId: 'kuda-biller-1',
+        billerName: 'Ikeja Electric',
+        billerType: 'electricity',
+        categoryId: 'cat-1',
+        categoryName: 'Electricity',
+        billItems: [
+          {
+            itemCode: 'kuda-item-1',
+            itemName: 'Prepaid',
+            amount: 'invalid',
+            itemCurrencySymbol: 'NGN',
+            isAmountFixed: false,
+            itemFee: 0,
+          },
+        ],
+      },
+    ]);
+    mockMonnifyGetBillers.mockResolvedValue([]);
+
+    const request = makeRequest({
+      type: 'electricity',
+      includeMonnify: 'true',
+    });
+    const response = await GET(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(data.error).toContain('Kuda biller payload failed validation');
+  });
+
+  it('falls back gracefully if Kuda throws but Monnify succeeds', async () => {
+    const { GET } = await import('./route');
+
+    mockGetBillersByCategory.mockRejectedValue(new Error('Kuda API down'));
+
+    mockMonnifyGetBillers.mockResolvedValue([
+      {
+        billerCode: 'IKEDC',
+        description: 'Ikeja Electricity Distribution Company',
+        name: 'Ikeja Electricity Distribution Company',
+        billerCategoryCode: 'UTILITY_PAYMENT',
+      },
+    ]);
+    mockMonnifyGetBillerProducts.mockResolvedValue([
+      {
+        productCode: 'IKEDC-PREPAID',
+        name: 'Ikeja Electric prepaid (Monnify)',
+        billerCode: 'IKEDC',
+        fee: 100,
+        amount: 0,
+        isAmountFixed: false,
+      },
+    ]);
+
+    const request = makeRequest({
+      type: 'electricity',
+      includeMonnify: 'true',
+    });
+    const response = await GET(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.billers).toHaveLength(1);
+    expect(data.billers[0].provider).toBe('monnify');
   });
 });

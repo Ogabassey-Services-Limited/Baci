@@ -7,6 +7,7 @@ import {
 import { resolveKudaDataPlanForPurchase } from '@/lib/kuda-data-plans';
 import { normalizeVtuNetworkProvider } from '@/lib/normalize-vtu-network-provider';
 import { calculateCommerce } from '@/lib/supabase/client';
+import { resolveVtuProvider } from '@/lib/vtu-commission-rates';
 import { COMMISSION_CATEGORY_MAP, type PurchaseInput } from '@/schemas/vtu';
 
 export const VTU_TYPE_LABELS: Record<PurchaseInput['type'], string> = {
@@ -16,6 +17,8 @@ export const VTU_TYPE_LABELS: Record<PurchaseInput['type'], string> = {
   cable_tv: 'TV Subscription',
   betting: 'Betting Top-up',
 };
+
+type VtuProviderSource = 'kuda' | 'monnify';
 
 /**
  * Commission rate semantics:
@@ -50,6 +53,76 @@ function normalizeCommissionPercentage(value: number | null | undefined) {
   }
 
   return value;
+}
+
+function firstTrimmed(...values: Array<string | undefined>) {
+  return values.map((value) => value?.trim()).find(Boolean);
+}
+
+function resolveRoutingProviderKey({
+  billerCode,
+  billerName,
+  billItemIdentifier,
+  isTelco,
+  normalizedNetworkProvider,
+  productCode,
+}: {
+  billerCode?: string;
+  billerName?: string;
+  billItemIdentifier?: string;
+  isTelco: boolean;
+  normalizedNetworkProvider?: string;
+  productCode?: string;
+}) {
+  if (isTelco) {
+    return normalizedNetworkProvider;
+  }
+
+  const key = firstTrimmed(
+    billerName,
+    billerCode,
+    billItemIdentifier,
+    productCode
+  );
+
+  if (!key) {
+    throw new Error('Biller name or provider key is required for bill payment');
+  }
+
+  return key;
+}
+
+function resolveCommissionProviderKey({
+  billerCode,
+  billerName,
+  billItemIdentifier,
+  isTelco,
+  normalizedNetworkProvider,
+  productCode,
+  providerSource,
+}: {
+  billerCode?: string;
+  billerName?: string;
+  billItemIdentifier?: string;
+  isTelco: boolean;
+  normalizedNetworkProvider?: string;
+  productCode?: string;
+  providerSource: VtuProviderSource;
+}) {
+  if (isTelco) {
+    return normalizedNetworkProvider;
+  }
+
+  const key =
+    providerSource === 'monnify'
+      ? firstTrimmed(billerCode, productCode, billerName, billItemIdentifier)
+      : firstTrimmed(billItemIdentifier, productCode, billerName, billerCode);
+
+  if (!key) {
+    throw new Error('Biller name or provider key is required for bill payment');
+  }
+
+  return key;
 }
 
 interface CustomerRecord {
@@ -251,13 +324,103 @@ export async function preparePendingVtuTransaction({
   }
   const purchaseAmount = resolvedDataPlan?.amount ?? input.amount;
 
-  const commissionProvider = isTelco
-    ? normalizedNetworkProvider
-    : (input.billerName ?? 'DEFAULT');
+  let resolvedProvider: 'kuda' | 'monnify';
+  let commissionProvider: string | undefined;
+
+  if (isTelco) {
+    if (input.provider === 'monnify') {
+      throw new Error('Monnify does not support airtime/data purchases');
+    }
+    resolvedProvider = 'kuda';
+    commissionProvider = resolveCommissionProviderKey({
+      isTelco,
+      normalizedNetworkProvider: normalizedNetworkProvider ?? undefined,
+      providerSource: resolvedProvider,
+    });
+  } else {
+    const kudaAvailable = !!(
+      input.billItemIdentifier && input.customerIdentifier
+    );
+    const monnifyAvailable = !!(
+      input.billerCode &&
+      input.productCode &&
+      input.customerIdentifier &&
+      (!input.requireValidationRef || input.validationReference)
+    );
+
+    if (input.provider === 'monnify') {
+      if (!monnifyAvailable) {
+        throw new Error('Required Monnify fields are missing');
+      }
+      resolvedProvider = 'monnify';
+      commissionProvider = resolveCommissionProviderKey({
+        billerCode: input.billerCode,
+        billerName: input.billerName,
+        billItemIdentifier: input.billItemIdentifier,
+        isTelco,
+        productCode: input.productCode,
+        providerSource: resolvedProvider,
+      });
+    } else if (input.provider === 'kuda') {
+      if (!kudaAvailable) {
+        throw new Error('Required Kuda fields are missing');
+      }
+      resolvedProvider = 'kuda';
+      commissionProvider = resolveCommissionProviderKey({
+        billerCode: input.billerCode,
+        billerName: input.billerName,
+        billItemIdentifier: input.billItemIdentifier,
+        isTelco,
+        productCode: input.productCode,
+        providerSource: resolvedProvider,
+      });
+    } else {
+      // Auto mode
+      if (!monnifyAvailable && !kudaAvailable) {
+        throw new Error('No provider available based on submitted fields');
+      }
+      const routingProvider = resolveRoutingProviderKey({
+        billerCode: input.billerCode,
+        billerName: input.billerName,
+        billItemIdentifier: input.billItemIdentifier,
+        isTelco,
+        productCode: input.productCode,
+      });
+      const preference = resolveVtuProvider(
+        routingProvider,
+        COMMISSION_CATEGORY_MAP[purchaseType]
+      );
+
+      if (preference === 'monnify' && monnifyAvailable) {
+        resolvedProvider = 'monnify';
+      } else if (preference === 'kuda' && kudaAvailable) {
+        resolvedProvider = 'kuda';
+      } else if (monnifyAvailable) {
+        resolvedProvider = 'monnify';
+      } else if (kudaAvailable) {
+        resolvedProvider = 'kuda';
+      } else {
+        throw new Error('No provider available based on submitted fields');
+      }
+      commissionProvider = resolveCommissionProviderKey({
+        billerCode: input.billerCode,
+        billerName: input.billerName,
+        billItemIdentifier: input.billItemIdentifier,
+        isTelco,
+        productCode: input.productCode,
+        providerSource: resolvedProvider,
+      });
+    }
+  }
+
+  if (!commissionProvider) {
+    throw new Error('Biller name or provider key is required for bill payment');
+  }
 
   const commissions = await calculateCommerce('calculate_vtu', {
     amount: purchaseAmount,
     provider: commissionProvider,
+    providerSource: resolvedProvider,
     category: COMMISSION_CATEGORY_MAP[purchaseType],
     merchantSplit: merchantSplitPercentage,
   });
@@ -300,6 +463,18 @@ export async function preparePendingVtuTransaction({
       customer_identifier: input.customerIdentifier ?? null,
       customer_name: input.customerName?.trim() || null,
       metadata: {
+        provider: resolvedProvider,
+        ...(resolvedProvider === 'monnify'
+          ? {
+              billerCode: input.billerCode,
+              productCode: input.productCode,
+              validationReference: input.validationReference || undefined,
+              requireValidationRef:
+                typeof input.requireValidationRef === 'boolean'
+                  ? input.requireValidationRef
+                  : undefined,
+            }
+          : {}),
         dataPlanCode: resolvedDataPlan?.itemCode ?? input.dataPlanCode,
         ...(resolvedDataPlan &&
         resolvedDataPlan.originalDataPlanCode !== resolvedDataPlan.itemCode

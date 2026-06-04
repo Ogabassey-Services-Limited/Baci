@@ -52,10 +52,18 @@
       "persistent": true
     },
     "lint": {
-      "inputs": ["$TURBO_DEFAULT$", "next.config*.ts", "$TURBO_ROOT$/biome.json"]
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "next.config*.ts",
+        "$TURBO_ROOT$/biome.json"
+      ]
     },
     "typecheck": {
-      "inputs": ["$TURBO_DEFAULT$", "next.config*.ts", "$TURBO_ROOT$/tsconfig*.json"]
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "next.config*.ts",
+        "$TURBO_ROOT$/tsconfig*.json"
+      ]
     },
     "test": {
       "inputs": [

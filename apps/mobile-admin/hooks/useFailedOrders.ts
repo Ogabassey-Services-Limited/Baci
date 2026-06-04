@@ -11,12 +11,7 @@ export interface FailedOrder {
   customer_email: string;
   customer_phone: string;
   total: number;
-  payment_status:
-    | 'bnpl_pending'
-    | 'failed'
-    | 'pending'
-    | 'expired'
-    | 'unpaid';
+  payment_status: 'bnpl_pending' | 'failed' | 'pending' | 'expired' | 'unpaid';
   payment_method: string;
   created_at: string;
   gateway_response?: Record<string, unknown> | null;
