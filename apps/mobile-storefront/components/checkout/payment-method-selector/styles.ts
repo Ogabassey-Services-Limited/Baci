@@ -20,10 +20,18 @@ export const paymentMethodSelectorStyles = StyleSheet.create({
     justifyContent: 'center',
   },
   activeTab: {},
+  compactTab: {
+    minHeight: 40,
+    paddingVertical: 7,
+    paddingHorizontal: 2,
+  },
   tabText: {
     fontSize: 14,
     fontWeight: '600',
     textAlign: 'center',
+  },
+  compactTabText: {
+    fontSize: 13,
   },
   installmentInfo: {
     flexDirection: 'row',
@@ -64,6 +72,7 @@ export const paymentMethodSelectorStyles = StyleSheet.create({
     borderRadius: RADIUS.md,
     justifyContent: 'center',
     alignItems: 'center',
+    flexShrink: 0,
   },
   methodLogo: {
     width: 32,
@@ -72,6 +81,7 @@ export const paymentMethodSelectorStyles = StyleSheet.create({
   methodInfo: {
     flex: 1,
     marginLeft: SPACING.md,
+    minWidth: 0,
   },
   methodBadge: {
     backgroundColor: `${BRAND.primary}20`,
@@ -98,6 +108,8 @@ export const paymentMethodSelectorStyles = StyleSheet.create({
   },
   methodDesc: {
     fontSize: 13,
+    flexShrink: 1,
+    lineHeight: 18,
   },
   radioOuter: {
     width: 22,
@@ -106,6 +118,8 @@ export const paymentMethodSelectorStyles = StyleSheet.create({
     borderWidth: 2,
     justifyContent: 'center',
     alignItems: 'center',
+    flexShrink: 0,
+    marginLeft: SPACING.sm,
   },
   radioInner: {
     width: 12,
