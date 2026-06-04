@@ -249,8 +249,9 @@ jobs:
           serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: com.ogabassey.baci
           releaseFiles: ${{ env.WORKING_DIR }}/android/app/build/outputs/bundle/release/app-release.aab
-          track: production
+          tracks: production
           status: completed
+          changesNotSentForReview: true
 
       - name: Clean up keystore
         if: always()
