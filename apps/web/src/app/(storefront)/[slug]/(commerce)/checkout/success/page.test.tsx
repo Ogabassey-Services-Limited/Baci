@@ -201,7 +201,31 @@ describe('checkout success page', () => {
     }
   });
 
-  it('treats non-2xx verification responses as failed instead of pending', async () => {
+  it('keeps non-2xx pending verification responses pending', async () => {
+    mockFetchWithCsrf.mockResolvedValue({
+      ok: false,
+      json: async () => ({
+        orderNumber: 'ORD-PENDING',
+        status: 'pending',
+        success: false,
+      }),
+    });
+
+    render(<CheckoutSuccessPage />);
+
+    await waitFor(() => expect(mockFetchWithCsrf).toHaveBeenCalled());
+    expect(mockClearCart).not.toHaveBeenCalled();
+    expect(
+      screen.queryByRole('heading', { name: /payment unsuccessful/i })
+    ).not.toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: /order being processed/i })
+    ).toBeInTheDocument();
+    expect(await screen.findByText('#ORD-PENDING')).toBeInTheDocument();
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it('treats non-2xx non-pending verification responses as failed', async () => {
     const redirectTimerSpy = vi.spyOn(globalThis, 'setTimeout');
     mockFetchWithCsrf.mockResolvedValue({
       ok: false,

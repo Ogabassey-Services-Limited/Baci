@@ -130,6 +130,40 @@ type QuizVoucherItemCandidate = {
   voucher_token?: unknown;
 };
 type OrderCreateItem = OrderCreateInput['items'][number];
+type ImmediateInvoiceOrderItem = Omit<OrderCreateItem, 'assurance_fee'> & {
+  assurance_fee?: number;
+  item_description?: string | null;
+  line_extension_amount?: number | null;
+  sellers_item_id?: string | null;
+  unit_code?: string | null;
+  variant_name?: string | null;
+  vat_amount?: number | null;
+  vat_category_code?: string | null;
+  vat_rate?: number | null;
+};
+type PersistedInvoiceOrderItemRow = {
+  assurance_fee?: unknown;
+  has_assurance?: unknown;
+  id?: unknown;
+  item_description?: unknown;
+  line_extension_amount?: unknown;
+  name?: unknown;
+  price?: unknown;
+  product_id?: unknown;
+  quantity?: unknown;
+  sellers_item_id?: unknown;
+  unit_code?: unknown;
+  variant_attributes?: unknown;
+  variant_id?: unknown;
+  variant_name?: unknown;
+  vat_amount?: unknown;
+  vat_category_code?: unknown;
+  vat_rate?: unknown;
+};
+
+const IMMEDIATE_INVOICE_DUE_DAYS = 14;
+const PERSISTED_INVOICE_ITEMS_LOOKUP_ATTEMPTS = 3;
+const PERSISTED_INVOICE_ITEMS_RETRY_DELAY_MS = 50;
 
 function hasNonEmptyVoucherIdentifier(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
@@ -181,7 +215,14 @@ function getOrderItemVariantLabel(item: OrderCreateItem): string | null {
     item.variantAttributes || item.variant_attributes
   );
 
-  return label || null;
+  if (label) {
+    return label;
+  }
+
+  const variantName = (item as { variant_name?: unknown }).variant_name;
+  return typeof variantName === 'string' && variantName.trim().length > 0
+    ? variantName.trim()
+    : null;
 }
 
 function getOrderFulfillmentDetails(
@@ -269,6 +310,187 @@ function roundCurrency(value: number) {
   return Math.round(value * 100) / 100;
 }
 
+function getImmediateInvoiceIssueDate(order: Record<string, unknown>) {
+  return new Date(
+    typeof order.created_at === 'string' ? order.created_at : Date.now()
+  );
+}
+
+function getImmediateInvoiceDueDate(order: Record<string, unknown>) {
+  const issueDate = getImmediateInvoiceIssueDate(order);
+
+  return new Date(
+    issueDate.getTime() + IMMEDIATE_INVOICE_DUE_DAYS * 24 * 60 * 60 * 1000
+  );
+}
+
+function toFiniteNumber(value: unknown): number | null {
+  const numericValue = Number(value);
+
+  return Number.isFinite(numericValue) ? numericValue : null;
+}
+
+function getOptionalString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim().length > 0
+    ? value.trim()
+    : undefined;
+}
+
+function getStringRecord(value: unknown): Record<string, string> | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return undefined;
+  }
+
+  const entries = Object.entries(value as Record<string, unknown>)
+    .map(([key, entryValue]) =>
+      typeof entryValue === 'string' ? [key, entryValue] : null
+    )
+    .filter((entry): entry is [string, string] => entry !== null);
+
+  return entries.length > 0 ? Object.fromEntries(entries) : undefined;
+}
+
+function getOrderItemUnitPrice(item: OrderCreateItem) {
+  return item.negotiatedPrice ?? item.price;
+}
+
+function getOrderItemAssuranceFee(item: ImmediateInvoiceOrderItem) {
+  const persistedAssuranceFee = toFiniteNumber(item.assurance_fee);
+  if (persistedAssuranceFee !== null) {
+    return roundCurrency(persistedAssuranceFee);
+  }
+
+  const itemBaseTotal = item.quantity * getOrderItemUnitPrice(item);
+
+  return item.has_assurance
+    ? roundCurrency(itemBaseTotal * SERVER_ASSURANCE_RATE)
+    : 0;
+}
+
+function getOrderItemLineExtensionAmount(item: ImmediateInvoiceOrderItem) {
+  const persistedLineExtensionAmount = toFiniteNumber(
+    item.line_extension_amount
+  );
+
+  if (persistedLineExtensionAmount !== null) {
+    return roundCurrency(persistedLineExtensionAmount);
+  }
+
+  return roundCurrency(
+    item.quantity * getOrderItemUnitPrice(item) + getOrderItemAssuranceFee(item)
+  );
+}
+
+function normalizePersistedInvoiceOrderItems(
+  rows: unknown
+): ImmediateInvoiceOrderItem[] | null {
+  if (!Array.isArray(rows) || rows.length === 0) {
+    return null;
+  }
+
+  const normalizedItems = rows
+    .map((row): ImmediateInvoiceOrderItem | null => {
+      if (!row || typeof row !== 'object') {
+        return null;
+      }
+
+      const typedRow = row as PersistedInvoiceOrderItemRow;
+      const quantity = toFiniteNumber(typedRow.quantity);
+      const price = toFiniteNumber(typedRow.price);
+      const name = getOptionalString(typedRow.name) ?? 'Product';
+      const fallbackIdentifier =
+        getOptionalString(typedRow.product_id) ??
+        getOptionalString(typedRow.id);
+
+      if (!quantity || quantity <= 0 || price === null || price < 0) {
+        return null;
+      }
+
+      return {
+        condition: undefined,
+        id: fallbackIdentifier,
+        product_id: getOptionalString(typedRow.product_id),
+        productName: undefined,
+        name,
+        quantity,
+        price,
+        variant_id: getOptionalString(typedRow.variant_id),
+        variant_attributes: getStringRecord(typedRow.variant_attributes),
+        has_assurance: typedRow.has_assurance === true,
+        assurance_fee: toFiniteNumber(typedRow.assurance_fee) ?? undefined,
+        item_description: getOptionalString(typedRow.item_description) ?? null,
+        line_extension_amount: toFiniteNumber(typedRow.line_extension_amount),
+        sellers_item_id: getOptionalString(typedRow.sellers_item_id) ?? null,
+        unit_code: getOptionalString(typedRow.unit_code) ?? null,
+        variant_name: getOptionalString(typedRow.variant_name) ?? null,
+        vat_amount: toFiniteNumber(typedRow.vat_amount),
+        vat_category_code:
+          getOptionalString(typedRow.vat_category_code) ?? null,
+        vat_rate: toFiniteNumber(typedRow.vat_rate),
+      };
+    })
+    .filter((item): item is ImmediateInvoiceOrderItem => item !== null);
+
+  return normalizedItems.length > 0 ? normalizedItems : null;
+}
+
+async function delayPersistedInvoiceItemRetry(attempt: number) {
+  await new Promise((resolve) =>
+    setTimeout(resolve, attempt * PERSISTED_INVOICE_ITEMS_RETRY_DELAY_MS)
+  );
+}
+
+async function loadPersistedInvoiceOrderItems({
+  orderId,
+  supabase,
+}: {
+  orderId: string;
+  supabase: ReturnType<typeof createAdminClient>;
+}) {
+  let lastError: unknown = null;
+
+  for (
+    let attempt = 1;
+    attempt <= PERSISTED_INVOICE_ITEMS_LOOKUP_ATTEMPTS;
+    attempt += 1
+  ) {
+    const { data, error } = await supabase
+      .from('order_items')
+      .select(
+        'id, product_id, variant_id, variant_attributes, variant_name, name, quantity, price, has_assurance, assurance_fee, item_description, line_extension_amount, vat_category_code, vat_rate, vat_amount, sellers_item_id, unit_code'
+      )
+      .eq('order_id', orderId)
+      .order('line_id', { ascending: true });
+
+    if (!error) {
+      return normalizePersistedInvoiceOrderItems(data);
+    }
+
+    lastError = error;
+    logger.error({
+      message: 'Failed to load persisted order items for invoice email',
+      alert: 'invoice_order_items_lookup_failed',
+      attempt,
+      attempts: PERSISTED_INVOICE_ITEMS_LOOKUP_ATTEMPTS,
+      orderId,
+      error,
+    });
+
+    if (attempt < PERSISTED_INVOICE_ITEMS_LOOKUP_ATTEMPTS) {
+      await delayPersistedInvoiceItemRetry(attempt);
+    }
+  }
+
+  logger.error({
+    message: 'Persisted order item lookup exhausted for invoice email',
+    alert: 'invoice_order_items_lookup_exhausted',
+    attempts: PERSISTED_INVOICE_ITEMS_LOOKUP_ATTEMPTS,
+    orderId,
+    error: lastError,
+  });
+  return null;
+}
+
 function allocateLineTax(input: {
   index: number;
   itemCount: number;
@@ -295,7 +517,7 @@ function buildImmediatePeppolInvoiceData(input: {
   customerName: string;
   customerPhone?: string;
   fulfillment: ReceiptFulfillmentDetails | null;
-  items: OrderCreateInput['items'];
+  items: ImmediateInvoiceOrderItem[];
   merchant: {
     bank_account_name?: string | null;
     bank_account_number?: string | null;
@@ -332,13 +554,10 @@ function buildImmediatePeppolInvoiceData(input: {
       : 'O';
   const vatRate =
     vatCategoryCode === 'S' ? (input.merchant.vat_rate ?? 7.5) : 0;
-  const lineExtensionTotal = input.items.reduce((total, item) => {
-    const itemBaseTotal = item.quantity * (item.negotiatedPrice ?? item.price);
-    const itemAssuranceFee = item.has_assurance
-      ? roundCurrency(itemBaseTotal * SERVER_ASSURANCE_RATE)
-      : 0;
-    return total + itemBaseTotal + itemAssuranceFee;
-  }, 0);
+  const lineExtensionTotal = input.items.reduce(
+    (total, item) => total + getOrderItemLineExtensionAmount(item),
+    0
+  );
   const hasDeviceItem = input.items.some((item) =>
     isDeviceReceiptItemName(getOrderItemBaseName(item))
   );
@@ -357,23 +576,29 @@ function buildImmediatePeppolInvoiceData(input: {
   let allocatedTaxAmount = 0;
 
   const invoiceItems: InvoiceLineItem[] = input.items.map((item, index) => {
-    const itemBaseTotal = item.quantity * (item.negotiatedPrice ?? item.price);
-    const itemAssuranceFee = item.has_assurance
-      ? roundCurrency(itemBaseTotal * SERVER_ASSURANCE_RATE)
-      : 0;
-    const lineExtensionAmount = itemBaseTotal + itemAssuranceFee;
-    const vatAmount = allocateLineTax({
-      index,
-      itemCount: input.items.length,
-      lineExtensionAmount,
-      lineExtensionTotal,
-      taxAmount,
-      allocatedTaxAmount,
-    });
+    const itemAssuranceFee = getOrderItemAssuranceFee(item);
+    const lineExtensionAmount = getOrderItemLineExtensionAmount(item);
+    const persistedVatAmount = toFiniteNumber(item.vat_amount);
+    const vatAmount =
+      persistedVatAmount ??
+      allocateLineTax({
+        index,
+        itemCount: input.items.length,
+        lineExtensionAmount,
+        lineExtensionTotal,
+        taxAmount,
+        allocatedTaxAmount,
+      });
     allocatedTaxAmount += vatAmount;
 
+    const persistedDescription =
+      typeof item.item_description === 'string' &&
+      item.item_description.trim().length > 0
+        ? item.item_description.trim()
+        : undefined;
     const itemDescription = appendReceiptFulfillmentDescription({
-      description: getOrderItemVariantLabel(item) || undefined,
+      description:
+        persistedDescription ?? getOrderItemVariantLabel(item) ?? undefined,
       fulfillment: input.fulfillment,
       hasDeviceItem,
       index,
@@ -389,12 +614,13 @@ function buildImmediatePeppolInvoiceData(input: {
       name: getOrderItemBaseName(item),
       description,
       quantity: item.quantity,
-      unit_code: 'EA',
-      price: item.negotiatedPrice ?? item.price,
+      unit_code: item.unit_code || 'EA',
+      price: getOrderItemUnitPrice(item),
       line_extension_amount: lineExtensionAmount,
-      vat_category_code: vatCategoryCode,
-      vat_rate: vatRate,
+      vat_category_code: item.vat_category_code || vatCategoryCode,
+      vat_rate: item.vat_rate ?? vatRate,
       vat_amount: vatAmount,
+      sellers_item_id: item.sellers_item_id || undefined,
     };
   });
   const taxExclusiveAmount = Math.max(
@@ -411,17 +637,13 @@ function buildImmediatePeppolInvoiceData(input: {
         vatCategoryCode === 'O' ? 'Seller is not VAT registered' : undefined,
     },
   ];
-  const issueDate = new Date(
-    typeof input.order.created_at === 'string'
-      ? input.order.created_at
-      : Date.now()
-  );
+  const issueDate = getImmediateInvoiceIssueDate(input.order);
 
   return {
     invoice_number: input.orderNumber,
     invoice_type_code: '380',
     issue_date: issueDate,
-    due_date: new Date(issueDate.getTime() + 14 * 24 * 60 * 60 * 1000),
+    due_date: getImmediateInvoiceDueDate(input.order),
     currency,
     buyer_reference: input.customerEmail || input.customerName,
     merchant: {
@@ -1629,6 +1851,36 @@ export async function POST(request: NextRequest) {
                 const lastName = nameParts.slice(1).join(' ') || 'User';
                 let invoiceVirtualAccount: ReceiptOrder['virtual_account'] =
                   null;
+                const invoiceTimingOrder = {
+                  ...(order as Record<string, unknown>),
+                  created_at:
+                    typeof order.created_at === 'string'
+                      ? order.created_at
+                      : new Date().toISOString(),
+                };
+                const invoiceDueDate =
+                  getImmediateInvoiceDueDate(invoiceTimingOrder);
+
+                // The customer can send display-only item names/prices, while
+                // the storefront order RPC persists canonical product/variant
+                // snapshots. Render invoice artifacts from those persisted
+                // rows after the validated order exists.
+                backgroundSupabase ??= createAdminClient();
+                const persistedInvoiceItems =
+                  await loadPersistedInvoiceOrderItems({
+                    orderId: order.id,
+                    supabase: backgroundSupabase,
+                  });
+                if (!persistedInvoiceItems) {
+                  logger.error({
+                    message:
+                      'Persisted order items unavailable for invoice email; skipping non-canonical invoice artifacts',
+                    orderId: order.id,
+                  });
+                  throw new Error('PERSISTED_INVOICE_ITEMS_UNAVAILABLE');
+                }
+                const invoiceItems = persistedInvoiceItems;
+
                 const dvaResult = await generatePaymentAccount({
                   email: customer_email || `${order.id}@orders.usebaci.com`,
                   firstName,
@@ -1649,9 +1901,7 @@ export async function POST(request: NextRequest) {
                   // through RLS, so the server-only admin client is scoped to
                   // this post-response side effect and order.id.
                   backgroundSupabase ??= createAdminClient();
-                  const dvaExpiresAt = new Date(
-                    Date.now() + 90 * 60 * 1000
-                  ).toISOString();
+                  const dvaExpiresAt = invoiceDueDate.toISOString();
                   const { error: insertError } = await backgroundSupabase
                     .from('order_payment_accounts')
                     .upsert(
@@ -1691,7 +1941,7 @@ export async function POST(request: NextRequest) {
                 const fulfillment = getOrderFulfillmentDetails(
                   order as Record<string, unknown>
                 );
-                const hasDeviceItem = items.some((item) =>
+                const hasDeviceItem = invoiceItems.some((item) =>
                   isDeviceReceiptItemName(getOrderItemBaseName(item))
                 );
                 const amountPaid = Math.max(
@@ -1699,7 +1949,7 @@ export async function POST(request: NextRequest) {
                   savingsAmountUsed + walletAmountUsed
                 );
                 const invoiceOrder = {
-                  ...(order as Record<string, unknown>),
+                  ...invoiceTimingOrder,
                   amount_paid: amountPaid,
                 };
                 const receiptOrder: ReceiptOrder = {
@@ -1727,7 +1977,7 @@ export async function POST(request: NextRequest) {
                     buildImmediateInvoiceShippingAddress(shipping_address),
                   virtual_account: invoiceVirtualAccount,
                   fulfillment_details: fulfillment,
-                  items: items.map((item, index) => {
+                  items: invoiceItems.map((item, index) => {
                     const variantName = getOrderItemVariantLabel(item);
 
                     return {
@@ -1752,7 +2002,7 @@ export async function POST(request: NextRequest) {
                   customerName: customer_name,
                   customerPhone: customer_phone,
                   fulfillment,
-                  items,
+                  items: invoiceItems,
                   merchant,
                   notes,
                   order: invoiceOrder,
@@ -1888,6 +2138,7 @@ export async function POST(request: NextRequest) {
                   orderId: order.id,
                   error: err,
                 });
+                return;
               }
             }
 

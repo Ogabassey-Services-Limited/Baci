@@ -9,6 +9,7 @@ import {
   revalidateMerchant,
 } from '@/lib/cache-revalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
+import { merchantFeatureSettingsDefaults } from '@/lib/merchant-feature-settings-defaults';
 import { merchantFeatureSettingsPatchSchema } from '@/schemas/merchant-features';
 
 /**
@@ -243,77 +244,8 @@ const _merchantFeatureSelectCompletenessCheck: _MerchantFeatureSelectFieldsExhau
 void _merchantFeatureSelectCompletenessCheck;
 
 // Default settings for new merchants
-const DEFAULT_SETTINGS: Partial<MerchantFeatureSettings> = {
-  loyalty_enabled: false,
-  reviews_enabled: true,
-  wishlist_enabled: true,
-  order_tracking_enabled: true,
-  discount_codes_enabled: true,
-  guest_checkout_enabled: true,
-  agentic_checkout_enabled: true,
-  // Payment gateways - both enabled by default
-  paystack_enabled: true,
-  korapay_enabled: true,
-  pay_on_delivery_enabled: false,
-  credit_direct_enabled: false,
-  credit_direct_public_key: null,
-  credit_direct_min_amount: 10000,
-  credit_direct_max_amount: 500000,
-  credpal_enabled: false,
-  klump_enabled: false,
-  klump_min_amount: 10000,
-  klump_max_amount: 500000,
-  preferred_local_gateway: 'paystack',
-  preferred_international_gateway: 'korapay',
-  // Shipping
-  shipping_providers: ['gigl', 'topship'],
-  free_shipping_threshold: null,
-  shipping_markup_percentage: 0,
-  checkout_collect_phone: true,
-  checkout_require_account: false,
-  checkout_show_order_notes: true,
-  about_page_enabled: true,
-  contact_page_enabled: true,
-  faq_page_enabled: true,
-  privacy_page_enabled: true,
-  terms_page_enabled: true,
-  rewards_page_enabled: false,
-  show_recent_purchases: false,
-  show_stock_levels: true,
-  low_stock_threshold: 10,
-  google_analytics_id: null,
-  ga4_api_secret: null,
-  facebook_pixel_id: null,
-  facebook_capi_token: null,
-  tiktok_pixel_id: null,
-  tiktok_access_token: null,
-  snapchat_pixel_id: null,
-  snapchat_capi_token: null,
-  twitter_pixel_id: null,
-  auto_generate_schema: true,
-  custom_robots_txt: null,
-  email_notifications_enabled: true,
-  sms_notifications_enabled: false,
-  // Blog defaults
-  blog_enabled: false,
-  auto_blog_enabled: false,
-  google_reviews_enabled: false,
-  google_place_id: null,
-  // VTU defaults
-  vtu_enabled: false,
-  vtu_airtime_enabled: true,
-  vtu_data_enabled: true,
-  vtu_electricity_enabled: true,
-  vtu_tv_enabled: true,
-  vtu_betting_enabled: true,
-  vtu_checkout_addon_enabled: false,
-  vtu_checkout_addon_amounts: [100, 200, 500, 1000],
-  vtu_loyalty_reward_enabled: false,
-  vtu_merchant_commission_rate: 50,
-  vtu_customer_cashback_enabled: false,
-  vtu_customer_cashback_rate: 50,
-  custom_settings: {},
-};
+const DEFAULT_SETTINGS: Partial<MerchantFeatureSettings> =
+  merchantFeatureSettingsDefaults.buildFields() as Partial<MerchantFeatureSettings>;
 
 export async function GET(request: NextRequest) {
   try {
@@ -347,10 +279,13 @@ export async function GET(request: NextRequest) {
       .maybeSingle();
 
     if (!error && !settings) {
-      return jsonNoStore({
-        merchant_id: access.merchantId,
-        ...DEFAULT_SETTINGS,
-      });
+      return jsonNoStore(
+        merchantFeatureSettingsDefaults.buildDefault(
+          access.merchantId
+        ) as Partial<MerchantFeatureSettings> & {
+          merchant_id: string;
+        }
+      );
     }
 
     if (error) {

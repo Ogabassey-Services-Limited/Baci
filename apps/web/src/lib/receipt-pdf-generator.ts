@@ -11,7 +11,10 @@ const MAX_LOGO_BYTES = 256 * 1024;
 const MAX_LOGO_DATA_URI_LENGTH = MAX_LOGO_BYTES * 2;
 const LOGO_FETCH_TIMEOUT_MS = 5000;
 const SUPABASE_HOST_SUFFIX = '.supabase.co';
-const SUPABASE_PUBLIC_MEDIA_PREFIX = '/storage/v1/object/public/media/';
+const SUPABASE_PUBLIC_LOGO_PREFIXES = [
+  '/storage/v1/object/public/media/',
+  '/storage/v1/object/public/images/',
+];
 const MEDIA_CDN_PUBLIC_PREFIX = '/media/';
 const TRUSTED_MEDIA_CDN_HOSTNAME = new URL(DEFAULT_MEDIA_CDN_ORIGIN).hostname;
 
@@ -250,7 +253,9 @@ function isTrustedLogoUrl(parsedUrl: URL) {
 
   return (
     hostname.endsWith(SUPABASE_HOST_SUFFIX) &&
-    parsedUrl.pathname.startsWith(SUPABASE_PUBLIC_MEDIA_PREFIX)
+    SUPABASE_PUBLIC_LOGO_PREFIXES.some((prefix) =>
+      parsedUrl.pathname.startsWith(prefix)
+    )
   );
 }
 

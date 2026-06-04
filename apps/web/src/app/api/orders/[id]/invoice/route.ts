@@ -427,9 +427,6 @@ export async function GET(
       });
     }
 
-    const paymentAccountCreatedAfter = new Date(
-      Date.now() - 90 * 60 * 1000
-    ).toISOString();
     const { data: paymentAccounts, error: paymentAccountError } = await supabase
       .from('order_payment_accounts')
       .select(
@@ -437,7 +434,6 @@ export async function GET(
       )
       .eq('order_id', orderId)
       .eq('provider', 'paystack')
-      .gte('created_at', paymentAccountCreatedAfter)
       .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
       .order('created_at', { ascending: false })
       .limit(1);

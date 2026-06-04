@@ -192,6 +192,9 @@ function createSupabaseMock({
       }),
     },
     from,
+    queries: {
+      paymentAccountsQuery,
+    },
   };
 }
 
@@ -648,6 +651,44 @@ describe('GET /api/orders/[id]/invoice', () => {
         bank_account_number: '9988776655',
         bank_name: 'Fallback Bank',
       }),
+      expect.any(Object)
+    );
+  });
+
+  it('keeps null-expiry Paystack DVAs valid regardless of creation time', async () => {
+    vi.mocked(createClient).mockReturnValue(
+      createSupabaseMock({
+        paymentAccounts: {
+          data: [
+            {
+              account_number: '2222333344',
+              bank_name: 'Paystack-Titan',
+              account_name: 'Old Valid DVA',
+              created_at: '2026-01-01T00:00:00.000Z',
+              expires_at: null,
+              provider: 'paystack',
+            },
+          ],
+          error: null,
+        },
+      }) as unknown as ReturnType<typeof createClient>
+    );
+
+    const response = await GET(
+      new NextRequest(`http://localhost/api/orders/${ORDER_ID}/invoice`),
+      { params: Promise.resolve({ id: ORDER_ID }) }
+    );
+
+    expect(response.status).toBe(200);
+    expect(generateReceiptBlob).toHaveBeenCalledWith(
+      expect.objectContaining({
+        virtual_account: expect.objectContaining({
+          account_name: 'Old Valid DVA',
+          account_number: '2222333344',
+          bank_name: 'Paystack-Titan',
+        }),
+      }),
+      expect.any(Object),
       expect.any(Object)
     );
   });

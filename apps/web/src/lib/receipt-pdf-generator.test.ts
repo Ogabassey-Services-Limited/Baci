@@ -513,6 +513,50 @@ describe('generateReceiptBlob', () => {
     );
   });
 
+  it('allows existing Supabase images bucket logo URLs', async () => {
+    const fetchSpy = vi.fn().mockResolvedValue(
+      new Response(new Uint8Array([4, 5, 6]), {
+        headers: {
+          'content-length': '3',
+          'content-type': 'image/png',
+        },
+        status: 200,
+      })
+    );
+    vi.stubGlobal('fetch', fetchSpy);
+
+    await expect(
+      resolveReceiptLogoDataUri({
+        ...baseMerchant,
+        logo_url:
+          'https://project-ref.supabase.co/storage/v1/object/public/images/logo.png',
+      })
+    ).resolves.toBe('data:image/png;base64,BAUG');
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      expect.any(URL),
+      expect.objectContaining({
+        redirect: 'error',
+        signal: expect.any(AbortSignal),
+      })
+    );
+  });
+
+  it('rejects Supabase logo URLs outside the public logo allowlist', async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', fetchSpy);
+
+    await expect(
+      resolveReceiptLogoDataUri({
+        ...baseMerchant,
+        logo_url:
+          'https://project-ref.supabase.co/storage/v1/object/private/images/logo.png',
+      })
+    ).resolves.toBeNull();
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
   it('rejects oversized trusted media logos before reading the body', async () => {
     const arrayBuffer = vi.fn();
     const fetchSpy = vi.fn().mockResolvedValue({

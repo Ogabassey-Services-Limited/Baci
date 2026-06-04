@@ -2913,15 +2913,52 @@ describe('POST /api/orders — B3.5 VAT RPC error mapping', () => {
 describe('POST /api/orders — invoice payment method email attachment', () => {
   function createBackgroundSupabaseMock({
     accountError = null,
+    orderItems = [
+      {
+        id: 'order-item-1',
+        product_id: 'p-1',
+        variant_id: null,
+        variant_attributes: null,
+        variant_name: null,
+        name: 'Widget',
+        quantity: 1,
+        price: 1000,
+        has_assurance: true,
+        assurance_fee: 50,
+        item_description: null,
+        line_extension_amount: 1050,
+        vat_category_code: 'S',
+        vat_rate: 7.5,
+        vat_amount: 0,
+        sellers_item_id: null,
+        unit_code: 'EA',
+      },
+    ],
+    orderItemsError = null,
     reminderError = null,
   }: {
     accountError?: unknown;
+    orderItems?: unknown[];
+    orderItemsError?: unknown;
     reminderError?: unknown;
   } = {}) {
     const accountUpsert = vi.fn().mockResolvedValue({ error: accountError });
     const reminderInsert = vi.fn().mockResolvedValue({ error: reminderError });
+    const orderItemsOrder = vi.fn().mockResolvedValue({
+      data: orderItems,
+      error: orderItemsError,
+    });
+    const orderItemsQuery = {
+      select: vi.fn(() => orderItemsQuery),
+      eq: vi.fn(() => orderItemsQuery),
+      order: orderItemsOrder,
+    };
     const backgroundSupabase = {
       from: vi.fn((table: string) => {
+        if (table === 'order_items') {
+          return orderItemsQuery;
+        }
+
         if (table === 'order_payment_accounts') {
           return { upsert: accountUpsert };
         }
@@ -2936,7 +2973,13 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
       }),
     };
 
-    return { accountUpsert, backgroundSupabase, reminderInsert };
+    return {
+      accountUpsert,
+      backgroundSupabase,
+      orderItemsOrder,
+      orderItemsQuery,
+      reminderInsert,
+    };
   }
 
   beforeEach(() => {
@@ -3132,9 +3175,124 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
       Date.parse(
         (accountUpsert.mock.calls[0]?.[0] as { expires_at: string }).expires_at
       )
-    ).toBeGreaterThan(Date.now());
+    ).toBe(pdfOptions.dueDate.getTime());
     expect(backgroundSupabase.from).toHaveBeenCalledWith('order_reminders');
     expect(supabase.from).not.toHaveBeenCalledWith('order_payment_accounts');
+  });
+
+  it('renders invoice attachments from persisted canonical order items', async () => {
+    const supabase = buildMockSupabase();
+    const { backgroundSupabase } = createBackgroundSupabaseMock({
+      orderItems: [
+        {
+          id: 'order-item-1',
+          product_id: 'p-1',
+          variant_id: null,
+          variant_attributes: null,
+          variant_name: 'Matte Black',
+          name: 'Canonical Widget',
+          quantity: 1,
+          price: 1250,
+          has_assurance: false,
+          assurance_fee: 0,
+          item_description: null,
+          line_extension_amount: 1250,
+          vat_category_code: 'S',
+          vat_rate: 7.5,
+          vat_amount: 0,
+          sellers_item_id: 'SKU-CANONICAL',
+          unit_code: 'EA',
+        },
+      ],
+    });
+    mockCreateAdminClient.mockReturnValue(backgroundSupabase);
+
+    supabase.from = vi.fn((_table: string) => ({
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({
+        data: {
+          id: MERCHANT_ID,
+          business_name: 'Test Merchant',
+          country: 'NG',
+          slug: 'test-merchant',
+          support_email: 'support@example.com',
+          email_sender_name: 'Test Store',
+          email: 'merchant@example.com',
+          vat_registration_status: 'registered',
+          vat_rate: 7.5,
+        },
+        error: null,
+      }),
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: {
+          id: MERCHANT_ID,
+          business_name: 'Test Merchant',
+          country: 'NG',
+          slug: 'test-merchant',
+          support_email: 'support@example.com',
+          email_sender_name: 'Test Store',
+          email: 'merchant@example.com',
+          vat_registration_status: 'registered',
+          vat_rate: 7.5,
+        },
+        error: null,
+      }),
+      in: vi.fn().mockReturnThis(),
+      returns: vi.fn().mockResolvedValue({ data: [], error: null }),
+      insert: vi.fn().mockResolvedValue({ error: null }),
+      update: vi.fn().mockReturnThis(),
+      // biome-ignore lint/suspicious/noThenProperty: simulated thenable mock
+      then: (resolve: any) => Promise.resolve().then(resolve),
+    })) as any;
+
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () => supabase as unknown as never
+    );
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      user: null,
+      error: null,
+      supabase: supabase as unknown as never,
+    });
+
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...baseOrderPayload,
+        items: [
+          {
+            ...baseOrderPayload.items[0],
+            name: 'Client Supplied Widget',
+            price: 999,
+          },
+        ],
+        payment_method: 'invoice',
+      }),
+    });
+
+    const response = await POST(request);
+    expect(response.status).toBe(201);
+
+    await vi.waitFor(() => expect(mockSendEmail).toHaveBeenCalled(), {
+      timeout: 1000,
+    });
+
+    expect(mockGenerateReceiptBlob).toHaveBeenCalledWith(
+      expect.objectContaining({
+        items: [
+          expect.objectContaining({
+            product_name: 'Canonical Widget',
+            variant_name: 'Matte Black',
+            price: 1250,
+            line_extension_amount: 1250,
+            sellers_item_id: 'SKU-CANONICAL',
+          }),
+        ],
+      }),
+      expect.any(Object),
+      expect.any(Object)
+    );
   });
 
   it('sends the invoice email with fallback branding when logo resolution fails', async () => {

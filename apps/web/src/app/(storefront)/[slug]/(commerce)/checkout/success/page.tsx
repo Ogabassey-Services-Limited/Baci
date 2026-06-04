@@ -36,6 +36,33 @@ import { asRoute } from '@/lib/routes';
  * - Micro-animations for engagement
  */
 
+type VerificationResponse = {
+  orderNumber?: string;
+  status?: 'success' | 'pending' | 'failed' | 'cancelled';
+  success?: boolean;
+};
+
+function isVerificationResponse(value: unknown): value is VerificationResponse {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false;
+  }
+
+  const candidate = value as Record<string, unknown>;
+  const hasValidStatus =
+    candidate.status === undefined ||
+    candidate.status === 'success' ||
+    candidate.status === 'pending' ||
+    candidate.status === 'failed' ||
+    candidate.status === 'cancelled';
+  const hasValidOrderNumber =
+    candidate.orderNumber === undefined ||
+    typeof candidate.orderNumber === 'string';
+  const hasValidSuccess =
+    candidate.success === undefined || typeof candidate.success === 'boolean';
+
+  return hasValidStatus && hasValidOrderNumber && hasValidSuccess;
+}
+
 const orderSteps = [
   { id: 'received', label: 'Order Received', icon: CheckCircle2 },
   { id: 'processing', label: 'Processing', icon: Package },
@@ -146,9 +173,15 @@ function CheckoutSuccessContent() {
           headers: { 'Content-Type': 'application/json' },
           method: 'POST',
         });
-        const data = await response.json();
+        const raw: unknown = await response.json();
+        const data = isVerificationResponse(raw) ? raw : {};
 
-        if (!response.ok) {
+        if (data.status === 'pending') {
+          setStatus('pending');
+          setOrderNumber(
+            data.orderNumber || reference.slice(0, 8).toUpperCase()
+          );
+        } else if (!response.ok) {
           console.error('Payment verification failed:', data);
           setStatus('failed');
           timerHandle.current = setTimeout(() => {
@@ -157,11 +190,6 @@ function CheckoutSuccessContent() {
         } else if (data.success && data.status === 'success') {
           clearCart();
           setStatus('success');
-          setOrderNumber(
-            data.orderNumber || reference.slice(0, 8).toUpperCase()
-          );
-        } else if (data.status === 'pending') {
-          setStatus('pending');
           setOrderNumber(
             data.orderNumber || reference.slice(0, 8).toUpperCase()
           );
