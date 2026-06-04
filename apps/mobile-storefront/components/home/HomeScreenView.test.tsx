@@ -1,10 +1,25 @@
-import { describe, expect, it, jest } from '@jest/globals';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { NavigationContext } from '@react-navigation/native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { Platform } from 'react-native';
+import type { ComponentProps } from 'react';
 import type { SharedValue } from 'react-native-reanimated';
 import type { Block } from '@/types/blocks';
 import { HomeScreenView } from './HomeScreenView';
 
 const mockSetNavigationBarStyle = jest.fn();
+const originalPlatformOS = Platform.OS;
+type NavigationContextValue = NonNullable<
+  ComponentProps<typeof NavigationContext.Provider>['value']
+>;
+type FocusEventName = 'blur' | 'focus';
+
+function setPlatformOS(os: typeof Platform.OS) {
+  Object.defineProperty(Platform, 'OS', {
+    configurable: true,
+    value: os,
+  });
+}
 
 jest.mock('expo-navigation-bar', () => ({
   setStyle: (...args: unknown[]) => mockSetNavigationBarStyle(...args),
@@ -203,7 +218,47 @@ function createProps() {
   };
 }
 
+function createNavigationMock(initialFocused = true) {
+  let focused = initialFocused;
+  const listeners: Record<FocusEventName, Array<() => void>> = {
+    blur: [],
+    focus: [],
+  };
+  const navigation = {
+    addListener: jest.fn((eventName: FocusEventName, listener: () => void) => {
+      listeners[eventName].push(listener);
+      return () => {
+        listeners[eventName] = listeners[eventName].filter(
+          (currentListener) => currentListener !== listener
+        );
+      };
+    }),
+    isFocused: jest.fn(() => focused),
+  } as unknown as NavigationContextValue;
+
+  return {
+    emit: (eventName: FocusEventName) => {
+      focused = eventName === 'focus';
+      act(() => {
+        for (const listener of listeners[eventName]) {
+          listener();
+        }
+      });
+    },
+    navigation,
+  };
+}
+
 describe('HomeScreenView', () => {
+  beforeEach(() => {
+    mockSetNavigationBarStyle.mockClear();
+    setPlatformOS(originalPlatformOS);
+  });
+
+  afterEach(() => {
+    setPlatformOS(originalPlatformOS);
+  });
+
   it('renders the loading shell while initial content loads', () => {
     render(<HomeScreenView {...createProps()} isConfigLoading={true} />);
 
@@ -294,5 +349,27 @@ describe('HomeScreenView', () => {
     expect(onPermissionGrant).toHaveBeenCalledTimes(1);
     expect(onPermissionDeny).toHaveBeenCalledTimes(1);
     expect(onSearchCancel).toHaveBeenCalledTimes(1);
+  });
+
+  it('restores the root navigation bar style when the Home tab loses focus', () => {
+    setPlatformOS('android');
+    const { emit, navigation } = createNavigationMock(true);
+
+    const props = createProps();
+    render(
+      <NavigationContext.Provider value={navigation}>
+        <HomeScreenView {...props} />
+      </NavigationContext.Provider>
+    );
+
+    expect(mockSetNavigationBarStyle).toHaveBeenLastCalledWith('light');
+
+    emit('blur');
+
+    expect(mockSetNavigationBarStyle).toHaveBeenLastCalledWith('dark');
+
+    emit('focus');
+
+    expect(mockSetNavigationBarStyle).toHaveBeenLastCalledWith('light');
   });
 });

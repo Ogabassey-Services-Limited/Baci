@@ -1,6 +1,7 @@
 import * as NavigationBar from 'expo-navigation-bar';
 import { Stack } from 'expo-router';
-import { useEffect, useRef } from 'react';
+import { NavigationContext } from '@react-navigation/native';
+import { useContext, useEffect, useRef, useState } from 'react';
 import {
   type LayoutChangeEvent,
   Platform,
@@ -99,23 +100,54 @@ export function HomeScreenView({
 }: HomeScreenViewProps) {
   const colorScheme = useColorScheme();
   const colorSchemeRef = useRef(colorScheme);
+  const navigation = useContext(NavigationContext);
+  const [isFocused, setIsFocused] = useState(
+    () => navigation?.isFocused() ?? true
+  );
 
   useEffect(() => {
     colorSchemeRef.current = colorScheme;
   }, [colorScheme]);
 
   useEffect(() => {
+    if (!navigation) {
+      setIsFocused(true);
+      return;
+    }
+
+    setIsFocused(navigation.isFocused());
+    const unsubscribeFocus = navigation.addListener('focus', () => {
+      setIsFocused(true);
+    });
+    const unsubscribeBlur = navigation.addListener('blur', () => {
+      setIsFocused(false);
+    });
+
+    return () => {
+      unsubscribeFocus();
+      unsubscribeBlur();
+    };
+  }, [navigation]);
+
+  useEffect(() => {
     if (Platform.OS !== 'android') {
       return;
     }
 
-    void NavigationBar.setStyle('light');
-    return () => {
+    const restoreRootNavigationBarStyle = () => {
       void NavigationBar.setStyle(
         colorSchemeRef.current === 'dark' ? 'light' : 'dark'
       );
     };
-  }, []);
+
+    if (!isFocused) {
+      restoreRootNavigationBarStyle();
+      return;
+    }
+
+    void NavigationBar.setStyle('light');
+    return restoreRootNavigationBarStyle;
+  }, [isFocused]);
 
   const headerOverlayAnimatedStyle = useAnimatedStyle(() => {
     return {
