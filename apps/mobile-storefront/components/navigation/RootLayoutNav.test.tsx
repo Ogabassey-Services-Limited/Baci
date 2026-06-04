@@ -50,10 +50,6 @@ jest.mock('expo-router', () => {
   return { Stack };
 });
 
-jest.mock('react-native-edge-to-edge', () => ({
-  SystemBars: () => null,
-}));
-
 jest.mock('react-native-gesture-handler', () => ({
   GestureHandlerRootView: ({ children }: { children?: React.ReactNode }) => {
     return <MockView>{children}</MockView>;

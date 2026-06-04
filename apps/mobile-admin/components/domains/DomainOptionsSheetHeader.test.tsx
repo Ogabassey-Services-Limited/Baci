@@ -42,6 +42,7 @@ vi.mock('@react-native-vector-icons/ionicons', () => ({
 }));
 
 vi.mock('react-native', () => ({
+    StatusBar: () => null,    
   StyleSheet: {
     absoluteFillObject: {},
     create: (styles: Record<string, unknown>) => styles,

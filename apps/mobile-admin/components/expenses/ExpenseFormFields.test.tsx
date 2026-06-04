@@ -36,6 +36,7 @@ vi.mock('@react-native-vector-icons/ionicons', () => ({
 }));
 
 vi.mock('react-native', () => ({
+    StatusBar: () => null,    
   Pressable: ({
     accessibilityLabel,
     children,

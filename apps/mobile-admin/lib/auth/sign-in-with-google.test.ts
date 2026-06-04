@@ -27,6 +27,7 @@ vi.mock('expo-constants', () => ({
 }));
 
 vi.mock('react-native', () => ({
+    StatusBar: () => null,    
   Platform: {
     get OS() {
       return testState.platformOS;

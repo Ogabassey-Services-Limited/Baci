@@ -37,10 +37,6 @@ vi.mock('expo-linear-gradient', () => ({
   ),
 }));
 
-vi.mock('react-native-edge-to-edge', () => ({
-  SystemBars: () => null,
-}));
-
 vi.mock('react-native-safe-area-context', () => ({
   SafeAreaView: ({ children }: { children?: ReactNode }) => (
     <section>{children}</section>
@@ -67,6 +63,7 @@ vi.mock('react-native', () => {
   }
 
   return {
+    StatusBar: () => null,    
     Animated: {
       Value: AnimatedValue,
       View: ({ children }: { children?: ReactNode }) => <div>{children}</div>,

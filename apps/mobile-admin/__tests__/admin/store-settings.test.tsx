@@ -253,11 +253,8 @@ vi.mock('expo-router', async () => {
   };
 });
 
-vi.mock('react-native-edge-to-edge', () => ({
-  SystemBars: () => null,
-}));
-
 vi.mock('react-native', () => ({
+    StatusBar: () => null,    
   ActivityIndicator: () => <output aria-label="loading" />,
   Platform: { OS: 'ios' },
   Pressable: ({

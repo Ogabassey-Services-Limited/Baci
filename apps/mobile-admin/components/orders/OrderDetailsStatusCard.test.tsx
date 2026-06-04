@@ -23,6 +23,7 @@ vi.mock('react-native', async () => {
   };
 
   return {
+    StatusBar: () => null,    
     StyleSheet: {
       create: (styles: Record<string, unknown>) => styles,
     },

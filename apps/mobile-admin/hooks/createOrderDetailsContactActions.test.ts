@@ -13,6 +13,7 @@ vi.mock('@/lib/storage', () => ({
 }));
 
 vi.mock('react-native', () => ({
+    StatusBar: () => null,    
   Alert: { alert: vi.fn() },
   Linking: { openURL: vi.fn().mockResolvedValue(undefined) },
   Share: { share: vi.fn() },

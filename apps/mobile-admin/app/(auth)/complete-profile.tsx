@@ -2,16 +2,13 @@ import Ionicons from '@react-native-vector-icons/ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
+import { ActivityIndicator,
   Alert,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
-  View,
-} from 'react-native';
-import { SystemBars } from 'react-native-edge-to-edge';
+  View, StatusBar } from 'react-native';
 import { BusinessTypeSelector } from '@/components/auth/BusinessTypeSelector';
 import { RegisterLegalText } from '@/components/auth/register/RegisterLegalText';
 import { AppFormScreen } from '@/components/ui/AppFormScreen';
@@ -207,7 +204,7 @@ export default function CompleteProfileScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <SystemBars style={isDark ? 'light' : 'dark'} />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
       {isDark && (
         <LinearGradient
           colors={['#0D0D1A', '#1A1A2E']}

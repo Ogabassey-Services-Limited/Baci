@@ -29,6 +29,7 @@ vi.mock('react-native', async () => {
   const React = await import('react');
 
   return {
+    StatusBar: () => null,    
     Alert: { alert: mocks.alert },
     ActivityIndicator: () => React.createElement('span', null, 'loading'),
     KeyboardAvoidingView: ({ children }: { children?: React.ReactNode }) =>
@@ -89,10 +90,6 @@ vi.mock('react-native-safe-area-context', async () => {
       React.createElement('div', null, children),
   };
 });
-
-vi.mock('react-native-edge-to-edge', () => ({
-  SystemBars: () => null,
-}));
 
 vi.mock('react-native-svg', async () => {
   const React = await import('react');

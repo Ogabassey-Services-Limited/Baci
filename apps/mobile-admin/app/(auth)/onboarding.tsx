@@ -4,17 +4,14 @@ import Ionicons, {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import {
-  Animated,
+import { Animated,
   FlatList,
   Pressable,
   StyleSheet,
   Text,
   useWindowDimensions,
   View,
-  type ViewToken,
-} from 'react-native';
-import { SystemBars } from 'react-native-edge-to-edge';
+  type ViewToken, StatusBar } from 'react-native';
 import {
   SafeAreaView,
   useSafeAreaInsets,
@@ -186,7 +183,7 @@ export default function OnboardingScreen() {
 
   return (
     <View style={styles.container}>
-      <SystemBars style="light" />
+      <StatusBar barStyle="light-content" />
 
       {/* Premium Dark Background Gradient */}
       <LinearGradient

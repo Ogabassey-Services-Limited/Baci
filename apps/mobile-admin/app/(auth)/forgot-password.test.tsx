@@ -30,10 +30,6 @@ vi.mock('expo-router', () => ({
   }),
 }));
 
-vi.mock('react-native-edge-to-edge', () => ({
-  SystemBars: () => null,
-}));
-
 vi.mock('react-native-safe-area-context', async () => {
   const React = await import('react');
 
@@ -62,6 +58,7 @@ vi.mock('react-native', async () => {
   };
 
   return {
+    StatusBar: () => null,    
     ActivityIndicator: () => React.createElement('span', null, 'loading'),
     Alert: { alert: mocks.alert },
     Pressable: ({

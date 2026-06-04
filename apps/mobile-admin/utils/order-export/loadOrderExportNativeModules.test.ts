@@ -5,6 +5,7 @@ const { mockPlatformOs } = vi.hoisted(() => ({
 }));
 
 vi.mock('react-native', () => ({
+    StatusBar: () => null,    
   Platform: {
     get OS() {
       return mockPlatformOs.value;

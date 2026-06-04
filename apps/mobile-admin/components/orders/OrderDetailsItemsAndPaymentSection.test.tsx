@@ -29,6 +29,7 @@ vi.mock('react-native', async () => {
   const React = await import('react');
 
   return {
+    StatusBar: () => null,    
     View: ({ children }: { children?: React.ReactNode }) =>
       React.createElement('div', null, children),
   };

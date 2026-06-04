@@ -2,8 +2,7 @@ import Ionicons from '@react-native-vector-icons/ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
-import { SystemBars } from 'react-native-edge-to-edge';
+import { Alert, Pressable, StyleSheet, Text, View, StatusBar } from 'react-native';
 import { RegisterAccountStep } from '@/components/auth/register/RegisterAccountStep';
 import { RegisterBusinessStep } from '@/components/auth/register/RegisterBusinessStep';
 import { getStyles } from '@/components/auth/register/register.styles';
@@ -224,7 +223,7 @@ export default function RegisterScreen() {
 
   return (
     <View style={styles.container}>
-      <SystemBars style="light" />
+      <StatusBar barStyle="light-content" />
       <LinearGradient
         colors={['#0D0D1A', '#1A1A2E']}
         style={StyleSheet.absoluteFill}

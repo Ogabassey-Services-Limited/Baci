@@ -65,6 +65,7 @@ vi.mock('react-native', () => ({
     runAfterInteractions: (callback: () => void) => {
       mocks.interactionCallback = callback;
       return {
+    StatusBar: () => null,    
         cancel: () => {
           mocks.interactionCallback = null;
         },

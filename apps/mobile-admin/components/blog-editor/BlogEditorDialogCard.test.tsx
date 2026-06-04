@@ -16,6 +16,7 @@ vi.mock('@/components/ui/AppDialogModal', () => ({
 }));
 
 vi.mock('react-native', () => ({
+    StatusBar: () => null,    
   Pressable: ({
     accessibilityLabel,
     children,

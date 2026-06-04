@@ -15,6 +15,7 @@ vi.mock('react-native', () => {
   });
 
   return {
+    StatusBar: () => null,    
     StyleSheet: { create: <T,>(s: T) => s },
     View: ({ children, style }: NativeProps) =>
       React.createElement('div', styleAttribute(style), children),
@@ -53,10 +54,6 @@ vi.mock('@/hooks/useTheme', () => ({
     shadows: {},
     isDark: true,
   }),
-}));
-
-vi.mock('react-native-edge-to-edge', () => ({
-  SystemBars: () => null,
 }));
 
 vi.mock('@/components/marketplace/JumiaChannelCard', () => ({

@@ -25,6 +25,7 @@ vi.mock('react-native', async () => {
   const React = await import('react');
 
   return {
+    StatusBar: () => null,    
     Alert: { alert: mocks.alert },
     ActivityIndicator: () => React.createElement('span', null, 'loading'),
     Pressable: ({

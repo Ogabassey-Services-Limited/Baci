@@ -17,6 +17,7 @@ vi.mock('@/config/runtime-platform', () => ({
 }));
 
 vi.mock('react-native', () => ({
+    StatusBar: () => null,    
   ActivityIndicator: () => <span>loading</span>,
   Linking: { openURL: mocks.openURL },
   Pressable: ({

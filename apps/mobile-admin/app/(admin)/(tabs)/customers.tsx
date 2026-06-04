@@ -10,8 +10,7 @@ import { FlashList } from '@shopify/flash-list';
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
 import React, { useRef } from 'react';
-import {
-  ActivityIndicator,
+import { ActivityIndicator,
   Animated,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
@@ -20,9 +19,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  View,
-} from 'react-native';
-import { SystemBars } from 'react-native-edge-to-edge';
+  View, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -504,7 +501,7 @@ export default function CustomersScreen() {
       style={[styles.container, { backgroundColor: colors.background }]}
       edges={['top']}
     >
-      <SystemBars style={isDark ? 'light' : 'dark'} />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.text }]}>Customers</Text>
       </View>

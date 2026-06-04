@@ -56,6 +56,7 @@ vi.mock('react-native', async () => {
   });
 
   return {
+    StatusBar: () => null,    
     ActivityIndicator: () =>
       React.createElement('div', { role: 'progressbar' }),
     Alert: { alert: vi.fn() },

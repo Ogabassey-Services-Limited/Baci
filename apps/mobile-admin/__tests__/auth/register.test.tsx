@@ -19,6 +19,7 @@ vi.mock('@/components/ui/AppFormScreen', async () => {
 vi.mock('react-native', async () => {
   const React = await import('react');
   return {
+    StatusBar: () => null,    
     useColorScheme: vi.fn(() => 'light'),
     Alert: { alert: mocks.alert },
     StyleSheet: {
@@ -88,8 +89,6 @@ vi.mock('expo-linear-gradient', async () => {
       React.createElement('div', null, children),
   };
 });
-
-vi.mock('react-native-edge-to-edge', () => ({ SystemBars: () => null }));
 
 vi.mock('@react-native-vector-icons/ionicons', async () => {
   const React = await import('react');

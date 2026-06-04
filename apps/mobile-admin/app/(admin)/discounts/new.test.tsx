@@ -80,7 +80,8 @@ vi.mock('react-native', async () => {
       return undefined;
     }
 
-    return { ...(style as React.CSSProperties) };
+    return {
+    StatusBar: () => null,     ...(style as React.CSSProperties) };
   };
 
   const hostProps = (props: HostProps) => ({

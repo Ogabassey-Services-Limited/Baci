@@ -220,7 +220,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     'expo-sharing',
     '@react-native-vector-icons/ionicons',
     '@react-native-vector-icons/fontawesome',
-    'react-native-edge-to-edge',
     './config/withAndroidGradleFixes.js',
     [
       './plugins/with-ios-release-hardening',

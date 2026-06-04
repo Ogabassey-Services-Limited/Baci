@@ -32,6 +32,7 @@ function createQuery(result = emptyQueryResult, terminalOrderCall = 1) {
 }
 
 vi.mock('react-native', () => ({
+    StatusBar: () => null,    
   Alert: { alert: mocks.alert },
 }));
 

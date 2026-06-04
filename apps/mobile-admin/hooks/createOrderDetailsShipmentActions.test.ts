@@ -2,6 +2,7 @@ import { Alert } from 'react-native';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('react-native', () => ({
+    StatusBar: () => null,    
   Alert: { alert: vi.fn() },
 }));
 

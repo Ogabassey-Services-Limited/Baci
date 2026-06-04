@@ -23,6 +23,7 @@ vi.mock('@react-native-community/datetimepicker', () => ({
 }));
 
 vi.mock('react-native', () => ({
+    StatusBar: () => null,    
   Platform: mocks.platform,
   Pressable: ({
     accessibilityLabel,

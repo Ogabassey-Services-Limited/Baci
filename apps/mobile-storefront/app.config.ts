@@ -280,7 +280,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     './config/withAndroidGradleFixes.js',
     'expo-localization',
     'expo-apple-authentication',
-    'react-native-edge-to-edge',
     ...(facebookSdkPlugin ? [facebookSdkPlugin] : []),
   ],
   web: {

@@ -4,8 +4,7 @@ import {
   ThemeProvider,
 } from 'expo-router/react-navigation';
 import { Stack } from 'expo-router';
-import { StyleSheet, View } from 'react-native';
-import { SystemBars } from 'react-native-edge-to-edge';
+import { StatusBar, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ConnectivityBanner } from '@/components/ConnectivityBanner';
 import { ChatWidget } from '@/components/chat/ChatWidget';
@@ -81,7 +80,7 @@ export function RootLayoutNav({
                   : OgabasseyLightTheme
               }
             >
-              <SystemBars style={colorScheme === 'dark' ? 'light' : 'dark'} />
+              <StatusBar barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'} />
               <View
                 style={[
                   styles.appShell,

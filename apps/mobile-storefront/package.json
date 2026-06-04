@@ -74,7 +74,6 @@
     "react-hook-form": "^7.76.1",
     "react-native": "0.85.3",
     "react-native-css-interop": "^0.2.4",
-    "react-native-edge-to-edge": "^1.8.1",
     "react-native-fbsdk-next": "^13.4.3",
     "react-native-gesture-handler": "~3.0.0",
     "react-native-google-places-autocomplete": "^2.6.4",

@@ -18,6 +18,7 @@ const backHandlerMock = vi.hoisted(() => {
 });
 
 vi.mock('react-native', () => ({
+    StatusBar: () => null,    
   BackHandler: {
     addEventListener: backHandlerMock.addEventListener,
   },

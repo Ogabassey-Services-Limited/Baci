@@ -157,10 +157,6 @@ vi.mock('@react-native-vector-icons/ionicons', () => ({
   __esModule: true,
 }));
 
-vi.mock('react-native-edge-to-edge', () => ({
-  SystemBars: () => null,
-}));
-
 vi.mock('react-native-safe-area-context', () => ({
   SafeAreaView: ({ children }: { children?: ReactNode }) => (
     <div>{children}</div>
@@ -172,6 +168,7 @@ vi.mock('@/components/ui/ScreenSkeleton', () => ({
 }));
 
 vi.mock('react-native', () => ({
+    StatusBar: () => null,    
   Pressable: ({
     children,
     onPress,

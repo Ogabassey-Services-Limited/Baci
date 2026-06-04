@@ -7,6 +7,7 @@ import type { PurchasesPackage } from 'react-native-purchases';
 import PaywallPackageList from './PaywallPackageList';
 
 vi.mock('react-native', () => ({
+    StatusBar: () => null,    
   Pressable: ({
     accessibilityLabel,
     children,

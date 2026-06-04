@@ -2,10 +2,10 @@ import { Stack } from 'expo-router';
 import {
   type LayoutChangeEvent,
   RefreshControl,
+  StatusBar,
   StyleSheet,
   View,
 } from 'react-native';
-import { SystemBars } from 'react-native-edge-to-edge';
 import Animated, {
   Extrapolation,
   interpolate,
@@ -126,7 +126,7 @@ export function HomeScreenView({
     <View style={styles.container}>
       <Stack.Screen options={{ headerShown: false, title: '' }} />
       {shouldRenderDecorations && <SnowEffect />}
-      <SystemBars style="light" />
+      <StatusBar barStyle="light-content" />
 
       {/* Base background color layer to ensure reliable absolute rendering */}
       <View style={[StyleSheet.absoluteFill, { backgroundColor }]} />

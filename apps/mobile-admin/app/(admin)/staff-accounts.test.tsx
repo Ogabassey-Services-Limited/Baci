@@ -107,10 +107,6 @@ vi.mock('@react-native-vector-icons/ionicons', () => ({
   __esModule: true,
 }));
 
-vi.mock('react-native-edge-to-edge', () => ({
-  SystemBars: () => null,
-}));
-
 vi.mock('react-native-safe-area-context', () => ({
   SafeAreaView: ({ children }: { children?: ReactNode }) => (
     <div>{children}</div>
@@ -135,6 +131,7 @@ vi.mock('@/components/ui/AppSheetModal', () => ({
 }));
 
 vi.mock('react-native', () => ({
+    StatusBar: () => null,    
   ActivityIndicator: () => <span>loading</span>,
   Alert: {
     alert: (...args: unknown[]) => mocks.alert(...args),

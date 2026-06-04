@@ -1,15 +1,12 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
-import {
-  Alert,
+import { Alert,
   Linking,
   Pressable,
   ScrollView,
   Text,
-  View,
-} from 'react-native';
-import { SystemBars } from 'react-native-edge-to-edge';
+  View, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { PaymentMethodsSection } from '@/components/payment-methods/PaymentMethodsSection';
 import {
@@ -172,7 +169,7 @@ export default function PaymentMethodsScreen() {
           style={[styles.container, { backgroundColor: colors.background }]}
           edges={['bottom']}
         >
-          <SystemBars style={isDark ? 'light' : 'dark'} />
+          <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
           <View style={styles.errorState}>
             <Ionicons
               name="alert-circle-outline"
@@ -210,7 +207,7 @@ export default function PaymentMethodsScreen() {
         style={[styles.container, { backgroundColor: colors.background }]}
         edges={['bottom']}
       >
-        <SystemBars style={isDark ? 'light' : 'dark'} />
+        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
         <ScrollView
           style={styles.scrollView}

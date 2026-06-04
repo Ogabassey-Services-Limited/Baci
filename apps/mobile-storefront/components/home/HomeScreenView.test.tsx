@@ -32,10 +32,6 @@ jest.mock('expo-router', () => ({
   },
 }));
 
-jest.mock('react-native-edge-to-edge', () => ({
-  SystemBars: () => null,
-}));
-
 jest.mock('@/components/OfflineNotice', () => {
   const { Text } = jest.requireActual(
     'react-native'

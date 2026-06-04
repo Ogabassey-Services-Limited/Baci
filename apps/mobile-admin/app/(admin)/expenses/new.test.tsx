@@ -237,6 +237,7 @@ vi.mock('@react-native-vector-icons/ionicons', () => ({
 }));
 
 vi.mock('react-native', () => ({
+    StatusBar: () => null,    
   ActivityIndicator: () => <output aria-label="loading" />,
   Alert: { alert: mocks.alert },
   Pressable: ({

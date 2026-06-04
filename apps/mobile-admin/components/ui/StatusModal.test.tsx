@@ -50,6 +50,7 @@ vi.mock('@/hooks/useTheme', () => ({
 
 vi.mock('react-native', () => {
   return {
+    StatusBar: () => null,    
     Pressable: ({
       accessibilityLabel,
       children,
