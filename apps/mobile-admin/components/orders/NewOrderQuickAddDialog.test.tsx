@@ -13,6 +13,7 @@ vi.mock('react-native', async () => {
 
   return {
     Keyboard: { dismiss: keyboardState.dismiss },
+    StatusBar: () => null,
     Pressable: ({
       accessibilityLabel,
       children,

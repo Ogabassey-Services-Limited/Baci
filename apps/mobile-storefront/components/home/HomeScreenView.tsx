@@ -2,10 +2,10 @@ import { Stack } from 'expo-router';
 import {
   type LayoutChangeEvent,
   RefreshControl,
+  StatusBar,
   StyleSheet,
   View,
 } from 'react-native';
-import { SystemBars } from 'react-native-edge-to-edge';
 import Animated, {
   Extrapolation,
   interpolate,
@@ -26,6 +26,7 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { ELITE_BACKDROP_HEIGHT } from '@/constants/layout';
 import type { Block } from '@/types/blocks';
 import { homeScreenStyles as styles } from './home-screen.styles';
+import { useHomeNavigationBarStyle } from './useHomeNavigationBarStyle';
 
 interface HomeScreenViewProps {
   backgroundColor: string;
@@ -95,6 +96,7 @@ export function HomeScreenView({
   showPermissionModal,
 }: HomeScreenViewProps) {
   const colorScheme = useColorScheme();
+  useHomeNavigationBarStyle(colorScheme, !isConfigLoading);
 
   const headerOverlayAnimatedStyle = useAnimatedStyle(() => {
     return {
@@ -126,7 +128,7 @@ export function HomeScreenView({
     <View style={styles.container}>
       <Stack.Screen options={{ headerShown: false, title: '' }} />
       {shouldRenderDecorations && <SnowEffect />}
-      <SystemBars style="light" />
+      <StatusBar barStyle="light-content" />
 
       {/* Base background color layer to ensure reliable absolute rendering */}
       <View style={[StyleSheet.absoluteFill, { backgroundColor }]} />

@@ -173,11 +173,8 @@ vi.mock('@/lib/supabase', () => ({
   },
 }));
 
-vi.mock('react-native-edge-to-edge', () => ({
-  SystemBars: () => null,
-}));
-
 vi.mock('react-native', () => ({
+    StatusBar: () => null,
   ActivityIndicator: () => <output aria-label="loading" />,
   Pressable: ({ children }: { children?: ReactNode }) => (
     <button type="button">{children}</button>

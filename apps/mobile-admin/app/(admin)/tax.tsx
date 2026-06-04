@@ -1,8 +1,7 @@
 import { NIGERIAN_STATES } from '@baci/shared';
 import { Stack } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Alert, ScrollView } from 'react-native';
-import { SystemBars } from 'react-native-edge-to-edge';
+import { Alert, ScrollView, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AddressCard } from '@/components/tax/AddressCard';
 import {
@@ -203,7 +202,7 @@ export default function TaxScreen() {
         style={[styles.container, { backgroundColor: colors.background }]}
         edges={['bottom']}
       >
-        <SystemBars style={isDark ? 'light' : 'dark'} />
+        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}

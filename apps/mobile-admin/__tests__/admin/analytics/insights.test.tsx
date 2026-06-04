@@ -12,6 +12,7 @@ vi.mock('react-native', async () => {
   const React = await import('react');
 
   return {
+    StatusBar: () => null,
     ActivityIndicator: () =>
       React.createElement('div', { role: 'progressbar' }),
     Pressable: ({
@@ -36,10 +37,6 @@ vi.mock('react-native', async () => {
       React.createElement('div', null, children),
   };
 });
-
-vi.mock('react-native-edge-to-edge', () => ({
-  SystemBars: () => null,
-}));
 
 vi.mock('react-native-safe-area-context', () => ({
   SafeAreaView: ({ children }: { children?: React.ReactNode }) => (

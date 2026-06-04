@@ -109,6 +109,14 @@
       "justification": "Reviewed native haptic feedback and platform-specific dock shadow positioning for the custom floating tab bar."
     },
     {
+      "path": "components/navigation/RootLayoutNav.tsx",
+      "justification": "Reviewed Android-only navigation bar button style restoration for edge-to-edge system bars."
+    },
+    {
+      "path": "components/navigation/NavigationBarStyleProvider.tsx",
+      "justification": "Reviewed Android-only navigation bar button style coordination for focused edge-to-edge screen overrides."
+    },
+    {
       "path": "components/orders/OrdersListItem.tsx",
       "justification": "Reviewed status-colored CSS box-shadow on web while preserving native order-card shadow styling."
     },
@@ -147,6 +155,14 @@
     {
       "path": "components/storefront/product-card/GridProductCard.tsx",
       "justification": "Reviewed CSS box-shadow selection on web while preserving native product-card shadows."
+    },
+    {
+      "path": "components/home/HomeScreenView.tsx",
+      "justification": "Reviewed Android-only navigation bar button style override for dark home-screen system-bar content."
+    },
+    {
+      "path": "components/home/useHomeNavigationBarStyle.ts",
+      "justification": "Reviewed Android-only navigation bar button style override extracted from HomeScreenView for API 36 edge-to-edge system bars."
     },
     {
       "path": "components/storefront/UtilityPanelCategoryItem.tsx",

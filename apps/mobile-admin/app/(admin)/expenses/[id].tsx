@@ -1,3 +1,4 @@
+import { StatusBar } from 'react-native';
 /**
  * Expense Detail Screen
  * View details of a specific expense
@@ -6,7 +7,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import type { ReactNode } from 'react';
-import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ExpenseDetails } from '@/components/expenses/ExpenseDetails';
 import { ExpenseStatusShell } from '@/components/expenses/ExpenseStatusShell';
@@ -141,7 +141,7 @@ export default function ExpenseDetailScreen() {
           headerShadowVisible: false,
         }}
       />
-      <SystemBars style={isDark ? 'light' : 'dark'} />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
       {content}
     </SafeAreaView>

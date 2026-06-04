@@ -43,6 +43,7 @@ vi.mock('@shopify/flash-list', () => ({
 }));
 
 vi.mock('react-native', () => ({
+    StatusBar: () => null,
   ActivityIndicator: () => <span>loading-spinner</span>,
   Pressable: ({
     accessibilityLabel,

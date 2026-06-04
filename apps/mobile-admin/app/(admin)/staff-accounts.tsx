@@ -1,8 +1,7 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { Stack } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
-import { SystemBars } from 'react-native-edge-to-edge';
+import { Pressable, ScrollView, Text, View, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BranchesTabContent } from '@/components/staff/BranchesTabContent';
 import { BranchModal } from '@/components/staff/BranchModal';
@@ -79,7 +78,7 @@ export default function StaffAccountsScreen() {
         style={[styles.container, { backgroundColor: colors.background }]}
         edges={['bottom']}
       >
-        <SystemBars style={isDark ? 'light' : 'dark'} />
+        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
         {/* Tabs */}
         <View style={[styles.tabContainer, { backgroundColor: colors.card }]}>

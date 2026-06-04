@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { render, screen } from '@testing-library/react-native';
+import { render, screen, waitFor } from '@testing-library/react-native';
 import type React from 'react';
-import { Text, View } from 'react-native';
+import { Platform, Text, View } from 'react-native';
 import { CHAT_WIDGET_DEFAULT_BOTTOM_OFFSET } from '@/constants/layout';
 import { getTemplateConfig } from '@/lib/templates';
 import { RootLayoutNav } from './RootLayoutNav';
@@ -13,6 +13,8 @@ const mockGetTemplateConfig = getTemplateConfig as jest.MockedFunction<
 const MockText = Text;
 const MockView = View;
 const mockUseAuthGuard = jest.fn();
+const mockSetNavigationBarStyle = jest.fn();
+const originalPlatformOS = Platform.OS;
 const renderMockQueryProvider = ({
   children,
   persistenceEnabled,
@@ -50,9 +52,16 @@ jest.mock('expo-router', () => {
   return { Stack };
 });
 
-jest.mock('react-native-edge-to-edge', () => ({
-  SystemBars: () => null,
+jest.mock('expo-navigation-bar', () => ({
+  setStyle: (...args: unknown[]) => mockSetNavigationBarStyle(...args),
 }));
+
+function setPlatformOS(value: typeof Platform.OS) {
+  Object.defineProperty(Platform, 'OS', {
+    configurable: true,
+    value,
+  });
+}
 
 jest.mock('react-native-gesture-handler', () => ({
   GestureHandlerRootView: ({ children }: { children?: React.ReactNode }) => {
@@ -127,6 +136,11 @@ describe('RootLayoutNav', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockQueryProvider.mockImplementation(renderMockQueryProvider);
+    setPlatformOS(originalPlatformOS);
+  });
+
+  afterEach(() => {
+    setPlatformOS(originalPlatformOS);
   });
 
   it('renders the storefront navigator and startup overlays', () => {
@@ -150,6 +164,16 @@ describe('RootLayoutNav', () => {
     expect(mockQueryProvider).toHaveBeenCalledWith(
       expect.objectContaining({ persistenceEnabled: false })
     );
+  });
+
+  it('applies the root Android navigation bar style', async () => {
+    setPlatformOS('android');
+
+    render(<RootLayoutNav />);
+
+    await waitFor(() => {
+      expect(mockSetNavigationBarStyle).toHaveBeenLastCalledWith('dark');
+    });
   });
 
   it('surfaces provider failures deterministically', () => {

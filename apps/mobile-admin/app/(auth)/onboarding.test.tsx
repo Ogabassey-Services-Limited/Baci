@@ -15,7 +15,10 @@ import OnboardingScreen from './onboarding';
 
 const mocks = vi.hoisted(() => ({
   capturedFooterPaddingBottom: 0,
+  colorScheme: 'light' as 'dark' | 'light',
   insets: { bottom: 34, left: 0, right: 0, top: 0 },
+  platformOS: 'android' as 'android' | 'ios',
+  setNavigationBarStyle: vi.fn(),
 }));
 
 vi.mock('expo-router', () => ({
@@ -37,8 +40,8 @@ vi.mock('expo-linear-gradient', () => ({
   ),
 }));
 
-vi.mock('react-native-edge-to-edge', () => ({
-  SystemBars: () => null,
+vi.mock('expo-navigation-bar', () => ({
+  setStyle: mocks.setNavigationBarStyle,
 }));
 
 vi.mock('react-native-safe-area-context', () => ({
@@ -67,6 +70,13 @@ vi.mock('react-native', () => {
   }
 
   return {
+    StatusBar: () => null,
+    Platform: {
+      get OS() {
+        return mocks.platformOS;
+      },
+    },
+    useColorScheme: () => mocks.colorScheme,
     Animated: {
       Value: AnimatedValue,
       View: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
@@ -127,7 +137,54 @@ describe('OnboardingScreen', () => {
   afterEach(() => {
     vi.runOnlyPendingTimers();
     vi.clearAllTimers();
+    mocks.setNavigationBarStyle.mockClear();
     mocks.capturedFooterPaddingBottom = 0;
+    mocks.colorScheme = 'light';
+    mocks.platformOS = 'android';
+  });
+
+  it('sets light Android navigation bar buttons for the dark onboarding surface', () => {
+    render(<OnboardingScreen />);
+
+    expect(mocks.setNavigationBarStyle).toHaveBeenCalledWith('light');
+  });
+
+  it('restores theme-appropriate Android navigation bar buttons on unmount', () => {
+    const { unmount } = render(<OnboardingScreen />);
+
+    mocks.setNavigationBarStyle.mockClear();
+    unmount();
+
+    expect(mocks.setNavigationBarStyle).toHaveBeenCalledWith('dark');
+  });
+
+  it('does not set navigation bar style on non-Android platforms', () => {
+    mocks.platformOS = 'ios';
+
+    render(<OnboardingScreen />);
+
+    expect(mocks.setNavigationBarStyle).not.toHaveBeenCalled();
+  });
+
+  it('restores light Android navigation bar buttons on unmount when color scheme is dark', () => {
+    mocks.colorScheme = 'dark';
+    const { unmount } = render(<OnboardingScreen />);
+
+    mocks.setNavigationBarStyle.mockClear();
+    unmount();
+
+    expect(mocks.setNavigationBarStyle).toHaveBeenCalledWith('light');
+  });
+
+  it('reapplies light navigation bar buttons when the color scheme changes', () => {
+    const { rerender } = render(<OnboardingScreen />);
+
+    expect(mocks.setNavigationBarStyle).toHaveBeenLastCalledWith('light');
+
+    mocks.colorScheme = 'dark';
+    rerender(<OnboardingScreen />);
+
+    expect(mocks.setNavigationBarStyle).toHaveBeenLastCalledWith('light');
   });
 
   it('uses compact footer padding when bottom inset is present', () => {

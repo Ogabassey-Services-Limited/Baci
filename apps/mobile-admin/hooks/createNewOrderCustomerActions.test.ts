@@ -4,6 +4,7 @@ import { createEmptyNewCustomerDraft } from '@/components/orders/new-order.defau
 import { createNewOrderCustomerActions } from './createNewOrderCustomerActions';
 
 vi.mock('react-native', () => ({
+    StatusBar: () => null,
   Alert: { alert: vi.fn() },
 }));
 

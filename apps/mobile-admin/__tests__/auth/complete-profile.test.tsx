@@ -24,6 +24,7 @@ vi.mock('react-native', async () => {
   const React = await import('react');
 
   return {
+    StatusBar: () => null,
     ActivityIndicator: () => React.createElement('span', null, 'loading'),
     Alert: { alert: mocks.alert },
     Linking: { openURL: vi.fn() },
@@ -81,8 +82,6 @@ vi.mock('expo-linear-gradient', async () => {
       React.createElement('div', null, children),
   };
 });
-
-vi.mock('react-native-edge-to-edge', () => ({ SystemBars: () => null }));
 
 vi.mock('@react-native-vector-icons/ionicons', async () => {
   const React = await import('react');

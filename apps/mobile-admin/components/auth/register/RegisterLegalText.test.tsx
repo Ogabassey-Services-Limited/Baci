@@ -10,6 +10,7 @@ vi.mock('react-native', async () => {
   const React = await import('react');
 
   return {
+    StatusBar: () => null,
     useColorScheme: vi.fn(() => 'light'),
     Linking: { openURL: mocks.openURL },
     StyleSheet: {

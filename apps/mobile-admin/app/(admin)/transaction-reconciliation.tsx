@@ -1,14 +1,11 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { Stack } from 'expo-router';
 import { useState } from 'react';
-import {
-  ActivityIndicator,
+import { ActivityIndicator,
   Pressable,
   ScrollView,
   Text,
-  View,
-} from 'react-native';
-import { SystemBars } from 'react-native-edge-to-edge';
+  View, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { TransactionReconciliationItemCard } from '@/components/transactions/TransactionReconciliationItemCard';
 import { styles } from '@/components/transactions/transaction-reconciliation-screen.styles';
@@ -103,7 +100,7 @@ export default function TransactionReconciliationScreen() {
         edges={['bottom']}
         style={[styles.container, { backgroundColor: colors.background }]}
       >
-        <SystemBars style={isDark ? 'light' : 'dark'} />
+        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
         <ScrollView contentContainerStyle={styles.content}>
           <View

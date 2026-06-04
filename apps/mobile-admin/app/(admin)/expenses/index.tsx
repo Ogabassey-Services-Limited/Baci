@@ -3,8 +3,7 @@ import { FlashList } from '@shopify/flash-list';
 import { useQuery } from '@tanstack/react-query';
 import { isSameMonth, isValid, parseISO } from 'date-fns';
 import { Stack, useRouter } from 'expo-router';
-import { Pressable, Text, View } from 'react-native';
-import { SystemBars } from 'react-native-edge-to-edge';
+import { Pressable, Text, View, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ExpenseListItem } from '@/components/expenses/ExpenseListItem';
 import { styles } from '@/components/expenses/expenses-list.styles';
@@ -92,7 +91,7 @@ export default function ExpensesScreen() {
         style={[styles.container, { backgroundColor: colors.background }]}
         edges={['bottom']}
       >
-        <SystemBars style={isDark ? 'light' : 'dark'} />
+        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
         {/* Summary Card */}
         <View style={styles.summaryContainer}>

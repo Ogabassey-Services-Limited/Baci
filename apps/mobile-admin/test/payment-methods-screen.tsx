@@ -105,10 +105,6 @@ vi.mock('@/lib/supabase', () => ({
   },
 }));
 
-vi.mock('react-native-edge-to-edge', () => ({
-  SystemBars: () => null,
-}));
-
 vi.mock('react-native-safe-area-context', () => ({
   SafeAreaView: ({ children }: { children?: ReactNode }) => (
     <section>{children}</section>
@@ -116,6 +112,7 @@ vi.mock('react-native-safe-area-context', () => ({
 }));
 
 vi.mock('react-native', () => ({
+    StatusBar: () => null,
   Alert: { alert: mocks.alert },
   Linking: { openURL: mocks.openURL },
   Pressable: ({

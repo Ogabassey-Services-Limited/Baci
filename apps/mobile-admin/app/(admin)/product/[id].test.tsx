@@ -65,6 +65,7 @@ vi.mock('react-native-safe-area-context', () => ({
 }));
 
 vi.mock('react-native', () => ({
+    StatusBar: () => null,
   ActivityIndicator: () => <output aria-label="loading" />,
   Alert: { alert: vi.fn() },
   FlatList: ({

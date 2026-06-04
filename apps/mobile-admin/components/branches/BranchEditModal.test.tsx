@@ -87,6 +87,7 @@ vi.mock('react-native', async () => {
   TextInput.displayName = 'TextInput';
 
   return {
+    StatusBar: () => null,
     ActivityIndicator: () => React.createElement('span', null, 'loading'),
     Modal: ({
       children,

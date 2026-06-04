@@ -1,14 +1,11 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { FlashList } from '@shopify/flash-list';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import {
-  ActivityIndicator,
+import { ActivityIndicator,
   Pressable,
   StyleSheet,
   Text,
-  View,
-} from 'react-native';
-import { SystemBars } from 'react-native-edge-to-edge';
+  View, StatusBar } from 'react-native';
 import { SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useTheme } from '@/hooks/useTheme';
@@ -107,7 +104,7 @@ export default function AnalyticsProductsScreen() {
           headerShadowVisible: false,
         }}
       />
-      <SystemBars style={isDark ? 'light' : 'dark'} />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
       <FlashList
         data={topProducts}
