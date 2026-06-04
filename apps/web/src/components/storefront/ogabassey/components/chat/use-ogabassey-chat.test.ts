@@ -34,6 +34,7 @@ function makeStreamingResponse(text: string) {
 describe('useOgabasseyChat - initial state', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    window.localStorage.clear();
     global.fetch = vi.fn();
   });
 
@@ -67,6 +68,7 @@ describe('useOgabasseyChat - initial state', () => {
 describe('useOgabasseyChat - welcome message on open', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    window.localStorage.clear();
     global.fetch = vi.fn();
   });
 
@@ -119,6 +121,7 @@ describe('useOgabasseyChat - welcome message on open', () => {
 describe('useOgabasseyChat - handleSend', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    window.localStorage.clear();
     global.fetch = vi.fn();
   });
 
@@ -155,6 +158,28 @@ describe('useOgabasseyChat - handleSend', () => {
     );
   });
 
+  it('includes a stable browser chat session id in standard chat requests', async () => {
+    window.localStorage.setItem(
+      'ogabassey_chat_session_id',
+      'og_chat_existing_session_1234'
+    );
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+      makeStreamingResponse('Response text')
+    );
+
+    const { result } = renderHook(() => useOgabasseyChat({ isSanta: false }));
+
+    await act(async () => {
+      await result.current.handleSend('Hello');
+    });
+
+    const requestInit = (global.fetch as ReturnType<typeof vi.fn>).mock
+      .calls[0]?.[1] as RequestInit | undefined;
+    expect(JSON.parse(String(requestInit?.body))).toMatchObject({
+      sessionId: 'og_chat_existing_session_1234',
+    });
+  });
+
   it('calls fetch with /api/chat/santa endpoint in santa mode', async () => {
     (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
       makeStreamingResponse('Ho ho ho!')
@@ -169,6 +194,28 @@ describe('useOgabasseyChat - handleSend', () => {
     expect(global.fetch).toHaveBeenCalledWith(
       '/api/chat/santa',
       expect.objectContaining({ method: 'POST' })
+    );
+  });
+
+  it('does not include standard chat session id in santa requests', async () => {
+    window.localStorage.setItem(
+      'ogabassey_chat_session_id',
+      'og_chat_existing_session_1234'
+    );
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+      makeStreamingResponse('Ho ho ho!')
+    );
+
+    const { result } = renderHook(() => useOgabasseyChat({ isSanta: true }));
+
+    await act(async () => {
+      await result.current.handleSend('I want a phone');
+    });
+
+    const requestInit = (global.fetch as ReturnType<typeof vi.fn>).mock
+      .calls[0]?.[1] as RequestInit | undefined;
+    expect(JSON.parse(String(requestInit?.body))).not.toHaveProperty(
+      'sessionId'
     );
   });
 
@@ -298,6 +345,7 @@ describe('useOgabasseyChat - handleSend', () => {
 describe('useOgabasseyChat - handleSubmit', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    window.localStorage.clear();
     global.fetch = vi.fn();
   });
 

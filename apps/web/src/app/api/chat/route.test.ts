@@ -13,6 +13,7 @@ let ollamaBaseUrl: string | undefined;
 let ollamaBasicAuth: string | undefined;
 let ollamaExecutedToolNameBeforeFailure: string | null = null;
 let ollamaExecutedToolResultBeforeFailure: string | null = null;
+let ollamaExecuteDuplicateVirtualAccount = false;
 let ollamaError: Error | null = null;
 let ollamaStreamError: Error | null = null;
 let ollamaResponseText = 'Gemma response';
@@ -94,12 +95,50 @@ vi.mock('@/lib/llm-chat', () => ({
 
 vi.mock('@/lib/ollama-agentic-chat', () => ({
   createOllamaAgenticChatResponse: vi.fn(
-    (options: {
+    async (options: {
+      executeToolCall: (call: {
+        function: { name: string; arguments?: unknown };
+      }) => Promise<string>;
       onToolExecuted?: (
         call: { function: { name: string } },
         result: string
       ) => void;
     }) => {
+      if (ollamaExecuteDuplicateVirtualAccount) {
+        const call = {
+          function: {
+            name: 'createVirtualAccount',
+            arguments: {
+              amount: 50_000,
+              customerEmail: 'buyer@example.com',
+              customerName: 'Buyer',
+              items: [
+                {
+                  productId: 'p1',
+                  name: 'iPhone 11',
+                  price: 50_000,
+                  quantity: 1,
+                },
+              ],
+            },
+          },
+        };
+        const firstResult = await options.executeToolCall(call);
+        options.onToolExecuted?.(call, firstResult);
+        const secondResult = await options.executeToolCall(call);
+        options.onToolExecuted?.(call, secondResult);
+
+        return new Response(
+          JSON.stringify({
+            firstResult: JSON.parse(firstResult),
+            secondResult: JSON.parse(secondResult),
+          }),
+          {
+            headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+          }
+        );
+      }
+
       if (ollamaExecutedToolNameBeforeFailure) {
         options.onToolExecuted?.(
           {
@@ -171,6 +210,8 @@ vi.mock('@/lib/sanitize', () => ({
 
 // ---- Import handler AFTER mocks ----
 import { generateText } from 'ai';
+import { handleCreateVirtualAccount } from '@/ai/chat-tool-handlers';
+import { createVirtualAccountSchema } from '@/ai/chat-tools';
 import { getAiChatModel } from '@/env';
 import { createLlmChatResponse } from '@/lib/llm-chat';
 import { createOllamaAgenticChatResponse } from '@/lib/ollama-agentic-chat';
@@ -224,6 +265,7 @@ describe('POST /api/chat', () => {
     ollamaBasicAuth = undefined;
     ollamaExecutedToolNameBeforeFailure = null;
     ollamaExecutedToolResultBeforeFailure = null;
+    ollamaExecuteDuplicateVirtualAccount = false;
     ollamaError = null;
     ollamaStreamError = null;
     ollamaResponseText = 'Gemma response';
@@ -278,6 +320,21 @@ describe('POST /api/chat', () => {
   it('returns 400 for empty messages array', async () => {
     // Act
     const response = await POST(makeRequest({ messages: [] }));
+    const json = await response.json();
+
+    // Assert
+    expect(response.status).toBe(400);
+    expect(json.error).toBe('Invalid input');
+  });
+
+  it('returns 400 for an invalid browser session id', async () => {
+    // Act
+    const response = await POST(
+      makeRequest({
+        sessionId: 'bad session',
+        messages: [{ role: 'user', content: 'Hi' }],
+      })
+    );
     const json = await response.json();
 
     // Assert
@@ -466,6 +523,52 @@ describe('POST /api/chat', () => {
       '[Agentic Chat] Ollama request failed after executing commerce tools; returning static fallback:',
       'Chat returned an empty completion'
     );
+  });
+
+  it('blocks repeated side-effecting Ollama tool execution after an order is created', async () => {
+    // Arrange
+    const args = {
+      amount: 50_000,
+      customerEmail: 'buyer@example.com',
+      customerName: 'Buyer',
+      items: [
+        { productId: 'p1', name: 'iPhone 11', price: 50_000, quantity: 1 },
+      ],
+    };
+    ollamaBaseUrl = 'https://ollama.example.com';
+    ollamaExecuteDuplicateVirtualAccount = true;
+    vi.mocked(createVirtualAccountSchema.parse).mockReturnValue(args);
+    vi.mocked(handleCreateVirtualAccount).mockResolvedValue({
+      success: false,
+      orderId: 'order-1',
+    });
+
+    // Act
+    const response = await POST(
+      makeRequest({
+        sessionId: 'og_chat_customer_session_1234',
+        messages: [{ role: 'user', content: 'Create payment account' }],
+      })
+    );
+    const text = await response.text();
+    const result = JSON.parse(text);
+
+    // Assert
+    expect(response.status).toBe(200);
+    expect(handleCreateVirtualAccount).toHaveBeenCalledTimes(1);
+    expect(handleCreateVirtualAccount).toHaveBeenCalledWith(
+      args,
+      'og_chat_customer_session_1234'
+    );
+    expect(result.firstResult).toEqual({
+      success: false,
+      orderId: 'order-1',
+    });
+    expect(result.secondResult).toEqual({
+      error:
+        'createVirtualAccount already created an order in this chat turn. Use the existing tool result instead of creating another order.',
+    });
+    expect(generateText).not.toHaveBeenCalled();
   });
 
   it('falls back to Gemini when a side-effecting Ollama tool only returned a validation error', async () => {

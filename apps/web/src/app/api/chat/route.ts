@@ -61,7 +61,13 @@ const chatRequestSchema = z.object({
     )
     .min(1)
     .max(50),
-  sessionId: z.string().optional(),
+  sessionId: z
+    .string()
+    .trim()
+    .min(16)
+    .max(128)
+    .regex(/^[A-Za-z0-9:_-]+$/)
+    .optional(),
 });
 
 const SIDE_EFFECTING_OLLAMA_TOOL_NAMES = new Set(['createVirtualAccount']);
@@ -93,6 +99,12 @@ function didOllamaToolCreateSideEffect(result: string): boolean {
   } catch {
     return false;
   }
+}
+
+function createRepeatedSideEffectToolResult(toolName: string): string {
+  return JSON.stringify({
+    error: `${toolName} already created an order in this chat turn. Use the existing tool result instead of creating another order.`,
+  });
 }
 
 function generateSessionId(ip: string): string {
@@ -203,6 +215,7 @@ export async function POST(req: Request) {
         const chatModel = getAiChatModel();
         const basicAuth = getOllamaBasicAuth();
         let ollamaSideEffectingToolExecuted = false;
+        const sideEffectingOllamaToolsWithEffects = new Set<string>();
         try {
           const ollamaResponse = await createOllamaAgenticChatResponse({
             baseUrl: ollamaBaseUrl,
@@ -212,12 +225,30 @@ export async function POST(req: Request) {
               toolsEnabled: true,
             }),
             tools: ollamaAgenticChatTools,
-            executeToolCall: (call) =>
-              executeAgenticChatToolForOllama(
+            executeToolCall: async (call) => {
+              const toolName = call.function.name;
+              if (
+                isSideEffectingOllamaToolCall(call) &&
+                sideEffectingOllamaToolsWithEffects.has(toolName)
+              ) {
+                return createRepeatedSideEffectToolResult(toolName);
+              }
+
+              const result = await executeAgenticChatToolForOllama(
                 call.function.name,
                 call.function.arguments,
                 sessionId
-              ),
+              );
+
+              if (
+                isSideEffectingOllamaToolCall(call) &&
+                didOllamaToolCreateSideEffect(result)
+              ) {
+                sideEffectingOllamaToolsWithEffects.add(toolName);
+              }
+
+              return result;
+            },
             onToolExecuted: (call, result) => {
               if (
                 isSideEffectingOllamaToolCall(call) &&
