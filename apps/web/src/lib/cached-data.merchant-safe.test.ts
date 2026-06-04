@@ -5,6 +5,7 @@ import {
   type CachedDataTestHarness,
   mockMerchant,
   resetMockCreateClient,
+  withDefaultFeatureSettings,
 } from '@/lib/cached-data.test-utils';
 
 vi.mock('@/env', () => ({
@@ -79,7 +80,7 @@ describe('cached-data merchant safety helpers', () => {
       });
 
       await expect(getMerchantSafe('test-store')).resolves.toEqual(
-        merchantWithTrustFields
+        withDefaultFeatureSettings(merchantWithTrustFields)
       );
     });
 
@@ -150,7 +151,7 @@ describe('cached-data merchant safety helpers', () => {
         .mockResolvedValueOnce({ data: null, error: { code: 'PGRST116' } });
 
       await expect(getMerchantSafe('test-store')).resolves.toEqual(
-        mockMerchant
+        withDefaultFeatureSettings(mockMerchant)
       );
       const merchantTableLookups = harness.mockFrom.mock.calls.filter(
         ([table]) => table === 'merchants'
@@ -336,7 +337,7 @@ describe('cached-data merchant safety helpers', () => {
       });
 
       await expect(getRequestScopedMerchant('test-store')).resolves.toEqual(
-        merchantWithTrustFields
+        withDefaultFeatureSettings(merchantWithTrustFields)
       );
     });
 
@@ -364,10 +365,12 @@ describe('cached-data merchant safety helpers', () => {
 
       await expect(
         getRequestScopedMerchant('shop.example.com')
-      ).resolves.toEqual({
-        ...mockMerchant,
-        custom_domain: 'shop.example.com',
-      });
+      ).resolves.toEqual(
+        withDefaultFeatureSettings({
+          ...mockMerchant,
+          custom_domain: 'shop.example.com',
+        })
+      );
       expect(harness.mockEq).toHaveBeenCalledWith('domain', 'shop.example.com');
     });
   });
