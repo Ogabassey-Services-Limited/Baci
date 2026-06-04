@@ -233,7 +233,10 @@ export function BillPaymentForm({
         onSelect={handleBillerSelect}
       />
       {billersError && (
-        <p className="text-sm font-medium text-red-600" role="alert">
+        <p
+          className="text-sm font-medium text-[var(--store-primary)]"
+          role="alert"
+        >
           {billersError}
         </p>
       )}

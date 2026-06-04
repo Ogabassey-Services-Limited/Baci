@@ -40,12 +40,12 @@ export function BillPaymentCheckoutActions({
         <div className="space-y-1.5">
           <label
             htmlFor="bill-amount"
-            className="text-sm font-medium text-gray-700"
+            className="text-sm font-medium text-[var(--store-background-text)]"
           >
             Amount
           </label>
           <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--store-primary)] font-bold">
               ₦
             </span>
             <input
@@ -54,7 +54,7 @@ export function BillPaymentCheckoutActions({
               value={amount}
               onChange={(event) => onAmountChange(event.target.value)}
               placeholder="0.00"
-              className="w-full pl-8 pr-4 py-3 rounded-xl border border-gray-200 focus:border-red-600 focus:ring-1 focus:ring-red-600 outline-hidden transition-all"
+              className="w-full pl-8 pr-4 py-3 rounded-xl border border-[var(--store-border)] focus:border-[var(--store-primary)] focus:ring-1 focus:ring-[var(--store-primary)] outline-hidden transition-all"
               readOnly={isFixedAmount}
               required
               min="50"
@@ -67,7 +67,7 @@ export function BillPaymentCheckoutActions({
         <button
           type="submit"
           disabled={loading || !amount}
-          className="w-full bg-red-600 text-white font-bold py-4 rounded-xl hover:bg-red-700 transition-all shadow-lg shadow-red-900/20 active:scale-95 disabled:opacity-70 disabled:scale-100 flex items-center justify-center gap-2"
+          className="w-full bg-[var(--store-primary)] text-[var(--store-on-primary)] font-bold py-4 rounded-xl hover:bg-[var(--store-primary)]/90 transition-all shadow-lg active:scale-95 disabled:opacity-70 disabled:scale-100 flex items-center justify-center gap-2"
         >
           {loading ? (
             <>

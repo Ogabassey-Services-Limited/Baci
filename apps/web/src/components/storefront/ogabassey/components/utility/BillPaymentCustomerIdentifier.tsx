@@ -25,7 +25,7 @@ export function BillPaymentCustomerIdentifier({
     <div className="space-y-1.5">
       <label
         htmlFor="customer-identifier"
-        className="text-sm font-medium text-gray-700"
+        className="text-sm font-medium text-[var(--store-background-text)]"
       >
         {label}
       </label>
@@ -36,7 +36,7 @@ export function BillPaymentCustomerIdentifier({
           value={customerId}
           onChange={(event) => onCustomerIdChange(event.target.value)}
           placeholder={placeholder}
-          className="flex-1 px-4 py-3 rounded-xl border border-gray-200 focus:border-red-600 focus:ring-1 focus:ring-red-600 outline-hidden transition-all"
+          className="flex-1 px-4 py-3 rounded-xl border border-[var(--store-border)] focus:border-[var(--store-primary)] focus:ring-1 focus:ring-[var(--store-primary)] outline-hidden transition-all"
           required
         />
         <button
@@ -44,7 +44,7 @@ export function BillPaymentCustomerIdentifier({
           onClick={onVerify}
           disabled={isVerifyDisabled || verifying}
           aria-busy={verifying}
-          className="px-4 py-3 bg-gray-900 text-white rounded-xl hover:bg-gray-800 disabled:opacity-50 transition-all flex items-center gap-1.5"
+          className="px-4 py-3 bg-[var(--store-primary)] text-[var(--store-on-primary)] rounded-xl hover:bg-[var(--store-primary)]/90 disabled:opacity-50 transition-all flex items-center gap-1.5"
         >
           <Search size={16} />
           Verify

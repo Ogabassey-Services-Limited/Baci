@@ -8,8 +8,8 @@ import {
   billerProductSchema,
   billerSchema,
 } from '@/schemas/monnify-bills-schema';
+import { kudaBillerSchema } from '@/schemas/vtu-billers';
 import {
-  kudaBillItemSchema,
   type NormalizedBiller,
   type NormalizedBillItem,
   normalizeKudaBillItem,
@@ -46,15 +46,6 @@ async function mapWithConcurrency<T, R>(
 export function getErrorMessage(error: Error | null) {
   return error?.message;
 }
-
-const kudaBillerSchema = z.object({
-  billerId: z.string(),
-  billerName: z.string(),
-  billerType: z.string(),
-  categoryId: z.string(),
-  categoryName: z.string(),
-  billItems: z.array(kudaBillItemSchema).optional(),
-});
 
 export async function loadKudaBillers(type: string) {
   try {

@@ -1,5 +1,9 @@
-import { z } from 'zod';
-import type { billerProductSchema } from '@/schemas/monnify-bills-schema';
+import type { BillerProduct } from '@/schemas/monnify-bills-schema';
+import {
+  type KudaBillItemPayload,
+  type MonnifySupportedCategory,
+  monnifySupportedCategorySchema,
+} from '@/schemas/vtu-billers';
 
 const MONNIFY_CURRENCY = 'NGN';
 
@@ -27,33 +31,11 @@ export interface NormalizedBiller {
   billItems?: NormalizedBillItem[];
 }
 
-interface KudaBillItemPayload {
-  itemCode: string;
-  itemName: string;
-  amount: number;
-  itemCurrencySymbol: string;
-  isAmountFixed: boolean;
-  itemFee: number;
-  billItems?: KudaBillItemPayload[];
-}
-
 export interface BillersResponsePayload {
   billers: NormalizedBiller[];
   kudaError?: string;
   monnifyError?: string;
 }
-
-export const kudaBillItemSchema: z.ZodType<KudaBillItemPayload> = z.lazy(() =>
-  z.object({
-    itemCode: z.string(),
-    itemName: z.string(),
-    amount: z.number(),
-    itemCurrencySymbol: z.string(),
-    isAmountFixed: z.boolean(),
-    itemFee: z.number(),
-    billItems: z.array(kudaBillItemSchema).optional(),
-  })
-);
 
 export function normalizeKudaBillItem(
   item: KudaBillItemPayload
@@ -70,12 +52,7 @@ export function normalizeKudaBillItem(
   };
 }
 
-const monnifySupportedCategorySchema = z.enum(['electricity', 'cable_tv']);
-
-const BACI_TO_MONNIFY_CATEGORY: Record<
-  z.infer<typeof monnifySupportedCategorySchema>,
-  string
-> = {
+const BACI_TO_MONNIFY_CATEGORY: Record<MonnifySupportedCategory, string> = {
   electricity: 'ELECTRICITY',
   cable_tv: 'CABLE_TV',
 };
@@ -90,7 +67,7 @@ export function normalizeMonnifyProducts({
   products,
 }: {
   billerCode: string;
-  products: z.infer<typeof billerProductSchema>[];
+  products: BillerProduct[];
 }): NormalizedBillItem[] {
   return products.map((prod) => ({
     itemCode: prod.productCode,
