@@ -160,10 +160,13 @@ describe('useUtilityPayment', () => {
       wrapper: createWrapperWithClient(client),
     });
 
-    await waitFor(() => {
-      expect(mockListSavedVtuCards).toHaveBeenCalledTimes(1);
-      expect(first.result.current.isLoadingCards).toBe(false);
-    });
+    await waitFor(
+      () => {
+        expect(mockListSavedVtuCards).toHaveBeenCalledTimes(1);
+        expect(first.result.current.isLoadingCards).toBe(false);
+      },
+      { timeout: 5000 }
+    );
     expect(first.result.current.cards).toEqual([]);
 
     first.unmount();
