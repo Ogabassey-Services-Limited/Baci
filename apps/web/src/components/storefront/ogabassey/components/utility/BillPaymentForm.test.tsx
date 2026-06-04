@@ -83,8 +83,9 @@ describe('BillPaymentForm', () => {
     });
     expect(mockFetch).toHaveBeenCalledWith(
       '/api/vtu/billers?type=cable_tv&includeMonnify=true',
-      expect.objectContaining({ cache: 'no-store' })
+      expect.objectContaining({ signal: expect.any(Object) })
     );
+    expect(mockFetch.mock.calls[0]?.[1]).not.toHaveProperty('cache');
   });
 
   it('shows provider label based on type (TV Subscription, Electricity, Betting Top-up)', async () => {

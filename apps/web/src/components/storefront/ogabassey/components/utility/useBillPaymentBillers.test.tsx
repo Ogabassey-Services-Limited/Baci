@@ -46,10 +46,10 @@ describe('useBillPaymentBillers', () => {
     expect(mockFetch).toHaveBeenCalledWith(
       '/api/vtu/billers?type=cable_tv&includeMonnify=true',
       expect.objectContaining({
-        cache: 'no-store',
         signal: expect.any(Object),
       })
     );
+    expect(mockFetch.mock.calls[0]?.[1]).not.toHaveProperty('cache');
     expect(result.current.billers).toHaveLength(1);
     expect(result.current.billersError).toBeNull();
   });

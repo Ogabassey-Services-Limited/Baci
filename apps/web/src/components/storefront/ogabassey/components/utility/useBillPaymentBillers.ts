@@ -45,8 +45,7 @@ export function useBillPaymentBillers(type: string) {
     fetch(
       `/api/vtu/billers?type=${encodeURIComponent(billType)}&includeMonnify=true`,
       {
-      cache: 'no-store',
-      signal: controller.signal,
+        signal: controller.signal,
       }
     )
       .then(async (res) => {

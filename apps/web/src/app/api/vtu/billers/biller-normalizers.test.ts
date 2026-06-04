@@ -92,4 +92,40 @@ describe('biller normalizers', () => {
       },
     ]);
   });
+
+  it('defaults omitted optional Monnify product fields', () => {
+    expect(
+      normalizeMonnifyProducts({
+        billerCode: 'IKEDC',
+        products: [
+          {
+            billerCode: 'IKEDC',
+            name: 'Ikeja Postpaid',
+            productCode: 'IKEDC_POSTPAID',
+          },
+        ],
+      })
+    ).toEqual([
+      {
+        amount: 0,
+        billerCode: 'IKEDC',
+        isAmountFixed: false,
+        itemCode: 'IKEDC_POSTPAID',
+        itemCurrencySymbol: 'NGN',
+        itemFee: 0,
+        itemName: 'Ikeja Postpaid',
+        productCode: 'IKEDC_POSTPAID',
+        provider: 'monnify',
+      },
+    ]);
+  });
+
+  it('returns no Monnify items for an empty product list', () => {
+    expect(
+      normalizeMonnifyProducts({
+        billerCode: 'IKEDC',
+        products: [],
+      })
+    ).toEqual([]);
+  });
 });
