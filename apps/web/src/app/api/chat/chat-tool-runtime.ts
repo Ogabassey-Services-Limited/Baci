@@ -1,4 +1,3 @@
-import { ZodError } from 'zod';
 import {
   handleAddToCart,
   handleCheckPaymentStatus,
@@ -22,88 +21,6 @@ import {
   searchProductsSchema,
   TOOL_DESCRIPTIONS,
 } from '@/ai/chat-tools';
-
-type AgenticChatToolName =
-  | 'searchProducts'
-  | 'getProductDetails'
-  | 'createVirtualAccount'
-  | 'checkPaymentStatus'
-  | 'getRecommendations'
-  | 'addToCart';
-
-const AGENTIC_CHAT_TOOL_NAMES = new Set<AgenticChatToolName>([
-  'searchProducts',
-  'getProductDetails',
-  'createVirtualAccount',
-  'checkPaymentStatus',
-  'getRecommendations',
-  'addToCart',
-]);
-
-function isAgenticChatToolName(name: string): name is AgenticChatToolName {
-  return AGENTIC_CHAT_TOOL_NAMES.has(name as AgenticChatToolName);
-}
-
-function normalizeToolArguments(rawArguments: unknown): unknown {
-  if (typeof rawArguments !== 'string') {
-    return rawArguments ?? {};
-  }
-
-  try {
-    return JSON.parse(rawArguments) as unknown;
-  } catch {
-    return rawArguments;
-  }
-}
-
-function getToolErrorMessage(error: unknown): string {
-  if (error instanceof ZodError) {
-    return 'Invalid tool arguments';
-  }
-  return 'Tool execution failed';
-}
-
-function executeAgenticChatTool(
-  name: AgenticChatToolName,
-  rawArguments: unknown,
-  sessionId: string
-) {
-  const argumentsValue = normalizeToolArguments(rawArguments);
-
-  switch (name) {
-    case 'searchProducts':
-      return handleSearchProducts(
-        searchProductsSchema.parse(argumentsValue) as SearchProductsParams
-      );
-    case 'getProductDetails':
-      return handleGetProductDetails(
-        getProductDetailsSchema.parse(argumentsValue) as GetProductDetailsParams
-      );
-    case 'createVirtualAccount':
-      return handleCreateVirtualAccount(
-        createVirtualAccountSchema.parse(
-          argumentsValue
-        ) as CreateVirtualAccountParams,
-        sessionId
-      );
-    case 'checkPaymentStatus':
-      return handleCheckPaymentStatus(
-        checkPaymentStatusSchema.parse(
-          argumentsValue
-        ) as CheckPaymentStatusParams
-      );
-    case 'getRecommendations':
-      return handleGetRecommendations(
-        getRecommendationsSchema.parse(
-          argumentsValue
-        ) as GetRecommendationsParams
-      );
-    case 'addToCart':
-      return handleAddToCart(
-        addToCartSchema.parse(argumentsValue) as AddToCartParams
-      );
-  }
-}
 
 export function createAiSdkAgenticChatTools(sessionId: string) {
   return {
@@ -156,21 +73,4 @@ export function createAiSdkAgenticChatTools(sessionId: string) {
       },
     },
   };
-}
-
-export async function executeAgenticChatToolForOllama(
-  name: string,
-  rawArguments: unknown,
-  sessionId: string
-): Promise<string> {
-  if (!isAgenticChatToolName(name)) {
-    return JSON.stringify({ error: `Unknown tool: ${name}` });
-  }
-
-  try {
-    const result = await executeAgenticChatTool(name, rawArguments, sessionId);
-    return JSON.stringify(result);
-  } catch (error) {
-    return JSON.stringify({ error: getToolErrorMessage(error) });
-  }
 }

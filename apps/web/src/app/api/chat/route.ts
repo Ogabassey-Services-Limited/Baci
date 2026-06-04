@@ -22,10 +22,8 @@ import { generateText } from 'ai';
 import { headers } from 'next/headers';
 import z from 'zod';
 import { activeTextModel, checkRateLimit } from '@/ai/provider';
-import {
-  createAiSdkAgenticChatTools,
-  executeAgenticChatToolForOllama,
-} from '@/app/api/chat/chat-tool-runtime';
+import { createAiSdkAgenticChatTools } from '@/app/api/chat/chat-tool-runtime';
+import { executeAgenticChatToolForOllama } from '@/app/api/chat/ollama-chat-tool-runtime';
 import { ollamaAgenticChatTools } from '@/app/api/chat/ollama-chat-tools';
 import {
   bufferTextResponse,

@@ -1,0 +1,95 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const mocks = vi.hoisted(() => ({
+  handleSearchProducts: vi.fn(),
+  handleGetProductDetails: vi.fn(),
+  handleCreateVirtualAccount: vi.fn(),
+  handleCheckPaymentStatus: vi.fn(),
+  handleGetRecommendations: vi.fn(),
+  handleAddToCart: vi.fn(),
+}));
+
+vi.mock('@/ai/chat-tool-handlers', () => mocks);
+
+import { executeAgenticChatToolForOllama } from '@/app/api/chat/ollama-chat-tool-runtime';
+
+describe('ollama chat tool runtime', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.handleSearchProducts.mockResolvedValue({
+      products: [{ id: 'p1', name: 'iPhone 11' }],
+      total: 1,
+    });
+    mocks.handleCreateVirtualAccount.mockResolvedValue({
+      success: true,
+      accountNumber: '1234567890',
+    });
+  });
+
+  it('executes Ollama tool calls with parsed JSON arguments', async () => {
+    const result = await executeAgenticChatToolForOllama(
+      'searchProducts',
+      '{"query":"iPhone 11","maxPrice":200000}',
+      'session-1'
+    );
+
+    expect(JSON.parse(result)).toEqual({
+      products: [{ id: 'p1', name: 'iPhone 11' }],
+      total: 1,
+    });
+    expect(mocks.handleSearchProducts).toHaveBeenCalledWith({
+      query: 'iPhone 11',
+      maxPrice: 200000,
+    });
+  });
+
+  it('returns a tool error for unknown Ollama tool names', async () => {
+    const result = await executeAgenticChatToolForOllama(
+      'deleteProduct',
+      {},
+      'session-1'
+    );
+
+    expect(JSON.parse(result)).toEqual({
+      error: 'Unknown tool: deleteProduct',
+    });
+    expect(mocks.handleSearchProducts).not.toHaveBeenCalled();
+  });
+
+  it('returns a validation error for malformed Ollama arguments', async () => {
+    const result = await executeAgenticChatToolForOllama(
+      'searchProducts',
+      {},
+      'session-1'
+    );
+
+    expect(JSON.parse(result)).toEqual({ error: 'Invalid tool arguments' });
+    expect(mocks.handleSearchProducts).not.toHaveBeenCalled();
+  });
+
+  it('passes session-scoped Ollama tools to handlers that require session state', async () => {
+    const args = {
+      amount: 50_000,
+      customerEmail: 'buyer@example.com',
+      customerName: 'Buyer',
+      items: [
+        { productId: 'p1', name: 'iPhone 11', price: 50_000, quantity: 1 },
+      ],
+    };
+
+    const result = await executeAgenticChatToolForOllama(
+      'createVirtualAccount',
+      JSON.stringify(args),
+      'session-42'
+    );
+
+    expect(JSON.parse(result)).toEqual({
+      success: true,
+      accountNumber: '1234567890',
+    });
+    expect(mocks.handleCreateVirtualAccount).toHaveBeenCalledWith(
+      args,
+      'session-42'
+    );
+  });
+});
