@@ -814,33 +814,34 @@ describe('createOrder — variant_attributes', () => {
     expect(body).not.toHaveProperty('wallet_amount');
   });
 
-  it.each(['invoice', 'payforme', 'pay_on_delivery'] as const)(
-    'marks %s orders as pending in the create-order API payload',
-    async (paymentMethod) => {
-      const { createOrder } = require('./orders');
+  it.each([
+    'invoice',
+    'payforme',
+    'pay_on_delivery',
+  ] as const)('marks %s orders as pending in the create-order API payload', async (paymentMethod) => {
+    const { createOrder } = require('./orders');
 
-      await createOrder({
-        customer_email: 'test@example.com',
-        customer_name: 'Test User',
-        customer_phone: '+2348012345678',
-        items: [{ id: 'prod-1', name: 'Product', quantity: 1, price: 5000 }],
-        subtotal: 5000,
-        shipping_fee: 500,
-        payment_method: paymentMethod,
-        shipping_address: {
-          firstName: 'Test',
-          lastName: 'User',
-          address: '123 St',
-          city: 'Lagos',
-          state: 'Lagos',
-        },
-      });
+    await createOrder({
+      customer_email: 'test@example.com',
+      customer_name: 'Test User',
+      customer_phone: '+2348012345678',
+      items: [{ id: 'prod-1', name: 'Product', quantity: 1, price: 5000 }],
+      subtotal: 5000,
+      shipping_fee: 500,
+      payment_method: paymentMethod,
+      shipping_address: {
+        firstName: 'Test',
+        lastName: 'User',
+        address: '123 St',
+        city: 'Lagos',
+        state: 'Lagos',
+      },
+    });
 
-      const body = getLastFetchBody();
-      expect(body.payment_method).toBe(paymentMethod);
-      expect(body.payment_status).toBe('pending');
-    }
-  );
+    const body = getLastFetchBody();
+    expect(body.payment_method).toBe(paymentMethod);
+    expect(body.payment_status).toBe('pending');
+  });
 
   it('strips wallet fields when use_wallet_credit is true but wallet_amount is missing or zero', async () => {
     // Runtime guard: a malformed `{ use_wallet_credit: true,

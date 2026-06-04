@@ -82,6 +82,25 @@ describe('purchaseSchema', () => {
       const result = purchaseSchema.safeParse(invalidAirtime);
       expect(result.success).toBe(false);
     });
+
+    it('rejects airtime with explicit Monnify provider', () => {
+      const invalidAirtime = {
+        merchantSlug: 'test-merchant',
+        amount: 100,
+        type: 'airtime' as const,
+        phoneNumber: '08012345678',
+        networkProvider: 'MTN',
+        provider: 'monnify' as const,
+      };
+
+      const result = purchaseSchema.safeParse(invalidAirtime);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(
+          result.error.issues.some((issue) => issue.path.includes('provider'))
+        ).toBe(true);
+      }
+    });
   });
 
   describe('data purchases', () => {
@@ -124,6 +143,26 @@ describe('purchaseSchema', () => {
       expect(result.success).toBe(false);
       if (!result.success) {
         expect(result.error.issues[0].path).toContain('dataPlanCode');
+      }
+    });
+
+    it('rejects data with explicit Monnify provider', () => {
+      const invalidData = {
+        merchantSlug: 'test-merchant',
+        amount: 500,
+        type: 'data' as const,
+        phoneNumber: '08012345678',
+        networkProvider: 'GLO',
+        dataPlanCode: 'G-1GB-30D',
+        provider: 'monnify' as const,
+      };
+
+      const result = purchaseSchema.safeParse(invalidData);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(
+          result.error.issues.some((issue) => issue.path.includes('provider'))
+        ).toBe(true);
       }
     });
   });
@@ -221,6 +260,51 @@ describe('purchaseSchema', () => {
       };
 
       const result = purchaseSchema.safeParse(invalidBetting);
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe('Monnify checkout rules', () => {
+    it('parses valid monnify purchase with billerCode, productCode, customerIdentifier', () => {
+      const validMonnify = {
+        merchantSlug: 'test-merchant',
+        amount: 1000,
+        type: 'electricity' as const,
+        provider: 'monnify' as const,
+        billerCode: 'biller1',
+        productCode: 'product1',
+        customerIdentifier: 'cust1',
+      };
+      const result = purchaseSchema.safeParse(validMonnify);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.provider).toBe('monnify');
+      }
+    });
+
+    it('rejects monnify purchase if billerCode is missing', () => {
+      const invalidMonnify = {
+        merchantSlug: 'test-merchant',
+        amount: 1000,
+        type: 'electricity' as const,
+        provider: 'monnify' as const,
+        productCode: 'product1',
+        customerIdentifier: 'cust1',
+      };
+      const result = purchaseSchema.safeParse(invalidMonnify);
+      expect(result.success).toBe(false);
+    });
+
+    it('rejects monnify purchase if productCode is missing', () => {
+      const invalidMonnify = {
+        merchantSlug: 'test-merchant',
+        amount: 1000,
+        type: 'electricity' as const,
+        provider: 'monnify' as const,
+        billerCode: 'biller1',
+        customerIdentifier: 'cust1',
+      };
+      const result = purchaseSchema.safeParse(invalidMonnify);
       expect(result.success).toBe(false);
     });
   });
@@ -468,6 +552,57 @@ describe('verifySchema', () => {
     const result = verifySchema.safeParse(missingCustomer);
     expect(result.success).toBe(false);
   });
+
+  describe('Monnify provider verification rules', () => {
+    it('parses valid monnify input with provider, billerCode, productCode, customerIdentifier', () => {
+      const validInput = {
+        provider: 'monnify' as const,
+        billerCode: 'biller1',
+        productCode: 'product1',
+        customerIdentifier: 'cust1',
+      };
+      const result = verifySchema.safeParse(validInput);
+      expect(result.success).toBe(true);
+    });
+
+    it('rejects monnify input if billerCode is missing', () => {
+      const invalidInput = {
+        provider: 'monnify' as const,
+        productCode: 'product1',
+        customerIdentifier: 'cust1',
+      };
+      const result = verifySchema.safeParse(invalidInput);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.issues[0].message).toContain(
+          'billerCode is required'
+        );
+      }
+    });
+
+    it('rejects monnify input if productCode is missing', () => {
+      const invalidInput = {
+        provider: 'monnify' as const,
+        billerCode: 'biller1',
+        customerIdentifier: 'cust1',
+      };
+      const result = verifySchema.safeParse(invalidInput);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.issues[0].message).toContain(
+          'productCode is required'
+        );
+      }
+    });
+
+    it('rejects kuda (default) input if billItemIdentifier is missing', () => {
+      const invalidInput = {
+        customerIdentifier: 'cust1',
+      };
+      const result = verifySchema.safeParse(invalidInput);
+      expect(result.success).toBe(false);
+    });
+  });
 });
 
 describe('billersQuerySchema', () => {
@@ -475,6 +610,21 @@ describe('billersQuerySchema', () => {
     const validQuery = { type: 'airtime' as const };
     const result = billersQuerySchema.safeParse(validQuery);
     expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.includeMonnify).toBe(false);
+    }
+  });
+
+  it('parses the Monnify opt-in query flag', () => {
+    const result = billersQuerySchema.safeParse({
+      type: 'electricity',
+      includeMonnify: 'true',
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.includeMonnify).toBe(true);
+    }
   });
 
   it('accepts all valid bill types', () => {

@@ -18,9 +18,15 @@ interface VerifyResult {
 }
 
 let mockVerifyBillCustomer = vi.fn();
+let mockMonnifyVerifyBillCustomer = vi.fn();
 
 vi.mock('@/lib/kuda-bills', () => ({
   verifyBillCustomer: (...args: unknown[]) => mockVerifyBillCustomer(...args),
+}));
+
+vi.mock('@/lib/monnify-bills', () => ({
+  verifyBillCustomer: (...args: unknown[]) =>
+    mockMonnifyVerifyBillCustomer(...args),
 }));
 
 vi.mock('@/lib/csrf', () => ({
@@ -49,6 +55,12 @@ describe('POST /api/vtu/verify', () => {
       message: 'Customer verified',
       customerName: 'John Doe',
       accountNumber: '1234567890',
+    });
+    mockMonnifyVerifyBillCustomer = vi.fn().mockResolvedValue({
+      verified: true,
+      message: 'Monnify customer verified',
+      customerName: 'John Doe Monnify',
+      validationReference: 'VAL-MON-123',
     });
   });
 
@@ -235,5 +247,52 @@ describe('POST /api/vtu/verify', () => {
     expect(data.customerName).toBe('Jane Smith');
     expect(data.accountNumber).toBe('5555666677');
     expect(data.address).toBe('123 Main St, Lagos');
+  });
+
+  it('calls monnify validation when provider is monnify', async () => {
+    const { POST } = await import('./route');
+
+    mockMonnifyVerifyBillCustomer.mockResolvedValue({
+      verified: true,
+      message: 'Monnify customer verified',
+      customerName: 'Alice Smith',
+      validationReference: 'MON-VAL-REF',
+    });
+
+    const request = makeRequest({
+      provider: 'monnify',
+      billerCode: 'IKEDC',
+      productCode: 'IKEDC-PREPAID',
+      customerIdentifier: '12345678901',
+    });
+    const response = await POST(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.verified).toBe(true);
+    expect(data.customerName).toBe('Alice Smith');
+    expect(data.validationReference).toBe('MON-VAL-REF');
+    expect(mockMonnifyVerifyBillCustomer).toHaveBeenCalledWith(
+      'IKEDC',
+      'IKEDC-PREPAID',
+      '12345678901'
+    );
+    expect(mockVerifyBillCustomer).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 when monnify provider lacks billerCode', async () => {
+    const { POST } = await import('./route');
+
+    const request = makeRequest({
+      provider: 'monnify',
+      productCode: 'IKEDC-PREPAID',
+      customerIdentifier: '12345678901',
+    });
+    const response = await POST(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(data.error).toBe('Invalid input');
+    expect(mockMonnifyVerifyBillCustomer).not.toHaveBeenCalled();
   });
 });

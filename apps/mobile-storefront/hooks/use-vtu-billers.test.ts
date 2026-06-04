@@ -105,6 +105,9 @@ describe('useVTUBillers', () => {
     await waitFor(() => {
       expectEKEDCKudaAugmentedBillItems(result.current.data);
     });
+    const requestedUrl = mockFetchWithRetry.mock.calls[0]?.[0];
+    expect(String(requestedUrl)).toContain('/api/vtu/billers?type=electricity');
+    expect(String(requestedUrl)).not.toContain('includeMonnify');
   });
 
   it('adds Kuda electricity bill item codes to cached providers', async () => {

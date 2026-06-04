@@ -227,8 +227,7 @@ export function useDraggableFab(
       // Clamp vertical bounds
       const minY = TOP_CLAMP;
       const maxY = currentHeight - currentBottomOffset - FAB_SIZE;
-      let targetYAbsolute =
-        absoluteY + event.velocityY * VELOCITY_PROJECTOR_Y;
+      let targetYAbsolute = absoluteY + event.velocityY * VELOCITY_PROJECTOR_Y;
       targetYAbsolute = Math.max(minY, Math.min(targetYAbsolute, maxY));
 
       const targetTranslationX = targetXAbsolute - startX;

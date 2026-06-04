@@ -29,12 +29,12 @@ const FallbackGestureDetector = ({ children }: GestureDetectorProps) => (
   <>{children}</>
 );
 
-const fallbackPanGesture =
-  (() => null) as unknown as typeof import('react-native-gesture-handler').usePanGesture;
-const fallbackTapGesture =
-  (() => null) as unknown as typeof import('react-native-gesture-handler').useTapGesture;
-const fallbackSimultaneousGestures =
-  (() => null) as unknown as typeof import('react-native-gesture-handler').useSimultaneousGestures;
+const fallbackPanGesture = (() =>
+  null) as unknown as typeof import('react-native-gesture-handler').usePanGesture;
+const fallbackTapGesture = (() =>
+  null) as unknown as typeof import('react-native-gesture-handler').useTapGesture;
+const fallbackSimultaneousGestures = (() =>
+  null) as unknown as typeof import('react-native-gesture-handler').useSimultaneousGestures;
 
 let cachedGestureRuntime: GestureHandlerRuntime | null = null;
 

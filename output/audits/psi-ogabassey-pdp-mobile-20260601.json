@@ -235,9 +235,7 @@
       "emulatedFormFactor": "mobile",
       "formFactor": "mobile",
       "locale": "en-US",
-      "onlyCategories": [
-        "performance"
-      ],
+      "onlyCategories": ["performance"],
       "channel": "lr"
     },
     "audits": {
@@ -2018,9 +2016,7 @@
           },
           "overallSavingsMs": 0,
           "items": [],
-          "sortedBy": [
-            "wastedBytes"
-          ],
+          "sortedBy": ["wastedBytes"],
           "type": "opportunity",
           "headings": []
         },
@@ -2077,9 +2073,7 @@
             }
           ],
           "type": "table",
-          "sortedBy": [
-            "duration"
-          ],
+          "sortedBy": ["duration"],
           "headings": [
             {
               "label": "Category",
@@ -2704,9 +2698,7 @@
             }
           ],
           "type": "table",
-          "sortedBy": [
-            "total"
-          ],
+          "sortedBy": ["total"],
           "headings": [
             {
               "label": "URL",
@@ -2834,9 +2826,7 @@
           "TBT": 0
         },
         "details": {
-          "skipSumming": [
-            "startTime"
-          ],
+          "skipSumming": ["startTime"],
           "debugData": {
             "urls": [
               "https://ogabassey.com/_next/static/chunks/12bcp134hljrs.js"
@@ -2871,9 +2861,7 @@
               "key": "duration"
             }
           ],
-          "sortedBy": [
-            "duration"
-          ],
+          "sortedBy": ["duration"],
           "type": "table",
           "items": [
             {
@@ -3120,9 +3108,7 @@
             }
           ],
           "type": "table",
-          "sortedBy": [
-            "totalBytes"
-          ],
+          "sortedBy": ["totalBytes"],
           "headings": [
             {
               "label": "URL",
@@ -3227,9 +3213,7 @@
             }
           ],
           "type": "opportunity",
-          "sortedBy": [
-            "wastedBytes"
-          ],
+          "sortedBy": ["wastedBytes"],
           "headings": [
             {
               "valueType": "url",
@@ -3635,9 +3619,7 @@
             }
           ],
           "type": "table",
-          "sortedBy": [
-            "serverResponseTime"
-          ],
+          "sortedBy": ["serverResponseTime"],
           "headings": [
             {
               "label": "URL",
@@ -3663,9 +3645,7 @@
         "scoreDisplayMode": "informative",
         "displayValue": "0 ms",
         "details": {
-          "sortedBy": [
-            "rtt"
-          ],
+          "sortedBy": ["rtt"],
           "type": "table",
           "headings": [
             {
@@ -3736,9 +3716,7 @@
           "overallSavingsBytes": 0,
           "headings": [],
           "type": "opportunity",
-          "sortedBy": [
-            "wastedBytes"
-          ],
+          "sortedBy": ["wastedBytes"],
           "items": []
         },
         "numericValue": 0,
@@ -3756,9 +3734,7 @@
         },
         "details": {
           "type": "opportunity",
-          "sortedBy": [
-            "wastedBytes"
-          ],
+          "sortedBy": ["wastedBytes"],
           "headings": [],
           "items": [],
           "overallSavingsMs": 0,
@@ -4284,9 +4260,7 @@
             }
           ],
           "type": "table",
-          "skipSumming": [
-            "wastedMs"
-          ]
+          "skipSumming": ["wastedMs"]
         }
       },
       "first-contentful-paint": {
@@ -4898,10 +4872,7 @@
         "name": "ogabassey.com",
         "isFirstParty": true,
         "isUnrecognized": true,
-        "origins": [
-          "https://ogabassey.com",
-          "https://cdn.ogabassey.com"
-        ]
+        "origins": ["https://ogabassey.com", "https://cdn.ogabassey.com"]
       }
     ],
     "fullPageScreenshot": {
